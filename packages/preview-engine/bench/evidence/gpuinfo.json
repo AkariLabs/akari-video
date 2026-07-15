@@ -10,7 +10,7 @@
     "glVendor": "Google Inc. (Apple)",
     "glVersion": "OpenGL ES 3.0 (ANGLE 2.1.27952 git hash: 8d3c5a8caebd)",
     "inProcessGpu": false,
-    "initializationTime": 824.284,
+    "initializationTime": 111.168,
     "isAsan": false,
     "isClangCoverage": false,
     "jpegDecodeAcceleratorSupported": false,

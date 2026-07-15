@@ -2,7 +2,7 @@
   "name": "preview-engine-bench",
   "version": "0.0.0",
   "private": true,
-  "description": "PreviewEngine (E1-E4) 計測ベンチ。lab/webcodecs-spike/ の計測手法を再利用し、契約 §3 の受け入れ条件をスパイク実測値と比較する。捨てる前提ではなく回帰測定用に維持する。",
+  "description": "PreviewEngine (E1-E5) 計測ベンチ。lab/webcodecs-spike/ の計測手法を再利用し、契約 §3 の受け入れ条件をスパイク実測値と比較する。捨てる前提ではなく回帰測定用に維持する。",
   "type": "commonjs",
   "main": "main.js",
   "scripts": {

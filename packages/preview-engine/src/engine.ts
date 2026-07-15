@@ -7,6 +7,7 @@ import { ClipSession } from './clipSession.js';
 import { LookaheadCache } from './lookaheadCache.js';
 import { ScrubController } from './scrubController.js';
 import { WarmupManager } from './warmupManager.js';
+import { ThumbnailTrack } from './thumbnailTrack.js';
 
 type ResolvedOptions = Required<PreviewEngineOptions>;
 
@@ -18,6 +19,10 @@ const DEFAULT_OPTIONS: ResolvedOptions = {
   loadTimeoutMs: 4000,
   tickTimeoutMs: 4000,
   tailMarginUs: Math.round((1e6 / 30) * 2),
+  enableThumbnailScrub: true,
+  thumbnailMaxCount: 40,
+  thumbnailIntervalSec: 2,
+  thumbnailWidth: 160,
 };
 
 export class PreviewEngine {
@@ -26,6 +31,10 @@ export class PreviewEngine {
   private sessions = new Map<string, ClipSession>();
   private cache = new Map<string, LookaheadCache>();
   private prefetchInFlight = new Set<string>();
+  private thumbnailTracks = new Map<string, ThumbnailTrack>();
+  private thumbnailBuildStarted = new Set<string>();
+  private thumbnailSourceRanges = new Map<string, { startUs: number; endUs: number }>();
+  private lastThumbnailKey: string | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
   private scrub: ScrubController;
@@ -79,13 +88,31 @@ export class PreviewEngine {
         )
       );
       this.cache.set(clip.id, new LookaheadCache(this.opts.lookaheadCacheSize));
+      if (this.opts.enableThumbnailScrub) {
+        const sourceStartUs = clip.sourceInUs ?? 0;
+        const sourceDurationUs = (Math.max(0, clip.endFrame - clip.startFrame) / spec.fps) * 1e6;
+        this.thumbnailSourceRanges.set(clip.id, {
+          startUs: sourceStartUs,
+          endUs: sourceStartUs + sourceDurationUs,
+        });
+        this.thumbnailTracks.set(
+          clip.id,
+          new ThumbnailTrack({
+            maxThumbnails: this.opts.thumbnailMaxCount,
+            intervalSec: this.opts.thumbnailIntervalSec,
+            thumbWidth: this.opts.thumbnailWidth,
+          })
+        );
+      }
     }
     this.currentFrame = 0;
     // 「4K ソース投入直後・無準備でスクラブが滑らか」の体感基準に対応するため、
     // 先頭フレームのクリップだけは eager load する。
     const first = this.timeline.resolve(0);
     if (first) {
-      await this.getSession(first.clip.id).load();
+      const session = this.getSession(first.clip.id);
+      await session.load();
+      this.startThumbnailBuild(first.clip.id, session);
     }
   }
 
@@ -96,6 +123,7 @@ export class PreviewEngine {
   async seek(frame: number, mode: SeekMode): Promise<void> {
     if (this.disposed || !this.timeline) return;
     if (mode === 'interactiveScrub') {
+      this.tryDrawThumbnail(frame);
       this.scrub.requestScrub(frame);
       return;
     }
@@ -168,8 +196,14 @@ export class PreviewEngine {
     const session = this.getSession(resolved.clip.id);
     if (session.state === 'idle') {
       // 未ロードのままスクラブをブロックしない。裏でロードだけ進めて次回に賭ける（30Hz なので実害小）。
-      void session.load();
+      void session.load().then(
+        () => this.startThumbnailBuild(resolved.clip.id, session),
+        () => undefined
+      );
       return;
+    }
+    if (session.state === 'ready' || session.state === 'degraded') {
+      this.startThumbnailBuild(resolved.clip.id, session);
     }
 
     const toleranceUs = Math.min(0.75, 0.15 * resolved.activeLayerCount) * 1e6;
@@ -211,6 +245,9 @@ export class PreviewEngine {
       } catch {
         // warning は ClipSession 側で既に emit 済み
       }
+    }
+    if (session.state === 'ready' || session.state === 'degraded') {
+      this.startThumbnailBuild(resolved.clip.id, session);
     }
 
     const cache = this.cache.get(resolved.clip.id);
@@ -290,10 +327,43 @@ export class PreviewEngine {
       if (this.ctx && this.canvas) {
         this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
         drawn = true;
+        // 実フレームがサムネを上書きした後は、同じ最近傍サムネでも次の入力時に再表示する。
+        this.lastThumbnailKey = null;
       }
       video.close();
     }
     this.emitter.emit('frame', { frame, clipId, approx, tickMs, drawn });
+  }
+
+  private startThumbnailBuild(clipId: string, session: ClipSession): void {
+    if (!this.opts.enableThumbnailScrub || this.thumbnailBuildStarted.has(clipId) || !session.meta) return;
+    const track = this.thumbnailTracks.get(clipId);
+    const sourceRange = this.thumbnailSourceRanges.get(clipId);
+    if (!track || !sourceRange) return;
+    this.thumbnailBuildStarted.add(clipId);
+    void track
+      .build(session, sourceRange.startUs, sourceRange.endUs, session.getKeyframeTimesUs())
+      .catch((e) => {
+        if (this.disposed || !this.sessions.has(clipId)) return;
+        this.emitter.emit('error', {
+          clipId,
+          message: `thumbnail track build failed: ${String(e)}`,
+          detail: e,
+        });
+      });
+  }
+
+  private tryDrawThumbnail(frame: number): void {
+    if (!this.opts.enableThumbnailScrub || !this.timeline || !this.ctx || !this.canvas) return;
+    const resolved = this.timeline.resolve(frame);
+    if (!resolved) return;
+    const entry = this.thumbnailTracks.get(resolved.clip.id)?.nearest(resolved.sourceTimeUs);
+    if (!entry) return;
+    const key = `${resolved.clip.id}:${entry.timeUs}`;
+    if (key === this.lastThumbnailKey) return;
+    this.ctx.drawImage(entry.bitmap, 0, 0, this.canvas.width, this.canvas.height);
+    this.lastThumbnailKey = key;
+    this.emitter.emit('thumbnail', { frame, clipId: resolved.clip.id, drawnAtMs: performance.now() });
   }
 
   private disposeSessions(): void {
@@ -302,6 +372,11 @@ export class PreviewEngine {
     for (const c of this.cache.values()) c.clear();
     this.cache.clear();
     this.prefetchInFlight.clear();
+    for (const track of this.thumbnailTracks.values()) track.clear();
+    this.thumbnailTracks.clear();
+    this.thumbnailBuildStarted.clear();
+    this.thumbnailSourceRanges.clear();
+    this.lastThumbnailKey = null;
     this.warmupMgr.reset();
   }
 }
