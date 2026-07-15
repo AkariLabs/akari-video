@@ -1,0 +1,26 @@
+[
+  {
+    "id": "anthropic/claude-code",
+    "extensionId": "anthropic.claude-code",
+    "agent": "claude",
+    "name": "Claude Code",
+    "description": "Anthropic 公式の Claude Code パートナー拡張",
+    "recommended": true,
+    "binaryVerification": {}
+  },
+  {
+    "id": "openai/chatgpt",
+    "extensionId": "openai.chatgpt",
+    "agent": "codex",
+    "name": "Codex",
+    "description": "OpenAI 公式の Codex パートナー拡張",
+    "recommended": false,
+    "binaryVerification": {
+      "darwin-arm64": {
+        "required": true,
+        "executableNames": ["codex", "codex-aarch64-apple-darwin"],
+        "platformTokens": ["darwin-arm64", "macos-aarch64", "aarch64-apple-darwin"]
+      }
+    }
+  }
+]
