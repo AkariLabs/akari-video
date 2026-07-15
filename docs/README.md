@@ -22,6 +22,7 @@ AKARI Video 新実装（本モノレポ）の設計・契約文書。旧実装 `
 | [contract-2026-07-14-edit-json-v1-audio.md](./contract-2026-07-14-edit-json-v1-audio.md) | edit.json v1 音声スキーマ契約（`audio.bgm` / `audio.sfx`）。Tauri 実装への言及 3 件を legacy 注記化 |
 | [notes-2026-07-13-edit-json-v1.md](./notes-2026-07-13-edit-json-v1.md) | edit.json v1 拡張の方向性メモ（出力プロファイル複数化・crop・レイアウト・音声・サムネ枠の初期案） |
 | [notes-2026-07-14-captions-and-cut-editing.md](./notes-2026-07-14-captions-and-cut-editing.md) | 字幕とカット編集の方向性メモ（word 精度カット提案・captions 第一級化・カラオケ表示・強調字幕） |
+| [notes-2026-07-16-qa-lint-and-transcript-ui.md](./notes-2026-07-16-qa-lint-and-transcript-ui.md) | 自己検証ループとトランスクリプト編集 UI の方向性メモ（edit-lint・words confidence・視覚検索トリガー・Monaco MVP / リッチ UI 二段構え。外部設計対話レビューの採否記録含む） |
 
 ## 移送対象外（判断保留）
 
