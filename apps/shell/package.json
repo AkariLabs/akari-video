@@ -51,7 +51,8 @@
       "config": {
         "applicationName": "AKARI Video",
         "preferences": {
-          "security.workspace.trust.enabled": false
+          "security.workspace.trust.enabled": false,
+          "editor.unusualLineTerminators": "off"
         }
       }
     },
