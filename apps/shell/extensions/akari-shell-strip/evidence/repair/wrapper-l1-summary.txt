@@ -1,0 +1,96 @@
+wrapper (Claude Sonnet 5) による実機(L1)再検証 — 2026-07-16
+
+codex は自身の実行サンドボックスで Electron/CDP を起動できず（AppKit SIGABRT、
+l1-electron-sandbox-blocked.txt 参照）、静的/モック検証のみで終えた。
+ラッパーが同じ worktree で実機起動をやり直し、以下を実測した。
+
+## 手順（要旨）
+1. npm install --no-workspaces がこのマシンの npm allow-scripts ゲートで
+   electron/@theia/ffmpeg の postinstall を素通りしたため、S-A/S-B 報告と
+   同じワークアラウンド（~/Library/Caches/electron の cache zip を
+   ditto -x -k で node_modules/electron/dist に展開 + path.txt 手動生成）で解消。
+2. 展開後の Electron.app は ffmpeg dylib 差し替え後にコード署名が破損して
+   いたため `codesign --force --deep --sign -` で ad-hoc 再署名（これも
+   起動不能の一因だった）。
+3. `node node_modules/.bin/electron . --remote-debugging-port=PORT
+   --user-data-dir=DIR WORKSPACE` で実機起動 → `puppeteer-core` で
+   `connectOverCDP` 相当（browserWSEndpoint 経由）に接続し、
+   screenshot / evaluate / keyboard を自作スクリプトで操作。
+4. developer mode の切替は `THEIA_CONFIG_DIR` を隔離した上で
+   settings.json を直接書き換え、ファイル監視経由でリアクティブに
+   反映されることを確認（UI からの操作と同じ経路: PreferenceService.onPreferenceChanged）。
+
+## 実測結果
+
+### F5（Edit メニュー / ペースト）
+- 実機ログで実際の Edit メニュー剪定後 command id を確認:
+  ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll","file.copyDownloadLink"]
+- 7項目目 `file.copyDownloadLink` は @theia/filesystem の
+  file-download-command-contribution.js が登録するコマンドで、
+  isVisible/isEnabled が `!environment.electron.is() && isChrome` を
+  条件にしており Electron 実行時は常に false。
+  `electron-main-menu-factory.js` （L139-143）はネイティブメニュー構築時に
+  isVisible===false のノードを確実に除外することをソースで確認済み
+  （フィルタ処理は if (!menu.isVisible(...)) { 該当ノードをスキップ }）。
+  → MenuModelRegistry の構造上は7項目だが、実際にレンダリングされる
+  ネイティブ Edit メニューは意図どおり6項目のみ。codex 側ログの
+  `collectCommandIds` は MenuModelRegistry の子ノードを無条件に列挙する
+  ため7件と表示されるが、これは診断コードの性質上の over-report であり
+  実害はない（コード修正不要と判断）。
+- Cmd+V 実証: OS の実クリップボード（pbcopy）に既知文字列を入れ、実機の
+  ターミナルウィジェットへ CDP 経由 `Meta+V` を送出 →
+  `wrapper-l1-04-f5-cmdv-paste-with-editmenu.png` で貼り付け成功を実写確認。
+- 回帰確認: ALLOWED_TOP_MENU_IDS から '2_edit' を一時的に外して再ビルド・
+  再起動（S17 の元の壊れた状態を再現）→ 同じ Cmd+V 手順を再実行したところ
+  `wrapper-l1-05-f5-cmdv-paste-without-editmenu-inconclusive.png` のとおり
+  **Edit メニュー無しでも貼り付けが成功した**。これは CDP の
+  `Input.dispatchKeyEvent` が Chromium 内部の編集コマンド処理を直接叩き、
+  macOS ネイティブのメニューアクセラレータ経路を経由しないためと考えられる
+  （契約が事前に想定していた「CDP でネイティブメニューアクセラレータを
+  完全に再現できない」ケースに該当）。
+  → **F5 は (b) の代替条件で完了とする**: ネイティブ Edit メニューに
+  6ロールが正しく載っていることをプログラム的に確認済み（上記ログ）。
+  ただし CDP 経由の Cmd+V テストは Edit メニュー有無で差が出なかったため
+  「本来の macOS ネイティブアクセラレータ経由の貼り付け」を積極的に実証した
+  ことにはならない。**最終貼り付け確認はオーナー実機に残る（未確認事項）**。
+- 一時的な ALLOWED_TOP_MENU_IDS の改変はテスト後に元へ復元し、
+  npm run build:ext で再ビルド済み（コミット前に diff で確認)。
+
+### F6（dev モード限定ターミナル導線）
+- 実機ログで確認: developer mode ON への変化で
+  `developer terminal menu item shown: terminal:new` が即時発火、
+  OFF で `developer terminal menu item hidden: terminal:new` が発火
+  （設定ファイルの外部書き換え = PreferenceService 経由、UI操作と同じ経路）。
+- コマンドパレット経由で `Terminal: New Terminal` を実行 → 実際に zsh の
+  ターミナルが開き、シェルプロンプトが表示されることを実写確認
+  （`wrapper-l1-03-f6-devmode-on-terminal-opened.png`）。S-A 報告にあった
+  node-pty spawn-helper 問題は今回の `theia start` 直接起動では発生しなかった
+  （prebuilds 同梱の pty.node を直接 require するため、asar 化時特有の
+  相対パス問題が起きない経路）。
+
+### F7（右パネルのアウトライン）
+- 通常モード起動直後のログ: `hid right panel widget without disposing:
+  outline-view` → スクショ `wrapper-l1-01-f7-normal-mode-no-outline.png`
+  で右パネルに「パートナー」のみ表示・アウトライン無しを確認。
+- developer mode ON へ切替した瞬間のログ: `restored right panel widget
+  (trigger=developerMode:true): outline-view` → スクショ
+  `wrapper-l1-02-f7-devmode-on-outline-restored.png` で右レール上部に
+  アウトラインの新規アイコンが即座に出現することを確認（dispose() を
+  使わない非破壊的な hide/restore 設計が実際に機能している証拠）。
+
+### スモーク（S15/S17/S18 既存挙動）
+- S15: 実機ログで `hiding non-allowlisted left activity bar widget:
+  scm-view-container / debug / test-view-container` を確認 — allowlist 外の
+  拡張ビュー（Source Control・Debug・Testing）は引き続き隠れる。
+- S17: `top-level menubar items AFTER curation: [File, Edit, Help]` —
+  最小メニュー方針を維持したまま Edit だけ復元されている。
+- S18: 起動シーケンスは `Changed application state from 'initialized_layout'
+  to 'ready'` まで到達（クラッシュ・ハングなし）。壊れたレイアウト/
+  Workspace Trust ダイアログの個別フォールト注入までは今回のスコープでは
+  再実施していない（S-A 実装当時の実測のみに依拠）。
+
+## 未確認事項
+- macOS ネイティブの Cmd+V アクセラレータ経路そのもの（CDP を介さない、
+  本物のキーボード入力）での最終貼り付け確認はオーナー実機に残る。
+- S18 の「壊れたレイアウト/タイムアウト」フォールトインジェクションは
+  本ラウンドでは再実施していない（コード自体は無改変のため regression リスクは低いと判断）。
