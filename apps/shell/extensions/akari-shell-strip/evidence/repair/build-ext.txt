@@ -1,0 +1,7 @@
+
+> @akari-video/shell@0.0.1 build:ext
+> tsc -b extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-project extensions/akari-partner
+
+real 4.83
+user 6.65
+sys 0.57
