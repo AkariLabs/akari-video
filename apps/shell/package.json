@@ -20,7 +20,10 @@
     "@theia/electron": "1.73.1",
     "@theia/keymaps": "1.73.1",
     "@theia/userstorage": "1.73.1",
-    "akari-shell-strip": "file:./extensions/akari-shell-strip"
+    "akari-shell-strip": "file:./extensions/akari-shell-strip",
+    "akari-surfaces": "file:./extensions/akari-surfaces",
+    "akari-project": "file:./extensions/akari-project",
+    "akari-partner": "file:./extensions/akari-partner"
   },
   "devDependencies": {
     "@theia/cli": "1.73.1",
@@ -57,9 +60,9 @@
     }
   },
   "scripts": {
-    "build:ext": "tsc -b extensions/akari-shell-strip",
+    "build:ext": "tsc -b extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-project extensions/akari-partner",
     "build": "npm run build:ext && theia build --mode production",
-    "lint": "eslint \"extensions/akari-shell-strip/src/**/*.{ts,tsx}\"",
+    "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "start": "theia start --plugins=local-dir:plugins",
     "package": "electron-builder --dir",
     "watch": "theia build --watch --mode development"

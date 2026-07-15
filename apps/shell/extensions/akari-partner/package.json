@@ -1,0 +1,30 @@
+{
+  "name": "akari-partner",
+  "version": "0.0.1",
+  "description": "AKARI Video shell — akari-partner extension (Wave 0 skeleton).",
+  "private": true,
+  "main": "lib/browser/akari-partner-frontend-module.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/akari-partner-frontend-module"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.1",
+    "@theia/filesystem": "1.73.1",
+    "@theia/workspace": "1.73.1",
+    "@theia/editor": "1.73.1",
+    "@theia/monaco": "1.73.1",
+    "@theia/navigator": "1.73.1",
+    "@theia/terminal": "1.73.1",
+    "@theia/plugin-ext": "1.73.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}
