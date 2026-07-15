@@ -1,0 +1,58 @@
+{
+  "f5": {
+    "beforeTopLevel": [
+      "1_file",
+      "9_help"
+    ],
+    "afterTopLevel": [
+      "1_file",
+      "2_edit",
+      "9_help"
+    ],
+    "editNativeRoles": [
+      {
+        "command": "UNDO",
+        "role": "undo"
+      },
+      {
+        "command": "REDO",
+        "role": "redo"
+      },
+      {
+        "command": "CUT",
+        "role": "cut"
+      },
+      {
+        "command": "COPY",
+        "role": "copy"
+      },
+      {
+        "command": "PASTE",
+        "role": "paste"
+      },
+      {
+        "command": "SELECT_ALL",
+        "role": "selectAll"
+      }
+    ],
+    "removed": [
+      "Find",
+      "Replace",
+      "Copy Path"
+    ],
+    "added": [
+      "Select All"
+    ]
+  },
+  "f6": {
+    "upstreamCommandId": "terminal:new",
+    "reactivePreference": "akari.developerMode"
+  },
+  "f7": {
+    "denylist": [
+      "outline-view"
+    ],
+    "hideMechanism": "Lumino detach (parent=null), no dispose",
+    "restoreRank": 500
+  }
+}

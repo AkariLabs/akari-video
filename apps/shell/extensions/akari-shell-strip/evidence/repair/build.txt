@@ -1,0 +1,28 @@
+
+> @akari-video/shell@0.0.1 build
+> npm run build:ext && theia build --mode production
+
+
+> @akari-video/shell@0.0.1 build:ext
+> tsc -b extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-project extensions/akari-partner
+
+Found cached ffmpeg library.
+Hashes are equal, not replacing the ffmpeg library.
+"/Users/ryoma/_edit/30_products/akari-video-wt/sc-repair/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Framework.framework/Libraries/libffmpeg.dylib" does not contain proprietary codecs (13 found).
+(node:95362) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[build/browser] Build started
+
+[build/browser] Finished with 0 errors in 2612ms.
+
+[build/node] Build started
+
+[build/node] Finished with 0 errors in 1074ms.
+
+[build/electron] Build started
+
+[build/electron] Finished with 0 errors in 12ms.
+
+real 6.18
+user 1.70
+sys 0.38
