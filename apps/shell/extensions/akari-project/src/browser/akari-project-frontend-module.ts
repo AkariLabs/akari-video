@@ -4,9 +4,11 @@ import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import {
     FrontendApplicationContribution,
     LabelProviderContribution,
-    WebSocketConnectionProvider
+    WebSocketConnectionProvider,
+    WidgetFactory
 } from '@theia/core/lib/browser';
 import { FileNavigatorFilter } from '@theia/navigator/lib/browser/navigator-filter';
+import { TabBarToolbarContribution } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { AkariProjectService, AKARI_PROJECT_SERVICE_PATH } from '../common/akari-project-protocol';
 import { AkariProjectContribution } from './akari-project-contribution';
 import { AkariProjectModeService } from './akari-project-mode-service';
@@ -28,12 +30,17 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(LabelProviderContribution).toService(AkariRoleLabelProvider);
 
     bind(AkariAssetInspector).toSelf().inSingletonScope();
+    bind(WidgetFactory).toDynamicValue(ctx => ({
+        id: AkariAssetInspector.ID,
+        createWidget: () => ctx.container.get(AkariAssetInspector)
+    })).inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariAssetInspector);
 
     bind(AkariProjectContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariProjectContribution);
     bind(MenuContribution).toService(AkariProjectContribution);
     bind(FrontendApplicationContribution).toService(AkariProjectContribution);
+    bind(TabBarToolbarContribution).toService(AkariProjectContribution);
     bind(PreferenceContribution).toConstantValue({
         schema: {
             type: 'object',

@@ -8,11 +8,16 @@ export interface ProjectRole {
     label: string;
 }
 
+const BUILT_IN_HIDDEN_ENTRIES = ['.gitkeep'];
+
 export function shouldShowProjectPath(relativePath: string | undefined, policy: ProjectTreePolicy, developerMode: boolean): boolean {
     if (developerMode || !relativePath) {
         return true;
     }
     const segments = relativePath.split('/');
+    if (BUILT_IN_HIDDEN_ENTRIES.some(entry => segments.includes(entry))) {
+        return false;
+    }
     if (policy.hidden.some(entry => relativePath === entry || segments.includes(entry))) {
         return false;
     }

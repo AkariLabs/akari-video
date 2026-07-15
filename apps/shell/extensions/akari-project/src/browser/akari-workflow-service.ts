@@ -28,7 +28,7 @@ const DEFAULT_WORKFLOW: AkariWorkflow = {
         { path: 'exports', label: '書き出し', kind: 'exports' }
     ],
     tree: {
-        hidden: ['.claude', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore'],
+        hidden: ['.claude', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
         sidecarSuffixes: ['.meta.json', '.decisions.json', '.analysis.json'],
         developerModePreference: 'akari.developerMode'
     }
