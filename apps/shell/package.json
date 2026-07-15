@@ -23,7 +23,9 @@
     "akari-shell-strip": "file:./extensions/akari-shell-strip",
     "akari-surfaces": "file:./extensions/akari-surfaces",
     "akari-project": "file:./extensions/akari-project",
-    "akari-partner": "file:./extensions/akari-partner"
+    "akari-partner": "file:./extensions/akari-partner",
+    "akari-tabs": "file:./extensions/akari-tabs",
+    "akari-preview": "file:./extensions/akari-preview"
   },
   "devDependencies": {
     "@theia/cli": "1.73.1",
@@ -60,7 +62,7 @@
     }
   },
   "scripts": {
-    "build:ext": "tsc -b extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-project extensions/akari-partner",
+    "build:ext": "tsc -b extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-project extensions/akari-partner extensions/akari-tabs extensions/akari-preview",
     "build": "npm run build:ext && theia build --mode production",
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "start": "theia start --plugins=local-dir:plugins",
