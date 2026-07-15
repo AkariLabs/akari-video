@@ -7,6 +7,7 @@ import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import {
     AkariProjectService,
+    DiffPreparationResult,
     DiffResourcePair,
     DroppedVideo
 } from '../common/akari-project-protocol';
@@ -58,7 +59,11 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         if (this.watchers.has(root)) {
             return;
         }
+        const eligibleForGitInit = await this.looksLikeAkariProject(root);
         await this.ensureRuntimeDirectories(root);
+        if (eligibleForGitInit) {
+            await this.ensureGitInitialized(root);
+        }
         const eventsDirectory = join(root, '.akari', 'events');
         try {
             const watcher = watch(eventsDirectory, (_event, fileName) => {
@@ -145,10 +150,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         return written;
     }
 
-    async prepareDiffs(projectUri: string): Promise<DiffResourcePair[]> {
+    async prepareDiffs(projectUri: string): Promise<DiffPreparationResult> {
         const root = this.fsPath(projectUri);
         if (!(await this.isGitRepository(root))) {
-            return [];
+            return { capable: false, pairs: [] };
         }
         let paths = await this.gitPaths(root, ['diff', '--name-only', '-z', 'HEAD', '--']);
         let baseRef = 'HEAD';
@@ -187,7 +192,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 label: `変更を見る: ${relativePath}`
             });
         }
-        return pairs;
+        return { capable: true, pairs };
     }
 
     protected async handleEvent(root: string, eventPath: string): Promise<void> {
@@ -262,6 +267,31 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             return stdout.trim() === 'true';
         } catch {
             return false;
+        }
+    }
+
+    protected async looksLikeAkariProject(root: string): Promise<boolean> {
+        for (const candidate of [join(root, '.akari'), join(root, '.akari', 'workflow.json')]) {
+            try {
+                await fs.stat(candidate);
+                return true;
+            } catch {
+                // keep checking the next candidate
+            }
+        }
+        return false;
+    }
+
+    protected async ensureGitInitialized(root: string): Promise<void> {
+        if (await this.isGitRepository(root)) {
+            return;
+        }
+        try {
+            await this.runGit(root, ['init']);
+            await this.runGit(root, ['add', '-A']);
+            await this.commitIfChanged(root, 'プロジェクトを開始');
+        } catch (error) {
+            console.warn('[akari-project] deferred git init failed:', error);
         }
     }
 

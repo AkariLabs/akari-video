@@ -214,13 +214,17 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             return;
         }
         try {
-            const pairs = await this.projectService.prepareDiffs(root.toString());
+            const { capable, pairs } = await this.projectService.prepareDiffs(root.toString());
+            if (!capable) {
+                this.messages.info('このフォルダーでは変更履歴を使えません。');
+                return;
+            }
             if (!pairs.length) {
                 this.messages.info('表示できる変更はまだありません。');
                 return;
             }
             for (const pair of pairs) {
-                const diffUri = DiffUris.encode(new URI(pair.leftUri), new URI(pair.rightUri), pair.label);
+                const diffUri = DiffUris.encode(new URI(pair.leftUri), new URI(pair.rightUri));
                 await open(this.openers, diffUri, { mode: 'activate' });
             }
         } catch (error) {

@@ -12,9 +12,14 @@ export interface DiffResourcePair {
     label: string;
 }
 
+export interface DiffPreparationResult {
+    capable: boolean;
+    pairs: DiffResourcePair[];
+}
+
 export interface AkariProjectService {
     createProject(destinationUri: string): Promise<void>;
     watchProject(projectUri: string): Promise<void>;
     recordDroppedVideos(projectUri: string, videos: DroppedVideo[]): Promise<string[]>;
-    prepareDiffs(projectUri: string): Promise<DiffResourcePair[]>;
+    prepareDiffs(projectUri: string): Promise<DiffPreparationResult>;
 }
