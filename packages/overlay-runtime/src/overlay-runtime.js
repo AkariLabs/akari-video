@@ -1,0 +1,113 @@
+// オーバーレイランタイム
+// 契約: docs/planning/contract-2026-07-13-m1-m4.md §M2
+window.akari = window.akari || {};
+
+window.akari.runtime = (() => {
+  const mountedOverlays = [];
+  let mountedStage = null;
+
+  function finiteNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function unmount() {
+    const stage = mountedStage ?? document.getElementById("overlay-stage");
+    if (stage) stage.replaceChildren();
+
+    mountedOverlays.length = 0;
+    mountedStage = null;
+  }
+
+  async function mount(summary) {
+    unmount();
+
+    const stage = document.getElementById("overlay-stage");
+    if (!stage) throw new Error("#overlay-stage が見つかりません");
+
+    const overlays = summary?.overlays;
+    if (!Array.isArray(overlays)) {
+      throw new TypeError("summary.overlays は配列である必要があります");
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    for (const overlay of overlays) {
+      const start = finiteNumber(overlay.start, 0);
+      const duration = finiteNumber(overlay.duration, 0);
+      const transform = overlay.transform ?? {};
+      const container = document.createElement("div");
+
+      container.dataset.overlayId = String(overlay.id);
+      container.dataset.start = String(start);
+      container.dataset.duration = String(duration);
+      container.style.position = "absolute";
+      container.style.inset = "0";
+      container.style.pointerEvents = "auto";
+      container.style.visibility = "hidden";
+
+      for (const [name, value] of Object.entries(overlay.vars ?? {})) {
+        if (name.startsWith("--")) {
+          container.style.setProperty(name, String(value));
+        }
+      }
+
+      container.style.setProperty("--x", `${finiteNumber(transform.x, 0)}px`);
+      container.style.setProperty("--y", `${finiteNumber(transform.y, 0)}px`);
+      container.style.setProperty("--scale", String(finiteNumber(transform.scale, 1)));
+      container.style.setProperty("--rotate", `${finiteNumber(transform.rotate, 0)}deg`);
+      container.style.transform =
+        "translate(var(--x,0px), var(--y,0px)) " +
+        "scale(var(--scale,1)) rotate(var(--rotate,0deg))";
+
+      container.innerHTML = overlay.html ?? "";
+      fragment.appendChild(container);
+      mountedOverlays.push({ container, start, duration, visible: false });
+    }
+
+    stage.replaceChildren(fragment);
+    mountedStage = stage;
+  }
+
+  function tick(t, _playing) {
+    const timelineTime = finiteNumber(t, 0);
+
+    for (const overlay of mountedOverlays) {
+      const visible =
+        overlay.start <= timelineTime &&
+        timelineTime < overlay.start + overlay.duration;
+
+      if (visible !== overlay.visible) {
+        overlay.container.style.visibility = visible ? "visible" : "hidden";
+        // 断片側の出入りアニメ（telop.md）は `[data-akari-active] .foo { animation: ... }`
+        // という祖先属性ゲート付きセレクタで宣言する規約にする（字幕断片は 1,205 件級で
+        // 同時にマウントされるため）。実測したところ、Element/Document.getAnimations() の
+        // コストは「対象サブツリーの大きさ」ではなく「ドキュメント全体に現存する
+        // CSS animation の総数」にほぼ比例する（ヘッドレス Chrome で 1,205 件へ常時
+        // animation を宣言した場合、可視 1 件だけを問い合わせる呼び出しでも ~27ms/回。
+        // 60fps は疎か 30fps 予算も単独で超過する）。ゲート属性を可視区間だけ付け外し
+        // することで、実際に存在する CSS Animation を「今可視のオーバーレイ分だけ」に
+        // 抑え、この地雷を踏まない。
+        overlay.container.toggleAttribute("data-akari-active", visible);
+        overlay.visible = visible;
+      }
+
+      // 性能原則「見えている分だけ」: 非表示オーバーレイのアニメーション同期を省く。
+      // 再表示された tick で必ず同期されるため、シークの決定性は保たれる（字幕のような
+      // 1000 エントリ級でも tick が O(可視数) で済む。ただし getAnimations() 自体の
+      // コストを可視数に閉じ込めるには、上の data-akari-active ゲートと組み合わせる
+      // ことが必須。ゲート無しで「可視のものだけ getAnimations() する」だけでは、
+      // 非可視分の CSS animation がドキュメントに現存し続ける限りコストは落ちない）
+      if (!visible) continue;
+
+      const localTimeMs = Math.max(0, (timelineTime - overlay.start) * 1000);
+      const animations = overlay.container.getAnimations({ subtree: true });
+      for (const animation of animations) {
+        animation.pause();
+        animation.currentTime = localTimeMs;
+      }
+    }
+  }
+
+  return { mount, tick, unmount };
+})();

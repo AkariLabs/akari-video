@@ -1,0 +1,30 @@
+{
+  "id": "laptop-typing-closeup",
+  "category": "broll",
+  "title": "ノート PC タイピング クローズアップ",
+  "description": "ノート PC のキーボードを操作する手元のクローズアップ映像（1920x1080 / 24fps / 12秒）。顔が映らないため用途を選ばず、テック・リモートワーク・オンラインサービス関連の説明シーンのつなぎに使える汎用 B ロール",
+  "when_to_use": "SaaS/アプリ紹介、リモートワーク解説、オンラインサービスの導入部やシーン転換のつなぎカットなど、「作業中であること」を示す一般的な手元ショットが欲しいシーン",
+  "tags": ["broll", "tech", "desk-work", "laptop", "typing", "remote-work", "16:9", "generic"],
+  "knobs": [],
+  "ai_usage": "取得後はクロップ・速度調整・色調補正の範囲で使ってよい。手元のみで人物が特定できない汎用ショットのため、他素材とのつなぎ・トランジションの下地として自由に使ってよい。画面内容やロゴの合成差し替えは行わない（実写としての信頼性を損なうため）",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Mixkit）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-Mixkit-Free-License",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://mixkit.co/free-stock-video/typing-on-a-laptop-close-up-1781/",
+    "acquisition": "direct",
+    "license_at_source": "Free for commercial and personal use under the Mixkit Stock Video Free License (no attribution, no sign-up required). Raw ファイルのそのままの転売・競合ストックサービスへの再配布は不可",
+    "attribution_required": false
+  }
+}

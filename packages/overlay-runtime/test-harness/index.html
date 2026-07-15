@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>overlay-runtime — 最小テストハーネス</title>
+  <!-- ホストシェルが提供する #app / #preview-column / トップバー / トランスポート等の
+       DOM 骨格は本パッケージの対象外（README.md のホストアダプタ契約参照）。
+       ここでは overlay-runtime / interaction / minimap が要求する DOM id
+       （#overlay-stage / #preview-pane / #minimap / #minimap-frame / #minimap-viewport）
+       だけを持つ最小の静的ページを用意する。 -->
+  <link rel="stylesheet" href="../src/interaction.css" />
+  <link rel="stylesheet" href="../src/minimap.css" />
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #1c1a1e;
+      font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+      color: #fff;
+    }
+    #harness-app {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    #harness-topbar {
+      flex: 0 0 auto;
+      padding: 8px 12px;
+      font-size: 12px;
+      opacity: 0.75;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    /* #preview-pane はランタイム所有ではなくホスト提供 DOM だが、interaction.js は
+       stage.parentElement をリスナー付け先・選択枠の appendChild 先として使うため、
+       transform を持たない祖先として必須（本番シェルでも同じ制約 — 移送元
+       docs/notes-2026-07-14-viewer-ui-round.md の前書き参照） */
+    #preview-pane {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    /* #overlay-stage の実寸は edit.json の output（例 1280x720）論理サイズ。
+       本番シェルは scale() でペイン内の映像実表示矩形へ貼り付けるが、
+       ハーネスでは検証を単純にするため scale(1) 固定で貼り付ける。 */
+    #overlay-stage {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1280px;
+      height: 720px;
+      overflow: hidden;
+      transform-origin: 0 0;
+      pointer-events: none;
+    }
+    #harness-log {
+      flex: 0 0 auto;
+      max-height: 34vh;
+      overflow: auto;
+      margin: 0;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.88);
+      color: #7CFC9B;
+      font: 12px/1.5 ui-monospace, "SF Mono", monospace;
+      white-space: pre-wrap;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    #harness-log[data-status="fail"] {
+      color: #ff8080;
+    }
+  </style>
+</head>
+<body>
+  <div id="harness-app">
+    <div id="harness-topbar">
+      overlay-runtime test-harness — window.akari.engine.overlayWrite / stageScale はスタブ実装
+    </div>
+
+    <section id="preview-pane">
+      <div id="overlay-stage"></div>
+
+      <!-- interaction.js の選択枠・スナップガイドは stage.parentElement
+           （= #preview-pane）へ動的に appendChild される。ここに静的な
+           プレースホルダは置かない -->
+
+      <div id="minimap" hidden aria-hidden="true">
+        <div id="minimap-frame"><div id="minimap-viewport"></div></div>
+      </div>
+    </section>
+
+    <pre id="harness-log" data-status="running">booting…</pre>
+  </div>
+
+  <!-- ホストが提供すべき window.akari.state / engine.overlayWrite / stageScale の
+       スタブ実装（README.md のアダプタ契約参照。本番シェルは実データで置き換える） -->
+  <script src="./stub-host.js"></script>
+
+  <!-- 本パッケージの 3 本（機能的に無改変で移送） -->
+  <script src="../src/overlay-runtime.js"></script>
+  <script src="../src/interaction.js"></script>
+  <script src="../src/minimap.js"></script>
+
+  <!-- mount / tick / interaction 初期化 / minimap.update の動作確認スクリプト -->
+  <script src="./run-tests.js"></script>
+</body>
+</html>

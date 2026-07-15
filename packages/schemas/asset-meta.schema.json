@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:asset-meta:v0",
+  "title": "AKARI Video Asset Metadata v0",
+  "description": "AKARI Video 素材ライブラリの meta.json 契約 v0。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "category",
+    "title",
+    "description",
+    "when_to_use",
+    "tags",
+    "knobs",
+    "ai_usage",
+    "requires",
+    "provenance",
+    "author",
+    "license",
+    "price"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["3d", "motion", "telop", "audio", "broll", "font", "thumbnail"]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "when_to_use": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "\\S"
+      }
+    },
+    "knobs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/knob"
+      }
+    },
+    "ai_usage": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "requires": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "\\S"
+      }
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "license": {
+      "$ref": "#/$defs/license"
+    },
+    "price": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "number", "minimum": 0 }
+      ]
+    },
+    "remote": {
+      "type": "boolean",
+      "description": "true の場合、このエントリはカタログ上のみに存在し実体ファイルを持たない。source ブロックが実体の代わりになる（2026-07-14 追記・任意フィールド）。"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    }
+  },
+  "$defs": {
+    "knob": {
+      "type": "object",
+      "description": "型固有の追加属性は将来の契約で定義する。v0 では既知属性だけを型検証する。バインド先は cssVar（オーバーレイ素材）か param（3D ベイクレシピ、2026-07-14 追記）のどちらか一方を必須とする。",
+      "required": ["type", "group"],
+      "oneOf": [
+        { "required": ["cssVar"], "not": { "required": ["param"] } },
+        { "required": ["param"], "not": { "required": ["cssVar"] } }
+      ],
+      "properties": {
+        "cssVar": {
+          "type": "string",
+          "pattern": "^--[A-Za-z_][A-Za-z0-9_-]*$"
+        },
+        "param": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["text", "color", "slider", "dropdown", "checkbox", "media"]
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "generator"],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "generator": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "pattern": "\\S" }
+          ]
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spdx",
+        "scope",
+        "attribution_required",
+        "ai_training_allowed"
+      ],
+      "properties": {
+        "spdx": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attribution_required": {
+          "type": "boolean"
+        },
+        "ai_training_allowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "description": "カタログ（remote: true）エントリの取得元情報。2026-07-14 追記・任意フィールド。",
+      "additionalProperties": false,
+      "required": ["url", "acquisition", "license_at_source", "attribution_required"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "acquisition": {
+          "type": "string",
+          "enum": ["direct", "login", "purchase"]
+        },
+        "license_at_source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attribution_required": {
+          "type": "boolean"
+        },
+        "preview_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        }
+      }
+    }
+  }
+}

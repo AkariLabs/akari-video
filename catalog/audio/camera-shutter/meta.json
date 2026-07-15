@@ -1,0 +1,30 @@
+{
+  "id": "camera-shutter",
+  "category": "audio",
+  "title": "カメラシャッター SFX",
+  "description": "一眼レフ実機（Canon T2i）のシャッター音。写真の切り替えや決定的瞬間の演出に使える短尺 SFX。尺 0.3秒",
+  "when_to_use": "写真ギャラリー/スライドショーのカット送り、Before/After 比較、決定的瞬間を強調する演出",
+  "tags": ["sfx", "camera", "shutter", "photo", "snap"],
+  "knobs": [],
+  "ai_usage": "音量調整・複数回の重ね掛けは自由。映像のタイミングに合わせたトリムも可。ピッチ・速度を大きく変えると素材の質感が崩れるため軽微な調整に留める",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Freesound / roachpowder）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://freesound.org/people/roachpowder/sounds/170229/",
+    "acquisition": "login",
+    "license_at_source": "CC0 1.0",
+    "attribution_required": false
+  }
+}

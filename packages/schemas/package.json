@@ -1,0 +1,12 @@
+{
+  "name": "@akari-video/schemas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "validate-asset": "bin/validate-asset.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1"
+  }
+}

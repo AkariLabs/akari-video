@@ -1,0 +1,13 @@
+{
+  "name": "@akari-video/decision-cards",
+  "version": "0.0.0",
+  "private": true,
+  "description": "決定カード v0 ランタイム。report-helper（ローカル HTTP サーバ）+ report-template（カード付きレポート HTML の雛形）+ 動作サンプル。外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ）。",
+  "type": "module",
+  "bin": {
+    "decision-cards-helper": "report-helper.mjs"
+  },
+  "scripts": {
+    "start": "node report-helper.mjs"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "version": 0,
+  "report": "report.html",
+  "createdAt": "2026-07-15T12:00:00+09:00",
+  "completedAt": null,
+  "decisions": [
+    {
+      "id": "thumbnail",
+      "answer": {
+        "choice": "candidate-b",
+        "requestMore": false,
+        "note": null
+      },
+      "byDefault": true,
+      "answeredAt": null
+    },
+    {
+      "id": "cut-policy",
+      "answer": {
+        "intensity": "standard",
+        "fillerRemoval": "standard",
+        "targetDuration": null
+      },
+      "byDefault": true,
+      "answeredAt": null
+    },
+    {
+      "id": "captions-policy",
+      "answer": {
+        "coverage": "full",
+        "styleKnobs": {},
+        "karaoke": false
+      },
+      "byDefault": true,
+      "answeredAt": null
+    },
+    {
+      "id": "structure",
+      "answer": {
+        "chapters": [
+          {
+            "id": "ch1",
+            "adopt": true
+          }
+        ],
+        "openingHook": null
+      },
+      "byDefault": true,
+      "answeredAt": null
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+/* 出典: akari-video-tauri/ui/style.css 206〜234 行（minimap 用ブロック抽出）
+   タスク契約は 206〜231 行と記載していたが、実ファイルの当該行範囲は
+   #minimap-viewport 規則の途中（`border: 2px solid var(--akari-accent);` の
+   1 行目）で途切れ、閉じ括弧を欠く不正な CSS になる（レガシー style.css が
+   棚卸し記載後に更新され行がずれたとみられる）。本ファイルは
+   「minimap 用ブロックを抽出する」という指示の意図に沿い、完全な 4 規則
+   （#minimap / #minimap[hidden] / #minimap-frame / #minimap-viewport）を
+   206〜234 行として抽出した。差分は report.md に明記 */
+#minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  padding: 7px;
+  border-radius: 10px;
+  background: var(--akari-bg-panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+#minimap[hidden] {
+  display: none;
+}
+#minimap-frame {
+  position: relative;
+  width: 160px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+}
+#minimap-viewport {
+  position: absolute;
+  border: 2px solid var(--akari-accent);
+  border-radius: 2px;
+  background: rgba(255, 139, 44, 0.22);
+}

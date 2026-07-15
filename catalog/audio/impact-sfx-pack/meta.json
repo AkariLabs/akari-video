@@ -1,0 +1,31 @@
+{
+  "id": "impact-sfx-pack",
+  "category": "audio",
+  "title": "インパクト SFX パック",
+  "description": "衝突・打撃・フォーリー系の効果音 130 点セット。テロップの強調出現やカット切り替え、アクセントを付けたい瞬間に使える短尺の衝撃音が中心",
+  "when_to_use": "強調テロップの出現・カット切り替え・ビートに合わせたアクセント演出など、映像に「ドン」「ガツン」といった衝撃感を足したいシーン",
+  "tags": ["sfx", "impact", "foley", "transition", "accent"],
+  "knobs": [],
+  "ai_usage": "取得後は音源をそのまま edit.json のカット点・強調ポイントに合わせて配置する用途を想定。音源そのもの（波形）は改変しない。音量調整はクリップ側のパラメータで行う",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Kenney）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "Kenney (kenney.nl)",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://kenney.nl/assets/impact-sounds",
+    "acquisition": "direct",
+    "license_at_source": "CC0 1.0",
+    "attribution_required": false,
+    "preview_url": "https://kenney.nl/media/pages/assets/impact-sounds/37d145475f-1677589720/audio_impact.png"
+  }
+}

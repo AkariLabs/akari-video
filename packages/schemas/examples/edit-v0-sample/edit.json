@@ -1,0 +1,27 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [
+    { "in": 5.0, "out": 10.0 },
+    { "in": 30.0, "out": 35.0 }
+  ],
+  "overlays": [
+    {
+      "id": "cap-a",
+      "html": "overlays/cap-a.html",
+      "start": 1.0,
+      "duration": 4.0,
+      "transform": { "x": 0, "y": 0, "scale": 1, "rotate": 0 },
+      "vars": {}
+    },
+    {
+      "id": "cap-b",
+      "html": "overlays/cap-b.html",
+      "start": 6.0,
+      "duration": 4.0,
+      "transform": { "x": 0, "y": 0, "scale": 1, "rotate": 0 },
+      "vars": {}
+    }
+  ]
+}

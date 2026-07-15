@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; font-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>決定カード実走サンプル</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #f4f6fb;
+        --surface: #ffffff;
+        --ink: #172033;
+        --muted: #58647a;
+        --line: #ccd4e3;
+        --accent: #304ffe;
+        --accent-dark: #1633c8;
+        --good: #126a3a;
+        --good-bg: #e3f5ea;
+        --warn-bg: #fff1c8;
+        --drop-bg: #fde8eb;
+        --shadow: 0 14px 38px rgba(25, 38, 74, 0.09);
+        --radius: 18px;
+        --space-2: 0.65rem;
+        --space-3: 1rem;
+        --space-4: 1.5rem;
+        --space-5: 2.25rem;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--page);
+        color: var(--ink);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI",
+          "Yu Gothic", Meiryo, sans-serif;
+        line-height: 1.65;
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 18rem;
+      }
+
+      button,
+      textarea {
+        font: inherit;
+      }
+
+      img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #17223b;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.25;
+      }
+
+      h1 {
+        max-width: 20ch;
+        margin-bottom: var(--space-3);
+        font-size: clamp(2rem, 6vw, 4rem);
+        letter-spacing: -0.04em;
+      }
+
+      h2 {
+        margin-bottom: var(--space-3);
+        font-size: clamp(1.55rem, 3vw, 2.25rem);
+      }
+
+      h3 {
+        margin-bottom: var(--space-2);
+        font-size: 1.1rem;
+      }
+
+      .report-header {
+        color: #ffffff;
+        background:
+          radial-gradient(
+            circle at 85% 20%,
+            rgba(114, 137, 255, 0.55),
+            transparent 28rem
+          ),
+          linear-gradient(135deg, #101833, #1f2f66);
+      }
+
+      .report-header__inner,
+      main,
+      .report-footer {
+        width: min(68rem, calc(100% - 2rem));
+        margin-inline: auto;
+      }
+
+      .report-header__inner {
+        padding: clamp(2.6rem, 7vw, 5rem) 0 clamp(2.2rem, 5vw, 3.5rem);
+      }
+
+      .eyebrow,
+      .section-kicker {
+        margin-bottom: var(--space-2);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+      }
+
+      .eyebrow {
+        color: #cbd5ff;
+      }
+
+      .header-lead {
+        max-width: 65ch;
+        margin-bottom: 0;
+        color: #e2e7ff;
+      }
+
+      main {
+        padding: var(--space-5) 0 4.5rem;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .decision-workspace {
+        padding: clamp(1.2rem, 3vw, 2rem);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .section-kicker {
+        display: inline-block;
+        color: var(--accent-dark);
+      }
+
+      .section-lead {
+        max-width: 72ch;
+        color: var(--muted);
+      }
+
+      .decision-runtime-message,
+      .decision-runtime-error,
+      .decision-runtime-success,
+      .decision-card__warning {
+        margin: var(--space-3) 0;
+        padding: 0.75rem 0.9rem;
+        border-radius: 9px;
+      }
+
+      .decision-runtime-message,
+      .decision-card__warning {
+        color: #5a3800;
+        background: var(--warn-bg);
+      }
+
+      .decision-runtime-error {
+        color: #751b2a;
+        background: var(--drop-bg);
+      }
+
+      .decision-runtime-success {
+        color: var(--good);
+        background: var(--good-bg);
+        font-weight: 800;
+      }
+
+      .decision-card-stack {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-3);
+        margin: var(--space-4) 0;
+      }
+
+      .decision-card {
+        padding: clamp(1rem, 3vw, 1.5rem);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fafbfe;
+      }
+
+      .decision-card__question {
+        margin-bottom: var(--space-3);
+        font-size: 1.12rem;
+        font-weight: 800;
+      }
+
+      .decision-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+        gap: 0.65rem;
+      }
+
+      .decision-option,
+      .decision-check,
+      .decision-action {
+        min-height: 2.75rem;
+        padding: 0.65rem 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--ink);
+        background: var(--surface);
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .decision-option {
+        display: grid;
+        gap: var(--space-2);
+        align-content: start;
+        text-align: left;
+      }
+
+      .decision-option:hover:not(:disabled),
+      .decision-check:hover:not(:disabled),
+      .decision-action:hover:not(:disabled) {
+        border-color: var(--accent);
+      }
+
+      .decision-option:focus-visible,
+      .decision-check:focus-visible,
+      .decision-action:focus-visible,
+      [data-note]:focus-visible {
+        outline: 3px solid #ffb000;
+        outline-offset: 3px;
+      }
+
+      .decision-option.is-selected,
+      .decision-check.is-selected {
+        border-color: var(--accent);
+        color: var(--accent-dark);
+        background: #eef1ff;
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+
+      .decision-option:disabled,
+      .decision-check:disabled,
+      .decision-action:disabled,
+      [data-note]:disabled,
+      [data-option][aria-disabled="true"],
+      [data-check][aria-disabled="true"],
+      [data-action][aria-disabled="true"],
+      [data-note][aria-disabled="true"] {
+        cursor: not-allowed;
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      .decision-action {
+        color: #ffffff;
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .decision-action--secondary {
+        color: var(--accent-dark);
+        background: #eef1ff;
+      }
+
+      .decision-card__extras {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        margin-top: var(--space-3);
+      }
+
+      [data-note] {
+        display: block;
+        width: 100%;
+        min-height: 5rem;
+        margin-top: var(--space-2);
+        padding: 0.75rem;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--ink);
+        background: var(--surface);
+      }
+
+      .decision-card details {
+        margin-top: var(--space-3);
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--line);
+      }
+
+      .decision-card summary {
+        color: var(--accent-dark);
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .decision-card details p {
+        margin: var(--space-2) 0 0;
+        color: var(--muted);
+      }
+
+      .decision-summary {
+        margin-top: var(--space-4);
+        padding: clamp(1rem, 3vw, 1.5rem);
+        border: 2px solid var(--accent);
+        border-radius: 14px;
+        background: #f7f8ff;
+      }
+
+      .decision-summary__list {
+        display: grid;
+        gap: var(--space-3);
+        margin: var(--space-3) 0;
+      }
+
+      .decision-summary__item {
+        padding: var(--space-3);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+
+      .decision-summary__item dt {
+        font-weight: 800;
+      }
+
+      .decision-summary__item dd {
+        margin: var(--space-2) 0 0;
+      }
+
+      .decision-summary__item pre {
+        margin: 0;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+        font: 0.85rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas,
+          monospace;
+      }
+
+      .decision-card__warning {
+        font-size: 0.85rem;
+      }
+
+      .report-footer {
+        padding: 0 0 3rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      @media (max-width: 46rem) {
+        .report-header__inner,
+        main,
+        .report-footer {
+          width: min(100% - 1rem, 68rem);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="report-header">
+      <div class="report-header__inner">
+        <p class="eyebrow">AKARI VIDEO / DECISION CARDS SAMPLE</p>
+        <h1>編集判断の実走サンプル</h1>
+        <p class="header-lead">
+          4 つの決定カードで、サムネイル・カット・字幕・構成の推奨案を確認します。
+          推奨のまま進める場合も、最後に要約を確認してから確定します。
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <section
+        class="decision-workspace"
+        aria-labelledby="heading-decision-cards"
+      >
+        <span class="section-kicker">DECISION CARDS</span>
+        <h2 id="heading-decision-cards">編集前に決めること</h2>
+        <p class="section-lead">
+          AI 推奨は選択済みです。変更したいカードだけ操作し、確認画面へ進んでください。
+        </p>
+
+        <p class="decision-runtime-message" role="status" aria-live="polite">
+          ヘルパー経由で開くと回答できます。チャットでの回答も可能です
+        </p>
+        <p class="decision-runtime-error" role="alert" hidden></p>
+
+        <button
+          class="decision-action"
+          type="button"
+          data-action="accept-all"
+          disabled
+        >
+          すべておまかせで確認
+        </button>
+
+        <div class="decision-card-stack">
+          <article
+            class="decision-card"
+            data-card="thumbnail"
+            data-question="サムネイルはどの案にしますか？"
+          >
+            <p class="decision-card__question">
+              サムネイルはどの案にしますか？
+            </p>
+            <div class="decision-options">
+              <button
+                class="decision-option"
+                type="button"
+                data-option="candidate-a"
+                disabled
+              >
+                <img
+                  src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20320%20180'%3E%3Crect%20width='320'%20height='180'%20fill='%231b294f'/%3E%3Ccircle%20cx='258'%20cy='40'%20r='72'%20fill='%23304ffe'/%3E%3Ctext%20x='24'%20y='92'%20font-size='30'%20font-family='sans-serif'%20font-weight='700'%20fill='white'%3EA%3C/text%3E%3Ctext%20x='24'%20y='125'%20font-size='15'%20font-family='sans-serif'%20fill='%23dbe2ff'%3EREAL%20FRAME%3C/text%3E%3C/svg%3E"
+                  alt="候補A、実フレームを使うサムネイルのプレースホルダー"
+                  width="320"
+                  height="180"
+                />
+                <strong>候補 A — 実フレーム</strong>
+                <span>内容が伝わる素直な構図</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="candidate-b"
+                data-default="true"
+                disabled
+              >
+                <img
+                  src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20320%20180'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x2='1'%3E%3Cstop%20stop-color='%23411f67'/%3E%3Cstop%20offset='1'%20stop-color='%23b445e8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='320'%20height='180'%20fill='url(%23g)'/%3E%3Ccircle%20cx='65'%20cy='35'%20r='65'%20fill='%23e66bff'/%3E%3Ctext%20x='24'%20y='92'%20font-size='30'%20font-family='sans-serif'%20font-weight='700'%20fill='white'%3EB%3C/text%3E%3Ctext%20x='24'%20y='125'%20font-size='15'%20font-family='sans-serif'%20fill='%23f5ddff'%3EGENERATED%3C/text%3E%3C/svg%3E"
+                  alt="候補B、生成背景を使うAI推奨サムネイルのプレースホルダー"
+                  width="320"
+                  height="180"
+                />
+                <strong>候補 B — 生成背景（AI 推奨）</strong>
+                <span>コントラストを強めた構図</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="candidate-c"
+                disabled
+              >
+                <img
+                  src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20320%20180'%3E%3Crect%20width='320'%20height='180'%20fill='%231a3d36'/%3E%3Cpath%20d='M0%20180L0%2070L150%20120L320%2040L320%20180Z'%20fill='%2323a77a'/%3E%3Ctext%20x='24'%20y='92'%20font-size='30'%20font-family='sans-serif'%20font-weight='700'%20fill='white'%3EC%3C/text%3E%3Ctext%20x='24'%20y='125'%20font-size='15'%20font-family='sans-serif'%20fill='%23d8fff1'%3EMIXED%3C/text%3E%3C/svg%3E"
+                  alt="候補C、生成背景と文字組を組み合わせるサムネイルのプレースホルダー"
+                  width="320"
+                  height="180"
+                />
+                <strong>候補 C — 混成</strong>
+                <span>生成背景と正確な文字組を両立</span>
+              </button>
+            </div>
+            <div class="decision-card__extras">
+              <button
+                class="decision-check"
+                type="button"
+                data-check="requestMore"
+                disabled
+              >
+                別案も依頼する
+              </button>
+            </div>
+            <label>
+              補足
+              <textarea
+                data-note
+                disabled
+                placeholder="サムネイルへの補足があれば入力"
+              ></textarea>
+            </label>
+            <details>
+              <summary>根拠・証拠を見る</summary>
+              <p>
+                ダミー根拠: 候補 B は人物とタイトルのコントラストが最も高く、縮小表示でも主題を判別しやすい想定です。
+              </p>
+            </details>
+          </article>
+
+          <article
+            class="decision-card"
+            data-card="cut-policy"
+            data-question="カットの強度はどれにしますか？"
+          >
+            <p class="decision-card__question">
+              カットの強度はどれにしますか？
+            </p>
+            <div class="decision-options">
+              <button
+                class="decision-option"
+                type="button"
+                data-option="aggressive"
+                disabled
+              >
+                <strong>強め</strong>
+                <span>間を詰めてテンポを優先</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="standard"
+                data-default="true"
+                disabled
+              >
+                <strong>標準（AI 推奨）</strong>
+                <span>理解しやすさとテンポを両立</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="conservative"
+                disabled
+              >
+                <strong>控えめ</strong>
+                <span>話者の間とニュアンスを残す</span>
+              </button>
+            </div>
+            <details>
+              <summary>根拠・証拠を見る</summary>
+              <p>
+                ダミー根拠: 標準強度ではフィラー除去も standard とし、目標尺を固定せず内容の自然な区切りを優先します。
+              </p>
+            </details>
+          </article>
+
+          <article
+            class="decision-card"
+            data-card="captions-policy"
+            data-question="字幕はどの範囲に付けますか？"
+          >
+            <p class="decision-card__question">
+              字幕はどの範囲に付けますか？
+            </p>
+            <div class="decision-options">
+              <button
+                class="decision-option"
+                type="button"
+                data-option="full"
+                data-default="true"
+                disabled
+              >
+                <strong>全文字幕（AI 推奨）</strong>
+                <span>音声なしでも内容を追える</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="selective"
+                disabled
+              >
+                <strong>重要箇所のみ</strong>
+                <span>画面の情報量を抑える</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="none"
+                disabled
+              >
+                <strong>字幕なし</strong>
+                <span>映像と音声に集中させる</span>
+              </button>
+            </div>
+            <div class="decision-card__extras">
+              <button
+                class="decision-check"
+                type="button"
+                data-check="karaoke"
+                disabled
+              >
+                カラオケ表示を使う
+              </button>
+            </div>
+            <details>
+              <summary>根拠・証拠を見る</summary>
+              <p>
+                ダミー根拠: 無音視聴を想定して全文字幕を推奨し、強調アニメーションは控えるため karaoke は既定で OFF です。
+              </p>
+            </details>
+          </article>
+
+          <article
+            class="decision-card"
+            data-card="structure"
+            data-question="冒頭に追加フックを置きますか？"
+          >
+            <p class="decision-card__question">
+              冒頭に追加フックを置きますか？
+            </p>
+            <div class="decision-options">
+              <button
+                class="decision-option"
+                type="button"
+                data-option="null"
+                data-default="true"
+                disabled
+              >
+                <strong>追加しない（AI 推奨）</strong>
+                <span>提案済みの第 1 章から始める</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="result-first"
+                disabled
+              >
+                <strong>結果を先に見せる</strong>
+                <span>完成イメージを冒頭に置く</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="question-first"
+                disabled
+              >
+                <strong>問いから始める</strong>
+                <span>視聴者への質問を冒頭に置く</span>
+              </button>
+            </div>
+            <details>
+              <summary>根拠・証拠を見る</summary>
+              <p>
+                ダミー根拠: 章 ch1 は採用済みで単独でも導入として成立するため、追加の openingHook は null を推奨します。
+              </p>
+            </details>
+          </article>
+        </div>
+
+        <button
+          class="decision-action decision-action--secondary"
+          type="button"
+          data-action="accept-all"
+          disabled
+        >
+          確認へ
+        </button>
+
+        <section
+          class="decision-summary"
+          data-view="summary"
+          aria-labelledby="heading-decision-summary"
+          hidden
+        >
+          <h3 id="heading-decision-summary">確定内容の要約</h3>
+          <dl class="decision-summary__list"></dl>
+          <button
+            class="decision-action"
+            type="button"
+            data-action="commit"
+            disabled
+          >
+            この内容で確定
+          </button>
+          <p class="decision-summary__status" role="status" aria-live="polite"></p>
+        </section>
+      </section>
+    </main>
+
+    <footer class="report-footer">
+      <p>
+        この HTML は外部 CSS・JavaScript・画像を参照しない自己完結サンプルです。
+        ヘルパーへ接続できない場合は閲覧専用になります。
+      </p>
+    </footer>
+
+    <script>
+      (() => {
+        "use strict";
+
+        const cards = Array.from(document.querySelectorAll("[data-card]"));
+        const summaryView = document.querySelector('[data-view="summary"]');
+        const summaryList = summaryView?.querySelector(
+          ".decision-summary__list",
+        );
+        const summaryStatus = summaryView?.querySelector(
+          ".decision-summary__status",
+        );
+        const runtimeMessage = document.querySelector(
+          ".decision-runtime-message",
+        );
+        const runtimeError = document.querySelector(".decision-runtime-error");
+        const operationControls = Array.from(
+          document.querySelectorAll(
+            "[data-option], [data-check], [data-action]",
+          ),
+        );
+        const noteFields = Array.from(document.querySelectorAll("[data-note]"));
+
+        let state = null;
+        let saveQueue = Promise.resolve();
+        let locked = true;
+
+        function hasOwn(object, key) {
+          return Object.prototype.hasOwnProperty.call(object, key);
+        }
+
+        function isRecord(value) {
+          return (
+            value !== null && typeof value === "object" && !Array.isArray(value)
+          );
+        }
+
+        function isDecision(value) {
+          return (
+            isRecord(value) &&
+            typeof value.id === "string" &&
+            hasOwn(value, "answer") &&
+            (value.answer === null || isRecord(value.answer)) &&
+            typeof value.byDefault === "boolean" &&
+            hasOwn(value, "answeredAt") &&
+            (value.answeredAt === null || typeof value.answeredAt === "string")
+          );
+        }
+
+        function isState(value) {
+          return (
+            isRecord(value) &&
+            typeof value.version === "number" &&
+            typeof value.report === "string" &&
+            Array.isArray(value.decisions)
+          );
+        }
+
+        function showRuntimeError(message) {
+          if (!runtimeError) return;
+          runtimeError.textContent = message;
+          runtimeError.hidden = false;
+        }
+
+        function clearRuntimeError() {
+          if (!runtimeError) return;
+          runtimeError.textContent = "";
+          runtimeError.hidden = true;
+        }
+
+        function addCardWarning(card, message) {
+          const warning = document.createElement("p");
+          warning.className = "decision-card__warning";
+          warning.setAttribute("role", "status");
+          warning.textContent = message;
+          card.append(warning);
+        }
+
+        function setInteractive(enabled) {
+          locked = !enabled;
+          for (const control of operationControls) {
+            if ("disabled" in control) {
+              control.disabled = !enabled;
+            }
+            control.setAttribute("aria-disabled", String(!enabled));
+          }
+          for (const field of noteFields) {
+            if ("disabled" in field) {
+              field.disabled = !enabled;
+            }
+            field.setAttribute("aria-disabled", String(!enabled));
+            if (!("value" in field)) {
+              field.contentEditable = enabled ? "true" : "false";
+            }
+          }
+        }
+
+        function valueKey(value) {
+          if (value === null) return "null";
+          if (
+            typeof value === "string" ||
+            typeof value === "number" ||
+            typeof value === "boolean"
+          ) {
+            return String(value);
+          }
+          return null;
+        }
+
+        function createContext(card) {
+          const options = Array.from(card.querySelectorAll("[data-option]"));
+          const checks = Array.from(card.querySelectorAll("[data-check]"));
+          const notes = Array.from(card.querySelectorAll("[data-note]"));
+          const declaredDefaults = options.filter(
+            (option) => option.dataset.default === "true",
+          );
+          const defaultOption =
+            declaredDefaults.length === 1 ? declaredDefaults[0] : options[0];
+
+          if (declaredDefaults.length !== 1) {
+            addCardWarning(
+              card,
+              "AI 推奨の指定が 1 件ではないため、先頭の選択肢を既定値として扱います。",
+            );
+          }
+
+          return {
+            card,
+            id: card.dataset.card ?? "",
+            question: card.dataset.question ?? "",
+            options,
+            checks,
+            notes,
+            defaultOption,
+            decision: null,
+          };
+        }
+
+        const contexts = cards.map(createContext);
+
+        function defaultAnswer(context) {
+          const answer = {};
+          if (context.defaultOption) {
+            answer.choice = context.defaultOption.dataset.option ?? "";
+          }
+          for (const check of context.checks) {
+            answer[check.dataset.check ?? ""] = false;
+          }
+          if (context.notes.length > 0) {
+            answer.note = null;
+          }
+          return answer;
+        }
+
+        function defaultDecision(context) {
+          return {
+            id: context.id,
+            answer: defaultAnswer(context),
+            byDefault: true,
+            answeredAt: null,
+          };
+        }
+
+        function hasUsableAnswer(context, answer) {
+          if (!isRecord(answer)) return false;
+          if (context.options.length > 0 && !choiceBinding(context, answer)) {
+            return false;
+          }
+          for (const check of context.checks) {
+            const key = check.dataset.check ?? "";
+            if (hasOwn(answer, key) && typeof answer[key] !== "boolean") {
+              return false;
+            }
+          }
+          if (
+            context.notes.length > 0 &&
+            hasOwn(answer, "note") &&
+            answer.note !== null &&
+            typeof answer.note !== "string"
+          ) {
+            return false;
+          }
+          return true;
+        }
+
+        function bindDecisions() {
+          const cardIds = new Set(contexts.map((context) => context.id));
+          const invalidCardIds = new Set();
+          let discarded = false;
+
+          state.decisions = state.decisions.filter((decision) => {
+            if (isDecision(decision)) return true;
+            if (isRecord(decision) && cardIds.has(decision.id)) {
+              invalidCardIds.add(decision.id);
+              return false;
+            }
+            discarded = true;
+            return false;
+          });
+
+          if (discarded) {
+            showRuntimeError(
+              "対応するカードを特定できない不正な回答を除外し、他のカードを表示しています。",
+            );
+          }
+
+          for (const context of contexts) {
+            const index = state.decisions.findIndex(
+              (decision) => isRecord(decision) && decision.id === context.id,
+            );
+
+            if (index === -1) {
+              const decision = defaultDecision(context);
+              state.decisions.push(decision);
+              context.decision = decision;
+              addCardWarning(
+                context.card,
+                invalidCardIds.has(context.id)
+                  ? "回答データが不正なため、このカードだけ既定値として扱います。"
+                  : "回答データがないため、このカードだけ既定値として扱います。",
+              );
+              continue;
+            }
+
+            context.decision = state.decisions[index];
+            if (!hasUsableAnswer(context, context.decision.answer)) {
+              context.decision.answer = defaultAnswer(context);
+              context.decision.byDefault = true;
+              context.decision.answeredAt = null;
+              addCardWarning(
+                context.card,
+                "回答の形がカード宣言と一致しないため、このカードだけ既定値として扱います。",
+              );
+            }
+          }
+
+          const knownIds = new Set(contexts.map((context) => context.id));
+          const unknownIds = state.decisions
+            .filter(
+              (decision) => isDecision(decision) && !knownIds.has(decision.id),
+            )
+            .map((decision) => decision.id);
+          if (unknownIds.length > 0) {
+            showRuntimeError(
+              "カード宣言のない回答は変更せず保持し、宣言済みカードだけ表示しています。",
+            );
+          }
+        }
+
+        function choiceBinding(context, answer) {
+          if (!isRecord(answer)) return null;
+          const optionKeys = new Set(
+            context.options.map((option) => option.dataset.option ?? ""),
+          );
+
+          for (const [property, value] of Object.entries(answer)) {
+            const key = valueKey(value);
+            if (key !== null && optionKeys.has(key)) {
+              return { property, value, key };
+            }
+          }
+          return null;
+        }
+
+        function setSelected(element, selected) {
+          element.classList.toggle("is-selected", selected);
+          element.setAttribute("aria-pressed", String(selected));
+          if (element instanceof HTMLInputElement) {
+            element.checked = selected;
+          }
+        }
+
+        function applyContext(context) {
+          const answer = isRecord(context.decision?.answer)
+            ? context.decision.answer
+            : {};
+          const binding = choiceBinding(context, answer);
+          const selectedKey =
+            binding?.key ?? context.defaultOption?.dataset.option ?? null;
+
+          for (const option of context.options) {
+            setSelected(option, option.dataset.option === selectedKey);
+          }
+
+          for (const check of context.checks) {
+            const key = check.dataset.check ?? "";
+            setSelected(check, answer[key] === true);
+          }
+
+          for (const note of context.notes) {
+            const value = typeof answer.note === "string" ? answer.note : "";
+            if ("value" in note) {
+              note.value = value;
+            } else {
+              note.textContent = value;
+            }
+          }
+        }
+
+        function ensureAnswer(context) {
+          if (!isRecord(context.decision.answer)) {
+            context.decision.answer = defaultAnswer(context);
+          }
+          return context.decision.answer;
+        }
+
+        function markAnswered(context) {
+          context.decision.byDefault = false;
+          context.decision.answeredAt = new Date().toISOString();
+        }
+
+        function coerceOptionValue(key, currentValue) {
+          if (key === "null") return null;
+          if (typeof currentValue === "boolean") {
+            if (key === "true") return true;
+            if (key === "false") return false;
+          }
+          if (typeof currentValue === "number" && key.trim() !== "") {
+            const number = Number(key);
+            if (Number.isFinite(number)) return number;
+          }
+          return key;
+        }
+
+        function persistState() {
+          const snapshot = JSON.parse(JSON.stringify(state));
+          clearRuntimeError();
+
+          saveQueue = saveQueue
+            .catch(() => {})
+            .then(async () => {
+              const response = await fetch("/api/state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(snapshot),
+              });
+              if (!response.ok) {
+                throw new Error(
+                  "回答を保存できませんでした（" + response.status + "）",
+                );
+              }
+              const saved = await response.json();
+              if (isRecord(saved)) {
+                if (hasOwn(saved, "createdAt")) {
+                  state.createdAt = saved.createdAt;
+                }
+                if (hasOwn(saved, "completedAt")) {
+                  state.completedAt = saved.completedAt;
+                }
+              }
+            })
+            .catch((error) => {
+              showRuntimeError(error.message || "回答を保存できませんでした。");
+              throw error;
+            });
+
+          void saveQueue.catch(() => {});
+        }
+
+        function handleOption(context, option) {
+          if (locked) return;
+          const answer = ensureAnswer(context);
+          const binding = choiceBinding(context, answer);
+          const key = option.dataset.option ?? "";
+
+          if (binding) {
+            answer[binding.property] = coerceOptionValue(key, binding.value);
+          } else {
+            answer.choice = key;
+          }
+          markAnswered(context);
+          applyContext(context);
+          persistState();
+        }
+
+        function handleCheck(context, check) {
+          if (locked) return;
+          const answer = ensureAnswer(context);
+          const key = check.dataset.check ?? "";
+          answer[key] = answer[key] !== true;
+          markAnswered(context);
+          applyContext(context);
+          persistState();
+        }
+
+        function handleNote(context, note) {
+          if (locked) return;
+          const answer = ensureAnswer(context);
+          const value = "value" in note ? note.value : note.textContent;
+          answer.note = value === "" ? null : value;
+          markAnswered(context);
+          persistState();
+        }
+
+        function renderSummary() {
+          if (!summaryView || !summaryList) return;
+          summaryList.replaceChildren();
+
+          for (const context of contexts) {
+            const item = document.createElement("div");
+            item.className = "decision-summary__item";
+            const question = document.createElement("dt");
+            question.textContent = context.question;
+            const answer = document.createElement("dd");
+            const value = document.createElement("pre");
+            value.textContent = JSON.stringify(
+              context.decision?.answer ?? null,
+              null,
+              2,
+            );
+            answer.append(value);
+            item.append(question, answer);
+            summaryList.append(item);
+          }
+        }
+
+        function showSummary() {
+          if (locked || !summaryView) return;
+          renderSummary();
+          for (const card of cards) {
+            card.hidden = true;
+          }
+          for (const action of document.querySelectorAll(
+            '[data-action="accept-all"]',
+          )) {
+            action.hidden = true;
+          }
+          summaryView.hidden = false;
+          summaryView.scrollIntoView({ block: "start" });
+        }
+
+        async function commit() {
+          if (locked || !summaryStatus) return;
+          const commitButton = summaryView?.querySelector(
+            '[data-action="commit"]',
+          );
+          if (commitButton) commitButton.disabled = true;
+          summaryStatus.className = "decision-summary__status";
+          summaryStatus.textContent = "回答を保存しています…";
+
+          try {
+            await saveQueue;
+          } catch {
+            summaryStatus.classList.add("decision-runtime-error");
+            summaryStatus.textContent =
+              "回答を保存できないため確定できません。ヘルパーを確認してください。";
+            if (commitButton) commitButton.disabled = false;
+            return;
+          }
+
+          try {
+            const response = await fetch("/api/commit", { method: "POST" });
+            if (!response.ok) {
+              if (response.status === 409) {
+                throw new Error("この回答はすでに確定されています（409）。");
+              }
+              if (response.status === 404) {
+                throw new Error("回答ファイルが見つかりません（404）。");
+              }
+              throw new Error("確定できませんでした（" + response.status + "）。");
+            }
+
+            const committed = await response.json();
+            if (isRecord(committed) && hasOwn(committed, "completedAt")) {
+              state.completedAt = committed.completedAt;
+            }
+            summaryStatus.classList.add("decision-runtime-success");
+            summaryStatus.textContent =
+              "確定しました。エージェントが編集を開始します";
+            setInteractive(false);
+          } catch (error) {
+            summaryStatus.classList.add("decision-runtime-error");
+            summaryStatus.textContent = error.message || "確定できませんでした。";
+            if (commitButton) commitButton.disabled = false;
+          }
+        }
+
+        for (const context of contexts) {
+          for (const option of context.options) {
+            option.addEventListener("click", (event) => {
+              event.preventDefault();
+              handleOption(context, option);
+            });
+          }
+          for (const check of context.checks) {
+            check.addEventListener("click", (event) => {
+              event.preventDefault();
+              handleCheck(context, check);
+            });
+          }
+          for (const note of context.notes) {
+            note.addEventListener("input", () => handleNote(context, note));
+          }
+        }
+
+        for (const action of document.querySelectorAll(
+          '[data-action="accept-all"]',
+        )) {
+          action.addEventListener("click", (event) => {
+            event.preventDefault();
+            showSummary();
+          });
+        }
+        summaryView
+          ?.querySelector('[data-action="commit"]')
+          ?.addEventListener("click", (event) => {
+            event.preventDefault();
+            void commit();
+          });
+
+        async function initialize() {
+          setInteractive(false);
+          try {
+            const response = await fetch("/api/state", {
+              headers: { Accept: "application/json" },
+            });
+            if (!response.ok) {
+              throw new Error("state request failed: " + response.status);
+            }
+            const loadedState = await response.json();
+            if (!isState(loadedState)) {
+              throw new Error("state response is invalid");
+            }
+
+            state = loadedState;
+            clearRuntimeError();
+            bindDecisions();
+            for (const context of contexts) {
+              applyContext(context);
+            }
+
+            if (runtimeMessage) runtimeMessage.hidden = true;
+            if (state.completedAt !== null && state.completedAt !== undefined) {
+              renderSummary();
+              if (summaryView) summaryView.hidden = false;
+              if (summaryStatus) {
+                summaryStatus.textContent = "この回答は確定済みです。";
+              }
+              setInteractive(false);
+              return;
+            }
+            setInteractive(true);
+          } catch (error) {
+            console.warn("Decision cards are read-only:", error);
+            setInteractive(false);
+            if (runtimeMessage) runtimeMessage.hidden = false;
+          }
+        }
+
+        for (const context of contexts) {
+          applyContext(context);
+        }
+        void initialize();
+      })();
+    </script>
+  </body>
+</html>

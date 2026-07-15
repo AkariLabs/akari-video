@@ -1,0 +1,2365 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; font-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>AKARI Video 編集判断レポート</title>
+    <!--
+    AKARI 安全な差し替え規約:
+    - data-field の値は HTML として挿入せず、必ずエスケープ済みテキストとして差し替える。
+    - data-repeat の要素は複製して使い、未検証の innerHTML を流し込まない。
+    - href はこの文書内の #id のみ、img src は検証済みの data:image/* のみ許可する。
+    - 決定カードは同梱ランタイムと localhost ヘルパーだけで動作し、外部オリジンへ接続しない。
+    - ヘルパーへ接続できない場合は閲覧専用へ劣化し、チャットでの回答経路を案内する。
+  -->
+    <style>
+      :root {
+        color-scheme: light;
+        --page: #f4f6fb;
+        --surface: #ffffff;
+        --surface-muted: #eef2fa;
+        --ink: #172033;
+        --muted: #58647a;
+        --line: #ccd4e3;
+        --accent: #304ffe;
+        --accent-dark: #1633c8;
+        --good: #126a3a;
+        --good-bg: #e3f5ea;
+        --warn: #7a4c00;
+        --warn-bg: #fff1c8;
+        --drop: #9b2535;
+        --drop-bg: #fde8eb;
+        --shadow: 0 14px 38px rgba(25, 38, 74, 0.09);
+        --radius: 18px;
+        --space-1: 0.35rem;
+        --space-2: 0.65rem;
+        --space-3: 1rem;
+        --space-4: 1.5rem;
+        --space-5: 2.25rem;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--page);
+        color: var(--ink);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI",
+          "Yu Gothic", Meiryo, sans-serif;
+        line-height: 1.65;
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 18rem;
+      }
+
+      a {
+        color: var(--accent-dark);
+        text-underline-offset: 0.16em;
+      }
+
+      a:hover {
+        text-decoration-thickness: 0.16em;
+      }
+
+      a:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 3px solid #ffb000;
+        outline-offset: 3px;
+        border-radius: 4px;
+      }
+
+      img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+
+      .skip-link {
+        position: fixed;
+        z-index: 100;
+        top: 0.5rem;
+        left: 0.5rem;
+        padding: 0.65rem 0.9rem;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #111827;
+        transform: translateY(-160%);
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .report-header {
+        color: #ffffff;
+        background:
+          radial-gradient(
+            circle at 85% 20%,
+            rgba(114, 137, 255, 0.55),
+            transparent 28rem
+          ),
+          linear-gradient(135deg, #101833, #1f2f66);
+      }
+
+      .report-header__inner,
+      main,
+      .report-footer {
+        width: min(76rem, calc(100% - 2rem));
+        margin-inline: auto;
+      }
+
+      .report-header__inner {
+        padding: clamp(2.6rem, 7vw, 5.6rem) 0 clamp(2.2rem, 5vw, 4rem);
+      }
+
+      .eyebrow {
+        margin: 0 0 var(--space-2);
+        color: #cbd5ff;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.25;
+        text-wrap: balance;
+      }
+
+      h1 {
+        max-width: 18ch;
+        margin: 0;
+        font-size: clamp(2rem, 6vw, 4.5rem);
+        letter-spacing: -0.04em;
+      }
+
+      h2 {
+        margin: 0 0 var(--space-3);
+        font-size: clamp(1.55rem, 3vw, 2.25rem);
+        letter-spacing: -0.025em;
+      }
+
+      h3 {
+        margin: 0 0 var(--space-2);
+        font-size: 1.1rem;
+      }
+
+      p,
+      ul,
+      ol,
+      dl,
+      blockquote {
+        margin-top: 0;
+      }
+
+      .report-meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--space-3);
+        margin: var(--space-5) 0 0;
+      }
+
+      .report-meta > div {
+        padding: var(--space-3);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      dt {
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+
+      .report-meta dt {
+        color: #dbe2ff;
+      }
+
+      dd {
+        margin: 0.15rem 0 0;
+        overflow-wrap: anywhere;
+      }
+
+      main {
+        padding: var(--space-5) 0 4.5rem;
+      }
+
+      .report-section {
+        margin-top: var(--space-5);
+        padding: clamp(1.2rem, 3vw, 2rem);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        break-inside: avoid-page;
+      }
+
+      .report-section:first-child {
+        margin-top: 0;
+      }
+
+      .section-kicker {
+        display: inline-block;
+        margin-bottom: var(--space-2);
+        color: var(--accent-dark);
+        font-size: 0.78rem;
+        font-weight: 850;
+        letter-spacing: 0.12em;
+      }
+
+      .section-lead {
+        max-width: 72ch;
+        color: var(--muted);
+      }
+
+      .notice {
+        margin: var(--space-3) 0;
+        padding: var(--space-3);
+        border-left: 5px solid var(--accent);
+        border-radius: 8px;
+        background: var(--surface-muted);
+      }
+
+      .notice--warning {
+        border-left-color: #b16b00;
+        background: var(--warn-bg);
+        color: #5a3800;
+      }
+
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--space-3);
+        margin-top: var(--space-4);
+      }
+
+      .card {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+      }
+
+      .card__body {
+        padding: var(--space-3);
+      }
+
+      .thumbnail-image,
+      .evidence-image,
+      .asset-image {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        background: #17223b;
+      }
+
+      .route-label,
+      .status,
+      .decision,
+      .choice {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-height: 1.75rem;
+        padding: 0.2rem 0.55rem;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 800;
+        line-height: 1.25;
+      }
+
+      .route-label {
+        margin-bottom: var(--space-2);
+        color: var(--accent-dark);
+        background: #eef1ff;
+      }
+
+      .status--pending {
+        color: var(--warn);
+        background: var(--warn-bg);
+      }
+
+      .decision--keep {
+        color: var(--good);
+        background: var(--good-bg);
+      }
+
+      .decision--drop {
+        color: var(--drop);
+        background: var(--drop-bg);
+      }
+
+      .title-variants {
+        padding-left: 1.25rem;
+      }
+
+      .title-variants li + li {
+        margin-top: 0.35rem;
+      }
+
+      .provenance {
+        display: grid;
+        grid-template-columns: minmax(5.5rem, 0.35fr) minmax(0, 1fr);
+        gap: 0.35rem 0.65rem;
+        margin: var(--space-3) 0 0;
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--line);
+        font-size: 0.82rem;
+      }
+
+      .provenance dt,
+      .provenance dd {
+        margin: 0;
+      }
+
+      .table-scroll {
+        max-width: 100%;
+        margin-top: var(--space-3);
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      table {
+        width: 100%;
+        min-width: 46rem;
+        border-collapse: collapse;
+        background: var(--surface);
+        font-size: 0.9rem;
+      }
+
+      caption {
+        padding: 0.85rem 1rem;
+        color: var(--ink);
+        background: var(--surface-muted);
+        font-weight: 800;
+        text-align: left;
+      }
+
+      th,
+      td {
+        padding: 0.75rem 0.85rem;
+        border-top: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      thead th {
+        color: #ffffff;
+        background: #25345f;
+        border-top: 0;
+      }
+
+      tbody th {
+        min-width: 8rem;
+        color: var(--ink);
+        background: #f8f9fc;
+      }
+
+      .evidence-grid,
+      .policy-grid,
+      .asset-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+        margin-top: var(--space-4);
+      }
+
+      figure {
+        margin: 0;
+      }
+
+      .evidence-card,
+      .policy-card,
+      .asset-preview {
+        padding: var(--space-3);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fafbfe;
+      }
+
+      figcaption {
+        margin-top: var(--space-2);
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      blockquote {
+        margin-bottom: 0;
+        padding-left: var(--space-3);
+        border-left: 4px solid var(--accent);
+        color: #2f3c54;
+      }
+
+      .policy-card--recommended {
+        border-width: 2px;
+        border-color: var(--accent);
+        background: #f3f5ff;
+      }
+
+      .checkpoint {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--space-3);
+        align-items: start;
+        margin-top: var(--space-4);
+        padding: var(--space-3);
+        border: 2px solid #d3951b;
+        border-radius: 14px;
+        background: #fffaf0;
+        break-inside: avoid;
+      }
+
+      .checkpoint p:last-child {
+        margin-bottom: 0;
+      }
+
+      .choice-set {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        min-width: 19rem;
+      }
+
+      .choice {
+        color: #5c6679;
+        background: #ffffff;
+      }
+
+      .choice::before {
+        content: "○";
+        font-weight: 900;
+      }
+
+      .choice[aria-current="true"] {
+        color: #173b28;
+        background: var(--good-bg);
+      }
+
+      .choice[aria-current="true"]::before {
+        content: "●";
+      }
+
+      .asset-preview .provenance {
+        margin-top: var(--space-2);
+      }
+
+      .audio-placeholder {
+        display: grid;
+        min-height: 9rem;
+        place-items: center;
+        padding: var(--space-3);
+        color: #ffffff;
+        background:
+          repeating-linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.12) 0 3px,
+            transparent 3px 12px
+          ),
+          linear-gradient(135deg, #23335f, #304ffe);
+        text-align: center;
+      }
+
+      .log-rule {
+        margin-top: var(--space-3);
+        padding: var(--space-3);
+        border: 2px solid var(--accent);
+        border-radius: 12px;
+        background: #f3f5ff;
+      }
+
+      .log-rule strong {
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .decision-workspace {
+        margin-bottom: var(--space-5);
+        padding: clamp(1.2rem, 3vw, 2rem);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .decision-runtime-message,
+      .decision-runtime-error,
+      .decision-runtime-success,
+      .decision-card__warning {
+        margin: var(--space-3) 0;
+        padding: 0.75rem 0.9rem;
+        border-radius: 9px;
+      }
+
+      .decision-runtime-message,
+      .decision-card__warning {
+        color: #5a3800;
+        background: var(--warn-bg);
+      }
+
+      .decision-runtime-error {
+        color: #751b2a;
+        background: var(--drop-bg);
+      }
+
+      .decision-runtime-success {
+        color: var(--good);
+        background: var(--good-bg);
+        font-weight: 800;
+      }
+
+      .decision-card-stack {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-3);
+        margin: var(--space-4) 0;
+      }
+
+      .decision-card {
+        padding: clamp(1rem, 3vw, 1.5rem);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fafbfe;
+      }
+
+      .decision-card__question {
+        margin-bottom: var(--space-3);
+        font-size: 1.12rem;
+        font-weight: 800;
+      }
+
+      .decision-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+        gap: 0.65rem;
+      }
+
+      .decision-option,
+      .decision-check,
+      .decision-action {
+        min-height: 2.75rem;
+        padding: 0.65rem 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--ink);
+        background: var(--surface);
+        font: inherit;
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .decision-option:hover:not(:disabled),
+      .decision-check:hover:not(:disabled),
+      .decision-action:hover:not(:disabled) {
+        border-color: var(--accent);
+      }
+
+      .decision-option:focus-visible,
+      .decision-check:focus-visible,
+      .decision-action:focus-visible,
+      [data-note]:focus-visible {
+        outline: 3px solid #ffb000;
+        outline-offset: 3px;
+      }
+
+      .decision-option.is-selected,
+      .decision-check.is-selected {
+        border-color: var(--accent);
+        color: var(--accent-dark);
+        background: #eef1ff;
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+
+      .decision-option:disabled,
+      .decision-check:disabled,
+      .decision-action:disabled,
+      [data-note]:disabled,
+      [data-option][aria-disabled="true"],
+      [data-check][aria-disabled="true"],
+      [data-action][aria-disabled="true"],
+      [data-note][aria-disabled="true"] {
+        cursor: not-allowed;
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      .decision-action {
+        color: #ffffff;
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .decision-action:hover:not(:disabled) {
+        background: var(--accent-dark);
+      }
+
+      .decision-action--secondary {
+        color: var(--accent-dark);
+        background: #eef1ff;
+      }
+
+      .decision-card__extras {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        margin-top: var(--space-3);
+      }
+
+      [data-note] {
+        display: block;
+        width: 100%;
+        min-height: 6rem;
+        margin-top: var(--space-3);
+        padding: 0.75rem;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--ink);
+        background: var(--surface);
+        font: inherit;
+      }
+
+      .decision-card details {
+        margin-top: var(--space-3);
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--line);
+      }
+
+      .decision-card summary {
+        color: var(--accent-dark);
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .decision-summary {
+        padding: clamp(1rem, 3vw, 1.5rem);
+        border: 2px solid var(--accent);
+        border-radius: 14px;
+        background: #f7f8ff;
+      }
+
+      .decision-summary__list {
+        display: grid;
+        gap: var(--space-3);
+        margin: var(--space-3) 0;
+      }
+
+      .decision-summary__item {
+        padding: var(--space-3);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+
+      .decision-summary__item dt {
+        color: var(--ink);
+        font-size: 1rem;
+      }
+
+      .decision-summary__item dd {
+        margin-top: var(--space-2);
+      }
+
+      .decision-summary__item pre {
+        margin: 0;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+        font: 0.85rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas,
+          monospace;
+      }
+
+      .decision-card__warning {
+        font-size: 0.85rem;
+      }
+
+      .report-footer {
+        padding: 0 0 3rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .visually-hidden {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+      }
+
+      [data-placeholder="true"] {
+        text-decoration: underline dotted;
+        text-underline-offset: 0.2em;
+      }
+
+      @media (max-width: 64rem) {
+        .card-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .thumbnail-image {
+          max-height: 28rem;
+        }
+      }
+
+      @media (max-width: 46rem) {
+        .report-header__inner,
+        main,
+        .report-footer {
+          width: min(100% - 1rem, 76rem);
+        }
+
+        .report-meta,
+        .evidence-grid,
+        .policy-grid,
+        .asset-preview-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .checkpoint {
+          grid-template-columns: 1fr;
+        }
+
+        .choice-set {
+          min-width: 0;
+        }
+
+        .report-section {
+          padding: 1rem;
+          border-radius: 12px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+
+      @media print {
+        :root {
+          --page: #ffffff;
+          --shadow: none;
+        }
+
+        .skip-link {
+          display: none;
+        }
+
+        .report-header {
+          color: #111827;
+          background: #ffffff;
+          border-bottom: 2px solid #111827;
+        }
+
+        .report-meta > div {
+          border-color: #8791a3;
+          background: #ffffff;
+        }
+
+        .report-meta dt,
+        .eyebrow {
+          color: #344054;
+        }
+
+        .report-section {
+          border-color: #8791a3;
+        }
+
+        a {
+          color: #111827;
+        }
+
+        .table-scroll {
+          overflow: visible;
+        }
+
+        table {
+          min-width: 0;
+          font-size: 8.5pt;
+        }
+
+        .card,
+        .checkpoint,
+        .evidence-card,
+        .policy-card,
+        .asset-preview,
+        tr {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">本文へ移動</a>
+
+    <header class="report-header">
+      <div class="report-header__inner">
+        <p class="eyebrow">AKARI VIDEO / EDIT DECISION REPORT</p>
+        <h1 data-field="report-title" data-placeholder="true">
+          編集判断レポート — タイトル未入力
+        </h1>
+        <dl class="report-meta" aria-label="レポート基本情報">
+          <div>
+            <dt>対象プロジェクト</dt>
+            <dd data-field="project-name" data-placeholder="true">
+              プロジェクト名未入力
+            </dd>
+          </div>
+          <div>
+            <dt>生成日時</dt>
+            <dd>
+              <time
+                datetime="2026-07-13T00:00:00+09:00"
+                data-field="report-generated-at"
+                data-placeholder="true"
+                >2026-07-13T00:00:00+09:00</time
+              >
+            </dd>
+          </div>
+          <div>
+            <dt>対象素材</dt>
+            <dd data-field="source-count" data-placeholder="true">
+              0 本（差し替え必須）
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section
+        class="decision-workspace"
+        aria-labelledby="heading-decision-cards"
+      >
+        <span class="section-kicker">DECISION CARDS</span>
+        <h2 id="heading-decision-cards">編集前に決めること</h2>
+        <p class="section-lead">
+          AI 推奨は選択済みです。直したいカードだけ操作し、最後に 1
+          画面の要約を確認して確定します。
+        </p>
+        <p class="notice notice--warning">
+          この 2 枚は data 属性規約を示すテンプレートです。実レポートではカードと
+          decisions.json の id・answer を対にして、質問と選択肢を差し替える。
+        </p>
+
+        <p class="decision-runtime-message" role="status" aria-live="polite">
+          ヘルパー経由で開くと回答できます。チャットでの回答も可能です
+        </p>
+        <p class="decision-runtime-error" role="alert" hidden></p>
+
+        <button
+          class="decision-action"
+          type="button"
+          data-action="accept-all"
+          disabled
+        >
+          すべておまかせで確認
+        </button>
+
+        <div class="decision-card-stack">
+          <article
+            class="decision-card"
+            data-card="decision-1"
+            data-question="最初の判断はどの案にしますか？"
+            data-placeholder="true"
+          >
+            <p class="decision-card__question">
+              最初の判断はどの案にしますか？
+            </p>
+            <div class="decision-options">
+              <button
+                class="decision-option"
+                type="button"
+                data-option="recommended"
+                data-default="true"
+                disabled
+              >
+                AI 推奨案
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="alternative"
+                disabled
+              >
+                対案
+              </button>
+            </div>
+            <div class="decision-card__extras">
+              <button
+                class="decision-check"
+                type="button"
+                data-check="requestMore"
+                disabled
+              >
+                別案も依頼する
+              </button>
+            </div>
+            <label>
+              補足
+              <textarea
+                data-note
+                disabled
+                placeholder="任意の補足を入力"
+              ></textarea>
+            </label>
+            <details>
+              <summary>根拠・証拠を見る</summary>
+              <p>推奨理由と参照した根拠をここへ記入する。</p>
+            </details>
+          </article>
+
+          <article
+            class="decision-card"
+            data-card="decision-2"
+            data-question="次の判断はどの案にしますか？"
+            data-placeholder="true"
+          >
+            <p class="decision-card__question">
+              次の判断はどの案にしますか？
+            </p>
+            <div class="decision-options">
+              <button
+                class="decision-option"
+                type="button"
+                data-option="standard"
+                data-default="true"
+                disabled
+              >
+                標準
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="strong"
+                disabled
+              >
+                強め
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="light"
+                disabled
+              >
+                控えめ
+              </button>
+            </div>
+            <details>
+              <summary>根拠・証拠を見る</summary>
+              <p>比較した案とトレードオフをここへ記入する。</p>
+            </details>
+          </article>
+        </div>
+
+        <button
+          class="decision-action decision-action--secondary"
+          type="button"
+          data-action="accept-all"
+          disabled
+        >
+          確認へ
+        </button>
+
+        <section
+          class="decision-summary"
+          data-view="summary"
+          aria-labelledby="heading-decision-summary"
+          hidden
+        >
+          <h3 id="heading-decision-summary">確定内容の要約</h3>
+          <dl class="decision-summary__list"></dl>
+          <button
+            class="decision-action"
+            type="button"
+            data-action="commit"
+            disabled
+          >
+            この内容で確定
+          </button>
+          <p class="decision-summary__status" role="status" aria-live="polite"></p>
+        </section>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-thumbnails"
+        aria-labelledby="heading-thumbnails"
+      >
+        <span class="section-kicker">SECTION 01</span>
+        <h2 id="heading-thumbnails">1. サムネイル案</h2>
+        <p class="section-lead">
+          CTR に直結する判断を先頭で確認する。3
+          経路を比較し、タイトル文字の候補まで含めて承認する。
+        </p>
+        <p class="notice">
+          下の画像はテンプレート内蔵の安全なプレースホルダー。実レポートでは生成済み静止画を
+          <code>data:image/*</code> として埋め込み、各 provenance
+          を必ず差し替える。
+        </p>
+
+        <div class="card-grid">
+          <!-- AKARI_REPEAT: thumbnail-route-a -->
+          <article class="card" data-repeat="thumbnail-route-a">
+            <img
+              class="thumbnail-image"
+              src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20640%20360'%3E%3Crect%20width='640'%20height='360'%20fill='%2317223b'/%3E%3Ccircle%20cx='520'%20cy='70'%20r='145'%20fill='%23304ffe'/%3E%3Ctext%20x='48'%20y='188'%20font-size='56'%20font-family='sans-serif'%20font-weight='700'%20fill='white'%3EROUTE%20A%3C/text%3E%3Ctext%20x='50'%20y='235'%20font-size='20'%20font-family='sans-serif'%20fill='%23dbe2ff'%3EREAL%20FRAME%20%2B%20HTML%20TYPE%3C/text%3E%3C/svg%3E"
+              alt="経路A、実フレームとHTML文字組のサムネイル案プレースホルダー"
+              width="640"
+              height="360"
+            />
+            <div class="card__body">
+              <span class="route-label">経路 A</span>
+              <h3 data-field="thumbnail-a-name" data-placeholder="true">
+                実フレーム + HTML 文字組
+              </h3>
+              <p data-field="thumbnail-a-rationale" data-placeholder="true">
+                根拠フレームの具体性と、日本語タイポグラフィの再現性を優先する案。
+              </p>
+              <strong>タイトル文字バリエーション</strong>
+              <ol class="title-variants">
+                <li data-field="thumbnail-a-title-1" data-placeholder="true">
+                  タイトル案 A-1
+                </li>
+                <li data-field="thumbnail-a-title-2" data-placeholder="true">
+                  タイトル案 A-2
+                </li>
+              </ol>
+              <dl class="provenance" aria-label="経路Aのprovenance">
+                <dt>手</dt>
+                <dd data-field="thumbnail-a-tool" data-placeholder="true">
+                  ffmpeg 実フレーム + ローカル HTML
+                </dd>
+                <dt>プロンプト</dt>
+                <dd data-field="thumbnail-a-prompt" data-placeholder="true">
+                  文字組指示を入力
+                </dd>
+                <dt>日時</dt>
+                <dd>
+                  <time
+                    datetime="2026-07-13T00:00:00+09:00"
+                    data-field="thumbnail-a-created-at"
+                    data-placeholder="true"
+                    >2026-07-13T00:00:00+09:00</time
+                  >
+                </dd>
+              </dl>
+            </div>
+          </article>
+
+          <!-- AKARI_REPEAT: thumbnail-route-b -->
+          <article class="card" data-repeat="thumbnail-route-b">
+            <img
+              class="thumbnail-image"
+              src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20640%20360'%3E%3Crect%20width='640'%20height='360'%20fill='%232b173d'/%3E%3Ccircle%20cx='110'%20cy='50'%20r='150'%20fill='%23b445e8'/%3E%3Ctext%20x='48'%20y='188'%20font-size='56'%20font-family='sans-serif'%20font-weight='700'%20fill='white'%3EROUTE%20B%3C/text%3E%3Ctext%20x='50'%20y='235'%20font-size='20'%20font-family='sans-serif'%20fill='%23f0dcff'%3ECODEX%20IMAGE%20GENERATION%3C/text%3E%3C/svg%3E"
+              alt="経路B、Codex画像生成のサムネイル案プレースホルダー"
+              width="640"
+              height="360"
+            />
+            <div class="card__body">
+              <span class="route-label">経路 B</span>
+              <h3 data-field="thumbnail-b-name" data-placeholder="true">
+                Codex 画像生成
+              </h3>
+              <p data-field="thumbnail-b-rationale" data-placeholder="true">
+                実写にない構図や象徴表現を作り、視認性の高い一枚絵にする案。
+              </p>
+              <strong>タイトル文字バリエーション</strong>
+              <ol class="title-variants">
+                <li data-field="thumbnail-b-title-1" data-placeholder="true">
+                  タイトル案 B-1
+                </li>
+                <li data-field="thumbnail-b-title-2" data-placeholder="true">
+                  タイトル案 B-2
+                </li>
+              </ol>
+              <dl class="provenance" aria-label="経路Bのprovenance">
+                <dt>手</dt>
+                <dd data-field="thumbnail-b-tool" data-placeholder="true">
+                  Codex 画像生成
+                </dd>
+                <dt>プロンプト</dt>
+                <dd data-field="thumbnail-b-prompt" data-placeholder="true">
+                  画像生成プロンプトを入力
+                </dd>
+                <dt>日時</dt>
+                <dd>
+                  <time
+                    datetime="2026-07-13T00:00:00+09:00"
+                    data-field="thumbnail-b-created-at"
+                    data-placeholder="true"
+                    >2026-07-13T00:00:00+09:00</time
+                  >
+                </dd>
+              </dl>
+            </div>
+          </article>
+
+          <!-- AKARI_REPEAT: thumbnail-route-mixed -->
+          <article class="card" data-repeat="thumbnail-route-mixed">
+            <img
+              class="thumbnail-image"
+              src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20640%20360'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20x2='1'%3E%3Cstop%20stop-color='%231a3d36'/%3E%3Cstop%20offset='1'%20stop-color='%23224d78'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='640'%20height='360'%20fill='url(%23g)'/%3E%3Ccircle%20cx='520'%20cy='290'%20r='145'%20fill='%2323a77a'/%3E%3Ctext%20x='48'%20y='188'%20font-size='56'%20font-family='sans-serif'%20font-weight='700'%20fill='white'%3EMIXED%3C/text%3E%3Ctext%20x='50'%20y='235'%20font-size='20'%20font-family='sans-serif'%20fill='%23d8fff1'%3EGENERATED%20BG%20%2B%20HTML%20TYPE%3C/text%3E%3C/svg%3E"
+              alt="混成経路、生成背景とHTML文字組のサムネイル案プレースホルダー"
+              width="640"
+              height="360"
+            />
+            <div class="card__body">
+              <span class="route-label">混成</span>
+              <h3 data-field="thumbnail-mixed-name" data-placeholder="true">
+                生成背景 + HTML 文字組
+              </h3>
+              <p data-field="thumbnail-mixed-rationale" data-placeholder="true">
+                生成背景の構図自由度と、日本語文字組の正確さを両立する案。
+              </p>
+              <strong>タイトル文字バリエーション</strong>
+              <ol class="title-variants">
+                <li
+                  data-field="thumbnail-mixed-title-1"
+                  data-placeholder="true"
+                >
+                  タイトル案 混成-1
+                </li>
+                <li
+                  data-field="thumbnail-mixed-title-2"
+                  data-placeholder="true"
+                >
+                  タイトル案 混成-2
+                </li>
+              </ol>
+              <dl class="provenance" aria-label="混成経路のprovenance">
+                <dt>手</dt>
+                <dd data-field="thumbnail-mixed-tool" data-placeholder="true">
+                  Codex 画像生成 + ローカル HTML
+                </dd>
+                <dt>プロンプト</dt>
+                <dd data-field="thumbnail-mixed-prompt" data-placeholder="true">
+                  背景生成と文字組の指示を入力
+                </dd>
+                <dt>日時</dt>
+                <dd>
+                  <time
+                    datetime="2026-07-13T00:00:00+09:00"
+                    data-field="thumbnail-mixed-created-at"
+                    data-placeholder="true"
+                    >2026-07-13T00:00:00+09:00</time
+                  >
+                </dd>
+              </dl>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-analysis"
+        aria-labelledby="heading-analysis"
+      >
+        <span class="section-kicker">SECTION 02</span>
+        <h2 id="heading-analysis">2. 分析サマリ</h2>
+        <p class="section-lead">
+          素材ごとの要点と、判断の根拠になったキーフレーム・文字起こしを同じ文書内で追跡する。
+        </p>
+
+        <div
+          class="table-scroll"
+          tabindex="0"
+          role="region"
+          aria-label="素材別分析サマリ表。横にスクロールできます"
+        >
+          <table>
+            <caption>
+              素材別の分析結果と内部根拠リンク
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">素材</th>
+                <th scope="col">要点</th>
+                <th scope="col">尺・品質</th>
+                <th scope="col">根拠フレーム</th>
+                <th scope="col">transcript</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- AKARI_REPEAT: source-summary-row -->
+              <tr data-repeat="source-summary-row">
+                <th
+                  scope="row"
+                  data-field="source-name"
+                  data-placeholder="true"
+                >
+                  素材名未入力
+                </th>
+                <td data-field="source-summary" data-placeholder="true">
+                  素材の要点を入力
+                </td>
+                <td data-field="source-quality" data-placeholder="true">
+                  尺・映像・音声の所見を入力
+                </td>
+                <td><a href="#evidence-frame-001">フレーム KF-001</a></td>
+                <td><a href="#evidence-transcript-001">発話 T-001</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="evidence-grid" aria-label="根拠詳細">
+          <!-- AKARI_REPEAT: keyframe-evidence -->
+          <figure
+            class="evidence-card"
+            id="evidence-frame-001"
+            data-repeat="keyframe-evidence"
+          >
+            <img
+              class="evidence-image"
+              src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20640%20360'%3E%3Crect%20width='640'%20height='360'%20fill='%2325314e'/%3E%3Cpath%20d='M80%20280L220%20140L315%20230L400%20110L570%20280Z'%20fill='%236f86cc'/%3E%3Ccircle%20cx='500'%20cy='85'%20r='40'%20fill='%23f3c858'/%3E%3Ctext%20x='40'%20y='52'%20font-size='22'%20font-family='sans-serif'%20fill='white'%3EKEYFRAME%20EVIDENCE%3C/text%3E%3C/svg%3E"
+              alt="根拠キーフレームのプレースホルダー。実レポートでは素材の該当フレームに差し替える"
+              width="640"
+              height="360"
+            />
+            <figcaption>
+              <strong data-field="keyframe-id" data-placeholder="true"
+                >KF-001 / 00:00:00.000</strong
+              ><br />
+              <span data-field="keyframe-note" data-placeholder="true"
+                >フレーム所見を入力</span
+              >
+            </figcaption>
+          </figure>
+
+          <!-- AKARI_REPEAT: transcript-evidence -->
+          <article
+            class="evidence-card"
+            id="evidence-transcript-001"
+            data-repeat="transcript-evidence"
+          >
+            <h3 data-field="transcript-id" data-placeholder="true">
+              T-001 / 00:00:00.000–00:00:00.000
+            </h3>
+            <blockquote data-field="transcript-text" data-placeholder="true">
+              文字起こしの根拠発話をエスケープ済みテキストで入力
+            </blockquote>
+            <dl class="provenance" aria-label="文字起こし根拠情報">
+              <dt>speaker</dt>
+              <dd data-field="transcript-speaker" data-placeholder="true">
+                未設定
+              </dd>
+              <dt>source</dt>
+              <dd data-field="transcript-source" data-placeholder="true">
+                analysis.json の相対パス
+              </dd>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-policy"
+        aria-labelledby="heading-policy"
+      >
+        <span class="section-kicker">SECTION 03</span>
+        <h2 id="heading-policy">3. 編集方針</h2>
+        <p class="section-lead">
+          推奨する方向性と理由を示し、成立する別案の利点・欠点も並べて判断可能にする。
+        </p>
+
+        <div class="policy-grid">
+          <article class="policy-card policy-card--recommended">
+            <span class="route-label">推奨案</span>
+            <h3 data-field="policy-primary-title" data-placeholder="true">
+              推奨方針の名称
+            </h3>
+            <p data-field="policy-primary-description" data-placeholder="true">
+              方針の具体内容を入力
+            </p>
+            <p>
+              <strong>理由:</strong>
+              <span data-field="policy-primary-reason" data-placeholder="true"
+                >分析根拠に基づく理由を入力</span
+              >
+            </p>
+            <p>
+              <strong>留意点:</strong>
+              <span data-field="policy-primary-risk" data-placeholder="true"
+                >弱点・コスト・失うものを入力</span
+              >
+            </p>
+          </article>
+          <article class="policy-card">
+            <span class="route-label">対案</span>
+            <h3 data-field="policy-alternative-title" data-placeholder="true">
+              対案の名称
+            </h3>
+            <p
+              data-field="policy-alternative-description"
+              data-placeholder="true"
+            >
+              対案の具体内容を入力
+            </p>
+            <p>
+              <strong>利点:</strong>
+              <span
+                data-field="policy-alternative-benefit"
+                data-placeholder="true"
+                >対案が優れる条件を入力</span
+              >
+            </p>
+            <p>
+              <strong>欠点:</strong>
+              <span data-field="policy-alternative-cost" data-placeholder="true"
+                >対案の弱点を入力</span
+              >
+            </p>
+          </article>
+        </div>
+
+        <aside
+          class="checkpoint"
+          aria-labelledby="checkpoint-policy-title"
+          data-checkpoint="policy"
+        >
+          <div>
+            <h3 id="checkpoint-policy-title">チェックポイント 1 — 方針</h3>
+            <p>
+              推奨案・対案・理由を確認し、人間が明示承認した事実を decision_log
+              へ追記するまで 素材計画の確定へ進まない。
+            </p>
+          </div>
+          <span class="status status--pending" aria-label="承認状態、保留"
+            >承認待ち</span
+          >
+        </aside>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-cuts"
+        aria-labelledby="heading-cuts"
+      >
+        <span class="section-kicker">SECTION 04</span>
+        <h2 id="heading-cuts">4. カット判断一覧</h2>
+        <p class="section-lead">
+          keep / drop の判断を source 時間で示し、各行から根拠 event または
+          transcript を追跡する。
+        </p>
+
+        <div
+          class="table-scroll"
+          tabindex="0"
+          role="region"
+          aria-label="カット判断一覧表。横にスクロールできます"
+        >
+          <table>
+            <caption>
+              source 時間に基づく keep / drop 判断
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">素材</th>
+                <th scope="col">source 範囲</th>
+                <th scope="col">判断</th>
+                <th scope="col">根拠</th>
+                <th scope="col">event / evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- AKARI_REPEAT: cut-decision-row -->
+              <tr data-repeat="cut-decision-row">
+                <th scope="row" data-field="cut-source" data-placeholder="true">
+                  素材名未入力
+                </th>
+                <td data-field="cut-range" data-placeholder="true">
+                  00:00:00.000–00:00:00.000
+                </td>
+                <td>
+                  <span
+                    class="decision decision--keep"
+                    data-field="cut-decision"
+                    >keep</span
+                  >
+                </td>
+                <td data-field="cut-reason" data-placeholder="true">
+                  判断理由を入力
+                </td>
+                <td><a href="#evidence-transcript-001">event / T-001</a></td>
+              </tr>
+              <tr data-repeat="cut-decision-row">
+                <th scope="row" data-field="cut-source" data-placeholder="true">
+                  素材名未入力
+                </th>
+                <td data-field="cut-range" data-placeholder="true">
+                  00:00:00.000–00:00:00.000
+                </td>
+                <td>
+                  <span
+                    class="decision decision--drop"
+                    data-field="cut-decision"
+                    >drop</span
+                  >
+                </td>
+                <td data-field="cut-reason" data-placeholder="true">
+                  判断理由を入力
+                </td>
+                <td><a href="#evidence-frame-001">event / KF-001</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="notice notice--warning">
+          edit.json v0 は単一 source のみ。複数素材を分析した場合も、実行対象の
+          source を黙って統合せず、 承認済みの単一 source に対応する keep-range
+          だけを出力する。
+        </p>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-assets"
+        aria-labelledby="heading-assets"
+      >
+        <span class="section-kicker">SECTION 05</span>
+        <h2 id="heading-assets">5. 素材計画</h2>
+        <p class="section-lead">
+          全体適用の BGM と、シーン単位の SFX・B
+          ロール・テロップ・特殊表現を分ける。 各行で「あれば提案 / なければ生成
+          / 使わない」の選択状態を明示する。
+        </p>
+
+        <div
+          class="table-scroll"
+          tabindex="0"
+          role="region"
+          aria-label="全体BGM計画表。横にスクロールできます"
+        >
+          <table>
+            <caption>
+              全体で使う素材 — BGM
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">対象</th>
+                <th scope="col">役割</th>
+                <th scope="col">三択判断</th>
+                <th scope="col">提案・生成・非採用の詳細</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- AKARI_REPEAT: global-bgm-row -->
+              <tr data-repeat="global-bgm-row">
+                <th scope="row">全体 BGM</th>
+                <td data-field="bgm-purpose" data-placeholder="true">
+                  テンポ・感情・音量方針を入力
+                </td>
+                <td>
+                  <div class="choice-set" aria-label="BGMの三択判断">
+                    <span
+                      class="choice"
+                      aria-current="true"
+                      data-choice="propose"
+                      >あれば提案</span
+                    >
+                    <span class="choice" data-choice="generate"
+                      >なければ生成</span
+                    >
+                    <span class="choice" data-choice="unused">使わない</span>
+                  </div>
+                </td>
+                <td data-field="bgm-detail" data-placeholder="true">
+                  ライブラリ候補、ライセンス確認先、プレビュー情報を入力
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          class="table-scroll"
+          tabindex="0"
+          role="region"
+          aria-label="シーン単位素材計画表。横にスクロールできます"
+        >
+          <table>
+            <caption>
+              シーン単位で使う素材・表現
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">シーン / 種別</th>
+                <th scope="col">役割</th>
+                <th scope="col">三択判断</th>
+                <th scope="col">提案・生成・非採用の詳細</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-repeat="scene-sfx-row">
+                <th scope="row">シーン 01 / SFX</th>
+                <td data-field="sfx-purpose" data-placeholder="true">
+                  強調点とタイミングを入力
+                </td>
+                <td>
+                  <div class="choice-set" aria-label="SFXの三択判断">
+                    <span class="choice" data-choice="propose">あれば提案</span>
+                    <span class="choice" data-choice="generate"
+                      >なければ生成</span
+                    >
+                    <span
+                      class="choice"
+                      aria-current="true"
+                      data-choice="unused"
+                      >使わない</span
+                    >
+                  </div>
+                </td>
+                <td data-field="sfx-detail" data-placeholder="true">
+                  使わない理由を入力
+                </td>
+              </tr>
+              <tr data-repeat="scene-broll-row">
+                <th scope="row">シーン 02 / B ロール</th>
+                <td data-field="broll-purpose" data-placeholder="true">
+                  補足する情報・構図を入力
+                </td>
+                <td>
+                  <div class="choice-set" aria-label="Bロールの三択判断">
+                    <span class="choice" data-choice="propose">あれば提案</span>
+                    <span
+                      class="choice"
+                      aria-current="true"
+                      data-choice="generate"
+                      >なければ生成</span
+                    >
+                    <span class="choice" data-choice="unused">使わない</span>
+                  </div>
+                </td>
+                <td data-field="broll-detail" data-placeholder="true">
+                  生成プロンプトと下の静止画プレビューを参照
+                </td>
+              </tr>
+              <tr data-repeat="scene-telop-row">
+                <th scope="row">シーン 03 / テロップ</th>
+                <td data-field="telop-purpose" data-placeholder="true">
+                  情報階層と強調内容を入力
+                </td>
+                <td>
+                  <div class="choice-set" aria-label="テロップの三択判断">
+                    <span
+                      class="choice"
+                      aria-current="true"
+                      data-choice="propose"
+                      >あれば提案</span
+                    >
+                    <span class="choice" data-choice="generate"
+                      >なければ生成</span
+                    >
+                    <span class="choice" data-choice="unused">使わない</span>
+                  </div>
+                </td>
+                <td data-field="telop-detail" data-placeholder="true">
+                  既存 authoring パターンの提案を入力
+                </td>
+              </tr>
+              <tr data-repeat="scene-special-row">
+                <th scope="row">シーン 04 / 特殊表現</th>
+                <td data-field="special-purpose" data-placeholder="true">
+                  狙いと必要性を入力
+                </td>
+                <td>
+                  <div class="choice-set" aria-label="特殊表現の三択判断">
+                    <span class="choice" data-choice="propose">あれば提案</span>
+                    <span class="choice" data-choice="generate"
+                      >なければ生成</span
+                    >
+                    <span
+                      class="choice"
+                      aria-current="true"
+                      data-choice="unused"
+                      >使わない</span
+                    >
+                  </div>
+                </td>
+                <td data-field="special-detail" data-placeholder="true">
+                  無理に埋めない理由を入力
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="asset-preview-grid" aria-label="素材プレビュー">
+          <article class="asset-preview" data-repeat="library-preview">
+            <h3>ライブラリ提案プレビュー — BGM</h3>
+            <div
+              class="audio-placeholder"
+              role="img"
+              aria-label="BGM候補の波形プレビュー用プレースホルダー"
+            >
+              <strong data-field="bgm-preview-name" data-placeholder="true"
+                >BGM 候補名 / preview 未入力</strong
+              >
+            </div>
+            <dl class="provenance" aria-label="BGM提案の出典情報">
+              <dt>手 / 出典</dt>
+              <dd data-field="bgm-source" data-placeholder="true">
+                検索手とライブラリ名を入力
+              </dd>
+              <dt>検索条件</dt>
+              <dd data-field="bgm-query" data-placeholder="true">
+                検索語と絞り込み条件を入力
+              </dd>
+              <dt>日時</dt>
+              <dd>
+                <time
+                  datetime="2026-07-13T00:00:00+09:00"
+                  data-field="bgm-found-at"
+                  data-placeholder="true"
+                  >2026-07-13T00:00:00+09:00</time
+                >
+              </dd>
+            </dl>
+          </article>
+
+          <article class="asset-preview" data-repeat="generated-image-preview">
+            <h3>生成案プレビュー — B ロール静止画</h3>
+            <img
+              class="asset-image"
+              src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20640%20360'%3E%3Crect%20width='640'%20height='360'%20fill='%231c3440'/%3E%3Crect%20x='80'%20y='80'%20width='480'%20height='200'%20rx='24'%20fill='%232b6070'/%3E%3Ctext%20x='320'%20y='170'%20text-anchor='middle'%20font-size='28'%20font-family='sans-serif'%20font-weight='700'%20fill='white'%3EGENERATED%20STILL%3C/text%3E%3Ctext%20x='320'%20y='215'%20text-anchor='middle'%20font-size='18'%20font-family='sans-serif'%20fill='%23d7f5ff'%3EAPPROVE%20BEFORE%20I2V%3C/text%3E%3C/svg%3E"
+              alt="Bロール生成静止画のプレースホルダー。i2v前にこの静止画を承認する"
+              width="640"
+              height="360"
+            />
+            <dl class="provenance" aria-label="Bロール生成画像のprovenance">
+              <dt>手</dt>
+              <dd data-field="broll-tool" data-placeholder="true">
+                Codex 画像生成
+              </dd>
+              <dt>プロンプト</dt>
+              <dd data-field="broll-prompt" data-placeholder="true">
+                生成プロンプトを入力
+              </dd>
+              <dt>日時</dt>
+              <dd>
+                <time
+                  datetime="2026-07-13T00:00:00+09:00"
+                  data-field="broll-created-at"
+                  data-placeholder="true"
+                  >2026-07-13T00:00:00+09:00</time
+                >
+              </dd>
+            </dl>
+          </article>
+        </div>
+
+        <p class="notice notice--warning">
+          画像はこのレポートへ埋め込む。i2v・アバター・その他の高コスト動画生成は、
+          対応する静止画が明示承認されるまで実行しない。
+        </p>
+
+        <aside
+          class="checkpoint"
+          aria-labelledby="checkpoint-assets-title"
+          data-checkpoint="assets"
+        >
+          <div>
+            <h3 id="checkpoint-assets-title">チェックポイント 2 — 素材計画</h3>
+            <p>
+              三択、プレビュー、プロンプト、非採用理由を確認し、人間が明示承認した事実を
+              decision_log へ追記するまで実行計画を確定しない。
+            </p>
+          </div>
+          <span class="status status--pending" aria-label="承認状態、保留"
+            >承認待ち</span
+          >
+        </aside>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-decision-log"
+        aria-labelledby="heading-decision-log"
+      >
+        <span class="section-kicker">SECTION 06</span>
+        <h2 id="heading-decision-log">6. decision_log</h2>
+        <p class="section-lead">
+          方針、素材、生成手、承認、非採用を監査できる時系列記録。 同じ
+          (category, subject) の変更も過去行を編集せず、新しい行として追加する。
+        </p>
+
+        <div class="log-rule">
+          <strong>追記専用ルール</strong>
+          <span>
+            行の上書き・削除・並べ替えは禁止。訂正は同じ複合キー
+            <code>(category, subject)</code>
+            で新しい連番を追記し、理由に旧決定との関係を書く。
+          </span>
+        </div>
+
+        <div
+          class="table-scroll"
+          tabindex="0"
+          role="region"
+          aria-label="追記専用decision log表。横にスクロールできます"
+        >
+          <table data-append-only="true">
+            <caption>
+              追記専用 decision_log — 複合キーは (category, subject)
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">連番</th>
+                <th scope="col">日時</th>
+                <th scope="col">category</th>
+                <th scope="col">subject</th>
+                <th scope="col">決定</th>
+                <th scope="col">理由・併記した選択肢</th>
+                <th scope="col">記録者 / provenance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- AKARI_APPEND_ONLY: decision-log-row -->
+              <tr
+                data-repeat="decision-log-row"
+                data-log-key="thumbnail:route"
+                data-placeholder="true"
+              >
+                <th scope="row" data-field="decision-sequence">0001</th>
+                <td>
+                  <time
+                    datetime="2026-07-13T00:00:00+09:00"
+                    data-field="decision-recorded-at"
+                  >
+                    2026-07-13T00:00:00+09:00
+                  </time>
+                </td>
+                <td data-field="decision-category">サムネイル</td>
+                <td data-field="decision-subject">生成経路</td>
+                <td data-field="decision-value">
+                  A / B / 混成を比較対象にする
+                </td>
+                <td data-field="decision-reason">
+                  実フレームの具体性、生成構図の自由度、日本語文字組の正確さを両論併記
+                </td>
+                <td data-field="decision-actor">
+                  edit-plan / テンプレート初期記録
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <aside
+          class="checkpoint"
+          aria-labelledby="checkpoint-execution-title"
+          data-checkpoint="execution"
+        >
+          <div>
+            <h3 id="checkpoint-execution-title">チェックポイント 3 — 実行</h3>
+            <p>
+              実行対象、使用する手、理由、費用・負荷、代替案を確認し、人間の明示承認を
+              decision_log へ追記した後にだけ edit.json v0 と最終オーバーレイ
+              HTML を生成する。
+            </p>
+          </div>
+          <span class="status status--pending" aria-label="承認状態、保留"
+            >承認待ち</span
+          >
+        </aside>
+      </section>
+    </main>
+
+    <footer class="report-footer">
+      <p>
+        この HTML は外部 CSS・JavaScript・画像を参照しない自己完結レポートです。
+        決定カードの回答は localhost ヘルパー経由で対になる decisions.json
+        へ保存され、ヘルパーへ接続できない場合は閲覧専用になります。
+      </p>
+    </footer>
+    <script>
+      (() => {
+        "use strict";
+
+        const cards = Array.from(document.querySelectorAll("[data-card]"));
+        const summaryView = document.querySelector('[data-view="summary"]');
+        const summaryList = summaryView?.querySelector(
+          ".decision-summary__list",
+        );
+        const summaryStatus = summaryView?.querySelector(
+          ".decision-summary__status",
+        );
+        const runtimeMessage = document.querySelector(
+          ".decision-runtime-message",
+        );
+        const runtimeError = document.querySelector(".decision-runtime-error");
+        const operationControls = Array.from(
+          document.querySelectorAll(
+            "[data-option], [data-check], [data-action]",
+          ),
+        );
+        const noteFields = Array.from(document.querySelectorAll("[data-note]"));
+
+        let state = null;
+        let saveQueue = Promise.resolve();
+        let locked = true;
+
+        function hasOwn(object, key) {
+          return Object.prototype.hasOwnProperty.call(object, key);
+        }
+
+        function isRecord(value) {
+          return (
+            value !== null && typeof value === "object" && !Array.isArray(value)
+          );
+        }
+
+        function isDecision(value) {
+          return (
+            isRecord(value) &&
+            typeof value.id === "string" &&
+            hasOwn(value, "answer") &&
+            (value.answer === null || isRecord(value.answer)) &&
+            typeof value.byDefault === "boolean" &&
+            hasOwn(value, "answeredAt") &&
+            (value.answeredAt === null ||
+              typeof value.answeredAt === "string")
+          );
+        }
+
+        function isState(value) {
+          return (
+            isRecord(value) &&
+            typeof value.version === "number" &&
+            typeof value.report === "string" &&
+            Array.isArray(value.decisions)
+          );
+        }
+
+        function showRuntimeError(message) {
+          if (!runtimeError) return;
+          runtimeError.textContent = message;
+          runtimeError.hidden = false;
+        }
+
+        function clearRuntimeError() {
+          if (!runtimeError) return;
+          runtimeError.textContent = "";
+          runtimeError.hidden = true;
+        }
+
+        function addCardWarning(card, message) {
+          const warning = document.createElement("p");
+          warning.className = "decision-card__warning";
+          warning.setAttribute("role", "status");
+          warning.textContent = message;
+          card.append(warning);
+        }
+
+        function setInteractive(enabled) {
+          locked = !enabled;
+          for (const control of operationControls) {
+            if ("disabled" in control) {
+              control.disabled = !enabled;
+            }
+            control.setAttribute("aria-disabled", String(!enabled));
+          }
+          for (const field of noteFields) {
+            if ("disabled" in field) {
+              field.disabled = !enabled;
+            }
+            field.setAttribute("aria-disabled", String(!enabled));
+            if (!("value" in field)) {
+              field.contentEditable = enabled ? "true" : "false";
+            }
+          }
+        }
+
+        function valueKey(value) {
+          if (value === null) return "null";
+          if (
+            typeof value === "string" ||
+            typeof value === "number" ||
+            typeof value === "boolean"
+          ) {
+            return String(value);
+          }
+          return null;
+        }
+
+        function createContext(card) {
+          const options = Array.from(card.querySelectorAll("[data-option]"));
+          const checks = Array.from(card.querySelectorAll("[data-check]"));
+          const notes = Array.from(card.querySelectorAll("[data-note]"));
+          const declaredDefaults = options.filter(
+            (option) => option.dataset.default === "true",
+          );
+          const defaultOption =
+            declaredDefaults.length === 1 ? declaredDefaults[0] : options[0];
+
+          if (declaredDefaults.length !== 1) {
+            addCardWarning(
+              card,
+              "AI 推奨の指定が 1 件ではないため、先頭の選択肢を既定値として扱います。",
+            );
+          }
+
+          return {
+            card,
+            id: card.dataset.card ?? "",
+            question: card.dataset.question ?? "",
+            options,
+            checks,
+            notes,
+            defaultOption,
+            decision: null,
+          };
+        }
+
+        const contexts = cards.map(createContext);
+
+        function defaultAnswer(context) {
+          const answer = {};
+          if (context.defaultOption) {
+            answer.choice = context.defaultOption.dataset.option ?? "";
+          }
+          for (const check of context.checks) {
+            answer[check.dataset.check ?? ""] = false;
+          }
+          if (context.notes.length > 0) {
+            answer.note = null;
+          }
+          return answer;
+        }
+
+        function defaultDecision(context) {
+          return {
+            id: context.id,
+            answer: defaultAnswer(context),
+            byDefault: true,
+            answeredAt: null,
+          };
+        }
+
+        function hasUsableAnswer(context, answer) {
+          if (!isRecord(answer)) return false;
+          if (context.options.length > 0 && !choiceBinding(context, answer)) {
+            return false;
+          }
+          for (const check of context.checks) {
+            const key = check.dataset.check ?? "";
+            if (hasOwn(answer, key) && typeof answer[key] !== "boolean") {
+              return false;
+            }
+          }
+          if (
+            context.notes.length > 0 &&
+            hasOwn(answer, "note") &&
+            answer.note !== null &&
+            typeof answer.note !== "string"
+          ) {
+            return false;
+          }
+          return true;
+        }
+
+        function bindDecisions() {
+          const cardIds = new Set(contexts.map((context) => context.id));
+          const invalidCardIds = new Set();
+          let discarded = false;
+
+          state.decisions = state.decisions.filter((decision) => {
+            if (isDecision(decision)) return true;
+            if (isRecord(decision) && cardIds.has(decision.id)) {
+              invalidCardIds.add(decision.id);
+              return false;
+            }
+            discarded = true;
+            return false;
+          });
+
+          if (discarded) {
+            showRuntimeError(
+              "対応するカードを特定できない不正な回答を除外し、他のカードを表示しています。",
+            );
+          }
+
+          for (const context of contexts) {
+            const index = state.decisions.findIndex(
+              (decision) => isRecord(decision) && decision.id === context.id,
+            );
+
+            if (index === -1) {
+              const decision = defaultDecision(context);
+              state.decisions.push(decision);
+              context.decision = decision;
+              addCardWarning(
+                context.card,
+                invalidCardIds.has(context.id)
+                  ? "回答データが不正なため、このカードだけ既定値として扱います。"
+                  : "回答データがないため、このカードだけ既定値として扱います。",
+              );
+              continue;
+            }
+
+            context.decision = state.decisions[index];
+            if (!hasUsableAnswer(context, context.decision.answer)) {
+              context.decision.answer = defaultAnswer(context);
+              context.decision.byDefault = true;
+              context.decision.answeredAt = null;
+              addCardWarning(
+                context.card,
+                "回答の形がカード宣言と一致しないため、このカードだけ既定値として扱います。",
+              );
+            }
+          }
+
+          const knownIds = new Set(contexts.map((context) => context.id));
+          const unknownIds = state.decisions
+            .filter(
+              (decision) =>
+                isDecision(decision) && !knownIds.has(decision.id),
+            )
+            .map((decision) => decision.id);
+          if (unknownIds.length > 0) {
+            showRuntimeError(
+              "カード宣言のない回答は変更せず保持し、宣言済みカードだけ表示しています。",
+            );
+          }
+        }
+
+        function choiceBinding(context, answer) {
+          if (!isRecord(answer)) return null;
+          const optionKeys = new Set(
+            context.options.map((option) => option.dataset.option ?? ""),
+          );
+
+          for (const [property, value] of Object.entries(answer)) {
+            const key = valueKey(value);
+            if (key !== null && optionKeys.has(key)) {
+              return { property, value, key };
+            }
+          }
+          return null;
+        }
+
+        function setSelected(element, selected) {
+          element.classList.toggle("is-selected", selected);
+          element.setAttribute("aria-pressed", String(selected));
+          if (element instanceof HTMLInputElement) {
+            element.checked = selected;
+          }
+        }
+
+        function applyContext(context) {
+          const answer = isRecord(context.decision?.answer)
+            ? context.decision.answer
+            : {};
+          const binding = choiceBinding(context, answer);
+          const selectedKey =
+            binding?.key ?? context.defaultOption?.dataset.option ?? null;
+
+          for (const option of context.options) {
+            setSelected(option, option.dataset.option === selectedKey);
+          }
+
+          for (const check of context.checks) {
+            const key = check.dataset.check ?? "";
+            setSelected(check, answer[key] === true);
+          }
+
+          for (const note of context.notes) {
+            const value = typeof answer.note === "string" ? answer.note : "";
+            if ("value" in note) {
+              note.value = value;
+            } else {
+              note.textContent = value;
+            }
+          }
+        }
+
+        function ensureAnswer(context) {
+          if (!isRecord(context.decision.answer)) {
+            context.decision.answer = defaultAnswer(context);
+          }
+          return context.decision.answer;
+        }
+
+        function markAnswered(context) {
+          context.decision.byDefault = false;
+          context.decision.answeredAt = new Date().toISOString();
+        }
+
+        function coerceOptionValue(key, currentValue) {
+          if (key === "null") return null;
+          if (typeof currentValue === "boolean") {
+            if (key === "true") return true;
+            if (key === "false") return false;
+          }
+          if (typeof currentValue === "number" && key.trim() !== "") {
+            const number = Number(key);
+            if (Number.isFinite(number)) return number;
+          }
+          return key;
+        }
+
+        function persistState() {
+          const snapshot = JSON.parse(JSON.stringify(state));
+          clearRuntimeError();
+
+          saveQueue = saveQueue
+            .catch(() => {})
+            .then(async () => {
+              const response = await fetch("/api/state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(snapshot),
+              });
+              if (!response.ok) {
+                throw new Error(`回答を保存できませんでした（${response.status}）`);
+              }
+              const saved = await response.json();
+              if (isRecord(saved)) {
+                if (hasOwn(saved, "createdAt")) {
+                  state.createdAt = saved.createdAt;
+                }
+                if (hasOwn(saved, "completedAt")) {
+                  state.completedAt = saved.completedAt;
+                }
+              }
+            })
+            .catch((error) => {
+              showRuntimeError(error.message || "回答を保存できませんでした。");
+              throw error;
+            });
+
+          void saveQueue.catch(() => {});
+        }
+
+        function handleOption(context, option) {
+          if (locked) return;
+          const answer = ensureAnswer(context);
+          const binding = choiceBinding(context, answer);
+          const key = option.dataset.option ?? "";
+
+          if (binding) {
+            answer[binding.property] = coerceOptionValue(key, binding.value);
+          } else {
+            answer.choice = key;
+          }
+          markAnswered(context);
+          applyContext(context);
+          persistState();
+        }
+
+        function handleCheck(context, check) {
+          if (locked) return;
+          const answer = ensureAnswer(context);
+          const key = check.dataset.check ?? "";
+          answer[key] = answer[key] !== true;
+          markAnswered(context);
+          applyContext(context);
+          persistState();
+        }
+
+        function handleNote(context, note) {
+          if (locked) return;
+          const answer = ensureAnswer(context);
+          const value = "value" in note ? note.value : note.textContent;
+          answer.note = value === "" ? null : value;
+          markAnswered(context);
+          persistState();
+        }
+
+        function renderSummary() {
+          if (!summaryView || !summaryList) return;
+          summaryList.replaceChildren();
+
+          for (const context of contexts) {
+            const item = document.createElement("div");
+            item.className = "decision-summary__item";
+            const question = document.createElement("dt");
+            question.textContent = context.question;
+            const answer = document.createElement("dd");
+            const value = document.createElement("pre");
+            value.textContent = JSON.stringify(
+              context.decision?.answer ?? null,
+              null,
+              2,
+            );
+            answer.append(value);
+            item.append(question, answer);
+            summaryList.append(item);
+          }
+        }
+
+        function showSummary() {
+          if (locked || !summaryView) return;
+          renderSummary();
+          for (const card of cards) {
+            card.hidden = true;
+          }
+          for (const action of document.querySelectorAll(
+            '[data-action="accept-all"]',
+          )) {
+            action.hidden = true;
+          }
+          summaryView.hidden = false;
+          summaryView.scrollIntoView({ block: "start" });
+        }
+
+        async function commit() {
+          if (locked || !summaryStatus) return;
+          const commitButton = summaryView?.querySelector(
+            '[data-action="commit"]',
+          );
+          if (commitButton) commitButton.disabled = true;
+          summaryStatus.className = "decision-summary__status";
+          summaryStatus.textContent = "回答を保存しています…";
+
+          try {
+            await saveQueue;
+          } catch {
+            summaryStatus.classList.add("decision-runtime-error");
+            summaryStatus.textContent =
+              "回答を保存できないため確定できません。ヘルパーを確認してください。";
+            if (commitButton) commitButton.disabled = false;
+            return;
+          }
+
+          try {
+            const response = await fetch("/api/commit", { method: "POST" });
+            if (!response.ok) {
+              if (response.status === 409) {
+                throw new Error("この回答はすでに確定されています（409）。");
+              }
+              if (response.status === 404) {
+                throw new Error("回答ファイルが見つかりません（404）。");
+              }
+              throw new Error(`確定できませんでした（${response.status}）。`);
+            }
+
+            const committed = await response.json();
+            if (isRecord(committed) && hasOwn(committed, "completedAt")) {
+              state.completedAt = committed.completedAt;
+            }
+            summaryStatus.classList.add("decision-runtime-success");
+            summaryStatus.textContent =
+              "確定しました。エージェントが編集を開始します";
+            setInteractive(false);
+          } catch (error) {
+            summaryStatus.classList.add("decision-runtime-error");
+            summaryStatus.textContent =
+              error.message || "確定できませんでした。";
+            if (commitButton) commitButton.disabled = false;
+          }
+        }
+
+        for (const context of contexts) {
+          for (const option of context.options) {
+            option.addEventListener("click", (event) => {
+              event.preventDefault();
+              handleOption(context, option);
+            });
+          }
+          for (const check of context.checks) {
+            check.addEventListener("click", (event) => {
+              event.preventDefault();
+              handleCheck(context, check);
+            });
+          }
+          for (const note of context.notes) {
+            note.addEventListener("input", () => handleNote(context, note));
+          }
+        }
+
+        for (const action of document.querySelectorAll(
+          '[data-action="accept-all"]',
+        )) {
+          action.addEventListener("click", (event) => {
+            event.preventDefault();
+            showSummary();
+          });
+        }
+        summaryView
+          ?.querySelector('[data-action="commit"]')
+          ?.addEventListener("click", (event) => {
+            event.preventDefault();
+            void commit();
+          });
+
+        async function initialize() {
+          setInteractive(false);
+          try {
+            const response = await fetch("/api/state", {
+              headers: { Accept: "application/json" },
+            });
+            if (!response.ok) {
+              throw new Error(`state request failed: ${response.status}`);
+            }
+            const loadedState = await response.json();
+            if (!isState(loadedState)) {
+              throw new Error("state response is invalid");
+            }
+
+            state = loadedState;
+            clearRuntimeError();
+            bindDecisions();
+            for (const context of contexts) {
+              applyContext(context);
+            }
+
+            if (runtimeMessage) runtimeMessage.hidden = true;
+            if (state.completedAt !== null && state.completedAt !== undefined) {
+              renderSummary();
+              if (summaryView) summaryView.hidden = false;
+              if (summaryStatus) {
+                summaryStatus.textContent = "この回答は確定済みです。";
+              }
+              setInteractive(false);
+              return;
+            }
+            setInteractive(true);
+          } catch (error) {
+            console.warn("Decision cards are read-only:", error);
+            setInteractive(false);
+            if (runtimeMessage) runtimeMessage.hidden = false;
+          }
+        }
+
+        for (const context of contexts) {
+          applyContext(context);
+        }
+        void initialize();
+      })();
+    </script>
+  </body>
+</html>

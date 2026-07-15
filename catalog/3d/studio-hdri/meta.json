@@ -1,0 +1,33 @@
+{
+  "id": "studio-hdri",
+  "category": "3d",
+  "title": "スタジオ HDRI（自然光ミックス）",
+  "description": "明るいホームオフィス風スタジオを撮影した 24K 高解像度 HDRI。柔らかい自然光とダウンライトが混ざった低コントラストな環境光で、Three.js 上の 3D 素材に自然な反射・陰影を与える",
+  "when_to_use": "3D モデル（製品モックアップ等）を画面内に置くシーンで、単色背景ではなく自然な環境光の映り込み・陰影が欲しいとき。特に製品紹介・UI 解説カットの背景/環境光として",
+  "tags": ["hdri", "environment-light", "studio", "product-demo", "16:9", "9:16"],
+  "knobs": [
+    { "cssVar": "--exposure", "type": "slider", "min": 0.2, "max": 2, "unit": "x", "group": "lighting", "label": "露出（環境光強度）" }
+  ],
+  "ai_usage": "取得後に fragment 化する際は、環境光強度（exposure）と回転のみ変数化してよい。HDRI そのもの（撮影データ）は改変しない。低コントラストな光質を崩す強い色調補正は加えない",
+  "requires": ["three.js", "RGBELoader"],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Poly Haven）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "Greg Zaal (Poly Haven)",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://polyhaven.com/a/poly_haven_studio",
+    "acquisition": "direct",
+    "license_at_source": "CC0 1.0",
+    "attribution_required": false,
+    "preview_url": "https://cdn.polyhaven.com/asset_img/thumbs/poly_haven_studio.png?width=256"
+  }
+}

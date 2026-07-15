@@ -1,0 +1,30 @@
+{
+  "id": "cozy-lofi-bgm",
+  "category": "audio",
+  "title": "コージー Lo-fi チル BGM",
+  "description": "Pixabay Editor's Choice 選出のローファイ・チルビート。落ち着いた質感で Vlog や作業風景、夜のシーンに合う。尺 2分27秒",
+  "when_to_use": "Vlog、作業・勉強シーン、就寝前コンテンツなど落ち着いたトーンの BGM が欲しいシーン",
+  "tags": ["bgm", "lofi", "chill", "cozy", "background-music"],
+  "knobs": [],
+  "ai_usage": "書き出し尺に合わせたトリミング・フェードイン/アウト・ループでの尺調整は自由に行ってよい。ナレーションやセリフが乗る区間は自動でダッキング（音量を下げる）してよい。曲の構成やテンポそのものを崩す大幅なピッチ/速度変更は避ける",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Pixabay Music / FASSounds）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-Pixabay-Content-License",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://pixabay.com/music/beats-good-night-lofi-cozy-chill-music-160166/",
+    "acquisition": "direct",
+    "license_at_source": "Free for use under the Pixabay Content License",
+    "attribution_required": false
+  }
+}

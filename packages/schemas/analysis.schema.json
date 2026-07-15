@@ -1,0 +1,432 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AKARI Video analysis.json v0",
+  "description": "素材 1 本の分析結果を表す中間契約。",
+  "$comment": "意味制約として、start/end を持つ全区間では end > start とする。Draft 2020-12 標準では兄弟プロパティ間を比較できないため、この条件は生成・検証手順で確認する。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source",
+    "transcript",
+    "keyframes",
+    "events",
+    "tracks"
+  ],
+  "properties": {
+    "version": {
+      "const": 0
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "分析対象素材へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決する。"
+    },
+    "transcript": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transcriptSegment"
+      }
+    },
+    "keyframes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/keyframe"
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "tracks": {
+      "$ref": "#/$defs/tracks"
+    }
+  },
+  "$defs": {
+    "seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "word": {
+      "$comment": "M5 契約例で省略されている words の要素を、区間・本文を持つ最小形として定義する。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end",
+        "text"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/seconds"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "transcriptSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end",
+        "text"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/seconds"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "speaker": {
+          "type": "string",
+          "minLength": 1
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/word"
+          }
+        }
+      }
+    },
+    "keyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t",
+        "path",
+        "note"
+      ],
+      "properties": {
+        "t": {
+          "$ref": "#/$defs/seconds"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "キーフレーム画像へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決する。"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin": {
+          "enum": [
+            "scene",
+            "interval",
+            "transcript"
+          ],
+          "description": "採用元の抽出系統（2026-07-14 追加・任意）。scene = 映像変化検出、interval = 一定間隔、transcript = 発話由来（highlight 等の時刻から抽出）。候補と note の対応トレーサビリティにも使う。"
+        }
+      }
+    },
+    "fillerEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end"
+      ],
+      "properties": {
+        "type": {
+          "const": "filler"
+        },
+        "start": {
+          "$ref": "#/$defs/seconds"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds"
+        }
+      }
+    },
+    "troubleEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end",
+        "note"
+      ],
+      "properties": {
+        "type": {
+          "const": "trouble"
+        },
+        "start": {
+          "$ref": "#/$defs/seconds"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "chapterEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "t",
+        "title"
+      ],
+      "properties": {
+        "type": {
+          "const": "chapter"
+        },
+        "t": {
+          "$ref": "#/$defs/seconds"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "hookScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hook",
+        "self_contained",
+        "emotion",
+        "density",
+        "punch"
+      ],
+      "properties": {
+        "hook": {
+          "$ref": "#/$defs/scoreValue"
+        },
+        "self_contained": {
+          "$ref": "#/$defs/scoreValue"
+        },
+        "emotion": {
+          "$ref": "#/$defs/scoreValue"
+        },
+        "density": {
+          "$ref": "#/$defs/scoreValue"
+        },
+        "punch": {
+          "$ref": "#/$defs/scoreValue"
+        }
+      }
+    },
+    "scoreValue": {
+      "$comment": "1〜5 の整数尺度は analysis.json v0 の運用仮定。採用閾値は M5 契約どおり運用で調整する。",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "hookEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end",
+        "score"
+      ],
+      "properties": {
+        "type": {
+          "const": "hook"
+        },
+        "start": {
+          "$ref": "#/$defs/seconds"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds"
+        },
+        "score": {
+          "$ref": "#/$defs/hookScore"
+        }
+      }
+    },
+    "highlightEvent": {
+      "$comment": "2026-07-14 追加（後方互換の追加語彙）。ショート向けの hook と異なり、決定事項・結論・数字・強い主張など編集判断全般の根拠になる重要発言を記録する。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end",
+        "quote",
+        "reason"
+      ],
+      "properties": {
+        "type": {
+          "const": "highlight"
+        },
+        "start": {
+          "$ref": "#/$defs/seconds"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds"
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1,
+          "description": "transcript の実発言に忠実な引用。要約・創作をしない。"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "なぜ重要か（決定事項・結論・数値/実績・強い主張などの根拠カテゴリと内容）。"
+        },
+        "importance": {
+          "$ref": "#/$defs/scoreValue"
+        }
+      }
+    },
+    "event": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/fillerEvent"
+        },
+        {
+          "$ref": "#/$defs/troubleEvent"
+        },
+        {
+          "$ref": "#/$defs/chapterEvent"
+        },
+        {
+          "$ref": "#/$defs/highlightEvent"
+        },
+        {
+          "$ref": "#/$defs/hookEvent"
+        }
+      ]
+    },
+    "speakerSpan": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/seconds"
+        },
+        {
+          "$ref": "#/$defs/seconds"
+        }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "speakerTrack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "spans"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/speakerSpan"
+          }
+        }
+      }
+    },
+    "faceBox": {
+      "description": "素材フレームに対する [x, y, width, height] 順の正規化座標。各要素は 0〜1。",
+      "$comment": "意味制約として x + width <= 1 かつ y + height <= 1 とする。Draft 2020-12 標準では配列要素間を加算・比較できないため、この条件は生成・検証手順で確認する。",
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "faceTrackPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "speaker",
+        "t",
+        "box"
+      ],
+      "properties": {
+        "speaker": {
+          "type": "string",
+          "minLength": 1
+        },
+        "t": {
+          "$ref": "#/$defs/seconds"
+        },
+        "box": {
+          "$ref": "#/$defs/faceBox"
+        }
+      }
+    },
+    "tracks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "speakers",
+        "faces",
+        "person_matte"
+      ],
+      "properties": {
+        "speakers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/speakerTrack"
+          }
+        },
+        "faces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/faceTrackPoint"
+          }
+        },
+        "person_matte": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "生成済み人物マットへのパス。未生成なら null。相対パスは analysis.json の所在ディレクトリを基準に解決する。"
+        }
+      }
+    }
+  }
+}

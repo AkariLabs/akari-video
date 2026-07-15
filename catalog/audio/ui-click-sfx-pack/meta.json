@@ -1,0 +1,31 @@
+{
+  "id": "ui-click-sfx-pack",
+  "category": "audio",
+  "title": "UI 操作音 SFX パック",
+  "description": "ボタン・スイッチ・クリックなど UI 操作を想定した効果音 50 点セット。短く軽い電子音が中心で、画面操作の実演やテロップ出現に合わせやすい",
+  "when_to_use": "UI 解説・アプリデモ動画でのクリック/タップ音の同期、テロップやボタンの出現に合わせる短い効果音が欲しいとき",
+  "tags": ["sfx", "ui", "click", "notification", "interface"],
+  "knobs": [],
+  "ai_usage": "取得後は音源をそのまま overlays/broll のタイミングに合わせて配置する用途を想定。音源そのもの（波形）は改変しない。音量調整は edit.json 側のクリップ音量パラメータで行い、素材自体のマスタリングはしない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Kenney）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "Kenney (kenney.nl)",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://kenney.nl/assets/ui-audio",
+    "acquisition": "direct",
+    "license_at_source": "CC0 1.0",
+    "attribution_required": false,
+    "preview_url": "https://kenney.nl/media/pages/assets/ui-audio/1e3ab63b14-1768381194/3837530.jpg"
+  }
+}

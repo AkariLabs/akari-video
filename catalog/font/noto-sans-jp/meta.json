@@ -1,0 +1,30 @@
+{
+  "id": "noto-sans-jp",
+  "category": "font",
+  "title": "Noto Sans JP",
+  "description": "Google Fonts が公開する定番の日本語ゴシック体。Thin〜Black まで幅広いウェイトを持ち、可読性・収録グリフ数ともに高水準。テロップから字幕、UI 表示まで汎用的に使える標準選択肢。",
+  "when_to_use": "特定の作風を狙わず、まず崩れなく読める日本語テロップ・字幕・UI テキストが欲しいシーン。企業紹介・解説動画など幅広いトーンの標準書体として",
+  "tags": ["font", "japanese", "gothic", "sans-serif", "google-fonts", "ofl", "telop", "subtitle"],
+  "knobs": [],
+  "ai_usage": "取得後はウェイト（Regular/Medium/Bold 等）を用途に応じて選び分けてよい（見出しは Bold〜Black、本文字幕は Regular〜Medium）。字間・行間・カラーは overlay 側の CSS で調整してよいが、グリフ形状そのもの（フォントファイル）は改変しない。複数ウェイトを同一テロップ内で混在させる場合も、系列を Noto Sans JP のまま保つ",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Google Fonts / Noto Project, Adobe 系譜）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.google.com/specimen/Noto+Sans+JP",
+    "acquisition": "direct",
+    "license_at_source": "Free for personal and commercial use under the SIL Open Font License, Version 1.1 (OFL-1.1). google/fonts リポジトリ ofl/notosansjp の OFL.txt で確認済み",
+    "attribution_required": false
+  }
+}
