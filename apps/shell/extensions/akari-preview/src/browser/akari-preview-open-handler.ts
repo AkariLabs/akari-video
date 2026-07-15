@@ -59,6 +59,20 @@ const EMPTY_SUMMARY: EditSummary = {
     overlays: []
 };
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
+const PLAYABLE_VIDEO_MIME_TYPES = new Map<string, string>([
+    ['.mp4', 'video/mp4'],
+    ['.mov', 'video/mp4'],
+    ['.m4v', 'video/mp4'],
+    ['.webm', 'video/webm']
+]);
+const UNSUPPORTED_VIDEO_EXTENSIONS = new Set(['.mkv', '.avi', '.mts', '.m2ts', '.wmv']);
+const CLAIMED_VIDEO_EXTENSIONS = new Set([
+    ...PLAYABLE_VIDEO_MIME_TYPES.keys(),
+    ...UNSUPPORTED_VIDEO_EXTENSIONS
+]);
+const MAX_EMBEDDED_VIDEO_BYTES = 180 * 1024 * 1024;
+const UNSUPPORTED_FORMAT_MESSAGE = 'この形式はアプリ内プレビューに未対応です。書き出し後の MP4 をプレビューできます。';
+const LARGE_VIDEO_MESSAGE = '大きい素材のプレビューは現在準備中です。';
 
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
@@ -94,7 +108,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     canHandle(uri: URI): number {
-        return uri.path.ext.toLowerCase() === '.mp4' ? 1100 : 0;
+        return CLAIMED_VIDEO_EXTENSIONS.has(uri.path.ext.toLowerCase()) ? 1100 : 0;
     }
 
     async open(uri: URI, options?: any): Promise<WebviewWidget> {
@@ -122,8 +136,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected async doConfigurePreview(widget: PreviewWidgetMarker, videoUri: URI): Promise<void> {
-        const assets = await this.previewService.getOverlayRuntimeAssets();
-        await this.refreshPreview(widget, videoUri, assets);
+        await this.refreshPreview(widget, videoUri);
 
         if (widget.akariPreviewConfigured) {
             return;
@@ -146,7 +159,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return !widget.akariPreviewEditUri && change.resource.path.base === 'edit.json';
             });
             if (relevant) {
-                this.queueRefresh(widget, videoUri, assets);
+                this.queueRefresh(widget, videoUri);
             }
         }));
         for (const root of await this.workspaceService.roots) {
@@ -158,21 +171,35 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.disposed.connect(() => disposables.dispose());
     }
 
-    protected queueRefresh(widget: PreviewWidgetMarker, videoUri: URI, assets: OverlayRuntimeAssets): void {
+    protected queueRefresh(widget: PreviewWidgetMarker, videoUri: URI): void {
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         widget.akariPreviewRefresh = previous.then(
-            () => this.refreshPreview(widget, videoUri, assets),
-            () => this.refreshPreview(widget, videoUri, assets)
+            () => this.refreshPreview(widget, videoUri),
+            () => this.refreshPreview(widget, videoUri)
         ).catch(error => console.error('[akari-preview] failed to refresh preview', error));
     }
 
-    protected async refreshPreview(widget: PreviewWidgetMarker, videoUri: URI, assets: OverlayRuntimeAssets): Promise<void> {
+    protected async refreshPreview(widget: PreviewWidgetMarker, videoUri: URI): Promise<void> {
+        const extension = videoUri.path.ext.toLowerCase();
+        const mimeType = PLAYABLE_VIDEO_MIME_TYPES.get(extension);
+        if (!mimeType) {
+            this.showMessageCard(widget, videoUri, UNSUPPORTED_FORMAT_MESSAGE);
+            return;
+        }
+
+        const videoStat = await this.fileService.resolve(videoUri);
+        if ((videoStat.size ?? 0) > MAX_EMBEDDED_VIDEO_BYTES) {
+            this.showMessageCard(widget, videoUri, LARGE_VIDEO_MESSAGE);
+            return;
+        }
+
         const [model, videoContent] = await Promise.all([
             this.loadPreviewModel(videoUri),
             this.fileService.readFile(videoUri)
         ]);
-        // v0 trade-off: data URI は動画全体をメモリに保持するため、数百MB〜GB級の書き出しには向かない。
-        const videoSource = `data:video/mp4;base64,${this.toBase64(videoContent.value.buffer)}`;
+        const assets = await this.previewService.getOverlayRuntimeAssets();
+        // 180MB 以下に限定し、data URI 変換時のメモリ負荷が大容量素材で膨らむのを避ける。
+        const videoSource = `data:${mimeType};base64,${this.toBase64(videoContent.value.buffer)}`;
         widget.akariPreviewEditUri = model.editUri;
         widget.akariPreviewTrackedResources = new Set([
             ...(model.editUri ? [model.editUri.toString()] : []),
@@ -187,6 +214,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             allowForms: true
         });
         widget.setHTML(this.prepareHtml(videoUri, videoSource, model, assets));
+    }
+
+    protected showMessageCard(widget: PreviewWidgetMarker, videoUri: URI, message: string): void {
+        widget.akariPreviewEditUri = undefined;
+        widget.akariPreviewTrackedResources = new Set();
+        widget.viewType = 'akari.preview';
+        widget.title.label = videoUri.path.base;
+        widget.title.caption = videoUri.toString();
+        widget.title.iconClass = 'codicon codicon-preview';
+        widget.setContentOptions({ allowScripts: false, allowForms: false });
+        widget.setHTML(this.prepareMessageHtml(message));
     }
 
     protected async loadPreviewModel(videoUri: URI): Promise<PreviewModel> {
@@ -243,10 +281,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return adjacent;
         }
 
-        const roots = await this.workspaceService.roots;
-        for (const root of roots) {
-            const planning = root.resource.resolve('planning');
-            const candidates = await this.findNamedFiles(planning, 'edit.json');
+        for (const root of await this.workspaceService.roots) {
+            const candidates = await this.findNamedFiles(root.resource, 'edit.json');
             for (const candidate of candidates) {
                 try {
                     const parsed = JSON.parse(await this.readText(candidate));
@@ -257,13 +293,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 } catch {
                     // Invalid candidates do not prevent later edit.json files from matching.
                 }
-            }
-        }
-
-        for (const root of roots) {
-            const candidates = await this.findNamedFiles(root.resource, 'edit.json');
-            if (candidates.length) {
-                return candidates[0];
             }
         }
         return undefined;
@@ -378,6 +407,9 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
+.message-card { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 32px; background: #111; }
+.message-card[hidden] { display: none; }
+.message-card p { max-width: 520px; margin: 0; color: #e5e5e5; font-size: 15px; line-height: 1.7; text-align: center; }
 #inspector { padding: 16px; border-left: 1px solid #303030; background: #1b1b1b; overflow: auto; }
 #inspector[hidden] { display: none; }
 #inspector h2 { margin: 0 0 14px; font-size: 14px; }
@@ -398,6 +430,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
     <div id="preview-wrapper">
       <video id="preview-video" src="${videoSource}" preload="metadata"></video>
       <div id="overlay-stage"></div>
+      <div id="preview-message" class="message-card" hidden role="status"><p>${UNSUPPORTED_FORMAT_MESSAGE}</p></div>
     </div>
   </section>
   <aside id="inspector" hidden aria-label="オーバーレイインスペクタ">
@@ -415,6 +448,27 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <script>${this.inlineScript(assets.runtimeJavaScript)}</script>
 <script>${this.inlineScript(assets.interactionJavaScript)}</script>
 <script>${this.previewBootstrapScript()}</script>
+</body>
+</html>`;
+    }
+
+    protected prepareMessageHtml(message: string): string {
+        return `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; background: #111; color: #eee; }
+body { display: grid; place-items: center; padding: 32px; }
+.message-card { width: min(100%, 560px); border: 1px solid #353535; border-radius: 8px; padding: 28px; background: #1b1b1b; }
+.message-card p { margin: 0; font-size: 15px; line-height: 1.7; text-align: center; }
+</style>
+</head>
+<body>
+<main class="message-card" role="status"><p>${this.escapeHtml(message)}</p></main>
 </body>
 </html>`;
     }
@@ -470,6 +524,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
             const seek = document.getElementById('seek');
             const timeLabel = document.getElementById('time-label');
             const stage = document.getElementById('overlay-stage');
+            const previewMessage = document.getElementById('preview-message');
             const inspector = document.getElementById('inspector');
             const inspectorTitle = document.getElementById('inspector-title');
             const inspectorFields = document.getElementById('inspector-fields');
@@ -505,6 +560,31 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
                 animationFrame = 0;
                 tick();
             };
+            const hideInspector = () => {
+                inspectorFields.replaceChildren();
+                if (!initial.editPath) {
+                    inspector.hidden = false;
+                    workspace.classList.add('inspector-open');
+                    inspectorTitle.textContent = 'インスペクタ';
+                    const empty = document.createElement('p');
+                    empty.className = 'empty';
+                    empty.textContent = 'この動画に一致する edit.json はありません。';
+                    inspectorFields.appendChild(empty);
+                    return;
+                }
+                inspector.hidden = true;
+                workspace.classList.remove('inspector-open');
+            };
+            const showPlaybackError = () => {
+                stopAnimation();
+                video.pause();
+                video.hidden = true;
+                stage.hidden = true;
+                previewMessage.hidden = false;
+                playToggle.disabled = true;
+                seek.disabled = true;
+                hideInspector();
+            };
 
             playToggle.addEventListener('click', () => {
                 if (video.paused) void video.play().catch(error => console.error('[akari-preview] playback failed', error));
@@ -520,12 +600,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
             video.addEventListener('ended', stopAnimation);
             video.addEventListener('seeked', tick);
             video.addEventListener('timeupdate', tick);
+            video.addEventListener('error', showPlaybackError);
 
-            const hideInspector = () => {
-                inspector.hidden = true;
-                workspace.classList.remove('inspector-open');
-                inspectorFields.replaceChildren();
-            };
             const renderInspector = () => {
                 const selected = stage.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]');
                 if (!selected) {
@@ -646,6 +722,15 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
             .replace(/</g, '\\u003c')
             .replace(/\u2028/g, '\\u2028')
             .replace(/\u2029/g, '\\u2029');
+    }
+
+    protected escapeHtml(value: string): string {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     protected toBase64(bytes: Uint8Array): string {
