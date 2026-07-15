@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "roles": [
+    {
+      "path": "assets",
+      "label": "素材",
+      "kind": "assets"
+    },
+    {
+      "path": "planning",
+      "label": "企画",
+      "kind": "planning"
+    },
+    {
+      "path": "exports",
+      "label": "書き出し",
+      "kind": "exports"
+    }
+  ],
+  "tree": {
+    "hidden": [
+      ".claude",
+      ".akari",
+      "CLAUDE.md",
+      "AGENTS.md",
+      ".gitignore"
+    ],
+    "sidecarSuffixes": [
+      ".meta.json",
+      ".decisions.json",
+      ".analysis.json"
+    ],
+    "developerModePreference": "akari.developerMode"
+  },
+  "events": {
+    "directory": ".akari/events",
+    "gateTypes": [
+      "report-generated",
+      "report-approved",
+      "edit-completed",
+      "export-completed"
+    ]
+  }
+}
