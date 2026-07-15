@@ -23,7 +23,8 @@
       ".akari",
       "CLAUDE.md",
       "AGENTS.md",
-      ".gitignore"
+      ".gitignore",
+      ".gitkeep"
     ],
     "sidecarSuffixes": [
       ".meta.json",
