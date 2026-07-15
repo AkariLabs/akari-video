@@ -1,0 +1,12 @@
+node_modules/
+dist/
+lib/
+out/
+electron-builder-out/
+*.app
+*.log
+.DS_Store
+.env
+.env.*
+*.vsix
+plugins/
