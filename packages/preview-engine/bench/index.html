@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>preview-engine bench</title>
+<style>
+  body { background: #111; color: #ddd; font-family: -apple-system, sans-serif; margin: 0; padding: 12px; }
+  #canvasWrap { display: flex; gap: 12px; }
+  canvas { background: #000; border: 1px solid #444; width: 480px; height: 270px; }
+  #log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 11px; height: 480px; overflow-y: auto; background: #000; padding: 8px; margin-top: 8px; }
+  h1 { font-size: 14px; }
+</style>
+</head>
+<body>
+  <h1>preview-engine bench — E1〜E4 受け入れ条件計測（4K long-GOP / PreviewEngine）</h1>
+  <div id="canvasWrap">
+    <canvas id="cv" width="960" height="540"></canvas>
+  </div>
+  <div id="log"></div>
+  <script src="renderer/bench.bundle.js"></script>
+</body>
+</html>

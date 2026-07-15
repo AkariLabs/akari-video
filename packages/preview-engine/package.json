@@ -1,0 +1,23 @@
+{
+  "name": "@akari-video/preview-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shell-agnostic TS preview engine (level 3, Chromium-internal). E1 tolerance scrub / E2 lookahead cache / E3 cut-point warmup / E4 defense layer. See README.md for public API.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "bench:build": "esbuild bench/renderer/bench.ts --bundle --format=iife --outfile=bench/renderer/bench.bundle.js --target=chrome122",
+    "bench:start": "npm run bench:build && cd bench && npm start"
+  },
+  "dependencies": {
+    "@webav/av-cliper": "1.2.8",
+    "@webav/mp4box.js": "^0.5.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}
