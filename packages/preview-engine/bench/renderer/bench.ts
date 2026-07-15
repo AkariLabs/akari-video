@@ -1,4 +1,4 @@
-// PreviewEngine (E1〜E4) 計測ベンチ — renderer
+// PreviewEngine (E1〜E5) 計測ベンチ — renderer
 // lab/webcodecs-spike/renderer/app.js の計測手法（percentile/uiLog/scrub/concat/gop-edge/memory）を
 // 再利用しつつ、直接 WebCodecs/MP4Clip を叩く代わりに packages/preview-engine の公開・準公開 API を通す。
 import { PreviewEngine, ClipSession, type EngineWarningEvent, type FrameEvent } from '../../src/index.js';
@@ -426,6 +426,126 @@ async function test7_memoryAndConcurrency() {
 }
 
 // ============================================================
+// Test 8: E5 サムネスクラブ表示層
+// - 入力→同期サムネ描画レイテンシ
+// - 4K long-GOP / 1080p の実フレーム追従Hz
+// - スイープ停止後の exact 解決
+// ============================================================
+async function runE5Sweep(label: string, src: string, settleSamples: number) {
+  const engine = new PreviewEngine({
+    enableThumbnailScrub: true,
+    thumbnailMaxCount: 40,
+    thumbnailIntervalSec: 2,
+    thumbnailWidth: 160,
+  });
+  engine.mount(canvas);
+
+  const frameArrivals: { t: number; tickMs: number }[] = [];
+  const thumbnailLatencies: number[] = [];
+  let thumbnailEventCount = 0;
+  let pendingInputAt: number | null = null;
+  let collectingSweep = false;
+  const offFrame = engine.on('frame', (event) => {
+    if (collectingSweep && event.approx) frameArrivals.push({ t: performance.now(), tickMs: event.tickMs });
+  });
+  const offThumbnail = engine.on('thumbnail', (event) => {
+    if (!collectingSweep) return;
+    thumbnailEventCount += 1;
+    if (pendingInputAt != null) thumbnailLatencies.push(event.drawnAtMs - pendingInputAt);
+  });
+
+  await engine.loadTimeline({
+    fps: 30,
+    clips: [{ id: `e5-${label}`, src, startFrame: 0, endFrame: 20 * 30, track: 0, mediaType: 'video' }],
+  });
+
+  // build() は loadTimeline をブロックしない。低優先度の初期生成に短い猶予を与えてから、
+  // Test2 と同一の高頻度・広域スイープを開始する。
+  const thumbnailWarmupMs = 2500;
+  await new Promise((resolve) => setTimeout(resolve, thumbnailWarmupMs));
+
+  const sweepStartFrame = 60;
+  const sweepRangeFrames = 150;
+  const wallDurationMs = 4000;
+  const inputIntervalMs = 5;
+  let inputCount = 0;
+  collectingSweep = true;
+  const sweepStartedAt = performance.now();
+  while (performance.now() - sweepStartedAt < wallDurationMs) {
+    const elapsed = performance.now() - sweepStartedAt;
+    const phase = (elapsed / 700) * Math.PI * 2;
+    const frame = Math.round(sweepStartFrame + (Math.sin(phase) * 0.5 + 0.5) * sweepRangeFrames);
+    inputCount += 1;
+    pendingInputAt = performance.now();
+    void engine.seek(frame, 'interactiveScrub');
+    pendingInputAt = null;
+    await new Promise((resolve) => setTimeout(resolve, inputIntervalMs));
+  }
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  collectingSweep = false;
+
+  const frameWallMs =
+    frameArrivals.length >= 2
+      ? frameArrivals[frameArrivals.length - 1]!.t - frameArrivals[0]!.t
+      : wallDurationMs;
+  const followHz = frameWallMs > 0 ? Math.max(0, frameArrivals.length - 1) / (frameWallMs / 1000) : 0;
+  const frameGaps: number[] = [];
+  for (let i = 1; i < frameArrivals.length; i++) {
+    frameGaps.push(frameArrivals[i]!.t - frameArrivals[i - 1]!.t);
+  }
+  const thumbStats = stats(thumbnailLatencies);
+  const realFrameTickStats = stats(frameArrivals.map((entry) => entry.tickMs));
+  const eventCoverage = inputCount > 0 ? thumbnailEventCount / inputCount : 0;
+
+  const settleLatencies: number[] = [];
+  for (let i = 0; i < settleSamples; i++) {
+    const frame = sweepStartFrame + Math.floor(Math.random() * sweepRangeFrames);
+    void engine.seek(frame, 'interactiveScrub');
+    await new Promise((resolve) => setTimeout(resolve, 35));
+    const t0 = performance.now();
+    await engine.seek(frame, 'exact');
+    settleLatencies.push(performance.now() - t0);
+  }
+  const settleStats = stats(settleLatencies);
+
+  uiLog(
+    `[E5:${label}] inputs=${inputCount} thumbnailEvents=${thumbnailEventCount} eventCoverage=${(
+      eventCoverage * 100
+    ).toFixed(1)}% thumbLatency p50=${thumbStats.p50.toFixed(3)}ms p95=${thumbStats.p95.toFixed(
+      3
+    )}ms realFrames=${frameArrivals.length} followHz=${followHz.toFixed(1)} tick p50=${realFrameTickStats.p50.toFixed(
+      1
+    )}ms p95=${realFrameTickStats.p95.toFixed(1)}ms settle p50=${settleStats.p50.toFixed(
+      1
+    )}ms p95=${settleStats.p95.toFixed(1)}ms`
+  );
+
+  offFrame();
+  offThumbnail();
+  engine.dispose();
+  return {
+    inputCount,
+    thumbnailEventCount,
+    eventCoverage,
+    thumbnailLatency: thumbStats,
+    realFrameCount: frameArrivals.length,
+    followHz,
+    stutterCount: frameGaps.filter((gap) => gap > 100).length,
+    realFrameTickStats,
+    settleExact: settleStats,
+    thumbnailWarmupMs,
+  };
+}
+
+async function test8_thumbnailScrub() {
+  uiLog('=== Test8: E5 thumbnail scrub (instant strip + real-frame follow + exact settle) ===');
+  const longGop4k = await runE5Sweep('4k-longgop', SRC_A, 12);
+  const fieldtest1080p = await runE5Sweep('1080p-fieldtest', SRC_1080, 0);
+  await window.bench.screenshot('t8-01-thumbnail-scrub');
+  return { longGop4k, fieldtest1080p };
+}
+
+// ============================================================
 // main
 // ============================================================
 async function main() {
@@ -507,6 +627,14 @@ async function main() {
   } catch (e) {
     uiLog(`Test7 FAILED: ${String(e)}`);
     (results.tests as any).test7_error = String(e);
+  }
+
+  if (!QUICK_DIAG_ONLY)
+  try {
+    (results.tests as any).test8_thumbnailScrub = await test8_thumbnailScrub();
+  } catch (e) {
+    uiLog(`Test8 FAILED: ${String(e)}`);
+    (results.tests as any).test8_error = String(e);
   }
 
   (results as any).warnings = warnings;

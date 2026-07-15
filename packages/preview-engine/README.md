@@ -1,7 +1,7 @@
 # @akari-video/preview-engine
 
 シェル非依存の TS プレビューエンジン（レベル3: Chromium 内完結、WebCodecs + `@webav/av-cliper` 基盤）。
-正本契約: `akari-video-internal/planning/contract-2026-07-15-preview-engine.md`（E1〜E4）。
+正本契約: `akari-video-internal/planning/contract-2026-07-15-preview-engine.md`（E1〜E5）。
 
 新シェル（Electron レンダラー等）はこのパッケージを `<canvas>` にマウントし、タイムラインを渡し、
 `seek()` / `play()` を呼ぶだけでよい。GOP 距離依存の decode コスト・カット境界のフリーズ・
@@ -33,6 +33,10 @@ const engine = new PreviewEngine({
   loadTimeoutMs: 4000,                 // E4
   tickTimeoutMs: 4000,                 // E4
   tailMarginUs: undefined,             // E4: 既定は timeline.fps から 2 フレーム分を自動算出
+  enableThumbnailScrub: true,          // E5: メモリ内サムネによる即時スクラブ表示
+  thumbnailMaxCount: 40,               // E5: 1クリップあたりの上限
+  thumbnailIntervalSec: 2,             // E5: キーフレーム索引が無い場合の粗い間隔
+  thumbnailWidth: 160,                 // E5: 低解像度サムネの幅
 });
 
 // 1. マウント（HTMLCanvasElement に 2D で描画する）
@@ -67,6 +71,7 @@ engine.dispose();
 
 ```ts
 engine.on('frame', ({ frame, clipId, approx, tickMs, drawn }) => {});
+engine.on('thumbnail', ({ frame, clipId, drawnAtMs }) => {});
 engine.on('warning', ({ kind, clipId, message, detail }) => {});
 engine.on('warmup', ({ clipId, primedAtFrame, tookMs }) => {});
 engine.on('play', ({ frame }) => {});
@@ -135,6 +140,19 @@ WebCodecs の `VideoFrame` は `close()` 後は再利用不能なため、**キ�
   本プラットフォームでは 4K H.264/HEVC の SW configure 自体が失敗する（スパイクで確認済み）ため、
   実質的には「クリップ利用不能を早期検知してエラー通知に倒す」防御という位置づけ。
 
+### E5: サムネスクラブ表示層
+
+`loadTimeline()` は先頭クリップのロード後、既存の E1 キーフレーム索引を優先して低解像度の
+`ImageBitmap` 列をバックグラウンド生成する。索引が無い場合だけ `thumbnailIntervalSec` 間隔で
+粗く抽出する。生成には既存の `ClipSession.tickBackground()` を使うため、実スクラブや exact seek の
+foreground 要求が割り込むとサムネ生成側が譲る。別解像度の動画ファイルは生成せず、成果物は
+メモリ内の bitmap だけで、`dispose()` / タイムライン再ロード時にすべて `close()` する。
+
+`seek(frame, 'interactiveScrub')` は ready 済みトラックの最近傍サムネを同期描画し、`thumbnail`
+イベントを発火してから、従来どおり E1 の実フレーム要求を続行する。実フレームが解決すると既存の
+`frame` 描画がサムネを差し替える。同一サムネが連続する入力では再描画とイベントを省略する。
+リリース時は従来どおり `seek(frame, 'exact')` を呼び、E3/E2 を含む既存経路で exact フレームへ収束する。
+
 ## 既知の非スコープ（契約 §4）
 
 - エフェクト・トランジションのリアルタイム合成（v0 は カット + オーバーレイのみ）
@@ -153,5 +171,6 @@ npm run bench:build
 cd bench && npm start
 ```
 
-結果は `bench/evidence/measurements.json` に保存される。スパイク実測値との比較表は
+Test8 がサムネ描画 p50/p95、4K/1080p 実フレーム追従 Hz、静止後 exact p50/p95、サムネイベント
+カバレッジを記録する。結果は `bench/evidence/measurements.json` に保存される。スパイク実測値との比較表は
 `akari-video-internal/tasks/2026-07-15-engine-e1-e4/report.md` を参照。

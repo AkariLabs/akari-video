@@ -9,6 +9,7 @@ export type {
   EngineWarningKind,
   EngineErrorEvent,
   FrameEvent,
+  ThumbnailEvent,
   PreviewEngineOptions,
 } from './types.js';
 
@@ -23,3 +24,5 @@ export type { KeyframeIndex } from './keyframeIndex.js';
 export { LookaheadCache } from './lookaheadCache.js';
 export { ScrubController } from './scrubController.js';
 export { WarmupManager } from './warmupManager.js';
+export { ThumbnailTrack } from './thumbnailTrack.js';
+export type { ThumbnailEntry, ThumbnailTrackOptions } from './thumbnailTrack.js';

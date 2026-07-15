@@ -2,7 +2,7 @@
   "name": "@akari-video/preview-engine",
   "version": "0.1.0",
   "private": true,
-  "description": "Shell-agnostic TS preview engine (level 3, Chromium-internal). E1 tolerance scrub / E2 lookahead cache / E3 cut-point warmup / E4 defense layer. See README.md for public API.",
+  "description": "Shell-agnostic TS preview engine (level 3, Chromium-internal). E1-E4 decode path plus E5 thumbnail scrub layer. See README.md for public API.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

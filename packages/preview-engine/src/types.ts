@@ -56,8 +56,16 @@ export interface FrameEvent {
   drawn: boolean;
 }
 
+/** E5 のメモリ内サムネイルが canvas へ描画された際のイベント */
+export interface ThumbnailEvent {
+  frame: number;
+  clipId: string;
+  drawnAtMs: number;
+}
+
 export interface EngineEvents {
   frame: FrameEvent;
+  thumbnail: ThumbnailEvent;
   warning: EngineWarningEvent;
   error: EngineErrorEvent;
   /** E3 warmup が発火した際の観測用イベント（ベンチ計測用） */
@@ -84,4 +92,12 @@ export interface PreviewEngineOptions {
   tickTimeoutMs?: number;
   /** E4: 末尾 GOP 安全マージン(マイクロ秒) */
   tailMarginUs?: number;
+  /** E5: interactiveScrub の同期サムネイル表示を有効化する。既定 true */
+  enableThumbnailScrub?: boolean;
+  /** E5: 1クリップあたりのサムネイル上限。既定 40 */
+  thumbnailMaxCount?: number;
+  /** E5: キーフレーム索引が無い場合の等間隔サンプリング秒数。既定 2 */
+  thumbnailIntervalSec?: number;
+  /** E5: メモリ内サムネイルの幅(px)。既定 160 */
+  thumbnailWidth?: number;
 }
