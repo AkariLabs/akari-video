@@ -1,0 +1,31 @@
+{
+  "name": "akari-shell-strip",
+  "version": "0.0.1",
+  "description": "AKARI Video shell — activity bar curation (S15) / menu bar curation (S17) / startup failsafe (S18) / branding contribution.",
+  "private": true,
+  "main": "lib/browser/akari-shell-strip-frontend-module.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/akari-shell-strip-frontend-module"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.1",
+    "@theia/filesystem": "1.73.1",
+    "@theia/navigator": "1.73.1",
+    "@theia/search-in-workspace": "1.73.1",
+    "@theia/vsx-registry": "1.73.1",
+    "@theia/preferences": "1.73.1",
+    "@theia/editor": "1.73.1",
+    "@theia/terminal": "1.73.1",
+    "@theia/workspace": "1.73.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}

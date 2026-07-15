@@ -1,0 +1,26 @@
+# build / generated (theia build, esbuild)
+/lib/
+/src-gen/
+/gen-esbuild.*.mjs
+/esbuild.mjs
+
+# packaging output
+/electron-builder-out/
+/*.app/
+
+# dependencies
+/node_modules/
+/extensions/*/node_modules/
+/extensions/*/lib/
+package-lock.json
+
+# downloaded / unpacked plugins (large, reproducible via ovsx)
+/plugins/
+/plugins-unpacked/
+/plugins-empty/
+
+# scratch project used for S18 startup-failsafe test
+/dev-fixtures/**/node_modules/
+
+# OS
+.DS_Store

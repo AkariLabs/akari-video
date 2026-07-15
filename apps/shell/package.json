@@ -1,0 +1,110 @@
+{
+  "private": true,
+  "name": "@akari-video/shell",
+  "version": "0.0.1",
+  "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
+  "dependencies": {
+    "@theia/core": "1.73.1",
+    "@theia/editor": "1.73.1",
+    "@theia/filesystem": "1.73.1",
+    "@theia/workspace": "1.73.1",
+    "@theia/navigator": "1.73.1",
+    "@theia/terminal": "1.73.1",
+    "@theia/monaco": "1.73.1",
+    "@theia/preferences": "1.73.1",
+    "@theia/plugin-ext": "1.73.1",
+    "@theia/plugin-ext-vscode": "1.73.1",
+    "@theia/vsx-registry": "1.73.1",
+    "@theia/scm": "1.73.1",
+    "@theia/search-in-workspace": "1.73.1",
+    "@theia/electron": "1.73.1",
+    "@theia/keymaps": "1.73.1",
+    "@theia/userstorage": "1.73.1",
+    "akari-shell-strip": "file:./extensions/akari-shell-strip"
+  },
+  "devDependencies": {
+    "@theia/cli": "1.73.1",
+    "electron": "39.8.7",
+    "electron-builder": "^26.0.0",
+    "typescript": "~5.4.5",
+    "rimraf": "^5.0.5",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.16.0",
+    "@typescript-eslint/parser": "^7.16.0"
+  },
+  "main": "lib/backend/electron-main.js",
+  "theia": {
+    "target": "electron",
+    "backend": {
+      "config": {
+        "singleInstance": true
+      }
+    },
+    "frontend": {
+      "config": {
+        "applicationName": "AKARI Video",
+        "preferences": {
+          "security.workspace.trust.enabled": false
+        }
+      }
+    },
+    "electron": {
+      "splashScreenOptions": {
+        "content": "./resources/splash.html"
+      }
+    }
+  },
+  "scripts": {
+    "build:ext": "tsc -b extensions/akari-shell-strip",
+    "build": "npm run build:ext && theia build --mode production",
+    "lint": "eslint \"extensions/akari-shell-strip/src/**/*.{ts,tsx}\"",
+    "start": "theia start --plugins=local-dir:plugins",
+    "package": "electron-builder --dir",
+    "watch": "theia build --watch --mode development"
+  },
+  "build": {
+    "appId": "org.akarivideo.shell",
+    "productName": "AKARI Video",
+    "directories": {
+      "output": "electron-builder-out",
+      "buildResources": "resources/icons"
+    },
+    "files": [
+      "src-gen/**/*",
+      "lib/**/*",
+      "package.json",
+      "!lib/**/*.map",
+      "!node_modules/**/*.map",
+      "!node_modules/**/*.md",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/README*",
+      "!node_modules/**/*.ts",
+      "!node_modules/**/test/**",
+      "!node_modules/**/tests/**",
+      "!node_modules/**/*.spec.js",
+      "!node_modules/**/docs/**",
+      "!node_modules/**/*.flow",
+      "!node_modules/@theia/**/src/**"
+    ],
+    "asarUnpack": [
+      "**/*.node",
+      "**/vscode-ripgrep/**",
+      "**/@vscode/ripgrep/**"
+    ],
+    "mac": {
+      "icon": "resources/icons/icon.icns",
+      "target": "dir",
+      "category": "public.app-category.video"
+    },
+    "win": {
+      "icon": "resources/icons/icon.png",
+      "target": "dir"
+    },
+    "linux": {
+      "icon": "resources/icons/icon.png",
+      "target": "dir"
+    }
+  }
+}
