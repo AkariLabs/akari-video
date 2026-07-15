@@ -1,0 +1,28 @@
+---
+name: overlay-authoring
+description: AKARI Video のオーバーレイ HTML、字幕、表・グラフ、Three.js 3D、モーショングラフィックス、サムネイル、人物の後ろに文字を置く表現を設計・生成・レビューするときに発動する authoring ルーター。
+---
+
+# FORBIDDEN 級ハードルール
+
+次のいずれかに違反する動画オーバーレイを作成・採用しない。詳細リーフより常に優先する。
+
+1. **調整値を直書きしない。** 位置、拡縮、文字サイズ、色、余白、内容など、人が調整しうる値を CSS 変数として公開する。`--x`、`--y`、`--scale`、`--font-size`、`--color` などを使い、`edit.json.overlays[].vars` から継承できるよう `var(--name, fallback)` で参照する。断片ルートで同名変数を再定義して上書きを遮らない。
+2. **時刻を別の仕組みに持たせない。** タイミングは `data-start` / `data-duration` とする。AKARI Video v0 では `edit.json.overlays[].start/duration` が SSOT で、ランタイムが外側コンテナの data 属性へ反映する。断片内の独立した時刻源を作らない。
+3. **layout を毎フレーム動かさない。** アニメーションは `transform` / `opacity` 中心にする。4K 映像上の `filter: blur()` と `backdrop-filter` は禁止する。
+4. **wall-clock で絵を決めない。** `Date.now()`、`performance.now()` の経過差、`setTimeout`、`setInterval`、rAF の delta 積算、未 seed の乱数に表示状態を依存させない。シーク時に WAAPI の `currentTime` を設定すれば同じ時刻の絵が再現される決定的設計にする。
+5. **3D の別方式を持ち込まない。** 3D は Three.js + glTF とし、動画テクスチャは `VideoTexture` に編集用プロキシを与える。原本をプレビュー用テクスチャへ直結しない。
+6. **トップレベルを複数にしない。** HTML 断片のルート要素は必ず 1 つにする。AKARI の外側コンテナによる translate / scale / rotate が常に効く構造を保つ。
+
+# リーフ目次
+
+必要な判断領域だけを読む。
+
+- 字幕・テロップの日本語組版、可読性、配置: [telop.md](telop.md)
+- 表・グラフの HTML/CSS 構成とアニメーション: [table.md](table.md)
+- Three.js + glTF、動画テクスチャ、3D 性能: [3d.md](3d.md)
+- 決定的モーション、イージング、compositor 制約: [motion.md](motion.md)
+- サムネイルの型、デザイン語彙、生成経路、HTML スクショ: [thumbnail.md](thumbnail.md)
+- 人物切り抜き、HEVC alpha、text-behind-person: [text-behind-person.md](text-behind-person.md)
+
+静止サムネイル用 HTML シートは動画オーバーレイではないため timing data 属性を不要とする。ただし、CSS 変数化、単一ルート、ローカル資産、決定的なスクリーンショットという考え方は維持する。
