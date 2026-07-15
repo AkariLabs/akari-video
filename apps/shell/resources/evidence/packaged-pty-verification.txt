@@ -1,0 +1,19 @@
+Package: electron-builder-out/mac-arm64/AKARI Video.app
+
+Packaged native files:
+-rwxr-xr-x  pty.node      (86904 bytes)
+-rwxr-xr-x  spawn-helper  (50480 bytes)
+
+Runtime helper path:
+Contents/Resources/app.asar.unpacked/lib/prebuilds/darwin-arm64/spawn-helper
+
+Packaged Electron PTY check:
+{"output":"__AKARI_PTY_PROMPT_OK__","code":0,"signal":0}
+
+Package size:
+409M (du -sh)
+410 MB (du -sm)
+
+The check loaded pty.node with the packaged Electron 39.8.7 runtime and passed
+the packaged spawn-helper path to pty.fork('/bin/zsh', ...). The shell emitted
+the marker above and exited successfully.
