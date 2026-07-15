@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(./**)",
+      "Write(./planning/**)",
+      "Write(./exports/**)",
+      "Write(./.akari/sidecars/**)",
+      "Write(./.akari/events/**)"
+    ],
+    "deny": [
+      "Write(./assets/**)"
+    ]
+  }
+}

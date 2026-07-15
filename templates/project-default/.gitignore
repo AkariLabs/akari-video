@@ -1,0 +1,11 @@
+# Source video and audio are intentionally kept outside the project history.
+assets/**
+!assets/.gitkeep
+
+# Temporary files used by the friendly "変更を見る" view.
+.akari/diffs/**
+!.akari/diffs/.gitkeep
+
+# Local operating-system files.
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "asset": "assets/interview.mp4",
+  "decisions": [
+    {
+      "id": "opening-hook",
+      "summary": "冒頭の結論を先に見せる",
+      "status": "approved",
+      "updatedAt": "2026-07-15T12:00:00.000Z"
+    }
+  ]
+}

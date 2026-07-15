@@ -7,6 +7,9 @@
   "theiaExtensions": [
     {
       "frontend": "lib/browser/akari-project-frontend-module"
+    },
+    {
+      "backend": "lib/node/akari-project-backend-module"
     }
   ],
   "scripts": {

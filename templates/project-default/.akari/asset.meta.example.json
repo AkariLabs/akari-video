@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "asset": "assets/interview.mp4",
+  "thumbnail": "thumbnails/interview.jpg",
+  "durationSeconds": 92.4,
+  "width": 1920,
+  "height": 1080,
+  "transcript": {
+    "available": true,
+    "path": "planning/interview.transcript.json"
+  },
+  "analysis": {
+    "status": "complete",
+    "summary": "製品紹介と導入効果を説明するインタビュー。"
+  },
+  "decisions": [
+    {
+      "id": "opening-hook",
+      "summary": "冒頭の結論を先に見せる",
+      "status": "approved"
+    }
+  ]
+}
