@@ -1,0 +1,32 @@
+S7 PTY nudge — idle-immediate / busy-queue-then-flush 実測ログ
+実測環境: theia start（開発版・electron-builder パッケージではない）、実ワークスペース
+（.akari/events/ に fixture JSON を配置）、実際に起動した Claude Code CLI の PTY（akari-partner kind）。
+検証手法: Playwright を CDP 経由で theia start の Electron レンダラーに接続し、
+ブラウザコンソールの `[akari-partner] PTY nudge sent: ...` ログを実時間で採取。
+
+定数: PTY_IDLE_THRESHOLD_MS = 1500ms
+      （apps/shell/extensions/akari-partner/src/browser/partner-session-service.ts）
+
+== ケース A: アイドル時の即時送出 ==
+[+3005ms] fixture 書き込み: precise2-1.json（直前 3 秒以上 PTY 出力なし = アイドル状態）
+[+3129ms] nudge 送出: "回答が更新されました: precise2-1.json を確認してください"
+  => fixture 書き込みから 124ms 後に送出（アイドル閾値 1500ms を待たずに即時送出）
+
+== ケース B: ビジー中のキュー → アイドル後フラッシュ ==
+[+3407ms] fixture 書き込み: precise2-2.json（nudge A 自身の PTY エコー出力から 278ms しか
+           経過しておらず、まだビジー扱いの窓内）
+[+4741ms] nudge 送出: "回答が更新されました: precise2-2.json を確認してください"
+  => fixture 書き込みから 1334ms 後に送出（即時ではなく、直近の PTY 出力から
+     アイドル閾値 1500ms 分待ってから送出されたことと整合する遅延）
+
+結論: fixture イベントはアイドル時は即時（124ms、閾値未満）に送出され、
+ビジー直後に置かれた場合はキューされ、PTY がアイドルになってから
+（実測 1334ms 待ち、閾値 1500ms とほぼ整合）送出されることを実機で確認した。
+
+生ログ（コンソール抜粋・実測そのまま）:
+[+3005ms] wrote fixture-1
+[+3406ms] nudges so far: 1 (expect 1, sent ~near-immediately since idle)
+[+3407ms] wrote fixture-2 (within 1.5s of nudge-1 own PTY echo, should be queued if busy-detection works)
+[+7408ms] final nudge count: 2
+[+7408ms] nudge at +3129ms: 2026-07-15T15:07:06.997Z root INFO [akari-partner] PTY nudge sent: 回答が更新されました: precise2-1.json を確認してください
+[+7408ms] nudge at +4741ms: 2026-07-15T15:07:08.611Z root INFO [akari-partner] PTY nudge sent: 回答が更新されました: precise2-2.json を確認してください

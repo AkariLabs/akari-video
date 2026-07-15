@@ -6,7 +6,8 @@
   "main": "lib/browser/akari-partner-frontend-module.js",
   "theiaExtensions": [
     {
-      "frontend": "lib/browser/akari-partner-frontend-module"
+      "frontend": "lib/browser/akari-partner-frontend-module",
+      "backend": "lib/node/akari-partner-backend-module"
     }
   ],
   "scripts": {

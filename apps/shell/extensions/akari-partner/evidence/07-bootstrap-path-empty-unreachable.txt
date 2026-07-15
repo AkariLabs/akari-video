@@ -1,0 +1,20 @@
+AKARI partner bootstrap deterministic failure-path check
+Date: 2026-07-15 (Asia/Tokyo)
+
+Runtime:
+  apps/shell/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+
+Environment overrides:
+  PATH=
+  ELECTRON_RUN_AS_NODE=1
+  AKARI_PARTNER_CODEX_RELEASE_API_URL=http://127.0.0.1:9/unreachable
+
+Observed output:
+  Codex リリース情報を取得しています: http://127.0.0.1:9/unreachable
+  fetch failed
+
+Observed exit code: 1 (expected failure)
+
+The runner reached its explicit network failure path with an empty PATH while
+using the bundled Electron executable as Node. No CLI or user files were
+installed by this check.
