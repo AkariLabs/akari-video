@@ -52,6 +52,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewRefresh?: Promise<void>;
     akariPreviewEditUri?: URI;
     akariPreviewTrackedResources?: Set<string>;
+    akariPreviewStreamId?: string;
 }
 
 const EMPTY_SUMMARY: EditSummary = {
@@ -70,9 +71,8 @@ const CLAIMED_VIDEO_EXTENSIONS = new Set([
     ...PLAYABLE_VIDEO_MIME_TYPES.keys(),
     ...UNSUPPORTED_VIDEO_EXTENSIONS
 ]);
-const MAX_EMBEDDED_VIDEO_BYTES = 180 * 1024 * 1024;
 const UNSUPPORTED_FORMAT_MESSAGE = 'この形式はアプリ内プレビューに未対応です。書き出し後の MP4 をプレビューできます。';
-const LARGE_VIDEO_MESSAGE = '大きい素材のプレビューは現在準備中です。';
+const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビューできません。';
 
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
@@ -168,7 +168,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!(await this.isInsideWorkspace(videoUri))) {
             disposables.push(await this.fileService.watch(videoUri.parent, { recursive: true, excludes: [] }));
         }
-        widget.disposed.connect(() => disposables.dispose());
+        widget.disposed.connect(() => {
+            disposables.dispose();
+            void this.disposeVideoStream(widget);
+        });
     }
 
     protected queueRefresh(widget: PreviewWidgetMarker, videoUri: URI): void {
@@ -186,20 +189,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.showMessageCard(widget, videoUri, UNSUPPORTED_FORMAT_MESSAGE);
             return;
         }
-
-        const videoStat = await this.fileService.resolve(videoUri);
-        if ((videoStat.size ?? 0) > MAX_EMBEDDED_VIDEO_BYTES) {
-            this.showMessageCard(widget, videoUri, LARGE_VIDEO_MESSAGE);
+        if (!(await this.isInsideWorkspace(videoUri))) {
+            this.showMessageCard(widget, videoUri, OUTSIDE_WORKSPACE_MESSAGE);
             return;
         }
 
-        const [model, videoContent] = await Promise.all([
+        const [model, assets] = await Promise.all([
             this.loadPreviewModel(videoUri),
-            this.fileService.readFile(videoUri)
+            this.previewService.getOverlayRuntimeAssets()
         ]);
-        const assets = await this.previewService.getOverlayRuntimeAssets();
-        // 180MB 以下に限定し、data URI 変換時のメモリ負荷が大容量素材で膨らむのを避ける。
-        const videoSource = `data:${mimeType};base64,${this.toBase64(videoContent.value.buffer)}`;
+        const videoStream = await this.previewService.createVideoStream({
+            videoUri: videoUri.toString()
+        });
+        await this.disposeVideoStream(widget);
+        widget.akariPreviewStreamId = videoStream.id;
         widget.akariPreviewEditUri = model.editUri;
         widget.akariPreviewTrackedResources = new Set([
             ...(model.editUri ? [model.editUri.toString()] : []),
@@ -213,10 +216,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             allowScripts: true,
             allowForms: true
         });
-        widget.setHTML(this.prepareHtml(videoUri, videoSource, model, assets));
+        widget.setHTML(this.prepareHtml(videoUri, videoStream.url, model, assets));
     }
 
     protected showMessageCard(widget: PreviewWidgetMarker, videoUri: URI, message: string): void {
+        void this.disposeVideoStream(widget);
         widget.akariPreviewEditUri = undefined;
         widget.akariPreviewTrackedResources = new Set();
         widget.viewType = 'akari.preview';
@@ -395,6 +399,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
 <style>
 ${this.inlineStyle(assets.interactionCss)}
 :root { color-scheme: dark; font-family: system-ui, sans-serif; }
@@ -428,7 +433,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <main class="workspace">
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
-      <video id="preview-video" src="${videoSource}" preload="metadata"></video>
+      <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
       <div id="overlay-stage"></div>
       <div id="preview-message" class="message-card" hidden role="status"><p>${UNSUPPORTED_FORMAT_MESSAGE}</p></div>
     </div>
@@ -673,6 +678,23 @@ body { display: grid; place-items: center; padding: 32px; }
         });
     }
 
+    protected streamOrigin(source: string): string {
+        const parsed = new URL(source);
+        return parsed.origin;
+    }
+
+    protected async disposeVideoStream(widget: PreviewWidgetMarker): Promise<void> {
+        const id = widget.akariPreviewStreamId;
+        widget.akariPreviewStreamId = undefined;
+        if (id) {
+            try {
+                await this.previewService.disposeVideoStream(id);
+            } catch (error) {
+                console.warn(`[akari-preview] failed to dispose video stream ${id}`, error);
+            }
+        }
+    }
+
     protected readText(uri: URI): Promise<string> {
         return this.fileService.readFile(uri).then(content => content.value.toString());
     }
@@ -731,15 +753,6 @@ body { display: grid; place-items: center; padding: 32px; }
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-    }
-
-    protected toBase64(bytes: Uint8Array): string {
-        const chunkSize = 0x8000;
-        let binary = '';
-        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-            binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
-        }
-        return btoa(binary);
     }
 
     protected inlineScript(value: string): string {
