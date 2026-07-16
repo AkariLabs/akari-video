@@ -1,7 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { execFile } from 'child_process';
-import { promises as fs, watch } from 'fs';
+import { constants, promises as fs, watch } from 'fs';
 import { basename, dirname, extname, join, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
@@ -9,7 +9,8 @@ import {
     AkariProjectService,
     DiffPreparationResult,
     DiffResourcePair,
-    DroppedVideo
+    DroppedVideo,
+    DroppedVideoImportResult
 } from '../common/akari-project-protocol';
 
 const execFileAsync = promisify(execFile);
@@ -117,37 +118,59 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         this.watchers.set(root, { close: () => clearInterval(timer) });
     }
 
-    async recordDroppedVideos(projectUri: string, videos: DroppedVideo[]): Promise<string[]> {
+    async recordDroppedVideos(projectUri: string, videos: DroppedVideo[]): Promise<DroppedVideoImportResult[]> {
         const root = this.fsPath(projectUri);
         await this.ensureRuntimeDirectories(root);
-        const written: string[] = [];
+        const results: DroppedVideoImportResult[] = [];
         for (const video of videos) {
             if (!VIDEO_EXTENSIONS.has(extname(video.name).toLowerCase())) {
+                results.push({ name: video.name, success: false, reason: 'unsupported-video' });
                 continue;
             }
-            let assetName = this.safeFileName(video.name);
-            let assetPath = join(root, 'assets', assetName);
-            if (video.sourcePath) {
-                assetName = await this.availableName(join(root, 'assets'), assetName);
-                assetPath = join(root, 'assets', assetName);
-                if (resolve(video.sourcePath) !== resolve(assetPath)) {
-                    await fs.copyFile(video.sourcePath, assetPath);
-                }
+            if (!video.sourcePath) {
+                results.push({ name: video.name, success: false, reason: 'source-path-unavailable' });
+                continue;
             }
+
+            const assetName = await this.availableName(join(root, 'assets'), this.safeFileName(video.name));
+            const assetPath = join(root, 'assets', assetName);
+            try {
+                await fs.copyFile(video.sourcePath, assetPath, constants.COPYFILE_FICLONE);
+            } catch {
+                await fs.rm(assetPath, { force: true }).catch(() => undefined);
+                results.push({ name: video.name, success: false, reason: 'copy-failed' });
+                continue;
+            }
+
+            const sizesMatch = await Promise.all([
+                fs.stat(video.sourcePath),
+                fs.stat(assetPath)
+            ]).then(([source, destination]) => source.size === destination.size, () => false);
+            if (!sizesMatch) {
+                await fs.rm(assetPath, { force: true }).catch(() => undefined);
+                results.push({ name: video.name, success: false, reason: 'size-mismatch' });
+                continue;
+            }
+
             const event = {
                 version: 1,
                 id: this.eventId('video-added'),
                 type: 'video-added',
                 occurredAt: new Date().toISOString(),
                 asset: `assets/${assetName}`,
-                source: video.sourcePath || video.name,
-                copied: !!video.sourcePath
+                source: video.sourcePath,
+                copied: true
             };
             const eventPath = join(root, '.akari', 'events', `${event.id}.json`);
-            await this.writeJsonAtomic(eventPath, event);
-            written.push(pathToFileURL(eventPath).toString());
+            try {
+                await this.writeJsonAtomic(eventPath, event);
+                results.push({ name: video.name, success: true, eventUri: pathToFileURL(eventPath).toString() });
+            } catch {
+                await fs.rm(assetPath, { force: true }).catch(() => undefined);
+                results.push({ name: video.name, success: false, reason: 'event-write-failed' });
+            }
         }
-        return written;
+        return results;
     }
 
     async prepareDiffs(projectUri: string): Promise<DiffPreparationResult> {

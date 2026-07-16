@@ -177,12 +177,24 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             return;
         }
         try {
-            const events = await this.projectService.recordDroppedVideos(root.toString(), videos);
-            this.messages.info(`${events.length} 本の動画を素材に取り込みました。`);
-            const navigator = await this.widgets.getOrCreateWidget('files') as any;
-            await navigator.model?.refresh?.();
-        } catch (error) {
-            this.messages.error(`動画を素材に取り込めませんでした: ${this.errorMessage(error)}`);
+            const results = await this.projectService.recordDroppedVideos(root.toString(), videos);
+            const imported = results.filter(result => result.success).length;
+            const failed = results.length - imported;
+            if (imported) {
+                this.messages.info(`${imported} 本の動画を素材に取り込みました。`);
+                const navigator = await this.widgets.getOrCreateWidget('files') as any;
+                await navigator.model?.refresh?.();
+            }
+            if (failed) {
+                const message = '動画を取り込めませんでした。Finder からもう一度ドラッグしてください。';
+                if (imported) {
+                    this.messages.warn(`${failed} 本の${message}`);
+                } else {
+                    this.messages.error(message);
+                }
+            }
+        } catch {
+            this.messages.error('動画を取り込めませんでした。Finder からもう一度ドラッグしてください。');
         }
     }
 
@@ -193,7 +205,21 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         const extensions = /\.(mp4|mov|m4v|webm|mkv|avi)$/i;
         const fromFiles = Array.from(transfer.files)
             .filter(file => extensions.test(file.name))
-            .map(file => ({ name: file.name, sourcePath: (file as File & { path?: string }).path }));
+            .map(file => {
+                const theiaCore = (window as Window & {
+                    electronTheiaCore?: { getPathForFile?: (candidate: File) => string };
+                }).electronTheiaCore;
+                let sourcePath: string | undefined;
+                if (typeof theiaCore?.getPathForFile === 'function') {
+                    try {
+                        sourcePath = theiaCore.getPathForFile(file) || undefined;
+                    } catch {
+                        // Fall back for environments without the Electron preload bridge.
+                    }
+                }
+                sourcePath ||= (file as File & { path?: string }).path;
+                return { name: file.name, sourcePath };
+            });
         if (fromFiles.length) {
             return fromFiles;
         }

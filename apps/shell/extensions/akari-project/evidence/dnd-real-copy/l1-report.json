@@ -1,0 +1,43 @@
+{
+  "getPathForFileIsFunction": true,
+  "beforeAssets": [],
+  "beforeEvents": [],
+  "realVideoBytes": 29835,
+  "afterRealAssets": [
+    "sample-clip.mp4"
+  ],
+  "afterRealEvents": [
+    "2026-07-16T15-07-31-184Z-video-added-7w2bv6.json"
+  ],
+  "realDropEvent": {
+    "version": 1,
+    "id": "2026-07-16T15-07-31-184Z-video-added-7w2bv6",
+    "type": "video-added",
+    "occurredAt": "2026-07-16T15:07:31.184Z",
+    "asset": "assets/sample-clip.mp4",
+    "source": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-dnd-real-copy/193bb922-34ee-427d-9e62-0d1e57126330/scratchpad/dnd-source-material/sample-clip.mp4",
+    "copied": true
+  },
+  "newAssetName": "sample-clip.mp4",
+  "copiedAssetBytes": 29835,
+  "successToastMessages": [
+    "1 本の動画を素材に取り込みました。",
+    "1 本の動画を素材に取り込みました。"
+  ],
+  "afterSyntheticAssets": [
+    "sample-clip.mp4"
+  ],
+  "afterSyntheticEvents": [
+    "2026-07-16T15-07-31-184Z-video-added-7w2bv6.json"
+  ],
+  "syntheticAssetsUnchanged": true,
+  "syntheticEventsUnchanged": true,
+  "failureToastMessages": [
+    "動画を取り込めませんでした。Finder からもう一度ドラッグしてください。",
+    "動画を取り込めませんでした。Finder からもう一度ドラッグしてください。"
+  ],
+  "failureToastIconClasses": [
+    "theia-notification-icon codicon codicon-error error",
+    "theia-notification-icon codicon codicon-error error"
+  ]
+}
