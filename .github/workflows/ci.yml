@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  l0:
+    name: L0 (build:ext + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/shell
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+
+      # apps/shell/package-lock.json is intentionally gitignored (apps/shell/.gitignore),
+      # so this cannot use `npm ci`. --no-workspaces keeps the install isolated to
+      # apps/shell/node_modules instead of hoisting into the repo-root workspace tree
+      # (confirmed: plain `npm install` from apps/shell hoists ~800 packages to the repo
+      # root and takes ~2x longer). PYTHON=/usr/bin/python3 avoids a node-gyp build
+      # failure against Homebrew's Python on macOS dev machines; harmless on this
+      # Linux runner where the same path exists.
+      - name: Install dependencies
+        env:
+          PYTHON: /usr/bin/python3
+        run: npm install --no-workspaces
+
+      - name: build:ext (tsc -b, 6 extensions)
+        run: npm run build:ext
+
+      - name: lint (eslint)
+        run: npm run lint
