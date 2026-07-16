@@ -23,13 +23,24 @@ jobs:
       # so this cannot use `npm ci`. --no-workspaces keeps the install isolated to
       # apps/shell/node_modules instead of hoisting into the repo-root workspace tree
       # (confirmed: plain `npm install` from apps/shell hoists ~800 packages to the repo
-      # root and takes ~2x longer). PYTHON=/usr/bin/python3 avoids a node-gyp build
-      # failure against Homebrew's Python on macOS dev machines; harmless on this
-      # Linux runner where the same path exists.
+      # root and takes ~2x longer).
+      #
+      # --ignore-scripts skips every node-gyp build. This job only type-checks (tsc -b)
+      # and lints (eslint), and neither needs a compiled native module — only the
+      # packages' .d.ts and JS, which arrive in the tarballs regardless of scripts.
+      # Without it the install dies on native-keymap, which needs X11 headers absent
+      # from ubuntu-latest ("Package 'x11', required by 'virtual:world', not found").
+      # Installing those headers would only move the failure to the next of the five
+      # node-gyp packages (node-pty / drivelist / native-keymap / msgpackr-extract /
+      # keytar), so skip the builds instead of chasing system deps.
+      #
+      # The tradeoff: this job cannot run `npm run build` (theia build needs a real
+      # unpacked Electron) or `npm run package`. The app is macOS-only — electron-builder
+      # targets mac alone — so a Linux runner could never verify the .app anyway.
+      # Covering the real build requires a macOS runner (10x billing); deferred by owner
+      # decision 2026-07-16.
       - name: Install dependencies
-        env:
-          PYTHON: /usr/bin/python3
-        run: npm install --no-workspaces
+        run: npm install --no-workspaces --ignore-scripts
 
       - name: build:ext (tsc -b, 6 extensions)
         run: npm run build:ext
