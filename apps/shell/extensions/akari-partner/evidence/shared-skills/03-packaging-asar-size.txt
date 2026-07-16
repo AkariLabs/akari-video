@@ -40,5 +40,5 @@ L0:
 
 governance ゲート（§7-7）:
   ローカルで git grep により本タスクの追加/変更ファイルを 4 パターン検査 =>
-  local 絶対パス / akari-video-wt / claude-<pid>|scratchpad は 0 hit。
-  internal repo path の hit は既存 allowlist 済みファイル 7 件のみ（本タスクの追加ゼロ）=> GREEN 相当。
+  ローカル絶対パス / ハーネスの作業ディレクトリ命名 / セッション・一時領域の痕跡 は 0 hit。
+  内部リポのパス形式の hit は既存 allowlist 済みファイル 7 件のみ（本タスクの追加ゼロ）=> GREEN 相当。
