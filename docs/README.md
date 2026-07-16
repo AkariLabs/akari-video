@@ -30,5 +30,4 @@ AKARI Video 新実装（本モノレポ）の設計・契約文書。旧実装 `
 `akari-video-tauri/docs/planning/` には他に `notes-2026-07-14-export-fast-path.md`
 （書き出し高速化。非移送の Rust 実装を名指しするため編集前提・判断保留中）と
 `notes-2026-07-14-viewer-ui-round.md`（旧 UI ファイル名に直結。判断保留中）が残る。
-いずれも移送タスクの判断事項として棚卸し正本
-（`akari-video-internal/tasks/2026-07-15-import-inventory/report.md`）に記載済み。
+いずれも移送タスクの判断事項として、非公開の内部棚卸しで管理する（本リポには置かない方針）。

@@ -3,9 +3,9 @@
 ## 前書き（本パッケージへの位置づけ・2026-07-15 編集移送）
 
 - **出典**: `akari-video-tauri/docs/planning/notes-2026-07-14-viewer-ui-round.md`
-  （2026-07-14 執筆・legacy Tauri 実装の設計ノート）を、選別インポート
-  Wave I-3（`akari-video-internal/tasks/2026-07-15-import-w3-overlay-runtime/`）
-  として本パッケージ `packages/overlay-runtime/` へ編集移送したもの
+  （2026-07-14 執筆・legacy Tauri 実装の設計ノート）を、選別インポート Wave I-3
+  （経緯は非公開の内部タスク記録で管理する。本リポには置かない方針）として
+  本パッケージ `packages/overlay-runtime/` へ編集移送したもの
 - **位置づけの変更**: 元は「legacy Tauri シェルの UI 実装」を対象にした設計ノートだが、
   本パッケージへの移送に伴い、**オーバーレイ DOM ランタイムの挙動仕様書**
   （ズーム/ミニマップ/スナップ/選択ハンドルの計算式・状態遷移・書き戻し規約）として

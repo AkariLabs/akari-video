@@ -5,7 +5,7 @@
 const { app, BrowserWindow, ipcMain, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const EVIDENCE_DIR = path.join(__dirname, 'evidence');
 if (!fs.existsSync(EVIDENCE_DIR)) fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
@@ -27,11 +27,14 @@ protocol.registerSchemesAsPrivileged([
 
 let win;
 
-function psGrep(pattern) {
+// 該当プロセスの有無/個数のみを構造化データとして残す（pid・実行パス・起動時刻等は保持しない）。
+function countProcesses(pattern) {
   try {
-    return execSync(`ps aux | grep -i "${pattern}" | grep -v grep || true`).toString().trim();
+    const out = execFileSync('pgrep', ['-fi', pattern]).toString().trim();
+    return out ? out.split('\n').filter(Boolean).length : 0;
   } catch (e) {
-    return `ps error: ${e.message}`;
+    // pgrep はマッチ無し時に exit code 1 を返す
+    return 0;
   }
 }
 
@@ -76,8 +79,14 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('bench:sysmetrics', async (_e, label) => {
     const metrics = app.getAppMetrics();
-    const vt = psGrep('VTDecoderXPCService');
-    const entry = { label, ts: Date.now(), appMetrics: metrics, vtDecoderXPCServicePs: vt };
+    const vtDecoderCount = countProcesses('VTDecoderXPCService');
+    const entry = {
+      label,
+      ts: Date.now(),
+      appMetrics: metrics,
+      vtDecoderXPCServicePresent: vtDecoderCount > 0,
+      vtDecoderXPCServiceCount: vtDecoderCount,
+    };
     fs.appendFileSync(path.join(EVIDENCE_DIR, 'sysmetrics.ndjson'), JSON.stringify(entry) + '\n');
     log('[main] sysmetrics checkpoint:', label);
     return entry;
