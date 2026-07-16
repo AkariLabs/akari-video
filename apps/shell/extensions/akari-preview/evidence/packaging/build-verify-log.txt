@@ -1,0 +1,104 @@
+実測ログ — 2026-07-16-package-runtime-assets（実施日 2026-07-16、worktree:
+package-runtime-assets-r2、macOS arm64）
+
+## 1. npm install --no-workspaces（apps/shell）
+
+$ npm_config_python=/usr/bin/python3 npm install --no-workspaces
+  -> added 1412 packages, and audited 1419 packages in 60s
+  -> 0 fatal errors（drivelist の node-gyp ビルドは npm_config_python 指定で回避、
+     S12 report §6-1 のとおり再現）
+
+electron dist の ditto ワークアラウンド（npm allow-scripts ゲートにより
+electron の postinstall がスキップされ node_modules/electron/dist が空になったため）:
+
+$ ls node_modules/electron/dist
+  -> LICENSE, LICENSES.chromium.html のみ（Electron.app が無い）
+
+$ ls ~/Library/Caches/electron/
+  -> ハッシュ付きディレクトリの中に electron-v39.8.7-darwin-arm64.zip を発見
+     （package.json の "electron": "39.8.7" と一致）
+
+$ ditto -x -k ~/Library/Caches/electron/<hash>/electron-v39.8.7-darwin-arm64.zip \
+    node_modules/electron/dist
+$ echo "Electron.app/Contents/MacOS/Electron" > node_modules/electron/path.txt
+
+  -> node_modules/electron/dist/Electron.app が展開されたことを確認
+
+## 2. npm run build:ext
+
+$ time npm run build:ext
+  -> tsc -b ...（akari-preview / akari-project 含む6拡張）
+  -> 0 errors
+  -> 実測: user 4.44s / real 2.913s
+
+## 3. npm run lint
+
+$ time npm run lint
+  -> eslint "extensions/*/src/**/*.{ts,tsx}"
+  -> 0 errors / 0 warnings
+  -> 実測: user 1.59s / real 1.329s
+
+## 4. npm run build
+
+$ time npm run build
+  -> build:ext（再実行、0 errors）
+  -> theia build --mode production:
+     [build/browser] Finished with 0 errors in 833ms.
+     [build/node] Finished with 0 errors in 479ms.
+     [build/electron] Finished with 0 errors in 7ms.
+  -> 実測: real 4.975s
+
+build 後、apps/shell/lib/backend ディレクトリの存在を確認
+（= バンドル後 __dirname が lib/backend になるという S12 report §6-2 の前提を再確認）:
+
+$ find lib -maxdepth 1 -type d
+  lib
+  lib/frontend
+  lib/node（backend-init 系）
+  lib/backend
+  lib/webview
+  lib/prebuilds
+
+この時点では lib/overlay-runtime, lib/templates はまだ存在しない
+（prepackage は npm run package の pre フックでのみ実行されるため、
+npm run build 単体では走らない — 開発時 theia start 経路への非退行を裏付ける）。
+
+## 5. PYTHON=/usr/bin/python3 npm run package
+
+$ time PYTHON=/usr/bin/python3 npm run package
+
+prepackage フックのログ（copy-native-helpers.mjs 拡張後）:
+  Copied overlay-runtime assets to lib/overlay-runtime
+  Copied project-default template to lib/templates/project-default
+  Copied node-pty spawn-helper to lib/prebuilds/darwin-arm64/spawn-helper
+
+electron-builder --dir:
+  version=26.15.3
+  packaging platform=darwin arch=arm64 electron=39.8.7 appOutDir=electron-builder-out/mac-arm64
+  signing file=electron-builder-out/mac-arm64/AKARI Video.app（Developer ID Application、
+    notarize はスキップ — ローカル検証のみのため問題なし）
+
+  -> 0 errors、AKARI Video.app が生成された
+  -> 実測: real 3:40.48（220.48s）
+
+## 6. パッケージ後の同梱確認（prepackage 出力ディレクトリ）
+
+$ ls apps/shell/lib/overlay-runtime
+  interaction.css interaction.js minimap.css minimap.js overlay-runtime.js
+
+$ ls apps/shell/lib/templates/project-default
+  .akari .claude AGENTS.md CLAUDE.md（.gitignore・assets/・planning/・exports/・
+  .akari/{diffs,events,sidecars} は electron-builder のデフォルト除外パターン
+  ["__pycache__", ".DS_Store", "thumbs.db", ".gitignore", ".gitkeep", ...]
+  （app-builder-lib/fileMatcher.js の DEFAULT_APP_IGNORED_FILES 相当）により
+  .gitkeep 単体しか含まない空ディレクトリ・.gitignore ファイルが asar から
+  除外されている。これは electron-builder の既定挙動であり本タスクの
+  copy-native-helpers.mjs 拡張が原因ではない。実害は無い —
+  akari-project-service.ts の ensureRuntimeDirectories() が
+  createProject()/watchProject() の中でテンプレート展開直後に
+  assets/planning/exports/.akari/{events,sidecars,diffs} を
+  fs.mkdir(recursive:true) で必ず再生成するため、雛形として必要な
+  .akari/workflow.json・.claude/settings.json・CLAUDE.md・AGENTS.md は
+  asar に含まれており機能的な欠落は無い）
+
+asar 内リストは asar-list-lib-assets.txt を参照。
