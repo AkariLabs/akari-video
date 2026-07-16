@@ -1,0 +1,109 @@
+[
+  {
+    "t": "2026-07-16T06:14:20.053Z",
+    "step": "connected-main",
+    "targetId": "241859D03A5DA1B2B2ABB27E3C8CADCC"
+  },
+  {
+    "t": "2026-07-16T06:14:20.737Z",
+    "step": "opened-explorer",
+    "alreadyOpen": false,
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-16T06:14:21.394Z",
+    "step": "expanded-folder",
+    "videoDir": "exports",
+    "found": true,
+    "collapsed": true,
+    "x": 68,
+    "y": 116
+  },
+  {
+    "t": "2026-07-16T06:14:23.037Z",
+    "step": "opened-video-tab",
+    "videoBase": "sample.mp4",
+    "found": true,
+    "collapsed": false,
+    "x": 68,
+    "y": 182
+  },
+  {
+    "t": "2026-07-16T06:14:23.192Z",
+    "step": "found-outer-webview-target",
+    "id": "BCA521EF90EF83FA129A50DC7BB2B539",
+    "url": "http://72a87a2f-3d34-5882-b15a-796427ebdfd5.webview.localhost:59435/webview/index.html?id=akari-preview-13t71cz"
+  },
+  {
+    "t": "2026-07-16T06:14:23.598Z",
+    "step": "reached-active-frame-context",
+    "outerFrameId": "BCA521EF90EF83FA129A50DC7BB2B539",
+    "childFrames": [
+      {
+        "id": "1A87B30469E0FD21B7BEA0EF1903035B",
+        "name": "active-frame"
+      }
+    ],
+    "activeContextId": 2
+  },
+  {
+    "t": "2026-07-16T06:14:23.641Z",
+    "step": "seeked-into-overlay-window",
+    "currentTime": 2,
+    "visibility": "visible"
+  },
+  {
+    "t": "2026-07-16T06:14:24.169Z",
+    "step": "real-click-selected-overlay",
+    "fragmentRect": {
+      "left": 145.53125,
+      "top": 711.3125,
+      "right": 1547.53125,
+      "bottom": 774.8406372070312
+    },
+    "clickX": 846.53125,
+    "clickY": 743.0765686035156,
+    "selection": {
+      "selected": "true",
+      "inspectorHidden": false,
+      "inspectorFieldsText": "--color"
+    }
+  },
+  {
+    "t": "2026-07-16T06:14:25.024Z",
+    "step": "real-keyboard-edit",
+    "inputRect": {
+      "left": 1211,
+      "top": 71,
+      "right": 1438,
+      "bottom": 102.5,
+      "valueBefore": "#ffcc00"
+    },
+    "inputX": 1324.5,
+    "inputY": 86.75,
+    "newValue": "#00c853",
+    "afterType": {
+      "value": "#00c853",
+      "liveCssVar": "#00c853"
+    }
+  },
+  {
+    "t": "2026-07-16T06:14:25.914Z",
+    "step": "edit-json-diff",
+    "path": "<SCRATCH>/workspace/exports/edit.json",
+    "beforeVars": {
+      "--color": "#ffcc00"
+    },
+    "afterVars": {
+      "--color": "#00c853"
+    }
+  },
+  {
+    "t": "2026-07-16T06:14:25.914Z",
+    "step": "result",
+    "ok": true,
+    "expected": "#00c853",
+    "actual": "#00c853"
+  }
+]
