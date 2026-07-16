@@ -3,7 +3,7 @@
 このディレクトリは、`assets/` と同じ meta.json v0 契約を使う「取得先の索引」です。
 バイナリそのものはホストせず、各エントリの meta.json に `source`（取得先 URL・取得方法・
 ライセンス表記）と `remote: true` を持たせて、取得はユーザー自身の環境に委ねます。
-詳細な契約は [`docs/planning/contract-2026-07-13-asset-library.md`](../docs/planning/contract-2026-07-13-asset-library.md)
+詳細な契約は [`docs/contract-2026-07-13-asset-library.md`](../docs/contract-2026-07-13-asset-library.md)
 の「カタログと取得スキル」§を参照してください。
 
 ## 入庫基準
