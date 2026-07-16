@@ -248,6 +248,15 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     protected findOverlayRuntimeDirectory(): string {
         const candidates: string[] = [];
+
+        // Packaged app location: prepackage copies the assets to lib/overlay-runtime,
+        // and the bundled backend's __dirname resolves to lib/backend at runtime.
+        const packagedCandidate = resolve(__dirname, '../overlay-runtime');
+        candidates.push(packagedCandidate);
+        if (this.isOverlayRuntimeDirectory(packagedCandidate)) {
+            return packagedCandidate;
+        }
+
         let ancestor = resolve(__dirname);
         for (let depth = 0; depth < 10; depth++) {
             const candidate = resolve(ancestor, 'packages/overlay-runtime/src');

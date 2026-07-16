@@ -310,6 +310,9 @@ export class AkariProjectServiceImpl implements AkariProjectService {
 
     protected async findTemplate(): Promise<string | undefined> {
         const candidates = [
+            // Packaged app location: prepackage copies the template to lib/templates/project-default,
+            // and the bundled backend's __dirname resolves to lib/backend at runtime.
+            resolve(__dirname, '../templates/project-default'),
             resolve(process.cwd(), '../../templates/project-default'),
             resolve(process.cwd(), 'templates/project-default'),
             resolve(__dirname, '../../../../../../../templates/project-default')
