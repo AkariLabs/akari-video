@@ -77,9 +77,18 @@ jobs:
             fi
           }
 
+          # Bare /tmp/ is deliberately NOT checked. What must not leak is anything that
+          # identifies this machine or the harness: a username (/Users/<name>/), a home
+          # layout, or a Claude scratchpad (/private/tmp/claude-<pid>/…/<uuid>/scratchpad —
+          # covered by the two checks below). A generic temp dir like
+          # /tmp/akari-s12-e2e-scratch tells a reader nothing: every machine has /tmp, and
+          # the script that picks that name is itself committed. Adding /tmp/ here was
+          # tried on 2026-07-16 and reverted — it flagged three legitimate defaults
+          # (run-inspector-writeback-e2e.mjs, stub-host.js) and would have forced code to
+          # obfuscate harmless paths. Widen this only for patterns that reveal the machine.
           check "local absolute path (/Users/*, /private/tmp/*, /home/*)" \
             '/Users/[A-Za-z0-9_.-]+/|/private/tmp/|/home/[A-Za-z0-9_.-]+/' \
-            "Remove the local absolute path before committing."
+            "Remove the local absolute path before committing. For diff/log evidence, rewrite it as a placeholder like <WORKTREE> or <SCRATCH> — keep the structure readable, drop the machine specifics."
 
           check "harness worktree naming (akari-video-wt)" \
             'akari-video-wt' \
