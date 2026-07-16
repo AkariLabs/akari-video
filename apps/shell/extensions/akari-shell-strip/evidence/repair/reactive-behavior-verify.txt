@@ -1,0 +1,69 @@
+[akari-shell-strip] top-level menubar items BEFORE curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"3_selection","label":"Selection"},{"id":"9_help","label":"Help"}]
+[akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll"]
+[akari-shell-strip] top-level menubar items AFTER curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"9_help","label":"Help"}]
+[akari-shell-strip] developer mode changed: true
+[akari-shell-strip] developer terminal menu item shown: terminal:new
+[akari-shell-strip] developer mode changed: false
+[akari-shell-strip] developer terminal menu item hidden: terminal:new
+[akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-partner-onboarding","label":"Partner"}
+[akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"outline-view","label":"Outline"}
+[akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view
+[akari-shell-strip] restored right panel widget (trigger=developerMode:true): outline-view
+[akari-shell-strip] hid right panel widget without disposing (trigger=developerMode:false): outline-view
+{
+  "f5": {
+    "topLevel": [
+      "1_file",
+      "2_edit",
+      "9_help"
+    ],
+    "editCommands": [
+      "core.undo",
+      "core.redo",
+      "core.cut",
+      "core.copy",
+      "core.paste",
+      "core.selectAll"
+    ]
+  },
+  "f6": {
+    "offAtStart": true,
+    "onImmediate": {
+      "type": "shown",
+      "path": [
+        "menubar",
+        "1_file",
+        "1_new"
+      ],
+      "action": {
+        "commandId": "terminal:new",
+        "label": "新しいターミナル",
+        "order": "z_terminal"
+      }
+    },
+    "offImmediate": {
+      "type": "hidden",
+      "commandId": "terminal:new"
+    }
+  },
+  "f7": {
+    "off": [
+      "akari-partner-onboarding"
+    ],
+    "on": [
+      "akari-partner-onboarding",
+      "outline-view"
+    ],
+    "offAgain": [
+      "akari-partner-onboarding"
+    ],
+    "outlineDisposed": false,
+    "restore": {
+      "widget": "outline-view",
+      "options": {
+        "area": "right",
+        "rank": 500
+      }
+    }
+  }
+}

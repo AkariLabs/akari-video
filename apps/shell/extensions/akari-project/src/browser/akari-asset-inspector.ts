@@ -1,14 +1,23 @@
-import { inject, injectable } from '@theia/core/shared/inversify';
+import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { FrontendApplication, FrontendApplicationContribution, WidgetManager } from '@theia/core/lib/browser';
+import {
+    BaseWidget,
+    FrontendApplication,
+    FrontendApplicationContribution,
+    ViewContainer,
+    WidgetManager
+} from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStatNode } from '@theia/filesystem/lib/browser/file-tree/file-tree';
+import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { AssetMeta, describeAssetMeta } from '../common/asset-meta';
 
 @injectable()
-export class AkariAssetInspector implements FrontendApplicationContribution {
+export class AkariAssetInspector extends BaseWidget implements FrontendApplicationContribution {
+    static readonly ID = 'akari-asset-inspector-widget';
+
     @inject(WidgetManager)
     protected readonly widgets!: WidgetManager;
     @inject(FileService)
@@ -21,30 +30,50 @@ export class AkariAssetInspector implements FrontendApplicationContribution {
     protected card?: HTMLElement;
     protected selected?: URI;
 
-    async onStart(_app: FrontendApplication): Promise<void> {
-        const navigator = await this.widgets.getOrCreateWidget('files') as any;
+    @postConstruct()
+    protected init(): void {
+        this.id = AkariAssetInspector.ID;
+        this.title.label = '素材の情報';
+        this.title.caption = '選択した素材の情報';
+        this.title.closable = false;
+        this.node.style.overflow = 'auto';
+
         this.card = document.createElement('section');
         this.card.id = 'akari-asset-inspector';
         Object.assign(this.card.style, {
-            flex: '0 0 auto', maxHeight: '46%', overflow: 'auto', padding: '12px',
-            borderTop: '1px solid var(--theia-border-color)', background: 'var(--theia-sideBar-background)'
+            minHeight: '100%', padding: '12px', boxSizing: 'border-box',
+            background: 'var(--theia-sideBar-background)'
         });
-        navigator.node.style.display = 'flex';
-        navigator.node.style.flexDirection = 'column';
-        navigator.node.appendChild(this.card);
-        navigator.model?.onSelectionChanged?.((selection: readonly unknown[]) => {
-            const node = selection[0];
-            if (FileStatNode.is(node)) {
-                void this.show(node.uri);
-            } else {
-                this.renderEmpty();
-            }
-        });
-        this.mode.onDidChange(() => this.selected && void this.show(this.selected));
+        this.node.appendChild(this.card);
         this.renderEmpty();
     }
 
-    protected async show(uri: URI): Promise<void> {
+    async onStart(_app: FrontendApplication): Promise<void> {
+        const explorer = await this.widgets.getOrCreateWidget(EXPLORER_VIEW_CONTAINER_ID);
+        if (explorer instanceof ViewContainer) {
+            explorer.addWidget(this, {
+                order: 2,
+                weight: 30,
+                canHide: false,
+                initiallyCollapsed: false,
+                disableDraggingToOtherContainers: true
+            });
+        }
+        const navigator = await this.widgets.getOrCreateWidget('files') as any;
+        navigator.model?.onSelectionChanged?.((selection: readonly unknown[]) => {
+            const node = selection[0];
+            if (FileStatNode.is(node)) {
+                void this.showAsset(node.uri);
+            } else {
+                this.selected = undefined;
+                this.renderEmpty();
+            }
+        });
+        this.mode.onDidChange(() => this.selected && void this.showAsset(this.selected));
+        this.renderEmpty();
+    }
+
+    protected async showAsset(uri: URI): Promise<void> {
         this.selected = uri;
         const relative = this.workflow.relativePath(uri);
         if (!relative || !relative.startsWith('assets/') || uri.path.base.startsWith('.')) {
@@ -136,7 +165,10 @@ export class AkariAssetInspector implements FrontendApplicationContribution {
 
     protected renderEmpty(): void {
         if (this.card) {
-            this.card.replaceChildren(this.heading('素材の情報'), this.row('', '素材を選ぶと情報を表示します'));
+            const guide = document.createElement('p');
+            guide.textContent = '動画ファイルをウィンドウにドラッグすると素材に取り込めます';
+            guide.style.margin = '0';
+            this.card.replaceChildren(this.heading('素材の情報'), guide);
         }
     }
 

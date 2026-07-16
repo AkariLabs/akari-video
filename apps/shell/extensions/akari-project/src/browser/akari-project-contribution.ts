@@ -1,15 +1,18 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
+import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import {
     Command,
     CommandContribution,
     CommandRegistry,
+    CommandService,
     MenuContribution,
     MenuModelRegistry,
     MessageService
 } from '@theia/core/lib/common';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import {
+    ApplicationShell,
     CommonMenus,
     FrontendApplication,
     FrontendApplicationContribution,
@@ -17,6 +20,10 @@ import {
     WidgetManager,
     open
 } from '@theia/core/lib/browser';
+import {
+    TabBarToolbarContribution,
+    TabBarToolbarRegistry
+} from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { DiffUris } from '@theia/core/lib/browser/diff-uris';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -38,7 +45,7 @@ export const TOGGLE_AKARI_DEVELOPER_MODE: Command = {
 };
 
 @injectable()
-export class AkariProjectContribution implements CommandContribution, MenuContribution, FrontendApplicationContribution {
+export class AkariProjectContribution implements CommandContribution, MenuContribution, FrontendApplicationContribution, TabBarToolbarContribution {
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
     @inject(FileDialogService)
@@ -47,6 +54,8 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     protected readonly workspace!: WorkspaceService;
     @inject(MessageService)
     protected readonly messages!: MessageService;
+    @inject(CommandService)
+    protected readonly commands!: CommandService;
     @inject(OpenerService)
     protected readonly openers!: OpenerService;
     @inject(PreferenceService)
@@ -57,6 +66,8 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     protected readonly mode!: AkariProjectModeService;
     @inject(AkariWorkflowService)
     protected readonly workflow!: AkariWorkflowService;
+    @inject(ApplicationShell)
+    protected readonly shell!: ApplicationShell;
 
     protected app?: FrontendApplication;
 
@@ -79,6 +90,37 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             commandId: SHOW_AKARI_CHANGES.id,
             label: SHOW_AKARI_CHANGES.label,
             order: 'z10'
+        });
+    }
+
+    registerToolbarItems(toolbar: TabBarToolbarRegistry): void {
+        toolbar.registerItem({
+            id: 'akari.project.showChanges.toolbar',
+            command: SHOW_AKARI_CHANGES.id,
+            group: 'navigation',
+            priority: 100,
+            isVisible: widget => !!widget && this.shell.getAreaFor(widget) === 'main',
+            render: () => React.createElement('button', {
+                type: 'button',
+                className: 'theia-button secondary',
+                title: SHOW_AKARI_CHANGES.label,
+                'aria-label': SHOW_AKARI_CHANGES.label,
+                style: {
+                    alignItems: 'center',
+                    display: 'inline-flex',
+                    gap: '4px',
+                    height: '24px',
+                    margin: '0 4px',
+                    padding: '0 8px'
+                },
+                onClick: event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void this.commands.executeCommand(SHOW_AKARI_CHANGES.id);
+                }
+            },
+            React.createElement('span', { className: 'codicon codicon-diff', 'aria-hidden': true }),
+            React.createElement('span', undefined, SHOW_AKARI_CHANGES.label))
         });
     }
 
@@ -136,11 +178,11 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         }
         try {
             const events = await this.projectService.recordDroppedVideos(root.toString(), videos);
-            this.messages.info(`${events.length} 本の動画を受け付けました。`);
+            this.messages.info(`${events.length} 本の動画を素材に取り込みました。`);
             const navigator = await this.widgets.getOrCreateWidget('files') as any;
             await navigator.model?.refresh?.();
         } catch (error) {
-            this.messages.error(`動画を受け付けられませんでした: ${this.errorMessage(error)}`);
+            this.messages.error(`動画を素材に取り込めませんでした: ${this.errorMessage(error)}`);
         }
     }
 
@@ -172,13 +214,17 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             return;
         }
         try {
-            const pairs = await this.projectService.prepareDiffs(root.toString());
+            const { capable, pairs } = await this.projectService.prepareDiffs(root.toString());
+            if (!capable) {
+                this.messages.info('このフォルダーでは変更履歴を使えません。');
+                return;
+            }
             if (!pairs.length) {
                 this.messages.info('表示できる変更はまだありません。');
                 return;
             }
             for (const pair of pairs) {
-                const diffUri = DiffUris.encode(new URI(pair.leftUri), new URI(pair.rightUri), pair.label);
+                const diffUri = DiffUris.encode(new URI(pair.leftUri), new URI(pair.rightUri));
                 await open(this.openers, diffUri, { mode: 'activate' });
             }
         } catch (error) {

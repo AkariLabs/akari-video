@@ -5,6 +5,9 @@ import { AkariSettingsWidget } from './akari-settings-widget';
 import { AkariSettingsContribution } from './akari-settings-contribution';
 import { AkariMenuCuration } from './akari-menu-curation';
 import { AkariFrontendApplication } from './akari-frontend-application';
+import { AkariDeveloperModeService } from './akari-developer-mode-service';
+import { AkariTerminalMenuCuration } from './akari-terminal-menu-curation';
+import { AkariRightPanelCuration } from './akari-right-panel-curation';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     // S15: activity bar curation（起動時一括 + onDidAddWidget 常時フィルタ）
@@ -23,6 +26,13 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     // S17: メニューバー消し込み
     bind(AkariMenuCuration).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariMenuCuration);
+
+    // F6/F7: developer mode のリアクティブな表示切替。
+    bind(AkariDeveloperModeService).toSelf().inSingletonScope();
+    bind(AkariTerminalMenuCuration).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariTerminalMenuCuration);
+    bind(AkariRightPanelCuration).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariRightPanelCuration);
 
     // S18(a): 起動フェイルセーフ（レイアウト復元 try/catch + タイムアウト）
     // S18(b)（Workspace Trust ダイアログ無効化）はコード不要 —
