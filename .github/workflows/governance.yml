@@ -1,0 +1,102 @@
+name: Governance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    name: gate (tracked-file leak scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # git grep only, deliberately: no dependency install, no node setup. This job scans
+      # *tracked* files only (git grep), never a filesystem walk (grep -r would also pick up
+      # gitignored local scratch files and produce false positives — that mistake already
+      # happened once against packages/preview-engine/bench/testsrc/generate.sh).
+      - name: Scan tracked files for governance leaks
+        run: |
+          set -uo pipefail
+
+          FAIL=0
+
+          # Verified false positives only — one path:line per entry, with a reason.
+          # Do NOT loosen a pattern to kill a false positive; add the specific hit here instead.
+          ALLOWLIST=(
+            "CLAUDE.md:6|names the internal repo as a repo, not a path (no trailing slash) — public-repo boilerplate, 司令塔裁定・継承"
+            "assets/3d/smartphone-mockup/scene.py:4|docs/planning/... is THIS repo's own pre-flatten path (public repo moved docs/planning/ -> docs/ before this file existed), not the internal private repo — stale-link cleanup tracked separately (audit P1 #3 2026-07-16 cycle2), not a leak"
+            "assets/3d/vintage-camera-turntable/scene.py:3|same as assets/3d/smartphone-mockup/scene.py:4 — pre-flatten public-repo path, not an internal-repo leak"
+            "assets/INDEX.md:26|same as assets/3d/smartphone-mockup/scene.py:4 — pre-flatten public-repo path, not an internal-repo leak"
+            "docs/contract-2026-07-13-m1-m4.md:57|references the legacy public repo akari-video-tauri's docs/planning/... path (repo named explicitly), not the internal private repo"
+            "packages/overlay-runtime/src/interaction.js:2|comment referencing this repo's pre-flatten docs/planning/... path, not the internal private repo"
+            "packages/overlay-runtime/src/overlay-runtime.js:2|comment referencing this repo's pre-flatten docs/planning/... path, not the internal private repo"
+            "packages/schemas/bin/validate-asset.mjs:338|comment-only reference to this repo's pre-flatten docs/planning/... path; no runtime effect (confirmed in audit)"
+          )
+
+          is_allowed() {
+            local key="$1"
+            for entry in "${ALLOWLIST[@]}"; do
+              if [ "${entry%%|*}" = "$key" ]; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          # $1 label, $2 extended-regex pattern, $3 remediation hint
+          check() {
+            local label="$1" pattern="$2" hint="$3"
+            local matches
+            matches="$(git grep -nE "$pattern" -- . ':!.github/workflows/governance.yml' 2>/dev/null || true)"
+            [ -z "$matches" ] && return 0
+
+            local reported=0
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              local path="${line%%:*}"
+              local rest="${line#*:}"
+              local num="${rest%%:*}"
+              if is_allowed "${path}:${num}"; then
+                continue
+              fi
+              if [ "$reported" -eq 0 ]; then
+                echo "::error::Governance gate — ${label}"
+                reported=1
+                FAIL=1
+              fi
+              echo "  ${line}"
+            done <<< "$matches"
+            if [ "$reported" -ne 0 ]; then
+              echo "  -> ${hint}"
+              echo "  -> See CLAUDE.md:6 for the accepted boilerplate wording (names the internal"
+              echo "     repo without exposing a path). If this hit is a verified false positive,"
+              echo "     add an explicit path:line entry to ALLOWLIST in this workflow file with a"
+              echo "     reason — do not loosen the pattern to make it pass."
+            fi
+          }
+
+          check "local absolute path (/Users/*, /private/tmp/*, /home/*)" \
+            '/Users/[A-Za-z0-9_.-]+/|/private/tmp/|/home/[A-Za-z0-9_.-]+/' \
+            "Remove the local absolute path before committing."
+
+          check "harness worktree naming (akari-video-wt)" \
+            'akari-video-wt' \
+            "This exposes the local harness's worktree layout. Replace with a repo-relative or generic path."
+
+          check "Claude session / scratchpad leakage (claude-<pid>, scratchpad)" \
+            'claude-[0-9]+|scratchpad' \
+            "This exposes a Claude session id or scratchpad path from the local machine. Remove or redact it."
+
+          check "internal repo bare path (akari-video-internal, tasks/YYYY-MM-DD, planning/contract-/waveplan-)" \
+            'akari-video-internal|tasks/20[0-9]{2}-[0-9]{2}-[0-9]{2}|planning/contract-20[0-9]{2}-|planning/waveplan-20[0-9]{2}-' \
+            "Rewrite the reference so it doesn't expose the internal repo's directory layout."
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "Governance gate failed — see the errors above for file, line, and which pattern matched."
+            exit 1
+          fi
+
+          echo "Governance gate passed — no tracked-file leaks detected."
