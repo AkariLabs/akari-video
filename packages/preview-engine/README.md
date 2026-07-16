@@ -1,12 +1,14 @@
 # @akari-video/preview-engine
 
 シェル非依存の TS プレビューエンジン（レベル3: Chromium 内完結、WebCodecs + `@webav/av-cliper` 基盤）。
-正本契約: `akari-video-internal/planning/contract-2026-07-15-preview-engine.md`（E1〜E5）。
+正本契約（E1〜E5）は非公開の内部 planning で管理する（本リポには置かない方針）。
+パラメータの根拠・設計判断の要約は本 README 「E1〜E4 の実装メモ」節を参照。
 
 新シェル（Electron レンダラー等）はこのパッケージを `<canvas>` にマウントし、タイムラインを渡し、
 `seek()` / `play()` を呼ぶだけでよい。GOP 距離依存の decode コスト・カット境界のフリーズ・
 AAC configure 無限リトライ・末尾 GOP のフレーム欠落といった WebCodecs 特有の地雷は
-このパッケージが内部で吸収する（詳細は `../../akari-video-internal/tasks/2026-07-15-engine-e1-e4/report.md`）。
+このパッケージが内部で吸収する（詳細な調査記録は非公開の内部タスクで管理する。
+要点は本 README 「E1〜E4 の実装メモ」節に記載）。
 
 ## インストール
 
@@ -172,5 +174,5 @@ cd bench && npm start
 ```
 
 Test8 がサムネ描画 p50/p95、4K/1080p 実フレーム追従 Hz、静止後 exact p50/p95、サムネイベント
-カバレッジを記録する。結果は `bench/evidence/measurements.json` に保存される。スパイク実測値との比較表は
-`akari-video-internal/tasks/2026-07-15-engine-e1-e4/report.md` を参照。
+カバレッジを記録する。結果は `bench/evidence/measurements.json` に保存される。スパイク実測値との
+比較表は非公開の内部レポートで管理する（本リポには置かない方針）。

@@ -6,7 +6,7 @@ import { MAIN_MENU_BAR } from '@theia/core/lib/common/menu/menu-types';
 /**
  * AKARI Video shell — S17 メニューバー消し込み。
  *
- * PoC 実測（`tasks/2026-07-15-theia-poc/report.md` §2-①）: クリーン起動で
+ * PoC 実測（非公開の内部 PoC レポート §2-① で管理。本リポには置かない方針）: クリーン起動で
  * File / Edit / Selection / View / Go / Run / Terminal / Help の8メニューが
  * 出現（診断駆動で1つずつ潰す想定・未着手のまま持ち越し）。
  *

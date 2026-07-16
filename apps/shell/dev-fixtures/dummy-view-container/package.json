@@ -2,7 +2,7 @@
   "name": "akari-dummy-view-container-fixture",
   "displayName": "AKARI Dummy View Container Fixture",
   "description": "S15 dynamic curation test fixture — a minimal VS Code extension whose 5th activity bar view container only appears ~2s after activation (via a `when` context key flipped by setContext), simulating the PoC-observed case where a partner extension's icon shows up after the initial onDidInitializeLayout curation pass has already run. Used by task 2026-07-15-shell-sa-foundation's S15 acceptance test.",
-  "publisher": "akari-video-internal",
+  "publisher": "akari-video",
   "version": "0.0.2",
   "engines": { "vscode": "^1.60.0" },
   "activationEvents": ["onStartupFinished"],

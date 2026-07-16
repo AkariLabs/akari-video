@@ -41,7 +41,7 @@ function stats(latencies: number[]) {
   };
 }
 
-// --- スパイク実測値（tasks/2026-07-15-webcodecs-spike/report.md より転記。前後比較の基準値） ---
+// --- スパイク実測値（非公開の内部スパイク実測値より転記。前後比較の基準値） ---
 const SPIKE_BASELINE = {
   seekP95Ms: {
     h264_4k_hw: 1268.6,
