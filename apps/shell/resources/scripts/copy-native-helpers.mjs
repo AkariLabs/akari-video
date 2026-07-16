@@ -8,7 +8,23 @@ const repoRoot = path.resolve(shellRoot, '../..');
 const overlayRuntimeSource = path.join(repoRoot, 'packages', 'overlay-runtime', 'src');
 const overlayRuntimeDestination = path.join(shellRoot, 'lib', 'overlay-runtime');
 await cp(overlayRuntimeSource, overlayRuntimeDestination, { recursive: true });
+// Bundle overlay-runtime's package.json so the backend can read the shipped version
+// for project render pins (contract §6) in the packaged app.
+await copyFile(
+  path.join(repoRoot, 'packages', 'overlay-runtime', 'package.json'),
+  path.join(overlayRuntimeDestination, 'package.json')
+);
 console.log(`Copied overlay-runtime assets to ${path.relative(shellRoot, overlayRuntimeDestination)}`);
+
+// Bundle the repo-root skills/ as the shared-store original (contract §3). The backend
+// syncs lib/skills → ~/Library/Application Support/@akari-video/shared/skills on startup.
+const skillsSource = path.join(repoRoot, 'skills');
+const skillsDestination = path.join(shellRoot, 'lib', 'skills');
+await cp(skillsSource, skillsDestination, {
+  recursive: true,
+  filter: src => path.basename(src) !== '.gitkeep'
+});
+console.log(`Copied skills original to ${path.relative(shellRoot, skillsDestination)}`);
 
 const projectTemplateSource = path.join(repoRoot, 'templates', 'project-default');
 const projectTemplateDestination = path.join(shellRoot, 'lib', 'templates', 'project-default');

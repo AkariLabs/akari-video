@@ -1,0 +1,86 @@
+L1 受け入れ観測（契約 §7 の 1〜5・8）— 実測ログ（2026-07-16）
+=======================================================================
+共有ストア: <STORE> = ~/Library/Application Support/@akari-video/shared
+  （root は「akari-video」プラグイン root 兼用: .claude-plugin/plugin.json + skills/ + VERSION + policy.settings.json）
+実測は headless `claude -p`（右ペイン PTY と同じ実体 2.1.211）で行う。
+共有ストアは「実際に出荷される backend の同期関数」(compiled shared-store.js の
+syncSharedStore) を repo 直下で走らせて生成した。手で組んだプラグインではない。
+
+同期の実測:
+  syncSharedStore() => STORE_ROOT/skills（6 スキル）+ .claude-plugin/plugin.json（--strict 通過）
+  + policy.settings.json + VERSION=ac3d73255c3bb0c2
+  `claude plugin validate --strict <STORE>` => ✔ Validation passed
+
+§7-1 新規プロジェクトで akari-video:analyze-footage を発見できる
+-----------------------------------------------------------------------
+新規プロジェクト（空フォルダ・dev モード無関係の headless）を cwd に:
+  claude -p --plugin-dir <STORE> "list skills starting with akari-video:"
+  => akari-video:analyze-footage / :bake-3d / :edit-plan / :harvest-asset /
+     :overlay-authoring / :setup-library （6/6・exit 0）  => PASS
+
+§7-2 更新の伝播: 共有ストア更新 → 既存プロジェクトで新版が見える
+-----------------------------------------------------------------------
+(a) 読み取りが共有: 既存プロジェクト（別に用意）で --plugin-dir <STORE> のまま、
+    ストアに後から入れた akari-video:propagation-probe を発見（プロジェクト側は 1 ファイルも変えていない）
+    => "YES akari-video:propagation-probe"  => PASS（参照方式なので全プロジェクト即時伝播）
+(b) 書き込みが源泉追従: 原本（bundle 側 = repo skills/）を変える → syncSharedStore で
+    VERSION が ac3d7325… → 4800bf6a… に変わりストアへ反映。原本を戻すと VERSION が
+    ac3d7325… に戻り、追加ファイルはストアから機械的に消える（両方向の機械的上書き）  => PASS
+    ＝ app 更新（新しい同梱原本）→ 起動時同期 → 全プロジェクトに新版、が成立。
+
+§7-3 ローカル上書き: プロジェクト .claude/skills/ の同名が勝つ
+-----------------------------------------------------------------------
+プロジェクトに .claude/skills/analyze-footage/SKILL.md（LOCAL 版）を置き、
+  claude -p --plugin-dir <STORE> --settings <STORE>/policy.settings.json
+    "Use the Skill named exactly 'analyze-footage' ..."
+  => OVERRIDE_WINS_7C3（素の名前 = プロジェクト上書き版が実行）
+  かつ "akari-video:analyze-footage も存在?" => YES（名前空間つき共有版は併存）  => PASS
+
+§7-4 Codex レーン: AGENTS.md 経由で共有ストアのスキル文書へ到達
+-----------------------------------------------------------------------
+雛形から作った実プロジェクトで「あなたは Codex レーン。スキル機構は使わない。
+AGENTS.md を読み、共有ストアの analyze-footage SKILL.md を開き、その見出し行を引用せよ」
+  => 「# 素材 1 本を分析する」（共有ストアの SKILL.md 見出しを正しく引用）  => PASS
+
+§7-5 雛形から example 3 種が消え、共有側から参照可能・既存プロジェクトは壊れない
+-----------------------------------------------------------------------
+雛形 templates/project-default/.akari/ に残るのは workflow.json + 3 空ディレクトリのみ。
+README.md / event/meta/decisions の 4 ファイルは skills/*/references/ へ移設:
+  analyze-footage/references/{akari-data-contract.md, asset.meta.example.json}
+  edit-plan/references/{event.example.json, asset.decisions.example.json}
+雛形から作ったプロジェクトは workflow.json + CLAUDE.md/AGENTS.md/.claude 一式が揃い、
+PTY 起動・スキル発見・AGENTS 到達すべて成立（§7-1〜4 で使用したのがこの雛形）  => PASS
+移設先はパッケージ asar 内 /lib/skills/*/references/ にも同梱（03 参照）。
+
+§7-8 親文脈の継承 + ハーネス注入が既存 CLAUDE.md と衝突しない
+-----------------------------------------------------------------------
+親に事業 CLAUDE.md（PARENT_BIZ_TOKEN_Z9）、子に雛形プロジェクト（自分の CLAUDE.md）。
+出荷される launch args そのままで起動:
+  claude -p --plugin-dir <STORE> --append-system-prompt "<AKARI_HARNESS_PROMPT 実体 1597B>"
+    --settings <STORE>/policy.settings.json
+  Q: 親トークン / ハーネスが指定する名前空間 / akari-video:analyze-footage の有無
+  => "PARENT_BIZ_TOKEN_Z9, yes — the `akari-video:` prefix ..., yes"
+  ＝ 親事業 CLAUDE.md（CC の上方向継承・アプリ実装ゼロ）+ 子 CLAUDE.md + ハーネス注入 +
+     ポリシー overlay が 4 つ同時に効き、相互に衝突しない  => PASS
+
+ナッジ具体化（契約 §5）— compiled nudgeFor をイベント実形で実行
+-----------------------------------------------------------------------
+video-added(asset=assets/IMG_4606.MOV)
+  => 「assets/IMG_4606.MOV が追加されました。analyze-footage スキルで分析を開始してください。」
+     ＝ 対象アセット名 + analyze-footage の名指し  => ACCEPT PASS
+report-generated => 「レポートを作成しました（planning/report.md）。…承認してください。」
+report-approved  => 「レポートが承認されました。edit-plan スキルで編集を進めてください。」
+edit-completed   => 「編集が完了しました。…overlay-authoring スキルで調整してください。」
+export-completed => 「書き出しが完了しました（exports/final.mp4）。exports フォルダーで…」
+gateTypes 4 種すべて専用文言（汎用フォールバックに落ちない）  => PASS
+全文言に git/commit/diff/json 語彙なし  => PASS
+併せて実イベント schema（occurredAt / asset / artifact）を読むよう検証を修正
+（旧コードは at / path を要求し実イベントを取りこぼしていた）。
+
+バージョンピンの器（契約 §6）— getRenderPins をそのまま実行
+-----------------------------------------------------------------------
+compiled AkariPartnerServerImpl.getRenderPins()
+  => {"version":1,"pins":{"overlay-runtime":"0.1.0"}}  => PASS
+書き込み: PartnerSessionService が .akari/workflow.json のある実プロジェクトにだけ
+（F17 汚染防止のゲート付き）.akari/render-pins.json を write-if-absent で着地。
+書式 = {version, pins, recordedAt}。複数版保持・ピン解決は非スコープ（器まで）。

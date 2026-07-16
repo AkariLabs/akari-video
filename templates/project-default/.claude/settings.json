@@ -2,13 +2,13 @@
   "permissions": {
     "allow": [
       "Read(./**)",
-      "Write(./planning/**)",
-      "Write(./exports/**)",
-      "Write(./.akari/sidecars/**)",
-      "Write(./.akari/events/**)"
+      "Edit(./planning/**)",
+      "Edit(./exports/**)",
+      "Edit(./.akari/sidecars/**)",
+      "Edit(./.akari/events/**)"
     ],
     "deny": [
-      "Write(./assets/**)"
+      "Edit(./assets/**)"
     ]
   }
 }

@@ -1,0 +1,44 @@
+パッケージ検証（契約 §7-7）— asar 同梱 + サイズ実測（2026-07-16）
+=======================================================================
+手順: npm run build（theia production・exit 0）→ npm run package
+  （prepackage = copy-native-helpers.mjs → electron-builder --dir・exit 0・約 182〜194s）
+
+prepackage の同梱ログ:
+  Copied overlay-runtime assets to lib/overlay-runtime
+  Copied skills original to lib/skills            <- repo 直下 skills/ を原本として同梱
+  Copied project-default template to lib/templates/project-default
+
+成果物: <OUT>/mac-arm64/AKARI Video.app
+  du -m -d 0 => 430 MB   （≤500MB 維持・PASS。同梱前 439MB 基準から増えていない
+                          ＝ skills は 200K のテキストで size 影響は誤差）
+
+asar list（npx @electron/asar list <app>/Contents/Resources/app.asar）:
+  /lib/skills/*/SKILL.md          => 6 本（analyze-footage / bake-3d / edit-plan /
+                                     harvest-asset / overlay-authoring / setup-library）
+  /lib/skills/analyze-footage/references/akari-data-contract.md      （移設先も同梱）
+  /lib/skills/analyze-footage/references/asset.meta.example.json
+  /lib/skills/edit-plan/references/event.example.json
+  /lib/skills/edit-plan/references/asset.decisions.example.json
+  /lib/overlay-runtime/package.json  => render pin の版元（overlay-runtime 0.1.0）を同梱
+
+パッケージ実機での同期経路の実測（重要・地雷を 1 個潰した）:
+  ELECTRON_RUN_AS_NODE=1 で出荷 Electron を node として起動し app.asar 内 /lib/skills を検証:
+  - fs.stat(/lib/skills/analyze-footage/SKILL.md) => true（asar 対応 fs で読める）
+  - しかし fs.cp(dir, dest, {recursive}) は ENOENT で失敗。Electron の asar フックは
+    cp/cpSync を「単一ファイルの copyFileOut」に差し替えるため、asar 内ディレクトリの
+    再帰コピーが成立しない（＝ 初回起動同期が packaged で死ぬ地雷）。
+  - 対策: syncSharedStore の copyTree を fs.cp から readdir+readFile+writeFile の
+    手動再帰に変更（readdir/readFile は asar 対応）。出荷 asar 相手に再実測:
+      手動 copyTree(/lib/skills → 実 fs) => SKILL.md 6 本コピー・references 同梱・
+      SKILL.md 内容 intact（先頭 '---'）  => PASS
+  - 再ビルド・再パッケージで修正版を同梱（final app 430MB・6 SKILL.md・fs.cp 残存 0 を確認）。
+
+L0:
+  兄弟 checkout（同一 package-lock）から apps/shell/node_modules を rsync（install 地雷回避）→
+  electron/dist は健全 4 エントリ。
+  build:ext（tsc -b）exit 0（約 1〜3s）/ lint（eslint）exit 0（約 1s）。
+
+governance ゲート（§7-7）:
+  ローカルで git grep により本タスクの追加/変更ファイルを 4 パターン検査 =>
+  local 絶対パス / akari-video-wt / claude-<pid>|scratchpad は 0 hit。
+  internal repo path の hit は既存 allowlist 済みファイル 7 件のみ（本タスクの追加ゼロ）=> GREEN 相当。

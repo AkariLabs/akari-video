@@ -1,0 +1,76 @@
+共有スキル供給機構 — 契約 §3 調査項目の実測ログ（2026-07-16）
+=======================================================================
+実測環境:
+  claude CLI 実体: ~/.local/bin/claude -> versions/2.1.211 (Claude Code 2.1.211)
+  （$PATH の `claude` は cmux ラッパーのため、teammate 化を避けて実体を直接起動）
+  node v26.3.0 / darwin arm64
+  headless `claude -p` での等価観測（右ペイン PTY = 対話 claude と同じ実体を叩く）
+
+調査 1: ローカルディレクトリのプラグインを読ませる正確で安定な手段
+-----------------------------------------------------------------------
+確定 = CLI フラグ `--plugin-dir <path>`（`claude --help` に明記・repeatable）:
+  --plugin-dir <path>   Load a plugin from a directory or .zip
+プラグイン構造（実測でバリデーション通過）:
+  <plugin-root>/
+    .claude-plugin/plugin.json   { "name": "akari-video", "version": ..., "description": ... }
+    skills/<skill>/SKILL.md      （リポ直下 skills/ をそのまま配置）
+  `claude plugin validate <root>`  => Validation passed with warnings
+     （唯一の warning = author 未指定。manifest に author を足せば --strict も通る）
+
+発見の実測（fake-new-project を cwd に headless 起動）:
+  $ claude -p --plugin-dir <plugin> "... list every skill whose name starts with 'akari-video:' ..."
+  akari-video:analyze-footage
+  akari-video:bake-3d
+  akari-video:edit-plan
+  akari-video:harvest-asset
+  akari-video:overlay-authoring
+  akari-video:setup-library      (exit 0)
+=> プラグイン供給のスキルは `akari-video:<skill>` 名前空間で 6 本すべて発見される。
+   marketplace 登録 / 設定ファイル書き換えは不要。フラグ 1 本で完結し、
+   ユーザーのグローバル名前空間を汚さない（一般則 (2) と両立）。
+
+安定性: `--plugin-dir` は 2.1.211 の第一級フラグ。marketplace add（`claude plugin
+   marketplace add <path>`）は設定を永続変更し掃除責務が増えるため、起動時フラグ方式が
+   ステートレスで安定。バージョン依存の疑いは実測で解消（2.1.211 で動作）。
+
+調査 2: プロジェクト .claude/skills/ の同名スキルがプラグイン供給版に勝つか
+-----------------------------------------------------------------------
+結論 = 名前空間が別なので「衝突しない・共存する」。上書きは名前空間規約で成立:
+  - プラグイン供給   => `akari-video:analyze-footage`（名前空間つき）
+  - プロジェクト側   => `.claude/skills/analyze-footage/SKILL.md` は素の `analyze-footage`
+  両者を同時に load した実測（fake-override-project）で、スキル一覧に
+    analyze-footage          （プロジェクトのローカル上書き版）
+    akari-video:analyze-footage （プラグイン供給版）
+  が別項目として両方出た。素の名前で呼ぶと上書き版が勝つことを実測:
+  $ claude -p --plugin-dir <plugin> "Use the Skill named exactly 'analyze-footage' ..."
+  => LOCAL_MARKER_XYZ  （プロジェクトの .claude/skills 版が実行された）
+=> 一般則 (2)「ローカル上書き」は「素の名前 = プロジェクト所有・勝つ / `akari-video:` 名前空間
+   = 共有・伝播」という使い分けで成立。この規約を共有 README と雛形 README に明記した。
+
+調査 3: 対照実験 c 案（雛形からのシンボリックリンク）の追従可否
+-----------------------------------------------------------------------
+実測: `.claude/skills/analyze-footage` を共有側スキル実体への symlink にして
+   --plugin-dir 無しで起動 => "YES analyze-footage"（発見される）。
+=> Claude Code は symlink 先スキルを読む（追従する）。「追従可否が未実測」を実測で解消。
+それでも c 案を採らない理由（次の人向けの記録）:
+  (1) 素の名前空間を占有する => プロジェクト側のローカル上書き（調査 2）が潰れる。
+      プラグイン方式は `akari-video:` に隔離するので素の名前をユーザーに残せる。
+  (2) プロジェクトごとに .claude/skills/ へファイル（symlink）注入が要る。§4「置くから
+      注入へ」に反し、app の移動/更新で共有ストアのパスが変わるとリンク切れ、その修復が
+      起動時の恒常責務になる。--plugin-dir はプロジェクトに 1 ファイルも置かない。
+  (3) symlink は git/zip/コピー/別ボリュームで壊れる（可搬性が低い）。
+=> 却下維持。b 案（--plugin-dir でプロジェクト無注入）が優る。
+
+ハーネス注入（§4）の手段確定 — 調査 1 と同時実測
+-----------------------------------------------------------------------
+確定 = `--append-system-prompt <text>`（AKARI 運用規約を起動時注入・ファイルは置かない）
+   + 二段構え settings（プロジェクト .claude/settings.json は雛形コピー維持 + 起動時に
+     app が `--settings <共有ポリシー>` を重ねる。`--settings` は "additional settings" を
+     load するとヘルプに明記 = レイヤー）。
+親文脈の継承（§7-8）+ 衝突しないことの実測（biz-root/CLAUDE.md → my-video-project/CLAUDE.md）:
+  $ claude -p --append-system-prompt "AKARI-HARNESS-INJECTED: ... HARNESS_TOKEN_C3." \
+      "reply 3 tokens: parent CLAUDE.md / project CLAUDE.md / harness marker"
+  => BIZ_ROOT_TOKEN_A1 PROJECT_TOKEN_B2 HARNESS_TOKEN_C3
+=> 親階層の事業 CLAUDE.md（Claude Code の上方向積み重ね）・プロジェクト CLAUDE.md・
+   `--append-system-prompt` のハーネス注入が 3 つ同時に効く。ハーネス注入は既存 CLAUDE.md を
+   一切上書きせず共存する（§7-8 の受け入れを headless 等価で確認）。アプリ実装ゼロで親継承が入る。

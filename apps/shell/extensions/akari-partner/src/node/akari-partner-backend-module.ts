@@ -1,10 +1,12 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { ConnectionHandler, RpcConnectionHandler } from '@theia/core';
+import { BackendApplicationContribution } from '@theia/core/lib/node';
 import {
     AKARI_PARTNER_SERVICE_PATH,
     AkariPartnerServer
 } from '../common/akari-partner-protocol';
 import { AkariPartnerServerImpl } from './akari-partner-server';
+import { SharedStoreContribution } from './shared-store-contribution';
 
 export default new ContainerModule(bind => {
     bind(AkariPartnerServerImpl).toSelf().inSingletonScope();
@@ -13,4 +15,7 @@ export default new ContainerModule(bind => {
         AKARI_PARTNER_SERVICE_PATH,
         () => ctx.container.get(AkariPartnerServer)
     )).inSingletonScope();
+
+    bind(SharedStoreContribution).toSelf().inSingletonScope();
+    bind(BackendApplicationContribution).toService(SharedStoreContribution);
 });

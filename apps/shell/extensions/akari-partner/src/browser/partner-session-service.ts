@@ -4,17 +4,25 @@ import { DisposableCollection } from '@theia/core';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangeType } from '@theia/filesystem/lib/common/files';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
 import { TerminalWidget } from '@theia/terminal/lib/browser/base/terminal-widget';
+import { AkariPartnerServer } from '../common/akari-partner-protocol';
 
 export const PTY_IDLE_THRESHOLD_MS = 1500;
 const EVENT_SETTLE_DELAY_MS = 60;
 const PARTNER_TERMINAL_KIND = 'akari-partner';
+const RENDER_PINS_RELATIVE = '.akari/render-pins.json';
 
 interface AkariEvent {
     type: string;
-    at: string;
+    // Canonical events use `occurredAt`; older fixtures used `at`. Accept both.
+    occurredAt?: string;
+    at?: string;
+    // The subject path lives under `asset` (video-added) or `artifact` (gate events).
+    asset?: string;
+    artifact?: string;
     path?: string;
 }
 
@@ -29,6 +37,9 @@ export class PartnerSessionService implements FrontendApplicationContribution {
 
     @inject(TerminalService)
     protected readonly terminalService!: TerminalService;
+
+    @inject(AkariPartnerServer)
+    protected readonly partnerServer!: AkariPartnerServer;
 
     protected terminal?: TerminalWidget;
     protected terminalDisposables = new DisposableCollection();
@@ -75,6 +86,7 @@ export class PartnerSessionService implements FrontendApplicationContribution {
         this.workspaceDisposables = new DisposableCollection();
         const roots = await this.workspaceService.roots;
         for (const root of roots) {
+            void this.ensureRenderPins(root.resource);
             const eventDirectory = root.resource.resolve('.akari/events');
             this.workspaceDisposables.push(this.fileService.watch(root.resource, { recursive: true, excludes: [] }));
             this.workspaceDisposables.push(this.fileService.onDidFilesChange(event => {
@@ -100,13 +112,16 @@ export class PartnerSessionService implements FrontendApplicationContribution {
                 return;
             }
             const parsed = JSON.parse(content) as Partial<AkariEvent>;
-            if (typeof parsed.type !== 'string' || typeof parsed.at !== 'string' || Number.isNaN(Date.parse(parsed.at))) {
+            const timestamp = parsed.occurredAt ?? parsed.at;
+            if (typeof parsed.type !== 'string' || typeof timestamp !== 'string' || Number.isNaN(Date.parse(timestamp))) {
                 console.warn('[akari-partner] invalid event schema; skipped:', resource.toString());
                 return;
             }
-            if (parsed.path !== undefined && typeof parsed.path !== 'string') {
-                console.warn('[akari-partner] invalid event path; skipped:', resource.toString());
-                return;
+            for (const field of ['asset', 'artifact', 'path'] as const) {
+                if (parsed[field] !== undefined && typeof parsed[field] !== 'string') {
+                    console.warn('[akari-partner] invalid event subject; skipped:', resource.toString());
+                    return;
+                }
             }
             this.processedContent.set(resource.toString(), content);
             this.queue.push(this.nudgeFor(parsed as AkariEvent));
@@ -116,11 +131,72 @@ export class PartnerSessionService implements FrontendApplicationContribution {
         }
     }
 
+    /**
+     * Name the next concrete step per event type (contract §5). Wording is Japanese,
+     * user-visible vocabulary — no git/json jargon; role directories and skill names
+     * only. Covers workflow.json gateTypes plus the `video-added` entry event.
+     */
     protected nudgeFor(event: AkariEvent): string {
-        const safePath = event.path?.replace(/[\r\n]+/g, ' ').trim();
-        return safePath
-            ? `回答が更新されました: ${safePath} を確認してください`
-            : `AKARI イベント (${event.type}) が更新されました。内容を確認してください`;
+        const subject = this.sanitize(event.asset ?? event.artifact ?? event.path);
+        switch (event.type) {
+            case 'video-added':
+                return subject
+                    ? `${subject} が追加されました。analyze-footage スキルで分析を開始してください。`
+                    : '新しい素材が追加されました。analyze-footage スキルで分析を開始してください。';
+            case 'report-generated':
+                return subject
+                    ? `レポートを作成しました（${subject}）。内容を確認し、問題なければ承認してください。`
+                    : 'レポートを作成しました。内容を確認し、問題なければ承認してください。';
+            case 'report-approved':
+                return 'レポートが承認されました。edit-plan スキルで編集を進めてください。';
+            case 'edit-completed':
+                return '編集が完了しました。プレビューで仕上がりを確認し、必要ならテロップ等を overlay-authoring スキルで調整してください。';
+            case 'export-completed':
+                return subject
+                    ? `書き出しが完了しました（${subject}）。exports フォルダーで最終版を確認してください。`
+                    : '書き出しが完了しました。exports フォルダーで最終版を確認してください。';
+            default:
+                return subject
+                    ? `${subject} が更新されました。内容を確認し、次の一手を進めてください。`
+                    : `更新がありました（${event.type}）。内容を確認し、次の一手を進めてください。`;
+        }
+    }
+
+    protected sanitize(value: string | undefined): string | undefined {
+        const trimmed = value?.replace(/[\r\n]+/g, ' ').trim();
+        return trimmed ? trimmed : undefined;
+    }
+
+    /**
+     * Record the rendering-asset version pins the app currently ships (contract §6 —
+     * 器まで). Written once per project (write-if-absent) since a pin is a
+     * reproducibility record: it should stay at the version present when first seen.
+     */
+    protected async ensureRenderPins(root: URI): Promise<void> {
+        const target = root.resolve(RENDER_PINS_RELATIVE);
+        try {
+            // Only record pins inside an actual AKARI project. Gating on the workflow
+            // marker keeps us from scaffolding `.akari/` into an unrelated folder (F17).
+            if (!(await this.fileService.exists(root.resolve('.akari/workflow.json')))) {
+                return;
+            }
+            if (await this.fileService.exists(target)) {
+                return;
+            }
+            const pins = await this.partnerServer.getRenderPins();
+            const body = {
+                version: pins.version,
+                pins: pins.pins,
+                recordedAt: new Date().toISOString()
+            };
+            await this.fileService.createFile(
+                target,
+                BinaryBuffer.fromString(JSON.stringify(body, null, 2) + '\n'),
+                { overwrite: false }
+            );
+        } catch (error) {
+            console.warn('[akari-partner] render pin write skipped:', error);
+        }
     }
 
     protected scheduleFlush(): void {
