@@ -15,7 +15,7 @@
     "type": "video-added",
     "occurredAt": "2026-07-16T15:07:31.184Z",
     "asset": "assets/sample-clip.mp4",
-    "source": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-dnd-real-copy/193bb922-34ee-427d-9e62-0d1e57126330/scratchpad/dnd-source-material/sample-clip.mp4",
+    "source": "<SCRATCH>/dnd-source-material/sample-clip.mp4",
     "copied": true
   },
   "newAssetName": "sample-clip.mp4",
