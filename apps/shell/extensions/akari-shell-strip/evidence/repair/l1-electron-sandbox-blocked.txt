@@ -1,7 +1,7 @@
 2026-07-16 L1 launch attempt (isolated THEIA_CONFIG_DIR / HOME / electronUserData)
 
 Electron result:
-/Users/ryoma/_edit/30_products/akari-video-wt/sc-repair/apps/shell/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron exited with signal SIGABRT
+<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron exited with signal SIGABRT
 
 The process aborted in macOS AppKit registration before opening the CDP port. A fallback
 browser-backend launch reached BackendApplication initialization, but the execution sandbox

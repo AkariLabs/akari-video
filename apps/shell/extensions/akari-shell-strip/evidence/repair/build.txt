@@ -8,7 +8,7 @@
 
 Found cached ffmpeg library.
 Hashes are equal, not replacing the ffmpeg library.
-"/Users/ryoma/_edit/30_products/akari-video-wt/sc-repair/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Framework.framework/Libraries/libffmpeg.dylib" does not contain proprietary codecs (13 found).
+"<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Framework.framework/Libraries/libffmpeg.dylib" does not contain proprietary codecs (13 found).
 (node:95362) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 [build/browser] Build started

@@ -94,7 +94,7 @@ L2 は旧 Tauri 実装期の verify スキルで使われていた概念で、�
 - `2026-07-15-preview-band-artifact`: L2 = 実機での不具合再現・修正確認。加えて「オーナーが実機で帯の消失を確認」という**オーナー自身の目視**が最終ゲートに使われた
 - `2026-07-15-vlog-mvp-edit`: 「L2（実機アプリ）未実施」— L1（実書き出し・ffprobe 検証）は完了したが、実機アプリでの目視（プレビュー側の合成が理屈どおりに見えるか）は L2 として区別され、範囲外とされた
 - `2026-07-15-decision-cards-runtime`: 「実機（Tauri / companion 拡張 webview）での目視は本タスク範囲外（L2 非対象）」— headless Chrome での自動 DOM 検証（L1 相当）と、実アプリ webview での体感確認（L2）を明確に分けている
-- `planning/contract-2026-07-14-dev-harness.md` は「本表 L3 実機 ≒ verify L2（実機）」と明記し、本表 L3 は「オーナーによるフィールドテスト → handoff 記録」と定義される（`planning/waveplan-2026-07-15-sbcd-e5.md` §6）
+- 非公開の内部タスク記録の契約書（dev-harness、2026-07-14 付）は「本表 L3 実機 ≒ verify L2（実機）」と明記し、本表 L3 は「オーナーによるフィールドテスト → handoff 記録」と定義される（同じく非公開の wave 計画書、2026-07-15 付、§6）
 
 これらに共通するのは、**L2 = 自動化・スクリプトでは判定し切れない層**という一線であり、
 「実素材を使うかどうか」では区別されない（L1 でも `preview-streaming` の 836MB 4K 実撮素材のように
@@ -118,15 +118,18 @@ L2 は旧 Tauri 実装期の verify スキルで使われていた概念で、�
 - **L0+L1**: `apps/shell/extensions/**` や `packages/preview-engine` 等、GUI・実行時挙動に影響するコード変更を含むタスクの既定。2026-07-15/16 の shell 系タスクはほぼ全てここに属する
 - **L0+L1+L2**: 上記「L2 を課すかどうかの判断基準」に該当する場合のみ。現行スタックでは前例なし
 
-## 根拠（帰納元 report.md / task.md）
+## 根拠（帰納元）
 
-- `tasks/2026-07-16-preview-streaming/report.md`（L1 再現手順・836MB 実素材・入れ子 webview フレーム到達法）
-- `tasks/2026-07-16-shell-s4-tabs/report.md`（L1 再現手順・dual-package hazard・Electron 起動エントリの地雷、§6-2 に手順まとめ）
-- `tasks/2026-07-16-package-runtime-assets/task.md`（パッケージ版 L1 の実施方法）
-- `tasks/README.md`（検収フロー 4-c の CI 前提）
-- `tasks/_template/task.md`（verify 層の対応表という語彙そのものの出典）
-- `planning/contract-2026-07-14-dev-harness.md` §（本表 L0-L3 と verify L0-L2 の対応注記）
-- `planning/waveplan-2026-07-15-sbcd-e5.md` §6（検証レイヤ表・L0/L1/L2/L3 の定義）
-- `tasks/2026-07-15-preview-band-artifact/report.md`・`tasks/2026-07-15-vlog-mvp-edit/report.md`・
-  `tasks/2026-07-15-decision-cards-runtime/report.md`（旧 Tauri 期の L2 実例。現行スタックに L2 実例が
-  無いため、L2 の定義根拠としてはこれらのみ）
+対応表・手順は非公開の内部タスク記録（`akari-video-internal`）の report.md / task.md から帰納したもの
+である。内部タスク記録そのものは本リポには置かない方針（`docs/design-2026-07-13-agent-native-architecture.md`
+§3 と同様の扱い）。検証手順そのもの（コマンド・観測対象・既知の地雷）は上記「L0」「L1」節に実行可能な形で
+記載済みであり、以下は帰納元タスクの識別のみを示す（すべて非公開）:
+
+- preview-streaming（2026-07-16）: L1 再現手順・836MB 実素材・入れ子 webview フレーム到達法
+- shell-s4-tabs（2026-07-16）: L1 再現手順・dual-package hazard・Electron 起動エントリの地雷（§6-2 に手順まとめ）
+- package-runtime-assets（2026-07-16）: パッケージ版 L1 の実施方法
+- 内部タスク記録の README: 検収フロー 4-c の CI 前提
+- 内部タスク記録のタスクテンプレート: verify 層の対応表という語彙そのものの出典
+- dev-harness 契約書（2026-07-14）・wave 計画書（2026-07-15）§6: 検証レイヤ表・L0/L1/L2/L3 の定義
+- preview-band-artifact・vlog-mvp-edit・decision-cards-runtime（いずれも 2026-07-15、旧 Tauri 期）:
+  L2 実例。現行スタックに L2 実例が無いため、L2 の定義根拠としてはこれらのみ
