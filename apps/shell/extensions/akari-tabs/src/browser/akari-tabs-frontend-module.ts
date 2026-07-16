@@ -1,5 +1,10 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
+import { FrontendApplicationContribution } from '@theia/core/lib/browser';
+import { TabBarDecorator } from '@theia/core/lib/browser/shell/tab-bar-decorator';
+import { AkariTabsContribution } from './akari-tabs-contribution';
 
-// Wave 4 skeleton — 実装レーンがこのモジュールに contribution を足す
-export default new ContainerModule(() => {
+export default new ContainerModule(bind => {
+    bind(AkariTabsContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariTabsContribution);
+    bind(TabBarDecorator).toService(AkariTabsContribution);
 });
