@@ -1,0 +1,34 @@
+--- /tmp/akari-s12-e2e-scratch/evidence/edit-before.json	2026-07-16 15:14:25
++++ /tmp/akari-s12-e2e-scratch/evidence/edit-after.json	2026-07-16 15:14:25
+@@ -1,14 +1,27 @@
+ {
+-  "source": { "path": "exports/sample.mp4" },
+-  "output": { "width": 1280, "height": 720, "fps": 30 },
++  "source": {
++    "path": "exports/sample.mp4"
++  },
++  "output": {
++    "width": 1280,
++    "height": 720,
++    "fps": 30
++  },
+   "overlays": [
+     {
+       "id": "cap-a",
+       "html": "overlays/cap-a.html",
+       "start": 1,
+       "duration": 4,
+-      "transform": { "x": 100, "y": 560, "scale": 1, "rotate": 0 },
+-      "vars": { "--color": "#ffcc00" }
++      "transform": {
++        "x": 100,
++        "y": 560,
++        "scale": 1,
++        "rotate": 0
++      },
++      "vars": {
++        "--color": "#00c853"
++      }
+     }
+   ]
+ }

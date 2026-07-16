@@ -1,0 +1,68 @@
+{
+  "flatFramesSnapshot_pageFrames": [
+    "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59462#<SCRATCH>/workspace",
+    ""
+  ],
+  "recursiveChildFramesWalkSnapshots": [
+    [
+      {
+        "depth": 0,
+        "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59462#<SCRATCH>/workspace"
+      },
+      {
+        "depth": 1,
+        "url": ""
+      }
+    ],
+    [
+      {
+        "depth": 0,
+        "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59462#<SCRATCH>/workspace"
+      },
+      {
+        "depth": 1,
+        "url": ""
+      }
+    ],
+    [
+      {
+        "depth": 0,
+        "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59462#<SCRATCH>/workspace"
+      },
+      {
+        "depth": 1,
+        "url": ""
+      }
+    ],
+    [
+      {
+        "depth": 0,
+        "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59462#<SCRATCH>/workspace"
+      },
+      {
+        "depth": 1,
+        "url": ""
+      }
+    ],
+    [
+      {
+        "depth": 0,
+        "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59462#<SCRATCH>/workspace"
+      },
+      {
+        "depth": 1,
+        "url": ""
+      }
+    ],
+    [
+      {
+        "depth": 0,
+        "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59462#<SCRATCH>/workspace"
+      },
+      {
+        "depth": 1,
+        "url": ""
+      }
+    ]
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "outerIframeInMain": {
+    "left": 382.953125,
+    "top": 35
+  },
+  "localRect": {
+    "left": 145.53125,
+    "top": 711.3125,
+    "right": 1547.53125,
+    "bottom": 774.8406372070312
+  },
+  "mainX": 1229.484375,
+  "mainY": 778.0765686035156,
+  "resultAfterTopLevelClick": {
+    "selected": "true",
+    "inspectorHidden": false
+  }
+}
