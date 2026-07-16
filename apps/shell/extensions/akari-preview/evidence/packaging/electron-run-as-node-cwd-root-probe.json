@@ -1,30 +1,30 @@
 {
   "cwd": "/",
-  "simulatedDirname": "/Users/ryoma/_edit/30_products/akari-video-wt/package-runtime-assets-r2/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/backend",
+  "simulatedDirname": "<WORKTREE>/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/backend",
   "overlay": {
-    "hit": "/Users/ryoma/_edit/30_products/akari-video-wt/package-runtime-assets-r2/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/overlay-runtime",
+    "hit": "<WORKTREE>/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/overlay-runtime",
     "candidates": [
-      "/Users/ryoma/_edit/30_products/akari-video-wt/package-runtime-assets-r2/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/overlay-runtime"
+      "<WORKTREE>/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/overlay-runtime"
     ]
   },
   "template": {
-    "hit": "/Users/ryoma/_edit/30_products/akari-video-wt/package-runtime-assets-r2/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/templates/project-default",
+    "hit": "<WORKTREE>/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/templates/project-default",
     "candidates": [
-      "/Users/ryoma/_edit/30_products/akari-video-wt/package-runtime-assets-r2/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/templates/project-default",
+      "<WORKTREE>/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/templates/project-default",
       "/templates/project-default",
       "/templates/project-default",
-      "/Users/ryoma/_edit/30_products/akari-video-wt/package-runtime-assets-r2/apps/shell/electron-builder-out/templates/project-default"
+      "<WORKTREE>/apps/shell/electron-builder-out/templates/project-default"
     ]
   },
   "overlayReadProof": {
-    "path": "/Users/ryoma/_edit/30_products/akari-video-wt/package-runtime-assets-r2/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/overlay-runtime/overlay-runtime.js",
+    "path": "<WORKTREE>/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/overlay-runtime/overlay-runtime.js",
     "isFile": true,
     "size": 4966,
     "bytesRead": 4077,
     "firstLine": "// オーバーレイランタイム"
   },
   "templateReadProof": {
-    "path": "/Users/ryoma/_edit/30_products/akari-video-wt/package-runtime-assets-r2/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/templates/project-default/CLAUDE.md",
+    "path": "<WORKTREE>/apps/shell/electron-builder-out/mac-arm64/AKARI Video.app/Contents/Resources/app.asar/lib/templates/project-default/CLAUDE.md",
     "isFile": true,
     "size": 605,
     "bytesRead": 313
