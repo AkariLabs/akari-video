@@ -89,9 +89,16 @@ jobs:
             'claude-[0-9]+|scratchpad' \
             "This exposes a Claude session id or scratchpad path from the local machine. Remove or redact it."
 
-          check "internal repo bare path (akari-video-internal, tasks/YYYY-MM-DD, planning/contract-/waveplan-)" \
-            'akari-video-internal|tasks/20[0-9]{2}-[0-9]{2}-[0-9]{2}|planning/contract-20[0-9]{2}-|planning/waveplan-20[0-9]{2}-' \
-            "Rewrite the reference so it doesn't expose the internal repo's directory layout."
+          # The internal repo's NAME is not a secret — CLAUDE.md:6 names it on purpose so
+          # contributors know internal context exists, and this file's own provenance note
+          # names it too. What must not leak is the repo's directory LAYOUT. So the first
+          # alternative requires a trailing slash: `akari-video-internal/tasks/...` is a
+          # path and fails; "非公開の内部記録（`akari-video-internal`）" is a name and passes.
+          # (Owner decision 2026-07-16, after this gate blocked the sweep's own boilerplate:
+          # the two lane contracts disagreed — one allowed naming the repo, the other didn't.)
+          check "internal repo path (akari-video-internal/…, tasks/YYYY-MM-DD, planning/contract-/waveplan-)" \
+            'akari-video-internal/|tasks/20[0-9]{2}-[0-9]{2}-[0-9]{2}|planning/contract-20[0-9]{2}-|planning/waveplan-20[0-9]{2}-' \
+            "Rewrite the reference so it doesn't expose the internal repo's directory layout. Naming the repo without a path is fine — see CLAUDE.md:6."
 
           if [ "$FAIL" -ne 0 ]; then
             echo ""
