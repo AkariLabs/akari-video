@@ -1,0 +1,13 @@
+{
+  "name": "@akari-video/edit-lint",
+  "version": "0.0.0",
+  "private": true,
+  "description": "edit.json と任意の分析・字幕・メディアを決定的に検査する依存ゼロの CLI。",
+  "type": "module",
+  "bin": {
+    "edit-lint": "bin/edit-lint.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  }
+}

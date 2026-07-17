@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "outputs": [{ "id": "short", "duration_max": 9 }],
+  "source": { "path": "../valid/sample.mp4", "proxy": null },
+  "cuts": [
+    { "in": 5, "out": 10 },
+    { "in": 30, "out": 35 }
+  ],
+  "overlays": []
+}

@@ -68,10 +68,9 @@ source 時刻 `s` が keep-range `[in, out]` にあるとき、timeline 時刻�
 
 ## 4. 検証してレポートを閉じる
 
-- `edit.json` を JSON parser で読み、トップレベルと全 field が v0 契約どおりか照合する。
-- output が正数、source と proxy、overlay HTML が解決可能か確認する。
-- cuts の `out > in`、昇順、非重複、source duration 内を確認する。
-- overlay の timeline 時刻、ID 一意性、HTML root 数、data 属性、CSS 変数、禁止 CSS を確認する。
+- [edit-lint](../edit-lint/SKILL.md) を実行し、`edit.json` の構造、cuts 整合、参照解決、
+  overlay の timeline 時刻・ID・HTML root・data 属性が PASS になるまで findings を修正する。
+- overlay の CSS 変数と禁止 CSS は overlay-authoring 規約に照らして確認する。
 - 中間マスターを作った場合は、素材別対応表と実フレームで境界を確認する。
 - `editing-report.html` の checkpoint 状態を実際の承認に合わせ、実行結果と provenance を追記する。過去の log 行は変更しない。
 
