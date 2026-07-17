@@ -44,7 +44,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         }
         const template = await this.findTemplate();
         if (template) {
-            await fs.cp(template, root, { recursive: true, errorOnExist: false, force: false });
+            await this.copyTemplateTree(template, root);
+            // electron-builder excludes .gitignore and .gitkeep from app.asar.
+            // Fill only missing files; writeFallbackTemplate never overwrites copied entries.
+            await this.writeFallbackTemplate(root);
         } else {
             await this.writeFallbackTemplate(root);
         }
@@ -352,15 +355,35 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         return undefined;
     }
 
+    /**
+     * Copy a template explicitly because Electron's asar support does not cover
+     * the recursive copy API. readdir and readFile can read directories and files from
+     * inside app.asar, so walking the tree also preserves dotfiles.
+     */
+    protected async copyTemplateTree(source: string, destination: string): Promise<void> {
+        await fs.mkdir(destination, { recursive: true });
+        for (const entry of await fs.readdir(source, { withFileTypes: true })) {
+            const from = join(source, entry.name);
+            const to = join(destination, entry.name);
+            if (entry.isDirectory()) {
+                await this.copyTemplateTree(from, to);
+            } else if (entry.isSymbolicLink()) {
+                console.warn(`[akari-project] skipping template symbolic link: ${entry.name}`);
+            } else if (entry.isFile()) {
+                await fs.writeFile(to, await fs.readFile(from));
+            }
+        }
+    }
+
     protected async writeFallbackTemplate(root: string): Promise<void> {
         const files: Record<string, string> = {
-            '.gitignore': 'assets/**\n!assets/.gitkeep\n.akari/diffs/**\n!.akari/diffs/.gitkeep\n',
+            '.gitignore': PROJECT_GITIGNORE,
             'CLAUDE.md': '# AKARI Video project\n\nKeep source videos in assets, plans in planning, and finished videos in exports.\n',
             'AGENTS.md': '# Project guidance\n\nPreserve .akari sidecars and use the declared workflow roles.\n',
             '.claude/settings.json': JSON.stringify({
                 permissions: {
-                    allow: ['Read(./**)', 'Write(./planning/**)', 'Write(./exports/**)', 'Write(./.akari/sidecars/**)', 'Write(./.akari/events/**)'],
-                    deny: ['Write(./assets/**)']
+                    allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
+                    deny: ['Edit(./assets/**)']
                 }
             }, null, 2) + '\n',
             '.claude/skills/README.md': '# AKARI Video skills\n\nUse the skills supplied by the AKARI Video installation. Workflow gates end by writing an event to `.akari/events/`.\n',
@@ -415,6 +438,20 @@ export class AkariProjectServiceImpl implements AkariProjectService {
 }
 
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+const PROJECT_GITIGNORE = [
+    '# Source video and audio are intentionally kept outside the project history.',
+    'assets/**',
+    '!assets/.gitkeep',
+    '',
+    '# Temporary files used by the friendly "変更を見る" view.',
+    '.akari/diffs/**',
+    '!.akari/diffs/.gitkeep',
+    '',
+    '# Local operating-system files.',
+    '.DS_Store',
+    'Thumbs.db',
+    ''
+].join('\n');
 const FALLBACK_WORKFLOW = {
     version: 1,
     roles: [

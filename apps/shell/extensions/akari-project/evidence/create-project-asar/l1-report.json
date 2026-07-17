@@ -1,0 +1,90 @@
+{
+  "verifiedAt": "2026-07-17",
+  "verifiedBy": "wrapper (real packaged .app, real CDP-driven UI + Node inspector, not codex's degraded ELECTRON_RUN_AS_NODE pass)",
+  "method": {
+    "build": "npm run build (build:ext + theia build --mode production)",
+    "package": "npm run package (electron-builder --dir, target=dir, platform=darwin arch=arm64)",
+    "launch": "packaged .app executable launched directly with --remote-debugging-port (renderer CDP) and --inspect (main-process Node inspector), --user-data-dir isolated under <SCRATCH>, --no-sandbox",
+    "nativeDialogHandling": "main-process Node inspector used to monkeypatch electron.dialog.showOpenDialog to auto-resolve to the target scratch destination (native OS dialogs are not CDP-drivable, matching the task's stated constraint)",
+    "trials": [
+      {
+        "name": "direct RPC proxy call",
+        "how": "window.theia.container resolved via CDP Runtime.evaluate; AkariProjectService looked up by its inversify Symbol and createProject(destUri) invoked directly on the real DI-bound backend proxy of the running packaged app",
+        "result": "ok:true"
+      },
+      {
+        "name": "full UI-driven flow",
+        "how": "CDP Input domain: F1 to open the quick-command palette, Input.insertText to filter to '新規プロジェクト作成', mouse click dispatched at the resolved row's bounding rect, native dialog auto-resolved via the main-process patch above",
+        "result": "dialog.showOpenDialog invoked exactly once (instrumented call counter), createProject completed, workspace.open side effect observed (.akari/render-pins.json appeared post-commit)"
+      }
+    ]
+  },
+  "packaging": {
+    "electronVersion": "39.8.7",
+    "asarPath": "<APP>/Contents/Resources/app.asar",
+    "templateFileCountInAsar": 5,
+    "templateDirectoryCountInAsar": 3,
+    "note": "electron-builder's default excludedNames strips .gitignore and .gitkeep from the asar (confirmed via `npx @electron/asar list` and `extract`); only CLAUDE.md, AGENTS.md, .claude/settings.json, .claude/skills/README.md, .akari/workflow.json ship inside app.asar/lib/templates/project-default. createProject's writeFallbackTemplate no-overwrite pass fills the rest."
+  },
+  "createProjectRuns": [
+    {
+      "trial": "direct RPC proxy call",
+      "destination": "<SCRATCH>/new-project",
+      "exception": false,
+      "fileCountExcludingGit": 12,
+      "requiredEntriesPresent": {
+        "CLAUDE.md": true,
+        "AGENTS.md": true,
+        ".gitignore": true,
+        ".claude/settings.json": true,
+        ".claude/skills/README.md": true,
+        ".akari/workflow.json": true,
+        "assets": true,
+        "planning": true,
+        "exports": true
+      },
+      "byteComparison": {
+        "method": "cmp -s against files extracted from the actual packaged app.asar (npx @electron/asar extract), and against the repository's templates/project-default/.gitignore for the asar-stripped file",
+        "CLAUDE.md": "MATCH",
+        "AGENTS.md": "MATCH",
+        ".claude/settings.json": "MATCH",
+        ".claude/skills/README.md": "MATCH",
+        ".akari/workflow.json": "MATCH",
+        ".gitignore": "MATCH"
+      },
+      "git": {
+        "commitCount": 1,
+        "commitSubject": "プロジェクトを作成",
+        "workingTreeClean": true
+      }
+    },
+    {
+      "trial": "full UI-driven flow",
+      "destination": "<SCRATCH>/new-project-ui",
+      "exception": false,
+      "fileCountExcludingGit": 13,
+      "note": "13th file (.akari/render-pins.json) is a post-commit runtime artifact from workspace.open()/watchProject(), not part of the template",
+      "byteComparison": {
+        "method": "cmp -s, same references as above",
+        "CLAUDE.md": "MATCH",
+        "AGENTS.md": "MATCH",
+        ".claude/settings.json": "MATCH",
+        ".claude/skills/README.md": "MATCH",
+        ".akari/workflow.json": "MATCH",
+        ".gitignore": "MATCH"
+      },
+      "git": {
+        "commitCount": 1,
+        "commitSubject": "プロジェクトを作成"
+      }
+    }
+  ],
+  "environmentNotes": [
+    "A long-idle test instance (kept alive across ~1h of interactive UI-automation debugging) entered a stuck 'reconnecting channel' state on the frontend<->backend RPC connection, causing createProject calls to hang/no-op silently with no error toast. This was an artifact of the debugging session's idle time, not a defect in the createProject fix itself: killing the stale instance and relaunching fresh immediately reproduced success on both the direct-proxy and full-UI-driven paths.",
+    "No local absolute paths, working-directory names, or session identifiers are recorded in this evidence file."
+  ],
+  "l0": {
+    "buildExt": { "exitCode": 0, "seconds": 1.6 },
+    "lint": { "exitCode": 0, "seconds": 1.4 }
+  }
+}
