@@ -11,7 +11,8 @@ import {
     DiffPreparationResult,
     DiffResourcePair,
     DroppedVideo,
-    DroppedVideoImportResult
+    DroppedVideoImportResult,
+    ProjectGitEligibility
 } from '../common/akari-project-protocol';
 
 const execFileAsync = promisify(execFile);
@@ -55,9 +56,24 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         await this.installProjectSkills(root);
         await this.ensureRuntimeDirectories(root);
         await this.runGit(root, ['init']);
-        await this.runGit(root, ['add', '-A']);
+        await this.runGit(root, ['add', '-A', '--', '.']);
         await this.commitIfChanged(root, 'プロジェクトを作成');
         await this.watchProject(destinationUri);
+    }
+
+    async isAkariProject(projectUri: string): Promise<boolean> {
+        return this.looksLikeAkariProject(this.fsPath(projectUri));
+    }
+
+    async convertToProject(projectUri: string): Promise<void> {
+        const root = this.fsPath(projectUri);
+        await this.writeFallbackTemplate(root);
+        await this.installProjectSkills(root);
+        await this.ensureRuntimeDirectories(root);
+    }
+
+    async getGitEligibility(projectUri: string): Promise<ProjectGitEligibility> {
+        return this.gitEligibility(this.fsPath(projectUri));
     }
 
     async watchProject(projectUri: string): Promise<void> {
@@ -65,11 +81,11 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         if (this.watchers.has(root)) {
             return;
         }
-        const eligibleForGitInit = await this.looksLikeAkariProject(root);
-        await this.ensureRuntimeDirectories(root);
-        if (eligibleForGitInit) {
-            await this.ensureGitInitialized(root);
+        if (!(await this.looksLikeAkariProject(root))) {
+            return;
         }
+        await this.ensureRuntimeDirectories(root);
+        await this.ensureGitInitialized(root);
         const eventsDirectory = join(root, '.akari', 'events');
         try {
             const watcher = watch(eventsDirectory, (_event, fileName) => {
@@ -180,7 +196,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
 
     async prepareDiffs(projectUri: string): Promise<DiffPreparationResult> {
         const root = this.fsPath(projectUri);
-        if (!(await this.isGitRepository(root))) {
+        if ((await this.gitEligibility(root)) !== 'own-root') {
             return { capable: false, pairs: [] };
         }
         let paths = await this.gitPaths(root, ['diff', '--name-only', '-z', 'HEAD', '--']);
@@ -235,11 +251,11 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         }
         this.processedEvents.add(eventPath);
         const message = event.type && GATE_MESSAGES[event.type];
-        if (!message || !(await this.isGitRepository(root))) {
+        if (!message || (await this.gitEligibility(root)) !== 'own-root') {
             return;
         }
         try {
-            await this.runGit(root, ['add', '-A']);
+            await this.runGit(root, ['add', '-A', '--', '.']);
             await this.commitIfChanged(root, message);
         } catch (error) {
             console.error('[akari-project] automatic snapshot failed:', error);
@@ -298,6 +314,26 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         }
     }
 
+    protected async isProjectGitRoot(root: string): Promise<boolean> {
+        try {
+            const { stdout } = await this.runGit(root, ['rev-parse', '--show-toplevel']);
+            const [toplevel, target] = await Promise.all([
+                fs.realpath(stdout.trim()),
+                fs.realpath(root)
+            ]);
+            return toplevel === target;
+        } catch {
+            return false;
+        }
+    }
+
+    protected async gitEligibility(root: string): Promise<ProjectGitEligibility> {
+        if (!(await this.isGitRepository(root))) {
+            return 'none';
+        }
+        return (await this.isProjectGitRoot(root)) ? 'own-root' : 'inside-parent-repository';
+    }
+
     protected async looksLikeAkariProject(root: string): Promise<boolean> {
         for (const candidate of [join(root, '.akari'), join(root, '.akari', 'workflow.json')]) {
             try {
@@ -311,12 +347,12 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     }
 
     protected async ensureGitInitialized(root: string): Promise<void> {
-        if (await this.isGitRepository(root)) {
+        if ((await this.gitEligibility(root)) !== 'none') {
             return;
         }
         try {
             await this.runGit(root, ['init']);
-            await this.runGit(root, ['add', '-A']);
+            await this.runGit(root, ['add', '-A', '--', '.']);
             await this.commitIfChanged(root, 'プロジェクトを開始');
         } catch (error) {
             console.warn('[akari-project] deferred git init failed:', error);

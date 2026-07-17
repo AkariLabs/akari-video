@@ -17,6 +17,7 @@ import {
     FrontendApplication,
     FrontendApplicationContribution,
     OpenerService,
+    StorageService,
     WidgetManager,
     open
 } from '@theia/core/lib/browser';
@@ -43,11 +44,20 @@ export const TOGGLE_AKARI_DEVELOPER_MODE: Command = {
     id: 'akari.project.toggleDeveloperMode',
     label: '開発者モードを切り替える'
 };
+const PROJECT_CONSENT_MESSAGE =
+    'このフォルダを AKARI Video プロジェクトとして使いますか？' +
+    '（フォルダ構成の作成と、作業の節目の記録を始めます）';
+const PROJECT_CONSENT_ACTION_USE = '使う';
+const PROJECT_CONSENT_ACTION_OPEN_ONLY = '開くだけ';
+const PARENT_HISTORY_NOTICE_MESSAGE =
+    'このフォルダは別の変更履歴の中にあるため、このプロジェクト単体の変更履歴は記録されません。';
 
 @injectable()
 export class AkariProjectContribution implements CommandContribution, MenuContribution, FrontendApplicationContribution, TabBarToolbarContribution {
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
+    @inject(StorageService)
+    protected readonly storage!: StorageService;
     @inject(FileDialogService)
     protected readonly dialogs!: FileDialogService;
     @inject(WorkspaceService)
@@ -166,7 +176,63 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
 
     protected async watchOpenRoots(): Promise<void> {
         const roots = await this.workspace.roots;
-        await Promise.all(roots.map(root => this.projectService.watchProject(root.resource.toString())));
+        await Promise.all(roots.map(root => this.handleRoot(root.resource)));
+    }
+
+    protected async handleRoot(rootUri: URI): Promise<void> {
+        const uri = rootUri.toString();
+        if (await this.projectService.isAkariProject(uri)) {
+            await this.projectService.watchProject(uri);
+            await this.maybeNoticeParentHistory(uri);
+            return;
+        }
+        const consentKey = this.consentStorageKey(uri);
+        const consent = await this.storage.getData<'use' | 'open-only'>(consentKey);
+        if (consent === 'open-only') {
+            return;
+        }
+        if (consent === 'use') {
+            await this.projectService.convertToProject(uri);
+            await this.projectService.watchProject(uri);
+            await this.maybeNoticeParentHistory(uri);
+            return;
+        }
+        const choice = await this.messages.info(
+            PROJECT_CONSENT_MESSAGE,
+            PROJECT_CONSENT_ACTION_USE,
+            PROJECT_CONSENT_ACTION_OPEN_ONLY
+        );
+        if (choice === PROJECT_CONSENT_ACTION_USE) {
+            await this.storage.setData(consentKey, 'use');
+            await this.projectService.convertToProject(uri);
+            await this.projectService.watchProject(uri);
+            await this.maybeNoticeParentHistory(uri);
+        } else if (choice === PROJECT_CONSENT_ACTION_OPEN_ONLY) {
+            await this.storage.setData(consentKey, 'open-only');
+        }
+        // choice === undefined（ダイアログを選択せず閉じた）場合は何も記録しない。
+        // 次回オープン時にもう一度尋ねる（安全側のデフォルト）。
+    }
+
+    protected async maybeNoticeParentHistory(uri: string): Promise<void> {
+        const eligibility = await this.projectService.getGitEligibility(uri);
+        if (eligibility !== 'inside-parent-repository') {
+            return;
+        }
+        const noticeKey = this.parentHistoryNoticeStorageKey(uri);
+        if (await this.storage.getData<boolean>(noticeKey, false)) {
+            return;
+        }
+        await this.storage.setData(noticeKey, true);
+        this.messages.info(PARENT_HISTORY_NOTICE_MESSAGE);
+    }
+
+    protected consentStorageKey(uri: string): string {
+        return `akari.project.consent:${uri}`;
+    }
+
+    protected parentHistoryNoticeStorageKey(uri: string): string {
+        return `akari.project.parentHistoryNotice:${uri}`;
     }
 
     protected async handleVideoDrop(videos: DroppedVideo[]): Promise<void> {

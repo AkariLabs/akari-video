@@ -1,0 +1,108 @@
+{
+  "verifiedAt": "2026-07-17",
+  "verifiedBy": "wrapper (real dev-build Electron app driven via CDP Runtime.evaluate against the running renderer, not codex's self-report)",
+  "method": {
+    "build": "npm run build (build:ext + theia build --mode production)",
+    "launch": "unpacked dev build launched directly via node_modules/.bin/electron lib/backend/electron-main.js --remote-debugging-port=9333 --user-data-dir=<SCRATCH>/electron-userdata --no-sandbox (no packaging/signing needed; task explicitly allows 'dev 起動 + CDP')",
+    "serviceResolution": "window.theia.container (inversify) resolved at runtime via CDP Runtime.evaluate. AkariProjectService and StorageService located by scanning the container's binding dictionary for Symbol keys whose .description matches ('AkariProjectService' / 'IStorageService'). AkariProjectContribution (a class-bound singleton, subject to production minification of its constructor name) located by scanning binding-dictionary function keys for one whose Function.prototype.toString() source contains a method name unique to this task's new code ('maybeNoticeParentHistory'), then resolved via container.get on that exact key.",
+    "frontendDriving": "AkariProjectContribution.handleRoot(rootUri) — the exact production entry point wired from watchOpenRoots() — invoked directly on the real singleton instance with a lightweight {toString: () => uri} stand-in for URI (handleRoot only ever calls rootUri.toString()). This exercises the real StorageService (real Electron localStorage-backed persistence) and the real MessageService end-to-end, including the actual rendered Theia notification DOM (toast + notification-center), not a mock.",
+    "dialogInteraction": "Consent/notice buttons are plain Theia notification DOM: `.theia-notification-buttons button[data-action]`. Interacted with via real DOM .click() calls (dispatches the production onAction handler), matching task guidance that these are Theia-rendered (not native OS) dialogs and thus CDP-drivable. One click screenshot captured via Page.captureScreenshot for visual proof (evidence/01-consent-dialog.png).",
+    "backendDriving": "AkariProjectService RPC proxy called directly (createProject / isAkariProject / getGitEligibility / prepareDiffs) for scenarios needing precise backend-only assertions (e.g. eligibility state before/after), matching the task's pre-approved fallback method ('F19 前例のサービス直接呼び出し + フロント関数の単体駆動')."
+  },
+  "l0": {
+    "buildExt": { "exitCode": 0 },
+    "lint": { "exitCode": 0 },
+    "diffCheck": { "exitCode": 0, "note": "git diff --check on the 3 changed files: no whitespace errors" },
+    "isGitRepositoryUnification": "grep confirms isGitRepository( is only called from within the new gitEligibility() helper (1 call site) — no other call site (handleEvent / prepareDiffs / ensureGitInitialized) uses it standalone anymore",
+    "gitAddPathScoping": "grep confirms all 3 'git add -A' call sites (createProject / handleEvent / ensureGitInitialized) now use ['add', '-A', '--', '.']"
+  },
+  "scenarios": {
+    "a_unrelatedFolderOpenOnly": {
+      "fixture": "1 plain text file, no .akari, no .git",
+      "steps": [
+        "snapshot fixture (find + sha256 of all files)",
+        "handleRoot(fixtureUri)",
+        "consent dialog appeared with exact expected Japanese text and both action buttons (screenshot: evidence/01-consent-dialog.png, taken against an equivalent throwaway fixture)",
+        "clicked '開くだけ' via real DOM click on the toast button",
+        "handleRoot's promise resolved (done:true)"
+      ],
+      "result": {
+        "filesystemDiff": "0 bytes changed — sha256 of the fixture's only file identical before/after; `find` tree identical (no assets/planning/exports/.akari/.claude/.git created)",
+        "storedConsent": "storage.getData('akari.project.consent:<fixtureUri>') === 'open-only'"
+      },
+      "verdict": "PASS"
+    },
+    "b_reopenRemembered": {
+      "steps": [
+        "handleRoot(same fixture-a uri) called a second time",
+        "notification-list-item-container count compared before/after: unchanged (no new dialog rendered)",
+        "handleRoot resolved immediately"
+      ],
+      "result": {
+        "newDialogShown": false,
+        "filesystemDiff": "still 0 bytes changed vs. original snapshot"
+      },
+      "verdict": "PASS"
+    },
+    "c_convertExistingFolder": {
+      "fixture": "folder containing only a pre-existing CLAUDE.md (with custom content), no .akari, no .git",
+      "steps": [
+        "snapshot CLAUDE.md bytes",
+        "handleRoot(fixtureUri) -> consent dialog shown",
+        "clicked '使う'",
+        "handleRoot resolved (done:true) after convertToProject + watchProject completed"
+      ],
+      "result": {
+        "claudeMdByteDiff": "0 bytes changed (diff against pre-snapshot: identical)",
+        "generatedMissingOnly": [".akari/workflow.json", ".akari/events/.gitkeep", ".akari/sidecars/.gitkeep", ".akari/diffs/.gitkeep", ".claude/settings.json", ".claude/skills/* (all 6 skills + README.md + AKARI-SKILLS-VERSION)", "AGENTS.md", ".gitignore", "assets/.gitkeep", "planning/.gitkeep", "exports/.gitkeep"],
+        "skillSynthesis": "all 6 skill directories present under .claude/skills/, AKARI-SKILLS-VERSION content-hash file present",
+        "gitInit": "git init occurred (lazy, via ensureGitInitialized once looksLikeAkariProject became true); 1 commit 'プロジェクトを開始'; git rev-parse --show-toplevel === fixture root itself (own-root); working tree clean after commit"
+      },
+      "verdict": "PASS"
+    },
+    "d_parentRepoCoreRepro": {
+      "fixture": "fresh git repo with 1 initial commit, then uncommitted changes added (1 staged modified/added file + 1 untracked directory), and a subfolder 'sub/' inside it (no own .git) containing .akari/workflow.json (already looks like an Akari project, bypassing the F17 consent gate) plus one pre-existing gate-event JSON file (report-generated) sitting in sub/.akari/events/ before the app ever touches it",
+      "preconditions": {
+        "isAkariProject(sub)": true,
+        "getGitEligibility(sub) before handleRoot": "inside-parent-repository",
+        "git -C sub rev-parse --show-toplevel": "resolves to the PARENT repo root, confirming sub has no .git of its own"
+      },
+      "steps": [
+        "snapshot: git -C parent status --porcelain",
+        "handleRoot(subUri) — isAkariProject branch taken (no consent dialog), watchProject sets up the live event watcher and, per its startup readdir loop, processes the pre-existing report-generated event file already sitting in sub/.akari/events/",
+        "confirmed the one-time parent-history notice appeared exactly once ('このフォルダは別の変更履歴の中にあるため、このプロジェクト単体の変更履歴は記録されません。')",
+        "re-snapshot: git -C parent status --porcelain",
+        "additionally dropped a second, brand-new gate-event file (edit-completed) into sub/.akari/events/ AFTER the watcher was already established, to exercise the live fs.watch path (not just the startup readdir loop), then re-checked parent status after a 3s settle"
+      ],
+      "result": {
+        "parentStatusPorcelainDiff": "0 bytes — byte-identical before/after for both the startup-readdir-processed pre-existing event AND the live-watcher-processed new event",
+        "parentCommitCount": "unchanged at 1 (no new commit) across both checks",
+        "subGotOwnNestedGitInit": false,
+        "prepareDiffsCapable(sub)": false
+      },
+      "verdict": "PASS — this is the core F18 repro and the most safety-critical assertion in this task"
+    },
+    "e_appCreatedProjectNonRegression": {
+      "fixture": "brand-new empty destination, created via the real AkariProjectService.createProject RPC (same call path the '新規プロジェクト作成' command uses)",
+      "steps": [
+        "createProject(destUri)",
+        "git log check: 1 commit 'プロジェクトを作成', git rev-parse --show-toplevel === destination itself (own-root)",
+        "wrote a new file under planning/ + a live gate-event JSON (report-generated) directly into .akari/events/ to exercise the live fs.watch -> handleEvent -> auto-commit path (not the startup readdir loop, since the project's watcher was already established by createProject's own watchProject call)",
+        "waited 3s for the debounced (150ms) watcher"
+      ],
+      "result": {
+        "autoCommitFired": true,
+        "commitMessage": "レポートを作成",
+        "gitLogAfter": ["レポートを作成", "プロジェクトを作成"],
+        "workingTreeCleanAfterCommit": true,
+        "prepareDiffsCapable": true
+      },
+      "verdict": "PASS — non-regression confirmed for the app's own git root"
+    }
+  },
+  "environmentNotes": [
+    "On the very first launch attempt, the app auto-restored a previously-opened workspace (from an unrelated sibling checkout used by an earlier task) via what appears to be macOS-level Electron window-state restoration keyed by the app's bundle identifier — this is independent of --user-data-dir. That instance's window closed unexpectedly (~5 min in, clean backend-contribution shutdown in the log, cause not fully diagnosed) before scripted scenario steps ran; it was relaunched fresh and produced no filesystem side effects (confirmed via a git-status check on the affected sibling checkout, which showed zero diff both before relaunch and after all scenarios completed). All scenario evidence in this report is from the second, successful launch.",
+    "The second launch did not auto-restore a workspace, so the app started with an empty workspace and every scenario was driven only against scratch fixtures below <SCRATCH>, never against any real project/repo.",
+    "No local absolute paths, working-directory names, or session identifiers are recorded in this evidence file."
+  ]
+}
