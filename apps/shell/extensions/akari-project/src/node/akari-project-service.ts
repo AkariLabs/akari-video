@@ -1,6 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { execFile } from 'child_process';
+import { createHash } from 'crypto';
 import { constants, promises as fs, watch } from 'fs';
 import { basename, dirname, extname, join, resolve } from 'path';
 import { pathToFileURL } from 'url';
@@ -51,6 +52,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         } else {
             await this.writeFallbackTemplate(root);
         }
+        await this.installProjectSkills(root);
         await this.ensureRuntimeDirectories(root);
         await this.runGit(root, ['init']);
         await this.runGit(root, ['add', '-A']);
@@ -356,6 +358,85 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     }
 
     /**
+     * Locate the canonical skills tree. Packaged builds copy it to `lib/skills`;
+     * development runs read the repository-root `skills/` tree directly.
+     */
+    protected async findBundledSkills(): Promise<string | undefined> {
+        const candidates = [
+            resolve(__dirname, '../skills'),
+            resolve(process.cwd(), '../../skills'),
+            resolve(process.cwd(), 'skills'),
+            resolve(__dirname, '../../../../../../../skills')
+        ];
+        for (const candidate of candidates) {
+            try {
+                if ((await fs.stat(join(candidate, 'analyze-footage', 'SKILL.md'))).isFile()) {
+                    return candidate;
+                }
+            } catch {
+                // Try the next development or packaged-app location.
+            }
+        }
+        return undefined;
+    }
+
+    protected async installProjectSkills(root: string): Promise<void> {
+        const source = await this.findBundledSkills();
+        if (!source) {
+            throw new Error('プロジェクト用の編集スキルを見つけられませんでした。');
+        }
+        const destination = join(root, '.claude', 'skills');
+        await this.copySkillsTree(source, destination);
+        await fs.writeFile(
+            join(destination, 'AKARI-SKILLS-VERSION'),
+            `${await this.skillsSignature(source)}\n`,
+            'utf8'
+        );
+    }
+
+    /** Manual recursion is required for sources inside app.asar. */
+    protected async copySkillsTree(source: string, destination: string): Promise<void> {
+        await fs.mkdir(destination, { recursive: true });
+        for (const entry of await fs.readdir(source, { withFileTypes: true })) {
+            if (entry.name === '.gitkeep' || entry.name === '.DS_Store') {
+                continue;
+            }
+            const from = join(source, entry.name);
+            const to = join(destination, entry.name);
+            if (entry.isDirectory()) {
+                await this.copySkillsTree(from, to);
+            } else if (entry.isSymbolicLink()) {
+                console.warn(`[akari-project] skipping skill symbolic link: ${entry.name}`);
+            } else if (entry.isFile()) {
+                await fs.writeFile(to, await fs.readFile(from));
+            }
+        }
+    }
+
+    protected async skillsSignature(source: string): Promise<string> {
+        const hash = createHash('sha256');
+        const walk = async (directory: string, relative: string): Promise<void> => {
+            const entries = (await fs.readdir(directory, { withFileTypes: true }))
+                .sort((left, right) => left.name.localeCompare(right.name));
+            for (const entry of entries) {
+                if (entry.name === '.gitkeep' || entry.name === '.DS_Store') {
+                    continue;
+                }
+                const absolute = join(directory, entry.name);
+                const relativePath = relative ? `${relative}/${entry.name}` : entry.name;
+                if (entry.isDirectory()) {
+                    await walk(absolute, relativePath);
+                } else if (entry.isFile()) {
+                    hash.update(relativePath);
+                    hash.update(await fs.readFile(absolute));
+                }
+            }
+        };
+        await walk(source, '');
+        return hash.digest('hex').slice(0, 16);
+    }
+
+    /**
      * Copy a template explicitly because Electron's asar support does not cover
      * the recursive copy API. readdir and readFile can read directories and files from
      * inside app.asar, so walking the tree also preserves dotfiles.
@@ -378,15 +459,15 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected async writeFallbackTemplate(root: string): Promise<void> {
         const files: Record<string, string> = {
             '.gitignore': PROJECT_GITIGNORE,
-            'CLAUDE.md': '# AKARI Video project\n\nKeep source videos in assets, plans in planning, and finished videos in exports.\n',
-            'AGENTS.md': '# Project guidance\n\nPreserve .akari sidecars and use the declared workflow roles.\n',
+            'CLAUDE.md': FALLBACK_CLAUDE_GUIDANCE,
+            'AGENTS.md': FALLBACK_AGENT_GUIDANCE,
             '.claude/settings.json': JSON.stringify({
                 permissions: {
                     allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
                     deny: ['Edit(./assets/**)']
                 }
             }, null, 2) + '\n',
-            '.claude/skills/README.md': '# AKARI Video skills\n\nUse the skills supplied by the AKARI Video installation. Workflow gates end by writing an event to `.akari/events/`.\n',
+            '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
             '.akari/workflow.json': JSON.stringify(FALLBACK_WORKFLOW, null, 2) + '\n',
             'assets/.gitkeep': '',
             'planning/.gitkeep': '',
@@ -450,6 +531,42 @@ const PROJECT_GITIGNORE = [
     '# Local operating-system files.',
     '.DS_Store',
     'Thumbs.db',
+    ''
+].join('\n');
+const FALLBACK_CLAUDE_GUIDANCE = [
+    '# AKARI Video プロジェクト',
+    '',
+    '- `assets/` は元動画と音声を置く素材の場所です。原本は書き換えたり削除したりしません。',
+    '- `planning/` は企画やレポート、`exports/` は完成した動画を置く場所です。',
+    '- `.akari/sidecars/` は分析結果、`.akari/events/` は作業の節目の記録を置く場所です。',
+    '- 節目の記録は 1 件ずつ新しく追加し、すでにある記録は変更しません。',
+    '- 編集スキルは `.claude/skills/` にあり、`/analyze-footage` などの素の名前で使えます。',
+    '- 利用者へは日本語で、内部の仕組みではなく「変更履歴」「企画メモ」「素材」などの言葉で説明します。',
+    '',
+    'このファイルはあなたのプロジェクトのものです。自由に書き換えて構いません。',
+    ''
+].join('\n');
+const FALLBACK_AGENT_GUIDANCE = [
+    '# AKARI Video プロジェクトの進め方',
+    '',
+    '`assets/` の原本を保ち、成果物は `planning/` と `exports/`、分析結果と節目の記録は `.akari/` に置く。',
+    '節目の記録は `.akari/events/` に 1 件ずつ追加し、すでにある記録は変更しない。',
+    '',
+    'スキルは `/analyze-footage`、`/edit-plan`、`/overlay-authoring`、`/setup-library`、',
+    '`/harvest-asset`、`/bake-3d` の素の名前で使う。手順を直接読む場合は',
+    '`.claude/skills/<スキル名>/SKILL.md` を開く。',
+    '',
+    '利用者へは日本語で、内部の仕組みではなく役割が伝わる言葉を使う。',
+    'この案内はこのプロジェクトのものです。自由に書き換えて構いません。',
+    ''
+].join('\n');
+const FALLBACK_SKILLS_GUIDANCE = [
+    '# このプロジェクトのスキル',
+    '',
+    '6 本の編集スキルはこのフォルダーに実体で入り、素の名前で使えます。',
+    '各手順は `.claude/skills/<スキル名>/SKILL.md` から直接読めます。',
+    '`AKARI-SKILLS-VERSION` はプロジェクト作成時のスキル内容を示します。',
+    'この案内と各スキルは、運用に合わせて自由に書き換えて構いません。',
     ''
 ].join('\n');
 const FALLBACK_WORKFLOW = {

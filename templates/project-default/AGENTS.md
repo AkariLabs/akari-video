@@ -1,20 +1,37 @@
 # AKARI Video プロジェクトの進め方
 
-- 元動画は `assets/`、企画・レポートは `planning/`、完成した動画は `exports/` に置く。英語の正準名は変えない。
+- `assets/` は元動画と音声を置く素材の場所。英語の名前は変えず、原本を書き換えたり削除したりしない。
+- `planning/` は企画、分析レポート、編集計画など、人が読む成果物を置く場所。
+- `exports/` は完成した動画を書き出す場所。
+- `.akari/sidecars/` は素材の分析結果、`.akari/events/` は作業の節目の記録を置く場所。
 - 素材の分析結果は `.akari/sidecars/<assets 以下の相対パス>.meta.json` に保存する。
-- ワークフローの節目は `.akari/events/` に不変 JSON を 1 件ずつ着地させる（既存イベントは編集・削除しない）。
+- レポート作成、承認、編集完了、書き出し完了の節目では、`.akari/events/` に記録を
+  1 件ずつ新しく追加する。すでにある記録は書き換えたり削除したりしない。
 
-## スキル文書の場所（アプリのスキル機構を読まないエージェント向けの縮退経路）
+## プロジェクト内のスキル
 
-AKARI Video が供給するスキルの本体は、アプリの共有ストアに一元管理されています:
+次の 6 本がプロジェクト内に実体で入っている。対応する作業では素の名前で使う。
 
-    ~/Library/Application Support/@akari-video/shared/skills/<スキル名>/SKILL.md
+- `/analyze-footage` … 素材 1 本の分析
+- `/edit-plan` … 編集計画、レポート、承認、生成
+- `/overlay-authoring` … テロップ、図、3D などの画面要素の制作
+- `/setup-library` … 素材ライブラリの準備
+- `/harvest-asset` … 素材の収集
+- `/bake-3d` … 3D 素材の焼き込み
 
-Codex などスキル機構を読まないレーンは、上のパスから SKILL.md を直接読んで手順に従ってください。主なスキル:
+スキルを自動で読まない作業環境では、次のプロジェクト内相対パスから手順を直接読む。
 
-- `analyze-footage` … 素材 1 本の分析（720p プロキシ・ローカル文字起こし・キーフレーム・analysis.json）
-- `edit-plan` … 編集計画とレポート、承認、生成
-- `overlay-authoring` … テロップ・図・3D などのオーバーレイ制作
-- `setup-library` / `harvest-asset` / `bake-3d` … 素材ライブラリ整備・素材収集・3D 焼き込み
+- `.claude/skills/analyze-footage/SKILL.md`
+- `.claude/skills/edit-plan/SKILL.md`
+- `.claude/skills/overlay-authoring/SKILL.md`
+- `.claude/skills/setup-library/SKILL.md`
+- `.claude/skills/harvest-asset/SKILL.md`
+- `.claude/skills/bake-3d/SKILL.md`
 
-`.akari/` のデータ契約の詳細は `analyze-footage/references/akari-data-contract.md`（共有ストア内）を参照。
+分析結果と節目の記録の詳しい約束は
+`.claude/skills/analyze-footage/references/akari-data-contract.md` を参照する。
+
+利用者へ説明するときは日本語を使い、内部の仕組みの名前ではなく、
+「変更履歴」「企画メモ」「素材」など役割が伝わる言葉を使う。
+
+この案内はこのプロジェクトのものです。運用に合わせて自由に書き換えて構いません。

@@ -22,17 +22,10 @@ export interface BinaryVerificationResult {
     reason?: string;
 }
 
-/**
- * The launch plan the frontend appends to the partner PTY command. `args` carries
- * the plugin-directory / harness-injection / shared-policy flags resolved for the
- * selected agent; the shared-store fields let the UI surface where skills came from.
- */
+/** The unmodified CLI launch plan used by the partner PTY. */
 export interface PartnerLaunchPlan {
     agent: PartnerAgentId;
     args: string[];
-    sharedRoot: string;
-    sharedSkillsDir: string;
-    version: string;
     log: string[];
 }
 

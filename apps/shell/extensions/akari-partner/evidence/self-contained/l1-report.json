@@ -1,0 +1,81 @@
+{
+  "task": "2026-07-17-self-contained-template",
+  "verifiedBy": "wrapper (codex ラッパー・ラッパー自身の実測。codex の自己申告は根拠にしていない)",
+  "l0": {
+    "buildExt": { "command": "PYTHON=/usr/bin/python3 npm run build:ext", "exit": 0, "seconds": 0.34 },
+    "lint": { "command": "PYTHON=/usr/bin/python3 npm run lint", "exit": 0, "seconds": 1.22 }
+  },
+  "l1": {
+    "build": { "command": "PYTHON=/usr/bin/python3 npm run build", "exit": 0, "seconds": 9.1 },
+    "package": { "command": "PYTHON=/usr/bin/python3 npm run package", "exit": 0, "seconds": 163, "note": "electron-builder --dir, macOS arm64, ad-hoc Developer ID signing, notarize skipped (local verification)" },
+    "appBundleSizeMB": 456,
+    "appBundleSizeLimitMB": 500,
+    "asarContainsSkillsOriginal": true,
+    "asarContainsTemplateOriginal": true,
+    "asarSkillNames": ["analyze-footage", "bake-3d", "edit-plan", "harvest-asset", "overlay-authoring", "setup-library"]
+  },
+  "createProjectDevMode": {
+    "method": "plain node, extension lib/node compiled output, cwd=apps/shell so the repo-root skills/ candidate resolves",
+    "result": "success",
+    "skillsDirEntries": ["AKARI-SKILLS-VERSION", "analyze-footage", "bake-3d", "edit-plan", "harvest-asset", "overlay-authoring", "README.md", "setup-library"],
+    "skillsVersionSignature": "ac3d73255c3bb0c2",
+    "byteMatchVsRepoSkills": "diff -rq exit 0 (excluding .gitkeep/.DS_Store/AKARI-SKILLS-VERSION/README.md)"
+  },
+  "createProjectPackagedApp": {
+    "method": "ELECTRON_RUN_AS_NODE=1, packaged .app executable, required akari-project-service.js directly out of app.asar (node_modules/akari-project/lib/node/akari-project-service.js)",
+    "result": "success",
+    "skillsDirEntries": ["AKARI-SKILLS-VERSION", "analyze-footage", "bake-3d", "edit-plan", "harvest-asset", "overlay-authoring", "README.md", "setup-library"],
+    "skillsVersionSignature": "ac3d73255c3bb0c2",
+    "byteMatchVsRepoSkills": "diff -rq exit 0",
+    "templateFilesByteMatchVsTemplatesProjectDefault": {
+      "CLAUDE.md": "match",
+      "AGENTS.md": "match",
+      ".gitignore": "match",
+      ".claude/settings.json": "match",
+      ".claude/skills/README.md": "match",
+      ".akari/workflow.json": "match"
+    }
+  },
+  "manualCopyEquivalence": {
+    "method": "cp -a of the packaged-app-created project to a second directory",
+    "diffAgainstAppCreatedProject": "exit 0 (zero diff)",
+    "plainClaudeSkillDiscoveryOnManualCopy": "same 6 skill names discovered (see below)"
+  },
+  "plainClaudeSkillDiscovery": {
+    "binaryUsed": "/Users/<user>/.local/bin/claude (real installed CLI, NOT the shell alias — the alias in this environment wraps a teams harness)",
+    "cliVersion": "2.1.212",
+    "invocation": "claude -p \"OK とだけ返信して\" --output-format stream-json --verbose --no-session-persistence (no --plugin-dir, no --append-system-prompt, no --settings)",
+    "debugLogLine": "Loaded 20 unique skills (20 unconditional, 0 conditional, managed: 0, user: 14, project: 6, additional: 0, legacy commands: 0)",
+    "streamJsonSystemInitSlashCommandsIncluded": ["analyze-footage", "bake-3d", "edit-plan", "harvest-asset", "overlay-authoring", "setup-library"],
+    "ranOnBothProjects": ["packaged-app-created project", "manual cp duplicate of it"],
+    "resultBothProjects": "all 6 bare-named skills discovered identically"
+  },
+  "applicationSupportNonCreation": {
+    "method": "moved aside the pre-existing ~/Library/Application Support/@akari-video (created by an earlier, unrelated task's shared-store run), launched the packaged .app with an isolated --user-data-dir, waited for the frontend to reach the 'ready' state (confirmed via app log), checked for recreation, then terminated and restored the moved-aside directory to its original location",
+    "preExistingDirMovedAside": true,
+    "recreatedDuringRun": false,
+    "recreatedAfterShutdown": false,
+    "restoredAfterTest": true
+  },
+  "sourceGrep": {
+    "command": "grep -rn \"shared-store|sharedStoreRoot|syncSharedStore|AKARI_HARNESS_PROMPT|SHARED_PLUGIN_NAME|plugin-dir|append-system-prompt|akari-video:|Application Support|@akari-video\" apps/shell/extensions --include=*.ts --include=*.tsx --include=*.mjs (excluding lib/ build output)",
+    "hits": 0
+  },
+  "gitBoundaryCheck": {
+    "command": "git status --short / git diff --stat",
+    "filesChanged": [
+      "apps/shell/extensions/akari-partner/src/browser/akari-partner-widget.tsx",
+      "apps/shell/extensions/akari-partner/src/common/akari-partner-protocol.ts",
+      "apps/shell/extensions/akari-partner/src/node/akari-partner-backend-module.ts",
+      "apps/shell/extensions/akari-partner/src/node/akari-partner-server.ts",
+      "apps/shell/extensions/akari-partner/src/node/shared-store-contribution.ts (deleted)",
+      "apps/shell/extensions/akari-partner/src/node/shared-store.ts (deleted)",
+      "apps/shell/extensions/akari-project/src/node/akari-project-service.ts",
+      "apps/shell/resources/scripts/copy-native-helpers.mjs",
+      "templates/project-default/.claude/skills/README.md",
+      "templates/project-default/AGENTS.md",
+      "templates/project-default/CLAUDE.md"
+    ],
+    "outOfBoundaryChanges": 0
+  }
+}

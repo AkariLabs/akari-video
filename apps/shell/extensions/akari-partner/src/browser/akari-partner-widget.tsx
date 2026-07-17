@@ -78,7 +78,6 @@ export class AkariPartnerWidget extends ReactWidget {
 
             this.setProgress('CLI をダウンロード・インストールしています…', '同梱ランタイムで実行中');
             const bootstrap = await this.partnerServer.bootstrap(entry.agent);
-            this.setProgress('共有スキルを準備しています…', '同梱の原本から共有ストアへ同期中');
             const launch = await this.partnerServer.prepareLaunch(entry.agent);
             this.setProgress('パートナー PTY を起動しています…', `${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const roots = await this.workspaceService.roots;
@@ -87,7 +86,6 @@ export class AkariPartnerWidget extends ReactWidget {
                 title: entry.name,
                 shellPath: bootstrap.executablePath,
                 // This is a CLI process, not a shell. Avoid Theia's platform shell args (for example, macOS `-l`).
-                // The partner launch plan appends plugin-dir / harness / shared-policy flags (contract §3/§4).
                 shellArgs: launch.args,
                 cwd,
                 kind: PartnerTerminal.KIND,

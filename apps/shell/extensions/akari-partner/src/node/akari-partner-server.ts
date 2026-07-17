@@ -13,7 +13,6 @@ import {
     RenderPins
 } from '../common/akari-partner-protocol';
 import { bootstrapRunner } from './bootstrap-runner';
-import { AKARI_HARNESS_PROMPT, syncSharedStore } from './shared-store';
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
@@ -80,28 +79,10 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
     }
 
     async prepareLaunch(agent: PartnerAgentId): Promise<PartnerLaunchPlan> {
-        const store = await syncSharedStore();
-        const log = [
-            `shared store: ${store.root} (VERSION ${store.version})`
-        ];
-        const args: string[] = [];
-        if (agent === 'claude') {
-            // Contract §3/§4: load the shared skills as the `akari-video` plugin, inject
-            // the AKARI harness at start (never as a project file), and layer the shared
-            // permission policy on top of the project's own `.claude/settings.json`.
-            args.push('--plugin-dir', store.root);
-            args.push('--append-system-prompt', AKARI_HARNESS_PROMPT);
-            args.push('--settings', store.policyPath);
-        }
-        // Codex does not read the plugin/skill mechanism; it reaches the shared skill
-        // docs through the AGENTS.md degradation path (template stub names the store path).
         return {
             agent,
-            args,
-            sharedRoot: store.root,
-            sharedSkillsDir: store.skillsDir,
-            version: store.version,
-            log
+            args: [],
+            log: []
         };
     }
 

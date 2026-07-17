@@ -1,25 +1,23 @@
 # このプロジェクトのスキル
 
-AKARI Video のステージスキル（analyze-footage / edit-plan / overlay-authoring /
-setup-library / harvest-asset / bake-3d）は、アプリ本体が **プラグインとして供給** します。
-アプリでこのプロジェクトを開き、右パートナーを起動すると、これらは `akari-video:` 名前空間で
-読み込まれます（例: `akari-video:analyze-footage`）。
+AKARI Video の編集スキルは、このフォルダーに実体で入っています。
+プロジェクトをフォルダーごと複製しても、同じスキルをそのまま利用できます。
 
-スキルの実体は各プロジェクトへコピーされず、アプリが共有ストアで一元管理します。そのため
-アプリを更新すると、既存プロジェクトにも新しいスキルが即座に反映されます。
+使えるスキルは次の 6 本です。
 
-## ローカル上書き
+- `/analyze-footage`
+- `/edit-plan`
+- `/overlay-authoring`
+- `/setup-library`
+- `/harvest-asset`
+- `/bake-3d`
 
-このプロジェクト専用にスキルを差し替えたいときは、`.claude/skills/<スキル名>/SKILL.md` を置きます。
-素の名前（例: `analyze-footage`）はプロジェクト側が優先され、アプリ供給版
-（`akari-video:analyze-footage`）はそのまま併存します。プロジェクトの上書きが常に勝つので、
-共有版を壊さずに、このプロジェクトだけ手順を調整できます。
+各スキルの手順は `.claude/skills/<スキル名>/SKILL.md` にあります。
+スキルを自動で読まない作業環境でも、このプロジェクト内相対パスから直接読めます。
+分析結果と節目の記録の詳しい約束は
+`.claude/skills/analyze-footage/references/akari-data-contract.md` を参照してください。
 
-## スキル文書を直接読む場合
+`AKARI-SKILLS-VERSION` は、このプロジェクトを作ったときのスキル内容を示す記録です。
+既存プロジェクトのスキルが後から自動で置き換わることはありません。
 
-アプリのスキル機構を使わないエージェント（Codex など）は、`AGENTS.md` に記載の共有ストアのパス
-
-    ~/Library/Application Support/@akari-video/shared/skills/
-
-から SKILL.md を直接読んでください。ワークフローの節目には `.akari/events/` にイベントを
-1 件ずつ着地させます（書式は共有ストア内 `edit-plan/references/event.example.json` を参照）。
+この案内と各スキルは、このプロジェクトのものです。運用に合わせて自由に書き換えて構いません。

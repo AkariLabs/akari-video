@@ -16,8 +16,8 @@ await copyFile(
 );
 console.log(`Copied overlay-runtime assets to ${path.relative(shellRoot, overlayRuntimeDestination)}`);
 
-// Bundle the repo-root skills/ as the shared-store original (contract §3). The backend
-// syncs lib/skills → ~/Library/Application Support/@akari-video/shared/skills on startup.
+// Bundle the repo-root skills/ as the source used when a packaged app creates a
+// self-contained project. The project service copies this tree with asar-aware recursion.
 const skillsSource = path.join(repoRoot, 'skills');
 const skillsDestination = path.join(shellRoot, 'lib', 'skills');
 await cp(skillsSource, skillsDestination, {
