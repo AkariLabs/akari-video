@@ -147,15 +147,12 @@ async function inspectProvider(provider, credentialState, checkedAt) {
 }
 
 const adapters = {
-  fal: async (_secret, checkedAt) => ({
-    last_checked: checkedAt,
-    status: "unchecked",
-    detail: "無償・読み取り専用と確認できる認証エンドポイントが未確認のため通信していません。",
-  }),
+  fal: (secret, checkedAt) =>
+    checkGet("https://rest.alpha.fal.ai/billing/user_balance", { Authorization: `Key ${secret}` }, checkedAt),
   replicate: (secret, checkedAt) =>
     checkGet("https://api.replicate.com/v1/account", { Authorization: `Bearer ${secret}` }, checkedAt),
   elevenlabs: (secret, checkedAt) =>
-    checkGet("https://api.elevenlabs.io/v1/user/subscription", { "xi-api-key": secret }, checkedAt),
+    checkGet("https://api.elevenlabs.io/v1/models", { "xi-api-key": secret }, checkedAt),
   openrouter: (secret, checkedAt) =>
     checkGet("https://openrouter.ai/api/v1/key", { Authorization: `Bearer ${secret}` }, checkedAt),
 };
