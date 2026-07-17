@@ -45,7 +45,7 @@ doctor は connections.json の `doctor` ブロックを書き戻し、プロジ
 
 ## 根拠
 
-- 正本契約: internal `planning/contract-2026-07-17-manage-connections.md`
+- 正本契約: 接続・設定管理契約（2026-07-17）— 非公開の内部記録（`akari-video-internal`）にある
 - first-run・代理取得しない規律: [../setup-library/SKILL.md](../setup-library/SKILL.md)
 - 有償操作の承認ゲート: [../edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md)
 - レジストリ検証: `node packages/schemas/bin/validate-connections.mjs .akari/connections.json`
