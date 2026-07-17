@@ -8,7 +8,7 @@
       "Edit(./.akari/events/**)"
     ],
     "deny": [
-      "Edit(./assets/**)"
+      "Edit(/assets/**)"
     ]
   }
 }

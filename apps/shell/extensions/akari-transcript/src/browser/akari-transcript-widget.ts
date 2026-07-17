@@ -3,6 +3,7 @@ import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Message } from '@theia/core/shared/@lumino/messaging';
@@ -14,6 +15,8 @@ import {
     replaceCaptionLine
 } from './caption-store';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from './akari-transcript-commands';
+
+const EDIT_SEARCH_SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 
 interface KeepRange {
     in: number;
@@ -39,7 +42,9 @@ export class AkariTranscriptWidget extends BaseWidget {
     protected readonly toolbar = document.createElement('div');
     protected readonly generateButton = document.createElement('button');
     protected readonly notice = document.createElement('div');
+    protected readonly editorContainer = document.createElement('div');
     protected readonly editorHost = document.createElement('div');
+    protected readonly emptyGuide = document.createElement('div');
     protected readonly footer = document.createElement('div');
     protected editor: monaco.editor.IStandaloneCodeEditor | undefined;
     protected decorations: string[] = [];
@@ -100,8 +105,32 @@ export class AkariTranscriptWidget extends BaseWidget {
             fontSize: '12px',
             lineHeight: '1.4'
         });
-        this.editorHost.style.minHeight = '0';
-        this.editorHost.style.height = '100%';
+        Object.assign(this.editorContainer.style, {
+            minHeight: '0',
+            overflow: 'hidden',
+            position: 'relative'
+        });
+        Object.assign(this.editorHost.style, {
+            height: '100%',
+            minHeight: '0'
+        });
+        Object.assign(this.emptyGuide.style, {
+            alignItems: 'center',
+            boxSizing: 'border-box',
+            color: 'var(--theia-descriptionForeground)',
+            display: 'flex',
+            fontSize: '15px',
+            inset: '0',
+            justifyContent: 'center',
+            lineHeight: '1.7',
+            padding: '32px',
+            pointerEvents: 'none',
+            position: 'absolute',
+            textAlign: 'center',
+            zIndex: '2'
+        });
+        this.emptyGuide.textContent = '「文字起こしから字幕を作成」を押すと編集を始められます';
+        this.editorContainer.append(this.editorHost, this.emptyGuide);
         Object.assign(this.footer.style, {
             minHeight: '26px',
             padding: '5px 10px',
@@ -111,7 +140,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             fontSize: '11px'
         });
         this.footer.textContent = '行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。';
-        this.node.append(this.toolbar, this.notice, this.editorHost, this.footer);
+        this.node.append(this.toolbar, this.notice, this.editorContainer, this.footer);
 
         const style = document.createElement('style');
         style.textContent = `
@@ -141,8 +170,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             this.showNotice('先にプロジェクトを開いてください。');
             return;
         }
-        this.captionsUri = root.resolve('project/captions.json');
-        this.editUri = root.resolve('project/edit.json');
+        await this.configureCaptionStorage(root);
         try {
             this.analysisSource = await this.readText(analysisUri);
             const analysis = JSON.parse(this.analysisSource);
@@ -232,6 +260,7 @@ export class AkariTranscriptWidget extends BaseWidget {
                 this.showNotice('字幕はまだありません。「文字起こしから字幕を作成」を押すと編集を始められます。');
             }
         }
+        this.updateEmptyGuide();
         this.applyDecorations();
         await this.checkOverlayCoverage();
     }
@@ -429,6 +458,10 @@ export class AkariTranscriptWidget extends BaseWidget {
         this.notice.style.display = 'none';
     }
 
+    protected updateEmptyGuide(): void {
+        this.emptyGuide.style.display = this.captions.length === 0 ? 'flex' : 'none';
+    }
+
     protected displayText(text: string): string {
         return text.replace(/\r?\n/g, ' ');
     }
@@ -446,6 +479,52 @@ export class AkariTranscriptWidget extends BaseWidget {
     protected async workspaceRootFor(uri: URI): Promise<URI | undefined> {
         const roots = await this.workspaceService.roots;
         return roots.find(root => root.resource.isEqualOrParent(uri))?.resource ?? roots[0]?.resource;
+    }
+
+    protected async configureCaptionStorage(root: URI): Promise<void> {
+        const legacyCaptions = root.resolve('project/captions.json');
+        if (await this.fileService.exists(legacyCaptions)) {
+            this.captionsUri = legacyCaptions;
+            this.editUri = root.resolve('project/edit.json');
+            return;
+        }
+
+        const edits = await this.findNamedFiles(root, 'edit.json');
+        const edit = edits[0];
+        if (edit) {
+            this.captionsUri = edit.parent.resolve('captions.json');
+            this.editUri = edit;
+            return;
+        }
+
+        this.captionsUri = root.resolve('captions.json');
+        this.editUri = undefined;
+    }
+
+    protected async findNamedFiles(directory: URI, name: string): Promise<URI[]> {
+        const found: URI[] = [];
+        const visit = async (uri: URI): Promise<void> => {
+            let stat: FileStat;
+            try {
+                stat = await this.fileService.resolve(uri);
+            } catch {
+                return;
+            }
+            if (stat.isFile) {
+                if (stat.resource.path.base === name) {
+                    found.push(stat.resource);
+                }
+                return;
+            }
+            const children = [...(stat.children ?? [])]
+                .filter(child => !EDIT_SEARCH_SKIPPED_DIRECTORIES.has(child.resource.path.base))
+                .sort((left, right) => left.resource.toString().localeCompare(right.resource.toString()));
+            for (const child of children) {
+                await visit(child.resource);
+            }
+        };
+        await visit(directory);
+        return found.sort((left, right) => left.toString().localeCompare(right.toString()));
     }
 
     protected async readText(uri: URI): Promise<string> {

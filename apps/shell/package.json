@@ -64,12 +64,14 @@
     }
   },
   "scripts": {
+    "prebuild": "node resources/scripts/ensure-file-deps-linked.mjs",
     "build:ext": "tsc -b extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-project extensions/akari-partner extensions/akari-tabs extensions/akari-preview extensions/akari-transcript",
     "build": "npm run build:ext && theia build --mode production",
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "start": "theia start --plugins=local-dir:plugins",
     "prepackage": "node resources/scripts/copy-native-helpers.mjs",
     "package": "electron-builder --dir",
+    "postpackage": "node resources/scripts/verify-asar-contents.mjs",
     "watch": "theia build --watch --mode development"
   },
   "build": {

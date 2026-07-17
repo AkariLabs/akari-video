@@ -26,6 +26,14 @@ await cp(skillsSource, skillsDestination, {
 });
 console.log(`Copied skills original to ${path.relative(shellRoot, skillsDestination)}`);
 
+const schemasSource = path.join(repoRoot, 'packages', 'schemas');
+const schemasDestination = path.join(shellRoot, 'lib', 'schemas');
+await cp(schemasSource, schemasDestination, {
+  recursive: true,
+  filter: src => path.basename(src) !== '.gitkeep'
+});
+console.log(`Copied schemas original to ${path.relative(shellRoot, schemasDestination)}`);
+
 const projectTemplateSource = path.join(repoRoot, 'templates', 'project-default');
 const projectTemplateDestination = path.join(shellRoot, 'lib', 'templates', 'project-default');
 await cp(projectTemplateSource, projectTemplateDestination, { recursive: true });

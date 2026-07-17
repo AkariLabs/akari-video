@@ -11,14 +11,32 @@
 - 入力が読み取り可能な通常ファイルである。
 - `ffprobe` で映像ストリーム、duration、time base を取得できる。
 - duration が有限の正数である。
-- リポジトリルートの `packages/schemas/analysis.schema.json` を読める。
+- このスキルの `references/analysis.schema.json` を読める。
 - ソースの絶対パスと、JSON に書く相対パスを混同していない。
 
 映像ストリームがない、duration を確定できない、または ffmpeg がない場合は分析を完了扱いにしない。原因と止まった工程を報告する。
 
 ## 2. 出力先を決める
 
-標準ツリーは次のとおり。
+source がワークスペース内にあり、その祖先から `.akari/` を持つワークスペース root を特定できる場合は、source のワークスペース root からの相対パスを保った `.akari/sidecars/<source-relative-path>.analysis/` を正典の出力先とする。相対パスには `assets/` プレフィックスと source の拡張子を含める。
+
+```text
+<workspace-root>/
+├── assets/
+│   └── IMG_4606.MOV
+└── .akari/
+    └── sidecars/
+        └── assets/
+            └── IMG_4606.MOV.analysis/
+                ├── analysis.json
+                ├── proxy.mp4
+                ├── whisper-input.wav
+                ├── whisper.raw.json
+                ├── keyframes/
+                └── work/
+```
+
+`.akari/` を持つワークスペース構造を特定できない単体実行では、後方互換の出力先を使う。
 
 ```text
 <source-dir>/
@@ -33,9 +51,9 @@
         └── work/
 ```
 
-`<source-stem>` は最後の拡張子を除いたファイル名とする。既存の同ディレクトリが同じ source を指す再分析なら再利用してよい。別 source を指す場合は `<source-stem>-<ext>`、それも衝突する場合は source の正規化絶対パスの SHA-256 先頭 8 桁を接尾辞にする。既存 `analysis.json` の `source` を解決して照合し、名前だけで同一素材と判断しない。
+単体実行の `<source-stem>` は最後の拡張子を除いたファイル名とする。既存の出力ディレクトリが同じ source を指す再分析なら再利用してよい。別 source を指す場合は `<source-stem>-<ext>`、それも衝突する場合は source の正規化絶対パスの SHA-256 先頭 8 桁を接尾辞にする。AKARI プロジェクト内の正典パスでも、最終セグメントの `<name>.analysis` に同じ衝突回避規則を適用し、別 source との衝突時は `<name>-<ext>.analysis`、さらに衝突する場合は SHA-256 先頭 8 桁を接尾辞にする。既存 `analysis.json` の `source` を解決して照合し、名前だけで同一素材と判断しない。
 
-JSON 内の `source`、`keyframes[].path`、`tracks.person_matte` の相対パスは、すべて **analysis.json のあるディレクトリ**を基準にする。標準配置なら `source` は `../../<source-filename>`、キーフレームは `keyframes/<filename>.jpg` となる。絶対パスは可搬性を落とすため、同一ファイルツリー内を表せない場合に限る。
+JSON 内の `source`、`keyframes[].path`、`tracks.person_matte` の相対パスは、すべて **analysis.json のあるディレクトリ**を基準にする。上の AKARI 標準配置なら `source` は `../../../../assets/IMG_4606.MOV`、キーフレームは `keyframes/<filename>.jpg` となる。単体実行の標準配置なら `source` は `../../<source-filename>` となる。固定の `../` の個数を暗記せず、analysis.json のディレクトリと参照先の実際の階層から相対パスを機械的に算出すること。source が `assets/` 配下でネストしていれば、その深さに応じて必要な階層数も増える。絶対パスは可搬性を落とすため、同一ファイルツリー内を表せない場合に限る。
 
 ## 3. 工程を順番に実行する
 
@@ -68,7 +86,7 @@ JSON 内の `source`、`keyframes[].path`、`tracks.person_matte` の相対パ�
 ## よくある間違い
 
 - 複数素材を 1 個の `analysis.json` にまとめる。
-- `<source-dir>/analysis/analysis.json` を素材ごとに上書きする。
+- 素材別の `<workspace-root>/.akari/sidecars/<source-relative-path>.analysis/analysis.json`（単体実行では `<source-dir>/analysis/<source-stem>/analysis.json`）を使わず、共通の `analysis.json` を素材ごとに上書きする。
 - プロキシの連番フレーム番号を秒だとみなす。
 - transcript がないのに映像だけから発話内容を創作する。
 - 一時生成物の絶対パスを JSON に固定する。

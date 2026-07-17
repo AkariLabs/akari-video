@@ -3,6 +3,8 @@
 `workflow.json` declares canonical role paths, localized labels, normal-mode hidden entries, sidecar suffixes,
 and gate event types. Asset metadata lives at `sidecars/<asset-relative-path>.meta.json`; for example,
 `assets/interview.mp4` uses `sidecars/assets/interview.mp4.meta.json`.
+Full per-asset analysis output lives at `sidecars/<asset-relative-path>.analysis/analysis.json`; for example,
+`assets/interview.mp4` uses `sidecars/assets/interview.mp4.analysis/analysis.json`.
 
 An asset meta object has `version: 1`, `asset` (project-relative string), optional `thumbnail` (path or URI),
 optional non-negative `durationSeconds`, optional positive integer `width` and `height`, optional

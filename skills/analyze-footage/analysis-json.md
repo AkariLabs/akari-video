@@ -8,7 +8,7 @@
 
 ## 原則
 
-`packages/schemas/analysis.schema.json` を唯一の構造定義として使う。トップレベルと各 object は未知フィールドを許可しないため、作業メモ、信頼度、劣化理由、生成ツール情報を勝手に追加しない。
+このスキルの `references/analysis.schema.json` を唯一の構造定義として使う。トップレベルと各 object は未知フィールドを許可しないため、作業メモ、信頼度、劣化理由、生成ツール情報を勝手に追加しない。
 
 ## 最小の有効形
 
@@ -136,7 +136,7 @@ python3 -m json.tool "$OUT_DIR/analysis.json.tmp" >/dev/null
 Python の `jsonschema` がローカルにある場合は Draft 2020-12 として検証する。
 
 ```bash
-python3 - "$REPO_ROOT/packages/schemas/analysis.schema.json" "$OUT_DIR/analysis.json.tmp" <<'PY'
+python3 - ".claude/skills/analyze-footage/references/analysis.schema.json" "$OUT_DIR/analysis.json.tmp" <<'PY'
 import json
 import pathlib
 import sys

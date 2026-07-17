@@ -1,7 +1,7 @@
 {
   "name": "akari-transcript",
   "version": "0.0.1",
-  "description": "AKARI Video transcript editor backed by project/captions.json.",
+  "description": "AKARI Video transcript editor backed by captions.json (co-located with edit.json, or at the workspace root if none is found).",
   "private": true,
   "main": "lib/browser/akari-transcript-frontend-module.js",
   "theiaExtensions": [

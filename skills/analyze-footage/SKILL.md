@@ -12,8 +12,8 @@ description: 動画素材 1 本から 720p プロキシ、ローカル whisper.c
 - プロキシは ffmpeg で 720p 枠に収め、文字起こしはローカル whisper.cpp だけを使う。外部 API を直接呼ばない。
 - whisper.cpp の実行ファイルまたはモデルがなければ文字を推測せず、`transcript: []` に劣化して理由を報告する。
 - シーン検出と一定間隔の両方でキーフレーム候補を作り、採用する画像は Read で実際に視認してから `note` を書く。
-- `filler | trouble | chapter | hook` 以外の event を作らない。hook は 5 軸すべてを 1〜5 の整数で採点する。
-- [analysis.schema.json](../../packages/schemas/analysis.schema.json) にない補助フィールドを追加しない。Schema 検証と意味検証を通した JSON だけを確定版にする。
+- `filler | trouble | chapter | highlight | hook` 以外の event を作らない。hook は 5 軸すべてを 1〜5 の整数で採点する。
+- [analysis.schema.json](references/analysis.schema.json) にない補助フィールドを追加しない。Schema 検証と意味検証を通した JSON だけを確定版にする。
 - OpenMontage は構造上の参考に限り、AGPL の文章・コードを転写しない。
 
 ## 実行順と目次
@@ -21,7 +21,7 @@ description: 動画素材 1 本から 720p プロキシ、ローカル whisper.c
 1. [workflow.md](workflow.md) を読み、入力確認、出力ディレクトリ決定、失敗時の扱いを確定する。
 2. [media-and-transcript.md](media-and-transcript.md) を読み、720p プロキシとローカル文字起こしを作る。
 3. [keyframes-and-review.md](keyframes-and-review.md) を読み、scene + interval 抽出、Read 視認、キーフレーム所見を行う。
-4. [events-and-hooks.md](events-and-hooks.md) を読み、4 種 event と hook の 5 軸スコアを判定する。
+4. [events-and-hooks.md](events-and-hooks.md) を読み、5 種 event と hook の 5 軸スコアを判定する。
 5. [analysis-json.md](analysis-json.md) を読み、tracks を含む JSON を組み立て、検証後に確定する。
 
 詳細を先読みせず、現在の工程に対応するファイルだけを読む。

@@ -1,0 +1,103 @@
+{
+  "task": "2026-07-17-analysis-integration-fix",
+  "l0": {
+    "buildExt": "exit 0",
+    "lint": "exit 0"
+  },
+  "l1": {
+    "canonicalSidecarDecision": {
+      "meta": ".akari/sidecars/<workspace-relative-asset-path>.meta.json (assets/ prefix retained)",
+      "analysis": ".akari/sidecars/<workspace-relative-asset-path>.analysis/analysis.json (assets/ prefix retained)",
+      "evidenceForDecision": [
+        "apps/shell/extensions/akari-project/src/browser/akari-asset-inspector.ts metaCandidates() uses workspace-root-relative path (includes assets/ prefix)",
+        "skills/analyze-footage/references/akari-data-contract.md already documented sidecars/assets/interview.mp4.meta.json (assets/ prefix retained) before this task"
+      ]
+    },
+    "f24PermissionAnchor": {
+      "before": {
+        "rule": "Edit(./assets/**)",
+        "assetsRootWrite": "denied",
+        "sidecarWithAssetsSegmentWrite": "denied (false positive)",
+        "denialMessage": "File is in a directory that is denied by your permission settings."
+      },
+      "after": {
+        "rule": "Edit(/assets/**)",
+        "assetsRootWrite": "denied",
+        "sidecarWithAssetsSegmentWrite": "allowed",
+        "workspaceRootFileWrite": "allowed"
+      },
+      "testedAgainst": [
+        "synthetic isolated fixture (scratch, discarded)",
+        "real project created via AkariProjectServiceImpl.createProject() — assets/IMG_4606.MOV (denied), .akari/sidecars/assets/IMG_4606.MOV.analysis/analysis.json (allowed), captions.json (allowed)"
+      ]
+    },
+    "f23SchemaResolution": {
+      "generatedAt": ".claude/skills/analyze-footage/references/analysis.schema.json",
+      "identicalToSourceExceptComment": true,
+      "provenanceCommentAppended": true
+    },
+    "f25PanelDiscovery": {
+      "singleCandidate": {
+        "fixture": ".akari/sidecars/assets/IMG_4606.MOV.analysis/analysis.json (6 transcript segments)",
+        "result": "opened directly via '文字起こしを開く' command, no QuickPick, no workaround"
+      },
+      "multipleCandidates": {
+        "fixtures": [
+          "assets/IMG_4606.MOV.analysis/analysis.json (6 segments)",
+          "assets/IMG_4607.MOV.analysis/analysis.json (2 segments)"
+        ],
+        "result": "QuickPick shown with placeholder '文字起こしを開く素材を選んでください。' and 2 items: assets/IMG_4606.MOV, assets/IMG_4607.MOV"
+      }
+    },
+    "captionGeneration": {
+      "generatedLineCount": 6,
+      "matchesFixtureText": true
+    },
+    "captionsJsonPlacement": {
+      "editJsonPresentInWorkspace": false,
+      "resultPath": "<workspace-root>/captions.json",
+      "noProjectSubdirectoryCreated": true
+    },
+    "emptyStateUx": {
+      "centeredOverlayShown": true,
+      "text": "「文字起こしから字幕を作成」を押すと編集を始められます"
+    },
+    "buildGate": {
+      "green": {
+        "command": "npm run package",
+        "postpackageExit": 0,
+        "extensionsVerified": [
+          "akari-shell-strip",
+          "akari-surfaces",
+          "akari-project",
+          "akari-partner",
+          "akari-tabs",
+          "akari-preview",
+          "akari-transcript"
+        ],
+        "filesVerified": [
+          "/lib/skills/analyze-footage/SKILL.md",
+          "/lib/schemas/analysis.schema.json",
+          "/lib/templates/project-default"
+        ],
+        "sizeMb": 457,
+        "sizeLimitMb": 500
+      },
+      "red": {
+        "reproduction": "removed node_modules/akari-transcript symlink, ran `npx theia build --mode production` directly (bypassing npm run build's prebuild hook) to reproduce the silent-skip bug, then ran `npm run package`",
+        "theiaBuildExit": 0,
+        "theiaBuildWarning": "Cannot resolve package akari-transcript relative to package.json",
+        "postpackageExit": 1,
+        "postpackageOutput": "❌ MISSING in asar: 拡張 akari-transcript / PACKAGE-VERIFY FAILED — 配布禁止"
+      },
+      "prebuildAutoHeal": {
+        "afterRedRepro": "ran `npm run build` normally; prebuild (ensure-file-deps-linked.mjs) recreated the missing symlink automatically; subsequent build succeeded with the extension included"
+      }
+    }
+  },
+  "cleanup": {
+    "electronProcessKilled": true,
+    "scratchFixturesRemoved": true,
+    "globalClaudeConfigTrustEntriesRemoved": true
+  }
+}

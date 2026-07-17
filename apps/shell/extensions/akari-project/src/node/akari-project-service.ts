@@ -416,6 +416,25 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         return undefined;
     }
 
+    protected async findBundledSchemas(): Promise<string | undefined> {
+        const candidates = [
+            resolve(__dirname, '../schemas'),
+            resolve(process.cwd(), '../../packages/schemas'),
+            resolve(process.cwd(), 'packages/schemas'),
+            resolve(__dirname, '../../../../../../../packages/schemas')
+        ];
+        for (const candidate of candidates) {
+            try {
+                if ((await fs.stat(join(candidate, 'analysis.schema.json'))).isFile()) {
+                    return candidate;
+                }
+            } catch {
+                // Try the next development or packaged-app location.
+            }
+        }
+        return undefined;
+    }
+
     protected async installProjectSkills(root: string): Promise<void> {
         const source = await this.findBundledSkills();
         if (!source) {
@@ -428,6 +447,21 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             `${await this.skillsSignature(source)}\n`,
             'utf8'
         );
+
+        const schemasSource = await this.findBundledSchemas();
+        if (!schemasSource) {
+            throw new Error('プロジェクト用のスキーマを見つけられませんでした。');
+        }
+        const schema = JSON.parse(
+            await fs.readFile(join(schemasSource, 'analysis.schema.json'), 'utf8')
+        ) as { $comment?: unknown };
+        const provenance = '（この analysis.schema.json は packages/schemas/analysis.schema.json からプロジェクト作成時に installProjectSkills() が機械コピーしたものです。手編集しないでください。再生成するにはプロジェクトを作り直すか、スキルの再インストールを行ってください。）';
+        schema.$comment = typeof schema.$comment === 'string'
+            ? `${schema.$comment} ${provenance}`
+            : provenance;
+        const schemaDestination = join(destination, 'analyze-footage', 'references', 'analysis.schema.json');
+        await fs.mkdir(dirname(schemaDestination), { recursive: true });
+        await fs.writeFile(schemaDestination, `${JSON.stringify(schema, null, 2)}\n`, 'utf8');
     }
 
     /** Manual recursion is required for sources inside app.asar. */
@@ -500,7 +534,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             '.claude/settings.json': JSON.stringify({
                 permissions: {
                     allow: ['Read(./**)', 'Edit(./planning/**)', 'Edit(./exports/**)', 'Edit(./.akari/sidecars/**)', 'Edit(./.akari/events/**)'],
-                    deny: ['Edit(./assets/**)']
+                    deny: ['Edit(/assets/**)']
                 }
             }, null, 2) + '\n',
             '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
