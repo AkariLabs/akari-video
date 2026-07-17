@@ -151,6 +151,8 @@ const adapters = {
     checkGet("https://rest.alpha.fal.ai/billing/user_balance", { Authorization: `Key ${secret}` }, checkedAt),
   replicate: (secret, checkedAt) =>
     checkGet("https://api.replicate.com/v1/account", { Authorization: `Bearer ${secret}` }, checkedAt),
+  groq: (secret, checkedAt) =>
+    checkGet("https://api.groq.com/openai/v1/models", { Authorization: `Bearer ${secret}` }, checkedAt),
   elevenlabs: (secret, checkedAt) =>
     checkGet("https://api.elevenlabs.io/v1/models", { "xi-api-key": secret }, checkedAt),
   openrouter: (secret, checkedAt) =>
