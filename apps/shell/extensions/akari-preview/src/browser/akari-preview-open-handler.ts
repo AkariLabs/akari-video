@@ -9,6 +9,7 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariPreviewService, OverlayRuntimeAssets } from '../common/akari-preview-protocol';
+import { locatePreviewCaptions, parsePreviewCaptions, PreviewCaption } from './akari-preview-captions';
 
 interface OverlayTransform {
     x?: number;
@@ -35,6 +36,8 @@ interface PreviewModel {
     summary: EditSummary;
     editUri?: URI;
     overlayUris: URI[];
+    captionsUri?: URI;
+    captions: PreviewCaption[];
 }
 
 interface OverlayWriteRequest {
@@ -51,7 +54,9 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewConfigured?: boolean;
     akariPreviewConfiguration?: Promise<void>;
     akariPreviewRefresh?: Promise<void>;
+    akariPreviewCaptionsUpdate?: Promise<void>;
     akariPreviewEditUri?: URI;
+    akariPreviewCaptionsUri?: URI;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewStreamId?: string;
     akariPreviewSeekable?: boolean;
@@ -193,15 +198,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }));
         disposables.push(this.fileService.onDidFilesChange(event => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
-            const relevant = event.changes.some(change => {
+            const captionsKey = widget.akariPreviewCaptionsUri?.toString();
+            let captionsChanged = false;
+            let previewChanged = false;
+            for (const change of event.changes) {
                 const key = change.resource.toString();
-                if (tracked.has(key)) {
-                    const writtenAt = this.recentWrites.get(key) ?? 0;
-                    return Date.now() - writtenAt > 1000;
+                const writtenAt = this.recentWrites.get(key) ?? 0;
+                if (key === captionsKey) {
+                    captionsChanged ||= Date.now() - writtenAt > 1000;
+                    continue;
                 }
-                return !widget.akariPreviewEditUri && change.resource.path.base === 'edit.json';
-            });
-            if (relevant) {
+                if (tracked.has(key)) {
+                    previewChanged ||= Date.now() - writtenAt > 1000;
+                    continue;
+                }
+                previewChanged ||= !widget.akariPreviewEditUri && change.resource.path.base === 'edit.json';
+            }
+            if (captionsChanged) {
+                this.queueCaptionsUpdate(widget);
+            }
+            if (previewChanged) {
                 this.queueRefresh(widget, videoUri);
             }
         }));
@@ -226,6 +242,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         ).catch(error => console.error('[akari-preview] failed to refresh preview', error));
     }
 
+    protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
+        const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
+        widget.akariPreviewCaptionsUpdate = previous.then(async () => {
+            const captions = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri);
+            widget.sendMessage({ type: 'akari-preview-captions-update', captions });
+        }).catch(error => console.error('[akari-preview] failed to update captions', error));
+    }
+
     protected async refreshPreview(widget: PreviewWidgetMarker, videoUri: URI): Promise<void> {
         const extension = videoUri.path.ext.toLowerCase();
         const mimeType = PLAYABLE_VIDEO_MIME_TYPES.get(extension);
@@ -248,8 +272,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         await this.disposeVideoStream(widget);
         widget.akariPreviewStreamId = videoStream.id;
         widget.akariPreviewEditUri = model.editUri;
+        widget.akariPreviewCaptionsUri = model.captionsUri;
         widget.akariPreviewTrackedResources = new Set([
             ...(model.editUri ? [model.editUri.toString()] : []),
+            ...(model.captionsUri ? [model.captionsUri.toString()] : []),
             ...model.overlayUris.map(uri => uri.toString())
         ]);
         widget.viewType = 'akari.preview';
@@ -268,6 +294,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewSeekable = false;
         void this.disposeVideoStream(widget);
         widget.akariPreviewEditUri = undefined;
+        widget.akariPreviewCaptionsUri = undefined;
         widget.akariPreviewTrackedResources = new Set();
         widget.viewType = 'akari.preview';
         widget.title.label = videoUri.path.base;
@@ -279,9 +306,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected async loadPreviewModel(videoUri: URI): Promise<PreviewModel> {
         const editUri = await this.findEditJson(videoUri);
+        const [workspaceRoot] = await this.workspaceService.roots;
+        const captionsUri = locatePreviewCaptions(editUri, workspaceRoot?.resource);
+        const captions = await this.loadPreviewCaptions(captionsUri);
         if (!editUri) {
             console.info(`[akari-preview] edit.json was not found for ${videoUri.toString()}; opening video only`);
-            return { summary: EMPTY_SUMMARY, overlayUris: [] };
+            return { summary: EMPTY_SUMMARY, overlayUris: [], captionsUri, captions };
         }
         try {
             const edit = JSON.parse(await this.readText(editUri));
@@ -314,6 +344,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return {
                 editUri,
                 overlayUris,
+                captionsUri,
+                captions,
                 summary: {
                     output: { width, height, fps: this.positiveNumber(edit?.output?.fps, 30) },
                     overlays
@@ -321,7 +353,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             };
         } catch (error) {
             console.warn(`[akari-preview] failed to load ${editUri.toString()}; opening video only`, error);
-            return { editUri, summary: EMPTY_SUMMARY, overlayUris: [] };
+            return { editUri, summary: EMPTY_SUMMARY, overlayUris: [], captionsUri, captions };
+        }
+    }
+
+    protected async loadPreviewCaptions(captionsUri: URI | undefined): Promise<PreviewCaption[]> {
+        if (!captionsUri) {
+            return [];
+        }
+        try {
+            return parsePreviewCaptions(await this.readText(captionsUri));
+        } catch (error) {
+            if (await this.fileService.exists(captionsUri)) {
+                console.warn(`[akari-preview] failed to load ${captionsUri.toString()}; hiding captions`, error);
+            }
+            return [];
         }
     }
 
@@ -437,6 +483,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const { width, height } = model.summary.output;
         const initialState = this.safeJson({
             summary: model.summary,
+            captions: model.captions,
             editPath: model.editUri?.toString() ?? null,
             videoUri: videoUri.toString()
         });
@@ -458,6 +505,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
+#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: clamp(16px, 3vw, 40px); font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
+#caption-plate:empty { display: none; }
 .message-card { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 32px; background: #111; }
 .message-card[hidden] { display: none; }
 .message-card p { max-width: 520px; margin: 0; color: #e5e5e5; font-size: 15px; line-height: 1.7; text-align: center; }
@@ -481,6 +530,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
     <div id="preview-wrapper">
       <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
       <div id="overlay-stage"></div>
+      <div id="caption-plate"></div>
       <div id="preview-message" class="message-card" hidden role="status"><p>${UNSUPPORTED_FORMAT_MESSAGE}</p></div>
     </div>
   </section>
@@ -575,11 +625,13 @@ body { display: grid; place-items: center; padding: 32px; }
             const seek = document.getElementById('seek');
             const timeLabel = document.getElementById('time-label');
             const stage = document.getElementById('overlay-stage');
+            const captionPlate = document.getElementById('caption-plate');
             const previewMessage = document.getElementById('preview-message');
             const inspector = document.getElementById('inspector');
             const inspectorTitle = document.getElementById('inspector-title');
             const inspectorFields = document.getElementById('inspector-fields');
             const workspace = document.querySelector('.workspace');
+            let captions = Array.isArray(initial.captions) ? initial.captions : [];
             let animationFrame = 0;
 
             const formatTime = value => {
@@ -594,8 +646,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 timeLabel.textContent = formatTime(video.currentTime) + ' / ' + formatTime(duration);
                 playToggle.textContent = video.paused ? '再生' : '停止';
             };
+            const renderCaption = () => {
+                const time = video.currentTime || 0;
+                const caption = captions.find(candidate => candidate.start <= time && time < candidate.end);
+                captionPlate.textContent = caption ? caption.text : '';
+            };
             const tick = () => {
                 window.akari.runtime.tick(video.currentTime || 0, !video.paused);
+                renderCaption();
                 updateTransport();
             };
             const animate = () => {
@@ -631,6 +689,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 video.pause();
                 video.hidden = true;
                 stage.hidden = true;
+                captionPlate.textContent = '';
                 previewMessage.hidden = false;
                 playToggle.disabled = true;
                 seek.disabled = true;
@@ -654,6 +713,11 @@ body { display: grid; place-items: center; padding: 32px; }
             video.addEventListener('error', showPlaybackError);
             window.addEventListener('message', event => {
                 const message = event.data;
+                if (message && message.type === 'akari-preview-captions-update') {
+                    captions = Array.isArray(message.captions) ? message.captions : [];
+                    renderCaption();
+                    return;
+                }
                 if (message && message.type === 'akari-preview-seek' && Number.isFinite(message.time)) {
                     video.currentTime = Math.max(0, message.time);
                     tick();

@@ -1,0 +1,202 @@
+[
+  {
+    "t": "2026-07-17T19:52:00.526Z",
+    "step": "connected-main",
+    "targetId": "5A7A6F4FFC5D38271354900014C4435A"
+  },
+  {
+    "t": "2026-07-17T19:52:01.485Z",
+    "step": "opened-explorer",
+    "alreadyOpen": false,
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-17T19:52:02.168Z",
+    "step": "expanded-folder",
+    "videoDir": "assets",
+    "found": true,
+    "collapsed": true,
+    "x": 68,
+    "y": 94
+  },
+  {
+    "t": "2026-07-17T19:52:04.241Z",
+    "step": "opened-video-tab",
+    "videoBase": "IMG_4606.MOV"
+  },
+  {
+    "t": "2026-07-17T19:52:04.803Z",
+    "step": "reached-active-frame",
+    "activeContextId": 2
+  },
+  {
+    "t": "2026-07-17T19:52:04.807Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-plate-outside-overlay-stage",
+    "ok": true,
+    "text": "ということでね、今日はね、ひたすらYouTubeの撮影を",
+    "display": "block",
+    "pointerEvents": "none",
+    "hasSelAttr": false,
+    "isStageChild": false,
+    "parentId": "preview-wrapper"
+  },
+  {
+    "t": "2026-07-17T19:52:04.807Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-plate-pointer-events-none",
+    "ok": true,
+    "pointerEvents": "none"
+  },
+  {
+    "t": "2026-07-17T19:52:05.020Z",
+    "step": "ASSERT_PASS",
+    "name": "caption@2s == c-0001",
+    "ok": true,
+    "got": "ということでね、今日はね、ひたすらYouTubeの撮影を"
+  },
+  {
+    "t": "2026-07-17T19:52:06.869Z",
+    "step": "ASSERT_PASS",
+    "name": "caption@10s == c-0003",
+    "ok": true,
+    "got": "いい感じにかけてます"
+  },
+  {
+    "t": "2026-07-17T19:52:08.001Z",
+    "step": "ASSERT_PASS",
+    "name": "caption@26s empty (gap)",
+    "ok": true,
+    "text": "",
+    "display": "none"
+  },
+  {
+    "t": "2026-07-17T19:52:09.796Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-click: plate not selected",
+    "ok": true,
+    "plateHasSelAttr": false,
+    "plateEditable": false,
+    "anyOverlaySelected": false,
+    "inspectorHidden": true,
+    "plateText": "ということでね、今日はね、ひたすらYouTubeの撮影を"
+  },
+  {
+    "t": "2026-07-17T19:52:09.797Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-click: plate not editable",
+    "ok": true,
+    "plateHasSelAttr": false,
+    "plateEditable": false,
+    "anyOverlaySelected": false,
+    "inspectorHidden": true,
+    "plateText": "ということでね、今日はね、ひたすらYouTubeの撮影を"
+  },
+  {
+    "t": "2026-07-17T19:52:09.797Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-click: no overlay selected",
+    "ok": true,
+    "plateHasSelAttr": false,
+    "plateEditable": false,
+    "anyOverlaySelected": false,
+    "inspectorHidden": true,
+    "plateText": "ということでね、今日はね、ひたすらYouTubeの撮影を"
+  },
+  {
+    "t": "2026-07-17T19:52:09.798Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-click: captions.json unchanged on disk",
+    "ok": true,
+    "changed": false
+  },
+  {
+    "t": "2026-07-17T19:52:11.144Z",
+    "step": "ASSERT_PASS",
+    "name": "seek-message seeks to ~6s",
+    "ok": true,
+    "currentTime": 6,
+    "caption": "頑張っておりました"
+  },
+  {
+    "t": "2026-07-17T19:52:11.145Z",
+    "step": "ASSERT_PASS",
+    "name": "seek-message caption == c-0002",
+    "ok": true,
+    "got": "頑張っておりました"
+  },
+  {
+    "t": "2026-07-17T19:52:11.347Z",
+    "step": "pre-live-edit",
+    "currentTime": 10,
+    "readyState": 4,
+    "probe": "live-marker-13b"
+  },
+  {
+    "t": "2026-07-17T19:52:11.350Z",
+    "step": "wrote-captions-external",
+    "newText": "ライブ更新テスト13b"
+  },
+  {
+    "t": "2026-07-17T19:52:11.653Z",
+    "step": "ASSERT_PASS",
+    "name": "live-update: caption text swapped without reload",
+    "ok": true,
+    "landed": {
+      "caption": "ライブ更新テスト13b",
+      "currentTime": 10,
+      "readyState": 4,
+      "probe": "live-marker-13b"
+    }
+  },
+  {
+    "t": "2026-07-17T19:52:11.653Z",
+    "step": "ASSERT_PASS",
+    "name": "live-update: currentTime preserved (~10, not reset)",
+    "ok": true,
+    "currentTime": 10
+  },
+  {
+    "t": "2026-07-17T19:52:11.653Z",
+    "step": "ASSERT_PASS",
+    "name": "live-update: video element NOT recreated (probe survives)",
+    "ok": true,
+    "probe": "live-marker-13b"
+  },
+  {
+    "t": "2026-07-17T19:52:12.873Z",
+    "step": "ASSERT_PASS",
+    "name": "overlay interaction.selftest() passes",
+    "ok": true
+  },
+  {
+    "t": "2026-07-17T19:52:13.081Z",
+    "step": "ASSERT_PASS",
+    "name": "overlay cap-a visible at 10s",
+    "ok": true,
+    "overlayVisible": "visible"
+  },
+  {
+    "t": "2026-07-17T19:52:13.855Z",
+    "step": "ASSERT_PASS",
+    "name": "overlay selectable after caption layer added",
+    "ok": true,
+    "selected": "true",
+    "inspectorHidden": false,
+    "inspectorText": "--color"
+  },
+  {
+    "t": "2026-07-17T19:52:14.785Z",
+    "step": "console-errors",
+    "count": 0,
+    "sample": []
+  },
+  {
+    "t": "2026-07-17T19:52:14.785Z",
+    "step": "ASSERT_PASS",
+    "name": "no uncaught console errors during session",
+    "ok": true,
+    "count": 0
+  }
+]
