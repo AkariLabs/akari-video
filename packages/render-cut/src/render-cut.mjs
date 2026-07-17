@@ -1,0 +1,652 @@
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { constants as fsConstants, createReadStream, existsSync } from "node:fs";
+import {
+  access,
+  copyFile,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { generateCaptionOverlays } from "./captions.mjs";
+import { buildPlan, selectDefaultOutput } from "./plan.mjs";
+import {
+  captureStaticOverlays,
+  captureWithPuppeteer,
+  compositeAnimatedOverlay,
+  compositeStaticOverlays,
+  probeHasAlpha,
+  renderOverlaySheet,
+  runChecked,
+} from "./rasterize.mjs";
+import { renderReport } from "./report.mjs";
+
+const VERSION = 1;
+const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
+
+Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
+
+export class RefusalError extends Error {}
+export class ExecutionError extends Error {}
+
+export async function runCli(argv, io = console) {
+  let options;
+  try {
+    options = parseArguments(argv);
+  } catch (error) {
+    io.error(error.message);
+    io.error(USAGE);
+    return 2;
+  }
+  if (options.help) {
+    io.log(USAGE);
+    return 0;
+  }
+
+  try {
+    const state = await renderProject(options.projectRoot, options);
+    if (options.planOnly) {
+      io.log(`PLAN: ${state.plan.output} (${state.plan.predicted_duration_seconds}s)`);
+      return 0;
+    }
+    io.log(`${state.verify.verdict.toUpperCase()}: ${state.plan.output}`);
+    return state.verify.verdict === "pass" ? 0 : 1;
+  } catch (error) {
+    if (error instanceof RefusalError) {
+      io.error(`render-cut refused: ${error.message}`);
+      return 1;
+    }
+    io.error(`render-cut execution error: ${messageOf(error)}`);
+    return 2;
+  }
+}
+
+export async function renderProject(input, options = {}) {
+  const projectRoot = resolve(input);
+  const editPath = join(projectRoot, "edit.json");
+  const editText = await readRequired(editPath, "edit.json");
+  const edit = parseJson(editText, "edit.json");
+  validateEditShape(edit);
+
+  const lint = await validateLint(projectRoot, options.force === true);
+  const capabilities = await measureCapabilities(projectRoot, edit);
+  const inputs = await collectInputReceipts(projectRoot, edit, editText);
+  const plannedCaptions = await loadCaptions(projectRoot, edit);
+  const explicitOutput = options.out ? resolveOutput(projectRoot, options.out) : null;
+  const outputPath = explicitOutput ?? selectDefaultOutput(projectRoot, edit, existsSync);
+  ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath);
+  const plan = buildPlan({
+    edit,
+    projectRoot,
+    outputPath,
+    capabilities,
+    hasSourceAudio: capabilities.sourceHasAudio,
+    renderOverlays: [...edit.overlays, ...plannedCaptions],
+  });
+  const state = {
+    version: VERSION,
+    phase: "planned",
+    inputs,
+    validation: {
+      lint,
+      environment: {
+        node: capabilities.nodeVersion,
+        ffmpeg: capabilities.ffmpegVersion,
+        ffprobe: capabilities.ffprobeVersion,
+        chrome: capabilities.chromeVersion,
+        hyperframes: capabilities.hyperframesVersion,
+        puppeteer_core: capabilities.puppeteerVersion,
+      },
+    },
+    plan,
+    provenance: {
+      source: relativeOrAbsolute(projectRoot, resolve(projectRoot, edit.source.path)),
+      proxy_used: false,
+      rasterizer: { planned: plan.rasterizer.selected, adopted: null, attempts: [] },
+      environment: {
+        node: capabilities.nodeVersion,
+        ffmpeg: capabilities.ffmpegVersion,
+        ffprobe: capabilities.ffprobeVersion,
+        chrome: capabilities.chromeVersion,
+        hyperframes: capabilities.hyperframesVersion,
+        puppeteer_core: capabilities.puppeteerVersion,
+      },
+    },
+    artifacts: [],
+    verify: null,
+  };
+
+  const statePath = join(projectRoot, ".akari", "render.json");
+  const reportPath = join(projectRoot, ".akari", "reports", "render-report.html");
+  await writeState(state, statePath, reportPath, projectRoot);
+  if (options.planOnly) return state;
+
+  const temporaryDirectory = join(projectRoot, ".akari", "render-tmp");
+  await rm(temporaryDirectory, { recursive: true, force: true });
+  await mkdir(temporaryDirectory, { recursive: true });
+
+  try {
+    const cutPath = join(temporaryDirectory, "cut.mp4");
+    const cutCommand = plan.commands.cut;
+    runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
+
+    const overlays = await loadOverlays(projectRoot, edit);
+    const captions = plannedCaptions;
+    const allOverlays = [...overlays, ...captions];
+    const compositePath = join(temporaryDirectory, "composite.mp4");
+    if (allOverlays.length === 0) {
+      await copyFile(cutPath, compositePath);
+      state.provenance.rasterizer.adopted = "skip";
+      state.provenance.rasterizer.attempts.push({
+        method: "skip",
+        status: "adopted",
+        reason: "no overlay HTML or captions.json",
+      });
+    } else {
+      await rasterizeAndComposite({
+        state,
+        allOverlays,
+        edit,
+        projectRoot,
+        temporaryDirectory,
+        cutPath,
+        compositePath,
+        capabilities,
+        duration: plan.predicted_duration_seconds,
+      });
+    }
+
+    const finalPath = join(temporaryDirectory, "final.mp4");
+    await executeAudioPlan(plan.commands.audio_mix);
+
+    await mkdir(dirname(outputPath), { recursive: true });
+    if (explicitOutput) {
+      await rm(outputPath, { force: true });
+      await rename(finalPath, outputPath);
+    } else {
+      await copyFile(finalPath, outputPath, fsConstants.COPYFILE_EXCL);
+      await rm(finalPath, { force: true });
+    }
+    state.phase = "rendered";
+    const verification = verifyArtifact({
+      outputPath,
+      plan,
+      ffprobeCommand: capabilities.ffprobeCommand,
+    });
+    state.verify = verification;
+    state.artifacts = [
+      {
+        path: relativeOrAbsolute(projectRoot, outputPath),
+        sha256: await sha256File(outputPath),
+        ffprobe: verification.measured,
+      },
+    ];
+    state.phase = "verified";
+    await writeState(state, statePath, reportPath, projectRoot);
+    if (verification.verdict === "pass") {
+      await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+    return state;
+  } catch (error) {
+    state.phase = "error";
+    state.verify = {
+      verdict: "fail",
+      findings: [{ severity: "error", check: "render.execution", message: messageOf(error) }],
+      measured: null,
+    };
+    await writeState(state, statePath, reportPath, projectRoot);
+    throw error;
+  }
+}
+
+export function parseArguments(argv) {
+  const options = { projectRoot: null, planOnly: false, out: null, force: false, help: false };
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--help" || argument === "-h") options.help = true;
+    else if (argument === "--plan-only") options.planOnly = true;
+    else if (argument === "--force") options.force = true;
+    else if (argument === "--out") {
+      if (index + 1 >= argv.length) throw new Error("--out requires a path");
+      options.out = argv[++index];
+    } else if (argument.startsWith("--out=")) options.out = argument.slice(6);
+    else if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
+    else if (options.projectRoot === null) options.projectRoot = argument;
+    else throw new Error("Only one project root may be provided");
+  }
+  if (!options.help && options.projectRoot === null) throw new Error("A project root is required");
+  return options;
+}
+
+async function validateLint(projectRoot, force) {
+  const lintPath = join(projectRoot, ".akari", "lint.json");
+  let lint = null;
+  try {
+    lint = parseJson(await readFile(lintPath, "utf8"), ".akari/lint.json");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw new ExecutionError(messageOf(error));
+  }
+  const verdict = lint?.verdict ?? "missing";
+  if (verdict !== "pass" && !force) {
+    throw new RefusalError(".akari/lint.json is missing or not PASS; run edit-lint first (or use --force with explicit approval)");
+  }
+  return {
+    verdict,
+    sha256: lint ? sha256(JSON.stringify(lint)) : null,
+    override: verdict === "pass" ? null : { used: true, option: "--force", original_verdict: verdict },
+  };
+}
+
+async function measureCapabilities(projectRoot, edit) {
+  const ffmpegCommand = process.env.FFMPEG ?? "ffmpeg";
+  const ffprobeCommand = process.env.FFPROBE ?? "ffprobe";
+  const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"], "ffmpeg");
+  const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"], "ffprobe");
+  const chromePath = await findChromePath();
+  const chromeVersion = chromePath ? commandVersion(chromePath, ["--version"], "Chrome") : null;
+  if (!chromePath) throw new ExecutionError("system Chrome was not found");
+  const sourcePath = resolve(projectRoot, edit.source.path);
+  const sourceProbe = probeMedia(ffprobeCommand, sourcePath);
+  const sourceDuration = Number(sourceProbe.format?.duration);
+  if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) {
+    throw new ExecutionError("ffprobe did not report a positive source duration");
+  }
+  const hyperframesPath = join(PACKAGE_ROOT, "node_modules", ".bin", "hyperframes");
+  const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
+  const puppeteerPath = join(PACKAGE_ROOT, "node_modules", "puppeteer-core", "package.json");
+  return {
+    ffmpegCommand,
+    ffprobeCommand,
+    ffmpegVersion,
+    ffprobeVersion,
+    nodeVersion: process.version,
+    chromePath,
+    chromeVersion,
+    hyperframesPath,
+    hyperframesAvailable: await isExecutable(hyperframesPath),
+    hyperframesVersion: await readPackageVersion(hyperframesPackagePath),
+    puppeteerAvailable: await isRegularFile(puppeteerPath),
+    puppeteerVersion: await readPackageVersion(puppeteerPath),
+    sourceDuration,
+    sourceHasAudio: sourceProbe.streams.some((stream) => stream.codec_type === "audio"),
+  };
+}
+
+async function collectInputReceipts(projectRoot, edit, editText) {
+  const files = new Map([["edit.json", { path: join(projectRoot, "edit.json"), text: editText }]]);
+  addReference(files, projectRoot, "source", edit.source.path);
+  for (const [index, overlay] of edit.overlays.entries()) {
+    addReference(files, projectRoot, `overlay:${index}`, overlay.html);
+  }
+  const captionsPath = join(projectRoot, "captions.json");
+  if (await isRegularFile(captionsPath)) files.set("captions.json", { path: captionsPath });
+  const bgm = audioPath(edit.audio?.bgm);
+  if (bgm) addReference(files, projectRoot, "audio:bgm", bgm);
+  for (const [index, sfx] of (edit.audio?.sfx ?? []).entries()) {
+    const path = audioPath(sfx);
+    if (path) addReference(files, projectRoot, `audio:sfx:${index}`, path);
+  }
+  if (edit.thumbnail?.path) addReference(files, projectRoot, "thumbnail", edit.thumbnail.path);
+
+  const receipts = {};
+  for (const [label, file] of files) {
+    if (!(await isRegularFile(file.path))) throw new ExecutionError(`${label} does not resolve to a regular file`);
+    receipts[relative(projectRoot, file.path)] = {
+      sha256: file.text === undefined ? await sha256File(file.path) : sha256(file.text),
+      bytes: (await stat(file.path)).size,
+    };
+  }
+  return receipts;
+}
+
+async function loadOverlays(projectRoot, edit) {
+  return Promise.all(
+    edit.overlays.map(async (overlay) => ({
+      ...overlay,
+      html: await readRequired(resolve(projectRoot, overlay.html), overlay.html),
+    })),
+  );
+}
+
+async function loadCaptions(projectRoot, edit) {
+  const captionsPath = join(projectRoot, "captions.json");
+  if (!(await isRegularFile(captionsPath))) return [];
+  const captions = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
+  if (!Array.isArray(captions)) throw new ExecutionError("captions.json root must be an array");
+  return generateCaptionOverlays(captions, edit.cuts);
+}
+
+async function rasterizeAndComposite(context) {
+  const {
+    state,
+    allOverlays,
+    edit,
+    projectRoot,
+    temporaryDirectory,
+    cutPath,
+    compositePath,
+    capabilities,
+    duration,
+  } = context;
+  const sheetPath = join(temporaryDirectory, "overlay-sheet.html");
+  await writeFile(
+    sheetPath,
+    renderOverlaySheet({ overlays: allOverlays, edit, projectRoot, duration }),
+    "utf8",
+  );
+
+  if (capabilities.hyperframesAvailable) {
+    const overlayPath = join(temporaryDirectory, "overlay.webm");
+    try {
+      runChecked(
+        capabilities.hyperframesPath,
+        [
+          "render",
+          projectRoot,
+          "--composition",
+          relative(projectRoot, sheetPath),
+          "--format",
+          "webm",
+          "--fps",
+          String(edit.output.fps),
+          "--workers",
+          "1",
+          "--no-browser-gpu",
+          "--no-best-effort",
+          "-o",
+          overlayPath,
+        ],
+        {
+          cwd: projectRoot,
+          env: {
+            ...process.env,
+            CHROME_PATH: capabilities.chromePath,
+            PUPPETEER_EXECUTABLE_PATH: capabilities.chromePath,
+            HYPERFRAMES_BROWSER_PATH: capabilities.chromePath,
+            DO_NOT_TRACK: "1",
+          },
+        },
+      );
+      if (!probeHasAlpha(capabilities.ffprobeCommand, overlayPath)) {
+        throw new Error("rendered video has no detectable alpha channel");
+      }
+      compositeAnimatedOverlay({
+        ffmpegCommand: capabilities.ffmpegCommand,
+        cutPath,
+        overlayPath,
+        outputPath: compositePath,
+        hasAudio: true,
+      });
+      adoptRasterizer(state, "hyperframes");
+      return;
+    } catch (error) {
+      rejectRasterizer(state, "hyperframes", messageOf(error));
+    }
+  } else {
+    rejectRasterizer(state, "hyperframes", "package-local HyperFrames executable is not installed");
+  }
+
+  if (capabilities.puppeteerAvailable) {
+    try {
+      const overlayPath = join(temporaryDirectory, "overlay.mov");
+      await captureWithPuppeteer({
+        sheetPath,
+        chromePath: capabilities.chromePath,
+        framesDirectory: join(temporaryDirectory, "frames"),
+        overlayMovPath: overlayPath,
+        width: edit.output.width,
+        height: edit.output.height,
+        fps: edit.output.fps,
+        duration,
+        ffmpegCommand: capabilities.ffmpegCommand,
+      });
+      if (!probeHasAlpha(capabilities.ffprobeCommand, overlayPath)) {
+        throw new Error("captured video has no detectable alpha channel");
+      }
+      compositeAnimatedOverlay({
+        ffmpegCommand: capabilities.ffmpegCommand,
+        cutPath,
+        overlayPath,
+        outputPath: compositePath,
+        hasAudio: true,
+      });
+      adoptRasterizer(state, "puppeteer-core");
+      return;
+    } catch (error) {
+      rejectRasterizer(state, "puppeteer-core", messageOf(error));
+    }
+  } else {
+    rejectRasterizer(state, "puppeteer-core", "package-local puppeteer-core is not installed");
+  }
+
+  try {
+    const captures = await captureStaticOverlays({
+      overlays: allOverlays,
+      edit,
+      projectRoot,
+      temporaryDirectory,
+      chromePath: capabilities.chromePath,
+    });
+    compositeStaticOverlays({
+      ffmpegCommand: capabilities.ffmpegCommand,
+      cutPath,
+      captures,
+      outputPath: compositePath,
+      hasAudio: true,
+      duration,
+    });
+    adoptRasterizer(state, "static-screenshot");
+  } catch (error) {
+    rejectRasterizer(state, "static-screenshot", messageOf(error));
+    throw new ExecutionError("all overlay rasterizers failed");
+  }
+}
+
+async function executeAudioPlan(audioPlan) {
+  if (audioPlan.operation === "copy") {
+    await copyFile(audioPlan.input, audioPlan.output);
+    return;
+  }
+  runChecked(audioPlan.command, audioPlan.args);
+}
+
+export function verifyArtifact({ outputPath, plan, ffprobeCommand = "ffprobe" }) {
+  const measured = probeMedia(ffprobeCommand, outputPath);
+  const video = measured.streams.find((stream) => stream.codec_type === "video");
+  const audio = measured.streams.find((stream) => stream.codec_type === "audio");
+  const actualDuration = Number(measured.format?.duration ?? video?.duration);
+  const actualFps = parseRate(video?.avg_frame_rate ?? video?.r_frame_rate);
+  const expected = plan.preset;
+  const findings = [];
+  compare(findings, "verify.duration", Number.isFinite(actualDuration) && Math.abs(actualDuration - plan.predicted_duration_seconds) <= plan.duration_tolerance_seconds, `duration ${actualDuration}s; expected ${plan.predicted_duration_seconds}s ±${plan.duration_tolerance_seconds}s`);
+  compare(findings, "verify.resolution", video?.width === expected.width && video?.height === expected.height, `resolution ${video?.width ?? "missing"}x${video?.height ?? "missing"}; expected ${expected.width}x${expected.height}`);
+  compare(findings, "verify.fps", Number.isFinite(actualFps) && Math.abs(actualFps - expected.fps) < 0.001, `fps ${actualFps}; expected ${expected.fps}`);
+  compare(findings, "verify.video-codec", video?.codec_name === "h264", `video codec ${video?.codec_name ?? "missing"}; expected h264`);
+  compare(findings, "verify.video-profile", String(video?.profile ?? "").toLowerCase() === "high", `video profile ${video?.profile ?? "missing"}; expected High`);
+  compare(findings, "verify.pixel-format", video?.pix_fmt === "yuv420p", `pixel format ${video?.pix_fmt ?? "missing"}; expected yuv420p`);
+  compare(findings, "verify.audio", audio?.codec_name === "aac", `audio codec ${audio?.codec_name ?? "missing"}; expected aac`);
+  return {
+    verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
+    findings,
+    measured: {
+      duration_seconds: actualDuration,
+      width: video?.width ?? null,
+      height: video?.height ?? null,
+      fps: actualFps,
+      video_codec: video?.codec_name ?? null,
+      video_profile: video?.profile ?? null,
+      pixel_format: video?.pix_fmt ?? null,
+      audio_codec: audio?.codec_name ?? null,
+    },
+  };
+}
+
+async function writeState(state, statePath, reportPath, projectRoot) {
+  await mkdir(dirname(statePath), { recursive: true });
+  await mkdir(dirname(reportPath), { recursive: true });
+  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  await writeFile(reportPath, renderReport(state, reportPath, projectRoot), "utf8");
+}
+
+function validateEditShape(edit) {
+  if (!edit || typeof edit !== "object" || Array.isArray(edit)) throw new ExecutionError("edit.json must be an object");
+  if (!Number.isInteger(edit.version)) throw new ExecutionError("edit.json version must be an integer");
+  if (!edit.output || !positive(edit.output.width) || !positive(edit.output.height) || !positive(edit.output.fps)) throw new ExecutionError("edit.json output width, height, and fps must be positive numbers");
+  if (!edit.source || typeof edit.source.path !== "string" || edit.source.path === "") throw new ExecutionError("edit.json source.path is required");
+  if (!Array.isArray(edit.cuts) || !Array.isArray(edit.overlays)) throw new ExecutionError("edit.json cuts and overlays must be arrays");
+}
+
+function probeMedia(command, path) {
+  const result = spawnSync(command, ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], { encoding: "utf8" });
+  if (result.error) throw new ExecutionError(messageOf(result.error));
+  if (result.status !== 0) throw new ExecutionError(`ffprobe failed for ${basename(path)}: ${result.stderr.trim()}`);
+  return parseJson(result.stdout, `ffprobe ${basename(path)}`);
+}
+
+function commandVersion(command, args, label) {
+  const result = spawnSync(command, args, { encoding: "utf8" });
+  if (result.error || result.status !== 0) throw new ExecutionError(`${label} is not available`);
+  return (result.stdout || result.stderr).split(/\r?\n/u)[0].trim();
+}
+
+async function findChromePath() {
+  const candidates = [
+    process.env.CHROME_PATH,
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (await isExecutable(candidate)) return candidate;
+  }
+  return null;
+}
+
+function adoptRasterizer(state, method) {
+  state.provenance.rasterizer.adopted = method;
+  state.provenance.rasterizer.attempts.push({ method, status: "adopted", reason: null });
+}
+
+function rejectRasterizer(state, method, reason) {
+  state.provenance.rasterizer.attempts.push({ method, status: "rejected", reason });
+}
+
+function addReference(map, root, label, path) {
+  if (typeof path !== "string" || path === "") throw new ExecutionError(`${label} path is required`);
+  map.set(label, { path: resolve(root, path) });
+}
+
+function audioPath(value) {
+  return typeof value === "string" ? value : value?.path;
+}
+
+function resolveOutput(projectRoot, value) {
+  return isAbsolute(value) ? value : resolve(projectRoot, value);
+}
+
+function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
+  const inputs = [
+    resolve(projectRoot, "edit.json"),
+    resolve(projectRoot, edit.source.path),
+    ...edit.overlays.map((overlay) => resolve(projectRoot, overlay.html)),
+  ];
+  const captions = resolve(projectRoot, "captions.json");
+  if (existsSync(captions)) inputs.push(captions);
+  const bgm = audioPath(edit.audio?.bgm);
+  if (bgm) inputs.push(resolve(projectRoot, bgm));
+  for (const value of edit.audio?.sfx ?? []) {
+    const path = audioPath(value);
+    if (path) inputs.push(resolve(projectRoot, path));
+  }
+  if (inputs.includes(outputPath)) {
+    throw new RefusalError("--out must not replace an input file");
+  }
+}
+
+function compare(findings, check, passed, message) {
+  findings.push({ severity: passed ? "info" : "error", check, message });
+}
+
+function parseRate(value) {
+  if (typeof value !== "string") return Number.NaN;
+  const [top, bottom = "1"] = value.split("/");
+  return Number(top) / Number(bottom);
+}
+
+async function readRequired(path, label) {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    throw new ExecutionError(`${label} could not be read: ${messageOf(error)}`);
+  }
+}
+
+function parseJson(text, label) {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new ExecutionError(`${label} is not valid JSON: ${messageOf(error)}`);
+  }
+}
+
+async function isRegularFile(path) {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function isExecutable(path) {
+  try {
+    await access(path, fsConstants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readPackageVersion(path) {
+  if (!(await isRegularFile(path))) return null;
+  try {
+    return JSON.parse(await readFile(path, "utf8")).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function sha256File(path) {
+  const hash = createHash("sha256");
+  await new Promise((resolvePromise, rejectPromise) => {
+    const stream = createReadStream(path);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", rejectPromise);
+    stream.on("end", resolvePromise);
+  });
+  return hash.digest("hex");
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function relativeOrAbsolute(root, value) {
+  const result = relative(root, value);
+  return result.startsWith("..") ? value : result;
+}
+
+function positive(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function messageOf(error) {
+  return error instanceof Error ? error.message : String(error);
+}

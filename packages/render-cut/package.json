@@ -1,0 +1,17 @@
+{
+  "name": "@akari-video/render-cut",
+  "version": "0.0.0",
+  "private": true,
+  "description": "承認済み edit.json を決定的に MP4 へ書き出し検証する CLI。",
+  "type": "module",
+  "bin": {
+    "render-cut": "bin/render-cut.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "hyperframes": "0.7.61",
+    "puppeteer-core": "25.2.1"
+  }
+}
