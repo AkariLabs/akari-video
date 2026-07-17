@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:connections:v0",
+  "title": "AKARI Video connections.json v0",
+  "description": "接続レジストリ、モデル選択、コスト承認ポリシー、doctor 結果の SSOT。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["providers", "policy"],
+  "properties": {
+    "providers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provider" }
+    },
+    "policy": { "$ref": "#/$defs/policy" }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "auth", "env", "models", "notes", "doctor"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "kind": {
+          "enum": ["genai", "image", "video", "tts", "music", "sns", "analytics"]
+        },
+        "auth": {
+          "enum": ["login", "env-key", "oauth-mcp"]
+        },
+        "env": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$" }
+          ]
+        },
+        "models": { "$ref": "#/$defs/models" },
+        "notes": { "$ref": "#/$defs/notes" },
+        "doctor": { "$ref": "#/$defs/doctor" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "auth": { "const": "env-key" } }, "required": ["auth"] },
+          "then": { "properties": { "env": { "type": "string", "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$" } } },
+          "else": { "properties": { "env": { "type": "null" } } }
+        }
+      ]
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default", "allowed"],
+      "properties": {
+        "default": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/nonEmptyString" }
+          ]
+        },
+        "allowed": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "notes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "workflows", "billing", "quota", "scopes", "setup_url"],
+      "properties": {
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "workflows": { "$ref": "#/$defs/stringArray" },
+        "billing": { "$ref": "#/$defs/nonEmptyString" },
+        "quota": { "$ref": "#/$defs/nonEmptyString" },
+        "scopes": { "$ref": "#/$defs/stringArray" },
+        "setup_url": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "format": "uri", "pattern": "^https://" }
+          ]
+        }
+      }
+    },
+    "doctor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "last_checked": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "format": "date-time" }
+          ]
+        },
+        "status": {
+          "enum": ["ok", "unauthorized", "unconfigured", "unchecked"]
+        },
+        "detail": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "monthly_budget", "approval_threshold"],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "monthly_budget": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "minimum": 0 }
+          ]
+        },
+        "approval_threshold": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "minimum": 0 }
+          ]
+        }
+      }
+    }
+  }
+}
