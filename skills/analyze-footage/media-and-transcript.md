@@ -34,7 +34,7 @@ ffmpeg -hide_banner -nostdin -y -i "$SOURCE" \
 ### 層 1: macOS SpeechAnalyzer（Mac 既定）
 
 - 使用条件は `sw_vers -productVersion` のメジャーが 26 以上で、`swiftc` を呼び出せること。`node bin/transcribe-sa.mjs --check` で判定し、`available:false` ならその `reason` を報告して層 2 へ進む。
-- ヘルパーは [bin/speechanalyzer-helper.swift](bin/speechanalyzer-helper.swift) に置く。internal `tasks/2026-07-18-stt-3way-comparison/artifacts/speechanalyzer-helper.swift` から実証済みソースを取り込んだものである。初回使用時に `swiftc -O` で自動ビルドし、バイナリはコミットしない（[.gitignore](.gitignore) 参照）。ネットワークから新しいツールを導入せず、既存の Command Line Tools だけを使う。
+- ヘルパーは [bin/speechanalyzer-helper.swift](bin/speechanalyzer-helper.swift) に置く。非公開の内部記録で 3 方式比較の実測検証を済ませたソースを取り込んだものである。初回使用時に `swiftc -O` で自動ビルドし、バイナリはコミットしない（[.gitignore](.gitignore) 参照）。ネットワークから新しいツールを導入せず、既存の Command Line Tools だけを使う。
 - `node bin/transcribe-sa.mjs --input <mono 16kHz wav などデコード可能な音声>` で実行する。層 2 の「音声を入力形式へ変換する」で作る `whisper-input.wav` を共用してよい。
 - ヘルパーが `kAFAssistantErrorDomain Code=1101` などで失敗したら自動リトライせず、層 2 へフォールバックして理由を完了報告に書く。
 
