@@ -1,0 +1,22 @@
+[
+  {"id":"c-0001","start":0,"end":1.6,"text":"いち番目のテスト字幕0","speaker":null,"sourceRef":{"segment":0},"edited":false},
+  {"id":"c-0002","start":2,"end":3.6,"text":"にい番目のテスト字幕1","speaker":null,"sourceRef":{"segment":1},"edited":false},
+  {"id":"c-0003","start":4,"end":5.6,"text":"編集後のさん番目字幕","speaker":null,"sourceRef":{"segment":2},"edited":true},
+  {"id":"c-0004","start":6,"end":7.6,"text":"よん番目のテスト字幕3","speaker":null,"sourceRef":{"segment":3},"edited":false},
+  {"id":"c-0005","start":8,"end":9.6,"text":"ごお番目のテスト字幕4","speaker":null,"sourceRef":{"segment":4},"edited":false},
+  {"id":"c-0006","start":10,"end":11.6,"text":"ろく番目のテスト字幕5","speaker":null,"sourceRef":{"segment":5},"edited":false},
+  {"id":"c-0007","start":12,"end":13.6,"text":"なな番目のテスト字幕6","speaker":null,"sourceRef":{"segment":6},"edited":false},
+  {"id":"c-0008","start":14,"end":15.6,"text":"はち番目のテスト字幕7","speaker":null,"sourceRef":{"segment":7},"edited":false},
+  {"id":"c-0009","start":16,"end":17.6,"text":"きゅう番目のテスト字幕8","speaker":null,"sourceRef":{"segment":8},"edited":false},
+  {"id":"c-0010","start":18,"end":19.6,"text":"じゅう番目のテスト字幕9","speaker":null,"sourceRef":{"segment":9},"edited":false},
+  {"id":"c-0011","start":20,"end":21.6,"text":"いち番目のテスト字幕10","speaker":null,"sourceRef":{"segment":10},"edited":false},
+  {"id":"c-0012","start":22,"end":23.6,"text":"にい番目のテスト字幕11","speaker":null,"sourceRef":{"segment":11},"edited":false},
+  {"id":"c-0013","start":24,"end":25.6,"text":"さん番目のテスト字幕12","speaker":null,"sourceRef":{"segment":12},"edited":false},
+  {"id":"c-0014","start":26,"end":27.6,"text":"よん番目のテスト字幕13","speaker":null,"sourceRef":{"segment":13},"edited":false},
+  {"id":"c-0015","start":28,"end":29.6,"text":"ごお番目のテスト字幕14","speaker":null,"sourceRef":{"segment":14},"edited":false},
+  {"id":"c-0016","start":30,"end":31.6,"text":"ろく番目のテスト字幕15","speaker":null,"sourceRef":{"segment":15},"edited":false},
+  {"id":"c-0017","start":32,"end":33.6,"text":"なな番目のテスト字幕16","speaker":null,"sourceRef":{"segment":16},"edited":false},
+  {"id":"c-0018","start":34,"end":35.6,"text":"はち番目のテスト字幕17","speaker":null,"sourceRef":{"segment":17},"edited":false},
+  {"id":"c-0019","start":36,"end":37.6,"text":"きゅう番目のテスト字幕18","speaker":null,"sourceRef":{"segment":18},"edited":false},
+  {"id":"c-0020","start":38,"end":39.6,"text":"じゅう番目のテスト字幕19","speaker":null,"sourceRef":{"segment":19},"edited":false}
+]

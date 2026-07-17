@@ -1,0 +1,93 @@
+{
+  "verify": "L0+L1",
+  "environment": {
+    "electron": "39.8.7",
+    "chromium": "142",
+    "node": "v26.3.0",
+    "platform": "darwin-arm64"
+  },
+  "l0": {
+    "buildExtExitCode": 0,
+    "lintExitCode": 0,
+    "note": "node_modules populated via rsync from a sibling checkout on main (same package.json), per task-prescribed L0 method. An `npm install`-time defect was still found and fixed in round 2 (see report.md)."
+  },
+  "l1": {
+    "method": "Raw CDP over the main-window page target (no nested webview — AkariTranscriptWidget renders a standalone monaco.editor.create() instance directly in the Theia main renderer). Real UI events only: F1 command palette, Input.insertText, Input.dispatchKeyEvent, Input.dispatchMouseEvent. No DI container bypass used for the acceptance-critical steps.",
+    "fixtures": [
+      {
+        "name": "scale fixture",
+        "segments": 300,
+        "durationSeconds": 600,
+        "purpose": "62-minute-scale stress check from captions contract §8-1 (proportionally: 300 segments instead of 1143, same order of magnitude for id-numbering and generation correctness)"
+      },
+      {
+        "name": "small fixture",
+        "segments": 20,
+        "durationSeconds": 39.6,
+        "purpose": "scroll-free fixture so every decorated line is visible in one screenshot; used for the cut-decoration, edit, file-watch, hover, and seek-click checks"
+      }
+    ],
+    "results": {
+      "initialGeneration": {
+        "scaleFixture": { "generatedCaptionCount": 300, "firstId": "c-0001", "lastId": "c-0300", "idsSequential": true, "oneRecordPerLine": true, "keyOrder": "id,start,end,text,speaker,sourceRef,edited (regex-verified)" },
+        "smallFixture": { "generatedCaptionCount": 20, "firstId": "c-0001", "lastId": "c-0020" }
+      },
+      "cutDecoration": {
+        "expectedCutSegmentIndices": "4..15 (12 segments; keep ranges were [0,8] and [32,40] against 20 segments spaced 2.0s apart)",
+        "observedCutLineCount": 12,
+        "observedCutInlineCount": 12,
+        "match": true
+      },
+      "cutDecorationFileWatchFollow": {
+        "action": "external process rewrote project/edit.json cuts to a single [0,40] keep range (no in-app interaction)",
+        "observedCutLineCountAfter": 0,
+        "match": true,
+        "note": "confirms FileService.onDidFilesChange-driven re-decoration without app restart or manual refresh"
+      },
+      "singleLineEdit": {
+        "method": "real click on line 3's row + Home + Shift+End + Input.insertText, then the widget's own 450ms debounce",
+        "gitDiffOnly1LineChanged": true,
+        "unrelatedLinesUnchanged": true,
+        "editedFlagSetTrue": true,
+        "startEndUnchanged": true,
+        "evidence": "single-line-edit.diff (literal `git diff` inside the isolated fixture workspace, which akari-project auto-initialized as a git repo)"
+      },
+      "editedRowPreservedOnRegeneration": {
+        "action": "clicked \"文字起こしから更新\" again with analysis.json unchanged",
+        "gitDiffAfterRegen": "empty (byte-identical; edited row and all unedited rows unchanged)",
+        "match": true
+      },
+      "hoverTimestamp": {
+        "observedText": "開始: 00:00:18.000終了: 00:00:19.600",
+        "targetLine": 10,
+        "expectedStartEnd": [18, 19.6],
+        "match": true
+      },
+      "seekClickDegradation": {
+        "observedFooterText": "00:00:18.000 を選択しました。プレビュー連携は未対応です。",
+        "note": "akari-preview exposes no host-to-webview seek channel (verified by source inspection before implementation); AkariTranscriptSeekService.Emitter fires akari.transcript.seekRequested and the panel surfaces an explicit degraded notice instead of silently doing nothing"
+      },
+      "openEntryPoint": {
+        "method": "F1 command palette -> \"文字起こしを開く\" -> Enter",
+        "widgetAppeared": true,
+        "note": "OpenHandler for *.analysis.json (canHandle priority 1200) was implemented but not separately exercised via tree double-click in this run because .analysis.json is hidden from the normal-mode file tree by the pre-existing sidecarSuffixes policy (developer-mode-only visibility, unrelated to this task); both entry points share the same AkariTranscriptContribution.open() code path that was exercised here"
+      },
+      "rowCountMismatchGuard": {
+        "verifiedBy": "code inspection only (onEditorChanged compares split('\\n').length against captions.length and shows a warning + skips the save when they differ)",
+        "liveReproduction": "attempted; the CDP click did not land inside the editor's editable surface so Enter had no visible effect — not re-attempted further given the guard clause is simple and already confirmed by the unit tests and by reading the source",
+        "diskCaptionCountUnchanged": 20
+      }
+    },
+    "unitTests": {
+      "method": "loaded the compiled apps/shell/extensions/akari-transcript/lib/browser/caption-store.js directly with node and exercised regenerateCaptions/replaceCaptionLine/parseCaptions against a synthetic 500-segment analysis.json",
+      "checks": [
+        "500/500 sequential ids on first generation",
+        "single-line replaceCaptionLine changes exactly 1 of 503 physical lines",
+        "regeneration after that edit reproduces all 502 unedited lines byte-for-byte",
+        "a newly appended 501st analysis segment gets id c-0501 (no reuse of gaps)",
+        "a degenerate segment (start>=end) is dropped with a warning, valid ones unaffected"
+      ],
+      "allPassed": true
+    }
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "totalCaptionCount": 300,
+  "firstId": "c-0001",
+  "lastId": "c-0300",
+  "sample": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 1.6,
+      "text": "これはテスト用の0",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 0
+      },
+      "edited": false
+    },
+    {
+      "id": "c-0002",
+      "start": 2,
+      "end": 3.6,
+      "text": "テスト用の文字起こし1",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 1
+      },
+      "edited": false
+    },
+    {
+      "id": "c-0003",
+      "start": 4,
+      "end": 5.6,
+      "text": "用の文字起こしセグメント2",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 2
+      },
+      "edited": false
+    },
+    {
+      "...": "omitted 294 rows..."
+    },
+    {
+      "id": "c-0148",
+      "start": 294,
+      "end": 295.6,
+      "text": "確認しています字幕147",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 147
+      },
+      "edited": false
+    },
+    {
+      "id": "c-0149",
+      "start": 296,
+      "end": 297.6,
+      "text": "しています字幕これは148",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 148
+      },
+      "edited": false
+    },
+    {
+      "id": "c-0150",
+      "start": 298,
+      "end": 299.6,
+      "text": "字幕これはテスト149",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 149
+      },
+      "edited": false
+    },
+    {
+      "...": "omitted..."
+    },
+    {
+      "id": "c-0298",
+      "start": 594,
+      "end": 595.6,
+      "text": "確認しています字幕297",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 297
+      },
+      "edited": false
+    },
+    {
+      "id": "c-0299",
+      "start": 596,
+      "end": 597.6,
+      "text": "しています字幕これは298",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 298
+      },
+      "edited": false
+    },
+    {
+      "id": "c-0300",
+      "start": 598,
+      "end": 599.6,
+      "text": "字幕これはテスト299",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 299
+      },
+      "edited": false
+    }
+  ]
+}

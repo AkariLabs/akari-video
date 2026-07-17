@@ -1,0 +1,13 @@
+diff --git a/project/captions.json b/project/captions.json
+index 8db7398..a67287e 100644
+--- a/project/captions.json
++++ b/project/captions.json
+@@ -1,7 +1,7 @@
+ [
+   {"id":"c-0001","start":0,"end":1.6,"text":"いち番目のテスト字幕0","speaker":null,"sourceRef":{"segment":0},"edited":false},
+   {"id":"c-0002","start":2,"end":3.6,"text":"にい番目のテスト字幕1","speaker":null,"sourceRef":{"segment":1},"edited":false},
+-  {"id":"c-0003","start":4,"end":5.6,"text":"さん番目のテスト字幕2","speaker":null,"sourceRef":{"segment":2},"edited":false},
++  {"id":"c-0003","start":4,"end":5.6,"text":"編集後のさん番目字幕","speaker":null,"sourceRef":{"segment":2},"edited":true},
+   {"id":"c-0004","start":6,"end":7.6,"text":"よん番目のテスト字幕3","speaker":null,"sourceRef":{"segment":3},"edited":false},
+   {"id":"c-0005","start":8,"end":9.6,"text":"ごお番目のテスト字幕4","speaker":null,"sourceRef":{"segment":4},"edited":false},
+   {"id":"c-0006","start":10,"end":11.6,"text":"ろく番目のテスト字幕5","speaker":null,"sourceRef":{"segment":5},"edited":false},

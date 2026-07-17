@@ -1,0 +1,28 @@
+{
+  "name": "akari-transcript",
+  "version": "0.0.1",
+  "description": "AKARI Video transcript editor backed by project/captions.json.",
+  "private": true,
+  "main": "lib/browser/akari-transcript-frontend-module.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/akari-transcript-frontend-module"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.1",
+    "@theia/filesystem": "1.73.1",
+    "@theia/workspace": "1.73.1",
+    "@theia/editor": "1.73.1",
+    "@theia/monaco": "1.73.1",
+    "@theia/monaco-editor-core": "1.108.201"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}
