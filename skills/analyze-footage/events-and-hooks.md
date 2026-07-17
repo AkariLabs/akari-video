@@ -16,6 +16,8 @@ event は「検出できそうな箇所」ではなく、後工程がカット�
 
 `trouble.note` は「何が起きたか」と根拠を具体的に書く。`chapter.title` は transcript の内容に沿った短い名詞句または行動句にし、存在しない発言を引用しない。`filler` と `hook` に Schema 外の `note` を足さない。
 
+backend が whisper.cpp 由来の transcript は正規化でフィラーが脱落するため、filler 検出の再現率が低い。SpeechAnalyzer / Scribe 由来の transcript がある場合はそちらを優先して filler を判定し、whisper.cpp のみの場合は再現率の限界を完了報告に明記する。
+
 ## highlight（重要発言）の判定
 
 契約根拠: [M5 契約の追記（2026-07-14）](../../docs/contract-2026-07-13-m5-analysis-report.md)。hook がショート切り出し向けの「見せ場」であるのに対し、highlight は**編集判断全般の根拠になる重要発言**の汎用枠である。同一区間が両方に該当する場合は両方登録してよい（目的が異なる）。

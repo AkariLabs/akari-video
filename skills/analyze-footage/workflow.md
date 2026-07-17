@@ -59,7 +59,7 @@ JSON 内の `source`、`keyframes[].path`、`tracks.person_matte` の相対パ�
 
 1. ffprobe の結果を控える。
 2. 720p プロキシを生成し、映像をデコードできることを確認する。
-3. 音声があればローカル whisper.cpp を探索して文字起こしする（可能なら word タイムスタンプ込み）。使えなければ明示的に劣化する。
+3. 音声があれば [media-and-transcript.md](media-and-transcript.md) の 3 層手順（Mac 既定 = SpeechAnalyzer / 共通フォールバック = whisper.cpp / クラウド = 決定カード経由オプトイン）で文字起こしする（可能なら word タイムスタンプ込み）。いずれも使えなければ明示的に劣化する。
 4. transcript から highlight 候補（重要発言）を下書きする（transcript が空ならスキップ）。
 5. プロキシから scene 候補・interval 候補・transcript 駆動候補（highlight 下書きの時刻）を系統別に抽出する。
 6. 候補の source 時刻を回収して統合し、Read で視認する。採用 keyframe に `origin` を記録する。
@@ -76,6 +76,7 @@ JSON 内の `source`、`keyframes[].path`、`tracks.person_matte` の相対パ�
 - source と確定した `analysis.json` のパス
 - transcript、keyframe、event 各件数（keyframe は origin 系統別、event は type 別の内訳付き）
 - `words` を省略した segment 数と理由
+- 文字起こしに使用した backend（speechanalyzer/whisper-cpp/scribe/groq）と選定理由・フォールバックした場合はその理由（[media-and-transcript.md#provenancebackendの記録](media-and-transcript.md#provenancebackend-の記録)）
 - 使用した ffmpeg、whisper.cpp 実行ファイル、モデルのパス
 - `transcript: []` へ劣化した場合の理由と探索済み場所
 - Read できなかった画像、未実施の Schema 検証、未確認の音声・人物情報

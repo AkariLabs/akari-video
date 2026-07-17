@@ -172,3 +172,4 @@ Schema 検証、意味制約、参照ファイル存在確認を通した後だ�
 - 未生成の人物マットを空文字にする。未生成は `null` である。
 - box を pixel 座標で保存する。
 - Schema が検出しない `end <= start` を残す。
+- backend（使用した文字起こしエンジン）を transcript segment に追加する — analysis.schema.json は `additionalProperties: false` でこのフィールドを許可しない。完了報告に書く（[media-and-transcript.md#provenancebackendの記録](media-and-transcript.md#provenancebackend-の記録)）。

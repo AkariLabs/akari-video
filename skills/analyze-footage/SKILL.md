@@ -9,8 +9,8 @@ description: 動画素材 1 本から 720p プロキシ、ローカル whisper.c
 
 - 1 回の実行で扱う素材は 1 本に限定し、全時刻を未カット素材の source 秒で記録する。
 - 原本を変更しない。成果物は `<source-dir>/analysis/<source-stem>/` に隔離し、同名素材との衝突を避ける。
-- プロキシは ffmpeg で 720p 枠に収め、文字起こしはローカル whisper.cpp だけを使う。外部 API を直接呼ばない。
-- whisper.cpp の実行ファイルまたはモデルがなければ文字を推測せず、`transcript: []` に劣化して理由を報告する。
+- プロキシは ffmpeg で 720p 枠に収め、文字起こしは 3 層で行う: Mac 既定 = macOS SpeechAnalyzer（26+・swiftc 可）/ 共通フォールバック = whisper.cpp（従来どおり）/ クラウド = `.akari/connections.json` に doctor `ok` で登録済みの ElevenLabs Scribe・Groq を決定カードでの明示承認後にのみ使う。承認なしに外部 API へ音声を送信しない。キーは credentials.env 経由のみで扱い、値をチャット・成果物・ログに出さない。
+- いずれのバックエンドも使えなければ文字を推測せず、`transcript: []` に劣化して理由を報告する。
 - シーン検出と一定間隔の両方でキーフレーム候補を作り、採用する画像は Read で実際に視認してから `note` を書く。
 - `filler | trouble | chapter | highlight | hook` 以外の event を作らない。hook は 5 軸すべてを 1〜5 の整数で採点する。
 - [analysis.schema.json](references/analysis.schema.json) にない補助フィールドを追加しない。Schema 検証と意味検証を通した JSON だけを確定版にする。
