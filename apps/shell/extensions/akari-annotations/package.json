@@ -1,0 +1,24 @@
+{
+  "name": "akari-annotations",
+  "version": "0.0.1",
+  "description": "AKARI Video — review.json annotations (QA loop) + read-only timeline strip.",
+  "private": true,
+  "main": "lib/browser/akari-annotations-frontend-module.js",
+  "theiaExtensions": [
+    { "frontend": "lib/browser/akari-annotations-frontend-module" },
+    { "backend": "lib/node/akari-annotations-backend-module" }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.1",
+    "@theia/filesystem": "1.73.1",
+    "@theia/workspace": "1.73.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}
