@@ -1,0 +1,15 @@
+{
+  "autoRestored": true,
+  "footerText": "行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。",
+  "footerHeight": 26,
+  "overflow": 0,
+  "footerVisible": true,
+  "noticeDisplay": "none",
+  "gridRows": [
+    "1",
+    "2",
+    "3",
+    "4"
+  ],
+  "captions": 6
+}

@@ -1,0 +1,199 @@
+{
+  "label": "fx1-owner-copy",
+  "openCommand": true,
+  "ready": true,
+  "after_fix_default": {
+    "footerText": "行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。",
+    "footerHeight": 26,
+    "footerBottom": 646,
+    "widgetBottom": 646,
+    "overflow": 0,
+    "footerVisible": true,
+    "noticeDisplay": "none",
+    "gridRows": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "captions": 6
+  },
+  "before_fix_reproduction": {
+    "footerText": "行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。",
+    "footerHeight": 26,
+    "footerBottom": 672,
+    "widgetBottom": 646,
+    "overflow": 26,
+    "footerVisible": false,
+    "noticeDisplay": "none",
+    "gridRows": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "captions": 6
+  },
+  "after_fix_restored": {
+    "footerText": "行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。",
+    "footerHeight": 26,
+    "footerBottom": 646,
+    "widgetBottom": 646,
+    "overflow": 0,
+    "footerVisible": true,
+    "noticeDisplay": "none",
+    "gridRows": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "captions": 6
+  },
+  "seek_no_preview": {
+    "text": "00:00:13.880 を選択しました。プレビューを開くとここからジャンプできます。",
+    "footerHeight": 26,
+    "overflow": 0,
+    "visible": true
+  },
+  "seek_matched": {
+    "text": "00:00:08.280 にプレビューをシークしました。",
+    "footerHeight": 26,
+    "overflow": 0,
+    "visible": true
+  },
+  "seek_mismatched": {
+    "text": "00:00:22.640 を選択しました。別の素材のプレビューが開いています。",
+    "footerHeight": 26,
+    "overflow": 0,
+    "visible": true
+  },
+  "notice_visible": {
+    "noticeDisplay": "block",
+    "noticeVisible": true,
+    "footerVisible": true,
+    "editorVisible": true,
+    "footerOverflow": 0,
+    "footerText": "00:00:22.640 を選択しました。別の素材のプレビューが開いています。"
+  },
+  "after_notice_hidden": {
+    "footerText": "00:00:22.640 を選択しました。別の素材のプレビューが開いています。",
+    "footerHeight": 26,
+    "footerBottom": 646,
+    "widgetBottom": 646,
+    "overflow": 0,
+    "footerVisible": true,
+    "noticeDisplay": "none",
+    "gridRows": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "captions": 6
+  },
+  "resize": [
+    {
+      "viewport": "760x620",
+      "footerVisible": true,
+      "overflow": 0,
+      "footerHeight": 26,
+      "noticeDisplay": "none"
+    },
+    {
+      "viewport": "1180x900",
+      "footerVisible": true,
+      "overflow": 0,
+      "footerHeight": 26,
+      "noticeDisplay": "none"
+    },
+    {
+      "viewport": "900x1000",
+      "footerVisible": true,
+      "overflow": 0,
+      "footerHeight": 26,
+      "noticeDisplay": "none"
+    }
+  ],
+  "after_resize_cleared": {
+    "footerText": "00:00:22.640 を選択しました。別の素材のプレビューが開いています。",
+    "footerHeight": 26,
+    "footerBottom": 646,
+    "widgetBottom": 646,
+    "overflow": 0,
+    "footerVisible": true,
+    "noticeDisplay": "none",
+    "gridRows": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "captions": 6
+  },
+  "transcript_with_overview_open": {
+    "footerText": "00:00:22.640 を選択しました。別の素材のプレビューが開いています。",
+    "footerHeight": 26,
+    "footerBottom": 646,
+    "widgetBottom": 646,
+    "overflow": 0,
+    "footerVisible": true,
+    "noticeDisplay": "none",
+    "gridRows": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "captions": 6
+  },
+  "annotations_strip_seek": {
+    "found": true,
+    "stripHeight": 66,
+    "footerText": "00:00:10.403 を選択しました。プレビューを開くとここからジャンプできます。",
+    "footerHeight": 26,
+    "footerVisible": true,
+    "footerOverflow": -382
+  },
+  "transcript_after_overview": {
+    "footerText": "00:00:22.640 を選択しました。別の素材のプレビューが開いています。",
+    "footerHeight": 26,
+    "footerBottom": 646,
+    "widgetBottom": 646,
+    "overflow": 0,
+    "footerVisible": true,
+    "noticeDisplay": "none",
+    "gridRows": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "captions": 6
+  },
+  "decorations": {
+    "editor": true,
+    "keepRanges": [],
+    "cutDecoratedLines": []
+  },
+  "edit_protection_footer": {
+    "footerText": "この行の変更を保存しました。",
+    "footerVisible": true
+  },
+  "edit_protection": {
+    "changedLines": [
+      "c-0003"
+    ],
+    "newlyEdited": [
+      "c-0003"
+    ],
+    "unchangedEditedFlags": [
+      "c-0001",
+      "c-0002",
+      "c-0004",
+      "c-0005",
+      "c-0006"
+    ],
+    "line3Text": "★いい感じにかけてます"
+  }
+}

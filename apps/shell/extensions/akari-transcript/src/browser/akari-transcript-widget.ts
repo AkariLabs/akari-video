@@ -82,6 +82,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             alignItems: 'center',
             display: 'flex',
             gap: '10px',
+            gridRow: '1',
             minHeight: '38px',
             padding: '6px 10px',
             borderBottom: '1px solid var(--theia-widget-border)',
@@ -98,6 +99,7 @@ export class AkariTranscriptWidget extends BaseWidget {
 
         Object.assign(this.notice.style, {
             display: 'none',
+            gridRow: '2',
             padding: '7px 11px',
             color: 'var(--theia-warningForeground)',
             background: 'var(--theia-inputValidation-warningBackground)',
@@ -106,6 +108,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             lineHeight: '1.4'
         });
         Object.assign(this.editorContainer.style, {
+            gridRow: '3',
             minHeight: '0',
             overflow: 'hidden',
             position: 'relative'
@@ -132,6 +135,7 @@ export class AkariTranscriptWidget extends BaseWidget {
         this.emptyGuide.textContent = '「文字起こしから字幕を作成」を押すと編集を始められます';
         this.editorContainer.append(this.editorHost, this.emptyGuide);
         Object.assign(this.footer.style, {
+            gridRow: '4',
             height: '26px',
             minHeight: '26px',
             maxHeight: '26px',
