@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { CommandRegistry } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { ApplicationShell, FrontendApplicationContribution, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
@@ -53,6 +54,17 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewEditUri?: URI;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewStreamId?: string;
+    akariPreviewSeekable?: boolean;
+}
+
+// akari-transcript の AKARI_TRANSCRIPT_SEEK_REQUESTED.id（akari-transcript-commands.ts）とミラー。
+// cross-package import を避けるため文字列 ID のみで CommandRegistry.registerHandler に後付け登録する。
+const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
+
+interface TranscriptSeekRequest {
+    videoUri?: string;
+    time?: number;
+    captionId?: string;
 }
 
 const EMPTY_SUMMARY: EditSummary = {
@@ -78,6 +90,7 @@ const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビ
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
     readonly id = 'akari-preview-open-handler';
     protected readonly recentWrites = new Map<string, number>();
+    protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected overlayWriteTail = Promise.resolve();
 
     @inject(WidgetManager)
@@ -95,6 +108,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     @inject(AkariPreviewService)
     protected readonly previewService: AkariPreviewService;
 
+    @inject(CommandRegistry)
+    protected readonly commandRegistry: CommandRegistry;
+
     onStart(): void {
         this.widgetManager.onDidCreateWidget(event => {
             if (event.factoryId !== WebviewWidget.FACTORY_ID || !(event.widget instanceof WebviewWidget)) {
@@ -105,6 +121,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 void this.configurePreview(event.widget, new URI(viewId));
             }
         });
+        this.registerSeekHandler();
+    }
+
+    protected registerSeekHandler(): void {
+        this.commandRegistry.registerHandler(TRANSCRIPT_SEEK_COMMAND_ID, {
+            isEnabled: (request?: TranscriptSeekRequest) => !!this.findSeekableWidget(request?.videoUri),
+            execute: (request?: TranscriptSeekRequest) => {
+                const widget = this.findSeekableWidget(request?.videoUri);
+                if (!widget || !Number.isFinite(request?.time)) {
+                    return false;
+                }
+                widget.sendMessage({ type: 'akari-preview-seek', time: request!.time });
+                return true;
+            }
+        });
+    }
+
+    protected findSeekableWidget(videoUri: string | undefined): PreviewWidgetMarker | undefined {
+        if (!videoUri) {
+            return undefined;
+        }
+        const widget = this.openPreviews.get(videoUri);
+        return widget && widget.isAttached && widget.akariPreviewSeekable ? widget : undefined;
     }
 
     canHandle(uri: URI): number {
@@ -136,6 +175,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected async doConfigurePreview(widget: PreviewWidgetMarker, videoUri: URI): Promise<void> {
+        this.openPreviews.set(videoUri.toString(), widget);
         await this.refreshPreview(widget, videoUri);
 
         if (widget.akariPreviewConfigured) {
@@ -170,6 +210,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         widget.disposed.connect(() => {
             disposables.dispose();
+            this.openPreviews.delete(videoUri.toString());
             void this.disposeVideoStream(widget);
         });
     }
@@ -216,10 +257,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             allowScripts: true,
             allowForms: true
         });
+        widget.akariPreviewSeekable = true;
         widget.setHTML(this.prepareHtml(videoUri, videoStream.url, model, assets));
     }
 
     protected showMessageCard(widget: PreviewWidgetMarker, videoUri: URI, message: string): void {
+        widget.akariPreviewSeekable = false;
         void this.disposeVideoStream(widget);
         widget.akariPreviewEditUri = undefined;
         widget.akariPreviewTrackedResources = new Set();
@@ -606,6 +649,13 @@ body { display: grid; place-items: center; padding: 32px; }
             video.addEventListener('seeked', tick);
             video.addEventListener('timeupdate', tick);
             video.addEventListener('error', showPlaybackError);
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message && message.type === 'akari-preview-seek' && Number.isFinite(message.time)) {
+                    video.currentTime = Math.max(0, message.time);
+                    tick();
+                }
+            });
 
             const renderInspector = () => {
                 const selected = stage.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]');

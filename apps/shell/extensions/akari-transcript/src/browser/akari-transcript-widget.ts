@@ -110,7 +110,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             color: 'var(--theia-descriptionForeground)',
             fontSize: '11px'
         });
-        this.footer.textContent = '行をクリックするとプレビュー位置を選択します。プレビュー連携は未対応です。';
+        this.footer.textContent = '行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。';
         this.node.append(this.toolbar, this.notice, this.editorHost, this.footer);
 
         const style = document.createElement('style');
@@ -370,12 +370,14 @@ export class AkariTranscriptWidget extends BaseWidget {
         if (!caption) {
             return;
         }
-        await this.commands.executeCommand(AKARI_TRANSCRIPT_SEEK_REQUESTED.id, {
+        const handled = await this.commands.executeCommand<boolean>(AKARI_TRANSCRIPT_SEEK_REQUESTED.id, {
             videoUri: this.videoUri,
             time: caption.start,
             captionId: caption.id
         });
-        this.footer.textContent = `${this.formatTimestamp(caption.start)} を選択しました。プレビュー連携は未対応です。`;
+        this.footer.textContent = handled
+            ? `${this.formatTimestamp(caption.start)} にプレビューをシークしました。`
+            : `${this.formatTimestamp(caption.start)} を選択しました。プレビューを開くとここからジャンプできます。`;
     }
 
     protected async checkOverlayCoverage(): Promise<void> {
