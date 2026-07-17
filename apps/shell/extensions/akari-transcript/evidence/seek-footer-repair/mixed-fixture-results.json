@@ -1,0 +1,119 @@
+{
+  "f26_footerTimeline": [
+    {
+      "elapsedMs": 4,
+      "rect": {
+        "top": 590.09375,
+        "bottom": 616.09375,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 183,
+      "rect": {
+        "top": 640.09375,
+        "bottom": 666.09375,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 390,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 616,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 798,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 1019,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 1183,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 1336,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 1491,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 1644,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 1804,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    },
+    {
+      "elapsedMs": 1957,
+      "rect": {
+        "top": 646,
+        "bottom": 672,
+        "height": 26
+      }
+    }
+  ],
+  "f26_heightRange": {
+    "min": 26,
+    "max": 26
+  },
+  "f26_pinnedFromStart": true,
+  "reopened": {
+    "count": 1,
+    "videoUri": "<PROJECT_ROOT>/Akari%20Video%20Test/test_1%E3%81%AE%E3%82%B3%E3%83%94%E3%83%BC2/assets/IMG_4606.MOV",
+    "captionsCount": 6
+  },
+  "rootUri": "<PROJECT_ROOT>/Akari%20Video%20Test/test_1%E3%81%AE%E3%82%B3%E3%83%94%E3%83%BC2",
+  "openMatch": {
+    "cleanUri": "<PROJECT_ROOT>/Akari%20Video%20Test/test_1%E3%81%AE%E3%82%B3%E3%83%94%E3%83%BC2/assets/IMG_4606.MOV",
+    "widgetId": "plugin-webview:akari-preview-5bkpjl",
+    "seekable": true
+  },
+  "footer_matched": "00:00:04.000 にプレビューをシークしました。",
+  "footer_mismatched": "00:00:08.000 を選択しました。別の素材のプレビューが開いています。",
+  "footer_noPreview": "00:00:06.000 を選択しました。プレビューを開くとここからジャンプできます。"
+}

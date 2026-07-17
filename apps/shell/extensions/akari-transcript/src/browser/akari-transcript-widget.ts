@@ -132,12 +132,17 @@ export class AkariTranscriptWidget extends BaseWidget {
         this.emptyGuide.textContent = '「文字起こしから字幕を作成」を押すと編集を始められます';
         this.editorContainer.append(this.editorHost, this.emptyGuide);
         Object.assign(this.footer.style, {
+            height: '26px',
             minHeight: '26px',
+            maxHeight: '26px',
             padding: '5px 10px',
             boxSizing: 'border-box',
             borderTop: '1px solid var(--theia-widget-border)',
             color: 'var(--theia-descriptionForeground)',
-            fontSize: '11px'
+            fontSize: '11px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
         });
         this.footer.textContent = '行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。';
         this.node.append(this.toolbar, this.notice, this.editorContainer, this.footer);
@@ -175,7 +180,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             this.analysisSource = await this.readText(analysisUri);
             const analysis = JSON.parse(this.analysisSource);
             this.videoUri = typeof analysis?.source === 'string'
-                ? analysisUri.parent.resolve(analysis.source).toString()
+                ? analysisUri.parent.resolve(analysis.source).normalizePath().toString()
                 : '';
         } catch (error) {
             this.showNotice(`文字起こしを読み取れません: ${this.errorMessage(error)}`);
@@ -399,14 +404,16 @@ export class AkariTranscriptWidget extends BaseWidget {
         if (!caption) {
             return;
         }
-        const handled = await this.commands.executeCommand<boolean>(AKARI_TRANSCRIPT_SEEK_REQUESTED.id, {
-            videoUri: this.videoUri,
-            time: caption.start,
-            captionId: caption.id
-        });
-        this.footer.textContent = handled
-            ? `${this.formatTimestamp(caption.start)} にプレビューをシークしました。`
-            : `${this.formatTimestamp(caption.start)} を選択しました。プレビューを開くとここからジャンプできます。`;
+        const result = await this.commands.executeCommand<'seeked' | 'mismatched-asset' | 'no-preview'>(
+            AKARI_TRANSCRIPT_SEEK_REQUESTED.id,
+            { videoUri: this.videoUri, time: caption.start, captionId: caption.id }
+        );
+        const timestamp = this.formatTimestamp(caption.start);
+        this.footer.textContent = result === 'seeked'
+            ? `${timestamp} にプレビューをシークしました。`
+            : result === 'mismatched-asset'
+                ? `${timestamp} を選択しました。別の素材のプレビューが開いています。`
+                : `${timestamp} を選択しました。プレビューを開くとここからジャンプできます。`;
     }
 
     protected async checkOverlayCoverage(): Promise<void> {

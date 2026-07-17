@@ -1,0 +1,19 @@
+{
+  "opened": {
+    "videoUri": "<PROJECT_ROOT>/Akari%20Video%20Clean/project_2%E3%81%AE%E3%82%B3%E3%83%94%E3%83%BC/assets/IMG_9001.MOV",
+    "captionsCount": 4,
+    "hasDotDot": false
+  },
+  "decorations": {
+    "line1": [
+      null,
+      null,
+      "akari-transcript-cut-line"
+    ],
+    "line2": [
+      null
+    ]
+  },
+  "footer_matched": "00:00:03.000 にプレビューをシークしました。",
+  "editedLine": "[\n  {\"id\":\"c-0001\",\"start\":0,\"end\":2.0,\"text\":\"最初のセグメントです。\",\"speaker\":null,\"sourceRef\":{\"segment\":0},\"edited\":false},\n  {\"id\":\"c-0002\",\"start\":3,\"end\":5.0,\"text\":\"次のセグメントです。\",\"speaker\":null,\"sourceRef\":{\"segment\":1},\"edited\":false},\n  {\"id\":\"c-0003\",\"start\":6,\"end\":8.0,\"text\":\"三つ目のセグメントを編集しました。\",\"speaker\":null,\"sourceRef\":{\"segment\":2},\"edited\":true},\n  {\"id\":\"c-0004\",\"start\":9,\"end\":11.0,\"text\":\"四つ目のセグメントです。\",\"speaker\":null,\"sourceRef\":{\"segment\":3},\"edited\":false}\n]\n"
+}

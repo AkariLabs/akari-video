@@ -69,7 +69,7 @@ export class AkariTranscriptContribution implements OpenHandler, CommandContribu
         commands.registerCommand(AKARI_TRANSCRIPT_SEEK_REQUESTED, {
             execute: (request: AkariTranscriptSeekRequest) => {
                 this.seekService.fire(request);
-                return false;
+                return 'no-preview';
             }
         });
     }

@@ -124,16 +124,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerSeekHandler();
     }
 
+    // 戻り値は 'seeked' | 'mismatched-asset' | 'no-preview' の3値で、'no-preview' は akari-transcript 側のフォールバックハンドラが返す。
     protected registerSeekHandler(): void {
         this.commandRegistry.registerHandler(TRANSCRIPT_SEEK_COMMAND_ID, {
-            isEnabled: (request?: TranscriptSeekRequest) => !!this.findSeekableWidget(request?.videoUri),
+            isEnabled: () => this.openPreviews.size > 0,
             execute: (request?: TranscriptSeekRequest) => {
                 const widget = this.findSeekableWidget(request?.videoUri);
-                if (!widget || !Number.isFinite(request?.time)) {
-                    return false;
+                if (widget && Number.isFinite(request?.time)) {
+                    widget.sendMessage({ type: 'akari-preview-seek', time: request!.time });
+                    return 'seeked';
                 }
-                widget.sendMessage({ type: 'akari-preview-seek', time: request!.time });
-                return true;
+                return 'mismatched-asset';
             }
         });
     }
@@ -142,7 +143,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!videoUri) {
             return undefined;
         }
-        const widget = this.openPreviews.get(videoUri);
+        const key = new URI(videoUri).normalizePath().toString();
+        const widget = this.openPreviews.get(key);
         return widget && widget.isAttached && widget.akariPreviewSeekable ? widget : undefined;
     }
 
@@ -175,7 +177,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected async doConfigurePreview(widget: PreviewWidgetMarker, videoUri: URI): Promise<void> {
-        this.openPreviews.set(videoUri.toString(), widget);
+        const seekKey = videoUri.normalizePath().toString();
+        this.openPreviews.set(seekKey, widget);
         await this.refreshPreview(widget, videoUri);
 
         if (widget.akariPreviewConfigured) {
@@ -210,7 +213,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         widget.disposed.connect(() => {
             disposables.dispose();
-            this.openPreviews.delete(videoUri.toString());
+            this.openPreviews.delete(seekKey);
             void this.disposeVideoStream(widget);
         });
     }
