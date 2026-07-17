@@ -153,6 +153,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: .55;
         border-radius: 2px;
     }
+    .akari-annotations-widget .akari-annotations-strip-caption-text {
+        position: absolute;
+        top: 26px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        font-size: 11px;
+        line-height: 1;
+        color: var(--theia-foreground);
+        pointer-events: none;
+        padding-left: 3px;
+        z-index: 1;
+        text-shadow: 0 0 2px var(--theia-editorWidget-background), 0 0 3px var(--theia-editorWidget-background);
+    }
 `;
         this.node.appendChild(style);
         this.updateTimeLabel();
@@ -286,7 +301,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         for (const caption of this.captions) {
-            this.strip.appendChild(this.stripSegment(caption.start, Math.max(caption.end, caption.start + 0.15), 28, 12, 'akari-annotations-strip-caption', caption.text));
+            const captionEnd = Math.max(caption.end, caption.start + 0.15);
+            this.strip.appendChild(this.stripSegment(caption.start, captionEnd, 26, 16, 'akari-annotations-strip-caption', caption.text));
+            this.strip.appendChild(this.captionLabel(caption.start, caption.text));
         }
         for (const annotation of this.annotations) {
             const marker = this.stripSegment(annotation.sourceT, annotation.sourceT + Math.max(duration * 0.006, 0.2), 44, 18, 'akari-annotations-strip-pin', `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`);
@@ -316,6 +333,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             pointerEvents: 'none'
         });
         return element;
+    }
+
+    protected captionLabel(start: number, text: string): HTMLDivElement {
+        const duration = this.totalDuration();
+        const label = document.createElement('div');
+        label.className = 'akari-annotations-strip-caption-text';
+        label.textContent = text;
+        label.title = text;
+        label.style.left = `${this.percent(start, duration)}%`;
+        return label;
     }
 
     protected percent(value: number, duration: number): number {
