@@ -56,6 +56,84 @@ test("valid fixture passes and writes both reports", async () => {
   });
 });
 
+test("v1 accepts multiple sources, array-order cuts, and captions src", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(
+      join(project, "captions.json"),
+      `${JSON.stringify([
+        {
+          id: "c-0001",
+          src: "s1",
+          start: 2,
+          end: 3,
+          text: "字幕A",
+          speaker: null,
+          sourceRef: null,
+          edited: false,
+        },
+      ])}\n`,
+      "utf8",
+    );
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(result.findings.every((finding) => finding.severity === "warning"));
+    assert.ok(!result.findings.some((finding) => finding.check === "cuts.order"));
+  });
+});
+
+for (const [fixture, expectedCheck] of [
+  ["v1-missing-src-reference", "cuts.src-reference"],
+  ["v1-source-sources-exclusive", "edit.sources-exclusive"],
+]) {
+  test(`${fixture} reports ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.ok(
+        result.findings.some((finding) => finding.check === expectedCheck),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+test("version 2 stops with an honest too-new message", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "version-2"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.findings.length, 1);
+    assert.equal(result.findings[0].check, "edit.version");
+    assert.match(result.findings[0].message, /新しすぎる/);
+    assert.ok(result.skipped.some((item) => item.check === "edit.validation"));
+  });
+});
+
+test("v1 rejects duplicate ids, missing src, invalid ranges, and missing source paths", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.sources[1].id = "s1";
+    edit.sources[0].path = "missing.mp4";
+    edit.cuts[0].out = edit.cuts[0].in;
+    delete edit.cuts[1].src;
+    await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`, "utf8");
+
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.ok(result.findings.some((finding) => finding.check === "sources.id"));
+    assert.ok(result.findings.some((finding) => finding.check === "cuts.range"));
+    assert.ok(result.findings.some((finding) => finding.check === "cuts.src"));
+    assert.ok(result.findings.some((finding) => finding.check === "references.files"));
+  });
+});
+
 for (const [fixture, expectedCheck] of [
   ["cuts-order", "cuts.order"],
   ["duration-max", "outputs.duration-max"],

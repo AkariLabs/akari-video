@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:edit:v1",
+  "title": "AKARI Video edit.json v0/v1",
+  "description": "単一ソースの v0 と、sources[] と cuts[].src を使うマルチソース v1 の公開契約。",
+  "oneOf": [
+    { "$ref": "#/$defs/editV0" },
+    { "$ref": "#/$defs/editV1" }
+  ],
+  "$defs": {
+    "positiveNumber": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["width", "height", "fps"],
+      "properties": {
+        "width": { "$ref": "#/$defs/positiveNumber" },
+        "height": { "$ref": "#/$defs/positiveNumber" },
+        "fps": { "$ref": "#/$defs/positiveNumber" }
+      }
+    },
+    "sourceV0": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "proxy": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "pattern": "\\S" }
+          ]
+        }
+      }
+    },
+    "sourceV1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "path", "proxy"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "proxy": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "pattern": "\\S" }
+          ]
+        }
+      }
+    },
+    "cutV0": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["in", "out"],
+      "properties": {
+        "in": { "$ref": "#/$defs/seconds" },
+        "out": { "$ref": "#/$defs/seconds" }
+      },
+      "not": { "required": ["src"] },
+      "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。"
+    },
+    "cutV1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["src", "in", "out"],
+      "properties": {
+        "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "in": { "$ref": "#/$defs/seconds" },
+        "out": { "$ref": "#/$defs/seconds" }
+      },
+      "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。"
+    },
+    "editV0": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["version", "output", "source"],
+      "properties": {
+        "version": { "const": 0 },
+        "output": { "$ref": "#/$defs/output" },
+        "source": { "$ref": "#/$defs/sourceV0" },
+        "cuts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cutV0" }
+        }
+      },
+      "not": { "required": ["sources"] }
+    },
+    "editV1": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["version", "output", "sources"],
+      "properties": {
+        "version": { "const": 1 },
+        "output": { "$ref": "#/$defs/output" },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/sourceV1" }
+        },
+        "cuts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cutV1" }
+        }
+      },
+      "not": { "required": ["source"] }
+    }
+  }
+}

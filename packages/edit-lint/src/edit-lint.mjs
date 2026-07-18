@@ -72,6 +72,21 @@ export async function lintProject(input, options = {}) {
     throw new ExecutionError(`edit.json is not valid JSON: ${messageOf(error)}`);
   }
 
+  if (isRecord(edit) && Number.isInteger(edit.version) && edit.version >= 2) {
+    addFinding(findings, {
+      severity: "error",
+      check: "edit.version",
+      message: `edit.json version ${edit.version} は新しすぎるため検証できません。このファイルは新しい形式です。スキル / アプリを更新してください`,
+      path: "edit.json#version",
+    });
+    addSkipped(
+      skipped,
+      "edit.validation",
+      "a newer edit.json version was detected; no format assumptions were made",
+    );
+    return writeResult(findings, skipped, inputs, paths, options);
+  }
+
   const analysisState = await readOptionalJson(paths.analysisPath, "analysis.json");
   if (analysisState.exists) {
     inputs.analysis_json_sha256 = sha256(analysisState.text);
@@ -84,7 +99,13 @@ export async function lintProject(input, options = {}) {
       });
     }
   } else {
-    addSkipped(skipped, "analysis.json", "analysis.json is absent; ffprobe is used for source duration");
+    addSkipped(
+      skipped,
+      "analysis.json",
+      edit.version === 0
+        ? "analysis.json is absent; ffprobe is used for source duration"
+        : "analysis.json is absent",
+    );
   }
 
   const captionsState = await readOptionalJson(paths.captionsPath, "captions.json");
@@ -105,12 +126,18 @@ export async function lintProject(input, options = {}) {
   const structure = validateEditStructure(edit, findings, paths);
   const sourcePath = structure.sourcePath;
   const referenceState = await validateReferences(edit, findings, paths);
-  let sourceDuration = extractAnalysisDuration(analysisState.value);
+  let sourceDuration =
+    edit?.version === 0 ? extractAnalysisDuration(analysisState.value) : null;
 
-  if (sourceDuration === null && sourcePath && referenceState.sourceExists) {
+  if (
+    edit?.version === 0 &&
+    sourceDuration === null &&
+    sourcePath &&
+    referenceState.sourceExists
+  ) {
     sourceDuration = probeDuration(sourcePath, options.ffprobeCommand);
   }
-  if (sourceDuration === null) {
+  if (edit?.version === 0 && sourceDuration === null) {
     addSkipped(
       skipped,
       "cuts.source-duration",
@@ -120,7 +147,14 @@ export async function lintProject(input, options = {}) {
     );
   }
 
-  const timeline = validateCuts(edit.cuts, sourceDuration, findings, paths);
+  const timeline = validateCuts(
+    edit.cuts,
+    sourceDuration,
+    findings,
+    paths,
+    edit.version,
+    structure.sourceIds,
+  );
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
   await validateOverlays(edit.overlays, timeline, findings, paths);
 
@@ -135,7 +169,13 @@ export async function lintProject(input, options = {}) {
   }
 
   if (options.media) {
-    if (!sourcePath || !referenceState.sourceExists) {
+    if (edit?.version === 1) {
+      addSkipped(
+        skipped,
+        "media",
+        "media checks currently apply to version 0 source.path only",
+      );
+    } else if (!sourcePath || !referenceState.sourceExists) {
       addSkipped(skipped, "media", "media checks require a readable source.path");
     } else {
       runMediaChecks(sourcePath, findings, paths, options);
@@ -144,12 +184,15 @@ export async function lintProject(input, options = {}) {
     addSkipped(skipped, "media", "media checks require --media");
   }
 
+  return writeResult(findings, skipped, inputs, paths, options);
+}
+
+async function writeResult(findings, skipped, inputs, paths, options) {
   const normalizedFindings = finalizeFindings(findings);
   const normalizedSkipped = finalizeSkipped(skipped);
-  const checkedAt = options.checkedAt ?? new Date().toISOString();
   const result = {
     version: VERSION,
-    checked_at: checkedAt,
+    checked_at: options.checkedAt ?? new Date().toISOString(),
     inputs: sortObject(inputs),
     verdict: normalizedFindings.some((finding) => finding.severity === "error")
       ? "fail"
@@ -257,7 +300,7 @@ function validateEditStructure(edit, findings, paths) {
       message: "edit.json root must be an object",
       path: editRelative,
     });
-    return { sourcePath: null };
+    return { sourcePath: null, sourceIds: new Set() };
   }
   if (!Number.isInteger(edit.version) || edit.version < 0) {
     structureFinding(findings, editRelative, "version must be a non-negative integer");
@@ -271,10 +314,22 @@ function validateEditStructure(edit, findings, paths) {
       }
     }
   }
+  const hasSource = Object.hasOwn(edit, "source");
+  const hasSources = Object.hasOwn(edit, "sources");
+  if (hasSource && hasSources) {
+    addFinding(findings, {
+      severity: "error",
+      check: "edit.sources-exclusive",
+      message: "source and sources must not coexist",
+      path: editRelative,
+    });
+  }
+
   let sourcePath = null;
-  if (!isRecord(edit.source)) {
-    structureFinding(findings, editRelative, "source must be an object");
-  } else {
+  const sourceIds = new Set();
+  if (edit.version === 0 && !isRecord(edit.source)) {
+    structureFinding(findings, editRelative, "version 0 requires source to be an object");
+  } else if (isRecord(edit.source)) {
     if (!isNonEmptyString(edit.source.path)) {
       structureFinding(findings, editRelative, "source.path must be a non-empty string");
     } else {
@@ -292,16 +347,62 @@ function validateEditStructure(edit, findings, paths) {
       );
     }
   }
+  if (edit.version === 0 && hasSources && !hasSource) {
+    structureFinding(findings, editRelative, "version 0 does not support sources");
+  }
+
+  if (edit.version === 1 && !Array.isArray(edit.sources)) {
+    structureFinding(findings, editRelative, "version 1 requires sources to be an array");
+  } else if (Array.isArray(edit.sources)) {
+    if (edit.sources.length === 0) {
+      structureFinding(findings, editRelative, "sources must contain at least one source");
+    }
+    for (const [index, source] of edit.sources.entries()) {
+      const sourceRelative = `edit.json#sources[${index}]`;
+      if (!isRecord(source)) {
+        structureFinding(findings, sourceRelative, "source must be an object");
+        continue;
+      }
+      if (!isNonEmptyString(source.id)) {
+        structureFinding(findings, sourceRelative, "source id must be a non-empty string");
+      } else if (sourceIds.has(source.id)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "sources.id",
+          message: `duplicate source id: ${source.id}`,
+          path: sourceRelative,
+        });
+      } else {
+        sourceIds.add(source.id);
+      }
+      if (!isNonEmptyString(source.path)) {
+        structureFinding(findings, sourceRelative, "source path must be a non-empty string");
+      }
+      if (
+        !Object.hasOwn(source, "proxy") ||
+        (source.proxy !== null && !isNonEmptyString(source.proxy))
+      ) {
+        structureFinding(
+          findings,
+          sourceRelative,
+          "source proxy must be null or a non-empty string",
+        );
+      }
+    }
+  }
+  if (edit.version === 1 && hasSource && !hasSources) {
+    structureFinding(findings, editRelative, "version 1 does not support source");
+  }
   if (!Array.isArray(edit.cuts)) {
     structureFinding(findings, editRelative, "cuts must be an array");
   }
   if (!Array.isArray(edit.overlays)) {
     structureFinding(findings, editRelative, "overlays must be an array");
   }
-  return { sourcePath };
+  return { sourcePath, sourceIds };
 }
 
-function validateCuts(cuts, sourceDuration, findings, paths) {
+function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds) {
   if (!Array.isArray(cuts)) return null;
   let valid = true;
   let previousIn = -Infinity;
@@ -332,7 +433,34 @@ function validateCuts(cuts, sourceDuration, findings, paths) {
     } else {
       timeline += cut.out - cut.in;
     }
-    if (cut.in < previousIn - EPSILON) {
+    if (version === 1) {
+      if (!isNonEmptyString(cut.src)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "cuts.src",
+          message: "version 1 cut src must be a non-empty string",
+          path,
+        });
+        valid = false;
+      } else if (!sourceIds.has(cut.src)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "cuts.src-reference",
+          message: `cut src does not reference sources[].id: ${cut.src}`,
+          path,
+        });
+        valid = false;
+      }
+    } else if (Object.hasOwn(cut, "src")) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.src",
+        message: "version 0 cut must not contain src",
+        path,
+      });
+      valid = false;
+    }
+    if (version === 0 && cut.in < previousIn - EPSILON) {
       addFinding(findings, {
         severity: "error",
         check: "cuts.order",
@@ -342,7 +470,7 @@ function validateCuts(cuts, sourceDuration, findings, paths) {
       });
       valid = false;
     }
-    if (cut.in < previousOut - EPSILON) {
+    if (version === 0 && cut.in < previousOut - EPSILON) {
       addFinding(findings, {
         severity: "error",
         check: "cuts.overlap",
@@ -366,7 +494,7 @@ function validateCuts(cuts, sourceDuration, findings, paths) {
     previousOut = cut.out;
   }
 
-  if (cuts.length === 0) return sourceDuration;
+  if (cuts.length === 0) return version === 1 ? 0 : sourceDuration;
   return valid ? timeline : null;
 }
 
@@ -507,6 +635,21 @@ async function validateReferences(edit, findings, paths) {
       references.push({ label: "source.proxy", value: edit.source.proxy });
     }
   }
+  if (Array.isArray(edit?.sources)) {
+    for (const [index, source] of edit.sources.entries()) {
+      if (!isRecord(source)) continue;
+      references.push({
+        label: `sources[${index}].path`,
+        value: source.path,
+      });
+      if (source.proxy !== null && source.proxy !== undefined) {
+        references.push({
+          label: `sources[${index}].proxy`,
+          value: source.proxy,
+        });
+      }
+    }
+  }
   if (Array.isArray(edit?.overlays)) {
     for (const [index, overlay] of edit.overlays.entries()) {
       references.push({
@@ -585,19 +728,44 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
+    const optional = ["src"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
       }
     }
     for (const field of Object.keys(caption)) {
-      if (!required.includes(field)) {
+      if (![...required, ...optional].includes(field)) {
         captionFinding(
           findings,
           "captions.schema",
           `${field} is not defined by captions v0`,
           itemPath,
         );
+      }
+    }
+    if (Object.hasOwn(caption, "src")) {
+      if (!isNonEmptyString(caption.src)) {
+        captionFinding(
+          findings,
+          "captions.schema",
+          "src must be a non-empty string when present",
+          itemPath,
+        );
+      } else if (edit?.version === 1) {
+        const sourceIds = new Set(
+          Array.isArray(edit.sources)
+            ? edit.sources.filter(isRecord).map((source) => source.id)
+            : [],
+        );
+        if (!sourceIds.has(caption.src)) {
+          captionFinding(
+            findings,
+            "captions.src-reference",
+            `src does not reference sources[].id: ${caption.src}`,
+            itemPath,
+          );
+        }
       }
     }
     if (typeof caption.id !== "string" || !/^c-\d{4}$/.test(caption.id)) {
@@ -643,7 +811,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
         );
       }
       previousStart = caption.start;
-      const kept = keptOverlap(caption.start, caption.end, edit?.cuts);
+      const kept = keptOverlap(caption.start, caption.end, edit?.cuts, caption.src);
       const ratio = kept / (caption.end - caption.start);
       if (ratio < 0.5 - EPSILON) {
         addFinding(findings, {
@@ -892,11 +1060,12 @@ function isVoidElement(name) {
   ]).has(name);
 }
 
-function keptOverlap(start, end, cuts) {
+function keptOverlap(start, end, cuts, src) {
   if (!Array.isArray(cuts) || cuts.length === 0) return end - start;
   let overlap = 0;
   for (const cut of cuts) {
     if (!isRecord(cut) || !isFiniteNumber(cut.in) || !isFiniteNumber(cut.out)) continue;
+    if (isNonEmptyString(src) && cut.src !== src) continue;
     overlap += Math.max(0, Math.min(end, cut.out) - Math.max(start, cut.in));
   }
   return overlap;

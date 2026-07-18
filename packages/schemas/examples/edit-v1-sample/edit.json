@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "s1", "path": "assets/intro.mp4", "proxy": null },
+    { "id": "s2", "path": "assets/main.mov", "proxy": "cache/main-720p.mp4" }
+  ],
+  "cuts": [
+    { "src": "s1", "in": 0.0, "out": 4.2 },
+    { "src": "s2", "in": 12.0, "out": 45.5 },
+    { "src": "s1", "in": 60.0, "out": 65.0 }
+  ],
+  "overlays": []
+}
