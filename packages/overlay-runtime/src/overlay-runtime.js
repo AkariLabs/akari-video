@@ -12,6 +12,11 @@ window.akari.runtime = (() => {
   }
 
   function unmount() {
+    for (const overlay of mountedOverlays) {
+      if (overlay.isThreeDimensional) {
+        window.akari.threeRuntime?.dispose(overlay.container);
+      }
+    }
     const stage = mountedStage ?? document.getElementById("overlay-stage");
     if (stage) stage.replaceChildren();
 
@@ -62,7 +67,17 @@ window.akari.runtime = (() => {
 
       container.innerHTML = overlay.html ?? "";
       fragment.appendChild(container);
-      mountedOverlays.push({ container, start, duration, visible: false });
+      mountedOverlays.push({
+        container,
+        start,
+        duration,
+        visible: false,
+        isThreeDimensional: Boolean(
+          container.querySelector(
+            'script[type="application/json"][data-akari-3d-scene]'
+          )
+        ),
+      });
     }
 
     stage.replaceChildren(fragment);
@@ -89,6 +104,9 @@ window.akari.runtime = (() => {
         // することで、実際に存在する CSS Animation を「今可視のオーバーレイ分だけ」に
         // 抑え、この地雷を踏まない。
         overlay.container.toggleAttribute("data-akari-active", visible);
+        if (!visible && overlay.isThreeDimensional) {
+          window.akari.threeRuntime?.dispose(overlay.container);
+        }
         overlay.visible = visible;
       }
 
@@ -101,6 +119,10 @@ window.akari.runtime = (() => {
       if (!visible) continue;
 
       const localTimeMs = Math.max(0, (timelineTime - overlay.start) * 1000);
+      if (overlay.isThreeDimensional) {
+        window.akari.threeRuntime?.render(overlay.container, localTimeMs / 1000);
+        continue;
+      }
       const animations = overlay.container.getAnimations({ subtree: true });
       for (const animation of animations) {
         animation.pause();

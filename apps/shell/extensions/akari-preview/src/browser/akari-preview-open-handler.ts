@@ -36,6 +36,8 @@ interface PreviewModel {
     summary: EditSummary;
     editUri?: URI;
     overlayUris: URI[];
+    assetUris: URI[];
+    assetStreamIds: string[];
     captionsUri?: URI;
     captions: PreviewCaption[];
 }
@@ -59,6 +61,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewCaptionsUri?: URI;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewStreamId?: string;
+    akariPreviewAssetStreamIds?: string[];
     akariPreviewSeekable?: boolean;
 }
 
@@ -90,6 +93,7 @@ const CLAIMED_VIDEO_EXTENSIONS = new Set([
 ]);
 const UNSUPPORTED_FORMAT_MESSAGE = 'この形式はアプリ内プレビューに未対応です。書き出し後の MP4 をプレビューできます。';
 const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビューできません。';
+const THREE_SCENE_KEYS = new Set(['model', 'camera', 'lights', 'animationClip']);
 
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
@@ -230,7 +234,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.disposed.connect(() => {
             disposables.dispose();
             this.openPreviews.delete(seekKey);
-            void this.disposeVideoStream(widget);
+            void this.disposePreviewStreams(widget);
         });
     }
 
@@ -268,15 +272,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         ]);
         const videoStream = await this.previewService.createVideoStream({
             videoUri: videoUri.toString()
+        }).catch(async error => {
+            await this.disposeAssetStreams(model.assetStreamIds);
+            throw error;
         });
-        await this.disposeVideoStream(widget);
+        await this.disposePreviewStreams(widget);
         widget.akariPreviewStreamId = videoStream.id;
+        widget.akariPreviewAssetStreamIds = model.assetStreamIds;
         widget.akariPreviewEditUri = model.editUri;
         widget.akariPreviewCaptionsUri = model.captionsUri;
         widget.akariPreviewTrackedResources = new Set([
             ...(model.editUri ? [model.editUri.toString()] : []),
             ...(model.captionsUri ? [model.captionsUri.toString()] : []),
-            ...model.overlayUris.map(uri => uri.toString())
+            ...model.overlayUris.map(uri => uri.toString()),
+            ...model.assetUris.map(uri => uri.toString())
         ]);
         widget.viewType = 'akari.preview';
         widget.title.label = videoUri.path.base;
@@ -292,7 +301,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected showMessageCard(widget: PreviewWidgetMarker, videoUri: URI, message: string): void {
         widget.akariPreviewSeekable = false;
-        void this.disposeVideoStream(widget);
+        void this.disposePreviewStreams(widget);
         widget.akariPreviewEditUri = undefined;
         widget.akariPreviewCaptionsUri = undefined;
         widget.akariPreviewTrackedResources = new Set();
@@ -311,8 +320,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const captions = await this.loadPreviewCaptions(captionsUri);
         if (!editUri) {
             console.info(`[akari-preview] edit.json was not found for ${videoUri.toString()}; opening video only`);
-            return { summary: EMPTY_SUMMARY, overlayUris: [], captionsUri, captions };
+            return {
+                summary: EMPTY_SUMMARY,
+                overlayUris: [],
+                assetUris: [],
+                assetStreamIds: [],
+                captionsUri,
+                captions
+            };
         }
+        const assetStreams = new Map<string, { id: string; url: string }>();
+        const assetUris: URI[] = [];
         try {
             const edit = JSON.parse(await this.readText(editUri));
             const width = this.positiveNumber(edit?.output?.width, EMPTY_SUMMARY.output.width);
@@ -332,6 +350,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         console.warn(`[akari-preview] failed to read overlay fragment ${fragmentUri.toString()}`, error);
                     }
                 }
+                html = await this.resolveThreeSceneAssets(html, editUri, assetStreams, assetUris);
                 overlays.push({
                     id: String(value?.id ?? ''),
                     html,
@@ -344,6 +363,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return {
                 editUri,
                 overlayUris,
+                assetUris,
+                assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
                 captionsUri,
                 captions,
                 summary: {
@@ -352,9 +373,72 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             };
         } catch (error) {
+            await this.disposeAssetStreams([...assetStreams.values()].map(stream => stream.id));
             console.warn(`[akari-preview] failed to load ${editUri.toString()}; opening video only`, error);
-            return { editUri, summary: EMPTY_SUMMARY, overlayUris: [], captionsUri, captions };
+            return {
+                editUri,
+                summary: EMPTY_SUMMARY,
+                overlayUris: [],
+                assetUris: [],
+                assetStreamIds: [],
+                captionsUri,
+                captions
+            };
         }
+    }
+
+    protected async resolveThreeSceneAssets(
+        html: string,
+        editUri: URI,
+        assetStreams: Map<string, { id: string; url: string }>,
+        assetUris: URI[]
+    ): Promise<string> {
+        if (!html.includes('data-akari-3d-scene')) {
+            return html;
+        }
+        const document = new DOMParser().parseFromString(html, 'text/html');
+        const declarations = document.body.querySelectorAll(
+            'script[type="application/json"][data-akari-3d-scene]'
+        );
+        if (declarations.length === 0) {
+            return html;
+        }
+        if (declarations.length !== 1) {
+            for (const declaration of Array.from(declarations)) {
+                declaration.textContent = JSON.stringify({ model: '' });
+            }
+            console.warn('[akari-preview] 3D overlay には data-akari-3d-scene 宣言が 1 個必要です');
+            return document.body.innerHTML;
+        }
+        for (const declaration of Array.from(declarations)) {
+            try {
+                const descriptor = JSON.parse(declaration.textContent || '{}');
+                if (!descriptor || typeof descriptor !== 'object' || Array.isArray(descriptor)
+                    || typeof descriptor.model !== 'string' || !descriptor.model) {
+                    throw new TypeError('data-akari-3d-scene.model は edit.json 相対の .glb パスである必要があります');
+                }
+                if (Object.keys(descriptor).some(key => !THREE_SCENE_KEYS.has(key))) {
+                    throw new TypeError('data-akari-3d-scene に未対応の top-level key があります');
+                }
+                if (descriptor.model.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(descriptor.model)) {
+                    throw new TypeError('data-akari-3d-scene.model に絶対パスや URL は指定できません');
+                }
+                const assetUri = editUri.parent.resolve(descriptor.model);
+                const key = assetUri.toString();
+                let stream = assetStreams.get(key);
+                if (!stream) {
+                    stream = await this.previewService.createAssetStream({ assetUri: key });
+                    assetStreams.set(key, stream);
+                    assetUris.push(assetUri);
+                }
+                descriptor.model = stream.url;
+                declaration.textContent = JSON.stringify(descriptor).replace(/</g, '\\u003c');
+            } catch (error) {
+                declaration.textContent = JSON.stringify({ model: '' });
+                console.warn('[akari-preview] failed to resolve declarative 3D scene asset', error);
+            }
+        }
+        return document.body.innerHTML;
     }
 
     protected async loadPreviewCaptions(captionsUri: URI | undefined): Promise<PreviewCaption[]> {
@@ -493,7 +577,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; connect-src ${this.escapeHtml(this.streamOrigin(videoSource))}; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
 <style>
 ${this.inlineStyle(assets.interactionCss)}
 :root { color-scheme: dark; font-family: system-ui, sans-serif; }
@@ -546,6 +630,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 </div>
 <script>window.__akariPreview = ${initialState};</script>
 <script>${this.hostAdapterScript()}</script>
+<script>${this.inlineScript(assets.threeJavaScript)}</script>
+<script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
 <script>${this.inlineScript(assets.runtimeJavaScript)}</script>
 <script>${this.inlineScript(assets.interactionJavaScript)}</script>
 <script>${this.previewBootstrapScript()}</script>
@@ -823,6 +909,25 @@ body { display: grid; place-items: center; padding: 32px; }
                 console.warn(`[akari-preview] failed to dispose video stream ${id}`, error);
             }
         }
+    }
+
+    protected async disposeAssetStreams(ids: string[]): Promise<void> {
+        await Promise.all(ids.map(async id => {
+            try {
+                await this.previewService.disposeAssetStream(id);
+            } catch (error) {
+                console.warn(`[akari-preview] failed to dispose asset stream ${id}`, error);
+            }
+        }));
+    }
+
+    protected async disposePreviewStreams(widget: PreviewWidgetMarker): Promise<void> {
+        const assetIds = widget.akariPreviewAssetStreamIds ?? [];
+        widget.akariPreviewAssetStreamIds = [];
+        await Promise.all([
+            this.disposeVideoStream(widget),
+            this.disposeAssetStreams(assetIds)
+        ]);
     }
 
     protected readText(uri: URI): Promise<string> {

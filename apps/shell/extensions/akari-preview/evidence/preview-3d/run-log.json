@@ -1,0 +1,354 @@
+[
+  {
+    "t": "2026-07-18T15:13:27.777Z",
+    "step": "connected-browser-endpoint"
+  },
+  {
+    "t": "2026-07-18T15:13:29.288Z",
+    "step": "connected-main",
+    "url": "index.html"
+  },
+  {
+    "t": "2026-07-18T15:13:32.493Z",
+    "step": "screenshot",
+    "name": "00-boot.png"
+  },
+  {
+    "t": "2026-07-18T15:13:32.529Z",
+    "step": "double-clicked-video",
+    "x": 131,
+    "y": 204
+  },
+  {
+    "t": "2026-07-18T15:13:32.533Z",
+    "step": "reached-preview-context"
+  },
+  {
+    "t": "2026-07-18T15:13:32.536Z",
+    "step": "preview-ready",
+    "duration": 26.316667,
+    "readyState": 4,
+    "overlays": 2
+  },
+  {
+    "t": "2026-07-18T15:13:33.319Z",
+    "step": "screenshot",
+    "name": "01-preview-open.png"
+  },
+  {
+    "t": "2026-07-18T15:13:34.334Z",
+    "step": "reacquired-preview-context",
+    "attempt": 1
+  },
+  {
+    "t": "2026-07-18T15:13:34.847Z",
+    "step": "ASSERT_PASS",
+    "name": "static-render-non-transparent-pixels",
+    "local": 1,
+    "width": 291,
+    "height": 194,
+    "nonTransparent": 11591,
+    "hash": "f0a3ec29",
+    "status": "ready",
+    "pixelRatio": 1,
+    "memory": {
+      "geometries": 1,
+      "textures": 1
+    },
+    "renderInfo": {
+      "frame": 2,
+      "calls": 1,
+      "triangles": 12,
+      "points": 0,
+      "lines": 0
+    },
+    "visibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:13:34.847Z",
+    "step": "ASSERT_PASS",
+    "name": "pixel-ratio-fixed-1",
+    "pixelRatio": 1,
+    "canvas": "291x194"
+  },
+  {
+    "t": "2026-07-18T15:13:34.848Z",
+    "step": "ASSERT_PASS",
+    "name": "fallback-hidden-after-load",
+    "fallbackHidden": true
+  },
+  {
+    "t": "2026-07-18T15:13:35.534Z",
+    "step": "screenshot",
+    "name": "02-static-3s.png"
+  },
+  {
+    "t": "2026-07-18T15:13:35.551Z",
+    "step": "ASSERT_PASS",
+    "name": "deterministic-different-times-differ",
+    "hashA": "c691fde4",
+    "hashB": "1b357d70"
+  },
+  {
+    "t": "2026-07-18T15:13:35.551Z",
+    "step": "ASSERT_PASS",
+    "name": "deterministic-same-time-reproduces",
+    "first": "c691fde4",
+    "again": "c691fde4"
+  },
+  {
+    "t": "2026-07-18T15:13:36.750Z",
+    "step": "screenshot",
+    "name": "03-anim-t2_5.png"
+  },
+  {
+    "t": "2026-07-18T15:13:37.919Z",
+    "step": "screenshot",
+    "name": "04-anim-t5_5.png"
+  },
+  {
+    "t": "2026-07-18T15:13:38.430Z",
+    "step": "ASSERT_PASS",
+    "name": "seek-different-pose",
+    "at2_5": "c691fde4",
+    "at5_5": "1b357d70"
+  },
+  {
+    "t": "2026-07-18T15:13:38.430Z",
+    "step": "ASSERT_PASS",
+    "name": "seek-back-same-pose",
+    "first": "c691fde4",
+    "back": "c691fde4"
+  },
+  {
+    "t": "2026-07-18T15:13:43.488Z",
+    "step": "ASSERT_PASS",
+    "name": "dispose-outside-visible-range",
+    "cycles": [
+      {
+        "cycle": 0,
+        "outside": {
+          "status": "disposed",
+          "visibility": "hidden"
+        },
+        "inside": {
+          "status": "ready",
+          "memory": {
+            "geometries": 1,
+            "textures": 1
+          },
+          "render": {
+            "frame": 1,
+            "calls": 1,
+            "triangles": 12,
+            "points": 0,
+            "lines": 0
+          }
+        }
+      },
+      {
+        "cycle": 1,
+        "outside": {
+          "status": "disposed",
+          "visibility": "hidden"
+        },
+        "inside": {
+          "status": "ready",
+          "memory": {
+            "geometries": 1,
+            "textures": 1
+          },
+          "render": {
+            "frame": 1,
+            "calls": 1,
+            "triangles": 12,
+            "points": 0,
+            "lines": 0
+          }
+        }
+      },
+      {
+        "cycle": 2,
+        "outside": {
+          "status": "disposed",
+          "visibility": "hidden"
+        },
+        "inside": {
+          "status": "ready",
+          "memory": {
+            "geometries": 1,
+            "textures": 1
+          },
+          "render": {
+            "frame": 1,
+            "calls": 1,
+            "triangles": 12,
+            "points": 0,
+            "lines": 0
+          }
+        }
+      },
+      {
+        "cycle": 3,
+        "outside": {
+          "status": "disposed",
+          "visibility": "hidden"
+        },
+        "inside": {
+          "status": "ready",
+          "memory": {
+            "geometries": 1,
+            "textures": 1
+          },
+          "render": {
+            "frame": 1,
+            "calls": 1,
+            "triangles": 12,
+            "points": 0,
+            "lines": 0
+          }
+        }
+      },
+      {
+        "cycle": 4,
+        "outside": {
+          "status": "disposed",
+          "visibility": "hidden"
+        },
+        "inside": {
+          "status": "ready",
+          "memory": {
+            "geometries": 1,
+            "textures": 1
+          },
+          "render": {
+            "frame": 1,
+            "calls": 1,
+            "triangles": 12,
+            "points": 0,
+            "lines": 0
+          }
+        }
+      }
+    ]
+  },
+  {
+    "t": "2026-07-18T15:13:43.489Z",
+    "step": "ASSERT_PASS",
+    "name": "no-resource-growth-across-cycles",
+    "geometries": [
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "textures": [
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  {
+    "t": "2026-07-18T15:13:44.715Z",
+    "step": "screenshot",
+    "name": "05-disposed-t10.png"
+  },
+  {
+    "t": "2026-07-18T15:13:45.748Z",
+    "step": "ASSERT_PASS",
+    "name": "3d-overlay-click-selects",
+    "selected": true,
+    "frameShown": true
+  },
+  {
+    "t": "2026-07-18T15:13:46.199Z",
+    "step": "screenshot",
+    "name": "06-3d-selected.png"
+  },
+  {
+    "t": "2026-07-18T15:13:47.837Z",
+    "step": "ASSERT_PASS",
+    "name": "3d-overlay-drag-moves",
+    "before": 0,
+    "after": 169.53642384105956,
+    "actualDelta": 169.53642384105956,
+    "expectedDelta": 169.53642384105962,
+    "stageScale": 0.471875
+  },
+  {
+    "t": "2026-07-18T15:13:49.039Z",
+    "step": "ASSERT_PASS",
+    "name": "3d-overlay-drag-persisted",
+    "persisted": {
+      "x": 169.53642384105956,
+      "y": 0,
+      "scale": 1,
+      "rotate": 0
+    }
+  },
+  {
+    "t": "2026-07-18T15:13:49.502Z",
+    "step": "screenshot",
+    "name": "07-3d-dragged.png"
+  },
+  {
+    "t": "2026-07-18T15:13:49.503Z",
+    "step": "ASSERT_PASS",
+    "name": "html-overlay-still-visible",
+    "ctaVisibility": "visible",
+    "ctaRect": {
+      "width": 671,
+      "height": 100
+    },
+    "captionText": "ということでね、今日はね、ひたすらYouTubeの撮影を"
+  },
+  {
+    "t": "2026-07-18T15:13:49.503Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-shown-at-3s",
+    "captionText": "ということでね、今日はね、ひたすらYouTubeの撮影を"
+  },
+  {
+    "t": "2026-07-18T15:13:49.550Z",
+    "step": "ASSERT_PASS",
+    "name": "interaction-selftest",
+    "ok": true,
+    "detail": "--x: 169.53642384105956px -> 296.6887417218543px; moved: 127.15231788079473px (expected 127.15231788079471px); overlayWrite: undefined; resize: --scale: 1.5 -> 1.704257085031494 (expected 1.704257085031494); nw drift: 0.00006291359902370698px; overlayWrite: undefined"
+  },
+  {
+    "t": "2026-07-18T15:13:51.282Z",
+    "step": "ASSERT_PASS",
+    "name": "space-key-toggles-playback",
+    "pausedBefore": true,
+    "playingAfterSpace": true,
+    "pausedAfterSecondSpace": true
+  },
+  {
+    "t": "2026-07-18T15:13:51.768Z",
+    "step": "screenshot",
+    "name": "08-after-space-toggle.png"
+  },
+  {
+    "t": "2026-07-18T15:13:51.769Z",
+    "step": "ASSERT_PASS",
+    "name": "no-external-network-requests",
+    "totalHttp": 68,
+    "origins": [
+      "http://6043100c-b9cd-555c-b3d1-e6d86cb4e476.webview.localhost:53609",
+      "http://127.0.0.1:53987"
+    ],
+    "disallowed": []
+  },
+  {
+    "t": "2026-07-18T15:13:51.770Z",
+    "step": "ASSERT_PASS",
+    "name": "glb-served-via-asset-endpoint",
+    "assetRequestCount": 14,
+    "statuses": [
+      200
+    ]
+  }
+]

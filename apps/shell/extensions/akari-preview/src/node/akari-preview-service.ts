@@ -8,6 +8,7 @@ import { randomBytes } from 'crypto';
 import { dirname, extname, isAbsolute, relative, resolve, sep } from 'path';
 import { parse as parseJson } from 'jsonc-parser';
 import {
+    AssetStreamRequest,
     AkariPreviewService,
     OverlayRuntimeAssets,
     VideoStreamReference,
@@ -31,6 +32,9 @@ const VIDEO_MIME_TYPES = new Map<string, string>([
     ['.m4v', 'video/mp4'],
     ['.webm', 'video/webm']
 ]);
+const ASSET_MIME_TYPES = new Map<string, string>([
+    ['.glb', 'model/gltf-binary']
+]);
 
 @injectable()
 export class AkariPreviewServiceImpl implements AkariPreviewService {
@@ -41,7 +45,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected server: Server | undefined;
     protected serverPort: number | undefined;
     protected serverStartup: Promise<number> | undefined;
-    protected readonly streams = new Map<string, StreamTarget>();
+    protected readonly videoStreams = new Map<string, StreamTarget>();
+    protected readonly assetStreams = new Map<string, StreamTarget>();
 
     async getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets> {
         if (this.assets) {
@@ -49,6 +54,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         }
         const directory = this.findOverlayRuntimeDirectory();
         this.assets = {
+            threeJavaScript: readFileSync(resolve(directory, 'vendor/three-bundle.js'), 'utf8'),
+            threeRuntimeJavaScript: readFileSync(resolve(directory, 'three-runtime.js'), 'utf8'),
             runtimeJavaScript: readFileSync(resolve(directory, 'overlay-runtime.js'), 'utf8'),
             interactionJavaScript: readFileSync(resolve(directory, 'interaction.js'), 'utf8'),
             interactionCss: readFileSync(resolve(directory, 'interaction.css'), 'utf8')
@@ -57,10 +64,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     async createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference> {
-        const target = await this.resolveStreamTarget(request);
+        const target = await this.resolveVideoStreamTarget(request);
         const port = await this.ensureServer();
         const id = randomBytes(32).toString('hex');
-        this.streams.set(id, target);
+        this.videoStreams.set(id, target);
         return {
             id,
             url: `http://127.0.0.1:${port}/media/${id}`
@@ -68,21 +75,51 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     async disposeVideoStream(id: string): Promise<void> {
-        this.streams.delete(id);
+        this.videoStreams.delete(id);
     }
 
-    protected async resolveStreamTarget(request: VideoStreamRequest): Promise<StreamTarget> {
+    async createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference> {
+        const target = await this.resolveAssetStreamTarget(request);
+        const port = await this.ensureServer();
+        const id = randomBytes(32).toString('hex');
+        this.assetStreams.set(id, target);
+        return {
+            id,
+            url: `http://127.0.0.1:${port}/asset/${id}`
+        };
+    }
+
+    async disposeAssetStream(id: string): Promise<void> {
+        this.assetStreams.delete(id);
+    }
+
+    protected async resolveVideoStreamTarget(request: VideoStreamRequest): Promise<StreamTarget> {
         if (!request || typeof request.videoUri !== 'string') {
             throw new Error('Invalid video stream request');
         }
-        const mimeType = VIDEO_MIME_TYPES.get(extname(this.filePath(request.videoUri)).toLowerCase());
-        if (!mimeType) {
-            throw new Error('Unsupported video format');
+        return this.resolveLocalStreamTarget(request.videoUri, VIDEO_MIME_TYPES, 'Video');
+    }
+
+    protected async resolveAssetStreamTarget(request: AssetStreamRequest): Promise<StreamTarget> {
+        if (!request || typeof request.assetUri !== 'string') {
+            throw new Error('Invalid asset stream request');
         }
-        const targetPath = await realpath(this.filePath(request.videoUri));
+        return this.resolveLocalStreamTarget(request.assetUri, ASSET_MIME_TYPES, 'Asset');
+    }
+
+    protected async resolveLocalStreamTarget(
+        uri: string,
+        mimeTypes: Map<string, string>,
+        kind: 'Video' | 'Asset'
+    ): Promise<StreamTarget> {
+        const mimeType = mimeTypes.get(extname(this.filePath(uri)).toLowerCase());
+        if (!mimeType) {
+            throw new Error(`Unsupported ${kind.toLowerCase()} format`);
+        }
+        const targetPath = await realpath(this.filePath(uri));
         const roots = await this.resolveWorkspaceRoots();
         if (!roots.some(root => this.contains(root, targetPath))) {
-            throw new Error('Video files outside the workspace cannot be streamed');
+            throw new Error(`${kind} files outside the workspace cannot be streamed`);
         }
         const targetStat = await stat(targetPath);
         if (!targetStat.isFile()) {
@@ -167,8 +204,13 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     protected async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
-        const match = /^\/media\/([a-f0-9]{64})$/.exec(request.url ?? '');
-        const target = match ? this.streams.get(match[1]) : undefined;
+        const mediaMatch = /^\/media\/([a-f0-9]{64})$/.exec(request.url ?? '');
+        const assetMatch = /^\/asset\/([a-f0-9]{64})$/.exec(request.url ?? '');
+        const target = mediaMatch
+            ? this.videoStreams.get(mediaMatch[1])
+            : assetMatch
+                ? this.assetStreams.get(assetMatch[1])
+                : undefined;
         if (!target) {
             this.respond(response, 404);
             return;
@@ -198,6 +240,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             const start = range?.start ?? 0;
             const end = range?.end ?? Math.max(0, targetStat.size - 1);
             response.statusCode = range ? 206 : 200;
+            if (assetMatch) {
+                response.setHeader('Access-Control-Allow-Origin', '*');
+            }
             response.setHeader('Accept-Ranges', 'bytes');
             response.setHeader('Cache-Control', 'no-store');
             response.setHeader('Content-Type', target.mimeType);
@@ -292,6 +337,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected isOverlayRuntimeDirectory(candidate: string): boolean {
         try {
             return statSync(resolve(candidate, 'overlay-runtime.js')).isFile()
+                && statSync(resolve(candidate, 'three-runtime.js')).isFile()
+                && statSync(resolve(candidate, 'vendor/three-bundle.js')).isFile()
                 && statSync(resolve(candidate, 'interaction.js')).isFile()
                 && statSync(resolve(candidate, 'interaction.css')).isFile();
         } catch {

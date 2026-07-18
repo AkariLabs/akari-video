@@ -1,12 +1,13 @@
 # @akari-video/overlay-runtime
 
 シェル非依存のオーバーレイ DOM ランタイム。`edit.json` の `overlays[]` を
-`#overlay-stage` 配下の DOM にマウントし（`overlay-runtime.js`）、ポインタ操作で
+`#overlay-stage` 配下の DOM にマウントし（`overlay-runtime.js`）、宣言型の
+Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`）、
 選択・ドラッグ移動・拡縮・テキスト編集を行い（`interaction.js`）、ズーム時の
 全体像インジケータを提供する（`minimap.js`）。
 
 **出自**: legacy `akari-video-tauri/ui/` から選別インポート（Wave I-3、
-2026-07-15）。JS 3 本（`overlay-runtime.js` / `interaction.js` / `minimap.js`）は
+2026-07-15）。当初の JS 3 本（`overlay-runtime.js` / `interaction.js` / `minimap.js`）は
 機能的に無改変で移送。詳しい挙動仕様は `docs/notes-2026-07-14-viewer-ui-round.md`
 （編集移送済みの設計ノート）を参照。
 
@@ -19,7 +20,7 @@
 | ズーム中の全体フレーム + 現在視野ミニマップ（`#minimap`） | 動画プレーンの再生/シーク、書き出しパイプライン |
 
 ホストシェル（新モノレポの `apps/shell/` 等）は、本パッケージが期待する DOM id と
-`window.akari.*` インターフェースを用意した上で、3 本のスクリプトを読み込む。
+`window.akari.*` インターフェースを用意した上で、必要なスクリプトを読み込む。
 
 ## 使い方（ホスト側の最小手順）
 
@@ -33,7 +34,9 @@
      ミニマップ（`minimap.js` が `hidden` 属性を出し入れする）
 2. `window.akari.state` / `window.akari.engine.overlayWrite` / `window.akari.stageScale`
    を実装で満たす（下記「ホストアダプタ契約」参照）
-3. `<script>` で `src/overlay-runtime.js` → `src/interaction.js` → `src/minimap.js`
+3. 3D overlay を扱うホストは `<script>` で `src/vendor/three-bundle.js` →
+   `src/three-runtime.js` → `src/overlay-runtime.js` の順に読み込む。続いて
+   `src/interaction.js` → `src/minimap.js`
    の順に読み込む（`interaction.js` は読み込み時点で `#overlay-stage` の
    `document.getElementById` を行うため、DOM がすでに存在している必要がある）
 4. `src/interaction.css` と `src/minimap.css` を `<link>` する
@@ -43,7 +46,7 @@
 
 ## ホストアダプタ契約（新シェル実装者向け — 本パッケージへの入力）
 
-本パッケージの 3 スクリプトは `window.akari` 名前空間の以下のプロパティを
+本パッケージの各スクリプトは `window.akari` 名前空間の以下のプロパティを
 **ホストが用意済みである前提**で読む（`window.akari.runtime` /
 `window.akari.interaction` / `window.akari.minimap` は本パッケージ自身が
 公開する側 — 下の「このパッケージが公開するもの」参照）。
@@ -100,6 +103,9 @@
 
 ## このパッケージが公開するもの
 
+- `window.AkariThree` — pinned Three.js core と `GLTFLoader`
+- `window.akari.threeRuntime.render(container, localSeconds)` / `.dispose(container)` /
+  `.inspect(container)`（`src/three-runtime.js`）。独自 rAF や wall-clock は持たない
 - `window.akari.runtime.mount(summary)` / `.tick(t, playing)` / `.unmount()`
   （`src/overlay-runtime.js`）
 - `window.akari.interaction.selftest()` — 合成 PointerEvent で
@@ -112,7 +118,10 @@
 
 ```
 src/
-  overlay-runtime.js   legacy ui/overlay-runtime.js を無改変移送（113 行）
+  vendor/three-bundle.js  Three.js core + GLTFLoader の単一 IIFE
+  vendor/three-LICENSE.txt  Three.js の MIT License
+  three-runtime.js     宣言型 3D scene の load / setTime / render / dispose
+  overlay-runtime.js   DOM mount/tick と 3D 可視ライフサイクル
   interaction.js       legacy ui/interaction.js を無改変移送
   interaction.css       legacy ui/interaction.css を無改変移送
   minimap.js            legacy ui/minimap.js を無改変移送
@@ -126,6 +135,40 @@ test-harness/
 out/
   status.json   タスク完了ステータス（本パッケージの成果物ではなくタスク契約の出力）
 ```
+
+## Three.js vendor の固定と再生成
+
+`src/vendor/three-bundle.js` は npm package `three@0.185.1` の core と
+`three/addons/loaders/GLTFLoader.js` だけを entry point にし、`esbuild@0.24.2` で
+事前生成したブラウザ向け単一 IIFE である。実行時に npm、CDN、外部 origin を参照しない。
+生成時の npm tarball integrity は
+`sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==`。
+
+entry file は次の内容に固定する。
+
+```js
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+window.AkariThree = Object.freeze({ THREE, GLTFLoader });
+```
+
+再生成コマンド（展開した `three-0.185.1.tgz` を `package/`、上記 entry を
+`akari-three-entry.js` とする一時ディレクトリで実行）:
+
+```sh
+npm pack three@0.185.1 --ignore-scripts
+tar -xzf three-0.185.1.tgz
+mkdir -p node_modules
+ln -s ../package node_modules/three
+npx --package=esbuild@0.24.2 esbuild akari-three-entry.js \
+  --bundle --format=iife --platform=browser --target=es2020 --minify \
+  --legal-comments=inline --outfile=three-bundle.js
+```
+
+Three.js は MIT License（Copyright © 2010-2026 three.js authors）。完全な許諾文は
+`src/vendor/three-LICENSE.txt` に保持し、esbuild の `--legal-comments=inline` により
+upstream の `@license` 表記も bundle 内に保持する。
 
 ## テストハーネス
 
