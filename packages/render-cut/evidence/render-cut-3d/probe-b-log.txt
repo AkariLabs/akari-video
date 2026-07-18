@@ -1,0 +1,23 @@
+probe-b: probe-a と同一コマンド。シートがページ script で先回り定義:
+  window.__hf = Object.assign(window.__hf || {}, { duration: 1, seek: function(t) { console.log("[akari-probe] PAGE __hf.seek called t=" + t); return window.__akariSeek(t); } });
+(ログ抜粋・パスはサニタイズ)
+
+[Browser] [akari-probe] page defined __hf.seek
+[Browser] [akari-probe] initial window.__hf typeof=object
+[Browser] [akari-probe] __hf appeared; duration=1 keys=duration,seek
+[Browser] [akari-probe] __akariSeek called t=0            <-- __akariReady 初期化による 1 回のみ
+  Streaming frame 1/10
+  Streaming frame 2/10
+  Streaming frame 3/10
+  Streaming frame 4/10
+  Streaming frame 5/10
+  Streaming frame 6/10
+  Streaming frame 7/10
+  Streaming frame 8/10
+  Streaming frame 9/10
+  Streaming frame 10/10
+  100%  Render complete
+
+観測: 全 10 フレームで "PAGE __hf.seek called" は 0 件。ページ定義の seek も、
+それを包んだ wrap も呼ばれていない = 注入ランタイムが seek を自前 driver で
+置き換えた。naive なページ事前定義はフック手段として不成立。

@@ -1,0 +1,38 @@
+probe-a: hyperframes render . --composition sheet.html --format webm --fps 10 --workers 1 --no-browser-gpu --no-best-effort -o out.webm
+(ログ抜粋・パスはサニタイズ。[Browser] 行はブラウザ console の転送)
+
+[INFO] Compiled composition metadata {"entryFile":"sheet.html","staticDuration":1,"width":320,"height":240,"videoCount":0,"audioCount":0}
+[BrowserManager] Browser launched (Chrome/150.0.7871.125, screenshot, gl=--use-gl=angle --use-angle=swiftshader, headlessShell=true, platform=darwin)
+[initSession:screenshot] page.goto start (0ms)
+[Browser] [akari-probe] initial window.__hf typeof=object
+[HyperFrames] render runtime fps [object Object]
+[initSession:screenshot] page.goto complete (226ms)
+[Browser] [akari-probe] __akariSeek called t=0            <-- シート自身の __akariReady 初期化による 1 回のみ。以後フレーム駆動での呼び出しなし
+[Browser] [akari-probe] __hf appeared; duration=1 keys=colorGrading,seek,duration
+[initSession:screenshot] GSAP proxy flush complete (309ms)
+[initSession:screenshot] pollHfReady complete (363ms)
+[initSession:screenshot] pollSubCompositionTimelines complete (ready) (365ms)
+[initSession:screenshot] media + fonts + tailwind ready (368ms)
+[initSession:screenshot] static-frame dedup: disabled (no GSAP tweens (non-GSAP animation)+running CSS/WAAPI animation) (373ms)
+[Browser] [akari-probe] __hf.seek called t=0
+  Streaming frame 1/10
+[Browser] [akari-probe] __hf.seek called t=0.1
+  Streaming frame 2/10
+[Browser] [akari-probe] __hf.seek called t=0.2
+  Streaming frame 3/10
+[Browser] [akari-probe] __hf.seek called t=0.3
+  Streaming frame 4/10
+[Browser] [akari-probe] __hf.seek called t=0.4
+  Streaming frame 5/10
+[Browser] [akari-probe] __hf.seek called t=0.5
+  Streaming frame 6/10
+[Browser] [akari-probe] __hf.seek called t=0.6
+  Streaming frame 7/10
+[Browser] [akari-probe] __hf.seek called t=0.7
+  Streaming frame 8/10
+[Browser] [akari-probe] __hf.seek called t=0.8
+  Streaming frame 9/10
+[Browser] [akari-probe] __hf.seek called t=0.9
+  Streaming frame 10/10
+  100%  Render complete
+   1.5 KB · 1.0s video · rendered in 9.7s
