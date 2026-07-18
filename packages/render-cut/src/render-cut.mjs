@@ -138,6 +138,9 @@ export async function renderProject(input, options = {}) {
     runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
 
     const overlays = await loadOverlays(projectRoot, edit);
+    const hasThreeDimensionalOverlay = overlays.some((overlay) =>
+      overlay.html.includes("data-akari-3d-scene"),
+    );
     const captions = plannedCaptions;
     const allOverlays = [...overlays, ...captions];
     const compositePath = join(temporaryDirectory, "composite.mp4");
@@ -160,6 +163,7 @@ export async function renderProject(input, options = {}) {
         compositePath,
         capabilities,
         duration: plan.predicted_duration_seconds,
+        hasThreeDimensionalOverlay,
       });
     }
 
@@ -334,6 +338,7 @@ async function rasterizeAndComposite(context) {
     compositePath,
     capabilities,
     duration,
+    hasThreeDimensionalOverlay,
   } = context;
   const sheetPath = join(temporaryDirectory, "overlay-sheet.html");
   await writeFile(
@@ -342,7 +347,13 @@ async function rasterizeAndComposite(context) {
     "utf8",
   );
 
-  if (capabilities.hyperframesAvailable) {
+  if (hasThreeDimensionalOverlay) {
+    rejectRasterizer(
+      state,
+      "hyperframes",
+      "3D overlay requires the puppeteer-core path",
+    );
+  } else if (capabilities.hyperframesAvailable) {
     const overlayPath = join(temporaryDirectory, "overlay.webm");
     try {
       runChecked(

@@ -1,10 +1,45 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
+const THREE_BUNDLE_PATH = resolve(
+  SOURCE_DIRECTORY,
+  "../../overlay-runtime/src/vendor/three-bundle.js",
+);
+const THREE_RUNTIME_PATH = resolve(
+  SOURCE_DIRECTORY,
+  "../../overlay-runtime/src/three-runtime.js",
+);
+const THREE_SCENE_SCRIPT_PATTERN = /(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu;
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
-  const nodes = overlays.map((overlay, index) => renderOverlayNode(overlay, index)).join("\n");
+  const hasThreeDimensionalOverlay = overlays.some((overlay) =>
+    overlay.html.includes("data-akari-3d-scene"),
+  );
+  const sheetOverlays = hasThreeDimensionalOverlay
+    ? overlays.map((overlay) => ({
+        ...overlay,
+        html: embedThreeModels(overlay.html, projectRoot, overlay.id),
+      }))
+    : overlays;
+  const nodes = sheetOverlays
+    .map((overlay, index) => renderOverlayNode(overlay, index))
+    .join("\n");
+  const threeRuntimeScripts = hasThreeDimensionalOverlay
+    ? `\n  <script>${inlineScript(readFileSync(THREE_BUNDLE_PATH, "utf8"))}</script>\n  <script>${inlineScript(readFileSync(THREE_RUNTIME_PATH, "utf8"))}</script>`
+    : "";
+  const threeSeekBranch = hasThreeDimensionalOverlay
+    ? `\n        const threeContainer = container.querySelector(':scope > .scene-content');\n        if (active && threeContainer?.querySelector('script[type="application/json"][data-akari-3d-scene]')) {\n          window.akari.threeRuntime.render(threeContainer, seconds - start);\n        }`
+    : "";
+  const threeReadySetup = hasThreeDimensionalOverlay
+    ? `\n    const threeContainers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][data-akari-3d-scene]')\n    );\n    for (const container of threeContainers) {\n      window.akari.threeRuntime.render(container, 0);\n    }\n    async function waitForThreeContainer(container) {\n      while (true) {\n        const status = window.akari.threeRuntime.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-three] 3D scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-three] 3D scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`
+    : "";
+  const threeReadyWait = hasThreeDimensionalOverlay
+    ? `\n      await Promise.all(threeContainers.map(waitForThreeContainer));`
+    : "";
   return `<!doctype html>
 <html>
 <head>
@@ -15,7 +50,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
     .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
-  </style>
+  </style>${threeRuntimeScripts}
 </head>
 <body>
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
@@ -32,16 +67,16 @@ ${nodes}
         for (const animation of container.getAnimations({ subtree: true })) {
           animation.pause();
           try { animation.currentTime = localMilliseconds; } catch {}
-        }
+        }${threeSeekBranch}
       }
       for (const video of document.querySelectorAll('video')) {
         try { video.pause(); video.currentTime = seconds; } catch {}
       }
       await Promise.resolve();
-    };
+    };${threeReadySetup}
     window.__akariReady = (async function() {
       await document.fonts.ready;
-      await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));
+      await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${threeReadyWait}
       await window.__akariSeek(0);
       return true;
     })();
@@ -72,6 +107,8 @@ export async function captureWithPuppeteer({
     args: [
       "--no-sandbox",
       "--disable-gpu",
+      "--enable-unsafe-swiftshader",
+      "--use-angle=swiftshader",
       "--disable-dev-shm-usage",
       "--no-first-run",
       "--no-default-browser-check",
@@ -147,6 +184,8 @@ export async function captureStaticOverlays({
         "--headless=new",
         "--no-sandbox",
         "--disable-gpu",
+        "--enable-unsafe-swiftshader",
+        "--use-angle=swiftshader",
         "--disable-dev-shm-usage",
         `--user-data-dir=${join(temporaryDirectory, `${stem}-chrome-profile`)}`,
         "--hide-scrollbars",
@@ -283,6 +322,52 @@ function renderOverlayNode(overlay, index) {
     .map(([name, value]) => `${name}:${String(value).replaceAll(";", "")}`)
     .join(";");
   return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}" style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
+}
+
+function embedThreeModels(html, projectRoot, overlayId) {
+  if (!html.includes("data-akari-3d-scene")) return html;
+  let declarationCount = 0;
+  const embedded = html.replace(
+    THREE_SCENE_SCRIPT_PATTERN,
+    (_match, openingTag, jsonText, closingTag) => {
+      declarationCount += 1;
+      let descriptor;
+      try {
+        descriptor = JSON.parse(jsonText);
+      } catch (error) {
+        throw new Error(
+          `3D overlay ${overlayId} has invalid data-akari-3d-scene JSON: ${error.message}`,
+        );
+      }
+      if (!descriptor || typeof descriptor !== "object" || Array.isArray(descriptor)) {
+        throw new TypeError(`3D overlay ${overlayId} scene declaration must be a JSON object`);
+      }
+      if (typeof descriptor.model !== "string" || descriptor.model.length === 0) {
+        throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
+      }
+      const modelPath = resolve(projectRoot, descriptor.model);
+      const model = readFileSync(modelPath);
+      const embeddedDescriptor = {
+        ...descriptor,
+        model: `data:model/gltf-binary;base64,${model.toString("base64")}`,
+      };
+      return `${openingTag}${escapeScriptJson(JSON.stringify(embeddedDescriptor))}${closingTag}`;
+    },
+  );
+  if (declarationCount === 0) {
+    throw new Error(
+      `3D overlay ${overlayId} must declare <script type="application/json" data-akari-3d-scene>`,
+    );
+  }
+  return embedded;
+}
+
+function inlineScript(source) {
+  return source.replaceAll("</script", "<\\/script");
+}
+
+function escapeScriptJson(json) {
+  return json.replaceAll("<", "\\u003c");
 }
 
 function escapeAttribute(value) {

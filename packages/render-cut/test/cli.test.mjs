@@ -17,7 +17,13 @@ function run(project, args = []) {
   });
 }
 
-async function makeProject({ lint = true, captions = false, withAudio = true, overlays = true } = {}) {
+async function makeProject({
+  lint = true,
+  captions = false,
+  withAudio = true,
+  overlays = true,
+  threeDimensional = false,
+} = {}) {
   const root = await mkdtemp(join(tmpdir(), "render-cut-test-"));
   const source = join(root, "source.mp4");
   const sourceArguments = [
@@ -47,26 +53,31 @@ async function makeProject({ lint = true, captions = false, withAudio = true, ov
   await mkdir(join(root, "overlays"));
   await writeFile(
     join(root, "overlays", "label.html"),
-    '<div style="font:700 30px system-ui;color:white;background:#b00020;padding:8px">字幕A</div>\n',
+    threeDimensional
+      ? '<div style="width:320px;height:180px"><canvas style="width:100%;height:100%"></canvas><div data-akari-3d-fallback style="color:white">3D fallback</div><script type="application/json" data-akari-3d-scene>{"model":"model.glb"}</script></div>\n'
+      : '<div style="font:700 30px system-ui;color:white;background:#b00020;padding:8px">字幕A</div>\n',
   );
+  if (threeDimensional) await writeFile(join(root, "model.glb"), "invalid GLB fixture");
   await writeFile(
     join(root, "edit.json"),
     `${JSON.stringify(
       {
         version: 0,
-        output: { width: 320, height: 180, fps: 10 },
+        output: { width: 320, height: 180, fps: threeDimensional ? 2 : 10 },
         source: { path: "source.mp4", proxy: null },
-        cuts: [
-          { in: 0.5, out: 1.5 },
-          { in: 2, out: 3 },
-        ],
+        cuts: threeDimensional
+          ? [{ in: 0, out: 0.5 }]
+          : [
+              { in: 0.5, out: 1.5 },
+              { in: 2, out: 3 },
+            ],
         overlays: overlays
           ? [
               {
                 id: "label",
                 html: "overlays/label.html",
-                start: 0.1,
-                duration: 0.7,
+                start: threeDimensional ? 0 : 0.1,
+                duration: threeDimensional ? 0.5 : 0.7,
                 transform: { x: 0, y: -30, scale: 1, rotate: 0 },
                 vars: {},
               },
@@ -141,6 +152,7 @@ test("CLI renders overlays or preserves diagnostics when Chrome cannot launch", 
   try {
     const executed = run(project);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.provenance.rasterizer.attempts[0]?.method, "hyperframes");
     const staticAttempt = state.provenance.rasterizer.attempts.find(
       (attempt) => attempt.method === "static-screenshot",
     );
@@ -181,6 +193,42 @@ test("CLI completes without overlays and adds AAC silence to a video-only source
     assert.equal(state.provenance.rasterizer.adopted, "skip");
     assert.equal(state.artifacts[0].ffprobe.video_codec, "h264");
     assert.equal(state.artifacts[0].ffprobe.audio_codec, "aac");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("3D overlays skip HyperFrames and use the puppeteer-core path", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  if (spawnSync(chromePath, ["--version"]).status !== 0) return t.skip("Chrome unavailable");
+  const project = await makeProject({ threeDimensional: true });
+  try {
+    const executed = run(project);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.deepEqual(state.provenance.rasterizer.attempts[0], {
+      method: "hyperframes",
+      status: "rejected",
+      reason: "3D overlay requires the puppeteer-core path",
+    });
+    const puppeteerAttempt = state.provenance.rasterizer.attempts.find(
+      (attempt) => attempt.method === "puppeteer-core",
+    );
+    const staticAttempt = state.provenance.rasterizer.attempts.find(
+      (attempt) => attempt.method === "static-screenshot",
+    );
+    if (
+      executed.status === 2 &&
+      /Failed to launch the browser process/.test(puppeteerAttempt?.reason ?? "") &&
+      /SIGABRT/.test(staticAttempt?.reason ?? "")
+    ) {
+      return;
+    }
+    assert.equal(
+      executed.status,
+      0,
+      `${executed.stderr}\n${JSON.stringify(state.verify, null, 2)}\n${JSON.stringify(state.provenance.rasterizer, null, 2)}`,
+    );
+    assert.equal(state.provenance.rasterizer.adopted, "puppeteer-core");
   } finally {
     await rm(project, { recursive: true, force: true });
   }
