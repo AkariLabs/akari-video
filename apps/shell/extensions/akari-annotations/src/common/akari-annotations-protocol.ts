@@ -42,7 +42,53 @@ export interface ResolveAnnotationRequest {
     annotationId: string;
 }
 
+export interface TrimCutRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    in: number;
+    out: number;
+}
+
+export interface ReorderCutsRequest {
+    editUri: string;
+    projectRootUri: string;
+    fromIndex: number;
+    toIndex: number;
+}
+
+export interface ShiftCaptionRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionId: string;
+    deltaStart: number;
+    deltaEnd: number;
+}
+
+export interface MoveOverlayRequest {
+    editUri: string;
+    projectRootUri: string;
+    overlayId: string;
+    start: number;
+}
+
+export interface ResizeOverlayRequest {
+    editUri: string;
+    projectRootUri: string;
+    overlayId: string;
+    duration: number;
+}
+
+export interface WriteBackResult {
+    committed: boolean;
+}
+
 export interface AkariAnnotationsService {
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;
     resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }>;
+    trimCut(request: TrimCutRequest): Promise<WriteBackResult>;
+    reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult>;
+    shiftCaption(request: ShiftCaptionRequest): Promise<WriteBackResult>;
+    moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult>;
+    resizeOverlay(request: ResizeOverlayRequest): Promise<WriteBackResult>;
 }

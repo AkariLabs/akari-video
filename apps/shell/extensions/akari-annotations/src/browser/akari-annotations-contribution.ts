@@ -11,7 +11,7 @@ import { ProjectLocation } from './project-location';
 
 export const OPEN_AKARI_ANNOTATIONS: Command = {
     id: 'akari.annotations.open',
-    label: '注釈を開く'
+    label: 'タイムラインを開く'
 };
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);

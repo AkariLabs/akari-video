@@ -9,7 +9,13 @@ import {
     Annotation,
     CreateAnnotationRequest,
     CreateAnnotationResult,
-    ResolveAnnotationRequest
+    MoveOverlayRequest,
+    ReorderCutsRequest,
+    ResizeOverlayRequest,
+    ResolveAnnotationRequest,
+    ShiftCaptionRequest,
+    TrimCutRequest,
+    WriteBackResult
 } from '../common/akari-annotations-protocol';
 import {
     appendAnnotationLine,
@@ -18,6 +24,13 @@ import {
     parseReview,
     updateStatusLine
 } from '../common/annotation-store';
+import { shiftCaptionLine } from '../common/caption-store';
+import {
+    moveOverlayInSource,
+    reorderCutsInSource,
+    resizeOverlayInSource,
+    trimCutInSource
+} from '../common/edit-store';
 
 const execFileAsync = promisify(execFile);
 
@@ -83,6 +96,66 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw new Error('更新後の注釈を読み取れません。');
         }
         return { annotation };
+    }
+
+    async trimCut(request: TrimCutRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = trimCutInSource(source, request.cutIndex, request.in, request.out);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップをトリム') };
+    }
+
+    async reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = reorderCutsInSource(source, request.fromIndex, request.toIndex);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの順序を入れ替え') };
+    }
+
+    async shiftCaption(request: ShiftCaptionRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = shiftCaptionLine(source, request.captionId, request.deltaStart, request.deltaEnd);
+        await this.writeAtomic(captionsPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
+    }
+
+    async moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = moveOverlayInSource(source, request.overlayId, request.start);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイを移動') };
+    }
+
+    async resizeOverlay(request: ResizeOverlayRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = resizeOverlayInSource(source, request.overlayId, request.duration);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイの尺を変更') };
+    }
+
+    protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {
+        if (!uri || !projectRootUri) {
+            throw new Error('書き戻し先を特定できません。');
+        }
+    }
+
+    protected async commitWrite(root: string, message: string): Promise<boolean> {
+        try {
+            return await this.commitIfOwnRoot(root, message);
+        } catch (error) {
+            console.warn('[akari-annotations] commit skipped:', error);
+            return false;
+        }
     }
 
     protected async recordGateEvent(root: string, reviewPath: string, annotationId: string): Promise<void> {

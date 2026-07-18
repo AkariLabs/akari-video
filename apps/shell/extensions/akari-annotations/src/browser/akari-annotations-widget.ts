@@ -1,12 +1,19 @@
-import { CommandService, MessageService } from '@theia/core/lib/common';
+import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
-import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
+import { AkariAnnotationsService, Annotation, WriteBackResult } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
+import { CaptionRecord, parseCaptions } from '../common/caption-store';
+import { EditCut, EditOverlay, parseEdit } from '../common/edit-store';
 import { ProjectLocation } from './project-location';
 
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
+const MINIMUM_ITEM_DURATION = 0.15;
+const DRAG_THRESHOLD_PX = 3;
+const EDGE_ZONE_PX = 6;
+const SNAP_THRESHOLD_PX = 8;
+
 const STATUS_LABELS: Record<Annotation['status'], string> = {
     open: '未対応',
     addressed: '対応済み',
@@ -18,8 +25,28 @@ const STATUS_COLORS: Record<Annotation['status'], string> = {
     resolved: 'var(--theia-charts-green)'
 };
 
-interface CutRange { in: number; out: number; }
-interface CaptionTick { start: number; end: number; text: string; }
+interface DragBase {
+    pointerId: number;
+    startClientX: number;
+    element: HTMLDivElement;
+    ghost: HTMLDivElement;
+    dragged: boolean;
+}
+
+type DragDetail =
+    | { kind: 'cut-trim'; index: number; edge: 'left' | 'right'; originalIn: number; originalOut: number }
+    | { kind: 'cut-reorder'; index: number; originalIn: number; originalOut: number }
+    | { kind: 'caption'; id: string; mode: 'move' | 'start' | 'end'; originalStart: number; originalEnd: number }
+    | { kind: 'overlay'; id: string; mode: 'move' | 'resize'; originalStart: number; originalDuration: number };
+
+type DragState = DragBase & DragDetail;
+
+type DragPreview =
+    | { kind: 'cut-trim'; index: number; input: number; output: number }
+    | { kind: 'cut-reorder'; fromIndex: number; toIndex: number }
+    | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
+    | { kind: 'overlay-move'; id: string; start: number }
+    | { kind: 'overlay-resize'; id: string; duration: number };
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
@@ -38,9 +65,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly annotationsService!: AkariAnnotationsService;
 
     protected readonly toolbar = document.createElement('div');
+    protected readonly undoButton = document.createElement('button');
     protected readonly filterSelect = document.createElement('select');
     protected readonly strip = document.createElement('div');
     protected readonly playhead = document.createElement('div');
+    protected readonly snapGuide = document.createElement('div');
     protected readonly composerRow = document.createElement('div');
     protected readonly timeLabel = document.createElement('span');
     protected readonly textInput = document.createElement('input');
@@ -51,17 +80,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected location: ProjectLocation | undefined;
     protected annotations: Annotation[] = [];
-    protected captions: CaptionTick[] = [];
-    protected keepRanges: CutRange[] = [];
+    protected captions: CaptionRecord[] = [];
+    protected cuts: EditCut[] = [];
+    protected overlays: EditOverlay[] = [];
+    protected wordBoundaries: number[] = [];
     protected selectedSourceT = 0;
     protected statusFilter: 'all' | Annotation['status'] = 'all';
     protected configured = false;
+    protected dragState: DragState | undefined;
+    protected lastUndo: (() => Promise<void>) | undefined;
+    protected contextPopup: HTMLDivElement | undefined;
 
     @postConstruct()
     protected init(): void {
         this.id = AkariAnnotationsWidget.FACTORY_ID;
-        this.title.label = '注釈';
-        this.title.caption = 'レビューコメントとタイムライン';
+        this.title.label = 'タイムライン';
+        this.title.caption = 'タイムラインとレビューコメント';
         this.title.iconClass = 'codicon codicon-comment';
         this.title.closable = true;
         this.node.classList.add('akari-annotations-widget');
@@ -78,10 +112,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             padding: '6px 10px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
         const heading = document.createElement('strong');
-        heading.textContent = '注釈';
+        heading.textContent = 'タイムライン';
         heading.style.marginRight = 'auto';
+        this.undoButton.type = 'button';
+        this.undoButton.className = 'theia-button secondary';
+        this.undoButton.textContent = '元に戻す';
+        this.undoButton.disabled = true;
+        this.undoButton.addEventListener('click', () => void this.performUndo());
         this.filterSelect.setAttribute('aria-label', '状態で絞り込み');
-        const filterOptions: Array<[string, string]> = [['all', 'すべて'], ['open', '未対応'], ['addressed', '対応済み'], ['resolved', '確認済み']];
+        const filterOptions: Array<[string, string]> = [
+            ['all', 'すべて'], ['open', '未対応'], ['addressed', '対応済み'], ['resolved', '確認済み']
+        ];
         for (const [value, label] of filterOptions) {
             const option = document.createElement('option');
             option.value = value;
@@ -92,24 +133,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.statusFilter = this.filterSelect.value as typeof this.statusFilter;
             this.renderList();
         });
-        this.toolbar.append(heading, this.filterSelect);
+        this.toolbar.append(heading, this.undoButton, this.filterSelect);
 
         Object.assign(this.strip.style, {
-            position: 'relative', margin: '8px 10px', height: '64px',
+            position: 'relative', margin: '8px 10px', height: '96px',
             border: '1px solid var(--theia-widget-border)', borderRadius: '4px',
             background: 'var(--theia-editorWidget-background)', cursor: 'pointer', overflow: 'hidden'
         });
         Object.assign(this.playhead.style, {
             position: 'absolute', top: '0', bottom: '0', width: '2px',
-            background: 'var(--theia-focusBorder)', left: '0%', pointerEvents: 'none'
+            background: 'var(--theia-focusBorder)', left: '0%', pointerEvents: 'none', zIndex: '10'
         });
-        this.strip.appendChild(this.playhead);
+        Object.assign(this.snapGuide.style, {
+            position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
+            background: 'var(--theia-charts-yellow, #e5c07b)', pointerEvents: 'none', zIndex: '11'
+        });
+        this.strip.append(this.playhead, this.snapGuide);
         this.strip.addEventListener('click', event => this.onStripClick(event));
+        this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
 
         Object.assign(this.composerRow.style, {
             display: 'flex', alignItems: 'center', gap: '8px', padding: '0 10px 8px', boxSizing: 'border-box'
         });
-        Object.assign(this.timeLabel.style, { fontVariantNumeric: 'tabular-nums', color: 'var(--theia-descriptionForeground)', minWidth: '96px' });
+        Object.assign(this.timeLabel.style, {
+            fontVariantNumeric: 'tabular-nums', color: 'var(--theia-descriptionForeground)', minWidth: '96px'
+        });
         this.textInput.type = 'text';
         this.textInput.placeholder = 'コメントを入力';
         this.textInput.setAttribute('aria-label', 'コメントを入力');
@@ -131,31 +179,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
             background: 'var(--theia-inputValidation-warningBackground)',
             borderBottom: '1px solid var(--theia-inputValidation-warningBorder)', fontSize: '12px', lineHeight: '1.4'
         });
-
         Object.assign(this.listContainer.style, { minHeight: '0', overflow: 'auto', padding: '4px 10px' });
-
         Object.assign(this.footer.style, {
             height: '26px', minHeight: '26px', maxHeight: '26px', padding: '5px 10px', boxSizing: 'border-box',
             borderTop: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
             fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
         });
-        this.footer.textContent = 'ストリップをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
+        this.footer.textContent = 'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
 
         this.node.append(this.toolbar, this.strip, this.composerRow, this.notice, this.listContainer, this.footer);
         const style = document.createElement('style');
         style.textContent = `
-    .akari-annotations-widget .akari-annotations-strip-cut {
-        background: color-mix(in srgb, var(--theia-editor-background) 78%, var(--theia-disabledForeground, #888));
-        opacity: .8;
+    .akari-annotations-widget .akari-annotations-strip-clip {
+        background: color-mix(in srgb, var(--theia-charts-blue, #61afef) 62%, transparent);
+        border: 1px solid color-mix(in srgb, var(--theia-charts-blue, #61afef) 82%, white);
+        border-radius: 2px;
+        box-sizing: border-box;
     }
     .akari-annotations-widget .akari-annotations-strip-caption {
         background: var(--theia-charts-purple, #b180d7);
-        opacity: .55;
+        opacity: .68;
+        border-radius: 2px;
+    }
+    .akari-annotations-widget .akari-annotations-strip-overlay {
+        background: var(--theia-charts-orange, #d19a66);
+        opacity: .74;
         border-radius: 2px;
     }
     .akari-annotations-widget .akari-annotations-strip-caption-text {
         position: absolute;
-        top: 26px;
+        top: 38px;
         height: 16px;
         display: flex;
         align-items: center;
@@ -165,11 +218,43 @@ export class AkariAnnotationsWidget extends BaseWidget {
         color: var(--theia-foreground);
         pointer-events: none;
         padding-left: 3px;
-        z-index: 1;
+        z-index: 3;
         text-shadow: 0 0 2px var(--theia-editorWidget-background), 0 0 3px var(--theia-editorWidget-background);
+    }
+    .akari-annotations-widget .akari-annotations-segment-label {
+        display: block;
+        padding: 1px 3px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: var(--theia-editor-foreground, #fff);
+        font-size: 10px;
+        line-height: 14px;
+        pointer-events: none;
+        text-shadow: 0 1px 2px #000;
     }
 `;
         this.node.appendChild(style);
+
+        const keydown = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape' && this.dragState) {
+                event.preventDefault();
+                this.cancelDrag(this.dragState);
+                return;
+            }
+            if (this.isAttached && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+                event.preventDefault();
+                void this.performUndo();
+            }
+        };
+        window.addEventListener('keydown', keydown);
+        this.toDispose.push(Disposable.create(() => {
+            window.removeEventListener('keydown', keydown);
+            this.closeAnnotationPopup();
+            if (this.dragState) {
+                this.cancelDrag(this.dragState);
+            }
+        }));
         this.updateTimeLabel();
     }
 
@@ -179,7 +264,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.configured = true;
         this.location = location;
-        this.title.caption = location.reviewUri.toString();
+        this.title.caption = `タイムライン — ${location.reviewUri.toString()}`;
         await this.reloadAll();
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (!this.location) {
@@ -194,6 +279,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (event.contains(this.location.captionsUri)) {
                 void this.reloadCaptions();
             }
+            if (this.location.analysisUri && event.contains(this.location.analysisUri)) {
+                void this.reloadAnalysis();
+            }
         }));
         try {
             this.toDispose.push(await this.fileService.watch(location.root, { recursive: true, excludes: [] }));
@@ -203,7 +291,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async reloadAll(): Promise<void> {
-        await Promise.all([this.reloadReview(), this.reloadEdit(), this.reloadCaptions()]);
+        await Promise.all([this.reloadReview(), this.reloadEdit(), this.reloadCaptions(), this.reloadAnalysis()]);
     }
 
     protected async reloadReview(): Promise<void> {
@@ -230,19 +318,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async reloadEdit(): Promise<void> {
-        this.keepRanges = [];
+        this.cuts = [];
+        this.overlays = [];
         if (this.location?.editUri) {
             try {
-                const edit = JSON.parse((await this.fileService.readFile(this.location.editUri)).value.toString());
-                if (Array.isArray(edit?.cuts)) {
-                    this.keepRanges = edit.cuts.flatMap((value: any) => {
-                        const input = Number(value?.in);
-                        const output = Number(value?.out);
-                        return Number.isFinite(input) && Number.isFinite(output) && input < output ? [{ in: input, out: output }] : [];
-                    });
+                const source = (await this.fileService.readFile(this.location.editUri)).value.toString();
+                const parsed = parseEdit(source);
+                this.cuts = parsed.cuts;
+                this.overlays = parsed.overlays;
+                if (parsed.warnings.length > 0) {
+                    this.showWarnings(parsed.warnings);
                 }
             } catch {
-                // A missing or unreadable edit.json means no cut overlay is drawn.
+                // A missing or unreadable edit.json means no clips or overlays are drawn.
             }
         }
         this.renderStrip();
@@ -253,28 +341,52 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.location) {
             try {
                 const source = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
-                const parsed = JSON.parse(source);
-                if (Array.isArray(parsed)) {
-                    this.captions = parsed.flatMap((value: any) => {
-                        const start = Number(value?.start);
-                        const end = Number(value?.end);
-                        return Number.isFinite(start) && Number.isFinite(end) && start < end
-                            ? [{ start, end, text: typeof value?.text === 'string' ? value.text : '' }]
-                            : [];
-                    });
+                const parsed = parseCaptions(source);
+                this.captions = parsed.captions;
+                if (parsed.warnings.length > 0) {
+                    this.showWarnings(parsed.warnings);
                 }
             } catch {
-                // A missing or unreadable captions.json means no caption ticks are drawn.
+                // A missing or unreadable captions.json means no caption segments are drawn.
             }
         }
         this.renderStrip();
+    }
+
+    protected async reloadAnalysis(): Promise<void> {
+        this.wordBoundaries = [];
+        if (this.location?.analysisUri) {
+            try {
+                const analysis = JSON.parse((await this.fileService.readFile(this.location.analysisUri)).value.toString());
+                if (Array.isArray(analysis?.transcript)) {
+                    const boundaries: number[] = [];
+                    for (const segment of analysis.transcript) {
+                        if (!Array.isArray(segment?.words)) {
+                            continue;
+                        }
+                        for (const word of segment.words) {
+                            if (typeof word?.start === 'number' && Number.isFinite(word.start)) {
+                                boundaries.push(word.start);
+                            }
+                            if (typeof word?.end === 'number' && Number.isFinite(word.end)) {
+                                boundaries.push(word.end);
+                            }
+                        }
+                    }
+                    this.wordBoundaries = boundaries;
+                }
+            } catch {
+                // Snapping degrades to clip and playhead boundaries when analysis is unavailable.
+            }
+        }
     }
 
     protected totalDuration(): number {
         const candidates = [
             10,
             ...this.captions.map(caption => caption.end),
-            ...this.keepRanges.map(range => range.out),
+            ...this.cuts.map(cut => cut.out),
+            ...this.overlays.map(overlay => overlay.start + overlay.duration),
             ...this.annotations.map(annotation => annotation.sourceT + 1)
         ];
         return Math.max(...candidates) * 1.02;
@@ -282,31 +394,68 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected renderStrip(): void {
         for (const child of Array.from(this.strip.children)) {
-            if (child !== this.playhead) {
+            if (child !== this.playhead && child !== this.snapGuide) {
                 child.remove();
             }
         }
         const duration = this.totalDuration();
-        if (this.keepRanges.length > 0) {
-            let cursor = 0;
-            const sorted = [...this.keepRanges].sort((left, right) => left.in - right.in);
-            for (const range of sorted) {
-                if (range.in > cursor) {
-                    this.strip.appendChild(this.stripSegment(cursor, range.in, 0, 24, 'akari-annotations-strip-cut'));
+        this.renderRuler(duration);
+        this.cuts.forEach((cut, index) => {
+            const element = this.stripSegment(cut.in, cut.out, 14, 22, 'akari-annotations-strip-clip', `C${index + 1}`);
+            element.appendChild(this.segmentLabel(`C${index + 1}`));
+            this.installDragListeners(element, (event, rect) => {
+                const localX = event.clientX - rect.left;
+                const rightDistance = rect.right - event.clientX;
+                if (localX <= EDGE_ZONE_PX && localX <= rightDistance) {
+                    return { kind: 'cut-trim', index, edge: 'left', originalIn: cut.in, originalOut: cut.out };
                 }
-                cursor = Math.max(cursor, range.out);
-            }
-            if (cursor < duration) {
-                this.strip.appendChild(this.stripSegment(cursor, duration, 0, 24, 'akari-annotations-strip-cut'));
-            }
-        }
+                if (rightDistance <= EDGE_ZONE_PX) {
+                    return { kind: 'cut-trim', index, edge: 'right', originalIn: cut.in, originalOut: cut.out };
+                }
+                return { kind: 'cut-reorder', index, originalIn: cut.in, originalOut: cut.out };
+            });
+            this.strip.appendChild(element);
+        });
         for (const caption of this.captions) {
-            const captionEnd = Math.max(caption.end, caption.start + 0.15);
-            this.strip.appendChild(this.stripSegment(caption.start, captionEnd, 26, 16, 'akari-annotations-strip-caption', caption.text));
+            const captionEnd = Math.max(caption.end, caption.start + MINIMUM_ITEM_DURATION);
+            const element = this.stripSegment(
+                caption.start, captionEnd, 38, 16, 'akari-annotations-strip-caption', caption.text
+            );
+            this.installDragListeners(element, (event, rect) => {
+                const localX = event.clientX - rect.left;
+                const rightDistance = rect.right - event.clientX;
+                const mode = localX <= EDGE_ZONE_PX && localX <= rightDistance ? 'start'
+                    : rightDistance <= EDGE_ZONE_PX ? 'end' : 'move';
+                return {
+                    kind: 'caption', id: caption.id, mode,
+                    originalStart: caption.start, originalEnd: caption.end
+                };
+            });
+            this.strip.appendChild(element);
             this.strip.appendChild(this.captionLabel(caption.start, caption.text));
         }
+        for (const overlay of this.overlays) {
+            const element = this.stripSegment(
+                overlay.start, overlay.start + overlay.duration, 56, 16,
+                'akari-annotations-strip-overlay', overlay.id
+            );
+            element.appendChild(this.segmentLabel(overlay.id));
+            this.installDragListeners(element, (event, rect) => ({
+                kind: 'overlay', id: overlay.id,
+                mode: rect.right - event.clientX <= EDGE_ZONE_PX ? 'resize' : 'move',
+                originalStart: overlay.start, originalDuration: overlay.duration
+            }));
+            this.strip.appendChild(element);
+        }
         for (const annotation of this.annotations) {
-            const marker = this.stripSegment(annotation.sourceT, annotation.sourceT + Math.max(duration * 0.006, 0.2), 44, 18, 'akari-annotations-strip-pin', `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`);
+            const marker = this.stripSegment(
+                annotation.sourceT,
+                annotation.sourceT + Math.max(duration * 0.006, 0.2),
+                76,
+                18,
+                'akari-annotations-strip-pin',
+                `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`
+            );
             marker.style.background = STATUS_COLORS[annotation.status];
             marker.style.borderRadius = '50%';
             marker.setAttribute('data-annotation-id', annotation.id);
@@ -317,7 +466,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.updateTimeLabel();
     }
 
-    protected stripSegment(start: number, end: number, top: number, height: number, className: string, title?: string): HTMLDivElement {
+    protected renderRuler(duration: number): void {
+        const divisions = 5;
+        for (let index = 0; index <= divisions; index++) {
+            const label = document.createElement('div');
+            const time = duration * index / divisions;
+            label.textContent = this.formatRulerTimestamp(time);
+            Object.assign(label.style, {
+                position: 'absolute', top: '0', height: '14px', left: `${index * 100 / divisions}%`,
+                color: 'var(--theia-descriptionForeground)', fontSize: '9px', lineHeight: '13px',
+                fontVariantNumeric: 'tabular-nums', pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: '2',
+                transform: index === 0 ? 'none' : index === divisions ? 'translateX(-100%)' : 'translateX(-50%)'
+            });
+            this.strip.appendChild(label);
+        }
+    }
+
+    protected stripSegment(
+        start: number,
+        end: number,
+        top: number,
+        height: number,
+        className: string,
+        title?: string
+    ): HTMLDivElement {
         const duration = this.totalDuration();
         const element = document.createElement('div');
         element.className = className;
@@ -336,26 +508,374 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected captionLabel(start: number, text: string): HTMLDivElement {
-        const duration = this.totalDuration();
         const label = document.createElement('div');
         label.className = 'akari-annotations-strip-caption-text';
         label.textContent = text;
         label.title = text;
-        label.style.left = `${this.percent(start, duration)}%`;
+        label.style.left = `${this.percent(start, this.totalDuration())}%`;
         return label;
     }
 
-    protected percent(value: number, duration: number): number {
-        return duration > 0 ? Math.min(100, Math.max(0, (value / duration) * 100)) : 0;
+    protected segmentLabel(text: string): HTMLSpanElement {
+        const label = document.createElement('span');
+        label.className = 'akari-annotations-segment-label';
+        label.textContent = text;
+        return label;
     }
 
-    protected onStripClick(event: MouseEvent): void {
+    protected installDragListeners(
+        element: HTMLDivElement,
+        detail: (event: PointerEvent, rect: DOMRect) => DragDetail
+    ): void {
+        element.style.pointerEvents = 'auto';
+        element.style.touchAction = 'none';
+        element.style.cursor = 'grab';
+        element.addEventListener('click', event => event.stopPropagation());
+        element.addEventListener('pointerdown', event => {
+            if (event.button !== 0 || this.dragState) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            const ghost = element.cloneNode(true) as HTMLDivElement;
+            ghost.removeAttribute('title');
+            Object.assign(ghost.style, {
+                pointerEvents: 'none', opacity: '.55', borderStyle: 'dashed', zIndex: '8', cursor: 'grabbing'
+            });
+            this.strip.appendChild(ghost);
+            const state = {
+                ...detail(event, element.getBoundingClientRect()),
+                pointerId: event.pointerId,
+                startClientX: event.clientX,
+                element,
+                ghost,
+                dragged: false
+            } as DragState;
+            this.dragState = state;
+            element.style.cursor = 'grabbing';
+            try {
+                element.setPointerCapture(event.pointerId);
+            } catch {
+                // Pointer capture can fail if the element is detached during a file refresh.
+            }
+        });
+        element.addEventListener('pointermove', event => {
+            const state = this.dragState;
+            if (!state || state.element !== element || state.pointerId !== event.pointerId) {
+                return;
+            }
+            event.preventDefault();
+            if (Math.abs(event.clientX - state.startClientX) > DRAG_THRESHOLD_PX) {
+                state.dragged = true;
+            }
+            this.updateDragPreview(state, event.clientX, state.dragged);
+        });
+        element.addEventListener('pointerup', event => {
+            const state = this.dragState;
+            if (!state || state.element !== element || state.pointerId !== event.pointerId) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            if (!state.dragged) {
+                this.cancelDrag(state);
+                this.selectTimeAtClientX(event.clientX);
+                return;
+            }
+            const preview = this.updateDragPreview(state, event.clientX, true);
+            this.cancelDrag(state);
+            void this.commitDrag(preview);
+        });
+        element.addEventListener('pointercancel', event => {
+            const state = this.dragState;
+            if (state && state.element === element && state.pointerId === event.pointerId) {
+                this.cancelDrag(state);
+            }
+        });
+    }
+
+    protected updateDragPreview(state: DragState, clientX: number, allowGuide: boolean): DragPreview {
         const rect = this.strip.getBoundingClientRect();
-        const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)) : 0;
+        const duration = this.totalDuration();
+        const delta = rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0;
+        if (state.kind === 'cut-trim') {
+            const proposed = state.edge === 'left' ? state.originalIn + delta : state.originalOut + delta;
+            const edge = this.snapTime(Math.max(0, proposed), allowGuide);
+            const input = state.edge === 'left' ? edge : state.originalIn;
+            const output = state.edge === 'right' ? edge : state.originalOut;
+            this.setGhostRange(state.ghost, input, output);
+            return { kind: 'cut-trim', index: state.index, input, output };
+        }
+        if (state.kind === 'cut-reorder') {
+            const proposedStart = Math.max(0, state.originalIn + delta);
+            const pointerTime = this.timeAtClientX(clientX);
+            const dropTime = this.snapTime(pointerTime, allowGuide);
+            this.setGhostRange(state.ghost, proposedStart, proposedStart + state.originalOut - state.originalIn);
+            const boundaries = this.cuts.flatMap((cut, index) => [
+                { time: cut.in, index },
+                { time: cut.out, index }
+            ]);
+            const target = boundaries.reduce((nearest, candidate) =>
+                Math.abs(dropTime - candidate.time) < Math.abs(dropTime - nearest.time) ? candidate : nearest,
+            boundaries.find(candidate => candidate.index === state.index) ?? { time: state.originalIn, index: state.index });
+            const toIndex = target.index;
+            return { kind: 'cut-reorder', fromIndex: state.index, toIndex };
+        }
+        if (state.kind === 'caption') {
+            let start = state.originalStart;
+            let end = state.originalEnd;
+            if (state.mode === 'move') {
+                start = this.snapTime(state.originalStart + delta, allowGuide);
+                end = state.originalEnd + (start - state.originalStart);
+            } else if (state.mode === 'start') {
+                start = this.snapTime(state.originalStart + delta, allowGuide);
+            } else {
+                end = this.snapTime(state.originalEnd + delta, allowGuide);
+            }
+            this.setGhostRange(state.ghost, start, end);
+            return {
+                kind: 'caption', id: state.id,
+                deltaStart: start - state.originalStart,
+                deltaEnd: end - state.originalEnd,
+                start, end
+            };
+        }
+        if (state.mode === 'move') {
+            const start = this.snapTime(Math.max(0, state.originalStart + delta), allowGuide);
+            this.setGhostRange(state.ghost, start, start + state.originalDuration);
+            return { kind: 'overlay-move', id: state.id, start };
+        }
+        const end = this.snapTime(state.originalStart + state.originalDuration + delta, allowGuide);
+        this.setGhostRange(state.ghost, state.originalStart, end);
+        return { kind: 'overlay-resize', id: state.id, duration: end - state.originalStart };
+    }
+
+    protected setGhostRange(ghost: HTMLDivElement, start: number, end: number): void {
+        const duration = this.totalDuration();
+        ghost.style.left = `${this.percent(start, duration)}%`;
+        ghost.style.width = `${Math.max(this.percent(end, duration) - this.percent(start, duration), 0.3)}%`;
+    }
+
+    protected snapTime(value: number, showGuide: boolean): number {
+        const rect = this.strip.getBoundingClientRect();
+        const duration = this.totalDuration();
+        if (rect.width <= 0 || duration <= 0) {
+            this.hideSnapGuide();
+            return value;
+        }
+        const threshold = SNAP_THRESHOLD_PX / (rect.width / duration);
+        const candidates = [
+            ...this.wordBoundaries,
+            ...this.cuts.flatMap(cut => [cut.in, cut.out]),
+            this.selectedSourceT
+        ].filter(candidate => Number.isFinite(candidate));
+        let nearest: number | undefined;
+        for (const candidate of candidates) {
+            if (nearest === undefined || Math.abs(candidate - value) < Math.abs(nearest - value)) {
+                nearest = candidate;
+            }
+        }
+        if (nearest !== undefined && Math.abs(nearest - value) <= threshold) {
+            if (showGuide) {
+                this.snapGuide.style.left = `${this.percent(nearest, duration)}%`;
+                this.snapGuide.style.display = 'block';
+            }
+            return nearest;
+        }
+        this.hideSnapGuide();
+        return value;
+    }
+
+    protected hideSnapGuide(): void {
+        this.snapGuide.style.display = 'none';
+    }
+
+    protected cancelDrag(state: DragState): void {
+        if (this.dragState !== state) {
+            return;
+        }
+        try {
+            if (state.element.hasPointerCapture(state.pointerId)) {
+                state.element.releasePointerCapture(state.pointerId);
+            }
+        } catch {
+            // The element may already have lost capture after pointercancel.
+        }
+        state.element.style.cursor = 'grab';
+        state.ghost.remove();
+        this.hideSnapGuide();
+        this.dragState = undefined;
+    }
+
+    protected async commitDrag(preview: DragPreview): Promise<void> {
+        const location = this.location;
+        if (!location) {
+            return;
+        }
+        try {
+            let result: WriteBackResult;
+            if (preview.kind === 'cut-trim') {
+                if (!location.editUri) {
+                    return;
+                }
+                if (preview.output - preview.input < MINIMUM_ITEM_DURATION) {
+                    this.showNotice('クリップが短すぎます（0.15 秒未満にはできません）');
+                    return;
+                }
+                const original = this.cuts[preview.index];
+                result = await this.annotationsService.trimCut({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
+                    cutIndex: preview.index, in: preview.input, out: preview.output
+                });
+                this.setUndo(async () => {
+                    await this.annotationsService.trimCut({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                        cutIndex: preview.index, in: original.in, out: original.out
+                    });
+                    await this.reloadEdit();
+                });
+                await this.reloadEdit();
+                this.footer.textContent = this.writeResultMessage('クリップをトリムしました。', result);
+            } else if (preview.kind === 'cut-reorder') {
+                if (!location.editUri || preview.fromIndex === preview.toIndex) {
+                    this.footer.textContent = 'クリップの順序は変わりませんでした。';
+                    return;
+                }
+                result = await this.annotationsService.reorderCuts({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
+                    fromIndex: preview.fromIndex, toIndex: preview.toIndex
+                });
+                this.setUndo(async () => {
+                    await this.annotationsService.reorderCuts({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                        fromIndex: preview.toIndex, toIndex: preview.fromIndex
+                    });
+                    await this.reloadEdit();
+                });
+                await this.reloadEdit();
+                this.footer.textContent = this.writeResultMessage('クリップの順序を入れ替えました。', result);
+            } else if (preview.kind === 'caption') {
+                if (preview.start < 0 || preview.end - preview.start < MINIMUM_ITEM_DURATION) {
+                    this.showNotice('字幕が短すぎます（0.15 秒未満にはできません）');
+                    return;
+                }
+                result = await this.annotationsService.shiftCaption({
+                    captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                    captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
+                });
+                this.setUndo(async () => {
+                    await this.annotationsService.shiftCaption({
+                        captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                        captionId: preview.id, deltaStart: -preview.deltaStart, deltaEnd: -preview.deltaEnd
+                    });
+                    await this.reloadCaptions();
+                });
+                await this.reloadCaptions();
+                this.footer.textContent = this.writeResultMessage('字幕のタイミングを調整しました。', result);
+            } else if (preview.kind === 'overlay-move') {
+                if (!location.editUri) {
+                    return;
+                }
+                const original = this.overlays.find(overlay => overlay.id === preview.id);
+                if (!original) {
+                    throw new Error(`オーバーレイ ${preview.id} が見つかりません`);
+                }
+                result = await this.annotationsService.moveOverlay({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
+                    overlayId: preview.id, start: preview.start
+                });
+                this.setUndo(async () => {
+                    await this.annotationsService.moveOverlay({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                        overlayId: preview.id, start: original.start
+                    });
+                    await this.reloadEdit();
+                });
+                await this.reloadEdit();
+                this.footer.textContent = this.writeResultMessage('オーバーレイを移動しました。', result);
+            } else {
+                if (!location.editUri) {
+                    return;
+                }
+                if (preview.duration <= 0) {
+                    this.showNotice('オーバーレイの尺は正の値にしてください。');
+                    return;
+                }
+                const original = this.overlays.find(overlay => overlay.id === preview.id);
+                if (!original) {
+                    throw new Error(`オーバーレイ ${preview.id} が見つかりません`);
+                }
+                result = await this.annotationsService.resizeOverlay({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
+                    overlayId: preview.id, duration: preview.duration
+                });
+                this.setUndo(async () => {
+                    await this.annotationsService.resizeOverlay({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                        overlayId: preview.id, duration: original.duration
+                    });
+                    await this.reloadEdit();
+                });
+                await this.reloadEdit();
+                this.footer.textContent = this.writeResultMessage('オーバーレイの尺を変更しました。', result);
+            }
+            this.hideNotice();
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`タイムラインを更新できません: ${detail}`);
+            this.messages.error(`タイムラインを更新できません: ${detail}`);
+        }
+    }
+
+    protected setUndo(action: () => Promise<void>): void {
+        this.lastUndo = action;
+        this.undoButton.disabled = false;
+    }
+
+    protected async performUndo(): Promise<void> {
+        const action = this.lastUndo;
+        if (!action) {
+            return;
+        }
+        this.undoButton.disabled = true;
+        try {
+            await action();
+            this.lastUndo = undefined;
+            this.hideNotice();
+            this.footer.textContent = '直前のタイムライン操作を元に戻しました。';
+        } catch (error) {
+            this.undoButton.disabled = false;
+            const detail = this.errorMessage(error);
+            this.showNotice(`元に戻せません: ${detail}`);
+            this.messages.error(`元に戻せません: ${detail}`);
+        }
+    }
+
+    protected writeResultMessage(message: string, result: WriteBackResult): string {
+        return result.committed ? `${message} 変更を記録しました。` : message;
+    }
+
+    protected percent(value: number, duration: number): number {
+        return duration > 0 ? Math.min(100, Math.max(0, value / duration * 100)) : 0;
+    }
+
+    protected timeAtClientX(clientX: number): number {
+        const rect = this.strip.getBoundingClientRect();
+        const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
+        return ratio * this.totalDuration();
+    }
+
+    protected selectTimeAtClientX(clientX: number): void {
+        const rect = this.strip.getBoundingClientRect();
+        const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
         this.selectedSourceT = ratio * this.totalDuration();
         this.playhead.style.left = `${ratio * 100}%`;
         this.updateTimeLabel();
         void this.requestSeek(this.selectedSourceT);
+    }
+
+    protected onStripClick(event: MouseEvent): void {
+        this.selectTimeAtClientX(event.clientX);
     }
 
     protected updateTimeLabel(): void {
@@ -379,8 +899,64 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 : `${timestamp} を選択しました。プレビューを開くとここからジャンプできます。`;
     }
 
-    protected async submitAnnotation(): Promise<void> {
-        const text = this.textInput.value.trim();
+    protected openAnnotationPopup(event: MouseEvent): void {
+        event.preventDefault();
+        this.closeAnnotationPopup();
+        const sourceT = this.timeAtClientX(event.clientX);
+        const popup = document.createElement('div');
+        Object.assign(popup.style, {
+            position: 'fixed', left: `${event.clientX}px`, top: `${event.clientY}px`, zIndex: '10000',
+            display: 'flex', gap: '5px', padding: '6px', borderRadius: '4px',
+            border: '1px solid var(--theia-widget-border)', background: 'var(--theia-menu-background)',
+            boxShadow: '0 3px 12px rgba(0,0,0,.35)'
+        });
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `${this.formatTimestamp(sourceT)} に注釈`;
+        input.setAttribute('aria-label', 'タイムラインに注釈を追加');
+        const submit = document.createElement('button');
+        submit.type = 'button';
+        submit.className = 'theia-button main';
+        submit.textContent = '追加';
+        const accept = (): void => {
+            const text = input.value.trim();
+            if (!text) {
+                return;
+            }
+            this.closeAnnotationPopup();
+            void this.submitAnnotation(text, sourceT);
+        };
+        input.addEventListener('keydown', keyEvent => {
+            if (keyEvent.key === 'Enter') {
+                keyEvent.preventDefault();
+                accept();
+            } else if (keyEvent.key === 'Escape') {
+                keyEvent.preventDefault();
+                this.closeAnnotationPopup();
+            }
+        });
+        input.addEventListener('blur', () => setTimeout(() => {
+            if (this.contextPopup === popup && !popup.contains(document.activeElement)) {
+                this.closeAnnotationPopup();
+            }
+        }, 0));
+        submit.addEventListener('mousedown', downEvent => downEvent.preventDefault());
+        submit.addEventListener('click', accept);
+        popup.addEventListener('contextmenu', popupEvent => popupEvent.preventDefault());
+        popup.append(input, submit);
+        document.body.appendChild(popup);
+        this.contextPopup = popup;
+        input.focus();
+    }
+
+    protected closeAnnotationPopup(): void {
+        this.contextPopup?.remove();
+        this.contextPopup = undefined;
+    }
+
+    protected async submitAnnotation(textOverride?: string, sourceTOverride?: number): Promise<void> {
+        const text = (textOverride ?? this.textInput.value).trim();
+        const sourceT = sourceTOverride ?? this.selectedSourceT;
         if (!text || !this.location) {
             return;
         }
@@ -389,7 +965,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const result = await this.annotationsService.createAnnotation({
                 reviewUri: this.location.reviewUri.toString(),
                 projectRootUri: this.location.root.toString(),
-                sourceT: this.selectedSourceT,
+                sourceT,
                 timelineT: null,
                 target: null,
                 text
@@ -397,7 +973,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!this.annotations.some(existing => existing.id === result.annotation.id)) {
                 this.annotations = [...this.annotations, result.annotation];
             }
-            this.textInput.value = '';
+            if (textOverride === undefined) {
+                this.textInput.value = '';
+            }
             this.hideNotice();
             this.renderStrip();
             this.renderList();
@@ -464,7 +1042,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         time.style.fontVariantNumeric = 'tabular-nums';
         const badge = document.createElement('span');
         badge.textContent = STATUS_LABELS[annotation.status];
-        Object.assign(badge.style, { color: STATUS_COLORS[annotation.status], fontSize: '11px', border: `1px solid ${STATUS_COLORS[annotation.status]}`, borderRadius: '999px', padding: '0 8px' });
+        Object.assign(badge.style, {
+            color: STATUS_COLORS[annotation.status], fontSize: '11px',
+            border: `1px solid ${STATUS_COLORS[annotation.status]}`, borderRadius: '999px', padding: '0 8px'
+        });
         head.append(time, badge);
         if (annotation.status === 'addressed') {
             const resolveButton = document.createElement('button');
@@ -505,6 +1086,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected hideNotice(): void {
         this.notice.textContent = '';
         this.notice.style.display = 'none';
+    }
+
+    protected formatRulerTimestamp(value: number): string {
+        const seconds = Math.max(0, Math.floor(value));
+        const minutes = Math.floor(seconds / 60);
+        return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     }
 
     protected formatTimestamp(value: number): string {
