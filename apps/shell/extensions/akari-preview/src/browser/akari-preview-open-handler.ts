@@ -481,6 +481,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         assets: OverlayRuntimeAssets
     ): string {
         const { width, height } = model.summary.output;
+        const captionFontSize = Math.round(height * 0.05);
         const initialState = this.safeJson({
             summary: model.summary,
             captions: model.captions,
@@ -505,7 +506,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
-#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: clamp(16px, 3vw, 40px); font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
+#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
 #caption-plate:empty { display: none; }
 .message-card { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 32px; background: #111; }
 .message-card[hidden] { display: none; }
@@ -529,8 +530,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
       <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
-      <div id="overlay-stage"></div>
-      <div id="caption-plate"></div>
+      <div id="overlay-stage"><div id="caption-plate"></div></div>
       <div id="preview-message" class="message-card" hidden role="status"><p>${UNSUPPORTED_FORMAT_MESSAGE}</p></div>
     </div>
   </section>
@@ -695,10 +695,22 @@ body { display: grid; place-items: center; padding: 32px; }
                 seek.disabled = true;
                 hideInspector();
             };
-
-            playToggle.addEventListener('click', () => {
+            const togglePlayback = () => {
+                if (playToggle.disabled) return;
                 if (video.paused) void video.play().catch(error => console.error('[akari-preview] playback failed', error));
                 else video.pause();
+            };
+            const isEditable = element => element instanceof HTMLElement
+                && (element.matches('input, textarea') || element.isContentEditable);
+
+            playToggle.addEventListener('click', togglePlayback);
+            window.addEventListener('keydown', event => {
+                if ((event.code !== 'Space' && event.key !== ' ')
+                    || isEditable(event.target)
+                    || isEditable(document.activeElement)
+                    || playToggle.disabled) return;
+                event.preventDefault();
+                togglePlayback();
             });
             seek.addEventListener('input', () => {
                 video.currentTime = Number(seek.value);
@@ -781,6 +793,7 @@ body { display: grid; place-items: center; padding: 32px; }
             });
 
             Promise.resolve(window.akari.runtime.mount(summary)).then(() => {
+                stage.appendChild(captionPlate);
                 tick();
                 renderInspector();
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));

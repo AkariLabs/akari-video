@@ -1,0 +1,306 @@
+[
+  {
+    "step": "connected-main",
+    "title": "俯瞰 - ws",
+    "t": "2026-07-18T00:25:19.424Z"
+  },
+  {
+    "step": "opened-video-tab",
+    "videoBase": "IMG_4606.MOV",
+    "t": "2026-07-18T00:25:20.624Z"
+  },
+  {
+    "step": "reached-preview-frame",
+    "t": "2026-07-18T00:25:21.155Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption-plate is child of #overlay-stage (inherits scale)",
+    "ok": true,
+    "parentId": "overlay-stage",
+    "t": "2026-07-18T00:25:21.644Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption@2s == c-0001 text",
+    "ok": true,
+    "got": "ということでね、今日はね、ひたすらYouTubeの撮影を",
+    "t": "2026-07-18T00:25:21.644Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption font-size fixed px in native coords (~54px, not vw clamp)",
+    "ok": true,
+    "fontPx": "54px",
+    "t": "2026-07-18T00:25:21.644Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption within video horizontally (wide-1600x1000)",
+    "ok": true,
+    "pl": 231,
+    "pr": 621,
+    "vl": 36,
+    "vr": 816,
+    "t": "2026-07-18T00:25:23.048Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption bottom-centered within video (wide-1600x1000)",
+    "ok": true,
+    "centered": true,
+    "withinBottom": true,
+    "t": "2026-07-18T00:25:23.048Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption within video horizontally (narrow-980x1000)",
+    "ok": true,
+    "pl": 110,
+    "pr": 258,
+    "vl": 36,
+    "vr": 332,
+    "t": "2026-07-18T00:25:24.587Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption bottom-centered within video (narrow-980x1000)",
+    "ok": true,
+    "centered": true,
+    "withinBottom": true,
+    "t": "2026-07-18T00:25:24.587Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption within video horizontally (wide-short-1600x640)",
+    "ok": true,
+    "pl": 231,
+    "pr": 621,
+    "vl": 36,
+    "vr": 816,
+    "t": "2026-07-18T00:25:26.095Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption bottom-centered within video (wide-short-1600x640)",
+    "ok": true,
+    "centered": true,
+    "withinBottom": true,
+    "t": "2026-07-18T00:25:26.095Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "font/video-height ratio ~constant across widths (<3%)",
+    "ok": true,
+    "fontRatios": [
+      0.05,
+      0.05,
+      0.05
+    ],
+    "spread": 0,
+    "t": "2026-07-18T00:25:26.183Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption/video-width ratio ~constant across widths (<3%)",
+    "ok": true,
+    "widthRatios": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "spread": 0,
+    "t": "2026-07-18T00:25:26.183Z"
+  },
+  {
+    "step": "scale-follow-detail",
+    "ratios": [
+      {
+        "case": "wide-1600x1000",
+        "dispW": 780,
+        "dispH": 439,
+        "scale": 0.4063,
+        "fontPx": "54px",
+        "fontRatio": 0.05,
+        "widthRatio": 0.5,
+        "withinLeft": true,
+        "withinRight": true,
+        "withinBottom": true,
+        "centered": true
+      },
+      {
+        "case": "narrow-980x1000",
+        "dispW": 296,
+        "dispH": 167,
+        "scale": 0.1542,
+        "fontPx": "54px",
+        "fontRatio": 0.05,
+        "widthRatio": 0.5,
+        "withinLeft": true,
+        "withinRight": true,
+        "withinBottom": true,
+        "centered": true
+      },
+      {
+        "case": "wide-short-1600x640",
+        "dispW": 780,
+        "dispH": 439,
+        "scale": 0.4063,
+        "fontPx": "54px",
+        "fontRatio": 0.05,
+        "widthRatio": 0.5,
+        "withinLeft": true,
+        "withinRight": true,
+        "withinBottom": true,
+        "centered": true
+      }
+    ],
+    "t": "2026-07-18T00:25:26.183Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "space toggles PLAY (paused true->false) when preview focused",
+    "ok": true,
+    "paused0": true,
+    "paused1": false,
+    "t": "2026-07-18T00:25:28.705Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "space toggles PAUSE (false->true) when preview focused",
+    "ok": true,
+    "paused1": false,
+    "paused2": true,
+    "t": "2026-07-18T00:25:28.705Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "space does NOT play when focus is OUTSIDE preview webview",
+    "ok": true,
+    "before": true,
+    "after": true,
+    "detachedByFocus": false,
+    "t": "2026-07-18T00:25:29.937Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption not selected/editable after click+dblclick+drag",
+    "ok": true,
+    "targetId": "DIV",
+    "plateSel": null,
+    "plateEditable": false,
+    "anySelected": false,
+    "inspectorHidden": true,
+    "plateStillStageChild": true,
+    "plateText": "ということでね、今日はね、ひたすらYouTubeの撮影を",
+    "t": "2026-07-18T00:25:30.398Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "no overlay wrongly selected by caption-area interaction",
+    "ok": true,
+    "anySelected": false,
+    "t": "2026-07-18T00:25:30.398Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption keeps stage-child + text (stays non-interactive)",
+    "ok": true,
+    "text": "ということでね、今日はね、ひたすらYouTubeの撮影を",
+    "t": "2026-07-18T00:25:30.399Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "interaction.selftest() PASS (drag+resize+overlayWrite)",
+    "ok": true,
+    "detail": "--x: 0px -> 133.95348837209303px; moved: 133.95348837209303px (expected 133.953488372093px); overlayWrite: undefined; resize: --scale: 1.5 -> 2.015807276096688 (expected 2.015807276096688); nw drift: 0.000017059844799040144px; overlayWrite: undefined",
+    "t": "2026-07-18T00:25:30.643Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "edit.json overlay still selectable (caption coexists in stage)",
+    "ok": true,
+    "selectedId": "telop-a",
+    "inspectorHidden": false,
+    "inspectorText": "--color",
+    "t": "2026-07-18T00:25:30.968Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "overlay inspector shows declared var --color",
+    "ok": true,
+    "inspectorText": "--color",
+    "t": "2026-07-18T00:25:30.968Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "akari-preview-seek -> ~6s (transcript & strip seek path)",
+    "ok": true,
+    "currentTime": 6,
+    "t": "2026-07-18T00:25:31.741Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "caption at 6s == c-0002",
+    "ok": true,
+    "got": "頑張っておりました",
+    "t": "2026-07-18T00:25:31.741Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "live caption swap WITHOUT reload",
+    "ok": true,
+    "landed": {
+      "cap": "ライブ更新テスト14",
+      "ct": 10,
+      "probe": "l1-alive"
+    },
+    "t": "2026-07-18T00:25:32.299Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "currentTime preserved (~10) during live update",
+    "ok": true,
+    "ct": 10,
+    "t": "2026-07-18T00:25:32.299Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "video element NOT recreated (probe survives)",
+    "ok": true,
+    "probe": "l1-alive",
+    "t": "2026-07-18T00:25:32.299Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "degrade EMPTY captions: plate cleared+hidden, video ok",
+    "ok": true,
+    "cap": "",
+    "disp": "none",
+    "videoOk": true,
+    "t": "2026-07-18T00:25:33.371Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "degrade INVALID captions: no crash, plate empty, video ok",
+    "ok": true,
+    "cap": "",
+    "videoOk": true,
+    "t": "2026-07-18T00:25:35.171Z"
+  },
+  {
+    "step": "ASSERT_PASS",
+    "name": "no uncaught console/page errors during session",
+    "ok": true,
+    "count": 0,
+    "sample": [],
+    "t": "2026-07-18T00:25:35.887Z"
+  },
+  {
+    "step": "summary",
+    "pass": 28,
+    "fail": 0,
+    "consoleErrorCount": 0,
+    "t": "2026-07-18T00:25:35.887Z"
+  }
+]
