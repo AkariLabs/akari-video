@@ -1,0 +1,401 @@
+[
+  {
+    "t": "2026-07-18T15:58:46.966Z",
+    "step": "app-spawned",
+    "pid": 26514
+  },
+  {
+    "t": "2026-07-18T15:58:47.957Z",
+    "step": "connected-browser-endpoint"
+  },
+  {
+    "t": "2026-07-18T15:58:48.570Z",
+    "step": "connected-main",
+    "url": "ws-3d-fallback"
+  },
+  {
+    "t": "2026-07-18T15:58:51.586Z",
+    "step": "clicked-explorer-rail",
+    "ok": true,
+    "theia": "object",
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-18T15:58:51.898Z",
+    "step": "tree-ready",
+    "ok": true,
+    "waited": 300
+  },
+  {
+    "t": "2026-07-18T15:58:54.002Z",
+    "step": "screenshot",
+    "name": "00-boot.png"
+  },
+  {
+    "t": "2026-07-18T15:58:54.006Z",
+    "step": "clicked-assets",
+    "ok": true,
+    "x": 131,
+    "y": 94,
+    "double": false
+  },
+  {
+    "t": "2026-07-18T15:58:55.529Z",
+    "step": "clicked-clip.mp4",
+    "ok": true,
+    "x": 131,
+    "y": 182,
+    "double": true
+  },
+  {
+    "t": "2026-07-18T15:58:55.943Z",
+    "step": "reached-preview-context",
+    "origin": "http://fe25b980-e717-5c3c-bd46-b5266529a209.webview.localhost:56957"
+  },
+  {
+    "t": "2026-07-18T15:58:55.944Z",
+    "step": "preview-ready",
+    "readyState": 4,
+    "duration": 20,
+    "overlays": 4
+  },
+  {
+    "t": "2026-07-18T15:58:55.944Z",
+    "step": "ASSERT_PASS",
+    "name": "preview-has-4-overlays",
+    "readyState": 4,
+    "duration": 20,
+    "overlays": 4
+  },
+  {
+    "t": "2026-07-18T15:58:56.324Z",
+    "step": "mid-load-state-spin3d",
+    "status": "loading",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.428Z",
+    "step": "ready-state-spin3d",
+    "status": "ready",
+    "fallbackDisplay": "none",
+    "fallbackHidden": true,
+    "inlineDisplay": "none",
+    "inlinePriority": "important",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.428Z",
+    "step": "ASSERT_PASS",
+    "name": "spin3d-load-completes",
+    "status": "ready",
+    "fallbackDisplay": "none",
+    "fallbackHidden": true,
+    "inlineDisplay": "none",
+    "inlinePriority": "important",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.428Z",
+    "step": "ASSERT_PASS",
+    "name": "fallback-display-none-after-load",
+    "status": "ready",
+    "fallbackDisplay": "none",
+    "fallbackHidden": true,
+    "inlineDisplay": "none",
+    "inlinePriority": "important",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.428Z",
+    "step": "ASSERT_PASS",
+    "name": "fallback-inline-important",
+    "status": "ready",
+    "fallbackDisplay": "none",
+    "fallbackHidden": true,
+    "inlineDisplay": "none",
+    "inlinePriority": "important",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.438Z",
+    "step": "ASSERT_PASS",
+    "name": "spin3d-renders-pixels",
+    "hash": "6f20e200",
+    "opaque": 6722,
+    "w": 206,
+    "h": 177
+  },
+  {
+    "t": "2026-07-18T15:58:56.439Z",
+    "step": "ASSERT_PASS",
+    "name": "renderer-info-triangles-12-ratio-1",
+    "triangles": 12,
+    "calls": 1,
+    "pixelRatio": 1
+  },
+  {
+    "t": "2026-07-18T15:58:56.853Z",
+    "step": "screenshot",
+    "name": "01-loaded-no-fallback-t3.png"
+  },
+  {
+    "t": "2026-07-18T15:58:56.853Z",
+    "step": "ASSERT_PASS",
+    "name": "fallback-visible-mid-load-or-already-ready",
+    "status": "loading",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.854Z",
+    "step": "ASSERT_PASS",
+    "name": "html-overlay-visible-t3",
+    "ctaVisible": true,
+    "captionText": "字幕非退行チェック（前半）"
+  },
+  {
+    "t": "2026-07-18T15:58:56.854Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-first-half-t3",
+    "ctaVisible": true,
+    "captionText": "字幕非退行チェック（前半）"
+  },
+  {
+    "t": "2026-07-18T15:58:56.864Z",
+    "step": "ASSERT_PASS",
+    "name": "deterministic-differs-across-time",
+    "h1": "6f20e200",
+    "h2": "36d2d478"
+  },
+  {
+    "t": "2026-07-18T15:58:56.864Z",
+    "step": "ASSERT_PASS",
+    "name": "deterministic-identical-same-time",
+    "h1": "6f20e200",
+    "h3": "6f20e200"
+  },
+  {
+    "t": "2026-07-18T15:58:56.988Z",
+    "step": "broken3d-state",
+    "status": "error",
+    "fallbackDisplay": "grid",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.988Z",
+    "step": "ASSERT_PASS",
+    "name": "broken3d-errors",
+    "status": "error",
+    "fallbackDisplay": "grid",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.988Z",
+    "step": "ASSERT_PASS",
+    "name": "broken3d-fallback-visible",
+    "status": "error",
+    "fallbackDisplay": "grid",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.989Z",
+    "step": "ASSERT_PASS",
+    "name": "spin3d-disposed-out-of-interval",
+    "status": "disposed",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "hidden"
+  },
+  {
+    "t": "2026-07-18T15:58:56.989Z",
+    "step": "ASSERT_PASS",
+    "name": "missing-path-fallback-visible",
+    "status": "disposed",
+    "fallbackDisplay": "block",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:56.990Z",
+    "step": "ASSERT_PASS",
+    "name": "caption-second-half-t13",
+    "captionText": "字幕非退行チェック（後半）"
+  },
+  {
+    "t": "2026-07-18T15:58:57.403Z",
+    "step": "screenshot",
+    "name": "02-broken-glb-fallback-visible-t13.png"
+  },
+  {
+    "t": "2026-07-18T15:58:57.651Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle1-disposed-at-t10",
+    "status": "disposed",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "hidden"
+  },
+  {
+    "t": "2026-07-18T15:58:57.651Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle1-fallback-restored-author-display",
+    "status": "disposed",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "hidden"
+  },
+  {
+    "t": "2026-07-18T15:58:57.725Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle1-fallback-visible-during-reload",
+    "status": "loading",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:57.831Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle1-reload-completes",
+    "status": "ready",
+    "fallbackDisplay": "none",
+    "fallbackHidden": true,
+    "inlineDisplay": "none",
+    "inlinePriority": "important",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:57.831Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle1-fallback-hidden-after-reload",
+    "status": "ready",
+    "fallbackDisplay": "none",
+    "fallbackHidden": true,
+    "inlineDisplay": "none",
+    "inlinePriority": "important",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:58.070Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle2-disposed-at-t10",
+    "status": "disposed",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "hidden"
+  },
+  {
+    "t": "2026-07-18T15:58:58.070Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle2-fallback-restored-author-display",
+    "status": "disposed",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "hidden"
+  },
+  {
+    "t": "2026-07-18T15:58:58.142Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle2-fallback-visible-during-reload",
+    "status": "loading",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:58.243Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle2-reload-completes",
+    "status": "ready",
+    "fallbackDisplay": "none",
+    "fallbackHidden": true,
+    "inlineDisplay": "none",
+    "inlinePriority": "important",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:58.243Z",
+    "step": "ASSERT_PASS",
+    "name": "cycle2-fallback-hidden-after-reload",
+    "status": "ready",
+    "fallbackDisplay": "none",
+    "fallbackHidden": true,
+    "inlineDisplay": "none",
+    "inlinePriority": "important",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:58:58.668Z",
+    "step": "screenshot",
+    "name": "03-after-reentry-cycles-t3.png"
+  },
+  {
+    "t": "2026-07-18T15:58:58.679Z",
+    "step": "ASSERT_PASS",
+    "name": "deterministic-after-reentry-same-time",
+    "h4": {
+      "hash": "2b978fa0",
+      "opaque": 7809,
+      "w": 206,
+      "h": 177
+    },
+    "h5": "75f151f8",
+    "h6": "2b978fa0"
+  },
+  {
+    "t": "2026-07-18T15:58:58.679Z",
+    "step": "cross-cycle-hash-reference",
+    "first": {
+      "hash": "6f20e200",
+      "opaque": 6722,
+      "w": 206,
+      "h": 177
+    },
+    "afterCycles": {
+      "hash": "2b978fa0",
+      "opaque": 7809,
+      "w": 206,
+      "h": 177
+    },
+    "sameSize": true,
+    "sameHash": false
+  },
+  {
+    "t": "2026-07-18T15:58:58.679Z",
+    "step": "done",
+    "failures": 0
+  }
+]

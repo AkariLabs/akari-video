@@ -1,0 +1,176 @@
+[
+  {
+    "t": "2026-07-18T15:57:08.192Z",
+    "step": "app-spawned",
+    "pid": 25757
+  },
+  {
+    "t": "2026-07-18T15:57:12.129Z",
+    "step": "connected-browser-endpoint"
+  },
+  {
+    "t": "2026-07-18T15:57:12.734Z",
+    "step": "connected-main",
+    "url": "ws-3d-fallback"
+  },
+  {
+    "t": "2026-07-18T15:57:15.761Z",
+    "step": "clicked-explorer-rail",
+    "ok": true,
+    "theia": "object",
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-18T15:57:16.079Z",
+    "step": "tree-ready",
+    "ok": true,
+    "waited": 300
+  },
+  {
+    "t": "2026-07-18T15:57:18.159Z",
+    "step": "screenshot",
+    "name": "00-boot.png"
+  },
+  {
+    "t": "2026-07-18T15:57:18.162Z",
+    "step": "clicked-assets",
+    "ok": true,
+    "x": 131,
+    "y": 94,
+    "double": false
+  },
+  {
+    "t": "2026-07-18T15:57:19.678Z",
+    "step": "clicked-clip.mp4",
+    "ok": true,
+    "x": 131,
+    "y": 182,
+    "double": true
+  },
+  {
+    "t": "2026-07-18T15:57:20.097Z",
+    "step": "reached-preview-context",
+    "origin": "http://fe25b980-e717-5c3c-bd46-b5266529a209.webview.localhost:56886"
+  },
+  {
+    "t": "2026-07-18T15:57:20.100Z",
+    "step": "preview-ready",
+    "readyState": 4,
+    "duration": 20,
+    "overlays": 3
+  },
+  {
+    "t": "2026-07-18T15:57:20.100Z",
+    "step": "ASSERT_PASS",
+    "name": "preview-has-3-overlays",
+    "readyState": 4,
+    "duration": 20,
+    "overlays": 3
+  },
+  {
+    "t": "2026-07-18T15:57:20.817Z",
+    "step": "control-ready-state-spin3d",
+    "status": "ready",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": true,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:57:20.817Z",
+    "step": "ASSERT_PASS",
+    "name": "control-bug-reproduces-fallback-stays",
+    "status": "ready",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": true,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:57:21.419Z",
+    "step": "screenshot",
+    "name": "01-control-loaded-fallback-stays-t3.png"
+  },
+  {
+    "t": "2026-07-18T15:57:21.432Z",
+    "step": "control-within-instance",
+    "c1": {
+      "hash": "6f20e200",
+      "opaque": 6722,
+      "w": 206,
+      "h": 177
+    },
+    "c2": "36d2d478",
+    "c3": "6f20e200",
+    "deterministic": true
+  },
+  {
+    "t": "2026-07-18T15:57:21.671Z",
+    "step": "control-cycle1-disposed",
+    "status": "disposed",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "hidden"
+  },
+  {
+    "t": "2026-07-18T15:57:21.846Z",
+    "step": "control-cycle1-reready",
+    "status": "ready",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": true,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:57:22.091Z",
+    "step": "control-cycle2-disposed",
+    "status": "disposed",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": false,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "hidden"
+  },
+  {
+    "t": "2026-07-18T15:57:22.257Z",
+    "step": "control-cycle2-reready",
+    "status": "ready",
+    "fallbackDisplay": "flex",
+    "fallbackHidden": true,
+    "inlineDisplay": "",
+    "inlinePriority": "",
+    "containerVisibility": "visible"
+  },
+  {
+    "t": "2026-07-18T15:57:22.270Z",
+    "step": "control-cross-cycle",
+    "first": {
+      "hash": "6f20e200",
+      "opaque": 6722,
+      "w": 206,
+      "h": 177
+    },
+    "afterCycles": {
+      "hash": "2b978fa0",
+      "opaque": 7809,
+      "w": 206,
+      "h": 177
+    },
+    "c5": "75f151f8",
+    "c6": "2b978fa0",
+    "sameSize": true,
+    "crossCycleSameHash": false,
+    "withinInstance2Deterministic": true
+  },
+  {
+    "t": "2026-07-18T15:57:22.270Z",
+    "step": "done",
+    "failures": 0
+  }
+]

@@ -98,7 +98,10 @@ window.akari.threeRuntime = (() => {
 
   function setFallback(container, visible) {
     const fallback = container.querySelector("[data-akari-3d-fallback]");
-    if (fallback instanceof HTMLElement) fallback.hidden = !visible;
+    if (!(fallback instanceof HTMLElement)) return;
+    fallback.hidden = !visible;
+    if (visible) fallback.style.removeProperty("display");
+    else fallback.style.setProperty("display", "none", "important");
   }
 
   function rendererSize(instance) {
