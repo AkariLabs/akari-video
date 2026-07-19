@@ -20,10 +20,12 @@ AKARI Video 新実装（本モノレポ）の設計・契約文書。旧実装 `
 | [contract-2026-07-14-3d-bake-recipe.md](./contract-2026-07-14-3d-bake-recipe.md) | 3D ベイクレシピ契約 v0（Blender 経路。scene.py・knobs・実行契約・容量規律） |
 | [contract-2026-07-14-edit-json-v1-crop.md](./contract-2026-07-14-edit-json-v1-crop.md) | edit.json v1 crop（リフレーミング）契約。`cuts[].crop` フィールドの確定スキーマ |
 | [contract-2026-07-14-edit-json-v1-audio.md](./contract-2026-07-14-edit-json-v1-audio.md) | edit.json v1 音声スキーマ契約（`audio.bgm` / `audio.sfx`）。Tauri 実装への言及 3 件を legacy 注記化 |
+| [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | データ契約の版管理・移行原則（横断契約）— version 必須・追加のみ進化・明示マイグレ・forward-compat の三原則。edit.json の運用を全契約へ一般化 |
 | [notes-2026-07-13-edit-json-v1.md](./notes-2026-07-13-edit-json-v1.md) | edit.json v1 拡張の方向性メモ（出力プロファイル複数化・crop・レイアウト・音声・サムネ枠の初期案） |
 | [notes-2026-07-14-captions-and-cut-editing.md](./notes-2026-07-14-captions-and-cut-editing.md) | 字幕とカット編集の方向性メモ（word 精度カット提案・captions 第一級化・カラオケ表示・強調字幕） |
 | [notes-2026-07-16-qa-lint-and-transcript-ui.md](./notes-2026-07-16-qa-lint-and-transcript-ui.md) | 自己検証ループとトランスクリプト編集 UI の方向性メモ（edit-lint・words confidence・視覚検索トリガー・Monaco MVP / リッチ UI 二段構え。外部設計対話レビューの採否記録含む） |
 | [notes-2026-07-16-headless-first-and-diff-collaboration.md](./notes-2026-07-16-headless-first-and-diff-collaboration.md) | ヘッドレス CLI 完結と差分協調の方向性メモ（アプリ不要経路の不変条件化・HTML レポートの根拠・状態差分による人間→AI 伝達・git コミット粒度・リモートパイプライン構想と遠隔 MVP） |
+| [notes-2026-07-20-review-first-ui-and-scaffold-timeline.md](./notes-2026-07-20-review-first-ui-and-scaffold-timeline.md) | レビュー第一 UI と仮枠タイムラインの方向性メモ（SDK/ハーネスのレイヤー整理・UI のレビューツール再定義・アノテーション対象 5 型・仮枠=アニマティクスと段階パイプライン・スロット確定度と充填手段 generate/record/import） |
 
 ## 移送対象外（判断保留）
 
