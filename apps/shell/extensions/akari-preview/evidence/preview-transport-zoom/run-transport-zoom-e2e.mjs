@@ -79,14 +79,26 @@ async function listTargets() {
   return res.json();
 }
 
+// eval が返らないケース（fullscreen 遷移等で対象コンテキストが破棄された場合など）を
+// 無限停止でなくエラーとして顕在化させるためのタイムアウト付きラッパ
+function withEvalTimeout(promise, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(
+      () => reject(new Error(`eval timeout (15s): ${label.slice(0, 140)}`)), 15000))
+  ]);
+}
+
 async function evalMain(cdp, expression) {
-  const r = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+  const r = await withEvalTimeout(
+    cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }), expression);
   if (r.exceptionDetails) throw new Error('evalMain failed: ' + JSON.stringify(r.exceptionDetails));
   return r.result.value;
 }
 
 async function evalIn(cdp, contextId, expression) {
-  const r = await cdp.send('Runtime.evaluate', { expression, contextId, returnByValue: true, awaitPromise: true });
+  const r = await withEvalTimeout(
+    cdp.send('Runtime.evaluate', { expression, contextId, returnByValue: true, awaitPromise: true }), expression);
   if (r.exceptionDetails) throw new Error('evalIn failed: ' + JSON.stringify(r.exceptionDetails));
   return r.result.value;
 }
@@ -159,16 +171,21 @@ async function main() {
   record('connected-main', { targetId: mainTarget.id });
 
   // ---- open Explorer if not already open ----
-  const explorerState = await evalMain(main, `(() => {
-    const anyRow = document.querySelector('.theia-TreeNode');
-    const alreadyOpen = !!(anyRow && anyRow.getBoundingClientRect().width > 0);
-    const el = Array.from(document.querySelectorAll('.codicon-files')).find(e => e.getBoundingClientRect().width > 0);
-    const r = el ? el.getBoundingClientRect() : null;
-    return { alreadyOpen, x: r ? r.left + r.width / 2 : 0, y: r ? r.top + r.height / 2 : 0 };
-  })()`);
-  if (!explorerState.alreadyOpen) {
-    await realClick(main, explorerState.x, explorerState.y);
-    await sleep(500);
+  // 起動直後はレイアウト安定前でクリックが空振りすることがあるため、
+  // 「ツリー行が見えるまでアイコンクリックを繰り返す」形で開く
+  await sleep(2000);
+  let explorerState = null;
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    explorerState = await evalMain(main, `(() => {
+      const anyRow = document.querySelector('.theia-TreeNode');
+      const alreadyOpen = !!(anyRow && anyRow.getBoundingClientRect().width > 0);
+      const el = Array.from(document.querySelectorAll('.codicon-files')).find(e => e.getBoundingClientRect().width > 0);
+      const r = el ? el.getBoundingClientRect() : null;
+      return { alreadyOpen, x: r ? r.left + r.width / 2 : 0, y: r ? r.top + r.height / 2 : 0 };
+    })()`);
+    if (explorerState.alreadyOpen) break;
+    if (explorerState.x) await realClick(main, explorerState.x, explorerState.y);
+    await sleep(1000);
   }
   record('opened-explorer', explorerState);
 
@@ -183,32 +200,52 @@ async function main() {
     const collapsed = !!row.querySelector('.theia-mod-collapsed');
     return { found: true, collapsed, x: r.left + 20, y: r.top + r.height / 2 };
   })()`);
-  const folderRow = await findRow(videoDir);
+  const findRowRetry = async (label, tries = 20) => {
+    for (let i = 0; i < tries; i += 1) {
+      const row = await findRow(label);
+      if (row.found) return row;
+      await sleep(500);
+    }
+    return { found: false };
+  };
+  const folderRow = await findRowRetry(videoDir);
   if (!folderRow.found) throw new Error(`tree row for folder "${videoDir}" not found`);
-  if (folderRow.collapsed) {
-    await realClick(main, folderRow.x, folderRow.y, { clickCount: 2 });
-    await sleep(500);
+  // Theia のディレクトリ行はシングルクリックで展開トグルする。
+  // 「子行（動画ファイル）が DOM に現れるまで」を展開完了の判定に使い、必要ならクリックを繰り返す
+  let fileRow = await findRow(videoBase);
+  for (let attempt = 0; attempt < 4 && !fileRow.found; attempt += 1) {
+    const current = await findRow(videoDir);
+    if (current.found) {
+      await realClick(main, current.x, current.y);
+      await sleep(700);
+    }
+    fileRow = await findRowRetry(videoBase, 6);
   }
-  const fileRow = await findRow(videoBase);
   if (!fileRow.found) throw new Error(`tree row for file "${videoBase}" not found`);
   await realClick(main, fileRow.x, fileRow.y, { clickCount: 2 });
   await sleep(1500);
   record('opened-video-tab', { videoBase, ...fileRow });
 
   // ---- reach the inner active-frame execution context ----
-  const outerTarget = await findOuterWebviewTarget();
-  if (!outerTarget) throw new Error('outer webview CDP target not found');
-  const outer = new CDP(outerTarget.webSocketDebuggerUrl);
-  await outer.connect();
-  const contexts = [];
-  outer.on('Runtime.executionContextCreated', (params) => contexts.push(params.context));
-  await outer.send('Page.enable');
-  await outer.send('Runtime.enable');
-  await sleep(400);
-  const frameTree = await outer.send('Page.getFrameTree');
-  const topFrameId = frameTree.frameTree.frame.id;
-  const activeCtx = contexts.find(c => c.auxData?.frameId !== topFrameId);
-  if (!activeCtx) throw new Error('inner active-frame execution context not found');
+  // fullscreen/最大化トグルで webview の CDP ターゲットごと作り直されることがあるため、
+  // 接続確立は再実行可能な関数にしておく
+  let outer; let contexts; let topFrameId; let activeCtx;
+  const connectWebview = async () => {
+    const outerTarget = await findOuterWebviewTarget();
+    if (!outerTarget) throw new Error('outer webview CDP target not found');
+    outer = new CDP(outerTarget.webSocketDebuggerUrl);
+    await outer.connect();
+    contexts = [];
+    outer.on('Runtime.executionContextCreated', (params) => contexts.push(params.context));
+    await outer.send('Page.enable');
+    await outer.send('Runtime.enable');
+    await sleep(400);
+    const frameTree = await outer.send('Page.getFrameTree');
+    topFrameId = frameTree.frameTree.frame.id;
+    activeCtx = contexts.find(c => c.auxData?.frameId !== topFrameId);
+    if (!activeCtx) throw new Error('inner active-frame execution context not found');
+  };
+  await connectWebview();
   record('reached-active-frame-context', { activeContextId: activeCtx.id });
 
   const evalActive = (expr) => evalIn(outer, activeCtx.id, expr);
@@ -221,7 +258,7 @@ async function main() {
     const seekRow = document.querySelector('.transport-seek');
     const controlsRow = document.querySelector('.transport-controls');
     const centerIds = Array.from(document.querySelectorAll('.transport-center button')).map(b => b.id);
-    const rightIds = Array.from(document.querySelectorAll('.transport-right button')).map(b => b.id);
+    const rightIds = Array.from(document.querySelectorAll('.transport-right > button')).map(b => b.id);
     const seekRect = seekRow.getBoundingClientRect();
     const controlsRect = controlsRow.getBoundingClientRect();
     return {
@@ -487,10 +524,12 @@ async function main() {
   await realClick(outer, preset200b.x, preset200b.y);
   await sleep(300);
   const captionOverlayAtZoom = await evalActive(`(() => {
-    const layerRect = document.getElementById('zoom-layer').getBoundingClientRect();
-    const videoRect = document.getElementById('preview-video').getBoundingClientRect();
-    const overlayRect = document.querySelector('[data-overlay-id="cap-a"]').getBoundingClientRect();
-    const captionRect = document.getElementById('caption-plate').getBoundingClientRect();
+    const plain = r => r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
+    const layerRect = plain(document.getElementById('zoom-layer').getBoundingClientRect());
+    const videoRect = plain(document.getElementById('preview-video').getBoundingClientRect());
+    const overlayEl = document.querySelector('[data-overlay-id="cap-a"]');
+    const overlayRect = plain(overlayEl && overlayEl.getBoundingClientRect());
+    const captionRect = plain(document.getElementById('caption-plate').getBoundingClientRect());
     return { layerRect, videoRect, overlayRect, captionRect };
   })()`);
   record('caption-overlay-at-zoom-200', captionOverlayAtZoom);
@@ -507,20 +546,35 @@ async function main() {
   // Criterion 8: fullscreen toggle
   // =========================================================================
   const fsToggleRect = await frameButtonRect('fullscreen-toggle');
-  const maximizedBefore = await evalMain(main, `document.body.classList.contains('theia-maximized') || !!document.querySelector('.theia-maximized')`);
+  const maximizedBefore = await evalMain(main, `!!document.querySelector('.theia-maximized')`);
   await realClick(outer, fsToggleRect.x, fsToggleRect.y);
-  await sleep(500);
-  const fsElementAfter = await evalActive(`document.fullscreenElement != null`);
-  const maximizedAfter = await evalMain(main, `document.body.classList.contains('theia-maximized') || !!document.querySelector('.theia-maximized')`);
+  await sleep(1200);
+  // どちらの経路（webview 内 Fullscreen API / widget 最大化 fallback）でも
+  // webview ターゲットが作り直され得るため、判定前に接続を張り直す
+  let fsElementAfter = false;
+  try {
+    await connectWebview();
+    fsElementAfter = await evalMain(outer, `document.fullscreenElement != null`);
+  } catch (error) {
+    record('fs-reconnect-after-enter', { err: String(error).slice(0, 200) });
+  }
+  const maximizedAfter = await evalMain(main, `!!document.querySelector('.theia-maximized')`);
   record('fullscreen-toggle-first-click', { maximizedBefore, fsElementAfter, maximizedAfter });
   await screenshot(main, path.join(EVIDENCE_DIR, '07-fullscreen-on.png'));
   const fullscreenPath = fsElementAfter ? 'webview-fullscreen' : (maximizedAfter && !maximizedBefore ? 'widget-maximize-fallback' : 'unknown');
   assert(fullscreenPath !== 'unknown', 'fullscreen-toggle must either enter webview Fullscreen API or trigger the widget-maximize fallback');
 
-  await realClick(outer, fsToggleRect.x, fsToggleRect.y);
-  await sleep(500);
-  const fsElementRestored = await evalActive(`document.fullscreenElement != null`);
-  const maximizedRestored = await evalMain(main, `document.body.classList.contains('theia-maximized') || !!document.querySelector('.theia-maximized')`);
+  // 復帰クリック: 最大化でレイアウトが変わるためボタン座標は再取得する
+  const fsToggleRect2 = await frameButtonRect('fullscreen-toggle');
+  await realClick(outer, fsToggleRect2.x, fsToggleRect2.y);
+  await sleep(1200);
+  try {
+    await connectWebview();
+  } catch (error) {
+    record('fs-reconnect-after-exit', { err: String(error).slice(0, 200) });
+  }
+  const fsElementRestored = await evalMain(outer, `document.fullscreenElement != null`);
+  const maximizedRestored = await evalMain(main, `!!document.querySelector('.theia-maximized')`);
   record('fullscreen-toggle-second-click', { fsElementRestored, maximizedRestored });
   await screenshot(main, path.join(EVIDENCE_DIR, '08-fullscreen-off.png'));
   if (fullscreenPath === 'webview-fullscreen') {
@@ -551,7 +605,12 @@ async function main() {
   record('regression-seekbar-arrow-keys', { beforeArrow, afterArrow });
   assert(afterArrow !== beforeArrow, 'seek input must still change video.currentTime (regression: seekbar)');
 
-  const bodyFocus = await evalActive(`(() => { document.body.focus(); return document.activeElement === document.body; })()`);
+  // 直前のシークバー操作でフォーカスが input[type=range] に残っていると、
+  // 実装の isEditable ガード（正しい挙動）により Space が無視されるため、必ず blur してから送る
+  const bodyFocus = await evalActive(`(() => {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    return document.activeElement === document.body;
+  })()`);
   const pausedBeforeSpace = await evalActive(`document.getElementById('preview-video').paused`);
   await realKey(outer, ' ', 'Space', 32);
   await sleep(300);

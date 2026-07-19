@@ -986,12 +986,14 @@ body { display: grid; place-items: center; padding: 32px; }
             for (const preset of document.querySelectorAll('.zoom-preset')) {
                 preset.addEventListener('click', () => setZoom(Number(preset.getAttribute('data-zoom'))));
             }
+            // capture 段で登録: パン開始の stopPropagation（ズーム中の wrapper pointerdown）に
+            // 外側クリック検知が殺されないようにする
             document.addEventListener('pointerdown', event => {
                 if (!zoomPopup.hidden && !event.target.closest('.transport-right')) {
                     zoomPopup.hidden = true;
                     zoomToggle.setAttribute('aria-expanded', 'false');
                 }
-            });
+            }, true);
             previewPane.addEventListener('wheel', event => {
                 if (!event.ctrlKey) return;
                 event.preventDefault();
