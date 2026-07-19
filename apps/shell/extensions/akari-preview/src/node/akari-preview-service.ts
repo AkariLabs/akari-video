@@ -33,7 +33,16 @@ const VIDEO_MIME_TYPES = new Map<string, string>([
     ['.webm', 'video/webm']
 ]);
 const ASSET_MIME_TYPES = new Map<string, string>([
-    ['.glb', 'model/gltf-binary']
+    ['.glb', 'model/gltf-binary'],
+    ['.avif', 'image/avif'],
+    ['.bmp', 'image/bmp'],
+    ['.gif', 'image/gif'],
+    ['.jfif', 'image/jpeg'],
+    ['.jpeg', 'image/jpeg'],
+    ['.jpg', 'image/jpeg'],
+    ['.png', 'image/png'],
+    ['.svg', 'image/svg+xml'],
+    ['.webp', 'image/webp']
 ]);
 
 @injectable()

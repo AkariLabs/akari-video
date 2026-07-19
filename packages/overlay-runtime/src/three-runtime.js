@@ -9,6 +9,7 @@ window.akari.threeRuntime = (() => {
     "camera",
     "lights",
     "animationClip",
+    "materialOverrides",
   ]);
 
   function finiteNumber(value, fallback) {
@@ -53,7 +54,77 @@ window.akari.threeRuntime = (() => {
     if (descriptor.animationClip !== undefined && typeof descriptor.animationClip !== "string") {
       throw new TypeError("animationClip は glTF clip 名の文字列である必要があります");
     }
+    if (descriptor.materialOverrides !== undefined) {
+      if (!descriptor.materialOverrides
+        || typeof descriptor.materialOverrides !== "object"
+        || Array.isArray(descriptor.materialOverrides)) {
+        throw new TypeError("materialOverrides は object である必要があります");
+      }
+      for (const [materialName, override] of Object.entries(descriptor.materialOverrides)) {
+        if (!materialName
+          || !override
+          || typeof override !== "object"
+          || Array.isArray(override)
+          || Object.keys(override).some((key) => key !== "texture")
+          || typeof override.texture !== "string"
+          || override.texture.length === 0) {
+          throw new TypeError("materialOverrides は material 名ごとに texture URL を指定してください");
+        }
+      }
+    }
     return descriptor;
+  }
+
+  async function applyMaterialOverrides(THREE, root, overrides) {
+    if (!overrides) return;
+    const materialsByName = new Map();
+    root.traverse((object) => {
+      const materials = Array.isArray(object.material)
+        ? object.material
+        : object.material
+          ? [object.material]
+          : [];
+      for (const material of materials) {
+        if (!materialsByName.has(material.name)) materialsByName.set(material.name, new Set());
+        materialsByName.get(material.name).add(material);
+      }
+    });
+
+    const textureLoader = new THREE.TextureLoader();
+    await Promise.all(Object.entries(overrides).map(async ([materialName, override]) => {
+      const materials = materialsByName.get(materialName);
+      if (!materials?.size) {
+        console.warn(`[akari-three] materialOverrides の対象が見つかりません: ${materialName}`);
+        return;
+      }
+      const texture = await textureLoader.loadAsync(override.texture);
+      texture.flipY = false;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+      const configuredTextures = new Map();
+      for (const material of materials) {
+        const existingTexture = material.emissiveMap?.isTexture
+          ? material.emissiveMap
+          : null;
+        const channel = existingTexture?.channel ?? 0;
+        const wrapS = existingTexture?.wrapS ?? texture.wrapS;
+        const wrapT = existingTexture?.wrapT ?? texture.wrapT;
+        const configurationKey = `${channel}:${wrapS}:${wrapT}`;
+        let configuredTexture = configuredTextures.get(configurationKey);
+        if (!configuredTexture) {
+          configuredTexture = configuredTextures.size === 0 ? texture : texture.clone();
+          configuredTexture.channel = channel;
+          configuredTexture.wrapS = wrapS;
+          configuredTexture.wrapT = wrapT;
+          configuredTexture.flipY = false;
+          configuredTexture.colorSpace = THREE.SRGBColorSpace;
+          configuredTexture.needsUpdate = true;
+          configuredTextures.set(configurationKey, configuredTexture);
+        }
+        material.emissiveMap = configuredTexture;
+        material.needsUpdate = true;
+      }
+    }));
   }
 
   function createCamera(THREE, descriptor) {
@@ -205,12 +276,18 @@ window.akari.threeRuntime = (() => {
     setFallback(container, true);
 
     const loader = new GLTFLoader();
-    instance.loading = loader.loadAsync(descriptor.model).then((gltf) => {
+    instance.loading = loader.loadAsync(descriptor.model).then(async (gltf) => {
       if (instances.get(container) !== instance || !instance.active) {
         disposeObject(gltf.scene);
         return;
       }
       instance.model = gltf.scene;
+      await applyMaterialOverrides(THREE, gltf.scene, descriptor.materialOverrides);
+      if (instances.get(container) !== instance || !instance.active) {
+        disposeObject(gltf.scene);
+        if (instance.model === gltf.scene) instance.model = null;
+        return;
+      }
       instance.scene.add(gltf.scene);
       if (descriptor.animationClip) {
         const clip = gltf.animations.find((candidate) => candidate.name === descriptor.animationClip);

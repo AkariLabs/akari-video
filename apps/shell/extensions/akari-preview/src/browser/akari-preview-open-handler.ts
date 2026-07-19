@@ -93,7 +93,7 @@ const CLAIMED_VIDEO_EXTENSIONS = new Set([
 ]);
 const UNSUPPORTED_FORMAT_MESSAGE = 'この形式はアプリ内プレビューに未対応です。書き出し後の MP4 をプレビューできます。';
 const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビューできません。';
-const THREE_SCENE_KEYS = new Set(['model', 'camera', 'lights', 'animationClip']);
+const THREE_SCENE_KEYS = new Set(['model', 'camera', 'lights', 'animationClip', 'materialOverrides']);
 
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
@@ -420,18 +420,44 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (Object.keys(descriptor).some(key => !THREE_SCENE_KEYS.has(key))) {
                     throw new TypeError('data-akari-3d-scene に未対応の top-level key があります');
                 }
-                if (descriptor.model.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(descriptor.model)) {
-                    throw new TypeError('data-akari-3d-scene.model に絶対パスや URL は指定できません');
+                const resolveAsset = async (relativePath: string, field: string): Promise<string> => {
+                    if (relativePath.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(relativePath)) {
+                        throw new TypeError(`${field} に絶対パスや URL は指定できません`);
+                    }
+                    const assetUri = editUri.parent.resolve(relativePath);
+                    const key = assetUri.toString();
+                    let stream = assetStreams.get(key);
+                    if (!stream) {
+                        stream = await this.previewService.createAssetStream({ assetUri: key });
+                        assetStreams.set(key, stream);
+                        assetUris.push(assetUri);
+                    }
+                    return stream.url;
+                };
+                descriptor.model = await resolveAsset(descriptor.model, 'data-akari-3d-scene.model');
+                if (descriptor.materialOverrides !== undefined) {
+                    if (!descriptor.materialOverrides
+                        || typeof descriptor.materialOverrides !== 'object'
+                        || Array.isArray(descriptor.materialOverrides)) {
+                        throw new TypeError('materialOverrides は object である必要があります');
+                    }
+                    for (const [materialName, override] of Object.entries(descriptor.materialOverrides)) {
+                        if (!materialName
+                            || !override
+                            || typeof override !== 'object'
+                            || Array.isArray(override)
+                            || Object.keys(override).some(key => key !== 'texture')
+                            || typeof (override as { texture?: unknown }).texture !== 'string'
+                            || !(override as { texture: string }).texture) {
+                            throw new TypeError('materialOverrides は material 名ごとに texture 相対パスを指定してください');
+                        }
+                        const typedOverride = override as { texture: string };
+                        typedOverride.texture = await resolveAsset(
+                            typedOverride.texture,
+                            `materialOverrides.${materialName}.texture`
+                        );
+                    }
                 }
-                const assetUri = editUri.parent.resolve(descriptor.model);
-                const key = assetUri.toString();
-                let stream = assetStreams.get(key);
-                if (!stream) {
-                    stream = await this.previewService.createAssetStream({ assetUri: key });
-                    assetStreams.set(key, stream);
-                    assetUris.push(assetUri);
-                }
-                descriptor.model = stream.url;
                 declaration.textContent = JSON.stringify(descriptor).replace(/</g, '\\u003c');
             } catch (error) {
                 declaration.textContent = JSON.stringify({ model: '' });
@@ -577,7 +603,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; connect-src ${this.escapeHtml(this.streamOrigin(videoSource))}; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; connect-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob:; img-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob: data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
 <style>
 ${this.inlineStyle(assets.interactionCss)}
 :root { color-scheme: dark; font-family: system-ui, sans-serif; }

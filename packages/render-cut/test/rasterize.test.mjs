@@ -39,7 +39,9 @@ test("3D overlay sheets inline the shared runtime and embed GLB data", async () 
   const projectRoot = await mkdtemp(join(tmpdir(), "render-cut-3d-日本語 path-"));
   try {
     const modelBytes = Buffer.from([0x67, 0x6c, 0x54, 0x46, 0x01, 0x02, 0x03]);
+    const textureBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     await writeFile(join(projectRoot, "model.glb"), modelBytes);
+    await writeFile(join(projectRoot, "screen.png"), textureBytes);
     const sheet = renderOverlaySheet({
       overlays: [
         {
@@ -48,6 +50,9 @@ test("3D overlay sheets inline the shared runtime and embed GLB data", async () 
           duration: 2,
           html: `<div class="model"><canvas></canvas><div data-akari-3d-fallback>fallback</div><script data-akari-3d-scene type="application/json">{
             "model": "model.glb",
+            "materialOverrides": {
+              "ScreenMaterial": { "texture": "screen.png" }
+            },
             "camera": { "position": [0, 0, 3] }
           }</script></div>`,
           transform: {},
@@ -75,10 +80,16 @@ test("3D overlay sheets inline the shared runtime and embed GLB data", async () 
       /<script data-akari-3d-scene type="application\/json">([\s\S]*?)<\/script>/u,
     );
     assert.ok(declaration);
+    const descriptor = JSON.parse(declaration[1]);
     assert.equal(
-      JSON.parse(declaration[1]).model,
+      descriptor.model,
       `data:model/gltf-binary;base64,${modelBytes.toString("base64")}`,
     );
+    assert.deepEqual(descriptor.materialOverrides, {
+      ScreenMaterial: {
+        texture: `data:image/png;base64,${textureBytes.toString("base64")}`,
+      },
+    });
     assert.match(sheet, /querySelector\(':scope > \.scene-content'\)/);
     assert.match(
       sheet,

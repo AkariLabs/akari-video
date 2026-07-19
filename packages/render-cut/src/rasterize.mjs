@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -14,6 +14,17 @@ const THREE_RUNTIME_PATH = resolve(
   "../../overlay-runtime/src/three-runtime.js",
 );
 const THREE_SCENE_SCRIPT_PATTERN = /(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu;
+const TEXTURE_MIME_TYPES = new Map([
+  [".avif", "image/avif"],
+  [".bmp", "image/bmp"],
+  [".gif", "image/gif"],
+  [".jfif", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".jpg", "image/jpeg"],
+  [".png", "image/png"],
+  [".svg", "image/svg+xml"],
+  [".webp", "image/webp"],
+]);
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const hasThreeDimensionalOverlay = overlays.some((overlay) =>
@@ -345,12 +356,44 @@ function embedThreeModels(html, projectRoot, overlayId) {
       if (typeof descriptor.model !== "string" || descriptor.model.length === 0) {
         throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
       }
+      if (descriptor.model.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(descriptor.model)) {
+        throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
+      }
       const modelPath = resolve(projectRoot, descriptor.model);
       const model = readFileSync(modelPath);
       const embeddedDescriptor = {
         ...descriptor,
         model: `data:model/gltf-binary;base64,${model.toString("base64")}`,
       };
+      if (descriptor.materialOverrides !== undefined) {
+        if (!descriptor.materialOverrides
+          || typeof descriptor.materialOverrides !== "object"
+          || Array.isArray(descriptor.materialOverrides)) {
+          throw new TypeError(`3D overlay ${overlayId} materialOverrides must be an object`);
+        }
+        embeddedDescriptor.materialOverrides = Object.fromEntries(
+          Object.entries(descriptor.materialOverrides).map(([materialName, override]) => {
+            if (!materialName
+              || !override
+              || typeof override !== "object"
+              || Array.isArray(override)
+              || Object.keys(override).some((key) => key !== "texture")
+              || typeof override.texture !== "string"
+              || override.texture.length === 0
+              || override.texture.startsWith("/")
+              || /^[a-z][a-z\d+.-]*:/i.test(override.texture)) {
+              throw new TypeError(
+                `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
+              );
+            }
+            const texture = readFileSync(resolve(projectRoot, override.texture));
+            const mimeType = textureMimeType(override.texture);
+            return [materialName, {
+              texture: `data:${mimeType};base64,${texture.toString("base64")}`,
+            }];
+          }),
+        );
+      }
       return `${openingTag}${escapeScriptJson(JSON.stringify(embeddedDescriptor))}${closingTag}`;
     },
   );
@@ -360,6 +403,13 @@ function embedThreeModels(html, projectRoot, overlayId) {
     );
   }
   return embedded;
+}
+
+function textureMimeType(path) {
+  const extension = extname(path).toLowerCase();
+  const mimeType = TEXTURE_MIME_TYPES.get(extension);
+  if (!mimeType) throw new TypeError(`Unsupported material override texture type: ${extension || "none"}`);
+  return mimeType;
 }
 
 function inlineScript(source) {
