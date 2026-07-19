@@ -1,0 +1,56 @@
+[
+  {
+    "t": "2026-07-19T23:56:37.446Z",
+    "step": "scenario1-shell-ready",
+    "elapsedMs": 6769,
+    "akariDirExists": false
+  },
+  {
+    "t": "2026-07-19T23:56:38.312Z",
+    "step": "scenario2-consent-shown",
+    "text": "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）使う開くだけ"
+  },
+  {
+    "t": "2026-07-19T23:56:39.329Z",
+    "step": "scenario2-akari-created",
+    "created": true
+  },
+  {
+    "t": "2026-07-19T23:56:47.320Z",
+    "step": "scenario3a-shell-ready",
+    "elapsedMs": 7722
+  },
+  {
+    "t": "2026-07-19T23:56:49.022Z",
+    "step": "scenario3a-open-only-result",
+    "akariExists": false
+  },
+  {
+    "t": "2026-07-19T23:56:56.352Z",
+    "step": "scenario3b-shell-ready-on-restart",
+    "elapsedMs": 7072
+  },
+  {
+    "t": "2026-07-19T23:57:01.580Z",
+    "step": "scenario3b-result",
+    "akariExists": false,
+    "elapsedMs": 7072
+  },
+  {
+    "t": "2026-07-19T23:57:08.121Z",
+    "step": "scenario4-shell-ready",
+    "elapsedMs": 6336
+  },
+  {
+    "t": "2026-07-19T23:57:13.353Z",
+    "step": "scenario4-watch-bootstrap",
+    "eventsDirReady": true,
+    "gitInitialized": true
+  },
+  {
+    "t": "2026-07-19T23:57:13.714Z",
+    "step": "scenario4-watch-commit",
+    "committed": true,
+    "gitLog": "ebf1ca1 編集を完了\ndddc78c プロジェクトを開始"
+  }
+]

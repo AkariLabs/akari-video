@@ -1,0 +1,21 @@
+{
+  "scenario1": {
+    "elapsedMs": 6769,
+    "pass": true
+  },
+  "scenario2": {
+    "pass": true
+  },
+  "scenario3a": {
+    "pass": true,
+    "elapsedMs": 7722
+  },
+  "scenario3b": {
+    "pass": true,
+    "elapsedMs": 7072
+  },
+  "scenario4": {
+    "pass": true,
+    "elapsedMs": 6336
+  }
+}

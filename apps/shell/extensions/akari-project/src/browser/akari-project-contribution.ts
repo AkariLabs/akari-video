@@ -21,6 +21,7 @@ import {
     WidgetManager,
     open
 } from '@theia/core/lib/browser';
+import { FrontendApplicationStateService } from '@theia/core/lib/browser/frontend-application-state';
 import {
     TabBarToolbarContribution,
     TabBarToolbarRegistry
@@ -58,6 +59,8 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     protected readonly projectService!: AkariProjectService;
     @inject(StorageService)
     protected readonly storage!: StorageService;
+    @inject(FrontendApplicationStateService)
+    protected readonly stateService!: FrontendApplicationStateService;
     @inject(FileDialogService)
     protected readonly dialogs!: FileDialogService;
     @inject(WorkspaceService)
@@ -137,7 +140,9 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     async onStart(app: FrontendApplication): Promise<void> {
         this.app = app;
         await this.workflow.load();
-        await this.watchOpenRoots();
+        this.stateService.reachedState('ready').then(() => {
+            void this.watchOpenRoots();
+        });
         this.workspace.onWorkspaceChanged(() => {
             void this.workflow.load();
             void this.watchOpenRoots();
@@ -197,6 +202,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             await this.maybeNoticeParentHistory(uri);
             return;
         }
+        // messages.info はシェル描画前に await してはならない（起動デッドロック F35）
         const choice = await this.messages.info(
             PROJECT_CONSENT_MESSAGE,
             PROJECT_CONSENT_ACTION_USE,
