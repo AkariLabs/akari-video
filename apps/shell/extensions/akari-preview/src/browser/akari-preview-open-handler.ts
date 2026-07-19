@@ -199,6 +199,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
             }
+            if (message?.type === 'akari-preview-fullscreen-fallback') {
+                this.shell.toggleMaximized(widget);
+            }
         }));
         disposables.push(this.fileService.onDidFilesChange(event => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
@@ -614,10 +617,16 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace.inspector-open { grid-template-columns: minmax(0, 1fr) 260px; }
 .preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; background: #090909; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
+#preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
+#preview-wrapper.is-dragging { cursor: grabbing; }
+#zoom-layer { position: absolute; inset: 0; will-change: transform; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
 #caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
 #caption-plate:empty { display: none; }
+#zoom-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 3; overflow: hidden; border: 1px solid rgba(255,255,255,0.25); border-radius: 2px; background: rgba(0,0,0,0.55); pointer-events: none; }
+#zoom-minimap[hidden] { display: none; }
+#zoom-minimap-viewport { position: absolute; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.85); background: rgba(255,255,255,0.55); }
 .message-card { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 32px; background: #111; }
 .message-card[hidden] { display: none; }
 .message-card p { max-width: 520px; margin: 0; color: #e5e5e5; font-size: 15px; line-height: 1.7; text-align: center; }
@@ -628,10 +637,24 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .field label { overflow-wrap: anywhere; color: #c8c8c8; font-size: 12px; }
 .field input { width: 100%; border: 1px solid #4a4a4a; border-radius: 4px; padding: 7px 8px; background: #111; color: #fff; }
 .empty { color: #999; font-size: 12px; }
-.transport { display: grid; grid-template-columns: auto minmax(100px, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid #303030; background: #202020; }
-.transport button { min-width: 72px; border: 1px solid #505050; border-radius: 4px; padding: 6px 10px; background: #303030; color: #fff; cursor: pointer; }
-.transport input { width: 100%; }
-#time-label { min-width: 104px; color: #d0d0d0; font-variant-numeric: tabular-nums; text-align: right; }
+.transport { display: grid; gap: 8px; padding: 9px 14px 10px; border-top: 1px solid #303030; background: #202020; }
+.transport-seek { display: flex; width: 100%; }
+.transport-seek input { width: 100%; }
+.transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; }
+.transport-center, .transport-right { display: flex; align-items: center; gap: 8px; }
+.transport-center { justify-self: center; }
+.transport-right { position: relative; justify-self: end; }
+.icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; cursor: pointer; }
+.icon-button:disabled, .zoom-preset:disabled { opacity: 0.45; cursor: default; }
+.icon-button svg { width: 18px; height: 18px; fill: currentColor; stroke: currentColor; }
+#time-label { min-width: 104px; color: #d0d0d0; font-variant-numeric: tabular-nums; text-align: left; }
+.zoom-popup { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 20; width: 224px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+.zoom-popup[hidden] { display: none; }
+.zoom-popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #d8d8d8; font-size: 12px; }
+#zoom-value { color: #fff; font-variant-numeric: tabular-nums; }
+#zoom-slider { width: 100%; }
+.zoom-presets { display: grid; grid-template-columns: repeat(4, 32px); justify-content: space-between; gap: 5px; margin-top: 8px; }
+.zoom-preset { width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; font-size: 10px; cursor: pointer; }
 @media (max-width: 720px) { .workspace.inspector-open { grid-template-columns: minmax(0, 1fr) 210px; } }
 </style>
 </head>
@@ -639,8 +662,11 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <main class="workspace">
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
-      <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
-      <div id="overlay-stage"><div id="caption-plate"></div></div>
+      <div id="zoom-layer">
+        <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
+        <div id="overlay-stage"><div id="caption-plate"></div></div>
+      </div>
+      <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
       <div id="preview-message" class="message-card" hidden role="status"><p>${UNSUPPORTED_FORMAT_MESSAGE}</p></div>
     </div>
   </section>
@@ -650,9 +676,33 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   </aside>
 </main>
 <div class="transport">
-  <button id="play-toggle" type="button">再生</button>
-  <input id="seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置">
-  <span id="time-label">0:00 / 0:00</span>
+  <div class="transport-seek">
+    <input id="seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置">
+  </div>
+  <div class="transport-controls">
+    <span id="time-label">0:00 / 0:00</span>
+    <div class="transport-center">
+      <button id="skip-back" class="icon-button" type="button" aria-label="10秒戻る" title="10秒戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
+      <button id="frame-back" class="icon-button" type="button" aria-label="1コマ戻る" title="1コマ戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM18 5v14l-9-7z"/></svg></button>
+      <button id="play-toggle" class="icon-button" type="button" aria-label="再生" title="再生"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+      <button id="frame-forward" class="icon-button" type="button" aria-label="1コマ進む" title="1コマ進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM6 5v14l9-7z"/></svg></button>
+      <button id="skip-forward" class="icon-button" type="button" aria-label="10秒進む" title="10秒進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5V2l4.5 4-4.5 4V7a6 6 0 1 0 5.65 8h2.09A8 8 0 1 1 13 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
+    </div>
+    <div class="transport-right">
+      <button id="zoom-toggle" class="icon-button" type="button" aria-label="ズーム" title="ズーム" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button id="fullscreen-toggle" class="icon-button" type="button" aria-label="全画面" title="全画面" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"/></svg></button>
+      <div id="zoom-popup" class="zoom-popup" hidden>
+        <div class="zoom-popup-header"><span>ズーム</span><span id="zoom-value">100%</span></div>
+        <input id="zoom-slider" type="range" min="0" max="1" step="0.001" aria-label="ズーム倍率" title="ダブルクリックで100%">
+        <div class="zoom-presets">
+          <button class="zoom-preset" type="button" data-zoom="0.5" aria-label="50%にズーム" title="50%にズーム">50%</button>
+          <button class="zoom-preset" type="button" data-zoom="1" aria-label="100%にズーム" title="100%にズーム">100%</button>
+          <button class="zoom-preset" type="button" data-zoom="2" aria-label="200%にズーム" title="200%にズーム">200%</button>
+          <button class="zoom-preset" type="button" data-zoom="4" aria-label="400%にズーム" title="400%にズーム">400%</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 <script>window.__akariPreview = ${initialState};</script>
 <script>${this.hostAdapterScript()}</script>
@@ -707,6 +757,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 })
             };
             window.akari.stageScale = () => displayScale;
+            window.akari.toggleFullscreen = () => {
+                if (document.fullscreenElement) {
+                    return document.exitFullscreen();
+                }
+                try {
+                    return Promise.resolve(document.documentElement.requestFullscreen()).catch(() => {
+                        vscode.postMessage({ type: 'akari-preview-fullscreen-fallback' });
+                    });
+                } catch (_error) {
+                    vscode.postMessage({ type: 'akari-preview-fullscreen-fallback' });
+                    return Promise.resolve();
+                }
+            };
 
             window.addEventListener('message', event => {
                 const message = event.data;
@@ -734,8 +797,22 @@ body { display: grid; place-items: center; padding: 32px; }
             const summary = initial.summary;
             const video = document.getElementById('preview-video');
             const playToggle = document.getElementById('play-toggle');
+            const frameBack = document.getElementById('frame-back');
+            const frameForward = document.getElementById('frame-forward');
+            const skipBack = document.getElementById('skip-back');
+            const skipForward = document.getElementById('skip-forward');
+            const zoomToggle = document.getElementById('zoom-toggle');
+            const fullscreenToggle = document.getElementById('fullscreen-toggle');
             const seek = document.getElementById('seek');
             const timeLabel = document.getElementById('time-label');
+            const previewPane = document.querySelector('.preview-pane');
+            const wrapper = document.getElementById('preview-wrapper');
+            const zoomLayer = document.getElementById('zoom-layer');
+            const zoomPopup = document.getElementById('zoom-popup');
+            const zoomSlider = document.getElementById('zoom-slider');
+            const zoomValue = document.getElementById('zoom-value');
+            const zoomMinimap = document.getElementById('zoom-minimap');
+            const zoomMinimapViewport = document.getElementById('zoom-minimap-viewport');
             const stage = document.getElementById('overlay-stage');
             const captionPlate = document.getElementById('caption-plate');
             const previewMessage = document.getElementById('preview-message');
@@ -743,8 +820,69 @@ body { display: grid; place-items: center; padding: 32px; }
             const inspectorTitle = document.getElementById('inspector-title');
             const inspectorFields = document.getElementById('inspector-fields');
             const workspace = document.querySelector('.workspace');
+            const fps = Number(summary.output && summary.output.fps) > 0 ? Number(summary.output.fps) : 30;
+            const ZOOM_MIN = 0.25;
+            const ZOOM_MAX = 8;
+            const SNAP_TOLERANCE = 0.025;
+            const CLICK_THRESHOLD_PX = 4;
+            const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
+            const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"></path></svg>';
+            const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
+            const restoreIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4V7h3V4zm6 0h2v3h3v2h-5zM4 15h5v5H7v-3H4zm16 0v2h-3v3h-2v-5z"></path></svg>';
             let captions = Array.isArray(initial.captions) ? initial.captions : [];
             let animationFrame = 0;
+            let zoom = 1;
+            let pan = { x: 0, y: 0 };
+            let drag = null;
+            let suppressClick = false;
+
+            const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+            const zoomToSlider = value => {
+                const logMin = Math.log2(ZOOM_MIN);
+                const logMax = Math.log2(ZOOM_MAX);
+                return (Math.log2(clamp(value, ZOOM_MIN, ZOOM_MAX)) - logMin) / (logMax - logMin);
+            };
+            const sliderToZoom = value => {
+                const logMin = Math.log2(ZOOM_MIN);
+                const logMax = Math.log2(ZOOM_MAX);
+                const sliderValue = clamp(value, 0, 1);
+                if (Math.abs(sliderValue - zoomToSlider(1)) <= SNAP_TOLERANCE) return 1;
+                return Math.pow(2, logMin + (logMax - logMin) * sliderValue);
+            };
+            const renderZoom = () => {
+                zoomLayer.style.transform = 'translate(' + (pan.x * zoom * 100).toFixed(3) + '%, '
+                    + (pan.y * zoom * 100).toFixed(3) + '%) scale(' + zoom + ')';
+                zoomValue.textContent = Math.round(zoom * 100) + '%';
+                zoomSlider.value = String(zoomToSlider(zoom));
+                const isZoomed = zoom > 1.05;
+                wrapper.classList.toggle('is-draggable', isZoomed);
+                if (!isZoomed) wrapper.classList.remove('is-dragging');
+                zoomMinimap.hidden = !isZoomed;
+                if (!isZoomed) return;
+                const width = Number(summary.output && summary.output.width) || 1280;
+                const height = Number(summary.output && summary.output.height) || 720;
+                const aspectRatio = width / height;
+                zoomMinimap.style.width = (aspectRatio >= 1 ? 64 : 64 * aspectRatio) + 'px';
+                zoomMinimap.style.height = (aspectRatio >= 1 ? 64 / aspectRatio : 64) + 'px';
+                const innerSize = 1 / zoom;
+                zoomMinimapViewport.style.left = (((1 - innerSize) / 2 - pan.x) * 100) + '%';
+                zoomMinimapViewport.style.top = (((1 - innerSize) / 2 - pan.y) * 100) + '%';
+                zoomMinimapViewport.style.width = (innerSize * 100) + '%';
+                zoomMinimapViewport.style.height = (innerSize * 100) + '%';
+            };
+            const setZoom = value => {
+                zoom = clamp(value, ZOOM_MIN, ZOOM_MAX);
+                if (zoom <= 1.05) {
+                    pan = { x: 0, y: 0 };
+                } else {
+                    const maxR = (zoom - 1) / (2 * zoom);
+                    pan = {
+                        x: clamp(pan.x, -maxR, maxR),
+                        y: clamp(pan.y, -maxR, maxR)
+                    };
+                }
+                renderZoom();
+            };
 
             const formatTime = value => {
                 const seconds = Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -756,7 +894,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 seek.max = String(duration);
                 seek.value = String(Math.min(video.currentTime || 0, duration));
                 timeLabel.textContent = formatTime(video.currentTime) + ' / ' + formatTime(duration);
-                playToggle.textContent = video.paused ? '再生' : '停止';
+                const label = video.paused ? '再生' : '一時停止';
+                playToggle.innerHTML = video.paused ? playIcon : pauseIcon;
+                playToggle.setAttribute('aria-label', label);
+                playToggle.title = label;
             };
             const renderCaption = () => {
                 const time = video.currentTime || 0;
@@ -804,6 +945,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 captionPlate.textContent = '';
                 previewMessage.hidden = false;
                 playToggle.disabled = true;
+                frameBack.disabled = true;
+                frameForward.disabled = true;
+                skipBack.disabled = true;
+                skipForward.disabled = true;
+                zoomToggle.disabled = true;
+                fullscreenToggle.disabled = true;
                 seek.disabled = true;
                 hideInspector();
             };
@@ -814,8 +961,104 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const isEditable = element => element instanceof HTMLElement
                 && (element.matches('input, textarea') || element.isContentEditable);
+            const videoDuration = () => Number.isFinite(video.duration) ? video.duration : 0;
+            const nudgeFrame = direction => {
+                video.pause();
+                video.currentTime = clamp((video.currentTime || 0) + direction / fps, 0, videoDuration());
+                tick();
+            };
+            const skipSeconds = seconds => {
+                video.currentTime = clamp((video.currentTime || 0) + seconds, 0, videoDuration());
+                tick();
+            };
 
             playToggle.addEventListener('click', togglePlayback);
+            frameBack.addEventListener('click', () => nudgeFrame(-1));
+            frameForward.addEventListener('click', () => nudgeFrame(1));
+            skipBack.addEventListener('click', () => skipSeconds(-10));
+            skipForward.addEventListener('click', () => skipSeconds(10));
+            zoomToggle.addEventListener('click', () => {
+                zoomPopup.hidden = !zoomPopup.hidden;
+                zoomToggle.setAttribute('aria-expanded', String(!zoomPopup.hidden));
+            });
+            zoomSlider.addEventListener('input', () => setZoom(sliderToZoom(Number(zoomSlider.value))));
+            zoomSlider.addEventListener('dblclick', () => setZoom(1));
+            for (const preset of document.querySelectorAll('.zoom-preset')) {
+                preset.addEventListener('click', () => setZoom(Number(preset.getAttribute('data-zoom'))));
+            }
+            document.addEventListener('pointerdown', event => {
+                if (!zoomPopup.hidden && !event.target.closest('.transport-right')) {
+                    zoomPopup.hidden = true;
+                    zoomToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+            previewPane.addEventListener('wheel', event => {
+                if (!event.ctrlKey) return;
+                event.preventDefault();
+                const factor = Math.exp(-event.deltaY * 0.01);
+                setZoom(clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX));
+            }, { passive: false });
+            wrapper.addEventListener('pointerdown', event => {
+                if (zoom <= 1.05 || event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+                wrapper.setPointerCapture(event.pointerId);
+                drag = {
+                    pointerId: event.pointerId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    base: { x: pan.x, y: pan.y },
+                    vidW: zoomLayer.offsetWidth * zoom,
+                    vidH: zoomLayer.offsetHeight * zoom,
+                    didMove: false
+                };
+            }, true);
+            wrapper.addEventListener('pointermove', event => {
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const dx = event.clientX - drag.startX;
+                const dy = event.clientY - drag.startY;
+                if (!drag.didMove && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) {
+                    drag.didMove = true;
+                    wrapper.classList.add('is-dragging');
+                }
+                if (!drag.didMove) return;
+                const maxR = (zoom - 1) / (2 * zoom);
+                pan = {
+                    x: clamp(drag.base.x + dx / drag.vidW, -maxR, maxR),
+                    y: clamp(drag.base.y + dy / drag.vidH, -maxR, maxR)
+                };
+                renderZoom();
+            }, true);
+            const finishPan = event => {
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const didMove = drag.didMove;
+                drag = null;
+                wrapper.classList.remove('is-dragging');
+                if (wrapper.hasPointerCapture(event.pointerId)) wrapper.releasePointerCapture(event.pointerId);
+                if (didMove) suppressClick = true;
+            };
+            wrapper.addEventListener('pointerup', finishPan, true);
+            wrapper.addEventListener('pointercancel', finishPan, true);
+            wrapper.addEventListener('click', event => {
+                if (!suppressClick) return;
+                suppressClick = false;
+                event.preventDefault();
+                event.stopPropagation();
+            }, true);
+            fullscreenToggle.addEventListener('click', () => {
+                void window.akari.toggleFullscreen().catch(error => console.error('[akari-preview] fullscreen failed', error));
+            });
+            document.addEventListener('fullscreenchange', () => {
+                const isFullscreen = Boolean(document.fullscreenElement);
+                fullscreenToggle.setAttribute('aria-pressed', String(isFullscreen));
+                fullscreenToggle.setAttribute('aria-label', isFullscreen ? '全画面解除' : '全画面');
+                fullscreenToggle.title = isFullscreen ? '全画面解除' : '全画面';
+                fullscreenToggle.innerHTML = isFullscreen ? restoreIcon : fullscreenIcon;
+            });
             window.addEventListener('keydown', event => {
                 if ((event.code !== 'Space' && event.key !== ' ')
                     || isEditable(event.target)
@@ -906,6 +1149,7 @@ body { display: grid; place-items: center; padding: 32px; }
 
             Promise.resolve(window.akari.runtime.mount(summary)).then(() => {
                 stage.appendChild(captionPlate);
+                setZoom(1);
                 tick();
                 renderInspector();
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
