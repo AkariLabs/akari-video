@@ -96,6 +96,7 @@
       "!node_modules/**/tests/**",
       "!node_modules/**/*.spec.js",
       "!node_modules/**/docs/**",
+      "!**/evidence/**",
       "!node_modules/**/*.flow",
       "!node_modules/@theia/**/src/**",
       "!node_modules/*/evidence/**"

@@ -56,6 +56,14 @@ for (const application of applications.sort()) {
     }
   }
 
+  const evidenceEntries = entries.filter(entry => /\/evidence(?:\/|$)/.test(entry));
+  if (evidenceEntries.length === 0) {
+    console.log('✅ evidence 0 件');
+  } else {
+    console.error(`❌ EVIDENCE in asar: ${evidenceEntries.length} 件`);
+    failed = true;
+  }
+
   const requiredFiles = [
     '/lib/skills/analyze-footage/SKILL.md',
     '/lib/schemas/analysis.schema.json'
