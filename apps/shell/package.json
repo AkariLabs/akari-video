@@ -97,7 +97,8 @@
       "!node_modules/**/*.spec.js",
       "!node_modules/**/docs/**",
       "!node_modules/**/*.flow",
-      "!node_modules/@theia/**/src/**"
+      "!node_modules/@theia/**/src/**",
+      "!node_modules/*/evidence/**"
     ],
     "asarUnpack": [
       "**/*.node",
