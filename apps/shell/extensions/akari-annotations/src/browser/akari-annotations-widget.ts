@@ -2,10 +2,16 @@ import { CommandService, Disposable, MessageService } from '@theia/core/lib/comm
 import { BaseWidget } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
-import { AkariAnnotationsService, Annotation, WriteBackResult } from '../common/akari-annotations-protocol';
+import {
+    AkariAnnotationsService,
+    Annotation,
+    WAVEFORM_BUCKET_COUNT,
+    WriteBackResult
+} from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
 import { CaptionRecord, parseCaptions } from '../common/caption-store';
 import { EditCut, EditOverlay, parseEdit } from '../common/edit-store';
+import { assignSubRows } from '../common/lane-layout';
 import { ProjectLocation } from './project-location';
 
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
@@ -13,6 +19,12 @@ const MINIMUM_ITEM_DURATION = 0.15;
 const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
 const SNAP_THRESHOLD_PX = 8;
+const MIN_VIEW_DURATION_SECONDS = 1;
+const ZOOM_WHEEL_SENSITIVITY = 0.01;
+const ZOOM_EVENT_FACTOR_MIN = 1 / 1.5;
+const ZOOM_EVENT_FACTOR_MAX = 1.5;
+const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
+const WAVEFORM_CANVAS_HEIGHT_PX = 32;
 
 const STATUS_LABELS: Record<Annotation['status'], string> = {
     open: '未対応',
@@ -90,6 +102,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected dragState: DragState | undefined;
     protected lastUndo: (() => Promise<void>) | undefined;
     protected contextPopup: HTMLDivElement | undefined;
+    protected viewStart = 0;
+    protected viewDuration: number | undefined;
+    protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
+    protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
+    protected ffmpegMissingNoticeShown = false;
 
     @postConstruct()
     protected init(): void {
@@ -136,7 +153,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toolbar.append(heading, this.undoButton, this.filterSelect);
 
         Object.assign(this.strip.style, {
-            position: 'relative', margin: '8px 10px', height: '96px',
+            position: 'relative', margin: '8px 10px',
             border: '1px solid var(--theia-widget-border)', borderRadius: '4px',
             background: 'var(--theia-editorWidget-background)', cursor: 'pointer', overflow: 'hidden'
         });
@@ -150,6 +167,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.strip.append(this.playhead, this.snapGuide);
         this.strip.addEventListener('click', event => this.onStripClick(event));
+        this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
 
         Object.assign(this.composerRow.style, {
@@ -208,7 +226,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
     .akari-annotations-widget .akari-annotations-strip-caption-text {
         position: absolute;
-        top: 38px;
         height: 16px;
         display: flex;
         align-items: center;
@@ -266,6 +283,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.location = location;
         this.title.caption = `タイムライン — ${location.reviewUri.toString()}`;
         await this.reloadAll();
+        requestAnimationFrame(() => this.renderStrip());
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (!this.location) {
                 return;
@@ -392,16 +410,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return Math.max(...candidates) * 1.02;
     }
 
+    protected visibleDuration(): number {
+        return this.viewDuration ?? this.totalDuration();
+    }
+
     protected renderStrip(): void {
+        const CLIP_TOP = 14;
+        const CLIP_HEIGHT = 22;
+        const LANE_GAP = 6;
+        const SUBROW_HEIGHT = 16;
+        const SUBROW_GAP = 2;
+        const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
+        const PIN_HEIGHT = 18;
+        const STRIP_BOTTOM_MARGIN = 6;
+
+        const maxDuration = this.totalDuration();
+        if (this.viewDuration !== undefined) {
+            if (this.viewDuration >= maxDuration) {
+                this.viewDuration = undefined;
+                this.viewStart = 0;
+            } else {
+                this.viewStart = Math.min(Math.max(0, this.viewStart), Math.max(0, maxDuration - this.viewDuration));
+            }
+        }
         for (const child of Array.from(this.strip.children)) {
             if (child !== this.playhead && child !== this.snapGuide) {
                 child.remove();
             }
         }
-        const duration = this.totalDuration();
-        this.renderRuler(duration);
+        this.renderRuler();
         this.cuts.forEach((cut, index) => {
-            const element = this.stripSegment(cut.in, cut.out, 14, 22, 'akari-annotations-strip-clip', `C${index + 1}`);
+            const element = this.stripSegment(
+                cut.in, cut.out, CLIP_TOP, CLIP_HEIGHT, 'akari-annotations-strip-clip', `C${index + 1}`
+            );
+            const widthPercent = Math.max(this.percent(cut.out) - this.percent(cut.in), 0.3);
+            const clipWidth = this.strip.clientWidth * widthPercent / 100;
+            this.renderClipMedia(element, cut, clipWidth);
             element.appendChild(this.segmentLabel(`C${index + 1}`));
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
@@ -416,10 +460,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         });
-        for (const caption of this.captions) {
+
+        const captionRows = assignSubRows(this.captions.map(c => ({ start: c.start, end: c.end })));
+        const captionSubRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 1;
+        const captionBandTop = CLIP_TOP + CLIP_HEIGHT + LANE_GAP;
+        const captionBandHeight = captionSubRowCount * SUBROW_STRIDE;
+
+        const overlayRows = assignSubRows(this.overlays.map(o => ({ start: o.start, end: o.start + o.duration })));
+        const overlaySubRowCount = overlayRows.length ? Math.max(...overlayRows) + 1 : 1;
+        const overlayBandTop = captionBandTop + captionBandHeight + LANE_GAP;
+        const overlayBandHeight = overlaySubRowCount * SUBROW_STRIDE;
+
+        const pinTop = overlayBandTop + overlayBandHeight + LANE_GAP;
+        const stripHeight = pinTop + PIN_HEIGHT + STRIP_BOTTOM_MARGIN;
+        this.strip.style.height = `${stripHeight}px`;
+
+        this.captions.forEach((caption, index) => {
             const captionEnd = Math.max(caption.end, caption.start + MINIMUM_ITEM_DURATION);
+            const top = captionBandTop + captionRows[index] * SUBROW_STRIDE;
             const element = this.stripSegment(
-                caption.start, captionEnd, 38, 16, 'akari-annotations-strip-caption', caption.text
+                caption.start, captionEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
             );
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
@@ -432,11 +492,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 };
             });
             this.strip.appendChild(element);
-            this.strip.appendChild(this.captionLabel(caption.start, caption.text));
-        }
-        for (const overlay of this.overlays) {
+            this.strip.appendChild(this.captionLabel(caption.start, caption.text, top));
+        });
+        this.overlays.forEach((overlay, index) => {
+            const top = overlayBandTop + overlayRows[index] * SUBROW_STRIDE;
             const element = this.stripSegment(
-                overlay.start, overlay.start + overlay.duration, 56, 16,
+                overlay.start, overlay.start + overlay.duration, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-overlay', overlay.id
             );
             element.appendChild(this.segmentLabel(overlay.id));
@@ -446,13 +507,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 originalStart: overlay.start, originalDuration: overlay.duration
             }));
             this.strip.appendChild(element);
-        }
+        });
         for (const annotation of this.annotations) {
             const marker = this.stripSegment(
                 annotation.sourceT,
-                annotation.sourceT + Math.max(duration * 0.006, 0.2),
-                76,
-                18,
+                annotation.sourceT + Math.max(this.visibleDuration() * 0.006, 0.05),
+                pinTop,
+                PIN_HEIGHT,
                 'akari-annotations-strip-pin',
                 `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`
             );
@@ -462,15 +523,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             marker.setAttribute('data-annotation-status', annotation.status);
             this.strip.appendChild(marker);
         }
-        this.playhead.style.left = `${this.percent(this.selectedSourceT, duration)}%`;
+        this.playhead.style.left = `${this.percent(this.selectedSourceT)}%`;
         this.updateTimeLabel();
     }
 
-    protected renderRuler(duration: number): void {
+    protected renderRuler(): void {
         const divisions = 5;
         for (let index = 0; index <= divisions; index++) {
             const label = document.createElement('div');
-            const time = duration * index / divisions;
+            const time = this.viewStart + this.visibleDuration() * index / divisions;
             label.textContent = this.formatRulerTimestamp(time);
             Object.assign(label.style, {
                 position: 'absolute', top: '0', height: '14px', left: `${index * 100 / divisions}%`,
@@ -490,7 +551,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         className: string,
         title?: string
     ): HTMLDivElement {
-        const duration = this.totalDuration();
         const element = document.createElement('div');
         element.className = className;
         if (title) {
@@ -500,20 +560,116 @@ export class AkariAnnotationsWidget extends BaseWidget {
             position: 'absolute',
             top: `${top}px`,
             height: `${height}px`,
-            left: `${this.percent(start, duration)}%`,
-            width: `${Math.max(this.percent(end, duration) - this.percent(start, duration), 0.3)}%`,
+            left: `${this.percent(start)}%`,
+            width: `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`,
             pointerEvents: 'none'
         });
         return element;
     }
 
-    protected captionLabel(start: number, text: string): HTMLDivElement {
+    protected captionLabel(start: number, text: string, top: number): HTMLDivElement {
         const label = document.createElement('div');
         label.className = 'akari-annotations-strip-caption-text';
         label.textContent = text;
         label.title = text;
-        label.style.left = `${this.percent(start, this.totalDuration())}%`;
+        label.style.left = `${this.percent(start)}%`;
+        label.style.top = `${top}px`;
         return label;
+    }
+
+    protected renderClipMedia(element: HTMLDivElement, cut: EditCut, clipWidth: number): void {
+        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || !this.location?.videoUri) {
+            return;
+        }
+        const key = `${cut.in}:${cut.out}`;
+        const thumbnail = this.thumbnailCache.get(key);
+        if (typeof thumbnail === 'string' && thumbnail !== 'pending' && thumbnail !== 'unavailable') {
+            element.style.backgroundImage = `url(${thumbnail})`;
+            element.style.backgroundSize = 'cover';
+            element.style.backgroundPosition = 'center';
+        } else if (thumbnail === undefined) {
+            this.fetchThumbnail(key, cut);
+        }
+
+        const waveform = this.waveformCache.get(key);
+        if (Array.isArray(waveform)) {
+            element.appendChild(this.waveformCanvas(waveform));
+        } else if (waveform === undefined) {
+            this.fetchWaveform(key, cut);
+        }
+    }
+
+    protected fetchThumbnail(key: string, cut: EditCut): void {
+        if (!this.location?.videoUri) {
+            return;
+        }
+        this.thumbnailCache.set(key, 'pending');
+        const atSeconds = cut.in + Math.min(0.1, (cut.out - cut.in) / 2);
+        void this.annotationsService.getClipThumbnail({
+            projectRootUri: this.location.root.toString(),
+            videoUri: this.location.videoUri,
+            atSeconds
+        }).then(result => {
+            if (result.status === 'ready' && result.dataUri) {
+                this.thumbnailCache.set(key, result.dataUri);
+            } else {
+                this.thumbnailCache.set(key, 'unavailable');
+                this.showFfmpegMissingNotice(result.reason);
+            }
+            this.renderStrip();
+        }).catch(() => {
+            this.thumbnailCache.set(key, 'unavailable');
+            this.renderStrip();
+        });
+    }
+
+    protected fetchWaveform(key: string, cut: EditCut): void {
+        if (!this.location?.videoUri) {
+            return;
+        }
+        this.waveformCache.set(key, 'pending');
+        void this.annotationsService.getClipWaveform({
+            projectRootUri: this.location.root.toString(),
+            videoUri: this.location.videoUri,
+            startSeconds: cut.in,
+            endSeconds: cut.out
+        }).then(result => {
+            if (result.status === 'ready' && result.peaks) {
+                this.waveformCache.set(key, result.peaks);
+            } else {
+                this.waveformCache.set(key, 'unavailable');
+                this.showFfmpegMissingNotice(result.reason);
+            }
+            this.renderStrip();
+        }).catch(() => {
+            this.waveformCache.set(key, 'unavailable');
+            this.renderStrip();
+        });
+    }
+
+    protected showFfmpegMissingNotice(reason: string | undefined): void {
+        if (reason === 'ffmpeg-not-found' && !this.ffmpegMissingNoticeShown && !this.notice.textContent) {
+            this.showNotice('ffmpeg が見つからないため、サムネイルと波形は表示されません（他の操作は通常どおり使えます）');
+            this.ffmpegMissingNoticeShown = true;
+        }
+    }
+
+    protected waveformCanvas(peaks: readonly number[]): HTMLCanvasElement {
+        const canvas = document.createElement('canvas');
+        canvas.width = WAVEFORM_BUCKET_COUNT;
+        canvas.height = WAVEFORM_CANVAS_HEIGHT_PX;
+        Object.assign(canvas.style, {
+            position: 'absolute', inset: '0', width: '100%', height: '100%', opacity: '.55', pointerEvents: 'none'
+        });
+        const context = canvas.getContext('2d');
+        if (context) {
+            context.fillStyle = '#fff';
+            peaks.forEach((peak, index) => {
+                const barHeight = Math.max(1, peak * WAVEFORM_CANVAS_HEIGHT_PX);
+                context.fillRect(index, (WAVEFORM_CANVAS_HEIGHT_PX - barHeight) / 2, 1, barHeight);
+            });
+        }
+        return canvas;
     }
 
     protected segmentLabel(text: string): HTMLSpanElement {
@@ -596,7 +752,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected updateDragPreview(state: DragState, clientX: number, allowGuide: boolean): DragPreview {
         const rect = this.strip.getBoundingClientRect();
-        const duration = this.totalDuration();
+        const duration = this.visibleDuration();
         const delta = rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0;
         if (state.kind === 'cut-trim') {
             const proposed = state.edge === 'left' ? state.originalIn + delta : state.originalOut + delta;
@@ -651,14 +807,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected setGhostRange(ghost: HTMLDivElement, start: number, end: number): void {
-        const duration = this.totalDuration();
-        ghost.style.left = `${this.percent(start, duration)}%`;
-        ghost.style.width = `${Math.max(this.percent(end, duration) - this.percent(start, duration), 0.3)}%`;
+        ghost.style.left = `${this.percent(start)}%`;
+        ghost.style.width = `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`;
     }
 
     protected snapTime(value: number, showGuide: boolean): number {
         const rect = this.strip.getBoundingClientRect();
-        const duration = this.totalDuration();
+        const duration = this.visibleDuration();
         if (rect.width <= 0 || duration <= 0) {
             this.hideSnapGuide();
             return value;
@@ -677,7 +832,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (nearest !== undefined && Math.abs(nearest - value) <= threshold) {
             if (showGuide) {
-                this.snapGuide.style.left = `${this.percent(nearest, duration)}%`;
+                this.snapGuide.style.left = `${this.percent(nearest)}%`;
                 this.snapGuide.style.display = 'block';
             }
             return nearest;
@@ -855,20 +1010,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return result.committed ? `${message} 変更を記録しました。` : message;
     }
 
-    protected percent(value: number, duration: number): number {
-        return duration > 0 ? Math.min(100, Math.max(0, value / duration * 100)) : 0;
+    protected percent(value: number): number {
+        const duration = this.visibleDuration();
+        return duration > 0 ? Math.min(100, Math.max(0, (value - this.viewStart) / duration * 100)) : 0;
     }
 
     protected timeAtClientX(clientX: number): number {
         const rect = this.strip.getBoundingClientRect();
         const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
-        return ratio * this.totalDuration();
+        return this.viewStart + ratio * this.visibleDuration();
     }
 
     protected selectTimeAtClientX(clientX: number): void {
         const rect = this.strip.getBoundingClientRect();
         const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
-        this.selectedSourceT = ratio * this.totalDuration();
+        this.selectedSourceT = this.viewStart + ratio * this.visibleDuration();
         this.playhead.style.left = `${ratio * 100}%`;
         this.updateTimeLabel();
         void this.requestSeek(this.selectedSourceT);
@@ -876,6 +1032,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected onStripClick(event: MouseEvent): void {
         this.selectTimeAtClientX(event.clientX);
+    }
+
+    protected onWheelZoom(event: WheelEvent): void {
+        if (!event.ctrlKey) {
+            return;
+        }
+        event.preventDefault();
+        const rect = this.strip.getBoundingClientRect();
+        if (rect.width <= 0) {
+            return;
+        }
+        const maxDuration = this.totalDuration();
+        const minDuration = Math.min(MIN_VIEW_DURATION_SECONDS, maxDuration);
+        const currentDuration = this.visibleDuration();
+        const rawFactor = Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY);
+        const factor = Math.min(ZOOM_EVENT_FACTOR_MAX, Math.max(ZOOM_EVENT_FACTOR_MIN, rawFactor));
+        const proposedDuration = Math.min(maxDuration, Math.max(minDuration, currentDuration / factor));
+
+        const cursorRatio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        const cursorTime = this.viewStart + cursorRatio * currentDuration;
+
+        if (proposedDuration >= maxDuration - 1e-6) {
+            this.viewDuration = undefined;
+            this.viewStart = 0;
+        } else {
+            const proposedStart = cursorTime - cursorRatio * proposedDuration;
+            this.viewDuration = proposedDuration;
+            this.viewStart = Math.min(Math.max(0, proposedStart), Math.max(0, maxDuration - proposedDuration));
+        }
+        this.renderStrip();
     }
 
     protected updateTimeLabel(): void {

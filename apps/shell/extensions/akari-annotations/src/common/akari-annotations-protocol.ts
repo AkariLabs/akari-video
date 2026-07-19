@@ -1,6 +1,36 @@
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
 
+export type MediaUnavailableReason = 'ffmpeg-not-found' | 'source-missing' | 'extraction-failed';
+
+export const THUMBNAIL_WIDTH_PX = 160;
+export const WAVEFORM_BUCKET_COUNT = 200;
+
+export interface GetClipThumbnailRequest {
+    projectRootUri: string;
+    videoUri: string;
+    atSeconds: number;
+}
+
+export interface GetClipThumbnailResult {
+    status: 'ready' | 'unavailable';
+    dataUri?: string;
+    reason?: MediaUnavailableReason;
+}
+
+export interface GetClipWaveformRequest {
+    projectRootUri: string;
+    videoUri: string;
+    startSeconds: number;
+    endSeconds: number;
+}
+
+export interface GetClipWaveformResult {
+    status: 'ready' | 'unavailable';
+    peaks?: number[];
+    reason?: MediaUnavailableReason;
+}
+
 export interface AnnotationResponse {
     summary: string;
     action: 'edited' | 'declined';
@@ -84,6 +114,8 @@ export interface WriteBackResult {
 }
 
 export interface AkariAnnotationsService {
+    getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
+    getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;
     resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }>;
     trimCut(request: TrimCutRequest): Promise<WriteBackResult>;

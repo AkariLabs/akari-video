@@ -1,7 +1,18 @@
 import URI from '@theia/core/lib/common/uri';
-import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
+import {
+    Command,
+    CommandContribution,
+    CommandRegistry,
+    MenuContribution,
+    MenuModelRegistry
+} from '@theia/core/lib/common';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
-import { ApplicationShell, FrontendApplicationContribution, WidgetManager } from '@theia/core/lib/browser';
+import {
+    ApplicationShell,
+    CommonMenus,
+    FrontendApplicationContribution,
+    WidgetManager
+} from '@theia/core/lib/browser';
 import { FileChangeType, FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -18,7 +29,7 @@ const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
 
 @injectable()
-export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution {
+export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution {
 
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;
@@ -51,6 +62,14 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
     }
 
+    registerMenus(menus: MenuModelRegistry): void {
+        menus.registerMenuAction(CommonMenus.FILE, {
+            commandId: OPEN_AKARI_ANNOTATIONS.id,
+            label: OPEN_AKARI_ANNOTATIONS.label,
+            order: 'z20'
+        });
+    }
+
     protected async watchForReview(root: URI): Promise<void> {
         this.toDispose.push(await this.fileService.watch(root, { recursive: true, excludes: [] }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
@@ -70,7 +89,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         const widget = await this.widgetManager.getOrCreateWidget<AkariAnnotationsWidget>(AkariAnnotationsWidget.FACTORY_ID);
         await widget.configure(location);
         if (!widget.isAttached) {
-            this.shell.addWidget(widget, { area: 'main' });
+            this.shell.addWidget(widget, { area: 'bottom' });
         }
         await this.shell.activateWidget(widget.id);
         return widget;

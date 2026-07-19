@@ -9,6 +9,10 @@ import {
     Annotation,
     CreateAnnotationRequest,
     CreateAnnotationResult,
+    GetClipThumbnailRequest,
+    GetClipThumbnailResult,
+    GetClipWaveformRequest,
+    GetClipWaveformResult,
     MoveOverlayRequest,
     ReorderCutsRequest,
     ResizeOverlayRequest,
@@ -17,6 +21,7 @@ import {
     TrimCutRequest,
     WriteBackResult
 } from '../common/akari-annotations-protocol';
+import * as mediaCache from './media-cache';
 import {
     appendAnnotationLine,
     emptyReviewSource,
@@ -36,6 +41,25 @@ const execFileAsync = promisify(execFile);
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
+
+    async getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult> {
+        if (!request?.projectRootUri || !request?.videoUri) {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        return mediaCache.getClipThumbnail(
+            this.fsPath(request.projectRootUri), this.fsPath(request.videoUri), request.atSeconds
+        );
+    }
+
+    async getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult> {
+        if (!request?.projectRootUri || !request?.videoUri) {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        return mediaCache.getClipWaveform(
+            this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
+            request.startSeconds, request.endSeconds
+        );
+    }
 
     async createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult> {
         if (!request?.reviewUri || !request?.projectRootUri || typeof request.text !== 'string' || !request.text.trim()) {
