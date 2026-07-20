@@ -81,6 +81,10 @@ interface PreviewWidgetMarker extends WebviewWidget {
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.registerHandler に後付け登録する。
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
 
+// akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
+// cross-package import を避けるため文字列 ID のみで CommandRegistry.executeCommand に渡す。
+const ATTACH_TIMELINE_PASSIVE_COMMAND_ID = 'akari.annotations.attachPassive';
+
 interface TranscriptSeekRequest {
     videoUri?: string;
     time?: number;
@@ -181,8 +185,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!widget.isAttached) {
             this.shell.addWidget(widget, options?.widgetOptions ?? { area: 'main' });
         }
+        this.attachTimelinePassively();
         await this.shell.activateWidget(widget.id);
         return widget;
+    }
+
+    // 動画がプレビューで開かれるたびにタイムラインの自動アタッチを要求する。重複禁止・
+    // セッション内の明示クローズの尊重・フォーカスを奪わない（reveal のみ）判断は
+    // 呼び出し先（akari-annotations）に委ねる。取りこぼしてもプレビュー自体は開けるべきなので
+    // 結果を待たず、失敗時は握りつぶす。
+    protected attachTimelinePassively(): void {
+        this.commandRegistry.executeCommand(ATTACH_TIMELINE_PASSIVE_COMMAND_ID)
+            .catch(error => console.warn('[akari-preview] failed to auto-attach timeline', error));
     }
 
     protected async configurePreview(widget: WebviewWidget, videoUri: URI): Promise<void> {

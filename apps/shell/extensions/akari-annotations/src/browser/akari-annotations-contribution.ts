@@ -16,7 +16,7 @@ import { FileChangeType, FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_REVIEW_PANEL } from './akari-annotations-commands';
+import { ATTACH_AKARI_ANNOTATIONS_PASSIVE, OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_REVIEW_PANEL } from './akari-annotations-commands';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ProjectLocation } from './project-location';
@@ -47,6 +47,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     protected readonly toDispose = new DisposableCollection();
 
+    /** 自動アタッチの重複判定・dispose 監視の対象として追跡中のタイムライン widget インスタンス。 */
+    protected timelineWidget?: AkariAnnotationsWidget;
+    /** セッション内でユーザーがタイムラインを明示的に閉じたら true。以降の自動アタッチを抑止する（アプリ再起動でリセット）。 */
+    protected timelineDismissedThisSession = false;
+
     async onStart(): Promise<void> {
         await this.workspaceService.ready;
         for (const root of await this.workspaceService.roots) {
@@ -64,6 +69,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(OPEN_AKARI_REVIEW_PANEL, {
             execute: () => this.openReviewPanel()
+        });
+        commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
+            execute: () => this.attachPassively()
         });
     }
 
@@ -92,18 +100,64 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     async open(): Promise<AkariAnnotationsWidget | undefined> {
+        const widget = await this.attach();
+        if (!widget) {
+            return undefined;
+        }
+        // 明示的なオープン操作なので、以前の自動アタッチ抑止状態（セッション内クローズ）は解除する。
+        this.timelineDismissedThisSession = false;
+        await this.shell.activateWidget(widget.id);
+        return widget;
+    }
+
+    /**
+     * akari-preview の動画オープンから呼ばれる自動アタッチ。フォーカスは奪わない（reveal のみ）。
+     * 既にタイムラインが開いていれば何もしない。ユーザーが直近のセッションで明示的に閉じていた
+     * 場合も何もしない（アプリ再起動でリセットされる in-memory フラグで判定）。
+     * `open()`（コマンドパレット等からの明示オープン）と異なり、edit.json が実在するプロジェクトに限る。
+     */
+    async attachPassively(): Promise<void> {
+        if (this.timelineDismissedThisSession || this.timelineWidget?.isAttached) {
+            return;
+        }
+        const location = await this.locate();
+        if (!location?.editUri) {
+            return;
+        }
+        const widget = await this.attachAt(location);
+        // bottom パネルが閉じていると addWidget だけでは画面に現れない。
+        // reveal はパネル展開のみでフォーカスは移さない（activate との違い）。
+        await this.shell.revealWidget(widget.id);
+    }
+
+    protected async attach(): Promise<AkariAnnotationsWidget | undefined> {
         const location = await this.locate();
         if (!location) {
             return undefined;
         }
+        return this.attachAt(location);
+    }
+
+    protected async attachAt(location: ProjectLocation): Promise<AkariAnnotationsWidget> {
         this.review.location = location;
         const widget = await this.widgetManager.getOrCreateWidget<AkariAnnotationsWidget>(AkariAnnotationsWidget.FACTORY_ID);
+        this.trackTimelineWidget(widget);
         await widget.configure(location);
         if (!widget.isAttached) {
             this.shell.addWidget(widget, { area: 'bottom' });
         }
-        await this.shell.activateWidget(widget.id);
         return widget;
+    }
+
+    /** widget インスタンスにつき一度だけ onDidDispose を購読し、セッション内クローズを検知する。 */
+    protected trackTimelineWidget(widget: AkariAnnotationsWidget): void {
+        if (this.timelineWidget === widget) {
+            return;
+        }
+        this.timelineWidget = widget;
+        widget.disposed.connect(() => {
+            this.timelineDismissedThisSession = true;
+        });
     }
 
     /**
