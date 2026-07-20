@@ -1,5 +1,13 @@
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
+const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
+// docs/contract-2026-07-20-edit-json-v1-narration.md §1: gain_db clamp range, shared with bgm/sfx.
+const GAIN_DB_MIN = -60;
+const GAIN_DB_MAX = 12;
 
 export function buildPlan({
   edit,
@@ -134,6 +142,7 @@ export function buildPlan({
         outputPath: finalPath,
         duration,
         ffmpegCommand: capabilities.ffmpegCommand,
+        ffprobeCommand: capabilities.ffprobeCommand,
       }),
       verify: {
         command: capabilities.ffprobeCommand,
@@ -150,23 +159,67 @@ export function buildAudioMixCommand({
   outputPath,
   duration,
   ffmpegCommand = "ffmpeg",
+  ffprobeCommand = "ffprobe",
 }) {
   const audio = normalizeAudioPlan(edit.audio);
-  if (!audio.bgm && audio.sfx.length === 0) {
-    return { operation: "copy", input: inputPath, output: outputPath };
+  const { tracks: narrationTracks, warnings } = resolveNarrationTracks({
+    narration: edit.audio?.narration,
+    projectRoot,
+    duration,
+    ffprobeCommand,
+  });
+  const hasNarration = narrationTracks.length > 0;
+
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration) {
+    return { operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration };
   }
 
   const args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", inputPath];
   const labels = ["[0:a]"];
   const filters = [];
   let inputIndex = 1;
+
+  // Build the narration track(s) first so the merged [narration] label exists before bgm decides
+  // whether to route ducking's sidechain input through it (contract-2026-07-20 §3).
+  let narrationLabel = null;
+  if (hasNarration) {
+    const rawLabels = [];
+    for (const [index, track] of narrationTracks.entries()) {
+      args.push("-i", track.path);
+      const delay = Math.max(0, Math.round(track.t * 1000));
+      const rawLabel = `nar_raw${index}`;
+      filters.push(
+        `[${inputIndex}:a]volume=${formatNumber(track.gain_db)}dB,adelay=${delay}:all=1[${rawLabel}]`,
+      );
+      rawLabels.push(`[${rawLabel}]`);
+      inputIndex += 1;
+    }
+    // Pad to the full timeline duration so a short narration track never truncates a downstream
+    // sidechaincompress (which otherwise ends at the shorter of its two inputs).
+    if (rawLabels.length === 1) {
+      filters.push(`${rawLabels[0]}apad=whole_dur=${formatNumber(duration)}[narration]`);
+    } else {
+      filters.push(
+        `${rawLabels.join("")}amix=inputs=${rawLabels.length}:duration=longest:normalize=0,apad=whole_dur=${formatNumber(duration)}[narration]`,
+      );
+    }
+    narrationLabel = "[narration]";
+  }
+
+  let bgmLabel = null;
   if (audio.bgm) {
     args.push("-stream_loop", "-1", "-i", resolve(projectRoot, audio.bgm.path));
     filters.push(
       `[${inputIndex}:a]volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}[bgm]`,
     );
-    labels.push("[bgm]");
+    bgmLabel = "[bgm]";
     inputIndex += 1;
+
+    if (audio.bgm.ducking === true && narrationLabel) {
+      filters.push(`[bgm]${narrationLabel}sidechaincompress=${DUCKING_SIDECHAIN_ARGS}[bgm_ducked]`);
+      bgmLabel = "[bgm_ducked]";
+    }
+    labels.push(bgmLabel);
   }
   for (const [index, sfx] of audio.sfx.entries()) {
     args.push("-i", resolve(projectRoot, sfx.path));
@@ -177,6 +230,8 @@ export function buildAudioMixCommand({
     labels.push(`[sfx${index}]`);
     inputIndex += 1;
   }
+  if (narrationLabel) labels.push(narrationLabel);
+
   filters.push(`${labels.join("")}amix=inputs=${labels.length}:duration=first:normalize=0[mixed]`);
   args.push(
     "-filter_complex",
@@ -195,7 +250,71 @@ export function buildAudioMixCommand({
     "48000",
     outputPath,
   );
-  return { operation: "ffmpeg", command: ffmpegCommand, args };
+  return { operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration };
+}
+
+// docs/contract-2026-07-20-edit-json-v1-narration.md §4: resolve each narration element against the
+// filesystem and its declared values, skipping (with a warning) whatever cannot be rendered safely
+// instead of failing the whole export. Runs during planning so the resulting command is deterministic
+// for a fixed filesystem/edit.json pair.
+function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand }) {
+  const warnings = [];
+  const tracks = [];
+  if (!Array.isArray(narration)) return { tracks, warnings };
+
+  for (const raw of narration) {
+    const item = raw && typeof raw === "object" ? raw : {};
+    const id = typeof item.id === "string" && item.id !== "" ? item.id : "narration";
+    const path = typeof item.path === "string" && item.path !== "" ? item.path : null;
+    if (!path) {
+      warnings.push(`narration ${id}: path is missing; skipped`);
+      continue;
+    }
+    const resolvedPath = resolve(projectRoot, path);
+    if (!existsSync(resolvedPath)) {
+      warnings.push(`narration ${id}: file not found at ${path}; skipped`);
+      continue;
+    }
+    if (!isReadableAudioFile(ffprobeCommand, resolvedPath)) {
+      warnings.push(`narration ${id}: file could not be decoded as audio at ${path}; skipped`);
+      continue;
+    }
+    const t = Number(item.t);
+    if (!Number.isFinite(t) || t < 0) {
+      warnings.push(`narration ${id}: t is not a finite non-negative number (${item.t}); skipped`);
+      continue;
+    }
+    if (Number.isFinite(duration) && t >= duration) {
+      warnings.push(`narration ${id}: t (${t}s) is at or beyond the timeline duration (${duration}s); skipped`);
+      continue;
+    }
+    const rawGain = item.gain_db === undefined ? 0 : Number(item.gain_db);
+    if (!Number.isFinite(rawGain)) {
+      warnings.push(`narration ${id}: gain_db is not a finite number (${item.gain_db}); skipped`);
+      continue;
+    }
+    const gain_db = Math.min(GAIN_DB_MAX, Math.max(GAIN_DB_MIN, rawGain));
+    if (gain_db !== rawGain) {
+      warnings.push(`narration ${id}: gain_db ${rawGain} clamped to ${gain_db}`);
+    }
+    tracks.push({ id, path: resolvedPath, t, gain_db });
+  }
+  return { tracks, warnings };
+}
+
+function isReadableAudioFile(ffprobeCommand, path) {
+  const result = spawnSync(
+    ffprobeCommand,
+    ["-v", "error", "-show_entries", "stream=codec_type", "-of", "json", path],
+    { encoding: "utf8" },
+  );
+  if (result.error || result.status !== 0) return false;
+  try {
+    const parsed = JSON.parse(result.stdout);
+    return Array.isArray(parsed.streams) && parsed.streams.some((stream) => stream.codec_type === "audio");
+  } catch {
+    return false;
+  }
 }
 
 function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath) {

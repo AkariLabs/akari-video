@@ -52,6 +52,9 @@ export async function runCli(argv, io = console) {
 
   try {
     const state = await renderProject(options.projectRoot, options);
+    for (const warning of state.warnings ?? []) {
+      io.error(`render-cut warning: ${warning}`);
+    }
     if (options.planOnly) {
       io.log(`PLAN: ${state.plan.output} (${state.plan.predicted_duration_seconds}s)`);
       return 0;
@@ -94,6 +97,7 @@ export async function renderProject(input, options = {}) {
     version: VERSION,
     phase: "planned",
     inputs,
+    warnings: plan.commands.audio_mix.warnings ?? [],
     validation: {
       lint,
       environment: {
@@ -483,6 +487,9 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = "ffprobe" })
   compare(findings, "verify.video-profile", String(video?.profile ?? "").toLowerCase() === "high", `video profile ${video?.profile ?? "missing"}; expected High`);
   compare(findings, "verify.pixel-format", video?.pix_fmt === "yuv420p", `pixel format ${video?.pix_fmt ?? "missing"}; expected yuv420p`);
   compare(findings, "verify.audio", audio?.codec_name === "aac", `audio codec ${audio?.codec_name ?? "missing"}; expected aac`);
+  if (plan.commands.audio_mix?.hasNarration) {
+    compare(findings, "verify.narration-audio", Boolean(audio), `narration audio stream present: ${Boolean(audio)}; expected an audio stream because edit.json has audio.narration`);
+  }
   return {
     verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
     findings,
@@ -574,6 +581,10 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
   const bgm = audioPath(edit.audio?.bgm);
   if (bgm) inputs.push(resolve(projectRoot, bgm));
   for (const value of edit.audio?.sfx ?? []) {
+    const path = audioPath(value);
+    if (path) inputs.push(resolve(projectRoot, path));
+  }
+  for (const value of edit.audio?.narration ?? []) {
     const path = audioPath(value);
     if (path) inputs.push(resolve(projectRoot, path));
   }

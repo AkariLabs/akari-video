@@ -10,6 +10,7 @@ export function renderReport(state, reportPath, projectRoot) {
   const attempts = state.provenance?.rasterizer?.attempts ?? [];
   const inputs = Object.entries(state.inputs ?? {});
   const findings = state.verify?.findings ?? [];
+  const warnings = state.warnings ?? [];
 
   return `<!doctype html>
 <html lang="en">
@@ -52,6 +53,9 @@ export function renderReport(state, reportPath, projectRoot) {
   <p>Rasterizer planned: <code>${escapeHtml(state.plan.rasterizer.selected)}</code>; adopted: <code>${escapeHtml(state.provenance?.rasterizer?.adopted ?? "pending")}</code></p>
   <p>Intermediates: ${state.plan.intermediates.map((path) => `<code>${escapeHtml(path)}</code>`).join(", ")}</p>
   <pre><code>${escapeHtml(JSON.stringify(state.plan.commands, null, 2))}</code></pre>
+
+  <h2>Warnings</h2>
+  <ul>${warnings.length ? warnings.map((warning) => `<li class="fail">${escapeHtml(warning)}</li>`).join("") : "<li>None</li>"}</ul>
 
   <h2>Rasterizer attempts</h2>
   <ul>${attempts.length ? attempts.map((attempt) => `<li><code>${escapeHtml(attempt.method)}</code> — ${escapeHtml(attempt.status)}${attempt.reason ? `: ${escapeHtml(attempt.reason)}` : ""}</li>`).join("") : "<li>Not run</li>"}</ul>
