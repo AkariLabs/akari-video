@@ -92,7 +92,7 @@ export async function renderProject(input, options = {}) {
   const outputPath = explicitOutput ?? selectDefaultOutput(projectRoot, edit, existsSync);
   ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath);
 
-  // Concurrency isolation (docs read-only ref: tasks/2026-07-20-render-tmp-isolation): a plan-only
+  // Concurrency isolation (render-tmp-isolation の設計に基づく): a plan-only
   // preview never touches disk, so it keeps using the flat, deterministic render-tmp path (stable
   // across repeated --plan-only calls). An actual render claims its own uniquely-named
   // subdirectory so two processes racing on the same project never clobber each other's

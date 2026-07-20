@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-// docs/read-only ref: tasks/2026-07-20-render-tmp-isolation/task.md — reproduces the T5 incident
+// render-tmp-isolation の受け入れ条件 — reproduces the T5 incident
 // (two render-cut processes racing on the same project's .akari/render-tmp/) and proves the fix:
 // each process claims its own uniquely-named subdirectory instead of clearing a shared one.
 
