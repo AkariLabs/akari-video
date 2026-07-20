@@ -4,5 +4,9 @@
   "workspaces": [
     "packages/*",
     "apps/*"
-  ]
+  ],
+  "scripts": {
+    "gen:skills-index": "node scripts/gen-skills-index.mjs",
+    "check:skills-index": "node scripts/gen-skills-index.mjs --check"
+  }
 }
