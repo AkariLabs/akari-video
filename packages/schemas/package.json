@@ -5,7 +5,11 @@
   "type": "module",
   "bin": {
     "validate-asset": "bin/validate-asset.mjs",
+    "validate-plan": "bin/validate-plan.mjs",
     "validate-review": "bin/validate-review.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1"

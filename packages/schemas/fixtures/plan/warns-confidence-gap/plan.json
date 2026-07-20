@@ -1,0 +1,28 @@
+{
+  "version": 0,
+  "slots": [
+    {
+      "id": "s-locked-undecided",
+      "label": "確定済みだが手段未決",
+      "script": "台本は確定している。",
+      "target_duration_seconds": 8.0,
+      "confidence": "locked",
+      "fill": { "method": null, "prompt": null, "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "手段は未決" },
+      "provenance": { "tool": null, "created_at": null, "note": null }
+    },
+    {
+      "id": "s-filled-empty",
+      "label": "filled なのに空",
+      "script": null,
+      "target_duration_seconds": 4.0,
+      "confidence": "filled",
+      "fill": { "method": "generate", "prompt": "何かの絵", "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": null },
+      "provenance": { "tool": null, "created_at": null, "note": null }
+    }
+  ],
+  "constraints": [
+    { "id": "c-exact-off", "kind": "duration_exact", "applies_to": null, "value": 30.0, "note": "目標尺と乖離している例" }
+  ]
+}

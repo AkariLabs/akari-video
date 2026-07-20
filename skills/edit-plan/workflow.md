@@ -40,6 +40,8 @@
 
 `analysis.json` を捏造しない。「リサーチ → 台本 → 生成計画」モードとし、分析サマリには録画素材がないこと、採用した根拠、台本の版を明記する。静止コンセプトをレポートへ入れ、動画生成は承認工程まで保留する。生成後に複数クリップとなる場合も、実行時には [execution.md](execution.md) の単一 source 制約を適用する。
 
+方針決めは [plan-json.md](plan-json.md) の手順で行う: 選択肢式の質問対話で深掘り、確定した構成ビートと制約を `<plan-dir>/plan.json`（仮枠タイムライン。[contract-2026-07-20-plan-json-v0.md](../../docs/contract-2026-07-20-plan-json-v0.md)）へ落としてからレポート工程に入る。以降の章は plan.json の slot id を根拠として参照する。
+
 ## 3. 各 analysis.json を検証する
 
 [analysis.schema.json](../../packages/schemas/analysis.schema.json) を Draft 2020-12 対応 validator で検証する。validator を得るための無断ネットワーク導入はしない。併せて次を確認する。

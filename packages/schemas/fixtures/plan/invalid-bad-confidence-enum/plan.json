@@ -1,0 +1,15 @@
+{
+  "version": 0,
+  "slots": [
+    {
+      "id": "s-bad",
+      "label": "不正な確定度",
+      "script": null,
+      "target_duration_seconds": 5.0,
+      "confidence": "definite",
+      "fill": { "method": null, "prompt": null, "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "x" },
+      "provenance": { "tool": null, "created_at": null, "note": null }
+    }
+  ]
+}

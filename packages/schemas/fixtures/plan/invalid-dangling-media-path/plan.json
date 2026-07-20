@@ -1,0 +1,15 @@
+{
+  "version": 0,
+  "slots": [
+    {
+      "id": "s-missing-file",
+      "label": "実体のない静止画",
+      "script": null,
+      "target_duration_seconds": 5.0,
+      "confidence": "proposed",
+      "fill": { "method": null, "prompt": null, "asset_path": null },
+      "media": { "image_path": "scaffold/missing.png", "audio_path": null, "text_card": null },
+      "provenance": { "tool": null, "created_at": null, "note": null }
+    }
+  ]
+}

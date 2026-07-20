@@ -1,0 +1,40 @@
+{
+  "version": 0,
+  "slots": [
+    {
+      "id": "s-opening",
+      "label": "オープニング",
+      "script": "こんにちは。今日は新しいワークフローを紹介します。",
+      "target_duration_seconds": 5.0,
+      "confidence": "proposed",
+      "fill": { "method": "generate", "prompt": "明るいデスクの俯瞰、朝の光、手元にノート PC", "asset_path": null },
+      "media": { "image_path": "scaffold/beat-01.png", "audio_path": "scaffold/beat-01.wav", "text_card": null },
+      "provenance": { "tool": "codex-image", "created_at": "2026-07-20T11:00:00.000Z", "note": "仮枠用の 1 枚目静止画 + TTS" }
+    },
+    {
+      "id": "s-main",
+      "label": "本編デモ",
+      "script": "実際の操作を画面収録でお見せします。",
+      "target_duration_seconds": 20.0,
+      "confidence": "locked",
+      "fill": { "method": "record", "prompt": null, "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "ここに画面収録が入る" },
+      "provenance": { "tool": null, "created_at": "2026-07-20T11:00:00.000Z", "note": "テレプロンプターで script を読みながら収録予定" }
+    },
+    {
+      "id": "s-broll",
+      "label": "締めの B ロール",
+      "script": null,
+      "target_duration_seconds": 5.0,
+      "confidence": "filled",
+      "fill": { "method": "import", "prompt": null, "asset_path": "scaffold/broll.mp4" },
+      "media": { "image_path": "scaffold/beat-01.png", "audio_path": null, "text_card": null },
+      "provenance": { "tool": null, "created_at": "2026-07-20T11:05:00.000Z", "note": "ライブラリから copy-don't-link 済み" }
+    }
+  ],
+  "constraints": [
+    { "id": "c-total-exact", "kind": "duration_exact", "applies_to": null, "value": 30.0, "note": "30 秒尺で確定" },
+    { "id": "c-total-max", "kind": "duration_max", "applies_to": null, "value": 35.0, "note": null },
+    { "id": "c-sfx-main", "kind": "note", "applies_to": "s-main", "value": null, "note": "冒頭にボン系の SFX を入れる" }
+  ]
+}

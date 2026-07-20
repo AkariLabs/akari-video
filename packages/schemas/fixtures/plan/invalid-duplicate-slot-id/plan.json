@@ -1,0 +1,25 @@
+{
+  "version": 0,
+  "slots": [
+    {
+      "id": "s-dup",
+      "label": "ビート A",
+      "script": null,
+      "target_duration_seconds": 5.0,
+      "confidence": "proposed",
+      "fill": { "method": null, "prompt": null, "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "A" },
+      "provenance": { "tool": null, "created_at": null, "note": null }
+    },
+    {
+      "id": "s-dup",
+      "label": "ビート B",
+      "script": null,
+      "target_duration_seconds": 5.0,
+      "confidence": "proposed",
+      "fill": { "method": null, "prompt": null, "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "B" },
+      "provenance": { "tool": null, "created_at": null, "note": null }
+    }
+  ]
+}

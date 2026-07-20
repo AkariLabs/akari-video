@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "slots": [
+    {
+      "id": "s-broken",
+      "label": "尺のないビート",
+      "script": null,
+      "confidence": "proposed",
+      "fill": { "method": null, "prompt": null, "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "尺がない" },
+      "provenance": { "tool": null, "created_at": null, "note": null }
+    }
+  ]
+}

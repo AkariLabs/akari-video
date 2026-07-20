@@ -1,0 +1,39 @@
+{
+  "version": 0,
+  "slots": [
+    {
+      "id": "s-hook",
+      "label": "フック",
+      "script": "動画を投げるだけで、編集が終わっていたら？",
+      "target_duration_seconds": 4.0,
+      "confidence": "locked",
+      "fill": { "method": "generate", "prompt": "黒背景に大きな白文字の問いかけ、ミニマル", "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "動画を投げるだけで、編集が終わっていたら？" },
+      "provenance": { "tool": null, "created_at": "2026-07-20T11:00:00.000Z", "note": "質問対話で locked（decision カード commit）" }
+    },
+    {
+      "id": "s-demo",
+      "label": "操作デモ",
+      "script": "実際の画面で、素材を入れてから書き出しまでを見せます。",
+      "target_duration_seconds": 18.0,
+      "confidence": "proposed",
+      "fill": { "method": "record", "prompt": null, "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "画面収録（テレプロンプター: script を表示）" },
+      "provenance": { "tool": null, "created_at": "2026-07-20T11:00:00.000Z", "note": "AI 仮説。収録はまだ" }
+    },
+    {
+      "id": "s-outro",
+      "label": "締め",
+      "script": "概要欄のリンクから試せます。",
+      "target_duration_seconds": 8.0,
+      "confidence": "proposed",
+      "fill": { "method": null, "prompt": null, "asset_path": null },
+      "media": { "image_path": null, "audio_path": null, "text_card": "ロゴ + CTA" },
+      "provenance": { "tool": null, "created_at": "2026-07-20T11:00:00.000Z", "note": "手段未決（generate か import か）" }
+    }
+  ],
+  "constraints": [
+    { "id": "c-total", "kind": "duration_exact", "applies_to": null, "value": 30.0, "note": "ショート向け 30 秒尺で確定" },
+    { "id": "c-sfx-hook", "kind": "note", "applies_to": "s-hook", "value": null, "note": "フック表示と同時にインパクト SFX" }
+  ]
+}

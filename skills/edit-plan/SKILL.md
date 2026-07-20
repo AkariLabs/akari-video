@@ -1,6 +1,6 @@
 ---
 name: edit-plan
-description: 1 本以上の動画素材の analysis.json を統合し、サムネイル案を先頭に置く編集判断レポートを作り、方針・素材計画・実行の明示承認後に edit.json v0 とオーバーレイ HTML へ落とすスキル。複数素材の編集計画、素材ゼロからの生成計画、分析結果からカットや BGM・SFX・B ロールを決める依頼で使う。
+description: 1 本以上の動画素材の analysis.json を統合し、サムネイル案を先頭に置く編集判断レポートを作り、方針・素材計画・実行の明示承認後に edit.json v0 とオーバーレイ HTML へ落とすスキル。複数素材の編集計画、素材ゼロからの生成計画（質問対話 → plan.json の仮枠タイムライン確定）、分析結果からカットや BGM・SFX・B ロールを決める依頼で使う。
 ---
 
 # 編集判断を統合する
@@ -18,7 +18,7 @@ description: 1 本以上の動画素材の analysis.json を統合し、サム�
 
 ## 実行順と目次
 
-1. [workflow.md](workflow.md) を読み、分析の収集・並列実行・統合モードを決める。
+1. [workflow.md](workflow.md) を読み、分析の収集・並列実行・統合モードを決める。素材がゼロの場合はこの時点で [plan-json.md](plan-json.md) を読み、質問対話 → `plan.json`（仮枠タイムライン。[契約](../../docs/contract-2026-07-20-plan-json-v0.md)）の確定を先に行う。
 2. [report-guide.md](report-guide.md) を読み、[report-template.html](../../packages/decision-cards/report-template.html) から固定 6 章のレポートを作る。同時に必須 4 カード（`thumbnail` / `cut-policy` / `captions-policy` / `structure`）と、対になる `<レポートパス>.decisions.json` の雛形（全カードの `answer` に AI 推奨の既定値、`byDefault: true` / `answeredAt: null` / `completedAt: null`）を書く。
 3. `node packages/decision-cards/report-helper.mjs <レポートパス>` を起動し、表示 URL を人間に提示する。decisions.json の `completedAt` が非 null になるまでポーリングで待つ（ヘルパー不通・decisions 破損時はチャットの明示承認で代替し、その旨を記録）。確定したら `byDefault: false` になった変更点（おまかせ確定なら「全カード AI 推奨のまま」）を `decision_log` に追記する。
 4. [approvals-and-generation.md](approvals-and-generation.md) を読み、生成宣言、provenance、3 段階承認を運用する。Checkpoint 1 は `completedAt` または明示承認まで編集実行に進まない。

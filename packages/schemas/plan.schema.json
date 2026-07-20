@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:plan:v0",
+  "title": "AKARI Video plan.json v0",
+  "description": "仮枠タイムライン（アニマティクス）の元データ。確定度つきスロット列 + 構造制約。編集判断レポート（contract-2026-07-13-m5）とタイムライン表示は本データの 2 つのレンダリング。packages/render-cut/src/plan.mjs（非永続の ffmpeg コマンド計画）とは別物。",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version"],
+  "properties": {
+    "version": { "const": 0 },
+    "slots": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/slot" },
+      "$comment": "タイムラインは slots を配列順にギャップなく連結して導出する（start は永続化しない。edit.json v1 の cuts[] 連結規則と同型）。"
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/constraint" }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "positiveSeconds": { "type": "number", "exclusiveMinimum": 0 },
+    "nullableNonEmptyString": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }]
+    },
+    "slot": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "label",
+        "script",
+        "target_duration_seconds",
+        "confidence",
+        "fill",
+        "media",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "script": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "テレプロンプター台本 兼 TTS 仮ナレーション原稿。null = 台本なしのビート。"
+        },
+        "target_duration_seconds": { "$ref": "#/$defs/positiveSeconds" },
+        "confidence": {
+          "enum": ["proposed", "locked", "filled"],
+          "$comment": "proposed = AI 仮説（ゴースト表示）/ locked = 人間確定（未充填でも正当）/ filled = 実素材が入った状態。遷移規約は契約 §3。"
+        },
+        "fill": { "$ref": "#/$defs/fill" },
+        "media": { "$ref": "#/$defs/media" },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "fill": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["method"],
+      "properties": {
+        "method": {
+          "oneOf": [{ "type": "null" }, { "enum": ["generate", "record", "import"] }],
+          "$comment": "null = 充填手段未決。record の takes[] / device 等は v1+ 予約（テレプロンプターは slot.script を直接読む）。"
+        },
+        "prompt": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "method generate 用。生成前は AI の仮説、実行時に実際に使った prompt へ更新してよい。"
+        },
+        "asset_path": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "method import 用。copy-don't-link 後のプロジェクト相対パス（plan.json 所在ディレクトリ基準）。"
+        }
+      }
+    },
+    "media": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["image_path", "audio_path", "text_card"],
+      "properties": {
+        "image_path": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "静止画スタンドイン（仮枠）または確定素材の絵。plan.json 所在ディレクトリ基準。"
+        },
+        "audio_path": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "TTS 仮ナレーション音声。plan.json 所在ディレクトリ基準。"
+        },
+        "text_card": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }],
+          "$comment": "写真を持たないタイポグラフィのみのビート用テキスト。"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["tool", "created_at", "note"],
+      "properties": {
+        "tool": { "$ref": "#/$defs/nullableNonEmptyString" },
+        "created_at": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "format": "date-time" }]
+        },
+        "note": { "oneOf": [{ "type": "null" }, { "type": "string" }] }
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind", "applies_to", "value", "note"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "kind": {
+          "enum": ["duration_max", "duration_exact", "note"],
+          "$comment": "duration_max = ハード上限（超過はエラー）/ duration_exact = 目標尺（乖離は警告）/ note = 非構造の locked 指示（「ここに効果音」等）。"
+        },
+        "applies_to": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "slot id または null（null = プロジェクト全体。「尺 30 秒のケツ」は applies_to: null の duration_*）。"
+        },
+        "value": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/positiveSeconds" }],
+          "$comment": "duration_* では必須（秒）。note では null。"
+        },
+        "note": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] }
+      }
+    }
+  }
+}
