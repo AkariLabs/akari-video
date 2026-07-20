@@ -16,12 +16,16 @@ export function buildPlan({
   capabilities,
   hasSourceAudio,
   renderOverlays = edit.overlays,
+  // Execution-unique subdirectory for intermediates (see render-cut.mjs's per-run isolation).
+  // Defaults to the flat, deterministic path so direct callers (unit tests, --plan-only preview)
+  // keep producing byte-identical command plans across repeated calls.
+  temporaryDirectory = join(projectRoot, ".akari", "render-tmp"),
 }) {
   const width = edit.output.width;
   const height = edit.output.height;
   const fps = edit.output.fps;
   const duration = predictedDuration(edit.cuts, capabilities.sourceDuration);
-  const temporary = join(projectRoot, ".akari", "render-tmp");
+  const temporary = temporaryDirectory;
   const cutPath = join(temporary, "cut.mp4");
   const overlayWebmPath = join(temporary, "overlay.webm");
   const overlayMovPath = join(temporary, "overlay.mov");

@@ -5,6 +5,8 @@ import {
   access,
   copyFile,
   mkdir,
+  mkdtemp,
+  readdir,
   readFile,
   rename,
   rm,
@@ -29,6 +31,10 @@ import { renderReport } from "./report.mjs";
 
 const VERSION = 1;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+// A stale run directory belongs to a process that crashed/was killed without cleaning up after
+// itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
+// never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
+const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
@@ -85,6 +91,17 @@ export async function renderProject(input, options = {}) {
   const explicitOutput = options.out ? resolveOutput(projectRoot, options.out) : null;
   const outputPath = explicitOutput ?? selectDefaultOutput(projectRoot, edit, existsSync);
   ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath);
+
+  // Concurrency isolation (docs read-only ref: tasks/2026-07-20-render-tmp-isolation): a plan-only
+  // preview never touches disk, so it keeps using the flat, deterministic render-tmp path (stable
+  // across repeated --plan-only calls). An actual render claims its own uniquely-named
+  // subdirectory so two processes racing on the same project never clobber each other's
+  // intermediates; only the owning process ever writes into it.
+  const renderTmpRoot = join(projectRoot, ".akari", "render-tmp");
+  const temporaryDirectory = options.planOnly
+    ? renderTmpRoot
+    : await createRunTemporaryDirectory(renderTmpRoot);
+
   const plan = buildPlan({
     edit,
     projectRoot,
@@ -92,6 +109,7 @@ export async function renderProject(input, options = {}) {
     capabilities,
     hasSourceAudio: capabilities.sourceHasAudio,
     renderOverlays: [...edit.overlays, ...plannedCaptions],
+    temporaryDirectory,
   });
   const state = {
     version: VERSION,
@@ -113,6 +131,7 @@ export async function renderProject(input, options = {}) {
     provenance: {
       source: relativeOrAbsolute(projectRoot, resolve(projectRoot, edit.source.path)),
       proxy_used: false,
+      render_tmp_dir: relativeOrAbsolute(projectRoot, temporaryDirectory),
       rasterizer: { planned: plan.rasterizer.selected, adopted: null, attempts: [] },
       environment: {
         node: capabilities.nodeVersion,
@@ -131,10 +150,6 @@ export async function renderProject(input, options = {}) {
   const reportPath = join(projectRoot, ".akari", "reports", "render-report.html");
   await writeState(state, statePath, reportPath, projectRoot);
   if (options.planOnly) return state;
-
-  const temporaryDirectory = join(projectRoot, ".akari", "render-tmp");
-  await rm(temporaryDirectory, { recursive: true, force: true });
-  await mkdir(temporaryDirectory, { recursive: true });
 
   try {
     const cutPath = join(temporaryDirectory, "cut.mp4");
@@ -470,6 +485,43 @@ async function executeAudioPlan(audioPlan) {
     return;
   }
   runChecked(audioPlan.command, audioPlan.args);
+}
+
+// Allocates this run's own render-tmp subdirectory (fs.mkdtemp-equivalent uniqueness: an
+// ISO8601-ish timestamp + pid prefix, plus mkdtemp's own random suffix, so even two processes
+// starting in the same millisecond never collide). Runs a best-effort sweep for stale directories
+// first so crashed runs don't leak disk space forever, without ever touching a directory an active
+// concurrent run still owns (see cleanupStaleRunDirectories).
+async function createRunTemporaryDirectory(renderTmpRoot) {
+  await mkdir(renderTmpRoot, { recursive: true });
+  await cleanupStaleRunDirectories(renderTmpRoot);
+  const isoStamp = new Date().toISOString().replace(/[:.]/gu, "-");
+  return mkdtemp(join(renderTmpRoot, `${isoStamp}-${process.pid}-`));
+}
+
+async function cleanupStaleRunDirectories(renderTmpRoot) {
+  let entries;
+  try {
+    entries = await readdir(renderTmpRoot, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  const now = Date.now();
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map(async (entry) => {
+        const entryPath = join(renderTmpRoot, entry.name);
+        try {
+          const info = await stat(entryPath);
+          if (now - info.mtimeMs > STALE_RUN_DIRECTORY_MS) {
+            await rm(entryPath, { recursive: true, force: true });
+          }
+        } catch {
+          // Best-effort: another process may be concurrently using or removing this directory.
+        }
+      }),
+  );
 }
 
 export function verifyArtifact({ outputPath, plan, ffprobeCommand = "ffprobe" }) {

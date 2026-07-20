@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -157,7 +157,7 @@ test("CLI renders overlays or preserves diagnostics when Chrome cannot launch", 
       (attempt) => attempt.method === "static-screenshot",
     );
     if (executed.status === 2 && /SIGABRT/.test(staticAttempt?.reason ?? "")) {
-      const preservedCut = await readFile(join(project, ".akari", "render-tmp", "cut.mp4"));
+      const preservedCut = await readFile(join(project, state.provenance.render_tmp_dir, "cut.mp4"));
       assert.ok(preservedCut.length > 0);
       assert.equal(state.verify.verdict, "fail");
       assert.equal(state.provenance.rasterizer.adopted, null);
@@ -176,7 +176,11 @@ test("CLI renders overlays or preserves diagnostics when Chrome cannot launch", 
     assert.equal(state.artifacts[0].ffprobe.fps, 10);
     assert.equal(state.artifacts[0].ffprobe.video_codec, "h264");
     assert.equal(state.artifacts[0].ffprobe.audio_codec, "aac");
-    await assert.rejects(readFile(join(project, ".akari", "render-tmp", "cut.mp4")), /ENOENT/);
+    await assert.rejects(readFile(join(project, state.provenance.render_tmp_dir, "cut.mp4")), /ENOENT/);
+    // The run directory itself should also be gone (self-cleanup deletes the whole subdirectory,
+    // not just cut.mp4), leaving render-tmp's root empty for the next run.
+    const remainingRunDirectories = await readdir(join(project, ".akari", "render-tmp")).catch(() => []);
+    assert.deepEqual(remainingRunDirectories, []);
   } finally {
     await rm(project, { recursive: true, force: true });
   }
