@@ -21,7 +21,11 @@ const MINIMUM_ITEM_DURATION = 0.15;
 const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
 const SNAP_THRESHOLD_PX = 8;
-const MIN_VIEW_DURATION_SECONDS = 1;
+const MIN_VIEW_DURATION_FRAMES = 4;
+const RULER_TARGET_TICK_COUNT = 6;
+const RULER_STEP_MULTIPLIERS_FRAMES = [1, 2, 5, 10, 20, 50, 100];
+const RULER_STEP_SECONDS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
+const ZOOM_SLIDER_RESOLUTION = 1000;
 const ZOOM_WHEEL_SENSITIVITY = 0.01;
 const ZOOM_EVENT_FACTOR_MIN = 1 / 1.5;
 const ZOOM_EVENT_FACTOR_MAX = 1.5;
@@ -75,6 +79,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected readonly toolbar = document.createElement('div');
     protected readonly undoButton = document.createElement('button');
+    protected readonly zoomHud = document.createElement('div');
+    protected readonly zoomIcon = document.createElement('span');
+    protected readonly zoomLabel = document.createElement('span');
+    protected readonly zoomSlider = document.createElement('input');
     protected readonly reviewButton = document.createElement('button');
     protected readonly stripScroll = document.createElement('div');
     protected readonly strip = document.createElement('div');
@@ -97,6 +105,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected contextPopup: HTMLDivElement | undefined;
     protected viewStart = 0;
     protected viewDuration: number | undefined;
+    protected fps = 30;
     protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected ffmpegMissingNoticeShown = false;
@@ -142,12 +151,38 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.undoButton.textContent = '元に戻す';
         this.undoButton.disabled = true;
         this.undoButton.addEventListener('click', () => void this.performUndo());
+        Object.assign(this.zoomHud.style, {
+            display: 'flex', alignItems: 'center', gap: '6px'
+        });
+        this.zoomIcon.className = 'codicon codicon-search';
+        this.zoomIcon.setAttribute('aria-hidden', 'true');
+        this.zoomIcon.setAttribute('data-testid', 'akari-timeline-zoom-icon');
+        this.zoomLabel.textContent = '100%';
+        this.zoomLabel.setAttribute('data-testid', 'akari-timeline-zoom-percent');
+        Object.assign(this.zoomLabel.style, {
+            fontSize: '11px', fontVariantNumeric: 'tabular-nums', minWidth: '38px', textAlign: 'right',
+            color: 'var(--theia-descriptionForeground)'
+        });
+        this.zoomSlider.type = 'range';
+        this.zoomSlider.min = '0';
+        this.zoomSlider.max = String(ZOOM_SLIDER_RESOLUTION);
+        this.zoomSlider.step = '1';
+        this.zoomSlider.value = '0';
+        this.zoomSlider.setAttribute('aria-label', 'ズーム率');
+        this.zoomSlider.setAttribute('data-testid', 'akari-timeline-zoom-slider');
+        Object.assign(this.zoomSlider.style, { width: '90px' });
+        this.zoomSlider.addEventListener('input', () => {
+            const proposedDuration = this.sliderValueToViewDuration(Number(this.zoomSlider.value));
+            const centerTime = this.viewStart + this.visibleDuration() / 2;
+            this.applyViewDuration(proposedDuration, centerTime, 0.5);
+        });
+        this.zoomHud.append(this.zoomIcon, this.zoomLabel, this.zoomSlider);
         this.reviewButton.type = 'button';
         this.reviewButton.className = 'theia-button secondary';
         this.reviewButton.textContent = '注釈';
         this.reviewButton.title = '注釈パネルを開く';
         this.reviewButton.addEventListener('click', () => void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID));
-        this.toolbar.append(heading, this.undoButton, this.reviewButton);
+        this.toolbar.append(heading, this.zoomHud, this.undoButton, this.reviewButton);
 
         Object.assign(this.strip.style, {
             position: 'relative', margin: '8px 10px',
@@ -339,12 +374,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async reloadEdit(): Promise<void> {
         this.cuts = [];
         this.overlays = [];
+        this.fps = 30;
         if (this.location?.editUri) {
             try {
                 const source = (await this.fileService.readFile(this.location.editUri)).value.toString();
                 const parsed = parseEdit(source);
                 this.cuts = parsed.cuts;
                 this.overlays = parsed.overlays;
+                this.fps = parsed.fps;
                 if (parsed.warnings.length > 0) {
                     this.showWarnings(parsed.warnings);
                 }
@@ -509,23 +546,88 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         this.playhead.style.left = `${this.percent(this.selectedSourceT)}%`;
+        this.updateZoomHud();
     }
 
     protected renderRuler(): void {
-        const divisions = 5;
-        for (let index = 0; index <= divisions; index++) {
+        const ticks = this.computeRulerTicks(this.viewStart, this.visibleDuration(), this.fps);
+        for (const tick of ticks) {
             const label = document.createElement('div');
-            const time = this.viewStart + this.visibleDuration() * index / divisions;
-            label.textContent = this.formatRulerTimestamp(time);
+            label.textContent = tick.label;
+            const percent = this.percent(tick.time);
             Object.assign(label.style, {
-                position: 'absolute', top: '0', height: '14px', left: `${index * 100 / divisions}%`,
+                position: 'absolute', top: '0', height: '14px', left: `${percent}%`,
                 color: 'var(--theia-descriptionForeground)', fontSize: '9px', lineHeight: '13px',
                 fontVariantNumeric: 'tabular-nums', pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: '2',
-                transform: index === 0 ? 'none' : index === divisions ? 'translateX(-100%)' : 'translateX(-50%)'
+                transform: percent <= 2 ? 'none' : percent >= 98 ? 'translateX(-100%)' : 'translateX(-50%)'
             });
             this.strip.appendChild(label);
         }
         this.renderAnnotationPins();
+    }
+
+    protected computeRulerTicks(viewStart: number, duration: number, fps: number): Array<{ time: number; label: string }> {
+        if (duration <= 0) {
+            return [{ time: viewStart, label: this.formatTickLabel(viewStart, 1, fps) }];
+        }
+        const frameDuration = 1 / fps;
+        const idealStep = duration / RULER_TARGET_TICK_COUNT;
+        const step = this.niceRulerStep(idealStep, frameDuration);
+        const viewEnd = viewStart + duration;
+        const startIndex = Math.ceil((viewStart - step * 1e-6) / step);
+        const endIndex = Math.floor((viewEnd + step * 1e-6) / step);
+        const ticks: Array<{ time: number; label: string }> = [];
+        for (let index = startIndex; index <= endIndex; index++) {
+            const time = index * step;
+            ticks.push({ time, label: this.formatTickLabel(time, step, fps) });
+        }
+        if (ticks.length === 0) {
+            ticks.push({ time: viewStart, label: this.formatTickLabel(viewStart, step, fps) });
+        }
+        return ticks;
+    }
+
+    protected niceRulerStep(idealStep: number, frameDuration: number): number {
+        const candidates = RULER_STEP_MULTIPLIERS_FRAMES.map(frames => frames * frameDuration)
+            .concat(RULER_STEP_SECONDS)
+            .filter(candidate => candidate > 0)
+            .sort((a, b) => a - b);
+        for (const step of candidates) {
+            if (step >= idealStep - 1e-9) {
+                return step;
+            }
+        }
+        return candidates[candidates.length - 1];
+    }
+
+    protected formatTickLabel(time: number, step: number, fps: number): string {
+        const clamped = Math.max(0, time);
+        if (step < 0.1 - 1e-9) {
+            return this.formatFrameTimestamp(clamped, fps);
+        }
+        if (step < 1 - 1e-9) {
+            return this.formatSubSecondTimestamp(clamped);
+        }
+        return this.formatRulerTimestamp(clamped);
+    }
+
+    protected formatSubSecondTimestamp(value: number): string {
+        const totalTenths = Math.round(value * 10);
+        const wholeSeconds = Math.floor(totalTenths / 10);
+        const tenth = totalTenths % 10;
+        const minutes = Math.floor(wholeSeconds / 60);
+        const seconds = wholeSeconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${tenth}`;
+    }
+
+    protected formatFrameTimestamp(value: number, fps: number): string {
+        const totalFrames = Math.round(value * fps);
+        const wholeSeconds = Math.floor(totalFrames / fps);
+        const frame = totalFrames % fps;
+        const minutes = Math.floor(wholeSeconds / 60);
+        const seconds = wholeSeconds % 60;
+        const frameDigits = String(Math.max(1, fps - 1)).length;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(frame).padStart(frameDigits, '0')}`;
     }
 
     /**
@@ -1025,6 +1127,61 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return duration > 0 ? Math.min(100, Math.max(0, (value - this.viewStart) / duration * 100)) : 0;
     }
 
+    protected zoomPercent(): number {
+        const duration = this.visibleDuration();
+        return duration > 0 ? this.totalDuration() / duration * 100 : 100;
+    }
+
+    protected minViewDurationSeconds(): number {
+        return Math.min(this.totalDuration(), MIN_VIEW_DURATION_FRAMES / this.fps);
+    }
+
+    protected sliderValueToViewDuration(sliderValue: number): number {
+        const maxDuration = this.totalDuration();
+        const minDuration = this.minViewDurationSeconds();
+        if (maxDuration <= minDuration) {
+            return maxDuration;
+        }
+        const ratio = minDuration / maxDuration;
+        const t = Math.min(1, Math.max(0, sliderValue / ZOOM_SLIDER_RESOLUTION));
+        return maxDuration * Math.pow(ratio, t);
+    }
+
+    protected viewDurationToSliderValue(duration: number): number {
+        const maxDuration = this.totalDuration();
+        const minDuration = this.minViewDurationSeconds();
+        if (maxDuration <= minDuration) {
+            return 0;
+        }
+        const ratio = minDuration / maxDuration;
+        const clamped = Math.min(maxDuration, Math.max(minDuration, duration));
+        const t = Math.log(clamped / maxDuration) / Math.log(ratio);
+        return Math.round(t * ZOOM_SLIDER_RESOLUTION);
+    }
+
+    protected updateZoomHud(): void {
+        this.zoomLabel.textContent = `${Math.round(this.zoomPercent())}%`;
+        const sliderValue = this.viewDurationToSliderValue(this.visibleDuration());
+        if (Number(this.zoomSlider.value) !== sliderValue) {
+            this.zoomSlider.value = String(sliderValue);
+        }
+    }
+
+    protected applyViewDuration(proposedDuration: number, anchorTime: number, anchorRatio: number): void {
+        const maxDuration = this.totalDuration();
+        const minDuration = this.minViewDurationSeconds();
+        const clamped = Math.min(maxDuration, Math.max(minDuration, proposedDuration));
+        if (clamped >= maxDuration - 1e-6) {
+            this.viewDuration = undefined;
+            this.viewStart = 0;
+        } else {
+            const proposedStart = anchorTime - anchorRatio * clamped;
+            this.viewDuration = clamped;
+            this.viewStart = Math.min(Math.max(0, proposedStart), Math.max(0, maxDuration - clamped));
+        }
+        this.renderStrip();
+    }
+
     protected timeAtClientX(clientX: number): number {
         const rect = this.strip.getBoundingClientRect();
         const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
@@ -1052,25 +1209,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (rect.width <= 0) {
             return;
         }
-        const maxDuration = this.totalDuration();
-        const minDuration = Math.min(MIN_VIEW_DURATION_SECONDS, maxDuration);
         const currentDuration = this.visibleDuration();
         const rawFactor = Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY);
         const factor = Math.min(ZOOM_EVENT_FACTOR_MAX, Math.max(ZOOM_EVENT_FACTOR_MIN, rawFactor));
-        const proposedDuration = Math.min(maxDuration, Math.max(minDuration, currentDuration / factor));
-
+        const proposedDuration = currentDuration / factor;
         const cursorRatio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
         const cursorTime = this.viewStart + cursorRatio * currentDuration;
-
-        if (proposedDuration >= maxDuration - 1e-6) {
-            this.viewDuration = undefined;
-            this.viewStart = 0;
-        } else {
-            const proposedStart = cursorTime - cursorRatio * proposedDuration;
-            this.viewDuration = proposedDuration;
-            this.viewStart = Math.min(Math.max(0, proposedStart), Math.max(0, maxDuration - proposedDuration));
-        }
-        this.renderStrip();
+        this.applyViewDuration(proposedDuration, cursorTime, cursorRatio);
     }
 
     protected async requestSeek(time: number): Promise<void> {

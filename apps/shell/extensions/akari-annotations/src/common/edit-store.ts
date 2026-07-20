@@ -177,7 +177,7 @@ export function resizeOverlayInSource(source: string, overlayId: string, nextDur
         replaceNumberProperty(element, 'duration', nextDuration, `オーバーレイ ${overlayId}`));
 }
 
-export function parseEdit(source: string): { cuts: EditCut[]; overlays: EditOverlay[]; warnings: string[] } {
+export function parseEdit(source: string): { cuts: EditCut[]; overlays: EditOverlay[]; fps: number; warnings: string[] } {
     const value = JSON.parse(source);
     if (!value || typeof value !== 'object') {
         throw new Error('編集データの形式を確認できません。');
@@ -219,7 +219,14 @@ export function parseEdit(source: string): { cuts: EditCut[]; overlays: EditOver
     } else if (value.overlays !== undefined) {
         warnings.push('overlays が配列ではないためオーバーレイを表示しません。');
     }
-    return { cuts, overlays, warnings };
+
+    let fps = 30;
+    if (value.output && typeof value.output === 'object'
+        && typeof value.output.fps === 'number' && Number.isFinite(value.output.fps) && value.output.fps > 0) {
+        fps = value.output.fps;
+    }
+
+    return { cuts, overlays, fps, warnings };
 }
 
 function locateArray(source: string, key: 'cuts' | 'overlays'): {
