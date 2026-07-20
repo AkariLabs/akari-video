@@ -1,5 +1,5 @@
 // L1 検証ハーネス（実ブラウザの OfflineAudioContext を使う）。
-// tasks/2026-07-20-preview-narration/task.md の受け入れ条件:
+// preview-narration の受け入れ条件:
 //   - narration 付きプロジェクトで narration がプレビュー音声に含まれることの観測記録
 //   - ducking:true のとき narration 区間の BGM ゲインが -12dB になることの観測記録
 //   - narration ファイルが読めない場合は当該要素のみスキップ（契約 §4）

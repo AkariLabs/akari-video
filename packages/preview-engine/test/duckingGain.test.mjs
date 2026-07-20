@@ -1,5 +1,5 @@
 // duckingGain.ts の純粋関数テスト（DOM 非依存 — dist/ ビルド後の plain JS を直接 import できる）。
-// タスク契約 tasks/2026-07-20-preview-narration/task.md の受け入れ条件「ducking:true のとき
+// preview-narration の受け入れ条件「ducking:true のとき
 // narration 区間の BGM ゲインが -12dB になることの観測記録（ユニットテストでのゲイン計算検証でも可）」
 // を満たす検証。
 import { test } from 'node:test';
