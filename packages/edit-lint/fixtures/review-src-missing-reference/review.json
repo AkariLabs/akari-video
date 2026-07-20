@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-20T10:00:00.000Z","src":"s9","sourceT":2.5,"sourceRange":null,"timelineT":null,"target":null,"targetKind":"instant","region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"存在しない source を参照する注釈","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+  ]
+}

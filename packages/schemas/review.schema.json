@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:review:v1",
+  "title": "AKARI Video review.json v1 annotation model",
+  "description": "QA ループの注釈サイドカー。edit.json と同じディレクトリに置く。時間アンカーは (src, source 秒) で永続化し、timeline 秒は永続化しない（contract-2026-07-18 §3/§4）。",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "annotations"],
+  "properties": {
+    "version": { "const": 0 },
+    "annotations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/annotation" }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "sourceSeconds": { "type": "number", "minimum": 0 },
+    "normalized01": { "type": "number", "minimum": 0, "maximum": 1 },
+    "box": {
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/normalized01" },
+        { "$ref": "#/$defs/normalized01" },
+        { "$ref": "#/$defs/normalized01" },
+        { "$ref": "#/$defs/normalized01" }
+      ],
+      "minItems": 4,
+      "maxItems": 4,
+      "$comment": "[x, y, w, h] 正規化座標。source フレーム基準（出力フレームではない）。意味制約 x+w<=1 かつ y+h<=1 は validate-review.mjs で検証する（analysis.schema.json の faceBox / edit.json crop.box と同一形式）。"
+    },
+    "strokePoint": {
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/normalized01" },
+        { "$ref": "#/$defs/normalized01" }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "stroke": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/strokePoint" },
+      "minItems": 2,
+      "$comment": "フリーハンド 1 ストローク = [x,y] 点列（source フレーム正規化座標）。"
+    },
+    "refItem": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["src"],
+          "not": { "required": ["path"] },
+          "properties": { "src": { "$ref": "#/$defs/nonEmptyString" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["path"],
+          "not": { "required": ["src"] },
+          "properties": { "path": { "$ref": "#/$defs/nonEmptyString" } }
+        }
+      ],
+      "$comment": "src = edit.json v1 sources[].id 参照。path = プロジェクト相対パス（copy-don't-link 後の実体）。1 エントリにつき排他。"
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["summary", "action", "respondedAt"],
+      "properties": {
+        "summary": { "type": "string" },
+        "action": { "enum": ["edited", "declined"] },
+        "respondedAt": { "type": "string" }
+      }
+    },
+    "annotation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "createdAt", "sourceT", "text", "input", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "createdAt": { "type": "string" },
+        "src": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }],
+          "$comment": "edit.json v1 の sources[].id 参照。省略/null = 単一ソース互換。参照整合は edit-lint が検証する。"
+        },
+        "sourceT": {
+          "$ref": "#/$defs/sourceSeconds",
+          "$comment": "source 秒（cuts[].in/out と同一座標系）。timeline 秒ではない。"
+        },
+        "sourceRange": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "array",
+              "prefixItems": [
+                { "$ref": "#/$defs/sourceSeconds" },
+                { "$ref": "#/$defs/sourceSeconds" }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            }
+          ],
+          "$comment": "[start, end) source 秒。start < end は validate-review.mjs で検証する。"
+        },
+        "timelineT": {
+          "oneOf": [{ "type": "null" }, { "type": "number" }],
+          "deprecated": true,
+          "$comment": "非推奨（contract-2026-07-18 §3 違反の旧フィールド）。新規書き込みは常に null。timeline 位置は表示のたびに cuts[] から射影する。"
+        },
+        "target": {
+          "oneOf": [{ "type": "null" }, { "type": "string" }],
+          "$comment": "旧フィールド（実質未使用）。targetKind とは別物。本ラウンドでは意味を与えない。"
+        },
+        "targetKind": {
+          "oneOf": [
+            { "type": "null" },
+            { "enum": ["instant", "range", "region", "asset", "insert"] }
+          ],
+          "$comment": "対象 5 型の判別子。null/省略 = 旧レコード（sourceRange の有無で instant/range を解釈）。型ごとの期待フィールド（range→sourceRange、region→region|strokes、asset→refs、insert→insertPosition）は助言レベル（validate-review.mjs / edit-lint の warning）。"
+        },
+        "region": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["box"],
+              "properties": { "box": { "$ref": "#/$defs/box" } }
+            }
+          ]
+        },
+        "strokes": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "items": { "$ref": "#/$defs/stroke" } }
+          ],
+          "$comment": "予約フィールドを有効化（ペン）。region.box と両方非 null の場合は region.box が勝つ（warning）。"
+        },
+        "refs": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "items": { "$ref": "#/$defs/refItem" }, "minItems": 1 }
+          ]
+        },
+        "insertPosition": {
+          "oneOf": [{ "type": "null" }, { "enum": ["before", "after"] }],
+          "$comment": "targetKind insert 用。アンカー (src, sourceT) に対応する timeline 位置の前/後に挿入する。"
+        },
+        "intent": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }],
+          "$comment": "自由文字列。推奨語彙は契約文書（enum 強制しない）。"
+        },
+        "text": { "type": "string" },
+        "input": { "enum": ["typed", "voice"] },
+        "audio": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }]
+        },
+        "poses": {
+          "type": "null",
+          "$comment": "予約のまま（実演キャプチャ。本契約のスコープ外）。"
+        },
+        "status": { "enum": ["open", "addressed", "resolved"] },
+        "response": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/response" }]
+        }
+      }
+    }
+  }
+}

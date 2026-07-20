@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-20T10:00:00.000Z","src":"s1","sourceT":50.0,"sourceRange":null,"timelineT":null,"target":null,"targetKind":"insert","region":null,"strokes":null,"refs":null,"insertPosition":"before","intent":"insert","text":"カットで残らない位置への挿入指示","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+  ]
+}

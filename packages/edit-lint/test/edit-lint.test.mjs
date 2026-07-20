@@ -293,3 +293,87 @@ test("media mode reports silence and volume; a configured silence threshold fail
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("review fixture with all five target kinds passes with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "review-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.ok(Object.hasOwn(result.inputs, "review_json_sha256"));
+  });
+});
+
+test("review src must reference sources[].id", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "review-src-missing-reference");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(result.findings.some((finding) => finding.check === "review.src-reference"));
+  });
+});
+
+test("unresolved insert anchor warns without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "review-insert-anchor-unresolved");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) =>
+          finding.check === "review.insert-anchor-unresolved" &&
+          finding.severity === "warning",
+      ),
+    );
+  });
+});
+
+test("region target without geometry warns without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "review-region-missing-geometry");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) =>
+          finding.check === "review.target-consistency" &&
+          finding.severity === "warning",
+      ),
+    );
+  });
+});
+
+test("legacy annotations without targetKind still pass", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "review-legacy-no-kind");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("newer review.json version stops honestly without format assumptions", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "review-version-too-new");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "review.version" && finding.severity === "error",
+      ),
+    );
+    assert.ok(result.skipped.some((item) => item.check === "review.validation"));
+    assert.ok(!result.findings.some((finding) => finding.check === "review.schema"));
+  });
+});

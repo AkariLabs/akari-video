@@ -21,6 +21,8 @@ AKARI Video 新実装（本モノレポ）の設計・契約文書。旧実装 `
 | [contract-2026-07-14-edit-json-v1-crop.md](./contract-2026-07-14-edit-json-v1-crop.md) | edit.json v1 crop（リフレーミング）契約。`cuts[].crop` フィールドの確定スキーマ |
 | [contract-2026-07-14-edit-json-v1-audio.md](./contract-2026-07-14-edit-json-v1-audio.md) | edit.json v1 音声スキーマ契約（`audio.bgm` / `audio.sfx`）。Tauri 実装への言及 3 件を legacy 注記化 |
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | データ契約の版管理・移行原則（横断契約）— version 必須・追加のみ進化・明示マイグレ・forward-compat の三原則。edit.json の運用を全契約へ一般化 |
+| [contract-2026-07-18-edit-json-v1-sources.md](./contract-2026-07-18-edit-json-v1-sources.md) | edit.json v1 sources 契約（`sources[]` / `cuts[].src`・version 1 へ bump・(src, source 秒) 永続化の鉄則・サイドカーへの `src` 伝搬） |
+| [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 注釈モデル契約 — target 5 型（時刻/範囲/空間×時間/素材参照/挿入点）・targetKind 判別子・(src, source 秒) 永続化・timelineT 非推奨化・劣化規約。notes-2026-07-20 §2 の昇格 |
 | [notes-2026-07-13-edit-json-v1.md](./notes-2026-07-13-edit-json-v1.md) | edit.json v1 拡張の方向性メモ（出力プロファイル複数化・crop・レイアウト・音声・サムネ枠の初期案） |
 | [notes-2026-07-14-captions-and-cut-editing.md](./notes-2026-07-14-captions-and-cut-editing.md) | 字幕とカット編集の方向性メモ（word 精度カット提案・captions 第一級化・カラオケ表示・強調字幕） |
 | [notes-2026-07-16-qa-lint-and-transcript-ui.md](./notes-2026-07-16-qa-lint-and-transcript-ui.md) | 自己検証ループとトランスクリプト編集 UI の方向性メモ（edit-lint・words confidence・視覚検索トリガー・Monaco MVP / リッチ UI 二段構え。外部設計対話レビューの採否記録含む） |

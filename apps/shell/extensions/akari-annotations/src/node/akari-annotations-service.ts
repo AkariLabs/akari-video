@@ -26,6 +26,11 @@ import {
     appendAnnotationLine,
     emptyReviewSource,
     nextAnnotationId,
+    normalizeInsertPosition,
+    normalizeRefs,
+    normalizeRegion,
+    normalizeStrokes,
+    normalizeTargetKind,
     parseReview,
     updateStatusLine
 } from '../common/annotation-store';
@@ -78,21 +83,39 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             baseSource = emptyReviewSource();
         }
         const { annotations } = parseReview(baseSource);
+        const id = nextAnnotationId(annotations);
+        const fieldWarnings: string[] = [];
+        const sourceRange = Array.isArray(request.sourceRange)
+            && request.sourceRange.length === 2
+            && request.sourceRange.every(entry => Number.isFinite(entry))
+            && request.sourceRange[0] < request.sourceRange[1]
+            ? [request.sourceRange[0], request.sourceRange[1]] as [number, number]
+            : null;
         const annotation: Annotation = {
-            id: nextAnnotationId(annotations),
+            id,
             createdAt: new Date().toISOString(),
+            src: typeof request.src === 'string' && request.src.trim() ? request.src : null,
             sourceT: request.sourceT,
-            sourceRange: null,
-            timelineT: Number.isFinite(request.timelineT as number) ? (request.timelineT as number) : null,
+            sourceRange,
+            // timelineT は非推奨（契約 §1）。リクエスト値は無視し常に null で保存する
+            timelineT: null,
             target: request.target ?? null,
+            targetKind: normalizeTargetKind(request.targetKind, id, fieldWarnings),
+            region: normalizeRegion(request.region, id, fieldWarnings),
+            strokes: normalizeStrokes(request.strokes, id, fieldWarnings),
+            refs: normalizeRefs(request.refs, id, fieldWarnings),
+            insertPosition: normalizeInsertPosition(request.insertPosition, id, fieldWarnings),
+            intent: typeof request.intent === 'string' && request.intent.trim() ? request.intent : null,
             text: request.text,
             input: 'typed',
             audio: null,
-            strokes: null,
             poses: null,
             status: 'open',
             response: null
         };
+        if (fieldWarnings.length > 0) {
+            console.warn('[akari-annotations] createAnnotation:', fieldWarnings.join(' '));
+        }
         const updated = appendAnnotationLine(baseSource, annotation);
         await this.writeAtomic(reviewPath, updated);
 

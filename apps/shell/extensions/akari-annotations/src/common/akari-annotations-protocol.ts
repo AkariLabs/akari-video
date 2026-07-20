@@ -31,34 +31,38 @@ export interface GetClipWaveformResult {
     reason?: MediaUnavailableReason;
 }
 
-export interface AnnotationResponse {
-    summary: string;
-    action: 'edited' | 'declined';
-    respondedAt: string;
-}
-
-export interface Annotation {
-    id: string;
-    createdAt: string;
-    sourceT: number;
-    sourceRange: [number, number] | null;
-    timelineT: number | null;
-    target: string | null;
-    text: string;
-    input: 'typed' | 'voice';
-    audio: string | null;
-    strokes: null;
-    poses: null;
-    status: 'open' | 'addressed' | 'resolved';
-    response: AnnotationResponse | null;
-}
+export type {
+    Annotation,
+    AnnotationResponse,
+    AnnotationTargetKind,
+    AnnotationRegion,
+    AnnotationStroke,
+    AnnotationRef
+} from './annotation-store';
+import type {
+    Annotation,
+    AnnotationTargetKind,
+    AnnotationRegion,
+    AnnotationStroke,
+    AnnotationRef
+} from './annotation-store';
 
 export interface CreateAnnotationRequest {
     reviewUri: string;
     projectRootUri: string;
+    /** edit.json v1 の sources[].id 参照（省略 = 単一ソース互換） */
+    src?: string | null;
     sourceT: number;
+    sourceRange?: [number, number] | null;
+    /** 非推奨。値は無視され、保存時は常に null になる */
     timelineT: number | null;
     target: string | null;
+    targetKind?: AnnotationTargetKind | null;
+    region?: AnnotationRegion | null;
+    strokes?: AnnotationStroke[] | null;
+    refs?: AnnotationRef[] | null;
+    insertPosition?: 'before' | 'after' | null;
+    intent?: string | null;
     text: string;
 }
 

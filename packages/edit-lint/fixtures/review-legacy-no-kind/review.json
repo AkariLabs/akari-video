@@ -1,0 +1,7 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-19T18:00:00.000Z","sourceT":2.4,"sourceRange":null,"timelineT":null,"target":null,"text":"旧形式の瞬間注釈","input":"typed","audio":null,"strokes":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0002","createdAt":"2026-07-19T18:05:00.000Z","sourceT":10.2,"sourceRange":[10.2,12.8],"timelineT":null,"target":null,"text":"旧形式の範囲注釈","input":"voice","audio":null,"strokes":null,"poses":null,"status":"addressed","response":null}
+  ]
+}

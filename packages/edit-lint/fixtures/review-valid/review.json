@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-20T10:00:00.000Z","src":"s1","sourceT":2.5,"sourceRange":null,"timelineT":null,"target":null,"targetKind":"instant","region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":"pace","text":"今のこのタイミング、一拍置いてほしい","input":"voice","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0002","createdAt":"2026-07-20T10:01:00.000Z","src":"s2","sourceT":10.5,"sourceRange":[10.5,12.0],"timelineT":null,"target":null,"targetKind":"range","region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":"cut","text":"ここからここまで詰めたい","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0003","createdAt":"2026-07-20T10:02:00.000Z","src":"s2","sourceT":11.0,"sourceRange":[11.0,12.5],"timelineT":null,"target":null,"targetKind":"region","region":{"box":[0.62,0.08,0.3,0.22]},"strokes":null,"refs":null,"insertPosition":null,"intent":"fix","text":"この範囲のテロップを直したい","input":"voice","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0004","createdAt":"2026-07-20T10:03:00.000Z","src":null,"sourceT":0.0,"sourceRange":null,"timelineT":null,"target":null,"targetKind":"asset","region":null,"strokes":null,"refs":[{"path":"../valid/sample.mp4"}],"insertPosition":null,"intent":"replace","text":"この素材を差し替えたい","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0005","createdAt":"2026-07-20T10:04:00.000Z","src":"s1","sourceT":3.9,"sourceRange":null,"timelineT":null,"target":null,"targetKind":"insert","region":null,"strokes":null,"refs":[{"src":"s2"}],"insertPosition":"after","intent":"insert","text":"この直後に B ロールを入れたい","input":"voice","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0006","createdAt":"2026-07-19T18:00:00.000Z","sourceT":4.2,"sourceRange":null,"timelineT":null,"target":null,"text":"旧形式レコード","input":"typed","audio":null,"strokes":null,"poses":null,"status":"resolved","response":{"summary":"対応済み","action":"edited","respondedAt":"2026-07-19T18:30:00.000Z"}}
+  ]
+}

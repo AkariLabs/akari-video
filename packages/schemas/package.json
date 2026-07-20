@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "validate-asset": "bin/validate-asset.mjs"
+    "validate-asset": "bin/validate-asset.mjs",
+    "validate-review": "bin/validate-review.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1"
