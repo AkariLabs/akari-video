@@ -85,7 +85,7 @@ function validateProviders(value) {
     }
 
     validateEnum(provider.kind, ["genai", "image", "video", "tts", "music", "sns", "analytics"], `${label}.kind`);
-    validateEnum(provider.auth, ["login", "env-key", "oauth-mcp"], `${label}.auth`);
+    validateEnum(provider.auth, ["login", "env-key", "oauth-mcp", "none"], `${label}.auth`);
     if (provider.auth === "env-key") {
       if (typeof provider.env !== "string" || !/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(provider.env)) {
         fail(`${label}.env は env-key 認証では \${KEY_NAME} 形式である必要があります`);
@@ -136,7 +136,11 @@ function validateDoctor(value, label) {
     return;
   }
   validateFields(value, ["status"], ["last_checked", "status", "detail"], label);
-  validateEnum(value.status, ["ok", "unauthorized", "unconfigured", "unchecked"], `${label}.status`);
+  validateEnum(
+    value.status,
+    ["ok", "unauthorized", "unconfigured", "unchecked", "setup_required"],
+    `${label}.status`,
+  );
   if (hasOwn(value, "last_checked") && value.last_checked !== null) {
     if (typeof value.last_checked !== "string" || !isIsoDateTime(value.last_checked)) {
       fail(`${label}.last_checked は null または ISO 8601 日時である必要があります`);

@@ -1,0 +1,32 @@
+{
+  "providers": [
+    {
+      "id": "codex-image",
+      "kind": "image",
+      "auth": "basic",
+      "env": null,
+      "models": {
+        "default": null,
+        "allowed": []
+      },
+      "notes": {
+        "description": "既存の拒否動作の非退行を確認するための不正 auth 値フィクスチャ。",
+        "workflows": ["42 AI 生成素材"],
+        "billing": "n/a",
+        "quota": "n/a",
+        "scopes": ["画像生成"],
+        "setup_url": null
+      },
+      "doctor": {
+        "last_checked": null,
+        "status": "unchecked",
+        "detail": "未確認"
+      }
+    }
+  ],
+  "policy": {
+    "currency": "JPY",
+    "monthly_budget": null,
+    "approval_threshold": null
+  }
+}
