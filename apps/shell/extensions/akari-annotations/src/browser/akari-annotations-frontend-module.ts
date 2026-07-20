@@ -8,16 +8,26 @@ import {
 import { AkariAnnotationsService, AKARI_ANNOTATIONS_SERVICE_PATH } from '../common/akari-annotations-protocol';
 import { AkariAnnotationsContribution } from './akari-annotations-contribution';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
+import { AkariReviewPanelWidget } from './akari-review-panel-widget';
+import { ReviewModel } from './review-model';
 
 export default new ContainerModule(bind => {
     bind(AkariAnnotationsService).toDynamicValue(context =>
         WebSocketConnectionProvider.createProxy(context.container, AKARI_ANNOTATIONS_SERVICE_PATH)
     ).inSingletonScope();
 
+    bind(ReviewModel).toSelf().inSingletonScope();
+
     bind(AkariAnnotationsWidget).toSelf();
     bind(WidgetFactory).toDynamicValue(context => ({
         id: AkariAnnotationsWidget.FACTORY_ID,
         createWidget: async () => context.container.get(AkariAnnotationsWidget)
+    })).inSingletonScope();
+
+    bind(AkariReviewPanelWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(context => ({
+        id: AkariReviewPanelWidget.FACTORY_ID,
+        createWidget: async () => context.container.get(AkariReviewPanelWidget)
     })).inSingletonScope();
 
     bind(AkariAnnotationsContribution).toSelf().inSingletonScope();

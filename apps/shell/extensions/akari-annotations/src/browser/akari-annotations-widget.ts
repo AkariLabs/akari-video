@@ -12,7 +12,9 @@ import { parseReview } from '../common/annotation-store';
 import { CaptionRecord, parseCaptions } from '../common/caption-store';
 import { EditCut, EditOverlay, parseEdit } from '../common/edit-store';
 import { assignSubRows } from '../common/lane-layout';
+import { OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { ProjectLocation } from './project-location';
+import { ReviewModel } from './review-model';
 
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
 const MINIMUM_ITEM_DURATION = 0.15;
@@ -26,11 +28,6 @@ const ZOOM_EVENT_FACTOR_MAX = 1.5;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const WAVEFORM_CANVAS_HEIGHT_PX = 32;
 
-const STATUS_LABELS: Record<Annotation['status'], string> = {
-    open: '未対応',
-    addressed: '対応済み',
-    resolved: '確認済み'
-};
 const STATUS_COLORS: Record<Annotation['status'], string> = {
     open: 'var(--theia-charts-blue)',
     addressed: '#d68a00',
@@ -78,26 +75,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected readonly toolbar = document.createElement('div');
     protected readonly undoButton = document.createElement('button');
-    protected readonly filterSelect = document.createElement('select');
+    protected readonly reviewButton = document.createElement('button');
+    protected readonly stripScroll = document.createElement('div');
     protected readonly strip = document.createElement('div');
     protected readonly playhead = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
-    protected readonly composerRow = document.createElement('div');
-    protected readonly timeLabel = document.createElement('span');
-    protected readonly textInput = document.createElement('input');
-    protected readonly addButton = document.createElement('button');
     protected readonly notice = document.createElement('div');
-    protected readonly listContainer = document.createElement('div');
     protected readonly footer = document.createElement('div');
 
+    @inject(ReviewModel)
+    protected readonly review!: ReviewModel;
+
     protected location: ProjectLocation | undefined;
-    protected annotations: Annotation[] = [];
     protected captions: CaptionRecord[] = [];
     protected cuts: EditCut[] = [];
     protected overlays: EditOverlay[] = [];
     protected wordBoundaries: number[] = [];
-    protected selectedSourceT = 0;
-    protected statusFilter: 'all' | Annotation['status'] = 'all';
     protected configured = false;
     protected dragState: DragState | undefined;
     protected lastUndo: (() => Promise<void>) | undefined;
@@ -107,6 +100,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected ffmpegMissingNoticeShown = false;
+
+    /** 注釈の実体は ReviewModel が持つ（注釈パネルと共有）。ここではピン描画のために読むだけ。 */
+    protected get annotations(): readonly Annotation[] {
+        return this.review.annotations;
+    }
+
+    protected get selectedSourceT(): number {
+        return this.review.selectedSourceT;
+    }
+
+    protected set selectedSourceT(value: number) {
+        this.review.selectedSourceT = value;
+    }
 
     @postConstruct()
     protected init(): void {
@@ -118,7 +124,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.classList.add('akari-annotations-widget');
         Object.assign(this.node.style, {
             display: 'grid',
-            gridTemplateRows: 'auto auto auto auto minmax(0, 1fr) auto',
+            gridTemplateRows: 'auto minmax(0, 1fr) auto auto',
             height: '100%',
             overflow: 'hidden',
             background: 'var(--theia-editor-background)'
@@ -136,21 +142,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.undoButton.textContent = '元に戻す';
         this.undoButton.disabled = true;
         this.undoButton.addEventListener('click', () => void this.performUndo());
-        this.filterSelect.setAttribute('aria-label', '状態で絞り込み');
-        const filterOptions: Array<[string, string]> = [
-            ['all', 'すべて'], ['open', '未対応'], ['addressed', '対応済み'], ['resolved', '確認済み']
-        ];
-        for (const [value, label] of filterOptions) {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = label;
-            this.filterSelect.appendChild(option);
-        }
-        this.filterSelect.addEventListener('change', () => {
-            this.statusFilter = this.filterSelect.value as typeof this.statusFilter;
-            this.renderList();
-        });
-        this.toolbar.append(heading, this.undoButton, this.filterSelect);
+        this.reviewButton.type = 'button';
+        this.reviewButton.className = 'theia-button secondary';
+        this.reviewButton.textContent = '注釈';
+        this.reviewButton.title = '注釈パネルを開く';
+        this.reviewButton.addEventListener('click', () => void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID));
+        this.toolbar.append(heading, this.undoButton, this.reviewButton);
 
         Object.assign(this.strip.style, {
             position: 'relative', margin: '8px 10px',
@@ -170,34 +167,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
 
-        Object.assign(this.composerRow.style, {
-            display: 'flex', alignItems: 'center', gap: '8px', padding: '0 10px 8px', boxSizing: 'border-box'
-        });
-        Object.assign(this.timeLabel.style, {
-            fontVariantNumeric: 'tabular-nums', color: 'var(--theia-descriptionForeground)', minWidth: '96px'
-        });
-        this.textInput.type = 'text';
-        this.textInput.placeholder = 'コメントを入力';
-        this.textInput.setAttribute('aria-label', 'コメントを入力');
-        Object.assign(this.textInput.style, { flex: '1', minWidth: '0' });
-        this.textInput.addEventListener('keydown', event => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                void this.submitAnnotation();
-            }
-        });
-        this.addButton.type = 'button';
-        this.addButton.className = 'theia-button main';
-        this.addButton.textContent = '追加';
-        this.addButton.addEventListener('click', () => void this.submitAnnotation());
-        this.composerRow.append(this.timeLabel, this.textInput, this.addButton);
-
         Object.assign(this.notice.style, {
             display: 'none', padding: '7px 11px', color: 'var(--theia-warningForeground)',
             background: 'var(--theia-inputValidation-warningBackground)',
             borderBottom: '1px solid var(--theia-inputValidation-warningBorder)', fontSize: '12px', lineHeight: '1.4'
         });
-        Object.assign(this.listContainer.style, { minHeight: '0', overflow: 'auto', padding: '4px 10px' });
+        Object.assign(this.stripScroll.style, { minHeight: '0', overflow: 'auto' });
+        this.stripScroll.appendChild(this.strip);
         Object.assign(this.footer.style, {
             height: '26px', minHeight: '26px', maxHeight: '26px', padding: '5px 10px', boxSizing: 'border-box',
             borderTop: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
@@ -205,7 +181,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.footer.textContent = 'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
 
-        this.node.append(this.toolbar, this.strip, this.composerRow, this.notice, this.listContainer, this.footer);
+        this.node.append(this.toolbar, this.stripScroll, this.notice, this.footer);
         const style = document.createElement('style');
         style.textContent = `
     .akari-annotations-widget .akari-annotations-strip-clip {
@@ -238,6 +214,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         z-index: 3;
         text-shadow: 0 0 2px var(--theia-editorWidget-background), 0 0 3px var(--theia-editorWidget-background);
     }
+    .akari-annotations-widget .akari-annotations-pin {
+        position: absolute;
+        top: 3px;
+        width: 9px;
+        height: 9px;
+        border-radius: 50% 50% 50% 0;
+        transform: translateX(-50%) rotate(-45deg);
+        transform-origin: center;
+        box-shadow: 0 0 0 1px var(--theia-editorWidget-background);
+        cursor: pointer;
+        pointer-events: auto;
+        z-index: 4;
+    }
+    .akari-annotations-widget .akari-annotations-pin:hover {
+        filter: brightness(1.25);
+    }
+    .akari-annotations-widget .akari-annotations-pin[data-annotation-status="resolved"] {
+        opacity: .55;
+    }
     .akari-annotations-widget .akari-annotations-segment-label {
         display: block;
         padding: 1px 3px;
@@ -264,6 +259,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 void this.performUndo();
             }
         };
+        // 注釈が増減したらピンを描き直す。パネルの時刻リンクからのジャンプもここで受ける。
+        this.toDispose.push(this.review.onChanged(() => this.renderStrip()));
+        this.toDispose.push(this.review.onSeekRequested(time => {
+            this.selectedSourceT = time;
+            this.renderStrip();
+            void this.requestSeek(time);
+        }));
+
         window.addEventListener('keydown', keydown);
         this.toDispose.push(Disposable.create(() => {
             window.removeEventListener('keydown', keydown);
@@ -272,7 +275,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.cancelDrag(this.dragState);
             }
         }));
-        this.updateTimeLabel();
     }
 
     async configure(location: ProjectLocation): Promise<void> {
@@ -319,20 +321,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         try {
             const exists = await this.fileService.exists(this.location.reviewUri);
             if (!exists) {
-                this.annotations = [];
+                this.review.annotations = [];
                 this.hideNotice();
             } else {
                 const source = (await this.fileService.readFile(this.location.reviewUri)).value.toString();
                 const parsed = parseReview(source);
-                this.annotations = parsed.annotations;
+                this.review.annotations = parsed.annotations;
                 this.showWarnings(parsed.warnings);
             }
         } catch (error) {
-            this.annotations = [];
+            this.review.annotations = [];
             this.showNotice(`レビューデータを読み取れません: ${this.errorMessage(error)}`);
         }
         this.renderStrip();
-        this.renderList();
     }
 
     protected async reloadEdit(): Promise<void> {
@@ -421,7 +422,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const SUBROW_HEIGHT = 16;
         const SUBROW_GAP = 2;
         const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
-        const PIN_HEIGHT = 18;
         const STRIP_BOTTOM_MARGIN = 6;
 
         const maxDuration = this.totalDuration();
@@ -471,8 +471,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const overlayBandTop = captionBandTop + captionBandHeight + LANE_GAP;
         const overlayBandHeight = overlaySubRowCount * SUBROW_STRIDE;
 
-        const pinTop = overlayBandTop + overlayBandHeight + LANE_GAP;
-        const stripHeight = pinTop + PIN_HEIGHT + STRIP_BOTTOM_MARGIN;
+        // 注釈ピンはルーラー帯（renderRuler）へ描くため、専用レーンは持たない。
+        const stripHeight = overlayBandTop + overlayBandHeight + STRIP_BOTTOM_MARGIN;
         this.strip.style.height = `${stripHeight}px`;
 
         this.captions.forEach((caption, index) => {
@@ -508,23 +508,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }));
             this.strip.appendChild(element);
         });
-        for (const annotation of this.annotations) {
-            const marker = this.stripSegment(
-                annotation.sourceT,
-                annotation.sourceT + Math.max(this.visibleDuration() * 0.006, 0.05),
-                pinTop,
-                PIN_HEIGHT,
-                'akari-annotations-strip-pin',
-                `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`
-            );
-            marker.style.background = STATUS_COLORS[annotation.status];
-            marker.style.borderRadius = '50%';
-            marker.setAttribute('data-annotation-id', annotation.id);
-            marker.setAttribute('data-annotation-status', annotation.status);
-            this.strip.appendChild(marker);
-        }
         this.playhead.style.left = `${this.percent(this.selectedSourceT)}%`;
-        this.updateTimeLabel();
     }
 
     protected renderRuler(): void {
@@ -540,6 +524,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 transform: index === 0 ? 'none' : index === divisions ? 'translateX(-100%)' : 'translateX(-50%)'
             });
             this.strip.appendChild(label);
+        }
+        this.renderAnnotationPins();
+    }
+
+    /**
+     * 注釈ピンをルーラー帯の下端へ描く。専用レーンを 1 行使わず、時刻の目盛りと同じ帯に収める。
+     * クリックでその時刻へシークし、注釈パネル側の該当行を目立たせる。
+     */
+    protected renderAnnotationPins(): void {
+        for (const annotation of this.annotations) {
+            const pin = document.createElement('div');
+            pin.className = 'akari-annotations-pin';
+            pin.title = `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`;
+            pin.setAttribute('data-annotation-id', annotation.id);
+            pin.setAttribute('data-annotation-status', annotation.status);
+            pin.style.left = `${this.percent(annotation.sourceT)}%`;
+            pin.style.background = STATUS_COLORS[annotation.status];
+            pin.addEventListener('click', event => {
+                event.stopPropagation();
+                this.selectedSourceT = annotation.sourceT;
+                this.renderStrip();
+                void this.requestSeek(annotation.sourceT);
+                this.review.reveal(annotation.id);
+                void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID);
+            });
+            this.strip.appendChild(pin);
         }
     }
 
@@ -1026,7 +1036,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
         this.selectedSourceT = this.viewStart + ratio * this.visibleDuration();
         this.playhead.style.left = `${ratio * 100}%`;
-        this.updateTimeLabel();
         void this.requestSeek(this.selectedSourceT);
     }
 
@@ -1062,10 +1071,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.viewStart = Math.min(Math.max(0, proposedStart), Math.max(0, maxDuration - proposedDuration));
         }
         this.renderStrip();
-    }
-
-    protected updateTimeLabel(): void {
-        this.timeLabel.textContent = this.formatTimestamp(this.selectedSourceT);
     }
 
     protected async requestSeek(time: number): Promise<void> {
@@ -1140,31 +1145,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.contextPopup = undefined;
     }
 
-    protected async submitAnnotation(textOverride?: string, sourceTOverride?: number): Promise<void> {
-        const text = (textOverride ?? this.textInput.value).trim();
-        const sourceT = sourceTOverride ?? this.selectedSourceT;
+    /** タイムライン上の右クリックから直接追加する経路。一覧・入力欄は注釈パネルが持つ。 */
+    protected async submitAnnotation(text: string, sourceT: number): Promise<void> {
         if (!text || !this.location) {
             return;
         }
-        this.addButton.disabled = true;
         try {
-            const result = await this.annotationsService.createAnnotation({
-                reviewUri: this.location.reviewUri.toString(),
-                projectRootUri: this.location.root.toString(),
-                sourceT,
-                timelineT: null,
-                target: null,
-                text
-            });
-            if (!this.annotations.some(existing => existing.id === result.annotation.id)) {
-                this.annotations = [...this.annotations, result.annotation];
-            }
-            if (textOverride === undefined) {
-                this.textInput.value = '';
-            }
+            const result = await this.review.addAnnotation(text, sourceT);
             this.hideNotice();
             this.renderStrip();
-            this.renderList();
             this.footer.textContent = result.committed
                 ? '注釈を追加しました。変更を記録しました。'
                 : '注釈を追加しました。';
@@ -1172,88 +1161,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const detail = this.errorMessage(error);
             this.showNotice(`注釈を追加できません: ${detail}`);
             this.messages.error(`注釈を追加できません: ${detail}`);
-        } finally {
-            this.addButton.disabled = false;
         }
-    }
-
-    protected async resolveAnnotationById(id: string): Promise<void> {
-        if (!this.location) {
-            return;
-        }
-        try {
-            const result = await this.annotationsService.resolveAnnotation({
-                reviewUri: this.location.reviewUri.toString(),
-                annotationId: id
-            });
-            this.annotations = this.annotations.map(annotation => annotation.id === id ? result.annotation : annotation);
-            this.renderStrip();
-            this.renderList();
-            this.footer.textContent = '注釈を確認済みにしました。';
-        } catch (error) {
-            const detail = this.errorMessage(error);
-            this.showNotice(`更新できません: ${detail}`);
-            this.messages.error(`更新できません: ${detail}`);
-        }
-    }
-
-    protected renderList(): void {
-        this.listContainer.replaceChildren();
-        const filtered = this.annotations
-            .filter(annotation => this.statusFilter === 'all' || annotation.status === this.statusFilter)
-            .sort((left, right) => left.sourceT - right.sourceT);
-        if (filtered.length === 0) {
-            const empty = document.createElement('div');
-            empty.textContent = '該当する注釈はありません。';
-            empty.style.color = 'var(--theia-descriptionForeground)';
-            empty.style.padding = '8px 2px';
-            this.listContainer.appendChild(empty);
-            return;
-        }
-        for (const annotation of filtered) {
-            this.listContainer.appendChild(this.renderAnnotationRow(annotation));
-        }
-    }
-
-    protected renderAnnotationRow(annotation: Annotation): HTMLDivElement {
-        const row = document.createElement('div');
-        row.setAttribute('data-annotation-row', annotation.id);
-        Object.assign(row.style, {
-            display: 'grid', gap: '4px', padding: '8px 6px', borderBottom: '1px solid var(--theia-widget-border)'
-        });
-        const head = document.createElement('div');
-        Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '8px' });
-        const time = document.createElement('span');
-        time.textContent = this.formatTimestamp(annotation.sourceT);
-        time.style.fontVariantNumeric = 'tabular-nums';
-        const badge = document.createElement('span');
-        badge.textContent = STATUS_LABELS[annotation.status];
-        Object.assign(badge.style, {
-            color: STATUS_COLORS[annotation.status], fontSize: '11px',
-            border: `1px solid ${STATUS_COLORS[annotation.status]}`, borderRadius: '999px', padding: '0 8px'
-        });
-        head.append(time, badge);
-        if (annotation.status === 'addressed') {
-            const resolveButton = document.createElement('button');
-            resolveButton.type = 'button';
-            resolveButton.className = 'theia-button secondary';
-            resolveButton.textContent = '確認済みにする';
-            resolveButton.setAttribute('data-resolve-button', annotation.id);
-            resolveButton.style.marginLeft = 'auto';
-            resolveButton.addEventListener('click', () => void this.resolveAnnotationById(annotation.id));
-            head.appendChild(resolveButton);
-        }
-        const text = document.createElement('div');
-        text.textContent = annotation.text;
-        row.append(head, text);
-        if (annotation.response) {
-            const response = document.createElement('div');
-            response.style.color = 'var(--theia-descriptionForeground)';
-            response.style.fontSize = '12px';
-            response.textContent = `対応（${annotation.response.action === 'edited' ? '編集しました' : '見送りました'}）: ${annotation.response.summary}`;
-            row.appendChild(response);
-        }
-        return row;
     }
 
     protected showWarnings(warnings: readonly string[]): void {

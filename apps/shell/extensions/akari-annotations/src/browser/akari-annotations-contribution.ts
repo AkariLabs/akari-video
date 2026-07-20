@@ -1,6 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
 import {
-    Command,
     CommandContribution,
     CommandRegistry,
     MenuContribution,
@@ -17,13 +16,13 @@ import { FileChangeType, FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
+import { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_REVIEW_PANEL } from './akari-annotations-commands';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
+import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ProjectLocation } from './project-location';
+import { ReviewModel } from './review-model';
 
-export const OPEN_AKARI_ANNOTATIONS: Command = {
-    id: 'akari.annotations.open',
-    label: 'タイムラインを開く'
-};
+export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_REVIEW_PANEL };
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
@@ -43,6 +42,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     @inject(WorkspaceService)
     protected readonly workspaceService!: WorkspaceService;
 
+    @inject(ReviewModel)
+    protected readonly review!: ReviewModel;
+
     protected readonly toDispose = new DisposableCollection();
 
     async onStart(): Promise<void> {
@@ -60,6 +62,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(OPEN_AKARI_ANNOTATIONS, {
             execute: () => this.open()
         });
+        commands.registerCommand(OPEN_AKARI_REVIEW_PANEL, {
+            execute: () => this.openReviewPanel()
+        });
     }
 
     registerMenus(menus: MenuModelRegistry): void {
@@ -68,6 +73,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             label: OPEN_AKARI_ANNOTATIONS.label,
             order: 'z20'
         });
+        menus.registerMenuAction(CommonMenus.FILE, {
+            commandId: OPEN_AKARI_REVIEW_PANEL.id,
+            label: OPEN_AKARI_REVIEW_PANEL.label,
+            order: 'z21'
+        });
     }
 
     protected async watchForReview(root: URI): Promise<void> {
@@ -75,7 +85,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             for (const change of event.changes) {
                 if (change.type === FileChangeType.ADDED && change.resource.path.base === 'review.json') {
-                    void this.open();
+                    void this.openReviewPanel();
                 }
             }
         }));
@@ -86,10 +96,28 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         if (!location) {
             return undefined;
         }
+        this.review.location = location;
         const widget = await this.widgetManager.getOrCreateWidget<AkariAnnotationsWidget>(AkariAnnotationsWidget.FACTORY_ID);
         await widget.configure(location);
         if (!widget.isAttached) {
             this.shell.addWidget(widget, { area: 'bottom' });
+        }
+        await this.shell.activateWidget(widget.id);
+        return widget;
+    }
+
+    /**
+     * 注釈パネルを右サイドへ開く。データの読み込み主体はタイムライン側なので、
+     * 先にタイムラインを構成して ReviewModel を満たしてからパネルを出す。
+     */
+    async openReviewPanel(): Promise<AkariReviewPanelWidget | undefined> {
+        const timeline = await this.open();
+        if (!timeline) {
+            return undefined;
+        }
+        const widget = await this.widgetManager.getOrCreateWidget<AkariReviewPanelWidget>(AkariReviewPanelWidget.FACTORY_ID);
+        if (!widget.isAttached) {
+            this.shell.addWidget(widget, { area: 'right', rank: 100 });
         }
         await this.shell.activateWidget(widget.id);
         return widget;
