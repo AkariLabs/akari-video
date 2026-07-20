@@ -16,6 +16,7 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { AkariFileNavigatorFilter } from './akari-file-navigator-filter';
 import { AkariRoleLabelProvider } from './akari-role-label-provider';
 import { AkariAssetInspector } from './akari-asset-inspector';
+import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariProjectService).toDynamicValue(ctx =>
@@ -35,6 +36,15 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
         createWidget: () => ctx.container.get(AkariAssetInspector)
     })).inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariAssetInspector);
+
+    // 非開発者モード向けの「素材」差し替えビュー（ロール別ボタン + フラット一覧）。
+    // activity bar 上での explorer-view-container との切り替えは
+    // akari-shell-strip の AkariActivityBarCuration が担当する。
+    bind(AkariRoleBucketsWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(ctx => ({
+        id: AkariRoleBucketsWidget.ID,
+        createWidget: () => ctx.container.get(AkariRoleBucketsWidget)
+    })).inSingletonScope();
 
     bind(AkariProjectContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariProjectContribution);
