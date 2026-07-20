@@ -3,6 +3,8 @@ import { FrontendApplicationContribution, WidgetFactory, FrontendApplication } f
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsWidget } from './akari-settings-widget';
 import { AkariSettingsContribution } from './akari-settings-contribution';
+import { AkariMenuWidget } from './akari-menu-widget';
+import { AkariMenuContribution } from './akari-menu-contribution';
 import { AkariMenuCuration } from './akari-menu-curation';
 import { AkariFrontendApplication } from './akari-frontend-application';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
@@ -22,6 +24,16 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     })).inSingletonScope();
     bind(AkariSettingsContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariSettingsContribution);
+
+    // 5番目のアイコン（メニュー）— 「ひらく」よく使う画面へのショートカットと
+    // 「やらせる（スキル）」プロジェクトの .claude/skills 一覧を見せる v0
+    bind(AkariMenuWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(ctx => ({
+        id: AkariMenuWidget.ID,
+        createWidget: () => ctx.container.get(AkariMenuWidget)
+    })).inSingletonScope();
+    bind(AkariMenuContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariMenuContribution);
 
     // S17: メニューバー消し込み
     bind(AkariMenuCuration).toSelf().inSingletonScope();
