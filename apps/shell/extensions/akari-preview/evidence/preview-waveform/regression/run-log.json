@@ -1,0 +1,374 @@
+[
+  {
+    "t": "2026-07-20T01:27:51.944Z",
+    "step": "connected-main",
+    "targetId": "3FD8C69FD832BA2F6CB7F56E10CD862C"
+  },
+  {
+    "t": "2026-07-20T01:27:55.148Z",
+    "step": "opened-explorer",
+    "alreadyOpen": true,
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-20T01:28:01.360Z",
+    "step": "opened-video-tab",
+    "videoBase": "sample.mp4",
+    "found": true,
+    "collapsed": false,
+    "x": 68,
+    "y": 226
+  },
+  {
+    "t": "2026-07-20T01:28:01.784Z",
+    "step": "reached-active-frame-context",
+    "activeContextId": 2
+  },
+  {
+    "t": "2026-07-20T01:28:02.090Z",
+    "step": "layout-two-rows",
+    "seekRowTop": 541,
+    "seekRowBottom": 561,
+    "seekRowWidth": 690,
+    "controlsRowTop": 569,
+    "centerIds": [
+      "skip-back",
+      "frame-back",
+      "play-toggle",
+      "frame-forward",
+      "skip-forward"
+    ],
+    "rightIds": [
+      "zoom-toggle",
+      "fullscreen-toggle"
+    ],
+    "seekAboveControls": true
+  },
+  {
+    "t": "2026-07-20T01:28:02.091Z",
+    "step": "assert-ok",
+    "message": "seek row must be above the controls row (2-row transport)"
+  },
+  {
+    "t": "2026-07-20T01:28:02.091Z",
+    "step": "assert-ok",
+    "message": "center zone button order"
+  },
+  {
+    "t": "2026-07-20T01:28:02.091Z",
+    "step": "assert-ok",
+    "message": "right zone button order"
+  },
+  {
+    "t": "2026-07-20T01:28:02.321Z",
+    "step": "fixture-fps-duration",
+    "fps": 24,
+    "duration": 20
+  },
+  {
+    "t": "2026-07-20T01:28:02.741Z",
+    "step": "frame-forward-delta",
+    "before": 5,
+    "after": 5.041666,
+    "delta": 0.0416660000000002,
+    "expected": 0.041666666666666664
+  },
+  {
+    "t": "2026-07-20T01:28:02.742Z",
+    "step": "assert-ok",
+    "message": "frame-forward delta 0.0416660000000002 within +-0.005 of 1/fps=0.041666666666666664"
+  },
+  {
+    "t": "2026-07-20T01:28:02.932Z",
+    "step": "frame-back-delta",
+    "before": 5.041666,
+    "after": 4.999999,
+    "delta": 0.04166700000000034,
+    "expected": 0.041666666666666664
+  },
+  {
+    "t": "2026-07-20T01:28:02.932Z",
+    "step": "assert-ok",
+    "message": "frame-back delta 0.04166700000000034 within +-0.005 of 1/fps=0.041666666666666664"
+  },
+  {
+    "t": "2026-07-20T01:28:03.131Z",
+    "step": "frame-back-clamp-zero",
+    "clampedZero": 0
+  },
+  {
+    "t": "2026-07-20T01:28:03.131Z",
+    "step": "assert-ok",
+    "message": "frame-back at t=0 must clamp to 0, got 0"
+  },
+  {
+    "t": "2026-07-20T01:28:03.466Z",
+    "step": "frame-forward-clamp-duration",
+    "nearEnd": 19.99,
+    "clampedDuration": 20,
+    "duration": 20
+  },
+  {
+    "t": "2026-07-20T01:28:03.466Z",
+    "step": "assert-ok",
+    "message": "frame-forward near end must clamp to <= duration, got 20"
+  },
+  {
+    "t": "2026-07-20T01:28:03.752Z",
+    "step": "skip-forward-delta",
+    "before": 5,
+    "after": 15,
+    "delta": 10
+  },
+  {
+    "t": "2026-07-20T01:28:03.752Z",
+    "step": "assert-ok",
+    "message": "skip-forward delta 10 within +-0.05 of 10"
+  },
+  {
+    "t": "2026-07-20T01:28:03.944Z",
+    "step": "skip-back-delta",
+    "before": 15,
+    "after": 5,
+    "delta": 10
+  },
+  {
+    "t": "2026-07-20T01:28:03.944Z",
+    "step": "assert-ok",
+    "message": "skip-back delta 10 within +-0.05 of 10"
+  },
+  {
+    "t": "2026-07-20T01:28:04.184Z",
+    "step": "skip-back-clamp-zero",
+    "skipClampZero": 0
+  },
+  {
+    "t": "2026-07-20T01:28:04.184Z",
+    "step": "assert-ok",
+    "message": "skip-back near 0 must clamp to 0, got 0"
+  },
+  {
+    "t": "2026-07-20T01:28:04.499Z",
+    "step": "skip-forward-clamp-duration",
+    "skipClampDuration": 20,
+    "duration": 20
+  },
+  {
+    "t": "2026-07-20T01:28:04.499Z",
+    "step": "assert-ok",
+    "message": "skip-forward near end must clamp to <= duration, got 20"
+  },
+  {
+    "t": "2026-07-20T01:28:05.287Z",
+    "step": "frame-forward-while-playing",
+    "playingBefore": false,
+    "before": 5.349394,
+    "pausedAfter": true,
+    "after": 5.440512,
+    "delta": 0.09111799999999981
+  },
+  {
+    "t": "2026-07-20T01:28:05.287Z",
+    "step": "assert-ok",
+    "message": "video must actually be playing before the click"
+  },
+  {
+    "t": "2026-07-20T01:28:05.287Z",
+    "step": "assert-ok",
+    "message": "frame-forward during playback must pause the video"
+  },
+  {
+    "t": "2026-07-20T01:28:05.715Z",
+    "step": "zoom-popup-opened",
+    "popupOpen": true
+  },
+  {
+    "t": "2026-07-20T01:28:05.715Z",
+    "step": "assert-ok",
+    "message": "zoom popup must open after clicking zoom-toggle"
+  },
+  {
+    "t": "2026-07-20T01:28:06.280Z",
+    "step": "zoom-200-state",
+    "layerTransform": "translate(0%, 0%) scale(2)",
+    "minimapHidden": false,
+    "vpWidth": "50%",
+    "vpHeight": "50%",
+    "vpLeft": "25%",
+    "vpTop": "25%"
+  },
+  {
+    "t": "2026-07-20T01:28:06.281Z",
+    "step": "assert-ok",
+    "message": "zoom-layer transform must contain scale(2), got \"translate(0%, 0%) scale(2)\""
+  },
+  {
+    "t": "2026-07-20T01:28:06.281Z",
+    "step": "assert-ok",
+    "message": "minimap must be visible when zoomed > 1.05"
+  },
+  {
+    "t": "2026-07-20T01:28:06.281Z",
+    "step": "assert-ok",
+    "message": "minimap viewport width 50% within +-2% of 50%"
+  },
+  {
+    "t": "2026-07-20T01:28:06.281Z",
+    "step": "assert-ok",
+    "message": "minimap viewport height 50% within +-2% of 50%"
+  },
+  {
+    "t": "2026-07-20T01:28:07.399Z",
+    "step": "drag-pan",
+    "dragStart": {
+      "x": 379,
+      "y": 265.5
+    },
+    "dragEnd": {
+      "x": 241.79999999999998,
+      "y": 188.325
+    },
+    "vpBeforeDrag": {
+      "left": "25%",
+      "top": "25%"
+    },
+    "vpAfterDrag": {
+      "left": "35%",
+      "top": "34.9968%",
+      "layerTransform": "translate(-20%, -19.994%) scale(2)"
+    }
+  },
+  {
+    "t": "2026-07-20T01:28:07.399Z",
+    "step": "assert-ok",
+    "message": "minimap viewport rect must move after drag pan"
+  },
+  {
+    "t": "2026-07-20T01:28:08.171Z",
+    "step": "zoom-reset-100",
+    "layerTransform": "translate(0%, 0%) scale(1)",
+    "minimapHidden": true
+  },
+  {
+    "t": "2026-07-20T01:28:08.171Z",
+    "step": "assert-ok",
+    "message": "zoom-layer transform must contain scale(1) after reset, got \"translate(0%, 0%) scale(1)\""
+  },
+  {
+    "t": "2026-07-20T01:28:08.171Z",
+    "step": "assert-ok",
+    "message": "pan must be 0 after reset, got \"translate(0%, 0%) scale(1)\""
+  },
+  {
+    "t": "2026-07-20T01:28:08.171Z",
+    "step": "assert-ok",
+    "message": "minimap must hide again at zoom<=1.05"
+  },
+  {
+    "t": "2026-07-20T01:28:08.466Z",
+    "step": "ctrl-wheel-zoom",
+    "zoomBeforeWheel": "translate(0%, 0%) scale(1)",
+    "zoomAfterWheel": "translate(0%, 0%) scale(7.38906)"
+  },
+  {
+    "t": "2026-07-20T01:28:08.466Z",
+    "step": "assert-ok",
+    "message": "ctrl+wheel must change the zoom transform"
+  },
+  {
+    "t": "2026-07-20T01:28:09.469Z",
+    "step": "seeked-for-caption",
+    "currentTime": 3,
+    "captionText": "regression caption"
+  },
+  {
+    "t": "2026-07-20T01:28:09.469Z",
+    "step": "assert-ok",
+    "message": "caption must be visible at t=3 with the fixture captions.json"
+  },
+  {
+    "t": "2026-07-20T01:28:10.013Z",
+    "step": "caption-overlay-at-zoom-200",
+    "layerRect": {
+      "left": -307,
+      "top": -120.375,
+      "width": 1372,
+      "height": 771.75
+    },
+    "videoRect": {
+      "left": -307,
+      "top": -120.375,
+      "width": 1372,
+      "height": 771.75
+    },
+    "overlayRect": {
+      "left": -199.8125,
+      "top": 479.875,
+      "width": 1372,
+      "height": 771.75
+    },
+    "captionRect": {
+      "left": 185.50979614257812,
+      "top": 514.4094848632812,
+      "width": 386.9803771972656,
+      "height": 82.9447021484375
+    }
+  },
+  {
+    "t": "2026-07-20T01:28:12.222Z",
+    "step": "fullscreen-toggle-first-click",
+    "maximizedBefore": false,
+    "fsElementAfter": false,
+    "maximizedAfter": true
+  },
+  {
+    "t": "2026-07-20T01:28:12.382Z",
+    "step": "assert-ok",
+    "message": "fullscreen-toggle must either enter webview Fullscreen API or trigger the widget-maximize fallback"
+  },
+  {
+    "t": "2026-07-20T01:28:14.036Z",
+    "step": "fullscreen-toggle-second-click",
+    "fsElementRestored": false,
+    "maximizedRestored": false
+  },
+  {
+    "t": "2026-07-20T01:28:14.273Z",
+    "step": "assert-ok",
+    "message": "second click must restore the widget-maximize state"
+  },
+  {
+    "t": "2026-07-20T01:28:14.922Z",
+    "step": "regression-seekbar-arrow-keys",
+    "beforeArrow": 10,
+    "afterArrow": 10.005
+  },
+  {
+    "t": "2026-07-20T01:28:14.922Z",
+    "step": "assert-ok",
+    "message": "seek input must still change video.currentTime (regression: seekbar)"
+  },
+  {
+    "t": "2026-07-20T01:28:15.229Z",
+    "step": "regression-space-key",
+    "bodyFocus": true,
+    "pausedBeforeSpace": true,
+    "pausedAfterSpace": false
+  },
+  {
+    "t": "2026-07-20T01:28:15.229Z",
+    "step": "assert-ok",
+    "message": "space key must still toggle playback (regression: space key)"
+  },
+  {
+    "t": "2026-07-20T01:28:15.572Z",
+    "step": "regression-external-seek-message",
+    "externalSeekResult": 12.5
+  },
+  {
+    "t": "2026-07-20T01:28:15.572Z",
+    "step": "assert-ok",
+    "message": "external akari-preview-seek message must move currentTime to ~12.5, got 12.5"
+  }
+]

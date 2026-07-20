@@ -1,0 +1,106 @@
+{
+  "criterion1_layout": {
+    "seekRowTop": 541,
+    "seekRowBottom": 561,
+    "seekRowWidth": 690,
+    "controlsRowTop": 569,
+    "centerIds": [
+      "skip-back",
+      "frame-back",
+      "play-toggle",
+      "frame-forward",
+      "skip-forward"
+    ],
+    "rightIds": [
+      "zoom-toggle",
+      "fullscreen-toggle"
+    ],
+    "seekAboveControls": true
+  },
+  "criterion2_frame_step": {
+    "fps": 24,
+    "frameForwardDelta": 0.0416660000000002,
+    "frameBackDelta": 0.04166700000000034,
+    "clampedZero": 0,
+    "clampedDuration": 20
+  },
+  "criterion3_skip_10s": {
+    "skipForwardDelta": 10,
+    "skipBackDelta": 10,
+    "skipClampZero": 0,
+    "skipClampDuration": 20
+  },
+  "criterion4_pause_then_step": {
+    "playingBefore": false,
+    "pausedAfter": true,
+    "delta": 0.09111799999999981
+  },
+  "criterion5_zoom_pan_minimap": {
+    "zoomedState": {
+      "layerTransform": "translate(0%, 0%) scale(2)",
+      "minimapHidden": false,
+      "vpWidth": "50%",
+      "vpHeight": "50%",
+      "vpLeft": "25%",
+      "vpTop": "25%"
+    },
+    "vpBeforeDrag": {
+      "left": "25%",
+      "top": "25%"
+    },
+    "vpAfterDrag": {
+      "left": "35%",
+      "top": "34.9968%",
+      "layerTransform": "translate(-20%, -19.994%) scale(2)"
+    },
+    "resetState": {
+      "layerTransform": "translate(0%, 0%) scale(1)",
+      "minimapHidden": true
+    }
+  },
+  "criterion7_caption_overlay_scaling": {
+    "layerRect": {
+      "left": -307,
+      "top": -120.375,
+      "width": 1372,
+      "height": 771.75
+    },
+    "videoRect": {
+      "left": -307,
+      "top": -120.375,
+      "width": 1372,
+      "height": 771.75
+    },
+    "overlayRect": {
+      "left": -199.8125,
+      "top": 479.875,
+      "width": 1372,
+      "height": 771.75
+    },
+    "captionRect": {
+      "left": 185.50979614257812,
+      "top": 514.4094848632812,
+      "width": 386.9803771972656,
+      "height": 82.9447021484375
+    }
+  },
+  "criterion8_fullscreen": {
+    "fullscreenPath": "widget-maximize-fallback",
+    "maximizedBefore": false,
+    "fsElementAfter": false,
+    "maximizedAfter": true,
+    "fsElementRestored": false,
+    "maximizedRestored": false
+  },
+  "criterion9_regressions_partial": {
+    "seekbarArrowKeys": {
+      "beforeArrow": 10,
+      "afterArrow": 10.005
+    },
+    "spaceKey": {
+      "pausedBeforeSpace": true,
+      "pausedAfterSpace": false
+    },
+    "externalSeek": 12.5
+  }
+}

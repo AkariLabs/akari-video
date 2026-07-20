@@ -52,12 +52,18 @@ interface OverlayWriteRequest {
     };
 }
 
+interface WaveformFetchRequest {
+    type: 'akari-preview-waveform-fetch';
+    requestId: string;
+}
+
 interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewConfigured?: boolean;
     akariPreviewConfiguration?: Promise<void>;
     akariPreviewRefresh?: Promise<void>;
     akariPreviewCaptionsUpdate?: Promise<void>;
     akariPreviewEditUri?: URI;
+    akariPreviewVideoUri?: URI;
     akariPreviewCaptionsUri?: URI;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewStreamId?: string;
@@ -188,6 +194,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected async doConfigurePreview(widget: PreviewWidgetMarker, videoUri: URI): Promise<void> {
         const seekKey = videoUri.normalizePath().toString();
         this.openPreviews.set(seekKey, widget);
+        widget.akariPreviewVideoUri = videoUri;
         await this.refreshPreview(widget, videoUri);
 
         if (widget.akariPreviewConfigured) {
@@ -198,6 +205,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         disposables.push(widget.onMessage(message => {
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
+            }
+            if (this.isWaveformFetchRequest(message)) {
+                void this.handleWaveformFetch(widget, message);
             }
             if (message?.type === 'akari-preview-fullscreen-fallback') {
                 this.shell.toggleMaximized(widget);
@@ -587,6 +597,34 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && typeof message.patch === 'object';
     }
 
+    protected async handleWaveformFetch(widget: PreviewWidgetMarker, request: WaveformFetchRequest): Promise<void> {
+        try {
+            const videoUri = widget.akariPreviewVideoUri;
+            if (!videoUri) {
+                throw new Error('波形を生成する動画がありません');
+            }
+            const content = await this.fileService.readFile(videoUri);
+            widget.sendMessage({
+                type: 'akari-preview-waveform-fetch-response',
+                requestId: request.requestId,
+                ok: true,
+                dataBase64: this.toBase64(content.value.buffer)
+            });
+        } catch (error) {
+            widget.sendMessage({
+                type: 'akari-preview-waveform-fetch-response',
+                requestId: request.requestId,
+                ok: false,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    protected isWaveformFetchRequest(message: any): message is WaveformFetchRequest {
+        return message?.type === 'akari-preview-waveform-fetch'
+            && typeof message.requestId === 'string';
+    }
+
     protected prepareHtml(
         videoUri: URI,
         videoSource: string,
@@ -638,10 +676,15 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .field input { width: 100%; border: 1px solid #4a4a4a; border-radius: 4px; padding: 7px 8px; background: #111; color: #fff; }
 .empty { color: #999; font-size: 12px; }
 .transport { display: grid; gap: 8px; padding: 9px 14px 10px; border-top: 1px solid #303030; background: #202020; }
+.transport-waveform { position: relative; width: 100%; height: 56px; overflow: hidden; border-top: 1px solid #303030; background: #181818; cursor: pointer; touch-action: none; }
+.transport-waveform[hidden] { display: none; }
+#waveform-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.transport-waveform-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: rgba(255, 255, 255, 0.9); pointer-events: none; }
 .transport-seek { display: flex; width: 100%; }
 .transport-seek input { width: 100%; }
 .transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; }
-.transport-center, .transport-right { display: flex; align-items: center; gap: 8px; }
+.transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 8px; }
+.transport-left { min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
 .icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; cursor: pointer; }
@@ -676,11 +719,18 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   </aside>
 </main>
 <div class="transport">
+  <div class="transport-waveform" hidden>
+    <canvas id="waveform-canvas" aria-label="音声波形"></canvas>
+    <div class="transport-waveform-playhead" aria-hidden="true"></div>
+  </div>
   <div class="transport-seek">
     <input id="seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置">
   </div>
   <div class="transport-controls">
-    <span id="time-label">0:00 / 0:00</span>
+    <div class="transport-left">
+      <button id="waveform-toggle" class="icon-button" type="button" aria-label="波形" title="波形" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <span id="time-label">0:00 / 0:00</span>
+    </div>
     <div class="transport-center">
       <button id="skip-back" class="icon-button" type="button" aria-label="10秒戻る" title="10秒戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
       <button id="frame-back" class="icon-button" type="button" aria-label="1コマ戻る" title="1コマ戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM18 5v14l-9-7z"/></svg></button>
@@ -752,8 +802,13 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.engine = {
                 overlayWrite: (_editPath, overlayId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
-                    pending.set(requestId, { resolve, reject });
+                    pending.set(requestId, { kind: 'overlay-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-overlay-write', requestId, overlayId, patch });
+                }),
+                readWaveformBytes: () => new Promise((resolve, reject) => {
+                    const requestId = 'akari-preview-waveform-' + (++sequence);
+                    pending.set(requestId, { kind: 'waveform-fetch', resolve, reject });
+                    vscode.postMessage({ type: 'akari-preview-waveform-fetch', requestId });
                 })
             };
             window.akari.stageScale = () => displayScale;
@@ -773,12 +828,36 @@ body { display: grid; place-items: center; padding: 32px; }
 
             window.addEventListener('message', event => {
                 const message = event.data;
-                if (!message || message.type !== 'akari-preview-overlay-write-response') return;
+                if (!message || (message.type !== 'akari-preview-overlay-write-response'
+                    && message.type !== 'akari-preview-waveform-fetch-response')) return;
                 const request = pending.get(message.requestId);
                 if (!request) return;
+                const expectedType = request.kind === 'waveform-fetch'
+                    ? 'akari-preview-waveform-fetch-response'
+                    : 'akari-preview-overlay-write-response';
+                if (message.type !== expectedType) return;
                 pending.delete(message.requestId);
-                if (message.ok) request.resolve(undefined);
-                else request.reject(new Error(message.error || 'edit.json の書き込みに失敗しました'));
+                if (!message.ok) {
+                    const fallback = request.kind === 'waveform-fetch'
+                        ? '動画データの読み込みに失敗しました'
+                        : 'edit.json の書き込みに失敗しました';
+                    request.reject(new Error(message.error || fallback));
+                    return;
+                }
+                if (request.kind !== 'waveform-fetch') {
+                    request.resolve(undefined);
+                    return;
+                }
+                try {
+                    const binary = atob(String(message.dataBase64 || ''));
+                    const bytes = new Uint8Array(binary.length);
+                    for (let index = 0; index < binary.length; index += 1) {
+                        bytes[index] = binary.charCodeAt(index);
+                    }
+                    request.resolve(bytes.buffer);
+                } catch (error) {
+                    request.reject(error);
+                }
             });
 
             const updateStageScale = () => {
@@ -801,6 +880,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const frameForward = document.getElementById('frame-forward');
             const skipBack = document.getElementById('skip-back');
             const skipForward = document.getElementById('skip-forward');
+            const waveformToggle = document.getElementById('waveform-toggle');
+            const waveformRow = document.querySelector('.transport-waveform');
+            const waveformCanvas = document.getElementById('waveform-canvas');
+            const waveformPlayhead = document.querySelector('.transport-waveform-playhead');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
             const seek = document.getElementById('seek');
@@ -835,6 +918,11 @@ body { display: grid; place-items: center; padding: 32px; }
             let pan = { x: 0, y: 0 };
             let drag = null;
             let suppressClick = false;
+            let waveformState = 'idle';
+            let waveformAudioBuffer = null;
+            let waveformPeaks = null;
+            let waveformResizeTimer = 0;
+            let waveformDragPointer = null;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
             const zoomToSlider = value => {
@@ -899,6 +987,138 @@ body { display: grid; place-items: center; padding: 32px; }
                 playToggle.setAttribute('aria-label', label);
                 playToggle.title = label;
             };
+            const waveformBinCount = () => {
+                const raw = Math.max(96, Math.min(1024, Math.ceil(waveformRow.clientWidth / 2)));
+                return Math.max(96, Math.round(raw / 8) * 8);
+            };
+            const aggregateWaveform = widthBins => {
+                if (!waveformAudioBuffer || widthBins <= 0) return null;
+                const total = waveformAudioBuffer.length;
+                const samplesPerBin = total / widthBins;
+                const peaks = new Float32Array(widthBins);
+                const rms = new Float32Array(widthBins);
+                const channel = waveformAudioBuffer.getChannelData(0);
+                let globalMax = 0;
+                let rmsMax = 0;
+                for (let bin = 0; bin < widthBins; bin += 1) {
+                    const start = Math.floor(bin * samplesPerBin);
+                    const end = Math.min(total, Math.floor((bin + 1) * samplesPerBin));
+                    let peak = 0;
+                    let sumSquares = 0;
+                    let count = 0;
+                    for (let index = start; index < end; index += 1) {
+                        const value = Math.abs(channel[index]);
+                        if (value > peak) peak = value;
+                        sumSquares += value * value;
+                        count += 1;
+                    }
+                    const rootMeanSquare = count > 0 ? Math.sqrt(sumSquares / count) : 0;
+                    peaks[bin] = peak;
+                    rms[bin] = rootMeanSquare;
+                    if (peak > globalMax) globalMax = peak;
+                    if (rootMeanSquare > rmsMax) rmsMax = rootMeanSquare;
+                }
+                return { peaks, rms, globalMax, rmsMax };
+            };
+            const prepareWaveformCanvas = () => {
+                const dpr = Math.min(2, window.devicePixelRatio || 1);
+                const width = Math.max(1, Math.floor(waveformRow.clientWidth));
+                const height = Math.max(1, Math.floor(waveformRow.clientHeight));
+                waveformCanvas.width = Math.floor(width * dpr);
+                waveformCanvas.height = Math.floor(height * dpr);
+                waveformCanvas.style.width = width + 'px';
+                waveformCanvas.style.height = height + 'px';
+                const context = waveformCanvas.getContext('2d');
+                if (!context) return null;
+                context.setTransform(dpr, 0, 0, dpr, 0, 0);
+                context.fillStyle = '#181818';
+                context.fillRect(0, 0, width, height);
+                context.fillStyle = 'rgba(255,255,255,0.06)';
+                context.fillRect(0, height / 2 - 0.5, width, 1);
+                return { context, width, height };
+            };
+            const drawWaveformMessage = message => {
+                const drawing = prepareWaveformCanvas();
+                if (!drawing) return;
+                drawing.context.fillStyle = '#999';
+                drawing.context.font = '12px system-ui, sans-serif';
+                drawing.context.textAlign = 'center';
+                drawing.context.textBaseline = 'middle';
+                drawing.context.fillText(message, drawing.width / 2, drawing.height / 2);
+            };
+            const drawWaveform = () => {
+                if (waveformState === 'loading') {
+                    drawWaveformMessage('波形を生成中…');
+                    return;
+                }
+                if (waveformState === 'error') {
+                    drawWaveformMessage('この動画の波形は生成できません');
+                    return;
+                }
+                const drawing = prepareWaveformCanvas();
+                if (!drawing || !waveformPeaks) return;
+                const { context, width, height } = drawing;
+                const maximum = Math.max(0.012, waveformPeaks.rmsMax * 1.08);
+                const barWidth = Math.max(1, width / Math.max(1, waveformPeaks.rms.length));
+                for (let index = 0; index < waveformPeaks.rms.length; index += 1) {
+                    const normalized = Math.min(1, waveformPeaks.rms[index] / maximum);
+                    const compressed = Math.pow(normalized, 0.62);
+                    const barHeight = Math.max(1, compressed * (height - 10));
+                    const x0 = Math.floor(index * barWidth);
+                    const x1 = Math.max(x0 + 1, Math.ceil((index + 1) * barWidth) - 1);
+                    context.fillStyle = waveformPeaks.peaks[index] >= 0.92 ? '#f97316' : '#22d3ee';
+                    context.fillRect(x0, height / 2 - barHeight / 2, x1 - x0, barHeight);
+                }
+            };
+            const waitForWaveformMetadata = () => {
+                if (video.readyState >= 1) return Promise.resolve();
+                return new Promise((resolve, reject) => {
+                    const cleanup = () => {
+                        video.removeEventListener('loadedmetadata', onLoaded);
+                        video.removeEventListener('error', onError);
+                    };
+                    const onLoaded = () => {
+                        cleanup();
+                        resolve();
+                    };
+                    const onError = () => {
+                        cleanup();
+                        reject(new Error('video metadata unavailable'));
+                    };
+                    video.addEventListener('loadedmetadata', onLoaded);
+                    video.addEventListener('error', onError);
+                });
+            };
+            const loadWaveform = async () => {
+                if (waveformState !== 'idle') return;
+                waveformState = 'loading';
+                drawWaveform();
+                let context = null;
+                try {
+                    await waitForWaveformMetadata();
+                    const bytes = await window.akari.engine.readWaveformBytes();
+                    context = new AudioContext();
+                    waveformAudioBuffer = await context.decodeAudioData(bytes.slice(0));
+                    await context.close().catch(() => undefined);
+                    context = null;
+                    waveformPeaks = aggregateWaveform(waveformBinCount());
+                    if (!waveformPeaks) throw new Error('waveform contains no audio samples');
+                    waveformState = 'ready';
+                    drawWaveform();
+                } catch (error) {
+                    if (context) await context.close().catch(() => undefined);
+                    waveformAudioBuffer = null;
+                    waveformPeaks = null;
+                    waveformState = 'error';
+                    drawWaveform();
+                    console.error('[akari-preview] waveform generation failed', error);
+                }
+            };
+            const updateWaveformPlayhead = () => {
+                const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+                const position = duration > 0 ? clamp((video.currentTime || 0) / duration, 0, 1) : 0;
+                waveformPlayhead.style.left = (position * 100) + '%';
+            };
             const renderCaption = () => {
                 const time = video.currentTime || 0;
                 const caption = captions.find(candidate => candidate.start <= time && time < candidate.end);
@@ -908,6 +1128,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari.runtime.tick(video.currentTime || 0, !video.paused);
                 renderCaption();
                 updateTransport();
+                updateWaveformPlayhead();
             };
             const animate = () => {
                 tick();
@@ -949,6 +1170,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 frameForward.disabled = true;
                 skipBack.disabled = true;
                 skipForward.disabled = true;
+                waveformToggle.disabled = true;
                 zoomToggle.disabled = true;
                 fullscreenToggle.disabled = true;
                 seek.disabled = true;
@@ -977,6 +1199,58 @@ body { display: grid; place-items: center; padding: 32px; }
             frameForward.addEventListener('click', () => nudgeFrame(1));
             skipBack.addEventListener('click', () => skipSeconds(-10));
             skipForward.addEventListener('click', () => skipSeconds(10));
+            waveformToggle.addEventListener('click', () => {
+                const show = waveformRow.hidden;
+                waveformRow.hidden = !show;
+                waveformToggle.setAttribute('aria-pressed', String(show));
+                if (!show) return;
+                drawWaveform();
+                updateWaveformPlayhead();
+                void loadWaveform();
+            });
+            new ResizeObserver(() => {
+                window.clearTimeout(waveformResizeTimer);
+                waveformResizeTimer = window.setTimeout(() => {
+                    if (waveformRow.hidden) return;
+                    if (waveformState === 'ready') {
+                        waveformPeaks = aggregateWaveform(waveformBinCount());
+                    }
+                    drawWaveform();
+                }, 300);
+            }).observe(waveformRow);
+            const seekFromWaveformPointer = event => {
+                const rect = waveformCanvas.getBoundingClientRect();
+                const duration = videoDuration();
+                if (rect.width <= 0 || duration <= 0) return;
+                const fraction = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+                video.currentTime = fraction * duration;
+                tick();
+            };
+            waveformCanvas.addEventListener('pointerdown', event => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                waveformDragPointer = event.pointerId;
+                waveformCanvas.setPointerCapture(event.pointerId);
+                seekFromWaveformPointer(event);
+            });
+            waveformCanvas.addEventListener('pointermove', event => {
+                if (waveformDragPointer !== event.pointerId) return;
+                event.preventDefault();
+                seekFromWaveformPointer(event);
+            });
+            const finishWaveformSeek = event => {
+                if (waveformDragPointer !== event.pointerId) return;
+                seekFromWaveformPointer(event);
+                waveformDragPointer = null;
+                if (waveformCanvas.hasPointerCapture(event.pointerId)) {
+                    waveformCanvas.releasePointerCapture(event.pointerId);
+                }
+            };
+            waveformCanvas.addEventListener('pointerup', finishWaveformSeek);
+            waveformCanvas.addEventListener('pointercancel', event => {
+                if (waveformDragPointer !== event.pointerId) return;
+                waveformDragPointer = null;
+            });
             zoomToggle.addEventListener('click', () => {
                 zoomPopup.hidden = !zoomPopup.hidden;
                 zoomToggle.setAttribute('aria-expanded', String(!zoomPopup.hidden));
@@ -1204,6 +1478,15 @@ body { display: grid; place-items: center; padding: 32px; }
 
     protected readText(uri: URI): Promise<string> {
         return this.fileService.readFile(uri).then(content => content.value.toString());
+    }
+
+    protected toBase64(bytes: Uint8Array): string {
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+        }
+        return btoa(binary);
     }
 
     protected transform(value: any): OverlayTransform {

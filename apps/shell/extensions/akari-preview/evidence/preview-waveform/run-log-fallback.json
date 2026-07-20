@@ -1,0 +1,93 @@
+[
+  {
+    "at": "2026-07-20T01:15:29.837Z",
+    "step": "opened-video",
+    "fileName": "no-audio.mp4",
+    "workspace": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-preview-waveform-strip/217aaf3c-ca3e-4540-af2f-0050c58ff61b/scratchpad/waveform-l1/workspace"
+  },
+  {
+    "at": "2026-07-20T01:15:30.273Z",
+    "step": "initial-state",
+    "hidden": true,
+    "pressed": "false",
+    "left": [
+      "waveform-toggle",
+      "time-label"
+    ]
+  },
+  {
+    "at": "2026-07-20T01:15:30.273Z",
+    "step": "assert-ok",
+    "message": "waveform row starts hidden and aria-pressed=false"
+  },
+  {
+    "at": "2026-07-20T01:15:30.273Z",
+    "step": "assert-ok",
+    "message": "waveform toggle is first in the left zone"
+  },
+  {
+    "at": "2026-07-20T01:15:30.435Z",
+    "step": "visible-layout",
+    "hidden": false,
+    "pressed": "true",
+    "height": 56,
+    "width": 690,
+    "seekWidth": 690,
+    "rowBottom": 533,
+    "seekTop": 541
+  },
+  {
+    "at": "2026-07-20T01:15:30.436Z",
+    "step": "assert-ok",
+    "message": "aria-pressed follows the visible state"
+  },
+  {
+    "at": "2026-07-20T01:15:30.439Z",
+    "step": "assert-ok",
+    "message": "waveform row height is 56px (actual 56)"
+  },
+  {
+    "at": "2026-07-20T01:15:30.439Z",
+    "step": "assert-ok",
+    "message": "waveform and seek rows have equal width"
+  },
+  {
+    "at": "2026-07-20T01:15:30.439Z",
+    "step": "assert-ok",
+    "message": "waveform row is immediately above the seek row"
+  },
+  {
+    "at": "2026-07-20T01:15:30.465Z",
+    "step": "fallback-state",
+    "gray": 2534,
+    "cyan": 0,
+    "playDisabled": false,
+    "seekDisabled": false,
+    "waveformDisabled": false,
+    "drawnTexts": [
+      "波形を生成中…",
+      "この動画の波形は生成できません"
+    ]
+  },
+  {
+    "at": "2026-07-20T01:15:30.466Z",
+    "step": "assert-ok",
+    "message": "canvas draws the exact no-audio fallback text"
+  },
+  {
+    "at": "2026-07-20T01:15:30.466Z",
+    "step": "assert-ok",
+    "message": "transport remains enabled when audio decoding fails"
+  },
+  {
+    "at": "2026-07-20T01:15:30.805Z",
+    "step": "closed-state",
+    "hidden": true,
+    "pressed": "false"
+  },
+  {
+    "at": "2026-07-20T01:15:30.805Z",
+    "step": "assert-ok",
+    "message": "second toggle hides the row and resets aria-pressed"
+  }
+]

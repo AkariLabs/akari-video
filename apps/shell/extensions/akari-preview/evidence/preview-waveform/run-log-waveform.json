@@ -1,0 +1,110 @@
+[
+  {
+    "at": "2026-07-20T01:15:02.427Z",
+    "step": "opened-video",
+    "fileName": "sample.mp4",
+    "workspace": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-preview-waveform-strip/217aaf3c-ca3e-4540-af2f-0050c58ff61b/scratchpad/waveform-l1/workspace"
+  },
+  {
+    "at": "2026-07-20T01:15:02.855Z",
+    "step": "initial-state",
+    "hidden": true,
+    "pressed": "false",
+    "left": [
+      "waveform-toggle",
+      "time-label"
+    ]
+  },
+  {
+    "at": "2026-07-20T01:15:02.855Z",
+    "step": "assert-ok",
+    "message": "waveform row starts hidden and aria-pressed=false"
+  },
+  {
+    "at": "2026-07-20T01:15:02.855Z",
+    "step": "assert-ok",
+    "message": "waveform toggle is first in the left zone"
+  },
+  {
+    "at": "2026-07-20T01:15:03.058Z",
+    "step": "visible-layout",
+    "hidden": false,
+    "pressed": "true",
+    "height": 56,
+    "width": 690,
+    "seekWidth": 690,
+    "rowBottom": 533,
+    "seekTop": 541
+  },
+  {
+    "at": "2026-07-20T01:15:03.058Z",
+    "step": "assert-ok",
+    "message": "aria-pressed follows the visible state"
+  },
+  {
+    "at": "2026-07-20T01:15:03.058Z",
+    "step": "assert-ok",
+    "message": "waveform row height is 56px (actual 56)"
+  },
+  {
+    "at": "2026-07-20T01:15:03.058Z",
+    "step": "assert-ok",
+    "message": "waveform and seek rows have equal width"
+  },
+  {
+    "at": "2026-07-20T01:15:03.058Z",
+    "step": "assert-ok",
+    "message": "waveform row is immediately above the seek row"
+  },
+  {
+    "at": "2026-07-20T01:15:03.681Z",
+    "step": "waveform-pixels",
+    "cyan": 7528,
+    "orange": 29000,
+    "nonBackground": 39288,
+    "width": 1380,
+    "height": 110
+  },
+  {
+    "at": "2026-07-20T01:15:03.682Z",
+    "step": "assert-ok",
+    "message": "canvas contains waveform pixels above the background"
+  },
+  {
+    "at": "2026-07-20T01:15:05.991Z",
+    "step": "waveform-seek-25-percent",
+    "currentTime": 5,
+    "duration": 20
+  },
+  {
+    "at": "2026-07-20T01:15:05.991Z",
+    "step": "assert-ok",
+    "message": "25% waveform click seeks to 25% of duration within 0.3s"
+  },
+  {
+    "at": "2026-07-20T01:15:07.131Z",
+    "step": "playhead-samples",
+    "playhead": [
+      26.3571,
+      27.5997,
+      28.9343,
+      30.1792
+    ]
+  },
+  {
+    "at": "2026-07-20T01:15:07.134Z",
+    "step": "assert-ok",
+    "message": "playhead left percentage increases during playback"
+  },
+  {
+    "at": "2026-07-20T01:15:07.389Z",
+    "step": "closed-state",
+    "hidden": true,
+    "pressed": "false"
+  },
+  {
+    "at": "2026-07-20T01:15:07.389Z",
+    "step": "assert-ok",
+    "message": "second toggle hides the row and resets aria-pressed"
+  }
+]
