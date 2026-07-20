@@ -1,0 +1,385 @@
+[
+  {
+    "t": "2026-07-20T12:23:26.262Z",
+    "step": "connected-main",
+    "targetId": "2609771F8AEC6006077303013DCD73A2"
+  },
+  {
+    "t": "2026-07-20T12:23:27.264Z",
+    "step": "opened-explorer",
+    "alreadyOpen": false,
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-20T12:23:27.271Z",
+    "step": "expanded-folder",
+    "videoDir": "exports",
+    "found": true,
+    "collapsed": false,
+    "x": 68,
+    "y": 94
+  },
+  {
+    "t": "2026-07-20T12:23:29.351Z",
+    "step": "opened-video-tab",
+    "videoBase": "sample.mp4",
+    "found": true,
+    "collapsed": false,
+    "x": 68,
+    "y": 182
+  },
+  {
+    "t": "2026-07-20T12:23:29.583Z",
+    "step": "reached-active-frame-context-initial",
+    "contextId": 2
+  },
+  {
+    "t": "2026-07-20T12:23:30.791Z",
+    "step": "phaseA-initial-state",
+    "readyState": 4,
+    "currentTime": 2,
+    "duration": 30,
+    "seekMax": "11",
+    "cuts": [
+      {
+        "in": 2,
+        "out": 6
+      },
+      {
+        "in": 12,
+        "out": 15
+      },
+      {
+        "in": 20,
+        "out": 24
+      }
+    ]
+  },
+  {
+    "t": "2026-07-20T12:23:33.801Z",
+    "step": "phaseA-playback-samples",
+    "count": 178,
+    "finalTime": 24,
+    "endedPaused": true,
+    "firstTen": [
+      2.003,
+      2.103,
+      2.163,
+      2.23,
+      2.292,
+      2.363,
+      2.429,
+      2.494,
+      2.563,
+      2.631
+    ],
+    "lastTen": [
+      23.484,
+      23.548,
+      23.615,
+      23.681,
+      23.751,
+      23.825,
+      23.884,
+      23.949,
+      24.015,
+      24
+    ]
+  },
+  {
+    "t": "2026-07-20T12:23:33.837Z",
+    "step": "phaseA-out-of-range-check",
+    "outOfRangeCount": 0,
+    "outOfRangeSample": []
+  },
+  {
+    "t": "2026-07-20T12:23:34.674Z",
+    "step": "phaseA-overlay-caption-timeline-domain",
+    "beforeOverlayWindow": {
+      "label": "source=2.5 (timeline=0.5, before overlay window [1,3))",
+      "sourceTime": 2.5,
+      "overlayVisible": "hidden",
+      "captionText": ""
+    },
+    "insideOverlayWindow": {
+      "label": "source=3.5 (timeline=1.5, inside overlay window [1,3) and caption [3,4))",
+      "sourceTime": 3.5,
+      "overlayVisible": "visible",
+      "captionText": "cap-in-cut1"
+    },
+    "afterOverlayWindow": {
+      "label": "source=5.5 (timeline=3.5, after overlay window)",
+      "sourceTime": 5.5,
+      "overlayVisible": "hidden",
+      "captionText": ""
+    },
+    "insideCaption2": {
+      "label": "source=13.5 (inside cap-in-cut2 [13,14))",
+      "sourceTime": 13.5,
+      "overlayVisible": "hidden",
+      "captionText": "cap-in-cut2"
+    }
+  },
+  {
+    "t": "2026-07-20T12:23:34.895Z",
+    "step": "phaseA-seekbar-timeline-to-source",
+    "seekValue": "5.5",
+    "currentTime": 13.5
+  },
+  {
+    "t": "2026-07-20T12:23:35.031Z",
+    "step": "phaseA-external-seek-source-domain",
+    "currentTime": 13
+  },
+  {
+    "t": "2026-07-20T12:23:35.316Z",
+    "step": "phaseA-space-toggle",
+    "wasPaused": true,
+    "isPausedAfter": false
+  },
+  {
+    "t": "2026-07-20T12:23:35.363Z",
+    "step": "phaseB-wrote-trim",
+    "newCut0": {
+      "in": 2,
+      "out": 4
+    }
+  },
+  {
+    "t": "2026-07-20T12:23:35.732Z",
+    "step": "phaseB-reached-active-frame-context",
+    "contextId": 3
+  },
+  {
+    "t": "2026-07-20T12:23:36.535Z",
+    "step": "phaseB-post-reload-state",
+    "currentTime": 2,
+    "seekMax": "9",
+    "cuts": [
+      {
+        "in": 2,
+        "out": 4
+      },
+      {
+        "in": 12,
+        "out": 15
+      },
+      {
+        "in": 20,
+        "out": 24
+      }
+    ]
+  },
+  {
+    "t": "2026-07-20T12:23:38.718Z",
+    "step": "phaseB-boundary-jump-samples",
+    "samples": [
+      3.501,
+      3.513,
+      3.581,
+      3.641,
+      3.71,
+      3.773,
+      3.845,
+      3.908,
+      3.976,
+      4.044,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12.023,
+      12.087,
+      12.157,
+      12.224,
+      12.29,
+      12.356,
+      12.424,
+      12.493,
+      12.553,
+      12.624,
+      12.69,
+      12.755,
+      12.823,
+      12.888,
+      12.955,
+      13.023,
+      13.09,
+      13.157,
+      13.223,
+      13.29,
+      13.357,
+      13.423,
+      13.491,
+      13.552,
+      13.623,
+      13.69,
+      13.753,
+      13.824,
+      13.89,
+      13.957,
+      14.023,
+      14.09,
+      14.157,
+      14.22,
+      14.29,
+      14.356,
+      14.423,
+      14.49,
+      14.556,
+      14.621,
+      14.69,
+      14.756,
+      14.824,
+      14.89,
+      14.956,
+      15.022,
+      20,
+      20,
+      20,
+      20,
+      20.03,
+      20.097,
+      20.164,
+      20.23,
+      20.297,
+      20.363,
+      20.428,
+      20.497,
+      20.564,
+      20.63,
+      20.697,
+      20.764,
+      20.83,
+      20.897,
+      20.963,
+      21.03,
+      21.094,
+      21.164,
+      21.227,
+      21.294,
+      21.363,
+      21.43,
+      21.497,
+      21.563,
+      21.63,
+      21.697,
+      21.764,
+      21.83,
+      21.897,
+      21.964,
+      22.03,
+      22.097,
+      22.163,
+      22.23,
+      22.298,
+      22.363,
+      22.43,
+      22.497,
+      22.564,
+      22.63,
+      22.697,
+      22.764,
+      22.828,
+      22.897,
+      22.963,
+      23.03,
+      23.097,
+      23.164,
+      23.23,
+      23.297,
+      23.364,
+      23.43,
+      23.496,
+      23.564,
+      23.63,
+      23.698,
+      23.76,
+      23.828,
+      23.897,
+      23.965,
+      24.03,
+      24
+    ]
+  },
+  {
+    "t": "2026-07-20T12:23:38.944Z",
+    "step": "phaseC-wrote-reorder",
+    "newCutsOrder": [
+      {
+        "in": 12,
+        "out": 15
+      },
+      {
+        "in": 20,
+        "out": 24
+      },
+      {
+        "in": 2,
+        "out": 4
+      }
+    ]
+  },
+  {
+    "t": "2026-07-20T12:23:39.341Z",
+    "step": "phaseC-reached-active-frame-context",
+    "contextId": 4
+  },
+  {
+    "t": "2026-07-20T12:23:40.145Z",
+    "step": "phaseC-post-reload-state",
+    "currentTime": 12,
+    "cuts": [
+      {
+        "in": 12,
+        "out": 15
+      },
+      {
+        "in": 20,
+        "out": 24
+      },
+      {
+        "in": 2,
+        "out": 4
+      }
+    ]
+  },
+  {
+    "t": "2026-07-20T12:23:42.644Z",
+    "step": "phaseC-reordered-playback-summary",
+    "count": 150,
+    "finalTime": 4,
+    "endedPaused": true,
+    "first": 12.002,
+    "last": 4
+  },
+  {
+    "t": "2026-07-20T12:23:42.885Z",
+    "step": "phaseD-wrote-empty-cuts"
+  },
+  {
+    "t": "2026-07-20T12:23:43.198Z",
+    "step": "phaseD-reached-active-frame-context",
+    "contextId": 5
+  },
+  {
+    "t": "2026-07-20T12:23:44.403Z",
+    "step": "phaseD-post-reload-state",
+    "currentTime": 0,
+    "seekMax": "30",
+    "duration": 30
+  },
+  {
+    "t": "2026-07-20T12:23:47.591Z",
+    "step": "phaseD-full-playback-samples",
+    "first": 8.046,
+    "last": 20.042
+  },
+  {
+    "t": "2026-07-20T12:23:47.821Z",
+    "step": "ALL-PASS",
+    "ok": true
+  }
+]

@@ -27,9 +27,15 @@ interface EditSummaryOverlay {
     vars: Record<string, string>;
 }
 
+interface EditSummaryCut {
+    in: number;
+    out: number;
+}
+
 interface EditSummary {
     output: { width: number; height: number; fps?: number };
     overlays: EditSummaryOverlay[];
+    cuts: EditSummaryCut[];
 }
 
 interface PreviewModel {
@@ -83,7 +89,8 @@ interface TranscriptSeekRequest {
 
 const EMPTY_SUMMARY: EditSummary = {
     output: { width: 1280, height: 720, fps: 30 },
-    overlays: []
+    overlays: [],
+    cuts: []
 };
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const PLAYABLE_VIDEO_MIME_TYPES = new Map<string, string>([
@@ -348,6 +355,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const edit = JSON.parse(await this.readText(editUri));
             const width = this.positiveNumber(edit?.output?.width, EMPTY_SUMMARY.output.width);
             const height = this.positiveNumber(edit?.output?.height, EMPTY_SUMMARY.output.height);
+            const cuts: EditSummaryCut[] = [];
+            for (const value of Array.isArray(edit?.cuts) ? edit.cuts : []) {
+                const inSeconds = this.finiteNumber(value?.in, NaN);
+                const outSeconds = this.finiteNumber(value?.out, NaN);
+                if (Number.isFinite(inSeconds) && Number.isFinite(outSeconds) && outSeconds > inSeconds) {
+                    cuts.push({ in: inSeconds, out: outSeconds });
+                } else {
+                    console.warn('[akari-preview] cuts entry を無視しました（in/out 不正）', value);
+                }
+            }
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
             for (const value of Array.isArray(edit?.overlays) ? edit.overlays : []) {
@@ -382,7 +399,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 captions,
                 summary: {
                     output: { width, height, fps: this.positiveNumber(edit?.output?.fps, 30) },
-                    overlays
+                    overlays,
+                    cuts
                 }
             };
         } catch (error) {
@@ -914,6 +932,11 @@ body { display: grid; place-items: center; padding: 32px; }
             const restoreIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4V7h3V4zm6 0h2v3h3v2h-5zM4 15h5v5H7v-3H4zm16 0v2h-3v3h-2v-5z"></path></svg>';
             let captions = Array.isArray(initial.captions) ? initial.captions : [];
             let animationFrame = 0;
+            let keepRanges = [];
+            let timelineOffsets = [];
+            let totalTimelineDuration = 0;
+            let currentSegmentIndex = 0;
+            let keepRangesReady = false;
             let zoom = 1;
             let pan = { x: 0, y: 0 };
             let drag = null;
@@ -925,6 +948,103 @@ body { display: grid; place-items: center; padding: 32px; }
             let waveformDragPointer = null;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+            const buildExplicitKeepRanges = () => {
+                const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
+                const valid = [];
+                for (const candidate of rawCuts) {
+                    const start = Number(candidate && candidate.in);
+                    const end = Number(candidate && candidate.out);
+                    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+                        valid.push({ in: start, out: end });
+                    }
+                }
+                return valid;
+            };
+            const rebuildKeepRanges = () => {
+                const explicit = buildExplicitKeepRanges();
+                if (explicit.length > 0) {
+                    keepRanges = explicit;
+                } else {
+                    const duration = videoDuration();
+                    keepRanges = duration > 0 ? [{ in: 0, out: duration }] : [];
+                }
+                timelineOffsets = [];
+                let accumulated = 0;
+                for (const range of keepRanges) {
+                    timelineOffsets.push(accumulated);
+                    accumulated += range.out - range.in;
+                }
+                totalTimelineDuration = accumulated;
+                keepRangesReady = keepRanges.length > 0;
+                if (currentSegmentIndex >= keepRanges.length) {
+                    currentSegmentIndex = Math.max(0, keepRanges.length - 1);
+                }
+            };
+            const findSegmentForSource = sourceTime => keepRanges.findIndex(
+                range => sourceTime >= range.in && sourceTime < range.out
+            );
+            const clampSourceTime = (sourceTime, preferredIndex) => {
+                const preferred = keepRanges[preferredIndex];
+                if (preferred && sourceTime >= preferred.in && sourceTime < preferred.out) {
+                    return { index: preferredIndex, time: sourceTime, ended: false };
+                }
+                const hit = findSegmentForSource(sourceTime);
+                if (hit !== -1) {
+                    return { index: hit, time: sourceTime, ended: false };
+                }
+                if (preferred && sourceTime >= preferred.out) {
+                    const nextIndex = preferredIndex + 1;
+                    if (nextIndex < keepRanges.length) {
+                        return { index: nextIndex, time: keepRanges[nextIndex].in, ended: false };
+                    }
+                    return { index: preferredIndex, time: preferred.out, ended: true };
+                }
+                if (preferred && sourceTime < preferred.in) {
+                    return { index: preferredIndex, time: preferred.in, ended: false };
+                }
+                let fallback = keepRanges.findIndex(range => range.in >= sourceTime);
+                if (fallback === -1) {
+                    fallback = keepRanges.length - 1;
+                }
+                return { index: fallback, time: keepRanges[fallback].in, ended: false };
+            };
+            const applyKeepRangeBoundary = () => {
+                if (!keepRangesReady) return;
+                const current = video.currentTime || 0;
+                const result = clampSourceTime(current, currentSegmentIndex);
+                currentSegmentIndex = result.index;
+                if (result.ended) {
+                    if (!video.paused) video.pause();
+                    if (Math.abs(current - result.time) > 0.0005) video.currentTime = result.time;
+                    return;
+                }
+                if (Math.abs(current - result.time) > 0.0005) {
+                    video.currentTime = result.time;
+                }
+            };
+            const sourceToTimeline = (sourceTime, segmentIndex) => {
+                if (!keepRangesReady) return sourceTime;
+                const segment = keepRanges[segmentIndex] || keepRanges[0];
+                if (!segment) return sourceTime;
+                const offset = timelineOffsets[segmentIndex] || 0;
+                return offset + clamp(sourceTime - segment.in, 0, segment.out - segment.in);
+            };
+            const timelineToSource = timelineValue => {
+                if (!keepRangesReady) return { index: 0, time: timelineValue };
+                let index = keepRanges.length - 1;
+                for (let candidate = 0; candidate < keepRanges.length; candidate += 1) {
+                    const start = timelineOffsets[candidate];
+                    const end = start + (keepRanges[candidate].out - keepRanges[candidate].in);
+                    if (timelineValue < end || candidate === keepRanges.length - 1) {
+                        index = candidate;
+                        break;
+                    }
+                }
+                const start = timelineOffsets[index];
+                const segmentDuration = keepRanges[index].out - keepRanges[index].in;
+                const withinSegment = clamp(timelineValue - start, 0, segmentDuration);
+                return { index, time: keepRanges[index].in + withinSegment };
+            };
             const zoomToSlider = value => {
                 const logMin = Math.log2(ZOOM_MIN);
                 const logMax = Math.log2(ZOOM_MAX);
@@ -978,10 +1098,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 return minutes + ':' + String(Math.floor(seconds % 60)).padStart(2, '0');
             };
             const updateTransport = () => {
-                const duration = Number.isFinite(video.duration) ? video.duration : 0;
-                seek.max = String(duration);
-                seek.value = String(Math.min(video.currentTime || 0, duration));
-                timeLabel.textContent = formatTime(video.currentTime) + ' / ' + formatTime(duration);
+                const timelineDuration = keepRangesReady ? totalTimelineDuration : videoDuration();
+                const timelinePosition = keepRangesReady
+                    ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
+                    : (video.currentTime || 0);
+                seek.max = String(timelineDuration);
+                seek.value = String(clamp(timelinePosition, 0, timelineDuration));
+                timeLabel.textContent = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
                 const label = video.paused ? '再生' : '一時停止';
                 playToggle.innerHTML = video.paused ? playIcon : pauseIcon;
                 playToggle.setAttribute('aria-label', label);
@@ -1125,7 +1248,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 captionPlate.textContent = caption ? caption.text : '';
             };
             const tick = () => {
-                window.akari.runtime.tick(video.currentTime || 0, !video.paused);
+                applyKeepRangeBoundary();
+                const timelineTime = keepRangesReady
+                    ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
+                    : (video.currentTime || 0);
+                window.akari.runtime.tick(timelineTime, !video.paused);
                 renderCaption();
                 updateTransport();
                 updateWaveformPlayhead();
@@ -1344,10 +1471,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 togglePlayback();
             });
             seek.addEventListener('input', () => {
-                video.currentTime = Number(seek.value);
+                if (keepRangesReady) {
+                    const mapped = timelineToSource(Number(seek.value));
+                    currentSegmentIndex = mapped.index;
+                    video.currentTime = mapped.time;
+                } else {
+                    video.currentTime = Number(seek.value);
+                }
                 tick();
             });
-            video.addEventListener('loadedmetadata', updateTransport);
+            video.addEventListener('loadedmetadata', () => {
+                rebuildKeepRanges();
+                if (keepRangesReady) {
+                    currentSegmentIndex = 0;
+                    video.currentTime = keepRanges[0].in;
+                }
+                updateTransport();
+            });
             video.addEventListener('play', startAnimation);
             video.addEventListener('pause', stopAnimation);
             video.addEventListener('ended', stopAnimation);
@@ -1425,6 +1565,11 @@ body { display: grid; place-items: center; padding: 32px; }
 
             Promise.resolve(window.akari.runtime.mount(summary)).then(() => {
                 stage.appendChild(captionPlate);
+                rebuildKeepRanges();
+                if (keepRangesReady) {
+                    currentSegmentIndex = 0;
+                    video.currentTime = keepRanges[0].in;
+                }
                 setZoom(1);
                 tick();
                 renderInspector();
