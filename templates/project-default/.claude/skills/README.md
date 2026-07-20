@@ -17,6 +17,9 @@ AKARI Video の編集スキルは、このフォルダーに実体で入って�
 分析結果と節目の記録の詳しい約束は
 `.claude/skills/analyze-footage/references/akari-data-contract.md` を参照してください。
 
+`.agents/skills/` と `.codex/skills/` は Codex など他の AI エージェント用の入り口で、
+このフォルダーの実体への symlink です。
+
 `AKARI-SKILLS-VERSION` は、このプロジェクトを作ったときのスキル内容を示す記録です。
 既存プロジェクトのスキルが後から自動で置き換わることはありません。
 

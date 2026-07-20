@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -28,6 +29,7 @@ const FALLBACK_CLAUDE_GUIDANCE = [
     '- `.akari/sidecars/` は分析結果、`.akari/events/` は作業の節目の記録を置く場所です。',
     '- 節目の記録は 1 件ずつ新しく追加し、すでにある記録は変更しません。',
     '- 編集スキルは `.claude/skills/` にあり、`/analyze-footage` などの素の名前で使えます。',
+    '- Codex など他の AI エージェント用の入り口が `.agents/skills/` と `.codex/skills/` にあります（中身は `.claude/skills/` へのリンク）。',
     '- 利用者へは日本語で、内部の仕組みではなく「変更履歴」「企画メモ」「素材」などの言葉で説明します。',
     '',
     'このファイルはあなたのプロジェクトのものです。自由に書き換えて構いません。',
@@ -43,6 +45,8 @@ const FALLBACK_AGENT_GUIDANCE = [
     'スキルは `/analyze-footage`、`/edit-plan`、`/overlay-authoring`、`/setup-library`、',
     '`/harvest-asset`、`/bake-3d` の素の名前で使う。手順を直接読む場合は',
     '`.claude/skills/<スキル名>/SKILL.md` を開く。',
+    'Codex 等のハーネスでは `.agents/skills/` / `.codex/skills/`（`.claude/skills/` への',
+    'symlink）から同じスキルが自動発見される。',
     '',
     '利用者へは日本語で、内部の仕組みではなく役割が伝わる言葉を使う。',
     'この案内はこのプロジェクトのものです。自由に書き換えて構いません。',
@@ -54,6 +58,7 @@ const FALLBACK_SKILLS_GUIDANCE = [
     '',
     '6 本の編集スキルはこのフォルダーに実体で入り、素の名前で使えます。',
     '各手順は `.claude/skills/<スキル名>/SKILL.md` から直接読めます。',
+    '`.agents/skills/` と `.codex/skills/` は他の AI エージェント用の入り口で、この実体への symlink です。',
     '`AKARI-SKILLS-VERSION` はプロジェクト作成時のスキル内容を示します。',
     'この案内と各スキルは、運用に合わせて自由に書き換えて構いません。',
     ''
@@ -67,7 +72,7 @@ const FALLBACK_WORKFLOW = {
         { path: 'exports', label: '書き出し', kind: 'exports' }
     ],
     tree: {
-        hidden: ['.claude', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
+        hidden: ['.claude', '.agents', '.codex', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
         sidecarSuffixes: ['.meta.json', '.decisions.json', '.analysis.json'],
         developerModePreference: 'akari.developerMode'
     },
@@ -167,6 +172,99 @@ export async function writeFallbackTemplate(destinationDir) {
     }
 
     return { writtenFiles, skippedExisting };
+}
+
+const SKILL_ADAPTER_DIRECTORIES = ['.agents', '.codex'];
+
+async function copySkillsTree(source, destination) {
+    await fs.mkdir(destination, { recursive: true });
+    for (const entry of await fs.readdir(source, { withFileTypes: true })) {
+        if (entry.name === '.gitkeep' || entry.name === '.DS_Store') {
+            continue;
+        }
+        const from = path.join(source, entry.name);
+        const to = path.join(destination, entry.name);
+        if (entry.isDirectory()) {
+            await copySkillsTree(from, to);
+        } else if (entry.isSymbolicLink()) {
+            console.warn(`[akari-project] skipping skill symbolic link: ${entry.name}`);
+        } else if (entry.isFile()) {
+            await fs.writeFile(to, await fs.readFile(from));
+        }
+    }
+}
+
+async function skillsSignature(source) {
+    const hash = createHash('sha256');
+    const walk = async (directory, relative) => {
+        const entries = (await fs.readdir(directory, { withFileTypes: true }))
+            .sort((left, right) => left.name.localeCompare(right.name));
+        for (const entry of entries) {
+            if (entry.name === '.gitkeep' || entry.name === '.DS_Store') {
+                continue;
+            }
+            const absolute = path.join(directory, entry.name);
+            const relativePath = relative ? `${relative}/${entry.name}` : entry.name;
+            if (entry.isDirectory()) {
+                await walk(absolute, relativePath);
+            } else if (entry.isFile()) {
+                hash.update(relativePath);
+                hash.update(await fs.readFile(absolute));
+            }
+        }
+    };
+    await walk(source, '');
+    return hash.digest('hex').slice(0, 16);
+}
+
+export async function installProjectSkills(destinationDir, skillsSourceDir, schemasSourceDir) {
+    const destination = path.join(destinationDir, '.claude', 'skills');
+    await copySkillsTree(skillsSourceDir, destination);
+    await fs.writeFile(
+        path.join(destination, 'AKARI-SKILLS-VERSION'),
+        `${await skillsSignature(skillsSourceDir)}\n`,
+        'utf8'
+    );
+
+    if (schemasSourceDir) {
+        const schema = JSON.parse(
+            await fs.readFile(path.join(schemasSourceDir, 'analysis.schema.json'), 'utf8')
+        );
+        const provenance = '（この analysis.schema.json は packages/schemas/analysis.schema.json からプロジェクト作成時に installProjectSkills() が機械コピーしたものです。手編集しないでください。再生成するにはプロジェクトを作り直すか、スキルの再インストールを行ってください。）';
+        schema.$comment = typeof schema.$comment === 'string'
+            ? `${schema.$comment} ${provenance}`
+            : provenance;
+        const schemaDestination = path.join(destination, 'analyze-footage', 'references', 'analysis.schema.json');
+        await fs.mkdir(path.dirname(schemaDestination), { recursive: true });
+        await fs.writeFile(schemaDestination, `${JSON.stringify(schema, null, 2)}\n`, 'utf8');
+    }
+}
+
+export async function installSkillAdapters(destinationDir) {
+    const skillsDir = path.join(destinationDir, '.claude', 'skills');
+    const skillNames = (await fs.readdir(skillsDir, { withFileTypes: true }))
+        .filter(entry => entry.isDirectory())
+        .map(entry => entry.name);
+
+    const created = [];
+    const skippedExisting = [];
+    for (const adapter of SKILL_ADAPTER_DIRECTORIES) {
+        const adapterDir = path.join(destinationDir, adapter, 'skills');
+        await fs.mkdir(adapterDir, { recursive: true });
+        for (const name of skillNames) {
+            const relativeName = `${adapter}/skills/${name}`;
+            try {
+                await fs.symlink(`../../.claude/skills/${name}`, path.join(adapterDir, name));
+                created.push(relativeName);
+            } catch (error) {
+                if (!isAlreadyExists(error)) {
+                    throw error;
+                }
+                skippedExisting.push(relativeName);
+            }
+        }
+    }
+    return { created, skippedExisting };
 }
 
 export async function readSkillsVersion(destinationDir) {
@@ -291,7 +389,7 @@ export function renderReportHtml(report) {
 `;
 }
 
-export async function createProject(destinationDir, templateDir) {
+export async function createProject(destinationDir, templateDir, options = {}) {
     const destination = path.resolve(destinationDir);
     const resolvedTemplateDir = path.resolve(templateDir);
     const reportPath = path.join(destination, '.akari', 'reports', 'create-project-report.html');
@@ -299,6 +397,10 @@ export async function createProject(destinationDir, templateDir) {
     await fs.mkdir(destination, { recursive: true });
     const copy = await copyTemplateTree(resolvedTemplateDir, destination);
     const fallback = await writeFallbackTemplate(destination);
+    if (options.skillsSourceDir) {
+        await installProjectSkills(destination, options.skillsSourceDir, options.schemasSourceDir);
+        await installSkillAdapters(destination);
+    }
     const skillsVersion = await readSkillsVersion(destination);
     const boundary = await checkGitBoundary(destination);
 

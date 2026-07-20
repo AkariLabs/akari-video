@@ -13,6 +13,8 @@
   同一実体への symlink があり、自動発見・自動発動する
 - **スキル探索非対応のハーネス**: 着手前に下の索引を確認し、タスクが description に合致したら
   **該当 SKILL.md を読み、その手順に従うこと**
+- Codex のスラッシュメニューに `/prompts:<スキル名>` として出したい場合は
+  `node scripts/setup-codex-prompts.mjs` を一度実行する（`~/.codex/prompts/` にスタブを生成。任意）
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 

@@ -462,6 +462,34 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         const schemaDestination = join(destination, 'analyze-footage', 'references', 'analysis.schema.json');
         await fs.mkdir(dirname(schemaDestination), { recursive: true });
         await fs.writeFile(schemaDestination, `${JSON.stringify(schema, null, 2)}\n`, 'utf8');
+
+        await this.installSkillAdapters(root);
+    }
+
+    /**
+     * Codex など Claude Code 以外のハーネスは `.claude/skills` を探索しないため、
+     * それぞれの探索位置（`.agents/skills` = agentskills.io 標準 / `.codex/skills` = Codex CLI）へ
+     * プロジェクト内相対 symlink を張る。相対リンクなのでプロジェクトをフォルダーごと
+     * 複製しても壊れない（自己完結原則を維持）。
+     */
+    protected async installSkillAdapters(root: string): Promise<void> {
+        const skillsDir = join(root, '.claude', 'skills');
+        const skillNames = (await fs.readdir(skillsDir, { withFileTypes: true }))
+            .filter(entry => entry.isDirectory())
+            .map(entry => entry.name);
+        for (const adapter of ['.agents', '.codex']) {
+            const adapterDir = join(root, adapter, 'skills');
+            await fs.mkdir(adapterDir, { recursive: true });
+            for (const name of skillNames) {
+                try {
+                    await fs.symlink(`../../.claude/skills/${name}`, join(adapterDir, name));
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+                        throw error;
+                    }
+                }
+            }
+        }
     }
 
     /** Manual recursion is required for sources inside app.asar. */
@@ -647,7 +675,7 @@ const FALLBACK_WORKFLOW = {
         { path: 'exports', label: '書き出し', kind: 'exports' }
     ],
     tree: {
-        hidden: ['.claude', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
+        hidden: ['.claude', '.agents', '.codex', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
         sidecarSuffixes: ['.meta.json', '.decisions.json', '.analysis.json'],
         developerModePreference: 'akari.developerMode'
     },

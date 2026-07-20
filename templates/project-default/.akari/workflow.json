@@ -20,6 +20,8 @@
   "tree": {
     "hidden": [
       ".claude",
+      ".agents",
+      ".codex",
       ".akari",
       "CLAUDE.md",
       "AGENTS.md",

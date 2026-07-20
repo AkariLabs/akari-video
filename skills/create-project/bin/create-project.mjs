@@ -36,6 +36,14 @@ function parseArguments(args) {
     return { target, template };
 }
 
+async function directoryHasFile(directory, relativeFile) {
+    try {
+        return (await fs.stat(path.join(directory, relativeFile))).isFile();
+    } catch {
+        return false;
+    }
+}
+
 async function main() {
     const { target, template } = parseArguments(process.argv.slice(2));
     const targetDir = path.resolve(process.cwd(), target);
@@ -53,11 +61,23 @@ async function main() {
         throw new Error(`雛形が見つかりません: ${templateDir}`);
     }
 
-    const result = await createProject(targetDir, templateDir);
+    // スキル正本は自分の 2 つ上（リポ checkout なら skills/、プロジェクト内なら .claude/skills/）。
+    const skillsSourceDir = path.resolve(scriptDirectory, '../..');
+    const hasSkills = await directoryHasFile(skillsSourceDir, 'analyze-footage/SKILL.md');
+    if (!hasSkills) {
+        console.warn(`スキル正本が見つからないため、スキル同梱をスキップします: ${skillsSourceDir}`);
+    }
+    const schemasSourceDir = path.resolve(scriptDirectory, '../../../packages/schemas');
+    const hasSchemas = await directoryHasFile(schemasSourceDir, 'analysis.schema.json');
+
+    const result = await createProject(targetDir, templateDir, hasSkills
+        ? { skillsSourceDir, schemasSourceDir: hasSchemas ? schemasSourceDir : undefined }
+        : {});
     console.log(`プロジェクトを作成しました: ${result.destination}`);
     console.log(`コピー: ${result.copy.copiedFiles.length} 件`);
     console.log(`フォールバック補完: ${result.fallback.writtenFiles.length} 件`);
     console.log(`シンボリックリンクのスキップ: ${result.copy.skippedSymlinks.length} 件`);
+    console.log(`スキル同梱: ${hasSkills ? `実施（${skillsSourceDir}）` : 'スキップ'}`);
     console.log(`git: ${result.git.action}`);
     console.log(`作成結果レポート: ${result.reportPath}`);
 }

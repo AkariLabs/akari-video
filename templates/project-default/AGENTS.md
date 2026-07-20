@@ -19,6 +19,9 @@
 - `/harvest-asset` … 素材の収集
 - `/bake-3d` … 3D 素材の焼き込み
 
+Codex 等のハーネスでは `.agents/skills/` / `.codex/skills/`（`.claude/skills/` への symlink）から
+同じスキルが自動発見される。
+
 スキルを自動で読まない作業環境では、次のプロジェクト内相対パスから手順を直接読む。
 
 - `.claude/skills/analyze-footage/SKILL.md`
