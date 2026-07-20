@@ -1,0 +1,35 @@
+{
+  "date": "2026-07-20",
+  "task": "2026-07-20-preview-narration",
+  "method": "OfflineAudioContext 実測。ローカル起動の Chromium（Playwright インストール済みバイナリを別プロファイルで直接起動）を CDP 経由で test/browser/narration-offline-check.html に接続し、window.__RESULTS__ を回収した。narration-offline-check.mjs は NarrationTrack（dist/narrationTrack.js）と duckingGain（dist/duckingGain.js）を実際に呼び出す。fetch はテスト内蔵フェイクに差し替え、音声データはページ内で合成した WAV（外部ネットワーク・外部APIなし）。",
+  "setup": {
+    "sampleRate": 16000,
+    "totalDurationSec": 6,
+    "narration": [
+      { "id": "n-0001", "t": 1.0, "gainDb": 0, "toneFreqHz": 880, "durationSec": 0.5 },
+      { "id": "n-0002", "t": 3.0, "gainDb": -6, "toneFreqHz": 440, "durationSec": 0.3 },
+      { "id": "n-missing", "t": 4.5, "note": "存在しない src。契約§4の劣化規約（要素のみ無視）を検証する目的で意図的に投入" }
+    ]
+  },
+  "observed": {
+    "loadedEventCount": 2,
+    "loadedEventIds": ["n-0001", "n-0002"],
+    "warnings": [{ "kind": "narrationUnavailable", "clipId": "n-missing" }],
+    "rmsBeforeNarration1": 0,
+    "rmsDuringNarration1": 0.5656609268594237,
+    "rmsBetweenNarrations": 0,
+    "rmsDuringNarration2": 0.2835023943398831,
+    "rmsAfterNarration2": 0,
+    "duckGainDuringNarration1": -12,
+    "duckGainOutside": 0,
+    "duckGainWhenDuckingDisabled": 0,
+    "staticDuckGainDbConst": -12
+  },
+  "interpretation": [
+    "n-missing は fetch 失敗として NarrationTrack.load() 内で捕捉され、その要素のみ無視された（loadedEventCount=2, warnings に narrationUnavailable が1件）。他の narration・プレビュー全体は継続 = 契約§4 の劣化規約どおり。",
+    "narration1 の区間外（0.0-0.9s, 1.6-2.9s, 3.4s以降）は RMS=0（完全な無音）。narration の t オフセット・実尺どおりにしか鳴らないことを実測で確認。",
+    "narration1 (gain_db=0, 振幅0.8の正弦波) の区間内 RMS 実測値 0.56566 は理論値 0.8/sqrt(2)=0.56569 とほぼ一致。",
+    "narration2 (gain_db=-6) の区間内 RMS 実測値 0.28350 は理論値 0.8*10^(-6/20)/sqrt(2)=0.28347 とほぼ一致。gain_db→線形ゲイン変換（dbToLinear）が GainNode に正しく適用されていることを実測で確認。",
+    "computeBgmDuckGainDb は narration 区間内で -12dB（契約§3の静的近似値）、区間外で 0dB（契約§3「区間外は元に戻す」）、ducking:false のときは常に0（no-op）を返した。"
+  ]
+}

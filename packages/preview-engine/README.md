@@ -69,6 +69,54 @@ engine.pause();
 engine.dispose();
 ```
 
+### narration 再生 + 静的ダッキング近似
+
+`loadTimeline()` の `audio.narration` に `edit.json` の `audio.narration[]`
+（契約: `docs/contract-2026-07-20-edit-json-v1-narration.md`）に対応する配列を渡すと、
+各要素が `t` 秒オフセット + `gainDb` で Web Audio API（`AudioContext`）上に再生登録される。
+`audio.narration` を省略した場合の挙動は完全に従来どおり（非退行）。
+
+```ts
+await engine.loadTimeline({
+  fps: 30,
+  clips: [ /* ... */ ],
+  audio: {
+    bgm: { ducking: true },        // 省略可。ducking:true で静的近似を有効化
+    narration: [
+      { id: 'n-0001', src: 'file:///path/to/n-0001.mp3', t: 2.5, gainDb: 0 },
+      { id: 'n-0002', src: 'file:///path/to/n-0002.mp3', t: 10.0 }, // gainDb 省略時は 0
+    ],
+  },
+});
+
+engine.play(); // narration もタイムライン位置に同期して鳴る（seek/pause でも再スケジュールされる）
+
+// bgm.ducking:true のとき、narration 区間 [t, t+実尺] で BGM に加算すべき静的ダッキング量(dB)を返す。
+// 区間外・ducking:false のときは 0（無効果）。固定 -12dB 近似（契約 §3 と同一の既定値）。
+const duckDb = engine.narrationDuckGainDbAt(currentTimeSec);
+```
+
+**重要な設計上の制約（要オーナー確認）**: `packages/preview-engine` には
+**BGM/SFX 自体のプレビュー再生がまだ実装されていない**（`audio.bgm` / `audio.sfx` の
+プレビュー側実装は `contract-2026-07-14-edit-json-v1-audio.md` §3 の表で AVFoundation ベースの
+legacy Tauri 実装として説明されているが、WebCodecs ベースの本パッケージには未移植。
+BGM/SFX のプレビュー再生は render-cut（書き出し側、ffmpeg ベース）にのみ実装済み）。
+そのため `narrationDuckGainDbAt()` は **BGM の GainNode を自前で持たず、適用すべきダッキング量(dB)を
+計算して返すだけ**にとどめている。BGM プレビュー再生を実装する側（将来タスク）が、自前の
+BGM GainNode の基準ゲインにこの値を加算適用する想定。narration 自体の再生・区間計算・
+劣化規約（ファイル欠落時のスキップ）はこのパッケージ内で完結している。
+
+narration が読めない（fetch/decode 失敗）場合や `t`/`gain_db` が不正な場合は、契約 §4 の劣化規約
+どおり **その要素だけ**を無視し（`console.warn` + `warning` イベント `kind: 'narrationUnavailable'`）、
+他の narration・映像・プレビュー全体には影響しない。`gain_db` が範囲外の有限値なら
+`[-60, 12]` にクランプして採用する（棄却しない）。
+
+純粋関数（`clampGainDb` / `dbToLinear` / `computeDuckIntervals` / `computeBgmDuckGainDb` /
+`validateNarrationSpecs`）は DOM 非依存で `npm test`（`node --test`）から直接検証できる。
+実際の decode + Web Audio スケジューリング（`NarrationTrack`）の L1 相当の実測は
+`test/browser/narration-offline-check.mjs`（`OfflineAudioContext` によるオフラインレンダリング検証。
+実行方法は同ファイルのコメント参照）で行う。
+
 ### イベント
 
 ```ts
@@ -90,6 +138,7 @@ engine.on('dispose', () => {});
 | `tailGopMarginClamped` | クリップ末尾近傍のシークを安全マージン分クランプした（w3c/webcodecs#116 対策） |
 | `decodeTimeout` | configure/decode がタイムアウトした |
 | `clipUnavailable` | 全フォールバックを使い切り、そのクリップは利用不能 |
+| `narrationUnavailable` | narration 要素の fetch/decode 失敗、または `t`/`gain_db` が不正でその要素だけ無視した（契約 §4。`clipId` には narration の `id` が入る） |
 
 ## E1〜E4 の実装メモ（設計判断の根拠）
 
@@ -160,6 +209,12 @@ foreground 要求が割り込むとサムネ生成側が譲る。別解像度の
 - エフェクト・トランジションのリアルタイム合成（v0 は カット + オーバーレイのみ）
 - 書き出しパイプライン
 - レベル2（ネイティブプレーン移植）
+
+## テスト
+
+`npm test`（`node --test test/*.test.mjs`）で DOM 非依存の純粋関数（narration の劣化規約・
+ダッキングゲイン計算）を検証する。`pretest` で自動的に `npm run build` する
+（`dist/` の最新ビルドに対してテストする）。
 
 ## 計測
 

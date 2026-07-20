@@ -1,13 +1,15 @@
 // PreviewEngine — シェル非依存の公開 API 本体。
 // mount / loadTimeline / seek / play / pause / dispose + イベント（README.md 記載の公開面）。
 import { TypedEmitter } from './eventEmitter.js';
-import type { EngineEvents, PreviewEngineOptions, SeekMode, TimelineSpec } from './types.js';
+import type { EngineEvents, PreviewEngineOptions, SeekMode, TimelineAudioSpec, TimelineSpec } from './types.js';
 import { Timeline, type ResolvedFrame } from './timeline.js';
 import { ClipSession } from './clipSession.js';
 import { LookaheadCache } from './lookaheadCache.js';
 import { ScrubController } from './scrubController.js';
 import { WarmupManager } from './warmupManager.js';
 import { ThumbnailTrack } from './thumbnailTrack.js';
+import { NarrationTrack } from './narrationTrack.js';
+import { computeBgmDuckGainDb } from './duckingGain.js';
 
 type ResolvedOptions = Required<PreviewEngineOptions>;
 
@@ -46,6 +48,11 @@ export class PreviewEngine {
   private opts: ResolvedOptions;
   private tailMarginUserSet: boolean;
   private disposed = false;
+  // narration 再生（Wave 20 T4）。BGM/SFX 自体のプレビュー再生は本パッケージ未実装のため、
+  // audioCtx は narration 専用（README「narration 再生」節 / report.md 参照）。
+  private audioCtx: AudioContext | null = null;
+  private narrationTrack: NarrationTrack | null = null;
+  private audioSpec: TimelineAudioSpec | null = null;
 
   constructor(options: PreviewEngineOptions = {}) {
     this.tailMarginUserSet = options.tailMarginUs != null;
@@ -114,6 +121,43 @@ export class PreviewEngine {
       await session.load();
       this.startThumbnailBuild(first.clip.id, session);
     }
+
+    this.audioSpec = spec.audio ?? null;
+    await this.loadNarration(spec.audio, this.timeline.totalFrames() / spec.fps);
+  }
+
+  /**
+   * narration 付きプロジェクトなら decode/検証まで済ませておく（play() 時点で await せず
+   * 即座にスケジュールできるようにするため）。narration が無ければ何もしない
+   * （既存タイムラインの挙動を一切変えない — 契約 §0 の後方互換方針）。
+   */
+  private async loadNarration(audio: TimelineAudioSpec | undefined, timelineDurationSec: number): Promise<void> {
+    if (!audio?.narration || audio.narration.length === 0) return;
+    const AudioContextCtor: typeof AudioContext | undefined =
+      typeof AudioContext !== 'undefined' ? AudioContext : undefined;
+    if (!AudioContextCtor) {
+      this.emitter.emit('warning', {
+        kind: 'narrationUnavailable',
+        clipId: 'narration',
+        message: 'AudioContext unavailable in this environment; narration playback disabled',
+      });
+      return;
+    }
+    this.audioCtx = this.audioCtx ?? new AudioContextCtor();
+    const track = new NarrationTrack(this.audioCtx);
+    await track.load(audio.narration, timelineDurationSec, (w) => this.emitter.emit('warning', w));
+    this.narrationTrack = track;
+  }
+
+  /**
+   * bgm.ducking:true のときの静的ダッキング近似値(dB)を返す（契約 §3「固定 -12dB」）。
+   * narration が無い/その位置がどの narration 区間にも入っていない場合は 0（無効果 = 元のゲインのまま）。
+   * BGM 自体の GainNode は本パッケージが管理しない（README 参照）ため、呼び出し側が自前の BGM
+   * ゲインにこの値を加算適用する想定の公開ユーティリティ。
+   */
+  narrationDuckGainDbAt(atSec: number): number {
+    if (!this.narrationTrack || !this.audioSpec?.bgm?.ducking) return 0;
+    return computeBgmDuckGainDb(this.narrationTrack.getDuckIntervals(), true, atSec);
   }
 
   /**
@@ -129,6 +173,11 @@ export class PreviewEngine {
     }
     this.scrub.cancelPending();
     await this.resolveAndRender(frame, false);
+    if (this.playing) {
+      // 再生中のプログラム的シーク（例: ユーザーがタイムラインバーをクリック）。
+      // narration は「呼びっぱなしで直近1件」ではなく毎回総入れ替えなので、新しい位置から再スケジュールする。
+      this.rescheduleNarrationFrom(frame);
+    }
   }
 
   play(): void {
@@ -136,6 +185,7 @@ export class PreviewEngine {
     this.playing = true;
     const fps = this.timeline.fps;
     const frameMs = 1000 / fps;
+    this.rescheduleNarrationFrom(this.currentFrame);
     let last = performance.now();
     const loop = () => {
       if (!this.playing) return;
@@ -166,13 +216,18 @@ export class PreviewEngine {
       clearTimeout(this.playHandle);
       this.playHandle = null;
     }
+    this.narrationTrack?.stopAll();
     this.emitter.emit('pause', { frame: this.currentFrame });
   }
 
   dispose(): void {
     this.pause();
     this.scrub.dispose();
-    this.disposeSessions();
+    this.disposeSessions(); // narrationTrack/audioSpec のリセットもここで行う
+    if (this.audioCtx) {
+      void this.audioCtx.close().catch(() => undefined);
+      this.audioCtx = null;
+    }
     this.timeline = null;
     this.canvas = null;
     this.ctx = null;
@@ -182,6 +237,13 @@ export class PreviewEngine {
   }
 
   // --- 内部実装 ---
+
+  /** frame（タイムラインフレーム）秒換算の位置から narration を再スケジュールする。narration 無し/未ロードなら no-op */
+  private rescheduleNarrationFrom(frame: number): void {
+    if (!this.narrationTrack || !this.audioCtx || !this.timeline) return;
+    const atSec = frame / this.timeline.fps;
+    this.narrationTrack.scheduleFrom(atSec, this.audioCtx.currentTime, this.audioCtx.destination);
+  }
 
   private getSession(clipId: string): ClipSession {
     const s = this.sessions.get(clipId);
@@ -367,6 +429,12 @@ export class PreviewEngine {
   }
 
   private disposeSessions(): void {
+    // loadTimeline() の再ロード（新しいタイムライン差し替え）時、前のタイムラインの narration が
+    // 鳴り続けないようにここで一緒に破棄する。AudioContext 自体は dispose() まで使い回す
+    // （生成/破棄コストと同時起動数制限を避けるため）。
+    this.narrationTrack?.dispose();
+    this.narrationTrack = null;
+    this.audioSpec = null;
     for (const s of this.sessions.values()) s.destroy();
     this.sessions.clear();
     for (const c of this.cache.values()) c.clear();

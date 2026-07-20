@@ -9,6 +9,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.mjs",
     "bench:build": "esbuild bench/renderer/bench.ts --bundle --format=iife --outfile=bench/renderer/bench.bundle.js --target=chrome122",
     "bench:start": "npm run bench:build && cd bench && npm start"
   },

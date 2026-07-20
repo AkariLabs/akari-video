@@ -16,10 +16,45 @@ export interface TimelineClip {
   mediaType?: 'video' | 'image';
 }
 
+/**
+ * ナレーション1件のプレビュー再生指定（edit.json `audio.narration[]` のプレビュー用サブセット。
+ * 契約: docs/contract-2026-07-20-edit-json-v1-narration.md §1）。
+ * script/reading/provenance 等の非再生メタデータは持たない（プレビュー再生に不要なため）。
+ */
+export interface TimelineNarrationSpec {
+  id: string;
+  /** 音声ファイルの URL（fetch 可能な URL。TimelineClip.src と同じ規約） */
+  src: string;
+  /** タイムライン秒（overlays[].start / audio.sfx[].t と同じ座標系）。0 以上 */
+  t: number;
+  /** dB。省略時 0。クランプ範囲 [-60, 12]（audio.bgm / audio.sfx と同一。契約 §4） */
+  gainDb?: number;
+}
+
+/**
+ * audio.bgm のプレビュー向けサブセット。**BGM 自体の音声読み込み・再生は本パッケージの
+ * スコープ外**（packages/preview-engine には現状 BGM/SFX のプレビュー再生自体が未実装。
+ * 詳細は README「narration 再生」節と本タスクの report.md を参照）。ここでは
+ * ducking の要否フラグのみを受け取り、narration 区間に対する静的ダッキング量の計算に使う
+ * （PreviewEngine#narrationDuckGainDbAt）。
+ */
+export interface TimelineBgmDuckingSpec {
+  /** 省略時 false（契約と同一既定値） */
+  ducking?: boolean;
+}
+
+export interface TimelineAudioSpec {
+  bgm?: TimelineBgmDuckingSpec;
+  /** 省略可。省略 = narration なし（既存タイムラインの挙動と完全に同じ。契約 §0 の後方互換方針） */
+  narration?: TimelineNarrationSpec[];
+}
+
 export interface TimelineSpec {
   fps: number;
   /** 開始フレーム順は問わない。エンジン内でソートする */
   clips: TimelineClip[];
+  /** 省略可。省略時は narration なしプロジェクトと完全に同じ挙動（非退行） */
+  audio?: TimelineAudioSpec;
 }
 
 export type SeekMode = 'exact' | 'interactiveScrub';
@@ -30,7 +65,8 @@ export type EngineWarningKind =
   | 'hwDecoderDegraded' // HW セッション枯渇/非対応 → SW へのフォールバックも失敗し劣化運用
   | 'tailGopMarginClamped' // 末尾 GOP 安全マージンでシーク位置をクランプした
   | 'decodeTimeout' // configure/decode がタイムアウトした
-  | 'clipUnavailable'; // どのフォールバックも尽きてクリップが利用不能
+  | 'clipUnavailable' // どのフォールバックも尽きてクリップが利用不能
+  | 'narrationUnavailable'; // narration 要素の fetch/decode 失敗、または t/gain_db が不正で無視した（契約 §4）
 
 export interface EngineWarningEvent {
   kind: EngineWarningKind;
