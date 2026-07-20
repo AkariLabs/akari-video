@@ -153,6 +153,11 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             }
         }, true);
         document.addEventListener('drop', event => {
+            if (this.isDelegatedDropzone(event.target)) {
+                // 俯瞰の取り込みドロップゾーンなど、自前でコピーとメッセージ表示まで
+                // 完結させたい場所には割り込まない。
+                return;
+            }
             const videos = this.getDroppedVideos(event.dataTransfer);
             if (videos.length) {
                 event.preventDefault();
@@ -160,6 +165,11 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
                 void this.handleVideoDrop(videos);
             }
         }, true);
+    }
+
+    /** `data-akari-dropzone` を持つ要素（の子孫）へのドロップは、その場所の実装に委ねる。 */
+    protected isDelegatedDropzone(target: EventTarget | null): boolean {
+        return target instanceof Element && !!target.closest('[data-akari-dropzone]');
     }
 
     protected async createProject(): Promise<void> {
