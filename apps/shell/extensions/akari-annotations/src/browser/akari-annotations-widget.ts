@@ -85,6 +85,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly zoomSlider = document.createElement('input');
     protected readonly reviewButton = document.createElement('button');
     protected readonly stripScroll = document.createElement('div');
+    protected readonly hScrollbarTrack = document.createElement('div');
+    protected readonly hScrollbarThumb = document.createElement('div');
     protected readonly strip = document.createElement('div');
     protected readonly playhead = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
@@ -133,7 +135,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.classList.add('akari-annotations-widget');
         Object.assign(this.node.style, {
             display: 'grid',
-            gridTemplateRows: 'auto minmax(0, 1fr) auto auto',
+            gridTemplateRows: 'auto minmax(0, 1fr) auto auto auto',
             height: '100%',
             overflow: 'hidden',
             background: 'var(--theia-editor-background)'
@@ -208,6 +210,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
             borderBottom: '1px solid var(--theia-inputValidation-warningBorder)', fontSize: '12px', lineHeight: '1.4'
         });
         Object.assign(this.stripScroll.style, { minHeight: '0', overflow: 'auto' });
+        Object.assign(this.hScrollbarTrack.style, {
+            position: 'relative', height: '14px', margin: '0 10px 8px 10px', flex: 'none',
+            background: 'var(--theia-scrollbarSlider-background, rgba(121,121,121,.35))',
+            borderRadius: '7px', cursor: 'pointer', display: 'none'
+        });
+        this.hScrollbarTrack.setAttribute('data-testid', 'akari-timeline-hscrollbar-track');
+        Object.assign(this.hScrollbarThumb.style, {
+            position: 'absolute', top: '2px', bottom: '2px', left: '0%', width: '100%',
+            background: 'var(--theia-scrollbarSlider-hoverBackground, rgba(100,100,100,.75))',
+            borderRadius: '5px', cursor: 'grab'
+        });
+        this.hScrollbarThumb.setAttribute('data-testid', 'akari-timeline-hscrollbar-thumb');
+        this.hScrollbarTrack.appendChild(this.hScrollbarThumb);
+        this.hScrollbarTrack.addEventListener('click', event => this.onScrollbarTrackClick(event));
+        this.hScrollbarThumb.addEventListener('pointerdown', event => this.onScrollbarThumbPointerDown(event));
         this.stripScroll.appendChild(this.strip);
         Object.assign(this.footer.style, {
             height: '26px', minHeight: '26px', maxHeight: '26px', padding: '5px 10px', boxSizing: 'border-box',
@@ -216,7 +233,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.footer.textContent = 'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
 
-        this.node.append(this.toolbar, this.stripScroll, this.notice, this.footer);
+        this.node.append(this.toolbar, this.stripScroll, this.hScrollbarTrack, this.notice, this.footer);
         const style = document.createElement('style');
         style.textContent = `
     .akari-annotations-widget .akari-annotations-strip-clip {
@@ -547,6 +564,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.playhead.style.left = `${this.percent(this.selectedSourceT)}%`;
         this.updateZoomHud();
+        this.updateScrollbar();
     }
 
     protected renderRuler(): void {
@@ -1182,6 +1200,69 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.renderStrip();
     }
 
+    protected setViewStart(candidate: number): void {
+        const maxStart = Math.max(0, this.totalDuration() - this.visibleDuration());
+        this.viewStart = Math.min(Math.max(0, candidate), maxStart);
+        this.renderStrip();
+    }
+
+    protected updateScrollbar(): void {
+        const zoomed = this.viewDuration !== undefined;
+        this.hScrollbarTrack.style.display = zoomed ? 'block' : 'none';
+        if (!zoomed) {
+            return;
+        }
+        const total = this.totalDuration();
+        const visible = this.visibleDuration();
+        const widthPercent = total > 0 ? Math.min(100, Math.max(2, visible / total * 100)) : 100;
+        const leftPercent = total > 0 ? Math.min(100 - widthPercent, Math.max(0, this.viewStart / total * 100)) : 0;
+        this.hScrollbarThumb.style.width = `${widthPercent}%`;
+        this.hScrollbarThumb.style.left = `${leftPercent}%`;
+    }
+
+    protected onScrollbarTrackClick(event: MouseEvent): void {
+        if (event.target === this.hScrollbarThumb) {
+            return;
+        }
+        const rect = this.hScrollbarTrack.getBoundingClientRect();
+        if (rect.width <= 0) {
+            return;
+        }
+        const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        const total = this.totalDuration();
+        this.setViewStart(ratio * total - this.visibleDuration() / 2);
+    }
+
+    protected onScrollbarThumbPointerDown(event: PointerEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.hScrollbarThumb.setPointerCapture(event.pointerId);
+        const trackRect = this.hScrollbarTrack.getBoundingClientRect();
+        const startClientX = event.clientX;
+        const startViewStart = this.viewStart;
+        const total = this.totalDuration();
+        const onMove = (moveEvent: PointerEvent): void => {
+            if (trackRect.width <= 0) {
+                return;
+            }
+            const deltaRatio = (moveEvent.clientX - startClientX) / trackRect.width;
+            this.setViewStart(startViewStart + deltaRatio * total);
+        };
+        const onUp = (upEvent: PointerEvent): void => {
+            this.hScrollbarThumb.releasePointerCapture(upEvent.pointerId);
+            this.hScrollbarThumb.removeEventListener('pointermove', onMove);
+            this.hScrollbarThumb.removeEventListener('pointerup', onUp);
+            this.hScrollbarThumb.removeEventListener('pointercancel', onUp);
+        };
+        this.hScrollbarThumb.addEventListener('pointermove', onMove);
+        this.hScrollbarThumb.addEventListener('pointerup', onUp);
+        this.hScrollbarThumb.addEventListener('pointercancel', onUp);
+    }
+
+    protected panViewBy(deltaSeconds: number): void {
+        this.setViewStart(this.viewStart + deltaSeconds);
+    }
+
     protected timeAtClientX(clientX: number): number {
         const rect = this.strip.getBoundingClientRect();
         const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
@@ -1201,7 +1282,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected onWheelZoom(event: WheelEvent): void {
-        if (!event.ctrlKey) {
+        if (event.ctrlKey) {
+            event.preventDefault();
+            const rect = this.strip.getBoundingClientRect();
+            if (rect.width <= 0) {
+                return;
+            }
+            const currentDuration = this.visibleDuration();
+            const rawFactor = Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY);
+            const factor = Math.min(ZOOM_EVENT_FACTOR_MAX, Math.max(ZOOM_EVENT_FACTOR_MIN, rawFactor));
+            const proposedDuration = currentDuration / factor;
+            const cursorRatio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+            const cursorTime = this.viewStart + cursorRatio * currentDuration;
+            this.applyViewDuration(proposedDuration, cursorTime, cursorRatio);
+            return;
+        }
+        const horizontalDelta = Math.abs(event.deltaX) >= Math.abs(event.deltaY)
+            ? event.deltaX
+            : (event.shiftKey ? event.deltaY : 0);
+        if (horizontalDelta === 0) {
             return;
         }
         event.preventDefault();
@@ -1209,13 +1308,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (rect.width <= 0) {
             return;
         }
-        const currentDuration = this.visibleDuration();
-        const rawFactor = Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY);
-        const factor = Math.min(ZOOM_EVENT_FACTOR_MAX, Math.max(ZOOM_EVENT_FACTOR_MIN, rawFactor));
-        const proposedDuration = currentDuration / factor;
-        const cursorRatio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-        const cursorTime = this.viewStart + cursorRatio * currentDuration;
-        this.applyViewDuration(proposedDuration, cursorTime, cursorRatio);
+        this.panViewBy(horizontalDelta / rect.width * this.visibleDuration());
     }
 
     protected async requestSeek(time: number): Promise<void> {
