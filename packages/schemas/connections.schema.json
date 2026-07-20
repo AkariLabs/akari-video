@@ -37,7 +37,7 @@
           "enum": ["genai", "image", "video", "tts", "music", "sns", "analytics"]
         },
         "auth": {
-          "enum": ["login", "env-key", "oauth-mcp"]
+          "enum": ["login", "env-key", "oauth-mcp", "none"]
         },
         "env": {
           "oneOf": [
@@ -101,7 +101,7 @@
           ]
         },
         "status": {
-          "enum": ["ok", "unauthorized", "unconfigured", "unchecked"]
+          "enum": ["ok", "unauthorized", "unconfigured", "unchecked", "setup_required"]
         },
         "detail": { "$ref": "#/$defs/nonEmptyString" }
       }

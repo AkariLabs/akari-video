@@ -168,6 +168,33 @@
       }
     },
     {
+      "id": "voicevox",
+      "kind": "tts",
+      "auth": "none",
+      "env": null,
+      "models": {
+        "default": null,
+        "allowed": []
+      },
+      "notes": {
+        "description": "VOICEVOX ローカルエンジン（キャラクター音声の日本語音声合成）。完全ローカル・無償・API キー不要。工程 42 のナレーション生成（仮ナレ・既製声レーン）で使う。",
+        "workflows": [
+          "42 AI 生成素材"
+        ],
+        "billing": "無償（ローカル実行）。",
+        "quota": "なし（ローカル実行のためレート制限は無い）。",
+        "scopes": [
+          "音声合成（ローカル・読み取り専用の疎通確認のみ doctor で行う）"
+        ],
+        "setup_url": "https://voicevox.hiroshiba.jp/"
+      },
+      "doctor": {
+        "last_checked": null,
+        "status": "unchecked",
+        "detail": "未確認"
+      }
+    },
+    {
       "id": "openrouter",
       "kind": "genai",
       "auth": "env-key",

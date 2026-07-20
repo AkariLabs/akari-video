@@ -125,6 +125,14 @@ async function inspectProvider(provider, credentialState, checkedAt) {
   if (provider.auth === "login" || provider.auth === "oauth-mcp") {
     return result(id, checkedAt, "unchecked", `${provider.auth} 認証は doctor から疎通確認しません。人間がログイン状態を確認してください。`, false);
   }
+  if (provider.auth === "none") {
+    const localAdapter = localAdapters[id];
+    if (!localAdapter) {
+      return result(id, checkedAt, "unchecked", "無償・読み取り専用と確認済みの doctor adapter がありません。", true);
+    }
+    const doctor = await localAdapter(checkedAt);
+    return { id, configured: true, doctor };
+  }
   if (provider.auth !== "env-key") {
     return result(id, checkedAt, "unchecked", "未対応の認証方式のため確認していません。", false);
   }
@@ -158,6 +166,51 @@ const adapters = {
   openrouter: (secret, checkedAt) =>
     checkGet("https://openrouter.ai/api/v1/key", { Authorization: `Bearer ${secret}` }, checkedAt),
 };
+
+const localAdapters = {
+  voicevox: (checkedAt) => checkVoicevox(checkedAt),
+};
+
+async function checkVoicevox(checkedAt) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch("http://127.0.0.1:50021/version", {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      redirect: "error",
+      signal: controller.signal,
+    });
+    if (response.ok) {
+      let version = "";
+      try {
+        version = String(await response.json()).trim();
+      } catch {
+        version = "";
+      }
+      return {
+        last_checked: checkedAt,
+        status: "ok",
+        detail: version
+          ? `VOICEVOX エンジンが起動中です（version ${version}）。`
+          : "VOICEVOX エンジンが起動中です。",
+      };
+    }
+    return {
+      last_checked: checkedAt,
+      status: "setup_required",
+      detail: "VOICEVOX アプリを起動するか、generate-narration が自動起動します。",
+    };
+  } catch {
+    return {
+      last_checked: checkedAt,
+      status: "setup_required",
+      detail: "VOICEVOX アプリを起動するか、generate-narration が自動起動します。",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function checkGet(url, headers, checkedAt) {
   const controller = new AbortController();
@@ -227,7 +280,9 @@ function renderReport(registry, results, credentialState, checkedAt) {
       ? result?.configured
         ? "設定済み（マスク）"
         : "未設定"
-      : `${provider.auth}（値なし）`;
+      : provider.auth === "none"
+        ? "不要（ローカル接続）"
+        : `${provider.auth}（値なし）`;
     const allowed = Array.isArray(provider.models?.allowed) && provider.models.allowed.length > 0
       ? provider.models.allowed.join(", ")
       : "未設定";
