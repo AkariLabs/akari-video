@@ -172,6 +172,7 @@ export async function lintProject(input, options = {}) {
   );
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
   await validateOverlays(edit.overlays, timeline, findings, paths);
+  await validateNarration(edit?.audio?.narration, timeline, findings, paths);
 
   if (captionsState.value !== undefined) {
     validateCaptions(
@@ -643,6 +644,143 @@ async function validateOverlays(overlays, timeline, findings, paths) {
           path: relativePath(paths.projectRoot, htmlPath),
         });
       }
+    }
+  }
+}
+
+async function validateNarration(narration, timeline, findings, paths) {
+  if (narration === undefined) return;
+  if (!Array.isArray(narration)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "audio.narration.structure",
+      message: "audio.narration must be an array",
+      path: "edit.json#audio.narration",
+    });
+    return;
+  }
+
+  const tCounts = new Map();
+  for (const item of narration) {
+    if (isRecord(item) && isFiniteNumber(item.t)) {
+      tCounts.set(item.t, (tCounts.get(item.t) ?? 0) + 1);
+    }
+  }
+
+  const ids = new Set();
+  for (const [index, item] of narration.entries()) {
+    const itemPath = `edit.json#audio.narration[${index}]`;
+    if (!isRecord(item)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.structure",
+        message: "narration item must be an object",
+        path: itemPath,
+      });
+      continue;
+    }
+
+    if (typeof item.id !== "string" || !/^n-\d{4}$/.test(item.id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.id",
+        message: "id must match n- followed by four digits",
+        path: itemPath,
+      });
+    } else if (ids.has(item.id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.id",
+        message: `duplicate narration id: ${item.id}`,
+        path: itemPath,
+      });
+    } else {
+      ids.add(item.id);
+    }
+
+    if (!isNonEmptyString(item.path)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.path",
+        message: "path must be a non-empty string",
+        path: itemPath,
+      });
+    } else {
+      const filePath = resolveReference(paths.editPath, item.path);
+      if (!(await isRegularFile(filePath))) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.narration.file",
+          message: `narration path does not resolve to a regular file: ${item.path}`,
+          path: relativePath(paths.projectRoot, filePath),
+        });
+      }
+    }
+
+    if (!isFiniteNumber(item.t) || item.t < 0) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.t",
+        message: "t must be a non-negative finite number",
+        path: itemPath,
+      });
+    } else {
+      if (timeline !== null && item.t > timeline + EPSILON) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.narration.timeline",
+          message: `t ${formatNumber(item.t)}s exceeds timeline duration ${formatNumber(timeline)}s`,
+          path: itemPath,
+          range: { start: item.t, end: item.t },
+        });
+      }
+      if ((tCounts.get(item.t) ?? 0) > 1) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.narration.duplicate-t",
+          message: `multiple narration items share the same t: ${formatNumber(item.t)}s`,
+          path: itemPath,
+          range: { start: item.t, end: item.t },
+        });
+      }
+    }
+
+    if (
+      Object.hasOwn(item, "gain_db") &&
+      (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12)
+    ) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.gain-db",
+        message: "gain_db must be a finite number within [-60, 12]",
+        path: itemPath,
+      });
+    }
+
+    if (!isRecord(item.provenance)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.provenance",
+        message: "provenance is required and must be an object",
+        path: itemPath,
+      });
+    } else if (!isNonEmptyString(item.provenance.provider)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.provenance",
+        message: "provenance.provider must be a non-empty string",
+        path: itemPath,
+      });
+    } else if (
+      item.provenance.provider === "voicevox" &&
+      !isNonEmptyString(item.provenance.credit)
+    ) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.credit",
+        message: "provenance.credit is required when provider is voicevox",
+        path: itemPath,
+      });
     }
   }
 }

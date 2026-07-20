@@ -76,6 +76,63 @@ function validateEdit(value) {
     validateSourcesV1(value.sources);
   }
   validateCuts(value.cuts, value.version, value.sources);
+  validateAudio(value.audio);
+}
+
+function validateAudio(value) {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    fail("audio は object である必要があります");
+    return;
+  }
+  validateNarration(value.narration);
+}
+
+function validateNarration(value) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    fail("audio.narration は配列である必要があります");
+    return;
+  }
+  const ids = new Set();
+  for (const [index, item] of value.entries()) {
+    const label = `audio.narration[${index}]`;
+    if (!isPlainObject(item)) {
+      fail(`${label} は object である必要があります`);
+      continue;
+    }
+    if (typeof item.id !== "string" || !/^n-\d{4}$/.test(item.id)) {
+      fail(`${label}.id は n- に続く 4 桁の数字である必要があります`);
+    } else if (ids.has(item.id)) {
+      fail(`audio.narration[].id が重複しています: ${item.id}`);
+    } else {
+      ids.add(item.id);
+    }
+    validateNonEmptyString(item.path, `${label}.path`);
+    if (!isFiniteNumber(item.t) || item.t < 0) {
+      fail(`${label}.t は 0 以上の有限数である必要があります`);
+    }
+    if (hasOwn(item, "gain_db")) {
+      if (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12) {
+        fail(`${label}.gain_db は -60 から 12 の範囲の有限数である必要があります`);
+      }
+    }
+    validateNarrationProvenance(item.provenance, `${label}.provenance`);
+  }
+}
+
+function validateNarrationProvenance(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  if (!isNonEmptyString(value.provider)) {
+    fail(`${label}.provider は空でない文字列である必要があります`);
+    return;
+  }
+  if (value.provider === "voicevox" && !isNonEmptyString(value.credit)) {
+    fail(`${label}.credit は provider が voicevox のとき必須です`);
+  }
 }
 
 function validateOutput(value) {

@@ -228,6 +228,55 @@ test("captions validate source-time visibility and edited metadata", async () =>
   });
 });
 
+test("narration with bgm and full provenance passes with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "narration-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+for (const [fixture, expectedCheck] of [
+  ["narration-invalid-id", "audio.narration.id"],
+  ["narration-gain-out-of-range", "audio.narration.gain-db"],
+  ["narration-missing-provenance", "audio.narration.provenance"],
+  ["narration-voicevox-missing-credit", "audio.narration.credit"],
+]) {
+  test(`${fixture} fails with ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "fail");
+      assert.ok(
+        result.findings.some(
+          (finding) => finding.check === expectedCheck && finding.severity === "error",
+        ),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+test("narration path that does not resolve to a file warns without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "narration-missing-file");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "audio.narration.file" && finding.severity === "warning",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("unreadable input returns execution-error exit code", () => {
   const executed = run(join(tmpdir(), "edit-lint-does-not-exist"));
   assert.equal(executed.status, 2);

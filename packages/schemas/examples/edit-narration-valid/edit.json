@@ -1,0 +1,36 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 20.0 }],
+  "overlays": [],
+  "audio": {
+    "bgm": { "path": "bgm.mp3", "gain_db": -18, "ducking": true },
+    "narration": [
+      {
+        "id": "n-0001",
+        "path": "out/narration/n-0001.mp3",
+        "t": 2.5,
+        "gain_db": 0,
+        "script": "こんにちは、AKARI Videoです。",
+        "reading": "こんにちわ、あかりびでおです。",
+        "provenance": {
+          "provider": "voicevox",
+          "engine": "voicevox-0.25.2",
+          "voice": "speaker:3",
+          "credit": "VOICEVOX:ずんだもん",
+          "generated_at": "2026-07-20T09:00:00+09:00"
+        }
+      },
+      {
+        "id": "n-0002",
+        "path": "out/narration/n-0002.mp3",
+        "t": 10.0,
+        "provenance": {
+          "provider": "human",
+          "generated_at": "2026-07-19"
+        }
+      }
+    ]
+  }
+}

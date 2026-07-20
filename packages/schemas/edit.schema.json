@@ -55,6 +55,44 @@
         }
       }
     },
+    "narrationProvenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["provider"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "engine": { "type": "string" },
+        "voice": { "type": "string" },
+        "credit": { "type": "string" },
+        "generated_at": { "type": "string" }
+      },
+      "$comment": "provider は voicevox/fal/elevenlabs/human を契約文書で例示するのみで enum 強制はしない。provider === voicevox のときの credit 必須は validate-edit.mjs で検証する（兄弟値比較のため）。"
+    },
+    "narrationItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "path", "t", "provenance"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^n-\\d{4}$" },
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "t": { "$ref": "#/$defs/seconds" },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "script": { "type": "string" },
+        "reading": { "type": "string" },
+        "provenance": { "$ref": "#/$defs/narrationProvenance" }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": true,
+      "$comment": "audio 自体は現行スキーマで未定義（bgm/sfx を含め型定義なし）。narration の追加に必要な最小限のみをここで定義し、bgm/sfx の型定義には踏み込まない（contract-2026-07-20-edit-json-v1-narration.md §8）。",
+      "properties": {
+        "narration": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/narrationItem" }
+        }
+      }
+    },
     "cutV0": {
       "type": "object",
       "additionalProperties": true,
@@ -88,7 +126,8 @@
         "cuts": {
           "type": "array",
           "items": { "$ref": "#/$defs/cutV0" }
-        }
+        },
+        "audio": { "$ref": "#/$defs/audio" }
       },
       "not": { "required": ["sources"] }
     },
@@ -107,7 +146,8 @@
         "cuts": {
           "type": "array",
           "items": { "$ref": "#/$defs/cutV1" }
-        }
+        },
+        "audio": { "$ref": "#/$defs/audio" }
       },
       "not": { "required": ["source"] }
     }

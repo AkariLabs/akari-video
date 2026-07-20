@@ -1,0 +1,18 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 20.0 }],
+  "overlays": [],
+  "audio": {
+    "narration": [
+      {
+        "id": "n-0001",
+        "path": "out/narration/n-0001.mp3",
+        "t": 2.5,
+        "gain_db": -70,
+        "provenance": { "provider": "human" }
+      }
+    ]
+  }
+}
