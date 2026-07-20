@@ -1,0 +1,215 @@
+[
+  {
+    "t": "2026-07-20T01:41:13.778Z",
+    "step": "connected-main",
+    "targetId": "BA6F01177C6D53D8F015D172539EF366"
+  },
+  {
+    "t": "2026-07-20T01:41:17.307Z",
+    "step": "opened-explorer",
+    "alreadyOpen": true,
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-20T01:41:19.813Z",
+    "step": "opened-video-tab",
+    "found": true,
+    "x": 68,
+    "y": 226
+  },
+  {
+    "t": "2026-07-20T01:41:20.472Z",
+    "step": "reached-active-frame-context",
+    "activeContextId": 10
+  },
+  {
+    "t": "2026-07-20T01:41:21.994Z",
+    "step": "fixture-fps",
+    "fps": 30
+  },
+  {
+    "t": "2026-07-20T01:41:23.985Z",
+    "step": "three-ready",
+    "model": "laptop",
+    "count": 1,
+    "overlayId": "laptop",
+    "status": "ready",
+    "memory": {
+      "geometries": 13,
+      "textures": 2
+    }
+  },
+  {
+    "t": "2026-07-20T01:41:23.987Z",
+    "step": "assert-ok",
+    "message": "laptop model must load to status=ready"
+  },
+  {
+    "t": "2026-07-20T01:41:24.027Z",
+    "step": "assert-ok",
+    "message": "laptop capture must not be a blank/near-empty PNG (got 48277 bytes)"
+  },
+  {
+    "t": "2026-07-20T01:41:24.920Z",
+    "step": "three-ready",
+    "model": "phone",
+    "count": 1,
+    "overlayId": "phone",
+    "status": "ready",
+    "memory": {
+      "geometries": 26,
+      "textures": 2
+    }
+  },
+  {
+    "t": "2026-07-20T01:41:24.920Z",
+    "step": "assert-ok",
+    "message": "phone model must load to status=ready"
+  },
+  {
+    "t": "2026-07-20T01:41:24.939Z",
+    "step": "assert-ok",
+    "message": "phone capture must not be a blank/near-empty PNG (got 34764 bytes)"
+  },
+  {
+    "t": "2026-07-20T01:41:27.584Z",
+    "step": "three-ready",
+    "model": "smartphone",
+    "count": 1,
+    "overlayId": "smartphone",
+    "status": "ready",
+    "memory": {
+      "geometries": 2,
+      "textures": 5
+    }
+  },
+  {
+    "t": "2026-07-20T01:41:27.586Z",
+    "step": "assert-ok",
+    "message": "smartphone model must load to status=ready"
+  },
+  {
+    "t": "2026-07-20T01:41:27.616Z",
+    "step": "assert-ok",
+    "message": "smartphone capture must not be a blank/near-empty PNG (got 45341 bytes)"
+  },
+  {
+    "t": "2026-07-20T01:41:28.531Z",
+    "step": "assert-ok",
+    "message": "determinism-1 capture must not be a blank/near-empty PNG (got 34764 bytes)"
+  },
+  {
+    "t": "2026-07-20T01:41:29.592Z",
+    "step": "assert-ok",
+    "message": "determinism-2 capture must not be a blank/near-empty PNG (got 34764 bytes)"
+  },
+  {
+    "t": "2026-07-20T01:41:29.596Z",
+    "step": "determinism-preview",
+    "hash1": "5fdd7502c5988d869d5eb7b2b8ce6f3b1d31b7bdba0fe4843212b9c11b8396f8",
+    "hash2": "5fdd7502c5988d869d5eb7b2b8ce6f3b1d31b7bdba0fe4843212b9c11b8396f8",
+    "equal": true
+  },
+  {
+    "t": "2026-07-20T01:41:29.596Z",
+    "step": "assert-ok",
+    "message": "preview canvas must be pixel-identical across two renders at the same local time"
+  },
+  {
+    "t": "2026-07-20T01:41:31.100Z",
+    "step": "material-override-overlay",
+    "overlayId": "smartphone"
+  },
+  {
+    "t": "2026-07-20T01:41:31.101Z",
+    "step": "assert-ok",
+    "message": "smartphone overlay must be visible for materialOverrides check"
+  },
+  {
+    "t": "2026-07-20T01:41:35.939Z",
+    "step": "dispose-cycle",
+    "cycles": 5,
+    "memories": [
+      {
+        "geometries": 26,
+        "textures": 2
+      },
+      {
+        "geometries": 26,
+        "textures": 2
+      },
+      {
+        "geometries": 26,
+        "textures": 2
+      },
+      {
+        "geometries": 26,
+        "textures": 2
+      },
+      {
+        "geometries": 26,
+        "textures": 2
+      }
+    ]
+  },
+  {
+    "t": "2026-07-20T01:41:35.942Z",
+    "step": "assert-ok",
+    "message": "model must re-load to ready after every dispose/reinit cycle"
+  },
+  {
+    "t": "2026-07-20T01:41:35.942Z",
+    "step": "assert-ok",
+    "message": "geometries count must be stable across cycles (no leak): 26,26,26,26,26"
+  },
+  {
+    "t": "2026-07-20T01:41:35.944Z",
+    "step": "assert-ok",
+    "message": "textures count must be stable across cycles (no leak): 2,2,2,2,2"
+  },
+  {
+    "t": "2026-07-20T01:41:36.357Z",
+    "step": "html-overlay-and-caption",
+    "titleVisible": true,
+    "titleText": "three-look-parity 検証",
+    "captionText": "three-look-parity 検証中"
+  },
+  {
+    "t": "2026-07-20T01:41:36.358Z",
+    "step": "assert-ok",
+    "message": "title HTML overlay must be visible at t=0.5"
+  },
+  {
+    "t": "2026-07-20T01:41:36.373Z",
+    "step": "assert-ok",
+    "message": "caption must render at t=0.5"
+  },
+  {
+    "t": "2026-07-20T01:41:38.458Z",
+    "step": "fallback-on-load-error",
+    "status": "error",
+    "fallbackVisible": true
+  },
+  {
+    "t": "2026-07-20T01:41:38.459Z",
+    "step": "assert-ok",
+    "message": "broken model must resolve to status=error"
+  },
+  {
+    "t": "2026-07-20T01:41:38.459Z",
+    "step": "assert-ok",
+    "message": "fallback must remain visible when the model fails to load"
+  },
+  {
+    "t": "2026-07-20T01:41:39.578Z",
+    "step": "interaction-selftest",
+    "ok": true,
+    "detail": "--x: 176.40027994343495px -> 288.3536327131143px; moved: 111.95335276967933px (expected 111.95335276967931px); overlayWrite: undefined; resize: --scale: 1.5 -> 1.600698335535488 (expected 1.600698335535488); nw drift: 0px; overlayWrite: undefined"
+  },
+  {
+    "t": "2026-07-20T01:41:39.579Z",
+    "step": "assert-ok",
+    "message": "interaction.selftest() must pass: --x: 176.40027994343495px -> 288.3536327131143px; moved: 111.95335276967933px (expected 111.95335276967931px); overlayWrite: undefined; resize: --scale: 1.5 -> 1.600698335535488 (expected 1.600698335535488); nw drift: 0px; overlayWrite: undefined"
+  }
+]

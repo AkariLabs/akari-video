@@ -7,6 +7,7 @@ window.akari.threeRuntime = (() => {
   const ALLOWED_SCENE_KEYS = new Set([
     "model",
     "camera",
+    "environment",
     "lights",
     "animationClip",
     "materialOverrides",
@@ -53,6 +54,16 @@ window.akari.threeRuntime = (() => {
     }
     if (descriptor.animationClip !== undefined && typeof descriptor.animationClip !== "string") {
       throw new TypeError("animationClip は glTF clip 名の文字列である必要があります");
+    }
+    if (descriptor.environment !== undefined) {
+      if (!descriptor.environment
+        || typeof descriptor.environment !== "object"
+        || Array.isArray(descriptor.environment)
+        || Object.keys(descriptor.environment).some(
+          (key) => key !== "intensity" && key !== "exposure"
+        )) {
+        throw new TypeError("environment は intensity / exposure を指定する object である必要があります");
+      }
     }
     if (descriptor.materialOverrides !== undefined) {
       if (!descriptor.materialOverrides
@@ -167,6 +178,29 @@ window.akari.threeRuntime = (() => {
     }
   }
 
+  function configureEnvironment(THREE, RoomEnvironment, scene, renderer, descriptor) {
+    const environmentDescriptor = descriptor.environment ?? {};
+    scene.environmentIntensity = Math.max(
+      0,
+      finiteNumber(environmentDescriptor.intensity, 0.5)
+    );
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMappingExposure = Math.max(
+      0,
+      finiteNumber(environmentDescriptor.exposure, 1)
+    );
+
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const roomEnvironment = new RoomEnvironment();
+    try {
+      return pmremGenerator.fromScene(roomEnvironment);
+    } finally {
+      roomEnvironment.dispose();
+      pmremGenerator.dispose();
+    }
+  }
+
   function setFallback(container, visible) {
     const fallback = container.querySelector("[data-akari-3d-fallback]");
     if (!(fallback instanceof HTMLElement)) return;
@@ -182,7 +216,10 @@ window.akari.threeRuntime = (() => {
     const height = Math.max(1, Math.round(rect.height || containerRect.height || 1));
     if (instance.canvas.width !== width || instance.canvas.height !== height) {
       instance.renderer.setSize(width, height, false);
-      instance.camera.aspect = width / height;
+    }
+    const aspect = width / height;
+    if (instance.camera.aspect !== aspect) {
+      instance.camera.aspect = aspect;
       instance.camera.updateProjectionMatrix();
     }
   }
@@ -227,6 +264,9 @@ window.akari.threeRuntime = (() => {
     disposeObject(instance.model);
     instance.model = null;
     instance.mixer = null;
+    instance.scene.environment = null;
+    instance.environmentTarget?.dispose();
+    instance.environmentTarget = null;
     instance.renderer.renderLists?.dispose();
     instance.renderer.dispose();
     setFallback(instance.container, true);
@@ -242,7 +282,9 @@ window.akari.threeRuntime = (() => {
 
   function createInstance(container) {
     const library = window.AkariThree;
-    if (!library?.THREE || typeof library.GLTFLoader !== "function") {
+    if (!library?.THREE
+      || typeof library.GLTFLoader !== "function"
+      || typeof library.RoomEnvironment !== "function") {
       throw new Error("AkariThree bundle が読み込まれていません");
     }
     const descriptor = readDescriptor(container);
@@ -251,13 +293,27 @@ window.akari.threeRuntime = (() => {
       throw new Error("3D overlay には canvas が必要です");
     }
 
-    const { THREE, GLTFLoader } = library;
+    const { THREE, GLTFLoader, RoomEnvironment } = library;
     const scene = new THREE.Scene();
     const camera = createCamera(THREE, descriptor);
     addLights(THREE, scene, descriptor.lights);
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(1);
     renderer.setClearColor(0x000000, 0);
+    let environmentTarget;
+    try {
+      environmentTarget = configureEnvironment(
+        THREE,
+        RoomEnvironment,
+        scene,
+        renderer,
+        descriptor
+      );
+      scene.environment = environmentTarget.texture;
+    } catch (error) {
+      renderer.dispose();
+      throw error;
+    }
 
     const instance = {
       active: true,
@@ -265,6 +321,7 @@ window.akari.threeRuntime = (() => {
       canvas,
       container,
       descriptor,
+      environmentTarget,
       lastTime: 0,
       mixer: null,
       model: null,

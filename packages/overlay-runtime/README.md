@@ -103,7 +103,7 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 
 ## このパッケージが公開するもの
 
-- `window.AkariThree` — pinned Three.js core と `GLTFLoader`
+- `window.AkariThree` — pinned Three.js core と `GLTFLoader` / `RoomEnvironment`
 - `window.akari.threeRuntime.render(container, localSeconds)` / `.dispose(container)` /
   `.inspect(container)`（`src/three-runtime.js`）。独自 rAF や wall-clock は持たない
 - `window.akari.runtime.mount(summary)` / `.tick(t, playing)` / `.unmount()`
@@ -118,7 +118,7 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 
 ```
 src/
-  vendor/three-bundle.js  Three.js core + GLTFLoader の単一 IIFE
+  vendor/three-bundle.js  Three.js core + GLTFLoader + RoomEnvironment の単一 IIFE
   vendor/three-LICENSE.txt  Three.js の MIT License
   three-runtime.js     宣言型 3D scene の load / setTime / render / dispose
   overlay-runtime.js   DOM mount/tick と 3D 可視ライフサイクル
@@ -139,32 +139,46 @@ out/
 ## Three.js vendor の固定と再生成
 
 `src/vendor/three-bundle.js` は npm package `three@0.185.1` の core と
-`three/addons/loaders/GLTFLoader.js` だけを entry point にし、`esbuild@0.24.2` で
+`three/addons/loaders/GLTFLoader.js`、`three/addons/environments/RoomEnvironment.js` だけを
+entry point にし、`esbuild@0.24.2` で
 事前生成したブラウザ向け単一 IIFE である。実行時に npm、CDN、外部 origin を参照しない。
-生成時の npm tarball integrity は
-`sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==`。
+生成時の npm tarball integrity は次のとおり。
+
+- `three@0.185.1`: `sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==`
+- `esbuild@0.24.2`: `sha512-+9egpBW8I3CD5XPe0n6BfT5fxLzxrlDzqydF3aviG+9ni1lDC/OvMHcxqEFV0+LANZG5R1bFMWfUrjVsdwxJvA==`
+- `@esbuild/darwin-arm64@0.24.2`: `sha512-kj3AnYWc+CekmZnS5IPu9D+HWtUI49hbnyqk0FLEJDbzCIQt7hg7ucF1SQAilhtYpIujfaHr6O0UHlzzSPdOeA==`
 
 entry file は次の内容に固定する。
 
 ```js
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-window.AkariThree = Object.freeze({ THREE, GLTFLoader });
+window.AkariThree = Object.freeze({ THREE, GLTFLoader, RoomEnvironment });
 ```
 
-再生成コマンド（展開した `three-0.185.1.tgz` を `package/`、上記 entry を
-`akari-three-entry.js` とする一時ディレクトリで実行）:
+再生成コマンド（上記 entry を `akari-three-entry.js` とする空の一時ディレクトリで実行。
+以下は生成に使った macOS arm64 の例）:
 
 ```sh
 npm pack three@0.185.1 --ignore-scripts
-tar -xzf three-0.185.1.tgz
-mkdir -p node_modules
-ln -s ../package node_modules/three
-npx --package=esbuild@0.24.2 esbuild akari-three-entry.js \
+npm pack esbuild@0.24.2 --ignore-scripts
+npm pack @esbuild/darwin-arm64@0.24.2 --ignore-scripts
+mkdir -p node_modules/three node_modules/esbuild node_modules/@esbuild/darwin-arm64
+tar -xzf three-0.185.1.tgz -C node_modules/three --strip-components=1
+tar -xzf esbuild-0.24.2.tgz -C node_modules/esbuild --strip-components=1
+tar -xzf esbuild-darwin-arm64-0.24.2.tgz \
+  -C node_modules/@esbuild/darwin-arm64 --strip-components=1
+node node_modules/esbuild/bin/esbuild akari-three-entry.js \
   --bundle --format=iife --platform=browser --target=es2020 --minify \
   --legal-comments=inline --outfile=three-bundle.js
 ```
+
+外部ネットワークを使う取得操作は上記 `npm pack` だけとし、tarball integrity を照合してから
+展開する。生成後は本節に記録した bundle の byte 数と SHA-256 も照合する。
+
+- `three-bundle.js`: `776523` bytes / SHA-256 `ab202898af18d5a4b5e74dc763911bbbe33a4dbf7ea8278828b11cc9404fcf9a`
 
 Three.js は MIT License（Copyright © 2010-2026 three.js authors）。完全な許諾文は
 `src/vendor/three-LICENSE.txt` に保持し、esbuild の `--legal-comments=inline` により

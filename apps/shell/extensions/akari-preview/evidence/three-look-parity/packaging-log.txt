@@ -1,0 +1,15 @@
+L0 実測ログ（three-look-parity）
+
+- build:ext: exit 0
+- lint: exit 0
+- node --check packages/overlay-runtime/src/three-runtime.js: OK
+- node --check packages/overlay-runtime/src/vendor/three-bundle.js: OK
+- packages/render-cut test（node --test test/*.test.mjs）: 13/13 PASS
+  （非3Dシート byte-identical テスト・3D overlay 埋め込みテスト含む）
+- npm run package（electron-builder --dir）+ postpackage（verify-asar-contents.mjs）: GREEN
+  - PACKAGE-VERIFIED: electron-builder-out/mac-arm64/AKARI Video.app（409MB ≤ 500MB）
+  - 拡張 8 種・skills・schemas・templates 同梱確認済み・evidence 0 件（除外ルール維持）
+  - asar 内 lib/overlay-runtime/three-runtime.js・vendor/three-bundle.js が
+    packages/overlay-runtime/src の現行内容とバイト一致（npx @electron/asar extract で確認）
+- vendor bundle 増分: 774553 bytes → 776523 bytes（+1970 bytes・RoomEnvironment 追加分。
+  README.md 記載の SHA-256 と一致）

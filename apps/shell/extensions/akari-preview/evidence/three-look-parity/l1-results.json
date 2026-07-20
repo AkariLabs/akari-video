@@ -1,0 +1,65 @@
+{
+  "lookComparison": {
+    "laptop": {
+      "t": 5,
+      "status": "ready",
+      "memory": {
+        "geometries": 13,
+        "textures": 2
+      }
+    },
+    "phone": {
+      "t": 11,
+      "status": "ready",
+      "memory": {
+        "geometries": 26,
+        "textures": 2
+      }
+    },
+    "smartphone": {
+      "t": 17,
+      "status": "ready",
+      "memory": {
+        "geometries": 2,
+        "textures": 5
+      }
+    }
+  },
+  "determinismPreview": {
+    "hash1": "5fdd7502c5988d869d5eb7b2b8ce6f3b1d31b7bdba0fe4843212b9c11b8396f8",
+    "hash2": "5fdd7502c5988d869d5eb7b2b8ce6f3b1d31b7bdba0fe4843212b9c11b8396f8",
+    "equal": true
+  },
+  "materialOverrides": {
+    "overlayId": "smartphone"
+  },
+  "disposeCycle": {
+    "geometryCounts": [
+      26,
+      26,
+      26,
+      26,
+      26
+    ],
+    "textureCounts": [
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  },
+  "htmlOverlayAndCaption": {
+    "titleVisible": true,
+    "titleText": "three-look-parity 検証",
+    "captionText": "three-look-parity 検証中"
+  },
+  "fallback": {
+    "status": "error",
+    "fallbackVisible": true
+  },
+  "interactionSelftest": {
+    "ok": true,
+    "detail": "--x: 176.40027994343495px -> 288.3536327131143px; moved: 111.95335276967933px (expected 111.95335276967931px); overlayWrite: undefined; resize: --scale: 1.5 -> 1.600698335535488 (expected 1.600698335535488); nw drift: 0px; overlayWrite: undefined"
+  }
+}
