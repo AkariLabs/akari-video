@@ -83,15 +83,20 @@ for (const application of applications.sort()) {
     failed = true;
   }
 
+  // サイズは配布をブロックしない（オーナー裁定 2026-07-20 — 「1GB いってもいい」）。
+  // 情報として常に表示し、暴走ビルド検知のための緩い目安（SOFT_BUDGET_MB）超過時のみ
+  // 警告する。中身チェック（拡張・skills・schemas・templates）は従来どおり厳格。
+  const SOFT_BUDGET_MB = 1536;
   const sizeOutput = execSync(`du -sm ${JSON.stringify(application)}`, { encoding: 'utf8' }).trim();
   const sizeMb = Number.parseInt(sizeOutput, 10);
-  if (!Number.isFinite(sizeMb) || sizeMb > 500) {
-    console.error(`❌ SIZE ${Number.isFinite(sizeMb) ? sizeMb : 'UNKNOWN'}MB > 500MB`);
-    failed = true;
+  if (!Number.isFinite(sizeMb)) {
+    console.warn('⚠️ SIZE UNKNOWN（計測できず・配布はブロックしない）');
+  } else if (sizeMb > SOFT_BUDGET_MB) {
+    console.warn(`⚠️ SIZE ${sizeMb}MB > 目安 ${SOFT_BUDGET_MB}MB（配布はブロックしないが肥大化に注意）`);
   } else {
-    console.log(`✅ SIZE ${sizeMb}MB <= 500MB`);
+    console.log(`✅ SIZE ${sizeMb}MB（目安 ${SOFT_BUDGET_MB}MB 以内）`);
   }
-  verified.push(`${path.relative(shellRoot, application)} (${sizeMb}MB)`);
+  verified.push(`${path.relative(shellRoot, application)} (${Number.isFinite(sizeMb) ? sizeMb : 'UNKNOWN'}MB)`);
 }
 
 if (failed) {
