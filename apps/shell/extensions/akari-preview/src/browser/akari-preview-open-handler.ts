@@ -80,6 +80,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
 // akari-transcript の AKARI_TRANSCRIPT_SEEK_REQUESTED.id（akari-transcript-commands.ts）とミラー。
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.registerHandler に後付け登録する。
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
+// akari-annotations 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
+const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 
 // akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.executeCommand に渡す。
@@ -89,6 +91,12 @@ interface TranscriptSeekRequest {
     videoUri?: string;
     time?: number;
     captionId?: string;
+}
+
+interface PreviewPlaybackTickRequest {
+    type: 'akari-preview-playback-tick';
+    time: number;
+    playing: boolean;
 }
 
 const EMPTY_SUMMARY: EditSummary = {
@@ -233,6 +241,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (message?.type === 'akari-preview-fullscreen-fallback') {
                 this.shell.toggleMaximized(widget);
             }
+            if (this.isPlaybackTickRequest(message)) {
+                this.forwardPlaybackTick(widget, message);
+            }
         }));
         disposables.push(this.fileService.onDidFilesChange(event => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
@@ -270,6 +281,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.openPreviews.delete(seekKey);
             void this.disposePreviewStreams(widget);
         });
+    }
+
+    protected isPlaybackTickRequest(message: any): message is PreviewPlaybackTickRequest {
+        return message?.type === 'akari-preview-playback-tick'
+            && Number.isFinite(message.time)
+            && typeof message.playing === 'boolean';
+    }
+
+    protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
+        const videoUri = widget.akariPreviewVideoUri;
+        if (!videoUri) {
+            return;
+        }
+        window.dispatchEvent(new CustomEvent(PREVIEW_PLAYBACK_TICK_EVENT, {
+            detail: {
+                videoUri: videoUri.normalizePath().toString(),
+                time: message.time,
+                playing: message.playing
+            }
+        }));
     }
 
     protected queueRefresh(widget: PreviewWidgetMarker, videoUri: URI): void {
@@ -825,6 +856,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const pending = new Map();
             let sequence = 0;
             let displayScale = 1;
+            let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
             const stage = document.getElementById('overlay-stage');
             const output = initial.summary.output;
@@ -844,6 +876,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 })
             };
             window.akari.stageScale = () => displayScale;
+            window.akari.playbackTick = (time, playing, immediate = false) => {
+                const now = performance.now();
+                if (!immediate && now - lastPlaybackTickAt < 50) return;
+                lastPlaybackTickAt = now;
+                vscode.postMessage({ type: 'akari-preview-playback-tick', time, playing });
+            };
             window.akari.toggleFullscreen = () => {
                 if (document.fullscreenElement) {
                     return document.exitFullscreen();
@@ -1261,12 +1299,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 const caption = captions.find(candidate => candidate.start <= time && time < candidate.end);
                 captionPlate.textContent = caption ? caption.text : '';
             };
-            const tick = () => {
+            const tick = (immediatePlaybackTick = false) => {
                 applyKeepRangeBoundary();
                 const timelineTime = keepRangesReady
                     ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
                     : (video.currentTime || 0);
                 window.akari.runtime.tick(timelineTime, !video.paused);
+                // タイムライン横軸と同じ source 秒を送る（runtime overlay は timeline 秒のまま）。
+                window.akari.playbackTick(video.currentTime || 0, !video.paused, immediatePlaybackTick);
                 renderCaption();
                 updateTransport();
                 updateWaveformPlayhead();
@@ -1282,7 +1322,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const stopAnimation = () => {
                 cancelAnimationFrame(animationFrame);
                 animationFrame = 0;
-                tick();
+                tick(true);
             };
             const hideInspector = () => {
                 inspectorFields.replaceChildren();
@@ -1505,8 +1545,8 @@ body { display: grid; place-items: center; padding: 32px; }
             video.addEventListener('play', startAnimation);
             video.addEventListener('pause', stopAnimation);
             video.addEventListener('ended', stopAnimation);
-            video.addEventListener('seeked', tick);
-            video.addEventListener('timeupdate', tick);
+            video.addEventListener('seeked', () => tick(true));
+            video.addEventListener('timeupdate', () => tick());
             video.addEventListener('error', showPlaybackError);
             window.addEventListener('message', event => {
                 const message = event.data;

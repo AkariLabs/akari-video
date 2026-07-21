@@ -1,0 +1,120 @@
+[
+  {
+    "t": "2026-07-21T00:02:00.808Z",
+    "step": "connected-main",
+    "connected": true
+  },
+  {
+    "t": "2026-07-21T00:02:11.506Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-21T00:02:11.726Z",
+    "step": "initial-widget-state",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 904,
+      "height": 92
+    },
+    "scrollLeft": 0,
+    "scrollWidth": 904,
+    "clientWidth": 904,
+    "contentWidthPx": 904,
+    "viewStart": 0,
+    "visibleDuration": 11.73,
+    "playheadLeftPx": 0,
+    "undoDisabled": true,
+    "redoDisabled": true,
+    "footer": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。"
+  },
+  {
+    "t": "2026-07-21T00:02:12.349Z",
+    "step": "assertion-ok",
+    "message": "minimum zoom -> content width <= client width",
+    "scrollWidth": 904,
+    "clientWidth": 904
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "after-ctrl-wheel-zoom",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 894,
+      "height": 92
+    },
+    "scrollLeft": 856.51257744,
+    "scrollWidth": 3021.7200000000003,
+    "clientWidth": 894,
+    "contentWidthPx": 3021.7200000000003,
+    "viewStart": 3.32489196,
+    "visibleDuration": 3.470414201183432,
+    "playheadLeftPx": 856.51257744,
+    "undoDisabled": true,
+    "redoDisabled": true,
+    "footer": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。"
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "assertion-ok",
+    "message": "AC2 precondition: zoomed in (content width grew)",
+    "before": 904,
+    "after": 3021.7200000000003
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "AC2-cursor-fixed-point",
+    "timeBefore": 4.697190265486726,
+    "timeAfter": 4.7301379788237155,
+    "cursorTimeError": 0.03294771333698954,
+    "visibleDurationAfter": 3.4704142011834316,
+    "threshold": 0.06940828402366864
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "assertion-ok",
+    "message": "AC2: ctrl+wheel zoom keeps cursor time fixed within 2% of visible width",
+    "cursorTimeError": 0.03294771333698954,
+    "threshold": 0.06940828402366864
+  },
+  {
+    "t": "2026-07-21T00:02:13.171Z",
+    "step": "horizontal-swipe-pan",
+    "beforeWheelScroll": 856.51257744,
+    "afterWheelScroll": 1106.88323148
+  },
+  {
+    "t": "2026-07-21T00:02:13.171Z",
+    "step": "assertion-ok",
+    "message": "horizontal swipe moves the view window",
+    "beforeWheelScroll": 856.51257744,
+    "afterWheelScroll": 1106.88323148
+  },
+  {
+    "t": "2026-07-21T00:02:13.477Z",
+    "step": "AC1-left-edge",
+    "scrollLeft": 0
+  },
+  {
+    "t": "2026-07-21T00:02:13.478Z",
+    "step": "assertion-ok",
+    "message": "left edge viewStart is zero"
+  },
+  {
+    "t": "2026-07-21T00:02:13.805Z",
+    "step": "AC1-right-edge",
+    "scrollLeft": 2126.39645088,
+    "maxScroll": 2127.7200000000003
+  },
+  {
+    "t": "2026-07-21T00:02:13.805Z",
+    "step": "assertion-ok",
+    "message": "scrollbar reaches the right edge",
+    "scrollLeft": 2126.39645088,
+    "maxScroll": 2127.7200000000003
+  }
+]

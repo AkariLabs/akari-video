@@ -17,7 +17,7 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ATTACH_AKARI_ANNOTATIONS_PASSIVE, OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_REVIEW_PANEL } from './akari-annotations-commands';
-import { AkariAnnotationsWidget } from './akari-annotations-widget';
+import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
@@ -26,6 +26,8 @@ export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_REVIEW_PANEL };
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
+// akari-preview 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
+const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 
 @injectable()
 export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution {
@@ -73,6 +75,14 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()
         });
+        const onPlaybackTick = (event: Event): void => {
+            const request = (event as CustomEvent<PreviewPlaybackTick>).detail;
+            if (request && this.timelineWidget?.canHandlePlaybackTick(request.videoUri)) {
+                this.timelineWidget.handlePlaybackTick(request);
+            }
+        };
+        window.addEventListener(PREVIEW_PLAYBACK_TICK_EVENT, onPlaybackTick);
+        this.toDispose.push({ dispose: () => window.removeEventListener(PREVIEW_PLAYBACK_TICK_EVENT, onPlaybackTick) });
     }
 
     registerMenus(menus: MenuModelRegistry): void {

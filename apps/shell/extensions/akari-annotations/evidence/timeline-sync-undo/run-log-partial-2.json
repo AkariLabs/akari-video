@@ -1,0 +1,341 @@
+[
+  {
+    "t": "2026-07-21T00:02:00.808Z",
+    "step": "connected-main",
+    "connected": true
+  },
+  {
+    "t": "2026-07-21T00:02:11.506Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-21T00:02:11.726Z",
+    "step": "initial-widget-state",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 904,
+      "height": 92
+    },
+    "scrollLeft": 0,
+    "scrollWidth": 904,
+    "clientWidth": 904,
+    "contentWidthPx": 904,
+    "viewStart": 0,
+    "visibleDuration": 11.73,
+    "playheadLeftPx": 0,
+    "undoDisabled": true,
+    "redoDisabled": true,
+    "footer": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。"
+  },
+  {
+    "t": "2026-07-21T00:02:12.349Z",
+    "step": "assertion-ok",
+    "message": "minimum zoom -> content width <= client width",
+    "scrollWidth": 904,
+    "clientWidth": 904
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "after-ctrl-wheel-zoom",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 894,
+      "height": 92
+    },
+    "scrollLeft": 856.51257744,
+    "scrollWidth": 3021.7200000000003,
+    "clientWidth": 894,
+    "contentWidthPx": 3021.7200000000003,
+    "viewStart": 3.32489196,
+    "visibleDuration": 3.470414201183432,
+    "playheadLeftPx": 856.51257744,
+    "undoDisabled": true,
+    "redoDisabled": true,
+    "footer": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。"
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "assertion-ok",
+    "message": "AC2 precondition: zoomed in (content width grew)",
+    "before": 904,
+    "after": 3021.7200000000003
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "AC2-cursor-fixed-point",
+    "timeBefore": 4.697190265486726,
+    "timeAfter": 4.7301379788237155,
+    "cursorTimeError": 0.03294771333698954,
+    "visibleDurationAfter": 3.4704142011834316,
+    "threshold": 0.06940828402366864
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "assertion-ok",
+    "message": "AC2: ctrl+wheel zoom keeps cursor time fixed within 2% of visible width",
+    "cursorTimeError": 0.03294771333698954,
+    "threshold": 0.06940828402366864
+  },
+  {
+    "t": "2026-07-21T00:02:13.171Z",
+    "step": "horizontal-swipe-pan",
+    "beforeWheelScroll": 856.51257744,
+    "afterWheelScroll": 1106.88323148
+  },
+  {
+    "t": "2026-07-21T00:02:13.171Z",
+    "step": "assertion-ok",
+    "message": "horizontal swipe moves the view window",
+    "beforeWheelScroll": 856.51257744,
+    "afterWheelScroll": 1106.88323148
+  },
+  {
+    "t": "2026-07-21T00:02:13.477Z",
+    "step": "AC1-left-edge",
+    "scrollLeft": 0
+  },
+  {
+    "t": "2026-07-21T00:02:13.478Z",
+    "step": "assertion-ok",
+    "message": "left edge viewStart is zero"
+  },
+  {
+    "t": "2026-07-21T00:02:13.805Z",
+    "step": "AC1-right-edge",
+    "scrollLeft": 2126.39645088,
+    "maxScroll": 2127.7200000000003
+  },
+  {
+    "t": "2026-07-21T00:02:13.805Z",
+    "step": "assertion-ok",
+    "message": "scrollbar reaches the right edge",
+    "scrollLeft": 2126.39645088,
+    "maxScroll": 2127.7200000000003
+  },
+  {
+    "t": "2026-07-21T00:02:14.854Z",
+    "step": "AC9-cut-trim",
+    "before": {
+      "in": 0.5,
+      "out": 3.5
+    },
+    "after": {
+      "in": 0.6555058414118817,
+      "out": 3.5
+    }
+  },
+  {
+    "t": "2026-07-21T00:02:14.854Z",
+    "step": "assertion-ok",
+    "message": "AC9: cut-trim (left edge drag) increases cuts[0].in",
+    "before": 0.5,
+    "after": 0.6555058414118817
+  },
+  {
+    "t": "2026-07-21T00:02:16.134Z",
+    "step": "AC9-cut-reorder",
+    "before": [
+      {
+        "in": 0.6555058414118817,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ],
+    "after": [
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 0.6555058414118817,
+        "out": 3.5
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T00:02:16.134Z",
+    "step": "assertion-ok",
+    "message": "AC9: cut-reorder changes cuts[] order (in/out pairs reshuffled, values unchanged as a set)",
+    "before": [
+      {
+        "in": 0.6555058414118817,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ],
+    "after": [
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 0.6555058414118817,
+        "out": 3.5
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T00:02:16.943Z",
+    "step": "AC9-snap-guide-mid-drag",
+    "display": "block",
+    "left": "61.6095%"
+  },
+  {
+    "t": "2026-07-21T00:02:16.943Z",
+    "step": "assertion-ok",
+    "message": "AC9: snap guide shows while dragging near a snap candidate",
+    "display": "block",
+    "left": "61.6095%"
+  },
+  {
+    "t": "2026-07-21T00:02:17.439Z",
+    "step": "AC9-escape-cancel-no-commit",
+    "captionsAfterCancel": [
+      {
+        "id": "caption-a",
+        "start": 1,
+        "end": 2.5,
+        "text": "first caption",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false
+      },
+      {
+        "id": "caption-b",
+        "start": 4,
+        "end": 5.5,
+        "text": "second caption",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false
+      }
+    ],
+    "editBeforeSnapTest": {
+      "source": {
+        "path": "sample.mp4"
+      },
+      "output": {
+        "width": 640,
+        "height": 360,
+        "fps": 30
+      },
+      "cuts": [
+        {
+          "in": 4,
+          "out": 7
+        },
+        {
+          "in": 0.6555058414118817,
+          "out": 3.5
+        },
+        {
+          "in": 7.5,
+          "out": 11.5
+        }
+      ],
+      "overlays": [
+        {
+          "id": "overlay-a",
+          "html": "overlays/overlay-a.html",
+          "start": 1,
+          "duration": 3,
+          "transform": {
+            "x": 60,
+            "y": 250,
+            "scale": 1,
+            "rotate": 0
+          },
+          "vars": {
+            "--color": "#ffcc00"
+          }
+        }
+      ]
+    },
+    "editAfterCancel": {
+      "source": {
+        "path": "sample.mp4"
+      },
+      "output": {
+        "width": 640,
+        "height": 360,
+        "fps": 30
+      },
+      "cuts": [
+        {
+          "in": 4,
+          "out": 7
+        },
+        {
+          "in": 0.6555058414118817,
+          "out": 3.5
+        },
+        {
+          "in": 7.5,
+          "out": 11.5
+        }
+      ],
+      "overlays": [
+        {
+          "id": "overlay-a",
+          "html": "overlays/overlay-a.html",
+          "start": 1,
+          "duration": 3,
+          "transform": {
+            "x": 60,
+            "y": 250,
+            "scale": 1,
+            "rotate": 0
+          },
+          "vars": {
+            "--color": "#ffcc00"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "t": "2026-07-21T00:02:17.439Z",
+    "step": "assertion-ok",
+    "message": "AC9: Escape cancels drag without committing (edit.json cuts unchanged)"
+  },
+  {
+    "t": "2026-07-21T00:02:18.395Z",
+    "step": "AC9-overlay-resize",
+    "before": 3,
+    "after": 3.1537856440511307
+  },
+  {
+    "t": "2026-07-21T00:02:18.396Z",
+    "step": "assertion-ok",
+    "message": "AC9: overlay resize (right edge drag) increases overlays[0].duration",
+    "before": 3,
+    "after": 3.1537856440511307
+  }
+]

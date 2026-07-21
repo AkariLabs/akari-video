@@ -1,0 +1,4 @@
+[
+  { "id": "caption-a", "start": 1, "end": 2.5, "text": "first caption", "speaker": null, "sourceRef": null, "edited": false },
+  { "id": "caption-b", "start": 4, "end": 5.5, "text": "second caption", "speaker": null, "sourceRef": null, "edited": false }
+]

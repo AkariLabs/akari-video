@@ -1,0 +1,876 @@
+[
+  {
+    "t": "2026-07-21T00:02:00.808Z",
+    "step": "connected-main",
+    "connected": true
+  },
+  {
+    "t": "2026-07-21T00:02:11.506Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-21T00:02:11.726Z",
+    "step": "initial-widget-state",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 904,
+      "height": 92
+    },
+    "scrollLeft": 0,
+    "scrollWidth": 904,
+    "clientWidth": 904,
+    "contentWidthPx": 904,
+    "viewStart": 0,
+    "visibleDuration": 11.73,
+    "playheadLeftPx": 0,
+    "undoDisabled": true,
+    "redoDisabled": true,
+    "footer": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。"
+  },
+  {
+    "t": "2026-07-21T00:02:12.349Z",
+    "step": "assertion-ok",
+    "message": "minimum zoom -> content width <= client width",
+    "scrollWidth": 904,
+    "clientWidth": 904
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "after-ctrl-wheel-zoom",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 894,
+      "height": 92
+    },
+    "scrollLeft": 856.51257744,
+    "scrollWidth": 3021.7200000000003,
+    "clientWidth": 894,
+    "contentWidthPx": 3021.7200000000003,
+    "viewStart": 3.32489196,
+    "visibleDuration": 3.470414201183432,
+    "playheadLeftPx": 856.51257744,
+    "undoDisabled": true,
+    "redoDisabled": true,
+    "footer": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。"
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "assertion-ok",
+    "message": "AC2 precondition: zoomed in (content width grew)",
+    "before": 904,
+    "after": 3021.7200000000003
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "AC2-cursor-fixed-point",
+    "timeBefore": 4.697190265486726,
+    "timeAfter": 4.7301379788237155,
+    "cursorTimeError": 0.03294771333698954,
+    "visibleDurationAfter": 3.4704142011834316,
+    "threshold": 0.06940828402366864
+  },
+  {
+    "t": "2026-07-21T00:02:12.804Z",
+    "step": "assertion-ok",
+    "message": "AC2: ctrl+wheel zoom keeps cursor time fixed within 2% of visible width",
+    "cursorTimeError": 0.03294771333698954,
+    "threshold": 0.06940828402366864
+  },
+  {
+    "t": "2026-07-21T00:02:13.171Z",
+    "step": "horizontal-swipe-pan",
+    "beforeWheelScroll": 856.51257744,
+    "afterWheelScroll": 1106.88323148
+  },
+  {
+    "t": "2026-07-21T00:02:13.171Z",
+    "step": "assertion-ok",
+    "message": "horizontal swipe moves the view window",
+    "beforeWheelScroll": 856.51257744,
+    "afterWheelScroll": 1106.88323148
+  },
+  {
+    "t": "2026-07-21T00:02:13.477Z",
+    "step": "AC1-left-edge",
+    "scrollLeft": 0
+  },
+  {
+    "t": "2026-07-21T00:02:13.478Z",
+    "step": "assertion-ok",
+    "message": "left edge viewStart is zero"
+  },
+  {
+    "t": "2026-07-21T00:02:13.805Z",
+    "step": "AC1-right-edge",
+    "scrollLeft": 2126.39645088,
+    "maxScroll": 2127.7200000000003
+  },
+  {
+    "t": "2026-07-21T00:02:13.805Z",
+    "step": "assertion-ok",
+    "message": "scrollbar reaches the right edge",
+    "scrollLeft": 2126.39645088,
+    "maxScroll": 2127.7200000000003
+  },
+  {
+    "t": "2026-07-21T00:02:14.854Z",
+    "step": "AC9-cut-trim",
+    "before": {
+      "in": 0.5,
+      "out": 3.5
+    },
+    "after": {
+      "in": 0.6555058414118817,
+      "out": 3.5
+    }
+  },
+  {
+    "t": "2026-07-21T00:02:14.854Z",
+    "step": "assertion-ok",
+    "message": "AC9: cut-trim (left edge drag) increases cuts[0].in",
+    "before": 0.5,
+    "after": 0.6555058414118817
+  },
+  {
+    "t": "2026-07-21T00:02:16.134Z",
+    "step": "AC9-cut-reorder",
+    "before": [
+      {
+        "in": 0.6555058414118817,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ],
+    "after": [
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 0.6555058414118817,
+        "out": 3.5
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T00:02:16.134Z",
+    "step": "assertion-ok",
+    "message": "AC9: cut-reorder changes cuts[] order (in/out pairs reshuffled, values unchanged as a set)",
+    "before": [
+      {
+        "in": 0.6555058414118817,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ],
+    "after": [
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 0.6555058414118817,
+        "out": 3.5
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T00:02:16.943Z",
+    "step": "AC9-snap-guide-mid-drag",
+    "display": "block",
+    "left": "61.6095%"
+  },
+  {
+    "t": "2026-07-21T00:02:16.943Z",
+    "step": "assertion-ok",
+    "message": "AC9: snap guide shows while dragging near a snap candidate",
+    "display": "block",
+    "left": "61.6095%"
+  },
+  {
+    "t": "2026-07-21T00:02:17.439Z",
+    "step": "AC9-escape-cancel-no-commit",
+    "captionsAfterCancel": [
+      {
+        "id": "caption-a",
+        "start": 1,
+        "end": 2.5,
+        "text": "first caption",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false
+      },
+      {
+        "id": "caption-b",
+        "start": 4,
+        "end": 5.5,
+        "text": "second caption",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false
+      }
+    ],
+    "editBeforeSnapTest": {
+      "source": {
+        "path": "sample.mp4"
+      },
+      "output": {
+        "width": 640,
+        "height": 360,
+        "fps": 30
+      },
+      "cuts": [
+        {
+          "in": 4,
+          "out": 7
+        },
+        {
+          "in": 0.6555058414118817,
+          "out": 3.5
+        },
+        {
+          "in": 7.5,
+          "out": 11.5
+        }
+      ],
+      "overlays": [
+        {
+          "id": "overlay-a",
+          "html": "overlays/overlay-a.html",
+          "start": 1,
+          "duration": 3,
+          "transform": {
+            "x": 60,
+            "y": 250,
+            "scale": 1,
+            "rotate": 0
+          },
+          "vars": {
+            "--color": "#ffcc00"
+          }
+        }
+      ]
+    },
+    "editAfterCancel": {
+      "source": {
+        "path": "sample.mp4"
+      },
+      "output": {
+        "width": 640,
+        "height": 360,
+        "fps": 30
+      },
+      "cuts": [
+        {
+          "in": 4,
+          "out": 7
+        },
+        {
+          "in": 0.6555058414118817,
+          "out": 3.5
+        },
+        {
+          "in": 7.5,
+          "out": 11.5
+        }
+      ],
+      "overlays": [
+        {
+          "id": "overlay-a",
+          "html": "overlays/overlay-a.html",
+          "start": 1,
+          "duration": 3,
+          "transform": {
+            "x": 60,
+            "y": 250,
+            "scale": 1,
+            "rotate": 0
+          },
+          "vars": {
+            "--color": "#ffcc00"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "t": "2026-07-21T00:02:17.439Z",
+    "step": "assertion-ok",
+    "message": "AC9: Escape cancels drag without committing (edit.json cuts unchanged)"
+  },
+  {
+    "t": "2026-07-21T00:02:18.395Z",
+    "step": "AC9-overlay-resize",
+    "before": 3,
+    "after": 3.1537856440511307
+  },
+  {
+    "t": "2026-07-21T00:02:18.396Z",
+    "step": "assertion-ok",
+    "message": "AC9: overlay resize (right edge drag) increases overlays[0].duration",
+    "before": 3,
+    "after": 3.1537856440511307
+  },
+  {
+    "t": "2026-07-21T00:02:19.242Z",
+    "step": "AC7-op1-caption-move",
+    "before": {
+      "id": "caption-a",
+      "start": 1,
+      "end": 2.5,
+      "text": "first caption",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false
+    },
+    "after": {
+      "id": "caption-a",
+      "start": 1.2306784660766963,
+      "end": 2.7306784660766965,
+      "text": "first caption",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true
+    }
+  },
+  {
+    "t": "2026-07-21T00:02:19.242Z",
+    "step": "assertion-ok",
+    "message": "AC7 op1: caption move drag changes captions[0].start",
+    "before": 1,
+    "after": 1.2306784660766963
+  },
+  {
+    "t": "2026-07-21T00:02:20.158Z",
+    "step": "AC7-op2-overlay-move",
+    "before": 1,
+    "after": 1.1922320550639136
+  },
+  {
+    "t": "2026-07-21T00:02:20.158Z",
+    "step": "assertion-ok",
+    "message": "AC7 op2: overlay move drag changes overlays[0].start",
+    "before": 1,
+    "after": 1.1922320550639136
+  },
+  {
+    "t": "2026-07-21T00:02:20.343Z",
+    "step": "AC8-buttons-after-two-ops",
+    "undoDisabled": false,
+    "redoDisabled": true
+  },
+  {
+    "t": "2026-07-21T00:02:20.343Z",
+    "step": "assertion-ok",
+    "message": "AC8: after 2 ops, undo enabled / redo disabled",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 904,
+      "height": 92
+    },
+    "scrollLeft": 67.850266016,
+    "scrollWidth": 3055.52,
+    "clientWidth": 904,
+    "contentWidthPx": 3055.52,
+    "viewStart": 0.260474034,
+    "visibleDuration": 3.470414201183432,
+    "playheadLeftPx": 67.850266016,
+    "undoDisabled": false,
+    "redoDisabled": true,
+    "footer": "オーバーレイを移動しました。 変更を記録しました。"
+  },
+  {
+    "t": "2026-07-21T00:02:20.572Z",
+    "step": "AC7-undo1-overlay-reverted",
+    "overlayStart": 1,
+    "expected": 1,
+    "undoDisabled": false,
+    "redoDisabled": false
+  },
+  {
+    "t": "2026-07-21T00:02:20.573Z",
+    "step": "assertion-ok",
+    "message": "AC7 undo#1 (Cmd+Z): overlay move reverted to pre-op2 value",
+    "actual": 1,
+    "expected": 1
+  },
+  {
+    "t": "2026-07-21T00:02:20.573Z",
+    "step": "assertion-ok",
+    "message": "AC8: after undo#1, undo still enabled (1 more op-set pushed earlier), redo now enabled",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 904,
+      "height": 92
+    },
+    "scrollLeft": 67.850266016,
+    "scrollWidth": 3055.52,
+    "clientWidth": 904,
+    "contentWidthPx": 3055.52,
+    "viewStart": 0.260474034,
+    "visibleDuration": 3.470414201183432,
+    "playheadLeftPx": 67.850266016,
+    "undoDisabled": false,
+    "redoDisabled": false,
+    "footer": "オーバーレイの移動を元に戻しました。"
+  },
+  {
+    "t": "2026-07-21T00:02:20.800Z",
+    "step": "AC7-undo2-caption-reverted",
+    "captionStart": 1,
+    "expected": 1
+  },
+  {
+    "t": "2026-07-21T00:02:20.800Z",
+    "step": "assertion-ok",
+    "message": "AC7 undo#2 (Cmd+Z): caption move reverted to pre-op1 value",
+    "actual": 1,
+    "expected": 1
+  },
+  {
+    "t": "2026-07-21T00:02:21.385Z",
+    "step": "AC7-redo1-caption-reapplied",
+    "captionStart": 1.2306784660766963,
+    "expected": 1.2306784660766963
+  },
+  {
+    "t": "2026-07-21T00:02:21.386Z",
+    "step": "assertion-ok",
+    "message": "redo#1 (Cmd+Shift+Z): caption move reapplied",
+    "actual": 1.2306784660766963,
+    "expected": 1.2306784660766963
+  },
+  {
+    "t": "2026-07-21T00:02:21.615Z",
+    "step": "AC7-redo2-overlay-reapplied",
+    "overlayStart": 1.1922320550639136,
+    "expected": 1.1922320550639136,
+    "undoDisabled": false,
+    "redoDisabled": true
+  },
+  {
+    "t": "2026-07-21T00:02:21.615Z",
+    "step": "assertion-ok",
+    "message": "redo#2 (Cmd+Shift+Z): overlay move reapplied",
+    "actual": 1.1922320550639136,
+    "expected": 1.1922320550639136
+  },
+  {
+    "t": "2026-07-21T00:02:21.615Z",
+    "step": "assertion-ok",
+    "message": "AC8: after redo x2, undo enabled / redo disabled (future empty again)",
+    "found": true,
+    "stripRect": {
+      "left": 58,
+      "top": 486.7265625,
+      "width": 904,
+      "height": 92
+    },
+    "scrollLeft": 67.850266016,
+    "scrollWidth": 3055.52,
+    "clientWidth": 904,
+    "contentWidthPx": 3055.52,
+    "viewStart": 0.260474034,
+    "visibleDuration": 3.470414201183432,
+    "playheadLeftPx": 67.850266016,
+    "undoDisabled": false,
+    "redoDisabled": true,
+    "footer": "オーバーレイの移動をやり直しました。"
+  },
+  {
+    "t": "2026-07-21T00:02:22.824Z",
+    "step": "assertion-ok",
+    "message": "toolbar undo/redo round-trip restores both edited files"
+  },
+  {
+    "t": "2026-07-21T00:02:22.825Z",
+    "step": "assertion-ok",
+    "message": "redo button is disabled when future stack is empty"
+  },
+  {
+    "t": "2026-07-21T00:02:23.961Z",
+    "step": "assertion-ok",
+    "message": "developer mode enabled (required for standard Explorer tree)",
+    "nowChecked": true
+  },
+  {
+    "t": "2026-07-21T00:02:24.551Z",
+    "step": "opened-explorer",
+    "alreadyOpen": false,
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-21T00:02:24.553Z",
+    "step": "expanded-exports-folder",
+    "found": true,
+    "collapsed": true,
+    "x": 68,
+    "y": 182
+  },
+  {
+    "t": "2026-07-21T00:02:30.210Z",
+    "step": "opened-preview-tab",
+    "found": true,
+    "collapsed": false,
+    "x": 68,
+    "y": 314
+  },
+  {
+    "t": "2026-07-21T00:02:30.424Z",
+    "step": "found-outer-webview-target",
+    "matchedPreviewWebview": true
+  },
+  {
+    "t": "2026-07-21T00:02:30.835Z",
+    "step": "reached-active-frame-context",
+    "nestedContext": true
+  },
+  {
+    "t": "2026-07-21T00:02:31.750Z",
+    "step": "AC6-click-to-seek",
+    "footer": "00:00:04.500 にプレビューをシークしました。",
+    "previewTimeAfterSeek": 4.49986,
+    "expectedApprox": 4.5
+  },
+  {
+    "t": "2026-07-21T00:02:31.750Z",
+    "step": "assertion-ok",
+    "message": "AC6: footer reports the preview was seeked",
+    "footer": "00:00:04.500 にプレビューをシークしました。"
+  },
+  {
+    "t": "2026-07-21T00:02:31.750Z",
+    "step": "assertion-ok",
+    "message": "AC6: preview video.currentTime moved close to the clicked timeline time",
+    "previewTimeAfterSeek": 4.49986,
+    "seekClickTime": 4.5
+  },
+  {
+    "t": "2026-07-21T00:02:32.327Z",
+    "step": "pre-play-state",
+    "found": true,
+    "stripRect": {
+      "left": 223.9140625,
+      "top": 486.7265625,
+      "width": 738,
+      "height": 92
+    },
+    "scrollLeft": 1222.7245991999998,
+    "scrollWidth": 2494.44,
+    "clientWidth": 738,
+    "contentWidthPx": 2494.44,
+    "viewStart": 5.7498114,
+    "visibleDuration": 3.470414201183432,
+    "playheadLeftPx": 1594.3607352,
+    "undoDisabled": false,
+    "redoDisabled": true,
+    "footer": "00:00:04.500 にプレビューをシークしました。"
+  },
+  {
+    "t": "2026-07-21T00:02:41.638Z",
+    "step": "AC4-AC5-playback-samples",
+    "samples": [
+      {
+        "tMs": 304,
+        "playheadLeftPx": 1638.6997751999997,
+        "scrollLeft": 1222.7245991999998,
+        "clientWidth": 738,
+        "previewTime": 7.735673
+      },
+      {
+        "tMs": 606,
+        "playheadLeftPx": 1697.0637671999998,
+        "scrollLeft": 1222.7245991999998,
+        "clientWidth": 738,
+        "previewTime": 8.042138
+      },
+      {
+        "tMs": 909,
+        "playheadLeftPx": 1772.8571051999998,
+        "scrollLeft": 1222.7245991999998,
+        "clientWidth": 738,
+        "previewTime": 8.347799
+      },
+      {
+        "tMs": 1211,
+        "playheadLeftPx": 1829.80950984,
+        "scrollLeft": 1254.1695098399998,
+        "clientWidth": 738,
+        "previewTime": 8.643685
+      },
+      {
+        "tMs": 1514,
+        "playheadLeftPx": 1891.74146616,
+        "scrollLeft": 1316.10146616,
+        "clientWidth": 738,
+        "previewTime": 8.948715
+      },
+      {
+        "tMs": 2061,
+        "playheadLeftPx": 1956.50211744,
+        "scrollLeft": 1380.86211744,
+        "clientWidth": 738,
+        "previewTime": 9.280974
+      },
+      {
+        "tMs": 3081,
+        "playheadLeftPx": 2143.3331789999997,
+        "scrollLeft": 1567.6931789999999,
+        "clientWidth": 738,
+        "previewTime": 10.125275
+      },
+      {
+        "tMs": 3517,
+        "playheadLeftPx": 2306.57931036,
+        "scrollLeft": 1730.93931036,
+        "clientWidth": 738,
+        "previewTime": 10.910878
+      },
+      {
+        "tMs": 3839,
+        "playheadLeftPx": 2387.46285576,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.255055
+      },
+      {
+        "tMs": 5194,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      },
+      {
+        "tMs": 5581,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      },
+      {
+        "tMs": 8393,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      },
+      {
+        "tMs": 8756,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      },
+      {
+        "tMs": 9082,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T00:02:41.673Z",
+    "step": "assertion-ok",
+    "message": "AC4: playhead px position increased over the play window",
+    "first": 1638.6997751999997,
+    "last": 2444.5095177599997
+  },
+  {
+    "t": "2026-07-21T00:02:41.673Z",
+    "step": "assertion-ok",
+    "message": "AC4: playhead px position is monotonically non-decreasing across samples",
+    "samples": [
+      {
+        "tMs": 304,
+        "playheadLeftPx": 1638.6997751999997,
+        "scrollLeft": 1222.7245991999998,
+        "clientWidth": 738,
+        "previewTime": 7.735673
+      },
+      {
+        "tMs": 606,
+        "playheadLeftPx": 1697.0637671999998,
+        "scrollLeft": 1222.7245991999998,
+        "clientWidth": 738,
+        "previewTime": 8.042138
+      },
+      {
+        "tMs": 909,
+        "playheadLeftPx": 1772.8571051999998,
+        "scrollLeft": 1222.7245991999998,
+        "clientWidth": 738,
+        "previewTime": 8.347799
+      },
+      {
+        "tMs": 1211,
+        "playheadLeftPx": 1829.80950984,
+        "scrollLeft": 1254.1695098399998,
+        "clientWidth": 738,
+        "previewTime": 8.643685
+      },
+      {
+        "tMs": 1514,
+        "playheadLeftPx": 1891.74146616,
+        "scrollLeft": 1316.10146616,
+        "clientWidth": 738,
+        "previewTime": 8.948715
+      },
+      {
+        "tMs": 2061,
+        "playheadLeftPx": 1956.50211744,
+        "scrollLeft": 1380.86211744,
+        "clientWidth": 738,
+        "previewTime": 9.280974
+      },
+      {
+        "tMs": 3081,
+        "playheadLeftPx": 2143.3331789999997,
+        "scrollLeft": 1567.6931789999999,
+        "clientWidth": 738,
+        "previewTime": 10.125275
+      },
+      {
+        "tMs": 3517,
+        "playheadLeftPx": 2306.57931036,
+        "scrollLeft": 1730.93931036,
+        "clientWidth": 738,
+        "previewTime": 10.910878
+      },
+      {
+        "tMs": 3839,
+        "playheadLeftPx": 2387.46285576,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.255055
+      },
+      {
+        "tMs": 5194,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      },
+      {
+        "tMs": 5581,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      },
+      {
+        "tMs": 8393,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      },
+      {
+        "tMs": 8756,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      },
+      {
+        "tMs": 9082,
+        "playheadLeftPx": 2444.5095177599997,
+        "scrollLeft": 1755.34740576,
+        "clientWidth": 738,
+        "previewTime": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T00:02:41.675Z",
+    "step": "AC4-tick-correspondence",
+    "worstTickError": 0.08060444307692372,
+    "pxPerSecAtPlay": 212.6547314578005
+  },
+  {
+    "t": "2026-07-21T00:02:41.675Z",
+    "step": "assertion-ok",
+    "message": "AC4: playhead-derived time matches preview tick time within ±0.2s",
+    "worstTickError": 0.08060444307692372
+  },
+  {
+    "t": "2026-07-21T00:02:41.675Z",
+    "step": "AC5-crossing-index",
+    "crossingIndex": 3,
+    "threshold": 0.78
+  },
+  {
+    "t": "2026-07-21T00:02:41.675Z",
+    "step": "assertion-ok",
+    "message": "AC5 precondition: playhead crossed the 78% follow threshold before the sampling window ended",
+    "crossingIndex": 3
+  },
+  {
+    "t": "2026-07-21T00:02:41.675Z",
+    "step": "assertion-ok",
+    "message": "AC5: strip.scrollLeft increases (auto-follow) after the playhead crosses the 78% threshold",
+    "scrollLeftAtCrossing": 1254.1695098399998,
+    "scrollLeftAfterCrossing": 1755.34740576
+  },
+  {
+    "t": "2026-07-21T00:02:42.805Z",
+    "step": "AC4-pause-stops-playhead",
+    "playheadLeftPx1": 2444.5095177599997,
+    "playheadLeftPx2": 2444.5095177599997,
+    "scrollLeft1": 1755.34740576,
+    "scrollLeft2": 1755.34740576
+  },
+  {
+    "t": "2026-07-21T00:02:42.805Z",
+    "step": "assertion-ok",
+    "message": "AC4: playhead stops moving once paused",
+    "playheadLeftPx1": 2444.5095177599997,
+    "playheadLeftPx2": 2444.5095177599997
+  },
+  {
+    "t": "2026-07-21T00:02:43.834Z",
+    "step": "AC5-manual-scroll-not-pulled-back-while-stopped",
+    "manualScrollTarget": 1555.34740576,
+    "actual": 1553.96378124
+  },
+  {
+    "t": "2026-07-21T00:02:43.835Z",
+    "step": "assertion-ok",
+    "message": "AC5: manual scroll while stopped is not pulled back by auto-follow",
+    "manualScrollTarget": 1555.34740576,
+    "actual": 1553.96378124
+  }
+]

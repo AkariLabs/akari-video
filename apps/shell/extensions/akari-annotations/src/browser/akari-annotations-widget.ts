@@ -1,3 +1,4 @@
+import URI from '@theia/core/lib/common/uri';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -17,6 +18,8 @@ import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
 
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
+const HISTORY_LIMIT = 50;
+const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
 const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
@@ -31,6 +34,18 @@ const ZOOM_EVENT_FACTOR_MIN = 1 / 1.5;
 const ZOOM_EVENT_FACTOR_MAX = 1.5;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const WAVEFORM_CANVAS_HEIGHT_PX = 32;
+
+export interface PreviewPlaybackTick {
+    videoUri?: string;
+    time?: number;
+    playing?: boolean;
+}
+
+interface HistoryEntry {
+    undo: () => Promise<void>;
+    redo: () => Promise<void>;
+    label: string;
+}
 
 const STATUS_COLORS: Record<Annotation['status'], string> = {
     open: 'var(--theia-charts-blue)',
@@ -79,6 +94,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected readonly toolbar = document.createElement('div');
     protected readonly undoButton = document.createElement('button');
+    protected readonly redoButton = document.createElement('button');
     protected readonly zoomHud = document.createElement('div');
     protected readonly zoomIcon = document.createElement('span');
     protected readonly zoomLabel = document.createElement('span');
@@ -103,11 +119,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected wordBoundaries: number[] = [];
     protected configured = false;
     protected dragState: DragState | undefined;
-    protected lastUndo: (() => Promise<void>) | undefined;
+    protected renderStripPending = false;
+    protected past: HistoryEntry[] = [];
+    protected future: HistoryEntry[] = [];
     protected contextPopup: HTMLDivElement | undefined;
     protected viewStart = 0;
     protected viewDuration: number | undefined;
     protected fps = 30;
+    protected playheadT = 0;
     protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected ffmpegMissingNoticeShown = false;
@@ -153,6 +172,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.undoButton.textContent = '元に戻す';
         this.undoButton.disabled = true;
         this.undoButton.addEventListener('click', () => void this.performUndo());
+        this.redoButton.type = 'button';
+        this.redoButton.className = 'theia-button secondary';
+        this.redoButton.textContent = 'やり直す';
+        this.redoButton.disabled = true;
+        this.redoButton.addEventListener('click', () => void this.performRedo());
         Object.assign(this.zoomHud.style, {
             display: 'flex', alignItems: 'center', gap: '6px'
         });
@@ -184,7 +208,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.reviewButton.textContent = '注釈';
         this.reviewButton.title = '注釈パネルを開く';
         this.reviewButton.addEventListener('click', () => void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID));
-        this.toolbar.append(heading, this.zoomHud, this.undoButton, this.reviewButton);
+        this.toolbar.append(heading, this.zoomHud, this.undoButton, this.redoButton, this.reviewButton);
 
         Object.assign(this.strip.style, {
             position: 'relative', margin: '8px 10px',
@@ -308,20 +332,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             if (this.isAttached && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
                 event.preventDefault();
-                void this.performUndo();
+                event.stopPropagation();
+                if (event.shiftKey) {
+                    void this.performRedo();
+                } else {
+                    void this.performUndo();
+                }
             }
         };
         // 注釈が増減したらピンを描き直す。パネルの時刻リンクからのジャンプもここで受ける。
         this.toDispose.push(this.review.onChanged(() => this.renderStrip()));
         this.toDispose.push(this.review.onSeekRequested(time => {
             this.selectedSourceT = time;
+            this.playheadT = time;
             this.renderStrip();
             void this.requestSeek(time);
         }));
 
-        window.addEventListener('keydown', keydown);
+        window.addEventListener('keydown', keydown, true);
         this.toDispose.push(Disposable.create(() => {
-            window.removeEventListener('keydown', keydown);
+            window.removeEventListener('keydown', keydown, true);
             this.closeAnnotationPopup();
             if (this.dragState) {
                 this.cancelDrag(this.dragState);
@@ -478,6 +508,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
         const STRIP_BOTTOM_MARGIN = 6;
 
+        // DOM 再構築で pointer capture と dragState を壊さないよう、ドラッグ終了まで延期する。
+        if (this.dragState) {
+            this.renderStripPending = true;
+            return;
+        }
+
         const maxDuration = this.totalDuration();
         if (this.viewDuration !== undefined) {
             if (this.viewDuration >= maxDuration) {
@@ -562,7 +598,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }));
             this.strip.appendChild(element);
         });
-        this.playhead.style.left = `${this.percent(this.selectedSourceT)}%`;
+        this.playhead.style.left = `${this.percent(this.playheadT)}%`;
         this.updateZoomHud();
         this.updateScrollbar();
     }
@@ -818,8 +854,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element.style.cursor = 'grab';
         element.addEventListener('click', event => event.stopPropagation());
         element.addEventListener('pointerdown', event => {
-            if (event.button !== 0 || this.dragState) {
+            if (event.button !== 0) {
                 return;
+            }
+            if (this.dragState) {
+                // 前回の pointerup を取りこぼした残留状態を破棄して自己回復する。
+                this.cancelDrag(this.dragState);
             }
             event.preventDefault();
             event.stopPropagation();
@@ -990,6 +1030,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         state.ghost.remove();
         this.hideSnapGuide();
         this.dragState = undefined;
+        if (this.renderStripPending) {
+            this.renderStripPending = false;
+            this.renderStrip();
+        }
     }
 
     protected async commitDrag(preview: DragPreview): Promise<void> {
@@ -1012,12 +1056,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     cutIndex: preview.index, in: preview.input, out: preview.output
                 });
-                this.setUndo(async () => {
-                    await this.annotationsService.trimCut({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                        cutIndex: preview.index, in: original.in, out: original.out
-                    });
-                    await this.reloadEdit();
+                this.pushHistory({
+                    label: 'クリップのトリム',
+                    undo: async () => {
+                        await this.annotationsService.trimCut({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            cutIndex: preview.index, in: original.in, out: original.out
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.trimCut({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            cutIndex: preview.index, in: preview.input, out: preview.output
+                        });
+                        await this.reloadEdit();
+                    }
                 });
                 await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('クリップをトリムしました。', result);
@@ -1030,12 +1084,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     fromIndex: preview.fromIndex, toIndex: preview.toIndex
                 });
-                this.setUndo(async () => {
-                    await this.annotationsService.reorderCuts({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                        fromIndex: preview.toIndex, toIndex: preview.fromIndex
-                    });
-                    await this.reloadEdit();
+                this.pushHistory({
+                    label: 'クリップの並べ替え',
+                    undo: async () => {
+                        await this.annotationsService.reorderCuts({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            fromIndex: preview.toIndex, toIndex: preview.fromIndex
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.reorderCuts({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            fromIndex: preview.fromIndex, toIndex: preview.toIndex
+                        });
+                        await this.reloadEdit();
+                    }
                 });
                 await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('クリップの順序を入れ替えました。', result);
@@ -1048,12 +1112,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
                     captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
                 });
-                this.setUndo(async () => {
-                    await this.annotationsService.shiftCaption({
-                        captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                        captionId: preview.id, deltaStart: -preview.deltaStart, deltaEnd: -preview.deltaEnd
-                    });
-                    await this.reloadCaptions();
+                this.pushHistory({
+                    label: '字幕タイミングの調整',
+                    undo: async () => {
+                        await this.annotationsService.shiftCaption({
+                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                            captionId: preview.id, deltaStart: -preview.deltaStart, deltaEnd: -preview.deltaEnd
+                        });
+                        await this.reloadCaptions();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.shiftCaption({
+                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                            captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
+                        });
+                        await this.reloadCaptions();
+                    }
                 });
                 await this.reloadCaptions();
                 this.footer.textContent = this.writeResultMessage('字幕のタイミングを調整しました。', result);
@@ -1069,12 +1143,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     overlayId: preview.id, start: preview.start
                 });
-                this.setUndo(async () => {
-                    await this.annotationsService.moveOverlay({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                        overlayId: preview.id, start: original.start
-                    });
-                    await this.reloadEdit();
+                this.pushHistory({
+                    label: 'オーバーレイの移動',
+                    undo: async () => {
+                        await this.annotationsService.moveOverlay({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            overlayId: preview.id, start: original.start
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.moveOverlay({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            overlayId: preview.id, start: preview.start
+                        });
+                        await this.reloadEdit();
+                    }
                 });
                 await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('オーバーレイを移動しました。', result);
@@ -1094,12 +1178,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     overlayId: preview.id, duration: preview.duration
                 });
-                this.setUndo(async () => {
-                    await this.annotationsService.resizeOverlay({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                        overlayId: preview.id, duration: original.duration
-                    });
-                    await this.reloadEdit();
+                this.pushHistory({
+                    label: 'オーバーレイの尺変更',
+                    undo: async () => {
+                        await this.annotationsService.resizeOverlay({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            overlayId: preview.id, duration: original.duration
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.resizeOverlay({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            overlayId: preview.id, duration: preview.duration
+                        });
+                        await this.reloadEdit();
+                    }
                 });
                 await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('オーバーレイの尺を変更しました。', result);
@@ -1112,27 +1206,54 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected setUndo(action: () => Promise<void>): void {
-        this.lastUndo = action;
-        this.undoButton.disabled = false;
+    protected pushHistory(entry: HistoryEntry): void {
+        this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
+        this.future = [];
+        this.updateHistoryButtons();
+    }
+
+    protected updateHistoryButtons(): void {
+        this.undoButton.disabled = this.past.length === 0;
+        this.redoButton.disabled = this.future.length === 0;
     }
 
     protected async performUndo(): Promise<void> {
-        const action = this.lastUndo;
-        if (!action) {
+        const entry = this.past.pop();
+        if (!entry) {
             return;
         }
         this.undoButton.disabled = true;
+        this.redoButton.disabled = true;
         try {
-            await action();
-            this.lastUndo = undefined;
+            await entry.undo();
+            this.future = [...this.future, entry].slice(-HISTORY_LIMIT);
             this.hideNotice();
-            this.footer.textContent = '直前のタイムライン操作を元に戻しました。';
+            this.footer.textContent = `${entry.label}を元に戻しました。`;
         } catch (error) {
-            this.undoButton.disabled = false;
-            const detail = this.errorMessage(error);
-            this.showNotice(`元に戻せません: ${detail}`);
-            this.messages.error(`元に戻せません: ${detail}`);
+            console.warn('[akari-annotations] undo entry is no longer applicable', error);
+            this.footer.textContent = '元に戻せませんでした（対象が変更されています）';
+        } finally {
+            this.updateHistoryButtons();
+        }
+    }
+
+    protected async performRedo(): Promise<void> {
+        const entry = this.future.pop();
+        if (!entry) {
+            return;
+        }
+        this.undoButton.disabled = true;
+        this.redoButton.disabled = true;
+        try {
+            await entry.redo();
+            this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
+            this.hideNotice();
+            this.footer.textContent = `${entry.label}をやり直しました。`;
+        } catch (error) {
+            console.warn('[akari-annotations] redo entry is no longer applicable', error);
+            this.footer.textContent = 'やり直せませんでした（対象が変更されています）';
+        } finally {
+            this.updateHistoryButtons();
         }
     }
 
@@ -1273,6 +1394,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const rect = this.strip.getBoundingClientRect();
         const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
         this.selectedSourceT = this.viewStart + ratio * this.visibleDuration();
+        this.playheadT = this.selectedSourceT;
         this.playhead.style.left = `${ratio * 100}%`;
         void this.requestSeek(this.selectedSourceT);
     }
@@ -1309,6 +1431,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         this.panViewBy(horizontalDelta / rect.width * this.visibleDuration());
+    }
+
+    canHandlePlaybackTick(videoUri: string | undefined): boolean {
+        if (!this.isAttached || !this.location?.videoUri || !videoUri) {
+            return false;
+        }
+        return this.normalizeUri(this.location.videoUri) === this.normalizeUri(videoUri);
+    }
+
+    handlePlaybackTick(request: PreviewPlaybackTick): void {
+        if (!this.canHandlePlaybackTick(request.videoUri)
+            || !Number.isFinite(request.time)
+            || typeof request.playing !== 'boolean') {
+            return;
+        }
+        this.playheadT = Math.max(0, request.time!);
+        const visibleDuration = this.visibleDuration();
+        const followEdge = this.viewStart + visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
+        if (request.playing && this.viewDuration !== undefined && this.playheadT > followEdge) {
+            const nextViewStart = this.playheadT - visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
+            if (nextViewStart > this.viewStart + 1e-6) {
+                this.setViewStart(nextViewStart);
+            }
+        }
+        this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+    }
+
+    protected normalizeUri(value: string): string {
+        return new URI(value).normalizePath().toString();
     }
 
     protected async requestSeek(time: number): Promise<void> {
