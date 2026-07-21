@@ -70,5 +70,12 @@ test("real templates/project-default/: .akari/intake.json is generated via the f
     assert.equal(validated.status, 0, validated.stderr);
 
     assert.ok(report.fallback.writtenFiles.includes(".akari/intake.json"));
+
+    const claudeMd = await readFile(join(destination, "CLAUDE.md"), "utf8");
+    assert.match(claudeMd, /intake\.json/);
+    assert.match(claudeMd, /checkpoint/);
+
+    const agentsMd = await readFile(join(destination, "AGENTS.md"), "utf8");
+    assert.match(agentsMd, /intake\.json/);
   });
 });

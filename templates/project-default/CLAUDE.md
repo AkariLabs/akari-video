@@ -11,6 +11,12 @@
 レポート作成、承認、編集完了、書き出し完了の節目では、`.akari/events/` に記録を
 1 件ずつ新しく追加します。すでにある記録は書き換えたり削除したりしません。
 
+今回の進め方は `.akari/intake.json` に記録されています。`status` が `submitted` のときは、
+そこに書かれた `tasks`（やること）・`target`（仕上がりの尺）・`autonomy`（おまかせの度合い）に
+従って進めます。`autonomy` が `checkpoint`（既定）のときは、企画の承認や書き出しの前などの
+要所で必ず利用者に確認します。`status` が `draft` のときは進め方がまだ決まっていないので、
+フォームまたは対話で確定させてから作業を始めます。
+
 編集スキルは `.claude/skills/` に入っています。`/analyze-footage`、`/edit-plan`、
 `/overlay-authoring`、`/setup-library`、`/harvest-asset`、`/bake-3d` の素の名前で使えます。
 Codex など他の AI エージェント用の入り口が `.agents/skills/` と `.codex/skills/` にあります

@@ -5,7 +5,8 @@
       "Edit(./planning/**)",
       "Edit(./exports/**)",
       "Edit(./.akari/sidecars/**)",
-      "Edit(./.akari/events/**)"
+      "Edit(./.akari/events/**)",
+      "Edit(./.akari/intake.json)"
     ],
     "deny": [
       "Edit(/assets/**)"

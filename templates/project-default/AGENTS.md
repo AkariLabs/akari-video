@@ -7,6 +7,10 @@
 - 素材の分析結果は `.akari/sidecars/<assets 以下の相対パス>.meta.json` に保存する。
 - レポート作成、承認、編集完了、書き出し完了の節目では、`.akari/events/` に記録を
   1 件ずつ新しく追加する。すでにある記録は書き換えたり削除したりしない。
+- `.akari/intake.json` の `status` が `submitted` なら `tasks` / `target` / `autonomy` に
+  従って進める。`autonomy: checkpoint`（既定）なら企画承認・書き出し前などの要所で
+  利用者に確認する。`status: draft` なら進め方が未確定のため、フォームまたは対話で
+  確定させてから進める。
 
 ## プロジェクト内のスキル
 
