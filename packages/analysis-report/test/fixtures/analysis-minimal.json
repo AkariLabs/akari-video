@@ -1,0 +1,16 @@
+{
+  "version": 0,
+  "source": "clip.mp4",
+  "transcript": [
+    { "start": 0, "end": 5, "text": "test line one" },
+    { "start": 5, "end": 10, "text": "test line two" }
+  ],
+  "keyframes": [
+    { "t": 0, "path": "keyframes/kf-01.jpg", "note": "opening frame" }
+  ],
+  "events": [
+    { "type": "chapter", "t": 0, "title": "Intro" },
+    { "type": "trouble", "start": 6, "end": 7, "note": "glitch" }
+  ],
+  "tracks": { "speakers": [], "faces": [], "person_matte": null }
+}
