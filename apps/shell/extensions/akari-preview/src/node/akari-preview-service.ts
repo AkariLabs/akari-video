@@ -1,16 +1,21 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { WorkspaceServer } from '@theia/workspace/lib/common';
-import { createReadStream, readFileSync, statSync } from 'fs';
-import { readFile, realpath, stat } from 'fs/promises';
-import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
-import { dirname, extname, isAbsolute, relative, resolve, sep } from 'path';
+import { createReadStream, readFileSync, rmdirSync, statSync, unlinkSync } from 'fs';
+import { mkdtemp, readFile, realpath, rmdir, stat, unlink } from 'fs/promises';
+import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
+import { tmpdir } from 'os';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { parse as parseJson } from 'jsonc-parser';
 import {
     AssetStreamRequest,
     AkariPreviewService,
     OverlayRuntimeAssets,
+    TranscodeAudioErrorKind,
+    TranscodeAudioRequest,
+    TranscodeAudioResult,
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
@@ -24,6 +29,10 @@ interface StreamTarget {
 interface ByteRange {
     start: number;
     end: number;
+}
+
+interface TranscodedAudioStreamTarget extends StreamTarget {
+    temporaryDirectory: string;
 }
 
 const VIDEO_MIME_TYPES = new Map<string, string>([
@@ -52,6 +61,19 @@ const ASSET_MIME_TYPES = new Map<string, string>([
     ['.svg', 'image/svg+xml'],
     ['.webp', 'image/webp']
 ]);
+const TRANSCODABLE_AUDIO_MIME_TYPES = new Map<string, string>([
+    ['.aac', 'audio/aac'],
+    ['.flac', 'audio/flac'],
+    ['.m4a', 'audio/mp4'],
+    ['.mp3', 'audio/mpeg'],
+    ['.oga', 'audio/ogg'],
+    ['.ogg', 'audio/ogg'],
+    ['.opus', 'audio/ogg'],
+    ['.wav', 'audio/wav']
+]);
+const MAX_TRANSCODE_INPUT_BYTES = 50 * 1024 * 1024;
+const MAX_TRANSCODE_OUTPUT_BYTES = 200 * 1024 * 1024;
+const TRANSCODE_TIMEOUT_MS = 30_000;
 
 @injectable()
 export class AkariPreviewServiceImpl implements AkariPreviewService {
@@ -64,6 +86,25 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected serverStartup: Promise<number> | undefined;
     protected readonly videoStreams = new Map<string, StreamTarget>();
     protected readonly assetStreams = new Map<string, StreamTarget>();
+    protected readonly transcodedAudioStreams = new Map<string, TranscodedAudioStreamTarget>();
+    protected readonly temporaryAudioFiles = new Map<string, string>();
+
+    constructor() {
+        process.once('exit', () => {
+            for (const [filePath, temporaryDirectory] of this.temporaryAudioFiles) {
+                try {
+                    unlinkSync(filePath);
+                } catch {
+                    // The stream completion path may already have removed the file.
+                }
+                try {
+                    rmdirSync(temporaryDirectory);
+                } catch {
+                    // Best-effort synchronous cleanup during process shutdown.
+                }
+            }
+        });
+    }
 
     async getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets> {
         if (this.assets) {
@@ -108,6 +149,127 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async disposeAssetStream(id: string): Promise<void> {
         this.assetStreams.delete(id);
+    }
+
+    async transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult> {
+        let outputPath: string | undefined;
+        let temporaryDirectory: string | undefined;
+        try {
+            if (!request || typeof request.audioUri !== 'string') {
+                return { ok: false, error: 'transcode-failed' };
+            }
+            const input = await this.resolveLocalStreamTarget(request.audioUri, TRANSCODABLE_AUDIO_MIME_TYPES, 'Asset');
+            const inputStat = await stat(input.path);
+            if (inputStat.size > MAX_TRANSCODE_INPUT_BYTES) {
+                return { ok: false, error: 'input-too-large' };
+            }
+
+            temporaryDirectory = await mkdtemp(join(tmpdir(), 'akari-audio-'));
+            outputPath = join(temporaryDirectory, `${randomBytes(16).toString('hex')}.wav`);
+            this.temporaryAudioFiles.set(outputPath, temporaryDirectory);
+            const transcodeError = await this.runAudioTranscode(input.path, outputPath);
+            if (transcodeError) {
+                await this.cleanupTemporaryAudio(outputPath, temporaryDirectory);
+                return { ok: false, error: transcodeError };
+            }
+
+            const outputStat = await stat(outputPath);
+            if (!outputStat.isFile()) {
+                await this.cleanupTemporaryAudio(outputPath, temporaryDirectory);
+                return { ok: false, error: 'transcode-failed' };
+            }
+            if (outputStat.size > MAX_TRANSCODE_OUTPUT_BYTES) {
+                await this.cleanupTemporaryAudio(outputPath, temporaryDirectory);
+                return { ok: false, error: 'output-too-large' };
+            }
+
+            const port = await this.ensureServer();
+            const id = randomBytes(32).toString('hex');
+            this.transcodedAudioStreams.set(id, {
+                path: outputPath,
+                mimeType: 'audio/wav',
+                workspaceRoots: [await realpath(temporaryDirectory)],
+                temporaryDirectory
+            });
+            return {
+                ok: true,
+                stream: {
+                    id,
+                    url: `http://127.0.0.1:${port}/transcoded-audio/${id}`
+                }
+            };
+        } catch (error) {
+            if (outputPath && temporaryDirectory) {
+                await this.cleanupTemporaryAudio(outputPath, temporaryDirectory);
+            }
+            console.warn('[akari-preview] audio conversion failed', error);
+            return { ok: false, error: 'transcode-failed' };
+        }
+    }
+
+    async disposeTranscodedAudioStream(id: string): Promise<void> {
+        const target = this.transcodedAudioStreams.get(id);
+        if (target) {
+            await this.cleanupTranscodedAudioStreamById(id, target);
+        }
+    }
+
+    protected runAudioTranscode(inputPath: string, outputPath: string): Promise<TranscodeAudioErrorKind | undefined> {
+        return new Promise(resolveResult => {
+            let settled = false;
+            const child = spawn('ffmpeg', [
+                '-hide_banner',
+                '-loglevel', 'error',
+                '-nostdin',
+                '-y',
+                '-i', inputPath,
+                '-vn',
+                '-acodec', 'pcm_s16le',
+                '-f', 'wav',
+                outputPath
+            ], { stdio: 'ignore' });
+            const finish = (result: TranscodeAudioErrorKind | undefined): void => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearTimeout(timeout);
+                resolveResult(result);
+            };
+            const timeout = setTimeout(() => {
+                child.kill('SIGKILL');
+                finish('timeout');
+            }, TRANSCODE_TIMEOUT_MS);
+            child.once('error', () => finish('ffmpeg-not-found'));
+            child.once('close', code => finish(code === 0 ? undefined : 'transcode-failed'));
+        });
+    }
+
+    protected async cleanupTemporaryAudio(filePath: string, temporaryDirectory: string): Promise<void> {
+        let fileRemoved = false;
+        try {
+            await unlink(filePath);
+            fileRemoved = true;
+        } catch (error) {
+            fileRemoved = (error as { code?: string }).code === 'ENOENT';
+        }
+        if (!fileRemoved) {
+            return;
+        }
+        this.temporaryAudioFiles.delete(filePath);
+        try {
+            await rmdir(temporaryDirectory);
+        } catch {
+            // The directory may already have been removed by another cleanup path.
+        }
+    }
+
+    protected async cleanupTranscodedAudioStreamById(id: string, target: TranscodedAudioStreamTarget): Promise<void> {
+        if (this.transcodedAudioStreams.get(id) !== target) {
+            return;
+        }
+        this.transcodedAudioStreams.delete(id);
+        await this.cleanupTemporaryAudio(target.path, target.temporaryDirectory);
     }
 
     protected async resolveVideoStreamTarget(request: VideoStreamRequest): Promise<StreamTarget> {
@@ -223,11 +385,14 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
         const mediaMatch = /^\/media\/([a-f0-9]{64})$/.exec(request.url ?? '');
         const assetMatch = /^\/asset\/([a-f0-9]{64})$/.exec(request.url ?? '');
+        const transcodedAudioMatch = /^\/transcoded-audio\/([a-f0-9]{64})$/.exec(request.url ?? '');
         const target = mediaMatch
             ? this.videoStreams.get(mediaMatch[1])
             : assetMatch
                 ? this.assetStreams.get(assetMatch[1])
-                : undefined;
+                : transcodedAudioMatch
+                    ? this.transcodedAudioStreams.get(transcodedAudioMatch[1])
+                    : undefined;
         if (!target) {
             this.respond(response, 404);
             return;
@@ -257,7 +422,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             const start = range?.start ?? 0;
             const end = range?.end ?? Math.max(0, targetStat.size - 1);
             response.statusCode = range ? 206 : 200;
-            if (assetMatch) {
+            if (assetMatch || transcodedAudioMatch) {
                 response.setHeader('Access-Control-Allow-Origin', '*');
             }
             response.setHeader('Accept-Ranges', 'bytes');
