@@ -220,8 +220,15 @@ export function buildAudioMixCommand({
     inputIndex += 1;
 
     if (audio.bgm.ducking === true && narrationLabel) {
-      filters.push(`[bgm]${narrationLabel}sidechaincompress=${DUCKING_SIDECHAIN_ARGS}[bgm_ducked]`);
+      // [narration] would otherwise be referenced twice (once as sidechaincompress's key input,
+      // once as the final amix's input). ffmpeg's filtergraph requires each labeled pad to be
+      // consumed exactly once; a second reference is accepted without error but left unconnected
+      // (ffmpeg 8.1.1), silently dropping narration from the output. asplit fans it out into two
+      // independent copies, one per consumer.
+      filters.push(`${narrationLabel}asplit=2[nar_sc][nar_mix]`);
+      filters.push(`[bgm][nar_sc]sidechaincompress=${DUCKING_SIDECHAIN_ARGS}[bgm_ducked]`);
       bgmLabel = "[bgm_ducked]";
+      narrationLabel = "[nar_mix]";
     }
     labels.push(bgmLabel);
   }

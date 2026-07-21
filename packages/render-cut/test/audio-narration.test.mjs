@@ -25,14 +25,26 @@ function ffmpeg(args) {
 // ffmpeg's volumedetect filter. Used to prove narration/BGM/ducking effects deterministically
 // instead of listening to output.
 function measureMeanVolume(filePath, start, duration) {
+  return measureVolumeDetect(filePath, start, duration).meanVolume;
+}
+
+// Measures max_volume (peak, in dBFS) of [start, start+duration) in filePath. Unlike mean_volume,
+// a single audible narration syllable pushes max_volume close to the source's own peak regardless
+// of how much silence surrounds it within the window, making it a robust presence/absence check.
+function measureMaxVolume(filePath, start, duration) {
+  return measureVolumeDetect(filePath, start, duration).maxVolume;
+}
+
+function measureVolumeDetect(filePath, start, duration) {
   const result = spawnSync(
     "ffmpeg",
     ["-hide_banner", "-nostats", "-i", filePath, "-ss", String(start), "-t", String(duration), "-af", "volumedetect", "-f", "null", "-"],
     { encoding: "utf8" },
   );
-  const match = result.stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
-  assert.ok(match, `volumedetect did not report mean_volume for ${filePath}: ${result.stderr}`);
-  return Number(match[1]);
+  const meanMatch = result.stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
+  const maxMatch = result.stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
+  assert.ok(meanMatch && maxMatch, `volumedetect did not report mean/max_volume for ${filePath}: ${result.stderr}`);
+  return { meanVolume: Number(meanMatch[1]), maxVolume: Number(maxMatch[1]) };
 }
 
 function makeTone(path, { frequency, duration, gainDb = 0, sampleRate = 48000 }) {
@@ -75,7 +87,12 @@ async function makeProject({
     audio.narration = narration.map((item) => {
       const relPath = narrationFileExists ? `audio/${item.id}.wav` : `audio/${item.id}-missing.wav`;
       if (narrationFileExists) {
-        makeTone(join(root, relPath), { frequency: item.frequency, duration: item.durationSeconds });
+        // sourceGainDb boosts the tone baked into the source WAV file itself (as a real narration
+        // recording would already be mixed near broadcast level), independent of item.gainDb which
+        // maps to edit.json's audio.narration[].gain_db (the mix-time gain render-cut applies).
+        // The sine source's default amplitude peaks around -18dBFS, too quiet on its own to clear
+        // an audibility threshold even when the mix is working correctly.
+        makeTone(join(root, relPath), { frequency: item.frequency, duration: item.durationSeconds, gainDb: item.sourceGainDb ?? 0 });
       }
       return {
         id: item.id,
@@ -212,12 +229,12 @@ test("ducking measurably lowers the BGM level during the narration window when n
       const inputArgs = command.args.slice(0, filterComplexIndex);
       const listeningPath = join(root, `listening-${ducking}.wav`);
       const listeningArgs = [...inputArgs, "-filter_complex", filterStepsWithoutFinalMix, "-map", bgmLabel, "-c:a", "pcm_s16le", "-ar", "48000", listeningPath];
-      // When ducking is off, sidechaincompress is absent so [narration] is otherwise never
-      // consumed once the trailing amix step is dropped; give it a throwaway second output so
-      // the filtergraph stays fully connected.
-      if (!ducking) {
-        listeningArgs.push("-map", "[narration]", "-c:a", "pcm_s16le", "-ar", "48000", join(root, "discard-narration.wav"));
-      }
+      // Dropping the trailing amix step leaves whichever narration-derived pad it alone consumed
+      // dangling: [nar_mix] when ducking split narration via asplit (its sibling [nar_sc] is
+      // consumed by sidechaincompress), or plain [narration] when ducking is off. Give it a
+      // throwaway second output so the filtergraph stays fully connected.
+      const danglingNarrationLabel = ducking ? "[nar_mix]" : "[narration]";
+      listeningArgs.push("-map", danglingNarrationLabel, "-c:a", "pcm_s16le", "-ar", "48000", join(root, `discard-narration-${ducking}.wav`));
       const listening = spawnSync(command.command, listeningArgs, { encoding: "utf8" });
       assert.equal(listening.status, 0, listening.stderr);
 
@@ -242,6 +259,39 @@ test("ducking measurably lowers the BGM level during the narration window when n
     );
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+// Regression for the T5 incident (2026-07-21): [narration] was referenced twice in the ducking
+// filter graph (once by sidechaincompress, once by the final amix) without an asplit. ffmpeg 8.1.1
+// accepts that without error but silently leaves the second reference unconnected, so narration
+// disappeared from the real, produced output whenever bgm.ducking was true — a combination the
+// earlier tests never rendered end-to-end (the audibility test used ducking:false, and the ducking
+// test measured a narration-excluded "listening" derivative). This test renders the real CLI output
+// with both bgm.ducking:true and narration present, and checks narration is actually audible in it.
+test("narration remains audible in the real output when ducking is on (asplit regression)", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({
+    duration: 6,
+    bgm: { gainDb: -18, ducking: true },
+    narration: [{ id: "n-0001", t: 2, durationSeconds: 2, frequency: 880, gainDb: 0, sourceGainDb: 12 }],
+  });
+  try {
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    assert.match(state.plan.commands.audio_mix.args.join(" "), /asplit=2\[nar_sc\]\[nar_mix\]/);
+
+    const outputPath = join(project, state.artifacts[0].path);
+    const narrationWindowMax = measureMaxVolume(outputPath, 2, 2);
+    t.diagnostic(`ducking:true narration-window max_volume=${narrationWindowMax.toFixed(2)}dB`);
+    assert.ok(
+      narrationWindowMax >= -12,
+      `expected narration to be audible (max_volume >= -12dB) during [2,4]s with ducking:true, got ${narrationWindowMax}dB`,
+    );
+  } finally {
+    await rm(project, { recursive: true, force: true });
   }
 });
 
