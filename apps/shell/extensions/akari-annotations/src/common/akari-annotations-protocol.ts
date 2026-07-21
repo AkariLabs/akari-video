@@ -115,6 +115,27 @@ export interface ResizeOverlayRequest {
     duration: number;
 }
 
+export interface SplitCutRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    atSeconds: number;
+}
+
+export interface DeleteCutRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+}
+
+export interface InsertCutRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    /** 削除時に返された removedText をそのまま渡す（undo 用の原文復元） */
+    elementText: string;
+}
+
 export interface CaptionWritePayload {
     id: string;
     start: number;
@@ -160,6 +181,11 @@ export interface WriteBackResult {
     committed: boolean;
 }
 
+export interface DeleteCutResult extends WriteBackResult {
+    /** 削除した cuts 要素の原文（undo で insertCut に渡す） */
+    removedText: string;
+}
+
 export interface AkariAnnotationsService {
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
@@ -172,6 +198,9 @@ export interface AkariAnnotationsService {
     removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult>;
     moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult>;
     resizeOverlay(request: ResizeOverlayRequest): Promise<WriteBackResult>;
+    splitCut(request: SplitCutRequest): Promise<WriteBackResult>;
+    deleteCut(request: DeleteCutRequest): Promise<DeleteCutResult>;
+    insertCut(request: InsertCutRequest): Promise<WriteBackResult>;
     insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult>;
     removeOverlay(request: RemoveOverlayRequest): Promise<WriteBackResult>;
 }

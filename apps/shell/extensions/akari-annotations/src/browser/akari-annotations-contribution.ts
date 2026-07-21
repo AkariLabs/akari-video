@@ -16,13 +16,19 @@ import { FileChangeType, FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { ATTACH_AKARI_ANNOTATIONS_PASSIVE, OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_REVIEW_PANEL } from './akari-annotations-commands';
+import {
+    ATTACH_AKARI_ANNOTATIONS_PASSIVE,
+    OPEN_AKARI_ANNOTATIONS,
+    OPEN_AKARI_INSPECTOR,
+    OPEN_AKARI_REVIEW_PANEL
+} from './akari-annotations-commands';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
+import { AkariInspectorWidget } from './akari-inspector-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
 
-export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_REVIEW_PANEL };
+export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_PANEL };
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
@@ -77,6 +83,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(OPEN_AKARI_REVIEW_PANEL, {
             execute: () => this.openReviewPanel()
+        });
+        commands.registerCommand(OPEN_AKARI_INSPECTOR, {
+            execute: () => this.openInspectorPanel()
         });
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()
@@ -200,6 +209,23 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             this.shell.addWidget(widget, { area: 'right', rank: 100 });
         }
         await this.shell.activateWidget(widget.id);
+        return widget;
+    }
+
+    /**
+     * インスペクターを右サイドへ開く。選択のたびタイムライン側から呼ばれる想定のため、
+     * フォーカスは奪わず reveal のみに留める（一度開けば常駐し、内容だけが更新される）。
+     */
+    async openInspectorPanel(): Promise<AkariInspectorWidget | undefined> {
+        const timeline = await this.open();
+        if (!timeline) {
+            return undefined;
+        }
+        const widget = await this.widgetManager.getOrCreateWidget<AkariInspectorWidget>(AkariInspectorWidget.FACTORY_ID);
+        if (!widget.isAttached) {
+            this.shell.addWidget(widget, { area: 'right', rank: 101 });
+        }
+        await this.shell.revealWidget(widget.id);
         return widget;
     }
 

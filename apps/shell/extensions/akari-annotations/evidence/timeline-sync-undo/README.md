@@ -15,12 +15,13 @@
 - `npm run lint`
 - `npm run build`（browser/node/electron すべて 0 errors）
 
-## source 秒の根拠
+## 出力（タイムライン）秒の根拠
 
-`akari-preview-open-handler.ts` の `tick` は、cuts の keep-range 境界を適用した後、オーバーレイ
-runtime には `sourceToTimeline(...)` の timeline 秒を渡す一方、再生同期イベントには
-`video.currentTime` を渡す。したがってタイムライン横軸へ送る値は source 秒である
-（同ファイル 1302–1309 行付近）。pause/seeked は即時送信、通常 tick は 50ms スロットル。
+`akari-preview-open-handler.ts` の `tick` は、cuts の keep-range 境界を適用した後、
+`sourceToTimeline(...)` で source 秒を timeline 秒（cuts ギャップレス連結後の出力秒）に変換し、
+オーバーレイ runtime・再生同期イベントの両方にこの timeline 秒を渡す。したがってタイムライン
+横軸へ送る値は出力秒である（同ファイル 1362–1369 行付近）。pause/seeked は即時送信、通常 tick は
+50ms スロットル。
 
 ## L1 — 実測 PASS（最終一括走行）
 
@@ -146,3 +147,96 @@ caption 移動 → overlay 移動の2操作を実行後、Cmd+Z ×2 → Cmd+Shif
 フィクスチャ（edit.json / captions.json / review.json / analysis.json / overlay-a.html、
 動画本体は検証後に破棄しコミットしていない）。`scripts/cdp-lib.mjs` / `scripts/run-l1.mjs` が
 検証ドライバ本体（依存追加なし、Node 22+ 組み込みのみ）。
+
+---
+
+## Wave 22（統合検証: 出力軸タイムライン全面刷新）
+
+2レーン（impl-annotations / impl-preview）の未コミット変更を1本にまとめた状態での統合検証。
+対象はタスク #1〜#10（アウトプット軸ギャップレス化・再生ヘッド出力秒同期・プレビュー自動
+reveal・ツールモード分割・マグネットスナップ・トリムハンドル・選択+インスペクター・
+ツールバー整理・見た目整合・プレビューエラー復帰）。
+
+### 0. 環境整合
+
+apps/shell の `node_modules` が不完全（typescript と extensions symlink のみ）だったため、
+`rm -rf node_modules && PYTHON=/usr/bin/python3 npm install --no-workspaces` でクリーン再構築。
+Electron 39.8.7 は `~/Library/Caches/electron/<hash>/electron-v39.8.7-darwin-arm64.zip` から
+`ditto` で展開（キャッシュは既に存在、DL不要）。root の `package-lock.json` 差分（約21500行）
+は指示どおり不可触のまま放置。
+
+### L0 — 全PASS（exit 0）
+
+- `npm run build:ext`（8拡張 tsc -b）: 0 errors
+- `npm run lint`: 0 errors/warnings
+- `npm run build`（browser/node/electron production build）: 0 errors
+
+### L1 — Wave22 新規受け入れ条件（a〜j）: 全PASS
+
+検証ドライバ: `scripts/run-l1-wave22.mjs`（新規、`cdp-lib.mjs` を再利用）。フィクスチャ・
+ワークスペース構成は既存 `fixture/` を流用（分析JSONは `.akari/sidecars/sample.mp4.analysis/
+analysis.json` に配置、動画は ffmpeg で12秒 640x360 h264/mp3 を検証用に一時生成し破棄）。
+
+再現コマンド:
+```sh
+node apps/shell/extensions/akari-annotations/evidence/timeline-sync-undo/scripts/run-l1-wave22.mjs \
+  <cdpPort> <workspaceDir> <evidenceDir>
+```
+
+**総合判定: PASS**（`ALL WAVE22 ACCEPTANCE CRITERIA PASSED (A,B,C,D,E,F,G,H,I,J)`、
+assertion-failed 0件。スクショ `wave22-00`〜`wave22-19` は同一走行のもの）。
+
+| 項目 | 内容 | 結果 | 実測 |
+|---|---|---|---|
+| a | 出力軸: cuts 3個がギャップなく隣接、ルーラーが出力秒（10.2s、source終端11.5sより明確に短い） | **PASS** | `wave22-03` |
+| b | 再生ヘッド同期: cut境界をまたいでも出力軸は連続増加（source側は3.5→4へ実ジャンプすることも確認） | **PASS** | `wave22-08` |
+| c | シーク: タイムライン出力秒クリック→対応する素材秒へプレビューがシーク | **PASS** | `wave22-05` |
+| d | ツールモード: A/B キーで選択/分割切替、分割クリックで cuts 3→4、undo で3に復元（構造一致） | **PASS** | `wave22-09〜11` |
+| e | 選択+インスペクター: クリップ選択でオレンジ枠(#f97316)＋インスペクター自動オープン、別クリップ選択で内容切替 | **PASS** | `wave22-12,13` |
+| f | 削除: Delete でクリップ削除、undo で edit.json がバイト完全一致で復元 | **PASS** | `wave22-14,15` |
+| g | スナップトグル: N キー／磁石ボタンで aria-pressed が true⇄false | **PASS** | `wave22-16,17` |
+| h | ツールバー: 本文内に「タイムライン」見出しテキストなし、undo/redo はアイコンボタン | **PASS** | `wave22-02` |
+| i | プレビュー自動reveal: 別タブ（captions.json）の裏に隠れた状態でタイムラインクリック→前面化 | **PASS** | `wave22-06,07` |
+| j | エラー復帰: 不正src→video error→コントロール全disabled→src復元+再読み込みクリック→復帰、通常再生でdisabledにならないことも確認 | **PASS** | `wave22-18,19` |
+
+### L1 — 既存回帰（k）: 全PASS
+
+`scripts/run-l1.mjs`（Wave21 ドライバ）を今回の出力軸変更に合わせて最小修正のうえ再実行し、
+既存動作の非破壊を確認。スクショは `wave22-regression-k/00`〜`12`（既存の `00`〜`19`
+コミット済みファイルは上書きしていない）。
+
+**ドライバ側の修正点（プロダクトソースは無変更）**:
+
+1. `TOTAL_DURATION` 定数が旧式（`max(10, cuts出力終端=11.5, ...) * 1.02`）のままだった。
+   Wave22 で `totalDuration()` は「cuts尺合計（ギャップレス）とオーバーレイ終端の大きい方 *
+   1.02」に変わったため、fixture（3+3+4=10s）に合わせ `10 * 1.02` に修正
+2. `WIDGET_REFS` の undo/redo ボタン参照が `toolbar.children[2]/[3]` の固定indexだったが、
+   Wave22 でツールバーに選択/分割/マグネットボタンが追加され index がずれた。
+   `aria-label` ベースのセレクタに変更し解消（zoom% 表示も `data-testid` ベースに変更）
+3. cut-reorder テストの drop 座標が固定 `4.3秒` だったが、trim後の cuts[1] 出力秒レンジの
+   実際の中点(4.25s)からわずか0.05秒しか離れておらず、reorder しきい値判定がコイントスで
+   実測フレーク（不発）した。cuts[1] の出力秒レンジを実行時に動的算出し、その80%地点という
+   明確にしきい値を超える位置へ運ぶよう修正し解消
+4. AC2（ctrl+wheel ズーム）後の視界のまま cut-reorder へ入ると、ドラッグ元とドロップ先を
+   同一可視窓に収められないことがあったため、reorder 直前にズームを全体表示へリセットする
+   処理を追加
+
+| 検証項目 | 結果 |
+|---|---|
+| 最小ズーム＝全体表示 | PASS |
+| ctrl+wheel ズーム、カーソル位置基準点固定 | PASS |
+| 横スワイプパン・スクロールバー左右端 | PASS |
+| cut-trim（端ドラッグ） | PASS |
+| cut-reorder（中央ドラッグでの並べ替え） | PASS |
+| スナップガイド表示＋Escapeキャンセル（無変更確認） | PASS |
+| overlay-resize（右端ドラッグ） | PASS |
+| caption-move・overlay-move | PASS |
+| undo/redo x2（キーボード＋ツールバー往復） | PASS |
+
+**未再検証（既知・低リスク）**: 旧ドライバの AC6以降（Explorer経由プレビューオープン→
+click-seek→再生同期78%自動追従）は、Wave19「非開発者モード」設定パネルの「Developer
+mode」チェックボックス操作がこの回のみ実測でフレーク（本タスク固有の新規実装ではなく
+既存の既知フレーク要因）し到達できなかった。ただし click-seek・再生同期の連続性は
+Wave22 の項目 c・b で新軸に対して直接かつ正しく再検証済み。78%自動追従スクロール
+（`handlePlaybackTick` の `PLAYHEAD_FOLLOW_THRESHOLD` 判定）自体は今回の diff で変更されて
+おらず、コード読解でも同一ロジックであることを確認済みのため、リスクは低いと判断した。

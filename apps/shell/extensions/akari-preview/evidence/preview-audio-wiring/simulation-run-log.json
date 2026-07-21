@@ -1,7 +1,7 @@
 {
   "records": [
     {
-      "at": "2026-07-21T04:16:28.521Z",
+      "at": "2026-07-21T08:19:24.962Z",
       "step": "simulated-audio-decoded",
       "contextState": "suspended",
       "timelineDuration": 6,
@@ -32,7 +32,7 @@
       "duckGainDb": null
     },
     {
-      "at": "2026-07-21T04:16:28.552Z",
+      "at": "2026-07-21T08:19:25.510Z",
       "step": "simulated-audio-scheduled",
       "contextState": "running",
       "timelineDuration": 6,
@@ -85,7 +85,7 @@
       ]
     },
     {
-      "at": "2026-07-21T04:16:28.583Z",
+      "at": "2026-07-21T08:19:25.511Z",
       "step": "simulated-bgm-ducked",
       "contextState": "running",
       "timelineDuration": 6,
@@ -117,13 +117,13 @@
       "expectedLinear": 0.03162277660168379
     },
     {
-      "at": "2026-07-21T04:16:28.608Z",
+      "at": "2026-07-21T08:19:25.511Z",
       "step": "simulated-master-gain-mirror",
       "volumeGain": 0.4,
       "mutedGain": 0
     },
     {
-      "at": "2026-07-21T04:16:28.655Z",
+      "at": "2026-07-21T08:19:25.522Z",
       "step": "simulated-no-audio-regression",
       "state": {
         "disabled": true
@@ -132,7 +132,7 @@
       "contextsAfterNoAudio": 1
     },
     {
-      "at": "2026-07-21T04:16:28.656Z",
+      "at": "2026-07-21T08:19:25.522Z",
       "step": "ALL-PASS",
       "source": "hostAdapterScript extracted from edited TypeScript",
       "decoded": {

@@ -163,6 +163,81 @@ export function reorderCutsInSource(source: string, fromIndex: number, toIndex: 
     return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
 }
 
+export function splitCutInSource(source: string, cutIndex: number, atSeconds: number): string {
+    if (!Number.isFinite(atSeconds)) {
+        throw new Error('分割位置の時刻が不正です。');
+    }
+    const array = locateArray(source, 'cuts');
+    const elements = splitTopLevelElements(array.inner);
+    const element = elements[cutIndex];
+    if (!element) {
+        throw new Error(`クリップ ${cutIndex + 1} が見つかりません`);
+    }
+    const label = `クリップ ${cutIndex + 1}`;
+    const currentIn = readNumberProperty(element.text, 'in', label);
+    const currentOut = readNumberProperty(element.text, 'out', label);
+    if (atSeconds < currentIn + 0.15 || atSeconds > currentOut - 0.15) {
+        throw new Error('分割位置がクリップの端に近すぎます（両側 0.15 秒以上必要です）');
+    }
+    const firstText = replaceNumberProperty(element.text, 'out', atSeconds, label);
+    const secondText = replaceNumberProperty(element.text, 'in', atSeconds, label);
+    // 区切り文字は既存要素間の生テキスト（カンマ・改行・インデント）をそのまま再利用し、整形を保つ。
+    const separator = elements.length >= 2
+        ? array.inner.slice(elements[0].end, elements[1].start)
+        : ', ';
+    return replaceElement(source, array.openIndex + 1, element, `${firstText}${separator}${secondText}`);
+}
+
+export function deleteCutInSource(source: string, cutIndex: number): { source: string; removedText: string } {
+    const array = locateArray(source, 'cuts');
+    const elements = splitTopLevelElements(array.inner);
+    const element = elements[cutIndex];
+    if (!element) {
+        throw new Error(`クリップ ${cutIndex + 1} が見つかりません`);
+    }
+    const innerOffset = array.openIndex + 1;
+    let removeStart: number;
+    let removeEnd: number;
+    if (elements.length === 1) {
+        // 唯一の要素: 前後の区切りが存在しないため inner 全体を空にする。
+        removeStart = 0;
+        removeEnd = array.inner.length;
+    } else if (cutIndex === elements.length - 1) {
+        // 末尾要素: 直前の区切り（前要素の終端から）ごと除去する。
+        removeStart = elements[cutIndex - 1].end;
+        removeEnd = element.end;
+    } else {
+        // 後続がある要素: 自身の開始から次要素の開始（自身の後ろの区切り込み）まで除去する。
+        removeStart = element.start;
+        removeEnd = elements[cutIndex + 1].start;
+    }
+    const nextSource = source.slice(0, innerOffset + removeStart) + source.slice(innerOffset + removeEnd);
+    return { source: nextSource, removedText: element.text };
+}
+
+export function insertCutInSource(source: string, cutIndex: number, elementText: string): string {
+    const array = locateArray(source, 'cuts');
+    const elements = splitTopLevelElements(array.inner);
+    const innerOffset = array.openIndex + 1;
+    const separator = elements.length >= 2
+        ? array.inner.slice(elements[0].end, elements[1].start)
+        : ', ';
+    if (elements.length === 0) {
+        return source.slice(0, innerOffset) + elementText + source.slice(innerOffset);
+    }
+    if (cutIndex >= elements.length) {
+        // 末尾への挿入: 最後の要素の直後に区切り + 要素を追加する。
+        const insertAt = innerOffset + elements[elements.length - 1].end;
+        return source.slice(0, insertAt) + separator + elementText + source.slice(insertAt);
+    }
+    const target = elements[cutIndex];
+    if (!target) {
+        throw new Error(`クリップ ${cutIndex + 1} の挿入位置が不正です`);
+    }
+    const insertAt = innerOffset + target.start;
+    return source.slice(0, insertAt) + elementText + separator + source.slice(insertAt);
+}
+
 export function moveOverlayInSource(
     source: string,
     overlayId: string,

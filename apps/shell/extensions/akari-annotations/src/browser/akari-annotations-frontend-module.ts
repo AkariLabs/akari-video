@@ -8,8 +8,10 @@ import {
 import { AkariAnnotationsService, AKARI_ANNOTATIONS_SERVICE_PATH } from '../common/akari-annotations-protocol';
 import { AkariAnnotationsContribution } from './akari-annotations-contribution';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
+import { AkariInspectorWidget } from './akari-inspector-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ReviewModel } from './review-model';
+import { TimelineSelectionModel } from './timeline-selection-model';
 
 export default new ContainerModule(bind => {
     bind(AkariAnnotationsService).toDynamicValue(context =>
@@ -17,6 +19,7 @@ export default new ContainerModule(bind => {
     ).inSingletonScope();
 
     bind(ReviewModel).toSelf().inSingletonScope();
+    bind(TimelineSelectionModel).toSelf().inSingletonScope();
 
     bind(AkariAnnotationsWidget).toSelf();
     bind(WidgetFactory).toDynamicValue(context => ({
@@ -28,6 +31,12 @@ export default new ContainerModule(bind => {
     bind(WidgetFactory).toDynamicValue(context => ({
         id: AkariReviewPanelWidget.FACTORY_ID,
         createWidget: async () => context.container.get(AkariReviewPanelWidget)
+    })).inSingletonScope();
+
+    bind(AkariInspectorWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(context => ({
+        id: AkariInspectorWidget.FACTORY_ID,
+        createWidget: async () => context.container.get(AkariInspectorWidget)
     })).inSingletonScope();
 
     bind(AkariAnnotationsContribution).toSelf().inSingletonScope();
