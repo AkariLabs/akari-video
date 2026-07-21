@@ -127,6 +127,17 @@ export class AkariHomeWidget extends ReactWidget {
     protected starterChosen: StarterId | undefined;
     protected referenceProjectPath: string | undefined;
 
+    // --- F47 戻る導線（2026-07-21 最小修正） ---
+    // 04 から「進め方を見直す」で 03 を開いているときだけ true。true の間は
+    // intakeStatus が submitted でも stage を強制的に 'intake' にする
+    // （通常の未送信フローと同じ画面を使い回す・新しい state machine は作らない）。
+    protected reviewIntake = false;
+    // プリフィル時に intake.json から読んだ target.taste の生値。フォーム自体に
+    // taste の編集 UI は無い（reference 選択でのみ入る）ため、review 中に
+    // referenceProjectPath を選び直さなければこの値を再送信時にそのまま使う
+    // （そうしないとアプリ再起動後の見直しで taste が消えてしまう）。
+    protected intakeReviewTaste: string | null = null;
+
     protected intakeTasks: Set<IntakeTaskId> = new Set(INTAKE_TASK_DEFAULTS);
     protected intakeDuration: IntakeDurationChoice = INTAKE_DEFAULT_DURATION;
     protected intakeAutonomy: IntakeAutonomy = INTAKE_DEFAULT_AUTONOMY;
@@ -231,15 +242,19 @@ export class AkariHomeWidget extends ReactWidget {
 
     // --- ホーム v2: 状態判定（SSOT はファイル。task.md 指示1） ---
 
-    /** 現在の画面状態。接続 → intake の順で判定する（task.md 指示1の遷移表）。 */
+    /**
+     * 現在の画面状態。接続 → intake の順で判定する（task.md 指示1の遷移表）。
+     * `reviewIntake`（F47）は 04 到達後に「進め方を見直す」で 03 を開くための
+     * 例外で、submitted でも 'intake' を強制表示する。
+     */
     protected get stage(): HomeFlowStage {
         if (!this.connected) {
             return 'gate';
         }
-        if (this.intakeStatus === 'submitted') {
+        if (this.intakeStatus === 'submitted' && !this.reviewIntake) {
             return 'workspace';
         }
-        return this.starterChosen ? 'intake' : 'starters';
+        return (this.starterChosen || this.reviewIntake) ? 'intake' : 'starters';
     }
 
     protected async loadHomeFlow(): Promise<void> {
@@ -364,6 +379,58 @@ export class AkariHomeWidget extends ReactWidget {
         );
     }
 
+    /**
+     * F47「← はじめかたに戻る」導線（最小修正）。03 に来た経路を問わず、
+     * 一時選択状態をクリアするだけ。intake がまだ未送信なら stage は 02
+     * （starters）に落ち、既に submitted 済み（= 04 から見直しに来ていた）
+     * なら 04（workspace）に戻る — 単一のハンドラで両方の「戻る」を賄う
+     * （task.md 指示3どおり 01 への導線は作らない）。
+     */
+    protected backToStarters = (): void => {
+        this.starterChosen = undefined;
+        this.reviewIntake = false;
+        this.update();
+    };
+
+    /**
+     * F47「進め方を見直す」導線（04 → 03、最小修正）。submitted 済みの
+     * intake.json を読み、フォームの状態にプリフィルしてから 03 を強制表示する。
+     * 読み込みに失敗したら何もしない（既存の 04 表示のまま・エラー通知のみ）。
+     */
+    protected openIntakeReview = async (): Promise<void> => {
+        if (!this.intakeUri) {
+            return;
+        }
+        try {
+            const content = await this.fileService.readFile(this.intakeUri);
+            const parsed = JSON.parse(content.value.toString());
+            const rawTasks: unknown[] = Array.isArray(parsed?.tasks) ? parsed.tasks : [];
+            const knownTasks = new Set<string>(INTAKE_TASK_IDS);
+            this.intakeTasks = new Set(rawTasks.filter((id): id is IntakeTaskId => typeof id === 'string' && knownTasks.has(id)));
+            const target = parsed?.target ?? {};
+            this.intakeDuration = this.durationChoiceFromTarget(target);
+            this.intakeAutonomy = (INTAKE_AUTONOMY_ORDER as readonly string[]).includes(parsed?.autonomy)
+                ? parsed.autonomy as IntakeAutonomy
+                : INTAKE_DEFAULT_AUTONOMY;
+            this.intakeReviewTaste = typeof target?.taste === 'string' ? target.taste : null;
+        } catch (error) {
+            console.error('[akari-surfaces] failed to read intake.json for review:', error);
+            this.messages.error('進め方の読み込みに失敗しました。');
+            return;
+        }
+        this.reviewIntake = true;
+        this.update();
+    };
+
+    /** target.duration_s / keep_length から選択肢を逆引きする（プリフィル用）。 */
+    protected durationChoiceFromTarget(target: { duration_s?: unknown; keep_length?: unknown }): IntakeDurationChoice {
+        if (target?.keep_length === true) {
+            return 'keep';
+        }
+        const match = INTAKE_DURATION_ORDER.find(choice => choice !== 'keep' && Number(choice) === target?.duration_s);
+        return match ?? INTAKE_DEFAULT_DURATION;
+    }
+
     protected toggleIntakeTask(id: IntakeTaskId): void {
         if (this.intakeTasks.has(id)) {
             this.intakeTasks.delete(id);
@@ -395,9 +462,14 @@ export class AkariHomeWidget extends ReactWidget {
         this.update();
 
         const tasks = INTAKE_TASK_IDS.filter(id => this.intakeTasks.has(id));
+        // 見直し（reviewIntake）で reference を選び直していなければ、元の
+        // intake.json の taste をそのまま維持する（無ければ null のまま）。
+        const taste = this.referenceProjectPath
+            ? `参考プロジェクト: ${this.referenceProjectPath}`
+            : this.intakeReviewTaste;
         const target = {
             ...durationChoiceToTarget(this.intakeDuration),
-            taste: this.referenceProjectPath ? `参考プロジェクト: ${this.referenceProjectPath}` : null
+            taste
         };
         const body = {
             version: 1,
@@ -427,6 +499,8 @@ export class AkariHomeWidget extends ReactWidget {
         void this.commands.executeCommand(SEND_TO_PARTNER_COMMAND, this.buildIntakeSummaryText(tasks, target));
 
         this.intakeSubmitting = false;
+        // 見直し経由の再送信でも、送信が終われば 04 に戻る（F47）。
+        this.reviewIntake = false;
         await this.refreshHomeFlow();
     }
 
@@ -768,10 +842,17 @@ export class AkariHomeWidget extends ReactWidget {
     protected renderWorkspace(): React.ReactNode {
         return (
             <>
-                <header style={{ marginBottom: 22 }}>
-                    <div style={{ fontSize: 12, letterSpacing: '0.12em', opacity: 0.65 }}>AKARI VIDEO</div>
-                    <h1 style={{ margin: '6px 0 4px', fontSize: 26 }}>ホーム</h1>
-                    <p style={{ margin: 0, opacity: 0.7 }}>いまどこにいて、次に何をするかを一望できます。</p>
+                <header style={{ marginBottom: 22, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                    <div>
+                        <div style={{ fontSize: 12, letterSpacing: '0.12em', opacity: 0.65 }}>AKARI VIDEO</div>
+                        <h1 style={{ margin: '6px 0 4px', fontSize: 26 }}>ホーム</h1>
+                        <p style={{ margin: 0, opacity: 0.7 }}>いまどこにいて、次に何をするかを一望できます。</p>
+                    </div>
+                    {/* F47: 進め方フォームへ後戻りする唯一の導線。submitted 済み intake.json を
+                        プリフィルして 03 を再表示し、再送信で上書きする（01 への導線は作らない）。 */}
+                    <button type='button' className='theia-button secondary' style={homeFlowStyles.reviewEntry} onClick={() => void this.openIntakeReview()}>
+                        <span className='codicon codicon-history' aria-hidden='true' /> 進め方を見直す
+                    </button>
                 </header>
                 {this.hasAssets ? this.renderProjectOverview() : this.renderDropzone('hero')}
             </>
@@ -851,6 +932,14 @@ export class AkariHomeWidget extends ReactWidget {
     protected renderIntakeForm(): React.ReactNode {
         return (
             <div>
+                <button type='button' style={homeFlowStyles.backLink} onClick={this.backToStarters}>
+                    <span className='codicon codicon-arrow-left' aria-hidden='true' /> はじめかたに戻る
+                </button>
+                {this.reviewIntake && (
+                    <p style={homeFlowStyles.reviewNotice}>
+                        以前送信した内容を表示しています。内容を直して送信すると上書きされます。
+                    </p>
+                )}
                 <p style={homeFlowStyles.eyebrow}>Home — Intake</p>
                 <h2 style={homeFlowStyles.h2}>今回の進め方</h2>
                 <p style={homeFlowStyles.sub}>チェックした内容がそのままパートナーへの指示になります。あとから変更も OK。</p>
@@ -1083,7 +1172,23 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     formWrap: { marginTop: 22, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 560 },
     glabel: { fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.16em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
     checks: { display: 'flex', flexDirection: 'column', gap: 8 },
-    pills: { display: 'flex', flexWrap: 'wrap', gap: 8 }
+    pills: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+
+    // F47: 03 の「← はじめかたに戻る」・04 の「進め方を見直す」（最小修正）。
+    backLink: {
+        display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, padding: 0,
+        background: 'transparent', border: 'none', color: 'var(--theia-descriptionForeground)',
+        fontSize: 12.5, cursor: 'pointer', minHeight: 'auto', height: 'auto'
+    },
+    reviewNotice: {
+        marginBottom: 16, padding: '9px 13px', borderRadius: 9, fontSize: 12.5,
+        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        color: 'var(--theia-descriptionForeground)'
+    },
+    reviewEntry: {
+        display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 600,
+        padding: '8px 14px', borderRadius: 9, minHeight: 'auto', height: 'auto', flex: '0 0 auto'
+    }
 };
 
 function homeFlowCheckStyle(checked: boolean): React.CSSProperties {
