@@ -3,7 +3,7 @@
     {
       "at": "2026-07-21T04:41:19.967Z",
       "step": "connected",
-      "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-audio-wiring/apps/shell/lib/frontend/index.html?port=54590#/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-preview-audio-wiring/1b3786b5-961b-43f3-85c4-a20ef21cf7d3/scratchpad/l1-workspace"
+      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=54590#<SCRATCH>/l1-workspace"
     },
     {
       "at": "2026-07-21T04:41:20.707Z",
@@ -328,7 +328,7 @@
       "sample": [
         {
           "type": "warn",
-          "text": "2026-07-21T04:41:22.786Z root WARN [akari-preview] audio.sfx[1] を無視しました（音声ファイルを配信できません） Error: ENOENT: no such file or directory, realpath '/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-preview-audio-wiring/1b3786b5-961b-43f3-85c4-a20ef21cf7d3/scratchpad/l1-workspace/audio/missing.wav'"
+          "text": "2026-07-21T04:41:22.786Z root WARN [akari-preview] audio.sfx[1] を無視しました（音声ファイルを配信できません） Error: ENOENT: no such file or directory, realpath '<SCRATCH>/l1-workspace/audio/missing.wav'"
         },
         {
           "type": "info",
@@ -380,7 +380,7 @@
   "consoleMessages": [
     {
       "type": "warn",
-      "text": "2026-07-21T04:41:22.786Z root WARN [akari-preview] audio.sfx[1] を無視しました（音声ファイルを配信できません） Error: ENOENT: no such file or directory, realpath '/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-preview-audio-wiring/1b3786b5-961b-43f3-85c4-a20ef21cf7d3/scratchpad/l1-workspace/audio/missing.wav'"
+      "text": "2026-07-21T04:41:22.786Z root WARN [akari-preview] audio.sfx[1] を無視しました（音声ファイルを配信できません） Error: ENOENT: no such file or directory, realpath '<SCRATCH>/l1-workspace/audio/missing.wav'"
     },
     {
       "type": "info",
