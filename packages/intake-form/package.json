@@ -1,0 +1,14 @@
+{
+  "name": "@akari-video/intake-form",
+  "version": "0.0.1",
+  "private": true,
+  "description": "進め方フォーム（intake サーフェス）の standalone ブラウザ版。アプリなしでも .akari/intake.json を読み書きできる node:http ヘルパー + 静的 HTML（decision-cards と同じ流儀、外部 npm 依存ゼロ）。",
+  "type": "module",
+  "bin": {
+    "intake-form-helper": "intake-form-helper.mjs"
+  },
+  "scripts": {
+    "start": "node intake-form-helper.mjs",
+    "test": "node --test test/*.mjs"
+  }
+}

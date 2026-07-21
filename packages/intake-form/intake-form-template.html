@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AKARI Video — 進め方フォーム</title>
+<style>
+  :root {
+    /* LP (akari-video-lp) のトークン。契約 2026-07-21 §1-5: 色は LP トークンを唯一の出典とする。 */
+    --bg-deep: #050505; --bg: #0a0a0a; --card: #141414; --elevated: #1a1a1a;
+    --ink: #e5e5e5; --muted: #a3a3a3; --faint: #737373;
+    --accent: #f97316; --accent-light: #fb923c; --accent-lighter: #fdba74; --accent-dark: #ea580c;
+    --accent-tint: #26160c; --accent-tint-deep: #150e08; --border: #262626; --border-subtle: #1a1a1a;
+    --ok: #34d374;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Meiryo", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { color-scheme: dark; }
+  body { background: var(--bg-deep); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.7; padding: 40px 24px 80px; }
+  .frame { max-width: 640px; margin: 0 auto; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-size: 24px; font-weight: 800; }
+  .sub { color: var(--muted); margin-top: 8px; max-width: 40em; font-size: 13.5px; }
+  .fgroup { margin-top: 26px; }
+  .glabel { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase; margin-bottom: 10px; }
+  .checks { display: flex; flex-direction: column; gap: 8px; }
+  .check { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 11px; background: var(--card); border: 1px solid var(--border-subtle); cursor: pointer; }
+  .check:has(input:checked) { border-color: var(--accent-dark); background: var(--accent-tint-deep); }
+  .check input { margin-top: 4px; accent-color: var(--accent); }
+  .check b { font-size: 13.5px; font-weight: 600; display: block; }
+  .check small { font-size: 11.5px; color: var(--faint); display: block; }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { position: relative; }
+  .pill input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .pill span { display: inline-block; padding: 8px 16px; border-radius: 999px; font-size: 12.5px; border: 1px solid var(--border); background: var(--card); color: var(--muted); }
+  .pill:has(input:checked) span { border-color: var(--accent-dark); background: var(--accent-tint); color: var(--accent-lighter); }
+  .fsubmit { display: flex; align-items: center; gap: 16px; padding-top: 8px; }
+  .cta { display: inline-block; padding: 13px 30px; border-radius: 12px; background: var(--accent); color: #0a0a0a; font-weight: 700; font-size: 14.5px; border: none; cursor: pointer; }
+  .cta:disabled { opacity: 0.6; cursor: default; }
+  .fine { font-size: 11px; color: var(--faint); font-family: var(--mono); line-height: 1.7; }
+  .taste { width: 100%; background: var(--card); border: 1px solid var(--border-subtle); border-radius: 10px; color: var(--ink); font-family: inherit; font-size: 13px; padding: 10px 12px; }
+  .receipt { margin-top: 22px; padding: 14px 16px; border-radius: 10px; border: 1px solid var(--ok); background: var(--accent-tint-deep); color: var(--ok); font-size: 13px; display: none; }
+  .receipt.show { display: block; }
+  .error { margin-top: 22px; padding: 14px 16px; border-radius: 10px; border: 1px solid #d76a6a; background: var(--accent-tint-deep); color: #f0a0a0; font-size: 13px; display: none; }
+  .error.show { display: block; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <p class="eyebrow">AKARI VIDEO — Intake（standalone）</p>
+  <h1>今回の進め方</h1>
+  <p class="sub">
+    チェックした内容がそのままパートナーへの指示になります。送信すると
+    <code>.akari/intake.json</code> に保存されます（アプリなし運用: このページを
+    保存してから Claude Code などに「この内容で進めて」と伝えてください）。
+  </p>
+
+  <form id="intake-form">
+    <div class="fgroup">
+      <p class="glabel">やること — この製品ができること一覧でもある</p>
+      <div class="checks" id="task-checks"></div>
+    </div>
+    <div class="fgroup">
+      <p class="glabel">仕上がりの尺</p>
+      <div class="pills" id="duration-pills"></div>
+    </div>
+    <div class="fgroup">
+      <p class="glabel">おまかせの度合い</p>
+      <div class="pills" id="autonomy-pills"></div>
+    </div>
+    <div class="fgroup">
+      <p class="glabel">テイスト・雰囲気（任意）</p>
+      <input class="taste" id="taste-input" type="text" placeholder="例: テンポよく、明るい雰囲気">
+    </div>
+    <div class="fgroup fsubmit">
+      <button type="submit" class="cta" id="submit-button">この内容で進め方を保存する</button>
+      <p class="fine">保存先: .akari/intake.json（schema 検証つき）</p>
+    </div>
+  </form>
+
+  <div class="receipt" id="receipt" role="status"></div>
+  <div class="error" id="error" role="alert"></div>
+</div>
+
+<script>
+  // packages/schemas/intake.schema.json の x-akari-labels のミラー
+  // （apps/shell/extensions/akari-surfaces/src/common/intake-labels.ts と同じ内容。
+  // packages/schemas は本タスクの編集境界外のため、ここも手動ミラーになる —
+  // ラベルを変えるときは 3 箇所を揃える必要がある、既知の制約）。
+  const TASKS = [
+    { id: 'transcribe-captions', label: '文字起こし・テロップ', desc: '話した内容を自動で字幕に。日本語の座布団・改行も整える', checked: true },
+    { id: 'silence-cut', label: 'いらない間・NG のカット', desc: '無音・言い直しを検出して詰める。カット位置は後から直せる', checked: true },
+    { id: 'bgm-sfx', label: 'BGM・効果音', desc: 'ライブラリから雰囲気に合う曲を。ナレーション中は自動で音量ダウン', checked: false },
+    { id: 'narration', label: 'ナレーション（自分の声 / 既製の声）', desc: '原稿から音声を生成。自分の声のクローンも使える', checked: false },
+    { id: '3d-inserts', label: '3D・画面はめ込みの演出', desc: 'スマホや PC の画面に映像をはめ込むショットなど', checked: false }
+  ];
+  const DURATIONS = [
+    { id: '15', label: '15 秒' }, { id: '30', label: '30 秒', selected: true },
+    { id: '60', label: '60 秒' }, { id: '180', label: '3 分まで' }, { id: 'keep', label: '切らずにそのまま' }
+  ];
+  const AUTONOMY = [
+    { id: 'full-auto', label: '全部おまかせ' },
+    { id: 'checkpoint', label: '要所で確認してほしい', selected: true },
+    { id: 'collaborative', label: '一緒に細かく決めたい' }
+  ];
+
+  const taskChecksEl = document.getElementById('task-checks');
+  for (const task of TASKS) {
+    const label = document.createElement('label');
+    label.className = 'check';
+    label.innerHTML = `<input type="checkbox" value="${task.id}" ${task.checked ? 'checked' : ''}>
+      <span><b>${task.label}</b><small>${task.desc}</small></span>`;
+    taskChecksEl.appendChild(label);
+  }
+
+  function renderPills(container, options, name) {
+    for (const option of options) {
+      const label = document.createElement('label');
+      label.className = 'pill';
+      label.innerHTML = `<input type="radio" name="${name}" value="${option.id}" ${option.selected ? 'checked' : ''}><span>${option.label}</span>`;
+      container.appendChild(label);
+    }
+  }
+  renderPills(document.getElementById('duration-pills'), DURATIONS, 'duration');
+  renderPills(document.getElementById('autonomy-pills'), AUTONOMY, 'autonomy');
+
+  function durationToTarget(choice) {
+    return choice === 'keep' ? { duration_s: null, keep_length: true } : { duration_s: Number(choice), keep_length: false };
+  }
+
+  // 既存の draft/submitted があれば読み込んで反映する（アプリ内サーフェスと
+  // 同じ .akari/intake.json を見る。無ければ既定のまま = 新規プロジェクト扱い）。
+  fetch('/api/state').then(res => (res.ok ? res.json() : null)).then(state => {
+    if (!state) { return; }
+    for (const input of taskChecksEl.querySelectorAll('input[type="checkbox"]')) {
+      input.checked = Array.isArray(state.tasks) && state.tasks.includes(input.value);
+    }
+    if (state.target?.keep_length) {
+      document.querySelector('input[name="duration"][value="keep"]').checked = true;
+    } else if (typeof state.target?.duration_s === 'number') {
+      const match = document.querySelector(`input[name="duration"][value="${state.target.duration_s}"]`);
+      if (match) { match.checked = true; }
+    }
+    if (state.autonomy) {
+      const match = document.querySelector(`input[name="autonomy"][value="${state.autonomy}"]`);
+      if (match) { match.checked = true; }
+    }
+    if (typeof state.target?.taste === 'string') {
+      document.getElementById('taste-input').value = state.target.taste;
+    }
+  }).catch(() => { /* 初回・オフライン等は既定値のまま */ });
+
+  document.getElementById('intake-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const errorEl = document.getElementById('error');
+    const receiptEl = document.getElementById('receipt');
+    errorEl.classList.remove('show');
+    receiptEl.classList.remove('show');
+    const submitButton = document.getElementById('submit-button');
+    submitButton.disabled = true;
+    submitButton.textContent = '保存しています…';
+
+    const tasks = [...taskChecksEl.querySelectorAll('input[type="checkbox"]:checked')].map(input => input.value);
+    const durationChoice = document.querySelector('input[name="duration"]:checked')?.value ?? '30';
+    const autonomy = document.querySelector('input[name="autonomy"]:checked')?.value ?? 'checkpoint';
+    const taste = document.getElementById('taste-input').value.trim() || null;
+    const body = {
+      version: 1,
+      tasks,
+      target: { ...durationToTarget(durationChoice), taste },
+      autonomy,
+      status: 'submitted',
+      submitted_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await fetch('/api/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
+      receiptEl.textContent = '保存しました。この内容を Claude Code などに伝えて進めてください。';
+      receiptEl.classList.add('show');
+    } catch (error) {
+      errorEl.textContent = `保存に失敗しました: ${error instanceof Error ? error.message : String(error)}`;
+      errorEl.classList.add('show');
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = 'この内容で進め方を保存する';
+    }
+  });
+</script>
+</body>
+</html>

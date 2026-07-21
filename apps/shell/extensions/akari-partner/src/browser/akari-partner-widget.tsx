@@ -3,7 +3,9 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { ApplicationShell } from '@theia/core/lib/browser';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { PreferenceService } from '@theia/core/lib/common';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
+import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
 import { TerminalWidget } from '@theia/terminal/lib/browser/base/terminal-widget';
 import { VSXExtensionsModel } from '@theia/vsx-registry/lib/browser/vsx-extensions-model';
@@ -11,6 +13,14 @@ import { AkariPartnerServer } from '../common/akari-partner-protocol';
 import { PARTNER_CATALOG, PartnerCatalogEntry, PlatformBinaryVerification } from './partner-catalog';
 import { PartnerSessionService, PartnerTerminal } from './partner-session-service';
 import { PartnerChannel, TerminalPartnerChannel } from './partner-channel';
+
+// ホーム v2（task.md 2026-07-21-home-flow）の接続ゲートが読む SSOT と同じ
+// フィールド。「接続済み」の唯一の判定源は connections.json の
+// akari-cloud provider の doctor.status（skills/manage-connections/bin/doctor.mjs
+// が書く語彙をそのまま使う）— ここでは新しい判定基準を作らず、CLI 接続が
+// 実際に成立した瞬間にその同じフィールドを ok へ倒すだけ。
+const CONNECTIONS_RELATIVE_PATH = '.akari/connections.json';
+const CLOUD_PROVIDER_ID = 'akari-cloud';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -53,6 +63,9 @@ export class AkariPartnerWidget extends ReactWidget {
     @inject(PreferenceService)
     protected readonly preferences!: PreferenceService;
 
+    @inject(FileService)
+    protected readonly fileService!: FileService;
+
     protected flowState: FlowState = 'idle';
     protected selected?: PartnerCatalogEntry;
     protected status = '';
@@ -85,6 +98,39 @@ export class AkariPartnerWidget extends ReactWidget {
         void this.preferences.ready.then(() => this.refreshDeveloperMode());
 
         this.update();
+    }
+
+    /**
+     * ホーム v2 の接続ゲート CTA（akari-partner-command-contribution.ts の
+     * `akari.partner.beginOnboarding` コマンド経由）から呼ばれる薄いラッパー。
+     * 既に接続中/接続済みなら新しいオンボーディングは始めず、ペインを
+     * 表に出すだけに留める（begin() の二重起動を避ける）。
+     */
+    async beginRecommended(): Promise<void> {
+        if (this.flowState === 'working' || this.flowState === 'complete') {
+            this.shell.activateWidget(this.id);
+            return;
+        }
+        const entry = PARTNER_CATALOG.find(candidate => candidate.recommended) ?? PARTNER_CATALOG[0];
+        if (entry) {
+            await this.begin(entry);
+        }
+    }
+
+    /**
+     * ホーム v2 の進め方フォーム送信（`akari.partner.send` コマンド経由）から
+     * 呼ばれる。T4 のガワと全く同じ経路（`pushMessage` + `PartnerChannel#send`）
+     * を再利用する — 新しい注入経路は作らない。channel が無い（未接続）場合は
+     * 何もせず false を返す。
+     */
+    sendFromExternal(text: string): boolean {
+        const trimmed = text.trim();
+        if (!trimmed || !this.channel) {
+            return false;
+        }
+        this.pushMessage('me', trimmed);
+        this.channel.send(trimmed);
+        return true;
     }
 
     async begin(entry: PartnerCatalogEntry): Promise<void> {
@@ -215,6 +261,45 @@ export class AkariPartnerWidget extends ReactWidget {
         // ターミナルへ自動フォーカス」する演出用ディレイで、ガワ既定の v2 では
         // 意味が無くなったため廃止した。
         this.applyDeveloperModeVisibility();
+
+        // ホーム v2（task.md 2026-07-21-home-flow）の接続ゲートは
+        // connections.json の akari-cloud provider の doctor.status を唯一の
+        // 判定源として読む。実際に PTY 接続が成立したこの瞬間に、その同じ
+        // フィールドを ok へ更新する（新しい判定基準を作らず、既存 SSOT を
+        // 実態に追従させるだけ）。
+        await this.markCloudConnectionOk();
+    }
+
+    /**
+     * connections.json の akari-cloud provider の doctor を ok に倒す。
+     * provider エントリが存在しない（プロジェクトが古い/手動生成された）場合や
+     * ファイルが読めない場合は何もしない（ホーム v2 のゲートは未接続のまま
+     * 留まるだけで、他の機能に影響しない安全側のフォールバック）。
+     */
+    protected async markCloudConnectionOk(): Promise<void> {
+        try {
+            const roots = await this.workspaceService.roots;
+            const root = roots[0]?.resource;
+            if (!root) {
+                return;
+            }
+            const uri = root.resolve(CONNECTIONS_RELATIVE_PATH);
+            const content = await this.fileService.readFile(uri);
+            const registry = JSON.parse(content.value.toString());
+            const providers = Array.isArray(registry?.providers) ? registry.providers : undefined;
+            const provider = providers?.find((candidate: { id?: unknown }) => candidate?.id === CLOUD_PROVIDER_ID);
+            if (!provider) {
+                return;
+            }
+            provider.doctor = {
+                last_checked: new Date().toISOString(),
+                status: 'ok',
+                detail: 'AI パートナーの接続を確認しました（ローカル CLI 接続の成立で判定、v0）。'
+            };
+            await this.fileService.writeFile(uri, BinaryBuffer.fromString(`${JSON.stringify(registry, null, 2)}\n`));
+        } catch (error) {
+            console.warn('[akari-partner] connections.json update skipped:', error);
+        }
     }
 
     protected async ensureTerminalOpened(terminal: TerminalWidget): Promise<void> {

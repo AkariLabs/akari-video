@@ -4,10 +4,12 @@ import {
     ServiceConnectionProvider,
     WidgetFactory
 } from '@theia/core/lib/browser';
+import { CommandContribution } from '@theia/core/lib/common';
 import { AKARI_PARTNER_SERVICE_PATH, AkariPartnerServer } from '../common/akari-partner-protocol';
 import { AkariPartnerContribution } from './akari-partner-contribution';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { AkariPartnerCatalogWidget } from './akari-partner-catalog-widget';
+import { AkariPartnerCommandContribution } from './akari-partner-command-contribution';
 import { PartnerSessionService } from './partner-session-service';
 
 export default new ContainerModule(bind => {
@@ -32,4 +34,9 @@ export default new ContainerModule(bind => {
 
     bind(AkariPartnerContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariPartnerContribution);
+
+    // ホーム v2（task.md 2026-07-21-home-flow）が akari-partner の内部型に
+    // 依存せず接続開始・メッセージ送信を呼べるようにするコマンド境界。
+    bind(AkariPartnerCommandContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariPartnerCommandContribution);
 });
