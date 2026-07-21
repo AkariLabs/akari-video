@@ -1,0 +1,26 @@
+{
+  "version": 0,
+  "inputs": {
+    "analyses": [
+      { "path": "analysis-minimal.json", "source": "test fixture" }
+    ]
+  },
+  "assets": [
+    {
+      "ref": "clip-01",
+      "role": "sole_source",
+      "summary": "test asset",
+      "relations": [],
+      "flags": []
+    }
+  ],
+  "arc": [
+    {
+      "order": 1,
+      "title": "Opening",
+      "refs": [{ "asset": "clip-01", "start": 0, "end": 10 }],
+      "purpose": "Introduce the clip",
+      "evidence": "transcript 0-10: test line one/two"
+    }
+  ]
+}

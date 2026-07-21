@@ -1,0 +1,13 @@
+{
+  "name": "@akari-video/analysis-report",
+  "version": "0.0.0",
+  "private": true,
+  "description": "analysis.json（事実層）+ interpretation.json（解釈層）から読み取り専用の分析レポート HTML を生成する依存ゼロの CLI。テンプレート（template.html）は不変で、生成物はテンプレへ schema 準拠 JSON を <script type=\"application/json\"> ブロックとして埋め込むだけ。",
+  "type": "module",
+  "bin": {
+    "render-analysis-report": "render-analysis-report.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

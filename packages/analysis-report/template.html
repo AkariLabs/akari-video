@@ -1,0 +1,1890 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; font-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>AKARI Video 分析レポート</title>
+    <!--
+    AKARI 分析レポート 安全な差し替え規約:
+    - このファイルは UI 正本（不変）。データは一切含まない。
+    - データは #akari-analysis-report-data の script[type="application/json"] ブロックへ
+      render-analysis-report.mjs が埋め込む（マークアップへの直接焼き込みは禁止）。
+    - 埋め込まれた値は必ず textContent / createElement で DOM に反映し、innerHTML へ
+      未検証の文字列を流し込まない。
+    - 読み取り専用レポートであり、決定 UI（選択肢・ツマミ・確定ボタン）は一切持たない。
+    - 外部オリジンへは一切接続しない（fetch / XHR / WebSocket なし）。
+  -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page: #f4f6fb;
+        --surface: #ffffff;
+        --surface-muted: #eef2fa;
+        --ink: #172033;
+        --muted: #58647a;
+        --line: #ccd4e3;
+        --accent: #304ffe;
+        --accent-dark: #1633c8;
+        --accent-soft: #eef1ff;
+        --fact: #126a3a;
+        --fact-bg: #e3f5ea;
+        --interp: #6a2fb0;
+        --interp-bg: #f1e6ff;
+        --warn: #7a4c00;
+        --warn-bg: #fff1c8;
+        --empty: #3a4a63;
+        --empty-bg: #eef2fa;
+        --shadow: 0 14px 38px rgba(25, 38, 74, 0.09);
+        --radius: 18px;
+        --space-1: 0.35rem;
+        --space-2: 0.65rem;
+        --space-3: 1rem;
+        --space-4: 1.5rem;
+        --space-5: 2.25rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #0e1424;
+          --surface: #161e34;
+          --surface-muted: #1d2740;
+          --ink: #e7ecfb;
+          --muted: #9aa7c7;
+          --line: #2c3859;
+          --accent: #7c93ff;
+          --accent-dark: #a9b8ff;
+          --accent-soft: #202b52;
+          --fact: #6fe0a6;
+          --fact-bg: #10321f;
+          --interp: #d3aaff;
+          --interp-bg: #2c1c48;
+          --warn: #ffcf70;
+          --warn-bg: #3a2c05;
+          --empty: #b7c2de;
+          --empty-bg: #1d2740;
+          --shadow: 0 14px 38px rgba(0, 0, 0, 0.4);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--page);
+        color: var(--ink);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI",
+          "Yu Gothic", Meiryo, sans-serif;
+        line-height: 1.65;
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 18rem;
+      }
+
+      a {
+        color: var(--accent-dark);
+        text-underline-offset: 0.16em;
+      }
+
+      a:hover {
+        text-decoration-thickness: 0.16em;
+      }
+
+      a:focus-visible,
+      [tabindex]:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #ffb000;
+        outline-offset: 3px;
+        border-radius: 4px;
+      }
+
+      img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+
+      .skip-link {
+        position: fixed;
+        z-index: 100;
+        top: 0.5rem;
+        left: 0.5rem;
+        padding: 0.65rem 0.9rem;
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--ink);
+        transform: translateY(-160%);
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .report-header {
+        color: #ffffff;
+        background:
+          radial-gradient(
+            circle at 85% 20%,
+            rgba(114, 137, 255, 0.55),
+            transparent 28rem
+          ),
+          linear-gradient(135deg, #101833, #1f2f66);
+      }
+
+      .report-header__inner,
+      .report-nav__inner,
+      main,
+      .report-footer {
+        width: min(76rem, calc(100% - 2rem));
+        margin-inline: auto;
+      }
+
+      .report-header__inner {
+        padding: clamp(2.2rem, 6vw, 4.4rem) 0 clamp(1.8rem, 4vw, 3rem);
+      }
+
+      .eyebrow {
+        margin: 0 0 var(--space-2);
+        color: #cbd5ff;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.25;
+        text-wrap: balance;
+      }
+
+      h1 {
+        max-width: 34ch;
+        margin: 0;
+        font-size: clamp(1.7rem, 4.6vw, 3rem);
+        letter-spacing: -0.03em;
+        overflow-wrap: anywhere;
+      }
+
+      h2 {
+        margin: 0 0 var(--space-3);
+        font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+        letter-spacing: -0.02em;
+      }
+
+      h3 {
+        margin: 0 0 var(--space-2);
+        font-size: 1.05rem;
+      }
+
+      p,
+      ul,
+      ol,
+      dl,
+      blockquote {
+        margin-top: 0;
+      }
+
+      .report-meta {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: var(--space-3);
+        margin: var(--space-4) 0 0;
+      }
+
+      .report-meta > div {
+        padding: var(--space-3);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      dt {
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+
+      .report-meta dt {
+        color: #dbe2ff;
+      }
+
+      dd {
+        margin: 0.15rem 0 0;
+        overflow-wrap: anywhere;
+      }
+
+      .report-nav {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .report-nav__inner {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.15rem;
+        padding: 0.6rem 0;
+      }
+
+      .report-nav a {
+        display: inline-block;
+        padding: 0.35rem 0.6rem;
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .report-nav a:hover {
+        color: var(--accent-dark);
+        background: var(--accent-soft);
+      }
+
+      main {
+        padding: var(--space-5) 0 4.5rem;
+      }
+
+      .report-section {
+        margin-top: var(--space-5);
+        padding: clamp(1.1rem, 3vw, 2rem);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .report-section:first-child {
+        margin-top: 0;
+      }
+
+      .section-kicker {
+        display: inline-block;
+        margin-bottom: var(--space-2);
+        color: var(--accent-dark);
+        font-size: 0.76rem;
+        font-weight: 850;
+        letter-spacing: 0.12em;
+      }
+
+      .section-lead {
+        max-width: 72ch;
+        margin-bottom: var(--space-3);
+        color: var(--muted);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.12rem 0.55rem;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+
+      .badge--fact {
+        color: var(--fact);
+        background: var(--fact-bg);
+      }
+
+      .badge--interpretation {
+        color: var(--interp);
+        background: var(--interp-bg);
+      }
+
+      .badge--warn {
+        color: var(--warn);
+        background: var(--warn-bg);
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .empty-state {
+        margin: var(--space-3) 0;
+        padding: var(--space-3);
+        border: 1px dashed var(--line);
+        border-radius: 12px;
+        background: var(--empty-bg);
+        color: var(--empty);
+        font-weight: 650;
+      }
+
+      .asset-block + .asset-block {
+        margin-top: var(--space-4);
+        padding-top: var(--space-4);
+        border-top: 1px solid var(--line);
+      }
+
+      .asset-block__title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 0.15rem;
+      }
+
+      .asset-block__source {
+        margin: 0 0 var(--space-3);
+        color: var(--muted);
+        font-size: 0.82rem;
+        overflow-wrap: anywhere;
+      }
+
+      /* --- section 1: timeline --- */
+      .timeline-bar {
+        position: relative;
+        display: flex;
+        overflow: hidden;
+        min-height: 3.4rem;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+
+      .timeline-segment {
+        position: relative;
+        display: flex;
+        align-items: center;
+        min-width: 2.5rem;
+        padding: 0.4rem 0.55rem;
+        border-right: 1px solid var(--line);
+        background: var(--surface-muted);
+        font-size: 0.78rem;
+        cursor: default;
+      }
+
+      .timeline-segment:last-child {
+        border-right: 0;
+      }
+
+      .timeline-segment:nth-child(even) {
+        background: color-mix(in srgb, var(--surface-muted) 60%, transparent);
+      }
+
+      .timeline-segment__label {
+        overflow: hidden;
+        color: var(--ink);
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .timeline-marker {
+        position: absolute;
+        top: 0.2rem;
+        display: inline-block;
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 999px;
+        border: 1px solid var(--surface);
+        transform: translateX(-50%);
+      }
+
+      .timeline-marker--trouble {
+        background: #d1495b;
+      }
+
+      .timeline-marker--filler {
+        background: #8b93a7;
+      }
+
+      .timeline-marker--hook {
+        background: #d99a1b;
+      }
+
+      .timeline-marker--highlight {
+        background: #2f9e6b;
+      }
+
+      .timeline-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .timeline-legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .timeline-legend i {
+        display: inline-block;
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 999px;
+      }
+
+      .keyframe-strip {
+        display: flex;
+        overflow-x: auto;
+        gap: 0.5rem;
+        margin-top: var(--space-3);
+        padding-bottom: 0.35rem;
+      }
+
+      .keyframe-chip {
+        flex: 0 0 auto;
+        width: 9.5rem;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface-muted);
+        font-size: 0.74rem;
+      }
+
+      .keyframe-chip img {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        background: #17223b;
+      }
+
+      .keyframe-chip__note-only {
+        display: flex;
+        align-items: center;
+        min-height: 3.6rem;
+        padding: 0.5rem;
+        color: var(--muted);
+      }
+
+      .keyframe-chip__body {
+        padding: 0.4rem 0.5rem;
+        color: var(--muted);
+      }
+
+      .keyframe-chip__time {
+        display: block;
+        margin-bottom: 0.15rem;
+        color: var(--ink);
+        font-weight: 750;
+      }
+
+      /* --- section 2: transcript --- */
+      .transcript-chapter {
+        margin-top: var(--space-3);
+        padding: var(--space-3);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-muted);
+      }
+
+      .transcript-chapter summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--ink);
+        font-weight: 750;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .transcript-chapter summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .transcript-chapter summary::before {
+        content: "▸";
+        color: var(--accent-dark);
+      }
+
+      .transcript-chapter[open] summary::before {
+        content: "▾";
+      }
+
+      .transcript-chapter__range {
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+
+      .transcript-list {
+        margin: var(--space-3) 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .transcript-line {
+        display: grid;
+        grid-template-columns: 4.4rem minmax(0, 1fr);
+        gap: 0.6rem;
+        padding: 0.3rem 0;
+        border-top: 1px solid var(--line);
+        font-size: 0.9rem;
+      }
+
+      .transcript-line:first-child {
+        border-top: 0;
+      }
+
+      .transcript-line__time {
+        color: var(--muted);
+        font-size: 0.76rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* --- section 3: fact cards --- */
+      .fact-card {
+        margin-top: var(--space-3);
+        padding: var(--space-3);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-muted);
+      }
+
+      .fact-card h4 {
+        margin: 0 0 0.5rem;
+        font-size: 0.92rem;
+      }
+
+      .fact-tally {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        margin: 0 0 var(--space-3);
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .event-chip {
+        margin-top: 0.5rem;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        font-size: 0.86rem;
+      }
+
+      .event-chip__meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.25rem;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .overlay-note {
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px dashed var(--line);
+      }
+
+      /* --- section 4: arc --- */
+      .arc-card {
+        position: relative;
+        margin-top: var(--space-3);
+        padding: var(--space-3);
+        padding-left: calc(var(--space-3) + 1.7rem);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-muted);
+      }
+
+      .arc-card__order {
+        position: absolute;
+        top: var(--space-3);
+        left: var(--space-3);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #ffffff;
+        font-size: 0.78rem;
+        font-weight: 800;
+      }
+
+      .arc-card__fact-origin {
+        margin-bottom: 0.35rem;
+        color: var(--fact);
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .arc-card__refs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin: 0.5rem 0;
+      }
+
+      .ref-chip {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      /* --- section 5 / 6 tables --- */
+      .table-scroll {
+        max-width: 100%;
+        margin-top: var(--space-3);
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      table {
+        width: 100%;
+        min-width: 36rem;
+        border-collapse: collapse;
+        background: var(--surface);
+        font-size: 0.88rem;
+      }
+
+      caption {
+        padding: 0.75rem 0.9rem;
+        color: var(--ink);
+        background: var(--surface-muted);
+        font-weight: 800;
+        text-align: left;
+      }
+
+      th,
+      td {
+        padding: 0.65rem 0.8rem;
+        border-top: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      thead th {
+        color: #ffffff;
+        background: #25345f;
+        border-top: 0;
+      }
+
+      tbody th {
+        min-width: 6rem;
+        color: var(--ink);
+        background: var(--surface-muted);
+      }
+
+      .relation-card {
+        margin-top: var(--space-3);
+        padding: var(--space-3);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-muted);
+      }
+
+      blockquote {
+        margin: 0.4rem 0 0;
+        padding-left: var(--space-3);
+        border-left: 4px solid var(--accent);
+        color: var(--ink);
+      }
+
+      details > summary {
+        color: var(--accent-dark);
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      details.evidence-toggle {
+        margin-top: 0.5rem;
+      }
+
+      details.evidence-toggle > summary {
+        font-size: 0.82rem;
+      }
+
+      details.evidence-toggle[open] > summary {
+        margin-bottom: 0.35rem;
+      }
+
+      .provenance-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .provenance-list li {
+        padding: 0.6rem 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .provenance-list li:first-child {
+        border-top: 0;
+      }
+
+      .provenance-list dt {
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .provenance-list dd {
+        margin-top: 0.1rem;
+        overflow-wrap: anywhere;
+      }
+
+      .report-footer {
+        padding: 0 0 3rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .visually-hidden {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+      }
+
+      .fatal-error {
+        margin: var(--space-4) auto;
+        max-width: 60rem;
+        padding: var(--space-3);
+        border: 2px solid var(--warn);
+        border-radius: 12px;
+        background: var(--warn-bg);
+        color: var(--warn);
+        font-weight: 700;
+      }
+
+      @media (max-width: 46rem) {
+        .report-header__inner,
+        .report-nav__inner,
+        main,
+        .report-footer {
+          width: min(100% - 1rem, 76rem);
+        }
+
+        .report-meta {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .report-section {
+          padding: 1rem;
+          border-radius: 12px;
+        }
+
+        .transcript-line {
+          grid-template-columns: 3.6rem minmax(0, 1fr);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">本文へ移動</a>
+
+    <header class="report-header">
+      <div class="report-header__inner">
+        <p class="eyebrow">AKARI VIDEO / ANALYSIS REPORT（読み取り専用）</p>
+        <h1 id="report-title" data-mount="report-title">分析レポート</h1>
+        <dl class="report-meta" aria-label="レポート基本情報">
+          <div>
+            <dt>生成日時</dt>
+            <dd data-mount="meta-generated-at">—</dd>
+          </div>
+          <div>
+            <dt>対象素材</dt>
+            <dd data-mount="meta-asset-count">—</dd>
+          </div>
+          <div>
+            <dt>構成案エントリ</dt>
+            <dd data-mount="meta-arc-count">—</dd>
+          </div>
+          <div>
+            <dt>取材台帳</dt>
+            <dd data-mount="meta-question-count">—</dd>
+          </div>
+        </dl>
+      </div>
+    </header>
+
+    <nav class="report-nav" aria-label="章ジャンプナビ">
+      <div class="report-nav__inner">
+        <a href="#section-timeline">1. タイムライン</a>
+        <a href="#section-transcript">2. 文字起こし</a>
+        <a href="#section-facts">3. 素材別事実カード</a>
+        <a href="#section-arc">4. 構成案（解釈）</a>
+        <a href="#section-relations">5. 関係・浮いた素材（解釈）</a>
+        <a href="#section-questions">6. 取材台帳（解釈）</a>
+        <a href="#section-provenance">7. 来歴</a>
+      </div>
+    </nav>
+
+    <main id="main-content">
+      <div id="fatal-error-mount"></div>
+
+      <section
+        class="report-section"
+        id="section-timeline"
+        aria-labelledby="heading-timeline"
+      >
+        <span class="section-kicker">SECTION 1</span>
+        <h2 id="heading-timeline">1. 素材タイムライン帯</h2>
+        <p class="section-lead">
+          素材ごとの章・トラブル・フィラー・見どころ区間を帯として俯瞰する。事実層（analysis.json
+          の events / keyframes）のみで構成する。バーとキーフレームの chip は元の秒数を
+          <code>data-seek</code> に保持する（プレビュー連動は別タスクのスコープ）。
+        </p>
+        <div data-mount="timeline"></div>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-transcript"
+        aria-labelledby="heading-transcript"
+      >
+        <span class="section-kicker">SECTION 2</span>
+        <h2 id="heading-transcript">2. 文字起こし</h2>
+        <p class="section-lead">
+          章単位で折りたたんだ transcript（事実層）。各行は発話区間の開始秒を
+          <code>data-seek</code> として保持する。
+        </p>
+        <div data-mount="transcript"></div>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-facts"
+        aria-labelledby="heading-facts"
+      >
+        <span class="section-kicker">SECTION 3</span>
+        <h2 id="heading-facts">3. 素材別 事実カード</h2>
+        <p class="section-lead">
+          events（trouble / filler / hook / highlight）の要約と tracks
+          の検出状況。本筋内で起きたトラブル実況は、対応する解釈層の
+          <code>trouble_overlap</code> フラグをこの節で併記する（節 5「浮いた素材」には出さない）。
+        </p>
+        <div data-mount="facts"></div>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-arc"
+        aria-labelledby="heading-arc"
+      >
+        <span class="section-kicker">SECTION 4</span>
+        <h2 id="heading-arc">4. 解釈: 構成案</h2>
+        <p class="section-lead">
+          なぜこの素材区間がこの順序で構成に入るかの解釈（arc）。事実層の章タイトルはそのまま示し、
+          解釈層の purpose がより広い言い換えを添える（事実を上書きしない）。根拠は
+          「根拠を見る」で開く。
+        </p>
+        <div data-mount="arc"></div>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-relations"
+        aria-labelledby="heading-relations"
+      >
+        <span class="section-kicker">SECTION 5</span>
+        <h2 id="heading-relations">5. 解釈: 素材間関係・浮いた素材</h2>
+        <p class="section-lead">
+          複数素材間の関係（relations）と、orphan / unclear
+          の検出結果。本筋内トラブル（trouble_overlap）はここには出さない（節 3 を参照）。
+        </p>
+        <div data-mount="relations"></div>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-questions"
+        aria-labelledby="heading-questions"
+      >
+        <span class="section-kicker">SECTION 6</span>
+        <h2 id="heading-questions">6. 取材台帳</h2>
+        <p class="section-lead">
+          open_questions の状態表示のみ。質問行為自体はチャットで行う — このレポートは台帳。
+        </p>
+        <div data-mount="questions"></div>
+      </section>
+
+      <section
+        class="report-section"
+        id="section-provenance"
+        aria-labelledby="heading-provenance"
+      >
+        <span class="section-kicker">SECTION 7</span>
+        <h2 id="heading-provenance">7. 来歴</h2>
+        <p class="section-lead">
+          2 パス目に与えた文脈の全記録（interpretation.inputs）。analysis.json
+          は変更していない。
+        </p>
+        <div data-mount="provenance"></div>
+      </section>
+    </main>
+
+    <footer class="report-footer">
+      <p>
+        この HTML は外部 CSS・JavaScript・画像・ネットワーク接続を一切参照しない自己完結の読み取り専用レポートです。
+        決定 UI は持ちません。方向性の判断はチャットで行ってください。
+      </p>
+    </footer>
+
+    <script type="application/json" id="akari-analysis-report-data">
+      {"__AKARI_ANALYSIS_REPORT_DATA__": true}
+    </script>
+    <script>
+      (() => {
+        "use strict";
+
+        const FLAG_LABELS = {
+          orphan: "浮き（orphan）",
+          unclear: "不明瞭（unclear）",
+          trouble_overlap: "本筋内トラブル（trouble_overlap）",
+        };
+
+        const EVENT_LABELS = {
+          trouble: "トラブル",
+          filler: "フィラー",
+          hook: "見どころ",
+          highlight: "ハイライト",
+        };
+
+        function hasOwn(object, key) {
+          return Object.prototype.hasOwnProperty.call(object, key);
+        }
+
+        function isRecord(value) {
+          return (
+            value !== null && typeof value === "object" && !Array.isArray(value)
+          );
+        }
+
+        function el(tag, options, children) {
+          const node = document.createElement(tag);
+          if (options) {
+            if (options.class) node.className = options.class;
+            if (options.text !== undefined) node.textContent = options.text;
+            if (options.attrs) {
+              for (const [key, value] of Object.entries(options.attrs)) {
+                if (value !== undefined && value !== null) {
+                  node.setAttribute(key, String(value));
+                }
+              }
+            }
+            if (options.html !== undefined) {
+              // 固定の静的マークアップ断片のみ許可（ユーザー由来値は使わない呼び出しでのみ使用）。
+              node.innerHTML = options.html;
+            }
+          }
+          for (const child of children || []) {
+            if (child) node.append(child);
+          }
+          return node;
+        }
+
+        function badge(kind) {
+          if (kind === "fact") {
+            return el("span", { class: "badge badge--fact", text: "事実" });
+          }
+          return el("span", {
+            class: "badge badge--interpretation",
+            text: "解釈",
+          });
+        }
+
+        function emptyState(text) {
+          return el("p", { class: "empty-state", text });
+        }
+
+        function formatTime(seconds) {
+          if (typeof seconds !== "number" || !Number.isFinite(seconds)) {
+            return "--:--";
+          }
+          const total = Math.max(0, Math.round(seconds));
+          const h = Math.floor(total / 3600);
+          const m = Math.floor((total % 3600) / 60);
+          const s = total % 60;
+          const pad = (n) => String(n).padStart(2, "0");
+          return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+        }
+
+        function formatRange(start, end) {
+          return `${formatTime(start)}–${formatTime(end)}`;
+        }
+
+        function overlaps(aStart, aEnd, bStart, bEnd) {
+          return aStart < bEnd && bStart < aEnd;
+        }
+
+        function chaptersOf(analysis) {
+          const chapters = (analysis.events || [])
+            .filter((event) => event.type === "chapter")
+            .slice()
+            .sort((a, b) => a.t - b.t);
+          const duration = durationOf(analysis);
+          return chapters.map((chapter, index) => {
+            const next = chapters[index + 1];
+            return {
+              title: chapter.title,
+              start: chapter.t,
+              end: next ? next.t : duration,
+            };
+          });
+        }
+
+        function durationOf(analysis) {
+          let max = 0;
+          for (const seg of analysis.transcript || []) {
+            if (typeof seg.end === "number") max = Math.max(max, seg.end);
+          }
+          for (const kf of analysis.keyframes || []) {
+            if (typeof kf.t === "number") max = Math.max(max, kf.t);
+          }
+          for (const event of analysis.events || []) {
+            if (typeof event.end === "number") max = Math.max(max, event.end);
+            if (typeof event.t === "number") max = Math.max(max, event.t);
+          }
+          return max;
+        }
+
+        function renderFatalError(message) {
+          const mount = document.getElementById("fatal-error-mount");
+          mount.append(
+            el(
+              "p",
+              { class: "fatal-error", attrs: { role: "alert" } },
+              [],
+            ),
+          );
+          mount.firstChild.textContent =
+            "レポートデータの読み込みに失敗しました: " + message;
+        }
+
+        function renderHeader(bundle) {
+          const assets = bundle.interpretation.assets || [];
+          const arc = bundle.interpretation.arc || [];
+          const questions = bundle.interpretation.open_questions || [];
+
+          const titleNode = document.querySelector('[data-mount="report-title"]');
+          if (assets.length === 1) {
+            titleNode.textContent = assets[0].ref;
+          } else if (assets.length > 1) {
+            titleNode.textContent = `複数素材プロジェクト（${assets.length} 件）`;
+          } else {
+            titleNode.textContent = "分析レポート";
+          }
+
+          document.querySelector('[data-mount="meta-generated-at"]').textContent =
+            bundle.generatedAt || "—";
+          document.querySelector('[data-mount="meta-asset-count"]').textContent =
+            `${assets.length} 本`;
+          document.querySelector('[data-mount="meta-arc-count"]').textContent =
+            `${arc.length} 件`;
+
+          const answered = questions.filter((q) => q.status === "answered").length;
+          document.querySelector('[data-mount="meta-question-count"]').textContent =
+            questions.length === 0
+              ? "0 件（取材事項なし）"
+              : `${questions.length} 件（${answered} 件回答済み）`;
+        }
+
+        // --- Section 1: タイムライン帯 ---
+        function renderTimeline(bundle) {
+          const mount = document.querySelector('[data-mount="timeline"]');
+          const assets = bundle.assets || [];
+
+          for (const asset of assets) {
+            const analysis = asset.analysis;
+            const duration = durationOf(analysis);
+            const chapters = chaptersOf(analysis);
+
+            const block = el("div", { class: "asset-block" });
+            block.append(
+              el("div", { class: "badge-row" }, [
+                badge("fact"),
+                el("strong", { text: asset.ref }),
+              ]),
+            );
+            block.append(
+              el("p", {
+                class: "asset-block__source",
+                text: `source: ${analysis.source}`,
+              }),
+            );
+
+            const bar = el("div", { class: "timeline-bar" });
+            if (chapters.length === 0) {
+              bar.append(
+                el("div", {
+                  class: "timeline-segment",
+                  text: "章情報なし",
+                }),
+              );
+            }
+            for (const chapter of chapters) {
+              const span = Math.max(chapter.end - chapter.start, 0.001);
+              const segment = el(
+                "div",
+                {
+                  class: "timeline-segment",
+                  attrs: {
+                    style: `flex-grow:${span}`,
+                    "data-seek": chapter.start,
+                    title: `${chapter.title}（${formatRange(chapter.start, chapter.end)}）`,
+                  },
+                },
+                [
+                  el("span", {
+                    class: "timeline-segment__label",
+                    text: chapter.title,
+                  }),
+                ],
+              );
+
+              for (const event of analysis.events || []) {
+                if (event.type === "chapter") continue;
+                const evStart = event.start ?? event.t;
+                const evEnd = event.end ?? event.t;
+                if (evStart === undefined) continue;
+                if (
+                  !overlaps(
+                    chapter.start,
+                    chapter.end,
+                    evStart,
+                    evEnd ?? evStart,
+                  )
+                ) {
+                  continue;
+                }
+                const left =
+                  ((evStart - chapter.start) / span) * 100;
+                const marker = el("span", {
+                  class: `timeline-marker timeline-marker--${event.type}`,
+                  attrs: {
+                    style: `left:${Math.min(Math.max(left, 0), 100)}%`,
+                    "data-seek": evStart,
+                    title: `${EVENT_LABELS[event.type] || event.type}（${formatTime(evStart)}）`,
+                  },
+                });
+                segment.append(marker);
+              }
+
+              bar.append(segment);
+            }
+            block.append(bar);
+
+            block.append(
+              el("div", { class: "timeline-legend" }, [
+                el("span", {}, [
+                  el("i", { attrs: { style: "background:#d1495b" } }),
+                  document.createTextNode("トラブル"),
+                ]),
+                el("span", {}, [
+                  el("i", { attrs: { style: "background:#8b93a7" } }),
+                  document.createTextNode("フィラー"),
+                ]),
+                el("span", {}, [
+                  el("i", { attrs: { style: "background:#d99a1b" } }),
+                  document.createTextNode("見どころ"),
+                ]),
+                el("span", {}, [
+                  el("i", { attrs: { style: "background:#2f9e6b" } }),
+                  document.createTextNode("ハイライト"),
+                ]),
+              ]),
+            );
+
+            const keyframes = (analysis.keyframes || [])
+              .slice()
+              .sort((a, b) => a.t - b.t);
+            if (keyframes.length > 0) {
+              const strip = el("div", { class: "keyframe-strip" });
+              for (const kf of keyframes) {
+                const chip = el("figure", {
+                  class: "keyframe-chip",
+                  attrs: { "data-seek": kf.t },
+                });
+                if (kf.imageSrc) {
+                  chip.append(
+                    el("img", {
+                      attrs: {
+                        src: kf.imageSrc,
+                        alt: `${formatTime(kf.t)} のキーフレーム`,
+                        loading: "lazy",
+                      },
+                    }),
+                  );
+                  chip.append(
+                    el("figcaption", { class: "keyframe-chip__body" }, [
+                      el("span", {
+                        class: "keyframe-chip__time",
+                        text: formatTime(kf.t),
+                      }),
+                      document.createTextNode(kf.note),
+                    ]),
+                  );
+                } else {
+                  chip.append(
+                    el("figcaption", { class: "keyframe-chip__note-only" }, [
+                      el("span", {
+                        class: "keyframe-chip__time",
+                        text: formatTime(kf.t) + "・画像なし: ",
+                      }),
+                      document.createTextNode(kf.note),
+                    ]),
+                  );
+                }
+                strip.append(chip);
+              }
+              block.append(strip);
+            }
+
+            mount.append(block);
+          }
+        }
+
+        // --- Section 2: 文字起こし ---
+        function renderTranscript(bundle) {
+          const mount = document.querySelector('[data-mount="transcript"]');
+          const assets = bundle.assets || [];
+
+          for (const [assetIndex, asset] of assets.entries()) {
+            const analysis = asset.analysis;
+            const chapters = chaptersOf(analysis);
+            const transcript = (analysis.transcript || [])
+              .slice()
+              .sort((a, b) => a.start - b.start);
+
+            const block = el("div", { class: "asset-block" });
+            block.append(
+              el("div", { class: "badge-row" }, [
+                badge("fact"),
+                el("strong", { text: asset.ref }),
+              ]),
+            );
+
+            if (chapters.length === 0) {
+              if (transcript.length === 0) {
+                block.append(emptyState("transcript が空です。"));
+              } else {
+                const details = buildTranscriptDetails(
+                  "（章情報なし）",
+                  0,
+                  durationOf(analysis),
+                  transcript,
+                  assetIndex === 0,
+                );
+                block.append(details);
+              }
+            } else {
+              for (const [index, chapter] of chapters.entries()) {
+                const segments = transcript.filter(
+                  (seg) => seg.start >= chapter.start && seg.start < chapter.end,
+                );
+                const details = buildTranscriptDetails(
+                  chapter.title,
+                  chapter.start,
+                  chapter.end,
+                  segments,
+                  assetIndex === 0 && index === 0,
+                );
+                block.append(details);
+              }
+            }
+
+            mount.append(block);
+          }
+        }
+
+        function buildTranscriptDetails(title, start, end, segments, openByDefault) {
+          const details = el("details", {
+            class: "transcript-chapter",
+            attrs: openByDefault ? { open: "" } : {},
+          });
+          details.append(
+            el("summary", {}, [
+              document.createTextNode(title + " "),
+              el("span", {
+                class: "transcript-chapter__range",
+                text: `（${formatRange(start, end)}・${segments.length} 発話）`,
+              }),
+            ]),
+          );
+
+          if (segments.length === 0) {
+            details.append(emptyState("この章に対応する発話はありません。"));
+          } else {
+            const list = el("ul", { class: "transcript-list" });
+            for (const seg of segments) {
+              list.append(
+                el(
+                  "li",
+                  {
+                    class: "transcript-line",
+                    attrs: { "data-seek": seg.start },
+                  },
+                  [
+                    el("span", {
+                      class: "transcript-line__time",
+                      text: formatTime(seg.start),
+                    }),
+                    el("span", { text: seg.text }),
+                  ],
+                ),
+              );
+            }
+            details.append(list);
+          }
+          return details;
+        }
+
+        // --- Section 3: 素材別事実カード ---
+        function renderFacts(bundle) {
+          const mount = document.querySelector('[data-mount="facts"]');
+          const assets = bundle.assets || [];
+          const interpAssetsByRef = new Map(
+            (bundle.interpretation.assets || []).map((a) => [a.ref, a]),
+          );
+
+          for (const asset of assets) {
+            const analysis = asset.analysis;
+            const events = analysis.events || [];
+            const chapterCount = events.filter((e) => e.type === "chapter").length;
+            const troubleEvents = events.filter((e) => e.type === "trouble");
+            const fillerEvents = events.filter((e) => e.type === "filler");
+            const hookEvents = events.filter((e) => e.type === "hook");
+            const highlightEvents = events.filter((e) => e.type === "highlight");
+            const tracks = analysis.tracks || {};
+            const interpAsset = interpAssetsByRef.get(asset.ref);
+            const troubleOverlapFlags = interpAsset
+              ? (interpAsset.flags || []).filter(
+                  (f) => f.type === "trouble_overlap",
+                )
+              : [];
+
+            const block = el("div", { class: "asset-block" });
+            block.append(
+              el("div", { class: "badge-row" }, [
+                badge("fact"),
+                el("strong", { text: asset.ref }),
+              ]),
+            );
+
+            block.append(
+              el("div", { class: "fact-tally" }, [
+                el("span", { text: `章: ${chapterCount}` }),
+                el("span", { text: `トラブル: ${troubleEvents.length}` }),
+                el("span", { text: `フィラー: ${fillerEvents.length}` }),
+                el("span", { text: `見どころ: ${hookEvents.length}` }),
+                el("span", { text: `ハイライト: ${highlightEvents.length}` }),
+                el("span", {
+                  text: `話者トラック: ${(tracks.speakers || []).length} / 顔トラック: ${(tracks.faces || []).length} / 人物マット: ${tracks.person_matte ? "あり" : "なし"}`,
+                }),
+              ]),
+            );
+
+            const card = el("div", { class: "fact-card" });
+            card.append(el("h4", { text: "トラブル（events[trouble]）" }));
+            if (troubleEvents.length === 0) {
+              card.append(emptyState("トラブルイベントはありません。"));
+            } else {
+              for (const trouble of troubleEvents) {
+                const chip = el("div", { class: "event-chip" });
+                chip.dataset.seek = String(trouble.start);
+                chip.append(
+                  el("div", { class: "event-chip__meta" }, [
+                    badge("fact"),
+                    el("span", {
+                      text: formatRange(trouble.start, trouble.end),
+                    }),
+                  ]),
+                );
+                chip.append(el("p", { text: trouble.note }));
+
+                const overlapping = troubleOverlapFlags.filter((flag) =>
+                  overlaps(trouble.start, trouble.end, flag.start ?? trouble.start, flag.end ?? trouble.end),
+                );
+                for (const flag of overlapping) {
+                  const overlay = el("div", { class: "overlay-note" });
+                  overlay.append(
+                    el("div", { class: "event-chip__meta" }, [
+                      badge("interpretation"),
+                      el("span", { text: "本筋内トラブル（trouble_overlap）" }),
+                    ]),
+                  );
+                  overlay.append(el("p", { text: flag.note || "" }));
+                  const evidenceDetails = el("details", {
+                    class: "evidence-toggle",
+                  });
+                  evidenceDetails.append(
+                    el("summary", { text: "根拠を見る" }),
+                  );
+                  evidenceDetails.append(
+                    el("blockquote", { text: flag.evidence }),
+                  );
+                  overlay.append(evidenceDetails);
+                  chip.append(overlay);
+                }
+                card.append(chip);
+              }
+            }
+            block.append(card);
+
+            const fillerCard = el("div", { class: "fact-card" });
+            fillerCard.append(el("h4", { text: "フィラー（events[filler]）" }));
+            if (fillerEvents.length === 0) {
+              fillerCard.append(emptyState("フィラーイベントはありません。"));
+            } else {
+              for (const filler of fillerEvents) {
+                fillerCard.append(
+                  el(
+                    "div",
+                    {
+                      class: "event-chip",
+                      attrs: { "data-seek": filler.start },
+                    },
+                    [
+                      el("div", { class: "event-chip__meta" }, [
+                        badge("fact"),
+                        el("span", {
+                          text: formatRange(filler.start, filler.end),
+                        }),
+                      ]),
+                    ],
+                  ),
+                );
+              }
+            }
+            block.append(fillerCard);
+
+            if (hookEvents.length > 0 || highlightEvents.length > 0) {
+              const hookCard = el("div", { class: "fact-card" });
+              hookCard.append(el("h4", { text: "見どころ・ハイライト" }));
+              for (const hook of hookEvents) {
+                const scoreText = hook.score
+                  ? Object.entries(hook.score)
+                      .map(([k, v]) => `${k}=${v}`)
+                      .join(" / ")
+                  : "";
+                hookCard.append(
+                  el(
+                    "div",
+                    {
+                      class: "event-chip",
+                      attrs: { "data-seek": hook.start },
+                    },
+                    [
+                      el("div", { class: "event-chip__meta" }, [
+                        badge("fact"),
+                        el("span", {
+                          text: `見どころ ${formatRange(hook.start, hook.end)}`,
+                        }),
+                      ]),
+                      el("p", { text: scoreText }),
+                    ],
+                  ),
+                );
+              }
+              for (const highlight of highlightEvents) {
+                hookCard.append(
+                  el(
+                    "div",
+                    {
+                      class: "event-chip",
+                      attrs: { "data-seek": highlight.start },
+                    },
+                    [
+                      el("div", { class: "event-chip__meta" }, [
+                        badge("fact"),
+                        el("span", {
+                          text: `ハイライト ${formatRange(highlight.start, highlight.end)}`,
+                        }),
+                      ]),
+                      el("blockquote", { text: highlight.quote }),
+                      el("p", { text: highlight.reason }),
+                    ],
+                  ),
+                );
+              }
+              block.append(hookCard);
+            }
+
+            mount.append(block);
+          }
+        }
+
+        // --- Section 4: 構成案 ---
+        function renderArc(bundle) {
+          const mount = document.querySelector('[data-mount="arc"]');
+          const arc = (bundle.interpretation.arc || [])
+            .slice()
+            .sort((a, b) => a.order - b.order);
+          const analysesByRef = new Map(
+            (bundle.assets || []).map((a) => [a.ref, a.analysis]),
+          );
+
+          if (arc.length === 0) {
+            mount.append(emptyState("構成案（arc）はありません。"));
+            return;
+          }
+
+          for (const entry of arc) {
+            const card = el("div", { class: "arc-card" });
+            card.append(
+              el("span", { class: "arc-card__order", text: String(entry.order) }),
+            );
+            card.append(
+              el("div", { class: "badge-row" }, [badge("interpretation")]),
+            );
+
+            const factTitles = [];
+            for (const ref of entry.refs || []) {
+              const analysis = analysesByRef.get(ref.asset);
+              if (!analysis) continue;
+              const chapters = chaptersOf(analysis);
+              const start = ref.start ?? 0;
+              const end = ref.end ?? durationOf(analysis);
+              for (const chapter of chapters) {
+                if (overlaps(chapter.start, chapter.end, start, end)) {
+                  if (!factTitles.includes(chapter.title)) {
+                    factTitles.push(chapter.title);
+                  }
+                }
+              }
+            }
+            card.append(
+              el("p", {
+                class: "arc-card__fact-origin",
+                text:
+                  factTitles.length > 0
+                    ? `事実層の章: ${factTitles.join(" / ")}`
+                    : "事実層の章: （対応する章を特定できません）",
+              }),
+            );
+
+            card.append(el("h3", { text: entry.title }));
+            card.append(el("p", { text: entry.purpose }));
+
+            const refsRow = el("div", { class: "arc-card__refs" });
+            for (const ref of entry.refs || []) {
+              const label =
+                ref.start !== undefined && ref.end !== undefined
+                  ? `${ref.asset}（${formatRange(ref.start, ref.end)}）`
+                  : ref.asset;
+              refsRow.append(
+                el("span", {
+                  class: "ref-chip",
+                  attrs:
+                    ref.start !== undefined ? { "data-seek": ref.start } : {},
+                  text: label,
+                }),
+              );
+            }
+            card.append(refsRow);
+
+            const evidenceDetails = el("details", { class: "evidence-toggle" });
+            evidenceDetails.append(el("summary", { text: "根拠を見る" }));
+            evidenceDetails.append(el("blockquote", { text: entry.evidence }));
+            card.append(evidenceDetails);
+
+            mount.append(card);
+          }
+        }
+
+        // --- Section 5: 関係・浮いた素材 ---
+        function renderRelations(bundle) {
+          const mount = document.querySelector('[data-mount="relations"]');
+          const interpAssets = bundle.interpretation.assets || [];
+
+          const relationsHeading = el("h3", { text: "素材間関係" });
+          mount.append(relationsHeading);
+          const totalRelations = interpAssets.reduce(
+            (sum, a) => sum + (a.relations || []).length,
+            0,
+          );
+          if (interpAssets.length === 1) {
+            mount.append(emptyState("単一素材のため素材間関係はありません"));
+          } else if (totalRelations === 0) {
+            mount.append(emptyState("複数素材間の関係: 走査済み・該当なし"));
+          } else {
+            for (const asset of interpAssets) {
+              for (const relation of asset.relations || []) {
+                const card = el("div", { class: "relation-card" });
+                card.append(
+                  el("div", { class: "badge-row" }, [
+                    badge("interpretation"),
+                    el("strong", {
+                      text: `${asset.ref} → ${relation.target}（${relation.kind}）`,
+                    }),
+                  ]),
+                );
+                if (relation.note) card.append(el("p", { text: relation.note }));
+                const evidenceDetails = el("details", {
+                  class: "evidence-toggle",
+                });
+                evidenceDetails.append(el("summary", { text: "根拠を見る" }));
+                evidenceDetails.append(
+                  el("blockquote", { text: relation.evidence }),
+                );
+                card.append(evidenceDetails);
+                mount.append(card);
+              }
+            }
+          }
+
+          mount.append(el("h3", { text: "浮いた素材（orphan / unclear）" }));
+          const orphanFlags = [];
+          for (const asset of interpAssets) {
+            for (const flag of asset.flags || []) {
+              if (flag.type === "trouble_overlap") continue;
+              orphanFlags.push({ asset, flag });
+            }
+          }
+          if (orphanFlags.length === 0) {
+            mount.append(emptyState("浮いた素材: 走査済み・該当なし"));
+          } else {
+            for (const { asset, flag } of orphanFlags) {
+              const card = el("div", { class: "relation-card" });
+              card.append(
+                el("div", { class: "badge-row" }, [
+                  badge("interpretation"),
+                  el("strong", {
+                    text: `${asset.ref}: ${FLAG_LABELS[flag.type] || flag.type}`,
+                  }),
+                ]),
+              );
+              if (flag.start !== undefined) {
+                card.setAttribute("data-seek", String(flag.start));
+              }
+              if (flag.note) card.append(el("p", { text: flag.note }));
+              const evidenceDetails = el("details", {
+                class: "evidence-toggle",
+              });
+              evidenceDetails.append(el("summary", { text: "根拠を見る" }));
+              evidenceDetails.append(
+                el("blockquote", { text: flag.evidence }),
+              );
+              card.append(evidenceDetails);
+              mount.append(card);
+            }
+          }
+        }
+
+        // --- Section 6: 取材台帳 ---
+        function renderQuestions(bundle) {
+          const mount = document.querySelector('[data-mount="questions"]');
+          const questions = bundle.interpretation.open_questions || [];
+
+          mount.append(
+            el("div", { class: "badge-row" }, [badge("interpretation")]),
+          );
+
+          if (questions.length === 0) {
+            mount.append(
+              emptyState(
+                "取材事項なし — 構成案は素材の文脈だけで根拠付きで通りました",
+              ),
+            );
+            return;
+          }
+
+          const wrapper = el("div", { class: "table-scroll" });
+          const table = el("table");
+          table.append(
+            el("caption", { text: "取材台帳（open_questions）" }),
+          );
+          const thead = el("thead");
+          const headRow = el("tr");
+          for (const label of ["状態", "質問", "埋める情報", "回答"]) {
+            headRow.append(el("th", { attrs: { scope: "col" }, text: label }));
+          }
+          thead.append(headRow);
+          table.append(thead);
+
+          const tbody = el("tbody");
+          for (const question of questions) {
+            const row = el("tr");
+            const statusBadge =
+              question.status === "answered"
+                ? el("span", {
+                    class: "badge badge--fact",
+                    text: "回答済み",
+                  })
+                : el("span", { class: "badge badge--warn", text: "未回答" });
+            row.append(el("td", {}, [statusBadge]));
+            row.append(el("td", { text: question.question }));
+            row.append(el("td", { text: question.fills }));
+            row.append(el("td", { text: question.answer || "—" }));
+            tbody.append(row);
+          }
+          table.append(tbody);
+          wrapper.append(table);
+          mount.append(wrapper);
+        }
+
+        // --- Section 7: 来歴 ---
+        function renderProvenance(bundle) {
+          const mount = document.querySelector('[data-mount="provenance"]');
+          const inputs = bundle.interpretation.inputs || {};
+          const analyses = inputs.analyses || [];
+          const context = inputs.context;
+
+          mount.append(el("h3", { text: "参照した事実層（analyses）" }));
+          mount.append(
+            el("div", { class: "badge-row" }, [badge("fact")]),
+          );
+          const analysesList = el("ul", { class: "provenance-list" });
+          for (const ref of analyses) {
+            analysesList.append(
+              el("li", {}, [
+                el("dl", {}, [
+                  el("dt", { text: "path" }),
+                  el("dd", { text: ref.path }),
+                  el("dt", { text: "source" }),
+                  el("dd", { text: ref.source }),
+                ]),
+              ]),
+            );
+          }
+          mount.append(analysesList);
+
+          mount.append(el("h3", { text: "2 パス目に与えた文脈（context）" }));
+          mount.append(
+            el("div", { class: "badge-row" }, [badge("interpretation")]),
+          );
+
+          if (!context) {
+            mount.append(emptyState("context の記録はありません。"));
+            return;
+          }
+
+          const contextList = el("ul", { class: "provenance-list" });
+
+          contextList.append(
+            el("li", {}, [
+              el("dl", {}, [
+                el("dt", { text: "intake" }),
+                el("dd", {
+                  text: context.intake
+                    ? JSON.stringify(context.intake)
+                    : "該当なし（本プロジェクトに intake.json なし）",
+                }),
+              ]),
+            ]),
+          );
+
+          contextList.append(
+            el("li", {}, [
+              el("dl", {}, [
+                el("dt", { text: "past_projects" }),
+                el("dd", {
+                  text:
+                    (context.past_projects || []).length === 0
+                      ? "参照なし"
+                      : context.past_projects
+                          .map((p) => `${p.ref}: ${p.notes}`)
+                          .join(" / "),
+                }),
+              ]),
+            ]),
+          );
+
+          contextList.append(
+            el("li", {}, [
+              el("dl", {}, [
+                el("dt", { text: "interview" }),
+                el("dd", {
+                  text:
+                    (context.interview || []).length === 0
+                      ? "取材実績なし"
+                      : context.interview
+                          .map((qa) => `Q: ${qa.q} / A: ${qa.a}`)
+                          .join(" ｜ "),
+                }),
+              ]),
+            ]),
+          );
+
+          if (context.notes) {
+            contextList.append(
+              el("li", {}, [
+                el("dl", {}, [
+                  el("dt", { text: "notes" }),
+                  el("dd", { text: context.notes }),
+                ]),
+              ]),
+            );
+          }
+
+          mount.append(contextList);
+        }
+
+        function main() {
+          const dataScript = document.getElementById(
+            "akari-analysis-report-data",
+          );
+          let bundle;
+          try {
+            bundle = JSON.parse(dataScript.textContent);
+          } catch (error) {
+            renderFatalError("JSON の解析に失敗しました（" + error.message + "）");
+            return;
+          }
+
+          if (
+            !isRecord(bundle) ||
+            !isRecord(bundle.interpretation) ||
+            !Array.isArray(bundle.assets)
+          ) {
+            renderFatalError(
+              "データの形が想定と異なります（bundle.interpretation / bundle.assets が必要です）",
+            );
+            return;
+          }
+
+          renderHeader(bundle);
+          renderTimeline(bundle);
+          renderTranscript(bundle);
+          renderFacts(bundle);
+          renderArc(bundle);
+          renderRelations(bundle);
+          renderQuestions(bundle);
+          renderProvenance(bundle);
+        }
+
+        main();
+      })();
+    </script>
+  </body>
+</html>
