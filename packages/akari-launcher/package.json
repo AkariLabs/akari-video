@@ -1,0 +1,21 @@
+{
+  "name": "akari-video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AKARI Video を Claude Code 単体・どのディレクトリからでも始めるための `akari` ランチャー CLI。接続確認（doctor）→ 未セットアップならプロジェクト雛形を作成 → `claude` を起動する。外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ）。",
+  "type": "module",
+  "bin": {
+    "akari": "bin/akari.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "description": "カレントに .akari/ プロジェクトがあれば、進捗（intake 状態・直近イベント）と次の一手をセッション開始時に注入する。無ければ何もしない（通常の Claude Code セッションを邪魔しない）。",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
