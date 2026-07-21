@@ -13,6 +13,8 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,6 +33,7 @@ import { renderReport } from "./report.mjs";
 
 const VERSION = 1;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const packageRequire = createRequire(import.meta.url);
 // A stale run directory belongs to a process that crashed/was killed without cleaning up after
 // itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
 // never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
@@ -88,6 +91,10 @@ export async function renderProject(input, options = {}) {
   const capabilities = await measureCapabilities(projectRoot, edit);
   const inputs = await collectInputReceipts(projectRoot, edit, editText);
   const plannedCaptions = await loadCaptions(projectRoot, edit);
+  const loadedOverlays = await loadOverlays(projectRoot, edit);
+  const hasThreeDimensionalOverlay = loadedOverlays.some((overlay) =>
+    overlay.html.includes("data-akari-3d-scene"),
+  );
   const explicitOutput = options.out ? resolveOutput(projectRoot, options.out) : null;
   const outputPath = explicitOutput ?? selectDefaultOutput(projectRoot, edit, existsSync);
   ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath);
@@ -109,6 +116,7 @@ export async function renderProject(input, options = {}) {
     capabilities,
     hasSourceAudio: capabilities.sourceHasAudio,
     renderOverlays: [...edit.overlays, ...plannedCaptions],
+    hasThreeDimensionalOverlay,
     temporaryDirectory,
   });
   const state = {
@@ -156,10 +164,7 @@ export async function renderProject(input, options = {}) {
     const cutCommand = plan.commands.cut;
     runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
 
-    const overlays = await loadOverlays(projectRoot, edit);
-    const hasThreeDimensionalOverlay = overlays.some((overlay) =>
-      overlay.html.includes("data-akari-3d-scene"),
-    );
+    const overlays = loadedOverlays;
     const captions = plannedCaptions;
     const allOverlays = [...overlays, ...captions];
     const compositePath = join(temporaryDirectory, "composite.mp4");
@@ -283,7 +288,7 @@ async function measureCapabilities(projectRoot, edit) {
   }
   const hyperframesPath = join(PACKAGE_ROOT, "node_modules", ".bin", "hyperframes");
   const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
-  const puppeteerPath = join(PACKAGE_ROOT, "node_modules", "puppeteer-core", "package.json");
+  const puppeteerPath = resolvePuppeteerPackagePath();
   return {
     ffmpegCommand,
     ffprobeCommand,
@@ -295,8 +300,8 @@ async function measureCapabilities(projectRoot, edit) {
     hyperframesPath,
     hyperframesAvailable: await isExecutable(hyperframesPath),
     hyperframesVersion: await readPackageVersion(hyperframesPackagePath),
-    puppeteerAvailable: await isRegularFile(puppeteerPath),
-    puppeteerVersion: await readPackageVersion(puppeteerPath),
+    puppeteerAvailable: puppeteerPath !== null,
+    puppeteerVersion: puppeteerPath ? await readPackageVersion(puppeteerPath) : null,
     sourceDuration,
     sourceHasAudio: sourceProbe.streams.some((stream) => stream.codec_type === "audio"),
   };
@@ -346,7 +351,7 @@ async function loadCaptions(projectRoot, edit) {
   return generateCaptionOverlays(captions, edit.cuts);
 }
 
-async function rasterizeAndComposite(context) {
+export async function rasterizeAndComposite(context) {
   const {
     state,
     allOverlays,
@@ -358,6 +363,7 @@ async function rasterizeAndComposite(context) {
     capabilities,
     duration,
     hasThreeDimensionalOverlay,
+    captureTimeoutMs,
   } = context;
   const sheetPath = join(temporaryDirectory, "overlay-sheet.html");
   await writeFile(
@@ -436,6 +442,7 @@ async function rasterizeAndComposite(context) {
         fps: edit.output.fps,
         duration,
         ffmpegCommand: capabilities.ffmpegCommand,
+        timeoutMs: captureTimeoutMs,
       });
       if (!probeHasAlpha(capabilities.ffprobeCommand, overlayPath)) {
         throw new Error("captured video has no detectable alpha channel");
@@ -453,7 +460,11 @@ async function rasterizeAndComposite(context) {
       rejectRasterizer(state, "puppeteer-core", messageOf(error));
     }
   } else {
-    rejectRasterizer(state, "puppeteer-core", "package-local puppeteer-core is not installed");
+    rejectRasterizer(state, "puppeteer-core", "puppeteer-core is not installed or resolvable");
+  }
+
+  if (hasThreeDimensionalOverlay) {
+    throw new ExecutionError("3D overlay requires puppeteer-core; static screenshot fallback is not permitted");
   }
 
   try {
@@ -463,6 +474,7 @@ async function rasterizeAndComposite(context) {
       projectRoot,
       temporaryDirectory,
       chromePath: capabilities.chromePath,
+      timeoutMs: captureTimeoutMs,
     });
     compositeStaticOverlays({
       ffmpegCommand: capabilities.ffmpegCommand,
@@ -586,23 +598,128 @@ function commandVersion(command, args, label) {
   return (result.stdout || result.stderr).split(/\r?\n/u)[0].trim();
 }
 
-async function findChromePath() {
-  const candidates = [
-    process.env.CHROME_PATH,
-    process.env.PUPPETEER_EXECUTABLE_PATH,
+export async function findChromePath({
+  env = process.env,
+  homeDirectory = homedir(),
+  platform = process.platform,
+  systemCandidates = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/google-chrome-stable",
     "/usr/bin/google-chrome",
     "/usr/bin/chromium",
-  ].filter(Boolean);
+  ],
+  executable = isExecutable,
+} = {}) {
+  const candidates = await chromePathCandidates({
+    env,
+    homeDirectory,
+    platform,
+    systemCandidates,
+  });
   for (const candidate of candidates) {
-    if (await isExecutable(candidate)) return candidate;
+    if (await executable(candidate)) return candidate;
   }
   return null;
+}
+
+export async function chromePathCandidates({
+  env = process.env,
+  homeDirectory = homedir(),
+  platform = process.platform,
+  systemCandidates = [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+  ],
+} = {}) {
+  const playwrightRoot = platform === "darwin"
+    ? join(homeDirectory, "Library", "Caches", "ms-playwright")
+    : join(homeDirectory, ".cache", "ms-playwright");
+  const playwright = await versionedNestedCandidates({
+    roots: [playwrightRoot],
+    versionPrefix: "chromium_headless_shell-",
+    binaryPaths: platform === "darwin"
+      ? [[/^chrome-headless-shell-mac-/u, "chrome-headless-shell"]]
+      : [[/^chrome-headless-shell-linux/u, "chrome-headless-shell"]],
+  });
+  const puppeteerRoots = [join(homeDirectory, ".cache", "puppeteer", "chrome")];
+  if (platform === "darwin") {
+    puppeteerRoots.push(join(homeDirectory, "Library", "Caches", "puppeteer", "chrome"));
+  }
+  const puppeteer = await versionedNestedCandidates({
+    roots: puppeteerRoots,
+    binaryPaths: platform === "darwin"
+      ? [[/^chrome-mac-/u, "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"]]
+      : [[/^chrome-linux/u, "chrome"]],
+  });
+  return [
+    env.CHROME_PATH,
+    env.PUPPETEER_EXECUTABLE_PATH,
+    ...playwright,
+    ...puppeteer,
+    ...systemCandidates,
+  ].filter(Boolean);
+}
+
+async function versionedNestedCandidates({ roots, versionPrefix = "", binaryPaths }) {
+  const versions = [];
+  for (const root of roots) {
+    for (const name of await directoryNames(root, (entry) => entry.startsWith(versionPrefix))) {
+      versions.push({ root, name });
+    }
+  }
+  const candidates = [];
+  for (const version of versions.sort((left, right) => right.name.localeCompare(left.name))) {
+    const versionPath = join(version.root, version.name);
+    for (const [directoryPattern, ...binaryPath] of binaryPaths) {
+      const directories = await directoryNames(versionPath, (entry) => directoryPattern.test(entry));
+      for (const directory of directories.sort((left, right) => right.localeCompare(left))) {
+        candidates.push(join(versionPath, directory, ...binaryPath));
+      }
+    }
+  }
+  return candidates;
+}
+
+async function directoryNames(path, matches) {
+  try {
+    return (await readdir(path, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory() && matches(entry.name))
+      .map((entry) => entry.name);
+  } catch {
+    return [];
+  }
+}
+
+export function resolvePuppeteerPackagePath(
+  resolvePackage = (specifier) => packageRequire.resolve(specifier),
+) {
+  try {
+    return resolvePackage("puppeteer-core/package.json");
+  } catch {
+    return null;
+  }
 }
 
 function adoptRasterizer(state, method) {
   state.provenance.rasterizer.adopted = method;
   state.provenance.rasterizer.attempts.push({ method, status: "adopted", reason: null });
+  addRasterizerDowngradeWarning(state);
+}
+
+export function addRasterizerDowngradeWarning(state) {
+  const rasterizer = state.provenance?.rasterizer;
+  const planned = rasterizer?.planned;
+  const adopted = rasterizer?.adopted;
+  const order = state.plan?.rasterizer?.order ?? [];
+  if (!planned || !adopted || order.indexOf(adopted) <= order.indexOf(planned)) return;
+  const reason = rasterizer.attempts.find(
+    (attempt) => attempt.method === planned && attempt.status === "rejected",
+  )?.reason ?? "higher-priority rasterizer failed";
+  const warning = `rasterizer downgraded: ${planned} -> ${adopted} (${reason})`;
+  state.warnings ??= [];
+  if (!state.warnings.includes(warning)) state.warnings.push(warning);
 }
 
 function rejectRasterizer(state, method, reason) {

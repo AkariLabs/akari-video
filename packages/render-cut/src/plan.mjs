@@ -16,6 +16,7 @@ export function buildPlan({
   capabilities,
   hasSourceAudio,
   renderOverlays = edit.overlays,
+  hasThreeDimensionalOverlay = false,
   // Execution-unique subdirectory for intermediates (see render-cut.mjs's per-run isolation).
   // Defaults to the flat, deterministic path so direct callers (unit tests, --plan-only preview)
   // keep producing byte-identical command plans across repeated calls.
@@ -33,7 +34,7 @@ export function buildPlan({
   const finalPath = join(temporary, "final.mp4");
   const sheetPath = join(temporary, "overlay-sheet.html");
   const sourcePath = resolve(projectRoot, edit.source.path);
-  const rasterizer = selectRasterizer(capabilities);
+  const rasterizer = selectRasterizer(capabilities, hasThreeDimensionalOverlay);
   const cut = buildCutCommand({
     sourcePath,
     cutPath,
@@ -61,7 +62,11 @@ export function buildPlan({
     },
     rasterizer: {
       selected: rasterizer,
-      order: ["hyperframes", "puppeteer-core", "static-screenshot"],
+      // 3D scenes cannot degrade to a still image: execution rejects HyperFrames and requires
+      // puppeteer-core, while ordinary overlays follow this same full fallback order.
+      order: hasThreeDimensionalOverlay
+        ? ["puppeteer-core"]
+        : ["hyperframes", "puppeteer-core", "static-screenshot"],
     },
     intermediates: [
       cutPath,
@@ -495,7 +500,8 @@ export function selectDefaultOutput(projectRoot, edit, exists) {
   return candidate;
 }
 
-function selectRasterizer(capabilities) {
+function selectRasterizer(capabilities, hasThreeDimensionalOverlay) {
+  if (hasThreeDimensionalOverlay) return "puppeteer-core";
   if (capabilities.hyperframesAvailable) return "hyperframes";
   if (capabilities.puppeteerAvailable && capabilities.chromePath) return "puppeteer-core";
   return "static-screenshot";
