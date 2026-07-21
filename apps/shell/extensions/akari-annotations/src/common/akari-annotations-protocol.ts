@@ -104,6 +104,8 @@ export interface MoveOverlayRequest {
     projectRootUri: string;
     overlayId: string;
     start: number;
+    track?: number | null;
+    trackState?: Record<string, number | null>;
 }
 
 export interface ResizeOverlayRequest {
@@ -139,6 +141,7 @@ export interface OverlayWritePayload extends Record<string, unknown> {
     id: string;
     start: number;
     duration: number;
+    track?: number;
 }
 
 export interface InsertOverlayRequest {

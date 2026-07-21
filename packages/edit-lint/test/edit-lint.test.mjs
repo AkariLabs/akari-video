@@ -101,6 +101,24 @@ for (const [fixture, expectedCheck] of [
   });
 }
 
+test("overlay track accepts missing/zero/integer and rejects negative, fractional, and non-number values", async () => {
+  await withFixtures(async (fixtures) => {
+    const validPath = join(fixtures, "valid", "edit.json");
+    const validEdit = JSON.parse(await readFile(validPath, "utf8"));
+    validEdit.overlays[0].track = 0;
+    validEdit.overlays[1].track = 2;
+    await writeFile(validPath, `${JSON.stringify(validEdit, null, 2)}\n`, "utf8");
+    const valid = run(join(fixtures, "valid"));
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.ok(!parseResult(valid).findings.some((finding) => finding.check === "overlays.track"));
+
+    const invalid = run(join(fixtures, "overlay-track-invalid"));
+    assert.equal(invalid.status, 1, invalid.stderr);
+    const findings = parseResult(invalid).findings.filter((finding) => finding.check === "overlays.track");
+    assert.equal(findings.length, 3, JSON.stringify(findings, null, 2));
+  });
+});
+
 test("version 2 stops with an honest too-new message", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "version-2"));

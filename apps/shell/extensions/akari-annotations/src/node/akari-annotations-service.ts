@@ -200,7 +200,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
-        const updated = moveOverlayInSource(source, request.overlayId, request.start);
+        const updated = moveOverlayInSource(source, request.overlayId, request.start, request.track, request.trackState);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイを移動') };
     }

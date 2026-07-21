@@ -23,6 +23,7 @@ interface EditSummaryOverlay {
     html: string;
     start: number;
     duration: number;
+    track: number;
     transform: OverlayTransform;
     vars: Record<string, string>;
 }
@@ -46,6 +47,7 @@ interface PreviewModel {
     assetStreamIds: string[];
     captionsUri?: URI;
     captions: PreviewCaption[];
+    session?: { muted: boolean; captionsVisible: boolean; hiddenTracks: number[] };
 }
 
 interface OverlayWriteRequest {
@@ -75,6 +77,9 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewStreamId?: string;
     akariPreviewAssetStreamIds?: string[];
     akariPreviewSeekable?: boolean;
+    akariPreviewMuted?: boolean;
+    akariPreviewCaptionsVisible?: boolean;
+    akariPreviewHiddenTracks?: Set<number>;
 }
 
 // akari-transcript の AKARI_TRANSCRIPT_SEEK_REQUESTED.id（akari-transcript-commands.ts）とミラー。
@@ -83,6 +88,9 @@ const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
 // akari-annotations 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
+const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
+const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
+const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 
 // akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
@@ -104,6 +112,12 @@ interface PreviewPlaybackTickRequest {
 interface PreviewOverlaySelectedRequest {
     type: 'akari-preview-overlay-selected';
     overlayId: string | null;
+}
+
+interface PreviewSessionSettings {
+    muted: boolean;
+    captionsVisible: boolean;
+    hiddenTracks: Set<number>;
 }
 
 const EMPTY_SUMMARY: EditSummary = {
@@ -132,6 +146,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     readonly id = 'akari-preview-open-handler';
     protected readonly recentWrites = new Map<string, number>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
+    protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected overlayWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
 
@@ -184,6 +199,61 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected)
         });
+        const registerTimelineSetting = <T extends { videoUri?: string }>(
+            type: string,
+            apply: (widget: PreviewWidgetMarker | undefined, detail: T, settings: PreviewSessionSettings) => void
+        ): void => {
+            const listener = (event: Event): void => {
+                const detail = (event as CustomEvent<T>).detail;
+                if (!detail?.videoUri) {
+                    return;
+                }
+                let key: string;
+                try {
+                    key = new URI(detail.videoUri).normalizePath().toString();
+                } catch {
+                    return;
+                }
+                const settings = this.previewSessionSettings.get(key) ?? {
+                    muted: false, captionsVisible: true, hiddenTracks: new Set<number>()
+                };
+                const widget = this.openPreviews.get(key);
+                apply(widget?.isAttached ? widget : undefined, detail, settings);
+                this.previewSessionSettings.set(key, settings);
+            };
+            window.addEventListener(type, listener);
+            this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(type, listener) });
+        };
+        registerTimelineSetting<{ videoUri?: string; muted?: boolean }>(TIMELINE_SET_MUTED_EVENT, (widget, detail, settings) => {
+            if (typeof detail.muted !== 'boolean') return;
+            settings.muted = detail.muted;
+            if (widget) {
+                widget.akariPreviewMuted = detail.muted;
+                widget.sendMessage({ type: 'akari-preview-set-muted', muted: detail.muted });
+            }
+        });
+        registerTimelineSetting<{ videoUri?: string; track?: number; visible?: boolean }>(
+            TIMELINE_SET_TRACK_VISIBILITY_EVENT, (widget, detail, settings) => {
+                if (!Number.isInteger(detail.track) || detail.track! < 0 || typeof detail.visible !== 'boolean') return;
+                if (detail.visible) settings.hiddenTracks.delete(detail.track!); else settings.hiddenTracks.add(detail.track!);
+                if (widget) {
+                    widget.akariPreviewHiddenTracks = new Set(settings.hiddenTracks);
+                    widget.sendMessage({
+                        type: 'akari-preview-set-track-visibility', track: detail.track, visible: detail.visible
+                    });
+                }
+            }
+        );
+        registerTimelineSetting<{ videoUri?: string; visible?: boolean }>(
+            TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT, (widget, detail, settings) => {
+                if (typeof detail.visible !== 'boolean') return;
+                settings.captionsVisible = detail.visible;
+                if (widget) {
+                    widget.akariPreviewCaptionsVisible = detail.visible;
+                    widget.sendMessage({ type: 'akari-preview-set-captions-visibility', visible: detail.visible });
+                }
+            }
+        );
     }
 
     onStop(): void {
@@ -256,6 +326,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const seekKey = videoUri.normalizePath().toString();
         this.openPreviews.set(seekKey, widget);
         widget.akariPreviewVideoUri = videoUri;
+        const session = this.previewSessionSettings.get(seekKey);
+        if (session) {
+            widget.akariPreviewMuted = session.muted;
+            widget.akariPreviewCaptionsVisible = session.captionsVisible;
+            widget.akariPreviewHiddenTracks = new Set(session.hiddenTracks);
+        }
         await this.refreshPreview(widget, videoUri);
 
         if (widget.akariPreviewConfigured) {
@@ -414,6 +490,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             allowForms: true
         });
         widget.akariPreviewSeekable = true;
+        model.session = {
+            muted: widget.akariPreviewMuted ?? false,
+            captionsVisible: widget.akariPreviewCaptionsVisible ?? true,
+            hiddenTracks: [...(widget.akariPreviewHiddenTracks ?? new Set<number>())]
+        };
         widget.setHTML(this.prepareHtml(videoUri, videoStream.url, model, assets));
     }
 
@@ -466,6 +547,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
             for (const value of Array.isArray(edit?.overlays) ? edit.overlays : []) {
+                if (value?.track !== undefined && (!Number.isInteger(value.track) || value.track < 0)) {
+                    console.warn('[akari-preview] overlay track が不正なため track 0 として表示します', value?.id);
+                }
                 const rawHtml = typeof value?.html === 'string' ? value.html : '';
                 let html = rawHtml;
                 if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
@@ -484,6 +568,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     html,
                     start: this.finiteNumber(value?.start, 0),
                     duration: this.finiteNumber(value?.duration, 0),
+                    track: Number.isInteger(value?.track) && value.track >= 0 ? value.track : 0,
                     transform: this.transform(value?.transform),
                     vars: this.stringRecord(value?.vars)
                 });
@@ -753,7 +838,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             summary: model.summary,
             captions: model.captions,
             editPath: model.editUri?.toString() ?? null,
-            videoUri: videoUri.toString()
+            videoUri: videoUri.toString(),
+            muted: model.session?.muted ?? false,
+            captionsVisible: model.session?.captionsVisible ?? true,
+            hiddenTracks: model.session?.hiddenTracks ?? []
         });
         return `<!doctype html>
 <html lang="ja">
@@ -775,8 +863,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; will-change: transform; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-#overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
-#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
+#overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
+#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
 #caption-plate:empty { display: none; }
 #zoom-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 3; overflow: hidden; border: 1px solid rgba(255,255,255,0.25); border-radius: 2px; background: rgba(0,0,0,0.55); pointer-events: none; }
 #zoom-minimap[hidden] { display: none; }
@@ -1039,6 +1127,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
             const restoreIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4V7h3V4zm6 0h2v3h3v2h-5zM4 15h5v5H7v-3H4zm16 0v2h-3v3h-2v-5z"></path></svg>';
             let captions = Array.isArray(initial.captions) ? initial.captions : [];
+            let hiddenTracks = new Set(Array.isArray(initial.hiddenTracks) ? initial.hiddenTracks : []);
+            video.muted = initial.muted === true;
+            captionPlate.style.visibility = initial.captionsVisible === false ? 'hidden' : 'visible';
             let animationFrame = 0;
             let keepRanges = [];
             let timelineOffsets = [];
@@ -1056,6 +1147,23 @@ body { display: grid; place-items: center; padding: 32px; }
             let waveformDragPointer = null;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+            const applyTrackVisibility = track => {
+                for (const container of stage.querySelectorAll('[data-akari-track]')) {
+                    if (Number(container.getAttribute('data-akari-track')) === track) {
+                        container.style.display = hiddenTracks.has(track) ? 'none' : '';
+                    }
+                }
+            };
+            const applyOverlayTracks = () => {
+                for (const container of stage.querySelectorAll('[data-overlay-id]')) {
+                    const id = container.getAttribute('data-overlay-id') || '';
+                    const overlay = summary.overlays.find(candidate => String(candidate.id) === id);
+                    const track = Number.isInteger(overlay?.track) && overlay.track >= 0 ? overlay.track : 0;
+                    container.setAttribute('data-akari-track', String(track));
+                    container.style.zIndex = String(10 + track);
+                    container.style.display = hiddenTracks.has(track) ? 'none' : '';
+                }
+            };
             const buildExplicitKeepRanges = () => {
                 const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
                 const valid = [];
@@ -1642,6 +1750,21 @@ body { display: grid; place-items: center; padding: 32px; }
                     renderCaption();
                     return;
                 }
+                if (message && message.type === 'akari-preview-set-muted' && typeof message.muted === 'boolean') {
+                    video.muted = message.muted;
+                    return;
+                }
+                if (message && message.type === 'akari-preview-set-track-visibility'
+                    && Number.isInteger(message.track) && message.track >= 0 && typeof message.visible === 'boolean') {
+                    if (message.visible) hiddenTracks.delete(message.track); else hiddenTracks.add(message.track);
+                    applyTrackVisibility(message.track);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-set-captions-visibility'
+                    && typeof message.visible === 'boolean') {
+                    captionPlate.style.visibility = message.visible ? 'visible' : 'hidden';
+                    return;
+                }
                 if (message && message.type === 'akari-preview-seek' && Number.isFinite(message.time)) {
                     video.currentTime = Math.max(0, message.time);
                     tick();
@@ -1718,6 +1841,7 @@ body { display: grid; place-items: center; padding: 32px; }
             });
 
             Promise.resolve(window.akari.runtime.mount(summary)).then(() => {
+                applyOverlayTracks();
                 stage.appendChild(captionPlate);
                 rebuildKeepRanges();
                 if (keepRangesReady) {

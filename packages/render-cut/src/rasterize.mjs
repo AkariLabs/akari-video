@@ -27,15 +27,16 @@ const TEXTURE_MIME_TYPES = new Map([
 ]);
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
-  const hasThreeDimensionalOverlay = overlays.some((overlay) =>
+  const orderedOverlays = orderOverlaysByTrack(overlays);
+  const hasThreeDimensionalOverlay = orderedOverlays.some((overlay) =>
     overlay.html.includes("data-akari-3d-scene"),
   );
   const sheetOverlays = hasThreeDimensionalOverlay
-    ? overlays.map((overlay) => ({
+    ? orderedOverlays.map((overlay) => ({
         ...overlay,
         html: embedThreeModels(overlay.html, projectRoot, overlay.id),
       }))
-    : overlays;
+    : orderedOverlays;
   const nodes = sheetOverlays
     .map((overlay, index) => renderOverlayNode(overlay, index))
     .join("\n");
@@ -169,7 +170,7 @@ export async function captureStaticOverlays({
   chromePath,
 }) {
   const captures = [];
-  for (const [index, overlay] of overlays.entries()) {
+  for (const [index, overlay] of orderOverlaysByTrack(overlays).entries()) {
     const stem = `static-${String(index + 1).padStart(4, "0")}`;
     const htmlPath = join(temporaryDirectory, `${stem}.html`);
     const pngPath = join(temporaryDirectory, `${stem}.png`);
@@ -217,6 +218,24 @@ export async function captureStaticOverlays({
     captures.push({ path: pngPath, start: overlay.start, duration: overlay.duration });
   }
   return captures;
+}
+
+function orderOverlaysByTrack(overlays) {
+  return overlays
+    .map((overlay, index) => ({ overlay, index }))
+    .sort((left, right) => {
+      const leftIsCaption = left.overlay.generatedFrom !== undefined;
+      const rightIsCaption = right.overlay.generatedFrom !== undefined;
+      if (leftIsCaption !== rightIsCaption) return leftIsCaption ? 1 : -1;
+      const leftTrack = Number.isInteger(left.overlay.track) && left.overlay.track >= 0
+        ? left.overlay.track
+        : 0;
+      const rightTrack = Number.isInteger(right.overlay.track) && right.overlay.track >= 0
+        ? right.overlay.track
+        : 0;
+      return leftTrack - rightTrack || left.index - right.index;
+    })
+    .map(({ overlay }) => overlay);
 }
 
 export function compositeAnimatedOverlay({

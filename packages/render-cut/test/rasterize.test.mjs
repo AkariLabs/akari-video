@@ -35,6 +35,28 @@ test("non-3D overlay sheets remain byte-identical", () => {
   assert.doesNotMatch(sheet, /threeRuntime|AkariThree|data:model\/gltf-binary/);
 });
 
+test("overlay sheet orders tracks back-to-front while preserving order within a track", () => {
+  const overlay = (id, track) => ({
+    id,
+    track,
+    start: 0,
+    duration: 1,
+    html: `<div>${id}</div>`,
+    transform: {},
+    vars: {},
+  });
+  const sheet = renderOverlaySheet({
+    overlays: [overlay("front-a", 2), overlay("back", 0), overlay("front-b", 2), overlay("middle", 1)],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 1,
+  });
+  const positions = ["back", "middle", "front-a", "front-b"].map(
+    (id) => sheet.indexOf(`data-overlay-id="${id}"`),
+  );
+  assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
+});
+
 test("3D overlay sheets inline the shared runtime and embed GLB data", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "render-cut-3d-日本語 path-"));
   try {

@@ -1,0 +1,4 @@
+[
+  { "id": "caption-a", "start": 1.7540714285714285, "end": 3.2540714285714287, "text": "first caption", "speaker": null, "sourceRef": null, "edited": true },
+  { "id": "caption-b", "start": 4, "end": 5.5, "text": "second caption", "speaker": null, "sourceRef": null, "edited": false }
+]

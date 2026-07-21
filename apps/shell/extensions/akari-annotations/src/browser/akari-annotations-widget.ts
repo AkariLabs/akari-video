@@ -36,6 +36,14 @@ const ZOOM_EVENT_FACTOR_MIN = 1 / 1.5;
 const ZOOM_EVENT_FACTOR_MAX = 1.5;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const WAVEFORM_CANVAS_HEIGHT_PX = 32;
+const RULER_HEIGHT = 14;
+const CLIP_HEIGHT = 22;
+const LANE_GAP = 6;
+const SUBROW_HEIGHT = 16;
+const SUBROW_GAP = 2;
+const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
+const STRIP_BOTTOM_MARGIN = 6;
+const TRACK_HEADER_WIDTH = 28;
 
 export interface PreviewPlaybackTick {
     videoUri?: string;
@@ -55,6 +63,16 @@ type TimelineClipboard =
     | { kind: 'overlay'; payload: OverlayWritePayload };
 
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
+const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
+const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
+const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
+
+interface OverlayTrackLayout {
+    track: number;
+    top: number;
+    height: number;
+    rows: number[];
+}
 
 const STATUS_COLORS: Record<Annotation['status'], string> = {
     open: 'var(--theia-charts-blue)',
@@ -65,6 +83,7 @@ const STATUS_COLORS: Record<Annotation['status'], string> = {
 interface DragBase {
     pointerId: number;
     startClientX: number;
+    startClientY: number;
     element: HTMLDivElement;
     ghost: HTMLDivElement;
     dragged: boolean;
@@ -74,7 +93,7 @@ type DragDetail =
     | { kind: 'cut-trim'; index: number; edge: 'left' | 'right'; originalIn: number; originalOut: number }
     | { kind: 'cut-reorder'; index: number; originalIn: number; originalOut: number }
     | { kind: 'caption'; id: string; mode: 'move' | 'start' | 'end'; originalStart: number; originalEnd: number }
-    | { kind: 'overlay'; id: string; mode: 'move' | 'resize'; originalStart: number; originalDuration: number };
+    | { kind: 'overlay'; id: string; mode: 'move' | 'resize'; originalStart: number; originalDuration: number; originalTrack: number };
 
 type DragState = DragBase & DragDetail;
 
@@ -82,7 +101,7 @@ type DragPreview =
     | { kind: 'cut-trim'; index: number; input: number; output: number }
     | { kind: 'cut-reorder'; fromIndex: number; toIndex: number }
     | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
-    | { kind: 'overlay-move'; id: string; start: number }
+    | { kind: 'overlay-move'; id: string; start: number; track: number }
     | { kind: 'overlay-resize'; id: string; duration: number };
 
 @injectable()
@@ -109,6 +128,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly zoomLabel = document.createElement('span');
     protected readonly zoomSlider = document.createElement('input');
     protected readonly reviewButton = document.createElement('button');
+    protected readonly timelineViewport = document.createElement('div');
+    protected readonly trackHeaders = document.createElement('div');
     protected readonly stripScroll = document.createElement('div');
     protected readonly hScrollbarTrack = document.createElement('div');
     protected readonly hScrollbarThumb = document.createElement('div');
@@ -141,6 +162,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected ffmpegMissingNoticeShown = false;
     protected selectedItem: SelectedItem | undefined;
     protected clipboard: TimelineClipboard | undefined;
+    protected overlayTrackLayouts: OverlayTrackLayout[] = [];
+    protected clipMuted = false;
+    protected captionsVisible = true;
+    protected readonly hiddenTracks = new Set<number>();
 
     /** 注釈の実体は ReviewModel が持つ（注釈パネルと共有）。ここではピン描画のために読むだけ。 */
     protected get annotations(): readonly Annotation[] {
@@ -221,8 +246,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.reviewButton.addEventListener('click', () => void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID));
         this.toolbar.append(heading, this.zoomHud, this.undoButton, this.redoButton, this.reviewButton);
 
+        Object.assign(this.timelineViewport.style, {
+            display: 'grid', gridTemplateColumns: `${TRACK_HEADER_WIDTH}px minmax(0, 1fr)`, minHeight: '0',
+            paddingLeft: '10px', boxSizing: 'border-box'
+        });
+        Object.assign(this.trackHeaders.style, {
+            position: 'relative', width: `${TRACK_HEADER_WIDTH}px`, margin: '8px 0',
+            border: '1px solid var(--theia-widget-border)', borderRight: '0', borderRadius: '4px 0 0 4px',
+            background: 'var(--theia-editorWidget-background)', boxSizing: 'border-box', overflow: 'hidden'
+        });
         Object.assign(this.strip.style, {
-            position: 'relative', margin: '8px 10px',
+            position: 'relative', margin: '8px 10px 8px 0',
             border: '1px solid var(--theia-widget-border)', borderRadius: '4px',
             background: 'var(--theia-editorWidget-background)', cursor: 'pointer', overflow: 'hidden'
         });
@@ -261,6 +295,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.hScrollbarTrack.addEventListener('click', event => this.onScrollbarTrackClick(event));
         this.hScrollbarThumb.addEventListener('pointerdown', event => this.onScrollbarThumbPointerDown(event));
         this.stripScroll.appendChild(this.strip);
+        this.stripScroll.addEventListener('scroll', () => {
+            this.trackHeaders.scrollTop = this.stripScroll.scrollTop;
+        });
+        this.timelineViewport.append(this.trackHeaders, this.stripScroll);
         Object.assign(this.footer.style, {
             height: '26px', minHeight: '26px', maxHeight: '26px', padding: '5px 10px', boxSizing: 'border-box',
             borderTop: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
@@ -268,7 +306,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.footer.textContent = 'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
 
-        this.node.append(this.toolbar, this.stripScroll, this.hScrollbarTrack, this.notice, this.footer);
+        this.node.append(this.toolbar, this.timelineViewport, this.hScrollbarTrack, this.notice, this.footer);
         const style = document.createElement('style');
         style.textContent = `
     .akari-annotations-widget .akari-annotations-strip-clip {
@@ -287,6 +325,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: .74;
         border-radius: 2px;
     }
+    .akari-annotations-widget .akari-track-band {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 1px solid color-mix(in srgb, var(--theia-widget-border) 55%, transparent);
+        pointer-events: none;
+    }
+    .akari-annotations-widget .akari-track-band-hidden,
+    .akari-annotations-widget .akari-track-band-hidden + .akari-annotations-strip-overlay {
+        opacity: .28;
+    }
+    .akari-annotations-widget .akari-track-header-button {
+        position: absolute;
+        left: 2px;
+        width: 22px;
+        height: 22px;
+        display: grid;
+        place-items: center;
+        padding: 2px;
+        border: 0;
+        border-radius: 3px;
+        background: transparent;
+        color: var(--theia-foreground);
+        cursor: pointer;
+    }
+    .akari-annotations-widget .akari-track-header-button[aria-pressed="false"] { opacity: .4; }
+    .akari-annotations-widget .akari-track-header-button:hover { background: var(--theia-toolbar-hoverBackground); }
+    .akari-annotations-widget .akari-track-header-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
     .akari-annotations-widget .akari-annotations-selected {
         border: 2px solid var(--theia-focusBorder);
         box-sizing: border-box;
@@ -540,14 +606,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderStrip(): void {
-        const CLIP_TOP = 14;
-        const CLIP_HEIGHT = 22;
-        const LANE_GAP = 6;
-        const SUBROW_HEIGHT = 16;
-        const SUBROW_GAP = 2;
-        const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
-        const STRIP_BOTTOM_MARGIN = 6;
-
         // DOM 再構築で pointer capture と dragState を壊さないよう、ドラッグ終了まで延期する。
         if (this.dragState) {
             this.renderStripPending = true;
@@ -569,10 +627,95 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.renderRuler();
+        const captionRows = assignSubRows(this.captions.map(c => ({ start: c.start, end: c.end })));
+        const captionSubRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 1;
+        const captionBandTop = RULER_HEIGHT;
+        const captionBandHeight = captionSubRowCount * SUBROW_STRIDE;
+
+        const overlayRows = new Map<string, number>();
+        const maxTrack = this.overlays.length ? Math.max(...this.overlays.map(overlay => overlay.track)) : 0;
+        this.overlayTrackLayouts = [];
+        let nextTop = captionBandTop + captionBandHeight + LANE_GAP;
+        for (let track = maxTrack; track >= 0; track--) {
+            const trackOverlays = this.overlays.filter(overlay => overlay.track === track);
+            const rows = assignSubRows(trackOverlays.map(overlay => ({
+                start: overlay.start, end: overlay.start + overlay.duration
+            })));
+            trackOverlays.forEach((overlay, index) => overlayRows.set(overlay.id, rows[index] ?? 0));
+            const rowCount = rows.length ? Math.max(...rows) + 1 : 1;
+            const height = rowCount * SUBROW_STRIDE;
+            this.overlayTrackLayouts.push({ track, top: nextTop, height, rows });
+            nextTop += height + LANE_GAP;
+        }
+        const clipTop = nextTop;
+
+        // 注釈ピンはルーラー帯（renderRuler）へ描くため、専用レーンは持たない。
+        const stripHeight = clipTop + CLIP_HEIGHT + STRIP_BOTTOM_MARGIN;
+        this.strip.style.height = `${stripHeight}px`;
+        this.trackHeaders.style.height = `${stripHeight}px`;
+        this.renderTrackHeaders(captionBandTop, captionBandHeight, clipTop);
+
+        const captionBand = this.laneBand('captions', captionBandTop, captionBandHeight);
+        captionBand.style.opacity = this.captionsVisible ? '1' : '.28';
+        this.strip.appendChild(captionBand);
+        for (const layout of this.overlayTrackLayouts) {
+            const band = this.laneBand(`track-${layout.track}`, layout.top, layout.height);
+            band.dataset.akariTrack = String(layout.track);
+            band.classList.toggle('akari-track-band-hidden', this.hiddenTracks.has(layout.track));
+            this.strip.appendChild(band);
+        }
+        this.strip.appendChild(this.laneBand('clips', clipTop, CLIP_HEIGHT));
+
+        this.captions.forEach((caption, index) => {
+            const captionEnd = Math.max(caption.end, caption.start + MINIMUM_ITEM_DURATION);
+            const top = captionBandTop + captionRows[index] * SUBROW_STRIDE;
+            const element = this.stripSegment(
+                caption.start, captionEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
+            );
+            element.dataset.akariItemKind = 'caption';
+            element.dataset.akariItemId = caption.id;
+            element.dataset.akariLane = 'captions';
+            element.style.opacity = this.captionsVisible ? '' : '.28';
+            this.installDragListeners(element, (event, rect) => {
+                const localX = event.clientX - rect.left;
+                const rightDistance = rect.right - event.clientX;
+                const mode = localX <= EDGE_ZONE_PX && localX <= rightDistance ? 'start'
+                    : rightDistance <= EDGE_ZONE_PX ? 'end' : 'move';
+                return {
+                    kind: 'caption', id: caption.id, mode,
+                    originalStart: caption.start, originalEnd: caption.end
+                };
+            });
+            this.strip.appendChild(element);
+            const label = this.captionLabel(caption.start, caption.text, top);
+            label.style.opacity = this.captionsVisible ? '' : '.28';
+            this.strip.appendChild(label);
+        });
+        this.overlays.forEach(overlay => {
+            const layout = this.overlayTrackLayouts.find(candidate => candidate.track === overlay.track);
+            const top = (layout?.top ?? captionBandTop + captionBandHeight + LANE_GAP)
+                + (overlayRows.get(overlay.id) ?? 0) * SUBROW_STRIDE;
+            const element = this.stripSegment(
+                overlay.start, overlay.start + overlay.duration, top, SUBROW_HEIGHT,
+                'akari-annotations-strip-overlay', overlay.id
+            );
+            element.dataset.akariItemKind = 'overlay';
+            element.dataset.akariItemId = overlay.id;
+            element.dataset.akariTrack = String(overlay.track);
+            element.style.opacity = this.hiddenTracks.has(overlay.track) ? '.28' : '';
+            element.appendChild(this.segmentLabel(overlay.id));
+            this.installDragListeners(element, (event, rect) => ({
+                kind: 'overlay', id: overlay.id,
+                mode: rect.right - event.clientX <= EDGE_ZONE_PX ? 'resize' : 'move',
+                originalStart: overlay.start, originalDuration: overlay.duration, originalTrack: overlay.track
+            }));
+            this.strip.appendChild(element);
+        });
         this.cuts.forEach((cut, index) => {
             const element = this.stripSegment(
-                cut.in, cut.out, CLIP_TOP, CLIP_HEIGHT, 'akari-annotations-strip-clip', `C${index + 1}`
+                cut.in, cut.out, clipTop, CLIP_HEIGHT, 'akari-annotations-strip-clip', `C${index + 1}`
             );
+            element.dataset.akariLane = 'clips';
             const widthPercent = Math.max(this.percent(cut.out) - this.percent(cut.in), 0.3);
             const clipWidth = this.strip.clientWidth * widthPercent / 100;
             this.renderClipMedia(element, cut, clipWidth);
@@ -590,62 +733,89 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         });
-
-        const captionRows = assignSubRows(this.captions.map(c => ({ start: c.start, end: c.end })));
-        const captionSubRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 1;
-        const captionBandTop = CLIP_TOP + CLIP_HEIGHT + LANE_GAP;
-        const captionBandHeight = captionSubRowCount * SUBROW_STRIDE;
-
-        const overlayRows = assignSubRows(this.overlays.map(o => ({ start: o.start, end: o.start + o.duration })));
-        const overlaySubRowCount = overlayRows.length ? Math.max(...overlayRows) + 1 : 1;
-        const overlayBandTop = captionBandTop + captionBandHeight + LANE_GAP;
-        const overlayBandHeight = overlaySubRowCount * SUBROW_STRIDE;
-
-        // 注釈ピンはルーラー帯（renderRuler）へ描くため、専用レーンは持たない。
-        const stripHeight = overlayBandTop + overlayBandHeight + STRIP_BOTTOM_MARGIN;
-        this.strip.style.height = `${stripHeight}px`;
-
-        this.captions.forEach((caption, index) => {
-            const captionEnd = Math.max(caption.end, caption.start + MINIMUM_ITEM_DURATION);
-            const top = captionBandTop + captionRows[index] * SUBROW_STRIDE;
-            const element = this.stripSegment(
-                caption.start, captionEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
-            );
-            element.dataset.akariItemKind = 'caption';
-            element.dataset.akariItemId = caption.id;
-            this.installDragListeners(element, (event, rect) => {
-                const localX = event.clientX - rect.left;
-                const rightDistance = rect.right - event.clientX;
-                const mode = localX <= EDGE_ZONE_PX && localX <= rightDistance ? 'start'
-                    : rightDistance <= EDGE_ZONE_PX ? 'end' : 'move';
-                return {
-                    kind: 'caption', id: caption.id, mode,
-                    originalStart: caption.start, originalEnd: caption.end
-                };
-            });
-            this.strip.appendChild(element);
-            this.strip.appendChild(this.captionLabel(caption.start, caption.text, top));
-        });
-        this.overlays.forEach((overlay, index) => {
-            const top = overlayBandTop + overlayRows[index] * SUBROW_STRIDE;
-            const element = this.stripSegment(
-                overlay.start, overlay.start + overlay.duration, top, SUBROW_HEIGHT,
-                'akari-annotations-strip-overlay', overlay.id
-            );
-            element.dataset.akariItemKind = 'overlay';
-            element.dataset.akariItemId = overlay.id;
-            element.appendChild(this.segmentLabel(overlay.id));
-            this.installDragListeners(element, (event, rect) => ({
-                kind: 'overlay', id: overlay.id,
-                mode: rect.right - event.clientX <= EDGE_ZONE_PX ? 'resize' : 'move',
-                originalStart: overlay.start, originalDuration: overlay.duration
-            }));
-            this.strip.appendChild(element);
-        });
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
         this.applySelectionClass();
         this.updateZoomHud();
         this.updateScrollbar();
+    }
+
+    protected laneBand(lane: string, top: number, height: number): HTMLDivElement {
+        const band = document.createElement('div');
+        band.className = 'akari-track-band';
+        band.dataset.akariLane = lane;
+        band.style.top = `${top}px`;
+        band.style.height = `${height}px`;
+        return band;
+    }
+
+    protected renderTrackHeaders(captionTop: number, captionHeight: number, clipTop: number): void {
+        this.trackHeaders.replaceChildren();
+        this.trackHeaders.appendChild(this.trackHeaderButton(
+            '字幕を表示', this.captionsVisible, captionTop, captionHeight, this.eyeSvg(), () => {
+                this.captionsVisible = !this.captionsVisible;
+                this.dispatchPreviewEvent(TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT, { visible: this.captionsVisible });
+                this.renderStrip();
+            }, 'captions'
+        ));
+        for (const layout of this.overlayTrackLayouts) {
+            const visible = !this.hiddenTracks.has(layout.track);
+            this.trackHeaders.appendChild(this.trackHeaderButton(
+                `トラック ${layout.track} を表示`, visible, layout.top, layout.height, this.eyeSvg(), () => {
+                    if (this.hiddenTracks.has(layout.track)) {
+                        this.hiddenTracks.delete(layout.track);
+                    } else {
+                        this.hiddenTracks.add(layout.track);
+                    }
+                    this.dispatchPreviewEvent(TIMELINE_SET_TRACK_VISIBILITY_EVENT, {
+                        track: layout.track, visible: !this.hiddenTracks.has(layout.track)
+                    });
+                    this.renderStrip();
+                }, `track-${layout.track}`, layout.track
+            ));
+        }
+        this.trackHeaders.appendChild(this.trackHeaderButton(
+            'ミュート', !this.clipMuted, clipTop, CLIP_HEIGHT, this.speakerSvg(), () => {
+                this.clipMuted = !this.clipMuted;
+                this.dispatchPreviewEvent(TIMELINE_SET_MUTED_EVENT, { muted: this.clipMuted });
+                this.renderStrip();
+            }, 'clips'
+        ));
+    }
+
+    protected trackHeaderButton(
+        label: string, enabled: boolean, top: number, height: number, svg: string,
+        action: () => void, lane: string, track?: number
+    ): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'akari-track-header-button';
+        button.setAttribute('aria-label', label);
+        button.setAttribute('aria-pressed', String(enabled));
+        button.dataset.akariLane = lane;
+        if (track !== undefined) {
+            button.dataset.akariTrack = String(track);
+        }
+        button.style.top = `${top + Math.max(0, (height - 22) / 2)}px`;
+        button.innerHTML = svg;
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            action();
+        });
+        return button;
+    }
+
+    protected eyeSvg(): string {
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>';
+    }
+
+    protected speakerSvg(): string {
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
+    }
+
+    protected dispatchPreviewEvent(type: string, detail: Record<string, unknown>): void {
+        window.dispatchEvent(new CustomEvent(type, {
+            detail: { videoUri: this.location?.videoUri ?? '', ...detail }
+        }));
     }
 
     protected renderRuler(): void {
@@ -918,6 +1088,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...detail(event, element.getBoundingClientRect()),
                 pointerId: event.pointerId,
                 startClientX: event.clientX,
+                startClientY: event.clientY,
                 element,
                 ghost,
                 dragged: false
@@ -936,10 +1107,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             event.preventDefault();
-            if (Math.abs(event.clientX - state.startClientX) > DRAG_THRESHOLD_PX) {
+            const verticalMove = state.kind === 'overlay' && state.mode === 'move'
+                && Math.abs(event.clientY - state.startClientY) > DRAG_THRESHOLD_PX;
+            if (Math.abs(event.clientX - state.startClientX) > DRAG_THRESHOLD_PX || verticalMove) {
                 state.dragged = true;
             }
-            this.updateDragPreview(state, event.clientX, state.dragged);
+            this.updateDragPreview(state, event.clientX, event.clientY, state.dragged);
         });
         element.addEventListener('pointerup', event => {
             const state = this.dragState;
@@ -956,7 +1129,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.selectTimeAtClientX(event.clientX);
                 return;
             }
-            const preview = this.updateDragPreview(state, event.clientX, true);
+            const preview = this.updateDragPreview(state, event.clientX, event.clientY, true);
             this.cancelDrag(state);
             void this.commitDrag(preview);
         });
@@ -968,7 +1141,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
     }
 
-    protected updateDragPreview(state: DragState, clientX: number, allowGuide: boolean): DragPreview {
+    protected updateDragPreview(state: DragState, clientX: number, clientY: number, allowGuide: boolean): DragPreview {
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
         const delta = rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0;
@@ -1017,11 +1190,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (state.mode === 'move') {
             const start = this.snapTime(Math.max(0, state.originalStart + delta), allowGuide);
             this.setGhostRange(state.ghost, start, start + state.originalDuration);
-            return { kind: 'overlay-move', id: state.id, start };
+            const track = this.overlayTrackAtClientY(clientY);
+            const layout = this.overlayTrackLayouts.find(candidate => candidate.track === track);
+            if (layout) {
+                state.ghost.style.top = `${layout.top}px`;
+            } else if (this.overlayTrackLayouts.length > 0) {
+                state.ghost.style.top = `${Math.max(RULER_HEIGHT, this.overlayTrackLayouts[0].top - SUBROW_STRIDE)}px`;
+            }
+            state.ghost.dataset.akariTrack = String(track);
+            return { kind: 'overlay-move', id: state.id, start, track };
         }
         const end = this.snapTime(state.originalStart + state.originalDuration + delta, allowGuide);
         this.setGhostRange(state.ghost, state.originalStart, end);
         return { kind: 'overlay-resize', id: state.id, duration: end - state.originalStart };
+    }
+
+    protected overlayTrackAtClientY(clientY: number): number {
+        if (this.overlayTrackLayouts.length === 0) {
+            return 0;
+        }
+        const stripTop = this.strip.getBoundingClientRect().top;
+        const localY = clientY - stripTop;
+        const highest = this.overlayTrackLayouts[0];
+        if (localY < highest.top) {
+            return highest.track + 1;
+        }
+        for (const layout of this.overlayTrackLayouts) {
+            if (localY >= layout.top && localY < layout.top + layout.height + LANE_GAP) {
+                return layout.track;
+            }
+        }
+        return 0;
     }
 
     protected setGhostRange(ghost: HTMLDivElement, start: number, end: number): void {
@@ -1187,28 +1386,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (!original) {
                     throw new Error(`オーバーレイ ${preview.id} が見つかりません`);
                 }
+                const originalTrackState = this.overlayTrackState();
                 result = await this.annotationsService.moveOverlay({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    overlayId: preview.id, start: preview.start
+                    overlayId: preview.id, start: preview.start,
+                    track: preview.track === original.track ? undefined : preview.track
                 });
+                await this.reloadEdit();
+                const movedTrackState = this.overlayTrackState();
                 this.pushHistory({
                     label: 'オーバーレイの移動',
                     undo: async () => {
                         await this.annotationsService.moveOverlay({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: preview.id, start: original.start
+                            overlayId: preview.id, start: original.start,
+                            trackState: originalTrackState
                         });
                         await this.reloadEdit();
                     },
                     redo: async () => {
                         await this.annotationsService.moveOverlay({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: preview.id, start: preview.start
+                            overlayId: preview.id, start: preview.start,
+                            trackState: movedTrackState
                         });
                         await this.reloadEdit();
                     }
                 });
-                await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('オーバーレイを移動しました。', result);
             } else {
                 if (!location.editUri) {
@@ -1258,6 +1462,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
         this.future = [];
         this.updateHistoryButtons();
+    }
+
+    protected overlayTrackState(): Record<string, number | null> {
+        const state: Record<string, number | null> = {};
+        for (const overlay of this.overlays) {
+            state[overlay.id] = Object.prototype.hasOwnProperty.call(overlay.payload, 'track') ? overlay.track : null;
+        }
+        return state;
     }
 
     protected updateHistoryButtons(): void {

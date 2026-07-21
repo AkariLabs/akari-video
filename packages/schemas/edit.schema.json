@@ -16,6 +16,10 @@
       "type": "number",
       "minimum": 0
     },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
     "output": {
       "type": "object",
       "additionalProperties": true,
@@ -115,6 +119,13 @@
       },
       "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。"
     },
+    "overlayItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 }
+      }
+    },
     "editV0": {
       "type": "object",
       "additionalProperties": true,
@@ -126,6 +137,10 @@
         "cuts": {
           "type": "array",
           "items": { "$ref": "#/$defs/cutV0" }
+        },
+        "overlays": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/overlayItem" }
         },
         "audio": { "$ref": "#/$defs/audio" }
       },
@@ -146,6 +161,10 @@
         "cuts": {
           "type": "array",
           "items": { "$ref": "#/$defs/cutV1" }
+        },
+        "overlays": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/overlayItem" }
         },
         "audio": { "$ref": "#/$defs/audio" }
       },

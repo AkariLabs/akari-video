@@ -1,0 +1,46 @@
+{
+  "source": { "path": "sample.mp4" },
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "cuts": [
+    { "in": 0.5, "out": 3.5 },
+    { "in": 4, "out": 7 },
+    { "in": 7.5, "out": 11.5 }
+  ],
+  "overlays": [
+    {
+      "id": "ov-a",
+      "html": "overlays/ov-a.html",
+      "start": 1,
+      "duration": 4,
+      "track": 0,
+      "transform": { "x": 40, "y": 200, "scale": 1, "rotate": 0 },
+      "vars": { "--color": "#ff5555" }
+    },
+    {
+      "id": "ov-b",
+      "html": "overlays/ov-b.html",
+      "start": 2,
+      "duration": 2,
+      "track": 1,
+      "transform": { "x": 90, "y": 220, "scale": 1, "rotate": 0 },
+      "vars": { "--color": "#5599ff" }
+    },
+    {
+      "id": "ov-c",
+      "html": "overlays/ov-c.html",
+      "start": 7,
+      "duration": 1,
+      "track": 2,
+      "transform": { "x": 140, "y": 240, "scale": 1, "rotate": 0 },
+      "vars": { "--color": "#55ff99" }
+    },
+    {
+      "id": "ov-d",
+      "html": "overlays/ov-d.html",
+      "start": 9,
+      "duration": 1,
+      "transform": { "x": 190, "y": 260, "scale": 1, "rotate": 0 },
+      "vars": { "--color": "#ffcc55" }
+    }
+  ]
+}
