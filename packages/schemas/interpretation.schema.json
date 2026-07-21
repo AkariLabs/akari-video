@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:interpretation:v0",
+  "title": "AKARI Video interpretation.json v0",
+  "description": "複数素材（プロジェクト単位）を横断する解釈層。事実層（各素材の analysis.json、無改修・不変）を並べて読み直す 2 パス目の出力で、プロジェクトあたり 1 ファイル。全ての optional フィールドは、値を持たないとき『キー自体を省略する』ことで表現する。null は使用しない（本 schema は nullable な型を一切定義しない）。",
+  "$comment": "解釈の全主張には根拠（transcript 区間の引用 / keyframe note 参照）を必須とする（捏造ゼロ・出所追跡）。この規律は arc[] と flags[] の evidence 必須というかたちで表れる。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "inputs",
+    "assets",
+    "arc",
+    "open_questions"
+  ],
+  "properties": {
+    "version": {
+      "const": 0
+    },
+    "inputs": {
+      "$ref": "#/$defs/inputs"
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    },
+    "arc": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/arcEntry"
+      },
+      "description": "構成案（編集順のタイムライン）。各エントリは根拠必須で、素材の再視聴なしに transcript / keyframe note から直接引ける主張だけを書く。"
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/openQuestion"
+      },
+      "description": "取材台帳。空配列は正常系であり『取材の必要なし（構成案が事実の捏造なしに一本通った）』を意味する。走査自体は 2 パス目の契約義務であり、未走査状態はこの schema では表現しない — 空配列は常に『検討した上で 0 件』である。"
+    }
+  },
+  "$defs": {
+    "seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analyses"
+      ],
+      "properties": {
+        "analyses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/analysisRef"
+          },
+          "description": "参照する事実層（素材ごとの analysis.json）。1 件以上必須。"
+        },
+        "context": {
+          "$ref": "#/$defs/context",
+          "description": "2 パス目に与えた文脈の来歴（provenance）。省略可 — 2 パス目に analyses 以外の文脈を一切与えなかった場合はキー自体を省略する。"
+        }
+      }
+    },
+    "analysisRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "source"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "参照する analysis.json へのパス。相対パスは interpretation.json の所在ディレクトリを基準に解決する。"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "素材の由来・生成条件の要約（analyze-footage 実行条件・素材の性質など）。"
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "past_projects",
+        "interview"
+      ],
+      "properties": {
+        "intake": {
+          "type": "object",
+          "additionalProperties": true,
+          "$comment": "intake.json 要約。内部構造は intake.schema.json 側の管轄であり本 v0 では自由形式とする（存在しないプロジェクトでは省略。null にしない）。",
+          "description": "intake.json の要約。省略可。"
+        },
+        "past_projects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pastProjectRef"
+          },
+          "description": "過去 PJ・他社形式テンプレ参照の記録。無ければ空配列（省略はしない — 与えた文脈の全記録という context の性質上、キーはあるが空、で『参照なし』を表す）。"
+        },
+        "interview": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/interviewPair"
+          },
+          "description": "取材の Q&A。open_questions[].status が answered に昇格したときの反映先。無ければ空配列。"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1,
+          "description": "上記に当てはまらない自由記述の補足。省略可。"
+        }
+      }
+    },
+    "pastProjectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "notes"
+      ],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "interviewPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "q",
+        "a"
+      ],
+      "properties": {
+        "q": {
+          "type": "string",
+          "minLength": 1
+        },
+        "a": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "role",
+        "summary",
+        "relations",
+        "flags"
+      ],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "素材参照 ID。プロジェクト内で一意。"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "description": "この素材が物語上で果たす役割を表す短いタグ（自由記述。enum にしない）。"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/section"
+          },
+          "$comment": "単素材では arc と準同型になる。複数素材 fieldtest で要再裁定（2026-07-22 A3）。",
+          "description": "素材内の章単位の役割分析。省略可（採用するかは A2 以降の複数素材 fieldtest で再判断する）。"
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relation"
+          },
+          "description": "他素材との関係（設計主眼は複数素材ケース）。単素材プロジェクトでは常に空配列になる自明ケースとして扱う。維持する（省略しない）。空配列可。"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/flag"
+          },
+          "description": "浮き・トラブル等の検出結果。空配列の意味論は『走査した上で該当なし』であり、未走査状態ではない（走査は 2 パス目の契約義務）。維持する（省略しない）。空配列可。"
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start",
+        "end",
+        "title",
+        "role",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "$ref": "#/$defs/seconds"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "description": "章単位の分類タグ（自由記述）。asset.role が素材全体を 1 個で表すのに対し、こちらは章ごとに分類する。"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "$comment": "意味制約として end > start とする。Draft 2020-12 標準では兄弟プロパティ間を比較できないため、この条件は検証手順（CLI）で確認する。"
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "kind",
+        "evidence"
+      ],
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "description": "関係先の assets[].ref。自素材への自己参照は不可。"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "関係の種類（例: b_roll_of / complements / supersedes / duplicate_of）。自由記述（enum にしない）。"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "$comment": "relations[] の item 形状は複数素材 fieldtest 未実施につき仮設計（2026-07-22 A1）。単素材 dogfood では検証不能だった（schema-observations.md §2）。乖離が見つかれば複数素材 fieldtest 後に改訂する。"
+    },
+    "flag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "evidence"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "orphan",
+            "unclear",
+            "trouble_overlap"
+          ],
+          "$comment": "追記のみ進化の原則で将来拡張する（既存値は変更・削除しない）。"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "$ref": "#/$defs/seconds",
+          "description": "区間を持たない flag を許すため省略可。"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds",
+          "description": "区間を持たない flag を許すため省略可。"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "$comment": "意味制約として、start と end は両方省略か両方指定のいずれかとし、両方指定時は end > start とする。この条件は検証手順（CLI）で確認する。"
+    },
+    "arcEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order",
+        "title",
+        "refs",
+        "purpose",
+        "evidence"
+      ],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "構成順。arc 内で一意。"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/arcRef"
+          },
+          "description": "このエントリが参照する素材区間。1 件以上必須。"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "arcRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset"
+      ],
+      "properties": {
+        "asset": {
+          "type": "string",
+          "minLength": 1,
+          "description": "assets[].ref への参照。"
+        },
+        "start": {
+          "$ref": "#/$defs/seconds"
+        },
+        "end": {
+          "$ref": "#/$defs/seconds"
+        }
+      }
+    },
+    "openQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "question",
+        "fills",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "open_questions 内で一意。"
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fills": {
+          "type": "string",
+          "minLength": 1,
+          "description": "この質問が埋める情報ギャップ（何のために聞くか）。"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "answered"
+          ]
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "status が answered のとき必須。open のときは省略する（null にしない）。"
+        }
+      },
+      "$comment": "意味制約として、status が answered のとき answer は必須、open のとき省略する。この条件は検証手順（CLI）で確認する。"
+    }
+  }
+}

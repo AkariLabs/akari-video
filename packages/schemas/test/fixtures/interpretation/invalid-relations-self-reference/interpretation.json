@@ -1,0 +1,130 @@
+{
+  "version": 0,
+  "inputs": {
+    "analyses": [
+      {
+        "path": "materials/interview-a/analysis.json",
+        "source": "analyze-footage v0 出力（インタビュー本編、単一話者）"
+      },
+      {
+        "path": "materials/broll-park/analysis.json",
+        "source": "analyze-footage v0 出力（無音 B ロール、公園ドローン映像）"
+      }
+    ],
+    "context": {
+      "past_projects": [
+        {
+          "ref": "2025-vlog-series",
+          "notes": "同チャンネルの過去シリーズ。テロップ書式とテンポ感の参照元。"
+        }
+      ],
+      "interview": [
+        {
+          "q": "公園ロケの撮影日はいつですか",
+          "a": "2026-06-30 の午前中です。"
+        }
+      ],
+      "notes": "intake.json は本プロジェクトでは未作成（intake v2 導入前の案件）。"
+    }
+  },
+  "assets": [
+    {
+      "ref": "interview-a",
+      "role": "primary_talk",
+      "summary": "地域おこし協力隊としての活動を振り返るインタビュー本編。",
+      "sections": [
+        {
+          "id": "sec-01",
+          "start": 0,
+          "end": 120,
+          "title": "自己紹介",
+          "role": "cold_open_framing",
+          "evidence": "transcript 0-45s: 『地域おこし協力隊としてこの町に来て3年になります』"
+        },
+        {
+          "id": "sec-02",
+          "start": 120,
+          "end": 360,
+          "title": "活動の転機",
+          "role": "origin_story_and_positioning",
+          "evidence": "transcript 130-210s: 『最初は全く上手くいかず、住民の方との関係づくりからやり直しました』"
+        }
+      ],
+      "relations": [
+        {
+          "target": "interview-a",
+          "kind": "b_roll_of",
+          "evidence": "transcript 145-150s『あの公園で毎週イベントをやっていて』が broll-park の映像内容と対応",
+          "note": "sec-02 の語りを補完する B ロール候補"
+        }
+      ],
+      "flags": [
+        {
+          "type": "trouble_overlap",
+          "start": 300,
+          "end": 306.5,
+          "note": "マイクノイズが数秒混入するが発話内容自体は本筋と無関係ではない",
+          "evidence": "transcript 300.0-306.5 セグメント本文『（ノイズ）...すみません続けます』"
+        },
+        {
+          "type": "unclear",
+          "note": "収録場所の言及が『あの公園』とだけで具体名が無く、broll-park 素材との対応は 2 パス目の推定にとどまる",
+          "evidence": "transcript 145-150s『あの公園で毎週イベントをやっていて』（固有名詞なし）"
+        }
+      ]
+    },
+    {
+      "ref": "broll-park",
+      "role": "supporting_broll",
+      "summary": "無音の公園ドローン映像。BGM 前提の B ロール素材。",
+      "relations": [],
+      "flags": []
+    }
+  ],
+  "arc": [
+    {
+      "order": 1,
+      "title": "導入",
+      "refs": [
+        {
+          "asset": "interview-a",
+          "start": 0,
+          "end": 120
+        }
+      ],
+      "purpose": "視聴者に語り手の立場を先出しする導入",
+      "evidence": "transcript 0-45s: 『地域おこし協力隊としてこの町に来て3年になります』"
+    },
+    {
+      "order": 2,
+      "title": "活動の転機とロケ地の情景",
+      "refs": [
+        {
+          "asset": "interview-a",
+          "start": 120,
+          "end": 360
+        },
+        {
+          "asset": "broll-park"
+        }
+      ],
+      "purpose": "関係づくりの苦労を語る本編に、語りの舞台となった公園の情景を B ロールとして重ねる",
+      "evidence": "transcript 145-150s『あの公園で毎週イベントをやっていて』"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "oq-01",
+      "question": "公園ロケの撮影日はいつですか",
+      "fills": "broll-park の撮影日をメタデータとして記録するため",
+      "status": "answered",
+      "answer": "2026-06-30 の午前中（本人確認済み）。"
+    },
+    {
+      "id": "oq-02",
+      "question": "マイクノイズ（300.0-306.5s）の発生原因（屋外の環境音か収録機材由来か）を示す記録はあるか",
+      "fills": "trouble_overlap の事実関係を補強する一次情報の有無確認",
+      "status": "open"
+    }
+  ]
+}
