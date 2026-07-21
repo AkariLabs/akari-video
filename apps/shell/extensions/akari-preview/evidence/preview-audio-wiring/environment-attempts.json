@@ -1,0 +1,22 @@
+{
+  "electron": {
+    "command": "Electron apps/shell fixture --remote-debugging-port=9364 --no-sandbox",
+    "result": "BLOCKED",
+    "exit_code": 134,
+    "detail": "The process exited before emitting logs or opening the CDP port."
+  },
+  "headless_chrome": {
+    "command": "Google Chrome via puppeteer-core --headless --no-sandbox",
+    "result": "BLOCKED",
+    "detail": "The browser child process was rejected before startup; stderr was empty."
+  },
+  "local_http": {
+    "result": "BLOCKED",
+    "error": "listen EPERM: operation not permitted 127.0.0.1"
+  },
+  "fallback": {
+    "result": "PASS",
+    "command": "node run-audio-controller-simulation.mjs",
+    "detail": "Executed the hostAdapterScript template extracted from the edited TypeScript against a deterministic Web Audio test double."
+  }
+}

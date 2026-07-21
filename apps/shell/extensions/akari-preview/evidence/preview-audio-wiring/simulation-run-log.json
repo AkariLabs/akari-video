@@ -1,0 +1,151 @@
+{
+  "records": [
+    {
+      "at": "2026-07-21T04:16:28.521Z",
+      "step": "simulated-audio-decoded",
+      "contextState": "suspended",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 0,
+        "sfx": 0,
+        "narration": 0
+      },
+      "masterGainLinear": 1,
+      "bgmGainLinear": null,
+      "duckGainDb": null
+    },
+    {
+      "at": "2026-07-21T04:16:28.552Z",
+      "step": "simulated-audio-scheduled",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 1,
+        "sfx": 1,
+        "narration": 1
+      },
+      "masterGainLinear": 1,
+      "bgmGainLinear": 0.12589254117941673,
+      "duckGainDb": 0,
+      "starts": [
+        {
+          "when": 10.015,
+          "offset": 0,
+          "loop": true,
+          "bufferDuration": 1.5
+        },
+        {
+          "when": 11.015,
+          "offset": 0,
+          "duration": 0.3,
+          "loop": false,
+          "bufferDuration": 0.3
+        },
+        {
+          "when": 12.015,
+          "offset": 0,
+          "duration": 2,
+          "loop": false,
+          "bufferDuration": 2
+        }
+      ]
+    },
+    {
+      "at": "2026-07-21T04:16:28.583Z",
+      "step": "simulated-bgm-ducked",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 1,
+        "sfx": 1,
+        "narration": 1
+      },
+      "masterGainLinear": 1,
+      "bgmGainLinear": 0.03162277660168379,
+      "duckGainDb": -12,
+      "expectedLinear": 0.03162277660168379
+    },
+    {
+      "at": "2026-07-21T04:16:28.608Z",
+      "step": "simulated-master-gain-mirror",
+      "volumeGain": 0.4,
+      "mutedGain": 0
+    },
+    {
+      "at": "2026-07-21T04:16:28.655Z",
+      "step": "simulated-no-audio-regression",
+      "state": {
+        "disabled": true
+      },
+      "contextsBeforeNoAudio": 1,
+      "contextsAfterNoAudio": 1
+    },
+    {
+      "at": "2026-07-21T04:16:28.656Z",
+      "step": "ALL-PASS",
+      "source": "hostAdapterScript extracted from edited TypeScript",
+      "decoded": {
+        "bgm": 1,
+        "sfx": 1,
+        "narration": 1
+      },
+      "duckGainDb": -12,
+      "missingFileSkipped": true,
+      "noAudioContextForAudioLessProject": true
+    }
+  ],
+  "warnings": [
+    "[akari-preview] sfx sfx-missing unavailable (fetch/decode failed); skipping element Error: fetch status=404"
+  ]
+}

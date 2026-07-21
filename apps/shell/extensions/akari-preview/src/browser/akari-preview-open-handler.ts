@@ -33,10 +33,31 @@ interface EditSummaryCut {
     out: number;
 }
 
+interface EditSummaryAudioSource {
+    src: string;
+    gainDb: number;
+}
+
+interface EditSummaryBgm extends EditSummaryAudioSource {
+    ducking: boolean;
+}
+
+interface EditSummaryTimedAudio extends EditSummaryAudioSource {
+    id: string;
+    t: number;
+}
+
+interface EditSummaryAudio {
+    bgm?: EditSummaryBgm;
+    sfx: EditSummaryTimedAudio[];
+    narration: EditSummaryTimedAudio[];
+}
+
 interface EditSummary {
     output: { width: number; height: number; fps?: number };
     overlays: EditSummaryOverlay[];
     cuts: EditSummaryCut[];
+    audio?: EditSummaryAudio;
 }
 
 interface PreviewModel {
@@ -573,6 +594,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     vars: this.stringRecord(value?.vars)
                 });
             }
+            const audio = await this.resolveAudioAssets(edit?.audio, editUri, assetStreams, assetUris);
             return {
                 editUri,
                 overlayUris,
@@ -583,7 +605,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 summary: {
                     output: { width, height, fps: this.positiveNumber(edit?.output?.fps, 30) },
                     overlays,
-                    cuts
+                    cuts,
+                    ...(audio ? { audio } : {})
                 }
             };
         } catch (error) {
@@ -599,6 +622,124 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 captions
             };
         }
+    }
+
+    protected async resolveAudioAssets(
+        value: unknown,
+        editUri: URI,
+        assetStreams: Map<string, { id: string; url: string }>,
+        assetUris: URI[]
+    ): Promise<EditSummaryAudio | undefined> {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            if (value !== undefined) {
+                console.warn('[akari-preview] audio セクションを無視しました（object ではありません）');
+            }
+            return undefined;
+        }
+        const audio = value as { bgm?: unknown; sfx?: unknown; narration?: unknown };
+        const resolveSource = async (pathValue: unknown, label: string): Promise<string | undefined> => {
+            if (typeof pathValue !== 'string' || !pathValue.trim()) {
+                console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
+                return undefined;
+            }
+            const assetUri = pathValue.startsWith('file:')
+                ? new URI(pathValue)
+                : pathValue.startsWith('/')
+                    ? new URI(pathValue).withScheme('file')
+                    : editUri.parent.resolve(pathValue);
+            const key = assetUri.toString();
+            try {
+                let stream = assetStreams.get(key);
+                if (!stream) {
+                    stream = await this.previewService.createAssetStream({ assetUri: key });
+                    assetStreams.set(key, stream);
+                    assetUris.push(assetUri);
+                }
+                return stream.url;
+            } catch (error) {
+                console.warn(`[akari-preview] ${label} を無視しました（音声ファイルを配信できません）`, error);
+                return undefined;
+            }
+        };
+        const gainDb = (gainValue: unknown, label: string): number | undefined => {
+            if (gainValue === undefined) {
+                return 0;
+            }
+            if (typeof gainValue !== 'number' || !Number.isFinite(gainValue)) {
+                console.warn(`[akari-preview] ${label} を無視しました（gain_db が非有限または number ではありません）`);
+                return undefined;
+            }
+            const clamped = Math.max(-60, Math.min(12, gainValue));
+            if (clamped !== gainValue) {
+                console.warn(`[akari-preview] ${label}.gain_db を [-60, 12] にクランプしました`, gainValue);
+            }
+            return clamped;
+        };
+        const timed = async (items: unknown, kind: 'sfx' | 'narration'): Promise<EditSummaryTimedAudio[]> => {
+            if (items === undefined) {
+                return [];
+            }
+            if (!Array.isArray(items)) {
+                console.warn(`[akari-preview] audio.${kind} を無視しました（array ではありません）`);
+                return [];
+            }
+            const resolved: EditSummaryTimedAudio[] = [];
+            for (let index = 0; index < items.length; index += 1) {
+                const item = items[index] as { id?: unknown; path?: unknown; t?: unknown; gain_db?: unknown } | undefined;
+                const label = kind === 'narration' && typeof item?.id === 'string' && item.id
+                    ? `audio.narration ${item.id}`
+                    : `audio.${kind}[${index}]`;
+                if (!item || typeof item !== 'object') {
+                    console.warn(`[akari-preview] ${label} を無視しました（object ではありません）`);
+                    continue;
+                }
+                if (kind === 'narration' && (typeof item.id !== 'string' || !item.id)) {
+                    console.warn(`[akari-preview] ${label} を無視しました（id 不正）`);
+                    continue;
+                }
+                if (typeof item.t !== 'number' || !Number.isFinite(item.t) || item.t < 0) {
+                    console.warn(`[akari-preview] ${label} を無視しました（t が非有限・負値・number ではありません）`);
+                    continue;
+                }
+                const normalizedGain = gainDb(item.gain_db, label);
+                if (normalizedGain === undefined) {
+                    continue;
+                }
+                const src = await resolveSource(item.path, label);
+                if (!src) {
+                    continue;
+                }
+                resolved.push({
+                    id: kind === 'narration' ? String(item.id) : `sfx-${index + 1}`,
+                    src,
+                    t: item.t,
+                    gainDb: normalizedGain
+                });
+            }
+            return resolved;
+        };
+
+        let bgm: EditSummaryBgm | undefined;
+        if (audio.bgm !== undefined) {
+            const rawBgm = audio.bgm as { path?: unknown; gain_db?: unknown; ducking?: unknown } | undefined;
+            if (!rawBgm || typeof rawBgm !== 'object' || Array.isArray(rawBgm)) {
+                console.warn('[akari-preview] audio.bgm を無視しました（object ではありません）');
+            } else {
+                const normalizedGain = gainDb(rawBgm.gain_db, 'audio.bgm');
+                if (normalizedGain !== undefined) {
+                    const src = await resolveSource(rawBgm.path, 'audio.bgm');
+                    if (src) {
+                        bgm = { src, gainDb: normalizedGain, ducking: rawBgm.ducking === true };
+                    }
+                }
+            }
+        }
+        const sfx = await timed(audio.sfx, 'sfx');
+        const narration = await timed(audio.narration, 'narration');
+        if (!bgm && sfx.length === 0 && narration.length === 0) {
+            return undefined;
+        }
+        return { bgm, sfx, narration };
     }
 
     protected async resolveThreeSceneAssets(
@@ -1016,6 +1157,244 @@ body { display: grid; place-items: center; padding: 32px; }
                     vscode.postMessage({ type: 'akari-preview-waveform-fetch', requestId });
                 })
             };
+            const createPreviewAudio = () => {
+                const config = initial.summary && initial.summary.audio;
+                const hasAudio = config && (config.bgm
+                    || (Array.isArray(config.sfx) && config.sfx.length > 0)
+                    || (Array.isArray(config.narration) && config.narration.length > 0));
+                if (!hasAudio) return null;
+
+                const video = document.getElementById('preview-video');
+                let context;
+                try {
+                    context = new AudioContext();
+                } catch (error) {
+                    console.warn('[akari-preview] audio graph unavailable; continuing with video only', error);
+                    return null;
+                }
+                const masterGain = context.createGain();
+                masterGain.connect(context.destination);
+                const decoded = { bgm: null, sfx: [], narration: [] };
+                let timelineDuration = 0;
+                let loadPromise = null;
+                let generation = 0;
+                let active = [];
+                let bgmGain = null;
+                let lastDuckGainDb = null;
+
+                const dbToLinear = gainDb => Math.pow(10, gainDb / 20);
+                const syncMasterGain = () => {
+                    const volume = Number.isFinite(video.volume) ? Math.max(0, Math.min(1, video.volume)) : 1;
+                    masterGain.gain.value = video.muted ? 0 : volume;
+                };
+                const warnUnavailable = (kind, id, error) => {
+                    console.warn('[akari-preview] ' + kind + ' ' + id
+                        + ' unavailable (fetch/decode failed); skipping element', error);
+                };
+                const decodeOne = async (kind, spec) => {
+                    try {
+                        const response = await fetch(spec.src);
+                        if (!response.ok) throw new Error('fetch status=' + response.status);
+                        const buffer = await context.decodeAudioData(await response.arrayBuffer());
+                        if (!Number.isFinite(buffer.duration) || buffer.duration <= 0) {
+                            throw new Error('decoded audio duration is invalid');
+                        }
+                        return { ...spec, buffer, durationSec: buffer.duration };
+                    } catch (error) {
+                        warnUnavailable(kind, spec.id || kind, error);
+                        return null;
+                    }
+                };
+                const load = duration => {
+                    if (Number.isFinite(duration) && duration > 0) timelineDuration = duration;
+                    if (loadPromise || timelineDuration <= 0) return loadPromise || Promise.resolve();
+                    loadPromise = (async () => {
+                        const timed = async (kind, specs) => {
+                            const valid = [];
+                            for (const spec of Array.isArray(specs) ? specs : []) {
+                                if (!Number.isFinite(spec.t) || spec.t < 0 || spec.t >= timelineDuration) {
+                                    console.warn('[akari-preview] ' + kind + ' ' + spec.id
+                                        + ' skipped: t is outside timeline duration');
+                                    continue;
+                                }
+                                valid.push(spec);
+                            }
+                            return (await Promise.all(valid.map(spec => decodeOne(kind, spec)))).filter(Boolean);
+                        };
+                        const [bgm, sfx, narration] = await Promise.all([
+                            config.bgm ? decodeOne('bgm', { ...config.bgm, id: 'bgm' }) : Promise.resolve(null),
+                            timed('sfx', config.sfx),
+                            timed('narration', config.narration)
+                        ]);
+                        decoded.bgm = bgm;
+                        decoded.sfx = sfx;
+                        decoded.narration = narration;
+                        console.info('[akari-preview] audio graph ready', {
+                            contextState: context.state,
+                            timelineDuration,
+                            decoded: {
+                                bgm: Boolean(decoded.bgm),
+                                sfx: decoded.sfx.map(item => item.id),
+                                narration: decoded.narration.map(item => item.id)
+                            }
+                        });
+                    })();
+                    return loadPromise;
+                };
+                const detachActive = item => {
+                    active = active.filter(candidate => candidate !== item);
+                    try { item.source.disconnect(); } catch (_error) { /* already detached */ }
+                    try { item.gain.disconnect(); } catch (_error) { /* already detached */ }
+                };
+                const stopSources = () => {
+                    const sources = active;
+                    active = [];
+                    bgmGain = null;
+                    lastDuckGainDb = null;
+                    for (const item of sources) {
+                        item.source.onended = null;
+                        try { item.source.stop(); } catch (_error) { /* already stopped */ }
+                        try { item.source.disconnect(); } catch (_error) { /* already detached */ }
+                        try { item.gain.disconnect(); } catch (_error) { /* already detached */ }
+                    }
+                };
+                const registerSource = (source, gain, kind, id) => {
+                    const item = { source, gain, kind, id };
+                    active.push(item);
+                    source.onended = () => detachActive(item);
+                    return item;
+                };
+                const duckGainDbAt = timelineTime => {
+                    if (!decoded.bgm || decoded.bgm.ducking !== true) return 0;
+                    return decoded.narration.some(item => timelineTime >= item.t
+                        && timelineTime < item.t + item.durationSec) ? -12 : 0;
+                };
+                const applyBgmDuck = timelineTime => {
+                    if (!decoded.bgm) return;
+                    const duckGainDb = duckGainDbAt(timelineTime);
+                    if (bgmGain) {
+                        bgmGain.gain.value = dbToLinear(decoded.bgm.gainDb + duckGainDb);
+                    }
+                    if (duckGainDb !== lastDuckGainDb) {
+                        lastDuckGainDb = duckGainDb;
+                        console.info('[akari-preview] bgm duck gain', {
+                            timelineTime,
+                            baseGainDb: decoded.bgm ? decoded.bgm.gainDb : null,
+                            duckGainDb,
+                            appliedGainDb: decoded.bgm ? decoded.bgm.gainDb + duckGainDb : null,
+                            appliedLinear: decoded.bgm ? dbToLinear(decoded.bgm.gainDb + duckGainDb) : null
+                        });
+                    }
+                };
+                const scheduleFrom = async timelineTime => {
+                    const scheduleGeneration = ++generation;
+                    stopSources();
+                    await load(timelineDuration);
+                    if (scheduleGeneration !== generation || video.paused || timelineDuration <= 0) return;
+                    const startAt = Math.max(0, Math.min(timelineDuration, timelineTime));
+                    const contextStart = context.currentTime + 0.015;
+                    const remaining = timelineDuration - startAt;
+                    let scheduledBgm = false;
+                    let scheduledSfx = 0;
+                    let scheduledNarration = 0;
+                    if (decoded.bgm && remaining > 0) {
+                        try {
+                            const source = context.createBufferSource();
+                            const gain = context.createGain();
+                            source.buffer = decoded.bgm.buffer;
+                            source.loop = true;
+                            source.connect(gain);
+                            gain.connect(masterGain);
+                            bgmGain = gain;
+                            applyBgmDuck(startAt);
+                            registerSource(source, gain, 'bgm', 'bgm');
+                            source.start(contextStart, startAt % decoded.bgm.durationSec);
+                            source.stop(contextStart + remaining);
+                            scheduledBgm = true;
+                        } catch (error) {
+                            warnUnavailable('bgm', 'bgm', error);
+                            bgmGain = null;
+                        }
+                    }
+                    const scheduleTimed = (kind, item) => {
+                        const end = item.t + item.durationSec;
+                        if (end <= startAt || item.t >= timelineDuration) return false;
+                        const delay = Math.max(0, item.t - startAt);
+                        const offset = Math.max(0, startAt - item.t);
+                        const available = Math.min(item.durationSec - offset, remaining - delay);
+                        if (available <= 0) return false;
+                        try {
+                            const source = context.createBufferSource();
+                            const gain = context.createGain();
+                            source.buffer = item.buffer;
+                            gain.gain.value = dbToLinear(item.gainDb);
+                            source.connect(gain);
+                            gain.connect(masterGain);
+                            registerSource(source, gain, kind, item.id);
+                            source.start(contextStart + delay, offset, available);
+                            return true;
+                        } catch (error) {
+                            warnUnavailable(kind, item.id, error);
+                            return false;
+                        }
+                    };
+                    for (const item of decoded.sfx) {
+                        if (scheduleTimed('sfx', item)) scheduledSfx += 1;
+                    }
+                    for (const item of decoded.narration) {
+                        if (scheduleTimed('narration', item)) scheduledNarration += 1;
+                    }
+                    console.info('[akari-preview] audio scheduled', {
+                        timelineTime: startAt,
+                        bgm: scheduledBgm,
+                        sfx: scheduledSfx,
+                        narration: scheduledNarration
+                    });
+                };
+                const controller = {
+                    setTimelineDuration: duration => load(duration),
+                    resume: () => context.resume().catch(error => {
+                        console.warn('[akari-preview] AudioContext resume failed; continuing with video only', error);
+                    }),
+                    playFrom: timelineTime => controller.resume().then(() => scheduleFrom(timelineTime)),
+                    pause: () => {
+                        generation += 1;
+                        stopSources();
+                    },
+                    tick: (timelineTime, playing) => {
+                        syncMasterGain();
+                        if (playing) applyBgmDuck(timelineTime);
+                    },
+                    debugState: () => ({
+                        contextState: context.state,
+                        timelineDuration,
+                        decoded: {
+                            bgm: Boolean(decoded.bgm),
+                            sfx: decoded.sfx.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec })),
+                            narration: decoded.narration.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec }))
+                        },
+                        active: {
+                            bgm: active.filter(item => item.kind === 'bgm').length,
+                            sfx: active.filter(item => item.kind === 'sfx').length,
+                            narration: active.filter(item => item.kind === 'narration').length
+                        },
+                        masterGainLinear: masterGain.gain.value,
+                        bgmGainLinear: bgmGain ? bgmGain.gain.value : null,
+                        duckGainDb: lastDuckGainDb
+                    })
+                };
+                syncMasterGain();
+                video.addEventListener('volumechange', syncMasterGain);
+                window.addEventListener('pagehide', () => {
+                    controller.pause();
+                    void context.close().catch(() => undefined);
+                }, { once: true });
+                return controller;
+            };
+            window.akari.previewAudio = createPreviewAudio();
+            window.akari.previewAudioDebug = () => window.akari.previewAudio
+                ? window.akari.previewAudio.debugState()
+                : { disabled: true };
             window.akari.stageScale = () => displayScale;
             window.akari.playbackTick = (time, playing, immediate = false) => {
                 const now = performance.now();
@@ -1192,6 +1571,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 totalTimelineDuration = accumulated;
                 keepRangesReady = keepRanges.length > 0;
+                if (window.akari.previewAudio && totalTimelineDuration > 0) {
+                    void window.akari.previewAudio.setTimelineDuration(totalTimelineDuration);
+                }
                 if (currentSegmentIndex >= keepRanges.length) {
                     currentSegmentIndex = Math.max(0, keepRanges.length - 1);
                 }
@@ -1469,6 +1851,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
                     : (video.currentTime || 0);
                 window.akari.runtime.tick(timelineTime, !video.paused);
+                if (window.akari.previewAudio) {
+                    window.akari.previewAudio.tick(timelineTime, !video.paused);
+                }
                 // タイムライン横軸と同じ source 秒を送る（runtime overlay は timeline 秒のまま）。
                 window.akari.playbackTick(video.currentTime || 0, !video.paused, immediatePlaybackTick);
                 renderCaption();
@@ -1523,7 +1908,10 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const togglePlayback = () => {
                 if (playToggle.disabled) return;
-                if (video.paused) void video.play().catch(error => console.error('[akari-preview] playback failed', error));
+                if (video.paused) {
+                    if (window.akari.previewAudio) void window.akari.previewAudio.resume();
+                    void video.play().catch(error => console.error('[akari-preview] playback failed', error));
+                }
                 else video.pause();
             };
             const isEditable = element => element instanceof HTMLElement
@@ -1734,11 +2122,32 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 updateTransport();
             });
-            video.addEventListener('play', startAnimation);
-            video.addEventListener('pause', stopAnimation);
-            video.addEventListener('ended', stopAnimation);
+            video.addEventListener('play', () => {
+                const timelineTime = keepRangesReady
+                    ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
+                    : (video.currentTime || 0);
+                if (window.akari.previewAudio) void window.akari.previewAudio.playFrom(timelineTime);
+                startAnimation();
+            });
+            video.addEventListener('pause', () => {
+                if (window.akari.previewAudio) window.akari.previewAudio.pause();
+                stopAnimation();
+            });
+            video.addEventListener('ended', () => {
+                if (window.akari.previewAudio) window.akari.previewAudio.pause();
+                stopAnimation();
+            });
+            video.addEventListener('seeking', () => {
+                if (window.akari.previewAudio) window.akari.previewAudio.pause();
+            });
             video.addEventListener('seeked', () => {
                 tick(true);
+                if (!video.paused && window.akari.previewAudio) {
+                    const timelineTime = keepRangesReady
+                        ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
+                        : (video.currentTime || 0);
+                    void window.akari.previewAudio.playFrom(timelineTime);
+                }
                 applyRequestedOverlaySelection();
             });
             video.addEventListener('timeupdate', () => tick());
