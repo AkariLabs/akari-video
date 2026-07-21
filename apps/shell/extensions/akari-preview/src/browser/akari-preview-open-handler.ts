@@ -74,6 +74,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewVideoUri?: URI;
     akariPreviewCaptionsUri?: URI;
     akariPreviewTrackedResources?: Set<string>;
+    akariPreviewTrackedSuffixes?: Set<string>;
     akariPreviewStreamId?: string;
     akariPreviewAssetStreamIds?: string[];
     akariPreviewSeekable?: boolean;
@@ -358,17 +359,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }));
         disposables.push(this.fileService.onDidFilesChange(event => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
-            const captionsKey = widget.akariPreviewCaptionsUri?.toString();
+            const trackedSuffixes = widget.akariPreviewTrackedSuffixes ?? new Set<string>();
+            const captionsUri = widget.akariPreviewCaptionsUri;
+            const captionsKey = captionsUri?.toString();
+            const captionsSuffix = captionsUri ? this.resourceSuffix(captionsUri) : undefined;
             let captionsChanged = false;
             let previewChanged = false;
             for (const change of event.changes) {
                 const key = change.resource.toString();
+                // ワークスペースルートの watcher は登録時に realpath() で解決される
+                // （@theia/filesystem の ParcelWatcher、拡張側からは変更不可）ため、シンボリック
+                // リンクを跨ぐワークスペース（例: iCloud Desktop/Documents 同期）では通知される
+                // URI の先頭が videoUri/editUri 生成時と食い違う。basename + 直上ディレクトリ名の
+                // suffix 一致もフォールバックとして見る。
+                const suffix = this.resourceSuffix(change.resource);
                 const writtenAt = this.recentWrites.get(key) ?? 0;
-                if (key === captionsKey) {
+                if (key === captionsKey || (captionsSuffix !== undefined && suffix === captionsSuffix)) {
                     captionsChanged ||= Date.now() - writtenAt > 1000;
                     continue;
                 }
-                if (tracked.has(key)) {
+                if (tracked.has(key) || trackedSuffixes.has(suffix)) {
                     previewChanged ||= Date.now() - writtenAt > 1000;
                     continue;
                 }
@@ -433,11 +443,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected queueRefresh(widget: PreviewWidgetMarker, videoUri: URI): void {
+        console.info(`[akari-preview] refresh queued for ${videoUri.toString()}`);
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         widget.akariPreviewRefresh = previous.then(
             () => this.refreshPreview(widget, videoUri),
             () => this.refreshPreview(widget, videoUri)
         ).catch(error => console.error('[akari-preview] failed to refresh preview', error));
+    }
+
+    // basename + 直上ディレクトリ名からなる比較キー。ワークスペースルートの watcher が
+    // realpath() 済みの絶対パスで通知してくる場合でも、シンボリックリンクを跨がない相対的な
+    // 末尾は一致するため、tracked リソースの判定をこの suffix でも突き合わせられる。
+    protected resourceSuffix(uri: URI): string {
+        return `${uri.path.dir.base}/${uri.path.base}`;
     }
 
     protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
@@ -475,12 +493,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewAssetStreamIds = model.assetStreamIds;
         widget.akariPreviewEditUri = model.editUri;
         widget.akariPreviewCaptionsUri = model.captionsUri;
-        widget.akariPreviewTrackedResources = new Set([
-            ...(model.editUri ? [model.editUri.toString()] : []),
-            ...(model.captionsUri ? [model.captionsUri.toString()] : []),
-            ...model.overlayUris.map(uri => uri.toString()),
-            ...model.assetUris.map(uri => uri.toString())
-        ]);
+        const trackedUris = [
+            ...(model.editUri ? [model.editUri] : []),
+            ...(model.captionsUri ? [model.captionsUri] : []),
+            ...model.overlayUris,
+            ...model.assetUris
+        ];
+        widget.akariPreviewTrackedResources = new Set(trackedUris.map(uri => uri.toString()));
+        widget.akariPreviewTrackedSuffixes = new Set(trackedUris.map(uri => this.resourceSuffix(uri)));
         widget.viewType = 'akari.preview';
         widget.title.label = videoUri.path.base;
         widget.title.caption = videoUri.toString();
@@ -504,6 +524,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewEditUri = undefined;
         widget.akariPreviewCaptionsUri = undefined;
         widget.akariPreviewTrackedResources = new Set();
+        widget.akariPreviewTrackedSuffixes = new Set();
         widget.viewType = 'akari.preview';
         widget.title.label = videoUri.path.base;
         widget.title.caption = videoUri.toString();
