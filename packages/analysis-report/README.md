@@ -2,8 +2,7 @@
 
 分析レポート v1（テンプレ + データ分離・読み取り専用）。外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ）。
 
-契約: `planning/contract-2026-07-22-analysis-report.md`（内部リポ）§2 / タスク
-`tasks/2026-07-22-analysis-report-template/task.md`（内部リポ）。
+契約・タスク定義は内部リポ `akari-video-internal`（非公開）で管理。
 
 ## 構成
 
