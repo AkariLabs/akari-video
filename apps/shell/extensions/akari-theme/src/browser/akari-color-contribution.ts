@@ -4,7 +4,7 @@ import { ColorRegistry } from '@theia/core/lib/browser/color-registry';
 import { ColorDefinition } from '@theia/core/lib/common/color';
 
 // トークン出典: akari-video-lp/index.html の :root（LP と同一の黒×オレンジ配色）。
-// task 契約 tasks/2026-07-21-theme-orange/task.md §2 の表がこのファイル内の値の正典。
+// 値の正典は本ファイルの TOKEN 表（内部 task 契約の表と同値で維持する）。
 const TOKEN = {
     bgDeep: '#050505',
     bg: '#0a0a0a',
