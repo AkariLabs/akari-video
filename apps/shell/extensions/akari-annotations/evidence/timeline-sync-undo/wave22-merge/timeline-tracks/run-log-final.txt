@@ -1,0 +1,46 @@
+[connected-main] {"connected":true}
+[assertion-ok] {"message":"timeline widget opened via command palette"}
+[AC1-lane-band-rects] {"bands":[{"lane":"captions","hidden":false,"top":501.7265625,"height":19},{"lane":"track-2","hidden":false,"top":525.7265625,"height":19},{"lane":"track-1","hidden":false,"top":549.7265625,"height":19},{"lane":"track-0","hidden":false,"top":573.7265625,"height":19},{"lane":"clips","hidden":false,"top":597.7265625,"height":37}]}
+[assertion-ok] {"message":"AC1: captions/track-2/track-1/track-0/clips bands all present","bands":[{"lane":"captions","hidden":false,"top":501.7265625,"height":19},{"lane":"track-2","hidden":false,"top":525.7265625,"height":19},{"lane":"track-1","hidden":false,"top":549.7265625,"height":19},{"lane":"track-0","hidden":false,"top":573.7265625,"height":19},{"lane":"clips","hidden":false,"top":597.7265625,"height":37}]}
+[assertion-ok] {"message":"AC1: vertical order is captions < track-2 < track-1 < track-0 < clips (top-down)","captionsTop":501.7265625,"track2Top":525.7265625,"track1Top":549.7265625,"track0Top":573.7265625,"clipsTop":597.7265625}
+[AC2-ov-d-missing-track] {"ovDBefore":{"track":"0","opacity":"","top":573.7265625,"left":849.3515625,"height":16}}
+[assertion-ok] {"message":"AC2: overlay with no track field renders in track-0 row","ovDBefore":{"track":"0","opacity":"","top":573.7265625,"left":849.3515625,"height":16}}
+[assertion-ok] {"message":"developer mode enabled (required for standard Explorer tree)","nowChecked":true}
+[opened-preview-tab] {"found":true,"x":68,"y":314}
+[z-order-before-drag] {"a":{"zIndex":"10","track":"0","display":"block"},"b":{"zIndex":"11","track":"1","display":"block"}}
+[assertion-ok] {"message":"z-order precondition: ov-b (track1) starts in front of ov-a (track0)","a":{"zIndex":"10","track":"0","display":"block"},"b":{"zIndex":"11","track":"1","display":"block"}}
+[AC3-AC4-drag-result] {"before":[{"id":"ov-a","track":0},{"id":"ov-b","track":1},{"id":"ov-c","track":2},{"id":"ov-d"}],"after":[{"id":"ov-a","track":3},{"id":"ov-b","track":1},{"id":"ov-c","track":2},{"id":"ov-d"}]}
+[assertion-ok] {"message":"AC3: vertical drag increases ov-a track number (moved to a higher/frontmost row)","before":0,"after":3}
+[assertion-ok] {"message":"AC4: dropping above the topmost row creates a new track = previous max + 1","maxTrackBefore":2,"newTrack":3}
+[assertion-ok] {"message":"AC3: unrelated overlays (ov-b, ov-c) keep their track values across the write-back","ovBAfter":1,"ovCAfter":2}
+[assertion-ok] {"message":"AC3: existing overlay ids remain textually present after the patch (string-patch discipline)"}
+[z-order-after-drag] {"a":{"zIndex":"13","track":"3","display":"block"},"b":{"zIndex":"11","track":"1","display":"block"}}
+[assertion-ok] {"message":"AC5: after the track change, ov-a (now higher track) renders in front of ov-b in the preview","a":{"zIndex":"13","track":"3","display":"block"},"b":{"zIndex":"11","track":"1","display":"block"}}
+[AC3-undo-restores-track] {"expected":0,"actual":0}
+[assertion-ok] {"message":"AC3: undo restores ov-a to its pre-drag track","expected":0,"actual":0}
+[assertion-ok] {"message":"AC3: redo re-applies the track change"}
+[assertion-ok] {"message":"track header eye button exists for the newly created track","newTrackLane":"track-3"}
+[AC7-track-eye-off-timeline] {"ovAItemStateHidden":{"track":"3","opacity":"0.28","top":525.7265625,"left":321.34375,"height":16},"hiddenBand":{"lane":"track-3","hidden":true,"top":525.7265625,"height":19}}
+[assertion-ok] {"message":"AC7: track eye OFF dims the timeline row and its overlay item","hiddenBand":{"lane":"track-3","hidden":true,"top":525.7265625,"height":19},"ovAItemStateHidden":{"track":"3","opacity":"0.28","top":525.7265625,"left":321.34375,"height":16}}
+[AC7-track-eye-off-preview] {"previewOvAHidden":{"zIndex":"13","track":"3","display":"none"}}
+[assertion-ok] {"message":"AC7: track eye OFF hides that track's overlay container in the preview","previewOvAHidden":{"zIndex":"13","track":"3","display":"none"}}
+[assertion-ok] {"message":"AC7: track eye back ON restores overlay visibility in the preview","previewOvAVisible":{"zIndex":"13","track":"3","display":"block"}}
+[AC7-captions-eye-off] {"captionPlateHidden":"hidden"}
+[assertion-ok] {"message":"AC7: captions eye OFF hides #caption-plate in the preview","captionPlateHidden":"hidden"}
+[assertion-ok] {"message":"AC7: captions eye back ON restores #caption-plate visibility","captionPlateVisible":"visible"}
+[AC6-speaker-off] {"mutedTrue":true}
+[assertion-ok] {"message":"AC6: speaker OFF sets preview video.muted = true","mutedTrue":true}
+[assertion-ok] {"message":"AC6: speaker back ON sets preview video.muted = false","mutedFalse":false}
+[regression-selection-sync] {"previewSelection":"ov-b","selectedItems":[{"kind":"overlay","id":"ov-b","className":"akari-annotations-strip-overlay akari-annotations-selected"}]}
+[assertion-ok] {"message":"regression: timeline overlay selection reflects into the preview webview","previewSelection":"ov-b","selectedItems":[{"kind":"overlay","id":"ov-b","className":"akari-annotations-strip-overlay akari-annotations-selected"}]}
+[regression-caption-paste] {"pastedCaption":{"id":"caption-copy","start":7.986395,"end":9.486395,"text":"first caption","speaker":null,"sourceRef":null,"edited":true}}
+[assertion-ok] {"message":"regression: caption paste inserts a new caption","pastedCaption":{"id":"caption-copy","start":7.986395,"end":9.486395,"text":"first caption","speaker":null,"sourceRef":null,"edited":true}}
+[assertion-ok] {"message":"regression: caption paste undo removes the inserted caption (one round trip complete)"}
+[regression-caption-horizontal-drag] {"before":1.7540714285714285,"after":2.5}
+[assertion-ok] {"message":"regression: caption horizontal drag changes captions[0].start","before":1.7540714285714285,"after":2.5}
+[regression-zoom-hud] {"cursorTimeError":0.011156808284024322,"threshold":0.06035502958579882,"contentBefore":699.9999999999999,"contentAfter":2366}
+[assertion-ok] {"message":"regression: ctrl+wheel zoomed in (content width grew)"}
+[assertion-ok] {"message":"regression: ctrl+wheel zoom keeps cursor time fixed within 2% of visible width","cursorTimeError":0.011156808284024322,"threshold":0.06035502958579882}
+[regression-playback-sync] {"beforePlayheadPx":1391.245604,"afterPlayheadPx":1653.1720659999999,"previewTime":8.671935}
+[assertion-ok] {"message":"regression: timeline playhead advances during preview playback","before":1391.245604,"after":1653.1720659999999}
+ALL ACCEPTANCE CRITERIA PASSED

@@ -20,7 +20,11 @@ const EVIDENCE_DIR = evidenceDirArg;
 const EXPORTS_DIR = path.join(WORKSPACE_DIR, 'exports');
 const EDIT_JSON_PATH = path.join(EXPORTS_DIR, 'edit.json');
 const CAPTIONS_JSON_PATH = path.join(EXPORTS_DIR, 'captions.json');
-const TOTAL_DURATION = 11.5 * 1.02; // matches totalDuration(): max(10, captions ends, cuts outs=11.5, overlay end, ann+1) * 1.02
+// Wave22 の出力軸転換 (timeline-sync-undo) 後、totalDuration() は cuts の (out-in) 尺合計
+// （0.5-3.5, 4-7, 7.5-11.5 の3区間 = 3+3+4 = 10秒、ギャップレス連結）とオーバーレイ終端
+// （ov-d: start9+duration1=10）の大きい方 * 1.02 になった（旧: cuts の source out 最終値
+// 11.5s ベースだった）。fixture (3 cuts: 3+3+4=10s, overlays end=10s) に合わせて修正。
+const TOTAL_DURATION = 10 * 1.02; // matches totalDuration(): max(cutsDuration=10, overlaysEnd=10) * 1.02
 
 const log = [];
 function record(step, data) {
@@ -57,8 +61,10 @@ const WIDGET_REFS = `(() => {
   const scrollbarTrack = w.children[2];
   const scrollbarThumb = scrollbarTrack.children[0];
   const strip = stripScroll.children[0];
-  const undoButton = toolbar.children[2];
-  const redoButton = toolbar.children[3];
+  // Wave22 のツールバー拡張（選択/分割/マグネットボタン追加）で undo/redo の子要素indexがずれた
+  // （旧: [2],[3] → 新: aria-label ベースで解決するのが安全。timeline-sync-undo の run-l1.mjs と同じ対応）。
+  const undoButton = toolbar.querySelector('[aria-label="元に戻す"]');
+  const redoButton = toolbar.querySelector('[aria-label="やり直す"]');
   const playhead = strip.children[0];
   const snapGuide = strip.children[1];
   const footer = w.children[4];
@@ -73,7 +79,8 @@ async function widgetState(main) {
     const refs = ${WIDGET_REFS};
     if (!refs) return { found: false };
     const stripRect = refs.strip.getBoundingClientRect();
-    const zoomPercent = Number((refs.toolbar.children[1].children[1].textContent || '100').replace('%', ''));
+    // 同上の理由で zoomHud も toolbar 内の位置がずれたため data-testid ベースで解決する。
+    const zoomPercent = Number((document.querySelector('[data-testid="akari-timeline-zoom-percent"]').textContent || '100').replace('%', ''));
     const visibleDuration = ${TOTAL_DURATION} * 100 / zoomPercent;
     const viewStart = ${TOTAL_DURATION} * (parseFloat(refs.scrollbarThumb.style.left) || 0) / 100;
     const pxPerSec = stripRect.width / visibleDuration;
@@ -273,19 +280,48 @@ async function main() {
     })()`);
     if (!gearIcon) throw new Error('settings gear icon not found');
     await realClick(main, gearIcon.x, gearIcon.y);
-    await sleep(500);
-    const checkbox = await evalOn(main, `(() => {
-      const cb = document.querySelector('input[aria-label="Developer mode"]');
-      if (!cb) return null;
-      const r = cb.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, checked: cb.checked };
-    })()`);
+    // 設定パネルが描画・安定するまで待つ（負荷が高い環境ではチェックボックスの座標取得が
+    // レンダリング完了前に走り、クリックが外れることがあるため widthチェック + リトライ）。
+    let checkbox = null;
+    for (let attempt = 0; attempt < 8 && !checkbox; attempt++) {
+      await sleep(300);
+      checkbox = await evalOn(main, `(() => {
+        const cb = Array.from(document.querySelectorAll('input[aria-label="Developer mode"]'))
+          .find(e => e.getBoundingClientRect().width > 0);
+        if (!cb) return null;
+        const r = cb.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, checked: cb.checked };
+      })()`);
+    }
     if (!checkbox) throw new Error('developer mode checkbox not found');
     if (!checkbox.checked) {
       await realClick(main, checkbox.x, checkbox.y);
       await sleep(300);
     }
-    const nowChecked = await evalOn(main, `document.querySelector('input[aria-label="Developer mode"]').checked`);
+    let nowChecked = await evalOn(main, `(() => {
+      const cb = Array.from(document.querySelectorAll('input[aria-label="Developer mode"]'))
+        .find(e => e.getBoundingClientRect().width > 0);
+      return cb ? cb.checked : null;
+    })()`);
+    for (let attempt = 0; attempt < 5 && nowChecked !== true; attempt++) {
+      await sleep(300);
+      const retryCheckbox = await evalOn(main, `(() => {
+        const cb = Array.from(document.querySelectorAll('input[aria-label="Developer mode"]'))
+          .find(e => e.getBoundingClientRect().width > 0);
+        if (!cb) return null;
+        const r = cb.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, checked: cb.checked };
+      })()`);
+      if (retryCheckbox && !retryCheckbox.checked) {
+        await realClick(main, retryCheckbox.x, retryCheckbox.y);
+        await sleep(300);
+      }
+      nowChecked = await evalOn(main, `(() => {
+        const cb = Array.from(document.querySelectorAll('input[aria-label="Developer mode"]'))
+          .find(e => e.getBoundingClientRect().width > 0);
+        return cb ? cb.checked : null;
+      })()`);
+    }
     assert(nowChecked === true, 'developer mode enabled (required for standard Explorer tree)', { nowChecked });
     await keyPress(main, { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
     await sleep(300);
@@ -552,7 +588,11 @@ async function main() {
   await focusWidgetToolbar(main);
   await keyPress(main, { key: 'c', code: 'KeyC', windowsVirtualKeyCode: 67, modifiers: 4 });
   await sleep(100);
-  const captionPasteX = await screenXForTime(main, 9.5);
+  // Wave22 で横軸が出力秒（cuts ギャップレス連結）になり総尺が 11.5s→10s へ縮んだため、
+  // caption-a（尺 1.5s）を旧位置 9.5s へペーストすると 9.5+1.5=11.0 > 10 で
+  // 「総尺を超える位置にはペーストできません」に弾かれる。新しい総尺に収まる位置へ変更する
+  // （プロダクト側の検証ロジック自体は無変更・意図どおり）。
+  const captionPasteX = await screenXForTime(main, TOTAL_DURATION / 1.02 - 2);
   const stateForCaptionPaste = await widgetState(main);
   await realClick(main, captionPasteX, stateForCaptionPaste.stripRect.top + 7);
   await sleep(150);
@@ -618,14 +658,19 @@ async function main() {
 
   // ================= regression: preview playback -> timeline playhead sync (one measurement) =================
   await connectPreview();
-  const playbackStart = editAfterRedo.cuts[editAfterRedo.cuts.length - 1].in;
+  const lastCutIndex = editAfterRedo.cuts.length - 1;
+  const playbackStart = editAfterRedo.cuts[lastCutIndex].in; // source seconds, for v.currentTime
+  // Wave22 で横軸が出力秒になったため、scrollToTime は出力秒で計算する（直前までのセグメント
+  // 尺の累積が最終セグメントの出力軸開始秒になる。timeline-sync-undo の run-l1.mjs と同じ対応）。
+  let playbackStartOutput = 0;
+  for (let i = 0; i < lastCutIndex; i++) playbackStartOutput += editAfterRedo.cuts[i].out - editAfterRedo.cuts[i].in;
   // このサンドボックス実行環境には音声出力デバイスが無く、音声トラック有りのまま play() すると
   // Chromium のメディアクロックが進行せず currentTime が静止することを timeline-sync-undo で実測済み。
   // tick()/playheadT 同期ロジックは video.currentTime/paused のみを参照し muted を見ないため、
   // 検証ドライバ側でのみ mute して環境要因を回避する（製品コード無変更）。
   await evalInPreview(`(() => { const v = document.getElementById('preview-video'); v.pause(); v.muted = true; v.currentTime = ${playbackStart}; return true; })()`);
   await sleep(200);
-  await scrollToTime(main, playbackStart);
+  await scrollToTime(main, playbackStartOutput);
   await sleep(150);
   await evalInPreview(`(() => { document.getElementById('preview-video').play(); return true; })()`);
   const before = await widgetState(main);

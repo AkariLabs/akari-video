@@ -21,7 +21,29 @@ const REVIEW_JSON_PATH = path.join(EXPORTS_DIR, 'review.json');
 // Wave22 でタイムラインが「出力軸」（cuts をギャップレス連結した秒）に転換されたため、
 // totalDuration() は cuts の (out-in) 尺合計（10s）とオーバーレイ終端(4s)の大きい方 * 1.02 になった
 // （旧: cuts の source out 最終値 11.5s ベースだった）。fixture (3 cuts: 3+3+4=10s) に合わせて修正。
-const TOTAL_DURATION = 10 * 1.02; // matches totalDuration(): max(cutsDuration=10, overlaysEnd=4) * 1.02
+// `let` ではなく `const` にすると、AC9 の cut-trim/cut-reorder で cuts[] が変化した後も
+// widgetState() 系の計算式（すべて ${TOTAL_DURATION} テンプレート差し込み）が起動時点の値の
+// ままズレる（実測: trim 後 totalDuration は 10*1.02→9.75*1.02 に縮むが、この定数を更新しないと
+// AC4 のtick対応誤差が系統的に約2.5%＝0.25秒ずれ、閾値0.2秒を僅かに超えて偽FAILする。
+// 詳細は evidence/timeline-sync-undo/wave22-merge/MERGE-NOTES.md 参照）。
+// cuts/overlays が変わるたびに refreshTotalDuration() で再計算する。
+let TOTAL_DURATION = 10 * 1.02; // matches totalDuration(): max(cutsDuration=10, overlaysEnd=4) * 1.02
+function computeTotalDuration(edit) {
+  const cuts = edit.cuts || [];
+  const overlays = edit.overlays || [];
+  if (cuts.length > 0) {
+    const cutsDuration = cuts.reduce((sum, cut) => sum + Math.max(0, cut.out - cut.in), 0);
+    const overlaysEnd = overlays.reduce((max, o) => Math.max(max, o.start + o.duration), 0);
+    return Math.max(cutsDuration, overlaysEnd) * 1.02;
+  }
+  const candidates = [10, ...overlays.map(o => o.start + o.duration)];
+  return Math.max(...candidates) * 1.02;
+}
+async function refreshTotalDuration() {
+  const edit = await readJson(EDIT_JSON_PATH);
+  TOTAL_DURATION = computeTotalDuration(edit);
+  return TOTAL_DURATION;
+}
 const PLAYHEAD_FOLLOW_THRESHOLD_APPROX = 0.78; // matches widget.ts PLAYHEAD_FOLLOW_THRESHOLD
 
 const log = [];
@@ -384,6 +406,8 @@ async function main() {
       before: editAfterTrim.cuts, after: editAfterReorder.cuts
     });
   await shot(main, '06-cut-reorder-result.png');
+  // cut-trim で totalDuration が縮んだので、以降の widgetState() 系計算がずれないよう再計算する。
+  await refreshTotalDuration();
 
   // ================= AC9 regression: snap guide displays mid-drag, then Escape cancels (no commit) =================
   await scrollToTime(main, 4);
@@ -441,6 +465,8 @@ async function main() {
       before: editBeforeResize.overlays[0].duration, after: editAfterResize.overlays[0].duration
     });
   await shot(main, '08-overlay-resize-result.png');
+  // overlay 尺の変更も totalDuration() に影響し得るので念のため再計算する。
+  await refreshTotalDuration();
 
   await writeFile(path.join(EVIDENCE_DIR, 'run-log-partial-2.json'), JSON.stringify(log, null, 2));
 
@@ -729,7 +755,25 @@ async function main() {
   const boundaryOffset = 0.5;
   const playbackStart = cutsNow[lastCutIndex].in + boundaryOffset; // source seconds, for v.currentTime
   const playbackStartOutput = lastSegTlStart + boundaryOffset; // output seconds, for scrollToTime
-  await evalInPreview(`(() => { const v = document.getElementById('preview-video'); v.pause(); v.currentTime = ${playbackStart}; return true; })()`);
+  // AC5（78%追従）は viewDuration が undefined（全体表示 = ズーム100%）のままだと
+  // handlePlaybackTick() 側の `this.viewDuration !== undefined` ガードで発火しないため、
+  // ここまでの AC9 で全体表示へリセットされたズームを、この計測の直前で改めてズームインする
+  // （直前の AC2 と同じ ctrl+wheel 機構を再利用。プロダクトソース無変更）。
+  {
+    const zoomTarget = await widgetState(main);
+    const zoomMid = { x: zoomTarget.stripRect.left + zoomTarget.stripRect.width / 2, y: zoomTarget.stripRect.top + zoomTarget.stripRect.height / 2 };
+    for (let i = 0; i < 2; i++) {
+      await wheel(main, zoomMid.x, zoomMid.y, 0, -400, { ctrlKey: true });
+      await sleep(120);
+    }
+  }
+  // 追記(main の evidence/timeline-tracks/scripts/run-l1.mjs で先に特定・対処済みの既知事象):
+  // このサンドボックス実行環境には音声出力デバイスが無く、音声トラック有りのまま play() すると
+  // Chromium のメディアクロックが進行せず currentTime が静止する（本ファイルの旧コメント
+  // 「発見した実挙動」で観測していたのはこれと同じ現象）。tick()/playheadT 同期ロジックは
+  // video.currentTime/paused のみを参照し muted を見ないため、検証ドライバ側でのみ mute して
+  // 環境要因を回避する（製品コード無変更）。
+  await evalInPreview(`(() => { const v = document.getElementById('preview-video'); v.pause(); v.muted = true; v.currentTime = ${playbackStart}; return true; })()`);
   await sleep(200);
   await scrollToTime(main, playbackStartOutput);
   await sleep(150);
