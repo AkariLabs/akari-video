@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "tasks": ["silence-cut", "silence-cut"],
+  "target": { "duration_s": null, "keep_length": false, "taste": null },
+  "autonomy": "checkpoint",
+  "status": "draft",
+  "submitted_at": null
+}

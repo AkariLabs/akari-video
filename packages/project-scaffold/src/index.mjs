@@ -30,6 +30,7 @@ const FALLBACK_CLAUDE_GUIDANCE = [
     '- 節目の記録は 1 件ずつ新しく追加し、すでにある記録は変更しません。',
     '- 編集スキルは `.claude/skills/` にあり、`/analyze-footage` などの素の名前で使えます。',
     '- Codex など他の AI エージェント用の入り口が `.agents/skills/` と `.codex/skills/` にあります（中身は `.claude/skills/` へのリンク）。',
+    '- `.akari/intake.json` の `status` が `submitted` なら、そこに書かれた `tasks` / `target` / `autonomy` に従って進めます。`autonomy` が `checkpoint`（既定）なら、企画の承認や書き出し前などの要所で必ず人に確認します。`status` が `draft` のときは進め方がまだ決まっていないので、フォームや対話で確定させてから作業を始めます。',
     '- 利用者へは日本語で、内部の仕組みではなく「変更履歴」「企画メモ」「素材」などの言葉で説明します。',
     '',
     'このファイルはあなたのプロジェクトのものです。自由に書き換えて構いません。',
@@ -48,6 +49,10 @@ const FALLBACK_AGENT_GUIDANCE = [
     'Codex 等のハーネスでは `.agents/skills/` / `.codex/skills/`（`.claude/skills/` への',
     'symlink）から同じスキルが自動発見される。',
     '',
+    '`.akari/intake.json` の `status` が `submitted` なら `tasks` / `target` / `autonomy` に従って進める。',
+    '`autonomy: checkpoint`（既定）なら企画承認・書き出し前などの要所で人に確認する。',
+    '`status: draft` なら進め方が未確定のため、フォームまたは対話で確定させてから進める。',
+    '',
     '利用者へは日本語で、内部の仕組みではなく役割が伝わる言葉を使う。',
     'この案内はこのプロジェクトのものです。自由に書き換えて構いません。',
     ''
@@ -63,6 +68,17 @@ const FALLBACK_SKILLS_GUIDANCE = [
     'この案内と各スキルは、運用に合わせて自由に書き換えて構いません。',
     ''
 ].join('\n');
+
+// 進め方フォームの保存先（packages/schemas/intake.schema.json v0 準拠）。
+// 新規プロジェクトは常に status: draft・空 tasks で始まり、フォームまたは対話で確定する。
+const FALLBACK_INTAKE = {
+    version: 1,
+    tasks: [],
+    target: { duration_s: null, keep_length: false, taste: null },
+    autonomy: 'checkpoint',
+    status: 'draft',
+    submitted_at: null
+};
 
 const FALLBACK_WORKFLOW = {
     version: 1,
@@ -149,6 +165,7 @@ export async function writeFallbackTemplate(destinationDir) {
         }, null, 2) + '\n',
         '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
         '.akari/workflow.json': JSON.stringify(FALLBACK_WORKFLOW, null, 2) + '\n',
+        '.akari/intake.json': JSON.stringify(FALLBACK_INTAKE, null, 2) + '\n',
         'assets/.gitkeep': '',
         'planning/.gitkeep': '',
         'exports/.gitkeep': '',

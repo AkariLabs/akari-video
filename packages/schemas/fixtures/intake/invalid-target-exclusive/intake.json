@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "tasks": ["bgm-sfx"],
+  "target": { "duration_s": 60, "keep_length": true, "taste": null },
+  "autonomy": "checkpoint",
+  "status": "draft",
+  "submitted_at": null
+}

@@ -444,3 +444,89 @@ test("newer review.json version stops honestly without format assumptions", asyn
     assert.ok(!result.findings.some((finding) => finding.check === "review.schema"));
   });
 });
+
+test("intake.json absent is skipped, not an error", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(result.skipped.some((item) => item.check === "intake"));
+  });
+});
+
+test("draft intake.json warns without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "intake-valid-draft");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "intake.status" && finding.severity === "warning",
+      ),
+    );
+  });
+});
+
+test("submitted intake.json with valid tasks/target passes with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "intake-valid-submitted");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(
+      result.findings.filter((finding) => finding.check.startsWith("intake")).length,
+      0,
+      JSON.stringify(result.findings),
+    );
+  });
+});
+
+test("intake.json with an unknown task id fails", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "intake-invalid-unknown-task");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "intake.tasks" && finding.severity === "error",
+      ),
+    );
+  });
+});
+
+test("submitted intake.json without submitted_at fails", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "intake-invalid-missing-submitted-at");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "intake.submitted_at" && finding.severity === "error",
+      ),
+    );
+  });
+});
+
+test("intake.json with duration_s and keep_length both set fails", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "intake-invalid-target-exclusive");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "intake.target-exclusive" && finding.severity === "error",
+      ),
+    );
+  });
+});

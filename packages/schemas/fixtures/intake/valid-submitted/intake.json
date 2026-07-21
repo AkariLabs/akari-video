@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "tasks": ["transcribe-captions", "bgm-sfx", "narration"],
+  "target": { "duration_s": 60, "keep_length": false, "taste": "テンポよく、明るい雰囲気" },
+  "autonomy": "full-auto",
+  "status": "submitted",
+  "submitted_at": "2026-07-21T09:00:00.000Z"
+}

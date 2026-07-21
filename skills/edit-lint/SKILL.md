@@ -15,7 +15,7 @@ description: edit.json と任意の analysis.json / captions.json / メディア
 4. **ネットワーク禁止**（完全ローカル・headless-first 不変条件どおりアプリ不要）
 5. **外部候補のコード転写禁止**（loudcheck 等は設計参考のみ。survey の転記条件に
    関わらず本 CLI は全量自作 — 依存ゼロ規律と同根）
-6. **analysis.json / captions.json 不在をエラーにしない**（skipped 報告。
+6. **analysis.json / captions.json / `.akari/intake.json` 不在をエラーにしない**（skipped 報告。
    プロジェクトの成長段階に関わらず常に走れる）
 7. **`--media` なしの既定実行はメディアをデコードしない**（起動・CI で常用できる速さを守る）
 
@@ -41,6 +41,8 @@ node packages/edit-lint/bin/edit-lint.mjs <project> --media --silence-error-seco
 ```
 
 機械向けの標準出力が必要なら `--json` を追加する。状態の正本は常に `.akari/lint.json` とし、HTML は可視化にだけ使う。
+
+`.akari/intake.json`（進め方フォームの保存先。契約: `packages/schemas/intake.schema.json`）が存在すれば、schema 検証と整合検査（未知の task ID・`duration_s`/`keep_length` の同時指定・`status: submitted` なのに `submitted_at` 欠落 等）を合わせて行う。不正値は error（FAIL）、`status: "draft"`（進め方が未確定）は warning に留める。
 
 ## 非スコープと拡張候補
 

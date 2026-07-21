@@ -4,5 +4,8 @@
   "private": true,
   "description": "AKARI Video プロジェクトを作成する Electron 非依存・pure Node ESM・外部 npm 依存ゼロの共有 scaffold モジュール。",
   "type": "module",
-  "main": "src/index.mjs"
+  "main": "src/index.mjs",
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  }
 }

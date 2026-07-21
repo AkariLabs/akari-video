@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:intake:v0",
+  "title": "AKARI Video intake.json v0",
+  "description": "「進め方フォーム」の保存先。ユーザーが決めた進め方（やること・尺・おまかせ度）の SSOT。パートナー（AI）はこの内容に従って作業する。UI が無くても（素の Claude Code でも）成立する契約。追記のみ進化の原則: 今後の変更は新しいオプショナルフィールドの追加に限り、既存フィールドの意味変更・削除・型変更は行わない。破壊的な変更が必要になった場合は $id を v1 に上げた別スキーマとして導入し、この v0 は変更しない。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "tasks", "target", "autonomy", "status", "submitted_at"],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "intake.json のスキーマバージョン。現状 1 固定。"
+    },
+    "tasks": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/taskId" },
+      "description": "やること。スキルカタログに対応する安定 ID のみを許可する（unknown ID は検証エラー）。表示用の日本語ラベルは x-akari-labels を参照する。"
+    },
+    "target": { "$ref": "#/$defs/target" },
+    "autonomy": {
+      "enum": ["full-auto", "checkpoint", "collaborative"],
+      "description": "おまかせ度。既定値は checkpoint。"
+    },
+    "status": {
+      "enum": ["draft", "submitted"],
+      "description": "draft はまだ進め方が未確定。submitted になって初めてパートナーが tasks / target / autonomy に従う。"
+    },
+    "submitted_at": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "format": "date-time" }
+      ],
+      "description": "status が submitted のとき ISO 8601 日時が必須。draft のときは null。"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "submitted" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "submitted_at": { "type": "string", "format": "date-time" } },
+        "required": ["submitted_at"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "draft" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "submitted_at": { "const": null } }
+      }
+    }
+  ],
+  "x-akari-labels": {
+    "$comment": "安定 ID ↔ 日本語ラベルの単一ソース。フォーム表示・パートナー要約はどちらもここを引く（オーナー裁定 2026-07-21 §8-3: 安定 ID を正、日本語ラベルは表示用の併記）。",
+    "transcribe-captions": "文字起こし・テロップ",
+    "silence-cut": "いらない間・NG のカット",
+    "bgm-sfx": "BGM・効果音",
+    "narration": "ナレーション（自分の声 / 既製の声）",
+    "3d-inserts": "3D・画面はめ込みの演出"
+  },
+  "$defs": {
+    "taskId": {
+      "enum": ["transcribe-captions", "silence-cut", "bgm-sfx", "narration", "3d-inserts"],
+      "description": "将来増える前提の安定 ID enum。新しいスキルが増えたら追記のみで拡張する。"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["duration_s", "keep_length"],
+      "properties": {
+        "duration_s": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "number", "exclusiveMinimum": 0 }
+          ],
+          "description": "目標尺（秒）。keep_length: true と同時指定は不可（排他）。"
+        },
+        "keep_length": {
+          "type": "boolean",
+          "description": "true なら素材尺のまま。duration_s と同時に true にはできない（排他）。"
+        },
+        "taste": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string" }
+          ],
+          "description": "テイスト・雰囲気の自由記述。任意。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "keep_length": { "const": true } },
+            "required": ["keep_length"]
+          },
+          "then": {
+            "properties": { "duration_s": { "const": null } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "duration_s": { "not": { "const": null } } },
+            "required": ["duration_s"]
+          },
+          "then": {
+            "properties": { "keep_length": { "const": false } }
+          }
+        }
+      ]
+    }
+  }
+}

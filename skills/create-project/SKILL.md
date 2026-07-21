@@ -38,3 +38,7 @@ node skills/create-project/bin/create-project.mjs <target-dir> [--template <path
 
 - `<target-dir>`: 作成先ディレクトリ。新規でも既存の非空フォルダでもよい。既存ファイルは上書きしない。
 - `--template <path>`: 雛形ディレクトリを明示指定する。省略時はリポ checkout の `templates/project-default/` を使う。それ以外の解決手段はない。
+
+## intake.json（進め方フォームの保存先）
+
+作成直後の `.akari/intake.json` は `status: "draft"`・空 `tasks` から始まる（契約: `packages/schemas/intake.schema.json`）。プロジェクトの CLAUDE.md には intake の規律を追記する — `status: "submitted"` なら `tasks` / `target` / `autonomy` に従い、`autonomy: "checkpoint"`（既定）なら企画承認・書き出し前などの要所で人に確認し、`status: "draft"` のままなら進め方をフォームまたは対話で確定させてから進める。
