@@ -27,7 +27,8 @@
     "akari-tabs": "file:./extensions/akari-tabs",
     "akari-preview": "file:./extensions/akari-preview",
     "akari-transcript": "file:./extensions/akari-transcript",
-    "akari-annotations": "file:./extensions/akari-annotations"
+    "akari-annotations": "file:./extensions/akari-annotations",
+    "akari-theme": "file:./extensions/akari-theme"
   },
   "devDependencies": {
     "@theia/cli": "1.73.1",
@@ -52,6 +53,7 @@
     "frontend": {
       "config": {
         "applicationName": "AKARI Video",
+        "defaultTheme": "dark",
         "preferences": {
           "security.workspace.trust.enabled": false,
           "editor.unusualLineTerminators": "off"
@@ -66,7 +68,7 @@
   },
   "scripts": {
     "prebuild": "node resources/scripts/ensure-file-deps-linked.mjs",
-    "build:ext": "tsc -b extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-project extensions/akari-partner extensions/akari-tabs extensions/akari-preview extensions/akari-transcript extensions/akari-annotations",
+    "build:ext": "tsc -b extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-project extensions/akari-partner extensions/akari-tabs extensions/akari-preview extensions/akari-transcript extensions/akari-annotations extensions/akari-theme",
     "build": "npm run build:ext && theia build --mode production",
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "start": "theia start --plugins=local-dir:plugins",

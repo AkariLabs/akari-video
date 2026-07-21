@@ -85,9 +85,9 @@ export class AkariHomeWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariHomeWidget.ID;
-        this.title.label = '俯瞰';
-        this.title.caption = 'AKARI プロジェクト俯瞰';
-        this.title.iconClass = 'codicon codicon-dashboard';
+        this.title.label = 'ホーム';
+        this.title.caption = 'AKARI プロジェクトホーム';
+        this.title.iconClass = 'codicon codicon-home';
         this.title.closable = false;
         this.update();
     }
@@ -159,7 +159,7 @@ export class AkariHomeWidget extends ReactWidget {
             this.stages = this.normalizeStages(parsed);
             roles = this.normalizeRoles(parsed);
             this.guide = this.stages.length === 0
-                ? 'workflow.json にステージを追加すると、プロジェクト全体をここで俯瞰できます。'
+                ? 'workflow.json にステージを追加すると、プロジェクト全体をここホームで見渡せます。'
                 : '';
         } catch (error) {
             this.stages = [];
@@ -288,7 +288,8 @@ export class AkariHomeWidget extends ReactWidget {
             return 'var(--theia-charts-green)';
         }
         if (/進行|作業|active|doing|progress/i.test(status)) {
-            return 'var(--theia-charts-blue)';
+            // 青全廃（v2 T1）: charts-blue ではなく AKARI アクセントのオレンジを使う。
+            return 'var(--theia-charts-orange)';
         }
         if (/停止|blocked|error|失敗/i.test(status)) {
             return 'var(--theia-charts-red)';
@@ -484,7 +485,7 @@ export class AkariHomeWidget extends ReactWidget {
             <div className='akari-home-surface' style={{ height: '100%', overflow: 'auto', padding: '24px 26px', boxSizing: 'border-box' }}>
                 <header style={{ marginBottom: 22 }}>
                     <div style={{ fontSize: 12, letterSpacing: '0.12em', opacity: 0.65 }}>AKARI VIDEO</div>
-                    <h1 style={{ margin: '6px 0 4px', fontSize: 26 }}>プロジェクト俯瞰</h1>
+                    <h1 style={{ margin: '6px 0 4px', fontSize: 26 }}>ホーム</h1>
                     <p style={{ margin: 0, opacity: 0.7 }}>いまどこにいて、次に何をするかを一望できます。</p>
                 </header>
                 {this.hasAssets ? this.renderProjectOverview() : this.renderDropzone('hero')}

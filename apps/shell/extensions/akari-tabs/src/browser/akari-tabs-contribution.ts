@@ -118,7 +118,8 @@ export class AkariTabsContribution implements FrontendApplicationContribution, T
                 priority: 100,
                 tailDecorations: [{
                     data: '●',
-                    fontData: { color: 'var(--theia-charts-blue)' },
+                    // 青全廃（v2 T1）: charts-blue ではなく AKARI アクセントのオレンジを使う。
+                    fontData: { color: 'var(--theia-charts-orange)' },
                     tooltip: '決定を編集中'
                 }],
                 tooltip: '決定を編集中'

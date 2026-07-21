@@ -345,13 +345,17 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected editingStyles(): string {
+        // 青全廃（v2 T1）: このスタイルは WebviewWidget（webview.localhost の別ドキュメント）に
+        // 注入されるため、メイン画面側の --theia-* ではなく Theia/VS Code の webview ホストが
+        // 自動ミラーする --vscode-* 変数を参照する（LP トークンは akari-color-contribution.ts が
+        // ColorRegistry 経由でここにも供給する。akariTheme.accentTint 等は AKARI 独自の追加登録）。
         return `
             .akari-editable-block { position: relative; cursor: text; border-radius: 4px; }
-            .akari-editable-block:hover { outline: 1px dashed rgba(68, 138, 255, .7); outline-offset: 4px; }
-            .akari-block-editing { outline: 2px solid #448aff !important; outline-offset: 5px; background: rgba(68, 138, 255, .09); }
+            .akari-editable-block:hover { outline: 1px dashed var(--vscode-focusBorder); outline-offset: 4px; }
+            .akari-block-editing { outline: 2px solid var(--vscode-focusBorder) !important; outline-offset: 5px; background: var(--vscode-akariTheme-accentTint); }
             .akari-block-saving { opacity: .65; }
-            #akari-show-changes { position: fixed; right: 22px; bottom: 20px; z-index: 2147483647; border: 0; border-radius: 7px; padding: 9px 15px; color: white; background: #3278c6; box-shadow: 0 4px 16px rgba(0,0,0,.25); font: 600 13px system-ui; cursor: pointer; }
-            #akari-show-changes:hover { background: #2865aa; }
+            #akari-show-changes { position: fixed; right: 22px; bottom: 20px; z-index: 2147483647; border: 0; border-radius: 7px; padding: 9px 15px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); box-shadow: 0 4px 16px rgba(0,0,0,.25); font: 600 13px system-ui; cursor: pointer; }
+            #akari-show-changes:hover { background: var(--vscode-button-hoverBackground); }
             #akari-edit-toast { position: fixed; left: 50%; bottom: 24px; z-index: 2147483647; transform: translateX(-50%); padding: 8px 13px; border-radius: 6px; color: white; background: #287a43; box-shadow: 0 3px 12px rgba(0,0,0,.28); font: 13px system-ui; }
             #akari-edit-toast[data-kind="error"] { background: #b3261e; }
         `;

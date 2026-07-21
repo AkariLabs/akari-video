@@ -1,0 +1,23 @@
+{
+  "name": "akari-theme",
+  "version": "0.0.1",
+  "description": "AKARI Video shell — custom dark theme (LP black/orange tokens), Theia default blue elimination (v2 T1).",
+  "private": true,
+  "main": "lib/browser/akari-theme-frontend-module.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/akari-theme-frontend-module"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}
