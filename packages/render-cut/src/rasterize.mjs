@@ -116,12 +116,11 @@ export async function captureWithPuppeteer({
   const puppeteer = imported.default ?? imported;
   await mkdir(framesDirectory, { recursive: true });
   const frameCount = Math.ceil(duration * fps);
-  const watchdogMs = timeoutMs * Math.max(1, frameCount);
   let browser = null;
   let watchdogExpired = false;
   try {
-    await withTimeout((async () => {
-      browser = await puppeteer.launch({
+    browser = await withTimeout(
+      puppeteer.launch({
         executablePath: chromePath,
         headless: true,
         timeout: timeoutMs,
@@ -135,44 +134,46 @@ export async function captureWithPuppeteer({
           "--no-first-run",
           "--no-default-browser-check",
         ],
-      });
-      const page = await withTimeout(browser.newPage(), timeoutMs, "opening a Puppeteer page");
-      page.setDefaultTimeout(timeoutMs);
-      page.setDefaultNavigationTimeout(timeoutMs);
+      }),
+      timeoutMs,
+      "launching Chrome",
+    );
+    const page = await withTimeout(browser.newPage(), timeoutMs, "opening a Puppeteer page");
+    page.setDefaultTimeout(timeoutMs);
+    page.setDefaultNavigationTimeout(timeoutMs);
+    await withTimeout(
+      page.setViewport({ width, height, deviceScaleFactor: 1 }),
+      timeoutMs,
+      "setting the Puppeteer viewport",
+    );
+    await withTimeout(
+      page.goto(pathToFileURL(sheetPath).href, {
+        waitUntil: "networkidle0",
+        timeout: timeoutMs,
+      }),
+      timeoutMs,
+      "loading the overlay sheet",
+    );
+    await withTimeout(
+      page.evaluate(() => window.__akariReady),
+      timeoutMs,
+      "waiting for the overlay sheet",
+    );
+    for (let frame = 0; frame < frameCount; frame += 1) {
       await withTimeout(
-        page.setViewport({ width, height, deviceScaleFactor: 1 }),
+        page.evaluate((seconds) => window.__akariSeek(seconds), frame / fps),
         timeoutMs,
-        "setting the Puppeteer viewport",
+        `seeking frame ${frame + 1}`,
       );
       await withTimeout(
-        page.goto(pathToFileURL(sheetPath).href, {
-          waitUntil: "networkidle0",
-          timeout: timeoutMs,
+        page.screenshot({
+          path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
+          omitBackground: true,
         }),
         timeoutMs,
-        "loading the overlay sheet",
+        `capturing frame ${frame + 1}`,
       );
-      await withTimeout(
-        page.evaluate(() => window.__akariReady),
-        timeoutMs,
-        "waiting for the overlay sheet",
-      );
-      for (let frame = 0; frame < frameCount; frame += 1) {
-        await withTimeout(
-          page.evaluate((seconds) => window.__akariSeek(seconds), frame / fps),
-          timeoutMs,
-          `seeking frame ${frame + 1}`,
-        );
-        await withTimeout(
-          page.screenshot({
-            path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
-            omitBackground: true,
-          }),
-          timeoutMs,
-          `capturing frame ${frame + 1}`,
-        );
-      }
-    })(), watchdogMs, "Puppeteer capture watchdog");
+    }
   } catch (error) {
     watchdogExpired = isTimeoutError(error);
     throw error;

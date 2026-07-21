@@ -120,6 +120,35 @@ test("a hanging static Chrome capture times out and records the rejected attempt
   }
 });
 
+test("a hanging Puppeteer launch times out independently of the frame count", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-hanging-puppeteer-launch-"));
+  try {
+    const started = Date.now();
+    await assert.rejects(
+      captureWithPuppeteer({
+        sheetPath: join(root, "overlay-sheet.html"),
+        chromePath: "/fake/chrome",
+        framesDirectory: join(root, "frames"),
+        overlayMovPath: join(root, "overlay.mov"),
+        width: 320,
+        height: 180,
+        fps: 5,
+        duration: 10,
+        ffmpegCommand: "ffmpeg",
+        timeoutMs: 200,
+        puppeteerModule: { launch: () => new Promise(() => {}) },
+      }),
+      /launching Chrome timeout after 200ms/,
+    );
+    assert.ok(
+      Date.now() - started < 2_000,
+      "launch timeout must not scale with the 50-frame capture duration",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("the Puppeteer watchdog closes and kills a browser whose screenshot hangs", async () => {
   const root = await mkdtemp(join(tmpdir(), "render-cut-hanging-puppeteer-"));
   let closeCalled = false;
