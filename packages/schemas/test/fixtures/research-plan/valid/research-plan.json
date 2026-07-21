@@ -1,0 +1,79 @@
+{
+  "version": 0,
+  "topic": {
+    "candidates": [
+      {
+        "id": "idea-ramen-broth",
+        "title": "5 分で分かる本格スープの時短レシピ",
+        "category": "hero",
+        "monetization_potential": "high",
+        "rationale": "検索ボリュームが安定しており、食材リンクの導線を作りやすい。"
+      },
+      {
+        "id": "idea-ramen-history",
+        "title": "麺文化の地域史をゆるく解説するミニ企画",
+        "category": "hub",
+        "monetization_potential": "medium",
+        "rationale": "チャンネル全体の関係構築に向くが単体の収益導線は弱い。"
+      },
+      {
+        "id": "idea-ramen-faq",
+        "title": "初心者が失敗しやすい下ごしらえの Q&A",
+        "category": "help",
+        "monetization_potential": "low",
+        "rationale": "検索流入は見込めるが単価の低い商材にしか繋がらない。"
+      }
+    ],
+    "selected": "idea-ramen-broth",
+    "decided_at": "2026-07-21T09:00:00+09:00"
+  },
+  "target": {
+    "audience": "自炊に慣れてきた 20-30 代・時短レシピを求める層",
+    "competitors": [
+      {
+        "name": "サンプル競合チャンネル A",
+        "url": "https://example.com/channel-a",
+        "notes": "手順は丁寧だが尺が長く離脱率が高い。",
+        "gap": "冒頭 15 秒で完成形を見せていない。"
+      },
+      {
+        "name": "サンプル競合チャンネル B",
+        "url": null,
+        "notes": "オフラインでの視聴観察のみ（URL 不明）。",
+        "gap": "字幕がなく無音再生に弱い。"
+      }
+    ],
+    "japan_sns": {
+      "platforms": ["X", "Instagram", "TikTok", "YouTube Shorts"],
+      "notes": "無償の公開トレンドページ観察のみで確認。時短系は TikTok・Instagram リールでの短尺再編集が伸びる傾向。"
+    }
+  },
+  "structure": {
+    "chapters": [
+      { "id": "ch-hook", "title": "完成形を先出しするフック", "duration_estimate_seconds": 8, "notes": null },
+      { "id": "ch-steps", "title": "手順本編", "duration_estimate_seconds": 90, "notes": "工程ごとにテロップで時短ポイントを強調" },
+      { "id": "ch-outro", "title": "まとめと関連動画誘導", "duration_estimate_seconds": 10, "notes": null }
+    ],
+    "shots": [
+      { "id": "sh-1", "chapter_id": "ch-hook", "shot_type": "close-up", "description": "完成したスープを箸で持ち上げるカット", "duration_estimate_seconds": 3, "image_path": null },
+      { "id": "sh-2", "chapter_id": "ch-steps", "shot_type": "overhead", "description": "鍋に材料を入れる俯瞰カット", "duration_estimate_seconds": 6, "image_path": null }
+    ],
+    "opening_hook": "完成映像を最初の 3 秒で見せる",
+    "confirmed": true,
+    "confirmed_at": "2026-07-21T09:30:00+09:00"
+  },
+  "shot_list": [
+    {
+      "id": "sl-1",
+      "ref_shot_id": "sh-1",
+      "location": "自宅キッチン",
+      "equipment": ["三脚", "リングライト"],
+      "checklist": ["音声レベル確認", "湯気の見え方を確認"],
+      "status": "planned"
+    }
+  ],
+  "sources": [
+    { "id": "src-1", "url": "https://example.com/trend-page", "retrieved_at": "2026-07-21T08:00:00+09:00", "cost": "free", "note": "無償公開トレンドページ" }
+  ],
+  "feedback": { "reserved": true, "note": null }
+}

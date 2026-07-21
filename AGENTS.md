@@ -18,7 +18,7 @@
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 12
+スキル数: 13
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
@@ -32,6 +32,7 @@
 | `manage-connections` | AKARI Video の生成プロバイダ・SNS 接続・API キー参照・モデル選択・コスト承認ポリシーを一元管理する。初回セットアップ、接続状態の確認、provider やモデルの追加、有償生成・外部公開の実行前ゲートで発動し、`.akari/connections.json` と無償・読み取り専用の doctor を扱う。 | `skills/manage-connections/SKILL.md` |
 | `overlay-authoring` | AKARI Video のオーバーレイ HTML、字幕、表・グラフ、Three.js 3D、モーショングラフィックス、サムネイル、人物の後ろに文字を置く表現を設計・生成・レビューするときに発動する authoring ルーター。 | `skills/overlay-authoring/SKILL.md` |
 | `render-cut` | 承認済み edit.json と edit-lint PASS を入力に、最終 MP4 の計画、明示承認、ローカル書き出し、ffprobe 検証、キーフレーム視認を完了する。編集が承認済みで、納品用動画の書き出しや最終レンダーを求められたときに使う。 | `skills/render-cut/SKILL.md` |
+| `research-plan` | 動画の企画・調査工程（ネタ出し → ターゲット/競合/トレンド調査 → 企画書・構成案・絵コンテ・撮影リスト）を headless で一周するときに発動する router。ネタ選定と構成の確定は decision-cards 型承認ゲート（HTML レポート + decisions.json）で人間の判断を受け取る。 | `skills/research-plan/SKILL.md` |
 | `setup-library` | AKARI Video を初めてセットアップするとき、または現在のプロジェクトに使える素材が足りず新しく揃えたいときに発動する。ffmpeg / whisper-cli / headless Chrome の道具チェック、catalog/ を読んだスターターパック提案、人間の明示承認、取得・配置・検証・INDEX 更新までを一気通貫で行う first-run スキル。 | `skills/setup-library/SKILL.md` |
 | `verify` | AKARI Video（現行 Theia スタック）のタスク契約が要求する検証はしご（L0 / L1 / L2）を実行するときに発動する。タスクの受け入れ条件が「verify 層: L0」「L0+L1」等を指定しているとき、各層で実際に何を・どう叩くかを確認するために読む。 | `skills/verify/SKILL.md` |
 
