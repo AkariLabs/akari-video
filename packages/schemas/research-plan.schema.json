@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:research-plan:v0",
+  "title": "AKARI Video research-plan.json v0",
+  "description": "企画・調査工程（00）の SSOT。選定ネタ・ターゲット/競合調査・構成案・絵コンテのショットカード・撮影用ショットリストの機械可読正本。research-plan スキルの成果物。packages/schemas/plan.schema.json（仮枠タイムライン・アニマティクス）とは別物 — plan.json は撮影後/生成後の仮組みタイムライン、research-plan.json は撮影前の企画そのもの。",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "topic", "target", "structure", "shot_list", "sources", "feedback"],
+  "properties": {
+    "version": { "const": 0 },
+    "topic": { "$ref": "#/$defs/topic" },
+    "target": { "$ref": "#/$defs/target" },
+    "structure": { "$ref": "#/$defs/structure" },
+    "shot_list": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/shotListEntry" },
+      "$comment": "撮影・収録の実務リスト。企画段階の絵コンテ（structure.shots）とは別物 — shots が「何を撮るか」、shot_list が「どう撮るか・何を確認するか」。"
+    },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/source" },
+      "$comment": "外部調査の由来記録（URL・取得日時・無償/有償の別）。トレンド調査の根拠もここに集約する（専用の trends フィールドは持たない — 知見は topic.candidates[].rationale / target.competitors[].gap の根拠として溶け込ませ、出典だけをここに残す）。"
+    },
+    "feedback": {
+      "$ref": "#/$defs/feedback",
+      "$comment": "80 配信後分析からの還流用の予約フィールド（契約の非スコープ。v0 は実装しない）。"
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "nullableNonEmptyString": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }]
+    },
+    "positiveSeconds": { "type": "number", "exclusiveMinimum": 0 },
+    "nullablePositiveSeconds": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/positiveSeconds" }]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "topic": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["candidates", "selected", "decided_at"],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/candidate" },
+          "$comment": "配列順 = ランキング順（最有力を先頭に置く）。rank フィールドは持たず順序だけで表現する（plan.schema.json の slots と同型）。"
+        },
+        "selected": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "candidates[].id への参照。未決定は null。"
+        },
+        "decided_at": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "format": "date-time" }],
+          "$comment": "selected が非 null のときだけ非 null（decision-cards の topic-select カード確定時刻）。"
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "category", "monetization_potential", "rationale"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "category": {
+          "enum": ["hub", "hero", "help"],
+          "$comment": "Hub/Hero/Help 分類。定期性(Hub)/バズ狙い(Hero)/検索流入(Help) の型。"
+        },
+        "monetization_potential": { "enum": ["high", "medium", "low"] },
+        "rationale": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["audience", "competitors", "japan_sns"],
+      "properties": {
+        "audience": { "$ref": "#/$defs/nullableNonEmptyString" },
+        "competitors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/competitor" }
+        },
+        "japan_sns": { "$ref": "#/$defs/japanSns" }
+      }
+    },
+    "competitor": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "url", "notes", "gap"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "url": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "format": "uri", "pattern": "^https?://" }
+          ]
+        },
+        "notes": { "oneOf": [{ "type": "null" }, { "type": "string" }] },
+        "gap": {
+          "oneOf": [{ "type": "null" }, { "type": "string" }],
+          "$comment": "4 並列ギャップ分析（コンテンツテーマ/フォーマット・尺/投稿頻度/訴求軸）の所見。軸ごとの厳密な enum は持たず自由記述にする。"
+        }
+      }
+    },
+    "japanSns": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["platforms", "notes"],
+      "properties": {
+        "platforms": { "$ref": "#/$defs/stringArray" },
+        "notes": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "必須調査軸（ハードルール）。無償手段で確認できない場合も、その旨と理由を書く（省略・空文字は不可）。"
+        }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["chapters", "shots", "opening_hook", "confirmed", "confirmed_at"],
+      "properties": {
+        "chapters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/chapter" },
+          "$comment": "配列順 = 構成案タイムライン順。"
+        },
+        "shots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/shot" },
+          "$comment": "絵コンテのショットカード。"
+        },
+        "opening_hook": { "$ref": "#/$defs/nullableNonEmptyString" },
+        "confirmed": { "type": "boolean" },
+        "confirmed_at": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "format": "date-time" }],
+          "$comment": "confirmed が true のときだけ非 null（decision-cards の structure-confirm カード確定時刻）。AI の判断だけで confirmed を true にしない。"
+        }
+      }
+    },
+    "chapter": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "duration_estimate_seconds", "notes"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "duration_estimate_seconds": { "$ref": "#/$defs/nullablePositiveSeconds" },
+        "notes": { "oneOf": [{ "type": "null" }, { "type": "string" }] }
+      }
+    },
+    "shot": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "chapter_id",
+        "shot_type",
+        "description",
+        "duration_estimate_seconds",
+        "image_path"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "chapter_id": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "chapters[].id への参照。null = 未割当。"
+        },
+        "shot_type": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "wide / medium / close-up 等の自由記述。表現の幅を残すため厳密な enum にしない。"
+        },
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "duration_estimate_seconds": { "$ref": "#/$defs/nullablePositiveSeconds" },
+        "image_path": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "任意の概念画像（絵コンテ）。生成する場合は edit-plan の承認・provenance 規律に従う。research-plan.json 所在ディレクトリ基準の相対パス。"
+        }
+      }
+    },
+    "shotListEntry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "ref_shot_id", "location", "equipment", "checklist", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "ref_shot_id": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "structure.shots[].id への参照。null = 未割当。"
+        },
+        "location": { "$ref": "#/$defs/nullableNonEmptyString" },
+        "equipment": { "$ref": "#/$defs/stringArray" },
+        "checklist": { "$ref": "#/$defs/stringArray" },
+        "status": { "enum": ["planned", "ok", "ng"] }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "url", "retrieved_at", "cost", "note"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "url": {
+          "$ref": "#/$defs/nullableNonEmptyString",
+          "$comment": "オフライン観察等 URL の無い出典は null 可。その場合 note に出所を書く。"
+        },
+        "retrieved_at": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "format": "date-time" }]
+        },
+        "cost": { "enum": ["free", "paid"] },
+        "note": { "oneOf": [{ "type": "null" }, { "type": "string" }] }
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["reserved", "note"],
+      "properties": {
+        "reserved": {
+          "const": true,
+          "$comment": "80 配信後分析からの還流用の予約フィールド。v0 は実装しない（常に true）。"
+        },
+        "note": { "oneOf": [{ "type": "null" }, { "type": "string" }] }
+      }
+    }
+  }
+}
