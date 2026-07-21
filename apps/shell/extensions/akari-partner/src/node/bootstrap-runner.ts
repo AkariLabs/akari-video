@@ -15,6 +15,11 @@ export function bootstrapRunner(): void {
     const claudeInstallUrl = process.env.AKARI_PARTNER_CLAUDE_INSTALL_URL || 'https://claude.ai/install.sh';
     const codexReleaseApiUrl = process.env.AKARI_PARTNER_CODEX_RELEASE_API_URL || 'https://api.github.com/repos/openai/codex/releases/latest';
     const requestTimeoutMs = 120_000;
+    // Escape hatch for forcing a fresh (re)install even when a usable binary is
+    // already on disk. Default is detection-first — see runClaudeInstaller /
+    // installCodexBinary below (F46: partner connect must not reinstall CLIs
+    // that are already present).
+    const forceReinstall = process.env.AKARI_PARTNER_FORCE_REINSTALL === '1';
     const explicitSystemPath = [
         '/opt/homebrew/bin',
         '/usr/local/bin',
@@ -23,6 +28,27 @@ export function bootstrapRunner(): void {
         '/usr/sbin',
         '/sbin'
     ].join(path.delimiter);
+
+    interface BootstrapOutcome {
+        executablePath: string;
+        // true when an already-installed binary was reused instead of running
+        // the installer/downloader.
+        reused: boolean;
+    }
+
+    function claudeCandidates(): string[] {
+        return [
+            path.join(os.homedir(), '.local', 'bin', 'claude'),
+            path.join(os.homedir(), '.claude', 'bin', 'claude'),
+            path.join(os.homedir(), '.claude', 'local', 'claude')
+        ];
+    }
+
+    function codexCandidates(): string[] {
+        return [
+            path.join(os.homedir(), '.local', 'bin', process.platform === 'win32' ? 'codex.exe' : 'codex')
+        ];
+    }
 
     async function request(url: string, accept = 'application/octet-stream'): Promise<Buffer> {
         const controller = new AbortController();
@@ -45,7 +71,14 @@ export function bootstrapRunner(): void {
         }
     }
 
-    async function runClaudeInstaller(): Promise<string> {
+    async function runClaudeInstaller(): Promise<BootstrapOutcome> {
+        if (!forceReinstall) {
+            const existing = await firstExecutable(claudeCandidates());
+            if (existing) {
+                console.log(`既存の claude を検出: ${existing}`);
+                return { executablePath: existing, reused: true };
+            }
+        }
         if (process.platform === 'win32') {
             throw new Error('Claude Code native bootstrap currently requires macOS or Linux');
         }
@@ -60,21 +93,24 @@ export function bootstrapRunner(): void {
                 ...process.env,
                 PATH: explicitSystemPath
             });
-            const executable = await firstExecutable([
-                path.join(os.homedir(), '.local', 'bin', 'claude'),
-                path.join(os.homedir(), '.claude', 'bin', 'claude'),
-                path.join(os.homedir(), '.claude', 'local', 'claude')
-            ]);
+            const executable = await firstExecutable(claudeCandidates());
             if (!executable) {
                 throw new Error('Claude installer completed but the claude executable was not found');
             }
-            return executable;
+            return { executablePath: executable, reused: false };
         } finally {
             await fs.rm(tempDir, { recursive: true, force: true });
         }
     }
 
-    async function installCodexBinary(): Promise<string> {
+    async function installCodexBinary(): Promise<BootstrapOutcome> {
+        if (!forceReinstall) {
+            const existing = await firstExecutable(codexCandidates());
+            if (existing) {
+                console.log(`既存の codex を検出: ${existing}`);
+                return { executablePath: existing, reused: true };
+            }
+        }
         console.log(`Codex リリース情報を取得しています: ${codexReleaseApiUrl}`);
         const release = JSON.parse((await request(codexReleaseApiUrl, 'application/vnd.github+json')).toString('utf8')) as {
             assets?: Array<{ name: string; browser_download_url: string }>;
@@ -87,15 +123,15 @@ export function bootstrapRunner(): void {
         console.log(`${asset.name} をダウンロードしています`);
         const archive = await request(asset.browser_download_url);
         const binary = extractSingleTarFile(gunzipSync(archive), /^codex(?:-|$)/);
-        const binDir = path.join(os.homedir(), '.local', 'bin');
-        const executable = path.join(binDir, process.platform === 'win32' ? 'codex.exe' : 'codex');
+        const [executable] = codexCandidates();
+        const binDir = path.dirname(executable);
         await fs.mkdir(binDir, { recursive: true });
         const temporary = `${executable}.akari-download`;
         await fs.writeFile(temporary, binary, { mode: 0o755 });
         await fs.rename(temporary, executable);
         await fs.chmod(executable, 0o755);
         console.log(`Codex を ${executable} にインストールしました`);
-        return executable;
+        return { executablePath: executable, reused: false };
     }
 
     function codexAssetName(): string {
@@ -170,8 +206,8 @@ export function bootstrapRunner(): void {
         if (agent !== 'claude' && agent !== 'codex') {
             throw new Error('expected bootstrap target: claude or codex');
         }
-        const executablePath = agent === 'claude' ? await runClaudeInstaller() : await installCodexBinary();
-        console.log(JSON.stringify({ executablePath }));
+        const outcome = agent === 'claude' ? await runClaudeInstaller() : await installCodexBinary();
+        console.log(JSON.stringify(outcome));
     }
 
     main().catch(error => {

@@ -1,0 +1,109 @@
+AKARI partner bootstrap — reinstall detection deterministic check (F46)
+Date: 2026-07-21 (Asia/Tokyo)
+
+Method: same serialization path as production. The compiled
+bootstrap-runner.js module is required, bootstrapRunner.toString() is
+wrapped as `(${...})()` exactly like akari-partner-server.ts#bootstrap(),
+and run via `node -e <source> <agent>` on the bundled Electron executable
+with ELECTRON_RUN_AS_NODE=1 (same runtime akari-partner-server.ts spawns
+in a packaged app). HOME is redirected to an isolated, empty temp
+directory per case (<TMPHOME>) so no state from the developer machine's
+real ~/.local/bin or ~/.claude leaks in. AKARI_PARTNER_CLAUDE_INSTALL_URL
+and AKARI_PARTNER_CODEX_RELEASE_API_URL are both pointed at an
+unreachable local address (http://127.0.0.1:9/unreachable) so that any
+attempt to reach the network fails immediately and loudly, instead of
+silently succeeding against the real internet.
+
+----------------------------------------------------------------------
+Case (a) — existing claude binary present, default env (detection-first)
+----------------------------------------------------------------------
+HOME=<TMPHOME>/case-a-home
+<TMPHOME>/case-a-home/.local/bin/claude = executable echo stub (chmod +x)
+AKARI_PARTNER_CLAUDE_INSTALL_URL=http://127.0.0.1:9/unreachable (unreachable)
+AKARI_PARTNER_FORCE_REINSTALL unset
+
+stdout:
+  既存の claude を検出: <TMPHOME>/case-a-home/.local/bin/claude
+  {"executablePath":"<TMPHOME>/case-a-home/.local/bin/claude","reused":true}
+stderr: (empty)
+exit code: 0
+
+Result: the runner returned the existing path with reused:true and never
+logged "Claude installer を取得しています" — i.e. it never attempted the
+network call, even though the configured install URL is unreachable and
+would have failed loudly if it had tried. This is the detection-skip
+behavior required by the task (F46 root cause fix).
+
+----------------------------------------------------------------------
+Case (b) — no existing claude binary, default env (legacy path intact)
+----------------------------------------------------------------------
+HOME=<TMPHOME>/case-b-home (empty directory, no .local/bin)
+AKARI_PARTNER_CLAUDE_INSTALL_URL=http://127.0.0.1:9/unreachable (unreachable)
+AKARI_PARTNER_FORCE_REINSTALL unset
+
+stdout:
+  Claude installer を取得しています: http://127.0.0.1:9/unreachable
+stderr:
+  fetch failed
+exit code: 1 (expected failure — network is intentionally unreachable)
+
+Result: with no existing binary found, the runner falls through to the
+original installer path (the pre-existing behavior is unchanged) and
+fails only because the configured URL is unreachable. This confirms the
+legacy path still fires when detection finds nothing — the fix only
+skips the installer when a usable binary is already present.
+
+----------------------------------------------------------------------
+Case (c) — existing claude binary present, AKARI_PARTNER_FORCE_REINSTALL=1
+----------------------------------------------------------------------
+HOME=<TMPHOME>/case-c-home
+<TMPHOME>/case-c-home/.local/bin/claude = executable echo stub (chmod +x)
+AKARI_PARTNER_CLAUDE_INSTALL_URL=http://127.0.0.1:9/unreachable (unreachable)
+AKARI_PARTNER_FORCE_REINSTALL=1
+
+stdout:
+  Claude installer を取得しています: http://127.0.0.1:9/unreachable
+stderr:
+  fetch failed
+exit code: 1 (expected failure — network is intentionally unreachable)
+
+Result: even though a usable claude binary exists at the known location,
+setting AKARI_PARTNER_FORCE_REINSTALL=1 makes the runner skip detection
+entirely and enter the installer path (network attempt observed via the
+log line, then a fetch failure because the URL is intentionally
+unreachable). This confirms the escape hatch required by task.md
+instruction 3 works as an explicit override.
+
+----------------------------------------------------------------------
+Case (d) — codex side, existing binary present, default env (detection-first)
+----------------------------------------------------------------------
+HOME=<TMPHOME>/case-d-home
+<TMPHOME>/case-d-home/.local/bin/codex = executable echo stub (chmod +x)
+AKARI_PARTNER_CODEX_RELEASE_API_URL=http://127.0.0.1:9/unreachable (unreachable)
+AKARI_PARTNER_FORCE_REINSTALL unset
+
+stdout:
+  既存の codex を検出: <TMPHOME>/case-d-home/.local/bin/codex
+  {"executablePath":"<TMPHOME>/case-d-home/.local/bin/codex","reused":true}
+stderr: (empty)
+exit code: 0
+
+Result: same detection-skip behavior as case (a), confirmed on the codex
+side (installCodexBinary()). No "Codex リリース情報を取得しています" log
+line appears, i.e. no GitHub releases API call was attempted.
+
+----------------------------------------------------------------------
+Summary
+----------------------------------------------------------------------
+- (a)/(d): with a usable binary already on disk, both runClaudeInstaller()
+  and installCodexBinary() return immediately with reused:true and never
+  touch the network — this is the F46 fix (owner symptom: "Claude Code は
+  既に入っているのに毎回インストールされる").
+- (b): with no binary found, the original installer/downloader path still
+  runs unchanged (regression check — the fix does not remove the
+  fallback path for genuinely fresh machines).
+- (c): AKARI_PARTNER_FORCE_REINSTALL=1 is a deliberate escape hatch that
+  bypasses detection even when a binary is present.
+- No files were installed and no real network egress occurred in any of
+  the four cases (all install/release URLs point at an unreachable local
+  address; cases (a)/(d) prove this by never even attempting the request).

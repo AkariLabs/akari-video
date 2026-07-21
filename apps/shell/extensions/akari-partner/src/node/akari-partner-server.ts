@@ -65,7 +65,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
         if (!resultLine) {
             throw new Error(`${agent} bootstrap did not return an executable path`);
         }
-        const parsed = JSON.parse(resultLine) as { executablePath?: string };
+        const parsed = JSON.parse(resultLine) as { executablePath?: string; reused?: boolean };
         if (!parsed.executablePath) {
             throw new Error(`${agent} bootstrap returned an invalid result`);
         }
@@ -74,6 +74,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
             executablePath: parsed.executablePath,
             runtimePath,
             runtimeMode,
+            reused: Boolean(parsed.reused),
             log: lines.filter(line => line !== resultLine)
         };
     }

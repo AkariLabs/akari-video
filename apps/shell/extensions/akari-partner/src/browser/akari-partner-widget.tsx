@@ -159,8 +159,12 @@ export class AkariPartnerWidget extends ReactWidget {
                 await this.verifyPlatformBinary(entry.extensionId, verification);
             }
 
-            this.setProgress('CLI をダウンロード・インストールしています…', '同梱ランタイムで実行中');
+            this.setProgress('CLI を確認しています…', '同梱ランタイムで実行中');
             const bootstrap = await this.partnerServer.bootstrap(entry.agent);
+            this.setProgress(
+                bootstrap.reused ? 'インストール済みの CLI を検出しました' : 'CLI をダウンロード・インストールしました',
+                bootstrap.executablePath
+            );
             const launch = await this.partnerServer.prepareLaunch(entry.agent);
             this.setProgress('パートナー PTY を起動しています…', `${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const roots = await this.workspaceService.roots;

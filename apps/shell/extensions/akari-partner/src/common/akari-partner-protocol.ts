@@ -6,6 +6,8 @@ export interface BootstrapResult {
     executablePath: string;
     runtimePath: string;
     runtimeMode: 'electron-as-node' | 'node';
+    /** True when an already-installed CLI binary was reused instead of running the installer (F46). */
+    reused: boolean;
     log: string[];
 }
 
