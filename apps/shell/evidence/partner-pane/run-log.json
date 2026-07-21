@@ -1,0 +1,98 @@
+[
+  {
+    "t": "2026-07-21T06:52:04.806Z",
+    "step": "connected-main",
+    "targetId": "D4B87754B964ED75EDCCC6DF1350447C"
+  },
+  {
+    "t": "2026-07-21T06:52:08.972Z",
+    "step": "booted",
+    "booted": true
+  },
+  {
+    "t": "2026-07-21T06:52:13.174Z",
+    "step": "ready",
+    "ready": true
+  },
+  {
+    "t": "2026-07-21T06:52:13.344Z",
+    "step": "right-panel-width-before",
+    "totalWidth": 1120,
+    "rightWidth": 493,
+    "ratio": 0.4401785714285714
+  },
+  {
+    "t": "2026-07-21T06:52:14.723Z",
+    "step": "attached-dummy-terminal",
+    "ok": true,
+    "terminalId": "terminal-1",
+    "flowState": "complete"
+  },
+  {
+    "t": "2026-07-21T06:52:15.478Z",
+    "step": "right-panel-width-after-connect",
+    "totalWidth": 1120,
+    "rightWidth": 493,
+    "ratio": 0.4401785714285714
+  },
+  {
+    "t": "2026-07-21T06:52:16.323Z",
+    "step": "typed-into-composer",
+    "MESSAGE_TEXT": "hello from the akari-partner e2e verification script",
+    "composerValueAfterType": "hello from the akari-partner e2e verification script"
+  },
+  {
+    "t": "2026-07-21T06:52:16.612Z",
+    "step": "clicked-send",
+    "x": 1032,
+    "y": 620.25
+  },
+  {
+    "t": "2026-07-21T06:52:17.967Z",
+    "step": "messages-after-send",
+    "messagesAfterSend": [
+      {
+        "role": "ai",
+        "text": "つながりました。下の入力欄からそのまま話しかけてください。"
+      },
+      {
+        "role": "me",
+        "text": "hello from the akari-partner e2e verification script"
+      },
+      {
+        "role": "ai",
+        "text": "hello from the akari-partner e2e verification script\nECHO: hello from the akari-partner e2e verification script"
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:52:17.968Z",
+    "step": "injection-path-result",
+    "ok": true
+  },
+  {
+    "t": "2026-07-21T06:52:18.551Z",
+    "step": "developer-mode-on",
+    "devMode": true,
+    "activeRightTabId": "terminal-1"
+  },
+  {
+    "t": "2026-07-21T06:52:20.328Z",
+    "step": "developer-mode-off",
+    "devMode": false,
+    "activeRightTabId": "akari-partner-onboarding",
+    "messagesStillPresent": 3
+  },
+  {
+    "t": "2026-07-21T06:52:21.485Z",
+    "step": "resize-respect-check",
+    "before": 493,
+    "afterManualResize": 640,
+    "afterReapplyRatio": 640
+  },
+  {
+    "t": "2026-07-21T06:52:21.632Z",
+    "step": "resize-respected-result",
+    "ok": true
+  }
+]

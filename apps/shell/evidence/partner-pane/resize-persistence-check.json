@@ -1,0 +1,10 @@
+{
+  "purpose": "Confirms the 44% default pane width is NOT force-reset on every launch (task.md acceptance: 'リサイズ尊重（強制 44% リセットが毎回入らないこと）を確認し report に記録').",
+  "method": "Manual resize to 640px via ApplicationShell.resize(640, 'right') during a live session, then a graceful window close (dispatches beforeunload -> ShellLayoutRestorer.storeLayout) followed by a full process relaunch against the same user-data profile and workspace.",
+  "steps": [
+    { "step": "panel size before graceful close", "widthPx": 640 },
+    { "step": "electron log on relaunch", "message": "\">>> Restoring the layout state...\" / \"<<< The layout has been successfully restored.\"" },
+    { "step": "panel size after full app relaunch", "totalWidthPx": 1120, "rightWidthPx": 640, "note": "matches the pre-close resized value, not the 44% default (~493px)" }
+  ],
+  "result": "PASS — resize survives a full app restart; the 44% default only applies on a genuine first launch (no persisted layout)."
+}
