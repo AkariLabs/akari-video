@@ -13,27 +13,61 @@ import { parseReview } from '../common/annotation-store';
 import { CaptionRecord, parseCaptions } from '../common/caption-store';
 import { EditCut, EditOverlay, parseEdit } from '../common/edit-store';
 import { assignSubRows } from '../common/lane-layout';
-import { OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
+import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
+import { TimelineSelectionModel } from './timeline-selection-model';
 
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
+const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const HISTORY_LIMIT = 50;
 const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
 const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
-const SNAP_THRESHOLD_PX = 8;
+const SNAP_THRESHOLD_PX = 6;
+const SNAP_GRID_SECONDS = 0.25;
+const SNAP_GUIDE_COLOR_DEFAULT = '#06b6d4';
+const SNAP_GUIDE_COLOR_PLAYHEAD = '#f59e0b';
 const MIN_VIEW_DURATION_FRAMES = 4;
-const RULER_TARGET_TICK_COUNT = 6;
+const RULER_MIN_TICK_SPACING_PX = 80;
 const RULER_STEP_MULTIPLIERS_FRAMES = [1, 2, 5, 10, 20, 50, 100];
-const RULER_STEP_SECONDS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
+const RULER_STEP_SECONDS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+const RULER_BAND_HEIGHT_PX = 14;
+const RULER_TICK_COLOR = '#3f3f46';
+const RULER_BAND_BACKGROUND = '#1e1e21';
+const STRIP_BACKGROUND = '#1a1d22';
+const STRIP_BORDER_COLOR = '#2a2d33';
 const ZOOM_SLIDER_RESOLUTION = 1000;
 const ZOOM_WHEEL_SENSITIVITY = 0.01;
 const ZOOM_EVENT_FACTOR_MIN = 1 / 1.5;
 const ZOOM_EVENT_FACTOR_MAX = 1.5;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
+const PLAYHEAD_COLOR = '#3b82f6';
+const MICRO_CLIP_WIDTH_PX = 28;
 const WAVEFORM_CANVAS_HEIGHT_PX = 32;
+
+/** タイムライン（出力秒軸）上の1セグメント。cuts[] を配列順にギャップなく連結した結果。 */
+interface OutputSegment {
+    index: number;
+    in: number;
+    out: number;
+    tlStart: number;
+    tlEnd: number;
+}
+
+type ToolMode = 'select' | 'razor';
+
+type TimelineSelection =
+    | { kind: 'cut'; index: number }
+    | { kind: 'overlay'; id: string }
+    | { kind: 'caption'; id: string }
+    | undefined;
+
+interface SnapCandidate {
+    time: number;
+    isPlayhead?: boolean;
+}
 
 export interface PreviewPlaybackTick {
     videoUri?: string;
@@ -63,7 +97,7 @@ interface DragBase {
 
 type DragDetail =
     | { kind: 'cut-trim'; index: number; edge: 'left' | 'right'; originalIn: number; originalOut: number }
-    | { kind: 'cut-reorder'; index: number; originalIn: number; originalOut: number }
+    | { kind: 'cut-reorder'; index: number; originalTlStart: number; duration: number }
     | { kind: 'caption'; id: string; mode: 'move' | 'start' | 'end'; originalStart: number; originalEnd: number }
     | { kind: 'overlay'; id: string; mode: 'move' | 'resize'; originalStart: number; originalDuration: number };
 
@@ -93,6 +127,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly annotationsService!: AkariAnnotationsService;
 
     protected readonly toolbar = document.createElement('div');
+    protected readonly selectToolButton = document.createElement('button');
+    protected readonly razorToolButton = document.createElement('button');
+    protected readonly snapToggleButton = document.createElement('button');
     protected readonly undoButton = document.createElement('button');
     protected readonly redoButton = document.createElement('button');
     protected readonly zoomHud = document.createElement('div');
@@ -105,17 +142,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly hScrollbarThumb = document.createElement('div');
     protected readonly strip = document.createElement('div');
     protected readonly playhead = document.createElement('div');
+    protected readonly playheadHandle = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
+    protected readonly dragFeedback = document.createElement('div');
     protected readonly notice = document.createElement('div');
     protected readonly footer = document.createElement('div');
 
     @inject(ReviewModel)
     protected readonly review!: ReviewModel;
 
+    @inject(TimelineSelectionModel)
+    protected readonly selectionModel!: TimelineSelectionModel;
+
     protected location: ProjectLocation | undefined;
     protected captions: CaptionRecord[] = [];
     protected cuts: EditCut[] = [];
     protected overlays: EditOverlay[] = [];
+    protected segments: OutputSegment[] = [];
     protected wordBoundaries: number[] = [];
     protected configured = false;
     protected dragState: DragState | undefined;
@@ -126,10 +169,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected viewStart = 0;
     protected viewDuration: number | undefined;
     protected fps = 30;
+    /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
     protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected ffmpegMissingNoticeShown = false;
+    protected toolMode: ToolMode = 'select';
+    protected snapEnabled = true;
+    protected selection: TimelineSelection;
 
     /** 注釈の実体は ReviewModel が持つ（注釈パネルと共有）。ここではピン描画のために読むだけ。 */
     protected get annotations(): readonly Annotation[] {
@@ -161,24 +208,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
 
         Object.assign(this.toolbar.style, {
-            alignItems: 'center', display: 'flex', gap: '10px', minHeight: '38px',
+            alignItems: 'center', display: 'flex', gap: '4px', minHeight: '38px',
             padding: '6px 10px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
-        const heading = document.createElement('strong');
-        heading.textContent = 'タイムライン';
-        heading.style.marginRight = 'auto';
-        this.undoButton.type = 'button';
-        this.undoButton.className = 'theia-button secondary';
-        this.undoButton.textContent = '元に戻す';
+        this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (A)');
+        this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
+        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (B)');
+        this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
+        this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (N)');
+        this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
+        this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
         this.undoButton.disabled = true;
         this.undoButton.addEventListener('click', () => void this.performUndo());
-        this.redoButton.type = 'button';
-        this.redoButton.className = 'theia-button secondary';
-        this.redoButton.textContent = 'やり直す';
+        this.configureIconButton(this.redoButton, 'codicon-redo', 'やり直す', 'やり直す (⇧⌘Z)');
         this.redoButton.disabled = true;
         this.redoButton.addEventListener('click', () => void this.performRedo());
+        this.toolbar.append(
+            this.selectToolButton, this.razorToolButton,
+            this.createToolbarSeparator(),
+            this.snapToggleButton,
+            this.createToolbarSeparator(),
+            this.undoButton, this.redoButton
+        );
+        this.updateToolModeButtons();
+        this.updateSnapButton();
         Object.assign(this.zoomHud.style, {
-            display: 'flex', alignItems: 'center', gap: '6px'
+            display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto'
         });
         this.zoomIcon.className = 'codicon codicon-search';
         this.zoomIcon.setAttribute('aria-hidden', 'true');
@@ -208,22 +263,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.reviewButton.textContent = '注釈';
         this.reviewButton.title = '注釈パネルを開く';
         this.reviewButton.addEventListener('click', () => void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID));
-        this.toolbar.append(heading, this.zoomHud, this.undoButton, this.redoButton, this.reviewButton);
+        this.toolbar.append(this.zoomHud, this.reviewButton);
 
+        this.strip.classList.add('akari-annotations-strip');
         Object.assign(this.strip.style, {
             position: 'relative', margin: '8px 10px',
-            border: '1px solid var(--theia-widget-border)', borderRadius: '4px',
-            background: 'var(--theia-editorWidget-background)', cursor: 'pointer', overflow: 'hidden'
+            border: `1px solid ${STRIP_BORDER_COLOR}`, borderRadius: '4px',
+            background: STRIP_BACKGROUND, cursor: 'pointer', overflow: 'hidden'
         });
         Object.assign(this.playhead.style, {
             position: 'absolute', top: '0', bottom: '0', width: '2px',
-            background: 'var(--theia-focusBorder)', left: '0%', pointerEvents: 'none', zIndex: '10'
+            background: PLAYHEAD_COLOR, left: '0%', pointerEvents: 'none', zIndex: '10',
+            boxShadow: `0 0 4px 1px ${PLAYHEAD_COLOR}`
         });
+        Object.assign(this.playheadHandle.style, {
+            position: 'absolute', top: '-14px', left: '50%', width: '14px', height: '16px',
+            transform: 'translateX(-50%)', cursor: 'ew-resize', pointerEvents: 'auto', zIndex: '13'
+        });
+        this.playheadHandle.setAttribute('aria-hidden', 'true');
+        this.playheadHandle.innerHTML =
+            `<svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">` +
+            `<path d="M0 0H14V10L7 16L0 10Z" fill="${PLAYHEAD_COLOR}"/></svg>`;
+        this.playheadHandle.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
+        this.playhead.appendChild(this.playheadHandle);
         Object.assign(this.snapGuide.style, {
             position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
-            background: 'var(--theia-charts-yellow, #e5c07b)', pointerEvents: 'none', zIndex: '11'
+            background: SNAP_GUIDE_COLOR_DEFAULT, pointerEvents: 'none', zIndex: '11'
         });
-        this.strip.append(this.playhead, this.snapGuide);
+        Object.assign(this.dragFeedback.style, {
+            position: 'absolute', display: 'none', padding: '2px 6px', fontSize: '10px',
+            fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+            color: 'var(--theia-editor-foreground, #fff)',
+            background: 'var(--theia-editorHoverWidget-background, rgba(30,30,30,.9))',
+            border: '1px solid var(--theia-editorHoverWidget-border, rgba(255,255,255,.2))',
+            borderRadius: '3px', pointerEvents: 'none', zIndex: '12'
+        });
+        this.strip.append(this.playhead, this.snapGuide, this.dragFeedback);
         this.strip.addEventListener('click', event => this.onStripClick(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
@@ -260,11 +335,55 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.append(this.toolbar, this.stripScroll, this.hScrollbarTrack, this.notice, this.footer);
         const style = document.createElement('style');
         style.textContent = `
+    .akari-annotations-widget .akari-annotations-strip::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: ${RULER_BAND_HEIGHT_PX}px;
+        background: ${RULER_BAND_BACKGROUND};
+        pointer-events: none;
+        z-index: 0;
+    }
     .akari-annotations-widget .akari-annotations-strip-clip {
-        background: color-mix(in srgb, var(--theia-charts-blue, #61afef) 62%, transparent);
-        border: 1px solid color-mix(in srgb, var(--theia-charts-blue, #61afef) 82%, white);
-        border-radius: 2px;
+        background: #27272a;
+        border: 1px solid #3f3f46;
+        border-right-width: 2px;
+        border-radius: 0;
+        box-shadow: none;
         box-sizing: border-box;
+        color: #e5e5e5;
+    }
+    .akari-annotations-widget .akari-annotations-strip-clip-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 14px;
+        background: #2c8a9a;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        padding: 0 3px;
+        box-sizing: border-box;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+        line-height: 14px;
+        color: #e5e5e5;
+        pointer-events: none;
+        overflow: hidden;
+        white-space: nowrap;
+        z-index: 1;
+    }
+    .akari-annotations-widget .akari-annotations-strip-clip-header-label,
+    .akari-annotations-widget .akari-annotations-strip-clip-header-duration {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .akari-annotations-widget .akari-annotations-strip-clip-header-duration {
+        flex: none;
     }
     .akari-annotations-widget .akari-annotations-strip-caption {
         background: var(--theia-charts-purple, #b180d7);
@@ -321,6 +440,53 @@ export class AkariAnnotationsWidget extends BaseWidget {
         pointer-events: none;
         text-shadow: 0 1px 2px #000;
     }
+    .akari-annotations-widget .akari-annotations-selected {
+        outline: 2px solid var(--theia-focusBorder, #fff);
+        outline-offset: 1px;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, .65);
+        z-index: 2;
+    }
+    .akari-annotations-widget .akari-annotations-strip-clip.akari-annotations-selected {
+        outline: 2px solid #f97316;
+        outline-offset: -2px;
+        border-left: 2px solid #ffffff;
+        border-right: 2px solid #ffffff;
+        box-shadow: none;
+    }
+    .akari-annotations-widget:not(.akari-annotations-tool-razor) .akari-annotations-strip-clip:hover::before,
+    .akari-annotations-widget:not(.akari-annotations-tool-razor) .akari-annotations-strip-clip:hover::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        bottom: 3px;
+        width: 10px;
+        background: rgba(255, 255, 255, .18);
+        pointer-events: none;
+    }
+    .akari-annotations-widget:not(.akari-annotations-tool-razor) .akari-annotations-strip-clip:hover::before {
+        left: 0;
+    }
+    .akari-annotations-widget:not(.akari-annotations-tool-razor) .akari-annotations-strip-clip:hover::after {
+        right: 0;
+    }
+    .akari-annotations-widget:not(.akari-annotations-tool-razor) .akari-annotations-strip-clip-micro:hover::before,
+    .akari-annotations-widget:not(.akari-annotations-tool-razor) .akari-annotations-strip-clip-micro:hover::after {
+        content: none;
+        display: none;
+    }
+    .akari-annotations-widget .akari-annotations-icon-button {
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+    }
+    .akari-annotations-widget .akari-annotations-icon-button[aria-pressed="true"] {
+        background: var(--theia-button-background);
+        color: var(--theia-button-foreground);
+    }
 `;
         this.node.appendChild(style);
 
@@ -330,7 +496,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.cancelDrag(this.dragState);
                 return;
             }
-            if (this.isAttached && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+            if (!this.isAttached) {
+                return;
+            }
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
                 event.preventDefault();
                 event.stopPropagation();
                 if (event.shiftKey) {
@@ -338,6 +507,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } else {
                     void this.performUndo();
                 }
+                return;
+            }
+            if (this.isEditableTarget(event.target)) {
+                return;
+            }
+            if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+                const key = event.key.toLowerCase();
+                if (key === 'a') {
+                    event.preventDefault();
+                    this.setToolMode('select');
+                    return;
+                }
+                if (key === 'b') {
+                    event.preventDefault();
+                    this.setToolMode('razor');
+                    return;
+                }
+                if (key === 'n') {
+                    event.preventDefault();
+                    this.setSnapEnabled(!this.snapEnabled);
+                    return;
+                }
+            }
+            if ((event.key === 'Delete' || event.key === 'Backspace') && this.selection?.kind === 'cut') {
+                event.preventDefault();
+                void this.performDeleteSelectedCut();
             }
         };
         // 注釈が増減したらピンを描き直す。パネルの時刻リンクからのジャンプもここで受ける。
@@ -357,6 +552,232 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.cancelDrag(this.dragState);
             }
         }));
+    }
+
+    protected configureIconButton(button: HTMLButtonElement, icon: string, ariaLabel: string, title: string): void {
+        button.type = 'button';
+        button.className = 'theia-button secondary akari-annotations-icon-button';
+        button.setAttribute('aria-label', ariaLabel);
+        button.title = title;
+        button.replaceChildren();
+        const iconSpan = document.createElement('span');
+        iconSpan.className = `codicon ${icon}`;
+        iconSpan.setAttribute('aria-hidden', 'true');
+        button.appendChild(iconSpan);
+    }
+
+    protected createToolbarSeparator(): HTMLDivElement {
+        const separator = document.createElement('div');
+        Object.assign(separator.style, {
+            width: '1px', height: '18px', margin: '0 4px', flex: 'none',
+            background: 'var(--theia-widget-border)'
+        });
+        return separator;
+    }
+
+    protected setToolMode(mode: ToolMode): void {
+        if (this.toolMode === mode) {
+            return;
+        }
+        this.toolMode = mode;
+        this.updateToolModeButtons();
+        this.node.classList.toggle('akari-annotations-tool-razor', mode === 'razor');
+        this.strip.style.cursor = mode === 'razor' ? 'crosshair' : 'pointer';
+        this.renderStrip();
+    }
+
+    protected updateToolModeButtons(): void {
+        this.selectToolButton.setAttribute('aria-pressed', String(this.toolMode === 'select'));
+        this.razorToolButton.setAttribute('aria-pressed', String(this.toolMode === 'razor'));
+    }
+
+    protected setSnapEnabled(value: boolean): void {
+        this.snapEnabled = value;
+        this.updateSnapButton();
+        if (!value) {
+            this.hideSnapGuide();
+        }
+    }
+
+    protected updateSnapButton(): void {
+        this.snapToggleButton.setAttribute('aria-pressed', String(this.snapEnabled));
+    }
+
+    protected isEditableTarget(target: EventTarget | null): boolean {
+        if (!(target instanceof HTMLElement)) {
+            return false;
+        }
+        return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+    }
+
+    protected selectionFromDragState(state: DragState): TimelineSelection {
+        if (state.kind === 'cut-trim' || state.kind === 'cut-reorder') {
+            return { kind: 'cut', index: state.index };
+        }
+        if (state.kind === 'caption') {
+            return { kind: 'caption', id: state.id };
+        }
+        return { kind: 'overlay', id: state.id };
+    }
+
+    protected applySelection(selection: TimelineSelection): void {
+        this.selection = selection;
+        this.pushSelectionSnapshot();
+        this.renderStrip();
+        if (selection) {
+            void this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+        }
+    }
+
+    /** 選択の実体（cuts/overlays/captions の現在値）を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
+    protected pushSelectionSnapshot(): void {
+        const selection = this.selection;
+        if (!selection) {
+            this.selectionModel.snapshot = undefined;
+            return;
+        }
+        if (selection.kind === 'cut') {
+            const segment = this.segments[selection.index];
+            const cut = this.cuts[selection.index];
+            if (!segment || !cut) {
+                this.selection = undefined;
+                this.selectionModel.snapshot = undefined;
+                return;
+            }
+            this.selectionModel.snapshot = {
+                kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
+                sourceName: this.sourceBaseName(), sourceIn: cut.in, sourceOut: cut.out,
+                outputStart: segment.tlStart, outputEnd: segment.tlEnd
+            };
+        } else if (selection.kind === 'overlay') {
+            const overlay = this.overlays.find(candidate => candidate.id === selection.id);
+            if (!overlay) {
+                this.selection = undefined;
+                this.selectionModel.snapshot = undefined;
+                return;
+            }
+            this.selectionModel.snapshot = { kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration };
+        } else {
+            const caption = this.captions.find(candidate => candidate.id === selection.id);
+            if (!caption) {
+                this.selection = undefined;
+                this.selectionModel.snapshot = undefined;
+                return;
+            }
+            const ranges = this.sourceRangeToOutputRanges(caption.start, caption.end);
+            this.selectionModel.snapshot = {
+                kind: 'caption', id: caption.id, text: caption.text,
+                sourceStart: caption.start, sourceEnd: caption.end,
+                outputStart: ranges.length > 0 ? ranges[0][0] : undefined,
+                outputEnd: ranges.length > 0 ? ranges[ranges.length - 1][1] : undefined
+            };
+        }
+        this.selectionModel.fps = this.fps;
+    }
+
+    protected sourceBaseName(): string {
+        if (!this.location?.videoUri) {
+            return '';
+        }
+        try {
+            return new URI(this.location.videoUri).path.base;
+        } catch {
+            return this.location.videoUri;
+        }
+    }
+
+    /** レザーモードでクリップをクリックした位置（出力秒→source 秒）で cuts を2分割する。 */
+    protected async performRazorSplitAt(segment: OutputSegment, clientX: number): Promise<void> {
+        const location = this.location;
+        if (!location?.editUri) {
+            return;
+        }
+        const outputT = this.timeAtClientX(clientX);
+        const sourceT = this.outputToSource(outputT);
+        if (sourceT - segment.in < MINIMUM_ITEM_DURATION || segment.out - sourceT < MINIMUM_ITEM_DURATION) {
+            this.footer.textContent = 'クリップの端に近すぎるため分割できません（両側 0.15 秒以上必要です）';
+            return;
+        }
+        const index = segment.index;
+        const originalIn = segment.in;
+        const originalOut = segment.out;
+        try {
+            const result = await this.annotationsService.splitCut({
+                editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
+                cutIndex: index, atSeconds: sourceT
+            });
+            this.pushHistory({
+                label: 'クリップの分割',
+                undo: async () => {
+                    await this.annotationsService.deleteCut({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), cutIndex: index + 1
+                    });
+                    await this.annotationsService.trimCut({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                        cutIndex: index, in: originalIn, out: originalOut
+                    });
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.annotationsService.splitCut({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                        cutIndex: index, atSeconds: sourceT
+                    });
+                    await this.reloadEdit();
+                }
+            });
+            await this.reloadEdit();
+            this.hideNotice();
+            this.footer.textContent = this.writeResultMessage('クリップを分割しました。', result);
+            this.revealOutputPreview();
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`クリップを分割できません: ${detail}`);
+            this.messages.error(`クリップを分割できません: ${detail}`);
+        }
+    }
+
+    /** 選択中のクリップを削除する（Delete/Backspace）。 */
+    protected async performDeleteSelectedCut(): Promise<void> {
+        if (this.selection?.kind !== 'cut') {
+            return;
+        }
+        const index = this.selection.index;
+        const location = this.location;
+        if (!location?.editUri) {
+            return;
+        }
+        try {
+            const result = await this.annotationsService.deleteCut({
+                editUri: location.editUri.toString(), projectRootUri: location.root.toString(), cutIndex: index
+            });
+            const removedText = result.removedText;
+            this.pushHistory({
+                label: 'クリップの削除',
+                undo: async () => {
+                    await this.annotationsService.insertCut({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                        cutIndex: index, elementText: removedText
+                    });
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.annotationsService.deleteCut({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), cutIndex: index
+                    });
+                    await this.reloadEdit();
+                }
+            });
+            this.applySelection(undefined);
+            await this.reloadEdit();
+            this.hideNotice();
+            this.footer.textContent = this.writeResultMessage('クリップを削除しました。', result);
+            this.revealOutputPreview();
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`クリップを削除できません: ${detail}`);
+            this.messages.error(`クリップを削除できません: ${detail}`);
+        }
     }
 
     async configure(location: ProjectLocation): Promise<void> {
@@ -436,6 +857,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // A missing or unreadable edit.json means no clips or overlays are drawn.
             }
         }
+        this.rebuildSegments();
+        this.selectionModel.fps = this.fps;
+        this.pushSelectionSnapshot();
         this.renderStrip();
     }
 
@@ -453,7 +877,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // A missing or unreadable captions.json means no caption segments are drawn.
             }
         }
+        this.pushSelectionSnapshot();
         this.renderStrip();
+    }
+
+    /** cuts[] を配列順にギャップなく連結した出力秒セグメントを再構築する。cuts が変わるたび呼ぶ。 */
+    protected rebuildSegments(): void {
+        let cursor = 0;
+        this.segments = this.cuts.map((cut, index) => {
+            const duration = Math.max(0, cut.out - cut.in);
+            const segment: OutputSegment = { index, in: cut.in, out: cut.out, tlStart: cursor, tlEnd: cursor + duration };
+            cursor += duration;
+            return segment;
+        });
     }
 
     protected async reloadAnalysis(): Promise<void> {
@@ -485,14 +921,78 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected totalDuration(): number {
+        if (this.cuts.length > 0) {
+            // アウトプット軸: cuts 尺合計とオーバーレイ終端の大きい方（10 秒フロアは cuts があるときは外す）。
+            const cutsDuration = this.segments.length > 0 ? this.segments[this.segments.length - 1].tlEnd : 0;
+            const overlaysEnd = this.overlays.reduce((max, overlay) => Math.max(max, overlay.start + overlay.duration), 0);
+            return Math.max(cutsDuration, overlaysEnd) * 1.02;
+        }
         const candidates = [
             10,
             ...this.captions.map(caption => caption.end),
-            ...this.cuts.map(cut => cut.out),
             ...this.overlays.map(overlay => overlay.start + overlay.duration),
             ...this.annotations.map(annotation => annotation.sourceT + 1)
         ];
         return Math.max(...candidates) * 1.02;
+    }
+
+    /** source 秒 → 出力秒。cuts が無ければ恒等写像（後方互換）。範囲外は最も近いセグメントへクランプする。 */
+    protected sourceToOutput(t: number): number {
+        if (this.segments.length === 0) {
+            return t;
+        }
+        let best: { segment: OutputSegment; distance: number } | undefined;
+        for (const segment of this.segments) {
+            if (t >= segment.in && t <= segment.out) {
+                return segment.tlStart + (t - segment.in);
+            }
+            const distance = t < segment.in ? segment.in - t : t - segment.out;
+            if (!best || distance < best.distance) {
+                best = { segment, distance };
+            }
+        }
+        const segment = best!.segment;
+        const clamped = Math.min(segment.out, Math.max(segment.in, t));
+        return segment.tlStart + (clamped - segment.in);
+    }
+
+    /** 出力秒 → source 秒。cuts が無ければ恒等写像（後方互換）。 */
+    protected outputToSource(t: number): number {
+        if (this.segments.length === 0) {
+            return t;
+        }
+        for (const segment of this.segments) {
+            if (t >= segment.tlStart && t <= segment.tlEnd) {
+                return segment.in + (t - segment.tlStart);
+            }
+        }
+        const last = this.segments[this.segments.length - 1];
+        if (t > last.tlEnd) {
+            return last.out;
+        }
+        return this.segments[0].in;
+    }
+
+    /**
+     * source 秒区間 → 出力秒区間の配列。削除区間で分断される字幕を複数区間として返す
+     * （cuts が無ければ入力をそのまま1区間として返す＝後方互換）。
+     */
+    protected sourceRangeToOutputRanges(start: number, end: number): Array<[number, number]> {
+        if (this.segments.length === 0) {
+            return [[start, end]];
+        }
+        const ranges: Array<[number, number]> = [];
+        for (const segment of this.segments) {
+            const overlapStart = Math.max(start, segment.in);
+            const overlapEnd = Math.min(end, segment.out);
+            if (overlapEnd > overlapStart) {
+                ranges.push([
+                    segment.tlStart + (overlapStart - segment.in),
+                    segment.tlStart + (overlapEnd - segment.in)
+                ]);
+            }
+        }
+        return ranges;
     }
 
     protected visibleDuration(): number {
@@ -500,8 +1000,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderStrip(): void {
-        const CLIP_TOP = 14;
-        const CLIP_HEIGHT = 22;
+        const CLIP_TOP = RULER_BAND_HEIGHT_PX;
+        const CLIP_HEADER_HEIGHT = 14;
+        const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 22;
         const LANE_GAP = 6;
         const SUBROW_HEIGHT = 16;
         const SUBROW_GAP = 2;
@@ -524,30 +1025,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         for (const child of Array.from(this.strip.children)) {
-            if (child !== this.playhead && child !== this.snapGuide) {
+            if (child !== this.playhead && child !== this.snapGuide && child !== this.dragFeedback) {
                 child.remove();
             }
         }
         this.renderRuler();
-        this.cuts.forEach((cut, index) => {
+        this.segments.forEach(segment => {
+            const cut = this.cuts[segment.index];
             const element = this.stripSegment(
-                cut.in, cut.out, CLIP_TOP, CLIP_HEIGHT, 'akari-annotations-strip-clip', `C${index + 1}`
+                segment.tlStart, segment.tlEnd, CLIP_TOP, CLIP_HEIGHT,
+                'akari-annotations-strip-clip', `C${segment.index + 1}`
             );
-            const widthPercent = Math.max(this.percent(cut.out) - this.percent(cut.in), 0.3);
+            if (this.selection?.kind === 'cut' && this.selection.index === segment.index) {
+                element.classList.add('akari-annotations-selected');
+            }
+            const widthPercent = Math.max(this.percent(segment.tlEnd) - this.percent(segment.tlStart), 0.3);
             const clipWidth = this.strip.clientWidth * widthPercent / 100;
+            if (clipWidth < MICRO_CLIP_WIDTH_PX) {
+                element.classList.add('akari-annotations-strip-clip-micro');
+            }
             this.renderClipMedia(element, cut, clipWidth);
-            element.appendChild(this.segmentLabel(`C${index + 1}`));
+            element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
                 const rightDistance = rect.right - event.clientX;
                 if (localX <= EDGE_ZONE_PX && localX <= rightDistance) {
-                    return { kind: 'cut-trim', index, edge: 'left', originalIn: cut.in, originalOut: cut.out };
+                    return { kind: 'cut-trim', index: segment.index, edge: 'left', originalIn: cut.in, originalOut: cut.out };
                 }
                 if (rightDistance <= EDGE_ZONE_PX) {
-                    return { kind: 'cut-trim', index, edge: 'right', originalIn: cut.in, originalOut: cut.out };
+                    return { kind: 'cut-trim', index: segment.index, edge: 'right', originalIn: cut.in, originalOut: cut.out };
                 }
-                return { kind: 'cut-reorder', index, originalIn: cut.in, originalOut: cut.out };
-            });
+                return { kind: 'cut-reorder', index: segment.index, originalTlStart: segment.tlStart, duration: segment.tlEnd - segment.tlStart };
+            }, event => void this.performRazorSplitAt(segment, event.clientX));
+            if (this.toolMode === 'razor') {
+                element.style.cursor = 'crosshair';
+            }
             this.strip.appendChild(element);
         });
 
@@ -568,9 +1080,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.captions.forEach((caption, index) => {
             const captionEnd = Math.max(caption.end, caption.start + MINIMUM_ITEM_DURATION);
             const top = captionBandTop + captionRows[index] * SUBROW_STRIDE;
+            const outputRanges = this.sourceRangeToOutputRanges(caption.start, captionEnd);
+            if (outputRanges.length === 0) {
+                // 削除区間に完全に落ちた字幕は非表示にする。
+                return;
+            }
+            const [outputStart, outputEnd] = [outputRanges[0][0], outputRanges[outputRanges.length - 1][1]];
             const element = this.stripSegment(
-                caption.start, captionEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
+                outputStart, outputEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
             );
+            if (this.selection?.kind === 'caption' && this.selection.id === caption.id) {
+                element.classList.add('akari-annotations-selected');
+            }
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
                 const rightDistance = rect.right - event.clientX;
@@ -582,7 +1103,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 };
             });
             this.strip.appendChild(element);
-            this.strip.appendChild(this.captionLabel(caption.start, caption.text, top));
+            this.strip.appendChild(this.captionLabel(outputStart, caption.text, top));
         });
         this.overlays.forEach((overlay, index) => {
             const top = overlayBandTop + overlayRows[index] * SUBROW_STRIDE;
@@ -590,6 +1111,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 overlay.start, overlay.start + overlay.duration, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-overlay', overlay.id
             );
+            if (this.selection?.kind === 'overlay' && this.selection.id === overlay.id) {
+                element.classList.add('akari-annotations-selected');
+            }
             element.appendChild(this.segmentLabel(overlay.id));
             this.installDragListeners(element, (event, rect) => ({
                 kind: 'overlay', id: overlay.id,
@@ -606,13 +1130,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected renderRuler(): void {
         const ticks = this.computeRulerTicks(this.viewStart, this.visibleDuration(), this.fps);
         for (const tick of ticks) {
+            const percent = this.percent(tick.time);
+            const tickLine = document.createElement('div');
+            Object.assign(tickLine.style, {
+                position: 'absolute', top: '0', height: `${RULER_BAND_HEIGHT_PX}px`, width: '1px',
+                left: `${percent}%`, background: RULER_TICK_COLOR, pointerEvents: 'none', zIndex: '1'
+            });
+            this.strip.appendChild(tickLine);
             const label = document.createElement('div');
             label.textContent = tick.label;
-            const percent = this.percent(tick.time);
             Object.assign(label.style, {
-                position: 'absolute', top: '0', height: '14px', left: `${percent}%`,
-                color: 'var(--theia-descriptionForeground)', fontSize: '9px', lineHeight: '13px',
+                position: 'absolute', top: '0', height: `${RULER_BAND_HEIGHT_PX}px`, left: `${percent}%`,
+                color: 'var(--theia-descriptionForeground)', fontSize: '9px', lineHeight: `${RULER_BAND_HEIGHT_PX - 1}px`,
                 fontVariantNumeric: 'tabular-nums', pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: '2',
+                paddingLeft: '2px',
                 transform: percent <= 2 ? 'none' : percent >= 98 ? 'translateX(-100%)' : 'translateX(-50%)'
             });
             this.strip.appendChild(label);
@@ -620,58 +1151,48 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.renderAnnotationPins();
     }
 
+    /**
+     * 秒モード刻み候補（[0.5,1,2,5,10,15,30,60,120,300,600]）から「刻み×px/秒 >= 80px」を満たす
+     * 最小の刻みを採用する。1 フレームが 4px 以上に見える高ズームではフレームモード（MM:SS:FF）に切り替える。
+     */
     protected computeRulerTicks(viewStart: number, duration: number, fps: number): Array<{ time: number; label: string }> {
-        if (duration <= 0) {
-            return [{ time: viewStart, label: this.formatTickLabel(viewStart, 1, fps) }];
+        const rect = this.strip.getBoundingClientRect();
+        const pxPerSecond = duration > 0 && rect.width > 0 ? rect.width / duration : 0;
+        if (duration <= 0 || pxPerSecond <= 0) {
+            return [{ time: viewStart, label: this.formatRulerTimestamp(Math.max(0, viewStart)) }];
         }
         const frameDuration = 1 / fps;
-        const idealStep = duration / RULER_TARGET_TICK_COUNT;
-        const step = this.niceRulerStep(idealStep, frameDuration);
+        const frameMode = pxPerSecond * frameDuration >= 4;
+        const step = frameMode
+            ? this.niceStepFromCandidates(RULER_STEP_MULTIPLIERS_FRAMES.map(frames => frames * frameDuration), pxPerSecond)
+            : this.niceStepFromCandidates(RULER_STEP_SECONDS, pxPerSecond);
         const viewEnd = viewStart + duration;
         const startIndex = Math.ceil((viewStart - step * 1e-6) / step);
         const endIndex = Math.floor((viewEnd + step * 1e-6) / step);
         const ticks: Array<{ time: number; label: string }> = [];
         for (let index = startIndex; index <= endIndex; index++) {
             const time = index * step;
-            ticks.push({ time, label: this.formatTickLabel(time, step, fps) });
+            ticks.push({ time, label: this.formatTickLabel(time, fps, frameMode) });
         }
         if (ticks.length === 0) {
-            ticks.push({ time: viewStart, label: this.formatTickLabel(viewStart, step, fps) });
+            ticks.push({ time: viewStart, label: this.formatTickLabel(viewStart, fps, frameMode) });
         }
         return ticks;
     }
 
-    protected niceRulerStep(idealStep: number, frameDuration: number): number {
-        const candidates = RULER_STEP_MULTIPLIERS_FRAMES.map(frames => frames * frameDuration)
-            .concat(RULER_STEP_SECONDS)
-            .filter(candidate => candidate > 0)
-            .sort((a, b) => a - b);
-        for (const step of candidates) {
-            if (step >= idealStep - 1e-9) {
+    protected niceStepFromCandidates(candidates: readonly number[], pxPerSecond: number): number {
+        const sorted = [...candidates].filter(candidate => candidate > 0).sort((a, b) => a - b);
+        for (const step of sorted) {
+            if (step * pxPerSecond >= RULER_MIN_TICK_SPACING_PX) {
                 return step;
             }
         }
-        return candidates[candidates.length - 1];
+        return sorted[sorted.length - 1];
     }
 
-    protected formatTickLabel(time: number, step: number, fps: number): string {
+    protected formatTickLabel(time: number, fps: number, frameMode: boolean): string {
         const clamped = Math.max(0, time);
-        if (step < 0.1 - 1e-9) {
-            return this.formatFrameTimestamp(clamped, fps);
-        }
-        if (step < 1 - 1e-9) {
-            return this.formatSubSecondTimestamp(clamped);
-        }
-        return this.formatRulerTimestamp(clamped);
-    }
-
-    protected formatSubSecondTimestamp(value: number): string {
-        const totalTenths = Math.round(value * 10);
-        const wholeSeconds = Math.floor(totalTenths / 10);
-        const tenth = totalTenths % 10;
-        const minutes = Math.floor(wholeSeconds / 60);
-        const seconds = wholeSeconds % 60;
-        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${tenth}`;
+        return frameMode ? this.formatFrameTimestamp(clamped, fps) : this.formatRulerTimestamp(clamped);
     }
 
     protected formatFrameTimestamp(value: number, fps: number): string {
@@ -695,7 +1216,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             pin.title = `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`;
             pin.setAttribute('data-annotation-id', annotation.id);
             pin.setAttribute('data-annotation-status', annotation.status);
-            pin.style.left = `${this.percent(annotation.sourceT)}%`;
+            pin.style.left = `${this.percent(this.sourceToOutput(annotation.sourceT))}%`;
             pin.style.background = STATUS_COLORS[annotation.status];
             pin.addEventListener('click', event => {
                 event.stopPropagation();
@@ -845,16 +1366,49 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return label;
     }
 
+    /** クリップ上端のヘッダー帯（レガシー準拠）。ラベルと尺（MM:SS:FF）を表示する。 */
+    protected clipHeader(label: string, durationSeconds: number): HTMLDivElement {
+        const header = document.createElement('div');
+        header.className = 'akari-annotations-strip-clip-header';
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'akari-annotations-strip-clip-header-label';
+        labelSpan.textContent = label;
+        const durationSpan = document.createElement('span');
+        durationSpan.className = 'akari-annotations-strip-clip-header-duration';
+        durationSpan.textContent = this.formatFrameTimestamp(durationSeconds, this.fps);
+        header.append(labelSpan, durationSpan);
+        return header;
+    }
+
     protected installDragListeners(
         element: HTMLDivElement,
-        detail: (event: PointerEvent, rect: DOMRect) => DragDetail
+        detail: (event: PointerEvent, rect: DOMRect) => DragDetail,
+        onRazorClick?: (event: MouseEvent) => void
     ): void {
         element.style.pointerEvents = 'auto';
         element.style.touchAction = 'none';
-        element.style.cursor = 'grab';
-        element.addEventListener('click', event => event.stopPropagation());
+        element.style.cursor = 'default';
+        element.addEventListener('click', event => {
+            event.stopPropagation();
+            if (this.toolMode === 'razor') {
+                onRazorClick?.(event);
+            }
+        });
+        element.addEventListener('pointermove', event => {
+            if (this.toolMode !== 'select' || this.dragState) {
+                return;
+            }
+            const rect = element.getBoundingClientRect();
+            const localX = event.clientX - rect.left;
+            const rightDistance = rect.right - event.clientX;
+            element.style.cursor = localX <= EDGE_ZONE_PX || rightDistance <= EDGE_ZONE_PX ? 'ew-resize' : 'default';
+        });
         element.addEventListener('pointerdown', event => {
             if (event.button !== 0) {
+                return;
+            }
+            if (this.toolMode === 'razor') {
+                // レザー中はドラッグを開始しない。クリックは上の 'click' リスナーが処理する。
                 return;
             }
             if (this.dragState) {
@@ -866,7 +1420,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const ghost = element.cloneNode(true) as HTMLDivElement;
             ghost.removeAttribute('title');
             Object.assign(ghost.style, {
-                pointerEvents: 'none', opacity: '.55', borderStyle: 'dashed', zIndex: '8', cursor: 'grabbing'
+                pointerEvents: 'none', opacity: '.5', borderStyle: 'dashed', zIndex: '8', cursor: 'grabbing'
             });
             this.strip.appendChild(ghost);
             const state = {
@@ -879,6 +1433,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } as DragState;
             this.dragState = state;
             element.style.cursor = 'grabbing';
+            element.style.opacity = '.5';
             try {
                 element.setPointerCapture(event.pointerId);
             } catch {
@@ -905,6 +1460,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             event.stopPropagation();
             if (!state.dragged) {
                 this.cancelDrag(state);
+                this.applySelection(this.selectionFromDragState(state));
                 this.selectTimeAtClientX(event.clientX);
                 return;
             }
@@ -923,42 +1479,61 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected updateDragPreview(state: DragState, clientX: number, allowGuide: boolean): DragPreview {
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
+        // strip 全体で秒/px の縮尺は一定なので、この delta は source 秒・出力秒のどちらにもそのまま使える。
         const delta = rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0;
+        const showGuide = allowGuide && this.snapEnabled;
         if (state.kind === 'cut-trim') {
             const proposed = state.edge === 'left' ? state.originalIn + delta : state.originalOut + delta;
-            const edge = this.snapTime(Math.max(0, proposed), allowGuide);
+            const edge = this.snapTimeInSourceSpace(Math.max(0, proposed), showGuide);
             const input = state.edge === 'left' ? edge : state.originalIn;
             const output = state.edge === 'right' ? edge : state.originalOut;
-            this.setGhostRange(state.ghost, input, output);
+            const segment = this.segments[state.index];
+            const newDuration = Math.max(0, output - input);
+            if (segment) {
+                if (state.edge === 'left') {
+                    this.setGhostRange(state.ghost, segment.tlEnd - newDuration, segment.tlEnd);
+                } else {
+                    this.setGhostRange(state.ghost, segment.tlStart, segment.tlStart + newDuration);
+                }
+            } else {
+                this.setGhostRange(state.ghost, input, output);
+            }
+            this.updateDragFeedback(state, `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(edge)} / 尺 ${newDuration.toFixed(2)} 秒`);
+            this.updateGhostHeaderDuration(state.ghost, newDuration);
             return { kind: 'cut-trim', index: state.index, input, output };
         }
         if (state.kind === 'cut-reorder') {
-            const proposedStart = Math.max(0, state.originalIn + delta);
+            const proposedTlStart = Math.max(0, state.originalTlStart + delta);
             const pointerTime = this.timeAtClientX(clientX);
-            const dropTime = this.snapTime(pointerTime, allowGuide);
-            this.setGhostRange(state.ghost, proposedStart, proposedStart + state.originalOut - state.originalIn);
-            const boundaries = this.cuts.flatMap((cut, index) => [
-                { time: cut.in, index },
-                { time: cut.out, index }
+            const dropTime = this.snapTimeInOutputSpace(pointerTime, showGuide);
+            this.setGhostRange(state.ghost, proposedTlStart, proposedTlStart + state.duration);
+            const boundaries = this.segments.flatMap(segment => [
+                { time: segment.tlStart, index: segment.index },
+                { time: segment.tlEnd, index: segment.index }
             ]);
             const target = boundaries.reduce((nearest, candidate) =>
                 Math.abs(dropTime - candidate.time) < Math.abs(dropTime - nearest.time) ? candidate : nearest,
-            boundaries.find(candidate => candidate.index === state.index) ?? { time: state.originalIn, index: state.index });
+            boundaries.find(candidate => candidate.index === state.index) ?? { time: state.originalTlStart, index: state.index });
             const toIndex = target.index;
+            this.updateDragFeedback(state, `並べ替え先: ${this.formatTimestamp(dropTime)}`);
             return { kind: 'cut-reorder', fromIndex: state.index, toIndex };
         }
         if (state.kind === 'caption') {
             let start = state.originalStart;
             let end = state.originalEnd;
             if (state.mode === 'move') {
-                start = this.snapTime(state.originalStart + delta, allowGuide);
+                start = this.snapTimeInSourceSpace(state.originalStart + delta, showGuide);
                 end = state.originalEnd + (start - state.originalStart);
             } else if (state.mode === 'start') {
-                start = this.snapTime(state.originalStart + delta, allowGuide);
+                start = this.snapTimeInSourceSpace(state.originalStart + delta, showGuide);
             } else {
-                end = this.snapTime(state.originalEnd + delta, allowGuide);
+                end = this.snapTimeInSourceSpace(state.originalEnd + delta, showGuide);
             }
-            this.setGhostRange(state.ghost, start, end);
+            const ranges = this.sourceRangeToOutputRanges(start, end);
+            if (ranges.length > 0) {
+                this.setGhostRange(state.ghost, ranges[0][0], ranges[ranges.length - 1][1]);
+            }
+            this.updateDragFeedback(state, `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`);
             return {
                 kind: 'caption', id: state.id,
                 deltaStart: start - state.originalStart,
@@ -967,13 +1542,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         }
         if (state.mode === 'move') {
-            const start = this.snapTime(Math.max(0, state.originalStart + delta), allowGuide);
+            const start = this.snapTimeInOutputSpace(Math.max(0, state.originalStart + delta), showGuide);
             this.setGhostRange(state.ghost, start, start + state.originalDuration);
+            this.updateDragFeedback(state, `${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
             return { kind: 'overlay-move', id: state.id, start };
         }
-        const end = this.snapTime(state.originalStart + state.originalDuration + delta, allowGuide);
+        const end = this.snapTimeInOutputSpace(state.originalStart + state.originalDuration + delta, showGuide);
         this.setGhostRange(state.ghost, state.originalStart, end);
+        this.updateDragFeedback(state, `尺 ${(end - state.originalStart).toFixed(2)} 秒`);
         return { kind: 'overlay-resize', id: state.id, duration: end - state.originalStart };
+    }
+
+    protected updateDragFeedback(state: DragState, text: string): void {
+        if (!state.dragged) {
+            this.dragFeedback.style.display = 'none';
+            return;
+        }
+        this.dragFeedback.textContent = text;
+        this.dragFeedback.style.left = state.ghost.style.left;
+        const ghostTop = parseFloat(state.ghost.style.top || '0');
+        this.dragFeedback.style.top = `${Math.max(0, ghostTop - 18)}px`;
+        this.dragFeedback.style.display = 'block';
+    }
+
+    /** トリム中、ゴースト（クリップの複製）のヘッダー尺表示をリアルタイム更新する（レガシー準拠の数値フィードバック）。 */
+    protected updateGhostHeaderDuration(ghost: HTMLDivElement, durationSeconds: number): void {
+        const durationSpan = ghost.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-duration');
+        if (durationSpan) {
+            durationSpan.textContent = this.formatFrameTimestamp(Math.max(0, durationSeconds), this.fps);
+        }
     }
 
     protected setGhostRange(ghost: HTMLDivElement, start: number, end: number): void {
@@ -981,34 +1578,100 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ghost.style.width = `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`;
     }
 
-    protected snapTime(value: number, showGuide: boolean): number {
+    /**
+     * トリム・字幕ドラッグ用。候補は source 空間（単語境界・他 cuts の in/out・現在の再生/選択位置）。
+     * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする（スナップ有効時は常に何かへ吸着する）。
+     */
+    protected snapTimeInSourceSpace(value: number, showGuide: boolean): number {
+        if (!this.snapEnabled) {
+            this.hideSnapGuide();
+            return value;
+        }
+        const threshold = this.snapThresholdSeconds();
+        if (threshold === undefined) {
+            return value;
+        }
+        const candidates: SnapCandidate[] = [
+            ...this.wordBoundaries.map(time => ({ time })),
+            ...this.cuts.flatMap(cut => [{ time: cut.in }, { time: cut.out }]),
+            { time: this.outputToSource(this.playheadT), isPlayhead: true },
+            { time: this.selectedSourceT }
+        ].filter(candidate => Number.isFinite(candidate.time));
+        const nearest = this.nearestCandidate(candidates, value);
+        if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
+            if (showGuide) {
+                this.showSnapGuideAt(this.sourceToOutput(nearest.time), nearest.isPlayhead === true);
+            }
+            return nearest.time;
+        }
+        const grid = this.snapToGrid(value);
+        if (showGuide) {
+            this.showSnapGuideAt(this.sourceToOutput(grid), false);
+        }
+        return grid;
+    }
+
+    /**
+     * 並べ替え・オーバーレイドラッグ用。候補は出力空間（セグメント境界・再生位置・選択位置の射影）。
+     * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする。
+     */
+    protected snapTimeInOutputSpace(value: number, showGuide: boolean): number {
+        if (!this.snapEnabled) {
+            this.hideSnapGuide();
+            return value;
+        }
+        const threshold = this.snapThresholdSeconds();
+        if (threshold === undefined) {
+            return value;
+        }
+        const candidates: SnapCandidate[] = [
+            ...this.segments.flatMap(segment => [{ time: segment.tlStart }, { time: segment.tlEnd }]),
+            { time: this.playheadT, isPlayhead: true },
+            { time: this.sourceToOutput(this.selectedSourceT) }
+        ].filter(candidate => Number.isFinite(candidate.time));
+        const nearest = this.nearestCandidate(candidates, value);
+        if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
+            if (showGuide) {
+                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
+            }
+            return nearest.time;
+        }
+        const grid = this.snapToGrid(value);
+        if (showGuide) {
+            this.showSnapGuideAt(grid, false);
+        }
+        return grid;
+    }
+
+    protected snapToGrid(value: number): number {
+        return Math.max(0, Math.round(value / SNAP_GRID_SECONDS) * SNAP_GRID_SECONDS);
+    }
+
+    protected snapThresholdSeconds(): number | undefined {
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
         if (rect.width <= 0 || duration <= 0) {
             this.hideSnapGuide();
-            return value;
+            return undefined;
         }
-        const threshold = SNAP_THRESHOLD_PX / (rect.width / duration);
-        const candidates = [
-            ...this.wordBoundaries,
-            ...this.cuts.flatMap(cut => [cut.in, cut.out]),
-            this.selectedSourceT
-        ].filter(candidate => Number.isFinite(candidate));
-        let nearest: number | undefined;
+        return SNAP_THRESHOLD_PX / (rect.width / duration);
+    }
+
+    protected nearestCandidate(candidates: readonly SnapCandidate[], value: number): SnapCandidate | undefined {
+        let nearest: SnapCandidate | undefined;
         for (const candidate of candidates) {
-            if (nearest === undefined || Math.abs(candidate - value) < Math.abs(nearest - value)) {
+            if (nearest === undefined || Math.abs(candidate.time - value) < Math.abs(nearest.time - value)) {
                 nearest = candidate;
             }
         }
-        if (nearest !== undefined && Math.abs(nearest - value) <= threshold) {
-            if (showGuide) {
-                this.snapGuide.style.left = `${this.percent(nearest)}%`;
-                this.snapGuide.style.display = 'block';
-            }
-            return nearest;
-        }
-        this.hideSnapGuide();
-        return value;
+        return nearest;
+    }
+
+    /** ガイド線は常に出力軸座標へ射影して表示する。playhead へ吸着したときだけアンバーにする。 */
+    protected showSnapGuideAt(outputTime: number, isPlayhead: boolean): void {
+        this.snapGuide.style.left = `${this.percent(outputTime)}%`;
+        this.snapGuide.style.background = isPlayhead ? SNAP_GUIDE_COLOR_PLAYHEAD : SNAP_GUIDE_COLOR_DEFAULT;
+        this.snapGuide.style.display = 'block';
     }
 
     protected hideSnapGuide(): void {
@@ -1026,9 +1689,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } catch {
             // The element may already have lost capture after pointercancel.
         }
-        state.element.style.cursor = 'grab';
+        state.element.style.cursor = 'default';
+        state.element.style.opacity = '';
         state.ghost.remove();
         this.hideSnapGuide();
+        this.dragFeedback.style.display = 'none';
         this.dragState = undefined;
         if (this.renderStripPending) {
             this.renderStripPending = false;
@@ -1199,6 +1864,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.footer.textContent = this.writeResultMessage('オーバーレイの尺を変更しました。', result);
             }
             this.hideNotice();
+            this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice(`タイムラインを更新できません: ${detail}`);
@@ -1228,6 +1894,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await entry.undo();
             this.future = [...this.future, entry].slice(-HISTORY_LIMIT);
             this.hideNotice();
+            this.revealOutputPreview();
             this.footer.textContent = `${entry.label}を元に戻しました。`;
         } catch (error) {
             console.warn('[akari-annotations] undo entry is no longer applicable', error);
@@ -1248,6 +1915,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await entry.redo();
             this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
             this.hideNotice();
+            this.revealOutputPreview();
             this.footer.textContent = `${entry.label}をやり直しました。`;
         } catch (error) {
             console.warn('[akari-annotations] redo entry is no longer applicable', error);
@@ -1380,6 +2048,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.hScrollbarThumb.addEventListener('pointercancel', onUp);
     }
 
+    /** playhead 上端のピン型ハンドルをドラッグしている間、継続的にプレビューへシークする（スクラブ）。 */
+    protected onPlayheadHandlePointerDown(event: PointerEvent): void {
+        if (event.button !== 0) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        this.playheadHandle.setPointerCapture(event.pointerId);
+        const onMove = (moveEvent: PointerEvent): void => {
+            const outputT = this.timeAtClientX(moveEvent.clientX);
+            this.playheadT = outputT;
+            this.playhead.style.left = `${this.percent(outputT)}%`;
+            void this.requestSeek(this.outputToSource(outputT));
+        };
+        const onUp = (upEvent: PointerEvent): void => {
+            this.playheadHandle.releasePointerCapture(upEvent.pointerId);
+            this.playheadHandle.removeEventListener('pointermove', onMove);
+            this.playheadHandle.removeEventListener('pointerup', onUp);
+            this.playheadHandle.removeEventListener('pointercancel', onUp);
+            this.selectedSourceT = this.outputToSource(this.playheadT);
+        };
+        this.playheadHandle.addEventListener('pointermove', onMove);
+        this.playheadHandle.addEventListener('pointerup', onUp);
+        this.playheadHandle.addEventListener('pointercancel', onUp);
+    }
+
     protected panViewBy(deltaSeconds: number): void {
         this.setViewStart(this.viewStart + deltaSeconds);
     }
@@ -1391,15 +2085,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected selectTimeAtClientX(clientX: number): void {
-        const rect = this.strip.getBoundingClientRect();
-        const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
-        this.selectedSourceT = this.viewStart + ratio * this.visibleDuration();
-        this.playheadT = this.selectedSourceT;
-        this.playhead.style.left = `${ratio * 100}%`;
-        void this.requestSeek(this.selectedSourceT);
+        const outputT = this.timeAtClientX(clientX);
+        const sourceT = this.outputToSource(outputT);
+        this.selectedSourceT = sourceT;
+        this.playheadT = outputT;
+        this.playhead.style.left = `${this.percent(outputT)}%`;
+        void this.requestSeek(sourceT);
     }
 
     protected onStripClick(event: MouseEvent): void {
+        this.applySelection(undefined);
         this.selectTimeAtClientX(event.clientX);
     }
 
@@ -1462,7 +2157,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return new URI(value).normalizePath().toString();
     }
 
+    /**
+     * プレビューのタブをフォーカスを奪わずに前面へ出す。契約: akari.preview.ensureVisible。
+     * 未登録（プレビュー未実装・別画面）でも壊れないよう黙って無視する。
+     */
+    protected revealOutputPreview(): void {
+        if (!this.location?.videoUri) {
+            return;
+        }
+        void this.commands.executeCommand(ENSURE_PREVIEW_VISIBLE_COMMAND_ID, { videoUri: this.location.videoUri })
+            .catch(() => undefined);
+    }
+
     protected async requestSeek(time: number): Promise<void> {
+        this.revealOutputPreview();
         if (!this.location?.videoUri) {
             this.footer.textContent = `${this.formatTimestamp(time)} を選択しました。動画に結び付く文字起こしが見つかりません。`;
             return;
@@ -1482,7 +2190,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected openAnnotationPopup(event: MouseEvent): void {
         event.preventDefault();
         this.closeAnnotationPopup();
-        const sourceT = this.timeAtClientX(event.clientX);
+        const sourceT = this.outputToSource(this.timeAtClientX(event.clientX));
         const popup = document.createElement('div');
         Object.assign(popup.style, {
             position: 'fixed', left: `${event.clientX}px`, top: `${event.clientY}px`, zIndex: '10000',

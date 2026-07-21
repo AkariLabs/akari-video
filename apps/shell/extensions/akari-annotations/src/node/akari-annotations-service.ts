@@ -9,15 +9,19 @@ import {
     Annotation,
     CreateAnnotationRequest,
     CreateAnnotationResult,
+    DeleteCutRequest,
+    DeleteCutResult,
     GetClipThumbnailRequest,
     GetClipThumbnailResult,
     GetClipWaveformRequest,
     GetClipWaveformResult,
+    InsertCutRequest,
     MoveOverlayRequest,
     ReorderCutsRequest,
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
     ShiftCaptionRequest,
+    SplitCutRequest,
     TrimCutRequest,
     WriteBackResult
 } from '../common/akari-annotations-protocol';
@@ -36,9 +40,12 @@ import {
 } from '../common/annotation-store';
 import { shiftCaptionLine } from '../common/caption-store';
 import {
+    deleteCutInSource,
+    insertCutInSource,
     moveOverlayInSource,
     reorderCutsInSource,
     resizeOverlayInSource,
+    splitCutInSource,
     trimCutInSource
 } from '../common/edit-store';
 
@@ -188,6 +195,34 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = resizeOverlayInSource(source, request.overlayId, request.duration);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイの尺を変更') };
+    }
+
+    async splitCut(request: SplitCutRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = splitCutInSource(source, request.cutIndex, request.atSeconds);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを分割') };
+    }
+
+    async deleteCut(request: DeleteCutRequest): Promise<DeleteCutResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const { source: updated, removedText } = deleteCutInSource(source, request.cutIndex);
+        await this.writeAtomic(editPath, updated);
+        const committed = await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを削除');
+        return { committed, removedText };
+    }
+
+    async insertCut(request: InsertCutRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = insertCutInSource(source, request.cutIndex, request.elementText);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを挿入') };
     }
 
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {

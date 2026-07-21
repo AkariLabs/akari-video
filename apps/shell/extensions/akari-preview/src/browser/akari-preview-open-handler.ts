@@ -1,5 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
-import { CommandRegistry } from '@theia/core/lib/common';
+import { Command, CommandRegistry } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { ApplicationShell, FrontendApplicationContribution, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
@@ -87,10 +87,18 @@ const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.executeCommand に渡す。
 const ATTACH_TIMELINE_PASSIVE_COMMAND_ID = 'akari.annotations.attachPassive';
 
+// タイムライン操作時にアウトプットプレビューのタブを前面へ出すための内部コマンド。
+// label なし = コマンドパレット非表示（ATTACH_AKARI_ANNOTATIONS_PASSIVE と同じパターン）。
+const ENSURE_PREVIEW_VISIBLE_COMMAND: Command = { id: 'akari.preview.ensureVisible' };
+
 interface TranscriptSeekRequest {
     videoUri?: string;
     time?: number;
     captionId?: string;
+}
+
+interface EnsureVisibleRequest {
+    videoUri?: string;
 }
 
 interface PreviewPlaybackTickRequest {
@@ -156,6 +164,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
         });
         this.registerSeekHandler();
+        this.registerEnsureVisibleCommand();
     }
 
     // 戻り値は 'seeked' | 'mismatched-asset' | 'no-preview' の3値で、'no-preview' は akari-transcript 側のフォールバックハンドラが返す。
@@ -205,6 +214,39 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected attachTimelinePassively(): void {
         this.commandRegistry.executeCommand(ATTACH_TIMELINE_PASSIVE_COMMAND_ID)
             .catch(error => console.warn('[akari-preview] failed to auto-attach timeline', error));
+    }
+
+    // タイムライン側からの操作で、他のタブを見ていてもアウトプットプレビューのタブを
+    // 必ず前面へ出すための内部コマンド。フォーカスは奪わない（revealWidget のみ）。
+    protected registerEnsureVisibleCommand(): void {
+        this.commandRegistry.registerCommand(ENSURE_PREVIEW_VISIBLE_COMMAND, {
+            execute: (request?: EnsureVisibleRequest) => this.ensureVisible(request?.videoUri)
+        });
+    }
+
+    protected async ensureVisible(videoUri: string | undefined): Promise<'revealed' | 'opened' | 'unavailable'> {
+        if (!videoUri) {
+            return 'unavailable';
+        }
+        try {
+            const uri = new URI(videoUri).normalizePath();
+            const existing = this.openPreviews.get(uri.toString());
+            if (existing) {
+                this.shell.revealWidget(existing.id);
+                return 'revealed';
+            }
+            const identifier = { id: `akari-preview-${this.hash(uri.toString())}`, viewId: uri.toString() };
+            const widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, identifier);
+            await this.configurePreview(widget, uri);
+            if (!widget.isAttached) {
+                this.shell.addWidget(widget, { area: 'main' });
+            }
+            this.shell.revealWidget(widget.id);
+            return 'opened';
+        } catch (error) {
+            console.warn('[akari-preview] ensureVisible failed', videoUri, error);
+            return 'unavailable';
+        }
     }
 
     protected async configurePreview(widget: WebviewWidget, videoUri: URI): Promise<void> {
@@ -728,9 +770,14 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #zoom-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 3; overflow: hidden; border: 1px solid rgba(255,255,255,0.25); border-radius: 2px; background: rgba(0,0,0,0.55); pointer-events: none; }
 #zoom-minimap[hidden] { display: none; }
 #zoom-minimap-viewport { position: absolute; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.85); background: rgba(255,255,255,0.55); }
-.message-card { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 32px; background: #111; }
+.message-card { position: absolute; inset: 0; z-index: 10; display: grid; gap: 16px; place-items: center; padding: 32px; background: #111; }
 .message-card[hidden] { display: none; }
 .message-card p { max-width: 520px; margin: 0; color: #e5e5e5; font-size: 15px; line-height: 1.7; text-align: center; }
+.message-card-reload { border: 1px solid #505050; border-radius: 4px; padding: 8px 18px; background: #303030; color: #fff; font-size: 13px; cursor: pointer; }
+.message-card-reload[hidden] { display: none; }
+.audio-notice { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; max-width: 92%; padding: 8px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.78); color: #f1f1f1; font-size: 12.5px; line-height: 1.5; }
+.audio-notice[hidden] { display: none; }
+.audio-notice button { flex: none; border: none; background: transparent; color: #ccc; font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; }
 #inspector { padding: 16px; border-left: 1px solid #303030; background: #1b1b1b; overflow: auto; }
 #inspector[hidden] { display: none; }
 #inspector h2 { margin: 0 0 14px; font-size: 14px; }
@@ -773,7 +820,14 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <div id="overlay-stage"><div id="caption-plate"></div></div>
       </div>
       <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
-      <div id="preview-message" class="message-card" hidden role="status"><p>${UNSUPPORTED_FORMAT_MESSAGE}</p></div>
+      <div id="audio-notice" class="audio-notice" hidden role="status">
+        <span>音声が検出されていません。無音の素材か、音声形式がプレビュー非対応の可能性があります（書き出しには影響しません）。</span>
+        <button id="audio-notice-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
+      </div>
+      <div id="preview-message" class="message-card" hidden role="status">
+        <p id="preview-message-text">${UNSUPPORTED_FORMAT_MESSAGE}</p>
+        <button id="preview-message-reload" class="message-card-reload" type="button" hidden>再読み込み</button>
+      </div>
     </div>
   </section>
   <aside id="inspector" hidden aria-label="オーバーレイインスペクタ">
@@ -969,6 +1023,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const stage = document.getElementById('overlay-stage');
             const captionPlate = document.getElementById('caption-plate');
             const previewMessage = document.getElementById('preview-message');
+            const previewMessageText = document.getElementById('preview-message-text');
+            const previewMessageReload = document.getElementById('preview-message-reload');
+            const audioNotice = document.getElementById('audio-notice');
+            const audioNoticeDismiss = document.getElementById('audio-notice-dismiss');
             const inspector = document.getElementById('inspector');
             const inspectorTitle = document.getElementById('inspector-title');
             const inspectorFields = document.getElementById('inspector-fields');
@@ -998,6 +1056,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let waveformPeaks = null;
             let waveformResizeTimer = 0;
             let waveformDragPointer = null;
+            let playbackErrored = false;
+            let audioNoticeShown = false;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
             const buildExplicitKeepRanges = () => {
@@ -1305,8 +1365,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
                     : (video.currentTime || 0);
                 window.akari.runtime.tick(timelineTime, !video.paused);
-                // タイムライン横軸と同じ source 秒を送る（runtime overlay は timeline 秒のまま）。
-                window.akari.playbackTick(video.currentTime || 0, !video.paused, immediatePlaybackTick);
+                // タイムライン横軸と同じ出力秒（cuts ギャップレス連結後の秒）を送る。
+                window.akari.playbackTick(timelineTime, !video.paused, immediatePlaybackTick);
                 renderCaption();
                 updateTransport();
                 updateWaveformPlayhead();
@@ -1340,11 +1400,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 workspace.classList.remove('inspector-open');
             };
             const showPlaybackError = () => {
+                playbackErrored = true;
                 stopAnimation();
                 video.pause();
                 video.hidden = true;
                 stage.hidden = true;
                 captionPlate.textContent = '';
+                previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
+                previewMessageReload.hidden = false;
                 previewMessage.hidden = false;
                 playToggle.disabled = true;
                 frameBack.disabled = true;
@@ -1357,6 +1420,26 @@ body { display: grid; place-items: center; padding: 32px; }
                 seek.disabled = true;
                 hideInspector();
             };
+            const restorePlayback = () => {
+                if (!playbackErrored) return;
+                playbackErrored = false;
+                previewMessage.hidden = true;
+                previewMessageReload.hidden = true;
+                video.hidden = false;
+                stage.hidden = false;
+                playToggle.disabled = false;
+                frameBack.disabled = false;
+                frameForward.disabled = false;
+                skipBack.disabled = false;
+                skipForward.disabled = false;
+                waveformToggle.disabled = false;
+                zoomToggle.disabled = false;
+                fullscreenToggle.disabled = false;
+                seek.disabled = false;
+                updateTransport();
+                tick(true);
+            };
+            previewMessageReload.addEventListener('click', () => video.load());
             const togglePlayback = () => {
                 if (playToggle.disabled) return;
                 if (video.paused) void video.play().catch(error => console.error('[akari-preview] playback failed', error));
@@ -1535,6 +1618,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 tick();
             });
             video.addEventListener('loadedmetadata', () => {
+                restorePlayback();
                 rebuildKeepRanges();
                 if (keepRangesReady) {
                     currentSegmentIndex = 0;
@@ -1542,12 +1626,28 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 updateTransport();
             });
+            video.addEventListener('canplay', restorePlayback);
             video.addEventListener('play', startAnimation);
+            video.addEventListener('play', () => {
+                // 無音素材の検知は 1 ドキュメントにつき 1 回だけ。再生開始から 1.5 秒後、
+                // まだ再生中で webkitAudioDecodedByteCount が 0（対応ブラウザのみ）なら無音とみなす。
+                window.setTimeout(() => {
+                    if (audioNoticeShown || video.paused || video.ended) return;
+                    if (!('webkitAudioDecodedByteCount' in video)) return;
+                    if (video.webkitAudioDecodedByteCount === 0) {
+                        audioNoticeShown = true;
+                        audioNotice.hidden = false;
+                    }
+                }, 1500);
+            });
             video.addEventListener('pause', stopAnimation);
             video.addEventListener('ended', stopAnimation);
             video.addEventListener('seeked', () => tick(true));
             video.addEventListener('timeupdate', () => tick());
             video.addEventListener('error', showPlaybackError);
+            audioNoticeDismiss.addEventListener('click', () => {
+                audioNotice.hidden = true;
+            });
             window.addEventListener('message', event => {
                 const message = event.data;
                 if (message && message.type === 'akari-preview-captions-update') {

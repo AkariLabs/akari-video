@@ -18,7 +18,10 @@ const EXPORTS_DIR = path.join(WORKSPACE_DIR, 'exports');
 const EDIT_JSON_PATH = path.join(EXPORTS_DIR, 'edit.json');
 const CAPTIONS_JSON_PATH = path.join(EXPORTS_DIR, 'captions.json');
 const REVIEW_JSON_PATH = path.join(EXPORTS_DIR, 'review.json');
-const TOTAL_DURATION = 11.5 * 1.02; // matches totalDuration(): max(10, captions ends, cuts outs=11.5, overlay end, ann+1) * 1.02
+// Wave22 でタイムラインが「出力軸」（cuts をギャップレス連結した秒）に転換されたため、
+// totalDuration() は cuts の (out-in) 尺合計（10s）とオーバーレイ終端(4s)の大きい方 * 1.02 になった
+// （旧: cuts の source out 最終値 11.5s ベースだった）。fixture (3 cuts: 3+3+4=10s) に合わせて修正。
+const TOTAL_DURATION = 10 * 1.02; // matches totalDuration(): max(cutsDuration=10, overlaysEnd=4) * 1.02
 const PLAYHEAD_FOLLOW_THRESHOLD_APPROX = 0.78; // matches widget.ts PLAYHEAD_FOLLOW_THRESHOLD
 
 const log = [];
@@ -52,12 +55,15 @@ const WIDGET_REFS = `(() => {
   const scrollbarTrack = w.children[2];
   const scrollbarThumb = scrollbarTrack.children[0];
   const strip = stripScroll.children[0];
-  const undoButton = toolbar.children[2];
-  const redoButton = toolbar.children[3];
+  // Wave22 でツールバーに選択/分割/マグネットボタンが追加され、undo/redo の子要素indexが
+  // ずれた（旧: [2],[3] → 新: aria-label ベースで解決するのが安全）。
+  const undoButton = toolbar.querySelector('[aria-label="元に戻す"]');
+  const redoButton = toolbar.querySelector('[aria-label="やり直す"]');
+  const zoomLabel = document.querySelector('[data-testid="akari-timeline-zoom-percent"]');
   const playhead = strip.children[0];
   const snapGuide = strip.children[1];
   const footer = w.children[4];
-  return { w, toolbar, stripScroll, scrollbarTrack, scrollbarThumb, strip, undoButton, redoButton, playhead, snapGuide, footer };
+  return { w, toolbar, stripScroll, scrollbarTrack, scrollbarThumb, strip, undoButton, redoButton, zoomLabel, playhead, snapGuide, footer };
 })()`;
 
 async function widgetState(main) {
@@ -65,7 +71,7 @@ async function widgetState(main) {
     const refs = ${WIDGET_REFS};
     if (!refs) return { found: false };
     const stripRect = refs.strip.getBoundingClientRect();
-    const zoomPercent = Number((refs.toolbar.children[1].children[1].textContent || '100').replace('%', ''));
+    const zoomPercent = Number((refs.zoomLabel.textContent || '100').replace('%', ''));
     const visibleDuration = ${TOTAL_DURATION} * 100 / zoomPercent;
     const viewStart = ${TOTAL_DURATION} * (parseFloat(refs.scrollbarThumb.style.left) || 0) / 100;
     const pxPerSec = stripRect.width / visibleDuration;
@@ -297,15 +303,31 @@ async function main() {
   await shot(main, '05-cut-trim-result.png');
 
   // ================= AC9 regression: cut-reorder (drag clip middle across another clip) =================
+  // Wave22 の出力軸ギャップレス化により totalDuration が縮む（trim後 ~9.75s）ため、AC2 で
+  // ズームインしたままだと drag 元(C1)と drop 先(4.3s)を同一の可視窓に収められないことがある
+  // （実測でドラッグが不発になった）。ズームを全体表示にリセットしてから行う。
+  {
+    const mid = { x: 58 + 894 / 2, y: 486.7265625 + 106 / 2 };
+    for (let i = 0; i < 8; i++) {
+      await wheel(main, mid.x, mid.y, 0, 400, { ctrlKey: true });
+      await sleep(80);
+    }
+  }
+  await sleep(200);
   // keep both the drag source (C1) and the drop point within the visible scrolled window
   await scrollToTime(main, 2.7);
   await sleep(200);
   const c1RectForReorder = await elementRect(main, '.akari-annotations-strip-clip', 0);
   const reorderStartX = (c1RectForReorder.left + c1RectForReorder.right) / 2;
   const reorderY = c1RectForReorder.top + c1RectForReorder.height / 2;
-  // 3.9 は境界 4.0 の 0.1 秒手前でスナップ判定がコイントスになる（実測でフレーク）。
-  // cuts[1] の中央 5.5 まで運び、reorder 意図を曖昧さなく伝える
-  const reorderTargetX = await screenXForTime(main, 4.3);
+  // Wave22 のギャップレス出力軸では、cuts[1] の出力秒レンジは trim 後の cuts[0] 尺に応じて
+  // 動く（固定の "4.3秒" だと現在の cuts[1] レンジの中点(4.25s)からわずか0.05秒しか離れず、
+  // reorder のしきい値判定がコイントスになり実測で不発だった）。cuts[1] の出力秒レンジを
+  // editAfterTrim から動的に算出し、その 80% 地点という明確にしきい値を超える位置へ運ぶ。
+  const seg1TlStart = editAfterTrim.cuts[0].out - editAfterTrim.cuts[0].in; // cuts[0]の尺 = cuts[1]の出力開始秒
+  const seg1Duration = editAfterTrim.cuts[1].out - editAfterTrim.cuts[1].in;
+  const reorderTargetTime = seg1TlStart + seg1Duration * 0.8;
+  const reorderTargetX = await screenXForTime(main, reorderTargetTime);
   await dragSequence(main, [{ x: reorderStartX, y: reorderY }, { x: reorderTargetX, y: reorderY }]);
   await dragRelease(main, reorderTargetX, reorderY);
   await sleep(500);
