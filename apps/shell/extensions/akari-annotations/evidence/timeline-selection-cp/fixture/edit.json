@@ -1,0 +1,19 @@
+{
+  "source": { "path": "sample.mp4" },
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "cuts": [
+    { "in": 0.5, "out": 3.5 },
+    { "in": 4, "out": 7 },
+    { "in": 7.5, "out": 11.5 }
+  ],
+  "overlays": [
+    {
+      "id": "overlay-a",
+      "html": "overlays/overlay-a.html",
+      "start": 1,
+      "duration": 3,
+      "transform": { "x": 60, "y": 250, "scale": 1, "rotate": 0 },
+      "vars": { "--color": "#ffcc00" }
+    }
+  ]
+}

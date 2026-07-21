@@ -1,0 +1,12 @@
+{
+  "source": "../../../exports/sample.mp4",
+  "transcript": [
+    {
+      "words": [
+        { "word": "one", "start": 1, "end": 1.4 },
+        { "word": "two", "start": 4, "end": 4.4 },
+        { "word": "three", "start": 8, "end": 8.4 }
+      ]
+    }
+  ]
+}

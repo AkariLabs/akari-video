@@ -7,6 +7,7 @@ export interface EditOverlay {
     id: string;
     start: number;
     duration: number;
+    payload: Record<string, unknown>;
 }
 
 export interface SourceElement {
@@ -177,6 +178,52 @@ export function resizeOverlayInSource(source: string, overlayId: string, nextDur
         replaceNumberProperty(element, 'duration', nextDuration, `オーバーレイ ${overlayId}`));
 }
 
+export function insertOverlayInSource(source: string, overlay: Record<string, unknown>): string {
+    const id = overlay.id;
+    const start = overlay.start;
+    const duration = overlay.duration;
+    if (typeof id !== 'string' || !id || typeof start !== 'number' || !Number.isFinite(start)
+        || typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) {
+        throw new Error('追加するオーバーレイの形式が不正です。');
+    }
+    const array = locateArray(source, 'overlays');
+    const elements = splitTopLevelElements(array.inner);
+    if (elements.some(element => readStringProperty(element.text, 'id') === id)) {
+        throw new Error(`オーバーレイ ${id} は既にあります。`);
+    }
+    const serialized = serializeLikeExistingElement(overlay, array.inner, elements);
+    const trailingStart = elements.length > 0 ? elements[elements.length - 1].end : 0;
+    const trailing = array.inner.slice(trailingStart);
+    let nextInner: string;
+    if (elements.length === 0) {
+        const leading = array.inner.slice(0, trailingStart);
+        const indent = indentationBeforeClose(array.inner);
+        nextInner = `${leading}${indent}${serialized}${trailing}`;
+    } else {
+        const separator = separatorForAppend(array.inner, elements);
+        nextInner = `${array.inner.slice(0, trailingStart)}${separator}${serialized}${trailing}`;
+    }
+    return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
+}
+
+export function removeOverlayInSource(source: string, overlayId: string): string {
+    const array = locateArray(source, 'overlays');
+    const elements = splitTopLevelElements(array.inner);
+    const index = elements.findIndex(element => readStringProperty(element.text, 'id') === overlayId);
+    if (index < 0) {
+        throw new Error(`オーバーレイ ${overlayId} が見つかりません`);
+    }
+    let nextInner: string;
+    if (elements.length === 1) {
+        nextInner = array.inner.slice(elements[0].end);
+    } else if (index < elements.length - 1) {
+        nextInner = array.inner.slice(0, elements[index].start) + array.inner.slice(elements[index + 1].start);
+    } else {
+        nextInner = array.inner.slice(0, elements[index - 1].end) + array.inner.slice(elements[index].end);
+    }
+    return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
+}
+
 export function parseEdit(source: string): { cuts: EditCut[]; overlays: EditOverlay[]; fps: number; warnings: string[] } {
     const value = JSON.parse(source);
     if (!value || typeof value !== 'object') {
@@ -211,7 +258,12 @@ export function parseEdit(source: string): { cuts: EditCut[]; overlays: EditOver
                     continue;
                 }
                 seenIds.add(overlay.id);
-                overlays.push({ id: overlay.id, start: overlay.start, duration: overlay.duration });
+                overlays.push({
+                    id: overlay.id,
+                    start: overlay.start,
+                    duration: overlay.duration,
+                    payload: JSON.parse(JSON.stringify(overlay)) as Record<string, unknown>
+                });
             } else {
                 warnings.push(`${index + 1} 番目のオーバーレイは識別情報または時刻が不正なため表示しません。`);
             }
@@ -290,4 +342,31 @@ function readStringProperty(source: string, property: string): string | undefine
     } catch {
         return match[1];
     }
+}
+
+function separatorForAppend(inner: string, elements: SourceElement[]): string {
+    if (elements.length >= 2) {
+        return inner.slice(elements[elements.length - 2].end, elements[elements.length - 1].start);
+    }
+    const indent = inner.slice(0, elements[0].start).match(/(?:^|\r?\n)([ \t]*)$/)?.[1] ?? '';
+    const lineEnding = inner.includes('\r\n') ? '\r\n' : '\n';
+    return `,${lineEnding}${indent}`;
+}
+
+function serializeLikeExistingElement(value: Record<string, unknown>, inner: string, elements: SourceElement[]): string {
+    const sample = elements[0]?.text;
+    if (!sample || !sample.includes('\n')) {
+        return JSON.stringify(value);
+    }
+    const indent = inner.slice(0, elements[0].start).match(/(?:^|\r?\n)([ \t]*)$/)?.[1] ?? '';
+    return JSON.stringify(value, null, 2).replace(/\n/g, `\n${indent}`);
+}
+
+function indentationBeforeClose(inner: string): string {
+    if (!inner.includes('\n')) {
+        return '';
+    }
+    const lineEnding = inner.includes('\r\n') ? '\r\n' : '\n';
+    const closeIndent = inner.match(/(?:\r?\n)([ \t]*)$/)?.[1] ?? '';
+    return `${lineEnding}${closeIndent}  `;
 }

@@ -6,6 +6,8 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import {
     AkariAnnotationsService,
     Annotation,
+    CaptionWritePayload,
+    OverlayWritePayload,
     WAVEFORM_BUCKET_COUNT,
     WriteBackResult
 } from '../common/akari-annotations-protocol';
@@ -46,6 +48,13 @@ interface HistoryEntry {
     redo: () => Promise<void>;
     label: string;
 }
+
+type SelectedItem = { kind: 'caption' | 'overlay'; id: string };
+type TimelineClipboard =
+    | { kind: 'caption'; payload: Pick<CaptionWritePayload, 'text' | 'start' | 'end'> }
+    | { kind: 'overlay'; payload: OverlayWritePayload };
+
+const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
 
 const STATUS_COLORS: Record<Annotation['status'], string> = {
     open: 'var(--theia-charts-blue)',
@@ -130,6 +139,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected ffmpegMissingNoticeShown = false;
+    protected selectedItem: SelectedItem | undefined;
+    protected clipboard: TimelineClipboard | undefined;
 
     /** 注釈の実体は ReviewModel が持つ（注釈パネルと共有）。ここではピン描画のために読むだけ。 */
     protected get annotations(): readonly Annotation[] {
@@ -276,6 +287,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: .74;
         border-radius: 2px;
     }
+    .akari-annotations-widget .akari-annotations-selected {
+        border: 2px solid var(--theia-focusBorder);
+        box-sizing: border-box;
+        opacity: 1;
+        z-index: 5;
+    }
     .akari-annotations-widget .akari-annotations-strip-caption-text {
         position: absolute;
         height: 16px;
@@ -330,7 +347,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.cancelDrag(this.dragState);
                 return;
             }
-            if (this.isAttached && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+            if (event.key === 'Escape' && this.isAttached && this.selectedItem) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.setSelectedItem(undefined);
+                return;
+            }
+            if (!this.isAttached || this.isEditableTarget(event.target) || this.isEditableTarget(document.activeElement)) {
+                return;
+            }
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
+                event.preventDefault();
+                event.stopPropagation();
+                this.copySelectedItem();
+                return;
+            }
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') {
+                event.preventDefault();
+                event.stopPropagation();
+                void this.pasteClipboard();
+                return;
+            }
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
                 event.preventDefault();
                 event.stopPropagation();
                 if (event.shiftKey) {
@@ -437,6 +475,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.renderStrip();
+        this.reconcileSelection();
     }
 
     protected async reloadCaptions(): Promise<void> {
@@ -454,6 +493,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.renderStrip();
+        this.reconcileSelection();
     }
 
     protected async reloadAnalysis(): Promise<void> {
@@ -571,6 +611,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const element = this.stripSegment(
                 caption.start, captionEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
             );
+            element.dataset.akariItemKind = 'caption';
+            element.dataset.akariItemId = caption.id;
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
                 const rightDistance = rect.right - event.clientX;
@@ -590,6 +632,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 overlay.start, overlay.start + overlay.duration, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-overlay', overlay.id
             );
+            element.dataset.akariItemKind = 'overlay';
+            element.dataset.akariItemId = overlay.id;
             element.appendChild(this.segmentLabel(overlay.id));
             this.installDragListeners(element, (event, rect) => ({
                 kind: 'overlay', id: overlay.id,
@@ -599,6 +643,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+        this.applySelectionClass();
         this.updateZoomHud();
         this.updateScrollbar();
     }
@@ -905,6 +950,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             event.stopPropagation();
             if (!state.dragged) {
                 this.cancelDrag(state);
+                if (state.kind === 'caption' || state.kind === 'overlay') {
+                    this.setSelectedItem({ kind: state.kind, id: state.id });
+                }
                 this.selectTimeAtClientX(event.clientX);
                 return;
             }
@@ -1254,6 +1302,207 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.footer.textContent = 'やり直せませんでした（対象が変更されています）';
         } finally {
             this.updateHistoryButtons();
+        }
+    }
+
+    protected copySelectedItem(): boolean {
+        const selected = this.selectedItem;
+        if (!selected) {
+            this.footer.textContent = 'コピーする字幕またはオーバーレイが選択されていません。';
+            return false;
+        }
+        if (selected.kind === 'caption') {
+            const caption = this.captions.find(candidate => candidate.id === selected.id);
+            if (!caption) {
+                this.setSelectedItem(undefined);
+                this.footer.textContent = 'コピー対象の字幕が見つかりません。';
+                return false;
+            }
+            this.clipboard = {
+                kind: 'caption',
+                payload: { text: caption.text, start: caption.start, end: caption.end }
+            };
+            this.footer.textContent = '字幕をコピーしました。';
+            return true;
+        }
+        const overlay = this.overlays.find(candidate => candidate.id === selected.id);
+        if (!overlay) {
+            this.setSelectedItem(undefined);
+            this.footer.textContent = 'コピー対象のオーバーレイが見つかりません。';
+            return false;
+        }
+        this.clipboard = {
+            kind: 'overlay',
+            payload: this.deepCopy(overlay.payload) as OverlayWritePayload
+        };
+        this.footer.textContent = 'オーバーレイをコピーしました。';
+        return true;
+    }
+
+    protected async pasteClipboard(): Promise<void> {
+        const clipboard = this.clipboard;
+        const location = this.location;
+        if (!clipboard || !location) {
+            this.footer.textContent = 'ペーストする字幕またはオーバーレイがありません。';
+            return;
+        }
+        const start = Number.isFinite(this.playheadT) ? this.playheadT : this.selectedSourceT;
+        const duration = clipboard.kind === 'caption'
+            ? clipboard.payload.end - clipboard.payload.start
+            : clipboard.payload.duration;
+        const contentDuration = this.totalDuration() / 1.02;
+        if (!Number.isFinite(start) || start < 0 || start + duration > contentDuration + Number.EPSILON) {
+            this.footer.textContent = '総尺を超える位置にはペーストできません。';
+            return;
+        }
+        try {
+            if (clipboard.kind === 'caption') {
+                const caption: CaptionWritePayload = {
+                    id: this.nextCopyId('caption-copy', this.captions.map(candidate => candidate.id)),
+                    start,
+                    end: start + duration,
+                    text: clipboard.payload.text,
+                    speaker: null,
+                    sourceRef: null,
+                    edited: true
+                };
+                const result = await this.annotationsService.insertCaption({
+                    captionsUri: location.captionsUri.toString(),
+                    projectRootUri: location.root.toString(),
+                    caption
+                });
+                this.pushHistory({
+                    label: '字幕のペースト',
+                    undo: async () => {
+                        await this.annotationsService.removeCaption({
+                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                            captionId: caption.id
+                        });
+                        await this.reloadCaptions();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.insertCaption({
+                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(), caption
+                        });
+                        await this.reloadCaptions();
+                        this.setSelectedItem({ kind: 'caption', id: caption.id });
+                    }
+                });
+                await this.reloadCaptions();
+                this.setSelectedItem({ kind: 'caption', id: caption.id });
+                this.footer.textContent = this.writeResultMessage('字幕をペーストしました。', result);
+            } else {
+                if (!location.editUri) {
+                    this.footer.textContent = 'edit.json がないためオーバーレイをペーストできません。';
+                    return;
+                }
+                const originalId = String(clipboard.payload.id);
+                const overlay = this.deepCopy(clipboard.payload) as OverlayWritePayload;
+                overlay.id = this.nextCopyId(`${originalId}-copy`, this.overlays.map(candidate => candidate.id));
+                overlay.start = start;
+                const result = await this.annotationsService.insertOverlay({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(), overlay
+                });
+                this.pushHistory({
+                    label: 'オーバーレイのペースト',
+                    undo: async () => {
+                        await this.annotationsService.removeOverlay({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            overlayId: overlay.id
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.insertOverlay({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), overlay
+                        });
+                        await this.reloadEdit();
+                        this.setSelectedItem({ kind: 'overlay', id: overlay.id });
+                    }
+                });
+                await this.reloadEdit();
+                this.setSelectedItem({ kind: 'overlay', id: overlay.id });
+                this.footer.textContent = this.writeResultMessage('オーバーレイをペーストしました。', result);
+            }
+            this.hideNotice();
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`ペーストできません: ${detail}`);
+            this.messages.error(`ペーストできません: ${detail}`);
+        }
+    }
+
+    protected nextCopyId(base: string, ids: string[]): string {
+        const used = new Set(ids);
+        if (!used.has(base)) {
+            return base;
+        }
+        let sequence = 2;
+        while (used.has(`${base}-${sequence}`)) {
+            sequence++;
+        }
+        return `${base}-${sequence}`;
+    }
+
+    protected deepCopy<T>(value: T): T {
+        return JSON.parse(JSON.stringify(value)) as T;
+    }
+
+    protected isEditableTarget(target: EventTarget | null): boolean {
+        return target instanceof HTMLElement
+            && (target.matches('input, textarea') || target.isContentEditable);
+    }
+
+    protected reconcileSelection(): void {
+        const selected = this.selectedItem;
+        if (!selected) {
+            return;
+        }
+        const exists = selected.kind === 'caption'
+            ? this.captions.some(candidate => candidate.id === selected.id)
+            : this.overlays.some(candidate => candidate.id === selected.id);
+        if (!exists) {
+            this.setSelectedItem(undefined);
+        }
+    }
+
+    protected setSelectedItem(next: SelectedItem | undefined, notifyPreview = true): void {
+        const previous = this.selectedItem;
+        if (previous?.kind === next?.kind && previous?.id === next?.id) {
+            return;
+        }
+        this.selectedItem = next;
+        this.applySelectionClass();
+        if (notifyPreview && (previous?.kind === 'overlay' || next?.kind === 'overlay')) {
+            window.dispatchEvent(new CustomEvent(TIMELINE_OVERLAY_SELECTED_EVENT, {
+                detail: {
+                    videoUri: this.location?.videoUri ?? '',
+                    overlayId: next?.kind === 'overlay' ? next.id : null
+                }
+            }));
+        }
+    }
+
+    protected applySelectionClass(): void {
+        for (const element of Array.from(this.strip.querySelectorAll<HTMLElement>('[data-akari-item-kind]'))) {
+            const selected = element.dataset.akariItemKind === this.selectedItem?.kind
+                && element.dataset.akariItemId === this.selectedItem.id;
+            element.classList.toggle('akari-annotations-selected', selected);
+        }
+    }
+
+    handleOverlaySelection(videoUri: string, overlayId: string | null): void {
+        if (!this.canHandlePlaybackTick(videoUri)) {
+            return;
+        }
+        if (overlayId === null) {
+            if (this.selectedItem?.kind === 'overlay') {
+                this.setSelectedItem(undefined, false);
+            }
+            return;
+        }
+        if (this.overlays.some(overlay => overlay.id === overlayId)) {
+            this.setSelectedItem({ kind: 'overlay', id: overlayId }, false);
         }
     }
 

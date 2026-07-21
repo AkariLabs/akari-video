@@ -82,6 +82,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
 // akari-annotations 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
+const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
+const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 
 // akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.executeCommand に渡す。
@@ -97,6 +99,11 @@ interface PreviewPlaybackTickRequest {
     type: 'akari-preview-playback-tick';
     time: number;
     playing: boolean;
+}
+
+interface PreviewOverlaySelectedRequest {
+    type: 'akari-preview-overlay-selected';
+    overlayId: string | null;
 }
 
 const EMPTY_SUMMARY: EditSummary = {
@@ -126,6 +133,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly recentWrites = new Map<string, number>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected overlayWriteTail = Promise.resolve();
+    protected readonly lifecycleDisposables = new DisposableCollection();
 
     @inject(WidgetManager)
     protected readonly widgetManager: WidgetManager;
@@ -156,6 +164,30 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
         });
         this.registerSeekHandler();
+        const onTimelineOverlaySelected = (event: Event): void => {
+            const detail = (event as CustomEvent<{ videoUri?: string; overlayId?: string | null }>).detail;
+            if (!detail?.videoUri || (typeof detail.overlayId !== 'string' && detail.overlayId !== null)) {
+                return;
+            }
+            let key: string;
+            try {
+                key = new URI(detail.videoUri).normalizePath().toString();
+            } catch {
+                return;
+            }
+            const widget = this.openPreviews.get(key);
+            if (widget?.isAttached) {
+                widget.sendMessage({ type: 'akari-preview-select-overlay', overlayId: detail.overlayId });
+            }
+        };
+        window.addEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected);
+        this.lifecycleDisposables.push({
+            dispose: () => window.removeEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected)
+        });
+    }
+
+    onStop(): void {
+        this.lifecycleDisposables.dispose();
     }
 
     // 戻り値は 'seeked' | 'mismatched-asset' | 'no-preview' の3値で、'no-preview' は akari-transcript 側のフォールバックハンドラが返す。
@@ -244,6 +276,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isPlaybackTickRequest(message)) {
                 this.forwardPlaybackTick(widget, message);
             }
+            if (this.isOverlaySelectedRequest(message)) {
+                this.forwardOverlaySelection(widget, message);
+            }
         }));
         disposables.push(this.fileService.onDidFilesChange(event => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
@@ -299,6 +334,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 videoUri: videoUri.normalizePath().toString(),
                 time: message.time,
                 playing: message.playing
+            }
+        }));
+    }
+
+    protected isOverlaySelectedRequest(message: any): message is PreviewOverlaySelectedRequest {
+        return message?.type === 'akari-preview-overlay-selected'
+            && (typeof message.overlayId === 'string' || message.overlayId === null);
+    }
+
+    protected forwardOverlaySelection(widget: PreviewWidgetMarker, message: PreviewOverlaySelectedRequest): void {
+        const videoUri = widget.akariPreviewVideoUri;
+        if (!videoUri) {
+            return;
+        }
+        window.dispatchEvent(new CustomEvent(PREVIEW_OVERLAY_SELECTED_EVENT, {
+            detail: {
+                videoUri: videoUri.normalizePath().toString(),
+                overlayId: message.overlayId
             }
         }));
     }
@@ -881,6 +934,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
                 lastPlaybackTickAt = now;
                 vscode.postMessage({ type: 'akari-preview-playback-tick', time, playing });
+            };
+            window.akari.reportOverlaySelection = overlayId => {
+                vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
             };
             window.akari.toggleFullscreen = () => {
                 if (document.fullscreenElement) {
@@ -1534,6 +1590,34 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 tick();
             });
+            let requestedOverlayId;
+            const applyRequestedOverlaySelection = () => {
+                if (requestedOverlayId === undefined) return;
+                const selected = stage.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]');
+                const selectedId = selected?.getAttribute('data-overlay-id') || null;
+                if (selectedId === requestedOverlayId) return;
+                if (requestedOverlayId === null) {
+                    if (selected) {
+                        window.dispatchEvent(new KeyboardEvent('keydown', {
+                            key: 'Escape', code: 'Escape', bubbles: true, cancelable: true
+                        }));
+                    }
+                    return;
+                }
+                const target = Array.from(stage.querySelectorAll('[data-overlay-id]'))
+                    .find(candidate => candidate.getAttribute('data-overlay-id') === requestedOverlayId);
+                if (!target || getComputedStyle(target).visibility === 'hidden') return;
+                const fragment = Array.from(target.children)
+                    .find(candidate => !candidate.hasAttribute('data-akari-interaction'));
+                const rect = (fragment || target).getBoundingClientRect();
+                target.dispatchEvent(new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    clientX: rect.left + rect.width / 2,
+                    clientY: rect.top + rect.height / 2
+                }));
+            };
             video.addEventListener('loadedmetadata', () => {
                 rebuildKeepRanges();
                 if (keepRangesReady) {
@@ -1545,7 +1629,10 @@ body { display: grid; place-items: center; padding: 32px; }
             video.addEventListener('play', startAnimation);
             video.addEventListener('pause', stopAnimation);
             video.addEventListener('ended', stopAnimation);
-            video.addEventListener('seeked', () => tick(true));
+            video.addEventListener('seeked', () => {
+                tick(true);
+                applyRequestedOverlaySelection();
+            });
             video.addEventListener('timeupdate', () => tick());
             video.addEventListener('error', showPlaybackError);
             window.addEventListener('message', event => {
@@ -1558,11 +1645,24 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-seek' && Number.isFinite(message.time)) {
                     video.currentTime = Math.max(0, message.time);
                     tick();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-select-overlay'
+                    && (typeof message.overlayId === 'string' || message.overlayId === null)) {
+                    requestedOverlayId = message.overlayId;
+                    applyRequestedOverlaySelection();
                 }
             });
 
+            let lastReportedOverlayId = null;
             const renderInspector = () => {
                 const selected = stage.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]');
+                const selectedOverlayId = selected?.getAttribute('data-overlay-id') || null;
+                if (selectedOverlayId !== lastReportedOverlayId) {
+                    lastReportedOverlayId = selectedOverlayId;
+                    requestedOverlayId = undefined;
+                    window.akari.reportOverlaySelection(selectedOverlayId);
+                }
                 if (!selected) {
                     hideInspector();
                     return;
@@ -1627,6 +1727,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 setZoom(1);
                 tick();
                 renderInspector();
+                applyRequestedOverlaySelection();
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;
     }
