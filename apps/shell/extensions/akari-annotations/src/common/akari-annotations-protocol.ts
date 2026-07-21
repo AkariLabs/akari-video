@@ -104,6 +104,8 @@ export interface MoveOverlayRequest {
     projectRootUri: string;
     overlayId: string;
     start: number;
+    track?: number | null;
+    trackState?: Record<string, number | null>;
 }
 
 export interface ResizeOverlayRequest {
@@ -134,6 +136,47 @@ export interface InsertCutRequest {
     elementText: string;
 }
 
+export interface CaptionWritePayload {
+    id: string;
+    start: number;
+    end: number;
+    text: string;
+    speaker: string | null;
+    sourceRef: { segment: number } | null;
+    edited: boolean;
+}
+
+export interface InsertCaptionRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    caption: CaptionWritePayload;
+}
+
+export interface RemoveCaptionRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionId: string;
+}
+
+export interface OverlayWritePayload extends Record<string, unknown> {
+    id: string;
+    start: number;
+    duration: number;
+    track?: number;
+}
+
+export interface InsertOverlayRequest {
+    editUri: string;
+    projectRootUri: string;
+    overlay: OverlayWritePayload;
+}
+
+export interface RemoveOverlayRequest {
+    editUri: string;
+    projectRootUri: string;
+    overlayId: string;
+}
+
 export interface WriteBackResult {
     committed: boolean;
 }
@@ -151,9 +194,13 @@ export interface AkariAnnotationsService {
     trimCut(request: TrimCutRequest): Promise<WriteBackResult>;
     reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult>;
     shiftCaption(request: ShiftCaptionRequest): Promise<WriteBackResult>;
+    insertCaption(request: InsertCaptionRequest): Promise<WriteBackResult>;
+    removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult>;
     moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult>;
     resizeOverlay(request: ResizeOverlayRequest): Promise<WriteBackResult>;
     splitCut(request: SplitCutRequest): Promise<WriteBackResult>;
     deleteCut(request: DeleteCutRequest): Promise<DeleteCutResult>;
     insertCut(request: InsertCutRequest): Promise<WriteBackResult>;
+    insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult>;
+    removeOverlay(request: RemoveOverlayRequest): Promise<WriteBackResult>;
 }

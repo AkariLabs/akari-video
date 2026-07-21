@@ -1,0 +1,430 @@
+{
+  "log": [
+    {
+      "at": "2026-07-21T04:41:19.967Z",
+      "step": "connected",
+      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=54590#<SCRATCH>/l1-workspace"
+    },
+    {
+      "at": "2026-07-21T04:41:20.707Z",
+      "step": "assert-ok",
+      "message": "quick-open widget appeared for fixture-video.mp4"
+    },
+    {
+      "at": "2026-07-21T04:41:25.032Z",
+      "step": "opened-file",
+      "fileName": "fixture-video.mp4",
+      "iframeTargetId": "E088A6485422AA9F123A0AF6A03A832F"
+    },
+    {
+      "at": "2026-07-21T04:41:26.089Z",
+      "step": "parsed-audio-summary",
+      "bgm": {
+        "src": "http://127.0.0.1:54875/asset/09bce7a2c82a663b42e6c1df4b37e2847e3e6331f9edbfa0c906c10b8a644357",
+        "gainDb": -18,
+        "ducking": true
+      },
+      "sfx": [
+        {
+          "id": "sfx-1",
+          "src": "http://127.0.0.1:54875/asset/ac6bb830a2229a4603a2e783d2997c46022cf55e77c111de16a3dcdea911d9c4",
+          "t": 1,
+          "gainDb": -6
+        }
+      ],
+      "narration": [
+        {
+          "id": "n-0001",
+          "src": "http://127.0.0.1:54875/asset/67660f13ed7cce6f48ad444695d8d69b192839624e0ba8b5c32dbc6d6811db63",
+          "t": 2,
+          "gainDb": 0
+        }
+      ]
+    },
+    {
+      "at": "2026-07-21T04:41:26.090Z",
+      "step": "assert-ok",
+      "message": "bgm parsed with ducking=true and gain_db=-18 from edit.json"
+    },
+    {
+      "at": "2026-07-21T04:41:26.090Z",
+      "step": "assert-ok",
+      "message": "only the resolvable sfx made it through node-side degradation (missing.wav dropped)"
+    },
+    {
+      "at": "2026-07-21T04:41:26.090Z",
+      "step": "assert-ok",
+      "message": "narration n-0001 parsed"
+    },
+    {
+      "at": "2026-07-21T04:41:26.093Z",
+      "step": "decoded-before-play",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 0,
+        "sfx": 0,
+        "narration": 0
+      },
+      "masterGainLinear": 1,
+      "bgmGainLinear": null,
+      "duckGainDb": null
+    },
+    {
+      "at": "2026-07-21T04:41:31.267Z",
+      "step": "scheduled-after-play",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 1,
+        "sfx": 1,
+        "narration": 1
+      },
+      "masterGainLinear": 1,
+      "bgmGainLinear": 0.1258925348520279,
+      "duckGainDb": 0
+    },
+    {
+      "at": "2026-07-21T04:41:31.269Z",
+      "step": "assert-ok",
+      "message": "bgm gain reflects -18dB before entering the narration ducking window"
+    },
+    {
+      "at": "2026-07-21T04:41:33.781Z",
+      "step": "ducked-during-narration",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 1,
+        "sfx": 0,
+        "narration": 1
+      },
+      "masterGainLinear": 1,
+      "bgmGainLinear": 0.03162277489900589,
+      "duckGainDb": -12
+    },
+    {
+      "at": "2026-07-21T04:41:33.782Z",
+      "step": "assert-ok",
+      "message": "ducked bgm linear gain matches 10^((-18-12)/20)"
+    },
+    {
+      "at": "2026-07-21T04:41:35.896Z",
+      "step": "restored-after-narration",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 1,
+        "sfx": 0,
+        "narration": 0
+      },
+      "masterGainLinear": 1,
+      "bgmGainLinear": 0.1258925348520279,
+      "duckGainDb": 0
+    },
+    {
+      "at": "2026-07-21T04:41:35.901Z",
+      "step": "master-gain-muted",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 1,
+        "sfx": 0,
+        "narration": 0
+      },
+      "masterGainLinear": 0,
+      "bgmGainLinear": 0.1258925348520279,
+      "duckGainDb": 0
+    },
+    {
+      "at": "2026-07-21T04:41:35.906Z",
+      "step": "master-gain-volume",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 1,
+        "sfx": 0,
+        "narration": 0
+      },
+      "masterGainLinear": 0.4000000059604645,
+      "bgmGainLinear": 0.1258925348520279,
+      "duckGainDb": 0
+    },
+    {
+      "at": "2026-07-21T04:41:45.880Z",
+      "step": "stopped-after-pause",
+      "contextState": "running",
+      "timelineDuration": 6,
+      "decoded": {
+        "bgm": true,
+        "sfx": [
+          {
+            "id": "sfx-1",
+            "t": 1,
+            "durationSec": 0.3
+          }
+        ],
+        "narration": [
+          {
+            "id": "n-0001",
+            "t": 2,
+            "durationSec": 2
+          }
+        ]
+      },
+      "active": {
+        "bgm": 0,
+        "sfx": 0,
+        "narration": 0
+      },
+      "masterGainLinear": 0.4000000059604645,
+      "bgmGainLinear": null,
+      "duckGainDb": null
+    },
+    {
+      "at": "2026-07-21T04:41:46.395Z",
+      "step": "assert-ok",
+      "message": "quick-open widget appeared for no-audio-video.mp4"
+    },
+    {
+      "at": "2026-07-21T04:41:50.494Z",
+      "step": "opened-file",
+      "fileName": "no-audio-video.mp4",
+      "iframeTargetId": "44243F5DE952A304241BCC09064CC249"
+    },
+    {
+      "at": "2026-07-21T04:41:51.165Z",
+      "step": "no-audio-summary",
+      "hasAudio": false
+    },
+    {
+      "at": "2026-07-21T04:41:51.166Z",
+      "step": "assert-ok",
+      "message": "summary.audio is absent for a project with no audio section"
+    },
+    {
+      "at": "2026-07-21T04:41:51.176Z",
+      "step": "no-audio-debug",
+      "disabled": true
+    },
+    {
+      "at": "2026-07-21T04:41:51.176Z",
+      "step": "assert-ok",
+      "message": "no supplemental AudioContext is created for an audio-less project"
+    },
+    {
+      "at": "2026-07-21T04:41:51.287Z",
+      "step": "no-audio-video-plays",
+      "paused": false,
+      "currentTime": 0.064046
+    },
+    {
+      "at": "2026-07-21T04:41:51.518Z",
+      "step": "console-messages",
+      "count": 12,
+      "missingSfxWarned": true,
+      "sample": [
+        {
+          "type": "warn",
+          "text": "2026-07-21T04:41:22.786Z root WARN [akari-preview] audio.sfx[1] を無視しました（音声ファイルを配信できません） Error: ENOENT: no such file or directory, realpath '<SCRATCH>/l1-workspace/audio/missing.wav'"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:23.041Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] audio graph ready [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:31.258Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:31.261Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] audio scheduled [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:33.318Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:35.444Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:39.517Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:39.522Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] audio scheduled [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:39.534Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:39.537Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] audio scheduled [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:41.536Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+        },
+        {
+          "type": "info",
+          "text": "2026-07-21T04:41:43.538Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+        }
+      ]
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "warn",
+      "text": "2026-07-21T04:41:22.786Z root WARN [akari-preview] audio.sfx[1] を無視しました（音声ファイルを配信できません） Error: ENOENT: no such file or directory, realpath '<SCRATCH>/l1-workspace/audio/missing.wav'"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:23.041Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] audio graph ready [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:31.258Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:31.261Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] audio scheduled [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:33.318Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:35.444Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:39.517Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:39.522Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] audio scheduled [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:39.534Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:39.537Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] audio scheduled [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:41.536Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+    },
+    {
+      "type": "info",
+      "text": "2026-07-21T04:41:43.538Z root INFO [webview: akari-preview-1al3ikf] [akari-preview] bgm duck gain [object Object]"
+    }
+  ]
+}

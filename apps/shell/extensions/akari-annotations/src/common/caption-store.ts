@@ -77,6 +77,58 @@ export function shiftCaptionLine(
     return updated;
 }
 
+export function insertCaptionLine(source: string, caption: CaptionRecord): string {
+    const parsed = parseCaptions(source);
+    if (parsed.captions.some(candidate => candidate.id === caption.id)) {
+        throw new Error(`字幕 ${caption.id} は既にあります。`);
+    }
+    if (!normalizeCaption(caption)) {
+        throw new Error('追加する字幕の形式が不正です。');
+    }
+    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
+    const entries = captionLineEntries(lines, parsed.captions);
+    const lineEnding = source.includes('\r\n') ? '\r\n' : '\n';
+    const firstIndent = entries[0]?.indent ?? '  ';
+    const serialized = `${firstIndent}${serializeCaption(caption)}`;
+    const before = entries.find(entry => entry.start > caption.start);
+
+    if (before) {
+        lines.splice(before.lineIndex, 0, `${serialized},${lineEnding}`);
+        return lines.join('');
+    }
+    if (entries.length > 0) {
+        const last = entries[entries.length - 1];
+        lines[last.lineIndex] = addTrailingComma(lines[last.lineIndex]);
+        lines.splice(last.lineIndex + 1, 0, `${serialized}${lineEnding}`);
+        return lines.join('');
+    }
+
+    const openLine = lines.findIndex(line => line.includes('['));
+    const closeLine = lines.findIndex((line, index) => index >= openLine && line.includes(']'));
+    if (openLine < 0 || closeLine < 0 || openLine === closeLine) {
+        throw new Error('字幕配列の1行形式を確認できません。');
+    }
+    lines.splice(closeLine, 0, `${serialized}${lineEnding}`);
+    return lines.join('');
+}
+
+export function removeCaptionLine(source: string, captionId: string): string {
+    const parsed = parseCaptions(source);
+    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
+    const entries = captionLineEntries(lines, parsed.captions);
+    const index = entries.findIndex(entry => entry.id === captionId);
+    if (index < 0) {
+        throw new Error(`字幕 ${captionId} が字幕データにありません。`);
+    }
+    const entry = entries[index];
+    lines.splice(entry.lineIndex, 1);
+    if (index === entries.length - 1 && index > 0) {
+        const previousLineIndex = entries[index - 1].lineIndex;
+        lines[previousLineIndex] = removeTrailingComma(lines[previousLineIndex]);
+    }
+    return lines.join('');
+}
+
 function normalizeCaption(value: any): CaptionRecord | undefined {
     if (!value || typeof value !== 'object' || typeof value.id !== 'string' || !value.id
         || typeof value.text !== 'string' || typeof value.edited !== 'boolean') {
@@ -113,4 +165,39 @@ function decodeJsonString(value: string): string {
     } catch {
         return value;
     }
+}
+
+function captionLineEntries(
+    lines: string[],
+    captions: CaptionRecord[]
+): Array<{ id: string; start: number; lineIndex: number; indent: string }> {
+    return captions.map(caption => {
+        const matches = lines.flatMap((line, lineIndex) => {
+            const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
+            return idMatch && decodeJsonString(idMatch[1]) === caption.id
+                ? [{ line, lineIndex }]
+                : [];
+        });
+        if (matches.length !== 1 || !matches[0].line.includes('{') || !matches[0].line.includes('}')) {
+            throw new Error(`字幕 ${caption.id} の1行形式を確認できません。`);
+        }
+        return {
+            id: caption.id,
+            start: caption.start,
+            lineIndex: matches[0].lineIndex,
+            indent: matches[0].line.match(/^\s*/)?.[0] ?? '  '
+        };
+    });
+}
+
+function serializeCaption(caption: CaptionRecord): string {
+    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)} }`;
+}
+
+function addTrailingComma(line: string): string {
+    return line.replace(/(\r?\n)?$/, (_match, ending = '') => `,${ending}`);
+}
+
+function removeTrailingComma(line: string): string {
+    return line.replace(/,(\s*)(\r?\n)?$/, (_match, whitespace, ending = '') => `${whitespace}${ending}`);
 }

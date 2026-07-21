@@ -15,8 +15,12 @@ import {
     GetClipThumbnailResult,
     GetClipWaveformRequest,
     GetClipWaveformResult,
+    InsertCaptionRequest,
     InsertCutRequest,
+    InsertOverlayRequest,
     MoveOverlayRequest,
+    RemoveCaptionRequest,
+    RemoveOverlayRequest,
     ReorderCutsRequest,
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
@@ -38,11 +42,13 @@ import {
     parseReview,
     updateStatusLine
 } from '../common/annotation-store';
-import { shiftCaptionLine } from '../common/caption-store';
+import { insertCaptionLine, removeCaptionLine, shiftCaptionLine } from '../common/caption-store';
 import {
     deleteCutInSource,
     insertCutInSource,
+    insertOverlayInSource,
     moveOverlayInSource,
+    removeOverlayInSource,
     reorderCutsInSource,
     resizeOverlayInSource,
     splitCutInSource,
@@ -179,11 +185,29 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
     }
 
+    async insertCaption(request: InsertCaptionRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = insertCaptionLine(source, request.caption);
+        await this.writeAtomic(captionsPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕を複製') };
+    }
+
+    async removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = removeCaptionLine(source, request.captionId);
+        await this.writeAtomic(captionsPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の複製を取り消し') };
+    }
+
     async moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
-        const updated = moveOverlayInSource(source, request.overlayId, request.start);
+        const updated = moveOverlayInSource(source, request.overlayId, request.start, request.track, request.trackState);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイを移動') };
     }
@@ -223,6 +247,24 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = insertCutInSource(source, request.cutIndex, request.elementText);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを挿入') };
+    }
+
+    async insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = insertOverlayInSource(source, request.overlay);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイを複製') };
+    }
+
+    async removeOverlay(request: RemoveOverlayRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = removeOverlayInSource(source, request.overlayId);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイの複製を取り消し') };
     }
 
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {

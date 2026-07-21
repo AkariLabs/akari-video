@@ -1,0 +1,479 @@
+[
+  {
+    "t": "2026-07-21T03:31:14.544Z",
+    "step": "connected-main",
+    "connected": true
+  },
+  {
+    "t": "2026-07-21T03:31:16.823Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-21T03:31:16.912Z",
+    "step": "AC1-lane-band-rects",
+    "bands": [
+      {
+        "lane": "captions",
+        "hidden": false,
+        "top": 501.7265625,
+        "height": 19
+      },
+      {
+        "lane": "track-2",
+        "hidden": false,
+        "top": 525.7265625,
+        "height": 19
+      },
+      {
+        "lane": "track-1",
+        "hidden": false,
+        "top": 549.7265625,
+        "height": 19
+      },
+      {
+        "lane": "track-0",
+        "hidden": false,
+        "top": 573.7265625,
+        "height": 19
+      },
+      {
+        "lane": "clips",
+        "hidden": false,
+        "top": 597.7265625,
+        "height": 23
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T03:31:16.912Z",
+    "step": "assertion-ok",
+    "message": "AC1: captions/track-2/track-1/track-0/clips bands all present",
+    "bands": [
+      {
+        "lane": "captions",
+        "hidden": false,
+        "top": 501.7265625,
+        "height": 19
+      },
+      {
+        "lane": "track-2",
+        "hidden": false,
+        "top": 525.7265625,
+        "height": 19
+      },
+      {
+        "lane": "track-1",
+        "hidden": false,
+        "top": 549.7265625,
+        "height": 19
+      },
+      {
+        "lane": "track-0",
+        "hidden": false,
+        "top": 573.7265625,
+        "height": 19
+      },
+      {
+        "lane": "clips",
+        "hidden": false,
+        "top": 597.7265625,
+        "height": 23
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T03:31:16.912Z",
+    "step": "assertion-ok",
+    "message": "AC1: vertical order is captions < track-2 < track-1 < track-0 < clips (top-down)",
+    "captionsTop": 501.7265625,
+    "track2Top": 525.7265625,
+    "track1Top": 549.7265625,
+    "track0Top": 573.7265625,
+    "clipsTop": 597.7265625
+  },
+  {
+    "t": "2026-07-21T03:31:16.984Z",
+    "step": "AC2-ov-d-missing-track",
+    "ovDBefore": {
+      "track": "0",
+      "opacity": "",
+      "top": 573.7265625,
+      "left": 749.9140625,
+      "height": 16
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:16.984Z",
+    "step": "assertion-ok",
+    "message": "AC2: overlay with no track field renders in track-0 row",
+    "ovDBefore": {
+      "track": "0",
+      "opacity": "",
+      "top": 573.7265625,
+      "left": 749.9140625,
+      "height": 16
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:17.882Z",
+    "step": "assertion-ok",
+    "message": "developer mode enabled (required for standard Explorer tree)",
+    "nowChecked": true
+  },
+  {
+    "t": "2026-07-21T03:31:24.291Z",
+    "step": "opened-preview-tab",
+    "found": true,
+    "x": 68,
+    "y": 314
+  },
+  {
+    "t": "2026-07-21T03:31:24.906Z",
+    "step": "z-order-before-drag",
+    "a": {
+      "zIndex": "10",
+      "track": "0",
+      "display": "block"
+    },
+    "b": {
+      "zIndex": "11",
+      "track": "1",
+      "display": "block"
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:24.906Z",
+    "step": "assertion-ok",
+    "message": "z-order precondition: ov-b (track1) starts in front of ov-a (track0)",
+    "a": {
+      "zIndex": "10",
+      "track": "0",
+      "display": "block"
+    },
+    "b": {
+      "zIndex": "11",
+      "track": "1",
+      "display": "block"
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:26.242Z",
+    "step": "AC3-AC4-drag-result",
+    "before": [
+      {
+        "id": "ov-a",
+        "track": 0
+      },
+      {
+        "id": "ov-b",
+        "track": 1
+      },
+      {
+        "id": "ov-c",
+        "track": 2
+      },
+      {
+        "id": "ov-d"
+      }
+    ],
+    "after": [
+      {
+        "id": "ov-a",
+        "track": 3
+      },
+      {
+        "id": "ov-b",
+        "track": 1
+      },
+      {
+        "id": "ov-c",
+        "track": 2
+      },
+      {
+        "id": "ov-d"
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T03:31:26.242Z",
+    "step": "assertion-ok",
+    "message": "AC3: vertical drag increases ov-a track number (moved to a higher/frontmost row)",
+    "before": 0,
+    "after": 3
+  },
+  {
+    "t": "2026-07-21T03:31:26.242Z",
+    "step": "assertion-ok",
+    "message": "AC4: dropping above the topmost row creates a new track = previous max + 1",
+    "maxTrackBefore": 2,
+    "newTrack": 3
+  },
+  {
+    "t": "2026-07-21T03:31:26.242Z",
+    "step": "assertion-ok",
+    "message": "AC3: unrelated overlays (ov-b, ov-c) keep their track values across the write-back",
+    "ovBAfter": 1,
+    "ovCAfter": 2
+  },
+  {
+    "t": "2026-07-21T03:31:26.242Z",
+    "step": "assertion-ok",
+    "message": "AC3: existing overlay ids remain textually present after the patch (string-patch discipline)"
+  },
+  {
+    "t": "2026-07-21T03:31:27.035Z",
+    "step": "z-order-after-drag",
+    "a": {
+      "zIndex": "13",
+      "track": "3",
+      "display": "block"
+    },
+    "b": {
+      "zIndex": "11",
+      "track": "1",
+      "display": "block"
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:27.035Z",
+    "step": "assertion-ok",
+    "message": "AC5: after the track change, ov-a (now higher track) renders in front of ov-b in the preview",
+    "a": {
+      "zIndex": "13",
+      "track": "3",
+      "display": "block"
+    },
+    "b": {
+      "zIndex": "11",
+      "track": "1",
+      "display": "block"
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:27.542Z",
+    "step": "AC3-undo-restores-track",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "t": "2026-07-21T03:31:27.542Z",
+    "step": "assertion-ok",
+    "message": "AC3: undo restores ov-a to its pre-drag track",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "t": "2026-07-21T03:31:27.882Z",
+    "step": "assertion-ok",
+    "message": "AC3: redo re-applies the track change"
+  },
+  {
+    "t": "2026-07-21T03:31:28.287Z",
+    "step": "assertion-ok",
+    "message": "track header eye button exists for the newly created track",
+    "newTrackLane": "track-3"
+  },
+  {
+    "t": "2026-07-21T03:31:28.630Z",
+    "step": "AC7-track-eye-off-timeline",
+    "ovAItemStateHidden": {
+      "track": "3",
+      "opacity": "0.28",
+      "top": 525.7265625,
+      "left": 312.4140625,
+      "height": 16
+    },
+    "hiddenBand": {
+      "lane": "track-3",
+      "hidden": true,
+      "top": 525.7265625,
+      "height": 19
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:28.630Z",
+    "step": "assertion-ok",
+    "message": "AC7: track eye OFF dims the timeline row and its overlay item",
+    "hiddenBand": {
+      "lane": "track-3",
+      "hidden": true,
+      "top": 525.7265625,
+      "height": 19
+    },
+    "ovAItemStateHidden": {
+      "track": "3",
+      "opacity": "0.28",
+      "top": 525.7265625,
+      "left": 312.4140625,
+      "height": 16
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:28.631Z",
+    "step": "AC7-track-eye-off-preview",
+    "previewOvAHidden": {
+      "zIndex": "13",
+      "track": "3",
+      "display": "none"
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:28.631Z",
+    "step": "assertion-ok",
+    "message": "AC7: track eye OFF hides that track's overlay container in the preview",
+    "previewOvAHidden": {
+      "zIndex": "13",
+      "track": "3",
+      "display": "none"
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:29.050Z",
+    "step": "assertion-ok",
+    "message": "AC7: track eye back ON restores overlay visibility in the preview",
+    "previewOvAVisible": {
+      "zIndex": "13",
+      "track": "3",
+      "display": "block"
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:29.390Z",
+    "step": "AC7-captions-eye-off",
+    "captionPlateHidden": "hidden"
+  },
+  {
+    "t": "2026-07-21T03:31:29.390Z",
+    "step": "assertion-ok",
+    "message": "AC7: captions eye OFF hides #caption-plate in the preview",
+    "captionPlateHidden": "hidden"
+  },
+  {
+    "t": "2026-07-21T03:31:29.818Z",
+    "step": "assertion-ok",
+    "message": "AC7: captions eye back ON restores #caption-plate visibility",
+    "captionPlateVisible": "visible"
+  },
+  {
+    "t": "2026-07-21T03:31:30.160Z",
+    "step": "AC6-speaker-off",
+    "mutedTrue": true
+  },
+  {
+    "t": "2026-07-21T03:31:30.160Z",
+    "step": "assertion-ok",
+    "message": "AC6: speaker OFF sets preview video.muted = true",
+    "mutedTrue": true
+  },
+  {
+    "t": "2026-07-21T03:31:30.582Z",
+    "step": "assertion-ok",
+    "message": "AC6: speaker back ON sets preview video.muted = false",
+    "mutedFalse": false
+  },
+  {
+    "t": "2026-07-21T03:31:31.926Z",
+    "step": "regression-selection-sync",
+    "previewSelection": "ov-b",
+    "selectedItems": [
+      {
+        "kind": "overlay",
+        "id": "ov-b",
+        "className": "akari-annotations-strip-overlay akari-annotations-selected"
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T03:31:31.926Z",
+    "step": "assertion-ok",
+    "message": "regression: timeline overlay selection reflects into the preview webview",
+    "previewSelection": "ov-b",
+    "selectedItems": [
+      {
+        "kind": "overlay",
+        "id": "ov-b",
+        "className": "akari-annotations-strip-overlay akari-annotations-selected"
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T03:31:33.595Z",
+    "step": "regression-caption-paste",
+    "pastedCaption": {
+      "id": "caption-copy",
+      "start": 9.485982,
+      "end": 10.985982,
+      "text": "first caption",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:33.595Z",
+    "step": "assertion-ok",
+    "message": "regression: caption paste inserts a new caption",
+    "pastedCaption": {
+      "id": "caption-copy",
+      "start": 9.485982,
+      "end": 10.985982,
+      "text": "first caption",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true
+    }
+  },
+  {
+    "t": "2026-07-21T03:31:34.007Z",
+    "step": "assertion-ok",
+    "message": "regression: caption paste undo removes the inserted caption (one round trip complete)"
+  },
+  {
+    "t": "2026-07-21T03:31:34.618Z",
+    "step": "regression-caption-horizontal-drag",
+    "before": 1,
+    "after": 1.7540714285714285
+  },
+  {
+    "t": "2026-07-21T03:31:34.618Z",
+    "step": "assertion-ok",
+    "message": "regression: caption horizontal drag changes captions[0].start",
+    "before": 1,
+    "after": 1.7540714285714285
+  },
+  {
+    "t": "2026-07-21T03:31:35.116Z",
+    "step": "regression-zoom-hud",
+    "cursorTimeError": 0.01283032952662655,
+    "threshold": 0.06940828402366864,
+    "contentBefore": 700,
+    "contentAfter": 2366
+  },
+  {
+    "t": "2026-07-21T03:31:35.116Z",
+    "step": "assertion-ok",
+    "message": "regression: ctrl+wheel zoomed in (content width grew)"
+  },
+  {
+    "t": "2026-07-21T03:31:35.116Z",
+    "step": "assertion-ok",
+    "message": "regression: ctrl+wheel zoom keeps cursor time fixed within 2% of visible width",
+    "cursorTimeError": 0.01283032952662655,
+    "threshold": 0.06940828402366864
+  },
+  {
+    "t": "2026-07-21T03:31:37.161Z",
+    "step": "regression-playback-sync",
+    "beforePlayheadPx": 1512.2662799999998,
+    "afterPlayheadPx": 1735.830642,
+    "previewTime": 8.661183
+  },
+  {
+    "t": "2026-07-21T03:31:37.161Z",
+    "step": "assertion-ok",
+    "message": "regression: timeline playhead advances during preview playback",
+    "before": 1512.2662799999998,
+    "after": 1735.830642
+  }
+]

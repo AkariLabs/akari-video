@@ -5,6 +5,7 @@ import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 const THREE_BUNDLE_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/vendor/three-bundle.js",
@@ -27,15 +28,16 @@ const TEXTURE_MIME_TYPES = new Map([
 ]);
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
-  const hasThreeDimensionalOverlay = overlays.some((overlay) =>
+  const orderedOverlays = orderOverlaysByTrack(overlays);
+  const hasThreeDimensionalOverlay = orderedOverlays.some((overlay) =>
     overlay.html.includes("data-akari-3d-scene"),
   );
   const sheetOverlays = hasThreeDimensionalOverlay
-    ? overlays.map((overlay) => ({
+    ? orderedOverlays.map((overlay) => ({
         ...overlay,
         html: embedThreeModels(overlay.html, projectRoot, overlay.id),
       }))
-    : overlays;
+    : orderedOverlays;
   const nodes = sheetOverlays
     .map((overlay, index) => renderOverlayNode(overlay, index))
     .join("\n");
@@ -107,39 +109,76 @@ export async function captureWithPuppeteer({
   fps,
   duration,
   ffmpegCommand,
+  timeoutMs = captureTimeoutMs(),
+  puppeteerModule = null,
 }) {
-  const imported = await import("puppeteer-core");
+  const imported = puppeteerModule ?? await import("puppeteer-core");
   const puppeteer = imported.default ?? imported;
   await mkdir(framesDirectory, { recursive: true });
-  const browser = await puppeteer.launch({
-    executablePath: chromePath,
-    headless: true,
-    userDataDir: join(framesDirectory, "chrome-profile"),
-    args: [
-      "--no-sandbox",
-      "--disable-gpu",
-      "--enable-unsafe-swiftshader",
-      "--use-angle=swiftshader",
-      "--disable-dev-shm-usage",
-      "--no-first-run",
-      "--no-default-browser-check",
-    ],
-  });
+  const frameCount = Math.ceil(duration * fps);
+  let browser = null;
+  let watchdogExpired = false;
   try {
-    const page = await browser.newPage();
-    await page.setViewport({ width, height, deviceScaleFactor: 1 });
-    await page.goto(pathToFileURL(sheetPath).href, { waitUntil: "networkidle0" });
-    await page.evaluate(() => window.__akariReady);
-    const frameCount = Math.ceil(duration * fps);
+    browser = await withTimeout(
+      puppeteer.launch({
+        executablePath: chromePath,
+        headless: true,
+        timeout: timeoutMs,
+        userDataDir: join(framesDirectory, "chrome-profile"),
+        args: [
+          "--no-sandbox",
+          "--disable-gpu",
+          "--enable-unsafe-swiftshader",
+          "--use-angle=swiftshader",
+          "--disable-dev-shm-usage",
+          "--no-first-run",
+          "--no-default-browser-check",
+        ],
+      }),
+      timeoutMs,
+      "launching Chrome",
+    );
+    const page = await withTimeout(browser.newPage(), timeoutMs, "opening a Puppeteer page");
+    page.setDefaultTimeout(timeoutMs);
+    page.setDefaultNavigationTimeout(timeoutMs);
+    await withTimeout(
+      page.setViewport({ width, height, deviceScaleFactor: 1 }),
+      timeoutMs,
+      "setting the Puppeteer viewport",
+    );
+    await withTimeout(
+      page.goto(pathToFileURL(sheetPath).href, {
+        waitUntil: "networkidle0",
+        timeout: timeoutMs,
+      }),
+      timeoutMs,
+      "loading the overlay sheet",
+    );
+    await withTimeout(
+      page.evaluate(() => window.__akariReady),
+      timeoutMs,
+      "waiting for the overlay sheet",
+    );
     for (let frame = 0; frame < frameCount; frame += 1) {
-      await page.evaluate((seconds) => window.__akariSeek(seconds), frame / fps);
-      await page.screenshot({
-        path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
-        omitBackground: true,
-      });
+      await withTimeout(
+        page.evaluate((seconds) => window.__akariSeek(seconds), frame / fps),
+        timeoutMs,
+        `seeking frame ${frame + 1}`,
+      );
+      await withTimeout(
+        page.screenshot({
+          path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
+          omitBackground: true,
+        }),
+        timeoutMs,
+        `capturing frame ${frame + 1}`,
+      );
     }
+  } catch (error) {
+    watchdogExpired = isTimeoutError(error);
+    throw error;
   } finally {
-    await browser.close();
+    await terminateBrowser(browser, { force: watchdogExpired, timeoutMs });
   }
 
   runChecked(ffmpegCommand, [
@@ -167,9 +206,10 @@ export async function captureStaticOverlays({
   projectRoot,
   temporaryDirectory,
   chromePath,
+  timeoutMs = captureTimeoutMs(),
 }) {
   const captures = [];
-  for (const [index, overlay] of overlays.entries()) {
+  for (const [index, overlay] of orderOverlaysByTrack(overlays).entries()) {
     const stem = `static-${String(index + 1).padStart(4, "0")}`;
     const htmlPath = join(temporaryDirectory, `${stem}.html`);
     const pngPath = join(temporaryDirectory, `${stem}.png`);
@@ -207,8 +247,11 @@ export async function captureStaticOverlays({
         `--screenshot=${pngPath}`,
         pathToFileURL(htmlPath).href,
       ],
-      { encoding: "utf8" },
+      { encoding: "utf8", timeout: timeoutMs, killSignal: "SIGKILL" },
     );
+    if (result.error?.code === "ETIMEDOUT") {
+      throw new Error(`Chrome screenshot timeout after ${timeoutMs}ms`);
+    }
     if (result.status !== 0) {
       throw new Error(
         `Chrome screenshot failed (${result.signal ?? `exit ${result.status}`}): ${result.error?.message ?? result.stderr ?? result.stdout ?? "no output"}`,
@@ -217,6 +260,65 @@ export async function captureStaticOverlays({
     captures.push({ path: pngPath, start: overlay.start, duration: overlay.duration });
   }
   return captures;
+}
+
+function captureTimeoutMs() {
+  const configured = Number(process.env.RENDER_CUT_CAPTURE_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0
+    ? Math.floor(configured)
+    : DEFAULT_CAPTURE_TIMEOUT_MS;
+}
+
+function withTimeout(promise, timeoutMs, operation) {
+  let timer;
+  const timeout = new Promise((_, rejectPromise) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${operation} timeout after ${timeoutMs}ms`);
+      error.code = "ETIMEDOUT";
+      rejectPromise(error);
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function isTimeoutError(error) {
+  return error?.code === "ETIMEDOUT" || /timeout/iu.test(error?.message ?? "");
+}
+
+async function terminateBrowser(browser, { force, timeoutMs }) {
+  if (!browser) return;
+  const process = browser.process?.();
+  try {
+    await withTimeout(browser.close(), Math.min(timeoutMs, 2_000), "closing Puppeteer browser");
+  } catch {
+    force = true;
+  }
+  if (
+    (force || browser.connected) &&
+    process &&
+    process.exitCode === null &&
+    process.signalCode === null
+  ) {
+    process.kill("SIGKILL");
+  }
+}
+
+function orderOverlaysByTrack(overlays) {
+  return overlays
+    .map((overlay, index) => ({ overlay, index }))
+    .sort((left, right) => {
+      const leftIsCaption = left.overlay.generatedFrom !== undefined;
+      const rightIsCaption = right.overlay.generatedFrom !== undefined;
+      if (leftIsCaption !== rightIsCaption) return leftIsCaption ? 1 : -1;
+      const leftTrack = Number.isInteger(left.overlay.track) && left.overlay.track >= 0
+        ? left.overlay.track
+        : 0;
+      const rightTrack = Number.isInteger(right.overlay.track) && right.overlay.track >= 0
+        ? right.overlay.track
+        : 0;
+      return leftTrack - rightTrack || left.index - right.index;
+    })
+    .map(({ overlay }) => overlay);
 }
 
 export function compositeAnimatedOverlay({

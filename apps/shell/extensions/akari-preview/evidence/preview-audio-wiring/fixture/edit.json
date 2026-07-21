@@ -1,0 +1,17 @@
+{
+  "version": 0,
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "source": { "path": "fixture-video.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 6 }],
+  "overlays": [],
+  "audio": {
+    "bgm": { "path": "audio/bgm.wav", "gain_db": -18, "ducking": true },
+    "sfx": [
+      { "path": "audio/sfx.wav", "t": 1, "gain_db": -6 },
+      { "path": "audio/missing.wav", "t": 3.5, "gain_db": 0 }
+    ],
+    "narration": [
+      { "id": "n-0001", "path": "audio/narration.wav", "t": 2, "gain_db": 0 }
+    ]
+  }
+}

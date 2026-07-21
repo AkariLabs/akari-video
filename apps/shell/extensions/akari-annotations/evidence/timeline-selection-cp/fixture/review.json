@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "annotations": [
+    { "id": "annotation-a", "createdAt": "2026-07-20T00:00:00.000Z", "sourceT": 2, "sourceRange": null, "timelineT": null, "target": null, "text": "timeline marker", "input": "typed", "audio": null, "strokes": null, "poses": null, "status": "open", "response": null }
+  ]
+}

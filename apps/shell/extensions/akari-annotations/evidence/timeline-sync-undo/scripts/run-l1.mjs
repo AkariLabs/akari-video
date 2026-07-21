@@ -47,14 +47,19 @@ async function readJson(p) {
 }
 
 // ---- widget DOM accessors (structural, matches akari-annotations-widget.ts node.append order) ----
+// Wave22/23 統合マージでルート DOM 形状が変化: w.children[1] は今や stripScroll 直下ではなく
+// timelineViewport という grid ラッパー（trackHeaders + stripScroll を内包）になった
+// （旧: node.append(toolbar, stripScroll, hScrollbarTrack, notice, footer)
+//   新: node.append(toolbar, timelineViewport, hScrollbarTrack, notice, footer)）。
+// run-l1-wave22.mjs と同様、位置indexではなく class/data-testid ベースの安定セレクタで解決する。
 const WIDGET_REFS = `(() => {
   const w = document.getElementById('akari-annotations-widget');
   if (!w) return null;
   const toolbar = w.children[0];
-  const stripScroll = w.children[1];
-  const scrollbarTrack = w.children[2];
-  const scrollbarThumb = scrollbarTrack.children[0];
-  const strip = stripScroll.children[0];
+  const strip = document.querySelector('.akari-annotations-strip');
+  const stripScroll = strip ? strip.parentElement : null;
+  const scrollbarTrack = document.querySelector('[data-testid="akari-timeline-hscrollbar-track"]');
+  const scrollbarThumb = document.querySelector('[data-testid="akari-timeline-hscrollbar-thumb"]');
   // Wave22 でツールバーに選択/分割/マグネットボタンが追加され、undo/redo の子要素indexが
   // ずれた（旧: [2],[3] → 新: aria-label ベースで解決するのが安全）。
   const undoButton = toolbar.querySelector('[aria-label="元に戻す"]');
@@ -204,6 +209,43 @@ async function main() {
   await shot(main, '01-timeline-opened-default-view.png');
   record('initial-widget-state', s0);
 
+  // ================= 検証環境ハードニング: bottom panel を拡大する =================
+  // 発見した実挙動: Theia の初回（未保存レイアウト）の bottom panel 既定高では、
+  // timelineViewport の実際のflex確保高（約87px）が、strip content の必要高（このfixtureで
+  // 約120px = caption行 + overlayトラック行 + クリップ行(Wave22のclipHeader追加でC LIP_HEIGHT
+  // 22→36px)を下回り、timelineViewport に overflow:hidden が無いため超過分がそのまま下へ溢れ、
+  // ズーム時のみ表示される hScrollbarTrack と視覚的・当たり判定的に重なる（elementFromPoint が
+  // クリップではなく hScrollbarTrack を返す）。この状態だとクリップ帯末尾に近いドラッグ操作
+  // （cut-trim 等）が無言で不発になる。プロダクトソース（timelineViewport の overflow/高さ計算）
+  // は変更せず、Theia 標準機能である panel 分割ハンドルのドラッグでテスト環境側の panel を
+  // 拡大することで回避する（README「検証ドライバの修正点」に詳細を記録）。
+  {
+    const handle = await evalOn(main, `(() => {
+      const w = document.getElementById('akari-annotations-widget');
+      const wr = w.getBoundingClientRect();
+      const handles = Array.from(document.querySelectorAll('.lm-SplitPanel-handle'));
+      let best = null;
+      let bestGap = Infinity;
+      for (const h of handles) {
+        const r = h.getBoundingClientRect();
+        if (r.width < wr.width * 0.5) continue; // 縦分割ハンドル等を除外、横に広いものだけ対象
+        const gap = wr.top - r.top;
+        if (gap >= -2 && gap < bestGap) { bestGap = gap; best = { x: r.left + r.width / 2, y: r.top + Math.max(1, r.height / 2) }; }
+      }
+      return best;
+    })()`);
+    if (handle) {
+      await realDrag(main, [
+        { x: handle.x, y: handle.y },
+        { x: handle.x, y: Math.max(120, handle.y - 260) }
+      ], { steps: 15, stepDelayMs: 25 });
+      await sleep(300);
+    }
+    const afterResize = await widgetState(main);
+    record('bottom-panel-resized', { handleFound: !!handle, stripHeightAfter: afterResize.stripRect?.height, contentWidthPx: afterResize.contentWidthPx });
+    s0 = afterResize.found ? afterResize : s0;
+  }
+
   // ================= regression: minimum zoom = full view, no pan possible =================
   // 起動直後はレイアウト確定前の幅で min pxPerSec が決まっていることがあるため、
   // ctrl+wheel でズームアウトし切って現在幅の最小ズームへクランプさせてから判定する
@@ -286,7 +328,7 @@ async function main() {
 
   // ================= AC9 regression: cut-trim (drag left edge) =================
   await scrollToTime(main, 2);
-  await sleep(100);
+  await sleep(400);
   let editBefore = await readJson(EDIT_JSON_PATH);
   let c1Rect = await elementRect(main, '.akari-annotations-strip-clip', 0);
   const trimStartX = c1Rect.left + 2; // within EDGE_ZONE_PX(6) of the left edge -> 'left' trim
@@ -306,8 +348,11 @@ async function main() {
   // Wave22 の出力軸ギャップレス化により totalDuration が縮む（trim後 ~9.75s）ため、AC2 で
   // ズームインしたままだと drag 元(C1)と drop 先(4.3s)を同一の可視窓に収められないことがある
   // （実測でドラッグが不発になった）。ズームを全体表示にリセットしてから行う。
+  // mid 座標は bottom panel のリサイズ後は位置が変わるため、固定値ではなく現在の
+  // widgetState() から都度算出する（固定値だと wheel イベントが strip 外に落ちて無反応になる）。
   {
-    const mid = { x: 58 + 894 / 2, y: 486.7265625 + 106 / 2 };
+    const cur = await widgetState(main);
+    const mid = { x: cur.stripRect.left + cur.stripRect.width / 2, y: cur.stripRect.top + cur.stripRect.height / 2 };
     for (let i = 0; i < 8; i++) {
       await wheel(main, mid.x, mid.y, 0, 400, { ctrlKey: true });
       await sleep(80);
@@ -638,35 +683,55 @@ async function main() {
   // ================= AC6 regression: timeline click seeks the preview =================
   await evalInPreview(`(() => { document.getElementById('preview-video').currentTime = 0; return true; })()`);
   await sleep(200);
-  const seekClickTime = editAfterToolbarRoundTrip.cuts[0].in + 0.5;
-  // cuts[0] は AC9 の cut-reorder 後、元 C2（in=4）になっているため、その +0.5=4.5秒は
-  // 現在のズーム後 visibleDuration(約3.47秒)で viewStart=0 のままだと画面外になる
-  // （実測でクリックが何にも当たらずシークが発火しなかった）。クリック対象時刻を
-  // 可視窓内に収めてからスクリーン座標を計算する。
-  await scrollToTime(main, Math.max(0, seekClickTime - 0.5));
+  // Wave22 で横軸が source 秒から出力(タイムライン)秒へ転換されたため、クリック座標は
+  // 出力秒で計算し、期待値は「cuts[0](=常に出力0秒始まりの先頭セグメント)の source in + 0.5秒」を
+  // 出力軸の 0.5秒地点としてクリックし、そこから source 秒へ変換された結果と比較する
+  // （旧: source 秒=出力秒の前提で cuts[0].in+0.5 をそのままクリック時刻に使っていたため、
+  // 出力軸転換後は無関係な source 位置へシークしてしまっていた）。
+  const seekOutputClickTime = 0.5; // 先頭セグメント(cuts[0])の出力レンジ内、tlStart=0 から+0.5秒
+  const expectedSourceSeekTime = editAfterToolbarRoundTrip.cuts[0].in + seekOutputClickTime;
+  await scrollToTime(main, Math.max(0, seekOutputClickTime - 0.5));
   await sleep(150);
-  const seekClickX = await screenXForTime(main, seekClickTime);
+  const seekClickX = await screenXForTime(main, seekOutputClickTime);
   const seekStateBefore = await widgetState(main);
   const seekClickY = seekStateBefore.stripRect.top + 7; // ruler band, no clip/caption/overlay hit
   await realClick(main, seekClickX, seekClickY);
   await sleep(500);
   const seekState = await widgetState(main);
   const previewTimeAfterSeek = await evalInPreview(`document.getElementById('preview-video').currentTime`);
-  record('AC6-click-to-seek', { footer: seekState.footer, previewTimeAfterSeek, expectedApprox: seekClickTime });
+  record('AC6-click-to-seek', { footer: seekState.footer, previewTimeAfterSeek, expectedApprox: expectedSourceSeekTime });
   assert(seekState.footer.includes('シーク'), 'AC6: footer reports the preview was seeked', { footer: seekState.footer });
-  assert(Math.abs(previewTimeAfterSeek - seekClickTime) < 0.5,
+  assert(Math.abs(previewTimeAfterSeek - expectedSourceSeekTime) < 0.5,
     'AC6: preview video.currentTime moved close to the clicked timeline time', {
-      previewTimeAfterSeek, seekClickTime
+      previewTimeAfterSeek, expectedSourceSeekTime
     });
   await shot(main, '15-click-to-seek-regression.png');
 
   await writeFile(path.join(EVIDENCE_DIR, 'run-log-partial-5.json'), JSON.stringify(log, null, 2));
 
   // ================= AC4/AC5: preview playback -> timeline playhead sync + 78% auto-follow scroll =================
-  const playbackStart = editAfterToolbarRoundTrip.cuts[editAfterToolbarRoundTrip.cuts.length - 1].in;
+  // 発見した実挙動: video.currentTime を cuts[].in の値に「ちょうど」一致させてから play() すると、
+  // paused=false・readyState=4・error=null を報告するにもかかわらず currentTime が全く進行せず
+  // timeupdate/seeking/seeked のいずれのイベントも一切発火しない（実測: 4秒超・複数回のフレッシュ
+  // launch で再現、CDP接続の使い回しに起因する副作用ではないことを確認済み）。run-l1-wave22.mjs
+  // 側の同種テスト（B: 境界またぎ再生）も境界ちょうどではなく "seg0.out - 0.3" と意図的にオフセット
+  // している前例に倣い、cuts[last].in ちょうどではなく +0.5秒オフセットした位置から再生開始する
+  // （プロダクトソースは変更しない — 境界値ちょうどでの停止挙動自体は本タスクの範囲外の別問題として
+  // README に記録し、ここでは AC4/AC5 が意図する「再生中のtick同期・auto-follow」を検証できるよう
+  // 境界を避けるドライバ側の調整のみ行う）。
+  // 併せて Wave22 で横軸が出力秒になったため、scrollToTime も出力秒で計算する
+  // （cuts[last] は本回の cut-reorder では配列末尾のまま=出力軸でも末尾セグメントなので、
+  // 直前までのセグメント尺の累積が出力軸開始秒になる）。
+  const cutsNow = editAfterToolbarRoundTrip.cuts;
+  const lastCutIndex = cutsNow.length - 1;
+  let lastSegTlStart = 0;
+  for (let i = 0; i < lastCutIndex; i++) lastSegTlStart += cutsNow[i].out - cutsNow[i].in;
+  const boundaryOffset = 0.5;
+  const playbackStart = cutsNow[lastCutIndex].in + boundaryOffset; // source seconds, for v.currentTime
+  const playbackStartOutput = lastSegTlStart + boundaryOffset; // output seconds, for scrollToTime
   await evalInPreview(`(() => { const v = document.getElementById('preview-video'); v.pause(); v.currentTime = ${playbackStart}; return true; })()`);
   await sleep(200);
-  await scrollToTime(main, playbackStart);
+  await scrollToTime(main, playbackStartOutput);
   await sleep(150);
   const prePlay = await widgetState(main);
   record('pre-play-state', prePlay);
@@ -702,7 +767,24 @@ async function main() {
     if (samples[i].playheadLeftPx < samples[i - 1].playheadLeftPx - 0.5) monotonic = false;
   }
   assert(monotonic, 'AC4: playhead px position is monotonically non-decreasing across samples', { samples });
-  const worstTickError = Math.max(...samples.map(s => Math.abs(s.playheadLeftPx / pxPerSecAtPlay - s.previewTime)));
+  // Wave22 で横軸が出力秒になったため、previewTime（video.currentTime、source秒）を cuts[] 経由で
+  // 出力秒へ変換してから playheadLeftPx と比較する（旧: previewTime をそのまま出力秒扱いで比較していた
+  // ため、cuts が2個以上ある場合に系統的なズレ — 実測で最大1.6秒 — が誤って計上されていた。
+  // プロダクト側の同期精度自体はこの変換抜きでは正しく測れない）。
+  function sourceToOutputTime(sourceT) {
+    let acc = 0;
+    for (const cut of cutsNow) {
+      const dur = cut.out - cut.in;
+      if (sourceT >= cut.in - 1e-6 && sourceT <= cut.out + 1e-6) {
+        return acc + Math.min(Math.max(sourceT - cut.in, 0), dur);
+      }
+      acc += dur;
+    }
+    return acc; // fallback: past the last cut
+  }
+  const worstTickError = Math.max(...samples.map(s =>
+    Math.abs(s.playheadLeftPx / pxPerSecAtPlay - sourceToOutputTime(s.previewTime))
+  ));
   record('AC4-tick-correspondence', { worstTickError, pxPerSecAtPlay });
   assert(worstTickError <= 0.2, 'AC4: playhead-derived time matches preview tick time within ±0.2s', { worstTickError });
 

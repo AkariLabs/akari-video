@@ -50,6 +50,19 @@ test("default output names are numbered rather than overwritten", () => {
   );
 });
 
+test("3D plans require puppeteer-core and do not advertise still-image fallback", () => {
+  const plan = buildPlan({
+    edit,
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+    hasThreeDimensionalOverlay: true,
+  });
+  assert.equal(plan.rasterizer.selected, "puppeteer-core");
+  assert.deepEqual(plan.rasterizer.order, ["puppeteer-core"]);
+});
+
 test("BGM and SFX produce a deterministic direct ffmpeg mix command", () => {
   const command = buildAudioMixCommand({
     edit: {

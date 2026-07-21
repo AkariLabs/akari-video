@@ -584,6 +584,18 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       ids.add(overlay.id);
     }
 
+    if (
+      Object.hasOwn(overlay, "track") &&
+      (!Number.isInteger(overlay.track) || overlay.track < 0)
+    ) {
+      addFinding(findings, {
+        severity: "error",
+        check: "overlays.track",
+        message: "overlay track must be a non-negative integer when present",
+        path: `${itemPath}.track`,
+      });
+    }
+
     if (!isFiniteNumber(overlay.start) || overlay.start < 0) {
       addFinding(findings, {
         severity: "error",

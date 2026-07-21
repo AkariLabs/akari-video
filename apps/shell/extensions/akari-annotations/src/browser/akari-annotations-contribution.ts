@@ -34,6 +34,12 @@ const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
 // akari-preview 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
+const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
+
+interface PreviewOverlaySelection {
+    videoUri?: string;
+    overlayId?: string | null;
+}
 
 @injectable()
 export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution {
@@ -92,6 +98,16 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         };
         window.addEventListener(PREVIEW_PLAYBACK_TICK_EVENT, onPlaybackTick);
         this.toDispose.push({ dispose: () => window.removeEventListener(PREVIEW_PLAYBACK_TICK_EVENT, onPlaybackTick) });
+        const onOverlaySelected = (event: Event): void => {
+            const request = (event as CustomEvent<PreviewOverlaySelection>).detail;
+            if (request?.videoUri && (typeof request.overlayId === 'string' || request.overlayId === null)) {
+                this.timelineWidget?.handleOverlaySelection(request.videoUri, request.overlayId);
+            }
+        };
+        window.addEventListener(PREVIEW_OVERLAY_SELECTED_EVENT, onOverlaySelected);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(PREVIEW_OVERLAY_SELECTED_EVENT, onOverlaySelected)
+        });
     }
 
     registerMenus(menus: MenuModelRegistry): void {

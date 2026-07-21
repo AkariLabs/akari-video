@@ -1,0 +1,940 @@
+[
+  {
+    "t": "2026-07-21T06:07:02.155Z",
+    "step": "connected-main",
+    "connected": true
+  },
+  {
+    "t": "2026-07-21T06:07:04.626Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-21T06:07:04.626Z",
+    "step": "total-duration-seeded",
+    "TOTAL_DURATION": 10.2
+  },
+  {
+    "t": "2026-07-21T06:07:04.780Z",
+    "step": "H-toolbar-check",
+    "bodyHeadingMatch": false,
+    "undoIsIcon": true,
+    "redoIsIcon": true,
+    "tabLabel": "設定"
+  },
+  {
+    "t": "2026-07-21T06:07:04.782Z",
+    "step": "assertion-ok",
+    "message": "H: no in-body \"タイムライン\" heading text node (only the tab label carries it)",
+    "bodyHeadingMatch": false,
+    "undoIsIcon": true,
+    "redoIsIcon": true,
+    "tabLabel": "設定"
+  },
+  {
+    "t": "2026-07-21T06:07:04.782Z",
+    "step": "assertion-ok",
+    "message": "H: undo/redo are icon buttons (codicon span, no text)",
+    "bodyHeadingMatch": false,
+    "undoIsIcon": true,
+    "redoIsIcon": true,
+    "tabLabel": "設定"
+  },
+  {
+    "t": "2026-07-21T06:07:04.879Z",
+    "step": "assertion-ok",
+    "message": "A precondition: fixture has 3 cuts",
+    "cuts": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:04.882Z",
+    "step": "A-clip-rects",
+    "rects": [
+      {
+        "left": 87,
+        "top": 549.7265625,
+        "right": 341.1171875,
+        "bottom": 585.7265625,
+        "width": 254.1171875,
+        "height": 36
+      },
+      {
+        "left": 341.1171875,
+        "top": 549.7265625,
+        "right": 595.234375,
+        "bottom": 585.7265625,
+        "width": 254.1171875,
+        "height": 36
+      },
+      {
+        "left": 595.234375,
+        "top": 549.7265625,
+        "right": 934.0546875,
+        "bottom": 585.7265625,
+        "width": 338.8203125,
+        "height": 36
+      }
+    ],
+    "segments": [
+      {
+        "index": 0,
+        "in": 0.5,
+        "out": 3.5,
+        "tlStart": 0,
+        "tlEnd": 3
+      },
+      {
+        "index": 1,
+        "in": 4,
+        "out": 7,
+        "tlStart": 3,
+        "tlEnd": 6
+      },
+      {
+        "index": 2,
+        "in": 7.5,
+        "out": 11.5,
+        "tlStart": 6,
+        "tlEnd": 10
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:04.882Z",
+    "step": "assertion-ok",
+    "message": "A: clip C1 and C2 are adjacent with no gap (output axis, gapless)",
+    "gap": 0,
+    "rightOfPrev": 341.1171875,
+    "leftOfNext": 341.1171875
+  },
+  {
+    "t": "2026-07-21T06:07:04.882Z",
+    "step": "assertion-ok",
+    "message": "A: clip C2 and C3 are adjacent with no gap (output axis, gapless)",
+    "gap": 0,
+    "rightOfPrev": 595.234375,
+    "leftOfNext": 595.234375
+  },
+  {
+    "t": "2026-07-21T06:07:04.884Z",
+    "step": "A-total-duration-vs-source",
+    "visibleDuration": 10.2,
+    "TOTAL_DURATION": 10.2,
+    "sourceLastOut": 11.5
+  },
+  {
+    "t": "2026-07-21T06:07:04.884Z",
+    "step": "assertion-ok",
+    "message": "A: default view shows the full gapless output duration (no zoom needed)",
+    "visibleDuration": 10.2,
+    "TOTAL_DURATION": 10.2
+  },
+  {
+    "t": "2026-07-21T06:07:04.884Z",
+    "step": "assertion-ok",
+    "message": "A: output duration (10.2s) is meaningfully shorter than the source last-cut-out (11.5s) — proves the axis is output-based, not source-based",
+    "visibleDuration": 10.2,
+    "sourceLastOut": 11.5
+  },
+  {
+    "t": "2026-07-21T06:07:06.006Z",
+    "step": "assertion-ok",
+    "message": "developer mode enabled (required for standard Explorer tree)",
+    "nowChecked": true
+  },
+  {
+    "t": "2026-07-21T06:07:06.561Z",
+    "step": "opened-explorer",
+    "alreadyOpen": false,
+    "x": 24,
+    "y": 24
+  },
+  {
+    "t": "2026-07-21T06:07:12.217Z",
+    "step": "opened-preview-tab",
+    "found": true,
+    "x": 68,
+    "y": 314
+  },
+  {
+    "t": "2026-07-21T06:07:12.738Z",
+    "step": "reached-active-frame-context",
+    "nestedContext": true
+  },
+  {
+    "t": "2026-07-21T06:07:12.750Z",
+    "step": "preview-metadata-ready",
+    "ready": true
+  },
+  {
+    "t": "2026-07-21T06:07:12.750Z",
+    "step": "assertion-ok",
+    "message": "preview video reached readyState>=HAVE_METADATA before running seek-dependent checks",
+    "ready": true
+  },
+  {
+    "t": "2026-07-21T06:07:13.542Z",
+    "step": "C-click-to-seek",
+    "footer": "00:00:04.994 にプレビューをシークしました。",
+    "previewTimeAfterSeek": 4.993823,
+    "expectedSource": 5
+  },
+  {
+    "t": "2026-07-21T06:07:13.542Z",
+    "step": "assertion-ok",
+    "message": "C: footer reports the preview was seeked",
+    "footer": "00:00:04.994 にプレビューをシークしました。"
+  },
+  {
+    "t": "2026-07-21T06:07:13.542Z",
+    "step": "assertion-ok",
+    "message": "C: clicking output t=4s seeks the preview to the mapped source time (~5s), not the raw output time",
+    "previewTimeAfterSeek": 4.993823,
+    "expectedSource": 5
+  },
+  {
+    "t": "2026-07-21T06:07:15.151Z",
+    "step": "I-before-reveal",
+    "previewCurrent": false,
+    "captionsCurrent": true,
+    "found": true
+  },
+  {
+    "t": "2026-07-21T06:07:15.152Z",
+    "step": "assertion-ok",
+    "message": "I precondition: both preview and captions.json tabs exist",
+    "previewCurrent": false,
+    "captionsCurrent": true,
+    "found": true
+  },
+  {
+    "t": "2026-07-21T06:07:15.152Z",
+    "step": "assertion-ok",
+    "message": "I precondition: captions.json tab is in front, preview tab is hidden behind it",
+    "previewCurrent": false,
+    "captionsCurrent": true,
+    "found": true
+  },
+  {
+    "t": "2026-07-21T06:07:16.062Z",
+    "step": "I-after-reveal",
+    "previewCurrent": true
+  },
+  {
+    "t": "2026-07-21T06:07:16.062Z",
+    "step": "assertion-ok",
+    "message": "I: clicking the timeline brings the (hidden) preview tab to the front (auto-reveal)",
+    "previewCurrent": true
+  },
+  {
+    "t": "2026-07-21T06:07:16.608Z",
+    "step": "reconnected-preview-webview-after-reveal-dance"
+  },
+  {
+    "t": "2026-07-21T06:07:16.864Z",
+    "step": "B-preseek-to-boundary",
+    "startSource": 3.2,
+    "seekedActual": 3.2,
+    "seekedOk": true
+  },
+  {
+    "t": "2026-07-21T06:07:16.864Z",
+    "step": "assertion-ok",
+    "message": "B setup: preview seeks to just-before-boundary source time before sampling playback",
+    "startSource": 3.2,
+    "seekedActual": 3.2
+  },
+  {
+    "t": "2026-07-21T06:07:18.856Z",
+    "step": "B-boundary-samples",
+    "samples": [
+      {
+        "tMs": 157,
+        "playheadLeftPx": 190.5939,
+        "previewTime": 3.293584
+      },
+      {
+        "tMs": 310,
+        "playheadLeftPx": 198.8574,
+        "previewTime": 3.450934
+      },
+      {
+        "tMs": 462,
+        "playheadLeftPx": 205.8826,
+        "previewTime": 4.016986
+      },
+      {
+        "tMs": 614,
+        "playheadLeftPx": 213.7422,
+        "previewTime": 4.152564
+      },
+      {
+        "tMs": 766,
+        "playheadLeftPx": 225.4161,
+        "previewTime": 4.306086
+      },
+      {
+        "tMs": 918,
+        "playheadLeftPx": 233.40800000000002,
+        "previewTime": 4.4598
+      },
+      {
+        "tMs": 1071,
+        "playheadLeftPx": 244.9517,
+        "previewTime": 4.61354
+      },
+      {
+        "tMs": 1223,
+        "playheadLeftPx": 256.627,
+        "previewTime": 4.756118
+      },
+      {
+        "tMs": 1375,
+        "playheadLeftPx": 264.61400000000003,
+        "previewTime": 4.912003
+      },
+      {
+        "tMs": 1528,
+        "playheadLeftPx": 277.9105,
+        "previewTime": 5.065562
+      },
+      {
+        "tMs": 1680,
+        "playheadLeftPx": 285.89610000000005,
+        "previewTime": 5.219502
+      },
+      {
+        "tMs": 1832,
+        "playheadLeftPx": 298.6599,
+        "previewTime": 5.373378
+      }
+    ],
+    "seg0TlEnd": 3,
+    "seg1In": 4
+  },
+  {
+    "t": "2026-07-21T06:07:18.859Z",
+    "step": "B-monotonic-check",
+    "monotonic": true,
+    "maxStepTl": 0.19374899999999973
+  },
+  {
+    "t": "2026-07-21T06:07:18.859Z",
+    "step": "assertion-ok",
+    "message": "B: output-axis playhead position does not jump backward across the cut boundary",
+    "samples": [
+      {
+        "tMs": 157,
+        "playheadLeftPx": 190.5939,
+        "previewTime": 3.293584
+      },
+      {
+        "tMs": 310,
+        "playheadLeftPx": 198.8574,
+        "previewTime": 3.450934
+      },
+      {
+        "tMs": 462,
+        "playheadLeftPx": 205.8826,
+        "previewTime": 4.016986
+      },
+      {
+        "tMs": 614,
+        "playheadLeftPx": 213.7422,
+        "previewTime": 4.152564
+      },
+      {
+        "tMs": 766,
+        "playheadLeftPx": 225.4161,
+        "previewTime": 4.306086
+      },
+      {
+        "tMs": 918,
+        "playheadLeftPx": 233.40800000000002,
+        "previewTime": 4.4598
+      },
+      {
+        "tMs": 1071,
+        "playheadLeftPx": 244.9517,
+        "previewTime": 4.61354
+      },
+      {
+        "tMs": 1223,
+        "playheadLeftPx": 256.627,
+        "previewTime": 4.756118
+      },
+      {
+        "tMs": 1375,
+        "playheadLeftPx": 264.61400000000003,
+        "previewTime": 4.912003
+      },
+      {
+        "tMs": 1528,
+        "playheadLeftPx": 277.9105,
+        "previewTime": 5.065562
+      },
+      {
+        "tMs": 1680,
+        "playheadLeftPx": 285.89610000000005,
+        "previewTime": 5.219502
+      },
+      {
+        "tMs": 1832,
+        "playheadLeftPx": 298.6599,
+        "previewTime": 5.373378
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:18.860Z",
+    "step": "assertion-ok",
+    "message": "B: no single sample-to-sample step is abnormally large (output axis stays continuous across the boundary)",
+    "maxStepTl": 0.19374899999999973
+  },
+  {
+    "t": "2026-07-21T06:07:18.860Z",
+    "step": "B-source-side-jump-exists",
+    "sourceJump": true
+  },
+  {
+    "t": "2026-07-21T06:07:18.860Z",
+    "step": "assertion-ok",
+    "message": "B precondition: the source video time does jump at the cut boundary (proves cuts have a real source gap)",
+    "samples": [
+      {
+        "tMs": 157,
+        "playheadLeftPx": 190.5939,
+        "previewTime": 3.293584
+      },
+      {
+        "tMs": 310,
+        "playheadLeftPx": 198.8574,
+        "previewTime": 3.450934
+      },
+      {
+        "tMs": 462,
+        "playheadLeftPx": 205.8826,
+        "previewTime": 4.016986
+      },
+      {
+        "tMs": 614,
+        "playheadLeftPx": 213.7422,
+        "previewTime": 4.152564
+      },
+      {
+        "tMs": 766,
+        "playheadLeftPx": 225.4161,
+        "previewTime": 4.306086
+      },
+      {
+        "tMs": 918,
+        "playheadLeftPx": 233.40800000000002,
+        "previewTime": 4.4598
+      },
+      {
+        "tMs": 1071,
+        "playheadLeftPx": 244.9517,
+        "previewTime": 4.61354
+      },
+      {
+        "tMs": 1223,
+        "playheadLeftPx": 256.627,
+        "previewTime": 4.756118
+      },
+      {
+        "tMs": 1375,
+        "playheadLeftPx": 264.61400000000003,
+        "previewTime": 4.912003
+      },
+      {
+        "tMs": 1528,
+        "playheadLeftPx": 277.9105,
+        "previewTime": 5.065562
+      },
+      {
+        "tMs": 1680,
+        "playheadLeftPx": 285.89610000000005,
+        "previewTime": 5.219502
+      },
+      {
+        "tMs": 1832,
+        "playheadLeftPx": 298.6599,
+        "previewTime": 5.373378
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:18.860Z",
+    "step": "assertion-ok",
+    "message": "B: playhead net-advanced over the sampling window",
+    "first": 190.5939,
+    "last": 298.6599
+  },
+  {
+    "t": "2026-07-21T06:07:19.246Z",
+    "step": "D-razor-mode-on",
+    "selectPressed": "false",
+    "razorPressed": "true"
+  },
+  {
+    "t": "2026-07-21T06:07:19.246Z",
+    "step": "assertion-ok",
+    "message": "D: pressing B switches to razor (split) tool mode",
+    "found": true,
+    "stripRect": {
+      "left": 251.9140625,
+      "top": 486.7265625,
+      "width": 700,
+      "height": 106
+    },
+    "scrollLeft": 0,
+    "scrollWidth": 699.9999999999999,
+    "clientWidth": 700,
+    "contentWidthPx": 699.9999999999999,
+    "viewStart": 0,
+    "visibleDuration": 10.2,
+    "playheadLeftPx": 300.23,
+    "undoDisabled": true,
+    "redoDisabled": true,
+    "selectPressed": "false",
+    "razorPressed": "true",
+    "snapPressed": "true",
+    "footer": "00:00:00.924 にプレビューをシークしました。"
+  },
+  {
+    "t": "2026-07-21T06:07:20.220Z",
+    "step": "D-split-result",
+    "before": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ],
+    "after": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 5.489252232142857
+      },
+      {
+        "in": 5.489252232142857,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:20.220Z",
+    "step": "assertion-ok",
+    "message": "D: splitting a clip in razor mode increases cuts[] length by 1 (3 -> 4)",
+    "before": 3,
+    "after": 4
+  },
+  {
+    "t": "2026-07-21T06:07:20.220Z",
+    "step": "assertion-ok",
+    "message": "D: split first half starts at the original clip's in",
+    "firstHalf": {
+      "in": 4,
+      "out": 5.489252232142857
+    }
+  },
+  {
+    "t": "2026-07-21T06:07:20.220Z",
+    "step": "assertion-ok",
+    "message": "D: split point lands near the clicked time (within 0.2s pixel-rounding tolerance)",
+    "actualOut": 5.489252232142857,
+    "clickedSourceApprox": 5.5
+  },
+  {
+    "t": "2026-07-21T06:07:20.220Z",
+    "step": "assertion-ok",
+    "message": "D: split halves are perfectly contiguous (first half out === second half in, no gap)",
+    "firstOut": 5.489252232142857,
+    "secondIn": 5.489252232142857
+  },
+  {
+    "t": "2026-07-21T06:07:20.220Z",
+    "step": "assertion-ok",
+    "message": "D: split second half ends at the original clip's out",
+    "secondHalf": {
+      "in": 5.489252232142857,
+      "out": 7
+    }
+  },
+  {
+    "t": "2026-07-21T06:07:20.809Z",
+    "step": "D-undo-split",
+    "cutsAfterUndo": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ],
+    "expectedCuts": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:20.809Z",
+    "step": "assertion-ok",
+    "message": "D: undo restores cuts[] length to 3",
+    "after": 3
+  },
+  {
+    "t": "2026-07-21T06:07:20.809Z",
+    "step": "assertion-ok",
+    "message": "D: undo restores cuts[] values exactly (structural compare)",
+    "before": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ],
+    "after": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      },
+      {
+        "in": 7.5,
+        "out": 11.5
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:21.198Z",
+    "step": "D-select-mode-restored",
+    "selectPressed": "true",
+    "razorPressed": "false"
+  },
+  {
+    "t": "2026-07-21T06:07:21.198Z",
+    "step": "assertion-ok",
+    "message": "D: pressing A switches back to select tool mode",
+    "found": true,
+    "stripRect": {
+      "left": 251.9140625,
+      "top": 486.7265625,
+      "width": 710,
+      "height": 106
+    },
+    "scrollLeft": 0,
+    "scrollWidth": 710,
+    "clientWidth": 710,
+    "contentWidthPx": 710,
+    "viewStart": 0,
+    "visibleDuration": 10.2,
+    "playheadLeftPx": 0,
+    "undoDisabled": true,
+    "redoDisabled": false,
+    "selectPressed": "true",
+    "razorPressed": "false",
+    "snapPressed": "true",
+    "footer": "クリップの分割を元に戻しました。"
+  },
+  {
+    "t": "2026-07-21T06:07:21.848Z",
+    "step": "E-c1-selected",
+    "selected": true,
+    "outlineColor": "rgb(249, 115, 22)",
+    "outlineWidth": "2px"
+  },
+  {
+    "t": "2026-07-21T06:07:21.848Z",
+    "step": "assertion-ok",
+    "message": "E: clicking C1 in select mode adds the selected class (orange outline)",
+    "selected": true,
+    "outlineColor": "rgb(249, 115, 22)",
+    "outlineWidth": "2px"
+  },
+  {
+    "t": "2026-07-21T06:07:21.848Z",
+    "step": "assertion-ok",
+    "message": "E: selected clip outline color is the orange #f97316",
+    "selected": true,
+    "outlineColor": "rgb(249, 115, 22)",
+    "outlineWidth": "2px"
+  },
+  {
+    "t": "2026-07-21T06:07:23.667Z",
+    "step": "E-inspector-for-c1",
+    "found": true,
+    "heading": "クリップ",
+    "rows": [
+      {
+        "label": "クリップ",
+        "value": "C1"
+      },
+      {
+        "label": "素材",
+        "value": "sample.mp4"
+      },
+      {
+        "label": "素材 in",
+        "value": "00:00:00.500"
+      },
+      {
+        "label": "素材 out",
+        "value": "00:00:03.500"
+      },
+      {
+        "label": "出力位置",
+        "value": "00:00:00.000"
+      },
+      {
+        "label": "尺",
+        "value": "3.00 秒"
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:23.668Z",
+    "step": "assertion-ok",
+    "message": "E: selecting a clip auto-opens the inspector panel (akari-inspector-widget exists)",
+    "found": true,
+    "heading": "クリップ",
+    "rows": [
+      {
+        "label": "クリップ",
+        "value": "C1"
+      },
+      {
+        "label": "素材",
+        "value": "sample.mp4"
+      },
+      {
+        "label": "素材 in",
+        "value": "00:00:00.500"
+      },
+      {
+        "label": "素材 out",
+        "value": "00:00:03.500"
+      },
+      {
+        "label": "出力位置",
+        "value": "00:00:00.000"
+      },
+      {
+        "label": "尺",
+        "value": "3.00 秒"
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:23.668Z",
+    "step": "assertion-ok",
+    "message": "E: inspector heading shows \"クリップ\" for a cut selection",
+    "found": true,
+    "heading": "クリップ",
+    "rows": [
+      {
+        "label": "クリップ",
+        "value": "C1"
+      },
+      {
+        "label": "素材",
+        "value": "sample.mp4"
+      },
+      {
+        "label": "素材 in",
+        "value": "00:00:00.500"
+      },
+      {
+        "label": "素材 out",
+        "value": "00:00:03.500"
+      },
+      {
+        "label": "出力位置",
+        "value": "00:00:00.000"
+      },
+      {
+        "label": "尺",
+        "value": "3.00 秒"
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:23.668Z",
+    "step": "assertion-ok",
+    "message": "E: inspector shows the source material name",
+    "クリップ": "C1",
+    "素材": "sample.mp4",
+    "素材 in": "00:00:00.500",
+    "素材 out": "00:00:03.500",
+    "出力位置": "00:00:00.000",
+    "尺": "3.00 秒"
+  },
+  {
+    "t": "2026-07-21T06:07:23.668Z",
+    "step": "assertion-ok",
+    "message": "E: inspector shows the clip label C1",
+    "クリップ": "C1",
+    "素材": "sample.mp4",
+    "素材 in": "00:00:00.500",
+    "素材 out": "00:00:03.500",
+    "出力位置": "00:00:00.000",
+    "尺": "3.00 秒"
+  },
+  {
+    "t": "2026-07-21T06:07:23.668Z",
+    "step": "assertion-ok",
+    "message": "E: inspector shows source in/out",
+    "クリップ": "C1",
+    "素材": "sample.mp4",
+    "素材 in": "00:00:00.500",
+    "素材 out": "00:00:03.500",
+    "出力位置": "00:00:00.000",
+    "尺": "3.00 秒"
+  },
+  {
+    "t": "2026-07-21T06:07:23.668Z",
+    "step": "assertion-ok",
+    "message": "E: inspector shows output position and duration",
+    "クリップ": "C1",
+    "素材": "sample.mp4",
+    "素材 in": "00:00:00.500",
+    "素材 out": "00:00:03.500",
+    "出力位置": "00:00:00.000",
+    "尺": "3.00 秒"
+  },
+  {
+    "t": "2026-07-21T06:07:24.702Z",
+    "step": "E-c3-rect",
+    "left": 669.3828125,
+    "top": 549.7265625,
+    "right": 947.0234375,
+    "bottom": 585.7265625,
+    "width": 277.640625,
+    "height": 36
+  },
+  {
+    "t": "2026-07-21T06:07:24.788Z",
+    "step": "E-inspector-for-c3",
+    "クリップ": "C3",
+    "素材": "sample.mp4",
+    "素材 in": "00:00:07.500",
+    "素材 out": "00:00:11.500",
+    "出力位置": "00:00:06.000",
+    "尺": "4.00 秒"
+  },
+  {
+    "t": "2026-07-21T06:07:24.788Z",
+    "step": "assertion-ok",
+    "message": "E: selecting a different clip (C3) updates the inspector label",
+    "クリップ": "C3",
+    "素材": "sample.mp4",
+    "素材 in": "00:00:07.500",
+    "素材 out": "00:00:11.500",
+    "出力位置": "00:00:06.000",
+    "尺": "4.00 秒"
+  },
+  {
+    "t": "2026-07-21T06:07:24.788Z",
+    "step": "assertion-ok",
+    "message": "E: inspector output position changes between C1 and C3 selections",
+    "c1": "00:00:00.000",
+    "c3": "00:00:06.000"
+  },
+  {
+    "t": "2026-07-21T06:07:25.420Z",
+    "step": "F-delete-result",
+    "cutsAfterDelete": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:25.420Z",
+    "step": "assertion-ok",
+    "message": "F: deleting the selected clip removes it from cuts[] (3 -> 2)",
+    "cuts": [
+      {
+        "in": 0.5,
+        "out": 3.5
+      },
+      {
+        "in": 4,
+        "out": 7
+      }
+    ]
+  },
+  {
+    "t": "2026-07-21T06:07:25.838Z",
+    "step": "F-undo-delete-byte-compare",
+    "bytesMatch": true,
+    "lengthBefore": 447,
+    "lengthAfter": 447
+  },
+  {
+    "t": "2026-07-21T06:07:25.838Z",
+    "step": "assertion-ok",
+    "message": "F: undo restores edit.json to byte-identical content after a clip delete",
+    "lengthBefore": 447,
+    "lengthAfter": 447
+  }
+]
