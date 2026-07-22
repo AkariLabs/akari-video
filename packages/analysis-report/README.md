@@ -8,7 +8,7 @@
 
 | ファイル | 役割 |
 |---|---|
-| `template.html` | UI 正本（不変）。データを一切含まない。`<script type="application/json" id="akari-analysis-report-data">` にプレースホルダーを持ち、描画ロジック（章⇄構成案の対応付け・空状態文言・事実/解釈バッジ）はすべてこのファイル内の inline script が担う |
+| `template.html` | UI 正本（不変）。データを一切含まない。`<script type="application/json" id="akari-analysis-report-data">` にプレースホルダーを持ち、描画ロジック（章の折りたたみ・空状態文言・事実/解釈バッジ）はすべてこのファイル内の inline script が担う |
 | `render-analysis-report.mjs` | zero-dep CLI。analysis.json（事実層・複数可）+ interpretation.json（解釈層）を検証し、生データをそのまま JSON として template.html へ埋め込む |
 | `test/` | fixtures（最小の有効/無効サンプル）+ node:test によるスモークテスト |
 
@@ -39,4 +39,8 @@ node packages/analysis-report/render-analysis-report.mjs \
   テンプレ側の更新だけで追随できるようにするため
 - **読み取り専用**: 決定 UI（選択肢・ツマミ・確定ボタン）は一切持たない。方向性の判断はチャットで行う
 - **事実 / 解釈の分離を可視化**: 全カードに 事実 / 解釈 のバッジを付け、解釈側は
-  `arc[].evidence` / `flags[].evidence` をそのまま「根拠を見る」で開示する
+  `relations[].evidence` / `flags[].evidence` をそのまま「根拠を見る」で開示する
+- **構成案（`interpretation.json` の `arc`）はレポート表示から除去**（2026-07-22
+  改訂）。対話フェーズで AI がチャットで提案する種として interpretation.json の
+  データには残るが、レポートは「対話前の事実 + 素材の読み」に限定する（詳細は
+  内部リポの契約を参照）

@@ -9,8 +9,9 @@
 // (3) keyframe 画像の実在確認（存在すれば相対パスを解決、無ければ null — テンプレ側が
 //     note チップへ縮退する）
 // (4) 生データをそのまま <script type="application/json"> ブロックへ束ねて埋め込む
-// だけであり、章とアークの対応付け・空状態文言・バッジ表示などの描画ロジックは一切持たない
-// （それは template.html の役割）。
+// だけであり、章の折りたたみ・空状態文言・バッジ表示などの描画ロジックは一切持たない
+// （それは template.html の役割）。interpretation.json の arc はここでも束ねてそのまま
+// 埋め込む（レポート表示からは除外されるが、schema・データは不変 — 2026-07-22 改訂）。
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
