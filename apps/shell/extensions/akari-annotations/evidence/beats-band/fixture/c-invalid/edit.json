@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "source": { "path": "sample.mp4" },
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "cuts": [
+    { "in": 0, "out": 8 }
+  ],
+  "beats": [
+    { "id": "b-0201", "t": 1, "kind": "hook", "strength": 0.3 },
+    { "id": "invalid-id", "t": 3, "kind": "reveal", "strength": 1.2 },
+    { "id": "b-0203", "t": 5, "kind": "turn", "strength": 0.7, "basis": "転換点" }
+  ]
+}

@@ -1,6 +1,16 @@
 export interface EditCut {
     in: number;
     out: number;
+    src?: string;
+}
+
+export interface EditBeat {
+    id: string;
+    src?: string;
+    t: number;
+    kind: string;
+    strength: number;
+    basis?: string;
 }
 
 export interface EditOverlay {
@@ -347,7 +357,13 @@ export function removeOverlayInSource(source: string, overlayId: string): string
     return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
 }
 
-export function parseEdit(source: string): { cuts: EditCut[]; overlays: EditOverlay[]; fps: number; warnings: string[] } {
+export function parseEdit(source: string): {
+    cuts: EditCut[];
+    overlays: EditOverlay[];
+    beats?: EditBeat[];
+    fps: number;
+    warnings: string[];
+} {
     const value = JSON.parse(source);
     if (!value || typeof value !== 'object') {
         throw new Error('編集データの形式を確認できません。');
@@ -355,13 +371,29 @@ export function parseEdit(source: string): { cuts: EditCut[]; overlays: EditOver
     const warnings: string[] = [];
     const cuts: EditCut[] = [];
     const overlays: EditOverlay[] = [];
+    const beats: EditBeat[] = [];
+    const sourceIds = new Set<string>();
+    if (Array.isArray(value.sources)) {
+        for (const sourceEntry of value.sources) {
+            if (typeof sourceEntry?.id === 'string' && sourceEntry.id) {
+                sourceIds.add(sourceEntry.id);
+            }
+        }
+    }
+    const isV1 = Array.isArray(value.sources);
+    const isV0 = !isV1 && value.sources === undefined
+        && value.source !== null && typeof value.source === 'object';
     if (Array.isArray(value.cuts)) {
         for (let index = 0; index < value.cuts.length; index++) {
             const input = value.cuts[index]?.in;
             const output = value.cuts[index]?.out;
             if (typeof input === 'number' && Number.isFinite(input)
                 && typeof output === 'number' && Number.isFinite(output) && input < output) {
-                cuts.push({ in: input, out: output });
+                cuts.push({
+                    in: input,
+                    out: output,
+                    ...(typeof value.cuts[index]?.src === 'string' ? { src: value.cuts[index].src } : {})
+                });
             } else {
                 warnings.push(`${index + 1} 番目のクリップは時刻が不正なため表示しません。`);
             }
@@ -399,13 +431,54 @@ export function parseEdit(source: string): { cuts: EditCut[]; overlays: EditOver
         warnings.push('overlays が配列ではないためオーバーレイを表示しません。');
     }
 
+    if (Array.isArray(value.beats)) {
+        const seenIds = new Set<string>();
+        for (let index = 0; index < value.beats.length; index++) {
+            const beat = value.beats[index];
+            const validRequiredFields = beat !== null && typeof beat === 'object'
+                && typeof beat.id === 'string' && /^b-\d{4}$/.test(beat.id)
+                && typeof beat.kind === 'string' && beat.kind.length > 0
+                && typeof beat.t === 'number' && Number.isFinite(beat.t) && beat.t >= 0
+                && typeof beat.strength === 'number' && Number.isFinite(beat.strength)
+                && beat.strength >= 0 && beat.strength <= 1;
+            if (!validRequiredFields || seenIds.has(beat.id)) {
+                warnings.push(`${index + 1} 番目の見せ場マーカーは識別情報・時刻・種類・強度のいずれかが不正なため表示しません。`);
+                continue;
+            }
+            const hasSrc = Object.prototype.hasOwnProperty.call(beat, 'src');
+            if ((hasSrc && typeof beat.src !== 'string')
+                || (isV0 && hasSrc)
+                || (hasSrc && (!isV1 || !sourceIds.has(beat.src)))) {
+                warnings.push(`見せ場マーカー ${beat.id} の src を解決できないため表示しません。`);
+                continue;
+            }
+            seenIds.add(beat.id);
+            beats.push({
+                id: beat.id,
+                ...(hasSrc ? { src: beat.src } : {}),
+                t: beat.t,
+                kind: beat.kind,
+                strength: beat.strength,
+                ...(typeof beat.basis === 'string' ? { basis: beat.basis } : {})
+            });
+        }
+    } else if (value.beats !== undefined) {
+        warnings.push('beats が配列ではないため見せ場マーカーを表示しません。');
+    }
+
     let fps = 30;
     if (value.output && typeof value.output === 'object'
         && typeof value.output.fps === 'number' && Number.isFinite(value.output.fps) && value.output.fps > 0) {
         fps = value.output.fps;
     }
 
-    return { cuts, overlays, fps, warnings };
+    return {
+        cuts,
+        overlays,
+        ...(Array.isArray(value.beats) ? { beats } : {}),
+        fps,
+        warnings
+    };
 }
 
 function locateArray(source: string, key: 'cuts' | 'overlays'): {

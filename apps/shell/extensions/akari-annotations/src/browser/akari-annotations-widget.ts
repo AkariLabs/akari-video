@@ -13,7 +13,7 @@ import {
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
 import { CaptionRecord, parseCaptions } from '../common/caption-store';
-import { EditCut, EditOverlay, parseEdit } from '../common/edit-store';
+import { EditBeat, EditCut, EditOverlay, parseEdit } from '../common/edit-store';
 import { assignSubRows } from '../common/lane-layout';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { ProjectLocation } from './project-location';
@@ -58,10 +58,12 @@ const SUBROW_GAP = 2;
 const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
 const STRIP_BOTTOM_MARGIN = 6;
 const TRACK_HEADER_WIDTH = 28;
+const BEAT_PROJECTION_EPSILON = 0.000001;
 
 /** タイムライン（出力秒軸）上の1セグメント。cuts[] を配列順にギャップなく連結した結果。 */
 interface OutputSegment {
     index: number;
+    src?: string;
     in: number;
     out: number;
     tlStart: number;
@@ -114,6 +116,15 @@ const STATUS_COLORS: Record<Annotation['status'], string> = {
     addressed: '#d68a00',
     resolved: 'var(--theia-charts-green)'
 };
+
+const BEAT_KIND_COLORS: Record<string, string> = {
+    hook: 'var(--theia-charts-blue, #3794ff)',
+    turn: 'var(--theia-charts-orange, #d19a66)',
+    punchline: 'var(--theia-charts-yellow, #cca700)',
+    reveal: 'var(--theia-charts-red, #f14c4c)',
+    emotion: 'var(--theia-charts-purple, #b180d7)'
+};
+const DEFAULT_BEAT_COLOR = 'var(--theia-charts-green, #89d185)';
 
 interface DragBase {
     pointerId: number;
@@ -189,6 +200,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected captions: CaptionRecord[] = [];
     protected cuts: EditCut[] = [];
     protected overlays: EditOverlay[] = [];
+    protected beats: EditBeat[] = [];
     protected segments: OutputSegment[] = [];
     protected wordBoundaries: number[] = [];
     protected configured = false;
@@ -450,6 +462,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
         right: 0;
         border-top: 1px solid color-mix(in srgb, var(--theia-widget-border) 55%, transparent);
         pointer-events: none;
+    }
+    .akari-annotations-widget .akari-beats-band-label {
+        position: absolute;
+        left: 3px;
+        top: 0;
+        height: ${SUBROW_HEIGHT}px;
+        padding: 0 3px;
+        border-radius: 2px;
+        background: color-mix(in srgb, ${STRIP_BACKGROUND} 82%, transparent);
+        color: var(--theia-descriptionForeground);
+        font-size: 9px;
+        line-height: ${SUBROW_HEIGHT}px;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .akari-annotations-widget .akari-beat-marker {
+        position: absolute;
+        box-sizing: border-box;
+        transform: translateX(-50%) rotate(45deg);
+        transform-origin: center;
+        border: 1px solid color-mix(in srgb, var(--theia-editorWidget-background) 65%, white);
+        box-shadow: 0 0 2px var(--theia-editorWidget-background);
+        cursor: default;
+        pointer-events: auto;
+        z-index: 3;
+    }
+    .akari-annotations-widget .akari-beat-marker:hover {
+        filter: brightness(1.2);
     }
     .akari-annotations-widget .akari-track-band-hidden,
     .akari-annotations-widget .akari-track-band-hidden + .akari-annotations-strip-overlay {
@@ -986,6 +1026,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async reloadEdit(): Promise<void> {
         this.cuts = [];
         this.overlays = [];
+        this.beats = [];
         this.fps = 30;
         if (this.location?.editUri) {
             try {
@@ -993,6 +1034,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const parsed = parseEdit(source);
                 this.cuts = parsed.cuts;
                 this.overlays = parsed.overlays;
+                this.beats = parsed.beats ?? [];
                 this.fps = parsed.fps;
                 if (parsed.warnings.length > 0) {
                     this.showWarnings(parsed.warnings);
@@ -1030,7 +1072,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         let cursor = 0;
         this.segments = this.cuts.map((cut, index) => {
             const duration = Math.max(0, cut.out - cut.in);
-            const segment: OutputSegment = { index, in: cut.in, out: cut.out, tlStart: cursor, tlEnd: cursor + duration };
+            const segment: OutputSegment = {
+                index, src: cut.src, in: cut.in, out: cut.out, tlStart: cursor, tlEnd: cursor + duration
+            };
             cursor += duration;
             return segment;
         });
@@ -1075,6 +1119,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             10,
             ...this.captions.map(caption => caption.end),
             ...this.overlays.map(overlay => overlay.start + overlay.duration),
+            ...this.beats.map(beat => beat.t + 1),
             ...this.annotations.map(annotation => annotation.sourceT + 1)
         ];
         return Math.max(...candidates) * 1.02;
@@ -1118,15 +1163,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * source 秒区間 → 出力秒区間の配列。削除区間で分断される字幕を複数区間として返す
-     * （cuts が無ければ入力をそのまま1区間として返す＝後方互換）。
+     * source 秒区間 → 出力秒区間の配列。削除区間で分断される字幕を複数区間として返す。
+     * src 指定時は同じ src のセグメントだけを対象にする。cuts が無く src も無ければ
+     * 入力をそのまま1区間として返す（単一ソース後方互換）。
      */
-    protected sourceRangeToOutputRanges(start: number, end: number): Array<[number, number]> {
+    protected sourceRangeToOutputRanges(start: number, end: number, src?: string): Array<[number, number]> {
         if (this.segments.length === 0) {
-            return [[start, end]];
+            return src === undefined ? [[start, end]] : [];
         }
         const ranges: Array<[number, number]> = [];
         for (const segment of this.segments) {
+            if (src !== undefined && segment.src !== src) {
+                continue;
+            }
             const overlapStart = Math.max(start, segment.in);
             const overlapEnd = Math.min(end, segment.out);
             if (overlapEnd > overlapStart) {
@@ -1166,12 +1215,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.renderRuler();
 
-        // レーン構造は NLE 慣行（Wave 23）: 字幕帯 → オーバーレイのトラック行（track 降順）→ クリップ帯（最下段）。
+        // レーン構造は NLE 慣行（Wave 23）: 見せ場 → 字幕帯 → オーバーレイのトラック行（track 降順）→ クリップ帯（最下段）。
         // 横軸の位置決めは出力軸（Wave 22）: クリップは this.segments（cuts のギャップレス連結）、
         // 字幕は sourceRangeToOutputRanges で source 秒→出力秒へ変換する。オーバーレイは元々出力秒基準。
         const captionRows = assignSubRows(this.captions.map(c => ({ start: c.start, end: c.end })));
         const captionSubRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 1;
-        const captionBandTop = RULER_HEIGHT;
+        const beatsBandTop = RULER_HEIGHT;
+        const beatsBandHeight = this.beats.length > 0 ? SUBROW_STRIDE : 0;
+        const captionBandTop = beatsBandHeight > 0 ? beatsBandTop + beatsBandHeight + LANE_GAP : RULER_HEIGHT;
         const captionBandHeight = captionSubRowCount * SUBROW_STRIDE;
 
         const overlayRows = new Map<string, number>();
@@ -1197,6 +1248,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.trackHeaders.style.height = `${stripHeight}px`;
         this.renderTrackHeaders(captionBandTop, captionBandHeight, clipTop);
 
+        if (beatsBandHeight > 0) {
+            const beatsBand = this.laneBand('beats', beatsBandTop, beatsBandHeight);
+            const label = document.createElement('span');
+            label.className = 'akari-beats-band-label';
+            label.textContent = '見せ場';
+            beatsBand.appendChild(label);
+            this.strip.appendChild(beatsBand);
+            this.renderBeatMarkers(beatsBandTop, beatsBandHeight);
+        }
         const captionBand = this.laneBand('captions', captionBandTop, captionBandHeight);
         captionBand.style.opacity = this.captionsVisible ? '1' : '.28';
         this.strip.appendChild(captionBand);
@@ -1304,6 +1364,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         band.style.top = `${top}px`;
         band.style.height = `${height}px`;
         return band;
+    }
+
+    protected renderBeatMarkers(top: number, height: number): void {
+        for (const beat of this.beats) {
+            const outputRanges = this.sourceRangeToOutputRanges(
+                beat.t, beat.t + BEAT_PROJECTION_EPSILON, beat.src
+            );
+            for (let occurrence = 0; occurrence < outputRanges.length; occurrence++) {
+                const marker = document.createElement('div');
+                marker.className = 'akari-beat-marker';
+                marker.dataset.akariBeatId = beat.id;
+                marker.dataset.akariBeatKind = beat.kind;
+                marker.dataset.akariBeatStrength = String(beat.strength);
+                marker.dataset.akariBeatOccurrence = String(occurrence);
+                marker.title = [
+                    `kind: ${beat.kind}`,
+                    `strength: ${beat.strength}`,
+                    ...(beat.basis !== undefined ? [`basis: ${beat.basis}`] : [])
+                ].join('\n');
+                const size = 7 + beat.strength * 6;
+                marker.style.left = `${this.percent(outputRanges[occurrence][0])}%`;
+                marker.style.top = `${top + (height - size) / 2}px`;
+                marker.style.width = `${size}px`;
+                marker.style.height = `${size}px`;
+                marker.style.opacity = String(0.35 + beat.strength * 0.65);
+                marker.style.background = BEAT_KIND_COLORS[beat.kind] ?? DEFAULT_BEAT_COLOR;
+                this.strip.appendChild(marker);
+            }
+        }
     }
 
     protected renderTrackHeaders(captionTop: number, captionHeight: number, clipTop: number): void {
@@ -2528,6 +2617,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected onStripClick(event: MouseEvent): void {
+        if (event.target instanceof Element && event.target.closest('.akari-beat-marker')) {
+            return;
+        }
         this.applySelection(undefined);
         this.selectTimeAtClientX(event.clientX);
     }

@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "source": { "path": "sample.mp4" },
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "cuts": [
+    { "in": 2, "out": 8 },
+    { "in": 10, "out": 14 }
+  ],
+  "beats": [
+    { "id": "b-0001", "t": 3, "kind": "hook", "strength": 0.2, "basis": "冒頭の問い" },
+    { "id": "b-0002", "t": 6, "kind": "reveal", "strength": 0.6 },
+    { "id": "b-0003", "t": 12, "kind": "emotion", "strength": 1, "basis": "感情ピーク" }
+  ]
+}
