@@ -1,0 +1,349 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_linear_h_gradient",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.32,
+    "outDur": 0.28,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "keyColor",
+      "type": "color",
+      "label": "キーカラー",
+      "default": "#1168D8"
+    },
+    {
+      "key": "label",
+      "type": "text",
+      "label": "表示テキスト",
+      "default": "現場から最新情報"
+    },
+    {
+      "key": "textSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 68
+    },
+    {
+      "key": "bannerHeight",
+      "type": "number",
+      "label": "帯の高さ",
+      "default": 118
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "下線色",
+      "default": "#F5C84B"
+    },
+    {
+      "key": "xOffset",
+      "type": "number",
+      "label": "X位置調整",
+      "default": 0
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_linear_h_gradient_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "keyColor"
+        },
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "keyColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(0,0,0,0)"
+            }
+          ]
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_linear_h_gradient_label.width + 128, 820)"
+        },
+        "h": {
+          "var": "bannerHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "96 + xOffset"
+        },
+        "y": {
+          "expr": "@stage.height * 0.74"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -360,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 260
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_linear_h_gradient_underline",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_linear_h_gradient_label.width + 128, 820)"
+        },
+        "h": 6
+      },
+      "transform": {
+        "x": {
+          "expr": "96 + xOffset"
+        },
+        "y": {
+          "expr": "@stage.height * 0.74 + bannerHeight"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -360,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 260
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_linear_h_gradient_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "label"
+        },
+        "size": {
+          "var": "textSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": "#FFFFFF",
+        "align": "left",
+        "letterSpacing": 0,
+        "shadow": {
+          "color": "rgba(0,0,0,0.38)",
+          "blur": 8,
+          "x": 2,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "136 + xOffset"
+        },
+        "y": {
+          "expr": "@stage.height * 0.74 + bannerHeight / 2"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -360,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 260
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

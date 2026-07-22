@@ -1,0 +1,409 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s2_02",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 1.4,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5.5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "ラベルテキスト",
+      "default": "獲得ポイント"
+    },
+    {
+      "key": "scoreFrom",
+      "type": "number",
+      "label": "スコア開始値",
+      "default": 0
+    },
+    {
+      "key": "scoreTo",
+      "type": "number",
+      "label": "スコア終了値",
+      "default": 9850
+    },
+    {
+      "key": "scoreSuffix",
+      "type": "text",
+      "label": "単位（suffix）",
+      "default": "pt"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯カラー",
+      "default": "#1A2E6F"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセントライン色",
+      "default": "#FFD700"
+    },
+    {
+      "key": "labelColor",
+      "type": "color",
+      "label": "ラベル文字色",
+      "default": "#FFD700"
+    },
+    {
+      "key": "scoreColor",
+      "type": "color",
+      "label": "スコア色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "bandH",
+      "type": "number",
+      "label": "帯の高さ",
+      "default": 140
+    },
+    {
+      "key": "scoreSize",
+      "type": "number",
+      "label": "スコア文字サイズ",
+      "default": 110
+    },
+    {
+      "key": "labelSize",
+      "type": "number",
+      "label": "ラベル文字サイズ",
+      "default": 44
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "帯のY位置（下から）",
+      "default": 155
+    },
+    {
+      "key": "accentLineH",
+      "type": "number",
+      "label": "アクセントライン高さ",
+      "default": 6
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s2_02_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        }
+      },
+      "size": {
+        "w": 1920,
+        "h": {
+          "var": "bandH"
+        }
+      },
+      "transform": {
+        "x": 0,
+        "y": {
+          "expr": "@stage.height - posY - bandH"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s2_02_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        }
+      },
+      "size": {
+        "w": 1920,
+        "h": {
+          "var": "accentLineH"
+        }
+      },
+      "transform": {
+        "x": 0,
+        "y": {
+          "expr": "@stage.height - posY - bandH"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s2_02_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "labelSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "labelColor"
+        },
+        "align": "left",
+        "letterSpacing": 3,
+        "shadow": {
+          "color": "rgba(0,0,0,0.7)",
+          "blur": 6,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": 80,
+        "y": {
+          "expr": "@stage.height - posY - bandH * 0.78"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.6,
+              "v": 0
+            },
+            {
+              "t": 0.85,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s2_02_score",
+      "type": "text",
+      "content": {
+        "text": "9,850",
+        "size": {
+          "var": "scoreSize"
+        },
+        "font": "'Arial Black', 'Hiragino Sans W9', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "scoreColor"
+        },
+        "align": "right",
+        "counter": {
+          "from": {
+            "var": "scoreFrom"
+          },
+          "to": {
+            "var": "scoreTo"
+          },
+          "decimals": 0,
+          "prefix": "",
+          "suffix": "pt",
+          "useGrouping": true
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.85)",
+            "width": 14
+          },
+          {
+            "color": {
+              "var": "accentColor"
+            },
+            "width": 5
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.75)",
+            "blur": 10,
+            "x": 4,
+            "y": 5
+          },
+          {
+            "color": {
+              "var": "accentColor"
+            },
+            "blur": 22,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - 120"
+        },
+        "y": {
+          "expr": "@stage.height - posY - bandH * 0.5"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "counter",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1.4,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.6,
+              "v": 0
+            },
+            {
+              "t": 0.85,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

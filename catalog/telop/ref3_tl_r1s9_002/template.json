@@ -1,0 +1,296 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s9_002",
+  "kind": "free",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.55,
+    "outDur": 0.35,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "TOKYO"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブテキスト（年号・補足など）",
+      "default": "1984"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "lineColor",
+      "type": "color",
+      "label": "ラインカラー",
+      "default": "rgba(255,255,255,0.65)"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.55)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "メイン文字サイズ",
+      "default": 96
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブ文字サイズ",
+      "default": 42
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X 位置",
+      "default": 200
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y 位置",
+      "default": 820
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s9_002_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', system-ui, sans-serif",
+        "weight": 200,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left",
+        "letterSpacing": 10,
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 18,
+            "x": 0,
+            "y": 4
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 1
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "letterSpacing",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 32,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.35,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s9_002_line",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "lineColor"
+        }
+      },
+      "size": {
+        "w": 280,
+        "h": 1
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + 14"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.35,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s9_002_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', system-ui, sans-serif",
+        "weight": 200,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left",
+        "letterSpacing": 6,
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 12,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + 24"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.35,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

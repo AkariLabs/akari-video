@@ -1,0 +1,257 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_keycolor_band",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.28,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "字幕本文",
+      "default": "これはテロップのサンプルです"
+    },
+    {
+      "key": "keyColor",
+      "type": "color",
+      "label": "キーカラー",
+      "default": "#00A0D8"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "サブカラー",
+      "default": "#26C6F5"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#ffffff"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_keycolor_band_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "keyColor"
+        },
+        "cornerRadius": 18
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(@ref3_keycolor_band_text.width + 96, 480, 1680)"
+        },
+        "h": 86
+      },
+      "transform": {
+        "x": 960,
+        "y": 886,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 8,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_keycolor_band_top_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "subColor"
+        },
+        "cornerRadius": 6
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(@ref3_keycolor_band_text.width + 72, 456, 1656)"
+        },
+        "h": 8
+      },
+      "transform": {
+        "x": 960,
+        "y": 856,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 8,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_keycolor_band_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 58,
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "strokes": []
+      },
+      "transform": {
+        "x": 960,
+        "y": 886,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 8,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

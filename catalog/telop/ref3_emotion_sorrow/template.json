@@ -1,0 +1,140 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_emotion_sorrow",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.6,
+    "outDur": 0.5,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "本文",
+      "default": "どうして、こんなことに...",
+      "optional": false
+    },
+    {
+      "key": "gradTop",
+      "type": "color",
+      "label": "グラデ上色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "gradBottom",
+      "type": "color",
+      "label": "グラデ下色",
+      "default": "#C8D8F0"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "glow/shadow 色",
+      "default": "#A0B8E8"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_emotion_sorrow_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 110,
+        "font": "'Hiragino Mincho ProN', serif",
+        "weight": 600,
+        "color": {
+          "var": "gradTop"
+        },
+        "align": "center",
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "gradTop"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "gradBottom"
+              }
+            }
+          ]
+        },
+        "shadow": {
+          "color": {
+            "var": "glowColor"
+          },
+          "blur": 18,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "transform": {
+        "x": 960,
+        "y": 640,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0,
+        "tracks": [],
+        "loop": {
+          "float": {
+            "amp": 4,
+            "periodSec": 2.2,
+            "phaseByIndex": 0.3
+          }
+        }
+      }
+    }
+  ]
+}

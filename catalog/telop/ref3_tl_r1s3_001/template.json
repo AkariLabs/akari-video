@@ -1,0 +1,309 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s3_001",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.5,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "名前",
+      "default": "山田 太郎"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "肩書き・補足",
+      "default": "経済評論家"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯メインカラー",
+      "default": "#003F88"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセントライン色",
+      "default": "#00AAFF"
+    },
+    {
+      "key": "nameColor",
+      "type": "color",
+      "label": "名前テキスト色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "肩書きテキスト色",
+      "default": "#CCDDFF"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "名前フォントサイズ",
+      "default": 64
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "肩書きフォントサイズ",
+      "default": 36
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s3_001_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        }
+      },
+      "size": {
+        "w": 860,
+        "h": 130
+      },
+      "transform": {
+        "x": 80,
+        "y": 870,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -960,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s3_001_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        }
+      },
+      "size": {
+        "w": 8,
+        "h": 130
+      },
+      "transform": {
+        "x": 80,
+        "y": 870,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -960,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s3_001_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left",
+        "shadow": {
+          "color": "rgba(0,0,0,0.6)",
+          "blur": 6,
+          "x": 2,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": 108,
+        "y": 892,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            },
+            {
+              "t": 0.5,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s3_001_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Sans W4', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 400,
+        "color": {
+          "var": "subColor"
+        },
+        "align": "left"
+      },
+      "transform": {
+        "x": 108,
+        "y": 963,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            },
+            {
+              "t": 0.5,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

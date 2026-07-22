@@ -1,0 +1,200 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_bubble_throwup",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.45,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "短語",
+      "default": "POP!"
+    },
+    {
+      "key": "mainColor",
+      "type": "color",
+      "label": "メイン色",
+      "default": "#FF1493"
+    },
+    {
+      "key": "strokeInner",
+      "type": "color",
+      "label": "白内縁色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "strokeOuter",
+      "type": "color",
+      "label": "黒外縁色",
+      "default": "#000000"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_bubble_throwup_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": 220,
+        "font": "'Hiragino Maru Gothic ProN', sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "mainColor"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 22
+          },
+          {
+            "color": {
+              "var": "strokeInner"
+            },
+            "width": 12
+          }
+        ],
+        "shadow": {
+          "color": "rgba(0,0,0,0.72)",
+          "blur": 0,
+          "x": 18,
+          "y": 22
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.05,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "scale",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0,
+                "ease": "out-back"
+              },
+              {
+                "t": 0.26,
+                "v": 1.18,
+                "ease": "out-back"
+              },
+              {
+                "t": 0.36,
+                "v": 0.95,
+                "ease": "inout-cubic"
+              },
+              {
+                "t": 0.45,
+                "v": 1
+              }
+            ]
+          },
+          {
+            "prop": "y",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": -54,
+                "ease": "out-back"
+              },
+              {
+                "t": 0.32,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0,
+                "ease": "step"
+              },
+              {
+                "t": 0.02,
+                "v": 1
+              }
+            ]
+          }
+        ],
+        "loop": {
+          "float": {
+            "amp": 2,
+            "periodSec": 2,
+            "phaseByIndex": 0.35
+          }
+        },
+        "randomize": {
+          "seed": 314,
+          "sizeAmp": 0.1,
+          "rotAmp": 5
+        }
+      }
+    }
+  ]
+}

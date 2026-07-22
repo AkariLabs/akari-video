@@ -1,0 +1,261 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s0_04",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.6,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "テキスト",
+      "default": "フェルトペンで書いた"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 80
+    },
+    {
+      "key": "inkColor",
+      "type": "color",
+      "label": "インク色",
+      "default": "#1A1A2E"
+    },
+    {
+      "key": "inkBleed",
+      "type": "color",
+      "label": "にじみ色",
+      "default": "rgba(10,10,30,0.55)"
+    },
+    {
+      "key": "staggerSec",
+      "type": "number",
+      "label": "文字送り速度（秒/文字）",
+      "default": 0.06
+    },
+    {
+      "key": "paperColor",
+      "type": "color",
+      "label": "紙色",
+      "default": "rgba(255,253,240,0.92)"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 840
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 2
+    },
+    {
+      "key": "padX",
+      "type": "number",
+      "label": "紙の横余白",
+      "default": 60
+    },
+    {
+      "key": "padY",
+      "type": "number",
+      "label": "紙の縦余白",
+      "default": 24
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s0_04_paper",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "paperColor"
+        },
+        "cornerRadius": 6
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r1s0_04_text.width + padX * 2"
+        },
+        "h": {
+          "expr": "fontSize + padY * 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s0_04_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "inkColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "inkBleed"
+            },
+            "blur": 3,
+            "x": 0,
+            "y": 2
+          },
+          {
+            "color": {
+              "var": "inkBleed"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.06,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.1,
+                "v": 1,
+                "ease": "out-cubic"
+              }
+            ]
+          },
+          {
+            "prop": "y",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": -14,
+                "ease": "out-cubic"
+              },
+              {
+                "t": 0.12,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "randomize": {
+          "seed": 21,
+          "rotAmp": 4,
+          "dyAmp": 1.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.04,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

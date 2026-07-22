@@ -1,0 +1,580 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_sports_score",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "teamLeftName",
+      "type": "text",
+      "label": "左チーム名",
+      "default": "JAPAN"
+    },
+    {
+      "key": "teamRightName",
+      "type": "text",
+      "label": "右チーム名",
+      "default": "BRAZIL"
+    },
+    {
+      "key": "score",
+      "type": "text",
+      "label": "スコア",
+      "default": "2 - 1"
+    },
+    {
+      "key": "teamLeftColor",
+      "type": "color",
+      "label": "左チームカラー",
+      "default": "#0052B4"
+    },
+    {
+      "key": "teamRightColor",
+      "type": "color",
+      "label": "右チームカラー",
+      "default": "#D71920"
+    },
+    {
+      "key": "scoreBandColor",
+      "type": "color",
+      "label": "スコア枠色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "teamTextColor",
+      "type": "color",
+      "label": "チーム名文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "scoreTextColor",
+      "type": "color",
+      "label": "スコア文字色",
+      "default": "#111111"
+    },
+    {
+      "key": "separatorColor",
+      "type": "color",
+      "label": "セパレーター色",
+      "default": "rgba(0,0,0,0.18)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_sports_score_left_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "teamLeftColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 470,
+        "h": 104
+      },
+      "transform": {
+        "x": 845,
+        "y": 900,
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -400,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.2,
+              "v": -400
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_sports_score_right_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "teamRightColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 470,
+        "h": 104
+      },
+      "transform": {
+        "x": 1075,
+        "y": 900,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 400,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.2,
+              "v": 400
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_sports_score_score_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "scoreBandColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 230,
+        "h": 104
+      },
+      "transform": {
+        "x": 960,
+        "y": 900,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_sports_score_left_separator",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "separatorColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 3,
+        "h": 104
+      },
+      "transform": {
+        "x": 845,
+        "y": 900,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_sports_score_right_separator",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "separatorColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 3,
+        "h": 104
+      },
+      "transform": {
+        "x": 1075,
+        "y": 900,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_sports_score_left_team",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamLeftName"
+        },
+        "size": 48,
+        "font": "'Hiragino Sans', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "teamTextColor"
+        },
+        "align": "center",
+        "shadow": {
+          "color": "rgba(0,0,0,0.32)",
+          "blur": 5,
+          "x": 1,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": 610,
+        "y": 900,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -400,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.2,
+              "v": -400
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_sports_score_right_team",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamRightName"
+        },
+        "size": 48,
+        "font": "'Hiragino Sans', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "teamTextColor"
+        },
+        "align": "center",
+        "shadow": {
+          "color": "rgba(0,0,0,0.32)",
+          "blur": 5,
+          "x": 1,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": 1310,
+        "y": 900,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 400,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.2,
+              "v": 400
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_sports_score_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "score"
+        },
+        "size": 64,
+        "font": "'SF Mono', 'Menlo', 'Consolas', 'Yu Gothic UI', system-ui, monospace",
+        "weight": 900,
+        "color": {
+          "var": "scoreTextColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": 960,
+        "y": 900,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

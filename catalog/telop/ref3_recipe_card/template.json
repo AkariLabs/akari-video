@@ -1,0 +1,981 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_recipe_card",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.5,
+    "outDur": 0.4,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "heading",
+      "type": "text",
+      "label": "見出し",
+      "default": "材料 2人分"
+    },
+    {
+      "key": "line1",
+      "type": "text",
+      "label": "材料行 1",
+      "default": "玉ねぎ　1/2個"
+    },
+    {
+      "key": "line2",
+      "type": "text",
+      "label": "材料行 2（空で非表示）",
+      "default": "豚ひき肉　200g"
+    },
+    {
+      "key": "line3",
+      "type": "text",
+      "label": "材料行 3（空で非表示）",
+      "default": "トマト缶　1缶"
+    },
+    {
+      "key": "panelColor",
+      "type": "color",
+      "label": "パネル色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント色",
+      "default": "#E64A19"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_recipe_card_shadow_outer",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(0,0,0,0.08)",
+        "cornerRadius": 18
+      },
+      "size": {
+        "w": 568,
+        "h": 368
+      },
+      "transform": {
+        "x": 116,
+        "y": 354,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_recipe_card_shadow_core",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(0,0,0,0.15)",
+        "cornerRadius": 16
+      },
+      "size": {
+        "w": 560,
+        "h": 360
+      },
+      "transform": {
+        "x": 124,
+        "y": 364,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_recipe_card_panel",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "panelColor"
+        },
+        "cornerRadius": 16
+      },
+      "size": {
+        "w": 560,
+        "h": 360
+      },
+      "transform": {
+        "x": 120,
+        "y": 356,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_recipe_card_header_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 16
+      },
+      "size": {
+        "w": 560,
+        "h": 56
+      },
+      "transform": {
+        "x": 120,
+        "y": 356,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_recipe_card_header_square",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 560,
+        "h": 20
+      },
+      "transform": {
+        "x": 120,
+        "y": 392,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_recipe_card_heading",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "heading"
+        },
+        "size": 32,
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": "#FFFFFF",
+        "align": "left"
+      },
+      "transform": {
+        "x": 150,
+        "y": 384,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_recipe_card_rule_1",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#E0E0E0",
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 500,
+        "h": 1
+      },
+      "transform": {
+        "x": 150,
+        "y": 516,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_recipe_card_rule_2",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#E0E0E0",
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 500,
+        "h": 1
+      },
+      "transform": {
+        "x": 150,
+        "y": 594,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "visibleIf": {
+        "expr": "has(line2)"
+      }
+    },
+    {
+      "id": "ref3_recipe_card_line_1",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "line1"
+        },
+        "size": 34,
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 500,
+        "color": "#333333",
+        "align": "left"
+      },
+      "transform": {
+        "x": 150,
+        "y": 480,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_recipe_card_line_2",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "line2"
+        },
+        "size": 34,
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 500,
+        "color": "#333333",
+        "align": "left"
+      },
+      "transform": {
+        "x": 150,
+        "y": 558,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 0
+            },
+            {
+              "t": 0.4,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "visibleIf": {
+        "expr": "has(line2)"
+      }
+    },
+    {
+      "id": "ref3_recipe_card_line_3",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "line3"
+        },
+        "size": 34,
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 500,
+        "color": "#333333",
+        "align": "left"
+      },
+      "transform": {
+        "x": 150,
+        "y": 636,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -600,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.24,
+              "v": 0
+            },
+            {
+              "t": 0.48,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": -600
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "visibleIf": {
+        "expr": "has(line3)"
+      }
+    }
+  ]
+}

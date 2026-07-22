@@ -1,0 +1,260 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s11_002",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0.4,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "テキスト",
+      "default": "助けて"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 120
+    },
+    {
+      "key": "ghostColor",
+      "type": "color",
+      "label": "霊文字色",
+      "default": "#C8D8C8"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "霊光色",
+      "default": "rgba(160,255,160,0.35)"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,20,0,0.9)"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 480
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s11_002_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'BIZ UDMincho', Georgia, serif",
+        "weight": 300,
+        "color": {
+          "var": "ghostColor"
+        },
+        "align": "center",
+        "letterSpacing": 12,
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.6)",
+            "width": 8
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 20,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 50,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 6,
+            "x": 2,
+            "y": 4
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.06,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.2,
+                "v": 1,
+                "ease": "linear"
+              }
+            ]
+          }
+        ],
+        "randomize": {
+          "seed": 13,
+          "dxAmp": 4,
+          "dyAmp": 6,
+          "rotAmp": 5,
+          "sizeAmp": 0.08
+        },
+        "loop": {
+          "float": {
+            "amp": 3,
+            "periodSec": 2.8,
+            "phaseByIndex": 0.4
+          },
+          "blink": {
+            "periodSec": 4.2,
+            "low": 0.72,
+            "seed": 777
+          }
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 0.8,
+              "ease": "step"
+            },
+            {
+              "t": 0.1,
+              "v": 0.1,
+              "ease": "step"
+            },
+            {
+              "t": 0.16,
+              "v": 0.95,
+              "ease": "step"
+            },
+            {
+              "t": 0.22,
+              "v": 0.3,
+              "ease": "step"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.06,
+              "v": 0.4,
+              "ease": "step"
+            },
+            {
+              "t": 0.12,
+              "v": 0.9,
+              "ease": "step"
+            },
+            {
+              "t": 0.4,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 1.08
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,400 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s6_001",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.42,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "山川草木悉皆成仏"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブテキスト",
+      "default": "禅語・格言"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯の色（墨色）",
+      "default": "rgba(18,14,10,0.88)"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "朱線の色",
+      "default": "#C0392B"
+    },
+    {
+      "key": "mainTextTop",
+      "type": "color",
+      "label": "メイン文字 上端色",
+      "default": "#F5ECD7"
+    },
+    {
+      "key": "mainTextBottom",
+      "type": "color",
+      "label": "メイン文字 下端色",
+      "default": "#C8A96E"
+    },
+    {
+      "key": "subTextColor",
+      "type": "color",
+      "label": "サブ文字色",
+      "default": "#A89070"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "メインフォントサイズ",
+      "default": 64
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブフォントサイズ",
+      "default": 32
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 6
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s6_001_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        }
+      },
+      "size": {
+        "w": 960,
+        "h": 114
+      },
+      "transform": {
+        "x": 0,
+        "y": 892,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s6_001_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        }
+      },
+      "size": {
+        "w": 6,
+        "h": 114
+      },
+      "transform": {
+        "x": 0,
+        "y": 892,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s6_001_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'BIZ UDMincho Medium', Georgia, serif",
+        "weight": 600,
+        "color": "#F5ECD7",
+        "align": "left",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "mainTextTop"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "mainTextBottom"
+              }
+            }
+          ]
+        },
+        "shadow": {
+          "color": "rgba(0,0,0,0.72)",
+          "blur": 8,
+          "x": 2,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": 34,
+        "y": 949,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -40,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.42,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 0
+            },
+            {
+              "t": 0.42,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s6_001_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'BIZ UDMincho Medium', Georgia, serif",
+        "weight": 400,
+        "color": {
+          "var": "subTextColor"
+        },
+        "align": "left",
+        "letterSpacing": 2
+      },
+      "transform": {
+        "x": 34,
+        "y": 990,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -40,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.42,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 0
+            },
+            {
+              "t": 0.42,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,480 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s3_03",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 6,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 6
+  },
+  "variables": [
+    {
+      "key": "term",
+      "type": "text",
+      "label": "用語名",
+      "default": "再帰（Recursion）"
+    },
+    {
+      "key": "definition",
+      "type": "text",
+      "label": "定義・説明文",
+      "default": "関数が自分自身を呼び出すプログラミング手法"
+    },
+    {
+      "key": "headerColor",
+      "type": "color",
+      "label": "ヘッダー帯色",
+      "default": "#2E7D32"
+    },
+    {
+      "key": "cardBg",
+      "type": "color",
+      "label": "カード背景色",
+      "default": "#F9FBF9"
+    },
+    {
+      "key": "termColor",
+      "type": "color",
+      "label": "用語文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "definitionColor",
+      "type": "color",
+      "label": "定義文字色",
+      "default": "#1A2A1A"
+    },
+    {
+      "key": "labelColor",
+      "type": "color",
+      "label": "「定義」ラベル色",
+      "default": "#2E7D32"
+    },
+    {
+      "key": "termSize",
+      "type": "number",
+      "label": "用語文字サイズ",
+      "default": 72
+    },
+    {
+      "key": "definitionSize",
+      "type": "number",
+      "label": "定義文字サイズ",
+      "default": 46
+    },
+    {
+      "key": "cardWidth",
+      "type": "number",
+      "label": "カード幅",
+      "default": 1100
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "カード中心Y位置",
+      "default": 490
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s3_03_card",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "cardBg"
+        },
+        "cornerRadius": 18
+      },
+      "size": {
+        "w": {
+          "var": "cardWidth"
+        },
+        "h": {
+          "expr": "termSize + definitionSize + 120"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": 0.96
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.92,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_03_header",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "headerColor"
+        },
+        "cornerRadius": 14
+      },
+      "size": {
+        "w": {
+          "var": "cardWidth"
+        },
+        "h": {
+          "expr": "termSize + 48"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY - (termSize + definitionSize + 120) / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.92,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_03_term",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "term"
+        },
+        "size": {
+          "var": "termSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "termColor"
+        },
+        "align": "center",
+        "shadow": {
+          "color": "rgba(0,0,0,0.28)",
+          "blur": 8,
+          "x": 0,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY - (termSize + definitionSize + 120) / 2 + (termSize + 48) / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.92,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_03_def_label",
+      "type": "text",
+      "content": {
+        "text": "定　義",
+        "size": 26,
+        "font": "'Hiragino Sans W6', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 600,
+        "color": {
+          "var": "labelColor"
+        },
+        "align": "center",
+        "letterSpacing": 6
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY - (termSize + definitionSize + 120) / 2 + (termSize + 48) + 10"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.92,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_03_definition",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "definition"
+        },
+        "size": {
+          "var": "definitionSize"
+        },
+        "font": "'Hiragino Sans W4', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 400,
+        "color": {
+          "var": "definitionColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY - (termSize + definitionSize + 120) / 2 + (termSize + 48) + 62"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.92,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

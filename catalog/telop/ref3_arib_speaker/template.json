@@ -1,0 +1,88 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_arib_speaker",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0,
+    "outDur": 0,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "本文",
+      "default": "きょうの予定を確認します"
+    },
+    {
+      "key": "speakerColor",
+      "type": "color",
+      "label": "話者色",
+      "default": "#ffff00"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_arib_speaker_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#000000",
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_arib_speaker_text.width + 64, 720)"
+        },
+        "h": {
+          "expr": "max(@ref3_arib_speaker_text.height + 32, 112)"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 866,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      }
+    },
+    {
+      "id": "ref3_arib_speaker_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 72,
+        "font": "system-ui",
+        "weight": 700,
+        "color": {
+          "var": "speakerColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 866,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      }
+    }
+  ]
+}

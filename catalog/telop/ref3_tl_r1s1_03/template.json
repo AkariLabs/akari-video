@@ -1,0 +1,250 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s1_03",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.26,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "テキスト",
+      "default": "一杯どうぞ"
+    },
+    {
+      "key": "neonColor",
+      "type": "color",
+      "label": "ネオン色（メイン）",
+      "default": "#FF4500"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "ネオン発光色",
+      "default": "rgba(255,100,0,0.55)"
+    },
+    {
+      "key": "glowColorInner",
+      "type": "color",
+      "label": "ネオン内グロー",
+      "default": "rgba(255,200,80,0.4)"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "背景板色",
+      "default": "rgba(10,5,0,0.72)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 108
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 840
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 8
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s1_03_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": 900,
+        "h": 148
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s1_03_neon",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
+        "weight": 300,
+        "color": {
+          "var": "neonColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#FFB347"
+            },
+            {
+              "at": 0.4,
+              "color": "#FF4500"
+            },
+            {
+              "at": 1,
+              "color": "#CC2200"
+            }
+          ]
+        },
+        "stroke": {
+          "color": "rgba(255,255,240,0.85)",
+          "width": 2
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "glowColorInner"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 22,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(180,60,0,0.35)",
+            "blur": 48,
+            "x": 0,
+            "y": 4
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 0.7,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 0.85
+            },
+            {
+              "t": 0.26,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.1,
+              "v": 0.6
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

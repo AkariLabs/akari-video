@@ -1,0 +1,292 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r2s11_003",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.6,
+    "outDur": 0.4,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "名前",
+      "default": "中村 里奈"
+    },
+    {
+      "key": "role",
+      "type": "text",
+      "label": "役職・肩書き",
+      "default": "Creative Director"
+    },
+    {
+      "key": "nameFontSize",
+      "type": "number",
+      "label": "名前サイズ",
+      "default": 80
+    },
+    {
+      "key": "roleFontSize",
+      "type": "number",
+      "label": "役職サイズ",
+      "default": 36
+    },
+    {
+      "key": "nameColor",
+      "type": "color",
+      "label": "名前色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "roleColor",
+      "type": "color",
+      "label": "役職色",
+      "default": "rgba(255,255,255,0.68)"
+    },
+    {
+      "key": "lineColor",
+      "type": "color",
+      "label": "アクセント線色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "左端X位置",
+      "default": 160
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "名前Y位置",
+      "default": 880
+    },
+    {
+      "key": "lineGap",
+      "type": "number",
+      "label": "線と名前の間隔",
+      "default": 20
+    },
+    {
+      "key": "textGap",
+      "type": "number",
+      "label": "名前と役職の間隔",
+      "default": 10
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r2s11_003_line",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "lineColor"
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "nameFontSize * 0.6"
+        },
+        "h": 2
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - nameFontSize / 2 - lineGap"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s11_003_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "nameFontSize"
+        },
+        "font": "'Hiragino Sans W6', 'Noto Sans JP', 'Helvetica Neue', system-ui, sans-serif",
+        "weight": 600,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left",
+        "letterSpacing": 2,
+        "shadow": {
+          "color": "rgba(0,0,0,0.5)",
+          "blur": 20,
+          "x": 0,
+          "y": 4
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.5,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.7,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s11_003_role",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "role"
+        },
+        "size": {
+          "var": "roleFontSize"
+        },
+        "font": "'Hiragino Sans W3', 'Noto Sans JP', 'Helvetica Neue', system-ui, sans-serif",
+        "weight": 300,
+        "color": {
+          "var": "roleColor"
+        },
+        "align": "left",
+        "letterSpacing": 4
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + nameFontSize / 2 + textGap"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.7,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.7,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

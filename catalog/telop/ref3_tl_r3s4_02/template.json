@@ -1,0 +1,517 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s4_02",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0.35,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "決定！！"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブテキスト",
+      "default": "これで行きます"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯メイン色",
+      "default": "#D50000"
+    },
+    {
+      "key": "bandAccent",
+      "type": "color",
+      "label": "帯アクセント色",
+      "default": "#FF6D00"
+    },
+    {
+      "key": "mainColor",
+      "type": "color",
+      "label": "メイン文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "サブ文字色",
+      "default": "#FFFF8D"
+    },
+    {
+      "key": "mainFontSize",
+      "type": "number",
+      "label": "メイン文字サイズ",
+      "default": 104
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブ文字サイズ",
+      "default": 56
+    },
+    {
+      "key": "bandHeight",
+      "type": "number",
+      "label": "帯の高さ",
+      "default": 220
+    },
+    {
+      "key": "bandY",
+      "type": "number",
+      "label": "帯のY位置",
+      "default": 760
+    },
+    {
+      "key": "skewAngle",
+      "type": "number",
+      "label": "傾き角度(deg)",
+      "default": -4
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s4_02_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        },
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "bandColor"
+              }
+            },
+            {
+              "at": 0.45,
+              "color": {
+                "var": "bandAccent"
+              }
+            },
+            {
+              "at": 0.7,
+              "color": {
+                "var": "bandColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "bandAccent"
+              }
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": 1920,
+        "h": {
+          "var": "bandHeight"
+        }
+      },
+      "transform": {
+        "x": 0,
+        "y": {
+          "var": "bandY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "skewX": {
+          "var": "skewAngle"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1960
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s4_02_line_top",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#FFFF00"
+      },
+      "size": {
+        "w": 1920,
+        "h": 6
+      },
+      "transform": {
+        "x": 0,
+        "y": {
+          "var": "bandY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "skewX": {
+          "var": "skewAngle"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1960
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s4_02_line_bot",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#FFFF00"
+      },
+      "size": {
+        "w": 1920,
+        "h": 6
+      },
+      "transform": {
+        "x": 0,
+        "y": {
+          "expr": "bandY + bandHeight - 6"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "skewX": {
+          "var": "skewAngle"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1960
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s4_02_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "mainFontSize"
+        },
+        "font": "'Hiragino Sans W9', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "mainColor"
+        },
+        "align": "center",
+        "letterSpacing": 4,
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.9)",
+            "width": 18
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.65)",
+            "blur": 14,
+            "x": 4,
+            "y": 6
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "bandY + bandHeight / 2 - subFontSize / 2 - 4"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        },
+        "rotation": {
+          "var": "skewAngle"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.6,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 0.92,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s4_02_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "subColor"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.85)",
+            "width": 10
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "bandY + bandHeight / 2 + 6"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        },
+        "rotation": {
+          "var": "skewAngle"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

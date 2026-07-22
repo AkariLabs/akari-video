@@ -1,0 +1,487 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r2s9_003",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.54,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "短冊テキスト",
+      "default": "花鳥風月"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブテキスト（読み・副題）",
+      "default": "かちょうふうげつ"
+    },
+    {
+      "key": "tanzakuColor",
+      "type": "color",
+      "label": "短冊の色（生成り）",
+      "default": "rgba(242,228,190,0.94)"
+    },
+    {
+      "key": "lineColor",
+      "type": "color",
+      "label": "装飾線の色（朱）",
+      "default": "#AD2718"
+    },
+    {
+      "key": "mainTextTop",
+      "type": "color",
+      "label": "文字グラデ 上（深墨）",
+      "default": "#0E0904"
+    },
+    {
+      "key": "mainTextBottom",
+      "type": "color",
+      "label": "文字グラデ 下（濃墨）",
+      "default": "#3A2810"
+    },
+    {
+      "key": "subTextColor",
+      "type": "color",
+      "label": "サブ文字色（薄墨）",
+      "default": "#7A6040"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "文字縁取り（白金）",
+      "default": "rgba(242,228,190,0.80)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "メインフォントサイズ",
+      "default": 94
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブフォントサイズ",
+      "default": 38
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 10
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "表示X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "表示Y位置（短冊中央）",
+      "default": 440
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r2s9_003_tanzaku",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "tanzakuColor"
+        },
+        "cornerRadius": 8,
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(248,236,200,0.96)"
+            },
+            {
+              "at": 0.5,
+              "color": "rgba(242,228,190,0.94)"
+            },
+            {
+              "at": 1,
+              "color": "rgba(228,210,165,0.92)"
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": 560,
+        "h": 220
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -120,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.38,
+              "v": 8,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.48,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s9_003_line_top",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "lineColor"
+        },
+        "cornerRadius": 2
+      },
+      "size": {
+        "w": 500,
+        "h": 5
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - 88"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.34,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.54,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s9_003_line_bottom",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "lineColor"
+        },
+        "cornerRadius": 2
+      },
+      "size": {
+        "w": 500,
+        "h": 5
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + 88"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.34,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.54,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s9_003_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'BIZ UDMincho Medium', Georgia, serif",
+        "weight": 800,
+        "color": "#0E0904",
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "mainTextTop"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "mainTextBottom"
+              }
+            }
+          ]
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 8
+          }
+        ],
+        "shadow": {
+          "color": "rgba(0,0,0,0.28)",
+          "blur": 6,
+          "x": 2,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - 22"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            },
+            {
+              "t": 0.52,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s9_003_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'BIZ UDMincho Medium', Georgia, serif",
+        "weight": 300,
+        "color": {
+          "var": "subTextColor"
+        },
+        "align": "center",
+        "letterSpacing": 4
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + 76"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            },
+            {
+              "t": 0.52,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,456 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_soccer_topbar",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.36,
+    "outDur": 0,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "teamA",
+      "type": "text",
+      "label": "チームA略称",
+      "default": "JP"
+    },
+    {
+      "key": "teamB",
+      "type": "text",
+      "label": "チームB略称",
+      "default": "BR"
+    },
+    {
+      "key": "score",
+      "type": "text",
+      "label": "スコア",
+      "default": "2-1"
+    },
+    {
+      "key": "barColor",
+      "type": "color",
+      "label": "バー地色",
+      "default": "rgba(18,20,28,0.92)"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント色",
+      "default": "#00FF85"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "dividerColor",
+      "type": "color",
+      "label": "区切り線色",
+      "default": "rgba(255,255,255,0.28)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_soccer_topbar_bar",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "barColor"
+        },
+        "cornerRadius": 4
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_soccer_topbar_team_b.right - 48 + 24, 300)"
+        },
+        "h": 56
+      },
+      "transform": {
+        "x": 48,
+        "y": 32,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -72,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_soccer_topbar_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 6,
+        "h": 56
+      },
+      "transform": {
+        "x": 48,
+        "y": 32,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -72,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_soccer_topbar_team_a",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamA"
+        },
+        "size": 30,
+        "font": "system-ui",
+        "weight": 800,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left"
+      },
+      "transform": {
+        "x": 74,
+        "y": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -72,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_soccer_topbar_divider_left",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "dividerColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 1,
+        "h": 30
+      },
+      "transform": {
+        "x": {
+          "expr": "@ref3_soccer_topbar_team_a.right + 16"
+        },
+        "y": 45,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -72,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_soccer_topbar_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "score"
+        },
+        "size": 34,
+        "font": "system-ui",
+        "weight": 900,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left"
+      },
+      "transform": {
+        "x": {
+          "expr": "@ref3_soccer_topbar_divider_left.right + 18"
+        },
+        "y": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -72,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_soccer_topbar_divider_right",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "dividerColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 1,
+        "h": 30
+      },
+      "transform": {
+        "x": {
+          "expr": "@ref3_soccer_topbar_score.right + 18"
+        },
+        "y": 45,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -72,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_soccer_topbar_team_b",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamB"
+        },
+        "size": 30,
+        "font": "system-ui",
+        "weight": 800,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left"
+      },
+      "transform": {
+        "x": {
+          "expr": "@ref3_soccer_topbar_divider_right.right + 18"
+        },
+        "y": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -72,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,358 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_zabuton_pill",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.2,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "本文",
+      "default": "なるほど"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "プレート色",
+      "default": "#ffffff",
+      "optional": true
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#111111",
+      "optional": true
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_zabuton_pill_shadow",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(0,0,0,0.22)",
+        "cornerRadius": 48
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_zabuton_pill_text.width + 96"
+        },
+        "h": 96
+      },
+      "transform": {
+        "x": 962,
+        "y": 763,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": -4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 0.7,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.05,
+              "v": 4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.4,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.75,
+              "v": -4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.1,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.45,
+              "v": 4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.8,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_zabuton_pill_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 48
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_zabuton_pill_text.width + 96"
+        },
+        "h": 96
+      },
+      "transform": {
+        "x": 960,
+        "y": 760,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": -4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 0.7,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.05,
+              "v": 4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.4,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.75,
+              "v": -4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.1,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.45,
+              "v": 4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.8,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_zabuton_pill_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": 64,
+        "font": "'Hiragino Maru Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": 960,
+        "y": 760,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": -4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 0.7,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.05,
+              "v": 4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.4,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 1.75,
+              "v": -4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.1,
+              "v": 0,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.45,
+              "v": 4,
+              "ease": "inout-cubic"
+            },
+            {
+              "t": 2.8,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

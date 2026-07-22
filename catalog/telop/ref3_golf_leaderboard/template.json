@@ -1,0 +1,3722 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_golf_leaderboard",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 7,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 1.2,
+    "outDur": 0.26,
+    "hold": "stretch",
+    "previewTotal": 7
+  },
+  "variables": [
+    {
+      "key": "heading",
+      "type": "text",
+      "label": "見出し",
+      "default": "LEADERBOARD"
+    },
+    {
+      "key": "subheading",
+      "type": "text",
+      "label": "サブ見出し",
+      "default": "ROUND 3"
+    },
+    {
+      "key": "rank1",
+      "type": "text",
+      "label": "順位1",
+      "default": "1"
+    },
+    {
+      "key": "rank2",
+      "type": "text",
+      "label": "順位2",
+      "default": "2"
+    },
+    {
+      "key": "rank3",
+      "type": "text",
+      "label": "順位3",
+      "default": "T3"
+    },
+    {
+      "key": "rank4",
+      "type": "text",
+      "label": "順位4",
+      "default": "T3"
+    },
+    {
+      "key": "rank5",
+      "type": "text",
+      "label": "順位5",
+      "default": "5"
+    },
+    {
+      "key": "player1",
+      "type": "text",
+      "label": "選手名1",
+      "default": "M. HOSHINO"
+    },
+    {
+      "key": "player2",
+      "type": "text",
+      "label": "選手名2",
+      "default": "R. KAWAMURA"
+    },
+    {
+      "key": "player3",
+      "type": "text",
+      "label": "選手名3",
+      "default": "T. SATO"
+    },
+    {
+      "key": "player4",
+      "type": "text",
+      "label": "選手名4",
+      "default": "K. MORI"
+    },
+    {
+      "key": "player5",
+      "type": "text",
+      "label": "選手名5",
+      "default": "A. TANAKA"
+    },
+    {
+      "key": "score1",
+      "type": "text",
+      "label": "スコア1",
+      "default": "-12"
+    },
+    {
+      "key": "score2",
+      "type": "text",
+      "label": "スコア2",
+      "default": "-10"
+    },
+    {
+      "key": "score3",
+      "type": "text",
+      "label": "スコア3",
+      "default": "-8"
+    },
+    {
+      "key": "score4",
+      "type": "text",
+      "label": "スコア4",
+      "default": "-8"
+    },
+    {
+      "key": "score5",
+      "type": "text",
+      "label": "スコア5",
+      "default": "-6"
+    },
+    {
+      "key": "panelTopColor",
+      "type": "color",
+      "label": "帯 上色",
+      "default": "#0B2A1F"
+    },
+    {
+      "key": "panelBottomColor",
+      "type": "color",
+      "label": "帯 下色",
+      "default": "#03140F"
+    },
+    {
+      "key": "headerColor",
+      "type": "color",
+      "label": "ヘッダー色",
+      "default": "#123C2C"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "縦アクセント",
+      "default": "#D7B56D"
+    },
+    {
+      "key": "leaderRowColor",
+      "type": "color",
+      "label": "首位行色",
+      "default": "rgba(215,181,109,0.28)"
+    },
+    {
+      "key": "rowColor",
+      "type": "color",
+      "label": "通常行色",
+      "default": "rgba(255,255,255,0.075)"
+    },
+    {
+      "key": "headingColor",
+      "type": "color",
+      "label": "見出し文字色",
+      "default": "#F8F6E8"
+    },
+    {
+      "key": "subheadingColor",
+      "type": "color",
+      "label": "サブ見出し文字色",
+      "default": "rgba(248,246,232,0.74)"
+    },
+    {
+      "key": "rankColor",
+      "type": "color",
+      "label": "順位色",
+      "default": "#D7B56D"
+    },
+    {
+      "key": "nameColor",
+      "type": "color",
+      "label": "選手名色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "scoreColor1",
+      "type": "color",
+      "label": "スコア色1",
+      "default": "#E5332A"
+    },
+    {
+      "key": "scoreColor2",
+      "type": "color",
+      "label": "スコア色2",
+      "default": "#E5332A"
+    },
+    {
+      "key": "scoreColor3",
+      "type": "color",
+      "label": "スコア色3",
+      "default": "#E5332A"
+    },
+    {
+      "key": "scoreColor4",
+      "type": "color",
+      "label": "スコア色4",
+      "default": "#E5332A"
+    },
+    {
+      "key": "scoreColor5",
+      "type": "color",
+      "label": "スコア色5",
+      "default": "#E5332A"
+    },
+    {
+      "key": "scoreGlowColor",
+      "type": "color",
+      "label": "スコアグロー",
+      "default": "rgba(229,51,42,0.30)"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.58)"
+    },
+    {
+      "key": "panelWidth",
+      "type": "number",
+      "label": "帯幅",
+      "default": 430
+    },
+    {
+      "key": "panelY",
+      "type": "number",
+      "label": "帯Y",
+      "default": 122
+    },
+    {
+      "key": "panelHeight",
+      "type": "number",
+      "label": "帯高さ",
+      "default": 456
+    },
+    {
+      "key": "headerHeight",
+      "type": "number",
+      "label": "ヘッダー高さ",
+      "default": 106
+    },
+    {
+      "key": "rowHeight",
+      "type": "number",
+      "label": "行高さ",
+      "default": 70
+    },
+    {
+      "key": "sideAccentWidth",
+      "type": "number",
+      "label": "縦アクセント幅",
+      "default": 10
+    },
+    {
+      "key": "rankX",
+      "type": "number",
+      "label": "順位X",
+      "default": 38
+    },
+    {
+      "key": "nameX",
+      "type": "number",
+      "label": "選手名X",
+      "default": 82
+    },
+    {
+      "key": "scoreRight",
+      "type": "number",
+      "label": "スコア右余白",
+      "default": 22
+    },
+    {
+      "key": "headingSize",
+      "type": "number",
+      "label": "見出しサイズ",
+      "default": 34
+    },
+    {
+      "key": "subheadingSize",
+      "type": "number",
+      "label": "サブ見出しサイズ",
+      "default": 21
+    },
+    {
+      "key": "rankSize",
+      "type": "number",
+      "label": "順位サイズ",
+      "default": 27
+    },
+    {
+      "key": "leaderNameSize",
+      "type": "number",
+      "label": "首位名サイズ",
+      "default": 31
+    },
+    {
+      "key": "nameSize",
+      "type": "number",
+      "label": "選手名サイズ",
+      "default": 28
+    },
+    {
+      "key": "leaderScoreSize",
+      "type": "number",
+      "label": "首位スコアサイズ",
+      "default": 36
+    },
+    {
+      "key": "scoreSize",
+      "type": "number",
+      "label": "スコアサイズ",
+      "default": 33
+    },
+    {
+      "key": "headingLetterSpacing",
+      "type": "number",
+      "label": "見出し字間",
+      "default": 2
+    },
+    {
+      "key": "nameLetterSpacing",
+      "type": "number",
+      "label": "選手名字間",
+      "default": 0
+    },
+    {
+      "key": "scoreLetterSpacing",
+      "type": "number",
+      "label": "スコア字間",
+      "default": 0
+    },
+    {
+      "key": "xAdjust",
+      "type": "number",
+      "label": "X調整",
+      "default": -16
+    },
+    {
+      "key": "yAdjust",
+      "type": "number",
+      "label": "Y調整",
+      "default": 0
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_golf_leaderboard_panel",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "panelTopColor"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "panelTopColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "panelBottomColor"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 3.6,
+            "width": 0.18,
+            "color": "rgba(255,255,255,0.13)"
+          }
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "var": "panelWidth"
+        },
+        "h": {
+          "var": "panelHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#F4D78A"
+            },
+            {
+              "at": 0.48,
+              "color": {
+                "var": "accentColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "#8C733A"
+            }
+          ],
+          "shimmer": {
+            "periodSec": 2.8,
+            "width": 0.22,
+            "color": "rgba(255,255,255,0.35)"
+          }
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "var": "sideAccentWidth"
+        },
+        "h": {
+          "var": "panelHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_header_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "headerColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "panelWidth - sideAccentWidth"
+        },
+        "h": {
+          "var": "headerHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_heading",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "heading"
+        },
+        "size": {
+          "var": "headingSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 850,
+        "color": {
+          "var": "headingColor"
+        },
+        "align": "left",
+        "letterSpacing": {
+          "var": "headingLetterSpacing"
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 10,
+            "x": 0,
+            "y": 3
+          },
+          {
+            "color": "rgba(215,181,109,0.22)",
+            "blur": 18,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + 28 + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + 39 + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 0
+            },
+            {
+              "t": 0.36,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "letterSpacing",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 18,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 2
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_subheading",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subheading"
+        },
+        "size": {
+          "var": "subheadingSize"
+        },
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "subheadingColor"
+        },
+        "align": "left",
+        "letterSpacing": 3,
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 7,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + 30 + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + 76 + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 0
+            },
+            {
+              "t": 0.36,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "letterSpacing",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 18,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 2
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row1_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "leaderRowColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "panelWidth - sideAccentWidth"
+        },
+        "h": {
+          "expr": "rowHeight - 1"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 0 * rowHeight + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 170
+            },
+            {
+              "t": 0.5,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            },
+            {
+              "t": 0.45999999999999996,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            },
+            {
+              "t": 0.42000000000000004,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row1_rank",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "rank1"
+        },
+        "size": {
+          "var": "rankSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "rankColor"
+        },
+        "align": "center",
+        "letterSpacing": 0,
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 7,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + rankX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 0 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 170
+            },
+            {
+              "t": 0.53,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            },
+            {
+              "t": 0.49,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            },
+            {
+              "t": 0.45,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row1_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "player1"
+        },
+        "size": {
+          "var": "leaderNameSize"
+        },
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left",
+        "letterSpacing": {
+          "var": "nameLetterSpacing"
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + nameX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 0 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 170
+            },
+            {
+              "t": 0.56,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            },
+            {
+              "t": 0.52,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            },
+            {
+              "t": 0.48000000000000004,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row1_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "score1"
+        },
+        "size": {
+          "var": "leaderScoreSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "scoreColor1"
+        },
+        "align": "right",
+        "letterSpacing": {
+          "var": "scoreLetterSpacing"
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.62)",
+            "width": 5
+          },
+          {
+            "color": "rgba(255,255,255,0.18)",
+            "width": 1
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "scoreGlowColor"
+            },
+            "blur": 14,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 9,
+            "x": 0,
+            "y": 3
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - scoreRight + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 0 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.31,
+              "v": 170
+            },
+            {
+              "t": 0.5900000000000001,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.31,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.31,
+              "v": 0
+            },
+            {
+              "t": 0.51,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "weight",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 700
+            },
+            {
+              "t": 0.31,
+              "v": 700
+            },
+            {
+              "t": 0.45,
+              "v": 900,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6699999999999999,
+              "v": 800,
+              "ease": "inout-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row2_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "rowColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "panelWidth - sideAccentWidth"
+        },
+        "h": {
+          "expr": "rowHeight - 1"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 1 * rowHeight + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 170
+            },
+            {
+              "t": 0.6000000000000001,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            },
+            {
+              "t": 0.56,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            },
+            {
+              "t": 0.52,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row2_rank",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "rank2"
+        },
+        "size": {
+          "var": "rankSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "rankColor"
+        },
+        "align": "center",
+        "letterSpacing": 0,
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 7,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + rankX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 1 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 170
+            },
+            {
+              "t": 0.63,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            },
+            {
+              "t": 0.59,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row2_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "player2"
+        },
+        "size": {
+          "var": "nameSize"
+        },
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 650,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left",
+        "letterSpacing": {
+          "var": "nameLetterSpacing"
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + nameX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 1 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 170
+            },
+            {
+              "t": 0.66,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            },
+            {
+              "t": 0.62,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            },
+            {
+              "t": 0.5800000000000001,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row2_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "score2"
+        },
+        "size": {
+          "var": "scoreSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "scoreColor2"
+        },
+        "align": "right",
+        "letterSpacing": {
+          "var": "scoreLetterSpacing"
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.62)",
+            "width": 5
+          },
+          {
+            "color": "rgba(255,255,255,0.18)",
+            "width": 1
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "scoreGlowColor"
+            },
+            "blur": 14,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 9,
+            "x": 0,
+            "y": 3
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - scoreRight + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 1 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.41000000000000003,
+              "v": 170
+            },
+            {
+              "t": 0.6900000000000001,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.41000000000000003,
+              "v": 0
+            },
+            {
+              "t": 0.65,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.41000000000000003,
+              "v": 0
+            },
+            {
+              "t": 0.6100000000000001,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "weight",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 700
+            },
+            {
+              "t": 0.41000000000000003,
+              "v": 700
+            },
+            {
+              "t": 0.55,
+              "v": 900,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.77,
+              "v": 800,
+              "ease": "inout-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row3_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "rowColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "panelWidth - sideAccentWidth"
+        },
+        "h": {
+          "expr": "rowHeight - 1"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 2 * rowHeight + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.42,
+              "v": 170
+            },
+            {
+              "t": 0.7,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.42,
+              "v": 0
+            },
+            {
+              "t": 0.6599999999999999,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.42,
+              "v": 0
+            },
+            {
+              "t": 0.62,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row3_rank",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "rank3"
+        },
+        "size": {
+          "var": "rankSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "rankColor"
+        },
+        "align": "center",
+        "letterSpacing": 0,
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 7,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + rankX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 2 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.44999999999999996,
+              "v": 170
+            },
+            {
+              "t": 0.73,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.44999999999999996,
+              "v": 0
+            },
+            {
+              "t": 0.69,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.44999999999999996,
+              "v": 0
+            },
+            {
+              "t": 0.6499999999999999,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row3_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "player3"
+        },
+        "size": {
+          "var": "nameSize"
+        },
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 650,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left",
+        "letterSpacing": {
+          "var": "nameLetterSpacing"
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + nameX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 2 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.48,
+              "v": 170
+            },
+            {
+              "t": 0.76,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.48,
+              "v": 0
+            },
+            {
+              "t": 0.72,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.48,
+              "v": 0
+            },
+            {
+              "t": 0.6799999999999999,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row3_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "score3"
+        },
+        "size": {
+          "var": "scoreSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "scoreColor3"
+        },
+        "align": "right",
+        "letterSpacing": {
+          "var": "scoreLetterSpacing"
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.62)",
+            "width": 5
+          },
+          {
+            "color": "rgba(255,255,255,0.18)",
+            "width": 1
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "scoreGlowColor"
+            },
+            "blur": 14,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 9,
+            "x": 0,
+            "y": 3
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - scoreRight + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 2 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.51,
+              "v": 170
+            },
+            {
+              "t": 0.79,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.51,
+              "v": 0
+            },
+            {
+              "t": 0.75,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.51,
+              "v": 0
+            },
+            {
+              "t": 0.71,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "weight",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 700
+            },
+            {
+              "t": 0.51,
+              "v": 700
+            },
+            {
+              "t": 0.65,
+              "v": 900,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.87,
+              "v": 800,
+              "ease": "inout-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row4_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "rowColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "panelWidth - sideAccentWidth"
+        },
+        "h": {
+          "expr": "rowHeight - 1"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 3 * rowHeight + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.52,
+              "v": 170
+            },
+            {
+              "t": 0.8,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.52,
+              "v": 0
+            },
+            {
+              "t": 0.76,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.52,
+              "v": 0
+            },
+            {
+              "t": 0.72,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row4_rank",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "rank4"
+        },
+        "size": {
+          "var": "rankSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "rankColor"
+        },
+        "align": "center",
+        "letterSpacing": 0,
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 7,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + rankX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 3 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 170
+            },
+            {
+              "t": 0.8300000000000001,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 0
+            },
+            {
+              "t": 0.79,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 0
+            },
+            {
+              "t": 0.75,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row4_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "player4"
+        },
+        "size": {
+          "var": "nameSize"
+        },
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 650,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left",
+        "letterSpacing": {
+          "var": "nameLetterSpacing"
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + nameX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 3 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5800000000000001,
+              "v": 170
+            },
+            {
+              "t": 0.8600000000000001,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5800000000000001,
+              "v": 0
+            },
+            {
+              "t": 0.8200000000000001,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.5800000000000001,
+              "v": 0
+            },
+            {
+              "t": 0.78,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row4_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "score4"
+        },
+        "size": {
+          "var": "scoreSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "scoreColor4"
+        },
+        "align": "right",
+        "letterSpacing": {
+          "var": "scoreLetterSpacing"
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.62)",
+            "width": 5
+          },
+          {
+            "color": "rgba(255,255,255,0.18)",
+            "width": 1
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "scoreGlowColor"
+            },
+            "blur": 14,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 9,
+            "x": 0,
+            "y": 3
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - scoreRight + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 3 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.61,
+              "v": 170
+            },
+            {
+              "t": 0.89,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.61,
+              "v": 0
+            },
+            {
+              "t": 0.85,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.61,
+              "v": 0
+            },
+            {
+              "t": 0.81,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "weight",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 700
+            },
+            {
+              "t": 0.61,
+              "v": 700
+            },
+            {
+              "t": 0.75,
+              "v": 900,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.97,
+              "v": 800,
+              "ease": "inout-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row5_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "rowColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "panelWidth - sideAccentWidth"
+        },
+        "h": {
+          "expr": "rowHeight - 1"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 4 * rowHeight + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.62,
+              "v": 170
+            },
+            {
+              "t": 0.9,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.62,
+              "v": 0
+            },
+            {
+              "t": 0.86,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.62,
+              "v": 0
+            },
+            {
+              "t": 0.8200000000000001,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row5_rank",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "rank5"
+        },
+        "size": {
+          "var": "rankSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "rankColor"
+        },
+        "align": "center",
+        "letterSpacing": 0,
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 7,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + rankX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 4 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.65,
+              "v": 170
+            },
+            {
+              "t": 0.93,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.65,
+              "v": 0
+            },
+            {
+              "t": 0.89,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.65,
+              "v": 0
+            },
+            {
+              "t": 0.8500000000000001,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row5_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "player5"
+        },
+        "size": {
+          "var": "nameSize"
+        },
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 650,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left",
+        "letterSpacing": {
+          "var": "nameLetterSpacing"
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - panelWidth + sideAccentWidth + nameX + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 4 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6799999999999999,
+              "v": 170
+            },
+            {
+              "t": 0.96,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6799999999999999,
+              "v": 0
+            },
+            {
+              "t": 0.9199999999999999,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.6799999999999999,
+              "v": 0
+            },
+            {
+              "t": 0.8799999999999999,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_golf_leaderboard_row5_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "score5"
+        },
+        "size": {
+          "var": "scoreSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "scoreColor5"
+        },
+        "align": "right",
+        "letterSpacing": {
+          "var": "scoreLetterSpacing"
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.62)",
+            "width": 5
+          },
+          {
+            "color": "rgba(255,255,255,0.18)",
+            "width": 1
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "scoreGlowColor"
+            },
+            "blur": 14,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 9,
+            "x": 0,
+            "y": 3
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - scoreRight + xAdjust"
+        },
+        "y": {
+          "expr": "panelY + headerHeight + 4 * rowHeight + rowHeight / 2 + yAdjust"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "end"
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 170,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.71,
+              "v": 170
+            },
+            {
+              "t": 0.99,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.71,
+              "v": 0
+            },
+            {
+              "t": 0.95,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.71,
+              "v": 0
+            },
+            {
+              "t": 0.9099999999999999,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "weight",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 700
+            },
+            {
+              "t": 0.71,
+              "v": 700
+            },
+            {
+              "t": 0.85,
+              "v": 900,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1.0699999999999998,
+              "v": 800,
+              "ease": "inout-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 88
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

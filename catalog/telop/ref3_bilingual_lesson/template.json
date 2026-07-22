@@ -1,0 +1,351 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_bilingual_lesson",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 1,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "foreignText",
+      "type": "text",
+      "label": "外国語テキスト",
+      "default": "Could you say that again?"
+    },
+    {
+      "key": "japaneseText",
+      "type": "text",
+      "label": "日本語訳テキスト",
+      "default": "もう一度言ってもらえますか？"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯色",
+      "default": "rgba(0,0,0,0.72)"
+    },
+    {
+      "key": "bandHighlightColor",
+      "type": "color",
+      "label": "帯ハイライト色",
+      "default": "rgba(255,255,255,0.10)"
+    },
+    {
+      "key": "foreignColor",
+      "type": "color",
+      "label": "強調色（外国語）",
+      "default": "#FFD940"
+    },
+    {
+      "key": "japaneseColor",
+      "type": "color",
+      "label": "日本語訳色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "縁取り色",
+      "default": "rgba(0,0,0,0.92)"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.50)"
+    },
+    {
+      "key": "foreignFontSize",
+      "type": "number",
+      "label": "外国語フォントサイズ",
+      "default": 60
+    },
+    {
+      "key": "japaneseFontSize",
+      "type": "number",
+      "label": "日本語訳フォントサイズ",
+      "default": 47
+    },
+    {
+      "key": "bandHeight",
+      "type": "number",
+      "label": "帯の高さ",
+      "default": 190
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_bilingual_lesson_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        },
+        "cornerRadius": 18
+      },
+      "size": {
+        "w": {
+          "expr": "max(max(@ref3_bilingual_lesson_foreign.width, @ref3_bilingual_lesson_japanese.width) + 180, 980)"
+        },
+        "h": {
+          "var": "bandHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 785,
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_bilingual_lesson_band_highlight",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandHighlightColor"
+        },
+        "cornerRadius": 18
+      },
+      "size": {
+        "w": {
+          "expr": "max(max(@ref3_bilingual_lesson_foreign.width, @ref3_bilingual_lesson_japanese.width) + 180, 980)"
+        },
+        "h": {
+          "expr": "bandHeight / 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 785,
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_bilingual_lesson_foreign",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "foreignText"
+        },
+        "size": 60,
+        "font": "'Helvetica Neue', Arial, system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "foreignColor"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 7
+          }
+        ],
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 2,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 845,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_bilingual_lesson_japanese",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "japaneseText"
+        },
+        "size": 47,
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "japaneseColor"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 5
+          }
+        ],
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 2,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 925,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.5,
+              "v": 0
+            },
+            {
+              "t": 1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,319 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_numbered_badge",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.4,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "badgeNumber",
+      "type": "text",
+      "label": "番号",
+      "default": "1"
+    },
+    {
+      "key": "bodyText",
+      "type": "text",
+      "label": "本文",
+      "default": "最初に見るべきポイント"
+    },
+    {
+      "key": "keyColor",
+      "type": "color",
+      "label": "キーカラー",
+      "default": "#E63946"
+    },
+    {
+      "key": "badgeTextColor",
+      "type": "color",
+      "label": "番号色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "bodyTextColor",
+      "type": "color",
+      "label": "本文色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "bodyStrokeColor",
+      "type": "color",
+      "label": "本文縁色",
+      "default": "rgba(0,0,0,0.72)"
+    },
+    {
+      "key": "baseX",
+      "type": "number",
+      "label": "基準X",
+      "default": 520
+    },
+    {
+      "key": "baseY",
+      "type": "number",
+      "label": "基準Y",
+      "default": 720
+    },
+    {
+      "key": "gap",
+      "type": "number",
+      "label": "間隔",
+      "default": 24
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_numbered_badge_circle",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "keyColor"
+        },
+        "cornerRadius": 45
+      },
+      "size": {
+        "w": 90,
+        "h": 90
+      },
+      "transform": {
+        "x": {
+          "var": "baseX"
+        },
+        "y": {
+          "var": "baseY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.1,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_numbered_badge_number",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "badgeNumber"
+        },
+        "size": 54,
+        "font": "system-ui",
+        "weight": 900,
+        "color": {
+          "var": "badgeTextColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "var": "baseX"
+        },
+        "y": {
+          "var": "baseY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.1,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_numbered_badge_body",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "bodyText"
+        },
+        "size": 72,
+        "font": "system-ui",
+        "weight": 800,
+        "color": {
+          "var": "bodyTextColor"
+        },
+        "align": "left",
+        "stroke": {
+          "color": {
+            "var": "bodyStrokeColor"
+          },
+          "width": 4
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@ref3_numbered_badge_circle.right + gap"
+        },
+        "y": {
+          "var": "baseY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 180
+            },
+            {
+              "t": 0.1,
+              "v": 180,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

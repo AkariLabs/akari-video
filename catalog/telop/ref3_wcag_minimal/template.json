@@ -1,0 +1,154 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_wcag_minimal",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.2,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "字幕本文",
+      "default": "読みやすさを最優先した字幕です"
+    },
+    {
+      "key": "backgroundColor",
+      "type": "color",
+      "label": "背景色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#000000"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_wcag_minimal_background",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "backgroundColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(@ref3_wcag_minimal_text.width + 80, 520, 1600)"
+        },
+        "h": 104
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 900,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_wcag_minimal_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 64,
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 600,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 900,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

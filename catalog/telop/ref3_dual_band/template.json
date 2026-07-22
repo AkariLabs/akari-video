@@ -1,0 +1,379 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_dual_band",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.52,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "label",
+      "type": "text",
+      "label": "ラベル",
+      "default": "特集"
+    },
+    {
+      "key": "title",
+      "type": "text",
+      "label": "タイトル",
+      "default": "暮らしを変える最新トピック"
+    },
+    {
+      "key": "keyColor",
+      "type": "color",
+      "label": "キーカラー",
+      "default": "#0067B8"
+    },
+    {
+      "key": "rightBandColor",
+      "type": "color",
+      "label": "右帯色",
+      "default": "#ffffff"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_dual_band_left_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "keyColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_dual_band_label.width + 64, 240)"
+        },
+        "h": 96
+      },
+      "transform": {
+        "x": 72,
+        "y": 72,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -360,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0,
+              "v": -360
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": -120
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_dual_band_right_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "rightBandColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_dual_band_title.width + 88, 620)"
+        },
+        "h": 96
+      },
+      "transform": {
+        "x": {
+          "expr": "@ref3_dual_band_left_band.right"
+        },
+        "y": 72,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -360,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.08,
+              "v": -360
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": -120
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_dual_band_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "label"
+        },
+        "size": 44,
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": "#ffffff",
+        "align": "left"
+      },
+      "transform": {
+        "x": 104,
+        "y": 120,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.24,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": -120
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_dual_band_title",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "title"
+        },
+        "size": 48,
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": "#111111",
+        "align": "left"
+      },
+      "transform": {
+        "x": {
+          "expr": "@ref3_dual_band_left_band.right + 42"
+        },
+        "y": 120,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 0
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": -120
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

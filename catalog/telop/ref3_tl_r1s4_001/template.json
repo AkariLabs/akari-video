@@ -1,0 +1,317 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s4_001",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "キャプション",
+      "default": "SYSTEM OVERRIDE"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 96
+    },
+    {
+      "key": "neonColor",
+      "type": "color",
+      "label": "ネオン色（シアン）",
+      "default": "#00F5FF"
+    },
+    {
+      "key": "glitchColor",
+      "type": "color",
+      "label": "グリッチ色（マゼンタ）",
+      "default": "#FF00E5"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "下帯色",
+      "default": "rgba(0,8,20,0.82)"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "グロー色",
+      "default": "rgba(0,245,255,0.45)"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "表示Y位置",
+      "default": 860
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s4_001_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 4,
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "neonColor"
+              }
+            },
+            {
+              "at": 0.006,
+              "color": {
+                "var": "plateColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "plateColor"
+              }
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r1s4_001_text.width + 80"
+        },
+        "h": {
+          "expr": "fontSize + 48"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s4_001_glitch",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Share Tech Mono', 'Courier New', monospace",
+        "weight": 700,
+        "color": {
+          "var": "glitchColor"
+        },
+        "align": "center",
+        "letterSpacing": 4
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2 + 3"
+        },
+        "y": {
+          "expr": "posY - 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": 0.7
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s4_001_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Share Tech Mono', 'Courier New', monospace",
+        "weight": 700,
+        "color": {
+          "var": "neonColor"
+        },
+        "align": "center",
+        "letterSpacing": 4,
+        "shadows": [
+          {
+            "color": {
+              "var": "neonColor"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 28,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(0,0,0,0.8)",
+            "blur": 4,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -40,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

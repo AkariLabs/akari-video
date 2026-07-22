@@ -1,0 +1,431 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r2s2_004",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.32,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "バッジ文字",
+      "default": "NEW"
+    },
+    {
+      "key": "colorTop",
+      "type": "color",
+      "label": "グラデ 上（ピンク）",
+      "default": "#FF4FAD"
+    },
+    {
+      "key": "colorBot",
+      "type": "color",
+      "label": "グラデ 下（ライラック）",
+      "default": "#C955FF"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "外縁色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "strokeWidth",
+      "type": "number",
+      "label": "外縁幅",
+      "default": 8
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "textStrokeColor",
+      "type": "color",
+      "label": "文字縁取り色",
+      "default": "#CC00AA"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(200,0,120,0.5)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 62
+    },
+    {
+      "key": "starSize",
+      "type": "number",
+      "label": "バッジサイズ",
+      "default": 220
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 1760
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 160
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r2s2_004_star",
+      "type": "shape",
+      "content": {
+        "shape": "star",
+        "fill": {
+          "var": "colorTop"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "colorTop"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "colorBot"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 1.6,
+            "width": 0.32,
+            "color": "rgba(255,255,255,0.78)"
+          }
+        },
+        "star": {
+          "points": 14,
+          "innerRatio": 0.6
+        }
+      },
+      "size": {
+        "w": {
+          "var": "starSize"
+        },
+        "h": {
+          "var": "starSize"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.18,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "rotation",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6,
+              "v": 18
+            },
+            {
+              "t": 1.2,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.2,
+              "v": 0.05
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s2_004_star_ring",
+      "type": "shape",
+      "content": {
+        "shape": "star",
+        "fill": {
+          "var": "strokeColor"
+        },
+        "star": {
+          "points": 14,
+          "innerRatio": 0.6
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "starSize + strokeWidth * 2"
+        },
+        "h": {
+          "expr": "starSize + strokeWidth * 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": 0.7
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.18,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "rotation",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6,
+              "v": 18
+            },
+            {
+              "t": 1.2,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.2,
+              "v": 0.05
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s2_004_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": 2,
+        "strokes": [
+          {
+            "color": {
+              "var": "textStrokeColor"
+            },
+            "width": 5
+          }
+        ],
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 14,
+          "x": 0,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

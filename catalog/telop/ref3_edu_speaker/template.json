@@ -1,0 +1,155 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_edu_speaker",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.25,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "字幕本文",
+      "default": "いっしょに やってみよう"
+    },
+    {
+      "key": "speakerColor",
+      "type": "color",
+      "label": "話者色",
+      "default": "#ffe27a"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "縁色",
+      "default": "#000000"
+    },
+    {
+      "key": "speakerColorCyan",
+      "type": "color",
+      "label": "話者色プリセット（水色）",
+      "default": "#7fe8ff"
+    },
+    {
+      "key": "speakerColorGreen",
+      "type": "color",
+      "label": "話者色プリセット（緑）",
+      "default": "#84e36b"
+    },
+    {
+      "key": "speakerColorWhite",
+      "type": "color",
+      "label": "話者色プリセット（白）",
+      "default": "#ffffff"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_edu_speaker_caption",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 92,
+        "font": "'Hiragino Maru Gothic ProN', sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "speakerColor"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 6
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height - 72"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 6,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 6
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

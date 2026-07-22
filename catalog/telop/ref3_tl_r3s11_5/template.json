@@ -1,0 +1,568 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s11_5",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 6,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.65,
+    "outDur": 0.4,
+    "hold": "stretch",
+    "previewTotal": 6
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "キャプションテキスト",
+      "default": "時を超える、本物の美しさ。"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 80
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 860
+    },
+    {
+      "key": "lineGap",
+      "type": "number",
+      "label": "水平ラインと文字の縦間隔",
+      "default": 18
+    },
+    {
+      "key": "padX",
+      "type": "number",
+      "label": "帯横余白",
+      "default": 88
+    },
+    {
+      "key": "padY",
+      "type": "number",
+      "label": "帯縦余白",
+      "default": 30
+    },
+    {
+      "key": "plateBg",
+      "type": "color",
+      "label": "帯背景色",
+      "default": "rgba(6,3,1,0.82)"
+    },
+    {
+      "key": "goldTop",
+      "type": "color",
+      "label": "金 上端",
+      "default": "#9A6C04"
+    },
+    {
+      "key": "goldMid",
+      "type": "color",
+      "label": "金 中間ハイライト",
+      "default": "#FBE880"
+    },
+    {
+      "key": "goldBottom",
+      "type": "color",
+      "label": "金 下端",
+      "default": "#7A4A02"
+    },
+    {
+      "key": "lineColor",
+      "type": "color",
+      "label": "ラインベース色",
+      "default": "#C8920A"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "グロー色",
+      "default": "rgba(240,185,25,0.35)"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(40,16,0,0.78)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s11_5_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateBg"
+        },
+        "cornerRadius": 2
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r3s11_5_text.width + padX * 2"
+        },
+        "h": {
+          "expr": "fontSize + lineGap * 2 + padY * 2 + 4"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.26,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.4,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s11_5_line_top",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "lineColor"
+        },
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(200,146,10,0)"
+            },
+            {
+              "at": 0.06,
+              "color": {
+                "var": "lineColor"
+              }
+            },
+            {
+              "at": 0.5,
+              "color": {
+                "var": "goldMid"
+              }
+            },
+            {
+              "at": 0.94,
+              "color": {
+                "var": "lineColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(200,146,10,0)"
+            }
+          ],
+          "shimmer": {
+            "periodSec": 4,
+            "width": 0.14,
+            "color": "rgba(255,248,180,0.90)"
+          }
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r3s11_5_text.width + padX * 2"
+        },
+        "h": 2
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY - fontSize / 2 - lineGap - 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.26,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.65,
+              "v": 0.10833333333333334
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.10833333333333334,
+              "ease": "linear"
+            },
+            {
+              "t": 5.35,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.4,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s11_5_line_bottom",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "lineColor"
+        },
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(200,146,10,0)"
+            },
+            {
+              "at": 0.06,
+              "color": {
+                "var": "lineColor"
+              }
+            },
+            {
+              "at": 0.5,
+              "color": {
+                "var": "goldMid"
+              }
+            },
+            {
+              "at": 0.94,
+              "color": {
+                "var": "lineColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(200,146,10,0)"
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r3s11_5_text.width + padX * 2"
+        },
+        "h": 2
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY + fontSize / 2 + lineGap + 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.26,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.65,
+              "v": 0.10833333333333334
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.10833333333333334,
+              "ease": "linear"
+            },
+            {
+              "t": 5.35,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.4,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s11_5_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Mincho ProN W3', 'Yu Mincho Light', 'Noto Serif JP', serif",
+        "weight": 300,
+        "color": {
+          "var": "goldMid"
+        },
+        "align": "center",
+        "letterSpacing": 5,
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "goldTop"
+              }
+            },
+            {
+              "at": 0.35,
+              "color": {
+                "var": "goldMid"
+              }
+            },
+            {
+              "at": 0.6,
+              "color": {
+                "var": "goldMid"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "goldBottom"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 3.8,
+            "width": 0.18,
+            "color": "rgba(255,252,215,0.85)"
+          }
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 10,
+            "x": 0,
+            "y": 3
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 26,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.325,
+              "v": 1,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.65,
+              "v": 0.10833333333333334
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.10833333333333334,
+              "ease": "linear"
+            },
+            {
+              "t": 5.35,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.4,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

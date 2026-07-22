@@ -1,0 +1,382 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r2s4_02",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.55,
+    "outDur": 0.32,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "出演者名・演目",
+      "default": "桂 小朝"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "高座名・肩書",
+      "default": "落語家"
+    },
+    {
+      "key": "paperColor",
+      "type": "color",
+      "label": "和紙色",
+      "default": "#F5EED6"
+    },
+    {
+      "key": "inkColor",
+      "type": "color",
+      "label": "墨文字色",
+      "default": "#1A1208"
+    },
+    {
+      "key": "ruledColor",
+      "type": "color",
+      "label": "朱罫線色",
+      "default": "#C0392B"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "サブ文字色",
+      "default": "#5C3D1E"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 88
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブ文字サイズ",
+      "default": 46
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r2s4_02_paper",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "paperColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 760,
+        "h": 152
+      },
+      "transform": {
+        "x": 80,
+        "y": 850,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.42,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s4_02_ruled_top",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "ruledColor"
+        }
+      },
+      "size": {
+        "w": 760,
+        "h": 3
+      },
+      "transform": {
+        "x": 80,
+        "y": 850,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s4_02_ruled_bottom",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "ruledColor"
+        }
+      },
+      "size": {
+        "w": 760,
+        "h": 3
+      },
+      "transform": {
+        "x": 80,
+        "y": 999,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s4_02_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
+        "weight": 400,
+        "color": {
+          "var": "subColor"
+        },
+        "align": "left",
+        "letterSpacing": 5,
+        "shadow": {
+          "color": "rgba(200,150,80,0.3)",
+          "blur": 4,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": 110,
+        "y": 866,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.12,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s4_02_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
+        "weight": 700,
+        "color": {
+          "var": "inkColor"
+        },
+        "align": "left",
+        "letterSpacing": 8,
+        "shadow": {
+          "color": "rgba(0,0,0,0.25)",
+          "blur": 5,
+          "x": 2,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": 110,
+        "y": 903,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.12,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

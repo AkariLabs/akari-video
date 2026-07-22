@@ -1,0 +1,161 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_nhk_ud",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.2,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "字幕本文",
+      "default": "これはテロップのサンプルです"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "座布団色",
+      "default": "rgba(80,80,80,0.65)"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "borderRadius",
+      "type": "number",
+      "label": "角丸",
+      "default": 8
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_nhk_ud_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(@ref3_nhk_ud_text.width + 72, 440, 1680)"
+        },
+        "h": 78
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 920,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_nhk_ud_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 54,
+        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif",
+        "weight": 600,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "strokes": []
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 920,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

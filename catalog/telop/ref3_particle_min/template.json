@@ -1,0 +1,144 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_particle_min",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.25,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "本文",
+      "default": "今日のゲストはなんと芸能界の大物です"
+    },
+    {
+      "key": "color",
+      "type": "color",
+      "label": "文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "strokeInner",
+      "type": "color",
+      "label": "縁色（内・黒縁）",
+      "default": "#111111"
+    },
+    {
+      "key": "strokeOuter",
+      "type": "color",
+      "label": "縁色（外・色縁）",
+      "default": "#3b82f6"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_particle_min_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 86,
+        "font": "system-ui",
+        "weight": 900,
+        "color": {
+          "var": "color"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 13
+          },
+          {
+            "color": {
+              "var": "strokeInner"
+            },
+            "width": 9
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 994,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 14,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0,
+        "classStyles": {
+          "hiragana": {
+            "sizeScale": 0.72,
+            "dy": -2,
+            "opacity": 0.9
+          }
+        },
+        "tracks": []
+      }
+    }
+  ]
+}

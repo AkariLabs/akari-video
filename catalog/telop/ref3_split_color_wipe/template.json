@@ -1,0 +1,370 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_split_color_wipe",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 1.24,
+    "outDur": 0.18,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "ワイプ語句",
+      "default": "いま変わる瞬間"
+    },
+    {
+      "key": "baseColor",
+      "type": "color",
+      "label": "下層文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "wipeColor",
+      "type": "color",
+      "label": "上層ワイプ色",
+      "default": "#FF2BD6"
+    },
+    {
+      "key": "strokeOuter",
+      "type": "color",
+      "label": "外縁色",
+      "default": "rgba(0,0,0,0.92)"
+    },
+    {
+      "key": "strokeInner",
+      "type": "color",
+      "label": "内縁色",
+      "default": "rgba(255,255,255,0.88)"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "発光色",
+      "default": "rgba(255,43,214,0.72)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 112
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 3
+    },
+    {
+      "key": "xRatio",
+      "type": "number",
+      "label": "横位置比率",
+      "default": 0.5
+    },
+    {
+      "key": "yRatio",
+      "type": "number",
+      "label": "縦位置比率",
+      "default": 0.76
+    },
+    {
+      "key": "wipeOpacity",
+      "type": "number",
+      "label": "ワイプ濃度",
+      "default": 1
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_split_color_wipe_base",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "baseColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 18
+          },
+          {
+            "color": {
+              "var": "strokeInner"
+            },
+            "width": 5
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.70)",
+            "blur": 12,
+            "x": 0,
+            "y": 5
+          },
+          {
+            "color": "rgba(0,0,0,0.35)",
+            "blur": 28,
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width * clamp(xRatio, 0.08, 0.92)"
+        },
+        "y": {
+          "expr": "@stage.height * clamp(yRatio, 0.15, 0.92)"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.98,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_split_color_wipe_active",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "wipeColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 18
+          },
+          {
+            "color": {
+              "var": "strokeInner"
+            },
+            "width": 5
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 18,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(0,0,0,0.66)",
+            "blur": 12,
+            "x": 0,
+            "y": 5
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width * clamp(xRatio, 0.08, 0.92)"
+        },
+        "y": {
+          "expr": "@stage.height * clamp(yRatio, 0.15, 0.92)"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": {
+          "expr": "clamp(wipeOpacity, 0, 1)"
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.98,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.1,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 0.18,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0.18
+            },
+            {
+              "t": 0.42,
+              "v": 0.37,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.52,
+              "v": 0.37
+            },
+            {
+              "t": 0.66,
+              "v": 0.58,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.78,
+              "v": 0.58
+            },
+            {
+              "t": 0.94,
+              "v": 0.82,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1.06,
+              "v": 0.82
+            },
+            {
+              "t": 1.24,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

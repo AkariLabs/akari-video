@@ -1,0 +1,374 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r2s6_001",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.45,
+    "outDur": 0.28,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "見出しテキスト",
+      "default": "首相が緊急記者会見を開く"
+    },
+    {
+      "key": "tagText",
+      "type": "text",
+      "label": "速報タグテキスト",
+      "default": "速報"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯背景色",
+      "default": "#1A1A1A"
+    },
+    {
+      "key": "tagColor",
+      "type": "color",
+      "label": "速報タグ色",
+      "default": "#CC0000"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "見出し文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "上端アクセント線色",
+      "default": "#CC0000"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "見出しフォントサイズ",
+      "default": 58
+    },
+    {
+      "key": "tagFontSize",
+      "type": "number",
+      "label": "タグフォントサイズ",
+      "default": 42
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r2s6_001_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        }
+      },
+      "size": {
+        "w": 1760,
+        "h": 4
+      },
+      "transform": {
+        "x": 80,
+        "y": 870,
+        "anchor": {
+          "x": 0,
+          "y": 1
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.28,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s6_001_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        }
+      },
+      "size": {
+        "w": 1760,
+        "h": 96
+      },
+      "transform": {
+        "x": 80,
+        "y": 870,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.28,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s6_001_tag_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "tagColor"
+        }
+      },
+      "size": {
+        "w": 148,
+        "h": 96
+      },
+      "transform": {
+        "x": 80,
+        "y": 870,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            },
+            {
+              "t": 0.45,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.28,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s6_001_tag_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "tagText"
+        },
+        "size": {
+          "var": "tagFontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": "#FFFFFF",
+        "align": "center"
+      },
+      "transform": {
+        "x": 154,
+        "y": 918,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            },
+            {
+              "t": 0.45,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.28,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s6_001_headline",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left",
+        "letterSpacing": 1,
+        "shadow": {
+          "color": "rgba(0,0,0,0.5)",
+          "blur": 4,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": 252,
+        "y": 918,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            },
+            {
+              "t": 0.45,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.28,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

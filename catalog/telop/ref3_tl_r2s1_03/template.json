@@ -1,0 +1,558 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r2s1_03",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.55,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "名前",
+      "default": "田中 太郎"
+    },
+    {
+      "key": "role",
+      "type": "text",
+      "label": "肩書き",
+      "default": "芸人"
+    },
+    {
+      "key": "nameFontSize",
+      "type": "number",
+      "label": "名前サイズ",
+      "default": 96
+    },
+    {
+      "key": "roleFontSize",
+      "type": "number",
+      "label": "肩書きサイズ",
+      "default": 48
+    },
+    {
+      "key": "starColor",
+      "type": "color",
+      "label": "スター色",
+      "default": "#FFDD00"
+    },
+    {
+      "key": "plateFill",
+      "type": "color",
+      "label": "プレート塗り上",
+      "default": "#1A5EFF"
+    },
+    {
+      "key": "plateFillBot",
+      "type": "color",
+      "label": "プレート塗り下",
+      "default": "#0A2EBB"
+    },
+    {
+      "key": "nameColor",
+      "type": "color",
+      "label": "名前色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "roleColor",
+      "type": "color",
+      "label": "肩書き色",
+      "default": "#FFDD00"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 300
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 860
+    },
+    {
+      "key": "plateW",
+      "type": "number",
+      "label": "プレート幅",
+      "default": 520
+    },
+    {
+      "key": "plateH",
+      "type": "number",
+      "label": "プレート高さ",
+      "default": 170
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r2s1_03_star",
+      "type": "shape",
+      "content": {
+        "shape": "star",
+        "fill": {
+          "var": "starColor"
+        },
+        "star": {
+          "points": 12,
+          "innerRatio": 0.62
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "plateW + 100"
+        },
+        "h": {
+          "expr": "plateH + 100"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.01,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 0.96,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0.05
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "rotation",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "linear"
+            },
+            {
+              "t": 5,
+              "v": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s1_03_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateFill"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "plateFill"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "plateFillBot"
+              }
+            }
+          ]
+        },
+        "cornerRadius": 12
+      },
+      "size": {
+        "w": {
+          "var": "plateW"
+        },
+        "h": {
+          "var": "plateH"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.01,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 0.96,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0.05
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s1_03_role",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "role"
+        },
+        "size": {
+          "var": "roleFontSize"
+        },
+        "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "roleColor"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.85)",
+            "width": 8
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - plateH / 2 + 20"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.01,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 0.96,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0.05
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s1_03_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "nameFontSize"
+        },
+        "font": "'Hiragino Sans W9', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": "rgba(0,0,50,0.9)",
+            "width": 12
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.5)",
+            "blur": 10,
+            "x": 2,
+            "y": 4
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + plateH / 2 - 20"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.01,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 0.96,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0.05
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

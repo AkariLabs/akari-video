@@ -1,0 +1,499 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s10_005",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.25,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "字幕テキスト",
+      "default": "ACCESSING SECURE CHANNEL"
+    },
+    {
+      "key": "baseColor",
+      "type": "color",
+      "label": "下層（待機）色",
+      "default": "rgba(0,200,220,0.6)"
+    },
+    {
+      "key": "activeColor",
+      "type": "color",
+      "label": "上層（ワイプ後）色",
+      "default": "#AAFFFF"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "ワイプ発光色",
+      "default": "rgba(0,255,255,0.7)"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "縁取り色",
+      "default": "rgba(0,40,60,0.9)"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "プレート色",
+      "default": "rgba(0,10,20,0.75)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 80
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 870
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 5
+    },
+    {
+      "key": "platePadX",
+      "type": "number",
+      "label": "プレート左右余白",
+      "default": 80
+    },
+    {
+      "key": "platePadY",
+      "type": "number",
+      "label": "プレート上下余白",
+      "default": 28
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s10_005_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(0,18,30,0.8)"
+            },
+            {
+              "at": 0.5,
+              "color": "rgba(0,10,20,0.82)"
+            },
+            {
+              "at": 1,
+              "color": "rgba(0,18,30,0.8)"
+            }
+          ]
+        },
+        "cornerRadius": 4
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_tl_r3s10_005_base.width + platePadX * 2, 800)"
+        },
+        "h": {
+          "expr": "fontSize + platePadY * 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s10_005_border",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(0,255,255,0.4)",
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(0,255,255,0)"
+            },
+            {
+              "at": 0.15,
+              "color": "rgba(0,255,255,0.6)"
+            },
+            {
+              "at": 0.85,
+              "color": "rgba(0,255,255,0.6)"
+            },
+            {
+              "at": 1,
+              "color": "rgba(0,255,255,0)"
+            }
+          ],
+          "shimmer": {
+            "periodSec": 1.2,
+            "width": 0.15,
+            "color": "rgba(255,255,255,0.8)"
+          }
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_tl_r3s10_005_base.width + platePadX * 2, 800)"
+        },
+        "h": 1
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY - (fontSize + platePadY * 2) / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s10_005_base",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Share Tech Mono', 'Courier New', monospace",
+        "weight": 700,
+        "color": {
+          "var": "baseColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 12
+          },
+          {
+            "color": "rgba(0,255,255,0.2)",
+            "width": 4
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,200,220,0.3)",
+            "blur": 8,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s10_005_active",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Share Tech Mono', 'Courier New', monospace",
+        "weight": 700,
+        "color": {
+          "var": "activeColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#FFFFFF"
+            },
+            {
+              "at": 0.3,
+              "color": "#CCFFFF"
+            },
+            {
+              "at": 0.7,
+              "color": {
+                "var": "activeColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(0,200,220,0.9)"
+            }
+          ],
+          "shimmer": {
+            "periodSec": 0.8,
+            "width": 0.2,
+            "color": "rgba(255,255,255,0.9)"
+          }
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 12
+          },
+          {
+            "color": "rgba(0,255,255,0.3)",
+            "width": 4
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 10,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 28,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(0,100,255,0.3)",
+            "blur": 50,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "linear"
+            },
+            {
+              "t": 0.25,
+              "v": 0.05,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.05,
+              "ease": "linear"
+            },
+            {
+              "t": 4.75,
+              "v": 1,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

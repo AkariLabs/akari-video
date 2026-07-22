@@ -1,0 +1,455 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s4_04",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.4,
+    "outDur": 0.35,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "字幕テキスト",
+      "default": "衝撃の事実が明らかに…！"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 96
+    },
+    {
+      "key": "colorTop",
+      "type": "color",
+      "label": "グラデ上（ネオン緑）",
+      "default": "#00FF9C"
+    },
+    {
+      "key": "colorBot",
+      "type": "color",
+      "label": "グラデ下（シアン）",
+      "default": "#00B0FF"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "外縁色",
+      "default": "#003020"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "発光色",
+      "default": "rgba(0,255,156,0.55)"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "下帯色",
+      "default": "rgba(0,10,20,0.78)"
+    },
+    {
+      "key": "plateBorderColor",
+      "type": "color",
+      "label": "下帯縁取り色",
+      "default": "#00FF9C"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "表示Y位置",
+      "default": 860
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 2
+    },
+    {
+      "key": "platePadX",
+      "type": "number",
+      "label": "下帯左右余白",
+      "default": 80
+    },
+    {
+      "key": "platePadY",
+      "type": "number",
+      "label": "下帯上下余白",
+      "default": 28
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s4_04_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_tl_r3s4_04_text.width + platePadX * 2, 800)"
+        },
+        "h": {
+          "expr": "fontSize + platePadY * 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 40,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s4_04_border_top",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateBorderColor"
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_tl_r3s4_04_text.width + platePadX * 2, 800)"
+        },
+        "h": 3
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY - fontSize / 2 - platePadY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 40,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s4_04_border_bot",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateBorderColor"
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_tl_r3s4_04_text.width + platePadX * 2, 800)"
+        },
+        "h": 3
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "posY + fontSize / 2 + platePadY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 40,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s4_04_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": "#00FF9C",
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "colorTop"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "colorBot"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 1.2,
+            "width": 0.2,
+            "color": "rgba(255,255,255,0.85)"
+          }
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 14
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 16,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 36,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(0,0,0,0.7)",
+            "blur": 10,
+            "x": 0,
+            "y": 4
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "linear"
+            },
+            {
+              "t": 0.4,
+              "v": 1,
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

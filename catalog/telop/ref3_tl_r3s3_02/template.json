@@ -1,0 +1,742 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s3_02",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.36,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "stepNum",
+      "type": "number",
+      "label": "ステップ番号",
+      "default": 1
+    },
+    {
+      "key": "totalSteps",
+      "type": "number",
+      "label": "総ステップ数",
+      "default": 5
+    },
+    {
+      "key": "stepTitle",
+      "type": "text",
+      "label": "ステップタイトル",
+      "default": "問題の定義"
+    },
+    {
+      "key": "stepDetail",
+      "type": "text",
+      "label": "補足テキスト",
+      "default": "解くべき課題を明確にする"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセントカラー",
+      "default": "#E53935"
+    },
+    {
+      "key": "bgColor",
+      "type": "color",
+      "label": "バー背景色",
+      "default": "rgba(20,20,30,0.88)"
+    },
+    {
+      "key": "titleColor",
+      "type": "color",
+      "label": "タイトル文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "detailColor",
+      "type": "color",
+      "label": "補足文字色",
+      "default": "#CCCCCC"
+    },
+    {
+      "key": "stepLabelSize",
+      "type": "number",
+      "label": "STEPラベルサイズ",
+      "default": 28
+    },
+    {
+      "key": "stepNumSize",
+      "type": "number",
+      "label": "ステップ番号サイズ",
+      "default": 72
+    },
+    {
+      "key": "titleSize",
+      "type": "number",
+      "label": "タイトルサイズ",
+      "default": 62
+    },
+    {
+      "key": "detailSize",
+      "type": "number",
+      "label": "補足サイズ",
+      "default": 36
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "左端X位置",
+      "default": 120
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "バー中心Y位置",
+      "default": 900
+    },
+    {
+      "key": "barHeight",
+      "type": "number",
+      "label": "バー高さ",
+      "default": 140
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s3_02_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bgColor"
+        },
+        "cornerRadius": 12
+      },
+      "size": {
+        "w": 900,
+        "h": {
+          "var": "barHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": -50
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_02_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 12
+      },
+      "size": {
+        "w": 10,
+        "h": {
+          "var": "barHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": -50
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_02_step_label",
+      "type": "text",
+      "content": {
+        "text": "STEP",
+        "size": {
+          "var": "stepLabelSize"
+        },
+        "font": "'Helvetica Neue', Arial, 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "accentColor"
+        },
+        "align": "center",
+        "letterSpacing": 4
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 90"
+        },
+        "y": {
+          "expr": "posY - stepNumSize / 2 + 6"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": -50
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_02_step_num",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "stepNum"
+        },
+        "size": {
+          "var": "stepNumSize"
+        },
+        "font": "'Helvetica Neue', Arial, 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": {
+          "var": "accentColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 90"
+        },
+        "y": {
+          "expr": "posY + 4"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": -50
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_02_divider",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(255,255,255,0.25)"
+      },
+      "size": {
+        "w": 2,
+        "h": {
+          "expr": "barHeight - 40"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 160"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": -50
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_02_title",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "stepTitle"
+        },
+        "size": {
+          "var": "titleSize"
+        },
+        "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "titleColor"
+        },
+        "align": "left",
+        "shadow": {
+          "color": "rgba(0,0,0,0.5)",
+          "blur": 6,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 184"
+        },
+        "y": {
+          "expr": "posY - 6"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": -50
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s3_02_detail",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "stepDetail"
+        },
+        "size": {
+          "var": "detailSize"
+        },
+        "font": "'Hiragino Sans W3', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 400,
+        "color": {
+          "var": "detailColor"
+        },
+        "align": "left"
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 184"
+        },
+        "y": {
+          "expr": "posY + titleSize / 2 + 4"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.36,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": -50
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

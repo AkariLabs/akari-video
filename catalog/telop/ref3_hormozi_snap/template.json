@@ -1,0 +1,245 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_hormozi_snap",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.1,
+    "outDur": 0.12,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "normalText",
+      "type": "text",
+      "label": "前半テキスト（通常語）",
+      "default": "この動画を見れば"
+    },
+    {
+      "key": "emphasisText",
+      "type": "text",
+      "label": "強調語",
+      "default": "全部わかる"
+    },
+    {
+      "key": "normalColor",
+      "type": "color",
+      "label": "通常語の文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "emphasisColor",
+      "type": "color",
+      "label": "強調語の文字色（アクセント）",
+      "default": "#ffd400"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "縁取り色（両レイヤー共通）",
+      "default": "#000000"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "ドロップシャドウ色",
+      "default": "rgba(0,0,0,0.75)"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "テロップの縦位置（px）",
+      "default": 700
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_hormozi_snap_normal",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "normalText"
+        },
+        "size": 108,
+        "font": "system-ui",
+        "weight": 900,
+        "color": {
+          "var": "normalColor"
+        },
+        "align": "left",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 12
+          }
+        ],
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 8,
+          "x": 3,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2 - 20"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.01,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.18,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.12,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_hormozi_snap_emphasis",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "emphasisText"
+        },
+        "size": 128,
+        "font": "system-ui",
+        "weight": 900,
+        "color": {
+          "var": "emphasisColor"
+        },
+        "align": "left",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 14
+          }
+        ],
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 8,
+          "x": 3,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2 + 20"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.01,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.18,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.12,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

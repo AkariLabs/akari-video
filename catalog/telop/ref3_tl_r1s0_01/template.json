@@ -1,0 +1,369 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s0_01",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.2,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "テキスト",
+      "default": "黒板チョーク"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブテキスト",
+      "default": "Handwritten Style"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 72
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブ文字サイズ",
+      "default": 38
+    },
+    {
+      "key": "chalkColor",
+      "type": "color",
+      "label": "チョーク色",
+      "default": "#F5F0E8"
+    },
+    {
+      "key": "subChalkColor",
+      "type": "color",
+      "label": "サブチョーク色",
+      "default": "#D4C9B0"
+    },
+    {
+      "key": "boardColor",
+      "type": "color",
+      "label": "黒板色",
+      "default": "rgba(28,48,32,0.92)"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント（下線）色",
+      "default": "#E8D5A0"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 870
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s0_01_board",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "boardColor"
+        },
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r1s0_01_main.width + 120"
+        },
+        "h": {
+          "expr": "fontSize + subFontSize + 64"
+        }
+      },
+      "transform": {
+        "x": 120,
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s0_01_line",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 2
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r1s0_01_main.width + 40"
+        },
+        "h": 3
+      },
+      "transform": {
+        "x": 140,
+        "y": {
+          "expr": "posY + fontSize * 0.6"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        },
+        "opacity": 0.7
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s0_01_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "chalkColor"
+        },
+        "align": "left",
+        "letterSpacing": 2,
+        "shadows": [
+          {
+            "color": "rgba(255,255,255,0.12)",
+            "blur": 3,
+            "x": 1,
+            "y": 1
+          },
+          {
+            "color": "rgba(0,0,0,0.45)",
+            "blur": 8,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": 160,
+        "y": {
+          "expr": "posY - subFontSize * 0.6"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.04,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.08,
+                "v": 1,
+                "ease": "out-cubic"
+              }
+            ]
+          },
+          {
+            "prop": "y",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": -8,
+                "ease": "out-cubic"
+              },
+              {
+                "t": 0.1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "randomize": {
+          "seed": 42,
+          "rotAmp": 3,
+          "dyAmp": 2
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s0_01_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
+        "weight": 400,
+        "color": {
+          "var": "subChalkColor"
+        },
+        "align": "left",
+        "letterSpacing": 3,
+        "shadows": [
+          {
+            "color": "rgba(255,255,255,0.08)",
+            "blur": 2,
+            "x": 1,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": 163,
+        "y": {
+          "expr": "posY + fontSize * 0.52"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

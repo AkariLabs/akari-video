@@ -1,0 +1,428 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r2s11_002",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.4,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 4
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "MINIMAL REFINED"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブテキスト",
+      "default": "Akari Studio"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "メイン文字サイズ",
+      "default": 86
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブ文字サイズ",
+      "default": 38
+    },
+    {
+      "key": "glassColor",
+      "type": "color",
+      "label": "ガラス帯色",
+      "default": "rgba(255,255,255,0.14)"
+    },
+    {
+      "key": "borderColor",
+      "type": "color",
+      "label": "縁線色",
+      "default": "rgba(255,255,255,0.42)"
+    },
+    {
+      "key": "mainTextColor",
+      "type": "color",
+      "label": "メイン文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "subTextColor",
+      "type": "color",
+      "label": "サブ文字色",
+      "default": "rgba(255,255,255,0.72)"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "シャドウ色",
+      "default": "rgba(0,0,0,0.36)"
+    },
+    {
+      "key": "padX",
+      "type": "number",
+      "label": "横余白",
+      "default": 64
+    },
+    {
+      "key": "padY",
+      "type": "number",
+      "label": "縦余白",
+      "default": 58
+    },
+    {
+      "key": "gap",
+      "type": "number",
+      "label": "テキスト間隔",
+      "default": 12
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r2s11_002_glass",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "glassColor"
+        },
+        "cornerRadius": 12
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_tl_r2s11_002_main.width, @ref3_tl_r2s11_002_sub.width) + padX * 2"
+        },
+        "h": {
+          "expr": "fontSize + subFontSize + gap + padY * 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s11_002_border",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "transparent",
+        "cornerRadius": 12,
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "borderColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(255,255,255,0.08)"
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_tl_r2s11_002_main.width, @ref3_tl_r2s11_002_sub.width) + padX * 2"
+        },
+        "h": {
+          "expr": "fontSize + subFontSize + gap + padY * 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s11_002_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W6', 'Helvetica Neue', system-ui, sans-serif",
+        "weight": 600,
+        "color": {
+          "var": "mainTextColor"
+        },
+        "align": "center",
+        "letterSpacing": 6,
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 16,
+          "x": 0,
+          "y": 4
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2 - subFontSize / 2 - gap / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 20,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": -16
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s11_002_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Sans W3', 'Helvetica Neue', system-ui, sans-serif",
+        "weight": 300,
+        "color": {
+          "var": "subTextColor"
+        },
+        "align": "center",
+        "letterSpacing": 8
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2 + fontSize / 2 + gap / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 20,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": -16
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

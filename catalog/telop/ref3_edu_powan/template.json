@@ -1,0 +1,238 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_edu_powan",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.6,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "本文",
+      "default": "よくできました！"
+    },
+    {
+      "key": "color",
+      "type": "color",
+      "label": "外縁色（パステル縁）",
+      "default": "#ffb3d9"
+    },
+    {
+      "key": "strokeWhite",
+      "type": "color",
+      "label": "縁色（白縁）",
+      "default": "#ffffff"
+    },
+    {
+      "key": "bgFill",
+      "type": "color",
+      "label": "座布団色",
+      "default": "rgba(255,255,255,0.22)"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.30)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_edu_powan_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bgFill"
+        },
+        "cornerRadius": 32
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_edu_powan_text.width + 112"
+        },
+        "h": {
+          "expr": "@ref3_edu_powan_text.height + 72"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 980,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_edu_powan_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 92,
+        "font": "'Hiragino Maru Gothic ProN', 'Yu Gothic', 'Rounded Mplus 1c', sans-serif",
+        "weight": 800,
+        "color": "#ffffff",
+        "align": "center",
+        "strokes": [
+          {
+            "color": {
+              "var": "color"
+            },
+            "width": 16
+          },
+          {
+            "color": {
+              "var": "strokeWhite"
+            },
+            "width": 10
+          }
+        ],
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 6,
+          "x": 0,
+          "y": 4
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 980,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.05,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "scale",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0,
+                "ease": "out-back"
+              },
+              {
+                "t": 0.3,
+                "v": 1.1,
+                "ease": "inout-cubic"
+              },
+              {
+                "t": 0.42,
+                "v": 0.92,
+                "ease": "inout-cubic"
+              },
+              {
+                "t": 0.5,
+                "v": 1
+              }
+            ]
+          },
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0,
+                "ease": "step"
+              },
+              {
+                "t": 0.02,
+                "v": 1
+              }
+            ]
+          }
+        ],
+        "loop": {
+          "float": {
+            "amp": 4,
+            "periodSec": 1.8,
+            "phaseByIndex": 0.4
+          }
+        },
+        "randomize": {
+          "seed": 42,
+          "palette": [
+            "#ffb3d9",
+            "#ffe082",
+            "#b3e5fc",
+            "#c8e6c9",
+            "#ffccbc"
+          ]
+        }
+      }
+    }
+  ]
+}

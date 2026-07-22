@@ -1,0 +1,207 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tracking_blast",
+  "kind": "free",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.6,
+    "outDur": 0.4,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "タイトル",
+      "default": "ASCENSION"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "フォントサイズ",
+      "default": 118
+    },
+    {
+      "key": "color",
+      "type": "color",
+      "label": "文字色",
+      "default": "#F4EFE6"
+    },
+    {
+      "key": "bg",
+      "type": "color",
+      "label": "背景色",
+      "default": "",
+      "optional": true
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tracking_blast_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bg"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(fontSize * 7.2, 760)"
+        },
+        "h": {
+          "expr": "fontSize * 1.28"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.5"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": 0.72
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "visibleIf": {
+        "expr": "has(bg)"
+      }
+    },
+    {
+      "id": "ref3_tracking_blast_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "Georgia, 'Times New Roman', Times, serif",
+        "weight": 700,
+        "color": {
+          "var": "color"
+        },
+        "align": "center",
+        "letterSpacing": 0,
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.46)",
+            "blur": 12,
+            "x": 0,
+            "y": 5
+          },
+          {
+            "color": "rgba(0,0,0,0.28)",
+            "blur": 34,
+            "x": 0,
+            "y": 14
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.5"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "letterSpacing",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.6,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

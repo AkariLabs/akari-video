@@ -1,0 +1,279 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_word_highlight",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.14,
+    "outDur": 0.16,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "captionText",
+      "type": "text",
+      "label": "本文テキスト",
+      "default": "THIS IS THE IMPORTANT PART"
+    },
+    {
+      "key": "activeColor",
+      "type": "color",
+      "label": "アクティブカラー",
+      "default": "#FFD93D"
+    },
+    {
+      "key": "baseColor",
+      "type": "color",
+      "label": "ベースカラー",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "フォントサイズ",
+      "default": 72
+    },
+    {
+      "key": "plateOpacity",
+      "type": "number",
+      "label": "プレート透明度",
+      "default": 0.72
+    },
+    {
+      "key": "staggerAdjust",
+      "type": "number",
+      "label": "stagger調整",
+      "default": 0.45
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_word_highlight_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#000000",
+        "cornerRadius": 18
+      },
+      "size": {
+        "w": {
+          "expr": "min(max(@ref3_word_highlight_text.width + 128, 720), @stage.width - 240)"
+        },
+        "h": {
+          "expr": "@ref3_word_highlight_text.height + 56"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.72"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": {
+          "var": "plateOpacity"
+        }
+      }
+    },
+    {
+      "id": "ref3_word_highlight_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "captionText"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "baseColor"
+        },
+        "align": "center",
+        "letterSpacing": 18,
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.92)",
+            "width": 8
+          },
+          {
+            "color": "rgba(0,0,0,0.45)",
+            "width": 3
+          }
+        ],
+        "shadow": {
+          "color": "rgba(0,0,0,0.65)",
+          "blur": 10,
+          "x": 0,
+          "y": 4
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.72"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.14,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.16,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "word",
+        "stagger": 0.45,
+        "tracks": [],
+        "active": {
+          "color": "#FFD93D",
+          "mode": "flash"
+        }
+      }
+    },
+    {
+      "id": "ref3_word_highlight_active",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "captionText"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "activeColor"
+        },
+        "align": "center",
+        "letterSpacing": 18,
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.92)",
+            "width": 8
+          },
+          {
+            "color": "rgba(0,0,0,0.45)",
+            "width": 3
+          }
+        ],
+        "shadow": {
+          "color": "rgba(0,0,0,0.65)",
+          "blur": 10,
+          "x": 0,
+          "y": 4
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.72"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.14,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.16,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "word",
+        "stagger": 0.45,
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0,
+                "ease": "step"
+              },
+              {
+                "t": 0.02,
+                "v": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

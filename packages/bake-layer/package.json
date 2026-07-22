@@ -1,0 +1,19 @@
+{
+  "name": "@akari-video/bake-layer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "旧エンジン（ATF テロップレンダラー）をヘッドレスブラウザで実行し、PNG連番→アルファ付きProRes4444movへ焼く bake CLI。契約 §1.1（bake CLI 仕様）の提供側。--kind fx は 2026-07-22 司令塔裁定でスコープ除外（未実装）。",
+  "bin": {
+    "bake-layer": "bin/bake-layer.mjs"
+  },
+  "scripts": {
+    "bake": "node bin/bake-layer.mjs",
+    "port:catalog": "node scripts/port-telop.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "esbuild": "^0.24.2",
+    "puppeteer": "^25.1.0"
+  }
+}
