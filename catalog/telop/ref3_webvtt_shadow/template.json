@@ -24,13 +24,13 @@
       "default": "これはテロップのサンプルです"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "文字色",
       "default": "#FFFFFF"
     },
     {
-      "key": "shadowColor",
+      "key": "color_shadow",
       "type": "color",
       "label": "影色",
       "default": "#000000"
@@ -48,12 +48,12 @@
         "font": "system-ui",
         "weight": 600,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "center",
         "shadow": {
           "color": {
-            "var": "shadowColor"
+            "var": "color_shadow"
           },
           "blur": 3,
           "x": 1,

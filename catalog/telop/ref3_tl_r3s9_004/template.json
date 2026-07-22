@@ -30,31 +30,31 @@
       "default": "国際"
     },
     {
-      "key": "baseBandColor",
+      "key": "color_bg",
       "type": "color",
       "label": "ベース帯色",
       "default": "#0A0A0A"
     },
     {
-      "key": "labelBgColor",
+      "key": "color_bg_2",
       "type": "color",
       "label": "トピック帯色",
       "default": "#1560A8"
     },
     {
-      "key": "labelTextColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "トピックテキスト色",
       "default": "#FFFFFF"
     },
     {
-      "key": "bodyTextColor",
+      "key": "color_text",
       "type": "color",
       "label": "本文テキスト色",
       "default": "#F0F0F0"
     },
     {
-      "key": "topLineColor",
+      "key": "color_accent",
       "type": "color",
       "label": "上辺ラインカラー",
       "default": "#1E88E5"
@@ -79,7 +79,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "baseBandColor"
+          "var": "color_bg"
         }
       },
       "size": {
@@ -133,7 +133,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "topLineColor"
+          "var": "color_accent"
         }
       },
       "size": {
@@ -187,7 +187,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "labelBgColor"
+          "var": "color_bg_2"
         }
       },
       "size": {
@@ -252,7 +252,7 @@
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 900,
         "color": {
-          "var": "labelTextColor"
+          "var": "color_text_2"
         },
         "align": "center"
       },
@@ -299,7 +299,10 @@
             }
           ]
         }
-      ]
+      ],
+      "fit": {
+        "maxWidth": 120
+      }
     },
     {
       "id": "ref3_tl_r3s9_004_divider",
@@ -307,7 +310,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "topLineColor"
+          "var": "color_accent"
         }
       },
       "size": {
@@ -372,7 +375,7 @@
         "font": "'Hiragino Sans W5', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 500,
         "color": {
-          "var": "bodyTextColor"
+          "var": "color_text"
         },
         "align": "left",
         "letterSpacing": 1

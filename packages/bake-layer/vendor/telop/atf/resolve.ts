@@ -5,6 +5,24 @@ import { verticalLayout } from './vertical'
 import { evalExprWithHas } from './expr'
 import { classifyGlyph } from '../render/perchar'
 
+// --- テキスト堅牢化（shrink-to-fit）定数 ---
+// 2026-07-22 telop-tunables タスクで追加（vendor/PROVENANCE.md 参照）。
+// どんな長さのテキストでもキャンバスからはみ出さないよう、フォントサイズを
+// 自動縮小するための既定パラメータ。
+// マージンは意図的に 0（= キャンバス境界そのもの）。カタログには「速報」バッジのように
+// x=0 でキャンバス左端に意図的にフラッシュ配置するデザインが複数あり、パーセンテージ
+// マージンを設けるとそれらの既定表示まで縮小されてしまう（後方互換の破壊）。
+// ここでの堅牢化は「絶対にフレーム外へはみ出させない」ことが目的であり、
+// タイトルセーフ的な内側余白の強制ではない。
+/** キャンバス各辺に確保する安全マージン（stage 寸法比）。0 = キャンバス境界と同じ */
+const FIT_SAFE_MARGIN_FRAC = 0
+/** 反復収縮の最大試行回数（canvas measureText はサイズにほぼ線形なので数回で収束する） */
+const FIT_MAX_ITERATIONS = 4
+/** 縮小してよい下限（絶対px）。これ未満には縮めない（完全に不可視になるのを防ぐ） */
+const FIT_ABSOLUTE_MIN_PX = 10
+/** 既定の最小スケール（元サイズに対する比率）。layer.fit.minScale で上書き可能 */
+const FIT_DEFAULT_MIN_SCALE = 0.3
+
 function hash01(seed: number, index: number, salt: number): number {
   let h = (seed | 0) ^ Math.imul(index + 0x9e3779b9, 0x85ebca6b) ^ Math.imul(salt + 0xc2b2ae35, 0x27d4eb2d)
   h ^= h >>> 16
@@ -358,14 +376,11 @@ export function resolve(
       const c = layer.content as TextContent
       const text = resolveStr(c.text)
       const font = c.font ?? 'system-ui'
-      // size は Value なので数値へ解決する
-      const resolvedSize = resolveNum(c.size, 0)
+      // size は Value なので数値へ解決する（shrink-to-fit で縮小しうるため let）
+      let resolvedSize = resolveNum(c.size, 0)
       // letterSpacing は Value（なければ 0）
       const resolvedLetterSpacing = c.letterSpacing !== undefined ? resolveNum(c.letterSpacing, 0) : 0
-      // 縦書きは fontSize 基準の固定送りでブロック寸法を算出（measure は不要）
-      const { width, height } = c.vertical
-        ? verticalLayout(text, resolvedSize, resolvedLetterSpacing)
-        : measureTextLayer(text, font, resolvedSize, c.weight, layer.perChar, measure, resolvedLetterSpacing)
+      const isVertical = !!c.vertical
       // ストローク幅は Value（変数・式）を許可するため、測定前に数値へ解決する
       const resolvedStroke = c.stroke
         ? { color: resolveStr(c.stroke.color), width: resolveNum(c.stroke.width, 0) }
@@ -378,6 +393,63 @@ export function resolve(
       const strokeOutset = resolvedStrokes && resolvedStrokes.length > 0
         ? Math.max(...resolvedStrokes.map((s) => s.width))
         : resolvedStroke?.width ?? 0
+
+      // 縦書き/横書き共通の実測ヘルパー（現在の resolvedSize で測る）
+      const measureBlock = (size: number): { width: number; height: number } =>
+        isVertical
+          ? verticalLayout(text, size, resolvedLetterSpacing)
+          : measureTextLayer(text, font, size, c.weight, layer.perChar, measure, resolvedLetterSpacing)
+
+      // --- テキスト堅牢化（shrink-to-fit） ---
+      // どんな長さのテキストでもキャンバス安全域（+ layer.fit の任意指定）からはみ出さないよう、
+      // フォントサイズを反復的に縮小する。安全域は anchor と（既に確定済みの）transform 位置から
+      // 算出する（このレイヤー自身の @id.width 等はまだスコープに無いため、self 参照はしない）。
+      const anchorX = layer.transform.anchor.x
+      const anchorY = layer.transform.anchor.y
+      const tx0 = resolveNum(layer.transform.x)
+      const ty0 = resolveNum(layer.transform.y)
+      const marginX = stageWidth * FIT_SAFE_MARGIN_FRAC
+      const marginY = stageHeight * FIT_SAFE_MARGIN_FRAC
+      const canvasMaxW = Math.max(
+        0,
+        Math.min(
+          anchorX > 0 ? (tx0 - marginX) / anchorX : Infinity,
+          anchorX < 1 ? (stageWidth - marginX - tx0) / (1 - anchorX) : Infinity,
+        ),
+      )
+      const canvasMaxH = Math.max(
+        0,
+        Math.min(
+          anchorY > 0 ? (ty0 - marginY) / anchorY : Infinity,
+          anchorY < 1 ? (stageHeight - marginY - ty0) / (1 - anchorY) : Infinity,
+        ),
+      )
+      const fitMaxW = layer.fit?.maxWidth !== undefined ? resolveNum(layer.fit.maxWidth, Infinity) : Infinity
+      const fitMaxH = layer.fit?.maxHeight !== undefined ? resolveNum(layer.fit.maxHeight, Infinity) : Infinity
+      const effectiveMaxW = Math.min(canvasMaxW, fitMaxW)
+      const effectiveMaxH = Math.min(canvasMaxH, fitMaxH)
+
+      if (text.length > 0 && (Number.isFinite(effectiveMaxW) || Number.isFinite(effectiveMaxH))) {
+        const originalSize = resolvedSize
+        const minScale = layer.fit?.minScale ?? FIT_DEFAULT_MIN_SCALE
+        const floor = Math.max(originalSize * minScale, FIT_ABSOLUTE_MIN_PX)
+        for (let iter = 0; iter < FIT_MAX_ITERATIONS; iter += 1) {
+          const measured = measureBlock(resolvedSize)
+          const totalW = measured.width + strokeOutset * 2
+          const totalH = measured.height + strokeOutset * 2
+          const ratioW = Number.isFinite(effectiveMaxW) && totalW > effectiveMaxW ? effectiveMaxW / totalW : 1
+          const ratioH = Number.isFinite(effectiveMaxH) && totalH > effectiveMaxH ? effectiveMaxH / totalH : 1
+          const ratio = Math.min(ratioW, ratioH)
+          if (ratio >= 0.995) break
+          resolvedSize = Math.max(resolvedSize * ratio, floor)
+          if (resolvedSize <= floor) {
+            // 下限に到達。念のためもう一度測定してループを抜ける
+            break
+          }
+        }
+      }
+
+      const { width, height } = measureBlock(resolvedSize)
       measuredW = width + strokeOutset * 2
       measuredH = height + strokeOutset * 2
 

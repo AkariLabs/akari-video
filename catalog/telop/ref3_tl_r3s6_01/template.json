@@ -42,25 +42,25 @@
       "default": 38
     },
     {
-      "key": "inkColor",
+      "key": "color_text",
       "type": "color",
       "label": "マーカーインク色",
       "default": "#1C1C2E"
     },
     {
-      "key": "subColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "肩書き色",
       "default": "#3A3A55"
     },
     {
-      "key": "plateColor",
+      "key": "color_bg",
       "type": "color",
       "label": "プレート色",
       "default": "rgba(255,255,255,0.94)"
     },
     {
-      "key": "lineColor",
+      "key": "color_accent",
       "type": "color",
       "label": "マーカー下線色",
       "default": "#FF5C5C"
@@ -88,6 +88,12 @@
       "type": "number",
       "label": "字間",
       "default": 2
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.14)"
     }
   ],
   "layers": [
@@ -97,7 +103,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "plateColor"
+          "var": "color_bg"
         },
         "cornerRadius": 6
       },
@@ -160,7 +166,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "lineColor"
+          "var": "color_accent"
         },
         "cornerRadius": 3
       },
@@ -250,7 +256,7 @@
         "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
         "weight": 900,
         "color": {
-          "var": "inkColor"
+          "var": "color_text"
         },
         "align": "left",
         "letterSpacing": {
@@ -258,7 +264,9 @@
         },
         "shadows": [
           {
-            "color": "rgba(0,0,0,0.14)",
+            "color": {
+              "var": "color_shadow"
+            },
             "blur": 4,
             "x": 2,
             "y": 2
@@ -350,7 +358,7 @@
         "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
         "weight": 500,
         "color": {
-          "var": "subColor"
+          "var": "color_text_2"
         },
         "align": "left",
         "letterSpacing": 1

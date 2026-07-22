@@ -30,16 +30,28 @@
       "default": "問題の本質"
     },
     {
-      "key": "keyColor",
+      "key": "color_primary",
       "type": "color",
       "label": "キーカラー（帯）",
       "default": "#1B4FD8"
     },
     {
-      "key": "titleColor",
+      "key": "color_text",
       "type": "color",
       "label": "タイトル文字色",
       "default": "#ffffff"
+    },
+    {
+      "key": "color_text_2",
+      "type": "color",
+      "label": "章ラベル文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "タイトルのシャドウ色",
+      "default": "rgba(0,0,0,0.5)"
     }
   ],
   "layers": [
@@ -49,7 +61,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "keyColor"
+          "var": "color_primary"
         },
         "cornerRadius": 6
       },
@@ -125,7 +137,9 @@
         "size": 25,
         "font": "system-ui",
         "weight": 600,
-        "color": "#ffffff",
+        "color": {
+          "var": "color_text_2"
+        },
         "align": "left"
       },
       "transform": {
@@ -193,11 +207,13 @@
         "font": "system-ui",
         "weight": 600,
         "color": {
-          "var": "titleColor"
+          "var": "color_text"
         },
         "align": "left",
         "shadow": {
-          "color": "rgba(0,0,0,0.5)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 6,
           "x": 1,
           "y": 2

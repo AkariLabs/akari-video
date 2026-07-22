@@ -24,25 +24,25 @@
       "default": "君の声が光になる"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "待機文字色",
       "default": "#FFFFFF"
     },
     {
-      "key": "activeColor",
+      "key": "color_accent",
       "type": "color",
       "label": "点灯色",
       "default": "#FFD84A"
     },
     {
-      "key": "strokeOuter",
+      "key": "color_stroke",
       "type": "color",
       "label": "外縁色",
       "default": "rgba(0,0,0,0.90)"
     },
     {
-      "key": "strokeInner",
+      "key": "color_stroke_2",
       "type": "color",
       "label": "内縁色",
       "default": "rgba(255,255,255,0.92)"
@@ -70,6 +70,12 @@
       "type": "number",
       "label": "字間",
       "default": 4
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.62)"
     }
   ],
   "layers": [
@@ -86,7 +92,7 @@
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 900,
         "color": {
-          "var": "activeColor"
+          "var": "color_accent"
         },
         "align": "center",
         "letterSpacing": {
@@ -95,7 +101,7 @@
         "shadows": [
           {
             "color": {
-              "var": "activeColor"
+              "var": "color_accent"
             },
             "blur": 12,
             "x": 0,
@@ -103,7 +109,7 @@
           },
           {
             "color": {
-              "var": "activeColor"
+              "var": "color_accent"
             },
             "blur": 30,
             "x": 0,
@@ -208,7 +214,7 @@
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 900,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "center",
         "letterSpacing": {
@@ -217,26 +223,30 @@
         "strokes": [
           {
             "color": {
-              "var": "strokeOuter"
+              "var": "color_stroke"
             },
             "width": 18
           },
           {
             "color": {
-              "var": "strokeInner"
+              "var": "color_stroke_2"
             },
             "width": 6
           }
         ],
         "shadows": [
           {
-            "color": "rgba(0,0,0,0.62)",
+            "color": {
+              "var": "color_shadow"
+            },
             "blur": 10,
             "x": 0,
             "y": 4
           },
           {
-            "color": "#FFD84A",
+            "color": {
+              "var": "color_accent"
+            },
             "blur": 18,
             "x": 0,
             "y": 0

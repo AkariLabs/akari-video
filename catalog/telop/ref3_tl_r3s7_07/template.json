@@ -42,34 +42,70 @@
       "default": 8
     },
     {
-      "key": "glowTop",
+      "key": "color_primary",
       "type": "color",
       "label": "リン光上端（青白）",
       "default": "#E8F4FF"
     },
     {
-      "key": "glowMid",
+      "key": "color_primary_2",
       "type": "color",
       "label": "リン光中間",
       "default": "#B8DCFF"
     },
     {
-      "key": "glowBot",
+      "key": "color_primary_3",
       "type": "color",
       "label": "リン光下端（やや暗）",
       "default": "#7AACDC"
     },
     {
-      "key": "plateColor",
+      "key": "color_bg",
       "type": "color",
       "label": "字幕帯色（濃灰）",
       "default": "rgba(8,12,20,0.82)"
     },
     {
-      "key": "outerStroke",
+      "key": "color_stroke",
       "type": "color",
       "label": "外縁色（黒）",
       "default": "rgba(0,0,0,0.95)"
+    },
+    {
+      "key": "color_bg_2",
+      "type": "color",
+      "label": "帯グラデ縁（暗）",
+      "default": "rgba(4,8,16,0.5)"
+    },
+    {
+      "key": "color_bg_3",
+      "type": "color",
+      "label": "帯グラデ中央",
+      "default": "rgba(8,12,20,0.85)"
+    },
+    {
+      "key": "color_stroke_2",
+      "type": "color",
+      "label": "内側の青フチ色",
+      "default": "rgba(100,180,255,0.6)"
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色（黒）",
+      "default": "rgba(0,0,0,0.9)"
+    },
+    {
+      "key": "color_glow",
+      "type": "color",
+      "label": "グロー色（青）",
+      "default": "rgba(80,160,255,0.5)"
+    },
+    {
+      "key": "color_glow_2",
+      "type": "color",
+      "label": "グロー色（水色）",
+      "default": "rgba(140,200,255,0.25)"
     }
   ],
   "layers": [
@@ -79,26 +115,34 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "plateColor"
+          "var": "color_bg"
         },
         "fillGradient": {
           "type": "linear-v",
           "stops": [
             {
               "at": 0,
-              "color": "rgba(4,8,16,0.5)"
+              "color": {
+                "var": "color_bg_2"
+              }
             },
             {
               "at": 0.15,
-              "color": "rgba(8,12,20,0.85)"
+              "color": {
+                "var": "color_bg_3"
+              }
             },
             {
               "at": 0.85,
-              "color": "rgba(8,12,20,0.85)"
+              "color": {
+                "var": "color_bg_3"
+              }
             },
             {
               "at": 1,
-              "color": "rgba(4,8,16,0.5)"
+              "color": {
+                "var": "color_bg_2"
+              }
             }
           ]
         }
@@ -190,7 +234,9 @@
         },
         "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
-        "color": "#E8F4FF",
+        "color": {
+          "var": "color_primary"
+        },
         "align": "center",
         "letterSpacing": {
           "var": "letterSpacing"
@@ -201,19 +247,19 @@
             {
               "at": 0,
               "color": {
-                "var": "glowTop"
+                "var": "color_primary"
               }
             },
             {
               "at": 0.45,
               "color": {
-                "var": "glowMid"
+                "var": "color_primary_2"
               }
             },
             {
               "at": 1,
               "color": {
-                "var": "glowBot"
+                "var": "color_primary_3"
               }
             }
           ],
@@ -226,30 +272,38 @@
         "strokes": [
           {
             "color": {
-              "var": "outerStroke"
+              "var": "color_stroke"
             },
             "width": 14
           },
           {
-            "color": "rgba(100,180,255,0.6)",
+            "color": {
+              "var": "color_stroke_2"
+            },
             "width": 4
           }
         ],
         "shadows": [
           {
-            "color": "rgba(0,0,0,0.9)",
+            "color": {
+              "var": "color_shadow"
+            },
             "blur": 8,
             "x": 1,
             "y": 2
           },
           {
-            "color": "rgba(80,160,255,0.5)",
+            "color": {
+              "var": "color_glow"
+            },
             "blur": 20,
             "x": 0,
             "y": 0
           },
           {
-            "color": "rgba(140,200,255,0.25)",
+            "color": {
+              "var": "color_glow_2"
+            },
             "blur": 40,
             "x": 0,
             "y": 0

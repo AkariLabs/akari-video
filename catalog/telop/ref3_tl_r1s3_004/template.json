@@ -30,25 +30,25 @@
       "default": "現地中継"
     },
     {
-      "key": "badgeColor",
+      "key": "color_bg_2",
       "type": "color",
       "label": "バッジ背景色",
       "default": "#E8000D"
     },
     {
-      "key": "bandColor",
+      "key": "color_bg",
       "type": "color",
       "label": "地名帯背景色",
       "default": "#FFFFFF"
     },
     {
-      "key": "badgeTextColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "バッジ文字色",
       "default": "#FFFFFF"
     },
     {
-      "key": "locationColor",
+      "key": "color_text",
       "type": "color",
       "label": "地名テキスト色",
       "default": "#1A1A1A"
@@ -73,7 +73,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "badgeColor"
+          "var": "color_bg_2"
         },
         "cornerRadius": 6
       },
@@ -155,7 +155,7 @@
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 900,
         "color": {
-          "var": "badgeTextColor"
+          "var": "color_text_2"
         },
         "align": "center",
         "letterSpacing": 1
@@ -219,7 +219,10 @@
             }
           ]
         }
-      ]
+      ],
+      "fit": {
+        "maxWidth": 160
+      }
     },
     {
       "id": "ref3_tl_r1s3_004_location_band",
@@ -227,12 +230,14 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandColor"
+          "var": "color_bg"
         },
         "cornerRadius": 4
       },
       "size": {
-        "w": 420,
+        "w": {
+          "expr": "max(@ref3_tl_r1s3_004_location_text.width + 108, 420)"
+        },
         "h": 60
       },
       "transform": {
@@ -298,7 +303,7 @@
         "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "locationColor"
+          "var": "color_text"
         },
         "align": "left",
         "letterSpacing": 1

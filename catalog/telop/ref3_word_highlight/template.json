@@ -24,13 +24,13 @@
       "default": "THIS IS THE IMPORTANT PART"
     },
     {
-      "key": "activeColor",
+      "key": "color_accent",
       "type": "color",
       "label": "アクティブカラー",
       "default": "#FFD93D"
     },
     {
-      "key": "baseColor",
+      "key": "color_text",
       "type": "color",
       "label": "ベースカラー",
       "default": "#FFFFFF"
@@ -52,6 +52,30 @@
       "type": "number",
       "label": "stagger調整",
       "default": 0.45
+    },
+    {
+      "key": "color_bg",
+      "type": "color",
+      "label": "プレート背景色",
+      "default": "#000000"
+    },
+    {
+      "key": "color_stroke",
+      "type": "color",
+      "label": "縁色（外）",
+      "default": "rgba(0,0,0,0.92)"
+    },
+    {
+      "key": "color_stroke_2",
+      "type": "color",
+      "label": "縁色（内）",
+      "default": "rgba(0,0,0,0.45)"
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.65)"
     }
   ],
   "layers": [
@@ -60,7 +84,9 @@
       "type": "shape",
       "content": {
         "shape": "rect",
-        "fill": "#000000",
+        "fill": {
+          "var": "color_bg"
+        },
         "cornerRadius": 18
       },
       "size": {
@@ -100,22 +126,28 @@
         "font": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif",
         "weight": 900,
         "color": {
-          "var": "baseColor"
+          "var": "color_text"
         },
         "align": "center",
         "letterSpacing": 18,
         "strokes": [
           {
-            "color": "rgba(0,0,0,0.92)",
+            "color": {
+              "var": "color_stroke"
+            },
             "width": 8
           },
           {
-            "color": "rgba(0,0,0,0.45)",
+            "color": {
+              "var": "color_stroke_2"
+            },
             "width": 3
           }
         ],
         "shadow": {
-          "color": "rgba(0,0,0,0.65)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 10,
           "x": 0,
           "y": 4
@@ -188,22 +220,28 @@
         "font": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif",
         "weight": 900,
         "color": {
-          "var": "activeColor"
+          "var": "color_accent"
         },
         "align": "center",
         "letterSpacing": 18,
         "strokes": [
           {
-            "color": "rgba(0,0,0,0.92)",
+            "color": {
+              "var": "color_stroke"
+            },
             "width": 8
           },
           {
-            "color": "rgba(0,0,0,0.45)",
+            "color": {
+              "var": "color_stroke_2"
+            },
             "width": 3
           }
         ],
         "shadow": {
-          "color": "rgba(0,0,0,0.65)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 10,
           "x": 0,
           "y": 4

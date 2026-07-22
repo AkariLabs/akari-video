@@ -24,19 +24,19 @@
       "default": "今日のゲストはなんと芸能界の大物です"
     },
     {
-      "key": "color",
+      "key": "color_text",
       "type": "color",
       "label": "文字色",
       "default": "#ffffff"
     },
     {
-      "key": "strokeInner",
+      "key": "color_stroke_2",
       "type": "color",
       "label": "縁色（内・黒縁）",
       "default": "#111111"
     },
     {
-      "key": "strokeOuter",
+      "key": "color_stroke",
       "type": "color",
       "label": "縁色（外・色縁）",
       "default": "#3b82f6"
@@ -54,19 +54,19 @@
         "font": "system-ui",
         "weight": 900,
         "color": {
-          "var": "color"
+          "var": "color_text"
         },
         "align": "center",
         "strokes": [
           {
             "color": {
-              "var": "strokeOuter"
+              "var": "color_stroke"
             },
             "width": 13
           },
           {
             "color": {
-              "var": "strokeInner"
+              "var": "color_stroke_2"
             },
             "width": 9
           }

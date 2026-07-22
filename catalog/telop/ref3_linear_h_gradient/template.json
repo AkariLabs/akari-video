@@ -18,7 +18,7 @@
   },
   "variables": [
     {
-      "key": "keyColor",
+      "key": "color_bg",
       "type": "color",
       "label": "キーカラー",
       "default": "#1168D8"
@@ -42,7 +42,7 @@
       "default": 118
     },
     {
-      "key": "accentColor",
+      "key": "color_accent",
       "type": "color",
       "label": "下線色",
       "default": "#F5C84B"
@@ -52,6 +52,24 @@
       "type": "number",
       "label": "X位置調整",
       "default": 0
+    },
+    {
+      "key": "color_bg_2",
+      "type": "color",
+      "label": "帯グラデ終端（既定は透明フェード）",
+      "default": "rgba(0,0,0,0)"
+    },
+    {
+      "key": "color_text",
+      "type": "color",
+      "label": "文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.38)"
     }
   ],
   "layers": [
@@ -61,7 +79,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "keyColor"
+          "var": "color_bg"
         },
         "fillGradient": {
           "type": "linear-h",
@@ -69,12 +87,14 @@
             {
               "at": 0,
               "color": {
-                "var": "keyColor"
+                "var": "color_bg"
               }
             },
             {
               "at": 1,
-              "color": "rgba(0,0,0,0)"
+              "color": {
+                "var": "color_bg_2"
+              }
             }
           ]
         },
@@ -167,7 +187,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "accentColor"
+          "var": "color_accent"
         },
         "cornerRadius": 0
       },
@@ -262,11 +282,15 @@
         },
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 900,
-        "color": "#FFFFFF",
+        "color": {
+          "var": "color_text"
+        },
         "align": "left",
         "letterSpacing": 0,
         "shadow": {
-          "color": "rgba(0,0,0,0.38)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 8,
           "x": 2,
           "y": 3

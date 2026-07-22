@@ -30,25 +30,25 @@
       "default": "速　報"
     },
     {
-      "key": "badgeColor",
+      "key": "color_bg_2",
       "type": "color",
       "label": "バッジ背景色",
       "default": "#CC0000"
     },
     {
-      "key": "bandColor",
+      "key": "color_bg",
       "type": "color",
       "label": "帯背景色",
       "default": "#1A1A1A"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "速報テキスト色",
       "default": "#FFFFFF"
     },
     {
-      "key": "badgeTextColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "バッジ文字色",
       "default": "#FFFFFF"
@@ -73,7 +73,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandColor"
+          "var": "color_bg"
         }
       },
       "size": {
@@ -142,7 +142,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "badgeColor"
+          "var": "color_bg_2"
         }
       },
       "size": {
@@ -218,7 +218,7 @@
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 900,
         "color": {
-          "var": "badgeTextColor"
+          "var": "color_text_2"
         },
         "align": "center",
         "letterSpacing": 2
@@ -277,7 +277,10 @@
             }
           ]
         }
-      ]
+      ],
+      "fit": {
+        "maxWidth": 170
+      }
     },
     {
       "id": "ref3_tl_r1s3_002_headline",
@@ -292,7 +295,7 @@
         "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "left",
         "letterSpacing": 1
