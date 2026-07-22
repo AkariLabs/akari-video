@@ -162,3 +162,30 @@ test("audio.master.denoise/loudnorm are validated", () => {
     /audio\.master\.loudnorm は -70 から 0 の範囲の有限数である必要があります/,
   );
 });
+
+test("layers with a baked fx and a chroma-keyed video PinP passes", () => {
+  const executed = run("edit-layers-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("layers[].id must be unique", () => {
+  const executed = run("edit-layers-invalid-duplicate-id");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /layers\[\]\.id が重複しています: dup/);
+});
+
+test("chroma_key is rejected on a baked layer (video-only field)", () => {
+  const executed = run("edit-layers-invalid-chroma-key-on-baked");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /layers\[0\]\.chroma_key は kind が video のときのみ使用できます/,
+  );
+});
+
+test("layers[].blend must be a known ffmpeg blend mode", () => {
+  const executed = run("edit-layers-invalid-bad-blend");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /layers\[0\]\.blend は .*のいずれかである必要があります/);
+});

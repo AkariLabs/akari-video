@@ -202,6 +202,51 @@
         "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 }
       }
     },
+    "layerTransform": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "scale": { "$ref": "#/$defs/positiveNumber" },
+        "rotate": { "type": "number" }
+      }
+    },
+    "layerBlendMode": {
+      "type": "string",
+      "enum": ["normal", "screen", "multiply", "add", "difference", "darken", "lighten", "overlay", "hardlight", "softlight"],
+      "$comment": "ffmpeg blend= の c0_mode 名に対応（normal は render-cut 側の合成語彙で overlay= 直合成を意味し、ffmpeg blend= フィルタは経由しない）。"
+    },
+    "layerVideoChromaKey": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["color"],
+      "properties": {
+        "color": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "similarity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "$comment": "kind===video レイヤーの背景置換用（ffmpeg chromakey= 準拠: color/similarity/blend）。R1（render-basics）の source.chroma_key と語彙は揃えるが $defs は独立させている（並行実装の衝突回避・rebase 時に統合を検討）。"
+    },
+    "layerItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "t", "duration", "kind", "src"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "t": { "$ref": "#/$defs/seconds" },
+        "duration": { "$ref": "#/$defs/positiveNumber" },
+        "kind": { "enum": ["baked", "video"] },
+        "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "preset": { "type": "string" },
+        "params": { "type": "object" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "chroma_key": { "$ref": "#/$defs/layerVideoChromaKey" }
+      },
+      "$comment": "契約 contract-2026-07-22-prerender-rail-and-assets.md §1.2。kind===baked は R2b の bake CLI が生成するアルファ付き mov（preset/params は再 bake 用の来歴）。kind===video は実映像（PinP 等）。chroma_key は kind===video のときのみ意味を持つ（validate-edit.mjs で検証）。render-cut は cuts 合成後のベース映像へ t 順に合成する。"
+    },
     "editV0": {
       "type": "object",
       "additionalProperties": true,
@@ -218,7 +263,11 @@
           "type": "array",
           "items": { "$ref": "#/$defs/overlayItem" }
         },
-        "audio": { "$ref": "#/$defs/audio" }
+        "audio": { "$ref": "#/$defs/audio" },
+        "layers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/layerItem" }
+        }
       },
       "not": { "required": ["sources"] }
     },
@@ -242,7 +291,11 @@
           "type": "array",
           "items": { "$ref": "#/$defs/overlayItem" }
         },
-        "audio": { "$ref": "#/$defs/audio" }
+        "audio": { "$ref": "#/$defs/audio" },
+        "layers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/layerItem" }
+        }
       },
       "not": { "required": ["source"] }
     }

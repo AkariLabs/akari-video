@@ -6,6 +6,20 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+const LAYER_KINDS = new Set(["baked", "video"]);
+const LAYER_BLEND_MODES = new Set([
+  "normal",
+  "screen",
+  "multiply",
+  "add",
+  "difference",
+  "darken",
+  "lighten",
+  "overlay",
+  "hardlight",
+  "softlight",
+]);
+
 const usage = "使い方: node packages/schemas/bin/validate-edit.mjs <edit.json>";
 const editArgument = process.argv[2];
 
@@ -77,6 +91,90 @@ function validateEdit(value) {
   }
   validateCuts(value.cuts, value.version, value.sources);
   validateAudio(value.audio);
+  validateLayers(value.layers);
+}
+
+function validateLayers(value) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    fail("layers は配列である必要があります");
+    return;
+  }
+  const ids = new Set();
+  for (const [index, layer] of value.entries()) {
+    const label = `layers[${index}]`;
+    if (!isPlainObject(layer)) {
+      fail(`${label} は object である必要があります`);
+      continue;
+    }
+    if (!isNonEmptyString(layer.id)) {
+      fail(`${label}.id は空でない文字列である必要があります`);
+    } else if (ids.has(layer.id)) {
+      fail(`layers[].id が重複しています: ${layer.id}`);
+    } else {
+      ids.add(layer.id);
+    }
+    if (!isFiniteNumber(layer.t) || layer.t < 0) {
+      fail(`${label}.t は 0 以上の有限数である必要があります`);
+    }
+    if (!isFiniteNumber(layer.duration) || layer.duration <= 0) {
+      fail(`${label}.duration は 0 より大きい有限数である必要があります`);
+    }
+    if (!LAYER_KINDS.has(layer.kind)) {
+      fail(`${label}.kind は baked または video である必要があります`);
+    }
+    validateNonEmptyString(layer.src, `${label}.src`);
+    if (hasOwn(layer, "opacity")) {
+      if (!isFiniteNumber(layer.opacity) || layer.opacity < 0 || layer.opacity > 1) {
+        fail(`${label}.opacity は 0 から 1 の範囲の有限数である必要があります`);
+      }
+    }
+    if (hasOwn(layer, "blend") && !LAYER_BLEND_MODES.has(layer.blend)) {
+      fail(`${label}.blend は ${[...LAYER_BLEND_MODES].join("/")} のいずれかである必要があります`);
+    }
+    if (hasOwn(layer, "transform")) {
+      validateLayerTransform(layer.transform, `${label}.transform`);
+    }
+    if (hasOwn(layer, "chroma_key")) {
+      if (layer.kind !== "video") {
+        fail(`${label}.chroma_key は kind が video のときのみ使用できます`);
+      }
+      validateLayerChromaKey(layer.chroma_key, `${label}.chroma_key`);
+    }
+  }
+}
+
+function validateLayerTransform(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  for (const field of ["x", "y", "rotate"]) {
+    if (hasOwn(value, field) && !isFiniteNumber(value[field])) {
+      fail(`${label}.${field} は有限数である必要があります`);
+    }
+  }
+  if (hasOwn(value, "scale") && (!isFiniteNumber(value.scale) || value.scale <= 0)) {
+    fail(`${label}.scale は 0 より大きい有限数である必要があります`);
+  }
+}
+
+function validateLayerChromaKey(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  validateNonEmptyString(value.color, `${label}.color`);
+  if (hasOwn(value, "similarity")) {
+    if (!isFiniteNumber(value.similarity) || value.similarity < 0 || value.similarity > 1) {
+      fail(`${label}.similarity は 0 から 1 の範囲の有限数である必要があります`);
+    }
+  }
+  if (hasOwn(value, "blend")) {
+    if (!isFiniteNumber(value.blend) || value.blend < 0 || value.blend > 1) {
+      fail(`${label}.blend は 0 から 1 の範囲の有限数である必要があります`);
+    }
+  }
 }
 
 function validateAudio(value) {
