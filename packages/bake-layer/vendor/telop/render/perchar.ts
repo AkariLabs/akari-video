@@ -1,5 +1,6 @@
 // per-character アニメーション: 文字分割 + グリフ変形計算
-import type { GlyphClass, GlyphStyle, PerChar, ResolvedLayer, ResolvedTextContent, Timing } from '../atf/types'
+import type { GlyphClass, GlyphStyle, PerChar, ResolvedLayer, ResolvedTextContent, Timing, Value } from '../atf/types'
+import { evalExprWithHas } from '../atf/expr'
 import { phaseContains, phaseLocalTime, sampleTrackInPhase, trackPhaseHasStarted } from './timing'
 
 /** グリフ変形データ */
@@ -49,11 +50,34 @@ export function hash01(seed: number, index: number, salt: number): number {
   return (h >>> 0) / 0x100000000
 }
 
-function applyGlyphStyle(base: StaticGlyphStyle, style: GlyphStyle | undefined, mode: 'override' | 'compose' = 'compose'): void {
+/**
+ * GlyphStyle.dy（Value）を解決する。数値ならそのまま px。{expr} なら、このグリフの
+ * レイヤーの基準フォントサイズ（content.size。shrink-to-fit 適用後の値。このグリフ
+ * 自身の classStyle/glyphStyle による sizeScale は含まない——team-lead 裁定「content.size
+ * に対する比率」に合わせた基準点）を式スコープの `size` として評価する（例:
+ * `{"expr": "size * 23 / 86"}` で shrink-to-fit 後も比率が保たれる）。
+ * {var} はここでは未対応（perChar にテンプレ変数の束縛を引き回す設計が必要なため）。
+ */
+function resolveGlyphDy(dy: Value, baseContentSize: number): number {
+  if (typeof dy === 'number') return dy
+  if (typeof dy === 'string') {
+    const n = parseFloat(dy)
+    return Number.isFinite(n) ? n : 0
+  }
+  if ('expr' in dy) {
+    return evalExprWithHas(dy.expr, { size: baseContentSize }, new Set(['size']))
+  }
+  return 0
+}
+
+function applyGlyphStyle(base: StaticGlyphStyle, style: GlyphStyle | undefined, mode: 'override' | 'compose', baseSize: number): void {
   if (!style) return
   if (style.sizeScale !== undefined) base.fontScale = mode === 'override' ? style.sizeScale : base.fontScale * style.sizeScale
   if (style.dx !== undefined) base.dx = mode === 'override' ? style.dx : base.dx + style.dx
-  if (style.dy !== undefined) base.dy = mode === 'override' ? style.dy : base.dy + style.dy
+  if (style.dy !== undefined) {
+    const dyResolved = resolveGlyphDy(style.dy, baseSize)
+    base.dy = mode === 'override' ? dyResolved : base.dy + dyResolved
+  }
   if (style.rotation !== undefined) base.rotation = mode === 'override' ? style.rotation : base.rotation + style.rotation
   if (style.color !== undefined) base.color = style.color
   if (style.opacity !== undefined) base.opacity = mode === 'override' ? style.opacity : base.opacity * style.opacity
@@ -86,8 +110,12 @@ function textStrokeOutset(content: ResolvedTextContent): number {
   return content.stroke?.width ?? 0
 }
 
-/** 静的 per-glyph スタイルを合成する（ベース → classStyles → glyphStyles → randomize） */
-function staticGlyphStyle(perChar: PerChar, ch: string, index: number): StaticGlyphStyle {
+/**
+ * 静的 per-glyph スタイルを合成する（ベース → classStyles → glyphStyles → randomize）。
+ * baseSize はレイヤーの解決済みフォントサイズ（content.size。shrink-to-fit 後の値）で、
+ * GlyphStyle.dy が Value（{expr}）のときの `size` スコープ解決に使う。
+ */
+function staticGlyphStyle(perChar: PerChar, ch: string, index: number, baseSize: number): StaticGlyphStyle {
   const style: StaticGlyphStyle = {
     fontScale: 1,
     dx: 0,
@@ -96,14 +124,14 @@ function staticGlyphStyle(perChar: PerChar, ch: string, index: number): StaticGl
     opacity: 1,
   }
 
-  applyGlyphStyle(style, perChar.classStyles?.[classifyGlyph(ch)], 'override')
+  applyGlyphStyle(style, perChar.classStyles?.[classifyGlyph(ch)], 'override', baseSize)
 
   const glyphStyles = perChar.glyphStyles
   if (glyphStyles && glyphStyles.styles.length > 0) {
     const glyphStyle = glyphStyles.repeat
       ? glyphStyles.styles[index % glyphStyles.styles.length]
       : glyphStyles.styles[index]
-    applyGlyphStyle(style, glyphStyle, 'override')
+    applyGlyphStyle(style, glyphStyle, 'override', baseSize)
   }
 
   const randomize = perChar.randomize
@@ -250,7 +278,7 @@ export function glyphTransforms(
   const chars = splitContent(perChar, content.text)
   if (chars.length === 0) return []
 
-  const staticStyles = chars.map((ch, index) => staticGlyphStyle(perChar, ch, index))
+  const staticStyles = chars.map((ch, index) => staticGlyphStyle(perChar, ch, index, content.size))
   // letterSpacing は content.letterSpacing を使う（track 由来の上書きは drawPerChar 側で処理）
   const letterSpacing = content.letterSpacing ?? 0
   const { glyphXPositions } = layoutGlyphs(
@@ -386,7 +414,7 @@ export function caretState(
   const chars = splitContent(perChar, content.text)
   if (chars.length === 0) return null
 
-  const staticStyles = chars.map((ch, index) => staticGlyphStyle(perChar, ch, index))
+  const staticStyles = chars.map((ch, index) => staticGlyphStyle(perChar, ch, index, content.size))
   const { charWidths, glyphXPositions } = layoutGlyphs(
     content,
     chars,

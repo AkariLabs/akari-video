@@ -121,8 +121,16 @@ export interface GlyphStyle {
   sizeScale?: number
   /** 静的 X オフセット(px) */
   dx?: number
-  /** 静的 Y オフセット(px) */
-  dy?: number
+  /**
+   * 静的 Y オフセット。数値なら従来通り固定 px。Value（{expr}）を渡すと、レイヤーの
+   * 基準フォントサイズ（content.size。shrink-to-fit 適用後の値。このグリフ自身の
+   * sizeScale は含まない）を式スコープ変数 `size` として参照できる（例:
+   * `{"expr": "size * 23 / 86"}` で content.size に比例したオフセットになり、
+   * shrink-to-fit で縮小しても比率が保たれる）。
+   * `{var: ...}`（テンプレ変数参照）は非対応（perChar 側にテンプレ変数の束縛を
+   * 引き回す設計が必要になるため、2026-07-22 dy-ratio-fix では対象外）。
+   */
+  dy?: Value
   /** 静的回転(deg) */
   rotation?: number
   /** per-glyph 色（リテラルのみ。変数/式は P1 対象外） */
