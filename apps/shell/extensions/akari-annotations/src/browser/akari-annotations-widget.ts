@@ -13,7 +13,15 @@ import {
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
 import { CaptionRecord, parseCaptions } from '../common/caption-store';
-import { EditBeat, EditCut, EditOverlay, parseEdit } from '../common/edit-store';
+import {
+    EditAudioBgm,
+    EditAudioSfx,
+    EditBeat,
+    EditCut,
+    EditLayer,
+    EditOverlay,
+    parseEdit
+} from '../common/edit-store';
 import { assignSubRows } from '../common/lane-layout';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { ProjectLocation } from './project-location';
@@ -76,6 +84,8 @@ type TimelineSelection =
     | { kind: 'cut'; index: number }
     | { kind: 'overlay'; id: string }
     | { kind: 'caption'; id: string }
+    | { kind: 'layer'; id: string }
+    | { kind: 'audio'; id: string }
     | undefined;
 
 interface SnapCandidate {
@@ -201,6 +211,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected cuts: EditCut[] = [];
     protected overlays: EditOverlay[] = [];
     protected beats: EditBeat[] = [];
+    protected layers: EditLayer[] = [];
+    protected audioSfx: EditAudioSfx[] = [];
+    protected audioBgm: EditAudioBgm | undefined;
     protected segments: OutputSegment[] = [];
     protected wordBoundaries: number[] = [];
     protected configured = false;
@@ -224,6 +237,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected overlayTrackLayouts: OverlayTrackLayout[] = [];
     protected clipMuted = false;
     protected captionsVisible = true;
+    protected layersVisible = true;
+    protected audioVisible = true;
     protected readonly hiddenTracks = new Set<number>();
 
     /** 注釈の実体は ReviewModel が持つ（注釈パネルと共有）。ここではピン描画のために読むだけ。 */
@@ -455,6 +470,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: var(--theia-charts-orange, #d19a66);
         opacity: .74;
         border-radius: 2px;
+    }
+    .akari-annotations-widget .akari-annotations-strip-layer,
+    .akari-annotations-widget .akari-annotations-strip-audio {
+        border-radius: 2px;
+        cursor: pointer;
+    }
+    .akari-annotations-widget .akari-annotations-strip-layer-baked {
+        background: var(--theia-charts-blue, #3794ff);
+        opacity: .76;
+    }
+    .akari-annotations-widget .akari-annotations-strip-layer-video {
+        background: var(--theia-charts-purple, #b180d7);
+        opacity: .76;
+    }
+    .akari-annotations-widget .akari-annotations-strip-audio-sfx {
+        background: var(--theia-charts-green, #89d185);
+        opacity: .72;
+    }
+    .akari-annotations-widget .akari-annotations-strip-audio-bgm {
+        background: color-mix(in srgb, var(--theia-charts-green, #89d185) 50%, var(--theia-charts-blue, #3794ff));
+        opacity: .66;
     }
     .akari-annotations-widget .akari-track-band {
         position: absolute;
@@ -813,7 +849,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    /** 選択の実体（cuts/overlays/captions の現在値）を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
+    /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
         const selection = this.selection;
         if (!selection) {
@@ -841,7 +877,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             this.selectionModel.snapshot = { kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration };
-        } else {
+        } else if (selection.kind === 'caption') {
             const caption = this.captions.find(candidate => candidate.id === selection.id);
             if (!caption) {
                 this.selection = undefined;
@@ -855,6 +891,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 outputStart: ranges.length > 0 ? ranges[0][0] : undefined,
                 outputEnd: ranges.length > 0 ? ranges[ranges.length - 1][1] : undefined
             };
+        } else if (selection.kind === 'layer') {
+            const layer = this.layers.find(candidate => candidate.id === selection.id);
+            if (!layer) {
+                this.selection = undefined;
+                this.selectionModel.snapshot = undefined;
+                return;
+            }
+            this.selectionModel.snapshot = {
+                kind: 'layer', id: layer.id, layerKind: layer.kind,
+                outputStart: layer.t, duration: layer.duration
+            };
+        } else {
+            const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
+            if (sfx) {
+                this.selectionModel.snapshot = {
+                    kind: 'audio', id: sfx.id, audioKind: 'sfx', label: this.pathBaseName(sfx.path),
+                    outputStart: sfx.t, duration: sfx.duration
+                };
+            } else if (selection.id === 'bgm' && this.audioBgm) {
+                this.selectionModel.snapshot = {
+                    kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
+                    outputStart: 0, duration: this.totalDuration()
+                };
+            } else {
+                this.selection = undefined;
+                this.selectionModel.snapshot = undefined;
+                return;
+            }
         }
         this.selectionModel.fps = this.fps;
     }
@@ -868,6 +932,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } catch {
             return this.location.videoUri;
         }
+    }
+
+    protected pathBaseName(path: string): string {
+        return path.split('/').pop() || path;
     }
 
     /** レザーモードでクリップをクリックした位置（出力秒→source 秒）で cuts を2分割する。 */
@@ -1027,6 +1095,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.cuts = [];
         this.overlays = [];
         this.beats = [];
+        this.layers = [];
+        this.audioSfx = [];
+        this.audioBgm = undefined;
         this.fps = 30;
         if (this.location?.editUri) {
             try {
@@ -1035,6 +1106,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.cuts = parsed.cuts;
                 this.overlays = parsed.overlays;
                 this.beats = parsed.beats ?? [];
+                this.layers = parsed.layers;
+                this.audioSfx = parsed.audioSfx;
+                this.audioBgm = parsed.audioBgm;
                 this.fps = parsed.fps;
                 if (parsed.warnings.length > 0) {
                     this.showWarnings(parsed.warnings);
@@ -1113,12 +1187,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             // アウトプット軸: cuts 尺合計とオーバーレイ終端の大きい方（10 秒フロアは cuts があるときは外す）。
             const cutsDuration = this.segments.length > 0 ? this.segments[this.segments.length - 1].tlEnd : 0;
             const overlaysEnd = this.overlays.reduce((max, overlay) => Math.max(max, overlay.start + overlay.duration), 0);
-            return Math.max(cutsDuration, overlaysEnd) * 1.02;
+            const layersEnd = this.layers.reduce((max, layer) => Math.max(max, layer.t + layer.duration), 0);
+            const sfxEnd = this.audioSfx.reduce((max, sfx) => Math.max(max, sfx.t + sfx.duration), 0);
+            return Math.max(cutsDuration, overlaysEnd, layersEnd, sfxEnd) * 1.02;
         }
         const candidates = [
             10,
             ...this.captions.map(caption => caption.end),
             ...this.overlays.map(overlay => overlay.start + overlay.duration),
+            ...this.layers.map(layer => layer.t + layer.duration),
+            ...this.audioSfx.map(sfx => sfx.t + sfx.duration),
             ...this.beats.map(beat => beat.t + 1),
             ...this.annotations.map(annotation => annotation.sourceT + 1)
         ];
@@ -1215,9 +1293,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.renderRuler();
 
-        // レーン構造は NLE 慣行（Wave 23）: 見せ場 → 字幕帯 → オーバーレイのトラック行（track 降順）→ クリップ帯（最下段）。
+        // レーン構造は NLE 慣行（Wave 23）: 見せ場 → 字幕帯 → オーバーレイのトラック行（track 降順）
+        // → レイヤー → オーディオ → クリップ帯（最下段）。
         // 横軸の位置決めは出力軸（Wave 22）: クリップは this.segments（cuts のギャップレス連結）、
-        // 字幕は sourceRangeToOutputRanges で source 秒→出力秒へ変換する。オーバーレイは元々出力秒基準。
+        // 字幕は sourceRangeToOutputRanges で source 秒→出力秒へ変換する。オーバーレイ・レイヤー・音声は元々出力秒基準。
         const captionRows = assignSubRows(this.captions.map(c => ({ start: c.start, end: c.end })));
         const captionSubRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 1;
         const beatsBandTop = RULER_HEIGHT;
@@ -1240,13 +1319,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.overlayTrackLayouts.push({ track, top: nextTop, height, rows });
             nextTop += height + LANE_GAP;
         }
+
+        const layerRows = assignSubRows(this.layers.map(layer => ({
+            start: layer.t, end: layer.t + layer.duration
+        })));
+        const layerBandTop = nextTop;
+        const layerBandHeight = this.layers.length > 0
+            ? (Math.max(...layerRows) + 1) * SUBROW_STRIDE : 0;
+        if (layerBandHeight > 0) {
+            nextTop += layerBandHeight + LANE_GAP;
+        }
+
+        const audioSfxRows = assignSubRows(this.audioSfx.map(sfx => ({
+            start: sfx.t, end: sfx.t + sfx.duration
+        })));
+        const audioBandTop = nextTop;
+        const audioSfxRowCount = audioSfxRows.length > 0 ? Math.max(...audioSfxRows) + 1 : 0;
+        const audioBandHeight = this.audioSfx.length > 0 || this.audioBgm
+            ? ((this.audioBgm ? 1 : 0) + audioSfxRowCount) * SUBROW_STRIDE : 0;
+        if (audioBandHeight > 0) {
+            nextTop += audioBandHeight + LANE_GAP;
+        }
         const clipTop = nextTop;
 
         // 注釈ピンはルーラー帯（renderRuler）へ描くため、専用レーンは持たない。
         const stripHeight = clipTop + CLIP_HEIGHT + STRIP_BOTTOM_MARGIN;
         this.strip.style.height = `${stripHeight}px`;
         this.trackHeaders.style.height = `${stripHeight}px`;
-        this.renderTrackHeaders(captionBandTop, captionBandHeight, clipTop);
+        this.renderTrackHeaders(
+            captionBandTop, captionBandHeight,
+            layerBandTop, layerBandHeight,
+            audioBandTop, audioBandHeight,
+            clipTop
+        );
 
         if (beatsBandHeight > 0) {
             const beatsBand = this.laneBand('beats', beatsBandTop, beatsBandHeight);
@@ -1265,6 +1370,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             band.dataset.akariTrack = String(layout.track);
             band.classList.toggle('akari-track-band-hidden', this.hiddenTracks.has(layout.track));
             this.strip.appendChild(band);
+        }
+        if (layerBandHeight > 0) {
+            const layerBand = this.laneBand('layers', layerBandTop, layerBandHeight);
+            layerBand.style.opacity = this.layersVisible ? '1' : '.28';
+            this.strip.appendChild(layerBand);
+        }
+        if (audioBandHeight > 0) {
+            const audioBand = this.laneBand('audio', audioBandTop, audioBandHeight);
+            audioBand.style.opacity = this.audioVisible ? '1' : '.28';
+            this.strip.appendChild(audioBand);
         }
         this.strip.appendChild(this.laneBand('clips', clipTop, CLIP_HEIGHT));
 
@@ -1317,6 +1432,63 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 mode: rect.right - event.clientX <= EDGE_ZONE_PX ? 'resize' : 'move',
                 originalStart: overlay.start, originalDuration: overlay.duration, originalTrack: overlay.track
             }));
+            this.strip.appendChild(element);
+        });
+        this.layers.forEach((layer, index) => {
+            const top = layerBandTop + (layerRows[index] ?? 0) * SUBROW_STRIDE;
+            const element = this.stripSegment(
+                layer.t, layer.t + layer.duration, top, SUBROW_HEIGHT,
+                `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
+            );
+            element.dataset.akariItemKind = 'layer';
+            element.dataset.akariItemId = layer.id;
+            element.dataset.akariLane = 'layers';
+            element.style.pointerEvents = 'auto';
+            element.style.opacity = this.layersVisible ? '' : '.28';
+            element.appendChild(this.segmentLabel(layer.id));
+            element.addEventListener('click', event => {
+                event.stopPropagation();
+                this.applySelection({ kind: 'layer', id: layer.id });
+            });
+            this.strip.appendChild(element);
+        });
+        if (this.audioBgm) {
+            const bgm = this.audioBgm;
+            const label = this.pathBaseName(bgm.path);
+            const element = this.stripSegment(
+                0, this.totalDuration(), audioBandTop, SUBROW_HEIGHT,
+                'akari-annotations-strip-audio akari-annotations-strip-audio-bgm', label
+            );
+            element.dataset.akariItemKind = 'audio';
+            element.dataset.akariItemId = bgm.id;
+            element.dataset.akariLane = 'audio';
+            element.style.pointerEvents = 'auto';
+            element.style.opacity = this.audioVisible ? '' : '.28';
+            element.appendChild(this.segmentLabel(label));
+            element.addEventListener('click', event => {
+                event.stopPropagation();
+                this.applySelection({ kind: 'audio', id: bgm.id });
+            });
+            this.strip.appendChild(element);
+        }
+        this.audioSfx.forEach((sfx, index) => {
+            const rowOffset = this.audioBgm ? 1 : 0;
+            const top = audioBandTop + (rowOffset + (audioSfxRows[index] ?? 0)) * SUBROW_STRIDE;
+            const label = this.pathBaseName(sfx.path);
+            const element = this.stripSegment(
+                sfx.t, sfx.t + sfx.duration, top, SUBROW_HEIGHT,
+                'akari-annotations-strip-audio akari-annotations-strip-audio-sfx', label
+            );
+            element.dataset.akariItemKind = 'audio';
+            element.dataset.akariItemId = sfx.id;
+            element.dataset.akariLane = 'audio';
+            element.style.pointerEvents = 'auto';
+            element.style.opacity = this.audioVisible ? '' : '.28';
+            element.appendChild(this.segmentLabel(label));
+            element.addEventListener('click', event => {
+                event.stopPropagation();
+                this.applySelection({ kind: 'audio', id: sfx.id });
+            });
             this.strip.appendChild(element);
         });
         this.segments.forEach(segment => {
@@ -1395,7 +1567,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected renderTrackHeaders(captionTop: number, captionHeight: number, clipTop: number): void {
+    protected renderTrackHeaders(
+        captionTop: number,
+        captionHeight: number,
+        layerTop: number,
+        layerHeight: number,
+        audioTop: number,
+        audioHeight: number,
+        clipTop: number
+    ): void {
         this.trackHeaders.replaceChildren();
         this.trackHeaders.appendChild(this.trackHeaderButton(
             '字幕を表示', this.captionsVisible, captionTop, captionHeight, this.eyeSvg(), () => {
@@ -1418,6 +1598,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     this.renderStrip();
                 }, `track-${layout.track}`, layout.track
+            ));
+        }
+        if (layerHeight > 0) {
+            this.trackHeaders.appendChild(this.trackHeaderButton(
+                'レイヤーを表示', this.layersVisible, layerTop, layerHeight, this.eyeSvg(), () => {
+                    this.layersVisible = !this.layersVisible;
+                    this.renderStrip();
+                }, 'layers'
+            ));
+        }
+        if (audioHeight > 0) {
+            this.trackHeaders.appendChild(this.trackHeaderButton(
+                'オーディオを表示', this.audioVisible, audioTop, audioHeight, this.eyeSvg(), () => {
+                    this.audioVisible = !this.audioVisible;
+                    this.renderStrip();
+                }, 'audio'
             ));
         }
         this.trackHeaders.appendChild(this.trackHeaderButton(
@@ -2307,7 +2503,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected copySelectedItem(): boolean {
         const selection = this.selection;
-        if (!selection || selection.kind === 'cut') {
+        if (!selection || selection.kind === 'cut' || selection.kind === 'layer' || selection.kind === 'audio') {
             this.footer.textContent = 'コピーする字幕またはオーバーレイが選択されていません。';
             return false;
         }

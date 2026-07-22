@@ -21,6 +21,30 @@ export interface EditOverlay {
     payload: Record<string, unknown>;
 }
 
+export interface EditLayer {
+    id: string;
+    t: number;
+    duration: number;
+    kind: 'baked' | 'video';
+    src: string;
+}
+
+export interface EditAudioSfx {
+    id: string;
+    t: number;
+    duration: number;
+    path: string;
+}
+
+export interface EditAudioBgm {
+    id: 'bgm';
+    path: string;
+    fadeIn?: number;
+    fadeOut?: number;
+}
+
+export const DECLARED_SFX_DURATION_SECONDS = 1;
+
 export interface SourceElement {
     text: string;
     start: number;
@@ -361,6 +385,9 @@ export function parseEdit(source: string): {
     cuts: EditCut[];
     overlays: EditOverlay[];
     beats?: EditBeat[];
+    layers: EditLayer[];
+    audioSfx: EditAudioSfx[];
+    audioBgm?: EditAudioBgm;
     fps: number;
     warnings: string[];
 } {
@@ -372,6 +399,9 @@ export function parseEdit(source: string): {
     const cuts: EditCut[] = [];
     const overlays: EditOverlay[] = [];
     const beats: EditBeat[] = [];
+    const layers: EditLayer[] = [];
+    const audioSfx: EditAudioSfx[] = [];
+    let audioBgm: EditAudioBgm | undefined;
     const sourceIds = new Set<string>();
     if (Array.isArray(value.sources)) {
         for (const sourceEntry of value.sources) {
@@ -466,6 +496,75 @@ export function parseEdit(source: string): {
         warnings.push('beats が配列ではないため見せ場マーカーを表示しません。');
     }
 
+    if (Array.isArray(value.layers)) {
+        const seenIds = new Set<string>();
+        for (let index = 0; index < value.layers.length; index++) {
+            const layer = value.layers[index];
+            const valid = layer !== null && typeof layer === 'object'
+                && typeof layer.id === 'string' && layer.id.length > 0
+                && typeof layer.t === 'number' && Number.isFinite(layer.t) && layer.t >= 0
+                && typeof layer.duration === 'number' && Number.isFinite(layer.duration) && layer.duration > 0
+                && (layer.kind === 'baked' || layer.kind === 'video')
+                && typeof layer.src === 'string' && layer.src.length > 0;
+            if (!valid) {
+                warnings.push(`${index + 1} 番目のレイヤーは識別情報・時刻・種類のいずれかが不正なため表示しません。`);
+                continue;
+            }
+            if (seenIds.has(layer.id)) {
+                warnings.push(`レイヤー ${layer.id} が重複しているため、後の要素は表示しません。`);
+                continue;
+            }
+            seenIds.add(layer.id);
+            layers.push({
+                id: layer.id,
+                t: layer.t,
+                duration: layer.duration,
+                kind: layer.kind,
+                src: layer.src
+            });
+        }
+    } else if (value.layers !== undefined) {
+        warnings.push('layers が配列ではないためレイヤーを表示しません。');
+    }
+
+    if (value.audio !== undefined && (value.audio === null || typeof value.audio !== 'object' || Array.isArray(value.audio))) {
+        warnings.push('audio が object ではないため SE/BGM を表示しません。');
+    } else if (value.audio && typeof value.audio === 'object') {
+        if (Array.isArray(value.audio.sfx)) {
+            for (let index = 0; index < value.audio.sfx.length; index++) {
+                const sfx = value.audio.sfx[index];
+                if (sfx === null || typeof sfx !== 'object'
+                    || typeof sfx.path !== 'string' || sfx.path.length === 0
+                    || typeof sfx.t !== 'number' || !Number.isFinite(sfx.t) || sfx.t < 0) {
+                    warnings.push(`${index + 1} 番目の SE は時刻または素材が不正なため表示しません。`);
+                    continue;
+                }
+                audioSfx.push({
+                    id: `sfx-${index}`,
+                    t: sfx.t,
+                    duration: DECLARED_SFX_DURATION_SECONDS,
+                    path: sfx.path
+                });
+            }
+        }
+        const bgm = value.audio.bgm;
+        if (bgm !== undefined && bgm !== null) {
+            if (typeof bgm === 'object' && !Array.isArray(bgm)
+                && typeof bgm.path === 'string' && bgm.path.length > 0) {
+                audioBgm = {
+                    id: 'bgm',
+                    path: bgm.path,
+                    ...(typeof bgm.fadeIn === 'number' && Number.isFinite(bgm.fadeIn) && bgm.fadeIn >= 0
+                        ? { fadeIn: bgm.fadeIn } : {}),
+                    ...(typeof bgm.fadeOut === 'number' && Number.isFinite(bgm.fadeOut) && bgm.fadeOut >= 0
+                        ? { fadeOut: bgm.fadeOut } : {})
+                };
+            } else {
+                warnings.push('bgm の path が不正なため表示しません。');
+            }
+        }
+    }
+
     let fps = 30;
     if (value.output && typeof value.output === 'object'
         && typeof value.output.fps === 'number' && Number.isFinite(value.output.fps) && value.output.fps > 0) {
@@ -476,6 +575,9 @@ export function parseEdit(source: string): {
         cuts,
         overlays,
         ...(Array.isArray(value.beats) ? { beats } : {}),
+        layers,
+        audioSfx,
+        ...(audioBgm ? { audioBgm } : {}),
         fps,
         warnings
     };
