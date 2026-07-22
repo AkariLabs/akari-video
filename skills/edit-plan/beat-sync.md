@@ -1,0 +1,294 @@
+# 見せ場マーカーを演出へ連動させる（beats → SE 発火）
+
+承認済みの `beats[]`（見せ場マーカー）から、既存の `edit.json` 語彙だけで「見せ場で鳴って画が動く」を
+組むための翻訳規約である。[beats.md](beats.md) が「見せ場をどう**書くか**」（導出規約）を定めるのに対し、
+本リーフは「書かれた見せ場をどう**使うか**」（消費規約）を定める。
+
+[edit.json v1 見せ場マーカー契約](../../docs/contract-2026-07-22-edit-json-v1-beats.md) §6 は、
+「beats を読んで実際にどんな演出を発火するか」を契約スコープ外＝消費側の別契約と明記している。
+本リーフはその消費側規約の v0 であり、契約が消費側に課す 2 つの不変条件（source 秒アンカーの尊重・
+劣化規約の尊重）の上に立つ。
+
+## v0 のスコープ（オーナー裁定済み・ここで広げない）
+
+- SE は**手持ちライブラリのみ**を使う。新規取得・外部ダウンロードをしない。
+- 視覚トランジションの `edit.json` 語彙は未契約である。v0 の同時発火は
+  **SE + カット境界 + overlay 装飾**の 3 点で構成し、専用トランジション語彙を発明しない。
+- BGM は「冒頭とエンディングのみ」の既定を尊重し、**ビート連動の BGM 操作をしない**
+  （ダッキングは narration 由来の既存機構のまま。ビート連動の BGM 変化はツマミ導入まで席）。
+- 囲い・ラメ等の専用視覚部品の新設はスコープ外である（既存 overlay 部品の選択提案までは可）。
+
+## 入力
+
+- 入力は**人間承認済みの `beats[]`** である（[beats.md](beats.md) の導出規約・密度ガードレールを
+  通過したもの）。**承認前の beats から演出を組まない。**
+- 承認の記録は `decision-log.md`（[report-guide.md](report-guide.md#decision_log)）に残っている
+  ものを指す。無操作・タイムアウト・過去の包括承認を今回の承認に読み替えない。
+
+## 射影 — source 秒から timeline 秒へ
+
+`beats[].t` は **source 秒**である（[beats.md](beats.md) §座標 / beats 契約 §3）。発火位置は毎回
+`cuts[]` から計算し、計算結果を `beats[]` へ書き戻さない。
+
+- `beats[].t`（source 秒）を `cuts[]` で timeline 秒へ射影して**発火位置**とする。
+- 射影式は [execution.md](execution.md) §2 と同じ:
+  source 時刻 `s` が keep-range `[in, out)` にあるとき、
+  `timeline = （それ以前の keep-range 長の合計） + (s - in)`。
+- **一対多**（同一 beat の複数出現。同じ source 区間がタイムライン上に複数回現れる場合）は、
+  **出現ごとに発火**する。
+- **射影先 0 件の beat は発火なし**（カットで落とした区間の見せ場）。これは正常であり、
+  エラーでも warning でもない（beats 契約 §4）。
+
+## 評価順（決定的に処理する）
+
+同じ `beats[]` と `cuts[]` からは常に同じ `audio.sfx[]` が出るように、次の順で処理する。
+
+1. **射影**: 全 beat を timeline 秒へ射影する（0 件の beat はここで脱落）。
+2. **章転換の儀式**: `turn` の射影先がカット境界の ±1.0 秒以内なら、その境界時刻へスナップする。
+3. **強度ゲート**: `strength` が 0.8 以上の beat のみ SE を残す（2 で儀式が成立した `turn` は
+   儀式側が優先し、ゲートで落とさない。§章転換の儀式を見る）。
+4. **同時多発の制限**: 同一時刻 ±0.5 秒以内に SE が 2 個以上あれば、`strength` が高い beat を残す。
+5. **書き出し**: 残った発火を `audio.sfx[]` へ timeline 秒昇順で追記する。
+
+## SE 発火規則
+
+- `audio.sfx[]` に `{ path, t: <射影後 timeline 秒>, gain_db }` を追記する。**`gain_db` 既定 -6**。
+  （`audio.sfx[].t` は**タイムライン秒**である。
+  [音声契約](../../docs/contract-2026-07-14-edit-json-v1-audio.md) §1 のフィールド表を見る。
+  `gain_db` のクランプ範囲は `[-60, 12]`。）
+- **同時多発の制限**: 同一時刻 ±0.5 秒以内に SE は 1 個までとする（`strength` が高い beat を優先）。
+- **`strength` が 0.8 以上の beat のみ SE を付ける**（v0 既定。それ未満は**無音の見せ場**として残す）。
+  無音の見せ場は beats から消さない。SE を付けなかったという判断であり、見せ場でなくなった
+  わけではない。
+
+## 章転換の儀式（turn beat）
+
+射影先が**カット境界の ±1.0 秒以内**にある場合、SE の `t` はその**境界時刻へスナップ**する
+（音と画の切替を同時発火させる）。**境界から遠い `turn` は通常規則**（射影位置そのまま・強度ゲートも
+通常どおり）に従う。
+
+- カット境界の集合 = 各 keep-range の開始 timeline 秒（先頭の 0 を含む）+ タイムライン終端。
+- スナップは `audio.sfx[].t` にだけ効く。`beats[].t` は書き換えない（source 秒アンカー）。
+- **儀式は強度ゲートに優先する**。「境界から遠い `turn` は通常規則」という規定は、境界に近い
+  `turn` が通常規則の外にあることを意味する。[beats.md](beats.md) の既定マッピングでは
+  `chapter` event → `turn` の `strength` は 0.5 ±0.2（最大 0.7）であり、儀式がゲートに従属すると
+  `turn` の SE は原理的に発火しない。章転換で音と画を同時に切り替えるという儀式の目的が
+  成り立たなくなるため、境界 ±1.0 秒以内の `turn` は強度ゲートを通さずスナップ発火させる。
+  ここは v0 の解釈であり、ツマミ導入時にオーナー裁定で見直す余地がある。
+
+## SE 既定表（kind → 手持ち SE）
+
+### 探索層と充足状況（2026-07-22 実測）
+
+素材の探索順は [report-guide.md](report-guide.md#素材計画) の全スコープ層（プロジェクト `assets/` →
+上位ディレクトリの `.akari-video/assets/` → `~/.akari-video/assets/` → 製品リポ `assets/` →
+`catalog/`）に従う。2026-07-22 時点の実測は次のとおりである。
+
+| 層 | 実体 | 状態 |
+|---|---|---|
+| 製品リポ `assets/audio/` | `INDEX.md` のみ（「まだ素材なし」） | **未充足**（全 kind） |
+| `catalog/audio/`（15 パック） | `meta.json` のみ。全件 `"remote": true` | **未充足**（参照配布のみ・実体バイナリを置かない規約） |
+| ユーザーライブラリ `~/.akari-video/assets/audio/`（10 パック・340 ファイル） | 音源実体あり | **充足**（下表はここの実体を指す） |
+
+したがって**製品リポジトリ内には SE の実体が 1 件も無く、リポジトリ層としては 5 kind すべてが
+未充足**である。下表の既定はユーザーライブラリ層の実在ファイルであり、この層が無い環境では
+既定表は空になる。**未充足の kind・未充足の環境に対する調達は
+[setup-audio-library](../setup-audio-library/SKILL.md) 側の仕事であり、本リーフでは代用音源を
+勝手に選ばない。**
+
+### 既定表
+
+パス基点は `~/.akari-video/assets/audio/`。`catalog/audio/<pack-id>/meta.json` が
+ライセンス・クレジット要件の正であり、下表の値はそれと突き合わせ済みである。
+
+| kind | 音の性格 | 既定 SE（実在パス・優先順） | ライセンス | クレジット | 状態 |
+|---|---|---|---|---|---|
+| `hook` | インパクト系（ドン/ガツン） | `soundeffect-lab-ambient-life-pack/和太鼓でドン.mp3`<br>`soundeffect-lab-anime-direction-pack/シャキーン1.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
+| `turn` | スウィッシュ系（シュッ/whoosh） | `soundeffect-lab-anime-direction-pack/シュッ！.mp3`<br>`soundeffect-lab-anime-direction-pack/シーン切り替え1.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
+| `punchline` | ポップ/決定音系（ポン/ジャン） | `soundeffect-lab-ui-signal-pack/決定ボタンを押す1.mp3`<br>`musmus-onomatope-sfx-pack/ポッ.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MusMus-Free | 1 点目は不要<br>2 点目は**必須**（下記 MusMus） | 充足（ライブラリ層） |
+| `reveal` | キラーン/チャイム系 | `soundeffect-lab-anime-direction-pack/きらーん1.mp3`<br>`musmus-onomatope-sfx-pack/チャイム.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MusMus-Free | 1 点目は不要<br>2 点目は**必須**（下記 MusMus） | 充足（ライブラリ層） |
+| `emotion` | 控えめなポップ系（強い衝撃音を使わない） | `otologic-motion-pop-sfx-pack/Motion-Pop19-1.mp3`<br>`soundeffect-lab-anime-direction-pack/パッ.mp3` | CC-BY-4.0<br>LicenseRef-SoundEffectLab-Free | 1 点目は**必須**（下記 OtoLogic）<br>2 点目は不要 | 充足（ライブラリ層） |
+
+`kind` は enum ではない（beats 契約 §2）。上表に無い `kind` の beat は既定 SE を持たないため、
+SE を付けずに無音の見せ場として残すか、素材計画としてチャットで提案して承認を得る。
+
+### `attribution_required: true` の採用時に必要なクレジット文
+
+採用したら編集レポートのクレジット文へ次の文言をそのまま載せる（`meta.json` の `ai_usage` に
+書かれた表記をそのまま使い、要約・言い換えをしない）。
+
+| パック | クレジット文 |
+|---|---|
+| `musmus-onomatope-sfx-pack` | `BGM:MusMus`（フル表記: `フリーBGM・音楽素材 MusMus https://musmus.main.jp`） |
+| `otologic-motion-pop-sfx-pack` | `音：OtoLogic（https://otologic.jp/）` |
+
+`attribution_required: false` のパック（効果音ラボ・DOVA-SYNDROME）はクレジット任意である。
+ただし効果音ラボ・MusMus・OtoLogic はいずれも**素材単体の再配布を禁じている**。採用 SE を
+プロジェクトへ複製するのは可だが、**公開リポジトリへコミットしない**。
+
+### プロジェクトへの取り込みとパス
+
+`audio.sfx[].path` は edit.json からの相対パスまたは絶対パスである（音声契約 §2）。可搬性のため、
+採用した SE はプロジェクトの `assets/audio/<pack-id>/<file>` へ複製し、**相対パスで参照する**ことを
+既定とする（[execution.md](execution.md) §2 の「同一ツリーでは相対を使う」に従う）。複製しない
+運用ではライブラリ層の絶対パスを書いてもよいが、プロジェクトの可搬性は失われる。
+
+## overlay 装飾の選択肢
+
+見せ場での視覚は、**カット境界の切替そのもの + 既存 overlay 部品（telop / motion カテゴリ）の
+提案まで**とする。
+
+- 既存部品の選択は [overlay-authoring](../overlay-authoring/SKILL.md) のカテゴリから行い、
+  素材計画（Checkpoint 2）としてチャットで提案・承認を得る。
+- **部品の新設・トランジション語彙の発明をしない。** `edit.json` に `transition` 系の未契約
+  フィールドを足さない。囲い・ラメ等の専用視覚部品を新設しない。
+- overlay を置く場合の `overlays[].start` は SE と同じ timeline 秒であり、SE の `t` と揃える
+  （儀式でスナップした `turn` では、スナップ後の境界時刻へ揃える）。
+
+## worked example
+
+### 入力 1 — `beats[]`（[beats.md](beats.md) の worked example の出力そのまま）
+
+| id | kind | `t`（source 秒） | strength |
+|---|---|---|---|
+| `b-0001` | `hook` | 12.4 | 0.8 |
+| `b-0002` | `turn` | 48.0 | 0.7 |
+| `b-0003` | `emotion` | 96.2 | 0.7 |
+| `b-0004` | `punchline` | 132.0 | 0.8 |
+
+### 入力 2 — `cuts[]`（keep-range 3 件）
+
+```json
+{
+  "cuts": [
+    { "in": 8.0, "out": 30.0 },
+    { "in": 47.2, "out": 60.0 },
+    { "in": 94.0, "out": 100.0 }
+  ]
+}
+```
+
+keep-range 長は 22.0 / 12.8 / 6.0 秒。timeline 上の区間と境界は次のとおり。
+
+| cut | source `[in, out)` | timeline `[開始, 終了)` |
+|---|---|---|
+| `cuts[0]` | `[8.0, 30.0)` | `[0.0, 22.0)` |
+| `cuts[1]` | `[47.2, 60.0)` | `[22.0, 34.8)` |
+| `cuts[2]` | `[94.0, 100.0)` | `[34.8, 40.8)` |
+
+カット境界の集合 = `{ 0.0, 22.0, 34.8, 40.8 }`（タイムライン長 40.8 秒）。
+
+### 射影計算の途中値
+
+| beat | 所属 cut | 先行 keep-range 長の合計 | `t - in` | 射影後 timeline 秒 | 最近傍境界との距離 | 儀式 | 強度ゲート | 発火 |
+|---|---|---|---|---|---|---|---|---|
+| `b-0001` `hook` 0.8 | `cuts[0]` | 0.0 | `12.4 - 8.0 = 4.4` | **4.4** | `4.4 - 0.0 = 4.4` | 対象外（`turn` ではない） | 0.8 ≥ 0.8 → 通過 | **SE 発火 @ 4.4** |
+| `b-0002` `turn` 0.7 | `cuts[1]` | 22.0 | `48.0 - 47.2 = 0.8` | 22.8 | `22.8 - 22.0 = 0.8 ≤ 1.0` | **成立 → 22.0 へスナップ** | 儀式が優先 | **SE 発火 @ 22.0** |
+| `b-0003` `emotion` 0.7 | `cuts[2]` | 34.8 | `96.2 - 94.0 = 2.2` | 37.0 | `37.0 - 34.8 = 2.2` | 対象外（`turn` ではない） | 0.7 < 0.8 → 不通過 | 発火なし（**無音の見せ場**） |
+| `b-0004` `punchline` 0.8 | なし（`132.0` はどの keep-range にも含まれない） | — | — | — | — | — | — | 発火なし（**射影先 0 件・正常**） |
+
+同時多発の制限の検算: 発火は 4.4 と 22.0 の 2 件で、差は 17.6 秒。±0.5 秒以内の重なりは無いため
+どちらも残る。
+
+### 出力 — `audio.sfx[]`（完全 JSON）
+
+```json
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "source.mp4", "proxy": null },
+  "cuts": [
+    { "in": 8.0, "out": 30.0 },
+    { "in": 47.2, "out": 60.0 },
+    { "in": 94.0, "out": 100.0 }
+  ],
+  "overlays": [],
+  "audio": {
+    "sfx": [
+      { "path": "assets/audio/soundeffect-lab-ambient-life-pack/和太鼓でドン.mp3", "t": 4.4, "gain_db": -6 },
+      { "path": "assets/audio/soundeffect-lab-anime-direction-pack/シュッ！.mp3", "t": 22.0, "gain_db": -6 }
+    ]
+  },
+  "beats": [
+    {
+      "id": "b-0001",
+      "t": 12.4,
+      "kind": "hook",
+      "strength": 0.8,
+      "basis": "hook event 12.4–24.0s / 5 軸合計 21/25 → 0.8。発話『ついに来ました、今日はこれを全部お見せします。』"
+    },
+    {
+      "id": "b-0002",
+      "t": 48.0,
+      "kind": "turn",
+      "strength": 0.7,
+      "basis": "chapter event『セットアップ手順』@ 48.0s。本編の入口として既定 0.5 から +0.2"
+    },
+    {
+      "id": "b-0003",
+      "t": 96.2,
+      "kind": "emotion",
+      "strength": 0.7,
+      "basis": "発話『正直、ここまで変わるとは思っていませんでした。』@ 96.2s"
+    },
+    {
+      "id": "b-0004",
+      "t": 132.0,
+      "kind": "punchline",
+      "strength": 0.8,
+      "basis": "highlight event importance 4『処理時間は 12 分から 90 秒になりました。』@ 132.0s"
+    }
+  ]
+}
+```
+
+`beats[].t` は射影後も source 秒のまま（12.4 / 48.0 / 96.2 / 132.0）であり、スナップした `turn` も
+書き換えていない。SE の 2 件はいずれも既定表 `hook` / `turn` の 1 点目であり、どちらも
+`attribution_required: false` のためクレジット文は発生しない。BGM は `audio` に一切書いていない
+（ビート連動の BGM 操作をしない）。
+
+### 検証（2026-07-22 実測）
+
+上の完全 JSON をそのまま `edit.json` として一時プロジェクトへ置き、SE 2 点を
+`assets/audio/<pack-id>/` へ実体配置して検証した（`analysis.json` は `duration: 180` のみ、
+`source.mp4` は実ファイル）。
+
+```
+$ node packages/schemas/bin/validate-edit.mjs <tmp>/edit.json
+OK: <tmp>/edit.json                                   # exit 0 / 0.084s
+
+$ node packages/edit-lint/bin/edit-lint.mjs <tmp>
+PASS: <tmp> (0 findings, 4 skipped)                   # exit 0 / 0.102s
+```
+
+参照解決が実際に効いていることは、SE 1 点を退避した状態で
+`[warning] audio.sfx.file: sfx path does not resolve to a regular file: ...` が 1 件出ることで確認した
+（戻すと 0 findings に復帰）。
+
+## 検証
+
+書いた `audio.sfx[]` は既存の検証手順（[execution.md](execution.md) §4 の
+[edit-lint](../edit-lint/SKILL.md) 実行）で `edit.json` ごと検証する。edit-lint は次を見る。
+
+- `audio.sfx[].t` が負・非有限ならエラー、タイムライン長を超えていれば warning。
+- `audio.sfx[].gain_db` が `[-60, 12]` の外ならエラー。
+- `audio.sfx[].path` が実ファイルへ解決できなければ warning（音声は装飾であり、映像本体の
+  書き出し成否を左右しない — 音声契約 §5 の劣化規約）。**warning でも放置しない。**
+  パス誤り・未取り込みのまま書き出すと無音で仕上がる。
+
+## よくある間違い
+
+- 承認前の `beats[]` から先回りして SE を組む。
+- `audio.sfx[].t` に source 秒（`beats[].t`）をそのまま書く。SE は timeline 秒である。
+- 射影結果を `beats[].t` へ書き戻す。beats は素材の事実であり、カットを変えるたびにずれる値を
+  焼き込まない。
+- 射影先 0 件の beat を「取りこぼし」と誤認し、cuts を変えてでも鳴らそうとする
+  （カットで落とした見せ場が鳴らないのは正常）。
+- `strength` 0.8 未満の beat に SE を付けて演出過多にする。無音の見せ場を残すのが v0 の既定である。
+- 同一時刻 ±0.5 秒に SE を重ねる（複数の beat が近接したら `strength` の高い 1 件だけを残す）。
+- `turn` のスナップで `beats[].t` を境界へ動かす（動かすのは `audio.sfx[].t` だけ）。
+- 既定表に無い kind へ「近そうな音」を勝手に割り当てる。未充足は未充足として残し、調達は
+  setup-audio-library に回す。
+- ビートに合わせて BGM の音量・曲を切り替える（v0 では BGM を触らない）。
+- `edit.json` に未契約のトランジションフィールドを足す、または見せ場用の新規 overlay 部品を新設する。
+- `attribution_required: true` の SE を採用したのにクレジット文を編集レポートへ載せない。
