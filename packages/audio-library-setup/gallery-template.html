@@ -12,6 +12,12 @@
   .entry { border: 1px solid #8883; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
   .entry.decided-keep { border-color: #198754; }
   .entry.decided-drop { opacity: 0.45; }
+  .entry.is-hidden-by-filter { display: none; }
+  #toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  #filter-input { flex: 1; min-width: 200px; font-size: 0.85rem; padding: 6px 10px; border-radius: 8px; border: 1px solid #8886; background: transparent; color: inherit; }
+  #copy-feedback { font-size: 0.8rem; color: #198754; opacity: 0; transition: opacity 0.2s; }
+  #copy-feedback.show { opacity: 1; }
+  .badge-mood, .badge-tempo { background: #6c757d22; color: inherit; opacity: 0.8; }
   .entry-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .entry-title { font-weight: 600; flex: 1; }
   .entry-id { font-size: 0.75rem; opacity: 0.55; }
@@ -38,6 +44,11 @@
 </head>
 <body>
   <h1>音源 試聴ギャラリー</h1>
+  <div id="toolbar">
+    <input type="text" id="filter-input" placeholder="id / タイトルで絞り込み...">
+    <button id="copy-keep-btn" type="button">keep 一覧をコピー</button>
+    <span id="copy-feedback">コピーしました</span>
+  </div>
   <div id="status-line">読み込み中...</div>
   <div id="list"></div>
   <p id="empty" hidden>登録済みの音源がまだありません。先にドロップフォルダの登録を実行してください。</p>
@@ -65,6 +76,8 @@ async function setDecision(id, decision) {
   await render();
 }
 
+let latestData = { entries: [], decisions: {} };
+
 async function render() {
   const statusLine = document.getElementById('status-line');
   const list = document.getElementById('list');
@@ -78,6 +91,7 @@ async function render() {
     statusLine.textContent = `読み込み失敗: ${error.message}`;
     return;
   }
+  latestData = data;
 
   const { entries, decisions } = data;
   const keepCount = Object.values(decisions).filter((d) => d.decision === 'keep').length;
@@ -94,6 +108,8 @@ async function render() {
     const decision = decisions[entry.id]?.decision ?? null;
     const div = document.createElement('div');
     div.className = 'entry' + (decision === 'keep' ? ' decided-keep' : decision === 'drop' ? ' decided-drop' : '');
+    div.dataset.id = entry.id;
+    div.dataset.title = entry.title;
 
     const head = document.createElement('div');
     head.className = 'entry-head';
@@ -116,6 +132,8 @@ async function render() {
         badges.appendChild(badge('AI学習禁止', 'badge-noai'));
       }
     }
+    for (const m of entry.mood ?? []) badges.appendChild(badge(m, 'badge-mood'));
+    if (entry.tempo) badges.appendChild(badge(entry.tempo, 'badge-tempo'));
     head.appendChild(badges);
     div.appendChild(head);
 
@@ -150,7 +168,39 @@ async function render() {
 
     list.appendChild(div);
   }
+  applyFilter();
 }
+
+function applyFilter() {
+  const q = document.getElementById('filter-input').value.trim().toLowerCase();
+  for (const entry of document.querySelectorAll('#list .entry')) {
+    const haystack = `${entry.dataset.id} ${entry.dataset.title}`.toLowerCase();
+    entry.classList.toggle('is-hidden-by-filter', q.length > 0 && !haystack.includes(q));
+  }
+}
+
+document.getElementById('filter-input').addEventListener('input', applyFilter);
+
+document.getElementById('copy-keep-btn').addEventListener('click', async () => {
+  const ids = Object.entries(latestData.decisions ?? {})
+    .filter(([, d]) => d.decision === 'keep')
+    .map(([id]) => id)
+    .sort();
+  const json = JSON.stringify(ids, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = json;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  const feedback = document.getElementById('copy-feedback');
+  feedback.classList.add('show');
+  setTimeout(() => feedback.classList.remove('show'), 1600);
+});
 
 render();
 </script>

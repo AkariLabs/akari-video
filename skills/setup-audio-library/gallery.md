@@ -20,7 +20,11 @@ node packages/audio-library-setup/bin/gallery-helper.mjs \
   （`meta.json` はあるが再生可能な音声実体が無いエントリは表示しない）
 - 各エントリの音声ファイルを `<audio controls>` でその場再生できる
   （`/media/<id>/<filename>` 経由でのみ配信。ライブラリ外のファイルは配信しない）
-- ライセンスバッジ（要クレジット／クレジット不要／AI学習禁止）を表示する
+- ライセンスバッジ（要クレジット／クレジット不要／AI学習禁止）に加え、`meta.json` に
+  `mood[]` / `tempo` があればそれもバッジ表示する（2026-07-22 tasks/audio-fetch-gallery で追加）
+- 画面上部の入力欄で id / タイトルを絞り込み検索できる
+- 「keep 一覧をコピー」ボタンで、現在 keep 判定済みの id を JSON 配列としてクリップボードへ
+  コピーできる（オーナーがフィードバックとして他ツールへ貼り付ける用途）
 - keep / drop ボタンで決定を記録する。決定は `~/.akari-video/assets/audio/_gallery-state.json`
   へ即時保存される（ページを閉じても消えない）。もう一度同じボタンを押すと決定を解除する
 
