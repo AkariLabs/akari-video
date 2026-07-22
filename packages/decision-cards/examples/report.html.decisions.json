@@ -47,6 +47,24 @@
       },
       "byDefault": true,
       "answeredAt": null
+    },
+    {
+      "id": "direction",
+      "answer": {
+        "preset": "youtube-long-standard",
+        "intensity": 50,
+        "allowed_means": [
+          "実写 B ロール",
+          "スクリーン録画・資料",
+          "ストック素材",
+          "AI 生成",
+          "3D",
+          "HTML 図解",
+          "文字演出"
+        ]
+      },
+      "byDefault": true,
+      "answeredAt": null
     }
   ]
 }

@@ -285,6 +285,46 @@
         margin-top: var(--space-3);
       }
 
+      .decision-range {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--space-2) var(--space-3);
+        align-items: center;
+        margin-top: var(--space-3);
+        padding: var(--space-3);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+
+      .decision-range label {
+        font-weight: 750;
+      }
+
+      .decision-range output {
+        min-width: 3ch;
+        font-size: 1.15rem;
+        font-weight: 850;
+        text-align: right;
+      }
+
+      .decision-range input {
+        grid-column: 1 / -1;
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      .decision-means {
+        margin: var(--space-3) 0 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .decision-means legend {
+        margin-bottom: var(--space-2);
+        font-weight: 750;
+      }
+
       [data-note] {
         display: block;
         width: 100%;
@@ -383,7 +423,7 @@
         <p class="eyebrow">AKARI VIDEO / DECISION CARDS SAMPLE</p>
         <h1>編集判断の実走サンプル</h1>
         <p class="header-lead">
-          4 つの決定カードで、サムネイル・カット・字幕・構成の推奨案を確認します。
+          5 つの決定カードで、サムネイル・カット・字幕・構成・演出の推奨案を確認します。
           推奨のまま進める場合も、最後に要約を確認してから確定します。
         </p>
       </div>
@@ -644,6 +684,82 @@
               </p>
             </details>
           </article>
+
+          <article
+            class="decision-card"
+            data-card="direction"
+            data-question="演出はどの方向と強度にしますか？"
+          >
+            <p class="decision-card__question">
+              演出はどの方向と強度にしますか？
+            </p>
+            <div class="decision-options">
+              <button
+                class="decision-option"
+                type="button"
+                data-option="youtube-long-standard"
+                data-answer-key="preset"
+                data-default="true"
+                disabled
+              >
+                <strong>長尺標準（AI 推奨）</strong>
+                <span>冒頭フックあり・見せ場は要所のみ・落ち着いた密度</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="shorts-high-energy"
+                data-answer-key="preset"
+                disabled
+              >
+                <strong>ショート向け高密度</strong>
+                <span>発火多め・強い文字演出</span>
+              </button>
+              <button
+                class="decision-option"
+                type="button"
+                data-option="calm-explainer"
+                data-answer-key="preset"
+                disabled
+              >
+                <strong>落ち着き解説</strong>
+                <span>SE 控えめ・儀式最小限</span>
+              </button>
+            </div>
+            <div class="decision-range">
+              <label for="direction-intensity">演出の強度</label>
+              <output data-range-value="intensity" for="direction-intensity">50</output>
+              <input
+                id="direction-intensity"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="50"
+                data-range="intensity"
+                data-default-value="50"
+                disabled
+              />
+            </div>
+            <fieldset class="decision-means">
+              <legend>許可する表現手段</legend>
+              <div class="decision-card__extras">
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="実写 B ロール" data-default="true" disabled>実写 B ロール</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="スクリーン録画・資料" data-default="true" disabled>スクリーン録画・資料</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="ストック素材" data-default="true" disabled>ストック素材</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="AI 生成" data-default="true" disabled>AI 生成</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="3D" data-default="true" disabled>3D</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="HTML 図解" data-default="true" disabled>HTML 図解</button>
+                <button class="decision-check" type="button" data-array-check="allowed_means" data-array-value="文字演出" data-default="true" disabled>文字演出</button>
+              </div>
+            </fieldset>
+            <details>
+              <summary>根拠・証拠を見る</summary>
+              <p>
+                ダミー根拠: 長尺の理解しやすさを保ちつつ、冒頭と要所の見せ場に演出を集中する設定です。
+              </p>
+            </details>
+          </article>
         </div>
 
         <button
@@ -701,7 +817,7 @@
         const runtimeError = document.querySelector(".decision-runtime-error");
         const operationControls = Array.from(
           document.querySelectorAll(
-            "[data-option], [data-check], [data-action]",
+            "[data-option], [data-check], [data-array-check], [data-range], [data-action]",
           ),
         );
         const noteFields = Array.from(document.querySelectorAll("[data-note]"));
@@ -795,6 +911,10 @@
         function createContext(card) {
           const options = Array.from(card.querySelectorAll("[data-option]"));
           const checks = Array.from(card.querySelectorAll("[data-check]"));
+          const arrayChecks = Array.from(
+            card.querySelectorAll("[data-array-check]"),
+          );
+          const ranges = Array.from(card.querySelectorAll("[data-range]"));
           const notes = Array.from(card.querySelectorAll("[data-note]"));
           const declaredDefaults = options.filter(
             (option) => option.dataset.default === "true",
@@ -815,6 +935,8 @@
             question: card.dataset.question ?? "",
             options,
             checks,
+            arrayChecks,
+            ranges,
             notes,
             defaultOption,
             decision: null,
@@ -826,10 +948,30 @@
         function defaultAnswer(context) {
           const answer = {};
           if (context.defaultOption) {
-            answer.choice = context.defaultOption.dataset.option ?? "";
+            const key = context.defaultOption.dataset.answerKey || "choice";
+            answer[key] = context.defaultOption.dataset.option ?? "";
           }
           for (const check of context.checks) {
-            answer[check.dataset.check ?? ""] = false;
+            answer[check.dataset.check ?? ""] =
+              check.dataset.default === "true";
+          }
+          for (const range of context.ranges) {
+            const key = range.dataset.range ?? "";
+            answer[key] = integerRangeValue(
+              range,
+              range.dataset.defaultValue ?? range.value,
+            );
+          }
+          for (const check of context.arrayChecks) {
+            const key = check.dataset.arrayCheck ?? "";
+            if (!Array.isArray(answer[key])) answer[key] = [];
+            const value = check.dataset.arrayValue ?? "";
+            if (
+              check.dataset.default === "true" &&
+              !answer[key].includes(value)
+            ) {
+              answer[key].push(value);
+            }
           }
           if (context.notes.length > 0) {
             answer.note = null;
@@ -854,6 +996,34 @@
           for (const check of context.checks) {
             const key = check.dataset.check ?? "";
             if (hasOwn(answer, key) && typeof answer[key] !== "boolean") {
+              return false;
+            }
+          }
+          for (const range of context.ranges) {
+            const key = range.dataset.range ?? "";
+            const value = answer[key];
+            if (
+              !Number.isInteger(value) ||
+              value < rangeMinimum(range) ||
+              value > rangeMaximum(range)
+            ) {
+              return false;
+            }
+          }
+          for (const check of context.arrayChecks) {
+            const key = check.dataset.arrayCheck ?? "";
+            const allowedValues = context.arrayChecks
+              .filter((item) => item.dataset.arrayCheck === key)
+              .map((item) => item.dataset.arrayValue ?? "");
+            if (
+              !Array.isArray(answer[key]) ||
+              answer[key].some(
+                (value, index, values) =>
+                  typeof value !== "string" ||
+                  !allowedValues.includes(value) ||
+                  values.indexOf(value) !== index,
+              )
+            ) {
               return false;
             }
           }
@@ -938,6 +1108,20 @@
             context.options.map((option) => option.dataset.option ?? ""),
           );
 
+          const declaredProperties = new Set(
+            context.options
+              .map((option) => option.dataset.answerKey)
+              .filter((key) => typeof key === "string" && key !== ""),
+          );
+          if (declaredProperties.size === 1) {
+            const property = declaredProperties.values().next().value;
+            const value = answer[property];
+            const key = valueKey(value);
+            return key !== null && optionKeys.has(key)
+              ? { property, value, key }
+              : null;
+          }
+
           for (const [property, value] of Object.entries(answer)) {
             const key = valueKey(value);
             if (key !== null && optionKeys.has(key)) {
@@ -945,6 +1129,26 @@
             }
           }
           return null;
+        }
+
+        function rangeMinimum(range) {
+          const minimum = Number(range.min);
+          return Number.isFinite(minimum) ? Math.ceil(minimum) : 0;
+        }
+
+        function rangeMaximum(range) {
+          const maximum = Number(range.max);
+          return Number.isFinite(maximum) ? Math.floor(maximum) : 100;
+        }
+
+        function integerRangeValue(range, value) {
+          const number = Number(value);
+          const fallback = rangeMinimum(range);
+          const integer = Number.isFinite(number) ? Math.round(number) : fallback;
+          return Math.min(
+            rangeMaximum(range),
+            Math.max(rangeMinimum(range), integer),
+          );
         }
 
         function setSelected(element, selected) {
@@ -970,6 +1174,30 @@
           for (const check of context.checks) {
             const key = check.dataset.check ?? "";
             setSelected(check, answer[key] === true);
+          }
+
+          for (const check of context.arrayChecks) {
+            const key = check.dataset.arrayCheck ?? "";
+            const selectedValues = Array.isArray(answer[key]) ? answer[key] : [];
+            setSelected(
+              check,
+              selectedValues.includes(check.dataset.arrayValue ?? ""),
+            );
+          }
+
+          for (const range of context.ranges) {
+            const key = range.dataset.range ?? "";
+            const value = integerRangeValue(
+              range,
+              hasOwn(answer, key)
+                ? answer[key]
+                : range.dataset.defaultValue ?? range.value,
+            );
+            range.value = String(value);
+            const output = Array.from(
+              context.card.querySelectorAll("[data-range-value]"),
+            ).find((item) => item.dataset.rangeValue === key);
+            if (output) output.textContent = String(value);
           }
 
           for (const note of context.notes) {
@@ -1063,6 +1291,32 @@
           const answer = ensureAnswer(context);
           const key = check.dataset.check ?? "";
           answer[key] = answer[key] !== true;
+          markAnswered(context);
+          applyContext(context);
+          persistState();
+        }
+
+        function handleArrayCheck(context, check) {
+          if (locked) return;
+          const answer = ensureAnswer(context);
+          const key = check.dataset.arrayCheck ?? "";
+          const value = check.dataset.arrayValue ?? "";
+          const selectedValues = Array.isArray(answer[key]) ? answer[key] : [];
+          answer[key] = selectedValues.includes(value)
+            ? selectedValues.filter((selected) => selected !== value)
+            : [...selectedValues, value];
+          markAnswered(context);
+          applyContext(context);
+          persistState();
+        }
+
+        function handleRange(context, range) {
+          if (locked) return;
+          const answer = ensureAnswer(context);
+          answer[range.dataset.range ?? ""] = integerRangeValue(
+            range,
+            range.value,
+          );
           markAnswered(context);
           applyContext(context);
           persistState();
@@ -1172,6 +1426,15 @@
               event.preventDefault();
               handleCheck(context, check);
             });
+          }
+          for (const check of context.arrayChecks) {
+            check.addEventListener("click", (event) => {
+              event.preventDefault();
+              handleArrayCheck(context, check);
+            });
+          }
+          for (const range of context.ranges) {
+            range.addEventListener("input", () => handleRange(context, range));
           }
           for (const note of context.notes) {
             note.addEventListener("input", () => handleNote(context, note));

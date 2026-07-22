@@ -8,8 +8,9 @@
 | ファイル | 役割 |
 |---|---|
 | `report-helper.mjs` | `127.0.0.1` のみにバインドするローカル HTTP ヘルパー。`report.html` の配信・`decisions.json` の read/write・commit を仲介する |
-| `report-template.html` | data 属性でカードを宣言する report.html の雛形。カード種別のハードコードなし。ヘルパー経由なら操作可能、`file://` 直開き等で fetch 失敗時は全操作ボタンが disabled になり案内文言を出す（安全劣化） |
-| `examples/report.html` + `examples/report.html.decisions.json` | 動作サンプル一式（カード 4 枚: `thumbnail` / `cut-policy` / `captions-policy` / `structure`）。AI 推奨を既定値に入れた `decisions.json` 雛形付き |
+| `report-template.html` | data 属性でカードを宣言する report.html の雛形。単選・真偽チェック・整数スライダ・配列型の複数選択に対応する。カード種別のハードコードなし。ヘルパー経由なら操作可能、`file://` 直開き等で fetch 失敗時は全操作ボタンが disabled になり案内文言を出す（安全劣化） |
+| `examples/report.html` + `examples/report.html.decisions.json` | 動作サンプル一式（既存 4 カード + `direction`）。AI 推奨を既定値に入れた `decisions.json` 雛形付き |
+| `test/direction-card.test.mjs` | ローカル Chrome を headless 起動して、演出カードの保存と既存 4 カードの非退行を実測するテスト |
 
 ## 使い方
 
@@ -39,8 +40,19 @@ curl http://127.0.0.1:8791/api/state
 curl -X POST http://127.0.0.1:8791/api/commit
 ```
 
-`examples/` 配下は legacy との diff ゼロで保つため、動作確認は作業コピー
-（例: スクラッチディレクトリへコピーしたもの）に対して行うこと。
+`examples/` 配下の decisions.json を実操作で変更しないため、動作確認は作業コピー
+（例: スクラッチディレクトリへコピーしたもの）に対して行うこと。ブラウザテストも一時領域へ
+サンプル一式をコピーしてから操作する。
+
+### カード入力の data 属性
+
+- `data-option` + `data-answer-key`: 単選値を指定した answer キーへ保存する。`data-answer-key` 省略時は既存どおり answer 内の対応値を自動検出する
+- `data-range="<key>"` + `data-default-value`: range の値を整数化し、answer の `<key>` へ保存する。対応する `data-range-value="<key>"` に現在値を表示する
+- `data-array-check="<key>"` + `data-array-value="<value>"`: 複数選択を answer の配列へ保存する。`data-default="true"` の項目は既定で選択する
+
+```sh
+npm test --workspace @akari-video/decision-cards
+```
 
 ## edit-plan スキルからの参照方法
 

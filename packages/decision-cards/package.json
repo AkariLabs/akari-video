@@ -8,6 +8,7 @@
     "decision-cards-helper": "report-helper.mjs"
   },
   "scripts": {
-    "start": "node report-helper.mjs"
+    "start": "node report-helper.mjs",
+    "test": "node --test"
   }
 }
