@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 20.0 }],
+  "overlays": [],
+  "layers": [
+    { "id": "dup", "t": 0, "duration": 1, "kind": "baked", "src": "out/layers/a.mov" },
+    { "id": "dup", "t": 2, "duration": 1, "kind": "baked", "src": "out/layers/b.mov" }
+  ]
+}

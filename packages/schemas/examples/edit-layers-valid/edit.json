@@ -1,0 +1,31 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 20.0 }],
+  "overlays": [],
+  "layers": [
+    {
+      "id": "fx-glitch",
+      "t": 2.0,
+      "duration": 3.0,
+      "kind": "baked",
+      "src": "out/layers/fx-glitch.mov",
+      "preset": "glitch-01",
+      "params": { "intensity": 0.6 },
+      "transform": { "x": 0, "y": 0, "scale": 1, "rotate": 0 },
+      "opacity": 1,
+      "blend": "screen"
+    },
+    {
+      "id": "pinp-guest",
+      "t": 8.0,
+      "duration": 5.0,
+      "kind": "video",
+      "src": "footage/guest.mp4",
+      "transform": { "x": 420, "y": -220, "scale": 0.35, "rotate": 0 },
+      "opacity": 1,
+      "chroma_key": { "color": "0x00FF00", "similarity": 0.12, "blend": 0.05 }
+    }
+  ]
+}

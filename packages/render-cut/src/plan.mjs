@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
+
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
 const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
 // docs/contract-2026-07-20-edit-json-v1-narration.md §1: gain_db clamp range, shared with bgm/sfx.
@@ -31,6 +33,7 @@ export function buildPlan({
   const duration = predictedDuration(edit.cuts, capabilities.sourceDuration);
   const temporary = temporaryDirectory;
   const cutPath = join(temporary, "cut.mp4");
+  const layeredPath = join(temporary, "layered.mp4");
   const overlayWebmPath = join(temporary, "overlay.webm");
   const overlayMovPath = join(temporary, "overlay.mov");
   const compositePath = join(temporary, "composite.mp4");
@@ -52,6 +55,21 @@ export function buildPlan({
     look: edit.output.look,
     chromaKey: edit.source?.chroma_key,
   });
+  // layers[] is additive-only (contract-2026-07-22-prerender-rail-and-assets.md §1.2): an edit.json
+  // without it produces no `layers` command and render-cut.mjs skips this stage entirely, so
+  // existing projects keep their byte-identical cut.mp4 -> composite pipeline (zero regression).
+  const layers = hasLayers(edit)
+    ? buildLayersCompositeCommand({
+        layers: edit.layers,
+        projectRoot,
+        ffmpegCommand: capabilities.ffmpegCommand,
+        inputPath: cutPath,
+        outputPath: layeredPath,
+        duration,
+        width,
+        height,
+      })
+    : null;
 
   return {
     predicted_duration_seconds: duration,
@@ -76,6 +94,7 @@ export function buildPlan({
     },
     intermediates: [
       cutPath,
+      ...(layers ? [layeredPath] : []),
       sheetPath,
       overlayWebmPath,
       overlayMovPath,
@@ -131,25 +150,26 @@ export function buildPlan({
       composite: {
         hyperframes: buildAnimatedCompositeCommand(
           capabilities.ffmpegCommand,
-          cutPath,
+          layers ? layeredPath : cutPath,
           overlayWebmPath,
           compositePath,
         ),
         "puppeteer-core": buildAnimatedCompositeCommand(
           capabilities.ffmpegCommand,
-          cutPath,
+          layers ? layeredPath : cutPath,
           overlayMovPath,
           compositePath,
         ),
         "static-screenshot": buildStaticCompositeCommand(
           capabilities.ffmpegCommand,
-          cutPath,
+          layers ? layeredPath : cutPath,
           compositePath,
           temporary,
           renderOverlays,
           duration,
         ),
       },
+      layers,
       audio_mix: buildAudioMixCommand({
         edit,
         projectRoot,

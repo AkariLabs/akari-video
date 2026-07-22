@@ -164,12 +164,23 @@ export async function renderProject(input, options = {}) {
     const cutCommand = plan.commands.cut;
     runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
 
+    // layers[] (contract-2026-07-22-prerender-rail-and-assets.md §1.2) composites onto the
+    // cuts-joined base before overlays/captions are rasterized on top. plan.commands.layers is
+    // null whenever edit.layers is absent/empty, so a layers-less edit.json never runs this
+    // command and always feeds the original cut.mp4 onward unchanged (byte-identical output).
+    const layersCommand = plan.commands.layers;
+    const layeredPath = join(temporaryDirectory, "layered.mp4");
+    if (layersCommand) {
+      runChecked(layersCommand.command, layersCommand.args, { cwd: projectRoot });
+    }
+    const baseVideoPath = layersCommand ? layeredPath : cutPath;
+
     const overlays = loadedOverlays;
     const captions = plannedCaptions;
     const allOverlays = [...overlays, ...captions];
     const compositePath = join(temporaryDirectory, "composite.mp4");
     if (allOverlays.length === 0) {
-      await copyFile(cutPath, compositePath);
+      await copyFile(baseVideoPath, compositePath);
       state.provenance.rasterizer.adopted = "skip";
       state.provenance.rasterizer.attempts.push({
         method: "skip",
@@ -183,7 +194,7 @@ export async function renderProject(input, options = {}) {
         edit,
         projectRoot,
         temporaryDirectory,
-        cutPath,
+        cutPath: baseVideoPath,
         compositePath,
         capabilities,
         duration: plan.predicted_duration_seconds,
@@ -320,6 +331,9 @@ async function collectInputReceipts(projectRoot, edit, editText) {
   for (const [index, sfx] of (edit.audio?.sfx ?? []).entries()) {
     const path = audioPath(sfx);
     if (path) addReference(files, projectRoot, `audio:sfx:${index}`, path);
+  }
+  for (const [index, layer] of (edit.layers ?? []).entries()) {
+    addReference(files, projectRoot, `layer:${index}`, layer.src);
   }
   if (edit.thumbnail?.path) addReference(files, projectRoot, "thumbnail", edit.thumbnail.path);
 
@@ -756,6 +770,9 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
   for (const value of edit.audio?.narration ?? []) {
     const path = audioPath(value);
     if (path) inputs.push(resolve(projectRoot, path));
+  }
+  for (const layer of edit.layers ?? []) {
+    if (typeof layer?.src === "string" && layer.src !== "") inputs.push(resolve(projectRoot, layer.src));
   }
   if (inputs.includes(outputPath)) {
     throw new RefusalError("--out must not replace an input file");
