@@ -42,6 +42,10 @@ const VIDEO_MIME_TYPES = new Map<string, string>([
     ['.webm', 'video/webm']
 ]);
 const ASSET_MIME_TYPES = new Map<string, string>([
+    ['.mp4', 'video/mp4'],
+    ['.mov', 'video/mp4'],
+    ['.m4v', 'video/mp4'],
+    ['.webm', 'video/webm'],
     ['.aac', 'audio/aac'],
     ['.flac', 'audio/flac'],
     ['.m4a', 'audio/mp4'],
