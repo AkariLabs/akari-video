@@ -38,9 +38,9 @@ description: analyze-project が作る分析レポート（interpretation.json +
 4. [approvals-and-generation.md](approvals-and-generation.md) を読み、生成宣言、provenance、3 段階承認を運用する。Checkpoint 1 はチャットでの明示承認を得るまで編集実行に進まない。
 5. 実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json v0` とオーバーレイ HTML を生成・検証する。
 6. 見せ場マーカーを書く工程では [beats.md](beats.md) を読み、`analysis.json` の events / transcript から
-   `beats[]` を導出する（マッピング表・座標系・密度ガードレール・worked example）。
+   `beats[]` を導出する（マッピング表・座標系・導出段のガードレール = 下限と根拠・worked example）。
 7. 承認済みの `beats[]` を演出へ連動させる工程では [beat-sync.md](beat-sync.md) を読み、射影・SE 発火
-   規則・章転換のスナップ・SE 既定表に従って `audio.sfx[]` を組む（v0 は SE + カット境界 + 既存
+   規則・章転換のスナップ・密度ガードレール・SE 既定表に従って `audio.sfx[]` を組む（v0 は SE + カット境界 + 既存
    overlay 部品まで。トランジション語彙の発明とビート連動の BGM 操作をしない）。
 
 現在の工程に必要なリーフだけを読み、後工程を先回りして実行しない。
