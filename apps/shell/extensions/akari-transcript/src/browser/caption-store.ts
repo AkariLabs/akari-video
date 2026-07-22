@@ -2,6 +2,12 @@ export interface CaptionSourceRef {
     segment: number;
 }
 
+export interface CaptionWord {
+    start: number;
+    end: number;
+    text: string;
+}
+
 export interface Caption {
     id: string;
     start: number;
@@ -10,6 +16,8 @@ export interface Caption {
     speaker: string | null;
     sourceRef: CaptionSourceRef | null;
     edited: boolean;
+    words?: CaptionWord[];
+    style?: string;
 }
 
 export interface AnalysisSegment {
@@ -152,6 +160,7 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
         if (current) {
             bySegment.delete(segmentIndex);
             captions.push(current.edited ? current : {
+                ...current,
                 id: current.id,
                 start: segment.start,
                 end: segment.end,
@@ -209,10 +218,16 @@ function serializeCaption(caption: Caption): string {
     const sourceRef = caption.sourceRef === null
         ? 'null'
         : `{"segment":${JSON.stringify(caption.sourceRef.segment)}}`;
+    const words = caption.words === undefined
+        ? ''
+        : `,"words":${JSON.stringify(caption.words)}`;
+    const style = caption.style === undefined
+        ? ''
+        : `,"style":${JSON.stringify(caption.style)}`;
     return `{"id":${JSON.stringify(caption.id)},"start":${JSON.stringify(caption.start)},` +
         `"end":${JSON.stringify(caption.end)},"text":${JSON.stringify(caption.text)},` +
         `"speaker":${caption.speaker === null ? 'null' : JSON.stringify(caption.speaker)},` +
-        `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}}`;
+        `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}${words}${style}}`;
 }
 
 function normalizeSegment(value: any): AnalysisSegment | undefined {
@@ -249,6 +264,8 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
     if (segment === undefined || (value.speaker !== null && typeof value.speaker !== 'string')) {
         return undefined;
     }
+    const words = normalizeCaptionWords(value.words);
+    const style = typeof value.style === 'string' ? value.style : undefined;
     return {
         id: value.id,
         start,
@@ -256,8 +273,25 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
         text: value.text,
         speaker: value.speaker,
         sourceRef: segment,
-        edited: value.edited
+        edited: value.edited,
+        ...(words === undefined ? {} : { words }),
+        ...(style === undefined ? {} : { style })
     };
+}
+
+function normalizeCaptionWords(value: any): CaptionWord[] | undefined {
+    if (!Array.isArray(value)) {
+        return undefined;
+    }
+    const words = value.flatMap((word: any) =>
+        word && typeof word === 'object'
+            && typeof word.start === 'number' && Number.isFinite(word.start)
+            && typeof word.end === 'number' && Number.isFinite(word.end)
+            && typeof word.text === 'string'
+            ? [{ start: word.start, end: word.end, text: word.text }]
+            : []
+    );
+    return words.length > 0 ? words : undefined;
 }
 
 function decodeJsonString(value: string): string {
