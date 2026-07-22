@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -151,53 +151,24 @@ test("bgm.fadeOut=3 is symmetric with fadeIn=3: the tail ramp mirrors the head r
   }
 });
 
-test("bgm.fadeIn/fadeOut omitted produces a byte-identical output to the pre-feature code (regression check)", async (t) => {
+test("bgm.fadeIn/fadeOut omitted keeps the filtergraph free of afade (regression invariant)", async (t) => {
+  // 歴史記録: fade 導入コミット時点では実装前 plan.mjs との並走レンダリングで
+  // final.mp4 のバイト完全一致を実測済み（tasks/2026-07-22-bgm-fade/out/status.json）。
+  // 本テストはその不変条件（fade 省略時は afade がフィルタグラフに一切現れない）を
+  // git 履歴に依存しない形で恒久検証する。
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
-  const baseline = spawnSync("git", ["show", "HEAD:packages/render-cut/src/plan.mjs"], {
-    cwd: packageRoot,
-    encoding: "utf8",
-  });
-  assert.equal(baseline.status, 0, baseline.stderr);
-  assert.ok(
-    !/fadeIn|fadeOut|afade/.test(baseline.stdout),
-    "expected HEAD's plan.mjs (this task's base commit) to predate the fade feature -- if this fails, the base commit already has fade support and this regression check needs a different baseline",
-  );
-
-  const oldPackageRoot = await mkdtemp(join(tmpdir(), "render-cut-old-clone-"));
-  const newProject = await makeProject({ duration: 6, bgm: {} });
-  const oldProject = await makeProject({ duration: 6, bgm: {} });
+  const project = await makeProject({ duration: 6, bgm: {} });
   try {
-    await cp(packageRoot, oldPackageRoot, { recursive: true });
-    await writeFile(join(oldPackageRoot, "src", "plan.mjs"), baseline.stdout);
-    const oldCliPath = join(oldPackageRoot, "bin", "render-cut.mjs");
-
-    const newExecuted = run(newProject);
-    const oldExecuted = run(oldProject, [], oldCliPath);
-    assert.equal(newExecuted.status, 0, newExecuted.stderr);
-    assert.equal(oldExecuted.status, 0, oldExecuted.stderr);
-
-    const newState = JSON.parse(await readFile(join(newProject, ".akari", "render.json"), "utf8"));
-    const oldState = JSON.parse(await readFile(join(oldProject, ".akari", "render.json"), "utf8"));
-    assert.equal(newState.verify.verdict, "pass");
-    assert.equal(oldState.verify.verdict, "pass");
-
-    // The -filter_complex value is the one argument that never embeds a project-specific temp
-    // path, so it is the direct, path-independent proof that the filtergraph itself is byte-for-
-    // byte untouched when fadeIn/fadeOut are absent (the surrounding -i/-o paths necessarily
-    // differ because old/new each render from their own temp project directory).
-    const newArgs = newState.plan.commands.audio_mix.args;
-    const oldArgs = oldState.plan.commands.audio_mix.args;
-    const newFilterComplex = newArgs[newArgs.indexOf("-filter_complex") + 1];
-    const oldFilterComplex = oldArgs[oldArgs.indexOf("-filter_complex") + 1];
-    assert.equal(newFilterComplex, oldFilterComplex);
-
-    const newBytes = await readFile(join(newProject, newState.artifacts[0].path));
-    const oldBytes = await readFile(join(oldProject, oldState.artifacts[0].path));
-    assert.ok(newBytes.equals(oldBytes), "expected byte-identical final.mp4 between old (pre-fade) and new (fade-capable, fade omitted) code");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const args = state.plan.commands.audio_mix.args;
+    const filterComplex = args[args.indexOf("-filter_complex") + 1];
+    assert.ok(!filterComplex.includes("afade"), `expected no afade in filter_complex when fade is omitted, got: ${filterComplex}`);
+    assert.ok(!args.join(" ").includes("afade"), "expected no afade anywhere in the audio_mix args when fade is omitted");
   } finally {
-    await rm(oldPackageRoot, { recursive: true, force: true });
-    await rm(newProject, { recursive: true, force: true });
-    await rm(oldProject, { recursive: true, force: true });
+    await rm(project, { recursive: true, force: true });
   }
 });
 
