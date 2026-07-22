@@ -1117,7 +1117,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src"];
+    const optional = ["src", "words", "style"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -1177,6 +1177,19 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
     }
     if (typeof caption.edited !== "boolean") {
       captionFinding(findings, "captions.edited", "edited must be a boolean", itemPath);
+    }
+    if (Object.hasOwn(caption, "style")) {
+      if (caption.style !== "karaoke" && caption.style !== "pop") {
+        captionFinding(
+          findings,
+          "captions.schema",
+          'style must be "karaoke" or "pop"',
+          itemPath,
+        );
+      }
+    }
+    if (Object.hasOwn(caption, "words")) {
+      validateCaptionWords(caption.words, caption, findings, itemPath);
     }
     const timesValid =
       isFiniteNumber(caption.start) &&
@@ -1248,6 +1261,63 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       });
     }
   }
+}
+
+const CAPTION_WORD_FIELDS = ["start", "end", "text"];
+
+// caption.words[] は analysis.json の transcriptSegment.words（$defs/word）と同形・同座標系
+// （source 秒）。充填パイプライン自体はこの検証の対象外（captions-contract-revision-note.md 参照）
+// で、ここは「words が置かれているならその形が正しいか」だけを見る。
+function validateCaptionWords(words, caption, findings, itemPath) {
+  if (!Array.isArray(words)) {
+    captionFinding(findings, "captions.schema", "words must be an array", itemPath);
+    return;
+  }
+  const hasCaptionRange = isFiniteNumber(caption.start) && isFiniteNumber(caption.end);
+  words.forEach((word, wordIndex) => {
+    const wordPath = `${itemPath}.words[${wordIndex}]`;
+    if (!isRecord(word)) {
+      captionFinding(findings, "captions.schema", "word must be an object", wordPath);
+      return;
+    }
+    for (const field of CAPTION_WORD_FIELDS) {
+      if (!Object.hasOwn(word, field)) {
+        captionFinding(findings, "captions.schema", `${field} is required`, wordPath);
+      }
+    }
+    for (const field of Object.keys(word)) {
+      if (!CAPTION_WORD_FIELDS.includes(field)) {
+        captionFinding(
+          findings,
+          "captions.schema",
+          `${field} is not defined by captions v0 words[]`,
+          wordPath,
+        );
+      }
+    }
+    const wordTimesValid =
+      isFiniteNumber(word.start) &&
+      isFiniteNumber(word.end) &&
+      word.start >= 0 &&
+      word.end >= word.start;
+    if (!wordTimesValid) {
+      captionFinding(findings, "captions.schema", "word must satisfy 0 <= start <= end", wordPath);
+    } else if (
+      hasCaptionRange &&
+      (word.start < caption.start - EPSILON || word.end > caption.end + EPSILON)
+    ) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "captions.words-range",
+        message: "word falls outside the caption's [start, end] range",
+        path: wordPath,
+        range: { start: word.start, end: word.end },
+      });
+    }
+    if (!isNonEmptyString(word.text)) {
+      captionFinding(findings, "captions.schema", "text must be a non-empty string", wordPath);
+    }
+  });
 }
 
 const REVIEW_TARGET_KINDS = new Set(["instant", "range", "region", "asset", "insert"]);

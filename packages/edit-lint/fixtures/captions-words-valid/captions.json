@@ -1,0 +1,17 @@
+[
+  {
+    "id": "c-0001",
+    "start": 5,
+    "end": 9,
+    "text": "今日来れない方にも後でシェアする予定",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "style": "karaoke",
+    "words": [
+      { "start": 5, "end": 6, "text": "今日" },
+      { "start": 6, "end": 7.5, "text": "来れない" },
+      { "start": 7.5, "end": 9, "text": "予定" }
+    ]
+  }
+]

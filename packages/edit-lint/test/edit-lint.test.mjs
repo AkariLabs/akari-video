@@ -246,6 +246,102 @@ test("captions validate source-time visibility and edited metadata", async () =>
   });
 });
 
+test("captions-words-valid fixture (words[] + style: karaoke, id c-0001) passes lint", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-words-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.severity === "error"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("captions-style-invalid fixture rejects an unsupported style value", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-style-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "captions.schema" && /style/.test(finding.message),
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("captions-word-invalid fixture rejects a malformed words[] element", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-word-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "captions.schema" && /word/.test(finding.message),
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("captions-word-out-of-range fixture warns without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-word-out-of-range"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some((finding) => finding.check === "captions.words-range"),
+      JSON.stringify(result.findings, null, 2),
+    );
+    assert.ok(
+      result.findings
+        .filter((finding) => finding.check === "captions.words-range")
+        .every((finding) => finding.severity === "warning"),
+    );
+  });
+});
+
+test("words[] rejects unknown fields, requires 0 <= start <= end, and non-empty text", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "captions-words-valid");
+    const captionsPath = join(project, "captions.json");
+    await writeFile(
+      captionsPath,
+      `${JSON.stringify([
+        {
+          id: "c-0001",
+          start: 5,
+          end: 9,
+          text: "字幕",
+          speaker: null,
+          sourceRef: null,
+          edited: false,
+          style: "pop",
+          words: [
+            { start: 5, end: 5.5, text: "" },
+            { start: 6, end: 5.9, text: "逆転" },
+            { start: 7, end: 7.5, text: "余分", confidence: 0.9 },
+          ],
+        },
+      ])}\n`,
+      "utf8",
+    );
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    const schemaFindings = result.findings.filter((finding) => finding.check === "captions.schema");
+    assert.ok(schemaFindings.some((finding) => /text must be a non-empty string/.test(finding.message)));
+    assert.ok(schemaFindings.some((finding) => /0 <= start <= end/.test(finding.message)));
+    assert.ok(schemaFindings.some((finding) => /confidence is not defined/.test(finding.message)));
+  });
+});
+
 test("narration with bgm and full provenance passes with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "narration-valid");
