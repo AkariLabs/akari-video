@@ -69,28 +69,25 @@
   近い位置を保つ（`tasks/2026-07-22-dy-ratio-fix/out/{fixed-dy23_len4x,ratio-dy_len4x}.png`
   参照）
 
-## 判明した既存バグ（未修正・要相談）: `resolve.ts` の opacity 解決が truthy 判定になっている
+## vendor への追記: `opacity: 0` の静的解決修正（2026-07-22）
 
-`packages/2026-07-22-particle-min-fix` タスク（プレート内含有監査の強化）で、レイヤーを
-「不可視化」するテストヘルパー（`transform.opacity` を上書きして特定レイヤーだけ描画する
-手法）を書いていて発見。`resolve.ts` の
+プレート内含有監査で、レイヤーを「不可視化」するテストヘルパー（`transform.opacity` を
+上書きして特定レイヤーだけ描画する手法）を書いていて発見。`resolve.ts` の
 
 ```ts
 const to = layer.transform.opacity ? resolveNum(layer.transform.opacity, 1) : 1
 ```
 
 は JavaScript の truthy 判定になっており、**`layer.transform.opacity` にリテラル `0` を
-指定しても「未指定」とみなされ `1`（不透明）にフォールバックしてしまう**（`0 in JS is
-falsy`）。実運用では opacity アニメーションは大抵 track（`prop:'opacity'` の keyframe）で
-行うため通常は表面化しないが、静的な `transform.opacity: 0` を直接指定したいケース
-（今回のテストヘルパーのような「このレイヤーを完全に隠す」用途）では効かない。
+指定しても「未指定」とみなされ `1`（不透明）にフォールバックしていた**。未指定と値ありを
+区別する `layer.transform.opacity !== undefined` 判定へ変更し、リテラル `0` は `0`、未指定は
+従来どおり `1`、`{var}` / `{expr}` は従来どおり解決されるようにした。
 
-回避策（今回のテスト/監査スクリプト側で採用・エンジンには手を入れていない）:
-リテラル `0` の代わりに `-1` を指定する（`-1` は truthy なので `resolveNum` を通り、
-`drawLayer` 側の `if (transform.opacity <= 0) return` には該当するため意図通り不可視になる）。
-
-根本修正には `resolve.ts` を `layer.transform.opacity !== undefined ? ... : 1` へ変更する
-必要があるが、司令塔判断待ちのため未着手。
+式依存収集側の `if (layer.transform.opacity) collect(layer.transform.opacity)` も点検した。
+このガードで除外される Value はリテラル `0`、空文字、未指定だけで、いずれも式依存を持たず
+`collect()` の対象外であるため変更不要。`{expr}` は truthy なので従来どおり依存収集される。
+`test/opacity-resolution.test.mjs` で、依存先レイヤーより前に置いた opacity 式を含めて
+`resolve()` を直接実行し、リテラル・未指定・変数・式の各解決結果を固定した。
 
 ## fx（akari-fx）は 2026-07-22 司令塔裁定でスコープ除外
 

@@ -570,7 +570,7 @@ export function resolve(
     const tx = resolveNum(layer.transform.x)
     const ty = resolveNum(layer.transform.y)
     const tr = layer.transform.rotation ? resolveNum(layer.transform.rotation) : 0
-    const to = layer.transform.opacity ? resolveNum(layer.transform.opacity, 1) : 1
+    const to = layer.transform.opacity !== undefined ? resolveNum(layer.transform.opacity, 1) : 1
     const tSkewX = layer.transform.skewX ? resolveNum(layer.transform.skewX) : 0
     const tSkewY = layer.transform.skewY ? resolveNum(layer.transform.skewY) : 0
 
