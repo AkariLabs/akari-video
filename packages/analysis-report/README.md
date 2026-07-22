@@ -16,14 +16,24 @@
 
 ```sh
 node packages/analysis-report/render-analysis-report.mjs \
-  --analysis <analysis.json のパス> [--analysis <analysis.json のパス> ...] \
+  --analysis <ref>=<analysis.json のパス> [--analysis <ref>=<パス> ...] \
   --interpretation <interpretation.json のパス> \
   --out <report.html の出力先>
 ```
 
-- `--analysis` は `interpretation.json` の `assets[]` と **同数・同順**で指定する
-  （i 番目の `--analysis` が `assets[i]` に対応する。v0 の位置的対応づけ規約 — schema には
-  asset ↔ analysis の明示的な外部キーが無いため、CLI 呼び出し順を SSOT とする）
+- `--analysis` の正式形は `<ref>=<path>`（`ref` は `interpretation.json` の
+  `assets[].ref` を明示する）。**位置対応づけ（v0 初期の「同数・同順」規約）は廃止した**
+  （2026-07-22 改訂 — multiasset-dogfood A3.2 で、`--analysis` の指定順を入れ替えても
+  無警告で `assets[].ref` と analysis.json の中身が入れ替わる silent data corruption を実証。
+  `inputs.analyses[].ref` を schema 側で必須化し、CLI 側も ref 結合に切り替えた）
+  - 素の `<path>` のみの指定も許容するが、`interpretation.json` の
+    `inputs.analyses[].path` と **一意に**照合できる場合に限る（basename または
+    path segment の末尾一致が 1 件に定まる場合）。不一致・複数一致（曖昧）はどちらも
+    ハードエラーで **何も書き出さない**。順序へのフォールバックはしない
+  - どちらの指定形でも、確定した `ref` に対応する `inputs.analyses[].path` と、CLI で
+    与えた path が対応しているかを追加でクロスチェックする（取り違えたペアを
+    明示的な `ref=path` で渡した場合もここで検出する）
+  - `interpretation.assets[]` の全 `ref` に対応する `--analysis` が過不足なく必要
 - `interpretation.json` は `packages/schemas/bin/validate-interpretation.mjs` で検証し、
   PASS しない場合は明確なエラーを出して **何も書き出さずに** 終了する（exit code 1）
 - `analysis.json` は軽量な構造検証（zero-dep 方針のため ajv 等は使わない）で明らかな壊れ入力を拒否する

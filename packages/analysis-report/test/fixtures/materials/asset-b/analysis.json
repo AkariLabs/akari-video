@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "source": "asset-b.mp4",
+  "transcript": [
+    { "start": 0, "end": 5, "text": "asset B line one" }
+  ],
+  "keyframes": [
+    { "t": 0, "path": "keyframes/kf-b.jpg", "note": "asset B opening frame" }
+  ],
+  "events": [
+    { "type": "chapter", "t": 0, "title": "Intro B" }
+  ],
+  "tracks": { "speakers": [], "faces": [], "person_matte": null }
+}

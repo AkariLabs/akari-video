@@ -2,7 +2,7 @@
   "version": 0,
   "inputs": {
     "analyses": [
-      { "path": "analysis-minimal.json", "source": "test fixture" }
+      { "ref": "clip-01", "path": "analysis-minimal.json", "source": "test fixture" }
     ],
     "context": {
       "past_projects": [],

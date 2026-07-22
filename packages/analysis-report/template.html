@@ -563,6 +563,12 @@
         font-size: 0.92rem;
       }
 
+      .fact-card h5 {
+        margin: var(--space-3) 0 0.4rem;
+        font-size: 0.86rem;
+        color: var(--muted);
+      }
+
       .fact-tally {
         display: flex;
         flex-wrap: wrap;
@@ -838,8 +844,10 @@
         <h2 id="heading-facts">3. 素材別 事実カード</h2>
         <p class="section-lead">
           events（trouble / filler / hook / highlight）の要約と tracks
-          の検出状況。本筋内で起きたトラブル実況は、対応する解釈層の
-          <code>trouble_overlap</code> フラグをこの節で併記する（節 5「浮いた素材」には出さない）。
+          の検出状況。各素材カードの先頭には解釈層の「素材の読み」（role /
+          summary、章単位の sections があれば併記）を表示する。本筋内で起きたトラブル実況は、
+          対応する解釈層の <code>trouble_overlap</code> フラグをこの節で併記する
+          （節 5「浮いた素材」には出さない）。
         </p>
         <div data-mount="facts"></div>
       </section>
@@ -1307,6 +1315,52 @@
           return details;
         }
 
+        // 素材の読み（interpretation.assets[].role / .summary / .sections[]）。
+        // 2026-07-22 A3.2 multiasset-dogfood で「書くだけ書いて画面に出ない」ことが発覚した
+        // 3 フィールドの描画（第 23 巡裁定「素材の読みは存続」の実装漏れ対応）。arc は対象外
+        // （構成案は引き続き非表示 — A2.1 改訂）。
+        function renderAssetReading(interpAsset) {
+          const card = el("div", { class: "fact-card" });
+          card.append(el("h4", { text: "素材の読み（role / summary）" }));
+          card.append(
+            el("div", { class: "badge-row" }, [
+              badge("interpretation"),
+              el("strong", { text: interpAsset.role }),
+            ]),
+          );
+          card.append(el("p", { text: interpAsset.summary }));
+
+          const sections = interpAsset.sections || [];
+          if (sections.length > 0) {
+            card.append(el("h5", { text: "章単位の読み（sections）" }));
+            for (const section of sections) {
+              const chip = el("div", {
+                class: "event-chip",
+                attrs: { "data-seek": section.start },
+              });
+              chip.append(
+                el("div", { class: "event-chip__meta" }, [
+                  badge("interpretation"),
+                  el("strong", { text: section.title }),
+                  el("span", {
+                    text: `${section.role}・${formatRange(section.start, section.end)}`,
+                  }),
+                ]),
+              );
+              const evidenceDetails = el("details", {
+                class: "evidence-toggle",
+              });
+              evidenceDetails.append(el("summary", { text: "根拠を見る" }));
+              evidenceDetails.append(
+                el("blockquote", { text: section.evidence }),
+              );
+              chip.append(evidenceDetails);
+              card.append(chip);
+            }
+          }
+          return card;
+        }
+
         // --- Section 3: 素材別事実カード ---
         function renderFacts(bundle) {
           const mount = document.querySelector('[data-mount="facts"]');
@@ -1338,6 +1392,10 @@
                 el("strong", { text: asset.ref }),
               ]),
             );
+
+            if (interpAsset) {
+              block.append(renderAssetReading(interpAsset));
+            }
 
             block.append(
               el("div", { class: "fact-tally" }, [
