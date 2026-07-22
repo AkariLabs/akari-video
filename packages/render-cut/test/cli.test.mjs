@@ -220,7 +220,7 @@ test("3D overlays skip HyperFrames and use the puppeteer-core path", async (t) =
     const puppeteerAttempt = state.provenance.rasterizer.attempts.find(
       (attempt) => attempt.method === "puppeteer-core",
     );
-    if (executed.status === 2 && /SIGABRT|timeout/i.test(puppeteerAttempt?.reason ?? "")) {
+    if (executed.status === 2 && /SIGABRT|timeout|Failed to launch the browser process/i.test(puppeteerAttempt?.reason ?? "")) {
       return t.skip(`sandbox environment Chrome failure: ${puppeteerAttempt.reason}`);
     }
     assert.equal(

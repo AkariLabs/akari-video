@@ -1,4 +1,6 @@
-const DEFAULT_MAX_CHARACTERS = 13;
+import { computeCutTimelineOffsets, cutSpeed } from "./cut-timeline.mjs";
+
+const DEFAULT_MAX_CHARACTERS = 20;
 
 // opt-in word-level スタイル（既定 = 未指定 = 従来のプレーン字幕。既定出力はバイト等価を保つため、
 // このセットに含まれないスタイル値・words 未充填の場合は必ず renderCaptionFragment に fall back する）。
@@ -46,20 +48,20 @@ function computeCaptionRanges(start, end, cuts) {
     return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];
   }
 
+  const offsets = computeCutTimelineOffsets(cuts);
   const ranges = [];
-  let timelineCursor = 0;
-  for (const cut of cuts) {
+  for (const [index, cut] of cuts.entries()) {
     const overlapStart = Math.max(start, cut.in);
     const overlapEnd = Math.min(end, cut.out);
     if (overlapEnd > overlapStart) {
+      const speed = cutSpeed(cut);
       ranges.push({
-        start: timelineCursor + overlapStart - cut.in,
-        duration: overlapEnd - overlapStart,
+        start: offsets[index].start + (overlapStart - cut.in) / speed,
+        duration: (overlapEnd - overlapStart) / speed,
         sourceStart: overlapStart,
         sourceEnd: overlapEnd,
       });
     }
-    timelineCursor += cut.out - cut.in;
   }
   return ranges;
 }
@@ -113,6 +115,7 @@ export function renderCaptionFragment(text, options = {}) {
       inset: 0;
       pointer-events: none;
       color: var(--caption-color, #fff);
+      text-shadow: var(--caption-text-shadow, -1.5px -1.5px 0 rgba(0,0,0,.85), 1.5px -1.5px 0 rgba(0,0,0,.85), -1.5px 1.5px 0 rgba(0,0,0,.85), 1.5px 1.5px 0 rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6));
       font-family: system-ui, -apple-system, sans-serif;
       font-size: var(--caption-font-size, 38px);
       font-weight: 700;
@@ -136,7 +139,7 @@ export function renderCaptionFragment(text, options = {}) {
       margin: 0 auto;
       padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
       border-radius: var(--plate-radius, 10px);
-      background: var(--plate-bg, rgba(8, 12, 22, 0.74));
+      background: var(--plate-bg, transparent);
       white-space: pre;
     }
     @keyframes akari-caption-fade {
@@ -178,6 +181,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       inset: 0;
       pointer-events: none;
       color: var(--caption-color, #fff);
+      text-shadow: var(--caption-text-shadow, -1.5px -1.5px 0 rgba(0,0,0,.85), 1.5px -1.5px 0 rgba(0,0,0,.85), -1.5px 1.5px 0 rgba(0,0,0,.85), 1.5px 1.5px 0 rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6));
       font-family: system-ui, -apple-system, sans-serif;
       font-size: var(--caption-font-size, 38px);
       font-weight: 700;
@@ -201,7 +205,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       margin: 0 auto;
       padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
       border-radius: var(--plate-radius, 10px);
-      background: var(--plate-bg, rgba(8, 12, 22, 0.74));
+      background: var(--plate-bg, transparent);
       white-space: pre;
     }
     .akari-caption__tok {
@@ -268,19 +272,69 @@ function formatSeconds(value) {
 }
 
 export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS) {
+  const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : DEFAULT_MAX_CHARACTERS;
   const explicit = String(text).split(/\r?\n/u);
   const lines = [];
   for (const value of explicit) {
-    const characters = Array.from(value);
-    if (characters.length === 0) {
+    if (value.length === 0) {
       lines.push("");
       continue;
     }
-    for (let index = 0; index < characters.length; index += maximum) {
-      lines.push(characters.slice(index, index + maximum).join(""));
+    for (const segment of splitAfterPunctuation(value)) {
+      lines.push(...splitAtNaturalBoundaries(segment, limit));
     }
   }
   return lines;
+}
+
+const CAPTION_BOUNDARIES = ["から", "まで", "ので", "のに", "けど", "て", "で", "は", "が", "を", "に", "へ", "と", "も", "の"];
+
+function splitAfterPunctuation(value) {
+  const characters = Array.from(value);
+  const segments = [];
+  let start = 0;
+  for (let index = 0; index < characters.length; index += 1) {
+    if ((characters[index] === "、" || characters[index] === "。") && index + 1 < characters.length) {
+      segments.push(characters.slice(start, index + 1).join(""));
+      start = index + 1;
+    }
+  }
+  segments.push(characters.slice(start).join(""));
+  return segments;
+}
+
+function splitAtNaturalBoundaries(value, maximum) {
+  const lines = [];
+  let remaining = Array.from(value);
+  while (remaining.length > maximum) {
+    const spaceBoundary = findLastSpaceBoundary(remaining, maximum);
+    const phraseBoundary = spaceBoundary ?? findLastPhraseBoundary(remaining, maximum);
+    const boundary = phraseBoundary ?? maximum;
+    lines.push(remaining.slice(0, boundary).join(""));
+    remaining = remaining.slice(boundary);
+  }
+  if (remaining.length > 0) lines.push(remaining.join(""));
+  return lines;
+}
+
+function findLastSpaceBoundary(characters, maximum) {
+  for (let index = maximum - 1; index > 0; index -= 1) {
+    if (characters[index] === " " || characters[index] === "　") return index + 1;
+  }
+  return null;
+}
+
+function findLastPhraseBoundary(characters, maximum) {
+  const prefix = characters.slice(0, maximum).join("");
+  let best = null;
+  for (const boundary of CAPTION_BOUNDARIES) {
+    const index = prefix.lastIndexOf(boundary);
+    if (index >= 0) {
+      const candidate = Array.from(prefix.slice(0, index + boundary.length)).length;
+      if (candidate > 0 && (best === null || candidate > best)) best = candidate;
+    }
+  }
+  return best;
 }
 
 function escapeHtml(value) {
