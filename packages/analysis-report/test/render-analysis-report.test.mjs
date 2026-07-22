@@ -37,6 +37,28 @@ test("valid analysis + interpretation を渡すと report.html を生成する",
     assert.ok(!html.includes("__AKARI_ANALYSIS_REPORT_DATA__"), "プレースホルダーが実データに置き換わっている");
     assert.ok(html.includes("clip-01"), "asset ref が埋め込まれている");
     assert.ok(!html.includes("<script>alert"), "素朴なスクリプト注入がない");
+
+    // A2.1（2026-07-22）: 節 4「解釈: 構成案」は表示から除去（arc はデータとして存続）
+    const sectionCount = (html.match(/class="report-section"/g) || []).length;
+    assert.equal(sectionCount, 6, "report-section は 6 件（構成案の節を除去済み）");
+    const navLinkCount = (html.match(/<a href="#section-/g) || []).length;
+    assert.equal(navLinkCount, 6, "章ナビは 6 リンク");
+    assert.ok(!html.includes('id="section-arc"'), "section-arc は存在しない");
+    assert.ok(!html.includes("解釈: 構成案"), "構成案セクションの見出しは表示されない");
+    assert.ok(!html.includes("構成案エントリ"), "ヘッダー統計タイルから構成案エントリを除去済み");
+    assert.ok(html.includes("検出イベント数"), "ヘッダー統計タイルは事実層由来の代替（検出イベント数）を持つ");
+    assert.ok(html.includes('"title":"Opening"'), "arc はデータとして JSON ブロックに保持される");
+
+    // 追加修正（司令塔検収）: 取材台帳の空状態文言が表示から消した「構成案」概念を
+    // 参照し続けないよう改訂（他 2 種の空状態文言は不変）
+    assert.ok(
+      !html.includes("構成案は素材の文脈だけで根拠付きで通りました"),
+      "旧空状態文言（構成案を参照）は残っていない",
+    );
+    assert.ok(
+      html.includes("取材事項なし — 素材の文脈だけで根拠付きで筋が通りました"),
+      "取材台帳の空状態文言は新文言に更新されている",
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

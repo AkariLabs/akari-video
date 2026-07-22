@@ -597,58 +597,7 @@
         border-top: 1px dashed var(--line);
       }
 
-      /* --- section 4: arc --- */
-      .arc-card {
-        position: relative;
-        margin-top: var(--space-3);
-        padding: var(--space-3);
-        padding-left: calc(var(--space-3) + 1.7rem);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: var(--surface-muted);
-      }
-
-      .arc-card__order {
-        position: absolute;
-        top: var(--space-3);
-        left: var(--space-3);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 1.5rem;
-        height: 1.5rem;
-        border-radius: 999px;
-        background: var(--accent);
-        color: #ffffff;
-        font-size: 0.78rem;
-        font-weight: 800;
-      }
-
-      .arc-card__fact-origin {
-        margin-bottom: 0.35rem;
-        color: var(--fact);
-        font-size: 0.8rem;
-        font-weight: 700;
-      }
-
-      .arc-card__refs {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        margin: 0.5rem 0;
-      }
-
-      .ref-chip {
-        display: inline-block;
-        padding: 0.15rem 0.5rem;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        background: var(--surface);
-        color: var(--muted);
-        font-size: 0.76rem;
-      }
-
-      /* --- section 5 / 6 tables --- */
+      /* --- section 4 / 5 tables --- */
       .table-scroll {
         max-width: 100%;
         margin-top: var(--space-3);
@@ -826,8 +775,8 @@
             <dd data-mount="meta-asset-count">—</dd>
           </div>
           <div>
-            <dt>構成案エントリ</dt>
-            <dd data-mount="meta-arc-count">—</dd>
+            <dt>検出イベント数</dt>
+            <dd data-mount="meta-event-count">—</dd>
           </div>
           <div>
             <dt>取材台帳</dt>
@@ -842,10 +791,9 @@
         <a href="#section-timeline">1. タイムライン</a>
         <a href="#section-transcript">2. 文字起こし</a>
         <a href="#section-facts">3. 素材別事実カード</a>
-        <a href="#section-arc">4. 構成案（解釈）</a>
-        <a href="#section-relations">5. 関係・浮いた素材（解釈）</a>
-        <a href="#section-questions">6. 取材台帳（解釈）</a>
-        <a href="#section-provenance">7. 来歴</a>
+        <a href="#section-relations">4. 関係・浮いた素材（解釈）</a>
+        <a href="#section-questions">5. 取材台帳（解釈）</a>
+        <a href="#section-provenance">6. 来歴</a>
       </div>
     </nav>
 
@@ -898,29 +846,16 @@
 
       <section
         class="report-section"
-        id="section-arc"
-        aria-labelledby="heading-arc"
-      >
-        <span class="section-kicker">SECTION 4</span>
-        <h2 id="heading-arc">4. 解釈: 構成案</h2>
-        <p class="section-lead">
-          なぜこの素材区間がこの順序で構成に入るかの解釈（arc）。事実層の章タイトルはそのまま示し、
-          解釈層の purpose がより広い言い換えを添える（事実を上書きしない）。根拠は
-          「根拠を見る」で開く。
-        </p>
-        <div data-mount="arc"></div>
-      </section>
-
-      <section
-        class="report-section"
         id="section-relations"
         aria-labelledby="heading-relations"
       >
-        <span class="section-kicker">SECTION 5</span>
-        <h2 id="heading-relations">5. 解釈: 素材間関係・浮いた素材</h2>
+        <span class="section-kicker">SECTION 4</span>
+        <h2 id="heading-relations">4. 解釈: 素材間関係・浮いた素材</h2>
         <p class="section-lead">
-          複数素材間の関係（relations）と、orphan / unclear
-          の検出結果。本筋内トラブル（trouble_overlap）はここには出さない（節 3 を参照）。
+          同一人物・同一場所・同一時間帯・内容の重複など、素材の読みとして客観的に特定できる
+          関係（relations）と、orphan / unclear の検出結果を示す（構成の提案はここでは行わない
+          — 方向性はチャットで判断する）。本筋内トラブル（trouble_overlap）はここには出さない
+          （節 3 を参照）。
         </p>
         <div data-mount="relations"></div>
       </section>
@@ -930,8 +865,8 @@
         id="section-questions"
         aria-labelledby="heading-questions"
       >
-        <span class="section-kicker">SECTION 6</span>
-        <h2 id="heading-questions">6. 取材台帳</h2>
+        <span class="section-kicker">SECTION 5</span>
+        <h2 id="heading-questions">5. 取材台帳</h2>
         <p class="section-lead">
           open_questions の状態表示のみ。質問行為自体はチャットで行う — このレポートは台帳。
         </p>
@@ -943,8 +878,8 @@
         id="section-provenance"
         aria-labelledby="heading-provenance"
       >
-        <span class="section-kicker">SECTION 7</span>
-        <h2 id="heading-provenance">7. 来歴</h2>
+        <span class="section-kicker">SECTION 6</span>
+        <h2 id="heading-provenance">6. 来歴</h2>
         <p class="section-lead">
           2 パス目に与えた文脈の全記録（interpretation.inputs）。analysis.json
           は変更していない。
@@ -1093,8 +1028,11 @@
 
         function renderHeader(bundle) {
           const assets = bundle.interpretation.assets || [];
-          const arc = bundle.interpretation.arc || [];
           const questions = bundle.interpretation.open_questions || [];
+          const eventCount = (bundle.assets || []).reduce(
+            (sum, asset) => sum + (asset.analysis.events || []).length,
+            0,
+          );
 
           const titleNode = document.querySelector('[data-mount="report-title"]');
           if (assets.length === 1) {
@@ -1109,8 +1047,8 @@
             bundle.generatedAt || "—";
           document.querySelector('[data-mount="meta-asset-count"]').textContent =
             `${assets.length} 本`;
-          document.querySelector('[data-mount="meta-arc-count"]').textContent =
-            `${arc.length} 件`;
+          document.querySelector('[data-mount="meta-event-count"]').textContent =
+            `${eventCount} 件`;
 
           const answered = questions.filter((q) => q.status === "answered").length;
           document.querySelector('[data-mount="meta-question-count"]').textContent =
@@ -1544,85 +1482,7 @@
           }
         }
 
-        // --- Section 4: 構成案 ---
-        function renderArc(bundle) {
-          const mount = document.querySelector('[data-mount="arc"]');
-          const arc = (bundle.interpretation.arc || [])
-            .slice()
-            .sort((a, b) => a.order - b.order);
-          const analysesByRef = new Map(
-            (bundle.assets || []).map((a) => [a.ref, a.analysis]),
-          );
-
-          if (arc.length === 0) {
-            mount.append(emptyState("構成案（arc）はありません。"));
-            return;
-          }
-
-          for (const entry of arc) {
-            const card = el("div", { class: "arc-card" });
-            card.append(
-              el("span", { class: "arc-card__order", text: String(entry.order) }),
-            );
-            card.append(
-              el("div", { class: "badge-row" }, [badge("interpretation")]),
-            );
-
-            const factTitles = [];
-            for (const ref of entry.refs || []) {
-              const analysis = analysesByRef.get(ref.asset);
-              if (!analysis) continue;
-              const chapters = chaptersOf(analysis);
-              const start = ref.start ?? 0;
-              const end = ref.end ?? durationOf(analysis);
-              for (const chapter of chapters) {
-                if (overlaps(chapter.start, chapter.end, start, end)) {
-                  if (!factTitles.includes(chapter.title)) {
-                    factTitles.push(chapter.title);
-                  }
-                }
-              }
-            }
-            card.append(
-              el("p", {
-                class: "arc-card__fact-origin",
-                text:
-                  factTitles.length > 0
-                    ? `事実層の章: ${factTitles.join(" / ")}`
-                    : "事実層の章: （対応する章を特定できません）",
-              }),
-            );
-
-            card.append(el("h3", { text: entry.title }));
-            card.append(el("p", { text: entry.purpose }));
-
-            const refsRow = el("div", { class: "arc-card__refs" });
-            for (const ref of entry.refs || []) {
-              const label =
-                ref.start !== undefined && ref.end !== undefined
-                  ? `${ref.asset}（${formatRange(ref.start, ref.end)}）`
-                  : ref.asset;
-              refsRow.append(
-                el("span", {
-                  class: "ref-chip",
-                  attrs:
-                    ref.start !== undefined ? { "data-seek": ref.start } : {},
-                  text: label,
-                }),
-              );
-            }
-            card.append(refsRow);
-
-            const evidenceDetails = el("details", { class: "evidence-toggle" });
-            evidenceDetails.append(el("summary", { text: "根拠を見る" }));
-            evidenceDetails.append(el("blockquote", { text: entry.evidence }));
-            card.append(evidenceDetails);
-
-            mount.append(card);
-          }
-        }
-
-        // --- Section 5: 関係・浮いた素材 ---
+        // --- Section 4: 関係・浮いた素材 ---
         function renderRelations(bundle) {
           const mount = document.querySelector('[data-mount="relations"]');
           const interpAssets = bundle.interpretation.assets || [];
@@ -1701,7 +1561,7 @@
           }
         }
 
-        // --- Section 6: 取材台帳 ---
+        // --- Section 5: 取材台帳 ---
         function renderQuestions(bundle) {
           const mount = document.querySelector('[data-mount="questions"]');
           const questions = bundle.interpretation.open_questions || [];
@@ -1713,7 +1573,7 @@
           if (questions.length === 0) {
             mount.append(
               emptyState(
-                "取材事項なし — 構成案は素材の文脈だけで根拠付きで通りました",
+                "取材事項なし — 素材の文脈だけで根拠付きで筋が通りました",
               ),
             );
             return;
@@ -1753,7 +1613,7 @@
           mount.append(wrapper);
         }
 
-        // --- Section 7: 来歴 ---
+        // --- Section 6: 来歴 ---
         function renderProvenance(bundle) {
           const mount = document.querySelector('[data-mount="provenance"]');
           const inputs = bundle.interpretation.inputs || {};
@@ -1877,7 +1737,6 @@
           renderTimeline(bundle);
           renderTranscript(bundle);
           renderFacts(bundle);
-          renderArc(bundle);
           renderRelations(bundle);
           renderQuestions(bundle);
           renderProvenance(bundle);
