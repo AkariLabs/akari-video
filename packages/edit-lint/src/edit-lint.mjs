@@ -452,7 +452,7 @@ function validateEditStructure(edit, findings, paths) {
 // validate-edit.mjs の validateLook/validateChromaKey と同じ手書きの流儀（edit-lint は依存ゼロの
 // ため他パッケージの検証ロジックを import しない）。
 function validateLook(value, findings, path) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!isRecord(value)) {
     addFinding(findings, { severity: "error", check: "output.look.structure", message: "look must be an object", path });
     return;
@@ -469,7 +469,7 @@ function validateLook(value, findings, path) {
 }
 
 function validateChromaKey(value, findings, path) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!isRecord(value)) {
     addFinding(findings, { severity: "error", check: "chroma-key.structure", message: "chroma_key must be an object", path });
     return;
@@ -491,7 +491,7 @@ function validateChromaKey(value, findings, path) {
 }
 
 function validateTransitionOut(value, findings, path) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!isRecord(value)) {
     addFinding(findings, { severity: "error", check: "cuts.transition-out.structure", message: "transition_out must be an object", path });
     return;
@@ -505,7 +505,7 @@ function validateTransitionOut(value, findings, path) {
 }
 
 function validateAudioMaster(value, findings, path) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!isRecord(value)) {
     addFinding(findings, { severity: "error", check: "audio.master.structure", message: "master must be an object", path });
     return;
@@ -909,7 +909,10 @@ async function validateNarration(narration, timeline, findings, paths) {
 // 同じ手書きの流儀。ファイル実在欠落は「装飾・欠落は警告」の劣化規約どおり warning に留める
 // （validateReferences の一律 error 経路には audio.bgm/sfx を含めない）。
 async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
-  if (bgm !== undefined) {
+  // docs/contract-2026-07-14-edit-json-v1-audio.md §1 says omission means "no BGM"; real
+  // edit.json data (fieldtest/2026-07-14) spells that as an explicit `"bgm": null` rather than
+  // omitting the key -- the same tolerant-reader convention already used for source.proxy.
+  if (bgm !== undefined && bgm !== null) {
     if (!isRecord(bgm)) {
       addFinding(findings, {
         severity: "error",
@@ -958,7 +961,7 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
     }
   }
 
-  if (sfx === undefined) return;
+  if (sfx === undefined || sfx === null) return;
   if (!Array.isArray(sfx)) {
     addFinding(findings, {
       severity: "error",

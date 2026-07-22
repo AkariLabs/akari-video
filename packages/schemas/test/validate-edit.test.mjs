@@ -147,6 +147,12 @@ test("cuts[].transition_out.type must be dissolve/fade-black/fade-white", () => 
   );
 });
 
+test("audio.bgm: null is tolerated as equivalent to omitted (contract-2026-07-14 says omission = no BGM; real fieldtest data spells that as explicit null, the same convention as source.proxy)", () => {
+  const executed = run("edit-bgm-null-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
 test("audio.master.denoise/loudnorm are validated", () => {
   const executed = run("edit-master-invalid");
   assert.equal(executed.status, 1, executed.stdout);

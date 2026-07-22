@@ -295,6 +295,17 @@ test("narration path that does not resolve to a file warns without failing", asy
   });
 });
 
+test("audio.bgm: null is tolerated as equivalent to omitted (same convention as source.proxy)", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "bgm-null-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
 test("bgm + sfx (2 items) all resolving to real files pass with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "bgm-sfx-valid");

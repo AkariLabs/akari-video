@@ -38,7 +38,7 @@
         "width": { "$ref": "#/$defs/positiveNumber" },
         "height": { "$ref": "#/$defs/positiveNumber" },
         "fps": { "$ref": "#/$defs/positiveNumber" },
-        "look": { "$ref": "#/$defs/look" }
+        "look": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/look" }] }
       }
     },
     "chromaKey": {
@@ -65,7 +65,7 @@
             { "type": "string", "minLength": 1, "pattern": "\\S" }
           ]
         },
-        "chroma_key": { "$ref": "#/$defs/chromaKey" }
+        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
       }
     },
     "sourceV1": {
@@ -81,7 +81,7 @@
             { "type": "string", "minLength": 1, "pattern": "\\S" }
           ]
         },
-        "chroma_key": { "$ref": "#/$defs/chromaKey" }
+        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
       }
     },
     "narrationProvenance": {
@@ -149,12 +149,14 @@
           "type": "array",
           "items": { "$ref": "#/$defs/narrationItem" }
         },
-        "bgm": { "$ref": "#/$defs/bgm" },
+        "bgm": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/bgm" }] },
         "sfx": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/sfxItem" }
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "items": { "$ref": "#/$defs/sfxItem" } }
+          ]
         },
-        "master": { "$ref": "#/$defs/audioMaster" }
+        "master": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/audioMaster" }] }
       }
     },
     "transitionOut": {
@@ -175,7 +177,7 @@
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
         "speed": { "$ref": "#/$defs/positiveNumber" },
-        "transition_out": { "$ref": "#/$defs/transitionOut" }
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
       },
       "not": { "required": ["src"] },
       "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
@@ -189,7 +191,7 @@
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
         "speed": { "$ref": "#/$defs/positiveNumber" },
-        "transition_out": { "$ref": "#/$defs/transitionOut" }
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
       },
       "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
     },

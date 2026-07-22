@@ -92,7 +92,7 @@ function validateAudio(value) {
 }
 
 function validateMaster(value) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!isPlainObject(value)) {
     fail("audio.master は object である必要があります");
     return;
@@ -108,7 +108,11 @@ function validateMaster(value) {
 }
 
 function validateBgm(value) {
-  if (value === undefined) return;
+  // docs/contract-2026-07-14-edit-json-v1-audio.md §1 says omission means "no BGM"; real edit.json
+  // data (fieldtest/2026-07-14) spells that as an explicit `"bgm": null` instead of omitting the
+  // key, the same tolerant-reader convention this schema already uses for source.proxy. Treat
+  // both spellings identically.
+  if (value === undefined || value === null) return;
   if (!isPlainObject(value)) {
     fail("audio.bgm は object である必要があります");
     return;
@@ -125,7 +129,7 @@ function validateBgm(value) {
 }
 
 function validateSfx(value) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!Array.isArray(value)) {
     fail("audio.sfx は配列である必要があります");
     return;
@@ -209,7 +213,7 @@ function validateOutput(value) {
 }
 
 function validateLook(value) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!isPlainObject(value)) {
     fail("output.look は object である必要があります");
     return;
@@ -233,7 +237,7 @@ function validateSourceV0(value) {
 }
 
 function validateChromaKey(value, label) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!isPlainObject(value)) {
     fail(`${label} は object である必要があります`);
     return;
@@ -315,7 +319,7 @@ function validateCuts(value, version, sources) {
 }
 
 function validateTransitionOut(value, label) {
-  if (value === undefined) return;
+  if (value === undefined || value === null) return;
   if (!isPlainObject(value)) {
     fail(`${label} は object である必要があります`);
     return;

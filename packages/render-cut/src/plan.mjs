@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { basename, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
@@ -8,6 +8,9 @@ const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
 // docs/contract-2026-07-20-edit-json-v1-narration.md §1: gain_db clamp range, shared with bgm/sfx.
 const GAIN_DB_MIN = -60;
 const GAIN_DB_MAX = 12;
+// catalog/luts/<id>/<id>.cube — packages/render-cut/src/../../.. is the monorepo root, sibling to
+// catalog/ (see catalog/luts/INDEX.md for the bare-name catalog reference convention).
+const CATALOG_LUTS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "catalog", "luts");
 
 export function buildPlan({
   edit,
@@ -45,6 +48,9 @@ export function buildPlan({
     hasAudio: hasSourceAudio,
     duration,
     ffmpegCommand: capabilities.ffmpegCommand,
+    projectRoot,
+    look: edit.output.look,
+    chromaKey: edit.source?.chroma_key,
   });
 
   return {
@@ -433,6 +439,51 @@ function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, ov
   return { command, args };
 }
 
+// docs/contract-2026-07-22-render-basics.md #4: "lut(カタログ参照 or パス)" — a bare name (no
+// path separator) resolves against catalog/luts/<name>/<name>.cube; anything else is treated as a
+// path relative to the project root (same regel as source.path / audio.bgm.path elsewhere).
+function resolveLutPath(projectRoot, lutRef) {
+  if (!lutRef.includes("/") && !lutRef.includes("\\")) {
+    return join(CATALOG_LUTS_ROOT, lutRef, `${lutRef}.cube`);
+  }
+  return resolve(projectRoot, lutRef);
+}
+
+// ffmpeg filter option values split on ':' and quote-related characters; escape both before
+// wrapping the value in single quotes (lut3d's file= option; same convention as chromakey's color=).
+function escapeFilterPath(path) {
+  return path.replace(/\\/gu, "\\\\").replace(/:/gu, "\\:").replace(/'/gu, "\\'");
+}
+
+const CSS_COLOR_KEYWORDS = new Set([
+  "black",
+  "white",
+  "red",
+  "green",
+  "blue",
+  "yellow",
+  "cyan",
+  "magenta",
+  "gray",
+  "grey",
+  "orange",
+  "purple",
+  "pink",
+  "brown",
+]);
+
+function isColorLike(value) {
+  return value.startsWith("#") || /^0x/iu.test(value) || CSS_COLOR_KEYWORDS.has(value.toLowerCase());
+}
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
 function normalizeAudioPlan(audio) {
   if (!audio) return { bgm: null, sfx: [] };
   const normalize = (value) => (typeof value === "string" ? { path: value } : value);
@@ -452,10 +503,27 @@ export function buildCutCommand({
   hasAudio,
   duration,
   ffmpegCommand = "ffmpeg",
+  projectRoot,
+  look,
+  chromaKey,
 }) {
   const effectiveCuts = cuts.length > 0 ? cuts : [{ in: 0, out: null }];
   const filters = [];
   const concatInputs = [];
+  // docs/contract-2026-07-22-render-basics.md #3 (cuts[].transition_out). Residual decision 3
+  // (command-center ruling): v0 only takes the xfade path at cut boundaries that explicitly
+  // specify transition_out; every other boundary keeps today's exact N-input concat call
+  // untouched, so a project with zero transition_out is byte-for-byte unaffected.
+  const hasAnyTransition = effectiveCuts
+    .slice(0, -1)
+    .some((cut) => cut.transition_out);
+  // xfade/acrossfade require both of their inputs to share one timebase; concat's own output
+  // timebase does not always match a fresh trim+setpts segment's (verified empirically: mixing
+  // concat'd and freshly-trimmed segments into a later xfade failed with "do not match ...
+  // timebase"). settb=AVTB standardizes every segment onto ffmpeg's default timebase before they
+  // are ever joined, so it is only added on the transition-aware path (never touches the
+  // non-regression concat-only path's exact filter string).
+  const timebaseNormalizer = hasAnyTransition ? ",settb=AVTB" : "";
   for (const [index, cut] of effectiveCuts.entries()) {
     const end = cut.out === null ? "" : `:end=${formatNumber(cut.out)}`;
     // docs/contract-2026-07-22-render-basics.md #1 (cuts[].speed): v0 is constant speed only
@@ -466,7 +534,7 @@ export function buildCutCommand({
     const speed = cutSpeed(cut);
     const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
     filters.push(
-      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}[v${index}]`,
+      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}${timebaseNormalizer}[v${index}]`,
     );
     concatInputs.push(`[v${index}]`);
     if (hasAudio) {
@@ -479,15 +547,110 @@ export function buildCutCommand({
       concatInputs.push(`[a${index}]`);
     }
   }
-  filters.push(
-    `${concatInputs.join("")}concat=n=${effectiveCuts.length}:v=1:a=${hasAudio ? 1 : 0}[joinedv]${hasAudio ? "[joineda]" : ""}`,
-  );
+
+  if (!hasAnyTransition) {
+    filters.push(
+      `${concatInputs.join("")}concat=n=${effectiveCuts.length}:v=1:a=${hasAudio ? 1 : 0}[joinedv]${hasAudio ? "[joineda]" : ""}`,
+    );
+  } else {
+    let videoAcc = "[v0]";
+    let audioAcc = hasAudio ? "[a0]" : null;
+    let accDuration = segmentDuration(effectiveCuts[0]);
+    for (let index = 1; index < effectiveCuts.length; index += 1) {
+      const boundary = effectiveCuts[index - 1].transition_out;
+      const isLastBoundary = index === effectiveCuts.length - 1;
+      const nextVideoLabel = isLastBoundary ? "[joinedv]" : `[vacc${index}]`;
+      const nextAudioLabel = hasAudio ? (isLastBoundary ? "[joineda]" : `[aacc${index}]`) : null;
+      if (boundary) {
+        const transitionName = XFADE_TRANSITION_NAMES[boundary.type] ?? "fade";
+        const transitionDuration = boundary.duration;
+        const offset = Math.max(0, accDuration - transitionDuration);
+        filters.push(
+          `${videoAcc}[v${index}]xfade=transition=${transitionName}:duration=${formatNumber(transitionDuration)}:offset=${formatNumber(offset)}${nextVideoLabel}`,
+        );
+        if (hasAudio) {
+          filters.push(`${audioAcc}[a${index}]acrossfade=d=${formatNumber(transitionDuration)}${nextAudioLabel}`);
+        }
+        accDuration = accDuration + segmentDuration(effectiveCuts[index]) - transitionDuration;
+      } else {
+        if (hasAudio) {
+          filters.push(`${videoAcc}${audioAcc}[v${index}][a${index}]concat=n=2:v=1:a=1${nextVideoLabel}${nextAudioLabel}`);
+        } else {
+          filters.push(`${videoAcc}[v${index}]concat=n=2:v=1:a=0${nextVideoLabel}`);
+        }
+        accDuration += segmentDuration(effectiveCuts[index]);
+      }
+      videoAcc = nextVideoLabel;
+      if (hasAudio) audioAcc = nextAudioLabel;
+    }
+  }
   if (!hasAudio) {
     filters.push(`[1:a]atrim=duration=${formatNumber(duration)},asetpts=PTS-STARTPTS[joineda]`);
   }
+
+  const scaledLabel = chromaKey || look ? "[scaled]" : "[outv]";
   filters.push(
-    `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1[outv]`,
+    `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`,
   );
+
+  // docs/contract-2026-07-22-render-basics.md #2 (source.chroma_key). Applied post-scale/pad so a
+  // single insertion point covers both chroma key and LUT; the background is either a solid color
+  // (built inline via ffmpeg's `color` source filter — no extra -i needed) or an image/video file
+  // (an extra input, looped if a still image).
+  const extraInputArgs = [];
+  let nextInputIndex = hasAudio ? 1 : 2;
+  let videoLabel = scaledLabel;
+  if (chromaKey) {
+    const color = isNonEmptyString(chromaKey.color) ? chromaKey.color : "0x00FF00";
+    const similarity = isFiniteNumber(chromaKey.similarity) ? chromaKey.similarity : 0.2;
+    const blend = isFiniteNumber(chromaKey.blend) ? chromaKey.blend : 0.1;
+    const background = chromaKey.background;
+    let backgroundLabel;
+    if (!isNonEmptyString(background) || isColorLike(background)) {
+      // ffmpeg's `color` source filter defaults to 25fps regardless of the project's output.fps;
+      // without an explicit r=, overlay silently adopted that mismatched rate for the whole
+      // output (verified empirically: omitting r= here produced a 25fps file when output.fps
+      // was 10). Force it to match so background and keyed foreground share one frame rate.
+      const bgColor = isNonEmptyString(background) ? background : "0x000000";
+      filters.push(`color=c=${bgColor}:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(duration)}[bgsrc]`);
+      backgroundLabel = "[bgsrc]";
+    } else {
+      const backgroundPath = resolve(projectRoot, background);
+      const isImage = /\.(png|jpe?g|webp|bmp|gif)$/iu.test(backgroundPath);
+      extraInputArgs.push(...(isImage ? ["-loop", "1", "-i", backgroundPath] : ["-i", backgroundPath]));
+      backgroundLabel = `[${nextInputIndex}:v]`;
+      nextInputIndex += 1;
+    }
+    filters.push(`${videoLabel}format=yuva420p,chromakey=color=${color}:similarity=${formatNumber(similarity)}:blend=${formatNumber(blend)}[keyed]`);
+    // fps= here too: an image/video-file background (the `else` branch above) may carry its own
+    // differing frame rate, which the same mismatch would otherwise leak through as well.
+    filters.push(`${backgroundLabel}scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=${formatNumber(fps)},setsar=1[bgscaled]`);
+    const chromaOutLabel = look ? "[chromakeyed]" : "[outv]";
+    filters.push(`[bgscaled][keyed]overlay=shortest=1:format=auto${chromaOutLabel}`);
+    videoLabel = chromaOutLabel;
+  }
+
+  // docs/contract-2026-07-22-render-basics.md #4 (output.look). intensity blends between the
+  // untouched frame and the fully graded one via ffmpeg's blend filter (0 = no-op, 1 = full LUT).
+  if (look) {
+    const lutPath = resolveLutPath(projectRoot, look.lut);
+    const intensity = isFiniteNumber(look.intensity) ? Math.max(0, Math.min(1, look.intensity)) : 1;
+    if (intensity <= 0) {
+      filters.push(`${videoLabel}null[outv]`);
+    } else if (intensity >= 1) {
+      filters.push(`${videoLabel}lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[outv]`);
+    } else {
+      filters.push(`${videoLabel}split=2[lutbase][luttop]`);
+      filters.push(`[luttop]lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[lutapplied]`);
+      // blend's inputs are [0]=top [1]=bottom, and all_opacity weights the TOP input (verified
+      // empirically: opacity=0.25 with [red][blue] produced ~75% blue, i.e. output =
+      // top*opacity + bottom*(1-opacity)). We want intensity=1 -> fully graded, intensity=0 ->
+      // untouched, so the graded frame ([lutapplied]) must be the top (first) input.
+      filters.push(`[lutapplied][lutbase]blend=all_mode=normal:all_opacity=${formatNumber(intensity)}[outv]`);
+    }
+  } else if (videoLabel !== "[outv]") {
+    filters.push(`${videoLabel}null[outv]`);
+  }
 
   return {
     command: ffmpegCommand,
@@ -500,6 +663,7 @@ export function buildCutCommand({
       "-i",
       sourcePath,
       ...(!hasAudio ? ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"] : []),
+      ...extraInputArgs,
       "-filter_complex",
       filters.join(";"),
       "-map",
@@ -524,15 +688,39 @@ export function buildCutCommand({
 
 export function predictedDuration(cuts, sourceDuration) {
   if (Array.isArray(cuts) && cuts.length > 0) {
-    return cuts.reduce((sum, cut) => sum + (cut.out - cut.in) / cutSpeed(cut), 0);
+    const segmentsTotal = cuts.reduce((sum, cut) => sum + segmentDuration(cut), 0);
+    // A transition_out overlaps its own segment's end with the next segment's start, shortening
+    // the combined timeline by the overlap (xfade/acrossfade's own duration math — see
+    // buildCutCommand). The last cut's transition_out (if any) has no following segment to
+    // blend into, so it never actually renders and must not be subtracted here.
+    const transitionOverlap = cuts
+      .slice(0, -1)
+      .reduce((sum, cut) => sum + (isPositiveNumber(cut.transition_out?.duration) ? cut.transition_out.duration : 0), 0);
+    return segmentsTotal - transitionOverlap;
   }
   return sourceDuration;
+}
+
+function segmentDuration(cut) {
+  return (cut.out - cut.in) / cutSpeed(cut);
 }
 
 function cutSpeed(cut) {
   const value = cut?.speed;
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 1;
 }
+
+function isPositiveNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+// docs/contract-2026-07-22-render-basics.md #3: schema enum values map 1:1 onto ffmpeg's xfade
+// transition names (dissolve/fadeblack/fadewhite all exist natively — verified via `ffmpeg -filters`).
+const XFADE_TRANSITION_NAMES = {
+  dissolve: "dissolve",
+  "fade-black": "fadeblack",
+  "fade-white": "fadewhite",
+};
 
 // atempo only accepts factors in [0.5, 2.0]; speeds outside that range are decomposed into a
 // chain of filters that multiply out to the requested speed (docs/contract-2026-07-22-render-basics.md
