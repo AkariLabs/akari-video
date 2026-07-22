@@ -190,6 +190,7 @@ export async function lintProject(input, options = {}) {
   await validateNarration(edit?.audio?.narration, timeline, findings, paths);
   await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
+  validateBeats(edit.beats, edit.version, structure.sourceIds, findings);
 
   if (captionsState.value !== undefined) {
     validateCaptions(
@@ -901,6 +902,117 @@ async function validateNarration(narration, timeline, findings, paths) {
         message: "provenance.credit is required when provider is voicevox",
         path: itemPath,
       });
+    }
+  }
+}
+
+// docs/contract-2026-07-22-edit-json-v1-beats.md §7: beats（見せ場マーカー）の構造検証は
+// validate-edit.mjs と同一のルールを手書きで写す流儀（edit-lint は依存ゼロのため他パッケージの
+// バリデータを import しない）。beats[].t は timeline 秒ではなく source 秒アンカー（同 §3）であり、
+// source 実尺との突き合わせは --media なしでデコードしない規律のため行わない（同 §7 の将来課題）。
+// beats フィールドの不在はエラーにしない（同 §4 の劣化規約）。
+function validateBeats(beats, version, sourceIds, findings) {
+  if (beats === undefined) return;
+  if (!Array.isArray(beats)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "beats.structure",
+      message: "beats must be an array",
+      path: "edit.json#beats",
+    });
+    return;
+  }
+
+  const ids = new Set();
+  for (const [index, item] of beats.entries()) {
+    const itemPath = `edit.json#beats[${index}]`;
+    if (!isRecord(item)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "beats.structure",
+        message: "beat item must be an object",
+        path: itemPath,
+      });
+      continue;
+    }
+
+    if (typeof item.id !== "string" || !/^b-\d{4}$/.test(item.id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "beats.id",
+        message: "id must match b- followed by four digits",
+        path: itemPath,
+      });
+    } else if (ids.has(item.id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "beats.id",
+        message: `duplicate beat id: ${item.id}`,
+        path: itemPath,
+      });
+    } else {
+      ids.add(item.id);
+    }
+
+    if (!isFiniteNumber(item.t) || item.t < 0) {
+      addFinding(findings, {
+        severity: "error",
+        check: "beats.t",
+        message: "t must be a non-negative finite number (source seconds)",
+        path: itemPath,
+      });
+    }
+
+    if (!isNonEmptyString(item.kind)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "beats.kind",
+        message: "kind must be a non-empty string",
+        path: itemPath,
+      });
+    }
+
+    if (!isFiniteNumber(item.strength) || item.strength < 0 || item.strength > 1) {
+      addFinding(findings, {
+        severity: "error",
+        check: "beats.strength",
+        message: "strength must be a finite number within [0, 1]",
+        path: itemPath,
+      });
+    }
+
+    if (Object.hasOwn(item, "basis") && typeof item.basis !== "string") {
+      addFinding(findings, {
+        severity: "error",
+        check: "beats.basis",
+        message: "basis must be a string",
+        path: itemPath,
+      });
+    }
+
+    if (Object.hasOwn(item, "src")) {
+      if (version === 0) {
+        addFinding(findings, {
+          severity: "error",
+          check: "beats.src",
+          message: "src is not available in version 0 (no sources[] to reference)",
+          path: itemPath,
+        });
+      } else if (!isNonEmptyString(item.src)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "beats.src",
+          message: "src must be a non-empty string",
+          path: itemPath,
+        });
+      } else if (!sourceIds.has(item.src)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "beats.src-reference",
+          message: `src does not reference sources[].id: ${item.src}`,
+          path: itemPath,
+        });
+      }
     }
   }
 }

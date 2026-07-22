@@ -1,0 +1,18 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "source.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 20 }],
+  "overlays": [],
+  "beats": [
+    {
+      "id": "b-0001",
+      "t": 3.5,
+      "kind": "hook",
+      "strength": 0.9,
+      "basis": "冒頭の音声エネルギー立ち上がり + 『まず結論から』発話"
+    },
+    { "id": "b-0002", "t": 42.0, "kind": "reveal", "strength": 0.8 },
+    { "id": "b-0003", "t": 55.25, "kind": "punchline", "strength": 0.55, "basis": "笑い声の検出" }
+  ]
+}

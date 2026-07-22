@@ -162,6 +162,20 @@
         "master": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/audioMaster" }] }
       }
     },
+    "beatItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "t", "kind", "strength"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^b-\\d{4}$" },
+        "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "t": { "$ref": "#/$defs/seconds" },
+        "kind": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "strength": { "type": "number", "minimum": 0, "maximum": 1 },
+        "basis": { "type": "string" }
+      },
+      "$comment": "docs/contract-2026-07-22-edit-json-v1-beats.md（見せ場マーカー）。t は timeline 秒ではなく (src, source 秒) アンカー（同 §3）。kind は hook/turn/punchline/reveal/emotion を契約文書で例示するのみで enum 強制はしない。id のファイル内一意性と src の参照整合（v1: sources[].id に存在すること / v0: src 自体を使用できないこと）は兄弟値の突き合わせが要るため JSON Schema では表現せず validate-edit.mjs と edit-lint が検証する（cutV1.src と同じ扱い）。"
+    },
     "transitionOut": {
       "type": "object",
       "additionalProperties": true,
@@ -270,6 +284,10 @@
         "layers": {
           "type": "array",
           "items": { "$ref": "#/$defs/layerItem" }
+        },
+        "beats": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/beatItem" }
         }
       },
       "not": { "required": ["sources"] }
@@ -298,6 +316,10 @@
         "layers": {
           "type": "array",
           "items": { "$ref": "#/$defs/layerItem" }
+        },
+        "beats": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/beatItem" }
         }
       },
       "not": { "required": ["source"] }
