@@ -1,0 +1,36 @@
+{
+  "id": "otologic-motion-pop-sfx-pack",
+  "category": "audio",
+  "title": "OtoLogic モーション・ポップ / 光るオノマトペパック",
+  "description": "アニメ調の軽快なポップモーション音4種（Motion-Pop19-1〜4）と、光る/フラッシュ系のオノマトペ音1種（Onoma-Flash10-1 低音バリエーション）の計5点セット。（収録数: 5点）",
+  "when_to_use": "キャラクターの可愛い動作・ポップな出現/移動モーション、または光る/フラッシュする演出のアクセントを入れたいとき",
+  "tags": [
+    "sfx",
+    "motion",
+    "pop",
+    "flash",
+    "anime"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「音：OtoLogic（https://otologic.jp/）」を動画概要欄等に明記する。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "オーナー私物のSEパック（gigafile便経由・出典不明で持ち込み）の出典調査により同定 / 内部タスク tasks/2026-07-22-audio-import / 調査日 2026-07-22",
+    "generator": null
+  },
+  "author": "OtoLogic",
+  "license": {
+    "spdx": "CC-BY-4.0",
+    "scope": "commercial-ok",
+    "attribution_required": true,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://otologic.jp/free/se/motion-pop01.html",
+    "acquisition": "direct",
+    "license_at_source": "CC BY 4.0（無料版はOtoLogicクレジット必須。有償ノンクレジット版あり）。素材単体の第三者への公開・提供は不可（https://otologic.jp/free/license.html、要一次情報再確認）",
+    "attribution_required": true
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "freesound-inspectorj-pencil-writing",
+  "category": "audio",
+  "title": "Freesound 鉛筆で書く音（InspectorJ）",
+  "description": "鉛筆で紙に書く音を至近距離でマイクが追従して収録したリアルな筆記音（尺12.7秒）。H1 Zoomレコーダーで2016年11月1日に収録。（収録数: 1点）",
+  "when_to_use": "手書き/筆記シーンの実写的な筆記音、ノート/手紙を書く描写のリアリズムを足したいとき",
+  "tags": [
+    "sfx",
+    "writing",
+    "foley",
+    "pencil"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「\"Pencil, Writing, Close, A.wav\" by InspectorJ (freesound.org) — CC BY 4.0」を動画概要欄等に明記する。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "オーナー私物のSEパック（gigafile便経由・出典不明で持ち込み）の出典調査により同定 / 内部タスク tasks/2026-07-22-audio-import / 調査日 2026-07-22",
+    "generator": null
+  },
+  "author": "InspectorJ（Freesound）",
+  "license": {
+    "spdx": "CC-BY-4.0",
+    "scope": "commercial-ok",
+    "attribution_required": true,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://freesound.org/people/InspectorJ/sounds/398271/",
+    "acquisition": "login",
+    "license_at_source": "CC BY 4.0（Freesound）",
+    "attribution_required": true
+  }
+}
