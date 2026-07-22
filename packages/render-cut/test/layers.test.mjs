@@ -229,10 +229,18 @@ test("baked alpha layer: transparency, transform placement, and time window are 
     // Opaque half (local x<150): global x in [220,370). Transparent half: global x in [370,520).
     const opaque = { x: 295, y: 150 };
     const transparent = { x: 445, y: 150 };
-    assertColor(samplePixel(outputPath, 12, opaque.x, opaque.y), [0, 0, 255], "before window, opaque-half position shows base blue");
-    assertColor(samplePixel(outputPath, Math.round(2 * fps), opaque.x, opaque.y), [0, 255, 0], "during window, opaque-half position shows the layer color");
-    assertColor(samplePixel(outputPath, Math.round(4 * fps), opaque.x, opaque.y), [0, 0, 255], "after window, opaque-half position shows base blue again");
-    assertColor(samplePixel(outputPath, Math.round(2 * fps), transparent.x, transparent.y), [0, 0, 255], "during window, transparent-half position still shows base blue through alpha=0");
+    const beforeOpaque = samplePixel(outputPath, 12, opaque.x, opaque.y);
+    const duringOpaque = samplePixel(outputPath, Math.round(2 * fps), opaque.x, opaque.y);
+    const afterOpaque = samplePixel(outputPath, Math.round(4 * fps), opaque.x, opaque.y);
+    const duringTransparent = samplePixel(outputPath, Math.round(2 * fps), transparent.x, transparent.y);
+    t.diagnostic(`before-window opaque-half (${opaque.x},${opaque.y}) rgb=(${beforeOpaque.r},${beforeOpaque.g},${beforeOpaque.b})`);
+    t.diagnostic(`during-window opaque-half (${opaque.x},${opaque.y}) rgb=(${duringOpaque.r},${duringOpaque.g},${duringOpaque.b})`);
+    t.diagnostic(`after-window opaque-half (${opaque.x},${opaque.y}) rgb=(${afterOpaque.r},${afterOpaque.g},${afterOpaque.b})`);
+    t.diagnostic(`during-window transparent-half (${transparent.x},${transparent.y}) rgb=(${duringTransparent.r},${duringTransparent.g},${duringTransparent.b})`);
+    assertColor(beforeOpaque, [0, 0, 255], "before window, opaque-half position shows base blue");
+    assertColor(duringOpaque, [0, 255, 0], "during window, opaque-half position shows the layer color");
+    assertColor(afterOpaque, [0, 0, 255], "after window, opaque-half position shows base blue again");
+    assertColor(duringTransparent, [0, 0, 255], "during window, transparent-half position still shows base blue through alpha=0");
   } finally {
     await rm(project, { recursive: true, force: true });
   }
@@ -273,8 +281,12 @@ test("video PinP layer with chroma_key: green background is keyed transparent, s
 
     // layer centered at (170,80)-(470,280). subject box is the inner 60% (local 60..240,40..160)
     // => global (230,120)-(410,240); sample its center. Green (keyed) area sampled near a corner.
-    assertColor(samplePixel(outputPath, Math.round(2 * fps), 320, 180), [255, 255, 255], "subject box remains opaque white");
-    assertColor(samplePixel(outputPath, Math.round(2 * fps), 190, 100), [0, 0, 255], "keyed-out green area shows base blue through");
+    const subject = samplePixel(outputPath, Math.round(2 * fps), 320, 180);
+    const keyedGreen = samplePixel(outputPath, Math.round(2 * fps), 190, 100);
+    t.diagnostic(`subject box (320,180) rgb=(${subject.r},${subject.g},${subject.b})`);
+    t.diagnostic(`keyed-out green area (190,100) rgb=(${keyedGreen.r},${keyedGreen.g},${keyedGreen.b})`);
+    assertColor(subject, [255, 255, 255], "subject box remains opaque white");
+    assertColor(keyedGreen, [0, 0, 255], "keyed-out green area shows base blue through");
     assertColor(samplePixel(outputPath, 12, 190, 100), [0, 0, 255], "before window, same position shows base blue");
   } finally {
     await rm(project, { recursive: true, force: true });
@@ -329,10 +341,18 @@ test("blend=screen composites correctly: screen(blue, lime) reads as cyan inside
     assert.equal(state.verify.verdict, "pass");
     const outputPath = join(project, state.artifacts[0].path);
 
-    assertColor(samplePixel(outputPath, 12, 320, 180), [0, 0, 255], "before window: base blue");
-    assertColor(samplePixel(outputPath, Math.round(2 * fps), 320, 180), [0, 255, 255], "during window inside layer: screen(blue,lime) = cyan");
-    assertColor(samplePixel(outputPath, Math.round(4 * fps), 320, 180), [0, 0, 255], "after window: base blue again");
-    assertColor(samplePixel(outputPath, Math.round(2 * fps), 10, 10), [0, 0, 255], "during window outside the layer's footprint: base blue (mask gates spatially too)");
+    const before = samplePixel(outputPath, 12, 320, 180);
+    const during = samplePixel(outputPath, Math.round(2 * fps), 320, 180);
+    const after = samplePixel(outputPath, Math.round(4 * fps), 320, 180);
+    const duringOutside = samplePixel(outputPath, Math.round(2 * fps), 10, 10);
+    t.diagnostic(`before window (320,180) rgb=(${before.r},${before.g},${before.b})`);
+    t.diagnostic(`during window inside layer (320,180) rgb=(${during.r},${during.g},${during.b}) [expected screen(blue,lime)=cyan]`);
+    t.diagnostic(`after window (320,180) rgb=(${after.r},${after.g},${after.b})`);
+    t.diagnostic(`during window outside layer footprint (10,10) rgb=(${duringOutside.r},${duringOutside.g},${duringOutside.b})`);
+    assertColor(before, [0, 0, 255], "before window: base blue");
+    assertColor(during, [0, 255, 255], "during window inside layer: screen(blue,lime) = cyan");
+    assertColor(after, [0, 0, 255], "after window: base blue again");
+    assertColor(duringOutside, [0, 0, 255], "during window outside the layer's footprint: base blue (mask gates spatially too)");
 
     const probed = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", outputPath], { encoding: "utf8" });
     assert.ok(Math.abs(Number(probed.stdout.trim()) - duration) <= state.plan.duration_tolerance_seconds, `expected output duration ~${duration}s, got ${probed.stdout}`);
