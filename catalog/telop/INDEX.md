@@ -50,6 +50,27 @@ catalog/telop/
 4倍長・日英混在）= 144 ケースの機械検証結果は内部リポ
 `tasks/2026-07-22-telop-tunables/out/status.json` + `robustness-gallery.html` に記録。
 
+## `use_when`（演出エンジン向け意味づけタグ・2026-07-22）
+
+全 36 件に `use_when: {beats, tone, strength, roles}` を追記した。演出エンジン D1（見せ場同期）/
+D5（文脈適合選択）が「どのケースでこのテロップを使うべきか」を機械判定するための対応タグで、
+語彙は `akari-video-internal/planning/contract-2026-07-21-direction-engine.md`（beats kind・
+ドパ度）/ `contract-2026-07-21-intake-wizard-v2.md`（tone 語彙）と完全一致させている
+（正本・対応表は内部リポ `tasks/2026-07-22-expression-semantics/out/expression-usage-guide.md`
+に司令塔検収後 `planning/` へ昇格予定）。
+
+| フィールド | 型 | 意味 |
+|---|---|---|
+| `beats` | `(hook\|turn\|punchline\|reveal\|emotion)[]` | この件が対応する見せ場 kind。**空配列 `[]` は「見せ場に同期させない常時字幕」**（対話キャプション・ネームプレート等の構造/情報表示。24 件がこれに該当） |
+| `tone` | intake tone 語彙のサブセット（1〜3 件） | 合う intake tone チップ。複数トーンに合う場合は列挙 |
+| `strength` | `low\|mid\|high` | 見た目の主張の強さ（ドパ度スケールでの選択に使う。low=6件/mid=18件/high=12件） |
+| `roles` | 役割タグ（下表） | ガイドの「roles 語彙」節と一致 |
+
+`roles` は 15 種: `caption-standard` / `caption-accessibility` / `ruby-caption` /
+`bilingual-caption` / `edu-speaker` / `emphasis` / `karaoke` / `handwritten` /
+`retro-caption` / `chapter-title` / `step-badge` / `location-tag` / `luxury-badge` /
+`name-plate` / `news-flash`。詳細な定義・根拠・対応表は使い分けガイド v0 を参照。
+
 ## タグの品質
 
 - `tag_quality: "curated"` — 代表 25 件。使用頻度が高そうな汎用テンプレ
