@@ -46,7 +46,7 @@ test('generates a self-contained static HTML with all 68 candidate cards and no 
     });
 });
 
-test('BGM is split into bgm-calm/bgm-uplift/bgm-other with ~100 songs total, mood tags aligned to intake tone vocabulary (>=2 each), MusMus represented', async () => {
+test('BGM is split into bgm-calm/bgm-uplift/bgm-other with ~100 songs total, mood tags aligned to intake tone vocabulary (>=5 each), MusMus represented', async () => {
     await withTempOut(async (root) => {
         const outPath = path.join(root, 'candidates.html');
         const result = spawnSync(process.execPath, [
@@ -73,7 +73,7 @@ test('BGM is split into bgm-calm/bgm-uplift/bgm-other with ~100 songs total, moo
             unitsPerCategory.set(category.id, units);
             totalUnits += units;
         }
-        assert.ok(totalUnits >= 90 && totalUnits <= 130, `BGM合計は約100曲相当を想定: 実際は${totalUnits}`);
+        assert.ok(totalUnits >= 90 && totalUnits <= 120, `BGM合計は約100曲相当を想定: 実際は${totalUnits}`);
 
         // 落ち着き系6割・盛り上げ系3割・その他1割の構成比目安（±15ポイントの余裕を許容）
         const calmRatio = unitsPerCategory.get('bgm-calm') / totalUnits;
@@ -100,7 +100,7 @@ test('BGM is split into bgm-calm/bgm-uplift/bgm-other with ~100 songs total, moo
             }
         }
         for (const [tone, count] of coverage) {
-            assert.ok(count >= 2, `mood "${tone}" の候補が2件未満: ${count}件`);
+            assert.ok(count >= 5, `mood "${tone}" の候補が5件未満: ${count}件`);
         }
 
         const allBgmItems = bgmCategories.flatMap((c) => c.items);
