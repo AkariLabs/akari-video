@@ -6,10 +6,10 @@
 
 ## 1. 単一 source を確定する
 
-`edit.json v0` の `source` は 1 本だけである。複数映像が最終構成に必要なら、実行承認前に少なくとも次を両論併記し、人間の選択を `decision_log` に追記する。
+`edit.json v0` の `source` は 1 本だけである。複数映像が最終構成に必要なら、実行承認前に少なくとも次を両論併記し、人間の選択を `decision-log.md` に追記する。
 
 - **主素材 1 本へ限定**: v0 の編集可能性を保つが、他素材の映像は計画のみ、または overlay で表せる静止物に限定される。
-- **単一中間マスターへ conform**: 承認済み順序と区間を ffmpeg で 1 本にし、そのファイルを source にする。複数素材を使える一方、元素材別の keep-range 編集性が下がる。素材・source 時刻・master 時刻の対応表はレポートに残す。
+- **単一中間マスターへ conform**: 承認済み順序と区間を ffmpeg で 1 本にし、そのファイルを source にする。複数素材を使える一方、元素材別の keep-range 編集性が下がる。素材・source 時刻・master 時刻の対応表は `decision-log.md` に残す。
 - **実行を止める**: multi-source 対応 Schema まで待ち、v0 成果物を作らない。
 
 素材別に独立した v0 を作る案が要件を満たす場合は併記してよい。黙って concat したり、`sources[]`、`source_id`、独自 track を追加したりしない。
@@ -54,7 +54,7 @@ source 時刻 `s` が keep-range `[in, out]` にあるとき、timeline 時刻�
 
 ## 3. オーバーレイ HTML を作る
 
-最初に [overlay-authoring](../overlay-authoring/SKILL.md) を読み、必要なリーフだけを追加で読む。利用不能なら [CLAUDE.md の authoring 規約](../../CLAUDE.md) を読み、fallback を `decision_log` に追記する。
+最初に [overlay-authoring](../overlay-authoring/SKILL.md) を読み、必要なリーフだけを追加で読む。利用不能なら [CLAUDE.md の authoring 規約](../../CLAUDE.md) を読み、fallback を `decision-log.md` に追記する。
 
 - 断片のルート要素は 1 個にする。
 - 調整可能な値を `--x`、`--y`、`--scale`、`--font-size`、`--color` 等の CSS 変数にする。
@@ -66,13 +66,14 @@ source 時刻 `s` が keep-range `[in, out]` にあるとき、timeline 時刻�
 
 サムネ用の HTML 文字組を、タイミング付き動画 overlay として無条件に再利用しない。
 
-## 4. 検証してレポートを閉じる
+## 4. 検証して判断記録を閉じる
 
 - [edit-lint](../edit-lint/SKILL.md) を実行し、`edit.json` の構造、cuts 整合、参照解決、
   overlay の timeline 時刻・ID・HTML root・data 属性が PASS になるまで findings を修正する。
 - overlay の CSS 変数と禁止 CSS は overlay-authoring 規約に照らして確認する。
 - 中間マスターを作った場合は、素材別対応表と実フレームで境界を確認する。
-- `editing-report.html` の checkpoint 状態を実際の承認に合わせ、実行結果と provenance を追記する。過去の log 行は変更しない。
+- `decision-log.md` に実行結果（生成物一覧・provenance・実行日時）を追記し、Checkpoint 3
+  が実行済みであることを記録する。過去の log 行は変更しない。
 
 ## よくある間違い
 
