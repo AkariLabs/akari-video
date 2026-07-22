@@ -1,0 +1,35 @@
+{
+  "id": "dova-syndrome-hatena-mark-se",
+  "category": "audio",
+  "title": "DOVA-SYNDROME はてなマーク効果音",
+  "description": "フレクサトーン音を加工した「ぽよ〜ん」とした質問符（？）ポップアップ効果音。キャラクターが困惑・疑問を示す場面向け。（収録数: 1点）",
+  "when_to_use": "キャラクターの頭上に「？」が浮かぶ疑問・困惑の一瞬を表現したいとき",
+  "tags": [
+    "sfx",
+    "reaction",
+    "question",
+    "comedic"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=false を厳守し、クレジット表記は任意（つけなくてよい）。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "オーナー私物のSEパック（gigafile便経由・出典不明で持ち込み）の出典調査により同定 / 内部タスク tasks/2026-07-22-audio-import / 調査日 2026-07-22",
+    "generator": null
+  },
+  "author": "DOVA-SYNDROME（木村千里 / Chisato Kimura）",
+  "license": {
+    "spdx": "LicenseRef-DOVA-SYNDROME-Free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://dova-s.jp/se/play519.html",
+    "acquisition": "direct",
+    "license_at_source": "商用/非商用問わず無料・クレジット不要（任意で歓迎）・単体の二次配布/転載禁止（https://dova-s.jp/contents/terms）",
+    "attribution_required": false
+  }
+}

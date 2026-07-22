@@ -1,0 +1,34 @@
+{
+  "id": "maoudamashii-object-sound-15",
+  "category": "audio",
+  "title": "魔王魂 物音15",
+  "description": "魔王魂（Maoudamashii）が配布する物音系効果音「物音15」。2010年6月1日公開、制作: 森田交一。（収録数: 1点）",
+  "when_to_use": "日常の物音・小道具の操作音として汎用的に使いたいとき",
+  "tags": [
+    "sfx",
+    "object-sound",
+    "foley"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「音楽：魔王魂（https://maou.audio/）」を動画概要欄等に明記する。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "オーナー私物のSEパック（gigafile便経由・出典不明で持ち込み）の出典調査により同定 / 内部タスク tasks/2026-07-22-audio-import / 調査日 2026-07-22",
+    "generator": null
+  },
+  "author": "魔王魂（森田交一）",
+  "license": {
+    "spdx": "LicenseRef-MaouDamashii-Free",
+    "scope": "commercial-ok",
+    "attribution_required": true,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://maou.audio/se_sound15/",
+    "acquisition": "direct",
+    "license_at_source": "商用利用無制限・クレジット必須（表記例あり）・単品再配布禁止（教材収録は例外）（https://maou.audio/rule/）",
+    "attribution_required": true
+  }
+}
