@@ -18,7 +18,7 @@
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 14
+スキル数: 15
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
@@ -34,6 +34,7 @@
 | `overlay-authoring` | AKARI Video のオーバーレイ HTML、字幕、表・グラフ、Three.js 3D、モーショングラフィックス、サムネイル、人物の後ろに文字を置く表現を設計・生成・レビューするときに発動する authoring ルーター。 | `skills/overlay-authoring/SKILL.md` |
 | `render-cut` | 承認済み edit.json と edit-lint PASS を入力に、最終 MP4 の計画、明示承認、ローカル書き出し、ffprobe 検証、キーフレーム視認を完了する。編集が承認済みで、納品用動画の書き出しや最終レンダーを求められたときに使う。 | `skills/render-cut/SKILL.md` |
 | `research-plan` | 動画の企画・調査工程（ネタ出し → ターゲット/競合/トレンド調査 → 企画書・構成案・絵コンテ・撮影リスト）を headless で一周するときに発動する router。ネタ選定と構成の確定は decision-cards 型承認ゲート（HTML レポート + decisions.json）で人間の判断を受け取る。 | `skills/research-plan/SKILL.md` |
+| `setup-audio-library` | BGM・効果音の音源ライブラリを増やしたいときに発動する。フリー配布元の候補リスト HTML を生成し、ユーザー自身が手動でダウンロードしたファイルをドロップフォルダから照合・登録し、試聴ギャラリーで keep/drop するまでの半自動セットアップを行う。setup-library / harvest-asset の姉妹スキル（音源だけ流儀が異なるため独立）。 | `skills/setup-audio-library/SKILL.md` |
 | `setup-library` | AKARI Video を初めてセットアップするとき、または現在のプロジェクトに使える素材が足りず新しく揃えたいときに発動する。ffmpeg / whisper-cli / headless Chrome の道具チェック、catalog/ を読んだスターターパック提案、人間の明示承認、取得・配置・検証・INDEX 更新までを一気通貫で行う first-run スキル。 | `skills/setup-library/SKILL.md` |
 | `verify` | AKARI Video（現行 Theia スタック）のタスク契約が要求する検証はしご（L0 / L1 / L2）を実行するときに発動する。タスクの受け入れ条件が「verify 層: L0」「L0+L1」等を指定しているとき、各層で実際に何を・どう叩くかを確認するために読む。 | `skills/verify/SKILL.md` |
 
