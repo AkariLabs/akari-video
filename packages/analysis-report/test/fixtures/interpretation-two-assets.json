@@ -1,0 +1,49 @@
+{
+  "version": 0,
+  "inputs": {
+    "analyses": [
+      { "ref": "asset-a", "path": "materials/asset-a/analysis.json", "source": "test fixture A" },
+      { "ref": "asset-b", "path": "materials/asset-b/analysis.json", "source": "test fixture B" }
+    ],
+    "context": {
+      "past_projects": [],
+      "interview": []
+    }
+  },
+  "assets": [
+    {
+      "ref": "asset-a",
+      "role": "primary_talk",
+      "summary": "Asset A の要約テキスト。",
+      "sections": [
+        {
+          "id": "sec-a1",
+          "start": 0,
+          "end": 5,
+          "title": "導入 A",
+          "role": "cold_open_framing",
+          "evidence": "transcript 0-5: asset A line one"
+        }
+      ],
+      "relations": [],
+      "flags": []
+    },
+    {
+      "ref": "asset-b",
+      "role": "supporting_broll",
+      "summary": "Asset B の要約テキスト。",
+      "relations": [],
+      "flags": []
+    }
+  ],
+  "arc": [
+    {
+      "order": 1,
+      "title": "Opening",
+      "refs": [{ "asset": "asset-a", "start": 0, "end": 5 }],
+      "purpose": "Introduce asset A",
+      "evidence": "transcript 0-5: asset A line one"
+    }
+  ],
+  "open_questions": []
+}

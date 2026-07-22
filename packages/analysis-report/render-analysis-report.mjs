@@ -30,10 +30,14 @@ const DATA_PLACEHOLDER = '{"__AKARI_ANALYSIS_REPORT_DATA__": true}';
 function usage() {
   return [
     "使い方:",
-    "  node render-analysis-report.mjs --analysis <path> [--analysis <path> ...] --interpretation <path> --out <report.html>",
+    "  node render-analysis-report.mjs --analysis <ref>=<path> [--analysis <ref>=<path> ...] --interpretation <path> --out <report.html>",
     "",
-    "  --analysis は interpretation.json の assets[] と同数・同順で指定する",
-    "  （i 番目の --analysis が assets[i] に対応する）。",
+    "  --analysis の正式形は <ref>=<path>（ref は interpretation.assets[].ref を明示する）。",
+    "  素の <path> のみの指定も許容するが、inputs.analyses[].path と basename / suffix で",
+    "  一意に照合できる場合に限る（不一致・曖昧は即エラー。順序へのフォールバックはしない）。",
+    "  どちらの形でも、与えた path は当該 ref の inputs.analyses[].path と対応しているかを",
+    "  照合する（2026-07-22 A3.2 の取り違え実証を受けた FK クロスチェック）。",
+    "  interpretation.assets[] の全 ref に対応する --analysis が過不足なく必要。",
   ].join("\n");
 }
 
@@ -171,6 +175,126 @@ function toPosixRelative(fromDir, toPath) {
   return rel.split(sep).join("/");
 }
 
+// --- FK 結合（2026-07-22 A3.2 の swap 実証への対応）---
+//
+// 位置対応づけ（i 番目の --analysis が assets[i]）を廃止し、ref で結合する。
+// 正式形は --analysis <ref>=<path>。素の <path> のみの指定も許容するが、
+// interpretation.json の inputs.analyses[].path と一意に照合できる場合に限る
+// （basename または path segment の末尾一致が 1 件に定まる場合）。どちらの形でも、
+// 最終的に確定した ref に対応する inputs.analyses[].path と、CLI で与えた path が
+// 対応しているかを追加でクロスチェックする — ref=path 形式で意図的/誤って
+// 取り違えたペアを渡した場合もここで検出する。
+
+function pathSegments(value) {
+  return value
+    .split(/[\\/]+/)
+    .filter((segment) => segment.length > 0 && segment !== ".");
+}
+
+// b の path segment 列が a の末尾（または a が b の末尾）と一致するかを見る。
+// 双方の basename（segment 数 1）同士の比較もこの関数でカバーされる。
+function isPathSuffixMatch(a, b) {
+  const segA = pathSegments(a);
+  const segB = pathSegments(b);
+  if (segA.length === 0 || segB.length === 0) return false;
+  const [shorter, longer] = segA.length <= segB.length ? [segA, segB] : [segB, segA];
+  const offset = longer.length - shorter.length;
+  for (let i = 0; i < shorter.length; i += 1) {
+    if (longer[offset + i] !== shorter[i]) return false;
+  }
+  return true;
+}
+
+function pathsCorrespond(rawPath, recordedPath, interpretationDir) {
+  if (isPathSuffixMatch(rawPath, recordedPath)) return true;
+  try {
+    return resolve(rawPath) === resolve(interpretationDir, recordedPath);
+  } catch {
+    return false;
+  }
+}
+
+// 素の path 指定から、inputs.analyses[].path との一意照合で ref を確定する。
+// 一致 0 件・複数件（曖昧）はどちらもハードエラー（順序へのフォールバックはしない）。
+// pathsCorrespond と同じ判定（suffix match または絶対パス一致）を使う — 相対パスに
+// ".." が含まれる場合、素朴な segment 末尾一致だけでは判定できないため。
+function resolveBareAnalysisRef(rawPath, analysesEntries, interpretationDir) {
+  const matchingRefs = new Set();
+  for (const entry of analysesEntries) {
+    if (!entry || typeof entry.path !== "string" || typeof entry.ref !== "string") continue;
+    if (pathsCorrespond(rawPath, entry.path, interpretationDir)) matchingRefs.add(entry.ref);
+  }
+  if (matchingRefs.size === 0) {
+    fail(
+      `--analysis の path が inputs.analyses[].path のいずれとも一致しません` +
+        `（--analysis <ref>=<path> 形式で明示してください）: ${rawPath}`,
+    );
+  }
+  if (matchingRefs.size > 1) {
+    fail(
+      `--analysis の path が inputs.analyses[].path に複数一致し一意に定まりません` +
+        `（--analysis <ref>=<path> 形式で明示してください）: ${rawPath}`,
+    );
+  }
+  return [...matchingRefs][0];
+}
+
+// --analysis 引数群を解決し、Map<ref, rawPath>（CLI で与えられた生の path 文字列）を返す。
+function resolveAnalysisArgs(analysisArgs, interpretation, interpretationDir) {
+  const interpAssets = interpretation.assets || [];
+  const assetRefs = new Set(interpAssets.map((asset) => asset.ref));
+  const analysesEntries = (interpretation.inputs && interpretation.inputs.analyses) || [];
+  const analysesEntryByRef = new Map(
+    analysesEntries
+      .filter((entry) => entry && typeof entry.ref === "string")
+      .map((entry) => [entry.ref, entry]),
+  );
+
+  const pathByRef = new Map();
+
+  for (const analysisArg of analysisArgs) {
+    const eqIndex = analysisArg.indexOf("=");
+    let ref;
+    let rawPath;
+    if (eqIndex > 0) {
+      ref = analysisArg.slice(0, eqIndex);
+      rawPath = analysisArg.slice(eqIndex + 1);
+      if (!rawPath) {
+        fail(`--analysis の指定が不正です（ref=path の path が空です）: ${analysisArg}`);
+      }
+      if (!assetRefs.has(ref)) {
+        fail(`--analysis の ref が interpretation.assets[].ref に存在しません: ${ref}（${analysisArg}）`);
+      }
+    } else {
+      rawPath = analysisArg;
+      ref = resolveBareAnalysisRef(rawPath, analysesEntries, interpretationDir);
+    }
+
+    // FK クロスチェック: 確定した ref に対応する inputs.analyses[].path と、CLI で
+    // 与えられた path が対応しているかを検証する（取り違えの実証への対応）。
+    const recordedEntry = analysesEntryByRef.get(ref);
+    if (recordedEntry && !pathsCorrespond(rawPath, recordedEntry.path, interpretationDir)) {
+      fail(
+        `--analysis の path が ref『${ref}』の inputs.analyses[].path` +
+          `（${recordedEntry.path}）と対応していません: ${rawPath}` +
+          "（取り違えの疑いがあります。--analysis <ref>=<path> の対応を再確認してください）",
+      );
+    }
+
+    if (pathByRef.has(ref)) {
+      fail(`--analysis に同じ ref が重複して指定されています: ${ref}`);
+    }
+    pathByRef.set(ref, rawPath);
+  }
+
+  const missingRefs = [...assetRefs].filter((ref) => !pathByRef.has(ref));
+  if (missingRefs.length > 0) {
+    fail(`assets[].ref に対応する --analysis が指定されていません: ${missingRefs.join(", ")}`);
+  }
+
+  return pathByRef;
+}
+
 function main() {
   let args;
   try {
@@ -207,19 +331,17 @@ function main() {
 
   const interpretation = readJson(interpretationAbsolutePath, "interpretation.json");
   const interpAssets = interpretation.assets || [];
+  const interpretationDir = dirname(interpretationAbsolutePath);
 
-  if (args.analysisPaths.length !== interpAssets.length) {
-    fail(
-      `--analysis の指定数（${args.analysisPaths.length}）が interpretation.assets の件数（${interpAssets.length}）と一致しません。` +
-        " assets[] と同数・同順で --analysis を指定してください。",
-    );
-  }
+  const pathByRef = resolveAnalysisArgs(args.analysisPaths, interpretation, interpretationDir);
 
   const outAbsolutePath = resolve(args.outPath);
   const outDir = dirname(outAbsolutePath);
 
+  // assets[] は常に interpretation.assets[] の順序で束ねる（CLI 引数の順序には依存しない）。
   const assets = [];
-  for (const [index, analysisArg] of args.analysisPaths.entries()) {
+  for (const interpAsset of interpAssets) {
+    const analysisArg = pathByRef.get(interpAsset.ref);
     const analysisAbsolutePath = resolve(analysisArg);
     if (!existsSync(analysisAbsolutePath)) {
       fail(`analysis.json が見つかりません: ${analysisAbsolutePath}`);
@@ -246,9 +368,8 @@ function main() {
       return { ...kf, imageSrc };
     });
 
-    const ref = interpAssets[index].ref;
     assets.push({
-      ref,
+      ref: interpAsset.ref,
       analysisPath: isAbsolute(analysisArg) ? analysisArg : toPosixRelative(process.cwd(), analysisAbsolutePath),
       analysis: { ...analysis, keyframes: resolvedKeyframes },
     });

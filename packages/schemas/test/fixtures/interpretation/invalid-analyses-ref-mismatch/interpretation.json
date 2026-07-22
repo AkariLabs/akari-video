@@ -8,7 +8,7 @@
         "source": "analyze-footage v0 出力（インタビュー本編、単一話者）"
       },
       {
-        "ref": "broll-park",
+        "ref": "broll-park-typo",
         "path": "materials/broll-park/analysis.json",
         "source": "analyze-footage v0 出力（無音 B ロール、公園ドローン映像）"
       }
@@ -63,7 +63,7 @@
       "flags": [
         {
           "type": "trouble_overlap",
-          "start": 300,
+          "start": 300.0,
           "end": 306.5,
           "note": "マイクノイズが数秒混入するが発話内容自体は本筋と無関係ではない",
           "evidence": "transcript 300.0-306.5 セグメント本文『（ノイズ）...すみません続けます』"
@@ -128,6 +128,5 @@
       "fills": "trouble_overlap の事実関係を補強する一次情報の有無確認",
       "status": "open"
     }
-  ],
-  "_dogfood_note": "凍結前の試作フィールドはここに置かれるべきではない"
+  ]
 }

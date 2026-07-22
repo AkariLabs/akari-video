@@ -83,6 +83,25 @@ test("arc[].refs[].asset must reference an existing assets[].ref", () => {
   );
 });
 
+test("inputs.analyses[].ref is required (2026-07-22 A3.2 swap 実証を受けた FK 化)", () => {
+  const executed = run("invalid-analyses-missing-ref");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /inputs\.analyses\[0\]\.ref は必須です/);
+});
+
+test("inputs.analyses[].ref must correspond 1:1 with assets[].ref (no shortfall/surplus on either side)", () => {
+  const executed = run("invalid-analyses-ref-mismatch");
+  assert.equal(executed.status, 1);
+  assert.match(
+    executed.stderr,
+    /inputs\.analyses\[\]\.ref が assets\[\]\.ref に存在しません: broll-park-typo/,
+  );
+  assert.match(
+    executed.stderr,
+    /assets\[\]\.ref に対応する inputs\.analyses\[\]\.ref がありません: broll-park/,
+  );
+});
+
 test("duplicate assets[].ref is rejected", () => {
   const executed = run("invalid-duplicate-asset-ref");
   assert.equal(executed.status, 1);
