@@ -1,0 +1,22 @@
+{
+  "version": 0,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "look": { "lut": "natural", "intensity": 0.8 }
+  },
+  "source": {
+    "path": "sample.mp4",
+    "proxy": null,
+    "chroma_key": { "color": "#00ff00", "similarity": 0.2, "blend": 0.1, "background": "#000000" }
+  },
+  "cuts": [
+    { "in": 0.0, "out": 10.0, "speed": 2.0, "transition_out": { "type": "dissolve", "duration": 0.5 } },
+    { "in": 10.0, "out": 20.0 }
+  ],
+  "overlays": [],
+  "audio": {
+    "master": { "denoise": "std", "loudnorm": -14 }
+  }
+}

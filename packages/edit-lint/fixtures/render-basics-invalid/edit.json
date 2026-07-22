@@ -1,0 +1,20 @@
+{
+  "version": 0,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "look": { "lut": "natural", "intensity": 2 }
+  },
+  "source": {
+    "path": "source.mp4",
+    "proxy": null,
+    "chroma_key": { "similarity": 0.2 }
+  },
+  "cuts": [
+    { "in": 0, "out": 10, "speed": -1, "transition_out": { "type": "wipe", "duration": 0.5 } },
+    { "in": 10, "out": 20 }
+  ],
+  "overlays": [],
+  "audio": { "master": { "denoise": "extreme", "loudnorm": 10 } }
+}

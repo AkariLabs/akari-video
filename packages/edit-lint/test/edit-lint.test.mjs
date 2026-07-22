@@ -338,6 +338,38 @@ test("sfx t beyond the timeline duration warns without failing", async () => {
   });
 });
 
+test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.master pass with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "render-basics-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+for (const [expectedCheck] of [
+  ["output.look.intensity"],
+  ["chroma-key.color"],
+  ["cuts.speed"],
+  ["cuts.transition-out.type"],
+  ["audio.master.denoise"],
+  ["audio.master.loudnorm"],
+]) {
+  test(`render-basics-invalid reports ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, "render-basics-invalid"));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.ok(
+        result.findings.some((finding) => finding.check === expectedCheck && finding.severity === "error"),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
 test("unreadable input returns execution-error exit code", () => {
   const executed = run(join(tmpdir(), "edit-lint-does-not-exist"));
   assert.equal(executed.status, 2);

@@ -189,6 +189,7 @@ export async function lintProject(input, options = {}) {
   await validateOverlays(edit.overlays, timeline, findings, paths);
   await validateNarration(edit?.audio?.narration, timeline, findings, paths);
   await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
+  validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
 
   if (captionsState.value !== undefined) {
     validateCaptions(
@@ -355,6 +356,7 @@ function validateEditStructure(edit, findings, paths) {
         structureFinding(findings, editRelative, `output.${field} must be a positive number`);
       }
     }
+    validateLook(edit.output.look, findings, "edit.json#output.look");
   }
   const hasSource = Object.hasOwn(edit, "source");
   const hasSources = Object.hasOwn(edit, "sources");
@@ -388,6 +390,7 @@ function validateEditStructure(edit, findings, paths) {
         "source.proxy must be null or a non-empty string",
       );
     }
+    validateChromaKey(edit.source.chroma_key, findings, "edit.json#source.chroma_key");
   }
   if (edit.version === 0 && hasSources && !hasSource) {
     structureFinding(findings, editRelative, "version 0 does not support sources");
@@ -430,6 +433,7 @@ function validateEditStructure(edit, findings, paths) {
           "source proxy must be null or a non-empty string",
         );
       }
+      validateChromaKey(source.chroma_key, findings, `${sourceRelative}.chroma_key`);
     }
   }
   if (edit.version === 1 && hasSource && !hasSources) {
@@ -442,6 +446,79 @@ function validateEditStructure(edit, findings, paths) {
     structureFinding(findings, editRelative, "overlays must be an array");
   }
   return { sourcePath, sourceIds };
+}
+
+// docs/contract-2026-07-22-render-basics.md #4/#2。output.look / source.chroma_key の構造検証は
+// validate-edit.mjs の validateLook/validateChromaKey と同じ手書きの流儀（edit-lint は依存ゼロの
+// ため他パッケージの検証ロジックを import しない）。
+function validateLook(value, findings, path) {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "output.look.structure", message: "look must be an object", path });
+    return;
+  }
+  if (!isNonEmptyString(value.lut)) {
+    addFinding(findings, { severity: "error", check: "output.look.lut", message: "lut must be a non-empty string", path });
+  }
+  if (
+    Object.hasOwn(value, "intensity") &&
+    (!isFiniteNumber(value.intensity) || value.intensity < 0 || value.intensity > 1)
+  ) {
+    addFinding(findings, { severity: "error", check: "output.look.intensity", message: "intensity must be a finite number within [0, 1]", path });
+  }
+}
+
+function validateChromaKey(value, findings, path) {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "chroma-key.structure", message: "chroma_key must be an object", path });
+    return;
+  }
+  if (!isNonEmptyString(value.color)) {
+    addFinding(findings, { severity: "error", check: "chroma-key.color", message: "color must be a non-empty string", path });
+  }
+  for (const field of ["similarity", "blend"]) {
+    if (
+      Object.hasOwn(value, field) &&
+      (!isFiniteNumber(value[field]) || value[field] < 0 || value[field] > 1)
+    ) {
+      addFinding(findings, { severity: "error", check: `chroma-key.${field}`, message: `${field} must be a finite number within [0, 1]`, path });
+    }
+  }
+  if (Object.hasOwn(value, "background") && !isNonEmptyString(value.background)) {
+    addFinding(findings, { severity: "error", check: "chroma-key.background", message: "background must be a non-empty string", path });
+  }
+}
+
+function validateTransitionOut(value, findings, path) {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "cuts.transition-out.structure", message: "transition_out must be an object", path });
+    return;
+  }
+  if (!["dissolve", "fade-black", "fade-white"].includes(value.type)) {
+    addFinding(findings, { severity: "error", check: "cuts.transition-out.type", message: "type must be dissolve/fade-black/fade-white", path });
+  }
+  if (!isPositiveNumber(value.duration)) {
+    addFinding(findings, { severity: "error", check: "cuts.transition-out.duration", message: "duration must be a positive number", path });
+  }
+}
+
+function validateAudioMaster(value, findings, path) {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "audio.master.structure", message: "master must be an object", path });
+    return;
+  }
+  if (Object.hasOwn(value, "denoise") && !["off", "std", "strong"].includes(value.denoise)) {
+    addFinding(findings, { severity: "error", check: "audio.master.denoise", message: "denoise must be off/std/strong", path });
+  }
+  if (
+    Object.hasOwn(value, "loudnorm") &&
+    (!isFiniteNumber(value.loudnorm) || value.loudnorm < -70 || value.loudnorm > 0)
+  ) {
+    addFinding(findings, { severity: "error", check: "audio.master.loudnorm", message: "loudnorm must be a finite number within [-70, 0]", path });
+  }
 }
 
 function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds) {
@@ -532,6 +609,16 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
       });
       valid = false;
     }
+    if (Object.hasOwn(cut, "speed") && !isPositiveNumber(cut.speed)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.speed",
+        message: "speed must be a positive number",
+        path,
+      });
+      valid = false;
+    }
+    validateTransitionOut(cut.transition_out, findings, `${path}.transition_out`);
     previousIn = cut.in;
     previousOut = cut.out;
   }
