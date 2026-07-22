@@ -86,14 +86,39 @@
         "provenance": { "$ref": "#/$defs/narrationProvenance" }
       }
     },
+    "bgm": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "ducking": { "type": "boolean" }
+      }
+    },
+    "sfxItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path", "t"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "t": { "$ref": "#/$defs/seconds" },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 }
+      }
+    },
     "audio": {
       "type": "object",
       "additionalProperties": true,
-      "$comment": "audio 自体は現行スキーマで未定義（bgm/sfx を含め型定義なし）。narration の追加に必要な最小限のみをここで定義し、bgm/sfx の型定義には踏み込まない（contract-2026-07-20-edit-json-v1-narration.md §8）。",
+      "$comment": "bgm/sfx は docs/contract-2026-07-14-edit-json-v1-audio.md の確定契約どおり型定義済み（bgm はオブジェクト単数・sfx は配列。§6）。",
       "properties": {
         "narration": {
           "type": "array",
           "items": { "$ref": "#/$defs/narrationItem" }
+        },
+        "bgm": { "$ref": "#/$defs/bgm" },
+        "sfx": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sfxItem" }
         }
       }
     },

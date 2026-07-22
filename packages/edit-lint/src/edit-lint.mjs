@@ -188,6 +188,7 @@ export async function lintProject(input, options = {}) {
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
   await validateOverlays(edit.overlays, timeline, findings, paths);
   await validateNarration(edit?.audio?.narration, timeline, findings, paths);
+  await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
 
   if (captionsState.value !== undefined) {
     validateCaptions(
@@ -817,6 +818,128 @@ async function validateNarration(narration, timeline, findings, paths) {
   }
 }
 
+// docs/contract-2026-07-14-edit-json-v1-audio.md §1/§5: bgm/sfx の構造検証は narration と
+// 同じ手書きの流儀。ファイル実在欠落は「装飾・欠落は警告」の劣化規約どおり warning に留める
+// （validateReferences の一律 error 経路には audio.bgm/sfx を含めない）。
+async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
+  if (bgm !== undefined) {
+    if (!isRecord(bgm)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.bgm.structure",
+        message: "audio.bgm must be an object",
+        path: "edit.json#audio.bgm",
+      });
+    } else {
+      if (!isNonEmptyString(bgm.path)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "audio.bgm.path",
+          message: "path must be a non-empty string",
+          path: "edit.json#audio.bgm",
+        });
+      } else {
+        const filePath = resolveReference(paths.editPath, bgm.path);
+        if (!(await isRegularFile(filePath))) {
+          addFinding(findings, {
+            severity: "warning",
+            check: "audio.bgm.file",
+            message: `bgm path does not resolve to a regular file: ${bgm.path}`,
+            path: relativePath(paths.projectRoot, filePath),
+          });
+        }
+      }
+      if (
+        Object.hasOwn(bgm, "gain_db") &&
+        (!isFiniteNumber(bgm.gain_db) || bgm.gain_db < -60 || bgm.gain_db > 12)
+      ) {
+        addFinding(findings, {
+          severity: "error",
+          check: "audio.bgm.gain-db",
+          message: "gain_db must be a finite number within [-60, 12]",
+          path: "edit.json#audio.bgm",
+        });
+      }
+      if (Object.hasOwn(bgm, "ducking") && typeof bgm.ducking !== "boolean") {
+        addFinding(findings, {
+          severity: "error",
+          check: "audio.bgm.ducking",
+          message: "ducking must be a boolean",
+          path: "edit.json#audio.bgm",
+        });
+      }
+    }
+  }
+
+  if (sfx === undefined) return;
+  if (!Array.isArray(sfx)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "audio.sfx.structure",
+      message: "audio.sfx must be an array",
+      path: "edit.json#audio.sfx",
+    });
+    return;
+  }
+  for (const [index, item] of sfx.entries()) {
+    const itemPath = `edit.json#audio.sfx[${index}]`;
+    if (!isRecord(item)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.structure",
+        message: "sfx item must be an object",
+        path: itemPath,
+      });
+      continue;
+    }
+    if (!isNonEmptyString(item.path)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.path",
+        message: "path must be a non-empty string",
+        path: itemPath,
+      });
+    } else {
+      const filePath = resolveReference(paths.editPath, item.path);
+      if (!(await isRegularFile(filePath))) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.sfx.file",
+          message: `sfx path does not resolve to a regular file: ${item.path}`,
+          path: relativePath(paths.projectRoot, filePath),
+        });
+      }
+    }
+    if (!isFiniteNumber(item.t) || item.t < 0) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.t",
+        message: "t must be a non-negative finite number",
+        path: itemPath,
+      });
+    } else if (timeline !== null && item.t > timeline + EPSILON) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "audio.sfx.timeline",
+        message: `t ${formatNumber(item.t)}s exceeds timeline duration ${formatNumber(timeline)}s`,
+        path: itemPath,
+        range: { start: item.t, end: item.t },
+      });
+    }
+    if (
+      Object.hasOwn(item, "gain_db") &&
+      (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12)
+    ) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.gain-db",
+        message: "gain_db must be a finite number within [-60, 12]",
+        path: itemPath,
+      });
+    }
+  }
+}
+
 async function validateReferences(edit, findings, paths) {
   const references = [];
   if (isRecord(edit?.source)) {
@@ -846,20 +969,6 @@ async function validateReferences(edit, findings, paths) {
         label: `overlays[${index}].html`,
         value: overlay?.html,
       });
-    }
-  }
-  if (isRecord(edit?.audio)) {
-    const bgmPath = isRecord(edit.audio.bgm) ? edit.audio.bgm.path : edit.audio.bgm;
-    if (bgmPath !== null && bgmPath !== undefined) {
-      references.push({ label: "audio.bgm", value: bgmPath });
-    }
-    if (Array.isArray(edit.audio.sfx)) {
-      for (const [index, item] of edit.audio.sfx.entries()) {
-        references.push({
-          label: `audio.sfx[${index}]`,
-          value: isRecord(item) ? item.path : item,
-        });
-      }
     }
   }
   if (isRecord(edit?.thumbnail)) {

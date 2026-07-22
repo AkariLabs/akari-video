@@ -1,0 +1,23 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 20.0 }],
+  "overlays": [],
+  "audio": {
+    "bgm": { "path": "audio/bgm.wav", "gain_db": -18, "ducking": true },
+    "sfx": [
+      { "path": "audio/pop.wav", "t": 1.0, "gain_db": -6 },
+      { "path": "audio/whoosh.wav", "t": 12.3 }
+    ],
+    "narration": [
+      {
+        "id": "n-0001",
+        "path": "out/narration/n-0001.mp3",
+        "t": 2.5,
+        "gain_db": 0,
+        "provenance": { "provider": "human" }
+      }
+    ]
+  }
+}

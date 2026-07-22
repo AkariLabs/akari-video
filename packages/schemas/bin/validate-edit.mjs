@@ -86,6 +86,49 @@ function validateAudio(value) {
     return;
   }
   validateNarration(value.narration);
+  validateBgm(value.bgm);
+  validateSfx(value.sfx);
+}
+
+function validateBgm(value) {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    fail("audio.bgm は object である必要があります");
+    return;
+  }
+  validateNonEmptyString(value.path, "audio.bgm.path");
+  if (hasOwn(value, "gain_db")) {
+    if (!isFiniteNumber(value.gain_db) || value.gain_db < -60 || value.gain_db > 12) {
+      fail("audio.bgm.gain_db は -60 から 12 の範囲の有限数である必要があります");
+    }
+  }
+  if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
+    fail("audio.bgm.ducking は boolean である必要があります");
+  }
+}
+
+function validateSfx(value) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    fail("audio.sfx は配列である必要があります");
+    return;
+  }
+  for (const [index, item] of value.entries()) {
+    const label = `audio.sfx[${index}]`;
+    if (!isPlainObject(item)) {
+      fail(`${label} は object である必要があります`);
+      continue;
+    }
+    validateNonEmptyString(item.path, `${label}.path`);
+    if (!isFiniteNumber(item.t) || item.t < 0) {
+      fail(`${label}.t は 0 以上の有限数である必要があります`);
+    }
+    if (hasOwn(item, "gain_db")) {
+      if (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12) {
+        fail(`${label}.gain_db は -60 から 12 の範囲の有限数である必要があります`);
+      }
+    }
+  }
 }
 
 function validateNarration(value) {
