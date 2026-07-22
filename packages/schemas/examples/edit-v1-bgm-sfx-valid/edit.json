@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "s1", "path": "assets/intro.mp4", "proxy": null }
+  ],
+  "cuts": [{ "src": "s1", "in": 0.0, "out": 10.0 }],
+  "overlays": [],
+  "audio": {
+    "bgm": { "path": "audio/bgm.wav", "gain_db": -18, "ducking": false },
+    "sfx": [{ "path": "audio/pop.wav", "t": 3.0, "gain_db": -6 }]
+  }
+}

@@ -20,6 +20,16 @@
       "type": "integer",
       "minimum": 0
     },
+    "look": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["lut"],
+      "properties": {
+        "lut": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "$comment": "docs/contract-2026-07-22-render-basics.md #4。lut はカタログ参照名（catalog/luts/ 配下）または .cube への相対パス。intensity 省略時 1.0。"
+    },
     "output": {
       "type": "object",
       "additionalProperties": true,
@@ -27,8 +37,21 @@
       "properties": {
         "width": { "$ref": "#/$defs/positiveNumber" },
         "height": { "$ref": "#/$defs/positiveNumber" },
-        "fps": { "$ref": "#/$defs/positiveNumber" }
+        "fps": { "$ref": "#/$defs/positiveNumber" },
+        "look": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/look" }] }
       }
+    },
+    "chromaKey": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["color"],
+      "properties": {
+        "color": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "similarity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "type": "number", "minimum": 0, "maximum": 1 },
+        "background": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      },
+      "$comment": "docs/contract-2026-07-22-render-basics.md #2。background は色文字列（#rrggbb 等）または画像/動画パス。similarity/blend 省略時はそれぞれ 0.2/0.1。"
     },
     "sourceV0": {
       "type": "object",
@@ -41,7 +64,8 @@
             { "type": "null" },
             { "type": "string", "minLength": 1, "pattern": "\\S" }
           ]
-        }
+        },
+        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
       }
     },
     "sourceV1": {
@@ -56,7 +80,8 @@
             { "type": "null" },
             { "type": "string", "minLength": 1, "pattern": "\\S" }
           ]
-        }
+        },
+        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
       }
     },
     "narrationProvenance": {
@@ -86,16 +111,63 @@
         "provenance": { "$ref": "#/$defs/narrationProvenance" }
       }
     },
+    "bgm": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "ducking": { "type": "boolean" }
+      }
+    },
+    "sfxItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path", "t"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "t": { "$ref": "#/$defs/seconds" },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 }
+      }
+    },
+    "audioMaster": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "denoise": { "enum": ["off", "std", "strong"] },
+        "loudnorm": { "type": "number", "minimum": -70, "maximum": 0 }
+      },
+      "$comment": "docs/contract-2026-07-22-render-basics.md #5。denoise 省略時 off（無処理）。loudnorm 省略時 -14（既定ターゲット LUFS）— master オブジェクトが存在する時点でラウドネス正規化は既定で有効という実装判断（司令塔裁定。denoise には off という無効化用の値があるが loudnorm には無いため）。"
+    },
     "audio": {
       "type": "object",
       "additionalProperties": true,
-      "$comment": "audio 自体は現行スキーマで未定義（bgm/sfx を含め型定義なし）。narration の追加に必要な最小限のみをここで定義し、bgm/sfx の型定義には踏み込まない（contract-2026-07-20-edit-json-v1-narration.md §8）。",
+      "$comment": "bgm/sfx は docs/contract-2026-07-14-edit-json-v1-audio.md の確定契約どおり型定義済み（bgm はオブジェクト単数・sfx は配列。§6）。master は docs/contract-2026-07-22-render-basics.md #5。",
       "properties": {
         "narration": {
           "type": "array",
           "items": { "$ref": "#/$defs/narrationItem" }
-        }
+        },
+        "bgm": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/bgm" }] },
+        "sfx": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "items": { "$ref": "#/$defs/sfxItem" } }
+          ]
+        },
+        "master": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/audioMaster" }] }
       }
+    },
+    "transitionOut": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "duration"],
+      "properties": {
+        "type": { "enum": ["dissolve", "fade-black", "fade-white"] },
+        "duration": { "$ref": "#/$defs/positiveNumber" }
+      },
+      "$comment": "docs/contract-2026-07-22-render-basics.md #3。v0 は指定されたカット境界のみ xfade 経路（残裁定3）。ffmpeg xfade の transition 名へ直接対応: dissolve/fadeblack/fadewhite。"
     },
     "cutV0": {
       "type": "object",
@@ -103,10 +175,12 @@
       "required": ["in", "out"],
       "properties": {
         "in": { "$ref": "#/$defs/seconds" },
-        "out": { "$ref": "#/$defs/seconds" }
+        "out": { "$ref": "#/$defs/seconds" },
+        "speed": { "$ref": "#/$defs/positiveNumber" },
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
       },
       "not": { "required": ["src"] },
-      "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。"
+      "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
     },
     "cutV1": {
       "type": "object",
@@ -115,9 +189,11 @@
       "properties": {
         "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "in": { "$ref": "#/$defs/seconds" },
-        "out": { "$ref": "#/$defs/seconds" }
+        "out": { "$ref": "#/$defs/seconds" },
+        "speed": { "$ref": "#/$defs/positiveNumber" },
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
       },
-      "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。"
+      "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
     },
     "overlayItem": {
       "type": "object",

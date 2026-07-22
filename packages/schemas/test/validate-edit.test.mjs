@@ -67,3 +67,98 @@ test("voicevox provider requires credit", () => {
     /audio\.narration\[0\]\.provenance\.credit は provider が voicevox のとき必須です/,
   );
 });
+
+test("bgm + sfx (2 items) + narration coexist and pass", () => {
+  const executed = run("edit-bgm-sfx-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("bgm.path is required", () => {
+  const executed = run("edit-bgm-missing-path");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.bgm\.path は空でない文字列である必要があります/);
+});
+
+test("bgm/sfx gain_db must stay within [-60, 12]", () => {
+  const executed = run("edit-bgm-sfx-gain-out-of-range");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /audio\.bgm\.gain_db は -60 から 12 の範囲の有限数である必要があります/,
+  );
+  assert.match(
+    executed.stderr,
+    /audio\.sfx\[0\]\.gain_db は -60 から 12 の範囲の有限数である必要があります/,
+  );
+});
+
+test("bgm.ducking must be a boolean", () => {
+  const executed = run("edit-bgm-ducking-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.bgm\.ducking は boolean である必要があります/);
+});
+
+test("sfx[].t must be a non-negative finite number", () => {
+  const executed = run("edit-sfx-t-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.sfx\[0\]\.t は 0 以上の有限数である必要があります/);
+});
+
+test("v1 (sources form) with bgm/sfx passes ($defs/audio is shared by v0 and v1)", () => {
+  const executed = run("edit-v1-bgm-sfx-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("cuts[].speed / cuts[].transition_out / output.look / source.chroma_key / audio.master coexist and pass", () => {
+  const executed = run("edit-render-basics-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("cuts[].speed must be greater than zero", () => {
+  const executed = run("edit-speed-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.speed は 0 より大きい有限数である必要があります/);
+});
+
+test("output.look.intensity must stay within [0, 1]", () => {
+  const executed = run("edit-look-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /output\.look\.intensity は 0 から 1 の範囲の有限数である必要があります/,
+  );
+});
+
+test("source.chroma_key.color is required", () => {
+  const executed = run("edit-chroma-key-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /source\.chroma_key\.color は空でない文字列である必要があります/);
+});
+
+test("cuts[].transition_out.type must be dissolve/fade-black/fade-white", () => {
+  const executed = run("edit-transition-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /cuts\[0\]\.transition_out\.type は dissolve\/fade-black\/fade-white のいずれかである必要があります/,
+  );
+});
+
+test("audio.bgm: null is tolerated as equivalent to omitted (contract-2026-07-14 says omission = no BGM; real fieldtest data spells that as explicit null, the same convention as source.proxy)", () => {
+  const executed = run("edit-bgm-null-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("audio.master.denoise/loudnorm are validated", () => {
+  const executed = run("edit-master-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.master\.denoise は off\/std\/strong のいずれかである必要があります/);
+  assert.match(
+    executed.stderr,
+    /audio\.master\.loudnorm は -70 から 0 の範囲の有限数である必要があります/,
+  );
+});

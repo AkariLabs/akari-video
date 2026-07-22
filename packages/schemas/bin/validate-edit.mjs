@@ -86,6 +86,70 @@ function validateAudio(value) {
     return;
   }
   validateNarration(value.narration);
+  validateBgm(value.bgm);
+  validateSfx(value.sfx);
+  validateMaster(value.master);
+}
+
+function validateMaster(value) {
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    fail("audio.master は object である必要があります");
+    return;
+  }
+  if (hasOwn(value, "denoise") && !["off", "std", "strong"].includes(value.denoise)) {
+    fail("audio.master.denoise は off/std/strong のいずれかである必要があります");
+  }
+  if (hasOwn(value, "loudnorm")) {
+    if (!isFiniteNumber(value.loudnorm) || value.loudnorm < -70 || value.loudnorm > 0) {
+      fail("audio.master.loudnorm は -70 から 0 の範囲の有限数である必要があります");
+    }
+  }
+}
+
+function validateBgm(value) {
+  // docs/contract-2026-07-14-edit-json-v1-audio.md §1 says omission means "no BGM"; real edit.json
+  // data (fieldtest/2026-07-14) spells that as an explicit `"bgm": null` instead of omitting the
+  // key, the same tolerant-reader convention this schema already uses for source.proxy. Treat
+  // both spellings identically.
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    fail("audio.bgm は object である必要があります");
+    return;
+  }
+  validateNonEmptyString(value.path, "audio.bgm.path");
+  if (hasOwn(value, "gain_db")) {
+    if (!isFiniteNumber(value.gain_db) || value.gain_db < -60 || value.gain_db > 12) {
+      fail("audio.bgm.gain_db は -60 から 12 の範囲の有限数である必要があります");
+    }
+  }
+  if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
+    fail("audio.bgm.ducking は boolean である必要があります");
+  }
+}
+
+function validateSfx(value) {
+  if (value === undefined || value === null) return;
+  if (!Array.isArray(value)) {
+    fail("audio.sfx は配列である必要があります");
+    return;
+  }
+  for (const [index, item] of value.entries()) {
+    const label = `audio.sfx[${index}]`;
+    if (!isPlainObject(item)) {
+      fail(`${label} は object である必要があります`);
+      continue;
+    }
+    validateNonEmptyString(item.path, `${label}.path`);
+    if (!isFiniteNumber(item.t) || item.t < 0) {
+      fail(`${label}.t は 0 以上の有限数である必要があります`);
+    }
+    if (hasOwn(item, "gain_db")) {
+      if (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12) {
+        fail(`${label}.gain_db は -60 から 12 の範囲の有限数である必要があります`);
+      }
+    }
+  }
 }
 
 function validateNarration(value) {
@@ -145,6 +209,21 @@ function validateOutput(value) {
       fail(`output.${field} は 0 より大きい有限数である必要があります`);
     }
   }
+  validateLook(value.look);
+}
+
+function validateLook(value) {
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    fail("output.look は object である必要があります");
+    return;
+  }
+  validateNonEmptyString(value.lut, "output.look.lut");
+  if (hasOwn(value, "intensity")) {
+    if (!isFiniteNumber(value.intensity) || value.intensity < 0 || value.intensity > 1) {
+      fail("output.look.intensity は 0 から 1 の範囲の有限数である必要があります");
+    }
+  }
 }
 
 function validateSourceV0(value) {
@@ -154,6 +233,26 @@ function validateSourceV0(value) {
   }
   validateNonEmptyString(value.path, "source.path");
   validateProxy(value.proxy, "source.proxy", false);
+  validateChromaKey(value.chroma_key, "source.chroma_key");
+}
+
+function validateChromaKey(value, label) {
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  validateNonEmptyString(value.color, `${label}.color`);
+  for (const field of ["similarity", "blend"]) {
+    if (hasOwn(value, field)) {
+      if (!isFiniteNumber(value[field]) || value[field] < 0 || value[field] > 1) {
+        fail(`${label}.${field} は 0 から 1 の範囲の有限数である必要があります`);
+      }
+    }
+  }
+  if (hasOwn(value, "background")) {
+    validateNonEmptyString(value.background, `${label}.background`);
+  }
 }
 
 function validateSourcesV1(value) {
@@ -175,6 +274,7 @@ function validateSourcesV1(value) {
     }
     validateNonEmptyString(source.path, `${label}.path`);
     validateProxy(source.proxy, `${label}.proxy`, true);
+    validateChromaKey(source.chroma_key, `${label}.chroma_key`);
   }
 }
 
@@ -209,6 +309,26 @@ function validateCuts(value, version, sources) {
         fail(`${label}.src が sources[].id を参照していません: ${cut.src}`);
       }
     }
+    if (hasOwn(cut, "speed")) {
+      if (!isFiniteNumber(cut.speed) || cut.speed <= 0) {
+        fail(`${label}.speed は 0 より大きい有限数である必要があります`);
+      }
+    }
+    validateTransitionOut(cut.transition_out, `${label}.transition_out`);
+  }
+}
+
+function validateTransitionOut(value, label) {
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  if (!["dissolve", "fade-black", "fade-white"].includes(value.type)) {
+    fail(`${label}.type は dissolve/fade-black/fade-white のいずれかである必要があります`);
+  }
+  if (!isFiniteNumber(value.duration) || value.duration <= 0) {
+    fail(`${label}.duration は 0 より大きい有限数である必要があります`);
   }
 }
 

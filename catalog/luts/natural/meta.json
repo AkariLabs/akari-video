@@ -1,0 +1,30 @@
+{
+  "id": "natural",
+  "category": "lut",
+  "title": "ナチュラル",
+  "description": "控えめなコントラスト・彩度・暖色寄りの微調整のみを加えた、汎用の書き出し既定向けルック。強い色被りを作らず、素材そのものの色を大きく変えない",
+  "when_to_use": "特定の「作風」を主張したくない一般的な書き出し・LUT 未指定時の穏当な既定候補",
+  "tags": ["lut", "natural", "subtle", "default-safe"],
+  "knobs": ["intensity"],
+  "ai_usage": "output.look.intensity で強さを調整してよい。強い色転換を伴わないため 0.5〜1.0 のどの強度でも破綻しにくい",
+  "requires": [],
+  "provenance": {
+    "origin": "catalog/luts/bake-luts.mjs で自前生成（2026-07-22, R1 render-basics タスク）",
+    "generator": "catalog/luts/bake-luts.mjs（旧実装 akari-video-on-os/src/lib/color-grade.ts の色演算式を移植・パラメータ: contrast+0.08 / saturation+0.10 / temperature+0.03）"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": null,
+    "scope": "internal",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": false,
+  "source": {
+    "url": null,
+    "acquisition": "generated",
+    "license_at_source": null,
+    "attribution_required": false
+  }
+}

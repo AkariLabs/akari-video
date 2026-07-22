@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { basename, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
@@ -8,6 +8,9 @@ const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
 // docs/contract-2026-07-20-edit-json-v1-narration.md §1: gain_db clamp range, shared with bgm/sfx.
 const GAIN_DB_MIN = -60;
 const GAIN_DB_MAX = 12;
+// catalog/luts/<id>/<id>.cube — packages/render-cut/src/../../.. is the monorepo root, sibling to
+// catalog/ (see catalog/luts/INDEX.md for the bare-name catalog reference convention).
+const CATALOG_LUTS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "catalog", "luts");
 
 export function buildPlan({
   edit,
@@ -45,6 +48,9 @@ export function buildPlan({
     hasAudio: hasSourceAudio,
     duration,
     ffmpegCommand: capabilities.ffmpegCommand,
+    projectRoot,
+    look: edit.output.look,
+    chromaKey: edit.source?.chroma_key,
   });
 
   return {
@@ -178,8 +184,9 @@ export function buildAudioMixCommand({
     ffprobeCommand,
   });
   const hasNarration = narrationTracks.length > 0;
+  const master = normalizeMasterPlan(edit.audio?.master);
 
-  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration) {
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
     return { operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration };
   }
 
@@ -249,13 +256,33 @@ export function buildAudioMixCommand({
   if (narrationLabel) labels.push(narrationLabel);
 
   filters.push(`${labels.join("")}amix=inputs=${labels.length}:duration=first:normalize=0[mixed]`);
+
+  // docs/contract-2026-07-22-render-basics.md #5: master processing (denoise / loudnorm) runs on
+  // the fully mixed bus, after bgm/sfx/narration/ducking are combined — it is a mastering step, not
+  // a per-track one. 1-pass loudnorm is accepted for v0 (contract explicitly allows it over 2-pass).
+  let finalLabel = "[mixed]";
+  if (master) {
+    if (master.denoise !== "off") {
+      const nr = master.denoise === "strong" ? 24 : 12;
+      // afftdn's default noise_floor (-50dB) assumes near-silent background hiss and barely
+      // engages against realistically-proportioned recording noise (measured empirically: a
+      // -47dB noise floor under a normal-level dialogue tone saw <1.5dB reduction at the
+      // default nf). nf=-30 (near the top of ffmpeg's -80..-20 range) makes both std and strong
+      // measurably and monotonically effective against typical background noise levels.
+      filters.push(`${finalLabel}afftdn=nr=${nr}:nf=-30[master_dn]`);
+      finalLabel = "[master_dn]";
+    }
+    filters.push(`${finalLabel}loudnorm=I=${formatNumber(master.loudnormTarget)}:TP=-1.5:LRA=11[master_ln]`);
+    finalLabel = "[master_ln]";
+  }
+
   args.push(
     "-filter_complex",
     filters.join(";"),
     "-map",
     "0:v:0",
     "-map",
-    "[mixed]",
+    finalLabel,
     "-t",
     formatNumber(duration),
     "-c:v",
@@ -267,6 +294,18 @@ export function buildAudioMixCommand({
     outputPath,
   );
   return { operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration };
+}
+
+// docs/contract-2026-07-22-render-basics.md #5: denoise has an explicit off value; loudnorm does
+// not, so once the master object is present at all, loudness normalization is on by default at
+// -14 LUFS unless overridden (command-center judgment call, documented in edit.schema.json's
+// $defs/audioMaster $comment).
+function normalizeMasterPlan(master) {
+  if (!master || typeof master !== "object") return null;
+  const denoise = ["off", "std", "strong"].includes(master.denoise) ? master.denoise : "off";
+  const rawTarget = master.loudnorm;
+  const loudnormTarget = typeof rawTarget === "number" && Number.isFinite(rawTarget) ? rawTarget : -14;
+  return { denoise, loudnormTarget };
 }
 
 // docs/contract-2026-07-20-edit-json-v1-narration.md §4: resolve each narration element against the
@@ -400,6 +439,51 @@ function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, ov
   return { command, args };
 }
 
+// docs/contract-2026-07-22-render-basics.md #4: "lut(カタログ参照 or パス)" — a bare name (no
+// path separator) resolves against catalog/luts/<name>/<name>.cube; anything else is treated as a
+// path relative to the project root (same regel as source.path / audio.bgm.path elsewhere).
+function resolveLutPath(projectRoot, lutRef) {
+  if (!lutRef.includes("/") && !lutRef.includes("\\")) {
+    return join(CATALOG_LUTS_ROOT, lutRef, `${lutRef}.cube`);
+  }
+  return resolve(projectRoot, lutRef);
+}
+
+// ffmpeg filter option values split on ':' and quote-related characters; escape both before
+// wrapping the value in single quotes (lut3d's file= option; same convention as chromakey's color=).
+function escapeFilterPath(path) {
+  return path.replace(/\\/gu, "\\\\").replace(/:/gu, "\\:").replace(/'/gu, "\\'");
+}
+
+const CSS_COLOR_KEYWORDS = new Set([
+  "black",
+  "white",
+  "red",
+  "green",
+  "blue",
+  "yellow",
+  "cyan",
+  "magenta",
+  "gray",
+  "grey",
+  "orange",
+  "purple",
+  "pink",
+  "brown",
+]);
+
+function isColorLike(value) {
+  return value.startsWith("#") || /^0x/iu.test(value) || CSS_COLOR_KEYWORDS.has(value.toLowerCase());
+}
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
 function normalizeAudioPlan(audio) {
   if (!audio) return { bgm: null, sfx: [] };
   const normalize = (value) => (typeof value === "string" ? { path: value } : value);
@@ -419,32 +503,154 @@ export function buildCutCommand({
   hasAudio,
   duration,
   ffmpegCommand = "ffmpeg",
+  projectRoot,
+  look,
+  chromaKey,
 }) {
   const effectiveCuts = cuts.length > 0 ? cuts : [{ in: 0, out: null }];
   const filters = [];
   const concatInputs = [];
+  // docs/contract-2026-07-22-render-basics.md #3 (cuts[].transition_out). Residual decision 3
+  // (command-center ruling): v0 only takes the xfade path at cut boundaries that explicitly
+  // specify transition_out; every other boundary keeps today's exact N-input concat call
+  // untouched, so a project with zero transition_out is byte-for-byte unaffected.
+  const hasAnyTransition = effectiveCuts
+    .slice(0, -1)
+    .some((cut) => cut.transition_out);
+  // xfade/acrossfade require both of their inputs to share one timebase; concat's own output
+  // timebase does not always match a fresh trim+setpts segment's (verified empirically: mixing
+  // concat'd and freshly-trimmed segments into a later xfade failed with "do not match ...
+  // timebase"). settb=AVTB standardizes every segment onto ffmpeg's default timebase before they
+  // are ever joined, so it is only added on the transition-aware path (never touches the
+  // non-regression concat-only path's exact filter string).
+  const timebaseNormalizer = hasAnyTransition ? ",settb=AVTB" : "";
   for (const [index, cut] of effectiveCuts.entries()) {
     const end = cut.out === null ? "" : `:end=${formatNumber(cut.out)}`;
+    // docs/contract-2026-07-22-render-basics.md #1 (cuts[].speed): v0 is constant speed only
+    // (residual decision 1, command-center ruling: pitch preservation is fixed, not optional).
+    // setpts divides by speed so the resulting segment plays at speed x its original duration
+    // shrinks accordingly; atempo (audio) achieves the same duration change while resampling
+    // pitch back to the original, chained in <=2x/>=0.5x steps per ffmpeg's atempo range limit.
+    const speed = cutSpeed(cut);
+    const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
     filters.push(
-      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=PTS-STARTPTS[v${index}]`,
+      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}${timebaseNormalizer}[v${index}]`,
     );
     concatInputs.push(`[v${index}]`);
     if (hasAudio) {
+      const atempoSuffix = buildAtempoChain(speed)
+        .map((factor) => `,atempo=${formatNumber(factor)}`)
+        .join("");
       filters.push(
-        `[0:a]atrim=start=${formatNumber(cut.in)}${end},asetpts=PTS-STARTPTS[a${index}]`,
+        `[0:a]atrim=start=${formatNumber(cut.in)}${end},asetpts=PTS-STARTPTS${atempoSuffix}[a${index}]`,
       );
       concatInputs.push(`[a${index}]`);
     }
   }
-  filters.push(
-    `${concatInputs.join("")}concat=n=${effectiveCuts.length}:v=1:a=${hasAudio ? 1 : 0}[joinedv]${hasAudio ? "[joineda]" : ""}`,
-  );
+
+  if (!hasAnyTransition) {
+    filters.push(
+      `${concatInputs.join("")}concat=n=${effectiveCuts.length}:v=1:a=${hasAudio ? 1 : 0}[joinedv]${hasAudio ? "[joineda]" : ""}`,
+    );
+  } else {
+    let videoAcc = "[v0]";
+    let audioAcc = hasAudio ? "[a0]" : null;
+    let accDuration = segmentDuration(effectiveCuts[0]);
+    for (let index = 1; index < effectiveCuts.length; index += 1) {
+      const boundary = effectiveCuts[index - 1].transition_out;
+      const isLastBoundary = index === effectiveCuts.length - 1;
+      const nextVideoLabel = isLastBoundary ? "[joinedv]" : `[vacc${index}]`;
+      const nextAudioLabel = hasAudio ? (isLastBoundary ? "[joineda]" : `[aacc${index}]`) : null;
+      if (boundary) {
+        const transitionName = XFADE_TRANSITION_NAMES[boundary.type] ?? "fade";
+        const transitionDuration = boundary.duration;
+        const offset = Math.max(0, accDuration - transitionDuration);
+        filters.push(
+          `${videoAcc}[v${index}]xfade=transition=${transitionName}:duration=${formatNumber(transitionDuration)}:offset=${formatNumber(offset)}${nextVideoLabel}`,
+        );
+        if (hasAudio) {
+          filters.push(`${audioAcc}[a${index}]acrossfade=d=${formatNumber(transitionDuration)}${nextAudioLabel}`);
+        }
+        accDuration = accDuration + segmentDuration(effectiveCuts[index]) - transitionDuration;
+      } else {
+        if (hasAudio) {
+          filters.push(`${videoAcc}${audioAcc}[v${index}][a${index}]concat=n=2:v=1:a=1${nextVideoLabel}${nextAudioLabel}`);
+        } else {
+          filters.push(`${videoAcc}[v${index}]concat=n=2:v=1:a=0${nextVideoLabel}`);
+        }
+        accDuration += segmentDuration(effectiveCuts[index]);
+      }
+      videoAcc = nextVideoLabel;
+      if (hasAudio) audioAcc = nextAudioLabel;
+    }
+  }
   if (!hasAudio) {
     filters.push(`[1:a]atrim=duration=${formatNumber(duration)},asetpts=PTS-STARTPTS[joineda]`);
   }
+
+  const scaledLabel = chromaKey || look ? "[scaled]" : "[outv]";
   filters.push(
-    `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1[outv]`,
+    `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`,
   );
+
+  // docs/contract-2026-07-22-render-basics.md #2 (source.chroma_key). Applied post-scale/pad so a
+  // single insertion point covers both chroma key and LUT; the background is either a solid color
+  // (built inline via ffmpeg's `color` source filter — no extra -i needed) or an image/video file
+  // (an extra input, looped if a still image).
+  const extraInputArgs = [];
+  let nextInputIndex = hasAudio ? 1 : 2;
+  let videoLabel = scaledLabel;
+  if (chromaKey) {
+    const color = isNonEmptyString(chromaKey.color) ? chromaKey.color : "0x00FF00";
+    const similarity = isFiniteNumber(chromaKey.similarity) ? chromaKey.similarity : 0.2;
+    const blend = isFiniteNumber(chromaKey.blend) ? chromaKey.blend : 0.1;
+    const background = chromaKey.background;
+    let backgroundLabel;
+    if (!isNonEmptyString(background) || isColorLike(background)) {
+      // ffmpeg's `color` source filter defaults to 25fps regardless of the project's output.fps;
+      // without an explicit r=, overlay silently adopted that mismatched rate for the whole
+      // output (verified empirically: omitting r= here produced a 25fps file when output.fps
+      // was 10). Force it to match so background and keyed foreground share one frame rate.
+      const bgColor = isNonEmptyString(background) ? background : "0x000000";
+      filters.push(`color=c=${bgColor}:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(duration)}[bgsrc]`);
+      backgroundLabel = "[bgsrc]";
+    } else {
+      const backgroundPath = resolve(projectRoot, background);
+      const isImage = /\.(png|jpe?g|webp|bmp|gif)$/iu.test(backgroundPath);
+      extraInputArgs.push(...(isImage ? ["-loop", "1", "-i", backgroundPath] : ["-i", backgroundPath]));
+      backgroundLabel = `[${nextInputIndex}:v]`;
+      nextInputIndex += 1;
+    }
+    filters.push(`${videoLabel}format=yuva420p,chromakey=color=${color}:similarity=${formatNumber(similarity)}:blend=${formatNumber(blend)}[keyed]`);
+    // fps= here too: an image/video-file background (the `else` branch above) may carry its own
+    // differing frame rate, which the same mismatch would otherwise leak through as well.
+    filters.push(`${backgroundLabel}scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=${formatNumber(fps)},setsar=1[bgscaled]`);
+    const chromaOutLabel = look ? "[chromakeyed]" : "[outv]";
+    filters.push(`[bgscaled][keyed]overlay=shortest=1:format=auto${chromaOutLabel}`);
+    videoLabel = chromaOutLabel;
+  }
+
+  // docs/contract-2026-07-22-render-basics.md #4 (output.look). intensity blends between the
+  // untouched frame and the fully graded one via ffmpeg's blend filter (0 = no-op, 1 = full LUT).
+  if (look) {
+    const lutPath = resolveLutPath(projectRoot, look.lut);
+    const intensity = isFiniteNumber(look.intensity) ? Math.max(0, Math.min(1, look.intensity)) : 1;
+    if (intensity <= 0) {
+      filters.push(`${videoLabel}null[outv]`);
+    } else if (intensity >= 1) {
+      filters.push(`${videoLabel}lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[outv]`);
+    } else {
+      filters.push(`${videoLabel}split=2[lutbase][luttop]`);
+      filters.push(`[luttop]lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[lutapplied]`);
+      // blend's inputs are [0]=top [1]=bottom, and all_opacity weights the TOP input (verified
+      // empirically: opacity=0.25 with [red][blue] produced ~75% blue, i.e. output =
+      // top*opacity + bottom*(1-opacity)). We want intensity=1 -> fully graded, intensity=0 ->
+      // untouched, so the graded frame ([lutapplied]) must be the top (first) input.
+      filters.push(`[lutapplied][lutbase]blend=all_mode=normal:all_opacity=${formatNumber(intensity)}[outv]`);
+    }
+  } else if (videoLabel !== "[outv]") {
+    filters.push(`${videoLabel}null[outv]`);
+  }
 
   return {
     command: ffmpegCommand,
@@ -457,6 +663,7 @@ export function buildCutCommand({
       "-i",
       sourcePath,
       ...(!hasAudio ? ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"] : []),
+      ...extraInputArgs,
       "-filter_complex",
       filters.join(";"),
       "-map",
@@ -481,9 +688,57 @@ export function buildCutCommand({
 
 export function predictedDuration(cuts, sourceDuration) {
   if (Array.isArray(cuts) && cuts.length > 0) {
-    return cuts.reduce((sum, cut) => sum + cut.out - cut.in, 0);
+    const segmentsTotal = cuts.reduce((sum, cut) => sum + segmentDuration(cut), 0);
+    // A transition_out overlaps its own segment's end with the next segment's start, shortening
+    // the combined timeline by the overlap (xfade/acrossfade's own duration math — see
+    // buildCutCommand). The last cut's transition_out (if any) has no following segment to
+    // blend into, so it never actually renders and must not be subtracted here.
+    const transitionOverlap = cuts
+      .slice(0, -1)
+      .reduce((sum, cut) => sum + (isPositiveNumber(cut.transition_out?.duration) ? cut.transition_out.duration : 0), 0);
+    return segmentsTotal - transitionOverlap;
   }
   return sourceDuration;
+}
+
+function segmentDuration(cut) {
+  return (cut.out - cut.in) / cutSpeed(cut);
+}
+
+function cutSpeed(cut) {
+  const value = cut?.speed;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 1;
+}
+
+function isPositiveNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+// docs/contract-2026-07-22-render-basics.md #3: schema enum values map 1:1 onto ffmpeg's xfade
+// transition names (dissolve/fadeblack/fadewhite all exist natively — verified via `ffmpeg -filters`).
+const XFADE_TRANSITION_NAMES = {
+  dissolve: "dissolve",
+  "fade-black": "fadeblack",
+  "fade-white": "fadewhite",
+};
+
+// atempo only accepts factors in [0.5, 2.0]; speeds outside that range are decomposed into a
+// chain of filters that multiply out to the requested speed (docs/contract-2026-07-22-render-basics.md
+// #1's ffmpeg column: "atempo（>2x/<0.5x の段組み）").
+function buildAtempoChain(speed) {
+  if (speed === 1) return [];
+  const factors = [];
+  let remaining = speed;
+  while (remaining > 2 + 1e-9) {
+    factors.push(2);
+    remaining /= 2;
+  }
+  while (remaining < 0.5 - 1e-9) {
+    factors.push(0.5);
+    remaining /= 0.5;
+  }
+  factors.push(remaining);
+  return factors;
 }
 
 export function selectDefaultOutput(projectRoot, edit, exists) {

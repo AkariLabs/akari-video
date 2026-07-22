@@ -295,6 +295,92 @@ test("narration path that does not resolve to a file warns without failing", asy
   });
 });
 
+test("audio.bgm: null is tolerated as equivalent to omitted (same convention as source.proxy)", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "bgm-null-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("bgm + sfx (2 items) all resolving to real files pass with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "bgm-sfx-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("sfx path that does not resolve to a file warns without failing (contract §5 decoration/degrade rule)", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "sfx-file-missing");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "audio.sfx.file" && finding.severity === "warning",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("sfx t beyond the timeline duration warns without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "sfx-t-exceeds-timeline");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "audio.sfx.timeline" && finding.severity === "warning",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.master pass with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "render-basics-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+for (const [expectedCheck] of [
+  ["output.look.intensity"],
+  ["chroma-key.color"],
+  ["cuts.speed"],
+  ["cuts.transition-out.type"],
+  ["audio.master.denoise"],
+  ["audio.master.loudnorm"],
+]) {
+  test(`render-basics-invalid reports ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, "render-basics-invalid"));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.ok(
+        result.findings.some((finding) => finding.check === expectedCheck && finding.severity === "error"),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
 test("unreadable input returns execution-error exit code", () => {
   const executed = run(join(tmpdir(), "edit-lint-does-not-exist"));
   assert.equal(executed.status, 2);

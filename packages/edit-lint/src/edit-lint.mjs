@@ -188,6 +188,8 @@ export async function lintProject(input, options = {}) {
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
   await validateOverlays(edit.overlays, timeline, findings, paths);
   await validateNarration(edit?.audio?.narration, timeline, findings, paths);
+  await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
+  validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
 
   if (captionsState.value !== undefined) {
     validateCaptions(
@@ -354,6 +356,7 @@ function validateEditStructure(edit, findings, paths) {
         structureFinding(findings, editRelative, `output.${field} must be a positive number`);
       }
     }
+    validateLook(edit.output.look, findings, "edit.json#output.look");
   }
   const hasSource = Object.hasOwn(edit, "source");
   const hasSources = Object.hasOwn(edit, "sources");
@@ -387,6 +390,7 @@ function validateEditStructure(edit, findings, paths) {
         "source.proxy must be null or a non-empty string",
       );
     }
+    validateChromaKey(edit.source.chroma_key, findings, "edit.json#source.chroma_key");
   }
   if (edit.version === 0 && hasSources && !hasSource) {
     structureFinding(findings, editRelative, "version 0 does not support sources");
@@ -429,6 +433,7 @@ function validateEditStructure(edit, findings, paths) {
           "source proxy must be null or a non-empty string",
         );
       }
+      validateChromaKey(source.chroma_key, findings, `${sourceRelative}.chroma_key`);
     }
   }
   if (edit.version === 1 && hasSource && !hasSources) {
@@ -441,6 +446,79 @@ function validateEditStructure(edit, findings, paths) {
     structureFinding(findings, editRelative, "overlays must be an array");
   }
   return { sourcePath, sourceIds };
+}
+
+// docs/contract-2026-07-22-render-basics.md #4/#2。output.look / source.chroma_key の構造検証は
+// validate-edit.mjs の validateLook/validateChromaKey と同じ手書きの流儀（edit-lint は依存ゼロの
+// ため他パッケージの検証ロジックを import しない）。
+function validateLook(value, findings, path) {
+  if (value === undefined || value === null) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "output.look.structure", message: "look must be an object", path });
+    return;
+  }
+  if (!isNonEmptyString(value.lut)) {
+    addFinding(findings, { severity: "error", check: "output.look.lut", message: "lut must be a non-empty string", path });
+  }
+  if (
+    Object.hasOwn(value, "intensity") &&
+    (!isFiniteNumber(value.intensity) || value.intensity < 0 || value.intensity > 1)
+  ) {
+    addFinding(findings, { severity: "error", check: "output.look.intensity", message: "intensity must be a finite number within [0, 1]", path });
+  }
+}
+
+function validateChromaKey(value, findings, path) {
+  if (value === undefined || value === null) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "chroma-key.structure", message: "chroma_key must be an object", path });
+    return;
+  }
+  if (!isNonEmptyString(value.color)) {
+    addFinding(findings, { severity: "error", check: "chroma-key.color", message: "color must be a non-empty string", path });
+  }
+  for (const field of ["similarity", "blend"]) {
+    if (
+      Object.hasOwn(value, field) &&
+      (!isFiniteNumber(value[field]) || value[field] < 0 || value[field] > 1)
+    ) {
+      addFinding(findings, { severity: "error", check: `chroma-key.${field}`, message: `${field} must be a finite number within [0, 1]`, path });
+    }
+  }
+  if (Object.hasOwn(value, "background") && !isNonEmptyString(value.background)) {
+    addFinding(findings, { severity: "error", check: "chroma-key.background", message: "background must be a non-empty string", path });
+  }
+}
+
+function validateTransitionOut(value, findings, path) {
+  if (value === undefined || value === null) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "cuts.transition-out.structure", message: "transition_out must be an object", path });
+    return;
+  }
+  if (!["dissolve", "fade-black", "fade-white"].includes(value.type)) {
+    addFinding(findings, { severity: "error", check: "cuts.transition-out.type", message: "type must be dissolve/fade-black/fade-white", path });
+  }
+  if (!isPositiveNumber(value.duration)) {
+    addFinding(findings, { severity: "error", check: "cuts.transition-out.duration", message: "duration must be a positive number", path });
+  }
+}
+
+function validateAudioMaster(value, findings, path) {
+  if (value === undefined || value === null) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "audio.master.structure", message: "master must be an object", path });
+    return;
+  }
+  if (Object.hasOwn(value, "denoise") && !["off", "std", "strong"].includes(value.denoise)) {
+    addFinding(findings, { severity: "error", check: "audio.master.denoise", message: "denoise must be off/std/strong", path });
+  }
+  if (
+    Object.hasOwn(value, "loudnorm") &&
+    (!isFiniteNumber(value.loudnorm) || value.loudnorm < -70 || value.loudnorm > 0)
+  ) {
+    addFinding(findings, { severity: "error", check: "audio.master.loudnorm", message: "loudnorm must be a finite number within [-70, 0]", path });
+  }
 }
 
 function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds) {
@@ -531,6 +609,16 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
       });
       valid = false;
     }
+    if (Object.hasOwn(cut, "speed") && !isPositiveNumber(cut.speed)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.speed",
+        message: "speed must be a positive number",
+        path,
+      });
+      valid = false;
+    }
+    validateTransitionOut(cut.transition_out, findings, `${path}.transition_out`);
     previousIn = cut.in;
     previousOut = cut.out;
   }
@@ -817,6 +905,131 @@ async function validateNarration(narration, timeline, findings, paths) {
   }
 }
 
+// docs/contract-2026-07-14-edit-json-v1-audio.md §1/§5: bgm/sfx の構造検証は narration と
+// 同じ手書きの流儀。ファイル実在欠落は「装飾・欠落は警告」の劣化規約どおり warning に留める
+// （validateReferences の一律 error 経路には audio.bgm/sfx を含めない）。
+async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
+  // docs/contract-2026-07-14-edit-json-v1-audio.md §1 says omission means "no BGM"; real
+  // edit.json data (fieldtest/2026-07-14) spells that as an explicit `"bgm": null` rather than
+  // omitting the key -- the same tolerant-reader convention already used for source.proxy.
+  if (bgm !== undefined && bgm !== null) {
+    if (!isRecord(bgm)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.bgm.structure",
+        message: "audio.bgm must be an object",
+        path: "edit.json#audio.bgm",
+      });
+    } else {
+      if (!isNonEmptyString(bgm.path)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "audio.bgm.path",
+          message: "path must be a non-empty string",
+          path: "edit.json#audio.bgm",
+        });
+      } else {
+        const filePath = resolveReference(paths.editPath, bgm.path);
+        if (!(await isRegularFile(filePath))) {
+          addFinding(findings, {
+            severity: "warning",
+            check: "audio.bgm.file",
+            message: `bgm path does not resolve to a regular file: ${bgm.path}`,
+            path: relativePath(paths.projectRoot, filePath),
+          });
+        }
+      }
+      if (
+        Object.hasOwn(bgm, "gain_db") &&
+        (!isFiniteNumber(bgm.gain_db) || bgm.gain_db < -60 || bgm.gain_db > 12)
+      ) {
+        addFinding(findings, {
+          severity: "error",
+          check: "audio.bgm.gain-db",
+          message: "gain_db must be a finite number within [-60, 12]",
+          path: "edit.json#audio.bgm",
+        });
+      }
+      if (Object.hasOwn(bgm, "ducking") && typeof bgm.ducking !== "boolean") {
+        addFinding(findings, {
+          severity: "error",
+          check: "audio.bgm.ducking",
+          message: "ducking must be a boolean",
+          path: "edit.json#audio.bgm",
+        });
+      }
+    }
+  }
+
+  if (sfx === undefined || sfx === null) return;
+  if (!Array.isArray(sfx)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "audio.sfx.structure",
+      message: "audio.sfx must be an array",
+      path: "edit.json#audio.sfx",
+    });
+    return;
+  }
+  for (const [index, item] of sfx.entries()) {
+    const itemPath = `edit.json#audio.sfx[${index}]`;
+    if (!isRecord(item)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.structure",
+        message: "sfx item must be an object",
+        path: itemPath,
+      });
+      continue;
+    }
+    if (!isNonEmptyString(item.path)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.path",
+        message: "path must be a non-empty string",
+        path: itemPath,
+      });
+    } else {
+      const filePath = resolveReference(paths.editPath, item.path);
+      if (!(await isRegularFile(filePath))) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.sfx.file",
+          message: `sfx path does not resolve to a regular file: ${item.path}`,
+          path: relativePath(paths.projectRoot, filePath),
+        });
+      }
+    }
+    if (!isFiniteNumber(item.t) || item.t < 0) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.t",
+        message: "t must be a non-negative finite number",
+        path: itemPath,
+      });
+    } else if (timeline !== null && item.t > timeline + EPSILON) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "audio.sfx.timeline",
+        message: `t ${formatNumber(item.t)}s exceeds timeline duration ${formatNumber(timeline)}s`,
+        path: itemPath,
+        range: { start: item.t, end: item.t },
+      });
+    }
+    if (
+      Object.hasOwn(item, "gain_db") &&
+      (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12)
+    ) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.gain-db",
+        message: "gain_db must be a finite number within [-60, 12]",
+        path: itemPath,
+      });
+    }
+  }
+}
+
 async function validateReferences(edit, findings, paths) {
   const references = [];
   if (isRecord(edit?.source)) {
@@ -846,20 +1059,6 @@ async function validateReferences(edit, findings, paths) {
         label: `overlays[${index}].html`,
         value: overlay?.html,
       });
-    }
-  }
-  if (isRecord(edit?.audio)) {
-    const bgmPath = isRecord(edit.audio.bgm) ? edit.audio.bgm.path : edit.audio.bgm;
-    if (bgmPath !== null && bgmPath !== undefined) {
-      references.push({ label: "audio.bgm", value: bgmPath });
-    }
-    if (Array.isArray(edit.audio.sfx)) {
-      for (const [index, item] of edit.audio.sfx.entries()) {
-        references.push({
-          label: `audio.sfx[${index}]`,
-          value: isRecord(item) ? item.path : item,
-        });
-      }
     }
   }
   if (isRecord(edit?.thumbnail)) {
