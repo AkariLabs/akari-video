@@ -1,7 +1,7 @@
 # Telop カタログ（ATF テロップテンプレート）
 
 旧 `akari-telop`（ATF v0.2・`src/samples/wave3` + `wave3b`）から全件機械移植したテロップ
-テンプレート 235 件です。`catalog/` の他カテゴリ（3d/audio/broll/font）とは構造が異なります —
+テンプレート 36 件です。`catalog/` の他カテゴリ（3d/audio/broll/font）とは構造が異なります —
 それらは「取得先の索引」（`remote: true` の meta.json）ですが、こちらは本体そのものを
 このリポにベンダリングした「目次方式カタログ」です
 （契約 [`planning/contract-2026-07-22-prerender-rail-and-assets.md`](../../../akari-video-internal/planning/contract-2026-07-22-prerender-rail-and-assets.md) §1.3。
@@ -35,3 +35,5 @@ catalog/telop/
 - 移植スクリプト: `packages/bake-layer/scripts/port-telop.mjs`（再実行可能・冪等）
 - 描画エンジン: `packages/bake-layer/vendor/telop/`（同 commit からソース同梱。
   `vendor/PROVENANCE.md` 参照）
+
+> 剪定注記（2026-07-22）: 初回移植 235 件からオーナー選別（keep 36）で剪定。落とした 199 件は git 履歴と旧リポ（akari-telop f251914）から復元可能。
