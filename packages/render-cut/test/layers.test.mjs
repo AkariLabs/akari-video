@@ -102,17 +102,26 @@ function makeSolidSource(path, { color = "blue", width, height, duration, fps })
   ffmpeg(["-f", "lavfi", "-i", `color=c=${color}:s=${width}x${height}:d=${duration}:r=${fps}`, "-c:v", "libx264", "-pix_fmt", "yuv420p", path]);
 }
 
-async function makeProject({ width = 640, height = 360, fps = 25, duration = 5, layers = [] } = {}) {
+async function makeProject({
+  width = 640,
+  height = 360,
+  fps = 25,
+  duration = 5,
+  layers = [],
+  cuts,
+  look,
+  sourceDuration = duration,
+} = {}) {
   const root = await mkdtemp(join(tmpdir(), "render-cut-layers-test-"));
-  makeSolidSource(join(root, "source.mp4"), { color: "blue", width, height, duration, fps });
+  makeSolidSource(join(root, "source.mp4"), { color: "blue", width, height, duration: sourceDuration, fps });
   await writeFile(
     join(root, "edit.json"),
     `${JSON.stringify(
       {
         version: 0,
-        output: { width, height, fps },
+        output: { width, height, fps, ...(look ? { look } : {}) },
         source: { path: "source.mp4", proxy: null },
-        cuts: [{ in: 0, out: duration }],
+        cuts: cuts ?? [{ in: 0, out: duration }],
         overlays: [],
         layers,
       },
@@ -391,5 +400,141 @@ test("layers absent vs. layers: [] both skip the compositing stage and render by
   } finally {
     await rm(withEmptyArray, { recursive: true, force: true });
     await rm(withoutKeyAtAll, { recursive: true, force: true });
+  }
+});
+
+function colorDistance(a, b) {
+  return Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
+}
+
+// Rebase re-verification (2026-07-22, post R1 render-basics merge a776917): layers[] must
+// composite correctly on top of a cutPath that R1's cuts[].speed (setpts speed scaling) and
+// output.look (LUT via ffmpeg lut3d/blend) have already transformed — layers is a stage added
+// strictly after buildCutCommand's output, so (a) the overall timeline duration must reflect
+// speed (not the raw cut length), and (b) the layer's own color must NOT be graded by the LUT
+// (the LUT only applies to the base, inside buildCutCommand, before layers.mjs ever runs),
+// while the base pixels elsewhere on the frame ARE graded, exactly as without layers.
+test("layers composite correctly on top of R1's cuts[].speed + output.look LUT pipeline", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 640;
+  const height = 360;
+  const fps = 25;
+  // source is 6s; cuts trims [0,4) at speed=2 -> predicted timeline duration = (4-0)/2 = 2s.
+  const cuts = [{ in: 0, out: 4, speed: 2 }];
+  const look = { lut: "cinematic", intensity: 1 };
+  const layerWindow = { t: 0.5, duration: 1 }; // window [0.5, 1.5) within the 2s post-speed timeline
+  const withLayers = await makeProject({
+    width,
+    height,
+    fps,
+    duration: 2,
+    sourceDuration: 6,
+    cuts,
+    look,
+    layers: [
+      {
+        id: "fx-on-speed-lut",
+        ...layerWindow,
+        kind: "baked",
+        src: "layer.mov",
+      },
+    ],
+  });
+  const withoutLayers = await makeProject({ width, height, fps, duration: 2, sourceDuration: 6, cuts, look, layers: [] });
+  try {
+    makeBakedAlphaLayer(join(withLayers, "layer.mov"), { color: "0x00FF00", width: 300, height: 200, duration: layerWindow.duration, fps });
+    const executedWith = run(withLayers);
+    const executedWithout = run(withoutLayers);
+    assert.equal(executedWith.status, 0, executedWith.stderr);
+    assert.equal(executedWithout.status, 0, executedWithout.stderr);
+    const stateWith = JSON.parse(await readFile(join(withLayers, ".akari", "render.json"), "utf8"));
+    const stateWithout = JSON.parse(await readFile(join(withoutLayers, ".akari", "render.json"), "utf8"));
+    assert.equal(stateWith.verify.verdict, "pass");
+    assert.equal(stateWithout.verify.verdict, "pass");
+
+    // (a) speed math flows through unchanged: predicted + measured duration is ~2s, not 4s.
+    assert.ok(Math.abs(stateWith.plan.predicted_duration_seconds - 2) < 1e-6, `expected predicted duration 2s, got ${stateWith.plan.predicted_duration_seconds}`);
+    t.diagnostic(`with-layers measured duration=${stateWith.artifacts[0].ffprobe.duration_seconds}s; without-layers=${stateWithout.artifacts[0].ffprobe.duration_seconds}s (both expected ~2s)`);
+    assert.ok(Math.abs(stateWith.artifacts[0].ffprobe.duration_seconds - 2) <= stateWith.plan.duration_tolerance_seconds);
+    assert.ok(Math.abs(stateWithout.artifacts[0].ffprobe.duration_seconds - 2) <= stateWithout.plan.duration_tolerance_seconds);
+
+    const outputWith = join(withLayers, stateWith.artifacts[0].path);
+    const outputWithout = join(withoutLayers, stateWithout.artifacts[0].path);
+    // layer centered at (640-300)/2=170,(360-200)/2=80 -> opaque half (local x<150) sampled at (245,150).
+    const opaqueX = 245;
+    const sampleY = 150;
+    const beforeFrame = Math.round(0.1 * fps); // t=0.1, well before the [0.5,1.5) window
+    const duringFrame = Math.round(1.0 * fps); // t=1.0, inside the window
+
+    const beforeWith = samplePixel(outputWith, beforeFrame, opaqueX, sampleY);
+    const beforeWithout = samplePixel(outputWithout, beforeFrame, opaqueX, sampleY);
+    const duringWith = samplePixel(outputWith, duringFrame, opaqueX, sampleY);
+    const duringWithout = samplePixel(outputWithout, duringFrame, opaqueX, sampleY);
+    t.diagnostic(`before window (LUT-graded base only): with-layers=(${beforeWith.r},${beforeWith.g},${beforeWith.b}) without-layers=(${beforeWithout.r},${beforeWithout.g},${beforeWithout.b})`);
+    t.diagnostic(`during window: with-layers=(${duringWith.r},${duringWith.g},${duringWith.b}) [expect ~pure lime, un-graded] without-layers=(${duringWithout.r},${duringWithout.g},${duringWithout.b}) [LUT-graded base]`);
+
+    // Outside the layer's window, my stage must not touch anything R1's cut pipeline produced:
+    // with-layers and without-layers must show the same (LUT-graded) base color.
+    assert.ok(colorDistance(beforeWith, beforeWithout) < 10, `expected before-window pixels to match (both just R1's LUT-graded base): with=${JSON.stringify(beforeWith)} without=${JSON.stringify(beforeWithout)}`);
+    // Inside the window, the layer is visibly composited (with-layers must differ substantially
+    // from without-layers, which just keeps showing the graded base at that instant).
+    assert.ok(colorDistance(duringWith, duringWithout) > 60, `expected the layer to visibly change the during-window pixel versus the no-layers baseline: with=${JSON.stringify(duringWith)} without=${JSON.stringify(duringWithout)}`);
+    // The layer's own color must be essentially un-graded (added after buildCutCommand's LUT
+    // stage), i.e. close to pure lime (0,255,0), not blended toward cinematic's shadow/highlight push.
+    assertColor(duringWith, [0, 255, 0], "layer color during the window should be ~pure lime, unaffected by output.look's LUT", 30);
+  } finally {
+    await rm(withLayers, { recursive: true, force: true });
+    await rm(withoutLayers, { recursive: true, force: true });
+  }
+});
+
+// Closes the rotate gap flagged as a deviation in the first PASS report (schema + ffmpeg args
+// were smoke-tested only, no pixel measurement). rotate=180 is direction-agnostic (clockwise vs
+// counterclockwise conventions agree at 180deg), so it deterministically swaps the previously
+// opaque (local x<150) and transparent (local x>=150) halves without needing to know ffmpeg
+// rotate's exact positive-angle direction.
+test("transform.rotate=180 flips the layer's content within its footprint (pixel measurement)", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 640;
+  const height = 360;
+  const fps = 25;
+  const duration = 3;
+  const project = await makeProject({
+    width,
+    height,
+    fps,
+    duration,
+    layers: [
+      {
+        id: "fx-rotated",
+        t: 0.5,
+        duration: 2,
+        kind: "baked",
+        src: "layer.mov",
+        transform: { x: 0, y: 0, scale: 1, rotate: 180 },
+      },
+    ],
+  });
+  try {
+    makeBakedAlphaLayer(join(project, "layer.mov"), { color: "0x00FF00", width: 300, height: 200, duration: 2, fps });
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const outputPath = join(project, state.artifacts[0].path);
+
+    // Unrotated footprint: (170,80)-(470,280). Originally-opaque local x<150 -> global x in
+    // [170,320); originally-transparent local x>=150 -> global x in [320,470). rotate=180 swaps
+    // them: the point that used to be opaque (295,150) should now show base blue, and the point
+    // that used to be transparent (445,150) should now show the layer's lime.
+    const frame = Math.round(1.5 * fps); // well inside the [0.5, 2.5) window
+    const wasOpaque = samplePixel(outputPath, frame, 295, 150);
+    const wasTransparent = samplePixel(outputPath, frame, 445, 150);
+    t.diagnostic(`rotate=180: previously-opaque position (295,150) rgb=(${wasOpaque.r},${wasOpaque.g},${wasOpaque.b}) [expect base blue now]`);
+    t.diagnostic(`rotate=180: previously-transparent position (445,150) rgb=(${wasTransparent.r},${wasTransparent.g},${wasTransparent.b}) [expect lime now]`);
+    assertColor(wasOpaque, [0, 0, 255], "180-degree rotation moves the opaque half away from its unrotated position");
+    assertColor(wasTransparent, [0, 255, 0], "180-degree rotation moves the opaque half into what was the transparent half's position");
+  } finally {
+    await rm(project, { recursive: true, force: true });
   }
 });
