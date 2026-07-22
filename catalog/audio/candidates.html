@@ -22,6 +22,8 @@
   .candidate-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
   .note { font-size: 0.85rem; opacity: 0.75; margin: 6px 0 0; }
   .verify-note { font-style: italic; }
+  .credit-note { font-family: ui-monospace, monospace; }
+  .mood-row { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
   .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; }
   .badge-ok { background: #d1e7dd; color: #0a3622; }
   .badge-warn { background: #fff3cd; color: #664d03; }
@@ -29,6 +31,8 @@
   .badge-unknown { background: #e2e3e5; color: #41464b; }
   .badge-owned { background: #cfe2ff; color: #052c65; }
   .badge-partial { background: #e0cffc; color: #3d0a6b; }
+  .badge-mood { background: #ede9fe; color: #4c1d95; }
+  .badge-tempo { background: #dbeafe; color: #1e3a8a; }
   @media (prefers-color-scheme: dark) {
     .badge-ok { background: #0f3324; color: #a3cfbb; }
     .badge-warn { background: #4d3b00; color: #ffe69c; }
@@ -36,6 +40,8 @@
     .badge-unknown { background: #343a3f; color: #c8ccd0; }
     .badge-owned { background: #072045; color: #9ec5fe; }
     .badge-partial { background: #2b0a4d; color: #d0b3fa; }
+    .badge-mood { background: #2e1065; color: #ddd6fe; }
+    .badge-tempo { background: #172554; color: #bfdbfe; }
   }
   .open-button { display: inline-block; margin-top: 10px; padding: 6px 14px; border-radius: 8px; background: #0d6efd; color: white; text-decoration: none; font-size: 0.9rem; }
   .open-button:hover { background: #0b5ed7; }
@@ -50,7 +56,7 @@
     保存後はドロップフォルダへ置くと、次回のセットアップ実行時に自動で照合・登録されます。
   </div>
   <p class="summary">
-    生成日時: 2026-07-22T05:00:31.406Z ／ 候補 52 件（9 カテゴリ）／
+    生成日時: 2026-07-22T05:10:39.524Z ／ 候補 60 件（9 カテゴリ）／
     既所有（catalog 登録済み）: 0 件
   </p>
   
@@ -69,7 +75,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">CC BY 相当・無料版はクレジット必須（研究時点で直接確認済み）</p>
+        
         <p class="note verify-note">検証メモ: ユーザー本人の手動確認を推奨</p>
         <a class="open-button" href="https://otologic.jp/free/se/motion-swish01.html" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -87,7 +95,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用利用無料・クレジット任意・直リンク禁止・AI学習利用は規約で明示禁止</p>
+        
         
         <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -105,7 +115,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
         </div>
+        
         <p class="note">音源ごとに CC ライセンスが異なる。CC0 フィルタを掛ければ ai_training_allowed=true 相当で扱える</p>
+        
         
         <a class="open-button" href="https://freesound.org/search/?q=whoosh" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -123,7 +135,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
         </div>
+        
         <p class="note">Pixabay Content License・クレジット不要・単体再配布/転売禁止。スクレイピング/自動取得は規約で明示禁止のため必ず手動クリック</p>
+        
         
         <a class="open-button" href="https://pixabay.com/sound-effects/search/whoosh/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -141,7 +155,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用/非商用問わず無料・クレジット不要・単体の二次配布/転載禁止</p>
+        
         
         <a class="open-button" href="https://dova-s.jp/se/search" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -165,7 +181,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上（演出・アニメカテゴリ）</p>
+        
         <p class="note verify-note">検証メモ: shock1〜shock6.mp3 全6件、タイトルまで実在確認（例: shock1=「ショック1衝撃の一瞬」）</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -183,7 +201,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上</p>
+        
         <p class="note verify-note">検証メモ: doon1.mp3 実在確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -201,7 +221,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用利用無料・クレジット任意・AI学習利用禁止</p>
+        
         
         <a class="open-button" href="https://soundeffect-lab.info/sound/battle/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -219,7 +241,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
         </div>
+        
         <p class="note">音源ごとに異なる。CC0 フィルタ推奨</p>
+        
         
         <a class="open-button" href="https://freesound.org/search/?q=impact+hit" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -237,7 +261,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
         </div>
+        
         <p class="note">Pixabay Content License</p>
+        
         
         <a class="open-button" href="https://pixabay.com/sound-effects/search/impact/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -255,7 +281,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">登録不要・クレジット任意。素材集約動画・Content ID登録は禁止</p>
+        
         
         <a class="open-button" href="https://www.springin.org/sound-stock/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -279,7 +307,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用利用無料・クレジット任意・AI学習利用禁止</p>
+        
         
         <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -297,7 +327,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上</p>
+        
         
         <a class="open-button" href="https://dova-s.jp/se/search" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -315,7 +347,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
         </div>
+        
         <p class="note">Pixabay Content License</p>
+        
         
         <a class="open-button" href="https://pixabay.com/sound-effects/search/pop/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -333,7 +367,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
         </div>
+        
         <p class="note">音源ごとに異なる</p>
+        
         
         <a class="open-button" href="https://freesound.org/search/?q=pop+bubble" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -351,7 +387,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">詳細URL要現地確認（トップページからカテゴリを辿る）</p>
+        
         
         <a class="open-button" href="http://www.kurage-kosho.info/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -375,7 +413,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上（ボタン・システム音）</p>
+        
         <p class="note verify-note">検証メモ: decision1〜decision53.mp3 全53件を確認（例: decision1=「ピッ。アプリなどに」）</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -393,7 +433,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上</p>
+        
         <p class="note verify-note">検証メモ: cancel1〜cancel9.mp3 全9件を確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -411,7 +453,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上</p>
+        
         <p class="note verify-note">検証メモ: cursor1〜cursor12.mp3 全12件を確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -429,7 +473,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用利用無制限・クレジット必須（表記例あり）。単品再配布は原則禁止（教材収録は例外）</p>
+        
         
         <a class="open-button" href="https://maou.audio/category/se/se-system/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -447,7 +493,9 @@
           <span class="badge badge-danger">自動検証不能・要手動確認</span>
           <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">無料版はクレジット必須。#17（効果音ラボ decision1-53）で用途代替可能なため優先度は低い</p>
+        
         <p class="note verify-note">検証メモ: 自動検証不能。ユーザー本人の手動確認が必要。#17 で代替できるため候補リストでは低優先表示にする</p>
         <a class="open-button" href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -471,7 +519,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">演出・アニメカテゴリ内</p>
+        
         <p class="note verify-note">検証メモ: sceneswitch1（木琴で演奏）・sceneswitch2（ブオッ）実在確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -489,7 +539,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用利用無制限・クレジット必須</p>
+        
         
         <a class="open-button" href="https://maou.audio/category/se/se-onepoint/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -507,7 +559,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用/非商用問わず無料・クレジット不要</p>
+        
         
         <a class="open-button" href="https://dova-s.jp/bgm?kind=2" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -525,7 +579,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
         </div>
+        
         <p class="note">音源ごとに異なる</p>
+        
         
         <a class="open-button" href="https://freesound.org/search/?q=transition" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -543,7 +599,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
         </div>
+        
         <p class="note">Pixabay Content License</p>
+        
         
         <a class="open-button" href="https://pixabay.com/sound-effects/search/transition/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -567,7 +625,9 @@
           <span class="badge badge-warn">本レーンで内容を修正済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">生活[3]カテゴリ</p>
+        
         <p class="note verify-note">検証メモ: clapping-hands1.mp3（パチパチ）・stadium-clapping-hands1.mp3（スポーツの試合）・hall-clapping-hands1.mp3（少人数）を実在確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/various/various3.html" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -585,7 +645,9 @@
           <span class="badge badge-warn">本レーンで内容を修正済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">声素材-大人数カテゴリ</p>
+        
         <p class="note verify-note">検証メモ: people-performance-cheer1（大盛り上がり）・cheer2（中盛り上がり）・people-stadium-applause1（スタジアムの拍手）を実在確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/voice/people.html" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -603,7 +665,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
         </div>
+        
         <p class="note">Pixabay Content License</p>
+        
         
         <a class="open-button" href="https://pixabay.com/sound-effects/search/applause/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -621,7 +685,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
         </div>
+        
         <p class="note">音源ごとに異なる</p>
+        
         
         <a class="open-button" href="https://freesound.org/search/?q=applause+crowd" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -639,7 +705,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上</p>
+        
         
         <a class="open-button" href="https://dova-s.jp/se/search" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -663,7 +731,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">演出・アニメカテゴリ内</p>
+        
         <p class="note verify-note">検証メモ: shine1〜shine6.mp3 全6件を確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -681,7 +751,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上</p>
+        
         <p class="note verify-note">検証メモ: eye-shine1（目が光る音）・eye-shine2（刃物）を確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -699,7 +771,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上</p>
+        
         <p class="note verify-note">検証メモ: kira1（鉄琴で演奏）・kira2（一瞬だけ光る）を確認</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -717,7 +791,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用利用無制限・クレジット必須</p>
+        
         
         <a class="open-button" href="https://maou.audio/category/se/se-magic/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -735,7 +811,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
         </div>
+        
         <p class="note">Pixabay Content License</p>
+        
         
         <a class="open-button" href="https://pixabay.com/sound-effects/search/sparkle/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -759,7 +837,9 @@
           <span class="badge badge-warn">本レーンで内容を修正済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">ボタン・システム音カテゴリ内「エラー音」</p>
+        
         <p class="note verify-note">検証メモ: 専用の「失敗音」セットは無いため、代替として #38（ポケットサウンド「失敗」タグ）を優先候補として案内する</p>
         <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -777,7 +857,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">表記/リンクで無料</p>
+        
         <p class="note verify-note">検証メモ: 10件以上（ページネーションあり、サイト全体で2367点）。「クイズ不正解・誤答音」「ゲームオーバー」「失敗『デデーン』」等を確認。本カテゴリの本命候補として#37より優先推奨</p>
         <a class="open-button" href="https://pocket-se.info/archives/tag/%E5%A4%B1%E6%95%97/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -795,7 +877,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
         </div>
+        
         <p class="note">Pixabay Content License</p>
+        
         
         <a class="open-button" href="https://pixabay.com/sound-effects/search/fail/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -813,7 +897,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
         </div>
+        
         <p class="note">音源ごとに異なる</p>
+        
         
         <a class="open-button" href="https://freesound.org/search/?q=fail+wrong+buzzer" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -831,7 +917,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">同上</p>
+        
         
         <a class="open-button" href="https://dova-s.jp/se/search" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -855,7 +943,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        <div class="mood-row"><span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
         <p class="note">商用/非商用問わず無料・クレジット不要</p>
+        
         
         <a class="open-button" href="https://dova-s.jp/bgm?sort=2" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -873,7 +963,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        <div class="mood-row"><span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
         <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
+        
         
         <a class="open-button" href="https://amachamusic.chagasi.com/image_akarui.html" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -891,7 +983,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        <div class="mood-row"><span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></div>
         <p class="note">同上</p>
+        
         
         <a class="open-button" href="https://amachamusic.chagasi.com/image_shissoukan.html" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -909,7 +1003,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        <div class="mood-row"><span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
         <p class="note">同上</p>
+        
         
         <a class="open-button" href="https://amachamusic.chagasi.com/genre_hollywood.html" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -927,7 +1023,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        <div class="mood-row"><span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
         <p class="note">同上</p>
+        
         
         <a class="open-button" href="https://amachamusic.chagasi.com/image_comical.html" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -945,7 +1043,9 @@
           <span class="badge badge-warn">本レーンで内容を修正済み</span>
           <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">商用利用無制限・クレジット必須</p>
+        <p class="note credit-note">クレジット表記: 音楽：魔王魂（「魔王魂」の代わりに「まおうだましい」「MaouDamashii」も可。「音楽」は「BGM」等に差し替え可。出典: https://maou.audio/rule/）</p>
         <p class="note verify-note">検証メモ: トップナビに BGM/歌もの/旧ゲーム音楽/効果音の4カテゴリを確認</p>
         <a class="open-button" href="https://maou.audio/category/bgm/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -963,7 +1063,9 @@
           <span class="badge badge-warn">本レーンで内容を修正済み</span>
           <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        <div class="mood-row"><span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
         <p class="note">旧曲は CC BY 4.0（要クレジット）。2026-03-01付で新規約へ移行（新曲には適用されない可能性、要個別確認）。もう一つのタグ: https://peritune.com/blog/tag/cinematic/</p>
+        
         <p class="note verify-note">検証メモ: 2026-03-01付「楽曲の利用規約変更のお知らせ」を確認。旧曲CC BY4.0の適用範囲は個別に要確認（ハードルールに反しない範囲で人手確認を継続）</p>
         <a class="open-button" href="https://peritune.com/blog/tag/fantasy/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -981,7 +1083,9 @@
           <span class="badge badge-ok">本レーンで実在確認済み</span>
           <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">クレジット必須（書式指定）。YouTube収益化可</p>
+        
         <p class="note verify-note">検証メモ: ページ自体は正規（1997年運営のIncompetech Inc.）。曲一覧の閲覧はユーザー本人のブラウザ操作に委ねる</p>
         <a class="open-button" href="https://incompetech.com/music/royalty-free/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -999,7 +1103,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
         </div>
+        
         <p class="note">CC0 でフィルタすれば ai_training_allowed=true 相当で扱える</p>
+        
         
         <a class="open-button" href="https://freesound.org/search/?q=background+music+loop" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -1017,7 +1123,9 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
         </div>
+        <div class="mood-row"><span class="badge badge-mood">真面目</span> <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></div>
         <p class="note">Pixabay Content License</p>
+        
         
         <a class="open-button" href="https://pixabay.com/music/search/upbeat%20corporate/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -1035,9 +1143,171 @@
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
           <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
+        
         <p class="note">登録不要・クレジット任意</p>
         
+        
         <a class="open-button" href="https://www.springin.org/sound-stock/" target="_blank" rel="noopener noreferrer">
+          ダウンロードページを開く ↗
+        </a>
+      </li>
+
+      <li class="candidate">
+        <div class="candidate-head">
+          <span class="rank">#53</span>
+          <span class="site">甘茶の音楽工房</span>
+          <span class="title">「シリアス」印象の楽曲一覧</span>
+          
+        </div>
+        <div class="candidate-meta">
+          <span class="badge badge-ok">本レーンで実在確認済み</span>
+          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
+        </div>
+        <div class="mood-row"><span class="badge badge-mood">真面目</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
+        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
+        
+        <p class="note verify-note">検証メモ: 「雨の日のネオン」「寂寞」「闇に沈む光」等、実在確認</p>
+        <a class="open-button" href="https://amachamusic.chagasi.com/image_serious.html" target="_blank" rel="noopener noreferrer">
+          ダウンロードページを開く ↗
+        </a>
+      </li>
+
+      <li class="candidate">
+        <div class="candidate-head">
+          <span class="rank">#54</span>
+          <span class="site">MusMus</span>
+          <span class="title">「元気・明るい」イメージ別ページ</span>
+          
+        </div>
+        <div class="candidate-meta">
+          <span class="badge badge-ok">本レーンで実在確認済み</span>
+          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
+        </div>
+        <div class="mood-row"><span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
+        <p class="note">商用/非商用問わず無料。クレジット表記必須（規約に書式指定あり）。表記できない場合の有償ライセンスあり</p>
+        <p class="note credit-note">クレジット表記: BGM:MusMus（フル表記は「フリーBGM・音楽素材MusMus https://musmus.main.jp」。出典: https://musmus.main.jp/info.html）</p>
+        <p class="note verify-note">検証メモ: 「キラキラ」「ガーリーガール」「HONEY BEE CRASH !」等、実在確認。利用規約ページ https://musmus.main.jp/info.html でクレジット必須・書式指定を確認</p>
+        <a class="open-button" href="https://musmus.main.jp/music_img2.html" target="_blank" rel="noopener noreferrer">
+          ダウンロードページを開く ↗
+        </a>
+      </li>
+
+      <li class="candidate">
+        <div class="candidate-head">
+          <span class="rank">#55</span>
+          <span class="site">甘茶の音楽工房</span>
+          <span class="title">「大人な雰囲気」印象の楽曲一覧</span>
+          
+        </div>
+        <div class="candidate-meta">
+          <span class="badge badge-ok">本レーンで実在確認済み</span>
+          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
+        </div>
+        <div class="mood-row"><span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
+        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
+        
+        <p class="note verify-note">検証メモ: 「ネオンパープル」「孤独とささやき」「砂漠の摩天楼」等、実在確認</p>
+        <a class="open-button" href="https://amachamusic.chagasi.com/image_otona.html" target="_blank" rel="noopener noreferrer">
+          ダウンロードページを開く ↗
+        </a>
+      </li>
+
+      <li class="candidate">
+        <div class="candidate-head">
+          <span class="rank">#56</span>
+          <span class="site">魔王魂</span>
+          <span class="title">タグ「優雅」</span>
+          
+        </div>
+        <div class="candidate-meta">
+          <span class="badge badge-ok">本レーンで実在確認済み</span>
+          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
+        </div>
+        <div class="mood-row"><span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
+        <p class="note">商用利用無制限・クレジット必須</p>
+        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
+        <p class="note verify-note">検証メモ: 「ピアノ30（Departure）」等、「やや優雅なピアノ曲」として実在確認</p>
+        <a class="open-button" href="https://maou.audio/tag/%e5%84%aa%e9%9b%85/" target="_blank" rel="noopener noreferrer">
+          ダウンロードページを開く ↗
+        </a>
+      </li>
+
+      <li class="candidate">
+        <div class="candidate-head">
+          <span class="rank">#57</span>
+          <span class="site">魔王魂</span>
+          <span class="title">カテゴリ「サイバー」（未来的・電子音）</span>
+          
+        </div>
+        <div class="candidate-meta">
+          <span class="badge badge-ok">本レーンで実在確認済み</span>
+          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
+        </div>
+        <div class="mood-row"><span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
+        <p class="note">商用利用無制限・クレジット必須</p>
+        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
+        <p class="note verify-note">検証メモ: 「サイバー45（アジトへの道）」「サイバー44（チュートリアル）」「サイバー43（Crossing）」等、実在確認</p>
+        <a class="open-button" href="https://maou.audio/category/bgm/bgm-cyber/" target="_blank" rel="noopener noreferrer">
+          ダウンロードページを開く ↗
+        </a>
+      </li>
+
+      <li class="candidate">
+        <div class="candidate-head">
+          <span class="rank">#58</span>
+          <span class="site">魔王魂</span>
+          <span class="title">タグ「科学」</span>
+          
+        </div>
+        <div class="candidate-meta">
+          <span class="badge badge-ok">本レーンで実在確認済み</span>
+          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
+        </div>
+        <div class="mood-row"><span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
+        <p class="note">商用利用無制限・クレジット必須</p>
+        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
+        <p class="note verify-note">検証メモ: 「サイバー08（シャレオツなサイバー曲）」等、実在確認</p>
+        <a class="open-button" href="https://maou.audio/tag/%e7%a7%91%e5%ad%a6/" target="_blank" rel="noopener noreferrer">
+          ダウンロードページを開く ↗
+        </a>
+      </li>
+
+      <li class="candidate">
+        <div class="candidate-head">
+          <span class="rank">#59</span>
+          <span class="site">魔王魂</span>
+          <span class="title">タグ「感動」</span>
+          
+        </div>
+        <div class="candidate-meta">
+          <span class="badge badge-ok">本レーンで実在確認済み</span>
+          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
+        </div>
+        <div class="mood-row"><span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
+        <p class="note">商用利用無制限・クレジット必須</p>
+        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
+        <p class="note verify-note">検証メモ: 「ピアノ19」「オーケストラ04」「オーケストラ03」等、実在確認</p>
+        <a class="open-button" href="https://maou.audio/tag/%e6%84%9f%e5%8b%95/" target="_blank" rel="noopener noreferrer">
+          ダウンロードページを開く ↗
+        </a>
+      </li>
+
+      <li class="candidate">
+        <div class="candidate-head">
+          <span class="rank">#60</span>
+          <span class="site">甘茶の音楽工房</span>
+          <span class="title">「しみじみ」印象の楽曲一覧</span>
+          
+        </div>
+        <div class="candidate-meta">
+          <span class="badge badge-ok">本レーンで実在確認済み</span>
+          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
+        </div>
+        <div class="mood-row"><span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
+        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
+        
+        <p class="note verify-note">検証メモ: 「月明かりの灯台」「3月の澄んだ空」「春へ向かう草花へ」等、実在確認</p>
+        <a class="open-button" href="https://amachamusic.chagasi.com/image_shimijimi.html" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
         </a>
       </li>

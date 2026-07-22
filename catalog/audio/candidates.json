@@ -3,23 +3,52 @@
   "version": 1,
   "generated_at": "2026-07-22",
   "source_research": "internal: research/2026-07-22-free-sfx-bgm-sources.md",
-  "verification_pass": {
-    "date": "2026-07-22",
-    "by": "task/2026-07-22-setup-audio-library lane",
-    "method": "WebFetch で該当ページを直接取得し、研究時点で確度 ○/△（個別ファイル名まで特定・要再確認）と付されていた項目を再確認した。確度 ◎（カテゴリ/タグページ単位で URL 実在確認済み）の項目は本パスでは再取得していない（研究時点の直接確認を踏襲）。",
-    "corrections": [
-      "#27 拍手: 元URL https://soundeffect-lab.info/sound/various/ は「生活[1]」（徒歩/水/ドア等の日常音）で拍手なし。正しくは https://soundeffect-lab.info/sound/various/various3.html （生活[3]）。clapping-hands1.mp3 実在確認",
-      "#28 歓声と拍手: 元URL https://soundeffect-lab.info/sound/voice/game.html はゲームキャラ個別ボイスのページで歓声なし。正しくは https://soundeffect-lab.info/sound/voice/people.html （声素材-大人数）。people-performance-cheer1/2.mp3 実在確認",
-      "#37 失敗音: 効果音ラボのボタン・システム音ページに「ブブー・不正解」という独立項目は存在しない。実在するのは同ページ内「エラー音」カテゴリの一項目（ブブー系ビープ音）。説明文を実態に合わせて修正",
-      "#47 魔王魂 BGM: 元URLはトップページ（https://maou.audio/）で漠然としていたため、具体的な BGM カテゴリ URL https://maou.audio/category/bgm/ に差し替え",
-      "#48 PeriTune: 元URLはトップページのみだったため、ファンタジー/シネマティックの具体的なタグページ（https://peritune.com/blog/tag/fantasy/ 、https://peritune.com/blog/tag/cinematic/）に差し替え。2026-03-01付で独自規約への移行告知を確認（旧曲CC BY4.0の適用範囲は要個別確認のまま）"
-    ],
-    "unresolved": [
-      "#1・#21 OtoLogic（otologic.jp）は本パスの WebFetch でも一貫して 403（自動フェッチ拒否）。研究時点で #1 は直接確認済み（◎）とされていたが、今回は再現できず。自動化ツールからのアクセスを拒否している可能性が高く、ユーザー本人のブラウザでの手動確認に委ねる。#21（決定音/システム音、要現地確認・研究時点で既に確度△）は #17 の効果音ラボ decision1〜53 で用途が代替可能なため、優先度は低いまま維持",
-      "#49 incompetech.com/music/royalty-free/ はドメイン・ページ自体は実在するが、内容が JS 描画のローディング状態で自動取得では曲一覧を読めなかった。ページ自体への誘導は可能（ユーザーが実ブラウザで閲覧する前提の半自動フローとは整合）"
-    ]
+  "verification_passes": [
+    {
+      "pass": 1,
+      "date": "2026-07-22",
+      "by": "task/2026-07-22-setup-audio-library lane",
+      "method": "WebFetch で該当ページを直接取得し、研究時点で確度 ○/△（個別ファイル名まで特定・要再確認）と付されていた項目を再確認した。確度 ◎（カテゴリ/タグページ単位で URL 実在確認済み）の項目は本パスでは再取得していない（研究時点の直接確認を踏襲）。",
+      "corrections": [
+        "#27 拍手: 元URL https://soundeffect-lab.info/sound/various/ は「生活[1]」（徒歩/水/ドア等の日常音）で拍手なし。正しくは https://soundeffect-lab.info/sound/various/various3.html （生活[3]）。clapping-hands1.mp3 実在確認",
+        "#28 歓声と拍手: 元URL https://soundeffect-lab.info/sound/voice/game.html はゲームキャラ個別ボイスのページで歓声なし。正しくは https://soundeffect-lab.info/sound/voice/people.html （声素材-大人数）。people-performance-cheer1/2.mp3 実在確認",
+        "#37 失敗音: 効果音ラボのボタン・システム音ページに「ブブー・不正解」という独立項目は存在しない。実在するのは同ページ内「エラー音」カテゴリの一項目（ブブー系ビープ音）。説明文を実態に合わせて修正",
+        "#47 魔王魂 BGM: 元URLはトップページ（https://maou.audio/）で漠然としていたため、具体的な BGM カテゴリ URL https://maou.audio/category/bgm/ に差し替え",
+        "#48 PeriTune: 元URLはトップページのみだったため、ファンタジー/シネマティックの具体的なタグページ（https://peritune.com/blog/tag/fantasy/ 、https://peritune.com/blog/tag/cinematic/）に差し替え。2026-03-01付で独自規約への移行告知を確認（旧曲CC BY4.0の適用範囲は要個別確認のまま）"
+      ],
+      "unresolved": [
+        "#1・#21 OtoLogic（otologic.jp）は本パスの WebFetch でも一貫して 403（自動フェッチ拒否）。研究時点で #1 は直接確認済み（◎）とされていたが、今回は再現できず。自動化ツールからのアクセスを拒否している可能性が高く、ユーザー本人のブラウザでの手動確認に委ねる。#21（決定音/システム音、要現地確認・研究時点で既に確度△）は #17 の効果音ラボ decision1〜53 で用途が代替可能なため、優先度は低いまま維持",
+        "#49 incompetech.com/music/royalty-free/ はドメイン・ページ自体は実在するが、内容が JS 描画のローディング状態で自動取得では曲一覧を読めなかった。ページ自体への誘導は可能（ユーザーが実ブラウザで閲覧する前提の半自動フローとは整合）"
+      ]
+    },
+    {
+      "pass": 2,
+      "date": "2026-07-22",
+      "by": "task/2026-07-22-setup-audio-library lane（司令塔追加指示: BGM を15〜20曲へ厚くする + mood タグを intake tone 語彙に揃える）",
+      "method": "追加8候補（rank #53-60）は全件 WebFetch で直接ページ取得し、実在の楽曲タイトルを個別に確認済み（confidence: confirmed_by_lane）。MusMus・魔王魂の credit_template は利用規約ページの文言をそのまま引用",
+      "added": [
+        "#53 amachamusic-serious（真面目）: image_serious.html 実在確認（雨の日のネオン/寂寞/闇に沈む光 等）",
+        "#54 musmus-genki-akarui（かわいい）: music_img2.html 実在確認（キラキラ/ガーリーガール 等）。MusMus初収録。attribution_required=true・credit_templateを規約から転記（https://musmus.main.jp/info.html）",
+        "#55 amachamusic-otona（高級感）: image_otona.html 実在確認（ネオンパープル/孤独とささやき 等）",
+        "#56 maoudamashii-tag-yuuga（高級感）: タグ「優雅」実在確認（ピアノ30 Departure 等）",
+        "#57 maoudamashii-bgm-cyber（無機質）: カテゴリ「サイバー」実在確認（サイバー45/44/43 等）",
+        "#58 maoudamashii-tag-kagaku（無機質）: タグ「科学」実在確認（サイバー08 等）",
+        "#59 maoudamashii-tag-kandou（エモい）: タグ「感動」実在確認（ピアノ19/オーケストラ04/03 等）",
+        "#60 amachamusic-shimijimi（エモい）: image_shimijimi.html 実在確認（月明かりの灯台/3月の澄んだ空 等）"
+      ],
+      "mood_coverage_note": "既存 BGM 11 件のうち #42/#43（親しみ）・#44/#51（勢い）・#45/#48（シネマ）・#46（かわいい）・#51（真面目、dual）に mood を後付けし、新規8件と合わせて mood_vocabulary の全8語に最低2件を満たした（詳細は各アイテムの mood[] を参照）。DOVA-SYNDROME は tags 一覧ページ（https://dova-s.jp/bgm/tags）の実在は確認したが、個別ムードタグの URL 形式（クエリ構造）は自動取得で特定できず、#42 の一般ランキングのみ既存のまま採用（要フォロー: ユーザーがタグ一覧から手動で絞り込む前提に留めた）"
+    }
+  ],
+  "ai_training_policy_note": "ai_training_allowed は「サイトが明示的に AI 学習用途を許可している場合のみ true」を既定にする（audio-import レーン登録分と同じ規律を継承）。CC0 系（Freesound CC0 指定・Kenney・Pixabay Content License）は true。効果音ラボは規約で明示禁止のため false。それ以外の日本語配布元（DOVA-SYNDROME・魔王魂・OtoLogic・甘茶・くらげ工匠・Springin・MusMus 等）は規約に明記がなくても、audio-import 登録分との整合を優先し false（未許諾を許可とみなさない）。Freesound のタグ検索・YouTube Audio Library はライセンスが音源ごとに変わるため null（個別確認が必要な旨を note に明記）。",
+  "mood_vocabulary": {
+    "source": "internal: planning/contract-2026-07-21-intake-wizard-v2.md §3（tone[] チップ）",
+    "values": ["真面目", "親しみ", "高級感", "勢い", "かわいい", "無機質", "エモい", "シネマ"],
+    "purpose": "intake の bgm-sfx タスク詳細（mood チップ）と同一語彙にすることで、将来「分析→tone決定→mood一致でBGM自動選曲」パイプラインを成立させる。本タスクでは bgm-general カテゴリの各候補に mood[] タグを付けるところまでを行い、自動選曲ロジック自体は実装していない"
   },
-  "ai_training_policy_note": "ai_training_allowed は「サイトが明示的に AI 学習用途を許可している場合のみ true」を既定にする（audio-import レーン登録分と同じ規律を継承）。CC0 系（Freesound CC0 指定・Kenney・Pixabay Content License）は true。効果音ラボは規約で明示禁止のため false。それ以外の日本語配布元（DOVA-SYNDROME・魔王魂・OtoLogic・甘茶・くらげ工匠・Springin 等）は規約に明記がなくても、audio-import 登録分との整合を優先し false（未許諾を許可とみなさない）。Freesound のタグ検索・YouTube Audio Library はライセンスが音源ごとに変わるため null（個別確認が必要な旨を note に明記）。",
+  "tempo_vocabulary": {
+    "source": "internal: planning/contract-2026-07-21-intake-wizard-v2.md §3（tempo、値は「高速カット」を「高速」に短縮して転記）",
+    "values": ["ゆったり", "標準", "高速"]
+  },
   "categories": [
     {
       "id": "whoosh",
@@ -681,6 +710,8 @@
           "download_page_url": "https://dova-s.jp/bgm?sort=2",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": ["親しみ"],
+          "tempo": "標準",
           "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "商用/非商用問わず無料・クレジット不要" },
           "confidence": "confirmed_by_research",
           "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
@@ -694,6 +725,8 @@
           "download_page_url": "https://amachamusic.chagasi.com/image_akarui.html",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": ["親しみ"],
+          "tempo": "標準",
           "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須" },
           "confidence": "confirmed_by_research",
           "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
@@ -707,6 +740,8 @@
           "download_page_url": "https://amachamusic.chagasi.com/image_shissoukan.html",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": ["勢い"],
+          "tempo": "高速",
           "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "同上" },
           "confidence": "confirmed_by_research",
           "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
@@ -720,6 +755,8 @@
           "download_page_url": "https://amachamusic.chagasi.com/genre_hollywood.html",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": ["シネマ"],
+          "tempo": "標準",
           "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "同上" },
           "confidence": "confirmed_by_research",
           "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
@@ -733,6 +770,8 @@
           "download_page_url": "https://amachamusic.chagasi.com/image_comical.html",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": ["かわいい"],
+          "tempo": "標準",
           "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "同上" },
           "confidence": "confirmed_by_research",
           "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
@@ -746,6 +785,9 @@
           "download_page_url": "https://maou.audio/category/bgm/",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": [],
+          "tempo": null,
+          "credit_template": "音楽：魔王魂（「魔王魂」の代わりに「まおうだましい」「MaouDamashii」も可。「音楽」は「BGM」等に差し替え可。出典: https://maou.audio/rule/）",
           "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須" },
           "confidence": "corrected_by_lane",
           "verification": {
@@ -765,6 +807,8 @@
           "download_page_url": "https://peritune.com/blog/tag/fantasy/",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": ["シネマ"],
+          "tempo": "標準",
           "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "unknown", "note": "旧曲は CC BY 4.0（要クレジット）。2026-03-01付で新規約へ移行（新曲には適用されない可能性、要個別確認）。もう一つのタグ: https://peritune.com/blog/tag/cinematic/" },
           "confidence": "corrected_by_lane",
           "verification": {
@@ -784,6 +828,8 @@
           "download_page_url": "https://incompetech.com/music/royalty-free/",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": [],
+          "tempo": null,
           "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "unknown", "note": "クレジット必須（書式指定）。YouTube収益化可" },
           "confidence": "confirmed_by_lane",
           "verification": {
@@ -802,6 +848,8 @@
           "download_page_url": "https://freesound.org/search/?q=background+music+loop",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": [],
+          "tempo": null,
           "license": { "attribution_required": null, "ai_training_allowed": null, "redistribution": "depends_on_license", "note": "CC0 でフィルタすれば ai_training_allowed=true 相当で扱える" },
           "confidence": "confirmed_by_research",
           "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
@@ -815,6 +863,8 @@
           "download_page_url": "https://pixabay.com/music/search/upbeat%20corporate/",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": ["真面目", "勢い"],
+          "tempo": "高速",
           "license": { "attribution_required": false, "ai_training_allowed": true, "redistribution": "prohibited_standalone", "note": "Pixabay Content License" },
           "confidence": "confirmed_by_research",
           "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
@@ -828,9 +878,176 @@
           "download_page_url": "https://www.springin.org/sound-stock/",
           "expected_filenames": [],
           "filename_patterns": [],
+          "mood": [],
+          "tempo": null,
           "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "unknown", "note": "登録不要・クレジット任意" },
           "confidence": "confirmed_by_research",
           "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 53,
+          "id": "amachamusic-serious",
+          "site": "甘茶の音楽工房",
+          "title_ja": "「シリアス」印象の楽曲一覧",
+          "type": "category_page",
+          "download_page_url": "https://amachamusic.chagasi.com/image_serious.html",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "mood": ["真面目"],
+          "tempo": "標準",
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "「雨の日のネオン」「寂寞」「闇に沈む光」等、実在確認"
+          }
+        },
+        {
+          "rank": 54,
+          "id": "musmus-genki-akarui",
+          "site": "MusMus",
+          "title_ja": "「元気・明るい」イメージ別ページ",
+          "type": "category_page",
+          "download_page_url": "https://musmus.main.jp/music_img2.html",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "mood": ["かわいい"],
+          "tempo": "標準",
+          "credit_template": "BGM:MusMus（フル表記は「フリーBGM・音楽素材MusMus https://musmus.main.jp」。出典: https://musmus.main.jp/info.html）",
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "unknown", "note": "商用/非商用問わず無料。クレジット表記必須（規約に書式指定あり）。表記できない場合の有償ライセンスあり" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得（本候補データへの MusMus 初収録。司令塔追加指示によりBGMに強い配布元として追加）",
+            "result_note": "「キラキラ」「ガーリーガール」「HONEY BEE CRASH !」等、実在確認。利用規約ページ https://musmus.main.jp/info.html でクレジット必須・書式指定を確認"
+          }
+        },
+        {
+          "rank": 55,
+          "id": "amachamusic-otona",
+          "site": "甘茶の音楽工房",
+          "title_ja": "「大人な雰囲気」印象の楽曲一覧",
+          "type": "category_page",
+          "download_page_url": "https://amachamusic.chagasi.com/image_otona.html",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "mood": ["高級感"],
+          "tempo": "ゆったり",
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "「ネオンパープル」「孤独とささやき」「砂漠の摩天楼」等、実在確認"
+          }
+        },
+        {
+          "rank": 56,
+          "id": "maoudamashii-tag-yuuga",
+          "site": "魔王魂",
+          "title_ja": "タグ「優雅」",
+          "type": "category_page",
+          "download_page_url": "https://maou.audio/tag/%e5%84%aa%e9%9b%85/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "mood": ["高級感"],
+          "tempo": "ゆったり",
+          "credit_template": "音楽：魔王魂（出典: https://maou.audio/rule/）",
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "「ピアノ30（Departure）」等、「やや優雅なピアノ曲」として実在確認"
+          }
+        },
+        {
+          "rank": 57,
+          "id": "maoudamashii-bgm-cyber",
+          "site": "魔王魂",
+          "title_ja": "カテゴリ「サイバー」（未来的・電子音）",
+          "type": "category_page",
+          "download_page_url": "https://maou.audio/category/bgm/bgm-cyber/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "mood": ["無機質"],
+          "tempo": "標準",
+          "credit_template": "音楽：魔王魂（出典: https://maou.audio/rule/）",
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "「サイバー45（アジトへの道）」「サイバー44（チュートリアル）」「サイバー43（Crossing）」等、実在確認"
+          }
+        },
+        {
+          "rank": 58,
+          "id": "maoudamashii-tag-kagaku",
+          "site": "魔王魂",
+          "title_ja": "タグ「科学」",
+          "type": "category_page",
+          "download_page_url": "https://maou.audio/tag/%e7%a7%91%e5%ad%a6/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "mood": ["無機質"],
+          "tempo": "標準",
+          "credit_template": "音楽：魔王魂（出典: https://maou.audio/rule/）",
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "「サイバー08（シャレオツなサイバー曲）」等、実在確認"
+          }
+        },
+        {
+          "rank": 59,
+          "id": "maoudamashii-tag-kandou",
+          "site": "魔王魂",
+          "title_ja": "タグ「感動」",
+          "type": "category_page",
+          "download_page_url": "https://maou.audio/tag/%e6%84%9f%e5%8b%95/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "mood": ["エモい"],
+          "tempo": "ゆったり",
+          "credit_template": "音楽：魔王魂（出典: https://maou.audio/rule/）",
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "「ピアノ19」「オーケストラ04」「オーケストラ03」等、実在確認"
+          }
+        },
+        {
+          "rank": 60,
+          "id": "amachamusic-shimijimi",
+          "site": "甘茶の音楽工房",
+          "title_ja": "「しみじみ」印象の楽曲一覧",
+          "type": "category_page",
+          "download_page_url": "https://amachamusic.chagasi.com/image_shimijimi.html",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "mood": ["エモい"],
+          "tempo": "ゆったり",
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "「月明かりの灯台」「3月の澄んだ空」「春へ向かう草花へ」等、実在確認"
+          }
         }
       ]
     }

@@ -82,6 +82,15 @@ function ownershipBadge(ownership) {
     return '';
 }
 
+function moodBadges(item) {
+    const mood = item.mood ?? [];
+    const tempo = item.tempo ?? null;
+    if (mood.length === 0 && !tempo) return '';
+    const moodBadgesHtml = mood.map((m) => badge(m, 'mood')).join(' ');
+    const tempoBadge = tempo ? badge(`テンポ: ${tempo}`, 'tempo') : '';
+    return `<div class="mood-row">${moodBadgesHtml} ${tempoBadge}</div>`;
+}
+
 function renderItem(item, ownership) {
     const isOwned = ownership.status === 'exact';
     const rowClass = isOwned ? 'candidate owned' : 'candidate';
@@ -97,7 +106,9 @@ function renderItem(item, ownership) {
           ${confidenceBadge(item)}
           ${licenseBadges(item)}
         </div>
+        ${moodBadges(item)}
         ${item.license?.note ? `<p class="note">${escapeHtml(item.license.note)}</p>` : ''}
+        ${item.credit_template ? `<p class="note credit-note">クレジット表記: ${escapeHtml(item.credit_template)}</p>` : ''}
         ${item.verification?.result_note ? `<p class="note verify-note">検証メモ: ${escapeHtml(item.verification.result_note)}</p>` : ''}
         <a class="open-button" href="${escapeHtml(item.download_page_url)}" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -146,6 +157,8 @@ function renderPage({ data, flat, ownershipMap, generatedAt }) {
   .candidate-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
   .note { font-size: 0.85rem; opacity: 0.75; margin: 6px 0 0; }
   .verify-note { font-style: italic; }
+  .credit-note { font-family: ui-monospace, monospace; }
+  .mood-row { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
   .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; }
   .badge-ok { background: #d1e7dd; color: #0a3622; }
   .badge-warn { background: #fff3cd; color: #664d03; }
@@ -153,6 +166,8 @@ function renderPage({ data, flat, ownershipMap, generatedAt }) {
   .badge-unknown { background: #e2e3e5; color: #41464b; }
   .badge-owned { background: #cfe2ff; color: #052c65; }
   .badge-partial { background: #e0cffc; color: #3d0a6b; }
+  .badge-mood { background: #ede9fe; color: #4c1d95; }
+  .badge-tempo { background: #dbeafe; color: #1e3a8a; }
   @media (prefers-color-scheme: dark) {
     .badge-ok { background: #0f3324; color: #a3cfbb; }
     .badge-warn { background: #4d3b00; color: #ffe69c; }
@@ -160,6 +175,8 @@ function renderPage({ data, flat, ownershipMap, generatedAt }) {
     .badge-unknown { background: #343a3f; color: #c8ccd0; }
     .badge-owned { background: #072045; color: #9ec5fe; }
     .badge-partial { background: #2b0a4d; color: #d0b3fa; }
+    .badge-mood { background: #2e1065; color: #ddd6fe; }
+    .badge-tempo { background: #172554; color: #bfdbfe; }
   }
   .open-button { display: inline-block; margin-top: 10px; padding: 6px 14px; border-radius: 8px; background: #0d6efd; color: white; text-decoration: none; font-size: 0.9rem; }
   .open-button:hover { background: #0b5ed7; }

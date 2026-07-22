@@ -21,7 +21,7 @@ async function withTempOut(run) {
     }
 }
 
-test('generates a self-contained static HTML with all 52 candidates and no auto-download links to raw audio', async () => {
+test('generates a self-contained static HTML with all 60 candidates and no auto-download links to raw audio', async () => {
     await withTempOut(async (root) => {
         const outPath = path.join(root, 'candidates.html');
         const result = spawnSync(process.execPath, [
@@ -34,15 +34,53 @@ test('generates a self-contained static HTML with all 52 candidates and no auto-
         assert.equal(result.status, 0, result.stderr);
         const html = await readFile(outPath, 'utf8');
 
-        assert.match(html, /候補 52 件/);
+        assert.match(html, /候補 60 件/);
         assert.match(html, /AI はここから自動ダウンロードしません/);
 
         // リンクは必ずダウンロードページ URL。音声ファイル拡張子への直リンクを禁止する。
         const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-        assert.ok(hrefs.length >= 52);
+        assert.ok(hrefs.length >= 60);
         for (const href of hrefs) {
             assert.doesNotMatch(href, /\.(mp3|wav|m4a|ogg|flac)(\?|$)/i, `直リンク疑い: ${href}`);
         }
+    });
+});
+
+test('BGM candidates carry mood tags aligned to the intake tone vocabulary, each mood has >=2 candidates, MusMus is represented', async () => {
+    await withTempOut(async (root) => {
+        const outPath = path.join(root, 'candidates.html');
+        const result = spawnSync(process.execPath, [
+            scriptPath,
+            '--candidates', candidatesPath,
+            '--catalog-dir', realCatalogAudioDir,
+            '--out', outPath,
+        ], { encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+
+        const raw = await readFile(candidatesPath, 'utf8');
+        const data = JSON.parse(raw);
+        const bgm = data.categories.find((c) => c.id === 'bgm-general');
+        assert.ok(bgm.items.length >= 15 && bgm.items.length <= 20, `BGM候補は15〜20件を想定: 実際は${bgm.items.length}件`);
+
+        const toneVocabulary = data.mood_vocabulary.values;
+        assert.deepEqual(toneVocabulary, ['真面目', '親しみ', '高級感', '勢い', 'かわいい', '無機質', 'エモい', 'シネマ']);
+
+        const coverage = new Map(toneVocabulary.map((tone) => [tone, 0]));
+        for (const item of bgm.items) {
+            for (const mood of item.mood ?? []) {
+                assert.ok(coverage.has(mood), `mood_vocabulary に無い値: ${mood} (item: ${item.id})`);
+                coverage.set(mood, coverage.get(mood) + 1);
+            }
+        }
+        for (const [tone, count] of coverage) {
+            assert.ok(count >= 2, `mood "${tone}" の候補が2件未満: ${count}件`);
+        }
+
+        assert.ok(bgm.items.some((item) => item.site === 'MusMus'), 'MusMus が BGM 候補に含まれていること');
+
+        const html = await readFile(outPath, 'utf8');
+        assert.match(html, /badge-mood/);
+        assert.match(html, /BGM:MusMus/); // credit_template がそのまま表示される
     });
 });
 
