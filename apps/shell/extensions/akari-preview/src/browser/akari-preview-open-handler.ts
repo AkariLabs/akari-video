@@ -28,6 +28,19 @@ interface EditSummaryOverlay {
     vars: Record<string, string>;
 }
 
+interface EditSummaryLayer {
+    id: string;
+    t: number;
+    duration: number;
+    kind: 'baked' | 'video';
+    src?: string;
+    transform: OverlayTransform;
+    opacity: number;
+    blend: string;
+    chromaKey: boolean;
+    proxyMissing: boolean;
+}
+
 interface EditSummaryCut {
     in: number;
     out: number;
@@ -63,6 +76,7 @@ interface EditSummaryAudio {
 interface EditSummary {
     output: { width: number; height: number; fps?: number };
     overlays: EditSummaryOverlay[];
+    layers: EditSummaryLayer[];
     cuts: EditSummaryCut[];
     audio?: EditSummaryAudio;
     indicators: string[];
@@ -160,6 +174,7 @@ interface PreviewSessionSettings {
 const EMPTY_SUMMARY: EditSummary = {
     output: { width: 1280, height: 720, fps: 30 },
     overlays: [],
+    layers: [],
     cuts: [],
     indicators: []
 };
@@ -178,6 +193,18 @@ const CLAIMED_VIDEO_EXTENSIONS = new Set([
 const UNSUPPORTED_FORMAT_MESSAGE = 'この形式はアプリ内プレビューに未対応です。書き出し後の MP4 をプレビューできます。';
 const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビューできません。';
 const THREE_SCENE_KEYS = new Set(['model', 'camera', 'lights', 'animationClip', 'materialOverrides']);
+const LAYER_BLEND_TO_CSS = new Map<string, string>([
+    ['normal', 'normal'],
+    ['screen', 'screen'],
+    ['multiply', 'multiply'],
+    ['add', 'plus-lighter'],
+    ['difference', 'difference'],
+    ['darken', 'darken'],
+    ['lighten', 'lighten'],
+    ['overlay', 'overlay'],
+    ['hardlight', 'hard-light'],
+    ['softlight', 'soft-light']
+]);
 
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
@@ -604,6 +631,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const assetUris: URI[] = [];
         try {
             const edit = JSON.parse(await this.readText(editUri));
+            const isTruthyObject = (value: unknown): boolean => Boolean(value)
+                && typeof value === 'object' && !Array.isArray(value);
             const width = this.positiveNumber(edit?.output?.width, EMPTY_SUMMARY.output.width);
             const height = this.positiveNumber(edit?.output?.height, EMPTY_SUMMARY.output.height);
             const cuts: EditSummaryCut[] = [];
@@ -673,9 +702,99 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     vars: this.stringRecord(value?.vars)
                 });
             }
+            const layers: EditSummaryLayer[] = [];
+            let unsupportedBlendCount = 0;
+            for (let index = 0; index < (Array.isArray(edit?.layers) ? edit.layers.length : 0); index += 1) {
+                const value = edit.layers[index];
+                const label = `layers[${index}]`;
+                const validObject = value && typeof value === 'object' && !Array.isArray(value);
+                const validId = typeof value?.id === 'string' && Boolean(value.id.trim());
+                const validT = typeof value?.t === 'number' && Number.isFinite(value.t) && value.t >= 0;
+                const validDuration = typeof value?.duration === 'number'
+                    && Number.isFinite(value.duration) && value.duration > 0;
+                const validKind = value?.kind === 'baked' || value?.kind === 'video';
+                const validSrc = typeof value?.src === 'string' && Boolean(value.src.trim());
+                if (!validObject || !validId || !validT || !validDuration || !validKind || !validSrc) {
+                    console.warn(`[akari-preview] ${label} を無視しました（id/t/duration/kind/src 不正）`, value);
+                    continue;
+                }
+
+                let opacity = 1;
+                if (value.opacity !== undefined) {
+                    if (typeof value.opacity === 'number' && Number.isFinite(value.opacity)
+                        && value.opacity >= 0 && value.opacity <= 1) {
+                        opacity = value.opacity;
+                    } else {
+                        console.warn(`[akari-preview] ${label}.opacity は 1 で近似します（0〜1 の有限 number ではありません）`, value.opacity);
+                    }
+                }
+                let blend = 'normal';
+                if (value.blend !== undefined) {
+                    const mapped = typeof value.blend === 'string'
+                        ? LAYER_BLEND_TO_CSS.get(value.blend)
+                        : undefined;
+                    if (mapped) {
+                        blend = mapped;
+                    } else {
+                        unsupportedBlendCount += 1;
+                        console.warn(`[akari-preview] ${label}.blend は normal で近似します（未対応値）`, value.blend);
+                    }
+                }
+
+                const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing'> = {
+                    id: value.id,
+                    t: value.t,
+                    duration: value.duration,
+                    kind: value.kind,
+                    transform: this.transform(value.transform),
+                    opacity,
+                    blend,
+                    chromaKey: value.kind === 'video' && isTruthyObject(value.chroma_key)
+                };
+                let sourceUri: URI;
+                try {
+                    sourceUri = this.resolveEditAssetUri(value.src, editUri);
+                } catch (error) {
+                    console.warn(`[akari-preview] ${label} を無視しました（src を解決できません）`, error);
+                    continue;
+                }
+                if (value.kind === 'baked') {
+                    const sidecarUri = this.previewProxyUri(sourceUri);
+                    if (!assetUris.some(uri => uri.toString() === sidecarUri.toString())) {
+                        assetUris.push(sidecarUri);
+                    }
+                    let src: string | undefined;
+                    try {
+                        if (await this.fileService.exists(sidecarUri)) {
+                            const key = sidecarUri.toString();
+                            let stream = assetStreams.get(key);
+                            if (!stream) {
+                                stream = await this.previewService.createAssetStream({ assetUri: key });
+                                assetStreams.set(key, stream);
+                            }
+                            src = stream.url;
+                        }
+                    } catch (error) {
+                        console.warn(`[akari-preview] ${label} の preview proxy を配信できません`, error);
+                    }
+                    layers.push({ ...base, ...(src ? { src } : {}), proxyMissing: !src });
+                    continue;
+                }
+
+                try {
+                    const key = sourceUri.toString();
+                    let stream = assetStreams.get(key);
+                    if (!stream) {
+                        stream = await this.previewService.createAssetStream({ assetUri: key });
+                        assetStreams.set(key, stream);
+                        assetUris.push(sourceUri);
+                    }
+                    layers.push({ ...base, src: stream.url, proxyMissing: false });
+                } catch (error) {
+                    console.warn(`[akari-preview] ${label} を無視しました（video レイヤーを配信できません）`, error);
+                }
+            }
             const audio = await this.resolveAudioAssets(edit?.audio, editUri, assetStreams, assetUris);
-            const isTruthyObject = (value: unknown): boolean => Boolean(value)
-                && typeof value === 'object' && !Array.isArray(value);
             const indicators: string[] = [];
             if (isTruthyObject(edit?.output?.look)) indicators.push('LUT');
             if (isTruthyObject(edit?.source?.chroma_key)
@@ -685,7 +804,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     isTruthyObject((layer as { chroma_key?: unknown } | null)?.chroma_key)))) {
                 indicators.push('クロマキー');
             }
-            if (Array.isArray(edit?.layers) && edit.layers.length > 0) indicators.push('レイヤー合成');
+            const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
+            if (missingProxyCount > 0) {
+                indicators.push(`テロップ ${missingProxyCount}枚（プレビュー用プロキシ未生成）`);
+            }
+            if (unsupportedBlendCount > 0) {
+                indicators.push(`レイヤー合成モードが未対応（${unsupportedBlendCount}件、normal で近似）`);
+            }
             if (isTruthyObject(edit?.audio?.master)) indicators.push('音声マスター処理');
             if (Array.isArray(edit?.cuts) && edit.cuts.some((cut: unknown) =>
                 (cut as { transition_out?: { type?: unknown } } | null)?.transition_out?.type === 'dissolve')) {
@@ -701,6 +826,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 summary: {
                     output: { width, height, fps: this.positiveNumber(edit?.output?.fps, 30) },
                     overlays,
+                    layers,
                     cuts,
                     indicators,
                     ...(audio ? { audio } : {})
@@ -1118,6 +1244,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; will-change: transform; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; pointer-events: none; }
+#preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: none; }
 #overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; }
 #caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
@@ -1175,6 +1303,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
     <div id="preview-wrapper">
       <div id="zoom-layer">
         <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
+        <div id="preview-layers"></div>
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
       </div>
       <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
@@ -1271,6 +1400,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let displayScale = 1;
             let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
+            const layersStage = document.getElementById('preview-layers');
             const stage = document.getElementById('overlay-stage');
             const output = initial.summary.output;
 
@@ -1605,6 +1735,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const updateStageScale = () => {
                 const next = wrapper.clientWidth / Number(output.width || 1280);
                 displayScale = Number.isFinite(next) && next > 0 ? next : 1;
+                layersStage.style.transform = 'scale(' + displayScale + ')';
                 stage.style.transform = 'scale(' + displayScale + ')';
             };
             new ResizeObserver(updateStageScale).observe(wrapper);
@@ -1638,6 +1769,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const zoomValue = document.getElementById('zoom-value');
             const zoomMinimap = document.getElementById('zoom-minimap');
             const zoomMinimapViewport = document.getElementById('zoom-minimap-viewport');
+            const layersStage = document.getElementById('preview-layers');
             const stage = document.getElementById('overlay-stage');
             const transitionPlate = document.getElementById('transition-plate');
             const captionPlate = document.getElementById('caption-plate');
@@ -1686,6 +1818,48 @@ body { display: grid; place-items: center; padding: 32px; }
             let styledCaptionActive = false;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+            const centeredOffset = value => value >= 0
+                ? 'calc(50% + ' + value + 'px)'
+                : 'calc(50% - ' + Math.abs(value) + 'px)';
+            const layerEntries = (Array.isArray(summary.layers) ? summary.layers : []).map((layer, index) => {
+                const layerVideo = document.createElement('video');
+                layerVideo.muted = true;
+                layerVideo.playsInline = true;
+                layerVideo.preload = 'auto';
+                layerVideo.tabIndex = -1;
+                layerVideo.disablePictureInPicture = true;
+                layerVideo.dataset.akariLayerId = String(layer.id);
+                layerVideo.dataset.akariLayerIndex = String(index);
+                layerVideo.dataset.akariLayerKind = String(layer.kind);
+                layerVideo.style.opacity = String(layer.opacity);
+                layerVideo.style.mixBlendMode = layer.blend || 'normal';
+                const transform = layer.transform || {};
+                const x = Number.isFinite(transform.x) ? transform.x : 0;
+                const y = Number.isFinite(transform.y) ? transform.y : 0;
+                const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
+                const rotate = Number.isFinite(transform.rotate) ? transform.rotate : 0;
+                const position = () => {
+                    if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) return;
+                    layerVideo.style.width = (layerVideo.videoWidth * scale) + 'px';
+                    layerVideo.style.height = (layerVideo.videoHeight * scale) + 'px';
+                    layerVideo.style.left = centeredOffset(x);
+                    layerVideo.style.top = centeredOffset(y);
+                    layerVideo.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg)';
+                };
+                layerVideo.addEventListener('loadedmetadata', () => {
+                    position();
+                    tick(true);
+                });
+                layerVideo.addEventListener('error', () => {
+                    layerVideo.style.display = 'none';
+                    console.warn('[akari-preview] layer media failed to load', layer.id);
+                });
+                if (typeof layer.src === 'string' && layer.src) {
+                    layerVideo.src = layer.src;
+                }
+                layersStage.appendChild(layerVideo);
+                return { spec: layer, video: layerVideo };
+            });
             const applyTrackVisibility = track => {
                 for (const container of stage.querySelectorAll('[data-akari-track]')) {
                     if (Number(container.getAttribute('data-akari-track')) === track) {
@@ -2128,11 +2302,46 @@ body { display: grid; place-items: center; padding: 32px; }
                 transitionPlate.style.background = plate.color;
                 transitionPlate.style.opacity = String(opacity);
             };
+            const renderLayers = timelineTime => {
+                for (const entry of layerEntries) {
+                    const layer = entry.spec;
+                    const layerVideo = entry.video;
+                    const active = !layer.proxyMissing
+                        && typeof layer.src === 'string' && layer.src
+                        && timelineTime >= layer.t && timelineTime < layer.t + layer.duration;
+                    if (!active) {
+                        layerVideo.style.display = 'none';
+                        if (!layerVideo.paused) layerVideo.pause();
+                        continue;
+                    }
+                    layerVideo.style.display = 'block';
+                    if (layerVideo.readyState < HTMLMediaElement.HAVE_METADATA) continue;
+                    const localTime = clamp(timelineTime - layer.t, 0, layer.duration);
+                    const mediaEnd = Number.isFinite(layerVideo.duration) && layerVideo.duration > 0
+                        ? Math.max(0, layerVideo.duration - 0.001)
+                        : layer.duration;
+                    const target = Math.min(localTime, mediaEnd);
+                    const tolerance = video.paused ? 0.001 : 0.05;
+                    if (Math.abs((layerVideo.currentTime || 0) - target) > tolerance) {
+                        try {
+                            layerVideo.currentTime = target;
+                        } catch (error) {
+                            console.warn('[akari-preview] layer seek failed', layer.id, error);
+                        }
+                    }
+                    if (video.paused) {
+                        if (!layerVideo.paused) layerVideo.pause();
+                    } else if (layerVideo.paused) {
+                        void layerVideo.play().catch(() => undefined);
+                    }
+                }
+            };
             const tick = (immediatePlaybackTick = false) => {
                 applyKeepRangeBoundary();
                 const timelineTime = keepRangesReady
                     ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
                     : (video.currentTime || 0);
+                renderLayers(timelineTime);
                 renderTransitionPlate(timelineTime);
                 window.akari.runtime.tick(timelineTime, !video.paused);
                 if (window.akari.previewAudio) {
@@ -2177,6 +2386,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 stopAnimation();
                 video.pause();
                 video.hidden = true;
+                layersStage.hidden = true;
                 stage.hidden = true;
                 captionPlate.textContent = '';
                 previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
@@ -2199,6 +2409,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 previewMessage.hidden = true;
                 previewMessageReload.hidden = true;
                 video.hidden = false;
+                layersStage.hidden = false;
                 stage.hidden = false;
                 playToggle.disabled = false;
                 frameBack.disabled = false;
@@ -2676,6 +2887,24 @@ body { display: grid; place-items: center; padding: 32px; }
     protected positiveNumber(value: unknown, fallback: number): number {
         const number = Number(value);
         return Number.isFinite(number) && number > 0 ? number : fallback;
+    }
+
+    protected resolveEditAssetUri(pathValue: string, editUri: URI): URI {
+        if (pathValue.startsWith('file:')) {
+            return new URI(pathValue);
+        }
+        if (pathValue.startsWith('/')) {
+            return new URI(pathValue).withScheme('file');
+        }
+        return editUri.parent.resolve(pathValue);
+    }
+
+    protected previewProxyUri(sourceUri: URI): URI {
+        const base = sourceUri.path.base;
+        const proxyBase = /\.mov$/i.test(base)
+            ? base.replace(/\.mov$/i, '.preview.webm')
+            : `${base}.preview.webm`;
+        return sourceUri.parent.resolve(proxyBase);
     }
 
     protected pathBase(value: string): string {

@@ -4,8 +4,11 @@
 //
 //   node bake-layer.mjs --kind telop|fx --preset <id> --params <json> \
 //     --duration <sec> --size WxH --fps <n> --out <path.mov>
+//   node bake-layer.mjs --proxy-only <existing.mov>
 //
-// 出力: アルファ付き ProRes4444 .mov。
+// 出力: アルファ付き ProRes4444 .mov と、既定で Chromium プレビュー専用の alpha VP9
+// `<out basename>.preview.webm`。`--no-preview-proxy` で mov のみにできる。
+// プレビュー用プロキシは近似表示専用であり、render-cut の出力には使用しない。
 //
 // --kind fx は 2026-07-22 司令塔裁定でスコープ除外（オーナー判断「FX は使えないものが多いので
 // なしでいい」）。インターフェース（--kind の選択肢）は契約どおり telop|fx を残すが、fx の実装は
@@ -14,8 +17,22 @@ import { mkdir } from "node:fs/promises"
 import { dirname } from "node:path"
 import { launchBakeBrowser, withBakePage } from "../src/browser.mjs"
 import { loadTelopPreset, resolveCatalogRoot } from "../src/catalog.mjs"
-import { encodePngSeqToProResMov } from "../src/encode.mjs"
+import {
+  encodeMovToPreviewProxy,
+  encodePngSeqToProResMov,
+  previewProxyPathForMov,
+} from "../src/encode.mjs"
 import { renderTelopFrames } from "../src/render-session.mjs"
+
+const HELP = `Usage:
+  bake-layer --kind telop --preset <id> --params <json> \\
+    --duration <sec> --size WxH --fps <n> --out <path.mov> [--no-preview-proxy]
+  bake-layer --proxy-only <existing.mov>
+
+Normal bake writes the ProRes4444 mov and, by default, an alpha VP9 preview sidecar.
+For foo.mov the sidecar is foo.preview.webm; other input names receive .preview.webm.
+--no-preview-proxy suppresses the sidecar. --proxy-only skips browser/catalog rendering.
+Preview proxies are approximate viewer assets only and are never used for final output.`
 
 function parseArgs(argv) {
   const args = {}
@@ -52,6 +69,31 @@ function deriveAspect(size) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
+  if (args.help === true) {
+    console.log(HELP)
+    return
+  }
+
+  const proxyOnly = args["proxy-only"]
+  if (proxyOnly !== undefined) {
+    if (typeof proxyOnly !== "string" || !proxyOnly) {
+      throw new Error("[bake-layer] --proxy-only には既存 mov のパスが必要です")
+    }
+    const startedAt = Date.now()
+    const previewProxy = previewProxyPathForMov(proxyOnly)
+    await encodeMovToPreviewProxy(proxyOnly, { out: previewProxy })
+    console.log(
+      JSON.stringify({
+        ok: true,
+        proxyOnly: true,
+        input: proxyOnly,
+        previewProxy,
+        elapsedMs: Date.now() - startedAt,
+      }),
+    )
+    return
+  }
+
   const kind = args.kind
   const presetId = args.preset
   const out = args.out
@@ -85,6 +127,11 @@ async function main() {
     )
 
     const { frameCount } = await encodePngSeqToProResMov(frames, { fps, out })
+    let previewProxy
+    if (args["no-preview-proxy"] !== true) {
+      previewProxy = previewProxyPathForMov(out)
+      await encodeMovToPreviewProxy(out, { out: previewProxy })
+    }
     const elapsedMs = Date.now() - startedAt
     console.log(
       JSON.stringify({
@@ -97,6 +144,7 @@ async function main() {
         size,
         durationSec: duration,
         elapsedMs,
+        ...(previewProxy ? { previewProxy } : {}),
       }),
     )
   } finally {
