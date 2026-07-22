@@ -30,25 +30,25 @@
       "default": "政治"
     },
     {
-      "key": "bandTopColor",
+      "key": "color_bg",
       "type": "color",
       "label": "帯グラデ上端",
       "default": "#004B8D"
     },
     {
-      "key": "bandBottomColor",
+      "key": "color_bg_2",
       "type": "color",
       "label": "帯グラデ下端",
       "default": "#001F4A"
     },
     {
-      "key": "categoryBgColor",
+      "key": "color_accent",
       "type": "color",
       "label": "カテゴリ背景色",
       "default": "#F0A500"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "見出し文字色",
       "default": "#FFFFFF"
@@ -64,6 +64,12 @@
       "type": "number",
       "label": "カテゴリフォントサイズ",
       "default": 38
+    },
+    {
+      "key": "color_text_2",
+      "type": "color",
+      "label": "カテゴリ文字色",
+      "default": "#1A1A1A"
     }
   ],
   "layers": [
@@ -73,7 +79,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandTopColor"
+          "var": "color_bg"
         },
         "fillGradient": {
           "type": "linear-v",
@@ -81,13 +87,13 @@
             {
               "at": 0,
               "color": {
-                "var": "bandTopColor"
+                "var": "color_bg"
               }
             },
             {
               "at": 1,
               "color": {
-                "var": "bandBottomColor"
+                "var": "color_bg_2"
               }
             }
           ]
@@ -144,7 +150,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "categoryBgColor"
+          "var": "color_accent"
         },
         "cornerRadius": 4
       },
@@ -209,7 +215,9 @@
         },
         "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
-        "color": "#1A1A1A",
+        "color": {
+          "var": "color_text_2"
+        },
         "align": "center"
       },
       "transform": {
@@ -255,7 +263,10 @@
             }
           ]
         }
-      ]
+      ],
+      "fit": {
+        "maxWidth": 128
+      }
     },
     {
       "id": "ref3_tl_r2s6_002_headline",
@@ -270,7 +281,7 @@
         "font": "'Hiragino Sans W5', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 500,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "left",
         "letterSpacing": 1

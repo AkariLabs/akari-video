@@ -24,13 +24,13 @@
       "default": "これはテロップのサンプルです"
     },
     {
-      "key": "plateColor",
+      "key": "color_bg",
       "type": "color",
       "label": "座布団色",
       "default": "rgba(80,80,80,0.65)"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "文字色",
       "default": "#ffffff"
@@ -49,7 +49,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "plateColor"
+          "var": "color_bg"
         },
         "cornerRadius": 8
       },
@@ -111,7 +111,7 @@
         "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif",
         "weight": 600,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "center",
         "strokes": []

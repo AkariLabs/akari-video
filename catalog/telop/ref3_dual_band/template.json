@@ -30,16 +30,28 @@
       "default": "暮らしを変える最新トピック"
     },
     {
-      "key": "keyColor",
+      "key": "color_primary",
       "type": "color",
       "label": "キーカラー",
       "default": "#0067B8"
     },
     {
-      "key": "rightBandColor",
+      "key": "color_bg",
       "type": "color",
       "label": "右帯色",
       "default": "#ffffff"
+    },
+    {
+      "key": "color_text",
+      "type": "color",
+      "label": "ラベル文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "color_text_2",
+      "type": "color",
+      "label": "タイトル文字色",
+      "default": "#111111"
     }
   ],
   "layers": [
@@ -49,7 +61,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "keyColor"
+          "var": "color_primary"
         },
         "cornerRadius": 0
       },
@@ -142,7 +154,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "rightBandColor"
+          "var": "color_bg"
         },
         "cornerRadius": 0
       },
@@ -241,7 +253,9 @@
         "size": 44,
         "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
         "weight": 800,
-        "color": "#ffffff",
+        "color": {
+          "var": "color_text"
+        },
         "align": "left"
       },
       "transform": {
@@ -312,7 +326,9 @@
         "size": 48,
         "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
         "weight": 700,
-        "color": "#111111",
+        "color": {
+          "var": "color_text_2"
+        },
         "align": "left"
       },
       "transform": {

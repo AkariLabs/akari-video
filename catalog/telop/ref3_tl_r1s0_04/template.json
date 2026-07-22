@@ -30,13 +30,13 @@
       "default": 80
     },
     {
-      "key": "inkColor",
+      "key": "color_text",
       "type": "color",
       "label": "インク色",
       "default": "#1A1A2E"
     },
     {
-      "key": "inkBleed",
+      "key": "color_shadow",
       "type": "color",
       "label": "にじみ色",
       "default": "rgba(10,10,30,0.55)"
@@ -48,7 +48,7 @@
       "default": 0.06
     },
     {
-      "key": "paperColor",
+      "key": "color_bg",
       "type": "color",
       "label": "紙色",
       "default": "rgba(255,253,240,0.92)"
@@ -91,7 +91,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "paperColor"
+          "var": "color_bg"
         },
         "cornerRadius": 6
       },
@@ -146,7 +146,7 @@
         "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
         "weight": 800,
         "color": {
-          "var": "inkColor"
+          "var": "color_text"
         },
         "align": "center",
         "letterSpacing": {
@@ -155,7 +155,7 @@
         "shadows": [
           {
             "color": {
-              "var": "inkBleed"
+              "var": "color_shadow"
             },
             "blur": 3,
             "x": 0,
@@ -163,7 +163,7 @@
           },
           {
             "color": {
-              "var": "inkBleed"
+              "var": "color_shadow"
             },
             "blur": 8,
             "x": 0,

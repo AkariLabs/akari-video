@@ -30,37 +30,37 @@
       "default": "もう一度言ってもらえますか？"
     },
     {
-      "key": "bandColor",
+      "key": "color_bg",
       "type": "color",
       "label": "帯色",
       "default": "rgba(0,0,0,0.72)"
     },
     {
-      "key": "bandHighlightColor",
+      "key": "color_bg_2",
       "type": "color",
       "label": "帯ハイライト色",
       "default": "rgba(255,255,255,0.10)"
     },
     {
-      "key": "foreignColor",
+      "key": "color_accent",
       "type": "color",
       "label": "強調色（外国語）",
       "default": "#FFD940"
     },
     {
-      "key": "japaneseColor",
+      "key": "color_text",
       "type": "color",
       "label": "日本語訳色",
       "default": "#FFFFFF"
     },
     {
-      "key": "strokeColor",
+      "key": "color_stroke",
       "type": "color",
       "label": "縁取り色",
       "default": "rgba(0,0,0,0.92)"
     },
     {
-      "key": "shadowColor",
+      "key": "color_shadow",
       "type": "color",
       "label": "影色",
       "default": "rgba(0,0,0,0.50)"
@@ -91,7 +91,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandColor"
+          "var": "color_bg"
         },
         "cornerRadius": 18
       },
@@ -150,7 +150,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandHighlightColor"
+          "var": "color_bg_2"
         },
         "cornerRadius": 18
       },
@@ -214,20 +214,20 @@
         "font": "'Helvetica Neue', Arial, system-ui, sans-serif",
         "weight": 800,
         "color": {
-          "var": "foreignColor"
+          "var": "color_accent"
         },
         "align": "center",
         "strokes": [
           {
             "color": {
-              "var": "strokeColor"
+              "var": "color_stroke"
             },
             "width": 7
           }
         ],
         "shadow": {
           "color": {
-            "var": "shadowColor"
+            "var": "color_shadow"
           },
           "blur": 2,
           "x": 0,
@@ -286,20 +286,20 @@
         "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "japaneseColor"
+          "var": "color_text"
         },
         "align": "center",
         "strokes": [
           {
             "color": {
-              "var": "strokeColor"
+              "var": "color_stroke"
             },
             "width": 5
           }
         ],
         "shadow": {
           "color": {
-            "var": "shadowColor"
+            "var": "color_shadow"
           },
           "blur": 2,
           "x": 0,

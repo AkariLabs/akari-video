@@ -24,13 +24,13 @@
       "default": "HOLLOW NEON"
     },
     {
-      "key": "strokeColor",
+      "key": "color_stroke",
       "type": "color",
       "label": "縁色",
       "default": "#00FFFF"
     },
     {
-      "key": "glowColor",
+      "key": "color_glow",
       "type": "color",
       "label": "グロー色",
       "default": "rgba(0,255,255,0.86)"
@@ -46,6 +46,12 @@
       "type": "number",
       "label": "字間",
       "default": 8
+    },
+    {
+      "key": "color_text",
+      "type": "color",
+      "label": "中身の色（既定は透明＝中抜き）",
+      "default": "rgba(0,0,0,0)"
     }
   ],
   "layers": [
@@ -61,7 +67,9 @@
         },
         "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 800,
-        "color": "rgba(0,0,0,0)",
+        "color": {
+          "var": "color_text"
+        },
         "align": "center",
         "letterSpacing": {
           "var": "letterSpacing"
@@ -69,7 +77,7 @@
         "strokes": [
           {
             "color": {
-              "var": "strokeColor"
+              "var": "color_stroke"
             },
             "width": 3
           }
@@ -77,7 +85,7 @@
         "shadows": [
           {
             "color": {
-              "var": "glowColor"
+              "var": "color_glow"
             },
             "blur": 16,
             "x": 0,
@@ -85,7 +93,7 @@
           },
           {
             "color": {
-              "var": "glowColor"
+              "var": "color_glow"
             },
             "blur": 36,
             "x": 0,

@@ -36,37 +36,37 @@
       "default": "○○大学経済学部 教授"
     },
     {
-      "key": "bandTopColor",
+      "key": "color_bg",
       "type": "color",
       "label": "帯グラデ上端",
       "default": "#1A3A6B"
     },
     {
-      "key": "bandBottomColor",
+      "key": "color_bg_2",
       "type": "color",
       "label": "帯グラデ下端",
       "default": "#0D2145"
     },
     {
-      "key": "accentColor",
+      "key": "color_accent",
       "type": "color",
       "label": "アクセント色",
       "default": "#4FA8E0"
     },
     {
-      "key": "nameColor",
+      "key": "color_text",
       "type": "color",
       "label": "名前テキスト色",
       "default": "#FFFFFF"
     },
     {
-      "key": "roleColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "肩書テキスト色",
       "default": "#AAD4F5"
     },
     {
-      "key": "affiliationColor",
+      "key": "color_text_3",
       "type": "color",
       "label": "所属テキスト色",
       "default": "#88B8E0"
@@ -88,6 +88,12 @@
       "type": "number",
       "label": "所属フォントサイズ",
       "default": 26
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.55)"
     }
   ],
   "layers": [
@@ -97,7 +103,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandTopColor"
+          "var": "color_bg"
         },
         "fillGradient": {
           "type": "linear-v",
@@ -105,13 +111,13 @@
             {
               "at": 0,
               "color": {
-                "var": "bandTopColor"
+                "var": "color_bg"
               }
             },
             {
               "at": 1,
               "color": {
-                "var": "bandBottomColor"
+                "var": "color_bg_2"
               }
             }
           ]
@@ -119,7 +125,9 @@
         "cornerRadius": 0
       },
       "size": {
-        "w": 860,
+        "w": {
+          "expr": "max(max(max(@ref3_tl_r3s9_003_name.width, @ref3_tl_r3s9_003_role.width), @ref3_tl_r3s9_003_affiliation.width) + 100, 860)"
+        },
         "h": 128
       },
       "transform": {
@@ -199,7 +207,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "accentColor"
+          "var": "color_accent"
         }
       },
       "size": {
@@ -290,11 +298,13 @@
         "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "nameColor"
+          "var": "color_text"
         },
         "align": "left",
         "shadow": {
-          "color": "rgba(0,0,0,0.55)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 5,
           "x": 1,
           "y": 2
@@ -358,7 +368,7 @@
         "font": "'Hiragino Sans W3', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 300,
         "color": {
-          "var": "affiliationColor"
+          "var": "color_text_3"
         },
         "align": "left"
       },
@@ -420,7 +430,7 @@
         "font": "'Hiragino Sans W4', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 400,
         "color": {
-          "var": "roleColor"
+          "var": "color_text_2"
         },
         "align": "left"
       },

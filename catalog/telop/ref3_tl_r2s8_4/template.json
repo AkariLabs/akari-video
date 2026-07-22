@@ -54,43 +54,43 @@
       "default": 20
     },
     {
-      "key": "goldTop",
+      "key": "color_primary",
       "type": "color",
       "label": "金 上端",
       "default": "#A06A00"
     },
     {
-      "key": "goldMid",
+      "key": "color_primary_2",
       "type": "color",
       "label": "金 中間",
       "default": "#E8B020"
     },
     {
-      "key": "goldBright",
+      "key": "color_primary_3",
       "type": "color",
       "label": "金 明",
       "default": "#FFF0A0"
     },
     {
-      "key": "goldBottom",
+      "key": "color_primary_4",
       "type": "color",
       "label": "金 下端",
       "default": "#7A4800"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "テキスト色",
       "default": "#2A1000"
     },
     {
-      "key": "strokeColor",
+      "key": "color_stroke",
       "type": "color",
       "label": "テキスト縁色",
       "default": "rgba(255,220,80,0.6)"
     },
     {
-      "key": "shadowColor",
+      "key": "color_shadow",
       "type": "color",
       "label": "影色",
       "default": "rgba(30,10,0,0.65)"
@@ -103,7 +103,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "goldMid"
+          "var": "color_primary_2"
         },
         "fillGradient": {
           "type": "linear-v",
@@ -111,31 +111,31 @@
             {
               "at": 0,
               "color": {
-                "var": "goldTop"
+                "var": "color_primary"
               }
             },
             {
               "at": 0.3,
               "color": {
-                "var": "goldMid"
+                "var": "color_primary_2"
               }
             },
             {
               "at": 0.55,
               "color": {
-                "var": "goldBright"
+                "var": "color_primary_3"
               }
             },
             {
               "at": 0.75,
               "color": {
-                "var": "goldMid"
+                "var": "color_primary_2"
               }
             },
             {
               "at": 1,
               "color": {
-                "var": "goldBottom"
+                "var": "color_primary_4"
               }
             }
           ],
@@ -241,7 +241,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "shadowColor"
+          "var": "color_shadow"
         },
         "cornerRadius": 3
       },
@@ -345,21 +345,21 @@
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 900,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "center",
         "letterSpacing": 3,
         "strokes": [
           {
             "color": {
-              "var": "strokeColor"
+              "var": "color_stroke"
             },
             "width": 5
           }
         ],
         "shadow": {
           "color": {
-            "var": "shadowColor"
+            "var": "color_shadow"
           },
           "blur": 8,
           "x": 1,

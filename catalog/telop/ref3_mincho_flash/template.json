@@ -31,13 +31,13 @@
       "optional": true
     },
     {
-      "key": "bgColor",
+      "key": "color_bg",
       "type": "color",
       "label": "背景色",
       "default": "#ffffff"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "文字色",
       "default": "#111111"
@@ -50,7 +50,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bgColor"
+          "var": "color_bg"
         }
       },
       "size": {
@@ -113,7 +113,7 @@
         "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif",
         "weight": 800,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "center"
       },
@@ -173,7 +173,7 @@
         "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif",
         "weight": 800,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "center"
       },

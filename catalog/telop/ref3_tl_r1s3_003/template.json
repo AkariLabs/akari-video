@@ -30,31 +30,31 @@
       "default": "○○テレビ　キャスター"
     },
     {
-      "key": "gradTop",
+      "key": "color_bg",
       "type": "color",
       "label": "帯グラデ上端",
       "default": "#00205C"
     },
     {
-      "key": "gradBottom",
+      "key": "color_bg_2",
       "type": "color",
       "label": "帯グラデ下端",
       "default": "#003F88"
     },
     {
-      "key": "accentColor",
+      "key": "color_accent",
       "type": "color",
       "label": "アクセントライン色",
       "default": "#F0A500"
     },
     {
-      "key": "nameColor",
+      "key": "color_text",
       "type": "color",
       "label": "名前色",
       "default": "#FFFFFF"
     },
     {
-      "key": "affiliationColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "所属テキスト色",
       "default": "#FFD080"
@@ -70,6 +70,12 @@
       "type": "number",
       "label": "所属フォントサイズ",
       "default": 34
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.55)"
     }
   ],
   "layers": [
@@ -79,7 +85,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "gradTop"
+          "var": "color_bg"
         },
         "fillGradient": {
           "type": "linear-v",
@@ -87,20 +93,22 @@
             {
               "at": 0,
               "color": {
-                "var": "gradTop"
+                "var": "color_bg"
               }
             },
             {
               "at": 1,
               "color": {
-                "var": "gradBottom"
+                "var": "color_bg_2"
               }
             }
           ]
         }
       },
       "size": {
-        "w": 820,
+        "w": {
+          "expr": "max(max(@ref3_tl_r1s3_003_name.width, @ref3_tl_r1s3_003_affiliation.width) + 108, 820)"
+        },
         "h": 120
       },
       "transform": {
@@ -154,11 +162,13 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "accentColor"
+          "var": "color_accent"
         }
       },
       "size": {
-        "w": 820,
+        "w": {
+          "expr": "max(max(@ref3_tl_r1s3_003_name.width, @ref3_tl_r1s3_003_affiliation.width) + 108, 820)"
+        },
         "h": 5
       },
       "transform": {
@@ -219,12 +229,14 @@
         "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "nameColor"
+          "var": "color_text"
         },
         "align": "left",
         "letterSpacing": 2,
         "shadow": {
-          "color": "rgba(0,0,0,0.55)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 4,
           "x": 1,
           "y": 2
@@ -288,7 +300,7 @@
         "font": "'Hiragino Sans W4', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 400,
         "color": {
-          "var": "affiliationColor"
+          "var": "color_text_2"
         },
         "align": "left",
         "letterSpacing": 1

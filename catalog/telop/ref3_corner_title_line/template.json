@@ -24,19 +24,19 @@
       "default": "特集"
     },
     {
-      "key": "keyColor",
+      "key": "color_primary",
       "type": "color",
       "label": "キーカラー（下線）",
       "default": "#1B4FD8"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "文字色",
       "default": "#ffffff"
     },
     {
-      "key": "shadowColor",
+      "key": "color_shadow",
       "type": "color",
       "label": "シャドウ色",
       "default": "rgba(0,0,0,0.45)"
@@ -54,12 +54,12 @@
         "font": "system-ui",
         "weight": 800,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "left",
         "shadow": {
           "color": {
-            "var": "shadowColor"
+            "var": "color_shadow"
           },
           "blur": 6,
           "x": 2,
@@ -111,7 +111,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "keyColor"
+          "var": "color_primary"
         },
         "cornerRadius": 0
       },

@@ -30,25 +30,25 @@
       "default": "全部わかる"
     },
     {
-      "key": "normalColor",
+      "key": "color_text",
       "type": "color",
       "label": "通常語の文字色",
       "default": "#ffffff"
     },
     {
-      "key": "emphasisColor",
+      "key": "color_accent",
       "type": "color",
       "label": "強調語の文字色（アクセント）",
       "default": "#ffd400"
     },
     {
-      "key": "strokeColor",
+      "key": "color_stroke",
       "type": "color",
       "label": "縁取り色（両レイヤー共通）",
       "default": "#000000"
     },
     {
-      "key": "shadowColor",
+      "key": "color_shadow",
       "type": "color",
       "label": "ドロップシャドウ色",
       "default": "rgba(0,0,0,0.75)"
@@ -72,20 +72,20 @@
         "font": "system-ui",
         "weight": 900,
         "color": {
-          "var": "normalColor"
+          "var": "color_text"
         },
         "align": "left",
         "strokes": [
           {
             "color": {
-              "var": "strokeColor"
+              "var": "color_stroke"
             },
             "width": 12
           }
         ],
         "shadow": {
           "color": {
-            "var": "shadowColor"
+            "var": "color_shadow"
           },
           "blur": 8,
           "x": 3,
@@ -162,20 +162,20 @@
         "font": "system-ui",
         "weight": 900,
         "color": {
-          "var": "emphasisColor"
+          "var": "color_accent"
         },
         "align": "left",
         "strokes": [
           {
             "color": {
-              "var": "strokeColor"
+              "var": "color_stroke"
             },
             "width": 14
           }
         ],
         "shadow": {
           "color": {
-            "var": "shadowColor"
+            "var": "color_shadow"
           },
           "blur": 8,
           "x": 3,

@@ -24,13 +24,13 @@
       "default": "読みやすさを最優先した字幕です"
     },
     {
-      "key": "backgroundColor",
+      "key": "color_bg",
       "type": "color",
       "label": "背景色",
       "default": "#ffffff"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "文字色",
       "default": "#000000"
@@ -43,7 +43,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "backgroundColor"
+          "var": "color_bg"
         },
         "cornerRadius": 0
       },
@@ -105,7 +105,7 @@
         "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
         "weight": 600,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "center"
       },

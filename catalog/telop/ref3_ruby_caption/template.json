@@ -30,25 +30,25 @@
       "default": "じまくテキスト"
     },
     {
-      "key": "plateColor",
+      "key": "color_bg",
       "type": "color",
       "label": "プレート色",
       "default": "rgba(0,0,0,0.8)"
     },
     {
-      "key": "mainColor",
+      "key": "color_text",
       "type": "color",
       "label": "本文色",
       "default": "#ffffff"
     },
     {
-      "key": "strokeColor",
+      "key": "color_stroke",
       "type": "color",
       "label": "縁取り色",
       "default": "#000000"
     },
     {
-      "key": "rubyColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "ルビ色",
       "default": "#ffffff"
@@ -61,7 +61,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "plateColor"
+          "var": "color_bg"
         },
         "cornerRadius": 8
       },
@@ -121,12 +121,12 @@
         "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "mainColor"
+          "var": "color_text"
         },
         "align": "center",
         "stroke": {
           "color": {
-            "var": "strokeColor"
+            "var": "color_stroke"
           },
           "width": 8
         }
@@ -181,12 +181,12 @@
         "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "rubyColor"
+          "var": "color_text_2"
         },
         "align": "center",
         "stroke": {
           "color": {
-            "var": "strokeColor"
+            "var": "color_stroke"
           },
           "width": 4
         }

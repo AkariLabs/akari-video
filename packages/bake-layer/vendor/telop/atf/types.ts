@@ -456,6 +456,21 @@ export interface AtfLayer {
     axis: 'x' | 'y'
     from?: 'start' | 'end'
   }
+  /**
+   * テキストの安全域収縮（shrink-to-fit）設定。text レイヤーにのみ適用（2026-07-22
+   * telop-tunables タスクで追加。vendor/PROVENANCE.md 参照）。
+   * 指定が無くても全 text レイヤーは常にキャンバス安全域（stage 寸法比のマージン、
+   * anchor 基準）に収まるよう自動でフォントサイズを縮小する。ここで maxWidth/maxHeight を
+   * 指定すると、それよりタイトな安全域（例: バッジ枠内に収める）を追加で強制できる。
+   */
+  fit?: {
+    /** テキストブロックの最大幅（px、ストローク太さ込み）。Value 可（変数・式） */
+    maxWidth?: Value
+    /** テキストブロックの最大高さ（px、ストローク太さ込み）。Value 可 */
+    maxHeight?: Value
+    /** 縮小してよい下限（元サイズに対する倍率、既定 0.3 = 30%まで） */
+    minScale?: number
+  }
 }
 
 /** ステージ設定 */

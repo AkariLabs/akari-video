@@ -30,25 +30,25 @@
       "default": "速報"
     },
     {
-      "key": "bandColor",
+      "key": "color_bg",
       "type": "color",
       "label": "帯背景色",
       "default": "#1A1A1A"
     },
     {
-      "key": "tagColor",
+      "key": "color_bg_2",
       "type": "color",
       "label": "速報タグ色",
       "default": "#CC0000"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "見出し文字色",
       "default": "#FFFFFF"
     },
     {
-      "key": "accentColor",
+      "key": "color_accent",
       "type": "color",
       "label": "上端アクセント線色",
       "default": "#CC0000"
@@ -64,6 +64,18 @@
       "type": "number",
       "label": "タグフォントサイズ",
       "default": 42
+    },
+    {
+      "key": "color_text_2",
+      "type": "color",
+      "label": "タグ文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.5)"
     }
   ],
   "layers": [
@@ -73,7 +85,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "accentColor"
+          "var": "color_accent"
         }
       },
       "size": {
@@ -131,7 +143,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandColor"
+          "var": "color_bg"
         }
       },
       "size": {
@@ -189,7 +201,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "tagColor"
+          "var": "color_bg_2"
         }
       },
       "size": {
@@ -253,7 +265,9 @@
         },
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 900,
-        "color": "#FFFFFF",
+        "color": {
+          "var": "color_text_2"
+        },
         "align": "center"
       },
       "transform": {
@@ -299,7 +313,10 @@
             }
           ]
         }
-      ]
+      ],
+      "fit": {
+        "maxWidth": 148
+      }
     },
     {
       "id": "ref3_tl_r2s6_001_headline",
@@ -314,12 +331,14 @@
         "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "left",
         "letterSpacing": 1,
         "shadow": {
-          "color": "rgba(0,0,0,0.5)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 4,
           "x": 1,
           "y": 1

@@ -30,25 +30,25 @@
       "default": "落語家"
     },
     {
-      "key": "paperColor",
+      "key": "color_bg",
       "type": "color",
       "label": "和紙色",
       "default": "#F5EED6"
     },
     {
-      "key": "inkColor",
+      "key": "color_text",
       "type": "color",
       "label": "墨文字色",
       "default": "#1A1208"
     },
     {
-      "key": "ruledColor",
+      "key": "color_accent",
       "type": "color",
       "label": "朱罫線色",
       "default": "#C0392B"
     },
     {
-      "key": "subColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "サブ文字色",
       "default": "#5C3D1E"
@@ -64,6 +64,18 @@
       "type": "number",
       "label": "サブ文字サイズ",
       "default": 46
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "本文の影色",
+      "default": "rgba(0,0,0,0.25)"
+    },
+    {
+      "key": "color_shadow_2",
+      "type": "color",
+      "label": "サブの影色",
+      "default": "rgba(200,150,80,0.3)"
     }
   ],
   "layers": [
@@ -73,12 +85,14 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "paperColor"
+          "var": "color_bg"
         },
         "cornerRadius": 0
       },
       "size": {
-        "w": 760,
+        "w": {
+          "expr": "max(max(@ref3_tl_r2s4_02_main.width, @ref3_tl_r2s4_02_sub.width) + 100, 760)"
+        },
         "h": 152
       },
       "transform": {
@@ -132,11 +146,13 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "ruledColor"
+          "var": "color_accent"
         }
       },
       "size": {
-        "w": 760,
+        "w": {
+          "expr": "max(max(@ref3_tl_r2s4_02_main.width, @ref3_tl_r2s4_02_sub.width) + 100, 760)"
+        },
         "h": 3
       },
       "transform": {
@@ -190,11 +206,13 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "ruledColor"
+          "var": "color_accent"
         }
       },
       "size": {
-        "w": 760,
+        "w": {
+          "expr": "max(max(@ref3_tl_r2s4_02_main.width, @ref3_tl_r2s4_02_sub.width) + 100, 760)"
+        },
         "h": 3
       },
       "transform": {
@@ -255,12 +273,14 @@
         "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
         "weight": 400,
         "color": {
-          "var": "subColor"
+          "var": "color_text_2"
         },
         "align": "left",
         "letterSpacing": 5,
         "shadow": {
-          "color": "rgba(200,150,80,0.3)",
+          "color": {
+            "var": "color_shadow_2"
+          },
           "blur": 4,
           "x": 1,
           "y": 1
@@ -323,12 +343,14 @@
         "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
         "weight": 700,
         "color": {
-          "var": "inkColor"
+          "var": "color_text"
         },
         "align": "left",
         "letterSpacing": 8,
         "shadow": {
-          "color": "rgba(0,0,0,0.25)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 5,
           "x": 2,
           "y": 2

@@ -30,25 +30,25 @@
       "default": "山田 太郎"
     },
     {
-      "key": "accentColor",
+      "key": "color_primary",
       "type": "color",
       "label": "キーカラー",
       "default": "#e82b2b"
     },
     {
-      "key": "bandColor",
+      "key": "color_bg",
       "type": "color",
       "label": "帯色",
       "default": "#ffffff"
     },
     {
-      "key": "nameColor",
+      "key": "color_text",
       "type": "color",
       "label": "名前テキスト色",
       "default": "#1a1a1a"
     },
     {
-      "key": "titleColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "肩書きテキスト色",
       "default": "#e82b2b"
@@ -61,7 +61,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandColor"
+          "var": "color_bg"
         },
         "cornerRadius": 12
       },
@@ -135,7 +135,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "accentColor"
+          "var": "color_primary"
         },
         "cornerRadius": 3
       },
@@ -212,7 +212,7 @@
         "font": "'Hiragino Sans', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "titleColor"
+          "var": "color_text_2"
         },
         "align": "left"
       },
@@ -283,7 +283,7 @@
         "font": "'Hiragino Sans', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif",
         "weight": 900,
         "color": {
-          "var": "nameColor"
+          "var": "color_text"
         },
         "align": "left"
       },

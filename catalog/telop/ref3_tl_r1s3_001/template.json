@@ -30,25 +30,25 @@
       "default": "経済評論家"
     },
     {
-      "key": "bandColor",
+      "key": "color_bg",
       "type": "color",
       "label": "帯メインカラー",
       "default": "#003F88"
     },
     {
-      "key": "accentColor",
+      "key": "color_accent",
       "type": "color",
       "label": "アクセントライン色",
       "default": "#00AAFF"
     },
     {
-      "key": "nameColor",
+      "key": "color_text",
       "type": "color",
       "label": "名前テキスト色",
       "default": "#FFFFFF"
     },
     {
-      "key": "subColor",
+      "key": "color_text_2",
       "type": "color",
       "label": "肩書きテキスト色",
       "default": "#CCDDFF"
@@ -64,6 +64,12 @@
       "type": "number",
       "label": "肩書きフォントサイズ",
       "default": 36
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.6)"
     }
   ],
   "layers": [
@@ -73,11 +79,13 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bandColor"
+          "var": "color_bg"
         }
       },
       "size": {
-        "w": 860,
+        "w": {
+          "expr": "max(@ref3_tl_r1s3_001_name.width + 108, 860)"
+        },
         "h": 130
       },
       "transform": {
@@ -127,7 +135,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "accentColor"
+          "var": "color_accent"
         }
       },
       "size": {
@@ -188,11 +196,13 @@
         "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "nameColor"
+          "var": "color_text"
         },
         "align": "left",
         "shadow": {
-          "color": "rgba(0,0,0,0.6)",
+          "color": {
+            "var": "color_shadow"
+          },
           "blur": 6,
           "x": 2,
           "y": 2
@@ -256,7 +266,7 @@
         "font": "'Hiragino Sans W4', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 400,
         "color": {
-          "var": "subColor"
+          "var": "color_text_2"
         },
         "align": "left"
       },

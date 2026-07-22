@@ -30,19 +30,19 @@
       "default": 72
     },
     {
-      "key": "bgColor",
+      "key": "color_bg",
       "type": "color",
       "label": "背景プレート色",
       "default": "#00838F"
     },
     {
-      "key": "textColor",
+      "key": "color_text",
       "type": "color",
       "label": "テキスト色",
       "default": "#FFFFFF"
     },
     {
-      "key": "shadowColor",
+      "key": "color_shadow",
       "type": "color",
       "label": "影色",
       "default": "#003D46"
@@ -61,7 +61,7 @@
       "content": {
         "shape": "rect",
         "fill": {
-          "var": "bgColor"
+          "var": "color_bg"
         },
         "cornerRadius": 0
       },
@@ -129,13 +129,13 @@
         "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
-          "var": "textColor"
+          "var": "color_text"
         },
         "align": "center",
         "shadows": [
           {
             "color": {
-              "var": "shadowColor"
+              "var": "color_shadow"
             },
             "blur": 0,
             "x": 4,
@@ -144,7 +144,7 @@
           },
           {
             "color": {
-              "var": "shadowColor"
+              "var": "color_shadow"
             },
             "blur": 0,
             "x": 8,
@@ -153,7 +153,7 @@
           },
           {
             "color": {
-              "var": "shadowColor"
+              "var": "color_shadow"
             },
             "blur": 0,
             "x": 12,
@@ -162,7 +162,7 @@
           },
           {
             "color": {
-              "var": "shadowColor"
+              "var": "color_shadow"
             },
             "blur": 0,
             "x": 16,
@@ -171,7 +171,7 @@
           },
           {
             "color": {
-              "var": "shadowColor"
+              "var": "color_shadow"
             },
             "blur": 0,
             "x": 20,
@@ -180,7 +180,7 @@
           },
           {
             "color": {
-              "var": "shadowColor"
+              "var": "color_shadow"
             },
             "blur": 0,
             "x": 24,
@@ -189,7 +189,7 @@
           },
           {
             "color": {
-              "var": "shadowColor"
+              "var": "color_shadow"
             },
             "blur": 0,
             "x": 28,
@@ -198,7 +198,7 @@
           },
           {
             "color": {
-              "var": "shadowColor"
+              "var": "color_shadow"
             },
             "blur": 0,
             "x": 32,
