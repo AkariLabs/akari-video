@@ -1,0 +1,838 @@
+{
+  "$comment": "setup-audio-library 候補リストのデータ SSOT。skills/setup-audio-library と packages/audio-library-setup/bin/generate-candidates-html.mjs がこのファイルを読む。根拠: research/2026-07-22-free-sfx-bgm-sources.md（内部リポ）。リンクは必ずダウンロードページ URL（音声ファイル直 URL は禁止 — 効果音ラボ/甘茶/H-MIX GALLERY 等の直リンク禁止規約対応）。",
+  "version": 1,
+  "generated_at": "2026-07-22",
+  "source_research": "internal: research/2026-07-22-free-sfx-bgm-sources.md",
+  "verification_pass": {
+    "date": "2026-07-22",
+    "by": "task/2026-07-22-setup-audio-library lane",
+    "method": "WebFetch で該当ページを直接取得し、研究時点で確度 ○/△（個別ファイル名まで特定・要再確認）と付されていた項目を再確認した。確度 ◎（カテゴリ/タグページ単位で URL 実在確認済み）の項目は本パスでは再取得していない（研究時点の直接確認を踏襲）。",
+    "corrections": [
+      "#27 拍手: 元URL https://soundeffect-lab.info/sound/various/ は「生活[1]」（徒歩/水/ドア等の日常音）で拍手なし。正しくは https://soundeffect-lab.info/sound/various/various3.html （生活[3]）。clapping-hands1.mp3 実在確認",
+      "#28 歓声と拍手: 元URL https://soundeffect-lab.info/sound/voice/game.html はゲームキャラ個別ボイスのページで歓声なし。正しくは https://soundeffect-lab.info/sound/voice/people.html （声素材-大人数）。people-performance-cheer1/2.mp3 実在確認",
+      "#37 失敗音: 効果音ラボのボタン・システム音ページに「ブブー・不正解」という独立項目は存在しない。実在するのは同ページ内「エラー音」カテゴリの一項目（ブブー系ビープ音）。説明文を実態に合わせて修正",
+      "#47 魔王魂 BGM: 元URLはトップページ（https://maou.audio/）で漠然としていたため、具体的な BGM カテゴリ URL https://maou.audio/category/bgm/ に差し替え",
+      "#48 PeriTune: 元URLはトップページのみだったため、ファンタジー/シネマティックの具体的なタグページ（https://peritune.com/blog/tag/fantasy/ 、https://peritune.com/blog/tag/cinematic/）に差し替え。2026-03-01付で独自規約への移行告知を確認（旧曲CC BY4.0の適用範囲は要個別確認のまま）"
+    ],
+    "unresolved": [
+      "#1・#21 OtoLogic（otologic.jp）は本パスの WebFetch でも一貫して 403（自動フェッチ拒否）。研究時点で #1 は直接確認済み（◎）とされていたが、今回は再現できず。自動化ツールからのアクセスを拒否している可能性が高く、ユーザー本人のブラウザでの手動確認に委ねる。#21（決定音/システム音、要現地確認・研究時点で既に確度△）は #17 の効果音ラボ decision1〜53 で用途が代替可能なため、優先度は低いまま維持",
+      "#49 incompetech.com/music/royalty-free/ はドメイン・ページ自体は実在するが、内容が JS 描画のローディング状態で自動取得では曲一覧を読めなかった。ページ自体への誘導は可能（ユーザーが実ブラウザで閲覧する前提の半自動フローとは整合）"
+    ]
+  },
+  "ai_training_policy_note": "ai_training_allowed は「サイトが明示的に AI 学習用途を許可している場合のみ true」を既定にする（audio-import レーン登録分と同じ規律を継承）。CC0 系（Freesound CC0 指定・Kenney・Pixabay Content License）は true。効果音ラボは規約で明示禁止のため false。それ以外の日本語配布元（DOVA-SYNDROME・魔王魂・OtoLogic・甘茶・くらげ工匠・Springin 等）は規約に明記がなくても、audio-import 登録分との整合を優先し false（未許諾を許可とみなさない）。Freesound のタグ検索・YouTube Audio Library はライセンスが音源ごとに変わるため null（個別確認が必要な旨を note に明記）。",
+  "categories": [
+    {
+      "id": "whoosh",
+      "label_ja": "ウーッシュ（whoosh / swish）",
+      "items": [
+        {
+          "rank": 1,
+          "id": "otologic-motion-swing01",
+          "site": "OtoLogic",
+          "title_ja": "モーション・スイング",
+          "type": "individual_file",
+          "download_page_url": "https://otologic.jp/free/se/motion-swish01.html",
+          "expected_filenames": ["motion-swish01"],
+          "filename_patterns": [],
+          "license": {
+            "attribution_required": true,
+            "ai_training_allowed": false,
+            "redistribution": "prohibited",
+            "note": "CC BY 相当・無料版はクレジット必須（研究時点で直接確認済み）"
+          },
+          "confidence": "confirmed_by_research",
+          "verification": {
+            "checked_by": "research",
+            "checked_at": "2026-07-22",
+            "method": "研究時点で直接 fetch 確認（◎）。本レーンの再確認は 403 で失敗（自動フェッチ拒否の可能性。verification_pass.unresolved 参照）",
+            "result_note": "ユーザー本人の手動確認を推奨"
+          }
+        },
+        {
+          "rank": 2,
+          "id": "soundeffect-lab-anime-category",
+          "site": "効果音ラボ",
+          "title_ja": "演出・アニメ カテゴリ（ウーッシュ系多数）",
+          "type": "category_page",
+          "download_page_url": "https://soundeffect-lab.info/sound/anime/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": {
+            "attribution_required": false,
+            "ai_training_allowed": false,
+            "redistribution": "prohibited",
+            "note": "商用利用無料・クレジット任意・直リンク禁止・AI学習利用は規約で明示禁止"
+          },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch で直接取得。同ページ内の shock1-6/doon1/sceneswitch1-2/shine1-6/eye-shine1-2/kira1-2 の実在も併せて確認（本ファイルの #6,#7,#22,#32,#33,#34 参照）"
+          }
+        },
+        {
+          "rank": 3,
+          "id": "freesound-search-whoosh",
+          "site": "Freesound",
+          "title_ja": "タグ検索 \"whoosh\"",
+          "type": "search_page",
+          "download_page_url": "https://freesound.org/search/?q=whoosh",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": {
+            "attribution_required": null,
+            "ai_training_allowed": null,
+            "redistribution": "depends_on_license",
+            "note": "音源ごとに CC ライセンスが異なる。CC0 フィルタを掛ければ ai_training_allowed=true 相当で扱える"
+          },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 4,
+          "id": "pixabay-search-whoosh",
+          "site": "Pixabay",
+          "title_ja": "効果音検索 \"whoosh\"",
+          "type": "search_page",
+          "download_page_url": "https://pixabay.com/sound-effects/search/whoosh/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": {
+            "attribution_required": false,
+            "ai_training_allowed": true,
+            "redistribution": "prohibited_standalone",
+            "note": "Pixabay Content License・クレジット不要・単体再配布/転売禁止。スクレイピング/自動取得は規約で明示禁止のため必ず手動クリック"
+          },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 5,
+          "id": "dova-syndrome-se-search-whoosh",
+          "site": "DOVA-SYNDROME",
+          "title_ja": "効果音検索（詳細検索でウーッシュ系ワード指定）",
+          "type": "search_page",
+          "download_page_url": "https://dova-s.jp/se/search",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": {
+            "attribution_required": false,
+            "ai_training_allowed": false,
+            "redistribution": "prohibited",
+            "note": "商用/非商用問わず無料・クレジット不要・単体の二次配布/転載禁止"
+          },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        }
+      ]
+    },
+    {
+      "id": "impact-hit",
+      "label_ja": "ヒット/ドン（impact / hit）",
+      "items": [
+        {
+          "rank": 6,
+          "id": "soundeffect-lab-shock-1-6",
+          "site": "効果音ラボ",
+          "title_ja": "衝撃・ヒット系（ショック1〜6）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/anime/",
+          "expected_filenames": [],
+          "filename_patterns": [{ "prefix": "shock", "min": 1, "max": 6 }],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上（演出・アニメカテゴリ）" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "shock1〜shock6.mp3 全6件、タイトルまで実在確認（例: shock1=「ショック1衝撃の一瞬」）"
+          }
+        },
+        {
+          "rank": 7,
+          "id": "soundeffect-lab-doon1",
+          "site": "効果音ラボ",
+          "title_ja": "ドーン（和太鼓・ビブラスラップ一斉）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/anime/",
+          "expected_filenames": ["doon1"],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得", "result_note": "doon1.mp3 実在確認" }
+        },
+        {
+          "rank": 8,
+          "id": "soundeffect-lab-battle-category",
+          "site": "効果音ラボ",
+          "title_ja": "戦闘 カテゴリ（打撃・衝撃音）",
+          "type": "category_page",
+          "download_page_url": "https://soundeffect-lab.info/sound/battle/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "商用利用無料・クレジット任意・AI学習利用禁止" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 9,
+          "id": "freesound-search-impact-hit",
+          "site": "Freesound",
+          "title_ja": "タグ検索 \"impact hit\"",
+          "type": "search_page",
+          "download_page_url": "https://freesound.org/search/?q=impact+hit",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": null, "ai_training_allowed": null, "redistribution": "depends_on_license", "note": "音源ごとに異なる。CC0 フィルタ推奨" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 10,
+          "id": "pixabay-search-impact",
+          "site": "Pixabay",
+          "title_ja": "効果音検索 \"impact\"",
+          "type": "search_page",
+          "download_page_url": "https://pixabay.com/sound-effects/search/impact/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": true, "redistribution": "prohibited_standalone", "note": "Pixabay Content License" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 11,
+          "id": "springin-sound-stock-battle",
+          "site": "Springin' Sound Stock",
+          "title_ja": "バトル系効果音（ゲーム制作特化）",
+          "type": "category_page",
+          "download_page_url": "https://www.springin.org/sound-stock/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "unknown", "note": "登録不要・クレジット任意。素材集約動画・Content ID登録は禁止" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        }
+      ]
+    },
+    {
+      "id": "pop",
+      "label_ja": "ポップ（pop）",
+      "items": [
+        {
+          "rank": 12,
+          "id": "soundeffect-lab-button-category",
+          "site": "効果音ラボ",
+          "title_ja": "ボタン・システム音 カテゴリ（ポップ/クリック系）",
+          "type": "category_page",
+          "download_page_url": "https://soundeffect-lab.info/sound/button/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "商用利用無料・クレジット任意・AI学習利用禁止" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得（#17,#18,#19 の個別ファイル確認と同時実施）" }
+        },
+        {
+          "rank": 13,
+          "id": "dova-syndrome-se-search-pop",
+          "site": "DOVA-SYNDROME",
+          "title_ja": "効果音検索（ポップ系ワード指定）",
+          "type": "search_page",
+          "download_page_url": "https://dova-s.jp/se/search",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 14,
+          "id": "pixabay-search-pop",
+          "site": "Pixabay",
+          "title_ja": "効果音検索 \"pop\"",
+          "type": "search_page",
+          "download_page_url": "https://pixabay.com/sound-effects/search/pop/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": true, "redistribution": "prohibited_standalone", "note": "Pixabay Content License" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 15,
+          "id": "freesound-search-pop-bubble",
+          "site": "Freesound",
+          "title_ja": "タグ検索 \"pop bubble\"",
+          "type": "search_page",
+          "download_page_url": "https://freesound.org/search/?q=pop+bubble",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": null, "ai_training_allowed": null, "redistribution": "depends_on_license", "note": "音源ごとに異なる" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 16,
+          "id": "kurage-kosho-top",
+          "site": "くらげ工匠",
+          "title_ja": "システム音カテゴリ（ポップ系）",
+          "type": "category_page",
+          "download_page_url": "http://www.kurage-kosho.info/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "unknown", "note": "詳細URL要現地確認（トップページからカテゴリを辿る）" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎、ただし詳細ページは未特定のまま）" }
+        }
+      ]
+    },
+    {
+      "id": "chime-decision",
+      "label_ja": "チーン/決定音（chime / decision）",
+      "items": [
+        {
+          "rank": 17,
+          "id": "soundeffect-lab-decision-1-53",
+          "site": "効果音ラボ",
+          "title_ja": "決定ボタン（53種）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/button/",
+          "expected_filenames": [],
+          "filename_patterns": [{ "prefix": "decision", "min": 1, "max": 53 }],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上（ボタン・システム音）" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得", "result_note": "decision1〜decision53.mp3 全53件を確認（例: decision1=「ピッ。アプリなどに」）" }
+        },
+        {
+          "rank": 18,
+          "id": "soundeffect-lab-cancel-1-9",
+          "site": "効果音ラボ",
+          "title_ja": "キャンセル（9種）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/button/",
+          "expected_filenames": [],
+          "filename_patterns": [{ "prefix": "cancel", "min": 1, "max": 9 }],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得", "result_note": "cancel1〜cancel9.mp3 全9件を確認" }
+        },
+        {
+          "rank": 19,
+          "id": "soundeffect-lab-cursor-1-12",
+          "site": "効果音ラボ",
+          "title_ja": "カーソル移動（12種）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/button/",
+          "expected_filenames": [],
+          "filename_patterns": [{ "prefix": "cursor", "min": 1, "max": 12 }],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得", "result_note": "cursor1〜cursor12.mp3 全12件を確認" }
+        },
+        {
+          "rank": 20,
+          "id": "maoudamashii-se-system-category",
+          "site": "魔王魂",
+          "title_ja": "システム音 カテゴリ（決定音・キャンセル音）",
+          "type": "category_page",
+          "download_page_url": "https://maou.audio/category/se/se-system/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須（表記例あり）。単品再配布は原則禁止（教材収録は例外）" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 21,
+          "id": "otologic-top-decision-system",
+          "site": "OtoLogic",
+          "title_ja": "決定音・システム音（要現地確認、優先度低）",
+          "type": "category_page",
+          "download_page_url": "https://otologic.jp/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "unknown", "note": "無料版はクレジット必須。#17（効果音ラボ decision1-53）で用途代替可能なため優先度は低い" },
+          "confidence": "blocked_unverifiable",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch で 403（自動フェッチ拒否）。研究時点でも確度△のまま",
+            "result_note": "自動検証不能。ユーザー本人の手動確認が必要。#17 で代替できるため候補リストでは低優先表示にする"
+          }
+        }
+      ]
+    },
+    {
+      "id": "scene-transition",
+      "label_ja": "場面転換（scene transition）",
+      "items": [
+        {
+          "rank": 22,
+          "id": "soundeffect-lab-sceneswitch-1-2",
+          "site": "効果音ラボ",
+          "title_ja": "シーン切り替え（2種）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/anime/",
+          "expected_filenames": [],
+          "filename_patterns": [{ "prefix": "sceneswitch", "min": 1, "max": 2 }],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "演出・アニメカテゴリ内" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得", "result_note": "sceneswitch1（木琴で演奏）・sceneswitch2（ブオッ）実在確認" }
+        },
+        {
+          "rank": 23,
+          "id": "maoudamashii-se-onepoint-category",
+          "site": "魔王魂",
+          "title_ja": "ワンポイント カテゴリ（演出音・ジングル）",
+          "type": "category_page",
+          "download_page_url": "https://maou.audio/category/se/se-onepoint/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 24,
+          "id": "dova-syndrome-jingle-bgm",
+          "site": "DOVA-SYNDROME",
+          "title_ja": "ジングル素材（場面転換用の短尺）",
+          "type": "category_page",
+          "download_page_url": "https://dova-s.jp/bgm?kind=2",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "商用/非商用問わず無料・クレジット不要" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 25,
+          "id": "freesound-search-transition",
+          "site": "Freesound",
+          "title_ja": "タグ検索 \"transition\"",
+          "type": "search_page",
+          "download_page_url": "https://freesound.org/search/?q=transition",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": null, "ai_training_allowed": null, "redistribution": "depends_on_license", "note": "音源ごとに異なる" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 26,
+          "id": "pixabay-search-transition",
+          "site": "Pixabay",
+          "title_ja": "効果音検索 \"transition\"",
+          "type": "search_page",
+          "download_page_url": "https://pixabay.com/sound-effects/search/transition/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": true, "redistribution": "prohibited_standalone", "note": "Pixabay Content License" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        }
+      ]
+    },
+    {
+      "id": "applause",
+      "label_ja": "拍手（applause）",
+      "items": [
+        {
+          "rank": 27,
+          "id": "soundeffect-lab-clapping-hands",
+          "site": "効果音ラボ",
+          "title_ja": "大勢で拍手 / スタジアムの拍手 / 小さなホールでの拍手",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/various/various3.html",
+          "expected_filenames": ["clapping-hands1", "stadium-clapping-hands1", "hall-clapping-hands1"],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "生活[3]カテゴリ" },
+          "confidence": "corrected_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得。元URL（sound/various/）は誤りで、正しくは sound/various/various3.html",
+            "original_url": "https://soundeffect-lab.info/sound/various/",
+            "result_note": "clapping-hands1.mp3（パチパチ）・stadium-clapping-hands1.mp3（スポーツの試合）・hall-clapping-hands1.mp3（少人数）を実在確認"
+          }
+        },
+        {
+          "rank": 28,
+          "id": "soundeffect-lab-people-performance-cheer",
+          "site": "効果音ラボ",
+          "title_ja": "歓声と拍手（大盛り上がり/中盛り上がり）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/voice/people.html",
+          "expected_filenames": ["people-performance-cheer1", "people-performance-cheer2", "people-stadium-applause1"],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "声素材-大人数カテゴリ" },
+          "confidence": "corrected_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得。元URL（sound/voice/game.html）はゲームキャラ個別ボイスのページで誤り。正しくは sound/voice/people.html",
+            "original_url": "https://soundeffect-lab.info/sound/voice/game.html",
+            "result_note": "people-performance-cheer1（大盛り上がり）・cheer2（中盛り上がり）・people-stadium-applause1（スタジアムの拍手）を実在確認"
+          }
+        },
+        {
+          "rank": 29,
+          "id": "pixabay-search-applause",
+          "site": "Pixabay",
+          "title_ja": "効果音検索 \"applause\"",
+          "type": "search_page",
+          "download_page_url": "https://pixabay.com/sound-effects/search/applause/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": true, "redistribution": "prohibited_standalone", "note": "Pixabay Content License" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 30,
+          "id": "freesound-search-applause-crowd",
+          "site": "Freesound",
+          "title_ja": "タグ検索 \"applause crowd\"",
+          "type": "search_page",
+          "download_page_url": "https://freesound.org/search/?q=applause+crowd",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": null, "ai_training_allowed": null, "redistribution": "depends_on_license", "note": "音源ごとに異なる" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 31,
+          "id": "dova-syndrome-se-search-applause",
+          "site": "DOVA-SYNDROME",
+          "title_ja": "効果音検索（拍手・歓声系ワード指定）",
+          "type": "search_page",
+          "download_page_url": "https://dova-s.jp/se/search",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        }
+      ]
+    },
+    {
+      "id": "sparkle",
+      "label_ja": "キラキラ（sparkle）",
+      "items": [
+        {
+          "rank": 32,
+          "id": "soundeffect-lab-shine-1-6",
+          "site": "効果音ラボ",
+          "title_ja": "きらきら輝く（6種）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/anime/",
+          "expected_filenames": [],
+          "filename_patterns": [{ "prefix": "shine", "min": 1, "max": 6 }],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "演出・アニメカテゴリ内" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得", "result_note": "shine1〜shine6.mp3 全6件を確認" }
+        },
+        {
+          "rank": 33,
+          "id": "soundeffect-lab-eye-shine-1-2",
+          "site": "効果音ラボ",
+          "title_ja": "きらーん（目が光る音/刃物、2種）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/anime/",
+          "expected_filenames": [],
+          "filename_patterns": [{ "prefix": "eye-shine", "min": 1, "max": 2 }],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得", "result_note": "eye-shine1（目が光る音）・eye-shine2（刃物）を確認" }
+        },
+        {
+          "rank": 34,
+          "id": "soundeffect-lab-kira-1-2",
+          "site": "効果音ラボ",
+          "title_ja": "キラッ（鉄琴/一瞬だけ光る、2種）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/anime/",
+          "expected_filenames": [],
+          "filename_patterns": [{ "prefix": "kira", "min": 1, "max": 2 }],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上" },
+          "confidence": "confirmed_by_lane",
+          "verification": { "checked_by": "lane", "checked_at": "2026-07-22", "method": "WebFetch 直接取得", "result_note": "kira1（鉄琴で演奏）・kira2（一瞬だけ光る）を確認" }
+        },
+        {
+          "rank": 35,
+          "id": "maoudamashii-se-magic-category",
+          "site": "魔王魂",
+          "title_ja": "魔法 カテゴリ（キラキラ系エフェクト音含む）",
+          "type": "category_page",
+          "download_page_url": "https://maou.audio/category/se/se-magic/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 36,
+          "id": "pixabay-search-sparkle",
+          "site": "Pixabay",
+          "title_ja": "効果音検索 \"sparkle\"",
+          "type": "search_page",
+          "download_page_url": "https://pixabay.com/sound-effects/search/sparkle/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": true, "redistribution": "prohibited_standalone", "note": "Pixabay Content License" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        }
+      ]
+    },
+    {
+      "id": "fail-buzzer",
+      "label_ja": "失敗音（fail / buzzer）",
+      "items": [
+        {
+          "rank": 37,
+          "id": "soundeffect-lab-error-beep4-bubu",
+          "site": "効果音ラボ",
+          "title_ja": "エラー音「ブブー」（ビープ音カテゴリ内の1点。独立した「失敗音セット」ではない点に注意）",
+          "type": "individual_file",
+          "download_page_url": "https://soundeffect-lab.info/sound/button/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "ボタン・システム音カテゴリ内「エラー音」" },
+          "confidence": "corrected_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得。研究時点の記述「ブブー・不正解系」という独立項目は実在せず、エラー音カテゴリ内のビープ音の一つ（表記上「ブブー」に相当）であることを確認して説明文を修正",
+            "result_note": "専用の「失敗音」セットは無いため、代替として #38（ポケットサウンド「失敗」タグ）を優先候補として案内する"
+          }
+        },
+        {
+          "rank": 38,
+          "id": "pocket-se-tag-fail",
+          "site": "ポケットサウンド",
+          "title_ja": "「失敗」タグ一覧",
+          "type": "category_page",
+          "download_page_url": "https://pocket-se.info/archives/tag/%E5%A4%B1%E6%95%97/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "unknown", "note": "表記/リンクで無料" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得",
+            "result_note": "10件以上（ページネーションあり、サイト全体で2367点）。「クイズ不正解・誤答音」「ゲームオーバー」「失敗『デデーン』」等を確認。本カテゴリの本命候補として#37より優先推奨"
+          }
+        },
+        {
+          "rank": 39,
+          "id": "pixabay-search-fail",
+          "site": "Pixabay",
+          "title_ja": "効果音検索 \"fail buzzer\"",
+          "type": "search_page",
+          "download_page_url": "https://pixabay.com/sound-effects/search/fail/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": true, "redistribution": "prohibited_standalone", "note": "Pixabay Content License" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 40,
+          "id": "freesound-search-fail-wrong-buzzer",
+          "site": "Freesound",
+          "title_ja": "タグ検索 \"fail wrong buzzer\"",
+          "type": "search_page",
+          "download_page_url": "https://freesound.org/search/?q=fail+wrong+buzzer",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": null, "ai_training_allowed": null, "redistribution": "depends_on_license", "note": "音源ごとに異なる" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 41,
+          "id": "dova-syndrome-se-search-fail",
+          "site": "DOVA-SYNDROME",
+          "title_ja": "効果音検索（失敗・ブー系ワード指定）",
+          "type": "search_page",
+          "download_page_url": "https://dova-s.jp/se/search",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "同上" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        }
+      ]
+    },
+    {
+      "id": "bgm-general",
+      "label_ja": "汎用BGM（複数ジャンル）",
+      "items": [
+        {
+          "rank": 42,
+          "id": "dova-syndrome-bgm-dl-ranking",
+          "site": "DOVA-SYNDROME",
+          "title_ja": "BGM ダウンロード数順一覧（定番・視聴者馴染みが高い）",
+          "type": "category_page",
+          "download_page_url": "https://dova-s.jp/bgm?sort=2",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited", "note": "商用/非商用問わず無料・クレジット不要" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 43,
+          "id": "amachamusic-bright",
+          "site": "甘茶の音楽工房",
+          "title_ja": "「明るい」印象の楽曲一覧",
+          "type": "category_page",
+          "download_page_url": "https://amachamusic.chagasi.com/image_akarui.html",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 44,
+          "id": "amachamusic-fast-paced",
+          "site": "甘茶の音楽工房",
+          "title_ja": "「疾走感」印象の楽曲一覧（見せ場同期・盛り上がり用）",
+          "type": "category_page",
+          "download_page_url": "https://amachamusic.chagasi.com/image_shissoukan.html",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "同上" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 45,
+          "id": "amachamusic-cinematic",
+          "site": "甘茶の音楽工房",
+          "title_ja": "「シネマティック」ジャンル一覧",
+          "type": "category_page",
+          "download_page_url": "https://amachamusic.chagasi.com/genre_hollywood.html",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "同上" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 46,
+          "id": "amachamusic-comical",
+          "site": "甘茶の音楽工房",
+          "title_ja": "「コミカル」印象の楽曲一覧",
+          "type": "category_page",
+          "download_page_url": "https://amachamusic.chagasi.com/image_comical.html",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "prohibited_exception_store_bgm", "note": "同上" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 47,
+          "id": "maoudamashii-bgm-category",
+          "site": "魔王魂",
+          "title_ja": "BGM カテゴリ",
+          "type": "category_page",
+          "download_page_url": "https://maou.audio/category/bgm/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "prohibited_exception_teaching_material", "note": "商用利用無制限・クレジット必須" },
+          "confidence": "corrected_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得。元URL（トップページ）は漠然としていたため具体的なBGMカテゴリURLに差し替え",
+            "original_url": "https://maou.audio/",
+            "result_note": "トップナビに BGM/歌もの/旧ゲーム音楽/効果音の4カテゴリを確認"
+          }
+        },
+        {
+          "rank": 48,
+          "id": "peritune-fantasy-cinematic-tags",
+          "site": "PeriTune",
+          "title_ja": "ファンタジー/シネマティック系タグ一覧（旧曲 CC BY 4.0 のみ初期セット候補）",
+          "type": "category_page",
+          "download_page_url": "https://peritune.com/blog/tag/fantasy/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "unknown", "note": "旧曲は CC BY 4.0（要クレジット）。2026-03-01付で新規約へ移行（新曲には適用されない可能性、要個別確認）。もう一つのタグ: https://peritune.com/blog/tag/cinematic/" },
+          "confidence": "corrected_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得。元URLはトップページのみだったため具体的なタグページに差し替え",
+            "original_url": "https://peritune.com/",
+            "result_note": "2026-03-01付「楽曲の利用規約変更のお知らせ」を確認。旧曲CC BY4.0の適用範囲は個別に要確認（ハードルールに反しない範囲で人手確認を継続）"
+          }
+        },
+        {
+          "rank": 49,
+          "id": "incompetech-royalty-free",
+          "site": "Kevin MacLeod (incompetech)",
+          "title_ja": "ロイヤリティフリー楽曲一覧（著名曲中心）",
+          "type": "category_page",
+          "download_page_url": "https://incompetech.com/music/royalty-free/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": true, "ai_training_allowed": false, "redistribution": "unknown", "note": "クレジット必須（書式指定）。YouTube収益化可" },
+          "confidence": "confirmed_by_lane",
+          "verification": {
+            "checked_by": "lane",
+            "checked_at": "2026-07-22",
+            "method": "WebFetch 直接取得。ドメイン・ページは実在するが内容がJS描画のため曲一覧は自動取得できず",
+            "result_note": "ページ自体は正規（1997年運営のIncompetech Inc.）。曲一覧の閲覧はユーザー本人のブラウザ操作に委ねる"
+          }
+        },
+        {
+          "rank": 50,
+          "id": "freesound-search-bgm-loop",
+          "site": "Freesound",
+          "title_ja": "タグ検索 \"background music loop\"（CC0限定フィルタ推奨）",
+          "type": "search_page",
+          "download_page_url": "https://freesound.org/search/?q=background+music+loop",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": null, "ai_training_allowed": null, "redistribution": "depends_on_license", "note": "CC0 でフィルタすれば ai_training_allowed=true 相当で扱える" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 51,
+          "id": "pixabay-music-search-upbeat-corporate",
+          "site": "Pixabay",
+          "title_ja": "音楽検索 \"upbeat corporate\"（見せ場同期の汎用ハイテンションBGM）",
+          "type": "search_page",
+          "download_page_url": "https://pixabay.com/music/search/upbeat%20corporate/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": true, "redistribution": "prohibited_standalone", "note": "Pixabay Content License" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        },
+        {
+          "rank": 52,
+          "id": "springin-sound-stock-bgm",
+          "site": "Springin' Sound Stock",
+          "title_ja": "BGM カテゴリ（ゲーム系だが場面転換BGMにも転用可）",
+          "type": "category_page",
+          "download_page_url": "https://www.springin.org/sound-stock/",
+          "expected_filenames": [],
+          "filename_patterns": [],
+          "license": { "attribution_required": false, "ai_training_allowed": false, "redistribution": "unknown", "note": "登録不要・クレジット任意" },
+          "confidence": "confirmed_by_research",
+          "verification": { "checked_by": "research", "checked_at": "2026-07-22", "method": "研究時点で直接確認（◎）" }
+        }
+      ]
+    }
+  ]
+}

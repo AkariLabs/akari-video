@@ -2,6 +2,14 @@
 
 `assets/audio/` と同じ入庫基準（利用許諾と来歴を明示できる、再収録コストの高い BGM・効果音）の取得先索引です。実体は同梱せず、`source.url` から各自取得してください。BGM / SFX の区別は tags に持たせています。
 
+## 音源セットアップ（半自動ドロップフォルダ方式）
+
+[`candidates.json`](./candidates.json) は、フリー配布元 52 候補（8 用途カテゴリ + BGM）の
+データ SSOT です。`node packages/audio-library-setup/bin/generate-candidates-html.mjs` で
+候補リスト HTML（ダウンロードページを開くボタン付き・既所有は動的グレーアウト）を
+生成できます。手順は [`skills/setup-audio-library/`](../../skills/setup-audio-library/SKILL.md)
+を参照してください。
+
 ## エントリ
 
 ### BGM

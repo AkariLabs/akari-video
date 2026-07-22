@@ -1,0 +1,15 @@
+{
+  "name": "@akari-video/audio-library-setup",
+  "version": "0.0.1",
+  "private": true,
+  "description": "音源（BGM/SFX）初回セットアップの半自動ドロップフォルダ方式ツール群。候補リスト HTML 生成・ドロップフォルダ照合登録・試聴ギャラリー。外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ、decision-cards / intake-form と同じ流儀）。",
+  "type": "module",
+  "bin": {
+    "audio-candidates-html": "bin/generate-candidates-html.mjs",
+    "audio-drop-register": "bin/register-drop-folder.mjs",
+    "audio-gallery-helper": "bin/gallery-helper.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  }
+}
