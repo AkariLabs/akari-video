@@ -118,8 +118,11 @@
       "properties": {
         "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
-        "ducking": { "type": "boolean" }
-      }
+        "ducking": { "type": "boolean" },
+        "fadeIn": { "$ref": "#/$defs/seconds" },
+        "fadeOut": { "$ref": "#/$defs/seconds" }
+      },
+      "$comment": "fadeIn/fadeOut は秒・省略時 0（フェードなし）。BGM は timeline 全体尺にループ+トリムされるため、どちらかが timeline 尺/2 を超えて指定された場合は尺/2 にクランプされる（render-cut が実装、edit-lint がクランプ発生時に warning を出す）。"
     },
     "sfxItem": {
       "type": "object",

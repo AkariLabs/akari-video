@@ -245,8 +245,18 @@ export function buildAudioMixCommand({
   let bgmLabel = null;
   if (audio.bgm) {
     args.push("-stream_loop", "-1", "-i", resolve(projectRoot, audio.bgm.path));
+    const bgmFade = resolveBgmFadeSeconds(audio.bgm, duration);
+    warnings.push(...bgmFade.warnings);
+    // afade is chained directly onto volume/atrim -- i.e. baked into the [bgm] label itself --
+    // rather than appended after ducking's sidechaincompress step below. Empirically verified
+    // (audio-bgm-fade.test.mjs "order" case): sidechaincompress's gain reduction is driven only by
+    // the narration (key/sidechain) input's level, never by bgm's own amplitude, so multiplying in
+    // the fade envelope before or after ducking is mathematically commutative and measures
+    // identically either way. Applying it here keeps the fade envelope visible on every downstream
+    // consumer of [bgm]/[bgm_ducked] without a second branch, and matches the reserved-seat design
+    // note ("afade を volume の後").
     filters.push(
-      `[${inputIndex}:a]volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}[bgm]`,
+      `[${inputIndex}:a]volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}${buildBgmFadeSuffix(bgmFade, duration)}[bgm]`,
     );
     bgmLabel = "[bgm]";
     inputIndex += 1;
@@ -511,6 +521,38 @@ function normalizeAudioPlan(audio) {
     bgm: audio.bgm ? normalize(audio.bgm) : null,
     sfx: Array.isArray(audio.sfx) ? audio.sfx.map(normalize) : [],
   };
+}
+
+// audio.bgm.fadeIn/fadeOut clamp rule: the "clip" bgm occupies is the full timeline (it is
+// stream_loop'd and atrim'd to `duration` above), so each of fadeIn/fadeOut is independently capped
+// at duration/2 -- the standard NLE handle ceiling that guarantees a fade-in and a fade-out can
+// never together exceed the full duration, regardless of the other one's value.
+function resolveBgmFadeSeconds(bgm, duration) {
+  const warnings = [];
+  const ceiling = isFiniteNumber(duration) && duration > 0 ? duration / 2 : 0;
+  const resolveField = (label) => {
+    const raw = bgm[label];
+    if (raw === undefined) return 0;
+    if (!isFiniteNumber(raw) || raw < 0) return 0; // schema/edit-lint reject this; render tolerates it as "no fade".
+    if (ceiling > 0 && raw > ceiling) {
+      warnings.push(
+        `audio.bgm.${label} ${formatNumber(raw)}s exceeds half the timeline duration (${formatNumber(duration)}s); clamped to ${formatNumber(ceiling)}s`,
+      );
+      return ceiling;
+    }
+    return raw;
+  };
+  return { fadeIn: resolveField("fadeIn"), fadeOut: resolveField("fadeOut"), warnings };
+}
+
+function buildBgmFadeSuffix({ fadeIn, fadeOut }, duration) {
+  const parts = [];
+  if (fadeIn > 0) parts.push(`afade=t=in:st=0:d=${formatNumber(fadeIn)}`);
+  if (fadeOut > 0) {
+    const start = Math.max(0, duration - fadeOut);
+    parts.push(`afade=t=out:st=${formatNumber(start)}:d=${formatNumber(fadeOut)}`);
+  }
+  return parts.length > 0 ? `,${parts.join(",")}` : "";
 }
 
 export function buildCutCommand({

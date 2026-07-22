@@ -224,6 +224,13 @@ function validateBgm(value) {
   if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
     fail("audio.bgm.ducking は boolean である必要があります");
   }
+  for (const field of ["fadeIn", "fadeOut"]) {
+    if (hasOwn(value, field)) {
+      if (!isFiniteNumber(value[field]) || value[field] < 0) {
+        fail(`audio.bgm.${field} は 0 以上の有限数である必要があります`);
+      }
+    }
+  }
 }
 
 function validateSfx(value) {
