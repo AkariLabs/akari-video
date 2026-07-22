@@ -99,6 +99,18 @@ test("bgm.ducking must be a boolean", () => {
   assert.match(executed.stderr, /audio\.bgm\.ducking は boolean である必要があります/);
 });
 
+test("bgm.fadeIn/fadeOut (reserved seat opened) pass validation", () => {
+  const executed = run("edit-bgm-fade-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("bgm.fadeIn must be a non-negative finite number", () => {
+  const executed = run("edit-bgm-fade-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.bgm\.fadeIn は 0 以上の有限数である必要があります/);
+});
+
 test("sfx[].t must be a non-negative finite number", () => {
   const executed = run("edit-sfx-t-invalid");
   assert.equal(executed.status, 1, executed.stdout);

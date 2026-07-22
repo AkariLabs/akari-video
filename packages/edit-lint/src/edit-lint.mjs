@@ -958,6 +958,27 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
           path: "edit.json#audio.bgm",
         });
       }
+      // audio.bgm.fadeIn/fadeOut clamp rule: render-cut trims/loops bgm to the full timeline, so
+      // fadeIn/fadeOut are each independently clamped there at timeline/2 -- warn here so the same
+      // overshoot is visible before rendering.
+      for (const field of ["fadeIn", "fadeOut"]) {
+        if (!Object.hasOwn(bgm, field)) continue;
+        if (!isFiniteNumber(bgm[field]) || bgm[field] < 0) {
+          addFinding(findings, {
+            severity: "error",
+            check: `audio.bgm.${field}`,
+            message: `${field} must be a non-negative finite number`,
+            path: "edit.json#audio.bgm",
+          });
+        } else if (timeline !== null && bgm[field] > timeline / 2 + EPSILON) {
+          addFinding(findings, {
+            severity: "warning",
+            check: `audio.bgm.${field}`,
+            message: `${field} ${formatNumber(bgm[field])}s exceeds half the timeline duration ${formatNumber(timeline)}s; will be clamped to ${formatNumber(timeline / 2)}s at render time`,
+            path: "edit.json#audio.bgm",
+          });
+        }
+      }
     }
   }
 

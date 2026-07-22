@@ -413,6 +413,41 @@ test("bgm + sfx (2 items) all resolving to real files pass with zero findings", 
   });
 });
 
+test("audio.bgm.fadeIn exceeding half the timeline duration warns without failing (clamp preview)", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "bgm-fade-exceeds-timeline");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) =>
+          finding.check === "audio.bgm.fadeIn" &&
+          finding.severity === "warning" &&
+          /clamped to 10s/.test(finding.message),
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("audio.bgm.fadeOut negative value fails", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "bgm-fade-invalid");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "audio.bgm.fadeOut" && finding.severity === "error",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("sfx path that does not resolve to a file warns without failing (contract §5 decoration/degrade rule)", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "sfx-file-missing");
