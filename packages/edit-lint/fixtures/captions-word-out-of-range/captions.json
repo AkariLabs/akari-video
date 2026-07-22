@@ -1,0 +1,16 @@
+[
+  {
+    "id": "c-0001",
+    "start": 5,
+    "end": 9,
+    "text": "字幕テキスト全体",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "style": "karaoke",
+    "words": [
+      { "start": 5, "end": 6, "text": "今日" },
+      { "start": 9.5, "end": 10, "text": "はみ出し" }
+    ]
+  }
+]
