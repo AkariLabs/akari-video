@@ -77,6 +77,8 @@ async function listEntries(libraryRoot) {
             title: meta.title ?? dirEntry.name,
             author: meta.author ?? null,
             license: meta.license ?? null,
+            mood: meta.mood ?? [],
+            tempo: meta.tempo ?? null,
             files,
         });
     }
