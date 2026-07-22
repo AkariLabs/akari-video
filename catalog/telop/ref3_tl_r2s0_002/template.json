@@ -289,7 +289,7 @@
       },
       "size": {
         "w": {
-          "expr": "labelFontSize * 9"
+          "expr": "max(2 * @ref3_tl_r2s0_002_step_label.width - labelFontSize * 9 + 56, labelFontSize * 9)"
         },
         "h": {
           "expr": "labelFontSize + 40"
