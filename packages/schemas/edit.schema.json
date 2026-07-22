@@ -176,6 +176,17 @@
       },
       "$comment": "docs/contract-2026-07-22-edit-json-v1-beats.md（見せ場マーカー）。t は timeline 秒ではなく (src, source 秒) アンカー（同 §3）。kind は hook/turn/punchline/reveal/emotion を契約文書で例示するのみで enum 強制はしない。id のファイル内一意性と src の参照整合（v1: sources[].id に存在すること / v0: src 自体を使用できないこと）は兄弟値の突き合わせが要るため JSON Schema では表現せず validate-edit.mjs と edit-lint が検証する（cutV1.src と同じ扱い）。"
     },
+    "direction": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["preset"],
+      "properties": {
+        "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "intensity": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "overrides": { "type": "object" }
+      },
+      "$comment": "docs/contract-2026-07-23-edit-json-v1-direction.md（演出宣言）。配列ではなくオブジェクト = 宣言はファイルに 1 つ（同 §1）。preset は youtube-long-standard/shorts-high-energy/calm-explainer を契約文書で例示するのみで enum 強制はしない（narration provider と同じ流儀）。intensity は output.look.intensity（[0,1] の実数）とは別物で、整数 [0, 100]・既定 50（同 §4）。overrides は語彙未定義のため type object のみを見る（同 §6）。"
+    },
     "transitionOut": {
       "type": "object",
       "additionalProperties": true,
@@ -288,7 +299,8 @@
         "beats": {
           "type": "array",
           "items": { "$ref": "#/$defs/beatItem" }
-        }
+        },
+        "direction": { "$ref": "#/$defs/direction" }
       },
       "not": { "required": ["sources"] }
     },
@@ -320,7 +332,8 @@
         "beats": {
           "type": "array",
           "items": { "$ref": "#/$defs/beatItem" }
-        }
+        },
+        "direction": { "$ref": "#/$defs/direction" }
       },
       "not": { "required": ["source"] }
     }

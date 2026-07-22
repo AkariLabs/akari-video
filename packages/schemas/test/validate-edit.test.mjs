@@ -256,3 +256,52 @@ test("beats[].src is rejected in v0 (no sources[] to reference)", () => {
   assert.equal(executed.status, 1, executed.stdout);
   assert.match(executed.stderr, /beats\[0\]\.src は version 0 では使用できません/);
 });
+
+test("direction (演出宣言): preset + intensity 70 + empty overrides passes", () => {
+  const executed = run("edit-direction-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("direction: preset only (intensity / overrides omitted) passes", () => {
+  const executed = run("edit-direction-preset-only");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("direction.preset is required", () => {
+  const executed = run("edit-direction-missing-preset");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /direction\.preset は空でない文字列である必要があります/);
+});
+
+test("direction.intensity must stay within [0, 100]", () => {
+  const tooHigh = run("edit-direction-intensity-out-of-range");
+  assert.equal(tooHigh.status, 1, tooHigh.stdout);
+  assert.match(
+    tooHigh.stderr,
+    /direction\.intensity は 0 から 100 の範囲の整数である必要があります/,
+  );
+
+  const negative = run("edit-direction-intensity-negative");
+  assert.equal(negative.status, 1, negative.stdout);
+  assert.match(
+    negative.stderr,
+    /direction\.intensity は 0 から 100 の範囲の整数である必要があります/,
+  );
+});
+
+test("direction.intensity must be an integer (not a fractional number)", () => {
+  const executed = run("edit-direction-intensity-not-integer");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /direction\.intensity は 0 から 100 の範囲の整数である必要があります/,
+  );
+});
+
+test("direction.overrides must be an object (array is rejected)", () => {
+  const executed = run("edit-direction-overrides-array");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /direction\.overrides は object である必要があります/);
+});
