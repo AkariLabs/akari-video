@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>音源 試聴ギャラリー（AKARI Video）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; line-height: 1.6; }
+  h1 { font-size: 1.3rem; }
+  .summary { font-size: 0.9rem; opacity: 0.75; margin-bottom: 1.5rem; }
+  .entry { border: 1px solid #8883; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .entry.decided-keep { border-color: #198754; }
+  .entry.decided-drop { opacity: 0.45; }
+  .entry-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .entry-title { font-weight: 600; flex: 1; }
+  .entry-id { font-size: 0.75rem; opacity: 0.55; }
+  .entry-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; }
+  .badge-attr { background: #fff3cd; color: #664d03; }
+  .badge-noattr { background: #d1e7dd; color: #0a3622; }
+  .badge-noai { background: #f8d7da; color: #58151c; }
+  @media (prefers-color-scheme: dark) {
+    .badge-attr { background: #4d3b00; color: #ffe69c; }
+    .badge-noattr { background: #0f3324; color: #a3cfbb; }
+    .badge-noai { background: #4c0d13; color: #f1aeb5; }
+  }
+  audio { width: 100%; height: 32px; }
+  .file-row { display: flex; align-items: center; gap: 10px; }
+  .file-name { font-size: 0.8rem; opacity: 0.65; min-width: 140px; }
+  .actions { display: flex; gap: 8px; }
+  button { font-size: 0.85rem; padding: 5px 14px; border-radius: 8px; border: 1px solid #8886; background: transparent; cursor: pointer; }
+  button.active-keep { background: #198754; color: white; border-color: #198754; }
+  button.active-drop { background: #dc3545; color: white; border-color: #dc3545; }
+  #status-line { position: sticky; top: 0; background: Canvas; padding: 8px 0; font-size: 0.85rem; opacity: 0.7; }
+  #empty { opacity: 0.6; }
+</style>
+</head>
+<body>
+  <h1>音源 試聴ギャラリー</h1>
+  <div id="status-line">読み込み中...</div>
+  <div id="list"></div>
+  <p id="empty" hidden>登録済みの音源がまだありません。先にドロップフォルダの登録を実行してください。</p>
+
+<script>
+async function fetchJson(url, options) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  return res.json();
+}
+
+function badge(text, cls) {
+  const span = document.createElement('span');
+  span.className = `badge ${cls}`;
+  span.textContent = text;
+  return span;
+}
+
+async function setDecision(id, decision) {
+  await fetchJson('/api/decision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, decision }),
+  });
+  await render();
+}
+
+async function render() {
+  const statusLine = document.getElementById('status-line');
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+  list.innerHTML = '';
+
+  let data;
+  try {
+    data = await fetchJson('/api/entries');
+  } catch (error) {
+    statusLine.textContent = `読み込み失敗: ${error.message}`;
+    return;
+  }
+
+  const { entries, decisions } = data;
+  const keepCount = Object.values(decisions).filter((d) => d.decision === 'keep').length;
+  const dropCount = Object.values(decisions).filter((d) => d.decision === 'drop').length;
+  statusLine.textContent = `登録 ${entries.length} 件 / keep ${keepCount} 件 / drop ${dropCount} 件`;
+
+  if (entries.length === 0) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+
+  for (const entry of entries) {
+    const decision = decisions[entry.id]?.decision ?? null;
+    const div = document.createElement('div');
+    div.className = 'entry' + (decision === 'keep' ? ' decided-keep' : decision === 'drop' ? ' decided-drop' : '');
+
+    const head = document.createElement('div');
+    head.className = 'entry-head';
+    const title = document.createElement('span');
+    title.className = 'entry-title';
+    title.textContent = entry.title;
+    head.appendChild(title);
+    const idSpan = document.createElement('span');
+    idSpan.className = 'entry-id';
+    idSpan.textContent = entry.id;
+    head.appendChild(idSpan);
+
+    const badges = document.createElement('div');
+    badges.className = 'entry-badges';
+    if (entry.license) {
+      badges.appendChild(entry.license.attribution_required
+        ? badge('要クレジット', 'badge-attr')
+        : badge('クレジット不要', 'badge-noattr'));
+      if (entry.license.ai_training_allowed === false) {
+        badges.appendChild(badge('AI学習禁止', 'badge-noai'));
+      }
+    }
+    head.appendChild(badges);
+    div.appendChild(head);
+
+    for (const file of entry.files) {
+      const row = document.createElement('div');
+      row.className = 'file-row';
+      const name = document.createElement('span');
+      name.className = 'file-name';
+      name.textContent = file;
+      row.appendChild(name);
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.preload = 'none';
+      audio.src = `/media/${encodeURIComponent(entry.id)}/${encodeURIComponent(file)}`;
+      row.appendChild(audio);
+      div.appendChild(row);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const keepButton = document.createElement('button');
+    keepButton.textContent = 'keep';
+    keepButton.className = decision === 'keep' ? 'active-keep' : '';
+    keepButton.addEventListener('click', () => setDecision(entry.id, decision === 'keep' ? null : 'keep'));
+    const dropButton = document.createElement('button');
+    dropButton.textContent = 'drop';
+    dropButton.className = decision === 'drop' ? 'active-drop' : '';
+    dropButton.addEventListener('click', () => setDecision(entry.id, decision === 'drop' ? null : 'drop'));
+    actions.appendChild(keepButton);
+    actions.appendChild(dropButton);
+    div.appendChild(actions);
+
+    list.appendChild(div);
+  }
+}
+
+render();
+</script>
+</body>
+</html>
