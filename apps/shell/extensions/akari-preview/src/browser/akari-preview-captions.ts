@@ -5,6 +5,8 @@ export interface PreviewCaption {
     start: number;
     end: number;
     text: string;
+    style?: 'karaoke' | 'pop';
+    words?: { start: number; end: number; text: string }[];
 }
 
 export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: URI | undefined): URI | undefined {
@@ -29,7 +31,29 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
             || typeof text !== 'string') {
             continue;
         }
-        captions.push({ start, end, text });
+        const style = candidate.style === 'karaoke' || candidate.style === 'pop'
+            ? candidate.style
+            : undefined;
+        const words = Array.isArray(candidate.words)
+            ? candidate.words.flatMap(word => {
+                if (!word || typeof word !== 'object') {
+                    return [];
+                }
+                const item = word as Record<string, unknown>;
+                return typeof item.start === 'number' && Number.isFinite(item.start)
+                    && typeof item.end === 'number' && Number.isFinite(item.end) && item.end > item.start
+                    && typeof item.text === 'string' && item.text.length > 0
+                    ? [{ start: item.start, end: item.end, text: item.text }]
+                    : [];
+            })
+            : [];
+        captions.push({
+            start,
+            end,
+            text,
+            ...(style ? { style } : {}),
+            ...(words.length > 0 ? { words } : {})
+        });
     }
     return captions;
 }

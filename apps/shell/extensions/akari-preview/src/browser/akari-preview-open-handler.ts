@@ -31,6 +31,11 @@ interface EditSummaryOverlay {
 interface EditSummaryCut {
     in: number;
     out: number;
+    speed?: number;
+    transitionOut?: {
+        type: 'dissolve' | 'fade-black' | 'fade-white';
+        duration: number;
+    };
 }
 
 interface EditSummaryAudioSource {
@@ -40,6 +45,8 @@ interface EditSummaryAudioSource {
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
     ducking: boolean;
+    fadeIn?: number;
+    fadeOut?: number;
 }
 
 interface EditSummaryTimedAudio extends EditSummaryAudioSource {
@@ -58,6 +65,7 @@ interface EditSummary {
     overlays: EditSummaryOverlay[];
     cuts: EditSummaryCut[];
     audio?: EditSummaryAudio;
+    indicators: string[];
 }
 
 interface PreviewModel {
@@ -152,7 +160,8 @@ interface PreviewSessionSettings {
 const EMPTY_SUMMARY: EditSummary = {
     output: { width: 1280, height: 720, fps: 30 },
     overlays: [],
-    cuts: []
+    cuts: [],
+    indicators: []
 };
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const PLAYABLE_VIDEO_MIME_TYPES = new Map<string, string>([
@@ -602,7 +611,35 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const inSeconds = this.finiteNumber(value?.in, NaN);
                 const outSeconds = this.finiteNumber(value?.out, NaN);
                 if (Number.isFinite(inSeconds) && Number.isFinite(outSeconds) && outSeconds > inSeconds) {
-                    cuts.push({ in: inSeconds, out: outSeconds });
+                    let speed: number | undefined;
+                    if (value?.speed !== undefined) {
+                        if (typeof value.speed === 'number' && Number.isFinite(value.speed) && value.speed > 0) {
+                            speed = value.speed;
+                        } else {
+                            console.warn('[akari-preview] cut.speed を無視しました（正の有限 number ではありません）', value.speed);
+                        }
+                    }
+                    let transitionOut: EditSummaryCut['transitionOut'];
+                    if (value?.transition_out !== undefined && value.transition_out !== null) {
+                        const transition = value.transition_out;
+                        const validType = transition?.type === 'dissolve'
+                            || transition?.type === 'fade-black'
+                            || transition?.type === 'fade-white';
+                        const validDuration = typeof transition?.duration === 'number'
+                            && Number.isFinite(transition.duration) && transition.duration > 0;
+                        if (transition && typeof transition === 'object' && !Array.isArray(transition)
+                            && validType && validDuration) {
+                            transitionOut = { type: transition.type, duration: transition.duration };
+                        } else {
+                            console.warn('[akari-preview] cut.transition_out を無視しました（type/duration 不正）', transition);
+                        }
+                    }
+                    cuts.push({
+                        in: inSeconds,
+                        out: outSeconds,
+                        ...(speed !== undefined ? { speed } : {}),
+                        ...(transitionOut ? { transitionOut } : {})
+                    });
                 } else {
                     console.warn('[akari-preview] cuts entry を無視しました（in/out 不正）', value);
                 }
@@ -637,6 +674,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 });
             }
             const audio = await this.resolveAudioAssets(edit?.audio, editUri, assetStreams, assetUris);
+            const isTruthyObject = (value: unknown): boolean => Boolean(value)
+                && typeof value === 'object' && !Array.isArray(value);
+            const indicators: string[] = [];
+            if (isTruthyObject(edit?.output?.look)) indicators.push('LUT');
+            if (isTruthyObject(edit?.source?.chroma_key)
+                || (Array.isArray(edit?.sources) && edit.sources.some((source: unknown) =>
+                    isTruthyObject((source as { chroma_key?: unknown } | null)?.chroma_key)))
+                || (Array.isArray(edit?.layers) && edit.layers.some((layer: unknown) =>
+                    isTruthyObject((layer as { chroma_key?: unknown } | null)?.chroma_key)))) {
+                indicators.push('クロマキー');
+            }
+            if (Array.isArray(edit?.layers) && edit.layers.length > 0) indicators.push('レイヤー合成');
+            if (isTruthyObject(edit?.audio?.master)) indicators.push('音声マスター処理');
+            if (Array.isArray(edit?.cuts) && edit.cuts.some((cut: unknown) =>
+                (cut as { transition_out?: { type?: unknown } } | null)?.transition_out?.type === 'dissolve')) {
+                indicators.push('ディゾルブ切り替え');
+            }
             return {
                 editUri,
                 overlayUris,
@@ -648,6 +702,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     output: { width, height, fps: this.positiveNumber(edit?.output?.fps, 30) },
                     overlays,
                     cuts,
+                    indicators,
                     ...(audio ? { audio } : {})
                 }
             };
@@ -763,15 +818,32 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
         let bgm: EditSummaryBgm | undefined;
         if (audio.bgm !== undefined) {
-            const rawBgm = audio.bgm as { path?: unknown; gain_db?: unknown; ducking?: unknown } | undefined;
+            const rawBgm = audio.bgm as {
+                path?: unknown;
+                gain_db?: unknown;
+                ducking?: unknown;
+                fadeIn?: unknown;
+                fadeOut?: unknown;
+            } | undefined;
             if (!rawBgm || typeof rawBgm !== 'object' || Array.isArray(rawBgm)) {
                 console.warn('[akari-preview] audio.bgm を無視しました（object ではありません）');
             } else {
                 const normalizedGain = gainDb(rawBgm.gain_db, 'audio.bgm');
                 if (normalizedGain !== undefined) {
+                    const fades: Pick<EditSummaryBgm, 'fadeIn' | 'fadeOut'> = {};
+                    for (const [field, raw] of [['fadeIn', rawBgm.fadeIn], ['fadeOut', rawBgm.fadeOut]] as const) {
+                        if (raw === undefined) {
+                            continue;
+                        }
+                        if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) {
+                            fades[field] = raw;
+                        } else {
+                            console.warn(`[akari-preview] audio.bgm.${field} を無視しました（0以上の有限 number ではありません）`, raw);
+                        }
+                    }
                     const src = await resolveSource(rawBgm.path, 'audio.bgm');
                     if (src) {
-                        bgm = { src, gainDb: normalizedGain, ducking: rawBgm.ducking === true };
+                        bgm = { src, gainDb: normalizedGain, ducking: rawBgm.ducking === true, ...fades };
                     }
                 }
             }
@@ -1047,8 +1119,12 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #zoom-layer { position: absolute; inset: 0; will-change: transform; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 #overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
+#transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; }
 #caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
 #caption-plate:empty { display: none; }
+#caption-plate.akari-caption-host--styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
+#preview-indicators { position: absolute; left: 8px; bottom: 8px; z-index: 4; max-width: calc(100% - 16px); padding: 5px 9px; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; background: rgba(20,20,20,0.78); color: #ddd; font-size: 11px; line-height: 1.35; pointer-events: none; }
+#preview-indicators[hidden] { display: none; }
 #zoom-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 3; overflow: hidden; border: 1px solid rgba(255,255,255,0.25); border-radius: 2px; background: rgba(0,0,0,0.55); pointer-events: none; }
 #zoom-minimap[hidden] { display: none; }
 #zoom-minimap-viewport { position: absolute; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.85); background: rgba(255,255,255,0.55); }
@@ -1099,9 +1175,10 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
     <div id="preview-wrapper">
       <div id="zoom-layer">
         <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
-        <div id="overlay-stage"><div id="caption-plate"></div></div>
+        <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
       </div>
       <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
+      <div id="preview-indicators" hidden></div>
       <div id="audio-notice" class="audio-notice" hidden role="status">
         <span>音声が検出されていません。無音の素材か、音声形式がプレビュー非対応の可能性があります（書き出しには影響しません）。</span>
         <button id="audio-notice-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
@@ -1323,11 +1400,26 @@ body { display: grid; place-items: center; padding: 32px; }
                     return decoded.narration.some(item => timelineTime >= item.t
                         && timelineTime < item.t + item.durationSec) ? -12 : 0;
                 };
+                const fadeMultiplierAt = timelineTime => {
+                    if (!decoded.bgm) return 1;
+                    const total = timelineDuration;
+                    const rawIn = decoded.bgm.fadeIn;
+                    const rawOut = decoded.bgm.fadeOut;
+                    const fadeIn = Number.isFinite(rawIn) && rawIn > 0 ? Math.min(rawIn, total / 2) : 0;
+                    const fadeOut = Number.isFinite(rawOut) && rawOut > 0 ? Math.min(rawOut, total / 2) : 0;
+                    let multiplier = 1;
+                    if (fadeIn > 0 && timelineTime < fadeIn) multiplier = Math.min(multiplier, timelineTime / fadeIn);
+                    if (fadeOut > 0 && timelineTime > total - fadeOut) {
+                        multiplier = Math.min(multiplier, (total - timelineTime) / fadeOut);
+                    }
+                    return Math.max(0, Math.min(1, multiplier));
+                };
                 const applyBgmDuck = timelineTime => {
                     if (!decoded.bgm) return;
                     const duckGainDb = duckGainDbAt(timelineTime);
+                    const fadeMultiplier = fadeMultiplierAt(timelineTime);
                     if (bgmGain) {
-                        bgmGain.gain.value = dbToLinear(decoded.bgm.gainDb + duckGainDb);
+                        bgmGain.gain.value = dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier;
                     }
                     if (duckGainDb !== lastDuckGainDb) {
                         lastDuckGainDb = duckGainDb;
@@ -1336,7 +1428,10 @@ body { display: grid; place-items: center; padding: 32px; }
                             baseGainDb: decoded.bgm ? decoded.bgm.gainDb : null,
                             duckGainDb,
                             appliedGainDb: decoded.bgm ? decoded.bgm.gainDb + duckGainDb : null,
-                            appliedLinear: decoded.bgm ? dbToLinear(decoded.bgm.gainDb + duckGainDb) : null
+                            fadeMultiplier,
+                            appliedLinear: decoded.bgm
+                                ? dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier
+                                : null
                         });
                     }
                 };
@@ -1544,7 +1639,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const zoomMinimap = document.getElementById('zoom-minimap');
             const zoomMinimapViewport = document.getElementById('zoom-minimap-viewport');
             const stage = document.getElementById('overlay-stage');
+            const transitionPlate = document.getElementById('transition-plate');
             const captionPlate = document.getElementById('caption-plate');
+            const previewIndicators = document.getElementById('preview-indicators');
             const previewMessage = document.getElementById('preview-message');
             const previewMessageText = document.getElementById('preview-message-text');
             const previewMessageReload = document.getElementById('preview-message-reload');
@@ -1570,6 +1667,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let animationFrame = 0;
             let keepRanges = [];
             let timelineOffsets = [];
+            let transitionPlates = [];
             let totalTimelineDuration = 0;
             let currentSegmentIndex = 0;
             let keepRangesReady = false;
@@ -1584,6 +1682,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let waveformDragPointer = null;
             let playbackErrored = false;
             let audioNoticeShown = false;
+            let activeCaption = null;
+            let styledCaptionActive = false;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
             const applyTrackVisibility = track => {
@@ -1606,14 +1706,31 @@ body { display: grid; place-items: center; padding: 32px; }
             const buildExplicitKeepRanges = () => {
                 const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
                 const valid = [];
-                for (const candidate of rawCuts) {
+                for (let index = 0; index < rawCuts.length; index += 1) {
+                    const candidate = rawCuts[index];
                     const start = Number(candidate && candidate.in);
                     const end = Number(candidate && candidate.out);
                     if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-                        valid.push({ in: start, out: end });
+                        const speed = Number.isFinite(candidate.speed) && candidate.speed > 0 ? candidate.speed : 1;
+                        const transition = candidate.transitionOut;
+                        const transitionOut = index < rawCuts.length - 1
+                            && transition
+                            && (transition.type === 'dissolve'
+                                || transition.type === 'fade-black'
+                                || transition.type === 'fade-white')
+                            && Number.isFinite(transition.duration)
+                            && transition.duration > 0
+                            ? { type: transition.type, duration: transition.duration }
+                            : null;
+                        valid.push({ in: start, out: end, speed, transitionOut });
                     }
                 }
                 return valid;
+            };
+            const syncPlaybackRate = () => {
+                const range = keepRangesReady ? keepRanges[currentSegmentIndex] : null;
+                const speed = range && Number.isFinite(range.speed) && range.speed > 0 ? range.speed : 1;
+                if (video.playbackRate !== speed) video.playbackRate = speed;
             };
             const rebuildKeepRanges = () => {
                 const explicit = buildExplicitKeepRanges();
@@ -1621,13 +1738,29 @@ body { display: grid; place-items: center; padding: 32px; }
                     keepRanges = explicit;
                 } else {
                     const duration = videoDuration();
-                    keepRanges = duration > 0 ? [{ in: 0, out: duration }] : [];
+                    keepRanges = duration > 0 ? [{ in: 0, out: duration, speed: 1, transitionOut: null }] : [];
                 }
                 timelineOffsets = [];
+                transitionPlates = [];
                 let accumulated = 0;
-                for (const range of keepRanges) {
+                for (let index = 0; index < keepRanges.length; index += 1) {
+                    const range = keepRanges[index];
                     timelineOffsets.push(accumulated);
-                    accumulated += range.out - range.in;
+                    const segmentDuration = (range.out - range.in) / range.speed;
+                    const naturalJump = accumulated + segmentDuration;
+                    accumulated = naturalJump;
+                    if (range.transitionOut && index < keepRanges.length - 1) {
+                        if (range.transitionOut.type === 'fade-black' || range.transitionOut.type === 'fade-white') {
+                            const duration = range.transitionOut.duration;
+                            transitionPlates.push({
+                                start: naturalJump - duration / 2,
+                                end: naturalJump + duration / 2,
+                                mid: naturalJump,
+                                color: range.transitionOut.type === 'fade-black' ? '#000000' : '#ffffff'
+                            });
+                        }
+                        accumulated -= range.transitionOut.duration;
+                    }
                 }
                 totalTimelineDuration = accumulated;
                 keepRangesReady = keepRanges.length > 0;
@@ -1637,6 +1770,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (currentSegmentIndex >= keepRanges.length) {
                     currentSegmentIndex = Math.max(0, keepRanges.length - 1);
                 }
+                syncPlaybackRate();
             };
             const findSegmentForSource = sourceTime => keepRanges.findIndex(
                 range => sourceTime >= range.in && sourceTime < range.out
@@ -1671,6 +1805,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const current = video.currentTime || 0;
                 const result = clampSourceTime(current, currentSegmentIndex);
                 currentSegmentIndex = result.index;
+                syncPlaybackRate();
                 if (result.ended) {
                     if (!video.paused) video.pause();
                     if (Math.abs(current - result.time) > 0.0005) video.currentTime = result.time;
@@ -1685,23 +1820,24 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = keepRanges[segmentIndex] || keepRanges[0];
                 if (!segment) return sourceTime;
                 const offset = timelineOffsets[segmentIndex] || 0;
-                return offset + clamp(sourceTime - segment.in, 0, segment.out - segment.in);
+                return offset + clamp(sourceTime - segment.in, 0, segment.out - segment.in) / segment.speed;
             };
             const timelineToSource = timelineValue => {
                 if (!keepRangesReady) return { index: 0, time: timelineValue };
                 let index = keepRanges.length - 1;
                 for (let candidate = 0; candidate < keepRanges.length; candidate += 1) {
                     const start = timelineOffsets[candidate];
-                    const end = start + (keepRanges[candidate].out - keepRanges[candidate].in);
+                    const end = start + (keepRanges[candidate].out - keepRanges[candidate].in)
+                        / keepRanges[candidate].speed;
                     if (timelineValue < end || candidate === keepRanges.length - 1) {
                         index = candidate;
                         break;
                     }
                 }
                 const start = timelineOffsets[index];
-                const segmentDuration = keepRanges[index].out - keepRanges[index].in;
+                const segmentDuration = (keepRanges[index].out - keepRanges[index].in) / keepRanges[index].speed;
                 const withinSegment = clamp(timelineValue - start, 0, segmentDuration);
-                return { index, time: keepRanges[index].in + withinSegment };
+                return { index, time: keepRanges[index].in + withinSegment * keepRanges[index].speed };
             };
             const zoomToSlider = value => {
                 const logMin = Math.log2(ZOOM_MIN);
@@ -1900,16 +2036,104 @@ body { display: grid; place-items: center; padding: 32px; }
                 const position = duration > 0 ? clamp((video.currentTime || 0) / duration, 0, 1) : 0;
                 waveformPlayhead.style.left = (position * 100) + '%';
             };
+            const escapeCaptionHtml = value => String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+            const formatCaptionSeconds = value => String(Math.round(value * 1000) / 1000);
+            const groupWordsIntoLines = (words, maximum = 13) => {
+                const lines = [];
+                let current = [];
+                let currentLength = 0;
+                for (const word of words) {
+                    const wordLength = Array.from(word.text).length;
+                    if (current.length > 0 && currentLength + wordLength > maximum) {
+                        lines.push(current);
+                        current = [];
+                        currentLength = 0;
+                    }
+                    current.push(word);
+                    currentLength += wordLength;
+                }
+                if (current.length > 0) lines.push(current);
+                return lines;
+            };
+            const renderCaptionToken = (word, rangeStart, style) => {
+                const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
+                const className = style === 'karaoke'
+                    ? 'akari-caption__tok akari-caption__tok--karaoke'
+                    : 'akari-caption__tok akari-caption__tok--pop';
+                const vars = style === 'karaoke'
+                    ? '--akari-tok-delay: ' + delay + 's; --akari-tok-dur: '
+                        + formatCaptionSeconds(Math.max(0.01, word.end - word.start)) + 's'
+                    : '--akari-tok-delay: ' + delay + 's';
+                return '<span class="' + className + '" style="' + vars + '">'
+                    + escapeCaptionHtml(word.text) + '</span>';
+            };
+            const renderStyledCaptionFragment = caption => {
+                const style = caption.style;
+                const markup = groupWordsIntoLines(caption.words, 13).map(line =>
+                    '<p class="akari-caption__line">'
+                    + line.map(word => renderCaptionToken(word, caption.start, style)).join('')
+                    + '</p>'
+                ).join('');
+                return '<div class="akari-caption akari-caption--' + style + '">'
+                    + '<style>'
+                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);font-family:system-ui,-apple-system,sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
+                    + '.akari-caption__plate{position:absolute;left:0;right:0;bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;gap:var(--plate-gap,4px);}'
+                    + '.akari-caption__line{width:max-content;max-width:92%;margin:0 auto;padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,rgba(8,12,22,0.74));white-space:pre;}'
+                    + '.akari-caption__tok{display:inline-block;will-change:transform,color;}'
+                    + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
+                    + '@keyframes akari-caption-pop{0%{transform:translateY(0) scale(1);}50%{transform:translateY(-0.08em) scale(1.12);}100%{transform:translateY(0) scale(1);}}'
+                    + '.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
+                    + '.akari-caption__tok--pop{animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused;}'
+                    + '</style><div class="akari-caption__plate">' + markup + '</div></div>';
+            };
             const renderCaption = () => {
                 const time = video.currentTime || 0;
-                const caption = captions.find(candidate => candidate.start <= time && time < candidate.end);
-                captionPlate.textContent = caption ? caption.text : '';
+                const caption = captions.find(candidate => candidate.start <= time && time < candidate.end) || null;
+                if (caption !== activeCaption) {
+                    activeCaption = caption;
+                    styledCaptionActive = Boolean(caption
+                        && (caption.style === 'karaoke' || caption.style === 'pop')
+                        && Array.isArray(caption.words) && caption.words.length > 0);
+                    captionPlate.classList.toggle('akari-caption-host--styled', styledCaptionActive);
+                    if (styledCaptionActive) {
+                        captionPlate.innerHTML = renderStyledCaptionFragment(caption);
+                    } else {
+                        captionPlate.textContent = caption ? caption.text : '';
+                    }
+                }
+                if (caption && styledCaptionActive) {
+                    const localMs = (clamp(time, caption.start, caption.end) - caption.start) * 1000;
+                    for (const animation of captionPlate.getAnimations({ subtree: true })) {
+                        animation.pause();
+                        animation.currentTime = localMs;
+                    }
+                }
+            };
+            const renderTransitionPlate = timelineTime => {
+                const plate = transitionPlates.find(candidate =>
+                    timelineTime >= candidate.start && timelineTime <= candidate.end);
+                if (!plate) {
+                    transitionPlate.style.opacity = '0';
+                    return;
+                }
+                const halfDuration = (plate.end - plate.start) / 2;
+                const opacity = halfDuration > 0
+                    ? clamp(1 - Math.abs(timelineTime - plate.mid) / halfDuration, 0, 1)
+                    : 0;
+                transitionPlate.style.background = plate.color;
+                transitionPlate.style.opacity = String(opacity);
             };
             const tick = (immediatePlaybackTick = false) => {
                 applyKeepRangeBoundary();
                 const timelineTime = keepRangesReady
                     ? sourceToTimeline(video.currentTime || 0, currentSegmentIndex)
                     : (video.currentTime || 0);
+                renderTransitionPlate(timelineTime);
                 window.akari.runtime.tick(timelineTime, !video.paused);
                 if (window.akari.previewAudio) {
                     window.akari.previewAudio.tick(timelineTime, !video.paused);
@@ -2351,7 +2575,12 @@ body { display: grid; place-items: center; padding: 32px; }
 
             Promise.resolve(window.akari.runtime.mount(summary)).then(() => {
                 applyOverlayTracks();
-                stage.appendChild(captionPlate);
+                stage.append(transitionPlate, captionPlate);
+                const indicators = Array.isArray(summary.indicators) ? summary.indicators : [];
+                previewIndicators.hidden = indicators.length === 0;
+                previewIndicators.textContent = indicators.length > 0
+                    ? '書き出しで適用: ' + indicators.join('・')
+                    : '';
                 rebuildKeepRanges();
                 if (keepRangesReady) {
                     currentSegmentIndex = 0;
