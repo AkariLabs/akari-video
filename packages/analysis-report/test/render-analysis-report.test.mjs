@@ -48,6 +48,17 @@ test("valid analysis + interpretation を渡すと report.html を生成する",
     assert.ok(!html.includes("構成案エントリ"), "ヘッダー統計タイルから構成案エントリを除去済み");
     assert.ok(html.includes("検出イベント数"), "ヘッダー統計タイルは事実層由来の代替（検出イベント数）を持つ");
     assert.ok(html.includes('"title":"Opening"'), "arc はデータとして JSON ブロックに保持される");
+
+    // 追加修正（司令塔検収）: 取材台帳の空状態文言が表示から消した「構成案」概念を
+    // 参照し続けないよう改訂（他 2 種の空状態文言は不変）
+    assert.ok(
+      !html.includes("構成案は素材の文脈だけで根拠付きで通りました"),
+      "旧空状態文言（構成案を参照）は残っていない",
+    );
+    assert.ok(
+      html.includes("取材事項なし — 素材の文脈だけで根拠付きで筋が通りました"),
+      "取材台帳の空状態文言は新文言に更新されている",
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
