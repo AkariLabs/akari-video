@@ -57,6 +57,20 @@ v0 契約は採用閾値を運用調整対象としている。このスキル�
 
 尺度の契約根拠: [M5 analysis.json v0 契約](../../docs/contract-2026-07-13-m5-analysis-report.md)
 
+## 見せ場抽出の供給責務
+
+ここで作る event（`hook` / `chapter` / `highlight`）と hook の 5 軸スコアは、後工程
+（[edit-plan の beats.md](../edit-plan/beats.md)）が `edit.json` の見せ場マーカー `beats[]`
+（[データ契約](../../docs/contract-2026-07-22-edit-json-v1-beats.md)）を導出するときの**供給源**である。
+抽出手順そのものは上の節から変えないが、供給側の品質条件として次の 2 点を満たす。
+
+- **score の無い highlight を出さない**。`importance` を省いた highlight は後工程で強度を
+  決められず、既定値へ丸められる。編集判断の根拠として登録する以上、1〜5 のどれに当たるかを
+  判断して書く（判断できないほど弱い候補は、そもそも登録しない）。
+- **event の `t` は必ず source 秒**。区間 event の `start` / `end` も同じく未カット素材の
+  source 秒である。beats は source 秒アンカーで永続化されるため、ここに timeline 秒が
+  混ざると後工程では検出できない誤りになる。
+
 ## event 整合性
 
 - event を source 時刻順に並べる。同時刻では `trouble`、`filler`、`chapter`、`highlight`、`hook` の順に固定してよい。
