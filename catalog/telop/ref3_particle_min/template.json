@@ -133,7 +133,7 @@
         "classStyles": {
           "hiragana": {
             "sizeScale": 0.72,
-            "dy": -2,
+            "dy": 23,
             "opacity": 0.9
           }
         },

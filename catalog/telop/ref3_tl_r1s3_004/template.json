@@ -78,11 +78,15 @@
         "cornerRadius": 6
       },
       "size": {
-        "w": 160,
+        "w": {
+          "expr": "max(@ref3_tl_r1s3_004_badge_label.width + 48, 160)"
+        },
         "h": 60
       },
       "transform": {
-        "x": 80,
+        "x": {
+          "expr": "160 - max(@ref3_tl_r1s3_004_badge_label.width + 48, 160) / 2"
+        },
         "y": 910,
         "anchor": {
           "x": 0,
@@ -219,10 +223,7 @@
             }
           ]
         }
-      ],
-      "fit": {
-        "maxWidth": 160
-      }
+      ]
     },
     {
       "id": "ref3_tl_r1s3_004_location_band",
@@ -241,7 +242,9 @@
         "h": 60
       },
       "transform": {
-        "x": 248,
+        "x": {
+          "expr": "160 + max(@ref3_tl_r1s3_004_badge_label.width + 48, 160) / 2 + 8"
+        },
         "y": 910,
         "anchor": {
           "x": 0,
@@ -309,7 +312,9 @@
         "letterSpacing": 1
       },
       "transform": {
-        "x": 262,
+        "x": {
+          "expr": "160 + max(@ref3_tl_r1s3_004_badge_label.width + 48, 160) / 2 + 8 + 14"
+        },
         "y": 940,
         "anchor": {
           "x": 0,

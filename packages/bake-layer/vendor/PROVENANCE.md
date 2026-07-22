@@ -34,7 +34,35 @@
   プレートも自動的に追従する（新規レイヤー間結線は不要）
 - 機械検証: `tasks/2026-07-22-telop-tunables/out/robustness-check.mjs`（36 件 × テキスト長
   4 種 = 144 ケース。text 部分のみ抽出してキャンバス境界を超えないことを実測）+
-  `packages/bake-layer/test/robustness.test.mjs`（代表 5 件・`npm test` に組み込み）
+  `packages/bake-layer/test/robustness.test.mjs`（代表 6 件・`npm test` に組み込み）。
+  **2026-07-22 particle-min-fix タスクで判定基準を強化**（下記参照）: キャンバス境界内かの
+  みではプレート/帯からの突き抜けを見逃すことが判明したため、`tasks/2026-07-22-
+  particle-min-fix/out/audit-v3.mjs` で「shape を持つテキストは標準文の時点で内包する
+  最もタイトな shape の bbox 内か」を追加基準として全36件×4長=244ケースを再監査
+  （244/244 PASS）。`robustness.test.mjs` もこの基準に更新済み
+
+## 判明した既存バグ（未修正・要相談）: `resolve.ts` の opacity 解決が truthy 判定になっている
+
+`packages/2026-07-22-particle-min-fix` タスク（プレート内含有監査の強化）で、レイヤーを
+「不可視化」するテストヘルパー（`transform.opacity` を上書きして特定レイヤーだけ描画する
+手法）を書いていて発見。`resolve.ts` の
+
+```ts
+const to = layer.transform.opacity ? resolveNum(layer.transform.opacity, 1) : 1
+```
+
+は JavaScript の truthy 判定になっており、**`layer.transform.opacity` にリテラル `0` を
+指定しても「未指定」とみなされ `1`（不透明）にフォールバックしてしまう**（`0 in JS is
+falsy`）。実運用では opacity アニメーションは大抵 track（`prop:'opacity'` の keyframe）で
+行うため通常は表面化しないが、静的な `transform.opacity: 0` を直接指定したいケース
+（今回のテストヘルパーのような「このレイヤーを完全に隠す」用途）では効かない。
+
+回避策（今回のテスト/監査スクリプト側で採用・エンジンには手を入れていない）:
+リテラル `0` の代わりに `-1` を指定する（`-1` は truthy なので `resolveNum` を通り、
+`drawLayer` 側の `if (transform.opacity <= 0) return` には該当するため意図通り不可視になる）。
+
+根本修正には `resolve.ts` を `layer.transform.opacity !== undefined ? ... : 1` へ変更する
+必要があるが、司令塔判断待ちのため未着手。
 
 ## fx（akari-fx）は 2026-07-22 司令塔裁定でスコープ除外
 

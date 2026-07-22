@@ -91,7 +91,7 @@
       },
       "size": {
         "w": {
-          "expr": "min(max(@ref3_word_highlight_text.width + 128, 720), @stage.width - 240)"
+          "expr": "min(max(@ref3_word_highlight_text.width + 128, 720), @stage.width - 32)"
         },
         "h": {
           "expr": "@ref3_word_highlight_text.height + 56"
@@ -205,6 +205,11 @@
           "color": "#FFD93D",
           "mode": "flash"
         }
+      },
+      "fit": {
+        "maxWidth": {
+          "expr": "@stage.width - 32 - 128"
+        }
       }
     },
     {
@@ -311,6 +316,11 @@
             ]
           }
         ]
+      },
+      "fit": {
+        "maxWidth": {
+          "expr": "@stage.width - 32 - 128"
+        }
       }
     }
   ]

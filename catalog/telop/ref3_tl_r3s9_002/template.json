@@ -89,11 +89,15 @@
         }
       },
       "size": {
-        "w": 140,
+        "w": {
+          "expr": "max(@ref3_tl_r3s9_002_label_text.width + 48, 140)"
+        },
         "h": 68
       },
       "transform": {
-        "x": 80,
+        "x": {
+          "expr": "150 - max(@ref3_tl_r3s9_002_label_text.width + 48, 140) / 2"
+        },
         "y": 880,
         "anchor": {
           "x": 0,
@@ -330,10 +334,7 @@
             }
           ]
         }
-      ],
-      "fit": {
-        "maxWidth": 140
-      }
+      ]
     },
     {
       "id": "ref3_tl_r3s9_002_caption_text",

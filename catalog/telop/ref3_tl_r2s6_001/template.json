@@ -89,7 +89,9 @@
         }
       },
       "size": {
-        "w": 1760,
+        "w": {
+          "expr": "max(@ref3_tl_r2s6_001_headline.width + 212, 1760)"
+        },
         "h": 4
       },
       "transform": {
@@ -147,7 +149,9 @@
         }
       },
       "size": {
-        "w": 1760,
+        "w": {
+          "expr": "max(@ref3_tl_r2s6_001_headline.width + 212, 1760)"
+        },
         "h": 96
       },
       "transform": {
@@ -205,11 +209,15 @@
         }
       },
       "size": {
-        "w": 148,
+        "w": {
+          "expr": "max(@ref3_tl_r2s6_001_tag_text.width + 48, 148)"
+        },
         "h": 96
       },
       "transform": {
-        "x": 80,
+        "x": {
+          "expr": "154 - max(@ref3_tl_r2s6_001_tag_text.width + 48, 148) / 2"
+        },
         "y": 870,
         "anchor": {
           "x": 0,
@@ -313,10 +321,7 @@
             }
           ]
         }
-      ],
-      "fit": {
-        "maxWidth": 148
-      }
+      ]
     },
     {
       "id": "ref3_tl_r2s6_001_headline",

@@ -146,11 +146,15 @@
         }
       },
       "size": {
-        "w": 170,
+        "w": {
+          "expr": "max(@ref3_tl_r1s3_002_badge_text.width + 48, 170)"
+        },
         "h": 90
       },
       "transform": {
-        "x": 0,
+        "x": {
+          "expr": "85 - max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2"
+        },
         "y": 955,
         "anchor": {
           "x": 0,
@@ -277,10 +281,7 @@
             }
           ]
         }
-      ],
-      "fit": {
-        "maxWidth": 170
-      }
+      ]
     },
     {
       "id": "ref3_tl_r1s3_002_headline",
@@ -301,7 +302,9 @@
         "letterSpacing": 1
       },
       "transform": {
-        "x": 188,
+        "x": {
+          "expr": "85 + max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2 + 18"
+        },
         "y": 1000,
         "anchor": {
           "x": 0,

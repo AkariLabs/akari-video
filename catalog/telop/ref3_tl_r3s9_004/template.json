@@ -83,7 +83,9 @@
         }
       },
       "size": {
-        "w": 1840,
+        "w": {
+          "expr": "max(@ref3_tl_r3s9_004_body_text.width + 190, 1840)"
+        },
         "h": 72
       },
       "transform": {
@@ -137,7 +139,9 @@
         }
       },
       "size": {
-        "w": 1840,
+        "w": {
+          "expr": "max(@ref3_tl_r3s9_004_body_text.width + 190, 1840)"
+        },
         "h": 3
       },
       "transform": {
@@ -191,11 +195,15 @@
         }
       },
       "size": {
-        "w": 120,
+        "w": {
+          "expr": "max(@ref3_tl_r3s9_004_label_text.width + 44, 120)"
+        },
         "h": 72
       },
       "transform": {
-        "x": 40,
+        "x": {
+          "expr": "100 - max(@ref3_tl_r3s9_004_label_text.width + 44, 120) / 2"
+        },
         "y": 951,
         "anchor": {
           "x": 0,
@@ -299,10 +307,7 @@
             }
           ]
         }
-      ],
-      "fit": {
-        "maxWidth": 120
-      }
+      ]
     },
     {
       "id": "ref3_tl_r3s9_004_divider",
