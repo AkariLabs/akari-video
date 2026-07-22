@@ -258,7 +258,12 @@ export function buildAudioMixCommand({
   if (master) {
     if (master.denoise !== "off") {
       const nr = master.denoise === "strong" ? 24 : 12;
-      filters.push(`${finalLabel}afftdn=nr=${nr}[master_dn]`);
+      // afftdn's default noise_floor (-50dB) assumes near-silent background hiss and barely
+      // engages against realistically-proportioned recording noise (measured empirically: a
+      // -47dB noise floor under a normal-level dialogue tone saw <1.5dB reduction at the
+      // default nf). nf=-30 (near the top of ffmpeg's -80..-20 range) makes both std and strong
+      // measurably and monotonically effective against typical background noise levels.
+      filters.push(`${finalLabel}afftdn=nr=${nr}:nf=-30[master_dn]`);
       finalLabel = "[master_dn]";
     }
     filters.push(`${finalLabel}loudnorm=I=${formatNumber(master.loudnormTarget)}:TP=-1.5:LRA=11[master_ln]`);
@@ -453,13 +458,23 @@ export function buildCutCommand({
   const concatInputs = [];
   for (const [index, cut] of effectiveCuts.entries()) {
     const end = cut.out === null ? "" : `:end=${formatNumber(cut.out)}`;
+    // docs/contract-2026-07-22-render-basics.md #1 (cuts[].speed): v0 is constant speed only
+    // (residual decision 1, command-center ruling: pitch preservation is fixed, not optional).
+    // setpts divides by speed so the resulting segment plays at speed x its original duration
+    // shrinks accordingly; atempo (audio) achieves the same duration change while resampling
+    // pitch back to the original, chained in <=2x/>=0.5x steps per ffmpeg's atempo range limit.
+    const speed = cutSpeed(cut);
+    const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
     filters.push(
-      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=PTS-STARTPTS[v${index}]`,
+      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}[v${index}]`,
     );
     concatInputs.push(`[v${index}]`);
     if (hasAudio) {
+      const atempoSuffix = buildAtempoChain(speed)
+        .map((factor) => `,atempo=${formatNumber(factor)}`)
+        .join("");
       filters.push(
-        `[0:a]atrim=start=${formatNumber(cut.in)}${end},asetpts=PTS-STARTPTS[a${index}]`,
+        `[0:a]atrim=start=${formatNumber(cut.in)}${end},asetpts=PTS-STARTPTS${atempoSuffix}[a${index}]`,
       );
       concatInputs.push(`[a${index}]`);
     }
@@ -509,9 +524,33 @@ export function buildCutCommand({
 
 export function predictedDuration(cuts, sourceDuration) {
   if (Array.isArray(cuts) && cuts.length > 0) {
-    return cuts.reduce((sum, cut) => sum + cut.out - cut.in, 0);
+    return cuts.reduce((sum, cut) => sum + (cut.out - cut.in) / cutSpeed(cut), 0);
   }
   return sourceDuration;
+}
+
+function cutSpeed(cut) {
+  const value = cut?.speed;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 1;
+}
+
+// atempo only accepts factors in [0.5, 2.0]; speeds outside that range are decomposed into a
+// chain of filters that multiply out to the requested speed (docs/contract-2026-07-22-render-basics.md
+// #1's ffmpeg column: "atempo（>2x/<0.5x の段組み）").
+function buildAtempoChain(speed) {
+  if (speed === 1) return [];
+  const factors = [];
+  let remaining = speed;
+  while (remaining > 2 + 1e-9) {
+    factors.push(2);
+    remaining /= 2;
+  }
+  while (remaining < 0.5 - 1e-9) {
+    factors.push(0.5);
+    remaining /= 0.5;
+  }
+  factors.push(remaining);
+  return factors;
 }
 
 export function selectDefaultOutput(projectRoot, edit, exists) {

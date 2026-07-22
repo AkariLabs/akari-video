@@ -6,6 +6,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { buildAudioMixCommand } from "../src/plan.mjs";
+
 // docs/contract-2026-07-22-render-basics.md #5 (audio.master: denoise / loudnorm). L2 requires
 // measuring the rendered file's actual loudness with ffmpeg's own ebur128 scanner, not trusting
 // the command plan alone — this is the "done = appears in the output file" principle from
@@ -125,33 +127,40 @@ test("audio.master with loudnorm omitted defaults to -14 LUFS", async (t) => {
   }
 });
 
-test("audio.master.denoise=strong measurably reduces noise floor versus off, at a fixed loudnorm target", async (t) => {
+test("audio.master.denoise=strong measurably reduces broadband noise RMS energy versus off (measured pre-loudnorm, so normalization cannot mask the difference)", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
-  // Build a noisy source: sine tone mixed with white noise via anoisesrc, so afftdn has real
-  // broadband noise to suppress. Both projects share the same loudnorm target so the comparison
-  // isolates afftdn's effect rather than loudness differences.
+  // Pure noise gives afftdn nothing to distinguish "signal" from "noise", so it barely engages
+  // (verified empirically). A tone at realistic dialogue level plus much quieter broadband noise
+  // (a stand-in for room hiss) is what afftdn is designed for; a fixed seed keeps it deterministic.
   const duration = 4;
   const root = await mkdtemp(join(tmpdir(), "render-cut-denoise-test-"));
   try {
+    const mixedAudioPath = join(root, "mixed.wav");
+    ffmpeg([
+      "-f",
+      "lavfi",
+      "-i",
+      `sine=frequency=300:sample_rate=48000:duration=${duration}`,
+      "-f",
+      "lavfi",
+      "-i",
+      `anoisesrc=duration=${duration}:color=white:amplitude=0.02:sample_rate=48000:seed=42`,
+      "-filter_complex",
+      "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[a]",
+      "-map",
+      "[a]",
+      "-c:a",
+      "pcm_s16le",
+      mixedAudioPath,
+    ]);
+    const compositePlaceholder = join(root, "composite-placeholder.mp4");
     ffmpeg([
       "-f",
       "lavfi",
       "-i",
       `testsrc2=size=320x180:rate=10:duration=${duration}`,
-      "-f",
-      "lavfi",
       "-i",
-      `sine=frequency=440:sample_rate=48000:duration=${duration}`,
-      "-f",
-      "lavfi",
-      "-i",
-      `anoisesrc=duration=${duration}:color=white:amplitude=0.4:sample_rate=48000`,
-      "-filter_complex",
-      "[1:a][2:a]amix=inputs=2:duration=first:normalize=0[a]",
-      "-map",
-      "0:v",
-      "-map",
-      "[a]",
+      mixedAudioPath,
       "-c:v",
       "libx264",
       "-pix_fmt",
@@ -159,63 +168,70 @@ test("audio.master.denoise=strong measurably reduces noise floor versus off, at 
       "-c:a",
       "aac",
       "-shortest",
-      join(root, "source.mp4"),
+      compositePlaceholder,
     ]);
 
-    async function renderWithDenoise(denoise) {
-      const projectRoot = join(root, denoise);
-      await mkdir(projectRoot);
-      await writeFile(
-        join(projectRoot, "edit.json"),
-        `${JSON.stringify(
-          {
-            version: 0,
-            output: { width: 320, height: 180, fps: 10 },
-            source: { path: "../source.mp4", proxy: null },
-            cuts: [{ in: 0, out: duration }],
-            overlays: [],
-            audio: { master: { denoise, loudnorm: -20 } },
-          },
-          null,
-          2,
-        )}\n`,
+    // Measures RMS energy in a frequency band far from the 300Hz tone (6-9kHz), so only the
+    // broadband noise contributes — isolating afftdn's effect on the noise floor specifically
+    // from the tone it must preserve.
+    function measureNoiseBandRms(filePath) {
+      const result = spawnSync(
+        "ffmpeg",
+        ["-hide_banner", "-nostats", "-i", filePath, "-af", "highpass=f=6000,lowpass=f=9000,astats=metadata=0", "-f", "null", "-"],
+        { encoding: "utf8" },
       );
-      await mkdir(join(projectRoot, ".akari"));
-      await writeFile(join(projectRoot, ".akari", "lint.json"), '{"version":1,"verdict":"pass"}\n');
-      const executed = run(projectRoot);
-      assert.equal(executed.status, 0, executed.stderr);
-      const state = JSON.parse(await readFile(join(projectRoot, ".akari", "render.json"), "utf8"));
-      assert.equal(state.verify.verdict, "pass");
-      return join(projectRoot, state.artifacts[0].path);
+      const match = result.stderr.match(/RMS level dB:\s*(-?\d+(?:\.\d+)?)/);
+      assert.ok(match, `astats did not report RMS level for ${filePath}: ${result.stderr}`);
+      return Number(match[1]);
     }
 
-    const offPath = await renderWithDenoise("off");
-    const strongPath = await renderWithDenoise("strong");
-
-    // Both are loudnorm'd to the same integrated target, so compare noise floor via max_volume
-    // in a silence-adjacent low-energy sense is unreliable; instead compare spectral flatness
-    // proxy: afftdn measurably lowers RMS energy relative to peak for broadband noise once mixed
-    // with the deterministic tone, which volumedetect's mean/max gap approximates.
-    function volumeGap(filePath) {
-      const result = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", filePath, "-af", "volumedetect", "-f", "null", "-"], {
-        encoding: "utf8",
+    // Re-maps buildAudioMixCommand's real filter graph, but stops before the trailing loudnorm
+    // step (always the last ";"-separated statement once audio.master is present) so the
+    // comparison measures afftdn's effect directly instead of being equalized away by
+    // normalization — the same "listen to an intermediate label" technique
+    // audio-narration.test.mjs's ducking test uses.
+    function renderPreLoudnorm(denoise) {
+      const command = buildAudioMixCommand({
+        edit: { audio: { master: { denoise, loudnorm: -14 } } },
+        projectRoot: root,
+        inputPath: compositePlaceholder,
+        outputPath: join(root, `unused-${denoise}.mp4`),
+        duration,
+        ffmpegCommand: "ffmpeg",
+        ffprobeCommand: "ffprobe",
       });
-      const mean = Number(result.stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/)[1]);
-      const max = Number(result.stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/)[1]);
-      return { mean, max, gap: max - mean };
+      assert.equal(command.operation, "ffmpeg");
+      const filterComplexIndex = command.args.indexOf("-filter_complex");
+      const filterComplex = command.args[filterComplexIndex + 1];
+      const preLoudnormSteps = filterComplex.split(";").slice(0, -1).join(";");
+      const targetLabel = denoise === "off" ? "[mixed]" : "[master_dn]";
+      const inputArgs = command.args.slice(0, filterComplexIndex);
+      const outPath = join(root, `pre-loudnorm-${denoise}.wav`);
+      const result = spawnSync(
+        "ffmpeg",
+        [...inputArgs, "-filter_complex", preLoudnormSteps, "-map", targetLabel, "-c:a", "pcm_s16le", "-ar", "48000", outPath],
+        { encoding: "utf8" },
+      );
+      assert.equal(result.status, 0, result.stderr);
+      return outPath;
     }
 
-    const offStats = volumeGap(offPath);
-    const strongStats = volumeGap(strongPath);
+    const offPath = renderPreLoudnorm("off");
+    const stdPath = renderPreLoudnorm("std");
+    const strongPath = renderPreLoudnorm("strong");
+    const offLevel = measureNoiseBandRms(offPath);
+    const stdLevel = measureNoiseBandRms(stdPath);
+    const strongLevel = measureNoiseBandRms(strongPath);
     t.diagnostic(
-      `denoise=off mean=${offStats.mean}dB max=${offStats.max}dB gap=${offStats.gap.toFixed(2)}dB; ` +
-        `denoise=strong mean=${strongStats.mean}dB max=${strongStats.max}dB gap=${strongStats.gap.toFixed(2)}dB`,
+      `noise-band (6-9kHz) RMS: denoise=off ${offLevel}dB; denoise=std ${stdLevel}dB; denoise=strong ${strongLevel}dB`,
     );
-    // afftdn suppresses the noise floor between tone peaks, which widens the mean/max gap
-    // (mean drops while peak-carrying tone content survives) relative to the undenoised mix.
     assert.ok(
-      strongStats.gap > offStats.gap,
-      `expected denoise=strong to widen the peak/mean gap versus denoise=off (off gap=${offStats.gap}, strong gap=${strongStats.gap})`,
+      stdLevel < offLevel - 5,
+      `expected denoise=std to measurably reduce broadband noise RMS versus off (off=${offLevel}dB, std=${stdLevel}dB)`,
+    );
+    assert.ok(
+      strongLevel < stdLevel - 5,
+      `expected denoise=strong to reduce broadband noise RMS further than std (std=${stdLevel}dB, strong=${strongLevel}dB)`,
     );
   } finally {
     await rm(root, { recursive: true, force: true });
