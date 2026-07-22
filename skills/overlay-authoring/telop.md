@@ -18,6 +18,8 @@
 
 日本語字幕の構造チェックには、Netflix の日本語 Timed Text 仕様を適用条件付きで使える。同仕様は横字幕を **全角 13 文字/行まで**、**2 行まで**とし、半角文字を 0.5 文字として数える。これは Netflix 納品仕様であり、AKARI Video や他プラットフォームへ無条件に一般化しない。長い場合は文字を縮める前に要約・分割する。
 
+AKARI Video の字幕既定は 1 行 20 全角字・句読点優先分割（オーナー裁定）。Netflix 13 字は納品仕様であり AKARI の既定ではない。
+
 出典: [Netflix Japanese Timed Text Style Guide](https://partnerhelp.netflixstudios.com/hc/en-us/articles/215767517-Japanese-Timed-Text-Style-Guide)
 
 ## 配置セーフゾーン

@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
@@ -615,9 +616,9 @@ export function buildCutCommand({
       `${concatInputs.join("")}concat=n=${effectiveCuts.length}:v=1:a=${hasAudio ? 1 : 0}[joinedv]${hasAudio ? "[joineda]" : ""}`,
     );
   } else {
+    const cutOffsets = computeCutTimelineOffsets(effectiveCuts);
     let videoAcc = "[v0]";
     let audioAcc = hasAudio ? "[a0]" : null;
-    let accDuration = segmentDuration(effectiveCuts[0]);
     for (let index = 1; index < effectiveCuts.length; index += 1) {
       const boundary = effectiveCuts[index - 1].transition_out;
       const isLastBoundary = index === effectiveCuts.length - 1;
@@ -626,21 +627,19 @@ export function buildCutCommand({
       if (boundary) {
         const transitionName = XFADE_TRANSITION_NAMES[boundary.type] ?? "fade";
         const transitionDuration = boundary.duration;
-        const offset = Math.max(0, accDuration - transitionDuration);
+        const offset = Math.max(0, cutOffsets[index].start);
         filters.push(
           `${videoAcc}[v${index}]xfade=transition=${transitionName}:duration=${formatNumber(transitionDuration)}:offset=${formatNumber(offset)}${nextVideoLabel}`,
         );
         if (hasAudio) {
           filters.push(`${audioAcc}[a${index}]acrossfade=d=${formatNumber(transitionDuration)}${nextAudioLabel}`);
         }
-        accDuration = accDuration + segmentDuration(effectiveCuts[index]) - transitionDuration;
       } else {
         if (hasAudio) {
           filters.push(`${videoAcc}${audioAcc}[v${index}][a${index}]concat=n=2:v=1:a=1${nextVideoLabel}${nextAudioLabel}`);
         } else {
           filters.push(`${videoAcc}[v${index}]concat=n=2:v=1:a=0${nextVideoLabel}`);
         }
-        accDuration += segmentDuration(effectiveCuts[index]);
       }
       videoAcc = nextVideoLabel;
       if (hasAudio) audioAcc = nextAudioLabel;
@@ -761,15 +760,6 @@ export function predictedDuration(cuts, sourceDuration) {
     return segmentsTotal - transitionOverlap;
   }
   return sourceDuration;
-}
-
-function segmentDuration(cut) {
-  return (cut.out - cut.in) / cutSpeed(cut);
-}
-
-function cutSpeed(cut) {
-  const value = cut?.speed;
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 1;
 }
 
 function isPositiveNumber(value) {
