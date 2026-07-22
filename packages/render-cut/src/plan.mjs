@@ -178,8 +178,9 @@ export function buildAudioMixCommand({
     ffprobeCommand,
   });
   const hasNarration = narrationTracks.length > 0;
+  const master = normalizeMasterPlan(edit.audio?.master);
 
-  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration) {
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
     return { operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration };
   }
 
@@ -249,13 +250,28 @@ export function buildAudioMixCommand({
   if (narrationLabel) labels.push(narrationLabel);
 
   filters.push(`${labels.join("")}amix=inputs=${labels.length}:duration=first:normalize=0[mixed]`);
+
+  // docs/contract-2026-07-22-render-basics.md #5: master processing (denoise / loudnorm) runs on
+  // the fully mixed bus, after bgm/sfx/narration/ducking are combined — it is a mastering step, not
+  // a per-track one. 1-pass loudnorm is accepted for v0 (contract explicitly allows it over 2-pass).
+  let finalLabel = "[mixed]";
+  if (master) {
+    if (master.denoise !== "off") {
+      const nr = master.denoise === "strong" ? 24 : 12;
+      filters.push(`${finalLabel}afftdn=nr=${nr}[master_dn]`);
+      finalLabel = "[master_dn]";
+    }
+    filters.push(`${finalLabel}loudnorm=I=${formatNumber(master.loudnormTarget)}:TP=-1.5:LRA=11[master_ln]`);
+    finalLabel = "[master_ln]";
+  }
+
   args.push(
     "-filter_complex",
     filters.join(";"),
     "-map",
     "0:v:0",
     "-map",
-    "[mixed]",
+    finalLabel,
     "-t",
     formatNumber(duration),
     "-c:v",
@@ -267,6 +283,18 @@ export function buildAudioMixCommand({
     outputPath,
   );
   return { operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration };
+}
+
+// docs/contract-2026-07-22-render-basics.md #5: denoise has an explicit off value; loudnorm does
+// not, so once the master object is present at all, loudness normalization is on by default at
+// -14 LUFS unless overridden (command-center judgment call, documented in edit.schema.json's
+// $defs/audioMaster $comment).
+function normalizeMasterPlan(master) {
+  if (!master || typeof master !== "object") return null;
+  const denoise = ["off", "std", "strong"].includes(master.denoise) ? master.denoise : "off";
+  const rawTarget = master.loudnorm;
+  const loudnormTarget = typeof rawTarget === "number" && Number.isFinite(rawTarget) ? rawTarget : -14;
+  return { denoise, loudnormTarget };
 }
 
 // docs/contract-2026-07-20-edit-json-v1-narration.md §4: resolve each narration element against the
