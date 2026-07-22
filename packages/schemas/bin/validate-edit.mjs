@@ -93,6 +93,29 @@ function validateEdit(value) {
   validateAudio(value.audio);
   validateLayers(value.layers);
   validateBeats(value.beats, value.version, value.sources);
+  validateDirection(value.direction);
+}
+
+// docs/contract-2026-07-23-edit-json-v1-direction.md §6。direction は演出宣言の器であり
+// 素材参照を持たないため、ファイルシステムも sources[] も見ない（preset は識別子でありパスではない）。
+// overrides は語彙が本契約で未定義のため object であることだけを検証する（同 §6）。
+function validateDirection(value) {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    fail("direction は object である必要があります");
+    return;
+  }
+  if (!isNonEmptyString(value.preset)) {
+    fail("direction.preset は空でない文字列である必要があります");
+  }
+  if (hasOwn(value, "intensity")) {
+    if (!Number.isInteger(value.intensity) || value.intensity < 0 || value.intensity > 100) {
+      fail("direction.intensity は 0 から 100 の範囲の整数である必要があります");
+    }
+  }
+  if (hasOwn(value, "overrides") && !isPlainObject(value.overrides)) {
+    fail("direction.overrides は object である必要があります");
+  }
 }
 
 // docs/contract-2026-07-22-edit-json-v1-beats.md §7。id の一意性と src の参照整合は

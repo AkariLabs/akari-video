@@ -545,6 +545,87 @@ test("beats[].t is not compared against the source duration (source-seconds anch
   });
 });
 
+test("direction (演出宣言): preset + intensity 70 + empty overrides pass with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "direction-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("direction: preset only (intensity / overrides omitted) passes", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "direction-preset-only");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+for (const [fixture, expectedCheck] of [
+  ["direction-missing-preset", "direction.preset"],
+  ["direction-intensity-out-of-range", "direction.intensity"],
+  ["direction-intensity-negative", "direction.intensity"],
+  ["direction-intensity-not-integer", "direction.intensity"],
+  ["direction-overrides-array", "direction.overrides"],
+]) {
+  test(`${fixture} fails with ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "fail");
+      assert.ok(
+        result.findings.some(
+          (finding) => finding.check === expectedCheck && finding.severity === "error",
+        ),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+test("direction が object でない場合は direction.structure エラーになる", async () => {
+  await withFixtures(async (fixtures) => {
+    // docs/contract-2026-07-23-edit-json-v1-direction.md §1: direction は配列ではなく
+    // オブジェクト（宣言はファイルに 1 つ）。配列で書かれた宣言は静的検証でエラーにする。
+    const project = join(fixtures, "direction-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.direction = [{ preset: "youtube-long-standard" }];
+    await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "direction.structure" && finding.severity === "error",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("direction の不在はエラーにしない（既存 fixture の非退行）", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.every((finding) => !finding.check.startsWith("direction.")),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.master pass with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "render-basics-valid");

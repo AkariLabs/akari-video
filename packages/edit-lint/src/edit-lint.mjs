@@ -191,6 +191,7 @@ export async function lintProject(input, options = {}) {
   await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
   validateBeats(edit.beats, edit.version, structure.sourceIds, findings);
+  validateDirection(edit.direction, findings);
 
   if (captionsState.value !== undefined) {
     validateCaptions(
@@ -1014,6 +1015,58 @@ function validateBeats(beats, version, sourceIds, findings) {
         });
       }
     }
+  }
+}
+
+// docs/contract-2026-07-23-edit-json-v1-direction.md §6: direction（演出宣言）の構造検証は
+// validate-edit.mjs と同一のルールを手書きで写す流儀（edit-lint は依存ゼロのため他パッケージの
+// バリデータを import しない）。direction は配列ではなくオブジェクト = 宣言はファイルに 1 つ（同 §1）。
+// preset の値が実在するプリセットかは検証しない（enum 強制をしないため・同 §6）。
+// overrides は語彙が未定義のため object であることだけを見る。
+// direction フィールドの不在はエラーにしない（同 §5 の劣化規約）。
+function validateDirection(direction, findings) {
+  if (direction === undefined) return;
+  if (!isRecord(direction)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "direction.structure",
+      message: "direction must be an object",
+      path: "edit.json#direction",
+    });
+    return;
+  }
+
+  if (!isNonEmptyString(direction.preset)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "direction.preset",
+      message: "preset must be a non-empty string",
+      path: "edit.json#direction",
+    });
+  }
+
+  if (Object.hasOwn(direction, "intensity")) {
+    if (
+      !Number.isInteger(direction.intensity) ||
+      direction.intensity < 0 ||
+      direction.intensity > 100
+    ) {
+      addFinding(findings, {
+        severity: "error",
+        check: "direction.intensity",
+        message: "intensity must be an integer within [0, 100]",
+        path: "edit.json#direction",
+      });
+    }
+  }
+
+  if (Object.hasOwn(direction, "overrides") && !isRecord(direction.overrides)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "direction.overrides",
+      message: "overrides must be an object",
+      path: "edit.json#direction",
+    });
   }
 }
 
