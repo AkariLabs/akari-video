@@ -3,7 +3,7 @@ import { FrontendApplicationContribution, OpenHandler, WebSocketConnectionProvid
 import { AkariPreviewService, AKARI_PREVIEW_SERVICE_PATH } from '../common/akari-preview-protocol';
 import { AkariAudioOpenHandler } from './akari-audio-open-handler';
 import { AkariImageOpenHandler } from './akari-image-open-handler';
-import { AkariPreviewOpenHandler } from './akari-preview-open-handler';
+import { AkariOutputPreviewOpenHandler, AkariPreviewOpenHandler } from './akari-preview-open-handler';
 
 export default new ContainerModule(bind => {
     bind(AkariPreviewService).toDynamicValue(context =>
@@ -12,6 +12,8 @@ export default new ContainerModule(bind => {
 
     bind(AkariPreviewOpenHandler).toSelf().inSingletonScope();
     bind(OpenHandler).toService(AkariPreviewOpenHandler);
+    bind(AkariOutputPreviewOpenHandler).toSelf().inSingletonScope();
+    bind(OpenHandler).toService(AkariOutputPreviewOpenHandler);
     bind(AkariAudioOpenHandler).toSelf().inSingletonScope();
     bind(OpenHandler).toService(AkariAudioOpenHandler);
     bind(AkariImageOpenHandler).toSelf().inSingletonScope();

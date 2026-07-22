@@ -28,8 +28,8 @@ import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
 import { TimelineSelectionModel } from './timeline-selection-model';
 
-const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
+const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const HISTORY_LIMIT = 50;
 const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
@@ -74,6 +74,8 @@ interface OutputSegment {
     src?: string;
     in: number;
     out: number;
+    speed: number;
+    transitionOut?: { type: string; duration: number };
     tlStart: number;
     tlEnd: number;
 }
@@ -806,10 +808,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (notifyPreview && (previous?.kind === 'overlay' || selection?.kind === 'overlay')) {
             window.dispatchEvent(new CustomEvent(TIMELINE_OVERLAY_SELECTED_EVENT, {
                 detail: {
-                    videoUri: this.location?.videoUri ?? '',
+                    editUri: this.location?.editUri?.toString() ?? '',
                     overlayId: selection?.kind === 'overlay' ? selection.id : null
                 }
             }));
+        }
+        // クリップは同じクリック内の requestSeek が open+seek を直列化する。
+        // レイヤー/オーディオはシークを伴わないため reveal コマンドで出力プレビューを開く。
+        if (selection?.kind === 'layer' || selection?.kind === 'audio') {
+            this.revealOutputPreview();
         }
         if (selection) {
             void this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
@@ -834,8 +841,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    handleOverlaySelection(videoUri: string, overlayId: string | null): void {
-        if (!this.canHandlePlaybackTick(videoUri)) {
+    handleOverlaySelection(editUri: string, overlayId: string | null): void {
+        if (!this.canHandlePlaybackTick(editUri)) {
             return;
         }
         if (overlayId === null) {
@@ -1145,11 +1152,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected rebuildSegments(): void {
         let cursor = 0;
         this.segments = this.cuts.map((cut, index) => {
-            const duration = Math.max(0, cut.out - cut.in);
+            const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
+            const duration = Math.max(0, cut.out - cut.in) / speed;
             const segment: OutputSegment = {
-                index, src: cut.src, in: cut.in, out: cut.out, tlStart: cursor, tlEnd: cursor + duration
+                index, src: cut.src, in: cut.in, out: cut.out, speed,
+                transitionOut: cut.transitionOut, tlStart: cursor, tlEnd: cursor + duration
             };
             cursor += duration;
+            if (cut.transitionOut && index < this.cuts.length - 1) {
+                cursor -= cut.transitionOut.duration;
+            }
             return segment;
         });
     }
@@ -1211,7 +1223,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         let best: { segment: OutputSegment; distance: number } | undefined;
         for (const segment of this.segments) {
             if (t >= segment.in && t <= segment.out) {
-                return segment.tlStart + (t - segment.in);
+                return segment.tlStart + (t - segment.in) / segment.speed;
             }
             const distance = t < segment.in ? segment.in - t : t - segment.out;
             if (!best || distance < best.distance) {
@@ -1220,7 +1232,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const segment = best!.segment;
         const clamped = Math.min(segment.out, Math.max(segment.in, t));
-        return segment.tlStart + (clamped - segment.in);
+        return segment.tlStart + (clamped - segment.in) / segment.speed;
     }
 
     /** 出力秒 → source 秒。cuts が無ければ恒等写像（後方互換）。 */
@@ -1230,7 +1242,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         for (const segment of this.segments) {
             if (t >= segment.tlStart && t <= segment.tlEnd) {
-                return segment.in + (t - segment.tlStart);
+                return segment.in + (t - segment.tlStart) * segment.speed;
             }
         }
         const last = this.segments[this.segments.length - 1];
@@ -1258,8 +1270,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const overlapEnd = Math.min(end, segment.out);
             if (overlapEnd > overlapStart) {
                 ranges.push([
-                    segment.tlStart + (overlapStart - segment.in),
-                    segment.tlStart + (overlapEnd - segment.in)
+                    segment.tlStart + (overlapStart - segment.in) / segment.speed,
+                    segment.tlStart + (overlapEnd - segment.in) / segment.speed
                 ]);
             }
         }
@@ -1657,7 +1669,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected dispatchPreviewEvent(type: string, detail: Record<string, unknown>): void {
         window.dispatchEvent(new CustomEvent(type, {
-            detail: { videoUri: this.location?.videoUri ?? '', ...detail }
+            detail: { editUri: this.location?.editUri?.toString() ?? '', ...detail }
         }));
     }
 
@@ -2028,9 +2040,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const newDuration = Math.max(0, output - input);
             if (segment) {
                 if (state.edge === 'left') {
-                    this.setGhostRange(state.ghost, segment.tlEnd - newDuration, segment.tlEnd);
+                    this.setGhostRange(state.ghost, segment.tlEnd - newDuration / segment.speed, segment.tlEnd);
                 } else {
-                    this.setGhostRange(state.ghost, segment.tlStart, segment.tlStart + newDuration);
+                    this.setGhostRange(state.ghost, segment.tlStart, segment.tlStart + newDuration / segment.speed);
                 }
             } else {
                 this.setGhostRange(state.ghost, input, output);
@@ -2850,11 +2862,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.panViewBy(horizontalDelta / rect.width * this.visibleDuration());
     }
 
-    canHandlePlaybackTick(videoUri: string | undefined): boolean {
-        if (!this.isAttached || !this.location?.videoUri || !videoUri) {
+    canHandlePlaybackTick(editUri: string | undefined): boolean {
+        if (!this.isAttached || !this.location?.editUri || !editUri) {
             return false;
         }
-        return this.normalizeUri(this.location.videoUri) === this.normalizeUri(videoUri);
+        return this.normalizeUri(this.location.editUri.toString()) === this.normalizeUri(editUri);
     }
 
     handlePlaybackTick(request: PreviewPlaybackTick): void {
@@ -2884,29 +2896,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 未登録（プレビュー未実装・別画面）でも壊れないよう黙って無視する。
      */
     protected revealOutputPreview(): void {
-        if (!this.location?.videoUri) {
+        if (!this.location?.editUri) {
             return;
         }
-        void this.commands.executeCommand(ENSURE_PREVIEW_VISIBLE_COMMAND_ID, { videoUri: this.location.videoUri })
+        void this.commands.executeCommand(ENSURE_PREVIEW_VISIBLE_COMMAND_ID, { editUri: this.location.editUri.toString() })
             .catch(() => undefined);
     }
 
     protected async requestSeek(time: number): Promise<void> {
-        this.revealOutputPreview();
-        if (!this.location?.videoUri) {
-            this.footer.textContent = `${this.formatTimestamp(time)} を選択しました。動画に結び付く文字起こしが見つかりません。`;
+        if (!this.location?.editUri) {
+            this.footer.textContent = `${this.formatTimestamp(time)} を選択しました。edit.json が見つかりません。`;
             return;
         }
-        const result = await this.commands.executeCommand<'seeked' | 'mismatched-asset' | 'no-preview'>(
-            TRANSCRIPT_SEEK_COMMAND_ID,
-            { videoUri: this.location.videoUri, time, captionId: '' }
+        const result = await this.commands.executeCommand<'seeked' | 'mismatched-asset'>(
+            SEEK_OUTPUT_PREVIEW_COMMAND_ID,
+            { editUri: this.location.editUri.toString(), time: this.sourceToOutput(time) }
         );
         const timestamp = this.formatTimestamp(time);
         this.footer.textContent = result === 'seeked'
             ? `${timestamp} にプレビューをシークしました。`
-            : result === 'mismatched-asset'
-                ? `${timestamp} を選択しました。別の素材のプレビューが開いています。`
-                : `${timestamp} を選択しました。プレビューを開くとここからジャンプできます。`;
+            : `${timestamp} を選択しました。出力プレビューを開けませんでした。`;
     }
 
     protected openAnnotationPopup(event: MouseEvent): void {

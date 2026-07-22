@@ -2,6 +2,11 @@ export interface EditCut {
     in: number;
     out: number;
     src?: string;
+    speed?: number;
+    transitionOut?: {
+        type: 'dissolve' | 'fade-black' | 'fade-white';
+        duration: number;
+    };
 }
 
 export interface EditBeat {
@@ -415,14 +420,40 @@ export function parseEdit(source: string): {
         && value.source !== null && typeof value.source === 'object';
     if (Array.isArray(value.cuts)) {
         for (let index = 0; index < value.cuts.length; index++) {
-            const input = value.cuts[index]?.in;
-            const output = value.cuts[index]?.out;
+            const rawCut = value.cuts[index];
+            const input = rawCut?.in;
+            const output = rawCut?.out;
             if (typeof input === 'number' && Number.isFinite(input)
                 && typeof output === 'number' && Number.isFinite(output) && input < output) {
+                let speed: number | undefined;
+                if (rawCut.speed !== undefined) {
+                    if (typeof rawCut.speed === 'number' && Number.isFinite(rawCut.speed) && rawCut.speed > 0) {
+                        speed = rawCut.speed;
+                    } else {
+                        warnings.push(`${index + 1} 番目のクリップの speed が不正なため 1 として扱います。`);
+                    }
+                }
+                let transitionOut: EditCut['transitionOut'];
+                if (rawCut.transition_out !== undefined && rawCut.transition_out !== null) {
+                    const transition = rawCut.transition_out;
+                    const validType = transition?.type === 'dissolve'
+                        || transition?.type === 'fade-black'
+                        || transition?.type === 'fade-white';
+                    const validDuration = typeof transition?.duration === 'number'
+                        && Number.isFinite(transition.duration) && transition.duration > 0;
+                    if (transition && typeof transition === 'object' && !Array.isArray(transition)
+                        && validType && validDuration) {
+                        transitionOut = { type: transition.type, duration: transition.duration };
+                    } else {
+                        warnings.push(`${index + 1} 番目のクリップの transition_out が不正なため無視します。`);
+                    }
+                }
                 cuts.push({
                     in: input,
                     out: output,
-                    ...(typeof value.cuts[index]?.src === 'string' ? { src: value.cuts[index].src } : {})
+                    ...(typeof rawCut.src === 'string' ? { src: rawCut.src } : {}),
+                    ...(speed !== undefined ? { speed } : {}),
+                    ...(transitionOut ? { transitionOut } : {})
                 });
             } else {
                 warnings.push(`${index + 1} 番目のクリップは時刻が不正なため表示しません。`);
