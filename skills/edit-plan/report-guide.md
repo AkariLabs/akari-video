@@ -1,121 +1,62 @@
-# 編集判断レポート
+# 編集判断 — 分析レポートを読み、方針をチャットで決める
+
+> **2026-07-22 改訂（縮退）**: 本スキルが固定 6 章の編集判断レポート（`editing-report.html` +
+> 決定カード）を自ら生成する役割は退いた。オーナー口述 F48 第 20 巡「正式なレポート文書として
+> 残るのは分析レポートのみ。方向性の引き出しは完全にチャットへ」の帰結であり、事実 + 素材の
+> 読みは [analyze-project](../analyze-project/SKILL.md) の分析レポート（読み取り専用・
+> 決定 UI なし）が担う。edit-plan はその分析レポートを一次証拠として読み、方針・素材計画・
+> 実行の各判断をチャットで提示して人間の明示承認を得る側になった。
+>
+> 変わらないもの: **decision_log の記録慣行**（[decision_log](#decision_log) 節。置き場所だけ
+> `decision-log.md` という独立ファイルへ変更）、**カット判断一覧・素材計画の三択という実務手順**
+> （[カット判断一覧](#カット判断一覧)・[素材計画](#素材計画)節）、**3 段階チェックポイント**
+> （[approvals-and-generation.md](approvals-and-generation.md)）。変わったのは「これらを 1 つの
+> HTML レポートへ焼き込むか、チャットで提示するか」という提示形式だけであり、記録義務・
+> 根拠提示・承認ゲートの厳格さは緩めていない。
 
 ## 目次
 
-- [原則 — 読む文書から意思決定フォームへ](#原則--読む文書から意思決定フォームへ)
-- [テンプレートと安全性](#テンプレートと安全性)
-- [必須 4 カード](#必須-4-カードid-固定)
-- [カードの data 属性](#カードの-data-属性)
-- [decisions.json 雛形](#decisionsjson-雛形)
-- [おまかせと要約ビュー](#おまかせと要約ビュー)
-- [固定 6 章 — カードが載る証拠の土台](#固定-6-章--カードが載る証拠の土台)
-- [三択の素材計画](#5-素材計画)
-- [追記専用ログ](#6-decision_log)
+- [分析レポートを読む](#分析レポートを読む)
+- [方針をチャットで決める](#方針をチャットで決める)
+- [サムネイル案](#サムネイル案)
+- [カット判断一覧](#カット判断一覧)
+- [素材計画](#素材計画)
+- [decision_log](#decision_log)
+- [汎用カード機構（他スキルが参照する仕様）](#汎用カード機構他スキルが参照する仕様)
+- [自己完結 HTML を作る場合の安全性](#自己完結-html-を作る場合の安全性)
+- [よくある間違い](#よくある間違い)
 
-## 原則 — 読む文書から意思決定フォームへ
+## 分析レポートを読む
 
-[report-template.html](../../packages/decision-cards/report-template.html) を複製し、判断、根拠、代替案、承認状態を 1 枚で追跡できるようにする。従来は「読む文書」だったが、v0 からはレポートを **決定カードの積み重ね**として扱う。1 カード = 1 決定（質問 + 視覚的な選択肢 + **AI 推奨が既定で選択済み**）。根拠・証拠は `<details>` の折りたたみへ退避し、回答は自然言語の往復ではなく構造化データ（`decisions.json`）としてエージェントへ返す。
+[analyze-project](../analyze-project/SKILL.md) が作る `analysis-report.html`
+（`interpretation.json` + 各素材の `analysis.json` から生成される読み取り専用レポート）を
+一次証拠として読む。レポートが無い、または対象素材が反映されていない場合は、先に
+analyze-project を実行するよう促す（analyze-project 自身は edit-plan の一部ではないため、
+別スキルとして呼び出す）。
 
-ただしカード化は**提示形式と回答チャネルの改訂であり、記録義務の緩和ではない**。固定 6 章・`decision_log`・3 段階チェックポイントはすべて残す。カードは 6 章が並べる証拠の上に載る意思決定サーフェスであって、6 章を置き換えない。レポートは見栄えだけの成果物ではなく、実行前の監査記録である。
+分析レポートが持つもの（事実 + 素材の読み + 客観的関係 + 取材台帳 + 来歴）はそのまま証拠として
+引用してよい。分析レポートに**構成案（arc）は表示されない**（`interpretation.json` の
+データとしては存在するが、対話フェーズでの提案の種として意図的に非表示 — analyze-project の
+設計）。編集方針・構成の組み立ては、この節以降で edit-plan がチャット上で行う。
 
-カードに載せるのは**決定レベル**の判断だけにする。「レポート = 決定レベル / アプリ = セグメント単位の操作」の線引き（[notes-2026-07-14](../../docs/notes-2026-07-14-captions-and-cut-editing.md) 追記部）は不変で、word 単位のカット採否や字幕セグメントの一覧はアプリ（ビューワー）側の領分であり、カードにもレポート本文にも出さない。
+## 方針をチャットで決める
 
-## テンプレートと安全性
+方針（サムネイル案・カット強度・字幕方針・章立て採否・オープニングフック）は、分析レポートの
+根拠を踏まえて **推奨案 + 代替案 + 各案の利点/欠点/失うもの + 推奨理由** をチャットで提示し、
+人間の明示回答を得る。「どうしますか」と選択を丸投げする聞き方はしない（推奨を示した上で
+承認・修正・却下を求める）。
 
-- CSS、画像、根拠 transcript を HTML 内へ入れ、外部 CSS、font、script、remote image を参照しない。
-- 実フレームと生成画像は `data:image/...;base64,...` として埋め、意味のある `alt` を付ける。
-- transcript、所見、タイトル、prompt、path、decision をテキストと属性の文脈に合わせてエスケープする。未検証 HTML、`javascript:` URL、event handler を挿入しない。
-- 根拠リンクは同じ HTML 内の anchor へ向ける。リンク先に素材 ID、source 時刻、引用または視認所見を置く。
-- 状態を色だけで表現せず、`未承認`、`承認`、`却下` を文字で表示する。
-- テンプレート内の例示行や placeholder は実データと誤認されないよう削除または `未設定` と明記する。
+カードに載せていた**決定レベル / 操作レベルの線引きは変えない**: word 単位のカット採否や
+字幕セグメントの一覧はチャットにもレポートにも出さない。それらはアプリ（ビューワー）側の
+領分であり、この線引きは
+[notes-2026-07-14](../../docs/notes-2026-07-14-captions-and-cut-editing.md) 追記部の不変条項。
 
-## 必須 4 カード（id 固定）
+チャットでの提示 → 回答は [approvals-and-generation.md](approvals-and-generation.md) の
+Checkpoint 1（方針）として運用し、確定内容を `decision-log.md`（[decision_log](#decision_log) 節の慣行）へ追記する。
 
-第 1 弾は次の 4 カードを必ず置く。カードの `data-card` は decisions.json の `decisions[].id` と一致させる（`thumbnail` / `cut-policy` / `captions-policy` / `structure`）。各カードは選択肢に `data-default="true"` を**ちょうど 1 個**持ち、その値が雛形 `answer` の既定値（= AI 推奨）になる。`answer` の形はレポート生成スキルが宣言する（HTML と decisions 雛形が SSOT）。以下は初期形。
+## サムネイル案
 
-### `thumbnail`
-
-3 経路（実フレーム / Codex 生成 / 混成）の候補画像を `data-option` の選択肢として並べ、AI 推奨の 1 枚に `data-default="true"` を付ける。**3 経路比較・provenance・未実施/利用不能の区別の規定は、下の「1. サムネイル案」の内容をこのカードの中に載せ替えて温存する**（比較欄・provenance・未実施/利用不能の 1 行置換はカードの `<details>` 側に残す）。
-
-- `answer` の形（初期形）: `{ "choice": "<選んだ候補画像の相対パス>", "requestMore": false, "note": null }`
-- 「別案を要求」用に `requestMore`（bool）を持つ。既定は `false`。
-
-### `cut-policy`
-
-- カット強度: `aggressive` / `standard` / `conservative`（`data-option`。`data-default` は 1 個）
-- フィラー除去: `strong` / `standard` / `off`（`data-option` または `data-check`）
-- 目標尺: 任意（`data-note` に秒数。無指定なら `null`）
-- `answer` の形（初期形）: `{ "intensity": "standard", "fillerRemoval": "standard", "targetDuration": null }`
-- カット判断の根拠（keep/drop の event 参照）は「4. カット判断一覧」に残し、このカードには方針だけを載せる。
-
-### `captions-policy`
-
-- 字幕範囲: `full` / `selective` / `none`（`data-option`。`selective` = 重要箇所のみ）
-- スタイル: 配置・行数・1 行文字数・地と文字色などのツマミ（`data-note` / `data-check`。telop.md の字幕原則に従う）
-- カラオケ採否: **既定 OFF**（`data-check`。既定は未選択）
-- `answer` の形（初期形）: `{ "coverage": "full", "styleKnobs": {}, "karaoke": false }`
-- 「5. 素材計画」の字幕枠の方針規定（付ける/付けない・カットとの従属関係・分割規則・修正運用）はこのカードに載せ替えて温存する。セグメント単位の内容一覧はレポートに載せず、アプリの字幕リストで確認・修正する。
-
-### `structure`
-
-- 章立ての採否: 各章を `data-check` のチェックで採否（章 id は分析サマリ / event の chapter に対応）
-- オープニングフックの選択: `data-option`（採らない場合は `null`）
-- `answer` の形（初期形）: `{ "chapters": [{ "id": "<章 id>", "adopt": true }], "openingHook": "<key>" | null }`
-
-## カードの data 属性
-
-カードの DOM は [report-template.html](../../packages/decision-cards/report-template.html)（並行タスクが改訂中）に従う。ランタイム（v0 はヘルパーが注入する JS、後段は companion 拡張の webview）が次の data 属性だけを解釈して UI 化する。カード種別のハードコードはしない。**この表が正**（設計契約 §2 と同一）:
-
-| 属性 | 置く要素 | 意味 |
-|---|---|---|
-| `data-card="<id>"` | カードコンテナ | 1 決定。id は decisions[].id と一致 |
-| `data-question="<文>"` | カードコンテナ | 質問文（要約画面で使う） |
-| `data-option="<key>"` | 選択肢要素 | 単選の選択肢 |
-| `data-default="true"` | 選択肢要素 | AI 推奨（初期選択）。カード内に必ず 1 個 |
-| `data-check="<key>"` | チェック要素 | 追加の複数選択（任意） |
-| `data-note` | textarea 等 | 自由記入（任意） |
-| `data-action="accept-all"` | ボタン | 全カード既定値のまま要約画面へ |
-| `data-action="commit"` | ボタン | 確定 → completedAt 記入 |
-| `data-view="summary"` | コンテナ | 確定内容の要約画面 |
-
-- 上記以外の見た目・構成は自由 HTML。エンジンが解釈するのは data 属性だけ（受け口は広いが、エンジンは data 属性の解釈だけ）。
-- **根拠・証拠・詳細は `<details>` の折りたたみに置く**。カード表面には質問と選択肢だけを残し、transcript 抜粋・根拠フレーム・provenance など長い証拠は畳んで、意思決定の視認性を守る。
-
-## decisions.json 雛形
-
-レポート生成時に、レポートと対になる `<レポートパス>.decisions.json` の雛形を**併せて書く**（例: `reports/2026-07-15-edit-plan.html.decisions.json`）。雛形は全カードの `answer` に **AI 推奨の既定値**を入れ、`byDefault: true` / `answeredAt: null`、トップレベルの `completedAt: null` とする。これで「おまかせ = 既定値のまま確定」が自然に成立し、エージェント側の完了検知は `completedAt` の一点で済む。スキーマ（設計契約 §1 と同一）:
-
-```jsonc
-{
-  "version": 0,
-  "report": "<レポートへの相対パス>",
-  "createdAt": "<ISO8601>",
-  "completedAt": null,
-  "decisions": [
-    { "id": "<data-card と一致>", "answer": { }, "byDefault": true, "answeredAt": null }
-  ]
-}
-```
-
-- `answer` の形はカード種別ごとに上の 4 カードで宣言したものを使う（HTML と decisions 雛形が SSOT）。
-- 人間の操作はヘルパーが `answer` / `byDefault: false` / `answeredAt` を更新する。雛形を上書きせず、ラウンドごとにレポート + decisions の組を増やす（Raw 追記主義と同型）。
-- decisions.json が無い・破損している場合もレポートは従来どおり「読む文書」として成立する（劣化経路は [approvals-and-generation.md](approvals-and-generation.md)）。
-
-## おまかせと要約ビュー
-
-- **「全部おまかせ」ボタン**（`data-action="accept-all"`）と**要約ビュー**（`data-view="summary"`）は必須。
-- おまかせでも**即開始は禁止**。**必ず要約 1 画面（全カードの質問と回答の一覧）を挟んでから確定**する。個別にカードを操作した場合も、最後は同じ要約 → `data-action="commit"` に合流する（経路は 2 本、出口は 1 つ）。
-- 確定（commit）でヘルパーが `completedAt` を記入する。エージェントは `completedAt` が入るまで編集実行に進まない（編集開始ゲート。[approvals-and-generation.md](approvals-and-generation.md) の Checkpoint 1）。
-
-## 固定 6 章 — カードが載る証拠の土台
-
-順序と意味を変えない。各章が空の場合も省略せず、理由を書く。カードは各章の決定を抽出した意思決定サーフェスであり、章本文は証拠と全記録を保持する。
-
-`<plan-dir>/plan.json`（仮枠タイムライン。[contract-2026-07-20-plan-json-v0.md](../../docs/contract-2026-07-20-plan-json-v0.md)）が存在する場合、2. 分析サマリ・4. カット判断一覧・5. 素材計画は構成・尺・位置つき指示の根拠として plan.json の slot id / constraint id を参照する。台本や構成ビートをレポート側で再フリーテキスト化しない（レポートと plan.json は同一プランの 2 レンダリング）。
-
-### 1. サムネイル案（`thumbnail` カードの本体）
-
-先頭に複数案とタイトル文字バリエーションを置き、各案に経路を表示する。この章は `thumbnail` カードの証拠本体であり、各経路の候補画像がカードの `data-option` 選択肢になる。
+3 経路（実フレーム / Codex 生成 / 混成）の候補画像を作り、チャットで比較提示する。
 
 - **経路 A**: 視認済み実フレーム + [thumbnail authoring](../overlay-authoring/thumbnail.md) に従う HTML 文字組。source と時刻を記す。
 - **経路 B**: Codex 画像生成。手、prompt、生成日時を記す。
@@ -125,30 +66,24 @@
 
 上位タスクの指示で経路 A/B/混成の一部にしかスコープが与えられていない場合は、**未実施**と**利用不能**を区別して記録する。「利用不能」は経路を試みたが実行できなかった場合に使い、「未実施（スコープ外）」は上位タスクの指示によって最初からその経路を対象外にした場合に使う。両者を区別しないと、後続工程が「生成を試みて失敗した」のか「そもそも指示されていない」のかを判別できない。
 
-対象外の経路は、見出しと比較欄自体は残したまま架空画像を置かず、`未実施（スコープ外: <上位タスクが指定した範囲の要約>）` の 1 行に置き換える。decision_log には `(thumbnail, route-a)` / `(thumbnail, route-b)` / `(thumbnail, route-mixed)` のうち対象外の経路をキーに、決定を `未実施（スコープ外）`、理由に上位タスクの指示文またはその要約を記録する。
+対象外の経路は、チャット提示でも比較の枠自体は残したまま架空画像を置かず、`未実施（スコープ外: <上位タスクが指定した範囲の要約>）` の 1 行に置き換える。`decision-log.md` には `(thumbnail, route-a)` / `(thumbnail, route-b)` / `(thumbnail, route-mixed)` のうち対象外の経路をキーに、決定を `未実施（スコープ外）`、理由に上位タスクの指示文またはその要約を記録する。
 
-画像生成の前には [approvals-and-generation.md](approvals-and-generation.md) の宣言を行う。サムネ用 HTML シートはレポート用であり、実行承認後の動画 overlay と混同しない。
+画像生成の前には [approvals-and-generation.md](approvals-and-generation.md) の宣言を行う。
 
-### 2. 分析サマリ
-
-素材ごとに要点、利用可能性、欠落、根拠をまとめる。視認済み keyframe を埋め、該当 transcript 抜粋と event を同一 HTML 内で参照できるようにする。文字起こし未取得を発話なしと書かない。素材ゼロの生成モードでは、リサーチ根拠と台本版を同じ位置に置く。長い証拠は `<details>` に畳んでよいが、削除はしない。
-
-### 3. 編集方針（`cut-policy` / `structure` カードの根拠）
-
-推奨する方向性、対象視聴者、構成、テンポ、トーンと、その理由を書く。両立しない案がある場合は、各案の利点、欠点、失うものを併記し、推奨理由を明示する。章立て・オープニングフックは `structure` カードの、テンポ・カット強度は `cut-policy` カードの根拠になる。出力比率や配信先に依存するセーフゾーン数値は、プラットフォーム公式の一次資料を引用できる場合だけ使い、それ以外は `要検証` とする。
-
-### 4. カット判断一覧（`cut-policy` カードの証拠）
+## カット判断一覧
 
 各行に素材 ID、source の `start/end`、`keep` または `drop`、根拠 event、根拠 anchor、理由を書く。keep range は source ごとに昇順・非重複にする。カット後 timeline 時刻と source 時刻を混ぜない。ここに並ぶのは決定レベルの keep/drop であり、word 単位の採否はアプリ側で操作する。
 
-### 5. 素材計画
+この一覧はチャットでの提示に使うと同時に、`edit.json.cuts` を組み立てる直接の一次証拠になる。`decision-log.md` の `cut` category にまとめて記録する（1 行 1 区間、または要約 + 詳細は生成物として別途保存してもよい）。
+
+## 素材計画
 
 全体枠とシーン枠を分ける。
 
 - **全体**: BGM、字幕（全文字幕の方針）。目的、入り・抜け、ライセンスまたは生成可否を扱う。
 - **シーン単位**: SFX、B ロール、テロップスタイル、特殊表現。対象 scene と時刻を付ける。
 
-**字幕枠は方針レベルだけを書く**（セグメント単位の内容一覧はレポートに載せない。確認・修正はアプリの字幕リストと contenteditable で行う）。字幕枠の方針は `captions-policy` カードの決定として提示する。字幕枠に書く決定事項:
+**字幕枠は方針レベルだけを扱う**（セグメント単位の内容一覧はチャットにもレポートにも載せない。確認・修正はアプリの字幕リストと contenteditable で行う）。字幕枠の方針としてチャットで提示・決定する事項:
 
 - 付ける / 付けない / 選択的（重要箇所のみ）の別と理由
 - スタイル（配置・行数・1 行文字数目安・地と文字色。telop.md の字幕原則に従う）
@@ -163,13 +98,17 @@
 2. **なければ生成**: prompt、生成する手、生成済み静止プレビュー、provenance を示す。動画 B ロールはまず静止画だけを作る。
 3. **使わない**: 無理に埋めず、非採用理由を示す。
 
-候補が見つからないことを「あれば提案」と記録しない。BGM、SFX、動画 B ロールは `edit.json v0` に専用フィールドがないため、計画上の採用と v0 への格納可否を分けて表示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
+候補が見つからないことを「あれば提案」と記録しない。BGM、SFX、動画 B ロールは `edit.json v0` に専用フィールドがないため、計画上の採用と v0 への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
 
-### 6. decision_log
+このチャット提示は Checkpoint 2（素材計画）として運用し（[approvals-and-generation.md](approvals-and-generation.md)）、確定内容を `decision-log.md` の `material` category に記録する。
+
+## decision_log
 
 `(category, subject)` を判断対象のキーとして、時刻順に追記する。各行に ISO 8601 日時、category、subject、決定、理由、決定者、関連 checkpoint を持たせる。同じキーの方針が変わっても過去行を直さず、新しい行を追加して以前の決定を参照する。
 
-次も決定として記録する。
+**置き場所**（2026-07-22 改訂）: 固定 6 章 HTML の 1 節として埋め込む運用は retired。プロジェクト直下の独立ファイル `decision-log.md` に追記する（[analyze-project の decision-record.md](../analyze-project/decision-record.md) と共有する単一 SSOT — analyze-project の 2 パス目判断・取材 Q&A と、edit-plan の承認・生成判断が同じファイルへ時系列に積み重なる）。フィールド構成・追記専用の規律はここで変えていない。
+
+次を決定として記録する。
 
 - 方針、素材計画、実行の承認・却下・修正要求
 - 生成手の選択と fallback
@@ -177,18 +116,75 @@
 - v0 単一 source への落とし方
 - overlay-authoring 不在時の CLAUDE.md fallback
 - 上位タスクの指示によるサムネ経路 A/B/混成の未実施（スコープ限定）
-- **カードの確定内容**（`completedAt` 記入後、`byDefault: false` になった = 人間が推奨から変えたカードの差分。おまかせ確定なら「全カード AI 推奨のまま確定」を 1 行）
+- チャットでの方針確定内容（推奨どおりか、修正が入ったか。差分を記録する）
+
+## 汎用カード機構（他スキルが参照する仕様）
+
+以下は選択肢式の質問対話に使う汎用カード機構の仕様である。**edit-plan は自身の方針決定に
+この機構を使わない**（方針はチャットで決める。上の各節を参照）。ただし
+[research-plan](../research-plan/SKILL.md) の候補選定カードや [plan-json.md](plan-json.md) の
+質問対話（素材ゼロからの企画起点フロー）はこの機構をそのまま使い続けるため、仕様は SSOT として
+維持する。
+
+### カードの data 属性
+
+カードの DOM は [report-template.html](../../packages/decision-cards/report-template.html) に従う。ランタイム（ヘルパーが注入する JS）が次の data 属性だけを解釈して UI 化する。カード種別のハードコードはしない。
+
+| 属性 | 置く要素 | 意味 |
+|---|---|---|
+| `data-card="<id>"` | カードコンテナ | 1 決定。id は decisions[].id と一致 |
+| `data-question="<文>"` | カードコンテナ | 質問文（要約画面で使う） |
+| `data-option="<key>"` | 選択肢要素 | 単選の選択肢 |
+| `data-default="true"` | 選択肢要素 | AI 推奨（初期選択）。カード内に必ず 1 個 |
+| `data-check="<key>"` | チェック要素 | 追加の複数選択（任意） |
+| `data-note` | textarea 等 | 自由記入（任意） |
+| `data-action="accept-all"` | ボタン | 全カード既定値のまま要約画面へ |
+| `data-action="commit"` | ボタン | 確定 → completedAt 記入 |
+| `data-view="summary"` | コンテナ | 確定内容の要約画面 |
+
+- 上記以外の見た目・構成は自由 HTML。エンジンが解釈するのは data 属性だけ。
+- 根拠・証拠・詳細は `<details>` の折りたたみに置く。カード表面には質問と選択肢だけを残す。
+
+### decisions.json 雛形
+
+カードを使うスキルは、レポートと対になる `<レポートパス>.decisions.json` の雛形を併せて書く。雛形は全カードの `answer` に AI 推奨の既定値を入れ、`byDefault: true` / `answeredAt: null`、トップレベルの `completedAt: null` とする。
+
+```jsonc
+{
+  "version": 0,
+  "report": "<レポートへの相対パス>",
+  "createdAt": "<ISO8601>",
+  "completedAt": null,
+  "decisions": [
+    { "id": "<data-card と一致>", "answer": { }, "byDefault": true, "answeredAt": null }
+  ]
+}
+```
+
+- `answer` の形はカード種別ごとに使用側スキルが宣言する（HTML と decisions 雛形が SSOT）。
+- 人間の操作はヘルパーが `answer` / `byDefault: false` / `answeredAt` を更新する。雛形を上書きせず、ラウンドごとにレポート + decisions の組を増やす。
+- decisions.json が無い・破損している場合、使用側スキルはチャットの明示承認で代替する。
+
+### おまかせと要約ビュー
+
+「全部おまかせ」ボタン（`data-action="accept-all"`）と要約ビュー（`data-view="summary"`）は必須。おまかせでも即開始は禁止。必ず要約 1 画面を挟んでから確定する。確定（commit）でヘルパーが `completedAt` を記入し、使用側スキルはそれをもって進行してよい。
+
+## 自己完結 HTML を作る場合の安全性
+
+edit-plan がサムネイル候補シートなど自己完結 HTML を作る場合は次を守る。
+
+- CSS、画像、根拠 transcript を HTML 内へ入れ、外部 CSS、font、script、remote image を参照しない。
+- 実フレームと生成画像は `data:image/...;base64,...` として埋め、意味のある `alt` を付ける。
+- transcript、所見、タイトル、prompt、path を文脈に合わせてエスケープする。未検証 HTML、`javascript:` URL、event handler を挿入しない。
+- 状態を色だけで表現せず、`未承認`、`承認`、`却下` を文字で表示する。
 
 ## よくある間違い
 
-- 6 見出しだけを置き、根拠リンク、画像、三択の結果、承認状態を入れない。
-- カードだけ置いて 6 章の証拠・decision_log を省く。カード化は記録義務の緩和ではない。
-- サムネイルを末尾へ回す、または案を 1 件だけにする。
+- analyze-project の分析レポートを読まずに方針を組み立てる（根拠のない推奨案を作る）。
 - ライブラリの実ヒットがないのにプレビューを捏造する。
 - 生成画像へ prompt は残すが、手や日時を残さない。
-- 最新判断で `decision_log` の過去行を上書きする。
-- remote image を貼り、自己完結レポートに見せる。
+- 最新判断で `decision-log.md` の過去行を上書きする。
+- remote image を貼り、自己完結成果物に見せる。
 - スコープ外で未実施の経路を「利用不能」と書き、試みて失敗したかのように見せる。
-- decisions.json の雛形を書かずレポートだけ出す、または `data-default` を 0 個 / 複数にする。
-- 「おまかせ」で要約ビューを飛ばして即編集開始する（要約 1 画面は必ず挟む）。
-- word 単位のカット採否や字幕セグメント一覧をカードに載せる（決定レベル/操作レベルの線引き違反）。
+- word 単位のカット採否や字幕セグメント一覧をチャットに載せる（決定レベル/操作レベルの線引き違反）。
+- 「どうしますか」と選択を丸投げし、推奨案・代替案・理由を示さない。
