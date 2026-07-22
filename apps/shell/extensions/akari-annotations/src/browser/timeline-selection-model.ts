@@ -30,10 +30,29 @@ export interface TimelineCaptionSelection {
     outputEnd: number | undefined;
 }
 
+export interface TimelineLayerSelection {
+    kind: 'layer';
+    id: string;
+    layerKind: 'baked' | 'video';
+    outputStart: number;
+    duration: number;
+}
+
+export interface TimelineAudioSelection {
+    kind: 'audio';
+    id: string;
+    audioKind: 'sfx' | 'bgm';
+    label: string;
+    outputStart: number;
+    duration: number;
+}
+
 export type TimelineSelectionSnapshot =
     | TimelineCutSelection
     | TimelineOverlaySelection
     | TimelineCaptionSelection
+    | TimelineLayerSelection
+    | TimelineAudioSelection
     | undefined;
 
 /**

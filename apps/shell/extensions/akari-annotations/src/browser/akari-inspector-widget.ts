@@ -5,7 +5,9 @@ import { TimelineSelectionModel } from './timeline-selection-model';
 const KIND_LABELS = {
     cut: 'クリップ',
     overlay: 'オーバーレイ',
-    caption: '字幕'
+    caption: '字幕',
+    layer: 'レイヤー',
+    audio: 'オーディオ'
 } as const;
 
 /**
@@ -25,7 +27,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected init(): void {
         this.id = AkariInspectorWidget.FACTORY_ID;
         this.title.label = 'インスペクター';
-        this.title.caption = '選択したクリップ・オーバーレイ・字幕の詳細（読み取り専用）';
+        this.title.caption = 'タイムラインで選択した項目の詳細（読み取り専用）';
         this.title.iconClass = 'codicon codicon-inspect';
         this.title.closable = true;
         this.node.classList.add('akari-inspector-widget');
@@ -79,7 +81,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (!snapshot) {
             const empty = document.createElement('div');
             empty.className = 'akari-inspector-empty';
-            empty.textContent = 'タイムラインでクリップを選択してください。';
+            empty.textContent = 'タイムラインで項目を選択してください。';
             this.body.appendChild(empty);
             return;
         }
@@ -98,6 +100,17 @@ export class AkariInspectorWidget extends BaseWidget {
             this.appendRow('尺', `${(snapshot.outputEnd - snapshot.outputStart).toFixed(2)} 秒`);
         } else if (snapshot.kind === 'overlay') {
             this.appendRow('ID', snapshot.id);
+            this.appendRow('出力位置', this.formatTimestamp(snapshot.outputStart));
+            this.appendRow('尺', `${snapshot.duration.toFixed(2)} 秒`);
+        } else if (snapshot.kind === 'layer') {
+            this.appendRow('ID', snapshot.id);
+            this.appendRow('種別', snapshot.layerKind);
+            this.appendRow('出力位置', this.formatTimestamp(snapshot.outputStart));
+            this.appendRow('尺', `${snapshot.duration.toFixed(2)} 秒`);
+        } else if (snapshot.kind === 'audio') {
+            this.appendRow('ID', snapshot.id);
+            this.appendRow('種別', snapshot.audioKind);
+            this.appendRow('素材', snapshot.label);
             this.appendRow('出力位置', this.formatTimestamp(snapshot.outputStart));
             this.appendRow('尺', `${snapshot.duration.toFixed(2)} 秒`);
         } else {
