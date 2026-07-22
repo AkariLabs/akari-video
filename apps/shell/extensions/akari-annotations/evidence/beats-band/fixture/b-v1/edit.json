@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "sources": [
+    { "id": "s1", "path": "source-1.mp4", "proxy": null },
+    { "id": "s2", "path": "source-2.mp4", "proxy": null }
+  ],
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "cuts": [
+    { "src": "s1", "in": 0, "out": 4 },
+    { "src": "s2", "in": 0, "out": 4 },
+    { "src": "s1", "in": 1, "out": 3 }
+  ],
+  "beats": [
+    { "id": "b-0101", "src": "s1", "t": 2, "kind": "punchline", "strength": 0.85, "basis": "同一区間の再利用" },
+    { "id": "b-0102", "src": "s2", "t": 2, "kind": "turn", "strength": 0.45 }
+  ]
+}
