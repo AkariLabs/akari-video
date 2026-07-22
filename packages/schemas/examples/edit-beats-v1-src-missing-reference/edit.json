@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "s1", "path": "intro.mp4", "proxy": null }
+  ],
+  "cuts": [
+    { "src": "s1", "in": 0.0, "out": 4.2 }
+  ],
+  "overlays": [],
+  "beats": [
+    { "id": "b-0001", "src": "s9", "t": 2.0, "kind": "hook", "strength": 0.9 }
+  ]
+}

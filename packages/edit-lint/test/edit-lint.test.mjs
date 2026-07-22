@@ -480,6 +480,71 @@ test("sfx t beyond the timeline duration warns without failing", async () => {
   });
 });
 
+test("beats (見せ場マーカー) v0: 3 items with mixed kinds and optional basis pass with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "beats-v0-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("beats v1: src present / omitted (single-source compatibility) both pass", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "beats-v1-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+for (const [fixture, expectedCheck] of [
+  ["beats-invalid-id", "beats.id"],
+  ["beats-duplicate-id", "beats.id"],
+  ["beats-strength-out-of-range", "beats.strength"],
+  ["beats-missing-kind", "beats.kind"],
+  ["beats-v1-src-missing-reference", "beats.src-reference"],
+  ["beats-v0-src-present", "beats.src"],
+]) {
+  test(`${fixture} fails with ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "fail");
+      assert.ok(
+        result.findings.some(
+          (finding) => finding.check === expectedCheck && finding.severity === "error",
+        ),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+test("beats[].t is not compared against the source duration (source-seconds anchor; no --media decode)", async () => {
+  await withFixtures(async (fixtures) => {
+    // beats-v0-valid の b-0002/b-0003 は timeline 尺（cuts 合計 20s）も analysis.json の
+    // source 実尺（60s）も超えない位置にあるが、beats は timeline 秒ではなく source 秒アンカー
+    // （contract-2026-07-22-edit-json-v1-beats.md §3）であるため、実尺を超える t でも
+    // findings を出さないことを確認する（同 §7 の将来課題）。
+    const project = join(fixtures, "beats-v0-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.beats[2].t = 9999;
+    await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
 test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.master pass with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "render-basics-valid");

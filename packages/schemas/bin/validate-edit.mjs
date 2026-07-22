@@ -92,6 +92,60 @@ function validateEdit(value) {
   validateCuts(value.cuts, value.version, value.sources);
   validateAudio(value.audio);
   validateLayers(value.layers);
+  validateBeats(value.beats, value.version, value.sources);
+}
+
+// docs/contract-2026-07-22-edit-json-v1-beats.md §7。id の一意性と src の参照整合は
+// 兄弟値の突き合わせが要るため JSON Schema では表現できず、ここで検証する（cuts[].src と同じ分担）。
+// beats[].t は source 秒アンカー（同 §3）であり、timeline 尺との突き合わせは行わない。
+function validateBeats(value, version, sources) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    fail("beats は配列である必要があります");
+    return;
+  }
+  const sourceIds = new Set(
+    Array.isArray(sources)
+      ? sources.filter(isPlainObject).map((source) => source.id).filter(isNonEmptyString)
+      : [],
+  );
+  const ids = new Set();
+  for (const [index, item] of value.entries()) {
+    const label = `beats[${index}]`;
+    if (!isPlainObject(item)) {
+      fail(`${label} は object である必要があります`);
+      continue;
+    }
+    if (typeof item.id !== "string" || !/^b-\d{4}$/.test(item.id)) {
+      fail(`${label}.id は b- に続く 4 桁の数字である必要があります`);
+    } else if (ids.has(item.id)) {
+      fail(`beats[].id が重複しています: ${item.id}`);
+    } else {
+      ids.add(item.id);
+    }
+    if (!isFiniteNumber(item.t) || item.t < 0) {
+      fail(`${label}.t は 0 以上の有限数である必要があります`);
+    }
+    if (!isNonEmptyString(item.kind)) {
+      fail(`${label}.kind は空でない文字列である必要があります`);
+    }
+    if (!isFiniteNumber(item.strength) || item.strength < 0 || item.strength > 1) {
+      fail(`${label}.strength は 0 から 1 の範囲の有限数である必要があります`);
+    }
+    if (hasOwn(item, "basis") && typeof item.basis !== "string") {
+      fail(`${label}.basis は文字列である必要があります`);
+    }
+    if (hasOwn(item, "src")) {
+      if (version === 0) {
+        fail(`${label}.src は version 0 では使用できません`);
+      } else {
+        validateNonEmptyString(item.src, `${label}.src`);
+        if (isNonEmptyString(item.src) && !sourceIds.has(item.src)) {
+          fail(`${label}.src が sources[].id を参照していません: ${item.src}`);
+        }
+      }
+    }
+  }
 }
 
 function validateLayers(value) {

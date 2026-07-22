@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "s1", "path": "intro.mp4", "proxy": null },
+    { "id": "s2", "path": "main.mov", "proxy": null }
+  ],
+  "cuts": [
+    { "src": "s1", "in": 0.0, "out": 4.2 },
+    { "src": "s2", "in": 12.0, "out": 45.5 }
+  ],
+  "overlays": [],
+  "beats": [
+    {
+      "id": "b-0001",
+      "src": "s1",
+      "t": 2.0,
+      "kind": "hook",
+      "strength": 1,
+      "basis": "掴みのカット冒頭"
+    },
+    {
+      "id": "b-0002",
+      "src": "s2",
+      "t": 42.0,
+      "kind": "reveal",
+      "strength": 0.8,
+      "basis": "音声エネルギーのピーク + 『登場』発話"
+    },
+    {
+      "id": "b-0003",
+      "t": 30.0,
+      "kind": "turn",
+      "strength": 0
+    }
+  ]
+}

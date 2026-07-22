@@ -201,3 +201,58 @@ test("layers[].blend must be a known ffmpeg blend mode", () => {
   assert.equal(executed.status, 1, executed.stdout);
   assert.match(executed.stderr, /layers\[0\]\.blend は .*のいずれかである必要があります/);
 });
+
+test("beats (見せ場マーカー) v0: 3 items with mixed kinds and optional basis pass", () => {
+  const executed = run("edit-beats-v0-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("beats v1: src present / omitted (single-source compatibility) both pass", () => {
+  const executed = run("edit-beats-v1-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("beats[].id must match b-#### pattern", () => {
+  const executed = run("edit-beats-invalid-id");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /beats\[0\]\.id は b- に続く 4 桁の数字である必要があります/);
+});
+
+test("beats[].id must be unique within the file", () => {
+  const executed = run("edit-beats-duplicate-id");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /beats\[\]\.id が重複しています: b-0001/);
+});
+
+test("beats[].strength must stay within [0, 1]", () => {
+  const executed = run("edit-beats-strength-out-of-range");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /beats\[0\]\.strength は 0 から 1 の範囲の有限数である必要があります/,
+  );
+  assert.match(
+    executed.stderr,
+    /beats\[1\]\.strength は 0 から 1 の範囲の有限数である必要があります/,
+  );
+});
+
+test("beats[].kind is required", () => {
+  const executed = run("edit-beats-missing-kind");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /beats\[0\]\.kind は空でない文字列である必要があります/);
+});
+
+test("beats[].src must reference sources[].id in v1", () => {
+  const executed = run("edit-beats-v1-src-missing-reference");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /beats\[0\]\.src が sources\[\]\.id を参照していません: s9/);
+});
+
+test("beats[].src is rejected in v0 (no sources[] to reference)", () => {
+  const executed = run("edit-beats-v0-src-present");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /beats\[0\]\.src は version 0 では使用できません/);
+});
