@@ -41,6 +41,34 @@
   最もタイトな shape の bbox 内か」を追加基準として全36件×4長=244ケースを再監査
   （244/244 PASS）。`robustness.test.mjs` もこの基準に更新済み
 
+## vendor への追記: GlyphStyle.dy のサイズ比例化（2026-07-22 dy-ratio-fix タスク）
+
+`ref3_particle_min`（助詞ミニマ字幕）のひらがな縦位置修正（`dy` 固定 23px）は、標準文では
+正しいが shrink-to-fit で `content.size` が縮む極端な長文（4倍長）では 23px が相対的に
+効きすぎ、ひらがなが本文より下にずれる副作用があった（司令塔裁定・要修正で GO）。
+`GlyphStyle.dy` を固定 px から `content.size` に対する比率で表現できるよう Value 化した:
+
+- `atf/types.ts`: `GlyphStyle.dy?: number` → `GlyphStyle.dy?: Value`。数値なら従来通り
+  固定 px（完全後方互換）。`{expr}` を渡すと、レイヤーの基準フォントサイズ
+  （`content.size`。このグリフ自身の classStyle/glyphStyle の `sizeScale` は含まない —
+  「content.size に対する比率」という裁定に合わせた基準点）を式スコープ変数 `size` として
+  参照できる。`{var: ...}`（テンプレ変数参照）は非対応（perChar 側にテンプレ変数の束縛を
+  引き回す設計が必要になるため見送り。必要になれば別途起票）
+- `render/perchar.ts`: `applyGlyphStyle` / `staticGlyphStyle` にレイヤーの `content.size`
+  を引き回すよう変更し、`dy` が `{expr}` のときは新設の `resolveGlyphDy()` で
+  `evalExprWithHas(expr, { size: baseContentSize }, ...)` により解決する。数値のときは
+  そのまま返すのみで既存パスに変更なし
+- `ref3_particle_min` の `hiragana.dy` を `23`（固定px）→ `{"expr": "size * 23 / 86"}`
+  （標準フォントサイズ 86px で測定した ascent 差 23px の比率）に変更
+- **後方互換の実測**: 標準文（shrink 未発動・scale=1.0）でのレンダリング結果が
+  変更前後で **renderFrame() の返す data URL が完全一致**（バイト単位で同一）することを
+  確認済み。`dy` を使う既存テンプレは 36 件中 `ref3_particle_min` のみ（他 35 件は
+  `dy` 未使用のため影響なし）
+- 4倍長（shrink-to-fit で `content.size` が大きく縮む極端ケース）で目視確認: 固定23pxでは
+  ひらがなが本文の下に沈んで見えたのに対し、比率化後は縮小後も本文と同じベースラインに
+  近い位置を保つ（`tasks/2026-07-22-dy-ratio-fix/out/{fixed-dy23_len4x,ratio-dy_len4x}.png`
+  参照）
+
 ## 判明した既存バグ（未修正・要相談）: `resolve.ts` の opacity 解決が truthy 判定になっている
 
 `packages/2026-07-22-particle-min-fix` タスク（プレート内含有監査の強化）で、レイヤーを
