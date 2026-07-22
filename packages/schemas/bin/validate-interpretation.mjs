@@ -77,16 +77,18 @@ function validateInterpretation(value) {
   }
   rejectUnknownFields(value, rootFields, "ルート");
 
-  validateInputs(value.inputs);
+  const analysisRefs = validateInputs(value.inputs);
   const assetRefs = validateAssets(value.assets);
+  validateAnalysesAssetCorrespondence(analysisRefs, assetRefs);
   validateArc(value.arc, assetRefs);
   validateOpenQuestions(value.open_questions);
 }
 
 function validateInputs(value) {
+  const analysisRefs = new Set();
   if (!isPlainObject(value)) {
     fail("inputs は object である必要があります");
-    return;
+    return analysisRefs;
   }
   const fields = ["analyses", "context"];
   if (!hasOwn(value, "analyses")) fail("inputs.analyses は必須です");
@@ -102,11 +104,20 @@ function validateInputs(value) {
           fail(`${label} は object である必要があります`);
           continue;
         }
-        const entryFields = ["path", "source"];
+        const entryFields = ["ref", "path", "source"];
         for (const field of entryFields) {
           if (!hasOwn(entry, field)) fail(`${label}.${field} は必須です`);
         }
         rejectUnknownFields(entry, entryFields, label);
+        if (hasOwn(entry, "ref")) {
+          if (!isNonEmptyString(entry.ref)) {
+            fail(`${label}.ref は空でない文字列である必要があります`);
+          } else if (analysisRefs.has(entry.ref)) {
+            fail(`inputs.analyses[].ref が重複しています: ${entry.ref}`);
+          } else {
+            analysisRefs.add(entry.ref);
+          }
+        }
         if (hasOwn(entry, "path")) validateNonEmptyString(entry.path, `${label}.path`);
         if (hasOwn(entry, "source")) validateNonEmptyString(entry.source, `${label}.source`);
       }
@@ -114,6 +125,23 @@ function validateInputs(value) {
   }
 
   if (hasOwn(value, "context")) validateContext(value.context);
+  return analysisRefs;
+}
+
+// inputs.analyses[].ref と assets[].ref は 1:1 対応（過不足・重複なし）でなければならない
+// （2026-07-22 A3.2 の swap 実証: 位置対応づけは無警告で入れ替わるため FK 化した）。
+// 重複自体は各バリデータ側で既に検出済みなので、ここでは集合として過不足のみを見る。
+function validateAnalysesAssetCorrespondence(analysisRefs, assetRefs) {
+  for (const ref of analysisRefs) {
+    if (!assetRefs.has(ref)) {
+      fail(`inputs.analyses[].ref が assets[].ref に存在しません: ${ref}`);
+    }
+  }
+  for (const ref of assetRefs) {
+    if (!analysisRefs.has(ref)) {
+      fail(`assets[].ref に対応する inputs.analyses[].ref がありません: ${ref}`);
+    }
+  }
 }
 
 function validateContext(value) {

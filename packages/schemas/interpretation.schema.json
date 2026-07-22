@@ -73,10 +73,16 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "ref",
         "path",
         "source"
       ],
       "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "参照する素材の assets[].ref への外部キー。assets[].ref と 1:1 対応する（過不足・重複なし）。renderer の --analysis <ref>=<path> 結合キーとしても使う。"
+        },
         "path": {
           "type": "string",
           "minLength": 1,
@@ -87,7 +93,8 @@
           "minLength": 1,
           "description": "素材の由来・生成条件の要約（analyze-footage 実行条件・素材の性質など）。"
         }
-      }
+      },
+      "$comment": "2026-07-22 A3.2 multiasset-dogfood の実証（--analysis の位置対応づけを入れ替えても無警告で assets[].ref と analysis.json の中身が入れ替わる silent data corruption を再現）を受けて ref を必須化（司令塔裁定）。validate-interpretation.mjs が assets[].ref との 1:1 対応（過不足・重複なし）を検証する。"
     },
     "context": {
       "type": "object",

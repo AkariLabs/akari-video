@@ -3,10 +3,12 @@
   "inputs": {
     "analyses": [
       {
+        "ref": "interview-a",
         "path": "materials/interview-a/analysis.json",
         "source": "analyze-footage v0 出力（インタビュー本編、単一話者）"
       },
       {
+        "ref": "broll-park",
         "path": "materials/broll-park/analysis.json",
         "source": "analyze-footage v0 出力（無音 B ロール、公園ドローン映像）"
       }
