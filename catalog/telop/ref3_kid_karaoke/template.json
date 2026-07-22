@@ -1,0 +1,349 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_kid_karaoke",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 8.8,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.28,
+    "outDur": 0.24,
+    "hold": "stretch",
+    "previewTotal": 9
+  },
+  "variables": [
+    {
+      "key": "lyrics",
+      "type": "text",
+      "label": "歌詞本文",
+      "default": "きらきらひかる おそらのほしよ"
+    },
+    {
+      "key": "furigana",
+      "type": "text",
+      "label": "ふりがな",
+      "default": "きらきらひかる おそらのほしよ"
+    },
+    {
+      "key": "lyricsSize",
+      "type": "number",
+      "label": "歌詞サイズ",
+      "default": 96
+    },
+    {
+      "key": "furiganaSize",
+      "type": "number",
+      "label": "ふりがなサイズ",
+      "default": 48
+    },
+    {
+      "key": "activeColor",
+      "type": "color",
+      "label": "点灯色",
+      "default": "#FFE600"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "縁取り色",
+      "default": "#FF8FAB"
+    },
+    {
+      "key": "strokeWeight",
+      "type": "number",
+      "label": "縁取り太さ",
+      "default": 8
+    },
+    {
+      "key": "barProgress",
+      "type": "number",
+      "label": "進行度",
+      "default": 0
+    },
+    {
+      "key": "barColor",
+      "type": "color",
+      "label": "バー色",
+      "default": "#FFE600"
+    },
+    {
+      "key": "barHeight",
+      "type": "number",
+      "label": "バー高さ",
+      "default": 12
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_kid_karaoke_furigana",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "furigana"
+        },
+        "size": {
+          "var": "furiganaSize"
+        },
+        "font": "'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "weight": 700,
+        "color": "rgba(255,255,255,0.92)",
+        "align": "center",
+        "letterSpacing": 2,
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 4
+          },
+          {
+            "color": "#FFFFFF",
+            "width": 1
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(255,143,171,0.34)",
+            "blur": 8,
+            "x": 0,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.67"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ],
+      "visibleIf": {
+        "expr": "has(furigana)"
+      }
+    },
+    {
+      "id": "ref3_kid_karaoke_lyrics",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "lyrics"
+        },
+        "size": {
+          "var": "lyricsSize"
+        },
+        "font": "'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "weight": 900,
+        "color": "#FFFFFF",
+        "align": "center",
+        "letterSpacing": 3,
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 8
+          },
+          {
+            "color": "#FFFFFF",
+            "width": 3
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(255,143,171,0.28)",
+            "blur": 12,
+            "x": 0,
+            "y": 4
+          },
+          {
+            "color": {
+              "var": "activeColor"
+            },
+            "blur": 18,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.76"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.4,
+        "order": "ltr",
+        "tracks": [],
+        "active": {
+          "color": "#FFE600",
+          "mode": "flash",
+          "times": [
+            0,
+            0.4,
+            0.8,
+            1.2,
+            1.6,
+            2,
+            2.4,
+            2.8,
+            3.2,
+            3.6,
+            4,
+            4.4,
+            4.8,
+            5.2,
+            5.6,
+            6,
+            6.4,
+            6.8,
+            7.2,
+            7.6
+          ]
+        }
+      }
+    },
+    {
+      "id": "ref3_kid_karaoke_bar",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "barColor"
+        },
+        "cornerRadius": 999
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(barProgress, 0, 100) / 100 * 1920"
+        },
+        "h": {
+          "var": "barHeight"
+        }
+      },
+      "transform": {
+        "x": 0,
+        "y": {
+          "expr": "@stage.height * 0.84"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        },
+        "opacity": 0.9
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

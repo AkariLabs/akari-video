@@ -1,0 +1,704 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_bubble_opinion",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.38,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "opinion",
+      "type": "text",
+      "label": "感想テキスト",
+      "default": "ふわっと香ばしい"
+    },
+    {
+      "key": "bubbleColor",
+      "type": "color",
+      "label": "吹き出し背景色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#3E2723"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント色",
+      "default": "#7A4A32"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 66
+    },
+    {
+      "key": "floatAmplitude",
+      "type": "number",
+      "label": "浮遊の大きさ",
+      "default": 5
+    },
+    {
+      "key": "floatSpeed",
+      "type": "number",
+      "label": "浮遊の速さ",
+      "default": 2.2
+    },
+    {
+      "key": "tailPosition",
+      "type": "number",
+      "label": "尻尾の位置",
+      "default": 0.3
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_bubble_opinion_shadow",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(62,39,35,0.18)",
+        "cornerRadius": 46,
+        "calloutTail": {
+          "side": "bottom",
+          "at": 0.3,
+          "w": 62,
+          "h": 38
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(@ref3_bubble_opinion_text.width + fontSize * 2.15, 520, 980)"
+        },
+        "h": {
+          "expr": "fontSize * 2.05"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width * 0.64 + 8"
+        },
+        "y": {
+          "expr": "@stage.height * 0.52 + 12"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.3,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.08
+            },
+            {
+              "t": 0.38,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 24,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 0.92
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_bubble_opinion_outline",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 50,
+        "calloutTail": {
+          "side": "bottom",
+          "at": 0.3,
+          "w": 68,
+          "h": 42
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(@ref3_bubble_opinion_text.width + fontSize * 2.28, 536, 996)"
+        },
+        "h": {
+          "expr": "fontSize * 2.18"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width * 0.64"
+        },
+        "y": {
+          "expr": "@stage.height * 0.52"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.3,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.08
+            },
+            {
+              "t": 0.38,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 24,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 0.92
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_bubble_opinion_bubble",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bubbleColor"
+        },
+        "cornerRadius": 44,
+        "calloutTail": {
+          "side": "bottom",
+          "at": 0.3,
+          "w": 54,
+          "h": 34
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(@ref3_bubble_opinion_text.width + fontSize * 2.05, 512, 960)"
+        },
+        "h": {
+          "expr": "fontSize * 1.95"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width * 0.64"
+        },
+        "y": {
+          "expr": "@stage.height * 0.52"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.3,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.08
+            },
+            {
+              "t": 0.38,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 24,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 0.92
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_bubble_opinion_accent_dot",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 18
+      },
+      "size": {
+        "w": {
+          "expr": "fontSize * 0.32"
+        },
+        "h": {
+          "expr": "fontSize * 0.32"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width * 0.64 - clamp(@ref3_bubble_opinion_text.width + fontSize * 2.05, 512, 960) / 2 + fontSize * 0.72"
+        },
+        "y": {
+          "expr": "@stage.height * 0.52 - fontSize * 0.55"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": 0.72
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.3,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.08
+            },
+            {
+              "t": 0.38,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 24,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 0.92
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_bubble_opinion_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "opinion"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Klee One', Klee, 'YuKyokasho', '游教科書体', 'UD デジタル 教科書体', cursive",
+        "weight": 600,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": "rgba(255,255,255,0.92)",
+            "width": 8
+          },
+          {
+            "color": "rgba(122,74,50,0.22)",
+            "width": 2
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(62,39,35,0.18)",
+            "blur": 8,
+            "x": 0,
+            "y": 3
+          },
+          {
+            "color": "rgba(255,255,255,0.75)",
+            "blur": 4,
+            "x": -1,
+            "y": -1
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width * 0.64"
+        },
+        "y": {
+          "expr": "@stage.height * 0.52 - 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "rotation": -1
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.3,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.08
+            },
+            {
+              "t": 0.38,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 24,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 0.92
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0,
+        "tracks": [],
+        "classStyles": {
+          "hiragana": {
+            "font": "'Klee One', Klee, 'YuKyokasho', '游教科書体', 'UD デジタル 教科書体', cursive"
+          },
+          "katakana": {
+            "font": "'Klee One', Klee, 'YuKyokasho', '游教科書体', 'UD デジタル 教科書体', cursive"
+          },
+          "kanji": {
+            "font": "'Klee One', Klee, 'YuKyokasho', '游教科書体', 'UD デジタル 教科書体', cursive"
+          },
+          "latin": {
+            "font": "'Klee One', Klee, 'Segoe Print', cursive"
+          },
+          "digit": {
+            "font": "'Klee One', Klee, 'Segoe Print', cursive"
+          },
+          "symbol": {
+            "font": "'Klee One', Klee, 'YuKyokasho', '游教科書体', 'UD デジタル 教科書体', cursive"
+          }
+        },
+        "loop": {
+          "float": {
+            "amp": 5,
+            "periodSec": 2.2,
+            "phaseByIndex": 0.34
+          }
+        }
+      }
+    }
+  ]
+}

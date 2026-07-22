@@ -1,0 +1,148 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tv_gothic",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0,
+    "outDur": 0,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "caption",
+      "type": "text",
+      "label": "本文",
+      "default": "字幕放送のテキストです"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 60
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯色",
+      "default": "#666666"
+    },
+    {
+      "key": "bandOpacity",
+      "type": "number",
+      "label": "帯不透明度",
+      "default": 0.6
+    },
+    {
+      "key": "padX",
+      "type": "number",
+      "label": "帯左右余白",
+      "default": 36
+    },
+    {
+      "key": "padY",
+      "type": "number",
+      "label": "帯上下余白",
+      "default": 18
+    },
+    {
+      "key": "minBandWidth",
+      "type": "number",
+      "label": "帯最小幅",
+      "default": 760
+    },
+    {
+      "key": "x",
+      "type": "number",
+      "label": "横位置",
+      "default": 960
+    },
+    {
+      "key": "y",
+      "type": "number",
+      "label": "縦位置",
+      "default": 900
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tv_gothic_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_tv_gothic_caption.width + padX * 2, minBandWidth)"
+        },
+        "h": {
+          "expr": "fontSize + padY * 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "x"
+        },
+        "y": {
+          "var": "y"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": {
+          "var": "bandOpacity"
+        }
+      }
+    },
+    {
+      "id": "ref3_tv_gothic_caption",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "caption"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W7', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": 2
+      },
+      "transform": {
+        "x": {
+          "var": "x"
+        },
+        "y": {
+          "var": "y"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      }
+    }
+  ]
+}

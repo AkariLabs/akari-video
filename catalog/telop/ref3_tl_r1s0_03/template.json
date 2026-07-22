@@ -1,0 +1,222 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s0_03",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.4,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "テキスト",
+      "default": "たのしいな！"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 110
+    },
+    {
+      "key": "crayonColor",
+      "type": "color",
+      "label": "クレヨン色",
+      "default": "#E8400C"
+    },
+    {
+      "key": "smearColor",
+      "type": "color",
+      "label": "にじみ色",
+      "default": "#B02800"
+    },
+    {
+      "key": "paperEdge",
+      "type": "color",
+      "label": "外縁（紙色）",
+      "default": "#FFF8E8"
+    },
+    {
+      "key": "tilt",
+      "type": "number",
+      "label": "傾き（度）",
+      "default": -4
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 580
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 4
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s0_03_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', 'DFKai-SB', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "crayonColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "paperEdge"
+            },
+            "width": 14
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "smearColor"
+            },
+            "blur": 6,
+            "x": 2,
+            "y": 3
+          },
+          {
+            "color": {
+              "var": "smearColor"
+            },
+            "blur": 14,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(0,0,0,0.18)",
+            "blur": 22,
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "rotation": {
+          "var": "tilt"
+        }
+      },
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0,
+        "tracks": [],
+        "randomize": {
+          "seed": 7,
+          "rotAmp": 8,
+          "dyAmp": 4,
+          "sizeAmp": 0.06
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.05,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.3,
+              "v": 1.06,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0.85
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

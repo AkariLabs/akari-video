@@ -1,0 +1,308 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s7_07",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.55,
+    "outDur": 0.32,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "字幕テキスト",
+      "default": "NHK　東京放送局"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 82
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "表示Y位置",
+      "default": 856
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 8
+    },
+    {
+      "key": "glowTop",
+      "type": "color",
+      "label": "リン光上端（青白）",
+      "default": "#E8F4FF"
+    },
+    {
+      "key": "glowMid",
+      "type": "color",
+      "label": "リン光中間",
+      "default": "#B8DCFF"
+    },
+    {
+      "key": "glowBot",
+      "type": "color",
+      "label": "リン光下端（やや暗）",
+      "default": "#7AACDC"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "字幕帯色（濃灰）",
+      "default": "rgba(8,12,20,0.82)"
+    },
+    {
+      "key": "outerStroke",
+      "type": "color",
+      "label": "外縁色（黒）",
+      "default": "rgba(0,0,0,0.95)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s7_07_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(4,8,16,0.5)"
+            },
+            {
+              "at": 0.15,
+              "color": "rgba(8,12,20,0.85)"
+            },
+            {
+              "at": 0.85,
+              "color": "rgba(8,12,20,0.85)"
+            },
+            {
+              "at": 1,
+              "color": "rgba(4,8,16,0.5)"
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": 1920,
+        "h": 128
+      },
+      "transform": {
+        "x": 960,
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 0.92
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.92
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 920,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 856
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 856,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 920
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s7_07_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": "#E8F4FF",
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "glowTop"
+              }
+            },
+            {
+              "at": 0.45,
+              "color": {
+                "var": "glowMid"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "glowBot"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 3.2,
+            "width": 0.35,
+            "color": "rgba(220,240,255,0.7)"
+          }
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "outerStroke"
+            },
+            "width": 14
+          },
+          {
+            "color": "rgba(100,180,255,0.6)",
+            "width": 4
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.9)",
+            "blur": 8,
+            "x": 1,
+            "y": 2
+          },
+          {
+            "color": "rgba(80,160,255,0.5)",
+            "blur": 20,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(140,200,255,0.25)",
+            "blur": 40,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

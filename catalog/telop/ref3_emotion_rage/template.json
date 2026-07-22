@@ -1,0 +1,180 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_emotion_rage",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.22,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "本文",
+      "default": "絶対に許さない!!"
+    },
+    {
+      "key": "colorTop",
+      "type": "color",
+      "label": "グラデ上色（明赤）",
+      "default": "#FF3636"
+    },
+    {
+      "key": "colorBottom",
+      "type": "color",
+      "label": "グラデ下色（暗赤）",
+      "default": "#910000"
+    },
+    {
+      "key": "strokeInner",
+      "type": "color",
+      "label": "内縁色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "strokeOuter",
+      "type": "color",
+      "label": "外縁色",
+      "default": "#1A0000"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "シャドウ色",
+      "default": "rgba(0,0,0,0.75)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_emotion_rage_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 120,
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": "#ffffff",
+        "align": "center",
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "colorTop"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "colorBottom"
+              }
+            }
+          ]
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 25
+          },
+          {
+            "color": {
+              "var": "strokeInner"
+            },
+            "width": 15
+          }
+        ],
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 30,
+          "x": 4,
+          "y": 6
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": 680,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.5,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.04,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0,
+        "tracks": [],
+        "loop": {
+          "float": {
+            "amp": 3,
+            "periodSec": 0.15,
+            "phaseByIndex": 0.6
+          }
+        }
+      }
+    }
+  ]
+}

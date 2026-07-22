@@ -1,0 +1,586 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s10_002",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.45,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "ALERT"
+    },
+    {
+      "key": "label",
+      "type": "text",
+      "label": "ラベルテキスト",
+      "default": "SYSTEM NOTIFICATION"
+    },
+    {
+      "key": "neonColor",
+      "type": "color",
+      "label": "ネオン色（シアン）",
+      "default": "#00FFFF"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント色（マゼンタ）",
+      "default": "#FF0080"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "プレート色",
+      "default": "rgba(0,4,20,0.88)"
+    },
+    {
+      "key": "borderColor",
+      "type": "color",
+      "label": "ボーダー色",
+      "default": "rgba(0,255,255,0.5)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "メイン文字サイズ",
+      "default": 120
+    },
+    {
+      "key": "labelFontSize",
+      "type": "number",
+      "label": "ラベル文字サイズ",
+      "default": 32
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 540
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s10_002_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(0,32,64,0.9)"
+            },
+            {
+              "at": 0.5,
+              "color": "rgba(0,4,20,0.92)"
+            },
+            {
+              "at": 1,
+              "color": "rgba(16,0,32,0.9)"
+            }
+          ]
+        },
+        "cornerRadius": 6
+      },
+      "size": {
+        "w": {
+          "expr": "fontSize * 5"
+        },
+        "h": {
+          "expr": "fontSize + labelFontSize + 64"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.6,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.35,
+              "v": 1.04,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1.12
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s10_002_border_top",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "neonColor"
+        },
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(0,255,255,0)"
+            },
+            {
+              "at": 0.2,
+              "color": {
+                "var": "neonColor"
+              }
+            },
+            {
+              "at": 0.8,
+              "color": {
+                "var": "accentColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(255,0,128,0)"
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "fontSize * 5"
+        },
+        "h": 2
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - (fontSize + labelFontSize + 64) / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.6,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.35,
+              "v": 1.04,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1.12
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s10_002_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "label"
+        },
+        "size": {
+          "var": "labelFontSize"
+        },
+        "font": "'Share Tech Mono', 'Courier New', monospace",
+        "weight": 400,
+        "color": {
+          "var": "accentColor"
+        },
+        "align": "center",
+        "letterSpacing": 8,
+        "shadows": [
+          {
+            "color": {
+              "var": "accentColor"
+            },
+            "blur": 6,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "accentColor"
+            },
+            "blur": 20,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - fontSize / 2 - 4"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.6,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.35,
+              "v": 1.04,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1.12
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s10_002_main_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Share Tech Mono', 'Courier New', monospace",
+        "weight": 700,
+        "color": {
+          "var": "neonColor"
+        },
+        "align": "center",
+        "letterSpacing": 12,
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#80FFFF"
+            },
+            {
+              "at": 0.4,
+              "color": {
+                "var": "neonColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(0,200,220,0.8)"
+            }
+          ],
+          "shimmer": {
+            "periodSec": 2,
+            "width": 0.3,
+            "color": "rgba(255,255,255,0.7)"
+          }
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.8)",
+            "width": 4
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "neonColor"
+            },
+            "blur": 10,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "neonColor"
+            },
+            "blur": 30,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "neonColor"
+            },
+            "blur": 60,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(0,100,255,0.4)",
+            "blur": 80,
+            "x": 0,
+            "y": 4
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + labelFontSize / 2 + 8"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.6,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.35,
+              "v": 1.04,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 1.12
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

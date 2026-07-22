@@ -1,0 +1,221 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_holo_gradient",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.38,
+    "outDur": 0.26,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "HOLOGRAM"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 142
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 2
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "白縁",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "薄紫グロー",
+      "default": "rgba(190,160,255,0.46)"
+    },
+    {
+      "key": "shimmerColor",
+      "type": "color",
+      "label": "シマー色",
+      "default": "rgba(255,255,255,0.82)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_holo_gradient_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": "#FFFFFF",
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#FF3B5C"
+            },
+            {
+              "at": 0.18,
+              "color": "#FF9A1F"
+            },
+            {
+              "at": 0.36,
+              "color": "#FFF04A"
+            },
+            {
+              "at": 0.56,
+              "color": "#34E27A"
+            },
+            {
+              "at": 0.76,
+              "color": "#2FA7FF"
+            },
+            {
+              "at": 1,
+              "color": "#9B5CFF"
+            }
+          ],
+          "shimmer": {
+            "periodSec": 3,
+            "width": 0.5,
+            "color": "rgba(255,255,255,0.82)"
+          }
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 13
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "shimmerColor"
+            },
+            "blur": 12,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 38,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(74,36,126,0.28)",
+            "blur": 18,
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.52"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.08,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.06,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.26,
+              "v": 0.86
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.26,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,244 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_letter_reveal",
+  "kind": "free",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.75,
+    "outDur": 0.55,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "WANDER"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#F8F5EF"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント色",
+      "default": "#D8B86A"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "フォントサイズ",
+      "default": 92
+    },
+    {
+      "key": "letterSpacingEnd",
+      "type": "number",
+      "label": "字間終了値",
+      "default": 18
+    },
+    {
+      "key": "inDurationSec",
+      "type": "number",
+      "label": "入場秒数",
+      "default": 0.75
+    },
+    {
+      "key": "outDurationSec",
+      "type": "number",
+      "label": "退場秒数",
+      "default": 0.55
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_letter_reveal_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "weight": 300,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacingEnd"
+        },
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.28)",
+            "blur": 8,
+            "x": 0,
+            "y": 3
+          },
+          {
+            "color": "rgba(0,0,0,0.18)",
+            "blur": 22,
+            "x": 0,
+            "y": 10
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.46"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.75,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "letterSpacing",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.75,
+              "v": 18,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.55,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_letter_reveal_accent",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_letter_reveal_word.width + 84, 420)"
+        },
+        "h": 2
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.46 + fontSize * 0.82"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": 0.82
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.75,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            },
+            {
+              "t": 0.75,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.55,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

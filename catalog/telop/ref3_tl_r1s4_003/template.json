@@ -1,0 +1,470 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s4_003",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.42,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "WARNING"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブテキスト",
+      "default": "ACCESS GRANTED"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "メイン文字サイズ",
+      "default": 110
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブ文字サイズ",
+      "default": 40
+    },
+    {
+      "key": "neonTop",
+      "type": "color",
+      "label": "ネオン上端色",
+      "default": "#FF00E5"
+    },
+    {
+      "key": "neonMid",
+      "type": "color",
+      "label": "ネオン中間色",
+      "default": "#00F5FF"
+    },
+    {
+      "key": "neonBottom",
+      "type": "color",
+      "label": "ネオン下端色",
+      "default": "#7B00FF"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "プレート色",
+      "default": "rgba(2,0,20,0.9)"
+    },
+    {
+      "key": "borderColor",
+      "type": "color",
+      "label": "ボーダー色",
+      "default": "#00F5FF"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "グロー色",
+      "default": "rgba(0,245,255,0.4)"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "サブ文字色",
+      "default": "rgba(0,245,255,0.85)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s4_003_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 6,
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(0,245,255,0.18)"
+            },
+            {
+              "at": 0.04,
+              "color": {
+                "var": "plateColor"
+              }
+            },
+            {
+              "at": 0.96,
+              "color": {
+                "var": "plateColor"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(123,0,255,0.18)"
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r1s4_003_main.width + 120"
+        },
+        "h": {
+          "expr": "fontSize + subFontSize + 80"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.5"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.85,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.32,
+              "v": 1.04,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.42,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0.9
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s4_003_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Share Tech Mono', 'Courier New', monospace",
+        "weight": 400,
+        "color": {
+          "var": "subColor"
+        },
+        "align": "center",
+        "letterSpacing": 8,
+        "shadow": {
+          "color": {
+            "var": "glowColor"
+          },
+          "blur": 10,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.5 + fontSize * 0.6"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.85,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.32,
+              "v": 1.04,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.42,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0.9
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s4_003_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Share Tech Mono', 'Courier New', monospace",
+        "weight": 900,
+        "color": "#00F5FF",
+        "align": "center",
+        "letterSpacing": 12,
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "neonTop"
+              }
+            },
+            {
+              "at": 0.45,
+              "color": {
+                "var": "neonMid"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "neonBottom"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 1.4,
+            "width": 0.3,
+            "color": "rgba(255,255,255,0.75)"
+          }
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.9)",
+            "width": 6
+          },
+          {
+            "color": {
+              "var": "borderColor"
+            },
+            "width": 2
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 20,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(255,0,229,0.3)",
+            "blur": 40,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.5 - subFontSize * 0.5"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.85,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.32,
+              "v": 1.04,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.42,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0.9
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

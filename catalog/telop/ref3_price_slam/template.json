@@ -1,0 +1,668 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_price_slam",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.83,
+    "outDur": 0.18,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "price",
+      "type": "number",
+      "label": "表示価格",
+      "default": 9800
+    },
+    {
+      "key": "counterFrom",
+      "type": "number",
+      "label": "カウンタ開始値",
+      "default": 0
+    },
+    {
+      "key": "labelText",
+      "type": "text",
+      "label": "ラベル",
+      "default": "今すぐ注文で"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブキャッチ",
+      "default": "送料無料"
+    },
+    {
+      "key": "currencySymbol",
+      "type": "text",
+      "label": "通貨記号",
+      "default": "¥"
+    },
+    {
+      "key": "separatorText",
+      "type": "text",
+      "label": "区切り記号",
+      "default": ","
+    },
+    {
+      "key": "priceSize",
+      "type": "number",
+      "label": "価格数字サイズ",
+      "default": 180
+    },
+    {
+      "key": "bgOpacity",
+      "type": "number",
+      "label": "背景プレート不透明度",
+      "default": 0.85
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント色",
+      "default": "#FFD700"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_price_slam_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(0,0,0,1)",
+        "cornerRadius": 18
+      },
+      "size": {
+        "w": 980,
+        "h": 420
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.66"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": {
+          "var": "bgOpacity"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.44,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.67,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_price_slam_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "labelText"
+        },
+        "size": 54,
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": "#ffffff",
+        "align": "center",
+        "letterSpacing": 2,
+        "strokes": [
+          {
+            "color": "#7A0000",
+            "width": 10
+          },
+          {
+            "color": {
+              "var": "accentColor"
+            },
+            "width": 4
+          }
+        ],
+        "shadow": {
+          "color": "rgba(0,0,0,0.75)",
+          "blur": 6,
+          "x": 0,
+          "y": 4
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.51"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.44,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.67,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.17,
+              "v": 0
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_price_slam_currency",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "currencySymbol"
+        },
+        "size": {
+          "var": "priceSize"
+        },
+        "font": "Impact, \"Arial Black\", \"Hiragino Sans W8\", \"Yu Gothic\", system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "accentColor"
+        },
+        "align": "right",
+        "fill": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#FFD700"
+            },
+            {
+              "at": 0.5,
+              "color": "#FFF0A0"
+            },
+            {
+              "at": 1,
+              "color": "#FFD700"
+            }
+          ],
+          "shimmer": {
+            "periodSec": 1.8,
+            "width": 0.22,
+            "color": "rgba(255,255,255,0.82)"
+          }
+        },
+        "strokes": [
+          {
+            "color": "#210900",
+            "width": 18
+          },
+          {
+            "color": "#ffffff",
+            "width": 7
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(122,0,0,0.95)",
+            "blur": 0,
+            "x": 6,
+            "y": 8
+          },
+          {
+            "color": "rgba(0,0,0,0.6)",
+            "blur": 14,
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2 - 265"
+        },
+        "y": {
+          "expr": "@stage.height * 0.64"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.44,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.67,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0,
+        "tracks": [],
+        "glyphStyles": {
+          "styles": [
+            {
+              "sizeScale": 0.46,
+              "dy": -46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ref3_price_slam_number",
+      "type": "text",
+      "content": {
+        "text": "9,800",
+        "size": {
+          "var": "priceSize"
+        },
+        "font": "Impact, \"Arial Black\", \"Hiragino Sans W8\", \"Yu Gothic\", system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "accentColor"
+        },
+        "align": "left",
+        "letterSpacing": -2,
+        "counter": {
+          "from": {
+            "var": "counterFrom"
+          },
+          "to": {
+            "var": "price"
+          },
+          "decimals": 0,
+          "prefix": "",
+          "suffix": "",
+          "useGrouping": true
+        },
+        "fill": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#FFD700"
+            },
+            {
+              "at": 0.48,
+              "color": "#FFF0A0"
+            },
+            {
+              "at": 1,
+              "color": "#FFD700"
+            }
+          ],
+          "shimmer": {
+            "periodSec": 1.8,
+            "width": 0.24,
+            "color": "rgba(255,255,255,0.86)"
+          }
+        },
+        "strokes": [
+          {
+            "color": "#210900",
+            "width": 24
+          },
+          {
+            "color": "#ffffff",
+            "width": 9
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(122,0,0,0.95)",
+            "blur": 0,
+            "x": 8,
+            "y": 10
+          },
+          {
+            "color": "rgba(0,0,0,0.65)",
+            "blur": 18,
+            "x": 0,
+            "y": 10
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2 - 255"
+        },
+        "y": {
+          "expr": "@stage.height * 0.64"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        },
+        "skewX": -4
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.44,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.67,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "counter",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.83,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0,
+        "tracks": [],
+        "classStyles": {
+          "symbol": {
+            "sizeScale": 0.68,
+            "dy": -28
+          }
+        },
+        "glyphStyles": {
+          "repeat": true,
+          "styles": [
+            {},
+            {},
+            {},
+            {
+              "sizeScale": 0.68,
+              "dy": -28
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ref3_price_slam_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": 64,
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": "#ffffff",
+        "align": "center",
+        "letterSpacing": 1,
+        "strokes": [
+          {
+            "color": "#9D0000",
+            "width": 14
+          },
+          {
+            "color": {
+              "var": "accentColor"
+            },
+            "width": 5
+          }
+        ],
+        "shadow": {
+          "color": "rgba(0,0,0,0.8)",
+          "blur": 8,
+          "x": 0,
+          "y": 5
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.77"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.44,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.67,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.17,
+              "v": 0
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

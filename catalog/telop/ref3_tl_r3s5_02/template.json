@@ -1,0 +1,334 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s5_02",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.38,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "テキスト",
+      "default": "NEW！"
+    },
+    {
+      "key": "starColor",
+      "type": "color",
+      "label": "星バッジ色",
+      "default": "#FFEC40"
+    },
+    {
+      "key": "starStrokeColor",
+      "type": "color",
+      "label": "星縁取り色",
+      "default": "#FF7BAC"
+    },
+    {
+      "key": "gradTop",
+      "type": "color",
+      "label": "文字グラデ上",
+      "default": "#FF6B9D"
+    },
+    {
+      "key": "gradMid",
+      "type": "color",
+      "label": "文字グラデ中",
+      "default": "#FFA05C"
+    },
+    {
+      "key": "gradBottom",
+      "type": "color",
+      "label": "文字グラデ下",
+      "default": "#FF6B9D"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "文字縁取り色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 120
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 540
+    },
+    {
+      "key": "starSize",
+      "type": "number",
+      "label": "星バッジサイズ",
+      "default": 280
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s5_02_star",
+      "type": "shape",
+      "content": {
+        "shape": "star",
+        "fill": {
+          "var": "starColor"
+        },
+        "star": {
+          "points": 8,
+          "innerRatio": 0.48
+        }
+      },
+      "size": {
+        "w": {
+          "var": "starSize"
+        },
+        "h": {
+          "var": "starSize"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.06,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 0.1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s5_02_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "gradTop"
+        },
+        "align": "center",
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "gradTop"
+              }
+            },
+            {
+              "at": 0.5,
+              "color": {
+                "var": "gradMid"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "gradBottom"
+              }
+            }
+          ]
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 14
+          },
+          {
+            "color": {
+              "var": "starStrokeColor"
+            },
+            "width": 6
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(255,107,157,0.55)",
+            "blur": 20,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": "rgba(0,0,0,0.25)",
+            "blur": 8,
+            "x": 2,
+            "y": 4
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.08,
+              "v": 0.4,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.32,
+              "v": 1.05,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.2,
+              "v": 1.2
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

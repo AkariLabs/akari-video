@@ -1,0 +1,237 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_ruby_caption",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.2,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "本文",
+      "default": "字幕テキスト"
+    },
+    {
+      "key": "rubyText",
+      "type": "text",
+      "label": "ルビ（空で非表示）",
+      "default": "じまくテキスト"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "プレート色",
+      "default": "rgba(0,0,0,0.8)"
+    },
+    {
+      "key": "mainColor",
+      "type": "color",
+      "label": "本文色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "縁取り色",
+      "default": "#000000"
+    },
+    {
+      "key": "rubyColor",
+      "type": "color",
+      "label": "ルビ色",
+      "default": "#ffffff"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_ruby_caption_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_ruby_caption_main.width + 96, 520)"
+        },
+        "h": 104
+      },
+      "transform": {
+        "x": 960,
+        "y": 922,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_ruby_caption_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": 72,
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "mainColor"
+        },
+        "align": "center",
+        "stroke": {
+          "color": {
+            "var": "strokeColor"
+          },
+          "width": 8
+        }
+      },
+      "transform": {
+        "x": 960,
+        "y": 922,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_ruby_caption_ruby",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "rubyText"
+        },
+        "size": 28,
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "rubyColor"
+        },
+        "align": "center",
+        "stroke": {
+          "color": {
+            "var": "strokeColor"
+          },
+          "width": 4
+        }
+      },
+      "transform": {
+        "x": 960,
+        "y": 866,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "visibleIf": {
+        "expr": "has(rubyText)"
+      }
+    }
+  ]
+}

@@ -1,0 +1,229 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_mincho_flash",
+  "kind": "free",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 2,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.04,
+    "outDur": 0.04,
+    "hold": "stretch",
+    "previewTotal": 2.5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "本文（1行目）",
+      "default": "絶望"
+    },
+    {
+      "key": "text2",
+      "type": "text",
+      "label": "2行目（省略可）",
+      "default": "",
+      "optional": true
+    },
+    {
+      "key": "bgColor",
+      "type": "color",
+      "label": "背景色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#111111"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_mincho_flash_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bgColor"
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "@stage.width"
+        },
+        "h": {
+          "expr": "@stage.height"
+        }
+      },
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.04,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.04,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_mincho_flash_text1",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": 486,
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif",
+        "weight": 800,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.04,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.04,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_mincho_flash_text2",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text2"
+        },
+        "size": 216,
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif",
+        "weight": 800,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2 + 300"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0
+        }
+      },
+      "visibleIf": {
+        "expr": "has(text2)"
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.04,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.04,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

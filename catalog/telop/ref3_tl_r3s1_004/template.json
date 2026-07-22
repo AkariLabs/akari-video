@@ -1,0 +1,583 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s1_004",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.35,
+    "outDur": 0.18,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "テキスト",
+      "default": "目が覚めたら全てが終わっていた"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 72
+    },
+    {
+      "key": "evilTop",
+      "type": "color",
+      "label": "呪色 上端",
+      "default": "#0D1A0A"
+    },
+    {
+      "key": "evilMid",
+      "type": "color",
+      "label": "呪色 中間",
+      "default": "#1E3A14"
+    },
+    {
+      "key": "evilBottom",
+      "type": "color",
+      "label": "呪色 下端",
+      "default": "#0A1206"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#7AB050"
+    },
+    {
+      "key": "rustColor",
+      "type": "color",
+      "label": "錆色アクセント",
+      "default": "#6B3010"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "外縁色",
+      "default": "#050A03"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "腐汁グロー",
+      "default": "rgba(60,120,20,0.5)"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.95)"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 500
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 3
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s1_004_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#0D1A0A",
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "evilTop"
+              }
+            },
+            {
+              "at": 0.5,
+              "color": {
+                "var": "evilMid"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "evilBottom"
+              }
+            }
+          ]
+        },
+        "cornerRadius": 1
+      },
+      "size": {
+        "w": {
+          "expr": "@stage.width * 0.72"
+        },
+        "h": {
+          "expr": "fontSize * 2.2"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.1,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.04
+            },
+            {
+              "t": 0.35,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 0.02
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.16,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s1_004_rust_top",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "rustColor"
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "@stage.width * 0.72"
+        },
+        "h": 3
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - fontSize * 1.1"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.1,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.04
+            },
+            {
+              "t": 0.35,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 0.02
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.16,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s1_004_rust_bot",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "rustColor"
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "@stage.width * 0.72"
+        },
+        "h": 3
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + fontSize * 1.1"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.1,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.04
+            },
+            {
+              "t": 0.35,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 0.02
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.16,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s1_004_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'BIZ UDMincho', Georgia, serif",
+        "weight": 400,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 14
+          },
+          {
+            "color": "rgba(40,70,20,0.5)",
+            "width": 5
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 22,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 50,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 8,
+            "x": 0,
+            "y": 3
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.05,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.3,
+                "v": 1,
+                "ease": "out-cubic"
+              }
+            ]
+          }
+        ],
+        "randomize": {
+          "seed": 6660,
+          "dyAmp": 7,
+          "rotAmp": 6,
+          "sizeAmp": 0.09
+        },
+        "loop": {
+          "float": {
+            "amp": 3,
+            "periodSec": 2.6,
+            "phaseByIndex": 0.6
+          },
+          "shake": {
+            "ampX": 0.6,
+            "periodSec": 1.4
+          }
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.1,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.04
+            },
+            {
+              "t": 0.35,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 0.02
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.16,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

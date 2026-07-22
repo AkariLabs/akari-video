@@ -1,0 +1,617 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_esports_hud",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 8,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0,
+    "hold": "stretch",
+    "previewTotal": 8
+  },
+  "variables": [
+    {
+      "key": "teamLeft",
+      "type": "text",
+      "label": "左チーム略称",
+      "default": "AKR"
+    },
+    {
+      "key": "teamRight",
+      "type": "text",
+      "label": "右チーム略称",
+      "default": "NOVA"
+    },
+    {
+      "key": "scoreLeft",
+      "type": "number",
+      "label": "左スコア",
+      "default": 12
+    },
+    {
+      "key": "scoreRight",
+      "type": "number",
+      "label": "右スコア",
+      "default": 9
+    },
+    {
+      "key": "teamColorLeft",
+      "type": "color",
+      "label": "左チームカラー",
+      "default": "#00D4FF"
+    },
+    {
+      "key": "teamColorRight",
+      "type": "color",
+      "label": "右チームカラー",
+      "default": "#FF3B6B"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "teamFontSize",
+      "type": "number",
+      "label": "チーム文字サイズ",
+      "default": 34
+    },
+    {
+      "key": "scoreFontSize",
+      "type": "number",
+      "label": "スコア文字サイズ",
+      "default": 44
+    },
+    {
+      "key": "barHeight",
+      "type": "number",
+      "label": "帯の高さ",
+      "default": 64
+    },
+    {
+      "key": "sashWidth",
+      "type": "number",
+      "label": "サッシュ幅",
+      "default": 430
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_esports_hud_bar",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(0,0,0,0.70)",
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 1920,
+        "h": {
+          "var": "barHeight"
+        }
+      },
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -64,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_esports_hud_left_sash",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "teamColorLeft"
+        },
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "teamColorLeft"
+              }
+            },
+            {
+              "at": 1,
+              "color": "rgba(0,0,0,0.08)"
+            }
+          ]
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "var": "sashWidth"
+        },
+        "h": {
+          "var": "barHeight"
+        }
+      },
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "skewX": -18
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -64,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_esports_hud_right_sash",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "teamColorRight"
+        },
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": "rgba(0,0,0,0.08)"
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "teamColorRight"
+              }
+            }
+          ]
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "var": "sashWidth"
+        },
+        "h": {
+          "var": "barHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - sashWidth"
+        },
+        "y": 0,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "skewX": -18
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -64,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_esports_hud_left_team",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamLeft"
+        },
+        "size": {
+          "var": "teamFontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": 2,
+        "shadow": {
+          "color": "rgba(0,0,0,0.55)",
+          "blur": 8,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": 250,
+        "y": {
+          "expr": "barHeight / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -64,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_esports_hud_right_team",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamRight"
+        },
+        "size": {
+          "var": "teamFontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": 2,
+        "shadow": {
+          "color": "rgba(0,0,0,0.55)",
+          "blur": 8,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - 250"
+        },
+        "y": {
+          "expr": "barHeight / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -64,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_esports_hud_score_left",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "scoreLeft"
+        },
+        "size": {
+          "var": "scoreFontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "right",
+        "letterSpacing": 0,
+        "shadow": {
+          "color": "rgba(0,0,0,0.65)",
+          "blur": 8,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": 925,
+        "y": {
+          "expr": "barHeight / 2"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -64,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_esports_hud_score_sep",
+      "type": "text",
+      "content": {
+        "text": "-",
+        "size": {
+          "expr": "scoreFontSize * 0.8"
+        },
+        "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": "rgba(255,255,255,0.78)",
+        "align": "center",
+        "letterSpacing": 0
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "barHeight / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -64,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_esports_hud_score_right",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "scoreRight"
+        },
+        "size": {
+          "var": "scoreFontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left",
+        "letterSpacing": 0,
+        "shadow": {
+          "color": "rgba(0,0,0,0.65)",
+          "blur": 8,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": 995,
+        "y": {
+          "expr": "barHeight / 2"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -64,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

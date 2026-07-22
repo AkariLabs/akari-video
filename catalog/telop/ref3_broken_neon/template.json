@@ -1,0 +1,882 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_broken_neon",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.8,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.34,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "本文",
+      "default": "BROKEN NEON"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 136
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 12
+    },
+    {
+      "key": "tubeColor",
+      "type": "color",
+      "label": "ネオン管色",
+      "default": "#00FFFF"
+    },
+    {
+      "key": "coreColor",
+      "type": "color",
+      "label": "内側の白芯",
+      "default": "rgba(230,255,255,0.95)"
+    },
+    {
+      "key": "outerGlow",
+      "type": "color",
+      "label": "外側グロー",
+      "default": "rgba(0,255,255,0.86)"
+    },
+    {
+      "key": "wideGlow",
+      "type": "color",
+      "label": "広域グロー",
+      "default": "rgba(0,170,255,0.42)"
+    },
+    {
+      "key": "deadTube",
+      "type": "color",
+      "label": "消灯管の影色",
+      "default": "rgba(0,44,54,0.9)"
+    },
+    {
+      "key": "panelColor",
+      "type": "color",
+      "label": "看板背景色",
+      "default": "rgba(2,6,12,0.58)"
+    },
+    {
+      "key": "panelEdge",
+      "type": "color",
+      "label": "看板フレーム色",
+      "default": "rgba(0,255,255,0.22)"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "横位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "縦位置",
+      "default": 540
+    },
+    {
+      "key": "skew",
+      "type": "number",
+      "label": "傾き",
+      "default": -4
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_broken_neon_panel",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "panelColor"
+        },
+        "cornerRadius": 4
+      },
+      "size": {
+        "w": {
+          "expr": "min(max(@ref3_broken_neon_word.width + 220, 760), @stage.width - 160)"
+        },
+        "h": {
+          "expr": "@ref3_broken_neon_word.height + 150"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "skewX": {
+          "var": "skew"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.05,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.1,
+              "v": 0.18,
+              "ease": "step"
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.23,
+              "v": 0.35,
+              "ease": "step"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.08,
+              "v": 0.2,
+              "ease": "step"
+            },
+            {
+              "t": 0.13,
+              "v": 0.9,
+              "ease": "step"
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_broken_neon_frame",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(0,0,0,0)",
+        "cornerRadius": 4
+      },
+      "size": {
+        "w": {
+          "expr": "min(max(@ref3_broken_neon_word.width + 250, 790), @stage.width - 130)"
+        },
+        "h": {
+          "expr": "@ref3_broken_neon_word.height + 180"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "skewX": {
+          "var": "skew"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.05,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.1,
+              "v": 0.18,
+              "ease": "step"
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.23,
+              "v": 0.35,
+              "ease": "step"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.82,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.88,
+              "v": 0.62,
+              "ease": "step"
+            },
+            {
+              "t": 0.94,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 1.7,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 1.76,
+              "v": 0.78,
+              "ease": "step"
+            },
+            {
+              "t": 1.82,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 2.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.08,
+              "v": 0.2,
+              "ease": "step"
+            },
+            {
+              "t": 0.13,
+              "v": 0.9,
+              "ease": "step"
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_broken_neon_top_slash",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "panelEdge"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "min(max(@ref3_broken_neon_word.width * 0.42, 320), 720)"
+        },
+        "h": 8
+      },
+      "transform": {
+        "x": {
+          "expr": "posX - min(max(@ref3_broken_neon_word.width * 0.18, 120), 260)"
+        },
+        "y": {
+          "expr": "posY - (@ref3_broken_neon_word.height / 2) - 84"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "rotation": -2,
+        "skewX": {
+          "var": "skew"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.05,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.1,
+              "v": 0.18,
+              "ease": "step"
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.23,
+              "v": 0.35,
+              "ease": "step"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.82,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.88,
+              "v": 0.62,
+              "ease": "step"
+            },
+            {
+              "t": 0.94,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 1.7,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 1.76,
+              "v": 0.78,
+              "ease": "step"
+            },
+            {
+              "t": 1.82,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 2.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.08,
+              "v": 0.2,
+              "ease": "step"
+            },
+            {
+              "t": 0.13,
+              "v": 0.9,
+              "ease": "step"
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_broken_neon_bottom_slash",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "panelEdge"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "min(max(@ref3_broken_neon_word.width * 0.34, 260), 620)"
+        },
+        "h": 8
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + min(max(@ref3_broken_neon_word.width * 0.22, 140), 300)"
+        },
+        "y": {
+          "expr": "posY + (@ref3_broken_neon_word.height / 2) + 82"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "rotation": -2,
+        "skewX": {
+          "var": "skew"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.05,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.1,
+              "v": 0.18,
+              "ease": "step"
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.23,
+              "v": 0.35,
+              "ease": "step"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.82,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.88,
+              "v": 0.62,
+              "ease": "step"
+            },
+            {
+              "t": 0.94,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 1.7,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 1.76,
+              "v": 0.78,
+              "ease": "step"
+            },
+            {
+              "t": 1.82,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 2.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.08,
+              "v": 0.2,
+              "ease": "step"
+            },
+            {
+              "t": 0.13,
+              "v": 0.9,
+              "ease": "step"
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_broken_neon_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": "rgba(0,0,0,0)",
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "deadTube"
+            },
+            "width": 11
+          },
+          {
+            "color": {
+              "var": "tubeColor"
+            },
+            "width": 5
+          },
+          {
+            "color": {
+              "var": "coreColor"
+            },
+            "width": 1
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "outerGlow"
+            },
+            "blur": 10,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "outerGlow"
+            },
+            "blur": 24,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "wideGlow"
+            },
+            "blur": 56,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "wideGlow"
+            },
+            "blur": 96,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "skewX": {
+          "var": "skew"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.05,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.1,
+              "v": 0.18,
+              "ease": "step"
+            },
+            {
+              "t": 0.16,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.23,
+              "v": 0.35,
+              "ease": "step"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.97,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.34,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.82,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.88,
+              "v": 0.62,
+              "ease": "step"
+            },
+            {
+              "t": 0.94,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 1.7,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 1.76,
+              "v": 0.78,
+              "ease": "step"
+            },
+            {
+              "t": 1.82,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 2.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "letterSpacing",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 12,
+              "ease": "step"
+            },
+            {
+              "t": 0.55,
+              "v": 16,
+              "ease": "step"
+            },
+            {
+              "t": 0.63,
+              "v": 10,
+              "ease": "step"
+            },
+            {
+              "t": 0.9,
+              "v": 12,
+              "ease": "step"
+            },
+            {
+              "t": 1.45,
+              "v": 15,
+              "ease": "step"
+            },
+            {
+              "t": 1.55,
+              "v": 12,
+              "ease": "step"
+            },
+            {
+              "t": 2.2,
+              "v": 12
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "step"
+            },
+            {
+              "t": 0.08,
+              "v": 0.2,
+              "ease": "step"
+            },
+            {
+              "t": 0.13,
+              "v": 0.9,
+              "ease": "step"
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0,
+        "tracks": [],
+        "loop": {
+          "shake": {
+            "ampX": 1.8,
+            "periodSec": 0.08
+          },
+          "blink": {
+            "periodSec": 1.1,
+            "low": 0.15,
+            "seed": 7
+          }
+        }
+      }
+    }
+  ]
+}

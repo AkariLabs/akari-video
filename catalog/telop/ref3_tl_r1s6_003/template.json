@@ -1,0 +1,469 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s6_003",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.55,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5.5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "俳句・名言テキスト",
+      "default": "古池や 蛙飛び込む 水の音"
+    },
+    {
+      "key": "author",
+      "type": "text",
+      "label": "詠み人（作者）",
+      "default": "松尾芭蕉"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "和紙プレート色",
+      "default": "rgba(240,228,198,0.90)"
+    },
+    {
+      "key": "plateStroke",
+      "type": "color",
+      "label": "プレート枠線色",
+      "default": "rgba(90,55,20,0.65)"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "メイン文字色（墨）",
+      "default": "#1C1008"
+    },
+    {
+      "key": "authorColor",
+      "type": "color",
+      "label": "作者文字色",
+      "default": "#6B4820"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "朱点線の色",
+      "default": "rgba(168,28,18,0.75)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "メインフォントサイズ",
+      "default": 72
+    },
+    {
+      "key": "authorFontSize",
+      "type": "number",
+      "label": "作者フォントサイズ",
+      "default": 36
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 8
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s6_003_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 4
+      },
+      "size": {
+        "w": 980,
+        "h": 240
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.1,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.35,
+              "v": 1.03,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.45,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0.88
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s6_003_top_line",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        }
+      },
+      "size": {
+        "w": 840,
+        "h": 3
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2 - 100"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s6_003_bottom_line",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        }
+      },
+      "size": {
+        "w": 840,
+        "h": 3
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2 + 100"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s6_003_haiku",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'BIZ UDMincho Medium', Georgia, serif",
+        "weight": 600,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "shadow": {
+          "color": "rgba(0,0,0,0.18)",
+          "blur": 4,
+          "x": 1,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2 - 24"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.04,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 1,
+                "ease": "out-cubic"
+              }
+            ]
+          },
+          {
+            "prop": "y",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": -12,
+                "ease": "out-cubic"
+              },
+              {
+                "t": 0.5,
+                "v": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "ref3_tl_r1s6_003_author",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "author"
+        },
+        "size": {
+          "var": "authorFontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'BIZ UDMincho Medium', Georgia, serif",
+        "weight": 400,
+        "color": {
+          "var": "authorColor"
+        },
+        "align": "right",
+        "letterSpacing": 3
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2 + 420"
+        },
+        "y": {
+          "expr": "@stage.height / 2 + 78"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            },
+            {
+              "t": 0.55,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

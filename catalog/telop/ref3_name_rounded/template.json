@@ -1,0 +1,345 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_name_rounded",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.5,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "title",
+      "type": "text",
+      "label": "肩書き",
+      "default": "コメンテーター"
+    },
+    {
+      "key": "name",
+      "type": "text",
+      "label": "氏名",
+      "default": "山田 太郎"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "キーカラー",
+      "default": "#e82b2b"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "nameColor",
+      "type": "color",
+      "label": "名前テキスト色",
+      "default": "#1a1a1a"
+    },
+    {
+      "key": "titleColor",
+      "type": "color",
+      "label": "肩書きテキスト色",
+      "default": "#e82b2b"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_name_rounded_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        },
+        "cornerRadius": 12
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_name_rounded_name.width, @ref3_name_rounded_title.width) + 64"
+        },
+        "h": {
+          "expr": "@ref3_name_rounded_name.bottom - @ref3_name_rounded_title.top + 44"
+        }
+      },
+      "transform": {
+        "x": 96,
+        "y": {
+          "expr": "(@ref3_name_rounded_title.top + @ref3_name_rounded_name.bottom) / 2"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_name_rounded_underline",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 3
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_name_rounded_name.width, @ref3_name_rounded_title.width) + 64"
+        },
+        "h": 6
+      },
+      "transform": {
+        "x": 96,
+        "y": {
+          "expr": "@ref3_name_rounded_name.bottom + 22 - 3"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.05,
+              "v": -80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.05,
+              "v": 0
+            },
+            {
+              "t": 0.13,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_name_rounded_title",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "title"
+        },
+        "size": 40,
+        "font": "'Hiragino Sans', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "titleColor"
+        },
+        "align": "left"
+      },
+      "transform": {
+        "x": 128,
+        "y": {
+          "expr": "@ref3_name_rounded_name.top - 6"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 1
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.08,
+              "v": -80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.33,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_name_rounded_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "name"
+        },
+        "size": 72,
+        "font": "'Hiragino Sans', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left"
+      },
+      "transform": {
+        "x": 128,
+        "y": 910,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.08,
+              "v": -80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.33,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.16,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

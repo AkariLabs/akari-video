@@ -1,0 +1,357 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s3_002",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.35,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "速報テキスト",
+      "default": "政府が緊急会見を開く予定　詳細は不明"
+    },
+    {
+      "key": "badgeLabel",
+      "type": "text",
+      "label": "バッジラベル",
+      "default": "速　報"
+    },
+    {
+      "key": "badgeColor",
+      "type": "color",
+      "label": "バッジ背景色",
+      "default": "#CC0000"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯背景色",
+      "default": "#1A1A1A"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "速報テキスト色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "badgeTextColor",
+      "type": "color",
+      "label": "バッジ文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "フォントサイズ",
+      "default": 52
+    },
+    {
+      "key": "badgeFontSize",
+      "type": "number",
+      "label": "バッジフォントサイズ",
+      "default": 46
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s3_002_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        }
+      },
+      "size": {
+        "w": 1920,
+        "h": 90
+      },
+      "transform": {
+        "x": 0,
+        "y": 955,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s3_002_badge_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "badgeColor"
+        }
+      },
+      "size": {
+        "w": 170,
+        "h": 90
+      },
+      "transform": {
+        "x": 0,
+        "y": 955,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s3_002_badge_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "badgeLabel"
+        },
+        "size": {
+          "var": "badgeFontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "badgeTextColor"
+        },
+        "align": "center",
+        "letterSpacing": 2
+      },
+      "transform": {
+        "x": 85,
+        "y": 1000,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s3_002_headline",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left",
+        "letterSpacing": 1
+      },
+      "transform": {
+        "x": 188,
+        "y": 1000,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.15,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

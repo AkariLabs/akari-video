@@ -1,0 +1,420 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s7_05",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.7,
+    "outDur": 0.4,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "name",
+      "type": "text",
+      "label": "名前",
+      "default": "黒澤　一郎"
+    },
+    {
+      "key": "title",
+      "type": "text",
+      "label": "肩書き・役名",
+      "default": "監督"
+    },
+    {
+      "key": "bandColor",
+      "type": "color",
+      "label": "帯色（映画暗帯）",
+      "default": "#1A1208"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント線（セピア金）",
+      "default": "#A88840"
+    },
+    {
+      "key": "nameColor",
+      "type": "color",
+      "label": "名前文字色",
+      "default": "#F0E8D0"
+    },
+    {
+      "key": "titleColor",
+      "type": "color",
+      "label": "肩書文字色",
+      "default": "#C8B080"
+    },
+    {
+      "key": "nameFontSize",
+      "type": "number",
+      "label": "名前サイズ",
+      "default": 68
+    },
+    {
+      "key": "titleFontSize",
+      "type": "number",
+      "label": "肩書サイズ",
+      "default": 36
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s7_05_band",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bandColor"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#0E0C06"
+            },
+            {
+              "at": 0.2,
+              "color": "#1A1208"
+            },
+            {
+              "at": 0.8,
+              "color": "#1A1208"
+            },
+            {
+              "at": 1,
+              "color": "#0E0C06"
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": 880,
+        "h": 120
+      },
+      "transform": {
+        "x": 64,
+        "y": 834,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s7_05_line_top",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        }
+      },
+      "size": {
+        "w": 880,
+        "h": 3
+      },
+      "transform": {
+        "x": 64,
+        "y": 834,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s7_05_line_bottom",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        }
+      },
+      "size": {
+        "w": 880,
+        "h": 3
+      },
+      "transform": {
+        "x": 64,
+        "y": 951,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.55,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "wipe",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s7_05_title",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "title"
+        },
+        "size": {
+          "var": "titleFontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
+        "weight": 400,
+        "color": {
+          "var": "titleColor"
+        },
+        "align": "left",
+        "letterSpacing": 8,
+        "shadow": {
+          "color": "rgba(0,0,0,0.85)",
+          "blur": 6,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": 96,
+        "y": 854,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.38,
+              "v": 0
+            },
+            {
+              "t": 0.65,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s7_05_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "name"
+        },
+        "size": {
+          "var": "nameFontSize"
+        },
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
+        "weight": 700,
+        "color": {
+          "var": "nameColor"
+        },
+        "align": "left",
+        "letterSpacing": 12,
+        "strokes": [
+          {
+            "color": "#0A0806",
+            "width": 8
+          },
+          {
+            "color": "#A88840",
+            "width": 2
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.9)",
+            "blur": 10,
+            "x": 2,
+            "y": 3
+          },
+          {
+            "color": "rgba(168,136,64,0.25)",
+            "blur": 20,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": 96,
+        "y": 892,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.45,
+              "v": 0
+            },
+            {
+              "t": 0.7,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

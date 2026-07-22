@@ -1,0 +1,144 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_calligraffiti",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.75,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "語句",
+      "default": "Akari"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "本文色",
+      "default": "#07152F"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(7,21,47,0.15)"
+    },
+    {
+      "key": "x",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "y",
+      "type": "number",
+      "label": "Y位置",
+      "default": 545
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_calligraffiti_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": 230,
+        "font": "'Klee One', 'Apple Chancery', cursive",
+        "weight": 400,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 14,
+          "x": 8,
+          "y": 10
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "x"
+        },
+        "y": {
+          "var": "y"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "rotation": -3
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.05,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0,
+                "ease": "out-cubic"
+              },
+              {
+                "t": 0.28,
+                "v": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

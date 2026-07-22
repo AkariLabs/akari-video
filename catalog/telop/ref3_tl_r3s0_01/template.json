@@ -1,0 +1,861 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s0_01",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 6,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.35,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 6
+  },
+  "variables": [
+    {
+      "key": "homeTeam",
+      "type": "text",
+      "label": "ホームチーム略称",
+      "default": "HOM"
+    },
+    {
+      "key": "awayTeam",
+      "type": "text",
+      "label": "アウェイチーム略称",
+      "default": "AWY"
+    },
+    {
+      "key": "homeScore",
+      "type": "text",
+      "label": "ホームスコア",
+      "default": "14"
+    },
+    {
+      "key": "awayScore",
+      "type": "text",
+      "label": "アウェイスコア",
+      "default": "7"
+    },
+    {
+      "key": "quarter",
+      "type": "text",
+      "label": "クォーター",
+      "default": "Q2"
+    },
+    {
+      "key": "gameClock",
+      "type": "text",
+      "label": "残時間",
+      "default": "8:42"
+    },
+    {
+      "key": "homeColor",
+      "type": "color",
+      "label": "ホームカラー",
+      "default": "#003087"
+    },
+    {
+      "key": "awayColor",
+      "type": "color",
+      "label": "アウェイカラー",
+      "default": "#C60C30"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（右端からの距離px）",
+      "default": 48
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（上端からの距離px）",
+      "default": 48
+    },
+    {
+      "key": "panelW",
+      "type": "number",
+      "label": "パネル幅",
+      "default": 340
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s0_01_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(10,10,14,0.88)",
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": {
+          "var": "panelW"
+        },
+        "h": 120
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_home_stripe",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "homeColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 6,
+        "h": 54
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - panelW + 12"
+        },
+        "y": {
+          "expr": "posY + 10"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_away_stripe",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "awayColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": 6,
+        "h": 54
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - panelW + 12"
+        },
+        "y": {
+          "expr": "posY + 56"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_divider",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(255,255,255,0.18)"
+      },
+      "size": {
+        "w": {
+          "expr": "panelW - 24"
+        },
+        "h": 1
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - panelW + 12"
+        },
+        "y": {
+          "expr": "posY + 60"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_home_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "homeTeam"
+        },
+        "size": 26,
+        "font": "'Arial Narrow', 'Impact', 'Helvetica Neue', sans-serif",
+        "weight": 700,
+        "color": "#FFFFFF",
+        "align": "left",
+        "letterSpacing": 2,
+        "shadow": {
+          "color": "rgba(0,0,0,0.7)",
+          "blur": 4,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - panelW + 26"
+        },
+        "y": {
+          "expr": "posY + 34"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_away_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "awayTeam"
+        },
+        "size": 26,
+        "font": "'Arial Narrow', 'Impact', 'Helvetica Neue', sans-serif",
+        "weight": 700,
+        "color": "#DDDDDD",
+        "align": "left",
+        "letterSpacing": 2,
+        "shadow": {
+          "color": "rgba(0,0,0,0.7)",
+          "blur": 4,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - panelW + 26"
+        },
+        "y": {
+          "expr": "posY + 86"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_home_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "homeScore"
+        },
+        "size": 36,
+        "font": "'Arial Narrow', 'Impact', 'Helvetica Neue', sans-serif",
+        "weight": 900,
+        "color": "#FFFFFF",
+        "align": "right",
+        "shadow": {
+          "color": "rgba(0,0,0,0.8)",
+          "blur": 6,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - 110"
+        },
+        "y": {
+          "expr": "posY + 34"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_away_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "awayScore"
+        },
+        "size": 36,
+        "font": "'Arial Narrow', 'Impact', 'Helvetica Neue', sans-serif",
+        "weight": 900,
+        "color": "#DDDDDD",
+        "align": "right",
+        "shadow": {
+          "color": "rgba(0,0,0,0.8)",
+          "blur": 6,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - 110"
+        },
+        "y": {
+          "expr": "posY + 86"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 80,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_clock_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(255,255,255,0.08)",
+        "cornerRadius": 4
+      },
+      "size": {
+        "w": 96,
+        "h": 100
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - 100"
+        },
+        "y": {
+          "expr": "posY + 10"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_quarter",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "quarter"
+        },
+        "size": 20,
+        "font": "'Arial Narrow', 'Impact', 'Helvetica Neue', sans-serif",
+        "weight": 700,
+        "color": "rgba(255,255,255,0.72)",
+        "align": "center",
+        "letterSpacing": 1
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - 52"
+        },
+        "y": {
+          "expr": "posY + 36"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_01_clock",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "gameClock"
+        },
+        "size": 28,
+        "font": "'Courier New', 'Roboto Mono', monospace",
+        "weight": 700,
+        "color": "#FFFFFF",
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width - posX - 52"
+        },
+        "y": {
+          "expr": "posY + 76"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.25,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

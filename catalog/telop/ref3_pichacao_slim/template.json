@@ -1,0 +1,151 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_pichacao_slim",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.6,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "単語",
+      "default": "NOISE"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#000000"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_pichacao_slim_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": 160,
+        "font": "'Arial Narrow', 'Helvetica Neue', sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center"
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.06,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0,
+                "ease": "step"
+              },
+              {
+                "t": 0.03,
+                "v": 1
+              }
+            ]
+          },
+          {
+            "prop": "scale",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 1.15,
+                "ease": "out-cubic"
+              },
+              {
+                "t": 0.18,
+                "v": 1
+              }
+            ]
+          }
+        ],
+        "glyphStyles": {
+          "repeat": true,
+          "styles": [
+            {
+              "sizeScale": 1.02,
+              "dy": -8,
+              "rotation": -2
+            },
+            {
+              "sizeScale": 1.12,
+              "dy": 6,
+              "rotation": 1
+            },
+            {
+              "sizeScale": 0.96,
+              "dy": -3,
+              "rotation": 2
+            },
+            {
+              "sizeScale": 1.08,
+              "dy": 4,
+              "rotation": -1
+            }
+          ]
+        },
+        "randomize": {
+          "seed": 308,
+          "sizeAmp": 0.08,
+          "dxAmp": 2,
+          "dyAmp": 10,
+          "rotAmp": 3
+        }
+      },
+      "visibleIf": {
+        "expr": "has(word)"
+      }
+    }
+  ]
+}

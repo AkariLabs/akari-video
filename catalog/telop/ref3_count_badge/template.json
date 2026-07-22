@@ -1,0 +1,442 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_count_badge",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 1.2,
+    "outDur": 0.24,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "caption",
+      "type": "text",
+      "label": "説明文",
+      "default": "会場に集まった観客数"
+    },
+    {
+      "key": "unit",
+      "type": "text",
+      "label": "単位",
+      "default": "人"
+    },
+    {
+      "key": "fromValue",
+      "type": "number",
+      "label": "開始値",
+      "default": 0
+    },
+    {
+      "key": "toValue",
+      "type": "number",
+      "label": "終了値",
+      "default": 12000
+    },
+    {
+      "key": "size",
+      "type": "number",
+      "label": "数字サイズ",
+      "default": 250
+    },
+    {
+      "key": "unitSize",
+      "type": "number",
+      "label": "単位サイズ",
+      "default": 74
+    },
+    {
+      "key": "captionSize",
+      "type": "number",
+      "label": "説明文サイズ",
+      "default": 54
+    },
+    {
+      "key": "mainColor",
+      "type": "color",
+      "label": "メインカラー",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "サブカラー",
+      "default": "#FFE45C"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "説明文プレート",
+      "default": "rgba(0,0,0,0.58)"
+    },
+    {
+      "key": "strokeOuter",
+      "type": "color",
+      "label": "外縁色",
+      "default": "#050505"
+    },
+    {
+      "key": "strokeInner",
+      "type": "color",
+      "label": "内縁色",
+      "default": "#202020"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.72)"
+    },
+    {
+      "key": "baseX",
+      "type": "number",
+      "label": "基準X",
+      "default": 960
+    },
+    {
+      "key": "baseY",
+      "type": "number",
+      "label": "基準Y",
+      "default": 510
+    },
+    {
+      "key": "captionWidth",
+      "type": "number",
+      "label": "説明文プレート幅",
+      "default": 1120
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_count_badge_number",
+      "type": "text",
+      "content": {
+        "text": "12,000",
+        "size": {
+          "var": "size"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "mainColor"
+        },
+        "align": "center",
+        "counter": {
+          "from": 0,
+          "to": 12000,
+          "decimals": 0,
+          "prefix": "",
+          "suffix": "",
+          "useGrouping": true
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 30
+          },
+          {
+            "color": {
+              "var": "strokeInner"
+            },
+            "width": 14
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 18,
+            "x": 10,
+            "y": 14
+          },
+          {
+            "color": "rgba(0,0,0,0.38)",
+            "blur": 36,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "baseX"
+        },
+        "y": {
+          "var": "baseY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "counter",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_count_badge_unit",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "unit"
+        },
+        "size": {
+          "var": "unitSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "subColor"
+        },
+        "align": "left",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 16
+          },
+          {
+            "color": "#ffffff",
+            "width": 5
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 12,
+            "x": 5,
+            "y": 7
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@ref3_count_badge_number.right + size * 0.04"
+        },
+        "y": {
+          "expr": "@ref3_count_badge_number.top + size * 0.22"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_count_badge_caption_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": {
+          "var": "captionWidth"
+        },
+        "h": {
+          "expr": "captionSize * 1.75"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "baseX"
+        },
+        "y": {
+          "expr": "@ref3_count_badge_number.bottom + size * 0.16"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_count_badge_caption",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "caption"
+        },
+        "size": {
+          "var": "captionSize"
+        },
+        "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 800,
+        "color": "#ffffff",
+        "align": "center",
+        "letterSpacing": 1,
+        "shadow": {
+          "color": "rgba(0,0,0,0.60)",
+          "blur": 8,
+          "x": 0,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "baseX"
+        },
+        "y": {
+          "expr": "@ref3_count_badge_caption_plate.cy"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

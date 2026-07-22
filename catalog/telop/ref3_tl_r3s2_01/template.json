@@ -1,0 +1,610 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s2_01",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 60,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.32,
+    "outDur": 0.28,
+    "hold": "fixed",
+    "holdDur": 60,
+    "previewTotal": 60
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "ラベル上段",
+      "default": "COUNTDOWN"
+    },
+    {
+      "key": "fromSec",
+      "type": "number",
+      "label": "カウント開始秒",
+      "default": 60
+    },
+    {
+      "key": "toSec",
+      "type": "number",
+      "label": "カウント終了秒",
+      "default": 0
+    },
+    {
+      "key": "counterColor",
+      "type": "color",
+      "label": "数字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "accentColor",
+      "type": "color",
+      "label": "アクセント色",
+      "default": "#FF3B30"
+    },
+    {
+      "key": "labelColor",
+      "type": "color",
+      "label": "ラベル色",
+      "default": "#FFCC00"
+    },
+    {
+      "key": "counterSize",
+      "type": "number",
+      "label": "数字サイズ",
+      "default": 320
+    },
+    {
+      "key": "labelSize",
+      "type": "number",
+      "label": "ラベルサイズ",
+      "default": 56
+    },
+    {
+      "key": "bgColor",
+      "type": "color",
+      "label": "背景色",
+      "default": "rgba(0,0,0,0.78)"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "中心X",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "中心Y",
+      "default": 540
+    },
+    {
+      "key": "platePadX",
+      "type": "number",
+      "label": "プレート横余白",
+      "default": 80
+    },
+    {
+      "key": "platePadY",
+      "type": "number",
+      "label": "プレート縦余白",
+      "default": 40
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s2_01_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bgColor"
+        },
+        "cornerRadius": 24
+      },
+      "size": {
+        "w": {
+          "expr": "counterSize * 1.1 + platePadX * 2"
+        },
+        "h": {
+          "expr": "counterSize + labelSize * 2.8 + platePadY * 2"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.05,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 1.25
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s2_01_bar",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "accentColor"
+        },
+        "cornerRadius": 4
+      },
+      "size": {
+        "w": {
+          "expr": "counterSize * 0.7"
+        },
+        "h": 8
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - counterSize * 0.5 - labelSize * 1.8 - platePadY * 0.6"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.05,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 1.25
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s2_01_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "labelSize"
+        },
+        "font": "'Arial Black', 'Hiragino Sans W8', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "labelColor"
+        },
+        "align": "center",
+        "letterSpacing": 6,
+        "shadow": {
+          "color": "rgba(0,0,0,0.8)",
+          "blur": 8,
+          "x": 0,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - counterSize * 0.5 - labelSize * 1.0 - platePadY * 0.3"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.05,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 1.25
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s2_01_counter",
+      "type": "text",
+      "content": {
+        "text": "60",
+        "size": {
+          "var": "counterSize"
+        },
+        "font": "'Arial Black', 'Hiragino Sans W9', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "counterColor"
+        },
+        "align": "center",
+        "counter": {
+          "from": {
+            "var": "fromSec"
+          },
+          "to": {
+            "var": "toSec"
+          },
+          "decimals": 0,
+          "prefix": "",
+          "suffix": "",
+          "useGrouping": false
+        },
+        "strokes": [
+          {
+            "color": "rgba(0,0,0,0.9)",
+            "width": 24
+          },
+          {
+            "color": {
+              "var": "accentColor"
+            },
+            "width": 8
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.85)",
+            "blur": 0,
+            "x": 8,
+            "y": 10
+          },
+          {
+            "color": {
+              "var": "accentColor"
+            },
+            "blur": 40,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + labelSize * 0.4"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.05,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.22,
+              "v": 1.12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "counter",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "linear"
+            },
+            {
+              "t": 60,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 55,
+              "v": 1
+            },
+            {
+              "t": 55.15,
+              "v": 1.08,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 55.35,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 56.15,
+              "v": 1.08,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 56.35,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 57.15,
+              "v": 1.1,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 57.35,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 58.15,
+              "v": 1.12,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 58.35,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 59.15,
+              "v": 1.15,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 59.35,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 60,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.28,
+              "v": 1.25
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

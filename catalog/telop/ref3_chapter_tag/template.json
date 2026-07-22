@@ -1,0 +1,265 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_chapter_tag",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "chapterLabel",
+      "type": "text",
+      "label": "章ラベル",
+      "default": "第1章"
+    },
+    {
+      "key": "chapterTitle",
+      "type": "text",
+      "label": "章タイトル",
+      "default": "問題の本質"
+    },
+    {
+      "key": "keyColor",
+      "type": "color",
+      "label": "キーカラー（帯）",
+      "default": "#1B4FD8"
+    },
+    {
+      "key": "titleColor",
+      "type": "color",
+      "label": "タイトル文字色",
+      "default": "#ffffff"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_chapter_tag_badge",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "keyColor"
+        },
+        "cornerRadius": 6
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_chapter_tag_label.width + 40"
+        },
+        "h": {
+          "expr": "@ref3_chapter_tag_label.height + 20"
+        }
+      },
+      "transform": {
+        "x": 60,
+        "y": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_chapter_tag_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "chapterLabel"
+        },
+        "size": 25,
+        "font": "system-ui",
+        "weight": 600,
+        "color": "#ffffff",
+        "align": "left"
+      },
+      "transform": {
+        "x": 80,
+        "y": 70,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_chapter_tag_title",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "chapterTitle"
+        },
+        "size": 30,
+        "font": "system-ui",
+        "weight": 600,
+        "color": {
+          "var": "titleColor"
+        },
+        "align": "left",
+        "shadow": {
+          "color": "rgba(0,0,0,0.5)",
+          "blur": 6,
+          "x": 1,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "60 + @ref3_chapter_tag_label.width + 40 + 12"
+        },
+        "y": {
+          "expr": "60 + (@ref3_chapter_tag_label.height + 20) / 2"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -120,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

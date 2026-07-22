@@ -1,0 +1,404 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s6_01",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.46,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "名前",
+      "default": "田中 花子"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "肩書き",
+      "default": "フリーランスデザイナー"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "名前 文字サイズ",
+      "default": 76
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "肩書き 文字サイズ",
+      "default": 38
+    },
+    {
+      "key": "inkColor",
+      "type": "color",
+      "label": "マーカーインク色",
+      "default": "#1C1C2E"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "肩書き色",
+      "default": "#3A3A55"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "プレート色",
+      "default": "rgba(255,255,255,0.94)"
+    },
+    {
+      "key": "lineColor",
+      "type": "color",
+      "label": "マーカー下線色",
+      "default": "#FF5C5C"
+    },
+    {
+      "key": "lineOpacity",
+      "type": "number",
+      "label": "マーカー下線不透明度",
+      "default": 0.82
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 140
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 875
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 2
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s6_01_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 6
+      },
+      "size": {
+        "w": {
+          "expr": "clamp(@ref3_tl_r3s6_01_sub.width + 100, @ref3_tl_r3s6_01_main.width + 80, 1800)"
+        },
+        "h": {
+          "expr": "fontSize + subFontSize + 56"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s6_01_line",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "lineColor"
+        },
+        "cornerRadius": 3
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r3s6_01_main.width + 16"
+        },
+        "h": 8
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 20"
+        },
+        "y": {
+          "expr": "posY + fontSize * 0.54"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        },
+        "rotation": -0.8,
+        "opacity": {
+          "var": "lineOpacity"
+        }
+      },
+      "wipe": {
+        "axis": "x",
+        "from": "start"
+      },
+      "tracks": [
+        {
+          "prop": "wipe",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.02,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s6_01_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "inkColor"
+        },
+        "align": "left",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.14)",
+            "blur": 4,
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 28"
+        },
+        "y": {
+          "expr": "posY - subFontSize * 0.55"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.05,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.07,
+                "v": 1,
+                "ease": "out-cubic"
+              }
+            ]
+          }
+        ],
+        "randomize": {
+          "seed": 73,
+          "rotAmp": 2.5,
+          "dyAmp": 3
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.24,
+              "v": 0
+            },
+            {
+              "t": 0.46,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s6_01_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
+        "weight": 500,
+        "color": {
+          "var": "subColor"
+        },
+        "align": "left",
+        "letterSpacing": 1
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 30"
+        },
+        "y": {
+          "expr": "posY + fontSize * 0.52"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0.24,
+              "v": 0
+            },
+            {
+              "t": 0.46,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

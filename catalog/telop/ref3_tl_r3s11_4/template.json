@@ -1,0 +1,510 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s11_4",
+  "kind": "lower-third",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.55,
+    "outDur": 0.3,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "name",
+      "type": "text",
+      "label": "名前",
+      "default": "鈴木 一郎"
+    },
+    {
+      "key": "title",
+      "type": "text",
+      "label": "肩書き",
+      "default": "代表取締役社長"
+    },
+    {
+      "key": "nameFontSize",
+      "type": "number",
+      "label": "名前フォントサイズ",
+      "default": 84
+    },
+    {
+      "key": "titleFontSize",
+      "type": "number",
+      "label": "肩書きフォントサイズ",
+      "default": 42
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（左端）",
+      "default": 100
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（下辺基準）",
+      "default": 940
+    },
+    {
+      "key": "padX",
+      "type": "number",
+      "label": "帯横余白",
+      "default": 56
+    },
+    {
+      "key": "padY",
+      "type": "number",
+      "label": "帯縦余白",
+      "default": 28
+    },
+    {
+      "key": "plateBg",
+      "type": "color",
+      "label": "帯背景色",
+      "default": "rgba(8,4,1,0.90)"
+    },
+    {
+      "key": "goldTop",
+      "type": "color",
+      "label": "金 上端",
+      "default": "#C09010"
+    },
+    {
+      "key": "goldMid",
+      "type": "color",
+      "label": "金 中間",
+      "default": "#FDEC90"
+    },
+    {
+      "key": "goldBottom",
+      "type": "color",
+      "label": "金 下端",
+      "default": "#8A5A08"
+    },
+    {
+      "key": "titleColor",
+      "type": "color",
+      "label": "肩書き色",
+      "default": "#D4A830"
+    },
+    {
+      "key": "bracketColor",
+      "type": "color",
+      "label": "ブラケット色",
+      "default": "#C09010"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "縁取り色",
+      "default": "#301800"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(50,22,0,0.70)"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "グロー色",
+      "default": "rgba(220,170,20,0.38)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s11_4_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateBg"
+        },
+        "cornerRadius": 3
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_tl_r3s11_4_name.width + padX * 2 + 40"
+        },
+        "h": {
+          "expr": "nameFontSize + titleFontSize + padY * 2 + 12"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - nameFontSize - titleFontSize - padY * 2 - 12"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s11_4_bracket_left",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bracketColor"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "goldTop"
+              }
+            },
+            {
+              "at": 0.45,
+              "color": {
+                "var": "goldMid"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "goldBottom"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 3.2,
+            "width": 0.4,
+            "color": "rgba(255,248,190,0.92)"
+          }
+        }
+      },
+      "size": {
+        "w": 6,
+        "h": {
+          "expr": "nameFontSize + titleFontSize + padY * 2 + 12"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - nameFontSize - titleFontSize - padY * 2 - 12"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -60,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 1,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s11_4_title",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "title"
+        },
+        "size": {
+          "var": "titleFontSize"
+        },
+        "font": "'Hiragino Sans W4', 'Yu Gothic', system-ui, sans-serif",
+        "weight": 400,
+        "color": {
+          "var": "titleColor"
+        },
+        "align": "left",
+        "letterSpacing": 3,
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 6,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 28"
+        },
+        "y": {
+          "expr": "posY - nameFontSize - titleFontSize - padY - 2"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s11_4_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "name"
+        },
+        "size": {
+          "var": "nameFontSize"
+        },
+        "font": "'Hiragino Mincho ProN W6', 'Yu Mincho', 'Noto Serif JP', serif",
+        "weight": 700,
+        "color": "#FDEC90",
+        "align": "left",
+        "letterSpacing": 5,
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "goldTop"
+              }
+            },
+            {
+              "at": 0.38,
+              "color": {
+                "var": "goldMid"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "goldBottom"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 2.6,
+            "width": 0.2,
+            "color": "rgba(255,252,210,0.90)"
+          }
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 12
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 12,
+            "x": 0,
+            "y": 5
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 30,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 28"
+        },
+        "y": {
+          "expr": "posY - nameFontSize - padY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.3,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.05,
+        "order": "center-out",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 1
+              }
+            ]
+          },
+          {
+            "prop": "y",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 20,
+                "ease": "out-cubic"
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

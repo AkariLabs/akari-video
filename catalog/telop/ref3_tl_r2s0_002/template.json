@@ -1,0 +1,422 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r2s0_002",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.35,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "ステップラベル",
+      "default": "ファイルを開く"
+    },
+    {
+      "key": "stepNum",
+      "type": "number",
+      "label": "ステップ番号",
+      "default": 1
+    },
+    {
+      "key": "stepTotal",
+      "type": "number",
+      "label": "ステップ総数",
+      "default": 5
+    },
+    {
+      "key": "badgeColor",
+      "type": "color",
+      "label": "バッジ色",
+      "default": "#FF6B35"
+    },
+    {
+      "key": "plateColor",
+      "type": "color",
+      "label": "プレート色",
+      "default": "rgba(20,20,20,0.85)"
+    },
+    {
+      "key": "numColor",
+      "type": "color",
+      "label": "番号文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "labelColor",
+      "type": "color",
+      "label": "ラベル文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "STEP文字色",
+      "default": "#FF9966"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "左端X位置",
+      "default": 80
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "上端Y位置",
+      "default": 80
+    },
+    {
+      "key": "badgeSize",
+      "type": "number",
+      "label": "バッジサイズ",
+      "default": 120
+    },
+    {
+      "key": "labelFontSize",
+      "type": "number",
+      "label": "ラベル文字サイズ",
+      "default": 52
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r2s0_002_badge_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "badgeColor"
+        },
+        "cornerRadius": 999
+      },
+      "size": {
+        "w": {
+          "var": "badgeSize"
+        },
+        "h": {
+          "var": "badgeSize"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + badgeSize / 2"
+        },
+        "y": {
+          "expr": "posY + badgeSize / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -40,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s0_002_step_num",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "expr": "badgeSize * 0.5"
+        },
+        "font": "'Hiragino Sans W8', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "numColor"
+        },
+        "align": "center",
+        "counter": {
+          "from": 0,
+          "to": {
+            "var": "stepNum"
+          },
+          "decimals": 0,
+          "prefix": "",
+          "suffix": "",
+          "useGrouping": false
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + badgeSize / 2"
+        },
+        "y": {
+          "expr": "posY + badgeSize / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -40,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "counter",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.35,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s0_002_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "plateColor"
+        },
+        "cornerRadius": 10
+      },
+      "size": {
+        "w": {
+          "expr": "labelFontSize * 9"
+        },
+        "h": {
+          "expr": "labelFontSize + 40"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + badgeSize + labelFontSize * 4.5 + 12"
+        },
+        "y": {
+          "expr": "posY + badgeSize / 2"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r2s0_002_step_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "labelFontSize"
+        },
+        "font": "'Hiragino Sans W6', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "labelColor"
+        },
+        "align": "left",
+        "letterSpacing": 1,
+        "shadow": {
+          "color": "rgba(0,0,0,0.5)",
+          "blur": 8,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + badgeSize + 20"
+        },
+        "y": {
+          "expr": "posY + badgeSize / 2"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -40,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.35,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

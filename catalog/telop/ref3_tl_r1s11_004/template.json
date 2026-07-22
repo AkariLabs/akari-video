@@ -1,0 +1,289 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r1s11_004",
+  "kind": "free",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 6,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0.5,
+    "hold": "stretch",
+    "previewTotal": 6
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "タイトルテキスト",
+      "default": "恐怖の館"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 148
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#EEEEDD"
+    },
+    {
+      "key": "crackColor",
+      "type": "color",
+      "label": "ヒビ色",
+      "default": "rgba(255,255,200,0.85)"
+    },
+    {
+      "key": "strokeColor",
+      "type": "color",
+      "label": "外縁色",
+      "default": "#1A1008"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.95)"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "グロー色",
+      "default": "rgba(255,100,0,0.28)"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 480
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r1s11_004_crack",
+      "type": "shape",
+      "content": {
+        "shape": "crack",
+        "fill": "transparent",
+        "crack": {
+          "impact": {
+            "x": 0.5,
+            "y": 0.5
+          },
+          "radial": 14,
+          "concentric": 3,
+          "spread": 0.88,
+          "jitter": 0.55,
+          "color": {
+            "var": "crackColor"
+          },
+          "width": 2,
+          "opacity": 0.9,
+          "seed": 31415
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "@stage.width * 0.7"
+        },
+        "h": {
+          "expr": "@stage.height * 0.65"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.04,
+              "v": 1,
+              "ease": "step"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.5,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r1s11_004_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W9', 'Hiragino Kaku Gothic ProN W6', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": 18,
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeColor"
+            },
+            "width": 22
+          },
+          {
+            "color": "rgba(80,60,0,0.5)",
+            "width": 8
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 4,
+            "y": 6
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 30,
+            "x": 0,
+            "y": 10
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 50,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.4,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.18,
+              "v": 0.96,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.04,
+              "v": 1,
+              "ease": "step"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.5,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.5,
+              "v": 0.92
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

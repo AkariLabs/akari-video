@@ -1,0 +1,845 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s0_04",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 8,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.32,
+    "outDur": 0.24,
+    "hold": "stretch",
+    "previewTotal": 8
+  },
+  "variables": [
+    {
+      "key": "sportLabel",
+      "type": "text",
+      "label": "種目ラベル（LIVE表示を含む）",
+      "default": "● LIVE"
+    },
+    {
+      "key": "eventName",
+      "type": "text",
+      "label": "大会・イベント名",
+      "default": "Jリーグ 第18節"
+    },
+    {
+      "key": "matchClock",
+      "type": "text",
+      "label": "試合時計",
+      "default": "45'+2"
+    },
+    {
+      "key": "scoreDisplay",
+      "type": "text",
+      "label": "スコア",
+      "default": "2 - 2"
+    },
+    {
+      "key": "team1",
+      "type": "text",
+      "label": "チーム1略称",
+      "default": "FCT"
+    },
+    {
+      "key": "team2",
+      "type": "text",
+      "label": "チーム2略称",
+      "default": "YFM"
+    },
+    {
+      "key": "liveColor",
+      "type": "color",
+      "label": "LIVEインジケーター色",
+      "default": "#E8000D"
+    },
+    {
+      "key": "headerBg",
+      "type": "color",
+      "label": "ヘッダー背景色",
+      "default": "#0A0A14"
+    },
+    {
+      "key": "bodyBg",
+      "type": "color",
+      "label": "ボディ背景色",
+      "default": "rgba(10,10,20,0.85)"
+    },
+    {
+      "key": "clockFontSize",
+      "type": "number",
+      "label": "時計文字サイズ",
+      "default": 62
+    },
+    {
+      "key": "scoreFontSize",
+      "type": "number",
+      "label": "スコア文字サイズ",
+      "default": 44
+    },
+    {
+      "key": "labelFontSize",
+      "type": "number",
+      "label": "ラベル文字サイズ",
+      "default": 22
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（左端からの距離px）",
+      "default": 48
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（上端からの距離px）",
+      "default": 48
+    },
+    {
+      "key": "badgeW",
+      "type": "number",
+      "label": "バッジ幅",
+      "default": 280
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s0_04_header_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "headerBg"
+        },
+        "cornerRadius": 0,
+        "fillGradient": {
+          "type": "linear-h",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "liveColor"
+              }
+            },
+            {
+              "at": 0.18,
+              "color": {
+                "var": "headerBg"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "headerBg"
+              }
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": {
+          "var": "badgeW"
+        },
+        "h": 38
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -30,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.24,
+              "v": -20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_04_body_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bodyBg"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "var": "badgeW"
+        },
+        "h": 160
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + 38"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -30,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.24,
+              "v": -20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_04_bottom_line",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "liveColor"
+        }
+      },
+      "size": {
+        "w": {
+          "var": "badgeW"
+        },
+        "h": 3
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + 198"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_04_sport_label",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "sportLabel"
+        },
+        "size": {
+          "var": "labelFontSize"
+        },
+        "font": "'Arial Narrow', 'Helvetica Neue', sans-serif",
+        "weight": 700,
+        "color": "#FFFFFF",
+        "align": "left",
+        "letterSpacing": 3,
+        "shadow": {
+          "color": "rgba(0,0,0,0.6)",
+          "blur": 4,
+          "x": 0,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 12"
+        },
+        "y": {
+          "expr": "posY + 19"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -30,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.24,
+              "v": -20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_04_event",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "eventName"
+        },
+        "size": 20,
+        "font": "'Hiragino Sans W4', 'Yu Gothic', sans-serif",
+        "weight": 400,
+        "color": "rgba(255,255,255,0.58)",
+        "align": "left",
+        "letterSpacing": 0
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 12"
+        },
+        "y": {
+          "expr": "posY + 52"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -30,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.24,
+              "v": -20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_04_clock",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "matchClock"
+        },
+        "size": {
+          "var": "clockFontSize"
+        },
+        "font": "'Courier New', 'Roboto Mono', monospace",
+        "weight": 700,
+        "color": "#FFFFFF",
+        "align": "left",
+        "shadow": {
+          "color": "rgba(0,0,0,0.85)",
+          "blur": 8,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 16"
+        },
+        "y": {
+          "expr": "posY + 116"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -30,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.32,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "y",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.24,
+              "v": -20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_04_team1",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "team1"
+        },
+        "size": 24,
+        "font": "'Arial Narrow', 'Impact', sans-serif",
+        "weight": 700,
+        "color": "rgba(255,255,255,0.72)",
+        "align": "left",
+        "letterSpacing": 2
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + 16"
+        },
+        "y": {
+          "expr": "posY + 162"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_04_score",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "scoreDisplay"
+        },
+        "size": {
+          "var": "scoreFontSize"
+        },
+        "font": "'Impact', 'Arial Black', monospace",
+        "weight": 900,
+        "color": "#FFFFFF",
+        "align": "center",
+        "letterSpacing": 6,
+        "shadow": {
+          "color": "rgba(0,0,0,0.9)",
+          "blur": 6,
+          "x": 0,
+          "y": 2
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + badgeW / 2"
+        },
+        "y": {
+          "expr": "posY + 162"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s0_04_team2",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "team2"
+        },
+        "size": 24,
+        "font": "'Arial Narrow', 'Impact', sans-serif",
+        "weight": 700,
+        "color": "rgba(255,255,255,0.72)",
+        "align": "right",
+        "letterSpacing": 2
+      },
+      "transform": {
+        "x": {
+          "expr": "posX + badgeW - 16"
+        },
+        "y": {
+          "expr": "posY + 162"
+        },
+        "anchor": {
+          "x": 1,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.28,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

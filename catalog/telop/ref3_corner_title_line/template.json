@@ -1,0 +1,196 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_corner_title_line",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.3,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "title",
+      "type": "text",
+      "label": "タイトル",
+      "default": "特集"
+    },
+    {
+      "key": "keyColor",
+      "type": "color",
+      "label": "キーカラー（下線）",
+      "default": "#1B4FD8"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "文字色",
+      "default": "#ffffff"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "シャドウ色",
+      "default": "rgba(0,0,0,0.45)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_corner_title_line_title",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "title"
+        },
+        "size": 88,
+        "font": "system-ui",
+        "weight": 800,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "left",
+        "shadow": {
+          "color": {
+            "var": "shadowColor"
+          },
+          "blur": 6,
+          "x": 2,
+          "y": 3
+        }
+      },
+      "transform": {
+        "x": 60,
+        "y": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.2,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_corner_title_line_underline",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "keyColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "@ref3_corner_title_line_title.width"
+        },
+        "h": 5
+      },
+      "transform": {
+        "x": 60,
+        "y": {
+          "expr": "60 + @ref3_corner_title_line_title.height + 8"
+        },
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": -140,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.3,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.3,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.2,
+              "v": -140
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

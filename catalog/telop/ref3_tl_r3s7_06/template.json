@@ -1,0 +1,420 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_tl_r3s7_06",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.4,
+    "outDur": 0.25,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "行先・メインテキスト",
+      "default": "銀座方面"
+    },
+    {
+      "key": "subText",
+      "type": "text",
+      "label": "サブテキスト（距離・案内）",
+      "default": "← 1.2 km"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "表示X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "表示Y位置",
+      "default": 540
+    },
+    {
+      "key": "boardColor",
+      "type": "color",
+      "label": "標識板色（深緑）",
+      "default": "#1B4D2E"
+    },
+    {
+      "key": "borderColor",
+      "type": "color",
+      "label": "枠色（白）",
+      "default": "#E8E8E0"
+    },
+    {
+      "key": "mainColor",
+      "type": "color",
+      "label": "メイン文字色（白）",
+      "default": "#F0F0E8"
+    },
+    {
+      "key": "subColor",
+      "type": "color",
+      "label": "サブ文字色（薄緑）",
+      "default": "#A8D8B8"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "メイン文字サイズ",
+      "default": 80
+    },
+    {
+      "key": "subFontSize",
+      "type": "number",
+      "label": "サブ文字サイズ",
+      "default": 38
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_tl_r3s7_06_border",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "borderColor"
+        },
+        "cornerRadius": 6
+      },
+      "size": {
+        "w": 660,
+        "h": 216
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 240,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s7_06_board",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "boardColor"
+        },
+        "cornerRadius": 4,
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": "#224030"
+            },
+            {
+              "at": 0.5,
+              "color": "#1B4D2E"
+            },
+            {
+              "at": 1,
+              "color": "#143820"
+            }
+          ]
+        }
+      },
+      "size": {
+        "w": 640,
+        "h": 196
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 240,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s7_06_main",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W6', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "mainColor"
+        },
+        "align": "center",
+        "letterSpacing": 6,
+        "strokes": [
+          {
+            "color": "#0A2010",
+            "width": 6
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.7)",
+            "blur": 8,
+            "x": 2,
+            "y": 3
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY - 28"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 240,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_tl_r3s7_06_sub",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "subText"
+        },
+        "size": {
+          "var": "subFontSize"
+        },
+        "font": "'Hiragino Sans W4', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 500,
+        "color": {
+          "var": "subColor"
+        },
+        "align": "center",
+        "letterSpacing": 4,
+        "shadow": {
+          "color": "rgba(0,0,0,0.6)",
+          "blur": 4,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + 56"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 240,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.4,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.25,
+              "v": 0,
+              "ease": "in-cubic"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

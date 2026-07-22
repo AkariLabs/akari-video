@@ -1,0 +1,267 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_shimmer_gold",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.38,
+    "outDur": 0.24,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "メインテキスト",
+      "default": "今だけ特別価格"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 138
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 1
+    },
+    {
+      "key": "goldTop",
+      "type": "color",
+      "label": "金 上端",
+      "default": "#B67B03"
+    },
+    {
+      "key": "goldMid",
+      "type": "color",
+      "label": "金 中間",
+      "default": "#DAAF08"
+    },
+    {
+      "key": "goldHighlight",
+      "type": "color",
+      "label": "金 ハイライト",
+      "default": "#FEE9A0"
+    },
+    {
+      "key": "goldBottom",
+      "type": "color",
+      "label": "金 下端",
+      "default": "#8A4B08"
+    },
+    {
+      "key": "outerStrokeColor",
+      "type": "color",
+      "label": "外縁 茶",
+      "default": "#5A2A0A"
+    },
+    {
+      "key": "innerStrokeColor",
+      "type": "color",
+      "label": "内縁 白",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "outerStrokeWidth",
+      "type": "number",
+      "label": "外縁幅",
+      "default": 30
+    },
+    {
+      "key": "innerStrokeWidth",
+      "type": "number",
+      "label": "内縁幅",
+      "default": 11
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(55,24,0,0.68)"
+    },
+    {
+      "key": "glowColor",
+      "type": "color",
+      "label": "金グロー",
+      "default": "rgba(255,194,41,0.42)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_shimmer_gold_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": "#FEE9A0",
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "fill": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "goldTop"
+              }
+            },
+            {
+              "at": 0.34,
+              "color": {
+                "var": "goldMid"
+              }
+            },
+            {
+              "at": 0.54,
+              "color": {
+                "var": "goldHighlight"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "goldBottom"
+              }
+            }
+          ],
+          "shimmer": {
+            "periodSec": 2.5,
+            "width": 0.24,
+            "color": "rgba(255,255,255,0.86)"
+          }
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "outerStrokeColor"
+            },
+            "width": {
+              "var": "outerStrokeWidth"
+            }
+          },
+          {
+            "color": {
+              "var": "innerStrokeColor"
+            },
+            "width": {
+              "var": "innerStrokeWidth"
+            }
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 18,
+            "x": 0,
+            "y": 9
+          },
+          {
+            "color": {
+              "var": "glowColor"
+            },
+            "blur": 34,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.56"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.02,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1.08,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.38,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.24,
+              "v": 0.82
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

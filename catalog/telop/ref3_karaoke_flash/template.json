@@ -1,0 +1,316 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_karaoke_flash",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.12,
+    "outDur": 0.18,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "lyric",
+      "type": "text",
+      "label": "歌詞",
+      "default": "君の声が光になる"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "待機文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "activeColor",
+      "type": "color",
+      "label": "点灯色",
+      "default": "#FFD84A"
+    },
+    {
+      "key": "strokeOuter",
+      "type": "color",
+      "label": "外縁色",
+      "default": "rgba(0,0,0,0.90)"
+    },
+    {
+      "key": "strokeInner",
+      "type": "color",
+      "label": "内縁色",
+      "default": "rgba(255,255,255,0.92)"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 104
+    },
+    {
+      "key": "glowStrength",
+      "type": "number",
+      "label": "グロー強度",
+      "default": 0.9
+    },
+    {
+      "key": "staggerSec",
+      "type": "number",
+      "label": "点灯間隔（秒）",
+      "default": 0.15
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 4
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_karaoke_flash_glow",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "lyric"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "activeColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "shadows": [
+          {
+            "color": {
+              "var": "activeColor"
+            },
+            "blur": 12,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "color": {
+              "var": "activeColor"
+            },
+            "blur": 30,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.78"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": {
+          "expr": "clamp(glowStrength, 0, 1)"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.96,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.3,
+        "order": "ltr",
+        "tracks": [
+          {
+            "prop": "opacity",
+            "phase": "in",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0,
+                "ease": "step"
+              },
+              {
+                "t": 0.02,
+                "v": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "ref3_karaoke_flash_lyric",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "lyric"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "letterSpacing": {
+          "var": "letterSpacing"
+        },
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 18
+          },
+          {
+            "color": {
+              "var": "strokeInner"
+            },
+            "width": 6
+          }
+        ],
+        "shadows": [
+          {
+            "color": "rgba(0,0,0,0.62)",
+            "blur": 10,
+            "x": 0,
+            "y": 4
+          },
+          {
+            "color": "#FFD84A",
+            "blur": 18,
+            "x": 0,
+            "y": 0
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.78"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.12,
+              "v": 1,
+              "ease": "out-cubic"
+            }
+          ]
+        },
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0.96,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.12,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.18,
+              "v": 0
+            }
+          ]
+        }
+      ],
+      "perChar": {
+        "split": "grapheme",
+        "stagger": 0.3,
+        "order": "ltr",
+        "tracks": [],
+        "active": {
+          "color": "#FFD84A",
+          "mode": "flash"
+        }
+      }
+    }
+  ]
+}

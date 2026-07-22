@@ -1,0 +1,385 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_starburst",
+  "kind": "popup",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.28,
+    "outDur": 0.2,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "word",
+      "type": "text",
+      "label": "バッジ文字",
+      "default": "特価!"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 150
+    },
+    {
+      "key": "badgeWidth",
+      "type": "number",
+      "label": "バッジ幅",
+      "default": 520
+    },
+    {
+      "key": "badgeHeight",
+      "type": "number",
+      "label": "バッジ高さ",
+      "default": 430
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置",
+      "default": 960
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置",
+      "default": 420
+    },
+    {
+      "key": "textYAdjust",
+      "type": "number",
+      "label": "文字Y補正",
+      "default": 4
+    },
+    {
+      "key": "badgeTop",
+      "type": "color",
+      "label": "バッジ上色",
+      "default": "#FFF36A"
+    },
+    {
+      "key": "badgeBottom",
+      "type": "color",
+      "label": "バッジ下色",
+      "default": "#FFC400"
+    },
+    {
+      "key": "badgeEdge",
+      "type": "color",
+      "label": "外周影色",
+      "default": "#D71920"
+    },
+    {
+      "key": "textFill",
+      "type": "color",
+      "label": "文字色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "strokeOuter",
+      "type": "color",
+      "label": "文字外縁",
+      "default": "#7A0011"
+    },
+    {
+      "key": "strokeInner",
+      "type": "color",
+      "label": "文字赤縁",
+      "default": "#E60012"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "シャドウ色",
+      "default": "rgba(0,0,0,0.45)"
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_starburst_edge",
+      "type": "shape",
+      "content": {
+        "shape": "star",
+        "fill": {
+          "var": "badgeEdge"
+        },
+        "star": {
+          "points": 14,
+          "innerRatio": 0.55
+        }
+      },
+      "size": {
+        "w": {
+          "expr": "badgeWidth + 30"
+        },
+        "h": {
+          "expr": "badgeHeight + 30"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.6,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.03,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_starburst_badge",
+      "type": "shape",
+      "content": {
+        "shape": "star",
+        "fill": {
+          "var": "badgeTop"
+        },
+        "fillGradient": {
+          "type": "linear-v",
+          "stops": [
+            {
+              "at": 0,
+              "color": {
+                "var": "badgeTop"
+              }
+            },
+            {
+              "at": 1,
+              "color": {
+                "var": "badgeBottom"
+              }
+            }
+          ]
+        },
+        "star": {
+          "points": 14,
+          "innerRatio": 0.55
+        }
+      },
+      "size": {
+        "w": {
+          "var": "badgeWidth"
+        },
+        "h": {
+          "var": "badgeHeight"
+        }
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "var": "posY"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.6,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.03,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_starburst_word",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "word"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 900,
+        "color": {
+          "var": "textFill"
+        },
+        "align": "center",
+        "strokes": [
+          {
+            "color": {
+              "var": "strokeOuter"
+            },
+            "width": 28
+          },
+          {
+            "color": {
+              "var": "strokeInner"
+            },
+            "width": 18
+          }
+        ],
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 18,
+            "x": 0,
+            "y": 8
+          }
+        ],
+        "letterSpacing": 0
+      },
+      "transform": {
+        "x": {
+          "var": "posX"
+        },
+        "y": {
+          "expr": "posY + textYAdjust"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "scale",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1.6,
+              "ease": "out-back"
+            },
+            {
+              "t": 0.28,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "step"
+            },
+            {
+              "t": 0.03,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.2,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

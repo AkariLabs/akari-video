@@ -1,0 +1,268 @@
+{
+  "format": "atf",
+  "version": "0.2",
+  "id": "ref3_long_shadow",
+  "kind": "caption",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.18,
+    "outDur": 0.24,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "text",
+      "type": "text",
+      "label": "本文",
+      "default": "LONG SHADOW"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "文字サイズ",
+      "default": 72
+    },
+    {
+      "key": "bgColor",
+      "type": "color",
+      "label": "背景プレート色",
+      "default": "#00838F"
+    },
+    {
+      "key": "textColor",
+      "type": "color",
+      "label": "テキスト色",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "shadowColor",
+      "type": "color",
+      "label": "影色",
+      "default": "#003D46"
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "フォントウェイト",
+      "default": 700
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_long_shadow_plate",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "bgColor"
+        },
+        "cornerRadius": 0
+      },
+      "size": {
+        "w": {
+          "expr": "max(@ref3_long_shadow_text.width + 220, 760)"
+        },
+        "h": {
+          "expr": "max(fontSize * 2.2, 180)"
+        }
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2"
+        },
+        "y": {
+          "expr": "@stage.height * 0.64"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_long_shadow_text",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "text"
+        },
+        "size": {
+          "var": "fontSize"
+        },
+        "font": "'Hiragino Sans W8', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
+        "weight": 700,
+        "color": {
+          "var": "textColor"
+        },
+        "align": "center",
+        "shadows": [
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 4,
+            "y": 4,
+            "opacity": 0.28
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 8,
+            "y": 8,
+            "opacity": 0.24
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 12,
+            "y": 12,
+            "opacity": 0.2
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 16,
+            "y": 16,
+            "opacity": 0.16
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 20,
+            "y": 20,
+            "opacity": 0.12
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 24,
+            "y": 24,
+            "opacity": 0.09
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 28,
+            "y": 28,
+            "opacity": 0.06
+          },
+          {
+            "color": {
+              "var": "shadowColor"
+            },
+            "blur": 0,
+            "x": 32,
+            "y": 32,
+            "opacity": 0.04
+          }
+        ]
+      },
+      "transform": {
+        "x": {
+          "expr": "@stage.width / 2 - 16"
+        },
+        "y": {
+          "expr": "@stage.height * 0.64 - 16"
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "weight",
+          "phase": "hold",
+          "keys": [
+            {
+              "t": 0,
+              "v": 700
+            },
+            {
+              "t": 1,
+              "v": 700
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.24,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

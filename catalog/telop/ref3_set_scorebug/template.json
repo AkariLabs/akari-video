@@ -1,0 +1,1339 @@
+{
+  "format": "atf",
+  "version": "0.1",
+  "id": "ref3_set_scorebug",
+  "kind": "corner",
+  "stage": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 4.5,
+    "bg": "transparent"
+  },
+  "timing": {
+    "inDur": 0.36,
+    "outDur": 0.22,
+    "hold": "stretch",
+    "previewTotal": 5
+  },
+  "variables": [
+    {
+      "key": "teamAName",
+      "type": "text",
+      "label": "チームA名",
+      "default": "JAPAN"
+    },
+    {
+      "key": "teamBName",
+      "type": "text",
+      "label": "チームB名",
+      "default": "BRAZIL"
+    },
+    {
+      "key": "teamAColor",
+      "type": "color",
+      "label": "チームA色",
+      "default": "#0052B4"
+    },
+    {
+      "key": "teamBColor",
+      "type": "color",
+      "label": "チームB色",
+      "default": "#FFCC29"
+    },
+    {
+      "key": "teamASets",
+      "type": "number",
+      "label": "チームAセット数",
+      "default": 2
+    },
+    {
+      "key": "teamBSets",
+      "type": "number",
+      "label": "チームBセット数",
+      "default": 1
+    },
+    {
+      "key": "teamAPoints",
+      "type": "number",
+      "label": "チームAポイント",
+      "default": 24
+    },
+    {
+      "key": "teamBPoints",
+      "type": "number",
+      "label": "チームBポイント",
+      "default": 22
+    },
+    {
+      "key": "serveSide",
+      "type": "number",
+      "label": "サーブ側（A=1 / B=2）",
+      "default": 1
+    }
+  ],
+  "layers": [
+    {
+      "id": "ref3_set_scorebug_row_a_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(10,14,20,0.88)",
+        "cornerRadius": 6
+      },
+      "size": {
+        "w": 560,
+        "h": 58
+      },
+      "transform": {
+        "x": 1296,
+        "y": 64,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0,
+              "v": 84
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_row_b_bg",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(10,14,20,0.88)",
+        "cornerRadius": 6
+      },
+      "size": {
+        "w": 560,
+        "h": 58
+      },
+      "transform": {
+        "x": 1296,
+        "y": 126,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.08,
+              "v": 84
+            },
+            {
+              "t": 0.36000000000000004,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_a_color",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "teamAColor"
+        },
+        "cornerRadius": 2
+      },
+      "size": {
+        "w": 12,
+        "h": 42
+      },
+      "transform": {
+        "x": 1308,
+        "y": 93,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0,
+              "v": 84
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_b_color",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": {
+          "var": "teamBColor"
+        },
+        "cornerRadius": 2
+      },
+      "size": {
+        "w": 12,
+        "h": 42
+      },
+      "transform": {
+        "x": 1308,
+        "y": 155,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.08,
+              "v": 84
+            },
+            {
+              "t": 0.36000000000000004,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_a_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamAName"
+        },
+        "size": 30,
+        "font": "system-ui",
+        "weight": 800,
+        "color": "#ffffff",
+        "align": "left"
+      },
+      "transform": {
+        "x": 1334,
+        "y": 93,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0,
+              "v": 84
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_b_name",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamBName"
+        },
+        "size": 30,
+        "font": "system-ui",
+        "weight": 800,
+        "color": "#ffffff",
+        "align": "left"
+      },
+      "transform": {
+        "x": 1334,
+        "y": 155,
+        "anchor": {
+          "x": 0,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.08,
+              "v": 84
+            },
+            {
+              "t": 0.36000000000000004,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_a_sets",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamASets"
+        },
+        "size": 34,
+        "font": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        "weight": 900,
+        "color": "#ffffff",
+        "align": "center"
+      },
+      "transform": {
+        "x": 1662,
+        "y": 93,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0,
+              "v": 84
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_b_sets",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamBSets"
+        },
+        "size": 34,
+        "font": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        "weight": 900,
+        "color": "#ffffff",
+        "align": "center"
+      },
+      "transform": {
+        "x": 1662,
+        "y": 155,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.08,
+              "v": 84
+            },
+            {
+              "t": 0.36000000000000004,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_a_points",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamAPoints"
+        },
+        "size": 40,
+        "font": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        "weight": 900,
+        "color": "#ffffff",
+        "align": "right"
+      },
+      "transform": {
+        "x": 1768,
+        "y": 93,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0,
+              "v": 84
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_b_points",
+      "type": "text",
+      "content": {
+        "text": {
+          "var": "teamBPoints"
+        },
+        "size": 40,
+        "font": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        "weight": 900,
+        "color": "#ffffff",
+        "align": "right"
+      },
+      "transform": {
+        "x": 1768,
+        "y": 155,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.08,
+              "v": 84
+            },
+            {
+              "t": 0.36000000000000004,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_a_serve_base",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(255,255,255,0.18)",
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": 16,
+        "h": 16
+      },
+      "transform": {
+        "x": 1828,
+        "y": 93,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0,
+              "v": 84
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_b_serve_base",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "rgba(255,255,255,0.18)",
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": 16,
+        "h": 16
+      },
+      "transform": {
+        "x": 1828,
+        "y": 155,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.08,
+              "v": 84
+            },
+            {
+              "t": 0.36000000000000004,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_a_serve_active",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#FFD84D",
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": 16,
+        "h": 16
+      },
+      "transform": {
+        "x": 1828,
+        "y": 93,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": {
+          "expr": "clamp(2 - serveSide, 0, 1)"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0,
+              "v": 84
+            },
+            {
+              "t": 0.28,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.1,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ref3_set_scorebug_team_b_serve_active",
+      "type": "shape",
+      "content": {
+        "shape": "rect",
+        "fill": "#FFD84D",
+        "cornerRadius": 8
+      },
+      "size": {
+        "w": 16,
+        "h": 16
+      },
+      "transform": {
+        "x": 1828,
+        "y": 155,
+        "anchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "opacity": {
+          "expr": "clamp(serveSide - 1, 0, 1)"
+        }
+      },
+      "tracks": [
+        {
+          "prop": "x",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 84,
+              "ease": "out-cubic"
+            },
+            {
+              "t": 0.08,
+              "v": 84
+            },
+            {
+              "t": 0.36000000000000004,
+              "v": 0
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "in",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0
+            },
+            {
+              "t": 0.08,
+              "v": 0
+            },
+            {
+              "t": 0.18,
+              "v": 1
+            }
+          ]
+        },
+        {
+          "prop": "x",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 0,
+              "ease": "in-cubic"
+            },
+            {
+              "t": 0.22,
+              "v": 56
+            }
+          ]
+        },
+        {
+          "prop": "opacity",
+          "phase": "out",
+          "keys": [
+            {
+              "t": 0,
+              "v": 1
+            },
+            {
+              "t": 0.22,
+              "v": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
