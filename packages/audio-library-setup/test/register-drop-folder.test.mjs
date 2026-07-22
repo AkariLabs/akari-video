@@ -202,6 +202,116 @@ test('generated library entries pass validate-asset.mjs when ffmpeg preview succ
     });
 });
 
+test('song titles uniquely match normalized drop filenames and record provenance', async () => {
+    await withFixture(async ({ dropDir, libraryRoot, catalogDir }) => {
+        await writeFile(path.join(dropDir, '223 AM.mp3'), 'dummy-audio-bytes');
+        await writeFile(path.join(dropDir, 'morning.wav'), 'dummy-audio-bytes');
+
+        const { status, json } = runScript([
+            '--drop-dir', dropDir, '--library-root', libraryRoot, '--catalog-dir', catalogDir,
+            '--candidates', candidatesPath, '--apply',
+        ]);
+
+        assert.equal(status, 0);
+        assert.deepEqual(
+            json.matched_candidates.map(({ candidate_id: candidateId }) => candidateId).sort(),
+            ['dova-syndrome-ranking-calm', 'dova-syndrome-ranking-uplift'],
+        );
+
+        for (const candidateId of ['dova-syndrome-ranking-calm', 'dova-syndrome-ranking-uplift']) {
+            const libraryMeta = JSON.parse(await readFile(path.join(libraryRoot, candidateId, 'meta.json'), 'utf8'));
+            const catalogMeta = JSON.parse(await readFile(path.join(catalogDir, candidateId, 'meta.json'), 'utf8'));
+            assert.equal(libraryMeta.matched_by, 'title-normalized');
+            assert.equal(catalogMeta.matched_by, 'title-normalized');
+        }
+    });
+});
+
+test('ambiguous normalized song titles are quarantined, not guessed', async () => {
+    await withFixture(async ({ dropDir, libraryRoot, catalogDir, root }) => {
+        const tempCandidates = path.join(root, 'candidates-title-ambiguous.json');
+        await writeFile(tempCandidates, JSON.stringify({
+            categories: [{
+                id: 'test',
+                label_ja: 'テスト',
+                items: [
+                    songCandidate({ rank: 1, id: 'title-a', title: 'Night-Time' }),
+                    songCandidate({ rank: 2, id: 'title-b', title: 'night time!' }),
+                ],
+            }],
+        }));
+        await writeFile(path.join(dropDir, 'NIGHT_TIME.mp3'), 'dummy');
+
+        const { status, json } = runScript([
+            '--drop-dir', dropDir, '--library-root', libraryRoot, '--catalog-dir', catalogDir,
+            '--candidates', tempCandidates, '--apply',
+        ]);
+
+        assert.equal(status, 0);
+        assert.equal(json.matched_candidates.length, 0);
+        assert.equal(json.ambiguous_count, 1);
+        assert.equal(json.quarantined.length, 1);
+        assert.ok((await readdir(path.join(dropDir, '_quarantine'))).includes('NIGHT_TIME.mp3'));
+    });
+});
+
+test('partial normalized song title matches are quarantined', async () => {
+    await withFixture(async ({ dropDir, libraryRoot, catalogDir, root }) => {
+        const tempCandidates = path.join(root, 'candidates-title-partial.json');
+        await writeFile(tempCandidates, JSON.stringify({
+            categories: [{
+                id: 'test',
+                label_ja: 'テスト',
+                items: [songCandidate({ rank: 1, id: 'morning-glow', title: 'Morning Glow' })],
+            }],
+        }));
+        await writeFile(path.join(dropDir, 'morning.mp3'), 'dummy');
+
+        const { status, json } = runScript([
+            '--drop-dir', dropDir, '--library-root', libraryRoot, '--catalog-dir', catalogDir,
+            '--candidates', tempCandidates, '--apply',
+        ]);
+
+        assert.equal(status, 0);
+        assert.equal(json.matched_candidates.length, 0);
+        assert.equal(json.ambiguous_count, 0);
+        assert.equal(json.quarantined.length, 1);
+        assert.ok((await readdir(path.join(dropDir, '_quarantine'))).includes('morning.mp3'));
+    });
+});
+
+test('expected_filenames matches retain the existing meta shape', async () => {
+    await withFixture(async ({ dropDir, libraryRoot, catalogDir }) => {
+        await writeFile(path.join(dropDir, 'doon1.mp3'), 'dummy-audio-bytes');
+
+        const { status } = runScript([
+            '--drop-dir', dropDir, '--library-root', libraryRoot, '--catalog-dir', catalogDir,
+            '--candidates', candidatesPath, '--apply',
+        ]);
+
+        assert.equal(status, 0);
+        const libraryMeta = JSON.parse(await readFile(path.join(libraryRoot, 'soundeffect-lab-doon1', 'meta.json'), 'utf8'));
+        assert.equal(hasOwn(libraryMeta, 'matched_by'), false);
+    });
+});
+
+function songCandidate({ rank, id, title }) {
+    return {
+        rank,
+        id,
+        site: 'Test Site',
+        title_ja: id,
+        type: 'song_pack',
+        download_page_url: `https://example.com/${id}`,
+        expected_filenames: [],
+        filename_patterns: [],
+        songs: [{ title_ja: title, expected_filenames: [] }],
+        license: { attribution_required: false, ai_training_allowed: false, redistribution: 'unknown', note: '' },
+        confidence: 'confirmed_by_lane',
+        verification: {},
+    };
+}
+
 function hasOwn(object, key) {
     return Object.prototype.hasOwnProperty.call(object, key);
 }

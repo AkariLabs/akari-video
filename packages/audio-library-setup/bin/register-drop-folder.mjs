@@ -105,6 +105,44 @@ function ffmpegAvailable() {
     return ffmpegAvailableCache;
 }
 
+function normalizeTitle(value) {
+    return String(value)
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[\p{P}\p{S}\s]+/gu, '');
+}
+
+function songTitles(song) {
+    return Object.entries(song)
+        .filter(([key, value]) => (
+            typeof value === 'string'
+            && (
+                key === 'title_ja'
+                || /^title_(?:en|english)(?:_|$)/i.test(key)
+                || /^english_title(?:_|$)/i.test(key)
+            )
+        ))
+        .map(([, value]) => value);
+}
+
+function findTitleMatches(filename, flatCandidates) {
+    const stem = path.basename(filename, path.extname(filename));
+    const normalizedStem = normalizeTitle(stem);
+    if (!normalizedStem) {
+        return [];
+    }
+
+    const matches = [];
+    for (const item of flatCandidates) {
+        for (const song of item.songs ?? []) {
+            if (songTitles(song).some((title) => normalizeTitle(title) === normalizedStem)) {
+                matches.push({ item, song });
+            }
+        }
+    }
+    return matches;
+}
+
 /**
  * harvest-asset の規律（audio: waveform を preview にする）に従い、library scope の
  * 実体エントリへ preview.png（波形画像）を作る。ffmpeg が無ければ生成せず理由を返す
@@ -136,6 +174,26 @@ async function buildPlan({ dropDir, catalogDir, flatCandidates }) {
     for (const filename of files) {
         const matches = findMatchingCandidates(filename, flatCandidates);
         if (matches.length === 0) {
+            const titleMatches = findTitleMatches(filename, flatCandidates);
+            if (titleMatches.length === 1) {
+                const item = titleMatches[0].item;
+                if (!matchedByCandidateId.has(item.id)) {
+                    matchedByCandidateId.set(item.id, { item, files: [], matchedByTitleNormalized: false });
+                }
+                const group = matchedByCandidateId.get(item.id);
+                group.files.push(filename);
+                group.matchedByTitleNormalized = true;
+                continue;
+            }
+            if (titleMatches.length > 1) {
+                const candidateIds = [...new Set(titleMatches.map(({ item }) => item.id))];
+                ambiguous.push({ file: filename, candidates: candidateIds });
+                quarantined.push({
+                    file: filename,
+                    reason: `複数の曲タイトルと正規化一致し一意に決定できない（候補: ${candidateIds.join(', ')}）`,
+                });
+                continue;
+            }
             quarantined.push({ file: filename, reason: '候補のファイル名パターンと一致しない（出典不明）' });
             continue;
         }
@@ -149,13 +207,13 @@ async function buildPlan({ dropDir, catalogDir, flatCandidates }) {
         }
         const item = matches[0];
         if (!matchedByCandidateId.has(item.id)) {
-            matchedByCandidateId.set(item.id, { item, files: [] });
+            matchedByCandidateId.set(item.id, { item, files: [], matchedByTitleNormalized: false });
         }
         matchedByCandidateId.get(item.id).files.push(filename);
     }
 
     const matchedGroups = [];
-    for (const { item, files: groupFiles } of matchedByCandidateId.values()) {
+    for (const { item, files: groupFiles, matchedByTitleNormalized } of matchedByCandidateId.values()) {
         const catalogEntryPath = path.join(catalogDir, item.id, 'meta.json');
         matchedGroups.push({
             candidateId: item.id,
@@ -165,6 +223,7 @@ async function buildPlan({ dropDir, catalogDir, flatCandidates }) {
             files: groupFiles,
             libraryDir: undefined, // filled by caller (needs libraryRoot)
             catalogEntryExists: await pathExists(catalogEntryPath),
+            matchedByTitleNormalized,
             item,
         });
     }
@@ -207,6 +266,9 @@ async function applyPlan({ plan, dropDir, libraryRoot, catalogDir, categoryLabel
             .sort();
 
         const meta = buildLibraryMeta(group.item, categoryLabelByItemId.get(group.candidateId), existingFiles, { registeredAt });
+        if (group.matchedByTitleNormalized) {
+            meta.matched_by = 'title-normalized';
+        }
         await writeFile(path.join(libraryDir, 'meta.json'), `${JSON.stringify(meta, null, 2)}\n`, 'utf8');
 
         if (movedFiles.length > 0) {
@@ -231,6 +293,9 @@ async function applyPlan({ plan, dropDir, libraryRoot, catalogDir, categoryLabel
         } else {
             await mkdir(catalogEntryDir, { recursive: true });
             const catalogMeta = buildCatalogMeta(group.item, categoryLabelByItemId.get(group.candidateId));
+            if (group.matchedByTitleNormalized) {
+                catalogMeta.matched_by = 'title-normalized';
+            }
             await writeFile(catalogEntryPath, `${JSON.stringify(catalogMeta, null, 2)}\n`, 'utf8');
             results.catalogWritten.push(group.candidateId);
         }
