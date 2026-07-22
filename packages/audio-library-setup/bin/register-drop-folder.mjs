@@ -29,7 +29,7 @@ import {
     findMatchingCandidates,
     buildLibraryMeta,
     buildCatalogMeta,
-} from '../lib/candidates.mjs';
+} from '../shared/candidates.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..', '..');

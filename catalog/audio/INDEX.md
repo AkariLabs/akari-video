@@ -4,18 +4,25 @@
 
 ## 音源セットアップ（半自動ドロップフォルダ方式）
 
-[`candidates.json`](./candidates.json) は、フリー配布元 60 候補（8 用途 SFX カテゴリ 41 件 +
-汎用 BGM 19 件）のデータ SSOT です。`node packages/audio-library-setup/bin/generate-candidates-html.mjs`
+[`candidates.json`](./candidates.json) は、フリー配布元 68 候補カード（8 用途 SFX カテゴリ 41 件 +
+BGM 27 件・収録曲換算 約110曲）のデータ SSOT です。`node packages/audio-library-setup/bin/generate-candidates-html.mjs`
 で候補リスト HTML（ダウンロードページを開くボタン付き・既所有は動的グレーアウト）を
 生成できます。手順は [`skills/setup-audio-library/`](../../skills/setup-audio-library/SKILL.md)
 を参照してください。
 
-BGM 候補は `mood[]`（真面目・親しみ・高級感・勢い・かわいい・無機質・エモい・シネマ —
-intake の tone チップと同一語彙）+ `tempo`（ゆったり/標準/高速）タグを持ち、各 mood に
-最低 2 曲を割り当てています。将来「分析 → tone 決定 → mood 一致で BGM 自動選曲」の
-パイプラインを見据えたデータ設計で、選曲ロジック自体は未実装です。DOVA-SYNDROME・
-MusMus・魔王魂・甘茶の音楽工房を中心に収録（MusMus・魔王魂はクレジット表記必須・
-書式は各候補の `credit_template` を参照）。
+BGM は「落ち着き系」（`bgm-calm`、11カード・約63曲、作業・解説・vlog 向けの定番）／
+「盛り上げ系」（`bgm-uplift`、6カード・約33曲、OP・見せ場・テンション上げ）／
+「補完」（`bgm-other`、10カード・約14曲、エモ・シネマ・コミカル・参照系）の3カテゴリに
+分割し、構成比は目安どおり概ね 6:3:1（実測 57%/30%/13%）です。各候補（カード）は
+`mood[]`（真面目・親しみ・高級感・勢い・かわいい・無機質・エモい・シネマ — intake の
+tone チップと同一語彙）+ `tempo`（ゆったり/標準/高速）タグを持ち、複数曲を束ねるカードは
+`songs[]` に曲ごとの mood/tempo を個別記録します（全8トーンで最低2件を大きく上回るカバレッジ）。
+将来「分析 → tone 決定 → mood 一致で BGM 自動選曲」のパイプラインを見据えたデータ設計で、
+選曲ロジック自体は未実装です。DOVA-SYNDROME・MusMus・魔王魂・甘茶の音楽工房を中心に、
+「よく使われている」定番曲（DLランキング上位・各サイトの主要カテゴリ）を優先収録
+（MusMus・魔王魂はクレジット表記必須・書式は各候補の `credit_template` を参照）。
+songs[] の個別曲は一覧ページのタイトル表示から採用しており、実ファイル名が未確認のため
+`expected_filenames` は空のまま（ドロップフォルダの自動照合はサイト単位の一部候補にのみ効く）。
 
 ## エントリ
 

@@ -12,7 +12,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCandidates, flattenCandidates, scanCatalogAudio, computeOwnership } from '../lib/candidates.mjs';
+import { loadCandidates, flattenCandidates, scanCatalogAudio, computeOwnership, countUnits } from '../shared/candidates.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..', '..');
@@ -91,6 +91,23 @@ function moodBadges(item) {
     return `<div class="mood-row">${moodBadgesHtml} ${tempoBadge}</div>`;
 }
 
+function renderSongs(item) {
+    const songs = item.songs ?? [];
+    if (songs.length === 0) return '';
+    const rows = songs
+        .map((song) => {
+            const songMood = (song.mood ?? []).map((m) => badge(m, 'mood')).join(' ');
+            const songTempo = song.tempo ? badge(`テンポ: ${song.tempo}`, 'tempo') : '';
+            return `<li>${escapeHtml(song.title_ja)} ${songMood} ${songTempo}</li>`;
+        })
+        .join('\n');
+    return `
+        <details class="songs">
+          <summary>収録曲 ${songs.length} 件</summary>
+          <ul class="song-list">${rows}</ul>
+        </details>`;
+}
+
 function renderItem(item, ownership) {
     const isOwned = ownership.status === 'exact';
     const rowClass = isOwned ? 'candidate owned' : 'candidate';
@@ -110,6 +127,7 @@ function renderItem(item, ownership) {
         ${item.license?.note ? `<p class="note">${escapeHtml(item.license.note)}</p>` : ''}
         ${item.credit_template ? `<p class="note credit-note">クレジット表記: ${escapeHtml(item.credit_template)}</p>` : ''}
         ${item.verification?.result_note ? `<p class="note verify-note">検証メモ: ${escapeHtml(item.verification.result_note)}</p>` : ''}
+        ${renderSongs(item)}
         <a class="open-button" href="${escapeHtml(item.download_page_url)}" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
         </a>
@@ -131,6 +149,7 @@ function renderCategory(category, ownershipMap) {
 
 function renderPage({ data, flat, ownershipMap, generatedAt }) {
     const ownedCount = flat.filter((item) => ownershipMap.get(item.id)?.status === 'exact').length;
+    const totalUnits = flat.reduce((sum, item) => sum + countUnits(item), 0);
     const categorySections = data.categories.map((category) => renderCategory(category, ownershipMap)).join('\n');
 
     return `<!doctype html>
@@ -159,6 +178,10 @@ function renderPage({ data, flat, ownershipMap, generatedAt }) {
   .verify-note { font-style: italic; }
   .credit-note { font-family: ui-monospace, monospace; }
   .mood-row { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .songs { margin-top: 8px; font-size: 0.85rem; }
+  .songs summary { cursor: pointer; opacity: 0.75; }
+  .song-list { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; }
+  .song-list li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; }
   .badge-ok { background: #d1e7dd; color: #0a3622; }
   .badge-warn { background: #fff3cd; color: #664d03; }
@@ -191,7 +214,7 @@ function renderPage({ data, flat, ownershipMap, generatedAt }) {
     保存後はドロップフォルダへ置くと、次回のセットアップ実行時に自動で照合・登録されます。
   </div>
   <p class="summary">
-    生成日時: ${escapeHtml(generatedAt)} ／ 候補 ${flat.length} 件（${data.categories.length} カテゴリ）／
+    生成日時: ${escapeHtml(generatedAt)} ／ 候補カード ${flat.length} 件（${data.categories.length} カテゴリ、うち収録曲換算 ${totalUnits} 件）／
     既所有（catalog 登録済み）: ${ownedCount} 件
   </p>
   ${categorySections}

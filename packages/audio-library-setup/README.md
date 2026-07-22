@@ -9,7 +9,7 @@
 
 | ファイル | 役割 |
 |---|---|
-| `lib/candidates.mjs` | `catalog/audio/candidates.json` の読み込み・ファイル名マッチング・既所有（ownership）判定・meta.json 組み立てを行う共有ロジック |
+| `shared/candidates.mjs` | `catalog/audio/candidates.json` の読み込み・ファイル名マッチング・既所有（ownership）判定・meta.json 組み立てを行う共有ロジック（`lib/` ではなく `shared/` にしているのはリポ直下 `.gitignore` の `lib/` パターンと衝突するため） |
 | `bin/generate-candidates-html.mjs` | 候補リストの静的自己完結 HTML を生成する CLI。ダウンロードは一切行わない |
 | `bin/register-drop-folder.mjs` | ドロップフォルダを走査し、候補と照合して `~/.akari-video/assets/audio/<id>/`（user スコープ）へ実体配置 + `catalog/audio/<id>/meta.json`（remote 参照）を書く CLI。既定は plan-only、`--apply` で実行 |
 | `gallery-server.mjs` + `gallery-template.html` | 登録済み音源の試聴 + keep/drop を記録するローカル HTTP サーバ（`127.0.0.1` のみ） |
