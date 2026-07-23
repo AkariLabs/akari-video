@@ -65,7 +65,16 @@ test("strict interval intersection copies whole words without clipping, and dry-
 
 test("existing words are skipped by default and overwritten only with --force", async () => {
   const existingWords = [{ start: 1.3, end: 1.4, text: "既存" }];
-  const captions = [{ id: "c-1", start: 1, end: 2, text: "字幕", words: existingWords }];
+  const captions = [{
+    id: "c-1",
+    start: 1,
+    end: 2,
+    text: "字幕",
+    speaker: null,
+    sourceRef: null,
+    edited: false,
+    words: existingWords,
+  }];
   await withFixture(analysisWith(WORDS), captions, async ({ analysisPath, captionsPath }) => {
     const skipped = run(analysisPath, captionsPath);
     assert.equal(skipped.status, 0, skipped.stderr);
@@ -89,7 +98,7 @@ test("an analysis without transcript words is a byte-preserving no-op with an ex
   });
 });
 
-test("filling words preserves every other captions.json field, including style", async () => {
+test("filling words preserves caption schema fields and drops unknown fields", async () => {
   const caption = {
     id: "c-1",
     start: 1,
@@ -105,8 +114,93 @@ test("filling words preserves every other captions.json field, including style",
     const result = run(analysisPath, captionsPath);
     assert.equal(result.status, 0, result.stderr);
     const [updated] = JSON.parse(await readFile(captionsPath, "utf8"));
-    const { words, ...withoutWords } = updated;
-    assert.deepEqual(withoutWords, caption);
-    assert.deepEqual(words, [WORDS[1], WORDS[2], WORDS[3]]);
+    assert.deepEqual(updated, {
+      id: caption.id,
+      start: caption.start,
+      end: caption.end,
+      text: caption.text,
+      speaker: caption.speaker,
+      sourceRef: caption.sourceRef,
+      edited: caption.edited,
+      words: [WORDS[1], WORDS[2], WORDS[3]],
+      style: caption.style,
+    });
+    assert.equal(Object.hasOwn(updated, "extensionData"), false);
+  });
+});
+
+test("writes one physical line per caption in caption-store compatible format", async () => {
+  const captions = [
+    {
+      id: "c-1",
+      start: 1,
+      end: 2,
+      text: "引用符 \" と改行\nを含む字幕",
+      speaker: "speaker-a",
+      sourceRef: { segment: 0 },
+      edited: true,
+      style: "karaoke",
+    },
+    {
+      id: "c-2",
+      start: 2,
+      end: 3,
+      text: "2行目",
+      speaker: null,
+      sourceRef: null,
+      edited: false,
+    },
+  ];
+  await withFixture(analysisWith(WORDS), captions, async ({ analysisPath, captionsPath }) => {
+    const prettySource = await readFile(captionsPath, "utf8");
+    assert.match(prettySource, /\n    "id"/u);
+
+    const result = run(analysisPath, captionsPath);
+    assert.equal(result.status, 0, result.stderr);
+    const source = await readFile(captionsPath, "utf8");
+    assert.equal(JSON.parse(source).length, captions.length);
+
+    const physicalLines = source.split("\n");
+    assert.equal(physicalLines.length, captions.length + 3);
+    assert.equal(physicalLines[0], "[");
+    assert.equal(physicalLines.at(-2), "]");
+    assert.equal(physicalLines.at(-1), "");
+    const captionLines = physicalLines.slice(1, -2);
+    assert.equal(captionLines.length, captions.length);
+
+    // These expressions mirror replaceCaptionLine in caption-store.ts.
+    const idPattern = /"id"\s*:\s*"((?:\\.|[^"\\])*)"/;
+    const textPattern = /"text"\s*:\s*"(?:\\.|[^"\\])*"/;
+    const editedPattern = /"edited"\s*:\s*(?:true|false)/;
+    for (const line of captionLines) {
+      assert.match(line, idPattern);
+      assert.match(line, textPattern);
+      assert.match(line, editedPattern);
+    }
+    assert.deepEqual(Object.keys(JSON.parse(captionLines[0].replace(/,$/u, ""))), [
+      "id", "start", "end", "text", "speaker", "sourceRef", "edited", "words", "style",
+    ]);
+    assert.deepEqual(Object.keys(JSON.parse(captionLines[1])), [
+      "id", "start", "end", "text", "speaker", "sourceRef", "edited", "words",
+    ]);
+  });
+});
+
+test("fills an explicitly empty words array without --force", async () => {
+  const captions = [{
+    id: "c-1",
+    start: 1,
+    end: 2,
+    text: "字幕",
+    speaker: null,
+    sourceRef: null,
+    edited: false,
+    words: [],
+  }];
+  await withFixture(analysisWith(WORDS), captions, async ({ analysisPath, captionsPath }) => {
+    const result = run(analysisPath, captionsPath);
+    assert.equal(result.status, 0, result.stderr);
+    const [updated] = JSON.parse(await readFile(captionsPath, "utf8"));
+    assert.deepEqual(updated.words, [WORDS[1], WORDS[2], WORDS[3]]);
   });
 });

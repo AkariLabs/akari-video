@@ -35,7 +35,8 @@ export async function runCli(args, io = console) {
     let copiedWords = 0;
     const updated = captions.map((caption) => {
       if (!isCaptionRange(caption)) return caption;
-      if (!options.force && Object.hasOwn(caption, "words")) {
+      const hasExistingWords = Array.isArray(caption.words) && caption.words.length > 0;
+      if (!options.force && hasExistingWords) {
         skipped += 1;
         return caption;
       }
@@ -53,7 +54,7 @@ export async function runCli(args, io = console) {
       return 0;
     }
 
-    const updatedSource = `${JSON.stringify(updated, null, 2)}\n`;
+    const updatedSource = serializeCaptionsForWrite(updated);
     if (options.dryRun) {
       io.log(renderDifference(captionsSource, updatedSource, captionsPath));
     } else {
@@ -67,6 +68,27 @@ export async function runCli(args, io = console) {
     io.error(error instanceof Error ? error.message : String(error));
     return 1;
   }
+}
+
+function serializeCaptionsForWrite(captions) {
+  const rows = captions.map((caption) => `  ${serializeCaptionLine(caption)}`);
+  return rows.length > 0 ? `[\n${rows.join(",\n")}\n]\n` : "[]\n";
+}
+
+function serializeCaptionLine(caption) {
+  const sourceRef = caption.sourceRef === null
+    ? "null"
+    : `{"segment":${JSON.stringify(caption.sourceRef.segment)}}`;
+  const words = caption.words === undefined
+    ? ""
+    : `,"words":${JSON.stringify(caption.words)}`;
+  const style = caption.style === undefined
+    ? ""
+    : `,"style":${JSON.stringify(caption.style)}`;
+  return `{"id":${JSON.stringify(caption.id)},"start":${JSON.stringify(caption.start)},`
+    + `"end":${JSON.stringify(caption.end)},"text":${JSON.stringify(caption.text)},`
+    + `"speaker":${caption.speaker === null ? "null" : JSON.stringify(caption.speaker)},`
+    + `"sourceRef":${sourceRef},"edited":${caption.edited ? "true" : "false"}${words}${style}}`;
 }
 
 function parseArguments(args) {
