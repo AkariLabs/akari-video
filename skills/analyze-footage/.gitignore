@@ -1,2 +1,4 @@
 bin/speechanalyzer-helper
+bin/person-matte/person-matte-helper
 bin/*.dSYM/
+bin/person-matte/*.dSYM/
