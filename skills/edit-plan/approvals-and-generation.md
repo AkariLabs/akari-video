@@ -78,7 +78,7 @@ OpenAI、Gemini 等の API キーを直接使わない。キーの提示を求�
 
 - 出力 width / height / fps
 - source と keep range
-- 複数素材を単一 source へ落とす方法
+- 複数素材の扱い（v1 の `sources[]` + `cuts[].src` か、単一中間マスターへの conform か）
 - 実行する生成、conform、音声・B ロール焼き込み
 - 作る overlay とタイミング
 - 作るファイルと既存ファイルへの影響

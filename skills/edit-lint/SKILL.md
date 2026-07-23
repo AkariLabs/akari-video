@@ -50,6 +50,19 @@ node packages/edit-lint/bin/edit-lint.mjs <project> --media --silence-error-seco
 
 ## 公開契約
 
+edit.json の検査対象は次の公開契約が定めるフィールドである。契約に無いフィールドの検査を推測で
+足さず、契約が定めた検査（構造・id 一意性・範囲・参照整合）は既に実装済みである。
+
 - [edit.json v0](../../docs/contract-2026-07-13-m1-m4.md)
+- [マルチソース `sources[]` / `cuts[].src`](../../docs/contract-2026-07-18-edit-json-v1-sources.md)
+  — `version: 1` の必須形、`source` と `sources[]` の排他、`sources[].id` の一意性、`cuts[].src` の参照整合
+- [ナレーション `audio.narration[]`](../../docs/contract-2026-07-20-edit-json-v1-narration.md)
+  — id 形式と一意性、`t` の timeline 座標、`gain_db` 範囲、provenance と credit
+- [見せ場マーカー `beats[]`](../../docs/contract-2026-07-22-edit-json-v1-beats.md)
+  — id・`t`（source 秒）・`kind`・`strength`・`src` の参照整合（`src` は v1 のみ）
+- [演出宣言 `direction`](../../docs/contract-2026-07-23-edit-json-v1-direction.md)
+  — `preset` の必須と `intensity` の範囲、`overrides` の型
+- [語レベル演出 `emphasis_words[]`](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md)
+  — id 形式と一意性、`t_end > t_start`（source 秒）、`src` の参照整合（`src` は v1 のみ）
 - [字幕とカット編集](../../docs/notes-2026-07-14-captions-and-cut-editing.md)
 - [QA lint の方向性](../../docs/notes-2026-07-16-qa-lint-and-transcript-ui.md)
