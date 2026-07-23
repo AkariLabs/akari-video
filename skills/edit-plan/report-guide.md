@@ -98,7 +98,7 @@ Checkpoint 1（方針）として運用し、確定内容を `decision-log.md`�
 2. **なければ生成**: prompt、生成する手、生成済み静止プレビュー、provenance を示す。動画 B ロールはまず静止画だけを作る。
 3. **使わない**: 無理に埋めず、非採用理由を示す。
 
-候補が見つからないことを「あれば提案」と記録しない。BGM、SFX、動画 B ロールは `edit.json v0` に専用フィールドがないため、計画上の採用と v0 への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
+候補が見つからないことを「あれば提案」と記録しない。BGM と SFX は `audio`、ナレーションは `audio.narration[]`、動画 B ロールは v1 の `sources[]` + `cuts[].src` へ格納できる（[execution.md](execution.md) §1）。公開契約のどのフィールドでも表せない演出だけ、計画上の採用と `edit.json` への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
 
 このチャット提示は Checkpoint 2（素材計画）として運用し（[approvals-and-generation.md](approvals-and-generation.md)）、確定内容を `decision-log.md` の `material` category に記録する。
 
@@ -113,7 +113,7 @@ Checkpoint 1（方針）として運用し、確定内容を `decision-log.md`�
 - 方針、素材計画、実行の承認・却下・修正要求
 - 生成手の選択と fallback
 - `使わない` を含む明示的な非採用
-- v0 単一 source への落とし方
+- source 構成の選択（v1 マルチソース / v0 単一 source / 中間マスターへ conform）
 - overlay-authoring 不在時の CLAUDE.md fallback
 - 上位タスクの指示によるサムネ経路 A/B/混成の未実施（スコープ限定）
 - チャットでの方針確定内容（推奨どおりか、修正が入ったか。差分を記録する）

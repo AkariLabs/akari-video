@@ -37,7 +37,7 @@ description: analyze-project が作る分析レポート（interpretation.json +
 3. 方針をチャットで人間に提示し（推奨・代替案・理由・得失を示す。「どうしますか」で丸投げ
    しない）、明示承認または修正指示を得る。確定内容を `decision-log.md` に追記する。
 4. [approvals-and-generation.md](approvals-and-generation.md) を読み、生成宣言、provenance、3 段階承認を運用する。Checkpoint 1 はチャットでの明示承認を得るまで編集実行に進まない。
-5. 実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json v0` とオーバーレイ HTML を生成・検証する。
+5. 実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json`（単一素材なら v0、複数素材なら v1）とオーバーレイ HTML を生成・検証する。
 6. 見せ場マーカーを書く工程では [beats.md](beats.md) を読み、`analysis.json` の events / transcript から
    `beats[]` を導出する（マッピング表・座標系・導出段のガードレール = 下限と根拠・worked example）。
 7. 承認済みの `beats[]` を演出へ連動させる工程では [beat-sync.md](beat-sync.md) を読み、射影・SE 発火
