@@ -54,7 +54,16 @@ jobs:
         env:
           npm_config_enable_lto: 'false'
           npm_config_enable_thin_lto: 'false'
-        run: npm install --no-workspaces
+        run: |
+          npm install --no-workspaces
+          # ランナーの npm（Node 26 同梱・>=12）は allow-scripts ゲートが既定有効で、
+          # electron の postinstall（本体 DL）等 12 パッケージの install script を
+          # ブロックする（run 29996855638 実測: electron/dist 不在で theia build が死んだ）。
+          # 警告文の案内どおり approve-scripts で承認し、rebuild で script を実行し直す。
+          npm approve-scripts electron esbuild puppeteer node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" "@vscode/windows-ca-certs" electron-winstaller
+          npm rebuild
+          # electron 実体が入ったことの早期ゲート（無ければ theia build まで進んでも無意味）
+          node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
 
       - name: build:ext (tsc -b, 9 extensions)
         working-directory: apps/shell
