@@ -118,7 +118,7 @@
           "var": "text"
         },
         "size": 72,
-        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "font": "'Noto Sans JP', sans-serif",
         "weight": 700,
         "color": {
           "var": "color_text"
@@ -178,7 +178,7 @@
           "var": "rubyText"
         },
         "size": 28,
-        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
+        "font": "'Noto Sans JP', sans-serif",
         "weight": 700,
         "color": {
           "var": "color_text_2"
