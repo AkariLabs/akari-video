@@ -13,12 +13,15 @@ import {
     AssetStreamRequest,
     AkariPreviewService,
     OverlayRuntimeAssets,
+    ResolveHevcProxyRequest,
+    ResolveHevcProxyResult,
     TranscodeAudioErrorKind,
     TranscodeAudioRequest,
     TranscodeAudioResult,
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
+import { getH264Proxy } from './hevc-proxy';
 
 interface StreamTarget {
     path: string;
@@ -138,6 +141,25 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async disposeVideoStream(id: string): Promise<void> {
         this.videoStreams.delete(id);
+    }
+
+    async resolveHevcProxy(request: ResolveHevcProxyRequest): Promise<ResolveHevcProxyResult> {
+        if (!request || typeof request.videoUri !== 'string' || typeof request.projectRootUri !== 'string') {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        let videoPath: string;
+        let projectRoot: string;
+        try {
+            videoPath = this.filePath(request.videoUri);
+            projectRoot = this.filePath(request.projectRootUri);
+        } catch {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        const result = await getH264Proxy(projectRoot, videoPath);
+        if (result.status === 'ready') {
+            return { status: 'ready', proxyUri: pathToFileURL(result.proxyPath).toString() };
+        }
+        return result;
     }
 
     async createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference> {

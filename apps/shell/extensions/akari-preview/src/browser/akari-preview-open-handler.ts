@@ -9,6 +9,7 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariPreviewService, OverlayRuntimeAssets } from '../common/akari-preview-protocol';
+import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
 import { locatePreviewCaptions, parsePreviewCaptions, PreviewCaption } from './akari-preview-captions';
 
 interface OverlayTransform {
@@ -113,6 +114,9 @@ interface PreviewModel {
     editUri?: URI;
     relatedEditUri?: URI;
     sourceUri?: URI;
+    // Explicit edit.json source.proxy (v0/v1 schema field), read-only, highest priority over the
+    // HEVC-triggered proxy resolved in refreshPreview(). Only set when the file actually exists.
+    sourceProxyUri?: URI;
     overlayUris: URI[];
     assetUris: URI[];
     assetStreamIds: string[];
@@ -1030,8 +1034,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             await this.disposeAssetStreams(model.assetStreamIds);
             return;
         }
+        // HEVC (H.265) sources are unlikely to decode on Windows (see tasks/2026-07-23-win-
+        // portability-audit/report.md §HEVC プレビュー in the internal repo). streamVideoUri is
+        // what actually gets streamed to <video>; videoUri itself (source identity: captions
+        // lookup, file watch, seek commands, title) stays untouched below.
+        const streamVideoUri = await this.resolveStreamVideoUri(videoUri, model);
         const videoStream = await this.previewService.createVideoStream({
-            videoUri: videoUri.toString()
+            videoUri: streamVideoUri.toString()
         }).catch(async error => {
             await this.disposeAssetStreams(model.assetStreamIds);
             throw error;
@@ -1144,6 +1153,39 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.setHTML(this.prepareHtml(videoUri, videoStream.url, model, assets, initialSeekTime));
     }
 
+    // Picks the URI that actually gets streamed to <video>: an explicit edit.json source.proxy
+    // wins outright (no ffprobe call — the pipeline already declared it authoritative); otherwise
+    // asks the backend to lazily generate/reuse an H.264 proxy when the source probes as HEVC.
+    // Blocks refreshPreview() until the RPC settles (no separate "generating…" UI state — see
+    // report for the tradeoff). Any failure (ffmpeg/ffprobe missing, generation error, RPC
+    // rejection) silently falls back to the original videoUri: worst case is unchanged pre-
+    // existing behavior (the <video> error handler's showPlaybackError already covers an
+    // undecodable source), never a new failure mode.
+    protected async resolveStreamVideoUri(videoUri: URI, model: PreviewModel): Promise<URI> {
+        if (model.sourceProxyUri) {
+            return model.sourceProxyUri;
+        }
+        const [workspaceRoot] = await this.workspaceService.roots;
+        if (!workspaceRoot) {
+            return videoUri;
+        }
+        try {
+            const result = await this.previewService.resolveHevcProxy({
+                videoUri: videoUri.toString(),
+                projectRootUri: workspaceRoot.resource.toString()
+            });
+            if (result.status === 'ready') {
+                return new URI(result.proxyUri);
+            }
+            if (result.status === 'unavailable') {
+                console.warn(`[akari-preview] HEVC プロキシを生成できませんでした（元動画のまま再生します）: ${result.reason}`);
+            }
+        } catch (error) {
+            console.warn('[akari-preview] HEVC プロキシの解決に失敗しました（元動画のまま再生します）', error);
+        }
+        return videoUri;
+    }
+
     protected showMessageCard(
         widget: PreviewWidgetMarker,
         videoUri: URI,
@@ -1185,6 +1227,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const assetStreams = new Map<string, { id: string; url: string }>();
         const assetUris: URI[] = [];
         let sourceUri: URI | undefined;
+        let sourceProxyUri: URI | undefined;
         try {
             const edit = JSON.parse(await this.readText(editUri));
             if (typeof edit?.source?.path !== 'string' || !edit.source.path.trim()) {
@@ -1192,6 +1235,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             const emphasisWords = this.normalizeEmphasisWords(edit?.emphasis_words);
             sourceUri = this.resolveEditAssetUri(edit.source.path, editUri);
+            // edit.json's schema already declares an explicit source.proxy field (v0 sourceV0 /
+            // v1 sourceV1, see packages/schemas/edit.schema.json) that no consumer reads yet. If
+            // it's set, it wins over the HEVC-triggered proxy this task adds below (read-only —
+            // never written back). Falls through to HEVC detection if the declared file is
+            // missing, same as how layers[].kind==='baked' treats a missing preview sidecar.
+            if (typeof edit?.source?.proxy === 'string' && edit.source.proxy.trim()) {
+                const candidate = this.resolveEditAssetUri(edit.source.proxy, editUri);
+                sourceProxyUri = await this.fileService.exists(candidate) ? candidate : undefined;
+            }
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
             const width = this.positiveNumber(edit?.output?.width, EMPTY_SUMMARY.output.width);
@@ -1411,6 +1463,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return {
                 editUri,
                 sourceUri,
+                sourceProxyUri,
                 overlayUris,
                 assetUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
@@ -1436,6 +1489,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return {
                 editUri,
                 sourceUri,
+                sourceProxyUri,
                 summary: EMPTY_SUMMARY,
                 overlayUris: [],
                 assetUris: [],
@@ -1464,11 +1518,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
                 return undefined;
             }
-            const assetUri = pathValue.startsWith('file:')
-                ? new URI(pathValue)
-                : pathValue.startsWith('/')
-                    ? new URI(pathValue).withScheme('file')
-                    : editUri.parent.resolve(pathValue);
+            const assetUri = this.resolveEditAssetUri(pathValue, editUri);
             const key = assetUri.toString();
             try {
                 let stream = assetStreams.get(key);
@@ -3957,14 +4007,28 @@ body { display: grid; place-items: center; padding: 32px; }
         return Number.isFinite(number) && number > 0 ? number : fallback;
     }
 
+    // Single implementation of the edit.json asset path resolution judgment (previously
+    // duplicated inline in resolveAudioAssets()). classifyEditAssetPath() is a pure, platform-
+    // independent helper covered by node --test (see ../common/edit-asset-path.ts); this method
+    // is just the thin Theia URI construction on top of it. Order: file: scheme, then Windows
+    // drive-letter absolute, then UNC, then POSIX absolute, then relative (resolved against the
+    // edit.json's parent directory). edit.json's own canon is project-relative paths, so darwin
+    // never actually receives a "C:\..." value in practice; this only has to be correct in
+    // principle for a future Windows port, not exercised end-to-end on this platform.
     protected resolveEditAssetUri(pathValue: string, editUri: URI): URI {
-        if (pathValue.startsWith('file:')) {
-            return new URI(pathValue);
+        switch (classifyEditAssetPath(pathValue)) {
+            case 'file-uri':
+                return new URI(pathValue);
+            case 'windows-drive':
+                return new URI(windowsDriveToFileUriString(pathValue));
+            case 'unc':
+                return new URI(uncToFileUriString(pathValue));
+            case 'posix-absolute':
+                return new URI(pathValue).withScheme('file');
+            case 'relative':
+            default:
+                return editUri.parent.resolve(pathValue);
         }
-        if (pathValue.startsWith('/')) {
-            return new URI(pathValue).withScheme('file');
-        }
-        return editUri.parent.resolve(pathValue);
     }
 
     protected previewProxyUri(sourceUri: URI): URI {
