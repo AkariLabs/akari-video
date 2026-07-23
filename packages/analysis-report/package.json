@@ -8,6 +8,6 @@
     "render-analysis-report": "render-analysis-report.mjs"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test \"test/*.test.mjs\""
   }
 }

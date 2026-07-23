@@ -10,6 +10,6 @@
     "audio-gallery-helper": "bin/gallery-helper.mjs"
   },
   "scripts": {
-    "test": "node --test test/*.mjs"
+    "test": "node --test \"test/*.mjs\""
   }
 }

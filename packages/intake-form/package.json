@@ -9,6 +9,6 @@
   },
   "scripts": {
     "start": "node intake-form-helper.mjs",
-    "test": "node --test test/*.mjs"
+    "test": "node --test \"test/*.mjs\""
   }
 }
