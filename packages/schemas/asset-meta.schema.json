@@ -90,6 +90,10 @@
         { "type": "number", "minimum": 0 }
       ]
     },
+    "matched_by": {
+      "$comment": "drop-folder タイトル正規化照合の来歴フィールド（2026-07-22 導入）。将来の照合経路追加時は enum を拡張する。",
+      "enum": ["title-normalized"]
+    },
     "remote": {
       "type": "boolean",
       "description": "true の場合、このエントリはカタログ上のみに存在し実体ファイルを持たない。source ブロックが実体の代わりになる（2026-07-14 追記・任意フィールド）。"
