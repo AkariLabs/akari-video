@@ -38,6 +38,8 @@ const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
 const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
+const TRACK_INSERT_ZONE_PX = 10;
+const TRACK_INSERT_LINE_COLOR = '#22c55e';
 const SNAP_THRESHOLD_PX = 6;
 const SNAP_GRID_SECONDS = 0.25;
 const SNAP_GUIDE_COLOR_DEFAULT = '#06b6d4';
@@ -186,13 +188,13 @@ type DragDetail =
 type DragState = DragBase & DragDetail;
 
 type DragPreview =
-    | { kind: 'cut-trim'; index: number; input: number; output: number }
-    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean }
+    | { kind: 'cut-trim'; index: number; input: number; output: number; rejected: boolean }
+    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; insertTrack?: number }
     | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
     | { kind: 'overlay-move'; id: string; start: number; track: number }
     | { kind: 'overlay-resize'; id: string; duration: number }
-    | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean }
-    | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean };
+    | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean; insertTrack?: number }
+    | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean; insertTrack?: number };
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
@@ -238,6 +240,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly playheadHandle = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
     protected readonly dragFeedback = document.createElement('div');
+    protected readonly trackInsertIndicator = document.createElement('div');
     protected readonly notice = document.createElement('div');
     protected readonly footer = document.createElement('div');
 
@@ -463,7 +466,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             border: '1px solid var(--theia-editorHoverWidget-border, rgba(255,255,255,.2))',
             borderRadius: '3px', pointerEvents: 'none'
         });
-        this.timelineOverlay.append(this.playhead, this.snapGuide, this.dragFeedback);
+        Object.assign(this.trackInsertIndicator.style, {
+            position: 'absolute', left: '0', right: '0', height: '2px', display: 'none',
+            background: TRACK_INSERT_LINE_COLOR, pointerEvents: 'none', zIndex: '10',
+            boxShadow: `0 0 4px 1px ${TRACK_INSERT_LINE_COLOR}`
+        });
+        this.timelineOverlay.append(this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator);
         this.strip.addEventListener('click', event => this.onStripClick(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
@@ -1653,14 +1661,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected totalDuration(): number {
+    protected contentEndDuration(): number {
         if (this.cuts.length > 0) {
             // アウトプット軸: cuts 尺合計とオーバーレイ終端の大きい方（10 秒フロアは cuts があるときは外す）。
             const cutsDuration = this.segments.reduce((max, segment) => Math.max(max, segment.tlEnd), 0);
             const overlaysEnd = this.overlays.reduce((max, overlay) => Math.max(max, overlay.start + overlay.duration), 0);
             const layersEnd = this.layers.reduce((max, layer) => Math.max(max, layer.t + layer.duration), 0);
             const sfxEnd = this.audioSfx.reduce((max, sfx) => Math.max(max, sfx.t + sfx.duration), 0);
-            return Math.max(cutsDuration, overlaysEnd, layersEnd, sfxEnd) * 1.02;
+            return Math.max(cutsDuration, overlaysEnd, layersEnd, sfxEnd);
         }
         const candidates = [
             10,
@@ -1671,7 +1679,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.beats.map(beat => beat.t + 1),
             ...this.annotations.map(annotation => annotation.sourceT + 1)
         ];
-        return Math.max(...candidates) * 1.02;
+        return Math.max(...candidates);
+    }
+
+    protected totalDuration(): number {
+        const contentEnd = this.contentEndDuration();
+        const padded = contentEnd * 1.02;
+        if (this.viewDuration !== undefined) {
+            return Math.max(padded, contentEnd + 0.5 * this.viewDuration);
+        }
+        return Math.max(padded, contentEnd * 2);
     }
 
     /** source 秒 → 出力秒。cuts が無ければ恒等写像（後方互換）。範囲外は最も近いセグメントへクランプする。 */
@@ -2702,27 +2719,54 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const showGuide = allowGuide && this.snapEnabled;
         if (state.kind === 'cut-trim') {
             const proposed = state.edge === 'left' ? state.originalIn + delta : state.originalOut + delta;
-            const edge = this.snapTimeInSourceSpace(Math.max(0, proposed), showGuide);
+            const edge = this.snapTimeInSourceSpace(
+                Math.max(0, proposed), showGuide,
+                [{ time: state.originalIn }, { time: state.originalOut }]
+            );
             const input = state.edge === 'left' ? edge : state.originalIn;
             const output = state.edge === 'right' ? edge : state.originalOut;
             const segment = this.segments[state.index];
             const newDuration = Math.max(0, output - input);
             if (segment) {
+                let spanStart: number;
+                let spanEnd: number;
                 if (state.edge === 'left') {
-                    this.setGhostRange(state.ghost, segment.tlEnd - newDuration / segment.speed, segment.tlEnd);
+                    spanStart = segment.tlEnd - newDuration / segment.speed;
+                    spanEnd = segment.tlEnd;
                 } else {
-                    this.setGhostRange(state.ghost, segment.tlStart, segment.tlStart + newDuration / segment.speed);
+                    spanStart = segment.tlStart;
+                    spanEnd = segment.tlStart + newDuration / segment.speed;
                 }
+                const rejected = this.cutWouldOverlap(
+                    state.index, spanStart, spanEnd - spanStart, segment.track
+                );
+                this.setGhostRange(state.ghost, spanStart, spanEnd);
+                this.setGhostRejected(state.ghost, rejected);
+                this.updateDragFeedback(state, rejected
+                    ? '⚠ 重なるためトリムできません'
+                    : `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(edge)} / 尺 ${newDuration.toFixed(2)} 秒`);
+                this.updateGhostHeaderDuration(state.ghost, newDuration);
+                return { kind: 'cut-trim', index: state.index, input, output, rejected };
             } else {
                 this.setGhostRange(state.ghost, input, output);
             }
+            this.setGhostRejected(state.ghost, false);
             this.updateDragFeedback(state, `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(edge)} / 尺 ${newDuration.toFixed(2)} 秒`);
             this.updateGhostHeaderDuration(state.ghost, newDuration);
-            return { kind: 'cut-trim', index: state.index, input, output };
+            return { kind: 'cut-trim', index: state.index, input, output, rejected: false };
         }
         if (state.kind === 'cut-move') {
-            const at = Math.max(0, this.snapTimeInOutputSpace(state.originalAt + delta, showGuide));
+            const at = Math.max(0, this.snapTimeInOutputSpace(
+                state.originalAt + delta, showGuide,
+                [{ time: state.originalAt }, { time: state.originalAt + state.duration }]
+            ));
             const hit = this.trackAtClientY('cut', this.laneLayout.cutTracks, clientY, state.originalTrack, CLIP_HEIGHT);
+            const isNewTrackSpot = !this.laneLayout.cutTracks.some(layout => layout.track === hit.track);
+            if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
+                this.showTrackInsertIndicatorAt(hit.top);
+            } else {
+                this.hideTrackInsertIndicator();
+            }
             const rejected = hit.rejected || this.cutWouldOverlap(state.index, at, state.duration, hit.track);
             this.setGhostRange(state.ghost, at, at + state.duration);
             state.ghost.style.top = `${hit.top}px`;
@@ -2730,18 +2774,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateDragFeedback(state, rejected
                 ? '⚠ 移動できません（種別が異なる／重なります）'
                 : `${this.formatTimestamp(at)} / トラック ${hit.track}`);
-            return { kind: 'cut-move', index: state.index, at, track: hit.track, rejected };
+            return {
+                kind: 'cut-move', index: state.index, at, track: hit.track, rejected,
+                insertTrack: hit.insertTrack
+            };
         }
         if (state.kind === 'caption') {
             let start = state.originalStart;
             let end = state.originalEnd;
+            const originalEdges = [{ time: state.originalStart }, { time: state.originalEnd }];
             if (state.mode === 'move') {
-                start = this.snapTimeInSourceSpace(state.originalStart + delta, showGuide);
+                start = this.snapTimeInSourceSpace(state.originalStart + delta, showGuide, originalEdges);
                 end = state.originalEnd + (start - state.originalStart);
             } else if (state.mode === 'start') {
-                start = this.snapTimeInSourceSpace(state.originalStart + delta, showGuide);
+                start = this.snapTimeInSourceSpace(state.originalStart + delta, showGuide, originalEdges);
             } else {
-                end = this.snapTimeInSourceSpace(state.originalEnd + delta, showGuide);
+                end = this.snapTimeInSourceSpace(state.originalEnd + delta, showGuide, originalEdges);
             }
             const ranges = this.sourceRangeToOutputRanges(start, end);
             if (ranges.length > 0) {
@@ -2760,20 +2808,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let itemDuration = state.originalDuration;
             let track = state.originalTrack;
             let rejected = false;
+            let insertTrack: number | undefined;
+            const originalEdges = [
+                { time: state.originalT },
+                { time: state.originalT + state.originalDuration }
+            ];
             if (state.mode === 'start') {
-                t = this.snapTimeInOutputSpace(Math.max(0, state.originalT + delta), showGuide);
+                t = this.snapTimeInOutputSpace(
+                    Math.max(0, state.originalT + delta), showGuide, originalEdges
+                );
                 itemDuration = state.originalDuration + (state.originalT - t);
             } else if (state.mode === 'end') {
                 itemDuration = this.snapTimeInOutputSpace(
-                    state.originalT + state.originalDuration + delta, showGuide
+                    state.originalT + state.originalDuration + delta, showGuide, originalEdges
                 ) - state.originalT;
             } else {
-                t = this.snapTimeInOutputSpace(Math.max(0, state.originalT + delta), showGuide);
+                t = this.snapTimeInOutputSpace(
+                    Math.max(0, state.originalT + delta), showGuide, originalEdges
+                );
                 const hit = this.trackAtClientY(
                     'layer', this.laneLayout.layerTracks, clientY, state.originalTrack, SUBROW_STRIDE
                 );
+                const isNewTrackSpot = !this.laneLayout.layerTracks.some(layout => layout.track === hit.track);
+                if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
+                    this.showTrackInsertIndicatorAt(hit.top);
+                } else {
+                    this.hideTrackInsertIndicator();
+                }
                 track = hit.track;
                 rejected = hit.rejected;
+                insertTrack = hit.insertTrack;
                 state.ghost.style.top = `${hit.top}px`;
             }
             this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
@@ -2781,23 +2845,44 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateDragFeedback(state, rejected
                 ? '⚠ 移動できません（種別が異なります）'
                 : `${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒 / トラック ${track}`);
-            return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected };
+            return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected, insertTrack };
         }
         if (state.kind === 'audio') {
-            const t = this.snapTimeInOutputSpace(Math.max(0, state.originalT + delta), showGuide);
+            const t = this.snapTimeInOutputSpace(
+                Math.max(0, state.originalT + delta), showGuide,
+                [
+                    { time: state.originalT },
+                    { time: state.originalT + DECLARED_SFX_DURATION_SECONDS }
+                ]
+            );
             const hit = this.trackAtClientY(
                 'audio', this.laneLayout.audioTracks, clientY, state.originalTrack, SUBROW_STRIDE
             );
+            const isNewTrackSpot = !this.laneLayout.audioTracks.some(layout => layout.track === hit.track);
+            if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
+                this.showTrackInsertIndicatorAt(hit.top);
+            } else {
+                this.hideTrackInsertIndicator();
+            }
             this.setGhostRange(state.ghost, t, t + DECLARED_SFX_DURATION_SECONDS);
             state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, hit.rejected);
             this.updateDragFeedback(state, hit.rejected
                 ? '⚠ 移動できません（種別が異なります）'
                 : `${this.formatTimestamp(t)} / トラック ${hit.track}`);
-            return { kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected };
+            return {
+                kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected,
+                insertTrack: hit.insertTrack
+            };
         }
         if (state.mode === 'move') {
-            const start = this.snapTimeInOutputSpace(Math.max(0, state.originalStart + delta), showGuide);
+            const start = this.snapTimeInOutputSpace(
+                Math.max(0, state.originalStart + delta), showGuide,
+                [
+                    { time: state.originalStart },
+                    { time: state.originalStart + state.originalDuration }
+                ]
+            );
             this.setGhostRange(state.ghost, start, start + state.originalDuration);
             const track = this.overlayTrackAtClientY(clientY);
             const layout = this.overlayTrackLayouts.find(candidate => candidate.track === track);
@@ -2810,7 +2895,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateDragFeedback(state, `${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
             return { kind: 'overlay-move', id: state.id, start, track };
         }
-        const end = this.snapTimeInOutputSpace(state.originalStart + state.originalDuration + delta, showGuide);
+        const end = this.snapTimeInOutputSpace(
+            state.originalStart + state.originalDuration + delta, showGuide,
+            [
+                { time: state.originalStart },
+                { time: state.originalStart + state.originalDuration }
+            ]
+        );
         this.setGhostRange(state.ghost, state.originalStart, end);
         this.updateDragFeedback(state, `尺 ${(end - state.originalStart).toFixed(2)} 秒`);
         return { kind: 'overlay-resize', id: state.id, duration: end - state.originalStart };
@@ -2827,6 +2918,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const viewportTop = RULER_BAND_HEIGHT_PX + ghostTop - this.stripScroll.scrollTop;
         this.dragFeedback.style.top = `${Math.max(0, viewportTop - 18)}px`;
         this.dragFeedback.style.display = 'block';
+    }
+
+    protected showTrackInsertIndicatorAt(stripLocalTop: number): void {
+        const viewportTop = RULER_BAND_HEIGHT_PX + stripLocalTop - this.stripScroll.scrollTop;
+        this.trackInsertIndicator.style.top = `${viewportTop}px`;
+        this.trackInsertIndicator.style.display = 'block';
+    }
+
+    protected hideTrackInsertIndicator(): void {
+        this.trackInsertIndicator.style.display = 'none';
     }
 
     /** トリム中、ゴースト（クリップの複製）のヘッダー尺表示をリアルタイム更新する（レガシー準拠の数値フィードバック）。 */
@@ -2861,11 +2962,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         clientY: number,
         originalTrack: number,
         rowHeight: number
-    ): { track: number; top: number; rejected: boolean } {
+    ): { track: number; top: number; rejected: boolean; insertTrack?: number } {
         if (layouts.length === 0) {
             return { track: 0, top: 0, rejected: true };
         }
         const localY = clientY - this.strip.getBoundingClientRect().top;
+        for (let i = 0; i < layouts.length - 1; i++) {
+            const lower = layouts[i + 1];
+            const boundaryY = lower.top;
+            if (Math.abs(localY - boundaryY) <= TRACK_INSERT_ZONE_PX) {
+                const newTrack = lower.track + 1;
+                return { track: newTrack, top: boundaryY, rejected: false, insertTrack: newTrack };
+            }
+        }
         const highest = layouts[0];
         if (localY < highest.top) {
             if (localY >= highest.top - LANE_GAP) {
@@ -2926,7 +3035,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * トリム・字幕ドラッグ用。候補は source 空間（単語境界・他 cuts の in/out・現在の再生/選択位置）。
      * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする（スナップ有効時は常に何かへ吸着する）。
      */
-    protected snapTimeInSourceSpace(value: number, showGuide: boolean): number {
+    protected snapTimeInSourceSpace(
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+    ): number {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
             return value;
@@ -2939,7 +3050,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.wordBoundaries.map(time => ({ time })),
             ...this.cuts.flatMap(cut => [{ time: cut.in }, { time: cut.out }]),
             { time: this.outputToSource(this.playheadT), isPlayhead: true },
-            { time: this.selectedSourceT }
+            { time: this.selectedSourceT },
+            { time: 0 },
+            ...extraCandidates
         ].filter(candidate => Number.isFinite(candidate.time));
         const nearest = this.nearestCandidate(candidates, value);
         if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
@@ -2959,7 +3072,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 位置移動・オーバーレイドラッグ用。候補は出力空間（セグメント境界・再生位置・選択位置の射影）。
      * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする。
      */
-    protected snapTimeInOutputSpace(value: number, showGuide: boolean): number {
+    protected snapTimeInOutputSpace(
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+    ): number {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
             return value;
@@ -2971,7 +3086,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const candidates: SnapCandidate[] = [
             ...this.segments.flatMap(segment => [{ time: segment.tlStart }, { time: segment.tlEnd }]),
             { time: this.playheadT, isPlayhead: true },
-            { time: this.sourceToOutput(this.selectedSourceT) }
+            { time: this.sourceToOutput(this.selectedSourceT) },
+            { time: 0 },
+            ...extraCandidates
         ].filter(candidate => Number.isFinite(candidate.time));
         const nearest = this.nearestCandidate(candidates, value);
         if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
@@ -3037,6 +3154,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         state.element.style.opacity = '';
         state.ghost.remove();
         this.hideSnapGuide();
+        this.hideTrackInsertIndicator();
         this.dragFeedback.style.display = 'none';
         this.dragState = undefined;
         if (this.renderStripPending) {
@@ -3114,7 +3232,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 result = await this.annotationsService.moveCut({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     cutIndex: preview.index, at: preview.at,
-                    track: preview.track === original.track ? undefined : preview.track
+                    ...(preview.insertTrack !== undefined
+                        ? {
+                            trackState: this.shiftTrackStateForInsert(
+                                originalTrackState, String(preview.index), preview.insertTrack
+                            )
+                        }
+                        : { track: preview.track === original.track ? undefined : preview.track })
                 });
                 await this.reloadEdit();
                 const movedTrackState = await this.readIndexedTrackState('cuts');
@@ -3186,7 +3310,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const originalTrackState = await this.readIdTrackState('layers');
                 result = await this.annotationsService.moveLayer({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    layerId: preview.id, t: preview.t, duration: preview.duration, track: preview.track
+                    layerId: preview.id, t: preview.t, duration: preview.duration,
+                    ...(preview.insertTrack !== undefined
+                        ? {
+                            trackState: this.shiftTrackStateForInsert(
+                                originalTrackState, preview.id, preview.insertTrack
+                            )
+                        }
+                        : { track: preview.track })
                 });
                 await this.reloadEdit();
                 const movedTrackState = await this.readIdTrackState('layers');
@@ -3224,7 +3355,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const originalTrackState = await this.readIndexedTrackState('sfx');
                 result = await this.annotationsService.moveSfx({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    sfxIndex, t: preview.t, track: preview.track
+                    sfxIndex, t: preview.t,
+                    ...(preview.insertTrack !== undefined
+                        ? {
+                            trackState: this.shiftTrackStateForInsert(
+                                originalTrackState, String(sfxIndex), preview.insertTrack
+                            )
+                        }
+                        : { track: preview.track })
                 });
                 await this.reloadEdit();
                 const movedTrackState = await this.readIndexedTrackState('sfx');
@@ -3362,6 +3500,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return state;
     }
 
+    /**
+     * トラック間へ挿入するアイテムを新しいトラックへ移し、それ以上の既存トラックを1つ上へずらす。
+     */
+    protected shiftTrackStateForInsert(
+        base: Record<string, number | null>,
+        movedKey: string,
+        newTrackNumber: number
+    ): Record<string, number | null> {
+        const result: Record<string, number | null> = {};
+        for (const [key, value] of Object.entries(base)) {
+            if (key === movedKey) {
+                result[key] = newTrackNumber;
+                continue;
+            }
+            const current = value ?? 0;
+            result[key] = current >= newTrackNumber ? current + 1 : value;
+        }
+        return result;
+    }
+
     protected async readIdTrackState(key: 'layers'): Promise<Record<string, number | null>> {
         const value = await this.readEditValue();
         const items = value[key];
@@ -3469,7 +3627,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const duration = clipboard.kind === 'caption'
             ? clipboard.payload.end - clipboard.payload.start
             : clipboard.payload.duration;
-        const contentDuration = this.totalDuration() / 1.02;
+        const contentDuration = this.contentEndDuration();
         if (!Number.isFinite(start) || start < 0 || start + duration > contentDuration + Number.EPSILON) {
             this.footer.textContent = '総尺を超える位置にはペーストできません。';
             return;
