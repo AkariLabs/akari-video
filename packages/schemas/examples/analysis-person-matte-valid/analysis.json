@@ -1,0 +1,18 @@
+{
+  "version": 0,
+  "source": "../../clip.mp4",
+  "transcript": [],
+  "keyframes": [],
+  "events": [],
+  "tracks": {
+    "speakers": [],
+    "faces": [],
+    "person_matte": {
+      "path": "matte/person-matte.webm",
+      "fps": 24,
+      "quality": "balanced",
+      "generated_at": "2026-07-23T01:33:30.069Z",
+      "tool": "vision-person-segmentation"
+    }
+  }
+}

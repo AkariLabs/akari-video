@@ -397,6 +397,42 @@
         }
       }
     },
+    "personMatteTrack": {
+      "$comment": "2026-07-23 追加（docs/contract-2026-07-23-analysis-person-matte.md）。実体は VP9 alpha WebM（コンテナに alpha_mode=1）。意味制約として、マット動画の時刻 0 は素材の時刻 0 と一致し、fps はマット動画の実 fps と一致する。Draft 2020-12 標準では外部ファイルを参照できないため、この条件は生成・検証手順で確認する。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "fps"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "マット動画（VP9 alpha WebM）へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決し、区切りは / を使う。"
+        },
+        "fps": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "マット動画の fps。元素材の fps と一致しなくてよい。"
+        },
+        "quality": {
+          "type": "string",
+          "minLength": 1,
+          "description": "生成品質。fast / balanced / accurate を例示するが、enum 強制はしない（beats[].kind と同じ流儀）。"
+        },
+        "generated_at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "生成時刻（ISO8601）。"
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1,
+          "description": "生成手段の記録。vision-person-segmentation を例示する。"
+        }
+      }
+    },
     "tracks": {
       "type": "object",
       "additionalProperties": false,
@@ -419,12 +455,19 @@
           }
         },
         "person_matte": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "minLength": 1,
-          "description": "生成済み人物マットへのパス。未生成なら null。相対パスは analysis.json の所在ディレクトリを基準に解決する。"
+          "description": "生成済み人物マット。未生成なら null。object 形が正（2026-07-23 追加）。string 形は { path } の糖衣として後方互換で受ける（非推奨）。相対パスは analysis.json の所在ディレクトリを基準に解決する。",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "$ref": "#/$defs/personMatteTrack"
+            }
+          ]
         }
       }
     }

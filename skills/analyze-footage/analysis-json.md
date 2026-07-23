@@ -106,11 +106,19 @@ tracks の形:
   "faces": [
     { "speaker": "A", "t": 12.0, "box": [0.1, 0.2, 0.3, 0.5] }
   ],
-  "person_matte": "mattes/person-alpha.mov"
+  "person_matte": {
+    "path": "matte/person-matte.webm",
+    "fps": 24,
+    "quality": "balanced",
+    "generated_at": "2026-07-23T01:33:30.069Z",
+    "tool": "vision-person-segmentation"
+  }
 }
 ```
 
-`person_matte` は生成・照合済みのときだけパスにし、それ以外は `null` にする。相対パスは `analysis.json` のディレクトリ基準とし、区切りは `/` を使う。face の speaker は対応する `tracks.speakers[].id` に存在させる。
+`person_matte` は生成・照合済みのときだけ値を入れ、それ以外は `null` にする。生成は任意工程であり、既定は `null` である（[person-matte.md](person-matte.md)）。`path`（マット動画へのパス）と `fps`（マット動画の fps）が必須、`quality` / `generated_at` / `tool` は任意である。相対パスは `analysis.json` のディレクトリ基準とし、区切りは `/` を使う。データ契約は [docs/contract-2026-07-23-analysis-person-matte.md](../../docs/contract-2026-07-23-analysis-person-matte.md) が正本である。
+
+単一パスの文字列（`"mattes/person-alpha.mov"`）は旧形であり、`{ "path": ... }` の糖衣として読み手が受けるが、新しく書かない。face の speaker は対応する `tracks.speakers[].id` に存在させる。
 
 ## Schema では表せない意味制約
 
@@ -122,7 +130,8 @@ tracks の形:
 - transcript、keyframes、events、各 span が source 時刻順である。
 - `speaker` がある transcript と face の speaker ID が tracks と整合する。
 - face box が `[x, y, width, height]` で、`x + width <= 1`、`y + height <= 1` である。
-- `source`、keyframe path、非 null の person_matte を JSON の位置から解決でき、実ファイルが存在する。
+- `source`、keyframe path、非 null の person_matte の `path` を JSON の位置から解決でき、実ファイルが存在する。
+- person_matte を書いた場合、マット動画の時刻 0 が素材の時刻 0 と一致し、`fps` が実際のマット動画の fps と一致する。
 - JSON number に `NaN`、`Infinity`、文字列化した数値を使っていない。
 
 ## 検証して確定する
@@ -170,6 +179,7 @@ Schema 検証、意味制約、参照ファイル存在確認を通した後だ�
 - highlight の `quote` に要約・言い換えを書く（transcript の実発言に忠実にする）。
 - hook score を小数、0、6 以上にする、または 5 軸の一部を省く。
 - 未生成の人物マットを空文字にする。未生成は `null` である。
+- 人物マットの `path` にヘルパーが返した絶対パスをそのまま書く。`analysis.json` のディレクトリ基準へ直す。
 - box を pixel 座標で保存する。
 - Schema が検出しない `end <= start` を残す。
 - backend（使用した文字起こしエンジン）を transcript segment に追加する — analysis.schema.json は `additionalProperties: false` でこのフィールドを許可しない。完了報告に書く（[media-and-transcript.md#provenancebackendの記録](media-and-transcript.md#provenancebackend-の記録)）。
