@@ -1929,15 +1929,13 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; will-change: transform; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-#preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; pointer-events: none; }
+#preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: none; }
-#overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: visible; }
+#overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; }
 #caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
 #caption-plate:empty { display: none; }
 #caption-plate.akari-caption-host--styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
-#preview-indicators { position: absolute; left: 8px; bottom: 8px; z-index: 4; max-width: calc(100% - 16px); padding: 5px 9px; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; background: rgba(20,20,20,0.78); color: #ddd; font-size: 11px; line-height: 1.35; pointer-events: none; }
-#preview-indicators[hidden] { display: none; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
 .output-preview-link[hidden] { display: none; }
@@ -1968,7 +1966,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .transport-seek input { width: 100%; }
 .transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; }
 .transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 8px; }
-.transport-left { min-width: 0; justify-self: start; }
+.transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
 .icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; cursor: pointer; }
@@ -1995,7 +1993,6 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
       </div>
       <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
-      <div id="preview-indicators" hidden></div>
       <button id="output-preview-link" class="output-preview-link" type="button"${model.relatedEditUri ? '' : ' hidden'}>合成は出力プレビューで確認（開く）</button>
       <div id="audio-notice" class="audio-notice" hidden role="status">
         <span>音声が検出されていません。無音の素材か、音声形式がプレビュー非対応の可能性があります（書き出しには影響しません）。</span>
@@ -2023,6 +2020,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <div class="transport-controls">
     <div class="transport-left">
       <button id="waveform-toggle" class="icon-button" type="button" aria-label="波形" title="波形" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button id="indicator-toggle" class="icon-button" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
+      <div id="indicator-popup" class="zoom-popup" hidden></div>
       <span id="time-label">0:00 / 0:00</span>
     </div>
     <div class="transport-center">
@@ -2472,6 +2471,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const waveformRow = document.querySelector('.transport-waveform');
             const waveformCanvas = document.getElementById('waveform-canvas');
             const waveformPlayhead = document.querySelector('.transport-waveform-playhead');
+            const indicatorToggle = document.getElementById('indicator-toggle');
+            const indicatorPopup = document.getElementById('indicator-popup');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
             const seek = document.getElementById('seek');
@@ -2488,7 +2489,6 @@ body { display: grid; place-items: center; padding: 32px; }
             const stage = document.getElementById('overlay-stage');
             const transitionPlate = document.getElementById('transition-plate');
             const captionPlate = document.getElementById('caption-plate');
-            const previewIndicators = document.getElementById('preview-indicators');
             const previewMessage = document.getElementById('preview-message');
             const previewMessageText = document.getElementById('preview-message-text');
             const previewMessageReload = document.getElementById('preview-message-reload');
@@ -2553,6 +2553,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let gapOutputOrigin = 0;
             let outputTime = 0;
             let isPlaying = false;
+            let pausedForGapEntry = false;
             let zoom = 1;
             let pan = { x: 0, y: 0 };
             let drag = null;
@@ -2849,6 +2850,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 currentSegmentIndex = index;
                 const segment = segments[index];
                 if (segment.kind === 'gap') {
+                    pausedForGapEntry = true;
                     video.pause();
                     video.style.visibility = 'hidden';
                     gapWallClockOriginMs = performance.now();
@@ -2930,12 +2932,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 enterSegment(mapped.index);
                 if (mapped.kind === 'src') {
                     video.currentTime = mapped.time;
-                } else {
-                    gapWallClockOriginMs = performance.now();
-                    gapOutputOrigin = outputTime;
-                    if (isPlaying && window.akari.previewAudio) {
-                        void window.akari.previewAudio.playFrom(outputTime);
-                    }
+                } else if (isPlaying && window.akari.previewAudio) {
+                    void window.akari.previewAudio.playFrom(outputTime);
                 }
             };
             const zoomToSlider = value => {
@@ -3254,8 +3252,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '</style><div class="akari-caption__plate">' + markup + '</div></div>';
             };
             const renderCaption = () => {
+                const activeSegment = segments[activeSegmentIndex];
                 const time = video.currentTime || 0;
-                const caption = captions.find(candidate => candidate.start <= time && time < candidate.end) || null;
+                const caption = (activeSegment && activeSegment.kind === 'gap')
+                    ? null
+                    : (captions.find(candidate => candidate.start <= time && time < candidate.end) || null);
                 if (caption !== activeCaption) {
                     activeCaption = caption;
                     const hasEmphasis = Boolean(caption && Array.isArray(caption.words)
@@ -3307,8 +3308,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!layerVideo.paused) layerVideo.pause();
                         continue;
                     }
+                    if (layerVideo.readyState < HTMLMediaElement.HAVE_METADATA) {
+                        layerVideo.style.display = 'none';
+                        continue;
+                    }
                     layerVideo.style.display = 'block';
-                    if (layerVideo.readyState < HTMLMediaElement.HAVE_METADATA) continue;
                     const localTime = clamp(timelineTime - layer.t, 0, layer.duration);
                     const mediaEnd = Number.isFinite(layerVideo.duration) && layerVideo.duration > 0
                         ? Math.max(0, layerVideo.duration - 0.001)
@@ -3551,6 +3555,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 zoomPopup.hidden = !zoomPopup.hidden;
                 zoomToggle.setAttribute('aria-expanded', String(!zoomPopup.hidden));
             });
+            indicatorToggle.addEventListener('click', () => {
+                indicatorPopup.hidden = !indicatorPopup.hidden;
+                indicatorToggle.setAttribute('aria-expanded', String(!indicatorPopup.hidden));
+            });
+            indicatorToggle.addEventListener('mouseenter', () => {
+                indicatorPopup.hidden = false;
+                indicatorToggle.setAttribute('aria-expanded', 'true');
+            });
             zoomSlider.addEventListener('input', () => setZoom(sliderToZoom(Number(zoomSlider.value))));
             zoomSlider.addEventListener('dblclick', () => setZoom(1));
             for (const preset of document.querySelectorAll('.zoom-preset')) {
@@ -3562,6 +3574,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!zoomPopup.hidden && !event.target.closest('.transport-right')) {
                     zoomPopup.hidden = true;
                     zoomToggle.setAttribute('aria-expanded', 'false');
+                }
+                if (!indicatorPopup.hidden && !event.target.closest('.transport-left')) {
+                    indicatorPopup.hidden = true;
+                    indicatorToggle.setAttribute('aria-expanded', 'false');
                 }
             }, true);
             previewPane.addEventListener('wheel', event => {
@@ -3700,8 +3716,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 }, 1500);
             });
             video.addEventListener('pause', () => {
-                const segment = segments[activeSegmentIndex];
-                if (isPlaying && segment && segment.kind === 'gap') return;
+                if (pausedForGapEntry) {
+                    pausedForGapEntry = false;
+                    return;
+                }
                 isPlaying = false;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
@@ -3717,12 +3735,12 @@ body { display: grid; place-items: center; padding: 32px; }
             video.addEventListener('seeked', () => {
                 tick(true);
                 const segment = segments[activeSegmentIndex];
-                if (isPlaying && segment && segment.kind === 'src' && window.akari.previewAudio) {
-                    void window.akari.previewAudio.playFrom(outputTime);
+                if (isPlaying && segment && segment.kind === 'src') {
+                    if (window.akari.previewAudio) void window.akari.previewAudio.playFrom(outputTime);
+                    if (video.paused) void video.play().catch(error => console.error('[akari-preview] playback failed', error));
                 }
                 applyRequestedOverlaySelection();
             });
-            video.addEventListener('timeupdate', () => tick());
             video.addEventListener('error', showPlaybackError);
             audioNoticeDismiss.addEventListener('click', () => {
                 audioNotice.hidden = true;
@@ -3855,10 +3873,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyOverlayTracks();
                 stage.append(transitionPlate, captionPlate);
                 const indicators = Array.isArray(summary.indicators) ? summary.indicators : [];
-                previewIndicators.hidden = indicators.length === 0;
-                previewIndicators.textContent = indicators.length > 0
-                    ? '書き出しで適用: ' + indicators.join('・')
-                    : '';
+                const INDICATOR_GLOSSARY = {
+                    'LUT': '色調フィルタ',
+                    'クロマキー': '背景透過',
+                    '音声マスター処理': 'ノイズ除去・音量正規化',
+                    'ディゾルブ切り替え': 'カットの溶け込み切替'
+                };
+                indicatorToggle.hidden = indicators.length === 0;
+                if (indicators.length > 0) {
+                    const items = indicators.map(item => INDICATOR_GLOSSARY[item]
+                        ? item + ' = ' + INDICATOR_GLOSSARY[item]
+                        : item).join(' / ');
+                    indicatorPopup.textContent = 'プレビュー未対応（書き出し時のみ適用）: ' + items;
+                }
                 rebuildSegments();
                 if (segments.length > 0) {
                     outputTime = segments[0].outStart;
