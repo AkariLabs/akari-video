@@ -66,8 +66,13 @@ jobs:
           npm rebuild --no-workspaces
           # npm rebuild は install スクリプト（gyp/prebuild-install 系）は走らせるが electron の
           # postinstall（本体 DL）は実行しない（run 29998465875 実測: 承認 12/12 + rebuilt
-          # successfully でも dist 不在）。electron のインストーラを直接実行する
+          # successfully でも dist 不在）。electron のインストーラを直接実行する。
+          # run 29999213390 で install.js が 0.5s 無出力終了したため診断マーカー付き
+          Write-Host "=== env: SKIP=$env:ELECTRON_SKIP_BINARY_DOWNLOAD platform=$env:npm_config_platform arch=$env:npm_config_arch"
+          Write-Host "=== electron install.js start"
           node node_modules/electron/install.js
+          Write-Host "=== electron install.js exit: $LASTEXITCODE"
+          Get-ChildItem node_modules/electron | Select-Object -ExpandProperty Name
           # electron 実体が入ったことの早期ゲート（無ければ theia build まで進んでも無意味）
           node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
 
