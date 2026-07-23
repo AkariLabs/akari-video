@@ -3356,8 +3356,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected cutWouldOverlap(index: number, at: number, duration: number, track: number): boolean {
-        return this.segments.some(segment => segment.index !== index && segment.track === track
-            && at < segment.tlEnd && segment.tlStart < at + duration);
+        const end = at + duration;
+        return this.segments.some(segment => {
+            if (segment.index === index || segment.track !== track) {
+                return false;
+            }
+            const overlap = Math.min(end, segment.tlEnd) - Math.max(at, segment.tlStart);
+            if (overlap <= 0) {
+                return false;
+            }
+            return overlap > this.allowedTransitionOverlap(index, segment.index, track) + 1e-4;
+        });
+    }
+
+    /** 直接隣接する同一トラックのカット間で許容されるトランジション重複秒数。 */
+    protected allowedTransitionOverlap(indexA: number, indexB: number, track: number): number {
+        const earlier = Math.min(indexA, indexB);
+        const later = Math.max(indexA, indexB);
+        for (let index = earlier + 1; index < later; index++) {
+            const between = this.cuts[index];
+            const betweenTrack = typeof between?.track === 'number'
+                && Number.isInteger(between.track) && between.track >= 0 ? between.track : 0;
+            if (betweenTrack === track) {
+                return 0;
+            }
+        }
+        return this.cuts[earlier]?.transitionOut?.duration ?? 0;
     }
 
     protected setGhostRejected(ghost: HTMLDivElement, rejected: boolean): void {
