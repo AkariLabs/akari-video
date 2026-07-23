@@ -91,6 +91,21 @@ export interface ReorderCutsRequest {
     toIndex: number;
 }
 
+export interface MoveCutRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    at: number;
+    track?: number | null;
+    trackState?: Record<string, number | null>;
+}
+
+export interface SetCutAtValuesRequest {
+    editUri: string;
+    projectRootUri: string;
+    entries: Array<{ cutIndex: number; at: number | null }>;
+}
+
 export interface ShiftCaptionRequest {
     captionsUri: string;
     projectRootUri: string;
@@ -177,13 +192,68 @@ export interface RemoveOverlayRequest {
     overlayId: string;
 }
 
+export interface MoveLayerRequest {
+    editUri: string;
+    projectRootUri: string;
+    layerId: string;
+    t: number;
+    duration: number;
+    track?: number;
+    trackState?: Record<string, number | null>;
+}
+
+export interface RemoveLayerRequest {
+    editUri: string;
+    projectRootUri: string;
+    layerId: string;
+}
+
+export interface InsertLayerRequest {
+    editUri: string;
+    projectRootUri: string;
+    layerIndex: number;
+    elementText: string;
+}
+
+export interface MoveSfxRequest {
+    editUri: string;
+    projectRootUri: string;
+    sfxIndex: number;
+    t: number;
+    track?: number;
+    trackState?: Record<string, number | null>;
+}
+
+export interface RemoveSfxRequest {
+    editUri: string;
+    projectRootUri: string;
+    sfxIndex: number;
+}
+
+export interface InsertSfxRequest {
+    editUri: string;
+    projectRootUri: string;
+    sfxIndex: number;
+    elementText: string;
+}
+
 export interface WriteBackResult {
     committed: boolean;
 }
 
-export interface DeleteCutResult extends WriteBackResult {
+export interface DeleteArrayItemResult extends WriteBackResult {
     /** 削除した cuts 要素の原文（undo で insertCut に渡す） */
     removedText: string;
+}
+
+export type DeleteCutResult = DeleteArrayItemResult;
+
+export interface RemoveLayerResult extends DeleteArrayItemResult {
+    layerIndex: number;
+}
+
+export interface RemoveSfxResult extends DeleteArrayItemResult {
+    sfxIndex: number;
 }
 
 export interface AkariAnnotationsService {
@@ -193,6 +263,8 @@ export interface AkariAnnotationsService {
     resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }>;
     trimCut(request: TrimCutRequest): Promise<WriteBackResult>;
     reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult>;
+    moveCut(request: MoveCutRequest): Promise<WriteBackResult>;
+    setCutAtValues(request: SetCutAtValuesRequest): Promise<WriteBackResult>;
     shiftCaption(request: ShiftCaptionRequest): Promise<WriteBackResult>;
     insertCaption(request: InsertCaptionRequest): Promise<WriteBackResult>;
     removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult>;
@@ -203,4 +275,10 @@ export interface AkariAnnotationsService {
     insertCut(request: InsertCutRequest): Promise<WriteBackResult>;
     insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult>;
     removeOverlay(request: RemoveOverlayRequest): Promise<WriteBackResult>;
+    moveLayer(request: MoveLayerRequest): Promise<WriteBackResult>;
+    removeLayer(request: RemoveLayerRequest): Promise<RemoveLayerResult>;
+    insertLayer(request: InsertLayerRequest): Promise<WriteBackResult>;
+    moveSfx(request: MoveSfxRequest): Promise<WriteBackResult>;
+    removeSfx(request: RemoveSfxRequest): Promise<RemoveSfxResult>;
+    insertSfx(request: InsertSfxRequest): Promise<WriteBackResult>;
 }

@@ -17,14 +17,24 @@ import {
     GetClipWaveformResult,
     InsertCaptionRequest,
     InsertCutRequest,
+    InsertLayerRequest,
     InsertOverlayRequest,
+    InsertSfxRequest,
+    MoveCutRequest,
+    MoveLayerRequest,
     MoveOverlayRequest,
+    MoveSfxRequest,
     RemoveCaptionRequest,
+    RemoveLayerRequest,
+    RemoveLayerResult,
     RemoveOverlayRequest,
+    RemoveSfxRequest,
+    RemoveSfxResult,
     ReorderCutsRequest,
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
     ShiftCaptionRequest,
+    SetCutAtValuesRequest,
     SplitCutRequest,
     TrimCutRequest,
     WriteBackResult
@@ -44,14 +54,22 @@ import {
 } from '../common/annotation-store';
 import { insertCaptionLine, removeCaptionLine, shiftCaptionLine } from '../common/caption-store';
 import {
+    deleteLayerByIdInSource,
+    deleteSfxInSource,
     deleteCutInSource,
     insertCutInSource,
+    insertLayerInSource,
     insertOverlayInSource,
+    insertSfxInSource,
+    moveCutInSource,
+    moveLayerInSource,
     moveOverlayInSource,
+    moveSfxInSource,
     removeOverlayInSource,
     reorderCutsInSource,
     resizeOverlayInSource,
     splitCutInSource,
+    setCutAtValuesInSource,
     trimCutInSource
 } from '../common/edit-store';
 
@@ -176,6 +194,24 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの順序を入れ替え') };
     }
 
+    async moveCut(request: MoveCutRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = moveCutInSource(source, request.cutIndex, request.at, request.track, request.trackState);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを移動') };
+    }
+
+    async setCutAtValues(request: SetCutAtValuesRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = setCutAtValuesInSource(source, request.entries);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップ間の空白を詰める') };
+    }
+
     async shiftCaption(request: ShiftCaptionRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
@@ -265,6 +301,64 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = removeOverlayInSource(source, request.overlayId);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイの複製を取り消し') };
+    }
+
+    async moveLayer(request: MoveLayerRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = moveLayerInSource(
+            source, request.layerId, request.t, request.duration, request.track, request.trackState
+        );
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを移動') };
+    }
+
+    async removeLayer(request: RemoveLayerRequest): Promise<RemoveLayerResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const { source: updated, removedText, layerIndex } = deleteLayerByIdInSource(source, request.layerId);
+        await this.writeAtomic(editPath, updated);
+        const committed = await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを削除');
+        return { committed, removedText, layerIndex };
+    }
+
+    async insertLayer(request: InsertLayerRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = insertLayerInSource(source, request.layerIndex, request.elementText);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを挿入') };
+    }
+
+    async moveSfx(request: MoveSfxRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = moveSfxInSource(source, request.sfxIndex, request.t, request.track, request.trackState);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を移動') };
+    }
+
+    async removeSfx(request: RemoveSfxRequest): Promise<RemoveSfxResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const { source: updated, removedText } = deleteSfxInSource(source, request.sfxIndex);
+        await this.writeAtomic(editPath, updated);
+        const committed = await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を削除');
+        return { committed, removedText, sfxIndex: request.sfxIndex };
+    }
+
+    async insertSfx(request: InsertSfxRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = insertSfxInSource(source, request.sfxIndex, request.elementText);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を挿入') };
     }
 
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {
