@@ -55,17 +55,16 @@ const ZOOM_EVENT_FACTOR_MAX = 1.5;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const PLAYHEAD_COLOR = '#3b82f6';
 const MICRO_CLIP_WIDTH_PX = 28;
-const WAVEFORM_CANVAS_HEIGHT_PX = 32;
-const RULER_HEIGHT = 14;
-const CLIP_HEADER_HEIGHT = 14;
-/** クリップ帯の高さ（レガシー準拠のヘッダー帯14px + サムネイル/波形本体22px）。 */
-const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 22;
+const WAVEFORM_CANVAS_HEIGHT_PX = 64;
+const CLIP_HEADER_HEIGHT = 28;
+/** クリップ帯の高さ（ヘッダー帯28px + サムネイル/波形本体44px）。 */
+const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 44;
 const LANE_GAP = 6;
-const SUBROW_HEIGHT = 16;
-const SUBROW_GAP = 2;
+const SUBROW_HEIGHT = 32;
+const SUBROW_GAP = 4;
 const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
 const STRIP_BOTTOM_MARGIN = 6;
-const TRACK_HEADER_WIDTH = 28;
+const TRACK_HEADER_WIDTH = 136;
 const BEAT_PROJECTION_EPSILON = 0.000001;
 
 /** タイムライン（出力秒軸）上の1セグメント。cuts[] を配列順にギャップなく連結した結果。 */
@@ -115,6 +114,15 @@ const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
 const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
 const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
+const TIMELINE_SET_CLIPS_VISIBILITY_EVENT = 'akari.timeline.setClipsVisibility';
+const TIMELINE_SET_OVERLAY_TRACK_MUTED_EVENT = 'akari.timeline.setOverlayTrackMuted';
+const TIMELINE_SET_LAYERS_VISIBILITY_EVENT = 'akari.timeline.setLayersVisibility';
+const TIMELINE_SET_LAYERS_MUTED_EVENT = 'akari.timeline.setLayersMuted';
+const TIMELINE_SET_AUDIO_VISIBILITY_EVENT = 'akari.timeline.setAudioVisibility';
+const TIMELINE_SET_AUDIO_MUTED_EVENT = 'akari.timeline.setAudioMuted';
+const TIMELINE_SET_CAPTIONS_MUTED_EVENT = 'akari.timeline.setCaptionsMuted';
+const TIMELINE_SET_BEATS_VISIBILITY_EVENT = 'akari.timeline.setBeatsVisibility';
+const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
 
 interface OverlayTrackLayout {
     track: number;
@@ -190,8 +198,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly zoomSlider = document.createElement('input');
     protected readonly reviewButton = document.createElement('button');
     protected readonly timelineViewport = document.createElement('div');
+    protected readonly trackHeaderColumn = document.createElement('div');
+    protected readonly trackHeaderRulerSpacer = document.createElement('div');
+    protected readonly trackHeadersViewport = document.createElement('div');
     protected readonly trackHeaders = document.createElement('div');
+    protected readonly timelineBody = document.createElement('div');
+    protected readonly rulerBar = document.createElement('div');
     protected readonly stripScroll = document.createElement('div');
+    protected readonly timelineOverlay = document.createElement('div');
     protected readonly hScrollbarTrack = document.createElement('div');
     protected readonly hScrollbarThumb = document.createElement('div');
     protected readonly strip = document.createElement('div');
@@ -238,10 +252,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected clipboard: TimelineClipboard | undefined;
     protected overlayTrackLayouts: OverlayTrackLayout[] = [];
     protected clipMuted = false;
+    protected clipsVisible = true;
     protected captionsVisible = true;
+    protected captionsMuted = false;
+    protected beatsVisible = true;
+    protected beatsMuted = false;
     protected layersVisible = true;
+    protected layersMuted = false;
     protected audioVisible = true;
+    protected audioMuted = false;
     protected readonly hiddenTracks = new Set<number>();
+    protected readonly mutedOverlayTracks = new Set<number>();
 
     /** 注釈の実体は ReviewModel が持つ（注釈パネルと共有）。ここではピン描画のために読むだけ。 */
     protected get annotations(): readonly Annotation[] {
@@ -334,25 +355,48 @@ export class AkariAnnotationsWidget extends BaseWidget {
             display: 'grid', gridTemplateColumns: `${TRACK_HEADER_WIDTH}px minmax(0, 1fr)`, minHeight: '0',
             paddingLeft: '10px', boxSizing: 'border-box'
         });
+        Object.assign(this.trackHeaderColumn.style, {
+            display: 'grid', gridTemplateRows: `${RULER_BAND_HEIGHT_PX}px minmax(0, 1fr)`,
+            minHeight: '0', margin: '8px 0'
+        });
+        Object.assign(this.trackHeaderRulerSpacer.style, {
+            border: '1px solid var(--theia-widget-border)', borderRight: '0', borderBottom: '0',
+            borderRadius: '4px 0 0 0', background: RULER_BAND_BACKGROUND, boxSizing: 'border-box'
+        });
+        Object.assign(this.trackHeadersViewport.style, {
+            minHeight: '0', overflow: 'hidden', border: '1px solid var(--theia-widget-border)',
+            borderRight: '0', borderRadius: '0 0 0 4px',
+            background: 'var(--theia-editorWidget-background)', boxSizing: 'border-box'
+        });
         Object.assign(this.trackHeaders.style, {
-            position: 'relative', width: `${TRACK_HEADER_WIDTH}px`, margin: '8px 0',
-            border: '1px solid var(--theia-widget-border)', borderRight: '0', borderRadius: '4px 0 0 4px',
-            background: 'var(--theia-editorWidget-background)', boxSizing: 'border-box', overflow: 'hidden'
+            position: 'relative', width: `${TRACK_HEADER_WIDTH}px`, boxSizing: 'border-box'
+        });
+        Object.assign(this.timelineBody.style, {
+            position: 'relative', display: 'grid', gridTemplateRows: `${RULER_BAND_HEIGHT_PX}px minmax(0, 1fr)`,
+            minWidth: '0', minHeight: '0', margin: '8px 10px 8px 0'
+        });
+        Object.assign(this.rulerBar.style, {
+            position: 'relative', minWidth: '0', overflow: 'hidden', background: RULER_BAND_BACKGROUND,
+            border: `1px solid ${STRIP_BORDER_COLOR}`, borderBottom: '0', borderRadius: '0 4px 0 0',
+            boxSizing: 'border-box', cursor: 'pointer'
         });
         this.strip.classList.add('akari-annotations-strip');
         Object.assign(this.strip.style, {
-            position: 'relative', margin: '8px 10px 8px 0',
-            border: `1px solid ${STRIP_BORDER_COLOR}`, borderRadius: '4px',
+            position: 'relative', width: '100%', minWidth: '100%',
+            border: `1px solid ${STRIP_BORDER_COLOR}`, borderRadius: '0 0 4px 0', boxSizing: 'border-box',
             background: STRIP_BACKGROUND, cursor: 'pointer', overflow: 'hidden'
+        });
+        Object.assign(this.timelineOverlay.style, {
+            position: 'absolute', inset: '0', overflow: 'hidden', pointerEvents: 'none', zIndex: '9'
         });
         Object.assign(this.playhead.style, {
             position: 'absolute', top: '0', bottom: '0', width: '2px',
-            background: PLAYHEAD_COLOR, left: '0%', pointerEvents: 'none', zIndex: '10',
+            background: PLAYHEAD_COLOR, left: '0%', pointerEvents: 'none',
             boxShadow: `0 0 4px 1px ${PLAYHEAD_COLOR}`
         });
         Object.assign(this.playheadHandle.style, {
-            position: 'absolute', top: '-14px', left: '50%', width: '14px', height: '16px',
-            transform: 'translateX(-50%)', cursor: 'ew-resize', pointerEvents: 'auto', zIndex: '13'
+            position: 'absolute', top: '0', left: '50%', width: '14px', height: '16px',
+            transform: 'translateX(-50%)', cursor: 'ew-resize', pointerEvents: 'auto'
         });
         this.playheadHandle.setAttribute('aria-hidden', 'true');
         this.playheadHandle.innerHTML =
@@ -362,7 +406,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.playhead.appendChild(this.playheadHandle);
         Object.assign(this.snapGuide.style, {
             position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
-            background: SNAP_GUIDE_COLOR_DEFAULT, pointerEvents: 'none', zIndex: '11'
+            background: SNAP_GUIDE_COLOR_DEFAULT, pointerEvents: 'none'
         });
         Object.assign(this.dragFeedback.style, {
             position: 'absolute', display: 'none', padding: '2px 6px', fontSize: '10px',
@@ -370,12 +414,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             color: 'var(--theia-editor-foreground, #fff)',
             background: 'var(--theia-editorHoverWidget-background, rgba(30,30,30,.9))',
             border: '1px solid var(--theia-editorHoverWidget-border, rgba(255,255,255,.2))',
-            borderRadius: '3px', pointerEvents: 'none', zIndex: '12'
+            borderRadius: '3px', pointerEvents: 'none'
         });
-        this.strip.append(this.playhead, this.snapGuide, this.dragFeedback);
+        this.timelineOverlay.append(this.playhead, this.snapGuide, this.dragFeedback);
         this.strip.addEventListener('click', event => this.onStripClick(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
+        this.rulerBar.addEventListener('click', event => this.onStripClick(event));
+        this.rulerBar.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
+        this.rulerBar.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
 
         Object.assign(this.notice.style, {
             display: 'none', padding: '7px 11px', color: 'var(--theia-warningForeground)',
@@ -400,9 +447,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.hScrollbarThumb.addEventListener('pointerdown', event => this.onScrollbarThumbPointerDown(event));
         this.stripScroll.appendChild(this.strip);
         this.stripScroll.addEventListener('scroll', () => {
-            this.trackHeaders.scrollTop = this.stripScroll.scrollTop;
+            this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
         });
-        this.timelineViewport.append(this.trackHeaders, this.stripScroll);
+        this.trackHeadersViewport.appendChild(this.trackHeaders);
+        this.trackHeaderColumn.append(this.trackHeaderRulerSpacer, this.trackHeadersViewport);
+        this.timelineBody.append(this.rulerBar, this.stripScroll, this.timelineOverlay);
+        this.timelineViewport.append(this.trackHeaderColumn, this.timelineBody);
         Object.assign(this.footer.style, {
             height: '26px', minHeight: '26px', maxHeight: '26px', padding: '5px 10px', boxSizing: 'border-box',
             borderTop: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
@@ -413,17 +463,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.append(this.toolbar, this.timelineViewport, this.hScrollbarTrack, this.notice, this.footer);
         const style = document.createElement('style');
         style.textContent = `
-    .akari-annotations-widget .akari-annotations-strip::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: ${RULER_BAND_HEIGHT_PX}px;
-        background: ${RULER_BAND_BACKGROUND};
-        pointer-events: none;
-        z-index: 0;
-    }
     .akari-annotations-widget .akari-annotations-strip-clip {
         background: #27272a;
         border: 1px solid #3f3f46;
@@ -438,7 +477,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         top: 0;
         left: 0;
         right: 0;
-        height: 14px;
+        height: ${CLIP_HEADER_HEIGHT}px;
         background: #2c8a9a;
         display: flex;
         align-items: center;
@@ -447,8 +486,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         padding: 0 3px;
         box-sizing: border-box;
         font-family: ui-monospace, SFMono-Regular, monospace;
-        font-size: 10px;
-        line-height: 14px;
+        font-size: 12px;
+        line-height: ${CLIP_HEADER_HEIGHT}px;
         color: #e5e5e5;
         pointer-events: none;
         overflow: hidden;
@@ -534,8 +573,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: .28;
     }
     .akari-annotations-widget .akari-track-header-button {
-        position: absolute;
-        left: 2px;
         width: 22px;
         height: 22px;
         display: grid;
@@ -546,6 +583,43 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: transparent;
         color: var(--theia-foreground);
         cursor: pointer;
+        flex: none;
+    }
+    .akari-annotations-widget .akari-track-header-row {
+        position: absolute;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        min-width: 0;
+        padding: 0 3px;
+        border-top: 1px solid color-mix(in srgb, var(--theia-widget-border) 55%, transparent);
+        box-sizing: border-box;
+    }
+    .akari-annotations-widget .akari-track-header-icon {
+        width: 17px;
+        height: 17px;
+        display: grid;
+        place-items: center;
+        color: var(--theia-descriptionForeground);
+        flex: none;
+    }
+    .akari-annotations-widget .akari-track-header-icon svg {
+        width: 17px;
+        height: 17px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+    }
+    .akari-annotations-widget .akari-track-header-name {
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+        color: var(--theia-foreground);
     }
     .akari-annotations-widget .akari-track-header-button[aria-pressed="false"] { opacity: .4; }
     .akari-annotations-widget .akari-track-header-button:hover { background: var(--theia-toolbar-hoverBackground); }
@@ -558,11 +632,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
     .akari-annotations-widget .akari-annotations-strip-caption-text {
         position: absolute;
-        height: 16px;
+        height: ${SUBROW_HEIGHT}px;
         display: flex;
         align-items: center;
         white-space: nowrap;
-        font-size: 11px;
+        font-size: 13px;
         line-height: 1;
         color: var(--theia-foreground);
         pointer-events: none;
@@ -596,8 +670,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         white-space: nowrap;
         text-overflow: ellipsis;
         color: var(--theia-editor-foreground, #fff);
-        font-size: 10px;
-        line-height: 14px;
+        font-size: 12px;
+        line-height: ${SUBROW_HEIGHT}px;
         pointer-events: none;
         text-shadow: 0 1px 2px #000;
     }
@@ -1298,11 +1372,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.viewStart = Math.min(Math.max(0, this.viewStart), Math.max(0, maxDuration - this.viewDuration));
             }
         }
-        for (const child of Array.from(this.strip.children)) {
-            if (child !== this.playhead && child !== this.snapGuide && child !== this.dragFeedback) {
-                child.remove();
-            }
-        }
+        this.strip.replaceChildren();
+        this.rulerBar.replaceChildren();
         this.renderRuler();
 
         // レーン構造は NLE 慣行（Wave 23）: 見せ場 → 字幕帯 → オーバーレイのトラック行（track 降順）
@@ -1310,17 +1381,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 横軸の位置決めは出力軸（Wave 22）: クリップは this.segments（cuts のギャップレス連結）、
         // 字幕は sourceRangeToOutputRanges で source 秒→出力秒へ変換する。オーバーレイ・レイヤー・音声は元々出力秒基準。
         const captionRows = assignSubRows(this.captions.map(c => ({ start: c.start, end: c.end })));
-        const captionSubRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 1;
-        const beatsBandTop = RULER_HEIGHT;
+        const captionSubRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 0;
+        let nextTop = 0;
+        const beatsBandTop = nextTop;
         const beatsBandHeight = this.beats.length > 0 ? SUBROW_STRIDE : 0;
-        const captionBandTop = beatsBandHeight > 0 ? beatsBandTop + beatsBandHeight + LANE_GAP : RULER_HEIGHT;
+        if (beatsBandHeight > 0) {
+            nextTop += beatsBandHeight + LANE_GAP;
+        }
+        const captionBandTop = nextTop;
         const captionBandHeight = captionSubRowCount * SUBROW_STRIDE;
+        if (captionBandHeight > 0) {
+            nextTop += captionBandHeight + LANE_GAP;
+        }
 
         const overlayRows = new Map<string, number>();
-        const maxTrack = this.overlays.length ? Math.max(...this.overlays.map(overlay => overlay.track)) : 0;
         this.overlayTrackLayouts = [];
-        let nextTop = captionBandTop + captionBandHeight + LANE_GAP;
-        for (let track = maxTrack; track >= 0; track--) {
+        const overlayTracks = [...new Set(this.overlays.map(overlay => overlay.track))].sort((a, b) => b - a);
+        for (const track of overlayTracks) {
             const trackOverlays = this.overlays.filter(overlay => overlay.track === track);
             const rows = assignSubRows(trackOverlays.map(overlay => ({
                 start: overlay.start, end: overlay.start + overlay.duration
@@ -1358,7 +1435,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const stripHeight = clipTop + CLIP_HEIGHT + STRIP_BOTTOM_MARGIN;
         this.strip.style.height = `${stripHeight}px`;
         this.trackHeaders.style.height = `${stripHeight}px`;
+        this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
         this.renderTrackHeaders(
+            beatsBandTop, beatsBandHeight,
             captionBandTop, captionBandHeight,
             layerBandTop, layerBandHeight,
             audioBandTop, audioBandHeight,
@@ -1371,12 +1450,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             label.className = 'akari-beats-band-label';
             label.textContent = '見せ場';
             beatsBand.appendChild(label);
+            beatsBand.style.opacity = this.beatsVisible ? '1' : '.28';
             this.strip.appendChild(beatsBand);
             this.renderBeatMarkers(beatsBandTop, beatsBandHeight);
         }
-        const captionBand = this.laneBand('captions', captionBandTop, captionBandHeight);
-        captionBand.style.opacity = this.captionsVisible ? '1' : '.28';
-        this.strip.appendChild(captionBand);
+        if (captionBandHeight > 0) {
+            const captionBand = this.laneBand('captions', captionBandTop, captionBandHeight);
+            captionBand.style.opacity = this.captionsVisible ? '1' : '.28';
+            this.strip.appendChild(captionBand);
+        }
         for (const layout of this.overlayTrackLayouts) {
             const band = this.laneBand(`track-${layout.track}`, layout.top, layout.height);
             band.dataset.akariTrack = String(layout.track);
@@ -1393,7 +1475,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             audioBand.style.opacity = this.audioVisible ? '1' : '.28';
             this.strip.appendChild(audioBand);
         }
-        this.strip.appendChild(this.laneBand('clips', clipTop, CLIP_HEIGHT));
+        const clipBand = this.laneBand('clips', clipTop, CLIP_HEIGHT);
+        clipBand.style.opacity = this.clipsVisible ? '1' : '.28';
+        this.strip.appendChild(clipBand);
 
         this.captions.forEach((caption, index) => {
             const captionEnd = Math.max(caption.end, caption.start + MINIMUM_ITEM_DURATION);
@@ -1512,6 +1596,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemKind = 'cut';
             element.dataset.akariItemId = String(segment.index);
             element.dataset.akariLane = 'clips';
+            element.style.opacity = this.clipsVisible ? '' : '.28';
             const widthPercent = Math.max(this.percent(segment.tlEnd) - this.percent(segment.tlStart), 0.3);
             const clipWidth = this.strip.clientWidth * widthPercent / 100;
             if (clipWidth < MICRO_CLIP_WIDTH_PX) {
@@ -1536,6 +1621,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+        const scrollbarWidth = Math.max(0, this.stripScroll.offsetWidth - this.stripScroll.clientWidth);
+        this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
+        this.timelineOverlay.style.right = `${scrollbarWidth}px`;
         this.applySelectionClass();
         this.updateZoomHud();
         this.updateScrollbar();
@@ -1572,7 +1660,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 marker.style.top = `${top + (height - size) / 2}px`;
                 marker.style.width = `${size}px`;
                 marker.style.height = `${size}px`;
-                marker.style.opacity = String(0.35 + beat.strength * 0.65);
+                marker.style.opacity = this.beatsVisible ? String(0.35 + beat.strength * 0.65) : '.28';
                 marker.style.background = BEAT_KIND_COLORS[beat.kind] ?? DEFAULT_BEAT_COLOR;
                 this.strip.appendChild(marker);
             }
@@ -1580,6 +1668,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderTrackHeaders(
+        beatsTop: number,
+        beatsHeight: number,
         captionTop: number,
         captionHeight: number,
         layerTop: number,
@@ -1589,17 +1679,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
         clipTop: number
     ): void {
         this.trackHeaders.replaceChildren();
-        this.trackHeaders.appendChild(this.trackHeaderButton(
-            '字幕を表示', this.captionsVisible, captionTop, captionHeight, this.eyeSvg(), () => {
-                this.captionsVisible = !this.captionsVisible;
-                this.dispatchPreviewEvent(TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT, { visible: this.captionsVisible });
-                this.renderStrip();
-            }, 'captions'
-        ));
+        if (beatsHeight > 0) {
+            this.trackHeaders.appendChild(this.trackHeaderRow(
+                '見せ場', 'beat', 'beats', beatsTop, beatsHeight,
+                this.beatsVisible, () => {
+                    this.beatsVisible = !this.beatsVisible;
+                    this.dispatchPreviewEvent(TIMELINE_SET_BEATS_VISIBILITY_EVENT, { visible: this.beatsVisible });
+                    this.renderStrip();
+                }, !this.beatsMuted, () => {
+                    this.beatsMuted = !this.beatsMuted;
+                    this.dispatchPreviewEvent(TIMELINE_SET_BEATS_MUTED_EVENT, { muted: this.beatsMuted });
+                    this.renderStrip();
+                }
+            ));
+        }
+        if (captionHeight > 0) {
+            this.trackHeaders.appendChild(this.trackHeaderRow(
+                '字幕', 'caption', 'captions', captionTop, captionHeight,
+                this.captionsVisible, () => {
+                    this.captionsVisible = !this.captionsVisible;
+                    this.dispatchPreviewEvent(TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT, { visible: this.captionsVisible });
+                    this.renderStrip();
+                }, !this.captionsMuted, () => {
+                    this.captionsMuted = !this.captionsMuted;
+                    this.dispatchPreviewEvent(TIMELINE_SET_CAPTIONS_MUTED_EVENT, { muted: this.captionsMuted });
+                    this.renderStrip();
+                }
+            ));
+        }
         for (const layout of this.overlayTrackLayouts) {
             const visible = !this.hiddenTracks.has(layout.track);
-            this.trackHeaders.appendChild(this.trackHeaderButton(
-                `トラック ${layout.track} を表示`, visible, layout.top, layout.height, this.eyeSvg(), () => {
+            const audible = !this.mutedOverlayTracks.has(layout.track);
+            this.trackHeaders.appendChild(this.trackHeaderRow(
+                `トラック ${layout.track}`, 'overlay', `track-${layout.track}`, layout.top, layout.height,
+                visible, () => {
                     if (this.hiddenTracks.has(layout.track)) {
                         this.hiddenTracks.delete(layout.track);
                     } else {
@@ -1609,48 +1722,110 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         track: layout.track, visible: !this.hiddenTracks.has(layout.track)
                     });
                     this.renderStrip();
-                }, `track-${layout.track}`, layout.track
+                }, audible, () => {
+                    if (this.mutedOverlayTracks.has(layout.track)) {
+                        this.mutedOverlayTracks.delete(layout.track);
+                    } else {
+                        this.mutedOverlayTracks.add(layout.track);
+                    }
+                    this.dispatchPreviewEvent(TIMELINE_SET_OVERLAY_TRACK_MUTED_EVENT, {
+                        track: layout.track, muted: this.mutedOverlayTracks.has(layout.track)
+                    });
+                    this.renderStrip();
+                }, layout.track
             ));
         }
         if (layerHeight > 0) {
-            this.trackHeaders.appendChild(this.trackHeaderButton(
-                'レイヤーを表示', this.layersVisible, layerTop, layerHeight, this.eyeSvg(), () => {
+            this.trackHeaders.appendChild(this.trackHeaderRow(
+                'レイヤー', 'layer', 'layers', layerTop, layerHeight,
+                this.layersVisible, () => {
                     this.layersVisible = !this.layersVisible;
+                    this.dispatchPreviewEvent(TIMELINE_SET_LAYERS_VISIBILITY_EVENT, { visible: this.layersVisible });
                     this.renderStrip();
-                }, 'layers'
+                }, !this.layersMuted, () => {
+                    this.layersMuted = !this.layersMuted;
+                    this.dispatchPreviewEvent(TIMELINE_SET_LAYERS_MUTED_EVENT, { muted: this.layersMuted });
+                    this.renderStrip();
+                }
             ));
         }
         if (audioHeight > 0) {
-            this.trackHeaders.appendChild(this.trackHeaderButton(
-                'オーディオを表示', this.audioVisible, audioTop, audioHeight, this.eyeSvg(), () => {
+            this.trackHeaders.appendChild(this.trackHeaderRow(
+                'オーディオ', 'audio', 'audio', audioTop, audioHeight,
+                this.audioVisible, () => {
                     this.audioVisible = !this.audioVisible;
+                    this.dispatchPreviewEvent(TIMELINE_SET_AUDIO_VISIBILITY_EVENT, { visible: this.audioVisible });
                     this.renderStrip();
-                }, 'audio'
+                }, !this.audioMuted, () => {
+                    this.audioMuted = !this.audioMuted;
+                    this.dispatchPreviewEvent(TIMELINE_SET_AUDIO_MUTED_EVENT, { muted: this.audioMuted });
+                    this.renderStrip();
+                }
             ));
         }
-        this.trackHeaders.appendChild(this.trackHeaderButton(
-            'ミュート', !this.clipMuted, clipTop, CLIP_HEIGHT, this.speakerSvg(), () => {
+        this.trackHeaders.appendChild(this.trackHeaderRow(
+            'クリップ', 'video', 'clips', clipTop, CLIP_HEIGHT,
+            this.clipsVisible, () => {
+                this.clipsVisible = !this.clipsVisible;
+                this.dispatchPreviewEvent(TIMELINE_SET_CLIPS_VISIBILITY_EVENT, { visible: this.clipsVisible });
+                this.renderStrip();
+            }, !this.clipMuted, () => {
                 this.clipMuted = !this.clipMuted;
                 this.dispatchPreviewEvent(TIMELINE_SET_MUTED_EVENT, { muted: this.clipMuted });
                 this.renderStrip();
-            }, 'clips'
+            }
         ));
     }
 
+    protected trackHeaderRow(
+        name: string,
+        kind: 'video' | 'overlay' | 'layer' | 'audio' | 'caption' | 'beat',
+        lane: string,
+        top: number,
+        height: number,
+        visible: boolean,
+        toggleVisibility: () => void,
+        audible: boolean,
+        toggleMute: () => void,
+        track?: number
+    ): HTMLDivElement {
+        const row = document.createElement('div');
+        row.className = 'akari-track-header-row';
+        row.dataset.akariLane = lane;
+        row.style.top = `${top}px`;
+        row.style.height = `${height}px`;
+        if (track !== undefined) {
+            row.dataset.akariTrack = String(track);
+        }
+        const icon = document.createElement('span');
+        icon.className = 'akari-track-header-icon';
+        icon.dataset.akariKind = kind;
+        icon.innerHTML = this.trackKindSvg(kind);
+        const nameElement = document.createElement('span');
+        nameElement.className = 'akari-track-header-name';
+        nameElement.textContent = name;
+        row.append(
+            icon,
+            nameElement,
+            this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility),
+            this.trackHeaderButton(`${name}の音声`, 'mute', audible, this.speakerSvg(), toggleMute)
+        );
+        return row;
+    }
+
     protected trackHeaderButton(
-        label: string, enabled: boolean, top: number, height: number, svg: string,
-        action: () => void, lane: string, track?: number
+        label: string,
+        toggle: 'visibility' | 'mute',
+        enabled: boolean,
+        svg: string,
+        action: () => void
     ): HTMLButtonElement {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'akari-track-header-button';
         button.setAttribute('aria-label', label);
         button.setAttribute('aria-pressed', String(enabled));
-        button.dataset.akariLane = lane;
-        if (track !== undefined) {
-            button.dataset.akariTrack = String(track);
-        }
-        button.style.top = `${top + Math.max(0, (height - 22) / 2)}px`;
+        button.dataset.akariToggle = toggle;
         button.innerHTML = svg;
         button.addEventListener('click', event => {
             event.stopPropagation();
@@ -1665,6 +1840,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected speakerSvg(): string {
         return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
+    }
+
+    protected trackKindSvg(kind: 'video' | 'overlay' | 'layer' | 'audio' | 'caption' | 'beat'): string {
+        switch (kind) {
+            case 'video':
+                return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3Z"/></svg>';
+            case 'overlay':
+                return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10M7 13h7"/></svg>';
+            case 'layer':
+                return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg>';
+            case 'audio':
+                return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>';
+            case 'caption':
+                return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h4M7 14h3M13 10h4M12 14h5"/></svg>';
+            case 'beat':
+                return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></svg>';
+        }
     }
 
     protected dispatchPreviewEvent(type: string, detail: Record<string, unknown>): void {
@@ -1682,7 +1874,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 position: 'absolute', top: '0', height: `${RULER_BAND_HEIGHT_PX}px`, width: '1px',
                 left: `${percent}%`, background: RULER_TICK_COLOR, pointerEvents: 'none', zIndex: '1'
             });
-            this.strip.appendChild(tickLine);
+            this.rulerBar.appendChild(tickLine);
             const label = document.createElement('div');
             label.textContent = tick.label;
             Object.assign(label.style, {
@@ -1692,7 +1884,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 paddingLeft: '2px',
                 transform: percent <= 2 ? 'none' : percent >= 98 ? 'translateX(-100%)' : 'translateX(-50%)'
             });
-            this.strip.appendChild(label);
+            this.rulerBar.appendChild(label);
         }
         this.renderAnnotationPins();
     }
@@ -1772,7 +1964,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.review.reveal(annotation.id);
                 void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID);
             });
-            this.strip.appendChild(pin);
+            this.rulerBar.appendChild(pin);
         }
     }
 
@@ -2098,7 +2290,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (layout) {
                 state.ghost.style.top = `${layout.top}px`;
             } else if (this.overlayTrackLayouts.length > 0) {
-                state.ghost.style.top = `${Math.max(RULER_HEIGHT, this.overlayTrackLayouts[0].top - SUBROW_STRIDE)}px`;
+                state.ghost.style.top = `${Math.max(0, this.overlayTrackLayouts[0].top - SUBROW_STRIDE)}px`;
             }
             state.ghost.dataset.akariTrack = String(track);
             this.updateDragFeedback(state, `${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
@@ -2118,7 +2310,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.dragFeedback.textContent = text;
         this.dragFeedback.style.left = state.ghost.style.left;
         const ghostTop = parseFloat(state.ghost.style.top || '0');
-        this.dragFeedback.style.top = `${Math.max(0, ghostTop - 18)}px`;
+        const viewportTop = RULER_BAND_HEIGHT_PX + ghostTop - this.stripScroll.scrollTop;
+        this.dragFeedback.style.top = `${Math.max(0, viewportTop - 18)}px`;
         this.dragFeedback.style.display = 'block';
     }
 
