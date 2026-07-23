@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "s1", "path": "intro.mp4", "proxy": null },
+    { "id": "s2", "path": "main.mov", "proxy": null }
+  ],
+  "cuts": [
+    { "src": "s1", "in": 0.0, "out": 4.2 },
+    { "src": "s2", "in": 12.0, "out": 45.5 }
+  ],
+  "overlays": [],
+  "emphasis_words": [
+    {
+      "id": "e-0001",
+      "src": "s1",
+      "t_start": 2.0,
+      "t_end": 2.35,
+      "word": "結論",
+      "emotion": "emphasis",
+      "style_hint": "color-accent"
+    },
+    {
+      "id": "e-0002",
+      "src": "s2",
+      "t_start": 42.0,
+      "t_end": 42.48,
+      "word": "登場",
+      "emotion": "surprise"
+    },
+    {
+      "id": "e-0003",
+      "t_start": 30.0,
+      "t_end": 30.2,
+      "word": "え",
+      "emotion": "surprise"
+    }
+  ]
+}
