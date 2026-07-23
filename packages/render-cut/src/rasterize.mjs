@@ -82,14 +82,88 @@ ${nodes}
           try { animation.currentTime = localMilliseconds; } catch {}
         }${threeSeekBranch}
       }
-      for (const video of document.querySelectorAll('video')) {
-        try { video.pause(); video.currentTime = seconds; } catch {}
-      }
+      const videoSeekTimeoutMilliseconds = 5000;
+      const waitForVideo = (video, index) => new Promise((resolve) => {
+        let animationFrameOne = null;
+        let animationFrameTwo = null;
+        let videoFrameCallback = null;
+        let seekedListener = null;
+        let settled = false;
+        const finish = (warning = null) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          if (seekedListener) video.removeEventListener('seeked', seekedListener);
+          if (videoFrameCallback !== null && typeof video.cancelVideoFrameCallback === 'function') {
+            video.cancelVideoFrameCallback(videoFrameCallback);
+          }
+          if (animationFrameOne !== null && typeof window.cancelAnimationFrame === 'function') {
+            window.cancelAnimationFrame(animationFrameOne);
+          }
+          if (animationFrameTwo !== null && typeof window.cancelAnimationFrame === 'function') {
+            window.cancelAnimationFrame(animationFrameTwo);
+          }
+          resolve(warning);
+        };
+        const waitForPresentedFrameWithAnimationFrames = () => {
+          animationFrameOne = window.requestAnimationFrame(() => {
+            animationFrameTwo = window.requestAnimationFrame(() => {
+              finish();
+            });
+          });
+        };
+        const waitForPresentedVideoFrame = () => {
+          videoFrameCallback = video.requestVideoFrameCallback(() => {
+            videoFrameCallback = null;
+            finish();
+          });
+        };
+        const timeout = setTimeout(
+          () => finish(\`video \${index + 1} seek/presentation timeout after \${videoSeekTimeoutMilliseconds}ms at \${seconds}s; continuing with the current frame\`),
+          videoSeekTimeoutMilliseconds,
+        );
+        try {
+          video.pause();
+          const alreadyAtTarget = !video.seeking
+            && video.readyState >= 2
+            && Math.abs(video.currentTime - seconds) < 0.000001;
+          if (alreadyAtTarget) {
+            finish();
+            return;
+          }
+          const usesVideoFrameCallback = typeof video.requestVideoFrameCallback === 'function';
+          if (usesVideoFrameCallback) {
+            video.currentTime = seconds;
+            waitForPresentedVideoFrame();
+          } else {
+            seekedListener = () => {
+              seekedListener = null;
+              waitForPresentedFrameWithAnimationFrames();
+            };
+            video.addEventListener('seeked', seekedListener, { once: true });
+            video.currentTime = seconds;
+          }
+        } catch {
+          finish();
+        }
+      });
+      const warnings = (await Promise.all(
+        Array.from(document.querySelectorAll('video'), waitForVideo),
+      )).filter(Boolean);
       await Promise.resolve();
+      return { warnings };
     };${threeReadySetup}
     window.__akariReady = (async function() {
       await document.fonts.ready;
       await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${threeReadyWait}
+      await Promise.all(Array.from(document.querySelectorAll('video')).map((video) =>
+        video.readyState >= 2
+          ? Promise.resolve()
+          : new Promise((resolve) => {
+              video.addEventListener('loadeddata', resolve, { once: true });
+              video.addEventListener('error', resolve, { once: true });
+            })
+      ));
       await window.__akariSeek(0);
       return true;
     })();
@@ -111,11 +185,20 @@ export async function captureWithPuppeteer({
   ffmpegCommand,
   timeoutMs = captureTimeoutMs(),
   puppeteerModule = null,
+  onWarning = null,
+  onMetrics = null,
 }) {
   const imported = puppeteerModule ?? await import("puppeteer-core");
   const puppeteer = imported.default ?? imported;
   await mkdir(framesDirectory, { recursive: true });
   const frameCount = Math.ceil(duration * fps);
+  const captureStarted = performance.now();
+  let browserLaunched = captureStarted;
+  let pageReady = captureStarted;
+  let frameLoopFinished = captureStarted;
+  let browserClosed = captureStarted;
+  let seekWaitMilliseconds = 0;
+  let screenshotMilliseconds = 0;
   let browser = null;
   let watchdogExpired = false;
   try {
@@ -138,6 +221,7 @@ export async function captureWithPuppeteer({
       timeoutMs,
       "launching Chrome",
     );
+    browserLaunched = performance.now();
     const page = await withTimeout(browser.newPage(), timeoutMs, "opening a Puppeteer page");
     page.setDefaultTimeout(timeoutMs);
     page.setDefaultNavigationTimeout(timeoutMs);
@@ -159,12 +243,21 @@ export async function captureWithPuppeteer({
       timeoutMs,
       "waiting for the overlay sheet",
     );
+    pageReady = performance.now();
     for (let frame = 0; frame < frameCount; frame += 1) {
-      await withTimeout(
+      const seekStarted = performance.now();
+      const seekResult = await withTimeout(
         page.evaluate((seconds) => window.__akariSeek(seconds), frame / fps),
         timeoutMs,
         `seeking frame ${frame + 1}`,
       );
+      seekWaitMilliseconds += performance.now() - seekStarted;
+      for (const warning of seekResult?.warnings ?? []) {
+        onWarning?.(
+          `frame ${frame + 1}/${frameCount} at ${formatNumber(frame / fps)}s: ${warning}`,
+        );
+      }
+      const screenshotStarted = performance.now();
       await withTimeout(
         page.screenshot({
           path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
@@ -173,14 +266,18 @@ export async function captureWithPuppeteer({
         timeoutMs,
         `capturing frame ${frame + 1}`,
       );
+      screenshotMilliseconds += performance.now() - screenshotStarted;
     }
+    frameLoopFinished = performance.now();
   } catch (error) {
     watchdogExpired = isTimeoutError(error);
     throw error;
   } finally {
     await terminateBrowser(browser, { force: watchdogExpired, timeoutMs });
+    browserClosed = performance.now();
   }
 
+  const encodeStarted = performance.now();
   runChecked(ffmpegCommand, [
     "-hide_banner",
     "-loglevel",
@@ -197,6 +294,17 @@ export async function captureWithPuppeteer({
     "argb",
     overlayMovPath,
   ]);
+  const captureFinished = performance.now();
+  onMetrics?.({
+    browser_launch_ms: roundMilliseconds(browserLaunched - captureStarted),
+    page_setup_ms: roundMilliseconds(pageReady - browserLaunched),
+    frame_loop_ms: roundMilliseconds(frameLoopFinished - pageReady),
+    seek_wait_ms: roundMilliseconds(seekWaitMilliseconds),
+    screenshot_ms: roundMilliseconds(screenshotMilliseconds),
+    browser_close_ms: roundMilliseconds(browserClosed - frameLoopFinished),
+    encode_ms: roundMilliseconds(captureFinished - encodeStarted),
+    total_ms: roundMilliseconds(captureFinished - captureStarted),
+  });
   return overlayMovPath;
 }
 
@@ -532,4 +640,8 @@ function escapeAttribute(value) {
 
 function formatNumber(value) {
   return Number(value).toString();
+}
+
+function roundMilliseconds(value) {
+  return Number(value.toFixed(3));
 }

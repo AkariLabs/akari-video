@@ -457,6 +457,7 @@ export async function rasterizeAndComposite(context) {
         duration,
         ffmpegCommand: capabilities.ffmpegCommand,
         timeoutMs: captureTimeoutMs,
+        onWarning: (warning) => addWarning(state, `puppeteer-core: ${warning}`),
       });
       if (!probeHasAlpha(capabilities.ffprobeCommand, overlayPath)) {
         throw new Error("captured video has no detectable alpha channel");
@@ -760,12 +761,16 @@ export function addRasterizerDowngradeWarning(state) {
     (attempt) => attempt.method === planned && attempt.status === "rejected",
   )?.reason ?? "higher-priority rasterizer failed";
   const warning = `rasterizer downgraded: ${planned} -> ${adopted} (${reason})`;
-  state.warnings ??= [];
-  if (!state.warnings.includes(warning)) state.warnings.push(warning);
+  addWarning(state, warning);
 }
 
 function rejectRasterizer(state, method, reason) {
   state.provenance.rasterizer.attempts.push({ method, status: "rejected", reason });
+}
+
+function addWarning(state, warning) {
+  state.warnings ??= [];
+  if (!state.warnings.includes(warning)) state.warnings.push(warning);
 }
 
 function addReference(map, root, label, path) {
