@@ -129,7 +129,7 @@
           "var": "color_text"
         },
         "align": "center",
-        "letterSpacing": 18,
+        "letterSpacing": 12,
         "strokes": [
           {
             "color": {
@@ -209,7 +209,8 @@
       "fit": {
         "maxWidth": {
           "expr": "@stage.width - 32 - 128"
-        }
+        },
+        "minScale": 0.12
       }
     },
     {
@@ -228,7 +229,7 @@
           "var": "color_accent"
         },
         "align": "center",
-        "letterSpacing": 18,
+        "letterSpacing": 12,
         "strokes": [
           {
             "color": {
@@ -320,7 +321,8 @@
       "fit": {
         "maxWidth": {
           "expr": "@stage.width - 32 - 128"
-        }
+        },
+        "minScale": 0.12
       }
     }
   ]
