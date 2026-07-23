@@ -99,11 +99,18 @@ function deriveOverlayType(payload: Record<string, unknown>): string {
 }
 
 function CUT_TABS(snapshot: TimelineCutSelection): InspectorTabDef[] {
+    const sourceFields: InspectorFieldDef<TimelineCutSelection>[] = snapshot.src !== undefined
+        ? [
+            { label: 'src', getValue: () => snapshot.src! },
+            { label: 'source path', getValue: () => snapshot.sourcePath || '(不明)' }
+        ]
+        : [];
     return [
         {
             label: '基本',
             fields: [
                 { label: '素材', getValue: () => snapshot.sourceName || '(不明)' },
+                ...sourceFields,
                 { label: '素材 in', getValue: () => formatTimestamp(snapshot.sourceIn) },
                 { label: '素材 out', getValue: () => formatTimestamp(snapshot.sourceOut) },
                 { label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },

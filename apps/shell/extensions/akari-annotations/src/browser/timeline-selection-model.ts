@@ -6,6 +6,8 @@ export interface TimelineCutSelection {
     index: number;
     label: string;
     sourceName: string;
+    src?: string;
+    sourcePath?: string;
     sourceIn: number;
     sourceOut: number;
     outputStart: number;

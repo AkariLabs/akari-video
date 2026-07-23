@@ -20,6 +20,7 @@ import {
     EditCut,
     EditLayer,
     EditOverlay,
+    EditSource,
     DECLARED_SFX_DURATION_SECONDS,
     computeCutTrackSegments,
     parseEdit
@@ -80,6 +81,11 @@ interface OutputSegment {
     tlStart: number;
     tlEnd: number;
     track: number;
+}
+
+interface ResolvedEditSource {
+    path: string;
+    videoUri: string;
 }
 
 type ToolMode = 'select' | 'razor';
@@ -244,6 +250,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected location: ProjectLocation | undefined;
     protected captions: CaptionRecord[] = [];
     protected cuts: EditCut[] = [];
+    /** undefined は v0、配列（空を含む）は v1。 */
+    protected sources: EditSource[] | undefined;
+    protected sourceMap = new Map<string, ResolvedEditSource>();
     protected overlays: EditOverlay[] = [];
     protected beats: EditBeat[] = [];
     protected layers: EditLayer[] = [];
@@ -539,6 +548,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
     .akari-annotations-widget .akari-annotations-strip-clip-header-duration {
         flex: none;
+    }
+    .akari-annotations-widget .akari-annotations-strip-clip-source {
+        position: absolute;
+        left: 3px;
+        bottom: 3px;
+        max-width: calc(100% - 6px);
+        padding: 1px 4px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, .72);
+        color: #fff;
+        font: 10px/14px ui-monospace, SFMono-Regular, monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 1;
     }
     .akari-annotations-widget .akari-annotations-strip-caption {
         background: var(--theia-charts-purple, #b180d7);
@@ -995,8 +1020,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.selectionModel.snapshot = {
                 kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
-                sourceName: this.sourceBaseName(), sourceIn: cut.in, sourceOut: cut.out,
+                sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
                 outputStart: segment.tlStart, outputEnd: segment.tlEnd,
+                ...(this.sources !== undefined && cut.src !== undefined ? {
+                    src: cut.src,
+                    sourcePath: this.sourceMap.get(cut.src)?.path
+                } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
                 ...(cut.track !== undefined ? { track: cut.track } : {})
@@ -1081,6 +1110,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } catch {
             return this.location.videoUri;
         }
+    }
+
+    protected cutSourceName(cut: EditCut): string {
+        if (this.sources !== undefined && cut.src !== undefined) {
+            const source = this.sourceMap.get(cut.src);
+            return source ? this.pathBaseName(source.path) : '';
+        }
+        return this.sourceBaseName();
     }
 
     protected pathBaseName(path: string): string {
@@ -1493,6 +1530,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async reloadEdit(): Promise<void> {
         this.cuts = [];
+        this.sources = undefined;
+        this.sourceMap.clear();
         this.overlays = [];
         this.beats = [];
         this.layers = [];
@@ -1504,6 +1543,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const source = (await this.fileService.readFile(this.location.editUri)).value.toString();
                 const parsed = parseEdit(source);
                 this.cuts = parsed.cuts;
+                this.sources = parsed.sources;
+                this.rebuildSourceMap();
                 this.overlays = parsed.overlays;
                 this.beats = parsed.beats ?? [];
                 this.layers = parsed.layers;
@@ -1521,6 +1562,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
         this.renderStrip();
+    }
+
+    protected rebuildSourceMap(): void {
+        this.sourceMap.clear();
+        const editUri = this.location?.editUri;
+        if (!editUri || this.sources === undefined) {
+            return;
+        }
+        for (const source of this.sources) {
+            const mediaPath = source.proxy ?? source.path;
+            this.sourceMap.set(source.id, {
+                path: source.path,
+                videoUri: this.resolveEditMediaUri(mediaPath, editUri).toString()
+            });
+        }
+    }
+
+    protected resolveEditMediaUri(path: string, editUri: URI): URI {
+        if (/^[a-z][a-z\d+.-]*:/iu.test(path) && !/^[a-z]:[\\/]/iu.test(path)) {
+            return new URI(path);
+        }
+        if (/^[a-z]:[\\/]/iu.test(path)) {
+            return new URI(`file:///${path.replace(/\\/gu, '/')}`);
+        }
+        if (path.startsWith('\\\\')) {
+            return new URI(`file:${path.replace(/\\/gu, '/')}`);
+        }
+        if (path.startsWith('/')) {
+            return new URI(path).withScheme('file');
+        }
+        return editUri.parent.resolve(path).normalizePath();
     }
 
     protected async reloadCaptions(): Promise<void> {
@@ -1982,6 +2054,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.renderClipMedia(element, cut, clipWidth);
             element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+            if (this.sources !== undefined && cut.src !== undefined) {
+                const source = this.sourceMap.get(cut.src);
+                if (source) {
+                    const badge = document.createElement('span');
+                    badge.className = 'akari-annotations-strip-clip-source';
+                    badge.dataset.akariSourceId = cut.src;
+                    badge.textContent = cut.src;
+                    badge.title = source.path;
+                    element.appendChild(badge);
+                }
+            }
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
                 const rightDistance = rect.right - event.clientX;
@@ -2385,36 +2468,44 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderClipMedia(element: HTMLDivElement, cut: EditCut, clipWidth: number): void {
-        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || !this.location?.videoUri) {
+        const videoUri = this.cutVideoUri(cut);
+        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || !videoUri) {
             return;
         }
-        const key = `${cut.in}:${cut.out}`;
+        const key = `${cut.src ?? ''}:${cut.in}:${cut.out}`;
         const thumbnail = this.thumbnailCache.get(key);
         if (typeof thumbnail === 'string' && thumbnail !== 'pending' && thumbnail !== 'unavailable') {
             element.style.backgroundImage = `url(${thumbnail})`;
             element.style.backgroundSize = 'cover';
             element.style.backgroundPosition = 'center';
         } else if (thumbnail === undefined) {
-            this.fetchThumbnail(key, cut);
+            this.fetchThumbnail(key, cut, videoUri);
         }
 
         const waveform = this.waveformCache.get(key);
         if (Array.isArray(waveform)) {
             element.appendChild(this.waveformCanvas(waveform));
         } else if (waveform === undefined) {
-            this.fetchWaveform(key, cut);
+            this.fetchWaveform(key, cut, videoUri);
         }
     }
 
-    protected fetchThumbnail(key: string, cut: EditCut): void {
-        if (!this.location?.videoUri) {
+    protected cutVideoUri(cut: EditCut): string {
+        if (cut.src !== undefined && this.sources !== undefined) {
+            return this.sourceMap.get(cut.src)?.videoUri ?? '';
+        }
+        return this.location?.videoUri ?? '';
+    }
+
+    protected fetchThumbnail(key: string, cut: EditCut, videoUri: string): void {
+        if (!this.location) {
             return;
         }
         this.thumbnailCache.set(key, 'pending');
         const atSeconds = cut.in + Math.min(0.1, (cut.out - cut.in) / 2);
         void this.annotationsService.getClipThumbnail({
             projectRootUri: this.location.root.toString(),
-            videoUri: this.location.videoUri,
+            videoUri,
             atSeconds
         }).then(result => {
             if (result.status === 'ready' && result.dataUri) {
@@ -2430,14 +2521,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
     }
 
-    protected fetchWaveform(key: string, cut: EditCut): void {
-        if (!this.location?.videoUri) {
+    protected fetchWaveform(key: string, cut: EditCut, videoUri: string): void {
+        if (!this.location) {
             return;
         }
         this.waveformCache.set(key, 'pending');
         void this.annotationsService.getClipWaveform({
             projectRootUri: this.location.root.toString(),
-            videoUri: this.location.videoUri,
+            videoUri,
             startSeconds: cut.in,
             endSeconds: cut.out
         }).then(result => {

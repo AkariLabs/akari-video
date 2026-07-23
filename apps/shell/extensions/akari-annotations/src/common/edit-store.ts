@@ -11,6 +11,12 @@ export interface EditCut {
     track?: number;
 }
 
+export interface EditSource {
+    id: string;
+    path: string;
+    proxy: string | null;
+}
+
 export interface EditBeat {
     id: string;
     src?: string;
@@ -633,6 +639,7 @@ export function removeOverlayInSource(source: string, overlayId: string): string
 
 export function parseEdit(source: string): {
     cuts: EditCut[];
+    sources?: EditSource[];
     overlays: EditOverlay[];
     beats?: EditBeat[];
     layers: EditLayer[];
@@ -652,11 +659,21 @@ export function parseEdit(source: string): {
     const layers: EditLayer[] = [];
     const audioSfx: EditAudioSfx[] = [];
     let audioBgm: EditAudioBgm | undefined;
+    const sources: EditSource[] = [];
     const sourceIds = new Set<string>();
     if (Array.isArray(value.sources)) {
         for (const sourceEntry of value.sources) {
             if (typeof sourceEntry?.id === 'string' && sourceEntry.id) {
                 sourceIds.add(sourceEntry.id);
+            }
+            if (typeof sourceEntry?.id === 'string' && sourceEntry.id
+                && typeof sourceEntry.path === 'string' && sourceEntry.path
+                && (sourceEntry.proxy === null || typeof sourceEntry.proxy === 'string')) {
+                sources.push({
+                    id: sourceEntry.id,
+                    path: sourceEntry.path,
+                    proxy: sourceEntry.proxy
+                });
             }
         }
     }
@@ -668,6 +685,15 @@ export function parseEdit(source: string): {
             const rawCut = value.cuts[index];
             const input = rawCut?.in;
             const output = rawCut?.out;
+            const hasSrc = rawCut !== null && typeof rawCut === 'object'
+                && Object.prototype.hasOwnProperty.call(rawCut, 'src');
+            if ((isV1 && !hasSrc)
+                || (hasSrc && typeof rawCut.src !== 'string')
+                || (isV0 && hasSrc)
+                || (hasSrc && (!isV1 || !sourceIds.has(rawCut.src)))) {
+                warnings.push(`${index + 1} 番目のクリップの src を解決できないため表示しません。`);
+                continue;
+            }
             if (typeof input === 'number' && Number.isFinite(input)
                 && typeof output === 'number' && Number.isFinite(output) && input < output) {
                 let speed: number | undefined;
@@ -977,6 +1003,7 @@ export function parseEdit(source: string): {
 
     return {
         cuts,
+        ...(isV1 ? { sources } : {}),
         overlays,
         ...(Array.isArray(value.beats) ? { beats } : {}),
         layers,
