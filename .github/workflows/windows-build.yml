@@ -14,13 +14,6 @@ jobs:
     name: windows-build (build:ext + theia build + package)
     runs-on: windows-latest
     timeout-minutes: 90
-    env:
-      # Node 26 の Windows 公式ビルドは ClangCL + thin LTO 前提で、ヘッダ付属の common.gypi が
-      # 全アドオンビルドに -flto=thin / /opt:lldltojobs を注入する。ランナーの node-gyp は
-      # MSVC toolset のため link.exe が LNK1117 で死ぬ（run 29994686512 実測）。
-      # gyp の変数を env で上書きして LTO を無効化する（npm install の暗黙ビルドにも
-      # package 段の @electron/rebuild にも効く）。
-      GYP_DEFINES: enable_lto=false enable_thin_lto=false
     steps:
       # checkout より前に symlink / 長パスを有効化する（リポ直下に git 管理 symlink が 46 個。
       # GitHub の Windows ランナーは管理者権限で走るため core.symlinks true で実体化できる）
@@ -43,6 +36,23 @@ jobs:
       # symlink が正しく実体化されたかの早期ゲート（壊れていれば以降のビルドは無意味）
       - name: Verify skills symlinks materialized
         run: node scripts/gen-skills-index.mjs --check
+
+      # Node 26 の Windows 公式ビルドは ClangCL + thin LTO 前提で、ヘッダ付属の config.gypi が
+      # enable_thin_lto=true / lto_jobs=2 を持ち、common.gypi 経由で全アドオンビルドに
+      # -flto=thin / /opt:lldltojobs が注入される。ランナーの node-gyp は MSVC toolset のため
+      # link.exe が LNK1117 で死ぬ（run 29994686512 / 29995591439 実測。GYP_DEFINES は
+      # node-gyp が gyp を直接起動するため効かないことも実測済み）。
+      # 対処: ヘッダを先取りダウンロードし、キャッシュ内 config.gypi の LTO 変数を直接 false 化する。
+      # 以降の npm install の暗黙 node-gyp ビルドはこのキャッシュを使う。
+      - name: Pre-install node headers and disable LTO (MSVC compat)
+        run: |
+          npx --yes node-gyp install
+          $cfg = Join-Path $env:LOCALAPPDATA "node-gyp\Cache\26.3.0\include\node\config.gypi"
+          (Get-Content $cfg) `
+            -replace '"enable_lto": "true"', '"enable_lto": "false"' `
+            -replace '"enable_thin_lto": "true"', '"enable_thin_lto": "false"' `
+            -replace '"lto_jobs": "\d+"', '"lto_jobs": ""' | Set-Content $cfg
+          Select-String -Path $cfg -Pattern 'lto'
 
       # docs/dev/windows-build.md と同一手順。package-lock.json は意図的に gitignore のため
       # npm ci は使えない（ci.yml の L0 ジョブと同じ理由）。--ignore-scripts は付けない
