@@ -110,7 +110,7 @@
           "var": "word"
         },
         "size": 486,
-        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif",
+        "font": "'Noto Serif JP', serif",
         "weight": 800,
         "color": {
           "var": "color_text"
@@ -170,7 +170,7 @@
           "var": "text2"
         },
         "size": 216,
-        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif",
+        "font": "'Noto Serif JP', serif",
         "weight": 800,
         "color": {
           "var": "color_text"

@@ -108,7 +108,7 @@
           "var": "text"
         },
         "size": 54,
-        "font": "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif",
+        "font": "'Noto Sans JP', sans-serif",
         "weight": 600,
         "color": {
           "var": "color_text"

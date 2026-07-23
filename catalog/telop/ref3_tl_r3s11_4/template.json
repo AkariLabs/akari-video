@@ -304,7 +304,7 @@
         "size": {
           "var": "titleFontSize"
         },
-        "font": "'Hiragino Sans W4', 'Yu Gothic', system-ui, sans-serif",
+        "font": "'Noto Sans JP', sans-serif",
         "weight": 400,
         "color": {
           "var": "color_text_2"
@@ -374,7 +374,7 @@
         "size": {
           "var": "nameFontSize"
         },
-        "font": "'Hiragino Mincho ProN W6', 'Yu Mincho', 'Noto Serif JP', serif",
+        "font": "'Noto Serif JP', serif",
         "weight": 700,
         "color": "#FDEC90",
         "align": "left",
