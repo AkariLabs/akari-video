@@ -274,6 +274,37 @@ test("captions-style-invalid fixture rejects an unsupported style value", async 
   });
 });
 
+for (const fixture of ["captions-reveal-valid", "captions-display-text-valid"]) {
+  test(`${fixture} accepts the caption direction extension`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 0, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "pass");
+      assert.ok(
+        !result.findings.some((finding) => finding.severity === "error"),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+test("captions-display-text-invalid rejects a non-string display_text", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-display-text-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) =>
+          finding.check === "captions.schema" && /display_text must be a string/.test(finding.message),
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("captions-word-invalid fixture rejects a malformed words[] element", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "captions-word-invalid"));

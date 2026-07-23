@@ -85,10 +85,13 @@ function serializeCaptionLine(caption) {
   const style = caption.style === undefined
     ? ""
     : `,"style":${JSON.stringify(caption.style)}`;
+  const displayText = caption.display_text === undefined
+    ? ""
+    : `,"display_text":${JSON.stringify(caption.display_text)}`;
   return `{"id":${JSON.stringify(caption.id)},"start":${JSON.stringify(caption.start)},`
     + `"end":${JSON.stringify(caption.end)},"text":${JSON.stringify(caption.text)},`
     + `"speaker":${caption.speaker === null ? "null" : JSON.stringify(caption.speaker)},`
-    + `"sourceRef":${sourceRef},"edited":${caption.edited ? "true" : "false"}${words}${style}}`;
+    + `"sourceRef":${sourceRef},"edited":${caption.edited ? "true" : "false"}${words}${style}${displayText}}`;
 }
 
 function parseArguments(args) {

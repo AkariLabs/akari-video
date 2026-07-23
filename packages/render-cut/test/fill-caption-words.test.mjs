@@ -108,6 +108,7 @@ test("filling words preserves caption schema fields and drops unknown fields", a
     sourceRef: { segment: 0 },
     edited: true,
     style: "karaoke",
+    display_text: "表示用の字幕",
     extensionData: { keep: ["all", "values"] },
   };
   await withFixture(analysisWith(WORDS), [caption], async ({ analysisPath, captionsPath }) => {
@@ -124,6 +125,7 @@ test("filling words preserves caption schema fields and drops unknown fields", a
       edited: caption.edited,
       words: [WORDS[1], WORDS[2], WORDS[3]],
       style: caption.style,
+      display_text: caption.display_text,
     });
     assert.equal(Object.hasOwn(updated, "extensionData"), false);
   });
@@ -140,6 +142,7 @@ test("writes one physical line per caption in caption-store compatible format", 
       sourceRef: { segment: 0 },
       edited: true,
       style: "karaoke",
+      display_text: "引用符を整えた表示字幕",
     },
     {
       id: "c-2",
@@ -179,6 +182,7 @@ test("writes one physical line per caption in caption-store compatible format", 
     }
     assert.deepEqual(Object.keys(JSON.parse(captionLines[0].replace(/,$/u, ""))), [
       "id", "start", "end", "text", "speaker", "sourceRef", "edited", "words", "style",
+      "display_text",
     ]);
     assert.deepEqual(Object.keys(JSON.parse(captionLines[1])), [
       "id", "start", "end", "text", "speaker", "sourceRef", "edited", "words",

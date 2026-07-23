@@ -1,0 +1,19 @@
+{
+  "renderer": "playwright-core + renderOverlaySheet.__akariSeek",
+  "browser": "chromium-headless-shell",
+  "fps": 10,
+  "samples": [
+    { "time": 0.9, "name": "reveal-before-switch.png" },
+    { "time": 1.1, "name": "reveal-after-switch.png" },
+    { "time": 2.5, "name": "danger-before-word.png" },
+    { "time": 3.0, "name": "danger-word.png" }
+  ],
+  "visual_inspection": {
+    "reveal": "前後フレームで「最初の文節、」から「次の文節です」へ非蓄積で切り替わる",
+    "danger": "両フレームで「危険」が赤系・太字の静的強調として安定して表示される"
+  },
+  "preview_fallback_code_check": {
+    "path": "apps/shell/extensions/akari-preview/src/browser/akari-preview-captions.ts",
+    "result": "parsePreviewCaptions は karaoke/pop だけを style として保持するため reveal は style 未指定の plain 表示へ縮退する"
+  }
+}
