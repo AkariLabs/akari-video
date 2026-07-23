@@ -1,4 +1,4 @@
-import { computeCutTimelineOffsets, cutSpeed } from "./cut-timeline.mjs";
+import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
 
 const DEFAULT_MAX_CHARACTERS = 20;
 
@@ -19,10 +19,25 @@ const SUPPORTED_EMPHASIS_STYLES = new Set([
 export function generateCaptionOverlays(captions, cuts, options = {}) {
   const maximum = options.maxCharacters ?? DEFAULT_MAX_CHARACTERS;
   const emphasisWords = normalizeEmphasisWords(options.emphasisWords);
+  const sourceCount = options.sourceCount ?? 1;
+  const linearTimeline = options.linearTimeline === true;
   const overlays = [];
 
   for (const caption of captions) {
-    const ranges = computeCaptionRanges(caption.start, caption.end, cuts);
+    const captionSource = typeof caption.src === "string" && caption.src !== "" ? caption.src : null;
+    if (captionSource === null && sourceCount > 1) {
+      options.onWarning?.(
+        `captions.json item ${caption.id ?? "(unknown)"} omits src in a multi-source edit; skipped`,
+      );
+      continue;
+    }
+    const ranges = computeCaptionRanges(
+      caption.start,
+      caption.end,
+      cuts,
+      captionSource,
+      linearTimeline,
+    );
     const style = normalizeCaptionStyle(caption.style);
     for (const [index, range] of ranges.entries()) {
       const words = style || emphasisWords.length > 0
@@ -60,14 +75,24 @@ function normalizeCaptionStyle(style) {
 // cuts 交差後の (timeline 秒) に加えて、当該レンジがカバーする (source 秒) の範囲も返す。
 // words[] のクリップ・トークン遅延の基準点計算に使う内部形。公開 API
 // (sourceRangeToTimeline) は既存の { start, duration } 形のみを返し続ける。
-function computeCaptionRanges(start, end, cuts) {
+function computeCaptionRanges(start, end, cuts, sourceId = null, linearTimeline = false) {
   if (!Array.isArray(cuts) || cuts.length === 0) {
     return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];
   }
 
-  const offsets = computeCutTimelineOffsets(cuts);
+  const offsets = linearTimeline
+    ? cuts.reduce((result, cut) => {
+        const previous = result[result.length - 1];
+        result.push({
+          start: previous ? previous.start + previous.duration : 0,
+          duration: segmentDuration(cut),
+        });
+        return result;
+      }, [])
+    : computeCutTimelineOffsets(cuts);
   const ranges = [];
   for (const [index, cut] of cuts.entries()) {
+    if (sourceId !== null && cut.src !== sourceId) continue;
     const overlapStart = Math.max(start, cut.in);
     const overlapEnd = Math.min(end, cut.out);
     if (overlapEnd > overlapStart) {

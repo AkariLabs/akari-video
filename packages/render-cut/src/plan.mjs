@@ -38,7 +38,7 @@ export function buildPlan({
   const width = edit.output.width;
   const height = edit.output.height;
   const fps = edit.output.fps;
-  const duration = predictedDuration(edit.cuts, capabilities.sourceDuration);
+  const duration = predictedDuration(edit.cuts, capabilities.sourceDuration, edit.version);
   const temporary = temporaryDirectory;
   const cutPath = join(temporary, "cut.mp4");
   const layeredPath = join(temporary, "layered.mp4");
@@ -47,22 +47,37 @@ export function buildPlan({
   const compositePath = join(temporary, "composite.mp4");
   const finalPath = join(temporary, "final.mp4");
   const sheetPath = join(temporary, "overlay-sheet.html");
-  const sourcePath = resolve(projectRoot, edit.source.path);
   const rasterizer = selectRasterizer(capabilities, hasThreeDimensionalOverlay);
-  const cut = buildCutCommand({
-    sourcePath,
-    cutPath,
-    cuts: edit.cuts,
-    width,
-    height,
-    fps,
-    hasAudio: hasSourceAudio,
-    duration,
-    ffmpegCommand: capabilities.ffmpegCommand,
-    projectRoot,
-    look: edit.output.look,
-    chromaKey: edit.source?.chroma_key,
-  });
+  let cut;
+  if (edit.version === 1) {
+    cut = buildMultiSourceCutCommand({
+      sourceInputs: capabilities.sourceInputs,
+      cutPath,
+      cuts: edit.cuts,
+      width,
+      height,
+      fps,
+      ffmpegCommand: capabilities.ffmpegCommand,
+      projectRoot,
+      look: edit.output.look,
+    });
+  } else {
+    const sourcePath = resolve(projectRoot, edit.source.path);
+    cut = buildCutCommand({
+      sourcePath,
+      cutPath,
+      cuts: edit.cuts,
+      width,
+      height,
+      fps,
+      hasAudio: hasSourceAudio,
+      duration,
+      ffmpegCommand: capabilities.ffmpegCommand,
+      projectRoot,
+      look: edit.output.look,
+      chromaKey: edit.source?.chroma_key,
+    });
+  }
   // layers[] is additive-only (contract-2026-07-22-prerender-rail-and-assets.md §1.2): an edit.json
   // without it produces no `layers` command and render-cut.mjs skips this stage entirely, so
   // existing projects keep their byte-identical cut.mp4 -> composite pipeline (zero regression).
@@ -757,6 +772,95 @@ export function buildCutCommand({
   };
 }
 
+export function buildMultiSourceCutCommand({
+  sourceInputs,
+  cutPath,
+  cuts,
+  width,
+  height,
+  fps,
+  ffmpegCommand = "ffmpeg",
+  projectRoot,
+  look,
+}) {
+  const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
+  const filters = [];
+  const concatInputs = [];
+
+  for (const [index, cut] of cuts.entries()) {
+    const source = inputsById.get(cut.src);
+    const speed = cutSpeed(cut);
+    const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
+    filters.push(
+      `[${source.inputIndex}:v]trim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},setpts=${ptsExpr},scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1[v${index}]`,
+    );
+    concatInputs.push(`[v${index}]`);
+
+    if (source.hasAudio) {
+      const atempoSuffix = buildAtempoChain(speed)
+        .map((factor) => `,atempo=${formatNumber(factor)}`)
+        .join("");
+      filters.push(
+        `[${source.inputIndex}:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix},aresample=48000,aformat=channel_layouts=stereo[a${index}]`,
+      );
+    } else {
+      filters.push(
+        `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[a${index}]`,
+      );
+    }
+    concatInputs.push(`[a${index}]`);
+  }
+
+  filters.push(`${concatInputs.join("")}concat=n=${cuts.length}:v=1:a=1[joinedv][joineda]`);
+
+  let videoLabel = "[joinedv]";
+  if (look) {
+    const lutPath = resolveLutPath(projectRoot, look.lut);
+    const intensity = isFiniteNumber(look.intensity) ? Math.max(0, Math.min(1, look.intensity)) : 1;
+    if (intensity <= 0) {
+      filters.push(`${videoLabel}null[outv]`);
+    } else if (intensity >= 1) {
+      filters.push(`${videoLabel}lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[outv]`);
+    } else {
+      filters.push(`${videoLabel}split=2[lutbase][luttop]`);
+      filters.push(`[luttop]lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[lutapplied]`);
+      filters.push(`[lutapplied][lutbase]blend=all_mode=normal:all_opacity=${formatNumber(intensity)}[outv]`);
+    }
+  } else {
+    filters.push(`${videoLabel}null[outv]`);
+  }
+
+  return {
+    command: ffmpegCommand,
+    args: [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-nostdin",
+      "-y",
+      ...sourceInputs.flatMap((source) => ["-i", source.path]),
+      "-filter_complex",
+      filters.join(";"),
+      "-map",
+      "[outv]",
+      "-map",
+      "[joineda]",
+      "-c:v",
+      "libx264",
+      "-profile:v",
+      "high",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-ar",
+      "48000",
+      "-shortest",
+      cutPath,
+    ],
+  };
+}
+
 function buildGapAwareCutCommand({
   sourcePath,
   cutPath,
@@ -915,7 +1019,10 @@ function buildGapAwareCutCommand({
   };
 }
 
-export function predictedDuration(cuts, sourceDuration) {
+export function predictedDuration(cuts, sourceDuration, version = 0) {
+  if (version === 1) {
+    return cuts.reduce((sum, cut) => sum + segmentDuration(cut), 0);
+  }
   if (Array.isArray(cuts) && cuts.length > 0 && needsGapAwareCutTimeline(cuts)) {
     const segments = resolveCutSegments(cuts);
     return Math.max(0, ...segments.map((segment) => segment.end));
@@ -967,7 +1074,8 @@ function buildAtempoChain(speed) {
 
 export function selectDefaultOutput(projectRoot, edit, exists) {
   const configured = typeof edit.name === "string" && edit.name.trim() !== "" ? edit.name : null;
-  const sourceName = basename(edit.source.path, extname(edit.source.path));
+  const namingSource = edit.version === 1 ? edit.sources[0]?.path : edit.source.path;
+  const sourceName = basename(namingSource, extname(namingSource));
   const stem = sanitizeName(configured ?? sourceName ?? "render");
   const directory = join(projectRoot, "exports");
   let index = 1;

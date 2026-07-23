@@ -1,0 +1,37 @@
+{
+  "verdict": "pass",
+  "expected_duration_seconds": 2.1,
+  "measured_duration_seconds": 2.1,
+  "width": 320,
+  "height": 180,
+  "fps": "10/1",
+  "sequence": [
+    {
+      "file": "frame-01-a.png",
+      "time": 0.3,
+      "center_rgb": {
+        "r": 254,
+        "g": 0,
+        "b": 0
+      }
+    },
+    {
+      "file": "frame-02-b.png",
+      "time": 1,
+      "center_rgb": {
+        "r": 0,
+        "g": 0,
+        "b": 255
+      }
+    },
+    {
+      "file": "frame-03-a.png",
+      "time": 1.7,
+      "center_rgb": {
+        "r": 254,
+        "g": 0,
+        "b": 0
+      }
+    }
+  ]
+}
