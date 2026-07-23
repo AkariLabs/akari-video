@@ -7,6 +7,12 @@ export interface OverlayRuntimeAssets {
     runtimeJavaScript: string;
     interactionJavaScript: string;
     interactionCss: string;
+    // win2-fonts-wire: render-cut の焼き込みキャプション（packages/render-cut/src/captions.mjs）と
+    // 同じ Noto Sans JP を字幕表示に固定するための @font-face src。prepareHtml() の webview は
+    // file:// を同一オリジンで読めない（render-cut の rasterize.mjs は Puppeteer が file:// ページを
+    // 直接 goto するため pathToFileURL がそのまま使えるが、こちらは Theia WebviewWidget 経由で
+    // 別オリジンに描画される）ため、data: URI として埋め込む。
+    captionFontDataUri: string;
 }
 
 export interface VideoStreamReference {

@@ -1,6 +1,32 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
 import { computeCutTimelineOffsets, cutSpeed } from "./cut-timeline.mjs";
 
 const DEFAULT_MAX_CHARACTERS = 20;
+
+// 焼き込みキャプションのフォント固定（win2-fonts-wire）。CI/Docker 等 Hiragino も Noto CJK も
+// 無い/バージョン違いの環境でも同一グリフでレンダリングされるよう、同梱済み Noto Sans JP
+// （win2-fonts-assets、assets/font/noto-sans-jp/、可変フォント 1 本）を @font-face で固定する。
+// captions.mjs から見て ../../../ が repo root（packages/render-cut/src/ → render-cut → packages
+// → repo root）。preview（akari-preview-open-handler.ts）にも同一のフォントスタック文字列
+// '"Noto Sans JP", sans-serif' を使うが、両パッケージ間に依存関係が無い（render-cut は
+// CLI パッケージ、akari-preview は Electron 拡張で互いを import しない）ため定数の共有はせず、
+// 文字列を意図的に重複させている（判断は report に記録）。
+const CAPTION_FONT_STACK = '"Noto Sans JP", sans-serif';
+const CAPTION_FONT_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf",
+);
+// font-weight を 100 900 の範囲指定にすることで、可変フォントの wght 軸を
+// font-weight:700 等の指定に応じて実際に補間させる（範囲を省略すると単一ウェイトのみ
+// マッチし、キャプションの font-weight:700 が無視される）。
+const CAPTION_FONT_FACE_CSS = `@font-face {
+      font-family: "Noto Sans JP";
+      src: url("${pathToFileURL(CAPTION_FONT_PATH).href}") format("truetype-variations");
+      font-weight: 100 900;
+      font-style: normal;
+    }`;
 
 // opt-in word-level スタイル（既定 = 未指定 = 従来のプレーン字幕。既定出力はバイト等価を保つため、
 // このセットに含まれないスタイル値・words 未充填の場合は必ず renderCaptionFragment に fall back する）。
@@ -128,13 +154,14 @@ export function renderCaptionFragment(text, options = {}) {
 
   return `<div class="akari-caption">
   <style>
+    ${CAPTION_FONT_FACE_CSS}
     .akari-caption {
       position: absolute;
       inset: 0;
       pointer-events: none;
       color: var(--caption-color, #fff);
       text-shadow: var(--caption-text-shadow, -1.5px -1.5px 0 rgba(0,0,0,.85), 1.5px -1.5px 0 rgba(0,0,0,.85), -1.5px 1.5px 0 rgba(0,0,0,.85), 1.5px 1.5px 0 rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6));
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: ${CAPTION_FONT_STACK};
       font-size: var(--caption-font-size, 38px);
       font-weight: 700;
       line-height: 1.42;
@@ -201,13 +228,14 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
 
   return `<div class="akari-caption akari-caption--${rootStyle}">
   <style>
+    ${CAPTION_FONT_FACE_CSS}
     .akari-caption {
       position: absolute;
       inset: 0;
       pointer-events: none;
       color: var(--caption-color, #fff);
       text-shadow: var(--caption-text-shadow, -1.5px -1.5px 0 rgba(0,0,0,.85), 1.5px -1.5px 0 rgba(0,0,0,.85), -1.5px 1.5px 0 rgba(0,0,0,.85), 1.5px 1.5px 0 rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6));
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: ${CAPTION_FONT_STACK};
       font-size: var(--caption-font-size, 38px);
       font-weight: 700;
       line-height: 1.42;

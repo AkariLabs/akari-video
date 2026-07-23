@@ -123,9 +123,60 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             threeRuntimeJavaScript: readFileSync(resolve(directory, 'three-runtime.js'), 'utf8'),
             runtimeJavaScript: readFileSync(resolve(directory, 'overlay-runtime.js'), 'utf8'),
             interactionJavaScript: readFileSync(resolve(directory, 'interaction.js'), 'utf8'),
-            interactionCss: readFileSync(resolve(directory, 'interaction.css'), 'utf8')
+            interactionCss: readFileSync(resolve(directory, 'interaction.css'), 'utf8'),
+            captionFontDataUri: this.readCaptionFontDataUri()
         };
         return this.assets;
+    }
+
+    // win2-fonts-wire: assets/font/noto-sans-jp/NotoSansJP-Variable.ttf（win2-fonts-assets 同梱）を
+    // base64 data: URI として読み込む。getOverlayRuntimeAssets() のメモ化 (this.assets) に
+    // 相乗りするため、この読み込み自体は初回のみ発生する。
+    protected readCaptionFontDataUri(): string {
+        const fontPath = this.findCaptionFontPath();
+        const bytes = readFileSync(fontPath);
+        return `data:font/ttf;base64,${bytes.toString('base64')}`;
+    }
+
+    protected findCaptionFontPath(): string {
+        const relativePath = join('assets', 'font', 'noto-sans-jp', 'NotoSansJP-Variable.ttf');
+        const candidates: string[] = [];
+
+        // パッケージ済みアプリ: apps/shell/package.json の extraResources で assets/font/** を
+        // Resources/assets/font/**（win/linux は resources/assets/font/**）へコピーする
+        // （win2-fonts-wire）。process.resourcesPath は Electron が常に設定する。
+        if (typeof process.resourcesPath === 'string') {
+            const packagedCandidate = resolve(process.resourcesPath, relativePath);
+            candidates.push(packagedCandidate);
+            if (this.isFile(packagedCandidate)) {
+                return packagedCandidate;
+            }
+        }
+
+        // 開発時（モノレポ checkout 実行）: findOverlayRuntimeDirectory() と同じ「__dirname から
+        // 祖先を辿ってリポジトリルート相対マーカーを探す」方式。
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            const candidate = resolve(ancestor, relativePath);
+            candidates.push(candidate);
+            if (this.isFile(candidate)) {
+                return candidate;
+            }
+            const parent = dirname(ancestor);
+            if (parent === ancestor) {
+                break;
+            }
+            ancestor = parent;
+        }
+        throw new Error(`caption font asset was not found (tried: ${candidates.join(', ')})`);
+    }
+
+    protected isFile(candidate: string): boolean {
+        try {
+            return statSync(candidate).isFile();
+        } catch {
+            return false;
+        }
     }
 
     async createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference> {

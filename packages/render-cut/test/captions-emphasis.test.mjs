@@ -41,7 +41,10 @@ test("emphasis_words absent keeps the pre-emphasis caption output byte-identical
   const output = generateCaptionOverlays(CAPTIONS, CUTS);
   const digest = createHash("sha256").update(JSON.stringify(output)).digest("hex");
 
-  assert.equal(digest, "24fd61a3d542e73a718ba05a17ab851f5501ffdb8bd480c67b900e67e91c064e");
+  // win2-fonts-wire: renderStyledCaptionFragment に @font-face + font-family: "Noto Sans JP" を
+  // 固定配線したため、byte-identical の期待ダイジェストを新しい意図的な出力に合わせて更新
+  // （中身は system-ui → Noto Sans JP の固定という既知の意図的変更のみ。他アサーションは無改変）。
+  assert.equal(digest, "92063a424e62efce1a356d8784d6d825551c2e3cbf2bcef82a61ba75f24bbd70");
   assert.deepEqual(generateCaptionOverlays(CAPTIONS, CUTS, { emphasisWords: [] }), output);
   assert.deepEqual(generateCaptionOverlays(CAPTIONS, CUTS, { emphasisWords: "invalid" }), output);
 });
