@@ -17,6 +17,16 @@ import {
 
 const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
+
+function isPermissionDenied(error: unknown): boolean {
+    return Boolean(error) && typeof error === 'object'
+        && ((error as NodeJS.ErrnoException).code === 'EPERM' || (error as NodeJS.ErrnoException).code === 'EACCES');
+}
+
+function isAlreadyExists(error: unknown): boolean {
+    return Boolean(error) && typeof error === 'object' && (error as NodeJS.ErrnoException).code === 'EEXIST';
+}
+
 const GATE_MESSAGES: Record<string, string> = {
     'report-generated': 'レポートを作成',
     'report-approved': 'レポートを承認',
@@ -36,6 +46,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly watchers = new Map<string, { close(): void }>();
     protected readonly processedEvents = new Set<string>();
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
+    /** Overridable for tests: lets the symlink/junction/copy fallback chain be exercised from mac. */
+    protected readonly fsImpl: typeof fs = fs;
+    /** Overridable for tests: lets the win32-only junction fallback be exercised from mac. */
+    protected readonly platform: NodeJS.Platform = process.platform;
 
     async createProject(destinationUri: string): Promise<void> {
         const root = this.fsPath(destinationUri);
@@ -474,20 +488,70 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      */
     protected async installSkillAdapters(root: string): Promise<void> {
         const skillsDir = join(root, '.claude', 'skills');
-        const skillNames = (await fs.readdir(skillsDir, { withFileTypes: true }))
+        const skillNames = (await this.fsImpl.readdir(skillsDir, { withFileTypes: true }))
             .filter(entry => entry.isDirectory())
             .map(entry => entry.name);
         for (const adapter of ['.agents', '.codex']) {
             const adapterDir = join(root, adapter, 'skills');
-            await fs.mkdir(adapterDir, { recursive: true });
+            await this.fsImpl.mkdir(adapterDir, { recursive: true });
             for (const name of skillNames) {
                 try {
-                    await fs.symlink(`../../.claude/skills/${name}`, join(adapterDir, name));
+                    await this.createSkillAdapterLink(`../../.claude/skills/${name}`, join(adapterDir, name));
                 } catch (error) {
-                    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+                    if (!isAlreadyExists(error)) {
                         throw error;
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Creates `linkPath` as a directory symlink pointing at `target` (a path relative to
+     * `linkPath`'s own directory). Windows without admin rights / developer mode denies plain
+     * symlink creation (EPERM); junctions are the privilege-free NTFS alternative but require
+     * an absolute target and only work within the same volume. If junction creation also fails
+     * (e.g. cross-volume), falls back to a recursive copy so project creation still succeeds —
+     * degraded (the adapter stops tracking future skill updates) but functional.
+     */
+    protected async createSkillAdapterLink(target: string, linkPath: string): Promise<{ method: 'symlink' | 'junction' | 'copy' }> {
+        try {
+            await this.fsImpl.symlink(target, linkPath, 'dir');
+            return { method: 'symlink' };
+        } catch (error) {
+            if (isAlreadyExists(error)) {
+                throw error;
+            }
+            if (this.platform !== 'win32' || !isPermissionDenied(error)) {
+                throw error;
+            }
+            const absoluteTarget = resolve(dirname(linkPath), target);
+            try {
+                await this.fsImpl.symlink(absoluteTarget, linkPath, 'junction');
+                return { method: 'junction' };
+            } catch (junctionError) {
+                if (isAlreadyExists(junctionError)) {
+                    throw junctionError;
+                }
+                await this.copyDirectoryRecursive(absoluteTarget, linkPath);
+                console.warn(`[akari-project] symlink and junction both failed for ${linkPath}; copied the skill directory instead (it will not reflect future skill updates)`);
+                return { method: 'copy' };
+            }
+        }
+    }
+
+    /** Used by createSkillAdapterLink's last-resort fallback when neither symlink nor junction succeed. */
+    protected async copyDirectoryRecursive(source: string, destination: string): Promise<void> {
+        await this.fsImpl.mkdir(destination, { recursive: true });
+        for (const entry of await this.fsImpl.readdir(source, { withFileTypes: true })) {
+            const from = join(source, entry.name);
+            const to = join(destination, entry.name);
+            if (entry.isDirectory()) {
+                await this.copyDirectoryRecursive(from, to);
+            } else if (entry.isSymbolicLink()) {
+                console.warn(`[akari-project] skipping nested symbolic link during fallback copy: ${from}`);
+            } else if (entry.isFile()) {
+                await this.fsImpl.writeFile(to, await this.fsImpl.readFile(from));
             }
         }
     }

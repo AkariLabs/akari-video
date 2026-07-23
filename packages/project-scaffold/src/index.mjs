@@ -193,6 +193,59 @@ export async function writeFallbackTemplate(destinationDir) {
 
 const SKILL_ADAPTER_DIRECTORIES = ['.agents', '.codex'];
 
+function isPermissionDenied(error) {
+    return error && typeof error === 'object' && (error.code === 'EPERM' || error.code === 'EACCES');
+}
+
+async function copyDirectoryRecursive(fsImpl, source, destination) {
+    await fsImpl.mkdir(destination, { recursive: true });
+    for (const entry of await fsImpl.readdir(source, { withFileTypes: true })) {
+        const from = path.join(source, entry.name);
+        const to = path.join(destination, entry.name);
+        if (entry.isDirectory()) {
+            await copyDirectoryRecursive(fsImpl, from, to);
+        } else if (entry.isSymbolicLink()) {
+            console.warn(`[project-scaffold] skipping nested symbolic link during fallback copy: ${from}`);
+        } else if (entry.isFile()) {
+            await fsImpl.writeFile(to, await fsImpl.readFile(from));
+        }
+    }
+}
+
+/**
+ * Creates `linkPath` as a directory symlink pointing at `target` (a path relative to
+ * `linkPath`'s own directory). Windows without admin rights / developer mode denies plain
+ * symlink creation (EPERM); junctions are the privilege-free NTFS alternative but require an
+ * absolute target and only work within the same volume. If junction creation also fails
+ * (e.g. cross-volume), falls back to a recursive copy so project creation still succeeds —
+ * degraded (the adapter stops tracking future skill updates) but functional.
+ */
+export async function createSkillAdapterLink(target, linkPath, { fsImpl = fs, platform = process.platform } = {}) {
+    try {
+        await fsImpl.symlink(target, linkPath, 'dir');
+        return { method: 'symlink' };
+    } catch (error) {
+        if (isAlreadyExists(error)) {
+            throw error;
+        }
+        if (platform !== 'win32' || !isPermissionDenied(error)) {
+            throw error;
+        }
+        const absoluteTarget = path.resolve(path.dirname(linkPath), target);
+        try {
+            await fsImpl.symlink(absoluteTarget, linkPath, 'junction');
+            return { method: 'junction' };
+        } catch (junctionError) {
+            if (isAlreadyExists(junctionError)) {
+                throw junctionError;
+            }
+            await copyDirectoryRecursive(fsImpl, absoluteTarget, linkPath);
+            console.warn(`[project-scaffold] symlink and junction both failed for ${linkPath}; copied the skill directory instead (it will not reflect future skill updates)`);
+            return { method: 'copy' };
+        }
+    }
+}
+
 async function copySkillsTree(source, destination) {
     await fs.mkdir(destination, { recursive: true });
     for (const entry of await fs.readdir(source, { withFileTypes: true })) {
@@ -257,22 +310,31 @@ export async function installProjectSkills(destinationDir, skillsSourceDir, sche
     }
 }
 
-export async function installSkillAdapters(destinationDir) {
+export async function installSkillAdapters(destinationDir, options = {}) {
+    const { fsImpl = fs, platform = process.platform } = options;
     const skillsDir = path.join(destinationDir, '.claude', 'skills');
-    const skillNames = (await fs.readdir(skillsDir, { withFileTypes: true }))
+    const skillNames = (await fsImpl.readdir(skillsDir, { withFileTypes: true }))
         .filter(entry => entry.isDirectory())
         .map(entry => entry.name);
 
     const created = [];
     const skippedExisting = [];
+    const degraded = [];
     for (const adapter of SKILL_ADAPTER_DIRECTORIES) {
         const adapterDir = path.join(destinationDir, adapter, 'skills');
-        await fs.mkdir(adapterDir, { recursive: true });
+        await fsImpl.mkdir(adapterDir, { recursive: true });
         for (const name of skillNames) {
             const relativeName = `${adapter}/skills/${name}`;
             try {
-                await fs.symlink(`../../.claude/skills/${name}`, path.join(adapterDir, name));
+                const { method } = await createSkillAdapterLink(
+                    `../../.claude/skills/${name}`,
+                    path.join(adapterDir, name),
+                    { fsImpl, platform }
+                );
                 created.push(relativeName);
+                if (method !== 'symlink') {
+                    degraded.push({ name: relativeName, method });
+                }
             } catch (error) {
                 if (!isAlreadyExists(error)) {
                     throw error;
@@ -281,7 +343,7 @@ export async function installSkillAdapters(destinationDir) {
             }
         }
     }
-    return { created, skippedExisting };
+    return { created, skippedExisting, degraded };
 }
 
 export async function readSkillsVersion(destinationDir) {

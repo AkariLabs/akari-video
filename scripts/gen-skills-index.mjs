@@ -37,10 +37,10 @@ for (const adapter of ['.claude/skills', '.agents/skills', '.codex/skills']) {
     const link = join(root, adapter, name);
     let target;
     try {
-      if (!lstatSync(link).isSymbolicLink()) fail(`${adapter}/${name} が symlink でない`);
+      if (!lstatSync(link).isSymbolicLink()) fail(`${adapter}/${name} が symlink でない（Windows で core.symlinks 無効のまま git clone すると symlink がテキストファイル化する既知の挙動。開発者モードを有効化し \`git config --global core.symlinks true\` を設定してから再 clone するか、docs/dev/windows-build.md の git 手順を参照）`);
       target = realpathSync(link);
     } catch {
-      fail(`${adapter}/${name} が欠落または解決不能（skills/${name} への symlink が必要）`);
+      fail(`${adapter}/${name} が欠落または解決不能（skills/${name} への symlink が必要。Windows で core.symlinks 無効のまま clone した場合に典型的に起きる — 開発者モードを有効化し \`git config --global core.symlinks true\` を設定してから再 clone するか、docs/dev/windows-build.md の git 手順を参照）`);
     }
     if (target !== realpathSync(join(root, 'skills', name)))
       fail(`${adapter}/${name} の解決先が skills/${name} でない: ${target}`);

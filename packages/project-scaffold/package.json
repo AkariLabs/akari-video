@@ -6,6 +6,6 @@
   "type": "module",
   "main": "src/index.mjs",
   "scripts": {
-    "test": "node --test test/*.mjs"
+    "test": "node --test \"test/*.mjs\""
   }
 }
