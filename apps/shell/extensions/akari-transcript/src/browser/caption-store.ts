@@ -18,6 +18,7 @@ export interface Caption {
     edited: boolean;
     words?: CaptionWord[];
     style?: string;
+    displayText?: string;
 }
 
 export interface AnalysisSegment {
@@ -62,6 +63,34 @@ export function replaceCaptionLine(source: string, captionId: string, text: stri
         return line
             .replace(/("text"\s*:\s*)"(?:\\.|[^"\\])*"/, (_match, prefix) => `${prefix}${JSON.stringify(text)}`)
             .replace(/("edited"\s*:\s*)(?:true|false)/, '$1true');
+    }).join('');
+    if (matches !== 1) {
+        throw new Error(matches === 0
+            ? `字幕 ${captionId} が字幕データにありません。`
+            : `字幕 ${captionId} が字幕データに複数あります。`);
+    }
+    return updated;
+}
+
+export function replaceCaptionDisplayTextLine(source: string, captionId: string, text: string): string {
+    if (!captionId) {
+        throw new Error('字幕の識別情報がありません。');
+    }
+    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
+    let matches = 0;
+    const updated = lines.map(line => {
+        const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
+        if (!idMatch || decodeJsonString(idMatch[1]) !== captionId) {
+            return line;
+        }
+        matches++;
+        if (!/"display_text"\s*:\s*"(?:\\.|[^"\\])*"/.test(line)) {
+            throw new Error(`字幕 ${captionId} に整文（display_text）がありません。`);
+        }
+        return line.replace(
+            /("display_text"\s*:\s*)"(?:\\.|[^"\\])*"/,
+            (_match, prefix) => `${prefix}${JSON.stringify(text)}`
+        );
     }).join('');
     if (matches !== 1) {
         throw new Error(matches === 0
@@ -224,10 +253,13 @@ function serializeCaption(caption: Caption): string {
     const style = caption.style === undefined
         ? ''
         : `,"style":${JSON.stringify(caption.style)}`;
+    const displayText = caption.displayText === undefined
+        ? ''
+        : `,"display_text":${JSON.stringify(caption.displayText)}`;
     return `{"id":${JSON.stringify(caption.id)},"start":${JSON.stringify(caption.start)},` +
         `"end":${JSON.stringify(caption.end)},"text":${JSON.stringify(caption.text)},` +
         `"speaker":${caption.speaker === null ? 'null' : JSON.stringify(caption.speaker)},` +
-        `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}${words}${style}}`;
+        `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}${words}${style}${displayText}}`;
 }
 
 function normalizeSegment(value: any): AnalysisSegment | undefined {
@@ -266,6 +298,7 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
     }
     const words = normalizeCaptionWords(value.words);
     const style = typeof value.style === 'string' ? value.style : undefined;
+    const displayText = typeof value.display_text === 'string' ? value.display_text : undefined;
     return {
         id: value.id,
         start,
@@ -275,7 +308,8 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
         sourceRef: segment,
         edited: value.edited,
         ...(words === undefined ? {} : { words }),
-        ...(style === undefined ? {} : { style })
+        ...(style === undefined ? {} : { style }),
+        ...(displayText === undefined ? {} : { displayText })
     };
 }
 
