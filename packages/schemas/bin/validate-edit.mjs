@@ -94,6 +94,39 @@ function validateEdit(value) {
   validateLayers(value.layers);
   validateBeats(value.beats, value.version, value.sources);
   validateDirection(value.direction);
+  validateTracks(value.tracks);
+}
+
+function validateTracks(value) {
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    fail("tracks は object である必要があります");
+    return;
+  }
+  for (const key of ["cuts", "overlays", "layers", "audio"]) {
+    if (!hasOwn(value, key)) continue;
+    validateTrackStateList(value[key], `tracks.${key}`);
+  }
+}
+
+function validateTrackStateList(value, label) {
+  if (!Array.isArray(value)) {
+    fail(`${label} は配列である必要があります`);
+    return;
+  }
+  value.forEach((item, index) => {
+    const itemLabel = `${label}[${index}]`;
+    if (!isPlainObject(item)) {
+      fail(`${itemLabel} は object である必要があります`);
+      return;
+    }
+    if (hasOwn(item, "muted") && typeof item.muted !== "boolean") {
+      fail(`${itemLabel}.muted は boolean である必要があります`);
+    }
+    if (hasOwn(item, "hidden") && typeof item.hidden !== "boolean") {
+      fail(`${itemLabel}.hidden は boolean である必要があります`);
+    }
+  });
 }
 
 // docs/contract-2026-07-23-edit-json-v1-direction.md §6。direction は演出宣言の器であり
@@ -218,6 +251,11 @@ function validateLayers(value) {
       }
       validateLayerChromaKey(layer.chroma_key, `${label}.chroma_key`);
     }
+    if (hasOwn(layer, "track")) {
+      if (!Number.isInteger(layer.track) || layer.track < 0) {
+        fail(`${label}.track は 0 以上の整数である必要があります`);
+      }
+    }
   }
 }
 
@@ -329,6 +367,11 @@ function validateSfx(value) {
     if (hasOwn(item, "gain_db")) {
       if (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12) {
         fail(`${label}.gain_db は -60 から 12 の範囲の有限数である必要があります`);
+      }
+    }
+    if (hasOwn(item, "track")) {
+      if (!Number.isInteger(item.track) || item.track < 0) {
+        fail(`${label}.track は 0 以上の整数である必要があります`);
       }
     }
   }
@@ -494,6 +537,16 @@ function validateCuts(value, version, sources) {
     if (hasOwn(cut, "speed")) {
       if (!isFiniteNumber(cut.speed) || cut.speed <= 0) {
         fail(`${label}.speed は 0 より大きい有限数である必要があります`);
+      }
+    }
+    if (hasOwn(cut, "at")) {
+      if (!isFiniteNumber(cut.at) || cut.at < 0) {
+        fail(`${label}.at は 0 以上の有限数である必要があります`);
+      }
+    }
+    if (hasOwn(cut, "track")) {
+      if (!Number.isInteger(cut.track) || cut.track < 0) {
+        fail(`${label}.track は 0 以上の整数である必要があります`);
       }
     }
     validateTransitionOut(cut.transition_out, `${label}.transition_out`);

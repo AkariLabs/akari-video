@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 5 }],
+  "overlays": [],
+  "layers": [{ "id": "l1", "t": 0, "duration": 3, "kind": "baked", "src": "layer.mov", "track": -1 }]
+}
