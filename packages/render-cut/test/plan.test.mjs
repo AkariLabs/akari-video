@@ -85,3 +85,81 @@ test("BGM and SFX produce a deterministic direct ffmpeg mix command", () => {
   assert.match(command.args.join(" "), /adelay=1250:all=1/);
   assert.match(command.args.join(" "), /amix=inputs=3:duration=first/);
 });
+
+test("cuts without at or track keep the exact legacy cut command", () => {
+  const plan = buildPlan({
+    edit,
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+  });
+  assert.deepEqual(plan.commands.cut.args, [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-nostdin",
+    "-y",
+    "-i",
+    "/project/source.mp4",
+    "-filter_complex",
+    "[0:v]trim=start=5:end=10,setpts=PTS-STARTPTS[v0];[0:a]atrim=start=5:end=10,asetpts=PTS-STARTPTS[a0];[0:v]trim=start=30:end=35,setpts=PTS-STARTPTS[v1];[0:a]atrim=start=30:end=35,asetpts=PTS-STARTPTS[a1];[v0][a0][v1][a1]concat=n=2:v=1:a=1[joinedv][joineda];[joinedv]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1[outv]",
+    "-map",
+    "[outv]",
+    "-map",
+    "[joineda]",
+    "-c:v",
+    "libx264",
+    "-profile:v",
+    "high",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-ar",
+    "48000",
+    "-shortest",
+    "/project/.akari/render-tmp/cut.mp4",
+  ]);
+});
+
+test("cuts with an output-axis gap render black video for the gap", () => {
+  const plan = buildPlan({
+    edit: {
+      ...edit,
+      cuts: [
+        { in: 0, out: 2, track: 0 },
+        { at: 5, in: 10, out: 12, track: 0 },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+  });
+  const filterComplex = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
+  assert.equal(plan.predicted_duration_seconds, 7);
+  assert.match(filterComplex, /color=c=black/);
+  assert.match(filterComplex, /color=c=black[^;]*:d=3\[gv1\]/);
+});
+
+test("overlapping tracks show the higher track and mix every cut's audio", () => {
+  const plan = buildPlan({
+    edit: {
+      ...edit,
+      cuts: [
+        { in: 0, out: 5, track: 0 },
+        { at: 2, in: 20, out: 25, track: 1 },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+  });
+  const filterComplex = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
+  assert.match(filterComplex, /trim=start=20:end=25/);
+  assert.match(filterComplex, /adelay=0:all=1/);
+  assert.match(filterComplex, /adelay=2000:all=1/);
+  assert.match(filterComplex, /amix=inputs=2/);
+});
