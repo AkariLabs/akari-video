@@ -6,6 +6,8 @@ import test from "node:test";
 
 import {
   addRasterizerDowngradeWarning,
+  chromePathCandidates,
+  ffmpegInstallHint,
   findChromePath,
   rasterizeAndComposite,
   resolvePuppeteerPackagePath,
@@ -48,6 +50,96 @@ test("Chrome candidate priority is env, newest Playwright headless shell, then s
   } finally {
     await rm(homeDirectory, { recursive: true, force: true });
   }
+});
+
+test("Chrome candidate priority on win32 mirrors darwin: env, newest Playwright headless shell, then system Chrome", async () => {
+  const homeDirectory = await mkdtemp(join(tmpdir(), "render-cut-chrome-candidates-win32-"));
+  try {
+    const localAppData = join(homeDirectory, "AppData", "Local");
+    const older = join(
+      localAppData,
+      "ms-playwright/chromium_headless_shell-1000/chrome-headless-shell-win64/chrome-headless-shell.exe",
+    );
+    const newest = join(
+      localAppData,
+      "ms-playwright/chromium_headless_shell-2000/chrome-headless-shell-win64/chrome-headless-shell.exe",
+    );
+    await mkdir(join(older, ".."), { recursive: true });
+    await mkdir(join(newest, ".."), { recursive: true });
+    const envChrome = "C:\\test\\env\\chrome.exe";
+    const systemChrome = "C:\\test\\system\\chrome.exe";
+    const executable = async (candidate) => [envChrome, newest, systemChrome].includes(candidate);
+
+    assert.equal(await findChromePath({
+      env: { CHROME_PATH: envChrome, LOCALAPPDATA: localAppData },
+      homeDirectory,
+      platform: "win32",
+      systemCandidates: [systemChrome],
+      executable,
+    }), envChrome);
+    assert.equal(await findChromePath({
+      env: { LOCALAPPDATA: localAppData },
+      homeDirectory,
+      platform: "win32",
+      systemCandidates: [systemChrome],
+      executable,
+    }), newest);
+    assert.notEqual(newest, older);
+  } finally {
+    await rm(homeDirectory, { recursive: true, force: true });
+  }
+});
+
+test("chromePathCandidates on win32 resolves the Playwright root under LOCALAPPDATA, falls back to homeDirectory/AppData/Local when LOCALAPPDATA is unset, and builds default system candidates from ProgramFiles/LOCALAPPDATA", async () => {
+  const homeDirectory = await mkdtemp(join(tmpdir(), "render-cut-win32-roots-"));
+  try {
+    const localAppData = join(homeDirectory, "custom-local-appdata");
+    const withLocalAppDataButNoDirs = await chromePathCandidates({
+      env: { LOCALAPPDATA: localAppData },
+      homeDirectory,
+      platform: "win32",
+      systemCandidates: [],
+    });
+    assert.deepEqual(withLocalAppDataButNoDirs, [], "no playwright/puppeteer dirs exist yet, so candidates stay empty rather than throwing");
+
+    const fallbackShell = join(
+      homeDirectory,
+      "AppData/Local/ms-playwright/chromium_headless_shell-1/chrome-headless-shell-win64/chrome-headless-shell.exe",
+    );
+    await mkdir(join(fallbackShell, ".."), { recursive: true });
+    const withoutLocalAppData = await chromePathCandidates({
+      env: {},
+      homeDirectory,
+      platform: "win32",
+      systemCandidates: [],
+    });
+    assert.deepEqual(withoutLocalAppData, [fallbackShell]);
+
+    const defaults = await chromePathCandidates({
+      env: {
+        ProgramFiles: "C:\\Program Files",
+        "ProgramFiles(x86)": "C:\\Program Files (x86)",
+        LOCALAPPDATA: "C:\\Users\\tester\\AppData\\Local",
+      },
+      homeDirectory,
+      platform: "win32",
+    });
+    assert.deepEqual(defaults, [
+      join("C:\\Program Files", "Google", "Chrome", "Application", "chrome.exe"),
+      join("C:\\Program Files (x86)", "Google", "Chrome", "Application", "chrome.exe"),
+      join("C:\\Users\\tester\\AppData\\Local", "Google", "Chrome", "Application", "chrome.exe"),
+    ]);
+  } finally {
+    await rm(homeDirectory, { recursive: true, force: true });
+  }
+});
+
+test("ffmpegInstallHint gives a platform-specific install hint (ffmpeg detection logic itself is untouched)", () => {
+  assert.match(ffmpegInstallHint("win32"), /FFMPEG/);
+  assert.match(ffmpegInstallHint("win32"), /winget install ffmpeg/);
+  assert.match(ffmpegInstallHint("darwin"), /FFMPEG/);
+  assert.match(ffmpegInstallHint("darwin"), /brew install ffmpeg/);
+  assert.doesNotMatch(ffmpegInstallHint("linux"), /winget|brew/);
 });
 
 test("puppeteer-core package detection accepts a hoisted require.resolve result", () => {

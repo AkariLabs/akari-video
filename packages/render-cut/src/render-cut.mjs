@@ -286,7 +286,7 @@ async function validateLint(projectRoot, force) {
 async function measureCapabilities(projectRoot, edit) {
   const ffmpegCommand = process.env.FFMPEG ?? "ffmpeg";
   const ffprobeCommand = process.env.FFPROBE ?? "ffprobe";
-  const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"], "ffmpeg");
+  const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"], "ffmpeg", ffmpegInstallHint());
   const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"], "ffprobe");
   const chromePath = await findChromePath();
   const chromeVersion = chromePath ? commandVersion(chromePath, ["--version"], "Chrome") : null;
@@ -606,22 +606,51 @@ function probeMedia(command, path) {
   return parseJson(result.stdout, `ffprobe ${basename(path)}`);
 }
 
-function commandVersion(command, args, label) {
+function commandVersion(command, args, label, hint = null) {
   const result = spawnSync(command, args, { encoding: "utf8" });
-  if (result.error || result.status !== 0) throw new ExecutionError(`${label} is not available`);
+  if (result.error || result.status !== 0) {
+    throw new ExecutionError(hint ? `${label} is not available; ${hint}` : `${label} is not available`);
+  }
   return (result.stdout || result.stderr).split(/\r?\n/u)[0].trim();
+}
+
+// Only used for the ffmpeg not-found message (task scope: detection logic itself stays unchanged).
+export function ffmpegInstallHint(platform = process.platform) {
+  const install = platform === "win32"
+    ? "winget install ffmpeg"
+    : platform === "darwin"
+      ? "brew install ffmpeg"
+      : "install ffmpeg via your package manager";
+  return `set the FFMPEG environment variable to its path, or install it (${install})`;
+}
+
+// darwin/linux candidates are unchanged from before win32 support was added, so behavior on those
+// platforms stays byte-identical (win32 gets its own list instead of being merged into this one).
+function defaultChromeSystemCandidates({ env, platform }) {
+  if (platform === "win32") {
+    const programFiles = env.ProgramFiles || "C:\\Program Files";
+    const programFilesX86 = env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
+    const localAppData = env.LOCALAPPDATA;
+    const candidates = [
+      join(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
+      join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe"),
+    ];
+    if (localAppData) candidates.push(join(localAppData, "Google", "Chrome", "Application", "chrome.exe"));
+    return candidates;
+  }
+  return [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+  ];
 }
 
 export async function findChromePath({
   env = process.env,
   homeDirectory = homedir(),
   platform = process.platform,
-  systemCandidates = [
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium",
-  ],
+  systemCandidates = defaultChromeSystemCandidates({ env, platform }),
   executable = isExecutable,
 } = {}) {
   const candidates = await chromePathCandidates({
@@ -640,22 +669,21 @@ export async function chromePathCandidates({
   env = process.env,
   homeDirectory = homedir(),
   platform = process.platform,
-  systemCandidates = [
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium",
-  ],
+  systemCandidates = defaultChromeSystemCandidates({ env, platform }),
 } = {}) {
-  const playwrightRoot = platform === "darwin"
-    ? join(homeDirectory, "Library", "Caches", "ms-playwright")
-    : join(homeDirectory, ".cache", "ms-playwright");
+  const playwrightRoot = platform === "win32"
+    ? join(env.LOCALAPPDATA || join(homeDirectory, "AppData", "Local"), "ms-playwright")
+    : platform === "darwin"
+      ? join(homeDirectory, "Library", "Caches", "ms-playwright")
+      : join(homeDirectory, ".cache", "ms-playwright");
   const playwright = await versionedNestedCandidates({
     roots: [playwrightRoot],
     versionPrefix: "chromium_headless_shell-",
-    binaryPaths: platform === "darwin"
-      ? [[/^chrome-headless-shell-mac-/u, "chrome-headless-shell"]]
-      : [[/^chrome-headless-shell-linux/u, "chrome-headless-shell"]],
+    binaryPaths: platform === "win32"
+      ? [[/^chrome-headless-shell-win/u, "chrome-headless-shell.exe"]]
+      : platform === "darwin"
+        ? [[/^chrome-headless-shell-mac-/u, "chrome-headless-shell"]]
+        : [[/^chrome-headless-shell-linux/u, "chrome-headless-shell"]],
   });
   const puppeteerRoots = [join(homeDirectory, ".cache", "puppeteer", "chrome")];
   if (platform === "darwin") {
