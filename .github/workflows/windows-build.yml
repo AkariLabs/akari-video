@@ -1,0 +1,69 @@
+name: Windows Build
+
+# Windows 実機の代替として GitHub の windows-latest ランナーでシェルをビルド・パッケージし、
+# win-unpacked を artifact として配布する（オーナー指示 2026-07-23 — ci.yml の
+# 「app は macOS-only」前提〔2026-07-16 裁定〕は Windows 対応 GO により上書き）。
+# 手順は docs/dev/windows-build.md のビルド手順を CI に写したもの。
+# 手動トリガーのみ（ビルドは重い: theia build + electron-builder で 20-40 分規模）。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows-build:
+    name: windows-build (build:ext + theia build + package)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      # checkout より前に symlink / 長パスを有効化する（リポ直下に git 管理 symlink が 46 個。
+      # GitHub の Windows ランナーは管理者権限で走るため core.symlinks true で実体化できる）
+      - name: Enable git symlinks and long paths
+        run: |
+          git config --global core.symlinks true
+          git config --global core.longpaths true
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+
+      # symlink が正しく実体化されたかの早期ゲート（壊れていれば以降のビルドは無意味）
+      - name: Verify skills symlinks materialized
+        run: node scripts/gen-skills-index.mjs --check
+
+      # docs/dev/windows-build.md と同一手順。package-lock.json は意図的に gitignore のため
+      # npm ci は使えない（ci.yml の L0 ジョブと同じ理由）。--ignore-scripts は付けない
+      # （実パッケージにはネイティブモジュールの実体が必要）。
+      - name: Install dependencies
+        working-directory: apps/shell
+        run: npm install --no-workspaces
+
+      - name: build:ext (tsc -b, 9 extensions)
+        working-directory: apps/shell
+        run: npm run build:ext
+
+      - name: theia build (production)
+        working-directory: apps/shell
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npm run build
+
+      # prepackage (copy-native-helpers) → electron-builder --dir（Windows ホストなので
+      # win ターゲットが既定・@electron/rebuild が Electron ABI へ自動整合）→
+      # postpackage (verify-asar-contents — win32 分岐で app.asar の同梱検証)
+      - name: package (electron-builder --dir + verify-asar)
+        working-directory: apps/shell
+        run: npm run package
+
+      # upload-artifact は多数の小ファイルに弱いため 7z で単一 zip に固めてから上げる
+      - name: Zip win-unpacked
+        working-directory: apps/shell/electron-builder-out
+        run: 7z a -tzip akari-video-win-x64.zip win-unpacked
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: akari-video-win-x64
+          path: apps/shell/electron-builder-out/akari-video-win-x64.zip
+          retention-days: 14
+          if-no-files-found: error
