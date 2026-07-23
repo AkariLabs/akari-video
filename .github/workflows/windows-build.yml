@@ -37,28 +37,23 @@ jobs:
       - name: Verify skills symlinks materialized
         run: node scripts/gen-skills-index.mjs --check
 
-      # Node 26 の Windows 公式ビルドは ClangCL + thin LTO 前提で、ヘッダ付属の config.gypi が
-      # enable_thin_lto=true / lto_jobs=2 を持ち、common.gypi 経由で全アドオンビルドに
-      # -flto=thin / /opt:lldltojobs が注入される。ランナーの node-gyp は MSVC toolset のため
-      # link.exe が LNK1117 で死ぬ（run 29994686512 / 29995591439 実測。GYP_DEFINES は
-      # node-gyp が gyp を直接起動するため効かないことも実測済み）。
-      # 対処: ヘッダを先取りダウンロードし、キャッシュ内 config.gypi の LTO 変数を直接 false 化する。
-      # 以降の npm install の暗黙 node-gyp ビルドはこのキャッシュを使う。
-      - name: Pre-install node headers and disable LTO (MSVC compat)
-        run: |
-          npx --yes node-gyp install
-          $cfg = Join-Path $env:LOCALAPPDATA "node-gyp\Cache\26.3.0\include\node\config.gypi"
-          (Get-Content $cfg) `
-            -replace '"enable_lto": "true"', '"enable_lto": "false"' `
-            -replace '"enable_thin_lto": "true"', '"enable_thin_lto": "false"' `
-            -replace '"lto_jobs": "\d+"', '"lto_jobs": ""' | Set-Content $cfg
-          Select-String -Path $cfg -Pattern 'lto'
-
       # docs/dev/windows-build.md と同一手順。package-lock.json は意図的に gitignore のため
       # npm ci は使えない（ci.yml の L0 ジョブと同じ理由）。--ignore-scripts は付けない
       # （実パッケージにはネイティブモジュールの実体が必要）。
+      #
+      # npm_config_enable_(thin_)lto=false について（run 29994686512 / 29995591439 / 29996236710 実測）:
+      # Windows 公式 node.exe は ClangCL + thin LTO ビルドで、node-gyp は実行中 node の
+      # process.config を build/config.gypi に写すため、全アドオンに -flto=thin /
+      # /opt:lldltojobs=2 が注入され MSVC link.exe が LNK1117 で死ぬ（mac の node は
+      # thin=false のため mac では発生しない）。ヘッダキャッシュの config.gypi は元々
+      # false でパッチ無効・GYP_DEFINES も node-gyp に無視されることを実測済み。
+      # node-gyp は npm_config_* env を未知オプションとして gyp の -D 定義（config.gypi より
+      # 優先）へ変換するので、この経路で LTO を無効化する。
       - name: Install dependencies
         working-directory: apps/shell
+        env:
+          npm_config_enable_lto: 'false'
+          npm_config_enable_thin_lto: 'false'
         run: npm install --no-workspaces
 
       - name: build:ext (tsc -b, 9 extensions)
@@ -76,6 +71,10 @@ jobs:
       # postpackage (verify-asar-contents — win32 分岐で app.asar の同梱検証)
       - name: package (electron-builder --dir + verify-asar)
         working-directory: apps/shell
+        env:
+          # @electron/rebuild も node-gyp 経由のため同じ LTO 無効化を適用（Install の注記参照）
+          npm_config_enable_lto: 'false'
+          npm_config_enable_thin_lto: 'false'
         run: npm run package
 
       # upload-artifact は多数の小ファイルに弱いため 7z で単一 zip に固めてから上げる
