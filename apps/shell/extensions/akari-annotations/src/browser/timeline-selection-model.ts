@@ -10,6 +10,9 @@ export interface TimelineCutSelection {
     sourceOut: number;
     outputStart: number;
     outputEnd: number;
+    speed?: number;
+    transitionOut?: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number };
+    track?: number;
 }
 
 export interface TimelineOverlaySelection {
@@ -17,6 +20,8 @@ export interface TimelineOverlaySelection {
     id: string;
     outputStart: number;
     duration: number;
+    track?: number;
+    payload: Record<string, unknown>;
 }
 
 export interface TimelineCaptionSelection {
@@ -28,6 +33,9 @@ export interface TimelineCaptionSelection {
     /** 削除区間に完全に落ちて射影できない場合は undefined */
     outputStart: number | undefined;
     outputEnd: number | undefined;
+    speaker: string | null;
+    sourceRef: { segment: number } | null;
+    edited: boolean;
 }
 
 export interface TimelineLayerSelection {
@@ -36,15 +44,28 @@ export interface TimelineLayerSelection {
     layerKind: 'baked' | 'video';
     outputStart: number;
     duration: number;
+    src: string;
+    preset?: string;
+    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    opacity?: number;
+    blend?: 'normal' | 'screen' | 'multiply' | 'add' | 'difference' | 'darken' | 'lighten'
+        | 'overlay' | 'hardlight' | 'softlight';
+    chromaKey?: { color: string; similarity?: number; blend?: number };
+    track?: number;
 }
 
 export interface TimelineAudioSelection {
     kind: 'audio';
     id: string;
-    audioKind: 'sfx' | 'bgm';
+    audioKind: 'sfx' | 'bgm' | 'narration';
     label: string;
     outputStart: number;
     duration: number;
+    gainDb?: number;
+    script?: string;
+    fadeIn?: number;
+    fadeOut?: number;
+    ducking?: boolean;
 }
 
 export type TimelineSelectionSnapshot =
