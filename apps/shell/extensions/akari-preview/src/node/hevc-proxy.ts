@@ -6,7 +6,7 @@ import { promisify } from 'util';
 
 // Mirrors the shape of apps/shell/extensions/akari-annotations/src/node/media-cache.ts
 // (hasFfmpeg / cacheHash / ensureCacheDirectory / atomic temp-then-rename write), per the design
-// in tasks/2026-07-23-win-portability-audit/report.md §HEVC プレビュー 4節 (internal repo). Kept
+// in the internal repo's win portability audit §HEVC プレビュー 4節. Kept
 // in its own cache/media-proxy/ directory (not cache/timeline/ where media-cache writes) because
 // proxy output is orders of magnitude larger and slower to produce than thumbnails/waveforms.
 

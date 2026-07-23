@@ -48,8 +48,8 @@ export interface ResolveHevcProxyRequest {
     projectRootUri: string;
 }
 
-// HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see
-// tasks/2026-07-23-win-portability-audit/report.md §HEVC プレビュー in the internal repo), so
+// HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see the
+// win portability audit §HEVC プレビュー in the internal repo), so
 // akari-preview lazily transcodes a local H.264 proxy on first preview request and reuses it on
 // a size+mtime cache hit. This runs on all platforms (not just win32) so the behavior is
 // identical everywhere and macOS gets the same test coverage as the platform that actually needs

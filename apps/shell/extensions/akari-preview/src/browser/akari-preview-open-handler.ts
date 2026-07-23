@@ -1034,8 +1034,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             await this.disposeAssetStreams(model.assetStreamIds);
             return;
         }
-        // HEVC (H.265) sources are unlikely to decode on Windows (see tasks/2026-07-23-win-
-        // portability-audit/report.md §HEVC プレビュー in the internal repo). streamVideoUri is
+        // HEVC (H.265) sources are unlikely to decode on Windows (see the win portability
+        // audit §HEVC プレビュー in the internal repo). streamVideoUri is
         // what actually gets streamed to <video>; videoUri itself (source identity: captions
         // lookup, file watch, seek commands, title) stays untouched below.
         const streamVideoUri = await this.resolveStreamVideoUri(videoUri, model);
