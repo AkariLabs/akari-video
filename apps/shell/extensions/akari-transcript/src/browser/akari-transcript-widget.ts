@@ -12,6 +12,7 @@ import {
     Caption,
     parseCaptions,
     regenerateCaptions,
+    replaceCaptionDisplayTextLine,
     replaceCaptionLine
 } from './caption-store';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from './akari-transcript-commands';
@@ -55,6 +56,7 @@ export class AkariTranscriptWidget extends BaseWidget {
     protected videoUri = '';
     protected captions: Caption[] = [];
     protected baselineLines: string[] = [];
+    protected readonly showingDisplayText = new Set<string>();
     protected keepRanges: KeepRange[] = [];
     protected applyingModel = false;
     protected saveTimer = 0;
@@ -161,6 +163,23 @@ export class AkariTranscriptWidget extends BaseWidget {
             .akari-transcript-widget .akari-transcript-cut-line {
                 background: color-mix(in srgb, var(--theia-editor-background) 82%, var(--theia-disabledForeground, #888));
             }
+            .akari-transcript-widget .akari-transcript-displaytext-off::before,
+            .akari-transcript-widget .akari-transcript-displaytext-on::before {
+                content: 'A';
+                display: inline-block;
+                width: 14px;
+                text-align: center;
+                font-size: 10px;
+                line-height: 18px;
+                cursor: pointer;
+            }
+            .akari-transcript-widget .akari-transcript-displaytext-off::before {
+                color: var(--theia-descriptionForeground, #888);
+            }
+            .akari-transcript-widget .akari-transcript-displaytext-on::before {
+                color: var(--theia-focusBorder, #4dabf7);
+                font-weight: bold;
+            }
         `;
         this.node.appendChild(style);
     }
@@ -232,6 +251,12 @@ export class AkariTranscriptWidget extends BaseWidget {
         this.toDispose.push(this.editor.onDidChangeModelContent(() => this.onEditorChanged()));
         this.toDispose.push(this.editor.onMouseDown(event => {
             const lineNumber = event.target.position?.lineNumber;
+            if (event.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+                if (lineNumber) {
+                    this.toggleDisplayMode(lineNumber - 1);
+                }
+                return;
+            }
             if (lineNumber) {
                 void this.requestSeek(lineNumber - 1);
             }
@@ -251,7 +276,17 @@ export class AkariTranscriptWidget extends BaseWidget {
             const source = await this.readText(this.captionsUri);
             const parsed = parseCaptions(source);
             this.captions = parsed.captions;
-            this.baselineLines = this.captions.map(caption => this.displayText(caption.text));
+            const availableDisplayTextIds = new Set(this.captions
+                .filter(caption => caption.displayText !== undefined)
+                .map(caption => caption.id));
+            for (const id of this.showingDisplayText) {
+                if (!availableDisplayTextIds.has(id)) {
+                    this.showingDisplayText.delete(id);
+                }
+            }
+            this.baselineLines = this.captions.map(
+                caption => this.displayText(this.captionLineSource(caption))
+            );
             this.generateButton.textContent = '文字起こしから更新';
             this.setEditorValue(this.baselineLines.join('\n'), false);
             this.showWarnings(parsed.warnings);
@@ -259,11 +294,13 @@ export class AkariTranscriptWidget extends BaseWidget {
             if (await this.fileService.exists(this.captionsUri)) {
                 this.captions = [];
                 this.baselineLines = [];
+                this.showingDisplayText.clear();
                 this.setEditorValue('', true);
                 this.showNotice(`字幕を読み取れません: ${this.errorMessage(error)}`);
             } else {
                 this.captions = [];
                 this.baselineLines = [];
+                this.showingDisplayText.clear();
                 this.generateButton.textContent = '文字起こしから字幕を作成';
                 this.setEditorValue('', true);
                 this.showNotice('字幕はまだありません。「文字起こしから字幕を作成」を押すと編集を始められます。');
@@ -356,14 +393,20 @@ export class AkariTranscriptWidget extends BaseWidget {
             let source = await this.readText(this.captionsUri);
             for (const change of changed) {
                 const caption = this.captions[change.index];
-                source = replaceCaptionLine(source, caption.id, change.text);
+                source = this.showingDisplayText.has(caption.id) && caption.displayText !== undefined
+                    ? replaceCaptionDisplayTextLine(source, caption.id, change.text)
+                    : replaceCaptionLine(source, caption.id, change.text);
             }
             this.recentWrite = Date.now();
             await this.fileService.writeFile(this.captionsUri, BinaryBuffer.fromString(source));
             for (const change of changed) {
                 const caption = this.captions[change.index];
-                caption.text = change.text;
-                caption.edited = true;
+                if (this.showingDisplayText.has(caption.id) && caption.displayText !== undefined) {
+                    caption.displayText = change.text;
+                } else {
+                    caption.text = change.text;
+                    caption.edited = true;
+                }
                 this.baselineLines[change.index] = change.text;
             }
             this.footer.textContent = changed.length === 1
@@ -384,12 +427,24 @@ export class AkariTranscriptWidget extends BaseWidget {
         const decorations: monaco.editor.IModelDeltaDecoration[] = this.captions.map((caption, index) => {
             const isCut = this.keepRanges.length > 0
                 && !this.keepRanges.some(range => caption.end > range.in && caption.start < range.out);
+            const hasDisplayText = caption.displayText !== undefined;
+            const showingDisplay = hasDisplayText && this.showingDisplayText.has(caption.id);
             return {
                 range: new monaco.Range(index + 1, 1, index + 1, model?.getLineMaxColumn(index + 1) ?? 1),
                 options: {
                     isWholeLine: true,
                     className: isCut ? 'akari-transcript-cut-line' : undefined,
                     inlineClassName: isCut ? 'akari-transcript-cut' : undefined,
+                    glyphMarginClassName: hasDisplayText
+                        ? showingDisplay
+                            ? 'akari-transcript-displaytext-on'
+                            : 'akari-transcript-displaytext-off'
+                        : undefined,
+                    glyphMarginHoverMessage: hasDisplayText ? {
+                        value: showingDisplay
+                            ? '整文を表示中です。クリックすると原文表示に戻ります。'
+                            : '原文を表示中です。クリックすると整文（読みやすく整えたテキスト）表示に切り替わります。'
+                    } : undefined,
                     hoverMessage: {
                         value: `**開始:** ${this.formatTimestamp(caption.start)}  \n**終了:** ${this.formatTimestamp(caption.end)}`
                     },
@@ -451,6 +506,37 @@ export class AkariTranscriptWidget extends BaseWidget {
         }
     }
 
+    protected setLineValue(lineNumber: number, text: string): void {
+        const model = this.editor?.getModel();
+        if (!model) {
+            return;
+        }
+        this.applyingModel = true;
+        try {
+            model.pushEditOperations([], [{
+                range: new monaco.Range(lineNumber, 1, lineNumber, model.getLineMaxColumn(lineNumber)),
+                text
+            }], () => null);
+            this.baselineLines[lineNumber - 1] = text;
+        } finally {
+            this.applyingModel = false;
+        }
+    }
+
+    protected toggleDisplayMode(index: number): void {
+        const caption = this.captions[index];
+        if (!caption || caption.displayText === undefined) {
+            return;
+        }
+        if (this.showingDisplayText.has(caption.id)) {
+            this.showingDisplayText.delete(caption.id);
+        } else {
+            this.showingDisplayText.add(caption.id);
+        }
+        this.setLineValue(index + 1, this.displayText(this.captionLineSource(this.captions[index])));
+        this.applyDecorations();
+    }
+
     protected showWarnings(warnings: readonly string[]): void {
         if (warnings.length > 0) {
             this.showNotice(warnings.join(' '));
@@ -475,6 +561,12 @@ export class AkariTranscriptWidget extends BaseWidget {
 
     protected displayText(text: string): string {
         return text.replace(/\r?\n/g, ' ');
+    }
+
+    protected captionLineSource(caption: Caption): string {
+        return this.showingDisplayText.has(caption.id) && caption.displayText !== undefined
+            ? caption.displayText
+            : caption.text;
     }
 
     protected formatTimestamp(value: number): string {
