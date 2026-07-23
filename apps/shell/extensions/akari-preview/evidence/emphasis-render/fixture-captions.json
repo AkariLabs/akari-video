@@ -1,0 +1,14 @@
+[
+  {
+    "id": "c-emphasis",
+    "start": 0,
+    "end": 2,
+    "text": "これはやばいです",
+    "style": "karaoke",
+    "words": [
+      { "start": 0, "end": 0.7, "text": "これは" },
+      { "start": 1, "end": 1.9, "text": "やばい" },
+      { "start": 1.9, "end": 2, "text": "です" }
+    ]
+  }
+]

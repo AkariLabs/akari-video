@@ -1,0 +1,15 @@
+{
+  "source": { "path": "sample.mp4" },
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "cuts": [{ "in": 0, "out": 2 }],
+  "emphasis_words": [
+    {
+      "id": "e-0001",
+      "t_start": 1,
+      "t_end": 1.9,
+      "word": "やばい",
+      "emotion": "surprise",
+      "style_hint": "one-char-bang"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "renderer": "captureWithPuppeteer",
+  "fps": 10,
+  "sampleTimes": [
+    0.7,
+    1,
+    1.3
+  ],
+  "emphasisId": "e-0001"
+}
