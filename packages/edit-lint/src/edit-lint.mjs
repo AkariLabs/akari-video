@@ -1661,7 +1661,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "words", "style"];
+    const optional = ["src", "words", "style", "display_text"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -1723,14 +1723,24 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       captionFinding(findings, "captions.edited", "edited must be a boolean", itemPath);
     }
     if (Object.hasOwn(caption, "style")) {
-      if (caption.style !== "karaoke" && caption.style !== "pop") {
+      if (caption.style !== "karaoke"
+        && caption.style !== "pop"
+        && caption.style !== "reveal") {
         captionFinding(
           findings,
           "captions.schema",
-          'style must be "karaoke" or "pop"',
+          'style must be "karaoke", "pop", or "reveal"',
           itemPath,
         );
       }
+    }
+    if (Object.hasOwn(caption, "display_text") && typeof caption.display_text !== "string") {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "display_text must be a string when present",
+        itemPath,
+      );
     }
     if (Object.hasOwn(caption, "words")) {
       validateCaptionWords(caption.words, caption, findings, itemPath);

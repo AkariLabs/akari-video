@@ -1,0 +1,9 @@
+{
+  "version": 0,
+  "duration": 60,
+  "source": "../captions-words-valid/sample.mp4",
+  "transcript": [],
+  "keyframes": [],
+  "events": [],
+  "tracks": { "speakers": [], "faces": [] }
+}

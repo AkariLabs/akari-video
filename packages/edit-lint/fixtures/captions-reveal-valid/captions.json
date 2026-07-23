@@ -1,0 +1,16 @@
+[
+  {
+    "id": "c-0001",
+    "start": 5,
+    "end": 9,
+    "text": "文節ごとに表示します",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "style": "reveal",
+    "words": [
+      { "start": 5, "end": 7, "text": "文節ごとに" },
+      { "start": 7, "end": 9, "text": "表示します" }
+    ]
+  }
+]

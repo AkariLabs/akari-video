@@ -32,14 +32,25 @@ const CAPTION_FONT_FACE_CSS = `@font-face {
 // このセットに含まれないスタイル値・words 未充填の場合は必ず renderCaptionFragment に fall back する）。
 const KARAOKE_STYLE = "karaoke";
 const POP_STYLE = "pop";
-const SUPPORTED_WORD_STYLES = new Set([KARAOKE_STYLE, POP_STYLE]);
+const REVEAL_STYLE = "reveal";
+const SUPPORTED_WORD_STYLES = new Set([KARAOKE_STYLE, POP_STYLE, REVEAL_STYLE]);
 const EMPHASIS_STYLE_ONE_CHAR_BANG = "one-char-bang";
 const EMPHASIS_STYLE_SIZE_PULSE = "size-pulse";
 const EMPHASIS_STYLE_COLOR_ACCENT = "color-accent";
+const EMPHASIS_STYLE_COLOR_ONLY = "color-only";
+const EMPHASIS_STYLE_OUTLINE_BOLD = "outline-bold";
+const EMPHASIS_STYLE_DANGER = "danger";
+const EMPHASIS_STYLE_POSITIVE = "positive";
+const EMPHASIS_STYLE_HIGHLIGHT = "highlight";
 const SUPPORTED_EMPHASIS_STYLES = new Set([
   EMPHASIS_STYLE_ONE_CHAR_BANG,
   EMPHASIS_STYLE_SIZE_PULSE,
   EMPHASIS_STYLE_COLOR_ACCENT,
+  EMPHASIS_STYLE_COLOR_ONLY,
+  EMPHASIS_STYLE_OUTLINE_BOLD,
+  EMPHASIS_STYLE_DANGER,
+  EMPHASIS_STYLE_POSITIVE,
+  EMPHASIS_STYLE_HIGHLIGHT,
 ]);
 
 export function generateCaptionOverlays(captions, cuts, options = {}) {
@@ -50,6 +61,9 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const overlays = [];
 
   for (const caption of captions) {
+    const displayText = typeof caption.display_text === "string"
+      ? caption.display_text
+      : caption.text;
     const captionSource = typeof caption.src === "string" && caption.src !== "" ? caption.src : null;
     if (captionSource === null && sourceCount > 1) {
       options.onWarning?.(
@@ -65,20 +79,54 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       linearTimeline,
     );
     const style = normalizeCaptionStyle(caption.style);
+    const allWords = clipWordsToRange(caption.words, caption.start, caption.end);
+    const fullCoverage = allWords.map((word) => word.text).join("") === caption.text;
+    const usesTimedRendering = style !== null || emphasisWords.length > 0;
+    const mappedRendering = usesTimedRendering
+      && (style === REVEAL_STYLE
+        || displayText !== caption.text
+        || (allWords.length > 0 && !fullCoverage));
+    const warned = new Set();
+    const warn = (code, message) => {
+      if (warned.has(code)) return;
+      warned.add(code);
+      options.onWarning?.(message);
+    };
+    const displayTokens = mappedRendering && allWords.length > 0
+      ? buildDisplayTokens(caption.text, displayText, allWords, (message) =>
+          warn("display-mapping", `captions.json item ${caption.id ?? "(unknown)"} ${message}`))
+      : null;
+    if (displayTokens?.some((token) => token.untimed)) {
+      warn(
+        "partial-word-cover",
+        `captions.json item ${caption.id ?? "(unknown)"} has text not covered by words[]; rendered as unlit text`,
+      );
+    }
+    if (style === REVEAL_STYLE && allWords.length === 0) {
+      warn(
+        "reveal-without-words",
+        `captions.json item ${caption.id ?? "(unknown)"} requests reveal without words[]; rendered as plain text`,
+      );
+    }
     for (const [index, range] of ranges.entries()) {
       const words = style || emphasisWords.length > 0
         ? clipWordsToRange(caption.words, range.sourceStart, range.sourceEnd)
         : [];
       const hasEmphasis = words.some((word) => findMatchingEmphasis(word, emphasisWords));
+      const rangeTokens = displayTokens
+        ? clipDisplayTokensToRange(displayTokens, range.sourceStart, range.sourceEnd)
+        : null;
       const html =
         words.length > 0 && (style || hasEmphasis)
           ? renderStyledCaptionFragment(words, style, {
               maximum,
               rangeStart: range.sourceStart,
+              rangeEnd: range.sourceEnd,
               emphasisTimeScale: range.emphasisTimeScale ?? 1,
               emphasisWords,
+              displayTokens: rangeTokens,
             })
-          : renderCaptionFragment(caption.text, { maximum });
+          : renderCaptionFragment(displayText, { maximum });
       overlays.push({
         id: `${caption.id}-${String(index + 1).padStart(2, "0")}`,
         html,
@@ -233,23 +281,39 @@ export function renderCaptionFragment(text, options = {}) {
 export function renderStyledCaptionFragment(words, style, options = {}) {
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
   const rangeStart = options.rangeStart ?? 0;
+  const rangeEnd = options.rangeEnd ?? Math.max(rangeStart, ...words.map((word) => word.end));
   const emphasisTimeScale = options.emphasisTimeScale ?? 1;
   const normalizedStyle = SUPPORTED_WORD_STYLES.has(style) ? style : null;
   const emphasisWords = normalizeEmphasisWords(options.emphasisWords);
-  const hasEmphasis = words.some((word) => findMatchingEmphasis(word, emphasisWords));
+  const renderTokens = Array.isArray(options.displayTokens)
+    ? options.displayTokens
+    : words.map((word) => ({ ...word, sourceText: word.text, untimed: false }));
+  const hasEmphasis = renderTokens.some(
+    (word) => !word.untimed && findMatchingEmphasis(word, emphasisWords),
+  );
   const effectiveStyle = normalizedStyle ?? (hasEmphasis ? null : KARAOKE_STYLE);
   const rootStyle = effectiveStyle ?? "emphasis";
-  const lines = groupWordsIntoLines(words, maximum);
-  const markup = lines
-    .map(
-      (line) =>
-        `<p class="akari-caption__line">${line
-          .map((word) => renderCaptionToken(word, rangeStart, effectiveStyle, emphasisWords, emphasisTimeScale))
-          .join("")}</p>`,
-    )
+  const useMappedLines = Array.isArray(options.displayTokens) || effectiveStyle === REVEAL_STYLE;
+  const lines = useMappedLines
+    ? groupDisplayTokensIntoLines(renderTokens, maximum)
+    : groupWordsIntoLines(words, maximum);
+  const renderLine = (line) => line
+    .map((word) => renderCaptionToken(
+      word,
+      rangeStart,
+      effectiveStyle,
+      emphasisWords,
+      emphasisTimeScale,
+    ))
     .join("");
+  const markup = effectiveStyle === REVEAL_STYLE
+    ? renderRevealGroups(lines, rangeStart, rangeEnd, emphasisTimeScale, renderLine)
+    : lines
+        .map((line) => `<p class="akari-caption__line">${renderLine(line)}</p>`)
+        .join("");
 
   const emphasisCss = hasEmphasis ? renderEmphasisCss() : "";
+  const revealCss = effectiveStyle === REVEAL_STYLE ? renderRevealCss() : "";
 
   return `<div class="akari-caption akari-caption--${rootStyle}">
   <style>
@@ -308,7 +372,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     }
     .akari-caption__tok--pop {
       animation: akari-caption-pop 0.2s var(--akari-tok-delay, 0s) ease-out both paused;
-    }${emphasisCss}
+    }${revealCss}${emphasisCss}
   </style>
   <div class="akari-caption__plate">${markup}</div>
 </div>`;
@@ -334,7 +398,230 @@ function groupWordsIntoLines(words, maximum) {
   return lines;
 }
 
+function buildDisplayTokens(sourceText, displayText, words, onMappingFallback) {
+  const tokens = [];
+  let cursor = 0;
+  for (const [wordIndex, word] of words.entries()) {
+    const found = displayText.indexOf(word.text, cursor);
+    if (found < 0) {
+      onMappingFallback?.(
+        "display_text could not be aligned to text/words[]; used proportional timing fallback",
+      );
+      return buildProportionalDisplayTokens(displayText, words);
+    }
+    if (found > cursor) {
+      tokens.push({
+        text: displayText.slice(cursor, found),
+        untimed: true,
+        previousWordIndex: wordIndex - 1,
+        nextWordIndex: wordIndex,
+      });
+    }
+    tokens.push({
+      ...word,
+      text: displayText.slice(found, found + word.text.length),
+      sourceText: word.text,
+      untimed: false,
+      wordIndex,
+    });
+    cursor = found + word.text.length;
+  }
+  if (cursor < displayText.length) {
+    tokens.push({
+      text: displayText.slice(cursor),
+      untimed: true,
+      previousWordIndex: words.length - 1,
+      nextWordIndex: words.length,
+    });
+  }
+
+  // sourceText は表示用文字列へ置換しても timing の正本として保持する。ここでは直接マッチに
+  // 成功しているため未使用だが、引数を明示して display_text が text を上書きしないことを示す。
+  void sourceText;
+  return tokens;
+}
+
+function buildProportionalDisplayTokens(displayText, words) {
+  const characters = Array.from(displayText);
+  const weights = words.map((word) => Math.max(1, Array.from(word.text).length));
+  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+  const tokens = [];
+  let consumedWeight = 0;
+  let previousBoundary = 0;
+  for (const [wordIndex, word] of words.entries()) {
+    consumedWeight += weights[wordIndex];
+    const boundary = wordIndex === words.length - 1
+      ? characters.length
+      : Math.round((characters.length * consumedWeight) / totalWeight);
+    const text = characters.slice(previousBoundary, boundary).join("");
+    if (text !== "") {
+      tokens.push({
+        ...word,
+        text,
+        sourceText: word.text,
+        untimed: false,
+        wordIndex,
+      });
+    }
+    previousBoundary = boundary;
+  }
+  return tokens;
+}
+
+function clipDisplayTokensToRange(tokens, rangeStart, rangeEnd) {
+  const includedWordIndices = new Set(
+    tokens
+      .filter((token) =>
+        !token.untimed && token.end > rangeStart && token.start < rangeEnd)
+      .map((token) => token.wordIndex),
+  );
+  return tokens.flatMap((token) => {
+    if (token.untimed) {
+      const adjacent = includedWordIndices.has(token.previousWordIndex)
+        || includedWordIndices.has(token.nextWordIndex);
+      return adjacent ? [{ ...token }] : [];
+    }
+    if (!includedWordIndices.has(token.wordIndex)) return [];
+    return [{
+      ...token,
+      start: Math.max(token.start, rangeStart),
+      end: Math.min(token.end, rangeEnd),
+    }];
+  });
+}
+
+// splitCaptionLines を唯一の優先順位（句読点 → 空白 → 文節境界 → 文字上限）として使い、
+// その分割点が発話 word の中なら最寄りの word 境界へスナップする。通常は 20±2 字に収まり、
+// それを超える単一 word だけは表示完全性を優先して分割しない。
+function groupDisplayTokensIntoLines(tokens, maximum) {
+  if (tokens.length === 0) return [];
+  const text = tokens.map((token) => token.text).join("");
+  const desiredLines = splitCaptionLines(text, maximum);
+  const desiredBoundaries = [];
+  let desiredOffset = 0;
+  for (const line of desiredLines.slice(0, -1)) {
+    desiredOffset += Array.from(line).length;
+    desiredBoundaries.push(desiredOffset);
+  }
+
+  const tokenRanges = [];
+  let tokenOffset = 0;
+  for (const token of tokens) {
+    const start = tokenOffset;
+    tokenOffset += Array.from(token.text).length;
+    tokenRanges.push({ token, start, end: tokenOffset });
+  }
+
+  const boundaries = [];
+  let previous = 0;
+  for (const desired of desiredBoundaries) {
+    const containing = tokenRanges.find(({ start, end }) => start < desired && desired < end);
+    let snapped = desired;
+    if (containing && !containing.token.untimed) {
+      const candidates = [containing.start, containing.end]
+        .filter((candidate) => candidate > previous && candidate < tokenOffset);
+      const withinTolerance = candidates.filter(
+        (candidate) => candidate - previous <= maximum + 2,
+      );
+      const eligible = withinTolerance.length > 0 ? withinTolerance : candidates;
+      if (eligible.length === 0) continue;
+      snapped = eligible.reduce((best, candidate) =>
+        Math.abs(candidate - desired) < Math.abs(best - desired) ? candidate : best);
+    }
+    if (snapped > previous && snapped < tokenOffset) {
+      boundaries.push(snapped);
+      previous = snapped;
+    }
+  }
+
+  const intervals = [];
+  let start = 0;
+  for (const end of [...boundaries, tokenOffset]) {
+    const line = [];
+    for (const { token, start: tokenStart, end: tokenEnd } of tokenRanges) {
+      const overlapStart = Math.max(start, tokenStart);
+      const overlapEnd = Math.min(end, tokenEnd);
+      if (overlapEnd <= overlapStart) continue;
+      if (!token.untimed) {
+        line.push(token);
+      } else {
+        const characters = Array.from(token.text);
+        line.push({
+          ...token,
+          text: characters
+            .slice(overlapStart - tokenStart, overlapEnd - tokenStart)
+            .join(""),
+        });
+      }
+    }
+    if (line.length > 0) intervals.push(line);
+    start = end;
+  }
+  return intervals;
+}
+
+function renderRevealGroups(lines, rangeStart, rangeEnd, timeScale, renderLine) {
+  const starts = lines.map((line, index) => {
+    const ownStart = line.find((token) => !token.untimed)?.start;
+    if (ownStart !== undefined) return ownStart;
+    for (let next = index + 1; next < lines.length; next += 1) {
+      const nextStart = lines[next].find((token) => !token.untimed)?.start;
+      if (nextStart !== undefined) return nextStart;
+    }
+    return index > 0 ? null : rangeStart;
+  });
+  for (let index = 0; index < starts.length; index += 1) {
+    if (starts[index] === null) starts[index] = starts[index - 1] ?? rangeStart;
+  }
+
+  const groups = [];
+  for (const [index, line] of lines.entries()) {
+    const start = starts[index] ?? rangeStart;
+    const previous = groups.at(-1);
+    if (previous && previous.start === start) {
+      previous.lines.push(line);
+    } else {
+      groups.push({ start, lines: [line] });
+    }
+  }
+
+  return groups.map((group, index) => {
+    const nextStart = groups[index + 1]?.start ?? rangeEnd;
+    const delay = Math.max(0, group.start - rangeStart) * timeScale;
+    const duration = Math.max(0.01, nextStart - group.start) * timeScale;
+    const lineMarkup = group.lines
+      .map((line) => `<p class="akari-caption__line">${renderLine(line)}</p>`)
+      .join("");
+    return `<div class="akari-caption__reveal-group" style="--akari-reveal-delay: ${formatSeconds(delay)}s; --akari-reveal-dur: ${formatSeconds(duration)}s">${lineMarkup}</div>`;
+  }).join("");
+}
+
+function renderRevealCss() {
+  return `
+    .akari-caption--reveal .akari-caption__plate {
+      display: grid;
+      animation: none;
+    }
+    .akari-caption__reveal-group {
+      grid-area: 1 / 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--plate-gap, 4px);
+      opacity: 0;
+      animation: akari-caption-reveal var(--akari-reveal-dur, 0.2s) var(--akari-reveal-delay, 0s) linear both paused;
+    }
+    @keyframes akari-caption-reveal {
+      0% { opacity: 0; transform: translateY(0.18em); }
+      12% { opacity: 1; transform: translateY(0); }
+      99.99% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(0); }
+    }`;
+}
+
 function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1) {
+  if (word.untimed) {
+    return `<span class="akari-caption__tok akari-caption__tok--unlit">${escapeHtml(word.text)}</span>`;
+  }
   const emphasis = findMatchingEmphasis(word, emphasisWords);
   // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
   if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis, emphasisTimeScale);
@@ -375,6 +662,20 @@ function renderEmphasisCaptionToken(word, rangeStart, emphasis, timeScale) {
     return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="--akari-emphasis-delay: ${formatSeconds(delay)}s; --akari-emphasis-dur: ${formatSeconds(duration)}s">${escapeHtml(word.text)}</span>`;
   }
 
+  if (style === EMPHASIS_STYLE_COLOR_ONLY) {
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="color: var(--akari-emphasis-color-only, var(--vscode-akariTheme-accent, #f97316))">${escapeHtml(word.text)}</span>`;
+  }
+
+  if (style === EMPHASIS_STYLE_OUTLINE_BOLD) {
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${escapeHtml(word.text)}</span>`;
+  }
+
+  if (style === EMPHASIS_STYLE_DANGER
+    || style === EMPHASIS_STYLE_POSITIVE
+    || style === EMPHASIS_STYLE_HIGHLIGHT) {
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${escapeHtml(word.text)}</span>`;
+  }
+
   return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="color: var(--akari-emphasis-${emphasisColorName(emphasis.emotion)})">${escapeHtml(word.text)}</span>`;
 }
 
@@ -404,6 +705,22 @@ function renderEmphasisCss() {
     }
     .akari-caption__tok--size-pulse {
       animation: akari-emphasis-size-pulse var(--akari-emphasis-dur, 0.2s) var(--akari-emphasis-delay, 0s) ease-in-out both paused;
+    }
+    .akari-caption__tok--outline-bold {
+      font-weight: var(--akari-emphasis-outline-weight, 900);
+      text-shadow: var(--akari-emphasis-outline, -2px -2px 0 #111, 2px -2px 0 #111, -2px 2px 0 #111, 2px 2px 0 #111);
+    }
+    .akari-caption__tok--danger {
+      color: var(--akari-emphasis-danger, var(--vscode-errorForeground, #ff5c72));
+      font-weight: var(--akari-emphasis-danger-weight, 850);
+    }
+    .akari-caption__tok--positive {
+      color: var(--akari-emphasis-positive, var(--vscode-testing-iconPassed, #45c86f));
+      font-weight: var(--akari-emphasis-positive-weight, 800);
+    }
+    .akari-caption__tok--highlight {
+      color: var(--akari-emphasis-highlight, var(--vscode-akariTheme-accentLighter, #ffd94a));
+      font-weight: var(--akari-emphasis-highlight-weight, 800);
     }`;
 }
 
@@ -437,10 +754,11 @@ function normalizeEmphasisWords(value) {
 }
 
 function findMatchingEmphasis(word, emphasisWords) {
+  const wordText = word.sourceText ?? word.text;
   return emphasisWords.find((emphasis) =>
     emphasis.t_end > word.start
       && emphasis.t_start < word.end
-      && (word.text === emphasis.word || emphasis.word.includes(word.text)),
+      && (wordText === emphasis.word || emphasis.word.includes(wordText)),
   );
 }
 
