@@ -2537,6 +2537,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let outputTime = 0;
             let isPlaying = false;
             let pausedForGapEntry = false;
+            let initialPositionApplied = false;
             let zoom = 1;
             let pan = { x: 0, y: 0 };
             let drag = null;
@@ -2917,6 +2918,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.currentTime = mapped.time;
                 } else if (isPlaying && window.akari.previewAudio) {
                     void window.akari.previewAudio.playFrom(outputTime);
+                }
+            };
+            const applyInitialPosition = () => {
+                if (initialPositionApplied) return;
+                initialPositionApplied = true;
+                if (Number.isFinite(initial.initialSeekTime)) {
+                    seekTimelineTime(initial.initialSeekTime);
+                } else if (segments.length > 0) {
+                    outputTime = segments[0].outStart;
+                    enterSegment(0);
                 }
             };
             const zoomToSlider = value => {
@@ -3446,8 +3457,18 @@ body { display: grid; place-items: center; padding: 32px; }
                     stopAnimation();
                 }
             };
-            const isEditable = element => element instanceof HTMLElement
-                && (element.matches('input, textarea') || element.isContentEditable);
+            const isEditable = element => {
+                if (!(element instanceof HTMLElement)) return false;
+                if (element.isContentEditable) return true;
+                if (element.matches('textarea')) return true;
+                if (element.matches('input')) {
+                    const nonTextInputTypes = [
+                        'range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file', 'image'
+                    ];
+                    return !nonTextInputTypes.includes(element.type);
+                }
+                return false;
+            };
             const videoDuration = () => Number.isFinite(video.duration) ? video.duration : 0;
             const nudgeFrame = direction => {
                 isPlaying = false;
@@ -3657,12 +3678,7 @@ body { display: grid; place-items: center; padding: 32px; }
             video.addEventListener('loadedmetadata', () => {
                 restorePlayback();
                 rebuildSegments();
-                if (Number.isFinite(initial.initialSeekTime)) {
-                    seekTimelineTime(initial.initialSeekTime);
-                } else if (segments.length > 0) {
-                    outputTime = segments[0].outStart;
-                    enterSegment(0);
-                }
+                applyInitialPosition();
                 updateTransport();
             });
             video.addEventListener('canplay', restorePlayback);
@@ -3807,10 +3823,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     indicatorPopup.textContent = 'プレビュー未対応（書き出し時のみ適用）: ' + items;
                 }
                 rebuildSegments();
-                if (segments.length > 0) {
-                    outputTime = segments[0].outStart;
-                    enterSegment(0);
-                }
+                applyInitialPosition();
                 setZoom(1);
                 tick();
                 reportOverlaySelectionChange();
