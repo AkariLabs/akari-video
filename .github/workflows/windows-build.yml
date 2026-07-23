@@ -64,17 +64,21 @@ jobs:
           # install と同じく --no-workspaces で apps/shell 単体に対して実行する
           npm approve-scripts --no-workspaces electron esbuild puppeteer node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" "@vscode/windows-ca-certs" electron-winstaller
           npm rebuild --no-workspaces
-          # npm rebuild は install スクリプト（gyp/prebuild-install 系）は走らせるが electron の
-          # postinstall（本体 DL）は実行しない（run 29998465875 実測: 承認 12/12 + rebuilt
-          # successfully でも dist 不在）。electron のインストーラを直接実行する。
-          # run 29999213390 で install.js が 0.5s 無出力終了したため診断マーカー付き
-          Write-Host "=== env: SKIP=$env:ELECTRON_SKIP_BINARY_DOWNLOAD platform=$env:npm_config_platform arch=$env:npm_config_arch"
-          Write-Host "=== electron install.js start"
-          node node_modules/electron/install.js
-          Write-Host "=== electron install.js exit: $LASTEXITCODE"
-          Get-ChildItem node_modules/electron | Select-Object -ExpandProperty Name
+          # electron 本体は公式リリース zip を直接取得して配置する。
+          # 経緯: npm rebuild は electron の postinstall（本体 DL）を実行せず
+          # （run 29998465875）、install.js 直接実行も 0.65s で無音 exit 0 し dist/version が
+          # 生成されない（run 29999213390 / 30000017794 実測・env は SKIP 未設定を確認済み）。
+          # ブラックボックスの切り分けを打ち切り、決定的な直接ダウンロードに切替
+          $v = node -p "require('./node_modules/electron/package.json').version"
+          Write-Host "=== electron $v direct download"
+          curl.exe -sSL -o electron.zip "https://github.com/electron/electron/releases/download/v$v/electron-v$v-win32-x64.zip"
+          if (Test-Path node_modules/electron/dist) { Remove-Item -Recurse -Force node_modules/electron/dist }
+          Expand-Archive electron.zip -DestinationPath node_modules/electron/dist -Force
+          Remove-Item electron.zip
+          Set-Content -NoNewline node_modules/electron/path.txt "electron.exe"
           # electron 実体が入ったことの早期ゲート（無ければ theia build まで進んでも無意味）
           node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
+          node -e "require('fs').accessSync('node_modules/electron/dist/electron.exe'); console.log('electron.exe OK')"
 
       - name: build:ext (tsc -b, 9 extensions)
         working-directory: apps/shell
