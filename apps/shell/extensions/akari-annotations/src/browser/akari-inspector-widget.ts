@@ -1,6 +1,8 @@
 import { BaseWidget } from '@theia/core/lib/browser';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
+    InspectorWriteRequest,
+    InspectorWriteResult,
     TimelineAudioSelection,
     TimelineCaptionSelection,
     TimelineCutSelection,
@@ -23,11 +25,12 @@ type InspectorSnapshot = Exclude<TimelineSelectionSnapshot, undefined>;
 interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     label: string;
     getValue: (snapshot: TSnapshot) => string;
-    /**
-     * R3-D-R2（編集可能化）用の書き込みハンドラの席。本タスクでは実装しない
-     * （常に undefined のまま）。将来ここに書き込み処理を追加するための契約。
-     */
-    write?: (snapshot: TSnapshot, nextValue: string) => void | Promise<void>;
+    /** 編集用入力欄の初期値。省略時は getValue の戻り値を使う。 */
+    getEditValue?: (snapshot: TSnapshot) => string;
+    /** boolean-select の場合は ON/OFF の select を表示する。 */
+    inputKind?: 'boolean-select';
+    /** 文字列の型変換と検証を行い、妥当な値だけを書き込みブリッジへ渡す。 */
+    write?: (snapshot: TSnapshot, nextValue: string) => Promise<InspectorWriteResult>;
 }
 
 interface InspectorTabDef<TSnapshot = InspectorSnapshot> {
@@ -98,14 +101,56 @@ function deriveOverlayType(payload: Record<string, unknown>): string {
     return fileName.replace(/\.[^./]+$/, '');
 }
 
-function CUT_TABS(snapshot: TimelineCutSelection): InspectorTabDef[] {
+function CUT_TABS(
+    snapshot: TimelineCutSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorTabDef[] {
     return [
         {
             label: '基本',
             fields: [
                 { label: '素材', getValue: () => snapshot.sourceName || '(不明)' },
-                { label: '素材 in', getValue: () => formatTimestamp(snapshot.sourceIn) },
-                { label: '素材 out', getValue: () => formatTimestamp(snapshot.sourceOut) },
+                {
+                    label: '素材 in',
+                    getValue: () => formatTimestamp(snapshot.sourceIn),
+                    getEditValue: () => String(snapshot.sourceIn),
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed < 0) {
+                            return { ok: false, message: '素材 in は 0 以上の数値で入力してください。' };
+                        }
+                        if (snapshot.sourceOut - parsed < 0.15) {
+                            return {
+                                ok: false,
+                                message: '素材 in は素材 out より十分小さい値にしてください（0.15 秒以上の差が必要です）。'
+                            };
+                        }
+                        const speed = snapshot.speed ?? 1;
+                        const nextOutputStart = snapshot.outputStart + (parsed - snapshot.sourceIn) / speed;
+                        if (nextOutputStart < 0) {
+                            return { ok: false, message: '素材 in の変更後も出力位置が 0 以上になる値にしてください。' };
+                        }
+                        return requestWrite({ kind: 'cut-source-in', index: snapshot.index, value: parsed });
+                    }
+                },
+                {
+                    label: '素材 out',
+                    getValue: () => formatTimestamp(snapshot.sourceOut),
+                    getEditValue: () => String(snapshot.sourceOut),
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed < 0) {
+                            return { ok: false, message: '素材 out は 0 以上の数値で入力してください。' };
+                        }
+                        if (parsed - snapshot.sourceIn < 0.15) {
+                            return {
+                                ok: false,
+                                message: '素材 out は素材 in より十分大きい値にしてください（0.15 秒以上の差が必要です）。'
+                            };
+                        }
+                        return requestWrite({ kind: 'cut-source-out', index: snapshot.index, value: parsed });
+                    }
+                },
                 { label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
                 {
                     label: '尺',
@@ -116,7 +161,18 @@ function CUT_TABS(snapshot: TimelineCutSelection): InspectorTabDef[] {
         {
             label: '演出',
             fields: [
-                { label: 'speed', getValue: () => withDefaultNumber(snapshot.speed, 1, formatDecimal1) },
+                {
+                    label: 'speed',
+                    getValue: () => withDefaultNumber(snapshot.speed, 1, formatDecimal1),
+                    getEditValue: () => String(snapshot.speed ?? 1),
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed <= 0) {
+                            return { ok: false, message: 'speed は正の数で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'cut-speed', index: snapshot.index, value: parsed });
+                    }
+                },
                 {
                     label: 'transition_out 種別',
                     getValue: () => orDash(snapshot.transitionOut?.type, value => value)
@@ -186,13 +242,34 @@ function LAYER_TABS(snapshot: TimelineLayerSelection): InspectorTabDef[] {
     ];
 }
 
-function CAPTION_TABS(snapshot: TimelineCaptionSelection): InspectorTabDef[] {
+function CAPTION_TABS(
+    snapshot: TimelineCaptionSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorTabDef[] {
     return [
         {
             label: '内容',
             fields: [
-                { label: 'テキスト', getValue: () => snapshot.text },
-                { label: '話者', getValue: () => orDash(snapshot.speaker, value => value) },
+                {
+                    label: 'テキスト',
+                    getValue: () => snapshot.text,
+                    write: async (_snapshot, nextValue) => {
+                        if (!nextValue.trim()) {
+                            return { ok: false, message: '字幕のテキストは空にできません。' };
+                        }
+                        return requestWrite({ kind: 'caption-text', id: snapshot.id, value: nextValue });
+                    }
+                },
+                {
+                    label: '話者',
+                    getValue: () => orDash(snapshot.speaker, value => value),
+                    getEditValue: () => snapshot.speaker ?? '',
+                    write: async (_snapshot, nextValue) => requestWrite({
+                        kind: 'caption-speaker',
+                        id: snapshot.id,
+                        value: nextValue.trim().length > 0 ? nextValue : null
+                    })
+                },
                 { label: '編集済み', getValue: () => snapshot.edited ? 'はい' : 'いいえ' }
             ]
         },
@@ -214,12 +291,31 @@ function CAPTION_TABS(snapshot: TimelineCaptionSelection): InspectorTabDef[] {
     ];
 }
 
-function AUDIO_TABS(snapshot: TimelineAudioSelection): InspectorTabDef[] {
+function AUDIO_TABS(
+    snapshot: TimelineAudioSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorTabDef[] {
     const basicFields: InspectorFieldDef[] = [
         { label: '種別', getValue: () => snapshot.audioKind },
         { label: 'path', getValue: () => snapshot.label },
         { label: 't', getValue: () => formatTimestamp(snapshot.outputStart) },
-        { label: 'gain_db', getValue: () => withDefaultNumber(snapshot.gainDb, 0, formatDecimal1) }
+        {
+            label: 'gain_db',
+            getValue: () => withDefaultNumber(snapshot.gainDb, 0, formatDecimal1),
+            getEditValue: () => String(snapshot.gainDb ?? 0),
+            write: async (_snapshot, nextValue) => {
+                if (snapshot.audioKind === 'narration') {
+                    return { ok: false, message: 'narration の書き込みは未対応です。' };
+                }
+                const parsed = Number(nextValue);
+                if (!Number.isFinite(parsed) || parsed < -60 || parsed > 12) {
+                    return { ok: false, message: 'gain_db は -60〜12 の範囲で入力してください。' };
+                }
+                return snapshot.audioKind === 'bgm'
+                    ? requestWrite({ kind: 'bgm-gain', value: parsed })
+                    : requestWrite({ kind: 'sfx-gain', id: snapshot.id, value: parsed });
+            }
+        }
     ];
     if (snapshot.audioKind === 'narration') {
         basicFields.push({ label: 'script', getValue: () => orDash(snapshot.script, value => value) });
@@ -229,23 +325,74 @@ function AUDIO_TABS(snapshot: TimelineAudioSelection): InspectorTabDef[] {
         tabs.push({
             label: 'フェード・ダッキング',
             fields: [
-                { label: 'fadeIn', getValue: () => withDefaultNumber(snapshot.fadeIn, 0, formatDurationSeconds) },
-                { label: 'fadeOut', getValue: () => withDefaultNumber(snapshot.fadeOut, 0, formatDurationSeconds) },
-                { label: 'ducking', getValue: () => withDefaultBoolean(snapshot.ducking, false) }
+                {
+                    label: 'fadeIn',
+                    getValue: () => withDefaultNumber(snapshot.fadeIn, 0, formatDurationSeconds),
+                    getEditValue: () => String(snapshot.fadeIn ?? 0),
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed < 0) {
+                            return { ok: false, message: 'fadeIn は 0 以上の数値で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'bgm-fade-in', value: parsed });
+                    }
+                },
+                {
+                    label: 'fadeOut',
+                    getValue: () => withDefaultNumber(snapshot.fadeOut, 0, formatDurationSeconds),
+                    getEditValue: () => String(snapshot.fadeOut ?? 0),
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed < 0) {
+                            return { ok: false, message: 'fadeOut は 0 以上の数値で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'bgm-fade-out', value: parsed });
+                    }
+                },
+                {
+                    label: 'ducking',
+                    getValue: () => withDefaultBoolean(snapshot.ducking, false),
+                    getEditValue: () => String(snapshot.ducking ?? false),
+                    inputKind: 'boolean-select',
+                    write: async (_snapshot, nextValue) =>
+                        requestWrite({ kind: 'bgm-ducking', value: nextValue === 'true' })
+                }
             ]
         });
     }
     return tabs;
 }
 
-function OVERLAY_TABS(snapshot: TimelineOverlaySelection): InspectorTabDef[] {
-    const excludedKeys = new Set(['id', 'start', 'duration', 'track']);
+function OVERLAY_TABS(
+    snapshot: TimelineOverlaySelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorTabDef[] {
+    const excludedKeys = new Set(['id', 'start', 'duration', 'track', 'vars']);
     const parameterFields: InspectorFieldDef[] = Object.entries(snapshot.payload)
         .filter(([key]) => !excludedKeys.has(key))
         .map(([key, value]) => ({
             label: key,
             getValue: () => formatPayloadValue(value)
         }));
+
+    const rawVars = snapshot.payload.vars;
+    if (rawVars && typeof rawVars === 'object' && !Array.isArray(rawVars)) {
+        for (const [name, value] of Object.entries(rawVars as Record<string, unknown>)) {
+            const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+            parameterFields.push({
+                label: `vars.${name}`,
+                getValue: () => formatPayloadValue(value),
+                ...(isPrimitive ? {
+                    write: async (_snapshot: TimelineOverlaySelection, nextValue: string) => requestWrite({
+                        kind: 'overlay-var',
+                        id: snapshot.id,
+                        name,
+                        value: nextValue
+                    })
+                } : {})
+            });
+        }
+    }
     return [
         {
             label: '基本',
@@ -262,7 +409,7 @@ function OVERLAY_TABS(snapshot: TimelineOverlaySelection): InspectorTabDef[] {
 }
 
 /**
- * タイムラインの選択内容を表示するだけの読み取り専用パネル。
+ * タイムラインの選択内容を表示し、安全なフィールドを編集できるパネル。
  * 一度開けば常駐し、TimelineSelectionModel の変化に追従して内容を更新する。
  */
 @injectable()
@@ -273,6 +420,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly model!: TimelineSelectionModel;
 
     protected readonly body = document.createElement('div');
+    protected readonly fieldNotice = document.createElement('div');
+    protected fieldNoticeTimer: number | undefined;
     protected selectedTabLabelByKind: Partial<Record<
         'cut' | 'layer' | 'caption' | 'audio' | 'overlay',
         string
@@ -282,7 +431,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected init(): void {
         this.id = AkariInspectorWidget.FACTORY_ID;
         this.title.label = 'インスペクター';
-        this.title.caption = 'タイムラインで選択した項目の詳細（読み取り専用）';
+        this.title.caption = 'タイムラインで選択した項目の詳細（安全なフィールドは編集可能）';
         this.title.iconClass = 'codicon codicon-inspect';
         this.title.closable = true;
         this.node.classList.add('akari-inspector-widget');
@@ -298,6 +447,14 @@ export class AkariInspectorWidget extends BaseWidget {
             alignContent: 'start'
         });
         this.node.appendChild(this.body);
+        Object.assign(this.fieldNotice.style, {
+            display: 'none',
+            padding: '6px 10px',
+            fontSize: '11px',
+            color: 'var(--theia-errorForeground, #f14c4c)',
+            borderBottom: '1px solid var(--theia-panel-border)'
+        });
+        this.node.insertBefore(this.fieldNotice, this.body);
 
         const style = document.createElement('style');
         style.textContent = `
@@ -314,6 +471,17 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-inspector-row-value {
         font-variant-numeric: tabular-nums;
         word-break: break-all;
+    }
+    .akari-inspector-widget .akari-inspector-row-input {
+        font: inherit;
+        font-variant-numeric: tabular-nums;
+        padding: 2px 4px;
+        border: 1px solid var(--theia-input-border, #454545);
+        background: var(--theia-input-background);
+        color: var(--theia-input-foreground);
+        border-radius: 2px;
+        width: 100%;
+        box-sizing: border-box;
     }
     .akari-inspector-widget .akari-inspector-heading {
         font-weight: 600;
@@ -355,6 +523,7 @@ export class AkariInspectorWidget extends BaseWidget {
 
     protected render(): void {
         this.body.replaceChildren();
+        this.hideFieldNotice();
         const snapshot = this.model.snapshot;
         if (!snapshot) {
             const empty = document.createElement('div');
@@ -364,22 +533,25 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
 
+        const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
+            this.commitWrite(request);
+
         let tabs: InspectorTabDef[];
         switch (snapshot.kind) {
             case 'cut':
-                tabs = CUT_TABS(snapshot);
+                tabs = CUT_TABS(snapshot, requestWrite);
                 break;
             case 'layer':
                 tabs = LAYER_TABS(snapshot);
                 break;
             case 'caption':
-                tabs = CAPTION_TABS(snapshot);
+                tabs = CAPTION_TABS(snapshot, requestWrite);
                 break;
             case 'audio':
-                tabs = AUDIO_TABS(snapshot);
+                tabs = AUDIO_TABS(snapshot, requestWrite);
                 break;
             case 'overlay':
-                tabs = OVERLAY_TABS(snapshot);
+                tabs = OVERLAY_TABS(snapshot, requestWrite);
                 break;
         }
         const selectedTabLabel = this.selectedTabLabelByKind[snapshot.kind];
@@ -405,20 +577,107 @@ export class AkariInspectorWidget extends BaseWidget {
         heading.textContent = KIND_LABELS[snapshot.kind];
         this.body.appendChild(heading);
 
-        activeTab.fields.forEach(field => this.appendRow(field.label, field.getValue(snapshot)));
+        activeTab.fields.forEach(field => this.appendRow(field, snapshot));
     }
 
-    protected appendRow(label: string, value: string): void {
+    protected async commitWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+        if (!this.model.requestWrite) {
+            return { ok: false, message: '書き込み機能が利用できません。' };
+        }
+        try {
+            return await this.model.requestWrite(request);
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
+    protected appendRow(field: InspectorFieldDef, snapshot: InspectorSnapshot): void {
         const row = document.createElement('div');
         row.className = 'akari-inspector-row';
         const labelElement = document.createElement('div');
         labelElement.className = 'akari-inspector-row-label';
-        labelElement.textContent = label;
-        const valueElement = document.createElement('div');
-        valueElement.className = 'akari-inspector-row-value';
-        valueElement.textContent = value;
-        row.append(labelElement, valueElement);
+        labelElement.textContent = field.label;
+        row.appendChild(labelElement);
+
+        if (!field.write) {
+            const valueElement = document.createElement('div');
+            valueElement.className = 'akari-inspector-row-value';
+            valueElement.textContent = field.getValue(snapshot);
+            row.appendChild(valueElement);
+            this.body.appendChild(row);
+            return;
+        }
+
+        const write = field.write;
+        const displayValue = field.getValue(snapshot);
+        const editValue = field.getEditValue ? field.getEditValue(snapshot) : displayValue;
+        const revert = (input: HTMLInputElement | HTMLSelectElement): void => {
+            input.value = editValue;
+        };
+
+        let input: HTMLInputElement | HTMLSelectElement;
+        if (field.inputKind === 'boolean-select') {
+            const select = document.createElement('select');
+            select.className = 'akari-inspector-row-input';
+            for (const optionValue of ['true', 'false']) {
+                const option = document.createElement('option');
+                option.value = optionValue;
+                option.textContent = optionValue === 'true' ? 'ON' : 'OFF';
+                select.appendChild(option);
+            }
+            select.value = editValue === 'true' ? 'true' : 'false';
+            input = select;
+        } else {
+            const textInput = document.createElement('input');
+            textInput.type = 'text';
+            textInput.className = 'akari-inspector-row-input';
+            textInput.value = editValue;
+            input = textInput;
+        }
+
+        const commit = async (): Promise<void> => {
+            const nextValue = input.value;
+            if (nextValue === editValue) {
+                return;
+            }
+            const result = await write(snapshot, nextValue);
+            if (!result.ok) {
+                revert(input);
+                this.showFieldNotice(result.message ?? '書き込みに失敗しました。変更は保存されていません。');
+            }
+        };
+
+        if (field.inputKind === 'boolean-select') {
+            input.addEventListener('change', () => {
+                void commit();
+            });
+        } else {
+            input.addEventListener('blur', () => {
+                void commit();
+            });
+            input.addEventListener('keydown', event => {
+                if ((event as KeyboardEvent).key === 'Enter') {
+                    event.preventDefault();
+                    (input as HTMLInputElement).blur();
+                }
+            });
+        }
+
+        row.appendChild(input);
         this.body.appendChild(row);
+    }
+
+    protected showFieldNotice(message: string): void {
+        this.fieldNotice.textContent = message;
+        this.fieldNotice.style.display = 'block';
+        window.clearTimeout(this.fieldNoticeTimer);
+        this.fieldNoticeTimer = window.setTimeout(() => this.hideFieldNotice(), 4000);
+    }
+
+    protected hideFieldNotice(): void {
+        window.clearTimeout(this.fieldNoticeTimer);
+        this.fieldNotice.textContent = '';
+        this.fieldNotice.style.display = 'none';
     }
 
 }

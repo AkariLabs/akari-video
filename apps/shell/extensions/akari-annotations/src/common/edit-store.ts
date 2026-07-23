@@ -201,7 +201,7 @@ export function computeCutTrackSegments(cuts: readonly EditCut[]): CutTrackSegme
 }
 
 export function trimCutInSource(source: string, cutIndex: number, nextIn: number, nextOut: number): string {
-    if (!Number.isFinite(nextIn) || !Number.isFinite(nextOut)) {
+    if (!Number.isFinite(nextIn) || !Number.isFinite(nextOut) || nextIn < 0 || nextOut < 0) {
         throw new Error('クリップの時刻が不正です。');
     }
     if (nextOut - nextIn < 0.15) {
@@ -213,7 +213,11 @@ export function trimCutInSource(source: string, cutIndex: number, nextIn: number
         const segment = before.segments[cutIndex];
         const speed = typeof before.cuts[cutIndex].speed === 'number' && before.cuts[cutIndex].speed! > 0
             ? before.cuts[cutIndex].speed! : 1;
-        source = writeCutAtProperty(source, cutIndex, segment.at + (nextIn - before.cuts[cutIndex].in) / speed);
+        const nextAt = segment.at + (nextIn - before.cuts[cutIndex].in) / speed;
+        if (nextAt < 0) {
+            throw new Error('クリップの出力位置は 0 以上にしてください。');
+        }
+        source = writeCutAtProperty(source, cutIndex, nextAt);
     }
     const array = locateArray(source, 'cuts');
     const elements = splitTopLevelElements(array.inner);
@@ -232,6 +236,21 @@ export function trimCutInSource(source: string, cutIndex: number, nextIn: number
         nextText = replaceNumberProperty(nextText, 'out', nextOut, label);
     }
     return replaceElement(source, array.openIndex + 1, element, nextText);
+}
+
+export function setCutSpeedInSource(source: string, cutIndex: number, speed: number | null): string {
+    if (speed !== null && (!Number.isFinite(speed) || speed <= 0)) {
+        throw new Error('speed は正の数で指定してください。');
+    }
+    return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element => {
+        const hasSpeed = /"speed"\s*:/.test(element);
+        if (speed === null) {
+            return hasSpeed ? removeObjectProperty(element, 'speed') : element;
+        }
+        return hasSpeed
+            ? replacePropertyValue(element, 'speed', speed, `クリップ ${cutIndex + 1}`)
+            : appendNumberProperty(element, 'speed', speed);
+    });
 }
 
 export function reorderCutsInSource(source: string, fromIndex: number, toIndex: number): string {
@@ -520,6 +539,66 @@ export function moveSfxInSource(
         return updated;
     }
     return normalizeMovedTrack(updated, 'sfx', sfxIndex, nextTrack, 'SE');
+}
+
+export function setSfxGainDbInSource(source: string, sfxIndex: number, gainDb: number | null): string {
+    if (gainDb !== null && (!Number.isFinite(gainDb) || gainDb < -60 || gainDb > 12)) {
+        throw new Error('gain_db は -60〜12 の範囲で指定してください。');
+    }
+    return updateArrayElementByIndex(source, 'sfx', sfxIndex, 'SE', element => {
+        const hasGain = /"gain_db"\s*:/.test(element);
+        if (gainDb === null) {
+            return hasGain ? removeObjectProperty(element, 'gain_db') : element;
+        }
+        return hasGain
+            ? replacePropertyValue(element, 'gain_db', gainDb, `SE ${sfxIndex + 1}`)
+            : appendNumberProperty(element, 'gain_db', gainDb);
+    });
+}
+
+export function updateBgmInSource(
+    source: string,
+    updates: { gainDb?: number | null; fadeIn?: number | null; fadeOut?: number | null; ducking?: boolean | null }
+): string {
+    if (updates.gainDb === undefined && updates.fadeIn === undefined
+        && updates.fadeOut === undefined && updates.ducking === undefined) {
+        throw new Error('変更する BGM フィールドを指定してください。');
+    }
+    if (updates.gainDb !== undefined && updates.gainDb !== null
+        && (!Number.isFinite(updates.gainDb) || updates.gainDb < -60 || updates.gainDb > 12)) {
+        throw new Error('gain_db は -60〜12 の範囲で指定してください。');
+    }
+    if (updates.fadeIn !== undefined && updates.fadeIn !== null
+        && (!Number.isFinite(updates.fadeIn) || updates.fadeIn < 0)) {
+        throw new Error('fadeIn は 0 以上で指定してください。');
+    }
+    if (updates.fadeOut !== undefined && updates.fadeOut !== null
+        && (!Number.isFinite(updates.fadeOut) || updates.fadeOut < 0)) {
+        throw new Error('fadeOut は 0 以上で指定してください。');
+    }
+    if (updates.ducking !== undefined && updates.ducking !== null && typeof updates.ducking !== 'boolean') {
+        throw new Error('ducking は boolean で指定してください。');
+    }
+    const located = locateObjectProperty(source, 'bgm');
+    let next = located.text;
+    const apply = (property: string, value: number | boolean | null | undefined): void => {
+        if (value === undefined) {
+            return;
+        }
+        const has = new RegExp(`"${property}"\\s*:`).test(next);
+        if (value === null) {
+            next = has ? removeObjectProperty(next, property) : next;
+            return;
+        }
+        next = has
+            ? replacePropertyValue(next, property, value, 'bgm')
+            : appendNumberProperty(next, property, value);
+    };
+    apply('gain_db', updates.gainDb);
+    apply('fadeIn', updates.fadeIn);
+    apply('fadeOut', updates.fadeOut);
+    apply('ducking', updates.ducking);
+    return source.slice(0, located.start) + next + source.slice(located.end);
 }
 
 export function moveOverlayInSource(
@@ -1001,6 +1080,16 @@ function locateArray(source: string, key: string): {
     return { openIndex, closeIndex, inner: source.slice(openIndex + 1, closeIndex) };
 }
 
+function locateObjectProperty(scopeText: string, key: string): { start: number; end: number; text: string } {
+    const match = new RegExp(`"${key}"\\s*:\\s*\\{`).exec(scopeText);
+    if (!match) {
+        throw new Error(`"${key}" が見つかりません。`);
+    }
+    const openIndex = scopeText.indexOf('{', match.index);
+    const closeIndex = findMatchingBracket(scopeText, openIndex);
+    return { start: openIndex, end: closeIndex + 1, text: scopeText.slice(openIndex, closeIndex + 1) };
+}
+
 function readCutsForSurgery(source: string): { cuts: EditCut[]; segments: CutTrackSegment[]; rawCuts: unknown[] } {
     const value = JSON.parse(source) as { cuts?: unknown[] };
     if (!Array.isArray(value.cuts)) {
@@ -1055,13 +1144,16 @@ function writeCutAtProperty(source: string, cutIndex: number, at: number): strin
             : appendNumberProperty(element, 'at', at));
 }
 
-function updateArrayElementByIndex(
+export function updateArrayElementByIndex(
     source: string,
     key: string,
     index: number,
     label: string,
     update: (element: string) => string
 ): string {
+    if (!Number.isInteger(index) || index < 0) {
+        throw new Error(`${label}のインデックスが不正です。`);
+    }
     const array = locateArray(source, key);
     const elements = splitTopLevelElements(array.inner);
     const element = elements[index];
@@ -1226,7 +1318,7 @@ function normalizeTrack(value: unknown): number {
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
-function appendNumberProperty(source: string, property: string, value: number): string {
+function appendNumberProperty(source: string, property: string, value: number | string | boolean): string {
     const closeIndex = source.lastIndexOf('}');
     if (closeIndex < 0) {
         throw new Error('オーバーレイのオブジェクトを特定できません。');
@@ -1245,8 +1337,17 @@ function appendNumberProperty(source: string, property: string, value: number): 
     return `${body}"${property}": ${JSON.stringify(value)}${trailingWhitespace}${source.slice(closeIndex)}`;
 }
 
-function replacePropertyValue(source: string, property: string, value: number, label: string): string {
-    const pattern = new RegExp(`("${property}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)`, 'g');
+function replacePropertyValue(
+    source: string,
+    property: string,
+    value: number | string | boolean,
+    label: string
+): string {
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(
+        `("${escapedProperty}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)`,
+        'g'
+    );
     const matches = [...source.matchAll(pattern)];
     if (matches.length !== 1) {
         throw new Error(`${label} の ${property} を特定できません。`);
@@ -1313,6 +1414,32 @@ function updateOverlay(source: string, overlayId: string, update: (element: stri
     }
     const element = matches[0];
     return replaceElement(source, array.openIndex + 1, element, update(element.text));
+}
+
+export function updateOverlayVarInSource(
+    source: string,
+    overlayId: string,
+    varName: string,
+    nextValue: string
+): string {
+    if (!overlayId || !varName || typeof nextValue !== 'string') {
+        throw new Error('オーバーレイのパラメータ更新値が不正です。');
+    }
+    return updateArrayElementById(source, 'overlays', overlayId, 'オーバーレイ', element => {
+        const vars = locateObjectProperty(element, 'vars');
+        const escapedName = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const hasVar = new RegExp(`"${escapedName}"\\s*:`).test(vars.text);
+        if (!hasVar) {
+            throw new Error(`オーバーレイ ${overlayId} のパラメータ ${varName} が見つかりません。`);
+        }
+        const nextVarsText = replacePropertyValue(
+            vars.text,
+            varName,
+            nextValue,
+            `オーバーレイ ${overlayId} の ${varName}`
+        );
+        return element.slice(0, vars.start) + nextVarsText + element.slice(vars.end);
+    });
 }
 
 function replaceElement(source: string, innerOffset: number, element: SourceElement, nextText: string): string {

@@ -76,9 +76,27 @@ export type TimelineSelectionSnapshot =
     | TimelineAudioSelection
     | undefined;
 
+export type InspectorWriteRequest =
+    | { kind: 'cut-speed'; index: number; value: number | null }
+    | { kind: 'cut-source-in'; index: number; value: number }
+    | { kind: 'cut-source-out'; index: number; value: number }
+    | { kind: 'caption-text'; id: string; value: string }
+    | { kind: 'caption-speaker'; id: string; value: string | null }
+    | { kind: 'sfx-gain'; id: string; value: number | null }
+    | { kind: 'bgm-gain'; value: number | null }
+    | { kind: 'bgm-fade-in'; value: number | null }
+    | { kind: 'bgm-fade-out'; value: number | null }
+    | { kind: 'bgm-ducking'; value: boolean | null }
+    | { kind: 'overlay-var'; id: string; name: string; value: string };
+
+export interface InspectorWriteResult {
+    ok: boolean;
+    message?: string;
+}
+
 /**
  * タイムラインでの選択状態をインスペクターへ受け渡すためのモデル。
- * 読み書きの主体はタイムラインウィジェットで、インスペクターは onChanged を購読して表示するだけ（読み取り専用）。
+ * 読み書きの主体はタイムラインウィジェットで、インスペクターは onChanged を購読して表示を更新する。
  */
 @injectable()
 export class TimelineSelectionModel {
@@ -88,6 +106,12 @@ export class TimelineSelectionModel {
 
     protected _snapshot: TimelineSelectionSnapshot;
     protected _fps = 30;
+
+    /**
+     * インスペクターからの編集要求を受け取るブリッジ。実体はタイムラインウィジェットが
+     * 初期化時に代入する。
+     */
+    requestWrite?: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>;
 
     get snapshot(): TimelineSelectionSnapshot {
         return this._snapshot;
