@@ -91,6 +91,7 @@ export async function renderProject(input, options = {}) {
   const capabilities = await measureCapabilities(projectRoot, edit);
   const inputs = await collectInputReceipts(projectRoot, edit, editText);
   const plannedCaptions = await loadCaptions(projectRoot, edit);
+  const captionOverlays = edit.version === 1 ? plannedCaptions.overlays : plannedCaptions;
   const loadedOverlays = await loadOverlays(projectRoot, edit);
   const hasThreeDimensionalOverlay = loadedOverlays.some((overlay) =>
     overlay.html.includes("data-akari-3d-scene"),
@@ -115,7 +116,7 @@ export async function renderProject(input, options = {}) {
     outputPath,
     capabilities,
     hasSourceAudio: capabilities.sourceHasAudio,
-    renderOverlays: [...edit.overlays, ...plannedCaptions],
+    renderOverlays: [...edit.overlays, ...captionOverlays],
     hasThreeDimensionalOverlay,
     temporaryDirectory,
   });
@@ -137,7 +138,19 @@ export async function renderProject(input, options = {}) {
     },
     plan,
     provenance: {
-      source: relativeOrAbsolute(projectRoot, resolve(projectRoot, edit.source.path)),
+      ...(edit.version === 0
+        ? { source: relativeOrAbsolute(projectRoot, resolve(projectRoot, edit.source.path)) }
+        : {
+            sources: capabilities.sourceInputs.map((source) => ({
+              id: source.id,
+              path: relativeOrAbsolute(projectRoot, source.path),
+              duration_seconds: source.duration,
+              has_audio: source.hasAudio,
+              width: source.width,
+              height: source.height,
+              fps: source.fps,
+            })),
+          }),
       proxy_used: false,
       render_tmp_dir: relativeOrAbsolute(projectRoot, temporaryDirectory),
       rasterizer: { planned: plan.rasterizer.selected, adopted: null, attempts: [] },
@@ -153,6 +166,9 @@ export async function renderProject(input, options = {}) {
     artifacts: [],
     verify: null,
   };
+  if (edit.version === 1) {
+    for (const warning of plannedCaptions.warnings) addWarning(state, warning);
+  }
 
   const statePath = join(projectRoot, ".akari", "render.json");
   const reportPath = join(projectRoot, ".akari", "reports", "render-report.html");
@@ -176,7 +192,7 @@ export async function renderProject(input, options = {}) {
     const baseVideoPath = layersCommand ? layeredPath : cutPath;
 
     const overlays = loadedOverlays;
-    const captions = plannedCaptions;
+    const captions = captionOverlays;
     const allOverlays = [...overlays, ...captions];
     const compositePath = join(temporaryDirectory, "composite.mp4");
     if (allOverlays.length === 0) {
@@ -291,16 +307,38 @@ async function measureCapabilities(projectRoot, edit) {
   const chromePath = await findChromePath();
   const chromeVersion = chromePath ? commandVersion(chromePath, ["--version"], "Chrome") : null;
   if (!chromePath) throw new ExecutionError("system Chrome was not found");
-  const sourcePath = resolve(projectRoot, edit.source.path);
-  const sourceProbe = probeMedia(ffprobeCommand, sourcePath);
-  const sourceDuration = Number(sourceProbe.format?.duration);
-  if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) {
-    throw new ExecutionError("ffprobe did not report a positive source duration");
+  if (edit.version === 0) {
+    const sourcePath = resolve(projectRoot, edit.source.path);
+    const sourceProbe = probeMedia(ffprobeCommand, sourcePath);
+    const sourceDuration = Number(sourceProbe.format?.duration);
+    if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) {
+      throw new ExecutionError("ffprobe did not report a positive source duration");
+    }
+    const hyperframesPath = join(PACKAGE_ROOT, "node_modules", ".bin", "hyperframes");
+    const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
+    const puppeteerPath = resolvePuppeteerPackagePath();
+    return {
+      ffmpegCommand,
+      ffprobeCommand,
+      ffmpegVersion,
+      ffprobeVersion,
+      nodeVersion: process.version,
+      chromePath,
+      chromeVersion,
+      hyperframesPath,
+      hyperframesAvailable: await isExecutable(hyperframesPath),
+      hyperframesVersion: await readPackageVersion(hyperframesPackagePath),
+      puppeteerAvailable: puppeteerPath !== null,
+      puppeteerVersion: puppeteerPath ? await readPackageVersion(puppeteerPath) : null,
+      sourceDuration,
+      sourceHasAudio: sourceProbe.streams.some((stream) => stream.codec_type === "audio"),
+    };
   }
+
   const hyperframesPath = join(PACKAGE_ROOT, "node_modules", ".bin", "hyperframes");
   const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
   const puppeteerPath = resolvePuppeteerPackagePath();
-  return {
+  const shared = {
     ffmpegCommand,
     ffprobeCommand,
     ffmpegVersion,
@@ -313,14 +351,37 @@ async function measureCapabilities(projectRoot, edit) {
     hyperframesVersion: await readPackageVersion(hyperframesPackagePath),
     puppeteerAvailable: puppeteerPath !== null,
     puppeteerVersion: puppeteerPath ? await readPackageVersion(puppeteerPath) : null,
-    sourceDuration,
-    sourceHasAudio: sourceProbe.streams.some((stream) => stream.codec_type === "audio"),
   };
+  const sourceInputs = usedSources(edit).map((source) => {
+    const path = resolve(projectRoot, source.path);
+    const probe = probeMedia(ffprobeCommand, path);
+    const video = probe.streams.find((stream) => stream.codec_type === "video");
+    const duration = Number(probe.format?.duration ?? video?.duration);
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new ExecutionError(`ffprobe did not report a positive source duration for ${source.id}`);
+    }
+    return {
+      id: source.id,
+      path,
+      duration,
+      hasAudio: probe.streams.some((stream) => stream.codec_type === "audio"),
+      width: video?.width ?? null,
+      height: video?.height ?? null,
+      fps: parseRate(video?.avg_frame_rate ?? video?.r_frame_rate),
+    };
+  });
+  return { ...shared, sourceInputs };
 }
 
 async function collectInputReceipts(projectRoot, edit, editText) {
   const files = new Map([["edit.json", { path: join(projectRoot, "edit.json"), text: editText }]]);
-  addReference(files, projectRoot, "source", edit.source.path);
+  if (edit.version === 0) {
+    addReference(files, projectRoot, "source", edit.source.path);
+  } else {
+    for (const source of usedSources(edit)) {
+      addReference(files, projectRoot, `source:${source.id}`, source.path);
+    }
+  }
   for (const [index, overlay] of edit.overlays.entries()) {
     addReference(files, projectRoot, `overlay:${index}`, overlay.html);
   }
@@ -359,10 +420,22 @@ async function loadOverlays(projectRoot, edit) {
 
 async function loadCaptions(projectRoot, edit) {
   const captionsPath = join(projectRoot, "captions.json");
-  if (!(await isRegularFile(captionsPath))) return [];
+  if (!(await isRegularFile(captionsPath))) {
+    return edit.version === 1 ? { overlays: [], warnings: [] } : [];
+  }
   const captions = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
   if (!Array.isArray(captions)) throw new ExecutionError("captions.json root must be an array");
-  return generateCaptionOverlays(captions, edit.cuts, { emphasisWords: edit.emphasis_words });
+  if (edit.version === 0) {
+    return generateCaptionOverlays(captions, edit.cuts, { emphasisWords: edit.emphasis_words });
+  }
+  const warnings = [];
+  const overlays = generateCaptionOverlays(captions, edit.cuts, {
+    emphasisWords: edit.emphasis_words,
+    sourceCount: edit.version === 1 ? edit.sources.length : 1,
+    linearTimeline: edit.version === 1,
+    onWarning: (warning) => warnings.push(warning),
+  });
+  return { overlays, warnings };
 }
 
 export async function rasterizeAndComposite(context) {
@@ -594,10 +667,51 @@ async function writeState(state, statePath, reportPath, projectRoot) {
 
 function validateEditShape(edit) {
   if (!edit || typeof edit !== "object" || Array.isArray(edit)) throw new ExecutionError("edit.json must be an object");
-  if (!Number.isInteger(edit.version)) throw new ExecutionError("edit.json version must be an integer");
+  if (edit.version !== 0 && edit.version !== 1) throw new ExecutionError("edit.json version must be 0 or 1");
   if (!edit.output || !positive(edit.output.width) || !positive(edit.output.height) || !positive(edit.output.fps)) throw new ExecutionError("edit.json output width, height, and fps must be positive numbers");
-  if (!edit.source || typeof edit.source.path !== "string" || edit.source.path === "") throw new ExecutionError("edit.json source.path is required");
-  if (!Array.isArray(edit.cuts) || !Array.isArray(edit.overlays)) throw new ExecutionError("edit.json cuts and overlays must be arrays");
+  if (edit.version === 0) {
+    if (Object.hasOwn(edit, "sources")) throw new ExecutionError("edit.json source and sources are mutually exclusive");
+    if (!edit.source || typeof edit.source.path !== "string" || edit.source.path === "") throw new ExecutionError("edit.json source.path is required");
+    if (!Array.isArray(edit.cuts)) throw new ExecutionError("edit.json cuts and overlays must be arrays");
+  } else {
+    if (Object.hasOwn(edit, "source")) throw new ExecutionError("edit.json source and sources are mutually exclusive");
+    if (!Array.isArray(edit.sources) || edit.sources.length === 0) {
+      throw new ExecutionError("edit.json sources must be an array with at least one item");
+    }
+    const sourceIds = new Set();
+    for (const [index, source] of edit.sources.entries()) {
+      if (!source || typeof source !== "object" || Array.isArray(source)) {
+        throw new ExecutionError(`edit.json sources[${index}] must be an object`);
+      }
+      if (!isNonEmptyString(source.id)) {
+        throw new ExecutionError(`edit.json sources[${index}].id is required`);
+      }
+      if (sourceIds.has(source.id)) {
+        throw new ExecutionError(`edit.json sources[].id is duplicated: ${source.id}`);
+      }
+      sourceIds.add(source.id);
+      if (!isNonEmptyString(source.path)) {
+        throw new ExecutionError(`edit.json sources[${index}].path is required`);
+      }
+    }
+    // v1 の cuts 空/欠落は v0 の「素材全体」ではなく空タイムラインを意味する。
+    if (edit.cuts === undefined || (Array.isArray(edit.cuts) && edit.cuts.length === 0)) {
+      throw new RefusalError("edit.json version 1 has no output duration because cuts is empty");
+    }
+    if (!Array.isArray(edit.cuts)) throw new ExecutionError("edit.json cuts must be an array");
+    for (const [index, cut] of edit.cuts.entries()) {
+      if (!cut || typeof cut !== "object" || Array.isArray(cut)) {
+        throw new ExecutionError(`edit.json cuts[${index}] must be an object`);
+      }
+      if (!Number.isFinite(cut.in) || !Number.isFinite(cut.out) || cut.in < 0 || cut.out <= cut.in) {
+        throw new ExecutionError(`edit.json cuts[${index}] must satisfy 0 <= in < out`);
+      }
+      if (!isNonEmptyString(cut.src) || !sourceIds.has(cut.src)) {
+        throw new ExecutionError(`edit.json cuts[${index}].src does not reference sources[].id: ${cut.src ?? ""}`);
+      }
+    }
+  }
+  if (!Array.isArray(edit.overlays)) throw new ExecutionError("edit.json cuts and overlays must be arrays");
 }
 
 function probeMedia(command, path) {
@@ -789,7 +903,9 @@ function resolveOutput(projectRoot, value) {
 function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
   const inputs = [
     resolve(projectRoot, "edit.json"),
-    resolve(projectRoot, edit.source.path),
+    ...(edit.version === 0
+      ? [resolve(projectRoot, edit.source.path)]
+      : edit.sources.map((source) => resolve(projectRoot, source.path))),
     ...edit.overlays.map((overlay) => resolve(projectRoot, overlay.html)),
   ];
   const captions = resolve(projectRoot, "captions.json");
@@ -810,6 +926,11 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
   if (inputs.includes(outputPath)) {
     throw new RefusalError("--out must not replace an input file");
   }
+}
+
+function usedSources(edit) {
+  const referencedIds = new Set(edit.cuts.map((cut) => cut.src));
+  return edit.sources.filter((source) => referencedIds.has(source.id));
 }
 
 function compare(findings, check, passed, message) {
@@ -886,6 +1007,10 @@ function relativeOrAbsolute(root, value) {
 
 function positive(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
 }
 
 function messageOf(error) {
