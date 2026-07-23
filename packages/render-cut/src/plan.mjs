@@ -3,7 +3,14 @@ import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
+import {
+  computeCutTimelineOffsets,
+  computeVideoRuns,
+  cutSpeed,
+  needsGapAwareCutTimeline,
+  resolveCutSegments,
+  segmentDuration,
+} from "./cut-timeline.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
@@ -570,6 +577,9 @@ export function buildCutCommand({
   look,
   chromaKey,
 }) {
+  if (needsGapAwareCutTimeline(cuts)) {
+    return buildGapAwareCutCommand({ sourcePath, cutPath, cuts, width, height, fps, hasAudio, duration, ffmpegCommand, projectRoot, look, chromaKey });
+  }
   const effectiveCuts = cuts.length > 0 ? cuts : [{ in: 0, out: null }];
   const filters = [];
   const concatInputs = [];
@@ -747,7 +757,169 @@ export function buildCutCommand({
   };
 }
 
+function buildGapAwareCutCommand({
+  sourcePath,
+  cutPath,
+  cuts,
+  width,
+  height,
+  fps,
+  hasAudio,
+  duration,
+  ffmpegCommand = "ffmpeg",
+  projectRoot,
+  look,
+  chromaKey,
+}) {
+  const segments = resolveCutSegments(cuts);
+  const runs = computeVideoRuns(segments, duration);
+  const filters = [];
+  const videoLabels = [];
+  for (const [index, run] of runs.entries()) {
+    const label = `[gv${index}]`;
+    if (run.kind === "gap") {
+      filters.push(
+        `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(run.outEnd - run.outStart)}${label}`,
+      );
+    } else {
+      const speed = cutSpeed(run.cut);
+      const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
+      filters.push(
+        `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${label}`,
+      );
+    }
+    videoLabels.push(label);
+  }
+  filters.push(`${videoLabels.join("")}concat=n=${runs.length}:v=1:a=0[joinedv]`);
+
+  if (hasAudio) {
+    const audioLabels = [];
+    for (const segment of segments) {
+      const { index, cut } = segment;
+      const speed = cutSpeed(cut);
+      const atempoSuffix = buildAtempoChain(speed)
+        .map((factor) => `,atempo=${formatNumber(factor)}`)
+        .join("");
+      filters.push(
+        `[0:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix}[araw${index}]`,
+      );
+      const delayMs = Math.max(0, Math.round(segment.start * 1000));
+      filters.push(`[araw${index}]adelay=${delayMs}:all=1[adelay${index}]`);
+      audioLabels.push(`[adelay${index}]`);
+    }
+    if (audioLabels.length === 1) {
+      filters.push(`${audioLabels[0]}apad=whole_dur=${formatNumber(duration)}[joineda]`);
+    } else {
+      filters.push(`${audioLabels.join("")}amix=inputs=${audioLabels.length}:duration=longest:normalize=0,apad=whole_dur=${formatNumber(duration)}[joineda]`);
+    }
+  }
+  if (!hasAudio) {
+    filters.push(`[1:a]atrim=duration=${formatNumber(duration)},asetpts=PTS-STARTPTS[joineda]`);
+  }
+
+  const scaledLabel = chromaKey || look ? "[scaled]" : "[outv]";
+  filters.push(
+    `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`,
+  );
+
+  // docs/contract-2026-07-22-render-basics.md #2 (source.chroma_key). Applied post-scale/pad so a
+  // single insertion point covers both chroma key and LUT; the background is either a solid color
+  // (built inline via ffmpeg's `color` source filter — no extra -i needed) or an image/video file
+  // (an extra input, looped if a still image).
+  const extraInputArgs = [];
+  let nextInputIndex = hasAudio ? 1 : 2;
+  let videoLabel = scaledLabel;
+  if (chromaKey) {
+    const color = isNonEmptyString(chromaKey.color) ? chromaKey.color : "0x00FF00";
+    const similarity = isFiniteNumber(chromaKey.similarity) ? chromaKey.similarity : 0.2;
+    const blend = isFiniteNumber(chromaKey.blend) ? chromaKey.blend : 0.1;
+    const background = chromaKey.background;
+    let backgroundLabel;
+    if (!isNonEmptyString(background) || isColorLike(background)) {
+      // ffmpeg's `color` source filter defaults to 25fps regardless of the project's output.fps;
+      // without an explicit r=, overlay silently adopted that mismatched rate for the whole
+      // output (verified empirically: omitting r= here produced a 25fps file when output.fps
+      // was 10). Force it to match so background and keyed foreground share one frame rate.
+      const bgColor = isNonEmptyString(background) ? background : "0x000000";
+      filters.push(`color=c=${bgColor}:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(duration)}[bgsrc]`);
+      backgroundLabel = "[bgsrc]";
+    } else {
+      const backgroundPath = resolve(projectRoot, background);
+      const isImage = /\.(png|jpe?g|webp|bmp|gif)$/iu.test(backgroundPath);
+      extraInputArgs.push(...(isImage ? ["-loop", "1", "-i", backgroundPath] : ["-i", backgroundPath]));
+      backgroundLabel = `[${nextInputIndex}:v]`;
+      nextInputIndex += 1;
+    }
+    filters.push(`${videoLabel}format=yuva420p,chromakey=color=${color}:similarity=${formatNumber(similarity)}:blend=${formatNumber(blend)}[keyed]`);
+    // fps= here too: an image/video-file background (the `else` branch above) may carry its own
+    // differing frame rate, which the same mismatch would otherwise leak through as well.
+    filters.push(`${backgroundLabel}scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=${formatNumber(fps)},setsar=1[bgscaled]`);
+    const chromaOutLabel = look ? "[chromakeyed]" : "[outv]";
+    filters.push(`[bgscaled][keyed]overlay=shortest=1:format=auto${chromaOutLabel}`);
+    videoLabel = chromaOutLabel;
+  }
+
+  // docs/contract-2026-07-22-render-basics.md #4 (output.look). intensity blends between the
+  // untouched frame and the fully graded one via ffmpeg's blend filter (0 = no-op, 1 = full LUT).
+  if (look) {
+    const lutPath = resolveLutPath(projectRoot, look.lut);
+    const intensity = isFiniteNumber(look.intensity) ? Math.max(0, Math.min(1, look.intensity)) : 1;
+    if (intensity <= 0) {
+      filters.push(`${videoLabel}null[outv]`);
+    } else if (intensity >= 1) {
+      filters.push(`${videoLabel}lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[outv]`);
+    } else {
+      filters.push(`${videoLabel}split=2[lutbase][luttop]`);
+      filters.push(`[luttop]lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[lutapplied]`);
+      // blend's inputs are [0]=top [1]=bottom, and all_opacity weights the TOP input (verified
+      // empirically: opacity=0.25 with [red][blue] produced ~75% blue, i.e. output =
+      // top*opacity + bottom*(1-opacity)). We want intensity=1 -> fully graded, intensity=0 ->
+      // untouched, so the graded frame ([lutapplied]) must be the top (first) input.
+      filters.push(`[lutapplied][lutbase]blend=all_mode=normal:all_opacity=${formatNumber(intensity)}[outv]`);
+    }
+  } else if (videoLabel !== "[outv]") {
+    filters.push(`${videoLabel}null[outv]`);
+  }
+
+  return {
+    command: ffmpegCommand,
+    args: [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-nostdin",
+      "-y",
+      "-i",
+      sourcePath,
+      ...(!hasAudio ? ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"] : []),
+      ...extraInputArgs,
+      "-filter_complex",
+      filters.join(";"),
+      "-map",
+      "[outv]",
+      "-map",
+      "[joineda]",
+      "-c:v",
+      "libx264",
+      "-profile:v",
+      "high",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-ar",
+      "48000",
+      "-shortest",
+      cutPath,
+    ],
+  };
+}
+
 export function predictedDuration(cuts, sourceDuration) {
+  if (Array.isArray(cuts) && cuts.length > 0 && needsGapAwareCutTimeline(cuts)) {
+    const segments = resolveCutSegments(cuts);
+    return Math.max(0, ...segments.map((segment) => segment.end));
+  }
   if (Array.isArray(cuts) && cuts.length > 0) {
     const segmentsTotal = cuts.reduce((sum, cut) => sum + segmentDuration(cut), 0);
     // A transition_out overlaps its own segment's end with the next segment's start, shortening
