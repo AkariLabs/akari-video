@@ -68,9 +68,9 @@ function validateMeta(value) {
     "license",
     "price",
   ];
-  // source / remote は 2026-07-14 追記の任意フィールド（カタログ = remote: true エントリ用）。
+  // source / remote / matched_by は任意フィールド。
   // 後方互換のため必須フィールドには加えない。
-  const optionalFields = ["source", "remote"];
+  const optionalFields = ["source", "remote", "matched_by"];
   const allowedFields = [...requiredFields, ...optionalFields];
   for (const field of requiredFields) {
     if (!hasOwn(value, field)) fail(`必須フィールドがありません: ${field}`);
@@ -101,6 +101,11 @@ function validateMeta(value) {
 
   if (value.price !== null && (!isFiniteNumber(value.price) || value.price < 0)) {
     fail("price は null または 0 以上の有限数である必要があります");
+  }
+
+  const matchedByValues = new Set(["title-normalized"]);
+  if (hasOwn(value, "matched_by") && !matchedByValues.has(value.matched_by)) {
+    fail(`matched_by は ${[...matchedByValues].join(" / ")} のいずれかである必要があります`);
   }
 
   const isRemote = value.remote === true;

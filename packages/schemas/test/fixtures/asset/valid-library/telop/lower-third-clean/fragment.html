@@ -1,0 +1,139 @@
+<div
+  class="lower-third-clean"
+  lang="ja"
+  data-start="0"
+  data-duration="6"
+>
+  <style>
+    .lower-third-clean {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: max-content;
+      max-width: var(--max-width, 620px);
+      color: var(--text-color, #f8fafc);
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
+      font-feature-settings: "palt" 1;
+      pointer-events: auto;
+      isolation: isolate;
+    }
+
+    .lower-third-clean,
+    .lower-third-clean * {
+      box-sizing: border-box;
+    }
+
+    .lower-third-clean__plate {
+      position: relative;
+      display: grid;
+      grid-template-columns: 7px minmax(0, auto);
+      width: max-content;
+      max-width: var(--max-width, 620px);
+      min-height: 112px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 12px;
+      background: var(--primary-color, #111827);
+      box-shadow: 0 18px 48px rgba(2, 6, 23, 0.34), 0 2px 8px rgba(2, 6, 23, 0.2);
+      animation: lower-third-clean-panel-in 680ms cubic-bezier(0.16, 1, 0.3, 1) both paused;
+      will-change: transform, opacity;
+    }
+
+    .lower-third-clean__plate::after {
+      position: absolute;
+      top: 0;
+      right: 18px;
+      left: 25px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent-color, #73e0c1), rgba(255, 255, 255, 0));
+      content: "";
+      opacity: 0.72;
+    }
+
+    .lower-third-clean__accent {
+      display: block;
+      background: var(--accent-color, #73e0c1);
+      transform-origin: center bottom;
+      animation: lower-third-clean-accent-in 520ms 80ms cubic-bezier(0.16, 1, 0.3, 1) both paused;
+      will-change: transform, opacity;
+    }
+
+    .lower-third-clean__copy {
+      display: grid;
+      min-width: 0;
+      max-width: calc(var(--max-width, 620px) - 7px);
+      align-content: center;
+      gap: 8px;
+      padding: 18px 30px 19px 24px;
+    }
+
+    .lower-third-clean__name,
+    .lower-third-clean__role {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lower-third-clean__name {
+      color: var(--text-color, #f8fafc);
+      font-size: var(--font-size, 38px);
+      font-weight: 750;
+      letter-spacing: 0.035em;
+      line-height: 1.08;
+      animation: lower-third-clean-copy-in 560ms 150ms cubic-bezier(0.16, 1, 0.3, 1) both paused;
+      will-change: transform, opacity;
+    }
+
+    .lower-third-clean__role {
+      color: var(--muted-color, #aeb8c8);
+      font-size: var(--role-font-size, 16px);
+      font-weight: 560;
+      letter-spacing: 0.075em;
+      line-height: 1.35;
+      animation: lower-third-clean-copy-in 560ms 230ms cubic-bezier(0.16, 1, 0.3, 1) both paused;
+      will-change: transform, opacity;
+    }
+
+    @keyframes lower-third-clean-panel-in {
+      from {
+        opacity: 0;
+        transform: translate3d(-34px, 0, 0) scale(0.985);
+      }
+      to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+
+    @keyframes lower-third-clean-accent-in {
+      from {
+        opacity: 0;
+        transform: scaleY(0);
+      }
+      to {
+        opacity: 1;
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes lower-third-clean-copy-in {
+      from {
+        opacity: 0;
+        transform: translate3d(-14px, 8px, 0);
+      }
+      to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+    }
+  </style>
+
+  <div class="lower-third-clean__plate">
+    <span class="lower-third-clean__accent" aria-hidden="true"></span>
+    <div class="lower-third-clean__copy">
+      <div class="lower-third-clean__name">川瀬 あかり</div>
+      <div class="lower-third-clean__role">プロダクトデザイナー / AKARI Video</div>
+    </div>
+  </div>
+</div>

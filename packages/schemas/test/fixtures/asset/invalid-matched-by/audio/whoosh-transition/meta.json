@@ -1,0 +1,31 @@
+{
+  "id": "whoosh-transition",
+  "category": "audio",
+  "title": "ウッシュ・トランジション SFX",
+  "description": "竹の棒を振って収録された短く鋭いウッシュ音。20万件超のダウンロード実績を持つ定番のトランジション SFX。尺 0.43秒",
+  "when_to_use": "シーン転換、テロップ/画像のワイプ・スライドイン、カット切り替えのアクセントに",
+  "tags": ["sfx", "whoosh", "swoosh", "transition"],
+  "knobs": [],
+  "ai_usage": "音量調整・複数回の重ね掛けは自由。映像のタイミングに合わせたトリムも可。ピッチ・速度を大きく変えると素材の質感が崩れるため軽微な調整に留める",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Freesound / qubodup）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "matched_by": "guessed",
+  "remote": true,
+  "source": {
+    "url": "https://freesound.org/people/qubodup/sounds/60013/",
+    "acquisition": "login",
+    "license_at_source": "CC0 1.0",
+    "attribution_required": false
+  }
+}
