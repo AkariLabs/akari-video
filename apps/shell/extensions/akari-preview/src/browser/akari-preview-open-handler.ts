@@ -123,8 +123,8 @@ interface PreviewModel {
         muted: boolean;
         captionsVisible: boolean;
         hiddenTracks: number[];
-        hiddenTracksByScope: { cuts: number[]; layers: number[] };
-        mutedTracksByScope: { cuts: number[]; audio: number[] };
+        hiddenTracksByScope: { cuts: number[]; layers: number[]; audio: number[] };
+        mutedTracksByScope: { cuts: number[]; audio: number[]; layers: number[] };
         allTracksHiddenScopes: string[];
         allTracksMutedScopes: string[];
     };
@@ -165,8 +165,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewMuted?: boolean;
     akariPreviewCaptionsVisible?: boolean;
     akariPreviewHiddenTracks?: Set<number>;
-    akariPreviewHiddenTracksByScope?: { cuts?: number[]; layers?: number[] };
-    akariPreviewMutedTracksByScope?: { cuts?: number[]; audio?: number[] };
+    akariPreviewHiddenTracksByScope?: { cuts?: number[]; layers?: number[]; audio?: number[] };
+    akariPreviewMutedTracksByScope?: { cuts?: number[]; audio?: number[]; layers?: number[] };
     akariPreviewAllTracksMutedScopes?: string[];
     akariPreviewAllTracksHiddenScopes?: string[];
 }
@@ -180,6 +180,15 @@ const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
 const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
 const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
+const TIMELINE_SET_CLIPS_VISIBILITY_EVENT = 'akari.timeline.setClipsVisibility';
+const TIMELINE_SET_OVERLAY_TRACK_MUTED_EVENT = 'akari.timeline.setOverlayTrackMuted';
+const TIMELINE_SET_LAYERS_VISIBILITY_EVENT = 'akari.timeline.setLayersVisibility';
+const TIMELINE_SET_LAYERS_MUTED_EVENT = 'akari.timeline.setLayersMuted';
+const TIMELINE_SET_AUDIO_VISIBILITY_EVENT = 'akari.timeline.setAudioVisibility';
+const TIMELINE_SET_AUDIO_MUTED_EVENT = 'akari.timeline.setAudioMuted';
+const TIMELINE_SET_CAPTIONS_MUTED_EVENT = 'akari.timeline.setCaptionsMuted';
+const TIMELINE_SET_BEATS_VISIBILITY_EVENT = 'akari.timeline.setBeatsVisibility';
+const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 
 // akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
@@ -224,10 +233,18 @@ interface PreviewSessionSettings {
     muted: boolean;
     captionsVisible: boolean;
     hiddenTracks: Set<number>;
-    hiddenTracksByScope: { cuts: Set<number>; layers: Set<number> };
-    mutedTracksByScope: { cuts: Set<number>; audio: Set<number> };
-    allTracksHiddenByScope: { cuts: boolean; layers: boolean };
-    allTracksMutedByScope: { cuts: boolean; audio: boolean };
+    hiddenTracksByScope: { cuts: Set<number>; layers: Set<number>; audio: Set<number> };
+    mutedTracksByScope: { cuts: Set<number>; audio: Set<number>; layers: Set<number> };
+    allTracksHiddenByScope: { cuts: boolean; layers: boolean; audio: boolean };
+    allTracksMutedByScope: { cuts: boolean; audio: boolean; layers: boolean };
+}
+
+interface TrackVisibilityV2Request {
+    videoUri?: string;
+    scope?: 'cuts' | 'overlays' | 'layers' | 'audio' | 'captions';
+    track?: number | null;
+    hidden?: boolean;
+    muted?: boolean;
 }
 
 const EMPTY_SUMMARY: EditSummary = {
@@ -384,90 +401,70 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             }
         );
-        interface TrackVisibilityV2Request {
-            videoUri?: string;
-            scope?: 'cuts' | 'overlays' | 'layers' | 'audio' | 'captions';
-            track?: number | null;
-            hidden?: boolean;
-            muted?: boolean;
-        }
         const onTrackVisibilityV2 = (event: Event): void => {
-            const detail = (event as CustomEvent<TrackVisibilityV2Request>).detail;
-            if (!detail || typeof detail.videoUri !== 'string'
-                || (detail.scope !== 'cuts' && detail.scope !== 'overlays' && detail.scope !== 'layers'
-                    && detail.scope !== 'audio' && detail.scope !== 'captions')) {
-                return;
-            }
-            let key: string;
-            try {
-                key = new URI(detail.videoUri).normalizePath().toString();
-            } catch {
-                return;
-            }
-            const widget = this.openOutputPreviews.get(key);
-            const settings = this.previewSessionSettings.get(key) ?? this.defaultSessionSettings();
-            if (detail.scope === 'overlays') {
-                if (!Number.isInteger(detail.track) || detail.track! < 0 || typeof detail.hidden !== 'boolean') return;
-                if (detail.hidden) settings.hiddenTracks.add(detail.track!); else settings.hiddenTracks.delete(detail.track!);
-                if (widget?.isAttached) {
-                    widget.akariPreviewHiddenTracks = new Set(settings.hiddenTracks);
-                    widget.sendMessage({
-                        type: 'akari-preview-set-track-visibility', track: detail.track, visible: !detail.hidden
-                    });
-                }
-                this.previewSessionSettings.set(key, settings);
-                return;
-            }
-            if (detail.scope === 'captions') {
-                if (typeof detail.hidden !== 'boolean') return;
-                settings.captionsVisible = !detail.hidden;
-                if (widget?.isAttached) {
-                    widget.akariPreviewCaptionsVisible = !detail.hidden;
-                    widget.sendMessage({ type: 'akari-preview-set-captions-visibility', visible: !detail.hidden });
-                }
-                this.previewSessionSettings.set(key, settings);
-                return;
-            }
-            if (typeof detail.hidden === 'boolean' && (detail.scope === 'cuts' || detail.scope === 'layers')) {
-                if (detail.track === null) {
-                    settings.allTracksHiddenByScope[detail.scope] = detail.hidden;
-                } else if (Number.isInteger(detail.track) && detail.track! >= 0) {
-                    if (detail.hidden) settings.hiddenTracksByScope[detail.scope].add(detail.track!);
-                    else settings.hiddenTracksByScope[detail.scope].delete(detail.track!);
-                }
-            }
-            if (typeof detail.muted === 'boolean' && (detail.scope === 'cuts' || detail.scope === 'audio')) {
-                if (detail.track === null) {
-                    settings.allTracksMutedByScope[detail.scope] = detail.muted;
-                } else if (Number.isInteger(detail.track) && detail.track! >= 0) {
-                    if (detail.muted) settings.mutedTracksByScope[detail.scope].add(detail.track!);
-                    else settings.mutedTracksByScope[detail.scope].delete(detail.track!);
-                }
-            }
-            this.previewSessionSettings.set(key, settings);
-            if (widget?.isAttached) {
-                widget.akariPreviewHiddenTracksByScope = {
-                    cuts: [...settings.hiddenTracksByScope.cuts], layers: [...settings.hiddenTracksByScope.layers]
-                };
-                widget.akariPreviewMutedTracksByScope = {
-                    cuts: [...settings.mutedTracksByScope.cuts], audio: [...settings.mutedTracksByScope.audio]
-                };
-                widget.akariPreviewAllTracksHiddenScopes = Object.entries(settings.allTracksHiddenByScope)
-                    .filter(([, hidden]) => hidden).map(([scope]) => scope);
-                widget.akariPreviewAllTracksMutedScopes = Object.entries(settings.allTracksMutedByScope)
-                    .filter(([, muted]) => muted).map(([scope]) => scope);
-                widget.sendMessage({
-                    type: 'akari-preview-set-track-visibility-v2',
-                    scope: detail.scope,
-                    track: detail.track,
-                    hidden: detail.hidden,
-                    muted: detail.muted
-                });
-            }
+            this.applyTrackVisibilityV2((event as CustomEvent<TrackVisibilityV2Request>).detail);
         };
         window.addEventListener(TIMELINE_SET_TRACK_VISIBILITY_EVENT, onTrackVisibilityV2);
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_SET_TRACK_VISIBILITY_EVENT, onTrackVisibilityV2)
+        });
+        const registerTimelineSettingV2Adapter = <T extends { editUri?: string }>(
+            type: string,
+            toRequest: (detail: T) => Omit<TrackVisibilityV2Request, 'videoUri'>
+        ): void => {
+            const listener = (event: Event): void => {
+                const detail = (event as CustomEvent<T>).detail;
+                if (!detail?.editUri) return;
+                this.applyTrackVisibilityV2({ ...toRequest(detail), videoUri: detail.editUri });
+            };
+            window.addEventListener(type, listener);
+            this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(type, listener) });
+        };
+        registerTimelineSettingV2Adapter<{ editUri?: string; visible?: boolean }>(
+            TIMELINE_SET_CLIPS_VISIBILITY_EVENT,
+            detail => ({
+                scope: 'cuts', track: null,
+                hidden: typeof detail.visible === 'boolean' ? !detail.visible : undefined
+            })
+        );
+        registerTimelineSettingV2Adapter<{ editUri?: string; track?: number; muted?: boolean }>(
+            TIMELINE_SET_OVERLAY_TRACK_MUTED_EVENT,
+            detail => ({ scope: 'overlays', track: detail.track, muted: detail.muted })
+        );
+        registerTimelineSettingV2Adapter<{ editUri?: string; visible?: boolean }>(
+            TIMELINE_SET_LAYERS_VISIBILITY_EVENT,
+            detail => ({
+                scope: 'layers', track: null,
+                hidden: typeof detail.visible === 'boolean' ? !detail.visible : undefined
+            })
+        );
+        registerTimelineSettingV2Adapter<{ editUri?: string; muted?: boolean }>(
+            TIMELINE_SET_LAYERS_MUTED_EVENT,
+            detail => ({ scope: 'layers', track: null, muted: detail.muted })
+        );
+        registerTimelineSettingV2Adapter<{ editUri?: string; visible?: boolean }>(
+            TIMELINE_SET_AUDIO_VISIBILITY_EVENT,
+            detail => ({
+                scope: 'audio', track: null,
+                hidden: typeof detail.visible === 'boolean' ? !detail.visible : undefined
+            })
+        );
+        registerTimelineSettingV2Adapter<{ editUri?: string; muted?: boolean }>(
+            TIMELINE_SET_AUDIO_MUTED_EVENT,
+            detail => ({ scope: 'audio', track: null, muted: detail.muted })
+        );
+        // captions/beats はプレビュー側に音声・専用描画の対象がない（字幕に音声なし・beats はプレビュー非描画）。
+        // 購読はするが意図的に no-op。
+        const noopTimelineSetting = (): void => { /* no-op: プレビュー側に対応する状態がないスコープ */ };
+        window.addEventListener(TIMELINE_SET_CAPTIONS_MUTED_EVENT, noopTimelineSetting);
+        window.addEventListener(TIMELINE_SET_BEATS_VISIBILITY_EVENT, noopTimelineSetting);
+        window.addEventListener(TIMELINE_SET_BEATS_MUTED_EVENT, noopTimelineSetting);
+        this.lifecycleDisposables.push({
+            dispose: () => {
+                window.removeEventListener(TIMELINE_SET_CAPTIONS_MUTED_EVENT, noopTimelineSetting);
+                window.removeEventListener(TIMELINE_SET_BEATS_VISIBILITY_EVENT, noopTimelineSetting);
+                window.removeEventListener(TIMELINE_SET_BEATS_MUTED_EVENT, noopTimelineSetting);
+            }
         });
         registerTimelineSetting<{ editUri?: string; visible?: boolean }>(
             TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT, (widget, detail, settings) => {
@@ -481,15 +478,95 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         );
     }
 
+    protected applyTrackVisibilityV2(detail: TrackVisibilityV2Request | undefined): void {
+        if (!detail || typeof detail.videoUri !== 'string'
+            || (detail.scope !== 'cuts' && detail.scope !== 'overlays' && detail.scope !== 'layers'
+                && detail.scope !== 'audio' && detail.scope !== 'captions')) {
+            return;
+        }
+        let key: string;
+        try {
+            key = new URI(detail.videoUri).normalizePath().toString();
+        } catch {
+            return;
+        }
+        const widget = this.openOutputPreviews.get(key);
+        const settings = this.previewSessionSettings.get(key) ?? this.defaultSessionSettings();
+        if (detail.scope === 'overlays') {
+            if (!Number.isInteger(detail.track) || detail.track! < 0 || typeof detail.hidden !== 'boolean') return;
+            if (detail.hidden) settings.hiddenTracks.add(detail.track!); else settings.hiddenTracks.delete(detail.track!);
+            if (widget?.isAttached) {
+                widget.akariPreviewHiddenTracks = new Set(settings.hiddenTracks);
+                widget.sendMessage({
+                    type: 'akari-preview-set-track-visibility', track: detail.track, visible: !detail.hidden
+                });
+            }
+            this.previewSessionSettings.set(key, settings);
+            return;
+        }
+        if (detail.scope === 'captions') {
+            if (typeof detail.hidden !== 'boolean') return;
+            settings.captionsVisible = !detail.hidden;
+            if (widget?.isAttached) {
+                widget.akariPreviewCaptionsVisible = !detail.hidden;
+                widget.sendMessage({ type: 'akari-preview-set-captions-visibility', visible: !detail.hidden });
+            }
+            this.previewSessionSettings.set(key, settings);
+            return;
+        }
+        if (typeof detail.hidden === 'boolean'
+            && (detail.scope === 'cuts' || detail.scope === 'layers' || detail.scope === 'audio')) {
+            if (detail.track === null) {
+                settings.allTracksHiddenByScope[detail.scope] = detail.hidden;
+            } else if (Number.isInteger(detail.track) && detail.track! >= 0) {
+                if (detail.hidden) settings.hiddenTracksByScope[detail.scope].add(detail.track!);
+                else settings.hiddenTracksByScope[detail.scope].delete(detail.track!);
+            }
+        }
+        if (typeof detail.muted === 'boolean'
+            && (detail.scope === 'cuts' || detail.scope === 'audio' || detail.scope === 'layers')) {
+            if (detail.track === null) {
+                settings.allTracksMutedByScope[detail.scope] = detail.muted;
+            } else if (Number.isInteger(detail.track) && detail.track! >= 0) {
+                if (detail.muted) settings.mutedTracksByScope[detail.scope].add(detail.track!);
+                else settings.mutedTracksByScope[detail.scope].delete(detail.track!);
+            }
+        }
+        this.previewSessionSettings.set(key, settings);
+        if (widget?.isAttached) {
+            widget.akariPreviewHiddenTracksByScope = {
+                cuts: [...settings.hiddenTracksByScope.cuts],
+                layers: [...settings.hiddenTracksByScope.layers],
+                audio: [...settings.hiddenTracksByScope.audio]
+            };
+            widget.akariPreviewMutedTracksByScope = {
+                cuts: [...settings.mutedTracksByScope.cuts],
+                audio: [...settings.mutedTracksByScope.audio],
+                layers: [...settings.mutedTracksByScope.layers]
+            };
+            widget.akariPreviewAllTracksHiddenScopes = Object.entries(settings.allTracksHiddenByScope)
+                .filter(([, hidden]) => hidden).map(([scope]) => scope);
+            widget.akariPreviewAllTracksMutedScopes = Object.entries(settings.allTracksMutedByScope)
+                .filter(([, muted]) => muted).map(([scope]) => scope);
+            widget.sendMessage({
+                type: 'akari-preview-set-track-visibility-v2',
+                scope: detail.scope,
+                track: detail.track,
+                hidden: detail.hidden,
+                muted: detail.muted
+            });
+        }
+    }
+
     protected defaultSessionSettings(): PreviewSessionSettings {
         return {
             muted: false,
             captionsVisible: true,
             hiddenTracks: new Set<number>(),
-            hiddenTracksByScope: { cuts: new Set<number>(), layers: new Set<number>() },
-            mutedTracksByScope: { cuts: new Set<number>(), audio: new Set<number>() },
-            allTracksHiddenByScope: { cuts: false, layers: false },
-            allTracksMutedByScope: { cuts: false, audio: false }
+            hiddenTracksByScope: { cuts: new Set<number>(), layers: new Set<number>(), audio: new Set<number>() },
+            mutedTracksByScope: { cuts: new Set<number>(), audio: new Set<number>(), layers: new Set<number>() },
+            allTracksHiddenByScope: { cuts: false, layers: false, audio: false },
+            allTracksMutedByScope: { cuts: false, audio: false, layers: false }
         };
     }
 
@@ -769,10 +846,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             widget.akariPreviewCaptionsVisible = session.captionsVisible;
             widget.akariPreviewHiddenTracks = new Set(session.hiddenTracks);
             widget.akariPreviewHiddenTracksByScope = {
-                cuts: [...session.hiddenTracksByScope.cuts], layers: [...session.hiddenTracksByScope.layers]
+                cuts: [...session.hiddenTracksByScope.cuts],
+                layers: [...session.hiddenTracksByScope.layers],
+                audio: [...session.hiddenTracksByScope.audio]
             };
             widget.akariPreviewMutedTracksByScope = {
-                cuts: [...session.mutedTracksByScope.cuts], audio: [...session.mutedTracksByScope.audio]
+                cuts: [...session.mutedTracksByScope.cuts],
+                audio: [...session.mutedTracksByScope.audio],
+                layers: [...session.mutedTracksByScope.layers]
             };
             widget.akariPreviewAllTracksHiddenScopes = Object.entries(session.allTracksHiddenByScope)
                 .filter(([, hidden]) => hidden).map(([scope]) => scope);
@@ -1022,11 +1103,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             hiddenTracks: [...(widget.akariPreviewHiddenTracks ?? new Set<number>())],
             hiddenTracksByScope: {
                 cuts: [...(widget.akariPreviewHiddenTracksByScope?.cuts ?? [])],
-                layers: [...(widget.akariPreviewHiddenTracksByScope?.layers ?? [])]
+                layers: [...(widget.akariPreviewHiddenTracksByScope?.layers ?? [])],
+                audio: [...(widget.akariPreviewHiddenTracksByScope?.audio ?? [])]
             },
             mutedTracksByScope: {
                 cuts: [...(widget.akariPreviewMutedTracksByScope?.cuts ?? [])],
-                audio: [...(widget.akariPreviewMutedTracksByScope?.audio ?? [])]
+                audio: [...(widget.akariPreviewMutedTracksByScope?.audio ?? [])],
+                layers: [...(widget.akariPreviewMutedTracksByScope?.layers ?? [])]
             },
             allTracksHiddenScopes: [...(widget.akariPreviewAllTracksHiddenScopes ?? [])],
             allTracksMutedScopes: [...(widget.akariPreviewAllTracksMutedScopes ?? [])]
@@ -1038,19 +1121,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 hiddenTracks: new Set(model.session.hiddenTracks),
                 hiddenTracksByScope: {
                     cuts: new Set(model.session.hiddenTracksByScope.cuts),
-                    layers: new Set(model.session.hiddenTracksByScope.layers)
+                    layers: new Set(model.session.hiddenTracksByScope.layers),
+                    audio: new Set(model.session.hiddenTracksByScope.audio)
                 },
                 mutedTracksByScope: {
                     cuts: new Set(model.session.mutedTracksByScope.cuts),
-                    audio: new Set(model.session.mutedTracksByScope.audio)
+                    audio: new Set(model.session.mutedTracksByScope.audio),
+                    layers: new Set(model.session.mutedTracksByScope.layers)
                 },
                 allTracksHiddenByScope: {
                     cuts: model.session.allTracksHiddenScopes.includes('cuts'),
-                    layers: model.session.allTracksHiddenScopes.includes('layers')
+                    layers: model.session.allTracksHiddenScopes.includes('layers'),
+                    audio: model.session.allTracksHiddenScopes.includes('audio')
                 },
                 allTracksMutedByScope: {
                     cuts: model.session.allTracksMutedScopes.includes('cuts'),
-                    audio: model.session.allTracksMutedScopes.includes('audio')
+                    audio: model.session.allTracksMutedScopes.includes('audio'),
+                    layers: model.session.allTracksMutedScopes.includes('layers')
                 }
             });
         }
@@ -1766,8 +1853,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
             hiddenTracks: model.session?.hiddenTracks ?? [],
-            hiddenTracksByScope: model.session?.hiddenTracksByScope ?? { cuts: [], layers: [] },
-            mutedTracksByScope: model.session?.mutedTracksByScope ?? { cuts: [], audio: [] },
+            hiddenTracksByScope: model.session?.hiddenTracksByScope ?? { cuts: [], layers: [], audio: [] },
+            mutedTracksByScope: model.session?.mutedTracksByScope ?? { cuts: [], audio: [], layers: [] },
             allTracksHiddenScopes: model.session?.allTracksHiddenScopes ?? [],
             allTracksMutedScopes: model.session?.allTracksMutedScopes ?? []
         });
@@ -1998,9 +2085,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 let allSfxMuted = false;
 
                 const dbToLinear = gainDb => Math.pow(10, gainDb / 20);
+                // クリップ全体ミュート（akariGlobalMuted。クリップ帯のスピーカートグルが送る旧 setMuted
+                // イベント由来）は video.muted のみに効かせる。BGM/SFX/narration の audibility は
+                // audio scope の個別ミュート（allSfxMuted/mutedSfxTracks）で独立制御する
+                // （クリップのスピーカーを OFF にしても BGM/SFX は継続する契約要求のため）。
                 const syncMasterGain = () => {
                     const volume = Number.isFinite(video.volume) ? Math.max(0, Math.min(1, video.volume)) : 1;
-                    masterGain.gain.value = video.dataset.akariGlobalMuted === 'true' ? 0 : volume;
+                    masterGain.gain.value = volume;
                 };
                 const warnUnavailable = (kind, id, error) => {
                     console.warn('[akari-preview] ' + kind + ' ' + id
@@ -2107,7 +2198,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     const duckGainDb = duckGainDbAt(timelineTime);
                     const fadeMultiplier = fadeMultiplierAt(timelineTime);
                     if (bgmGain) {
-                        bgmGain.gain.value = dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier;
+                        bgmGain.gain.value = allSfxMuted
+                            ? 0 : dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier;
                     }
                     if (duckGainDb !== lastDuckGainDb) {
                         lastDuckGainDb = duckGainDb;
@@ -2375,19 +2467,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 ? initial.allTracksMutedScopes : [];
             const hiddenTracksByScope = {
                 cuts: new Set(Array.isArray(initialHiddenTracksByScope.cuts) ? initialHiddenTracksByScope.cuts : []),
-                layers: new Set(Array.isArray(initialHiddenTracksByScope.layers) ? initialHiddenTracksByScope.layers : [])
+                layers: new Set(Array.isArray(initialHiddenTracksByScope.layers) ? initialHiddenTracksByScope.layers : []),
+                audio: new Set(Array.isArray(initialHiddenTracksByScope.audio) ? initialHiddenTracksByScope.audio : [])
             };
             const mutedTracksByScope = {
                 cuts: new Set(Array.isArray(initialMutedTracksByScope.cuts) ? initialMutedTracksByScope.cuts : []),
-                audio: new Set(Array.isArray(initialMutedTracksByScope.audio) ? initialMutedTracksByScope.audio : [])
+                audio: new Set(Array.isArray(initialMutedTracksByScope.audio) ? initialMutedTracksByScope.audio : []),
+                layers: new Set(Array.isArray(initialMutedTracksByScope.layers) ? initialMutedTracksByScope.layers : [])
             };
             const allTracksHiddenByScope = {
                 cuts: initialAllTracksHiddenScopes.includes('cuts'),
-                layers: initialAllTracksHiddenScopes.includes('layers')
+                layers: initialAllTracksHiddenScopes.includes('layers'),
+                audio: initialAllTracksHiddenScopes.includes('audio')
             };
             const allTracksMutedByScope = {
                 cuts: initialAllTracksMutedScopes.includes('cuts'),
-                audio: initialAllTracksMutedScopes.includes('audio')
+                audio: initialAllTracksMutedScopes.includes('audio'),
+                layers: initialAllTracksMutedScopes.includes('layers')
             };
             let globalMuted = initial.muted === true;
             video.dataset.akariGlobalMuted = String(globalMuted);
@@ -3149,6 +3245,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 for (const entry of layerEntries) {
                     const layer = entry.spec;
                     const layerVideo = entry.video;
+                    layerVideo.muted = allTracksMutedByScope.layers;
                     const active = !layer.proxyMissing
                         && typeof layer.src === 'string' && layer.src
                         && !allTracksHiddenByScope.layers
@@ -3599,7 +3696,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (message && message.type === 'akari-preview-set-track-visibility-v2') {
                     const { scope, track, hidden, muted } = message;
-                    if ((scope === 'cuts' || scope === 'layers') && typeof hidden === 'boolean') {
+                    if ((scope === 'cuts' || scope === 'layers' || scope === 'audio') && typeof hidden === 'boolean') {
                         if (track === null) {
                             allTracksHiddenByScope[scope] = hidden;
                         } else if (Number.isInteger(track) && track >= 0) {
@@ -3607,7 +3704,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             else hiddenTracksByScope[scope].delete(track);
                         }
                     }
-                    if ((scope === 'cuts' || scope === 'audio') && typeof muted === 'boolean') {
+                    if ((scope === 'cuts' || scope === 'audio' || scope === 'layers') && typeof muted === 'boolean') {
                         if (track === null) {
                             allTracksMutedByScope[scope] = muted;
                         } else if (Number.isInteger(track) && track >= 0) {
