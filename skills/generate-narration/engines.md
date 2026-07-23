@@ -26,8 +26,12 @@ node skills/generate-narration/bin/generate-narration.mjs generate \
 ## voicevox アダプタ
 
 - 完全ローカル・無償・API キー不要。既にエンジンが `http://127.0.0.1:50021` で起動していればそれを使い、
-  未起動なら `/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run` をヘッドレスで自動起動する
+  未起動なら vv-engine の `run` をヘッドレスで自動起動する
   （`/version` 応答まで最大 60 秒待機。自分が起動した場合のみ生成後に終了させる）
+- run 実行ファイルの解決順: 環境変数 `VOICEVOX_RUN`（絶対パス直指定）→ platform 別既定インストール先
+  — darwin: `/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run`、
+  win32: `%LOCALAPPDATA%\Programs\VOICEVOX\vv-engine\run.exe`（VOICEVOX 0.16+ の既定インストーラ配置先）。
+  それ以外の platform では `VOICEVOX_RUN` 指定が必須（既定パスなし）
 - `/audio_query` → `/synthesis`（speaker id 指定）の順で呼び、wav を得る
 - `--speaker` は VOICEVOX の style id（既定 3 = ずんだもん・ノーマル）。話者名は `/speakers` から解決し、
   provenance に `voice: speaker:<id>(<話者名>)` / `credit: VOICEVOX:<話者名>` として記録する
