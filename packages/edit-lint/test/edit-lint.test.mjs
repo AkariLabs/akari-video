@@ -963,6 +963,10 @@ for (const [fixture, expectedCheck] of [
   ["cuts-track-overlap-invalid", "cuts.track-overlap"],
   ["cuts-at-negative-invalid", "cuts.at"],
   ["cuts-track-invalid-value", "cuts.track"],
+  ["cuts-transform-scale-invalid", "cuts.transform"],
+  ["cuts-opacity-out-of-range-invalid", "cuts.opacity"],
+  ["cuts-transform-rotate-invalid", "cuts.transform"],
+  ["cuts-transform-unknown-key-invalid", "cuts.transform"],
   ["layers-track-invalid-value", "layers.track"],
   ["audio-sfx-track-invalid-value", "audio.sfx.track"],
 ]) {
@@ -994,6 +998,22 @@ for (const fixture of [
       const result = parseResult(executed);
       assert.equal(result.verdict, "pass");
       assert.ok(!result.findings.some((finding) => finding.check === "cuts.track-overlap"));
+    });
+  });
+}
+
+for (const fixture of [
+  "cuts-transform-omitted-valid",
+  "cuts-transform-full-valid",
+  "cuts-transform-partial-valid",
+]) {
+  test(`${fixture} passes with no cut transform or opacity findings`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 0, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "pass");
+      assert.equal(result.findings.length, 0, JSON.stringify(result.findings, null, 2));
     });
   });
 }
