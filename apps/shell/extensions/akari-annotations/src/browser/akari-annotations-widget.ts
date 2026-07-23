@@ -20,6 +20,8 @@ import {
     EditCut,
     EditLayer,
     EditOverlay,
+    DECLARED_SFX_DURATION_SECONDS,
+    computeCutTrackSegments,
     parseEdit
 } from '../common/edit-store';
 import { assignSubRows } from '../common/lane-layout';
@@ -67,7 +69,7 @@ const STRIP_BOTTOM_MARGIN = 6;
 const TRACK_HEADER_WIDTH = 136;
 const BEAT_PROJECTION_EPSILON = 0.000001;
 
-/** タイムライン（出力秒軸）上の1セグメント。cuts[] を配列順にギャップなく連結した結果。 */
+/** タイムライン（出力秒軸）上の1セグメント。cuts[].at / track を解決した結果。 */
 interface OutputSegment {
     index: number;
     src?: string;
@@ -77,6 +79,7 @@ interface OutputSegment {
     transitionOut?: { type: string; duration: number };
     tlStart: number;
     tlEnd: number;
+    track: number;
 }
 
 type ToolMode = 'select' | 'razor';
@@ -131,6 +134,17 @@ interface OverlayTrackLayout {
     rows: number[];
 }
 
+interface LaneBounds {
+    top: number;
+    height: number;
+}
+
+interface TrackGroupLayout {
+    track: number;
+    top: number;
+    height: number;
+}
+
 const STATUS_COLORS: Record<Annotation['status'], string> = {
     open: 'var(--theia-charts-blue)',
     addressed: '#d68a00',
@@ -157,18 +171,22 @@ interface DragBase {
 
 type DragDetail =
     | { kind: 'cut-trim'; index: number; edge: 'left' | 'right'; originalIn: number; originalOut: number }
-    | { kind: 'cut-reorder'; index: number; originalTlStart: number; duration: number }
+    | { kind: 'cut-move'; index: number; originalAt: number; originalTrack: number; duration: number }
     | { kind: 'caption'; id: string; mode: 'move' | 'start' | 'end'; originalStart: number; originalEnd: number }
-    | { kind: 'overlay'; id: string; mode: 'move' | 'resize'; originalStart: number; originalDuration: number; originalTrack: number };
+    | { kind: 'overlay'; id: string; mode: 'move' | 'resize'; originalStart: number; originalDuration: number; originalTrack: number }
+    | { kind: 'layer'; id: string; mode: 'move' | 'start' | 'end'; originalT: number; originalDuration: number; originalTrack: number }
+    | { kind: 'audio'; id: string; originalT: number; originalTrack: number };
 
 type DragState = DragBase & DragDetail;
 
 type DragPreview =
     | { kind: 'cut-trim'; index: number; input: number; output: number }
-    | { kind: 'cut-reorder'; fromIndex: number; toIndex: number }
+    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean }
     | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
     | { kind: 'overlay-move'; id: string; start: number; track: number }
-    | { kind: 'overlay-resize'; id: string; duration: number };
+    | { kind: 'overlay-resize'; id: string; duration: number }
+    | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean }
+    | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean };
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
@@ -192,6 +210,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly snapToggleButton = document.createElement('button');
     protected readonly undoButton = document.createElement('button');
     protected readonly redoButton = document.createElement('button');
+    protected readonly compactButton = document.createElement('button');
     protected readonly zoomHud = document.createElement('div');
     protected readonly zoomIcon = document.createElement('span');
     protected readonly zoomLabel = document.createElement('span');
@@ -251,6 +270,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected selection: TimelineSelection;
     protected clipboard: TimelineClipboard | undefined;
     protected overlayTrackLayouts: OverlayTrackLayout[] = [];
+    protected laneLayout: {
+        beats: LaneBounds;
+        captions: LaneBounds;
+        overlayTracks: TrackGroupLayout[];
+        cutTracks: TrackGroupLayout[];
+        layerTracks: TrackGroupLayout[];
+        audioTracks: TrackGroupLayout[];
+        clipTop: number;
+    } = {
+        beats: { top: 0, height: 0 }, captions: { top: 0, height: 0 }, overlayTracks: [],
+        cutTracks: [{ track: 0, top: 0, height: CLIP_HEIGHT }], layerTracks: [], audioTracks: [], clipTop: 0
+    };
+    protected readonly overlayRows = new Map<string, number>();
+    protected readonly layerRows = new Map<string, number>();
+    protected readonly audioSfxRows = new Map<string, number>();
+    protected captionRows: number[] = [];
+    protected audioBgmTop = 0;
     protected clipMuted = false;
     protected clipsVisible = true;
     protected captionsVisible = true;
@@ -309,12 +345,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configureIconButton(this.redoButton, 'codicon-redo', 'やり直す', 'やり直す (⇧⌘Z)');
         this.redoButton.disabled = true;
         this.redoButton.addEventListener('click', () => void this.performRedo());
+        this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
+        this.compactButton.addEventListener('click', () => void this.performCompactCuts());
         this.toolbar.append(
             this.selectToolButton, this.razorToolButton,
             this.createToolbarSeparator(),
             this.snapToggleButton,
             this.createToolbarSeparator(),
-            this.undoButton, this.redoButton
+            this.undoButton, this.redoButton, this.compactButton
         );
         this.updateToolModeButtons();
         this.updateSnapButton();
@@ -722,6 +760,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: var(--theia-button-background);
         color: var(--theia-button-foreground);
     }
+    .akari-annotations-widget .akari-annotations-ghost-rejected {
+        border-color: #f14c4c !important;
+        background: rgba(241, 76, 76, .25) !important;
+    }
 `;
         this.node.appendChild(style);
 
@@ -780,9 +822,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
             }
-            if ((event.key === 'Delete' || event.key === 'Backspace') && this.selection?.kind === 'cut') {
+            if ((event.key === 'Delete' || event.key === 'Backspace') && this.selection) {
                 event.preventDefault();
-                void this.performDeleteSelectedCut();
+                void this.performDeleteSelected();
             }
         };
         // 注釈が増減したらピンを描き直す。パネルの時刻リンクからのジャンプもここで受ける。
@@ -861,11 +903,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected selectionFromDragState(state: DragState): TimelineSelection {
-        if (state.kind === 'cut-trim' || state.kind === 'cut-reorder') {
+        if (state.kind === 'cut-trim' || state.kind === 'cut-move') {
             return { kind: 'cut', index: state.index };
         }
         if (state.kind === 'caption') {
             return { kind: 'caption', id: state.id };
+        }
+        if (state.kind === 'layer') {
+            return { kind: 'layer', id: state.id };
+        }
+        if (state.kind === 'audio') {
+            return { kind: 'audio', id: state.id };
         }
         return { kind: 'overlay', id: state.id };
     }
@@ -1081,6 +1129,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
+            const frozenIndex = this.findFrozenNextIndex(this.cuts, index);
             const result = await this.annotationsService.deleteCut({
                 editUri: location.editUri.toString(), projectRootUri: location.root.toString(), cutIndex: index
             });
@@ -1092,6 +1141,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
                         cutIndex: index, elementText: removedText
                     });
+                    if (frozenIndex !== undefined) {
+                        await this.annotationsService.setCutAtValues({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            entries: [{ cutIndex: frozenIndex, at: null }]
+                        });
+                    }
                     await this.reloadEdit();
                 },
                 redo: async () => {
@@ -1111,6 +1166,250 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.showNotice(`クリップを削除できません: ${detail}`);
             this.messages.error(`クリップを削除できません: ${detail}`);
         }
+    }
+
+    protected async performDeleteSelected(): Promise<void> {
+        const selection = this.selection;
+        const location = this.location;
+        if (!selection || !location) {
+            return;
+        }
+        if (selection.kind === 'cut') {
+            await this.performDeleteSelectedCut();
+            return;
+        }
+        try {
+            let result: WriteBackResult;
+            if (selection.kind === 'caption') {
+                const caption = this.captions.find(candidate => candidate.id === selection.id);
+                if (!caption) {
+                    throw new Error(`字幕 ${selection.id} が見つかりません`);
+                }
+                const payload: CaptionWritePayload = {
+                    id: caption.id, start: caption.start, end: caption.end, text: caption.text,
+                    speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited
+                };
+                result = await this.annotationsService.removeCaption({
+                    captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(), captionId: caption.id
+                });
+                this.pushHistory({
+                    label: '字幕の削除',
+                    undo: async () => {
+                        await this.annotationsService.insertCaption({
+                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(), caption: payload
+                        });
+                        await this.reloadCaptions();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.removeCaption({
+                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(), captionId: caption.id
+                        });
+                        await this.reloadCaptions();
+                    }
+                });
+                await this.reloadCaptions();
+                this.footer.textContent = this.writeResultMessage('字幕を削除しました。', result);
+            } else if (selection.kind === 'overlay') {
+                if (!location.editUri) {
+                    return;
+                }
+                const overlay = this.overlays.find(candidate => candidate.id === selection.id);
+                if (!overlay) {
+                    throw new Error(`オーバーレイ ${selection.id} が見つかりません`);
+                }
+                const payload = this.deepCopy(overlay.payload) as OverlayWritePayload;
+                result = await this.annotationsService.removeOverlay({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(), overlayId: overlay.id
+                });
+                this.pushHistory({
+                    label: 'オーバーレイの削除',
+                    undo: async () => {
+                        await this.annotationsService.insertOverlay({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), overlay: payload
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.removeOverlay({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), overlayId: overlay.id
+                        });
+                        await this.reloadEdit();
+                    }
+                });
+                await this.reloadEdit();
+                this.footer.textContent = this.writeResultMessage('オーバーレイを削除しました。', result);
+            } else if (selection.kind === 'layer') {
+                if (!location.editUri) {
+                    return;
+                }
+                const layer = this.layers.find(candidate => candidate.id === selection.id);
+                if (!layer || !this.validTimelinePosition(layer.t, layer.track ?? 0)) {
+                    this.showNotice('レイヤーの時刻またはトラックが不正です。');
+                    return;
+                }
+                const removed = await this.annotationsService.removeLayer({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(), layerId: layer.id
+                });
+                result = removed;
+                this.pushHistory({
+                    label: 'レイヤーの削除',
+                    undo: async () => {
+                        await this.annotationsService.insertLayer({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            layerIndex: removed.layerIndex, elementText: removed.removedText
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.removeLayer({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), layerId: layer.id
+                        });
+                        await this.reloadEdit();
+                    }
+                });
+                await this.reloadEdit();
+                this.footer.textContent = this.writeResultMessage('レイヤーを削除しました。', result);
+            } else {
+                if (!location.editUri || selection.id === 'bgm') {
+                    this.footer.textContent = 'BGM は削除できません。';
+                    return;
+                }
+                const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
+                const sfxIndex = Number(selection.id.slice(4));
+                if (!sfx || !Number.isInteger(sfxIndex) || !this.validTimelinePosition(sfx.t, sfx.track ?? 0)) {
+                    this.showNotice('SE の時刻またはトラックが不正です。');
+                    return;
+                }
+                const removed = await this.annotationsService.removeSfx({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(), sfxIndex
+                });
+                result = removed;
+                this.pushHistory({
+                    label: 'SE の削除',
+                    undo: async () => {
+                        await this.annotationsService.insertSfx({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            sfxIndex: removed.sfxIndex, elementText: removed.removedText
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.removeSfx({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), sfxIndex
+                        });
+                        await this.reloadEdit();
+                    }
+                });
+                await this.reloadEdit();
+                this.footer.textContent = this.writeResultMessage('SE を削除しました。', result);
+            }
+            this.applySelection(undefined);
+            this.hideNotice();
+            this.revealOutputPreview();
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`選択項目を削除できません: ${detail}`);
+            this.messages.error(`選択項目を削除できません: ${detail}`);
+        }
+    }
+
+    protected async performCompactCuts(): Promise<void> {
+        const location = this.location;
+        if (!location?.editUri) {
+            return;
+        }
+        try {
+            const value = await this.readEditValue();
+            if (!Array.isArray(value.cuts)) {
+                throw new Error('cuts 配列が見つかりません。');
+            }
+            const selected = this.selection?.kind === 'cut' ? this.selection : undefined;
+            const selectedTrack = selected ? this.segments[selected.index]?.track : undefined;
+            const seenTracks = new Set<number>();
+            const entries: Array<{ cutIndex: number; at: number | null }> = [];
+            const originalEntries: Array<{ cutIndex: number; at: number | null }> = [];
+            value.cuts.forEach((cut: unknown, index: number) => {
+                if (!cut || typeof cut !== 'object') {
+                    return;
+                }
+                const raw = cut as Record<string, unknown>;
+                const track = typeof raw.track === 'number' && Number.isInteger(raw.track) && raw.track >= 0 ? raw.track : 0;
+                const firstOnTrack = !seenTracks.has(track);
+                seenTracks.add(track);
+                const inSelectedRange = selected
+                    ? index > selected.index && track === selectedTrack
+                    : !firstOnTrack;
+                if (inSelectedRange && Object.prototype.hasOwnProperty.call(raw, 'at')) {
+                    const at = raw.at;
+                    if (typeof at !== 'number' || !Number.isFinite(at) || at < 0) {
+                        throw new Error(`クリップ ${index + 1} の at が不正です。`);
+                    }
+                    entries.push({ cutIndex: index, at: null });
+                    originalEntries.push({ cutIndex: index, at });
+                }
+            });
+            if (entries.length === 0) {
+                this.footer.textContent = '詰める対象がありません。';
+                return;
+            }
+            const proposed = this.cuts.map(cut => ({ ...cut }));
+            for (const entry of entries) {
+                delete proposed[entry.cutIndex].at;
+            }
+            if (this.cutSegmentsOverlap(computeCutTrackSegments(proposed))) {
+                this.showNotice('同じクリップトラック内で区間が重なるため詰められません。');
+                return;
+            }
+            const result = await this.annotationsService.setCutAtValues({
+                editUri: location.editUri.toString(), projectRootUri: location.root.toString(), entries
+            });
+            this.pushHistory({
+                label: 'クリップ間の空白詰め',
+                undo: async () => {
+                    await this.annotationsService.setCutAtValues({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), entries: originalEntries
+                    });
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.annotationsService.setCutAtValues({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), entries
+                    });
+                    await this.reloadEdit();
+                }
+            });
+            await this.reloadEdit();
+            this.hideNotice();
+            this.footer.textContent = this.writeResultMessage('クリップ間の空白を詰めました。', result);
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`クリップ間の空白を詰められません: ${detail}`);
+            this.messages.error(`クリップ間の空白を詰められません: ${detail}`);
+        }
+    }
+
+    protected validTimelinePosition(time: number, track: number): boolean {
+        return Number.isFinite(time) && time >= 0 && Number.isInteger(track) && track >= 0;
+    }
+
+    protected cutSegmentsOverlap(segments: ReturnType<typeof computeCutTrackSegments>): boolean {
+        return segments.some((left, index) => segments.slice(index + 1).some(right =>
+            left.track === right.track && left.at < right.end && right.at < left.end));
+    }
+
+    protected findFrozenNextIndex(cuts: readonly EditCut[], cutIndex: number): number | undefined {
+        const segments = computeCutTrackSegments(cuts);
+        const target = segments[cutIndex];
+        if (!target) {
+            return undefined;
+        }
+        for (let index = cutIndex + 1; index < cuts.length; index++) {
+            if (segments[index].track !== target.track) {
+                continue;
+            }
+            return cuts[index].at === undefined ? index : undefined;
+        }
+        return undefined;
     }
 
     async configure(location: ProjectLocation): Promise<void> {
@@ -1222,21 +1521,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.renderStrip();
     }
 
-    /** cuts[] を配列順にギャップなく連結した出力秒セグメントを再構築する。cuts が変わるたび呼ぶ。 */
+    /** cuts[].at / track と後方互換の連結規則から出力秒セグメントを再構築する。 */
     protected rebuildSegments(): void {
-        let cursor = 0;
-        this.segments = this.cuts.map((cut, index) => {
+        this.segments = computeCutTrackSegments(this.cuts).map(segment => {
+            const cut = this.cuts[segment.index];
             const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
-            const duration = Math.max(0, cut.out - cut.in) / speed;
-            const segment: OutputSegment = {
-                index, src: cut.src, in: cut.in, out: cut.out, speed,
-                transitionOut: cut.transitionOut, tlStart: cursor, tlEnd: cursor + duration
+            return {
+                index: segment.index, src: cut.src, in: cut.in, out: cut.out, speed,
+                transitionOut: cut.transitionOut, tlStart: segment.at, tlEnd: segment.end, track: segment.track
             };
-            cursor += duration;
-            if (cut.transitionOut && index < this.cuts.length - 1) {
-                cursor -= cut.transitionOut.duration;
-            }
-            return segment;
         });
     }
 
@@ -1271,7 +1564,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected totalDuration(): number {
         if (this.cuts.length > 0) {
             // アウトプット軸: cuts 尺合計とオーバーレイ終端の大きい方（10 秒フロアは cuts があるときは外す）。
-            const cutsDuration = this.segments.length > 0 ? this.segments[this.segments.length - 1].tlEnd : 0;
+            const cutsDuration = this.segments.reduce((max, segment) => Math.max(max, segment.tlEnd), 0);
             const overlaysEnd = this.overlays.reduce((max, overlay) => Math.max(max, overlay.start + overlay.duration), 0);
             const layersEnd = this.layers.reduce((max, layer) => Math.max(max, layer.t + layer.duration), 0);
             const sfxEnd = this.audioSfx.reduce((max, sfx) => Math.max(max, sfx.t + sfx.duration), 0);
@@ -1356,6 +1649,103 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.viewDuration ?? this.totalDuration();
     }
 
+    protected calculateLaneLayout(): number {
+        this.captionRows = assignSubRows(this.captions.map(caption => ({ start: caption.start, end: caption.end })));
+        const captionRowCount = this.captionRows.length ? Math.max(...this.captionRows) + 1 : 0;
+        let nextTop = 0;
+        const beats = { top: nextTop, height: this.beats.length > 0 ? SUBROW_STRIDE : 0 };
+        if (beats.height > 0) {
+            nextTop += beats.height + LANE_GAP;
+        }
+        const captions = { top: nextTop, height: captionRowCount * SUBROW_STRIDE };
+        if (captions.height > 0) {
+            nextTop += captions.height + LANE_GAP;
+        }
+
+        this.overlayRows.clear();
+        this.overlayTrackLayouts = [];
+        const overlayTracks = [...new Set(this.overlays.map(overlay => overlay.track))].sort((a, b) => b - a);
+        for (const track of overlayTracks) {
+            const items = this.overlays.filter(overlay => overlay.track === track);
+            const rows = assignSubRows(items.map(overlay => ({ start: overlay.start, end: overlay.start + overlay.duration })));
+            items.forEach((overlay, index) => this.overlayRows.set(overlay.id, rows[index] ?? 0));
+            const height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+            this.overlayTrackLayouts.push({ track, top: nextTop, height, rows });
+            nextTop += height + LANE_GAP;
+        }
+
+        this.layerRows.clear();
+        const layerTracks: TrackGroupLayout[] = [];
+        for (const track of [...new Set(this.layers.map(layer => layer.track ?? 0))].sort((a, b) => b - a)) {
+            const items = this.layers.filter(layer => (layer.track ?? 0) === track);
+            const rows = assignSubRows(items.map(layer => ({ start: layer.t, end: layer.t + layer.duration })));
+            items.forEach((layer, index) => this.layerRows.set(layer.id, rows[index] ?? 0));
+            const height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+            layerTracks.push({ track, top: nextTop, height });
+            nextTop += height + LANE_GAP;
+        }
+
+        const audioTop = nextTop;
+        this.audioBgmTop = audioTop;
+        if (this.audioBgm) {
+            nextTop += SUBROW_STRIDE;
+        }
+        this.audioSfxRows.clear();
+        const audioTracks: TrackGroupLayout[] = [];
+        for (const track of [...new Set(this.audioSfx.map(sfx => sfx.track ?? 0))].sort((a, b) => b - a)) {
+            const items = this.audioSfx.filter(sfx => (sfx.track ?? 0) === track);
+            const rows = assignSubRows(items.map(sfx => ({ start: sfx.t, end: sfx.t + sfx.duration })));
+            items.forEach((sfx, index) => this.audioSfxRows.set(sfx.id, rows[index] ?? 0));
+            const height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+            audioTracks.push({ track, top: nextTop, height });
+            nextTop += height + LANE_GAP;
+        }
+        const hasAudio = Boolean(this.audioBgm || this.audioSfx.length);
+        const audioHeight = hasAudio ? nextTop - audioTop - (audioTracks.length > 0 ? LANE_GAP : 0) : 0;
+        if (hasAudio) {
+            nextTop = audioTop + audioHeight + LANE_GAP;
+        }
+
+        const cutTracks: TrackGroupLayout[] = [];
+        const occupiedCutTracks = [...new Set(this.segments.map(segment => segment.track))].sort((a, b) => b - a);
+        for (const track of occupiedCutTracks.length > 0 ? occupiedCutTracks : [0]) {
+            cutTracks.push({ track, top: nextTop, height: CLIP_HEIGHT });
+            nextTop += CLIP_HEIGHT + LANE_GAP;
+        }
+        const clipTop = cutTracks[0].top;
+        this.laneLayout = {
+            beats,
+            captions,
+            overlayTracks: this.overlayTrackLayouts,
+            cutTracks,
+            layerTracks,
+            audioTracks,
+            clipTop
+        };
+        return nextTop - LANE_GAP + STRIP_BOTTOM_MARGIN;
+    }
+
+    protected groupTop(layouts: readonly TrackGroupLayout[]): number {
+        return layouts[0]?.top ?? 0;
+    }
+
+    protected groupHeight(layouts: readonly TrackGroupLayout[]): number {
+        if (layouts.length === 0) {
+            return 0;
+        }
+        const last = layouts[layouts.length - 1];
+        return last.top + last.height - layouts[0].top;
+    }
+
+    protected audioBandBounds(): LaneBounds {
+        if (!this.audioBgm && this.laneLayout.audioTracks.length === 0) {
+            return { top: this.audioBgmTop, height: 0 };
+        }
+        const last = this.laneLayout.audioTracks[this.laneLayout.audioTracks.length - 1];
+        const end = last ? last.top + last.height : this.audioBgmTop + SUBROW_STRIDE;
+        return { top: this.audioBgmTop, height: end - this.audioBgmTop };
+    }
+
     protected renderStrip(): void {
         // DOM 再構築で pointer capture と dragState を壊さないよう、ドラッグ終了まで延期する。
         if (this.dragState) {
@@ -1378,61 +1768,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
         // レーン構造は NLE 慣行（Wave 23）: 見せ場 → 字幕帯 → オーバーレイのトラック行（track 降順）
         // → レイヤー → オーディオ → クリップ帯（最下段）。
-        // 横軸の位置決めは出力軸（Wave 22）: クリップは this.segments（cuts のギャップレス連結）、
+        // 横軸の位置決めは出力軸（Wave 22）: クリップは this.segments（cuts の at/track 解決結果）、
         // 字幕は sourceRangeToOutputRanges で source 秒→出力秒へ変換する。オーバーレイ・レイヤー・音声は元々出力秒基準。
-        const captionRows = assignSubRows(this.captions.map(c => ({ start: c.start, end: c.end })));
-        const captionSubRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 0;
-        let nextTop = 0;
-        const beatsBandTop = nextTop;
-        const beatsBandHeight = this.beats.length > 0 ? SUBROW_STRIDE : 0;
-        if (beatsBandHeight > 0) {
-            nextTop += beatsBandHeight + LANE_GAP;
-        }
-        const captionBandTop = nextTop;
-        const captionBandHeight = captionSubRowCount * SUBROW_STRIDE;
-        if (captionBandHeight > 0) {
-            nextTop += captionBandHeight + LANE_GAP;
-        }
-
-        const overlayRows = new Map<string, number>();
-        this.overlayTrackLayouts = [];
-        const overlayTracks = [...new Set(this.overlays.map(overlay => overlay.track))].sort((a, b) => b - a);
-        for (const track of overlayTracks) {
-            const trackOverlays = this.overlays.filter(overlay => overlay.track === track);
-            const rows = assignSubRows(trackOverlays.map(overlay => ({
-                start: overlay.start, end: overlay.start + overlay.duration
-            })));
-            trackOverlays.forEach((overlay, index) => overlayRows.set(overlay.id, rows[index] ?? 0));
-            const rowCount = rows.length ? Math.max(...rows) + 1 : 1;
-            const height = rowCount * SUBROW_STRIDE;
-            this.overlayTrackLayouts.push({ track, top: nextTop, height, rows });
-            nextTop += height + LANE_GAP;
-        }
-
-        const layerRows = assignSubRows(this.layers.map(layer => ({
-            start: layer.t, end: layer.t + layer.duration
-        })));
-        const layerBandTop = nextTop;
-        const layerBandHeight = this.layers.length > 0
-            ? (Math.max(...layerRows) + 1) * SUBROW_STRIDE : 0;
-        if (layerBandHeight > 0) {
-            nextTop += layerBandHeight + LANE_GAP;
-        }
-
-        const audioSfxRows = assignSubRows(this.audioSfx.map(sfx => ({
-            start: sfx.t, end: sfx.t + sfx.duration
-        })));
-        const audioBandTop = nextTop;
-        const audioSfxRowCount = audioSfxRows.length > 0 ? Math.max(...audioSfxRows) + 1 : 0;
-        const audioBandHeight = this.audioSfx.length > 0 || this.audioBgm
-            ? ((this.audioBgm ? 1 : 0) + audioSfxRowCount) * SUBROW_STRIDE : 0;
-        if (audioBandHeight > 0) {
-            nextTop += audioBandHeight + LANE_GAP;
-        }
-        const clipTop = nextTop;
+        const stripHeight = this.calculateLaneLayout();
+        const beatsBandTop = this.laneLayout.beats.top;
+        const beatsBandHeight = this.laneLayout.beats.height;
+        const captionBandTop = this.laneLayout.captions.top;
+        const captionBandHeight = this.laneLayout.captions.height;
+        const layerBandTop = this.groupTop(this.laneLayout.layerTracks);
+        const layerBandHeight = this.groupHeight(this.laneLayout.layerTracks);
+        const audioBandTop = this.audioBandBounds().top;
+        const audioBandHeight = this.audioBandBounds().height;
+        const clipTop = this.laneLayout.clipTop;
+        const clipHeight = this.groupHeight(this.laneLayout.cutTracks);
 
         // 注釈ピンはルーラー帯（renderRuler）へ描くため、専用レーンは持たない。
-        const stripHeight = clipTop + CLIP_HEIGHT + STRIP_BOTTOM_MARGIN;
         this.strip.style.height = `${stripHeight}px`;
         this.trackHeaders.style.height = `${stripHeight}px`;
         this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
@@ -1441,7 +1791,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             captionBandTop, captionBandHeight,
             layerBandTop, layerBandHeight,
             audioBandTop, audioBandHeight,
-            clipTop
+            clipTop, clipHeight
         );
 
         if (beatsBandHeight > 0) {
@@ -1475,7 +1825,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             audioBand.style.opacity = this.audioVisible ? '1' : '.28';
             this.strip.appendChild(audioBand);
         }
-        const clipBand = this.laneBand('clips', clipTop, CLIP_HEIGHT);
+        const clipBand = this.laneBand('clips', clipTop, clipHeight);
         clipBand.style.opacity = this.clipsVisible ? '1' : '.28';
         this.strip.appendChild(clipBand);
 
@@ -1487,7 +1837,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const [outputStart, outputEnd] = [outputRanges[0][0], outputRanges[outputRanges.length - 1][1]];
-            const top = captionBandTop + captionRows[index] * SUBROW_STRIDE;
+            const top = captionBandTop + this.captionRows[index] * SUBROW_STRIDE;
             const element = this.stripSegment(
                 outputStart, outputEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
             );
@@ -1513,7 +1863,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.overlays.forEach(overlay => {
             const layout = this.overlayTrackLayouts.find(candidate => candidate.track === overlay.track);
             const top = (layout?.top ?? captionBandTop + captionBandHeight + LANE_GAP)
-                + (overlayRows.get(overlay.id) ?? 0) * SUBROW_STRIDE;
+                + (this.overlayRows.get(overlay.id) ?? 0) * SUBROW_STRIDE;
             const element = this.stripSegment(
                 overlay.start, overlay.start + overlay.duration, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-overlay', overlay.id
@@ -1530,8 +1880,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }));
             this.strip.appendChild(element);
         });
-        this.layers.forEach((layer, index) => {
-            const top = layerBandTop + (layerRows[index] ?? 0) * SUBROW_STRIDE;
+        this.layers.forEach(layer => {
+            const layout = this.laneLayout.layerTracks.find(candidate => candidate.track === (layer.track ?? 0));
+            const top = (layout?.top ?? layerBandTop) + (this.layerRows.get(layer.id) ?? 0) * SUBROW_STRIDE;
             const element = this.stripSegment(
                 layer.t, layer.t + layer.duration, top, SUBROW_HEIGHT,
                 `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
@@ -1542,9 +1893,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.layersVisible ? '' : '.28';
             element.appendChild(this.segmentLabel(layer.id));
-            element.addEventListener('click', event => {
-                event.stopPropagation();
-                this.applySelection({ kind: 'layer', id: layer.id });
+            this.installDragListeners(element, (event, rect) => {
+                const localX = event.clientX - rect.left;
+                const rightDistance = rect.right - event.clientX;
+                const mode = localX <= EDGE_ZONE_PX && localX <= rightDistance ? 'start'
+                    : rightDistance <= EDGE_ZONE_PX ? 'end' : 'move';
+                return {
+                    kind: 'layer', id: layer.id, mode,
+                    originalT: layer.t, originalDuration: layer.duration, originalTrack: layer.track ?? 0
+                };
             });
             this.strip.appendChild(element);
         });
@@ -1567,9 +1924,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         }
-        this.audioSfx.forEach((sfx, index) => {
-            const rowOffset = this.audioBgm ? 1 : 0;
-            const top = audioBandTop + (rowOffset + (audioSfxRows[index] ?? 0)) * SUBROW_STRIDE;
+        this.audioSfx.forEach(sfx => {
+            const layout = this.laneLayout.audioTracks.find(candidate => candidate.track === (sfx.track ?? 0));
+            const top = (layout?.top ?? audioBandTop) + (this.audioSfxRows.get(sfx.id) ?? 0) * SUBROW_STRIDE;
             const label = this.pathBaseName(sfx.path);
             const element = this.stripSegment(
                 sfx.t, sfx.t + sfx.duration, top, SUBROW_HEIGHT,
@@ -1581,16 +1938,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
             element.appendChild(this.segmentLabel(label));
-            element.addEventListener('click', event => {
-                event.stopPropagation();
-                this.applySelection({ kind: 'audio', id: sfx.id });
-            });
+            this.installDragListeners(element, () => ({
+                kind: 'audio', id: sfx.id, originalT: sfx.t, originalTrack: sfx.track ?? 0
+            }));
             this.strip.appendChild(element);
         });
         this.segments.forEach(segment => {
             const cut = this.cuts[segment.index];
             const element = this.stripSegment(
-                segment.tlStart, segment.tlEnd, clipTop, CLIP_HEIGHT,
+                segment.tlStart, segment.tlEnd,
+                this.laneLayout.cutTracks.find(candidate => candidate.track === segment.track)?.top ?? clipTop,
+                CLIP_HEIGHT,
                 'akari-annotations-strip-clip', `C${segment.index + 1}`
             );
             element.dataset.akariItemKind = 'cut';
@@ -1613,7 +1971,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (rightDistance <= EDGE_ZONE_PX) {
                     return { kind: 'cut-trim', index: segment.index, edge: 'right', originalIn: cut.in, originalOut: cut.out };
                 }
-                return { kind: 'cut-reorder', index: segment.index, originalTlStart: segment.tlStart, duration: segment.tlEnd - segment.tlStart };
+                return {
+                    kind: 'cut-move', index: segment.index, originalAt: segment.tlStart,
+                    originalTrack: segment.track, duration: segment.tlEnd - segment.tlStart
+                };
             }, event => void this.performRazorSplitAt(segment, event.clientX));
             if (this.toolMode === 'razor') {
                 element.style.cursor = 'crosshair';
@@ -1676,7 +2037,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         layerHeight: number,
         audioTop: number,
         audioHeight: number,
-        clipTop: number
+        clipTop: number,
+        clipHeight: number
     ): void {
         this.trackHeaders.replaceChildren();
         if (beatsHeight > 0) {
@@ -1764,7 +2126,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ));
         }
         this.trackHeaders.appendChild(this.trackHeaderRow(
-            'クリップ', 'video', 'clips', clipTop, CLIP_HEIGHT,
+            'クリップ', 'video', 'clips', clipTop, clipHeight,
             this.clipsVisible, () => {
                 this.clipsVisible = !this.clipsVisible;
                 this.dispatchPreviewEvent(TIMELINE_SET_CLIPS_VISIBILITY_EVENT, { visible: this.clipsVisible });
@@ -2137,9 +2499,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const rect = element.getBoundingClientRect();
-            const localX = event.clientX - rect.left;
-            const rightDistance = rect.right - event.clientX;
-            element.style.cursor = localX <= EDGE_ZONE_PX || rightDistance <= EDGE_ZONE_PX ? 'ew-resize' : 'default';
+            const hoverDetail = detail(event, rect);
+            const resizing = hoverDetail.kind === 'cut-trim'
+                || (hoverDetail.kind === 'caption' && hoverDetail.mode !== 'move')
+                || (hoverDetail.kind === 'layer' && hoverDetail.mode !== 'move')
+                || (hoverDetail.kind === 'overlay' && hoverDetail.mode === 'resize');
+            element.style.cursor = resizing ? 'ew-resize' : 'default';
         });
         element.addEventListener('pointerdown', event => {
             if (event.button !== 0) {
@@ -2185,7 +2550,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             event.preventDefault();
-            const verticalMove = state.kind === 'overlay' && state.mode === 'move'
+            const verticalMove = ((state.kind === 'overlay' && state.mode === 'move')
+                || state.kind === 'cut-move' || (state.kind === 'layer' && state.mode === 'move') || state.kind === 'audio')
                 && Math.abs(event.clientY - state.startClientY) > DRAG_THRESHOLD_PX;
             if (Math.abs(event.clientX - state.startClientX) > DRAG_THRESHOLD_PX || verticalMove) {
                 state.dragged = true;
@@ -2243,21 +2609,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateGhostHeaderDuration(state.ghost, newDuration);
             return { kind: 'cut-trim', index: state.index, input, output };
         }
-        if (state.kind === 'cut-reorder') {
-            const proposedTlStart = Math.max(0, state.originalTlStart + delta);
-            const pointerTime = this.timeAtClientX(clientX);
-            const dropTime = this.snapTimeInOutputSpace(pointerTime, showGuide);
-            this.setGhostRange(state.ghost, proposedTlStart, proposedTlStart + state.duration);
-            const boundaries = this.segments.flatMap(segment => [
-                { time: segment.tlStart, index: segment.index },
-                { time: segment.tlEnd, index: segment.index }
-            ]);
-            const target = boundaries.reduce((nearest, candidate) =>
-                Math.abs(dropTime - candidate.time) < Math.abs(dropTime - nearest.time) ? candidate : nearest,
-            boundaries.find(candidate => candidate.index === state.index) ?? { time: state.originalTlStart, index: state.index });
-            const toIndex = target.index;
-            this.updateDragFeedback(state, `並べ替え先: ${this.formatTimestamp(dropTime)}`);
-            return { kind: 'cut-reorder', fromIndex: state.index, toIndex };
+        if (state.kind === 'cut-move') {
+            const at = Math.max(0, this.snapTimeInOutputSpace(state.originalAt + delta, showGuide));
+            const hit = this.trackAtClientY('cut', this.laneLayout.cutTracks, clientY, state.originalTrack, CLIP_HEIGHT);
+            const rejected = hit.rejected || this.cutWouldOverlap(state.index, at, state.duration, hit.track);
+            this.setGhostRange(state.ghost, at, at + state.duration);
+            state.ghost.style.top = `${hit.top}px`;
+            this.setGhostRejected(state.ghost, rejected);
+            this.updateDragFeedback(state, rejected
+                ? '⚠ 移動できません（種別が異なる／重なります）'
+                : `${this.formatTimestamp(at)} / トラック ${hit.track}`);
+            return { kind: 'cut-move', index: state.index, at, track: hit.track, rejected };
         }
         if (state.kind === 'caption') {
             let start = state.originalStart;
@@ -2281,6 +2643,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 deltaEnd: end - state.originalEnd,
                 start, end
             };
+        }
+        if (state.kind === 'layer') {
+            let t = state.originalT;
+            let itemDuration = state.originalDuration;
+            let track = state.originalTrack;
+            let rejected = false;
+            if (state.mode === 'start') {
+                t = this.snapTimeInOutputSpace(Math.max(0, state.originalT + delta), showGuide);
+                itemDuration = state.originalDuration + (state.originalT - t);
+            } else if (state.mode === 'end') {
+                itemDuration = this.snapTimeInOutputSpace(
+                    state.originalT + state.originalDuration + delta, showGuide
+                ) - state.originalT;
+            } else {
+                t = this.snapTimeInOutputSpace(Math.max(0, state.originalT + delta), showGuide);
+                const hit = this.trackAtClientY(
+                    'layer', this.laneLayout.layerTracks, clientY, state.originalTrack, SUBROW_STRIDE
+                );
+                track = hit.track;
+                rejected = hit.rejected;
+                state.ghost.style.top = `${hit.top}px`;
+            }
+            this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
+            this.setGhostRejected(state.ghost, rejected);
+            this.updateDragFeedback(state, rejected
+                ? '⚠ 移動できません（種別が異なります）'
+                : `${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒 / トラック ${track}`);
+            return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected };
+        }
+        if (state.kind === 'audio') {
+            const t = this.snapTimeInOutputSpace(Math.max(0, state.originalT + delta), showGuide);
+            const hit = this.trackAtClientY(
+                'audio', this.laneLayout.audioTracks, clientY, state.originalTrack, SUBROW_STRIDE
+            );
+            this.setGhostRange(state.ghost, t, t + DECLARED_SFX_DURATION_SECONDS);
+            state.ghost.style.top = `${hit.top}px`;
+            this.setGhostRejected(state.ghost, hit.rejected);
+            this.updateDragFeedback(state, hit.rejected
+                ? '⚠ 移動できません（種別が異なります）'
+                : `${this.formatTimestamp(t)} / トラック ${hit.track}`);
+            return { kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected };
         }
         if (state.mode === 'move') {
             const start = this.snapTimeInOutputSpace(Math.max(0, state.originalStart + delta), showGuide);
@@ -2341,6 +2744,68 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return 0;
     }
 
+    protected trackAtClientY(
+        kind: 'cut' | 'layer' | 'audio',
+        layouts: readonly TrackGroupLayout[],
+        clientY: number,
+        originalTrack: number,
+        rowHeight: number
+    ): { track: number; top: number; rejected: boolean } {
+        if (layouts.length === 0) {
+            return { track: 0, top: 0, rejected: true };
+        }
+        const localY = clientY - this.strip.getBoundingClientRect().top;
+        const highest = layouts[0];
+        if (localY < highest.top) {
+            if (localY >= highest.top - LANE_GAP) {
+                return { track: highest.track + 1, top: Math.max(0, highest.top - rowHeight), rejected: false };
+            }
+            const laneKind = this.laneKindAtLocalY(localY);
+            if (laneKind === kind || laneKind === 'none') {
+                return { track: highest.track + 1, top: Math.max(0, highest.top - rowHeight), rejected: false };
+            }
+            const current = layouts.find(layout => layout.track === originalTrack) ?? highest;
+            return { track: originalTrack, top: current.top, rejected: true };
+        }
+        for (const layout of layouts) {
+            if (localY >= layout.top && localY < layout.top + layout.height + LANE_GAP) {
+                return { track: layout.track, top: layout.top, rejected: false };
+            }
+        }
+        const current = layouts.find(layout => layout.track === originalTrack) ?? highest;
+        return { track: originalTrack, top: current.top, rejected: this.laneKindAtLocalY(localY) !== kind };
+    }
+
+    protected laneKindAtLocalY(localY: number): 'cut' | 'layer' | 'audio' | 'foreign' | 'none' {
+        if (this.inBounds(localY, this.audioBandBounds())) {
+            return 'audio';
+        }
+        if (this.inBounds(localY, { top: this.groupTop(this.laneLayout.layerTracks), height: this.groupHeight(this.laneLayout.layerTracks) })) {
+            return 'layer';
+        }
+        if (this.inBounds(localY, { top: this.groupTop(this.laneLayout.cutTracks), height: this.groupHeight(this.laneLayout.cutTracks) })) {
+            return 'cut';
+        }
+        if (this.inBounds(localY, this.laneLayout.beats) || this.inBounds(localY, this.laneLayout.captions)
+            || this.laneLayout.overlayTracks.some(layout => this.inBounds(localY, layout))) {
+            return 'foreign';
+        }
+        return 'none';
+    }
+
+    protected inBounds(value: number, bounds: LaneBounds): boolean {
+        return bounds.height > 0 && value >= bounds.top && value < bounds.top + bounds.height + LANE_GAP;
+    }
+
+    protected cutWouldOverlap(index: number, at: number, duration: number, track: number): boolean {
+        return this.segments.some(segment => segment.index !== index && segment.track === track
+            && at < segment.tlEnd && segment.tlStart < at + duration);
+    }
+
+    protected setGhostRejected(ghost: HTMLDivElement, rejected: boolean): void {
+        ghost.classList.toggle('akari-annotations-ghost-rejected', rejected);
+    }
+
     protected setGhostRange(ghost: HTMLDivElement, start: number, end: number): void {
         ghost.style.left = `${this.percent(start)}%`;
         ghost.style.width = `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`;
@@ -2380,7 +2845,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * 並べ替え・オーバーレイドラッグ用。候補は出力空間（セグメント境界・再生位置・選択位置の射影）。
+     * 位置移動・オーバーレイドラッグ用。候補は出力空間（セグメント境界・再生位置・選択位置の射影）。
      * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする。
      */
     protected snapTimeInOutputSpace(value: number, showGuide: boolean): number {
@@ -2474,6 +2939,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!location) {
             return;
         }
+        if ('rejected' in preview && preview.rejected) {
+            this.footer.textContent = '移動できません（種別が異なるか、同じトラック内で重なります）。';
+            return;
+        }
         try {
             let result: WriteBackResult;
             if (preview.kind === 'cut-trim') {
@@ -2485,6 +2954,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 const original = this.cuts[preview.index];
+                const frozenIndex = this.findFrozenNextIndex(this.cuts, preview.index);
                 result = await this.annotationsService.trimCut({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     cutIndex: preview.index, in: preview.input, out: preview.output
@@ -2496,6 +2966,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
                             cutIndex: preview.index, in: original.in, out: original.out
                         });
+                        if (frozenIndex !== undefined) {
+                            await this.annotationsService.setCutAtValues({
+                                editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                                entries: [{ cutIndex: frozenIndex, at: null }]
+                            });
+                        }
                         await this.reloadEdit();
                     },
                     redo: async () => {
@@ -2508,34 +2984,53 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('クリップをトリムしました。', result);
-            } else if (preview.kind === 'cut-reorder') {
-                if (!location.editUri || preview.fromIndex === preview.toIndex) {
-                    this.footer.textContent = 'クリップの順序は変わりませんでした。';
+            } else if (preview.kind === 'cut-move') {
+                if (!location.editUri) {
                     return;
                 }
-                result = await this.annotationsService.reorderCuts({
+                if (!Number.isFinite(preview.at) || preview.at < 0
+                    || !Number.isInteger(preview.track) || preview.track < 0) {
+                    this.showNotice('クリップの移動先が不正です。');
+                    return;
+                }
+                const original = this.segments[preview.index];
+                if (!original || this.cutWouldOverlap(preview.index, preview.at, original.tlEnd - original.tlStart, preview.track)) {
+                    this.showNotice('同じクリップトラック内で区間が重なるため移動できません。');
+                    return;
+                }
+                const frozenIndex = this.findFrozenNextIndex(this.cuts, preview.index);
+                const originalTrackState = await this.readIndexedTrackState('cuts');
+                result = await this.annotationsService.moveCut({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    fromIndex: preview.fromIndex, toIndex: preview.toIndex
+                    cutIndex: preview.index, at: preview.at,
+                    track: preview.track === original.track ? undefined : preview.track
                 });
+                await this.reloadEdit();
+                const movedTrackState = await this.readIndexedTrackState('cuts');
                 this.pushHistory({
-                    label: 'クリップの並べ替え',
+                    label: 'クリップの移動',
                     undo: async () => {
-                        await this.annotationsService.reorderCuts({
+                        await this.annotationsService.moveCut({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            fromIndex: preview.toIndex, toIndex: preview.fromIndex
+                            cutIndex: preview.index, at: original.tlStart, trackState: originalTrackState
                         });
+                        if (frozenIndex !== undefined) {
+                            await this.annotationsService.setCutAtValues({
+                                editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                                entries: [{ cutIndex: frozenIndex, at: null }]
+                            });
+                        }
                         await this.reloadEdit();
                     },
                     redo: async () => {
-                        await this.annotationsService.reorderCuts({
+                        await this.annotationsService.moveCut({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            fromIndex: preview.fromIndex, toIndex: preview.toIndex
+                            cutIndex: preview.index, at: preview.at, trackState: movedTrackState
                         });
                         await this.reloadEdit();
                     }
                 });
-                await this.reloadEdit();
-                this.footer.textContent = this.writeResultMessage('クリップの順序を入れ替えました。', result);
+                this.footer.textContent = this.writeResultMessage('クリップを移動しました。', result);
             } else if (preview.kind === 'caption') {
                 if (preview.start < 0 || preview.end - preview.start < MINIMUM_ITEM_DURATION) {
                     this.showNotice('字幕が短すぎます（0.15 秒未満にはできません）');
@@ -2564,6 +3059,82 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 await this.reloadCaptions();
                 this.footer.textContent = this.writeResultMessage('字幕のタイミングを調整しました。', result);
+            } else if (preview.kind === 'layer') {
+                if (!location.editUri) {
+                    return;
+                }
+                if (!Number.isFinite(preview.t) || preview.t < 0 || !Number.isFinite(preview.duration)
+                    || preview.duration < MINIMUM_ITEM_DURATION || !Number.isInteger(preview.track) || preview.track < 0) {
+                    this.showNotice('レイヤーが短すぎるか、移動先が不正です（0.15 秒以上必要です）。');
+                    return;
+                }
+                const original = this.layers.find(layer => layer.id === preview.id);
+                if (!original) {
+                    throw new Error(`レイヤー ${preview.id} が見つかりません`);
+                }
+                const originalTrackState = await this.readIdTrackState('layers');
+                result = await this.annotationsService.moveLayer({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
+                    layerId: preview.id, t: preview.t, duration: preview.duration, track: preview.track
+                });
+                await this.reloadEdit();
+                const movedTrackState = await this.readIdTrackState('layers');
+                this.pushHistory({
+                    label: 'レイヤーの調整',
+                    undo: async () => {
+                        await this.annotationsService.moveLayer({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            layerId: preview.id, t: original.t, duration: original.duration, trackState: originalTrackState
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.moveLayer({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            layerId: preview.id, t: preview.t, duration: preview.duration, trackState: movedTrackState
+                        });
+                        await this.reloadEdit();
+                    }
+                });
+                this.footer.textContent = this.writeResultMessage('レイヤーを調整しました。', result);
+            } else if (preview.kind === 'audio') {
+                if (!location.editUri) {
+                    return;
+                }
+                if (!Number.isFinite(preview.t) || preview.t < 0 || !Number.isInteger(preview.track) || preview.track < 0) {
+                    this.showNotice('SE の移動先が不正です。');
+                    return;
+                }
+                const original = this.audioSfx.find(sfx => sfx.id === preview.id);
+                const sfxIndex = Number(preview.id.slice(4));
+                if (!original || !Number.isInteger(sfxIndex)) {
+                    throw new Error(`SE ${preview.id} が見つかりません`);
+                }
+                const originalTrackState = await this.readIndexedTrackState('sfx');
+                result = await this.annotationsService.moveSfx({
+                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
+                    sfxIndex, t: preview.t, track: preview.track
+                });
+                await this.reloadEdit();
+                const movedTrackState = await this.readIndexedTrackState('sfx');
+                this.pushHistory({
+                    label: 'SE の移動',
+                    undo: async () => {
+                        await this.annotationsService.moveSfx({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            sfxIndex, t: original.t, trackState: originalTrackState
+                        });
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.annotationsService.moveSfx({
+                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                            sfxIndex, t: preview.t, trackState: movedTrackState
+                        });
+                        await this.reloadEdit();
+                    }
+                });
+                this.footer.textContent = this.writeResultMessage('SE を移動しました。', result);
             } else if (preview.kind === 'overlay-move') {
                 if (!location.editUri) {
                     return;
@@ -2655,6 +3226,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const state: Record<string, number | null> = {};
         for (const overlay of this.overlays) {
             state[overlay.id] = Object.prototype.hasOwnProperty.call(overlay.payload, 'track') ? overlay.track : null;
+        }
+        return state;
+    }
+
+    protected async readEditValue(): Promise<Record<string, any>> {
+        const editUri = this.location?.editUri;
+        if (!editUri) {
+            throw new Error('edit.json が見つかりません。');
+        }
+        return JSON.parse((await this.fileService.readFile(editUri)).value.toString()) as Record<string, any>;
+    }
+
+    protected async readIndexedTrackState(key: 'cuts' | 'sfx'): Promise<Record<string, number | null>> {
+        const value = await this.readEditValue();
+        const items = key === 'cuts' ? value.cuts : value.audio?.sfx;
+        if (!Array.isArray(items)) {
+            return {};
+        }
+        const state: Record<string, number | null> = {};
+        items.forEach((item, index) => {
+            state[String(index)] = item && Object.prototype.hasOwnProperty.call(item, 'track') ? item.track : null;
+        });
+        return state;
+    }
+
+    protected async readIdTrackState(key: 'layers'): Promise<Record<string, number | null>> {
+        const value = await this.readEditValue();
+        const items = value[key];
+        if (!Array.isArray(items)) {
+            return {};
+        }
+        const state: Record<string, number | null> = {};
+        for (const item of items) {
+            if (item && typeof item.id === 'string') {
+                state[item.id] = Object.prototype.hasOwnProperty.call(item, 'track') ? item.track : null;
+            }
         }
         return state;
     }
