@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 60.0 }],
+  "overlays": [],
+  "emphasis_words": [
+    { "id": "e-0001", "t_start": 12.44, "t_end": 12.08, "word": "すごい", "emotion": "surprise" },
+    { "id": "e-0002", "t_start": 20.0, "t_end": 20.0, "word": "痛い", "emotion": "pain" }
+  ]
+}

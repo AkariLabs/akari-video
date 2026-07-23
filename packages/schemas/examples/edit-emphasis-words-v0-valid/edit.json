@@ -1,0 +1,32 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 60.0 }],
+  "overlays": [],
+  "emphasis_words": [
+    {
+      "id": "e-0001",
+      "t_start": 12.08,
+      "t_end": 12.44,
+      "word": "すごい",
+      "emotion": "surprise",
+      "style_hint": "size-pulse"
+    },
+    {
+      "id": "e-0002",
+      "t_start": 132.4,
+      "t_end": 132.82,
+      "word": "痛い",
+      "emotion": "pain",
+      "style_hint": "one-char-bang"
+    },
+    {
+      "id": "e-0003",
+      "t_start": 145.0,
+      "t_end": 145.6,
+      "word": "最高",
+      "emotion": "joy"
+    }
+  ]
+}

@@ -545,6 +545,71 @@ test("beats[].t is not compared against the source duration (source-seconds anch
   });
 });
 
+test("emphasis_words (語レベル演出) v0: 3 words with mixed emotions and optional style_hint pass with zero findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "emphasis-words-v0-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("emphasis_words v1: src present / omitted (single-source compatibility) both pass", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "emphasis-words-v1-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+for (const [fixture, expectedCheck] of [
+  ["emphasis-words-invalid-id", "emphasis_words.id"],
+  ["emphasis-words-range-invalid", "emphasis_words.range"],
+  ["emphasis-words-empty-word", "emphasis_words.word"],
+  ["emphasis-words-missing-emotion", "emphasis_words.emotion"],
+  ["emphasis-words-v0-src-present", "emphasis_words.src"],
+]) {
+  test(`${fixture} fails with ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "fail");
+      assert.ok(
+        result.findings.some(
+          (finding) => finding.check === expectedCheck && finding.severity === "error",
+        ),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+test("emphasis_words[].t_start / t_end are not compared against the source duration (source-seconds anchor)", async () => {
+  await withFixtures(async (fixtures) => {
+    // emphasis-words-v0-valid の e-0002/e-0003 は analysis.json の source 実尺（60s）も
+    // timeline 尺（cuts 合計 20s）も超える位置にあるが、emphasis_words は timeline 秒ではなく
+    // source 秒アンカー（contract-2026-07-23-edit-json-v1-emphasis-words.md §3）であるため
+    // findings を出さないことを確認する（同 §7 の将来課題）。
+    const project = join(fixtures, "emphasis-words-v0-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.emphasis_words[2].t_start = 9999;
+    edit.emphasis_words[2].t_end = 9999.5;
+    await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
 test("direction (演出宣言): preset + intensity 70 + empty overrides pass with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "direction-valid");

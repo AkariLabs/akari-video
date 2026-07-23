@@ -257,6 +257,55 @@ test("beats[].src is rejected in v0 (no sources[] to reference)", () => {
   assert.match(executed.stderr, /beats\[0\]\.src は version 0 では使用できません/);
 });
 
+test("emphasis_words (語レベル演出) v0: 3 words with mixed emotions and optional style_hint pass", () => {
+  const executed = run("edit-emphasis-words-v0-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("emphasis_words v1: src present / omitted (single-source compatibility) both pass", () => {
+  const executed = run("edit-emphasis-words-v1-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("emphasis_words[].id must match e-#### pattern", () => {
+  const executed = run("edit-emphasis-words-invalid-id");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /emphasis_words\[0\]\.id は e- に続く 4 桁の数字である必要があります/,
+  );
+});
+
+test("emphasis_words[].t_end must be greater than t_start", () => {
+  const executed = run("edit-emphasis-words-range-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /emphasis_words\[0\]\.t_end は t_start より大きい必要があります/);
+  assert.match(executed.stderr, /emphasis_words\[1\]\.t_end は t_start より大きい必要があります/);
+});
+
+test("emphasis_words[].word must be a non-empty string", () => {
+  const executed = run("edit-emphasis-words-empty-word");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /emphasis_words\[0\]\.word は空でない文字列である必要があります/);
+});
+
+test("emphasis_words[].emotion is required", () => {
+  const executed = run("edit-emphasis-words-missing-emotion");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /emphasis_words\[0\]\.emotion は空でない文字列である必要があります/,
+  );
+});
+
+test("emphasis_words[].src is rejected in v0 (no sources[] to reference)", () => {
+  const executed = run("edit-emphasis-words-v0-src-present");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /emphasis_words\[0\]\.src は version 0 では使用できません/);
+});
+
 test("direction (演出宣言): preset + intensity 70 + empty overrides passes", () => {
   const executed = run("edit-direction-valid");
   assert.equal(executed.status, 0, executed.stderr);

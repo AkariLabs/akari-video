@@ -205,6 +205,7 @@ export async function lintProject(input, options = {}) {
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
   validateLayerTracks(edit.layers, findings);
   validateBeats(edit.beats, edit.version, structure.sourceIds, findings);
+  validateEmphasisWords(edit.emphasis_words, edit.version, structure.sourceIds, findings);
   validateDirection(edit.direction, findings);
 
   if (captionsState.value !== undefined) {
@@ -1177,6 +1178,137 @@ function validateBeats(beats, version, sourceIds, findings) {
         addFinding(findings, {
           severity: "error",
           check: "beats.src-reference",
+          message: `src does not reference sources[].id: ${item.src}`,
+          path: itemPath,
+        });
+      }
+    }
+  }
+}
+
+// docs/contract-2026-07-23-edit-json-v1-emphasis-words.md §7: emphasis_words（語レベル演出）の
+// 構造検証は validate-edit.mjs と同一のルールを手書きで写す流儀（edit-lint は依存ゼロのため他パッケージの
+// バリデータを import しない）。t_start/t_end は timeline 秒ではなく source 秒アンカー（同 §3）であり、
+// source 実尺との突き合わせは --media なしでデコードしない規律のため行わない（同 §7 の将来課題）。
+// 各要素は素材ファイルを参照しないためファイル実在チェックも行わない。
+// emphasis_words フィールドの不在はエラーにしない（同 §5 の劣化規約）。
+function validateEmphasisWords(emphasisWords, version, sourceIds, findings) {
+  if (emphasisWords === undefined) return;
+  if (!Array.isArray(emphasisWords)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "emphasis_words.structure",
+      message: "emphasis_words must be an array",
+      path: "edit.json#emphasis_words",
+    });
+    return;
+  }
+
+  const ids = new Set();
+  for (const [index, item] of emphasisWords.entries()) {
+    const itemPath = `edit.json#emphasis_words[${index}]`;
+    if (!isRecord(item)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.structure",
+        message: "emphasis word item must be an object",
+        path: itemPath,
+      });
+      continue;
+    }
+
+    if (typeof item.id !== "string" || !/^e-\d{4}$/.test(item.id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.id",
+        message: "id must match e- followed by four digits",
+        path: itemPath,
+      });
+    } else if (ids.has(item.id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.id",
+        message: `duplicate emphasis word id: ${item.id}`,
+        path: itemPath,
+      });
+    } else {
+      ids.add(item.id);
+    }
+
+    const hasStart = isFiniteNumber(item.t_start) && item.t_start >= 0;
+    const hasEnd = isFiniteNumber(item.t_end) && item.t_end >= 0;
+    if (!hasStart) {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.t_start",
+        message: "t_start must be a non-negative finite number (source seconds)",
+        path: itemPath,
+      });
+    }
+    if (!hasEnd) {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.t_end",
+        message: "t_end must be a non-negative finite number (source seconds)",
+        path: itemPath,
+      });
+    }
+    if (hasStart && hasEnd && item.t_end <= item.t_start) {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.range",
+        message: "t_end must be greater than t_start",
+        path: itemPath,
+        range: { start: item.t_start, end: item.t_end },
+      });
+    }
+
+    if (!isNonEmptyString(item.word)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.word",
+        message: "word must be a non-empty string",
+        path: itemPath,
+      });
+    }
+
+    if (!isNonEmptyString(item.emotion)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.emotion",
+        message: "emotion must be a non-empty string",
+        path: itemPath,
+      });
+    }
+
+    if (Object.hasOwn(item, "style_hint") && typeof item.style_hint !== "string") {
+      addFinding(findings, {
+        severity: "error",
+        check: "emphasis_words.style-hint",
+        message: "style_hint must be a string",
+        path: itemPath,
+      });
+    }
+
+    if (Object.hasOwn(item, "src")) {
+      if (version === 0) {
+        addFinding(findings, {
+          severity: "error",
+          check: "emphasis_words.src",
+          message: "src is not available in version 0 (no sources[] to reference)",
+          path: itemPath,
+        });
+      } else if (!isNonEmptyString(item.src)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "emphasis_words.src",
+          message: "src must be a non-empty string",
+          path: itemPath,
+        });
+      } else if (!sourceIds.has(item.src)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "emphasis_words.src-reference",
           message: `src does not reference sources[].id: ${item.src}`,
           path: itemPath,
         });

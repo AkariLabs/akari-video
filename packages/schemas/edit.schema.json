@@ -177,6 +177,21 @@
       },
       "$comment": "docs/contract-2026-07-22-edit-json-v1-beats.md（見せ場マーカー）。t は timeline 秒ではなく (src, source 秒) アンカー（同 §3）。kind は hook/turn/punchline/reveal/emotion を契約文書で例示するのみで enum 強制はしない。id のファイル内一意性と src の参照整合（v1: sources[].id に存在すること / v0: src 自体を使用できないこと）は兄弟値の突き合わせが要るため JSON Schema では表現せず validate-edit.mjs と edit-lint が検証する（cutV1.src と同じ扱い）。"
     },
+    "emphasisWordItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "t_start", "t_end", "word", "emotion"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^e-\\d{4}$" },
+        "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "t_start": { "$ref": "#/$defs/seconds" },
+        "t_end": { "$ref": "#/$defs/seconds" },
+        "word": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "emotion": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "style_hint": { "type": "string" }
+      },
+      "$comment": "docs/contract-2026-07-23-edit-json-v1-emphasis-words.md（語レベル演出）。t_start/t_end は timeline 秒ではなく (src, source 秒) アンカー（同 §3）であり、analysis の transcriptSegment.words / captions.json の words[] の実測時刻を写す（同 §4）。emotion は joy/pain/surprise/anger/sadness/emphasis を、style_hint は one-char-bang/size-pulse/color-accent を契約文書で例示するのみで enum 強制はしない。t_end > t_start・id のファイル内一意性・src の参照整合（v1: sources[].id に存在すること / v0: src 自体を使用できないこと）は兄弟値の突き合わせが要るため JSON Schema では表現せず validate-edit.mjs と edit-lint が検証する（cutV0.out > in / cutV1.src と同じ扱い）。"
+    },
     "direction": {
       "type": "object",
       "additionalProperties": true,
@@ -325,6 +340,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/beatItem" }
         },
+        "emphasis_words": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/emphasisWordItem" }
+        },
         "direction": { "$ref": "#/$defs/direction" }
       },
       "not": { "required": ["sources"] }
@@ -358,6 +377,10 @@
         "beats": {
           "type": "array",
           "items": { "$ref": "#/$defs/beatItem" }
+        },
+        "emphasis_words": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/emphasisWordItem" }
         },
         "direction": { "$ref": "#/$defs/direction" }
       },
