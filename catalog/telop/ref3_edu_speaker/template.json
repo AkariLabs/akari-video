@@ -45,7 +45,7 @@
           "var": "text"
         },
         "size": 92,
-        "font": "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Maru Gothic ProN', sans-serif",
         "weight": 800,
         "color": {
           "var": "color_text"

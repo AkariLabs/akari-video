@@ -2,7 +2,7 @@
   "id": "noto-sans-jp",
   "category": "font",
   "title": "Noto Sans JP",
-  "description": "Google Fonts が公開する定番の日本語ゴシック体。Thin〜Black まで幅広いウェイトを持ち、可読性・収録グリフ数ともに高水準。テロップから字幕、UI 表示まで汎用的に使える標準選択肢。実体（可変フォント、wght 100〜900 対応・1ファイル）は本リポの assets/font/noto-sans-jp/NotoSansJP-Variable.ttf に同梱済み（2026-07-23 追記。catalog 側は索引のまま・下記 source は取得元記録）。",
+  "description": "Google Fonts が公開する定番の日本語ゴシック体。Thin〜Black まで幅広いウェイトを持ち、可読性・収録グリフ数ともに高水準。テロップから字幕、UI 表示まで汎用的に使える標準選択肢。",
   "when_to_use": "特定の作風を狙わず、まず崩れなく読める日本語テロップ・字幕・UI テキストが欲しいシーン。企業紹介・解説動画など幅広いトーンの標準書体として",
   "tags": ["font", "japanese", "gothic", "sans-serif", "google-fonts", "ofl", "telop", "subtitle"],
   "knobs": [],

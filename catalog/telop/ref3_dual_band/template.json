@@ -251,7 +251,7 @@
           "var": "label"
         },
         "size": 44,
-        "font": "'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
         "weight": 800,
         "color": {
           "var": "color_text"
@@ -324,7 +324,7 @@
           "var": "title"
         },
         "size": 48,
-        "font": "'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
           "var": "color_text_2"

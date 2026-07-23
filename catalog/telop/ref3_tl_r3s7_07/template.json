@@ -232,7 +232,7 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
           "var": "color_primary"

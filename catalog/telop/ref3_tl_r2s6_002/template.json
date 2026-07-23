@@ -219,7 +219,7 @@
         "size": {
           "var": "categoryFontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Sans W7', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 700,
         "color": {
           "var": "color_text_2"
@@ -281,7 +281,7 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Sans W5', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'BIZ UDGothic', system-ui, sans-serif",
         "weight": 500,
         "color": {
           "var": "color_text"

@@ -143,7 +143,7 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'M PLUS Rounded 1c', 'Noto Sans JP', system-ui, sans-serif",
         "weight": 800,
         "color": {
           "var": "color_text"

@@ -209,7 +209,7 @@
           "var": "title"
         },
         "size": 40,
-        "font": "'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Sans', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif",
         "weight": 700,
         "color": {
           "var": "color_text_2"
@@ -280,7 +280,7 @@
           "var": "name"
         },
         "size": 72,
-        "font": "'Noto Sans JP', sans-serif",
+        "font": "'Hiragino Sans', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif",
         "weight": 900,
         "color": {
           "var": "color_text"

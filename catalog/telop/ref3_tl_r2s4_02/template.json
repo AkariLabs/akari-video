@@ -270,7 +270,7 @@
         "size": {
           "var": "subFontSize"
         },
-        "font": "'Noto Serif JP', serif",
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
         "weight": 400,
         "color": {
           "var": "color_text_2"
@@ -340,7 +340,7 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Serif JP', serif",
+        "font": "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
         "weight": 700,
         "color": {
           "var": "color_text"
