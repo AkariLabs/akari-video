@@ -22,6 +22,7 @@ description: analyze-project が作る分析レポート（interpretation.json +
 - 有償または重い生成の前に、使う手、理由、代替案、影響を宣言する。画像生成は Codex 画像生成を先に検討し、次に Akari Cloud を検討する。OpenAI、Gemini 等の API キーを直叩きしない。
 - `edit.json` は [M1〜M4 v0 契約](../../docs/contract-2026-07-13-m1-m4.md) の単一 `source` 形を既定とし、勝手に複数 source、音声 track、B ロール track を発明しない。足してよいのは**公開契約が定めたフィールドだけ**である（[sources[]](../../docs/contract-2026-07-18-edit-json-v1-sources.md) / [audio](../../docs/contract-2026-07-14-edit-json-v1-audio.md) / [audio.narration[]](../../docs/contract-2026-07-20-edit-json-v1-narration.md) / [beats[]](../../docs/contract-2026-07-22-edit-json-v1-beats.md)）。契約のない未定義フィールドは足さない。
 - 見せ場マーカー（`beats[]`）を書くときは [beats.md](beats.md) の導出規約に従う。`analysis.json` の event / 発話を指せない beat を発明せず、`t` は source 秒で書く。
+- 語レベル演出（`emphasis_words[]`。[公開契約](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md)）を書くときは [emphasis-detection.md](emphasis-detection.md) の検出規約に従う。`analysis.json` の `words` を指せない語を発明せず、`t_start` / `t_end` は `words` の実測値をそのまま写す（source 秒）。
 - 最終オーバーレイでは [overlay-authoring](../overlay-authoring/SKILL.md) スキルを使う。見つからない場合も規約を省略せず、[CLAUDE.md](../../CLAUDE.md) の authoring 規約を正本として使ったことを記録する。
 - OpenMontage は構造パターンの参考に限り、AGPL の文章やコードを転写しない。
 
@@ -46,5 +47,8 @@ description: analyze-project が作る分析レポート（interpretation.json +
    意味 → 手段の対応表・演出カードの `allowed_means` によるハードフィルタ・カタログ接続
    （`when_to_use` / `tags` 検索とライセンス確認）・選択根拠の記録に従って候補を決める
    （候補の決め方であり、素材計画の承認ゲートは従来どおり通す）。
+9. 語レベル演出を書く工程では [emphasis-detection.md](emphasis-detection.md) を読み、`analysis.json` の
+   `transcript[].words` から `emphasis_words[]` を導出する（対象 tier のゲート・選定規則 = 候補 / 見せ場連動 /
+   密度・`emotion` の文脈判断・`style_hint` の目安・根拠の記録・worked example）。
 
 現在の工程に必要なリーフだけを読み、後工程を先回りして実行しない。
