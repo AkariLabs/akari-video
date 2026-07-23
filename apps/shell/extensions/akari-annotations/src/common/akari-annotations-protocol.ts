@@ -31,6 +31,17 @@ export interface GetClipWaveformResult {
     reason?: MediaUnavailableReason;
 }
 
+export interface GetAudioDurationRequest {
+    projectRootUri: string;
+    audioUri: string;
+}
+
+export interface GetAudioDurationResult {
+    status: 'ready' | 'unavailable';
+    durationSeconds?: number;
+    reason?: MediaUnavailableReason;
+}
+
 export type {
     Annotation,
     AnnotationResponse,
@@ -298,6 +309,7 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 export interface AkariAnnotationsService {
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
+    getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult>;
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;
     resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }>;
     trimCut(request: TrimCutRequest): Promise<WriteBackResult>;

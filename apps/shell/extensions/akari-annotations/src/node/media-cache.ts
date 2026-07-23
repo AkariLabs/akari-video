@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import { dirname, join } from 'path';
 import { promisify } from 'util';
 import {
+    GetAudioDurationResult,
     GetClipThumbnailResult,
     GetClipWaveformResult,
     THUMBNAIL_WIDTH_PX,
@@ -12,6 +13,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 let ffmpegAvailable: Promise<boolean> | undefined;
+let ffprobeAvailable: Promise<boolean> | undefined;
 
 async function hasFfmpeg(): Promise<boolean> {
     if (!ffmpegAvailable) {
@@ -20,6 +22,15 @@ async function hasFfmpeg(): Promise<boolean> {
             .catch(() => false);
     }
     return ffmpegAvailable;
+}
+
+async function hasFfprobe(): Promise<boolean> {
+    if (!ffprobeAvailable) {
+        ffprobeAvailable = execFileAsync('ffprobe', ['-version'])
+            .then(() => true)
+            .catch(() => false);
+    }
+    return ffprobeAvailable;
 }
 
 function cacheHash(parts: readonly (string | number)[]): string {
@@ -153,5 +164,50 @@ export async function getClipWaveform(
         return { status: 'unavailable', reason: 'extraction-failed' };
     } finally {
         await fs.unlink(temporaryPcm).catch(() => undefined);
+    }
+}
+
+export async function getAudioDuration(
+    projectRoot: string,
+    audioPath: string
+): Promise<GetAudioDurationResult> {
+    let stat;
+    try {
+        stat = await fs.stat(audioPath);
+    } catch {
+        return { status: 'unavailable', reason: 'source-missing' };
+    }
+    if (!(await hasFfprobe())) {
+        return { status: 'unavailable', reason: 'ffmpeg-not-found' };
+    }
+
+    const directory = join(projectRoot, 'cache', 'timeline', 'duration');
+    const hash = cacheHash([audioPath, stat.size, stat.mtimeMs, 'duration']);
+    const destination = join(directory, `${hash}.json`);
+    try {
+        await ensureCacheDirectory(directory, projectRoot);
+        try {
+            const cached = JSON.parse(await fs.readFile(destination, 'utf8')) as { durationSeconds?: number };
+            const durationSeconds = cached.durationSeconds;
+            if (typeof durationSeconds === 'number' && Number.isFinite(durationSeconds) && durationSeconds > 0) {
+                return { status: 'ready', durationSeconds };
+            }
+        } catch {
+            // A cache miss falls through to extraction.
+        }
+        const { stdout } = await execFileAsync('ffprobe', [
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            audioPath
+        ]);
+        const durationSeconds = Number(stdout.trim());
+        if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+            return { status: 'unavailable', reason: 'extraction-failed' };
+        }
+        await writeAtomic(destination, `${JSON.stringify({ durationSeconds })}\n`);
+        return { status: 'ready', durationSeconds };
+    } catch {
+        return { status: 'unavailable', reason: 'extraction-failed' };
     }
 }

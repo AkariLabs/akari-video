@@ -11,6 +11,8 @@ import {
     CreateAnnotationResult,
     DeleteCutRequest,
     DeleteCutResult,
+    GetAudioDurationRequest,
+    GetAudioDurationResult,
     GetClipThumbnailRequest,
     GetClipThumbnailResult,
     GetClipWaveformRequest,
@@ -109,6 +111,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
             request.startSeconds, request.endSeconds
         );
+    }
+
+    async getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult> {
+        if (!request?.projectRootUri || !request?.audioUri) {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        return mediaCache.getAudioDuration(this.fsPath(request.projectRootUri), this.fsPath(request.audioUri));
     }
 
     async createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult> {

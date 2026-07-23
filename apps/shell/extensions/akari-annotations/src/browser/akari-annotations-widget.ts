@@ -285,7 +285,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected playheadT = 0;
     protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
+    protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
     protected ffmpegMissingNoticeShown = false;
+    protected lastManualScrollAt = 0;
     protected toolMode: ToolMode = 'select';
     protected snapEnabled = true;
     protected selection: TimelineSelection;
@@ -2375,8 +2377,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const layout = this.laneLayout.audioTracks.find(candidate => candidate.track === (sfx.track ?? 0));
             const top = (layout?.top ?? audioBandTop) + (this.audioSfxRows.get(sfx.id) ?? 0) * SUBROW_STRIDE;
             const label = this.pathBaseName(sfx.path);
+            let durationSeconds = sfx.duration;
+            if (this.location?.editUri) {
+                const audioUri = this.resolveEditMediaUri(sfx.path, this.location.editUri).toString();
+                const cachedDuration = this.audioDurationCache.get(sfx.path);
+                if (typeof cachedDuration === 'number') {
+                    durationSeconds = cachedDuration;
+                } else if (cachedDuration === undefined) {
+                    this.fetchAudioDuration(sfx.path, audioUri);
+                }
+            }
             const element = this.stripSegment(
-                sfx.t, sfx.t + sfx.duration, top, SUBROW_HEIGHT,
+                sfx.t, sfx.t + durationSeconds, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-sfx', label
             );
             element.dataset.akariItemKind = 'audio';
@@ -2900,6 +2912,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
     }
 
+    protected fetchAudioDuration(key: string, audioUri: string): void {
+        if (!this.location) {
+            return;
+        }
+        this.audioDurationCache.set(key, 'pending');
+        void this.annotationsService.getAudioDuration({
+            projectRootUri: this.location.root.toString(),
+            audioUri
+        }).then(result => {
+            if (result.status === 'ready' && result.durationSeconds !== undefined) {
+                this.audioDurationCache.set(key, result.durationSeconds);
+            } else {
+                this.audioDurationCache.set(key, 'unavailable');
+                this.showFfmpegMissingNotice(result.reason);
+            }
+            this.renderStrip();
+        }).catch(() => {
+            this.audioDurationCache.set(key, 'unavailable');
+            this.renderStrip();
+        });
+    }
+
     protected showFfmpegMissingNotice(reason: string | undefined): void {
         if (reason === 'ffmpeg-not-found' && !this.ffmpegMissingNoticeShown && !this.notice.textContent) {
             this.showNotice('ffmpeg が見つからないため、サムネイルと波形は表示されません（他の操作は通常どおり使えます）');
@@ -3098,7 +3132,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 state.originalAt + delta, showGuide,
                 [{ time: state.originalAt }, { time: state.originalAt + state.duration }]
             ));
-            const hit = this.trackAtClientY('cut', this.laneLayout.cutTracks, clientY, state.originalTrack, CLIP_HEIGHT);
+            const hit = this.trackAtClientY('cut', this.laneLayout.cutTracks, clientY, state.originalTrack);
             const isNewTrackSpot = !this.laneLayout.cutTracks.some(layout => layout.track === hit.track);
             if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
                 this.showTrackInsertIndicatorAt(hit.top);
@@ -3165,7 +3199,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     Math.max(0, state.originalT + delta), showGuide, originalEdges
                 );
                 const hit = this.trackAtClientY(
-                    'layer', this.laneLayout.layerTracks, clientY, state.originalTrack, SUBROW_STRIDE
+                    'layer', this.laneLayout.layerTracks, clientY, state.originalTrack
                 );
                 const isNewTrackSpot = !this.laneLayout.layerTracks.some(layout => layout.track === hit.track);
                 if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
@@ -3194,7 +3228,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ]
             );
             const hit = this.trackAtClientY(
-                'audio', this.laneLayout.audioTracks, clientY, state.originalTrack, SUBROW_STRIDE
+                'audio', this.laneLayout.audioTracks, clientY, state.originalTrack
             );
             const isNewTrackSpot = !this.laneLayout.audioTracks.some(layout => layout.track === hit.track);
             if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
@@ -3298,8 +3332,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         kind: 'cut' | 'layer' | 'audio',
         layouts: readonly TrackGroupLayout[],
         clientY: number,
-        originalTrack: number,
-        rowHeight: number
+        originalTrack: number
     ): { track: number; top: number; rejected: boolean; insertTrack?: number } {
         if (layouts.length === 0) {
             return { track: 0, top: 0, rejected: true };
@@ -3316,11 +3349,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const highest = layouts[0];
         if (localY < highest.top) {
             if (localY >= highest.top - LANE_GAP) {
-                return { track: highest.track + 1, top: Math.max(0, highest.top - rowHeight), rejected: false };
+                return { track: highest.track + 1, top: highest.top, rejected: false };
             }
             const laneKind = this.laneKindAtLocalY(localY);
             if (laneKind === kind || laneKind === 'none') {
-                return { track: highest.track + 1, top: Math.max(0, highest.top - rowHeight), rejected: false };
+                return { track: highest.track + 1, top: highest.top, rejected: false };
             }
             const current = layouts.find(layout => layout.track === originalTrack) ?? highest;
             return { track: originalTrack, top: current.top, rejected: true };
@@ -4172,6 +4205,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected onScrollbarTrackClick(event: MouseEvent): void {
+        this.lastManualScrollAt = Date.now();
         if (event.target === this.hScrollbarThumb) {
             return;
         }
@@ -4193,6 +4227,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const startViewStart = this.viewStart;
         const total = this.totalDuration();
         const onMove = (moveEvent: PointerEvent): void => {
+            this.lastManualScrollAt = Date.now();
             if (trackRect.width <= 0) {
                 return;
             }
@@ -4237,6 +4272,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected panViewBy(deltaSeconds: number): void {
+        this.lastManualScrollAt = Date.now();
         this.setViewStart(this.viewStart + deltaSeconds);
     }
 
@@ -4309,10 +4345,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.playheadT = Math.max(0, request.time!);
         const visibleDuration = this.visibleDuration();
         const followEdge = this.viewStart + visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
-        if (request.playing && this.viewDuration !== undefined && this.playheadT > followEdge) {
-            const nextViewStart = this.playheadT - visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
-            if (nextViewStart > this.viewStart + 1e-6) {
-                this.setViewStart(nextViewStart);
+        if (this.viewDuration !== undefined && Date.now() - this.lastManualScrollAt >= 3000) {
+            if (this.playheadT > followEdge) {
+                const nextViewStart = this.playheadT - visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
+                if (nextViewStart > this.viewStart + 1e-6) {
+                    this.setViewStart(nextViewStart);
+                }
+            } else if (this.playheadT < this.viewStart) {
+                const nextViewStart = Math.max(
+                    0, this.playheadT - visibleDuration * (1 - PLAYHEAD_FOLLOW_THRESHOLD)
+                );
+                if (nextViewStart < this.viewStart - 1e-6) {
+                    this.setViewStart(nextViewStart);
+                }
             }
         }
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
