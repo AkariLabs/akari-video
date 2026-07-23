@@ -34,7 +34,12 @@ import {
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
     ShiftCaptionRequest,
+    SetBgmFieldsRequest,
+    SetCaptionFieldsRequest,
     SetCutAtValuesRequest,
+    SetCutSpeedRequest,
+    SetOverlayVarRequest,
+    SetSfxGainRequest,
     SplitCutRequest,
     TrimCutRequest,
     WriteBackResult
@@ -52,7 +57,12 @@ import {
     parseReview,
     updateStatusLine
 } from '../common/annotation-store';
-import { insertCaptionLine, removeCaptionLine, shiftCaptionLine } from '../common/caption-store';
+import {
+    insertCaptionLine,
+    removeCaptionLine,
+    shiftCaptionLine,
+    updateCaptionFieldsInSource
+} from '../common/caption-store';
 import {
     deleteLayerByIdInSource,
     deleteSfxInSource,
@@ -68,9 +78,13 @@ import {
     removeOverlayInSource,
     reorderCutsInSource,
     resizeOverlayInSource,
+    setCutSpeedInSource,
+    setSfxGainDbInSource,
     splitCutInSource,
     setCutAtValuesInSource,
-    trimCutInSource
+    trimCutInSource,
+    updateBgmInSource,
+    updateOverlayVarInSource
 } from '../common/edit-store';
 
 const execFileAsync = promisify(execFile);
@@ -183,6 +197,59 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = trimCutInSource(source, request.cutIndex, request.in, request.out);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップをトリム') };
+    }
+
+    async setCutSpeed(request: SetCutSpeedRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = setCutSpeedInSource(source, request.cutIndex, request.speed);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの速度を変更') };
+    }
+
+    async setSfxGain(request: SetSfxGainRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = setSfxGainDbInSource(source, request.sfxIndex, request.gainDb);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE の音量を変更') };
+    }
+
+    async setBgmFields(request: SetBgmFieldsRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = updateBgmInSource(source, {
+            gainDb: request.gainDb,
+            fadeIn: request.fadeIn,
+            fadeOut: request.fadeOut,
+            ducking: request.ducking
+        });
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'BGM の設定を変更') };
+    }
+
+    async setOverlayVar(request: SetOverlayVarRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = updateOverlayVarInSource(source, request.overlayId, request.name, request.value);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイのパラメータを変更') };
+    }
+
+    async setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = updateCaptionFieldsInSource(source, request.captionId, {
+            text: request.text,
+            speaker: request.speaker
+        });
+        await this.writeAtomic(captionsPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更') };
     }
 
     async reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult> {

@@ -1922,7 +1922,6 @@ ${this.inlineStyle(assets.interactionCss)}
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.workspace.inspector-open { grid-template-columns: minmax(0, 1fr) 260px; }
 .preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; background: #090909; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
@@ -1950,13 +1949,6 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .audio-notice { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; max-width: 92%; padding: 8px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.78); color: #f1f1f1; font-size: 12.5px; line-height: 1.5; }
 .audio-notice[hidden] { display: none; }
 .audio-notice button { flex: none; border: none; background: transparent; color: #ccc; font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; }
-#inspector { padding: 16px; border-left: 1px solid #303030; background: #1b1b1b; overflow: auto; }
-#inspector[hidden] { display: none; }
-#inspector h2 { margin: 0 0 14px; font-size: 14px; }
-.field { display: grid; gap: 6px; margin-bottom: 12px; }
-.field label { overflow-wrap: anywhere; color: #c8c8c8; font-size: 12px; }
-.field input { width: 100%; border: 1px solid #4a4a4a; border-radius: 4px; padding: 7px 8px; background: #111; color: #fff; }
-.empty { color: #999; font-size: 12px; }
 .transport { display: grid; gap: 8px; padding: 9px 14px 10px; border-top: 1px solid #303030; background: #202020; }
 .transport-waveform { position: relative; width: 100%; height: 56px; overflow: hidden; border-top: 1px solid #303030; background: #181818; cursor: pointer; touch-action: none; }
 .transport-waveform[hidden] { display: none; }
@@ -1980,7 +1972,6 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #zoom-slider { width: 100%; }
 .zoom-presets { display: grid; grid-template-columns: repeat(4, 32px); justify-content: space-between; gap: 5px; margin-top: 8px; }
 .zoom-preset { width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; font-size: 10px; cursor: pointer; }
-@media (max-width: 720px) { .workspace.inspector-open { grid-template-columns: minmax(0, 1fr) 210px; } }
 </style>
 </head>
 <body>
@@ -2004,10 +1995,6 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       </div>
     </div>
   </section>
-  <aside id="inspector" hidden aria-label="オーバーレイインスペクタ">
-    <h2 id="inspector-title">オーバーレイ</h2>
-    <div id="inspector-fields"></div>
-  </aside>
 </main>
 <div class="transport">
   <div class="transport-waveform" hidden>
@@ -2494,10 +2481,6 @@ body { display: grid; place-items: center; padding: 32px; }
             const previewMessageReload = document.getElementById('preview-message-reload');
             const audioNotice = document.getElementById('audio-notice');
             const audioNoticeDismiss = document.getElementById('audio-notice-dismiss');
-            const inspector = document.getElementById('inspector');
-            const inspectorTitle = document.getElementById('inspector-title');
-            const inspectorFields = document.getElementById('inspector-fields');
-            const workspace = document.querySelector('.workspace');
             const fps = Number(summary.output && summary.output.fps) > 0 ? Number(summary.output.fps) : 30;
             const ZOOM_MIN = 0.25;
             const ZOOM_MAX = 8;
@@ -3398,21 +3381,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 animationFrame = 0;
                 tick(true);
             };
-            const hideInspector = () => {
-                inspectorFields.replaceChildren();
-                if (!initial.editPath) {
-                    inspector.hidden = false;
-                    workspace.classList.add('inspector-open');
-                    inspectorTitle.textContent = 'インスペクタ';
-                    const empty = document.createElement('p');
-                    empty.className = 'empty';
-                    empty.textContent = 'この動画に一致する edit.json はありません。';
-                    inspectorFields.appendChild(empty);
-                    return;
-                }
-                inspector.hidden = true;
-                workspace.classList.remove('inspector-open');
-            };
             const showPlaybackError = () => {
                 playbackErrored = true;
                 isPlaying = false;
@@ -3435,7 +3403,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 zoomToggle.disabled = true;
                 fullscreenToggle.disabled = true;
                 seek.disabled = true;
-                hideInspector();
             };
             const restorePlayback = () => {
                 if (!playbackErrored) return;
@@ -3807,7 +3774,7 @@ body { display: grid; place-items: center; padding: 32px; }
             });
 
             let lastReportedOverlayId = null;
-            const renderInspector = () => {
+            const reportOverlaySelectionChange = () => {
                 const selected = stage.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]');
                 const selectedOverlayId = selected?.getAttribute('data-overlay-id') || null;
                 if (selectedOverlayId !== lastReportedOverlayId) {
@@ -3815,55 +3782,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     requestedOverlayId = undefined;
                     window.akari.reportOverlaySelection(selectedOverlayId);
                 }
-                if (!selected) {
-                    hideInspector();
-                    return;
-                }
-                const overlayId = selected.getAttribute('data-overlay-id') || '';
-                const overlay = summary.overlays.find(candidate => String(candidate.id) === overlayId);
-                if (!overlay) {
-                    hideInspector();
-                    return;
-                }
-                inspector.hidden = false;
-                workspace.classList.add('inspector-open');
-                inspectorTitle.textContent = 'オーバーレイ: ' + overlayId;
-                inspectorFields.replaceChildren();
-                const entries = Object.entries(overlay.vars || {});
-                if (!entries.length) {
-                    const empty = document.createElement('p');
-                    empty.className = 'empty';
-                    empty.textContent = '宣言されたパラメータはありません。';
-                    inspectorFields.appendChild(empty);
-                    return;
-                }
-                for (const [name, value] of entries) {
-                    const field = document.createElement('div');
-                    field.className = 'field';
-                    const label = document.createElement('label');
-                    const input = document.createElement('input');
-                    label.textContent = name;
-                    input.value = String(value);
-                    input.setAttribute('aria-label', name);
-                    let timer = 0;
-                    const persist = () => {
-                        window.clearTimeout(timer);
-                        const next = input.value;
-                        overlay.vars = { ...(overlay.vars || {}), [name]: next };
-                        window.akari.engine.overlayWrite(initial.editPath, overlayId, { vars: { [name]: next } })
-                            .catch(error => console.error('[akari-preview] variable write failed', error));
-                    };
-                    input.addEventListener('input', () => {
-                        selected.style.setProperty(name, input.value);
-                        window.clearTimeout(timer);
-                        timer = window.setTimeout(persist, 200);
-                    });
-                    input.addEventListener('change', persist);
-                    field.append(label, input);
-                    inspectorFields.appendChild(field);
-                }
             };
-            new MutationObserver(renderInspector).observe(stage, {
+            new MutationObserver(reportOverlaySelectionChange).observe(stage, {
                 attributes: true,
                 attributeFilter: ['data-akari-interaction-selected'],
                 subtree: true
@@ -3893,7 +3813,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 setZoom(1);
                 tick();
-                renderInspector();
+                reportOverlaySelectionChange();
                 applyRequestedOverlaySelection();
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;

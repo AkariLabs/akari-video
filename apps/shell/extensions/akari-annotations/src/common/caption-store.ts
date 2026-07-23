@@ -77,6 +77,57 @@ export function shiftCaptionLine(
     return updated;
 }
 
+export function updateCaptionFieldsInSource(
+    source: string,
+    captionId: string,
+    updates: { text?: string; speaker?: string | null }
+): string {
+    if (!captionId) {
+        throw new Error('字幕 ID を指定してください。');
+    }
+    if (updates.text === undefined && updates.speaker === undefined) {
+        throw new Error('変更する字幕フィールドを指定してください。');
+    }
+    if (updates.text !== undefined && (typeof updates.text !== 'string' || !updates.text.trim())) {
+        throw new Error('字幕のテキストは空にできません。');
+    }
+    if (updates.speaker !== undefined && updates.speaker !== null && typeof updates.speaker !== 'string') {
+        throw new Error('字幕の話者は文字列または null で指定してください。');
+    }
+    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
+    let matches = 0;
+    const updated = lines.map(line => {
+        const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
+        if (!idMatch || decodeJsonString(idMatch[1]) !== captionId) {
+            return line;
+        }
+        matches++;
+        let nextLine = line;
+        if (updates.text !== undefined) {
+            const textPattern = /"text"\s*:\s*"(?:\\.|[^"\\])*"/;
+            if (!textPattern.test(nextLine)) {
+                throw new Error(`字幕 ${captionId} の1行形式を確認できません。`);
+            }
+            nextLine = nextLine.replace(textPattern, `"text": ${JSON.stringify(updates.text)}`);
+        }
+        if (updates.speaker !== undefined) {
+            const speakerPattern = /"speaker"\s*:\s*(?:"(?:\\.|[^"\\])*"|null)/;
+            if (!speakerPattern.test(nextLine)) {
+                throw new Error(`字幕 ${captionId} の1行形式を確認できません。`);
+            }
+            nextLine = nextLine.replace(speakerPattern, `"speaker": ${JSON.stringify(updates.speaker)}`);
+        }
+        nextLine = nextLine.replace(/"edited"\s*:\s*(?:true|false)/, '"edited": true');
+        return nextLine;
+    }).join('');
+    if (matches !== 1) {
+        throw new Error(matches === 0
+            ? `字幕 ${captionId} が字幕データにありません。`
+            : `字幕 ${captionId} が字幕データに複数あります。`);
+    }
+    return updated;
+}
+
 export function insertCaptionLine(source: string, caption: CaptionRecord): string {
     const parsed = parseCaptions(source);
     if (parsed.captions.some(candidate => candidate.id === caption.id)) {

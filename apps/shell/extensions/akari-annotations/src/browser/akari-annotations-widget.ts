@@ -1,6 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
-import { BaseWidget } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
@@ -29,7 +29,11 @@ import { assignSubRows } from '../common/lane-layout';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
-import { TimelineSelectionModel } from './timeline-selection-model';
+import {
+    InspectorWriteRequest,
+    InspectorWriteResult,
+    TimelineSelectionModel
+} from './timeline-selection-model';
 
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
@@ -71,6 +75,8 @@ const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
 const STRIP_BOTTOM_MARGIN = 6;
 const TRACK_HEADER_WIDTH = 136;
 const BEAT_PROJECTION_EPSILON = 0.000001;
+/** パートナー拡張とは widget ID の文字列だけで疎結合に連携する。 */
+const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
 
 /** タイムライン（出力秒軸）上の1セグメント。cuts[].at / track を解決した結果。 */
 interface OutputSegment {
@@ -209,6 +215,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(MessageService)
     protected readonly messages!: MessageService;
 
+    @inject(ApplicationShell)
+    protected readonly shell!: ApplicationShell;
+
     @inject(AkariAnnotationsService)
     protected readonly annotationsService!: AkariAnnotationsService;
 
@@ -280,6 +289,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected toolMode: ToolMode = 'select';
     protected snapEnabled = true;
     protected selection: TimelineSelection;
+    protected rightPaneSyncRevision = 0;
+    protected rightPaneSyncTail: Promise<void> = Promise.resolve();
     protected clipboard: TimelineClipboard | undefined;
     protected overlayTrackLayouts: OverlayTrackLayout[] = [];
     protected laneLayout: {
@@ -868,6 +879,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
             void this.requestSeek(time);
         }));
+        const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
+            this.handleInspectorWrite(request);
+        this.selectionModel.requestWrite = requestWrite;
+        this.toDispose.push(this.selectionModel.onChanged(() => this.syncRightPane()));
+        this.toDispose.push(Disposable.create(() => {
+            if (this.selectionModel.requestWrite === requestWrite) {
+                this.selectionModel.requestWrite = undefined;
+                this.selectionModel.snapshot = undefined;
+            }
+        }));
 
         window.addEventListener('keydown', keydown, true);
         this.toDispose.push(Disposable.create(() => {
@@ -954,6 +975,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected applySelection(selection: TimelineSelection, notifyPreview = true): void {
         const previous = this.selection;
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
+            if (selection) {
+                this.syncRightPane();
+            }
             return;
         }
         this.selection = selection;
@@ -973,8 +997,322 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (selection?.kind === 'layer' || selection?.kind === 'audio') {
             this.revealOutputPreview();
         }
-        if (selection) {
-            void this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+    }
+
+    protected syncRightPane(): void {
+        const revision = ++this.rightPaneSyncRevision;
+        const showInspector = this.selectionModel.snapshot !== undefined;
+        this.rightPaneSyncTail = this.rightPaneSyncTail.then(async () => {
+            if (revision !== this.rightPaneSyncRevision) {
+                return;
+            }
+            if (showInspector) {
+                await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+            } else {
+                await this.shell.activateWidget(PARTNER_WIDGET_ID);
+            }
+        }).catch(error => {
+            console.warn('[akari-annotations] failed to synchronize the right pane', error);
+        });
+    }
+
+    protected async handleInspectorWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+        const location = this.location;
+        if (!location) {
+            return { ok: false, message: 'プロジェクトの場所を特定できません。' };
+        }
+        try {
+            switch (request.kind) {
+                case 'cut-speed': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const original = this.cuts[request.index]?.speed ?? null;
+                    await this.annotationsService.setCutSpeed({
+                        editUri,
+                        projectRootUri,
+                        cutIndex: request.index,
+                        speed: request.value
+                    });
+                    this.pushHistory({
+                        label: 'クリップの速度を変更',
+                        undo: async () => {
+                            await this.annotationsService.setCutSpeed({
+                                editUri,
+                                projectRootUri,
+                                cutIndex: request.index,
+                                speed: original
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setCutSpeed({
+                                editUri,
+                                projectRootUri,
+                                cutIndex: request.index,
+                                speed: request.value
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'クリップの速度を変更しました。';
+                    return { ok: true };
+                }
+                case 'cut-source-in':
+                case 'cut-source-out': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const cut = this.cuts[request.index];
+                    if (!cut) {
+                        throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+                    }
+                    const originalIn = cut.in;
+                    const originalOut = cut.out;
+                    const nextIn = request.kind === 'cut-source-in' ? request.value : originalIn;
+                    const nextOut = request.kind === 'cut-source-out' ? request.value : originalOut;
+                    await this.annotationsService.trimCut({
+                        editUri,
+                        projectRootUri,
+                        cutIndex: request.index,
+                        in: nextIn,
+                        out: nextOut
+                    });
+                    this.pushHistory({
+                        label: request.kind === 'cut-source-in'
+                            ? 'クリップの素材 in を変更'
+                            : 'クリップの素材 out を変更',
+                        undo: async () => {
+                            await this.annotationsService.trimCut({
+                                editUri,
+                                projectRootUri,
+                                cutIndex: request.index,
+                                in: originalIn,
+                                out: originalOut
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.trimCut({
+                                editUri,
+                                projectRootUri,
+                                cutIndex: request.index,
+                                in: nextIn,
+                                out: nextOut
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = '素材の範囲を変更しました。';
+                    return { ok: true };
+                }
+                case 'caption-text':
+                case 'caption-speaker': {
+                    const captionsUri = location.captionsUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const caption = this.captions.find(candidate => candidate.id === request.id);
+                    if (!caption) {
+                        throw new Error(`字幕 ${request.id} が見つかりません。`);
+                    }
+                    const originalText = caption.text;
+                    const originalSpeaker = caption.speaker;
+                    const nextText = request.kind === 'caption-text' ? request.value : undefined;
+                    const nextSpeaker = request.kind === 'caption-speaker' ? request.value : undefined;
+                    await this.annotationsService.setCaptionFields({
+                        captionsUri,
+                        projectRootUri,
+                        captionId: request.id,
+                        text: nextText,
+                        speaker: nextSpeaker
+                    });
+                    this.pushHistory({
+                        label: request.kind === 'caption-text' ? '字幕のテキストを変更' : '字幕の話者を変更',
+                        undo: async () => {
+                            await this.annotationsService.setCaptionFields({
+                                captionsUri,
+                                projectRootUri,
+                                captionId: request.id,
+                                text: request.kind === 'caption-text' ? originalText : undefined,
+                                speaker: request.kind === 'caption-speaker' ? originalSpeaker : undefined
+                            });
+                            await this.reloadCaptions();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setCaptionFields({
+                                captionsUri,
+                                projectRootUri,
+                                captionId: request.id,
+                                text: nextText,
+                                speaker: nextSpeaker
+                            });
+                            await this.reloadCaptions();
+                        }
+                    });
+                    await this.reloadCaptions();
+                    this.hideNotice();
+                    this.footer.textContent = '字幕を更新しました。';
+                    return { ok: true };
+                }
+                case 'sfx-gain': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const sfx = this.audioSfx.find(candidate => candidate.id === request.id);
+                    const sfxIndex = Number(request.id.slice(4));
+                    if (!sfx || !Number.isInteger(sfxIndex)) {
+                        throw new Error('SE が見つかりません。');
+                    }
+                    const original = sfx.gainDb ?? null;
+                    await this.annotationsService.setSfxGain({
+                        editUri,
+                        projectRootUri,
+                        sfxIndex,
+                        gainDb: request.value
+                    });
+                    this.pushHistory({
+                        label: 'SE の音量を変更',
+                        undo: async () => {
+                            await this.annotationsService.setSfxGain({
+                                editUri,
+                                projectRootUri,
+                                sfxIndex,
+                                gainDb: original
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setSfxGain({
+                                editUri,
+                                projectRootUri,
+                                sfxIndex,
+                                gainDb: request.value
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'SE の音量を変更しました。';
+                    return { ok: true };
+                }
+                case 'bgm-gain':
+                case 'bgm-fade-in':
+                case 'bgm-fade-out':
+                case 'bgm-ducking': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const bgm = this.audioBgm;
+                    if (!bgm) {
+                        throw new Error('BGM が見つかりません。');
+                    }
+                    const originalGainDb = bgm.gainDb ?? null;
+                    const originalFadeIn = bgm.fadeIn ?? null;
+                    const originalFadeOut = bgm.fadeOut ?? null;
+                    const originalDucking = bgm.ducking ?? null;
+                    const nextFields = {
+                        gainDb: request.kind === 'bgm-gain' ? request.value : undefined,
+                        fadeIn: request.kind === 'bgm-fade-in' ? request.value : undefined,
+                        fadeOut: request.kind === 'bgm-fade-out' ? request.value : undefined,
+                        ducking: request.kind === 'bgm-ducking' ? request.value : undefined
+                    };
+                    const originalFields = {
+                        gainDb: request.kind === 'bgm-gain' ? originalGainDb : undefined,
+                        fadeIn: request.kind === 'bgm-fade-in' ? originalFadeIn : undefined,
+                        fadeOut: request.kind === 'bgm-fade-out' ? originalFadeOut : undefined,
+                        ducking: request.kind === 'bgm-ducking' ? originalDucking : undefined
+                    };
+                    await this.annotationsService.setBgmFields({ editUri, projectRootUri, ...nextFields });
+                    this.pushHistory({
+                        label: 'BGM の設定を変更',
+                        undo: async () => {
+                            await this.annotationsService.setBgmFields({
+                                editUri,
+                                projectRootUri,
+                                ...originalFields
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setBgmFields({
+                                editUri,
+                                projectRootUri,
+                                ...nextFields
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'BGM の設定を変更しました。';
+                    return { ok: true };
+                }
+                case 'overlay-var': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const overlay = this.overlays.find(candidate => candidate.id === request.id);
+                    if (!overlay) {
+                        throw new Error('オーバーレイが見つかりません。');
+                    }
+                    const rawVars = (overlay.payload as Record<string, unknown>).vars;
+                    const original = rawVars && typeof rawVars === 'object'
+                        ? String((rawVars as Record<string, unknown>)[request.name] ?? '')
+                        : '';
+                    await this.annotationsService.setOverlayVar({
+                        editUri,
+                        projectRootUri,
+                        overlayId: request.id,
+                        name: request.name,
+                        value: request.value
+                    });
+                    this.pushHistory({
+                        label: 'オーバーレイのパラメータを変更',
+                        undo: async () => {
+                            await this.annotationsService.setOverlayVar({
+                                editUri,
+                                projectRootUri,
+                                overlayId: request.id,
+                                name: request.name,
+                                value: original
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setOverlayVar({
+                                editUri,
+                                projectRootUri,
+                                overlayId: request.id,
+                                name: request.name,
+                                value: request.value
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'オーバーレイのパラメータを変更しました。';
+                    return { ok: true };
+                }
+                default:
+                    return { ok: false, message: '未対応の編集要求です。' };
+            }
+        } catch (error) {
+            return { ok: false, message: this.errorMessage(error) };
         }
     }
 

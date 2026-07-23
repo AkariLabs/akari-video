@@ -237,6 +237,45 @@ export interface InsertSfxRequest {
     elementText: string;
 }
 
+export interface SetCutSpeedRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    speed: number | null;
+}
+
+export interface SetSfxGainRequest {
+    editUri: string;
+    projectRootUri: string;
+    sfxIndex: number;
+    gainDb: number | null;
+}
+
+export interface SetBgmFieldsRequest {
+    editUri: string;
+    projectRootUri: string;
+    gainDb?: number | null;
+    fadeIn?: number | null;
+    fadeOut?: number | null;
+    ducking?: boolean | null;
+}
+
+export interface SetOverlayVarRequest {
+    editUri: string;
+    projectRootUri: string;
+    overlayId: string;
+    name: string;
+    value: string;
+}
+
+export interface SetCaptionFieldsRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionId: string;
+    text?: string;
+    speaker?: string | null;
+}
+
 export interface WriteBackResult {
     committed: boolean;
 }
@@ -281,4 +320,9 @@ export interface AkariAnnotationsService {
     moveSfx(request: MoveSfxRequest): Promise<WriteBackResult>;
     removeSfx(request: RemoveSfxRequest): Promise<RemoveSfxResult>;
     insertSfx(request: InsertSfxRequest): Promise<WriteBackResult>;
+    setCutSpeed(request: SetCutSpeedRequest): Promise<WriteBackResult>;
+    setSfxGain(request: SetSfxGainRequest): Promise<WriteBackResult>;
+    setBgmFields(request: SetBgmFieldsRequest): Promise<WriteBackResult>;
+    setOverlayVar(request: SetOverlayVarRequest): Promise<WriteBackResult>;
+    setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
 }
