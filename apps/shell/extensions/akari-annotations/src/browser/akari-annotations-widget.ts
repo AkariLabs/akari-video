@@ -996,7 +996,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selectionModel.snapshot = {
                 kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
                 sourceName: this.sourceBaseName(), sourceIn: cut.in, sourceOut: cut.out,
-                outputStart: segment.tlStart, outputEnd: segment.tlEnd
+                outputStart: segment.tlStart, outputEnd: segment.tlEnd,
+                ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
+                ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
+                ...(cut.track !== undefined ? { track: cut.track } : {})
             };
         } else if (selection.kind === 'overlay') {
             const overlay = this.overlays.find(candidate => candidate.id === selection.id);
@@ -1005,7 +1008,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.selectionModel.snapshot = undefined;
                 return;
             }
-            this.selectionModel.snapshot = { kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration };
+            const track = Object.prototype.hasOwnProperty.call(overlay.payload, 'track') ? overlay.track : undefined;
+            this.selectionModel.snapshot = {
+                kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
+                ...(track !== undefined ? { track } : {}),
+                payload: overlay.payload
+            };
         } else if (selection.kind === 'caption') {
             const caption = this.captions.find(candidate => candidate.id === selection.id);
             if (!caption) {
@@ -1018,7 +1026,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 kind: 'caption', id: caption.id, text: caption.text,
                 sourceStart: caption.start, sourceEnd: caption.end,
                 outputStart: ranges.length > 0 ? ranges[0][0] : undefined,
-                outputEnd: ranges.length > 0 ? ranges[ranges.length - 1][1] : undefined
+                outputEnd: ranges.length > 0 ? ranges[ranges.length - 1][1] : undefined,
+                speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited
             };
         } else if (selection.kind === 'layer') {
             const layer = this.layers.find(candidate => candidate.id === selection.id);
@@ -1029,19 +1038,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.selectionModel.snapshot = {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
-                outputStart: layer.t, duration: layer.duration
+                outputStart: layer.t, duration: layer.duration, src: layer.src,
+                ...(layer.preset !== undefined ? { preset: layer.preset } : {}),
+                ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
+                ...(layer.opacity !== undefined ? { opacity: layer.opacity } : {}),
+                ...(layer.blend !== undefined ? { blend: layer.blend } : {}),
+                ...(layer.chromaKey !== undefined ? { chromaKey: layer.chromaKey } : {}),
+                ...(layer.track !== undefined ? { track: layer.track } : {})
             };
         } else {
             const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
             if (sfx) {
                 this.selectionModel.snapshot = {
                     kind: 'audio', id: sfx.id, audioKind: 'sfx', label: this.pathBaseName(sfx.path),
-                    outputStart: sfx.t, duration: sfx.duration
+                    outputStart: sfx.t, duration: sfx.duration,
+                    ...(sfx.gainDb !== undefined ? { gainDb: sfx.gainDb } : {})
                 };
             } else if (selection.id === 'bgm' && this.audioBgm) {
                 this.selectionModel.snapshot = {
                     kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
-                    outputStart: 0, duration: this.totalDuration()
+                    outputStart: 0, duration: this.totalDuration(),
+                    ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
+                    ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
+                    ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
+                    ...(this.audioBgm.ducking !== undefined ? { ducking: this.audioBgm.ducking } : {})
                 };
             } else {
                 this.selection = undefined;

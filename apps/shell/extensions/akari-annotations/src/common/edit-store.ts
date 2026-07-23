@@ -28,6 +28,10 @@ export interface EditOverlay {
     payload: Record<string, unknown>;
 }
 
+export type LayerBlendMode =
+    | 'normal' | 'screen' | 'multiply' | 'add' | 'difference'
+    | 'darken' | 'lighten' | 'overlay' | 'hardlight' | 'softlight';
+
 export interface EditLayer {
     id: string;
     t: number;
@@ -35,6 +39,11 @@ export interface EditLayer {
     kind: 'baked' | 'video';
     src: string;
     track?: number;
+    preset?: string;
+    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    opacity?: number;
+    blend?: LayerBlendMode;
+    chromaKey?: { color: string; similarity?: number; blend?: number };
 }
 
 export interface EditAudioSfx {
@@ -43,6 +52,7 @@ export interface EditAudioSfx {
     duration: number;
     path: string;
     track?: number;
+    gainDb?: number;
 }
 
 export interface CutTrackSegment {
@@ -58,6 +68,8 @@ export interface EditAudioBgm {
     path: string;
     fadeIn?: number;
     fadeOut?: number;
+    gainDb?: number;
+    ducking?: boolean;
 }
 
 export const DECLARED_SFX_DURATION_SECONDS = 1;
@@ -69,6 +81,10 @@ export interface SourceElement {
 }
 
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
+const LAYER_BLEND_MODES: readonly LayerBlendMode[] = [
+    'normal', 'screen', 'multiply', 'add', 'difference',
+    'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
+];
 
 export function findMatchingBracket(source: string, openIndex: number): number {
     const opening = source[openIndex];
@@ -793,13 +809,89 @@ export function parseEdit(source: string): {
             if (layer.track !== undefined && track !== layer.track) {
                 warnings.push(`${index + 1} 番目のレイヤーの track が不正なため track 0 に表示します。`);
             }
+            let preset: string | undefined;
+            if (layer.preset !== undefined && layer.preset !== null) {
+                if (typeof layer.preset === 'string') {
+                    preset = layer.preset;
+                } else {
+                    warnings.push(`レイヤー ${layer.id} の preset が不正なため無視します。`);
+                }
+            }
+            let transform: EditLayer['transform'];
+            if (layer.transform !== undefined && layer.transform !== null) {
+                const rawTransform = layer.transform;
+                const validTransform = typeof rawTransform === 'object' && !Array.isArray(rawTransform)
+                    && (rawTransform.x === undefined
+                        || (typeof rawTransform.x === 'number' && Number.isFinite(rawTransform.x)))
+                    && (rawTransform.y === undefined
+                        || (typeof rawTransform.y === 'number' && Number.isFinite(rawTransform.y)))
+                    && (rawTransform.scale === undefined
+                        || (typeof rawTransform.scale === 'number'
+                            && Number.isFinite(rawTransform.scale) && rawTransform.scale > 0))
+                    && (rawTransform.rotate === undefined
+                        || (typeof rawTransform.rotate === 'number' && Number.isFinite(rawTransform.rotate)));
+                if (validTransform) {
+                    transform = {
+                        ...(rawTransform.x !== undefined ? { x: rawTransform.x } : {}),
+                        ...(rawTransform.y !== undefined ? { y: rawTransform.y } : {}),
+                        ...(rawTransform.scale !== undefined ? { scale: rawTransform.scale } : {}),
+                        ...(rawTransform.rotate !== undefined ? { rotate: rawTransform.rotate } : {})
+                    };
+                } else {
+                    warnings.push(`レイヤー ${layer.id} の transform が不正なため無視します。`);
+                }
+            }
+            let opacity: number | undefined;
+            if (layer.opacity !== undefined && layer.opacity !== null) {
+                if (typeof layer.opacity === 'number' && Number.isFinite(layer.opacity)
+                    && layer.opacity >= 0 && layer.opacity <= 1) {
+                    opacity = layer.opacity;
+                } else {
+                    warnings.push(`レイヤー ${layer.id} の opacity が不正なため無視します。`);
+                }
+            }
+            let blend: LayerBlendMode | undefined;
+            if (layer.blend !== undefined && layer.blend !== null) {
+                if (typeof layer.blend === 'string'
+                    && LAYER_BLEND_MODES.includes(layer.blend as LayerBlendMode)) {
+                    blend = layer.blend as LayerBlendMode;
+                } else {
+                    warnings.push(`レイヤー ${layer.id} の blend が不正なため無視します。`);
+                }
+            }
+            let chromaKey: EditLayer['chromaKey'];
+            if (layer.chroma_key !== undefined && layer.chroma_key !== null) {
+                const rawChromaKey = layer.chroma_key;
+                const validChromaKey = typeof rawChromaKey === 'object' && !Array.isArray(rawChromaKey)
+                    && typeof rawChromaKey.color === 'string' && rawChromaKey.color.length > 0
+                    && (rawChromaKey.similarity === undefined
+                        || (typeof rawChromaKey.similarity === 'number' && Number.isFinite(rawChromaKey.similarity)
+                            && rawChromaKey.similarity >= 0 && rawChromaKey.similarity <= 1))
+                    && (rawChromaKey.blend === undefined
+                        || (typeof rawChromaKey.blend === 'number' && Number.isFinite(rawChromaKey.blend)
+                            && rawChromaKey.blend >= 0 && rawChromaKey.blend <= 1));
+                if (validChromaKey) {
+                    chromaKey = {
+                        color: rawChromaKey.color,
+                        ...(rawChromaKey.similarity !== undefined ? { similarity: rawChromaKey.similarity } : {}),
+                        ...(rawChromaKey.blend !== undefined ? { blend: rawChromaKey.blend } : {})
+                    };
+                } else {
+                    warnings.push(`レイヤー ${layer.id} の chroma_key が不正なため無視します。`);
+                }
+            }
             layers.push({
                 id: layer.id,
                 t: layer.t,
                 duration: layer.duration,
                 kind: layer.kind,
                 src: layer.src,
-                ...(layer.track !== undefined ? { track } : {})
+                ...(layer.track !== undefined ? { track } : {}),
+                ...(preset !== undefined ? { preset } : {}),
+                ...(transform !== undefined ? { transform } : {}),
+                ...(opacity !== undefined ? { opacity } : {}),
+                ...(blend !== undefined ? { blend } : {}),
+                ...(chromaKey !== undefined ? { chromaKey } : {})
             });
         }
     } else if (value.layers !== undefined) {
@@ -818,12 +910,22 @@ export function parseEdit(source: string): {
                     warnings.push(`${index + 1} 番目の SE は時刻または素材が不正なため表示しません。`);
                     continue;
                 }
+                let gainDb: number | undefined;
+                if (sfx.gain_db !== undefined && sfx.gain_db !== null) {
+                    if (typeof sfx.gain_db === 'number' && Number.isFinite(sfx.gain_db)
+                        && sfx.gain_db >= -60 && sfx.gain_db <= 12) {
+                        gainDb = sfx.gain_db;
+                    } else {
+                        warnings.push(`${index + 1} 番目の SE の gain_db が不正なため無視します。`);
+                    }
+                }
                 audioSfx.push({
                     id: `sfx-${index}`,
                     t: sfx.t,
                     duration: DECLARED_SFX_DURATION_SECONDS,
                     path: sfx.path,
-                    ...(sfx.track !== undefined ? { track: normalizeTrack(sfx.track) } : {})
+                    ...(sfx.track !== undefined ? { track: normalizeTrack(sfx.track) } : {}),
+                    ...(gainDb !== undefined ? { gainDb } : {})
                 });
                 if (sfx.track !== undefined && normalizeTrack(sfx.track) !== sfx.track) {
                     warnings.push(`${index + 1} 番目の SE の track が不正なため track 0 に表示します。`);
@@ -834,13 +936,32 @@ export function parseEdit(source: string): {
         if (bgm !== undefined && bgm !== null) {
             if (typeof bgm === 'object' && !Array.isArray(bgm)
                 && typeof bgm.path === 'string' && bgm.path.length > 0) {
+                let gainDb: number | undefined;
+                if (bgm.gain_db !== undefined && bgm.gain_db !== null) {
+                    if (typeof bgm.gain_db === 'number' && Number.isFinite(bgm.gain_db)
+                        && bgm.gain_db >= -60 && bgm.gain_db <= 12) {
+                        gainDb = bgm.gain_db;
+                    } else {
+                        warnings.push('bgm の gain_db が不正なため無視します。');
+                    }
+                }
+                let ducking: boolean | undefined;
+                if (bgm.ducking !== undefined && bgm.ducking !== null) {
+                    if (typeof bgm.ducking === 'boolean') {
+                        ducking = bgm.ducking;
+                    } else {
+                        warnings.push('bgm の ducking が不正なため無視します。');
+                    }
+                }
                 audioBgm = {
                     id: 'bgm',
                     path: bgm.path,
                     ...(typeof bgm.fadeIn === 'number' && Number.isFinite(bgm.fadeIn) && bgm.fadeIn >= 0
                         ? { fadeIn: bgm.fadeIn } : {}),
                     ...(typeof bgm.fadeOut === 'number' && Number.isFinite(bgm.fadeOut) && bgm.fadeOut >= 0
-                        ? { fadeOut: bgm.fadeOut } : {})
+                        ? { fadeOut: bgm.fadeOut } : {}),
+                    ...(gainDb !== undefined ? { gainDb } : {}),
+                    ...(ducking !== undefined ? { ducking } : {})
                 };
             } else {
                 warnings.push('bgm の path が不正なため表示しません。');
