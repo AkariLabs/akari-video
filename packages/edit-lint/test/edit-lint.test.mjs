@@ -893,3 +893,88 @@ test("intake.json with duration_s and keep_length both set fails", async () => {
     );
   });
 });
+
+for (const [fixture, expectedCheck] of [
+  ["cuts-track-overlap-invalid", "cuts.track-overlap"],
+  ["cuts-at-negative-invalid", "cuts.at"],
+  ["cuts-track-invalid-value", "cuts.track"],
+  ["layers-track-invalid-value", "layers.track"],
+  ["audio-sfx-track-invalid-value", "audio.sfx.track"],
+]) {
+  test(`${fixture} fails with ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "fail");
+      assert.ok(
+        result.findings.some(
+          (finding) => finding.severity === "error" && finding.check === expectedCheck,
+        ),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+for (const fixture of [
+  "cuts-track-at-omitted-equivalent",
+  "cuts-track-gap-valid",
+  "cuts-track-split-valid",
+]) {
+  test(`${fixture} passes with no track-overlap findings`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 0, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "pass");
+      assert.ok(!result.findings.some((finding) => finding.check === "cuts.track-overlap"));
+    });
+  });
+}
+
+test("layers on the same track overlapping in the output axis warn without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "layers-track-overlap-warning"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "layers.track-overlap" && finding.severity === "warning",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("sfx on the same track at the same t warn without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "sfx-track-overlap-warning"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "audio.sfx.track-overlap" && finding.severity === "warning",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("gap-aware output axis duration exceeding duration_max warns without failing when the gapless sum still fits", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "outputs-duration-max-gaps-warning"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "outputs.duration-max-gaps" && finding.severity === "warning",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+    assert.ok(!result.findings.some((finding) => finding.check === "outputs.duration-max"));
+  });
+});

@@ -305,3 +305,45 @@ test("direction.overrides must be an object (array is rejected)", () => {
   assert.equal(executed.status, 1, executed.stdout);
   assert.match(executed.stderr, /direction\.overrides は object である必要があります/);
 });
+
+test("cuts at/track and layers/sfx track and tracks section all valid together", () => {
+  const executed = run("edit-cuts-at-track-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("cuts[].at must be non-negative", () => {
+  const executed = run("edit-cuts-at-negative-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.at は 0 以上の有限数である必要があります/);
+});
+
+test("cuts[].track must be a non-negative integer", () => {
+  const executed = run("edit-cuts-track-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.track は 0 以上の整数である必要があります/);
+});
+
+test("layers[].track must be a non-negative integer", () => {
+  const executed = run("edit-layers-track-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /layers\[0\]\.track は 0 以上の整数である必要があります/);
+});
+
+test("audio.sfx[].track must be a non-negative integer", () => {
+  const executed = run("edit-sfx-track-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.sfx\[0\]\.track は 0 以上の整数である必要があります/);
+});
+
+test("tracks section with muted/hidden state passes", () => {
+  const executed = run("edit-tracks-section-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("tracks section rejects non-boolean muted/hidden", () => {
+  const executed = run("edit-tracks-section-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /tracks\.cuts\[0\]\.muted は boolean である必要があります/);
+});

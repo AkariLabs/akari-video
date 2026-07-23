@@ -185,11 +185,25 @@ export async function lintProject(input, options = {}) {
     edit.version,
     structure.sourceIds,
   );
+  validateCutTrackFields(edit.cuts, findings);
+  const cutTrackSegments = computeCutTrackSegments(edit.cuts);
+  for (const segment of findTrackOverlaps(cutTrackSegments)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "cuts.track-overlap",
+      message: `cut overlaps another cut on track ${segment.track} in the output axis`,
+      path: `edit.json#cuts[${segment.index}]`,
+      range: { start: segment.start, end: segment.end },
+    });
+  }
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
+  validateOutputAxisDurationMax(edit.outputs, cutTrackSegments, findings);
   await validateOverlays(edit.overlays, timeline, findings, paths);
   await validateNarration(edit?.audio?.narration, timeline, findings, paths);
   await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
+  validateSfxTracks(edit?.audio?.sfx, findings);
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
+  validateLayerTracks(edit.layers, findings);
   validateBeats(edit.beats, edit.version, structure.sourceIds, findings);
   validateDirection(edit.direction, findings);
 
@@ -520,6 +534,159 @@ function validateAudioMaster(value, findings, path) {
     (!isFiniteNumber(value.loudnorm) || value.loudnorm < -70 || value.loudnorm > 0)
   ) {
     addFinding(findings, { severity: "error", check: "audio.master.loudnorm", message: "loudnorm must be a finite number within [-70, 0]", path });
+  }
+}
+
+// at 省略 = 同一 track 内で直前カットの直後（既存ファイルは全カット track 省略=0・
+// at 省略なので、この既定は従来のギャップレス連結と完全に同値 = 後方互換）
+function computeCutTrackSegments(cuts) {
+  if (!Array.isArray(cuts)) return [];
+  const cursorByTrack = new Map();
+  const segments = [];
+  for (const [index, cut] of cuts.entries()) {
+    if (!isRecord(cut) || !isFiniteNumber(cut.in) || !isFiniteNumber(cut.out) || cut.out <= cut.in) {
+      continue;
+    }
+    const hasValidTrack = Object.hasOwn(cut, "track") && Number.isInteger(cut.track) && cut.track >= 0;
+    const track = hasValidTrack ? cut.track : 0;
+    const duration = cut.out - cut.in;
+    const cursor = cursorByTrack.get(track) ?? 0;
+    const hasValidAt = Object.hasOwn(cut, "at") && isFiniteNumber(cut.at) && cut.at >= 0;
+    const start = hasValidAt ? cut.at : cursor;
+    const end = start + duration;
+    cursorByTrack.set(track, end);
+    segments.push({ index, track, start, end });
+  }
+  return segments;
+}
+
+function findTrackOverlaps(segments) {
+  const byTrack = new Map();
+  for (const segment of segments) {
+    if (!byTrack.has(segment.track)) byTrack.set(segment.track, []);
+    byTrack.get(segment.track).push(segment);
+  }
+  const overlaps = [];
+  for (const list of byTrack.values()) {
+    list.sort((a, b) => a.start - b.start);
+    for (let i = 1; i < list.length; i += 1) {
+      if (list[i].start < list[i - 1].end - EPSILON) {
+        overlaps.push(list[i]);
+      }
+    }
+  }
+  return overlaps;
+}
+
+function validateCutTrackFields(cuts, findings) {
+  if (!Array.isArray(cuts)) return;
+  for (const [index, cut] of cuts.entries()) {
+    if (!isRecord(cut)) continue;
+    const path = `edit.json#cuts[${index}]`;
+    if (Object.hasOwn(cut, "at") && (!isFiniteNumber(cut.at) || cut.at < 0)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.at",
+        message: "at must be a non-negative finite number when present",
+        path: `${path}.at`,
+      });
+    }
+    if (Object.hasOwn(cut, "track") && (!Number.isInteger(cut.track) || cut.track < 0)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.track",
+        message: "cut track must be a non-negative integer when present",
+        path: `${path}.track`,
+      });
+    }
+  }
+}
+
+function validateOutputAxisDurationMax(outputs, cutSegments, findings) {
+  if (!Array.isArray(outputs) || cutSegments.length === 0) return;
+  const maxEnd = cutSegments.reduce((max, segment) => Math.max(max, segment.end), 0);
+  for (const [index, output] of outputs.entries()) {
+    if (!isRecord(output) || !Object.hasOwn(output, "duration_max")) continue;
+    const maximum = output.duration_max;
+    if (!isPositiveNumber(maximum)) continue;
+    if (maxEnd > maximum + EPSILON) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "outputs.duration-max-gaps",
+        message: `output axis duration ${formatNumber(maxEnd)}s (accounting for cuts[].at gaps/tracks) exceeds duration_max ${formatNumber(maximum)}s`,
+        path: `edit.json#outputs[${index}].duration_max`,
+      });
+    }
+  }
+}
+
+function validateLayerTracks(layers, findings) {
+  if (!Array.isArray(layers)) return;
+  const segments = [];
+  layers.forEach((layer, index) => {
+    if (!isRecord(layer)) return;
+    const path = `edit.json#layers[${index}]`;
+    if (Object.hasOwn(layer, "track") && (!Number.isInteger(layer.track) || layer.track < 0)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "layers.track",
+        message: "layer track must be a non-negative integer when present",
+        path: `${path}.track`,
+      });
+      return;
+    }
+    if (!isFiniteNumber(layer.t) || !isPositiveNumber(layer.duration)) return;
+    const hasValidTrack = Object.hasOwn(layer, "track") && Number.isInteger(layer.track) && layer.track >= 0;
+    const track = hasValidTrack ? layer.track : 0;
+    segments.push({ index, track, start: layer.t, end: layer.t + layer.duration });
+  });
+  for (const segment of findTrackOverlaps(segments)) {
+    addFinding(findings, {
+      severity: "warning",
+      check: "layers.track-overlap",
+      message: `layer overlaps another layer on track ${segment.track} in the output axis`,
+      path: `edit.json#layers[${segment.index}]`,
+      range: { start: segment.start, end: segment.end },
+    });
+  }
+}
+
+// sfx には duration が無い（瞬間マーカー）ため、「重なり」は同一 track かつ
+// 実質同一 t（EPSILON 以内）に退化させる。
+function validateSfxTracks(sfx, findings) {
+  if (!Array.isArray(sfx)) return;
+  const pointsByTrack = new Map();
+  sfx.forEach((item, index) => {
+    if (!isRecord(item)) return;
+    const path = `edit.json#audio.sfx[${index}]`;
+    if (Object.hasOwn(item, "track") && (!Number.isInteger(item.track) || item.track < 0)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.track",
+        message: "sfx track must be a non-negative integer when present",
+        path: `${path}.track`,
+      });
+      return;
+    }
+    if (!isFiniteNumber(item.t)) return;
+    const hasValidTrack = Object.hasOwn(item, "track") && Number.isInteger(item.track) && item.track >= 0;
+    const track = hasValidTrack ? item.track : 0;
+    if (!pointsByTrack.has(track)) pointsByTrack.set(track, []);
+    pointsByTrack.get(track).push({ index, t: item.t });
+  });
+  for (const list of pointsByTrack.values()) {
+    list.sort((a, b) => a.t - b.t);
+    for (let i = 1; i < list.length; i += 1) {
+      if (Math.abs(list[i].t - list[i - 1].t) <= EPSILON) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.sfx.track-overlap",
+          message: "sfx item shares the same track and t as another sfx item",
+          path: `edit.json#audio.sfx[${list[i].index}]`,
+          range: { start: list[i].t, end: list[i].t },
+        });
+      }
+    }
   }
 }
 

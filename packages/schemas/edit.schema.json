@@ -129,6 +129,7 @@
       "additionalProperties": true,
       "required": ["path", "t"],
       "properties": {
+        "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 },
         "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "t": { "$ref": "#/$defs/seconds" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 }
@@ -202,6 +203,8 @@
       "additionalProperties": true,
       "required": ["in", "out"],
       "properties": {
+        "at": { "$ref": "#/$defs/seconds" },
+        "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 },
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
         "speed": { "$ref": "#/$defs/positiveNumber" },
@@ -215,6 +218,8 @@
       "additionalProperties": true,
       "required": ["src", "in", "out"],
       "properties": {
+        "at": { "$ref": "#/$defs/seconds" },
+        "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 },
         "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
@@ -261,6 +266,7 @@
       "additionalProperties": true,
       "required": ["id", "t", "duration", "kind", "src"],
       "properties": {
+        "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 },
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "t": { "$ref": "#/$defs/seconds" },
         "duration": { "$ref": "#/$defs/positiveNumber" },
@@ -275,11 +281,30 @@
       },
       "$comment": "契約 contract-2026-07-22-prerender-rail-and-assets.md §1.2。kind===baked は R2b の bake CLI が生成するアルファ付き mov（preset/params は再 bake 用の来歴）。kind===video は実映像（PinP 等）。chroma_key は kind===video のときのみ意味を持つ（validate-edit.mjs で検証）。render-cut は cuts 合成後のベース映像へ t 順に合成する。"
     },
+    "trackState": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "muted": { "type": "boolean" },
+        "hidden": { "type": "boolean" }
+      }
+    },
+    "tracks": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "cuts": { "type": "array", "items": { "$ref": "#/$defs/trackState" } },
+        "overlays": { "type": "array", "items": { "$ref": "#/$defs/trackState" } },
+        "layers": { "type": "array", "items": { "$ref": "#/$defs/trackState" } },
+        "audio": { "type": "array", "items": { "$ref": "#/$defs/trackState" } }
+      }
+    },
     "editV0": {
       "type": "object",
       "additionalProperties": true,
       "required": ["version", "output", "source"],
       "properties": {
+        "tracks": { "$ref": "#/$defs/tracks" },
         "version": { "const": 0 },
         "output": { "$ref": "#/$defs/output" },
         "source": { "$ref": "#/$defs/sourceV0" },
@@ -309,6 +334,7 @@
       "additionalProperties": true,
       "required": ["version", "output", "sources"],
       "properties": {
+        "tracks": { "$ref": "#/$defs/tracks" },
         "version": { "const": 1 },
         "output": { "$ref": "#/$defs/output" },
         "sources": {
