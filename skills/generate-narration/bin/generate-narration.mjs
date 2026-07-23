@@ -10,7 +10,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const VOICEVOX_BASE_URL = "http://127.0.0.1:50021";
-const VOICEVOX_RUN_PATH = "/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run";
+const VOICEVOX_RUN_ENV = "VOICEVOX_RUN";
 const VOICEVOX_STARTUP_TIMEOUT_MS = 60_000;
 const FAL_TTS_URL = "https://fal.run/fal-ai/qwen-3-tts/text-to-speech/1.7b";
 const FAL_USD_PER_1000_CHARS = 0.09;
@@ -280,6 +280,32 @@ async function synthesizeFal(readingText, meta, falKey) {
 
 // --- VOICEVOX ローカルエンジン ---
 
+/**
+ * VOICEVOX エンジン（vv-engine の `run` 実行ファイル）のパスを解決する。
+ * 優先順位: 環境変数 `VOICEVOX_RUN`（絶対パス直指定）→ platform 別既定インストール先。
+ * 純粋関数にして `platform` / `env` を注入でき、実プラットフォームに依存せずテストできる
+ * ようにする（darwin 既定パスは不変。win32 既定パスの根拠は report.md 参照）。
+ */
+export function resolveVoicevoxRunPath(platform = process.platform, env = process.env) {
+  const override = env[VOICEVOX_RUN_ENV];
+  if (override) return override;
+
+  if (platform === "darwin") {
+    return "/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run";
+  }
+  if (platform === "win32") {
+    // VOICEVOX 0.16+ の既定インストーラ配置先（root repo 未検証・GitHub issue で確認済み。
+    // 根拠: report.md 参照）。`%LOCALAPPDATA%` が無い実行環境向けに homedir から組み立てる
+    // fallback も用意する。
+    const localAppData = env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+    return path.join(localAppData, "Programs", "VOICEVOX", "vv-engine", "run.exe");
+  }
+  throw new PublicError(
+    `VOICEVOX の既定インストール先を ${platform} 向けに解決できません。` +
+      `環境変数 ${VOICEVOX_RUN_ENV} に run 実行ファイルの絶対パスを指定してください。`,
+  );
+}
+
 async function isVoicevoxUp() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 1_500);
@@ -295,10 +321,11 @@ async function isVoicevoxUp() {
 
 async function ensureVoicevoxEngine() {
   if (await isVoicevoxUp()) return { startedByUs: false, child: null };
-  if (!fs.existsSync(VOICEVOX_RUN_PATH)) {
-    throw new PublicError(`VOICEVOX エンジンが見つかりません: ${VOICEVOX_RUN_PATH}`);
+  const runPath = resolveVoicevoxRunPath();
+  if (!fs.existsSync(runPath)) {
+    throw new PublicError(`VOICEVOX エンジンが見つかりません: ${runPath}`);
   }
-  const child = spawn(VOICEVOX_RUN_PATH, [], { stdio: "ignore" });
+  const child = spawn(runPath, [], { stdio: "ignore" });
   const deadline = Date.now() + VOICEVOX_STARTUP_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (await isVoicevoxUp()) return { startedByUs: true, child };

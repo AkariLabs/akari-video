@@ -59,6 +59,58 @@ test('findClaudeExecutable: 実行権限が無いファイルは無視する', a
   });
 });
 
+test('findClaudeExecutable: win32 では既定拡張子（.exe/.cmd/.bat）を探す', async () => {
+  await withScratchRoot(async (root) => {
+    const binDir = join(root, 'bin');
+    await mkdir(binDir, { recursive: true });
+    const claudePath = join(binDir, 'claude.cmd');
+    await writeFile(claudePath, '@echo off\r\necho fake-claude\r\n', 'utf8');
+    await chmod(claudePath, 0o755);
+
+    const found = findClaudeExecutable(binDir, 'win32', undefined);
+    assert.equal(found, claudePath);
+  });
+});
+
+test('findClaudeExecutable: win32 では拡張子なしファイルを候補にしない（CreateProcess は直接実行できない）', async () => {
+  await withScratchRoot(async (root) => {
+    const binDir = join(root, 'bin');
+    await mkdir(binDir, { recursive: true });
+    const posixShim = join(binDir, 'claude');
+    await writeFile(posixShim, '#!/bin/sh\necho fake-claude\n', 'utf8');
+    await chmod(posixShim, 0o755);
+
+    const found = findClaudeExecutable(binDir, 'win32', undefined);
+    assert.equal(found, null);
+  });
+});
+
+test('findClaudeExecutable: win32 で PATHEXT が注入されればその拡張子順を使う', async () => {
+  await withScratchRoot(async (root) => {
+    const binDir = join(root, 'bin');
+    await mkdir(binDir, { recursive: true });
+    const batPath = join(binDir, 'claude.bat');
+    await writeFile(batPath, '@echo off\r\necho fake-claude\r\n', 'utf8');
+    await chmod(batPath, 0o755);
+    // 既定セットには .bat があるので拡張子指定がなくても本来は見つかるが、ここでは
+    // PATHEXT が唯一のソースであることを .COM のみに絞って確認する（見つからない）。
+    const foundWithoutBat = findClaudeExecutable(binDir, 'win32', '.COM');
+    assert.equal(foundWithoutBat, null);
+
+    const foundWithBat = findClaudeExecutable(binDir, 'win32', '.COM;.BAT');
+    assert.equal(foundWithBat, batPath);
+  });
+});
+
+test('findClaudeExecutable: win32 で PATH のどこにも無ければ null', async () => {
+  await withScratchRoot(async (root) => {
+    const emptyBin = join(root, 'empty-bin');
+    await mkdir(emptyBin, { recursive: true });
+    const found = findClaudeExecutable(emptyBin, 'win32', undefined);
+    assert.equal(found, null);
+  });
+});
+
 test('detectProjectState: .akari/connections.json が無ければ未セットアップ', async () => {
   await withScratchRoot(async (root) => {
     const state = detectProjectState(root);

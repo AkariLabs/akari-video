@@ -122,14 +122,27 @@ export function bootstrapRunner(): void {
         }
         console.log(`${asset.name} をダウンロードしています`);
         const archive = await request(asset.browser_download_url);
-        const binary = extractSingleTarFile(gunzipSync(archive), /^codex(?:-|$)/);
+        // win32 の資産は tar.gz ではなく、GitHub リリース上の生の .exe（content-type:
+        // application/x-msdos-program）を直接公開している。gunzip/tar 展開は不要
+        // （2026-07-23 実測: gh api repos/openai/codex/releases/latest, rust-v0.145.0）。
+        const binary = assetName.endsWith('.exe')
+            ? archive
+            : extractSingleTarFile(gunzipSync(archive), /^codex(?:-|$)/);
         const [executable] = codexCandidates();
         const binDir = path.dirname(executable);
         await fs.mkdir(binDir, { recursive: true });
         const temporary = `${executable}.akari-download`;
-        await fs.writeFile(temporary, binary, { mode: 0o755 });
+        // Windows の fs.chmod は POSIX の実行属性を持たない（read-only 属性のみ）ため
+        // mode 指定・chmod 呼び出しは darwin/linux 側でのみ意味を持つ。
+        if (process.platform === 'win32') {
+            await fs.writeFile(temporary, binary);
+        } else {
+            await fs.writeFile(temporary, binary, { mode: 0o755 });
+        }
         await fs.rename(temporary, executable);
-        await fs.chmod(executable, 0o755);
+        if (process.platform !== 'win32') {
+            await fs.chmod(executable, 0o755);
+        }
         console.log(`Codex を ${executable} にインストールしました`);
         return { executablePath: executable, reused: false };
     }
@@ -146,6 +159,12 @@ export function bootstrapRunner(): void {
         }
         if (process.platform === 'linux' && process.arch === 'x64') {
             return 'codex-x86_64-unknown-linux-musl.tar.gz';
+        }
+        if (process.platform === 'win32' && process.arch === 'arm64') {
+            return 'codex-aarch64-pc-windows-msvc.exe';
+        }
+        if (process.platform === 'win32' && process.arch === 'x64') {
+            return 'codex-x86_64-pc-windows-msvc.exe';
         }
         throw new Error(`Codex binary bootstrap is unsupported on ${process.platform}-${process.arch}`);
     }
