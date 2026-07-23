@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import vm from "node:vm";
 
 import { renderOverlaySheet } from "../src/rasterize.mjs";
 
@@ -27,12 +28,294 @@ test("non-3D overlay sheets remain byte-identical", () => {
     duration: 2,
   });
 
-  assert.equal(sheet.length, 2241);
+  assert.equal(sheet.length, 5271);
   assert.equal(
     createHash("sha256").update(sheet).digest("hex"),
-    "1e26ad907d81bab7533525ba391bedba07f5d87ae116c8c92757957c58904b8f",
+    "25fc2d3cc4fc665766b4b015b520984a5d75c21e5a01379f321450eac9b6ebdc",
   );
   assert.doesNotMatch(sheet, /threeRuntime|AkariThree|data:model\/gltf-binary/);
+});
+
+test("__akariSeek waits for requestVideoFrameCallback before resolving", async () => {
+  const sheet = renderOverlaySheet({
+    overlays: [],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 1,
+  });
+  const script = sheet.match(/<script>\n([\s\S]*?)\n  <\/script>/u)?.[1];
+  assert.ok(script);
+
+  const events = [];
+  const listeners = new Map();
+  const video = {
+    seeking: false,
+    currentTime: 0,
+    pause() {
+      events.push("pause");
+    },
+    addEventListener(name, listener) {
+      listeners.set(name, listener);
+    },
+    removeEventListener(name, listener) {
+      if (listeners.get(name) === listener) listeners.delete(name);
+    },
+    requestVideoFrameCallback(callback) {
+      events.push("frame-requested");
+      setTimeout(() => {
+        events.push("frame-presented");
+        callback();
+      }, 10);
+      return 1;
+    },
+    cancelVideoFrameCallback() {},
+  };
+  Object.defineProperty(video, "currentTime", {
+    get() {
+      return this._currentTime ?? 0;
+    },
+    set(value) {
+      this._currentTime = value;
+      this.seeking = true;
+      events.push("currentTime-set");
+      setTimeout(() => {
+        this.seeking = false;
+        events.push("seeked");
+        listeners.get("seeked")?.();
+      }, 5);
+    },
+  });
+  const never = new Promise(() => {});
+  const document = {
+    fonts: { ready: never },
+    images: [],
+    querySelectorAll(selector) {
+      if (selector === "video") return [video];
+      return [];
+    },
+  };
+  const window = {
+    requestAnimationFrame(callback) {
+      return setTimeout(callback, 0);
+    },
+    cancelAnimationFrame: clearTimeout,
+  };
+  vm.runInNewContext(script, {
+    document,
+    window,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    console,
+  });
+
+  let resolved = false;
+  const seek = window.__akariSeek(0.5).then((result) => {
+    resolved = true;
+    return result;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 7));
+  assert.equal(resolved, false, "seek must remain pending until the decoded frame is presented");
+  assert.deepEqual(events.slice(0, 4), [
+    "pause",
+    "currentTime-set",
+    "frame-requested",
+    "seeked",
+  ]);
+  assert.deepEqual(Array.from((await seek).warnings), []);
+  assert.equal(events.at(-1), "frame-presented");
+});
+
+test("__akariSeek registers the video frame callback after changing currentTime", async () => {
+  const sheet = renderOverlaySheet({
+    overlays: [],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 1,
+  });
+  const script = sheet.match(/<script>\n([\s\S]*?)\n  <\/script>/u)?.[1];
+  assert.ok(script);
+
+  const events = [];
+  const video = {
+    seeking: false,
+    readyState: 4,
+    currentTime: 0,
+    pause() {},
+    addEventListener() {},
+    removeEventListener() {},
+    requestVideoFrameCallback(callback) {
+      events.push("frame-requested");
+      setTimeout(() => {
+        events.push("frame-presented");
+        callback();
+      }, 2);
+      return 1;
+    },
+    cancelVideoFrameCallback() {},
+  };
+  Object.defineProperty(video, "currentTime", {
+    get() {
+      return this._currentTime ?? 0;
+    },
+    set(value) {
+      this._currentTime = value;
+      this.seeking = true;
+      events.push("currentTime-set");
+      setTimeout(() => {
+        this.seeking = false;
+        events.push("seeked");
+      }, 5);
+    },
+  });
+  const never = new Promise(() => {});
+  const document = {
+    fonts: { ready: never },
+    images: [],
+    querySelectorAll(selector) {
+      if (selector === "video") return [video];
+      return [];
+    },
+  };
+  const window = {
+    requestAnimationFrame(callback) {
+      return setTimeout(callback, 0);
+    },
+    cancelAnimationFrame: clearTimeout,
+  };
+  vm.runInNewContext(script, {
+    document,
+    window,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    console,
+  });
+
+  assert.deepEqual(Array.from((await window.__akariSeek(0.5)).warnings), []);
+  assert.deepEqual(events.slice(0, 3), [
+    "currentTime-set",
+    "frame-requested",
+    "frame-presented",
+  ]);
+});
+
+test("__akariSeek falls back to two animation frames after seeked when video frame callbacks are unavailable", async () => {
+  const sheet = renderOverlaySheet({
+    overlays: [],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 1,
+  });
+  const script = sheet.match(/<script>\n([\s\S]*?)\n  <\/script>/u)?.[1];
+  assert.ok(script);
+
+  const events = [];
+  const listeners = new Map();
+  const video = {
+    seeking: false,
+    readyState: 4,
+    currentTime: 0,
+    pause() {},
+    addEventListener(name, listener) {
+      listeners.set(name, listener);
+    },
+    removeEventListener(name, listener) {
+      if (listeners.get(name) === listener) listeners.delete(name);
+    },
+  };
+  Object.defineProperty(video, "currentTime", {
+    get() {
+      return this._currentTime ?? 0;
+    },
+    set(value) {
+      this._currentTime = value;
+      this.seeking = true;
+      setTimeout(() => {
+        this.seeking = false;
+        events.push("seeked");
+        listeners.get("seeked")?.();
+      }, 0);
+    },
+  });
+  const never = new Promise(() => {});
+  const document = {
+    fonts: { ready: never },
+    images: [],
+    querySelectorAll(selector) {
+      if (selector === "video") return [video];
+      return [];
+    },
+  };
+  const window = {
+    requestAnimationFrame(callback) {
+      const id = setTimeout(() => {
+        events.push("animation-frame");
+        callback();
+      }, 0);
+      return id;
+    },
+    cancelAnimationFrame: clearTimeout,
+  };
+  vm.runInNewContext(script, {
+    document,
+    window,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    console,
+  });
+
+  assert.deepEqual(Array.from((await window.__akariSeek(0.5)).warnings), []);
+  assert.deepEqual(events, ["seeked", "animation-frame", "animation-frame"]);
+});
+
+test("__akariSeek returns immediately for an already-decoded target frame", async () => {
+  const sheet = renderOverlaySheet({
+    overlays: [],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 1,
+  });
+  const script = sheet.match(/<script>\n([\s\S]*?)\n  <\/script>/u)?.[1];
+  assert.ok(script);
+
+  const events = [];
+  const video = {
+    seeking: false,
+    readyState: 4,
+    currentTime: 0.5,
+    pause() {
+      events.push("pause");
+    },
+    addEventListener() {
+      events.push("listener-added");
+    },
+    requestVideoFrameCallback() {
+      events.push("frame-requested");
+    },
+  };
+  const never = new Promise(() => {});
+  const document = {
+    fonts: { ready: never },
+    images: [],
+    querySelectorAll(selector) {
+      if (selector === "video") return [video];
+      return [];
+    },
+  };
+  const window = {};
+  vm.runInNewContext(script, {
+    document,
+    window,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    console,
+  });
+
+  assert.deepEqual(Array.from((await window.__akariSeek(0.5)).warnings), []);
+  assert.deepEqual(events, ["pause"]);
 });
 
 test("overlay sheet orders tracks back-to-front while preserving order within a track", () => {

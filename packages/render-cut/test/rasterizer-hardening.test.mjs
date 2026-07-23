@@ -298,6 +298,64 @@ test("the Puppeteer watchdog closes and kills a browser whose screenshot hangs",
   }
 });
 
+test("a video seek timeout warns and continues capturing the frame", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-video-seek-timeout-"));
+  const warnings = [];
+  let evaluateCalls = 0;
+  let screenshotCalls = 0;
+  const page = {
+    setDefaultTimeout() {},
+    setDefaultNavigationTimeout() {},
+    async setViewport() {},
+    async goto() {},
+    async evaluate() {
+      evaluateCalls += 1;
+      if (evaluateCalls === 1) return true;
+      return {
+        warnings: [
+          "video 1 seek/presentation timeout after 5000ms at 0s; continuing with the current frame",
+        ],
+      };
+    },
+    async screenshot() {
+      screenshotCalls += 1;
+    },
+  };
+  const browser = {
+    connected: false,
+    async newPage() {
+      return page;
+    },
+    async close() {},
+  };
+  try {
+    const overlayPath = join(root, "overlay.mov");
+    assert.equal(
+      await captureWithPuppeteer({
+        sheetPath: join(root, "overlay-sheet.html"),
+        chromePath: "/fake/chrome",
+        framesDirectory: join(root, "frames"),
+        overlayMovPath: overlayPath,
+        width: 320,
+        height: 180,
+        fps: 1,
+        duration: 1,
+        ffmpegCommand: "true",
+        timeoutMs: 100,
+        puppeteerModule: { launch: async () => browser },
+        onWarning: (warning) => warnings.push(warning),
+      }),
+      overlayPath,
+    );
+    assert.equal(screenshotCalls, 1, "the timed-out seek must not skip its screenshot");
+    assert.deepEqual(warnings, [
+      "frame 1/1 at 0s: video 1 seek/presentation timeout after 5000ms at 0s; continuing with the current frame",
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("a lower-priority adopted rasterizer produces a report warning", () => {
   const state = {
     version: 1,
