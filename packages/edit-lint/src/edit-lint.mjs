@@ -186,6 +186,7 @@ export async function lintProject(input, options = {}) {
     structure.sourceIds,
   );
   validateCutTrackFields(edit.cuts, findings);
+  validateCutTransformFields(edit.cuts, findings);
   const cutTrackSegments = computeCutTrackSegments(edit.cuts);
   for (const segment of findTrackOverlaps(cutTrackSegments)) {
     addFinding(findings, {
@@ -598,6 +599,64 @@ function validateCutTrackFields(cuts, findings) {
         check: "cuts.track",
         message: "cut track must be a non-negative integer when present",
         path: `${path}.track`,
+      });
+    }
+  }
+}
+
+function validateCutTransformFields(cuts, findings) {
+  if (!Array.isArray(cuts)) return;
+  for (const [index, cut] of cuts.entries()) {
+    if (!isRecord(cut)) continue;
+    const path = `edit.json#cuts[${index}]`;
+    if (
+      Object.hasOwn(cut, "opacity") &&
+      (!isFiniteNumber(cut.opacity) || cut.opacity < 0 || cut.opacity > 1)
+    ) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.opacity",
+        message: "opacity must be a finite number between 0 and 1 when present",
+        path: `${path}.opacity`,
+      });
+    }
+    if (!Object.hasOwn(cut, "transform")) continue;
+    if (!isRecord(cut.transform)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.transform",
+        message: "transform must be an object when present",
+        path: `${path}.transform`,
+      });
+      continue;
+    }
+    const allowedKeys = new Set(["x", "y", "scale", "rotate"]);
+    for (const key of Object.keys(cut.transform)) {
+      if (!allowedKeys.has(key)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "cuts.transform",
+          message: `transform has an unknown key: ${key}`,
+          path: `${path}.transform`,
+        });
+      }
+    }
+    for (const field of ["x", "y", "rotate"]) {
+      if (Object.hasOwn(cut.transform, field) && !isFiniteNumber(cut.transform[field])) {
+        addFinding(findings, {
+          severity: "error",
+          check: "cuts.transform",
+          message: `transform.${field} must be a finite number when present`,
+          path: `${path}.transform.${field}`,
+        });
+      }
+    }
+    if (Object.hasOwn(cut.transform, "scale") && !isPositiveNumber(cut.transform.scale)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.transform",
+        message: "transform.scale must be a positive number when present",
+        path: `${path}.transform.scale`,
       });
     }
   }

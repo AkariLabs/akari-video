@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [{ "id": "s1", "path": "sample.mp4", "proxy": null }],
+  "cuts": [
+    {
+      "src": "s1",
+      "in": 0,
+      "out": 5,
+      "at": 0,
+      "track": 0,
+      "transform": { "x": 100, "y": -50, "scale": 1.5, "rotate": 15 },
+      "opacity": 0.5
+    }
+  ],
+  "overlays": []
+}

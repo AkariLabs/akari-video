@@ -213,6 +213,17 @@
       },
       "$comment": "docs/contract-2026-07-22-render-basics.md #3。v0 は指定されたカット境界のみ xfade 経路（残裁定3）。ffmpeg xfade の transition 名へ直接対応: dissolve/fadeblack/fadewhite。"
     },
+    "cutTransform": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "scale": { "$ref": "#/$defs/positiveNumber" },
+        "rotate": { "type": "number" }
+      },
+      "$comment": "cuts[].transform 用。layerTransform と同語彙・同意味論（x/y=px 省略時0・scale=正の数 省略時1・rotate=度 省略時0）。layerTransform は additionalProperties:true のため既存 layerItem 検証結果を変えないよう独立した $def にしている（cuts 側は未知キーを拒否）。"
+    },
     "cutV0": {
       "type": "object",
       "additionalProperties": true,
@@ -223,6 +234,8 @@
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
         "speed": { "$ref": "#/$defs/positiveNumber" },
+        "transform": { "$ref": "#/$defs/cutTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
       },
       "not": { "required": ["src"] },
@@ -239,6 +252,8 @@
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
         "speed": { "$ref": "#/$defs/positiveNumber" },
+        "transform": { "$ref": "#/$defs/cutTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
       },
       "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"

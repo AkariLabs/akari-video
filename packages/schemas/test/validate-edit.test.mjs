@@ -373,6 +373,31 @@ test("cuts[].track must be a non-negative integer", () => {
   assert.match(executed.stderr, /cuts\[0\]\.track は 0 以上の整数である必要があります/);
 });
 
+for (const fixture of [
+  "edit-cuts-transform-omitted-valid",
+  "edit-cuts-transform-full-valid",
+  "edit-cuts-transform-partial-valid",
+]) {
+  test(`${fixture} passes`, () => {
+    const executed = run(fixture);
+    assert.equal(executed.status, 0, executed.stderr);
+    assert.match(executed.stdout, /^OK: /);
+  });
+}
+
+for (const [fixture, expectedError] of [
+  ["edit-cuts-transform-scale-invalid", /transform\.scale/],
+  ["edit-cuts-opacity-out-of-range-invalid", /opacity/],
+  ["edit-cuts-transform-rotate-invalid", /transform\.rotate/],
+  ["edit-cuts-transform-unknown-key-invalid", /未知のキー/],
+]) {
+  test(`${fixture} fails with the expected validation error`, () => {
+    const executed = run(fixture);
+    assert.equal(executed.status, 1, executed.stdout);
+    assert.match(executed.stderr, expectedError);
+  });
+}
+
 test("layers[].track must be a non-negative integer", () => {
   const executed = run("edit-layers-track-invalid");
   assert.equal(executed.status, 1, executed.stdout);

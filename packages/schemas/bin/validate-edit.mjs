@@ -612,7 +612,36 @@ function validateCuts(value, version, sources) {
         fail(`${label}.track は 0 以上の整数である必要があります`);
       }
     }
+    if (hasOwn(cut, "opacity")) {
+      if (!isFiniteNumber(cut.opacity) || cut.opacity < 0 || cut.opacity > 1) {
+        fail(`${label}.opacity は 0 から 1 の範囲の有限数である必要があります`);
+      }
+    }
+    if (hasOwn(cut, "transform")) {
+      validateCutTransform(cut.transform, `${label}.transform`);
+    }
     validateTransitionOut(cut.transition_out, `${label}.transition_out`);
+  }
+}
+
+function validateCutTransform(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  const allowedKeys = new Set(["x", "y", "scale", "rotate"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      fail(`${label} に未知のキーがあります: ${key}`);
+    }
+  }
+  for (const field of ["x", "y", "rotate"]) {
+    if (hasOwn(value, field) && !isFiniteNumber(value[field])) {
+      fail(`${label}.${field} は有限数である必要があります`);
+    }
+  }
+  if (hasOwn(value, "scale") && (!isFiniteNumber(value.scale) || value.scale <= 0)) {
+    fail(`${label}.scale は 0 より大きい有限数である必要があります`);
   }
 }
 
