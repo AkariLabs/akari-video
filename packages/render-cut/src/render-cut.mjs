@@ -362,7 +362,7 @@ async function loadCaptions(projectRoot, edit) {
   if (!(await isRegularFile(captionsPath))) return [];
   const captions = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
   if (!Array.isArray(captions)) throw new ExecutionError("captions.json root must be an array");
-  return generateCaptionOverlays(captions, edit.cuts);
+  return generateCaptionOverlays(captions, edit.cuts, { emphasisWords: edit.emphasis_words });
 }
 
 export async function rasterizeAndComposite(context) {

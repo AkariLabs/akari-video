@@ -7,19 +7,36 @@ const DEFAULT_MAX_CHARACTERS = 20;
 const KARAOKE_STYLE = "karaoke";
 const POP_STYLE = "pop";
 const SUPPORTED_WORD_STYLES = new Set([KARAOKE_STYLE, POP_STYLE]);
+const EMPHASIS_STYLE_ONE_CHAR_BANG = "one-char-bang";
+const EMPHASIS_STYLE_SIZE_PULSE = "size-pulse";
+const EMPHASIS_STYLE_COLOR_ACCENT = "color-accent";
+const SUPPORTED_EMPHASIS_STYLES = new Set([
+  EMPHASIS_STYLE_ONE_CHAR_BANG,
+  EMPHASIS_STYLE_SIZE_PULSE,
+  EMPHASIS_STYLE_COLOR_ACCENT,
+]);
 
 export function generateCaptionOverlays(captions, cuts, options = {}) {
   const maximum = options.maxCharacters ?? DEFAULT_MAX_CHARACTERS;
+  const emphasisWords = normalizeEmphasisWords(options.emphasisWords);
   const overlays = [];
 
   for (const caption of captions) {
     const ranges = computeCaptionRanges(caption.start, caption.end, cuts);
     const style = normalizeCaptionStyle(caption.style);
     for (const [index, range] of ranges.entries()) {
-      const words = style ? clipWordsToRange(caption.words, range.sourceStart, range.sourceEnd) : [];
+      const words = style || emphasisWords.length > 0
+        ? clipWordsToRange(caption.words, range.sourceStart, range.sourceEnd)
+        : [];
+      const hasEmphasis = words.some((word) => findMatchingEmphasis(word, emphasisWords));
       const html =
-        words.length > 0
-          ? renderStyledCaptionFragment(words, style, { maximum, rangeStart: range.sourceStart })
+        words.length > 0 && (style || hasEmphasis)
+          ? renderStyledCaptionFragment(words, style, {
+              maximum,
+              rangeStart: range.sourceStart,
+              emphasisTimeScale: range.emphasisTimeScale ?? 1,
+              emphasisWords,
+            })
           : renderCaptionFragment(caption.text, { maximum });
       overlays.push({
         id: `${caption.id}-${String(index + 1).padStart(2, "0")}`,
@@ -60,6 +77,7 @@ function computeCaptionRanges(start, end, cuts) {
         duration: (overlapEnd - overlapStart) / speed,
         sourceStart: overlapStart,
         sourceEnd: overlapEnd,
+        emphasisTimeScale: 1 / speed,
       });
     }
   }
@@ -163,18 +181,25 @@ export function renderCaptionFragment(text, options = {}) {
 export function renderStyledCaptionFragment(words, style, options = {}) {
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
   const rangeStart = options.rangeStart ?? 0;
-  const normalizedStyle = SUPPORTED_WORD_STYLES.has(style) ? style : KARAOKE_STYLE;
+  const emphasisTimeScale = options.emphasisTimeScale ?? 1;
+  const normalizedStyle = SUPPORTED_WORD_STYLES.has(style) ? style : null;
+  const emphasisWords = normalizeEmphasisWords(options.emphasisWords);
+  const hasEmphasis = words.some((word) => findMatchingEmphasis(word, emphasisWords));
+  const effectiveStyle = normalizedStyle ?? (hasEmphasis ? null : KARAOKE_STYLE);
+  const rootStyle = effectiveStyle ?? "emphasis";
   const lines = groupWordsIntoLines(words, maximum);
   const markup = lines
     .map(
       (line) =>
         `<p class="akari-caption__line">${line
-          .map((word) => renderCaptionToken(word, rangeStart, normalizedStyle))
+          .map((word) => renderCaptionToken(word, rangeStart, effectiveStyle, emphasisWords, emphasisTimeScale))
           .join("")}</p>`,
     )
     .join("");
 
-  return `<div class="akari-caption akari-caption--${normalizedStyle}">
+  const emphasisCss = hasEmphasis ? renderEmphasisCss() : "";
+
+  return `<div class="akari-caption akari-caption--${rootStyle}">
   <style>
     .akari-caption {
       position: absolute;
@@ -230,7 +255,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     }
     .akari-caption__tok--pop {
       animation: akari-caption-pop 0.2s var(--akari-tok-delay, 0s) ease-out both paused;
-    }
+    }${emphasisCss}
   </style>
   <div class="akari-caption__plate">${markup}</div>
 </div>`;
@@ -256,15 +281,128 @@ function groupWordsIntoLines(words, maximum) {
   return lines;
 }
 
-function renderCaptionToken(word, rangeStart, style) {
+function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1) {
+  const emphasis = findMatchingEmphasis(word, emphasisWords);
+  // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
+  if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis, emphasisTimeScale);
+
   const delay = formatSeconds(Math.max(0, word.start - rangeStart));
-  const className =
-    style === KARAOKE_STYLE ? "akari-caption__tok akari-caption__tok--karaoke" : "akari-caption__tok akari-caption__tok--pop";
-  const vars =
-    style === KARAOKE_STYLE
-      ? `--akari-tok-delay: ${delay}s; --akari-tok-dur: ${formatSeconds(Math.max(0.01, word.end - word.start))}s`
-      : `--akari-tok-delay: ${delay}s`;
+  const className = style === KARAOKE_STYLE
+    ? "akari-caption__tok akari-caption__tok--karaoke"
+    : style === POP_STYLE
+      ? "akari-caption__tok akari-caption__tok--pop"
+      : "akari-caption__tok";
+  const vars = style === KARAOKE_STYLE
+    ? `--akari-tok-delay: ${delay}s; --akari-tok-dur: ${formatSeconds(Math.max(0.01, word.end - word.start))}s`
+    : style === POP_STYLE
+      ? `--akari-tok-delay: ${delay}s`
+      : "";
   return `<span class="${className}" style="${vars}">${escapeHtml(word.text)}</span>`;
+}
+
+function renderEmphasisCaptionToken(word, rangeStart, emphasis, timeScale) {
+  const style = resolveEmphasisStyle(emphasis);
+  const overlapStart = Math.max(word.start, emphasis.t_start);
+  const overlapEnd = Math.min(word.end, emphasis.t_end);
+  const delay = Math.max(0, overlapStart - rangeStart) * timeScale;
+  const duration = Math.max(0.01, (overlapEnd - overlapStart) * timeScale);
+  const baseClass = `akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--${style}`;
+
+  if (style === EMPHASIS_STYLE_ONE_CHAR_BANG) {
+    const characters = Array.from(word.text);
+    const characterDuration = duration / characters.length;
+    const markup = characters.map((character, index) => {
+      const characterDelay = formatSeconds(delay + characterDuration * index);
+      return `<span class="akari-caption__emphasis-char" style="--akari-emphasis-delay: ${characterDelay}s; --akari-emphasis-dur: ${formatSeconds(Math.max(0.01, characterDuration))}s">${escapeHtml(character)}</span>`;
+    }).join("");
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${markup}</span>`;
+  }
+
+  if (style === EMPHASIS_STYLE_SIZE_PULSE) {
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="--akari-emphasis-delay: ${formatSeconds(delay)}s; --akari-emphasis-dur: ${formatSeconds(duration)}s">${escapeHtml(word.text)}</span>`;
+  }
+
+  return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="color: var(--akari-emphasis-${emphasisColorName(emphasis.emotion)})">${escapeHtml(word.text)}</span>`;
+}
+
+function renderEmphasisCss() {
+  return `
+    .akari-caption {
+      --akari-emphasis-joy: var(--vscode-akariTheme-accentLighter, #fdba74);
+      --akari-emphasis-pain: var(--vscode-errorForeground, #ff798c);
+      --akari-emphasis-surprise: var(--vscode-akariTheme-accentLight, #fb923c);
+      --akari-emphasis-anger: var(--vscode-errorForeground, #ff798c);
+      --akari-emphasis-sadness: var(--vscode-descriptionForeground, #a3a3a3);
+      --akari-emphasis-emphasis: var(--vscode-akariTheme-accent, #f97316);
+    }
+    @keyframes akari-emphasis-one-char-bang {
+      from { opacity: 0; transform: scale(1.6); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes akari-emphasis-size-pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.25); }
+      100% { transform: scale(1); }
+    }
+    .akari-caption__emphasis-char {
+      display: inline-block;
+      opacity: 0;
+      animation: akari-emphasis-one-char-bang var(--akari-emphasis-dur, 0.1s) var(--akari-emphasis-delay, 0s) ease-out both paused;
+    }
+    .akari-caption__tok--size-pulse {
+      animation: akari-emphasis-size-pulse var(--akari-emphasis-dur, 0.2s) var(--akari-emphasis-delay, 0s) ease-in-out both paused;
+    }`;
+}
+
+function normalizeEmphasisWords(value) {
+  if (!Array.isArray(value)) return [];
+  const seenIds = new Set();
+  const normalized = [];
+  for (const item of value) {
+    const valid = item !== null
+      && typeof item === "object"
+      && typeof item.id === "string"
+      && /^e-\d{4}$/u.test(item.id)
+      && !seenIds.has(item.id)
+      && typeof item.t_start === "number"
+      && Number.isFinite(item.t_start)
+      && item.t_start >= 0
+      && typeof item.t_end === "number"
+      && Number.isFinite(item.t_end)
+      && item.t_end > item.t_start
+      && typeof item.word === "string"
+      && /\S/u.test(item.word)
+      && typeof item.emotion === "string"
+      && /\S/u.test(item.emotion)
+      && (item.src === undefined || (typeof item.src === "string" && /\S/u.test(item.src)))
+      && (item.style_hint === undefined || typeof item.style_hint === "string");
+    if (!valid) continue;
+    seenIds.add(item.id);
+    normalized.push(item);
+  }
+  return normalized;
+}
+
+function findMatchingEmphasis(word, emphasisWords) {
+  return emphasisWords.find((emphasis) =>
+    emphasis.t_end > word.start
+      && emphasis.t_start < word.end
+      && (word.text === emphasis.word || emphasis.word.includes(word.text)),
+  );
+}
+
+function resolveEmphasisStyle(emphasis) {
+  if (SUPPORTED_EMPHASIS_STYLES.has(emphasis.style_hint)) return emphasis.style_hint;
+  if (emphasis.style_hint !== undefined) return EMPHASIS_STYLE_COLOR_ACCENT;
+  if (["pain", "surprise", "anger"].includes(emphasis.emotion)) return EMPHASIS_STYLE_ONE_CHAR_BANG;
+  if (["joy", "emphasis"].includes(emphasis.emotion)) return EMPHASIS_STYLE_SIZE_PULSE;
+  return EMPHASIS_STYLE_COLOR_ACCENT;
+}
+
+function emphasisColorName(emotion) {
+  return ["joy", "pain", "surprise", "anger", "sadness", "emphasis"].includes(emotion)
+    ? emotion
+    : "emphasis";
 }
 
 function formatSeconds(value) {

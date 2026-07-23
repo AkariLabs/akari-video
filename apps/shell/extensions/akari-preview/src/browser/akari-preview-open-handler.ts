@@ -73,6 +73,16 @@ interface EditSummaryAudio {
     narration: EditSummaryTimedAudio[];
 }
 
+interface EditSummaryEmphasisWord {
+    id: string;
+    src?: string;
+    t_start: number;
+    t_end: number;
+    word: string;
+    emotion: string;
+    style_hint?: string;
+}
+
 interface EditSummary {
     output: { width: number; height: number; fps?: number };
     overlays: EditSummaryOverlay[];
@@ -92,6 +102,7 @@ interface PreviewModel {
     assetStreamIds: string[];
     captionsUri?: URI;
     captions: PreviewCaption[];
+    emphasisWords?: EditSummaryEmphasisWord[];
     session?: { muted: boolean; captionsVisible: boolean; hiddenTracks: number[] };
 }
 
@@ -898,6 +909,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (typeof edit?.source?.path !== 'string' || !edit.source.path.trim()) {
                 throw new TypeError('edit.json の source.path が不正です。');
             }
+            const emphasisWords = this.normalizeEmphasisWords(edit?.emphasis_words);
             sourceUri = this.resolveEditAssetUri(edit.source.path, editUri);
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
@@ -1092,6 +1104,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
                 captionsUri,
                 captions,
+                emphasisWords,
                 summary: {
                     output: { width, height, fps: this.positiveNumber(edit?.output?.fps, 30) },
                     overlays,
@@ -1510,6 +1523,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const initialState = this.safeJson({
             summary: model.summary,
             captions: model.captions,
+            emphasisWords: model.emphasisWords ?? [],
             editPath: model.editUri?.toString() ?? null,
             relatedEditUri: model.relatedEditUri?.toString() ?? null,
             videoUri: videoUri.toString(),
@@ -2101,6 +2115,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
             const restoreIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4V7h3V4zm6 0h2v3h3v2h-5zM4 15h5v5H7v-3H4zm16 0v2h-3v3h-2v-5z"></path></svg>';
             let captions = Array.isArray(initial.captions) ? initial.captions : [];
+            const emphasisWords = Array.isArray(initial.emphasisWords) ? initial.emphasisWords : [];
             let hiddenTracks = new Set(Array.isArray(initial.hiddenTracks) ? initial.hiddenTracks : []);
             video.muted = initial.muted === true;
             captionPlate.style.visibility = initial.captionsVisible === false ? 'hidden' : 'visible';
@@ -2547,26 +2562,88 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (current.length > 0) lines.push(current);
                 return lines;
             };
+            const findMatchingEmphasis = word => emphasisWords.find(emphasis =>
+                emphasis.t_end > word.start
+                && emphasis.t_start < word.end
+                && (word.text === emphasis.word || emphasis.word.includes(word.text))
+            );
+            const resolveEmphasisStyle = emphasis => {
+                if (emphasis.style_hint === 'one-char-bang'
+                    || emphasis.style_hint === 'size-pulse'
+                    || emphasis.style_hint === 'color-accent') return emphasis.style_hint;
+                if (emphasis.style_hint !== undefined) return 'color-accent';
+                if (emphasis.emotion === 'pain' || emphasis.emotion === 'surprise'
+                    || emphasis.emotion === 'anger') return 'one-char-bang';
+                if (emphasis.emotion === 'joy' || emphasis.emotion === 'emphasis') return 'size-pulse';
+                return 'color-accent';
+            };
+            const emphasisColorName = emotion =>
+                ['joy', 'pain', 'surprise', 'anger', 'sadness', 'emphasis'].includes(emotion)
+                    ? emotion : 'emphasis';
+            const renderEmphasisCaptionToken = (word, rangeStart, emphasis) => {
+                const style = resolveEmphasisStyle(emphasis);
+                const overlapStart = Math.max(word.start, emphasis.t_start);
+                const overlapEnd = Math.min(word.end, emphasis.t_end);
+                const delay = Math.max(0, overlapStart - rangeStart);
+                const duration = Math.max(0.01, overlapEnd - overlapStart);
+                const baseClass = 'akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--' + style;
+                if (style === 'one-char-bang') {
+                    const characters = Array.from(word.text);
+                    const characterDuration = duration / characters.length;
+                    const markup = characters.map((character, index) =>
+                        '<span class="akari-caption__emphasis-char" style="--akari-emphasis-delay: '
+                        + formatCaptionSeconds(delay + characterDuration * index)
+                        + 's; --akari-emphasis-dur: '
+                        + formatCaptionSeconds(Math.max(0.01, characterDuration)) + 's">'
+                        + escapeCaptionHtml(character) + '</span>'
+                    ).join('');
+                    return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id + '">'
+                        + markup + '</span>';
+                }
+                if (style === 'size-pulse') {
+                    return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id
+                        + '" style="--akari-emphasis-delay: ' + formatCaptionSeconds(delay)
+                        + 's; --akari-emphasis-dur: ' + formatCaptionSeconds(duration) + 's">'
+                        + escapeCaptionHtml(word.text) + '</span>';
+                }
+                return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id
+                    + '" style="color: var(--akari-emphasis-' + emphasisColorName(emphasis.emotion) + ')">'
+                    + escapeCaptionHtml(word.text) + '</span>';
+            };
             const renderCaptionToken = (word, rangeStart, style) => {
+                const emphasis = findMatchingEmphasis(word);
+                // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
+                if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis);
                 const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
                 const className = style === 'karaoke'
                     ? 'akari-caption__tok akari-caption__tok--karaoke'
-                    : 'akari-caption__tok akari-caption__tok--pop';
+                    : style === 'pop'
+                        ? 'akari-caption__tok akari-caption__tok--pop'
+                        : 'akari-caption__tok';
                 const vars = style === 'karaoke'
                     ? '--akari-tok-delay: ' + delay + 's; --akari-tok-dur: '
                         + formatCaptionSeconds(Math.max(0.01, word.end - word.start)) + 's'
-                    : '--akari-tok-delay: ' + delay + 's';
+                    : style === 'pop' ? '--akari-tok-delay: ' + delay + 's' : '';
                 return '<span class="' + className + '" style="' + vars + '">'
                     + escapeCaptionHtml(word.text) + '</span>';
             };
             const renderStyledCaptionFragment = caption => {
                 const style = caption.style;
+                const hasEmphasis = caption.words.some(word => findMatchingEmphasis(word));
+                const rootStyle = style || (hasEmphasis ? 'emphasis' : 'karaoke');
                 const markup = groupWordsIntoLines(caption.words, 13).map(line =>
                     '<p class="akari-caption__line">'
                     + line.map(word => renderCaptionToken(word, caption.start, style)).join('')
                     + '</p>'
                 ).join('');
-                return '<div class="akari-caption akari-caption--' + style + '">'
+                const emphasisCss = hasEmphasis
+                    ? '.akari-caption{--akari-emphasis-joy:var(--vscode-akariTheme-accentLighter,#fdba74);--akari-emphasis-pain:var(--vscode-errorForeground,#ff798c);--akari-emphasis-surprise:var(--vscode-akariTheme-accentLight,#fb923c);--akari-emphasis-anger:var(--vscode-errorForeground,#ff798c);--akari-emphasis-sadness:var(--vscode-descriptionForeground,#a3a3a3);--akari-emphasis-emphasis:var(--vscode-akariTheme-accent,#f97316);}'
+                        + '@keyframes akari-emphasis-one-char-bang{from{opacity:0;transform:scale(1.6);}to{opacity:1;transform:scale(1);}}'
+                        + '@keyframes akari-emphasis-size-pulse{0%{transform:scale(1);}50%{transform:scale(1.25);}100%{transform:scale(1);}}'
+                        + '.akari-caption__emphasis-char{display:inline-block;opacity:0;animation:akari-emphasis-one-char-bang var(--akari-emphasis-dur,0.1s) var(--akari-emphasis-delay,0s) ease-out both paused;}'
+                        + '.akari-caption__tok--size-pulse{animation:akari-emphasis-size-pulse var(--akari-emphasis-dur,0.2s) var(--akari-emphasis-delay,0s) ease-in-out both paused;}'
+                    : '';
+                return '<div class="akari-caption akari-caption--' + rootStyle + '">'
                     + '<style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);font-family:system-ui,-apple-system,sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
                     + '.akari-caption__plate{position:absolute;left:0;right:0;bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;gap:var(--plate-gap,4px);}'
@@ -2576,6 +2653,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '@keyframes akari-caption-pop{0%{transform:translateY(0) scale(1);}50%{transform:translateY(-0.08em) scale(1.12);}100%{transform:translateY(0) scale(1);}}'
                     + '.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
                     + '.akari-caption__tok--pop{animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused;}'
+                    + emphasisCss
                     + '</style><div class="akari-caption__plate">' + markup + '</div></div>';
             };
             const renderCaption = () => {
@@ -2583,9 +2661,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 const caption = captions.find(candidate => candidate.start <= time && time < candidate.end) || null;
                 if (caption !== activeCaption) {
                     activeCaption = caption;
+                    const hasEmphasis = Boolean(caption && Array.isArray(caption.words)
+                        && caption.words.some(word => findMatchingEmphasis(word)));
                     styledCaptionActive = Boolean(caption
-                        && (caption.style === 'karaoke' || caption.style === 'pop')
-                        && Array.isArray(caption.words) && caption.words.length > 0);
+                        && Array.isArray(caption.words) && caption.words.length > 0
+                        && ((caption.style === 'karaoke' || caption.style === 'pop') || hasEmphasis));
                     captionPlate.classList.toggle('akari-caption-host--styled', styledCaptionActive);
                     if (styledCaptionActive) {
                         captionPlate.innerHTML = renderStyledCaptionFragment(caption);
@@ -3196,6 +3276,54 @@ body { display: grid; place-items: center; padding: 32px; }
 
     protected stringRecord(value: unknown): Record<string, string> {
         return Object.fromEntries(Object.entries(this.objectRecord(value)).map(([key, item]) => [key, String(item)]));
+    }
+
+    protected normalizeEmphasisWords(value: unknown): EditSummaryEmphasisWord[] {
+        if (value === undefined) {
+            return [];
+        }
+        if (!Array.isArray(value)) {
+            console.warn('[akari-preview] emphasis_words を無視しました（配列ではありません）');
+            return [];
+        }
+        const seenIds = new Set<string>();
+        const normalized: EditSummaryEmphasisWord[] = [];
+        for (const [index, item] of value.entries()) {
+            const candidate = item && typeof item === 'object' && !Array.isArray(item)
+                ? item as Record<string, unknown>
+                : undefined;
+            const valid = candidate !== undefined
+                && typeof candidate.id === 'string'
+                && /^e-\d{4}$/u.test(candidate.id)
+                && !seenIds.has(candidate.id)
+                && typeof candidate.t_start === 'number'
+                && Number.isFinite(candidate.t_start)
+                && candidate.t_start >= 0
+                && typeof candidate.t_end === 'number'
+                && Number.isFinite(candidate.t_end)
+                && candidate.t_end > candidate.t_start
+                && typeof candidate.word === 'string'
+                && /\S/u.test(candidate.word)
+                && typeof candidate.emotion === 'string'
+                && /\S/u.test(candidate.emotion)
+                && (candidate.src === undefined || (typeof candidate.src === 'string' && /\S/u.test(candidate.src)))
+                && (candidate.style_hint === undefined || typeof candidate.style_hint === 'string');
+            if (!valid || !candidate) {
+                console.warn(`[akari-preview] emphasis_words[${index}] を無視しました（要素が不正です）`);
+                continue;
+            }
+            seenIds.add(candidate.id as string);
+            normalized.push({
+                id: candidate.id as string,
+                ...(candidate.src !== undefined ? { src: candidate.src as string } : {}),
+                t_start: candidate.t_start as number,
+                t_end: candidate.t_end as number,
+                word: candidate.word as string,
+                emotion: candidate.emotion as string,
+                ...(candidate.style_hint !== undefined ? { style_hint: candidate.style_hint as string } : {})
+            });
+        }
+        return normalized;
     }
 
     protected finiteNumber(value: unknown, fallback: number): number {
