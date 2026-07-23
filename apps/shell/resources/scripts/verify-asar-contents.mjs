@@ -142,11 +142,14 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
   const asar = application.asar;
   let entries;
   try {
+    // Windows の asar list はエントリをバックスラッシュ区切りで返すため、以降の
+    // `/lib/...` 前提の照合が全滅する（CI run 30000812912 実測: 547MB の asar 全項目 MISSING）。
+    // 区切りを '/' に正規化してから照合する。
     entries = execSync(`npx --yes @electron/asar list ${JSON.stringify(asar)}`, {
       cwd: shellRoot,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024
-    }).split(/\r?\n/).filter(Boolean);
+    }).split(/\r?\n/).filter(Boolean).map(entry => entry.replace(/\\/g, '/'));
   } catch (error) {
     console.error(`❌ app.asar を読み取れません: ${path.relative(shellRoot, asar)}`);
     console.error(error instanceof Error ? error.message : String(error));
