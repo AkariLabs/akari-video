@@ -14,6 +14,13 @@ jobs:
     name: windows-build (build:ext + theia build + package)
     runs-on: windows-latest
     timeout-minutes: 90
+    env:
+      # Node 26 の Windows 公式ビルドは ClangCL + thin LTO 前提で、ヘッダ付属の common.gypi が
+      # 全アドオンビルドに -flto=thin / /opt:lldltojobs を注入する。ランナーの node-gyp は
+      # MSVC toolset のため link.exe が LNK1117 で死ぬ（run 29994686512 実測）。
+      # gyp の変数を env で上書きして LTO を無効化する（npm install の暗黙ビルドにも
+      # package 段の @electron/rebuild にも効く）。
+      GYP_DEFINES: enable_lto=false enable_thin_lto=false
     steps:
       # checkout より前に symlink / 長パスを有効化する（リポ直下に git 管理 symlink が 46 個。
       # GitHub の Windows ランナーは管理者権限で走るため core.symlinks true で実体化できる）
