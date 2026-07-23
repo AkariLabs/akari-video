@@ -2,11 +2,11 @@
   "id": "mplus-rounded-1c",
   "category": "font",
   "title": "M PLUS Rounded 1c",
-  "description": "丸みを帯びたやわらかい印象の日本語ゴシック体。Thin〜Black の幅広いウェイトを持ち、角の取れたアウトラインでカジュアル・親しみやすいトーンを演出できる。Google Fonts 公開・日本語テロップで人気の高い書体",
+  "description": "丸みを帯びたやわらかい印象の日本語ゴシック体。Thin〜Black の幅広いウェイトを持ち、角の取れたアウトラインでカジュアル・親しみやすいトーンを演出できる。Google Fonts 公開・日本語テロップで人気の高い書体。実体（静的ウェイト、telop カタログでの実使用に合わせ Medium/ExtraBold/Black の3ウェイトのみ）は本リポの assets/font/mplus-rounded-1c/ に同梱済み（2026-07-23 追記。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "VLOG・エンタメ系・チュートリアル・子ども/ファミリー向けなど、硬くなりすぎない柔らかい印象のテロップ見出しやポップな強調テキストが欲しいシーン",
   "tags": ["font", "japanese", "rounded", "gothic", "google-fonts", "ofl", "telop", "casual"],
   "knobs": [],
-  "ai_usage": "取得後は強調テロップの見出しに Bold〜Black、本文字幕に Regular〜Medium を使う想定。丸みのあるグリフ形状は改変しない。フォーマルな企業 VP・法人向け資料などの硬いトーンには使わず、カジュアル/ポップな文脈を優先して採用する",
+  "ai_usage": "取得後は強調テロップの見出しに Bold〜Black、本文字幕に Regular〜Medium を使う想定。丸みのあるグリフ形状は改変しない。フォーマルな企業 VP・法人向け資料などの硬いトーンには使わず、カジュアル/ポップな文脈を優先して採用する。同梱済みの実体は Medium(500)/ExtraBold(800)/Black(900) の3ウェイトのみ（Thin/Light/Regular/Bold は同梱していない・必要なら追加取得）",
   "requires": [],
   "provenance": {
     "origin": "AKARI Video 素材カタログ収録（Google Fonts / M+ FONTS Project, Coji Morishita）/ 2026-07-14",
