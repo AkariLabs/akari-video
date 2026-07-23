@@ -64,6 +64,10 @@ jobs:
           # install と同じく --no-workspaces で apps/shell 単体に対して実行する
           npm approve-scripts --no-workspaces electron esbuild puppeteer node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" "@vscode/windows-ca-certs" electron-winstaller
           npm rebuild --no-workspaces
+          # npm rebuild は install スクリプト（gyp/prebuild-install 系）は走らせるが electron の
+          # postinstall（本体 DL）は実行しない（run 29998465875 実測: 承認 12/12 + rebuilt
+          # successfully でも dist 不在）。electron のインストーラを直接実行する
+          node node_modules/electron/install.js
           # electron 実体が入ったことの早期ゲート（無ければ theia build まで進んでも無意味）
           node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
 
