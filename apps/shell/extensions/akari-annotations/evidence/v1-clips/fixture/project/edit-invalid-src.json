@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "sources": [
+    { "id": "s1", "path": "source-red.mp4", "proxy": null },
+    { "id": "s2", "path": "source-blue.mp4", "proxy": null }
+  ],
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "cuts": [
+    { "src": "s1", "in": 0, "out": 1 },
+    { "src": "missing", "in": 0, "out": 1 },
+    { "src": "s2", "in": 1, "out": 2 }
+  ]
+}
