@@ -21,6 +21,11 @@ jobs:
         run: |
           git config --global core.symlinks true
           git config --global core.longpaths true
+          # Windows ランナーの git は autocrlf=true が既定で、checkout 時に LF→CRLF 変換される。
+          # gen-skills-index の frontmatter パース等が CRLF で誤検出するため、リポの
+          # コミット済みバイト列（LF）のまま checkout する（初回 run 29994519391 の実測失敗より）
+          git config --global core.autocrlf false
+          git config --global core.eol lf
 
       - uses: actions/checkout@v4
 
