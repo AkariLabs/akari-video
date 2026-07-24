@@ -117,18 +117,175 @@ function findWhisperModel(repoRoot) {
   return null;
 }
 
-function audioDuration(audioPath) {
-  const result = run("ffprobe", [
-    "-v", "error",
-    "-show_entries", "format=duration",
-    "-of", "default=noprint_wrappers=1:nokey=1",
-    audioPath,
-  ]);
-  const duration = Number(String(result.stdout ?? "").trim());
-  if (result.error || result.status !== 0 || !Number.isFinite(duration) || duration <= 0) {
-    throw new Error(`音声 duration を取得できません: ${concise(result.stderr)}`);
+function wavChunks(buffer) {
+  if (
+    buffer.length < 12
+    || buffer.toString("ascii", 0, 4) !== "RIFF"
+    || buffer.toString("ascii", 8, 12) !== "WAVE"
+  ) {
+    throw new Error("タイムスタンプ健全性ゲート: audio.wav が RIFF/WAVE ではありません");
   }
-  return duration;
+  const chunks = [];
+  let offset = 12;
+  while (offset + 8 <= buffer.length) {
+    const id = buffer.toString("ascii", offset, offset + 4);
+    const size = buffer.readUInt32LE(offset + 4);
+    const start = offset + 8;
+    const end = Math.min(buffer.length, start + size);
+    chunks.push({ id, start, end });
+    offset = start + size + (size % 2);
+  }
+  return chunks;
+}
+
+function wavSample(buffer, offset, format, bitsPerSample) {
+  if (format === 1 && bitsPerSample === 8) return (buffer.readUInt8(offset) - 128) * 256;
+  if (format === 1 && bitsPerSample === 16) return buffer.readInt16LE(offset);
+  if (format === 1 && bitsPerSample === 24) {
+    const value = buffer.readUIntLE(offset, 3);
+    return (value & 0x800000 ? value - 0x1000000 : value) / 256;
+  }
+  if (format === 1 && bitsPerSample === 32) return buffer.readInt32LE(offset) / 65536;
+  if (format === 3 && bitsPerSample === 32) return buffer.readFloatLE(offset) * 32768;
+  if (format === 3 && bitsPerSample === 64) return buffer.readDoubleLE(offset) * 32768;
+  throw new Error(
+    `タイムスタンプ健全性ゲート: 未対応の WAV 形式です（format=${format}, bits=${bitsPerSample}）`,
+  );
+}
+
+export async function detectVadSpans(audioPath, {
+  windowSeconds = 0.05,
+  minimumRms = 300,
+  noiseFloorRatio = 3,
+  mergeGapSeconds = 0.6,
+  minimumSpanSeconds = 0.2,
+} = {}) {
+  const buffer = await fsp.readFile(audioPath);
+  const chunks = wavChunks(buffer);
+  const formatChunk = chunks.find((chunk) => chunk.id === "fmt ");
+  const dataChunk = chunks.find((chunk) => chunk.id === "data");
+  if (!formatChunk || formatChunk.end - formatChunk.start < 16 || !dataChunk) {
+    throw new Error("タイムスタンプ健全性ゲート: audio.wav の fmt/data chunk が不正です");
+  }
+
+  const format = buffer.readUInt16LE(formatChunk.start);
+  const channels = buffer.readUInt16LE(formatChunk.start + 2);
+  const sampleRate = buffer.readUInt32LE(formatChunk.start + 4);
+  const blockAlign = buffer.readUInt16LE(formatChunk.start + 12);
+  const bitsPerSample = buffer.readUInt16LE(formatChunk.start + 14);
+  const bytesPerSample = bitsPerSample / 8;
+  if (
+    ![1, 3].includes(format)
+    || channels < 1
+    || sampleRate < 1
+    || !Number.isInteger(bytesPerSample)
+    || blockAlign < channels * bytesPerSample
+  ) {
+    throw new Error("タイムスタンプ健全性ゲート: audio.wav の音声形式が不正です");
+  }
+
+  const frameCount = Math.floor((dataChunk.end - dataChunk.start) / blockAlign);
+  const duration = frameCount / sampleRate;
+  if (frameCount === 0) {
+    throw new Error("タイムスタンプ健全性ゲート: audio.wav にサンプルがありません");
+  }
+  const windowFrames = Math.max(1, Math.round(sampleRate * windowSeconds));
+  const windows = [];
+  for (let frameStart = 0; frameStart < frameCount; frameStart += windowFrames) {
+    const frameEnd = Math.min(frameCount, frameStart + windowFrames);
+    let sumSquares = 0;
+    let sampleCount = 0;
+    for (let frame = frameStart; frame < frameEnd; frame += 1) {
+      const frameOffset = dataChunk.start + frame * blockAlign;
+      for (let channel = 0; channel < channels; channel += 1) {
+        const sample = wavSample(
+          buffer,
+          frameOffset + channel * bytesPerSample,
+          format,
+          bitsPerSample,
+        );
+        sumSquares += sample * sample;
+        sampleCount += 1;
+      }
+    }
+    windows.push({
+      start: frameStart / sampleRate,
+      end: frameEnd / sampleRate,
+      rms: Math.sqrt(sumSquares / sampleCount),
+    });
+  }
+
+  const sortedRms = windows.map((window) => window.rms).sort((left, right) => left - right);
+  const noiseFloor = sortedRms[Math.floor((sortedRms.length - 1) * 0.2)] ?? 0;
+  const peakRms = sortedRms.at(-1) ?? 0;
+  const adaptiveThreshold = Math.min(noiseFloor * noiseFloorRatio, peakRms * 0.25);
+  const threshold = Math.max(minimumRms, adaptiveThreshold);
+  const spans = [];
+  for (const window of windows) {
+    if (window.rms <= threshold) continue;
+    const previous = spans.at(-1);
+    if (previous && window.start - previous.end < mergeGapSeconds - 1e-9) {
+      previous.end = window.end;
+    } else {
+      spans.push({ start: window.start, end: window.end });
+    }
+  }
+
+  return {
+    duration,
+    noiseFloor,
+    threshold,
+    spans: spans.filter((span) => span.end - span.start + 1e-9 >= minimumSpanSeconds),
+  };
+}
+
+function mergeIntervals(intervals) {
+  const merged = [];
+  for (const interval of intervals.sort((left, right) => left.start - right.start)) {
+    const previous = merged.at(-1);
+    if (previous && interval.start <= previous.end) {
+      previous.end = Math.max(previous.end, interval.end);
+    } else {
+      merged.push({ ...interval });
+    }
+  }
+  return merged;
+}
+
+export function measureTimestampCoverage(segments, vadSpans, {
+  toleranceSeconds = 0.25,
+  duration = Infinity,
+} = {}) {
+  const transcriptIntervals = mergeIntervals(
+    (Array.isArray(segments) ? segments : []).flatMap((segment) => (
+      Number.isFinite(segment?.start)
+      && Number.isFinite(segment?.end)
+      && segment.end > segment.start
+        ? [{
+          start: Math.max(0, segment.start - toleranceSeconds),
+          end: Math.min(duration, segment.end + toleranceSeconds),
+        }]
+        : []
+    )),
+  );
+  const speechDuration = vadSpans.reduce((sum, span) => sum + span.end - span.start, 0);
+  if (speechDuration <= 0) {
+    return { coverage: 1, coveredDuration: 0, speechDuration: 0 };
+  }
+  let coveredDuration = 0;
+  for (const speech of vadSpans) {
+    for (const transcript of transcriptIntervals) {
+      coveredDuration += Math.max(
+        0,
+        Math.min(speech.end, transcript.end) - Math.max(speech.start, transcript.start),
+      );
+    }
+  }
+  return {
+    coverage: Math.min(1, coveredDuration / speechDuration),
+    coveredDuration,
+    speechDuration,
+  };
 }
 
 function detectSpeechWindows(audioPath, duration) {
@@ -314,7 +471,7 @@ function normalizeWhisperJson(value) {
   });
 }
 
-async function trySpeechAnalyzer({ audioPath, repoRoot, duration }) {
+async function trySpeechAnalyzer({ audioPath, repoRoot }) {
   const helper = path.join(repoRoot, "skills", "analyze-footage", "bin", "transcribe-sa.mjs");
   const cacheRoot = path.join(os.tmpdir(), "akari-video-compile-review-session");
   await fsp.mkdir(cacheRoot, { recursive: true });
@@ -342,13 +499,13 @@ async function trySpeechAnalyzer({ audioPath, repoRoot, duration }) {
   return {
     result: {
       backend: "speechanalyzer",
-      segments: alignSegmentsToSpeech(segments, audioPath, duration),
+      segments,
     },
     reason: null,
   };
 }
 
-async function tryWhisper({ audioPath, repoRoot, duration }) {
+async function tryWhisper({ audioPath, repoRoot }) {
   const binary = findWhisperBinary(repoRoot);
   if (!binary) return { result: null, reason: "whisper.cpp: whisper-cli が見つかりません" };
   const help = run(binary, ["-h"]);
@@ -402,7 +559,7 @@ async function tryWhisper({ audioPath, repoRoot, duration }) {
     return {
       result: {
         backend: "whisper-cpp",
-        segments: alignSegmentsToSpeech(segments, audioPath, duration),
+        segments,
       },
       reason: null,
     };
@@ -466,7 +623,7 @@ async function tryCloud({
     return {
       result: {
         backend: value.backend === "scribe" ? "scribe" : "groq",
-        segments: alignSegmentsToSpeech(segments, audioPath, duration),
+        segments,
       },
       reason: null,
       decisionCard: card.decision_card,
@@ -477,22 +634,88 @@ async function tryCloud({
 }
 
 export async function transcribeAudio(options) {
-  const duration = audioDuration(options.audioPath);
+  const vad = await detectVadSpans(options.audioPath);
+  const duration = vad.duration;
   const reasons = [];
-  const speechAnalyzer = await trySpeechAnalyzer({ ...options, duration });
-  if (speechAnalyzer.result) return { ...speechAnalyzer.result, reasons };
-  reasons.push(speechAnalyzer.reason);
+  let timestampFallback = null;
+  const transcribers = {
+    speechAnalyzer: trySpeechAnalyzer,
+    whisper: tryWhisper,
+    cloud: tryCloud,
+    ...options.transcribers,
+  };
+  const warn = typeof options.logger?.warn === "function"
+    ? options.logger.warn
+    : console.warn;
+  const acceptHealthyResult = (attempt) => {
+    if (!attempt.result) return null;
+    const measurement = measureTimestampCoverage(attempt.result.segments, vad.spans, { duration });
+    if (measurement.coverage < 0.7) {
+      const reason = (
+        `timestamp coverage=${measurement.coverage.toFixed(3)}`
+        + ` (${measurement.coveredDuration.toFixed(3)}/${measurement.speechDuration.toFixed(3)}秒)`
+        + " < 0.700"
+      );
+      const warning = (
+        `${attempt.result.backend}: タイムスタンプ健全性ゲートで結果を破棄します（${reason}）`
+      );
+      warn(warning);
+      reasons.push(warning);
+      timestampFallback = { backend: attempt.result.backend, reason };
+      return null;
+    }
+    return {
+      ...attempt.result,
+      reasons: reasons.filter(Boolean),
+      provenance: {
+        backend: attempt.result.backend,
+        ...(timestampFallback
+          ? { fallbackFrom: timestampFallback.backend, reason: timestampFallback.reason }
+          : {}),
+      },
+    };
+  };
 
-  const whisper = await tryWhisper({ ...options, duration });
-  if (whisper.result) return { ...whisper.result, reasons };
-  reasons.push(whisper.reason);
+  const speechAnalyzer = await transcribers.speechAnalyzer({ ...options, duration });
+  const acceptedSpeechAnalyzer = acceptHealthyResult(speechAnalyzer);
+  if (acceptedSpeechAnalyzer) return acceptedSpeechAnalyzer;
+  if (speechAnalyzer.reason) reasons.push(speechAnalyzer.reason);
+
+  const whisper = await transcribers.whisper({ ...options, duration });
+  const acceptedWhisper = acceptHealthyResult(whisper);
+  if (acceptedWhisper) return acceptedWhisper;
+  if (whisper.reason) reasons.push(whisper.reason);
 
   if (options.allowCloudStt) {
-    const cloud = await tryCloud({ ...options, duration });
-    if (cloud.result) return { ...cloud.result, reasons, decisionCard: cloud.decisionCard };
-    reasons.push(cloud.reason);
-    return { backend: "unavailable", segments: [], reasons, decisionCard: cloud.decisionCard };
+    const cloud = await transcribers.cloud({ ...options, duration });
+    const acceptedCloud = acceptHealthyResult(cloud);
+    if (acceptedCloud) {
+      return { ...acceptedCloud, decisionCard: cloud.decisionCard };
+    }
+    if (cloud.reason) reasons.push(cloud.reason);
+    return {
+      backend: "unavailable",
+      segments: [],
+      reasons: reasons.filter(Boolean),
+      provenance: {
+        backend: "unavailable",
+        ...(timestampFallback
+          ? { fallbackFrom: timestampFallback.backend, reason: timestampFallback.reason }
+          : {}),
+      },
+      decisionCard: cloud.decisionCard,
+    };
   }
   reasons.push("cloud STT: --allow-cloud-stt がないため既定オフ");
-  return { backend: "unavailable", segments: [], reasons };
+  return {
+    backend: "unavailable",
+    segments: [],
+    reasons: reasons.filter(Boolean),
+    provenance: {
+      backend: "unavailable",
+      ...(timestampFallback
+        ? { fallbackFrom: timestampFallback.backend, reason: timestampFallback.reason }
+        : {}),
+    },
+  };
 }

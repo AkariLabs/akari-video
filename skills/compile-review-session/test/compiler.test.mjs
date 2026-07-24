@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -15,7 +18,11 @@ import {
   parseEventsJsonl,
   resolveUtteranceReference,
 } from "../bin/core/time-mapping.mjs";
-import { restoreWhisperTokenWords } from "../bin/core/transcription.mjs";
+import {
+  detectVadSpans,
+  restoreWhisperTokenWords,
+  transcribeAudio,
+} from "../bin/core/transcription.mjs";
 
 const snapshot = {
   cuts: [
@@ -148,10 +155,135 @@ test("発話をまたぐ多段スクラブは発話終端の着地点へ高信�
   assert.notEqual(reference.confidence, "low");
 });
 
+test("圧縮タイムスタンプを reject して whisper.cpp へ fallback する", async (context) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "compile-review-vad-"));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  const audioPath = path.join(temporary, "audio.wav");
+  await writePcmWav(audioPath, 18, [
+    [1.95, 3.05],
+    [4.65, 6.15],
+    [7.1, 7.45],
+    [8.1, 9.2],
+    [11.95, 12.25],
+    [14.5, 17.85],
+  ]);
+  const vad = await detectVadSpans(audioPath);
+  assert.deepEqual(
+    vad.spans.map(({ start, end }) => [start, end]),
+    [
+      [1.95, 3.05],
+      [4.65, 6.15],
+      [7.1, 7.45],
+      [8.1, 9.2],
+      [11.95, 12.25],
+      [14.5, 17.85],
+    ],
+  );
+  const calls = [];
+  const warnings = [];
+  const transcript = await transcribeAudio({
+    audioPath,
+    transcribers: {
+      speechAnalyzer: async () => {
+        calls.push("speechanalyzer");
+        return {
+          result: {
+            backend: "speechanalyzer",
+            segments: timedSegments([[4.38, 6.4], [14.27, 15.16]]),
+          },
+          reason: null,
+        };
+      },
+      whisper: async () => {
+        calls.push("whisper-cpp");
+        return {
+          result: {
+            backend: "whisper-cpp",
+            segments: timedSegments([[0, 9.22], [9.22, 17.94]]),
+          },
+          reason: null,
+        };
+      },
+    },
+    logger: { warn: (warning) => warnings.push(warning) },
+  });
+
+  assert.deepEqual(calls, ["speechanalyzer", "whisper-cpp"]);
+  assert.equal(transcript.backend, "whisper-cpp");
+  assert.equal(transcript.provenance.backend, "whisper-cpp");
+  assert.equal(transcript.provenance.fallbackFrom, "speechanalyzer");
+  assert.match(transcript.provenance.reason, /coverage=0\.313 .*\/7\.700秒.*< 0\.700/);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /タイムスタンプ健全性ゲートで結果を破棄/);
+});
+
+test("VAD 発話時間を十分に覆うタイムスタンプはそのまま採用する", async (context) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "compile-review-vad-"));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  const audioPath = path.join(temporary, "audio.wav");
+  await writePcmWav(audioPath, 3, [[0.5, 1.5], [2, 2.5]]);
+  let whisperCalled = false;
+  const healthySegments = timedSegments([[0.45, 1.55], [1.95, 2.55]]);
+  const transcript = await transcribeAudio({
+    audioPath,
+    transcribers: {
+      speechAnalyzer: async () => ({
+        result: { backend: "speechanalyzer", segments: healthySegments },
+        reason: null,
+      }),
+      whisper: async () => {
+        whisperCalled = true;
+        throw new Error("健全な tier の後に fallback してはいけません");
+      },
+    },
+    logger: { warn: () => assert.fail("健全なタイムスタンプで warning を出してはいけません") },
+  });
+
+  assert.equal(whisperCalled, false);
+  assert.equal(transcript.backend, "speechanalyzer");
+  assert.deepEqual(transcript.segments, healthySegments);
+  assert.deepEqual(transcript.provenance, { backend: "speechanalyzer" });
+});
+
 function expectLocation(sourceT, cutIndex) {
   return {
     ...buildCutMap(snapshot).intervals[cutIndex],
     timelineT: sourceT < 100 ? sourceT - 10 : sourceT - 90,
     sourceT,
   };
+}
+
+function timedSegments(ranges) {
+  return ranges.map(([start, end], index) => ({
+    start,
+    end,
+    text: `発話${index + 1}`,
+    words: [{ start, end, text: `発話${index + 1}` }],
+  }));
+}
+
+async function writePcmWav(file, duration, speechSpans, sampleRate = 16000) {
+  const frameCount = Math.round(duration * sampleRate);
+  const data = Buffer.alloc(frameCount * 2);
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const time = frame / sampleRate;
+    const voiced = speechSpans.some(([start, end]) => time >= start && time < end);
+    data.writeInt16LE(voiced ? 1000 : 0, frame * 2);
+  }
+  const wav = Buffer.alloc(44 + data.length);
+  wav.write("RIFF", 0);
+  wav.writeUInt32LE(36 + data.length, 4);
+  wav.write("WAVE", 8);
+  wav.write("fmt ", 12);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * 2, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36);
+  wav.writeUInt32LE(data.length, 40);
+  data.copy(wav, 44);
+  await fs.writeFile(file, wav);
 }

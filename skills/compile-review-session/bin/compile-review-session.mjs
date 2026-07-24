@@ -279,6 +279,7 @@ async function loadOrCreateTranscript({
   const stored = {
     version: 1,
     backend: transcript.backend,
+    provenance: transcript.provenance ?? { backend: transcript.backend },
     segments: transcript.segments,
     ...(transcript.reasons?.length ? { unavailableReasons: transcript.reasons } : {}),
     ...(transcript.decisionCard ? { decisionCard: transcript.decisionCard } : {}),
