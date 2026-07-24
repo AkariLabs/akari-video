@@ -12,6 +12,8 @@ export interface TimelineCutSelection {
     sourceOut: number;
     outputStart: number;
     outputEnd: number;
+    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    opacity?: number;
     speed?: number;
     transitionOut?: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number };
     track?: number;
@@ -81,6 +83,11 @@ export type TimelineSelectionSnapshot =
 
 export type InspectorWriteRequest =
     | { kind: 'cut-speed'; index: number; value: number | null }
+    | { kind: 'cut-transform-x'; index: number; value: number | null }
+    | { kind: 'cut-transform-y'; index: number; value: number | null }
+    | { kind: 'cut-scale'; index: number; value: number | null }
+    | { kind: 'cut-rotate'; index: number; value: number | null }
+    | { kind: 'cut-opacity'; index: number; value: number | null }
     | { kind: 'cut-source-in'; index: number; value: number }
     | { kind: 'cut-source-out'; index: number; value: number }
     | { kind: 'layer-transform-x'; id: string; value: number | null }

@@ -39,7 +39,9 @@ import {
     SetBgmFieldsRequest,
     SetCaptionFieldsRequest,
     SetCutAtValuesRequest,
+    SetCutOpacityRequest,
     SetCutSpeedRequest,
+    SetCutTransformRequest,
     SetLayerBlendRequest,
     SetLayerOpacityRequest,
     SetLayerTransformRequest,
@@ -87,6 +89,8 @@ import {
     setSfxGainDbInSource,
     splitCutInSource,
     setCutAtValuesInSource,
+    updateCutOpacityInSource,
+    updateCutTransformInSource,
     trimCutInSource,
     updateBgmInSource,
     updateLayerBlendInSource,
@@ -221,6 +225,29 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = setCutSpeedInSource(source, request.cutIndex, request.speed);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの速度を変更') };
+    }
+
+    async setCutTransform(request: SetCutTransformRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = updateCutTransformInSource(source, request.cutIndex, {
+            x: request.x,
+            y: request.y,
+            scale: request.scale,
+            rotate: request.rotate
+        });
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの変形を変更') };
+    }
+
+    async setCutOpacity(request: SetCutOpacityRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = updateCutOpacityInSource(source, request.cutIndex, request.opacity);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの不透明度を変更') };
     }
 
     async setLayerTransform(request: SetLayerTransformRequest): Promise<WriteBackResult> {

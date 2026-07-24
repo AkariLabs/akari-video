@@ -1151,6 +1151,100 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = 'クリップの速度を変更しました。';
                     return { ok: true };
                 }
+                case 'cut-transform-x':
+                case 'cut-transform-y':
+                case 'cut-scale':
+                case 'cut-rotate': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const cut = this.cuts[request.index];
+                    if (!cut) {
+                        throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+                    }
+                    const property = request.kind === 'cut-transform-x' ? 'x'
+                        : request.kind === 'cut-transform-y' ? 'y'
+                            : request.kind === 'cut-scale' ? 'scale' : 'rotate';
+                    const original = cut.transform?.[property] ?? null;
+                    const nextFields = { [property]: request.value };
+                    const originalFields = { [property]: original };
+                    await this.annotationsService.setCutTransform({
+                        editUri,
+                        projectRootUri,
+                        cutIndex: request.index,
+                        ...nextFields
+                    });
+                    this.pushHistory({
+                        label: 'クリップの変形を変更',
+                        undo: async () => {
+                            await this.annotationsService.setCutTransform({
+                                editUri,
+                                projectRootUri,
+                                cutIndex: request.index,
+                                ...originalFields
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setCutTransform({
+                                editUri,
+                                projectRootUri,
+                                cutIndex: request.index,
+                                ...nextFields
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'クリップの変形を変更しました。';
+                    return { ok: true };
+                }
+                case 'cut-opacity': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const cut = this.cuts[request.index];
+                    if (!cut) {
+                        throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+                    }
+                    const original = cut.opacity ?? null;
+                    await this.annotationsService.setCutOpacity({
+                        editUri,
+                        projectRootUri,
+                        cutIndex: request.index,
+                        opacity: request.value
+                    });
+                    this.pushHistory({
+                        label: 'クリップの不透明度を変更',
+                        undo: async () => {
+                            await this.annotationsService.setCutOpacity({
+                                editUri,
+                                projectRootUri,
+                                cutIndex: request.index,
+                                opacity: original
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setCutOpacity({
+                                editUri,
+                                projectRootUri,
+                                cutIndex: request.index,
+                                opacity: request.value
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'クリップの不透明度を変更しました。';
+                    return { ok: true };
+                }
                 case 'cut-source-in':
                 case 'cut-source-out': {
                     if (!location.editUri) {
@@ -1604,6 +1698,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     src: cut.src,
                     sourcePath: this.sourceMap.get(cut.src)?.path
                 } : {}),
+                ...(cut.transform !== undefined ? { transform: cut.transform } : {}),
+                ...(cut.opacity !== undefined ? { opacity: cut.opacity } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
                 ...(cut.track !== undefined ? { track: cut.track } : {})

@@ -2,6 +2,8 @@ export interface EditCut {
     in: number;
     out: number;
     src?: string;
+    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    opacity?: number;
     speed?: number;
     transitionOut?: {
         type: 'dissolve' | 'fade-black' | 'fade-white';
@@ -268,6 +270,72 @@ export function setCutSpeedInSource(source: string, cutIndex: number, speed: num
         return hasSpeed
             ? replacePropertyValue(element, 'speed', speed, `クリップ ${cutIndex + 1}`)
             : appendNumberProperty(element, 'speed', speed);
+    });
+}
+
+export function updateCutTransformInSource(
+    source: string,
+    cutIndex: number,
+    updates: { x?: number | null; y?: number | null; scale?: number | null; rotate?: number | null }
+): string {
+    if (updates.x === undefined && updates.y === undefined
+        && updates.scale === undefined && updates.rotate === undefined) {
+        throw new Error('変更する transform フィールドを指定してください。');
+    }
+    for (const property of ['x', 'y', 'rotate'] as const) {
+        const value = updates[property];
+        if (value !== undefined && value !== null && !Number.isFinite(value)) {
+            throw new Error(`transform.${property} は有限数で指定してください。`);
+        }
+    }
+    if (updates.scale !== undefined && updates.scale !== null
+        && (!Number.isFinite(updates.scale) || updates.scale <= 0)) {
+        throw new Error('transform.scale は正の数で指定してください。');
+    }
+    return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element => {
+        const hasTransform = hasTopLevelProperty(element, 'transform');
+        if (!hasTransform) {
+            const transform = Object.fromEntries(
+                Object.entries(updates).filter((entry): entry is [string, number] =>
+                    entry[1] !== undefined && entry[1] !== null)
+            );
+            return Object.keys(transform).length > 0
+                ? appendJsonProperty(element, 'transform', transform)
+                : element;
+        }
+        const located = locateTopLevelObjectProperty(element, 'transform');
+        let transform = located.text;
+        for (const property of ['x', 'y', 'scale', 'rotate'] as const) {
+            const value = updates[property];
+            if (value === undefined) {
+                continue;
+            }
+            const hasProperty = new RegExp(`"${property}"\\s*:`).test(transform);
+            transform = value === null
+                ? (hasProperty ? removeObjectProperty(transform, property) : transform)
+                : (hasProperty
+                    ? replacePropertyValue(transform, property, value, `クリップ ${cutIndex + 1} の transform`)
+                    : appendNumberProperty(transform, property, value));
+        }
+        if (Object.keys(JSON.parse(transform) as Record<string, unknown>).length === 0) {
+            return removeObjectProperty(element, 'transform');
+        }
+        return element.slice(0, located.start) + transform + element.slice(located.end);
+    });
+}
+
+export function updateCutOpacityInSource(source: string, cutIndex: number, opacity: number | null): string {
+    if (opacity !== null && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
+        throw new Error('opacity は 0〜1 の範囲で指定してください。');
+    }
+    return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element => {
+        const hasOpacity = hasTopLevelProperty(element, 'opacity');
+        if (opacity === null) {
+            return hasOpacity ? removeObjectProperty(element, 'opacity') : element;
+        }
+        return hasOpacity
+            ? replaceTopLevelPropertyValue(element, 'opacity', opacity, `クリップ ${cutIndex + 1}`)
+            : appendNumberProperty(element, 'opacity', opacity);
     });
 }
 
@@ -905,10 +973,49 @@ export function parseEdit(source: string): {
                 if (rawCut.track !== undefined && track !== rawCut.track) {
                     warnings.push(`${index + 1} 番目のクリップの track が不正なため track 0 に表示します。`);
                 }
+                let transform: EditCut['transform'];
+                if (rawCut.transform !== undefined && rawCut.transform !== null) {
+                    const rawTransform = rawCut.transform;
+                    const validKeys = Object.keys(rawTransform).every(
+                        key => key === 'x' || key === 'y' || key === 'scale' || key === 'rotate'
+                    );
+                    const validTransform = typeof rawTransform === 'object' && !Array.isArray(rawTransform)
+                        && validKeys
+                        && (rawTransform.x === undefined
+                            || (typeof rawTransform.x === 'number' && Number.isFinite(rawTransform.x)))
+                        && (rawTransform.y === undefined
+                            || (typeof rawTransform.y === 'number' && Number.isFinite(rawTransform.y)))
+                        && (rawTransform.scale === undefined
+                            || (typeof rawTransform.scale === 'number'
+                                && Number.isFinite(rawTransform.scale) && rawTransform.scale > 0))
+                        && (rawTransform.rotate === undefined
+                            || (typeof rawTransform.rotate === 'number' && Number.isFinite(rawTransform.rotate)));
+                    if (validTransform) {
+                        transform = {
+                            ...(rawTransform.x !== undefined ? { x: rawTransform.x } : {}),
+                            ...(rawTransform.y !== undefined ? { y: rawTransform.y } : {}),
+                            ...(rawTransform.scale !== undefined ? { scale: rawTransform.scale } : {}),
+                            ...(rawTransform.rotate !== undefined ? { rotate: rawTransform.rotate } : {})
+                        };
+                    } else {
+                        warnings.push(`${index + 1} 番目のクリップの transform が不正なため無視します。`);
+                    }
+                }
+                let opacity: number | undefined;
+                if (rawCut.opacity !== undefined && rawCut.opacity !== null) {
+                    if (typeof rawCut.opacity === 'number' && Number.isFinite(rawCut.opacity)
+                        && rawCut.opacity >= 0 && rawCut.opacity <= 1) {
+                        opacity = rawCut.opacity;
+                    } else {
+                        warnings.push(`${index + 1} 番目のクリップの opacity が不正なため無視します。`);
+                    }
+                }
                 cuts.push({
                     in: input,
                     out: output,
                     ...(typeof rawCut.src === 'string' ? { src: rawCut.src } : {}),
+                    ...(transform !== undefined ? { transform } : {}),
+                    ...(opacity !== undefined ? { opacity } : {}),
                     ...(speed !== undefined ? { speed } : {}),
                     ...(transitionOut ? { transitionOut } : {}),
                     ...(at !== undefined ? { at } : {}),
