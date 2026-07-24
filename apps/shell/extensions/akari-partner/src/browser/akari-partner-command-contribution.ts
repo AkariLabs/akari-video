@@ -1,8 +1,12 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
+import { Command, CommandContribution, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { WidgetManager } from '@theia/core/lib/browser';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { PARTNER_CATALOG } from './partner-catalog';
+
+// ホームの接続 CTA（AkariPartnerCommands.BEGIN_ONBOARDING）のボタン表記と一致させる
+// （akari-surfaces/src/browser/akari-home-widget.tsx の実際のボタンラベル文言）。
+const PARTNER_NOT_CONNECTED_MESSAGE = 'パートナー未接続。ホームの「パートナーに接続する」から接続してください';
 
 /**
  * ホーム v2（task.md 2026-07-21-home-flow）向けの薄いコマンド境界。
@@ -30,6 +34,17 @@ export const AkariPartnerCommands = {
     SEND_TO_PARTNER: {
         id: 'akari.partner.send',
         label: 'パートナーにメッセージを送る'
+    } as Command,
+    /**
+     * 輸入リスト④（素材カード「エージェントに頼む」）向けの注入コマンド。
+     * SEND_TO_PARTNER と同じ送信経路（AkariPartnerWidget#sendFromExternal →
+     * PartnerChannel#send）を再利用するが、未接続時に日本語トーストで案内する
+     * 点が異なる。SEND_TO_PARTNER 自体の挙動（home-flow が使う）は変えない
+     * ため、既存コマンドを改造せず別コマンドとして追加する。
+     */
+    INJECT_PROMPT: {
+        id: 'akari.partner.injectPrompt',
+        label: '文脈パケットをパートナーへ送る'
     } as Command
 };
 
@@ -38,6 +53,9 @@ export class AkariPartnerCommandContribution implements CommandContribution {
 
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;
+
+    @inject(MessageService)
+    protected readonly messages!: MessageService;
 
     registerCommands(registry: CommandRegistry): void {
         registry.registerCommand(AkariPartnerCommands.BEGIN_ONBOARDING, {
@@ -53,6 +71,19 @@ export class AkariPartnerCommandContribution implements CommandContribution {
                 }
                 const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
                 return widget.sendFromExternal(text);
+            }
+        });
+        registry.registerCommand(AkariPartnerCommands.INJECT_PROMPT, {
+            execute: async (text: unknown) => {
+                if (typeof text !== 'string' || !text.trim()) {
+                    return false;
+                }
+                const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
+                const sent = widget.sendFromExternal(text);
+                if (!sent) {
+                    this.messages.warn(PARTNER_NOT_CONNECTED_MESSAGE);
+                }
+                return sent;
             }
         });
     }

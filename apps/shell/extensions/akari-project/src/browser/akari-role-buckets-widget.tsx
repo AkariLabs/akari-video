@@ -3,14 +3,19 @@ import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { Message } from '@theia/core/shared/@lumino/messaging';
-import { MessageService } from '@theia/core/lib/common';
-import { OpenerService, open } from '@theia/core/lib/browser';
+import { CommandService, MessageService } from '@theia/core/lib/common';
+import { OpenerService, QuickInputService, open } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { AkariProjectService, DroppedAsset } from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
+import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
+
+// パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
+// akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
+const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 
 type TabId = 'materials' | 'plan' | 'catalog';
 type MaterialKind = 'video' | 'audio' | 'image' | 'other';
@@ -25,6 +30,8 @@ interface MaterialCardEntry {
     analyzed: boolean;
     durationSeconds?: number;
     thumbnailUri?: URI;
+    /** analysis.json のプロジェクト相対パス。analyzed のときのみ設定される。 */
+    analysisRelativePath?: string;
 }
 
 /**
@@ -58,6 +65,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly openers!: OpenerService;
     @inject(MessageService)
     protected readonly messages!: MessageService;
+    @inject(CommandService)
+    protected readonly commandService!: CommandService;
+    @inject(QuickInputService)
+    protected readonly quickInputService!: QuickInputService;
 
     protected activeTab: TabId = 'materials';
     protected materials: MaterialCardEntry[] = [];
@@ -146,7 +157,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async buildMaterialEntry(root: URI, file: FileStat): Promise<MaterialCardEntry> {
         const relativePath = this.workflow.relativePath(file.resource) ?? file.resource.path.base;
         const kind = this.classifyKind(file.resource.path.base);
-        const analysisUri = root.resolve(`.akari/sidecars/${relativePath}.analysis/analysis.json`);
+        const analysisRelativePath = `.akari/sidecars/${relativePath}.analysis/analysis.json`;
+        const analysisUri = root.resolve(analysisRelativePath);
         const analysis = await this.readAnalysis(analysisUri);
         if (!analysis) {
             return { uri: file.resource, relativePath, name: file.resource.path.base, kind, analyzed: false };
@@ -158,7 +170,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             kind,
             analyzed: true,
             durationSeconds: deriveAnalysisDurationSeconds(analysis),
-            thumbnailUri: this.resolveThumbnail(analysisUri, analysis)
+            thumbnailUri: this.resolveThumbnail(analysisUri, analysis),
+            analysisRelativePath
         };
     }
 
@@ -206,6 +219,30 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async openFile(uri: URI): Promise<void> {
         await open(this.openers, uri);
+    }
+
+    /**
+     * 素材カード「エージェントに頼む」アクション。ファイルパスも文脈説明も
+     * ユーザーに書かせず、カードが知っている情報から文脈パケットを組み立てて
+     * パートナーへ注入する（輸入リスト④）。入力キャンセル時は何もしない。
+     */
+    protected async askAgent(entry: MaterialCardEntry): Promise<void> {
+        const request = await this.quickInputService.input({
+            placeHolder: 'この素材について何を頼みますか'
+        });
+        if (!request || !request.trim()) {
+            return;
+        }
+        const packet = composeMaterialAskAgentPrompt(
+            {
+                relativePath: entry.relativePath,
+                analyzed: entry.analyzed,
+                durationSeconds: entry.durationSeconds,
+                analysisRelativePath: entry.analysisRelativePath
+            },
+            request
+        );
+        await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
     }
 
     // --- ドロップ振り分け -----------------------------------------------------
@@ -442,6 +479,30 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             background: entry.analyzed ? 'var(--theia-badge-background)' : 'var(--theia-descriptionForeground)'
                         }}
                     />
+                    <button
+                        type='button'
+                        title='エージェントに頼む'
+                        aria-label={`${entry.name} についてエージェントに頼む`}
+                        onClick={event => { event.stopPropagation(); void this.askAgent(entry); }}
+                        style={{
+                            position: 'absolute',
+                            bottom: '4px',
+                            left: '4px',
+                            width: '20px',
+                            height: '20px',
+                            padding: 0,
+                            borderRadius: '50%',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'var(--theia-button-background)',
+                            color: 'var(--theia-button-foreground)',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <span className='codicon codicon-comment-discussion' aria-hidden='true' style={{ fontSize: '12px' }} />
+                    </button>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', padding: '4px 6px' }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85em' }}>
