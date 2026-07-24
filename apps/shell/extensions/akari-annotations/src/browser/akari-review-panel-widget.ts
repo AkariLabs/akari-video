@@ -25,6 +25,8 @@ interface ReviewSessionUiState {
     status: 'idle' | 'starting' | 'recording' | 'stopping' | 'error';
     active: boolean;
     elapsedSec: number;
+    level: number;
+    silenceWarning: boolean;
     sessions: ReviewSessionSummary[];
     error?: string;
 }
@@ -64,6 +66,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly recordingButton = document.createElement('button');
     protected readonly recordingIndicator = document.createElement('span');
     protected readonly recordingElapsed = document.createElement('span');
+    protected readonly recordingLevelMeter = document.createElement('div');
+    protected readonly recordingLevelFill = document.createElement('div');
+    protected readonly silenceWarningNotice = document.createElement('div');
     protected readonly recordingNotice = document.createElement('div');
     protected readonly sessionList = document.createElement('div');
     protected readonly openSessionsButton = document.createElement('button');
@@ -170,6 +175,25 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.openSessionsButton.addEventListener('click', () => this.openSessionsFolder());
         recordingControls.append(this.recordingButton, this.openSessionsButton);
 
+        this.recordingLevelMeter.setAttribute('data-review-level-meter', '');
+        this.recordingLevelMeter.setAttribute('data-review-level', '0');
+        this.recordingLevelMeter.setAttribute('role', 'meter');
+        this.recordingLevelMeter.setAttribute('aria-label', 'マイク入力レベル');
+        this.recordingLevelMeter.setAttribute('aria-valuemin', '0');
+        this.recordingLevelMeter.setAttribute('aria-valuemax', '1');
+        Object.assign(this.recordingLevelMeter.style, {
+            height: '6px', overflow: 'hidden', borderRadius: '999px',
+            background: 'var(--theia-input-background)'
+        });
+        Object.assign(this.recordingLevelFill.style, {
+            width: '0%', height: '100%', borderRadius: 'inherit',
+            background: 'var(--theia-charts-green)', transition: 'width 120ms linear'
+        });
+        this.recordingLevelMeter.appendChild(this.recordingLevelFill);
+        this.silenceWarningNotice.textContent = '入力が無音です — マイク設定を確認してください';
+        Object.assign(this.silenceWarningNotice.style, {
+            display: 'none', color: 'var(--theia-warningForeground)', fontSize: '11px', lineHeight: '1.4'
+        });
         Object.assign(this.recordingNotice.style, {
             display: 'none', color: 'var(--theia-errorForeground)', fontSize: '11px', lineHeight: '1.4'
         });
@@ -179,6 +203,8 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingSection.append(
             recordingHeading,
             recordingControls,
+            this.recordingLevelMeter,
+            this.silenceWarningNotice,
             this.recordingNotice,
             this.sessionList
         );
@@ -263,6 +289,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingIndicator.classList.toggle('is-recording', active);
         this.recordingIndicator.setAttribute('aria-label', active ? '録音中' : '録音停止中');
         this.recordingElapsed.textContent = this.formatSessionDuration(state?.elapsedSec ?? 0);
+        const level = active ? Math.max(0, Math.min(1, state?.level ?? 0)) : 0;
+        this.recordingLevelMeter.setAttribute('data-review-level', String(level));
+        this.recordingLevelMeter.setAttribute('aria-valuenow', String(level));
+        this.recordingLevelFill.style.width = `${level * 100}%`;
+        this.silenceWarningNotice.style.display = state?.silenceWarning ? 'block' : 'none';
         this.openSessionsButton.disabled = !location;
         if (state?.error) {
             this.recordingNotice.textContent = state.error;
