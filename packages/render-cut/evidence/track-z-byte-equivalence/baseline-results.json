@@ -1,0 +1,23 @@
+{
+  "multi-track-cuts-with-layers": {
+    "sha256": "0470264b048116655d86818fb7d4a5c5ff3446b18701761625fd540addda4b01",
+    "duration_seconds": 2.5,
+    "width": 320,
+    "height": 180,
+    "video_codec": "h264"
+  },
+  "sequential-transition": {
+    "sha256": "875cbe480d533c9ee2186d4d3ba89d62cd9265cd4301d91af865b55bf9465bcd",
+    "duration_seconds": 2.7,
+    "width": 320,
+    "height": 180,
+    "video_codec": "h264"
+  },
+  "chroma-key-video-layer": {
+    "sha256": "237dd194ad12569202c81581a2e70c875368cbec79b2c461b57892d0f868634f",
+    "duration_seconds": 3,
+    "width": 320,
+    "height": 180,
+    "video_codec": "h264"
+  }
+}
