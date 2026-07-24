@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [{ "id": "s1", "path": "../valid/sample.mp4", "proxy": null }],
+  "cuts": [{ "src": "s1", "in": 0, "out": 8, "track": 0 }],
+  "overlays": [],
+  "layers": [
+    { "id": "l1", "t": 0, "duration": 2, "kind": "baked", "src": "layer.mov", "track": 1 }
+  ],
+  "audio": {
+    "sfx": [{ "path": "../valid/sample.mp4", "t": 1, "track": 0 }]
+  },
+  "timeline": {
+    "tracks": [
+      { "id": "t1", "kind": "cuts", "ref": 0 },
+      { "id": "t2", "kind": "layers", "ref": 1 },
+      { "id": "t3", "kind": "audio" }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 5 }],
+  "overlays": [],
+  "timeline": {
+    "tracks": [
+      { "id": "duplicate", "kind": "cuts", "ref": 0 },
+      { "id": "duplicate", "kind": "captions" }
+    ]
+  }
+}

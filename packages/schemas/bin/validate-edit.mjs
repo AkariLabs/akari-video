@@ -96,6 +96,7 @@ function validateEdit(value) {
   validateEmphasisWords(value.emphasis_words, value.version, value.sources);
   validateDirection(value.direction);
   validateTracks(value.tracks);
+  validateTimeline(value.timeline);
 }
 
 function validateTracks(value) {
@@ -108,6 +109,48 @@ function validateTracks(value) {
     if (!hasOwn(value, key)) continue;
     validateTrackStateList(value[key], `tracks.${key}`);
   }
+}
+
+function validateTimeline(value) {
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    fail("timeline は object である必要があります");
+    return;
+  }
+  if (!Array.isArray(value.tracks)) {
+    fail("timeline.tracks は配列である必要があります");
+    return;
+  }
+  const ids = new Set();
+  const kinds = new Set(["cuts", "layers", "overlays", "captions", "audio"]);
+  value.tracks.forEach((item, index) => {
+    const label = `timeline.tracks[${index}]`;
+    if (!isPlainObject(item)) {
+      fail(`${label} は object である必要があります`);
+      return;
+    }
+    if (!isNonEmptyString(item.id)) {
+      fail(`${label}.id は空でない文字列である必要があります`);
+    } else if (ids.has(item.id)) {
+      fail(`timeline.tracks[].id が重複しています: ${item.id}`);
+    } else {
+      ids.add(item.id);
+    }
+    if (!kinds.has(item.kind)) {
+      fail(`${label}.kind は cuts/layers/overlays/captions/audio のいずれかである必要があります`);
+    }
+    if (hasOwn(item, "ref") && (!Number.isInteger(item.ref) || item.ref < 0)) {
+      fail(`${label}.ref は 0 以上の整数である必要があります`);
+    }
+    if (hasOwn(item, "label") && typeof item.label !== "string") {
+      fail(`${label}.label は文字列である必要があります`);
+    }
+    for (const field of ["muted", "hidden", "locked"]) {
+      if (hasOwn(item, field) && typeof item[field] !== "boolean") {
+        fail(`${label}.${field} は boolean である必要があります`);
+      }
+    }
+  });
 }
 
 function validateTrackStateList(value, label) {
