@@ -2566,6 +2566,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let gapOutputOrigin = 0;
             let outputTime = 0;
             let isPlaying = false;
+            let playToggleRenderedIsPlaying = null;
             let pausedForGapEntry = false;
             let initialPositionApplied = false;
             let zoom = 1;
@@ -3018,10 +3019,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 seek.max = String(timelineDuration);
                 seek.value = String(clamp(timelinePosition, 0, timelineDuration));
                 timeLabel.textContent = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
-                const label = isPlaying ? '一時停止' : '再生';
-                playToggle.innerHTML = isPlaying ? pauseIcon : playIcon;
-                playToggle.setAttribute('aria-label', label);
-                playToggle.title = label;
+                if (playToggleRenderedIsPlaying !== isPlaying) {
+                    playToggleRenderedIsPlaying = isPlaying;
+                    const label = isPlaying ? '一時停止' : '再生';
+                    playToggle.innerHTML = isPlaying ? pauseIcon : playIcon;
+                    playToggle.setAttribute('aria-label', label);
+                    playToggle.title = label;
+                }
             };
             const waveformBinCount = () => {
                 const raw = Math.max(96, Math.min(1024, Math.ceil(waveformRow.clientWidth / 2)));
