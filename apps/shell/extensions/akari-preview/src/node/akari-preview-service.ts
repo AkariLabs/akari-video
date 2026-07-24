@@ -10,11 +10,18 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { parse as parseJson } from 'jsonc-parser';
 import {
+    AppendReviewSessionAudioRequest,
+    AppendReviewSessionEventRequest,
     AssetStreamRequest,
     AkariPreviewService,
+    EndReviewSessionRequest,
+    ListReviewSessionsRequest,
     OverlayRuntimeAssets,
     ResolveHevcProxyRequest,
     ResolveHevcProxyResult,
+    ReviewSessionSummary,
+    StartReviewSessionRequest,
+    StartReviewSessionResult,
     TranscodeAudioErrorKind,
     TranscodeAudioRequest,
     TranscodeAudioResult,
@@ -22,6 +29,7 @@ import {
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
 import { getH264Proxy } from './hevc-proxy';
+import { ReviewSessionWriter } from './review-session-writer';
 
 interface StreamTarget {
     path: string;
@@ -95,6 +103,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected readonly assetStreams = new Map<string, StreamTarget>();
     protected readonly transcodedAudioStreams = new Map<string, TranscodedAudioStreamTarget>();
     protected readonly temporaryAudioFiles = new Map<string, string>();
+    protected readonly reviewSessionWriter = new ReviewSessionWriter(() => this.resolveWorkspaceRoots());
 
     constructor() {
         process.once('exit', () => {
@@ -289,6 +298,26 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (target) {
             await this.cleanupTranscodedAudioStreamById(id, target);
         }
+    }
+
+    async startReviewSession(request: StartReviewSessionRequest): Promise<StartReviewSessionResult> {
+        return this.reviewSessionWriter.start(request);
+    }
+
+    async appendReviewSessionEvent(request: AppendReviewSessionEventRequest): Promise<void> {
+        await this.reviewSessionWriter.appendEvent(request);
+    }
+
+    async appendReviewSessionAudio(request: AppendReviewSessionAudioRequest): Promise<void> {
+        await this.reviewSessionWriter.appendAudio(request);
+    }
+
+    async endReviewSession(request: EndReviewSessionRequest): Promise<void> {
+        await this.reviewSessionWriter.end(request);
+    }
+
+    async listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]> {
+        return this.reviewSessionWriter.list(request);
     }
 
     protected runAudioTranscode(inputPath: string, outputPath: string): Promise<TranscodeAudioErrorKind | undefined> {

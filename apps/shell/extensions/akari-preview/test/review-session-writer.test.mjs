@@ -1,0 +1,142 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import test from 'node:test';
+import { ReviewSessionWriter } from '../lib/node/review-session-writer.js';
+
+async function fixture() {
+    const root = await mkdtemp(join(tmpdir(), 'akari-review-session-writer-'));
+    const editPath = join(root, 'edit.json');
+    const editBytes = Buffer.from('{\n  "version": 0,\n  "cuts": []\n}\n', 'utf8');
+    await writeFile(editPath, editBytes);
+    const canonicalRoot = await realpath(root);
+    return {
+        root,
+        editPath,
+        editBytes,
+        writer: new ReviewSessionWriter(async () => [canonicalRoot]),
+        request: {
+            projectRootUri: pathToFileURL(root).toString(),
+            editUri: pathToFileURL(editPath).toString(),
+            timelineT: 12.4,
+            playing: false
+        }
+    };
+}
+
+test('records the four S1 files with a valid 16 kHz mono WAV and ordered trajectory', async () => {
+    const { root, editBytes, writer, request } = await fixture();
+    const started = await writer.start(request);
+    const sessionPath = new URL(started.sessionDir);
+    assert.equal(started.id, 's-0001');
+    assert.deepEqual((await readdir(sessionPath)).sort(), [
+        'audio.wav',
+        'edit.snapshot.json',
+        'events.jsonl'
+    ]);
+    assert.deepEqual(await readFile(new URL('edit.snapshot.json', `${started.sessionDir}/`)), editBytes);
+
+    const oneSecondPcm = Buffer.alloc(16_000 * 2);
+    await writer.appendAudio({
+        sessionDir: started.sessionDir,
+        pcmBase64: oneSecondPcm.toString('base64')
+    });
+    await writer.appendEvent({
+        sessionDir: started.sessionDir,
+        event: { recT: 0.5, type: 'play', timelineT: 12.4 }
+    });
+    await writer.appendEvent({
+        sessionDir: started.sessionDir,
+        event: { recT: 1.5, type: 'tick', timelineT: 13.4 }
+    });
+    await writer.appendEvent({
+        sessionDir: started.sessionDir,
+        event: { recT: 2, type: 'pause', timelineT: 13.9 }
+    });
+    await writer.appendEvent({
+        sessionDir: started.sessionDir,
+        event: { recT: 2.25, type: 'seek', from: 13.9, to: 42 }
+    });
+    await writer.appendEvent({
+        sessionDir: started.sessionDir,
+        event: { recT: 2.5, type: 'rate', value: 1.5 }
+    });
+    await writer.end({
+        sessionDir: started.sessionDir,
+        startedAt: started.startedAt,
+        endedAt: new Date().toISOString(),
+        editHash: started.editHash,
+        recT: 3,
+        timelineT: 42
+    });
+
+    assert.deepEqual((await readdir(sessionPath)).sort(), [
+        'audio.wav',
+        'edit.snapshot.json',
+        'events.jsonl',
+        'session.json'
+    ]);
+    const wav = await readFile(new URL('audio.wav', `${started.sessionDir}/`));
+    assert.equal(wav.toString('ascii', 0, 4), 'RIFF');
+    assert.equal(wav.toString('ascii', 8, 12), 'WAVE');
+    assert.equal(wav.readUInt16LE(22), 1);
+    assert.equal(wav.readUInt32LE(24), 16_000);
+    assert.equal(wav.readUInt16LE(34), 16);
+    assert.equal(wav.readUInt32LE(40), oneSecondPcm.length);
+    assert.equal(wav.length, 44 + oneSecondPcm.length);
+
+    const snapshot = await readFile(new URL('edit.snapshot.json', `${started.sessionDir}/`));
+    const expectedHash = `sha256:${createHash('sha256').update(snapshot).digest('hex')}`;
+    const manifest = JSON.parse(await readFile(new URL('session.json', `${started.sessionDir}/`), 'utf8'));
+    assert.equal(manifest.editHash, expectedHash);
+    assert.equal(manifest.status, 'recorded');
+    assert.equal(manifest.compiledAnnotations, null);
+
+    const events = (await readFile(new URL('events.jsonl', `${started.sessionDir}/`), 'utf8'))
+        .trim().split('\n').map(line => JSON.parse(line));
+    assert.deepEqual(events.map(event => event.type), ['start', 'play', 'tick', 'pause', 'seek', 'rate', 'end']);
+    assert.deepEqual(events.map(event => event.recT), [...events.map(event => event.recT)].sort((a, b) => a - b));
+    assert.equal(events[0].recT, 0);
+
+    const listed = await writer.list({ projectRootUri: pathToFileURL(root).toString() });
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0].id, 's-0001');
+    assert.equal(listed[0].durationSec, 1);
+    assert.equal(listed[0].orphaned, false);
+});
+
+test('allocates after the greatest existing directory and never reuses a missing number', async () => {
+    const { root, writer, request } = await fixture();
+    await mkdir(join(root, 'review', 'sessions', 's-0007'), { recursive: true });
+    await mkdir(join(root, 'review', 'sessions', 's-0012'), { recursive: true });
+    const started = await writer.start(request);
+    assert.equal(started.id, 's-0013');
+});
+
+test('lists missing manifests as orphans and skips only a damaged manifest', async () => {
+    const { root, writer } = await fixture();
+    const sessions = join(root, 'review', 'sessions');
+    await mkdir(join(sessions, 's-0001'), { recursive: true });
+    await writeFile(join(sessions, 's-0001', 'session.json'), '{broken');
+    await mkdir(join(sessions, 's-0002'), { recursive: true });
+    const previousWarn = console.warn;
+    console.warn = () => undefined;
+    try {
+        const listed = await writer.list({ projectRootUri: pathToFileURL(root).toString() });
+        assert.deepEqual(listed.map(session => session.id), ['s-0002']);
+        assert.equal(listed[0].orphaned, true);
+    } finally {
+        console.warn = previousWarn;
+    }
+});
+
+test('rejects project roots outside the current workspace', async () => {
+    const { root, request } = await fixture();
+    const otherRoot = await mkdtemp(join(tmpdir(), 'akari-review-session-outside-'));
+    const writer = new ReviewSessionWriter(async () => [await realpath(otherRoot)]);
+    await assert.rejects(() => writer.start(request), /inside the current workspace/);
+    assert.ok(root);
+});

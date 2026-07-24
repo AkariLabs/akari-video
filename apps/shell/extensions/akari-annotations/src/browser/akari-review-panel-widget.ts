@@ -4,6 +4,31 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStatusFilter, ReviewModel } from './review-model';
 
+// akari-preview 側の同名定数とミラー。extension 間の npm 依存を作らず outer window で連携する。
+const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
+const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
+const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
+const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
+const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+
+interface ReviewSessionSummary {
+    id: string;
+    startedAt: string;
+    endedAt: string | null;
+    durationSec: number;
+    orphaned: boolean;
+}
+
+interface ReviewSessionUiState {
+    editUri: string;
+    projectRootUri: string;
+    status: 'idle' | 'starting' | 'recording' | 'stopping' | 'error';
+    active: boolean;
+    elapsedSec: number;
+    sessions: ReviewSessionSummary[];
+    error?: string;
+}
+
 const STATUS_LABELS: Record<Annotation['status'], string> = {
     open: '未対応',
     addressed: '対応済み',
@@ -35,9 +60,18 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly timeLabel = document.createElement('span');
     protected readonly textInput = document.createElement('input');
     protected readonly addButton = document.createElement('button');
+    protected readonly recordingSection = document.createElement('section');
+    protected readonly recordingButton = document.createElement('button');
+    protected readonly recordingIndicator = document.createElement('span');
+    protected readonly recordingElapsed = document.createElement('span');
+    protected readonly recordingNotice = document.createElement('div');
+    protected readonly sessionList = document.createElement('div');
+    protected readonly openSessionsButton = document.createElement('button');
     protected readonly notice = document.createElement('div');
     protected readonly listContainer = document.createElement('div');
     protected readonly footer = document.createElement('div');
+    protected reviewSessionState: ReviewSessionUiState | undefined;
+    protected lastReviewSessionContext = '';
 
     @postConstruct()
     protected init(): void {
@@ -49,7 +83,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.node.classList.add('akari-review-panel-widget');
         Object.assign(this.node.style, {
             display: 'grid',
-            gridTemplateRows: 'auto auto auto minmax(0, 1fr) auto',
+            gridTemplateRows: 'auto auto auto auto minmax(0, 1fr) auto',
             height: '100%',
             overflow: 'hidden',
             background: 'var(--theia-editor-background)'
@@ -102,6 +136,53 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.addButton.addEventListener('click', () => void this.submitAnnotation());
         this.composerRow.append(this.timeLabel, this.textInput, this.addButton);
 
+        Object.assign(this.recordingSection.style, {
+            display: 'grid', gap: '7px', padding: '9px 10px',
+            borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
+        });
+        this.recordingSection.setAttribute('data-review-recording-section', '');
+        const recordingHeading = document.createElement('div');
+        Object.assign(recordingHeading.style, { display: 'flex', alignItems: 'center', gap: '7px' });
+        const recordingTitle = document.createElement('strong');
+        recordingTitle.textContent = '録音セッション';
+        recordingTitle.style.fontSize = '12px';
+        this.recordingIndicator.className = 'akari-review-recording-indicator';
+        this.recordingIndicator.textContent = '●';
+        this.recordingIndicator.setAttribute('aria-label', '録音停止中');
+        Object.assign(this.recordingIndicator.style, { color: 'var(--theia-descriptionForeground)', fontSize: '11px' });
+        Object.assign(this.recordingElapsed.style, {
+            marginLeft: 'auto', fontVariantNumeric: 'tabular-nums', fontSize: '12px'
+        });
+        this.recordingElapsed.textContent = '00:00';
+        recordingHeading.append(recordingTitle, this.recordingIndicator, this.recordingElapsed);
+
+        const recordingControls = document.createElement('div');
+        Object.assign(recordingControls.style, { display: 'flex', alignItems: 'center', gap: '7px' });
+        this.recordingButton.type = 'button';
+        this.recordingButton.setAttribute('data-review-recording-toggle', '');
+        this.recordingButton.className = 'theia-button main';
+        this.recordingButton.textContent = '録音開始';
+        this.recordingButton.addEventListener('click', () => this.toggleRecording());
+        this.openSessionsButton.type = 'button';
+        this.openSessionsButton.setAttribute('data-review-sessions-open', '');
+        this.openSessionsButton.className = 'theia-button secondary';
+        this.openSessionsButton.textContent = '保存先を開く';
+        this.openSessionsButton.addEventListener('click', () => this.openSessionsFolder());
+        recordingControls.append(this.recordingButton, this.openSessionsButton);
+
+        Object.assign(this.recordingNotice.style, {
+            display: 'none', color: 'var(--theia-errorForeground)', fontSize: '11px', lineHeight: '1.4'
+        });
+        Object.assign(this.sessionList.style, {
+            display: 'grid', gap: '3px', maxHeight: '92px', overflow: 'auto', fontSize: '11px'
+        });
+        this.recordingSection.append(
+            recordingHeading,
+            recordingControls,
+            this.recordingNotice,
+            this.sessionList
+        );
+
         Object.assign(this.notice.style, {
             display: 'none', padding: '7px 11px', color: 'var(--theia-warningForeground)',
             background: 'var(--theia-inputValidation-warningBackground)',
@@ -115,7 +196,14 @@ export class AkariReviewPanelWidget extends BaseWidget {
         });
         this.footer.textContent = 'タイムラインで時刻を選び、ここにコメントを書きます。';
 
-        this.node.append(this.toolbar, this.composerRow, this.notice, this.listContainer, this.footer);
+        this.node.append(
+            this.toolbar,
+            this.composerRow,
+            this.recordingSection,
+            this.notice,
+            this.listContainer,
+            this.footer
+        );
 
         const style = document.createElement('style');
         style.textContent = `
@@ -123,18 +211,150 @@ export class AkariReviewPanelWidget extends BaseWidget {
         background: var(--theia-list-activeSelectionBackground);
         border-radius: 3px;
     }
+    .akari-review-panel-widget .akari-review-recording-indicator.is-recording {
+        color: #e5484d !important;
+        animation: akari-review-recording-pulse 1.15s ease-in-out infinite;
+    }
+    @keyframes akari-review-recording-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.28; }
+    }
 `;
         this.node.appendChild(style);
 
         this.toDispose.push(this.model.onChanged(() => this.render()));
         this.toDispose.push(this.model.onReveal(id => this.revealAnnotation(id)));
+        const onReviewSessionState = (event: Event): void => {
+            const state = (event as CustomEvent<ReviewSessionUiState>).detail;
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (!state || !editUri || this.normalizeUri(state.editUri) !== this.normalizeUri(editUri)) {
+                return;
+            }
+            this.reviewSessionState = state;
+            this.renderRecordingSection();
+        };
+        window.addEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState)
+        });
         this.render();
     }
 
     protected render(): void {
         this.filterSelect.value = this.model.statusFilter;
         this.timeLabel.textContent = this.formatTimestamp(this.model.selectedSourceT);
+        this.refreshReviewSessionContext();
+        this.renderRecordingSection();
         this.renderList();
+    }
+
+    protected renderRecordingSection(): void {
+        const location = this.model.location;
+        const state = this.reviewSessionState;
+        const busy = state?.status === 'starting' || state?.status === 'stopping';
+        const active = state?.active === true;
+        this.recordingButton.disabled = !location?.editUri || busy;
+        this.recordingButton.textContent = state?.status === 'starting'
+            ? '準備中…'
+            : state?.status === 'stopping'
+                ? '保存中…'
+                : active ? '録音終了' : '録音開始';
+        this.recordingButton.className = active ? 'theia-button secondary' : 'theia-button main';
+        this.recordingIndicator.classList.toggle('is-recording', active);
+        this.recordingIndicator.setAttribute('aria-label', active ? '録音中' : '録音停止中');
+        this.recordingElapsed.textContent = this.formatSessionDuration(state?.elapsedSec ?? 0);
+        this.openSessionsButton.disabled = !location;
+        if (state?.error) {
+            this.recordingNotice.textContent = state.error;
+            this.recordingNotice.style.display = 'block';
+        } else {
+            this.recordingNotice.textContent = '';
+            this.recordingNotice.style.display = 'none';
+        }
+
+        this.sessionList.replaceChildren();
+        const sessions = state?.sessions ?? [];
+        if (sessions.length === 0) {
+            const empty = document.createElement('div');
+            empty.textContent = '録音済みセッションはありません。';
+            empty.style.color = 'var(--theia-descriptionForeground)';
+            this.sessionList.appendChild(empty);
+            return;
+        }
+        for (const session of [...sessions].reverse()) {
+            const row = document.createElement('div');
+            row.setAttribute('data-review-session', session.id);
+            Object.assign(row.style, {
+                display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                alignItems: 'center', gap: '7px'
+            });
+            const id = document.createElement('strong');
+            id.textContent = session.id;
+            const started = document.createElement('span');
+            started.textContent = this.formatSessionDate(session.startedAt);
+            started.style.color = 'var(--theia-descriptionForeground)';
+            started.style.overflow = 'hidden';
+            started.style.textOverflow = 'ellipsis';
+            started.style.whiteSpace = 'nowrap';
+            const duration = document.createElement('span');
+            duration.textContent = session.orphaned
+                ? `${this.formatSessionDuration(session.durationSec)}・未完了`
+                : this.formatSessionDuration(session.durationSec);
+            duration.style.fontVariantNumeric = 'tabular-nums';
+            if (session.orphaned) {
+                duration.style.color = 'var(--theia-warningForeground)';
+            }
+            row.append(id, started, duration);
+            this.sessionList.appendChild(row);
+        }
+    }
+
+    protected refreshReviewSessionContext(): void {
+        const location = this.model.location;
+        const editUri = location?.editUri?.normalizePath().toString();
+        if (!location || !editUri) {
+            this.lastReviewSessionContext = '';
+            this.reviewSessionState = undefined;
+            return;
+        }
+        const projectRootUri = location.root.normalizePath().toString();
+        const context = `${projectRootUri}\n${editUri}`;
+        if (context === this.lastReviewSessionContext) {
+            return;
+        }
+        this.lastReviewSessionContext = context;
+        this.reviewSessionState = undefined;
+        window.dispatchEvent(new CustomEvent(REVIEW_SESSION_REFRESH_EVENT, {
+            detail: { projectRootUri, editUri }
+        }));
+    }
+
+    protected toggleRecording(): void {
+        const location = this.model.location;
+        const editUri = location?.editUri?.normalizePath().toString();
+        if (!location || !editUri) {
+            this.recordingNotice.textContent = '出力プレビューを開いてから録音を開始してください。';
+            this.recordingNotice.style.display = 'block';
+            return;
+        }
+        const projectRootUri = location.root.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent(
+            this.reviewSessionState?.active ? REVIEW_SESSION_STOP_EVENT : REVIEW_SESSION_START_EVENT,
+            { detail: { projectRootUri, editUri } }
+        ));
+    }
+
+    protected openSessionsFolder(): void {
+        const location = this.model.location;
+        if (!location) {
+            return;
+        }
+        window.dispatchEvent(new CustomEvent(REVIEW_SESSION_OPEN_FOLDER_EVENT, {
+            detail: {
+                projectRootUri: location.root.normalizePath().toString(),
+                editUri: location.editUri?.normalizePath().toString()
+            }
+        }));
     }
 
     protected renderList(): void {
@@ -277,6 +497,30 @@ export class AkariReviewPanelWidget extends BaseWidget {
         const fraction = milliseconds % 1000;
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:` +
             `${String(seconds).padStart(2, '0')}.${String(fraction).padStart(3, '0')}`;
+    }
+
+    protected formatSessionDuration(value: number): string {
+        const totalSeconds = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    protected formatSessionDate(value: string): string {
+        const date = new Date(value);
+        return Number.isFinite(date.getTime())
+            ? date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+            : value;
+    }
+
+    protected normalizeUri(value: string): string {
+        return value.replace(/\/+$/, '');
     }
 
     protected errorMessage(error: unknown): string {

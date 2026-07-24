@@ -48,6 +48,56 @@ export interface ResolveHevcProxyRequest {
     projectRootUri: string;
 }
 
+export type ReviewSessionTransportEvent =
+    | { recT: number; type: 'play' | 'pause' | 'tick'; timelineT: number }
+    | { recT: number; type: 'seek'; from: number; to: number }
+    | { recT: number; type: 'rate'; value: number };
+
+export interface StartReviewSessionRequest {
+    projectRootUri: string;
+    editUri: string;
+    timelineT: number;
+    playing: boolean;
+}
+
+export interface StartReviewSessionResult {
+    id: string;
+    sessionDir: string;
+    startedAt: string;
+    editHash: string;
+}
+
+export interface AppendReviewSessionEventRequest {
+    sessionDir: string;
+    event: ReviewSessionTransportEvent;
+}
+
+export interface AppendReviewSessionAudioRequest {
+    sessionDir: string;
+    pcmBase64: string;
+}
+
+export interface EndReviewSessionRequest {
+    sessionDir: string;
+    startedAt: string;
+    endedAt: string;
+    editHash: string;
+    recT: number;
+    timelineT: number;
+}
+
+export interface ListReviewSessionsRequest {
+    projectRootUri: string;
+}
+
+export interface ReviewSessionSummary {
+    id: string;
+    startedAt: string;
+    endedAt: string | null;
+    durationSec: number;
+    orphaned: boolean;
+}
+
 // HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see the
 // win portability audit §HEVC プレビュー in the internal repo), so
 // akari-preview lazily transcodes a local H.264 proxy on first preview request and reuses it on
@@ -75,4 +125,9 @@ export interface AkariPreviewService {
     transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult>;
     disposeTranscodedAudioStream(id: string): Promise<void>;
     resolveHevcProxy(request: ResolveHevcProxyRequest): Promise<ResolveHevcProxyResult>;
+    startReviewSession(request: StartReviewSessionRequest): Promise<StartReviewSessionResult>;
+    appendReviewSessionEvent(request: AppendReviewSessionEventRequest): Promise<void>;
+    appendReviewSessionAudio(request: AppendReviewSessionAudioRequest): Promise<void>;
+    endReviewSession(request: EndReviewSessionRequest): Promise<void>;
+    listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
 }
