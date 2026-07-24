@@ -215,6 +215,7 @@ const TIMELINE_SET_AUDIO_MUTED_EVENT = 'akari.timeline.setAudioMuted';
 const TIMELINE_SET_CAPTIONS_MUTED_EVENT = 'akari.timeline.setCaptionsMuted';
 const TIMELINE_SET_BEATS_VISIBILITY_EVENT = 'akari.timeline.setBeatsVisibility';
 const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
+const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 // akari-annotations の録音セクション側と文字列だけをミラーし、extension 間の npm 依存を作らない。
 const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
@@ -466,6 +467,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_SET_TRACK_VISIBILITY_EVENT, onTrackVisibilityV2)
         });
+        const onSyncTrackToggles = (event: Event): void => {
+            const detail = (event as CustomEvent<{
+                editUri?: string;
+                cuts?: { hidden?: number[]; muted?: number[] };
+                layers?: { hidden?: number[]; muted?: number[] };
+            }>).detail;
+            if (!detail?.editUri) return;
+            this.applyTimelineTrackSync(detail.editUri, detail.cuts, detail.layers);
+        };
+        window.addEventListener(TIMELINE_SYNC_TRACK_TOGGLES_EVENT, onSyncTrackToggles);
+        this.lifecycleDisposables.push({
+            dispose: () => window.removeEventListener(TIMELINE_SYNC_TRACK_TOGGLES_EVENT, onSyncTrackToggles)
+        });
         const registerTimelineSettingV2Adapter = <T extends { editUri?: string }>(
             type: string,
             toRequest: (detail: T) => Omit<TrackVisibilityV2Request, 'videoUri'>
@@ -613,6 +627,45 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 track: detail.track,
                 hidden: detail.hidden,
                 muted: detail.muted
+            });
+        }
+    }
+
+    protected applyTimelineTrackSync(
+        videoUri: string,
+        cuts?: { hidden?: number[]; muted?: number[] },
+        layers?: { hidden?: number[]; muted?: number[] }
+    ): void {
+        let key: string;
+        try {
+            key = new URI(videoUri).normalizePath().toString();
+        } catch {
+            return;
+        }
+        const widget = this.openOutputPreviews.get(key);
+        const settings = this.previewSessionSettings.get(key) ?? this.defaultSessionSettings();
+        settings.hiddenTracksByScope.cuts = new Set(cuts?.hidden ?? []);
+        settings.mutedTracksByScope.cuts = new Set(cuts?.muted ?? []);
+        settings.hiddenTracksByScope.layers = new Set(layers?.hidden ?? []);
+        settings.mutedTracksByScope.layers = new Set(layers?.muted ?? []);
+        this.previewSessionSettings.set(key, settings);
+        if (widget?.isAttached) {
+            widget.akariPreviewHiddenTracksByScope = {
+                cuts: [...settings.hiddenTracksByScope.cuts],
+                layers: [...settings.hiddenTracksByScope.layers],
+                audio: [...settings.hiddenTracksByScope.audio]
+            };
+            widget.akariPreviewMutedTracksByScope = {
+                cuts: [...settings.mutedTracksByScope.cuts],
+                audio: [...settings.mutedTracksByScope.audio],
+                layers: [...settings.mutedTracksByScope.layers]
+            };
+            widget.sendMessage({
+                type: 'akari-preview-set-track-visibility-v2-bulk',
+                hiddenCuts: [...settings.hiddenTracksByScope.cuts],
+                mutedCuts: [...settings.mutedTracksByScope.cuts],
+                hiddenLayers: [...settings.hiddenTracksByScope.layers],
+                mutedLayers: [...settings.mutedTracksByScope.layers]
             });
         }
     }
@@ -3755,7 +3808,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 for (const entry of layerEntries) {
                     const layer = entry.spec;
                     const layerVideo = entry.video;
-                    layerVideo.muted = allTracksMutedByScope.layers;
+                    layerVideo.muted = allTracksMutedByScope.layers || mutedTracksByScope.layers.has(layer.track);
                     const active = !layer.proxyMissing
                         && typeof layer.src === 'string' && layer.src
                         && !allTracksHiddenByScope.layers
@@ -4248,6 +4301,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         window.akari.previewAudio.setMutedTracks(
                             mutedTracksByScope.audio, allTracksMutedByScope.audio
                         );
+                    }
+                    tick(true);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-set-track-visibility-v2-bulk') {
+                    hiddenTracksByScope.cuts = new Set(Array.isArray(message.hiddenCuts) ? message.hiddenCuts : []);
+                    mutedTracksByScope.cuts = new Set(Array.isArray(message.mutedCuts) ? message.mutedCuts : []);
+                    hiddenTracksByScope.layers = new Set(Array.isArray(message.hiddenLayers) ? message.hiddenLayers : []);
+                    mutedTracksByScope.layers = new Set(Array.isArray(message.mutedLayers) ? message.mutedLayers : []);
+                    if (window.akari.previewAudio) {
+                        window.akari.previewAudio.setMutedTracks(mutedTracksByScope.audio, allTracksMutedByScope.audio);
                     }
                     tick(true);
                     return;
