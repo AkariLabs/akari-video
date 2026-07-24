@@ -1,0 +1,9 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [
+    { "in": 0, "out": 6 }
+  ],
+  "overlays": []
+}

@@ -16,6 +16,7 @@ const VERSION = 1;
 const EPSILON = 1e-6;
 const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json]
        [--silence-error-seconds N] [--max-volume-error-db N]
+       [--caption-silence-warn-percent N]
 
 Exit codes: 0 PASS, 1 FAIL, 2 execution error`;
 
@@ -237,7 +238,7 @@ export async function lintProject(input, options = {}) {
     } else if (!sourcePath || !referenceState.sourceExists) {
       addSkipped(skipped, "media", "media checks require a readable source.path");
     } else {
-      runMediaChecks(sourcePath, findings, paths, options);
+      runMediaChecks(sourcePath, findings, paths, options, captionsState.value);
     }
   } else {
     addSkipped(skipped, "media", "media checks require --media");
@@ -282,6 +283,7 @@ export function parseArguments(argv) {
     json: false,
     silenceErrorSeconds: null,
     maxVolumeErrorDb: null,
+    captionSilenceWarnPercent: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -314,6 +316,17 @@ export function parseArguments(argv) {
       options.maxVolumeErrorDb = parseNumber(
         argument.slice("--max-volume-error-db=".length),
         "--max-volume-error-db",
+      );
+      continue;
+    }
+    if (argument === "--caption-silence-warn-percent") {
+      options.captionSilenceWarnPercent = parseNumber(argv[++index], argument);
+      continue;
+    }
+    if (argument.startsWith("--caption-silence-warn-percent=")) {
+      options.captionSilenceWarnPercent = parseNumber(
+        argument.slice("--caption-silence-warn-percent=".length),
+        "--caption-silence-warn-percent",
       );
       continue;
     }
@@ -1767,6 +1780,16 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
         );
       }
       previousStart = caption.start;
+      const displaySeconds = caption.end - caption.start;
+      if (displaySeconds < 1.0 - EPSILON) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "captions.short-duration",
+          message: `caption display duration is ${displaySeconds.toFixed(2)}s, under the 1.0s readability floor`,
+          path: itemPath,
+          range: { start: caption.start, end: caption.end },
+        });
+      }
       const kept = keptOverlap(caption.start, caption.end, edit?.cuts, caption.src);
       const ratio = kept / (caption.end - caption.start);
       if (ratio < 0.5 - EPSILON) {
@@ -2409,7 +2432,7 @@ function isIsoDateTime(value) {
   return typeof value === "string" && Number.isFinite(timestamp) && /^\d{4}-\d{2}-\d{2}T/.test(value);
 }
 
-function runMediaChecks(sourcePath, findings, paths, options) {
+function runMediaChecks(sourcePath, findings, paths, options, captions) {
   const command = options.ffmpegCommand ?? process.env.FFMPEG ?? "ffmpeg";
   const sourceRelative = relativePath(paths.projectRoot, sourcePath);
   const silence = runCommand(command, [
@@ -2424,7 +2447,8 @@ function runMediaChecks(sourcePath, findings, paths, options) {
     "null",
     "-",
   ]);
-  for (const interval of parseSilenceIntervals(silence.stderr)) {
+  const silenceIntervals = parseSilenceIntervals(silence.stderr);
+  for (const interval of silenceIntervals) {
     const severity =
       options.silenceErrorSeconds !== null &&
       interval.duration >= options.silenceErrorSeconds - EPSILON
@@ -2437,6 +2461,48 @@ function runMediaChecks(sourcePath, findings, paths, options) {
       path: sourceRelative,
       range: { start: interval.start, end: interval.end },
     });
+  }
+  const captionSilenceIntervals = silenceIntervals.filter(
+    (interval) => interval.duration >= 1.0 - EPSILON,
+  );
+  if (Array.isArray(captions)) {
+    const validCaptions = captions.filter(
+      (caption) =>
+        isFiniteNumber(caption?.start) &&
+        isFiniteNumber(caption?.end) &&
+        caption.end > caption.start,
+    );
+    const totalCaptionSeconds = validCaptions.reduce(
+      (total, caption) => total + (caption.end - caption.start),
+      0,
+    );
+    const overlapSeconds = validCaptions.reduce(
+      (total, caption) =>
+        total +
+        captionSilenceIntervals.reduce(
+          (captionTotal, interval) =>
+            captionTotal +
+            Math.max(
+              0,
+              Math.min(caption.end, interval.end) -
+                Math.max(caption.start, interval.start),
+            ),
+          0,
+        ),
+      0,
+    );
+    if (totalCaptionSeconds > 0) {
+      const thresholdPercent = options.captionSilenceWarnPercent ?? 30;
+      const coveragePercent = (100 * overlapSeconds) / totalCaptionSeconds;
+      if (coveragePercent > thresholdPercent + EPSILON) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "media.caption-silence-coverage",
+          message: `captions cover ${coveragePercent.toFixed(1)}% of their total display time with silence (>=1.0s intervals); threshold is ${thresholdPercent}%`,
+          path: relativePath(paths.projectRoot, paths.captionsPath),
+        });
+      }
+    }
   }
 
   const volume = runCommand(command, [
