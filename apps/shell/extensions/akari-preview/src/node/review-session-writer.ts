@@ -17,6 +17,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import {
     AppendReviewSessionAudioRequest,
     AppendReviewSessionEventRequest,
+    AppendReviewSessionStrokeRequest,
     EndReviewSessionRequest,
     ListReviewSessionsRequest,
     ReviewSessionSummary,
@@ -122,6 +123,45 @@ export class ReviewSessionWriter {
         } finally {
             await handle.close();
         }
+    }
+
+    async appendStroke(request: AppendReviewSessionStrokeRequest): Promise<void> {
+        const sessionDirectory = await this.resolveSessionDirectory(request?.sessionDir);
+        const stroke = request?.stroke;
+        if (!stroke || !/^st-\d{4,}$/.test(stroke.id)
+            || stroke.tool !== 'pen' || stroke.space !== 'content-rect'
+            || !Number.isFinite(stroke.recTStart) || stroke.recTStart < 0
+            || !Number.isFinite(stroke.recTEnd) || stroke.recTEnd < stroke.recTStart
+            || !Number.isFinite(stroke.frame?.timelineT)
+            || !Number.isFinite(stroke.frame?.sourceT)
+            || (stroke.frame?.cutIndex !== null
+                && (!Number.isInteger(stroke.frame?.cutIndex) || stroke.frame.cutIndex < 0))
+            || !Array.isArray(stroke.points) || stroke.points.length < 2
+            || stroke.points.some(point => !Array.isArray(point) || point.length !== 2
+                || point.some(value => !Number.isFinite(value) || value < 0 || value > 1))) {
+            throw new Error('Invalid review session stroke');
+        }
+        const strokesPath = join(sessionDirectory, 'strokes.json');
+        let document: { version: 1; strokes: unknown[] } = { version: 1, strokes: [] };
+        try {
+            const parsed = JSON.parse(await readFile(strokesPath, 'utf8')) as {
+                version?: unknown;
+                strokes?: unknown;
+            };
+            if (parsed.version !== 1 || !Array.isArray(parsed.strokes)) {
+                throw new Error('Review session strokes file is invalid');
+            }
+            document = { version: 1, strokes: parsed.strokes };
+        } catch (error) {
+            if ((error as { code?: string }).code !== 'ENOENT') {
+                throw error;
+            }
+        }
+        document.strokes.push(stroke);
+        await this.writeAtomic(
+            strokesPath,
+            Buffer.from(`${JSON.stringify(document, null, 2)}\n`, 'utf8')
+        );
     }
 
     async end(request: EndReviewSessionRequest): Promise<void> {

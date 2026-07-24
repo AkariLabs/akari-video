@@ -1,5 +1,7 @@
 import {
     AkariPreviewService,
+    ReviewStroke,
+    ReviewStrokeFrame,
     ReviewSessionSummary,
     ReviewSessionTransportEvent,
     StartReviewSessionRequest,
@@ -49,6 +51,8 @@ interface ActiveReviewSession extends StartReviewSessionResult {
     lastNonSilentAt: number;
     writeTail: Promise<void>;
     writeError?: Error;
+    nextStrokeNumber: number;
+    pendingStroke?: Pick<ReviewStroke, 'id' | 'recTStart' | 'frame'>;
 }
 
 const TARGET_SAMPLE_RATE = 16_000;
@@ -136,7 +140,8 @@ export class ReviewSessionRecorder {
                 pendingSampleCount: 0,
                 level: 0,
                 lastNonSilentAt: monotonicStartedAt,
-                writeTail: Promise.resolve()
+                writeTail: Promise.resolve(),
+                nextStrokeNumber: 1
             };
             processor.onaudioprocess = event => this.captureAudio(active, event);
             this.active = active;
@@ -172,6 +177,7 @@ export class ReviewSessionRecorder {
             return;
         }
         this.status = 'stopping';
+        active.pendingStroke = undefined;
         this.stopTimers();
         this.emitState();
         active.processor.onaudioprocess = null;
@@ -224,6 +230,9 @@ export class ReviewSessionRecorder {
         let event: ReviewSessionTransportEvent;
         const recT = this.recT(active);
         if (change.type === 'play' || change.type === 'pause') {
+            if (change.type === 'play') {
+                active.pendingStroke = undefined;
+            }
             active.transport.timelineT = change.timelineT;
             active.transport.playing = change.type === 'play';
             event = { recT, type: change.type, timelineT: change.timelineT };
@@ -238,6 +247,41 @@ export class ReviewSessionRecorder {
         this.enqueue(active, () => this.service.appendReviewSessionEvent({
             sessionDir: active.sessionDir,
             event
+        }));
+    }
+
+    handleStrokeStart(editUri: string, frame: ReviewStrokeFrame): void {
+        const active = this.active;
+        if (!active || active.editUri !== editUri || active.transport.playing || active.pendingStroke) {
+            return;
+        }
+        active.pendingStroke = {
+            id: `st-${String(active.nextStrokeNumber++).padStart(4, '0')}`,
+            recTStart: this.recT(active),
+            frame
+        };
+    }
+
+    handleStrokeEnd(editUri: string, points: Array<[number, number]>): void {
+        const active = this.active;
+        if (!active || active.editUri !== editUri || !active.pendingStroke) {
+            return;
+        }
+        const pendingStroke = active.pendingStroke;
+        active.pendingStroke = undefined;
+        if (!Array.isArray(points) || points.length < 2) {
+            return;
+        }
+        const stroke: ReviewStroke = {
+            ...pendingStroke,
+            tool: 'pen',
+            space: 'content-rect',
+            recTEnd: this.recT(active),
+            points
+        };
+        this.enqueue(active, () => this.service.appendReviewSessionStroke({
+            sessionDir: active.sessionDir,
+            stroke
         }));
     }
 

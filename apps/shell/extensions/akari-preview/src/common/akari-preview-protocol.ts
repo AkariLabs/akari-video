@@ -77,6 +77,27 @@ export interface AppendReviewSessionAudioRequest {
     pcmBase64: string;
 }
 
+export interface ReviewStrokeFrame {
+    timelineT: number;
+    sourceT: number;
+    cutIndex: number | null;
+}
+
+export interface ReviewStroke {
+    id: string;
+    tool: 'pen';
+    space: 'content-rect';
+    recTStart: number;
+    recTEnd: number;
+    frame: ReviewStrokeFrame;
+    points: Array<[number, number]>;
+}
+
+export interface AppendReviewSessionStrokeRequest {
+    sessionDir: string;
+    stroke: ReviewStroke;
+}
+
 export interface EndReviewSessionRequest {
     sessionDir: string;
     startedAt: string;
@@ -128,6 +149,7 @@ export interface AkariPreviewService {
     startReviewSession(request: StartReviewSessionRequest): Promise<StartReviewSessionResult>;
     appendReviewSessionEvent(request: AppendReviewSessionEventRequest): Promise<void>;
     appendReviewSessionAudio(request: AppendReviewSessionAudioRequest): Promise<void>;
+    appendReviewSessionStroke(request: AppendReviewSessionStrokeRequest): Promise<void>;
     endReviewSession(request: EndReviewSessionRequest): Promise<void>;
     listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
 }

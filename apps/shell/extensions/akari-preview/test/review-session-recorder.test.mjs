@@ -233,3 +233,44 @@ test('routes a denied Electron TCC request through the existing microphone error
     assert.equal(states.at(-1).active, false);
     assert.equal(states.at(-1).error, MICROPHONE_DENIED_MESSAGE);
 });
+
+test('records completed strokes on the session clock and discards a pending stroke when playback starts', async () => {
+    const stored = [];
+    let now = 1_000;
+    const service = {
+        appendReviewSessionStroke: async request => stored.push(request.stroke),
+        appendReviewSessionEvent: async () => undefined
+    };
+    const restorePerformance = replaceGlobal('performance', { now: () => now });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        editUri: 'file:///project/edit.json',
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        transport: { timelineT: 4, playing: false, rate: 1 },
+        writeTail: Promise.resolve(),
+        nextStrokeNumber: 1
+    };
+    recorder.active = active;
+    try {
+        now = 1_250;
+        recorder.handleStrokeStart(active.editUri, { timelineT: 4, sourceT: 14, cutIndex: 0 });
+        now = 1_750;
+        recorder.handleStrokeEnd(active.editUri, [[0.1, 0.2], [0.8, 0.9]]);
+        await active.writeTail;
+        assert.equal(stored.length, 1);
+        assert.equal(stored[0].id, 'st-0001');
+        assert.equal(stored[0].recTStart, 0.25);
+        assert.equal(stored[0].recTEnd, 0.75);
+
+        recorder.handleStrokeStart(active.editUri, { timelineT: 4, sourceT: 14, cutIndex: 0 });
+        recorder.handleTransport(active.editUri, { type: 'play', timelineT: 4 });
+        recorder.handleStrokeEnd(active.editUri, [[0, 0], [1, 1]]);
+        await active.writeTail;
+        assert.equal(stored.length, 1);
+    } finally {
+        recorder.active = undefined;
+        restorePerformance();
+    }
+});

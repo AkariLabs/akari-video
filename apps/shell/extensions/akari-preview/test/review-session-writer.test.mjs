@@ -125,6 +125,32 @@ test('allocates after the greatest existing directory and never reuses a missing
     assert.equal(started.id, 's-0013');
 });
 
+test('creates strokes.json only on the first valid stroke and rejects invalid coordinates', async () => {
+    const { writer, request } = await fixture();
+    const started = await writer.start(request);
+    const sessionPath = new URL(started.sessionDir);
+    assert.equal((await readdir(sessionPath)).includes('strokes.json'), false);
+    const stroke = {
+        id: 'st-0001',
+        tool: 'pen',
+        space: 'content-rect',
+        recTStart: 1.2,
+        recTEnd: 1.8,
+        frame: { timelineT: 12.4, sourceT: 42.5, cutIndex: 3 },
+        points: [[0.1, 0.2], [0.5, 0.6], [0.9, 1]]
+    };
+    await writer.appendStroke({ sessionDir: started.sessionDir, stroke });
+    const stored = JSON.parse(await readFile(new URL('strokes.json', `${started.sessionDir}/`), 'utf8'));
+    assert.deepEqual(stored, { version: 1, strokes: [stroke] });
+    await assert.rejects(
+        () => writer.appendStroke({
+            sessionDir: started.sessionDir,
+            stroke: { ...stroke, id: 'bad', points: [[0, 0], [1.1, 1]] }
+        }),
+        /Invalid review session stroke/
+    );
+});
+
 test('lists missing manifests as orphans and skips only a damaged manifest', async () => {
     const { root, writer } = await fixture();
     const sessions = join(root, 'review', 'sessions');

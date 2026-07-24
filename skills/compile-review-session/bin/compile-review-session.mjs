@@ -144,6 +144,60 @@ function validateTranscript(value) {
   return value;
 }
 
+function validStroke(stroke) {
+  return stroke
+    && /^st-\d{4,}$/.test(stroke.id)
+    && stroke.tool === "pen"
+    && stroke.space === "content-rect"
+    && Number.isFinite(stroke.recTStart)
+    && stroke.recTStart >= 0
+    && Number.isFinite(stroke.recTEnd)
+    && stroke.recTEnd >= stroke.recTStart
+    && Number.isFinite(stroke.frame?.timelineT)
+    && Number.isFinite(stroke.frame?.sourceT)
+    && (
+      stroke.frame?.cutIndex === null
+      || (Number.isInteger(stroke.frame?.cutIndex) && stroke.frame.cutIndex >= 0)
+    )
+    && Array.isArray(stroke.points)
+    && stroke.points.length >= 2
+    && stroke.points.every((point) => (
+      Array.isArray(point)
+      && point.length === 2
+      && point.every((value) => Number.isFinite(value) && value >= 0 && value <= 1)
+    ));
+}
+
+async function loadStrokes(sessionDirectory) {
+  const strokesPath = path.join(sessionDirectory, "strokes.json");
+  let document;
+  try {
+    document = await readJson(strokesPath, "strokes.json");
+  } catch (error) {
+    if (error?.code === "ENOENT") return { strokes: [], warnings: [] };
+    return {
+      strokes: [],
+      warnings: [`strokes.json を無視します: ${errorText(error)}`],
+    };
+  }
+  if (document?.version !== 1 || !Array.isArray(document.strokes)) {
+    return {
+      strokes: [],
+      warnings: ["strokes.json を無視します: version または strokes が不正です"],
+    };
+  }
+  const strokes = [];
+  const warnings = [];
+  for (const [index, stroke] of document.strokes.entries()) {
+    if (!validStroke(stroke)) {
+      warnings.push(`strokes.json strokes[${index}] をスキップ: stroke の形式が不正です`);
+      continue;
+    }
+    strokes.push(stroke);
+  }
+  return { strokes, warnings };
+}
+
 function markdown(value) {
   return String(value ?? "").replaceAll("|", "\\|").replace(/\r?\n/g, " ");
 }
@@ -327,6 +381,7 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
     const eventsPath = path.join(sessionDirectory, "events.jsonl");
     const eventsSource = await fs.readFile(eventsPath, "utf8");
     const parsedEvents = parseEventsJsonl(eventsSource);
+    const parsedStrokes = await loadStrokes(sessionDirectory);
     const trace = buildTimelineTrace(parsedEvents.events);
     const cutMap = buildCutMap(snapshot);
     const transcriptPath = path.join(sessionDirectory, "transcript.json");
@@ -365,10 +420,14 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
         }
       }
     } else {
-      proposals = buildProposals({ utterances, trace, cutMap });
+      proposals = buildProposals({ utterances, trace, cutMap, strokes: parsedStrokes.strokes });
     }
 
-    const warnings = [...parsedEvents.warnings, ...transcriptWarnings];
+    const warnings = [
+      ...parsedEvents.warnings,
+      ...parsedStrokes.warnings,
+      ...transcriptWarnings,
+    ];
     const unavailableReasons = Array.isArray(transcript.unavailableReasons)
       ? transcript.unavailableReasons
       : [];

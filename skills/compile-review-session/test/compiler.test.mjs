@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 import {
+  proposalToAnnotation,
   provisionalJudgement,
   segmentUtterances,
 } from "../bin/core/compiler.mjs";
@@ -23,6 +27,9 @@ import {
   restoreWhisperTokenWords,
   transcribeAudio,
 } from "../bin/core/transcription.mjs";
+
+const execFileAsync = promisify(execFile);
+const compileCli = fileURLToPath(new URL("../bin/compile-review-session.mjs", import.meta.url));
 
 const snapshot = {
   cuts: [
@@ -67,6 +74,168 @@ test("再生中発話は 3 秒窓内の単一 cut 境界へ解決する", () => 
   assert.equal(reference.target, "cut:1");
   assert.equal(reference.resolutionMethod, "rewind-window-boundary");
   assert.equal(reference.confidence, "high");
+});
+
+test("再生中発話へ近接するストロークを高信頼の frame アンカーとして採用する", () => {
+  const { events } = parseEventsJsonl([
+    '{"recT":0,"type":"start","timelineT":0,"playing":false}',
+    '{"recT":0,"type":"play","timelineT":0}',
+    '{"recT":9,"type":"tick","timelineT":9}',
+    '{"recT":12,"type":"tick","timelineT":12}',
+  ].join("\n"));
+  const stroke = {
+    id: "st-0001",
+    tool: "pen",
+    space: "content-rect",
+    recTStart: 12.4,
+    recTEnd: 13.1,
+    frame: { timelineT: 7.25, sourceT: 777.5, cutIndex: 7 },
+    points: [[0.1, 0.2], [0.8, 0.9]],
+  };
+  const reference = resolveUtteranceReference({
+    utterance: { text: "ここを調整する", recT: [12, 15], words: [] },
+    trace: buildTimelineTrace(events),
+    cutMap: buildCutMap(snapshot),
+    strokes: [stroke],
+  });
+  assert.equal(reference.resolutionMethod, "stroke-pair");
+  assert.equal(reference.timelineT, stroke.frame.timelineT);
+  assert.equal(reference.sourceT, stroke.frame.sourceT);
+  assert.equal(reference.target, "cut:7");
+  assert.equal(reference.confidence, "high");
+  assert.equal(reference.pairedStroke, stroke);
+});
+
+test("停止中発話はアンカーを保ちつつ近接ストロークを添付する", () => {
+  const { events } = parseEventsJsonl([
+    '{"recT":0,"type":"start","timelineT":5,"playing":false}',
+    '{"recT":6,"type":"end","timelineT":5}',
+  ].join("\n"));
+  const stroke = {
+    id: "st-0002",
+    tool: "pen",
+    space: "content-rect",
+    recTStart: 2.2,
+    recTEnd: 2.8,
+    frame: { timelineT: 18, sourceT: 108, cutIndex: 1 },
+    points: [[0.2, 0.3], [0.7, 0.6]],
+  };
+  const reference = resolveUtteranceReference({
+    utterance: { text: "ここを直す", recT: [2, 3], words: [] },
+    trace: buildTimelineTrace(events),
+    cutMap: buildCutMap(snapshot),
+    strokes: [stroke],
+  });
+  assert.equal(reference.resolutionMethod, "stopped-frame");
+  assert.equal(reference.timelineT, 5);
+  assert.equal(reference.sourceT, 15);
+  assert.equal(reference.target, "cut:0");
+  assert.equal(reference.pairedStroke, stroke);
+});
+
+test("annotation へ端点を保った最大100点のストロークと sessionRef を埋め込む", () => {
+  const points = Array.from({ length: 151 }, (_, index) => [index / 150, index / 300]);
+  const pairedStroke = {
+    id: "st-0012",
+    tool: "pen",
+    space: "content-rect",
+    frame: { timelineT: 4, sourceT: 14, cutIndex: 0 },
+    points,
+  };
+  const annotation = proposalToAnnotation({
+    proposal: {
+      transcript: "ここを直す",
+      recRange: [1, 2],
+      reference: {
+        timelineT: 4,
+        sourceT: 14,
+        sourceRange: null,
+        target: "cut:0",
+        confidence: "high",
+        candidates: [],
+        pairedStroke,
+      },
+    },
+    decision: { action: "annotate", reason: "編集指示", text: "ここを直す", confidence: "high" },
+    sessionId: "s-0003",
+    audioPath: "review/sessions/s-0003/audio.wav",
+    createdAt: "2026-07-24T00:00:00.000Z",
+  });
+  assert.equal(annotation.strokes.length, 1);
+  assert.equal(annotation.strokes[0].points.length, 100);
+  assert.deepEqual(annotation.strokes[0].points[0], points[0]);
+  assert.deepEqual(annotation.strokes[0].points.at(-1), points.at(-1));
+  assert.equal(annotation.strokes[0].sessionRef, "s-0003/st-0012");
+  assert.deepEqual(annotation.strokes[0].frame, { sourceT: 14, cutIndex: 0 });
+});
+
+test("CLI が strokes.json を読み annotation へ着地し、破損時は warning へ劣化する", async (context) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "compile-review-strokes-"));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  await fs.writeFile(
+    path.join(temporary, "review.json"),
+    '{\n  "version": 0,\n  "annotations": [\n  ]\n}\n',
+  );
+  const sessionsRoot = path.join(temporary, "review", "sessions");
+  await fs.mkdir(sessionsRoot, { recursive: true });
+
+  for (const [sessionId, strokesSource] of [
+    ["s-0001", JSON.stringify({
+      version: 1,
+      strokes: [{
+        id: "st-0001",
+        tool: "pen",
+        space: "content-rect",
+        recTStart: 2.1,
+        recTEnd: 2.7,
+        frame: { timelineT: 6, sourceT: 16, cutIndex: 0 },
+        points: [[0.1, 0.2], [0.8, 0.9]],
+      }],
+    })],
+    ["s-0002", "{broken"],
+  ]) {
+    const sessionDirectory = path.join(sessionsRoot, sessionId);
+    await fs.mkdir(sessionDirectory);
+    await fs.writeFile(path.join(sessionDirectory, "session.json"), JSON.stringify({
+      version: 1,
+      id: sessionId,
+      status: "recorded",
+      audio: "audio.wav",
+      editSnapshot: "edit.snapshot.json",
+      compiledAnnotations: null,
+    }));
+    await fs.writeFile(path.join(sessionDirectory, "edit.snapshot.json"), JSON.stringify({
+      cuts: [{ in: 10, out: 30 }],
+    }));
+    await fs.writeFile(path.join(sessionDirectory, "events.jsonl"), [
+      '{"recT":0,"type":"start","timelineT":0,"playing":false}',
+      '{"recT":0.5,"type":"play","timelineT":0}',
+      '{"recT":4,"type":"end","timelineT":3.5}',
+    ].join("\n"));
+    await fs.writeFile(path.join(sessionDirectory, "transcript.json"), JSON.stringify({
+      version: 1,
+      backend: "fixture",
+      segments: [{
+        start: 2,
+        end: 3,
+        text: "このカットを削除してください",
+        words: [{ start: 2, end: 3, text: "このカットを削除してください" }],
+      }],
+    }));
+    await fs.writeFile(path.join(sessionDirectory, "strokes.json"), strokesSource);
+    await execFileAsync(process.execPath, [compileCli, temporary, "--session", sessionId, "--json"]);
+  }
+
+  const review = JSON.parse(await fs.readFile(path.join(temporary, "review.json"), "utf8"));
+  assert.equal(review.annotations.length, 2);
+  assert.equal(review.annotations[0].strokes[0].sessionRef, "s-0001/st-0001");
+  assert.equal(review.annotations[0].sourceT, 16);
+  assert.equal(review.annotations[1].strokes, null);
+  const damagedReport = await fs.readFile(
+    path.join(sessionsRoot, "s-0002", "compile-report.md"),
+    "utf8",
+  );
+  assert.match(damagedReport, /strokes\.json を無視します/);
 });
 
 test("0.3 秒未満の segment を結合し、文末 word で分割する", () => {
