@@ -1,0 +1,100 @@
+{
+  "version": 0,
+  "annotations": [
+    {
+      "id": "a-0001",
+      "createdAt": "2026-07-20T10:00:00.000Z",
+      "sourceT": 12.5,
+      "sourceRange": null,
+      "timelineT": null,
+      "target": null,
+      "text": "BGMをもう少し下げてほしい",
+      "input": "typed",
+      "audio": null,
+      "strokes": null,
+      "poses": null,
+      "status": "open",
+      "response": null
+    },
+    {
+      "id": "a-0002",
+      "createdAt": "2026-07-20T10:05:00.000Z",
+      "sourceT": 105.0,
+      "sourceRange": null,
+      "timelineT": null,
+      "target": "cut:1",
+      "text": "字幕をこの位置まで延長してほしい",
+      "input": "session",
+      "audio": "review/sessions/s-0001/audio.wav",
+      "strokes": [
+        {
+          "tool": "pen",
+          "space": "content-rect",
+          "frame": { "sourceT": 105.0, "cutIndex": 1 },
+          "points": [[0.42, 0.31], [0.5, 0.5]],
+          "sessionRef": "s-0001/st-0001"
+        }
+      ],
+      "poses": null,
+      "status": "open",
+      "response": null,
+      "transcript": "ここら辺まで字幕が欲しいなって思います",
+      "session": { "id": "s-0001", "recRange": [3.2, 6.4], "confidence": "high" }
+    },
+    {
+      "id": "a-0003",
+      "createdAt": "2026-07-21T09:00:00.000Z",
+      "sourceT": 20.0,
+      "sourceRange": null,
+      "timelineT": null,
+      "target": "cut:0",
+      "text": "冒頭のカットをもう少し短くしてほしい",
+      "input": "typed",
+      "audio": null,
+      "strokes": null,
+      "poses": null,
+      "status": "addressed",
+      "response": {
+        "summary": "cuts[0].out を 30 から 25 に短縮。edit-lint --media PASS 確認済み。",
+        "action": "edited",
+        "respondedAt": "2026-07-21T09:30:00.000Z"
+      }
+    },
+    {
+      "id": "a-0004",
+      "createdAt": "2026-07-19T08:00:00.000Z",
+      "sourceT": 130.0,
+      "sourceRange": null,
+      "timelineT": null,
+      "target": null,
+      "text": "エンディングにロゴを入れてほしい",
+      "input": "typed",
+      "audio": null,
+      "strokes": null,
+      "poses": null,
+      "status": "resolved",
+      "response": {
+        "summary": "ロゴ素材が assets/ に無く、権利確認も未了のため見送り。素材が揃ったら再度チケットを切ってください。",
+        "action": "declined",
+        "respondedAt": "2026-07-19T08:10:00.000Z"
+      }
+    },
+    {
+      "id": "a-0005",
+      "createdAt": "2026-07-22T11:00:00.000Z",
+      "sourceT": 200.0,
+      "sourceRange": null,
+      "timelineT": null,
+      "target": null,
+      "text": "[要確認] 停止位置（source 200.0s）での発話「これで合ってますかね」— 編集指示か動作確認の独り言か判別できない。対応不要なら resolved にしてください。",
+      "input": "session",
+      "audio": "review/sessions/s-0002/audio.wav",
+      "strokes": null,
+      "poses": null,
+      "status": "open",
+      "response": null,
+      "transcript": "えーと、これで合ってますかね",
+      "session": { "id": "s-0002", "recRange": [11.0, 14.5], "confidence": "low" }
+    }
+  ]
+}
