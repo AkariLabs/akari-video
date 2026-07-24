@@ -93,6 +93,7 @@ export interface TrimCutRequest {
     cutIndex: number;
     in: number;
     out: number;
+    maxOutSeconds?: number;
 }
 
 export interface ReorderCutsRequest {
