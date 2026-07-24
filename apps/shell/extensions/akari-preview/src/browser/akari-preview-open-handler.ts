@@ -2075,6 +2075,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let displayScale = 1;
             let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
+            const video = document.getElementById('preview-video');
             const outputPreviewLink = document.getElementById('output-preview-link');
             const layersStage = document.getElementById('preview-layers');
             const stage = document.getElementById('overlay-stage');
@@ -2433,13 +2434,42 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             });
 
+            const computeContentRect = () => {
+                const boxWidth = wrapper.clientWidth;
+                const boxHeight = wrapper.clientHeight;
+                const videoWidth = video.videoWidth;
+                const videoHeight = video.videoHeight;
+                if (!(boxWidth > 0) || !(boxHeight > 0) || !(videoWidth > 0) || !(videoHeight > 0)) {
+                    return { x: 0, y: 0, width: boxWidth, height: boxHeight };
+                }
+                const boxAspect = boxWidth / boxHeight;
+                const videoAspect = videoWidth / videoHeight;
+                let contentWidth;
+                let contentHeight;
+                if (videoAspect > boxAspect) {
+                    contentWidth = boxWidth;
+                    contentHeight = boxWidth / videoAspect;
+                } else {
+                    contentHeight = boxHeight;
+                    contentWidth = boxHeight * videoAspect;
+                }
+                return {
+                    x: (boxWidth - contentWidth) / 2,
+                    y: (boxHeight - contentHeight) / 2,
+                    width: contentWidth,
+                    height: contentHeight
+                };
+            };
             const updateStageScale = () => {
-                const next = wrapper.clientWidth / Number(output.width || 1280);
+                const rect = computeContentRect();
+                const next = rect.width / Number(output.width || 1280);
                 displayScale = Number.isFinite(next) && next > 0 ? next : 1;
-                layersStage.style.transform = 'scale(' + displayScale + ')';
-                stage.style.transform = 'scale(' + displayScale + ')';
+                const stageTransform = 'translate(' + rect.x + 'px, ' + rect.y + 'px) scale(' + displayScale + ')';
+                layersStage.style.transform = stageTransform;
+                stage.style.transform = stageTransform;
             };
             new ResizeObserver(updateStageScale).observe(wrapper);
+            video.addEventListener('loadedmetadata', updateStageScale);
             updateStageScale();
         })();`;
     }
