@@ -132,6 +132,11 @@ interface SnapCandidate {
     isPlayhead?: boolean;
 }
 
+interface SnapResult {
+    time: number;
+    snapped: boolean;
+}
+
 export interface PreviewPlaybackTick {
     videoUri?: string;
     time?: number;
@@ -218,7 +223,14 @@ type DragDetail =
 type DragState = DragBase & DragDetail;
 
 type DragPreview =
-    | { kind: 'cut-trim'; index: number; input: number; output: number; rejected: boolean }
+    | {
+        kind: 'cut-trim';
+        index: number;
+        input: number;
+        output: number;
+        rejected: boolean;
+        maxOutSeconds?: number;
+    }
     | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; insertTrack?: number }
     | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
     | { kind: 'overlay-move'; id: string; start: number; track: number; insertTrack?: number }
@@ -313,7 +325,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
+    protected videoDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
     protected ffmpegMissingNoticeShown = false;
+    protected videoDurationNoticeShown = false;
     protected lastManualScrollAt = 0;
     protected toolMode: ToolMode = 'select';
     protected snapEnabled = true;
@@ -865,6 +879,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     .akari-annotations-widget .akari-annotations-ghost-rejected {
         border-color: #f14c4c !important;
         background: rgba(241, 76, 76, .25) !important;
+    }
+    .akari-annotations-widget .akari-annotations-ghost-snapped {
+        border-color: ${SNAP_GUIDE_COLOR_DEFAULT} !important;
     }
 `;
         this.node.appendChild(style);
@@ -1860,35 +1877,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
-            const frozenIndex = this.findFrozenNextIndex(this.cuts, index);
+            const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
             const result = await this.annotationsService.deleteCut({
                 editUri: location.editUri.toString(), projectRootUri: location.root.toString(), cutIndex: index
             });
-            const removedText = result.removedText;
+            await this.reloadEdit();
+            await this.pruneEmptyDeclaredTracks();
+            const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
             this.pushHistory({
                 label: 'クリップの削除',
                 undo: async () => {
-                    await this.annotationsService.insertCut({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                        cutIndex: index, elementText: removedText
-                    });
-                    if (frozenIndex !== undefined) {
-                        await this.annotationsService.setCutAtValues({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            entries: [{ cutIndex: frozenIndex, at: null }]
-                        });
-                    }
+                    await this.writeTimelineSnapshots(editBefore);
                     await this.reloadEdit();
                 },
                 redo: async () => {
-                    await this.annotationsService.deleteCut({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), cutIndex: index
-                    });
+                    await this.writeTimelineSnapshots(editAfter);
                     await this.reloadEdit();
                 }
             });
             this.applySelection(undefined);
-            await this.reloadEdit();
             this.hideNotice();
             this.footer.textContent = this.writeResultMessage('クリップを削除しました。', result);
             this.revealOutputPreview();
@@ -1948,26 +1955,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (!overlay) {
                     throw new Error(`オーバーレイ ${selection.id} が見つかりません`);
                 }
-                const payload = this.deepCopy(overlay.payload) as OverlayWritePayload;
+                const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
                 result = await this.annotationsService.removeOverlay({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(), overlayId: overlay.id
                 });
+                await this.reloadEdit();
+                await this.pruneEmptyDeclaredTracks();
+                const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
                 this.pushHistory({
                     label: 'オーバーレイの削除',
                     undo: async () => {
-                        await this.annotationsService.insertOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), overlay: payload
-                        });
+                        await this.writeTimelineSnapshots(editBefore);
                         await this.reloadEdit();
                     },
                     redo: async () => {
-                        await this.annotationsService.removeOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), overlayId: overlay.id
-                        });
+                        await this.writeTimelineSnapshots(editAfter);
                         await this.reloadEdit();
                     }
                 });
-                await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('オーバーレイを削除しました。', result);
             } else if (selection.kind === 'layer') {
                 if (!location.editUri) {
@@ -1978,27 +1983,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.showNotice('レイヤーの時刻またはトラックが不正です。');
                     return;
                 }
+                const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
                 const removed = await this.annotationsService.removeLayer({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(), layerId: layer.id
                 });
                 result = removed;
+                await this.reloadEdit();
+                await this.pruneEmptyDeclaredTracks();
+                const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
                 this.pushHistory({
                     label: 'レイヤーの削除',
                     undo: async () => {
-                        await this.annotationsService.insertLayer({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            layerIndex: removed.layerIndex, elementText: removed.removedText
-                        });
+                        await this.writeTimelineSnapshots(editBefore);
                         await this.reloadEdit();
                     },
                     redo: async () => {
-                        await this.annotationsService.removeLayer({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), layerId: layer.id
-                        });
+                        await this.writeTimelineSnapshots(editAfter);
                         await this.reloadEdit();
                     }
                 });
-                await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('レイヤーを削除しました。', result);
             } else {
                 if (!location.editUri || selection.id === 'bgm') {
@@ -2011,27 +2014,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.showNotice('SE の時刻またはトラックが不正です。');
                     return;
                 }
+                const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
                 const removed = await this.annotationsService.removeSfx({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(), sfxIndex
                 });
                 result = removed;
+                await this.reloadEdit();
+                await this.pruneEmptyDeclaredTracks();
+                const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
                 this.pushHistory({
                     label: 'SE の削除',
                     undo: async () => {
-                        await this.annotationsService.insertSfx({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            sfxIndex: removed.sfxIndex, elementText: removed.removedText
-                        });
+                        await this.writeTimelineSnapshots(editBefore);
                         await this.reloadEdit();
                     },
                     redo: async () => {
-                        await this.annotationsService.removeSfx({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), sfxIndex
-                        });
+                        await this.writeTimelineSnapshots(editAfter);
                         await this.reloadEdit();
                     }
                 });
-                await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('SE を削除しました。', result);
             }
             this.applySelection(undefined);
@@ -2087,7 +2088,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     delete value.audio.bgm;
                 }
             }
-            const editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
+            let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
             let captionsAfter = captionsBefore;
             if (captionsAfter !== undefined) {
                 for (const id of idsByKind.get('caption') ?? []) {
@@ -2095,6 +2096,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             await this.writeTimelineSnapshots(editAfter, captionsAfter);
+            await this.reloadAll();
+            await this.pruneEmptyDeclaredTracks();
+            editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
             this.pushHistory({
                 label: '複数アイテムを削除',
                 undo: async () => {
@@ -2109,7 +2113,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.multiSelection = [];
             this.selection = undefined;
             this.pushSelectionSnapshot();
-            await this.reloadAll();
             this.footer.textContent = '選択したアイテムを削除しました。';
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -2661,6 +2664,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const [outputStart, outputEnd] = [outputRanges[0][0], outputRanges[outputRanges.length - 1][1]];
+            if (!this.isRangeVisible(outputStart, outputEnd)) {
+                return;
+            }
             const top = captionLayout.top + this.captionRows[index] * SUBROW_STRIDE;
             const element = this.stripSegment(
                 outputStart, outputEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
@@ -2686,12 +2692,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.overlays.forEach(overlay => {
             const layout = this.overlayTrackLayouts.find(candidate => candidate.track === overlay.track);
-            if (!layout) {
+            const end = overlay.start + overlay.duration;
+            if (!layout || !this.isRangeVisible(overlay.start, end)) {
                 return;
             }
             const top = layout.top + (this.overlayRows.get(overlay.id) ?? 0) * SUBROW_STRIDE;
             const element = this.stripSegment(
-                overlay.start, overlay.start + overlay.duration, top, SUBROW_HEIGHT,
+                overlay.start, end, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-overlay', overlay.id
             );
             element.dataset.akariItemKind = 'overlay';
@@ -2709,12 +2716,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.layers.forEach(layer => {
             const layout = this.trackLayout('layers', layer.track ?? 0);
-            if (!layout) {
+            const end = layer.t + layer.duration;
+            if (!layout || !this.isRangeVisible(layer.t, end)) {
                 return;
             }
             const top = layout.top + (this.layerRows.get(layer.id) ?? 0) * SUBROW_STRIDE;
             const element = this.stripSegment(
-                layer.t, layer.t + layer.duration, top, SUBROW_HEIGHT,
+                layer.t, end, top, SUBROW_HEIGHT,
                 `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
             );
             element.dataset.akariItemKind = 'layer';
@@ -2735,11 +2743,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         });
-        if (this.audioBgm && this.trackLayout('audio', 0)) {
+        if (this.audioBgm && this.trackLayout('audio', 0)
+            && this.isRangeVisible(0, this.totalDuration())) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
+            const end = this.totalDuration();
             const element = this.stripSegment(
-                0, this.totalDuration(), audioBandTop, SUBROW_HEIGHT,
+                0, end, audioBandTop, SUBROW_HEIGHT,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-bgm', label
             );
             element.dataset.akariItemKind = 'audio';
@@ -2771,8 +2781,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.fetchAudioDuration(sfx.path, audioUri);
                 }
             }
+            const end = sfx.t + durationSeconds;
+            if (!this.isRangeVisible(sfx.t, end)) {
+                return;
+            }
             const element = this.stripSegment(
-                sfx.t, sfx.t + durationSeconds, top, SUBROW_HEIGHT,
+                sfx.t, end, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-sfx', label
             );
             element.dataset.akariItemKind = 'audio';
@@ -2788,7 +2802,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.segments.forEach(segment => {
             const cutLayout = this.trackLayout('cuts', segment.track);
-            if (!cutLayout) {
+            if (!cutLayout || !this.isRangeVisible(segment.tlStart, segment.tlEnd)) {
                 return;
             }
             const cut = this.cuts[segment.index];
@@ -3367,6 +3381,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.audioSfx.length + (this.audioBgm ? 1 : 0);
     }
 
+    protected async writeDeclaredTimelineTracks(tracks: readonly EditTimelineTrack[]): Promise<void> {
+        const editUri = this.location?.editUri;
+        if (!editUri) {
+            return;
+        }
+        const source = (await this.fileService.readFile(editUri)).value.toString();
+        const updated = writeTimelineTracksInSource(source, [...tracks]);
+        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(updated));
+        await this.reloadEdit();
+    }
+
+    protected async pruneEmptyDeclaredTracks(): Promise<{
+        before: EditTimelineTrack[];
+        after: EditTimelineTrack[];
+    } | undefined> {
+        const editUri = this.location?.editUri;
+        if (!editUri) {
+            return undefined;
+        }
+        const source = (await this.fileService.readFile(editUri)).value.toString();
+        const declared = parseEdit(source).timeline?.tracks;
+        if (!declared) {
+            return undefined;
+        }
+        const before = declared.map(track => ({ ...track }));
+        const after = before.filter(track => this.timelineTrackItemCount(track) > 0);
+        if (after.length === before.length) {
+            return undefined;
+        }
+        const updated = writeTimelineTracksInSource(source, after);
+        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(updated));
+        await this.reloadEdit();
+        return { before, after };
+    }
+
     protected async deleteTimelineTrack(trackId: string): Promise<void> {
         const track = this.timelineTracks.find(candidate => candidate.id === trackId);
         const editUri = this.location?.editUri;
@@ -3591,6 +3640,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected isRangeVisible(start: number, end: number): boolean {
+        const viewEnd = this.viewStart + this.visibleDuration();
+        return end > this.viewStart && start < viewEnd;
+    }
+
     protected stripSegment(
         start: number,
         end: number,
@@ -3723,6 +3777,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.audioDurationCache.set(key, 'unavailable');
             this.renderStrip();
         });
+    }
+
+    protected fetchVideoDuration(videoUri: string): void {
+        if (!this.location) {
+            return;
+        }
+        this.videoDurationCache.set(videoUri, 'pending');
+        void this.annotationsService.getAudioDuration({
+            projectRootUri: this.location.root.toString(),
+            audioUri: videoUri
+        }).then(result => {
+            if (result.status === 'ready' && result.durationSeconds !== undefined) {
+                this.videoDurationCache.set(videoUri, result.durationSeconds);
+            } else {
+                this.videoDurationCache.set(videoUri, 'unavailable');
+                this.showVideoDurationUnavailableNotice();
+            }
+            this.renderStrip();
+        }).catch(() => {
+            this.videoDurationCache.set(videoUri, 'unavailable');
+            this.showVideoDurationUnavailableNotice();
+            this.renderStrip();
+        });
+    }
+
+    protected showVideoDurationUnavailableNotice(): void {
+        if (!this.videoDurationNoticeShown && !this.notice.textContent) {
+            this.showNotice('素材の実尺が取得できないため、Out のクランプは無効です。');
+            this.videoDurationNoticeShown = true;
+        }
     }
 
     protected showFfmpegMissingNotice(reason: string | undefined): void {
@@ -3881,48 +3965,106 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const delta = rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0;
         const showGuide = allowGuide && this.snapEnabled;
         if (state.kind === 'cut-trim') {
-            const proposed = state.edge === 'left' ? state.originalIn + delta : state.originalOut + delta;
-            const edge = this.snapTimeInSourceSpace(
-                Math.max(0, proposed), showGuide,
-                [{ time: state.originalIn }, { time: state.originalOut }]
-            );
-            const input = state.edge === 'left' ? edge : state.originalIn;
-            const output = state.edge === 'right' ? edge : state.originalOut;
+            const cut = this.cuts[state.index];
             const segment = this.segments[state.index];
-            const newDuration = Math.max(0, output - input);
-            if (segment) {
-                let spanStart: number;
-                let spanEnd: number;
+            const videoUri = cut ? this.cutVideoUri(cut) : '';
+            let maxOutSeconds: number | undefined;
+            if (state.edge === 'right' && videoUri) {
+                const cachedDuration = this.videoDurationCache.get(videoUri);
+                if (typeof cachedDuration === 'number') {
+                    maxOutSeconds = cachedDuration;
+                } else if (cachedDuration === undefined) {
+                    this.fetchVideoDuration(videoUri);
+                } else if (cachedDuration === 'unavailable') {
+                    this.showVideoDurationUnavailableNotice();
+                }
+            }
+            const rawProposed = state.edge === 'left'
+                ? state.originalIn + delta : state.originalOut + delta;
+            const durationClamped = maxOutSeconds !== undefined && rawProposed > maxOutSeconds;
+            const proposed = Math.max(0, state.edge === 'right' && maxOutSeconds !== undefined
+                ? Math.min(rawProposed, maxOutSeconds) : rawProposed);
+            let input = state.edge === 'left' ? proposed : state.originalIn;
+            let output = state.edge === 'right' ? proposed : state.originalOut;
+            let snapped = false;
+            let spanStart: number;
+            let spanEnd: number;
+            if (segment && cut) {
+                const rawDuration = Math.max(0, output - input);
+                const rawSpanStart = state.edge === 'left'
+                    ? segment.tlEnd - rawDuration / segment.speed : segment.tlStart;
+                const rawSpanEnd = state.edge === 'right'
+                    ? segment.tlStart + rawDuration / segment.speed : segment.tlEnd;
+                const movingEdge = state.edge === 'left' ? rawSpanStart : rawSpanEnd;
+                const snap = durationClamped
+                    ? { time: movingEdge, snapped: false }
+                    : this.snapTimeInOutputSpaceWithResult(
+                        movingEdge,
+                        showGuide,
+                        [
+                            { time: segment.tlStart },
+                            { time: segment.tlEnd },
+                            ...this.wordBoundaries.map(time => ({ time: this.sourceToOutput(time) }))
+                        ]
+                    );
+                snapped = snap.snapped;
+                if (durationClamped) {
+                    this.hideSnapGuide();
+                }
                 if (state.edge === 'left') {
-                    spanStart = segment.tlEnd - newDuration / segment.speed;
+                    spanStart = snap.time;
                     spanEnd = segment.tlEnd;
+                    input = Math.max(0, output - (spanEnd - spanStart) * segment.speed);
                 } else {
                     spanStart = segment.tlStart;
-                    spanEnd = segment.tlStart + newDuration / segment.speed;
+                    spanEnd = snap.time;
+                    output = input + (spanEnd - spanStart) * segment.speed;
+                    if (maxOutSeconds !== undefined && output > maxOutSeconds) {
+                        output = maxOutSeconds;
+                        spanEnd = spanStart + (output - input) / segment.speed;
+                        snapped = false;
+                        this.hideSnapGuide();
+                    }
                 }
+                const newDuration = Math.max(0, output - input);
                 const rejected = this.cutWouldOverlap(
                     state.index, spanStart, spanEnd - spanStart, segment.track
                 );
                 this.setGhostRange(state.ghost, spanStart, spanEnd);
                 this.setGhostRejected(state.ghost, rejected);
+                this.setGhostSnapped(state.ghost, snapped && !rejected);
                 this.updateDragFeedback(state, rejected
                     ? '⚠ 重なるためトリムできません'
-                    : `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(edge)} / 尺 ${newDuration.toFixed(2)} 秒`);
+                    : `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} / 尺 ${newDuration.toFixed(2)} 秒`);
                 this.updateGhostHeaderDuration(state.ghost, newDuration);
-                return { kind: 'cut-trim', index: state.index, input, output, rejected };
+                return {
+                    kind: 'cut-trim', index: state.index, input, output, rejected, maxOutSeconds
+                };
             } else {
+                const snap = this.snapTimeInSourceSpaceWithResult(
+                    proposed, showGuide,
+                    [{ time: state.originalIn }, { time: state.originalOut }]
+                );
+                snapped = snap.snapped;
+                input = state.edge === 'left' ? snap.time : state.originalIn;
+                output = state.edge === 'right' ? snap.time : state.originalOut;
                 this.setGhostRange(state.ghost, input, output);
             }
             this.setGhostRejected(state.ghost, false);
-            this.updateDragFeedback(state, `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(edge)} / 尺 ${newDuration.toFixed(2)} 秒`);
+            this.setGhostSnapped(state.ghost, snapped);
+            const newDuration = Math.max(0, output - input);
+            this.updateDragFeedback(state, `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} / 尺 ${newDuration.toFixed(2)} 秒`);
             this.updateGhostHeaderDuration(state.ghost, newDuration);
-            return { kind: 'cut-trim', index: state.index, input, output, rejected: false };
+            return {
+                kind: 'cut-trim', index: state.index, input, output, rejected: false, maxOutSeconds
+            };
         }
         if (state.kind === 'cut-move') {
-            const at = Math.max(0, this.snapTimeInOutputSpace(
-                state.originalAt + delta, showGuide,
+            const snap = this.snapMovingRangeInOutputSpace(
+                state.originalAt + delta, state.duration, showGuide,
                 [{ time: state.originalAt }, { time: state.originalAt + state.duration }]
-            ));
+            );
+            const at = Math.max(0, snap.time);
             const hit = this.trackAtClientY('cut', this.laneLayout.cutTracks, clientY, state.originalTrack);
             const isNewTrackSpot = !this.laneLayout.cutTracks.some(layout => layout.track === hit.track);
             if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
@@ -3934,6 +4076,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostRange(state.ghost, at, at + state.duration);
             state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, rejected);
+            this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected
                 ? '⚠ 移動できません（種別が異なる／重なります）'
                 : `${this.formatTimestamp(at)} / トラック ${hit.track}`);
@@ -3945,19 +4088,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (state.kind === 'caption') {
             let start = state.originalStart;
             let end = state.originalEnd;
+            let snapped = false;
             const originalEdges = [{ time: state.originalStart }, { time: state.originalEnd }];
             if (state.mode === 'move') {
-                start = this.snapTimeInSourceSpace(state.originalStart + delta, showGuide, originalEdges);
+                const snap = this.snapTimeInSourceSpaceWithResult(
+                    state.originalStart + delta, showGuide, originalEdges
+                );
+                start = snap.time;
+                snapped = snap.snapped;
                 end = state.originalEnd + (start - state.originalStart);
             } else if (state.mode === 'start') {
-                start = this.snapTimeInSourceSpace(state.originalStart + delta, showGuide, originalEdges);
+                const snap = this.snapTimeInSourceSpaceWithResult(
+                    state.originalStart + delta, showGuide, originalEdges
+                );
+                start = snap.time;
+                snapped = snap.snapped;
             } else {
-                end = this.snapTimeInSourceSpace(state.originalEnd + delta, showGuide, originalEdges);
+                const snap = this.snapTimeInSourceSpaceWithResult(
+                    state.originalEnd + delta, showGuide, originalEdges
+                );
+                end = snap.time;
+                snapped = snap.snapped;
             }
             const ranges = this.sourceRangeToOutputRanges(start, end);
             if (ranges.length > 0) {
                 this.setGhostRange(state.ghost, ranges[0][0], ranges[ranges.length - 1][1]);
             }
+            this.setGhostSnapped(state.ghost, snapped);
             this.updateDragFeedback(state, `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`);
             return {
                 kind: 'caption', id: state.id,
@@ -3972,23 +4129,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let track = state.originalTrack;
             let rejected = false;
             let insertTrack: number | undefined;
+            let snapped = false;
             const originalEdges = [
                 { time: state.originalT },
                 { time: state.originalT + state.originalDuration }
             ];
             if (state.mode === 'start') {
-                t = this.snapTimeInOutputSpace(
+                const snap = this.snapTimeInOutputSpaceWithResult(
                     Math.max(0, state.originalT + delta), showGuide, originalEdges
                 );
+                t = snap.time;
+                snapped = snap.snapped;
                 itemDuration = state.originalDuration + (state.originalT - t);
             } else if (state.mode === 'end') {
-                itemDuration = this.snapTimeInOutputSpace(
+                const snap = this.snapTimeInOutputSpaceWithResult(
                     state.originalT + state.originalDuration + delta, showGuide, originalEdges
-                ) - state.originalT;
-            } else {
-                t = this.snapTimeInOutputSpace(
-                    Math.max(0, state.originalT + delta), showGuide, originalEdges
                 );
+                itemDuration = snap.time - state.originalT;
+                snapped = snap.snapped;
+            } else {
+                const snap = this.snapMovingRangeInOutputSpace(
+                    state.originalT + delta, state.originalDuration, showGuide, originalEdges
+                );
+                t = Math.max(0, snap.time);
+                snapped = snap.snapped;
                 const hit = this.trackAtClientY(
                     'layer', this.laneLayout.layerTracks, clientY, state.originalTrack
                 );
@@ -4005,19 +4169,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
             this.setGhostRejected(state.ghost, rejected);
+            this.setGhostSnapped(state.ghost, snapped && !rejected);
             this.updateDragFeedback(state, rejected
                 ? '⚠ 移動できません（種別が異なります）'
                 : `${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒 / トラック ${track}`);
             return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected, insertTrack };
         }
         if (state.kind === 'audio') {
-            const t = this.snapTimeInOutputSpace(
-                Math.max(0, state.originalT + delta), showGuide,
+            const snap = this.snapMovingRangeInOutputSpace(
+                state.originalT + delta, DECLARED_SFX_DURATION_SECONDS, showGuide,
                 [
                     { time: state.originalT },
                     { time: state.originalT + DECLARED_SFX_DURATION_SECONDS }
                 ]
             );
+            const t = Math.max(0, snap.time);
             const hit = this.trackAtClientY(
                 'audio', this.laneLayout.audioTracks, clientY, state.originalTrack
             );
@@ -4025,6 +4191,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostRange(state.ghost, t, t + DECLARED_SFX_DURATION_SECONDS);
             state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, hit.rejected);
+            this.setGhostSnapped(state.ghost, snap.snapped && !hit.rejected);
             this.updateDragFeedback(state, hit.rejected
                 ? '⚠ 移動できません（種別が異なります）'
                 : `${this.formatTimestamp(t)} / トラック ${hit.track}`);
@@ -4033,14 +4200,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         }
         if (state.mode === 'move') {
-            const start = this.snapTimeInOutputSpace(
-                Math.max(0, state.originalStart + delta), showGuide,
+            const snap = this.snapMovingRangeInOutputSpace(
+                state.originalStart + delta, state.originalDuration, showGuide,
                 [
                     { time: state.originalStart },
                     { time: state.originalStart + state.originalDuration }
                 ]
             );
+            const start = Math.max(0, snap.time);
             this.setGhostRange(state.ghost, start, start + state.originalDuration);
+            this.setGhostSnapped(state.ghost, snap.snapped);
             const hit = this.trackAtClientY(
                 'overlay', this.overlayTrackLayouts, clientY, state.originalTrack
             );
@@ -4057,14 +4226,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 insertTrack: hit.insertTrack
             };
         }
-        const end = this.snapTimeInOutputSpace(
+        const snap = this.snapTimeInOutputSpaceWithResult(
             state.originalStart + state.originalDuration + delta, showGuide,
             [
                 { time: state.originalStart },
                 { time: state.originalStart + state.originalDuration }
             ]
         );
+        const end = snap.time;
         this.setGhostRange(state.ghost, state.originalStart, end);
+        this.setGhostSnapped(state.ghost, snap.snapped);
         this.updateDragFeedback(state, `尺 ${(end - state.originalStart).toFixed(2)} 秒`);
         return { kind: 'overlay-resize', id: state.id, duration: end - state.originalStart };
     }
@@ -4205,6 +4376,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ghost.classList.toggle('akari-annotations-ghost-rejected', rejected);
     }
 
+    protected setGhostSnapped(ghost: HTMLDivElement, snapped: boolean): void {
+        ghost.classList.toggle('akari-annotations-ghost-snapped', snapped);
+    }
+
     protected setGhostRange(ghost: HTMLDivElement, start: number, end: number): void {
         ghost.style.left = `${this.percent(start)}%`;
         ghost.style.width = `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`;
@@ -4217,13 +4392,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected snapTimeInSourceSpace(
         value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
     ): number {
+        return this.snapTimeInSourceSpaceWithResult(value, showGuide, extraCandidates).time;
+    }
+
+    protected snapTimeInSourceSpaceWithResult(
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+    ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
-            return value;
+            return { time: value, snapped: false };
         }
         const threshold = this.snapThresholdSeconds();
         if (threshold === undefined) {
-            return value;
+            return { time: value, snapped: false };
         }
         const candidates: SnapCandidate[] = [
             ...this.wordBoundaries.map(time => ({ time })),
@@ -4238,13 +4419,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (showGuide) {
                 this.showSnapGuideAt(this.sourceToOutput(nearest.time), nearest.isPlayhead === true);
             }
-            return nearest.time;
+            return { time: nearest.time, snapped: true };
         }
         const grid = this.snapToGrid(value);
         if (showGuide) {
             this.showSnapGuideAt(this.sourceToOutput(grid), false);
         }
-        return grid;
+        return { time: grid, snapped: false };
     }
 
     /**
@@ -4254,33 +4435,82 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected snapTimeInOutputSpace(
         value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
     ): number {
+        return this.snapTimeInOutputSpaceWithResult(value, showGuide, extraCandidates).time;
+    }
+
+    protected snapTimeInOutputSpaceWithResult(
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+    ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
-            return value;
+            return { time: value, snapped: false };
         }
         const threshold = this.snapThresholdSeconds();
         if (threshold === undefined) {
-            return value;
+            return { time: value, snapped: false };
         }
-        const candidates: SnapCandidate[] = [
+        const candidates = this.outputSnapCandidates(extraCandidates);
+        const nearest = this.nearestCandidate(candidates, value);
+        if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
+            if (showGuide) {
+                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
+            }
+            return { time: nearest.time, snapped: true };
+        }
+        const grid = this.snapToGrid(value);
+        if (showGuide) {
+            this.showSnapGuideAt(grid, false);
+        }
+        return { time: grid, snapped: false };
+    }
+
+    protected snapMovingRangeInOutputSpace(
+        start: number,
+        duration: number,
+        showGuide: boolean,
+        extraCandidates: readonly SnapCandidate[] = []
+    ): SnapResult {
+        if (!this.snapEnabled) {
+            this.hideSnapGuide();
+            return { time: start, snapped: false };
+        }
+        const threshold = this.snapThresholdSeconds();
+        if (threshold === undefined) {
+            return { time: start, snapped: false };
+        }
+        const candidates = this.outputSnapCandidates(extraCandidates);
+        const nearestStart = this.nearestCandidate(candidates, start);
+        const end = start + duration;
+        const nearestEnd = this.nearestCandidate(candidates, end);
+        const startDistance = nearestStart ? Math.abs(nearestStart.time - start) : Number.POSITIVE_INFINITY;
+        const endDistance = nearestEnd ? Math.abs(nearestEnd.time - end) : Number.POSITIVE_INFINITY;
+        const useStart = startDistance <= endDistance;
+        const nearest = useStart ? nearestStart : nearestEnd;
+        const distance = useStart ? startDistance : endDistance;
+        if (nearest && distance <= threshold) {
+            if (showGuide) {
+                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
+            }
+            return {
+                time: useStart ? nearest.time : nearest.time - duration,
+                snapped: true
+            };
+        }
+        const grid = this.snapToGrid(start);
+        if (showGuide) {
+            this.showSnapGuideAt(grid, false);
+        }
+        return { time: grid, snapped: false };
+    }
+
+    protected outputSnapCandidates(extraCandidates: readonly SnapCandidate[] = []): SnapCandidate[] {
+        return [
             ...this.segments.flatMap(segment => [{ time: segment.tlStart }, { time: segment.tlEnd }]),
             { time: this.playheadT, isPlayhead: true },
             { time: this.sourceToOutput(this.selectedSourceT) },
             { time: 0 },
             ...extraCandidates
         ].filter(candidate => Number.isFinite(candidate.time));
-        const nearest = this.nearestCandidate(candidates, value);
-        if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
-            if (showGuide) {
-                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
-            }
-            return nearest.time;
-        }
-        const grid = this.snapToGrid(value);
-        if (showGuide) {
-            this.showSnapGuideAt(grid, false);
-        }
-        return grid;
     }
 
     protected snapToGrid(value: number): number {
@@ -4365,7 +4595,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const frozenIndex = this.findFrozenNextIndex(this.cuts, preview.index);
                 result = await this.annotationsService.trimCut({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    cutIndex: preview.index, in: preview.input, out: preview.output
+                    cutIndex: preview.index, in: preview.input, out: preview.output,
+                    maxOutSeconds: preview.maxOutSeconds
                 });
                 this.pushHistory({
                     label: 'クリップのトリム',
@@ -4385,7 +4616,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     redo: async () => {
                         await this.annotationsService.trimCut({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            cutIndex: preview.index, in: preview.input, out: preview.output
+                            cutIndex: preview.index, in: preview.input, out: preview.output,
+                            maxOutSeconds: preview.maxOutSeconds
                         });
                         await this.reloadEdit();
                     }
@@ -4433,6 +4665,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 await this.reloadEdit();
+                const pruneResult = await this.pruneEmptyDeclaredTracks();
                 const movedTrackState = await this.readIndexedTrackState('cuts');
                 this.pushHistory({
                     label: 'クリップの移動',
@@ -4448,6 +4681,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             });
                         }
                         await this.reloadEdit();
+                        if (pruneResult) {
+                            await this.writeDeclaredTimelineTracks(pruneResult.before);
+                        }
                     },
                     redo: async () => {
                         await this.annotationsService.moveCut({
@@ -4455,6 +4691,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             cutIndex: preview.index, at: preview.at, trackState: movedTrackState
                         });
                         await this.reloadEdit();
+                        if (pruneResult) {
+                            await this.writeDeclaredTimelineTracks(pruneResult.after);
+                        }
                     }
                 });
                 this.footer.textContent = this.writeResultMessage('クリップを移動しました。', result);
@@ -4525,6 +4764,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 await this.reloadEdit();
+                const pruneResult = await this.pruneEmptyDeclaredTracks();
                 const movedTrackState = await this.readIdTrackState('layers');
                 this.pushHistory({
                     label: 'レイヤーの調整',
@@ -4534,6 +4774,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             layerId: preview.id, t: original.t, duration: original.duration, trackState: originalTrackState
                         });
                         await this.reloadEdit();
+                        if (pruneResult) {
+                            await this.writeDeclaredTimelineTracks(pruneResult.before);
+                        }
                     },
                     redo: async () => {
                         await this.annotationsService.moveLayer({
@@ -4541,6 +4784,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             layerId: preview.id, t: preview.t, duration: preview.duration, trackState: movedTrackState
                         });
                         await this.reloadEdit();
+                        if (pruneResult) {
+                            await this.writeDeclaredTimelineTracks(pruneResult.after);
+                        }
                     }
                 });
                 this.footer.textContent = this.writeResultMessage('レイヤーを調整しました。', result);
@@ -4563,6 +4809,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     sfxIndex, t: preview.t, track: 0
                 });
                 await this.reloadEdit();
+                const pruneResult = await this.pruneEmptyDeclaredTracks();
                 const movedTrackState = await this.readIndexedTrackState('sfx');
                 this.pushHistory({
                     label: 'SE の移動',
@@ -4572,6 +4819,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             sfxIndex, t: original.t, trackState: originalTrackState
                         });
                         await this.reloadEdit();
+                        if (pruneResult) {
+                            await this.writeDeclaredTimelineTracks(pruneResult.before);
+                        }
                     },
                     redo: async () => {
                         await this.annotationsService.moveSfx({
@@ -4579,6 +4829,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             sfxIndex, t: preview.t, trackState: movedTrackState
                         });
                         await this.reloadEdit();
+                        if (pruneResult) {
+                            await this.writeDeclaredTimelineTracks(pruneResult.after);
+                        }
                     }
                 });
                 this.footer.textContent = this.writeResultMessage('SE を移動しました。', result);
@@ -4616,6 +4869,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 await this.reloadEdit();
+                const pruneResult = await this.pruneEmptyDeclaredTracks();
                 const movedTrackState = this.overlayTrackState();
                 this.pushHistory({
                     label: 'オーバーレイの移動',
@@ -4626,6 +4880,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             trackState: originalTrackState
                         });
                         await this.reloadEdit();
+                        if (pruneResult) {
+                            await this.writeDeclaredTimelineTracks(pruneResult.before);
+                        }
                     },
                     redo: async () => {
                         await this.annotationsService.moveOverlay({
@@ -4634,6 +4891,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             trackState: movedTrackState
                         });
                         await this.reloadEdit();
+                        if (pruneResult) {
+                            await this.writeDeclaredTimelineTracks(pruneResult.after);
+                        }
                     }
                 });
                 this.footer.textContent = this.writeResultMessage('オーバーレイを移動しました。', result);

@@ -220,7 +220,19 @@ export function computeCutTrackSegments(cuts: readonly EditCut[]): CutTrackSegme
     return segments;
 }
 
-export function trimCutInSource(source: string, cutIndex: number, nextIn: number, nextOut: number): string {
+export function trimCutInSource(
+    source: string,
+    cutIndex: number,
+    nextIn: number,
+    nextOut: number,
+    maxOutSeconds?: number
+): string {
+    if (maxOutSeconds !== undefined) {
+        if (!Number.isFinite(maxOutSeconds) || maxOutSeconds < 0) {
+            throw new Error('クリップの実尺が不正です。');
+        }
+        nextOut = Math.min(nextOut, maxOutSeconds);
+    }
     if (!Number.isFinite(nextIn) || !Number.isFinite(nextOut) || nextIn < 0 || nextOut < 0) {
         throw new Error('クリップの時刻が不正です。');
     }
@@ -506,8 +518,10 @@ export function moveCutInSource(
     updated = writeCutAtProperty(updated, cutIndex, nextAt);
     if (trackState) {
         updated = applyIndexedTrackState(updated, 'cuts', trackState, 'クリップ');
-    } else if (nextTrack !== undefined && normalizeTrack(before.cuts[cutIndex].track) !== (nextTrack ?? 0)) {
-        updated = normalizeMovedTrack(updated, 'cuts', cutIndex, nextTrack, 'クリップ');
+    } else if (nextTrack === null
+        || (nextTrack !== undefined && normalizeTrack(before.cuts[cutIndex].track) !== nextTrack)) {
+        updated = updateArrayElementByIndex(updated, 'cuts', cutIndex, 'クリップ', element =>
+            writeTrackProperty(element, nextTrack, `クリップ ${cutIndex + 1}`));
     }
     assertMovedCutDoesNotOverlap(updated, cutIndex);
     return updated;
@@ -662,17 +676,16 @@ export function moveLayerInSource(
         throw new Error(`レイヤー ${layerId} が見つかりません`);
     }
     const currentTrack = normalizeTrack(readOptionalNumberProperty(beforeElements[beforeIndex].text, 'track'));
-    const updated = updateLayerInSource(source, layerId, { t: nextT, duration: nextDuration });
+    const updated = updateLayerInSource(source, layerId, {
+        t: nextT,
+        duration: nextDuration,
+        ...(!trackState && nextTrack !== undefined && nextTrack !== currentTrack
+            ? { track: nextTrack } : {})
+    });
     if (trackState) {
         return applyIdTrackState(updated, 'layers', trackState, 'レイヤー');
     }
-    if (nextTrack === undefined || nextTrack === currentTrack) {
-        return updated;
-    }
-    const array = locateArray(updated, 'layers');
-    const elements = splitTopLevelElements(array.inner);
-    const index = elements.findIndex(element => readStringProperty(element.text, 'id') === layerId);
-    return normalizeMovedTrack(updated, 'layers', index, nextTrack, 'レイヤー');
+    return updated;
 }
 
 export function moveSfxInSource(
@@ -697,15 +710,18 @@ export function moveSfxInSource(
     const currentTrack = normalizeTrack(readOptionalNumberProperty(currentElement.text, 'track'));
     const updated = updateArrayElementByIndex(source, 'sfx', sfxIndex, 'SE', element => {
         const hasT = /"t"\s*:/.test(element);
-        return hasT ? replacePropertyValue(element, 't', nextT, `SE ${sfxIndex + 1}`) : appendNumberProperty(element, 't', nextT);
+        let next = hasT
+            ? replacePropertyValue(element, 't', nextT, `SE ${sfxIndex + 1}`)
+            : appendNumberProperty(element, 't', nextT);
+        if (!trackState && nextTrack !== undefined && nextTrack !== currentTrack) {
+            next = writeTrackProperty(next, nextTrack, `SE ${sfxIndex + 1}`);
+        }
+        return next;
     });
     if (trackState) {
         return applyIndexedTrackState(updated, 'sfx', trackState, 'SE');
     }
-    if (nextTrack === undefined || nextTrack === currentTrack) {
-        return updated;
-    }
-    return normalizeMovedTrack(updated, 'sfx', sfxIndex, nextTrack, 'SE');
+    return updated;
 }
 
 export function setSfxGainDbInSource(source: string, sfxIndex: number, gainDb: number | null): string {
@@ -781,46 +797,18 @@ export function moveOverlayInSource(
     if (nextTrack !== undefined && nextTrack !== null && (!Number.isInteger(nextTrack) || nextTrack < 0)) {
         throw new Error('オーバーレイのトラックが不正です。');
     }
-    const updated = updateOverlay(source, overlayId, element =>
-        replaceNumberProperty(element, 'start', nextStart, `オーバーレイ ${overlayId}`));
+    const updated = updateOverlay(source, overlayId, element => {
+        let next = replaceNumberProperty(element, 'start', nextStart, `オーバーレイ ${overlayId}`);
+        if (!trackState && (nextTrack === null || (nextTrack !== undefined
+            && normalizeTrack(readOptionalNumberProperty(element, 'track')) !== nextTrack))) {
+            next = writeTrackProperty(next, nextTrack, `オーバーレイ ${overlayId}`);
+        }
+        return next;
+    });
     if (trackState) {
         return applyOverlayTrackState(updated, trackState);
     }
-    if (nextTrack === undefined) {
-        return updated;
-    }
-    const array = locateArray(updated, 'overlays');
-    const elements = splitTopLevelElements(array.inner);
-    const tracks = elements.map(element => {
-        const id = readStringProperty(element.text, 'id');
-        const current = readOptionalNumberProperty(element.text, 'track');
-        return { id, track: id === overlayId ? (nextTrack ?? 0) : normalizeTrack(current) };
-    });
-    const occupied = [...new Set(tracks.map(entry => entry.track))].sort((left, right) => left - right);
-    const normalized = new Map(occupied.map((track, index) => [track, index]));
-    let nextInner = array.inner;
-    for (let index = elements.length - 1; index >= 0; index--) {
-        const element = elements[index];
-        const targetTrack = normalized.get(tracks[index].track) ?? 0;
-        const currentTrack = readOptionalNumberProperty(element.text, 'track');
-        const hasTrack = new RegExp('"track"\\s*:').test(element.text);
-        const isTarget = tracks[index].id === overlayId;
-        if (isTarget && nextTrack === null && targetTrack === 0) {
-            if (hasTrack) {
-                const nextText = removeObjectProperty(element.text, 'track');
-                nextInner = nextInner.slice(0, element.start) + nextText + nextInner.slice(element.end);
-            }
-            continue;
-        }
-        if ((!isTarget && !hasTrack && targetTrack === 0) || currentTrack === targetTrack) {
-            continue;
-        }
-        const nextText = hasTrack
-            ? replacePropertyValue(element.text, 'track', targetTrack, `オーバーレイ ${tracks[index].id ?? index + 1}`)
-            : appendNumberProperty(element.text, 'track', targetTrack);
-        nextInner = nextInner.slice(0, element.start) + nextText + nextInner.slice(element.end);
-    }
-    return updated.slice(0, array.openIndex + 1) + nextInner + updated.slice(array.closeIndex);
+    return updated;
 }
 
 export function resizeOverlayInSource(source: string, overlayId: string, nextDuration: number): string {
@@ -1565,38 +1553,6 @@ function applyIdTrackState(
             return element.text;
         }
         return writeTrackProperty(element.text, trackState[id], `${label} ${id || index + 1}`);
-    });
-    return rebuildArrayElements(source, array, elements, texts);
-}
-
-function normalizeMovedTrack(
-    source: string,
-    key: string,
-    targetIndex: number,
-    nextTrack: number | null,
-    label: string
-): string {
-    const array = locateArray(source, key);
-    const elements = splitTopLevelElements(array.inner);
-    if (!elements[targetIndex]) {
-        throw new Error(`${label} ${targetIndex + 1} が見つかりません`);
-    }
-    const tracks = elements.map((element, index) => index === targetIndex
-        ? (nextTrack ?? 0) : normalizeTrack(readOptionalNumberProperty(element.text, 'track')));
-    const occupied = [...new Set(tracks)].sort((left, right) => left - right);
-    const normalized = new Map(occupied.map((track, index) => [track, index]));
-    const texts = elements.map((element, index) => {
-        const targetTrack = normalized.get(tracks[index]) ?? 0;
-        const isTarget = index === targetIndex;
-        if (isTarget && nextTrack === null && targetTrack === 0) {
-            return writeTrackProperty(element.text, null, `${label} ${index + 1}`);
-        }
-        const hasTrack = /"track"\s*:/.test(element.text);
-        const currentTrack = readOptionalNumberProperty(element.text, 'track');
-        if ((!isTarget && !hasTrack && targetTrack === 0) || currentTrack === targetTrack) {
-            return element.text;
-        }
-        return writeTrackProperty(element.text, targetTrack, `${label} ${index + 1}`);
     });
     return rebuildArrayElements(source, array, elements, texts);
 }
