@@ -226,9 +226,65 @@ export function buildCutMap(snapshot) {
   return { primaryTrack, intervals: byTimeline, boundaries, locate };
 }
 
-export function resolveUtteranceReference({ utterance, trace, cutMap, rewindWindowSeconds = 3 }) {
+function pairableStroke(strokes, utteranceStart, utteranceEnd, maximumDistance) {
+  return (Array.isArray(strokes) ? strokes : [])
+    .map((stroke, index) => {
+      const overlaps = stroke.recTStart <= utteranceEnd && stroke.recTEnd >= utteranceStart;
+      const intervalDistance = overlaps
+        ? 0
+        : Math.min(
+          Math.abs(stroke.recTStart - utteranceEnd),
+          Math.abs(stroke.recTEnd - utteranceStart),
+        );
+      const startDistance = Math.min(
+        Math.abs(stroke.recTStart - utteranceStart),
+        Math.abs(stroke.recTEnd - utteranceStart),
+      );
+      return { stroke, index, overlaps, intervalDistance, startDistance };
+    })
+    .filter((candidate) => candidate.intervalDistance <= maximumDistance)
+    .sort((left, right) => (
+      Number(right.overlaps) - Number(left.overlaps)
+      || left.startDistance - right.startDistance
+      || left.stroke.recTStart - right.stroke.recTStart
+      || left.stroke.recTEnd - right.stroke.recTEnd
+      || String(left.stroke.id).localeCompare(String(right.stroke.id))
+      || left.index - right.index
+    ))[0]?.stroke;
+}
+
+function attachPairedStroke(reference, stroke) {
+  if (!stroke) return reference;
+  if (reference.resolutionMethod === "stopped-frame") {
+    return { ...reference, pairedStroke: stroke };
+  }
+  return {
+    ...reference,
+    timelineT: stroke.frame.timelineT,
+    sourceT: stroke.frame.sourceT,
+    cutIndex: stroke.frame.cutIndex,
+    target: stroke.frame.cutIndex !== null ? `cut:${stroke.frame.cutIndex}` : reference.target,
+    confidence: "high",
+    resolutionMethod: "stroke-pair",
+    pairedStroke: stroke,
+  };
+}
+
+export function resolveUtteranceReference({
+  utterance,
+  trace,
+  cutMap,
+  strokes = [],
+  rewindWindowSeconds = 3,
+}) {
   const utteranceStart = utterance.recT[0];
   const utteranceEnd = Number.isFinite(utterance.recT[1]) ? utterance.recT[1] : utteranceStart;
+  const pairedStroke = pairableStroke(
+    strokes,
+    utteranceStart,
+    utteranceEnd,
+    rewindWindowSeconds,
+  );
   const startState = trace.stateAt(utteranceStart);
   const seeksDuringUtterance = trace.events.filter((event) => (
     event.type === "seek" && event.recT > utteranceStart && event.recT <= utteranceEnd
@@ -253,7 +309,7 @@ export function resolveUtteranceReference({ utterance, trace, cutMap, rewindWind
         ))
         .map((segment) => segment.value);
 
-    return {
+    return attachPairedStroke({
       timelineT: located.timelineT,
       sourceT: located.sourceT,
       cutIndex: located.cutIndex,
@@ -262,12 +318,12 @@ export function resolveUtteranceReference({ utterance, trace, cutMap, rewindWind
       confidence: settled ? "high" : "low",
       resolutionMethod: settled ? "scrub-settle" : "scrub-unsettled",
       candidates: candidateValues,
-    };
+    }, pairedStroke);
   }
 
   if (!startState.playing) {
     const located = cutMap.locate(startState.timelineT);
-    return {
+    return attachPairedStroke({
       timelineT: located.timelineT,
       sourceT: located.sourceT,
       cutIndex: located.cutIndex,
@@ -276,7 +332,7 @@ export function resolveUtteranceReference({ utterance, trace, cutMap, rewindWind
       confidence: "high",
       resolutionMethod: "stopped-frame",
       candidates: [],
-    };
+    }, pairedStroke);
   }
 
   const windowStartRecT = Math.max(0, utteranceStart - rewindWindowSeconds);
@@ -288,7 +344,7 @@ export function resolveUtteranceReference({ utterance, trace, cutMap, rewindWind
 
   if (candidates.length === 1) {
     const located = cutMap.locate(candidates[0]);
-    return {
+    return attachPairedStroke({
       timelineT: located.timelineT,
       sourceT: located.sourceT,
       cutIndex: located.cutIndex,
@@ -297,11 +353,11 @@ export function resolveUtteranceReference({ utterance, trace, cutMap, rewindWind
       confidence: "high",
       resolutionMethod: "rewind-window-boundary",
       candidates,
-    };
+    }, pairedStroke);
   }
 
   const located = cutMap.locate(now);
-  return {
+  return attachPairedStroke({
     timelineT: located.timelineT,
     sourceT: located.sourceT,
     cutIndex: located.cutIndex,
@@ -310,5 +366,5 @@ export function resolveUtteranceReference({ utterance, trace, cutMap, rewindWind
     confidence: "low",
     resolutionMethod: candidates.length === 0 ? "instantaneous" : "ambiguous-boundaries",
     candidates,
-  };
+  }, pairedStroke);
 }

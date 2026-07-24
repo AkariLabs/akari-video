@@ -141,9 +141,9 @@ function confirmationText(normalizedText, reference, judgement) {
   return `[要確認] ${normalizedText}（${candidateText}。${reason}ため、この対象でよいか確認してください）`;
 }
 
-export function buildProposals({ utterances, trace, cutMap }) {
+export function buildProposals({ utterances, trace, cutMap, strokes = [] }) {
   return utterances.map((utterance, index) => {
-    const reference = resolveUtteranceReference({ utterance, trace, cutMap });
+    const reference = resolveUtteranceReference({ utterance, trace, cutMap, strokes });
     const provisional = provisionalJudgement(utterance.text);
     return {
       index,
@@ -176,6 +176,10 @@ export function chooseProposalDecision(proposal) {
 
 export function proposalToAnnotation({ proposal, decision, sessionId, audioPath, createdAt }) {
   const needsConfirmation = decision.confidence === "low" || proposal.reference.confidence === "low";
+  const pairedStroke = proposal.reference.pairedStroke;
+  const simplifiedPoints = pairedStroke
+    ? simplifyStrokePoints(pairedStroke.points)
+    : null;
   return {
     createdAt,
     sourceT: proposal.reference.sourceT,
@@ -187,7 +191,16 @@ export function proposalToAnnotation({ proposal, decision, sessionId, audioPath,
       : decision.text,
     input: "session",
     audio: audioPath,
-    strokes: null,
+    strokes: pairedStroke ? [{
+      tool: "pen",
+      space: "content-rect",
+      frame: {
+        sourceT: pairedStroke.frame.sourceT,
+        cutIndex: pairedStroke.frame.cutIndex,
+      },
+      points: simplifiedPoints,
+      sessionRef: `${sessionId}/${pairedStroke.id}`,
+    }] : null,
     poses: null,
     status: "open",
     response: null,
@@ -198,4 +211,11 @@ export function proposalToAnnotation({ proposal, decision, sessionId, audioPath,
       confidence: needsConfirmation ? "low" : "high",
     },
   };
+}
+
+function simplifyStrokePoints(points, maximum = 100) {
+  if (points.length <= maximum) return points;
+  return Array.from({ length: maximum }, (_, index) => (
+    points[Math.round(index * (points.length - 1) / (maximum - 1))]
+  ));
 }

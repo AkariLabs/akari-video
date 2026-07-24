@@ -10,6 +10,7 @@ const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
 
 interface ReviewSessionSummary {
     id: string;
@@ -431,6 +432,52 @@ export class AkariReviewPanelWidget extends BaseWidget {
             border: `1px solid ${STATUS_COLORS[annotation.status]}`, borderRadius: '999px', padding: '0 8px'
         });
         head.append(time, badge);
+        // Shared Annotation.strokes is still the legacy point-array type; keep this ready for its future rich shape.
+        const candidateStrokes = annotation.strokes as unknown as Array<{
+            frame?: unknown;
+            points?: unknown;
+            sessionRef?: unknown;
+        }>;
+        const richStrokes = Array.isArray(candidateStrokes)
+            ? candidateStrokes.filter((stroke): stroke is {
+                frame: { sourceT?: unknown; cutIndex?: unknown };
+                points: Array<[number, number]>;
+                sessionRef: string;
+            } => Boolean(
+                stroke
+                && typeof stroke === 'object'
+                && !Array.isArray(stroke)
+                && stroke.frame
+                && typeof stroke.frame === 'object'
+                && Array.isArray(stroke.points)
+                && stroke.points.length >= 2
+                && typeof stroke.sessionRef === 'string'
+            ))
+            : [];
+        if (richStrokes.length > 0) {
+            const strokeButton = document.createElement('button');
+            strokeButton.type = 'button';
+            strokeButton.textContent = '✏️';
+            strokeButton.title = 'ペン描画を表示';
+            strokeButton.setAttribute('aria-label', 'ペン描画を表示');
+            Object.assign(strokeButton.style, {
+                background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit'
+            });
+            strokeButton.addEventListener('click', () => {
+                const editUri = this.model.location?.editUri?.normalizePath().toString();
+                if (!editUri) {
+                    return;
+                }
+                window.dispatchEvent(new CustomEvent(REVIEW_ANNOTATION_SHOW_STROKES_EVENT, {
+                    detail: {
+                        editUri,
+                        sourceT: annotation.sourceT,
+                        strokes: richStrokes
+                    }
+                }));
+            });
+            head.appendChild(strokeButton);
+        }
         if (annotation.status === 'addressed') {
             const resolveButton = document.createElement('button');
             resolveButton.type = 'button';

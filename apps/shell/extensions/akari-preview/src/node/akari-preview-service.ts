@@ -12,6 +12,7 @@ import { parse as parseJson } from 'jsonc-parser';
 import {
     AppendReviewSessionAudioRequest,
     AppendReviewSessionEventRequest,
+    AppendReviewSessionStrokeRequest,
     AssetStreamRequest,
     AkariPreviewService,
     EndReviewSessionRequest,
@@ -310,6 +311,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async appendReviewSessionAudio(request: AppendReviewSessionAudioRequest): Promise<void> {
         await this.reviewSessionWriter.appendAudio(request);
+    }
+
+    async appendReviewSessionStroke(request: AppendReviewSessionStrokeRequest): Promise<void> {
+        await this.reviewSessionWriter.appendStroke(request);
     }
 
     async endReviewSession(request: EndReviewSessionRequest): Promise<void> {

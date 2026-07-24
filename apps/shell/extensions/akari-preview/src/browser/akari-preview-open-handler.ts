@@ -15,7 +15,11 @@ import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { AkariPreviewService, OverlayRuntimeAssets } from '../common/akari-preview-protocol';
+import {
+    AkariPreviewService,
+    OverlayRuntimeAssets,
+    ReviewStrokeFrame
+} from '../common/akari-preview-protocol';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
 import { locatePreviewCaptions, parsePreviewCaptions, PreviewCaption } from './akari-preview-captions';
 import {
@@ -175,6 +179,22 @@ interface OpenOutputRequest {
     type: 'akari-preview-open-output-request';
 }
 
+interface PreviewReviewStrokeStartRequest {
+    type: 'akari-preview-review-stroke-start';
+    frame: ReviewStrokeFrame;
+}
+
+interface PreviewReviewStrokeEndRequest {
+    type: 'akari-preview-review-stroke-end';
+    points: Array<[number, number]>;
+}
+
+interface ReviewAnnotationStrokeRequest {
+    editUri: string;
+    sourceT: number;
+    strokes: Array<{ points: Array<[number, number]> }>;
+}
+
 interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewConfigured?: boolean;
     akariPreviewConfiguration?: Promise<void>;
@@ -218,6 +238,7 @@ const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 // akari-annotations の録音セクション側と文字列だけをミラーし、extension 間の npm 依存を作らない。
 const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
+const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
 const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
@@ -672,6 +693,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.messages.warn(`録音セッションの保存先を開けません: ${detail}`);
             });
         });
+        register(REVIEW_ANNOTATION_SHOW_STROKES_EVENT, event => {
+            const detail = (event as CustomEvent<ReviewAnnotationStrokeRequest>).detail;
+            if (detail) {
+                void this.showReviewAnnotationStrokes(detail);
+            }
+        });
+    }
+
+    protected async showReviewAnnotationStrokes(detail: ReviewAnnotationStrokeRequest): Promise<void> {
+        const editUri = this.normalizeReviewEditUri(detail.editUri);
+        if (!editUri || !Number.isFinite(detail.sourceT) || !Array.isArray(detail.strokes)) {
+            return;
+        }
+        const visibility = await this.ensureVisible(editUri);
+        const widget = this.openOutputPreviews.get(editUri);
+        if (visibility === 'unavailable' || !widget?.isAttached) {
+            return;
+        }
+        widget.sendMessage({ type: 'akari-preview-seek', time: detail.sourceT });
+        widget.sendMessage({
+            type: 'akari-preview-show-annotation-strokes',
+            points: detail.strokes.map(stroke => stroke.points)
+        });
     }
 
     protected async startReviewSessionFromPanel(projectRootUri: string, requestedEditUri: string): Promise<void> {
@@ -710,6 +754,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected forwardReviewSessionState(state: ReviewSessionUiState): void {
         window.dispatchEvent(new CustomEvent(REVIEW_SESSION_STATE_EVENT, { detail: state }));
+        const editUri = this.normalizeReviewEditUri(state.editUri);
+        const widget = editUri ? this.openOutputPreviews.get(editUri) : undefined;
+        if (widget?.isAttached) {
+            widget.sendMessage({
+                type: 'akari-preview-set-review-recording',
+                active: state.active
+            });
+        }
     }
 
     // 戻り値は 'seeked' | 'mismatched-asset' | 'no-preview' の3値で、'no-preview' は akari-transcript 側のフォールバックハンドラが返す。
@@ -1055,6 +1107,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isReviewTransportRequest(message)) {
                 this.forwardReviewTransport(widget, message);
             }
+            if (this.isReviewStrokeStartRequest(message)) {
+                this.forwardReviewStrokeStart(widget, message);
+            }
+            if (this.isReviewStrokeEndRequest(message)) {
+                this.forwardReviewStrokeEnd(widget, message);
+            }
         }));
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
@@ -1171,6 +1229,40 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         this.reviewTransportByEdit.set(editUri, previous);
         this.reviewSessionRecorder?.handleTransport(editUri, change);
+    }
+
+    protected isReviewStrokeStartRequest(message: any): message is PreviewReviewStrokeStartRequest {
+        const frame = message?.frame;
+        return message?.type === 'akari-preview-review-stroke-start'
+            && Number.isFinite(frame?.timelineT)
+            && Number.isFinite(frame?.sourceT)
+            && (frame?.cutIndex === null
+                || (Number.isInteger(frame?.cutIndex) && frame.cutIndex >= 0));
+    }
+
+    protected forwardReviewStrokeStart(
+        widget: PreviewWidgetMarker,
+        message: PreviewReviewStrokeStartRequest
+    ): void {
+        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        if (editUri) {
+            this.reviewSessionRecorder?.handleStrokeStart(editUri, message.frame);
+        }
+    }
+
+    protected isReviewStrokeEndRequest(message: any): message is PreviewReviewStrokeEndRequest {
+        return message?.type === 'akari-preview-review-stroke-end'
+            && Array.isArray(message.points);
+    }
+
+    protected forwardReviewStrokeEnd(
+        widget: PreviewWidgetMarker,
+        message: PreviewReviewStrokeEndRequest
+    ): void {
+        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        if (editUri) {
+            this.reviewSessionRecorder?.handleStrokeEnd(editUri, message.points);
+        }
     }
 
     protected isOverlaySelectedRequest(message: any): message is PreviewOverlaySelectedRequest {
@@ -2186,6 +2278,14 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: none; }
 #overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; }
+#pen-layer { position: absolute; top: 0; left: 0; z-index: 2; overflow: visible; pointer-events: none; }
+#pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
+.akari-pen-stroke { opacity: 1; transition: opacity 1.5s ease-out; pointer-events: none; }
+.akari-pen-stroke.is-fading { opacity: 0; }
+.akari-pen-line { fill: none; stroke: url(#akari-pen-platinum); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 2px rgba(224,232,255,0.95)) drop-shadow(0 1px 3px rgba(255,255,255,0.5)); }
+.akari-pen-sparkle { fill: #fff; stroke: #dce5f4; stroke-width: 0.6; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; animation: akari-pen-twinkle 0.7s ease-in-out infinite alternate; }
+.akari-pen-static .akari-pen-line { stroke-width: 3; }
+@keyframes akari-pen-twinkle { from { opacity: 0.25; transform: scale(0.72); } to { opacity: 0.92; transform: scale(1.16); } }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; }
 #caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
 #caption-plate:empty { display: none; }
@@ -2217,6 +2317,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
 .icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; cursor: pointer; }
+.icon-button[hidden] { display: none; }
+.icon-button[aria-pressed="true"] { border-color: #f2f4fa; background: #555b67; box-shadow: 0 0 8px rgba(236,242,255,0.48); }
 .icon-button:disabled, .zoom-preset:disabled { opacity: 0.45; cursor: default; }
 .icon-button svg { width: 18px; height: 18px; fill: currentColor; stroke: currentColor; }
 #time-label { min-width: 104px; color: #d0d0d0; font-variant-numeric: tabular-nums; text-align: left; }
@@ -2237,6 +2339,16 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
         <div id="preview-layers"></div>
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
+        <svg id="pen-layer" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="akari-pen-platinum" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ffffff"/>
+              <stop offset="0.48" stop-color="#d9deea"/>
+              <stop offset="0.72" stop-color="#ffffff"/>
+              <stop offset="1" stop-color="#c8cfdd"/>
+            </linearGradient>
+          </defs>
+        </svg>
       </div>
       <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
       <button id="output-preview-link" class="output-preview-link" type="button"${model.relatedEditUri ? '' : ' hidden'}>合成は出力プレビューで確認（開く）</button>
@@ -2274,6 +2386,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       <button id="skip-forward" class="icon-button" type="button" aria-label="10秒進む" title="10秒進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5V2l4.5 4-4.5 4V7a6 6 0 1 0 5.65 8h2.09A8 8 0 1 1 13 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
     </div>
     <div class="transport-right">
+      <button id="pen-toggle" class="icon-button" type="button" aria-label="ペン" title="ペン" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4"/></svg></button>
       <button id="zoom-toggle" class="icon-button" type="button" aria-label="ズーム" title="ズーム" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
       <button id="fullscreen-toggle" class="icon-button" type="button" aria-label="全画面" title="全画面" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"/></svg></button>
       <div id="zoom-popup" class="zoom-popup" hidden>
@@ -2334,6 +2447,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const outputPreviewLink = document.getElementById('output-preview-link');
             const layersStage = document.getElementById('preview-layers');
             const stage = document.getElementById('overlay-stage');
+            const penLayer = document.getElementById('pen-layer');
             const output = initial.summary.output;
 
             window.akari = window.akari || {};
@@ -2636,6 +2750,12 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reviewTransport = event => {
                 vscode.postMessage({ type: 'akari-preview-review-transport-event', event });
             };
+            window.akari.reviewStrokeStart = frame => {
+                vscode.postMessage({ type: 'akari-preview-review-stroke-start', frame });
+            };
+            window.akari.reviewStrokeEnd = points => {
+                vscode.postMessage({ type: 'akari-preview-review-stroke-end', points });
+            };
             window.akari.reportOverlaySelection = overlayId => {
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
             };
@@ -2754,7 +2874,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.style.transform = '';
                 }
                 stage.style.transform = stageTransform;
+                penLayer.style.left = rect.x + 'px';
+                penLayer.style.top = rect.y + 'px';
+                penLayer.style.width = rect.width + 'px';
+                penLayer.style.height = rect.height + 'px';
             };
+            window.akari.computeContentRect = computeContentRect;
             window.akari.updateLayerLayout = updateStageScale;
             new ResizeObserver(updateStageScale).observe(wrapper);
             video.addEventListener('loadedmetadata', updateStageScale);
@@ -2778,6 +2903,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const waveformPlayhead = document.querySelector('.transport-waveform-playhead');
             const indicatorToggle = document.getElementById('indicator-toggle');
             const indicatorPopup = document.getElementById('indicator-popup');
+            const penToggle = document.getElementById('pen-toggle');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
             const seek = document.getElementById('seek');
@@ -2792,6 +2918,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const zoomMinimapViewport = document.getElementById('zoom-minimap-viewport');
             const layersStage = document.getElementById('preview-layers');
             const stage = document.getElementById('overlay-stage');
+            const penLayer = document.getElementById('pen-layer');
             const transitionPlate = document.getElementById('transition-plate');
             const captionPlate = document.getElementById('caption-plate');
             const previewMessage = document.getElementById('preview-message');
@@ -2870,8 +2997,126 @@ body { display: grid; place-items: center; padding: 32px; }
             let audioNoticeShown = false;
             let activeCaption = null;
             let styledCaptionActive = false;
+            let reviewRecordingActive = false;
+            let penModeActive = false;
+            let currentStroke = null;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+            const svgElement = name => document.createElementNS('http://www.w3.org/2000/svg', name);
+            const pointText = points => points.map(point => point[0] + ',' + point[1]).join(' ');
+            const clearStaticAnnotationStrokes = () => {
+                penLayer.querySelectorAll('.akari-pen-static').forEach(element => element.remove());
+            };
+            const setPenModeActive = active => {
+                penModeActive = active === true && reviewRecordingActive && !isPlaying;
+                penToggle.setAttribute('aria-pressed', String(penModeActive));
+                penLayer.classList.toggle('is-active', penModeActive);
+            };
+            const abortCurrentStroke = () => {
+                if (!currentStroke) return;
+                const pointerId = currentStroke.pointerId;
+                currentStroke.group.remove();
+                currentStroke = null;
+                if (penLayer.hasPointerCapture(pointerId)) {
+                    penLayer.releasePointerCapture(pointerId);
+                }
+            };
+            const normalizedPenPoint = event => {
+                const wrapperRect = wrapper.getBoundingClientRect();
+                const rect = window.akari.computeContentRect();
+                return [
+                    clamp((event.clientX - wrapperRect.left - rect.x) / Math.max(rect.width, 1), 0, 1),
+                    clamp((event.clientY - wrapperRect.top - rect.y) / Math.max(rect.height, 1), 0, 1)
+                ];
+            };
+            const createStrokeGroup = staticStroke => {
+                const group = svgElement('g');
+                group.classList.add('akari-pen-stroke');
+                if (staticStroke) group.classList.add('akari-pen-static');
+                const line = svgElement('polyline');
+                line.classList.add('akari-pen-line');
+                line.setAttribute('vector-effect', 'non-scaling-stroke');
+                group.appendChild(line);
+                penLayer.appendChild(group);
+                return { group, line };
+            };
+            const addStrokeSparkles = (group, points) => {
+                if (points.length < 3) return;
+                const step = Math.max(1, Math.ceil(points.length / 6));
+                for (let index = step; index < points.length && group.childElementCount <= 6; index += step) {
+                    const circle = svgElement('circle');
+                    circle.classList.add('akari-pen-sparkle');
+                    circle.setAttribute('cx', String(points[index][0]));
+                    circle.setAttribute('cy', String(points[index][1]));
+                    circle.setAttribute('r', '0.0045');
+                    circle.style.animationDelay = ((index % 5) * 0.09) + 's';
+                    group.appendChild(circle);
+                }
+            };
+            const showStaticAnnotationStrokes = strokeSets => {
+                clearStaticAnnotationStrokes();
+                if (!Array.isArray(strokeSets)) return;
+                for (const points of strokeSets) {
+                    if (!Array.isArray(points) || points.length < 2) continue;
+                    const valid = points.filter(point => Array.isArray(point) && point.length === 2
+                        && Number.isFinite(point[0]) && Number.isFinite(point[1]));
+                    if (valid.length < 2) continue;
+                    const stroke = createStrokeGroup(true);
+                    stroke.line.setAttribute('points', pointText(valid));
+                }
+            };
+            const canDraw = () => penModeActive && reviewRecordingActive && !isPlaying;
+            penToggle.addEventListener('click', () => {
+                if (!reviewRecordingActive || isPlaying) return;
+                setPenModeActive(!penModeActive);
+            });
+            penLayer.addEventListener('pointerdown', event => {
+                if (!canDraw() || event.button !== 0 || currentStroke) return;
+                event.preventDefault();
+                clearStaticAnnotationStrokes();
+                penLayer.setPointerCapture(event.pointerId);
+                const point = normalizedPenPoint(event);
+                const stroke = createStrokeGroup(false);
+                const segment = segments[activeSegmentIndex];
+                const frame = {
+                    timelineT: outputTime,
+                    sourceT: video.currentTime,
+                    cutIndex: segment && segment.kind === 'src' && Number.isInteger(segment.cutIndex)
+                        ? segment.cutIndex : null
+                };
+                currentStroke = {
+                    ...stroke,
+                    pointerId: event.pointerId,
+                    points: [point]
+                };
+                stroke.line.setAttribute('points', pointText(currentStroke.points));
+                window.akari.reviewStrokeStart(frame);
+            });
+            penLayer.addEventListener('pointermove', event => {
+                if (!currentStroke || currentStroke.pointerId !== event.pointerId || !canDraw()) return;
+                event.preventDefault();
+                currentStroke.points.push(normalizedPenPoint(event));
+                currentStroke.line.setAttribute('points', pointText(currentStroke.points));
+            });
+            const finishPenStroke = event => {
+                if (!currentStroke || currentStroke.pointerId !== event.pointerId) return;
+                event.preventDefault();
+                const completed = currentStroke;
+                currentStroke = null;
+                if (penLayer.hasPointerCapture(event.pointerId)) {
+                    penLayer.releasePointerCapture(event.pointerId);
+                }
+                if (completed.points.length < 2) {
+                    completed.group.remove();
+                    return;
+                }
+                window.akari.reviewStrokeEnd(completed.points);
+                addStrokeSparkles(completed.group, completed.points);
+                requestAnimationFrame(() => completed.group.classList.add('is-fading'));
+                window.setTimeout(() => completed.group.remove(), 1_650);
+            };
+            penLayer.addEventListener('pointerup', finishPenStroke);
+            penLayer.addEventListener('pointercancel', finishPenStroke);
             // Browser webviews cannot import packages/edit-lint/src/derive-tracks.mjs. Keep this
             // copy behavior-identical to that shared function: kind groups in fixed order, each
             // ref sorted ascending, followed by singleton captions/audio tracks.
@@ -3021,6 +3266,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             ? { type: transition.type, duration: transition.duration }
                             : null;
                         valid.push({
+                            cutIndex: index,
                             in: start,
                             out: end,
                             speed,
@@ -3046,7 +3292,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     keepRanges = explicit;
                 } else {
                     const duration = videoDuration();
-                    keepRanges = duration > 0 ? [{ in: 0, out: duration, speed: 1, transitionOut: null }] : [];
+                    keepRanges = duration > 0
+                        ? [{ cutIndex: null, in: 0, out: duration, speed: 1, transitionOut: null }]
+                        : [];
                 }
                 timelineOffsets = [];
                 transitionPlates = [];
@@ -3151,7 +3399,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         transitionOut: range.transitionOut,
                         transform: range.transform,
                         opacity: range.opacity,
-                        track: 0
+                        track: 0,
+                        cutIndex: range.cutIndex
                     }));
                 } else {
                     const resolved = resolveCutSegments(Array.isArray(summary.cuts) ? summary.cuts : []);
@@ -3172,7 +3421,8 @@ body { display: grid; place-items: center; padding: 32px; }
                             transitionOut: null,
                             transform: run.winner.cut.transform,
                             opacity: run.winner.cut.opacity,
-                            track: run.winner.track
+                            track: run.winner.track,
+                            cutIndex: run.winner.index
                         };
                     });
                     keepRanges = [];
@@ -3407,6 +3657,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 seek.max = String(timelineDuration);
                 seek.value = String(clamp(timelinePosition, 0, timelineDuration));
                 timeLabel.textContent = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
+                penToggle.disabled = !reviewRecordingActive || isPlaying;
                 if (playToggleRenderedIsPlaying !== isPlaying) {
                     playToggleRenderedIsPlaying = isPlaying;
                     const label = isPlaying ? '一時停止' : '再生';
@@ -3864,7 +4115,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const togglePlayback = () => {
                 if (playToggle.disabled) return;
                 if (!isPlaying) {
+                    abortCurrentStroke();
                     isPlaying = true;
+                    setPenModeActive(false);
                     window.akari.reviewTransport({ type: 'play', timelineT: outputTime });
                     if (window.akari.previewAudio) void window.akari.previewAudio.resume();
                     const segment = segments[activeSegmentIndex];
@@ -3912,11 +4165,26 @@ body { display: grid; place-items: center; padding: 32px; }
                 tick(true);
             };
 
-            playToggle.addEventListener('click', togglePlayback);
-            frameBack.addEventListener('click', () => nudgeFrame(-1));
-            frameForward.addEventListener('click', () => nudgeFrame(1));
-            skipBack.addEventListener('click', () => skipSeconds(-10));
-            skipForward.addEventListener('click', () => skipSeconds(10));
+            playToggle.addEventListener('click', () => {
+                clearStaticAnnotationStrokes();
+                togglePlayback();
+            });
+            frameBack.addEventListener('click', () => {
+                clearStaticAnnotationStrokes();
+                nudgeFrame(-1);
+            });
+            frameForward.addEventListener('click', () => {
+                clearStaticAnnotationStrokes();
+                nudgeFrame(1);
+            });
+            skipBack.addEventListener('click', () => {
+                clearStaticAnnotationStrokes();
+                skipSeconds(-10);
+            });
+            skipForward.addEventListener('click', () => {
+                clearStaticAnnotationStrokes();
+                skipSeconds(10);
+            });
             waveformToggle.addEventListener('click', () => {
                 const show = waveformRow.hidden;
                 waveformRow.hidden = !show;
@@ -3947,6 +4215,7 @@ body { display: grid; place-items: center; padding: 32px; }
             waveformCanvas.addEventListener('pointerdown', event => {
                 if (event.button !== 0) return;
                 event.preventDefault();
+                clearStaticAnnotationStrokes();
                 waveformDragPointer = event.pointerId;
                 waveformCanvas.setPointerCapture(event.pointerId);
                 seekFromWaveformPointer(event);
@@ -4005,7 +4274,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 setZoom(clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX));
             }, { passive: false });
             wrapper.addEventListener('pointerdown', event => {
-                if (zoom <= 1.05 || event.button !== 0) return;
+                if (penModeActive || zoom <= 1.05 || event.button !== 0) return;
                 event.preventDefault();
                 event.stopPropagation();
                 wrapper.setPointerCapture(event.pointerId);
@@ -4071,9 +4340,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     || isEditable(document.activeElement)
                     || playToggle.disabled) return;
                 event.preventDefault();
+                clearStaticAnnotationStrokes();
                 togglePlayback();
             });
             seek.addEventListener('input', () => {
+                clearStaticAnnotationStrokes();
                 seekTimelineTime(Number(seek.value));
                 tick();
             });
@@ -4166,6 +4437,21 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             window.addEventListener('message', event => {
                 const message = event.data;
+                if (message && message.type === 'akari-preview-set-review-recording'
+                    && typeof message.active === 'boolean') {
+                    reviewRecordingActive = message.active;
+                    penToggle.hidden = !reviewRecordingActive;
+                    if (!reviewRecordingActive) {
+                        abortCurrentStroke();
+                        setPenModeActive(false);
+                    }
+                    updateTransport();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-show-annotation-strokes') {
+                    showStaticAnnotationStrokes(message.points);
+                    return;
+                }
                 if (message && message.type === 'akari-preview-captions-update') {
                     captions = Array.isArray(message.captions) ? message.captions : [];
                     renderCaption();
