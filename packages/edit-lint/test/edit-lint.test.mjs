@@ -274,6 +274,41 @@ test("captions-style-invalid fixture rejects an unsupported style value", async 
   });
 });
 
+test("captions-text-style-record-override-valid accepts root defaults and record overrides", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-text-style-record-override-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.severity === "error"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+for (const [fixture, message] of [
+  ["captions-text-style-opacity-out-of-range-invalid", /opacity/],
+  ["captions-text-style-zone-invalid", /zone/],
+  ["captions-text-style-color-non-hex-invalid", /color/],
+]) {
+  test(`${fixture} rejects an invalid text style`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "fail");
+      assert.ok(
+        result.findings.some(
+          (finding) => finding.check === "captions.text-style"
+            && message.test(finding.message),
+        ),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
 for (const fixture of ["captions-reveal-valid", "captions-display-text-valid"]) {
   test(`${fixture} accepts the caption direction extension`, async () => {
     await withFixtures(async (fixtures) => {
