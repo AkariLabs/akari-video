@@ -1,0 +1,77 @@
+[
+  {
+    "t": "2026-07-24T14:17:30.404Z",
+    "step": "connected",
+    "mode": "fresh-open",
+    "cdpPort": 9501,
+    "workspace": "/tmp/ocb-verify-ws/fresh-open"
+  },
+  {
+    "t": "2026-07-24T14:17:30.408Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-24T14:17:30.631Z",
+    "step": "assertion-ok",
+    "message": "clip C1 found in the strip"
+  },
+  {
+    "t": "2026-07-24T14:17:30.632Z",
+    "step": "edit-before",
+    "cuts": [
+      {
+        "in": 0,
+        "out": 2
+      }
+    ]
+  },
+  {
+    "t": "2026-07-24T14:17:31.430Z",
+    "step": "edit-after-first-drag",
+    "cuts": [
+      {
+        "in": 0,
+        "out": 6
+      }
+    ]
+  },
+  {
+    "t": "2026-07-24T14:17:31.430Z",
+    "step": "assertion-ok",
+    "message": "fresh-open: first-ever drag clamps out to the real duration (~6.0s), not the proposed 15s",
+    "out": 6
+  },
+  {
+    "t": "2026-07-24T14:17:32.177Z",
+    "step": "regression-normal-trim",
+    "before": 6,
+    "after": 1
+  },
+  {
+    "t": "2026-07-24T14:17:32.177Z",
+    "step": "assertion-ok",
+    "message": "regression: a normal (within-duration) Out trim still shrinks the clip as usual",
+    "before": 6,
+    "after": 1
+  },
+  {
+    "t": "2026-07-24T14:17:33.069Z",
+    "step": "regression-undo-debug",
+    "footerBeforeUndo": "クリップをトリムしました。 変更を記録しました。",
+    "footerAfterUndo": "クリップをトリムしました。 変更を記録しました。"
+  },
+  {
+    "t": "2026-07-24T14:17:33.070Z",
+    "step": "regression-undo",
+    "restored": 6,
+    "expected": 6
+  },
+  {
+    "t": "2026-07-24T14:17:33.072Z",
+    "step": "assertion-ok",
+    "message": "regression: undo restores the pre-trim out value",
+    "restored": 6,
+    "expected": 6
+  }
+]

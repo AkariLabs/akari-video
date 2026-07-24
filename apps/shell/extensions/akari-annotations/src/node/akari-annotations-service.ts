@@ -215,11 +215,69 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
+        const maxOutSeconds = request.maxOutSeconds !== undefined
+            ? request.maxOutSeconds
+            : await this.probeMaxOutSeconds(source, editPath, this.fsPath(request.projectRootUri), request.cutIndex);
         const updated = trimCutInSource(
-            source, request.cutIndex, request.in, request.out, request.maxOutSeconds
+            source, request.cutIndex, request.in, request.out, maxOutSeconds
         );
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップをトリム') };
+    }
+
+    /**
+     * クライアントが maxOutSeconds を渡さなかった場合の自衛クランプ。edit.json 自身の
+     * source(s)（v1 は cuts[].src → sources[]、v0 は直下の source）から対象クリップの
+     * 動画パスを解決し、ffprobe（media-cache 既存の流儀）で実尺を直接取得する
+     * （analysis sidecar には依存しない）。解決できなければ undefined を返し、
+     * 呼び出し側（trimCutInSource）は従来どおりクランプなしで進む。
+     */
+    protected async probeMaxOutSeconds(
+        rawEditSource: string, editPath: string, projectRootPath: string, cutIndex: number
+    ): Promise<number | undefined> {
+        let value: unknown;
+        try {
+            value = JSON.parse(rawEditSource);
+        } catch {
+            return undefined;
+        }
+        if (!value || typeof value !== 'object') {
+            return undefined;
+        }
+        const document = value as { cuts?: unknown; sources?: unknown; source?: unknown };
+        const cuts = Array.isArray(document.cuts) ? document.cuts : [];
+        const cut = cuts[cutIndex] as { src?: unknown } | undefined;
+        let mediaPath: string | undefined;
+        if (cut && typeof cut.src === 'string' && Array.isArray(document.sources)) {
+            const match = (document.sources as unknown[]).find(
+                entry => entry !== null && typeof entry === 'object' && (entry as { id?: unknown }).id === cut.src
+            ) as { path?: unknown; proxy?: unknown } | undefined;
+            if (match && typeof match.path === 'string') {
+                mediaPath = typeof match.proxy === 'string' ? match.proxy : match.path;
+            }
+        } else if (document.source && typeof document.source === 'object') {
+            const defaultSource = document.source as { path?: unknown; proxy?: unknown };
+            if (typeof defaultSource.path === 'string') {
+                mediaPath = typeof defaultSource.proxy === 'string' ? defaultSource.proxy : defaultSource.path;
+            }
+        }
+        if (!mediaPath) {
+            return undefined;
+        }
+        const audioPath = this.resolveMediaFsPath(mediaPath, editPath);
+        const result = await mediaCache.getAudioDuration(projectRootPath, audioPath);
+        return result.status === 'ready' ? result.durationSeconds : undefined;
+    }
+
+    /** edit.json 内の相対/絶対/URI いずれの表記も fs パスへ解決する（ブラウザ側 resolveEditMediaUri と同じ判定）。 */
+    protected resolveMediaFsPath(mediaPath: string, editPath: string): string {
+        if (/^[a-z][a-z\d+.-]*:/iu.test(mediaPath) && !/^[a-z]:[\\/]/iu.test(mediaPath)) {
+            return new URI(mediaPath).path.fsPath();
+        }
+        if (/^[a-z]:[\\/]/iu.test(mediaPath) || mediaPath.startsWith('\\\\') || mediaPath.startsWith('/')) {
+            return mediaPath.replace(/\\/gu, '/');
+        }
+        return join(dirname(editPath), mediaPath);
     }
 
     async setCutSpeed(request: SetCutSpeedRequest): Promise<WriteBackResult> {

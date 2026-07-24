@@ -19,6 +19,7 @@ import {
     EditAudioSfx,
     EditBeat,
     EditCut,
+    EditDefaultSource,
     EditLayer,
     EditOverlay,
     EditSource,
@@ -230,6 +231,7 @@ type DragPreview =
     | {
         kind: 'cut-trim';
         index: number;
+        edge: 'left' | 'right';
         input: number;
         output: number;
         rejected: boolean;
@@ -307,6 +309,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** undefined は v0、配列（空を含む）は v1。 */
     protected sources: EditSource[] | undefined;
     protected sourceMap = new Map<string, ResolvedEditSource>();
+    /** v0 edit.json 直下の `source`（sidecar 非依存の一次情報。生の path/proxy）。 */
+    protected defaultSourceRaw: EditDefaultSource | undefined;
+    /** 上記を videoUri へ解決した結果。Out クランプの実尺取得専用に使う。 */
+    protected defaultSource: ResolvedEditSource | undefined;
     protected overlays: EditOverlay[] = [];
     protected beats: EditBeat[] = [];
     protected layers: EditLayer[] = [];
@@ -330,6 +336,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
     protected videoDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
+    protected videoDurationPromises = new Map<string, Promise<number | 'unavailable'>>();
     protected ffmpegMissingNoticeShown = false;
     protected videoDurationNoticeShown = false;
     protected lastManualScrollAt = 0;
@@ -882,6 +889,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
     .akari-annotations-widget .akari-annotations-ghost-snapped {
         border-color: ${SNAP_GUIDE_COLOR_DEFAULT} !important;
+    }
+    .akari-annotations-widget .akari-annotations-ghost-duration-warning {
+        border-color: #f14c4c !important;
+        border-width: 2px !important;
     }
 `;
         this.node.appendChild(style);
@@ -2293,6 +2304,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async reloadEdit(): Promise<void> {
         this.cuts = [];
         this.sources = undefined;
+        this.defaultSourceRaw = undefined;
         this.sourceMap.clear();
         this.overlays = [];
         this.beats = [];
@@ -2308,6 +2320,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const rawValue = JSON.parse(source) as unknown;
                 this.cuts = parsed.cuts;
                 this.sources = parsed.sources;
+                this.defaultSourceRaw = parsed.source;
                 this.rebuildSourceMap();
                 this.overlays = parsed.overlays;
                 this.beats = parsed.beats ?? [];
@@ -2332,16 +2345,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected rebuildSourceMap(): void {
         this.sourceMap.clear();
+        this.defaultSource = undefined;
         const editUri = this.location?.editUri;
-        if (!editUri || this.sources === undefined) {
+        if (!editUri) {
             return;
         }
-        for (const source of this.sources) {
-            const mediaPath = source.proxy ?? source.path;
-            this.sourceMap.set(source.id, {
-                path: source.path,
+        if (this.sources !== undefined) {
+            for (const source of this.sources) {
+                const mediaPath = source.proxy ?? source.path;
+                this.sourceMap.set(source.id, {
+                    path: source.path,
+                    videoUri: this.resolveEditMediaUri(mediaPath, editUri).toString()
+                });
+            }
+        }
+        if (this.defaultSourceRaw) {
+            const mediaPath = this.defaultSourceRaw.proxy ?? this.defaultSourceRaw.path;
+            this.defaultSource = {
+                path: this.defaultSourceRaw.path,
                 videoUri: this.resolveEditMediaUri(mediaPath, editUri).toString()
-            });
+            };
         }
     }
 
@@ -3734,6 +3757,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.location?.videoUri ?? '';
     }
 
+    /**
+     * Out クランプの実尺取得専用の解決経路。`cutVideoUri`（サムネ/波形用）とは異なり、
+     * analysis sidecar 由来の `this.location.videoUri` に頼らず、まず edit.json 自身が
+     * 持つ source(s)（v1 は sources[]、v0 は直下の source）から直接解決する。
+     * サムネ/波形の挙動には触れない（cutVideoUri は無変更）。
+     */
+    protected cutDurationProbeUri(cut: EditCut): string {
+        if (cut.src !== undefined && this.sources !== undefined) {
+            return this.sourceMap.get(cut.src)?.videoUri ?? '';
+        }
+        if (this.defaultSource) {
+            return this.defaultSource.videoUri;
+        }
+        return this.location?.videoUri ?? '';
+    }
+
     protected fetchThumbnail(key: string, cut: EditCut, videoUri: string): void {
         if (!this.location) {
             return;
@@ -3804,27 +3843,45 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
     }
 
-    protected fetchVideoDuration(videoUri: string): void {
-        if (!this.location) {
-            return;
+    /**
+     * 実尺取得を（未取得なら）開始し、進行中または完了済みの Promise を返す。
+     * pointerdown 時の先行キック（初回ドラッグの素通し防止）と、pointerup 時の
+     * 「未取得なら確定を保留」の両方がこの共通経路を通る — 同じ videoUri への
+     * 二重フェッチは Promise の使い回しで防ぐ。
+     */
+    protected ensureVideoDurationFetch(videoUri: string): Promise<number | 'unavailable'> {
+        if (!videoUri || !this.location) {
+            return Promise.resolve('unavailable');
+        }
+        const cached = this.videoDurationCache.get(videoUri);
+        if (typeof cached === 'number' || cached === 'unavailable') {
+            return Promise.resolve(cached);
+        }
+        const pending = this.videoDurationPromises.get(videoUri);
+        if (pending) {
+            return pending;
         }
         this.videoDurationCache.set(videoUri, 'pending');
-        void this.annotationsService.getAudioDuration({
+        const promise = this.annotationsService.getAudioDuration({
             projectRootUri: this.location.root.toString(),
             audioUri: videoUri
-        }).then(result => {
-            if (result.status === 'ready' && result.durationSeconds !== undefined) {
-                this.videoDurationCache.set(videoUri, result.durationSeconds);
-            } else {
-                this.videoDurationCache.set(videoUri, 'unavailable');
+        }).then((result): number | 'unavailable' => {
+            const value: number | 'unavailable' = result.status === 'ready' && result.durationSeconds !== undefined
+                ? result.durationSeconds : 'unavailable';
+            this.videoDurationCache.set(videoUri, value);
+            if (value === 'unavailable') {
                 this.showVideoDurationUnavailableNotice();
             }
             this.renderStrip();
-        }).catch(() => {
+            return value;
+        }).catch((): number | 'unavailable' => {
             this.videoDurationCache.set(videoUri, 'unavailable');
             this.showVideoDurationUnavailableNotice();
             this.renderStrip();
+            return 'unavailable';
         });
+        this.videoDurationPromises.set(videoUri, promise);
+        return promise;
     }
 
     protected showVideoDurationUnavailableNotice(): void {
@@ -3938,6 +3995,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.dragState = state;
             element.style.cursor = 'grabbing';
             element.style.opacity = '.5';
+            if (state.kind === 'cut-trim' && state.edge === 'right') {
+                // Out 側トリムの開始と同時に実尺フェッチを先行キックする。初回ドラッグが
+                // pointerup まで到達する前にキャッシュが温まっているようにするための保険
+                // （「初回だけ素通し」対策。本体のクランプは commitDrag 側の保留処理が担保する）。
+                const cut = this.cuts[state.index];
+                const videoUri = cut ? this.cutDurationProbeUri(cut) : '';
+                if (videoUri) {
+                    void this.ensureVideoDurationFetch(videoUri);
+                }
+            }
             try {
                 element.setPointerCapture(event.pointerId);
             } catch {
@@ -3992,18 +4059,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (state.kind === 'cut-trim') {
             const cut = this.cuts[state.index];
             const segment = this.segments[state.index];
-            const videoUri = cut ? this.cutVideoUri(cut) : '';
+            // サムネ/波形用の cutVideoUri とは別経路: sidecar 非依存で edit.json 自身の
+            // source(s) から解決する（初回ドラッグ・sidecar なしプロジェクトでも通る）。
+            const videoUri = cut ? this.cutDurationProbeUri(cut) : '';
             let maxOutSeconds: number | undefined;
-            if (state.edge === 'right' && videoUri) {
-                const cachedDuration = this.videoDurationCache.get(videoUri);
-                if (typeof cachedDuration === 'number') {
-                    maxOutSeconds = cachedDuration;
-                } else if (cachedDuration === undefined) {
-                    this.fetchVideoDuration(videoUri);
-                } else if (cachedDuration === 'unavailable') {
+            let durationUnavailable = false;
+            let durationPending = false;
+            if (state.edge === 'right') {
+                if (videoUri) {
+                    const cachedDuration = this.videoDurationCache.get(videoUri);
+                    if (typeof cachedDuration === 'number') {
+                        maxOutSeconds = cachedDuration;
+                    } else if (cachedDuration === 'unavailable') {
+                        durationUnavailable = true;
+                        this.showVideoDurationUnavailableNotice();
+                    } else {
+                        durationPending = true;
+                        void this.ensureVideoDurationFetch(videoUri);
+                    }
+                } else {
+                    // 動画パスそのものが解決できない（source 情報が edit.json に無い等）。
+                    // 実尺不明と同じ扱いにし、警告を欠かさず出す（無言でクランプ無効化しない）。
+                    durationUnavailable = true;
                     this.showVideoDurationUnavailableNotice();
                 }
             }
+            const durationWarningSuffix = state.edge !== 'right'
+                ? '' : durationUnavailable
+                    ? ' ⚠ 実尺不明のため無制限'
+                    : durationPending ? ' (実尺確認中…)' : '';
             const rawProposed = state.edge === 'left'
                 ? state.originalIn + delta : state.originalOut + delta;
             const durationClamped = maxOutSeconds !== undefined && rawProposed > maxOutSeconds;
@@ -4058,12 +4142,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.setGhostRange(state.ghost, spanStart, spanEnd);
                 this.setGhostRejected(state.ghost, rejected);
                 this.setGhostSnapped(state.ghost, snapped && !rejected);
+                this.setGhostDurationWarning(state.ghost, durationUnavailable);
                 this.updateDragFeedback(state, rejected
                     ? '⚠ 重なるためトリムできません'
-                    : `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} / 尺 ${newDuration.toFixed(2)} 秒`);
+                    : `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} / 尺 ${newDuration.toFixed(2)} 秒${durationWarningSuffix}`);
                 this.updateGhostHeaderDuration(state.ghost, newDuration);
                 return {
-                    kind: 'cut-trim', index: state.index, input, output, rejected, maxOutSeconds
+                    kind: 'cut-trim', index: state.index, edge: state.edge, input, output, rejected, maxOutSeconds
                 };
             } else {
                 const snap = this.snapTimeInSourceSpaceWithResult(
@@ -4077,11 +4162,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.setGhostRejected(state.ghost, false);
             this.setGhostSnapped(state.ghost, snapped);
+            this.setGhostDurationWarning(state.ghost, durationUnavailable);
             const newDuration = Math.max(0, output - input);
-            this.updateDragFeedback(state, `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} / 尺 ${newDuration.toFixed(2)} 秒`);
+            this.updateDragFeedback(state, `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} / 尺 ${newDuration.toFixed(2)} 秒${durationWarningSuffix}`);
             this.updateGhostHeaderDuration(state.ghost, newDuration);
             return {
-                kind: 'cut-trim', index: state.index, input, output, rejected: false, maxOutSeconds
+                kind: 'cut-trim', index: state.index, edge: state.edge, input, output, rejected: false, maxOutSeconds
             };
         }
         if (state.kind === 'cut-move') {
@@ -4405,6 +4491,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ghost.classList.toggle('akari-annotations-ghost-snapped', snapped);
     }
 
+    /** 実尺が確認できない Out トリム中であることを、ドラッグのたびに視認できる形で示す。 */
+    protected setGhostDurationWarning(ghost: HTMLDivElement, warning: boolean): void {
+        ghost.classList.toggle('akari-annotations-ghost-duration-warning', warning);
+    }
+
     protected setGhostRange(ghost: HTMLDivElement, start: number, end: number): void {
         ghost.style.left = `${this.percent(start)}%`;
         ghost.style.width = `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`;
@@ -4612,7 +4703,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (!location.editUri) {
                     return;
                 }
-                if (preview.output - preview.input < MINIMUM_ITEM_DURATION) {
+                let maxOutSeconds = preview.maxOutSeconds;
+                if (preview.edge === 'right' && maxOutSeconds === undefined) {
+                    // ドラッグ中に実尺フェッチが間に合わなかった（初回ドラッグ等）場合、
+                    // ここで確定を保留し実尺の解決を待ってからクランプする。
+                    // 「初回だけ素通し」を絶対に許さないための最終防波堤。
+                    const cut = this.cuts[preview.index];
+                    const videoUri = cut ? this.cutDurationProbeUri(cut) : '';
+                    if (videoUri) {
+                        const resolved = await this.ensureVideoDurationFetch(videoUri);
+                        if (typeof resolved === 'number') {
+                            maxOutSeconds = resolved;
+                        }
+                    }
+                }
+                const finalOut = maxOutSeconds !== undefined
+                    ? Math.min(preview.output, maxOutSeconds) : preview.output;
+                if (finalOut - preview.input < MINIMUM_ITEM_DURATION) {
                     this.showNotice('クリップが短すぎます（0.15 秒未満にはできません）');
                     return;
                 }
@@ -4620,8 +4727,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const frozenIndex = this.findFrozenNextIndex(this.cuts, preview.index);
                 result = await this.annotationsService.trimCut({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    cutIndex: preview.index, in: preview.input, out: preview.output,
-                    maxOutSeconds: preview.maxOutSeconds
+                    cutIndex: preview.index, in: preview.input, out: finalOut,
+                    maxOutSeconds
                 });
                 this.pushHistory({
                     label: 'クリップのトリム',
@@ -4641,8 +4748,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     redo: async () => {
                         await this.annotationsService.trimCut({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            cutIndex: preview.index, in: preview.input, out: preview.output,
-                            maxOutSeconds: preview.maxOutSeconds
+                            cutIndex: preview.index, in: preview.input, out: finalOut,
+                            maxOutSeconds
                         });
                         await this.reloadEdit();
                     }
