@@ -93,6 +93,18 @@ BGM と SFX は [音声契約](../../docs/contract-2026-07-14-edit-json-v1-audio
 
 v0 では、source 時刻 `s` が keep-range `[in, out]` にあるとき、timeline 時刻は「それ以前の keep-range 長の合計 + `(s - in)`」で求める。v1 では `cuts` を配列順にギャップなく連結し、各 cut の長さを `out - in` として同じ式で求める（上の例なら s1 5.0–10.0 が timeline 0.0–5.0、s2 12.0–15.5 が 5.0–8.5、s1 40.0–44.0 が 8.5–12.5）。同じ `(src, source 秒)` が複数の cut に含まれるなら、対応する timeline 時刻も複数になる。境界にある overlay は実フレームを確認し、カットで消える区間へ置かない。
 
+### 切り出し・先出しクリップの発話スナップと呼吸
+
+トレーラー・オープニングフック・引用など、本編とは別に短く切り出すクリップ（以下「切り出し・先出しクリップ」）の `in` / `out` は、**クリップ内の発話を `analysis.json` の word-level 実測（`transcript[].words`）で拾い、発話へスナップして決める**。ハードルール:
+
+- **窓 = クリップ内発話の頭 − 0.25s / 末尾 + 0.25s**（前後合わせて呼吸 0.5s。オーナー指針 2026-07-24）。発話の頭・末尾ギリギリで詰めず、前後に無音の呼吸を残して急な切替感を消す。
+- coarse な segment 時刻（whisper の 2 秒量子化・句読点境界）や**見せ場スコア位置の機械窓のまま切り出さない**。機械窓は発話の外で切れていることがあり、意図した発話が窓の外へ落ちる。
+- **発話を含まない切り出し窓を作らない**。見せ場スコアが指す位置に発話が無ければ、窓ではなく発話の実測区間を正本にして取り直す。
+- **全文表示が 1.0 秒未満になる字幕を含むクリップを作らない**。収まらないなら窓を字幕が読める長さまで延ばすか、その字幕を落とす（読めない字幕を出さない）。
+- スナップに使う `words` は source 秒。窓（`cuts[].in/out`）も source 秒で書く（§1 の source 秒アンカー規則）。
+
+呼吸 0.5s（頭 0.25s / 末尾 0.25s）は、将来 `direction` のプリセット / `intensity` 写像（`join_breathing`）に載る予定である（席の予約。ここでは写像を定義せず、現時点の採用値は固定値として `decision-log.md` に記す）。
+
 ## 3. オーバーレイ HTML を作る
 
 最初に [overlay-authoring](../overlay-authoring/SKILL.md) を読み、必要なリーフだけを追加で読む。利用不能なら [CLAUDE.md の authoring 規約](../../CLAUDE.md) を読み、fallback を `decision-log.md` に追記する。
@@ -107,7 +119,17 @@ v0 では、source 時刻 `s` が keep-range `[in, out]` にあるとき、timel
 
 サムネ用の HTML 文字組を、タイミング付き動画 overlay として無条件に再利用しない。
 
-## 4. 検証して判断記録を閉じる
+## 4. 字幕（captions.json）の表示区間を作る
+
+字幕を持つ計画では、各 caption の表示区間を**実発話区間**に一致させる。segment 境界を敷き詰めた（`end = 次の caption の start`）字幕は、ポーズ・無音・フィラー間にも字幕を残し、実発話より早く出る／長く残る。ハードルール:
+
+- **`caption.start` = 先頭語（`words[0]`）の実測 start / `caption.end` = 末尾語（`words[-1]`）の実測 end + 読み切り猶予**。読み切り猶予は既定 **0.2〜0.4 秒**（採用値は `decision-log.md` に記す）。
+- **次 caption の start まで引き伸ばさない**（敷き詰め禁止）。**無発話区間（発話 `words` が無い区間）は無字幕**とする。隙間が生まれるのが正であり、隙間を字幕で埋めない。
+- caption の start / end は source 秒アンカー（§1）。`words[]` も同じ source 秒で持つ。
+- **按分 fallback（`words` が取れず segment の start/end を文字数比で分配する推定）を使うときも、敷き詰め禁止は同じ**。按分は末尾語 end の**時刻の推定**であって**区間の拡張ではない**ので、推定した末尾 end + 読み切り猶予で閉じ、次 caption まで伸ばさない。
+- 参照挙動: 旧 Akari-OS（video-on-os）の字幕表示。字幕の付ける/付けない・スタイル等の方針レベルは [report-guide.md](report-guide.md) の素材計画 §字幕枠で決め、ここでは区間の作り方だけを定める。
+
+## 5. 検証して判断記録を閉じる
 
 - [edit-lint](../edit-lint/SKILL.md) を実行し、`edit.json` の構造、cuts 整合、参照解決、
   overlay の timeline 時刻・ID・HTML root・data 属性が PASS になるまで findings を修正する。
@@ -126,6 +148,9 @@ v0 では、source 時刻 `s` が keep-range `[in, out]` にあるとき、timel
 - 複数素材を理由に、公開契約に無い `source_id` や独自 track を追加する。
 - 素材計画にある BGM / SFX / ナレーションを、契約フィールド（`audio` / `audio.narration[]`）ではなく独自 field で書く。
 - 字幕・注釈・解析結果を timeline 秒へ変換して永続化する（正本は (`src`, source 秒)）。
+- **caption の表示区間を segment 境界で敷き詰め（`end = 次の caption の start`）、無発話区間にも字幕を残す**（実発話が終われば字幕も終わる。§4）。
+- 按分 fallback を「区間の拡張」に使い、末尾語の推定 end を越えて次 caption まで字幕を伸ばす（§4）。
+- **切り出し・先出しクリップを見せ場スコア位置の機械窓（segment 量子化時刻）のまま切り出し、意図した発話を窓の外へ落とす／全文 1.0s 未満の読めない字幕を出す**（発話へスナップし呼吸 0.5s を残す。§2）。
 - `cuts` と overlay の時刻をどちらも source 秒で書く。
 - 実行承認前に中間マスターや overlay を作る。
 - authoring skill がないことを理由に規約を省略する。
