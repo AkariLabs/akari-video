@@ -1,0 +1,16 @@
+[
+  {
+    "t": "2026-07-24T14:59:22.921Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-24T14:59:30.080Z",
+    "step": "gate-dropzone-state",
+    "found": false
+  },
+  {
+    "t": "2026-07-24T14:59:30.338Z",
+    "step": "gate-confirmed-locked",
+    "ok": true
+  }
+]

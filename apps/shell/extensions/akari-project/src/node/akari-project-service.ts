@@ -1,6 +1,6 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { constants, promises as fs, watch } from 'fs';
 import { basename, dirname, extname, join, resolve } from 'path';
@@ -10,13 +10,33 @@ import {
     AkariProjectService,
     DiffPreparationResult,
     DiffResourcePair,
+    DroppedAsset,
+    DroppedAssetImportResult,
+    DroppedAssetKind,
     DroppedVideo,
     DroppedVideoImportResult,
+    EditLintOutcome,
     ProjectGitEligibility
 } from '../common/akari-project-protocol';
 
 const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
+const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg']);
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
+
+function classifyDroppedAssetExtension(name: string): DroppedAssetKind | undefined {
+    const ext = extname(name).toLowerCase();
+    if (VIDEO_EXTENSIONS.has(ext)) {
+        return 'video';
+    }
+    if (AUDIO_EXTENSIONS.has(ext)) {
+        return 'audio';
+    }
+    if (IMAGE_EXTENSIONS.has(ext)) {
+        return 'image';
+    }
+    return undefined;
+}
 
 function isPermissionDenied(error: unknown): boolean {
     return Boolean(error) && typeof error === 'object'
@@ -206,6 +226,144 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             }
         }
         return results;
+    }
+
+    /**
+     * 左パネルの素材タブが持つ汎用ドロップゾーン向け（動画/音声/画像）。
+     * recordDroppedVideos と同じ「検証 → assets/ へ FICLONE 複製 → サイズ照合 →
+     * .akari/events/ へ atomic write」の流儀を種類非依存に一般化したもの。
+     * recordDroppedVideos 自体はウィンドウ全体のグローバルドロップ（video のみ）が
+     * 引き続き使うため変更しない。
+     */
+    async recordDroppedAssets(projectUri: string, assets: DroppedAsset[]): Promise<DroppedAssetImportResult[]> {
+        const root = this.fsPath(projectUri);
+        await this.ensureRuntimeDirectories(root);
+        const results: DroppedAssetImportResult[] = [];
+        for (const asset of assets) {
+            const kind = classifyDroppedAssetExtension(asset.name);
+            if (!kind) {
+                results.push({ name: asset.name, success: false, reason: 'unsupported-type' });
+                continue;
+            }
+            if (!asset.sourcePath) {
+                results.push({ name: asset.name, success: false, reason: 'source-path-unavailable' });
+                continue;
+            }
+
+            const assetName = await this.availableName(join(root, 'assets'), this.safeFileName(asset.name));
+            const assetPath = join(root, 'assets', assetName);
+            try {
+                await fs.copyFile(asset.sourcePath, assetPath, constants.COPYFILE_FICLONE);
+            } catch {
+                await fs.rm(assetPath, { force: true }).catch(() => undefined);
+                results.push({ name: asset.name, success: false, reason: 'copy-failed' });
+                continue;
+            }
+
+            const sizesMatch = await Promise.all([
+                fs.stat(asset.sourcePath),
+                fs.stat(assetPath)
+            ]).then(([source, destination]) => source.size === destination.size, () => false);
+            if (!sizesMatch) {
+                await fs.rm(assetPath, { force: true }).catch(() => undefined);
+                results.push({ name: asset.name, success: false, reason: 'size-mismatch' });
+                continue;
+            }
+
+            const event = {
+                version: 1,
+                id: this.eventId(`${kind}-added`),
+                type: `${kind}-added`,
+                occurredAt: new Date().toISOString(),
+                asset: `assets/${assetName}`,
+                source: asset.sourcePath,
+                copied: true
+            };
+            const eventPath = join(root, '.akari', 'events', `${event.id}.json`);
+            try {
+                await this.writeJsonAtomic(eventPath, event);
+                results.push({
+                    name: asset.name,
+                    success: true,
+                    kind,
+                    assetPath: `assets/${assetName}`,
+                    eventUri: pathToFileURL(eventPath).toString()
+                });
+            } catch {
+                await fs.rm(assetPath, { force: true }).catch(() => undefined);
+                results.push({ name: asset.name, success: false, reason: 'event-write-failed' });
+            }
+        }
+        return results;
+    }
+
+    /**
+     * packages/edit-lint の既存 CLI を子プロセスで呼ぶだけ（読み取り専用・再実装しない）。
+     * edit.json が無いプロジェクトは呼び出し自体を省略し、バッジを非表示にできるよう
+     * available=false を返す。CLI 自身の exit code は 0=pass/1=fail のどちらも
+     * 有効な --json 出力を stdout に返すため、exit code では成否を判定しない。
+     */
+    async runEditLint(projectUri: string): Promise<EditLintOutcome> {
+        const root = this.fsPath(projectUri);
+        try {
+            await fs.stat(join(root, 'edit.json'));
+        } catch {
+            return { available: false };
+        }
+        const cli = await this.findEditLintCli();
+        if (!cli) {
+            return { available: false };
+        }
+        try {
+            const { code, stdout } = await this.runNodeScript(cli, [root, '--json']);
+            if (code === 2) {
+                return { available: false };
+            }
+            const parsed = JSON.parse(stdout) as { findings?: unknown[] };
+            return { available: true, issueCount: Array.isArray(parsed.findings) ? parsed.findings.length : 0 };
+        } catch {
+            return { available: false };
+        }
+    }
+
+    protected async findEditLintCli(): Promise<string | undefined> {
+        const candidates = [
+            resolve(__dirname, '../edit-lint/bin/edit-lint.mjs'),
+            resolve(process.cwd(), '../../packages/edit-lint/bin/edit-lint.mjs'),
+            resolve(process.cwd(), 'packages/edit-lint/bin/edit-lint.mjs'),
+            resolve(__dirname, '../../../../../../../packages/edit-lint/bin/edit-lint.mjs')
+        ];
+        for (const candidate of candidates) {
+            try {
+                if ((await fs.stat(candidate)).isFile()) {
+                    return candidate;
+                }
+            } catch {
+                // Try the next development or packaged-app location.
+            }
+        }
+        return undefined;
+    }
+
+    /**
+     * Electron のバックエンドプロセスから素の node スクリプトを起動する。
+     * ELECTRON_RUN_AS_NODE はパッケージ版で process.execPath が Electron 実行体を
+     * 指す場合に必要（akari-partner-server.ts の bootstrap と同じ流儀）。
+     * 開発時の素の node プロセスでは無害に無視される。
+     */
+    protected async runNodeScript(scriptPath: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+        return new Promise((resolvePromise, reject) => {
+            const child = spawn(process.execPath, [scriptPath, ...args], {
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
+            let stdout = '';
+            let stderr = '';
+            child.stdout.on('data', chunk => stdout += chunk.toString());
+            child.stderr.on('data', chunk => stderr += chunk.toString());
+            child.on('error', reject);
+            child.on('exit', code => resolvePromise({ code: code ?? 2, stdout, stderr }));
+        });
     }
 
     async prepareDiffs(projectUri: string): Promise<DiffPreparationResult> {

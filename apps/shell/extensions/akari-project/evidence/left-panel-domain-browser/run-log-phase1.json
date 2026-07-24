@@ -1,0 +1,73 @@
+[
+  {
+    "t": "2026-07-24T14:56:51.132Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-24T14:57:11.725Z",
+    "step": "dropzone-not-immediately-visible",
+    "explorerRows": 0,
+    "dzFoundWhilePolling": false
+  },
+  {
+    "t": "2026-07-24T14:57:12.722Z",
+    "step": "dropzone-visible",
+    "found": true,
+    "visible": true,
+    "width": 165,
+    "height": 611
+  },
+  {
+    "t": "2026-07-24T14:57:12.967Z",
+    "step": "materials-tab-state",
+    "tabs": [
+      "素材",
+      "プラン",
+      "カタログ"
+    ],
+    "cardCount": 2,
+    "details": [
+      {
+        "title": "analyzed-clip.mp4",
+        "hasImg": true,
+        "imgSrc": "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-left-panel-domain-browser/e103d869-224f-4233-9e47-7e29a23a67b7/scratchpad/l1-project-main/.akari/sidecars/assets/analyzed-clip.mp4.analysis/keyframes/frame-01.jpg",
+        "duration": "0:06",
+        "dotTitle": "分析済み"
+      },
+      {
+        "title": "unanalyzed-clip.mp4",
+        "hasImg": false,
+        "imgSrc": null,
+        "duration": "--:--",
+        "dotTitle": "未分析"
+      }
+    ],
+    "wholeText": "素材プランカタログanalyzed-clip.mp40:06unanalyzed-clip.mp4--:--",
+    "lintBadgeText": null
+  },
+  {
+    "t": "2026-07-24T14:57:12.968Z",
+    "step": "noise-invisible-confirmed",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T14:57:13.794Z",
+    "step": "lint-badge-zero-confirmed",
+    "text": "Lint0 件"
+  },
+  {
+    "t": "2026-07-24T14:57:14.357Z",
+    "step": "plan-tab-state",
+    "text": "素材プランカタログプランはここに入ります。企画・構成の管理は今後この場所でできるようになります。Lint0 件"
+  },
+  {
+    "t": "2026-07-24T14:57:14.757Z",
+    "step": "catalog-tab-state",
+    "text": "素材プランカタログカタログはここに入ります。素材のキュレーション一覧は今後この場所に表示されます。Lint0 件"
+  },
+  {
+    "t": "2026-07-24T14:57:15.129Z",
+    "step": "ALL-PASS-PHASE1",
+    "ok": true
+  }
+]

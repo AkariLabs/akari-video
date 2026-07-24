@@ -1,0 +1,29 @@
+[
+  {
+    "t": "2026-07-24T15:04:09.907Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-24T15:04:19.677Z",
+    "step": "dropzone-not-immediately-visible",
+    "explorerRows": 0
+  },
+  {
+    "t": "2026-07-24T15:04:20.208Z",
+    "step": "dropzone-visible",
+    "found": true,
+    "visible": true,
+    "width": 164.9140625,
+    "height": 611
+  },
+  {
+    "t": "2026-07-24T15:04:26.290Z",
+    "step": "lint-badge-text",
+    "text": "Lint1 件"
+  },
+  {
+    "t": "2026-07-24T15:04:26.649Z",
+    "step": "ALL-PASS-PHASE4",
+    "ok": true
+  }
+]

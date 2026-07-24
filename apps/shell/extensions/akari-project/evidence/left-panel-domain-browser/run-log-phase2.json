@@ -1,0 +1,107 @@
+[
+  {
+    "t": "2026-07-24T14:57:23.713Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-24T14:57:23.719Z",
+    "step": "edit-json-sha-before-drops",
+    "sha256": "8b8a7544e6bcfeae6dcc73422e70a1a5419c21861344f562d750a088557be05b"
+  },
+  {
+    "t": "2026-07-24T14:57:24.972Z",
+    "step": "drop-drop-video.mp4",
+    "supported": true,
+    "cardsAfter": [
+      "analyzed-clip.mp4",
+      "drop-video.mp4",
+      "unanalyzed-clip.mp4"
+    ]
+  },
+  {
+    "t": "2026-07-24T14:57:24.972Z",
+    "step": "drop-drop-video.mp4-copy-verified",
+    "destPath": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-left-panel-domain-browser/e103d869-224f-4233-9e47-7e29a23a67b7/scratchpad/l1-project-main/assets/drop-video.mp4",
+    "size": 300
+  },
+  {
+    "t": "2026-07-24T14:57:26.192Z",
+    "step": "drop-drop-audio.wav",
+    "supported": true,
+    "cardsAfter": [
+      "analyzed-clip.mp4",
+      "drop-audio.wav",
+      "drop-video.mp4",
+      "unanalyzed-clip.mp4"
+    ]
+  },
+  {
+    "t": "2026-07-24T14:57:26.193Z",
+    "step": "drop-drop-audio.wav-copy-verified",
+    "destPath": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-left-panel-domain-browser/e103d869-224f-4233-9e47-7e29a23a67b7/scratchpad/l1-project-main/assets/drop-audio.wav",
+    "size": 300
+  },
+  {
+    "t": "2026-07-24T14:57:27.411Z",
+    "step": "drop-drop-image.png",
+    "supported": true,
+    "cardsAfter": [
+      "analyzed-clip.mp4",
+      "drop-audio.wav",
+      "drop-image.png",
+      "drop-video.mp4",
+      "unanalyzed-clip.mp4"
+    ]
+  },
+  {
+    "t": "2026-07-24T14:57:27.411Z",
+    "step": "drop-drop-image.png-copy-verified",
+    "destPath": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-left-panel-domain-browser/e103d869-224f-4233-9e47-7e29a23a67b7/scratchpad/l1-project-main/assets/drop-image.png",
+    "size": 287
+  },
+  {
+    "t": "2026-07-24T14:57:28.710Z",
+    "step": "drop-drop-doc.txt",
+    "supported": false,
+    "cardsAfter": [
+      "analyzed-clip.mp4",
+      "drop-audio.wav",
+      "drop-image.png",
+      "drop-video.mp4",
+      "unanalyzed-clip.mp4"
+    ]
+  },
+  {
+    "t": "2026-07-24T14:57:28.719Z",
+    "step": "reject-toast-messages",
+    "toast": [
+      "対応していないファイル形式のため 1 件を取り込めませんでした（動画・音声・画像のみ取り込めます）。",
+      "対応していないファイル形式のため 1 件を取り込めませんでした（動画・音声・画像のみ取り込めます）。"
+    ]
+  },
+  {
+    "t": "2026-07-24T14:57:28.975Z",
+    "step": "edit-json-sha-after-drops",
+    "sha256": "8b8a7544e6bcfeae6dcc73422e70a1a5419c21861344f562d750a088557be05b"
+  },
+  {
+    "t": "2026-07-24T14:57:28.975Z",
+    "step": "edit-json-unchanged-confirmed",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T14:57:28.989Z",
+    "step": "lint-badge-clicked",
+    "found": true
+  },
+  {
+    "t": "2026-07-24T14:57:29.795Z",
+    "step": "lint-badge-after-reclick",
+    "text": "Lint0 件"
+  },
+  {
+    "t": "2026-07-24T14:57:29.797Z",
+    "step": "ALL-PASS-PHASE2",
+    "ok": true
+  }
+]

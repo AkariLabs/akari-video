@@ -1,0 +1,49 @@
+[
+  {
+    "t": "2026-07-24T14:57:36.674Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-24T14:57:38.747Z",
+    "step": "toggled-developer-mode-on",
+    "checkedBefore": false,
+    "checkedAfter": true
+  },
+  {
+    "t": "2026-07-24T14:57:39.406Z",
+    "step": "after-toggle-developer-mode-on",
+    "explorerRows": 10,
+    "dzVisible": false
+  },
+  {
+    "t": "2026-07-24T14:57:41.338Z",
+    "step": "toggled-developer-mode-off",
+    "checkedBefore": true,
+    "checkedAfter": false
+  },
+  {
+    "t": "2026-07-24T14:57:41.345Z",
+    "step": "after-toggle-developer-mode-off",
+    "found": true,
+    "visible": true,
+    "width": 165,
+    "height": 611
+  },
+  {
+    "t": "2026-07-24T14:57:41.622Z",
+    "step": "open-card-lookup",
+    "found": true,
+    "x": 125.5,
+    "y": 181
+  },
+  {
+    "t": "2026-07-24T14:57:42.998Z",
+    "step": "after-open-card-tab-state",
+    "mainTabs": 0
+  },
+  {
+    "t": "2026-07-24T14:57:43.251Z",
+    "step": "ALL-PASS-PHASE3",
+    "ok": true
+  }
+]
