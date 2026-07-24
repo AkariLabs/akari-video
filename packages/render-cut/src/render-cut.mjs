@@ -117,6 +117,7 @@ export async function renderProject(input, options = {}) {
     capabilities,
     hasSourceAudio: capabilities.sourceHasAudio,
     renderOverlays: [...edit.overlays, ...captionOverlays],
+    captionOverlays,
     hasThreeDimensionalOverlay,
     temporaryDirectory,
   });
@@ -180,6 +181,12 @@ export async function renderProject(input, options = {}) {
     const cutCommand = plan.commands.cut;
     runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
 
+    const tailPadCommand = plan.commands.tail_pad;
+    const tailPaddedPath = join(temporaryDirectory, "cut-tail-padded.mp4");
+    if (tailPadCommand) {
+      runChecked(tailPadCommand.command, tailPadCommand.args, { cwd: projectRoot });
+    }
+
     const trackStack = plan.commands.track_stack;
     if (trackStack) {
       runChecked(trackStack.base.command, trackStack.base.args, { cwd: projectRoot });
@@ -200,7 +207,8 @@ export async function renderProject(input, options = {}) {
     if (layersCommand) {
       runChecked(layersCommand.command, layersCommand.args, { cwd: projectRoot });
     }
-    const baseVideoPath = trackStack?.outputPath ?? (layersCommand ? layeredPath : cutPath);
+    const cutOutputPath = tailPadCommand ? tailPaddedPath : cutPath;
+    const baseVideoPath = trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath);
 
     const overlays = loadedOverlays;
     const captions = captionOverlays;

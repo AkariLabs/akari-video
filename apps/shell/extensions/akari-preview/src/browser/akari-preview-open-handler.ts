@@ -2849,6 +2849,45 @@ body { display: grid; place-items: center; padding: 32px; }
             let currentSegmentIndex = 0;
             let keepRangesReady = false;
             let segments = [];
+            const probeMediaDurationSeconds = src => new Promise(resolve => {
+                const probe = new Audio();
+                probe.preload = 'metadata';
+                const cleanup = () => {
+                    probe.removeEventListener('loadedmetadata', onLoaded);
+                    probe.removeEventListener('error', onError);
+                };
+                const onLoaded = () => {
+                    cleanup();
+                    resolve(Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : null);
+                };
+                const onError = () => { cleanup(); resolve(null); };
+                probe.addEventListener('loadedmetadata', onLoaded, { once: true });
+                probe.addEventListener('error', onError, { once: true });
+                probe.src = src;
+            });
+            let resolvedSfxTails = [];
+            const probeSfxDurations = async () => {
+                const items = Array.isArray(summary.audio && summary.audio.sfx) ? summary.audio.sfx : [];
+                const results = await Promise.all(items.map(async item => {
+                    if (typeof item.t !== 'number' || !Number.isFinite(item.t) || item.t < 0) return null;
+                    if (typeof item.src !== 'string' || !item.src) return null;
+                    const durationSec = await probeMediaDurationSeconds(item.src);
+                    return durationSec === null ? null : (item.t + durationSec);
+                }));
+                resolvedSfxTails = results.filter(value => typeof value === 'number');
+            };
+            const sfxDurationsReady = probeSfxDurations();
+            const computeContentDurationSeconds = cutsEndSeconds => {
+                let sfxEnd = 0;
+                for (const tail of resolvedSfxTails) sfxEnd = Math.max(sfxEnd, tail);
+                let layersEnd = 0;
+                for (const layer of Array.isArray(summary.layers) ? summary.layers : []) {
+                    const t = Number(layer && layer.t);
+                    const duration = Number(layer && layer.duration);
+                    if (Number.isFinite(t) && Number.isFinite(duration)) layersEnd = Math.max(layersEnd, t + duration);
+                }
+                return Math.max(cutsEndSeconds, sfxEnd, layersEnd);
+            };
             let activeSegmentIndex = 0;
             let gapWallClockOriginMs = 0;
             let gapOutputOrigin = 0;
@@ -3072,9 +3111,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 totalTimelineDuration = accumulated;
                 keepRangesReady = keepRanges.length > 0;
-                if (window.akari.previewAudio && totalTimelineDuration > 0) {
-                    void window.akari.previewAudio.setTimelineDuration(totalTimelineDuration);
-                }
                 if (currentSegmentIndex >= keepRanges.length) {
                     currentSegmentIndex = Math.max(0, keepRanges.length - 1);
                 }
@@ -3180,9 +3216,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     transitionPlates = [];
                     totalTimelineDuration = outputDuration;
                     keepRangesReady = false;
-                    if (window.akari.previewAudio && totalTimelineDuration > 0) {
-                        void window.akari.previewAudio.setTimelineDuration(totalTimelineDuration);
-                    }
+                }
+                const cutsEndSeconds = totalTimelineDuration;
+                const contentDurationSeconds = computeContentDurationSeconds(cutsEndSeconds);
+                if (contentDurationSeconds > cutsEndSeconds + 0.001) {
+                    segments.push({ outStart: cutsEndSeconds, outEnd: contentDurationSeconds, kind: 'gap' });
+                    totalTimelineDuration = contentDurationSeconds;
+                }
+                if (window.akari.previewAudio && totalTimelineDuration > 0) {
+                    void window.akari.previewAudio.setTimelineDuration(totalTimelineDuration);
                 }
                 if (activeSegmentIndex >= segments.length) {
                     activeSegmentIndex = Math.max(0, segments.length - 1);
@@ -4106,10 +4148,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 }));
             };
             video.addEventListener('loadedmetadata', () => {
-                restorePlayback();
-                rebuildSegments();
-                applyInitialPosition();
-                updateTransport();
+                void sfxDurationsReady.then(() => {
+                    restorePlayback();
+                    rebuildSegments();
+                    applyInitialPosition();
+                    updateTransport();
+                });
             });
             video.addEventListener('canplay', restorePlayback);
             video.addEventListener('play', () => {
@@ -4245,7 +4289,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 subtree: true
             });
 
-            Promise.resolve(window.akari.runtime.mount(summary)).then(() => {
+            Promise.all([window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
                 applyOverlayTracks();
                 stage.append(transitionPlate, captionPlate);
                 const indicators = Array.isArray(summary.indicators) ? summary.indicators : [];
