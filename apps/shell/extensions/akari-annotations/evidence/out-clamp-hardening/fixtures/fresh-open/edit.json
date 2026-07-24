@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "source": { "path": "assets/source.mp4" },
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "cuts": [
+    { "in": 0, "out": 2 }
+  ]
+}

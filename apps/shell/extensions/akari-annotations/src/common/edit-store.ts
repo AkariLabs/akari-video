@@ -19,6 +19,12 @@ export interface EditSource {
     proxy: string | null;
 }
 
+/** v0（単一ソース）edit.json 直下の `source`。sidecar に依存しない一次情報。 */
+export interface EditDefaultSource {
+    path: string;
+    proxy: string | null;
+}
+
 export interface EditBeat {
     id: string;
     src?: string;
@@ -868,6 +874,7 @@ export function removeOverlayInSource(source: string, overlayId: string): string
 export function parseEdit(source: string): {
     cuts: EditCut[];
     sources?: EditSource[];
+    source?: EditDefaultSource;
     overlays: EditOverlay[];
     beats?: EditBeat[];
     layers: EditLayer[];
@@ -910,6 +917,11 @@ export function parseEdit(source: string): {
     const isV1 = Array.isArray(value.sources);
     const isV0 = !isV1 && value.sources === undefined
         && value.source !== null && typeof value.source === 'object';
+    let defaultSource: EditDefaultSource | undefined;
+    if (isV0 && typeof value.source.path === 'string' && value.source.path
+        && (value.source.proxy === undefined || value.source.proxy === null || typeof value.source.proxy === 'string')) {
+        defaultSource = { path: value.source.path, proxy: value.source.proxy ?? null };
+    }
     if (Array.isArray(value.cuts)) {
         for (let index = 0; index < value.cuts.length; index++) {
             const rawCut = value.cuts[index];
@@ -1316,6 +1328,7 @@ export function parseEdit(source: string): {
     return {
         cuts,
         ...(isV1 ? { sources } : {}),
+        ...(defaultSource ? { source: defaultSource } : {}),
         overlays,
         ...(Array.isArray(value.beats) ? { beats } : {}),
         layers,

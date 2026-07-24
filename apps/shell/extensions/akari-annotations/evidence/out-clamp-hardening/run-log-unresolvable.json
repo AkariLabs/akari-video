@@ -1,0 +1,101 @@
+[
+  {
+    "t": "2026-07-24T14:20:27.425Z",
+    "step": "connected",
+    "mode": "unresolvable",
+    "cdpPort": 9503,
+    "workspace": "/tmp/ocb-verify-ws/unresolvable"
+  },
+  {
+    "t": "2026-07-24T14:21:20.527Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-24T14:21:21.644Z",
+    "step": "assertion-ok",
+    "message": "clip C1 found in the strip"
+  },
+  {
+    "t": "2026-07-24T14:21:21.764Z",
+    "step": "edit-before",
+    "cuts": [
+      {
+        "in": 0,
+        "out": 2
+      }
+    ]
+  },
+  {
+    "t": "2026-07-24T14:21:23.715Z",
+    "step": "unresolvable-mid-drag-round1",
+    "mid": {
+      "found": true,
+      "rejected": false,
+      "snapped": false,
+      "durationWarning": true
+    },
+    "feedback": "Out 00:00:15.000 / 尺 15.00 秒 ⚠ 実尺不明のため無制限"
+  },
+  {
+    "t": "2026-07-24T14:21:24.103Z",
+    "step": "assertion-ok",
+    "message": "round 1: ghost shows the duration-warning class while dragging Out with no resolvable source",
+    "mid": {
+      "found": true,
+      "rejected": false,
+      "snapped": false,
+      "durationWarning": true
+    }
+  },
+  {
+    "t": "2026-07-24T14:21:24.104Z",
+    "step": "assertion-ok",
+    "message": "round 1: drag feedback text warns about unknown duration",
+    "feedback": "Out 00:00:15.000 / 尺 15.00 秒 ⚠ 実尺不明のため無制限"
+  },
+  {
+    "t": "2026-07-24T14:21:26.496Z",
+    "step": "unresolvable-mid-drag-round2",
+    "mid": {
+      "found": true,
+      "rejected": false,
+      "snapped": false,
+      "durationWarning": true
+    },
+    "feedback": "Out 00:01:19.750 / 尺 79.75 秒 ⚠ 実尺不明のため無制限"
+  },
+  {
+    "t": "2026-07-24T14:21:26.950Z",
+    "step": "assertion-ok",
+    "message": "round 2: ghost shows the duration-warning class while dragging Out with no resolvable source",
+    "mid": {
+      "found": true,
+      "rejected": false,
+      "snapped": false,
+      "durationWarning": true
+    }
+  },
+  {
+    "t": "2026-07-24T14:21:27.012Z",
+    "step": "assertion-ok",
+    "message": "round 2: drag feedback text warns about unknown duration",
+    "feedback": "Out 00:01:19.750 / 尺 79.75 秒 ⚠ 実尺不明のため無制限"
+  },
+  {
+    "t": "2026-07-24T14:21:27.480Z",
+    "step": "edit-after-unresolvable-drags",
+    "cuts": [
+      {
+        "in": 0,
+        "out": 112.25
+      }
+    ]
+  },
+  {
+    "t": "2026-07-24T14:21:27.484Z",
+    "step": "assertion-ok",
+    "message": "unresolvable: with no real duration to clamp to, out is not artificially capped (documented no-clamp behavior)",
+    "out": 112.25
+  }
+]
