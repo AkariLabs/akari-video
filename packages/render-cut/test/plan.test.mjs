@@ -163,3 +163,49 @@ test("overlapping tracks show the higher track and mix every cut's audio", () =>
   assert.match(filterComplex, /adelay=2000:all=1/);
   assert.match(filterComplex, /amix=inputs=2/);
 });
+
+test("content beyond the cuts extends predicted duration and inserts tail padding", () => {
+  const plan = buildPlan({
+    edit: {
+      ...edit,
+      layers: [
+        {
+          id: "late-layer",
+          kind: "baked",
+          src: "layers/late.mov",
+          t: 9,
+          duration: 4,
+        },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+  });
+  assert.equal(plan.predicted_duration_seconds, 13);
+  assert.notEqual(plan.commands.tail_pad, null);
+  assert.match(plan.commands.tail_pad.args.join(" "), /stop_duration=3:color=black/);
+  assert.match(plan.commands.tail_pad.args.join(" "), /apad=whole_dur=13/);
+  assert.ok(plan.commands.layers.args.includes("/project/.akari/render-tmp/cut-tail-padded.mp4"));
+  assert.ok(plan.intermediates.includes(".akari/render-tmp/cut-tail-padded.mp4"));
+});
+
+test("content within the cuts skips tail padding and preserves every existing command", () => {
+  const input = {
+    edit,
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+  };
+  const baseline = buildPlan(input);
+  const withinCuts = buildPlan({
+    ...input,
+    captionOverlays: [{ start: 2, duration: 3 }],
+  });
+  assert.equal(withinCuts.predicted_duration_seconds, 10);
+  assert.equal(withinCuts.commands.tail_pad, null);
+  assert.deepEqual(withinCuts.commands, baseline.commands);
+  assert.deepEqual(withinCuts.intermediates, baseline.intermediates);
+});

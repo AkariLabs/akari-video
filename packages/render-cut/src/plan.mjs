@@ -12,6 +12,7 @@ import {
   segmentDuration,
 } from "./cut-timeline.mjs";
 import { appendCutVisualTransform, hasCutVisualTransform } from "./cut-transform.mjs";
+import { buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
 import {
   buildCutTrackCompositeCommand,
@@ -36,6 +37,7 @@ export function buildPlan({
   capabilities,
   hasSourceAudio,
   renderOverlays = edit.overlays,
+  captionOverlays = [],
   hasThreeDimensionalOverlay = false,
   // Execution-unique subdirectory for intermediates (see render-cut.mjs's per-run isolation).
   // Defaults to the flat, deterministic path so direct callers (unit tests, --plan-only preview)
@@ -45,9 +47,18 @@ export function buildPlan({
   const width = edit.output.width;
   const height = edit.output.height;
   const fps = edit.output.fps;
-  const duration = predictedDuration(edit.cuts, capabilities.sourceDuration, edit.version);
+  const cutsEndSeconds = predictedDuration(edit.cuts, capabilities.sourceDuration, edit.version);
+  const finalDurationSeconds = computeContentDurationSeconds({
+    edit,
+    cutsEndSeconds,
+    projectRoot,
+    captionOverlays,
+    probeAudioDurationSeconds,
+    ffprobeCommand: capabilities.ffprobeCommand,
+  });
   const temporary = temporaryDirectory;
   const cutPath = join(temporary, "cut.mp4");
+  const tailPaddedPath = join(temporary, "cut-tail-padded.mp4");
   const layeredPath = join(temporary, "layered.mp4");
   const overlayWebmPath = join(temporary, "overlay.webm");
   const overlayMovPath = join(temporary, "overlay.mov");
@@ -78,13 +89,23 @@ export function buildPlan({
       height,
       fps,
       hasAudio: hasSourceAudio,
-      duration,
+      duration: cutsEndSeconds,
       ffmpegCommand: capabilities.ffmpegCommand,
       projectRoot,
       look: edit.output.look,
       chromaKey: edit.source?.chroma_key,
     });
   }
+  const tailPad = finalDurationSeconds > cutsEndSeconds + 0.001
+    ? buildTailPadCommand({
+        ffmpegCommand: capabilities.ffmpegCommand,
+        inputPath: cutPath,
+        outputPath: tailPaddedPath,
+        cutsEndSeconds,
+        finalDurationSeconds,
+      })
+    : null;
+  const cutOutputPath = tailPad ? tailPaddedPath : cutPath;
   // layers[] is additive-only (contract-2026-07-22-prerender-rail-and-assets.md §1.2): an edit.json
   // without it produces no `layers` command and render-cut.mjs skips this stage entirely, so
   // existing projects keep their byte-identical cut.mp4 -> composite pipeline (zero regression).
@@ -94,9 +115,9 @@ export function buildPlan({
         layers: edit.layers,
         projectRoot,
         ffmpegCommand: capabilities.ffmpegCommand,
-        inputPath: cutPath,
+        inputPath: cutOutputPath,
         outputPath: layeredPath,
-        duration,
+        duration: finalDurationSeconds,
         width,
         height,
       })
@@ -107,19 +128,20 @@ export function buildPlan({
         edit,
         projectRoot,
         capabilities,
-        cutPath,
+        cutPath: cutOutputPath,
         layeredPath,
         temporary,
-        duration,
+        duration: finalDurationSeconds,
+        cutsEndSeconds,
         width,
         height,
         fps,
         hasSourceAudio,
       });
-  const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutPath);
+  const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutOutputPath);
 
   return {
-    predicted_duration_seconds: duration,
+    predicted_duration_seconds: finalDurationSeconds,
     duration_tolerance_seconds: Math.max(0.1, 2 / fps),
     output: relativeOrAbsolute(projectRoot, outputPath),
     preset: {
@@ -141,6 +163,7 @@ export function buildPlan({
     },
     intermediates: [
       cutPath,
+      ...(tailPad ? [tailPaddedPath] : []),
       ...(layers ? [layeredPath] : []),
       ...(trackStack ? trackStack.intermediates : []),
       sheetPath,
@@ -156,6 +179,7 @@ export function buildPlan({
     ].map((value) => relative(projectRoot, value)),
     commands: {
       cut,
+      tail_pad: tailPad,
       rasterize: {
         hyperframes: {
           command: localBinary(projectRoot, "hyperframes"),
@@ -214,7 +238,7 @@ export function buildPlan({
           compositePath,
           temporary,
           renderOverlays,
-          duration,
+          finalDurationSeconds,
         ),
       },
       layers,
@@ -224,7 +248,7 @@ export function buildPlan({
         projectRoot,
         inputPath: compositePath,
         outputPath: finalPath,
-        duration,
+        duration: finalDurationSeconds,
         ffmpegCommand: capabilities.ffmpegCommand,
         ffprobeCommand: capabilities.ffprobeCommand,
       }),
@@ -244,6 +268,7 @@ function buildTrackStackPlan({
   layeredPath,
   temporary,
   duration,
+  cutsEndSeconds,
   width,
   height,
   fps,
@@ -300,7 +325,7 @@ function buildTrackStackPlan({
             height,
             fps,
             hasAudio: hasSourceAudio,
-            duration,
+            duration: cutsEndSeconds,
             ffmpegCommand: capabilities.ffmpegCommand,
             projectRoot,
             look: edit.output.look,
@@ -570,6 +595,23 @@ function isReadableAudioFile(ffprobeCommand, path) {
     return Array.isArray(parsed.streams) && parsed.streams.some((stream) => stream.codec_type === "audio");
   } catch {
     return false;
+  }
+}
+
+export function probeAudioDurationSeconds(ffprobeCommand, path) {
+  if (!existsSync(path)) return null;
+  const result = spawnSync(
+    ffprobeCommand,
+    ["-v", "error", "-show_entries", "format=duration", "-of", "json", path],
+    { encoding: "utf8" },
+  );
+  if (result.error || result.status !== 0) return null;
+  try {
+    const parsed = JSON.parse(result.stdout);
+    const value = Number(parsed.format?.duration);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
   }
 }
 
