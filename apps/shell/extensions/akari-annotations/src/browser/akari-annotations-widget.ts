@@ -37,6 +37,20 @@ import {
 
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
+const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
+const SHORTCUTS_HELP_TEXT = [
+    'Space  出力プレビュー再生/停止',
+    'B  分割（レザー）ツール切替',
+    'A  選択ツールへ戻る',
+    'Delete / Backspace  選択アイテムを削除',
+    'M / N  マグネット（スナップ）切替',
+    '⌘Z  元に戻す',
+    '⇧⌘Z  やり直す',
+    '←  1フレーム戻る　→  1フレーム進む',
+    '⇧←  1秒戻る　⇧→  1秒進む',
+    '⌘C / ⌘V  コピー / ペースト',
+    'Escape  選択解除'
+].join('\n');
 const HISTORY_LIMIT = 50;
 const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
@@ -228,6 +242,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly undoButton = document.createElement('button');
     protected readonly redoButton = document.createElement('button');
     protected readonly compactButton = document.createElement('button');
+    protected readonly shortcutsHelpButton = document.createElement('button');
     protected readonly zoomHud = document.createElement('div');
     protected readonly zoomIcon = document.createElement('span');
     protected readonly zoomLabel = document.createElement('span');
@@ -362,7 +377,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
         this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (B)');
         this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
-        this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (N)');
+        this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
         this.undoButton.disabled = true;
@@ -372,12 +387,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.redoButton.addEventListener('click', () => void this.performRedo());
         this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
         this.compactButton.addEventListener('click', () => void this.performCompactCuts());
+        this.configureIconButton(
+            this.shortcutsHelpButton, 'codicon-question', 'ショートカット一覧', SHORTCUTS_HELP_TEXT
+        );
         this.toolbar.append(
             this.selectToolButton, this.razorToolButton,
             this.createToolbarSeparator(),
             this.snapToggleButton,
             this.createToolbarSeparator(),
-            this.undoButton, this.redoButton, this.compactButton
+            this.undoButton, this.redoButton, this.compactButton,
+            this.createToolbarSeparator(),
+            this.shortcutsHelpButton
         );
         this.updateToolModeButtons();
         this.updateSnapButton();
@@ -852,6 +872,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             if (!event.metaKey && !event.ctrlKey && !event.altKey) {
                 const key = event.key.toLowerCase();
+                if (key === ' ' || event.code === 'Space') {
+                    event.preventDefault();
+                    this.togglePreviewPlayback();
+                    return;
+                }
                 if (key === 'a') {
                     event.preventDefault();
                     this.setToolMode('select');
@@ -862,9 +887,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.setToolMode('razor');
                     return;
                 }
-                if (key === 'n') {
+                if (key === 'n' || key === 'm') {
                     event.preventDefault();
                     this.setSnapEnabled(!this.snapEnabled);
+                    return;
+                }
+                if (key === 'arrowleft' || key === 'arrowright') {
+                    event.preventDefault();
+                    const direction = key === 'arrowright' ? 1 : -1;
+                    const deltaSeconds = event.shiftKey ? 1 : 1 / this.fps;
+                    const nextOutputT = Math.min(
+                        this.contentEndDuration(),
+                        Math.max(0, this.playheadT + direction * deltaSeconds)
+                    );
+                    this.playheadT = nextOutputT;
+                    this.playhead.style.left = `${this.percent(nextOutputT)}%`;
+                    this.selectedSourceT = this.outputToSource(nextOutputT);
+                    void this.requestSeek(this.selectedSourceT);
                     return;
                 }
             }
@@ -4377,6 +4416,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         void this.commands.executeCommand(ENSURE_PREVIEW_VISIBLE_COMMAND_ID, { editUri: this.location.editUri.toString() })
             .catch(() => undefined);
+    }
+
+    protected togglePreviewPlayback(): void {
+        if (!this.location?.editUri) {
+            return;
+        }
+        void this.commands.executeCommand(TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID, {
+            editUri: this.location.editUri.toString()
+        }).catch(() => undefined);
     }
 
     protected async requestSeek(time: number): Promise<void> {
