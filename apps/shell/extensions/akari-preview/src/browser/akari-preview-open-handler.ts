@@ -21,6 +21,7 @@ import {
     ReviewStrokeFrame
 } from '../common/akari-preview-protocol';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
 import { locatePreviewCaptions, parsePreviewCaptions, PreviewCaption } from './akari-preview-captions';
 import {
     ReviewSessionRecorder,
@@ -192,7 +193,10 @@ interface PreviewReviewStrokeEndRequest {
 interface ReviewAnnotationStrokeRequest {
     editUri: string;
     sourceT: number;
-    strokes: Array<{ points: Array<[number, number]> }>;
+    strokes: Array<{
+        points: Array<[number, number]>;
+        frame?: { sourceT?: number; cutIndex?: number | null };
+    }>;
 }
 
 interface PreviewWidgetMarker extends WebviewWidget {
@@ -801,11 +805,36 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (visibility === 'unavailable' || !widget?.isAttached) {
             return;
         }
-        widget.sendMessage({ type: 'akari-preview-seek', time: detail.sourceT });
+        const cutIndex = this.resolveReviewStrokeCutIndex(detail.strokes);
+        let compositionSeconds = detail.sourceT;
+        try {
+            const model = await this.loadPreviewModel(new URI(editUri));
+            compositionSeconds = resolveAnnotationStrokeCompositionSeconds(
+                model.summary.cuts, detail.sourceT, cutIndex
+            );
+        } catch {
+            // edit.json が読めない場合は sourceT をそのまま composition 秒として扱う
+            // （cuts なしの恒等写像と同じフォールバック）。
+        }
+        widget.sendMessage({ type: 'akari-preview-seek', time: compositionSeconds });
         widget.sendMessage({
             type: 'akari-preview-show-annotation-strokes',
             points: detail.strokes.map(stroke => stroke.points)
         });
+    }
+
+    // strokes[].frame.cutIndex は同一 source 秒が複数カットに含まれる場合の多義解決に使う
+    // （最初に見つかった有効な cutIndex を採用。ストローク群は同一 annotation・同一カットの想定）。
+    protected resolveReviewStrokeCutIndex(
+        strokes: ReviewAnnotationStrokeRequest['strokes']
+    ): number | null {
+        for (const stroke of strokes) {
+            const cutIndex = stroke.frame?.cutIndex;
+            if (Number.isInteger(cutIndex) && (cutIndex as number) >= 0) {
+                return cutIndex as number;
+            }
+        }
+        return null;
     }
 
     protected async startReviewSessionFromPanel(projectRootUri: string, requestedEditUri: string): Promise<void> {
