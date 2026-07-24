@@ -208,6 +208,7 @@ export async function lintProject(input, options = {}) {
   validateBeats(edit.beats, edit.version, structure.sourceIds, findings);
   validateEmphasisWords(edit.emphasis_words, edit.version, structure.sourceIds, findings);
   validateDirection(edit.direction, findings);
+  validateTimelineTracks(edit, findings);
 
   if (captionsState.value !== undefined) {
     validateCaptions(
@@ -748,6 +749,171 @@ function validateSfxTracks(sfx, findings) {
       }
     }
   }
+}
+
+function validateTimelineTracks(edit, findings) {
+  const timeline = edit?.timeline;
+  if (timeline === undefined || timeline === null) return;
+  if (!isRecord(timeline)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "timeline.tracks.structure",
+      message: "timeline must be an object",
+      path: "edit.json#timeline",
+    });
+    return;
+  }
+  if (!Array.isArray(timeline.tracks)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "timeline.tracks.structure",
+      message: "timeline.tracks must be an array",
+      path: "edit.json#timeline.tracks",
+    });
+    return;
+  }
+
+  const actualTracks = new Map([
+    ["cuts", collectActualTrackNumbers(edit?.cuts)],
+    ["layers", collectActualTrackNumbers(edit?.layers)],
+    ["overlays", collectActualTrackNumbers(edit?.overlays)],
+    ["audio", collectActualTrackNumbers(edit?.audio?.sfx)],
+  ]);
+  const allowedKinds = new Set(["cuts", "layers", "overlays", "captions", "audio"]);
+  const ids = new Set();
+  const declarations = new Set();
+  const singletonCounts = new Map();
+
+  for (const [index, item] of timeline.tracks.entries()) {
+    const path = `edit.json#timeline.tracks[${index}]`;
+    if (!isRecord(item)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "timeline.tracks.structure",
+        message: "timeline track must be an object",
+        path,
+      });
+      continue;
+    }
+
+    if (!isNonEmptyString(item.id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "timeline.tracks.id",
+        message: "timeline track id must be a non-empty string",
+        path: `${path}.id`,
+      });
+    } else if (ids.has(item.id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "timeline.tracks.id",
+        message: `duplicate timeline track id: ${item.id}`,
+        path: `${path}.id`,
+      });
+    } else {
+      ids.add(item.id);
+    }
+
+    if (!allowedKinds.has(item.kind)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "timeline.tracks.kind",
+        message: "timeline track kind must be cuts/layers/overlays/captions/audio",
+        path: `${path}.kind`,
+      });
+      continue;
+    }
+
+    const hasRef = Object.hasOwn(item, "ref");
+    const validRef = !hasRef || (Number.isInteger(item.ref) && item.ref >= 0);
+    if (!validRef) {
+      addFinding(findings, {
+        severity: "error",
+        check: "timeline.tracks.ref",
+        message: "timeline track ref must be a non-negative integer when present",
+        path: `${path}.ref`,
+      });
+    }
+    if (Object.hasOwn(item, "label") && typeof item.label !== "string") {
+      addFinding(findings, {
+        severity: "error",
+        check: "timeline.tracks.label",
+        message: "timeline track label must be a string when present",
+        path: `${path}.label`,
+      });
+    }
+    for (const field of ["muted", "hidden", "locked"]) {
+      if (Object.hasOwn(item, field) && typeof item[field] !== "boolean") {
+        addFinding(findings, {
+          severity: "error",
+          check: `timeline.tracks.${field}`,
+          message: `timeline track ${field} must be a boolean when present`,
+          path: `${path}.${field}`,
+        });
+      }
+    }
+
+    if (item.kind === "captions" || item.kind === "audio") {
+      const count = (singletonCounts.get(item.kind) ?? 0) + 1;
+      singletonCounts.set(item.kind, count);
+      if (count > 1) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "timeline.tracks.singleton",
+          message: `${item.kind} timeline track is declared more than once`,
+          path,
+        });
+      }
+    }
+
+    if (!validRef || item.kind === "captions") continue;
+    const ref = item.kind === "audio" && !hasRef ? 0 : item.ref;
+    if (item.kind === "audio" && ref !== 0) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "timeline.tracks.audio-ref",
+        message: "audio timeline track ref must be 0 when present",
+        path: `${path}.ref`,
+      });
+      continue;
+    }
+    if (ref === undefined) continue;
+    declarations.add(`${item.kind}:${ref}`);
+    if (!actualTracks.get(item.kind)?.has(ref)) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "timeline.tracks.ref-missing",
+        message: `${item.kind} timeline track ref ${ref} is not used by edit data`,
+        path: `${path}.ref`,
+      });
+    }
+  }
+
+  for (const [kind, tracks] of actualTracks) {
+    for (const ref of tracks) {
+      if (declarations.has(`${kind}:${ref}`)) continue;
+      addFinding(findings, {
+        severity: "warning",
+        check: "timeline.tracks.declaration-missing",
+        message: `${kind} edit data uses track ${ref}, but timeline.tracks has no matching declaration`,
+        path: `edit.json#${kind === "audio" ? "audio.sfx" : kind}`,
+      });
+    }
+  }
+}
+
+function collectActualTrackNumbers(items) {
+  const tracks = new Set();
+  if (!Array.isArray(items)) return tracks;
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+    if (!Object.hasOwn(item, "track")) {
+      tracks.add(0);
+    } else if (Number.isInteger(item.track) && item.track >= 0) {
+      tracks.add(item.track);
+    }
+  }
+  return tracks;
 }
 
 function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds) {

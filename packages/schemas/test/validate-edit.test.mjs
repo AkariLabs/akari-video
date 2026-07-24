@@ -421,3 +421,34 @@ test("tracks section rejects non-boolean muted/hidden", () => {
   assert.equal(executed.status, 1, executed.stdout);
   assert.match(executed.stderr, /tracks\.cuts\[0\]\.muted は boolean である必要があります/);
 });
+
+test("timeline omission preserves edit.json compatibility", () => {
+  const executed = run("edit-timeline-omitted-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("declared timeline tracks with optional state pass", () => {
+  const executed = run("edit-timeline-declared-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("cuts and layers may be interleaved in timeline order", () => {
+  const executed = run("edit-timeline-interleaved-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("timeline track ids must be unique", () => {
+  const executed = run("edit-timeline-duplicate-id-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /timeline\.tracks\[\]\.id が重複しています: duplicate/);
+});
+
+test("timeline track refs must be non-negative integers", () => {
+  const executed = run("edit-timeline-ref-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /timeline\.tracks\[0\]\.ref は 0 以上の整数である必要があります/);
+  assert.match(executed.stderr, /timeline\.tracks\[1\]\.ref は 0 以上の整数である必要があります/);
+});

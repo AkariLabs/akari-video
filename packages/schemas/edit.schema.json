@@ -329,12 +329,39 @@
         "audio": { "type": "array", "items": { "$ref": "#/$defs/trackState" } }
       }
     },
+    "timelineTrack": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "kind": { "enum": ["cuts", "layers", "overlays", "captions", "audio"] },
+        "ref": { "$ref": "#/$defs/nonNegativeInteger" },
+        "label": { "type": "string" },
+        "muted": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" }
+      },
+      "$comment": "timeline.tracks[] の器。配列順は画面の下から上。既存の tracks/trackState とは別契約。"
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["tracks"],
+      "properties": {
+        "tracks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/timelineTrack" }
+        }
+      }
+    },
     "editV0": {
       "type": "object",
       "additionalProperties": true,
       "required": ["version", "output", "source"],
       "properties": {
         "tracks": { "$ref": "#/$defs/tracks" },
+        "timeline": { "$ref": "#/$defs/timeline" },
         "version": { "const": 0 },
         "output": { "$ref": "#/$defs/output" },
         "source": { "$ref": "#/$defs/sourceV0" },
@@ -369,6 +396,7 @@
       "required": ["version", "output", "sources"],
       "properties": {
         "tracks": { "$ref": "#/$defs/tracks" },
+        "timeline": { "$ref": "#/$defs/timeline" },
         "version": { "const": 1 },
         "output": { "$ref": "#/$defs/output" },
         "sources": {

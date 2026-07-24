@@ -1094,3 +1094,70 @@ test("gap-aware output axis duration exceeding duration_max warns without failin
     assert.ok(!result.findings.some((finding) => finding.check === "outputs.duration-max"));
   });
 });
+
+for (const fixture of [
+  "timeline-tracks-omitted",
+  "timeline-tracks-declared-valid",
+  "timeline-tracks-interleaved",
+]) {
+  test(`${fixture} passes without timeline track findings`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 0, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "pass");
+      assert.ok(
+        !result.findings.some((finding) => finding.check.startsWith("timeline.tracks")),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+test("declared timeline ref without edit data warns without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "timeline-tracks-ref-missing-warning"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) =>
+          finding.check === "timeline.tracks.ref-missing" &&
+          finding.severity === "warning",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("edit data without a declared timeline track warns when timeline is present", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "timeline-tracks-declaration-missing-warning"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) =>
+          finding.check === "timeline.tracks.declaration-missing" &&
+          finding.severity === "warning",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("duplicate captions and audio timeline tracks warn without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "timeline-tracks-singleton-duplicate-warning"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    const findings = result.findings.filter(
+      (finding) => finding.check === "timeline.tracks.singleton",
+    );
+    assert.equal(findings.length, 2, JSON.stringify(result.findings, null, 2));
+    assert.ok(findings.every((finding) => finding.severity === "warning"));
+  });
+});
