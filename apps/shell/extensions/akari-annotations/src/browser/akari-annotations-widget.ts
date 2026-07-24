@@ -37,6 +37,7 @@ import { ReviewModel } from './review-model';
 import {
     InspectorWriteRequest,
     InspectorWriteResult,
+    LivePreviewRequest,
     TimelineSelectionModel
 } from './timeline-selection-model';
 
@@ -163,6 +164,10 @@ const TIMELINE_SET_CAPTIONS_MUTED_EVENT = 'akari.timeline.setCaptionsMuted';
 const TIMELINE_SET_BEATS_VISIBILITY_EVENT = 'akari.timeline.setBeatsVisibility';
 const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
 const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
+// akari-preview 側の TIMELINE_LIVE_TRANSFORM_EVENT とミラー（文字列のみ、cross-package import なし）。
+// インスペクターのスクラブドラッグ中、書き込みなしで cuts/layers の transform/opacity をプレビューへ
+// 即時反映する ephemeral イベント。
+const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
 
 interface OverlayTrackLayout {
     track: number;
@@ -979,11 +984,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
             this.handleInspectorWrite(request);
         this.selectionModel.requestWrite = requestWrite;
+        const requestLivePreview = (request: LivePreviewRequest): void => {
+            this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
+                target: request.target,
+                field: request.field,
+                value: request.value
+            });
+        };
+        this.selectionModel.requestLivePreview = requestLivePreview;
         this.toDispose.push(this.selectionModel.onChanged(() => this.syncRightPane()));
         this.toDispose.push(Disposable.create(() => {
             if (this.selectionModel.requestWrite === requestWrite) {
                 this.selectionModel.requestWrite = undefined;
                 this.selectionModel.snapshot = undefined;
+            }
+            if (this.selectionModel.requestLivePreview === requestLivePreview) {
+                this.selectionModel.requestLivePreview = undefined;
             }
         }));
 
