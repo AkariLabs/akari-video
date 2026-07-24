@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "pass": "structure",
+  "submitted_at": "2026-07-25T09:00:00.000Z",
+  "comments": [
+    {
+      "target_kind": "shot",
+      "target_id": "s-hook",
+      "title": "フック",
+      "text": "冒頭をもっと短く。"
+    }
+  ]
+}

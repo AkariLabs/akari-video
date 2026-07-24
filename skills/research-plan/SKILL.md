@@ -16,6 +16,7 @@ description: 動画の企画・調査工程（ネタ出し → ターゲット/�
 5. **日本語 SNS 事情を必須調査軸に含める。** `research-plan.json` の `target.japan_sns.notes` を空にしない（無償手段で確認できない場合もその旨と理由を書く）。
 6. **CLAUDE.md / AGENTS.md に触らない。**
 7. **無償枠のみで一周が成立する既定にする。** 有償手段が使えない環境でも停止しない（結果は劣化してよいが、完走はする）。
+8. **差し戻しはチャットと `plan-comments.json` の二重経路。** 承認チェックポイントの再提示前は、チャット返信の解釈より先に `<plan-dir>/plan-comments.json`（在れば）を読む（[storyboard.md](storyboard.md) §5）。
 
 ## 実行順と目次
 

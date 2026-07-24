@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "pass": "scaffold",
+  "submitted_at": "2026-07-25T09:00:00.000Z",
+  "comments": [
+    {
+      "target_kind": "scene",
+      "target_id": "s-demo",
+      "title": "操作デモ",
+      "text": "尺を伸ばして。"
+    }
+  ]
+}

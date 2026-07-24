@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "pass": "scaffold",
+  "submitted_at": "2026-07-25T09:30:00.000Z",
+  "comments": [
+    {
+      "target_kind": "slot",
+      "target_id": "s-demo",
+      "title": "操作デモ",
+      "text": "画面収録の前に、書き出しボタンをクリックする瞬間まで映してほしい。"
+    },
+    {
+      "target_kind": "slot",
+      "target_id": "s-outro",
+      "title": "締め",
+      "text": "ロゴ + CTA ではなく割引コードのテロップに差し替えて。"
+    }
+  ]
+}

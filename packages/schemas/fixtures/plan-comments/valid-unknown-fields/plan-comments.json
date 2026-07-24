@@ -1,0 +1,15 @@
+{
+  "version": 0,
+  "pass": "final",
+  "submitted_at": "2026-07-25T09:00:00.000Z",
+  "reviewer": "owner",
+  "comments": [
+    {
+      "target_kind": "cut",
+      "target_id": "1",
+      "title": "オープニングカット",
+      "text": "尺を 2 秒詰めて。",
+      "priority": "high"
+    }
+  ]
+}

@@ -32,6 +32,14 @@
 
 `structure.confirmed` / `structure.confirmed_at` は [SKILL.md](SKILL.md) の `structure-confirm` 決定カードが確定するまで書かない。カードの `answer` はチャプターの採否（`chapters[].adopt`）とオープニングフックの選択を持つ。人間が一部チャプターを不採用にした場合も、`structure.chapters[]` からは削除せず、レポートの `decision_log` に不採用の記録を残す運用にする（削除すると採否の経緯が消える）。
 
+## 5. `structure-confirm` の差し戻し受領手順（plan-comments.json）
+
+`structure-confirm` 決定カードの再提示に着手する前に、`<plan-dir>/plan-comments.json` の有無を確認する（**チャット返信の解釈より先に本ファイルを読む**）。ライフサイクル・データ形の正本は [contract-2026-07-25-plan-comments-v0.md](../../docs/contract-2026-07-25-plan-comments-v0.md)。
+
+- `pass: "structure"` の `plan-comments.json` が在れば、`comments[].target_kind: "shot"` で名指しされた `structure.shots[]`（配列インデックスが `target_id`）**だけ**を改訂する。名指しされていないチャプター・ショットは無変更のまま次の提示に進む。
+- 改訂が終わったら **`plan-comments.json` を削除**してから、更新後の `structure-confirm` 決定カードを再提示する。
+- ファイルが無い回は、従来どおりチャットの差し戻し指示のみを解釈する。
+
 ## よくある間違い
 
 - 承認前に `structure.confirmed: true` を書く。

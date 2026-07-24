@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:plan-comments:v0",
+  "title": "AKARI Video plan-comments.json v0",
+  "description": "承認可能プラン層への構造化差し戻しコメント。提出のたび <plan-dir>/plan-comments.json を 1 ファイル上書き作成し、読み手スキルは承認チェックポイントでチャット解釈より先に本ファイルを読み、名指し対象だけ改訂してから削除する（回またぎ残存禁止）。詳細は docs/contract-2026-07-25-plan-comments-v0.md 参照。",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "pass", "submitted_at", "comments"],
+  "properties": {
+    "version": { "const": 0 },
+    "pass": {
+      "enum": ["structure", "scaffold", "final"],
+      "$comment": "structure = research-plan structure-confirm（対象 shot）/ scaffold = plan.json slot 向け承認（対象 slot）/ final = edit.json cut 向け承認（対象 cut）。契約 §4 の対応表。"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "$comment": "提出時刻（ISO 8601）。"
+    },
+    "comments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/comment" },
+      "$comment": "配列順に意味はない（対象名指しの集合）。空配列 = 提出したが個別指摘なし。"
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "comment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["target_kind", "target_id", "title", "text"],
+      "properties": {
+        "target_kind": {
+          "enum": ["shot", "slot", "cut"],
+          "$comment": "shot = research-plan.json structure.shots[] / slot = plan.json slots[] / cut = edit.json cuts[] の対象種別。"
+        },
+        "target_id": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "shot / cut は対象配列のインデックスを文字列化したもの（例 \"2\"。cuts[] は永続 id を持たないため）。slot は plan.json の slots[].id をそのまま使う。"
+        },
+        "title": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "提出時点の対象名コピー（並べ替え検知用の目視補助。参照解決には使わない — 正典は target_id）。"
+        },
+        "text": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "人間の指摘の逐語。要約・言い換えをしない。"
+        }
+      }
+    }
+  }
+}

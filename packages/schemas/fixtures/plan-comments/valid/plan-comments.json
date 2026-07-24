@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "pass": "structure",
+  "submitted_at": "2026-07-25T09:00:00.000Z",
+  "comments": [
+    {
+      "target_kind": "shot",
+      "target_id": "2",
+      "title": "操作デモのクローズアップ",
+      "text": "シーン 3 のグラフを棒グラフから折れ線グラフに差し替えて。"
+    },
+    {
+      "target_kind": "shot",
+      "target_id": "0",
+      "title": "フック",
+      "text": "冒頭の問いかけをもっと短く、5 秒以内にして。"
+    }
+  ]
+}

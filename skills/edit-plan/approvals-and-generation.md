@@ -87,6 +87,15 @@ OpenAI、Gemini 等の API キーを直接使わない。キーの提示を求�
 
 承認済み画像を i2v へ進めるには、対応画像の承認、素材計画の承認、実行 manifest の承認をすべて確認する。契約上の checkpoint 数 `3` は M5 の確定値であり、無操作タイムアウトで減らさない。
 
+## plan-comments.json による差し戻し受領
+
+Checkpoint 2 / Checkpoint 3 の再提示に着手する前に、`<plan-dir>/plan-comments.json` の有無を確認する（**チャット返信の解釈より先に本ファイルを読む**）。`research-plan/storyboard.md` の `structure-confirm` と同型の規約であり、正本は [contract-2026-07-25-plan-comments-v0.md](../../docs/contract-2026-07-25-plan-comments-v0.md)。
+
+- `pass: "scaffold"` の `plan-comments.json` が在れば、Checkpoint 2（素材計画）向けの差し戻しとして扱い、`comments[].target_kind: "slot"`（`target_id` は `plan.json` の `slots[].id`）で名指しされた slot **だけ**を改訂する。
+- `pass: "final"` の `plan-comments.json` が在れば、Checkpoint 3（実行）向けの差し戻しとして扱い、`comments[].target_kind: "cut"`（`target_id` は `edit.json` の `cuts[]` の配列インデックス）で名指しされた cut **だけ**を改訂する。
+- どちらも、名指しされていない slot / cut は無変更のまま次の提示に進む。改訂が終わったら **`plan-comments.json` を削除**してから、更新後の内容を再提示する。
+- ファイルが無い回は、従来どおりチャットの差し戻し指示のみを解釈する。
+
 ## よくある間違い
 
 - Codex が優先手であることを理由に、生成前宣言を省く。
