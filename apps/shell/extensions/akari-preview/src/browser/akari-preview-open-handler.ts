@@ -3064,6 +3064,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     void video.play().catch(error => console.error('[akari-preview] playback failed', error));
                 }
             };
+            const stopAtNaturalEnd = () => {
+                if (!isPlaying) return;
+                window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
+                isPlaying = false;
+                video.pause();
+                if (window.akari.previewAudio) window.akari.previewAudio.pause();
+            };
             const applyKeepRangeBoundary = () => {
                 const segment = segments[activeSegmentIndex];
                 if (!segment || segment.kind !== 'src') return;
@@ -3073,10 +3080,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (nextIndex < segments.length) {
                         outputTime = segments[nextIndex].outStart;
                         enterSegment(nextIndex);
-                    } else if (isPlaying) {
-                        window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
-                        isPlaying = false;
-                        video.pause();
+                    } else {
+                        stopAtNaturalEnd();
                     }
                     return;
                 }
@@ -3089,10 +3094,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (nextIndex < segments.length) {
                         outputTime = segments[nextIndex].outStart;
                         enterSegment(nextIndex);
-                    } else if (isPlaying) {
-                        window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
-                        isPlaying = false;
-                        video.pause();
+                    } else {
+                        stopAtNaturalEnd();
                     }
                     return;
                 }
@@ -3570,9 +3573,7 @@ body { display: grid; place-items: center; padding: 32px; }
                                 outputTime = segments[nextIndex].outStart;
                                 enterSegment(nextIndex);
                             } else {
-                                window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
-                                isPlaying = false;
-                                if (window.akari.previewAudio) window.akari.previewAudio.pause();
+                                stopAtNaturalEnd();
                             }
                         }
                     }
