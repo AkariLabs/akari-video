@@ -1,3 +1,5 @@
+import { findMatchingBracket, splitTopLevelElements, type SourceElement } from './edit-store';
+
 export interface CaptionRecord {
     id: string;
     start: number;
@@ -43,38 +45,20 @@ export function shiftCaptionLine(
     if (!captionId || !Number.isFinite(deltaStart) || !Number.isFinite(deltaEnd)) {
         throw new Error('字幕の調整値が不正です。');
     }
-    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
-    let matches = 0;
-    const updated = lines.map(line => {
-        const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
-        if (!idMatch || decodeJsonString(idMatch[1]) !== captionId) {
-            return line;
-        }
-        matches++;
-        const startMatch = new RegExp(`"start"\\s*:\\s*(${JSON_NUMBER})`).exec(line);
-        const endMatch = new RegExp(`"end"\\s*:\\s*(${JSON_NUMBER})`).exec(line);
-        if (!startMatch || !endMatch || !/"edited"\s*:\s*(?:true|false)/.test(line)) {
-            throw new Error(`字幕 ${captionId} の1行形式を確認できません。`);
-        }
-        const nextStart = Number(startMatch[1]) + deltaStart;
-        const nextEnd = Number(endMatch[1]) + deltaEnd;
-        if (!Number.isFinite(nextStart) || !Number.isFinite(nextEnd)
-            || nextStart < 0 || nextEnd - nextStart < 0.15) {
-            throw new Error('字幕が短すぎます（0.15 秒未満にはできません）');
-        }
-        return line
-            .replace(new RegExp(`("start"\\s*:\\s*)${JSON_NUMBER}`), (_match, prefix) =>
-                `${prefix}${JSON.stringify(nextStart)}`)
-            .replace(new RegExp(`("end"\\s*:\\s*)${JSON_NUMBER}`), (_match, prefix) =>
-                `${prefix}${JSON.stringify(nextEnd)}`)
-            .replace(/("edited"\s*:\s*)(?:true|false)/, '$1true');
-    }).join('');
-    if (matches !== 1) {
-        throw new Error(matches === 0
-            ? `字幕 ${captionId} が字幕データにありません。`
-            : `字幕 ${captionId} が字幕データに複数あります。`);
+    const array = locateCaptionArray(source);
+    const element = findCaptionElement(array.elements, captionId);
+    const start = readCaptionNumberProperty(element.text, 'start', captionId);
+    const end = readCaptionNumberProperty(element.text, 'end', captionId);
+    const nextStart = start + deltaStart;
+    const nextEnd = end + deltaEnd;
+    if (!Number.isFinite(nextStart) || !Number.isFinite(nextEnd)
+        || nextStart < 0 || nextEnd - nextStart < 0.15) {
+        throw new Error('字幕が短すぎます（0.15 秒未満にはできません）');
     }
-    return updated;
+    let nextElement = replaceCaptionProperty(element.text, 'start', nextStart, captionId);
+    nextElement = replaceCaptionProperty(nextElement, 'end', nextEnd, captionId);
+    nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
+    return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
 
 export function updateCaptionFieldsInSource(
@@ -94,90 +78,75 @@ export function updateCaptionFieldsInSource(
     if (updates.speaker !== undefined && updates.speaker !== null && typeof updates.speaker !== 'string') {
         throw new Error('字幕の話者は文字列または null で指定してください。');
     }
-    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
-    let matches = 0;
-    const updated = lines.map(line => {
-        const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
-        if (!idMatch || decodeJsonString(idMatch[1]) !== captionId) {
-            return line;
-        }
-        matches++;
-        let nextLine = line;
-        if (updates.text !== undefined) {
-            const textPattern = /"text"\s*:\s*"(?:\\.|[^"\\])*"/;
-            if (!textPattern.test(nextLine)) {
-                throw new Error(`字幕 ${captionId} の1行形式を確認できません。`);
-            }
-            nextLine = nextLine.replace(textPattern, `"text": ${JSON.stringify(updates.text)}`);
-        }
-        if (updates.speaker !== undefined) {
-            const speakerPattern = /"speaker"\s*:\s*(?:"(?:\\.|[^"\\])*"|null)/;
-            if (!speakerPattern.test(nextLine)) {
-                throw new Error(`字幕 ${captionId} の1行形式を確認できません。`);
-            }
-            nextLine = nextLine.replace(speakerPattern, `"speaker": ${JSON.stringify(updates.speaker)}`);
-        }
-        nextLine = nextLine.replace(/"edited"\s*:\s*(?:true|false)/, '"edited": true');
-        return nextLine;
-    }).join('');
-    if (matches !== 1) {
-        throw new Error(matches === 0
-            ? `字幕 ${captionId} が字幕データにありません。`
-            : `字幕 ${captionId} が字幕データに複数あります。`);
+    const array = locateCaptionArray(source);
+    const element = findCaptionElement(array.elements, captionId);
+    let nextElement = element.text;
+    if (updates.text !== undefined) {
+        nextElement = replaceCaptionProperty(nextElement, 'text', updates.text, captionId);
     }
-    return updated;
+    if (updates.speaker !== undefined) {
+        nextElement = replaceCaptionProperty(nextElement, 'speaker', updates.speaker, captionId);
+    }
+    nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
+    return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
 
 export function insertCaptionLine(source: string, caption: CaptionRecord): string {
     const parsed = parseCaptions(source);
-    if (parsed.captions.some(candidate => candidate.id === caption.id)) {
-        throw new Error(`字幕 ${caption.id} は既にあります。`);
-    }
     if (!normalizeCaption(caption)) {
         throw new Error('追加する字幕の形式が不正です。');
     }
-    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
-    const entries = captionLineEntries(lines, parsed.captions);
+    const array = locateCaptionArray(source);
+    const entries = captionElementEntries(array.elements);
+    if (entries.some(candidate => candidate.id === caption.id)) {
+        throw new Error(`字幕 ${caption.id} は既にあります。`);
+    }
+    // Preserve the existing validation behavior for duplicate/ambiguous records.
+    validateCaptionElements(entries, parsed.captions);
     const lineEnding = source.includes('\r\n') ? '\r\n' : '\n';
-    const firstIndent = entries[0]?.indent ?? '  ';
-    const serialized = `${firstIndent}${serializeCaption(caption)}`;
+    const serialized = serializeCaption(caption);
     const before = entries.find(entry => entry.start > caption.start);
-
     if (before) {
-        lines.splice(before.lineIndex, 0, `${serialized},${lineEnding}`);
-        return lines.join('');
+        const index = entries.indexOf(before);
+        const separator = whitespaceBeforeElement(array.inner, array.elements, index);
+        const nextInner = array.inner.slice(0, before.element.start)
+            + serialized + ',' + separator
+            + array.inner.slice(before.element.start);
+        return replaceArrayInner(source, array, nextInner);
     }
     if (entries.length > 0) {
         const last = entries[entries.length - 1];
-        lines[last.lineIndex] = addTrailingComma(lines[last.lineIndex]);
-        lines.splice(last.lineIndex + 1, 0, `${serialized}${lineEnding}`);
-        return lines.join('');
+        const index = array.elements.indexOf(last.element);
+        const separator = whitespaceBeforeElement(array.inner, array.elements, index);
+        const nextInner = array.inner.slice(0, last.element.end)
+            + ',' + separator + serialized
+            + array.inner.slice(last.element.end);
+        return replaceArrayInner(source, array, nextInner);
     }
-
-    const openLine = lines.findIndex(line => line.includes('['));
-    const closeLine = lines.findIndex((line, index) => index >= openLine && line.includes(']'));
-    if (openLine < 0 || closeLine < 0 || openLine === closeLine) {
-        throw new Error('字幕配列の1行形式を確認できません。');
-    }
-    lines.splice(closeLine, 0, `${serialized}${lineEnding}`);
-    return lines.join('');
+    return replaceArrayInner(source, array, insertIntoEmptyArray(array.inner, serialized, lineEnding));
 }
 
 export function removeCaptionLine(source: string, captionId: string): string {
     const parsed = parseCaptions(source);
-    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
-    const entries = captionLineEntries(lines, parsed.captions);
+    const array = locateCaptionArray(source);
+    const entries = captionElementEntries(array.elements);
+    validateCaptionElements(entries, parsed.captions);
     const index = entries.findIndex(entry => entry.id === captionId);
     if (index < 0) {
         throw new Error(`字幕 ${captionId} が字幕データにありません。`);
     }
     const entry = entries[index];
-    lines.splice(entry.lineIndex, 1);
-    if (index === entries.length - 1 && index > 0) {
-        const previousLineIndex = entries[index - 1].lineIndex;
-        lines[previousLineIndex] = removeTrailingComma(lines[previousLineIndex]);
+    let nextInner: string;
+    if (entries.length === 1) {
+        nextInner = array.inner.slice(0, entry.element.start) + array.inner.slice(entry.element.end);
+    } else if (index < entries.length - 1) {
+        nextInner = array.inner.slice(0, entry.element.start)
+            + array.inner.slice(entries[index + 1].element.start);
+    } else {
+        nextInner = array.inner.slice(0, entries[index - 1].element.end)
+            + array.inner.slice(entry.element.end);
     }
-    return lines.join('');
+    return replaceArrayInner(source, array, nextInner);
 }
 
 function normalizeCaption(value: any): CaptionRecord | undefined {
@@ -210,45 +179,160 @@ function normalizeCaption(value: any): CaptionRecord | undefined {
     };
 }
 
-function decodeJsonString(value: string): string {
-    try {
-        return JSON.parse(`"${value}"`);
-    } catch {
-        return value;
-    }
+interface CaptionArray {
+    openIndex: number;
+    closeIndex: number;
+    inner: string;
+    elements: SourceElement[];
 }
 
-function captionLineEntries(
-    lines: string[],
-    captions: CaptionRecord[]
-): Array<{ id: string; start: number; lineIndex: number; indent: string }> {
-    return captions.map(caption => {
-        const matches = lines.flatMap((line, lineIndex) => {
-            const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
-            return idMatch && decodeJsonString(idMatch[1]) === caption.id
-                ? [{ line, lineIndex }]
-                : [];
-        });
-        if (matches.length !== 1 || !matches[0].line.includes('{') || !matches[0].line.includes('}')) {
-            throw new Error(`字幕 ${caption.id} の1行形式を確認できません。`);
-        }
+interface CaptionElementEntry {
+    id: string | undefined;
+    start: number;
+    element: SourceElement;
+}
+
+function locateCaptionArray(source: string): CaptionArray {
+    const value = JSON.parse(source);
+    if (!Array.isArray(value)) {
+        throw new Error('字幕データの形式を確認できません。');
+    }
+    const rootStart = source.search(/\S/);
+    if (rootStart < 0 || source[rootStart] !== '[') {
+        throw new Error('字幕データの形式を確認できません。');
+    }
+    const closeIndex = findMatchingBracket(source, rootStart);
+    if (source.slice(closeIndex + 1).trim()) {
+        throw new Error('字幕データの形式を確認できません。');
+    }
+    const inner = source.slice(rootStart + 1, closeIndex);
+    return {
+        openIndex: rootStart,
+        closeIndex,
+        inner,
+        elements: splitTopLevelElements(inner)
+    };
+}
+
+function captionElementEntries(elements: SourceElement[]): CaptionElementEntry[] {
+    return elements.map(element => {
+        const value = JSON.parse(element.text);
         return {
-            id: caption.id,
-            start: caption.start,
-            lineIndex: matches[0].lineIndex,
-            indent: matches[0].line.match(/^\s*/)?.[0] ?? '  '
+            id: value && typeof value === 'object' && typeof value.id === 'string' ? value.id : undefined,
+            start: value && typeof value === 'object' && typeof value.start === 'number'
+                ? value.start : Number.POSITIVE_INFINITY,
+            element
         };
     });
 }
 
+function validateCaptionElements(
+    entries: CaptionElementEntry[],
+    captions: CaptionRecord[]
+): void {
+    for (const caption of captions) {
+        const matches = entries.filter(entry => entry.id === caption.id);
+        if (matches.length !== 1) {
+            throw new Error(matches.length === 0
+                ? `字幕 ${caption.id} のレコードを特定できません。`
+                : `字幕 ${caption.id} が字幕データに複数あります。`);
+        }
+    }
+}
+
+function findCaptionElement(elements: SourceElement[], captionId: string): SourceElement {
+    const entries = captionElementEntries(elements);
+    const matches = entries.filter(entry => entry.id === captionId);
+    if (matches.length !== 1) {
+        throw new Error(matches.length === 0
+            ? `字幕 ${captionId} が字幕データにありません。`
+            : `字幕 ${captionId} が字幕データに複数あります。`);
+    }
+    return matches[0].element;
+}
+
+function locateCaptionProperty(source: string, property: string, captionId: string): SourceElement {
+    const openIndex = source.search(/\S/);
+    if (openIndex < 0 || source[openIndex] !== '{') {
+        throw new Error(`字幕 ${captionId} のレコードを特定できません。`);
+    }
+    const closeIndex = findMatchingBracket(source, openIndex);
+    if (source.slice(closeIndex + 1).trim()) {
+        throw new Error(`字幕 ${captionId} のレコードを特定できません。`);
+    }
+    const inner = source.slice(openIndex + 1, closeIndex);
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = splitTopLevelElements(inner)
+        .filter(element => new RegExp(`^"${escapedProperty}"\\s*:`).test(element.text));
+    if (matches.length !== 1) {
+        throw new Error(`字幕 ${captionId} の ${property} プロパティを特定できません。`);
+    }
+    const match = matches[0];
+    return {
+        text: match.text,
+        start: openIndex + 1 + match.start,
+        end: openIndex + 1 + match.end
+    };
+}
+
+function replaceCaptionProperty(
+    source: string,
+    property: string,
+    value: number | string | boolean | null,
+    captionId: string
+): string {
+    const located = locateCaptionProperty(source, property, captionId);
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(
+        `^("${escapedProperty}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)`
+    );
+    if (!pattern.test(located.text)) {
+        throw new Error(`字幕 ${captionId} の ${property} プロパティを特定できません。`);
+    }
+    const nextProperty = located.text.replace(pattern, (_match, prefix) =>
+        `${prefix}${JSON.stringify(value)}`);
+    return source.slice(0, located.start) + nextProperty + source.slice(located.end);
+}
+
+function readCaptionNumberProperty(source: string, property: string, captionId: string): number {
+    const located = locateCaptionProperty(source, property, captionId);
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`^"${escapedProperty}"\\s*:\\s*(${JSON_NUMBER})`).exec(located.text);
+    if (!match) {
+        throw new Error(`字幕 ${captionId} の ${property} プロパティを特定できません。`);
+    }
+    return Number(match[1]);
+}
+
+function replaceElement(source: string, innerOffset: number, element: SourceElement, nextText: string): string {
+    const start = innerOffset + element.start;
+    const end = innerOffset + element.end;
+    return source.slice(0, start) + nextText + source.slice(end);
+}
+
+function replaceArrayInner(source: string, array: CaptionArray, nextInner: string): string {
+    return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
+}
+
+function whitespaceBeforeElement(inner: string, elements: SourceElement[], index: number): string {
+    if (index <= 0) {
+        return inner.slice(0, elements[0].start);
+    }
+    const between = inner.slice(elements[index - 1].end, elements[index].start);
+    const commaIndex = between.indexOf(',');
+    return commaIndex >= 0 ? between.slice(commaIndex + 1) : '';
+}
+
+function insertIntoEmptyArray(inner: string, serialized: string, lineEnding: string): string {
+    if (!inner.includes('\n')) {
+        return inner ? `${inner}${serialized}${inner}` : serialized;
+    }
+    const lastLineStart = inner.lastIndexOf('\n') + 1;
+    const closingIndent = inner.slice(lastLineStart);
+    const beforeClosingIndent = inner.slice(0, lastLineStart);
+    return `${beforeClosingIndent}${closingIndent}  ${serialized}${lineEnding}${closingIndent}`;
+}
+
 function serializeCaption(caption: CaptionRecord): string {
     return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)} }`;
-}
-
-function addTrailingComma(line: string): string {
-    return line.replace(/(\r?\n)?$/, (_match, ending = '') => `,${ending}`);
-}
-
-function removeTrailingComma(line: string): string {
-    return line.replace(/,(\s*)(\r?\n)?$/, (_match, whitespace, ending = '') => `${whitespace}${ending}`);
 }
