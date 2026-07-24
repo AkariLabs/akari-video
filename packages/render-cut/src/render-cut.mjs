@@ -180,6 +180,17 @@ export async function renderProject(input, options = {}) {
     const cutCommand = plan.commands.cut;
     runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
 
+    const trackStack = plan.commands.track_stack;
+    if (trackStack) {
+      runChecked(trackStack.base.command, trackStack.base.args, { cwd: projectRoot });
+      for (const track of trackStack.cutTracks) {
+        runChecked(track.command.command, track.command.args, { cwd: projectRoot });
+      }
+      for (const stage of trackStack.stages) {
+        runChecked(stage.command.command, stage.command.args, { cwd: projectRoot });
+      }
+    }
+
     // layers[] (contract-2026-07-22-prerender-rail-and-assets.md §1.2) composites onto the
     // cuts-joined base before overlays/captions are rasterized on top. plan.commands.layers is
     // null whenever edit.layers is absent/empty, so a layers-less edit.json never runs this
@@ -189,7 +200,7 @@ export async function renderProject(input, options = {}) {
     if (layersCommand) {
       runChecked(layersCommand.command, layersCommand.args, { cwd: projectRoot });
     }
-    const baseVideoPath = layersCommand ? layeredPath : cutPath;
+    const baseVideoPath = trackStack?.outputPath ?? (layersCommand ? layeredPath : cutPath);
 
     const overlays = loadedOverlays;
     const captions = captionOverlays;

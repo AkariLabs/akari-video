@@ -1,0 +1,55 @@
+{
+  "stack-a (cuts1 declared frontmost)": {
+    "track_order": [
+      "cuts0",
+      "layers0",
+      "cuts1"
+    ],
+    "output_sha256": "199cd739401f4a0c3cae31601132729e17d0c535dfb363f1b8b60634a7159310",
+    "t=2.0s (cuts1 x layers0 overlap window)": {
+      "rgb": {
+        "r": 255,
+        "g": 254,
+        "b": 0
+      },
+      "classified": "yellow(layers0)"
+    },
+    "t=0.2s (base track only, regression check)": {
+      "rgb": {
+        "r": 0,
+        "g": 128,
+        "b": 1
+      },
+      "classified": "green(cuts0)"
+    }
+  },
+  "stack-b (layers0 declared frontmost, reversed)": {
+    "track_order": [
+      "cuts0",
+      "cuts1",
+      "layers0"
+    ],
+    "output_sha256": "199cd739401f4a0c3cae31601132729e17d0c535dfb363f1b8b60634a7159310",
+    "t=2.0s (cuts1 x layers0 overlap window)": {
+      "rgb": {
+        "r": 255,
+        "g": 254,
+        "b": 0
+      },
+      "classified": "yellow(layers0)"
+    },
+    "t=0.2s (base track only, regression check)": {
+      "rgb": {
+        "r": 0,
+        "g": 128,
+        "b": 1
+      },
+      "classified": "green(cuts0)"
+    }
+  },
+  "expectation": {
+    "stack-a t=2.0s": "blue(cuts1)",
+    "stack-b t=2.0s": "yellow(layers0)",
+    "both t=0.2s": "green(cuts0)"
+  }
+}

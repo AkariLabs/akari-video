@@ -112,6 +112,11 @@ interface EditSummaryTracks {
     audio?: EditSummaryTrackState[];
 }
 
+interface EditSummaryTimelineTrack {
+    kind: 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';
+    ref?: number;
+}
+
 interface EditSummary {
     output: { width: number; height: number; fps?: number };
     overlays: EditSummaryOverlay[];
@@ -119,6 +124,8 @@ interface EditSummary {
     cuts: EditSummaryCut[];
     audio?: EditSummaryAudio;
     tracks?: EditSummaryTracks;
+    timelineTracks?: EditSummaryTimelineTrack[];
+    hasInlineCaptions?: boolean;
     indicators: string[];
 }
 
@@ -1636,6 +1643,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(layerTracks ? { layers: layerTracks } : {}),
                 ...(audioTracks ? { audio: audioTracks } : {})
             } : undefined;
+            const timelineTracks: EditSummaryTimelineTrack[] | undefined = Array.isArray(edit?.timeline?.tracks)
+                ? edit.timeline.tracks.flatMap((value: unknown) => {
+                    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+                        return [];
+                    }
+                    const track = value as { kind?: unknown; ref?: unknown };
+                    const validKind = track.kind === 'cuts' || track.kind === 'layers'
+                        || track.kind === 'overlays' || track.kind === 'captions' || track.kind === 'audio';
+                    if (!validKind) {
+                        return [];
+                    }
+                    return [{
+                        kind: track.kind,
+                        ...(Number.isInteger(track.ref) && Number(track.ref) >= 0
+                            ? { ref: Number(track.ref) } : {})
+                    }];
+                })
+                : undefined;
             const audio = await this.resolveAudioAssets(edit?.audio, editUri, assetStreams, assetUris);
             const indicators: string[] = [];
             if (isTruthyObject(edit?.output?.look)) indicators.push('LUT');
@@ -1675,7 +1700,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     cuts,
                     indicators,
                     ...(audio ? { audio } : {}),
-                    ...(tracks ? { tracks } : {})
+                    ...(tracks ? { tracks } : {}),
+                    ...(timelineTracks ? { timelineTracks } : {}),
+                    ...(Array.isArray(edit?.captions) && edit.captions.length > 0
+                        ? { hasInlineCaptions: true } : {})
                 }
             };
         } catch (error) {
@@ -2666,9 +2694,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 const next = rect.width / Number(output.width || 1280);
                 displayScale = Number.isFinite(next) && next > 0 ? next : 1;
                 const stageTransform = 'translate(' + rect.x + 'px, ' + rect.y + 'px) scale(' + displayScale + ')';
-                layersStage.style.transform = stageTransform;
+                // A transform on #preview-layers would create a stacking context and trap every
+                // child layer above/below the group as a whole. Position each child in display
+                // pixels instead so its z-index can be compared directly with #preview-video.
+                layersStage.style.left = rect.x + 'px';
+                layersStage.style.top = rect.y + 'px';
+                layersStage.style.width = rect.width + 'px';
+                layersStage.style.height = rect.height + 'px';
+                layersStage.style.transform = '';
+                for (const layerVideo of layersStage.querySelectorAll('video')) {
+                    if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) continue;
+                    const x = Number(layerVideo.dataset.akariTransformX) || 0;
+                    const y = Number(layerVideo.dataset.akariTransformY) || 0;
+                    const scale = Number(layerVideo.dataset.akariTransformScale) || 1;
+                    const rotate = Number(layerVideo.dataset.akariTransformRotate) || 0;
+                    layerVideo.style.width = (layerVideo.videoWidth * scale * displayScale) + 'px';
+                    layerVideo.style.height = (layerVideo.videoHeight * scale * displayScale) + 'px';
+                    layerVideo.style.left = (rect.width / 2 + x * displayScale) + 'px';
+                    layerVideo.style.top = (rect.height / 2 + y * displayScale) + 'px';
+                    layerVideo.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg)';
+                }
                 stage.style.transform = stageTransform;
             };
+            window.akari.updateLayerLayout = updateStageScale;
             new ResizeObserver(updateStageScale).observe(wrapper);
             video.addEventListener('loadedmetadata', updateStageScale);
             updateStageScale();
@@ -2785,9 +2833,54 @@ body { display: grid; place-items: center; padding: 32px; }
             let styledCaptionActive = false;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
-            const centeredOffset = value => value >= 0
-                ? 'calc(50% + ' + value + 'px)'
-                : 'calc(50% - ' + Math.abs(value) + 'px)';
+            // Browser webviews cannot import packages/edit-lint/src/derive-tracks.mjs. Keep this
+            // copy behavior-identical to that shared function: kind groups in fixed order, each
+            // ref sorted ascending, followed by singleton captions/audio tracks.
+            const collectTrackNumbers = items => {
+                const tracks = new Set();
+                for (const item of Array.isArray(items) ? items : []) {
+                    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+                    if (!Object.prototype.hasOwnProperty.call(item, 'track')) {
+                        tracks.add(0);
+                    } else if (Number.isInteger(item.track) && item.track >= 0) {
+                        tracks.add(item.track);
+                    }
+                }
+                return Array.from(tracks).sort((left, right) => left - right);
+            };
+            const deriveTracks = () => {
+                const derived = [];
+                const append = (kind, ref) => derived.push({
+                    kind,
+                    ...(ref === undefined ? {} : { ref })
+                });
+                for (const kind of ['cuts', 'layers', 'overlays']) {
+                    for (const track of collectTrackNumbers(summary[kind])) append(kind, track);
+                }
+                if (summary.hasInlineCaptions) append('captions');
+                if (Array.isArray(summary.audio && summary.audio.sfx)
+                    && summary.audio.sfx.length > 0) append('audio', 0);
+                return derived;
+            };
+            const resolvedTracks = Array.isArray(summary.timelineTracks)
+                ? summary.timelineTracks : deriveTracks();
+            const visualTrackZ = new Map();
+            resolvedTracks.forEach((track, index) => {
+                if ((track.kind === 'cuts' || track.kind === 'layers') && Number.isInteger(track.ref)) {
+                    // Keep every cuts/layers element below #overlay-stage (z-index: 1) while
+                    // retaining timeline.tracks' bottom-to-top relative order.
+                    visualTrackZ.set(track.kind + ':' + track.ref, index - resolvedTracks.length);
+                }
+            });
+            const zForTrack = (kind, track) => {
+                const declared = visualTrackZ.get(kind + ':' + track);
+                return declared === undefined ? -resolvedTracks.length - track - 1 : declared;
+            };
+            const applyCutsZIndex = segment => {
+                if (segment && segment.kind === 'src') {
+                    video.style.zIndex = String(zForTrack('cuts', segment.track));
+                }
+            };
             const layerEntries = (Array.isArray(summary.layers) ? summary.layers : []).map((layer, index) => {
                 const layerVideo = document.createElement('video');
                 layerVideo.muted = true;
@@ -2800,18 +2893,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariLayerKind = String(layer.kind);
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
+                layerVideo.style.zIndex = String(zForTrack('layers', layer.track));
                 const transform = layer.transform || {};
                 const x = Number.isFinite(transform.x) ? transform.x : 0;
                 const y = Number.isFinite(transform.y) ? transform.y : 0;
                 const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
                 const rotate = Number.isFinite(transform.rotate) ? transform.rotate : 0;
+                layerVideo.dataset.akariTransformX = String(x);
+                layerVideo.dataset.akariTransformY = String(y);
+                layerVideo.dataset.akariTransformScale = String(scale);
+                layerVideo.dataset.akariTransformRotate = String(rotate);
                 const position = () => {
                     if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) return;
-                    layerVideo.style.width = (layerVideo.videoWidth * scale) + 'px';
-                    layerVideo.style.height = (layerVideo.videoHeight * scale) + 'px';
-                    layerVideo.style.left = centeredOffset(x);
-                    layerVideo.style.top = centeredOffset(y);
-                    layerVideo.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg)';
+                    if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 };
                 layerVideo.addEventListener('loadedmetadata', () => {
                     position();
@@ -2953,7 +3047,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     let winner = null;
                     for (const segment of resolved) {
                         if (segment.start <= midpoint && segment.end > midpoint
-                            && (!winner || segment.track > winner.track)) {
+                            && (!winner
+                                || zForTrack('cuts', segment.track) > zForTrack('cuts', winner.track))) {
                             winner = segment;
                         }
                     }
@@ -3577,6 +3672,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const applyCutsMuteState = () => {
                 const segment = segments[activeSegmentIndex];
+                applyCutsZIndex(segment);
                 const cutsTrackMuted = Boolean(segment && segment.kind === 'src'
                     && (allTracksMutedByScope.cuts || mutedTracksByScope.cuts.has(segment.track)));
                 const cutsTrackHidden = Boolean(segment && segment.kind === 'src'

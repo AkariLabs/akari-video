@@ -12,6 +12,12 @@ import {
   segmentDuration,
 } from "./cut-timeline.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
+import {
+  buildCutTrackCompositeCommand,
+  buildTrackBaseCommand,
+  resolveCutTrackRanges,
+} from "./track-compose.mjs";
+import { resolveTrackOrder, usesDefaultTrackOrder } from "./track-order.mjs";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
 const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
@@ -81,7 +87,8 @@ export function buildPlan({
   // layers[] is additive-only (contract-2026-07-22-prerender-rail-and-assets.md §1.2): an edit.json
   // without it produces no `layers` command and render-cut.mjs skips this stage entirely, so
   // existing projects keep their byte-identical cut.mp4 -> composite pipeline (zero regression).
-  const layers = hasLayers(edit)
+  const defaultTrackOrder = usesDefaultTrackOrder(edit);
+  const layers = defaultTrackOrder && hasLayers(edit)
     ? buildLayersCompositeCommand({
         layers: edit.layers,
         projectRoot,
@@ -93,6 +100,22 @@ export function buildPlan({
         height,
       })
     : null;
+  const trackStack = defaultTrackOrder
+    ? null
+    : buildTrackStackPlan({
+        edit,
+        projectRoot,
+        capabilities,
+        cutPath,
+        layeredPath,
+        temporary,
+        duration,
+        width,
+        height,
+        fps,
+        hasSourceAudio,
+      });
+  const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutPath);
 
   return {
     predicted_duration_seconds: duration,
@@ -118,6 +141,7 @@ export function buildPlan({
     intermediates: [
       cutPath,
       ...(layers ? [layeredPath] : []),
+      ...(trackStack ? trackStack.intermediates : []),
       sheetPath,
       overlayWebmPath,
       overlayMovPath,
@@ -173,19 +197,19 @@ export function buildPlan({
       composite: {
         hyperframes: buildAnimatedCompositeCommand(
           capabilities.ffmpegCommand,
-          layers ? layeredPath : cutPath,
+          baseVideoPath,
           overlayWebmPath,
           compositePath,
         ),
         "puppeteer-core": buildAnimatedCompositeCommand(
           capabilities.ffmpegCommand,
-          layers ? layeredPath : cutPath,
+          baseVideoPath,
           overlayMovPath,
           compositePath,
         ),
         "static-screenshot": buildStaticCompositeCommand(
           capabilities.ffmpegCommand,
-          layers ? layeredPath : cutPath,
+          baseVideoPath,
           compositePath,
           temporary,
           renderOverlays,
@@ -193,6 +217,7 @@ export function buildPlan({
         ),
       },
       layers,
+      track_stack: trackStack,
       audio_mix: buildAudioMixCommand({
         edit,
         projectRoot,
@@ -207,6 +232,128 @@ export function buildPlan({
         args: ["-v", "error", "-show_streams", "-show_format", "-of", "json", relativeOrAbsolute(projectRoot, outputPath)],
       },
     },
+  };
+}
+
+function buildTrackStackPlan({
+  edit,
+  projectRoot,
+  capabilities,
+  cutPath,
+  layeredPath,
+  temporary,
+  duration,
+  width,
+  height,
+  fps,
+  hasSourceAudio,
+}) {
+  const ordered = resolveTrackOrder(edit)
+    .map((track, orderIndex) => {
+      const ref = Number.isInteger(track?.ref) ? track.ref : null;
+      const items = track?.kind === "cuts"
+        ? edit.cuts.filter(cut => (cut.track ?? 0) === ref)
+        : track?.kind === "layers"
+          ? (edit.layers ?? []).filter(layer => (layer.track ?? 0) === ref)
+          : [];
+      return { kind: track?.kind, ref, orderIndex, items };
+    })
+    .filter(track => (track.kind === "cuts" || track.kind === "layers") && track.items.length > 0);
+
+  const basePath = join(temporary, "track-base.mp4");
+  const base = buildTrackBaseCommand({
+    ffmpegCommand: capabilities.ffmpegCommand,
+    inputPath: cutPath,
+    outputPath: basePath,
+    duration,
+    width,
+    height,
+    fps,
+  });
+  const cutTracks = [];
+  const stages = [];
+  let previousPath = basePath;
+
+  ordered.forEach((track, stageIndex) => {
+    const isLast = stageIndex === ordered.length - 1;
+    const outputPath = isLast ? layeredPath : join(temporary, `track-stage-${stageIndex}.mp4`);
+    if (track.kind === "cuts") {
+      const trackPath = join(temporary, `cut-track-${track.ref}-${track.orderIndex}.mp4`);
+      const command = edit.version === 1
+        ? buildMultiSourceCutCommand({
+            sourceInputs: capabilities.sourceInputs,
+            cutPath: trackPath,
+            cuts: track.items,
+            width,
+            height,
+            fps,
+            ffmpegCommand: capabilities.ffmpegCommand,
+            projectRoot,
+            look: edit.output.look,
+          })
+        : buildCutCommand({
+            sourcePath: resolve(projectRoot, edit.source.path),
+            cutPath: trackPath,
+            cuts: track.items,
+            width,
+            height,
+            fps,
+            hasAudio: hasSourceAudio,
+            duration,
+            ffmpegCommand: capabilities.ffmpegCommand,
+            projectRoot,
+            look: edit.output.look,
+            chromaKey: edit.source?.chroma_key,
+          });
+      cutTracks.push({ ref: track.ref, path: trackPath, command });
+      stages.push({
+        kind: "cuts",
+        ref: track.ref,
+        command: buildCutTrackCompositeCommand({
+          ffmpegCommand: capabilities.ffmpegCommand,
+          inputPath: previousPath,
+          trackPath,
+          outputPath,
+          ranges: resolveCutTrackRanges(track.items, {
+            version: edit.version,
+            sourceDuration: capabilities.sourceDuration,
+            outputDuration: duration,
+          }),
+          duration,
+        }),
+      });
+    } else {
+      stages.push({
+        kind: "layers",
+        ref: track.ref,
+        command: buildLayersCompositeCommand({
+          layers: track.items,
+          projectRoot,
+          ffmpegCommand: capabilities.ffmpegCommand,
+          inputPath: previousPath,
+          outputPath,
+          duration,
+          width,
+          height,
+        }),
+      });
+    }
+    previousPath = outputPath;
+  });
+
+  return {
+    base,
+    cutTracks,
+    stages,
+    outputPath: ordered.length > 0 ? layeredPath : basePath,
+    intermediates: [
+      basePath,
+      ...cutTracks.map(track => track.path),
+      ...stages
+        .slice(0, -1)
+        .map((_, index) => join(temporary, `track-stage-${index}.mp4`)),
+      ...(ordered.length > 0 ? [layeredPath] : []),
+    ],
   };
 }
 
