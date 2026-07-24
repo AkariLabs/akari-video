@@ -63,6 +63,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     /** 自動アタッチの重複判定・dispose 監視の対象として追跡中のタイムライン widget インスタンス。 */
     protected timelineWidget?: AkariAnnotationsWidget;
+    /** ワークスペースと edit.json の配置はセッション中不変として、再帰探索結果を共有する。 */
+    protected projectLocationPromise?: Promise<ProjectLocation | undefined>;
     /** セッション内でユーザーがタイムラインを明示的に閉じたら true。以降の自動アタッチを抑止する（アプリ再起動でリセット）。 */
     protected timelineDismissedThisSession = false;
 
@@ -217,7 +219,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * フォーカスは奪わず reveal のみに留める（一度開けば常駐し、内容だけが更新される）。
      */
     async openInspectorPanel(): Promise<AkariInspectorWidget | undefined> {
-        const timeline = await this.open();
+        const timeline = this.timelineWidget?.isAttached ? this.timelineWidget : await this.attach();
         if (!timeline) {
             return undefined;
         }
@@ -230,6 +232,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     protected async locate(): Promise<ProjectLocation | undefined> {
+        this.projectLocationPromise ??= this.resolveProjectLocation();
+        return this.projectLocationPromise;
+    }
+
+    protected async resolveProjectLocation(): Promise<ProjectLocation | undefined> {
         const roots = await this.workspaceService.roots;
         for (const root of roots) {
             const analysisUri = await this.findFirstCanonicalAnalysis(root.resource);

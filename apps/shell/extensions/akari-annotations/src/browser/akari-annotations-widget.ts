@@ -875,7 +875,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.cancelDrag(this.dragState);
                 return;
             }
-            if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0)) {
+            if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0)
+                && !this.isEditableTarget(event.target) && !this.isEditableTarget(document.activeElement)
+                && !(document.activeElement instanceof HTMLElement
+                    && document.activeElement.closest('.akari-inspector-widget'))) {
                 event.preventDefault();
                 event.stopPropagation();
                 this.applySelection(undefined);
@@ -1198,6 +1201,143 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                     this.hideNotice();
                     this.footer.textContent = '素材の範囲を変更しました。';
+                    return { ok: true };
+                }
+                case 'layer-transform-x':
+                case 'layer-transform-y':
+                case 'layer-scale':
+                case 'layer-rotate': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const layer = this.layers.find(candidate => candidate.id === request.id);
+                    if (!layer) {
+                        throw new Error(`レイヤー ${request.id} が見つかりません。`);
+                    }
+                    const property = request.kind === 'layer-transform-x' ? 'x'
+                        : request.kind === 'layer-transform-y' ? 'y'
+                            : request.kind === 'layer-scale' ? 'scale' : 'rotate';
+                    const original = layer.transform?.[property] ?? null;
+                    const nextFields = { [property]: request.value };
+                    const originalFields = { [property]: original };
+                    await this.annotationsService.setLayerTransform({
+                        editUri,
+                        projectRootUri,
+                        layerId: request.id,
+                        ...nextFields
+                    });
+                    this.pushHistory({
+                        label: 'レイヤーの変形を変更',
+                        undo: async () => {
+                            await this.annotationsService.setLayerTransform({
+                                editUri,
+                                projectRootUri,
+                                layerId: request.id,
+                                ...originalFields
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setLayerTransform({
+                                editUri,
+                                projectRootUri,
+                                layerId: request.id,
+                                ...nextFields
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'レイヤーの変形を変更しました。';
+                    return { ok: true };
+                }
+                case 'layer-opacity': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const layer = this.layers.find(candidate => candidate.id === request.id);
+                    if (!layer) {
+                        throw new Error(`レイヤー ${request.id} が見つかりません。`);
+                    }
+                    const original = layer.opacity ?? null;
+                    await this.annotationsService.setLayerOpacity({
+                        editUri,
+                        projectRootUri,
+                        layerId: request.id,
+                        opacity: request.value
+                    });
+                    this.pushHistory({
+                        label: 'レイヤーの不透明度を変更',
+                        undo: async () => {
+                            await this.annotationsService.setLayerOpacity({
+                                editUri,
+                                projectRootUri,
+                                layerId: request.id,
+                                opacity: original
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setLayerOpacity({
+                                editUri,
+                                projectRootUri,
+                                layerId: request.id,
+                                opacity: request.value
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'レイヤーの不透明度を変更しました。';
+                    return { ok: true };
+                }
+                case 'layer-blend': {
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const layer = this.layers.find(candidate => candidate.id === request.id);
+                    if (!layer) {
+                        throw new Error(`レイヤー ${request.id} が見つかりません。`);
+                    }
+                    const original = layer.blend ?? null;
+                    await this.annotationsService.setLayerBlend({
+                        editUri,
+                        projectRootUri,
+                        layerId: request.id,
+                        blend: request.value
+                    });
+                    this.pushHistory({
+                        label: 'レイヤーの合成を変更',
+                        undo: async () => {
+                            await this.annotationsService.setLayerBlend({
+                                editUri,
+                                projectRootUri,
+                                layerId: request.id,
+                                blend: original
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setLayerBlend({
+                                editUri,
+                                projectRootUri,
+                                layerId: request.id,
+                                blend: request.value
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'レイヤーの合成を変更しました。';
                     return { ok: true };
                 }
                 case 'caption-text':
