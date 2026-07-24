@@ -255,6 +255,23 @@ export interface SetCutSpeedRequest {
     speed: number | null;
 }
 
+export interface SetCutTransformRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    x?: number | null;
+    y?: number | null;
+    scale?: number | null;
+    rotate?: number | null;
+}
+
+export interface SetCutOpacityRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    opacity: number | null;
+}
+
 export interface SetLayerTransformRequest {
     editUri: string;
     projectRootUri: string;
@@ -357,6 +374,8 @@ export interface AkariAnnotationsService {
     removeSfx(request: RemoveSfxRequest): Promise<RemoveSfxResult>;
     insertSfx(request: InsertSfxRequest): Promise<WriteBackResult>;
     setCutSpeed(request: SetCutSpeedRequest): Promise<WriteBackResult>;
+    setCutTransform(request: SetCutTransformRequest): Promise<WriteBackResult>;
+    setCutOpacity(request: SetCutOpacityRequest): Promise<WriteBackResult>;
     setLayerTransform(request: SetLayerTransformRequest): Promise<WriteBackResult>;
     setLayerOpacity(request: SetLayerOpacityRequest): Promise<WriteBackResult>;
     setLayerBlend(request: SetLayerBlendRequest): Promise<WriteBackResult>;

@@ -11,6 +11,7 @@ import {
   resolveCutSegments,
   segmentDuration,
 } from "./cut-timeline.mjs";
+import { appendCutVisualTransform, hasCutVisualTransform } from "./cut-transform.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
 import {
   buildCutTrackCompositeCommand,
@@ -743,6 +744,7 @@ export function buildCutCommand({
     return buildGapAwareCutCommand({ sourcePath, cutPath, cuts, width, height, fps, hasAudio, duration, ffmpegCommand, projectRoot, look, chromaKey });
   }
   const effectiveCuts = cuts.length > 0 ? cuts : [{ in: 0, out: null }];
+  const transformCuts = hasCutVisualTransform(effectiveCuts);
   const filters = [];
   const concatInputs = [];
   // docs/contract-2026-07-22-render-basics.md #3 (cuts[].transition_out). Residual decision 3
@@ -768,9 +770,23 @@ export function buildCutCommand({
     // pitch back to the original, chained in <=2x/>=0.5x steps per ffmpeg's atempo range limit.
     const speed = cutSpeed(cut);
     const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
+    const trimmedLabel = transformCuts ? `[vraw${index}]` : `[v${index}]`;
     filters.push(
-      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}${timebaseNormalizer}[v${index}]`,
+      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}${timebaseNormalizer}${trimmedLabel}`,
     );
+    if (transformCuts) {
+      appendCutVisualTransform({
+        filters,
+        inputLabel: trimmedLabel,
+        outputLabel: `[v${index}]`,
+        cut,
+        id: `v${index}`,
+        width,
+        height,
+        fps,
+        duration: segmentDuration(cut),
+      });
+    }
     concatInputs.push(`[v${index}]`);
     if (hasAudio) {
       const atempoSuffix = buildAtempoChain(speed)
@@ -822,9 +838,9 @@ export function buildCutCommand({
   }
 
   const scaledLabel = chromaKey || look ? "[scaled]" : "[outv]";
-  filters.push(
-    `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`,
-  );
+  filters.push(transformCuts
+    ? `[joinedv]null${scaledLabel}`
+    : `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`);
 
   // docs/contract-2026-07-22-render-basics.md #2 (source.chroma_key). Applied post-scale/pad so a
   // single insertion point covers both chroma key and LUT; the background is either a solid color
@@ -933,14 +949,33 @@ export function buildMultiSourceCutCommand({
   const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
   const filters = [];
   const concatInputs = [];
+  const transformCuts = hasCutVisualTransform(cuts);
 
   for (const [index, cut] of cuts.entries()) {
     const source = inputsById.get(cut.src);
     const speed = cutSpeed(cut);
     const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
-    filters.push(
-      `[${source.inputIndex}:v]trim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},setpts=${ptsExpr},scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1[v${index}]`,
-    );
+    if (transformCuts) {
+      const trimmedLabel = `[vraw${index}]`;
+      filters.push(
+        `[${source.inputIndex}:v]trim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},setpts=${ptsExpr}${trimmedLabel}`,
+      );
+      appendCutVisualTransform({
+        filters,
+        inputLabel: trimmedLabel,
+        outputLabel: `[v${index}]`,
+        cut,
+        id: `v1_${index}`,
+        width,
+        height,
+        fps,
+        duration: segmentDuration(cut),
+      });
+    } else {
+      filters.push(
+        `[${source.inputIndex}:v]trim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},setpts=${ptsExpr},scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1[v${index}]`,
+      );
+    }
     concatInputs.push(`[v${index}]`);
 
     if (source.hasAudio) {
@@ -1026,6 +1061,7 @@ function buildGapAwareCutCommand({
   const runs = computeVideoRuns(segments, duration);
   const filters = [];
   const videoLabels = [];
+  const transformCuts = hasCutVisualTransform(cuts);
   for (const [index, run] of runs.entries()) {
     const label = `[gv${index}]`;
     if (run.kind === "gap") {
@@ -1035,9 +1071,27 @@ function buildGapAwareCutCommand({
     } else {
       const speed = cutSpeed(run.cut);
       const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
-      filters.push(
-        `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${label}`,
-      );
+      if (transformCuts) {
+        const trimmedLabel = `[gvraw${index}]`;
+        filters.push(
+          `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${trimmedLabel}`,
+        );
+        appendCutVisualTransform({
+          filters,
+          inputLabel: trimmedLabel,
+          outputLabel: label,
+          cut: run.cut,
+          id: `gap_${index}`,
+          width,
+          height,
+          fps,
+          duration: run.outEnd - run.outStart,
+        });
+      } else {
+        filters.push(
+          `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${label}`,
+        );
+      }
     }
     videoLabels.push(label);
   }
@@ -1069,9 +1123,9 @@ function buildGapAwareCutCommand({
   }
 
   const scaledLabel = chromaKey || look ? "[scaled]" : "[outv]";
-  filters.push(
-    `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`,
-  );
+  filters.push(transformCuts
+    ? `[joinedv]null${scaledLabel}`
+    : `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`);
 
   // docs/contract-2026-07-22-render-basics.md #2 (source.chroma_key). Applied post-scale/pad so a
   // single insertion point covers both chroma key and LUT; the background is either a solid color

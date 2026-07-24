@@ -102,6 +102,79 @@ function CUT_TABS(
             label: '基本',
             fields: [
                 {
+                    label: 'X',
+                    getValue: () => String(snapshot.transform?.x ?? 0),
+                    getEditValue: () => String(snapshot.transform?.x ?? 0),
+                    inputKind: 'scrub-number',
+                    scrubStep: 1,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed)) {
+                            return { ok: false, message: 'X は有限数値で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'cut-transform-x', index: snapshot.index, value: parsed });
+                    }
+                },
+                {
+                    label: 'Y',
+                    getValue: () => String(snapshot.transform?.y ?? 0),
+                    getEditValue: () => String(snapshot.transform?.y ?? 0),
+                    inputKind: 'scrub-number',
+                    scrubStep: 1,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed)) {
+                            return { ok: false, message: 'Y は有限数値で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'cut-transform-y', index: snapshot.index, value: parsed });
+                    }
+                },
+                {
+                    label: '拡大率',
+                    getValue: () => String(snapshot.transform?.scale ?? 1),
+                    getEditValue: () => String(snapshot.transform?.scale ?? 1),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.01,
+                    min: 0.01,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed <= 0) {
+                            return { ok: false, message: '拡大率は正の数で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'cut-scale', index: snapshot.index, value: parsed });
+                    }
+                },
+                {
+                    label: '回転',
+                    getValue: () => String(snapshot.transform?.rotate ?? 0),
+                    getEditValue: () => String(snapshot.transform?.rotate ?? 0),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.1,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed)) {
+                            return { ok: false, message: '回転は有限数値で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'cut-rotate', index: snapshot.index, value: parsed });
+                    }
+                },
+                {
+                    label: '不透明度',
+                    getValue: () => String(snapshot.opacity ?? 1),
+                    getEditValue: () => String(snapshot.opacity ?? 1),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.01,
+                    min: 0,
+                    max: 1,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+                            return { ok: false, message: '不透明度は 0〜1 の範囲で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: parsed });
+                    }
+                },
+                {
                     label: 'speed',
                     getValue: () => withDefaultNumber(snapshot.speed, 1, formatDecimal1),
                     getEditValue: () => String(snapshot.speed ?? 1),

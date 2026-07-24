@@ -59,6 +59,8 @@ interface EditSummaryLayer {
 interface EditSummaryCut {
     in: number;
     out: number;
+    transform?: OverlayTransform;
+    opacity?: number;
     speed?: number;
     transitionOut?: {
         type: 'dissolve' | 'fade-black' | 'fade-white';
@@ -1191,9 +1193,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected queueRefresh(widget: PreviewWidgetMarker, identityUri: URI, kind: 'raw' | 'output'): void {
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
+        const refresh = (): Promise<void> => {
+            const editUri = kind === 'output' ? widget.akariPreviewEditUri : undefined;
+            const transport = editUri
+                ? this.reviewTransportByEdit.get(editUri.normalizePath().toString())
+                : undefined;
+            return this.refreshPreview(
+                widget,
+                identityUri,
+                kind,
+                transport?.timelineT,
+                transport?.playing
+            );
+        };
         widget.akariPreviewRefresh = previous.then(
-            () => this.refreshPreview(widget, identityUri, kind),
-            () => this.refreshPreview(widget, identityUri, kind)
+            refresh,
+            refresh
         ).catch(error => console.error('[akari-preview] failed to refresh preview', error));
     }
 
@@ -1209,7 +1224,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         identityUri: URI,
         kind: 'raw' | 'output',
-        initialSeekTime?: number
+        initialSeekTime?: number,
+        initialPlaying = false
     ): Promise<void> {
         if (widget.isDisposed) {
             return;
@@ -1355,7 +1371,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             });
         }
-        widget.setHTML(this.prepareHtml(videoUri, videoStream.url, model, assets, initialSeekTime));
+        widget.setHTML(this.prepareHtml(
+            videoUri,
+            videoStream.url,
+            model,
+            assets,
+            initialSeekTime,
+            initialPlaying
+        ));
     }
 
     // Picks the URI that actually gets streamed to <video>: an explicit edit.json source.proxy
@@ -1487,6 +1510,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     cuts.push({
                         in: inSeconds,
                         out: outSeconds,
+                        ...(value?.transform && typeof value.transform === 'object' && !Array.isArray(value.transform)
+                            ? { transform: this.transform(value.transform) } : {}),
+                        ...(typeof value?.opacity === 'number' && Number.isFinite(value.opacity)
+                            && value.opacity >= 0 && value.opacity <= 1 ? { opacity: value.opacity } : {}),
                         ...(speed !== undefined ? { speed } : {}),
                         ...(transitionOut ? { transitionOut } : {}),
                         ...(at !== undefined ? { at } : {}),
@@ -2114,7 +2141,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         videoSource: string,
         model: PreviewModel,
         assets: OverlayRuntimeAssets,
-        initialSeekTime?: number
+        initialSeekTime?: number,
+        initialPlaying = false
     ): string {
         const { width, height } = model.summary.output;
         const captionFontSize = Math.round(height * 0.05);
@@ -2126,6 +2154,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             relatedEditUri: model.relatedEditUri?.toString() ?? null,
             videoUri: videoUri.toString(),
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
+            initialPlaying,
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
             hiddenTracks: model.session?.hiddenTracks ?? [],
@@ -2714,6 +2743,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     layerVideo.style.top = (rect.height / 2 + y * displayScale) + 'px';
                     layerVideo.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg)';
                 }
+                if (video.dataset.akariCutTransformActive === 'true') {
+                    const x = Number(video.dataset.akariTransformX) || 0;
+                    const y = Number(video.dataset.akariTransformY) || 0;
+                    const scale = Number(video.dataset.akariTransformScale) || 1;
+                    const rotate = Number(video.dataset.akariTransformRotate) || 0;
+                    video.style.transform = 'translate(' + (x * displayScale) + 'px, '
+                        + (y * displayScale) + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
+                } else {
+                    video.style.transform = '';
+                }
                 stage.style.transform = stageTransform;
             };
             window.akari.updateLayerLayout = updateStageScale;
@@ -2881,6 +2920,30 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.style.zIndex = String(zForTrack('cuts', segment.track));
                 }
             };
+            const applyCutVisual = segment => {
+                if (!segment || segment.kind !== 'src') {
+                    video.dataset.akariCutTransformActive = 'false';
+                    video.style.transform = '';
+                    video.style.opacity = '';
+                    return;
+                }
+                const transform = segment.transform;
+                if (transform) {
+                    const x = Number.isFinite(transform.x) ? transform.x : 0;
+                    const y = Number.isFinite(transform.y) ? transform.y : 0;
+                    const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
+                    const rotate = Number.isFinite(transform.rotate) ? transform.rotate : 0;
+                    video.dataset.akariCutTransformActive = 'true';
+                    video.dataset.akariTransformX = String(x);
+                    video.dataset.akariTransformY = String(y);
+                    video.dataset.akariTransformScale = String(scale);
+                    video.dataset.akariTransformRotate = String(rotate);
+                } else {
+                    video.dataset.akariCutTransformActive = 'false';
+                }
+                video.style.opacity = Number.isFinite(segment.opacity) ? String(segment.opacity) : '';
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+            };
             const layerEntries = (Array.isArray(summary.layers) ? summary.layers : []).map((layer, index) => {
                 const layerVideo = document.createElement('video');
                 layerVideo.muted = true;
@@ -2957,7 +3020,14 @@ body { display: grid; place-items: center; padding: 32px; }
                             && transition.duration > 0
                             ? { type: transition.type, duration: transition.duration }
                             : null;
-                        valid.push({ in: start, out: end, speed, transitionOut });
+                        valid.push({
+                            in: start,
+                            out: end,
+                            speed,
+                            transitionOut,
+                            transform: candidate.transform,
+                            opacity: candidate.opacity
+                        });
                     }
                 }
                 return valid;
@@ -3079,6 +3149,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         out: range.out,
                         speed: range.speed,
                         transitionOut: range.transitionOut,
+                        transform: range.transform,
+                        opacity: range.opacity,
                         track: 0
                     }));
                 } else {
@@ -3098,6 +3170,8 @@ body { display: grid; place-items: center; padding: 32px; }
                             out: run.winner.cut.in + (run.end - run.winner.start) * speed,
                             speed,
                             transitionOut: null,
+                            transform: run.winner.cut.transform,
+                            opacity: run.winner.cut.opacity,
                             track: run.winner.track
                         };
                     });
@@ -3167,6 +3241,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 currentSegmentIndex = index;
                 const segment = segments[index];
                 if (segment.kind === 'gap') {
+                    applyCutVisual(segment);
                     pausedForGapEntry = true;
                     video.pause();
                     video.style.visibility = 'hidden';
@@ -3174,6 +3249,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     gapOutputOrigin = outputTime;
                     return;
                 }
+                applyCutVisual(segment);
                 video.style.visibility = '';
                 syncSegmentPlaybackRate();
                 const segmentDuration = segment.outEnd - segment.outStart;
@@ -3268,6 +3344,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else if (segments.length > 0) {
                     outputTime = segments[0].outStart;
                     enterSegment(0);
+                }
+                if (initial.initialPlaying === true && !isPlaying) {
+                    togglePlayback();
                 }
             };
             const zoomToSlider = value => {

@@ -1,0 +1,42 @@
+{
+  "rootCause": {
+    "classification": "バグ2との複合症状",
+    "details": "layer transform / opacity / blend は edit.json の再読込時に summary へ入り、webview 再生成時に dataset と CSS へ再適用される既存実装だった。一方、編集起因の queueRefresh は transport を渡さず先頭へ戻していたため、表示中だった layer の時間窓から外れ、反映されていないように見える複合症状になっていた。",
+    "notConsumptionMissing": [
+      "loadPreviewModel が layers[].transform / opacity / blend を EditSummaryLayer へ正規化する",
+      "previewBootstrapScript が各値を video dataset / style.opacity / style.mixBlendMode へ設定する",
+      "hostAdapterScript の updateStageScale が dataset の transform を CSS レイアウトへ適用する"
+    ],
+    "notReloadReapplyMissing": "queueRefresh は refreshPreview -> prepareHtml -> setHTML で edit.json を再読込し、layer DOM を新規生成するため、変形値自体は再適用される。"
+  },
+  "transportFix": {
+    "paused": "直近 playbackTick の timelineT を復元し、一時停止を維持する",
+    "playing": "直近 playbackTick の timelineT を復元後、再生を再開する"
+  },
+  "verification": {
+    "productionBuild": "npm run build: exit 0",
+    "electronPreviewAttempt": "隔離 user-data-dir / port 9457 で起動を試みたが、実行サンドボックスが Electron と Chrome を SIGABRT (exit 134) で停止したため CDP GUI 計測は未取得",
+    "renderCutTests": "130 pass / 0 fail / 2 environment skips",
+    "transformPixelCase": {
+      "canvas": "640x360",
+      "transform": {
+        "x": 20,
+        "y": -10,
+        "scale": 0.5,
+        "rotate": 20
+      },
+      "opacity": 0.5,
+      "measuredCentroid": {
+        "x": 339.81263690546945,
+        "y": 169.65526141515682
+      },
+      "litPixels": 58891,
+      "averageRed": 124.21802991968212
+    },
+    "omittedTransformByteEquivalence": {
+      "baselineSha256": "6370fa17b59aac0e70e9ecba5e0226f941b26664e90528d0d08be8a34ee69ccc",
+      "currentSha256": "6370fa17b59aac0e70e9ecba5e0226f941b26664e90528d0d08be8a34ee69ccc",
+      "cmpExit": 0
+    }
+  }
+}
