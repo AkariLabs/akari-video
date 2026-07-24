@@ -2331,14 +2331,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: none; }
 #overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; }
-#pen-layer { position: absolute; top: 0; left: 0; z-index: 2; overflow: visible; pointer-events: none; }
+#pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
-.akari-pen-stroke { opacity: 1; transition: opacity 1.5s ease-out; pointer-events: none; }
-.akari-pen-stroke.is-fading { opacity: 0; }
-.akari-pen-line { fill: none; stroke: url(#akari-pen-platinum); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 2px rgba(224,232,255,0.95)) drop-shadow(0 1px 3px rgba(255,255,255,0.5)); }
-.akari-pen-sparkle { fill: #fff; stroke: #dce5f4; stroke-width: 0.6; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; animation: akari-pen-twinkle 0.7s ease-in-out infinite alternate; }
-.akari-pen-static .akari-pen-line { stroke-width: 3; }
-@keyframes akari-pen-twinkle { from { opacity: 0.25; transform: scale(0.72); } to { opacity: 0.92; transform: scale(1.16); } }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; }
 #caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
 #caption-plate:empty { display: none; }
@@ -2392,16 +2386,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
         <div id="preview-layers"></div>
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
-        <svg id="pen-layer" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="akari-pen-platinum" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#ffffff"/>
-              <stop offset="0.48" stop-color="#d9deea"/>
-              <stop offset="0.72" stop-color="#ffffff"/>
-              <stop offset="1" stop-color="#c8cfdd"/>
-            </linearGradient>
-          </defs>
-        </svg>
+        <canvas id="pen-layer" aria-hidden="true"></canvas>
       </div>
       <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
       <button id="output-preview-link" class="output-preview-link" type="button"${model.relatedEditUri ? '' : ' hidden'}>合成は出力プレビューで確認（開く）</button>
@@ -2984,6 +2969,24 @@ body { display: grid; place-items: center; padding: 32px; }
             const ZOOM_MAX = 8;
             const SNAP_TOLERANCE = 0.025;
             const CLICK_THRESHOLD_PX = 4;
+            // ペン描画のチューニング定数（密度・グロー・フェード等はここだけで調整する）
+            const PEN_TUNING = {
+                maxDevicePixelRatio: 2,
+                coreWidthPx: 3.4,
+                staticCoreWidthPx: 3,
+                coreAlpha: 0.98,
+                glowAlpha: 0.5,
+                glowSizePx: 30,
+                sparkleSpritePx: 32,
+                sparklesPerSegment: 2,
+                sparkleMaxPoolSize: 220,
+                sparkleJitterPx: 9,
+                sparkleMinSizePx: 5,
+                sparkleMaxSizePx: 13,
+                sparkleLifetimeMs: 620,
+                sparkleTwinkleHz: 2.2,
+                fadeDurationMs: 1500
+            };
             const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
             const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"></path></svg>';
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
@@ -3092,12 +3095,206 @@ body { display: grid; place-items: center; padding: 32px; }
             let reviewRecordingActive = false;
             let penModeActive = false;
             let currentStroke = null;
+            let fadingStrokes = [];
+            let sparkles = [];
+            let lastStaticStrokePoints = null;
+            let activeDrawRect = null;
+            let penCanvasWidth = 0;
+            let penCanvasHeight = 0;
+            let penCanvasDpr = 1;
+            let penAnimationHandle = 0;
+            let platinumGradient = null;
+            let staticBitmap = null;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
-            const svgElement = name => document.createElementNS('http://www.w3.org/2000/svg', name);
-            const pointText = points => points.map(point => point[0] + ',' + point[1]).join(' ');
+            const penCtx = penLayer.getContext('2d');
+            const createGlowSprite = size => {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+                gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
+                gradient.addColorStop(0.4, 'rgba(226,234,255,0.55)');
+                gradient.addColorStop(1, 'rgba(226,234,255,0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+                return canvas;
+            };
+            const createSparkleSprite = size => {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                const center = size / 2;
+                const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+                ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+                ctx.lineWidth = Math.max(1, size * 0.06);
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(center, center - size * 0.42);
+                ctx.lineTo(center, center + size * 0.42);
+                ctx.moveTo(center - size * 0.42, center);
+                ctx.lineTo(center + size * 0.42, center);
+                ctx.stroke();
+                return canvas;
+            };
+            const glowSprite = createGlowSprite(Math.max(64, PEN_TUNING.glowSizePx * 3));
+            const sparkleSprite = createSparkleSprite(Math.max(48, PEN_TUNING.sparkleSpritePx * 3));
+            const allocPenCanvas = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(penCanvasWidth * penCanvasDpr));
+                canvas.height = Math.max(1, Math.round(penCanvasHeight * penCanvasDpr));
+                const ctx = canvas.getContext('2d');
+                ctx.setTransform(penCanvasDpr, 0, 0, penCanvasDpr, 0, 0);
+                return { canvas, ctx };
+            };
+            const rebuildPlatinumGradient = () => {
+                if (!(penCanvasWidth > 0) || !(penCanvasHeight > 0)) { platinumGradient = null; return; }
+                const gradient = penCtx.createLinearGradient(0, 0, penCanvasWidth, penCanvasHeight);
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(0.48, '#d9deea');
+                gradient.addColorStop(0.72, '#ffffff');
+                gradient.addColorStop(1, '#c8cfdd');
+                platinumGradient = gradient;
+            };
+            const drawSegment = (ctx, from, to, options) => {
+                const width = (options && options.coreWidthPx) || PEN_TUNING.coreWidthPx;
+                const fromPx = [from[0] * penCanvasWidth, from[1] * penCanvasHeight];
+                const toPx = [to[0] * penCanvasWidth, to[1] * penCanvasHeight];
+                const glowSize = PEN_TUNING.glowSizePx;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = PEN_TUNING.glowAlpha;
+                ctx.drawImage(glowSprite, toPx[0] - glowSize / 2, toPx[1] - glowSize / 2, glowSize, glowSize);
+                ctx.restore();
+                ctx.save();
+                ctx.globalAlpha = PEN_TUNING.coreAlpha;
+                ctx.strokeStyle = platinumGradient || '#eef2fb';
+                ctx.lineWidth = width;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(fromPx[0], fromPx[1]);
+                ctx.lineTo(toPx[0], toPx[1]);
+                ctx.stroke();
+                ctx.restore();
+            };
+            const paintStaticStroke = points => {
+                if (!staticBitmap) return;
+                for (let index = 0; index < points.length - 1; index += 1) {
+                    drawSegment(staticBitmap.ctx, points[index], points[index + 1], { coreWidthPx: PEN_TUNING.staticCoreWidthPx });
+                }
+            };
+            const redrawStrokeFull = stroke => {
+                stroke.canvas.width = Math.max(1, Math.round(penCanvasWidth * penCanvasDpr));
+                stroke.canvas.height = Math.max(1, Math.round(penCanvasHeight * penCanvasDpr));
+                stroke.ctx.setTransform(penCanvasDpr, 0, 0, penCanvasDpr, 0, 0);
+                for (let index = 0; index < stroke.points.length - 1; index += 1) {
+                    drawSegment(stroke.ctx, stroke.points[index], stroke.points[index + 1]);
+                }
+                stroke.drawnIndex = Math.max(0, stroke.points.length - 1);
+            };
+            const resizePenCanvases = () => {
+                const cssWidth = Math.max(1, Math.round(penLayer.clientWidth || 1));
+                const cssHeight = Math.max(1, Math.round(penLayer.clientHeight || 1));
+                const dpr = Math.min(PEN_TUNING.maxDevicePixelRatio, window.devicePixelRatio || 1);
+                if (cssWidth === penCanvasWidth && cssHeight === penCanvasHeight && dpr === penCanvasDpr) return;
+                penCanvasWidth = cssWidth;
+                penCanvasHeight = cssHeight;
+                penCanvasDpr = dpr;
+                penLayer.width = Math.round(cssWidth * dpr);
+                penLayer.height = Math.round(cssHeight * dpr);
+                penCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                rebuildPlatinumGradient();
+                staticBitmap = allocPenCanvas();
+                if (Array.isArray(lastStaticStrokePoints)) {
+                    for (const points of lastStaticStrokePoints) paintStaticStroke(points);
+                }
+                if (currentStroke) redrawStrokeFull(currentStroke);
+                for (const fading of fadingStrokes) redrawStrokeFull(fading);
+                recomposite();
+            };
+            const penFadeAlpha = (fading, timestamp) => {
+                const now = timestamp || performance.now();
+                return clamp(1 - (now - fading.fadeStartedAt) / PEN_TUNING.fadeDurationMs, 0, 1);
+            };
+            const updateAndDrawSparkles = (ctx, timestamp) => {
+                if (sparkles.length === 0) return;
+                const alive = [];
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                for (const sparkle of sparkles) {
+                    const age = timestamp - sparkle.bornAt;
+                    if (age >= sparkle.lifetimeMs) continue;
+                    const fade = 1 - age / sparkle.lifetimeMs;
+                    const twinkle = 0.6 + 0.4 * Math.sin((timestamp / 1000) * PEN_TUNING.sparkleTwinkleHz * Math.PI * 2 + sparkle.phase);
+                    ctx.globalAlpha = clamp(fade * twinkle, 0, 1);
+                    const size = sparkle.size * (0.7 + 0.3 * fade);
+                    ctx.drawImage(sparkleSprite, sparkle.x - size / 2, sparkle.y - size / 2, size, size);
+                    alive.push(sparkle);
+                }
+                ctx.restore();
+                sparkles = alive;
+            };
+            const maybeSpawnSparkle = point => {
+                for (let index = 0; index < PEN_TUNING.sparklesPerSegment; index += 1) {
+                    if (sparkles.length >= PEN_TUNING.sparkleMaxPoolSize) sparkles.shift();
+                    const angle = Math.random() * Math.PI * 2;
+                    const jitter = Math.random() * PEN_TUNING.sparkleJitterPx;
+                    sparkles.push({
+                        x: point[0] * penCanvasWidth + Math.cos(angle) * jitter,
+                        y: point[1] * penCanvasHeight + Math.sin(angle) * jitter,
+                        bornAt: performance.now(),
+                        lifetimeMs: PEN_TUNING.sparkleLifetimeMs * (0.6 + Math.random() * 0.8),
+                        size: PEN_TUNING.sparkleMinSizePx + Math.random() * (PEN_TUNING.sparkleMaxSizePx - PEN_TUNING.sparkleMinSizePx),
+                        phase: Math.random() * Math.PI * 2
+                    });
+                }
+            };
+            const recomposite = timestamp => {
+                if (!(penCanvasWidth > 0) || !(penCanvasHeight > 0)) return;
+                penCtx.clearRect(0, 0, penCanvasWidth, penCanvasHeight);
+                if (staticBitmap) penCtx.drawImage(staticBitmap.canvas, 0, 0, penCanvasWidth, penCanvasHeight);
+                for (const fading of fadingStrokes) {
+                    penCtx.globalAlpha = penFadeAlpha(fading, timestamp);
+                    penCtx.drawImage(fading.canvas, 0, 0, penCanvasWidth, penCanvasHeight);
+                }
+                penCtx.globalAlpha = 1;
+                if (currentStroke) penCtx.drawImage(currentStroke.canvas, 0, 0, penCanvasWidth, penCanvasHeight);
+                updateAndDrawSparkles(penCtx, timestamp || performance.now());
+            };
+            const drawPendingSegments = stroke => {
+                const points = stroke.points;
+                while (stroke.drawnIndex < points.length - 1) {
+                    const from = points[stroke.drawnIndex];
+                    const to = points[stroke.drawnIndex + 1];
+                    drawSegment(stroke.ctx, from, to);
+                    maybeSpawnSparkle(to);
+                    stroke.drawnIndex += 1;
+                }
+            };
+            const penTick = timestamp => {
+                if (currentStroke) drawPendingSegments(currentStroke);
+                fadingStrokes = fadingStrokes.filter(fading => penFadeAlpha(fading, timestamp) > 0);
+                recomposite(timestamp);
+                const stillActive = currentStroke !== null || fadingStrokes.length > 0 || sparkles.length > 0;
+                penAnimationHandle = stillActive ? requestAnimationFrame(penTick) : 0;
+            };
+            const ensurePenLoopRunning = () => {
+                if (!penAnimationHandle) penAnimationHandle = requestAnimationFrame(penTick);
+            };
+            new ResizeObserver(resizePenCanvases).observe(penLayer);
+            resizePenCanvases();
             const clearStaticAnnotationStrokes = () => {
-                penLayer.querySelectorAll('.akari-pen-static').forEach(element => element.remove());
+                lastStaticStrokePoints = null;
+                if (staticBitmap) staticBitmap.ctx.clearRect(0, 0, penCanvasWidth, penCanvasHeight);
+                recomposite();
             };
             const setPenModeActive = active => {
                 penModeActive = active === true && reviewRecordingActive && !isPlaying;
@@ -3107,55 +3304,46 @@ body { display: grid; place-items: center; padding: 32px; }
             const abortCurrentStroke = () => {
                 if (!currentStroke) return;
                 const pointerId = currentStroke.pointerId;
-                currentStroke.group.remove();
                 currentStroke = null;
                 if (penLayer.hasPointerCapture(pointerId)) {
                     penLayer.releasePointerCapture(pointerId);
                 }
             };
-            const normalizedPenPoint = event => {
+            const captureDrawRect = () => {
                 const wrapperRect = wrapper.getBoundingClientRect();
-                const rect = window.akari.computeContentRect();
+                const contentRect = window.akari.computeContentRect();
+                activeDrawRect = {
+                    left: wrapperRect.left + contentRect.x,
+                    top: wrapperRect.top + contentRect.y,
+                    width: Math.max(contentRect.width, 1),
+                    height: Math.max(contentRect.height, 1)
+                };
+            };
+            const normalizedPenPoint = event => {
+                const rect = activeDrawRect || (captureDrawRect(), activeDrawRect);
                 return [
-                    clamp((event.clientX - wrapperRect.left - rect.x) / Math.max(rect.width, 1), 0, 1),
-                    clamp((event.clientY - wrapperRect.top - rect.y) / Math.max(rect.height, 1), 0, 1)
+                    clamp((event.clientX - rect.left) / rect.width, 0, 1),
+                    clamp((event.clientY - rect.top) / rect.height, 0, 1)
                 ];
             };
-            const createStrokeGroup = staticStroke => {
-                const group = svgElement('g');
-                group.classList.add('akari-pen-stroke');
-                if (staticStroke) group.classList.add('akari-pen-static');
-                const line = svgElement('polyline');
-                line.classList.add('akari-pen-line');
-                line.setAttribute('vector-effect', 'non-scaling-stroke');
-                group.appendChild(line);
-                penLayer.appendChild(group);
-                return { group, line };
-            };
-            const addStrokeSparkles = (group, points) => {
-                if (points.length < 3) return;
-                const step = Math.max(1, Math.ceil(points.length / 6));
-                for (let index = step; index < points.length && group.childElementCount <= 6; index += step) {
-                    const circle = svgElement('circle');
-                    circle.classList.add('akari-pen-sparkle');
-                    circle.setAttribute('cx', String(points[index][0]));
-                    circle.setAttribute('cy', String(points[index][1]));
-                    circle.setAttribute('r', '0.0045');
-                    circle.style.animationDelay = ((index % 5) * 0.09) + 's';
-                    group.appendChild(circle);
-                }
+            const createActiveStroke = (pointerId, firstPoint) => {
+                const bitmap = allocPenCanvas();
+                return { pointerId, points: [firstPoint], drawnIndex: 0, canvas: bitmap.canvas, ctx: bitmap.ctx };
             };
             const showStaticAnnotationStrokes = strokeSets => {
                 clearStaticAnnotationStrokes();
                 if (!Array.isArray(strokeSets)) return;
+                const valid = [];
                 for (const points of strokeSets) {
                     if (!Array.isArray(points) || points.length < 2) continue;
-                    const valid = points.filter(point => Array.isArray(point) && point.length === 2
+                    const filtered = points.filter(point => Array.isArray(point) && point.length === 2
                         && Number.isFinite(point[0]) && Number.isFinite(point[1]));
-                    if (valid.length < 2) continue;
-                    const stroke = createStrokeGroup(true);
-                    stroke.line.setAttribute('points', pointText(valid));
+                    if (filtered.length < 2) continue;
+                    valid.push(filtered);
+                    paintStaticStroke(filtered);
                 }
+                lastStaticStrokePoints = valid.length > 0 ? valid : null;
+                recomposite();
             };
             const canDraw = () => penModeActive && reviewRecordingActive && !isPlaying;
             penToggle.addEventListener('click', () => {
@@ -3167,8 +3355,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.preventDefault();
                 clearStaticAnnotationStrokes();
                 penLayer.setPointerCapture(event.pointerId);
+                captureDrawRect();
                 const point = normalizedPenPoint(event);
-                const stroke = createStrokeGroup(false);
                 const segment = segments[activeSegmentIndex];
                 const frame = {
                     timelineT: outputTime,
@@ -3176,19 +3364,18 @@ body { display: grid; place-items: center; padding: 32px; }
                     cutIndex: segment && segment.kind === 'src' && Number.isInteger(segment.cutIndex)
                         ? segment.cutIndex : null
                 };
-                currentStroke = {
-                    ...stroke,
-                    pointerId: event.pointerId,
-                    points: [point]
-                };
-                stroke.line.setAttribute('points', pointText(currentStroke.points));
+                currentStroke = createActiveStroke(event.pointerId, point);
                 window.akari.reviewStrokeStart(frame);
+                ensurePenLoopRunning();
             });
             penLayer.addEventListener('pointermove', event => {
                 if (!currentStroke || currentStroke.pointerId !== event.pointerId || !canDraw()) return;
                 event.preventDefault();
-                currentStroke.points.push(normalizedPenPoint(event));
-                currentStroke.line.setAttribute('points', pointText(currentStroke.points));
+                const coalesced = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : null;
+                const events = coalesced && coalesced.length > 0 ? coalesced : [event];
+                for (const raw of events) {
+                    currentStroke.points.push(normalizedPenPoint(raw));
+                }
             });
             const finishPenStroke = event => {
                 if (!currentStroke || currentStroke.pointerId !== event.pointerId) return;
@@ -3198,14 +3385,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (penLayer.hasPointerCapture(event.pointerId)) {
                     penLayer.releasePointerCapture(event.pointerId);
                 }
-                if (completed.points.length < 2) {
-                    completed.group.remove();
-                    return;
-                }
+                if (completed.points.length < 2) return;
                 window.akari.reviewStrokeEnd(completed.points);
-                addStrokeSparkles(completed.group, completed.points);
-                requestAnimationFrame(() => completed.group.classList.add('is-fading'));
-                window.setTimeout(() => completed.group.remove(), 1_650);
+                completed.fadeStartedAt = performance.now();
+                fadingStrokes.push(completed);
+                ensurePenLoopRunning();
             };
             penLayer.addEventListener('pointerup', finishPenStroke);
             penLayer.addEventListener('pointercancel', finishPenStroke);
