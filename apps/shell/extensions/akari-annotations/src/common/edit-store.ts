@@ -78,6 +78,18 @@ export interface EditAudioBgm {
     ducking?: boolean;
 }
 
+export type TimelineTrackKind = 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';
+
+export interface EditTimelineTrack {
+    id: string;
+    kind: TimelineTrackKind;
+    ref?: number;
+    label?: string;
+    muted?: boolean;
+    hidden?: boolean;
+    locked?: boolean;
+}
+
 export const DECLARED_SFX_DURATION_SECONDS = 1;
 
 export interface SourceElement {
@@ -724,6 +736,7 @@ export function parseEdit(source: string): {
     layers: EditLayer[];
     audioSfx: EditAudioSfx[];
     audioBgm?: EditAudioBgm;
+    timeline?: { tracks: EditTimelineTrack[] };
     fps: number;
     warnings: string[];
 } {
@@ -737,6 +750,7 @@ export function parseEdit(source: string): {
     const beats: EditBeat[] = [];
     const layers: EditLayer[] = [];
     const audioSfx: EditAudioSfx[] = [];
+    let timeline: { tracks: EditTimelineTrack[] } | undefined;
     let audioBgm: EditAudioBgm | undefined;
     const sources: EditSource[] = [];
     const sourceIds = new Set<string>();
@@ -1074,6 +1088,49 @@ export function parseEdit(source: string): {
         }
     }
 
+    if (value.timeline !== null && typeof value.timeline === 'object' && !Array.isArray(value.timeline)
+        && Array.isArray(value.timeline.tracks)) {
+        const tracks: EditTimelineTrack[] = [];
+        const kinds: readonly TimelineTrackKind[] = ['cuts', 'layers', 'overlays', 'captions', 'audio'];
+        const seenTrackIds = new Set<string>();
+        const seenSingletonKinds = new Set<TimelineTrackKind>();
+        for (let index = 0; index < value.timeline.tracks.length; index++) {
+            const track = value.timeline.tracks[index];
+            const valid = track !== null && typeof track === 'object' && !Array.isArray(track)
+                && typeof track.id === 'string' && track.id.length > 0
+                && typeof track.kind === 'string' && kinds.includes(track.kind as TimelineTrackKind)
+                && (track.ref === undefined || (Number.isInteger(track.ref) && track.ref >= 0))
+                && (track.label === undefined || typeof track.label === 'string')
+                && (track.muted === undefined || typeof track.muted === 'boolean')
+                && (track.hidden === undefined || typeof track.hidden === 'boolean')
+                && (track.locked === undefined || typeof track.locked === 'boolean');
+            if (!valid) {
+                warnings.push(`${index + 1} 番目の timeline.tracks 要素が不正なため表示しません。`);
+                continue;
+            }
+            if (seenTrackIds.has(track.id)
+                || ((track.kind === 'captions' || track.kind === 'audio') && seenSingletonKinds.has(track.kind))
+                || (track.kind === 'audio' && track.ref !== undefined && track.ref !== 0)) {
+                warnings.push(`${index + 1} 番目の timeline.tracks 要素が重複または単一トラック制約違反のため表示しません。`);
+                continue;
+            }
+            seenTrackIds.add(track.id);
+            if (track.kind === 'captions' || track.kind === 'audio') {
+                seenSingletonKinds.add(track.kind);
+            }
+            tracks.push({
+                id: track.id,
+                kind: track.kind as TimelineTrackKind,
+                ...(track.ref !== undefined ? { ref: track.ref } : {}),
+                ...(track.label !== undefined ? { label: track.label } : {}),
+                ...(track.muted !== undefined ? { muted: track.muted } : {}),
+                ...(track.hidden !== undefined ? { hidden: track.hidden } : {}),
+                ...(track.locked !== undefined ? { locked: track.locked } : {})
+            });
+        }
+        timeline = { tracks };
+    }
+
     let fps = 30;
     if (value.output && typeof value.output === 'object'
         && typeof value.output.fps === 'number' && Number.isFinite(value.output.fps) && value.output.fps > 0) {
@@ -1088,9 +1145,35 @@ export function parseEdit(source: string): {
         layers,
         audioSfx,
         ...(audioBgm ? { audioBgm } : {}),
+        ...(timeline ? { timeline } : {}),
         fps,
         warnings
     };
+}
+
+export function writeTimelineTracksInSource(source: string, tracks: EditTimelineTrack[]): string {
+    const serialized = JSON.stringify(tracks);
+    let timeline: { start: number; end: number; text: string };
+    try {
+        timeline = locateObjectProperty(source, 'timeline');
+    } catch {
+        const value = JSON.parse(source) as Record<string, unknown>;
+        if (Object.prototype.hasOwnProperty.call(value, 'timeline')) {
+            value.timeline = { tracks };
+            return `${JSON.stringify(value, undefined, 2)}${source.endsWith('\n') ? '\n' : ''}`;
+        }
+        return appendJsonProperty(source, 'timeline', { tracks });
+    }
+    let updatedTimeline: string;
+    try {
+        const array = locateArray(timeline.text, 'tracks');
+        updatedTimeline = timeline.text.slice(0, array.openIndex)
+            + serialized
+            + timeline.text.slice(array.closeIndex + 1);
+    } catch {
+        updatedTimeline = appendJsonProperty(timeline.text, 'tracks', tracks);
+    }
+    return source.slice(0, timeline.start) + updatedTimeline + source.slice(timeline.end);
 }
 
 function locateArray(source: string, key: string): {
@@ -1346,6 +1429,10 @@ function normalizeTrack(value: unknown): number {
 }
 
 function appendNumberProperty(source: string, property: string, value: number | string | boolean): string {
+    return appendJsonProperty(source, property, value);
+}
+
+function appendJsonProperty(source: string, property: string, value: unknown): string {
     const closeIndex = source.lastIndexOf('}');
     if (closeIndex < 0) {
         throw new Error('オーバーレイのオブジェクトを特定できません。');
