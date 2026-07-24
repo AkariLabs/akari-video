@@ -2550,8 +2550,8 @@ body { display: grid; place-items: center; padding: 32px; }
             // render-cut（buildLayersCompositeCommand の overlay x=(main_w-overlay_w)/2+x 等）と
             // 同じく出力フレーム中心基準の座標系なので、現在再生中のソース動画自体のアスペクト比に
             // 依存する displayScale/rect（letterbox 込みの狭い矩形）ではなく frameScale/wrapper 全体
-            // を基準にする。#overlay-stage・#pen-layer・window.akari.stageScale は既存どおり
-            // displayScale/rect を使い続ける（挙動不変・スコープ外）。
+            // を基準にする。#overlay-stage と window.akari.stageScale も render-cut と同じ
+            // frameScale、#pen-layer だけは描画対象の実映像矩形に合わせて displayScale/rect を使う。
             let frameScale = 1;
             let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
@@ -2852,7 +2852,7 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.previewAudioDebug = () => window.akari.previewAudio
                 ? window.akari.previewAudio.debugState()
                 : { disabled: true };
-            window.akari.stageScale = () => displayScale;
+            window.akari.stageScale = () => frameScale;
             window.akari.playbackTick = (time, playing, immediate = false) => {
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
@@ -2954,7 +2954,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 const rect = computeContentRect();
                 const next = rect.width / Number(output.width || 1280);
                 displayScale = Number.isFinite(next) && next > 0 ? next : 1;
-                const stageTransform = 'translate(' + rect.x + 'px, ' + rect.y + 'px) scale(' + displayScale + ')';
                 // frameScale/boxWidth/boxHeight: 出力フレーム全体（wrapper の実表示box）を基準に
                 // した CSS px 比。rect（現在再生中クリップの letterbox 込み内側矩形）と違い、
                 // 出力アスペクト比と異なる素材でも常に出力キャンバス全体を指す
@@ -2964,6 +2963,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const boxHeight = wrapper.clientHeight;
                 const nextFrameScale = boxWidth / Number(output.width || 1280);
                 frameScale = Number.isFinite(nextFrameScale) && nextFrameScale > 0 ? nextFrameScale : 1;
+                const stageTransform = 'translate(0px, 0px) scale(' + frameScale + ')';
                 // #preview-layers のクリップ境界・子レイヤーの位置基準は常に出力フレーム全体
                 // （wrapper 全体）にする。letterbox 込みの rect に縮めると、素材のアスペクト比が
                 // 出力と異なる場合にクリップ境界が出力フレームより内側に縮んでしまう。
