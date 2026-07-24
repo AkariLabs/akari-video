@@ -4,7 +4,7 @@ import { execFile, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { constants, promises as fs, watch } from 'fs';
 import { basename, dirname, extname, join, resolve } from 'path';
-import { pathToFileURL } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import {
     AkariProjectService,
@@ -108,6 +108,46 @@ export class AkariProjectServiceImpl implements AkariProjectService {
 
     async getGitEligibility(projectUri: string): Promise<ProjectGitEligibility> {
         return this.gitEligibility(this.fsPath(projectUri));
+    }
+
+    /**
+     * preferenceRoot が設定されているときはそれだけを検証する（見つからなければ
+     * 開発配置へフォールバックしない — ユーザーが明示的に指定した場所を無言で
+     * 差し替えると、設定ミスに気づけなくなるため）。未設定のときだけ、
+     * findTemplate()/findBundledSkills() と同じ「開発時 cwd 相対 / パッケージ時
+     * __dirname 相対」の候補探索で catalog/ を探す。
+     */
+    async resolveCatalogRoot(preferenceRoot: string | undefined): Promise<string | undefined> {
+        const trimmed = preferenceRoot?.trim();
+        if (trimmed) {
+            const candidate = trimmed.startsWith('file:') ? fileURLToPath(trimmed) : trimmed;
+            return (await this.isDirectory(candidate)) ? pathToFileURL(candidate).toString() : undefined;
+        }
+        const bundled = await this.findBundledCatalog();
+        return bundled ? pathToFileURL(bundled).toString() : undefined;
+    }
+
+    protected async findBundledCatalog(): Promise<string | undefined> {
+        const candidates = [
+            resolve(__dirname, '../catalog'),
+            resolve(process.cwd(), '../../catalog'),
+            resolve(process.cwd(), 'catalog'),
+            resolve(__dirname, '../../../../../../../catalog')
+        ];
+        for (const candidate of candidates) {
+            if (await this.isDirectory(candidate)) {
+                return candidate;
+            }
+        }
+        return undefined;
+    }
+
+    protected async isDirectory(path: string): Promise<boolean> {
+        try {
+            return (await fs.stat(path)).isDirectory();
+        } catch {
+            return false;
+        }
     }
 
     async watchProject(projectUri: string): Promise<void> {

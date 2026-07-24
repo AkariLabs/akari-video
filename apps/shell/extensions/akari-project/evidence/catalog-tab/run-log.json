@@ -1,0 +1,176 @@
+[
+  {
+    "t": "2026-07-24T18:21:53.660Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-24T18:21:58.863Z",
+    "step": "dev-layout-autodetect",
+    "found": true,
+    "itemCount": 24,
+    "missingCount": 36
+  },
+  {
+    "t": "2026-07-24T18:21:59.075Z",
+    "step": "dev-layout-autodetect-PASS",
+    "ok": true,
+    "found": true,
+    "itemCount": 24,
+    "missingCount": 36
+  },
+  {
+    "t": "2026-07-24T18:22:00.706Z",
+    "step": "l1-3-not-connected-toast",
+    "toastsBeforeNotConnected": 0,
+    "toastsAfterNotConnected": [
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください",
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください"
+    ]
+  },
+  {
+    "t": "2026-07-24T18:22:02.926Z",
+    "step": "L1-3-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T18:22:04.554Z",
+    "step": "cancel-no-op",
+    "toastsBeforeCancel": 2,
+    "toastsAfterCancelCount": 2,
+    "qiClosed": true
+  },
+  {
+    "t": "2026-07-24T18:22:04.580Z",
+    "step": "cancel-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T18:22:05.581Z",
+    "step": "set-catalog-root-preference",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T18:22:05.591Z",
+    "step": "fixture-catalog-loaded",
+    "found": true,
+    "itemCount": 4,
+    "missingCount": 2
+  },
+  {
+    "t": "2026-07-24T18:22:07.308Z",
+    "step": "fixture-thumbnail-error-delta",
+    "errCountBeforeFixtureSwitch": 0,
+    "errCountAfterFixtureThumbnails": 0,
+    "thumbnailErrorDelta": 0
+  },
+  {
+    "t": "2026-07-24T18:22:07.596Z",
+    "step": "L1-1-and-L1-5-PASS",
+    "ok": true,
+    "itemCount": 4,
+    "missingCount": 2,
+    "thumbnailErrorDelta": 0
+  },
+  {
+    "t": "2026-07-24T18:22:07.599Z",
+    "step": "vintage-card-content",
+    "vintageCardText": "ヴィンテージカメラ 3D モデル3dproduct-demovintagecameraCC0-1.0取り込む頼む"
+  },
+  {
+    "t": "2026-07-24T18:22:08.787Z",
+    "step": "l1-2-search",
+    "query": "スマートフォン",
+    "searchKeys": [
+      "3d/modern-smartphone"
+    ]
+  },
+  {
+    "t": "2026-07-24T18:22:09.016Z",
+    "step": "L1-2-search-PASS",
+    "ok": true,
+    "count": 1
+  },
+  {
+    "t": "2026-07-24T18:22:10.922Z",
+    "step": "l1-2-category",
+    "category": "3d",
+    "categoryKeys": [
+      "3d/vintage-camera",
+      "3d/modern-smartphone"
+    ]
+  },
+  {
+    "t": "2026-07-24T18:22:11.115Z",
+    "step": "L1-2-category-PASS",
+    "ok": true,
+    "count": 2
+  },
+  {
+    "t": "2026-07-24T18:22:12.006Z",
+    "step": "back-to-all",
+    "allKeys": [
+      "3d/vintage-camera",
+      "audio/cozy-lofi-bgm",
+      "audio/corporate-upbeat-bgm",
+      "3d/modern-smartphone"
+    ]
+  },
+  {
+    "t": "2026-07-24T18:22:12.564Z",
+    "step": "dummy-partner-terminal-attached",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T18:22:15.782Z",
+    "step": "l1-3-import-injection",
+    "containsExpected": true
+  },
+  {
+    "t": "2026-07-24T18:22:15.783Z",
+    "step": "L1-3-import-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T18:22:18.754Z",
+    "step": "l1-4-ask-agent-injection",
+    "containsExpected": true
+  },
+  {
+    "t": "2026-07-24T18:22:18.754Z",
+    "step": "L1-4-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T18:22:19.805Z",
+    "step": "l1-6-materials-regression",
+    "dzOk": true,
+    "hasRegressionClip": true,
+    "hasUnanalyzedBadge": true
+  },
+  {
+    "t": "2026-07-24T18:22:20.903Z",
+    "step": "l1-6-plan-regression",
+    "planRegression": true
+  },
+  {
+    "t": "2026-07-24T18:22:21.596Z",
+    "step": "l1-6-export-button-regression",
+    "found": true,
+    "exportButtonRegression": true
+  },
+  {
+    "t": "2026-07-24T18:22:21.728Z",
+    "step": "L1-6-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T18:22:21.729Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalConsoleErrorCount": 1,
+    "finalErrLog": [
+      "window.error: Uncaught Error: This API only accepts integers"
+    ],
+    "thumbnailErrorDelta": 0
+  }
+]

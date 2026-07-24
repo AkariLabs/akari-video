@@ -1,0 +1,85 @@
+[
+  {
+    "t": "2026-07-24T18:25:21.537Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-24T18:25:23.097Z",
+    "step": "debug-hook-absent",
+    "hookAbsent": true
+  },
+  {
+    "t": "2026-07-24T18:25:27.190Z",
+    "step": "dev-layout-autodetect",
+    "found": true,
+    "itemCount": 24,
+    "missingCount": 36
+  },
+  {
+    "t": "2026-07-24T18:25:27.190Z",
+    "step": "dev-layout-autodetect-PASS",
+    "ok": true,
+    "found": true,
+    "itemCount": 24,
+    "missingCount": 36
+  },
+  {
+    "t": "2026-07-24T18:25:27.199Z",
+    "step": "vintage-card-content",
+    "vintageCardText": "ヴィンテージカメラ 3D モデル3dproduct-demovintagecameraCC0-1.0取り込む頼む"
+  },
+  {
+    "t": "2026-07-24T18:25:28.600Z",
+    "step": "search",
+    "searchKeys": [
+      "3d/vintage-camera"
+    ]
+  },
+  {
+    "t": "2026-07-24T18:25:31.611Z",
+    "step": "category-filter",
+    "categoryKeys": [
+      "3d/vintage-camera",
+      "3d/studio-hdri",
+      "3d/modern-smartphone"
+    ]
+  },
+  {
+    "t": "2026-07-24T18:25:34.471Z",
+    "step": "not-connected-toast",
+    "toastsBefore": 0,
+    "toastsAfter": [
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください",
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください"
+    ]
+  },
+  {
+    "t": "2026-07-24T18:25:34.707Z",
+    "step": "not-connected-toast-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T18:25:35.885Z",
+    "step": "materials-regression",
+    "dzOk": true,
+    "hasRegressionClip": true
+  },
+  {
+    "t": "2026-07-24T18:25:37.008Z",
+    "step": "plan-regression",
+    "planRegression": true
+  },
+  {
+    "t": "2026-07-24T18:25:37.598Z",
+    "step": "export-button-regression",
+    "found": true,
+    "exportButtonRegression": true
+  },
+  {
+    "t": "2026-07-24T18:25:37.795Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalConsoleErrorCount": 0,
+    "finalErrLog": []
+  }
+]

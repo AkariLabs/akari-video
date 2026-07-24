@@ -65,4 +65,11 @@ export interface AkariProjectService {
     isAkariProject(projectUri: string): Promise<boolean>;
     convertToProject(projectUri: string): Promise<void>;
     getGitEligibility(projectUri: string): Promise<ProjectGitEligibility>;
+    /**
+     * カタログタブのデータ源解決。preferenceRoot（akari.catalog.root）が
+     * 設定されていればそのディレクトリを検証し、未設定ならリポ開発配置
+     * （アプリ相対で catalog/ を探す）にフォールバックする。どちらも
+     * 見つからなければ undefined（呼び出し側は空状態文言を出す）。
+     */
+    resolveCatalogRoot(preferenceRoot: string | undefined): Promise<string | undefined>;
 }
