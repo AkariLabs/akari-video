@@ -2,7 +2,14 @@ import URI from '@theia/core/lib/common/uri';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
-import { ApplicationShell, FrontendApplicationContribution, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
+import {
+    ApplicationShell,
+    FrontendApplicationContribution,
+    OpenHandler,
+    OpenerService,
+    WidgetManager,
+    open
+} from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -11,6 +18,12 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariPreviewService, OverlayRuntimeAssets } from '../common/akari-preview-protocol';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
 import { locatePreviewCaptions, parsePreviewCaptions, PreviewCaption } from './akari-preview-captions';
+import {
+    ReviewSessionRecorder,
+    ReviewSessionUiState,
+    ReviewTransportChange,
+    ReviewTransportSnapshot
+} from './review-session-recorder';
 
 interface OverlayTransform {
     x?: number;
@@ -194,6 +207,12 @@ const TIMELINE_SET_CAPTIONS_MUTED_EVENT = 'akari.timeline.setCaptionsMuted';
 const TIMELINE_SET_BEATS_VISIBILITY_EVENT = 'akari.timeline.setBeatsVisibility';
 const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
+// akari-annotations の録音セクション側と文字列だけをミラーし、extension 間の npm 依存を作らない。
+const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
+const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
+const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
+const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
+const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
 
 // akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.executeCommand に渡す。
@@ -226,11 +245,22 @@ interface PreviewPlaybackTickRequest {
     type: 'akari-preview-playback-tick';
     time: number;
     playing: boolean;
+    rate?: number;
 }
 
 interface PreviewOverlaySelectedRequest {
     type: 'akari-preview-overlay-selected';
     overlayId: string | null;
+}
+
+interface PreviewReviewTransportRequest {
+    type: 'akari-preview-review-transport-event';
+    event: ReviewTransportChange;
+}
+
+interface ReviewSessionControlRequest {
+    projectRootUri?: string;
+    editUri?: string;
 }
 
 interface PreviewSessionSettings {
@@ -294,8 +324,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
+    protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
     protected overlayWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
+    protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected retryWidgetSequence = 0;
 
     @inject(WidgetManager)
@@ -319,7 +351,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     @inject(MessageService)
     protected readonly messages: MessageService;
 
+    @inject(OpenerService)
+    protected readonly openerService: OpenerService;
+
     onStart(): void {
+        this.reviewSessionRecorder = new ReviewSessionRecorder(
+            this.previewService,
+            state => this.forwardReviewSessionState(state)
+        );
         this.widgetManager.onDidCreateWidget(event => {
             if (event.factoryId !== WebviewWidget.FACTORY_ID || !(event.widget instanceof WebviewWidget)) {
                 return;
@@ -480,6 +519,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             }
         );
+        this.registerReviewSessionEvents();
     }
 
     protected applyTrackVisibilityV2(detail: TrackVisibilityV2Request | undefined): void {
@@ -576,6 +616,85 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     onStop(): void {
         this.lifecycleDisposables.dispose();
+        void this.reviewSessionRecorder?.dispose();
+        this.reviewSessionRecorder = undefined;
+    }
+
+    protected registerReviewSessionEvents(): void {
+        const register = (type: string, listener: EventListener): void => {
+            window.addEventListener(type, listener);
+            this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(type, listener) });
+        };
+        register(REVIEW_SESSION_START_EVENT, event => {
+            const detail = (event as CustomEvent<ReviewSessionControlRequest>).detail;
+            if (!detail?.projectRootUri || !detail.editUri || !this.reviewSessionRecorder) {
+                return;
+            }
+            void this.startReviewSessionFromPanel(detail.projectRootUri, detail.editUri);
+        });
+        register(REVIEW_SESSION_STOP_EVENT, () => {
+            void this.reviewSessionRecorder?.stop();
+        });
+        register(REVIEW_SESSION_REFRESH_EVENT, event => {
+            const detail = (event as CustomEvent<ReviewSessionControlRequest>).detail;
+            if (detail?.projectRootUri && detail.editUri) {
+                void this.reviewSessionRecorder?.refresh(detail.projectRootUri, detail.editUri);
+            }
+        });
+        register(REVIEW_SESSION_OPEN_FOLDER_EVENT, event => {
+            const detail = (event as CustomEvent<ReviewSessionControlRequest>).detail;
+            if (!detail?.projectRootUri) {
+                return;
+            }
+            let sessionsUri: URI;
+            try {
+                sessionsUri = new URI(detail.projectRootUri).resolve('review/sessions').normalizePath();
+            } catch {
+                return;
+            }
+            void open(this.openerService, sessionsUri, { mode: 'activate' }).catch(error => {
+                const detail = error instanceof Error ? error.message : String(error);
+                this.messages.warn(`録音セッションの保存先を開けません: ${detail}`);
+            });
+        });
+    }
+
+    protected async startReviewSessionFromPanel(projectRootUri: string, requestedEditUri: string): Promise<void> {
+        const recorder = this.reviewSessionRecorder;
+        const editUri = this.normalizeReviewEditUri(requestedEditUri);
+        if (!recorder || !editUri) {
+            recorder?.reportError(projectRootUri, requestedEditUri, 'edit.json の場所を特定できません。');
+            return;
+        }
+        const visibility = await this.ensureVisible(editUri);
+        const widget = this.openOutputPreviews.get(editUri);
+        if (visibility === 'unavailable' || !widget?.isAttached) {
+            recorder.reportError(projectRootUri, editUri, '出力プレビューを開けませんでした。');
+            return;
+        }
+        const transport = this.reviewTransportByEdit.get(editUri) ?? {
+            timelineT: 0,
+            playing: false,
+            rate: 1
+        };
+        await recorder.start({
+            projectRootUri,
+            editUri,
+            timelineT: transport.timelineT,
+            playing: transport.playing
+        }, transport);
+    }
+
+    protected normalizeReviewEditUri(value: string): string | undefined {
+        try {
+            return new URI(value).normalizePath().toString();
+        } catch {
+            return undefined;
+        }
+    }
+
+    protected forwardReviewSessionState(state: ReviewSessionUiState): void {
+        window.dispatchEvent(new CustomEvent(REVIEW_SESSION_STATE_EVENT, { detail: state }));
     }
 
     // 戻り値は 'seeked' | 'mismatched-asset' | 'no-preview' の3値で、'no-preview' は akari-transcript 側のフォールバックハンドラが返す。
@@ -897,6 +1016,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isOverlaySelectedRequest(message)) {
                 this.forwardOverlaySelection(widget, message);
             }
+            if (this.isReviewTransportRequest(message)) {
+                this.forwardReviewTransport(widget, message);
+            }
         }));
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
@@ -949,7 +1071,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected isPlaybackTickRequest(message: any): message is PreviewPlaybackTickRequest {
         return message?.type === 'akari-preview-playback-tick'
             && Number.isFinite(message.time)
-            && typeof message.playing === 'boolean';
+            && typeof message.playing === 'boolean'
+            && (message.rate === undefined || (Number.isFinite(message.rate) && message.rate > 0));
     }
 
     protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
@@ -957,13 +1080,61 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!editUri) {
             return;
         }
+        const normalizedEditUri = editUri.normalizePath().toString();
+        const previous = this.reviewTransportByEdit.get(normalizedEditUri);
+        this.reviewTransportByEdit.set(normalizedEditUri, {
+            timelineT: message.time,
+            playing: message.playing,
+            rate: message.rate ?? previous?.rate ?? 1
+        });
+        this.reviewSessionRecorder?.handlePlaybackTick(normalizedEditUri, message.time, message.playing);
         window.dispatchEvent(new CustomEvent(PREVIEW_PLAYBACK_TICK_EVENT, {
             detail: {
-                videoUri: editUri.normalizePath().toString(),
+                videoUri: normalizedEditUri,
                 time: message.time,
                 playing: message.playing
             }
         }));
+    }
+
+    protected isReviewTransportRequest(message: any): message is PreviewReviewTransportRequest {
+        const event = message?.event;
+        if (message?.type !== 'akari-preview-review-transport-event' || !event) {
+            return false;
+        }
+        if ((event.type === 'play' || event.type === 'pause')
+            && Number.isFinite(event.timelineT)) {
+            return true;
+        }
+        if (event.type === 'seek' && Number.isFinite(event.from) && Number.isFinite(event.to)) {
+            return true;
+        }
+        return event.type === 'rate' && Number.isFinite(event.value) && event.value > 0
+            && Number.isFinite(event.timelineT);
+    }
+
+    protected forwardReviewTransport(widget: PreviewWidgetMarker, message: PreviewReviewTransportRequest): void {
+        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        if (!editUri) {
+            return;
+        }
+        const previous = this.reviewTransportByEdit.get(editUri) ?? {
+            timelineT: 0,
+            playing: false,
+            rate: 1
+        };
+        const change = message.event;
+        if (change.type === 'play' || change.type === 'pause') {
+            previous.timelineT = change.timelineT;
+            previous.playing = change.type === 'play';
+        } else if (change.type === 'seek') {
+            previous.timelineT = change.to;
+        } else {
+            previous.timelineT = change.timelineT;
+            previous.rate = change.value;
+        }
+        this.reviewTransportByEdit.set(editUri, previous);
+        this.reviewSessionRecorder?.handleTransport(editUri, change);
     }
 
     protected isOverlaySelectedRequest(message: any): message is PreviewOverlaySelectedRequest {
@@ -2376,7 +2547,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
                 lastPlaybackTickAt = now;
-                vscode.postMessage({ type: 'akari-preview-playback-tick', time, playing });
+                vscode.postMessage({ type: 'akari-preview-playback-tick', time, playing, rate: video.playbackRate || 1 });
+            };
+            window.akari.reviewTransport = event => {
+                vscode.postMessage({ type: 'akari-preview-review-transport-event', event });
             };
             window.akari.reportOverlaySelection = overlayId => {
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
@@ -2670,7 +2844,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const syncPlaybackRate = () => {
                 const range = keepRangesReady ? keepRanges[currentSegmentIndex] : null;
                 const speed = range && Number.isFinite(range.speed) && range.speed > 0 ? range.speed : 1;
-                if (video.playbackRate !== speed) video.playbackRate = speed;
+                if (video.playbackRate !== speed) {
+                    video.playbackRate = speed;
+                    window.akari.reviewTransport({ type: 'rate', value: speed, timelineT: outputTime });
+                }
             };
             const rebuildKeepRanges = () => {
                 const explicit = buildExplicitKeepRanges();
@@ -2820,7 +2997,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = segments[activeSegmentIndex];
                 const speed = segment && segment.kind === 'src'
                     && Number.isFinite(segment.speed) && segment.speed > 0 ? segment.speed : 1;
-                if (video.playbackRate !== speed) video.playbackRate = speed;
+                if (video.playbackRate !== speed) {
+                    video.playbackRate = speed;
+                    window.akari.reviewTransport({ type: 'rate', value: speed, timelineT: outputTime });
+                }
             };
             const findSegmentForSource = sourceTime => segments.findIndex(
                 segment => segment.kind === 'src' && sourceTime >= segment.in && sourceTime < segment.out
@@ -2894,6 +3074,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         outputTime = segments[nextIndex].outStart;
                         enterSegment(nextIndex);
                     } else if (isPlaying) {
+                        window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                         isPlaying = false;
                         video.pause();
                     }
@@ -2909,6 +3090,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         outputTime = segments[nextIndex].outStart;
                         enterSegment(nextIndex);
                     } else if (isPlaying) {
+                        window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                         isPlaying = false;
                         video.pause();
                     }
@@ -2942,7 +3124,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 return { index, kind: 'src', time: segment.in + withinSegment * segment.speed };
             };
             const seekTimelineTime = timelineValue => {
+                const previousOutputTime = outputTime;
                 outputTime = clamp(Math.max(0, timelineValue), 0, totalTimelineDuration || videoDuration());
+                window.akari.reviewTransport({ type: 'seek', from: previousOutputTime, to: outputTime });
                 const mapped = timelineToSource(outputTime);
                 enterSegment(mapped.index);
                 if (mapped.kind === 'src') {
@@ -3386,6 +3570,7 @@ body { display: grid; place-items: center; padding: 32px; }
                                 outputTime = segments[nextIndex].outStart;
                                 enterSegment(nextIndex);
                             } else {
+                                window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                                 isPlaying = false;
                                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                             }
@@ -3428,6 +3613,9 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const showPlaybackError = () => {
                 playbackErrored = true;
+                if (isPlaying) {
+                    window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
+                }
                 isPlaying = false;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
@@ -3474,6 +3662,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (playToggle.disabled) return;
                 if (!isPlaying) {
                     isPlaying = true;
+                    window.akari.reviewTransport({ type: 'play', timelineT: outputTime });
                     if (window.akari.previewAudio) void window.akari.previewAudio.resume();
                     const segment = segments[activeSegmentIndex];
                     if (segment && segment.kind === 'gap') {
@@ -3486,6 +3675,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     startAnimation();
                 } else {
                     isPlaying = false;
+                    window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                     if (window.akari.previewAudio) window.akari.previewAudio.pause();
                     video.pause();
                     stopAnimation();
@@ -3505,6 +3695,9 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const videoDuration = () => Number.isFinite(video.duration) ? video.duration : 0;
             const nudgeFrame = direction => {
+                if (isPlaying) {
+                    window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
+                }
                 isPlaying = false;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 video.pause();
@@ -3737,11 +3930,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     pausedForGapEntry = false;
                     return;
                 }
+                if (isPlaying) {
+                    window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
+                }
                 isPlaying = false;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
             });
             video.addEventListener('ended', () => {
+                if (isPlaying) {
+                    window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
+                }
                 isPlaying = false;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
