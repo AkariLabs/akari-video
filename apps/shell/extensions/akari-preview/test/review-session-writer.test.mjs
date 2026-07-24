@@ -27,7 +27,7 @@ async function fixture() {
     };
 }
 
-test('records the four S1 files with a valid 16 kHz mono WAV and ordered trajectory', async () => {
+test('records non-silent PCM in the four S1 files with a valid 16 kHz mono WAV and ordered trajectory', async () => {
     const { root, editBytes, writer, request } = await fixture();
     const started = await writer.start(request);
     const sessionPath = new URL(started.sessionDir);
@@ -40,6 +40,10 @@ test('records the four S1 files with a valid 16 kHz mono WAV and ordered traject
     assert.deepEqual(await readFile(new URL('edit.snapshot.json', `${started.sessionDir}/`)), editBytes);
 
     const oneSecondPcm = Buffer.alloc(16_000 * 2);
+    for (let index = 0; index < 16_000; index += 1) {
+        const sample = Math.round(Math.sin(2 * Math.PI * 440 * index / 16_000) * 0x3fff);
+        oneSecondPcm.writeInt16LE(sample, index * 2);
+    }
     await writer.appendAudio({
         sessionDir: started.sessionDir,
         pcmBase64: oneSecondPcm.toString('base64')
@@ -87,6 +91,11 @@ test('records the four S1 files with a valid 16 kHz mono WAV and ordered traject
     assert.equal(wav.readUInt16LE(34), 16);
     assert.equal(wav.readUInt32LE(40), oneSecondPcm.length);
     assert.equal(wav.length, 44 + oneSecondPcm.length);
+    let maxAmplitude = 0;
+    for (let offset = 44; offset < wav.length; offset += 2) {
+        maxAmplitude = Math.max(maxAmplitude, Math.abs(wav.readInt16LE(offset)));
+    }
+    assert.ok(maxAmplitude > 0);
 
     const snapshot = await readFile(new URL('edit.snapshot.json', `${started.sessionDir}/`));
     const expectedHash = `sha256:${createHash('sha256').update(snapshot).digest('hex')}`;

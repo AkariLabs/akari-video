@@ -14,6 +14,8 @@ export interface ReviewSessionUiState {
     status: ReviewSessionRecorderStatus;
     active: boolean;
     elapsedSec: number;
+    level: number;
+    silenceWarning: boolean;
     sessions: ReviewSessionSummary[];
     error?: string;
 }
@@ -43,6 +45,8 @@ interface ActiveReviewSession extends StartReviewSessionResult {
     silentGain: GainNode;
     pendingSamples: Float32Array[];
     pendingSampleCount: number;
+    level: number;
+    lastNonSilentAt: number;
     writeTail: Promise<void>;
     writeError?: Error;
 }
@@ -51,6 +55,7 @@ const TARGET_SAMPLE_RATE = 16_000;
 const AUDIO_FLUSH_INTERVAL_MS = 1_000;
 const UI_UPDATE_INTERVAL_MS = 250;
 const TICK_INTERVAL_MS = 1_000;
+const SILENCE_WARNING_AFTER_MS = 5_000;
 
 export class ReviewSessionRecorder {
     protected active: ActiveReviewSession | undefined;
@@ -93,6 +98,12 @@ export class ReviewSessionRecorder {
         let stream: MediaStream | undefined;
         let context: AudioContext | undefined;
         try {
+            const askForMicrophoneAccess = typeof window !== 'undefined'
+                ? window.electronAkariPreview?.askForMicrophoneAccess
+                : undefined;
+            if (askForMicrophoneAccess && !await askForMicrophoneAccess()) {
+                throw new DOMException('Microphone access denied', 'NotAllowedError');
+            }
             if (!navigator.mediaDevices?.getUserMedia) {
                 throw new Error('この環境ではマイク録音を利用できません。');
             }
@@ -108,11 +119,12 @@ export class ReviewSessionRecorder {
             silentGain.connect(context.destination);
 
             const started = await this.service.startReviewSession(request);
+            const monotonicStartedAt = performance.now();
             const active: ActiveReviewSession = {
                 ...started,
                 projectRootUri: request.projectRootUri,
                 editUri: request.editUri,
-                monotonicStartedAt: performance.now(),
+                monotonicStartedAt,
                 lastRecT: 0,
                 transport: { ...initial },
                 stream,
@@ -122,6 +134,8 @@ export class ReviewSessionRecorder {
                 silentGain,
                 pendingSamples: [],
                 pendingSampleCount: 0,
+                level: 0,
+                lastNonSilentAt: monotonicStartedAt,
                 writeTail: Promise.resolve()
             };
             processor.onaudioprocess = event => this.captureAudio(active, event);
@@ -248,6 +262,16 @@ export class ReviewSessionRecorder {
                 samples[index] += data[index] / channels;
             }
         }
+        let squaredTotal = 0;
+        for (const sample of samples) {
+            squaredTotal += sample * sample;
+        }
+        active.level = samples.length > 0
+            ? Math.min(1, Math.sqrt(squaredTotal / samples.length))
+            : 0;
+        if (active.level > 0) {
+            active.lastNonSilentAt = performance.now();
+        }
         active.pendingSamples.push(samples);
         active.pendingSampleCount += samples.length;
         if (active.pendingSampleCount >= active.context.sampleRate * (AUDIO_FLUSH_INTERVAL_MS / 1000)) {
@@ -355,12 +379,19 @@ export class ReviewSessionRecorder {
 
     protected emitState(error?: string): void {
         const active = this.active;
+        const level = active?.level ?? 0;
         this.onState({
             editUri: active?.editUri ?? this.requestedEditUri,
             projectRootUri: active?.projectRootUri ?? this.requestedProjectRootUri,
             status: this.status,
             active: Boolean(active),
             elapsedSec: active ? this.recT(active) : 0,
+            level,
+            silenceWarning: Boolean(
+                active
+                && level === 0
+                && performance.now() - active.lastNonSilentAt >= SILENCE_WARNING_AFTER_MS
+            ),
             sessions: [...this.sessions],
             ...(error ? { error } : {})
         });

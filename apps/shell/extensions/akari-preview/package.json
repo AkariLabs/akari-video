@@ -10,6 +10,10 @@
     },
     {
       "backend": "lib/node/akari-preview-backend-module"
+    },
+    {
+      "electronMain": "lib/electron-main/electron-main-module",
+      "preload": "lib/electron-browser/preload"
     }
   ],
   "scripts": {
