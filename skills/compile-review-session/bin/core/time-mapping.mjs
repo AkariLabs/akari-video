@@ -125,7 +125,30 @@ export function buildTimelineTrace(events) {
     };
   }
 
-  return { stateAt };
+  return { stateAt, events };
+}
+
+function computeStopSegments(events) {
+  const segments = [];
+  let state = null;
+  let current = null;
+  for (const event of events) {
+    const recT = event.recT;
+    state = applyEvent(state, event);
+    if (state.playing) {
+      current = null;
+      continue;
+    }
+    const value = state.anchorTimelineT;
+    if (current && current.value === value) {
+      // 同一値が継続中。まだ閉じない。
+    } else {
+      if (current) segments.push({ ...current, end: recT });
+      current = { value, start: recT };
+    }
+  }
+  if (current) segments.push({ ...current, end: events.at(-1).recT });
+  return segments.map((segment) => ({ ...segment, duration: segment.end - segment.start }));
 }
 
 export function buildCutMap(snapshot) {
@@ -205,7 +228,43 @@ export function buildCutMap(snapshot) {
 
 export function resolveUtteranceReference({ utterance, trace, cutMap, rewindWindowSeconds = 3 }) {
   const utteranceStart = utterance.recT[0];
+  const utteranceEnd = Number.isFinite(utterance.recT[1]) ? utterance.recT[1] : utteranceStart;
   const startState = trace.stateAt(utteranceStart);
+  const seeksDuringUtterance = trace.events.filter((event) => (
+    event.type === "seek" && event.recT > utteranceStart && event.recT <= utteranceEnd
+  ));
+
+  if (seeksDuringUtterance.length > 0) {
+    const endState = trace.stateAt(utteranceEnd);
+    const located = cutMap.locate(endState.timelineT);
+    const segments = computeStopSegments(trace.events);
+    const activeSegment = segments.find((segment) => (
+      segment.start <= utteranceEnd && utteranceEnd <= segment.end
+    ));
+    const settled = !endState.playing && Boolean(activeSegment) && activeSegment.duration >= 1;
+    const windowStartRecT = Math.max(0, utteranceStart - rewindWindowSeconds);
+    const candidateValues = settled
+      ? []
+      : segments
+        .filter((segment) => (
+          segment.duration >= 1
+          && segment.end > windowStartRecT
+          && segment.start < utteranceEnd
+        ))
+        .map((segment) => segment.value);
+
+    return {
+      timelineT: located.timelineT,
+      sourceT: located.sourceT,
+      cutIndex: located.cutIndex,
+      target: `cut:${located.cutIndex}`,
+      sourceRange: null,
+      confidence: settled ? "high" : "low",
+      resolutionMethod: settled ? "scrub-settle" : "scrub-unsettled",
+      candidates: candidateValues,
+    };
+  }
+
   if (!startState.playing) {
     const located = cutMap.locate(startState.timelineT);
     return {

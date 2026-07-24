@@ -118,6 +118,36 @@ test("whisper token 境界で分断された UTF-8 bytes を連結して word �
   assert.deepEqual(words, [{ start: 1, end: 1.2, text: "テ" }]);
 });
 
+test("発話をまたぐ多段スクラブは発話終端の着地点へ高信頼で解決する", () => {
+  const scrubSnapshot = {
+    cuts: [
+      { in: 0, out: 60 },
+      { in: 1000, out: 1050, at: 60 },
+      { in: 2000, out: 2060, at: 110 },
+    ],
+  };
+  const { events } = parseEventsJsonl([
+    '{"recT":0,"type":"start","timelineT":0,"playing":false}',
+    '{"recT":11.21,"type":"seek","from":0,"to":100.06}',
+    '{"recT":12.72,"type":"seek","from":100.06,"to":104.34}',
+    '{"recT":12.97,"type":"seek","from":104.34,"to":115.17}',
+    '{"recT":12.98,"type":"rate","value":0.9}',
+    '{"recT":13.23,"type":"seek","from":115.17,"to":122.88}',
+    '{"recT":17.32,"type":"seek","from":122.88,"to":71.25}',
+    '{"recT":17.33,"type":"rate","value":1}',
+    '{"recT":20.52,"type":"end","timelineT":71.25}',
+  ].join("\n"));
+  const reference = resolveUtteranceReference({
+    utterance: { text: "この辺りを明るく調整する", recT: [9.22, 17.94], words: [] },
+    trace: buildTimelineTrace(events),
+    cutMap: buildCutMap(scrubSnapshot),
+  });
+  assert.equal(reference.target, "cut:1");
+  assert.ok(Math.abs(reference.sourceT - 1011.25) < 0.05, `sourceT=${reference.sourceT}`);
+  assert.equal(reference.confidence, "high");
+  assert.notEqual(reference.confidence, "low");
+});
+
 function expectLocation(sourceT, cutIndex) {
   return {
     ...buildCutMap(snapshot).intervals[cutIndex],

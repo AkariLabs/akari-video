@@ -42,11 +42,13 @@
 
 優先順位は次のとおり。
 
-1. 発話開始時に停止中なら停止フレームを採用し、`confidence: high` とする。停止中の連続 seek は
+1. 発話区間中に seek が起きた場合は発話終端時点の着地点を第一候補とし、その位置に 1 秒以上
+   滞留していれば、発話をまたぐスクラブが停止したとみなして `confidence: high` とする。
+2. 発話開始時に停止中なら停止フレームを採用し、`confidence: high` とする。停止中の連続 seek は
    最後の着地点が anchor になる。
-2. 再生中なら発話開始から 3 秒遡った実軌跡と開始位置の間にある cut 境界を列挙する。候補が
+3. 再生中なら発話開始から 3 秒遡った実軌跡と開始位置の間にある cut 境界を列挙する。候補が
    1 つならその境界、0 なら瞬時位置、複数なら候補列を残す。
-3. 0 件・複数候補は `confidence: low` とし、`[要確認]` に候補と質問を書く。黙って捨てず、
+4. 0 件・複数候補は `confidence: low` とし、`[要確認]` に候補と質問を書く。黙って捨てず、
    複数候補から機械的に 1 つを断定しない。
 
 解決した timelineT を snapshot cuts に当て、`target: "cut:<元配列index>"` と sourceT を得る。
@@ -67,10 +69,13 @@ bin は編集語・要求語・システム確認語の保守的なヒューリ�
 
 ## 着地と劣化
 
+既存 `transcript.json` がスキーマ不正な場合は warning を残して再生成する。
+
 review.json の既存 annotations 行を再シリアライズしない。閉じ `]` の直前へ minified JSON を
 新しい行として加え、一時ファイルから rename する。ID は既存 `a-` 数値の最大 + 1 とし、削除済み
-ID を再利用しない。annotation は `status: "open"`、`input: "session"`、`timelineT: null` とし、
-audio、transcript、session id・recRange・confidence を含める。
+ID を再利用しない。annotation は `status: "open"`、`input: "session"` とし、`timelineT` には
+解決済みタイムライン秒（参考値。正は sourceT）を書き込む。audio、transcript、session
+id・recRange・confidence を含める。
 
 成功後だけ session.json を `compiled` にし、今回の ID を `compiledAnnotations` へ追記する。
 既存 ID は保持する。compiled は既定でスキップし、`--force` でも既存 annotation を消さず新 ID を

@@ -109,7 +109,11 @@ async function readJson(file, label) {
   try {
     source = await fs.readFile(file, "utf8");
   } catch (error) {
-    if (error?.code === "ENOENT") throw new Error(`${label} がありません`);
+    if (error?.code === "ENOENT") {
+      const notFound = new Error(`${label} がありません`);
+      notFound.code = "ENOENT";
+      throw notFound;
+    }
     throw error;
   }
   try {
@@ -250,10 +254,14 @@ async function loadOrCreateTranscript({
   options,
   repoRoot,
 }) {
+  const warnings = [];
   try {
-    return { transcript: validateTranscript(await readJson(transcriptPath, "transcript.json")), created: false };
+    const transcript = validateTranscript(await readJson(transcriptPath, "transcript.json"));
+    return { transcript, created: false, warnings };
   } catch (error) {
-    if (!String(errorText(error)).includes("がありません")) throw error;
+    if (error?.code !== "ENOENT") {
+      warnings.push(`transcript.json のスキーマが不正なため再文字起こしします: ${errorText(error)}`);
+    }
   }
 
   const audioPath = path.resolve(sessionDirectory, session.audio ?? "audio.wav");
@@ -280,7 +288,7 @@ async function loadOrCreateTranscript({
     session.status = "transcribed";
     await writeJsonAtomic(sessionPath, session);
   }
-  return { transcript: validateTranscript(stored), created: true };
+  return { transcript: validateTranscript(stored), created: true, warnings };
 }
 
 async function compileSession({ sessionId, sessionDirectory, options, repoRoot }) {
@@ -321,7 +329,7 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
     const trace = buildTimelineTrace(parsedEvents.events);
     const cutMap = buildCutMap(snapshot);
     const transcriptPath = path.join(sessionDirectory, "transcript.json");
-    const { transcript } = await loadOrCreateTranscript({
+    const { transcript, warnings: transcriptWarnings } = await loadOrCreateTranscript({
       transcriptPath,
       session,
       sessionPath,
@@ -359,7 +367,7 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
       proposals = buildProposals({ utterances, trace, cutMap });
     }
 
-    const warnings = parsedEvents.warnings;
+    const warnings = [...parsedEvents.warnings, ...transcriptWarnings];
     const unavailableReasons = Array.isArray(transcript.unavailableReasons)
       ? transcript.unavailableReasons
       : [];

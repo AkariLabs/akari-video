@@ -11,6 +11,8 @@
 | s-0004 | compiled・既存 a-0002 | 既定 skip。`--force` で sourceT 102 / cut:1 を新 ID 追加 |
 | s-0005 | 壊れた session.json | この session だけ skip |
 | s-0006 | snapshot 欠落 | sourceT を推測せず reject |
+| s-0007 | 発話をまたぐ多段スクラブ（発話中に seek が連続し、発話終端直前の最終 seek 着地点で 3 秒弱滞留して発話が終わる） | 発話終端の着地点 timelineT=71.25 → cut:1 → sourceT=1011.25（±0.05）に confidence high で解決 |
+| s-0008 | 手動コンパイル時代の `{start,end,text}` 形式（`words` 欠落）の transcript.json を事前に仕込んだセッション | warning を残して再文字起こし → 発話 1 件 → annotation 1 件（`BGMの音量を下げる`）まで完走。session は `failed` にならない |
 
 基準コマンド:
 

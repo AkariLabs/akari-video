@@ -180,7 +180,7 @@ export function proposalToAnnotation({ proposal, decision, sessionId, audioPath,
     createdAt,
     sourceT: proposal.reference.sourceT,
     sourceRange: proposal.reference.sourceRange,
-    timelineT: null,
+    timelineT: proposal.reference.timelineT,
     target: proposal.reference.target,
     text: needsConfirmation
       ? confirmationText(decision.text, proposal.reference, decision)
