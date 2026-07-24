@@ -154,18 +154,15 @@ type TimelineClipboard =
     | { kind: 'overlay'; payload: OverlayWritePayload };
 
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
-const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
 const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
-const TIMELINE_SET_CLIPS_VISIBILITY_EVENT = 'akari.timeline.setClipsVisibility';
 const TIMELINE_SET_OVERLAY_TRACK_MUTED_EVENT = 'akari.timeline.setOverlayTrackMuted';
-const TIMELINE_SET_LAYERS_VISIBILITY_EVENT = 'akari.timeline.setLayersVisibility';
-const TIMELINE_SET_LAYERS_MUTED_EVENT = 'akari.timeline.setLayersMuted';
 const TIMELINE_SET_AUDIO_VISIBILITY_EVENT = 'akari.timeline.setAudioVisibility';
 const TIMELINE_SET_AUDIO_MUTED_EVENT = 'akari.timeline.setAudioMuted';
 const TIMELINE_SET_CAPTIONS_MUTED_EVENT = 'akari.timeline.setCaptionsMuted';
 const TIMELINE_SET_BEATS_VISIBILITY_EVENT = 'akari.timeline.setBeatsVisibility';
 const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
+const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 
 interface OverlayTrackLayout {
     track: number;
@@ -186,6 +183,8 @@ interface TrackGroupLayout {
     height: number;
     id?: string;
     kind?: TimelineTrackKind;
+    hidden?: boolean;
+    muted?: boolean;
 }
 
 const STATUS_COLORS: Record<Annotation['status'], string> = {
@@ -355,14 +354,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly audioSfxRows = new Map<string, number>();
     protected captionRows: number[] = [];
     protected audioBgmTop = 0;
-    protected clipMuted = false;
-    protected clipsVisible = true;
     protected captionsVisible = true;
     protected captionsMuted = false;
     protected beatsVisible = true;
     protected beatsMuted = false;
-    protected layersVisible = true;
-    protected layersMuted = false;
     protected audioVisible = true;
     protected audioMuted = false;
     protected readonly hiddenTracks = new Set<number>();
@@ -2315,6 +2310,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rebuildSegments();
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
+        this.syncTimelineTrackTogglesToPreview();
         this.renderStrip();
     }
 
@@ -2556,7 +2552,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 height = Math.max(1, rows.length ? Math.max(...rows) + 1 : 0) * SUBROW_STRIDE;
             }
             const layout = {
-                id: timelineTrack.id, kind: timelineTrack.kind, track: ref, top: nextTop, height
+                id: timelineTrack.id, kind: timelineTrack.kind, track: ref, top: nextTop, height,
+                hidden: !!timelineTrack.hidden, muted: !!timelineTrack.muted
             };
             tracks.push(layout);
             if (timelineTrack.kind === 'cuts') {
@@ -2641,13 +2638,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (layout.kind === 'overlays') {
                 band.classList.toggle('akari-track-band-hidden', this.hiddenTracks.has(layout.track));
             } else if (layout.kind === 'layers') {
-                band.style.opacity = this.layersVisible ? '1' : '.28';
+                band.style.opacity = layout.hidden ? '.28' : '1';
             } else if (layout.kind === 'captions') {
                 band.style.opacity = this.captionsVisible ? '1' : '.28';
             } else if (layout.kind === 'audio') {
                 band.style.opacity = this.audioVisible ? '1' : '.28';
             } else if (layout.kind === 'cuts') {
-                band.style.opacity = this.clipsVisible ? '1' : '.28';
+                band.style.opacity = layout.hidden ? '.28' : '1';
             }
             this.strip.appendChild(band);
         }
@@ -2729,7 +2726,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemId = layer.id;
             element.dataset.akariLane = layout?.id ?? 'layers';
             element.style.pointerEvents = 'auto';
-            element.style.opacity = this.layersVisible ? '' : '.28';
+            element.style.opacity = layout.hidden ? '.28' : '';
             element.appendChild(this.segmentLabel(layer.id));
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
@@ -2815,7 +2812,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemKind = 'cut';
             element.dataset.akariItemId = String(segment.index);
             element.dataset.akariLane = cutLayout.id ?? 'clips';
-            element.style.opacity = this.clipsVisible ? '' : '.28';
+            element.style.opacity = cutLayout.hidden ? '.28' : '';
             const widthPercent = Math.max(this.percent(segment.tlEnd) - this.percent(segment.tlStart), 0.3);
             const clipWidth = this.strip.clientWidth * widthPercent / 100;
             if (clipWidth < MICRO_CLIP_WIDTH_PX) {
@@ -2929,30 +2926,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let toggleVisibility = (): void => undefined;
             let toggleMute = (): void => undefined;
             if (track.kind === 'cuts') {
-                visible = this.clipsVisible;
-                audible = !this.clipMuted;
+                visible = !layout.hidden;
+                audible = !layout.muted;
                 toggleVisibility = () => {
-                    this.clipsVisible = !this.clipsVisible;
-                    this.dispatchPreviewEvent(TIMELINE_SET_CLIPS_VISIBILITY_EVENT, { visible: this.clipsVisible });
-                    this.renderStrip();
+                    void this.toggleTimelineTrackFlag(track, 'hidden');
                 };
                 toggleMute = () => {
-                    this.clipMuted = !this.clipMuted;
-                    this.dispatchPreviewEvent(TIMELINE_SET_MUTED_EVENT, { muted: this.clipMuted });
-                    this.renderStrip();
+                    void this.toggleTimelineTrackFlag(track, 'muted');
                 };
             } else if (track.kind === 'layers') {
-                visible = this.layersVisible;
-                audible = !this.layersMuted;
+                visible = !layout.hidden;
+                audible = !layout.muted;
                 toggleVisibility = () => {
-                    this.layersVisible = !this.layersVisible;
-                    this.dispatchPreviewEvent(TIMELINE_SET_LAYERS_VISIBILITY_EVENT, { visible: this.layersVisible });
-                    this.renderStrip();
+                    void this.toggleTimelineTrackFlag(track, 'hidden');
                 };
                 toggleMute = () => {
-                    this.layersMuted = !this.layersMuted;
-                    this.dispatchPreviewEvent(TIMELINE_SET_LAYERS_MUTED_EVENT, { muted: this.layersMuted });
-                    this.renderStrip();
+                    void this.toggleTimelineTrackFlag(track, 'muted');
                 };
             } else if (track.kind === 'overlays') {
                 visible = !this.hiddenTracks.has(layout.track);
@@ -3214,6 +3203,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.showNotice(`${label}できません: ${detail}`);
             this.messages.error(`${label}できません: ${detail}`);
         }
+    }
+
+    protected async toggleTimelineTrackFlag(
+        track: EditTimelineTrack, field: 'hidden' | 'muted'
+    ): Promise<void> {
+        const next = !track[field];
+        const label = field === 'hidden'
+            ? (next ? 'トラックを非表示に' : 'トラックを表示に')
+            : (next ? 'トラックの音声をオフに' : 'トラックの音声をオンに');
+        await this.mutateTimelineTracks(label, tracks => tracks.map(candidate =>
+            candidate.id === track.id ? { ...candidate, [field]: next } : candidate));
     }
 
     protected insertedTimelineTracks(
@@ -3535,6 +3535,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         window.dispatchEvent(new CustomEvent(type, {
             detail: { editUri: this.location?.editUri?.toString() ?? '', ...detail }
         }));
+    }
+
+    protected syncTimelineTrackTogglesToPreview(): void {
+        const refsWhere = (kind: 'cuts' | 'layers', field: 'hidden' | 'muted'): number[] =>
+            this.timelineTracks.filter(t => t.kind === kind && t[field]).map(t => t.ref ?? 0);
+        this.dispatchPreviewEvent(TIMELINE_SYNC_TRACK_TOGGLES_EVENT, {
+            cuts: { hidden: refsWhere('cuts', 'hidden'), muted: refsWhere('cuts', 'muted') },
+            layers: { hidden: refsWhere('layers', 'hidden'), muted: refsWhere('layers', 'muted') }
+        });
     }
 
     protected renderRuler(): void {
