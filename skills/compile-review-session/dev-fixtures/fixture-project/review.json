@@ -1,0 +1,7 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-20T10:00:00.000Z","src":null,"sourceT":50,"sourceRange":null,"timelineT":null,"target":null,"targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"全体的にテンポが良い","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0002","createdAt":"2026-07-21T09:00:00.000Z","src":null,"sourceT":102,"sourceRange":null,"timelineT":null,"target":"cut:1","targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"BGMの音量を下げる","input":"session","audio":"review/sessions/s-0004/audio.wav","poses":null,"status":"open","response":null,"transcript":"背景の音楽をもう少し静かにしてください","session":{"id":"s-0004","recRange":[2,5.390438],"confidence":"high"}}
+  ]
+}
