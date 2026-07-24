@@ -111,6 +111,20 @@ export interface InspectorWriteResult {
 }
 
 /**
+ * インスペクターのスクラブドラッグ中に、書き込みなしでプレビューへ即時反映するための
+ * ephemeral な通知。対象は cuts/layers の transform/opacity のみ。
+ */
+export type LivePreviewTarget =
+    | { kind: 'cut'; index: number }
+    | { kind: 'layer'; id: string };
+
+export interface LivePreviewRequest {
+    target: LivePreviewTarget;
+    field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity';
+    value: number;
+}
+
+/**
  * タイムラインでの選択状態をインスペクターへ受け渡すためのモデル。
  * 読み書きの主体はタイムラインウィジェットで、インスペクターは onChanged を購読して表示を更新する。
  */
@@ -128,6 +142,13 @@ export class TimelineSelectionModel {
      * 初期化時に代入する。
      */
     requestWrite?: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>;
+
+    /**
+     * インスペクターのスクラブドラッグ中の ephemeral なライブプレビュー反映ブリッジ。
+     * 実体はタイムラインウィジェットが初期化時に代入する（requestWrite と同様）。
+     * 書き込みは行わない・pointerup の requestWrite とは独立。
+     */
+    requestLivePreview?: (request: LivePreviewRequest) => void;
 
     get snapshot(): TimelineSelectionSnapshot {
         return this._snapshot;

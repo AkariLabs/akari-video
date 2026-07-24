@@ -3,6 +3,8 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import {
     InspectorWriteRequest,
     InspectorWriteResult,
+    LivePreviewRequest,
+    LivePreviewTarget,
     TimelineAudioSelection,
     TimelineCaptionSelection,
     TimelineCutSelection,
@@ -11,6 +13,10 @@ import {
     TimelineSelectionModel,
     TimelineSelectionSnapshot
 } from './timeline-selection-model';
+
+// appendScrubNumber の pointermove 中にライブプレビューを送出する最短間隔（ms）。
+// 契約の目安「16〜50ms」の中間値で throttle する。
+const LIVE_PREVIEW_THROTTLE_MS = 30;
 
 type InspectorSnapshot = Exclude<TimelineSelectionSnapshot, undefined | { kind: 'multi'; count: number }>;
 
@@ -27,6 +33,11 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     max?: number;
     /** 文字列の型変換と検証を行い、妥当な値だけを書き込みブリッジへ渡す。 */
     write?: (snapshot: TSnapshot, nextValue: string) => Promise<InspectorWriteResult>;
+    /**
+     * scrub-number ドラッグ中に書き込みなしでプレビューへ即時反映する対象フィールド。
+     * cuts/layers の transform/opacity のみ設定する。
+     */
+    liveField?: LivePreviewRequest['field'];
 }
 
 interface InspectorTabDef<TSnapshot = InspectorSnapshot> {
@@ -107,6 +118,7 @@ function CUT_TABS(
                     getEditValue: () => String(snapshot.transform?.x ?? 0),
                     inputKind: 'scrub-number',
                     scrubStep: 1,
+                    liveField: 'x',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed)) {
@@ -121,6 +133,7 @@ function CUT_TABS(
                     getEditValue: () => String(snapshot.transform?.y ?? 0),
                     inputKind: 'scrub-number',
                     scrubStep: 1,
+                    liveField: 'y',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed)) {
@@ -136,6 +149,7 @@ function CUT_TABS(
                     inputKind: 'scrub-number',
                     scrubStep: 0.01,
                     min: 0.01,
+                    liveField: 'scale',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -150,6 +164,7 @@ function CUT_TABS(
                     getEditValue: () => String(snapshot.transform?.rotate ?? 0),
                     inputKind: 'scrub-number',
                     scrubStep: 0.1,
+                    liveField: 'rotate',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed)) {
@@ -166,6 +181,7 @@ function CUT_TABS(
                     scrubStep: 0.01,
                     min: 0,
                     max: 1,
+                    liveField: 'opacity',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
@@ -228,6 +244,7 @@ function LAYER_TABS(
                     getEditValue: () => String(snapshot.transform?.x ?? 0),
                     inputKind: 'scrub-number',
                     scrubStep: 1,
+                    liveField: 'x',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed)) {
@@ -242,6 +259,7 @@ function LAYER_TABS(
                     getEditValue: () => String(snapshot.transform?.y ?? 0),
                     inputKind: 'scrub-number',
                     scrubStep: 1,
+                    liveField: 'y',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed)) {
@@ -257,6 +275,7 @@ function LAYER_TABS(
                     inputKind: 'scrub-number',
                     scrubStep: 0.01,
                     min: 0.01,
+                    liveField: 'scale',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -271,6 +290,7 @@ function LAYER_TABS(
                     getEditValue: () => String(snapshot.transform?.rotate ?? 0),
                     inputKind: 'scrub-number',
                     scrubStep: 0.1,
+                    liveField: 'rotate',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed)) {
@@ -287,6 +307,7 @@ function LAYER_TABS(
                     scrubStep: 0.01,
                     min: 0,
                     max: 1,
+                    liveField: 'opacity',
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
@@ -737,7 +758,19 @@ export class AkariInspectorWidget extends BaseWidget {
         };
 
         if (field.inputKind === 'scrub-number') {
-            this.appendScrubNumber(row, field, editValue, commitValue);
+            let sendLive: ((value: number) => void) | undefined;
+            if (field.liveField) {
+                const liveField = field.liveField;
+                const target: LivePreviewTarget | undefined = snapshot.kind === 'cut'
+                    ? { kind: 'cut', index: snapshot.index }
+                    : snapshot.kind === 'layer'
+                        ? { kind: 'layer', id: snapshot.id }
+                        : undefined;
+                if (target) {
+                    sendLive = value => this.model.requestLivePreview?.({ target, field: liveField, value });
+                }
+            }
+            this.appendScrubNumber(row, field, editValue, commitValue, sendLive);
             this.body.appendChild(row);
             return;
         }
@@ -802,7 +835,8 @@ export class AkariInspectorWidget extends BaseWidget {
         row: HTMLDivElement,
         field: InspectorFieldDef,
         editValue: string,
-        commitValue: (nextValue: string, revert: () => void) => Promise<boolean>
+        commitValue: (nextValue: string, revert: () => void) => Promise<boolean>,
+        sendLive?: (value: number) => void
     ): void {
         const scrub = document.createElement('div');
         scrub.className = 'akari-inspector-row-scrub';
@@ -865,6 +899,7 @@ export class AkariInspectorWidget extends BaseWidget {
             let dragged = false;
             let currentValue = startValue;
             let finished = false;
+            let lastLiveSentAt = -Infinity;
             scrub.setPointerCapture(pointerId);
 
             const cleanup = (): void => {
@@ -883,6 +918,10 @@ export class AkariInspectorWidget extends BaseWidget {
                 finished = true;
                 cleanup();
                 scrub.textContent = editValue;
+                // Esc 破棄: ドラッグ中に送出したライブプレビューを元値へ戻す。
+                if (dragged) {
+                    sendLive?.(startValue);
+                }
             };
             const onPointerMove = (event: PointerEvent): void => {
                 if (event.pointerId !== pointerId || finished) {
@@ -901,6 +940,13 @@ export class AkariInspectorWidget extends BaseWidget {
                     currentValue = Math.min(field.max, currentValue);
                 }
                 scrub.textContent = this.formatScrubNumber(currentValue, step);
+                if (sendLive) {
+                    const now = Date.now();
+                    if (now - lastLiveSentAt >= LIVE_PREVIEW_THROTTLE_MS) {
+                        lastLiveSentAt = now;
+                        sendLive(currentValue);
+                    }
+                }
                 event.preventDefault();
             };
             const onPointerUp = (event: PointerEvent): void => {
@@ -917,6 +963,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (currentValue !== startValue) {
                     void commitValue(nextValue, () => {
                         scrub.textContent = editValue;
+                        // 書き込み失敗（稀・スクラブは既に min/max でクランプ済み）: ライブプレビューも巻き戻す。
+                        sendLive?.(startValue);
                     });
                 }
             };

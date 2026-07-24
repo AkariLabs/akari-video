@@ -235,6 +235,10 @@ const TIMELINE_SET_AUDIO_MUTED_EVENT = 'akari.timeline.setAudioMuted';
 const TIMELINE_SET_CAPTIONS_MUTED_EVENT = 'akari.timeline.setCaptionsMuted';
 const TIMELINE_SET_BEATS_VISIBILITY_EVENT = 'akari.timeline.setBeatsVisibility';
 const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
+// akari-annotations 側の TIMELINE_LIVE_TRANSFORM_EVENT とミラー（文字列のみ、cross-package import なし）。
+// インスペクターのスクラブドラッグ中、書き込みなしで cuts/layers の transform/opacity をプレビューへ
+// 即時反映する ephemeral イベント。
+const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 // akari-annotations の録音セクション側と文字列だけをミラーし、extension 間の npm 依存を作らない。
 const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
@@ -555,6 +559,39 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             }
         );
+        const onLiveTransform = (event: Event): void => {
+            const detail = (event as CustomEvent<{
+                editUri?: string;
+                target?: { kind: 'cut'; index: number } | { kind: 'layer'; id: string };
+                field?: string;
+                value?: number;
+            }>).detail;
+            if (!detail?.editUri || !detail.target
+                || (detail.target.kind !== 'cut' && detail.target.kind !== 'layer')
+                || typeof detail.field !== 'string' || typeof detail.value !== 'number'
+                || !Number.isFinite(detail.value)) {
+                return;
+            }
+            let key: string;
+            try {
+                key = new URI(detail.editUri).normalizePath().toString();
+            } catch {
+                return;
+            }
+            const widget = this.openOutputPreviews.get(key);
+            if (widget?.isAttached) {
+                widget.sendMessage({
+                    type: 'akari-preview-live-transform',
+                    target: detail.target,
+                    field: detail.field,
+                    value: detail.value
+                });
+            }
+        };
+        window.addEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform);
+        this.lifecycleDisposables.push({
+            dispose: () => window.removeEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform)
+        });
         this.registerReviewSessionEvents();
     }
 
@@ -2273,7 +2310,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
-#zoom-layer { position: absolute; inset: 0; will-change: transform; }
+#zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
 #preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: none; }
@@ -2441,6 +2478,14 @@ body { display: grid; place-items: center; padding: 32px; }
             const pending = new Map();
             let sequence = 0;
             let displayScale = 1;
+            // frameScale: 出力キャンバス(output.width/height)を wrapper 全体（letterbox 込みの
+            // content-rect ではなく）へ写像する CSS px / 出力 px 比。cuts/layers の transform は
+            // render-cut（buildLayersCompositeCommand の overlay x=(main_w-overlay_w)/2+x 等）と
+            // 同じく出力フレーム中心基準の座標系なので、現在再生中のソース動画自体のアスペクト比に
+            // 依存する displayScale/rect（letterbox 込みの狭い矩形）ではなく frameScale/wrapper 全体
+            // を基準にする。#overlay-stage・#pen-layer・window.akari.stageScale は既存どおり
+            // displayScale/rect を使い続ける（挙動不変・スコープ外）。
+            let frameScale = 1;
             let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
             const video = document.getElementById('preview-video');
@@ -2843,13 +2888,22 @@ body { display: grid; place-items: center; padding: 32px; }
                 const next = rect.width / Number(output.width || 1280);
                 displayScale = Number.isFinite(next) && next > 0 ? next : 1;
                 const stageTransform = 'translate(' + rect.x + 'px, ' + rect.y + 'px) scale(' + displayScale + ')';
-                // A transform on #preview-layers would create a stacking context and trap every
-                // child layer above/below the group as a whole. Position each child in display
-                // pixels instead so its z-index can be compared directly with #preview-video.
-                layersStage.style.left = rect.x + 'px';
-                layersStage.style.top = rect.y + 'px';
-                layersStage.style.width = rect.width + 'px';
-                layersStage.style.height = rect.height + 'px';
+                // frameScale/boxWidth/boxHeight: 出力フレーム全体（wrapper の実表示box）を基準に
+                // した CSS px 比。rect（現在再生中クリップの letterbox 込み内側矩形）と違い、
+                // 出力アスペクト比と異なる素材でも常に出力キャンバス全体を指す
+                // （render-cut の main_w/main_h と同じ基準。packages/render-cut/src/layers.mjs の
+                // overlay x=(main_w-overlay_w)/2+x と揃える）。
+                const boxWidth = wrapper.clientWidth;
+                const boxHeight = wrapper.clientHeight;
+                const nextFrameScale = boxWidth / Number(output.width || 1280);
+                frameScale = Number.isFinite(nextFrameScale) && nextFrameScale > 0 ? nextFrameScale : 1;
+                // #preview-layers のクリップ境界・子レイヤーの位置基準は常に出力フレーム全体
+                // （wrapper 全体）にする。letterbox 込みの rect に縮めると、素材のアスペクト比が
+                // 出力と異なる場合にクリップ境界が出力フレームより内側に縮んでしまう。
+                layersStage.style.left = '0px';
+                layersStage.style.top = '0px';
+                layersStage.style.width = boxWidth + 'px';
+                layersStage.style.height = boxHeight + 'px';
                 layersStage.style.transform = '';
                 for (const layerVideo of layersStage.querySelectorAll('video')) {
                     if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) continue;
@@ -2857,10 +2911,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     const y = Number(layerVideo.dataset.akariTransformY) || 0;
                     const scale = Number(layerVideo.dataset.akariTransformScale) || 1;
                     const rotate = Number(layerVideo.dataset.akariTransformRotate) || 0;
-                    layerVideo.style.width = (layerVideo.videoWidth * scale * displayScale) + 'px';
-                    layerVideo.style.height = (layerVideo.videoHeight * scale * displayScale) + 'px';
-                    layerVideo.style.left = (rect.width / 2 + x * displayScale) + 'px';
-                    layerVideo.style.top = (rect.height / 2 + y * displayScale) + 'px';
+                    layerVideo.style.width = (layerVideo.videoWidth * scale * frameScale) + 'px';
+                    layerVideo.style.height = (layerVideo.videoHeight * scale * frameScale) + 'px';
+                    layerVideo.style.left = (boxWidth / 2 + x * frameScale) + 'px';
+                    layerVideo.style.top = (boxHeight / 2 + y * frameScale) + 'px';
                     layerVideo.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg)';
                 }
                 if (video.dataset.akariCutTransformActive === 'true') {
@@ -2868,8 +2922,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     const y = Number(video.dataset.akariTransformY) || 0;
                     const scale = Number(video.dataset.akariTransformScale) || 1;
                     const rotate = Number(video.dataset.akariTransformRotate) || 0;
-                    video.style.transform = 'translate(' + (x * displayScale) + 'px, '
-                        + (y * displayScale) + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
+                    video.style.transform = 'translate(' + (x * frameScale) + 'px, '
+                        + (y * frameScale) + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
                 } else {
                     video.style.transform = '';
                 }
@@ -4556,6 +4610,33 @@ body { display: grid; place-items: center; padding: 32px; }
                     && (typeof message.overlayId === 'string' || message.overlayId === null)) {
                     requestedOverlayId = message.overlayId;
                     applyRequestedOverlaySelection();
+                }
+                if (message && message.type === 'akari-preview-live-transform' && message.target
+                    && (message.target.kind === 'cut' || message.target.kind === 'layer')
+                    && typeof message.field === 'string' && Number.isFinite(message.value)) {
+                    // ドラッグ中の ephemeral 反映: summary/segments は一切書き換えず、applyCutVisual/
+                    // layerEntries が読む dataset を直接上書きして updateLayerLayout() で再計算させるだけ。
+                    // 確定書き込み(pointerup)後は edit.json 変更検知 → queueRefresh() の通常経路で
+                    // 正規の HTML に置き換わるため、ここで明示的な「クリア」は不要
+                    // （Esc 破棄時は元値を持つ同型メッセージが再送されて上書きされる）。
+                    const applyLiveField = element => {
+                        if (message.field === 'x') element.dataset.akariTransformX = String(message.value);
+                        else if (message.field === 'y') element.dataset.akariTransformY = String(message.value);
+                        else if (message.field === 'scale') element.dataset.akariTransformScale = String(message.value);
+                        else if (message.field === 'rotate') element.dataset.akariTransformRotate = String(message.value);
+                        else if (message.field === 'opacity') element.style.opacity = String(message.value);
+                    };
+                    if (message.target.kind === 'cut') {
+                        if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
+                        applyLiveField(video);
+                    } else if (typeof message.target.id === 'string') {
+                        const layerVideo = layersStage.querySelector(
+                            'video[data-akari-layer-id="' + CSS.escape(message.target.id) + '"]'
+                        );
+                        if (layerVideo) applyLiveField(layerVideo);
+                    }
+                    if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                    return;
                 }
             });
 
