@@ -12,14 +12,6 @@ import {
     TimelineSelectionSnapshot
 } from './timeline-selection-model';
 
-const KIND_LABELS = {
-    cut: 'クリップ',
-    overlay: 'オーバーレイ',
-    caption: '字幕',
-    layer: 'レイヤー',
-    audio: 'オーディオ'
-} as const;
-
 type InspectorSnapshot = Exclude<TimelineSelectionSnapshot, undefined | { kind: 'multi'; count: number }>;
 
 interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
@@ -27,8 +19,12 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     getValue: (snapshot: TSnapshot) => string;
     /** 編集用入力欄の初期値。省略時は getValue の戻り値を使う。 */
     getEditValue?: (snapshot: TSnapshot) => string;
-    /** boolean-select の場合は ON/OFF の select を表示する。 */
-    inputKind?: 'boolean-select';
+    /** フィールドの値型に対応した入力 UI。 */
+    inputKind?: 'boolean-select' | 'select' | 'scrub-number';
+    options?: readonly string[];
+    scrubStep?: number;
+    min?: number;
+    max?: number;
     /** 文字列の型変換と検証を行い、妥当な値だけを書き込みブリッジへ渡す。 */
     write?: (snapshot: TSnapshot, nextValue: string) => Promise<InspectorWriteResult>;
 }
@@ -62,10 +58,6 @@ function withDefaultNumber(
     formatFn: (value: number) => string
 ): string {
     return raw === undefined ? `${formatFn(defaultValue)}（既定）` : formatFn(raw);
-}
-
-function withDefaultString(raw: string | undefined, defaultValue: string): string {
-    return raw === undefined ? `${defaultValue}（既定）` : raw;
 }
 
 function withDefaultBoolean(raw: boolean | undefined, defaultValue: boolean): string {
@@ -105,73 +97,17 @@ function CUT_TABS(
     snapshot: TimelineCutSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorTabDef[] {
-    const sourceFields: InspectorFieldDef<TimelineCutSelection>[] = snapshot.src !== undefined
-        ? [
-            { label: 'src', getValue: () => snapshot.src! },
-            { label: 'source path', getValue: () => snapshot.sourcePath || '(不明)' }
-        ]
-        : [];
     return [
         {
             label: '基本',
-            fields: [
-                { label: '素材', getValue: () => snapshot.sourceName || '(不明)' },
-                ...sourceFields,
-                {
-                    label: '素材 in',
-                    getValue: () => formatTimestamp(snapshot.sourceIn),
-                    getEditValue: () => String(snapshot.sourceIn),
-                    write: async (_snapshot, nextValue) => {
-                        const parsed = Number(nextValue);
-                        if (!Number.isFinite(parsed) || parsed < 0) {
-                            return { ok: false, message: '素材 in は 0 以上の数値で入力してください。' };
-                        }
-                        if (snapshot.sourceOut - parsed < 0.15) {
-                            return {
-                                ok: false,
-                                message: '素材 in は素材 out より十分小さい値にしてください（0.15 秒以上の差が必要です）。'
-                            };
-                        }
-                        const speed = snapshot.speed ?? 1;
-                        const nextOutputStart = snapshot.outputStart + (parsed - snapshot.sourceIn) / speed;
-                        if (nextOutputStart < 0) {
-                            return { ok: false, message: '素材 in の変更後も出力位置が 0 以上になる値にしてください。' };
-                        }
-                        return requestWrite({ kind: 'cut-source-in', index: snapshot.index, value: parsed });
-                    }
-                },
-                {
-                    label: '素材 out',
-                    getValue: () => formatTimestamp(snapshot.sourceOut),
-                    getEditValue: () => String(snapshot.sourceOut),
-                    write: async (_snapshot, nextValue) => {
-                        const parsed = Number(nextValue);
-                        if (!Number.isFinite(parsed) || parsed < 0) {
-                            return { ok: false, message: '素材 out は 0 以上の数値で入力してください。' };
-                        }
-                        if (parsed - snapshot.sourceIn < 0.15) {
-                            return {
-                                ok: false,
-                                message: '素材 out は素材 in より十分大きい値にしてください（0.15 秒以上の差が必要です）。'
-                            };
-                        }
-                        return requestWrite({ kind: 'cut-source-out', index: snapshot.index, value: parsed });
-                    }
-                },
-                { label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
-                {
-                    label: '尺',
-                    getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart)
-                }
-            ]
-        },
-        {
-            label: '演出',
             fields: [
                 {
                     label: 'speed',
                     getValue: () => withDefaultNumber(snapshot.speed, 1, formatDecimal1),
                     getEditValue: () => String(snapshot.speed ?? 1),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.01,
+                    min: 0.01,
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -200,32 +136,106 @@ function CUT_TABS(
     ];
 }
 
-function LAYER_TABS(snapshot: TimelineLayerSelection): InspectorTabDef[] {
+const LAYER_BLEND_OPTIONS = [
+    'normal', 'screen', 'multiply', 'add', 'difference',
+    'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
+] as const;
+
+function LAYER_TABS(
+    snapshot: TimelineLayerSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorTabDef[] {
     return [
         {
             label: '基本',
             fields: [
-                { label: 'src', getValue: () => snapshot.src },
-                { label: 'kind', getValue: () => snapshot.layerKind },
-                { label: 'preset', getValue: () => orDash(snapshot.preset, value => value) },
-                { label: 't', getValue: () => formatTimestamp(snapshot.outputStart) },
-                { label: 'duration', getValue: () => formatDurationSeconds(snapshot.duration) }
-            ]
-        },
-        {
-            label: '変形',
-            fields: [
-                { label: 'X', getValue: () => withDefaultNumber(snapshot.transform?.x, 0, formatDecimal1) },
-                { label: 'Y', getValue: () => withDefaultNumber(snapshot.transform?.y, 0, formatDecimal1) },
-                { label: '拡大率', getValue: () => withDefaultNumber(snapshot.transform?.scale, 1, formatDecimal1) },
-                { label: '回転', getValue: () => withDefaultNumber(snapshot.transform?.rotate, 0, formatDecimal1) },
-                { label: '不透明度', getValue: () => withDefaultNumber(snapshot.opacity, 1, formatDecimal1) }
+                {
+                    label: 'X',
+                    getValue: () => String(snapshot.transform?.x ?? 0),
+                    getEditValue: () => String(snapshot.transform?.x ?? 0),
+                    inputKind: 'scrub-number',
+                    scrubStep: 1,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed)) {
+                            return { ok: false, message: 'X は有限数値で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'layer-transform-x', id: snapshot.id, value: parsed });
+                    }
+                },
+                {
+                    label: 'Y',
+                    getValue: () => String(snapshot.transform?.y ?? 0),
+                    getEditValue: () => String(snapshot.transform?.y ?? 0),
+                    inputKind: 'scrub-number',
+                    scrubStep: 1,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed)) {
+                            return { ok: false, message: 'Y は有限数値で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'layer-transform-y', id: snapshot.id, value: parsed });
+                    }
+                },
+                {
+                    label: '拡大率',
+                    getValue: () => String(snapshot.transform?.scale ?? 1),
+                    getEditValue: () => String(snapshot.transform?.scale ?? 1),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.01,
+                    min: 0.01,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed <= 0) {
+                            return { ok: false, message: '拡大率は正の数で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'layer-scale', id: snapshot.id, value: parsed });
+                    }
+                },
+                {
+                    label: '回転',
+                    getValue: () => String(snapshot.transform?.rotate ?? 0),
+                    getEditValue: () => String(snapshot.transform?.rotate ?? 0),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.1,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed)) {
+                            return { ok: false, message: '回転は有限数値で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'layer-rotate', id: snapshot.id, value: parsed });
+                    }
+                },
+                {
+                    label: '不透明度',
+                    getValue: () => String(snapshot.opacity ?? 1),
+                    getEditValue: () => String(snapshot.opacity ?? 1),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.01,
+                    min: 0,
+                    max: 1,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+                            return { ok: false, message: '不透明度は 0〜1 の範囲で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'layer-opacity', id: snapshot.id, value: parsed });
+                    }
+                }
             ]
         },
         {
             label: '合成',
             fields: [
-                { label: 'ブレンドモード', getValue: () => withDefaultString(snapshot.blend, 'normal') },
+                {
+                    label: 'ブレンドモード',
+                    getValue: () => snapshot.blend ?? 'normal',
+                    getEditValue: () => snapshot.blend ?? 'normal',
+                    inputKind: 'select',
+                    options: LAYER_BLEND_OPTIONS,
+                    write: async (_snapshot, nextValue) =>
+                        requestWrite({ kind: 'layer-blend', id: snapshot.id, value: nextValue })
+                },
                 { label: 'クロマキー色', getValue: () => orDash(snapshot.chromaKey?.color, value => value) },
                 {
                     label: '類似度',
@@ -310,6 +320,10 @@ function AUDIO_TABS(
             label: 'gain_db',
             getValue: () => withDefaultNumber(snapshot.gainDb, 0, formatDecimal1),
             getEditValue: () => String(snapshot.gainDb ?? 0),
+            inputKind: 'scrub-number',
+            scrubStep: 0.1,
+            min: -60,
+            max: 12,
             write: async (_snapshot, nextValue) => {
                 if (snapshot.audioKind === 'narration') {
                     return { ok: false, message: 'narration の書き込みは未対応です。' };
@@ -336,6 +350,9 @@ function AUDIO_TABS(
                     label: 'fadeIn',
                     getValue: () => withDefaultNumber(snapshot.fadeIn, 0, formatDurationSeconds),
                     getEditValue: () => String(snapshot.fadeIn ?? 0),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.05,
+                    min: 0,
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < 0) {
@@ -348,6 +365,9 @@ function AUDIO_TABS(
                     label: 'fadeOut',
                     getValue: () => withDefaultNumber(snapshot.fadeOut, 0, formatDurationSeconds),
                     getEditValue: () => String(snapshot.fadeOut ?? 0),
+                    inputKind: 'scrub-number',
+                    scrubStep: 0.05,
+                    min: 0,
                     write: async (_snapshot, nextValue) => {
                         const parsed = Number(nextValue);
                         if (!Number.isFinite(parsed) || parsed < 0) {
@@ -479,6 +499,16 @@ export class AkariInspectorWidget extends BaseWidget {
         font-variant-numeric: tabular-nums;
         word-break: break-all;
     }
+    .akari-inspector-widget .akari-inspector-row-scrub {
+        color: var(--theia-textLink-foreground);
+        cursor: ew-resize;
+        font-variant-numeric: tabular-nums;
+        user-select: none;
+    }
+    .akari-inspector-widget .akari-inspector-row-scrub:focus {
+        outline: 1px solid var(--theia-focusBorder);
+        outline-offset: 1px;
+    }
     .akari-inspector-widget .akari-inspector-row-input {
         font: inherit;
         font-variant-numeric: tabular-nums;
@@ -557,7 +587,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 tabs = CUT_TABS(snapshot, requestWrite);
                 break;
             case 'layer':
-                tabs = LAYER_TABS(snapshot);
+                tabs = LAYER_TABS(snapshot, requestWrite);
                 break;
             case 'caption':
                 tabs = CAPTION_TABS(snapshot, requestWrite);
@@ -586,11 +616,6 @@ export class AkariInspectorWidget extends BaseWidget {
             tabbar.appendChild(button);
         });
         this.body.appendChild(tabbar);
-
-        const heading = document.createElement('div');
-        heading.className = 'akari-inspector-heading';
-        heading.textContent = KIND_LABELS[snapshot.kind];
-        this.body.appendChild(heading);
 
         activeTab.fields.forEach(field => this.appendRow(field, snapshot));
     }
@@ -624,23 +649,42 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         const write = field.write;
-        const displayValue = field.getValue(snapshot);
-        const editValue = field.getEditValue ? field.getEditValue(snapshot) : displayValue;
-        const revert = (input: HTMLInputElement | HTMLSelectElement): void => {
-            input.value = editValue;
+        const editValue = field.getEditValue ? field.getEditValue(snapshot) : field.getValue(snapshot);
+        const commitValue = async (nextValue: string, revert: () => void): Promise<boolean> => {
+            if (nextValue === editValue) {
+                return true;
+            }
+            const result = await write(snapshot, nextValue);
+            if (!result.ok) {
+                revert();
+                this.showFieldNotice(result.message ?? '書き込みに失敗しました。変更は保存されていません。');
+                return false;
+            }
+            return true;
         };
 
+        if (field.inputKind === 'scrub-number') {
+            this.appendScrubNumber(row, field, editValue, commitValue);
+            this.body.appendChild(row);
+            return;
+        }
+
         let input: HTMLInputElement | HTMLSelectElement;
-        if (field.inputKind === 'boolean-select') {
+        if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
             const select = document.createElement('select');
             select.className = 'akari-inspector-row-input';
-            for (const optionValue of ['true', 'false']) {
+            const options = field.inputKind === 'boolean-select' ? ['true', 'false'] : field.options ?? [];
+            for (const optionValue of options) {
                 const option = document.createElement('option');
                 option.value = optionValue;
-                option.textContent = optionValue === 'true' ? 'ON' : 'OFF';
+                option.textContent = field.inputKind === 'boolean-select'
+                    ? (optionValue === 'true' ? 'ON' : 'OFF')
+                    : optionValue;
                 select.appendChild(option);
             }
-            select.value = editValue === 'true' ? 'true' : 'false';
+            select.value = field.inputKind === 'boolean-select'
+                ? (editValue === 'true' ? 'true' : 'false')
+                : editValue;
             input = select;
         } else {
             const textInput = document.createElement('input');
@@ -651,18 +695,12 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         const commit = async (): Promise<void> => {
-            const nextValue = input.value;
-            if (nextValue === editValue) {
-                return;
-            }
-            const result = await write(snapshot, nextValue);
-            if (!result.ok) {
-                revert(input);
-                this.showFieldNotice(result.message ?? '書き込みに失敗しました。変更は保存されていません。');
-            }
+            await commitValue(input.value, () => {
+                input.value = editValue;
+            });
         };
 
-        if (field.inputKind === 'boolean-select') {
+        if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
             input.addEventListener('change', () => {
                 void commit();
             });
@@ -671,8 +709,13 @@ export class AkariInspectorWidget extends BaseWidget {
                 void commit();
             });
             input.addEventListener('keydown', event => {
-                if ((event as KeyboardEvent).key === 'Enter') {
+                const key = (event as KeyboardEvent).key;
+                if (key === 'Enter') {
                     event.preventDefault();
+                    (input as HTMLInputElement).blur();
+                } else if (key === 'Escape') {
+                    event.preventDefault();
+                    input.value = editValue;
                     (input as HTMLInputElement).blur();
                 }
             });
@@ -680,6 +723,154 @@ export class AkariInspectorWidget extends BaseWidget {
 
         row.appendChild(input);
         this.body.appendChild(row);
+    }
+
+    protected appendScrubNumber(
+        row: HTMLDivElement,
+        field: InspectorFieldDef,
+        editValue: string,
+        commitValue: (nextValue: string, revert: () => void) => Promise<boolean>
+    ): void {
+        const scrub = document.createElement('div');
+        scrub.className = 'akari-inspector-row-scrub';
+        scrub.tabIndex = 0;
+        scrub.textContent = editValue;
+        scrub.setAttribute('role', 'spinbutton');
+        scrub.setAttribute('aria-label', field.label);
+        const step = field.scrubStep ?? 0.1;
+        const startValue = Number(editValue);
+        const dragThreshold = 3;
+
+        const showDirectInput = (): void => {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'akari-inspector-row-input';
+            input.value = editValue;
+            let cancelled = false;
+            let finished = false;
+            const finish = async (): Promise<void> => {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                const nextValue = input.value;
+                const ok = cancelled || await commitValue(nextValue, () => {
+                    input.value = editValue;
+                });
+                scrub.textContent = ok && !cancelled ? nextValue : editValue;
+                if (input.isConnected) {
+                    input.replaceWith(scrub);
+                }
+            };
+            input.addEventListener('blur', () => {
+                void finish();
+            });
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    input.blur();
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cancelled = true;
+                    input.value = editValue;
+                    input.blur();
+                }
+            });
+            scrub.replaceWith(input);
+            input.focus();
+            input.select();
+        };
+
+        scrub.addEventListener('pointerdown', downEvent => {
+            if (downEvent.button !== 0 || !Number.isFinite(startValue)) {
+                return;
+            }
+            downEvent.preventDefault();
+            scrub.focus();
+            const pointerId = downEvent.pointerId;
+            const startX = downEvent.clientX;
+            let dragged = false;
+            let currentValue = startValue;
+            let finished = false;
+            scrub.setPointerCapture(pointerId);
+
+            const cleanup = (): void => {
+                window.removeEventListener('pointermove', onPointerMove);
+                window.removeEventListener('pointerup', onPointerUp);
+                window.removeEventListener('pointercancel', onPointerCancel);
+                window.removeEventListener('keydown', onKeyDown, true);
+                if (scrub.hasPointerCapture(pointerId)) {
+                    scrub.releasePointerCapture(pointerId);
+                }
+            };
+            const cancel = (): void => {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                cleanup();
+                scrub.textContent = editValue;
+            };
+            const onPointerMove = (event: PointerEvent): void => {
+                if (event.pointerId !== pointerId || finished) {
+                    return;
+                }
+                const deltaX = event.clientX - startX;
+                if (!dragged && Math.abs(deltaX) < dragThreshold) {
+                    return;
+                }
+                dragged = true;
+                currentValue = startValue + deltaX * step;
+                if (field.min !== undefined) {
+                    currentValue = Math.max(field.min, currentValue);
+                }
+                if (field.max !== undefined) {
+                    currentValue = Math.min(field.max, currentValue);
+                }
+                scrub.textContent = this.formatScrubNumber(currentValue, step);
+                event.preventDefault();
+            };
+            const onPointerUp = (event: PointerEvent): void => {
+                if (event.pointerId !== pointerId || finished) {
+                    return;
+                }
+                finished = true;
+                cleanup();
+                if (!dragged) {
+                    showDirectInput();
+                    return;
+                }
+                const nextValue = this.formatScrubNumber(currentValue, step);
+                if (currentValue !== startValue) {
+                    void commitValue(nextValue, () => {
+                        scrub.textContent = editValue;
+                    });
+                }
+            };
+            const onPointerCancel = (event: PointerEvent): void => {
+                if (event.pointerId === pointerId) {
+                    cancel();
+                }
+            };
+            const onKeyDown = (event: KeyboardEvent): void => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cancel();
+                }
+            };
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp);
+            window.addEventListener('pointercancel', onPointerCancel);
+            window.addEventListener('keydown', onKeyDown, true);
+        });
+
+        row.appendChild(scrub);
+    }
+
+    protected formatScrubNumber(value: number, step: number): string {
+        const fraction = String(step).split('.')[1];
+        const precision = Math.min(fraction?.length ?? 0, 6);
+        return String(Number(value.toFixed(precision)));
     }
 
     protected showFieldNotice(message: string): void {

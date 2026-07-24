@@ -40,6 +40,9 @@ import {
     SetCaptionFieldsRequest,
     SetCutAtValuesRequest,
     SetCutSpeedRequest,
+    SetLayerBlendRequest,
+    SetLayerOpacityRequest,
+    SetLayerTransformRequest,
     SetOverlayVarRequest,
     SetSfxGainRequest,
     SplitCutRequest,
@@ -86,6 +89,9 @@ import {
     setCutAtValuesInSource,
     trimCutInSource,
     updateBgmInSource,
+    updateLayerBlendInSource,
+    updateLayerOpacityInSource,
+    updateLayerTransformInSource,
     updateOverlayVarInSource
 } from '../common/edit-store';
 
@@ -215,6 +221,38 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = setCutSpeedInSource(source, request.cutIndex, request.speed);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの速度を変更') };
+    }
+
+    async setLayerTransform(request: SetLayerTransformRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = updateLayerTransformInSource(source, request.layerId, {
+            x: request.x,
+            y: request.y,
+            scale: request.scale,
+            rotate: request.rotate
+        });
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの変形を変更') };
+    }
+
+    async setLayerOpacity(request: SetLayerOpacityRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = updateLayerOpacityInSource(source, request.layerId, request.opacity);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの不透明度を変更') };
+    }
+
+    async setLayerBlend(request: SetLayerBlendRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = updateLayerBlendInSource(source, request.layerId, request.blend);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの合成を変更') };
     }
 
     async setSfxGain(request: SetSfxGainRequest): Promise<WriteBackResult> {

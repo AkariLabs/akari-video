@@ -83,6 +83,12 @@ export type InspectorWriteRequest =
     | { kind: 'cut-speed'; index: number; value: number | null }
     | { kind: 'cut-source-in'; index: number; value: number }
     | { kind: 'cut-source-out'; index: number; value: number }
+    | { kind: 'layer-transform-x'; id: string; value: number | null }
+    | { kind: 'layer-transform-y'; id: string; value: number | null }
+    | { kind: 'layer-scale'; id: string; value: number | null }
+    | { kind: 'layer-rotate'; id: string; value: number | null }
+    | { kind: 'layer-opacity'; id: string; value: number | null }
+    | { kind: 'layer-blend'; id: string; value: string | null }
     | { kind: 'caption-text'; id: string; value: string }
     | { kind: 'caption-speaker'; id: string; value: string | null }
     | { kind: 'sfx-gain'; id: string; value: number | null }

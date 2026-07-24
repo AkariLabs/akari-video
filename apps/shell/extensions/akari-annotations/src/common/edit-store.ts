@@ -492,6 +492,87 @@ export function updateLayerInSource(
     });
 }
 
+export function updateLayerTransformInSource(
+    source: string,
+    layerId: string,
+    updates: { x?: number | null; y?: number | null; scale?: number | null; rotate?: number | null }
+): string {
+    if (updates.x === undefined && updates.y === undefined
+        && updates.scale === undefined && updates.rotate === undefined) {
+        throw new Error('変更する transform フィールドを指定してください。');
+    }
+    for (const property of ['x', 'y', 'rotate'] as const) {
+        const value = updates[property];
+        if (value !== undefined && value !== null && !Number.isFinite(value)) {
+            throw new Error(`transform.${property} は有限数で指定してください。`);
+        }
+    }
+    if (updates.scale !== undefined && updates.scale !== null
+        && (!Number.isFinite(updates.scale) || updates.scale <= 0)) {
+        throw new Error('transform.scale は正の数で指定してください。');
+    }
+    return updateArrayElementById(source, 'layers', layerId, 'レイヤー', element => {
+        const hasTransform = hasTopLevelProperty(element, 'transform');
+        if (!hasTransform) {
+            const transform = Object.fromEntries(
+                Object.entries(updates).filter((entry): entry is [string, number] =>
+                    entry[1] !== undefined && entry[1] !== null)
+            );
+            return Object.keys(transform).length > 0
+                ? appendJsonProperty(element, 'transform', transform)
+                : element;
+        }
+        const located = locateTopLevelObjectProperty(element, 'transform');
+        let transform = located.text;
+        for (const property of ['x', 'y', 'scale', 'rotate'] as const) {
+            const value = updates[property];
+            if (value === undefined) {
+                continue;
+            }
+            const hasProperty = new RegExp(`"${property}"\\s*:`).test(transform);
+            transform = value === null
+                ? (hasProperty ? removeObjectProperty(transform, property) : transform)
+                : (hasProperty
+                    ? replacePropertyValue(transform, property, value, `レイヤー ${layerId} の transform`)
+                    : appendNumberProperty(transform, property, value));
+        }
+        if (Object.keys(JSON.parse(transform) as Record<string, unknown>).length === 0) {
+            return removeObjectProperty(element, 'transform');
+        }
+        return element.slice(0, located.start) + transform + element.slice(located.end);
+    });
+}
+
+export function updateLayerOpacityInSource(source: string, layerId: string, opacity: number | null): string {
+    if (opacity !== null && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
+        throw new Error('opacity は 0〜1 の範囲で指定してください。');
+    }
+    return updateArrayElementById(source, 'layers', layerId, 'レイヤー', element => {
+        const hasOpacity = hasTopLevelProperty(element, 'opacity');
+        if (opacity === null) {
+            return hasOpacity ? removeObjectProperty(element, 'opacity') : element;
+        }
+        return hasOpacity
+            ? replaceTopLevelPropertyValue(element, 'opacity', opacity, `レイヤー ${layerId}`)
+            : appendNumberProperty(element, 'opacity', opacity);
+    });
+}
+
+export function updateLayerBlendInSource(source: string, layerId: string, blend: string | null): string {
+    if (blend !== null && !LAYER_BLEND_MODES.includes(blend as LayerBlendMode)) {
+        throw new Error('blend の値が不正です。');
+    }
+    return updateArrayElementById(source, 'layers', layerId, 'レイヤー', element => {
+        const hasBlend = hasTopLevelProperty(element, 'blend');
+        if (blend === null) {
+            return hasBlend ? removeObjectProperty(element, 'blend') : element;
+        }
+        return hasBlend
+            ? replaceTopLevelPropertyValue(element, 'blend', blend, `レイヤー ${layerId}`)
+            : appendJsonProperty(element, 'blend', blend);
+    });
+}
+
 export function moveLayerInSource(
     source: string,
     layerId: string,
@@ -1190,6 +1271,44 @@ function locateArray(source: string, key: string): {
     return { openIndex, closeIndex, inner: source.slice(openIndex + 1, closeIndex) };
 }
 
+function locateTopLevelProperty(scopeText: string, key: string): SourceElement | undefined {
+    const openIndex = scopeText.indexOf('{');
+    const closeIndex = openIndex >= 0 ? findMatchingBracket(scopeText, openIndex) : -1;
+    if (openIndex < 0 || closeIndex < 0) {
+        return undefined;
+    }
+    const inner = scopeText.slice(openIndex + 1, closeIndex);
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = splitTopLevelElements(inner)
+        .filter(element => new RegExp(`^"${escapedKey}"\\s*:`).test(element.text));
+    if (matches.length !== 1) {
+        return undefined;
+    }
+    return {
+        text: matches[0].text,
+        start: openIndex + 1 + matches[0].start,
+        end: openIndex + 1 + matches[0].end
+    };
+}
+
+function hasTopLevelProperty(scopeText: string, key: string): boolean {
+    return locateTopLevelProperty(scopeText, key) !== undefined;
+}
+
+function locateTopLevelObjectProperty(scopeText: string, key: string): { start: number; end: number; text: string } {
+    const property = locateTopLevelProperty(scopeText, key);
+    if (!property) {
+        throw new Error(`"${key}" が見つかりません。`);
+    }
+    const colonIndex = property.text.indexOf(':');
+    const openIndex = scopeText.indexOf('{', property.start + colonIndex + 1);
+    if (openIndex < 0 || openIndex >= property.end) {
+        throw new Error(`"${key}" が object ではありません。`);
+    }
+    const closeIndex = findMatchingBracket(scopeText, openIndex);
+    return { start: openIndex, end: closeIndex + 1, text: scopeText.slice(openIndex, closeIndex + 1) };
+}
+
 function locateObjectProperty(scopeText: string, key: string): { start: number; end: number; text: string } {
     const match = new RegExp(`"${key}"\\s*:\\s*\\{`).exec(scopeText);
     if (!match) {
@@ -1467,6 +1586,20 @@ function replacePropertyValue(
         throw new Error(`${label} の ${property} を特定できません。`);
     }
     return source.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+}
+
+function replaceTopLevelPropertyValue(
+    source: string,
+    property: string,
+    value: number | string | boolean,
+    label: string
+): string {
+    const located = locateTopLevelProperty(source, property);
+    if (!located) {
+        throw new Error(`${label} の ${property} を特定できません。`);
+    }
+    const updated = replacePropertyValue(located.text, property, value, label);
+    return source.slice(0, located.start) + updated + source.slice(located.end);
 }
 
 function removeObjectProperty(source: string, property: string): string {
