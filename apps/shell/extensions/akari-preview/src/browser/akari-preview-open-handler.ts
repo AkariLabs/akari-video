@@ -2420,7 +2420,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
       <div id="zoom-layer">
-        <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="metadata"></video>
+        <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="auto"></video>
         <div id="preview-layers"></div>
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
         <canvas id="pen-layer" aria-hidden="true"></canvas>
@@ -3825,8 +3825,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = segments[index];
                 if (segment.kind === 'gap') {
                     applyCutVisual(segment);
-                    pausedForGapEntry = true;
-                    video.pause();
+                    // video.pause() は既に一時停止中だと 'pause' イベントを発火しない
+                    // （ブラウザ仕様）。その場合に pausedForGapEntry を立てると、次に来る
+                    // 本物の 'pause' イベント（例えば別セグメントで実際に再生中だったものを
+                    // 止めた時）がこの使い古しの flag を誤って消費してしまう。
+                    if (!video.paused) {
+                        pausedForGapEntry = true;
+                        video.pause();
+                    }
                     video.style.visibility = 'hidden';
                     gapWallClockOriginMs = performance.now();
                     gapOutputOrigin = outputTime;
@@ -3909,7 +3915,16 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const seekTimelineTime = timelineValue => {
                 const previousOutputTime = outputTime;
-                outputTime = clamp(Math.max(0, timelineValue), 0, totalTimelineDuration || videoDuration());
+                // 総尺ちょうどへシーク（末尾延長ギャップが最終セグメントの場合を含む）すると、
+                // 直後の tick() が「境界に到達済み」と即判定して stopAtNaturalEnd() を出し、
+                // 再生ボタンを押しても 1 フレームも進まず固まって見えるバグ⑬⑭の根本原因。
+                // 末尾に数フレーム分の再生余地を残すようクランプすることで、再生開始が必ず
+                // 観測可能な進行を1回は生む（自然再生が末尾へ到達して止まる経路 = tick() 内の
+                // 別クランプは無改造のため、そちらの停止挙動は従来通り）。
+                const seekableDuration = totalTimelineDuration || videoDuration();
+                const endSafetyMargin = Math.min(2 / fps, seekableDuration);
+                const seekableMax = Math.max(0, seekableDuration - endSafetyMargin);
+                outputTime = clamp(Math.max(0, timelineValue), 0, seekableMax);
                 window.akari.reviewTransport({ type: 'seek', from: previousOutputTime, to: outputTime });
                 const mapped = timelineToSource(outputTime);
                 enterSegment(mapped.index);
