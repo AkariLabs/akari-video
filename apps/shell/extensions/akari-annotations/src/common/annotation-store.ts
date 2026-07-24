@@ -11,10 +11,35 @@ export interface AnnotationRegion {
     box: [number, number, number, number];
 }
 
-/** フリーハンド 1 ストローク = [x, y] 点列（正規化 0〜1・source フレーム基準） */
-export type AnnotationStroke = [number, number][];
+/** アンカーは描き始めフレーム（review セッション契約 §4.1 の frame と同義）。 */
+export interface AnnotationStrokeFrame {
+    sourceT: number;
+    cutIndex: number | null;
+}
+
+/**
+ * annotation への着地型（review セッション契約 §4.2）。strokes.json 原本の間引き済みポリライン
+ * を review.json に埋め込み、`sessionRef` で原本（review/sessions/<id>/strokes.json）を指す。
+ */
+export interface AnnotationStroke {
+    tool: 'pen';
+    space: 'content-rect';
+    frame: AnnotationStrokeFrame;
+    /** 正規化 0〜1・content-rect 基準の間引き済みポリライン（〜100 点程度） */
+    points: [number, number][];
+    sessionRef: string;
+}
 
 export type AnnotationRef = { src: string } | { path: string };
+
+export type AnnotationSessionConfidence = 'high' | 'medium' | 'low';
+
+/** review セッション契約 §6: コンパイラが annotation に書く出所参照。 */
+export interface AnnotationSessionRef {
+    id: string;
+    recRange: [number, number];
+    confidence: AnnotationSessionConfidence;
+}
 
 export interface Annotation {
     id: string;
@@ -33,16 +58,21 @@ export interface Annotation {
     insertPosition: 'before' | 'after' | null;
     intent: string | null;
     text: string;
-    input: 'typed' | 'voice';
+    input: 'typed' | 'voice' | 'session';
     audio: string | null;
+    /** 発話原文（review セッション契約 §6）。text は正規化済み指示文、これは聴感の温度を残す原文 */
+    transcript: string | null;
+    /** review セッションからの着地の出所参照（review セッション契約 §6） */
+    session: AnnotationSessionRef | null;
     poses: null;
     status: 'open' | 'addressed' | 'resolved';
     response: AnnotationResponse | null;
 }
 
 const STATUSES = new Set(['open', 'addressed', 'resolved']);
-const INPUTS = new Set(['typed', 'voice']);
+const INPUTS = new Set(['typed', 'voice', 'session']);
 const TARGET_KINDS = new Set<AnnotationTargetKind>(['instant', 'range', 'region', 'asset', 'insert']);
+const SESSION_CONFIDENCES = new Set<AnnotationSessionConfidence>(['high', 'medium', 'low']);
 
 export function emptyReviewSource(): string {
     return '{\n  "version": 0,\n  "annotations": [\n  ]\n}\n';
@@ -114,6 +144,8 @@ function normalizeAnnotation(value: any, warnings: string[], index: number): Ann
         text: value.text,
         input: value.input,
         audio: normalizeOptionalString(value.audio),
+        transcript: normalizeOptionalString(value.transcript),
+        session: normalizeSessionRef(value.session, value.id, warnings),
         poses: null,
         status: value.status as Annotation['status'],
         response
@@ -183,15 +215,60 @@ export function normalizeStrokes(value: any, id: string, warnings: string[]): An
     }
     const strokes: AnnotationStroke[] = [];
     for (const stroke of value) {
-        if (Array.isArray(stroke) && stroke.length >= 2
-            && stroke.every(point => Array.isArray(point) && point.length === 2
-                && point.every(entry => typeof entry === 'number' && Number.isFinite(entry) && entry >= 0 && entry <= 1))) {
-            strokes.push(stroke.map(point => [point[0], point[1]] as [number, number]));
+        const normalized = normalizeStroke(stroke);
+        if (normalized) {
+            strokes.push(normalized);
         } else {
             warnings.push(`注釈 ${id} の strokes に不正なストロークがあるため一部を無視します。`);
         }
     }
     return strokes.length > 0 ? strokes : null;
+}
+
+/** review セッション契約 §4.2 の annotation 着地型（`{tool, space, frame, points, sessionRef}`）を検証する。 */
+function normalizeStroke(value: any): AnnotationStroke | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+        || value.tool !== 'pen' || value.space !== 'content-rect') {
+        return undefined;
+    }
+    const frame = value.frame;
+    if (!frame || typeof frame !== 'object' || typeof frame.sourceT !== 'number' || !Number.isFinite(frame.sourceT)) {
+        return undefined;
+    }
+    const cutIndex = typeof frame.cutIndex === 'number' && Number.isFinite(frame.cutIndex) ? frame.cutIndex : null;
+    if (!Array.isArray(value.points) || value.points.length < 2
+        || !value.points.every((point: unknown) => Array.isArray(point) && point.length === 2
+            && point.every(entry => typeof entry === 'number' && Number.isFinite(entry) && entry >= 0 && entry <= 1))) {
+        return undefined;
+    }
+    if (typeof value.sessionRef !== 'string' || !value.sessionRef.trim()) {
+        return undefined;
+    }
+    return {
+        tool: 'pen',
+        space: 'content-rect',
+        frame: { sourceT: frame.sourceT, cutIndex },
+        points: value.points.map((point: [number, number]) => [point[0], point[1]] as [number, number]),
+        sessionRef: value.sessionRef
+    };
+}
+
+export function normalizeSessionRef(value: any, id: string, warnings: string[]): AnnotationSessionRef | null {
+    if (value === undefined || value === null) {
+        return null;
+    }
+    const recRange = value && typeof value === 'object' && Array.isArray(value.recRange) && value.recRange.length === 2
+        && value.recRange.every((entry: unknown) => typeof entry === 'number' && Number.isFinite(entry))
+        ? [value.recRange[0], value.recRange[1]] as [number, number]
+        : undefined;
+    if (value && typeof value === 'object'
+        && typeof value.id === 'string' && value.id.trim()
+        && recRange
+        && typeof value.confidence === 'string' && SESSION_CONFIDENCES.has(value.confidence as AnnotationSessionConfidence)) {
+        return { id: value.id, recRange, confidence: value.confidence as AnnotationSessionConfidence };
+    }
+    warnings.push(`注釈 ${id} の session が不正なため無視します。`);
+    return null;
 }
 
 export function normalizeRefs(value: any, id: string, warnings: string[]): AnnotationRef[] | null {
@@ -249,6 +326,8 @@ export function serializeAnnotationLine(annotation: Annotation): string {
         `"intent":${annotation.intent === null ? 'null' : JSON.stringify(annotation.intent)},` +
         `"text":${JSON.stringify(annotation.text)},"input":${JSON.stringify(annotation.input)},` +
         `"audio":${annotation.audio === null ? 'null' : JSON.stringify(annotation.audio)},` +
+        `"transcript":${annotation.transcript === null ? 'null' : JSON.stringify(annotation.transcript)},` +
+        `"session":${annotation.session === null ? 'null' : JSON.stringify(annotation.session)},` +
         `"poses":null,"status":${JSON.stringify(annotation.status)},"response":${response}}`;
 }
 
@@ -267,28 +346,67 @@ export function appendAnnotationLine(source: string, annotation: Annotation): st
     return `${beforeClosing}\n${line}\n${indent}]${closing[2]}`;
 }
 
-export function updateStatusLine(source: string, annotationId: string, fromStatuses: readonly string[], toStatus: string): string {
-    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
-    let matches = 0;
-    const updated = lines.map(line => {
-        const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
-        if (!idMatch || decodeJsonString(idMatch[1]) !== annotationId) {
-            return line;
+/**
+ * 注釈 1 件分の object 区間（`{`〜対応する`}`）を、id フィールドの一致で特定する。
+ * `appendAnnotationLine` が書く 1 注釈 1 行の形式だけでなく、pretty-print 済みの
+ * review.json（人手・他ツール由来。実データ selection-dogfood 等）でも id と status が
+ * 別々の行に分かれるため、行単位の照合ではなく括弧の対応で区間を求める。
+ */
+function findAnnotationObjectSpan(source: string, annotationId: string): { start: number; end: number } {
+    const idPattern = new RegExp(`"id"\\s*:\\s*"${escapeForRegExp(annotationId)}"`);
+    const stack: number[] = [];
+    let inString = false;
+    let escaped = false;
+    for (let index = 0; index < source.length; index++) {
+        const character = source[index];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (character === '\\') {
+                escaped = true;
+            } else if (character === '"') {
+                inString = false;
+            }
+            continue;
         }
-        matches++;
-        const statusMatch = line.match(/"status"\s*:\s*"((?:\\.|[^"\\])*)"/);
-        const currentStatus = statusMatch ? decodeJsonString(statusMatch[1]) : undefined;
-        if (!currentStatus || !fromStatuses.includes(currentStatus)) {
-            throw new Error(`注釈 ${annotationId} は現在の状態（${currentStatus ?? '不明'}）から変更できません。`);
+        if (character === '"') {
+            inString = true;
+        } else if (character === '{') {
+            stack.push(index);
+        } else if (character === '}') {
+            const start = stack.pop();
+            if (start === undefined) {
+                throw new Error('review.json の括弧の対応を確認できません。');
+            }
+            if (idPattern.test(source.slice(start, index + 1))) {
+                return { start, end: index };
+            }
         }
-        return line.replace(/("status"\s*:\s*)"(?:\\.|[^"\\])*"/, (_match, prefix) => `${prefix}${JSON.stringify(toStatus)}`);
-    }).join('');
-    if (matches !== 1) {
-        throw new Error(matches === 0
-            ? `注釈 ${annotationId} がレビューデータにありません。`
-            : `注釈 ${annotationId} がレビューデータに複数あります。`);
     }
-    return updated;
+    throw new Error(`注釈 ${annotationId} がレビューデータにありません。`);
+}
+
+function escapeForRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function updateStatusLine(source: string, annotationId: string, fromStatuses: readonly string[], toStatus: string): string {
+    const idPattern = new RegExp(`"id"\\s*:\\s*"${escapeForRegExp(annotationId)}"`, 'g');
+    const occurrences = source.match(idPattern)?.length ?? 0;
+    if (occurrences > 1) {
+        throw new Error(`注釈 ${annotationId} がレビューデータに複数あります。`);
+    }
+    const { start, end } = findAnnotationObjectSpan(source, annotationId);
+    const objectText = source.slice(start, end + 1);
+    const statusMatch = objectText.match(/"status"\s*:\s*"((?:\\.|[^"\\])*)"/);
+    const currentStatus = statusMatch ? decodeJsonString(statusMatch[1]) : undefined;
+    if (!currentStatus || !fromStatuses.includes(currentStatus)) {
+        throw new Error(`注釈 ${annotationId} は現在の状態（${currentStatus ?? '不明'}）から変更できません。`);
+    }
+    const updatedObjectText = objectText.replace(
+        /("status"\s*:\s*)"(?:\\.|[^"\\])*"/, (_match, prefix) => `${prefix}${JSON.stringify(toStatus)}`
+    );
+    return source.slice(0, start) + updatedObjectText + source.slice(end + 1);
 }
 
 export function nextAnnotationId(annotations: readonly Annotation[]): string {

@@ -20,15 +20,17 @@ import {
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
     OPEN_AKARI_ANNOTATIONS,
     OPEN_AKARI_INSPECTOR,
+    OPEN_AKARI_REVIEW_BOARD,
     OPEN_AKARI_REVIEW_PANEL
 } from './akari-annotations-commands';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
+import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
 
-export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_PANEL };
+export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_REVIEW_PANEL };
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
@@ -89,6 +91,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(OPEN_AKARI_INSPECTOR, {
             execute: () => this.openInspectorPanel()
         });
+        commands.registerCommand(OPEN_AKARI_REVIEW_BOARD, {
+            execute: () => this.openBoard()
+        });
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()
         });
@@ -122,6 +127,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             commandId: OPEN_AKARI_REVIEW_PANEL.id,
             label: OPEN_AKARI_REVIEW_PANEL.label,
             order: 'z21'
+        });
+        menus.registerMenuAction(CommonMenus.FILE, {
+            commandId: OPEN_AKARI_REVIEW_BOARD.id,
+            label: OPEN_AKARI_REVIEW_BOARD.label,
+            order: 'z22'
         });
     }
 
@@ -209,6 +219,26 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         const widget = await this.widgetManager.getOrCreateWidget<AkariReviewPanelWidget>(AkariReviewPanelWidget.FACTORY_ID);
         if (!widget.isAttached) {
             this.shell.addWidget(widget, { area: 'right', rank: 100 });
+        }
+        await this.shell.activateWidget(widget.id);
+        return widget;
+    }
+
+    /**
+     * レビューボードをエディタ領域（main）のタブとして開く。分析レポートタブと同じ流儀
+     * （WidgetManager.getOrCreateWidget → shell.addWidget({area:'main'}) → activateWidget）。
+     * データ読み込みはタイムライン側（ReviewModel）に相乗りするため、先に `attach()` で
+     * タイムラインを構成する（ただし `open()` と異なりタイムライン自体は activate/reveal しない
+     * — ボードを開いた際にボトムパネルが勝手にせり出さないようにするため）。
+     */
+    async openBoard(): Promise<AkariReviewBoardWidget | undefined> {
+        const timeline = await this.attach();
+        if (!timeline) {
+            return undefined;
+        }
+        const widget = await this.widgetManager.getOrCreateWidget<AkariReviewBoardWidget>(AkariReviewBoardWidget.FACTORY_ID);
+        if (!widget.isAttached) {
+            this.shell.addWidget(widget, { area: 'main' });
         }
         await this.shell.activateWidget(widget.id);
         return widget;

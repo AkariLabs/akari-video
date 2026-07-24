@@ -9,6 +9,7 @@ import { AkariAnnotationsService, AKARI_ANNOTATIONS_SERVICE_PATH } from '../comm
 import { AkariAnnotationsContribution } from './akari-annotations-contribution';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
+import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ReviewModel } from './review-model';
 import { TimelineSelectionModel } from './timeline-selection-model';
@@ -37,6 +38,12 @@ export default new ContainerModule(bind => {
     bind(WidgetFactory).toDynamicValue(context => ({
         id: AkariInspectorWidget.FACTORY_ID,
         createWidget: async () => context.container.get(AkariInspectorWidget)
+    })).inSingletonScope();
+
+    bind(AkariReviewBoardWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(context => ({
+        id: AkariReviewBoardWidget.FACTORY_ID,
+        createWidget: async () => context.container.get(AkariReviewBoardWidget)
     })).inSingletonScope();
 
     bind(AkariAnnotationsContribution).toSelf().inSingletonScope();

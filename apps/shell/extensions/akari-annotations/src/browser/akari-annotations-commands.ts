@@ -20,6 +20,13 @@ export const OPEN_AKARI_INSPECTOR: Command = {
 
 export const OPEN_AKARI_INSPECTOR_ID = OPEN_AKARI_INSPECTOR.id;
 
+export const OPEN_AKARI_REVIEW_BOARD: Command = {
+    id: 'akari.review.board.open',
+    label: 'レビューボードを開く'
+};
+
+export const OPEN_AKARI_REVIEW_BOARD_ID = OPEN_AKARI_REVIEW_BOARD.id;
+
 /**
  * akari-preview から動画オープン時に呼ばれる内部コマンド。label なし = コマンドパレット非表示
  * （AKARI_TRANSCRIPT_SEEK_REQUESTED と同じ「ラベルなし内部コマンド」パターン）。

@@ -173,6 +173,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             text: request.text,
             input: 'typed',
             audio: null,
+            transcript: null,
+            session: null,
             poses: null,
             status: 'open',
             response: null
