@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "name": "Hub_Weekly_Recap",
+  "frozen_at": "2026-07-25T09:00:00.000Z",
+  "source_project": "channel-hub-2026-07-18",
+  "workflow": "research",
+  "confirmed": {
+    "target_duration_band": "60-180s"
+  },
+  "provenance": {
+    "target_duration_band": { "confirmed_by": "intake", "at": "2026-07-18T01:00:00.000Z" }
+  }
+}

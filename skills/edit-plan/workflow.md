@@ -72,12 +72,18 @@
 段階の運びは変わらないが、各段階の証拠は「レポートを更新する」のではなく「analyze-project の
 分析レポートを読み、チャットで提示する」形に変わった（[report-guide.md](report-guide.md) 参照）。
 
+Checkpoint 1 の提示に着手する前に、[recipe.md](recipe.md) の recall 手順で
+`~/.akari/recipes/`（`workflow: "edit"`）を確認する。見つかれば出所付きの推奨として添え、
+今回の方針提示を上書きしない（採用は人間の明示宣言があったときだけ）。
+
 1. サムネイル案・編集方針・カット案をチャットで提示し、Checkpoint 1（方針）で停止する。
 2. 承認された方針に沿って素材計画（BGM/字幕/SFX/B ロールの三択）と静止プレビューをチャットで
    提示し、Checkpoint 2（素材計画）で停止する。
 3. 出力仕様、source 構成の選択（v1 マルチソース / v0 単一 source / 中間マスターへ conform）、生成・conform・overlay の実行一覧を提示し、
    Checkpoint 3（実行）で停止する。
-4. 承認後だけ `edit.json` と最終 overlay を作る。
+4. 承認後だけ `edit.json` と最終 overlay を作る。完了処理として [recipe.md](recipe.md) の
+   freeze 手順を確認し、そのプロジェクトでまだ申し出ていなければ一度だけ（offer-once）
+   レシピ化を人間に申し出る。
 
 各チェックポイントの承認内容・修正指示は `decision-log.md` へ追記する（既存行は変更・削除
 せず、新しい行を末尾へ追加する）。カット判断一覧（素材 ID・source の start/end・keep/drop・

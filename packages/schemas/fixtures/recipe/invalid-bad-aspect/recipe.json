@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "name": "hub-weekly-recap",
+  "frozen_at": "2026-07-25T09:00:00.000Z",
+  "source_project": "channel-hub-2026-07-18",
+  "workflow": "edit",
+  "confirmed": {
+    "aspect": "4:3"
+  },
+  "provenance": {
+    "aspect": { "confirmed_by": "render-approval", "at": "2026-07-18T01:00:00.000Z" }
+  }
+}

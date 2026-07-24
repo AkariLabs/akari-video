@@ -2,6 +2,15 @@
 
 [SKILL.md](SKILL.md) の実行順 1. からだけ読む。ここでの成果物は `topic.candidates[]`（配列順 = ランキング順、最有力を先頭に置く）と `topic.selected` / `topic.decided_at`（decision-cards の `topic-select` カード確定後にのみ埋める）。
 
+## 0. recipe の recall（候補を出す前に一度）
+
+候補出しに入る前に、[edit-plan/recipe.md](../edit-plan/recipe.md) の recall 手順と同じ規律で
+`~/.akari/recipes/` を確認する。`workflow: "research"` のレシピだけを対象にし、無ければ
+何もせず通常どおり進む（error にしない）。見つかれば `confirmed`（`target_duration_band` /
+`aspect` / `overlay_kinds` 等）を出所付きの推奨としてチャットで添えるが、**今回の依頼を
+上書きせず**、候補出し・競合調査・日本語 SNS 事情確認などの必須工程をスキップさせない。
+採用は人間が「前回と同じで」等を明示したときだけ、対応フィールドを一括で反映してよい。
+
 ## 1. 候補を出す
 
 依頼の主題・チャンネルの既存傾向・[competitor.md](competitor.md) / [trends.md](trends.md) の途中知見があればそれも踏まえ、候補を複数（目安 3〜7 件）出す。候補ゼロや 1 件だけで確定しない。根拠のない候補を「調査済み」と偽らない — 依頼文脈からの推測は推測と明記する。

@@ -1,0 +1,23 @@
+{
+  "version": 0,
+  "name": "product-demo-quick-cuts",
+  "frozen_at": "2026-07-25T10:00:00.000Z",
+  "source_project": "acme-product-launch-2026-07-20",
+  "workflow": "edit",
+  "confirmed": {
+    "aspect": "16:9",
+    "target_duration_band": "30-60s",
+    "caption_style_ref": "lower-third-clean",
+    "bgm_profile": "corporate-upbeat",
+    "overlay_kinds": ["telop", "3d"],
+    "narration": { "engine": "voicevox", "voice": "zundamon" }
+  },
+  "provenance": {
+    "aspect": { "confirmed_by": "render-approval", "at": "2026-07-20T08:00:00.000Z" },
+    "target_duration_band": { "confirmed_by": "intake", "at": "2026-07-20T02:00:00.000Z" },
+    "caption_style_ref": { "confirmed_by": "edit-approval", "at": "2026-07-20T05:00:00.000Z" },
+    "bgm_profile": { "confirmed_by": "edit-approval", "at": "2026-07-20T05:00:00.000Z" },
+    "overlay_kinds": { "confirmed_by": "edit-approval", "at": "2026-07-20T05:00:00.000Z" },
+    "narration": { "confirmed_by": "edit-approval", "at": "2026-07-20T05:00:00.000Z" }
+  }
+}

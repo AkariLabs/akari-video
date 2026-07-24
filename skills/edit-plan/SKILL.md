@@ -33,11 +33,13 @@ description: analyze-project が作る分析レポート（interpretation.json +
    依頼する）を一次証拠として読む。素材がゼロの場合はこの時点で [plan-json.md](plan-json.md) を
    読み、質問対話 → `plan.json`（仮枠タイムライン。[契約](../../docs/contract-2026-07-20-plan-json-v0.md)）の確定を先に行う。
 2. [report-guide.md](report-guide.md) を読み、分析レポートの根拠を踏まえて方針（サムネイル案・
-   カット強度・字幕方針・章立て）の推奨案と代替案を組み立てる。
+   カット強度・字幕方針・章立て）の推奨案と代替案を組み立てる。方針提示の前に
+   [recipe.md](recipe.md) の recall 手順で `~/.akari/recipes/`（`workflow: "edit"`）を確認し、
+   出所付きの推奨として添える（今回の依頼は上書きしない）。
 3. 方針をチャットで人間に提示し（推奨・代替案・理由・得失を示す。「どうしますか」で丸投げ
    しない）、明示承認または修正指示を得る。確定内容を `decision-log.md` に追記する。
 4. [approvals-and-generation.md](approvals-and-generation.md) を読み、生成宣言、provenance、3 段階承認を運用する。Checkpoint 1 はチャットでの明示承認を得るまで編集実行に進まない。
-5. 実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json`（単一素材なら v0、複数素材なら v1）とオーバーレイ HTML を生成・検証する。
+5. 実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json`（単一素材なら v0、複数素材なら v1）とオーバーレイ HTML を生成・検証する。完了処理として [recipe.md](recipe.md) の freeze 手順を確認し、そのプロジェクトで未申し出なら一度だけ（offer-once）レシピ化を人間に申し出る。
 6. 見せ場マーカーを書く工程では [beats.md](beats.md) を読み、`analysis.json` の events / transcript から
    `beats[]` を導出する（マッピング表・座標系・導出段のガードレール = 下限と根拠・worked example）。
 7. 承認済みの `beats[]` を演出へ連動させる工程では [beat-sync.md](beat-sync.md) を読み、射影・SE 発火

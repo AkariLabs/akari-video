@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "name": "hub-weekly-recap",
+  "frozen_at": "2026-07-25T09:00:00.000Z",
+  "source_project": "channel-hub-2026-07-18",
+  "workflow": "edit",
+  "confirmed": {
+    "overlay_kinds": ["telop", "telop"]
+  },
+  "provenance": {
+    "overlay_kinds": { "confirmed_by": "edit-approval", "at": "2026-07-18T04:00:00.000Z" }
+  }
+}

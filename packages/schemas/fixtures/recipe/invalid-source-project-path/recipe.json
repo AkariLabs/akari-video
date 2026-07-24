@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "name": "hub-weekly-recap",
+  "frozen_at": "2026-07-25T09:00:00.000Z",
+  "source_project": "/Users/ryoma/_edit/30_products/acme/channel-hub",
+  "workflow": "research",
+  "confirmed": {
+    "target_duration_band": "60-180s"
+  },
+  "provenance": {
+    "target_duration_band": { "confirmed_by": "intake", "at": "2026-07-18T01:00:00.000Z" }
+  }
+}

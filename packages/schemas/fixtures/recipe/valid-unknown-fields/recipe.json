@@ -1,0 +1,16 @@
+{
+  "version": 0,
+  "name": "hub-weekly-recap",
+  "frozen_at": "2026-07-25T09:00:00.000Z",
+  "source_project": "channel-hub-2026-07-18",
+  "workflow": "research",
+  "reviewer": "owner",
+  "confirmed": {
+    "target_duration_band": "60-180s",
+    "color_grade_ref": "warm-editorial"
+  },
+  "provenance": {
+    "target_duration_band": { "confirmed_by": "intake", "at": "2026-07-18T01:00:00.000Z" },
+    "color_grade_ref": { "confirmed_by": "edit-approval", "at": "2026-07-18T04:00:00.000Z", "note": "将来フィールドの先取り例" }
+  }
+}

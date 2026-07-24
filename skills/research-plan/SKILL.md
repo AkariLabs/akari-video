@@ -17,6 +17,7 @@ description: 動画の企画・調査工程（ネタ出し → ターゲット/�
 6. **CLAUDE.md / AGENTS.md に触らない。**
 7. **無償枠のみで一周が成立する既定にする。** 有償手段が使えない環境でも停止しない（結果は劣化してよいが、完走はする）。
 8. **差し戻しはチャットと `plan-comments.json` の二重経路。** 承認チェックポイントの再提示前は、チャット返信の解釈より先に `<plan-dir>/plan-comments.json`（在れば）を読む（[storyboard.md](storyboard.md) §5）。
+9. **ネタ出しの冒頭で recipe の recall を行う。** [ideate.md](ideate.md) の手順に入る前に、`workflow: "research"` のレシピ（[edit-plan/recipe.md](../edit-plan/recipe.md) の recall 手順と同じ規律）が `~/.akari/recipes/` に在るか確認し、在れば出所付きの推奨として添える。今回の依頼を上書きせず、必須調査軸（§5 の日本語 SNS 事情等）をスキップさせない。
 
 ## 実行順と目次
 

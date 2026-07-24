@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:recipe:v0",
+  "title": "AKARI Video recipe.json v0",
+  "description": "承認済みプロジェクトの確認された選好の断面を名前付きレシピとして凍結する個人層ファイル。~/.akari/recipes/<name>.json に置く（プロジェクト内には置かない）。確認済みの値だけを記録し（推測・既定値採用は記録しない）、次のプロジェクトでは出所付きの推奨として提示する（今回の依頼を上書きせず、必須質問をスキップさせない）。詳細は docs/contract-2026-07-25-recipe-v0.md 参照。",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "name", "frozen_at", "source_project", "workflow", "confirmed", "provenance"],
+  "properties": {
+    "version": { "const": 0 },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "$comment": "kebab-case。呼び出し名（『<名前>でもう一本』『前回と同じで』の対象）。~/.akari/recipes/<name>.json のファイル名と一致させる。"
+    },
+    "frozen_at": {
+      "type": "string",
+      "format": "date-time",
+      "$comment": "凍結（freeze 実行）時刻。"
+    },
+    "source_project": {
+      "$ref": "#/$defs/nonEmptyString",
+      "$comment": "プロジェクト名 + 日付の自由記述（例 acme-product-launch-2026-07-20）。パスを書かない — プロジェクトの移動・削除で壊れる参照を持たない。"
+    },
+    "workflow": {
+      "enum": ["edit", "research"],
+      "$comment": "どの工程の選好か。edit = skills/edit-plan、research = skills/research-plan。"
+    },
+    "confirmed": { "$ref": "#/$defs/confirmed" },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "confirmed": {
+      "type": "object",
+      "additionalProperties": true,
+      "minProperties": 1,
+      "$comment": "確認済み選好のみ。全フィールド任意・null 不可（確認されていない項目はキー自体を書かない）。空 object は不可 — 何も確認していないなら freeze する理由がない。",
+      "properties": {
+        "aspect": {
+          "enum": ["16:9", "9:16", "1:1"],
+          "$comment": "既存カタログタグの慣用値（例 catalog/3d/vintage-camera/meta.json の tags[]）をそのまま採用。新しい語彙を作らない。"
+        },
+        "target_duration_band": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "厳密な尺そのものではなく帯（例 '30-60s'）。素材が変われば正確な秒数は転用できないため帯で記録する。"
+        },
+        "caption_style_ref": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "字幕スタイルの参照名（カタログの telop プリセット名、または字幕方針を指す自由記述）。"
+        },
+        "bgm_profile": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "BGM の選好を指す自由記述（ジャンル・ムード・カタログ候補名等）。"
+        },
+        "overlay_kinds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "minItems": 1,
+          "uniqueItems": true,
+          "$comment": "skills/overlay-authoring/*.md の kind 名（telop/3d/table/motion/text-behind-person/thumbnail 等）を目安にするが、enum 強制はしない（overlay-authoring の追加に追従できるように）。"
+        },
+        "narration": { "$ref": "#/$defs/narration" }
+      }
+    },
+    "narration": {
+      "type": "object",
+      "additionalProperties": true,
+      "minProperties": 1,
+      "$comment": "engine・voice はともに任意・null 不可。確認された方だけを書く。",
+      "properties": {
+        "engine": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "edit.schema.json の narrationProvenance.provider/engine と同じ自由記述語彙（voicevox/fal/elevenlabs/human 等）。enum 強制はしない。"
+        },
+        "voice": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "minProperties": 1,
+      "$comment": "confirmed に実在するキーと過不足なく 1 対 1 対応する（JSON Schema 単体では兄弟オブジェクトのキー集合比較を表せないため validate-recipe.mjs で検証する）。",
+      "properties": {
+        "aspect": { "$ref": "#/$defs/provenanceEntry" },
+        "target_duration_band": { "$ref": "#/$defs/provenanceEntry" },
+        "caption_style_ref": { "$ref": "#/$defs/provenanceEntry" },
+        "bgm_profile": { "$ref": "#/$defs/provenanceEntry" },
+        "overlay_kinds": { "$ref": "#/$defs/provenanceEntry" },
+        "narration": { "$ref": "#/$defs/provenanceEntry" }
+      }
+    },
+    "provenanceEntry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["confirmed_by", "at"],
+      "properties": {
+        "confirmed_by": {
+          "enum": ["intake", "structure-confirm", "edit-approval", "render-approval"],
+          "$comment": "確認されたチェックポイント。契約 §4 の対応表。"
+        },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
