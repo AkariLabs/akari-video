@@ -18,10 +18,11 @@
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 16
+スキル数: 17
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
+| `address-review` | review.json の open チケット（annotation）を edit.json への実対応 → edit-lint → チケット更新まで型どおりに執行するスキル。「a-0002 と a-0003 に対応して」「open チケット全部に対応して」で発動する。状態機械（open → addressed + response 必須・resolved 不可侵・黙殺禁止）を bin/respond.mjs が原子的に守る QA ループの消費側。 | `skills/address-review/SKILL.md` |
 | `analyze-footage` | 動画素材 1 本から 720p プロキシ、ローカル既定の文字起こし（Mac は macOS SpeechAnalyzer / 共通は whisper.cpp・クラウドは承認制）、視認済みキーフレーム、編集イベント、人物関連トラックを作り、analysis.json v0 にまとめるスキル。新しい撮影素材を取り込むとき、素材単体の編集前分析を頼まれたとき、または edit-plan の前処理として素材ごとの分析が必要なときに使う。 | `skills/analyze-footage/SKILL.md` |
 | `analyze-project` | プロジェクト内の素材群（analysis.json）と周辺プロジェクト文脈（intake.json・edit.json・planning/・README・過去 PJ）を読み合わせて interpretation.json（解釈層）を作り、事実 + 素材の読みに限定した読み取り専用の分析レポートを描画するスキル。複数素材プロジェクトの内容を素材横断で把握したいとき、analyze-footage が素材ごとの分析を終えたあとの統合、方向性を決める前に一次情報の欠落（取材質問）を洗い出したいときに使う。edit-plan は方針決めの前提としてこのスキルの出力を読む。 | `skills/analyze-project/SKILL.md` |
 | `bake-3d` | 3D シーンを映像素材（クリップ）として使いたいとき、3D ベイクレシピ（scene.py）を新規作成・調整・再ベイクするときに発動する。Blender ヘッドレスでレシピを mp4 に焼き、検証し、素材ライブラリ / プロジェクトへ配置するまでを担う。映像の上に重なるオーバーレイ 3D は対象外（overlay-authoring/3d.md へ）。 | `skills/bake-3d/SKILL.md` |
