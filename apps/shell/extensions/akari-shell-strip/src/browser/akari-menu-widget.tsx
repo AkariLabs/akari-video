@@ -2,11 +2,18 @@ import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { Message } from '@theia/core/shared/@lumino/messaging';
-import { CommandService } from '@theia/core/lib/common';
-import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
+import { CommandService, DisposableCollection } from '@theia/core/lib/common';
+import { ApplicationShell, OpenerService, QuickInputService, WidgetManager, open } from '@theia/core/lib/browser';
+import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
+import {
+    DEFAULT_EXPORT_OUTPUT_NAME,
+    EXPORT_RESOLUTION_PRESETS,
+    composeExportRequestPacket
+} from '../common/export-request-packet';
+import { RenderProgressState, parseRenderProgress, RENDER_PROGRESS_UNKNOWN_LABEL } from '../common/render-progress';
 
 interface MenuAction {
     id: string;
@@ -29,6 +36,16 @@ const SHOW_CHANGES_COMMAND = 'akari.project.showChanges';
 const OPEN_ANNOTATIONS_COMMAND = 'akari.annotations.open';
 const OPEN_TRANSCRIPT_COMMAND = 'akari.transcript.open';
 
+// パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
+// akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一。
+// akari-role-buckets-widget.tsx の PARTNER_INJECT_PROMPT_COMMAND_ID と同じミラー方式）。
+// 未接続時の日本語トーストは INJECT_PROMPT コマンド自身が出す（本ウィジェットでは複製しない）。
+const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
+
+const EDIT_JSON_RELATIVE_PATH = 'edit.json';
+const RENDER_JSON_RELATIVE_PATH = '.akari/render.json';
+const EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集を進めてから書き出してください。';
+
 /**
  * アクティビティバー5番目のアイコン「メニュー」。
  *
@@ -38,6 +55,12 @@ const OPEN_TRANSCRIPT_COMMAND = 'akari.transcript.open';
  * - 「やらせる（スキル）」: 開いているプロジェクトの `.claude/skills/<name>/SKILL.md`
  *   の frontmatter（name / description）を列挙する v0 実装。ワンクリック実行は
  *   スコープ外 — パートナーペインでの依頼を促す文言のみ添える。
+ * - 「書き出し」: ワンクリック書き出し（輸入リスト③）。設定 3 項目（解像度
+ *   プリセット / 出力ファイル名 / lint 再実行）を quick-pick 連鎖で確定させ、
+ *   依頼パケットを `akari.partner.injectPrompt`（ID 文字列呼び出し。④と同じ
+ *   疎結合規律）へ注入する。実行自体はしない — アプリは render ステージを
+ *   実装しない（設計不変条件）。進捗は `.akari/render.json` を読むだけの面
+ *   （書き込みはしない・render-cut 側は無改造）。
  */
 @injectable()
 export class AkariMenuWidget extends ReactWidget {
@@ -53,9 +76,17 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly files!: FileService;
     @inject(WorkspaceService)
     protected readonly workspace!: WorkspaceService;
+    @inject(QuickInputService)
+    protected readonly quickInputService!: QuickInputService;
+    @inject(OpenerService)
+    protected readonly openers!: OpenerService;
 
     protected skills: SkillEntry[] = [];
     protected skillsNotice = '';
+    protected editJsonExists = false;
+    protected renderProgress: RenderProgressState | undefined;
+    protected editJsonWatch = new DisposableCollection();
+    protected renderProgressWatch = new DisposableCollection();
 
     @postConstruct()
     protected init(): void {
@@ -64,8 +95,14 @@ export class AkariMenuWidget extends ReactWidget {
         this.title.caption = 'メニュー';
         this.title.iconClass = 'codicon codicon-menu';
         this.title.closable = false;
-        this.toDispose.push(this.workspace.onWorkspaceChanged(() => void this.loadSkills()));
+        this.toDispose.push(this.workspace.onWorkspaceChanged(() => {
+            void this.loadSkills();
+            void this.watchEditJson();
+            void this.watchRenderProgress();
+        }));
         void this.loadSkills();
+        void this.watchEditJson();
+        void this.watchRenderProgress();
         this.update();
     }
 
@@ -175,6 +212,226 @@ export class AkariMenuWidget extends ReactWidget {
         return name ? { name, description: description ?? '' } : undefined;
     }
 
+    // --- 書き出しボタン（edit.json 有無ゲート） -------------------------------
+
+    protected async watchEditJson(): Promise<void> {
+        this.editJsonWatch.dispose();
+        this.editJsonWatch = new DisposableCollection();
+        const roots = await this.workspace.roots;
+        const root = roots[0]?.resource;
+        if (!root) {
+            this.editJsonExists = false;
+            this.update();
+            return;
+        }
+        const editJsonUri = root.resolve(EDIT_JSON_RELATIVE_PATH);
+        await this.refreshEditJsonExists(editJsonUri);
+        try {
+            this.editJsonWatch.push(await this.files.watch(root));
+        } catch (error) {
+            console.info('[akari-shell-strip] edit.json watch unavailable:', error);
+        }
+        this.editJsonWatch.push(this.files.onDidFilesChange(event => {
+            if (event.contains(editJsonUri)) {
+                void this.refreshEditJsonExists(editJsonUri);
+            }
+        }));
+    }
+
+    protected async refreshEditJsonExists(editJsonUri: URI): Promise<void> {
+        let exists: boolean;
+        try {
+            exists = await this.files.exists(editJsonUri);
+        } catch {
+            exists = false;
+        }
+        if (exists === this.editJsonExists) {
+            return;
+        }
+        this.editJsonExists = exists;
+        this.update();
+    }
+
+    /**
+     * 設定 3 項目（解像度プリセット・出力ファイル名・lint 再実行）を quick-pick
+     * 連鎖で確定させ、依頼パケットを `akari.partner.injectPrompt` へ ID 文字列
+     * 呼び出しで注入する。ボタン押下 + 全項目確定 = ユーザーの書き出し承認
+     * そのもの（task.md 設計裁定）なので、パケット文言に明示承認済みである旨を
+     * 含める。途中でキャンセルした場合は何もしない（askAgent と同じ規律）。
+     * パートナー未接続時のトーストは INJECT_PROMPT コマンド自身が出す。
+     */
+    protected async startExportFlow(): Promise<void> {
+        if (!this.editJsonExists) {
+            return;
+        }
+        const resolution = await this.quickInputService.showQuickPick(
+            EXPORT_RESOLUTION_PRESETS.map(preset => ({ label: preset.label, preset })),
+            { placeholder: '解像度プリセットを選択' }
+        );
+        if (!resolution) {
+            return;
+        }
+        const outputNameInput = await this.quickInputService.input({
+            placeHolder: '出力ファイル名',
+            value: DEFAULT_EXPORT_OUTPUT_NAME
+        });
+        if (outputNameInput === undefined) {
+            return;
+        }
+        const outputName = outputNameInput.trim() || DEFAULT_EXPORT_OUTPUT_NAME;
+        const lintChoice = await this.quickInputService.showQuickPick(
+            [
+                { label: 'lint を先に再実行する（既定）', rerunLint: true },
+                { label: 'lint を再実行しない', rerunLint: false }
+            ],
+            { placeholder: 'lint を先に再実行しますか' }
+        );
+        if (!lintChoice) {
+            return;
+        }
+        const packet = composeExportRequestPacket({
+            resolutionLabel: resolution.preset.label,
+            outputName,
+            rerunLint: lintChoice.rerunLint
+        });
+        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+    }
+
+    // --- 進捗面（.akari/render.json 読み取り専用） ----------------------------
+
+    protected async watchRenderProgress(): Promise<void> {
+        this.renderProgressWatch.dispose();
+        this.renderProgressWatch = new DisposableCollection();
+        const roots = await this.workspace.roots;
+        const root = roots[0]?.resource;
+        if (!root) {
+            this.renderProgress = undefined;
+            this.update();
+            return;
+        }
+        const renderJsonUri = root.resolve(RENDER_JSON_RELATIVE_PATH);
+        await this.refreshRenderProgress(renderJsonUri);
+        try {
+            this.renderProgressWatch.push(await this.files.watch(renderJsonUri.parent));
+        } catch (error) {
+            console.info('[akari-shell-strip] render.json watch unavailable:', error);
+        }
+        this.renderProgressWatch.push(this.files.onDidFilesChange(event => {
+            if (event.contains(renderJsonUri)) {
+                void this.refreshRenderProgress(renderJsonUri);
+            }
+        }));
+    }
+
+    /**
+     * render.json の読み取り + パースを丸ごと try/catch する（寛容リーダー）。
+     * ファイル自体が無ければ進捗面を出さない（undefined）。存在するが壊れた
+     * JSON / 未知の形は parseRenderProgress 側で 'unknown' フォールバックへ
+     * 倒す — ここでは例外を外に漏らさないことだけを担保する。
+     */
+    protected async refreshRenderProgress(renderJsonUri: URI): Promise<void> {
+        let exists: boolean;
+        try {
+            exists = await this.files.exists(renderJsonUri);
+        } catch {
+            exists = false;
+        }
+        if (!exists) {
+            this.renderProgress = undefined;
+            this.update();
+            return;
+        }
+        try {
+            const content = await this.files.readFile(renderJsonUri);
+            const parsed: unknown = JSON.parse(content.value.toString());
+            this.renderProgress = parseRenderProgress(parsed);
+        } catch (error) {
+            console.info('[akari-shell-strip] render.json unreadable — showing fallback:', error);
+            this.renderProgress = { kind: 'unknown', label: RENDER_PROGRESS_UNKNOWN_LABEL };
+        }
+        this.update();
+    }
+
+    protected async openExportedArtifact(artifactPath: string): Promise<void> {
+        const roots = await this.workspace.roots;
+        const root = roots[0]?.resource;
+        if (!root) {
+            return;
+        }
+        try {
+            await open(this.openers, root.resolve(artifactPath));
+        } catch (error) {
+            console.warn('[akari-shell-strip] failed to open exported artifact:', error);
+        }
+    }
+
+    protected renderProgressPercent(progress: RenderProgressState): number {
+        switch (progress.kind) {
+            case 'in-progress': return progress.percent;
+            case 'done': return progress.percent;
+            case 'failed': return 100;
+            case 'unknown': return 0;
+            default: return 0;
+        }
+    }
+
+    protected renderProgressBarColor(progress: RenderProgressState): string {
+        if (progress.kind === 'failed') {
+            return 'var(--theia-errorForeground, #f85149)';
+        }
+        if (progress.kind === 'done') {
+            return 'var(--theia-focusBorder, #3fb950)';
+        }
+        return 'var(--theia-focusBorder, #3794ff)';
+    }
+
+    protected renderExportSection(): React.ReactNode {
+        const progress = this.renderProgress;
+        return (
+            <section style={{ marginBottom: '22px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.6, letterSpacing: '0.05em' }}>書き出し</h3>
+                <button
+                    className='theia-button secondary'
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%' }}
+                    disabled={!this.editJsonExists}
+                    title={this.editJsonExists ? undefined : EDIT_JSON_MISSING_TOOLTIP}
+                    onClick={() => void this.startExportFlow()}
+                >
+                    <span className='codicon codicon-desktop-download' aria-hidden='true' />
+                    <span>書き出し</span>
+                </button>
+                {!this.editJsonExists && (
+                    <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{EDIT_JSON_MISSING_TOOLTIP}</p>
+                )}
+                {progress && (
+                    <div style={{ marginTop: '10px' }}>
+                        <div style={{ fontSize: '0.85em', marginBottom: '4px' }}>
+                            {progress.label}
+                            {(progress.kind === 'in-progress' || progress.kind === 'done') && `（${this.renderProgressPercent(progress)}%）`}
+                        </div>
+                        <div style={{ height: '6px', borderRadius: '3px', background: 'rgba(128,128,128,0.25)', overflow: 'hidden' }}>
+                            <div style={{
+                                height: '100%',
+                                width: `${this.renderProgressPercent(progress)}%`,
+                                background: this.renderProgressBarColor(progress),
+                                transition: 'width 0.2s ease'
+                            }} />
+                        </div>
+                        {progress.kind === 'done' && (
+                            <button
+                                className='theia-button secondary'
+                                style={{ marginTop: '8px', padding: '4px 8px', fontSize: '0.85em' }}
+                                onClick={() => void this.openExportedArtifact(progress.artifactPath)}
+                            >
+                                成果物を開く（{progress.artifactPath}）
+                            </button>
+                        )}
+                    </div>
+                )}
+            </section>
+        );
+    }
+
     protected override render(): React.ReactNode {
         return (
             <div style={{ padding: '14px', overflow: 'auto', height: '100%', boxSizing: 'border-box' }}>
@@ -194,6 +451,7 @@ export class AkariMenuWidget extends ReactWidget {
                         ))}
                     </div>
                 </section>
+                {this.renderExportSection()}
                 <section>
                     <h3 style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.6, letterSpacing: '0.05em' }}>やらせる（スキル）</h3>
                     {this.skillsNotice && <p style={{ opacity: 0.7, margin: '0 0 8px' }}>{this.skillsNotice}</p>}

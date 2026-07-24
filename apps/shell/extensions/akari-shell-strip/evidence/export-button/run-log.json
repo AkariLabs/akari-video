@@ -1,0 +1,164 @@
+[
+  {
+    "t": "2026-07-24T17:34:47.375Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-24T17:34:49.837Z",
+    "step": "l1-2-disabled-state",
+    "found": true,
+    "disabled": true,
+    "title": "edit.json がまだありません。編集を進めてから書き出してください。"
+  },
+  {
+    "t": "2026-07-24T17:34:50.054Z",
+    "step": "L1-2-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T17:34:50.060Z",
+    "step": "regression-menu-actions-before",
+    "hasTimeline": true,
+    "hasTranscript": true,
+    "hasHome": true,
+    "hasShowChanges": true,
+    "hasSkillsNotice": true
+  },
+  {
+    "t": "2026-07-24T17:34:50.478Z",
+    "step": "edit-json-created-reactive-enable",
+    "found": true,
+    "disabled": false,
+    "title": ""
+  },
+  {
+    "t": "2026-07-24T17:34:54.299Z",
+    "step": "l1-3-not-connected-toast",
+    "toastsBefore3": 0,
+    "toastsAfter3": [
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください",
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください"
+    ]
+  },
+  {
+    "t": "2026-07-24T17:34:54.426Z",
+    "step": "L1-3-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T17:34:55.414Z",
+    "step": "cancel-no-op",
+    "toastsBeforeCancel": 2,
+    "toastsAfterCancelCount": 2,
+    "qiClosed": true
+  },
+  {
+    "t": "2026-07-24T17:34:55.415Z",
+    "step": "cancel-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T17:34:55.658Z",
+    "step": "dummy-partner-terminal-attached",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T17:34:59.591Z",
+    "step": "l1-1a-defaults-injection",
+    "containsExpected": true
+  },
+  {
+    "t": "2026-07-24T17:34:59.591Z",
+    "step": "L1-1a-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T17:35:03.089Z",
+    "step": "l1-1b-custom-injection",
+    "containsExpected": true
+  },
+  {
+    "t": "2026-07-24T17:35:03.090Z",
+    "step": "L1-1b-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T17:35:03.996Z",
+    "step": "l1-4-start",
+    "sec": "書き出し書き出し書き出し中（planning）（15%）",
+    "errCount": 1
+  },
+  {
+    "t": "2026-07-24T17:35:05.016Z",
+    "step": "l1-4-50pct",
+    "sec": "書き出し書き出し書き出し中（rendering）（50%）",
+    "errCount": 1
+  },
+  {
+    "t": "2026-07-24T17:35:06.035Z",
+    "step": "l1-4-done",
+    "sec": "書き出し書き出し書き出し完了（100%）成果物を開く（exports/final.mp4）",
+    "errCount": 1
+  },
+  {
+    "t": "2026-07-24T17:35:07.412Z",
+    "step": "artifact-link-opened",
+    "openedTabTitle": true
+  },
+  {
+    "t": "2026-07-24T17:35:07.713Z",
+    "step": "artifact-link-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T17:35:08.618Z",
+    "step": "l1-4-failed",
+    "sec": "書き出し書き出し書き出しに失敗しました: duration mismatch: 12.0s vs expected 10.0s",
+    "errCount": 1
+  },
+  {
+    "t": "2026-07-24T17:35:09.679Z",
+    "step": "l1-4-broken-json",
+    "sec": "書き出し書き出し進捗不明（書き出し中）",
+    "errCount": 1
+  },
+  {
+    "t": "2026-07-24T17:35:10.695Z",
+    "step": "l1-4-unknown-shape",
+    "sec": "書き出し書き出し進捗不明（書き出し中）",
+    "errCount": 1,
+    "renderSweepBaselineErrCount": 1,
+    "renderSweepErrorDelta": 0
+  },
+  {
+    "t": "2026-07-24T17:35:10.812Z",
+    "step": "L1-4-PASS",
+    "ok": true,
+    "renderSweepErrorDelta": 0
+  },
+  {
+    "t": "2026-07-24T17:35:11.715Z",
+    "step": "render-json-deleted-hides-section",
+    "sec": "書き出し書き出し"
+  },
+  {
+    "t": "2026-07-24T17:35:12.465Z",
+    "step": "regression-materials-tab",
+    "dzFound": true
+  },
+  {
+    "t": "2026-07-24T17:35:12.589Z",
+    "step": "L1-5-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-24T17:35:12.591Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalConsoleErrorCount": 1,
+    "finalErrLog": [
+      "window.error: Uncaught Error: This API only accepts integers"
+    ],
+    "renderSweepErrorDelta": 0
+  }
+]
