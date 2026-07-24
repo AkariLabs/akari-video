@@ -1,0 +1,14 @@
+[
+  {
+    "id": "c-0001",
+    "start": 0,
+    "end": 2,
+    "text": "不正カラー",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "text_style": {
+      "color": "red"
+    }
+  }
+]

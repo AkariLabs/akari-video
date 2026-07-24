@@ -1,0 +1,31 @@
+{
+  "default_text_style": {
+    "color": "#FFFFFF",
+    "size_px": 56,
+    "stroke": {
+      "color": "#000",
+      "width_px": 3
+    },
+    "background": {
+      "color": "#000000CC",
+      "opacity": 0.7,
+      "radius_px": 8
+    },
+    "zone": "bottom"
+  },
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 5,
+      "end": 9,
+      "text": "字幕",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "text_style": {
+        "color": "#FFCC00",
+        "zone": "top-right"
+      }
+    }
+  ]
+}

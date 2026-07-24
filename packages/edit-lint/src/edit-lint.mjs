@@ -1817,13 +1817,43 @@ async function validateReferences(edit, findings, paths) {
 function validateCaptions(captions, edit, analysis, findings, paths) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   if (!Array.isArray(captions)) {
-    addFinding(findings, {
-      severity: "error",
-      check: "captions.schema",
-      message: "captions.json root must be an array",
-      path: captionPath,
-    });
-    return;
+    if (!isRecord(captions)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "captions.schema",
+        message: "captions.json root must be an array or object",
+        path: captionPath,
+      });
+      return;
+    }
+    for (const field of Object.keys(captions)) {
+      if (field !== "default_text_style" && field !== "captions") {
+        captionFinding(
+          findings,
+          "captions.schema",
+          `${field} is not defined by captions v0 root object`,
+          captionPath,
+        );
+      }
+    }
+    if (Object.hasOwn(captions, "default_text_style")) {
+      validateTextStyle(
+        captions.default_text_style,
+        "default_text_style",
+        findings,
+        captionPath,
+      );
+    }
+    if (!Array.isArray(captions.captions)) {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "captions must be an array in the captions.json root object",
+        captionPath,
+      );
+      return;
+    }
+    captions = captions.captions;
   }
   const ids = new Set();
   const overlayIds = new Set(
@@ -1840,7 +1870,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "words", "style", "display_text"];
+    const optional = ["src", "words", "style", "display_text", "text_style"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -1920,6 +1950,9 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
         "display_text must be a string when present",
         itemPath,
       );
+    }
+    if (Object.hasOwn(caption, "text_style")) {
+      validateTextStyle(caption.text_style, "text_style", findings, itemPath);
     }
     if (Object.hasOwn(caption, "words")) {
       validateCaptionWords(caption.words, caption, findings, itemPath);
@@ -2061,6 +2094,150 @@ function validateCaptionWords(words, caption, findings, itemPath) {
       captionFinding(findings, "captions.schema", "text must be a non-empty string", wordPath);
     }
   });
+}
+
+const CAPTION_TEXT_STYLE_ZONES = new Set([
+  "top-left",
+  "top",
+  "top-right",
+  "left",
+  "center",
+  "right",
+  "bottom-left",
+  "bottom",
+  "bottom-right",
+]);
+const CAPTION_HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+
+function validateTextStyle(value, label, findings, path) {
+  if (!isRecord(value)) {
+    captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
+    return;
+  }
+  const allowed = ["color", "size_px", "stroke", "background", "zone"];
+  for (const field of Object.keys(value)) {
+    if (!allowed.includes(field)) {
+      captionFinding(
+        findings,
+        "captions.text-style",
+        `${label}.${field} is not defined by the text style contract`,
+        path,
+      );
+    }
+  }
+  if (Object.hasOwn(value, "color")) {
+    validateCaptionHexColor(value.color, `${label}.color`, findings, path);
+  }
+  if (
+    Object.hasOwn(value, "size_px")
+    && (!isFiniteNumber(value.size_px) || value.size_px <= 0)
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.size_px must be a finite number greater than zero`,
+      path,
+    );
+  }
+  if (Object.hasOwn(value, "stroke")) {
+    validateCaptionStrokeStyle(value.stroke, `${label}.stroke`, findings, path);
+  }
+  if (Object.hasOwn(value, "background")) {
+    validateCaptionBackgroundStyle(value.background, `${label}.background`, findings, path);
+  }
+  if (Object.hasOwn(value, "zone") && !CAPTION_TEXT_STYLE_ZONES.has(value.zone)) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.zone must be one of the nine caption zones`,
+      path,
+    );
+  }
+}
+
+function validateCaptionStrokeStyle(value, label, findings, path) {
+  if (!isRecord(value)) {
+    captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
+    return;
+  }
+  for (const field of Object.keys(value)) {
+    if (field !== "color" && field !== "width_px") {
+      captionFinding(
+        findings,
+        "captions.text-style",
+        `${label}.${field} is not defined by the stroke style contract`,
+        path,
+      );
+    }
+  }
+  if (Object.hasOwn(value, "color")) {
+    validateCaptionHexColor(value.color, `${label}.color`, findings, path);
+  }
+  if (
+    Object.hasOwn(value, "width_px")
+    && (!isFiniteNumber(value.width_px) || value.width_px < 0)
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.width_px must be a non-negative finite number`,
+      path,
+    );
+  }
+}
+
+function validateCaptionBackgroundStyle(value, label, findings, path) {
+  if (!isRecord(value)) {
+    captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
+    return;
+  }
+  const allowed = ["color", "opacity", "radius_px"];
+  for (const field of Object.keys(value)) {
+    if (!allowed.includes(field)) {
+      captionFinding(
+        findings,
+        "captions.text-style",
+        `${label}.${field} is not defined by the background style contract`,
+        path,
+      );
+    }
+  }
+  if (Object.hasOwn(value, "color")) {
+    validateCaptionHexColor(value.color, `${label}.color`, findings, path);
+  }
+  if (
+    Object.hasOwn(value, "opacity")
+    && (!isFiniteNumber(value.opacity) || value.opacity < 0 || value.opacity > 1)
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.opacity must be a finite number from zero to one`,
+      path,
+    );
+  }
+  if (
+    Object.hasOwn(value, "radius_px")
+    && (!isFiniteNumber(value.radius_px) || value.radius_px < 0)
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.radius_px must be a non-negative finite number`,
+      path,
+    );
+  }
+}
+
+function validateCaptionHexColor(value, label, findings, path) {
+  if (typeof value !== "string" || !CAPTION_HEX_COLOR.test(value)) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label} must be a #RGB, #RRGGBB, or #RRGGBBAA hex color`,
+      path,
+    );
+  }
 }
 
 const REVIEW_TARGET_KINDS = new Set(["instant", "range", "region", "asset", "insert"]);

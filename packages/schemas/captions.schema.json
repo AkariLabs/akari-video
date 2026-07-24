@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:captions:v0",
+  "title": "AKARI Video captions.json v0",
+  "description": "従来の配列ルートと、字幕の既定テキストスタイルを持てる object ルートの公開契約。",
+  "oneOf": [
+    { "$ref": "#/$defs/captionsArray" },
+    { "$ref": "#/$defs/captionsRootObject" }
+  ],
+  "$defs": {
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "captionZone": {
+      "type": "string",
+      "enum": [
+        "top-left",
+        "top",
+        "top-right",
+        "left",
+        "center",
+        "right",
+        "bottom-left",
+        "bottom",
+        "bottom-right"
+      ],
+      "default": "bottom",
+      "description": "字幕の 3x3 配置ゾーン。省略時の実効値は bottom。"
+    },
+    "textStrokeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/hexColor" },
+        "width_px": { "type": "number", "minimum": 0 }
+      }
+    },
+    "textBackgroundStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/hexColor" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "radius_px": { "type": "number", "minimum": 0 }
+      },
+      "description": "字幕の座布団スタイル。"
+    },
+    "textStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/hexColor" },
+        "size_px": { "type": "number", "exclusiveMinimum": 0 },
+        "stroke": { "$ref": "#/$defs/textStrokeStyle" },
+        "background": { "$ref": "#/$defs/textBackgroundStyle" },
+        "zone": { "$ref": "#/$defs/captionZone" }
+      },
+      "$comment": "全フィールド任意。captionRecord.text_style は default_text_style をフィールド単位で上書きする。合成処理は消費側の責務。zone 省略時の実効値は bottom。"
+    },
+    "captionWord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "text"],
+      "properties": {
+        "start": { "type": "number", "minimum": 0 },
+        "end": { "type": "number", "minimum": 0 },
+        "text": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      },
+      "$comment": "end >= start と親 caption の範囲外警告は JSON Schema 標準だけでは兄弟値を比較できないため検証器が扱う。"
+    },
+    "sourceRef": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["segment"],
+          "properties": {
+            "segment": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "captionId": {
+      "oneOf": [
+        { "type": "string", "pattern": "^c-\\d{4}$" },
+        { "type": "string", "pattern": "^caption-[A-Za-z0-9][A-Za-z0-9_-]*$" }
+      ],
+      "$comment": "正準 ID は c- に続く 4 桁の数字。caption-* は既存 captions.json 資産を無変更で受理するためのレガシー互換形。"
+    },
+    "captionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "start", "end", "text", "speaker", "sourceRef", "edited"],
+      "properties": {
+        "id": { "$ref": "#/$defs/captionId" },
+        "start": { "type": "number", "minimum": 0 },
+        "end": { "type": "number", "exclusiveMinimum": 0 },
+        "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "speaker": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "sourceRef": { "$ref": "#/$defs/sourceRef" },
+        "edited": { "type": "boolean" },
+        "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "words": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/captionWord" }
+        },
+        "style": { "enum": ["karaoke", "pop", "reveal"] },
+        "display_text": { "type": "string" },
+        "text_style": { "$ref": "#/$defs/textStyle" }
+      },
+      "$comment": "end > start、ID 一意性、words[].end >= start は JSON Schema 標準だけでは兄弟値を比較できないため validate-captions.mjs でも検証する。style は既存の単語リビール演出、text_style は見た目のスタイルであり別契約。"
+    },
+    "captionsArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/captionRecord" }
+    },
+    "captionsRootObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["captions"],
+      "properties": {
+        "default_text_style": { "$ref": "#/$defs/textStyle" },
+        "captions": { "$ref": "#/$defs/captionsArray" }
+      },
+      "$comment": "default_text_style は任意。省略時は従来表示と同値。"
+    }
+  }
+}

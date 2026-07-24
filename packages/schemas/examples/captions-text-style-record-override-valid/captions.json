@@ -1,0 +1,26 @@
+{
+  "default_text_style": {
+    "color": "#FFFFFF",
+    "size_px": 56,
+    "background": {
+      "color": "#000000",
+      "opacity": 0.65
+    },
+    "zone": "bottom"
+  },
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 2,
+      "text": "上書き字幕",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "text_style": {
+        "color": "#FFCC00",
+        "zone": "top-right"
+      }
+    }
+  ]
+}
