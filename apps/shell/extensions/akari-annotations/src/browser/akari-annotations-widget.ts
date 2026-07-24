@@ -1,5 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -12,7 +13,7 @@ import {
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
-import { CaptionRecord, parseCaptions } from '../common/caption-store';
+import { CaptionRecord, parseCaptions, removeCaptionLine } from '../common/caption-store';
 import {
     EditAudioBgm,
     EditAudioSfx,
@@ -21,10 +22,14 @@ import {
     EditLayer,
     EditOverlay,
     EditSource,
+    EditTimelineTrack,
+    TimelineTrackKind,
     DECLARED_SFX_DURATION_SECONDS,
     computeCutTrackSegments,
-    parseEdit
+    parseEdit,
+    writeTimelineTracksInSource
 } from '../common/edit-store';
+import { deriveDefaultTimelineTracks } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { ProjectLocation } from './project-location';
@@ -120,6 +125,8 @@ type TimelineSelection =
     | { kind: 'audio'; id: string }
     | undefined;
 
+type TimelineSelectionItem = Exclude<TimelineSelection, undefined>;
+
 interface SnapCandidate {
     time: number;
     isPlayhead?: boolean;
@@ -160,6 +167,7 @@ interface OverlayTrackLayout {
     top: number;
     height: number;
     rows: number[];
+    id?: string;
 }
 
 interface LaneBounds {
@@ -171,6 +179,8 @@ interface TrackGroupLayout {
     track: number;
     top: number;
     height: number;
+    id?: string;
+    kind?: TimelineTrackKind;
 }
 
 const STATUS_COLORS: Record<Annotation['status'], string> = {
@@ -211,7 +221,7 @@ type DragPreview =
     | { kind: 'cut-trim'; index: number; input: number; output: number; rejected: boolean }
     | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; insertTrack?: number }
     | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
-    | { kind: 'overlay-move'; id: string; start: number; track: number }
+    | { kind: 'overlay-move'; id: string; start: number; track: number; insertTrack?: number }
     | { kind: 'overlay-resize'; id: string; duration: number }
     | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean; insertTrack?: number }
     | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean; insertTrack?: number };
@@ -265,6 +275,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly snapGuide = document.createElement('div');
     protected readonly dragFeedback = document.createElement('div');
     protected readonly trackInsertIndicator = document.createElement('div');
+    protected readonly selectionMarquee = document.createElement('div');
     protected readonly notice = document.createElement('div');
     protected readonly footer = document.createElement('div');
 
@@ -285,6 +296,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected layers: EditLayer[] = [];
     protected audioSfx: EditAudioSfx[] = [];
     protected audioBgm: EditAudioBgm | undefined;
+    protected timelineTracks: EditTimelineTrack[] = [];
     protected segments: OutputSegment[] = [];
     protected wordBoundaries: number[] = [];
     protected configured = false;
@@ -306,6 +318,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected toolMode: ToolMode = 'select';
     protected snapEnabled = true;
     protected selection: TimelineSelection;
+    protected multiSelection: TimelineSelectionItem[] = [];
+    protected suppressNextStripClick = false;
     protected rightPaneSyncRevision = 0;
     protected rightPaneSyncTail: Promise<void> = Promise.resolve();
     protected clipboard: TimelineClipboard | undefined;
@@ -317,10 +331,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         cutTracks: TrackGroupLayout[];
         layerTracks: TrackGroupLayout[];
         audioTracks: TrackGroupLayout[];
-        clipTop: number;
+        tracks: TrackGroupLayout[];
     } = {
         beats: { top: 0, height: 0 }, captions: { top: 0, height: 0 }, overlayTracks: [],
-        cutTracks: [{ track: 0, top: 0, height: CLIP_HEIGHT }], layerTracks: [], audioTracks: [], clipTop: 0
+        cutTracks: [], layerTracks: [], audioTracks: [], tracks: []
     };
     protected readonly overlayRows = new Map<string, number>();
     protected readonly layerRows = new Map<string, number>();
@@ -504,13 +518,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             background: TRACK_INSERT_LINE_COLOR, pointerEvents: 'none', zIndex: '10',
             boxShadow: `0 0 4px 1px ${TRACK_INSERT_LINE_COLOR}`
         });
-        this.timelineOverlay.append(this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator);
+        Object.assign(this.selectionMarquee.style, {
+            position: 'absolute', display: 'none', border: '1px solid var(--theia-focusBorder)',
+            background: 'color-mix(in srgb, var(--theia-focusBorder) 20%, transparent)',
+            pointerEvents: 'none', zIndex: '11', boxSizing: 'border-box'
+        });
+        this.timelineOverlay.append(
+            this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee
+        );
         this.strip.addEventListener('click', event => this.onStripClick(event));
+        this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
         this.rulerBar.addEventListener('click', event => this.onStripClick(event));
         this.rulerBar.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.rulerBar.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
+        this.trackHeaderColumn.addEventListener('contextmenu', event => this.openTrackContextMenu(event));
 
         Object.assign(this.notice.style, {
             display: 'none', padding: '7px 11px', color: 'var(--theia-warningForeground)',
@@ -700,6 +723,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         padding: 0 3px;
         border-top: 1px solid color-mix(in srgb, var(--theia-widget-border) 55%, transparent);
         box-sizing: border-box;
+        cursor: grab;
+        user-select: none;
     }
     .akari-annotations-widget .akari-track-header-icon {
         width: 17px;
@@ -724,6 +749,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         white-space: nowrap;
         font-size: 11px;
         color: var(--theia-foreground);
+    }
+    .akari-annotations-widget .akari-track-header-name-input {
+        min-width: 0;
+        width: 100%;
+        flex: 1;
+        box-sizing: border-box;
+        font-size: 11px;
+    }
+    .akari-annotations-widget .akari-track-header-drop-target {
+        outline: 2px solid var(--theia-focusBorder);
+        outline-offset: -2px;
     }
     .akari-annotations-widget .akari-track-header-button[aria-pressed="false"] { opacity: .4; }
     .akari-annotations-widget .akari-track-header-button:hover { background: var(--theia-toolbar-hoverBackground); }
@@ -839,7 +875,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.cancelDrag(this.dragState);
                 return;
             }
-            if (event.key === 'Escape' && this.isAttached && this.selection) {
+            if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0)) {
                 event.preventDefault();
                 event.stopPropagation();
                 this.applySelection(undefined);
@@ -907,9 +943,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
             }
-            if ((event.key === 'Delete' || event.key === 'Backspace') && this.selection) {
+            if ((event.key === 'Delete' || event.key === 'Backspace')
+                && (this.selection || this.multiSelection.length > 0)) {
                 event.preventDefault();
-                void this.performDeleteSelected();
+                if (this.multiSelection.length > 0) {
+                    void this.performDeleteMultiSelected();
+                } else {
+                    void this.performDeleteSelected();
+                }
             }
         };
         // 注釈が増減したらピンを描き直す。パネルの時刻リンクからのジャンプもここで受ける。
@@ -1015,8 +1056,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected applySelection(selection: TimelineSelection, notifyPreview = true): void {
         const previous = this.selection;
+        const hadMultiSelection = this.multiSelection.length > 0;
+        this.multiSelection = [];
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
-            if (selection) {
+            if (selection || hadMultiSelection) {
+                this.pushSelectionSnapshot();
+                this.applySelectionClass();
                 this.syncRightPane();
             }
             return;
@@ -1366,11 +1411,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected applySelectionClass(): void {
         const selection = this.selection;
+        const selectedKeys = new Set(this.multiSelection.map(item => this.selectionKey(item)));
         for (const element of Array.from(this.strip.querySelectorAll<HTMLElement>('[data-akari-item-kind]'))) {
             const kind = element.dataset.akariItemKind;
             const id = element.dataset.akariItemId;
-            const selected = selection !== undefined && selection.kind === kind
-                && (selection.kind === 'cut' ? String(selection.index) === id : selection.id === id);
+            const itemKey = kind && id !== undefined ? `${kind}:${id}` : '';
+            const selected = selectedKeys.has(itemKey) || (selection !== undefined && selection.kind === kind
+                && (selection.kind === 'cut' ? String(selection.index) === id : selection.id === id));
             element.classList.toggle('akari-annotations-selected', selected);
         }
     }
@@ -1392,6 +1439,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
+        if (this.multiSelection.length > 0) {
+            this.selectionModel.snapshot = { kind: 'multi', count: this.multiSelection.length };
+            return;
+        }
         const selection = this.selection;
         if (!selection) {
             this.selectionModel.snapshot = undefined;
@@ -1757,6 +1808,80 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected async performDeleteMultiSelected(): Promise<void> {
+        const location = this.location;
+        if (!location?.editUri || this.multiSelection.length === 0) {
+            return;
+        }
+        try {
+            const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
+            const hasCaptions = this.multiSelection.some(item => item.kind === 'caption');
+            const captionsBefore = hasCaptions
+                ? (await this.fileService.readFile(location.captionsUri)).value.toString()
+                : undefined;
+            const value = JSON.parse(editBefore) as Record<string, any>;
+            const cutIndexes = new Set(this.multiSelection
+                .filter((item): item is Extract<TimelineSelectionItem, { kind: 'cut' }> => item.kind === 'cut')
+                .map(item => item.index));
+            const idsByKind = new Map<TimelineSelectionItem['kind'], Set<string>>();
+            for (const item of this.multiSelection) {
+                if (item.kind === 'cut') {
+                    continue;
+                }
+                const ids = idsByKind.get(item.kind) ?? new Set<string>();
+                ids.add(item.id);
+                idsByKind.set(item.kind, ids);
+            }
+            if (Array.isArray(value.cuts) && cutIndexes.size > 0) {
+                value.cuts = value.cuts.filter((_item: unknown, index: number) => !cutIndexes.has(index));
+            }
+            if (Array.isArray(value.overlays)) {
+                value.overlays = value.overlays.filter((item: any) => !idsByKind.get('overlay')?.has(item?.id));
+            }
+            if (Array.isArray(value.layers)) {
+                value.layers = value.layers.filter((item: any) => !idsByKind.get('layer')?.has(item?.id));
+            }
+            if (value.audio && typeof value.audio === 'object') {
+                const audioIds = idsByKind.get('audio');
+                if (Array.isArray(value.audio.sfx) && audioIds) {
+                    value.audio.sfx = value.audio.sfx.filter((_item: unknown, index: number) =>
+                        !audioIds.has(`sfx-${index}`));
+                }
+                if (audioIds?.has('bgm')) {
+                    delete value.audio.bgm;
+                }
+            }
+            const editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
+            let captionsAfter = captionsBefore;
+            if (captionsAfter !== undefined) {
+                for (const id of idsByKind.get('caption') ?? []) {
+                    captionsAfter = removeCaptionLine(captionsAfter, id);
+                }
+            }
+            await this.writeTimelineSnapshots(editAfter, captionsAfter);
+            this.pushHistory({
+                label: '複数アイテムを削除',
+                undo: async () => {
+                    await this.writeTimelineSnapshots(editBefore, captionsBefore);
+                    await this.reloadAll();
+                },
+                redo: async () => {
+                    await this.writeTimelineSnapshots(editAfter, captionsAfter);
+                    await this.reloadAll();
+                }
+            });
+            this.multiSelection = [];
+            this.selection = undefined;
+            this.pushSelectionSnapshot();
+            await this.reloadAll();
+            this.footer.textContent = '選択したアイテムを削除しました。';
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`選択項目を削除できません: ${detail}`);
+            this.messages.error(`選択項目を削除できません: ${detail}`);
+        }
+    }
+
     protected async performCompactCuts(): Promise<void> {
         const location = this.location;
         if (!location?.editUri) {
@@ -1924,11 +2049,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.layers = [];
         this.audioSfx = [];
         this.audioBgm = undefined;
+        this.timelineTracks = [];
         this.fps = 30;
         if (this.location?.editUri) {
             try {
                 const source = (await this.fileService.readFile(this.location.editUri)).value.toString();
                 const parsed = parseEdit(source);
+                const rawValue = JSON.parse(source) as unknown;
                 this.cuts = parsed.cuts;
                 this.sources = parsed.sources;
                 this.rebuildSourceMap();
@@ -1937,6 +2064,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.layers = parsed.layers;
                 this.audioSfx = parsed.audioSfx;
                 this.audioBgm = parsed.audioBgm;
+                this.timelineTracks = parsed.timeline?.tracks ?? deriveDefaultTimelineTracks(rawValue);
                 this.fps = parsed.fps;
                 if (parsed.warnings.length > 0) {
                     this.showWarnings(parsed.warnings);
@@ -2145,62 +2273,66 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (beats.height > 0) {
             nextTop += beats.height + LANE_GAP;
         }
-        const captions = { top: nextTop, height: captionRowCount * SUBROW_STRIDE };
-        if (captions.height > 0) {
-            nextTop += captions.height + LANE_GAP;
-        }
-
+        let captions: LaneBounds = { top: nextTop, height: 0 };
         this.overlayRows.clear();
         this.overlayTrackLayouts = [];
-        const overlayTracks = [...new Set(this.overlays.map(overlay => overlay.track))].sort((a, b) => b - a);
-        for (const track of overlayTracks) {
-            const items = this.overlays.filter(overlay => overlay.track === track);
-            const rows = assignSubRows(items.map(overlay => ({ start: overlay.start, end: overlay.start + overlay.duration })));
-            items.forEach((overlay, index) => this.overlayRows.set(overlay.id, rows[index] ?? 0));
-            const height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
-            this.overlayTrackLayouts.push({ track, top: nextTop, height, rows });
-            nextTop += height + LANE_GAP;
-        }
-
         this.layerRows.clear();
         const layerTracks: TrackGroupLayout[] = [];
-        for (const track of [...new Set(this.layers.map(layer => layer.track ?? 0))].sort((a, b) => b - a)) {
-            const items = this.layers.filter(layer => (layer.track ?? 0) === track);
-            const rows = assignSubRows(items.map(layer => ({ start: layer.t, end: layer.t + layer.duration })));
-            items.forEach((layer, index) => this.layerRows.set(layer.id, rows[index] ?? 0));
-            const height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
-            layerTracks.push({ track, top: nextTop, height });
-            nextTop += height + LANE_GAP;
-        }
-
-        const audioTop = nextTop;
-        this.audioBgmTop = audioTop;
-        if (this.audioBgm) {
-            nextTop += SUBROW_STRIDE;
-        }
         this.audioSfxRows.clear();
         const audioTracks: TrackGroupLayout[] = [];
-        for (const track of [...new Set(this.audioSfx.map(sfx => sfx.track ?? 0))].sort((a, b) => b - a)) {
-            const items = this.audioSfx.filter(sfx => (sfx.track ?? 0) === track);
-            const rows = assignSubRows(items.map(sfx => ({ start: sfx.t, end: sfx.t + sfx.duration })));
-            items.forEach((sfx, index) => this.audioSfxRows.set(sfx.id, rows[index] ?? 0));
-            const height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
-            audioTracks.push({ track, top: nextTop, height });
+        const cutTracks: TrackGroupLayout[] = [];
+        const tracks: TrackGroupLayout[] = [];
+        for (const timelineTrack of [...this.timelineTracks].reverse()) {
+            const ref = timelineTrack.ref ?? 0;
+            let height = SUBROW_STRIDE;
+            if (timelineTrack.kind === 'cuts') {
+                height = CLIP_HEIGHT;
+            } else if (timelineTrack.kind === 'layers') {
+                const items = this.layers.filter(layer => (layer.track ?? 0) === ref);
+                const rows = assignSubRows(items.map(layer => ({ start: layer.t, end: layer.t + layer.duration })));
+                items.forEach((layer, index) => this.layerRows.set(layer.id, rows[index] ?? 0));
+                height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+            } else if (timelineTrack.kind === 'overlays') {
+                const items = this.overlays.filter(overlay => overlay.track === ref);
+                const rows = assignSubRows(items.map(overlay => ({
+                    start: overlay.start, end: overlay.start + overlay.duration
+                })));
+                items.forEach((overlay, index) => this.overlayRows.set(overlay.id, rows[index] ?? 0));
+                height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+            } else if (timelineTrack.kind === 'captions') {
+                height = Math.max(1, captionRowCount) * SUBROW_STRIDE;
+            } else {
+                const intervals = [
+                    ...(this.audioBgm ? [{ start: 0, end: this.totalDuration(), id: this.audioBgm.id }] : []),
+                    ...this.audioSfx.map(sfx => ({ start: sfx.t, end: sfx.t + sfx.duration, id: sfx.id }))
+                ];
+                const rows = assignSubRows(intervals);
+                intervals.forEach((item, index) => {
+                    if (item.id === 'bgm') {
+                        this.audioBgmTop = nextTop + (rows[index] ?? 0) * SUBROW_STRIDE;
+                    } else {
+                        this.audioSfxRows.set(item.id, rows[index] ?? 0);
+                    }
+                });
+                height = Math.max(1, rows.length ? Math.max(...rows) + 1 : 0) * SUBROW_STRIDE;
+            }
+            const layout = {
+                id: timelineTrack.id, kind: timelineTrack.kind, track: ref, top: nextTop, height
+            };
+            tracks.push(layout);
+            if (timelineTrack.kind === 'cuts') {
+                cutTracks.push(layout);
+            } else if (timelineTrack.kind === 'layers') {
+                layerTracks.push(layout);
+            } else if (timelineTrack.kind === 'overlays') {
+                this.overlayTrackLayouts.push({ ...layout, rows: [] });
+            } else if (timelineTrack.kind === 'captions') {
+                captions = layout;
+            } else {
+                audioTracks.push(layout);
+            }
             nextTop += height + LANE_GAP;
         }
-        const hasAudio = Boolean(this.audioBgm || this.audioSfx.length);
-        const audioHeight = hasAudio ? nextTop - audioTop - (audioTracks.length > 0 ? LANE_GAP : 0) : 0;
-        if (hasAudio) {
-            nextTop = audioTop + audioHeight + LANE_GAP;
-        }
-
-        const cutTracks: TrackGroupLayout[] = [];
-        const occupiedCutTracks = [...new Set(this.segments.map(segment => segment.track))].sort((a, b) => b - a);
-        for (const track of occupiedCutTracks.length > 0 ? occupiedCutTracks : [0]) {
-            cutTracks.push({ track, top: nextTop, height: CLIP_HEIGHT });
-            nextTop += CLIP_HEIGHT + LANE_GAP;
-        }
-        const clipTop = cutTracks[0].top;
         this.laneLayout = {
             beats,
             captions,
@@ -2208,30 +2340,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             cutTracks,
             layerTracks,
             audioTracks,
-            clipTop
+            tracks
         };
-        return nextTop - LANE_GAP + STRIP_BOTTOM_MARGIN;
-    }
-
-    protected groupTop(layouts: readonly TrackGroupLayout[]): number {
-        return layouts[0]?.top ?? 0;
-    }
-
-    protected groupHeight(layouts: readonly TrackGroupLayout[]): number {
-        if (layouts.length === 0) {
-            return 0;
-        }
-        const last = layouts[layouts.length - 1];
-        return last.top + last.height - layouts[0].top;
+        return Math.max(0, nextTop - LANE_GAP) + STRIP_BOTTOM_MARGIN;
     }
 
     protected audioBandBounds(): LaneBounds {
-        if (!this.audioBgm && this.laneLayout.audioTracks.length === 0) {
-            return { top: this.audioBgmTop, height: 0 };
-        }
-        const last = this.laneLayout.audioTracks[this.laneLayout.audioTracks.length - 1];
-        const end = last ? last.top + last.height : this.audioBgmTop + SUBROW_STRIDE;
-        return { top: this.audioBgmTop, height: end - this.audioBgmTop };
+        const layout = this.laneLayout.audioTracks[0];
+        return layout ? { top: layout.top, height: layout.height } : { top: 0, height: 0 };
     }
 
     protected renderStrip(): void {
@@ -2261,26 +2377,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const stripHeight = this.calculateLaneLayout();
         const beatsBandTop = this.laneLayout.beats.top;
         const beatsBandHeight = this.laneLayout.beats.height;
-        const captionBandTop = this.laneLayout.captions.top;
-        const captionBandHeight = this.laneLayout.captions.height;
-        const layerBandTop = this.groupTop(this.laneLayout.layerTracks);
-        const layerBandHeight = this.groupHeight(this.laneLayout.layerTracks);
         const audioBandTop = this.audioBandBounds().top;
-        const audioBandHeight = this.audioBandBounds().height;
-        const clipTop = this.laneLayout.clipTop;
-        const clipHeight = this.groupHeight(this.laneLayout.cutTracks);
 
         // 注釈ピンはルーラー帯（renderRuler）へ描くため、専用レーンは持たない。
         this.strip.style.height = `${stripHeight}px`;
         this.trackHeaders.style.height = `${stripHeight}px`;
         this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
-        this.renderTrackHeaders(
-            beatsBandTop, beatsBandHeight,
-            captionBandTop, captionBandHeight,
-            layerBandTop, layerBandHeight,
-            audioBandTop, audioBandHeight,
-            clipTop, clipHeight
-        );
+        this.renderTrackHeaders(beatsBandTop, beatsBandHeight);
 
         if (beatsBandHeight > 0) {
             const beatsBand = this.laneBand('beats', beatsBandTop, beatsBandHeight);
@@ -2292,32 +2395,29 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(beatsBand);
             this.renderBeatMarkers(beatsBandTop, beatsBandHeight);
         }
-        if (captionBandHeight > 0) {
-            const captionBand = this.laneBand('captions', captionBandTop, captionBandHeight);
-            captionBand.style.opacity = this.captionsVisible ? '1' : '.28';
-            this.strip.appendChild(captionBand);
-        }
-        for (const layout of this.overlayTrackLayouts) {
-            const band = this.laneBand(`track-${layout.track}`, layout.top, layout.height);
+        for (const layout of this.laneLayout.tracks) {
+            const band = this.laneBand(layout.id ?? '', layout.top, layout.height);
             band.dataset.akariTrack = String(layout.track);
-            band.classList.toggle('akari-track-band-hidden', this.hiddenTracks.has(layout.track));
+            band.dataset.akariKind = layout.kind ?? '';
+            if (layout.kind === 'overlays') {
+                band.classList.toggle('akari-track-band-hidden', this.hiddenTracks.has(layout.track));
+            } else if (layout.kind === 'layers') {
+                band.style.opacity = this.layersVisible ? '1' : '.28';
+            } else if (layout.kind === 'captions') {
+                band.style.opacity = this.captionsVisible ? '1' : '.28';
+            } else if (layout.kind === 'audio') {
+                band.style.opacity = this.audioVisible ? '1' : '.28';
+            } else if (layout.kind === 'cuts') {
+                band.style.opacity = this.clipsVisible ? '1' : '.28';
+            }
             this.strip.appendChild(band);
         }
-        if (layerBandHeight > 0) {
-            const layerBand = this.laneBand('layers', layerBandTop, layerBandHeight);
-            layerBand.style.opacity = this.layersVisible ? '1' : '.28';
-            this.strip.appendChild(layerBand);
-        }
-        if (audioBandHeight > 0) {
-            const audioBand = this.laneBand('audio', audioBandTop, audioBandHeight);
-            audioBand.style.opacity = this.audioVisible ? '1' : '.28';
-            this.strip.appendChild(audioBand);
-        }
-        const clipBand = this.laneBand('clips', clipTop, clipHeight);
-        clipBand.style.opacity = this.clipsVisible ? '1' : '.28';
-        this.strip.appendChild(clipBand);
 
         this.captions.forEach((caption, index) => {
+            const captionLayout = this.trackLayout('captions', 0);
+            if (!captionLayout) {
+                return;
+            }
             const captionEnd = Math.max(caption.end, caption.start + MINIMUM_ITEM_DURATION);
             const outputRanges = this.sourceRangeToOutputRanges(caption.start, captionEnd);
             if (outputRanges.length === 0) {
@@ -2325,13 +2425,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const [outputStart, outputEnd] = [outputRanges[0][0], outputRanges[outputRanges.length - 1][1]];
-            const top = captionBandTop + this.captionRows[index] * SUBROW_STRIDE;
+            const top = captionLayout.top + this.captionRows[index] * SUBROW_STRIDE;
             const element = this.stripSegment(
                 outputStart, outputEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
             );
             element.dataset.akariItemKind = 'caption';
             element.dataset.akariItemId = caption.id;
-            element.dataset.akariLane = 'captions';
+            element.dataset.akariLane = captionLayout.id ?? 'captions';
             element.style.opacity = this.captionsVisible ? '' : '.28';
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
@@ -2350,8 +2450,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.overlays.forEach(overlay => {
             const layout = this.overlayTrackLayouts.find(candidate => candidate.track === overlay.track);
-            const top = (layout?.top ?? captionBandTop + captionBandHeight + LANE_GAP)
-                + (this.overlayRows.get(overlay.id) ?? 0) * SUBROW_STRIDE;
+            if (!layout) {
+                return;
+            }
+            const top = layout.top + (this.overlayRows.get(overlay.id) ?? 0) * SUBROW_STRIDE;
             const element = this.stripSegment(
                 overlay.start, overlay.start + overlay.duration, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-overlay', overlay.id
@@ -2359,6 +2461,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemKind = 'overlay';
             element.dataset.akariItemId = overlay.id;
             element.dataset.akariTrack = String(overlay.track);
+            element.dataset.akariLane = layout?.id ?? `track-${overlay.track}`;
             element.style.opacity = this.hiddenTracks.has(overlay.track) ? '.28' : '';
             element.appendChild(this.segmentLabel(overlay.id));
             this.installDragListeners(element, (event, rect) => ({
@@ -2369,15 +2472,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         this.layers.forEach(layer => {
-            const layout = this.laneLayout.layerTracks.find(candidate => candidate.track === (layer.track ?? 0));
-            const top = (layout?.top ?? layerBandTop) + (this.layerRows.get(layer.id) ?? 0) * SUBROW_STRIDE;
+            const layout = this.trackLayout('layers', layer.track ?? 0);
+            if (!layout) {
+                return;
+            }
+            const top = layout.top + (this.layerRows.get(layer.id) ?? 0) * SUBROW_STRIDE;
             const element = this.stripSegment(
                 layer.t, layer.t + layer.duration, top, SUBROW_HEIGHT,
                 `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
             );
             element.dataset.akariItemKind = 'layer';
             element.dataset.akariItemId = layer.id;
-            element.dataset.akariLane = 'layers';
+            element.dataset.akariLane = layout?.id ?? 'layers';
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.layersVisible ? '' : '.28';
             element.appendChild(this.segmentLabel(layer.id));
@@ -2393,7 +2499,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         });
-        if (this.audioBgm) {
+        if (this.audioBgm && this.trackLayout('audio', 0)) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
             const element = this.stripSegment(
@@ -2402,7 +2508,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             element.dataset.akariItemKind = 'audio';
             element.dataset.akariItemId = bgm.id;
-            element.dataset.akariLane = 'audio';
+            element.dataset.akariLane = this.trackLayout('audio', 0)?.id ?? 'audio';
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
             element.appendChild(this.segmentLabel(label));
@@ -2413,7 +2519,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         }
         this.audioSfx.forEach(sfx => {
-            const layout = this.laneLayout.audioTracks.find(candidate => candidate.track === (sfx.track ?? 0));
+            const layout = this.trackLayout('audio', 0);
+            if (!layout) {
+                return;
+            }
             const top = (layout?.top ?? audioBandTop) + (this.audioSfxRows.get(sfx.id) ?? 0) * SUBROW_STRIDE;
             const label = this.pathBaseName(sfx.path);
             let durationSeconds = sfx.duration;
@@ -2432,7 +2541,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             element.dataset.akariItemKind = 'audio';
             element.dataset.akariItemId = sfx.id;
-            element.dataset.akariLane = 'audio';
+            element.dataset.akariLane = layout?.id ?? 'audio';
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
             element.appendChild(this.segmentLabel(label));
@@ -2442,16 +2551,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         this.segments.forEach(segment => {
+            const cutLayout = this.trackLayout('cuts', segment.track);
+            if (!cutLayout) {
+                return;
+            }
             const cut = this.cuts[segment.index];
             const element = this.stripSegment(
                 segment.tlStart, segment.tlEnd,
-                this.laneLayout.cutTracks.find(candidate => candidate.track === segment.track)?.top ?? clipTop,
+                cutLayout.top,
                 CLIP_HEIGHT,
                 'akari-annotations-strip-clip', `C${segment.index + 1}`
             );
             element.dataset.akariItemKind = 'cut';
             element.dataset.akariItemId = String(segment.index);
-            element.dataset.akariLane = 'clips';
+            element.dataset.akariLane = cutLayout.id ?? 'clips';
             element.style.opacity = this.clipsVisible ? '' : '.28';
             const widthPercent = Math.max(this.percent(segment.tlEnd) - this.percent(segment.tlStart), 0.3);
             const clipWidth = this.strip.clientWidth * widthPercent / 100;
@@ -2537,18 +2650,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected renderTrackHeaders(
-        beatsTop: number,
-        beatsHeight: number,
-        captionTop: number,
-        captionHeight: number,
-        layerTop: number,
-        layerHeight: number,
-        audioTop: number,
-        audioHeight: number,
-        clipTop: number,
-        clipHeight: number
-    ): void {
+    protected renderTrackHeaders(beatsTop: number, beatsHeight: number): void {
         this.trackHeaders.replaceChildren();
         if (beatsHeight > 0) {
             this.trackHeaders.appendChild(this.trackHeaderRow(
@@ -2564,26 +2666,48 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             ));
         }
-        if (captionHeight > 0) {
-            this.trackHeaders.appendChild(this.trackHeaderRow(
-                '字幕', 'caption', 'captions', captionTop, captionHeight,
-                this.captionsVisible, () => {
-                    this.captionsVisible = !this.captionsVisible;
-                    this.dispatchPreviewEvent(TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT, { visible: this.captionsVisible });
+        const displayedTracks = [...this.timelineTracks].reverse();
+        displayedTracks.forEach((track, index) => {
+            const layout = this.laneLayout.tracks.find(candidate => candidate.id === track.id);
+            if (!layout) {
+                return;
+            }
+            const name = track.label || `トラック ${index + 1}`;
+            const iconKind = this.trackIconKind(track.kind);
+            let visible = true;
+            let audible = true;
+            let toggleVisibility = (): void => undefined;
+            let toggleMute = (): void => undefined;
+            if (track.kind === 'cuts') {
+                visible = this.clipsVisible;
+                audible = !this.clipMuted;
+                toggleVisibility = () => {
+                    this.clipsVisible = !this.clipsVisible;
+                    this.dispatchPreviewEvent(TIMELINE_SET_CLIPS_VISIBILITY_EVENT, { visible: this.clipsVisible });
                     this.renderStrip();
-                }, !this.captionsMuted, () => {
-                    this.captionsMuted = !this.captionsMuted;
-                    this.dispatchPreviewEvent(TIMELINE_SET_CAPTIONS_MUTED_EVENT, { muted: this.captionsMuted });
+                };
+                toggleMute = () => {
+                    this.clipMuted = !this.clipMuted;
+                    this.dispatchPreviewEvent(TIMELINE_SET_MUTED_EVENT, { muted: this.clipMuted });
                     this.renderStrip();
-                }
-            ));
-        }
-        for (const layout of this.overlayTrackLayouts) {
-            const visible = !this.hiddenTracks.has(layout.track);
-            const audible = !this.mutedOverlayTracks.has(layout.track);
-            this.trackHeaders.appendChild(this.trackHeaderRow(
-                `トラック ${layout.track}`, 'overlay', `track-${layout.track}`, layout.top, layout.height,
-                visible, () => {
+                };
+            } else if (track.kind === 'layers') {
+                visible = this.layersVisible;
+                audible = !this.layersMuted;
+                toggleVisibility = () => {
+                    this.layersVisible = !this.layersVisible;
+                    this.dispatchPreviewEvent(TIMELINE_SET_LAYERS_VISIBILITY_EVENT, { visible: this.layersVisible });
+                    this.renderStrip();
+                };
+                toggleMute = () => {
+                    this.layersMuted = !this.layersMuted;
+                    this.dispatchPreviewEvent(TIMELINE_SET_LAYERS_MUTED_EVENT, { muted: this.layersMuted });
+                    this.renderStrip();
+                };
+            } else if (track.kind === 'overlays') {
+                visible = !this.hiddenTracks.has(layout.track);
+                audible = !this.mutedOverlayTracks.has(layout.track);
+                toggleVisibility = () => {
                     if (this.hiddenTracks.has(layout.track)) {
                         this.hiddenTracks.delete(layout.track);
                     } else {
@@ -2593,7 +2717,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         track: layout.track, visible: !this.hiddenTracks.has(layout.track)
                     });
                     this.renderStrip();
-                }, audible, () => {
+                };
+                toggleMute = () => {
                     if (this.mutedOverlayTracks.has(layout.track)) {
                         this.mutedOverlayTracks.delete(layout.track);
                     } else {
@@ -2603,49 +2728,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         track: layout.track, muted: this.mutedOverlayTracks.has(layout.track)
                     });
                     this.renderStrip();
-                }, layout.track
-            ));
-        }
-        if (layerHeight > 0) {
-            this.trackHeaders.appendChild(this.trackHeaderRow(
-                'レイヤー', 'layer', 'layers', layerTop, layerHeight,
-                this.layersVisible, () => {
-                    this.layersVisible = !this.layersVisible;
-                    this.dispatchPreviewEvent(TIMELINE_SET_LAYERS_VISIBILITY_EVENT, { visible: this.layersVisible });
+                };
+            } else if (track.kind === 'captions') {
+                visible = this.captionsVisible;
+                audible = !this.captionsMuted;
+                toggleVisibility = () => {
+                    this.captionsVisible = !this.captionsVisible;
+                    this.dispatchPreviewEvent(TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT, { visible: this.captionsVisible });
                     this.renderStrip();
-                }, !this.layersMuted, () => {
-                    this.layersMuted = !this.layersMuted;
-                    this.dispatchPreviewEvent(TIMELINE_SET_LAYERS_MUTED_EVENT, { muted: this.layersMuted });
+                };
+                toggleMute = () => {
+                    this.captionsMuted = !this.captionsMuted;
+                    this.dispatchPreviewEvent(TIMELINE_SET_CAPTIONS_MUTED_EVENT, { muted: this.captionsMuted });
                     this.renderStrip();
-                }
-            ));
-        }
-        if (audioHeight > 0) {
-            this.trackHeaders.appendChild(this.trackHeaderRow(
-                'オーディオ', 'audio', 'audio', audioTop, audioHeight,
-                this.audioVisible, () => {
+                };
+            } else {
+                visible = this.audioVisible;
+                audible = !this.audioMuted;
+                toggleVisibility = () => {
                     this.audioVisible = !this.audioVisible;
                     this.dispatchPreviewEvent(TIMELINE_SET_AUDIO_VISIBILITY_EVENT, { visible: this.audioVisible });
                     this.renderStrip();
-                }, !this.audioMuted, () => {
+                };
+                toggleMute = () => {
                     this.audioMuted = !this.audioMuted;
                     this.dispatchPreviewEvent(TIMELINE_SET_AUDIO_MUTED_EVENT, { muted: this.audioMuted });
                     this.renderStrip();
-                }
-            ));
-        }
-        this.trackHeaders.appendChild(this.trackHeaderRow(
-            'クリップ', 'video', 'clips', clipTop, clipHeight,
-            this.clipsVisible, () => {
-                this.clipsVisible = !this.clipsVisible;
-                this.dispatchPreviewEvent(TIMELINE_SET_CLIPS_VISIBILITY_EVENT, { visible: this.clipsVisible });
-                this.renderStrip();
-            }, !this.clipMuted, () => {
-                this.clipMuted = !this.clipMuted;
-                this.dispatchPreviewEvent(TIMELINE_SET_MUTED_EVENT, { muted: this.clipMuted });
-                this.renderStrip();
+                };
             }
-        ));
+            this.trackHeaders.appendChild(this.trackHeaderRow(
+                name, iconKind, track.id, layout.top, layout.height,
+                visible, toggleVisibility, audible, toggleMute, layout.track, track
+            ));
+        });
     }
 
     protected trackHeaderRow(
@@ -2658,11 +2773,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         toggleVisibility: () => void,
         audible: boolean,
         toggleMute: () => void,
-        track?: number
+        track?: number,
+        timelineTrack?: EditTimelineTrack
     ): HTMLDivElement {
         const row = document.createElement('div');
         row.className = 'akari-track-header-row';
         row.dataset.akariLane = lane;
+        if (timelineTrack) {
+            row.dataset.akariTimelineTrackId = timelineTrack.id;
+            row.dataset.akariKind = timelineTrack.kind;
+        }
         row.style.top = `${top}px`;
         row.style.height = `${height}px`;
         if (track !== undefined) {
@@ -2681,7 +2801,403 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility),
             this.trackHeaderButton(`${name}の音声`, 'mute', audible, this.speakerSvg(), toggleMute)
         );
+        if (timelineTrack) {
+            nameElement.addEventListener('dblclick', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.beginTrackRename(nameElement, timelineTrack);
+            });
+            row.addEventListener('pointerdown', event => this.onTrackHeaderPointerDown(event, timelineTrack));
+        }
         return row;
+    }
+
+    protected trackIconKind(
+        kind: TimelineTrackKind
+    ): 'video' | 'overlay' | 'layer' | 'audio' | 'caption' {
+        return {
+            cuts: 'video',
+            layers: 'layer',
+            overlays: 'overlay',
+            captions: 'caption',
+            audio: 'audio'
+        }[kind] as 'video' | 'overlay' | 'layer' | 'audio' | 'caption';
+    }
+
+    protected trackLayout(kind: TimelineTrackKind, ref: number): TrackGroupLayout | undefined {
+        return this.laneLayout.tracks.find(layout => layout.kind === kind && layout.track === ref);
+    }
+
+    protected beginTrackRename(nameElement: HTMLSpanElement, track: EditTimelineTrack): void {
+        const input = document.createElement('input');
+        input.className = 'akari-track-header-name-input';
+        input.value = track.label ?? '';
+        input.placeholder = nameElement.textContent ?? '';
+        nameElement.replaceWith(input);
+        let committed = false;
+        const commit = (): void => {
+            if (committed) {
+                return;
+            }
+            committed = true;
+            const label = input.value.trim();
+            void this.mutateTimelineTracks('トラック名を変更', tracks => tracks.map(candidate =>
+                candidate.id === track.id
+                    ? { ...candidate, ...(label ? { label } : {}) }
+                    : candidate
+            ).map(candidate => candidate.id === track.id && !label
+                ? this.withoutTrackLabel(candidate) : candidate));
+        };
+        input.addEventListener('pointerdown', event => event.stopPropagation());
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                input.blur();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                committed = true;
+                this.renderStrip();
+            }
+        });
+        input.focus();
+        input.select();
+    }
+
+    protected withoutTrackLabel(track: EditTimelineTrack): EditTimelineTrack {
+        const result = { ...track };
+        delete result.label;
+        return result;
+    }
+
+    protected onTrackHeaderPointerDown(event: PointerEvent, track: EditTimelineTrack): void {
+        if (event.button !== 0 || track.locked
+            || event.target instanceof Element && event.target.closest('button, input')) {
+            return;
+        }
+        const row = event.currentTarget as HTMLDivElement;
+        const startY = event.clientY;
+        let targetId = track.id;
+        let dragged = false;
+        row.setPointerCapture(event.pointerId);
+        const onMove = (moveEvent: PointerEvent): void => {
+            if (!dragged && Math.abs(moveEvent.clientY - startY) < DRAG_THRESHOLD_PX) {
+                return;
+            }
+            dragged = true;
+            row.style.opacity = '.45';
+            for (const candidate of Array.from(
+                this.trackHeaders.querySelectorAll<HTMLElement>('[data-akari-timeline-track-id]')
+            )) {
+                candidate.classList.remove('akari-track-header-drop-target');
+                const rect = candidate.getBoundingClientRect();
+                if (moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom) {
+                    targetId = candidate.dataset.akariTimelineTrackId ?? targetId;
+                    candidate.classList.add('akari-track-header-drop-target');
+                }
+            }
+        };
+        const onUp = (): void => {
+            row.removeEventListener('pointermove', onMove);
+            row.removeEventListener('pointerup', onUp);
+            row.removeEventListener('pointercancel', onUp);
+            row.style.opacity = '';
+            for (const candidate of Array.from(
+                this.trackHeaders.querySelectorAll<HTMLElement>('[data-akari-timeline-track-id]')
+            )) {
+                candidate.classList.remove('akari-track-header-drop-target');
+            }
+            if (!dragged || targetId === track.id) {
+                return;
+            }
+            void this.mutateTimelineTracks('トラックを並べ替え', tracks => {
+                const displayed = [...tracks].reverse();
+                const sourceIndex = displayed.findIndex(candidate => candidate.id === track.id);
+                const targetIndex = displayed.findIndex(candidate => candidate.id === targetId);
+                if (sourceIndex < 0 || targetIndex < 0) {
+                    return tracks;
+                }
+                const [moved] = displayed.splice(sourceIndex, 1);
+                displayed.splice(targetIndex, 0, moved);
+                return displayed.reverse();
+            });
+        };
+        row.addEventListener('pointermove', onMove);
+        row.addEventListener('pointerup', onUp);
+        row.addEventListener('pointercancel', onUp);
+    }
+
+    protected async mutateTimelineTracks(
+        label: string,
+        mutate: (tracks: EditTimelineTrack[]) => EditTimelineTrack[]
+    ): Promise<void> {
+        const editUri = this.location?.editUri;
+        if (!editUri) {
+            return;
+        }
+        try {
+            const before = (await this.fileService.readFile(editUri)).value.toString();
+            const parsed = parseEdit(before);
+            const base = parsed.timeline?.tracks
+                ?? deriveDefaultTimelineTracks(JSON.parse(before) as unknown);
+            const tracks = mutate(base.map(track => ({ ...track })));
+            const after = writeTimelineTracksInSource(before, tracks);
+            if (after === before) {
+                return;
+            }
+            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+            this.pushHistory({
+                label,
+                undo: async () => {
+                    await this.fileService.writeFile(editUri, BinaryBuffer.fromString(before));
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+                    await this.reloadEdit();
+                }
+            });
+            await this.reloadEdit();
+            this.footer.textContent = `${label}しました。`;
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`${label}できません: ${detail}`);
+            this.messages.error(`${label}できません: ${detail}`);
+        }
+    }
+
+    protected insertedTimelineTracks(
+        source: string,
+        kind: Extract<TimelineTrackKind, 'cuts' | 'layers' | 'overlays'>,
+        insertTrack: number
+    ): EditTimelineTrack[] {
+        const parsed = parseEdit(source);
+        const tracks = (parsed.timeline?.tracks
+            ?? deriveDefaultTimelineTracks(JSON.parse(source) as unknown)).map(track => ({
+            ...track,
+            ...(track.kind === kind && (track.ref ?? 0) >= insertTrack
+                ? { ref: (track.ref ?? 0) + 1 } : {})
+        }));
+        const ids = new Set(tracks.map(track => track.id));
+        let serial = tracks.length + 1;
+        while (ids.has(`t${serial}`)) {
+            serial++;
+        }
+        const entry: EditTimelineTrack = { id: `t${serial}`, kind, ref: insertTrack };
+        const lowerIndex = tracks.reduce(
+            (found, track, index) =>
+                track.kind === kind && (track.ref ?? 0) === insertTrack - 1 ? index : found,
+            -1
+        );
+        if (lowerIndex >= 0) {
+            tracks.splice(lowerIndex + 1, 0, entry);
+        } else {
+            const higherIndex = tracks.findIndex(
+                track => track.kind === kind && (track.ref ?? 0) > insertTrack
+            );
+            tracks.splice(higherIndex >= 0 ? higherIndex : tracks.length, 0, entry);
+        }
+        return tracks;
+    }
+
+    protected async finishInsertedTrackDrag(
+        label: string,
+        before: string,
+        afterItemMove: string,
+        kind: Extract<TimelineTrackKind, 'cuts' | 'layers' | 'overlays'>,
+        insertTrack: number
+    ): Promise<void> {
+        const editUri = this.location?.editUri;
+        if (!editUri) {
+            return;
+        }
+        const after = writeTimelineTracksInSource(
+            afterItemMove,
+            this.insertedTimelineTracks(before, kind, insertTrack)
+        );
+        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+        this.pushHistory({
+            label,
+            undo: async () => {
+                await this.fileService.writeFile(editUri, BinaryBuffer.fromString(before));
+                await this.reloadEdit();
+            },
+            redo: async () => {
+                await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+                await this.reloadEdit();
+            }
+        });
+        await this.reloadEdit();
+    }
+
+    protected openTrackContextMenu(event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeAnnotationPopup();
+        const target = event.target instanceof Element
+            ? event.target.closest<HTMLElement>('[data-akari-timeline-track-id]') : null;
+        const targetId = target?.dataset.akariTimelineTrackId;
+        const popup = document.createElement('div');
+        Object.assign(popup.style, {
+            position: 'fixed', left: `${event.clientX}px`, top: `${event.clientY}px`, zIndex: '10000',
+            display: 'flex', flexDirection: 'column', minWidth: '156px', padding: '4px',
+            borderRadius: '4px', border: '1px solid var(--theia-widget-border)',
+            background: 'var(--theia-menu-background)', boxShadow: '0 3px 12px rgba(0,0,0,.35)'
+        });
+        const menuButton = (label: string, action: () => void): HTMLButtonElement => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'theia-button secondary';
+            button.textContent = label;
+            button.style.justifyContent = 'flex-start';
+            button.addEventListener('click', action);
+            return button;
+        };
+        popup.appendChild(menuButton('トラックを追加', () => {
+            popup.replaceChildren();
+            const kinds: Array<{ kind: TimelineTrackKind; label: string }> = [
+                { kind: 'cuts', label: '映像' },
+                { kind: 'layers', label: 'レイヤー' },
+                { kind: 'overlays', label: 'オーバーレイ' },
+                { kind: 'captions', label: '字幕' },
+                { kind: 'audio', label: 'オーディオ' }
+            ];
+            for (const option of kinds) {
+                if ((option.kind === 'captions' || option.kind === 'audio')
+                    && this.timelineTracks.some(track => track.kind === option.kind)) {
+                    continue;
+                }
+                popup.appendChild(menuButton(option.label, () => {
+                    this.closeAnnotationPopup();
+                    void this.addTimelineTrack(option.kind);
+                }));
+            }
+        }));
+        if (targetId) {
+            popup.appendChild(menuButton('トラックを削除', () => {
+                this.closeAnnotationPopup();
+                void this.deleteTimelineTrack(targetId);
+            }));
+        }
+        popup.addEventListener('contextmenu', popupEvent => popupEvent.preventDefault());
+        document.body.appendChild(popup);
+        this.contextPopup = popup;
+        const close = (outsideEvent: PointerEvent): void => {
+            if (!popup.contains(outsideEvent.target as Node)) {
+                document.removeEventListener('pointerdown', close, true);
+                this.closeAnnotationPopup();
+            }
+        };
+        setTimeout(() => document.addEventListener('pointerdown', close, true), 0);
+    }
+
+    protected async addTimelineTrack(kind: TimelineTrackKind): Promise<void> {
+        await this.mutateTimelineTracks('トラックを追加', tracks => {
+            if ((kind === 'captions' || kind === 'audio') && tracks.some(track => track.kind === kind)) {
+                return tracks;
+            }
+            const ids = new Set(tracks.map(track => track.id));
+            let serial = tracks.length + 1;
+            while (ids.has(`t${serial}`)) {
+                serial++;
+            }
+            const refs = tracks.filter(track => track.kind === kind && track.ref !== undefined)
+                .map(track => track.ref!);
+            const ref = kind === 'captions' ? undefined
+                : kind === 'audio' ? 0
+                    : refs.length > 0 ? Math.max(...refs) + 1 : 0;
+            return [...tracks, {
+                id: `t${serial}`,
+                kind,
+                ...(ref !== undefined ? { ref } : {})
+            }];
+        });
+    }
+
+    protected timelineTrackItemCount(track: EditTimelineTrack): number {
+        const ref = track.ref ?? 0;
+        if (track.kind === 'cuts') {
+            return this.cuts.filter(cut => (cut.track ?? 0) === ref).length;
+        }
+        if (track.kind === 'layers') {
+            return this.layers.filter(layer => (layer.track ?? 0) === ref).length;
+        }
+        if (track.kind === 'overlays') {
+            return this.overlays.filter(overlay => overlay.track === ref).length;
+        }
+        if (track.kind === 'captions') {
+            return this.captions.length;
+        }
+        return this.audioSfx.length + (this.audioBgm ? 1 : 0);
+    }
+
+    protected async deleteTimelineTrack(trackId: string): Promise<void> {
+        const track = this.timelineTracks.find(candidate => candidate.id === trackId);
+        const editUri = this.location?.editUri;
+        if (!track || !editUri) {
+            return;
+        }
+        const count = this.timelineTrackItemCount(track);
+        if (count === 0) {
+            await this.mutateTimelineTracks('トラックを削除', tracks =>
+                tracks.filter(candidate => candidate.id !== trackId));
+            return;
+        }
+        if (!window.confirm(`このトラックには ${count} 件のアイテムがあります。削除しますか？`)) {
+            return;
+        }
+        try {
+            const editBefore = (await this.fileService.readFile(editUri)).value.toString();
+            const captionsBefore = track.kind === 'captions'
+                ? (await this.fileService.readFile(this.location!.captionsUri)).value.toString()
+                : undefined;
+            const value = JSON.parse(editBefore) as Record<string, any>;
+            const ref = track.ref ?? 0;
+            if (track.kind === 'cuts' || track.kind === 'layers' || track.kind === 'overlays') {
+                const items = value[track.kind];
+                if (Array.isArray(items)) {
+                    value[track.kind] = items.filter(item => {
+                        const itemTrack = Number.isInteger(item?.track) && item.track >= 0 ? item.track : 0;
+                        return itemTrack !== ref;
+                    });
+                }
+            } else if (track.kind === 'audio' && value.audio && typeof value.audio === 'object') {
+                value.audio.sfx = [];
+                delete value.audio.bgm;
+            }
+            const tracks = this.timelineTracks.filter(candidate => candidate.id !== trackId);
+            let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
+            editAfter = writeTimelineTracksInSource(editAfter, tracks);
+            const captionsAfter = track.kind === 'captions' ? '[]\n' : undefined;
+            await this.writeTimelineSnapshots(editAfter, captionsAfter);
+            this.pushHistory({
+                label: 'トラックを削除',
+                undo: async () => {
+                    await this.writeTimelineSnapshots(editBefore, captionsBefore);
+                    await this.reloadAll();
+                },
+                redo: async () => {
+                    await this.writeTimelineSnapshots(editAfter, captionsAfter);
+                    await this.reloadAll();
+                }
+            });
+            await this.reloadAll();
+            this.footer.textContent = 'トラックを削除しました。';
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`トラックを削除できません: ${detail}`);
+            this.messages.error(`トラックを削除できません: ${detail}`);
+        }
+    }
+
+    protected async writeTimelineSnapshots(editSource: string, captionsSource?: string): Promise<void> {
+        if (!this.location?.editUri) {
+            return;
+        }
+        await this.fileService.writeFile(this.location.editUri, BinaryBuffer.fromString(editSource));
+        if (captionsSource !== undefined) {
+            await this.fileService.writeFile(this.location.captionsUri, BinaryBuffer.fromString(captionsSource));
+        }
     }
 
     protected trackHeaderButton(
@@ -3269,12 +3785,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const hit = this.trackAtClientY(
                 'audio', this.laneLayout.audioTracks, clientY, state.originalTrack
             );
-            const isNewTrackSpot = !this.laneLayout.audioTracks.some(layout => layout.track === hit.track);
-            if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
-                this.showTrackInsertIndicatorAt(hit.top);
-            } else {
-                this.hideTrackInsertIndicator();
-            }
+            this.hideTrackInsertIndicator();
             this.setGhostRange(state.ghost, t, t + DECLARED_SFX_DURATION_SECONDS);
             state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, hit.rejected);
@@ -3282,8 +3793,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? '⚠ 移動できません（種別が異なります）'
                 : `${this.formatTimestamp(t)} / トラック ${hit.track}`);
             return {
-                kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected,
-                insertTrack: hit.insertTrack
+                kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected
             };
         }
         if (state.mode === 'move') {
@@ -3295,16 +3805,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ]
             );
             this.setGhostRange(state.ghost, start, start + state.originalDuration);
-            const track = this.overlayTrackAtClientY(clientY);
-            const layout = this.overlayTrackLayouts.find(candidate => candidate.track === track);
-            if (layout) {
-                state.ghost.style.top = `${layout.top}px`;
-            } else if (this.overlayTrackLayouts.length > 0) {
-                state.ghost.style.top = `${Math.max(0, this.overlayTrackLayouts[0].top - SUBROW_STRIDE)}px`;
+            const hit = this.trackAtClientY(
+                'overlay', this.overlayTrackLayouts, clientY, state.originalTrack
+            );
+            if (hit.insertTrack !== undefined && !hit.rejected) {
+                this.showTrackInsertIndicatorAt(hit.top);
+            } else {
+                this.hideTrackInsertIndicator();
             }
-            state.ghost.dataset.akariTrack = String(track);
+            state.ghost.style.top = `${hit.top}px`;
+            state.ghost.dataset.akariTrack = String(hit.track);
             this.updateDragFeedback(state, `${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
-            return { kind: 'overlay-move', id: state.id, start, track };
+            return {
+                kind: 'overlay-move', id: state.id, start, track: hit.track,
+                insertTrack: hit.insertTrack
+            };
         }
         const end = this.snapTimeInOutputSpace(
             state.originalStart + state.originalDuration + delta, showGuide,
@@ -3349,32 +3864,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected overlayTrackAtClientY(clientY: number): number {
-        if (this.overlayTrackLayouts.length === 0) {
-            return 0;
-        }
-        const stripTop = this.strip.getBoundingClientRect().top;
-        const localY = clientY - stripTop;
-        const highest = this.overlayTrackLayouts[0];
-        if (localY < highest.top) {
-            return highest.track + 1;
-        }
-        for (const layout of this.overlayTrackLayouts) {
-            if (localY >= layout.top && localY < layout.top + layout.height + LANE_GAP) {
-                return layout.track;
-            }
-        }
-        return 0;
-    }
-
     protected trackAtClientY(
-        kind: 'cut' | 'layer' | 'audio',
+        kind: 'cut' | 'layer' | 'overlay' | 'audio',
         layouts: readonly TrackGroupLayout[],
         clientY: number,
         originalTrack: number
     ): { track: number; top: number; rejected: boolean; insertTrack?: number } {
         if (layouts.length === 0) {
             return { track: 0, top: 0, rejected: true };
+        }
+        if (kind === 'audio') {
+            return { track: 0, top: layouts[0].top, rejected: false };
         }
         const localY = clientY - this.strip.getBoundingClientRect().top;
         for (let i = 0; i < layouts.length - 1; i++) {
@@ -3388,11 +3888,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const highest = layouts[0];
         if (localY < highest.top) {
             if (localY >= highest.top - LANE_GAP) {
-                return { track: highest.track + 1, top: highest.top, rejected: false };
+                return {
+                    track: highest.track + 1, top: highest.top, rejected: false,
+                    insertTrack: highest.track + 1
+                };
             }
             const laneKind = this.laneKindAtLocalY(localY);
             if (laneKind === kind || laneKind === 'none') {
-                return { track: highest.track + 1, top: highest.top, rejected: false };
+                return {
+                    track: highest.track + 1, top: highest.top, rejected: false,
+                    insertTrack: highest.track + 1
+                };
             }
             const current = layouts.find(layout => layout.track === originalTrack) ?? highest;
             return { track: originalTrack, top: current.top, rejected: true };
@@ -3406,18 +3912,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return { track: originalTrack, top: current.top, rejected: this.laneKindAtLocalY(localY) !== kind };
     }
 
-    protected laneKindAtLocalY(localY: number): 'cut' | 'layer' | 'audio' | 'foreign' | 'none' {
+    protected laneKindAtLocalY(localY: number): 'cut' | 'layer' | 'overlay' | 'audio' | 'foreign' | 'none' {
         if (this.inBounds(localY, this.audioBandBounds())) {
             return 'audio';
         }
-        if (this.inBounds(localY, { top: this.groupTop(this.laneLayout.layerTracks), height: this.groupHeight(this.laneLayout.layerTracks) })) {
+        if (this.laneLayout.layerTracks.some(layout => this.inBounds(localY, layout))) {
             return 'layer';
         }
-        if (this.inBounds(localY, { top: this.groupTop(this.laneLayout.cutTracks), height: this.groupHeight(this.laneLayout.cutTracks) })) {
+        if (this.laneLayout.cutTracks.some(layout => this.inBounds(localY, layout))) {
             return 'cut';
         }
+        if (this.laneLayout.overlayTracks.some(layout => this.inBounds(localY, layout))) {
+            return 'overlay';
+        }
         if (this.inBounds(localY, this.laneLayout.beats) || this.inBounds(localY, this.laneLayout.captions)
-            || this.laneLayout.overlayTracks.some(layout => this.inBounds(localY, layout))) {
+        ) {
             return 'foreign';
         }
         return 'none';
@@ -3663,6 +4172,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 const frozenIndex = this.findFrozenNextIndex(this.cuts, preview.index);
                 const originalTrackState = await this.readIndexedTrackState('cuts');
+                const insertSnapshotBefore = preview.insertTrack !== undefined
+                    ? (await this.fileService.readFile(location.editUri)).value.toString()
+                    : undefined;
                 result = await this.annotationsService.moveCut({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     cutIndex: preview.index, at: preview.at,
@@ -3674,6 +4186,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                         : { track: preview.track === original.track ? undefined : preview.track })
                 });
+                if (preview.insertTrack !== undefined && insertSnapshotBefore !== undefined) {
+                    const afterItemMove = (await this.fileService.readFile(location.editUri)).value.toString();
+                    await this.finishInsertedTrackDrag(
+                        'クリップの移動', insertSnapshotBefore, afterItemMove, 'cuts', preview.insertTrack
+                    );
+                    this.footer.textContent = this.writeResultMessage('クリップを移動しました。', result);
+                    this.hideNotice();
+                    this.revealOutputPreview();
+                    return;
+                }
                 await this.reloadEdit();
                 const movedTrackState = await this.readIndexedTrackState('cuts');
                 this.pushHistory({
@@ -3742,6 +4264,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     throw new Error(`レイヤー ${preview.id} が見つかりません`);
                 }
                 const originalTrackState = await this.readIdTrackState('layers');
+                const insertSnapshotBefore = preview.insertTrack !== undefined
+                    ? (await this.fileService.readFile(location.editUri)).value.toString()
+                    : undefined;
                 result = await this.annotationsService.moveLayer({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     layerId: preview.id, t: preview.t, duration: preview.duration,
@@ -3753,6 +4278,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                         : { track: preview.track })
                 });
+                if (preview.insertTrack !== undefined && insertSnapshotBefore !== undefined) {
+                    const afterItemMove = (await this.fileService.readFile(location.editUri)).value.toString();
+                    await this.finishInsertedTrackDrag(
+                        'レイヤーの調整', insertSnapshotBefore, afterItemMove, 'layers', preview.insertTrack
+                    );
+                    this.footer.textContent = this.writeResultMessage('レイヤーを調整しました。', result);
+                    this.hideNotice();
+                    this.revealOutputPreview();
+                    return;
+                }
                 await this.reloadEdit();
                 const movedTrackState = await this.readIdTrackState('layers');
                 this.pushHistory({
@@ -3789,14 +4324,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const originalTrackState = await this.readIndexedTrackState('sfx');
                 result = await this.annotationsService.moveSfx({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    sfxIndex, t: preview.t,
-                    ...(preview.insertTrack !== undefined
-                        ? {
-                            trackState: this.shiftTrackStateForInsert(
-                                originalTrackState, String(sfxIndex), preview.insertTrack
-                            )
-                        }
-                        : { track: preview.track })
+                    sfxIndex, t: preview.t, track: 0
                 });
                 await this.reloadEdit();
                 const movedTrackState = await this.readIndexedTrackState('sfx');
@@ -3827,11 +4355,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     throw new Error(`オーバーレイ ${preview.id} が見つかりません`);
                 }
                 const originalTrackState = this.overlayTrackState();
+                const insertSnapshotBefore = preview.insertTrack !== undefined
+                    ? (await this.fileService.readFile(location.editUri)).value.toString()
+                    : undefined;
                 result = await this.annotationsService.moveOverlay({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     overlayId: preview.id, start: preview.start,
-                    track: preview.track === original.track ? undefined : preview.track
+                    ...(preview.insertTrack !== undefined
+                        ? {
+                            trackState: this.shiftTrackStateForInsert(
+                                originalTrackState, preview.id, preview.insertTrack
+                            )
+                        }
+                        : { track: preview.track === original.track ? undefined : preview.track })
                 });
+                if (preview.insertTrack !== undefined && insertSnapshotBefore !== undefined) {
+                    const afterItemMove = (await this.fileService.readFile(location.editUri)).value.toString();
+                    await this.finishInsertedTrackDrag(
+                        'オーバーレイの移動', insertSnapshotBefore, afterItemMove, 'overlays', preview.insertTrack
+                    );
+                    this.footer.textContent = this.writeResultMessage('オーバーレイを移動しました。', result);
+                    this.hideNotice();
+                    this.revealOutputPreview();
+                    return;
+                }
                 await this.reloadEdit();
                 const movedTrackState = this.overlayTrackState();
                 this.pushHistory({
@@ -4330,7 +4877,105 @@ export class AkariAnnotationsWidget extends BaseWidget {
         void this.requestSeek(sourceT);
     }
 
+    protected onStripPointerDown(event: PointerEvent): void {
+        if (event.button !== 0 || this.toolMode !== 'select') {
+            return;
+        }
+        const target = event.target instanceof Element ? event.target : undefined;
+        if (target?.closest(
+            '[data-akari-item-kind], .akari-beat-marker, .akari-track-header-row, .akari-annotations-pin'
+        )) {
+            return;
+        }
+        const startX = event.clientX;
+        const startY = event.clientY;
+        let dragged = false;
+        this.strip.setPointerCapture(event.pointerId);
+        const overlayRect = (): DOMRect => this.timelineOverlay.getBoundingClientRect();
+        const updateMarquee = (clientX: number, clientY: number): void => {
+            const rect = overlayRect();
+            const left = Math.min(startX, clientX) - rect.left;
+            const top = Math.min(startY, clientY) - rect.top;
+            this.selectionMarquee.style.left = `${left}px`;
+            this.selectionMarquee.style.top = `${top}px`;
+            this.selectionMarquee.style.width = `${Math.abs(clientX - startX)}px`;
+            this.selectionMarquee.style.height = `${Math.abs(clientY - startY)}px`;
+            this.selectionMarquee.style.display = 'block';
+        };
+        const onMove = (moveEvent: PointerEvent): void => {
+            if (!dragged && Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < DRAG_THRESHOLD_PX) {
+                return;
+            }
+            dragged = true;
+            updateMarquee(moveEvent.clientX, moveEvent.clientY);
+        };
+        const onUp = (upEvent: PointerEvent): void => {
+            this.strip.removeEventListener('pointermove', onMove);
+            this.strip.removeEventListener('pointerup', onUp);
+            this.strip.removeEventListener('pointercancel', onUp);
+            this.selectionMarquee.style.display = 'none';
+            if (!dragged) {
+                return;
+            }
+            this.suppressNextStripClick = true;
+            const selectionRect = {
+                left: Math.min(startX, upEvent.clientX),
+                right: Math.max(startX, upEvent.clientX),
+                top: Math.min(startY, upEvent.clientY),
+                bottom: Math.max(startY, upEvent.clientY)
+            };
+            const hits = new Map<string, TimelineSelectionItem>();
+            for (const element of Array.from(
+                this.strip.querySelectorAll<HTMLElement>('[data-akari-item-kind]')
+            )) {
+                const rect = element.getBoundingClientRect();
+                if (rect.right < selectionRect.left || rect.left > selectionRect.right
+                    || rect.bottom < selectionRect.top || rect.top > selectionRect.bottom) {
+                    continue;
+                }
+                const item = this.timelineSelectionFromElement(element);
+                if (item) {
+                    hits.set(this.selectionKey(item), item);
+                }
+            }
+            const selected = [...hits.values()];
+            if (selected.length === 1) {
+                this.applySelection(selected[0]);
+            } else if (selected.length > 1) {
+                this.selection = undefined;
+                this.multiSelection = selected;
+                this.pushSelectionSnapshot();
+                this.applySelectionClass();
+            } else {
+                this.applySelection(undefined);
+            }
+        };
+        this.strip.addEventListener('pointermove', onMove);
+        this.strip.addEventListener('pointerup', onUp);
+        this.strip.addEventListener('pointercancel', onUp);
+    }
+
+    protected timelineSelectionFromElement(element: HTMLElement): TimelineSelectionItem | undefined {
+        const kind = element.dataset.akariItemKind;
+        const id = element.dataset.akariItemId;
+        if (!id) {
+            return undefined;
+        }
+        if (kind === 'cut') {
+            const index = Number(id);
+            return Number.isInteger(index) ? { kind: 'cut', index } : undefined;
+        }
+        if (kind === 'overlay' || kind === 'caption' || kind === 'layer' || kind === 'audio') {
+            return { kind, id } as TimelineSelectionItem;
+        }
+        return undefined;
+    }
+
     protected onStripClick(event: MouseEvent): void {
+        if (this.suppressNextStripClick) {
+            this.suppressNextStripClick = false;
+            return;
+        }
         if (event.target instanceof Element && event.target.closest('.akari-beat-marker')) {
             return;
         }

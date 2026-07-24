@@ -76,6 +76,7 @@ export type TimelineSelectionSnapshot =
     | TimelineCaptionSelection
     | TimelineLayerSelection
     | TimelineAudioSelection
+    | { kind: 'multi'; count: number }
     | undefined;
 
 export type InspectorWriteRequest =

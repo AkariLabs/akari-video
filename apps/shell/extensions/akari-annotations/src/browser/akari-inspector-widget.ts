@@ -20,7 +20,7 @@ const KIND_LABELS = {
     audio: 'オーディオ'
 } as const;
 
-type InspectorSnapshot = Exclude<TimelineSelectionSnapshot, undefined>;
+type InspectorSnapshot = Exclude<TimelineSelectionSnapshot, undefined | { kind: 'multi'; count: number }>;
 
 interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     label: string;
@@ -542,6 +542,14 @@ export class AkariInspectorWidget extends BaseWidget {
 
         const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
             this.commitWrite(request);
+
+        if (snapshot.kind === 'multi') {
+            const summary = document.createElement('div');
+            summary.className = 'akari-inspector-heading';
+            summary.textContent = `${snapshot.count}件選択`;
+            this.body.appendChild(summary);
+            return;
+        }
 
         let tabs: InspectorTabDef[];
         switch (snapshot.kind) {
