@@ -117,6 +117,9 @@
     ],
     "mac": {
       "icon": "resources/icons/icon.icns",
+      "hardenedRuntime": true,
+      "entitlements": "resources/entitlements.mac.plist",
+      "entitlementsInherit": "resources/entitlements.mac.plist",
       "target": "dir",
       "category": "public.app-category.video"
     },
