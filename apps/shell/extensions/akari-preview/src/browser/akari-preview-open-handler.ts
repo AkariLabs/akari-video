@@ -203,6 +203,7 @@ const ATTACH_TIMELINE_PASSIVE_COMMAND_ID = 'akari.annotations.attachPassive';
 // label なし = コマンドパレット非表示（ATTACH_AKARI_ANNOTATIONS_PASSIVE と同じパターン）。
 const ENSURE_PREVIEW_VISIBLE_COMMAND: Command = { id: 'akari.preview.ensureVisible' };
 const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
+const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
 const PREVIEW_OPEN_TIMEOUT_MS = 10_000;
 const PREVIEW_OPEN_ATTEMPTS = 2;
 const PREVIEW_OPEN_ERROR_MESSAGE = '動画プレビューを開けませんでした。しばらく待ってから、もう一度お試しください。';
@@ -220,6 +221,10 @@ interface EnsureVisibleRequest {
 interface SeekOutputRequest {
     editUri?: string;
     time?: number;
+}
+
+interface TogglePlaybackRequest {
+    editUri?: string;
 }
 
 interface PreviewPlaybackTickRequest {
@@ -342,6 +347,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerSeekHandler();
         this.registerEnsureVisibleCommand();
         this.registerOutputSeekCommand();
+        this.registerTogglePlaybackCommand();
         const onTimelineOverlaySelected = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; overlayId?: string | null }>).detail;
             if (!detail?.editUri || (typeof detail.overlayId !== 'string' && detail.overlayId !== null)) {
@@ -681,6 +687,27 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.commandRegistry.registerCommand(SEEK_OUTPUT_PREVIEW_COMMAND, {
             execute: (request?: SeekOutputRequest) => this.seekOutputPreview(request)
         });
+    }
+
+    protected registerTogglePlaybackCommand(): void {
+        this.commandRegistry.registerCommand(TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND, {
+            execute: (request?: TogglePlaybackRequest) => this.toggleOutputPreviewPlayback(request)
+        });
+    }
+
+    protected async toggleOutputPreviewPlayback(
+        request: TogglePlaybackRequest | undefined
+    ): Promise<'toggled' | 'unavailable'> {
+        if (!request?.editUri) {
+            return 'unavailable';
+        }
+        const editUri = new URI(request.editUri).normalizePath();
+        const existing = this.openOutputPreviews.get(editUri.toString());
+        if (existing?.akariPreviewConfigured && existing.isAttached && !existing.isDisposed) {
+            existing.sendMessage({ type: 'akari-preview-toggle-playback' });
+            return 'toggled';
+        }
+        return 'unavailable';
     }
 
     protected async seekOutputPreview(
@@ -3814,6 +3841,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-seek' && Number.isFinite(message.time)) {
                     seekTimelineTime(message.time);
                     tick();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-toggle-playback') {
+                    togglePlayback();
                     return;
                 }
                 if (message && message.type === 'akari-preview-select-overlay'
