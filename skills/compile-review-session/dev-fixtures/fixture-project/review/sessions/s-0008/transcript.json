@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "backend": "whisper-cpp",
+  "model": "legacy-manual-compile",
+  "language": "ja",
+  "segments": [
+    { "start": 0.2, "end": 3.0, "text": "BGMの音量をもう少し下げてください" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "source.mp4", "proxy": null },
+  "cuts": [
+    { "in": 0, "out": 60, "transition_out": null },
+    { "in": 1000, "out": 1050, "at": 60, "transition_out": null },
+    { "in": 2000, "out": 2060, "at": 110, "transition_out": null }
+  ],
+  "overlays": [],
+  "layers": [],
+  "audio": { "bgm": null, "sfx": [] }
+}

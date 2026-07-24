@@ -1,0 +1,9 @@
+{"recT":0,"type":"start","timelineT":0,"playing":false}
+{"recT":11.21,"type":"seek","from":0,"to":100.06}
+{"recT":12.72,"type":"seek","from":100.06,"to":104.34}
+{"recT":12.97,"type":"seek","from":104.34,"to":115.17}
+{"recT":12.98,"type":"rate","value":0.9}
+{"recT":13.23,"type":"seek","from":115.17,"to":122.88}
+{"recT":17.32,"type":"seek","from":122.88,"to":71.25}
+{"recT":17.33,"type":"rate","value":1}
+{"recT":20.52,"type":"end","timelineT":71.25}

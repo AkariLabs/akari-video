@@ -1,0 +1,5 @@
+{"recT":0,"type":"start","timelineT":5,"playing":false}
+{"recT":1.0,"type":"seek","from":5,"to":30}
+{"recT":1.5,"type":"seek","from":30,"to":8}
+{"recT":2.0,"type":"seek","from":8,"to":45}
+{"recT":7.071938,"type":"end","timelineT":45}

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "s-0008",
+  "startedAt": "2026-07-24T05:40:00.000Z",
+  "endedAt": "2026-07-24T05:40:03.287Z",
+  "audio": "audio.wav",
+  "editSnapshot": "edit.snapshot.json",
+  "editHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "status": "recorded",
+  "compiledAnnotations": null
+}
