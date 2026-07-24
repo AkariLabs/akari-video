@@ -398,17 +398,61 @@ function groupWordsIntoLines(words, maximum) {
   return lines;
 }
 
+function normalizeMatchKey(text) {
+  return text.normalize("NFKC").toLowerCase();
+}
+
+// text の各 UTF-16 code unit を個別に正規化して連結し、正規化後の文字列と、
+// 「正規化後の何文字目までが元の何文字目に対応するか」の境界配列を返す。
+// (境界配列の長さは text.length + 1。boundaries[i] = 元の先頭 i 文字を正規化して連結した長さ)
+function buildNormalizedTextIndex(text) {
+  let normalized = "";
+  const boundaries = [0];
+  for (let i = 0; i < text.length; i += 1) {
+    normalized += normalizeMatchKey(text[i]);
+    boundaries.push(normalized.length);
+  }
+  return { normalized, boundaries };
+}
+
+// 正規化後インデックスを元の文字列インデックスへ写像する
+// (boundaries は単調増加。normalizedIndex 以上になる最小の境界を二分探索で探す)
+function mapNormalizedIndexToOriginal(boundaries, normalizedIndex) {
+  let lo = 0;
+  let hi = boundaries.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (boundaries[mid] < normalizedIndex) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 function buildDisplayTokens(sourceText, displayText, words, onMappingFallback) {
   const tokens = [];
   let cursor = 0;
+  const displayIndex = buildNormalizedTextIndex(displayText);
   for (const [wordIndex, word] of words.entries()) {
-    const found = displayText.indexOf(word.text, cursor);
-    if (found < 0) {
+    const normalizedWordText = normalizeMatchKey(word.text);
+    const normalizedCursor = displayIndex.boundaries[cursor];
+    const foundNorm = displayIndex.normalized.indexOf(
+      normalizedWordText,
+      normalizedCursor,
+    );
+    if (foundNorm < 0) {
       onMappingFallback?.(
         "display_text could not be aligned to text/words[]; used proportional timing fallback",
       );
       return buildProportionalDisplayTokens(displayText, words);
     }
+    const found = mapNormalizedIndexToOriginal(
+      displayIndex.boundaries,
+      foundNorm,
+    );
+    const foundEnd = mapNormalizedIndexToOriginal(
+      displayIndex.boundaries,
+      foundNorm + normalizedWordText.length,
+    );
     if (found > cursor) {
       tokens.push({
         text: displayText.slice(cursor, found),
@@ -419,12 +463,12 @@ function buildDisplayTokens(sourceText, displayText, words, onMappingFallback) {
     }
     tokens.push({
       ...word,
-      text: displayText.slice(found, found + word.text.length),
+      text: displayText.slice(found, foundEnd),
       sourceText: word.text,
       untimed: false,
       wordIndex,
     });
-    cursor = found + word.text.length;
+    cursor = foundEnd;
   }
   if (cursor < displayText.length) {
     tokens.push({
@@ -755,11 +799,14 @@ function normalizeEmphasisWords(value) {
 
 function findMatchingEmphasis(word, emphasisWords) {
   const wordText = word.sourceText ?? word.text;
-  return emphasisWords.find((emphasis) =>
-    emphasis.t_end > word.start
+  const normalizedWordText = normalizeMatchKey(wordText);
+  return emphasisWords.find((emphasis) => {
+    const normalizedEmphasisWord = normalizeMatchKey(emphasis.word);
+    return emphasis.t_end > word.start
       && emphasis.t_start < word.end
-      && (wordText === emphasis.word || emphasis.word.includes(wordText)),
-  );
+      && (normalizedWordText === normalizedEmphasisWord
+        || normalizedEmphasisWord.includes(normalizedWordText));
+  });
 }
 
 function resolveEmphasisStyle(emphasis) {

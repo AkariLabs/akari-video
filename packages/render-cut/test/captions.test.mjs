@@ -217,3 +217,85 @@ test("words are clipped per cut-split range and re-timed against each range's ow
   assert.match(overlays[1].html, /--akari-tok-delay: 0s/);
   assert.match(overlays[1].html, /--akari-tok-delay: 1s/);
 });
+
+test("display_text mapping normalizes case without changing matched output", () => {
+  const cuts = [{ in: 0, out: 2 }];
+  const normalizedCaption = [
+    {
+      id: "c-0001",
+      start: 0,
+      end: 2,
+      text: "akari OS",
+      display_text: "Akari OS",
+      speaker: null,
+      sourceRef: null,
+      edited: false,
+      style: "karaoke",
+      words: [
+        { start: 0, end: 1, text: "akari" },
+        { start: 1, end: 2, text: " OS" },
+      ],
+    },
+  ];
+  const exactCaption = [
+    {
+      ...normalizedCaption[0],
+      text: "Akari OS",
+      words: [
+        { start: 0, end: 1, text: "Akari" },
+        { start: 1, end: 2, text: " OS" },
+      ],
+    },
+  ];
+  const warnings = [];
+  const normalized = generateCaptionOverlays(normalizedCaption, cuts, {
+    onWarning: (warning) => warnings.push(warning),
+  });
+
+  assert.ok(
+    warnings.every(
+      (warning) =>
+        !/display-mapping|used proportional timing fallback/.test(warning),
+    ),
+    warnings.join("\n"),
+  );
+  assert.deepEqual(normalized, generateCaptionOverlays(exactCaption, cuts));
+});
+
+test("display_text mapping normalizes full-width text without changing matched output", () => {
+  const cuts = [{ in: 0, out: 1 }];
+  const normalizedCaption = [
+    {
+      id: "c-0001",
+      start: 0,
+      end: 1,
+      text: "ＡＫＡＲＩ",
+      display_text: "AKARI",
+      speaker: null,
+      sourceRef: null,
+      edited: false,
+      style: "karaoke",
+      words: [{ start: 0, end: 1, text: "ＡＫＡＲＩ" }],
+    },
+  ];
+  const exactCaption = [
+    {
+      ...normalizedCaption[0],
+      text: "AKARI",
+      words: [{ start: 0, end: 1, text: "AKARI" }],
+    },
+  ];
+  const warnings = [];
+  const normalized = generateCaptionOverlays(normalizedCaption, cuts, {
+    onWarning: (warning) => warnings.push(warning),
+  });
+
+  assert.ok(
+    warnings.every(
+      (warning) =>
+        !/display-mapping|used proportional timing fallback/.test(warning),
+    ),
+    warnings.join("\n"),
+  );
+  assert.deepEqual(normalized, generateCaptionOverlays(exactCaption, cuts));
+});

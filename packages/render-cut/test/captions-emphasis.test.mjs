@@ -116,3 +116,36 @@ test("emphasis replaces only its karaoke token and leaves neighboring karaoke to
   assert.doesNotMatch(html, /akari-caption__tok--karaoke[^>]*>最高<\/span>/);
   assert.equal((html.match(/class="akari-caption__tok akari-caption__tok--karaoke"/g) ?? []).length, 4);
 });
+
+test("emphasis matching normalizes case and full-width text", () => {
+  const captions = [
+    {
+      id: "c-0001",
+      start: 0,
+      end: 1,
+      text: "Akari",
+      speaker: null,
+      sourceRef: null,
+      edited: false,
+      style: "karaoke",
+      words: [{ start: 0, end: 1, text: "Akari" }],
+    },
+  ];
+  const cuts = [{ in: 0, out: 1 }];
+  const baseline = generateCaptionOverlays(captions, cuts);
+  const normalized = generateCaptionOverlays(captions, cuts, {
+    emphasisWords: [
+      emphasis({
+        t_start: 0,
+        t_end: 1,
+        word: "ＡＫＡＲＩ",
+        emotion: "joy",
+        style_hint: "size-pulse",
+      }),
+    ],
+  });
+
+  assert.notDeepEqual(normalized, baseline);
+  assert.match(normalized[0].html, /data-emphasis-id="e-0001"/);
+  assert.match(normalized[0].html, /akari-caption__tok--size-pulse[^>]*>Akari<\/span>/);
+});
