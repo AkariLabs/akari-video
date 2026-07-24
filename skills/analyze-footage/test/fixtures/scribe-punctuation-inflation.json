@@ -1,0 +1,17 @@
+{
+  "_note": "v4.1 実測を模した Scribe raw 応答。文末の無音が句読点トークン（type spacing）の end へ吸われ、末尾語の end が実発話より膨張するケースを固定する。数値は tasks/2026-07-24-dogfood-v4-1-repair の実測（「ね。」2822.84→2826.84 = 4.0s / 「です。」相当 3728.939→3731.399 = 2.46s）に対応。",
+  "language_code": "jpn",
+  "words": [
+    { "text": "はい", "start": 2820.34, "end": 2821.10, "type": "word" },
+    { "text": "もう", "start": 2821.10, "end": 2821.62, "type": "word" },
+    { "text": "、", "start": 2821.62, "end": 2821.62, "type": "spacing" },
+    { "text": "書き出し", "start": 2821.62, "end": 2822.40, "type": "word" },
+    { "text": "終わりました", "start": 2822.40, "end": 2822.84, "type": "word" },
+    { "text": "ね", "start": 2822.84, "end": 2823.12, "type": "word" },
+    { "text": "。", "start": 2823.12, "end": 2826.84, "type": "spacing" },
+    { "text": "これ", "start": 3728.20, "end": 3728.60, "type": "word" },
+    { "text": "無料", "start": 3728.60, "end": 3728.939, "type": "word" },
+    { "text": "です", "start": 3728.939, "end": 3729.20, "type": "word" },
+    { "text": "。", "start": 3729.20, "end": 3731.399, "type": "spacing" }
+  ]
+}

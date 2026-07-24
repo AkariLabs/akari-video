@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const PROVIDERS = {
@@ -311,7 +312,7 @@ function timed(value) {
   return Number.isFinite(value?.start) && Number.isFinite(value?.end) && value.end > value.start;
 }
 
-function normalizeGroq(response) {
+export function normalizeGroq(response) {
   const words = (Array.isArray(response?.words) ? response.words : [])
     .filter(timed)
     .map((word) => ({ start: word.start, end: word.end, text: String(word.word ?? "") }));
@@ -340,7 +341,7 @@ function normalizeGroq(response) {
   return segments;
 }
 
-function normalizeScribe(response) {
+export function normalizeScribe(response) {
   const sourceWords = Array.isArray(response?.words) ? response.words : [];
   const words = [];
   let pendingPrefix = "";
@@ -348,7 +349,12 @@ function normalizeScribe(response) {
     const text = String(sourceWord?.text ?? "");
     const start = sourceWord?.start;
     const end = sourceWord?.end;
-    if (/^[。、！？!?,.]+$/.test(text) && Number.isFinite(start) && start === end) {
+    // 句読点のみのトークンは speech 実体を持たない。直前語へテキストとして結合し、
+    // 直前語の end は据え置く（token 自身の end を採用しない）。Scribe は文末の無音を
+    // 句読点トークンの end へ吸わせるため、その end を末尾語へ持ち込むと無音区間まで
+    // caption.end が膨張して「隙間の原則」を破る（v4.1 実測: 「。」token が 2〜4 秒に及ぶ）。
+    // ゼロ幅・非ゼロ幅（無音吸着）のいずれの句読点トークンもここで吸収する。
+    if (/^[。、！？!?,.]+$/.test(text)) {
       if (words.length > 0) words[words.length - 1].text += text;
       else pendingPrefix += text;
       continue;
@@ -474,4 +480,7 @@ async function main() {
   }
 }
 
-await main();
+const invokedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : "";
+if (import.meta.url === invokedPath) {
+  await main();
+}

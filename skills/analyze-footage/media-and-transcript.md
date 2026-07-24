@@ -162,6 +162,10 @@ full JSON の `tokens[]` は BPE 単位であり、日本語ではマルチバ�
 
 - 単発送信を既定とする。プロバイダの上限（Groq 25MB・Scribe 10 時間相当）を超える場合だけ、無音検出を優先した境界で分割し**逐次**送信する（**並列同時送信は実装しない**。`grep -n "Promise.all\|allSettled\|worker_threads" bin/transcribe-cloud.mjs` で不在を確認できる）。各分割区間の word/segment 時刻は分割開始オフセットを加算してから 1 本の transcript へ縫合する。
 
+#### Scribe words の正規化（句読点への無音吸着を吸わない）
+
+Scribe（`scribe_v1`）は句読点を独立トークンとして返し、**文末の無音をその句読点トークンの `end` へ吸着させる**ことがある（v4.1 実測: 「。」トークン単体が 2〜4 秒に及ぶ例 — 「ね。」2822.84→2826.84 = 4.0s、「です。」相当 3728.939→3731.399 = 2.46s）。この `end` を末尾語へそのまま持ち込むと、実発話が終わったあとの無音区間まで `caption.end` が膨張し、下流で「隙間の原則」（実発話が終われば字幕も終わる。[edit-plan の execution.md](../edit-plan/execution.md) 参照）を破る。そのため `bin/transcribe-cloud.mjs` の `normalizeScribe` は**句読点のみのトークンを直前語のテキストへ結合し、直前語の `end` は据え置く**（句読点トークン自身の `end` を採用しない）。ゼロ幅・非ゼロ幅（無音吸着）どちらの句読点トークンも同じ規則で吸収する。この挙動は [test/normalize-scribe.test.mjs](test/normalize-scribe.test.mjs)（膨張ケースの fixture）で固定してある。
+
 ## provenance（backend の記録）
 
 - 使用した backend（`speechanalyzer` / `whisper-cpp` / `scribe` / `groq`）は **analysis.json には書かない**。`packages/schemas/analysis.schema.json` の `transcriptSegment` は `additionalProperties: false` で `backend` を許可しておらず、このタスクの境界（`packages/**` は編集禁止）ではスキーマを変更できない。既存の「劣化理由は Schema 外のフィールドとして JSON に足さず、完了報告に書く」規約と同じ扱いとし、使用した backend と選定理由を完了報告に明記する（[workflow.md](workflow.md) の完了報告項目を参照）。
@@ -212,3 +216,4 @@ whisper.cpp は無音・環境音のみの区間に対しても、学習デー�
 - ハルシネーション疑いの定型文を音声・視認と突合せず transcript として確定する。
 - クラウド決定カードの明示承認前に音声を送信する。
 - 分割送信を並列（`Promise.all` 等）で実装し、無料枠のレート制限へ配慮しない（契約 §3 で明示的に不採用と裁定済み）。
+- Scribe の句読点トークンの `end`（文末無音を吸着した膨張値）を末尾語の `end` にして、無音区間まで字幕を伸ばす。
