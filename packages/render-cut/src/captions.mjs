@@ -79,6 +79,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       linearTimeline,
     );
     const style = normalizeCaptionStyle(caption.style);
+    const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
+    const textStyleVars = captionTextStyleVars(textStyle);
     const allWords = clipWordsToRange(caption.words, caption.start, caption.end);
     const fullCoverage = allWords.map((word) => word.text).join("") === caption.text;
     const usesTimedRendering = style !== null || emphasisWords.length > 0;
@@ -125,15 +127,16 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               emphasisTimeScale: range.emphasisTimeScale ?? 1,
               emphasisWords,
               displayTokens: rangeTokens,
+              textStyleActive: textStyle !== null,
             })
-          : renderCaptionFragment(displayText, { maximum });
+          : renderCaptionFragment(displayText, { maximum, textStyleActive: textStyle !== null });
       overlays.push({
         id: `${caption.id}-${String(index + 1).padStart(2, "0")}`,
         html,
         start: range.start,
         duration: range.duration,
         transform: { x: 0, y: 0, scale: 1, rotate: 0 },
-        vars: {},
+        vars: textStyleVars,
         generatedFrom: caption.id,
       });
     }
@@ -144,6 +147,125 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
 
 function normalizeCaptionStyle(style) {
   return SUPPORTED_WORD_STYLES.has(style) ? style : null;
+}
+
+export function mergeCaptionTextStyles(defaultStyle, captionStyle) {
+  const base = normalizeTextStyle(defaultStyle);
+  const override = normalizeTextStyle(captionStyle);
+  const merged = {
+    ...base,
+    ...override,
+    ...((base.stroke || override.stroke)
+      ? { stroke: { ...base.stroke, ...override.stroke } } : {}),
+    ...((base.background || override.background)
+      ? { background: { ...base.background, ...override.background } } : {}),
+  };
+  if (merged.stroke && Object.keys(merged.stroke).length === 0) delete merged.stroke;
+  if (merged.background && Object.keys(merged.background).length === 0) delete merged.background;
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
+export function captionTextStyleVars(style) {
+  if (!style || typeof style !== "object") return {};
+  const vars = {};
+  if (typeof style.color === "string") {
+    vars["--caption-color"] = style.color;
+  }
+  if (typeof style.size_px === "number" && Number.isFinite(style.size_px)) {
+    vars["--caption-font-size"] = `${style.size_px}px`;
+  }
+  if (style.stroke && (typeof style.stroke.color === "string"
+    || (typeof style.stroke.width_px === "number" && Number.isFinite(style.stroke.width_px)))) {
+    vars["--caption-text-shadow"] = strokeShadow(
+      typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)",
+      typeof style.stroke.width_px === "number" && Number.isFinite(style.stroke.width_px)
+        ? style.stroke.width_px : 1.5,
+    );
+  }
+  if (style.background && (typeof style.background.color === "string"
+    || (typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)))) {
+    vars["--plate-bg"] = colorWithOpacity(
+      typeof style.background.color === "string" ? style.background.color : "#000000",
+      typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)
+        ? style.background.opacity : undefined,
+    );
+  }
+  if (typeof style.background?.radius_px === "number"
+    && Number.isFinite(style.background.radius_px)) {
+    vars["--plate-radius"] = `${style.background.radius_px}px`;
+  }
+  Object.assign(vars, zoneVars(style.zone));
+  return vars;
+}
+
+function normalizeTextStyle(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return {
+    ...(typeof value.color === "string" ? { color: value.color } : {}),
+    ...(typeof value.size_px === "number" && Number.isFinite(value.size_px)
+      ? { size_px: value.size_px } : {}),
+    ...(value.stroke && typeof value.stroke === "object" && !Array.isArray(value.stroke)
+      ? {
+          stroke: {
+            ...(typeof value.stroke.color === "string" ? { color: value.stroke.color } : {}),
+            ...(typeof value.stroke.width_px === "number" && Number.isFinite(value.stroke.width_px)
+              ? { width_px: value.stroke.width_px } : {}),
+          },
+        } : {}),
+    ...(value.background && typeof value.background === "object" && !Array.isArray(value.background)
+      ? {
+          background: {
+            ...(typeof value.background.color === "string" ? { color: value.background.color } : {}),
+            ...(typeof value.background.opacity === "number" && Number.isFinite(value.background.opacity)
+              ? { opacity: value.background.opacity } : {}),
+            ...(typeof value.background.radius_px === "number"
+              && Number.isFinite(value.background.radius_px)
+              ? { radius_px: value.background.radius_px } : {}),
+          },
+        } : {}),
+    ...(typeof value.zone === "string" ? { zone: value.zone } : {}),
+  };
+}
+
+function strokeShadow(color, width) {
+  const negative = width === 0 ? "0" : `-${width}px`;
+  const positive = width === 0 ? "0" : `${width}px`;
+  return `${negative} ${negative} 0 ${color}, ${positive} ${negative} 0 ${color}, `
+    + `${negative} ${positive} 0 ${color}, ${positive} ${positive} 0 ${color}, `
+    + "0 0 8px rgba(0,0,0,.6)";
+}
+
+function colorWithOpacity(color, explicitOpacity) {
+  const raw = color.slice(1);
+  const expanded = raw.length === 3
+    ? raw.split("").map((character) => character + character).join("")
+    : raw;
+  const rgb = expanded.slice(0, 6).padEnd(6, "0");
+  const alphaFromColor = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+  const alpha = explicitOpacity ?? alphaFromColor;
+  return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},`
+    + `${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
+}
+
+function zoneVars(zone) {
+  if (!zone || zone === "bottom") return {};
+  const [vertical, horizontal] = zone.includes("-")
+    ? zone.split("-")
+    : zone === "top" || zone === "center"
+      ? [zone, "center"]
+      : ["center", zone];
+  return {
+    "--caption-top": vertical === "top" ? "7%" : vertical === "center" ? "0" : "auto",
+    "--caption-bottom": vertical === "bottom" ? "7%" : vertical === "center" ? "0" : "auto",
+    "--caption-left": "4%",
+    "--caption-right": "4%",
+    "--caption-justify-content": vertical === "center" ? "center" : "flex-start",
+    "--caption-align-items": horizontal === "left"
+      ? "flex-start" : horizontal === "right" ? "flex-end" : "center",
+    "--caption-line-margin": "0",
+    "--caption-line-max-width": "100%",
+    "--caption-text-align": horizontal,
+  };
 }
 
 // cuts 交差後の (timeline 秒) に加えて、当該レンジがカバーする (source 秒) の範囲も返す。
@@ -220,6 +342,25 @@ function isValidWord(word) {
 
 export function renderCaptionFragment(text, options = {}) {
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
+  const platePlacementCss = options.textStyleActive
+    ? `      top: var(--caption-top, auto);
+      left: var(--caption-left, 0);
+      right: var(--caption-right, 0);`
+    : `      left: 0;
+      right: 0;`;
+  const plateAlignmentCss = options.textStyleActive
+    ? `      justify-content: var(--caption-justify-content, flex-start);
+      align-items: var(--caption-align-items, stretch);
+`
+    : "";
+  const linePlacementCss = options.textStyleActive
+    ? `      max-width: var(--caption-line-max-width, 92%);
+      margin: var(--caption-line-margin, 0 auto);`
+    : `      max-width: 92%;
+      margin: 0 auto;`;
+  const lineTextAlignCss = options.textStyleActive
+    ? "      text-align: var(--caption-text-align, center);\n"
+    : "";
   const lines = splitCaptionLines(text, maximum);
   const markup = lines
     .map((line) => `<p class="akari-caption__line">${escapeHtml(line)}</p>`)
@@ -242,23 +383,21 @@ export function renderCaptionFragment(text, options = {}) {
     }
     .akari-caption__plate {
       position: absolute;
-      left: 0;
-      right: 0;
+${platePlacementCss}
       bottom: var(--caption-bottom, 7%);
       display: flex;
       flex-direction: column;
-      gap: var(--plate-gap, 4px);
+${plateAlignmentCss}      gap: var(--plate-gap, 4px);
       opacity: 1;
       animation: akari-caption-fade 180ms ease-out both;
     }
     .akari-caption__line {
       width: max-content;
-      max-width: 92%;
-      margin: 0 auto;
+${linePlacementCss}
       padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
-      white-space: pre;
+${lineTextAlignCss}      white-space: pre;
     }
     @keyframes akari-caption-fade {
       from { opacity: 0; transform: translateY(0.18em); }
@@ -280,6 +419,25 @@ export function renderCaptionFragment(text, options = {}) {
 // __akariSeek はコンテナ単位でしか data-start を見ないため）。
 export function renderStyledCaptionFragment(words, style, options = {}) {
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
+  const platePlacementCss = options.textStyleActive
+    ? `      top: var(--caption-top, auto);
+      left: var(--caption-left, 0);
+      right: var(--caption-right, 0);`
+    : `      left: 0;
+      right: 0;`;
+  const plateAlignmentCss = options.textStyleActive
+    ? `      justify-content: var(--caption-justify-content, flex-start);
+      align-items: var(--caption-align-items, stretch);
+`
+    : "";
+  const linePlacementCss = options.textStyleActive
+    ? `      max-width: var(--caption-line-max-width, 92%);
+      margin: var(--caption-line-margin, 0 auto);`
+    : `      max-width: 92%;
+      margin: 0 auto;`;
+  const lineTextAlignCss = options.textStyleActive
+    ? "      text-align: var(--caption-text-align, center);\n"
+    : "";
   const rangeStart = options.rangeStart ?? 0;
   const rangeEnd = options.rangeEnd ?? Math.max(rangeStart, ...words.map((word) => word.end));
   const emphasisTimeScale = options.emphasisTimeScale ?? 1;
@@ -332,23 +490,21 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     }
     .akari-caption__plate {
       position: absolute;
-      left: 0;
-      right: 0;
+${platePlacementCss}
       bottom: var(--caption-bottom, 7%);
       display: flex;
       flex-direction: column;
-      gap: var(--plate-gap, 4px);
+${plateAlignmentCss}      gap: var(--plate-gap, 4px);
       opacity: 1;
       animation: akari-caption-fade 180ms ease-out both;
     }
     .akari-caption__line {
       width: max-content;
-      max-width: 92%;
-      margin: 0 auto;
+${linePlacementCss}
       padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
-      white-space: pre;
+${lineTextAlignCss}      white-space: pre;
     }
     .akari-caption__tok {
       display: inline-block;

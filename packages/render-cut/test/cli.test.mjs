@@ -147,6 +147,30 @@ test("plan commands are stable and the report is self-contained", async (t) => {
   }
 });
 
+test("plan-only accepts the object captions root with default_text_style", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({ captions: true, overlays: false });
+  try {
+    const captions = JSON.parse(await readFile(join(project, "captions.json"), "utf8"));
+    await writeFile(join(project, "captions.json"), `${JSON.stringify({
+      default_text_style: {
+        color: "#AABBCC",
+        size_px: 42,
+        background: { color: "#11223380", opacity: 0.4 },
+        zone: "top-right",
+      },
+      captions,
+    }, null, 2)}\n`);
+    const planned = run(project, ["--plan-only"]);
+    assert.equal(planned.status, 0, planned.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify, null);
+    assert.ok(state.plan);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
 test("CLI renders overlays or preserves diagnostics when Chrome cannot launch", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   if (spawnSync(chromePath, ["--version"]).status !== 0) return t.skip("Chrome unavailable");

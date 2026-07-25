@@ -542,14 +542,28 @@ async function loadCaptions(projectRoot, edit) {
   if (!(await isRegularFile(captionsPath))) {
     return edit.version === 1 ? { overlays: [], warnings: [] } : [];
   }
-  const captions = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
-  if (!Array.isArray(captions)) throw new ExecutionError("captions.json root must be an array");
+  const captionsRoot = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
+  const captions = Array.isArray(captionsRoot)
+    ? captionsRoot
+    : captionsRoot && typeof captionsRoot === "object" && Array.isArray(captionsRoot.captions)
+      ? captionsRoot.captions
+      : null;
+  if (!captions) {
+    throw new ExecutionError("captions.json root must be an array or an object with captions[]");
+  }
+  const defaultTextStyle = Array.isArray(captionsRoot)
+    ? undefined
+    : captionsRoot.default_text_style;
   if (edit.version === 0) {
-    return generateCaptionOverlays(captions, edit.cuts, { emphasisWords: edit.emphasis_words });
+    return generateCaptionOverlays(captions, edit.cuts, {
+      emphasisWords: edit.emphasis_words,
+      defaultTextStyle,
+    });
   }
   const warnings = [];
   const overlays = generateCaptionOverlays(captions, edit.cuts, {
     emphasisWords: edit.emphasis_words,
+    defaultTextStyle,
     sourceCount: edit.version === 1 ? edit.sources.length : 1,
     linearTimeline: edit.version === 1,
     onWarning: (warning) => warnings.push(warning),

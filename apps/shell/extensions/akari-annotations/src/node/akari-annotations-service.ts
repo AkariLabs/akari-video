@@ -41,6 +41,7 @@ import {
     ShiftCaptionRequest,
     SetBgmFieldsRequest,
     SetCaptionFieldsRequest,
+    SetCaptionTextStyleRequest,
     SetCutAtValuesRequest,
     SetCutOpacityRequest,
     SetCutSpeedRequest,
@@ -71,7 +72,8 @@ import {
     insertCaptionLine,
     removeCaptionLine,
     shiftCaptionLine,
-    updateCaptionFieldsInSource
+    updateCaptionFieldsInSource,
+    updateCaptionTextStyleInSource
 } from '../common/caption-store';
 import {
     deleteLayerByIdInSource,
@@ -404,6 +406,15 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         });
         await this.writeAtomic(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更') };
+    }
+
+    async setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {});
+        await this.writeAtomic(captionsPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のスタイルを変更') };
     }
 
     async reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult> {

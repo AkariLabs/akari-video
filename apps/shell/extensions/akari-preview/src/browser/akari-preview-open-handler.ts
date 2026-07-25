@@ -4704,6 +4704,8 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const renderStyledCaptionFragment = caption => {
                 const style = caption.style;
+                const textStyleActive = Boolean(caption.textStyle
+                    && Object.keys(caption.textStyle).length > 0);
                 const hasEmphasis = caption.words.some(word => findMatchingEmphasis(word));
                 const rootStyle = style || (hasEmphasis ? 'emphasis' : 'karaoke');
                 const markup = groupWordsIntoLines(caption.words, 13).map(line =>
@@ -4720,9 +4722,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     : '';
                 return '<div class="akari-caption akari-caption--' + rootStyle + '">'
                     + '<style>'
-                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;left:0;right:0;bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;gap:var(--plate-gap,4px);}'
-                    + '.akari-caption__line{width:max-content;max-width:92%;margin:0 auto;padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,rgba(8,12,22,0.74));white-space:pre;}'
+                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);'
+                    + (textStyleActive
+                        ? 'text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));'
+                        : '')
+                    + 'font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
+                    + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,'
+                    + (textStyleActive ? 'transparent' : 'rgba(8,12,22,0.74)')
+                    + ');text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__tok{display:inline-block;will-change:transform,color;}'
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
                     + '@keyframes akari-caption-pop{0%{transform:translateY(0) scale(1);}50%{transform:translateY(-0.08em) scale(1.12);}100%{transform:translateY(0) scale(1);}}'
@@ -4730,6 +4738,42 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__tok--pop{animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused;}'
                     + emphasisCss
                     + '</style><div class="akari-caption__plate">' + markup + '</div></div>';
+            };
+            const renderPlainCaptionFragment = caption => {
+                const lines = [];
+                const characters = Array.from(caption.text);
+                for (let index = 0; index < characters.length; index += 20) {
+                    lines.push(characters.slice(index, index + 20).join(''));
+                }
+                const markup = lines.map(line => '<p class="akari-caption__line">'
+                    + escapeCaptionHtml(line) + '</p>').join('');
+                return '<div class="akari-caption"><style>'
+                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
+                    + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
+                    + '</style><div class="akari-caption__plate">' + markup + '</div></div>';
+            };
+            const captionStyleVariableNames = [
+                '--caption-color', '--caption-font-size', '--caption-text-shadow',
+                '--plate-bg', '--plate-radius', '--caption-top', '--caption-bottom',
+                '--caption-left', '--caption-right', '--caption-justify-content',
+                '--caption-align-items', '--caption-line-margin', '--caption-line-max-width',
+                '--caption-text-align'
+            ];
+            const applyCaptionStyleVars = caption => {
+                for (const name of captionStyleVariableNames) {
+                    captionPlate.style.removeProperty(name);
+                }
+                const textStyleActive = Boolean(caption && caption.textStyle
+                    && Object.keys(caption.textStyle).length > 0);
+                if (!textStyleActive) return;
+                const vars = caption.textStyleVars || {};
+                for (const [name, value] of Object.entries(vars)) {
+                    captionPlate.style.setProperty(name, String(value));
+                }
+                if (!Object.prototype.hasOwnProperty.call(vars, '--caption-font-size')) {
+                    captionPlate.style.setProperty('--caption-font-size', '38px');
+                }
             };
             const renderCaption = () => {
                 const activeSegment = segments[activeSegmentIndex];
@@ -4739,14 +4783,21 @@ body { display: grid; place-items: center; padding: 32px; }
                     : (captions.find(candidate => candidate.start <= time && time < candidate.end) || null);
                 if (caption !== activeCaption) {
                     activeCaption = caption;
+                    applyCaptionStyleVars(caption);
                     const hasEmphasis = Boolean(caption && Array.isArray(caption.words)
                         && caption.words.some(word => findMatchingEmphasis(word)));
+                    const hasTextStyle = Boolean(caption && caption.textStyle
+                        && Object.keys(caption.textStyle).length > 0);
                     styledCaptionActive = Boolean(caption
-                        && Array.isArray(caption.words) && caption.words.length > 0
-                        && ((caption.style === 'karaoke' || caption.style === 'pop') || hasEmphasis));
+                        && (hasTextStyle || (Array.isArray(caption.words) && caption.words.length > 0
+                            && ((caption.style === 'karaoke' || caption.style === 'pop') || hasEmphasis))));
                     captionPlate.classList.toggle('akari-caption-host--styled', styledCaptionActive);
                     if (styledCaptionActive) {
-                        captionPlate.innerHTML = renderStyledCaptionFragment(caption);
+                        const usesWords = Array.isArray(caption.words) && caption.words.length > 0
+                            && ((caption.style === 'karaoke' || caption.style === 'pop') || hasEmphasis);
+                        captionPlate.innerHTML = usesWords
+                            ? renderStyledCaptionFragment(caption)
+                            : renderPlainCaptionFragment(caption);
                     } else {
                         captionPlate.textContent = caption ? caption.text : '';
                     }

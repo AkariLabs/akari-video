@@ -378,6 +378,27 @@ export interface SetCaptionFieldsRequest {
     speaker?: string | null;
 }
 
+export interface SetCaptionTextStyleRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionId: string;
+    textStyle: {
+        color?: string | null;
+        sizePx?: number | null;
+        stroke?: {
+            color?: string | null;
+            widthPx?: number | null;
+        };
+        background?: {
+            color?: string | null;
+            opacity?: number | null;
+            radiusPx?: number | null;
+        };
+        zone?: 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right'
+            | 'bottom-left' | 'bottom' | 'bottom-right' | null;
+    };
+}
+
 export interface WriteBackResult {
     committed: boolean;
 }
@@ -434,4 +455,5 @@ export interface AkariAnnotationsService {
     setBgmFields(request: SetBgmFieldsRequest): Promise<WriteBackResult>;
     setOverlayVar(request: SetOverlayVarRequest): Promise<WriteBackResult>;
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
+    setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
 }

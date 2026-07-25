@@ -13,6 +13,7 @@ import {
     TimelineSelectionModel,
     TimelineSelectionSnapshot
 } from './timeline-selection-model';
+import { CAPTION_ZONES } from '../common/caption-store';
 
 // appendScrubNumber の pointermove 中にライブプレビューを送出する最短間隔（ms）。
 // 契約の目安「16〜50ms」の中間値で throttle する。
@@ -26,7 +27,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     /** 編集用入力欄の初期値。省略時は getValue の戻り値を使う。 */
     getEditValue?: (snapshot: TSnapshot) => string;
     /** フィールドの値型に対応した入力 UI。 */
-    inputKind?: 'boolean-select' | 'select' | 'scrub-number';
+    inputKind?: 'boolean-select' | 'select' | 'scrub-number' | 'color';
     options?: readonly string[];
     scrubStep?: number;
     min?: number;
@@ -78,6 +79,31 @@ function withDefaultBoolean(raw: boolean | undefined, defaultValue: boolean): st
 
 function orDash<T>(raw: T | null | undefined, formatFn: (value: T) => string): string {
     return raw === null || raw === undefined ? '—' : formatFn(raw);
+}
+
+const CAPTION_STYLE_DEFAULTS = {
+    color: '#FFFFFF',
+    sizePx: 38,
+    strokeColor: '#000000',
+    strokeWidthPx: 1.5,
+    backgroundColor: '#000000',
+    backgroundOpacity: 0,
+    backgroundRadiusPx: 10,
+    zone: 'bottom'
+} as const;
+
+function captionStyleDisplayValue<T>(
+    raw: T | undefined,
+    effective: T | undefined,
+    fallback: T,
+    format: (value: T) => string = String
+): string {
+    const value = effective ?? fallback;
+    return raw === undefined ? `${format(value)}（既定）` : format(value);
+}
+
+function isCaptionHexColor(value: string): boolean {
+    return /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
 }
 
 function formatPayloadValue(value: unknown): string {
@@ -357,6 +383,54 @@ function CAPTION_TABS(
     snapshot: TimelineCaptionSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorTabDef[] {
+    const raw = snapshot.textStyle;
+    const effective = snapshot.effectiveTextStyle;
+    const colorField = (
+        label: string,
+        rawValue: string | undefined,
+        effectiveValue: string | undefined,
+        fallback: string,
+        kind: 'caption-style-color' | 'caption-style-stroke-color' | 'caption-style-bg-color'
+    ): InspectorFieldDef<TimelineCaptionSelection> => ({
+        label,
+        getValue: () => captionStyleDisplayValue(rawValue, effectiveValue, fallback),
+        getEditValue: () => effectiveValue ?? fallback,
+        inputKind: 'color',
+        write: async (_snapshot, nextValue) => {
+            if (!isCaptionHexColor(nextValue)) {
+                return { ok: false, message: '色は #RGB / #RRGGBB / #RRGGBBAA で入力してください。' };
+            }
+            return requestWrite({ kind, id: snapshot.id, value: nextValue });
+        }
+    });
+    const numberField = (
+        label: string,
+        rawValue: number | undefined,
+        effectiveValue: number | undefined,
+        fallback: number,
+        kind: 'caption-style-size' | 'caption-style-stroke-width'
+            | 'caption-style-bg-opacity' | 'caption-style-bg-radius',
+        min: number,
+        max: number | undefined,
+        step: number,
+        invalidMessage: string
+    ): InspectorFieldDef<TimelineCaptionSelection> => ({
+        label,
+        getValue: () => captionStyleDisplayValue(rawValue, effectiveValue, fallback),
+        getEditValue: () => String(effectiveValue ?? fallback),
+        inputKind: 'scrub-number',
+        scrubStep: step,
+        min,
+        ...(max !== undefined ? { max } : {}),
+        write: async (_snapshot, nextValue) => {
+            const parsed = Number(nextValue);
+            if (!Number.isFinite(parsed) || parsed < min || (max !== undefined && parsed > max)
+                || (kind === 'caption-style-size' && parsed === 0)) {
+                return { ok: false, message: invalidMessage };
+            }
+            return requestWrite({ kind, id: snapshot.id, value: parsed });
+        }
+    });
     return [
         {
             label: '内容',
@@ -382,6 +456,97 @@ function CAPTION_TABS(
                     })
                 },
                 { label: '編集済み', getValue: () => snapshot.edited ? 'はい' : 'いいえ' }
+            ]
+        },
+        {
+            label: 'スタイル',
+            fields: [
+                colorField(
+                    '文字色',
+                    raw?.color,
+                    effective?.color,
+                    CAPTION_STYLE_DEFAULTS.color,
+                    'caption-style-color'
+                ),
+                numberField(
+                    'サイズ (px)',
+                    raw?.sizePx,
+                    effective?.sizePx,
+                    CAPTION_STYLE_DEFAULTS.sizePx,
+                    'caption-style-size',
+                    0,
+                    undefined,
+                    1,
+                    'サイズは正の数で入力してください。'
+                ),
+                colorField(
+                    '縁取り色',
+                    raw?.stroke?.color,
+                    effective?.stroke?.color,
+                    CAPTION_STYLE_DEFAULTS.strokeColor,
+                    'caption-style-stroke-color'
+                ),
+                numberField(
+                    '縁取り (px)',
+                    raw?.stroke?.widthPx,
+                    effective?.stroke?.widthPx,
+                    CAPTION_STYLE_DEFAULTS.strokeWidthPx,
+                    'caption-style-stroke-width',
+                    0,
+                    undefined,
+                    0.1,
+                    '縁取り太さは 0 以上で入力してください。'
+                ),
+                colorField(
+                    '座布団色',
+                    raw?.background?.color,
+                    effective?.background?.color,
+                    CAPTION_STYLE_DEFAULTS.backgroundColor,
+                    'caption-style-bg-color'
+                ),
+                numberField(
+                    '座布団不透明度',
+                    raw?.background?.opacity,
+                    effective?.background?.opacity,
+                    CAPTION_STYLE_DEFAULTS.backgroundOpacity,
+                    'caption-style-bg-opacity',
+                    0,
+                    1,
+                    0.01,
+                    '座布団不透明度は 0〜1 の範囲で入力してください。'
+                ),
+                numberField(
+                    '座布団角丸 (px)',
+                    raw?.background?.radiusPx,
+                    effective?.background?.radiusPx,
+                    CAPTION_STYLE_DEFAULTS.backgroundRadiusPx,
+                    'caption-style-bg-radius',
+                    0,
+                    undefined,
+                    1,
+                    '座布団角丸は 0 以上で入力してください。'
+                ),
+                {
+                    label: '位置',
+                    getValue: () => captionStyleDisplayValue(
+                        raw?.zone,
+                        effective?.zone,
+                        CAPTION_STYLE_DEFAULTS.zone
+                    ),
+                    getEditValue: () => effective?.zone ?? CAPTION_STYLE_DEFAULTS.zone,
+                    inputKind: 'select',
+                    options: CAPTION_ZONES,
+                    write: async (_snapshot, nextValue) => {
+                        if (!CAPTION_ZONES.includes(nextValue as typeof CAPTION_ZONES[number])) {
+                            return { ok: false, message: '位置を9つの候補から選んでください。' };
+                        }
+                        return requestWrite({
+                            kind: 'caption-style-zone',
+                            id: snapshot.id,
+                            value: nextValue as typeof CAPTION_ZONES[number]
+                        });
+                    }
+                }
             ]
         },
         {
@@ -614,6 +779,21 @@ export class AkariInspectorWidget extends BaseWidget {
         width: 100%;
         box-sizing: border-box;
     }
+    .akari-inspector-widget .akari-inspector-color-field {
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr);
+        gap: 6px;
+        align-items: center;
+    }
+    .akari-inspector-widget .akari-inspector-color-picker {
+        width: 30px;
+        height: 24px;
+        padding: 1px;
+        border: 1px solid var(--theia-input-border, #454545);
+        border-radius: 2px;
+        background: var(--theia-input-background);
+        cursor: pointer;
+    }
     .akari-inspector-widget .akari-inspector-heading {
         font-weight: 600;
         margin-bottom: 4px;
@@ -775,6 +955,12 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
 
+        if (field.inputKind === 'color') {
+            this.appendColorInput(row, editValue, commitValue);
+            this.body.appendChild(row);
+            return;
+        }
+
         let input: HTMLInputElement | HTMLSelectElement;
         if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
             const select = document.createElement('select');
@@ -829,6 +1015,73 @@ export class AkariInspectorWidget extends BaseWidget {
 
         row.appendChild(input);
         this.body.appendChild(row);
+    }
+
+    protected appendColorInput(
+        row: HTMLDivElement,
+        editValue: string,
+        commitValue: (nextValue: string, revert: () => void) => Promise<boolean>
+    ): void {
+        const container = document.createElement('div');
+        container.className = 'akari-inspector-color-field';
+        const picker = document.createElement('input');
+        picker.type = 'color';
+        picker.className = 'akari-inspector-color-picker';
+        picker.setAttribute('aria-label', 'カラーピッカー');
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.className = 'akari-inspector-row-input';
+        textInput.value = editValue;
+        const pickerColor = (value: string): string | undefined => {
+            const match = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.exec(value);
+            if (!match) {
+                return undefined;
+            }
+            const hex = match[1].length === 3
+                ? match[1].split('').map(character => character + character).join('')
+                : match[1].slice(0, 6);
+            return `#${hex}`;
+        };
+        picker.value = pickerColor(editValue) ?? '#000000';
+        const revert = (): void => {
+            textInput.value = editValue;
+            picker.value = pickerColor(editValue) ?? '#000000';
+        };
+        const commitText = async (): Promise<void> => {
+            const nextValue = textInput.value;
+            const success = await commitValue(nextValue, revert);
+            if (success) {
+                const nextPicker = pickerColor(nextValue);
+                if (nextPicker) {
+                    picker.value = nextPicker;
+                }
+            }
+        };
+        picker.addEventListener('change', () => {
+            textInput.value = picker.value.toUpperCase();
+            void commitValue(textInput.value, revert);
+        });
+        textInput.addEventListener('input', () => {
+            const nextPicker = pickerColor(textInput.value);
+            if (nextPicker) {
+                picker.value = nextPicker;
+            }
+        });
+        textInput.addEventListener('blur', () => {
+            void commitText();
+        });
+        textInput.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                textInput.blur();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                revert();
+                textInput.blur();
+            }
+        });
+        container.append(picker, textInput);
+        row.appendChild(container);
     }
 
     protected appendScrubNumber(
