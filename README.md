@@ -3,7 +3,7 @@
 AI 動画編集ツール。開いたらほぼ終わっていて、直したいところだけ直せる。
 
 **Status: under construction**（Theia ベースのシェルへ移行中。旧 Tauri 実装は
-[akari-video-tauri](https://github.com/akari-video/akari-video-tauri) に保存）
+[akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri) に保存）
 
 ## Layout
 
