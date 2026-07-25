@@ -1,0 +1,42 @@
+{
+  "providers": [
+    {
+      "id": "voicevox",
+      "kind": "tts",
+      "auth": "none",
+      "env": null,
+      "models": {
+        "default": null,
+        "allowed": []
+      },
+      "notes": {
+        "description": "VOICEVOX ローカルエンジン（キャラクター音声の日本語音声合成）。完全ローカル・無償・API キー不要。",
+        "workflows": ["42 AI 生成素材"],
+        "billing": "無償（ローカル実行）。",
+        "quota": "なし（ローカル実行のためレート制限は無い）。",
+        "scopes": ["音声合成（ローカル・読み取り専用の疎通確認のみ doctor で行う）"],
+        "setup_url": "https://voicevox.hiroshiba.jp/"
+      },
+      "doctor": {
+        "last_checked": null,
+        "status": "unchecked",
+        "detail": "未確認"
+      }
+    }
+  ],
+  "policy": {
+    "currency": "JPY",
+    "monthly_budget": null,
+    "approval_threshold": null
+  },
+  "memory": [
+    {
+      "name": "kyo-kobo-wiki",
+      "root": "~/_edit",
+      "entry": "INDEX.md",
+      "include": ["05_kyo-kobo/**", "30_products/**"],
+      "exclude": ["10_accounting/**"],
+      "read_policy": "read-only"
+    }
+  ]
+}

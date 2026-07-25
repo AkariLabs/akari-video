@@ -11,7 +11,11 @@
       "type": "array",
       "items": { "$ref": "#/$defs/provider" }
     },
-    "policy": { "$ref": "#/$defs/policy" }
+    "policy": { "$ref": "#/$defs/policy" },
+    "memory": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/memoryConnection" }
+    }
   },
   "$defs": {
     "nonEmptyString": {
@@ -127,6 +131,22 @@
             { "type": "number", "minimum": 0 }
           ]
         }
+      }
+    },
+    "memoryConnection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "root"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "root": { "$ref": "#/$defs/nonEmptyString" },
+        "entry": { "$ref": "#/$defs/nonEmptyString" },
+        "include": { "$ref": "#/$defs/stringArray" },
+        "exclude": { "$ref": "#/$defs/stringArray" },
+        "read_policy": { "const": "read-only" }
       }
     }
   }
