@@ -131,3 +131,43 @@ test("updateStatusLine は同一 id が複数あるとき安全側に倒して�
   });
   assert.throws(() => updateStatusLine(duplicated, "a-0001", ["addressed"], "resolved"), /複数/);
 });
+
+// contract-2026-07-26-doc-image-annotations §1/§2: doc:<path>#<block-id> / image:<path> target は
+// sourceT: null を許容する（動画面の注釈は従来どおり sourceT 必須のまま — 無退行を別テストで確認）。
+test("sourceT: null は target が doc:<path>#<block-id> のとき警告なしで round-trip できる", () => {
+  const annotation = baseAnnotation({
+    sourceT: null,
+    target: "doc:.akari/reports/analysis-report.html#asset-facts:clip-01",
+  });
+  const source = appendAnnotationLine(emptyReviewSource(), annotation);
+  const parsed = parseReview(source);
+  assert.equal(parsed.warnings.length, 0, parsed.warnings.join(" "));
+  assert.equal(parsed.annotations.length, 1);
+  assert.equal(parsed.annotations[0].sourceT, null);
+  assert.equal(parsed.annotations[0].target, "doc:.akari/reports/analysis-report.html#asset-facts:clip-01");
+});
+
+test("sourceT: null は target が image:<path> のとき警告なしで round-trip できる", () => {
+  const annotation = baseAnnotation({ sourceT: null, target: "image:assets/thumbnails/candidate-1.png" });
+  const source = appendAnnotationLine(emptyReviewSource(), annotation);
+  const parsed = parseReview(source);
+  assert.equal(parsed.warnings.length, 0, parsed.warnings.join(" "));
+  assert.equal(parsed.annotations[0].sourceT, null);
+});
+
+test("sourceT: null かつ doc:/image: 以外の target は表示は残すが警告する（劣化規約: 無言で捨てない）", () => {
+  const annotation = baseAnnotation({ sourceT: null, target: "overlay:title-1" });
+  const source = appendAnnotationLine(emptyReviewSource(), annotation);
+  const parsed = parseReview(source);
+  assert.equal(parsed.annotations.length, 1, "無言で捨てず注釈は残す");
+  assert.equal(parsed.annotations[0].sourceT, null);
+  assert.match(parsed.warnings.join(" "), /sourceT が null ですが target が doc: \/ image: 形式ではありません/);
+});
+
+test("動画面の注釈（target null・sourceT 数値）は無退行で従来どおり round-trip できる", () => {
+  const annotation = baseAnnotation({ sourceT: 12.4, target: null, targetKind: "instant" });
+  const source = appendAnnotationLine(emptyReviewSource(), annotation);
+  const parsed = parseReview(source);
+  assert.equal(parsed.warnings.length, 0, parsed.warnings.join(" "));
+  assert.equal(parsed.annotations[0].sourceT, 12.4);
+});

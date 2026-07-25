@@ -112,7 +112,8 @@ export interface CreateAnnotationRequest {
     projectRootUri: string;
     /** edit.json v1 の sources[].id 参照（省略 = 単一ソース互換） */
     src?: string | null;
-    sourceT: number;
+    /** target が doc:<path>#<block-id> / image:<path> のときに限り null を許容する（契約 §2）。 */
+    sourceT: number | null;
     sourceRange?: [number, number] | null;
     /** 非推奨。値は無視され、保存時は常に null になる */
     timelineT: number | null;

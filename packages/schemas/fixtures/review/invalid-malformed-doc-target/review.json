@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-26T10:00:00.000Z","src":null,"sourceT":null,"sourceRange":null,"timelineT":null,"target":"doc:.akari/reports/analysis-report.html","targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"block-id が無い doc: target（不正）","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+  ]
+}

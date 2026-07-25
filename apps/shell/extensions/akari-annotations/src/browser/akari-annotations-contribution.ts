@@ -15,14 +15,18 @@ import {
 import { FileChangeType, FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
+import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
     OPEN_AKARI_ANNOTATIONS,
     OPEN_AKARI_INSPECTOR,
     OPEN_AKARI_REVIEW_BOARD,
-    OPEN_AKARI_REVIEW_PANEL
+    OPEN_AKARI_REVIEW_PANEL,
+    SELECT_DOC_BLOCK
 } from './akari-annotations-commands';
+import { Annotation } from '../common/akari-annotations-protocol';
+import { parseDocTarget } from '../common/doc-target';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
 import { AkariReviewBoardWidget } from './akari-review-board-widget';
@@ -77,15 +81,59 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     /** セッション内でユーザーがタイムラインを明示的に閉じたら true。以降の自動アタッチを抑止する（アプリ再起動でリセット）。 */
     protected timelineDismissedThisSession = false;
 
+    /**
+     * レポート面のブロック選択導線（doc-annotation-ui タスク）で使う、開いている akari-surface
+     * webview（akari-surfaces の AkariSurfaceOpenHandler が生成・所有）を widget.id で追跡する。
+     * WidgetManager は共有サービスであり、生成元の拡張（akari-surfaces・編集禁止）を変更せずに
+     * 同一インスタンスへ setContentOptions / onMessage / sendMessage できる（report.md §統合点調査）。
+     */
+    protected readonly trackedSurfaces = new Map<string, WebviewWidget>();
+    protected reconcileHandle?: ReturnType<typeof setInterval>;
+    /** ReviewModel.annotations の直近プッシュ済み参照（不要な再送を避ける差分検知に使う）。 */
+    protected lastPushedAnnotations?: readonly Annotation[];
+
     async onStart(): Promise<void> {
         await this.workspaceService.ready;
         for (const root of await this.workspaceService.roots) {
             await this.watchForReview(root.resource);
         }
+        this.widgetManager.onDidCreateWidget(event => {
+            if (event.factoryId !== WebviewWidget.FACTORY_ID || !(event.widget instanceof WebviewWidget)) {
+                return;
+            }
+            const { id, viewId } = event.widget.identifier;
+            if (!id.startsWith('akari-surface-') || !viewId) {
+                return;
+            }
+            const widget = event.widget;
+            this.trackedSurfaces.set(id, widget);
+            widget.disposed.connect(() => this.trackedSurfaces.delete(id));
+            this.applyDocBlockSelectionBridge(widget);
+            void this.pushDocAnnotationPins(widget);
+            this.ensureReconcileLoop();
+        });
+        this.toDispose.push(this.review.onChanged(() => {
+            // ReviewModel.annotations の setter は変更のたびに新しい配列参照を作るため、
+            // 参照比較だけで「注釈内容が実際に変わったか」を安く判定できる（statusFilter /
+            // selectedSourceT / docSelection の変更では参照が変わらないため再送しない）。
+            if (this.review.annotations === this.lastPushedAnnotations) {
+                return;
+            }
+            this.lastPushedAnnotations = this.review.annotations;
+            for (const widget of this.trackedSurfaces.values()) {
+                if (!widget.isDisposed) {
+                    void this.pushDocAnnotationPins(widget);
+                }
+            }
+        }));
     }
 
     onStop(): void {
         this.toDispose.dispose();
+        if (this.reconcileHandle) {
+            clearInterval(this.reconcileHandle);
+            this.reconcileHandle = undefined;
+        }
     }
 
     registerCommands(commands: CommandRegistry): void {
@@ -103,6 +151,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()
+        });
+        commands.registerCommand(SELECT_DOC_BLOCK, {
+            execute: (blockId: unknown) => this.handleSelectDocBlock(blockId)
         });
         const onPlaybackTick = (event: Event): void => {
             const request = (event as CustomEvent<PreviewPlaybackTick>).detail;
@@ -161,6 +212,113 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 }
             }
         }));
+    }
+
+    /**
+     * `command:akari.annotations.selectDocBlock?["<blockId>"]` リンク（template.html 側が
+     * data-block-id クリックで合成する）から着地する。webview 内は acquireVsCodeApi() の
+     * 単一取得制約（akari-surfaces のブリッジ script が既に取得済み）で postMessage による
+     * 直接通知ができないため、Theia core の CommandOpenHandler + WebviewContentOptions.
+     * enableCommandUris を bridge として採用した（report.md §統合点調査に詳細）。
+     */
+    protected async handleSelectDocBlock(blockId: unknown): Promise<void> {
+        if (typeof blockId !== 'string' || !blockId) {
+            return;
+        }
+        const widget = this.resolveActiveSurfaceWidget();
+        const viewId = widget?.identifier.viewId;
+        if (!viewId) {
+            return;
+        }
+        const location = await this.locate();
+        if (!location) {
+            return;
+        }
+        const relative = location.root.relative(new URI(viewId).normalizePath());
+        if (!relative) {
+            return;
+        }
+        this.review.docSelection = { path: relative.toString(), blockId };
+    }
+
+    /**
+     * command: URI 実行時点でどのレポートタブが対象かを ApplicationShell.activeWidget から解決する
+     * （WebviewWidget は ApplicationShellMouseTracker 経由でクリックをフォーカスとしてシェルへ
+     * 報告するため、リンククリック時点で対象の webview が activeWidget になっている想定）。
+     * 一致しない場合のフォールバックとして、追跡中の akari-surface が 1 つだけならそれを使う。
+     */
+    protected resolveActiveSurfaceWidget(): WebviewWidget | undefined {
+        const active = this.shell.activeWidget;
+        if (active instanceof WebviewWidget && active.identifier.id.startsWith('akari-surface-')) {
+            return active;
+        }
+        return this.trackedSurfaces.size === 1 ? [...this.trackedSurfaces.values()][0] : undefined;
+    }
+
+    /**
+     * akari-surfaces（編集禁止）の setContentOptions 呼び出しは enableCommandUris を含まないため、
+     * このメソッドの呼び出し（widget 生成時 + 再調整ループ）で上書きし直す。setContentOptions は
+     * 内容が deep-equal なら no-op なので、定常状態では実質コストゼロ。
+     */
+    protected applyDocBlockSelectionBridge(widget: WebviewWidget): void {
+        const viewId = widget.identifier.viewId;
+        if (!viewId) {
+            return;
+        }
+        widget.setContentOptions({
+            allowScripts: true,
+            allowForms: true,
+            localResourceRoots: [new URI(viewId).parent.toString()],
+            enableCommandUris: [SELECT_DOC_BLOCK.id]
+        });
+    }
+
+    /**
+     * この report.html（widget の viewId）を対象とする doc: 注釈の一覧を webview へ push する
+     * （指示 5・6: レポート再表示時のピン表示。host → webview のみで完結し、webview からの
+     * 応答は不要 — template.html 側は window の 'message' イベントで受け取るだけでよい）。
+     */
+    protected async pushDocAnnotationPins(widget: WebviewWidget): Promise<void> {
+        const viewId = widget.identifier.viewId;
+        if (!viewId || widget.isDisposed) {
+            return;
+        }
+        const location = await this.locate();
+        if (!location) {
+            return;
+        }
+        const relativePath = location.root.relative(new URI(viewId).normalizePath())?.toString();
+        if (!relativePath || widget.isDisposed) {
+            return;
+        }
+        const blocks = this.review.annotations
+            .map(annotation => ({ annotation, doc: parseDocTarget(annotation.target) }))
+            .filter((entry): entry is { annotation: Annotation; doc: { path: string; blockId: string } } => Boolean(entry.doc))
+            .filter(entry => entry.doc.path === relativePath)
+            .map(entry => ({ blockId: entry.doc.blockId, status: entry.annotation.status }));
+        widget.sendMessage({ type: 'akari-doc-annotations', blocks });
+    }
+
+    /**
+     * akari-surfaces が configureSurface() を再実行する（再オープン・別ファイルからの遷移等）たびに
+     * enableCommandUris が上書きされ得る。setContentOptions/setHTML の再実行を検知できる公開
+     * イベントが WebviewWidget に無いため、短い間隔で再付与して自己修復する
+     * （report.md §統合点調査「採った bridge 方式」参照）。
+     */
+    protected ensureReconcileLoop(): void {
+        if (this.reconcileHandle) {
+            return;
+        }
+        this.reconcileHandle = setInterval(() => {
+            for (const widget of this.trackedSurfaces.values()) {
+                if (!widget.isDisposed) {
+                    this.applyDocBlockSelectionBridge(widget);
+                    // ファイル変更等で akari-surfaces が setHTML を再実行すると DOM ごと作り直され、
+                    // 前回 push したピンも消える。ピン再送も同じ間隔で自己修復する。
+                    void this.pushDocAnnotationPins(widget);
+                }
+            }
+        }, 1500);
     }
 
     async open(): Promise<AkariAnnotationsWidget | undefined> {

@@ -1,10 +1,16 @@
+import URI from '@theia/core/lib/common/uri';
 import { MessageService } from '@theia/core/lib/common';
-import { BaseWidget } from '@theia/core/lib/browser';
+import { BaseWidget, OpenerService, open } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
+import { collectBlockIds, extractBlocksManifest, parseDocTarget, parseImageTarget } from '../common/doc-target';
 import { ReviewModel } from './review-model';
+
+/** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応。akari-review-panel-widget.ts とミラー）。 */
+type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
 
 // akari-preview 側の同名イベントとミラー（extension 間の npm 依存を作らない。
 // akari-review-panel-widget.ts の ✏️ ボタンと同じ経路を再利用する）。
@@ -50,12 +56,17 @@ export class AkariReviewBoardWidget extends BaseWidget {
     @inject(MessageService)
     protected readonly messages!: MessageService;
 
+    @inject(OpenerService)
+    protected readonly openerService!: OpenerService;
+
     protected readonly notice = document.createElement('div');
     protected readonly board = document.createElement('div');
     protected readonly columnElements = new Map<BoardColumn, { list: HTMLDivElement; count: HTMLSpanElement }>();
 
     protected videoSources: VideoSourceCache = { single: '', bySrcId: new Map() };
     protected readonly thumbnailCache = new Map<string, string | 'unavailable'>();
+    /** doc: target の block-id 存在チェック（契約 §6）。report.html の blocks マニフェストを path ごとにキャッシュする。 */
+    protected readonly docTargetHealthCache = new Map<string, Promise<unknown | undefined>>();
     protected refreshToken = 0;
 
     @postConstruct()
@@ -132,11 +143,16 @@ export class AkariReviewBoardWidget extends BaseWidget {
     }
 
     protected renderColumns(): void {
+        // 一覧が再描画されるたびに劣化状態を再確認する（ファイルのリネーム・差し替えを
+        // ライブセッション中に検知できるよう、レンダーパスをまたいでキャッシュしない）。
+        this.docTargetHealthCache.clear();
         const byStatus = new Map<BoardColumn, Annotation[]>();
         for (const def of COLUMN_DEFS) {
             byStatus.set(def.status, []);
         }
-        for (const annotation of [...this.model.annotations].sort((left, right) => left.sourceT - right.sourceT)) {
+        for (const annotation of [...this.model.annotations].sort(
+            (left, right) => (left.sourceT ?? Infinity) - (right.sourceT ?? Infinity)
+        )) {
             byStatus.get(annotation.status)?.push(annotation);
         }
         for (const def of COLUMN_DEFS) {
@@ -237,22 +253,33 @@ export class AkariReviewBoardWidget extends BaseWidget {
         }
         card.appendChild(head);
 
-        if (annotation.target) {
+        const docTarget = parseDocTarget(annotation.target);
+        const imageTarget = parseImageTarget(annotation.target);
+        if (docTarget) {
+            card.appendChild(this.renderDocTargetRow(docTarget));
+        } else if (imageTarget) {
+            const target = document.createElement('div');
+            target.textContent = `🖼️ ${imageTarget.path}`;
+            Object.assign(target.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
+            card.appendChild(target);
+        } else if (annotation.target) {
             const target = document.createElement('div');
             target.textContent = annotation.target;
             Object.assign(target.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
             card.appendChild(target);
         }
 
-        const thumbnail = document.createElement('div');
-        thumbnail.setAttribute('data-board-thumbnail', annotation.id);
-        Object.assign(thumbnail.style, {
-            width: '100%', aspectRatio: '16 / 9', borderRadius: '3px', overflow: 'hidden',
-            background: 'var(--theia-input-background)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center'
-        });
-        card.appendChild(thumbnail);
-        void this.loadThumbnail(annotation, thumbnail);
+        if (!docTarget && !imageTarget) {
+            const thumbnail = document.createElement('div');
+            thumbnail.setAttribute('data-board-thumbnail', annotation.id);
+            Object.assign(thumbnail.style, {
+                width: '100%', aspectRatio: '16 / 9', borderRadius: '3px', overflow: 'hidden',
+                background: 'var(--theia-input-background)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center'
+            });
+            card.appendChild(thumbnail);
+            void this.loadThumbnail(annotation, thumbnail);
+        }
 
         const text = document.createElement('div');
         text.textContent = annotation.text.split('\n')[0];
@@ -289,6 +316,11 @@ export class AkariReviewBoardWidget extends BaseWidget {
      * sourceT とで二重にシークし合って後勝ちの方に化けてしまう（本タスクの L1 実機検証で発見）。
      */
     protected activateCard(annotation: Annotation): void {
+        const docTarget = parseDocTarget(annotation.target);
+        if (docTarget) {
+            void this.openReportAndReveal(docTarget);
+            return;
+        }
         const hasStrokes = Array.isArray(annotation.strokes) && annotation.strokes.length > 0;
         const editUri = this.model.location?.editUri?.normalizePath().toString();
         if (hasStrokes && editUri) {
@@ -297,7 +329,83 @@ export class AkariReviewBoardWidget extends BaseWidget {
             }));
             return;
         }
-        this.model.requestSeek(annotation.sourceT);
+        if (annotation.sourceT !== null) {
+            this.model.requestSeek(annotation.sourceT);
+        }
+    }
+
+    /**
+     * doc: target 用の行（レポートを開くリンク + 劣化バッジ）。akari-review-panel-widget.ts の
+     * renderDocTargetButton と同じ規約（契約 §6: path 不在は warning・block-id 消失は「対象消失」）。
+     */
+    protected renderDocTargetRow(docTarget: { path: string; blockId: string }): HTMLDivElement {
+        const row = document.createElement('div');
+        Object.assign(row.style, { fontSize: '11px', color: 'var(--theia-textLink-foreground)' });
+        row.setAttribute('data-board-doc-target', `${docTarget.path}#${docTarget.blockId}`);
+        row.textContent = `📄 ${docTarget.path}`;
+        row.title = `${docTarget.path}#${docTarget.blockId}`;
+        void this.docTargetHealth(docTarget.path, docTarget.blockId).then(health => {
+            if (!row.isConnected) {
+                return;
+            }
+            if (health === 'path-missing') {
+                row.textContent = `📄⚠️ ${docTarget.path}`;
+                row.title = `${docTarget.path} が見つかりません（ピン表示は不可。注釈自体は有効です）`;
+            } else if (health === 'block-missing') {
+                row.textContent = `📄 ${docTarget.path}（対象消失）`;
+                row.title = `block-id が現在のレポートにありません: ${docTarget.blockId}`;
+                row.style.color = 'var(--theia-warningForeground)';
+            }
+        });
+        return row;
+    }
+
+    /** report.html を開き（既存タブを再利用）、対象ブロックへスクロール + ピン表示させる。 */
+    protected async openReportAndReveal(docTarget: { path: string; blockId: string }): Promise<void> {
+        const location = this.model.location;
+        if (!location) {
+            return;
+        }
+        const reportUri = location.root.resolve(docTarget.path);
+        try {
+            const opened = await open(this.openerService, reportUri);
+            if (opened instanceof WebviewWidget) {
+                opened.sendMessage({ type: 'akari-doc-annotation-reveal', blockId: docTarget.blockId });
+            }
+        } catch (error) {
+            this.messages.error(`レポートを開けません: ${this.errorMessage(error)}`);
+        }
+    }
+
+    protected async docTargetHealth(path: string, blockId: string): Promise<DocTargetHealth> {
+        const location = this.model.location;
+        if (!location) {
+            return 'path-missing';
+        }
+        const uri = location.root.resolve(path);
+        const cacheKey = uri.toString();
+        let cached = this.docTargetHealthCache.get(cacheKey);
+        if (!cached) {
+            cached = this.readBlocksManifest(uri);
+            this.docTargetHealthCache.set(cacheKey, cached);
+        }
+        const manifest = await cached;
+        if (manifest === undefined) {
+            return 'path-missing';
+        }
+        return collectBlockIds(manifest).has(blockId) ? 'ok' : 'block-missing';
+    }
+
+    protected async readBlocksManifest(uri: URI): Promise<unknown | undefined> {
+        try {
+            if (!(await this.fileService.exists(uri))) {
+                return undefined;
+            }
+            const source = (await this.fileService.readFile(uri)).value.toString();
+            return extractBlocksManifest(source);
+        } catch {
+            return undefined;
+        }
     }
 
     protected async resolveAnnotationById(id: string): Promise<void> {
@@ -372,11 +480,14 @@ export class AkariReviewBoardWidget extends BaseWidget {
     protected async loadThumbnail(annotation: Annotation, container: HTMLDivElement): Promise<void> {
         const location = this.model.location;
         const videoUri = this.videoUriFor(annotation);
-        if (!location || !videoUri) {
+        // sourceT: null（doc: / image: target 以外の想定外レコードも含め、劣化規約により
+        // 表示自体は残す）はサムネイルの対象時刻を持たないため縮退させる。
+        const sourceT = annotation.sourceT;
+        if (!location || !videoUri || sourceT === null) {
             this.renderThumbnailPlaceholder(container);
             return;
         }
-        const cacheKey = `${videoUri}@${annotation.sourceT}`;
+        const cacheKey = `${videoUri}@${sourceT}`;
         const cached = this.thumbnailCache.get(cacheKey);
         if (cached === 'unavailable') {
             this.renderThumbnailPlaceholder(container);
@@ -390,7 +501,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
             const result = await this.annotationsService.getClipThumbnail({
                 projectRootUri: location.root.toString(),
                 videoUri,
-                atSeconds: annotation.sourceT
+                atSeconds: sourceT
             });
             if (!container.isConnected) {
                 return;
@@ -438,7 +549,11 @@ export class AkariReviewBoardWidget extends BaseWidget {
         this.notice.style.display = 'none';
     }
 
-    protected formatTimestamp(value: number): string {
+    /** sourceT: null（doc: / image: target）は時刻表示を持たないため縮退させる（契約 §2）。 */
+    protected formatTimestamp(value: number | null): string {
+        if (value === null) {
+            return '--:--:--.---';
+        }
         const milliseconds = Math.max(0, Math.round(value * 1000));
         const hours = Math.floor(milliseconds / 3_600_000);
         const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);

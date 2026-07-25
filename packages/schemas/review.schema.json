@@ -85,8 +85,8 @@
           "$comment": "edit.json v1 の sources[].id 参照。省略/null = 単一ソース互換。参照整合は edit-lint が検証する。"
         },
         "sourceT": {
-          "$ref": "#/$defs/sourceSeconds",
-          "$comment": "source 秒（cuts[].in/out と同一座標系）。timeline 秒ではない。"
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sourceSeconds" }],
+          "$comment": "source 秒（cuts[].in/out と同一座標系）。timeline 秒ではない。null は target が doc:<path>#<block-id> / image:<path> のときのみ許容する（contract-2026-07-26-doc-image-annotations §2）。動画面の注釈（target が overlay: / cut: / null）は従来どおり必須 — validate-review.mjs / createAnnotation が実体を検証する。"
         },
         "sourceRange": {
           "oneOf": [
@@ -110,7 +110,7 @@
         },
         "target": {
           "oneOf": [{ "type": "null" }, { "type": "string" }],
-          "$comment": "旧フィールド（実質未使用）。targetKind とは別物。本ラウンドでは意味を与えない。"
+          "$comment": "targetKind とは別物。null / overlay:<id> / cut:<index> に加え、contract-2026-07-26-doc-image-annotations §1 で doc:<プロジェクト相対パス>#<block-id>（分析レポート等のブロック注釈）と image:<プロジェクト相対パス>（画像アセットへの注釈）を追加する。doc: / image: のときに限り sourceT は null を許容する（§2）。"
         },
         "targetKind": {
           "oneOf": [
