@@ -1,5 +1,6 @@
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
+import type { CaptionTextStyle, CaptionZone } from '../common/caption-store';
 
 export interface TimelineCutSelection {
     kind: 'cut';
@@ -40,6 +41,8 @@ export interface TimelineCaptionSelection {
     speaker: string | null;
     sourceRef: { segment: number } | null;
     edited: boolean;
+    textStyle?: CaptionTextStyle;
+    effectiveTextStyle?: CaptionTextStyle;
 }
 
 export interface TimelineLayerSelection {
@@ -98,6 +101,14 @@ export type InspectorWriteRequest =
     | { kind: 'layer-blend'; id: string; value: string | null }
     | { kind: 'caption-text'; id: string; value: string }
     | { kind: 'caption-speaker'; id: string; value: string | null }
+    | { kind: 'caption-style-color'; id: string; value: string }
+    | { kind: 'caption-style-size'; id: string; value: number }
+    | { kind: 'caption-style-stroke-color'; id: string; value: string }
+    | { kind: 'caption-style-stroke-width'; id: string; value: number }
+    | { kind: 'caption-style-bg-color'; id: string; value: string }
+    | { kind: 'caption-style-bg-opacity'; id: string; value: number }
+    | { kind: 'caption-style-bg-radius'; id: string; value: number }
+    | { kind: 'caption-style-zone'; id: string; value: CaptionZone }
     | { kind: 'sfx-gain'; id: string; value: number | null }
     | { kind: 'bgm-gain'; value: number | null }
     | { kind: 'bgm-fade-in'; value: number | null }

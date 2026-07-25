@@ -1,5 +1,21 @@
 import URI from '@theia/core/lib/common/uri';
 
+export const PREVIEW_CAPTION_ZONES = [
+    'top-left', 'top', 'top-right',
+    'left', 'center', 'right',
+    'bottom-left', 'bottom', 'bottom-right'
+] as const;
+
+export type PreviewCaptionZone = typeof PREVIEW_CAPTION_ZONES[number];
+
+export interface PreviewCaptionTextStyle {
+    color?: string;
+    sizePx?: number;
+    stroke?: { color?: string; widthPx?: number };
+    background?: { color?: string; opacity?: number; radiusPx?: number };
+    zone?: PreviewCaptionZone;
+}
+
 // akari-transcript の Caption から、プレビュー表示に必要なフィールドだけを複製する。
 export interface PreviewCaption {
     start: number;
@@ -7,6 +23,8 @@ export interface PreviewCaption {
     text: string;
     style?: 'karaoke' | 'pop';
     words?: { start: number; end: number; text: string }[];
+    textStyle?: PreviewCaptionTextStyle;
+    textStyleVars?: Record<string, string>;
 }
 
 export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: URI | undefined): URI | undefined {
@@ -15,9 +33,21 @@ export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: U
 }
 
 export function parsePreviewCaptions(source: string): PreviewCaption[] {
-    const values: unknown = JSON.parse(source);
-    if (!Array.isArray(values)) {
-        throw new Error('captions.json is not an array');
+    const root: unknown = JSON.parse(source);
+    const values = Array.isArray(root)
+        ? root
+        : isRecord(root) && Array.isArray(root.captions)
+            ? root.captions
+            : undefined;
+    if (!values) {
+        throw new Error('captions.json must be an array or an object with captions[]');
+    }
+    const defaultTextStyle = !Array.isArray(root) && isRecord(root)
+        ? normalizeTextStyle(root.default_text_style)
+        : undefined;
+    if (!Array.isArray(root) && isRecord(root)
+        && root.default_text_style !== undefined && defaultTextStyle === undefined) {
+        throw new Error('captions.json default_text_style is invalid');
     }
     const captions: PreviewCaption[] = [];
     for (const value of values) {
@@ -47,13 +77,146 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
                     : [];
             })
             : [];
+        const captionTextStyle = candidate.text_style === undefined
+            ? undefined
+            : normalizeTextStyle(candidate.text_style);
+        if (candidate.text_style !== undefined && captionTextStyle === undefined) {
+            continue;
+        }
+        const textStyle = mergeTextStyles(defaultTextStyle, captionTextStyle);
         captions.push({
             start,
             end,
             text,
             ...(style ? { style } : {}),
-            ...(words.length > 0 ? { words } : {})
+            ...(words.length > 0 ? { words } : {}),
+            ...(textStyle ? {
+                textStyle,
+                textStyleVars: captionTextStyleVars(textStyle)
+            } : {})
         });
     }
     return captions;
+}
+
+export function captionTextStyleVars(style: PreviewCaptionTextStyle | undefined): Record<string, string> {
+    if (!style) {
+        return {};
+    }
+    const vars: Record<string, string> = {};
+    if (style.color !== undefined) {
+        vars['--caption-color'] = style.color;
+    }
+    if (style.sizePx !== undefined) {
+        vars['--caption-font-size'] = `${style.sizePx}px`;
+    }
+    if (style.stroke && (style.stroke.color !== undefined || style.stroke.widthPx !== undefined)) {
+        vars['--caption-text-shadow'] = strokeShadow(
+            style.stroke.color ?? 'rgba(0,0,0,.85)',
+            style.stroke.widthPx ?? 1.5
+        );
+    }
+    if (style.background
+        && (style.background.color !== undefined || style.background.opacity !== undefined)) {
+        vars['--plate-bg'] = colorWithOpacity(
+            style.background.color ?? '#000000',
+            style.background.opacity
+        );
+    }
+    if (style.background?.radiusPx !== undefined) {
+        vars['--plate-radius'] = `${style.background.radiusPx}px`;
+    }
+    Object.assign(vars, zoneVars(style.zone));
+    return vars;
+}
+
+function isRecord(value: unknown): value is Record<string, any> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeTextStyle(value: unknown): PreviewCaptionTextStyle | undefined {
+    if (!isRecord(value)) {
+        return undefined;
+    }
+    const style: PreviewCaptionTextStyle = {};
+    if (typeof value.color === 'string') style.color = value.color;
+    if (typeof value.size_px === 'number' && Number.isFinite(value.size_px)) style.sizePx = value.size_px;
+    if (PREVIEW_CAPTION_ZONES.includes(value.zone as PreviewCaptionZone)) {
+        style.zone = value.zone as PreviewCaptionZone;
+    }
+    if (isRecord(value.stroke)) {
+        style.stroke = {
+            ...(typeof value.stroke.color === 'string' ? { color: value.stroke.color } : {}),
+            ...(typeof value.stroke.width_px === 'number' && Number.isFinite(value.stroke.width_px)
+                ? { widthPx: value.stroke.width_px } : {})
+        };
+    }
+    if (isRecord(value.background)) {
+        style.background = {
+            ...(typeof value.background.color === 'string' ? { color: value.background.color } : {}),
+            ...(typeof value.background.opacity === 'number' && Number.isFinite(value.background.opacity)
+                ? { opacity: value.background.opacity } : {}),
+            ...(typeof value.background.radius_px === 'number' && Number.isFinite(value.background.radius_px)
+                ? { radiusPx: value.background.radius_px } : {})
+        };
+    }
+    return style;
+}
+
+function mergeTextStyles(
+    base: PreviewCaptionTextStyle | undefined,
+    override: PreviewCaptionTextStyle | undefined
+): PreviewCaptionTextStyle | undefined {
+    const merged: PreviewCaptionTextStyle = {
+        ...base,
+        ...override,
+        ...(base?.stroke || override?.stroke ? { stroke: { ...base?.stroke, ...override?.stroke } } : {}),
+        ...(base?.background || override?.background
+            ? { background: { ...base?.background, ...override?.background } } : {})
+    };
+    if (merged.stroke && Object.keys(merged.stroke).length === 0) delete merged.stroke;
+    if (merged.background && Object.keys(merged.background).length === 0) delete merged.background;
+    return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function strokeShadow(color: string, width: number): string {
+    const negative = width === 0 ? '0' : `-${width}px`;
+    const positive = width === 0 ? '0' : `${width}px`;
+    return `${negative} ${negative} 0 ${color}, ${positive} ${negative} 0 ${color}, `
+        + `${negative} ${positive} 0 ${color}, ${positive} ${positive} 0 ${color}, `
+        + '0 0 8px rgba(0,0,0,.6)';
+}
+
+function colorWithOpacity(color: string, explicitOpacity: number | undefined): string {
+    const expanded = color.slice(1).length === 3
+        ? color.slice(1).split('').map(character => character + character).join('')
+        : color.slice(1);
+    const rgb = expanded.slice(0, 6).padEnd(6, '0');
+    const alphaFromColor = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+    const alpha = explicitOpacity ?? alphaFromColor;
+    return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},`
+        + `${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
+}
+
+function zoneVars(zone: PreviewCaptionZone | undefined): Record<string, string> {
+    if (!zone || zone === 'bottom') {
+        return {};
+    }
+    const [vertical, horizontal] = zone.includes('-')
+        ? zone.split('-') as ['top' | 'bottom', 'left' | 'right']
+        : zone === 'top' || zone === 'center'
+            ? [zone, 'center'] as const
+            : ['center', zone] as const;
+    return {
+        '--caption-top': vertical === 'top' ? '7%' : vertical === 'center' ? '0' : 'auto',
+        '--caption-bottom': vertical === 'bottom' ? '7%' : vertical === 'center' ? '0' : 'auto',
+        '--caption-left': '4%',
+        '--caption-right': '4%',
+        '--caption-justify-content': vertical === 'center' ? 'center' : 'flex-start',
+        '--caption-align-items': horizontal === 'left'
+            ? 'flex-start' : horizontal === 'right' ? 'flex-end' : 'center',
+        '--caption-line-margin': '0',
+        '--caption-line-max-width': '100%',
+        '--caption-text-align': horizontal
+    };
 }

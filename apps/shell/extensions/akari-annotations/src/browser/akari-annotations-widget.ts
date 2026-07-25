@@ -14,7 +14,14 @@ import {
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
 import { filmstripChunkIndexFor, waveformBucketForLocalPx } from '../common/filmstrip-geometry';
-import { CaptionRecord, parseCaptions, removeCaptionLine } from '../common/caption-store';
+import {
+    CaptionRecord,
+    CaptionTextStyle,
+    CaptionTextStylePatch,
+    mergeCaptionTextStyles,
+    parseCaptions,
+    removeCaptionLine
+} from '../common/caption-store';
 import {
     EditAudioBgm,
     EditAudioSfx,
@@ -333,6 +340,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected location: ProjectLocation | undefined;
     protected captions: CaptionRecord[] = [];
+    protected defaultTextStyle: CaptionTextStyle | undefined;
     protected cuts: EditCut[] = [];
     /** undefined は v0、配列（空を含む）は v1。 */
     protected sources: EditSource[] | undefined;
@@ -1565,6 +1573,92 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = '字幕を更新しました。';
                     return { ok: true };
                 }
+                case 'caption-style-color':
+                case 'caption-style-size':
+                case 'caption-style-stroke-color':
+                case 'caption-style-stroke-width':
+                case 'caption-style-bg-color':
+                case 'caption-style-bg-opacity':
+                case 'caption-style-bg-radius':
+                case 'caption-style-zone': {
+                    const captionsUri = location.captionsUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const caption = this.captions.find(candidate => candidate.id === request.id);
+                    if (!caption) {
+                        throw new Error(`字幕 ${request.id} が見つかりません。`);
+                    }
+                    let nextStyle: CaptionTextStylePatch;
+                    let originalStyle: CaptionTextStylePatch;
+                    switch (request.kind) {
+                        case 'caption-style-color':
+                            nextStyle = { color: request.value };
+                            originalStyle = { color: caption.textStyle?.color ?? null };
+                            break;
+                        case 'caption-style-size':
+                            nextStyle = { sizePx: request.value };
+                            originalStyle = { sizePx: caption.textStyle?.sizePx ?? null };
+                            break;
+                        case 'caption-style-stroke-color':
+                            nextStyle = { stroke: { color: request.value } };
+                            originalStyle = { stroke: { color: caption.textStyle?.stroke?.color ?? null } };
+                            break;
+                        case 'caption-style-stroke-width':
+                            nextStyle = { stroke: { widthPx: request.value } };
+                            originalStyle = { stroke: { widthPx: caption.textStyle?.stroke?.widthPx ?? null } };
+                            break;
+                        case 'caption-style-bg-color':
+                            nextStyle = { background: { color: request.value } };
+                            originalStyle = { background: { color: caption.textStyle?.background?.color ?? null } };
+                            break;
+                        case 'caption-style-bg-opacity':
+                            nextStyle = { background: { opacity: request.value } };
+                            originalStyle = {
+                                background: { opacity: caption.textStyle?.background?.opacity ?? null }
+                            };
+                            break;
+                        case 'caption-style-bg-radius':
+                            nextStyle = { background: { radiusPx: request.value } };
+                            originalStyle = {
+                                background: { radiusPx: caption.textStyle?.background?.radiusPx ?? null }
+                            };
+                            break;
+                        case 'caption-style-zone':
+                            nextStyle = { zone: request.value };
+                            originalStyle = { zone: caption.textStyle?.zone ?? null };
+                            break;
+                    }
+                    await this.annotationsService.setCaptionTextStyle({
+                        captionsUri,
+                        projectRootUri,
+                        captionId: request.id,
+                        textStyle: nextStyle
+                    });
+                    this.pushHistory({
+                        label: '字幕のスタイルを変更',
+                        undo: async () => {
+                            await this.annotationsService.setCaptionTextStyle({
+                                captionsUri,
+                                projectRootUri,
+                                captionId: request.id,
+                                textStyle: originalStyle
+                            });
+                            await this.reloadCaptions();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setCaptionTextStyle({
+                                captionsUri,
+                                projectRootUri,
+                                captionId: request.id,
+                                textStyle: nextStyle
+                            });
+                            await this.reloadCaptions();
+                        }
+                    });
+                    await this.reloadCaptions();
+                    this.hideNotice();
+                    this.footer.textContent = '字幕のスタイルを更新しました。';
+                    return { ok: true };
+                }
                 case 'sfx-gain': {
                     if (!location.editUri) {
                         throw new Error('edit.json がありません。');
@@ -1825,12 +1919,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const ranges = this.sourceRangeToOutputRanges(caption.start, caption.end);
+            const effectiveTextStyle = mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle);
             this.selectionModel.snapshot = {
                 kind: 'caption', id: caption.id, text: caption.text,
                 sourceStart: caption.start, sourceEnd: caption.end,
                 outputStart: ranges.length > 0 ? ranges[0][0] : undefined,
                 outputEnd: ranges.length > 0 ? ranges[ranges.length - 1][1] : undefined,
-                speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited
+                speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited,
+                ...(caption.textStyle !== undefined ? { textStyle: caption.textStyle } : {}),
+                ...(effectiveTextStyle !== undefined ? { effectiveTextStyle } : {})
             };
         } else if (selection.kind === 'layer') {
             const layer = this.layers.find(candidate => candidate.id === selection.id);
@@ -2501,11 +2598,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async reloadCaptions(): Promise<void> {
         this.captions = [];
+        this.defaultTextStyle = undefined;
         if (this.location) {
             try {
                 const source = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
                 const parsed = parseCaptions(source);
                 this.captions = parsed.captions;
+                this.defaultTextStyle = parsed.defaultTextStyle;
                 if (parsed.warnings.length > 0) {
                     this.showWarnings(parsed.warnings);
                 }
