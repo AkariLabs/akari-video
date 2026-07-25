@@ -1,0 +1,120 @@
+{
+  "a": {
+    "scenario": "a) unwired + marketplace known -> install runs in project cwd",
+    "exitCode": 0,
+    "stdout": "既存の claude を検出: /tmp/akari-plugin-autowire-l1/a-home/.local/bin/claude\nInstalling plugin \"akari@akari\"...✔ Successfully installed plugin: akari@akari (scope: project)\nakari プラグインを配線しました（project scope: /tmp/akari-plugin-autowire-l1/a-project）\n{\"executablePath\":\"/tmp/akari-plugin-autowire-l1/a-home/.local/bin/claude\",\"reused\":true}\n",
+    "stderr": "",
+    "settingsBefore": null,
+    "settingsAfter": {
+      "enabledPlugins": {
+        "akari@akari": true
+      }
+    },
+    "pass": true
+  },
+  "b": {
+    "scenario": "b) enabledPlugins already present -> install NOT called",
+    "exitCode": 0,
+    "stdout": "既存の claude を検出: /tmp/akari-plugin-autowire-l1/b-home/.local/bin/claude\nakari プラグイン配線済み\n{\"executablePath\":\"/tmp/akari-plugin-autowire-l1/b-home/.local/bin/claude\",\"reused\":true}\n",
+    "stderr": "",
+    "settingsBefore": {
+      "enabledPlugins": {
+        "akari@akari": true
+      }
+    },
+    "settingsAfter": {
+      "enabledPlugins": {
+        "akari@akari": true
+      }
+    },
+    "stubInvoked": false,
+    "pass": true
+  },
+  "c": {
+    "scenario": "c) marketplace unknown -> skip install, warn, bootstrap succeeds",
+    "exitCode": 0,
+    "stdout": "既存の claude を検出: /tmp/akari-plugin-autowire-l1/c-home/.local/bin/claude\nakari マーケットプレイスが未登録のため、スキル配線は手動が必要です\n{\"executablePath\":\"/tmp/akari-plugin-autowire-l1/c-home/.local/bin/claude\",\"reused\":true}\n",
+    "stderr": "",
+    "stubInvoked": false,
+    "settingsAfter": null,
+    "pass": true
+  },
+  "d": {
+    "scenario": "d) install exits non-zero -> bootstrap succeeds with a warning",
+    "exitCode": 0,
+    "stdout": "既存の claude を検出: /tmp/akari-plugin-autowire-l1/d-home/.local/bin/claude\nakari プラグインの配線に失敗しました。スキル配線は手動が必要です（接続は続行します）: /tmp/akari-plugin-autowire-l1/d-home/.local/bin/claude exited with code 7\n{\"executablePath\":\"/tmp/akari-plugin-autowire-l1/d-home/.local/bin/claude\",\"reused\":true}\n",
+    "stderr": "",
+    "stubInvoked": true,
+    "invocationRecord": "{\"argv\":\"plugin install akari@akari --scope project\",\"cwd\":\"/private/tmp/akari-plugin-autowire-l1/d-project\"}",
+    "pass": true
+  },
+  "noWorkspace": {
+    "scenario": "(prereq) no workspace root -> wiring step skipped, bootstrap succeeds",
+    "exitCode": 0,
+    "stdout": "既存の claude を検出: /tmp/akari-plugin-autowire-l1/noworkspace-home/.local/bin/claude\nプラグイン配線: プロジェクトの workspace が見つからないためスキップします\n{\"executablePath\":\"/tmp/akari-plugin-autowire-l1/noworkspace-home/.local/bin/claude\",\"reused\":true}\n",
+    "stderr": "",
+    "stubInvoked": false,
+    "pass": true
+  },
+  "e": {
+    "scenario": "e) pre-existing settings.json (permissions) -> non-destructive merge (REAL claude CLI)",
+    "exitCode": 0,
+    "stdout": "既存の claude を検出: /tmp/akari-plugin-autowire-l1/e-home/.local/bin/claude\nInstalling plugin \"akari@akari\"...✔ Successfully installed plugin: akari@akari (scope: project)\nakari プラグインを配線しました（project scope: /tmp/akari-plugin-autowire-l1/e-project）\n{\"executablePath\":\"/tmp/akari-plugin-autowire-l1/e-home/.local/bin/claude\",\"reused\":true}\n",
+    "stderr": "",
+    "settingsBefore": {
+      "permissions": {
+        "allow": [
+          "Read(./**)",
+          "Edit(./planning/**)",
+          "Edit(./exports/**)"
+        ],
+        "deny": [
+          "Edit(/assets/**)"
+        ]
+      }
+    },
+    "settingsAfter": {
+      "permissions": {
+        "allow": [
+          "Read(./**)",
+          "Edit(./planning/**)",
+          "Edit(./exports/**)"
+        ],
+        "deny": [
+          "Edit(/assets/**)"
+        ]
+      },
+      "enabledPlugins": {
+        "akari@akari": true
+      }
+    },
+    "pass": true
+  },
+  "f": {
+    "scenario": "f) user-scope ~/.claude/settings.json enabledPlugins unaffected by --scope project install",
+    "exitCode": 0,
+    "stdout": "既存の claude を検出: /tmp/akari-plugin-autowire-l1/f-home/.local/bin/claude\nInstalling plugin \"akari@akari\"...✔ Successfully installed plugin: akari@akari (scope: project)\nakari プラグインを配線しました（project scope: /tmp/akari-plugin-autowire-l1/f-project）\n{\"executablePath\":\"/tmp/akari-plugin-autowire-l1/f-home/.local/bin/claude\",\"reused\":true}\n",
+    "stderr": "",
+    "userScopeBefore": {
+      "extraKnownMarketplaces": {
+        "akari": {
+          "source": {
+            "source": "directory",
+            "path": "/Users/ryoma/_edit/30_products/akari-video-wt/partner-plugin-autowire"
+          }
+        }
+      }
+    },
+    "userScopeAfter": {
+      "extraKnownMarketplaces": {
+        "akari": {
+          "source": {
+            "source": "directory",
+            "path": "/Users/ryoma/_edit/30_products/akari-video-wt/partner-plugin-autowire"
+          }
+        }
+      }
+    },
+    "pass": true
+  }
+}

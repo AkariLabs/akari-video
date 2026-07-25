@@ -44,7 +44,14 @@ export const AkariPartnerServer = Symbol('AkariPartnerServer');
 
 export interface AkariPartnerServer {
     getPlatformKey(): Promise<string>;
-    bootstrap(agent: PartnerAgentId): Promise<BootstrapResult>;
+    /**
+     * `workspaceRootUri` is the first workspace root's URI (as returned by
+     * `WorkspaceService#roots`), used to scope the `claude` agent's plugin
+     * wiring step (task/2026-07-25-partner-plugin-autowire) to the connecting
+     * project. Omit when no workspace is open — the wiring step is skipped
+     * (fail-soft; bootstrap still completes).
+     */
+    bootstrap(agent: PartnerAgentId, workspaceRootUri?: string): Promise<BootstrapResult>;
     verifyExtensionBinary(request: BinaryVerificationRequest): Promise<BinaryVerificationResult>;
     prepareLaunch(agent: PartnerAgentId): Promise<PartnerLaunchPlan>;
     getRenderPins(): Promise<RenderPins>;

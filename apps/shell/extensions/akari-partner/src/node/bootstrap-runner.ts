@@ -20,6 +20,15 @@ export function bootstrapRunner(): void {
     // installCodexBinary below (F46: partner connect must not reinstall CLIs
     // that are already present).
     const forceReinstall = process.env.AKARI_PARTNER_FORCE_REINSTALL === '1';
+    // task/2026-07-25-partner-plugin-autowire: the connecting project's workspace
+    // root (filesystem path, set by AkariPartnerServerImpl#bootstrap). `--scope
+    // project` writes to cwd-relative .claude/settings.json, so plugin wiring
+    // needs this to run `claude plugin install` in the right directory.
+    const workspaceRoot = process.env.AKARI_PARTNER_WORKSPACE_ROOT;
+    // <plugin-name>@<marketplace-name> — both happen to be "akari"
+    // (.claude-plugin/marketplace.json / plugin/.claude-plugin/plugin.json).
+    const akariPluginId = 'akari@akari';
+    const akariMarketplaceKey = 'akari';
     const explicitSystemPath = [
         '/opt/homebrew/bin',
         '/usr/local/bin',
@@ -194,9 +203,9 @@ export function bootstrapRunner(): void {
         return buffer.subarray(offset, end >= offset && end < offset + length ? end : offset + length).toString('utf8');
     }
 
-    async function run(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
+    async function run(command: string, args: string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<void> {
         await new Promise<void>((resolve, reject) => {
-            const child = spawn(command, args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
+            const child = spawn(command, args, { env, cwd, stdio: ['ignore', 'pipe', 'pipe'] });
             let stderr = '';
             child.stdout.on('data', (chunk: Buffer) => process.stdout.write(chunk));
             child.stderr.on('data', (chunk: Buffer) => {
@@ -220,12 +229,81 @@ export function bootstrapRunner(): void {
         return undefined;
     }
 
+    async function readJsonFile(filePath: string): Promise<unknown> {
+        return JSON.parse(await fs.readFile(filePath, 'utf8'));
+    }
+
+    /**
+     * task/2026-07-25-partner-plugin-autowire: makes sure the akari plugin
+     * (skills namespace `akari:`) is enabled for the connecting project so
+     * `akari:` slash commands appear in the next session. Detection-first
+     * (F46) and fail-soft throughout — every branch either no-ops or logs a
+     * warning via console.log (captured into BootstrapResult.log by the
+     * caller) and returns; it never throws, so a wiring failure never fails
+     * the surrounding claude connection. known_marketplaces.json and the
+     * enabledPlugins shape are undocumented Claude Code internals that may
+     * drift across versions — treat any parse failure as "not wired yet"
+     * rather than erroring.
+     */
+    async function wirePluginSkills(claudeExecutable: string): Promise<void> {
+        if (!workspaceRoot) {
+            console.log('プラグイン配線: プロジェクトの workspace が見つからないためスキップします');
+            return;
+        }
+
+        const settingsPath = path.join(workspaceRoot, '.claude', 'settings.json');
+        let settings: { enabledPlugins?: Record<string, unknown> } | undefined;
+        try {
+            settings = await readJsonFile(settingsPath) as { enabledPlugins?: Record<string, unknown> };
+        } catch {
+            settings = undefined;
+        }
+        if (settings && settings.enabledPlugins && settings.enabledPlugins[akariPluginId]) {
+            console.log('akari プラグイン配線済み');
+            return;
+        }
+
+        const marketplacesPath = path.join(os.homedir(), '.claude', 'plugins', 'known_marketplaces.json');
+        let marketplaces: Record<string, unknown> | undefined;
+        try {
+            const parsed = await readJsonFile(marketplacesPath);
+            marketplaces = typeof parsed === 'object' && parsed ? parsed as Record<string, unknown> : undefined;
+        } catch {
+            marketplaces = undefined;
+        }
+        if (!marketplaces || !marketplaces[akariMarketplaceKey]) {
+            console.log('akari マーケットプレイスが未登録のため、スキル配線は手動が必要です');
+            return;
+        }
+
+        try {
+            // --scope project only (D2: no user-scope / machine-wide install).
+            // cwd matters: --scope project writes to <cwd>/.claude/settings.json.
+            await run(claudeExecutable, ['plugin', 'install', akariPluginId, '--scope', 'project'], {
+                ...process.env,
+                PATH: explicitSystemPath
+            }, workspaceRoot);
+            console.log(`akari プラグインを配線しました（project scope: ${workspaceRoot}）`);
+        } catch (error) {
+            console.log(`akari プラグインの配線に失敗しました。スキル配線は手動が必要です（接続は続行します）: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
     async function main(): Promise<void> {
         const agent = process.argv[process.argv.length - 1];
         if (agent !== 'claude' && agent !== 'codex') {
             throw new Error('expected bootstrap target: claude or codex');
         }
         const outcome = agent === 'claude' ? await runClaudeInstaller() : await installCodexBinary();
+        if (agent === 'claude') {
+            try {
+                await wirePluginSkills(outcome.executablePath);
+            } catch (error) {
+                // Belt-and-suspenders: wirePluginSkills already fail-softs internally,
+                // but a connection must never fail because of the wiring step.
+                console.log(`プラグイン配線ステップで想定外のエラーが発生しました（接続は続行します）: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
         console.log(JSON.stringify(outcome));
     }
 

@@ -24,13 +24,18 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
         return `${process.platform}-${process.arch}`;
     }
 
-    async bootstrap(agent: PartnerAgentId): Promise<BootstrapResult> {
+    async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string): Promise<BootstrapResult> {
         const runtimePath = process.execPath;
         const runtimeMode = this.isElectronExecutable(runtimePath) ? 'electron-as-node' : 'node';
         const runnerSource = `(${bootstrapRunner.toString()})()`;
+        const workspaceRootFsPath = workspaceRootUri ? this.toFsPath(workspaceRootUri) : undefined;
         const env = {
             ...process.env,
-            ELECTRON_RUN_AS_NODE: '1'
+            ELECTRON_RUN_AS_NODE: '1',
+            // Read by bootstrap-runner.ts's claude-branch plugin wiring step
+            // (task/2026-07-25-partner-plugin-autowire). Omitted when no
+            // workspace is open so the runner treats wiring as skippable.
+            ...(workspaceRootFsPath ? { AKARI_PARTNER_WORKSPACE_ROOT: workspaceRootFsPath } : {})
         };
 
         const output = await new Promise<string>((resolve, reject) => {
