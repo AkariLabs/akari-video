@@ -569,6 +569,64 @@ test("sfx t beyond the timeline duration warns without failing", async () => {
   });
 });
 
+test("sfx in/out (R6a trim, contract §2): both present, out-only, and in-only all pass", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "sfx-in-out-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(
+      result.findings.filter((finding) => finding.check === "audio.sfx.in-out").length,
+      0,
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("sfx in/out: out <= in (reversed) fails with audio.sfx.in-out", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "sfx-in-out-reversed-invalid");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "audio.sfx.in-out" && finding.severity === "error",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("sfx in/out: out === in fails with audio.sfx.in-out (out must be strictly greater than in)", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "sfx-in-out-equal-invalid");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "audio.sfx.in-out" && finding.severity === "error",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("bgm.in (R6a trim offset, contract §2) passes without disturbing existing bgm checks", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "bgm-in-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings, null, 2));
+  });
+});
+
 test("beats (見せ場マーカー) v0: 3 items with mixed kinds and optional basis pass with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "beats-v0-valid");

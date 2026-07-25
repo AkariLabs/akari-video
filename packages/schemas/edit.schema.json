@@ -119,10 +119,11 @@
         "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
         "ducking": { "type": "boolean" },
+        "in": { "$ref": "#/$defs/seconds" },
         "fadeIn": { "$ref": "#/$defs/seconds" },
         "fadeOut": { "$ref": "#/$defs/seconds" }
       },
-      "$comment": "fadeIn/fadeOut は秒・省略時 0（フェードなし）。BGM は timeline 全体尺にループ+トリムされるため、どちらかが timeline 尺/2 を超えて指定された場合は尺/2 にクランプされる（render-cut が実装、edit-lint がクランプ発生時に warning を出す）。"
+      "$comment": "fadeIn/fadeOut は秒・省略時 0（フェードなし）。BGM は timeline 全体尺にループ+トリムされるため、どちらかが timeline 尺/2 を超えて指定された場合は尺/2 にクランプされる（render-cut が実装、edit-lint がクランプ発生時に warning を出す）。in は BGM ファイル内の開始オフセット（素材秒・省略時 0）— ループ・fadeIn/fadeOut の既存意味論には影響しない（不変）。"
     },
     "sfxItem": {
       "type": "object",
@@ -132,8 +133,11 @@
         "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 },
         "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "t": { "$ref": "#/$defs/seconds" },
+        "in": { "$ref": "#/$defs/seconds" },
+        "out": { "$ref": "#/$defs/positiveNumber" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 }
-      }
+      },
+      "$comment": "再生区間 = 素材の [in, out)。in は素材秒・省略時 0（素材頭から）。out は素材秒・省略時 素材末尾まで。タイムライン上の開始は従来どおり t（timeline 秒）・表示尺 = out − in。out > in が必須（edit-lint が検証）。実尺越えは消費側（render-cut / preview）が素材末尾へクランプする。"
     },
     "audioMaster": {
       "type": "object",

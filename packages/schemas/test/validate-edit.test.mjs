@@ -117,6 +117,42 @@ test("sfx[].t must be a non-negative finite number", () => {
   assert.match(executed.stderr, /audio\.sfx\[0\]\.t は 0 以上の有限数である必要があります/);
 });
 
+test("sfx[].in/out (R6a trim) both present and well-formed pass", () => {
+  const executed = run("edit-sfx-in-out-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("sfx[].in must be a non-negative finite number", () => {
+  const executed = run("edit-sfx-in-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.sfx\[0\]\.in は 0 以上の有限数である必要があります/);
+});
+
+test("sfx[].out must be a positive finite number (exclusiveMinimum 0)", () => {
+  const executed = run("edit-sfx-out-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.sfx\[0\]\.out は 0 より大きい有限数である必要があります/);
+});
+
+test("sfx[].out rejects non-numeric values", () => {
+  const executed = run("edit-sfx-out-type-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.sfx\[0\]\.out は 0 より大きい有限数である必要があります/);
+});
+
+test("bgm.in (R6a trim offset) well-formed passes", () => {
+  const executed = run("edit-bgm-in-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("bgm.in must be a non-negative finite number", () => {
+  const executed = run("edit-bgm-in-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.bgm\.in は 0 以上の有限数である必要があります/);
+});
+
 test("v1 (sources form) with bgm/sfx passes ($defs/audio is shared by v0 and v1)", () => {
   const executed = run("edit-v1-bgm-sfx-valid");
   assert.equal(executed.status, 0, executed.stderr);

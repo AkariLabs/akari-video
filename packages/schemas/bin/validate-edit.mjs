@@ -445,7 +445,7 @@ function validateBgm(value) {
   if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
     fail("audio.bgm.ducking は boolean である必要があります");
   }
-  for (const field of ["fadeIn", "fadeOut"]) {
+  for (const field of ["in", "fadeIn", "fadeOut"]) {
     if (hasOwn(value, field)) {
       if (!isFiniteNumber(value[field]) || value[field] < 0) {
         fail(`audio.bgm.${field} は 0 以上の有限数である必要があります`);
@@ -469,6 +469,16 @@ function validateSfx(value) {
     validateNonEmptyString(item.path, `${label}.path`);
     if (!isFiniteNumber(item.t) || item.t < 0) {
       fail(`${label}.t は 0 以上の有限数である必要があります`);
+    }
+    if (hasOwn(item, "in")) {
+      if (!isFiniteNumber(item.in) || item.in < 0) {
+        fail(`${label}.in は 0 以上の有限数である必要があります`);
+      }
+    }
+    if (hasOwn(item, "out")) {
+      if (!isFiniteNumber(item.out) || item.out <= 0) {
+        fail(`${label}.out は 0 より大きい有限数である必要があります`);
+      }
     }
     if (hasOwn(item, "gain_db")) {
       if (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12) {

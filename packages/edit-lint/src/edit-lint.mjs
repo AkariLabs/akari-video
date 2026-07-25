@@ -1750,6 +1750,25 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
         path: itemPath,
       });
     }
+    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: in/out はどちらも省略可（片方のみの
+    // 指定は valid）で、型不正（負値・非数値）は schema 側（edit.schema.json + validate-edit.mjs）が
+    // 拒否する。edit-lint はスキーマ単体では表せない兄弟値の関係（out > in）だけをここで検証する
+    // （cuts[].out > in と同じ分担 — cuts.range 参照）。
+    if (
+      Object.hasOwn(item, "in") &&
+      Object.hasOwn(item, "out") &&
+      isFiniteNumber(item.in) &&
+      isFiniteNumber(item.out) &&
+      item.out <= item.in
+    ) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.sfx.in-out",
+        message: "sfx must satisfy in < out when both are present",
+        path: itemPath,
+        range: { start: item.in, end: item.out },
+      });
+    }
   }
 }
 

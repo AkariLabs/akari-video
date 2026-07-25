@@ -1,0 +1,10 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 20.0 }],
+  "overlays": [],
+  "audio": {
+    "bgm": { "path": "audio/bgm.wav", "gain_db": -18, "in": 5.0 }
+  }
+}

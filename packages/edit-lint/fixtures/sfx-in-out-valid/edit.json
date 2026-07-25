@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "source.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 20 }],
+  "overlays": [],
+  "audio": {
+    "sfx": [
+      { "path": "audio/pop.wav", "t": 1.0, "in": 0.5, "out": 1.5 },
+      { "path": "audio/pop.wav", "t": 5.0, "out": 0.8 },
+      { "path": "audio/pop.wav", "t": 8.0, "in": 0.2 }
+    ]
+  }
+}
