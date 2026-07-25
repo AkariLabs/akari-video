@@ -1,0 +1,133 @@
+[
+  {
+    "t": "2026-07-25T07:14:41.602Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T07:14:48.913Z",
+    "step": "precondition-auto-detect",
+    "found": true,
+    "itemCount": 24,
+    "missingCount": 36
+  },
+  {
+    "t": "2026-07-25T07:14:49.276Z",
+    "step": "set-bogus-preference",
+    "ok": true,
+    "readback": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-root-fix/46d7f550-deaf-42f2-82ab-44ded15b8c6b/scratchpad/l1/does-not-exist-bogus-catalog-root"
+  },
+  {
+    "t": "2026-07-25T07:14:49.291Z",
+    "step": "empty-state-after-bogus-preference",
+    "unresolved": true,
+    "pickerButtonPresent": true,
+    "pickerButton": {
+      "x": 131.390625,
+      "y": 193.25
+    },
+    "errorText": null
+  },
+  {
+    "t": "2026-07-25T07:14:49.506Z",
+    "step": "empty-state-reactive-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T07:14:49.563Z",
+    "step": "stub-invalid-folder",
+    "ok": true,
+    "mode": "fixed",
+    "targetUri": "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-root-fix/46d7f550-deaf-42f2-82ab-44ded15b8c6b/scratchpad/l1/invalid-folder"
+  },
+  {
+    "t": "2026-07-25T07:14:50.575Z",
+    "step": "after-invalid-folder-pick",
+    "unresolved": true,
+    "pickerButtonPresent": true,
+    "pickerButton": {
+      "x": 131.390625,
+      "y": 193.25
+    },
+    "errorText": "選んだフォルダーにカタログの内容が見つかりません（3d・telop・audio・broll・font・luts のいずれかのフォルダー、または INDEX.md が必要です）。"
+  },
+  {
+    "t": "2026-07-25T07:14:50.776Z",
+    "step": "L1-2-invalid-folder-PASS",
+    "ok": true,
+    "errorText": "選んだフォルダーにカタログの内容が見つかりません（3d・telop・audio・broll・font・luts のいずれかのフォルダー、または INDEX.md が必要です）。"
+  },
+  {
+    "t": "2026-07-25T07:14:50.778Z",
+    "step": "preference-unchanged-after-invalid",
+    "prefAfterInvalid": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-root-fix/46d7f550-deaf-42f2-82ab-44ded15b8c6b/scratchpad/l1/does-not-exist-bogus-catalog-root",
+    "expected": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-root-fix/46d7f550-deaf-42f2-82ab-44ded15b8c6b/scratchpad/l1/does-not-exist-bogus-catalog-root"
+  },
+  {
+    "t": "2026-07-25T07:14:50.814Z",
+    "step": "stub-valid-folder",
+    "ok": true,
+    "mode": "fixed",
+    "targetUri": "file:///Users/ryoma/_edit/30_products/akari-video-wt/catalog-root-fix/catalog"
+  },
+  {
+    "t": "2026-07-25T07:14:53.554Z",
+    "step": "after-valid-folder-pick",
+    "found": true,
+    "itemCount": 24,
+    "missingCount": 36
+  },
+  {
+    "t": "2026-07-25T07:14:53.793Z",
+    "step": "L1-4-valid-folder-PASS",
+    "ok": true,
+    "itemCount": 24,
+    "missingCount": 36,
+    "emptyStateGone": true
+  },
+  {
+    "t": "2026-07-25T07:14:53.804Z",
+    "step": "preference-after-valid-pick",
+    "prefAfterValid": "/Users/ryoma/_edit/30_products/akari-video-wt/catalog-root-fix/catalog",
+    "expected": "/Users/ryoma/_edit/30_products/akari-video-wt/catalog-root-fix/catalog"
+  },
+  {
+    "t": "2026-07-25T07:14:54.897Z",
+    "step": "regression-search",
+    "query": "ヴィンテージ",
+    "searchKeys": [
+      "3d/vintage-camera"
+    ]
+  },
+  {
+    "t": "2026-07-25T07:14:57.207Z",
+    "step": "regression-category",
+    "category": "3d",
+    "count": 3
+  },
+  {
+    "t": "2026-07-25T07:14:58.073Z",
+    "step": "L1-6-catalog-verbs-regression-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T07:14:59.268Z",
+    "step": "regression-materials-tab",
+    "dzOk": true,
+    "hasRegressionClip": true,
+    "hasUnorganizedSection": true,
+    "hasUnorganizedShot": true,
+    "unorganizedCount": 1
+  },
+  {
+    "t": "2026-07-25T07:14:59.436Z",
+    "step": "L1-6-materials-regression-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T07:14:59.439Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalConsoleErrorCount": 0,
+    "finalErrLog": []
+  }
+]

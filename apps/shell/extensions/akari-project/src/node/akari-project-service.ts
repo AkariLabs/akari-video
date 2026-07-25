@@ -20,6 +20,7 @@ import {
     ProjectGitEligibility
 } from '../common/akari-project-protocol';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
+import { CATALOG_ROOT_UPWARD_MAX_DEPTH, resolveUpwardCatalogRoot } from './catalog-root-search';
 
 const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
@@ -119,7 +120,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * 開発配置へフォールバックしない — ユーザーが明示的に指定した場所を無言で
      * 差し替えると、設定ミスに気づけなくなるため）。未設定のときだけ、
      * findTemplate()/findBundledSkills() と同じ「開発時 cwd 相対 / パッケージ時
-     * __dirname 相対」の候補探索で catalog/ を探す。
+     * __dirname 相対」の固定候補 → 見つからなければ __dirname/process.cwd() 起点の
+     * 上方探索（最大 8 階層・catalog/INDEX.md の存在で判定）で catalog/ を探す。
      */
     async resolveCatalogRoot(preferenceRoot: string | undefined): Promise<string | undefined> {
         const trimmed = preferenceRoot?.trim();
@@ -143,12 +145,30 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 return candidate;
             }
         }
+        for (const start of [__dirname, process.cwd()]) {
+            const match = await resolveUpwardCatalogRoot(
+                start,
+                CATALOG_ROOT_UPWARD_MAX_DEPTH,
+                dir => this.isFile(join(dir, 'catalog', 'INDEX.md'))
+            );
+            if (match) {
+                return join(match, 'catalog');
+            }
+        }
         return undefined;
     }
 
     protected async isDirectory(path: string): Promise<boolean> {
         try {
             return (await fs.stat(path)).isDirectory();
+        } catch {
+            return false;
+        }
+    }
+
+    protected async isFile(path: string): Promise<boolean> {
+        try {
+            return (await fs.stat(path)).isFile();
         } catch {
             return false;
         }

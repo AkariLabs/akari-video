@@ -1,0 +1,21 @@
+[
+  {
+    "t": "2026-07-25T07:07:20.789Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T07:07:24.327Z",
+    "step": "upward-search-state",
+    "found": true,
+    "itemCount": 24,
+    "missingCount": 36,
+    "unresolvedText": false
+  },
+  {
+    "t": "2026-07-25T07:07:24.428Z",
+    "step": "L1-1-PASS",
+    "ok": true,
+    "itemCount": 24,
+    "missingCount": 36
+  }
+]

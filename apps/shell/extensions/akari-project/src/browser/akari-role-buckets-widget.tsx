@@ -6,7 +6,8 @@ import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import { OpenerService, QuickInputService, open } from '@theia/core/lib/browser';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
-import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
+import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { AkariProjectService, DroppedAsset } from '../common/akari-project-protocol';
@@ -84,6 +85,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly quickInputService!: QuickInputService;
     @inject(PreferenceService)
     protected readonly preferences!: PreferenceService;
+    @inject(FileDialogService)
+    protected readonly dialogs!: FileDialogService;
 
     protected activeTab: TabId = 'materials';
     protected materials: MaterialCardEntry[] = [];
@@ -103,6 +106,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogQuery = '';
     protected catalogCategory = 'all';
     protected readonly catalogBrokenThumbnails = new Set<string>();
+    protected catalogPickError?: string;
+    protected catalogPicking = false;
 
     @postConstruct()
     protected init(): void {
@@ -442,6 +447,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.update();
             return;
         }
+        this.catalogPickError = undefined;
         const rootUri = new URI(rootUriString);
         const items: CatalogItemMeta[] = [];
         let missing = 0;
@@ -479,6 +485,64 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         } catch {
             return undefined;
         }
+    }
+
+    /**
+     * 空状態の「フォルダを選ぶ」ボタン。ネイティブフォルダ選択 → 妥当性検証 →
+     * 合格なら preference（akari.catalog.root）を User スコープへ書き込む
+     * （再起動後も効くように — ワークスペース依存にしない）。書き込み後は
+     * onPreferenceChanged 経由でも loadCatalog() が走るが、体感を待たせないよう
+     * ここでも明示的に再読込する。不合格・キャンセル時は preference を書き換えない。
+     */
+    protected async pickCatalogFolder(): Promise<void> {
+        const destination = await this.dialogs.showOpenDialog({
+            title: 'カタログの場所を選ぶ',
+            canSelectFiles: false,
+            canSelectFolders: true
+        });
+        if (!destination) {
+            return;
+        }
+        this.catalogPicking = true;
+        this.catalogPickError = undefined;
+        this.update();
+        const validation = await this.validateCatalogFolder(destination);
+        if (validation.valid === false) {
+            this.catalogPicking = false;
+            this.catalogPickError = validation.reason;
+            this.update();
+            return;
+        }
+        await this.preferences.set(AKARI_CATALOG_ROOT_PREFERENCE, destination.path.fsPath(), PreferenceScope.User);
+        this.catalogPicking = false;
+        void this.loadCatalog();
+    }
+
+    /**
+     * 直下に task.md 指定のカテゴリディレクトリ（3d/telop/audio/broll/font/luts）が
+     * 1 つでもある、または INDEX.md があれば合格とする。どちらもなければ日本語の
+     * 理由を返す（呼び出し側がそのまま画面に出す）。
+     */
+    protected async validateCatalogFolder(uri: URI): Promise<{ valid: true } | { valid: false; reason: string }> {
+        let stat: FileStat;
+        try {
+            stat = await this.files.resolve(uri);
+        } catch {
+            return { valid: false, reason: '選んだフォルダーを読み込めませんでした。もう一度お試しください。' };
+        }
+        const children = stat.children ?? [];
+        const hasIndex = children.some(child => !child.isDirectory && child.resource.path.base === 'INDEX.md');
+        const hasCategoryDirectory = children.some(
+            child => child.isDirectory && (CATALOG_CATEGORIES as readonly string[]).includes(child.resource.path.base)
+        );
+        if (hasIndex || hasCategoryDirectory) {
+            return { valid: true };
+        }
+        return {
+            valid: false,
+            reason: '選んだフォルダーにカタログの内容が見つかりません'
+                + '（3d・telop・audio・broll・font・luts のいずれかのフォルダー、または INDEX.md が必要です）。'
+        };
     }
 
     protected filteredCatalogItems(): CatalogItemMeta[] {
@@ -868,7 +932,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
         if (!this.catalogRootResolved) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>{CATALOG_UNRESOLVED_MESSAGE}</p>;
+            return this.renderCatalogEmptyState();
         }
         const filtered = this.filteredCatalogItems();
         return (
@@ -889,6 +953,30 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             {filtered.map(item => this.renderCatalogCard(item))}
                         </div>}
                 </div>
+            </div>
+        );
+    }
+
+    protected renderCatalogEmptyState(): React.ReactNode {
+        return (
+            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
+                <p style={{ margin: 0, opacity: 0.7 }}>{CATALOG_UNRESOLVED_MESSAGE}</p>
+                <button
+                    type='button'
+                    className='theia-button secondary'
+                    disabled={this.catalogPicking}
+                    onClick={() => void this.pickCatalogFolder()}
+                >
+                    フォルダを選ぶ
+                </button>
+                {this.catalogPickError && (
+                    <p
+                        data-akari-catalog-pick-error
+                        style={{ margin: 0, color: 'var(--theia-errorForeground)', fontSize: '0.85em' }}
+                    >
+                        {this.catalogPickError}
+                    </p>
+                )}
             </div>
         );
     }

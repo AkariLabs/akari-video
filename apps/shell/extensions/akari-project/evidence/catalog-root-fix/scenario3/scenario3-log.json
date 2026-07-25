@@ -1,0 +1,23 @@
+[
+  {
+    "t": "2026-07-25T07:16:49.563Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T07:16:52.729Z",
+    "step": "restart-catalog-state",
+    "counts": {
+      "found": true,
+      "itemCount": 24,
+      "missingCount": 36
+    },
+    "noPickerButtonPresent": true
+  },
+  {
+    "t": "2026-07-25T07:16:52.985Z",
+    "step": "L1-3-restart-persistence-PASS",
+    "ok": true,
+    "itemCount": 24,
+    "missingCount": 36
+  }
+]

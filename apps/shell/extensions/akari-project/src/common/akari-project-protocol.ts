@@ -78,8 +78,8 @@ export interface AkariProjectService {
     /**
      * カタログタブのデータ源解決。preferenceRoot（akari.catalog.root）が
      * 設定されていればそのディレクトリを検証し、未設定ならリポ開発配置
-     * （アプリ相対で catalog/ を探す）にフォールバックする。どちらも
-     * 見つからなければ undefined（呼び出し側は空状態文言を出す）。
+     * （アプリ相対の固定候補 → 見つからなければ上方探索）にフォールバックする。
+     * どちらも見つからなければ undefined（呼び出し側は空状態文言を出す）。
      */
     resolveCatalogRoot(preferenceRoot: string | undefined): Promise<string | undefined>;
     /**
