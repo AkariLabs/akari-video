@@ -1,6 +1,7 @@
 {
   "name": "akari-video",
   "private": true,
+  "license": "MIT",
   "workspaces": [
     "packages/*",
     "apps/*"

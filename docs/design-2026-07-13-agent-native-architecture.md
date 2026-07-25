@@ -2,7 +2,6 @@
 
 - 日付: 2026-07-13
 - 状態: 承認済み（オーナーレビュー済み）
-- 経緯: 旧 `Akari-OS/video` は `video-on-os` に改名し参照実装化。本リポが AKARI Video の名を継承
 
 ## 1. ビジョン
 
@@ -53,7 +52,7 @@
 
 - **映像 = ネイティブ**: `<video>` の currentTime ジャンプではカット境界にヒッチが出る。
   AVMutableComposition はギャップレス + サンプル精度同期 + HW デコード。
-  旧実装が WebCodecs 手動デコード（AKARI-VIDEO-065 の苦労）で戦った領域は OS に任せる
+  旧実装が WebCodecs 手動デコードで戦った領域は OS に任せる
 - **表現 = Web**: LLM の学習データ量で HTML/CSS/Three.js が圧倒的（= プリセット不要の源泉）。
   ブラウザ compositor は DOM 合成に最適化済みでオーバーレイはほぼタダ
 - **旧実装で不可能だった理由**: 旧設計は Canvas 合成（preview=export SSOT）のため映像の
@@ -122,5 +121,4 @@ v2 = Media Foundation。今は macOS のみ。
 
 - Step 1 実験成果物: 編集 JSON + 仮組み動画（セッション成果物）
 - 調査レポート: 非公開の内部 research で管理（本リポには置かない方針）
-- 旧実装: `akari-video-on-os`（WebCodecs preview・字幕パイプライン・MCP 282 ツール等の参照元）
 - HyperFrames: https://github.com/heygen-com/hyperframes

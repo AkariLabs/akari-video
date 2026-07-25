@@ -2,8 +2,8 @@
 
 - 日付: 2026-07-20
 - 状態: 実装ラウンドの SSOT（データ形と検証のみ確定。仮枠コンパイラは §6 の規約先行・実装は次段）
-- 前提: `notes-2026-07-20-review-first-ui-and-scaffold-timeline.md` §3〜§5（本契約はこの節群を
-  昇格したもの）、`contract-2026-07-17-data-contract-versioning.md`（三原則）、
+- 前提: 仮枠タイムラインの方向性メモ §3〜§5（本契約はこの節群を昇格したもの。
+  メモ原本は非公開の内部記録で管理）、`contract-2026-07-17-data-contract-versioning.md`（三原則）、
   `contract-2026-07-18-edit-json-v1-sources.md`（§2 の連結規則と §6 のコンパイル先）、
   `contract-2026-07-13-m5-analysis-report.md`（編集判断レポート = 本データのもう 1 つのレンダリング）
 - スコープ: `plan.json` のデータ形・検証・置き場所・edit.json への接続規約。

@@ -6,9 +6,9 @@
   `contract-2026-07-20-plan-json-v0.md`（隣接契約。`confidence` 状態梯子・`slots[].id`・
   `<plan-dir>` 配置規約の先例）、`skills/research-plan/storyboard.md`（`structure-confirm` の
   現行承認手順）、`skills/edit-plan/approvals-and-generation.md`（3 段階チェックポイントの現行承認手順）
-- 発端: HyperFrames Studio 実機調査（輸入リスト②）。競合の `STORYBOARD.md` +
-  `frame-comments.json` 型「制作中ずっと生きる承認可能プラン層」のうち、AKARI に不足していた
-  **構造化コメント往復**をファイル契約として輸入する
+- 発端: 承認可能なプラン層に不足していた**構造化コメント往復**（対象名指しの修正指示を
+  チャット文脈に依存しないファイルとして受け取る経路）を新設する。
+  判断根拠・出典調査は非公開の内部記録で管理する（本リポには置かない方針）
 - スコープ: `plan-comments.json` のデータ形・置き場所・ライフサイクル規約のみ。
   GUI（プランタブ・ボード UI）、`plan.json` / `research-plan.json` / `edit.json` 本体スキーマの変更、
   `decisions.json`（decision-cards）機構の変更、ステータス梯子の新設は**扱わない**
@@ -78,9 +78,8 @@
 
 ## 3. ライフサイクル契約 — これが契約の全て
 
-HyperFrames `frame-comments.json` の要点（Studio の per-frame コメント欄が Submit 時に一括で
-1 ファイルを書く／スキルはチェックポイントで見つけたら名指し対象だけ直して削除する）を
-そのまま規約化する。
+「人間の提出操作 1 回が一括で 1 ファイルを書く／読み手スキルはチェックポイントで見つけたら
+名指し対象だけ直して削除する」を規約とする。
 
 1. **書き手**は承認チェックポイントでの差し戻し時、まとめて 1 回で `plan-comments.json` を書く
    （人間の GUI 操作 1 回 = ファイル 1 回書き込み。逐次追記ではない）
@@ -131,8 +130,8 @@ HyperFrames `frame-comments.json` の要点（Studio の per-frame コメント�
   ケースを読み手が検知できない。`title` は提出時点の対象名の**コピー**であり、読み手が
   現在の対象名と目視・機械比較することで「ズレ」を検知するための補助情報（正典は `target_id`）
 - **`shot`/`cut` がインデックス文字列である理由**: `research-plan.json` の `structure.shots[]` は
-  id を持つが、Studio 由来の per-frame コメントモデルに揃え、GUI 側の実装を「今何番目の
-  カードにコメントしたか」で完結させる。`slot` だけ `plan.json` の `slots[].id` を使うのは、
+  id を持つが、GUI 側の実装を「今何番目のカードにコメントしたか」で完結させるため
+  インデックスに揃える。`slot` だけ `plan.json` の `slots[].id` を使うのは、
   plan.json の slot が並べ替え時も id で安定して指せる設計（`contract-2026-07-20` §2）だから
   ——同じ理由で cut は id を持たないため slot と同じ扱いにできない
 - **`comments[]` を配列（連想配列でない）にした理由**: 同一対象への複数コメントを許す

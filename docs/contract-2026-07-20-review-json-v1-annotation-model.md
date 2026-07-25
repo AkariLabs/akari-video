@@ -2,7 +2,8 @@
 
 - 日付: 2026-07-20
 - 状態: 実装ラウンドの SSOT（`review.json` の `annotations[]` レコード形のみ確定）
-- 前提: `notes-2026-07-20-review-first-ui-and-scaffold-timeline.md` §2（本契約はこの節を昇格したもの）、
+- 前提: レビュー第一 UI の方向性メモ §2（本契約はこの節を昇格したもの。
+  メモ原本は非公開の内部記録で管理）、
   `contract-2026-07-18-edit-json-v1-sources.md` §3/§4（(src, source 秒) 永続化の鉄則と
   review.json への `src` 伝搬）、`contract-2026-07-17-data-contract-versioning.md`（三原則）、
   `contract-2026-07-14-edit-json-v1-crop.md`（座標系 rationale と劣化規約の先例）

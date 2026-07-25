@@ -55,7 +55,7 @@ edit.json + オーバーレイ HTML + サムネ確定（実行形 = エンジン
   人物セグメンテーションの手: Apple Vision Person Segmentation（ローカル・高速）または
   Robust Video Matting。出力はアルファ付き HEVC（WKWebView が HW デコード可）
 - 分析タイミング: 取り込み時にプロキシ生成と同時に裏で走らせるのを基本とする
-  （粒度の適応・旧 akari-os 分析研究の回収は実装時の TODO）
+  （粒度の適応・旧参照実装の分析研究の回収は実装時の TODO）
 
 ## 編集判断レポート規約
 

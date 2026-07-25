@@ -1,38 +1,107 @@
-# docs — 設計文書
+# AKARI Video ドキュメント
 
-AKARI Video 新実装（本モノレポ）の設計・契約文書。旧実装 `akari-video-tauri`
-（Rust/Tauri v2 シェル、参照実装）の `docs/planning/` から選別インポートした
-9 本を収録する（2026-07-15、Wave I-5）。
+**動画を投げるだけで、いい感じに編集されている。開いて確認して、直したいところだけ直す。**
 
-**正典は本リポ。** 旧実装（Tauri シェル）固有の実装詳細に踏み込む文書・節は
-`akari-video-tauri/docs/planning/` に残置されている（本リポには移送していない）。
-移送済みの契約のうち Tauri/IPC 実装詳細を含んでいたものは、該当節を「legacy 実装note」
-として本文末に隔離または注記した（下表の備考を参照）。
+- はじめての人 → [Introduction](./introduction.md)（思想と全体像）→
+  [Getting Started](./getting-started.md)（最初のプロジェクト）
+- やりたいことがある人 → [Guides](#guides)
+- 仕組み・運用を知りたい人 → [How-to](#how-to)
+- スキーマ・契約を確認したい人 → [Reference](#reference)
 
-## 目次
+## Getting Started
+
+| ページ | 内容 |
+|---|---|
+| [Introduction](./introduction.md) | AKARI Video とは — 3 つの原則・アーキテクチャ概観・ワークフロー |
+| [Getting Started](./getting-started.md) | 3 つの入口・最初のプロジェクト作成・進め方フォーム |
+
+## Guides
+
+タスク別ガイド。制作の流れ順に並んでいます。
+
+| ページ | 内容 |
+|---|---|
+| [ゼロから企画する](./guides/plan-from-scratch.md) | ネタ出し → 調査 → 企画書 → 絵コンテ → 撮影リスト（research-plan） |
+| [素材を分析する](./guides/analyze-footage.md) | プロキシ・文字起こし・キーフレーム抽出と横断分析（analyze-footage / analyze-project） |
+| [編集計画を立てて実行する](./guides/plan-your-edit.md) | 3 段階承認で edit.json へ（edit-plan） |
+| [テロップ・字幕・図表・3D を作る](./guides/overlays-and-captions.md) | AI が描く表現と「触れるオーバーレイ」（overlay-authoring） |
+| [ナレーションを付ける](./guides/narration.md) | ローカル無償 / 声クローン（generate-narration） |
+| [QA・レビューして直す](./guides/review-and-fix.md) | 機械検査・口頭レビューのチケット化・対応（edit-lint / compile-review-session / address-review） |
+| [書き出す](./guides/export.md) | 計画 → 承認 → レンダリング → 検証（render-cut） |
+| [素材ライブラリを育てる](./guides/asset-library.md) | セットアップ・音源・成果物の入庫（setup-library / setup-audio-library / harvest-asset） |
+| [3D シーンをベイクする](./guides/bake-3d.md) | Blender ヘッドレスでレシピを映像素材に（bake-3d） |
+
+## How-to
+
+| ページ | 内容 |
+|---|---|
+| [接続と API キー](./how-to/connections.md) | 接続レジストリ・doctor 診断・コスト承認ポリシー（manage-connections） |
+| [プロジェクト構成](./how-to/project-structure.md) | `.akari/` 配下のファイルの役割と削除してよいもの |
+| [続きから再開する](./how-to/resume-session.md) | `.akari/events/` と SessionStart hook の仕組み |
+| [FAQ・トラブルシューティング](./how-to/faq.md) | よくある質問とエラー対処 |
+
+## Reference
+
+データ契約（スキーマ）と設計文書。**正典は本リポ。** すべての契約は
+[版管理三原則](./contract-2026-07-17-data-contract-versioning.md)（version 必須・追加のみ進化・
+明示マイグレーション）に従います。
+
+### 設計・横断規約
 
 | ファイル | 内容 |
 |---|---|
-| [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md) | agent-native アーキテクチャの思想の正本（サンドイッチ3層構成・編集モデル・MVPマイルストーン） |
-| [contract-2026-07-13-m1-m4.md](./contract-2026-07-13-m1-m4.md) | edit.json スキーマ v0 の確定契約。旧 Tauri シェルの M1〜M4 実装詳細（IPC・ファイル所有権等）は文末に legacy 実装noteとして隔離 |
-| [contract-2026-07-13-asset-library.md](./contract-2026-07-13-asset-library.md) | 素材ライブラリ契約 v0（meta.json スキーマ・入庫基準・catalog/取得スキル・スコープ階層） |
-| [contract-2026-07-13-m5-analysis-report.md](./contract-2026-07-13-m5-analysis-report.md) | M5 契約 v0 — 分析パイプライン（analysis.json）+ 編集判断レポート + 生成スキル |
-| [contract-2026-07-14-3d-bake-recipe.md](./contract-2026-07-14-3d-bake-recipe.md) | 3D ベイクレシピ契約 v0（Blender 経路。scene.py・knobs・実行契約・容量規律） |
-| [contract-2026-07-14-edit-json-v1-crop.md](./contract-2026-07-14-edit-json-v1-crop.md) | edit.json v1 crop（リフレーミング）契約。`cuts[].crop` フィールドの確定スキーマ |
-| [contract-2026-07-14-edit-json-v1-audio.md](./contract-2026-07-14-edit-json-v1-audio.md) | edit.json v1 音声スキーマ契約（`audio.bgm` / `audio.sfx`）。Tauri 実装への言及 3 件を legacy 注記化 |
-| [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | データ契約の版管理・移行原則（横断契約）— version 必須・追加のみ進化・明示マイグレ・forward-compat の三原則。edit.json の運用を全契約へ一般化 |
-| [contract-2026-07-18-edit-json-v1-sources.md](./contract-2026-07-18-edit-json-v1-sources.md) | edit.json v1 sources 契約（`sources[]` / `cuts[].src`・version 1 へ bump・(src, source 秒) 永続化の鉄則・サイドカーへの `src` 伝搬） |
-| [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 注釈モデル契約 — target 5 型（時刻/範囲/空間×時間/素材参照/挿入点）・targetKind 判別子・(src, source 秒) 永続化・timelineT 非推奨化・劣化規約。notes-2026-07-20 §2 の昇格 |
-| [contract-2026-07-20-plan-json-v0.md](./contract-2026-07-20-plan-json-v0.md) | plan.json v0（仮枠タイムライン）契約 — 確定度つきスロット列 + 構造制約・配列順連結（start 非永続化）・fill 3 手段（generate/record/import）・edit.json v1 へのコンパイル規約。notes-2026-07-20 §3〜§5 の昇格 |
-| [notes-2026-07-13-edit-json-v1.md](./notes-2026-07-13-edit-json-v1.md) | edit.json v1 拡張の方向性メモ（出力プロファイル複数化・crop・レイアウト・音声・サムネ枠の初期案） |
-| [notes-2026-07-14-captions-and-cut-editing.md](./notes-2026-07-14-captions-and-cut-editing.md) | 字幕とカット編集の方向性メモ（word 精度カット提案・captions 第一級化・カラオケ表示・強調字幕） |
-| [notes-2026-07-16-qa-lint-and-transcript-ui.md](./notes-2026-07-16-qa-lint-and-transcript-ui.md) | 自己検証ループとトランスクリプト編集 UI の方向性メモ（edit-lint・words confidence・視覚検索トリガー・Monaco MVP / リッチ UI 二段構え。外部設計対話レビューの採否記録含む） |
-| [notes-2026-07-16-headless-first-and-diff-collaboration.md](./notes-2026-07-16-headless-first-and-diff-collaboration.md) | ヘッドレス CLI 完結と差分協調の方向性メモ（アプリ不要経路の不変条件化・HTML レポートの根拠・状態差分による人間→AI 伝達・git コミット粒度・リモートパイプライン構想と遠隔 MVP） |
-| [notes-2026-07-20-review-first-ui-and-scaffold-timeline.md](./notes-2026-07-20-review-first-ui-and-scaffold-timeline.md) | レビュー第一 UI と仮枠タイムラインの方向性メモ（SDK/ハーネスのレイヤー整理・UI のレビューツール再定義・アノテーション対象 5 型・仮枠=アニマティクスと段階パイプライン・スロット確定度と充填手段 generate/record/import） |
+| [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md) | agent-native アーキテクチャの思想の正本（サンドイッチ 3 層・編集モデル・MVP マイルストーン） |
+| [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | データ契約の版管理・移行原則（横断契約） |
+| [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | 生成物の置き場所契約（層の定義・ルート直下原則・削除安全） |
 
-## 移送対象外（判断保留）
+### edit.json（編集のセーブデータ）
 
-`akari-video-tauri/docs/planning/` には他に `notes-2026-07-14-export-fast-path.md`
-（書き出し高速化。非移送の Rust 実装を名指しするため編集前提・判断保留中）と
-`notes-2026-07-14-viewer-ui-round.md`（旧 UI ファイル名に直結。判断保留中）が残る。
-いずれも移送タスクの判断事項として、非公開の内部棚卸しで管理する（本リポには置かない方針）。
+| ファイル | 内容 |
+|---|---|
+| [contract-2026-07-13-m1-m4.md](./contract-2026-07-13-m1-m4.md) | edit.json スキーマ v0 の確定契約 |
+| [contract-2026-07-18-edit-json-v1-sources.md](./contract-2026-07-18-edit-json-v1-sources.md) | v1 sources（複数素材・(src, source 秒) 永続化の鉄則） |
+| [contract-2026-07-14-edit-json-v1-crop.md](./contract-2026-07-14-edit-json-v1-crop.md) | v1 crop（リフレーミング） |
+| [contract-2026-07-14-edit-json-v1-audio.md](./contract-2026-07-14-edit-json-v1-audio.md) | v1 音声（BGM / SFX） |
+| [contract-2026-07-20-edit-json-v1-narration.md](./contract-2026-07-20-edit-json-v1-narration.md) | v1 ナレーション |
+| [contract-2026-07-22-edit-json-v1-beats.md](./contract-2026-07-22-edit-json-v1-beats.md) | v1 ビート（音楽同期） |
+| [contract-2026-07-23-edit-json-v1-direction.md](./contract-2026-07-23-edit-json-v1-direction.md) | v1 演出（direction） |
+| [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 強調ワード |
+| [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
+| [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | タイムライン配置原則・音源複数トラック・音源トリム・ソーストリマー |
+
+### 分析・プラン・レビュー
+
+| ファイル | 内容 |
+|---|---|
+| [contract-2026-07-13-m5-analysis-report.md](./contract-2026-07-13-m5-analysis-report.md) | 分析パイプライン（analysis.json）+ 編集判断レポート |
+| [contract-2026-07-23-analysis-person-matte.md](./contract-2026-07-23-analysis-person-matte.md) | 人物マット抽出（text-behind-person の基盤） |
+| [contract-2026-07-20-plan-json-v0.md](./contract-2026-07-20-plan-json-v0.md) | plan.json v0（仮枠タイムライン・確定度つきスロット列） |
+| [contract-2026-07-25-plan-comments-v0.md](./contract-2026-07-25-plan-comments-v0.md) | plan-comments.json v0（承認可能プラン層への構造化差し戻し） |
+| [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 注釈モデル（target 5 型） |
+
+### 素材・個人層
+
+| ファイル | 内容 |
+|---|---|
+| [contract-2026-07-13-asset-library.md](./contract-2026-07-13-asset-library.md) | 素材ライブラリ契約（meta.json・入庫基準・スコープ階層） |
+| [contract-2026-07-14-3d-bake-recipe.md](./contract-2026-07-14-3d-bake-recipe.md) | 3D ベイクレシピ契約（Blender 経路） |
+| [contract-2026-07-25-recipe-v0.md](./contract-2026-07-25-recipe-v0.md) | recipe.json v0（確認済み選好の凍結と提示） |
+
+### 方向性メモ
+
+実装済み契約の設計背景を残すメモ。新規の方向性検討は非公開の内部記録で管理します。
+
+| ファイル | 内容 |
+|---|---|
+| [notes-2026-07-13-edit-json-v1.md](./notes-2026-07-13-edit-json-v1.md) | edit.json v1 拡張の方向性（crop・レイアウト・音声・サムネ枠の初期案） |
+| [notes-2026-07-14-captions-and-cut-editing.md](./notes-2026-07-14-captions-and-cut-editing.md) | 字幕とカット編集の方向性（word 精度カット・captions 第一級化・カラオケ表示） |
+| [notes-2026-07-16-qa-lint-and-transcript-ui.md](./notes-2026-07-16-qa-lint-and-transcript-ui.md) | 自己検証ループとトランスクリプト編集 UI の方向性（edit-lint の原型） |
+
+## 開発者向け
+
+| ページ | 内容 |
+|---|---|
+| [dev/windows-build.md](./dev/windows-build.md) | Windows ビルドのチェックリスト |
+
+コントリビュートの入口はリポジトリルートの [README](../README.md) と
+各パッケージの README を参照してください。

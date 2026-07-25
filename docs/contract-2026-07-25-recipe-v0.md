@@ -8,10 +8,9 @@
   `contract-2026-07-25-plan-comments-v0.md`（直前の姉妹契約。文体・様式・ドラフト明記の先例）、
   `packages/schemas/intake.schema.json`（`target` 等の既存語彙。§6 参照）、
   `packages/schemas/edit.schema.json`（`narrationProvenance.engine`/`voice` の既存語彙）
-- 発端: HyperFrames Studio 実機調査（オーナー指示 2026-07-24〜25・輸入リスト⑤）。差別化 (3)
-  「セーブデータ SSOT + スタイル学習」の最初の一歩。競合の recipe freeze / remembered defaults
-  規律（確認済みのみ記録・出所付き推奨・レシピ採用は一括確認・offer-once・初回記録の通知）を
-  ファイル契約として輸入する
+- 発端: 確認済み選好の凍結と再利用（確認済みのみ記録・出所付き推奨・レシピ採用は一括確認・
+  offer-once・初回記録の通知）をファイル契約として新設する。
+  判断根拠・出典調査は非公開の内部記録で管理する（本リポには置かない方針）
 - スコープ: `recipe.json` のデータ形・置き場所・記録規律・提示規律のみ。**学習・自動適用・
   スコアリング・レシピの GUI は扱わない**（v0 は記録と提示のみ。§0・§9）
 
@@ -93,7 +92,7 @@
 
 ## 2. 置き場所
 
-> 2026-07-25 第三裁定により `~/.akari/recipes/` のまま確定（asset-library.md 末尾の裁定履歴参照。Akari-OS 全廃止前提）
+> 2026-07-25 の裁定により `~/.akari/recipes/` のまま確定（正本は `contract-2026-07-13-asset-library.md` 末尾「ディレクトリ名の裁定」。経緯は非公開の内部記録で管理）
 
 **`~/.akari/recipes/<name>.json`**（プロジェクト横断の個人層。**オーナー裁定事項** — 本契約が
 新設する唯一のプロジェクト外置き場所）。
@@ -105,7 +104,7 @@
 - 本タスクの検証は**リポ内 fixture で完結させ、実際の `~/.akari/recipes/` へは書き込まない**
   （タスク制約）。スキル側の実運用でこのディレクトリへ書く際は、存在しなければ作成してよい
 
-## 3. データ規律 — HyperFrames recipe freeze / remembered defaults の輸入
+## 3. データ規律 — 凍結（freeze）と提示（recall）
 
 1. **確認済みの値だけ記録する**。推測やデフォルト採用で埋まった値は記録しない
    （ユーザーが推奨を見て受け入れた = 確認とみなす）。`confirmed` に書いてよいのは、
