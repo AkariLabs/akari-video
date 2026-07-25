@@ -1489,12 +1489,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const transport = editUri
                 ? this.reviewTransportByEdit.get(editUri.normalizePath().toString())
                 : undefined;
+            // 裁定（第13報）: edit.json 起因のリロードは直前の再生状態に関わらず必ず
+            // 一時停止で復元する。位置（timelineT）だけは保持する
             return this.refreshPreview(
                 widget,
                 identityUri,
                 kind,
-                transport?.timelineT,
-                transport?.playing
+                transport?.timelineT
             );
         };
         widget.akariPreviewRefresh = previous.then(
@@ -1515,8 +1516,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         identityUri: URI,
         kind: 'raw' | 'output',
-        initialSeekTime?: number,
-        initialPlaying = false
+        initialSeekTime?: number
     ): Promise<void> {
         if (widget.isDisposed) {
             return;
@@ -1667,8 +1667,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             videoStream.url,
             model,
             assets,
-            initialSeekTime,
-            initialPlaying
+            initialSeekTime
         ));
     }
 
@@ -2554,8 +2553,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         videoSource: string,
         model: PreviewModel,
         assets: OverlayRuntimeAssets,
-        initialSeekTime?: number,
-        initialPlaying = false
+        initialSeekTime?: number
     ): string {
         const { width, height } = model.summary.output;
         const captionFontSize = Math.round(height * 0.05);
@@ -2567,7 +2565,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             relatedEditUri: model.relatedEditUri?.toString() ?? null,
             videoUri: videoUri.toString(),
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
-            initialPlaying,
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
             hiddenTracks: model.session?.hiddenTracks ?? [],
@@ -4407,9 +4404,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else if (segments.length > 0) {
                     outputTime = segments[0].outStart;
                     enterSegment(0);
-                }
-                if (initial.initialPlaying === true && !isPlaying) {
-                    togglePlayback();
                 }
             };
             const zoomToSlider = value => {
