@@ -1391,3 +1391,24 @@ test("duplicate captions timeline track warns while multiple audio timeline trac
     assert.ok(findings[0].message.includes("captions"), JSON.stringify(findings, null, 2));
   });
 });
+
+test("non-zero ref audio timeline track declaration warns neither audio-ref nor declaration-missing (R6c-2 ライダー)", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "timeline-tracks-singleton-duplicate-warning"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "timeline.tracks.audio-ref"),
+      JSON.stringify(result.findings, null, 2),
+    );
+    assert.ok(
+      !result.findings.some(
+        (finding) =>
+          finding.check === "timeline.tracks.declaration-missing" &&
+          finding.path.includes("audio"),
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});

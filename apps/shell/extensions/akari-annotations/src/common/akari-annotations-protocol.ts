@@ -145,6 +145,19 @@ export interface TrimCutRequest {
     maxOutSeconds?: number;
 }
 
+/**
+ * ソーストリマーの slip 操作（R6c-2）: out−in（尺）と t を固定したまま in/out を
+ * 同量シフトする。trimCut と異なり at の再計算は発生しない（尺不変のため）。
+ */
+export interface SlipCutRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    in: number;
+    out: number;
+    maxOutSeconds?: number;
+}
+
 export interface ReorderCutsRequest {
     editUri: string;
     projectRootUri: string;
@@ -438,6 +451,7 @@ export interface AkariAnnotationsService {
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;
     resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }>;
     trimCut(request: TrimCutRequest): Promise<WriteBackResult>;
+    slipCut(request: SlipCutRequest): Promise<WriteBackResult>;
     reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult>;
     moveCut(request: MoveCutRequest): Promise<WriteBackResult>;
     setCutAtValues(request: SetCutAtValuesRequest): Promise<WriteBackResult>;

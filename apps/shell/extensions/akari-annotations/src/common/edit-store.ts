@@ -276,6 +276,52 @@ export function trimCutInSource(
     return replaceElement(source, array.openIndex + 1, element, nextText);
 }
 
+/**
+ * ソーストリマーの slip 操作: out−in（尺）と t（タイムライン位置）を固定したまま
+ * in/out を同量シフトする。trimCutInSource と異なり尺そのものは変化しないため、
+ * at の再計算・freezeNextImplicitCutAt（暗黙 at の凍結）は不要
+ * （後続クリップのタイムライン位置に一切影響しない）。
+ */
+export function slipCutInSource(
+    source: string,
+    cutIndex: number,
+    nextIn: number,
+    nextOut: number,
+    maxOutSeconds?: number
+): string {
+    if (maxOutSeconds !== undefined) {
+        if (!Number.isFinite(maxOutSeconds) || maxOutSeconds < 0) {
+            throw new Error('クリップの実尺が不正です。');
+        }
+        if (nextOut > maxOutSeconds) {
+            throw new Error('クリップの out が実尺を超えています。');
+        }
+    }
+    if (!Number.isFinite(nextIn) || !Number.isFinite(nextOut) || nextIn < 0 || nextOut < 0) {
+        throw new Error('クリップの時刻が不正です。');
+    }
+    if (nextOut - nextIn < 0.15) {
+        throw new Error('クリップが短すぎます（0.15 秒未満にはできません）');
+    }
+    const array = locateArray(source, 'cuts');
+    const elements = splitTopLevelElements(array.inner);
+    const element = elements[cutIndex];
+    if (!element) {
+        throw new Error(`クリップ ${cutIndex + 1} が見つかりません`);
+    }
+    const label = `クリップ ${cutIndex + 1}`;
+    const currentIn = readNumberProperty(element.text, 'in', label);
+    const currentOut = readNumberProperty(element.text, 'out', label);
+    let nextText = element.text;
+    if (currentIn !== nextIn) {
+        nextText = replaceNumberProperty(nextText, 'in', nextIn, label);
+    }
+    if (currentOut !== nextOut) {
+        nextText = replaceNumberProperty(nextText, 'out', nextOut, label);
+    }
+    return replaceElement(source, array.openIndex + 1, element, nextText);
+}
+
 export function setCutSpeedInSource(source: string, cutIndex: number, speed: number | null): string {
     if (speed !== null && (!Number.isFinite(speed) || speed <= 0)) {
         throw new Error('speed は正の数で指定してください。');

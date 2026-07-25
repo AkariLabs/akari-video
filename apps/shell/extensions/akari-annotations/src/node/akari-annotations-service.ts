@@ -39,6 +39,7 @@ import {
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
     ShiftCaptionRequest,
+    SlipCutRequest,
     SetBgmFieldsRequest,
     SetCaptionFieldsRequest,
     SetCaptionTextStyleRequest,
@@ -93,6 +94,7 @@ import {
     resizeOverlayInSource,
     setCutSpeedInSource,
     setSfxGainDbInSource,
+    slipCutInSource,
     splitCutInSource,
     setCutAtValuesInSource,
     updateCutOpacityInSource,
@@ -240,6 +242,24 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         );
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップをトリム') };
+    }
+
+    /**
+     * ソーストリマーの slip（R6c-2）: out−in（尺）と t を固定したまま in/out を同量シフトする。
+     * trimSfx と同型で lint ゲートを通す（cuts の他の書き込み経路〔trimCut 等〕はゲート無しだが、
+     * slip は新設 RPC のため sfx 系の慎重な作法に倣う）。
+     */
+    async slipCut(request: SlipCutRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const maxOutSeconds = request.maxOutSeconds !== undefined
+            ? request.maxOutSeconds
+            : await this.probeMaxOutSeconds(source, editPath, this.fsPath(request.projectRootUri), request.cutIndex);
+        const updated = slipCutInSource(source, request.cutIndex, request.in, request.out, maxOutSeconds);
+        await this.assertLintPasses(editPath, updated);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップをスリップ') };
     }
 
     /**

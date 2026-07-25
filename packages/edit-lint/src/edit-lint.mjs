@@ -883,16 +883,9 @@ function validateTimelineTracks(edit, findings) {
     }
 
     if (!validRef || item.kind === "captions") continue;
+    // audio の ref は R6 契約 §1 裁定 2（2026-07-25）で複数トラック化されたため、
+    // 0 固定を要求しない（非 0 ref も正当な宣言として declarations に加える）。
     const ref = item.kind === "audio" && !hasRef ? 0 : item.ref;
-    if (item.kind === "audio" && ref !== 0) {
-      addFinding(findings, {
-        severity: "warning",
-        check: "timeline.tracks.audio-ref",
-        message: "audio timeline track ref must be 0 when present",
-        path: `${path}.ref`,
-      });
-      continue;
-    }
     if (ref === undefined) continue;
     declarations.add(`${item.kind}:${ref}`);
     if (!actualTracks.get(item.kind)?.has(ref)) {
