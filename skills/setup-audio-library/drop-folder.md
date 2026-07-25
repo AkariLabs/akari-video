@@ -5,8 +5,10 @@
 
 ## 1. ドロップフォルダの場所
 
-既定は `~/.config/akari-video/audio-drop/`（`~/.config/akari-video/credentials.env` や
-`~/.config/akari-video/voice-profiles/` と同じ user レベル・git 管理外の置き場）。
+既定は `~/.akari/audio-drop/`（2026-07-25 第三裁定でプロジェクト外置き場所の基底を
+`~/.akari/` に統一。`~/.config/akari-video/credentials.env` や
+`~/.config/akari-video/voice-profiles/` は認証情報の置き場として別論点のため現状維持
+— いずれも user レベル・git 管理外の置き場である点は共通）。
 ユーザーがブラウザでダウンロードしたファイルを、そのままこのフォルダへ移動・保存して
 もらう。`~/Downloads` を直接監視しない（無関係なダウンロードと混在し誤登録するリスクを
 避けるため、音源専用の場所を切る）。
@@ -15,7 +17,7 @@
 
 ```sh
 node packages/audio-library-setup/bin/register-drop-folder.mjs \
-  --drop-dir ~/.config/akari-video/audio-drop
+  --drop-dir ~/.akari/audio-drop
 ```
 
 `--apply` を付けない限り**ファイルは一切動かず、catalog にも一切書き込まない**。
@@ -26,10 +28,10 @@ node packages/audio-library-setup/bin/register-drop-folder.mjs \
 
 ```sh
 node packages/audio-library-setup/bin/register-drop-folder.mjs \
-  --drop-dir ~/.config/akari-video/audio-drop --apply
+  --drop-dir ~/.akari/audio-drop --apply
 ```
 
-- **一致したファイル**: `~/.akari-video/assets/audio/<candidate-id>/` （user スコープ、
+- **一致したファイル**: `~/.akari/assets/audio/<candidate-id>/` （user スコープ、
   [setup-library/fetch-and-validate.md](../setup-library/fetch-and-validate.md) と同じ
   スコープ階層）へ実体を移動し、`meta.json`（実体あり・`remote` キーなし）を書く。
   同時に `catalog/audio/<candidate-id>/meta.json`（`remote: true` の参照 SSOT）が
@@ -57,7 +59,7 @@ OtoLogic の一部）だけ。DOVA-SYNDROME・Pixabay・Freesound のタグ/検�
 ## 5. 検証
 
 ```sh
-node packages/schemas/bin/validate-asset.mjs ~/.akari-video/assets/audio/<candidate-id>
+node packages/schemas/bin/validate-asset.mjs ~/.akari/assets/audio/<candidate-id>
 ```
 
 失敗したら理由（大抵は `preview.png` 未生成 = ffmpeg 不在）をそのまま報告する。

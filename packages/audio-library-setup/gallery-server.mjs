@@ -125,7 +125,7 @@ function sendJson(res, status, body) {
 }
 
 /**
- * @param {string} libraryRoot 試聴対象の実体ライブラリ（例: ~/.akari-video/assets/audio）
+ * @param {string} libraryRoot 試聴対象の実体ライブラリ（例: ~/.akari/assets/audio）
  */
 export function createGalleryServer(libraryRoot) {
     let mutationQueue = Promise.resolve();

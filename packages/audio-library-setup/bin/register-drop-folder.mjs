@@ -3,8 +3,8 @@
 //
 // ユーザーが手動でダウンロードして置いたファイルを指定フォルダから走査し、
 // catalog/audio/candidates.json と照合してファイル単位で以下を行う:
-//   - 一致: ~/.akari-video/assets/audio/<id>/ （user スコープ、既存の
-//     harvest-asset/setup-library と同じスコープ階層）へ実体を移動 +
+//   - 一致: `--library-root` 既定値（user スコープ、既存の
+//     harvest-asset/setup-library と同じスコープ階層）配下の <id>/ へ実体を移動 +
 //     そこの meta.json（実体あり・remote なし）+ catalog/audio/<id>/meta.json
 //     （remote:true・参照専用の SSOT）の両方を用意する
 //   - 不一致: ドロップフォルダ内の _quarantine/ へ移動し、manifest.json に
@@ -38,8 +38,8 @@ const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac
 
 function parseArguments(argv) {
     const options = {
-        dropDir: path.join(os.homedir(), '.config', 'akari-video', 'audio-drop'),
-        libraryRoot: path.join(os.homedir(), '.akari-video', 'assets', 'audio'),
+        dropDir: path.join(os.homedir(), '.akari', 'audio-drop'),
+        libraryRoot: path.join(os.homedir(), '.akari', 'assets', 'audio'),
         catalogDir: path.join(repoRoot, 'catalog', 'audio'),
         candidatesPath: path.join(repoRoot, 'catalog', 'audio', 'candidates.json'),
         apply: false,

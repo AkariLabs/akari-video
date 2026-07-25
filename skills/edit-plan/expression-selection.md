@@ -89,7 +89,7 @@
 
 **手段が決まってから素材を探す**（素材を先に見つけて手段を後付けしない）。探索は
 [report-guide.md](report-guide.md#素材計画) の全スコープ層を近い順（プロジェクト `assets/` →
-上位ディレクトリの `.akari-video/assets/` → `~/.akari-video/assets/` → 製品リポ `assets/` →
+上位ディレクトリの `.akari/assets/` → `~/.akari/assets/` → 製品リポ `assets/` →
 `catalog/`）に行い、どの層のヒットかを明記する。
 
 - **検索キーは `when_to_use` と `tags`** である。`when_to_use` はシーンの意味と直接突き合わせ、

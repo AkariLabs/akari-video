@@ -11,7 +11,7 @@
 |---|---|
 | `shared/candidates.mjs` | `catalog/audio/candidates.json` の読み込み・ファイル名マッチング・既所有（ownership）判定・meta.json 組み立てを行う共有ロジック（`lib/` ではなく `shared/` にしているのはリポ直下 `.gitignore` の `lib/` パターンと衝突するため） |
 | `bin/generate-candidates-html.mjs` | 候補リストの静的自己完結 HTML を生成する CLI。ダウンロードは一切行わない |
-| `bin/register-drop-folder.mjs` | ドロップフォルダを走査し、候補と照合して `~/.akari-video/assets/audio/<id>/`（user スコープ）へ実体配置 + `catalog/audio/<id>/meta.json`（remote 参照）を書く CLI。既定は plan-only、`--apply` で実行 |
+| `bin/register-drop-folder.mjs` | ドロップフォルダを走査し、候補と照合して `~/.akari/assets/audio/<id>/`（user スコープ）へ実体配置 + `catalog/audio/<id>/meta.json`（remote 参照）を書く CLI。既定は plan-only、`--apply` で実行 |
 | `gallery-server.mjs` + `gallery-template.html` | 登録済み音源の試聴 + keep/drop を記録するローカル HTTP サーバ（`127.0.0.1` のみ） |
 | `bin/gallery-helper.mjs` | 試聴ギャラリーの起動 CLI |
 | `test/*.test.mjs` | `node --test` によるユニット/統合テスト（`mkdtemp` で隔離、本リポや実ホームディレクトリには書き込まない） |
@@ -31,15 +31,15 @@ node packages/audio-library-setup/bin/generate-candidates-html.mjs
 
 # ドロップフォルダを確認だけする（既定・安全）
 node packages/audio-library-setup/bin/register-drop-folder.mjs \
-  --drop-dir ~/.config/akari-video/audio-drop
+  --drop-dir ~/.akari/audio-drop
 
 # 実際に登録する
 node packages/audio-library-setup/bin/register-drop-folder.mjs \
-  --drop-dir ~/.config/akari-video/audio-drop --apply
+  --drop-dir ~/.akari/audio-drop --apply
 
 # 試聴ギャラリーを起動
 node packages/audio-library-setup/bin/gallery-helper.mjs \
-  --library-root ~/.akari-video/assets/audio
+  --library-root ~/.akari/assets/audio
 ```
 
 ## テスト

@@ -24,7 +24,7 @@ description: BGM・効果音の音源ライブラリを増やしたいときに�
    - **直列取得・リクエスト間 3〜5 秒スリープ・通常ブラウザ相当 UA・失敗はリトライ 1 回
      まで。** 一括・並列取得はしない
    - **取得元ページ URL・取得日時・ライセンス・クレジット要否を来歴として必ず記録する**
-     （`~/.akari-video/assets/audio/_staging/<site>/<id>/` 等の評価用ステージングに
+     （`~/.akari/assets/audio/_staging/<site>/<id>/` 等の評価用ステージングに
      `.meta.json` を添える）
    - **評価後、keep 以外は破棄する。** 取得はあくまで「まとめて試聴して選ぶ」ための
      一時ステージングであり、無条件の永続保存ではない
@@ -41,7 +41,7 @@ description: BGM・効果音の音源ライブラリを増やしたいときに�
 4. **`ai_training_allowed` を安全側に倒す。** 配布元の規約が AI 学習利用を明示的に許可して
    いない限り `false` にする（未許諾を許可とみなさない）。CC0 明記のみ `true`。
 5. **音声実体を本リポにコミットしない。** 実ファイルは常にリポジトリ外
-   （`~/.akari-video/assets/audio/<id>/` 等の user スコープ）へ置く。`catalog/audio/` には
+   （`~/.akari/assets/audio/<id>/` 等の user スコープ）へ置く。`catalog/audio/` には
    `remote: true` の参照メタしか置かない。
 6. **既存の `catalog/audio/<id>/` を無断で上書きしない。** id が衝突したら書き込みをスキップし
    ログに残す（harvest-asset / setup-library と同じ規律）。

@@ -59,7 +59,7 @@ source fragment と同階層の依存 asset を読み、作業用一時ディレ
 1. **when_use** → `when_to_use`: どの scene / 目的で使うか。
 2. **ai_usage**: AI が変えてよい部分、守る部分、禁止する改変。
 3. **license**: SPDX、commercial scope、attribution 要否、AI training 可否。license 不明を既定許可にしない。
-4. **登録先スコープ**: `local`（そのプロジェクトのみ）/ `shared`（上位ディレクトリの `.akari-video/assets/`、事業・組織単位）/ `user`（`~/.akari-video/assets/`、全プロジェクト共通の定番）/ `builtin`（製品リポ。昇格は PR 経路）。目安を添えて聞く: プロジェクト固有の文言・素材が残るなら `local`、汎用化できたなら `user`。黙って `builtin` に入れない。
+4. **登録先スコープ**: `local`（そのプロジェクトのみ）/ `shared`（上位ディレクトリの `.akari/assets/`、事業・組織単位）/ `user`（`~/.akari/assets/`、全プロジェクト共通の定番）/ `builtin`（製品リポ。昇格は PR 経路）。目安を添えて聞く: プロジェクト固有の文言・素材が残るなら `local`、汎用化できたなら `user`。黙って `builtin` に入れない。
 
 回答を `meta.json` に反映する。license が確定しない asset はどの層にも入れない。
 
@@ -75,7 +75,7 @@ preview は中身を識別するためのものとし、source と違う架空�
 
 ## 5. 選ばれたスコープの `assets/<category>/` へ配置する
 
-配置先は**登録先スコープ（手順 3 で確定）の** `assets/<category>/<id>/` とし、階層を増やさない。スコープの実ディレクトリ（`local` = プロジェクト内 / `shared` = 上位の `.akari-video/assets/` / `user` = `~/.akari-video/assets/`）が無ければ category と INDEX.md ごと新設する。層が違っても構造・meta.json v0・validator は同一。最低限、次をそろえる。
+配置先は**登録先スコープ（手順 3 で確定）の** `assets/<category>/<id>/` とし、階層を増やさない。スコープの実ディレクトリ（`local` = プロジェクト内 / `shared` = 上位の `.akari/assets/` / `user` = `~/.akari/assets/`）が無ければ category と INDEX.md ごと新設する。層が違っても構造・meta.json v0・validator は同一。最低限、次をそろえる。
 
 - `meta.json`
 - `preview.png`

@@ -12,7 +12,7 @@ const HOST = '127.0.0.1';
 
 function parseArguments(argv) {
     const options = {
-        libraryRoot: path.join(os.homedir(), '.akari-video', 'assets', 'audio'),
+        libraryRoot: path.join(os.homedir(), '.akari', 'assets', 'audio'),
         port: 0,
     };
     for (let i = 0; i < argv.length; i += 1) {

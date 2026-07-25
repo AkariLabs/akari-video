@@ -59,7 +59,7 @@ node packages/audio-library-setup/bin/generate-candidates-html.mjs \
 ```text
 音源の候補リストを用意しました: catalog/audio/candidates.html
 「ダウンロードページを開く」を押すと配布元の正規ページが開きます。実際の保存は
-あなた自身で行ってください。保存先は ~/.config/akari-video/audio-drop/
+あなた自身で行ってください。保存先は ~/.akari/audio-drop/
 （無ければ作成してください）に置くと、次に登録スクリプトを実行したときに自動で
 拾われます。
 ```

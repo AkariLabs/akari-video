@@ -8,7 +8,7 @@
 
 ```sh
 node packages/audio-library-setup/bin/gallery-helper.mjs \
-  --library-root ~/.akari-video/assets/audio
+  --library-root ~/.akari/assets/audio
 ```
 
 起動すると `HELPER: http://localhost:<port>/` を標準出力に出す。ユーザーへそのまま
@@ -16,7 +16,7 @@ node packages/audio-library-setup/bin/gallery-helper.mjs \
 
 ## 2. 画面で分かること
 
-- `~/.akari-video/assets/audio/<id>/meta.json` を持つ登録済みエントリを一覧表示する
+- `~/.akari/assets/audio/<id>/meta.json` を持つ登録済みエントリを一覧表示する
   （`meta.json` はあるが再生可能な音声実体が無いエントリは表示しない）
 - 各エントリの音声ファイルを `<audio controls>` でその場再生できる
   （`/media/<id>/<filename>` 経由でのみ配信。ライブラリ外のファイルは配信しない）
@@ -25,7 +25,7 @@ node packages/audio-library-setup/bin/gallery-helper.mjs \
 - 画面上部の入力欄で id / タイトルを絞り込み検索できる
 - 「keep 一覧をコピー」ボタンで、現在 keep 判定済みの id を JSON 配列としてクリップボードへ
   コピーできる（オーナーがフィードバックとして他ツールへ貼り付ける用途）
-- keep / drop ボタンで決定を記録する。決定は `~/.akari-video/assets/audio/_gallery-state.json`
+- keep / drop ボタンで決定を記録する。決定は `~/.akari/assets/audio/_gallery-state.json`
   へ即時保存される（ページを閉じても消えない）。もう一度同じボタンを押すと決定を解除する
 
 ## 3. keep / drop の扱い

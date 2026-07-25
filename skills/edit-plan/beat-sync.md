@@ -201,14 +201,14 @@
 ### 探索層と充足状況（2026-07-22 実測）
 
 素材の探索順は [report-guide.md](report-guide.md#素材計画) の全スコープ層（プロジェクト `assets/` →
-上位ディレクトリの `.akari-video/assets/` → `~/.akari-video/assets/` → 製品リポ `assets/` →
+上位ディレクトリの `.akari/assets/` → `~/.akari/assets/` → 製品リポ `assets/` →
 `catalog/`）に従う。2026-07-22 時点の実測は次のとおりである。
 
 | 層 | 実体 | 状態 |
 |---|---|---|
 | 製品リポ `assets/audio/` | `INDEX.md` のみ（「まだ素材なし」） | **未充足**（全 kind） |
 | `catalog/audio/`（15 パック） | `meta.json` のみ。全件 `"remote": true` | **未充足**（参照配布のみ・実体バイナリを置かない規約） |
-| ユーザーライブラリ `~/.akari-video/assets/audio/`（10 パック・340 ファイル） | 音源実体あり | **充足**（下表はここの実体を指す） |
+| ユーザーライブラリ `~/.akari/assets/audio/`（10 パック・340 ファイル） | 音源実体あり | **充足**（下表はここの実体を指す） |
 
 したがって**製品リポジトリ内には SE の実体が 1 件も無く、リポジトリ層としては 5 kind すべてが
 未充足**である。下表の既定はユーザーライブラリ層の実在ファイルであり、この層が無い環境では
@@ -218,7 +218,7 @@
 
 ### 既定表
 
-パス基点は `~/.akari-video/assets/audio/`。`catalog/audio/<pack-id>/meta.json` が
+パス基点は `~/.akari/assets/audio/`。`catalog/audio/<pack-id>/meta.json` が
 ライセンス・クレジット要件の正であり、下表の値はそれと突き合わせ済みである。
 
 | kind | 音の性格 | 既定 SE（実在パス・優先順） | ライセンス | クレジット | 状態 |
