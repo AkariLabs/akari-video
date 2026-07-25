@@ -1,6 +1,15 @@
-# AKARI Video
+<div align="center">
+
+![AKARI Video — 意図は人、手は AI。](./docs/assets/brand/hero-banner.png)
 
 **動画を投げるだけで、いい感じに編集されている。開いて確認して、直したいところだけ直す。**
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-ff8a00)](./LICENSE)
+![Status: under construction](https://img.shields.io/badge/status-under_construction-1a1a1a)
+![Agent skills: 17](https://img.shields.io/badge/agent_skills-17-ff8a00)
+![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
+
+</div>
 
 AKARI Video は AI エージェントが編集の主体になる動画編集ツールです。
 アプリは「編集する場所」ではなく「確認して直す場所」。素材を渡すと、分析・カット・テロップ・
@@ -29,6 +38,10 @@ AKARI Video はその二択を壊すために作りました。
 
 エージェントと人間は同じセーブデータ（ファイル契約）の上で協働します。
 
+<p align="center">
+  <img src="./docs/assets/brand/concept-savedata.png" alt="エージェントと人間が同じ edit.json を読み書きし、そこからタイムラインが描画される図" width="760">
+</p>
+
 - **`edit.json` が編集の SSOT** — エージェントはツール呼び出しの積み重ねではなく、
   セーブデータを直接読み書きする。速く、壊れず、diff で追える
 - **表現にプリセットはない** — 字幕・テロップ・図形・3D は AI が HTML/CSS/Three.js で自由に描く。
@@ -40,10 +53,17 @@ AKARI Video はその二択を壊すために作りました。
 
 ワークフローは段階ごとにスキル化されています:
 
-```
-企画 → 素材分析 → 編集計画 → テロップ/ナレーション → QA・レビュー → 書き出し → 素材化
-(research-plan) (analyze-footage) (edit-plan) (overlay-authoring / (edit-lint /    (render-cut) (harvest-asset)
-                                              generate-narration)  address-review)
+```mermaid
+flowchart LR
+    A["企画<br/>research-plan"] --> B["素材分析<br/>analyze-footage"]
+    B --> C["編集計画<br/>edit-plan"]
+    C --> D["テロップ / ナレーション<br/>overlay-authoring<br/>generate-narration"]
+    D --> E["QA・レビュー<br/>edit-lint<br/>address-review"]
+    E --> F["書き出し<br/>render-cut"]
+    F --> G["素材化<br/>harvest-asset"]
+    G -.素材は次の企画へ.-> A
+    classDef stage fill:#1a1a1a,stroke:#ff8a00,color:#ffffff
+    class A,B,C,D,E,F,G stage
 ```
 
 ## はじめる — 3 つの入口
