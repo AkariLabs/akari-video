@@ -1389,7 +1389,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const projectRootUri = location.root.toString();
                     const layer = this.layers.find(candidate => candidate.id === request.id);
                     if (!layer) {
-                        throw new Error(`レイヤー ${request.id} が見つかりません。`);
+                        throw new Error(`素材 ${request.id} が見つかりません。`);
                     }
                     const property = request.kind === 'layer-transform-x' ? 'x'
                         : request.kind === 'layer-transform-y' ? 'y'
@@ -1404,7 +1404,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         ...nextFields
                     });
                     this.pushHistory({
-                        label: 'レイヤーの変形を変更',
+                        label: '素材の変形を変更',
                         undo: async () => {
                             await this.annotationsService.setLayerTransform({
                                 editUri,
@@ -1426,7 +1426,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadEdit();
                     this.hideNotice();
-                    this.footer.textContent = 'レイヤーの変形を変更しました。';
+                    this.footer.textContent = '素材の変形を変更しました。';
                     return { ok: true };
                 }
                 case 'layer-opacity': {
@@ -1437,7 +1437,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const projectRootUri = location.root.toString();
                     const layer = this.layers.find(candidate => candidate.id === request.id);
                     if (!layer) {
-                        throw new Error(`レイヤー ${request.id} が見つかりません。`);
+                        throw new Error(`素材 ${request.id} が見つかりません。`);
                     }
                     const original = layer.opacity ?? null;
                     await this.annotationsService.setLayerOpacity({
@@ -1447,7 +1447,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         opacity: request.value
                     });
                     this.pushHistory({
-                        label: 'レイヤーの不透明度を変更',
+                        label: '素材の不透明度を変更',
                         undo: async () => {
                             await this.annotationsService.setLayerOpacity({
                                 editUri,
@@ -1469,7 +1469,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadEdit();
                     this.hideNotice();
-                    this.footer.textContent = 'レイヤーの不透明度を変更しました。';
+                    this.footer.textContent = '素材の不透明度を変更しました。';
                     return { ok: true };
                 }
                 case 'layer-blend': {
@@ -1480,7 +1480,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const projectRootUri = location.root.toString();
                     const layer = this.layers.find(candidate => candidate.id === request.id);
                     if (!layer) {
-                        throw new Error(`レイヤー ${request.id} が見つかりません。`);
+                        throw new Error(`素材 ${request.id} が見つかりません。`);
                     }
                     const original = layer.blend ?? null;
                     await this.annotationsService.setLayerBlend({
@@ -1490,7 +1490,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         blend: request.value
                     });
                     this.pushHistory({
-                        label: 'レイヤーの合成を変更',
+                        label: '素材の合成を変更',
                         undo: async () => {
                             await this.annotationsService.setLayerBlend({
                                 editUri,
@@ -1512,7 +1512,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadEdit();
                     this.hideNotice();
-                    this.footer.textContent = 'レイヤーの合成を変更しました。';
+                    this.footer.textContent = '素材の合成を変更しました。';
                     return { ok: true };
                 }
                 case 'caption-text':
@@ -2060,7 +2060,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 const layer = this.layers.find(candidate => candidate.id === selection.id);
                 if (!layer || !this.validTimelinePosition(layer.t, layer.track ?? 0)) {
-                    this.showNotice('レイヤーの時刻またはトラックが不正です。');
+                    this.showNotice('素材の時刻またはトラックが不正です。');
                     return;
                 }
                 const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
@@ -2072,7 +2072,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 await this.pruneEmptyDeclaredTracks();
                 const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
                 this.pushHistory({
-                    label: 'レイヤーの削除',
+                    label: '素材の削除',
                     undo: async () => {
                         await this.writeTimelineSnapshots(editBefore);
                         await this.reloadEdit();
@@ -2082,7 +2082,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         await this.reloadEdit();
                     }
                 });
-                this.footer.textContent = this.writeResultMessage('レイヤーを削除しました。', result);
+                this.footer.textContent = this.writeResultMessage('素材を削除しました。', result);
             } else {
                 if (!location.editUri || selection.id === 'bgm') {
                     this.footer.textContent = 'BGM は削除できません。';
@@ -3462,7 +3462,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             popup.replaceChildren();
             const kinds: Array<{ kind: TimelineTrackKind; label: string }> = [
                 { kind: 'cuts', label: '映像' },
-                { kind: 'layers', label: 'レイヤー' },
+                { kind: 'layers', label: 'テロップ/PinP' },
                 { kind: 'overlays', label: 'オーバーレイ' },
                 { kind: 'captions', label: '字幕' },
                 { kind: 'audio', label: 'オーディオ' }
@@ -5224,12 +5224,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 if (!Number.isFinite(preview.t) || preview.t < 0 || !Number.isFinite(preview.duration)
                     || preview.duration < MINIMUM_ITEM_DURATION || !Number.isInteger(preview.track) || preview.track < 0) {
-                    this.showNotice('レイヤーが短すぎるか、移動先が不正です（0.15 秒以上必要です）。');
+                    this.showNotice('素材が短すぎるか、移動先が不正です（0.15 秒以上必要です）。');
                     return;
                 }
                 const original = this.layers.find(layer => layer.id === preview.id);
                 if (!original) {
-                    throw new Error(`レイヤー ${preview.id} が見つかりません`);
+                    throw new Error(`素材 ${preview.id} が見つかりません`);
                 }
                 const originalTrackState = await this.readIdTrackState('layers');
                 const insertSnapshotBefore = preview.insertTrack !== undefined
@@ -5249,9 +5249,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (preview.insertTrack !== undefined && insertSnapshotBefore !== undefined) {
                     const afterItemMove = (await this.fileService.readFile(location.editUri)).value.toString();
                     await this.finishInsertedTrackDrag(
-                        'レイヤーの調整', insertSnapshotBefore, afterItemMove, 'layers', preview.insertTrack
+                        '素材の調整', insertSnapshotBefore, afterItemMove, 'layers', preview.insertTrack
                     );
-                    this.footer.textContent = this.writeResultMessage('レイヤーを調整しました。', result);
+                    this.footer.textContent = this.writeResultMessage('素材を調整しました。', result);
                     this.hideNotice();
                     this.revealOutputPreview();
                     return;
@@ -5260,7 +5260,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const pruneResult = await this.pruneEmptyDeclaredTracks();
                 const movedTrackState = await this.readIdTrackState('layers');
                 this.pushHistory({
-                    label: 'レイヤーの調整',
+                    label: '素材の調整',
                     undo: async () => {
                         await this.annotationsService.moveLayer({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
@@ -5282,7 +5282,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                     }
                 });
-                this.footer.textContent = this.writeResultMessage('レイヤーを調整しました。', result);
+                this.footer.textContent = this.writeResultMessage('素材を調整しました。', result);
             } else if (preview.kind === 'audio') {
                 if (!location.editUri) {
                     return;

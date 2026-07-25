@@ -337,7 +337,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         });
         await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの変形を変更') };
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材の変形を変更') };
     }
 
     async setLayerOpacity(request: SetLayerOpacityRequest): Promise<WriteBackResult> {
@@ -347,7 +347,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = updateLayerOpacityInSource(source, request.layerId, request.opacity);
         await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの不透明度を変更') };
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材の不透明度を変更') };
     }
 
     async setLayerBlend(request: SetLayerBlendRequest): Promise<WriteBackResult> {
@@ -357,7 +357,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = updateLayerBlendInSource(source, request.layerId, request.blend);
         await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの合成を変更') };
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材の合成を変更') };
     }
 
     async setSfxGain(request: SetSfxGainRequest): Promise<WriteBackResult> {
@@ -533,7 +533,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         );
         await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを移動') };
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材を移動') };
     }
 
     async removeLayer(request: RemoveLayerRequest): Promise<RemoveLayerResult> {
@@ -543,7 +543,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const { source: updated, removedText, layerIndex } = deleteLayerByIdInSource(source, request.layerId);
         await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
-        const committed = await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを削除');
+        const committed = await this.commitWrite(this.fsPath(request.projectRootUri), '素材を削除');
         return { committed, removedText, layerIndex };
     }
 
@@ -554,7 +554,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = insertLayerInSource(source, request.layerIndex, request.elementText);
         await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを挿入') };
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材を挿入') };
     }
 
     async moveSfx(request: MoveSfxRequest): Promise<WriteBackResult> {

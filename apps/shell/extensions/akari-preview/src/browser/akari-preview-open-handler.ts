@@ -1994,7 +1994,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 indicators.push(`テロップ ${missingProxyCount}枚（プレビュー用プロキシ未生成）`);
             }
             if (unsupportedBlendCount > 0) {
-                indicators.push(`レイヤー合成モードが未対応（${unsupportedBlendCount}件、normal で近似）`);
+                indicators.push(`素材合成モードが未対応（${unsupportedBlendCount}件、normal で近似）`);
             }
             if (isTruthyObject(edit?.audio?.master)) indicators.push('音声マスター処理');
             if (Array.isArray(edit?.cuts) && edit.cuts.some((cut: unknown) =>
@@ -2473,7 +2473,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             const layer = edit.layers.find((value: any) => String(value?.id) === request.layerId);
             if (!layer) {
-                throw new Error(`レイヤーが見つかりません: ${request.layerId}`);
+                throw new Error(`素材が見つかりません: ${request.layerId}`);
             }
             if (request.patch.transform) {
                 layer.transform = { ...this.objectRecord(layer.transform), ...request.patch.transform };

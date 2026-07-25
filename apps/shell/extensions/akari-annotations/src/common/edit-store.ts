@@ -482,7 +482,7 @@ export function deleteLayerByIdInSource(
     const elements = splitTopLevelElements(array.inner);
     const layerIndex = elements.findIndex(element => readStringProperty(element.text, 'id') === layerId);
     if (layerIndex < 0) {
-        throw new Error(`レイヤー ${layerId} が見つかりません`);
+        throw new Error(`素材 ${layerId} が見つかりません`);
     }
     return { ...removeArrayElementByIndex(source, 'layers', layerIndex), layerIndex };
 }
@@ -564,7 +564,7 @@ export function updateLayerInSource(
     layerId: string,
     updates: { t?: number; duration?: number; track?: number }
 ): string {
-    return updateArrayElementById(source, 'layers', layerId, 'レイヤー', element => {
+    return updateArrayElementById(source, 'layers', layerId, '素材', element => {
         let next = element;
         for (const property of ['t', 'duration', 'track'] as const) {
             const value = updates[property];
@@ -573,7 +573,7 @@ export function updateLayerInSource(
             }
             const hasProperty = new RegExp(`"${property}"\\s*:`).test(next);
             next = hasProperty
-                ? replacePropertyValue(next, property, value, `レイヤー ${layerId}`)
+                ? replacePropertyValue(next, property, value, `素材 ${layerId}`)
                 : appendNumberProperty(next, property, value);
         }
         return next;
@@ -599,7 +599,7 @@ export function updateLayerTransformInSource(
         && (!Number.isFinite(updates.scale) || updates.scale <= 0)) {
         throw new Error('transform.scale は正の数で指定してください。');
     }
-    return updateArrayElementById(source, 'layers', layerId, 'レイヤー', element => {
+    return updateArrayElementById(source, 'layers', layerId, '素材', element => {
         const hasTransform = hasTopLevelProperty(element, 'transform');
         if (!hasTransform) {
             const transform = Object.fromEntries(
@@ -621,7 +621,7 @@ export function updateLayerTransformInSource(
             transform = value === null
                 ? (hasProperty ? removeObjectProperty(transform, property) : transform)
                 : (hasProperty
-                    ? replacePropertyValue(transform, property, value, `レイヤー ${layerId} の transform`)
+                    ? replacePropertyValue(transform, property, value, `素材 ${layerId} の transform`)
                     : appendNumberProperty(transform, property, value));
         }
         if (Object.keys(JSON.parse(transform) as Record<string, unknown>).length === 0) {
@@ -635,13 +635,13 @@ export function updateLayerOpacityInSource(source: string, layerId: string, opac
     if (opacity !== null && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
         throw new Error('opacity は 0〜1 の範囲で指定してください。');
     }
-    return updateArrayElementById(source, 'layers', layerId, 'レイヤー', element => {
+    return updateArrayElementById(source, 'layers', layerId, '素材', element => {
         const hasOpacity = hasTopLevelProperty(element, 'opacity');
         if (opacity === null) {
             return hasOpacity ? removeObjectProperty(element, 'opacity') : element;
         }
         return hasOpacity
-            ? replaceTopLevelPropertyValue(element, 'opacity', opacity, `レイヤー ${layerId}`)
+            ? replaceTopLevelPropertyValue(element, 'opacity', opacity, `素材 ${layerId}`)
             : appendNumberProperty(element, 'opacity', opacity);
     });
 }
@@ -650,13 +650,13 @@ export function updateLayerBlendInSource(source: string, layerId: string, blend:
     if (blend !== null && !LAYER_BLEND_MODES.includes(blend as LayerBlendMode)) {
         throw new Error('blend の値が不正です。');
     }
-    return updateArrayElementById(source, 'layers', layerId, 'レイヤー', element => {
+    return updateArrayElementById(source, 'layers', layerId, '素材', element => {
         const hasBlend = hasTopLevelProperty(element, 'blend');
         if (blend === null) {
             return hasBlend ? removeObjectProperty(element, 'blend') : element;
         }
         return hasBlend
-            ? replaceTopLevelPropertyValue(element, 'blend', blend, `レイヤー ${layerId}`)
+            ? replaceTopLevelPropertyValue(element, 'blend', blend, `素材 ${layerId}`)
             : appendJsonProperty(element, 'blend', blend);
     });
 }
@@ -670,16 +670,16 @@ export function moveLayerInSource(
     trackState?: Record<string, number | null>
 ): string {
     if (!Number.isFinite(nextT) || nextT < 0 || !Number.isFinite(nextDuration) || nextDuration < 0.15) {
-        throw new Error('レイヤーの時刻または尺が不正です。');
+        throw new Error('素材の時刻または尺が不正です。');
     }
     if (nextTrack !== undefined && (!Number.isInteger(nextTrack) || nextTrack < 0)) {
-        throw new Error('レイヤーのトラックが不正です。');
+        throw new Error('素材のトラックが不正です。');
     }
     const beforeArray = locateArray(source, 'layers');
     const beforeElements = splitTopLevelElements(beforeArray.inner);
     const beforeIndex = beforeElements.findIndex(element => readStringProperty(element.text, 'id') === layerId);
     if (beforeIndex < 0) {
-        throw new Error(`レイヤー ${layerId} が見つかりません`);
+        throw new Error(`素材 ${layerId} が見つかりません`);
     }
     const currentTrack = normalizeTrack(readOptionalNumberProperty(beforeElements[beforeIndex].text, 'track'));
     const updated = updateLayerInSource(source, layerId, {
@@ -689,7 +689,7 @@ export function moveLayerInSource(
             ? { track: nextTrack } : {})
     });
     if (trackState) {
-        return applyIdTrackState(updated, 'layers', trackState, 'レイヤー');
+        return applyIdTrackState(updated, 'layers', trackState, '素材');
     }
     return updated;
 }
@@ -1104,24 +1104,24 @@ export function parseEdit(source: string): {
                 && (layer.kind === 'baked' || layer.kind === 'video')
                 && typeof layer.src === 'string' && layer.src.length > 0;
             if (!valid) {
-                warnings.push(`${index + 1} 番目のレイヤーは識別情報・時刻・種類のいずれかが不正なため表示しません。`);
+                warnings.push(`${index + 1} 番目の素材は識別情報・時刻・種類のいずれかが不正なため表示しません。`);
                 continue;
             }
             if (seenIds.has(layer.id)) {
-                warnings.push(`レイヤー ${layer.id} が重複しているため、後の要素は表示しません。`);
+                warnings.push(`素材 ${layer.id} が重複しているため、後の要素は表示しません。`);
                 continue;
             }
             seenIds.add(layer.id);
             const track = normalizeTrack(layer.track);
             if (layer.track !== undefined && track !== layer.track) {
-                warnings.push(`${index + 1} 番目のレイヤーの track が不正なため track 0 に表示します。`);
+                warnings.push(`${index + 1} 番目の素材の track が不正なため track 0 に表示します。`);
             }
             let preset: string | undefined;
             if (layer.preset !== undefined && layer.preset !== null) {
                 if (typeof layer.preset === 'string') {
                     preset = layer.preset;
                 } else {
-                    warnings.push(`レイヤー ${layer.id} の preset が不正なため無視します。`);
+                    warnings.push(`素材 ${layer.id} の preset が不正なため無視します。`);
                 }
             }
             let transform: EditLayer['transform'];
@@ -1145,7 +1145,7 @@ export function parseEdit(source: string): {
                         ...(rawTransform.rotate !== undefined ? { rotate: rawTransform.rotate } : {})
                     };
                 } else {
-                    warnings.push(`レイヤー ${layer.id} の transform が不正なため無視します。`);
+                    warnings.push(`素材 ${layer.id} の transform が不正なため無視します。`);
                 }
             }
             let opacity: number | undefined;
@@ -1154,7 +1154,7 @@ export function parseEdit(source: string): {
                     && layer.opacity >= 0 && layer.opacity <= 1) {
                     opacity = layer.opacity;
                 } else {
-                    warnings.push(`レイヤー ${layer.id} の opacity が不正なため無視します。`);
+                    warnings.push(`素材 ${layer.id} の opacity が不正なため無視します。`);
                 }
             }
             let blend: LayerBlendMode | undefined;
@@ -1163,7 +1163,7 @@ export function parseEdit(source: string): {
                     && LAYER_BLEND_MODES.includes(layer.blend as LayerBlendMode)) {
                     blend = layer.blend as LayerBlendMode;
                 } else {
-                    warnings.push(`レイヤー ${layer.id} の blend が不正なため無視します。`);
+                    warnings.push(`素材 ${layer.id} の blend が不正なため無視します。`);
                 }
             }
             let chromaKey: EditLayer['chromaKey'];
@@ -1184,7 +1184,7 @@ export function parseEdit(source: string): {
                         ...(rawChromaKey.blend !== undefined ? { blend: rawChromaKey.blend } : {})
                     };
                 } else {
-                    warnings.push(`レイヤー ${layer.id} の chroma_key が不正なため無視します。`);
+                    warnings.push(`素材 ${layer.id} の chroma_key が不正なため無視します。`);
                 }
             }
             layers.push({
@@ -1202,7 +1202,7 @@ export function parseEdit(source: string): {
             });
         }
     } else if (value.layers !== undefined) {
-        warnings.push('layers が配列ではないためレイヤーを表示しません。');
+        warnings.push('layers が配列ではないため素材を表示しません。');
     }
 
     if (value.audio !== undefined && (value.audio === null || typeof value.audio !== 'object' || Array.isArray(value.audio))) {
