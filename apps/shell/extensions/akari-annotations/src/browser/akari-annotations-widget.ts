@@ -8,12 +8,12 @@ import {
     AkariAnnotationsService,
     Annotation,
     CaptionWritePayload,
-    ClipFilmstripAtlas,
+    ClipFilmstripChunk,
     OverlayWritePayload,
-    WAVEFORM_BUCKET_COUNT,
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
+import { filmstripChunkIndexFor, waveformBucketForLocalPx } from '../common/filmstrip-geometry';
 import { CaptionRecord, parseCaptions, removeCaptionLine } from '../common/caption-store';
 import {
     EditAudioBgm,
@@ -86,7 +86,6 @@ const ZOOM_EVENT_FACTOR_MAX = 1.5;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const PLAYHEAD_COLOR = '#3b82f6';
 const MICRO_CLIP_WIDTH_PX = 28;
-const WAVEFORM_CANVAS_HEIGHT_PX = 64;
 const CLIP_HEADER_HEIGHT = 28;
 /** クリップ帯の高さ（ヘッダー帯28px + サムネイル/波形本体44px）。 */
 const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 44;
@@ -94,6 +93,8 @@ const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 44;
 const FILMSTRIP_TARGET_CELL_WIDTH_PX = 36;
 /** クリップ 1 個あたりの最大セル数（暴走防止。実測上はズームしても strip 幅に収まるため頭打ちにはまず届かない）。 */
 const FILMSTRIP_MAX_CELLS_PER_CLIP = 160;
+/** 波形の描画帯の高さ（クリップ帯下寄せ・目安 CLIP_HEIGHT の 1/4〜1/3）。clipHeader と非重複にする。 */
+const WAVEFORM_BAND_HEIGHT_PX = 24;
 const LANE_GAP = 6;
 const SUBROW_HEIGHT = 32;
 const SUBROW_GAP = 4;
@@ -338,8 +339,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
     protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
-    /** キーは videoUri（素材単位。クリップの in/out は含まない — トリムしても atlas は再取得しない）。 */
-    protected filmstripCache = new Map<string, ClipFilmstripAtlas | 'pending' | 'unavailable'>();
+    /**
+     * キーは `${videoUri}:${chunkIndex}`（素材 + ソース時間チャンク単位。クリップの
+     * in/out は含まない — トリムしてもチャンクは再取得しない）。
+     */
+    protected filmstripChunkCache = new Map<string, ClipFilmstripChunk | 'pending' | 'unavailable'>();
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
     protected videoDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
@@ -3739,20 +3743,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || !videoUri) {
             return;
         }
-        const atlas = this.filmstripCache.get(videoUri);
-        if (atlas && typeof atlas === 'object') {
-            this.renderFilmstripCells(element, clipWidth, segment, atlas);
-        } else if (atlas === 'unavailable') {
-            // フィルムストリップが使えない（ffmpeg 不在等）場合のみ、旧来の単一フレーム背景へ劣化する。
-            this.renderSingleFrameFallback(element, cut, videoUri);
-        } else if (atlas === undefined) {
-            this.fetchFilmstrip(videoUri);
+        // フィルムストリップと波形を同じ写像（clipLocalOffsetPx / fullClipWidthPx）で
+        // 位置合わせするため、ジオメトリはここで 1 回だけ計算して両方へ渡す。
+        const geometry = this.clipLocalGeometry(segment);
+        if (geometry) {
+            const filmstripStatus = this.renderFilmstripCells(element, clipWidth, segment, videoUri, geometry);
+            if (filmstripStatus === 'all-unavailable') {
+                // 可視範囲に必要な全チャンクが失敗した（ffmpeg 不在等）場合のみ、
+                // 旧来の単一フレーム背景へ劣化する。
+                this.renderSingleFrameFallback(element, cut, videoUri);
+            }
         }
 
         const key = `${cut.src ?? ''}:${cut.in}:${cut.out}`;
         const waveform = this.waveformCache.get(key);
         if (Array.isArray(waveform)) {
-            element.appendChild(this.waveformCanvas(waveform));
+            if (geometry) {
+                element.appendChild(this.waveformCanvas(waveform, clipWidth, geometry));
+            }
         } else if (waveform === undefined) {
             this.fetchWaveform(key, cut, videoUri);
         }
@@ -3771,32 +3779,56 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * atlas（素材全体 1 枚）から、この clip の表示区間 [segment.in, segment.out] を
-     * 均等割りで代表フレーム抽出し、可視幅ぶんだけセルを生成する。ズーム/スクロールで
-     * 再計算されるのは CSS の位置だけで、atlas 自体の再取得は発生しない。
+     * strip 自体が viewStart/viewDuration の「窓」でズームを表現する構成のため
+     * （絶対キャンバス + ネイティブ横スクロールではない）clip の「画面上の見かけの全幅」
+     * （fullClipWidthPx）はビューの外まで含めた理論値になりうる。可視部分だけが
+     * clipWidth（呼び出し側で percent() によって [0,100]% にクランプ済み）として渡って
+     * くるため、画面外に切れている「まだ見えていない先頭部分」の量が clipLocalOffsetPx。
+     * フィルムストリップのセル・波形の両方がこれを使って同じ位置合わせをする。
+     */
+    protected clipLocalGeometry(
+        segment: OutputSegment
+    ): { fullClipWidthPx: number; clipLocalOffsetPx: number } | undefined {
+        const outputDuration = segment.tlEnd - segment.tlStart;
+        const stripWidth = this.strip.clientWidth;
+        const viewDuration = this.visibleDuration();
+        if (!(outputDuration > 0) || !(stripWidth > 0) || !(viewDuration > 0)) {
+            return undefined;
+        }
+        const pxPerSecond = stripWidth / viewDuration;
+        return {
+            fullClipWidthPx: outputDuration * pxPerSecond,
+            clipLocalOffsetPx: Math.max(0, this.viewStart - segment.tlStart) * pxPerSecond
+        };
+    }
+
+    /**
+     * atlas はソース時間の固定グリッド（FILMSTRIP_CHUNK_SECONDS 単位）でチャンク分割
+     * されている。この clip の表示区間 [segment.in, segment.out] を均等割りして代表
+     * フレームの sourceT を求め、可視幅ぶんだけセルを生成する。各セルが属するチャンクは
+     * 未取得なら遅延フェッチする（可視セルに重なるチャンクだけ・全長の事前生成はしない）。
+     * ズーム/スクロールで再計算されるのは CSS の位置だけで、既に取得済みのチャンクは
+     * 再取得しない（filmstripChunkCache のキーが videoUri+chunkIndex のため）。
      *
      * strip 自体が viewStart/viewDuration の「窓」でズームを表現する構成のため
      * （絶対キャンバス + ネイティブ横スクロールではない）、この widget では 1 clip の
      * DOM 要素幅は最大でも strip 表示幅を超えない。旧版 ClipFilmstrip の
      * visibleMinPx/visibleMaxPx culling に相当する処理は、クリップの「まだ画面外の
      * 先頭部分」を clipLocalOffsetPx で除外することで実現する。
+     *
+     * 戻り値: 可視範囲に重なる全チャンクが 'unavailable'（ffmpeg 不在等）だった場合のみ
+     * 'all-unavailable'（呼び出し側が単一フレームへ降格する合図）。1 つでも ready/pending
+     * があれば 'ok'（一部のセルが空白のまま、というのは許容する）。
      */
     protected renderFilmstripCells(
-        element: HTMLDivElement, clipWidth: number, segment: OutputSegment, atlas: ClipFilmstripAtlas
-    ): void {
+        element: HTMLDivElement, clipWidth: number, segment: OutputSegment, videoUri: string,
+        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }
+    ): 'ok' | 'all-unavailable' {
         const sourceSpan = segment.out - segment.in;
-        const outputDuration = segment.tlEnd - segment.tlStart;
-        if (!(sourceSpan > 0) || !(outputDuration > 0) || atlas.frameCount <= 0) {
-            return;
+        const { fullClipWidthPx, clipLocalOffsetPx } = geometry;
+        if (!(sourceSpan > 0) || !(fullClipWidthPx > 0)) {
+            return 'ok';
         }
-        const stripWidth = this.strip.clientWidth;
-        const viewDuration = this.visibleDuration();
-        if (!(stripWidth > 0) || !(viewDuration > 0)) {
-            return;
-        }
-        const pxPerSecond = stripWidth / viewDuration;
-        const fullClipWidthPx = outputDuration * pxPerSecond;
-        const clipLocalOffsetPx = Math.max(0, this.viewStart - segment.tlStart) * pxPerSecond;
 
         // セル幅はターゲット幅（36px 目安）固定。clip 全長（画面外を含む）を等分した
         // ときの理論上のセル数は totalCellCount になるが、実際に DOM へ作るのは
@@ -3805,41 +3837,59 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 密度がズームに追随する（キャップで丸めて粗くならない）。
         const cellWidthPx = FILMSTRIP_TARGET_CELL_WIDTH_PX;
         const totalCellCount = Math.max(1, Math.round(fullClipWidthPx / cellWidthPx));
-        if (atlas.frameWidth <= 0 || atlas.frameHeight <= 0) {
-            return;
-        }
 
         const visibleStartLocalPx = clipLocalOffsetPx;
         const visibleEndLocalPx = clipLocalOffsetPx + clipWidth;
         const i0 = Math.max(0, Math.floor(visibleStartLocalPx / cellWidthPx));
         let i1 = Math.min(totalCellCount - 1, Math.ceil(visibleEndLocalPx / cellWidthPx) - 1);
         if (i1 < i0) {
-            return;
+            return 'ok';
         }
         // 暴走防止の安全弁（通常は clipWidth <= strip 幅なのでここには届かない）。
         if (i1 - i0 + 1 > FILMSTRIP_MAX_CELLS_PER_CLIP) {
             i1 = i0 + FILMSTRIP_MAX_CELLS_PER_CLIP - 1;
         }
 
-        // cover スケール: frame 全体が cellWidthPx x CLIP_HEIGHT を覆う最小倍率
-        // （大きい方の軸に合わせ、はみ出す方をセル中央基準でクロップする）。
-        const scale = Math.max(cellWidthPx / atlas.frameWidth, CLIP_HEIGHT / atlas.frameHeight);
-        const frameScaledW = atlas.frameWidth * scale;
-        const frameScaledH = atlas.frameHeight * scale;
-        const cropOffsetX = (frameScaledW - cellWidthPx) / 2;
-        const cropOffsetY = (frameScaledH - CLIP_HEIGHT) / 2;
-        const backgroundSize = `${atlas.cols * frameScaledW}px ${atlas.rows * frameScaledH}px`;
-
         const wrapper = document.createElement('div');
         wrapper.className = 'akari-annotations-strip-clip-filmstrip';
         Object.assign(wrapper.style, {
             position: 'absolute', inset: '0', overflow: 'hidden', pointerEvents: 'none'
         });
+
+        let sawReadyOrPending = false;
+        let sawUnavailable = false;
         for (let i = i0; i <= i1; i++) {
             const sourceT = segment.in + ((i + 0.5) / totalCellCount) * sourceSpan;
-            const frameIdx = Math.min(atlas.frameCount - 1, Math.max(0, Math.round(sourceT * atlas.fps)));
-            const col = frameIdx % atlas.cols;
-            const row = Math.floor(frameIdx / atlas.cols);
+            const chunkIndex = filmstripChunkIndexFor(sourceT);
+            const chunk = this.ensureFilmstripChunk(videoUri, chunkIndex);
+            if (chunk === 'unavailable') {
+                sawUnavailable = true;
+                continue;
+            }
+            if (chunk === 'pending') {
+                sawReadyOrPending = true;
+                continue;
+            }
+            sawReadyOrPending = true;
+            if (chunk.frameWidth <= 0 || chunk.frameHeight <= 0 || chunk.frameCount <= 0) {
+                continue;
+            }
+            const localSourceT = sourceT - chunk.chunkStartSeconds;
+            const frameIdx = Math.min(chunk.frameCount - 1, Math.max(0, Math.round(localSourceT * chunk.fps)));
+            const col = frameIdx % chunk.cols;
+            const row = Math.floor(frameIdx / chunk.cols);
+
+            // cover スケール: frame 全体が cellWidthPx x CLIP_HEIGHT を覆う最小倍率
+            // （大きい方の軸に合わせ、はみ出す方をセル中央基準でクロップする）。
+            // frameWidth/frameHeight は素材単位で不変のためチャンクをまたいでも一致するが、
+            // cols/rows/atlasUri はチャンクごとに異なるため、この計算はセル単位で行う。
+            const scale = Math.max(cellWidthPx / chunk.frameWidth, CLIP_HEIGHT / chunk.frameHeight);
+            const frameScaledW = chunk.frameWidth * scale;
+            const frameScaledH = chunk.frameHeight * scale;
+            const cropOffsetX = (frameScaledW - cellWidthPx) / 2;
+            const cropOffsetY = (frameScaledH - CLIP_HEIGHT) / 2;
+            const backgroundSize = `${chunk.cols * frameScaledW}px ${chunk.rows * frameScaledH}px`;
+
             const cell = document.createElement('div');
             cell.className = 'akari-annotations-strip-clip-filmstrip-cell';
             Object.assign(cell.style, {
@@ -3848,7 +3898,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 top: '0',
                 width: `${cellWidthPx}px`,
                 height: '100%',
-                backgroundImage: `url(${atlas.atlasUri})`,
+                backgroundImage: `url(${chunk.atlasUri})`,
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: `${-(col * frameScaledW) - cropOffsetX}px ${-(row * frameScaledH) - cropOffsetY}px`,
                 backgroundSize
@@ -3856,6 +3906,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
             wrapper.appendChild(cell);
         }
         element.appendChild(wrapper);
+        return sawUnavailable && !sawReadyOrPending ? 'all-unavailable' : 'ok';
+    }
+
+    /**
+     * チャンクをキャッシュから引く。未取得（undefined）なら 'pending' を即座に書き込んで
+     * から非同期フェッチを開始する（Map への同期書き込みが同一 renderStrip パス内・
+     * 以降のパスの両方で inflight 重複フェッチを防ぐ）。
+     */
+    protected ensureFilmstripChunk(videoUri: string, chunkIndex: number): ClipFilmstripChunk | 'pending' | 'unavailable' {
+        const key = this.filmstripChunkKey(videoUri, chunkIndex);
+        const cached = this.filmstripChunkCache.get(key);
+        if (cached !== undefined) {
+            return cached;
+        }
+        this.filmstripChunkCache.set(key, 'pending');
+        this.fetchFilmstripChunk(videoUri, chunkIndex, key);
+        return 'pending';
+    }
+
+    protected filmstripChunkKey(videoUri: string, chunkIndex: number): string {
+        return `${videoUri}:${chunkIndex}`;
     }
 
     /**
@@ -3901,27 +3972,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * atlas は素材（videoUri）単位で 1 回だけ取得する。クリップの trim/move や
-     * ズームでは呼ばれない（filmstripCache のキーが videoUri のみのため）。
+     * チャンクは素材（videoUri）+ chunkIndex 単位で取得する。呼び出し元
+     * （ensureFilmstripChunk）が同期的に 'pending' を書き込んでから呼ぶため、
+     * ここでは 'pending' の再書き込みはしない（inflight 重複防止はキャッシュの
+     * 同期書き込みタイミングで担保する）。クリップの trim/move では呼ばれない
+     * （キーが videoUri+chunkIndex のみで in/out を含まないため）。
      */
-    protected fetchFilmstrip(videoUri: string): void {
+    protected fetchFilmstripChunk(videoUri: string, chunkIndex: number, key: string): void {
         if (!this.location) {
+            this.filmstripChunkCache.set(key, 'unavailable');
             return;
         }
-        this.filmstripCache.set(videoUri, 'pending');
-        void this.annotationsService.getClipFilmstrip({
+        void this.annotationsService.getClipFilmstripChunk({
             projectRootUri: this.location.root.toString(),
-            videoUri
+            videoUri, chunkIndex
         }).then(result => {
-            if (result.status === 'ready' && result.atlas) {
-                this.filmstripCache.set(videoUri, result.atlas);
+            if (result.status === 'ready' && result.chunk) {
+                this.filmstripChunkCache.set(key, result.chunk);
             } else {
-                this.filmstripCache.set(videoUri, 'unavailable');
+                this.filmstripChunkCache.set(key, 'unavailable');
                 this.showFfmpegMissingNotice(result.reason);
             }
             this.renderStrip();
         }).catch(() => {
-            this.filmstripCache.set(videoUri, 'unavailable');
+            this.filmstripChunkCache.set(key, 'unavailable');
             this.renderStrip();
         });
     }
@@ -4027,20 +4101,45 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected waveformCanvas(peaks: readonly number[]): HTMLCanvasElement {
+    /**
+     * peaks（WAVEFORM_BUCKET_COUNT バケツ、常にクリップ全区間 [in,out) を表す）から、
+     * この clip の可視サブ区間に対応する部分だけを描く。フィルムストリップと同じ
+     * clipLocalOffsetPx / fullClipWidthPx 写像を使うため、ズーム 100%（クリップ全体が
+     * 可視 = offset 0・可視幅 = fullClipWidthPx）では旧実装（peaks を等間隔にそのまま
+     * 敷き詰める）と同じ見た目になる。ズームでクリップがビュー窓からはみ出すと、
+     * この部分範囲だけが可視幅いっぱいに描かれるため、フィルムストリップのコマと
+     * 同じ写像でスライドし、全区間の圧縮波形が出ない。
+     *
+     * 帯はクリップ帯の下寄せ（WAVEFORM_BAND_HEIGHT_PX・下 1/3 目安）に固定し、
+     * clipHeader（上 CLIP_HEADER_HEIGHT px）と非重複にする（③）。
+     */
+    protected waveformCanvas(
+        peaks: readonly number[], clipWidthPx: number,
+        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }
+    ): HTMLCanvasElement {
         const canvas = document.createElement('canvas');
-        canvas.width = WAVEFORM_BUCKET_COUNT;
-        canvas.height = WAVEFORM_CANVAS_HEIGHT_PX;
+        const visibleWidthPx = Math.max(1, Math.round(clipWidthPx));
+        canvas.width = visibleWidthPx;
+        canvas.height = WAVEFORM_BAND_HEIGHT_PX;
         Object.assign(canvas.style, {
-            position: 'absolute', inset: '0', width: '100%', height: '100%', opacity: '.55', pointerEvents: 'none'
+            position: 'absolute',
+            left: '0',
+            top: `${CLIP_HEIGHT - WAVEFORM_BAND_HEIGHT_PX}px`,
+            width: `${visibleWidthPx}px`,
+            height: `${WAVEFORM_BAND_HEIGHT_PX}px`,
+            opacity: '.55',
+            pointerEvents: 'none'
         });
         const context = canvas.getContext('2d');
-        if (context) {
+        const bucketCount = peaks.length;
+        if (context && bucketCount > 0 && geometry.fullClipWidthPx > 0) {
             context.fillStyle = '#fff';
-            peaks.forEach((peak, index) => {
-                const barHeight = Math.max(1, peak * WAVEFORM_CANVAS_HEIGHT_PX);
-                context.fillRect(index, (WAVEFORM_CANVAS_HEIGHT_PX - barHeight) / 2, 1, barHeight);
-            });
+            for (let x = 0; x < visibleWidthPx; x++) {
+                const localPx = geometry.clipLocalOffsetPx + x;
+                const bucket = waveformBucketForLocalPx(localPx, geometry.fullClipWidthPx, bucketCount);
+                const barHeight = Math.max(1, peaks[bucket] * WAVEFORM_BAND_HEIGHT_PX);
+                context.fillRect(x, (WAVEFORM_BAND_HEIGHT_PX - barHeight) / 2, 1, barHeight);
+            }
         }
         return canvas;
     }

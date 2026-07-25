@@ -10,8 +10,15 @@ export const WAVEFORM_BUCKET_COUNT = 200;
 export const FILMSTRIP_FRAME_WIDTH_PX = 98;
 export const FILMSTRIP_FPS = 2.0;
 export const FILMSTRIP_COLS = 32;
-/** 長尺素材の暴走防止。これを超える枚数になる場合は実効 fps を下げて収める。 */
-export const FILMSTRIP_MAX_FRAMES = 2400;
+/**
+ * チャンク境界のソース時間長（秒）。素材全体をこの等間隔グリッド
+ * （`floor(sourceT / FILMSTRIP_CHUNK_SECONDS)`）で区切る。クリップの in/out や
+ * トリムには依存しない（トリムで再焼成しない性質は T2 の全体 atlas 方式から継承）。
+ * 既定 fps（2.0）では 120s ちょうど 240 コマ = 32 列 × 8 行に一致する。
+ */
+export const FILMSTRIP_CHUNK_SECONDS = 120;
+/** 1 チャンクの暴走防止上限（既定パラメータでは 120s × 2fps = 240 コマにちょうど一致し、通常はここに届かない）。 */
+export const FILMSTRIP_MAX_FRAMES_PER_CHUNK = 240;
 
 export interface GetClipThumbnailRequest {
     projectRootUri: string;
@@ -25,31 +32,38 @@ export interface GetClipThumbnailResult {
     reason?: MediaUnavailableReason;
 }
 
-export interface GetClipFilmstripRequest {
+export interface GetClipFilmstripChunkRequest {
     projectRootUri: string;
-    /** 素材（クリップ区間ではなく素材全体）の URI。atlas はこの単位でキャッシュされる。 */
+    /** 素材（クリップ区間ではなく素材全体）の URI。チャンクはこの単位 + chunkIndex でキャッシュされる。 */
     videoUri: string;
+    /** `floor(sourceT / FILMSTRIP_CHUNK_SECONDS)`。0 始まり。 */
+    chunkIndex: number;
     frameWidth?: number;
     fps?: number;
 }
 
-/** atlas 1 枚分のレイアウト。frame は `idx = row * cols + col`、余りは黒で埋められる。 */
-export interface ClipFilmstripAtlas {
+/** チャンク 1 枚分の atlas レイアウト。frame は `idx = row * cols + col`、余りは黒で埋められる。 */
+export interface ClipFilmstripChunk {
     /** atlas 画像を指す URI（file スキーム）。widget はこれを background-image にそのまま渡す。 */
     atlasUri: string;
     frameWidth: number;
     frameHeight: number;
     cols: number;
     rows: number;
+    /** このチャンクで実際に焼いたフレーム数（末尾チャンクは満杯未満になりうる）。 */
     frameCount: number;
-    /** 長尺クランプ後の実効 fps（静止画は元の fps をそのまま反映）。 */
+    /** 暴走防止クランプ後の実効 fps（静止画は元の fps をそのまま反映）。 */
     fps: number;
-    durationSeconds: number;
+    chunkIndex: number;
+    /** このチャンクが表すソース時間の開始秒（= `chunkIndex * FILMSTRIP_CHUNK_SECONDS`）。 */
+    chunkStartSeconds: number;
+    /** このチャンクの実区間長（末尾チャンクは `FILMSTRIP_CHUNK_SECONDS` 未満になりうる）。 */
+    chunkDurationSeconds: number;
 }
 
-export interface GetClipFilmstripResult {
+export interface GetClipFilmstripChunkResult {
     status: 'ready' | 'unavailable';
-    atlas?: ClipFilmstripAtlas;
+    chunk?: ClipFilmstripChunk;
     reason?: MediaUnavailableReason;
 }
 
@@ -385,7 +399,7 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 
 export interface AkariAnnotationsService {
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
-    getClipFilmstrip(request: GetClipFilmstripRequest): Promise<GetClipFilmstripResult>;
+    getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
     getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult>;
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;

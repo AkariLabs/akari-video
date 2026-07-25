@@ -5,18 +5,20 @@ import { dirname, join } from 'path';
 import { promisify } from 'util';
 import { pathToFileURL } from 'url';
 import {
-    ClipFilmstripAtlas,
+    ClipFilmstripChunk,
+    FILMSTRIP_CHUNK_SECONDS,
     FILMSTRIP_COLS,
     FILMSTRIP_FPS,
     FILMSTRIP_FRAME_WIDTH_PX,
-    FILMSTRIP_MAX_FRAMES,
+    FILMSTRIP_MAX_FRAMES_PER_CHUNK,
     GetAudioDurationResult,
-    GetClipFilmstripResult,
+    GetClipFilmstripChunkResult,
     GetClipThumbnailResult,
     GetClipWaveformResult,
     THUMBNAIL_WIDTH_PX,
     WAVEFORM_BUCKET_COUNT
 } from '../common/akari-annotations-protocol';
+import { planFilmstripChunk } from '../common/filmstrip-geometry';
 
 const execFileAsync = promisify(execFile);
 let ffmpegAvailable: Promise<boolean> | undefined;
@@ -112,15 +114,20 @@ export async function getClipThumbnail(
 }
 
 // ============================================================================
-// フィルムストリップ atlas（T2）
+// フィルムストリップ atlas（T2 → T3 でチャンク分割）
 //
-// 単位は「素材全体」（クリップ区間ごとではない）。キャッシュキーは素材 path +
-// size/mtime + frameWidth/fps のみで、クリップの in/out は含まない。トリムで
-// in/out が変わっても同じ atlas がヒットし続け、再焼成は発生しない（widget 側で
-// background-position を再マッピングするだけ、旧版 SlipGhost 方式）。
+// 単位は「素材のソース時間チャンク」（`floor(sourceT / FILMSTRIP_CHUNK_SECONDS)`）。
+// T2 は素材全体を 1 パスでフルデコードしていたため長尺素材で初回表示が遅かった
+// （62 分素材で実測 294 秒）。T3 ではチャンク境界をソース時刻の等間隔グリッドに
+// 固定し（クリップの in/out やトリムに依存しない）、可視範囲に重なるチャンクだけを
+// `-ss <chunkStart>`（-i より前 = キーフレームシーク）+ `-t <CHUNK>` でオンデマンド
+// 生成する。キャッシュキーは素材 path + size/mtime + frameWidth/fps + chunkIndex
+// のみで、クリップの in/out は含まない（トリムでは再焼成しない性質は T2 から継承）。
 //
 // 置き場所は project-structure-v0 契約の正準パス（.akari/cache/）。既存の
 // レガシー `cache/timeline/`（getClipThumbnail 等）とは意図的に分離し、移設しない。
+// T2 の全体 atlas キャッシュ（旧ハッシュ体系のファイル）はキー体系が変わるため
+// 自然に不使用となる（読み捨て、削除処理は行わない）。
 // ============================================================================
 
 const FILMSTRIP_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.heic', '.heif', '.tiff', '.tif'];
@@ -179,36 +186,43 @@ async function probeForFilmstrip(videoPath: string): Promise<FilmstripProbe | un
     }
 }
 
-type FilmstripAtlasMeta = Omit<ClipFilmstripAtlas, 'atlasUri'>;
+type FilmstripChunkMeta = Omit<ClipFilmstripChunk, 'atlasUri'>;
 
-async function readFilmstripAtlas(atlasPath: string, metaPath: string): Promise<ClipFilmstripAtlas | undefined> {
+async function readFilmstripChunk(atlasPath: string, metaPath: string): Promise<ClipFilmstripChunk | undefined> {
     try {
         const [metaRaw] = await Promise.all([fs.readFile(metaPath, 'utf8'), fs.access(atlasPath)]);
-        const meta = JSON.parse(metaRaw) as Partial<FilmstripAtlasMeta>;
+        const meta = JSON.parse(metaRaw) as Partial<FilmstripChunkMeta>;
         if (
             typeof meta.frameWidth !== 'number' || typeof meta.frameHeight !== 'number'
             || typeof meta.cols !== 'number' || typeof meta.rows !== 'number'
             || typeof meta.frameCount !== 'number' || typeof meta.fps !== 'number'
-            || typeof meta.durationSeconds !== 'number'
+            || typeof meta.chunkIndex !== 'number' || typeof meta.chunkStartSeconds !== 'number'
+            || typeof meta.chunkDurationSeconds !== 'number'
         ) {
             return undefined;
         }
-        return { ...(meta as FilmstripAtlasMeta), atlasUri: pathToFileURL(atlasPath).toString() };
+        return { ...(meta as FilmstripChunkMeta), atlasUri: pathToFileURL(atlasPath).toString() };
     } catch {
         return undefined;
     }
 }
 
-export async function getClipFilmstrip(
+export async function getClipFilmstripChunk(
     projectRoot: string,
     videoPath: string,
+    chunkIndex: number,
     requestedFrameWidth?: number,
     requestedFps?: number
-): Promise<GetClipFilmstripResult> {
+): Promise<GetClipFilmstripChunkResult> {
     const frameWidth = evenUp(
         requestedFrameWidth !== undefined && requestedFrameWidth > 0 ? requestedFrameWidth : FILMSTRIP_FRAME_WIDTH_PX
     );
     const fps = requestedFps !== undefined && requestedFps > 0 ? requestedFps : FILMSTRIP_FPS;
+    const isImage = isFilmstripImageSource(videoPath);
+    // 静止画は「チャンク」概念を持たない（常に同じ 1 フレーム）。どの chunkIndex が
+    // 要求されても cacheChunkIndex=0 に丸めて同一キャッシュへ収束させ、クリップの
+    // 表示尺が 120s を跨いでも重複生成しない。
+    const cacheChunkIndex = isImage ? 0 : chunkIndex;
 
     let stat;
     try {
@@ -221,24 +235,33 @@ export async function getClipFilmstrip(
     }
 
     const directory = join(projectRoot, '.akari', 'cache', 'timeline', 'filmstrip');
-    const hash = cacheHash([videoPath, stat.size, stat.mtimeMs, frameWidth, fps, 'filmstrip-v1']);
+    const hash = cacheHash([
+        videoPath, stat.size, stat.mtimeMs, frameWidth, fps, FILMSTRIP_CHUNK_SECONDS, cacheChunkIndex, 'filmstrip-chunk-v1'
+    ]);
     const atlasPath = join(directory, `${hash}.jpg`);
     const metaPath = join(directory, `${hash}.json`);
 
     try {
         await ensureAkariCacheDirectory(directory, projectRoot);
 
-        const cached = await readFilmstripAtlas(atlasPath, metaPath);
+        const cached = await readFilmstripChunk(atlasPath, metaPath);
         if (cached) {
-            return { status: 'ready', atlas: cached };
+            return { status: 'ready', chunk: { ...cached, chunkIndex } };
         }
 
         const probe = await probeForFilmstrip(videoPath);
         if (!probe) {
             return { status: 'unavailable', reason: 'extraction-failed' };
         }
-        const isImage = isFilmstripImageSource(videoPath);
         const frameHeight = evenUp(frameWidth * probe.height / probe.width);
+
+        const plan = isImage
+            ? { chunkStartSeconds: 0, chunkDurationSeconds: probe.durationSeconds }
+            : planFilmstripChunk(probe.durationSeconds, cacheChunkIndex);
+        if (!plan) {
+            return { status: 'unavailable', reason: 'extraction-failed' };
+        }
+        const { chunkStartSeconds, chunkDurationSeconds } = plan;
 
         let frameCount: number;
         let effectiveFps: number;
@@ -246,10 +269,10 @@ export async function getClipFilmstrip(
             frameCount = 1;
             effectiveFps = fps;
         } else {
-            const rawCount = Math.max(1, Math.ceil(probe.durationSeconds * fps));
-            if (rawCount > FILMSTRIP_MAX_FRAMES) {
-                effectiveFps = FILMSTRIP_MAX_FRAMES / probe.durationSeconds;
-                frameCount = FILMSTRIP_MAX_FRAMES;
+            const rawCount = Math.max(1, Math.ceil(chunkDurationSeconds * fps));
+            if (rawCount > FILMSTRIP_MAX_FRAMES_PER_CHUNK) {
+                effectiveFps = FILMSTRIP_MAX_FRAMES_PER_CHUNK / chunkDurationSeconds;
+                frameCount = FILMSTRIP_MAX_FRAMES_PER_CHUNK;
             } else {
                 effectiveFps = fps;
                 frameCount = rawCount;
@@ -264,25 +287,35 @@ export async function getClipFilmstrip(
 
         const temporary = `${atlasPath}.${process.pid}.tmp`;
         try {
-            await execFileAsync('ffmpeg', [
-                '-y', '-v', 'error', '-i', videoPath,
-                '-vf', vf, '-frames:v', '1', '-q:v', '4', '-pix_fmt', 'yuvj420p',
-                // 出力先は `<hash>.jpg.<pid>.tmp`（拡張子が .tmp）なのでコンテナ自動判定が効かない。
-                // getClipThumbnail と同じく -f で明示する。
-                '-f', 'image2', temporary
-            ]);
+            const args = isImage
+                ? [
+                    '-y', '-v', 'error', '-i', videoPath,
+                    '-vf', vf, '-frames:v', '1', '-q:v', '4', '-pix_fmt', 'yuvj420p',
+                    '-f', 'image2', temporary
+                ]
+                : [
+                    '-y', '-v', 'error',
+                    // -ss を -i より前に置くキーフレームシーク（デマルチプレクサ側シーク）。
+                    // チャンク境界のわずかな前後ズレは許容し、素材全長のフルデコードを避ける。
+                    '-ss', String(chunkStartSeconds), '-i', videoPath, '-t', String(chunkDurationSeconds),
+                    '-vf', vf, '-frames:v', '1', '-q:v', '4', '-pix_fmt', 'yuvj420p',
+                    // 出力先は `<hash>.jpg.<pid>.tmp`（拡張子が .tmp）なのでコンテナ自動判定が効かない。
+                    // getClipThumbnail と同じく -f で明示する。
+                    '-f', 'image2', temporary
+                ];
+            await execFileAsync('ffmpeg', args);
             await fs.rename(temporary, atlasPath);
         } catch {
             await fs.unlink(temporary).catch(() => undefined);
             return { status: 'unavailable', reason: 'extraction-failed' };
         }
 
-        const meta: FilmstripAtlasMeta = {
-            frameWidth, frameHeight, cols, rows, frameCount,
-            fps: effectiveFps, durationSeconds: probe.durationSeconds
+        const meta: FilmstripChunkMeta = {
+            frameWidth, frameHeight, cols, rows, frameCount, fps: effectiveFps,
+            chunkIndex: cacheChunkIndex, chunkStartSeconds, chunkDurationSeconds
         };
         await writeAtomic(metaPath, `${JSON.stringify(meta)}\n`);
-        return { status: 'ready', atlas: { ...meta, atlasUri: pathToFileURL(atlasPath).toString() } };
+        return { status: 'ready', chunk: { ...meta, atlasUri: pathToFileURL(atlasPath).toString(), chunkIndex } };
     } catch {
         return { status: 'unavailable', reason: 'extraction-failed' };
     }
