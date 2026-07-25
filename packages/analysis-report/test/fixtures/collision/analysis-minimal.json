@@ -1,0 +1,13 @@
+{
+  "version": 0,
+  "source": "clip.mp4",
+  "transcript": [
+    { "start": 0, "end": 5, "text": "test line one" }
+  ],
+  "keyframes": [],
+  "events": [
+    { "type": "chapter", "t": 0, "title": "Intro" },
+    { "type": "chapter", "t": 0, "title": "Intro Duplicate (人工的な block-id 衝突テスト用)" }
+  ],
+  "tracks": { "speakers": [], "faces": [], "person_matte": null }
+}

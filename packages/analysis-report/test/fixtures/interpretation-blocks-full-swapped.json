@@ -1,0 +1,60 @@
+{
+  "version": 0,
+  "inputs": {
+    "analyses": [
+      { "ref": "asset-b", "path": "materials/asset-b/analysis.json", "source": "test fixture B" },
+      { "ref": "asset-a", "path": "materials/asset-a/analysis.json", "source": "test fixture A" }
+    ],
+    "context": {
+      "past_projects": [],
+      "interview": []
+    }
+  },
+  "assets": [
+    {
+      "ref": "asset-b",
+      "role": "supporting_broll",
+      "summary": "Asset B の要約テキスト。",
+      "relations": [],
+      "flags": []
+    },
+    {
+      "ref": "asset-a",
+      "role": "primary_talk",
+      "summary": "Asset A の要約テキスト。",
+      "relations": [
+        {
+          "target": "asset-b",
+          "kind": "b_roll_of",
+          "evidence": "transcript 0-5: asset A line one が asset-b の内容と対応",
+          "note": "block-id テスト用の関係行"
+        }
+      ],
+      "flags": []
+    }
+  ],
+  "arc": [
+    {
+      "order": 1,
+      "title": "Opening",
+      "refs": [{ "asset": "asset-a", "start": 0, "end": 5 }],
+      "purpose": "Introduce asset A",
+      "evidence": "transcript 0-5: asset A line one"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "oq-02",
+      "question": "asset-b の撮影機材は何ですか",
+      "fills": "機材メタデータの補完",
+      "status": "open"
+    },
+    {
+      "id": "oq-01",
+      "question": "asset-a のロケ日はいつですか",
+      "fills": "撮影日メタデータの補完",
+      "status": "answered",
+      "answer": "2026-07-01"
+    }
+  ]
+}

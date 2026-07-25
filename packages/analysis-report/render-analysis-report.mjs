@@ -26,6 +26,7 @@ const validateInterpretationBin = resolve(
 );
 
 const DATA_PLACEHOLDER = '{"__AKARI_ANALYSIS_REPORT_DATA__": true}';
+const BLOCKS_PLACEHOLDER = '{"__AKARI_ANALYSIS_REPORT_BLOCKS__": true}';
 
 function usage() {
   return [
@@ -173,6 +174,118 @@ function hasOwn(object, key) {
 function toPosixRelative(fromDir, toPath) {
   const rel = relative(fromDir, toPath);
   return rel.split(sep).join("/");
+}
+
+// --- block-id 導出（doc:<path>#<block-id> 注釈ターゲットの地ならし）---
+//
+// 内部契約 contract-2026-07-26-doc-image-annotations.md §1 の 3 要件
+// （データ由来・再生成安定・文書内一意）を満たす block-id を、埋め込む生データ
+// （bundle）から導出する純関数群。生成した blocks マニフェストは bundle 本体には
+// 混ぜず、別の <script type="application/json" id="akari-analysis-report-blocks">
+// として template.html 側へ埋め込む（「生データをそのまま埋め込む」原則を保つため）。
+
+class BlockIdCollisionError extends Error {
+  constructor(duplicateIds) {
+    super(`block-id が文書内で衝突しています: ${duplicateIds.join(", ")}`);
+    this.duplicateIds = duplicateIds;
+  }
+}
+
+// URL fragment として安全にするため、id を構成する各データ由来セグメントを
+// percent-encode する（encodeURIComponent は "#" を含め fragment 中で意味を持つ
+// 文字を必ず潰す）。セグメント間の区切りは常に ":"（encodeURIComponent は ":" を
+// 必ずエンコードするため、区切りとセグメント内部の値が衝突しない）。
+function blockId(kind, ...parts) {
+  return [kind, ...parts.map((part) => encodeURIComponent(String(part)))].join(":");
+}
+
+// analysis.events の chapter を開始秒昇順で並べたキー列。template.html の
+// chaptersOf() と同じフィルタ・ソートを独立に再現している。章そのものには
+// analysis.schema 上 id 相当のフィールドが無いため、開始秒 (t) を「データ由来
+// キー（無ければ章開始時刻）」の「無ければ」側の安定キーとして採用する。
+// chaptersOf() のソートロジックを変えるときはここも合わせて直すこと。
+function chapterStartKeysOf(analysis) {
+  return (analysis.events || [])
+    .filter((event) => event.type === "chapter")
+    .map((event) => event.t)
+    .sort((a, b) => a - b);
+}
+
+// bundle（このスクリプトが template.html へ埋め込む生データそのもの）から
+// blocks マニフェストを導出する。assets[] や relations[] / open_questions[] の
+// 並び順には一切依存しない（ref・target/kind・question.id など内容由来のキーのみ
+// 使う）ため、入力の並べ替えに対して安定する。
+function buildBlocksManifest(bundle) {
+  const ids = [];
+  const record = (id) => {
+    ids.push(id);
+    return id;
+  };
+
+  const interpAssetsByRef = new Map(
+    (bundle.interpretation.assets || []).map((asset) => [asset.ref, asset]),
+  );
+
+  const byRef = {};
+  for (const asset of bundle.assets) {
+    const ref = asset.ref;
+    const analysis = asset.analysis;
+    const interpAsset = interpAssetsByRef.get(ref);
+
+    const chapterStartKeys = chapterStartKeysOf(analysis);
+    const chapters = {};
+    if (chapterStartKeys.length === 0) {
+      // 章情報が無い素材は transcript 全体を 1 ブロックとして扱う（template.html
+      // 側の「章情報なし」details 1 個に対応）。
+      chapters.unchaptered = record(blockId("transcript-chapter", ref, "unchaptered"));
+    } else {
+      for (const start of chapterStartKeys) {
+        chapters[String(start)] = record(blockId("transcript-chapter", ref, start));
+      }
+    }
+
+    const images = {};
+    for (const kf of analysis.keyframes || []) {
+      // 画像が実在確認できた（imageSrc が非 null）キーフレームのみ block-id を持つ
+      // — template.html は imageSrc が無いキーフレームには img 要素を描画しない。
+      if (kf.imageSrc) {
+        images[kf.path] = record(blockId("image", ref, kf.path));
+      }
+    }
+
+    const relations = {};
+    for (const relation of (interpAsset && interpAsset.relations) || []) {
+      const key = JSON.stringify([relation.target, relation.kind]);
+      relations[key] = record(blockId("relation", ref, relation.target, relation.kind));
+    }
+
+    byRef[ref] = {
+      timeline: record(blockId("asset-timeline", ref)),
+      facts: record(blockId("asset-facts", ref)),
+      chapters,
+      images,
+      relations,
+    };
+  }
+
+  const questions = {};
+  for (const question of bundle.interpretation.open_questions || []) {
+    questions[question.id] = record(blockId("question", question.id));
+  }
+
+  // 来歴（節 6）は「節単位で可」（契約 §1 対象ブロック表）に従い固定キー 1 個。
+  const provenance = record(blockId("provenance", "section"));
+
+  const counts = new Map();
+  for (const id of ids) counts.set(id, (counts.get(id) || 0) + 1);
+  const duplicates = [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([id]) => id);
+  if (duplicates.length > 0) {
+    throw new BlockIdCollisionError(duplicates);
+  }
+
+  return { version: 0, byRef, questions, provenance };
 }
 
 // --- FK 結合（2026-07-22 A3.2 の swap 実証への対応）---
@@ -382,13 +495,29 @@ function main() {
     interpretation,
   };
 
+  let blocksManifest;
+  try {
+    blocksManifest = buildBlocksManifest(bundle);
+  } catch (error) {
+    if (error instanceof BlockIdCollisionError) {
+      fail(`block-id の導出に失敗しました: ${error.message}`);
+    }
+    throw error;
+  }
+
   const serialized = JSON.stringify(bundle).replace(/</g, "\\u003c");
+  const serializedBlocks = JSON.stringify(blocksManifest).replace(/</g, "\\u003c");
 
   const templateText = readFileSync(templatePath, "utf8");
   if (!templateText.includes(DATA_PLACEHOLDER)) {
     fail(`template.html の埋め込み用プレースホルダーが見つかりません: ${templatePath}`);
   }
-  const rendered = templateText.replace(DATA_PLACEHOLDER, serialized);
+  if (!templateText.includes(BLOCKS_PLACEHOLDER)) {
+    fail(`template.html の block-id マニフェスト埋め込み用プレースホルダーが見つかりません: ${templatePath}`);
+  }
+  const rendered = templateText
+    .replace(DATA_PLACEHOLDER, serialized)
+    .replace(BLOCKS_PLACEHOLDER, serializedBlocks);
 
   mkdirSync(outDir, { recursive: true });
   writeFileSync(outAbsolutePath, rendered, "utf8");
