@@ -7,6 +7,9 @@
   "theiaExtensions": [
     {
       "frontend": "lib/browser/akari-shell-strip-frontend-module"
+    },
+    {
+      "backend": "lib/node/akari-quick-export-backend-module"
     }
   ],
   "scripts": {

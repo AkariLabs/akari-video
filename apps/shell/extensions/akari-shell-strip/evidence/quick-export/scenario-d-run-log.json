@@ -1,0 +1,90 @@
+[
+  {
+    "t": "2026-07-25T10:09:20.659Z",
+    "step": "electron-spawned",
+    "pid": 34280
+  },
+  {
+    "t": "2026-07-25T10:09:33.559Z",
+    "step": "connected-and-ready"
+  },
+  {
+    "t": "2026-07-25T10:09:35.294Z",
+    "step": "editjson-absent-disabled",
+    "found": true,
+    "disabled": true,
+    "title": "edit.json がまだありません。編集を進めてから書き出してください。"
+  },
+  {
+    "t": "2026-07-25T10:09:35.811Z",
+    "step": "regression-menu-before",
+    "hasTimeline": true,
+    "hasTranscript": true,
+    "hasHome": true,
+    "hasShowChanges": true,
+    "hasSkillsNotice": true
+  },
+  {
+    "t": "2026-07-25T10:09:36.349Z",
+    "step": "editjson-created-reactive-enable",
+    "found": true,
+    "disabled": false,
+    "title": ""
+  },
+  {
+    "t": "2026-07-25T10:09:40.251Z",
+    "step": "not-connected-toast",
+    "toastsBefore": 0,
+    "toastsAfter": [
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください",
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください"
+    ]
+  },
+  {
+    "t": "2026-07-25T10:09:40.526Z",
+    "step": "button-not-stuck-after-agent-path",
+    "found": true,
+    "disabled": false,
+    "title": ""
+  },
+  {
+    "t": "2026-07-25T10:09:41.652Z",
+    "step": "cancel-no-op",
+    "toastsBeforeCancel": 2,
+    "toastsAfterCancelCount": 2,
+    "qiClosed": true
+  },
+  {
+    "t": "2026-07-25T10:09:43.201Z",
+    "step": "dummy-partner-terminal-attached",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T10:09:48.328Z",
+    "step": "defaults-injection",
+    "containsExpected": true
+  },
+  {
+    "t": "2026-07-25T10:09:53.472Z",
+    "step": "custom-injection",
+    "containsExpected": true
+  },
+  {
+    "t": "2026-07-25T10:09:54.638Z",
+    "step": "regression-materials-tab",
+    "dzFound": true
+  },
+  {
+    "t": "2026-07-25T10:09:55.114Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalErrLog": [
+      "window.error: Uncaught Error: This API only accepts integers"
+    ]
+  },
+  {
+    "t": "2026-07-25T10:09:59.681Z",
+    "step": "orphan-check",
+    "ok": true
+  }
+]

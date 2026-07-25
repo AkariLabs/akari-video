@@ -2,7 +2,7 @@ import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { Message } from '@theia/core/shared/@lumino/messaging';
-import { CommandService, DisposableCollection } from '@theia/core/lib/common';
+import { CommandService, Disposable, DisposableCollection } from '@theia/core/lib/common';
 import { ApplicationShell, OpenerService, QuickInputService, WidgetManager, open } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -14,6 +14,7 @@ import {
     composeExportRequestPacket
 } from '../common/export-request-packet';
 import { RenderProgressState, parseRenderProgress, RENDER_PROGRESS_UNKNOWN_LABEL } from '../common/render-progress';
+import { AkariQuickExportService, QuickExportStatus } from '../common/quick-export-protocol';
 
 interface MenuAction {
     id: string;
@@ -45,6 +46,12 @@ const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 const EDIT_JSON_RELATIVE_PATH = 'edit.json';
 const RENDER_JSON_RELATIVE_PATH = '.akari/render.json';
 const EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集を進めてから書き出してください。';
+const QUICK_EXPORT_RUNNING_TOOLTIP = '書き出しを実行中です。完了までお待ちください。';
+const QUICK_EXPORT_POLL_INTERVAL_MS = 500;
+/** render-cut CLI に解像度を渡す引数は存在しない（出力解像度は edit.json の
+ *  output.width/height 由来 — packages/render-cut/src/plan.mjs 参照）。
+ *  「この場で書き出す」では正直にこの設定を使わないことを利用者に明示する。 */
+const QUICK_EXPORT_RESOLUTION_NOTE = '解像度プリセットはこの実行方法には反映されません（edit.json の出力設定がそのまま使われます）。';
 
 /**
  * アクティビティバー5番目のアイコン「メニュー」。
@@ -55,12 +62,16 @@ const EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集�
  * - 「やらせる（スキル）」: 開いているプロジェクトの `.claude/skills/<name>/SKILL.md`
  *   の frontmatter（name / description）を列挙する v0 実装。ワンクリック実行は
  *   スコープ外 — パートナーペインでの依頼を促す文言のみ添える。
- * - 「書き出し」: ワンクリック書き出し（輸入リスト③）。設定 3 項目（解像度
- *   プリセット / 出力ファイル名 / lint 再実行）を quick-pick 連鎖で確定させ、
- *   依頼パケットを `akari.partner.injectPrompt`（ID 文字列呼び出し。④と同じ
- *   疎結合規律）へ注入する。実行自体はしない — アプリは render ステージを
- *   実装しない（設計不変条件）。進捗は `.akari/render.json` を読むだけの面
- *   （書き込みはしない・render-cut 側は無改造）。
+ * - 「書き出し」: ワンクリック書き出し（輸入リスト③・2026-07-25 両モード制へ
+ *   改訂）。設定 3 項目（解像度プリセット / 出力ファイル名 / lint 再実行）+
+ *   4 項目目「実行方法」を quick-pick 連鎖で確定させる。「エージェントに
+ *   任せる」は依頼パケットを `akari.partner.injectPrompt`（ID 文字列呼び出し。
+ *   ④と同じ疎結合規律）へ注入するのみ（実行はしない）。「この場で書き出す」
+ *   は akari-shell-strip 自身のバックエンド（AkariQuickExportService）が
+ *   edit-lint / render-cut CLI を直接子プロセス実行する（宣言済み入力で走る
+ *   決定論的 CLI の直接実行と進捗表示は汎用基盤に含む、という裁定改訂に基づく）。
+ *   進捗は `.akari/render.json` を読むだけの既存面（書き込みはしない・
+ *   render-cut 側は無改造）と、直接実行専用の自前ステータス面が並存する。
  */
 @injectable()
 export class AkariMenuWidget extends ReactWidget {
@@ -80,6 +91,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly quickInputService!: QuickInputService;
     @inject(OpenerService)
     protected readonly openers!: OpenerService;
+    @inject(AkariQuickExportService)
+    protected readonly quickExportService!: AkariQuickExportService;
 
     protected skills: SkillEntry[] = [];
     protected skillsNotice = '';
@@ -87,6 +100,9 @@ export class AkariMenuWidget extends ReactWidget {
     protected renderProgress: RenderProgressState | undefined;
     protected editJsonWatch = new DisposableCollection();
     protected renderProgressWatch = new DisposableCollection();
+    protected quickExportRunning = false;
+    protected quickExportStatus: QuickExportStatus | undefined;
+    protected quickExportPollHandle: number | undefined;
 
     @postConstruct()
     protected init(): void {
@@ -100,6 +116,7 @@ export class AkariMenuWidget extends ReactWidget {
             void this.watchEditJson();
             void this.watchRenderProgress();
         }));
+        this.toDispose.push(Disposable.create(() => this.stopQuickExportPolling()));
         void this.loadSkills();
         void this.watchEditJson();
         void this.watchRenderProgress();
@@ -253,15 +270,18 @@ export class AkariMenuWidget extends ReactWidget {
     }
 
     /**
-     * 設定 3 項目（解像度プリセット・出力ファイル名・lint 再実行）を quick-pick
-     * 連鎖で確定させ、依頼パケットを `akari.partner.injectPrompt` へ ID 文字列
-     * 呼び出しで注入する。ボタン押下 + 全項目確定 = ユーザーの書き出し承認
-     * そのもの（task.md 設計裁定）なので、パケット文言に明示承認済みである旨を
-     * 含める。途中でキャンセルした場合は何もしない（askAgent と同じ規律）。
-     * パートナー未接続時のトーストは INJECT_PROMPT コマンド自身が出す。
+     * 設定 3 項目（解像度プリセット・出力ファイル名・lint 再実行）+ 4 項目目
+     * 「実行方法」（この場で書き出す／エージェントに任せる）を quick-pick 連鎖で
+     * 確定させる。「エージェントに任せる」は既存どおり依頼パケットを
+     * `akari.partner.injectPrompt` へ ID 文字列呼び出しで注入する（無改造）。
+     * 「この場で書き出す」は akari-shell-strip 自身のバックエンド
+     * （AkariQuickExportService）が edit-lint / render-cut CLI を直接実行する
+     * （オーナー裁定 2026-07-25 — 両モード制）。途中でキャンセルした場合は
+     * 何もしない（askAgent と同じ規律）。パートナー未接続時のトーストは
+     * INJECT_PROMPT コマンド自身が出す。
      */
     protected async startExportFlow(): Promise<void> {
-        if (!this.editJsonExists) {
+        if (!this.editJsonExists || this.quickExportRunning) {
             return;
         }
         const resolution = await this.quickInputService.showQuickPick(
@@ -289,12 +309,85 @@ export class AkariMenuWidget extends ReactWidget {
         if (!lintChoice) {
             return;
         }
-        const packet = composeExportRequestPacket({
-            resolutionLabel: resolution.preset.label,
-            outputName,
-            rerunLint: lintChoice.rerunLint
+        const executionMethod = await this.quickInputService.showQuickPick(
+            [
+                { label: 'この場で書き出す（推奨）', mode: 'local' as const },
+                { label: 'エージェントに任せる', mode: 'agent' as const }
+            ],
+            { placeholder: '実行方法を選択' }
+        );
+        if (!executionMethod) {
+            return;
+        }
+        if (executionMethod.mode === 'agent') {
+            const packet = composeExportRequestPacket({
+                resolutionLabel: resolution.preset.label,
+                outputName,
+                rerunLint: lintChoice.rerunLint
+            });
+            await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+            return;
+        }
+        await this.startLocalQuickExport({ outputName, rerunLint: lintChoice.rerunLint });
+    }
+
+    // --- 「この場で書き出す」バックエンド呼び出し（edit-lint / render-cut CLI 直接実行） ----
+
+    protected async startLocalQuickExport(settings: { outputName: string; rerunLint: boolean }): Promise<void> {
+        if (this.quickExportRunning) {
+            return;
+        }
+        const roots = await this.workspace.roots;
+        const root = roots[0]?.resource;
+        if (!root) {
+            return;
+        }
+        const outcome = await this.quickExportService.start({
+            projectRootUri: root.toString(),
+            outputName: settings.outputName,
+            rerunLint: settings.rerunLint
         });
-        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+        if (!outcome.accepted) {
+            return;
+        }
+        this.quickExportRunning = true;
+        this.quickExportStatus = undefined;
+        this.update();
+        this.beginQuickExportPolling();
+    }
+
+    protected beginQuickExportPolling(): void {
+        this.stopQuickExportPolling();
+        this.quickExportPollHandle = window.setInterval(() => void this.pollQuickExportStatus(), QUICK_EXPORT_POLL_INTERVAL_MS);
+        void this.pollQuickExportStatus();
+    }
+
+    protected stopQuickExportPolling(): void {
+        if (this.quickExportPollHandle !== undefined) {
+            window.clearInterval(this.quickExportPollHandle);
+            this.quickExportPollHandle = undefined;
+        }
+    }
+
+    protected async pollQuickExportStatus(): Promise<void> {
+        const status = await this.quickExportService.getStatus();
+        this.quickExportStatus = status;
+        if (status.phase === 'done' || status.phase === 'failed' || status.phase === 'lint-failed') {
+            this.quickExportRunning = false;
+            this.stopQuickExportPolling();
+        }
+        this.update();
+    }
+
+    protected quickExportPhaseLabel(status: QuickExportStatus): string {
+        switch (status.phase) {
+            case 'linting': return 'lint 確認中…';
+            case 'lint-failed': return 'lint NG — 書き出しを中断しました';
+            case 'rendering': return 'この場で書き出し中…';
+            case 'done': return 'この場での書き出しが完了しました';
+            case 'failed': return 'この場での書き出しに失敗しました';
+            default: return '';
+        }
     }
 
     // --- 進捗面（.akari/render.json 読み取り専用） ----------------------------
@@ -385,6 +478,81 @@ export class AkariMenuWidget extends ReactWidget {
         return 'var(--theia-focusBorder, #3794ff)';
     }
 
+    protected renderQuickExportStatus(): React.ReactNode {
+        const status = this.quickExportStatus;
+        if (!status || status.phase === 'idle') {
+            return undefined;
+        }
+        const running = status.phase === 'linting' || status.phase === 'rendering';
+        const failed = status.phase === 'failed' || status.phase === 'lint-failed';
+        return (
+            <div style={{ marginTop: '10px', border: '1px solid var(--theia-widget-border)', borderRadius: '6px', padding: '8px 10px' }}>
+                <style>{`
+                    @keyframes akariQuickExportIndeterminate {
+                        0% { left: -40%; }
+                        100% { left: 100%; }
+                    }
+                `}</style>
+                <div style={{ fontSize: '0.85em', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{this.quickExportPhaseLabel(status)}</span>
+                    {status.lintIssueCount !== undefined && (
+                        <span style={{
+                            padding: '1px 7px', borderRadius: '10px', fontSize: '0.85em',
+                            background: 'var(--theia-errorForeground, #f85149)', color: '#fff'
+                        }}>
+                            lint {status.lintIssueCount} 件
+                        </span>
+                    )}
+                </div>
+                <p style={{ opacity: 0.55, fontSize: '0.8em', margin: '0 0 6px' }}>{QUICK_EXPORT_RESOLUTION_NOTE}</p>
+                {running && (
+                    <div style={{ height: '6px', borderRadius: '3px', background: 'rgba(128,128,128,0.25)', overflow: 'hidden', position: 'relative' }}>
+                        <div style={{
+                            position: 'absolute', top: 0, height: '100%', width: '40%',
+                            background: 'var(--theia-focusBorder, #3794ff)',
+                            animation: 'akariQuickExportIndeterminate 1.1s ease-in-out infinite'
+                        }} />
+                    </div>
+                )}
+                {status.phase === 'done' && status.artifactPath && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                        <button
+                            className='theia-button secondary'
+                            style={{ padding: '4px 8px', fontSize: '0.85em' }}
+                            onClick={() => void this.openExportedArtifact(status.artifactPath!)}
+                        >
+                            成果物を開く（{status.artifactPath}）
+                        </button>
+                        {status.reportPath && (
+                            <button
+                                className='theia-button secondary'
+                                style={{ padding: '4px 8px', fontSize: '0.85em' }}
+                                onClick={() => void this.openExportedArtifact(status.reportPath!)}
+                            >
+                                レポートを開く
+                            </button>
+                        )}
+                    </div>
+                )}
+                {status.phase === 'lint-failed' && status.reportPath && (
+                    <button
+                        className='theia-button secondary'
+                        style={{ marginTop: '6px', padding: '4px 8px', fontSize: '0.85em' }}
+                        onClick={() => void this.openExportedArtifact(status.reportPath!)}
+                    >
+                        lint レポートを開く
+                    </button>
+                )}
+                {failed && status.failureSummary && (
+                    <pre style={{
+                        fontSize: '0.8em', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                        margin: '6px 0 0', opacity: 0.85, maxHeight: '120px', overflow: 'auto'
+                    }}>{status.failureSummary}</pre>
+                )}
+            </div>
+        );
+    }
+
     protected renderExportSection(): React.ReactNode {
         const progress = this.renderProgress;
         return (
@@ -393,8 +561,8 @@ export class AkariMenuWidget extends ReactWidget {
                 <button
                     className='theia-button secondary'
                     style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%' }}
-                    disabled={!this.editJsonExists}
-                    title={this.editJsonExists ? undefined : EDIT_JSON_MISSING_TOOLTIP}
+                    disabled={!this.editJsonExists || this.quickExportRunning}
+                    title={!this.editJsonExists ? EDIT_JSON_MISSING_TOOLTIP : (this.quickExportRunning ? QUICK_EXPORT_RUNNING_TOOLTIP : undefined)}
                     onClick={() => void this.startExportFlow()}
                 >
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />
@@ -403,6 +571,7 @@ export class AkariMenuWidget extends ReactWidget {
                 {!this.editJsonExists && (
                     <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{EDIT_JSON_MISSING_TOOLTIP}</p>
                 )}
+                {this.renderQuickExportStatus()}
                 {progress && (
                     <div style={{ marginTop: '10px' }}>
                         <div style={{ fontSize: '0.85em', marginBottom: '4px' }}>

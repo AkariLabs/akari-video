@@ -1,0 +1,99 @@
+[
+  {
+    "t": "2026-07-25T09:39:00.407Z",
+    "step": "electron-spawned",
+    "pid": 13283
+  },
+  {
+    "t": "2026-07-25T09:39:09.493Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T09:39:23.112Z",
+    "step": "app-ready",
+    "ready": true
+  },
+  {
+    "t": "2026-07-25T09:39:25.626Z",
+    "step": "export-button-enabled",
+    "found": true,
+    "disabled": false,
+    "title": ""
+  },
+  {
+    "t": "2026-07-25T09:39:31.235Z",
+    "step": "running-button-disabled",
+    "found": true,
+    "disabled": true,
+    "title": "書き出しを実行中です。完了までお待ちください。"
+  },
+  {
+    "t": "2026-07-25T09:39:31.257Z",
+    "step": "running-section-text",
+    "runningSection": "書き出し書き出し"
+  },
+  {
+    "t": "2026-07-25T09:39:37.951Z",
+    "step": "done-observed",
+    "doneObserved": true,
+    "sectionText": "書き出し書き出し\n                    @keyframes akariQuickExportIndeterminate {\n                        0% { left: -40%; }\n                        100% { left: 100%; }\n                    }\n                この場での書き出しが完了しました解像度プリセットはこの実行方法には反映されません（edit.json の出力設定がそのまま使われます）。成果物を開く（exports/final.mp4）レポートを開く書き出し完了（100%）成果物を開く（exports/final.mp4）"
+  },
+  {
+    "t": "2026-07-25T09:39:42.562Z",
+    "step": "button-reenabled",
+    "found": true,
+    "disabled": false,
+    "title": ""
+  },
+  {
+    "t": "2026-07-25T09:39:42.584Z",
+    "step": "output-file-stat",
+    "size": 50589
+  },
+  {
+    "t": "2026-07-25T09:39:42.784Z",
+    "step": "ffprobe",
+    "ffprobeOut": "codec_name=h264\nwidth=320\nheight=180\ncodec_name=aac\nduration=1.800000\n"
+  },
+  {
+    "t": "2026-07-25T09:39:44.135Z",
+    "step": "artifact-link-opened",
+    "openedTabTitle": true
+  },
+  {
+    "t": "2026-07-25T09:39:45.197Z",
+    "step": "render-json-written-by-render-cut",
+    "renderJsonExists": true
+  },
+  {
+    "t": "2026-07-25T09:39:45.211Z",
+    "step": "existing-render-json-panel-coexist",
+    "coexistObserved": true,
+    "coexistSectionText": "書き出し書き出し\n                    @keyframes akariQuickExportIndeterminate {\n                        0% { left: -40%; }\n                        100% { left: 100%; }\n                    }\n                この場での書き出しが完了しました解像度プリセットはこの実行方法には反映されません（edit.json の出力設定がそのまま使われます）。成果物を開く（exports/final.mp4）レポートを開く書き出し完了（100%）成果物を開く（exports/final.mp4）"
+  },
+  {
+    "t": "2026-07-25T09:39:45.437Z",
+    "step": "regression-menu-actions",
+    "hasTimeline": true,
+    "hasTranscript": true,
+    "hasHome": true,
+    "hasShowChanges": true
+  },
+  {
+    "t": "2026-07-25T09:39:46.595Z",
+    "step": "regression-materials-tab",
+    "dzFound": true
+  },
+  {
+    "t": "2026-07-25T09:39:48.120Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalErrCount": 0,
+    "finalErrLog": []
+  },
+  {
+    "t": "2026-07-25T09:39:54.188Z",
+    "step": "orphan-check",
+    "ok": true
+  }
+]

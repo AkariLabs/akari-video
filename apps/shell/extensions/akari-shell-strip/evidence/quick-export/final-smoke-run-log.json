@@ -1,0 +1,76 @@
+[
+  {
+    "t": "2026-07-25T10:18:43.322Z",
+    "step": "electron-spawned",
+    "pid": 38931
+  },
+  {
+    "t": "2026-07-25T10:19:02.392Z",
+    "step": "connected-and-ready"
+  },
+  {
+    "t": "2026-07-25T10:19:02.931Z",
+    "step": "debug-hook-absent",
+    "hasDebugHook": false
+  },
+  {
+    "t": "2026-07-25T10:19:03.585Z",
+    "step": "editjson-absent-disabled",
+    "found": true,
+    "disabled": true,
+    "title": "edit.json がまだありません。編集を進めてから書き出してください。"
+  },
+  {
+    "t": "2026-07-25T10:19:03.596Z",
+    "step": "regression-menu",
+    "hasTimeline": true,
+    "hasTranscript": true,
+    "hasHome": true,
+    "hasShowChanges": true
+  },
+  {
+    "t": "2026-07-25T10:19:06.174Z",
+    "step": "editjson-created-reactive-enable",
+    "found": true,
+    "disabled": false,
+    "title": ""
+  },
+  {
+    "t": "2026-07-25T10:19:10.369Z",
+    "step": "not-connected-toast",
+    "toastsBefore": 0,
+    "toastsAfter": [
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください",
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください"
+    ]
+  },
+  {
+    "t": "2026-07-25T10:19:11.645Z",
+    "step": "cancel-no-op",
+    "toastsBeforeCancel": 2,
+    "toastsAfterCancelCount": 2,
+    "qiClosed": true
+  },
+  {
+    "t": "2026-07-25T10:19:18.877Z",
+    "step": "local-export-done",
+    "doneObserved": true,
+    "sectionText": "書き出し書き出し\n                    @keyframes akariQuickExportIndeterminate {\n                        0% { left: -40%; }\n                        100% { left: 100%; }\n                    }\n                この場での書き出しが完了しました解像度プリセットはこの実行方法には反映されません（edit.json の出力設定がそのまま使われます）。成果物を開く（exports/final-smoke.mp4）レポートを開く書き出し完了（100%）成果物を開く（exports/final-smoke.mp4）"
+  },
+  {
+    "t": "2026-07-25T10:19:20.201Z",
+    "step": "regression-materials-tab",
+    "dzFound": true
+  },
+  {
+    "t": "2026-07-25T10:19:22.382Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalErrLog": []
+  },
+  {
+    "t": "2026-07-25T10:19:27.530Z",
+    "step": "orphan-check",
+    "ok": true
+  }
+]

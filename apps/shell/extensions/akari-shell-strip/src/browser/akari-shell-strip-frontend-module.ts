@@ -1,5 +1,6 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
-import { FrontendApplicationContribution, WidgetFactory, FrontendApplication } from '@theia/core/lib/browser';
+import { FrontendApplicationContribution, WidgetFactory, FrontendApplication, WebSocketConnectionProvider } from '@theia/core/lib/browser';
+import { AkariQuickExportService, AKARI_QUICK_EXPORT_SERVICE_PATH } from '../common/quick-export-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsWidget } from './akari-settings-widget';
 import { AkariSettingsContribution } from './akari-settings-contribution';
@@ -13,6 +14,11 @@ import { AkariRightPanelCuration } from './akari-right-panel-curation';
 import { AkariHomeFlowGate } from './akari-home-flow-gate';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
+    // 「この場で書き出す」バックエンド（edit-lint / render-cut CLI 直接実行）。
+    bind(AkariQuickExportService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_QUICK_EXPORT_SERVICE_PATH)
+    ).inSingletonScope();
+
     // ホーム v2: 「04 作業中」まで左パネル（素材/メニュー）を隠すゲート。
     bind(AkariHomeFlowGate).toSelf().inSingletonScope();
 

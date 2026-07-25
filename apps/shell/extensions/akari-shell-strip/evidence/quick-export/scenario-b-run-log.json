@@ -1,0 +1,82 @@
+[
+  {
+    "t": "2026-07-25T10:07:44.065Z",
+    "step": "electron-spawned",
+    "pid": 33447
+  },
+  {
+    "t": "2026-07-25T10:07:57.273Z",
+    "step": "connected-and-ready"
+  },
+  {
+    "t": "2026-07-25T10:08:03.749Z",
+    "step": "lint-fail-observed",
+    "lintFailObserved": true,
+    "sectionText": "書き出し書き出し\n                    @keyframes akariQuickExportIndeterminate {\n                        0% { left: -40%; }\n                        100% { left: 100%; }\n                    }\n                lint NG — 書き出しを中断しましたlint 1 件解像度プリセットはこの実行方法には反映されません（edit.json の出力設定がそのまま使われます）。lint レポートを開く"
+  },
+  {
+    "t": "2026-07-25T10:08:04.101Z",
+    "step": "render-cut-not-invoked",
+    "outputExists": false,
+    "renderJsonExists": false
+  },
+  {
+    "t": "2026-07-25T10:08:04.111Z",
+    "step": "lint-report-button",
+    "found": true,
+    "x": 131.45703125,
+    "y": 515
+  },
+  {
+    "t": "2026-07-25T10:08:05.201Z",
+    "step": "lint-report-opened",
+    "openedTabs": [
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "設定",
+      "メニュー",
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "設定",
+      "メニュー",
+      "設定",
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "メニュー",
+      "ホーム",
+      "edit-lint-report.html",
+      "zsh",
+      "Problems",
+      "パートナー",
+      "Claude Code",
+      "Codex",
+      "パートナー",
+      "Claude Code",
+      "Codex",
+      "パートナー",
+      "Codex",
+      "Claude Code"
+    ]
+  },
+  {
+    "t": "2026-07-25T10:08:05.439Z",
+    "step": "button-reenabled",
+    "found": true,
+    "disabled": false,
+    "title": ""
+  },
+  {
+    "t": "2026-07-25T10:08:05.455Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalErrLog": []
+  },
+  {
+    "t": "2026-07-25T10:08:10.785Z",
+    "step": "orphan-check",
+    "ok": true
+  }
+]
