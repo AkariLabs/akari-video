@@ -21,6 +21,7 @@ import {
     ReviewStrokeFrame
 } from '../common/akari-preview-protocol';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
 import { locatePreviewCaptions, parsePreviewCaptions, PreviewCaption } from './akari-preview-captions';
 import {
@@ -2393,7 +2394,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
-#preview-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#preview-video { position: absolute; top: 0; left: 0; object-fit: contain; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: none; }
 #overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; }
@@ -2545,13 +2546,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const pending = new Map();
             let sequence = 0;
             let displayScale = 1;
-            // frameScale: 出力キャンバス(output.width/height)を wrapper 全体（letterbox 込みの
-            // content-rect ではなく）へ写像する CSS px / 出力 px 比。cuts/layers の transform は
-            // render-cut（buildLayersCompositeCommand の overlay x=(main_w-overlay_w)/2+x 等）と
-            // 同じく出力フレーム中心基準の座標系なので、現在再生中のソース動画自体のアスペクト比に
-            // 依存する displayScale/rect（letterbox 込みの狭い矩形）ではなく frameScale/wrapper 全体
-            // を基準にする。#overlay-stage と window.akari.stageScale も render-cut と同じ
-            // frameScale、#pen-layer だけは描画対象の実映像矩形に合わせて displayScale/rect を使う。
+            // frameScale: 出力キャンバス(output.width/height)を wrapper 内の出力フレーム矩形へ
+            // 写像する CSS px / 出力 px 比。wrapper は利用可能領域によって出力アスペクト比より横長に
+            // なるため、wrapper 全体を出力フレームとして扱わない。base/layers/captions/overlays は
+            // 同じ出力フレーム矩形、#pen-layer はその中の実映像矩形へ写像する。
             let frameScale = 1;
             let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
@@ -2924,64 +2922,59 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             });
 
+            const fitCompositeRect = (${fitPreviewCompositeRect.toString()});
+            const computeOutputFrameRect = () => fitCompositeRect(
+                wrapper.clientWidth,
+                wrapper.clientHeight,
+                Number(output.width || 1280),
+                Number(output.height || 720)
+            );
             const computeContentRect = () => {
+                const frameRect = computeOutputFrameRect();
                 const boxWidth = wrapper.clientWidth;
                 const boxHeight = wrapper.clientHeight;
                 const videoWidth = video.videoWidth;
                 const videoHeight = video.videoHeight;
                 if (!(boxWidth > 0) || !(boxHeight > 0) || !(videoWidth > 0) || !(videoHeight > 0)) {
-                    return { x: 0, y: 0, width: boxWidth, height: boxHeight };
+                    return frameRect;
                 }
-                const boxAspect = boxWidth / boxHeight;
-                const videoAspect = videoWidth / videoHeight;
-                let contentWidth;
-                let contentHeight;
-                if (videoAspect > boxAspect) {
-                    contentWidth = boxWidth;
-                    contentHeight = boxWidth / videoAspect;
-                } else {
-                    contentHeight = boxHeight;
-                    contentWidth = boxHeight * videoAspect;
-                }
+                const contentRect = fitCompositeRect(frameRect.width, frameRect.height, videoWidth, videoHeight);
                 return {
-                    x: (boxWidth - contentWidth) / 2,
-                    y: (boxHeight - contentHeight) / 2,
-                    width: contentWidth,
-                    height: contentHeight
+                    x: frameRect.x + contentRect.x,
+                    y: frameRect.y + contentRect.y,
+                    width: contentRect.width,
+                    height: contentRect.height
                 };
             };
             const updateStageScale = () => {
+                const frameRect = computeOutputFrameRect();
                 const rect = computeContentRect();
                 const next = rect.width / Number(output.width || 1280);
                 displayScale = Number.isFinite(next) && next > 0 ? next : 1;
-                // frameScale/boxWidth/boxHeight: 出力フレーム全体（wrapper の実表示box）を基準に
-                // した CSS px 比。rect（現在再生中クリップの letterbox 込み内側矩形）と違い、
-                // 出力アスペクト比と異なる素材でも常に出力キャンバス全体を指す
-                // （render-cut の main_w/main_h と同じ基準。packages/render-cut/src/layers.mjs の
-                // overlay x=(main_w-overlay_w)/2+x と揃える）。
-                const boxWidth = wrapper.clientWidth;
-                const boxHeight = wrapper.clientHeight;
-                const nextFrameScale = boxWidth / Number(output.width || 1280);
+                const outputWidth = Number(output.width || 1280);
+                const outputHeight = Number(output.height || 720);
+                const nextFrameScale = frameRect.width / outputWidth;
                 frameScale = Number.isFinite(nextFrameScale) && nextFrameScale > 0 ? nextFrameScale : 1;
                 const stageTransform = 'translate(0px, 0px) scale(' + frameScale + ')';
-                // #preview-layers のクリップ境界・子レイヤーの位置基準は常に出力フレーム全体
-                // （wrapper 全体）にする。letterbox 込みの rect に縮めると、素材のアスペクト比が
-                // 出力と異なる場合にクリップ境界が出力フレームより内側に縮んでしまう。
-                layersStage.style.left = '0px';
-                layersStage.style.top = '0px';
-                layersStage.style.width = boxWidth + 'px';
-                layersStage.style.height = boxHeight + 'px';
-                layersStage.style.transform = '';
+                video.style.left = frameRect.x + 'px';
+                video.style.top = frameRect.y + 'px';
+                video.style.width = frameRect.width + 'px';
+                video.style.height = frameRect.height + 'px';
+                layersStage.style.left = frameRect.x + 'px';
+                layersStage.style.top = frameRect.y + 'px';
+                layersStage.style.width = outputWidth + 'px';
+                layersStage.style.height = outputHeight + 'px';
+                layersStage.style.transform = stageTransform;
                 for (const layerVideo of layersStage.querySelectorAll('video')) {
                     if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) continue;
                     const x = Number(layerVideo.dataset.akariTransformX) || 0;
                     const y = Number(layerVideo.dataset.akariTransformY) || 0;
                     const scale = Number(layerVideo.dataset.akariTransformScale) || 1;
                     const rotate = Number(layerVideo.dataset.akariTransformRotate) || 0;
-                    layerVideo.style.width = (layerVideo.videoWidth * scale * frameScale) + 'px';
-                    layerVideo.style.height = (layerVideo.videoHeight * scale * frameScale) + 'px';
-                    layerVideo.style.left = (boxWidth / 2 + x * frameScale) + 'px';
-                    layerVideo.style.top = (boxHeight / 2 + y * frameScale) + 'px';
+                    layerVideo.style.width = (layerVideo.videoWidth * scale) + 'px';
+                    layerVideo.style.height = (layerVideo.videoHeight * scale) + 'px';
+                    layerVideo.style.left = (outputWidth / 2 + x) + 'px';
+                    layerVideo.style.top = (outputHeight / 2 + y) + 'px';
                     layerVideo.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg)';
                 }
                 if (video.dataset.akariCutTransformActive === 'true') {
@@ -2994,12 +2987,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else {
                     video.style.transform = '';
                 }
+                stage.style.left = frameRect.x + 'px';
+                stage.style.top = frameRect.y + 'px';
                 stage.style.transform = stageTransform;
                 penLayer.style.left = rect.x + 'px';
                 penLayer.style.top = rect.y + 'px';
                 penLayer.style.width = rect.width + 'px';
                 penLayer.style.height = rect.height + 'px';
             };
+            window.akari.computeOutputFrameRect = computeOutputFrameRect;
             window.akari.computeContentRect = computeContentRect;
             window.akari.updateLayerLayout = updateStageScale;
             new ResizeObserver(updateStageScale).observe(wrapper);
@@ -3393,11 +3389,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const captureDrawRect = () => {
-                const wrapperRect = wrapper.getBoundingClientRect();
-                const contentRect = window.akari.computeContentRect();
+                const contentRect = penLayer.getBoundingClientRect();
                 activeDrawRect = {
-                    left: wrapperRect.left + contentRect.x,
-                    top: wrapperRect.top + contentRect.y,
+                    left: contentRect.left,
+                    top: contentRect.top,
                     width: Math.max(contentRect.width, 1),
                     height: Math.max(contentRect.height, 1)
                 };
