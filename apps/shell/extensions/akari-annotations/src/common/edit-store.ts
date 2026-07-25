@@ -67,6 +67,8 @@ export interface EditAudioSfx {
     path: string;
     track?: number;
     gainDb?: number;
+    in?: number;
+    out?: number;
 }
 
 export interface CutTrackSegment {
@@ -97,8 +99,6 @@ export interface EditTimelineTrack {
     hidden?: boolean;
     locked?: boolean;
 }
-
-export const DECLARED_SFX_DURATION_SECONDS = 1;
 
 export interface SourceElement {
     text: string;
@@ -730,6 +730,56 @@ export function moveSfxInSource(
     return updated;
 }
 
+/**
+ * SE の in/out（素材秒）を書き戻す。動画クリップのトリム（trimCutInSource）と同じ操作感に
+ * 合わせ、左端ドラッグ（in の変更）は t も連動させる呼び出し側の責務で nextT を渡す。
+ * null は「フィールドを削除して省略時意味論（in=0 / out=素材末尾）へ戻す」（undo 用）。
+ */
+export function trimSfxInSource(
+    source: string,
+    sfxIndex: number,
+    nextIn: number | null,
+    nextOut: number | null,
+    nextT?: number
+): string {
+    if (nextIn !== null && (!Number.isFinite(nextIn) || nextIn < 0)) {
+        throw new Error('SE の in が不正です。');
+    }
+    if (nextOut !== null && (!Number.isFinite(nextOut) || nextOut <= 0)) {
+        throw new Error('SE の out が不正です。');
+    }
+    if (nextIn !== null && nextOut !== null && nextOut - nextIn < 0.1) {
+        throw new Error('SE が短すぎます（0.1 秒未満にはできません）');
+    }
+    if (nextT !== undefined && (!Number.isFinite(nextT) || nextT < 0)) {
+        throw new Error('SE の開始時刻が不正です。');
+    }
+    return updateArrayElementByIndex(source, 'sfx', sfxIndex, 'SE', element => {
+        const label = `SE ${sfxIndex + 1}`;
+        let next = element;
+        if (nextT !== undefined) {
+            next = /"t"\s*:/.test(next)
+                ? replacePropertyValue(next, 't', nextT, label)
+                : appendNumberProperty(next, 't', nextT);
+        }
+        if (nextIn === null) {
+            next = /"in"\s*:/.test(next) ? removeObjectProperty(next, 'in') : next;
+        } else {
+            next = /"in"\s*:/.test(next)
+                ? replacePropertyValue(next, 'in', nextIn, label)
+                : appendNumberProperty(next, 'in', nextIn);
+        }
+        if (nextOut === null) {
+            next = /"out"\s*:/.test(next) ? removeObjectProperty(next, 'out') : next;
+        } else {
+            next = /"out"\s*:/.test(next)
+                ? replacePropertyValue(next, 'out', nextOut, label)
+                : appendNumberProperty(next, 'out', nextOut);
+        }
+        return next;
+    });
+}
+
 export function setSfxGainDbInSource(source: string, sfxIndex: number, gainDb: number | null): string {
     if (gainDb !== null && (!Number.isFinite(gainDb) || gainDb < -60 || gainDb > 12)) {
         throw new Error('gain_db は -60〜12 の範囲で指定してください。');
@@ -1226,12 +1276,32 @@ export function parseEdit(source: string): {
                         warnings.push(`${index + 1} 番目の SE の gain_db が不正なため無視します。`);
                     }
                 }
+                let inSeconds: number | undefined;
+                if (sfx.in !== undefined && sfx.in !== null) {
+                    if (typeof sfx.in === 'number' && Number.isFinite(sfx.in) && sfx.in >= 0) {
+                        inSeconds = sfx.in;
+                    } else {
+                        warnings.push(`${index + 1} 番目の SE の in が不正なため無視します。`);
+                    }
+                }
+                let outSeconds: number | undefined;
+                if (sfx.out !== undefined && sfx.out !== null) {
+                    if (typeof sfx.out === 'number' && Number.isFinite(sfx.out) && sfx.out > 0) {
+                        outSeconds = sfx.out;
+                    } else {
+                        warnings.push(`${index + 1} 番目の SE の out が不正なため無視します。`);
+                    }
+                }
                 audioSfx.push({
                     id: `sfx-${index}`,
                     t: sfx.t,
-                    duration: DECLARED_SFX_DURATION_SECONDS,
+                    // 実尺（ffprobe）取得までの暫定表示尺。out 指定済みなら out-in を正として使い、
+                    // 未指定なら getAudioDuration 解決後に widget 側で実尺基準へ差し替える（地雷6回収）。
+                    duration: outSeconds !== undefined ? Math.max(0, outSeconds - (inSeconds ?? 0)) : 1,
                     path: sfx.path,
                     ...(sfx.track !== undefined ? { track: normalizeTrack(sfx.track) } : {}),
+                    ...(inSeconds !== undefined ? { in: inSeconds } : {}),
+                    ...(outSeconds !== undefined ? { out: outSeconds } : {}),
                     ...(gainDb !== undefined ? { gainDb } : {})
                 });
                 if (sfx.track !== undefined && normalizeTrack(sfx.track) !== sfx.track) {
@@ -1297,13 +1367,12 @@ export function parseEdit(source: string): {
                 continue;
             }
             if (seenTrackIds.has(track.id)
-                || ((track.kind === 'captions' || track.kind === 'audio') && seenSingletonKinds.has(track.kind))
-                || (track.kind === 'audio' && track.ref !== undefined && track.ref !== 0)) {
-                warnings.push(`${index + 1} 番目の timeline.tracks 要素が重複または単一トラック制約違反のため表示しません。`);
+                || (track.kind === 'captions' && seenSingletonKinds.has(track.kind))) {
+                warnings.push(`${index + 1} 番目の timeline.tracks 要素が重複のため表示しません。`);
                 continue;
             }
             seenTrackIds.add(track.id);
-            if (track.kind === 'captions' || track.kind === 'audio') {
+            if (track.kind === 'captions') {
                 seenSingletonKinds.add(track.kind);
             }
             tracks.push({

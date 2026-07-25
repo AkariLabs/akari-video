@@ -1377,7 +1377,7 @@ test("edit data without a declared timeline track warns when timeline is present
   });
 });
 
-test("duplicate captions and audio timeline tracks warn without failing", async () => {
+test("duplicate captions timeline track warns while multiple audio timeline tracks do not (R6c 複数音声トラック化による singleton 緩和)", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "timeline-tracks-singleton-duplicate-warning"));
     assert.equal(executed.status, 0, executed.stderr);
@@ -1386,7 +1386,8 @@ test("duplicate captions and audio timeline tracks warn without failing", async 
     const findings = result.findings.filter(
       (finding) => finding.check === "timeline.tracks.singleton",
     );
-    assert.equal(findings.length, 2, JSON.stringify(result.findings, null, 2));
-    assert.ok(findings.every((finding) => finding.severity === "warning"));
+    assert.equal(findings.length, 1, JSON.stringify(result.findings, null, 2));
+    assert.equal(findings[0].severity, "warning");
+    assert.ok(findings[0].message.includes("captions"), JSON.stringify(findings, null, 2));
   });
 });

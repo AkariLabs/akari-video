@@ -866,7 +866,10 @@ function validateTimelineTracks(edit, findings) {
       }
     }
 
-    if (item.kind === "captions" || item.kind === "audio") {
+    // audio は R6 契約 §1 裁定 2（2026-07-25）で複数トラック化された。宣言ごとの ref が
+    // 異なる限り複数宣言は正常な運用のため、singleton warning の対象からは除外する
+    // （captions は引き続き単一トラック運用のため維持）。
+    if (item.kind === "captions") {
       const count = (singletonCounts.get(item.kind) ?? 0) + 1;
       singletonCounts.set(item.kind, count);
       if (count > 1) {

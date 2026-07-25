@@ -291,6 +291,18 @@ export interface RemoveSfxRequest {
     sfxIndex: number;
 }
 
+export interface TrimSfxRequest {
+    editUri: string;
+    projectRootUri: string;
+    sfxIndex: number;
+    /** 素材秒。null はフィールド削除（in=0 の省略時意味論へ戻す。undo 用）。 */
+    in: number | null;
+    /** 素材秒。null はフィールド削除（素材末尾までの省略時意味論へ戻す。undo 用）。 */
+    out: number | null;
+    /** 左端ドラッグ（in 変更）のときのみ指定。右端ドラッグでは t は不変のため省略する。 */
+    t?: number;
+}
+
 export interface InsertSfxRequest {
     editUri: string;
     projectRootUri: string;
@@ -422,6 +434,7 @@ export interface AkariAnnotationsService {
     removeLayer(request: RemoveLayerRequest): Promise<RemoveLayerResult>;
     insertLayer(request: InsertLayerRequest): Promise<WriteBackResult>;
     moveSfx(request: MoveSfxRequest): Promise<WriteBackResult>;
+    trimSfx(request: TrimSfxRequest): Promise<WriteBackResult>;
     removeSfx(request: RemoveSfxRequest): Promise<RemoveSfxResult>;
     insertSfx(request: InsertSfxRequest): Promise<WriteBackResult>;
     setCutSpeed(request: SetCutSpeedRequest): Promise<WriteBackResult>;

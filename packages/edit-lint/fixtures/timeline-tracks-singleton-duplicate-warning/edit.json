@@ -5,15 +5,18 @@
   "cuts": [{ "src": "s1", "in": 0, "out": 5, "track": 0 }],
   "overlays": [],
   "audio": {
-    "sfx": [{ "path": "../valid/sample.mp4", "t": 1, "track": 0 }]
+    "sfx": [
+      { "path": "../valid/sample.mp4", "t": 1, "track": 0 },
+      { "path": "../valid/sample.mp4", "t": 2, "track": 1 }
+    ]
   },
   "timeline": {
     "tracks": [
       { "id": "t1", "kind": "cuts", "ref": 0 },
       { "id": "t2", "kind": "captions" },
       { "id": "t3", "kind": "captions" },
-      { "id": "t4", "kind": "audio" },
-      { "id": "t5", "kind": "audio", "ref": 0 }
+      { "id": "t4", "kind": "audio", "ref": 0 },
+      { "id": "t5", "kind": "audio", "ref": 1 }
     ]
   }
 }

@@ -52,6 +52,7 @@ import {
     SetSfxGainRequest,
     SplitCutRequest,
     TrimCutRequest,
+    TrimSfxRequest,
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import * as mediaCache from './media-cache';
@@ -95,6 +96,7 @@ import {
     updateCutOpacityInSource,
     updateCutTransformInSource,
     trimCutInSource,
+    trimSfxInSource,
     updateBgmInSource,
     updateLayerBlendInSource,
     updateLayerOpacityInSource,
@@ -565,6 +567,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を移動') };
+    }
+
+    async trimSfx(request: TrimSfxRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = trimSfxInSource(source, request.sfxIndex, request.in, request.out, request.t);
+        await this.assertLintPasses(editPath, updated);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE をトリム') };
     }
 
     async removeSfx(request: RemoveSfxRequest): Promise<RemoveSfxResult> {

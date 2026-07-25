@@ -1,11 +1,19 @@
 // packages/edit-lint/src/derive-tracks.mjs の写し（契約 2026-07-24-r5b-track-ui のファイル境界により
 // tsconfig rootDir 制約で import 不可のため契約逸脱として複製。正本は packages/edit-lint 側。
 // アルゴリズムを変更する場合は両ファイルを同期させること。
+//
+// R6c（2026-07-25、複数音声トラック化）で以下 2 点を正本から意図的に分岐させている
+// （tasks/2026-07-25-r6c1-audio-tracks-ui/report.md に申し送り記載。R5-B の
+// DEFAULT_GROUP_ORDER 是正と同種の先例）:
+//   1. DEFAULT_GROUP_ORDER の audio 位置: 正本は末尾（最上段）だが、R6 契約 §1 裁定 1
+//      「音源グループは最下段固定」を満たすため先頭（reverse 後に最下段）へ変更。
+//   2. audio の導出を cuts/layers/overlays と同じ collectTrackNumbers 方式に変更
+//      （正本は sfx の有無だけを見て常に ref 0 単一トラックを導出する）。
 
 import { EditTimelineTrack } from './edit-store';
 
 const DEFAULT_GROUP_ORDER: ReadonlyArray<EditTimelineTrack['kind']> =
-    ['cuts', 'audio', 'layers', 'overlays', 'captions'];
+    ['audio', 'cuts', 'layers', 'overlays', 'captions'];
 
 export function deriveTracks(edit: unknown): EditTimelineTrack[] {
     const derived: EditTimelineTrack[] = [];
@@ -22,8 +30,8 @@ export function deriveTracks(edit: unknown): EditTimelineTrack[] {
         append('captions');
     }
     const audio = isRecord(value?.audio) ? value.audio : undefined;
-    if (Array.isArray(audio?.sfx) && audio.sfx.length > 0) {
-        append('audio', 0);
+    for (const track of collectTrackNumbers(audio?.sfx)) {
+        append('audio', track);
     }
     return derived;
 }
