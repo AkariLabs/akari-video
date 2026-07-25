@@ -204,8 +204,8 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
 | 層 | 場所 | 生存範囲 |
 |---|---|---|
 | `local` | `<プロジェクト>/assets/` | そのプロジェクトのみ |
-| `shared` | プロジェクトから上位へ辿った各ディレクトリの ~~`.akari-video/assets/`~~ `.akari/assets/`（2026-07-25 裁定） | そのディレクトリ配下の全プロジェクト（事業・組織単位。複数層可） |
-| `user` | ~~`~/.akari-video/assets/`~~ `~/.akari/assets/`（2026-07-25 裁定） | そのマシンの全プロジェクト |
+| `shared` | プロジェクトから上位へ辿った各ディレクトリの `.akari-video/assets/`（2026-07-25 再裁定で維持確定） | そのディレクトリ配下の全プロジェクト（事業・組織単位。複数層可） |
+| `user` | `~/.akari-video/assets/`（2026-07-25 再裁定で維持確定） | そのマシンの全プロジェクト |
 | `builtin` | 本リポの `assets/` | 製品出荷デフォルト |
 | `catalog` | 本リポの `catalog/`（remote） | 取得して任意の層へ入庫 |
 
@@ -220,31 +220,44 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
   どのプロジェクトでも使う自分の定番 → `user`。`builtin` への昇格は PR 経路
   （コミュニティ化と同じ道）
 - ~~ディレクトリ名 `.akari-video/` は初期案（要オーナー確認。`.akari` 等への変更余地あり）~~
-  → **2026-07-25 オーナー裁定で `.akari` に確定**（末尾「ディレクトリ名の裁定」追記を参照）
+  → **2026-07-25 の同日再裁定で `.akari-video` のまま確定**（末尾「ディレクトリ名の裁定」追記を参照）
 - 編集後のフィードバックが入口になる: 「このテロップよかった、登録して」→ harvest スキルが
   発動し、スコープを聞いて入庫する。コーナーキャプションやサムネ構図
   （HTML 文字組テンプレ）も同様に登録できるよう、category に `thumbnail` を追加する
 
-## ディレクトリ名の裁定（2026-07-25 追記）
+## ディレクトリ名の裁定（2026-07-25 追記・同日再裁定で確定）
 
-**オーナー裁定（2026-07-25）: プロジェクト外の置き場所は `.akari` をベースに統一する。**
-本節が上表 `shared` / `user` 行の訂正と、初期案保留（旧「`.akari-video/` は初期案」項）の
-解消の正式記録である。
+**確定裁定（2026-07-25 再裁定）: プロジェクト外の置き場所は `~/.akari-video/` をベースに
+統一する。** 初期案保留（旧「`.akari-video/` は初期案」項）はこれで解消。
 
-- `user` 層: `~/.akari/assets/`（旧 `~/.akari-video/assets/`）
-- `shared` 層: 上位ディレクトリの `.akari/assets/`（旧 `.akari-video/assets/`）
-- 根拠: `contract-2026-07-25-recipe-v0.md` が新設した `~/.akari/recipes/` と基底を揃える。
-  `~/.akari/` を「AKARI Video のプロジェクト外管理領域」の唯一のベースとし、以後の
-  プロジェクト外置き場所（recipes / assets / 将来の styles 等）はすべてこの下に置く
-- プロジェクト内サイドカー `.akari/` と同名になるが衝突しない: プロジェクトのローカル素材は
-  `<プロジェクト>/assets/` にあり `<プロジェクト>/.akari/assets/` は存在しないため、
-  `shared` の上位探索が `.akari/assets/` の実在で判定する限り誤ヒットは起きない
-- **移行が必要なもの**（本裁定時点の残作業。別タスクで一括実施）:
-  1. 実体移設: `~/.akari-video/assets/audio/`（10 パック・340 ファイル）→ `~/.akari/assets/audio/`
-  2. コード既定値 2 箇所: `packages/audio-library-setup/bin/register-drop-folder.mjs` /
-     `bin/gallery-helper.mjs` の `libraryRoot`
-  3. スキル文書の旧パス表記の一括更新: harvest-asset / setup-library / setup-audio-library /
-     edit-plan（expression-selection / report-guide / beat-sync）ほか
-  4. ドロップフォルダ既定: `~/.config/akari-video/audio-drop` → `~/.akari/audio-drop/`
-     （2026-07-25 同日の追加裁定で XDG 系ツリーも `~/.akari/` に寄せる。
-     `register-drop-folder.mjs` の `dropDir` 既定値が対象）
+経緯（同日中の 2 段裁定。訂正は追記で残す）:
+
+1. **第一裁定（同日・撤回）**: recipe v0 が新設した `~/.akari/recipes/` と揃えるため
+   「`~/.akari/` をベースに統一（user 層 `~/.akari/assets/` へ移設）」と裁定した
+2. **実査による前提崩壊**: 移設タスク起票前の実測で、`~/.akari/` は**空き名前空間ではなく
+   Akari-OS 系アプリの稼働中 home** と判明（`tauri-updater.key`・`apps/`・`device-link-*`・
+   `secrets/`・`vaults.toml` が存在し、`device-link-settings.json` は当日更新 = 現役）。
+   同居は誤削除事故・サブディレクトリ衝突・2026-07-13 の製品分離方針との矛盾を生む
+3. **再裁定（確定）**: 基底は `~/.akari-video/`。**recipe v0 側が誤り**（占有を知らずに
+   `~/.akari/` を新設した）であり、訂正の向きを反転する。`~/.akari/recipes/` の実体は
+   未作成のため、データ移設は一切発生しない
+
+確定事項:
+
+- `user` 層: `~/.akari-video/assets/`（現状維持。移設なし）
+- `shared` 層: 上位ディレクトリの `.akari-video/assets/`（現状維持）
+- レシピ: `~/.akari-video/recipes/`（recipe v0 の `~/.akari/recipes/` を訂正）
+- ドロップフォルダ既定: `~/.akari-video/audio-drop/`（`~/.config/akari-video/audio-drop`
+  から変更。XDG 系ツリーも基底へ寄せる裁定は維持し、向き先のみ再裁定に追従）
+- 以後のプロジェクト外置き場所（styles 等）もすべて `~/.akari-video/` 配下に置く。
+  **`~/.akari/` には何も新設しない**（Akari-OS 系の領域として不可侵）
+
+残作業（別タスク `2026-07-25-akari-home-base-alignment` で一括実施）:
+
+1. recipe v0 のパス参照一括訂正: `docs/contract-2026-07-25-recipe-v0.md` /
+   `packages/schemas/recipe.schema.json`（description・$comment）/
+   `skills/edit-plan/{recipe.md, workflow.md, SKILL.md}` /
+   `skills/research-plan/{SKILL.md, ideate.md}`
+2. `register-drop-folder.mjs` の `dropDir` 既定値を `~/.akari-video/audio-drop/` へ
+3. 射程外（現状維持）: `~/.config/akari-video/` の `credentials.env` / `voice-profiles`
+   （認証情報の置き場は別論点。本裁定では動かさない）
