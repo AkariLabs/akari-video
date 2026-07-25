@@ -1,7 +1,7 @@
 # plan-comments.json v0（承認可能プラン層への構造化差し戻し）契約
 
 - 日付: 2026-07-25
-- 状態: **ドラフト・要オーナーレビュー**（データ契約の新設はオーナー裁定事項。本書はレビュー前提の起草）
+- 状態: **accepted**（2026-07-26 オーナーレビューで承認。旧: ドラフト・要オーナーレビュー）
 - 前提: `contract-2026-07-17-data-contract-versioning.md`（三原則の正本）、
   `contract-2026-07-20-plan-json-v0.md`（隣接契約。`confidence` 状態梯子・`slots[].id`・
   `<plan-dir>` 配置規約の先例）、`skills/research-plan/storyboard.md`（`structure-confirm` の
