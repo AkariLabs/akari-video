@@ -13,6 +13,8 @@ import {
     DeleteCutResult,
     GetAudioDurationRequest,
     GetAudioDurationResult,
+    GetClipFilmstripRequest,
+    GetClipFilmstripResult,
     GetClipThumbnailRequest,
     GetClipThumbnailResult,
     GetClipWaveformRequest,
@@ -110,6 +112,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         return mediaCache.getClipThumbnail(
             this.fsPath(request.projectRootUri), this.fsPath(request.videoUri), request.atSeconds
+        );
+    }
+
+    async getClipFilmstrip(request: GetClipFilmstripRequest): Promise<GetClipFilmstripResult> {
+        if (!request?.projectRootUri || !request?.videoUri) {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        return mediaCache.getClipFilmstrip(
+            this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
+            request.frameWidth, request.fps
         );
     }
 

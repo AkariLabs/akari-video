@@ -6,6 +6,13 @@ export type MediaUnavailableReason = 'ffmpeg-not-found' | 'source-missing' | 'ex
 export const THUMBNAIL_WIDTH_PX = 160;
 export const WAVEFORM_BUCKET_COUNT = 200;
 
+/** フィルムストリップ atlas の既定パラメータ（旧版 `thumbnail_strip()` の実測値を踏襲）。 */
+export const FILMSTRIP_FRAME_WIDTH_PX = 98;
+export const FILMSTRIP_FPS = 2.0;
+export const FILMSTRIP_COLS = 32;
+/** 長尺素材の暴走防止。これを超える枚数になる場合は実効 fps を下げて収める。 */
+export const FILMSTRIP_MAX_FRAMES = 2400;
+
 export interface GetClipThumbnailRequest {
     projectRootUri: string;
     videoUri: string;
@@ -15,6 +22,34 @@ export interface GetClipThumbnailRequest {
 export interface GetClipThumbnailResult {
     status: 'ready' | 'unavailable';
     dataUri?: string;
+    reason?: MediaUnavailableReason;
+}
+
+export interface GetClipFilmstripRequest {
+    projectRootUri: string;
+    /** 素材（クリップ区間ではなく素材全体）の URI。atlas はこの単位でキャッシュされる。 */
+    videoUri: string;
+    frameWidth?: number;
+    fps?: number;
+}
+
+/** atlas 1 枚分のレイアウト。frame は `idx = row * cols + col`、余りは黒で埋められる。 */
+export interface ClipFilmstripAtlas {
+    /** atlas 画像を指す URI（file スキーム）。widget はこれを background-image にそのまま渡す。 */
+    atlasUri: string;
+    frameWidth: number;
+    frameHeight: number;
+    cols: number;
+    rows: number;
+    frameCount: number;
+    /** 長尺クランプ後の実効 fps（静止画は元の fps をそのまま反映）。 */
+    fps: number;
+    durationSeconds: number;
+}
+
+export interface GetClipFilmstripResult {
+    status: 'ready' | 'unavailable';
+    atlas?: ClipFilmstripAtlas;
     reason?: MediaUnavailableReason;
 }
 
@@ -350,6 +385,7 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 
 export interface AkariAnnotationsService {
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
+    getClipFilmstrip(request: GetClipFilmstripRequest): Promise<GetClipFilmstripResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
     getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult>;
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;
