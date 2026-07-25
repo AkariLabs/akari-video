@@ -43,6 +43,28 @@ doctor は connections.json の `doctor` ブロックを書き戻し、プロジ
 `connections-report.html` を生成する。レポートに表示する資格情報は「設定済み（マスク）」または
 「未設定」の存在有無だけとし、HTTP 応答本文やキー値を表示しない。
 
+## memory 接続の管理
+
+`.akari/connections.json` の `memory` 配列は、生成プロバイダとは別種の接続（外部参照記憶。
+[contract-2026-07-25-memory-connection-v0.md](../../docs/contract-2026-07-25-memory-connection-v0.md)
+が正本）を宣言する。資格情報・課金は発生しない読み取り専用の接続であり、本スキルが
+`providers` と同じレジストリファイルの中で一元管理する。
+
+- **追加**: `memory` 配列へ `{ "name": "<kebab-case>", "root": "<ローカルパス>" }` を最小構成として
+  1 件追加する。`entry`（省略時 `INDEX.md`）・`include`/`exclude`・`read_policy`（省略時
+  `read-only`）は任意。`root` に秘密情報（API キー等）を書かない — 経路情報のみを持つ
+- **削除**: `memory` 配列から該当エントリを取り除くだけ。対になる credentials.env の行は無い
+  （`memory` は `auth`/`env` を持たない）
+- **doctor での表示**: `memory` エントリは `providers` の疎通確認（HTTP 認証チェック等）とは
+  別の軽い確認に限る。`root`（および `root`+`entry`）のパス実在チェックのみを行う、無償・
+  読み取り専用の確認である。有償生成の doctor と同じ「無償・読み取り専用のみ」原則
+  （FORBIDDEN 級ハードルール 4）を継承するが、**`memory` は `doctor` フィールドを持たない
+  スキーマ設計**（永続化する認証状態が無いため）であり、v0 時点の `doctor.mjs` はこの
+  パスチェックを実装しない（データ契約 + スキル規約の確立が v0 の範囲。実装は次段）
+- `root` へ実際にアクセスできない場合も、読む瞬間（research-plan / edit-plan の冒頭・
+  analyze-project の文脈読み合わせ）のスキル実行そのものは止めない（劣化規約は
+  memory-connection-v0 契約 §5 を参照）
+
 ## 根拠
 
 - 正本契約: 接続・設定管理契約（2026-07-17）— 非公開の内部記録（`akari-video-internal`）にある

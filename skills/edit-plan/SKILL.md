@@ -35,7 +35,12 @@ description: analyze-project が作る分析レポート（interpretation.json +
 2. [report-guide.md](report-guide.md) を読み、分析レポートの根拠を踏まえて方針（サムネイル案・
    カット強度・字幕方針・章立て）の推奨案と代替案を組み立てる。方針提示の前に
    [recipe.md](recipe.md) の recall 手順で `~/.akari/recipes/`（`workflow: "edit"`）を確認し、
-   出所付きの推奨として添える（今回の依頼は上書きしない）。
+   出所付きの推奨として添える（今回の依頼は上書きしない）。同じ方針提示の前段で
+   `.akari/connections.json` の `memory` 宣言
+   （[contract-2026-07-25-memory-connection-v0.md](../../docs/contract-2026-07-25-memory-connection-v0.md)）
+   も確認する。あれば `entry`（省略時 `INDEX.md`）起点で `include`/`exclude` の範囲だけを読み、
+   参照したファイルパスを `decision-log.md` に出所として記録する。全文投入は禁止。宣言が
+   無ければ何もしない（error にしない）。
 3. 方針をチャットで人間に提示し（推奨・代替案・理由・得失を示す。「どうしますか」で丸投げ
    しない）、明示承認または修正指示を得る。確定内容を `decision-log.md` に追記する。
 4. [approvals-and-generation.md](approvals-and-generation.md) を読み、生成宣言、provenance、3 段階承認を運用する。Checkpoint 1 はチャットでの明示承認を得るまで編集実行に進まない。

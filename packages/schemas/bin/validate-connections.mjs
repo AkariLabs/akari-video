@@ -56,9 +56,10 @@ function validateConnections(value) {
     fail("connections.json のルートは object である必要があります");
     return;
   }
-  validateFields(value, ["providers", "policy"], ["providers", "policy"], "ルート");
+  validateFields(value, ["providers", "policy"], ["providers", "policy", "memory"], "ルート");
   validateProviders(value.providers);
   validatePolicy(value.policy);
+  if (hasOwn(value, "memory")) validateMemory(value.memory);
 }
 
 function validateProviders(value) {
@@ -147,6 +148,39 @@ function validateDoctor(value, label) {
     }
   }
   if (hasOwn(value, "detail")) validateNonEmptyString(value.detail, `${label}.detail`);
+}
+
+function validateMemory(value) {
+  if (!Array.isArray(value)) {
+    fail("memory は配列である必要があります");
+    return;
+  }
+  const names = new Set();
+  for (const [index, connection] of value.entries()) {
+    const label = `memory[${index}]`;
+    if (!isPlainObject(connection)) {
+      fail(`${label} は object である必要があります`);
+      continue;
+    }
+    const required = ["name", "root"];
+    const allowed = ["name", "root", "entry", "include", "exclude", "read_policy"];
+    validateFields(connection, required, allowed, label);
+    validateNonEmptyString(connection.name, `${label}.name`);
+    if (typeof connection.name === "string") {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(connection.name)) {
+        fail(`${label}.name は英小文字・数字の kebab-case である必要があります`);
+      }
+      if (names.has(connection.name)) fail(`memory name が重複しています: ${connection.name}`);
+      names.add(connection.name);
+    }
+    validateNonEmptyString(connection.root, `${label}.root`);
+    if (hasOwn(connection, "entry")) validateNonEmptyString(connection.entry, `${label}.entry`);
+    if (hasOwn(connection, "include")) validateStringArray(connection.include, `${label}.include`);
+    if (hasOwn(connection, "exclude")) validateStringArray(connection.exclude, `${label}.exclude`);
+    if (hasOwn(connection, "read_policy") && connection.read_policy !== "read-only") {
+      fail(`${label}.read_policy は read-only である必要があります`);
+    }
+  }
 }
 
 function validatePolicy(value) {
