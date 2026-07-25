@@ -52,6 +52,10 @@ description: 承認済み edit.json と edit-lint PASS を入力に、最終 MP4
 - 状態の正本は `<project>/.akari/render.json` とする。HTML レポートは可視化専用とする。
 - 成功時だけ `<project>/.akari/render-tmp/` を削除する。失敗時は診断用に保持する。
 - 字幕は `captions.json` から決定的な HTML へ生成し、他のオーバーレイと同じ経路で焼き込む。
+- 視認用に抽出するキーフレーム静止画は `<project>/.akari/reports/` へ置く。CLI 自身が使う
+  `.akari/render-tmp/` とは別に、確認用の一時スクリプトや実験的な中間生成物を人が作る場合は
+  `<project>/.akari/work/` へ置く（[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
+  いずれもプロジェクトルート直下には置かない。
 
 ## 公開契約
 

@@ -91,6 +91,13 @@ Checkpoint 1 の提示に着手する前に、[recipe.md](recipe.md) の recall 
 `decision-log.md` の該当 category（`cut`/`material`）の下に一覧として記録し、`edit.json` 生成時
 の一次証拠にする。
 
+## 6. 出力先の補足
+
+ad-hoc な検証スクリプトや、統合判断のための一時的な比較・実験生成物は、プロジェクトルート
+直下や `<plan-dir>/` 直下に書かず、`.akari/work/` へ置く
+（[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
+`decision-log.md`・`edit.json`・`overlays/`・`generated/` 等、正式な生成物の出力先（§1）は変わらない。
+
 ## よくある間違い
 
 - 複数素材を 1 サブエージェントへ渡し、素材ごとの証拠境界を失う。

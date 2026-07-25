@@ -16,6 +16,10 @@ description: 動画素材 1 本から 720p プロキシ、ローカル既定の�
 - [analysis.schema.json](references/analysis.schema.json) にない補助フィールドを追加しない。Schema 検証と意味検証を通した JSON だけを確定版にする。
 - 人物マットは全素材で作らない。人物演出を使うと決めた素材でだけ実行する任意工程であり、処理時間が実時間の数倍に増える。既定は `tracks.person_matte: null` である。
 - OpenMontage は構造上の参考に限り、AGPL の文章・コードを転写しない。
+- 既存の `.akari/sidecars/` 出力先規約（[workflow.md](workflow.md) 参照）は
+  [project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) の
+  「契約サイドカー（既存）」層の一部であり、同契約が定める `.akari/work/`（エージェント中間物）・
+  `.akari/reports/`（検証証跡）と並ぶ置き場所の一つである。
 
 ## 実行順と目次
 

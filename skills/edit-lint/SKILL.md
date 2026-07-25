@@ -18,6 +18,9 @@ description: edit.json と任意の analysis.json / captions.json / メディア
 6. **analysis.json / captions.json / `.akari/intake.json` 不在をエラーにしない**（skipped 報告。
    プロジェクトの成長段階に関わらず常に走れる）
 7. **`--media` なしの既定実行はメディアをデコードしない**（起動・CI で常用できる速さを守る）
+8. **視認に使うキーフレーム静止画・QA 生成物、ad-hoc な一時検証スクリプトはプロジェクトルート
+   直下に書かない**。前者は `.akari/reports/`、後者は `.akari/work/` へ置く
+   （[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）
 
 ## 実行手順
 
