@@ -1,0 +1,51 @@
+page: ホーム - workspace file:///Users/ryoma/_edit/30_products/akari-video-wt/partner-raw-terminal-default/apps/shell/lib/frontend/index.html?port=52285#/private/tmp/akari-l1-2026-07-25/workspace
+widget debug hook present: true
+attachTerminal result: {
+  terminalId: 'terminal-2',
+  kind: 'akari-partner',
+  flowState: 'complete'
+}
+post-attach visibility: {
+  terminalIsVisible: true,
+  terminalKind: 'akari-partner',
+  terminalIsAttached: true,
+  bodyHasBubble: false,
+  partnerText: '✦パートナー接続済み 接続済みターミナルを表示'
+}
+sendFromExternal result: { sent: true }
+terminal output check: {
+  sawEcho: true,
+  lines: [
+    'DUMMY CLI READY',
+    'hello from L1 verification script (2026-07-25)',
+    'ECHO: hello from L1 verification script (2026-07-25)'
+  ]
+}
+devMode toggle results: [
+  {
+    "devMode": true,
+    "terminalStillInRightPanel": true,
+    "terminalParentIsNull": false,
+    "terminalIsVisible": true
+  },
+  {
+    "devMode": false,
+    "terminalStillInRightPanel": true,
+    "terminalParentIsNull": false,
+    "terminalIsVisible": true
+  },
+  {
+    "devMode": true,
+    "terminalStillInRightPanel": true,
+    "terminalParentIsNull": false,
+    "terminalIsVisible": true
+  },
+  {
+    "devMode": false,
+    "terminalStillInRightPanel": true,
+    "terminalParentIsNull": false,
+    "terminalIsVisible": true
+  }
+]
+theia container probe: { hasTheiaContainer: true }
+VERIFY SCRIPT DONE

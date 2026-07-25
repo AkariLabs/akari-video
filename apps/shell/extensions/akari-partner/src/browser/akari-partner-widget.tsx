@@ -73,11 +73,14 @@ export class AkariPartnerWidget extends ReactWidget {
     protected warning = '';
 
     // チャットガワ v0（task.md 2026-07-21-partner-pane 指示2/5）状態。
+    // task/2026-07-25-partner-raw-terminal-default: 既定経路からは外れたが
+    // renderChat() 自体は温存するため状態は残す（削除禁止）。
     protected terminal?: TerminalWidget;
     protected channel?: PartnerChannel;
     protected messages: ChatMessage[] = [];
     protected composerValue = '';
     protected devMode = false;
+    protected executablePath = '';
 
     @postConstruct()
     protected init(): void {
@@ -161,6 +164,7 @@ export class AkariPartnerWidget extends ReactWidget {
 
             this.setProgress('CLI を確認しています…', '同梱ランタイムで実行中');
             const bootstrap = await this.partnerServer.bootstrap(entry.agent);
+            this.executablePath = bootstrap.executablePath;
             this.setProgress(
                 bootstrap.reused ? 'インストール済みの CLI を検出しました' : 'CLI をダウンロード・インストールしました',
                 bootstrap.executablePath
@@ -227,9 +231,10 @@ export class AkariPartnerWidget extends ReactWidget {
     }
 
     /**
-     * PTY 起動済みの terminal をチャットガワへ接続する（task.md 指示2）。
-     * `begin()` の成功パスから呼ぶ本体だが、独立したメソッドに切り出すことで
-     * ガワ側（PartnerChannel 配線・flowState 遷移・開発者モード反映）だけを、
+     * PTY 起動済みの terminal をパートナー接続へ組み込む（task.md 2026-07-21
+     * 指示2、表示先は task/2026-07-25-partner-raw-terminal-default で生ターミナル
+     * 既定に変更）。`begin()` の成功パスから呼ぶ本体だが、独立したメソッドに
+     * 切り出すことで、PartnerChannel 配線・flowState 遷移・表示反映だけを、
      * ネットワークを伴う拡張インストール/CLI ブートストラップを経由せずに
      * 検証できる（このメソッド自体はテスト専用コードではなく、begin() が
      * 使う実装をそのまま指している）。
@@ -240,30 +245,24 @@ export class AkariPartnerWidget extends ReactWidget {
         this.terminal = terminal;
         this.channel = new TerminalPartnerChannel(terminal);
         this.toDispose.push(this.channel);
-        this.toDispose.push(this.channel.onReply(text => this.pushMessage('ai', text)));
+        // task/2026-07-25-partner-raw-terminal-default: チャットガワ封印に伴い
+        // onReply→吹き出し表示への配線はしない（channel.send は維持）。
 
         this.flowState = 'complete';
         this.status = `${label} を開始しました`;
         this.detail = 'PTY の案内に沿ってログインしてください。ログイン後、そのまま作業を開始できます。';
-        this.messages = [{ role: 'ai', text: 'つながりました。下の入力欄からそのまま話しかけてください。' }];
         this.update();
 
         // xterm.js 側の初期化（term.open()）は、この widget が一度でも可視状態
         // （isVisible && isAttached）で onUpdateRequest を通らないと走らない
         // （Theia 1.73.1 terminal-widget-impl.js を実測: onOutput の配信元である
         // term.onWriteParsed の購読は open() の中で一度だけ登録される）。
-        // 単一ドキュメントモードの dock パネルでは「追加されただけ」では
-        // まだ可視ではない（別タブがアクティブなため）。開発者モード off
-        // （既定）で即 detach すると一度も可視化されないまま終わり、
-        // onOutput が一生発火しない = チャットガワが応答を一切受け取れない
-        // （実機で確認した不具合）。そのため必ず一度アクティブ化して xterm を
-        // 開かせてから、applyDeveloperModeVisibility() で最終的な見た目
-        // （ガワ/生ターミナルのどちらを見せるか）を確定する。
+        // 単一ドキュメントモードの dock パネルでは「追加されただけ」ではまだ
+        // 可視ではない（別タブがアクティブなため）。そのため必ず一度アクティブ
+        // 化して xterm を開かせる。
         await this.ensureTerminalOpened(terminal);
-        // 開発者モード off（既定）ならガワのみ・on なら生ターミナルを表示する
-        // （task.md 指示3）。旧実装にあった 1800ms の setTimeout は「常に生
-        // ターミナルへ自動フォーカス」する演出用ディレイで、ガワ既定の v2 では
-        // 意味が無くなったため廃止した。
+        // task/2026-07-25-partner-raw-terminal-default: 生ターミナルを既定表示
+        // にするため、接続後は常時表示・アクティブ化する。
         this.applyDeveloperModeVisibility();
 
         // ホーム v2（task.md 2026-07-21-home-flow）の接続ゲートは
@@ -321,17 +320,9 @@ export class AkariPartnerWidget extends ReactWidget {
     }
 
     /**
-     * 開発者モード on では生ターミナルをそのまま見せ、off ではガワ（この
-     * widget）のみを見せる（task.md 指示3）。実測当たり所として指示された
-     * akari-shell-strip の F7（akari-right-panel-curation.ts）は「dispose せず
-     * parent=null で detach、再表示時に同じ instance を再利用」という
-     * 退避流儀を採る — 本 widget もこの流儀を踏襲する。ただし文字どおりの
-     * `close()` は使わない: Theia 1.73.1 の terminal-widget-impl.js を実測すると
-     * `close()` は BaseWidget.onCloseRequest 経由で `dispose()` まで進み、
-     * `closeOnDispose`（既定 true、`storeState()` 経由でのみ false になる）が
-     * 立ったままだと裏の PTY を kill してしまう（destroyTermOnClose とは別軸）。
-     * 隠れている間もチャットガワの CLI セッションを生かし続ける必要があるため、
-     * 同じ「dispose しない」目的を安全に達成できる parent=null 方式を採る。
+     * task/2026-07-25-partner-raw-terminal-default: パートナー表示は devMode
+     * に依存しなくなった（生ターミナルが常時表示の既定）。購読自体は残すが
+     * ここでは状態更新のみ行い、表示の出し入れは行わない。
      */
     protected refreshDeveloperMode(): void {
         const next = this.preferences.get<boolean>(DEVELOPER_MODE_PREFERENCE, false);
@@ -339,26 +330,24 @@ export class AkariPartnerWidget extends ReactWidget {
             return;
         }
         this.devMode = next;
-        this.applyDeveloperModeVisibility();
+        this.update();
     }
 
+    /**
+     * task/2026-07-25-partner-raw-terminal-default: 接続後のターミナルは
+     * devMode に関わらず right パネルへ常時表示・アクティブ化する
+     * （旧実装の devMode off → parent=null 退避分岐は廃止）。
+     */
     protected applyDeveloperModeVisibility(): void {
         const terminal = this.terminal;
         if (!terminal || terminal.isDisposed) {
             return;
         }
         const rightWidgets = Array.from(this.shell.rightPanelHandler.dockPanel.widgets());
-        if (this.devMode) {
-            if (!rightWidgets.includes(terminal)) {
-                void this.shell.addWidget(terminal, { area: 'right', rank: 50 }).then(() => this.shell.activateWidget(terminal.id));
-            } else {
-                this.shell.activateWidget(terminal.id);
-            }
+        if (!rightWidgets.includes(terminal)) {
+            void this.shell.addWidget(terminal, { area: 'right', rank: 50 }).then(() => this.shell.activateWidget(terminal.id));
         } else {
-            if (rightWidgets.includes(terminal)) {
-                terminal.parent = null;
-            }
-            this.shell.activateWidget(this.id);
+            this.shell.activateWidget(terminal.id);
         }
         this.update();
     }
@@ -381,14 +370,43 @@ export class AkariPartnerWidget extends ReactWidget {
 
     protected render(): React.ReactNode {
         if (this.flowState === 'complete') {
-            return this.renderChat();
+            return this.renderConnected();
         }
         return this.renderOnboarding();
     }
 
     /**
-     * チャットガワ v0（task.md 指示2）。吹き出しログ + 入力欄。未接続時の
-     * オンボーディング表示（renderOnboarding）はここでは一切触らない。
+     * task/2026-07-25-partner-raw-terminal-default: 接続後の既定表示。
+     * 生ターミナルが right パネルに常時表示されているため、この widget 側は
+     * 簡素なステータス（接続済み・使用 CLI パス・ターミナルを表示するボタン）
+     * のみを見せる。
+     */
+    protected renderConnected(): React.ReactNode {
+        return (
+            <div style={styles.container}>
+                <div style={styles.heroIcon}>✦</div>
+                <h2 style={styles.heading}>パートナー接続済み</h2>
+                <div style={styles.statusCard} role='status' aria-live='polite' data-akari-flow-state={this.flowState}>
+                    <div style={styles.statusRow}>
+                        <span className='codicon codicon-pass-filled' style={{ color: 'var(--theia-successBackground)' }} />
+                        <strong>{this.selected?.name ?? ''} 接続済み</strong>
+                    </div>
+                    <div style={styles.detail}>{this.executablePath}</div>
+                </div>
+                <button
+                    className='theia-button main'
+                    style={styles.primaryButton}
+                    onClick={() => this.terminal && this.shell.activateWidget(this.terminal.id)}
+                >ターミナルを表示</button>
+            </div>
+        );
+    }
+
+    /**
+     * チャットガワ v0（task.md 2026-07-21-partner-pane 指示2）。吹き出しログ +
+     * 入力欄。task/2026-07-25-partner-raw-terminal-default でチャットガワは
+     * 既定経路から外れたため render() からは呼ばれなくなったが、削除禁止
+     * （将来 (c) 方式で作り直す前提の温存 — 正本 §4-3）。
      */
     protected renderChat(): React.ReactNode {
         return (
