@@ -3858,20 +3858,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element.appendChild(wrapper);
     }
 
-    protected cutVideoUri(cut: EditCut): string {
-        if (cut.src !== undefined && this.sources !== undefined) {
-            return this.sourceMap.get(cut.src)?.videoUri ?? '';
-        }
-        return this.location?.videoUri ?? '';
-    }
-
     /**
-     * Out クランプの実尺取得専用の解決経路。`cutVideoUri`（サムネ/波形用）とは異なり、
-     * analysis sidecar 由来の `this.location.videoUri` に頼らず、まず edit.json 自身が
-     * 持つ source(s)（v1 は sources[]、v0 は直下の source）から直接解決する。
-     * サムネ/波形の挙動には触れない（cutVideoUri は無変更）。
+     * クリップの動画 URI を解決する。edit.json 自身が持つ source(s)（v1 は sources[]、
+     * v0 は直下の source）を優先し、analysis sidecar 由来の `this.location.videoUri` は
+     * 両方とも解決できなかったときの最終フォールバックにのみ使う。sidecar が存在しない
+     * 実プロジェクト（`.akari/sidecars/` が空等）でもサムネ/波形/フィルムストリップと
+     * out クランプの実尺取得が edit.json だけで解決されるようにするため
+     * （旧 `cutDurationProbeUri` と同一の解決順に統一・一本化）。
      */
-    protected cutDurationProbeUri(cut: EditCut): string {
+    protected cutVideoUri(cut: EditCut): string {
         if (cut.src !== undefined && this.sources !== undefined) {
             return this.sourceMap.get(cut.src)?.videoUri ?? '';
         }
@@ -4134,7 +4129,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // pointerup まで到達する前にキャッシュが温まっているようにするための保険
                 // （「初回だけ素通し」対策。本体のクランプは commitDrag 側の保留処理が担保する）。
                 const cut = this.cuts[state.index];
-                const videoUri = cut ? this.cutDurationProbeUri(cut) : '';
+                const videoUri = cut ? this.cutVideoUri(cut) : '';
                 if (videoUri) {
                     void this.ensureVideoDurationFetch(videoUri);
                 }
@@ -4193,9 +4188,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (state.kind === 'cut-trim') {
             const cut = this.cuts[state.index];
             const segment = this.segments[state.index];
-            // サムネ/波形用の cutVideoUri とは別経路: sidecar 非依存で edit.json 自身の
-            // source(s) から解決する（初回ドラッグ・sidecar なしプロジェクトでも通る）。
-            const videoUri = cut ? this.cutDurationProbeUri(cut) : '';
+            const videoUri = cut ? this.cutVideoUri(cut) : '';
             let maxOutSeconds: number | undefined;
             let durationUnavailable = false;
             let durationPending = false;
@@ -4843,7 +4836,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     // ここで確定を保留し実尺の解決を待ってからクランプする。
                     // 「初回だけ素通し」を絶対に許さないための最終防波堤。
                     const cut = this.cuts[preview.index];
-                    const videoUri = cut ? this.cutDurationProbeUri(cut) : '';
+                    const videoUri = cut ? this.cutVideoUri(cut) : '';
                     if (videoUri) {
                         const resolved = await this.ensureVideoDurationFetch(videoUri);
                         if (typeof resolved === 'number') {

@@ -1,0 +1,382 @@
+[
+  {
+    "t": "2026-07-25T08:09:46.008Z",
+    "step": "connected",
+    "cdpPort": 9511,
+    "workspace": "/tmp/t2-clip-thumbnails-l1/selection-dogfood"
+  },
+  {
+    "t": "2026-07-25T08:09:46.014Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-25T08:09:46.248Z",
+    "step": "edit-json-shape",
+    "hasSource": true,
+    "hasSources": false,
+    "cutCount": 10
+  },
+  {
+    "t": "2026-07-25T08:09:46.248Z",
+    "step": "assertion-ok",
+    "message": "edit.json is v0 shape (single source, no sources[])",
+    "source": {
+      "path": "source.mp4",
+      "proxy": null
+    }
+  },
+  {
+    "t": "2026-07-25T08:09:46.251Z",
+    "step": "clips-after-wait",
+    "all": [
+      {
+        "index": "0",
+        "width": 16.34375,
+        "cellCount": 0,
+        "hasWaveformCanvas": false
+      },
+      {
+        "index": "1",
+        "width": 41.8828125,
+        "cellCount": 1,
+        "hasWaveformCanvas": true
+      },
+      {
+        "index": "2",
+        "width": 13.9765625,
+        "cellCount": 0,
+        "hasWaveformCanvas": false
+      },
+      {
+        "index": "3",
+        "width": 44.3359375,
+        "cellCount": 1,
+        "hasWaveformCanvas": true
+      },
+      {
+        "index": "4",
+        "width": 21.0078125,
+        "cellCount": 0,
+        "hasWaveformCanvas": false
+      },
+      {
+        "index": "5",
+        "width": 49.40625,
+        "cellCount": 1,
+        "hasWaveformCanvas": true
+      },
+      {
+        "index": "6",
+        "width": 20.0390625,
+        "cellCount": 0,
+        "hasWaveformCanvas": false
+      },
+      {
+        "index": "7",
+        "width": 18.0390625,
+        "cellCount": 0,
+        "hasWaveformCanvas": false
+      },
+      {
+        "index": "8",
+        "width": 15.78125,
+        "cellCount": 0,
+        "hasWaveformCanvas": false
+      },
+      {
+        "index": "9",
+        "width": 95.7109375,
+        "cellCount": 3,
+        "hasWaveformCanvas": true
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T08:09:46.251Z",
+    "step": "assertion-ok",
+    "message": "at least one clip renders filmstrip cells in the real (sidecar-less, v0) dogfood project",
+    "visibleClips": 4,
+    "withFilmstrip": 4
+  },
+  {
+    "t": "2026-07-25T08:09:46.251Z",
+    "step": "assertion-ok",
+    "message": "at least one clip renders a waveform canvas (same videoUri resolution fix benefits waveform too)",
+    "withWaveform": 4
+  },
+  {
+    "t": "2026-07-25T08:09:47.420Z",
+    "step": "atlas-dir-after-first-show",
+    "files": [
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.jpg",
+        "mtimeMs": 1784966053961.1213,
+        "size": 3404659
+      },
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.json",
+        "mtimeMs": 1784966054014.1724,
+        "size": 128
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T08:09:47.420Z",
+    "step": "assertion-ok",
+    "message": "atlas jpg+json were written under .akari/cache/timeline/filmstrip/",
+    "files": [
+      "9e8226b00af53f004df9c85a1f96a4e36fecef06.jpg",
+      "9e8226b00af53f004df9c85a1f96a4e36fecef06.json"
+    ]
+  },
+  {
+    "t": "2026-07-25T08:09:47.424Z",
+    "step": "assertion-ok",
+    "message": "clip 9 found before zoom",
+    "target": {
+      "rect": {
+        "left": 454.78125,
+        "top": 429.0234375,
+        "right": 550.4921875,
+        "bottom": 501.0234375,
+        "width": 95.7109375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "hasWaveformCanvas": true,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T08:09:49.464Z",
+    "step": "zoom-result",
+    "cellsBeforeZoom": 3,
+    "cellsAfterZoom": 20,
+    "ffmpegBeforeZoom": 0,
+    "ffmpegAfterZoom": 0,
+    "atlasBeforeZoom": [
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.jpg",
+        "mtimeMs": 1784966053961.1213,
+        "size": 3404659
+      },
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.json",
+        "mtimeMs": 1784966054014.1724,
+        "size": 128
+      }
+    ],
+    "atlasAfterZoom": [
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.jpg",
+        "mtimeMs": 1784966053961.1213,
+        "size": 3404659
+      },
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.json",
+        "mtimeMs": 1784966054014.1724,
+        "size": 128
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T08:09:49.754Z",
+    "step": "assertion-ok",
+    "message": "zooming in increases filmstrip cell density for the same clip",
+    "cellsBeforeZoom": 3,
+    "cellsAfterZoom": 20
+  },
+  {
+    "t": "2026-07-25T08:09:49.754Z",
+    "step": "assertion-ok",
+    "message": "no ffmpeg process is spawned by zooming (atlas is not re-fetched/re-generated)",
+    "ffmpegAfterZoom": 0
+  },
+  {
+    "t": "2026-07-25T08:09:49.754Z",
+    "step": "assertion-ok",
+    "message": "atlas cache files (name/mtime/size) are byte-identical before/after zoom (no re-generation)",
+    "atlasBeforeZoom": [
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.jpg",
+        "mtimeMs": 1784966053961.1213,
+        "size": 3404659
+      },
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.json",
+        "mtimeMs": 1784966054014.1724,
+        "size": 128
+      }
+    ],
+    "atlasAfterZoom": [
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.jpg",
+        "mtimeMs": 1784966053961.1213,
+        "size": 3404659
+      },
+      {
+        "name": "9e8226b00af53f004df9c85a1f96a4e36fecef06.json",
+        "mtimeMs": 1784966054014.1724,
+        "size": 128
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T08:09:51.521Z",
+    "step": "pre-trim",
+    "cutBefore": {
+      "in": 3694.2,
+      "out": 3732.3961,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      }
+    },
+    "rect": {
+      "left": 454.78125,
+      "top": 429.0234375,
+      "right": 550.4921875,
+      "bottom": 501.0234375,
+      "width": 95.7109375,
+      "height": 72
+    },
+    "cellsBeforeTrim": 3
+  },
+  {
+    "t": "2026-07-25T08:09:52.617Z",
+    "step": "post-trim",
+    "cutBefore": {
+      "in": 3694.2,
+      "out": 3732.3961,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      }
+    },
+    "cutAfter": {
+      "in": 3694.2,
+      "out": 3719.6259999999997,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      }
+    },
+    "cellsAfterTrim": 2
+  },
+  {
+    "t": "2026-07-25T08:09:52.849Z",
+    "step": "assertion-ok",
+    "message": "dragging the right trim handle inward commits a smaller out on pointerup",
+    "before": 3732.3961,
+    "after": 3719.6259999999997
+  },
+  {
+    "t": "2026-07-25T08:09:52.849Z",
+    "step": "assertion-ok",
+    "message": "filmstrip cell count for the trimmed clip changes after the commit (remapped to the new [in,out) span)",
+    "before": 3,
+    "after": 2
+  },
+  {
+    "t": "2026-07-25T08:09:53.339Z",
+    "step": "regression-selection",
+    "selected": true
+  },
+  {
+    "t": "2026-07-25T08:09:53.549Z",
+    "step": "assertion-ok",
+    "message": "clicking a clip applies the akari-annotations-selected class (selection regression)",
+    "selected": true
+  },
+  {
+    "t": "2026-07-25T08:09:53.622Z",
+    "step": "regression-sfx",
+    "sfxInfo": [
+      {
+        "id": "sfx-0",
+        "width": 28.4765625
+      },
+      {
+        "id": "sfx-1",
+        "width": 2.125
+      },
+      {
+        "id": "sfx-2",
+        "width": 2.390625
+      },
+      {
+        "id": "sfx-3",
+        "width": 3.7265625
+      },
+      {
+        "id": "sfx-4",
+        "width": 8.375
+      },
+      {
+        "id": "sfx-5",
+        "width": 2.125
+      },
+      {
+        "id": "sfx-6",
+        "width": 7.9453125
+      },
+      {
+        "id": "sfx-7",
+        "width": 9.6953125
+      },
+      {
+        "id": "sfx-8",
+        "width": 100.734375
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T08:09:53.622Z",
+    "step": "assertion-ok",
+    "message": "SFX/BGM audio items are rendered with non-zero widths (SE duration display regression)",
+    "sfxInfo": [
+      {
+        "id": "sfx-0",
+        "width": 28.4765625
+      },
+      {
+        "id": "sfx-1",
+        "width": 2.125
+      },
+      {
+        "id": "sfx-2",
+        "width": 2.390625
+      },
+      {
+        "id": "sfx-3",
+        "width": 3.7265625
+      },
+      {
+        "id": "sfx-4",
+        "width": 8.375
+      },
+      {
+        "id": "sfx-5",
+        "width": 2.125
+      },
+      {
+        "id": "sfx-6",
+        "width": 7.9453125
+      },
+      {
+        "id": "sfx-7",
+        "width": 9.6953125
+      },
+      {
+        "id": "sfx-8",
+        "width": 100.734375
+      }
+    ]
+  }
+]
