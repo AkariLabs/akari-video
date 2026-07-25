@@ -15,6 +15,12 @@ const interpretationInvalidFixture = resolve(here, "fixtures/interpretation-inva
 const interpretationTwoAssetsFixture = resolve(here, "fixtures/interpretation-two-assets.json");
 const analysisAssetAFixture = resolve(here, "fixtures/materials/asset-a/analysis.json");
 const analysisAssetBFixture = resolve(here, "fixtures/materials/asset-b/analysis.json");
+const interpretationBlocksFullFixture = resolve(here, "fixtures/interpretation-blocks-full.json");
+const interpretationBlocksFullSwappedFixture = resolve(
+  here,
+  "fixtures/interpretation-blocks-full-swapped.json",
+);
+const analysisCollisionFixture = resolve(here, "fixtures/collision/analysis-minimal.json");
 
 function run(args) {
   return spawnSync(process.execPath, [renderScript, ...args], { encoding: "utf8" });
@@ -26,6 +32,29 @@ function embeddedBundleOf(html) {
   );
   assert.ok(match, "埋め込み JSON ブロックが見つかる");
   return JSON.parse(match[1]);
+}
+
+function embeddedBlocksOf(html) {
+  const match = html.match(
+    /<script type="application\/json" id="akari-analysis-report-blocks">([\s\S]*?)<\/script>/,
+  );
+  assert.ok(match, "埋め込み blocks マニフェストが見つかる");
+  return JSON.parse(match[1]);
+}
+
+// blocks マニフェスト（packages/analysis-report/README.md の block-id スキーム節と
+// 対応表を参照）を、id の平坦なリストへ展開する。文書内一意性の検査に使う。
+function flattenBlockIds(blocks) {
+  const ids = [];
+  for (const perAsset of Object.values(blocks.byRef || {})) {
+    ids.push(perAsset.timeline, perAsset.facts);
+    ids.push(...Object.values(perAsset.chapters || {}));
+    ids.push(...Object.values(perAsset.images || {}));
+    ids.push(...Object.values(perAsset.relations || {}));
+  }
+  ids.push(...Object.values(blocks.questions || {}));
+  if (blocks.provenance) ids.push(blocks.provenance);
+  return ids;
 }
 
 test("valid analysis + interpretation を渡すと report.html を生成する", () => {
@@ -348,6 +377,242 @@ test("壊れた analysis.json を明確なエラーで拒否する", () => {
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /構造検証に失敗しました/);
     assert.ok(!existsSync(outPath));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- block-id（doc:<path>#<block-id> 注釈ターゲットの地ならし・2026-07-26）---
+//
+// 内部契約 contract-2026-07-26-doc-image-annotations.md §1 の 3 要件
+// （データ由来・再生成安定・文書内一意）を、対象ブロック 7 種（README.md の
+// block-id スキーム節を参照）について検証する。
+
+test("block-id: 対象ブロック全種（7 種）の id が文書内で一意（fixtures/interpretation-blocks-full）", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const outPath = join(dir, "report.html");
+    const result = run([
+      "--analysis",
+      `asset-a=${analysisAssetAFixture}`,
+      "--analysis",
+      `asset-b=${analysisAssetBFixture}`,
+      "--interpretation",
+      interpretationBlocksFullFixture,
+      "--out",
+      outPath,
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    const html = readFileSync(outPath, "utf8");
+    const blocks = embeddedBlocksOf(html);
+    const ids = flattenBlockIds(blocks);
+
+    assert.ok(ids.length > 0, "block-id が 1 件以上生成されている");
+    assert.equal(new Set(ids).size, ids.length, "全 block-id が文書内で一意（重複ゼロ）");
+    assert.ok(!ids.some((id) => id.includes("#")), "block-id は # を含まない");
+
+    const kinds = ["asset-timeline", "transcript-chapter", "asset-facts", "relation", "question", "provenance", "image"];
+    for (const kind of kinds) {
+      assert.ok(
+        ids.some((id) => id === kind || id.startsWith(`${kind}:`)),
+        `対象ブロック種別 "${kind}" の block-id が少なくとも 1 件存在する`,
+      );
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("block-id: 同一データで 2 回 render しても全 id が完全一致する（再生成安定）", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const args = [
+      "--analysis",
+      `asset-a=${analysisAssetAFixture}`,
+      "--analysis",
+      `asset-b=${analysisAssetBFixture}`,
+      "--interpretation",
+      interpretationBlocksFullFixture,
+    ];
+    const outPath1 = join(dir, "report-1.html");
+    const outPath2 = join(dir, "report-2.html");
+    const result1 = run([...args, "--out", outPath1]);
+    const result2 = run([...args, "--out", outPath2]);
+
+    assert.equal(result1.status, 0, result1.stderr);
+    assert.equal(result2.status, 0, result2.stderr);
+
+    const blocks1 = embeddedBlocksOf(readFileSync(outPath1, "utf8"));
+    const blocks2 = embeddedBlocksOf(readFileSync(outPath2, "utf8"));
+    assert.deepEqual(blocks1, blocks2, "2 回の render で blocks マニフェストが完全一致する");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("block-id: assets[] の宣言順を入れ替えても同一素材の block-id は不変（並べ替え安定）", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const outPath = join(dir, "report.html");
+    const outPathSwapped = join(dir, "report-swapped.html");
+
+    const result = run([
+      "--analysis",
+      `asset-a=${analysisAssetAFixture}`,
+      "--analysis",
+      `asset-b=${analysisAssetBFixture}`,
+      "--interpretation",
+      interpretationBlocksFullFixture,
+      "--out",
+      outPath,
+    ]);
+    // 宣言順（assets[] / inputs.analyses[] / open_questions[]）をすべて逆にした
+    // fixture。--analysis の CLI 引数順も入れ替える。
+    const resultSwapped = run([
+      "--analysis",
+      `asset-b=${analysisAssetBFixture}`,
+      "--analysis",
+      `asset-a=${analysisAssetAFixture}`,
+      "--interpretation",
+      interpretationBlocksFullSwappedFixture,
+      "--out",
+      outPathSwapped,
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(resultSwapped.status, 0, resultSwapped.stderr);
+
+    const blocks = embeddedBlocksOf(readFileSync(outPath, "utf8"));
+    const blocksSwapped = embeddedBlocksOf(readFileSync(outPathSwapped, "utf8"));
+
+    assert.deepEqual(
+      blocks.byRef["asset-a"],
+      blocksSwapped.byRef["asset-a"],
+      "asset-a の block-id 一式は宣言順に依存しない",
+    );
+    assert.deepEqual(
+      blocks.byRef["asset-b"],
+      blocksSwapped.byRef["asset-b"],
+      "asset-b の block-id 一式は宣言順に依存しない",
+    );
+    assert.deepEqual(blocks.questions, blocksSwapped.questions, "取材台帳の block-id は宣言順に依存しない");
+    assert.equal(blocks.provenance, blocksSwapped.provenance);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("block-id: 取材台帳の質問行 id に open_questions[].id が使われている", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const outPath = join(dir, "report.html");
+    const result = run([
+      "--analysis",
+      `asset-a=${analysisAssetAFixture}`,
+      "--analysis",
+      `asset-b=${analysisAssetBFixture}`,
+      "--interpretation",
+      interpretationBlocksFullFixture,
+      "--out",
+      outPath,
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    const html = readFileSync(outPath, "utf8");
+    const bundle = embeddedBundleOf(html);
+    const blocks = embeddedBlocksOf(html);
+
+    const questionIds = bundle.interpretation.open_questions.map((q) => q.id);
+    assert.deepEqual(questionIds.sort(), ["oq-01", "oq-02"], "fixture の質問 id 前提");
+    for (const qid of questionIds) {
+      assert.equal(blocks.questions[qid], `question:${qid}`, "質問行の block-id が open_questions[].id 由来である");
+    }
+
+    // template.html の inline script が open_questions[].id を経由せず自前で
+    // 別の block-id を作っていないことも合わせて固定する（SSOT は CLI 側）。
+    const templateSource = readFileSync(templatePath, "utf8");
+    assert.match(
+      templateSource,
+      /blocksManifest\.questions\?\.\[question\.id\]/,
+      "取材台帳の行は blocksManifest.questions[question.id] を参照する",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("block-id: id 衝突を人工的に作る入力はハードエラーで拒否し、report.html を書き出さない", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const outPath = join(dir, "report.html");
+    // 同一 t（開始秒）の chapter イベントを 2 つ持つ analysis.json は
+    // transcript-chapter:clip-01:0 を 2 回生成し、文書内衝突になる。
+    const result = run([
+      "--analysis",
+      analysisCollisionFixture,
+      "--interpretation",
+      interpretationFixture,
+      "--out",
+      outPath,
+    ]);
+
+    assert.notEqual(result.status, 0, "block-id 衝突はエラーで落ちる");
+    assert.match(result.stderr, /block-id.*衝突/);
+    assert.match(result.stderr, /transcript-chapter:clip-01:0/);
+    assert.ok(!existsSync(outPath), "衝突検出時は report.html を書き出さない");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("block-id: データ payload script の中身は入力 JSON と同一内容のまま（生データ原則の担保）", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const outPath = join(dir, "report.html");
+    const result = run([
+      "--analysis",
+      `asset-a=${analysisAssetAFixture}`,
+      "--analysis",
+      `asset-b=${analysisAssetBFixture}`,
+      "--interpretation",
+      interpretationBlocksFullFixture,
+      "--out",
+      outPath,
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+
+    const originalInterpretation = JSON.parse(readFileSync(interpretationBlocksFullFixture, "utf8"));
+    assert.deepEqual(
+      bundle.interpretation,
+      originalInterpretation,
+      "interpretation はそのまま埋め込まれている（block-id 由来のフィールドを追加していない）",
+    );
+
+    const originalAssetA = JSON.parse(readFileSync(analysisAssetAFixture, "utf8"));
+    const embeddedAssetA = bundle.assets.find((a) => a.ref === "asset-a").analysis;
+    for (const field of ["version", "source", "transcript", "events", "tracks"]) {
+      assert.deepEqual(embeddedAssetA[field], originalAssetA[field], `analysis.${field} は不変`);
+    }
+    // keyframes は既存仕様で imageSrc が追加される（block-id とは無関係の既存挙動）。
+    // それ以外のキーフレーム由来フィールドは元データと一致する。
+    assert.equal(embeddedAssetA.keyframes.length, originalAssetA.keyframes.length);
+    for (const [index, kf] of embeddedAssetA.keyframes.entries()) {
+      assert.equal(kf.t, originalAssetA.keyframes[index].t);
+      assert.equal(kf.path, originalAssetA.keyframes[index].path);
+      assert.equal(kf.note, originalAssetA.keyframes[index].note);
+    }
+
+    for (const asset of bundle.assets) {
+      assert.deepEqual(
+        Object.keys(asset).sort(),
+        ["analysis", "analysisPath", "ref"],
+        "assets[] の各エントリに block-id 由来の新規キーを追加していない",
+      );
+    }
+    assert.ok(!hasOwn(bundle, "blocksManifest"), "bundle 本体に blocksManifest を混ぜない（別 script タグの原則）");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

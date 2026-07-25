@@ -13,6 +13,9 @@
     - このファイルは UI 正本（不変）。データは一切含まない。
     - データは #akari-analysis-report-data の script[type="application/json"] ブロックへ
       render-analysis-report.mjs が埋め込む（マークアップへの直接焼き込みは禁止）。
+    - 各ブロックの data-block-id は #akari-analysis-report-blocks の別 script ブロック
+      （render-analysis-report.mjs が導出する blocks マニフェスト）を参照して付与する。
+      data-block-id の値を DOM 構築ロジック側で新規に作り出さない（SSOT は CLI 側）。
     - 埋め込まれた値は必ず textContent / createElement で DOM に反映し、innerHTML へ
       未検証の文字列を流し込まない。
     - 読み取り専用レポートであり、決定 UI（選択肢・ツマミ・確定ボタン）は一切持たない。
@@ -906,6 +909,9 @@
     <script type="application/json" id="akari-analysis-report-data">
       {"__AKARI_ANALYSIS_REPORT_DATA__": true}
     </script>
+    <script type="application/json" id="akari-analysis-report-blocks">
+      {"__AKARI_ANALYSIS_REPORT_BLOCKS__": true}
+    </script>
     <script>
       (() => {
         "use strict";
@@ -922,6 +928,14 @@
           hook: "見どころ",
           highlight: "ハイライト",
         };
+
+        // #akari-analysis-report-blocks から読み込む blocks マニフェスト（main() で設定）。
+        // data-block-id の値は常にここ由来 — DOM 構築側で id 文字列を新規に組み立てない。
+        let blocksManifest = null;
+
+        function setBlockId(node, id) {
+          if (id) node.setAttribute("data-block-id", id);
+        }
 
         function hasOwn(object, key) {
           return Object.prototype.hasOwnProperty.call(object, key);
@@ -1076,6 +1090,7 @@
             const chapters = chaptersOf(analysis);
 
             const block = el("div", { class: "asset-block" });
+            setBlockId(block, blocksManifest.byRef[asset.ref]?.timeline);
             block.append(
               el("div", { class: "badge-row" }, [
                 badge("fact"),
@@ -1188,6 +1203,7 @@
                         src: kf.imageSrc,
                         alt: `${formatTime(kf.t)} のキーフレーム`,
                         loading: "lazy",
+                        "data-block-id": blocksManifest.byRef[asset.ref]?.images?.[kf.path],
                       },
                     }),
                   );
@@ -1250,6 +1266,7 @@
                   durationOf(analysis),
                   transcript,
                   assetIndex === 0,
+                  blocksManifest.byRef[asset.ref]?.chapters?.unchaptered,
                 );
                 block.append(details);
               }
@@ -1264,6 +1281,7 @@
                   chapter.end,
                   segments,
                   assetIndex === 0 && index === 0,
+                  blocksManifest.byRef[asset.ref]?.chapters?.[String(chapter.start)],
                 );
                 block.append(details);
               }
@@ -1273,11 +1291,12 @@
           }
         }
 
-        function buildTranscriptDetails(title, start, end, segments, openByDefault) {
+        function buildTranscriptDetails(title, start, end, segments, openByDefault, blockIdValue) {
           const details = el("details", {
             class: "transcript-chapter",
             attrs: openByDefault ? { open: "" } : {},
           });
+          setBlockId(details, blockIdValue);
           details.append(
             el("summary", {}, [
               document.createTextNode(title + " "),
@@ -1386,6 +1405,7 @@
               : [];
 
             const block = el("div", { class: "asset-block" });
+            setBlockId(block, blocksManifest.byRef[asset.ref]?.facts);
             block.append(
               el("div", { class: "badge-row" }, [
                 badge("fact"),
@@ -1559,6 +1579,8 @@
             for (const asset of interpAssets) {
               for (const relation of asset.relations || []) {
                 const card = el("div", { class: "relation-card" });
+                const relationKey = JSON.stringify([relation.target, relation.kind]);
+                setBlockId(card, blocksManifest.byRef[asset.ref]?.relations?.[relationKey]);
                 card.append(
                   el("div", { class: "badge-row" }, [
                     badge("interpretation"),
@@ -1653,6 +1675,7 @@
           const tbody = el("tbody");
           for (const question of questions) {
             const row = el("tr");
+            setBlockId(row, blocksManifest.questions?.[question.id]);
             const statusBadge =
               question.status === "answered"
                 ? el("span", {
@@ -1674,6 +1697,7 @@
         // --- Section 6: 来歴 ---
         function renderProvenance(bundle) {
           const mount = document.querySelector('[data-mount="provenance"]');
+          setBlockId(mount, blocksManifest.provenance);
           const inputs = bundle.interpretation.inputs || {};
           const analyses = inputs.analyses || [];
           const context = inputs.context;
@@ -1772,6 +1796,9 @@
           const dataScript = document.getElementById(
             "akari-analysis-report-data",
           );
+          const blocksScript = document.getElementById(
+            "akari-analysis-report-blocks",
+          );
           let bundle;
           try {
             bundle = JSON.parse(dataScript.textContent);
@@ -1787,6 +1814,22 @@
           ) {
             renderFatalError(
               "データの形が想定と異なります（bundle.interpretation / bundle.assets が必要です）",
+            );
+            return;
+          }
+
+          try {
+            blocksManifest = JSON.parse(blocksScript.textContent);
+          } catch (error) {
+            renderFatalError(
+              "block-id マニフェストの解析に失敗しました（" + error.message + "）",
+            );
+            return;
+          }
+
+          if (!isRecord(blocksManifest) || !isRecord(blocksManifest.byRef)) {
+            renderFatalError(
+              "block-id マニフェストの形が想定と異なります（byRef が必要です）",
             );
             return;
           }
