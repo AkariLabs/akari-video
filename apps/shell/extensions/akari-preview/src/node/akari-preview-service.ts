@@ -3,7 +3,7 @@ import { WorkspaceServer } from '@theia/workspace/lib/common';
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import { createReadStream, readFileSync, rmdirSync, statSync, unlinkSync } from 'fs';
-import { mkdtemp, readFile, realpath, rmdir, stat, unlink } from 'fs/promises';
+import { mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, symlink, unlink, writeFile } from 'fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -16,6 +16,8 @@ import {
     AssetStreamRequest,
     AkariPreviewService,
     EndReviewSessionRequest,
+    LintEditCandidateRequest,
+    LintEditCandidateResult,
     ListReviewSessionsRequest,
     OverlayRuntimeAssets,
     ResolveHevcProxyRequest,
@@ -323,6 +325,103 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]> {
         return this.reviewSessionWriter.list(request);
+    }
+
+    // CF-write: layerWrite/audioWrite の書き込み前ゲート。候補全文を実ファイルへは一切書かず、
+    // 兄弟ファイル（source 動画・captions.json 等）をシンボリックリンクで写した一時ディレクトリに
+    // 候補 edit.json だけを置いて packages/edit-lint/bin/edit-lint.mjs --json を叩く
+    // （packages/edit-lint は「呼び出しのみ」— 改変しない）。
+    async lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult> {
+        const editPath = this.filePath(request.editUri);
+        const projectRoot = dirname(editPath);
+        const tempRoot = await mkdtemp(resolve(tmpdir(), 'akari-lint-'));
+        try {
+            let siblingNames: string[] = [];
+            try {
+                siblingNames = await readdir(projectRoot);
+            } catch {
+                siblingNames = [];
+            }
+            await Promise.all(siblingNames.map(async name => {
+                if (name === 'edit.json') {
+                    return;
+                }
+                try {
+                    const targetStat = await stat(resolve(projectRoot, name));
+                    await symlink(resolve(projectRoot, name), resolve(tempRoot, name), targetStat.isDirectory() ? 'dir' : 'file');
+                } catch {
+                    // Reference is unreadable or a broken symlink; edit-lint will report it as a
+                    // missing-file finding on its own, same as it would against the real project.
+                }
+            }));
+            await writeFile(resolve(tempRoot, 'edit.json'), request.candidateText, 'utf8');
+            return await this.runEditLint(tempRoot);
+        } finally {
+            await rm(tempRoot, { recursive: true, force: true });
+        }
+    }
+
+    protected async runEditLint(projectRoot: string): Promise<LintEditCandidateResult> {
+        const binPath = this.findEditLintBinPath();
+        const stdout = await new Promise<string>((resolveOutput, rejectOutput) => {
+            const chunks: Buffer[] = [];
+            const child = spawn(process.execPath, [binPath, projectRoot, '--json'], { stdio: ['ignore', 'pipe', 'ignore'] });
+            child.stdout.on('data', chunk => chunks.push(chunk));
+            child.once('error', rejectOutput);
+            child.once('close', () => resolveOutput(Buffer.concat(chunks).toString('utf8')));
+        });
+        let parsed: { findings?: Array<{ severity?: string; message?: string; check?: string; path?: string }> };
+        try {
+            parsed = JSON.parse(stdout);
+        } catch (error) {
+            return { pass: false, errors: [`edit-lint の出力を解析できませんでした: ${error instanceof Error ? error.message : String(error)}`] };
+        }
+        const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
+        const errorFindings = findings.filter(finding => finding.severity === 'error');
+        return {
+            pass: errorFindings.length === 0,
+            errors: errorFindings.map(finding => `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`)
+        };
+    }
+
+    protected findEditLintBinPath(): string {
+        const candidates: string[] = [];
+
+        const packagedCandidate = resolve(__dirname, '../edit-lint/bin/edit-lint.mjs');
+        candidates.push(packagedCandidate);
+        if (this.isFile(packagedCandidate)) {
+            return packagedCandidate;
+        }
+
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            const candidate = resolve(ancestor, 'packages/edit-lint/bin/edit-lint.mjs');
+            candidates.push(candidate);
+            if (this.isFile(candidate)) {
+                return candidate;
+            }
+            const parent = dirname(ancestor);
+            if (parent === ancestor) {
+                break;
+            }
+            ancestor = parent;
+        }
+
+        const cwdCandidates = [
+            resolve(process.cwd(), '../../packages/edit-lint/bin/edit-lint.mjs'),
+            resolve(process.cwd(), 'packages/edit-lint/bin/edit-lint.mjs'),
+            resolve(process.cwd(), '../packages/edit-lint/bin/edit-lint.mjs')
+        ];
+        for (const candidate of cwdCandidates) {
+            if (candidates.includes(candidate)) {
+                continue;
+            }
+            candidates.push(candidate);
+            if (this.isFile(candidate)) {
+                return candidate;
+            }
+        }
+        throw new Error(`edit-lint bin was not found (tried: ${candidates.join(', ')})`);
     }
 
     protected runAudioTranscode(inputPath: string, outputPath: string): Promise<TranscodeAudioErrorKind | undefined> {

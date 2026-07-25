@@ -37,10 +37,17 @@ const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
 // akari-preview 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
+// akari-preview 側の PREVIEW_LAYER_SELECTED_EVENT とミラー（CF-select）。
+const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
 
 interface PreviewOverlaySelection {
     videoUri?: string;
     overlayId?: string | null;
+}
+
+interface PreviewLayerSelection {
+    editUri?: string;
+    layerId?: string | null;
 }
 
 @injectable()
@@ -114,6 +121,16 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         window.addEventListener(PREVIEW_OVERLAY_SELECTED_EVENT, onOverlaySelected);
         this.toDispose.push({
             dispose: () => window.removeEventListener(PREVIEW_OVERLAY_SELECTED_EVENT, onOverlaySelected)
+        });
+        const onLayerSelected = (event: Event): void => {
+            const request = (event as CustomEvent<PreviewLayerSelection>).detail;
+            if (request?.editUri && (typeof request.layerId === 'string' || request.layerId === null)) {
+                this.timelineWidget?.handleLayerSelection(request.editUri, request.layerId);
+            }
+        };
+        window.addEventListener(PREVIEW_LAYER_SELECTED_EVENT, onLayerSelected);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(PREVIEW_LAYER_SELECTED_EVENT, onLayerSelected)
         });
     }
 

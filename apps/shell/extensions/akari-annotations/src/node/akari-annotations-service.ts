@@ -1,8 +1,9 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { execFile } from 'child_process';
-import { promises as fs } from 'fs';
-import { dirname, join, relative, sep } from 'path';
+import { promises as fs, statSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join, relative, resolve, sep } from 'path';
 import { promisify } from 'util';
 import {
     AkariAnnotationsService,
@@ -334,6 +335,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             scale: request.scale,
             rotate: request.rotate
         });
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの変形を変更') };
     }
@@ -343,6 +345,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = updateLayerOpacityInSource(source, request.layerId, request.opacity);
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの不透明度を変更') };
     }
@@ -352,6 +355,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = updateLayerBlendInSource(source, request.layerId, request.blend);
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーの合成を変更') };
     }
@@ -361,6 +365,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = setSfxGainDbInSource(source, request.sfxIndex, request.gainDb);
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE の音量を変更') };
     }
@@ -375,6 +380,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             fadeOut: request.fadeOut,
             ducking: request.ducking
         });
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'BGM の設定を変更') };
     }
@@ -525,6 +531,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = moveLayerInSource(
             source, request.layerId, request.t, request.duration, request.track, request.trackState
         );
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを移動') };
     }
@@ -534,6 +541,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const { source: updated, removedText, layerIndex } = deleteLayerByIdInSource(source, request.layerId);
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         const committed = await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを削除');
         return { committed, removedText, layerIndex };
@@ -544,6 +552,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = insertLayerInSource(source, request.layerIndex, request.elementText);
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'レイヤーを挿入') };
     }
@@ -553,6 +562,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = moveSfxInSource(source, request.sfxIndex, request.t, request.track, request.trackState);
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を移動') };
     }
@@ -562,6 +572,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const { source: updated, removedText } = deleteSfxInSource(source, request.sfxIndex);
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         const committed = await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を削除');
         return { committed, removedText, sfxIndex: request.sfxIndex };
@@ -572,6 +583,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = insertSfxInSource(source, request.sfxIndex, request.elementText);
+        await this.assertLintPasses(editPath, updated);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を挿入') };
     }
@@ -579,6 +591,118 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {
         if (!uri || !projectRootUri) {
             throw new Error('書き戻し先を特定できません。');
+        }
+    }
+
+    // CF-write: layerWrite/audioWrite の書き込み前ゲート。候補全文を実ファイルへは一切書かず、
+    // 兄弟ファイル（source 動画・captions.json 等）をシンボリックリンクで写した一時ディレクトリに
+    // 候補 edit.json だけを置いて packages/edit-lint/bin/edit-lint.mjs --json を叩く
+    // （packages/edit-lint は「呼び出しのみ」— 改変しない）。不正なら書き込まずに例外を投げる
+    // （呼び出し側の catch → { ok: false, message } で UI が巻き戻る）。
+    protected async assertLintPasses(editPath: string, candidateText: string): Promise<void> {
+        const projectRoot = dirname(editPath);
+        const tempRoot = await fs.mkdtemp(resolve(tmpdir(), 'akari-lint-'));
+        try {
+            let siblingNames: string[] = [];
+            try {
+                siblingNames = await fs.readdir(projectRoot);
+            } catch {
+                siblingNames = [];
+            }
+            await Promise.all(siblingNames.map(async name => {
+                if (name === 'edit.json') {
+                    return;
+                }
+                try {
+                    const targetStat = await fs.stat(join(projectRoot, name));
+                    await fs.symlink(
+                        join(projectRoot, name), join(tempRoot, name), targetStat.isDirectory() ? 'dir' : 'file'
+                    );
+                } catch {
+                    // Reference is unreadable or a broken symlink; edit-lint will report it as a
+                    // missing-file finding on its own, same as it would against the real project.
+                }
+            }));
+            await fs.writeFile(join(tempRoot, 'edit.json'), candidateText, 'utf8');
+            const result = await this.runEditLint(tempRoot);
+            if (!result.pass) {
+                throw new Error(result.errors[0] ?? 'edit-lint が変更を拒否しました');
+            }
+        } finally {
+            await fs.rm(tempRoot, { recursive: true, force: true });
+        }
+    }
+
+    protected async runEditLint(projectRoot: string): Promise<{ pass: boolean; errors: string[] }> {
+        const binPath = this.findEditLintBinPath();
+        const stdout = await execFileAsync(process.execPath, [binPath, projectRoot, '--json'], {
+            encoding: 'utf8', maxBuffer: 10 * 1024 * 1024
+        }).then(
+            result => result.stdout,
+            (error: NodeJS.ErrnoException & { stdout?: string }) => typeof error.stdout === 'string' ? error.stdout : '{}'
+        );
+        let parsed: { findings?: Array<{ severity?: string; message?: string; check?: string }> };
+        try {
+            parsed = JSON.parse(stdout);
+        } catch (error) {
+            return {
+                pass: false,
+                errors: [`edit-lint の出力を解析できませんでした: ${error instanceof Error ? error.message : String(error)}`]
+            };
+        }
+        const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
+        const errorFindings = findings.filter(finding => finding.severity === 'error');
+        return {
+            pass: errorFindings.length === 0,
+            errors: errorFindings.map(finding => `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`)
+        };
+    }
+
+    protected findEditLintBinPath(): string {
+        const candidates: string[] = [];
+
+        const packagedCandidate = resolve(__dirname, '../edit-lint/bin/edit-lint.mjs');
+        candidates.push(packagedCandidate);
+        if (this.isFile(packagedCandidate)) {
+            return packagedCandidate;
+        }
+
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            const candidate = resolve(ancestor, 'packages/edit-lint/bin/edit-lint.mjs');
+            candidates.push(candidate);
+            if (this.isFile(candidate)) {
+                return candidate;
+            }
+            const parent = dirname(ancestor);
+            if (parent === ancestor) {
+                break;
+            }
+            ancestor = parent;
+        }
+
+        const cwdCandidates = [
+            resolve(process.cwd(), '../../packages/edit-lint/bin/edit-lint.mjs'),
+            resolve(process.cwd(), 'packages/edit-lint/bin/edit-lint.mjs'),
+            resolve(process.cwd(), '../packages/edit-lint/bin/edit-lint.mjs')
+        ];
+        for (const candidate of cwdCandidates) {
+            if (candidates.includes(candidate)) {
+                continue;
+            }
+            candidates.push(candidate);
+            if (this.isFile(candidate)) {
+                return candidate;
+            }
+        }
+        throw new Error(`edit-lint bin was not found (tried: ${candidates.join(', ')})`);
+    }
+
+    protected isFile(candidate: string): boolean {
+        try {
+            return statSync(candidate).isFile();
+        } catch {
+            return false;
         }
     }
 

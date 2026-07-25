@@ -172,6 +172,17 @@ interface OverlayWriteRequest {
     };
 }
 
+// CF-write: overlayWrite と同型の layers[] 版。追加/削除は CF-dnd（別レーン）の範囲のため対象外、
+// transform 変更のみ扱う（t/duration 変更は既存の timeline moveLayer 経路で既に書き戻る）。
+interface LayerWriteRequest {
+    type: 'akari-preview-layer-write';
+    requestId: string;
+    layerId: string;
+    patch: {
+        transform?: OverlayTransform;
+    };
+}
+
 interface WaveformFetchRequest {
     type: 'akari-preview-waveform-fetch';
     requestId: string;
@@ -228,6 +239,8 @@ const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
 // akari-annotations 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
+// CF-select: overlay 選択同期チャンネルの layers 版（akari-annotations 側と文字列のみミラー）。
+const TIMELINE_LAYER_SELECTED_EVENT = 'akari.timeline.layerSelected';
 const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
 const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
@@ -246,6 +259,7 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 // 即時反映する ephemeral イベント。
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
+const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
 // akari-annotations の録音セクション側と文字列だけをミラーし、extension 間の npm 依存を作らない。
 const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
 const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
@@ -296,6 +310,12 @@ interface PreviewPlaybackTickRequest {
 interface PreviewOverlaySelectedRequest {
     type: 'akari-preview-overlay-selected';
     overlayId: string | null;
+}
+
+// CF-select: overlay 選択同期チャンネルの layers 版。
+interface PreviewLayerSelectedRequest {
+    type: 'akari-preview-layer-selected';
+    layerId: string | null;
 }
 
 interface PreviewReviewTransportRequest {
@@ -371,6 +391,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
     protected overlayWriteTail = Promise.resolve();
+    protected layerWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected retryWidgetSequence = 0;
@@ -446,6 +467,27 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.addEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected);
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected)
+        });
+        // CF-select: タイムラインでレイヤーを選択 → 出力プレビュー側もハイライト（overlay と同型）。
+        const onTimelineLayerSelected = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; layerId?: string | null }>).detail;
+            if (!detail?.editUri || (typeof detail.layerId !== 'string' && detail.layerId !== null)) {
+                return;
+            }
+            let key: string;
+            try {
+                key = new URI(detail.editUri).normalizePath().toString();
+            } catch {
+                return;
+            }
+            const widget = this.openOutputPreviews.get(key);
+            if (widget?.isAttached) {
+                widget.sendMessage({ type: 'akari-preview-select-layer', layerId: detail.layerId });
+            }
+        };
+        window.addEventListener(TIMELINE_LAYER_SELECTED_EVENT, onTimelineLayerSelected);
+        this.lifecycleDisposables.push({
+            dispose: () => window.removeEventListener(TIMELINE_LAYER_SELECTED_EVENT, onTimelineLayerSelected)
         });
         const registerTimelineSetting = <T extends { editUri?: string }>(
             type: string,
@@ -1209,6 +1251,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
             }
+            if (this.isLayerWriteRequest(message)) {
+                this.layerWriteTail = this.layerWriteTail.then(() => this.handleLayerWrite(widget, message));
+            }
             if (this.isWaveformFetchRequest(message)) {
                 void this.handleWaveformFetch(widget, message);
             }
@@ -1223,6 +1268,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             if (this.isOverlaySelectedRequest(message)) {
                 this.forwardOverlaySelection(widget, message);
+            }
+            if (this.isLayerSelectedRequest(message)) {
+                this.forwardLayerSelection(widget, message);
             }
             if (this.isReviewTransportRequest(message)) {
                 this.forwardReviewTransport(widget, message);
@@ -1399,6 +1447,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             detail: {
                 videoUri: editUri.normalizePath().toString(),
                 overlayId: message.overlayId
+            }
+        }));
+    }
+
+    protected isLayerSelectedRequest(message: any): message is PreviewLayerSelectedRequest {
+        return message?.type === 'akari-preview-layer-selected'
+            && (typeof message.layerId === 'string' || message.layerId === null);
+    }
+
+    protected forwardLayerSelection(widget: PreviewWidgetMarker, message: PreviewLayerSelectedRequest): void {
+        const editUri = widget.akariPreviewEditUri;
+        if (!editUri) {
+            return;
+        }
+        window.dispatchEvent(new CustomEvent(PREVIEW_LAYER_SELECTED_EVENT, {
+            detail: {
+                editUri: editUri.normalizePath().toString(),
+                layerId: message.layerId
             }
         }));
     }
@@ -2302,6 +2368,81 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && typeof message.patch === 'object';
     }
 
+    // CF-write: layerTransform の schema 定義（edit.schema.json #layerTransform — x/y/rotate は数値・
+    // scale は正の数）と同じ制約をここで先に弾く。edit-lint（呼び出しのみ）は layers[].transform の
+    // 数値レンジまでは検証しないため、この事前チェックが実質的な「不正値は書き込まない」の担保になる。
+    protected validateLayerTransformPatch(patch: OverlayTransform | undefined): string | undefined {
+        if (!patch) {
+            return undefined;
+        }
+        for (const field of ['x', 'y', 'rotate'] as const) {
+            if (field in patch && !Number.isFinite(patch[field])) {
+                return `transform.${field} は有限数値である必要があります。`;
+            }
+        }
+        if ('scale' in patch && !(Number.isFinite(patch.scale) && (patch.scale as number) > 0)) {
+            return 'transform.scale は正の数である必要があります。';
+        }
+        return undefined;
+    }
+
+    protected async handleLayerWrite(widget: PreviewWidgetMarker, request: LayerWriteRequest): Promise<void> {
+        const respond = (ok: boolean, error?: string): void => {
+            widget.sendMessage({
+                type: 'akari-preview-layer-write-response',
+                requestId: request.requestId,
+                ok,
+                ...(error ? { error } : {})
+            });
+        };
+        const editUri = widget.akariPreviewEditUri;
+        if (!editUri) {
+            respond(false, '編集中の edit.json がありません');
+            return;
+        }
+        const validationError = this.validateLayerTransformPatch(request.patch.transform);
+        if (validationError) {
+            respond(false, validationError);
+            return;
+        }
+        try {
+            const originalText = await this.readText(editUri);
+            const edit = JSON.parse(originalText);
+            if (!Array.isArray(edit?.layers)) {
+                throw new Error('edit.json の layers が配列ではありません');
+            }
+            const layer = edit.layers.find((value: any) => String(value?.id) === request.layerId);
+            if (!layer) {
+                throw new Error(`レイヤーが見つかりません: ${request.layerId}`);
+            }
+            if (request.patch.transform) {
+                layer.transform = { ...this.objectRecord(layer.transform), ...request.patch.transform };
+            }
+            const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
+            const lintResult = await this.previewService.lintEditCandidate({
+                editUri: editUri.toString(),
+                candidateText
+            });
+            if (!lintResult.pass) {
+                respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                return;
+            }
+            this.recentWrites.set(editUri.toString(), Date.now());
+            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            respond(true);
+        } catch (error) {
+            respond(false, error instanceof Error ? error.message : String(error));
+        }
+    }
+
+    protected isLayerWriteRequest(message: any): message is LayerWriteRequest {
+        return message?.type === 'akari-preview-layer-write'
+            && typeof message.requestId === 'string'
+            && typeof message.layerId === 'string'
+            && message.patch
+            && typeof message.patch === 'object';
+    }
+
     protected async handleWaveformFetch(widget: PreviewWidgetMarker, request: WaveformFetchRequest): Promise<void> {
         try {
             const videoUri = widget.akariPreviewVideoUri;
@@ -2396,7 +2537,16 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
 #preview-video { position: absolute; top: 0; left: 0; object-fit: contain; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
-#preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: none; }
+#preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
+#layer-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
+#layer-select-box.is-active { display: block; }
+#layer-select-box .akari-layer-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
+#layer-select-box .akari-layer-handle-nw { top: 0; left: 0; cursor: nwse-resize; }
+#layer-select-box .akari-layer-handle-ne { top: 0; left: 100%; cursor: nesw-resize; }
+#layer-select-box .akari-layer-handle-sw { top: 100%; left: 0; cursor: nesw-resize; }
+#layer-select-box .akari-layer-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
+#layer-select-box .akari-layer-handle-rotate { top: 0; left: 50%; margin-top: -34px; border-radius: 50%; cursor: grab; }
+#layer-select-box .akari-layer-rotate-stem { position: absolute; top: -28px; left: 50%; width: 1.5px; height: 28px; background: #4da3ff; transform: translateX(-50%); pointer-events: none; }
 #overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
@@ -2453,6 +2603,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="auto"></video>
         <div id="preview-layers"></div>
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
+        <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
         <canvas id="pen-layer" aria-hidden="true"></canvas>
       </div>
       <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
@@ -2567,6 +2718,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'overlay-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-overlay-write', requestId, overlayId, patch });
+                }),
+                layerWrite: (layerId, patch) => new Promise((resolve, reject) => {
+                    const requestId = 'akari-preview-' + (++sequence);
+                    pending.set(requestId, { kind: 'layer-write', resolve, reject });
+                    vscode.postMessage({ type: 'akari-preview-layer-write', requestId, layerId, patch });
                 }),
                 readWaveformBytes: () => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-waveform-' + (++sequence);
@@ -2869,6 +3025,9 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportOverlaySelection = overlayId => {
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
             };
+            window.akari.reportLayerSelection = layerId => {
+                vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
+            };
             if (outputPreviewLink && initial.relatedEditUri) {
                 outputPreviewLink.addEventListener('click', () => {
                     vscode.postMessage({ type: 'akari-preview-open-output-request' });
@@ -2888,15 +3047,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
 
+            const PENDING_RESPONSE_TYPES = {
+                'overlay-write': 'akari-preview-overlay-write-response',
+                'layer-write': 'akari-preview-layer-write-response',
+                'waveform-fetch': 'akari-preview-waveform-fetch-response'
+            };
             window.addEventListener('message', event => {
                 const message = event.data;
-                if (!message || (message.type !== 'akari-preview-overlay-write-response'
-                    && message.type !== 'akari-preview-waveform-fetch-response')) return;
+                if (!message || !Object.values(PENDING_RESPONSE_TYPES).includes(message.type)) return;
                 const request = pending.get(message.requestId);
                 if (!request) return;
-                const expectedType = request.kind === 'waveform-fetch'
-                    ? 'akari-preview-waveform-fetch-response'
-                    : 'akari-preview-overlay-write-response';
+                const expectedType = PENDING_RESPONSE_TYPES[request.kind];
                 if (message.type !== expectedType) return;
                 pending.delete(message.requestId);
                 if (!message.ok) {
@@ -3585,6 +3746,182 @@ body { display: grid; place-items: center; padding: 32px; }
                 layersStage.appendChild(layerVideo);
                 return { spec: layer, video: layerVideo };
             });
+            // CF-select + transform ハンドル: レイヤー実体のクリック選択・タイムラインとの双方向同期・
+            // プレビュー内ドラッグ移動/リサイズ(=scale)/回転。確定(pointerup)時のみ layerWrite で
+            // 書き戻す（既存 overlay ドラッグ編集と同じ確定タイミング）。
+            let selectedLayerId = null;
+            const layerSelectBox = document.getElementById('layer-select-box');
+            const layerHandleElements = Array.from(layerSelectBox.querySelectorAll('[data-akari-handle]'));
+            const findLayerEntry = id => layerEntries.find(entry => String(entry.spec.id) === String(id));
+            const layerTransformNow = entry => ({
+                x: Number(entry.video.dataset.akariTransformX) || 0,
+                y: Number(entry.video.dataset.akariTransformY) || 0,
+                scale: Number(entry.video.dataset.akariTransformScale) || 1,
+                rotate: Number(entry.video.dataset.akariTransformRotate) || 0
+            });
+            const applyLayerTransformNow = (entry, transform) => {
+                entry.video.dataset.akariTransformX = String(transform.x);
+                entry.video.dataset.akariTransformY = String(transform.y);
+                entry.video.dataset.akariTransformScale = String(transform.scale);
+                entry.video.dataset.akariTransformRotate = String(transform.rotate);
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                updateLayerSelectBox();
+            };
+            const updateLayerSelectBox = () => {
+                const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
+                if (!entry || entry.video.style.display === 'none' || !(entry.video.videoWidth > 0)) {
+                    layerSelectBox.classList.remove('is-active');
+                    return;
+                }
+                const frameRect = window.akari.computeOutputFrameRect();
+                const frameScale = window.akari.stageScale() || 1;
+                const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                const outputHeight = Number(summary.output && summary.output.height) || 720;
+                const transform = layerTransformNow(entry);
+                const outputW = entry.video.videoWidth * transform.scale;
+                const outputH = entry.video.videoHeight * transform.scale;
+                const outputCenterX = outputWidth / 2 + transform.x;
+                const outputCenterY = outputHeight / 2 + transform.y;
+                const screenW = outputW * frameScale;
+                const screenH = outputH * frameScale;
+                const screenCenterX = frameRect.x + outputCenterX * frameScale;
+                const screenCenterY = frameRect.y + outputCenterY * frameScale;
+                layerSelectBox.style.left = (screenCenterX - screenW / 2) + 'px';
+                layerSelectBox.style.top = (screenCenterY - screenH / 2) + 'px';
+                layerSelectBox.style.width = screenW + 'px';
+                layerSelectBox.style.height = screenH + 'px';
+                layerSelectBox.style.transform = 'rotate(' + transform.rotate + 'deg)';
+                layerSelectBox.classList.add('is-active');
+            };
+            const selectLayer = (layerId, options) => {
+                const report = !options || options.report !== false;
+                const nextId = layerId && findLayerEntry(layerId) ? layerId : null;
+                if (nextId === selectedLayerId) {
+                    updateLayerSelectBox();
+                    return;
+                }
+                selectedLayerId = nextId;
+                updateLayerSelectBox();
+                if (report) window.akari.reportLayerSelection(selectedLayerId);
+            };
+            // CF-write: layerWrite 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
+            const beginLayerTransformDrag = (entry, startEvent, computeTransform) => {
+                startEvent.preventDefault();
+                startEvent.stopPropagation();
+                const pointerId = startEvent.pointerId;
+                const original = layerTransformNow(entry);
+                const captureTarget = startEvent.currentTarget;
+                let moved = false;
+                let cancelled = false;
+                try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
+                const cleanup = () => {
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    window.removeEventListener('pointercancel', onUp);
+                    window.removeEventListener('keydown', onKeyDown, true);
+                    if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
+                        captureTarget.releasePointerCapture(pointerId);
+                    }
+                };
+                const onMove = moveEvent => {
+                    if (moveEvent.pointerId !== pointerId) return;
+                    const dx = moveEvent.clientX - startEvent.clientX;
+                    const dy = moveEvent.clientY - startEvent.clientY;
+                    if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
+                    if (!moved) return;
+                    applyLayerTransformNow(entry, computeTransform(moveEvent, original));
+                };
+                const finish = async () => {
+                    cleanup();
+                    if (cancelled) {
+                        applyLayerTransformNow(entry, original);
+                        return;
+                    }
+                    if (!moved) return;
+                    const finalTransform = layerTransformNow(entry);
+                    try {
+                        await window.akari.engine.layerWrite(entry.spec.id, { transform: finalTransform });
+                    } catch (error) {
+                        console.warn('[akari-preview] layer transform write rejected; reverting', error);
+                        applyLayerTransformNow(entry, original);
+                    }
+                };
+                const onUp = upEvent => {
+                    if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+                    void finish();
+                };
+                const onKeyDown = keyEvent => {
+                    if (keyEvent.key !== 'Escape') return;
+                    cancelled = true;
+                    void finish();
+                };
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+                window.addEventListener('pointercancel', onUp);
+                window.addEventListener('keydown', onKeyDown, true);
+            };
+            // #overlay-stage covers the whole frame with pointer-events:auto (needed so overlays'
+            // own interaction chrome stays clickable) and paints above #preview-layers, so it is
+            // always the real hit-test target within the frame. A plain per-video pointerdown
+            // listener would therefore never fire. Delegate from the stage instead: when the
+            // click's direct target is the stage element itself (not an actual overlay or its
+            // interaction chrome, which would make the target a descendant), look for a layer
+            // video underneath via elementsFromPoint.
+            stage.addEventListener('pointerdown', event => {
+                if (event.button !== 0 || zoom > 1.05 || event.target !== stage) return;
+                const layerVideo = document.elementsFromPoint(event.clientX, event.clientY)
+                    .find(candidate => candidate.tagName === 'VIDEO' && candidate.dataset
+                        && candidate.dataset.akariLayerId && candidate.style.display !== 'none');
+                if (!layerVideo) return;
+                const entry = findLayerEntry(layerVideo.dataset.akariLayerId);
+                if (!entry) return;
+                selectLayer(entry.spec.id);
+                beginLayerTransformDrag(entry, event, (moveEvent, original) => {
+                    const frameScale = window.akari.stageScale() || 1;
+                    return {
+                        ...original,
+                        x: original.x + (moveEvent.clientX - event.clientX) / frameScale,
+                        y: original.y + (moveEvent.clientY - event.clientY) / frameScale
+                    };
+                });
+            });
+            for (const handle of layerHandleElements) {
+                handle.addEventListener('pointerdown', event => {
+                    if (event.button !== 0 || !selectedLayerId) return;
+                    const entry = findLayerEntry(selectedLayerId);
+                    if (!entry) return;
+                    const kind = handle.getAttribute('data-akari-handle');
+                    const boxRect = layerSelectBox.getBoundingClientRect();
+                    const center = { x: boxRect.left + boxRect.width / 2, y: boxRect.top + boxRect.height / 2 };
+                    if (kind === 'rotate') {
+                        const startAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * 180 / Math.PI;
+                        beginLayerTransformDrag(entry, event, (moveEvent, original) => {
+                            const angle = Math.atan2(moveEvent.clientY - center.y, moveEvent.clientX - center.x) * 180 / Math.PI;
+                            return { ...original, rotate: original.rotate + (angle - startAngle) };
+                        });
+                    } else {
+                        const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
+                        beginLayerTransformDrag(entry, event, (moveEvent, original) => {
+                            const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
+                            const factor = distance / startDistance;
+                            return { ...original, scale: Math.max(0.01, original.scale * factor) };
+                        });
+                    }
+                });
+            }
+            wrapper.addEventListener('click', event => {
+                if (!selectedLayerId) return;
+                if (event.target.closest && event.target.closest('#layer-select-box')) return;
+                // A click that lands on the stage over a layer video reports event.target as the
+                // stage itself (see the delegated pointerdown handler above), so re-check via
+                // elementsFromPoint rather than event.target.closest here.
+                const hitLayer = document.elementsFromPoint(event.clientX, event.clientY)
+                    .some(candidate => candidate.tagName === 'VIDEO' && candidate.dataset
+                        && candidate.dataset.akariLayerId && candidate.style.display !== 'none');
+                if (hitLayer) return;
+                selectLayer(null);
+            });
+            new ResizeObserver(() => updateLayerSelectBox()).observe(wrapper);
             const applyTrackVisibility = track => {
                 for (const container of stage.querySelectorAll('[data-akari-track]')) {
                     if (Number(container.getAttribute('data-akari-track')) === track) {
@@ -4411,6 +4748,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     outputTime = video.currentTime || 0;
                 }
                 renderLayers(outputTime);
+                updateLayerSelectBox();
                 renderTransitionPlate(outputTime);
                 window.akari.runtime.tick(outputTime, isPlaying);
                 if (window.akari.previewAudio) {
@@ -4957,6 +5295,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     requestedOverlayId = message.overlayId;
                     applyRequestedOverlaySelection();
                 }
+                if (message && message.type === 'akari-preview-select-layer'
+                    && (typeof message.layerId === 'string' || message.layerId === null)) {
+                    selectLayer(message.layerId, { report: false });
+                }
                 if (message && message.type === 'akari-preview-live-transform' && message.target
                     && (message.target.kind === 'cut' || message.target.kind === 'layer')
                     && typeof message.field === 'string' && Number.isFinite(message.value)) {
@@ -4982,6 +5324,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (layerVideo) applyLiveField(layerVideo);
                     }
                     if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                    updateLayerSelectBox();
                     return;
                 }
             });

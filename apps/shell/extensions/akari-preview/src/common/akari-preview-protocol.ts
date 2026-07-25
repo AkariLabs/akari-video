@@ -137,6 +137,20 @@ export type ResolveHevcProxyResult =
     | { status: 'ready'; proxyUri: string }
     | { status: 'unavailable'; reason: ResolveHevcProxyUnavailableReason };
 
+// CF-write: layerWrite/audioWrite の書き込み前ゲート。edit.json の候補全文を実際には書き込まず
+// packages/edit-lint（呼び出しのみ・改変禁止）で検証する。プロジェクトルートの兄弟ファイル
+// （source 動画・captions.json 等）はシンボリックリンクで一時ディレクトリへ写し、参照整合チェックが
+// 誤検出しないようにする。
+export interface LintEditCandidateRequest {
+    editUri: string;
+    candidateText: string;
+}
+
+export interface LintEditCandidateResult {
+    pass: boolean;
+    errors: string[];
+}
+
 export interface AkariPreviewService {
     getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets>;
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
@@ -152,4 +166,5 @@ export interface AkariPreviewService {
     appendReviewSessionStroke(request: AppendReviewSessionStrokeRequest): Promise<void>;
     endReviewSession(request: EndReviewSessionRequest): Promise<void>;
     listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
+    lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;
 }

@@ -162,6 +162,8 @@ type TimelineClipboard =
     | { kind: 'overlay'; payload: OverlayWritePayload };
 
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
+// akari-preview 側の TIMELINE_LAYER_SELECTED_EVENT とミラー（CF-select）。
+const TIMELINE_LAYER_SELECTED_EVENT = 'akari.timeline.layerSelected';
 const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
 const TIMELINE_SET_OVERLAY_TRACK_MUTED_EVENT = 'akari.timeline.setOverlayTrackMuted';
@@ -1131,6 +1133,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }));
         }
+        // CF-select: レイヤー選択も同様に双方向同期する（overlay と同型）。
+        if (notifyPreview && (previous?.kind === 'layer' || selection?.kind === 'layer')) {
+            window.dispatchEvent(new CustomEvent(TIMELINE_LAYER_SELECTED_EVENT, {
+                detail: {
+                    editUri: this.location?.editUri?.toString() ?? '',
+                    layerId: selection?.kind === 'layer' ? selection.id : null
+                }
+            }));
+        }
         // クリップは同じクリック内の requestSeek が open+seek を直列化する。
         // レイヤー/オーディオはシークを伴わないため reveal コマンドで出力プレビューを開く。
         if (selection?.kind === 'layer' || selection?.kind === 'audio') {
@@ -1718,6 +1729,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (this.overlays.some(overlay => overlay.id === overlayId)) {
             this.applySelection({ kind: 'overlay', id: overlayId }, false);
+        }
+    }
+
+    /** CF-select: プレビュー内でのレイヤークリック選択をタイムライン側へ反映する（overlay と同型）。 */
+    handleLayerSelection(editUri: string, layerId: string | null): void {
+        if (!this.canHandlePlaybackTick(editUri)) {
+            return;
+        }
+        if (layerId === null) {
+            if (this.selection?.kind === 'layer') {
+                this.applySelection(undefined, false);
+            }
+            return;
+        }
+        if (this.layers.some(layer => layer.id === layerId)) {
+            this.applySelection({ kind: 'layer', id: layerId }, false);
         }
     }
 
