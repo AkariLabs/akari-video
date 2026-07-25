@@ -1095,7 +1095,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.playheadT = nextOutputT;
                     this.playhead.style.left = `${this.percent(nextOutputT)}%`;
                     this.selectedSourceT = this.outputToSource(nextOutputT);
-                    void this.requestSeek(this.selectedSourceT);
+                    void this.requestSeek(nextOutputT, { domain: 'output' });
                     return;
                 }
             }
@@ -6671,7 +6671,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const outputT = this.timeAtClientX(moveEvent.clientX);
             this.playheadT = outputT;
             this.playhead.style.left = `${this.percent(outputT)}%`;
-            void this.requestSeek(this.outputToSource(outputT));
+            void this.requestSeek(outputT, { domain: 'output' });
         };
         const onUp = (upEvent: PointerEvent): void => {
             this.playheadHandle.releasePointerCapture(upEvent.pointerId);
@@ -6702,7 +6702,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectedSourceT = sourceT;
         this.playheadT = outputT;
         this.playhead.style.left = `${this.percent(outputT)}%`;
-        void this.requestSeek(sourceT);
+        void this.requestSeek(outputT, { domain: 'output' });
     }
 
     protected onStripPointerDown(event: PointerEvent): void {
@@ -6901,14 +6901,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }).catch(() => undefined);
     }
 
-    protected async requestSeek(time: number): Promise<void> {
+    // domain 'source' (既定): time は素材(source)秒 — アノテーションの sourceT 等、cuts 経由で
+    // 出力秒に変換してからプレビューへ送る。domain 'output': time は既にタイムライン(出力)秒
+    // ――ギャップ（cuts 間の空白・末尾延長）はどの cut にも属さず source 秒に写像できないため、
+    // sourceToOutput(outputToSource(time)) の往復変換は best-effort で最寄りの segment 境界へ
+    // 丸められ 0 秒などへ誤着地しうる（バグ⑳）。タイムライン widget 自身が出力秒を握っている
+    // クリック/ドラッグ/矢印キー操作は往復変換を経由せずここで直接その出力秒を渡す
+    protected async requestSeek(time: number, options?: { domain?: 'source' | 'output' }): Promise<void> {
         if (!this.location?.editUri) {
             this.footer.textContent = `${this.formatTimestamp(time)} を選択しました。edit.json が見つかりません。`;
             return;
         }
+        const outputTime = options?.domain === 'output' ? time : this.sourceToOutput(time);
         const result = await this.commands.executeCommand<'seeked' | 'mismatched-asset'>(
             SEEK_OUTPUT_PREVIEW_COMMAND_ID,
-            { editUri: this.location.editUri.toString(), time: this.sourceToOutput(time) }
+            { editUri: this.location.editUri.toString(), time: outputTime }
         );
         const timestamp = this.formatTimestamp(time);
         this.footer.textContent = result === 'seeked'
