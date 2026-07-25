@@ -1,0 +1,59 @@
+[
+  {
+    "t": "2026-07-25T14:23:57.092Z",
+    "step": "connected-phase2",
+    "cdpPort": 9541,
+    "workspace": "/tmp/t4-track-height-resize-l1",
+    "expected": {
+      "trackId": "t1",
+      "tier": "compact"
+    }
+  },
+  {
+    "t": "2026-07-25T14:24:00.328Z",
+    "step": "assertion-ok",
+    "message": "theia container ready after restart"
+  },
+  {
+    "t": "2026-07-25T14:24:16.416Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette after restart"
+  },
+  {
+    "t": "2026-07-25T14:24:17.255Z",
+    "step": "restart-persistence",
+    "restoredInfo": {
+      "top": "204px",
+      "height": "28px",
+      "tier": "compact"
+    },
+    "expected": {
+      "trackId": "t1",
+      "tier": "compact"
+    }
+  },
+  {
+    "t": "2026-07-25T14:24:17.256Z",
+    "step": "assertion-ok",
+    "message": "Electron 再起動後、t1 のサイズティアが compact のまま StorageService から復元される",
+    "restoredInfo": {
+      "top": "204px",
+      "height": "28px",
+      "tier": "compact"
+    },
+    "expected": {
+      "trackId": "t1",
+      "tier": "compact"
+    }
+  },
+  {
+    "t": "2026-07-25T14:24:17.258Z",
+    "step": "assertion-ok",
+    "message": "再起動後の行高(28px)が期待値(28px)と一致する",
+    "restoredInfo": {
+      "top": "204px",
+      "height": "28px",
+      "tier": "compact"
+    }
+  }
+]

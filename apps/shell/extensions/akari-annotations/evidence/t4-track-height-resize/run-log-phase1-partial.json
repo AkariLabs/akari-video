@@ -1,0 +1,1393 @@
+[
+  {
+    "t": "2026-07-25T14:16:54.828Z",
+    "step": "connected",
+    "cdpPort": 9541,
+    "workspace": "/tmp/t4-track-height-resize-l1",
+    "phase": "phase1"
+  },
+  {
+    "t": "2026-07-25T14:16:57.572Z",
+    "step": "assertion-ok",
+    "message": "theia container ready"
+  },
+  {
+    "t": "2026-07-25T14:16:57.627Z",
+    "step": "assertion-ok",
+    "message": "runtime instrumentation installed on AkariAnnotationsWidget.prototype",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T14:17:10.864Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-07-25T14:17:10.899Z",
+    "step": "assertion-ok",
+    "message": "live widget instance captured via renderStrip() instrumentation"
+  },
+  {
+    "t": "2026-07-25T14:17:10.950Z",
+    "step": "assertion-ok",
+    "message": "fixture added a second cuts track (t7, ref=1) to edit.json",
+    "tracks": [
+      {
+        "id": "t1",
+        "kind": "cuts",
+        "ref": 0
+      },
+      {
+        "id": "t7",
+        "kind": "cuts",
+        "ref": 1
+      },
+      {
+        "id": "t4",
+        "kind": "audio",
+        "ref": 0
+      },
+      {
+        "id": "t3",
+        "kind": "layers",
+        "ref": 0
+      },
+      {
+        "id": "t6",
+        "kind": "captions",
+        "ref": 0
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T14:17:54.558Z",
+    "step": "baseline-clips",
+    "all": [
+      {
+        "index": "0",
+        "width": 16.6953125,
+        "cellCount": 0
+      },
+      {
+        "index": "1",
+        "width": 11.5078125,
+        "cellCount": 0
+      },
+      {
+        "index": "2",
+        "width": 42.7734375,
+        "cellCount": 1
+      },
+      {
+        "index": "3",
+        "width": 14.2734375,
+        "cellCount": 0
+      },
+      {
+        "index": "4",
+        "width": 45.2734375,
+        "cellCount": 1
+      },
+      {
+        "index": "5",
+        "width": 21.453125,
+        "cellCount": 0
+      },
+      {
+        "index": "6",
+        "width": 50.453125,
+        "cellCount": 1
+      },
+      {
+        "index": "7",
+        "width": 20.46875,
+        "cellCount": 0
+      },
+      {
+        "index": "8",
+        "width": 18.421875,
+        "cellCount": 0
+      },
+      {
+        "index": "9",
+        "width": 16.1171875,
+        "cellCount": 0
+      },
+      {
+        "index": "10",
+        "width": 97.734375,
+        "cellCount": 3
+      }
+    ],
+    "baselineTarget": {
+      "index": "10",
+      "width": 97.734375,
+      "cellCount": 3
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:54.560Z",
+    "step": "assertion-ok",
+    "message": "target clip 10 (warm cache) renders filmstrip cells at standard tier before any tier change",
+    "baselineTarget": {
+      "index": "10",
+      "width": 97.734375,
+      "cellCount": 3
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:54.579Z",
+    "step": "assertion-ok",
+    "message": "both cuts tracks default to standard tier on first open",
+    "baselineMain": {
+      "top": "204px",
+      "height": "72px",
+      "tier": "standard"
+    },
+    "baselineOther": {
+      "top": "126px",
+      "height": "72px",
+      "tier": "standard"
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:56.333Z",
+    "step": "tier-only-target-changed",
+    "afterCompactMain": {
+      "top": "204px",
+      "height": "28px",
+      "tier": "compact"
+    },
+    "afterCompactOther": {
+      "top": "126px",
+      "height": "72px",
+      "tier": "standard"
+    },
+    "baselineOther": {
+      "top": "126px",
+      "height": "72px",
+      "tier": "standard"
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:56.334Z",
+    "step": "assertion-ok",
+    "message": "t1 row height becomes compact (28px)",
+    "afterCompactMain": {
+      "top": "204px",
+      "height": "28px",
+      "tier": "compact"
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:56.334Z",
+    "step": "assertion-ok",
+    "message": "t7 (other cuts track) is unaffected by t1's tier change",
+    "afterCompactOther": {
+      "top": "126px",
+      "height": "72px",
+      "tier": "standard"
+    },
+    "baselineOther": {
+      "top": "126px",
+      "height": "72px",
+      "tier": "standard"
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:56.955Z",
+    "step": "compact-clip-media-hidden",
+    "compactClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 758.0234375,
+        "right": 557.9921875,
+        "bottom": 786.0234375,
+        "width": 97.734375,
+        "height": 28
+      },
+      "cellCount": 0,
+      "wrapperCount": 0,
+      "elementCount": 1,
+      "cellRect": null,
+      "hasWaveformCanvas": false,
+      "canvasTopOffset": null,
+      "canvasHeight": null,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    },
+    "baselineClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 867.0234375,
+        "right": 557.9921875,
+        "bottom": 939.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 868.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:56.956Z",
+    "step": "assertion-ok",
+    "message": "in compact tier, the target clip renders zero filmstrip cells and no waveform canvas",
+    "compactClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 758.0234375,
+        "right": 557.9921875,
+        "bottom": 786.0234375,
+        "width": 97.734375,
+        "height": 28
+      },
+      "cellCount": 0,
+      "wrapperCount": 0,
+      "elementCount": 1,
+      "cellRect": null,
+      "hasWaveformCanvas": false,
+      "canvasTopOffset": null,
+      "canvasHeight": null,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:56.956Z",
+    "step": "assertion-ok",
+    "message": "compact clip element is visibly thinner than the standard-tier baseline",
+    "compactClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 758.0234375,
+        "right": 557.9921875,
+        "bottom": 786.0234375,
+        "width": 97.734375,
+        "height": 28
+      },
+      "cellCount": 0,
+      "wrapperCount": 0,
+      "elementCount": 1,
+      "cellRect": null,
+      "hasWaveformCanvas": false,
+      "canvasTopOffset": null,
+      "canvasHeight": null,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    },
+    "baselineClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 867.0234375,
+        "right": 557.9921875,
+        "bottom": 939.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 868.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T14:17:58.651Z",
+    "step": "assertion-ok",
+    "message": "revive 計測開始時点でこのワークスペース由来の ffmpeg が静穏",
+    "ffmpegBeforeRevive": 0
+  },
+  {
+    "t": "2026-07-25T14:18:01.079Z",
+    "step": "revive-from-cache",
+    "revivedClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 758.0234375,
+        "right": 557.9921875,
+        "bottom": 830.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 759.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    },
+    "baselineClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 867.0234375,
+        "right": 557.9921875,
+        "bottom": 939.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 868.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    },
+    "atlasBeforeRevive": [
+      {
+        "name": "0f78ab3fc12df6ba45363a7fcfcf502a1ad5c785.jpg",
+        "mtimeMs": 1784969185431.5898,
+        "size": 3404659
+      },
+      {
+        "name": "0f78ab3fc12df6ba45363a7fcfcf502a1ad5c785.json",
+        "mtimeMs": 1784969185504.6604,
+        "size": 128
+      },
+      {
+        "name": "36170aba221673160cc7aaf0a8dd52ca63c89980.jpg",
+        "mtimeMs": 1784982090107.1362,
+        "size": 76820
+      },
+      {
+        "name": "36170aba221673160cc7aaf0a8dd52ca63c89980.json",
+        "mtimeMs": 1784982090119.4907,
+        "size": 160
+      },
+      {
+        "name": "3b7d020c38608d39e8aad1a4bf7bf14e5cfc1d4a.jpg",
+        "mtimeMs": 1784982125032.2686,
+        "size": 402263
+      },
+      {
+        "name": "3b7d020c38608d39e8aad1a4bf7bf14e5cfc1d4a.json",
+        "mtimeMs": 1784982125049.2832,
+        "size": 147
+      },
+      {
+        "name": "5deca926c55644e7718570e812d5177124585575.jpg",
+        "mtimeMs": 1784982120279.973,
+        "size": 388563
+      },
+      {
+        "name": "5deca926c55644e7718570e812d5177124585575.json",
+        "mtimeMs": 1784982120467.13,
+        "size": 147
+      },
+      {
+        "name": "60ef1d2feb2568bfbd8b067f0d534cf8c0dbc084.jpg",
+        "mtimeMs": 1784989064628.563,
+        "size": 369924
+      },
+      {
+        "name": "60ef1d2feb2568bfbd8b067f0d534cf8c0dbc084.json",
+        "mtimeMs": 1784989064655.2976,
+        "size": 147
+      },
+      {
+        "name": "69472360e6202298cc63b1ee1303824a4770b4c7.jpg",
+        "mtimeMs": 1784989057477.546,
+        "size": 384926
+      },
+      {
+        "name": "69472360e6202298cc63b1ee1303824a4770b4c7.json",
+        "mtimeMs": 1784989057489.9797,
+        "size": 145
+      },
+      {
+        "name": "73fc057eff313ede3f90e69b9762f2b4233e183c.jpg",
+        "mtimeMs": 1784989055949.322,
+        "size": 337686
+      },
+      {
+        "name": "73fc057eff313ede3f90e69b9762f2b4233e183c.json",
+        "mtimeMs": 1784989055985.8555,
+        "size": 147
+      },
+      {
+        "name": "7e82aec48a6a48c8f2a28a9526a0b4268ea3b721.jpg",
+        "mtimeMs": 1784989043168.229,
+        "size": 76820
+      },
+      {
+        "name": "7e82aec48a6a48c8f2a28a9526a0b4268ea3b721.json",
+        "mtimeMs": 1784989043179.0928,
+        "size": 160
+      },
+      {
+        "name": "8267f5f949183aa46402d2f4f509216172d75422.jpg",
+        "mtimeMs": 1784982126545.732,
+        "size": 360295
+      },
+      {
+        "name": "8267f5f949183aa46402d2f4f509216172d75422.json",
+        "mtimeMs": 1784982126580.5344,
+        "size": 143
+      },
+      {
+        "name": "a5f05502ab78dd00784635673e1031e3a3315c67.jpg",
+        "mtimeMs": 1784982123548.8823,
+        "size": 385719
+      },
+      {
+        "name": "a5f05502ab78dd00784635673e1031e3a3315c67.json",
+        "mtimeMs": 1784982123677.3748,
+        "size": 147
+      },
+      {
+        "name": "aed81f6b15b0bf0d2e6eefe7435aee9fe5912584.jpg",
+        "mtimeMs": 1784982116788.1045,
+        "size": 337686
+      },
+      {
+        "name": "aed81f6b15b0bf0d2e6eefe7435aee9fe5912584.json",
+        "mtimeMs": 1784982116871.3381,
+        "size": 147
+      },
+      {
+        "name": "b245f6eb2588f5e0ff692f1d66a25b067366c5b2.jpg",
+        "mtimeMs": 1784989057713.3591,
+        "size": 388563
+      },
+      {
+        "name": "b245f6eb2588f5e0ff692f1d66a25b067366c5b2.json",
+        "mtimeMs": 1784989057744.841,
+        "size": 147
+      },
+      {
+        "name": "b4da6c0c6219bb82e0e0c94e2758c35d49523850.jpg",
+        "mtimeMs": 1784982126818.9521,
+        "size": 369924
+      },
+      {
+        "name": "b4da6c0c6219bb82e0e0c94e2758c35d49523850.json",
+        "mtimeMs": 1784982126842.083,
+        "size": 147
+      },
+      {
+        "name": "cbd7b71ec7921c11f30b35f8c179d56b54d7ef1a.jpg",
+        "mtimeMs": 1784982119882.6655,
+        "size": 384926
+      },
+      {
+        "name": "cbd7b71ec7921c11f30b35f8c179d56b54d7ef1a.json",
+        "mtimeMs": 1784982120103.8208,
+        "size": 145
+      },
+      {
+        "name": "f3e570a1c8c44f258989115d804a7ed334895ba2.jpg",
+        "mtimeMs": 1784982140248.1677,
+        "size": 394345
+      },
+      {
+        "name": "f3e570a1c8c44f258989115d804a7ed334895ba2.json",
+        "mtimeMs": 1784982140259.0193,
+        "size": 147
+      }
+    ],
+    "atlasAfterRevive": [
+      {
+        "name": "0f78ab3fc12df6ba45363a7fcfcf502a1ad5c785.jpg",
+        "mtimeMs": 1784969185431.5898,
+        "size": 3404659
+      },
+      {
+        "name": "0f78ab3fc12df6ba45363a7fcfcf502a1ad5c785.json",
+        "mtimeMs": 1784969185504.6604,
+        "size": 128
+      },
+      {
+        "name": "36170aba221673160cc7aaf0a8dd52ca63c89980.jpg",
+        "mtimeMs": 1784982090107.1362,
+        "size": 76820
+      },
+      {
+        "name": "36170aba221673160cc7aaf0a8dd52ca63c89980.json",
+        "mtimeMs": 1784982090119.4907,
+        "size": 160
+      },
+      {
+        "name": "3b7d020c38608d39e8aad1a4bf7bf14e5cfc1d4a.jpg",
+        "mtimeMs": 1784982125032.2686,
+        "size": 402263
+      },
+      {
+        "name": "3b7d020c38608d39e8aad1a4bf7bf14e5cfc1d4a.json",
+        "mtimeMs": 1784982125049.2832,
+        "size": 147
+      },
+      {
+        "name": "5deca926c55644e7718570e812d5177124585575.jpg",
+        "mtimeMs": 1784982120279.973,
+        "size": 388563
+      },
+      {
+        "name": "5deca926c55644e7718570e812d5177124585575.json",
+        "mtimeMs": 1784982120467.13,
+        "size": 147
+      },
+      {
+        "name": "60ef1d2feb2568bfbd8b067f0d534cf8c0dbc084.jpg",
+        "mtimeMs": 1784989064628.563,
+        "size": 369924
+      },
+      {
+        "name": "60ef1d2feb2568bfbd8b067f0d534cf8c0dbc084.json",
+        "mtimeMs": 1784989064655.2976,
+        "size": 147
+      },
+      {
+        "name": "69472360e6202298cc63b1ee1303824a4770b4c7.jpg",
+        "mtimeMs": 1784989057477.546,
+        "size": 384926
+      },
+      {
+        "name": "69472360e6202298cc63b1ee1303824a4770b4c7.json",
+        "mtimeMs": 1784989057489.9797,
+        "size": 145
+      },
+      {
+        "name": "73fc057eff313ede3f90e69b9762f2b4233e183c.jpg",
+        "mtimeMs": 1784989055949.322,
+        "size": 337686
+      },
+      {
+        "name": "73fc057eff313ede3f90e69b9762f2b4233e183c.json",
+        "mtimeMs": 1784989055985.8555,
+        "size": 147
+      },
+      {
+        "name": "7e82aec48a6a48c8f2a28a9526a0b4268ea3b721.jpg",
+        "mtimeMs": 1784989043168.229,
+        "size": 76820
+      },
+      {
+        "name": "7e82aec48a6a48c8f2a28a9526a0b4268ea3b721.json",
+        "mtimeMs": 1784989043179.0928,
+        "size": 160
+      },
+      {
+        "name": "8267f5f949183aa46402d2f4f509216172d75422.jpg",
+        "mtimeMs": 1784982126545.732,
+        "size": 360295
+      },
+      {
+        "name": "8267f5f949183aa46402d2f4f509216172d75422.json",
+        "mtimeMs": 1784982126580.5344,
+        "size": 143
+      },
+      {
+        "name": "a5f05502ab78dd00784635673e1031e3a3315c67.jpg",
+        "mtimeMs": 1784982123548.8823,
+        "size": 385719
+      },
+      {
+        "name": "a5f05502ab78dd00784635673e1031e3a3315c67.json",
+        "mtimeMs": 1784982123677.3748,
+        "size": 147
+      },
+      {
+        "name": "aed81f6b15b0bf0d2e6eefe7435aee9fe5912584.jpg",
+        "mtimeMs": 1784982116788.1045,
+        "size": 337686
+      },
+      {
+        "name": "aed81f6b15b0bf0d2e6eefe7435aee9fe5912584.json",
+        "mtimeMs": 1784982116871.3381,
+        "size": 147
+      },
+      {
+        "name": "b245f6eb2588f5e0ff692f1d66a25b067366c5b2.jpg",
+        "mtimeMs": 1784989057713.3591,
+        "size": 388563
+      },
+      {
+        "name": "b245f6eb2588f5e0ff692f1d66a25b067366c5b2.json",
+        "mtimeMs": 1784989057744.841,
+        "size": 147
+      },
+      {
+        "name": "b4da6c0c6219bb82e0e0c94e2758c35d49523850.jpg",
+        "mtimeMs": 1784982126818.9521,
+        "size": 369924
+      },
+      {
+        "name": "b4da6c0c6219bb82e0e0c94e2758c35d49523850.json",
+        "mtimeMs": 1784982126842.083,
+        "size": 147
+      },
+      {
+        "name": "cbd7b71ec7921c11f30b35f8c179d56b54d7ef1a.jpg",
+        "mtimeMs": 1784982119882.6655,
+        "size": 384926
+      },
+      {
+        "name": "cbd7b71ec7921c11f30b35f8c179d56b54d7ef1a.json",
+        "mtimeMs": 1784982120103.8208,
+        "size": 145
+      },
+      {
+        "name": "f3e570a1c8c44f258989115d804a7ed334895ba2.jpg",
+        "mtimeMs": 1784982140248.1677,
+        "size": 394345
+      },
+      {
+        "name": "f3e570a1c8c44f258989115d804a7ed334895ba2.json",
+        "mtimeMs": 1784982140259.0193,
+        "size": 147
+      }
+    ],
+    "ffmpegBeforeRevive": 0,
+    "ffmpegAfterRevive": 0
+  },
+  {
+    "t": "2026-07-25T14:18:01.079Z",
+    "step": "assertion-ok",
+    "message": "戻すと標準ティアの表示（フィルムストリップセル数・波形canvas）がベースラインと一致する形で復活する",
+    "revivedClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 758.0234375,
+        "right": 557.9921875,
+        "bottom": 830.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 759.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    },
+    "baselineClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 867.0234375,
+        "right": 557.9921875,
+        "bottom": 939.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 868.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:01.081Z",
+    "step": "assertion-ok",
+    "message": "標準へ戻す操作の前後で atlas キャッシュファイル一覧（name/mtime/size）が完全一致 = 再生成なし",
+    "atlasBeforeRevive": [
+      {
+        "name": "0f78ab3fc12df6ba45363a7fcfcf502a1ad5c785.jpg",
+        "mtimeMs": 1784969185431.5898,
+        "size": 3404659
+      },
+      {
+        "name": "0f78ab3fc12df6ba45363a7fcfcf502a1ad5c785.json",
+        "mtimeMs": 1784969185504.6604,
+        "size": 128
+      },
+      {
+        "name": "36170aba221673160cc7aaf0a8dd52ca63c89980.jpg",
+        "mtimeMs": 1784982090107.1362,
+        "size": 76820
+      },
+      {
+        "name": "36170aba221673160cc7aaf0a8dd52ca63c89980.json",
+        "mtimeMs": 1784982090119.4907,
+        "size": 160
+      },
+      {
+        "name": "3b7d020c38608d39e8aad1a4bf7bf14e5cfc1d4a.jpg",
+        "mtimeMs": 1784982125032.2686,
+        "size": 402263
+      },
+      {
+        "name": "3b7d020c38608d39e8aad1a4bf7bf14e5cfc1d4a.json",
+        "mtimeMs": 1784982125049.2832,
+        "size": 147
+      },
+      {
+        "name": "5deca926c55644e7718570e812d5177124585575.jpg",
+        "mtimeMs": 1784982120279.973,
+        "size": 388563
+      },
+      {
+        "name": "5deca926c55644e7718570e812d5177124585575.json",
+        "mtimeMs": 1784982120467.13,
+        "size": 147
+      },
+      {
+        "name": "60ef1d2feb2568bfbd8b067f0d534cf8c0dbc084.jpg",
+        "mtimeMs": 1784989064628.563,
+        "size": 369924
+      },
+      {
+        "name": "60ef1d2feb2568bfbd8b067f0d534cf8c0dbc084.json",
+        "mtimeMs": 1784989064655.2976,
+        "size": 147
+      },
+      {
+        "name": "69472360e6202298cc63b1ee1303824a4770b4c7.jpg",
+        "mtimeMs": 1784989057477.546,
+        "size": 384926
+      },
+      {
+        "name": "69472360e6202298cc63b1ee1303824a4770b4c7.json",
+        "mtimeMs": 1784989057489.9797,
+        "size": 145
+      },
+      {
+        "name": "73fc057eff313ede3f90e69b9762f2b4233e183c.jpg",
+        "mtimeMs": 1784989055949.322,
+        "size": 337686
+      },
+      {
+        "name": "73fc057eff313ede3f90e69b9762f2b4233e183c.json",
+        "mtimeMs": 1784989055985.8555,
+        "size": 147
+      },
+      {
+        "name": "7e82aec48a6a48c8f2a28a9526a0b4268ea3b721.jpg",
+        "mtimeMs": 1784989043168.229,
+        "size": 76820
+      },
+      {
+        "name": "7e82aec48a6a48c8f2a28a9526a0b4268ea3b721.json",
+        "mtimeMs": 1784989043179.0928,
+        "size": 160
+      },
+      {
+        "name": "8267f5f949183aa46402d2f4f509216172d75422.jpg",
+        "mtimeMs": 1784982126545.732,
+        "size": 360295
+      },
+      {
+        "name": "8267f5f949183aa46402d2f4f509216172d75422.json",
+        "mtimeMs": 1784982126580.5344,
+        "size": 143
+      },
+      {
+        "name": "a5f05502ab78dd00784635673e1031e3a3315c67.jpg",
+        "mtimeMs": 1784982123548.8823,
+        "size": 385719
+      },
+      {
+        "name": "a5f05502ab78dd00784635673e1031e3a3315c67.json",
+        "mtimeMs": 1784982123677.3748,
+        "size": 147
+      },
+      {
+        "name": "aed81f6b15b0bf0d2e6eefe7435aee9fe5912584.jpg",
+        "mtimeMs": 1784982116788.1045,
+        "size": 337686
+      },
+      {
+        "name": "aed81f6b15b0bf0d2e6eefe7435aee9fe5912584.json",
+        "mtimeMs": 1784982116871.3381,
+        "size": 147
+      },
+      {
+        "name": "b245f6eb2588f5e0ff692f1d66a25b067366c5b2.jpg",
+        "mtimeMs": 1784989057713.3591,
+        "size": 388563
+      },
+      {
+        "name": "b245f6eb2588f5e0ff692f1d66a25b067366c5b2.json",
+        "mtimeMs": 1784989057744.841,
+        "size": 147
+      },
+      {
+        "name": "b4da6c0c6219bb82e0e0c94e2758c35d49523850.jpg",
+        "mtimeMs": 1784982126818.9521,
+        "size": 369924
+      },
+      {
+        "name": "b4da6c0c6219bb82e0e0c94e2758c35d49523850.json",
+        "mtimeMs": 1784982126842.083,
+        "size": 147
+      },
+      {
+        "name": "cbd7b71ec7921c11f30b35f8c179d56b54d7ef1a.jpg",
+        "mtimeMs": 1784982119882.6655,
+        "size": 384926
+      },
+      {
+        "name": "cbd7b71ec7921c11f30b35f8c179d56b54d7ef1a.json",
+        "mtimeMs": 1784982120103.8208,
+        "size": 145
+      },
+      {
+        "name": "f3e570a1c8c44f258989115d804a7ed334895ba2.jpg",
+        "mtimeMs": 1784982140248.1677,
+        "size": 394345
+      },
+      {
+        "name": "f3e570a1c8c44f258989115d804a7ed334895ba2.json",
+        "mtimeMs": 1784982140259.0193,
+        "size": 147
+      }
+    ],
+    "atlasAfterRevive": [
+      {
+        "name": "0f78ab3fc12df6ba45363a7fcfcf502a1ad5c785.jpg",
+        "mtimeMs": 1784969185431.5898,
+        "size": 3404659
+      },
+      {
+        "name": "0f78ab3fc12df6ba45363a7fcfcf502a1ad5c785.json",
+        "mtimeMs": 1784969185504.6604,
+        "size": 128
+      },
+      {
+        "name": "36170aba221673160cc7aaf0a8dd52ca63c89980.jpg",
+        "mtimeMs": 1784982090107.1362,
+        "size": 76820
+      },
+      {
+        "name": "36170aba221673160cc7aaf0a8dd52ca63c89980.json",
+        "mtimeMs": 1784982090119.4907,
+        "size": 160
+      },
+      {
+        "name": "3b7d020c38608d39e8aad1a4bf7bf14e5cfc1d4a.jpg",
+        "mtimeMs": 1784982125032.2686,
+        "size": 402263
+      },
+      {
+        "name": "3b7d020c38608d39e8aad1a4bf7bf14e5cfc1d4a.json",
+        "mtimeMs": 1784982125049.2832,
+        "size": 147
+      },
+      {
+        "name": "5deca926c55644e7718570e812d5177124585575.jpg",
+        "mtimeMs": 1784982120279.973,
+        "size": 388563
+      },
+      {
+        "name": "5deca926c55644e7718570e812d5177124585575.json",
+        "mtimeMs": 1784982120467.13,
+        "size": 147
+      },
+      {
+        "name": "60ef1d2feb2568bfbd8b067f0d534cf8c0dbc084.jpg",
+        "mtimeMs": 1784989064628.563,
+        "size": 369924
+      },
+      {
+        "name": "60ef1d2feb2568bfbd8b067f0d534cf8c0dbc084.json",
+        "mtimeMs": 1784989064655.2976,
+        "size": 147
+      },
+      {
+        "name": "69472360e6202298cc63b1ee1303824a4770b4c7.jpg",
+        "mtimeMs": 1784989057477.546,
+        "size": 384926
+      },
+      {
+        "name": "69472360e6202298cc63b1ee1303824a4770b4c7.json",
+        "mtimeMs": 1784989057489.9797,
+        "size": 145
+      },
+      {
+        "name": "73fc057eff313ede3f90e69b9762f2b4233e183c.jpg",
+        "mtimeMs": 1784989055949.322,
+        "size": 337686
+      },
+      {
+        "name": "73fc057eff313ede3f90e69b9762f2b4233e183c.json",
+        "mtimeMs": 1784989055985.8555,
+        "size": 147
+      },
+      {
+        "name": "7e82aec48a6a48c8f2a28a9526a0b4268ea3b721.jpg",
+        "mtimeMs": 1784989043168.229,
+        "size": 76820
+      },
+      {
+        "name": "7e82aec48a6a48c8f2a28a9526a0b4268ea3b721.json",
+        "mtimeMs": 1784989043179.0928,
+        "size": 160
+      },
+      {
+        "name": "8267f5f949183aa46402d2f4f509216172d75422.jpg",
+        "mtimeMs": 1784982126545.732,
+        "size": 360295
+      },
+      {
+        "name": "8267f5f949183aa46402d2f4f509216172d75422.json",
+        "mtimeMs": 1784982126580.5344,
+        "size": 143
+      },
+      {
+        "name": "a5f05502ab78dd00784635673e1031e3a3315c67.jpg",
+        "mtimeMs": 1784982123548.8823,
+        "size": 385719
+      },
+      {
+        "name": "a5f05502ab78dd00784635673e1031e3a3315c67.json",
+        "mtimeMs": 1784982123677.3748,
+        "size": 147
+      },
+      {
+        "name": "aed81f6b15b0bf0d2e6eefe7435aee9fe5912584.jpg",
+        "mtimeMs": 1784982116788.1045,
+        "size": 337686
+      },
+      {
+        "name": "aed81f6b15b0bf0d2e6eefe7435aee9fe5912584.json",
+        "mtimeMs": 1784982116871.3381,
+        "size": 147
+      },
+      {
+        "name": "b245f6eb2588f5e0ff692f1d66a25b067366c5b2.jpg",
+        "mtimeMs": 1784989057713.3591,
+        "size": 388563
+      },
+      {
+        "name": "b245f6eb2588f5e0ff692f1d66a25b067366c5b2.json",
+        "mtimeMs": 1784989057744.841,
+        "size": 147
+      },
+      {
+        "name": "b4da6c0c6219bb82e0e0c94e2758c35d49523850.jpg",
+        "mtimeMs": 1784982126818.9521,
+        "size": 369924
+      },
+      {
+        "name": "b4da6c0c6219bb82e0e0c94e2758c35d49523850.json",
+        "mtimeMs": 1784982126842.083,
+        "size": 147
+      },
+      {
+        "name": "cbd7b71ec7921c11f30b35f8c179d56b54d7ef1a.jpg",
+        "mtimeMs": 1784982119882.6655,
+        "size": 384926
+      },
+      {
+        "name": "cbd7b71ec7921c11f30b35f8c179d56b54d7ef1a.json",
+        "mtimeMs": 1784982120103.8208,
+        "size": 145
+      },
+      {
+        "name": "f3e570a1c8c44f258989115d804a7ed334895ba2.jpg",
+        "mtimeMs": 1784982140248.1677,
+        "size": 394345
+      },
+      {
+        "name": "f3e570a1c8c44f258989115d804a7ed334895ba2.json",
+        "mtimeMs": 1784982140259.0193,
+        "size": 147
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T14:18:01.081Z",
+    "step": "assertion-ok",
+    "message": "compact→standard の復活時、ffmpeg プロセスは 1 つも起動しない",
+    "ffmpegAfterRevive": 0
+  },
+  {
+    "t": "2026-07-25T14:18:01.746Z",
+    "step": "assertion-ok",
+    "message": "標準ティアの波形帯は clipHeight(72) - WAVEFORM_BAND_HEIGHT_PX(24) = 48px オフセット・高さ24pxに固定されている（±2px許容）",
+    "revivedClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 758.0234375,
+        "right": 557.9921875,
+        "bottom": 830.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 759.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:02.821Z",
+    "step": "large-tier",
+    "largeHeaderInfo": {
+      "top": "204px",
+      "height": "116px",
+      "tier": "large"
+    },
+    "largeClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 714.0234375,
+        "right": 557.9921875,
+        "bottom": 830.0234375,
+        "width": 97.734375,
+        "height": 116
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 715.0234375,
+        "height": 114,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 93,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    },
+    "revivedClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 758.0234375,
+        "right": 557.9921875,
+        "bottom": 830.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 759.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:02.821Z",
+    "step": "assertion-ok",
+    "message": "t1 row height becomes large (116px)",
+    "largeHeaderInfo": {
+      "top": "204px",
+      "height": "116px",
+      "tier": "large"
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:02.821Z",
+    "step": "assertion-ok",
+    "message": "large tier のクリップ帯高さは standard より大きい（一回り大きく見える）",
+    "largeClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 714.0234375,
+        "right": 557.9921875,
+        "bottom": 830.0234375,
+        "width": 97.734375,
+        "height": 116
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 715.0234375,
+        "height": 114,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 93,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    },
+    "revivedClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 758.0234375,
+        "right": 557.9921875,
+        "bottom": 830.0234375,
+        "width": 97.734375,
+        "height": 72
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 759.0234375,
+        "height": 70,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 49,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:02.821Z",
+    "step": "assertion-ok",
+    "message": "large tier のフィルムストリップセル自体の描画高さも standard より大きい（見かけの拡大表示を実測）",
+    "largeCellHeight": 114,
+    "standardCellHeight": 70
+  },
+  {
+    "t": "2026-07-25T14:18:02.821Z",
+    "step": "assertion-ok",
+    "message": "large ティアでも波形帯オフセットは clipHeight - WAVEFORM_BAND_HEIGHT_PX に追随する（92px 付近、±2px許容）",
+    "largeClip": {
+      "rect": {
+        "left": 460.2578125,
+        "top": 714.0234375,
+        "right": 557.9921875,
+        "bottom": 830.0234375,
+        "width": 97.734375,
+        "height": 116
+      },
+      "cellCount": 3,
+      "wrapperCount": 1,
+      "elementCount": 1,
+      "cellRect": {
+        "top": 715.0234375,
+        "height": 114,
+        "width": 36
+      },
+      "hasWaveformCanvas": true,
+      "canvasTopOffset": 93,
+      "canvasHeight": 24,
+      "classList": [
+        "akari-annotations-strip-clip"
+      ]
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:05.389Z",
+    "step": "insertion-indicator-during-drag",
+    "indicatorDuringDrag": {
+      "display": "block",
+      "top": "109px"
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:05.389Z",
+    "step": "assertion-ok",
+    "message": "cuts クリップを最上段の外へ縦ドラッグすると挿入インジケータが表示される（trackInsertIndicator.style.display）",
+    "indicatorDuringDrag": {
+      "display": "block",
+      "top": "109px"
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:06.258Z",
+    "step": "assertion-ok",
+    "message": "ドラッグ終了後は挿入インジケータが非表示に戻る",
+    "indicatorAfterDrag": "none"
+  },
+  {
+    "t": "2026-07-25T14:18:06.789Z",
+    "step": "compact-regression-selection",
+    "selected": true
+  },
+  {
+    "t": "2026-07-25T14:18:06.789Z",
+    "step": "assertion-ok",
+    "message": "compact ティアでもクリップクリックで選択（akari-annotations-selected）が効く",
+    "selected": true
+  },
+  {
+    "t": "2026-07-25T14:18:08.247Z",
+    "step": "compact-regression-move",
+    "cutBeforeMove": {
+      "in": 3694.2,
+      "out": 3732.3961,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      },
+      "at": 114.7488888888889
+    },
+    "cutAfterMove": {
+      "in": 3694.2,
+      "out": 3732.3961,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      },
+      "at": 125.25
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:08.247Z",
+    "step": "assertion-ok",
+    "message": "compact ティアでもクリップの右方向ドラッグ移動が edit.json の at を書き換える",
+    "cutBeforeMove": {
+      "in": 3694.2,
+      "out": 3732.3961,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      },
+      "at": 114.7488888888889
+    },
+    "cutAfterMove": {
+      "in": 3694.2,
+      "out": 3732.3961,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      },
+      "at": 125.25
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:10.162Z",
+    "step": "compact-regression-trim",
+    "cutBeforeTrim": {
+      "in": 3694.2,
+      "out": 3732.3961,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      },
+      "at": 125.25
+    },
+    "cutAfterTrim": {
+      "in": 3694.2,
+      "out": 3719.625,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      },
+      "at": 125.25
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:10.162Z",
+    "step": "assertion-ok",
+    "message": "compact ティアでも右トリムハンドルのドラッグが edit.json の out を書き換える",
+    "cutBeforeTrim": {
+      "in": 3694.2,
+      "out": 3732.3961,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      },
+      "at": 125.25
+    },
+    "cutAfterTrim": {
+      "in": 3694.2,
+      "out": 3719.625,
+      "speed": 0.9,
+      "transition_out": null,
+      "transform": {
+        "x": 0
+      },
+      "at": 125.25
+    }
+  },
+  {
+    "t": "2026-07-25T14:18:11.428Z",
+    "step": "follow-gate-inputs",
+    "viewDuration": 15.35000000000002,
+    "lastManualScrollAt": 0,
+    "now": 1784989091424,
+    "viewStart": 145.8250000000002,
+    "total": 161.1750000000002,
+    "visible": 15.35000000000002
+  },
+  {
+    "t": "2026-07-25T14:18:11.704Z",
+    "step": "playhead-follow-regression",
+    "viewStartBefore": 145.8250000000002,
+    "viewStartAfter": 145.8250000000002,
+    "farPlayheadT": 167.31500000000023,
+    "playheadLeft": "100%"
+  },
+  {
+    "t": "2026-07-25T14:18:11.729Z",
+    "step": "ASSERTION-FAILED",
+    "message": "プレイヘッドがフォロー境界を越えて進むと viewStart が追従して前進する（トラック高さ変更後も回帰なし）",
+    "viewStartBefore": 145.8250000000002,
+    "viewStartAfter": 145.8250000000002
+  }
+]

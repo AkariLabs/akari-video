@@ -1,7 +1,7 @@
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
-import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
@@ -87,8 +87,23 @@ const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const PLAYHEAD_COLOR = '#3b82f6';
 const MICRO_CLIP_WIDTH_PX = 28;
 const CLIP_HEADER_HEIGHT = 28;
-/** クリップ帯の高さ（ヘッダー帯28px + サムネイル/波形本体44px）。 */
+/** クリップ帯の高さ（ヘッダー帯28px + サムネイル/波形本体44px）。cuts トラックの標準（standard）ティアの高さ。 */
 const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 44;
+/** コンパクトティア: ヘッダー帯のみの薄い帯（サムネイル/波形は描かない）。 */
+const CLIP_HEIGHT_COMPACT_PX = CLIP_HEADER_HEIGHT;
+/** 大ティア: サムネイル/波形本体を標準の倍（88px）にした高さ。 */
+const CLIP_HEIGHT_LARGE_PX = CLIP_HEADER_HEIGHT + 88;
+/** 高さの登録可能な段階（T4 トラック高さ変更）。トグルはこの順で循環する。 */
+const TRACK_SIZE_TIERS = ['compact', 'standard', 'large'] as const;
+type TrackSizeTier = typeof TRACK_SIZE_TIERS[number];
+const DEFAULT_TRACK_SIZE_TIER: TrackSizeTier = 'standard';
+/** per-track 高さの永続化キー接頭辞（StorageService＝ワークスペース状態。edit.json には書かない）。 */
+const TRACK_SIZE_STORAGE_PREFIX = 'akari.annotations.trackSize';
+/**
+ * cuts トラックの高さがこの値未満（＝コンパクトティア）ならフィルムストリップ・波形の描画をスキップする。
+ * 幅側の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート。
+ */
+const MIN_TRACK_HEIGHT_FOR_MEDIA_PX = CLIP_HEIGHT;
 /** フィルムストリップの目標セル幅（atlas フレームのアスペクトから実セル幅を導出する基準値）。 */
 const FILMSTRIP_TARGET_CELL_WIDTH_PX = 36;
 /** クリップ 1 個あたりの最大セル数（暴走防止。実測上はズームしても strip 幅に収まるため頭打ちにはまず届かない）。 */
@@ -271,6 +286,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(AkariAnnotationsService)
     protected readonly annotationsService!: AkariAnnotationsService;
 
+    @inject(StorageService)
+    protected readonly storage!: StorageService;
+
     protected readonly toolbar = document.createElement('div');
     protected readonly selectToolButton = document.createElement('button');
     protected readonly razorToolButton = document.createElement('button');
@@ -327,6 +345,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected audioSfx: EditAudioSfx[] = [];
     protected audioBgm: EditAudioBgm | undefined;
     protected timelineTracks: EditTimelineTrack[] = [];
+    /** cuts トラックの per-track 高さティア（キー = EditTimelineTrack.id）。StorageService から起動/reload 時に読み込む。 */
+    protected readonly trackSizeTiers = new Map<string, TrackSizeTier>();
     protected segments: OutputSegment[] = [];
     protected wordBoundaries: number[] = [];
     protected configured = false;
@@ -2378,7 +2398,59 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
         this.syncTimelineTrackTogglesToPreview();
+        await this.loadTrackSizeTiers();
         this.renderStrip();
+    }
+
+    /** cuts トラックの高さティアを StorageService（ワークスペース状態）から読み込む。edit.json は経由しない。 */
+    protected async loadTrackSizeTiers(): Promise<void> {
+        this.trackSizeTiers.clear();
+        const editUri = this.location?.editUri;
+        if (!editUri) {
+            return;
+        }
+        const cutsTracks = this.timelineTracks.filter(track => track.kind === 'cuts');
+        const entries = await Promise.all(cutsTracks.map(async track => {
+            const stored = await this.storage.getData<TrackSizeTier>(
+                this.trackSizeStorageKey(editUri, track.id), DEFAULT_TRACK_SIZE_TIER
+            );
+            const tier = (TRACK_SIZE_TIERS as readonly string[]).includes(stored) ? stored : DEFAULT_TRACK_SIZE_TIER;
+            return [track.id, tier] as const;
+        }));
+        for (const [id, tier] of entries) {
+            this.trackSizeTiers.set(id, tier);
+        }
+    }
+
+    protected trackSizeStorageKey(editUri: URI, trackId: string): string {
+        return `${TRACK_SIZE_STORAGE_PREFIX}:${editUri.toString()}:${trackId}`;
+    }
+
+    protected cutTrackHeightForTier(tier: TrackSizeTier): number {
+        switch (tier) {
+            case 'compact':
+                return CLIP_HEIGHT_COMPACT_PX;
+            case 'large':
+                return CLIP_HEIGHT_LARGE_PX;
+            default:
+                return CLIP_HEIGHT;
+        }
+    }
+
+    protected async setTrackSizeTier(track: EditTimelineTrack, tier: TrackSizeTier): Promise<void> {
+        const editUri = this.location?.editUri;
+        if (!editUri || track.kind !== 'cuts') {
+            return;
+        }
+        this.trackSizeTiers.set(track.id, tier);
+        this.renderStrip();
+        await this.storage.setData(this.trackSizeStorageKey(editUri, track.id), tier);
+    }
+
+    protected cycleTrackSizeTier(track: EditTimelineTrack): void {
+        const current = this.trackSizeTiers.get(track.id) ?? DEFAULT_TRACK_SIZE_TIER;
+        const nextTier = TRACK_SIZE_TIERS[(TRACK_SIZE_TIERS.indexOf(current) + 1) % TRACK_SIZE_TIERS.length];
+        void this.setTrackSizeTier(track, nextTier);
     }
 
     protected rebuildSourceMap(): void {
@@ -2598,7 +2670,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const ref = timelineTrack.ref ?? 0;
             let height = SUBROW_STRIDE;
             if (timelineTrack.kind === 'cuts') {
-                height = CLIP_HEIGHT;
+                height = this.cutTrackHeightForTier(this.trackSizeTiers.get(timelineTrack.id) ?? DEFAULT_TRACK_SIZE_TIER);
             } else if (timelineTrack.kind === 'layers') {
                 const items = this.layers.filter(layer => (layer.track ?? 0) === ref);
                 const rows = assignSubRows(items.map(layer => ({ start: layer.t, end: layer.t + layer.duration })));
@@ -2883,7 +2955,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const element = this.stripSegment(
                 segment.tlStart, segment.tlEnd,
                 cutLayout.top,
-                CLIP_HEIGHT,
+                cutLayout.height,
                 'akari-annotations-strip-clip', `C${segment.index + 1}`
             );
             element.dataset.akariItemKind = 'cut';
@@ -2895,7 +2967,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (clipWidth < MICRO_CLIP_WIDTH_PX) {
                 element.classList.add('akari-annotations-strip-clip-micro');
             }
-            this.renderClipMedia(element, cut, clipWidth, segment);
+            this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
             element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
             if (this.sources !== undefined && cut.src !== undefined) {
                 const source = this.sourceMap.get(cut.src);
@@ -3072,9 +3144,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.renderStrip();
                 };
             }
+            const sizeTier = track.kind === 'cuts'
+                ? this.trackSizeTiers.get(track.id) ?? DEFAULT_TRACK_SIZE_TIER
+                : undefined;
             this.trackHeaders.appendChild(this.trackHeaderRow(
                 name, iconKind, track.id, layout.top, layout.height,
-                visible, toggleVisibility, audible, toggleMute, layout.track, track
+                visible, toggleVisibility, audible, toggleMute, layout.track, track, sizeTier
             ));
         });
     }
@@ -3090,7 +3165,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         audible: boolean,
         toggleMute: () => void,
         track?: number,
-        timelineTrack?: EditTimelineTrack
+        timelineTrack?: EditTimelineTrack,
+        sizeTier?: TrackSizeTier
     ): HTMLDivElement {
         const row = document.createElement('div');
         row.className = 'akari-track-header-row';
@@ -3111,9 +3187,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const nameElement = document.createElement('span');
         nameElement.className = 'akari-track-header-name';
         nameElement.textContent = name;
+        row.append(icon, nameElement);
+        if (sizeTier !== undefined && timelineTrack) {
+            row.appendChild(this.trackSizeButton(timelineTrack, sizeTier));
+        }
         row.append(
-            icon,
-            nameElement,
             this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility),
             this.trackHeaderButton(`${name}の音声`, 'mute', audible, this.speakerSvg(), toggleMute)
         );
@@ -3583,6 +3661,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return button;
     }
 
+    /** cuts トラック専用の高さティア切替ボタン（コンパクト/標準/大を循環）。 */
+    protected trackSizeButton(track: EditTimelineTrack, tier: TrackSizeTier): HTMLButtonElement {
+        const labelByTier: Record<TrackSizeTier, string> = { compact: 'コンパクト', standard: '標準', large: '大' };
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'akari-track-header-button';
+        button.setAttribute('aria-label', `トラックの高さ: ${labelByTier[tier]}（クリックで切り替え）`);
+        button.dataset.akariToggle = 'size';
+        button.dataset.akariSizeTier = tier;
+        button.innerHTML = this.trackSizeSvg(tier);
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            this.cycleTrackSizeTier(track);
+        });
+        return button;
+    }
+
+    protected trackSizeSvg(tier: TrackSizeTier): string {
+        const barTopByTier: Record<TrackSizeTier, number> = { compact: 15, standard: 10, large: 5 };
+        return '<svg viewBox="0 0 24 24" aria-hidden="true">'
+            + '<rect x="3" y="4" width="18" height="16" rx="2" fill="none"/>'
+            + `<rect x="5" y="${barTopByTier[tier]}" width="14" height="4" rx="1" style="fill:currentColor;stroke:none"/>`
+            + '</svg>';
+    }
+
     protected eyeSvg(): string {
         return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>';
     }
@@ -3765,16 +3868,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return label;
     }
 
-    protected renderClipMedia(element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment): void {
+    protected renderClipMedia(
+        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number
+    ): void {
         const videoUri = this.cutVideoUri(cut);
-        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || !videoUri) {
+        // コンパクトティア（trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX）はフィルムストリップ・波形を
+        // 描かない薄い帯にする（幅の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート）。
+        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX || !videoUri) {
             return;
         }
         // フィルムストリップと波形を同じ写像（clipLocalOffsetPx / fullClipWidthPx）で
         // 位置合わせするため、ジオメトリはここで 1 回だけ計算して両方へ渡す。
         const geometry = this.clipLocalGeometry(segment);
         if (geometry) {
-            const filmstripStatus = this.renderFilmstripCells(element, clipWidth, segment, videoUri, geometry);
+            const filmstripStatus = this.renderFilmstripCells(element, clipWidth, segment, videoUri, geometry, trackHeightPx);
             if (filmstripStatus === 'all-unavailable') {
                 // 可視範囲に必要な全チャンクが失敗した（ffmpeg 不在等）場合のみ、
                 // 旧来の単一フレーム背景へ劣化する。
@@ -3786,7 +3893,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const waveform = this.waveformCache.get(key);
         if (Array.isArray(waveform)) {
             if (geometry) {
-                element.appendChild(this.waveformCanvas(waveform, clipWidth, geometry));
+                element.appendChild(this.waveformCanvas(waveform, clipWidth, geometry, trackHeightPx));
             }
         } else if (waveform === undefined) {
             this.fetchWaveform(key, cut, videoUri);
@@ -3849,7 +3956,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected renderFilmstripCells(
         element: HTMLDivElement, clipWidth: number, segment: OutputSegment, videoUri: string,
-        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }
+        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }, clipHeightPx: number
     ): 'ok' | 'all-unavailable' {
         const sourceSpan = segment.out - segment.in;
         const { fullClipWidthPx, clipLocalOffsetPx } = geometry;
@@ -3906,15 +4013,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const col = frameIdx % chunk.cols;
             const row = Math.floor(frameIdx / chunk.cols);
 
-            // cover スケール: frame 全体が cellWidthPx x CLIP_HEIGHT を覆う最小倍率
-            // （大きい方の軸に合わせ、はみ出す方をセル中央基準でクロップする）。
+            // cover スケール: frame 全体が cellWidthPx x clipHeightPx（この track の高さティア）
+            // を覆う最小倍率（大きい方の軸に合わせ、はみ出す方をセル中央基準でクロップする）。
             // frameWidth/frameHeight は素材単位で不変のためチャンクをまたいでも一致するが、
             // cols/rows/atlasUri はチャンクごとに異なるため、この計算はセル単位で行う。
-            const scale = Math.max(cellWidthPx / chunk.frameWidth, CLIP_HEIGHT / chunk.frameHeight);
+            const scale = Math.max(cellWidthPx / chunk.frameWidth, clipHeightPx / chunk.frameHeight);
             const frameScaledW = chunk.frameWidth * scale;
             const frameScaledH = chunk.frameHeight * scale;
             const cropOffsetX = (frameScaledW - cellWidthPx) / 2;
-            const cropOffsetY = (frameScaledH - CLIP_HEIGHT) / 2;
+            const cropOffsetY = (frameScaledH - clipHeightPx) / 2;
             const backgroundSize = `${chunk.cols * frameScaledW}px ${chunk.rows * frameScaledH}px`;
 
             const cell = document.createElement('div');
@@ -4138,11 +4245,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 同じ写像でスライドし、全区間の圧縮波形が出ない。
      *
      * 帯はクリップ帯の下寄せ（WAVEFORM_BAND_HEIGHT_PX・下 1/3 目安）に固定し、
-     * clipHeader（上 CLIP_HEADER_HEIGHT px）と非重複にする（③）。
+     * clipHeader（上 CLIP_HEADER_HEIGHT px）と非重複にする（③）。clipHeightPx は
+     * この track の高さティア（standard/large、compact はここまで到達しない）。
      */
     protected waveformCanvas(
         peaks: readonly number[], clipWidthPx: number,
-        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }
+        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }, clipHeightPx: number
     ): HTMLCanvasElement {
         const canvas = document.createElement('canvas');
         const visibleWidthPx = Math.max(1, Math.round(clipWidthPx));
@@ -4151,7 +4259,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         Object.assign(canvas.style, {
             position: 'absolute',
             left: '0',
-            top: `${CLIP_HEIGHT - WAVEFORM_BAND_HEIGHT_PX}px`,
+            top: `${clipHeightPx - WAVEFORM_BAND_HEIGHT_PX}px`,
             width: `${visibleWidthPx}px`,
             height: `${WAVEFORM_BAND_HEIGHT_PX}px`,
             opacity: '.55',
