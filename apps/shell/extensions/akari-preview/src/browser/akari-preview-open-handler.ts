@@ -4426,9 +4426,22 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateWaveformPlayhead();
                 applyCutsMuteState();
             };
+            const runTickGuarded = () => {
+                // A thrown exception here would otherwise abort animate()/the
+                // watchdog callback before their requestAnimationFrame re-arm runs,
+                // permanently killing the rAF self-chain (defense in depth -
+                // real-data testing found no such exception, but tick() has many
+                // data-dependent branches and this keeps any future one from being
+                // fatal to playback).
+                try {
+                    tick();
+                } catch (error) {
+                    console.error('[akari-preview] tick failed; continuing animation loop', error);
+                }
+            };
             const animate = () => {
                 lastTickAtMs = performance.now();
-                tick();
+                runTickGuarded();
                 if (isPlaying) animationFrame = requestAnimationFrame(animate);
             };
             const startAnimation = () => {
@@ -4448,7 +4461,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (performance.now() - lastTickAtMs > 400) {
                         cancelAnimationFrame(animationFrame);
                         lastTickAtMs = performance.now();
-                        tick();
+                        runTickGuarded();
                         animationFrame = requestAnimationFrame(animate);
                     }
                 }, 200);
@@ -4799,6 +4812,29 @@ body { display: grid; place-items: center; padding: 32px; }
             video.addEventListener('pause', () => {
                 if (pausedForGapEntry) {
                     pausedForGapEntry = false;
+                    return;
+                }
+                // Every intentional pause call site (togglePlayback's stop branch,
+                // nudgeFrame, stopAtNaturalEnd, showPlaybackError) flips isPlaying
+                // to false *before* calling video.pause(), so isPlaying still being
+                // true here means the browser paused the element on its own -
+                // observed reliably as a single spurious native pause ~0.3-0.8s
+                // into the first playback of a large (100s+ MB) source.mp4 right
+                // after a fresh <video> load (e.g. every full webview reload
+                // triggered by an edit.json save while playing). Tearing down the
+                // animation/audio loop here would leave the raw <video> decoding
+                // ungoverned by tick() while previewAudio keeps its own independent
+                // schedule - the "video/seekbar stuck, audio still going" freeze.
+                // Resume instead; if that also fails, fall back to a real stop.
+                const segment = segments[activeSegmentIndex];
+                if (isPlaying && segment && segment.kind === 'src' && !video.ended) {
+                    void video.play().catch(error => {
+                        console.error('[akari-preview] unexpected pause auto-resume failed', error);
+                        window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
+                        isPlaying = false;
+                        if (window.akari.previewAudio) window.akari.previewAudio.pause();
+                        stopAnimation();
+                    });
                     return;
                 }
                 if (isPlaying) {
