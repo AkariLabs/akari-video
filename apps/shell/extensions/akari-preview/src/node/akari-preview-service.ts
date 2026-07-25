@@ -361,11 +361,27 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         }
     }
 
+    // 安全弁（fail-open 降格・2026-07-26 editlint-packaged-resolve）: bin 解決に失敗した
+    // 場合（パッケージ版に edit-lint が同梱されていない等）、書き込みを全面ブロックせず
+    // 検証スキップで続行する。編集不能より lint なし保存の方が被害が小さいという司令塔判断
+    // （schema 由来の型不正は各 write のローカル検証が別途残るため安全側は保たれる）。
     protected async runEditLint(projectRoot: string): Promise<LintEditCandidateResult> {
-        const binPath = this.findEditLintBinPath();
+        let binPath: string;
+        try {
+            binPath = this.findEditLintBinPath();
+        } catch (error) {
+            this.warnEditLintUnavailableOnce(error);
+            return { pass: true, errors: [] };
+        }
+        // ELECTRON_RUN_AS_NODE: パッケージ版で process.execPath が Electron 実行体を指すため、
+        // 付与しないと node スクリプトではなく Electron アプリとして再起動してしまう
+        // （akari-project-service.ts の runNodeScript 等、既存の同型対処と同じ）。
         const stdout = await new Promise<string>((resolveOutput, rejectOutput) => {
             const chunks: Buffer[] = [];
-            const child = spawn(process.execPath, [binPath, projectRoot, '--json'], { stdio: ['ignore', 'pipe', 'ignore'] });
+            const child = spawn(process.execPath, [binPath, projectRoot, '--json'], {
+                stdio: ['ignore', 'pipe', 'ignore'],
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+            });
             child.stdout.on('data', chunk => chunks.push(chunk));
             child.once('error', rejectOutput);
             child.once('close', () => resolveOutput(Buffer.concat(chunks).toString('utf8')));
@@ -422,6 +438,22 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             }
         }
         throw new Error(`edit-lint bin was not found (tried: ${candidates.join(', ')})`);
+    }
+
+    protected editLintUnavailableWarned = false;
+
+    // 安全弁の警告 notice（初回のみ）。widget（browser）側は本タスクの境界外のため変更せず、
+    // ここではプロセスログへの明示的な警告として実装する（バックエンドログ・開発者ツールの
+    // コンソールから確認可能）。
+    protected warnEditLintUnavailableOnce(error: unknown): void {
+        if (this.editLintUnavailableWarned) {
+            return;
+        }
+        this.editLintUnavailableWarned = true;
+        console.warn(
+            '[akari-preview] edit-lint bin が見つからないため、検証なしで保存しています。',
+            error instanceof Error ? error.message : error
+        );
     }
 
     protected runAudioTranscode(inputPath: string, outputPath: string): Promise<TranscodeAudioErrorKind | undefined> {

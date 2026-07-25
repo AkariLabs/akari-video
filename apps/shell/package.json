@@ -113,6 +113,15 @@
       {
         "from": "../../assets/font",
         "to": "assets/font"
+      },
+      {
+        "from": "../../packages/edit-lint",
+        "to": "packages/edit-lint",
+        "filter": [
+          "package.json",
+          "bin/**/*",
+          "src/**/*"
+        ]
       }
     ],
     "mac": {
