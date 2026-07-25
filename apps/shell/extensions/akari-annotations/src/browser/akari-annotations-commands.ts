@@ -34,3 +34,13 @@ export const OPEN_AKARI_REVIEW_BOARD_ID = OPEN_AKARI_REVIEW_BOARD.id;
 export const ATTACH_AKARI_ANNOTATIONS_PASSIVE: Command = {
     id: 'akari.annotations.attachPassive'
 };
+
+/**
+ * 分析レポート（akari-surfaces の WebviewWidget）内の `[data-block-id]` 要素クリックから、
+ * `command:` URI 経由で通知される内部コマンド（doc-annotation-ui タスク・report.md §統合点調査）。
+ * label なし = コマンドパレット非表示。webview は WebviewContentOptions.enableCommandUris で
+ * このコマンドのみを許可される（akari-annotations-contribution.ts が付与する）。
+ */
+export const SELECT_DOC_BLOCK: Command = {
+    id: 'akari.annotations.selectDocBlock'
+};

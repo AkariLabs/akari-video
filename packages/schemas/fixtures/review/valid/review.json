@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-26T10:00:00.000Z","src":"s1","sourceT":2.5,"sourceRange":null,"timelineT":null,"target":null,"targetKind":"instant","region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":"pace","text":"今のこのタイミング、一拍置いてほしい","input":"voice","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0002","createdAt":"2026-07-26T10:01:00.000Z","src":null,"sourceT":null,"sourceRange":null,"timelineT":null,"target":"doc:.akari/reports/analysis-report.html#asset-facts:clip-01","targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"この事実カードの数値、根拠を確認したい","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0003","createdAt":"2026-07-26T10:02:00.000Z","src":null,"sourceT":null,"sourceRange":null,"timelineT":null,"target":"image:assets/thumbnails/candidate-1.png","targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"サムネ案、ここの余白が気になる","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+  ]
+}

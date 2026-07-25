@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-26T10:00:00.000Z","src":"s1","sourceT":null,"sourceRange":null,"timelineT":null,"target":null,"targetKind":"instant","region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":"pace","text":"動画面の注釈なのに時刻が無い（不正）","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+  ]
+}

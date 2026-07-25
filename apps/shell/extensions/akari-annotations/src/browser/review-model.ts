@@ -5,6 +5,13 @@ import { ProjectLocation } from './project-location';
 
 export type AnnotationStatusFilter = 'all' | Annotation['status'];
 
+/** レポート面で選択中のブロック（doc: target 注釈作成の文脈）。契約 2026-07-26 §1/§4-1。 */
+export interface DocBlockSelection {
+    /** プロジェクト相対パス（レポート HTML 等）。 */
+    path: string;
+    blockId: string;
+}
+
 /**
  * タイムラインウィジェットと注釈パネルが共有するレビュー状態。
  * 読み込み（review.json の監視・パース）はタイムライン側が担い、ここへ流し込む。
@@ -32,6 +39,7 @@ export class ReviewModel {
     protected _annotations: Annotation[] = [];
     protected _statusFilter: AnnotationStatusFilter = 'all';
     protected _selectedSourceT = 0;
+    protected _docSelection: DocBlockSelection | undefined;
 
     get location(): ProjectLocation | undefined {
         return this._location;
@@ -69,11 +77,21 @@ export class ReviewModel {
         this.onChangedEmitter.fire();
     }
 
-    /** 絞り込み適用済み・時刻順の注釈 */
+    get docSelection(): DocBlockSelection | undefined {
+        return this._docSelection;
+    }
+
+    /** レポート側のブロッククリック（akari-annotations-contribution の command 経由）で更新する。 */
+    set docSelection(value: DocBlockSelection | undefined) {
+        this._docSelection = value;
+        this.onChangedEmitter.fire();
+    }
+
+    /** 絞り込み適用済み・時刻順の注釈。sourceT: null（doc: / image: target）は末尾へ寄せる。 */
     filtered(): Annotation[] {
         return this._annotations
             .filter(annotation => this._statusFilter === 'all' || annotation.status === this._statusFilter)
-            .sort((left, right) => left.sourceT - right.sourceT);
+            .sort((left, right) => (left.sourceT ?? Infinity) - (right.sourceT ?? Infinity));
     }
 
     reveal(annotationId: string): void {
@@ -95,6 +113,30 @@ export class ReviewModel {
             sourceT,
             timelineT: null,
             target: null,
+            text
+        });
+        if (!this._annotations.some(existing => existing.id === result.annotation.id)) {
+            this._annotations = [...this._annotations, result.annotation];
+            this.onChangedEmitter.fire();
+        }
+        return result;
+    }
+
+    /**
+     * doc: target 注釈の作成（契約 2026-07-26 §1/§2）。sourceT / timelineT / sourceRange は
+     * null で送る — 動画面の addAnnotation とは別経路にして、既存の sourceT 必須挙動を変えない。
+     */
+    async addDocAnnotation(text: string, selection: DocBlockSelection): Promise<{ annotation: Annotation; committed: boolean }> {
+        const location = this._location;
+        if (!location) {
+            throw new Error('プロジェクトを特定できません。');
+        }
+        const result = await this.annotationsService.createAnnotation({
+            reviewUri: location.reviewUri.toString(),
+            projectRootUri: location.root.toString(),
+            sourceT: null,
+            timelineT: null,
+            target: `doc:${selection.path}#${selection.blockId}`,
             text
         });
         if (!this._annotations.some(existing => existing.id === result.annotation.id)) {

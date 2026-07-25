@@ -46,10 +46,21 @@ export interface Annotation {
     createdAt: string;
     /** edit.json v1 の sources[].id 参照。null = 単一ソース互換 */
     src: string | null;
-    sourceT: number;
+    /**
+     * null は target が doc:<path>#<block-id> / image:<path> のときのみ
+     * （contract-2026-07-26-doc-image-annotations §2）。動画面の注釈（target が
+     * overlay: / cut: / null）は従来どおり必須 — 書き込み側（createAnnotation・
+     * validate-review.mjs）が強制する。読み込み側はここでは寛容に受理する（劣化規約「無言で捨てない」）。
+     */
+    sourceT: number | null;
     sourceRange: [number, number] | null;
     /** 非推奨。新規書き込みは常に null（timeline 位置は cuts[] から射影する） */
     timelineT: number | null;
+    /**
+     * null / overlay:<id> / cut:<index> に加え、contract-2026-07-26-doc-image-annotations §1 で
+     * doc:<プロジェクト相対パス>#<block-id>（分析レポート等のブロック注釈）と
+     * image:<プロジェクト相対パス>（画像アセットへの注釈）を追加する。
+     */
     target: string | null;
     targetKind: AnnotationTargetKind | null;
     region: AnnotationRegion | null;
@@ -73,6 +84,16 @@ const STATUSES = new Set(['open', 'addressed', 'resolved']);
 const INPUTS = new Set(['typed', 'voice', 'session']);
 const TARGET_KINDS = new Set<AnnotationTargetKind>(['instant', 'range', 'region', 'asset', 'insert']);
 const SESSION_CONFIDENCES = new Set<AnnotationSessionConfidence>(['high', 'medium', 'low']);
+
+/** contract-2026-07-26-doc-image-annotations §1: doc:<プロジェクト相対パス>#<block-id>。 */
+const DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
+/** 同契約 §1: image:<プロジェクト相対パス>。 */
+const IMAGE_TARGET_PATTERN = /^image:(.+)$/;
+
+/** target が doc: / image: 形式かどうか（§2 の sourceT: null 許容の判定に使う）。 */
+export function isDocOrImageTarget(target: string | null): boolean {
+    return typeof target === 'string' && (DOC_TARGET_PATTERN.test(target) || IMAGE_TARGET_PATTERN.test(target));
+}
 
 export function emptyReviewSource(): string {
     return '{\n  "version": 0,\n  "annotations": [\n  ]\n}\n';
@@ -110,13 +131,20 @@ function normalizeAnnotation(value: any, warnings: string[], index: number): Ann
         warnings.push(`${label}は id が不正なため表示しません。`);
         return undefined;
     }
+    // sourceT は null を許容する（doc: / image: target のみ。読み込み側は劣化規約「無言で捨てない」に
+    // 従い、target との組み合わせが契約 §2 の想定と異なる場合も表示自体は妨げず warning に留める）。
+    const sourceTValid = value.sourceT === null
+        || (typeof value.sourceT === 'number' && Number.isFinite(value.sourceT));
     if (typeof value.createdAt !== 'string'
-        || typeof value.sourceT !== 'number' || !Number.isFinite(value.sourceT)
+        || !sourceTValid
         || typeof value.text !== 'string'
         || typeof value.status !== 'string' || !STATUSES.has(value.status)
         || typeof value.input !== 'string' || !INPUTS.has(value.input)) {
         warnings.push(`注釈 ${value.id} は時刻・状態・内容のいずれかが不正なため表示しません。`);
         return undefined;
+    }
+    if (value.sourceT === null && !isDocOrImageTarget(normalizeOptionalString(value.target))) {
+        warnings.push(`注釈 ${value.id} は sourceT が null ですが target が doc: / image: 形式ではありません。`);
     }
     if (value.poses != null) {
         warnings.push(`注釈 ${value.id} の予約フィールド（実演キャプチャ）はこのバージョンでは無視します。`);

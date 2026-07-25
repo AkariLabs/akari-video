@@ -61,6 +61,7 @@ import * as mediaCache from './media-cache';
 import {
     appendAnnotationLine,
     emptyReviewSource,
+    isDocOrImageTarget,
     nextAnnotationId,
     normalizeInsertPosition,
     normalizeRefs,
@@ -153,7 +154,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!request?.reviewUri || !request?.projectRootUri || typeof request.text !== 'string' || !request.text.trim()) {
             throw new Error('注釈の内容を入力してください。');
         }
-        if (!Number.isFinite(request.sourceT) || request.sourceT < 0) {
+        // sourceT: null は doc:<path>#<block-id> / image:<path> target に限り許容する
+        // （契約 §2）。動画面の注釈（overlay: / cut: / null target）は従来どおり時刻必須のまま。
+        if (request.sourceT === null) {
+            if (!isDocOrImageTarget(request.target ?? null)) {
+                throw new Error('動画面の注釈には時刻が必要です。');
+            }
+        } else if (!Number.isFinite(request.sourceT) || request.sourceT < 0) {
             throw new Error('注釈の時刻が不正です。');
         }
         const reviewPath = this.fsPath(request.reviewUri);

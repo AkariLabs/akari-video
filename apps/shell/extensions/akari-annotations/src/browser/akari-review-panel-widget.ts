@@ -1,9 +1,16 @@
+import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
-import { BaseWidget } from '@theia/core/lib/browser';
+import { BaseWidget, OpenerService, open } from '@theia/core/lib/browser';
+import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Annotation } from '../common/akari-annotations-protocol';
+import { collectBlockIds, extractBlocksManifest, parseDocTarget, parseImageTarget } from '../common/doc-target';
 import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
 import { AnnotationStatusFilter, ReviewModel } from './review-model';
+
+/** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応）。 */
+type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.BEGIN_ONBOARDING と同一）。
@@ -68,14 +75,25 @@ export class AkariReviewPanelWidget extends BaseWidget {
     @inject(CommandService)
     protected readonly commands!: CommandService;
 
+    @inject(FileService)
+    protected readonly fileService!: FileService;
+
+    @inject(OpenerService)
+    protected readonly openerService!: OpenerService;
+
     protected readonly toolbar = document.createElement('div');
     protected readonly openBoardButton = document.createElement('button');
     protected readonly compileButton = document.createElement('button');
     protected readonly filterSelect = document.createElement('select');
     protected readonly composerRow = document.createElement('div');
     protected readonly timeLabel = document.createElement('span');
+    protected readonly docSelectionChip = document.createElement('div');
+    protected readonly docSelectionLabel = document.createElement('span');
+    protected readonly docSelectionClear = document.createElement('button');
     protected readonly textInput = document.createElement('input');
     protected readonly addButton = document.createElement('button');
+    /** doc: target の block-id 存在チェック（契約 §6）。report.html の blocks マニフェストを path ごとにキャッシュする。 */
+    protected readonly docTargetHealthCache = new Map<string, Promise<unknown | undefined>>();
     protected readonly recordingSection = document.createElement('section');
     protected readonly recordingButton = document.createElement('button');
     protected readonly recordingIndicator = document.createElement('span');
@@ -145,6 +163,23 @@ export class AkariReviewPanelWidget extends BaseWidget {
             fontVariantNumeric: 'tabular-nums', color: 'var(--theia-descriptionForeground)', fontSize: '11px'
         });
         this.timeLabel.title = 'タイムラインをクリックすると、この時刻が変わります。';
+        this.docSelectionChip.setAttribute('data-review-doc-selection-chip', '');
+        Object.assign(this.docSelectionChip.style, {
+            display: 'none', alignItems: 'center', gap: '5px', fontSize: '11px',
+            padding: '2px 8px', borderRadius: '999px',
+            border: '1px solid var(--theia-textLink-foreground)', color: 'var(--theia-textLink-foreground)'
+        });
+        this.docSelectionLabel.setAttribute('data-review-doc-selection-label', '');
+        this.docSelectionClear.type = 'button';
+        this.docSelectionClear.textContent = '✕';
+        this.docSelectionClear.title = '選択を解除して動画注釈に戻す';
+        this.docSelectionClear.setAttribute('aria-label', 'レポートのブロック選択を解除');
+        Object.assign(this.docSelectionClear.style, {
+            background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit',
+            color: 'inherit'
+        });
+        this.docSelectionClear.addEventListener('click', () => { this.model.docSelection = undefined; });
+        this.docSelectionChip.append(this.docSelectionLabel, this.docSelectionClear);
         this.textInput.type = 'text';
         this.textInput.placeholder = 'コメントを入力';
         this.textInput.setAttribute('aria-label', 'コメントを入力');
@@ -159,7 +194,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.addButton.className = 'theia-button main';
         this.addButton.textContent = '追加';
         this.addButton.addEventListener('click', () => void this.submitAnnotation());
-        this.composerRow.append(this.timeLabel, this.textInput, this.addButton);
+        this.composerRow.append(this.timeLabel, this.docSelectionChip, this.textInput, this.addButton);
 
         Object.assign(this.recordingSection.style, {
             display: 'grid', gap: '7px', padding: '9px 10px',
@@ -294,10 +329,35 @@ export class AkariReviewPanelWidget extends BaseWidget {
 
     protected render(): void {
         this.filterSelect.value = this.model.statusFilter;
-        this.timeLabel.textContent = this.formatTimestamp(this.model.selectedSourceT);
+        this.renderDocSelectionChip();
         this.refreshReviewSessionContext();
         this.renderRecordingSection();
         this.renderList();
+    }
+
+    /**
+     * レポート側でブロックを選択している間は、その文脈をコンポーザーに出す（指示 3）。
+     * 選択中は動画の時刻ではなく doc: target で注釈が作られることを示す。
+     */
+    protected renderDocSelectionChip(): void {
+        const selection = this.model.docSelection;
+        if (!selection) {
+            this.docSelectionChip.style.display = 'none';
+            this.timeLabel.style.display = '';
+            this.timeLabel.textContent = this.formatTimestamp(this.model.selectedSourceT);
+            this.textInput.placeholder = 'コメントを入力';
+            return;
+        }
+        this.timeLabel.style.display = 'none';
+        this.docSelectionChip.style.display = 'inline-flex';
+        this.docSelectionLabel.textContent = `📄 ${this.reportBaseName(selection.path)} を選択中`;
+        this.docSelectionLabel.title = `${selection.path}#${selection.blockId}`;
+        this.textInput.placeholder = 'このブロックについてコメント';
+    }
+
+    protected reportBaseName(path: string): string {
+        const segments = path.split('/');
+        return segments[segments.length - 1] || path;
     }
 
     protected renderRecordingSection(): void {
@@ -416,6 +476,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
     }
 
     protected renderList(): void {
+        // 一覧が再描画されるたびに劣化状態を再確認する（ファイルのリネーム・差し替えを
+        // ライブセッション中に検知できるよう、レンダーパスをまたいでキャッシュしない）。
+        this.docTargetHealthCache.clear();
         this.listContainer.replaceChildren();
         const filtered = this.model.filtered();
         if (filtered.length === 0) {
@@ -442,22 +505,35 @@ export class AkariReviewPanelWidget extends BaseWidget {
         });
         const head = document.createElement('div');
         Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '8px' });
-        const time = document.createElement('button');
-        time.type = 'button';
-        time.textContent = this.formatTimestamp(annotation.sourceT);
-        time.title = 'この時刻へジャンプ';
-        Object.assign(time.style, {
-            fontVariantNumeric: 'tabular-nums', background: 'none', border: 'none', padding: '0',
-            color: 'var(--theia-textLink-foreground)', cursor: 'pointer', font: 'inherit'
-        });
-        time.addEventListener('click', () => this.model.requestSeek(annotation.sourceT));
+        const docTarget = parseDocTarget(annotation.target);
+        const imageTarget = parseImageTarget(annotation.target);
+        if (docTarget) {
+            head.appendChild(this.renderDocTargetButton(docTarget));
+        } else if (imageTarget) {
+            const label = document.createElement('span');
+            label.textContent = `🖼️ ${this.reportBaseName(imageTarget.path)}`;
+            label.title = imageTarget.path;
+            Object.assign(label.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
+            head.appendChild(label);
+        } else {
+            const time = document.createElement('button');
+            time.type = 'button';
+            time.textContent = this.formatTimestamp(annotation.sourceT);
+            time.title = 'この時刻へジャンプ';
+            Object.assign(time.style, {
+                fontVariantNumeric: 'tabular-nums', background: 'none', border: 'none', padding: '0',
+                color: 'var(--theia-textLink-foreground)', cursor: 'pointer', font: 'inherit'
+            });
+            time.addEventListener('click', () => this.model.requestSeek(annotation.sourceT ?? 0));
+            head.appendChild(time);
+        }
         const badge = document.createElement('span');
         badge.textContent = STATUS_LABELS[annotation.status];
         Object.assign(badge.style, {
             color: STATUS_COLORS[annotation.status], fontSize: '11px',
             border: `1px solid ${STATUS_COLORS[annotation.status]}`, borderRadius: '999px', padding: '0 8px'
         });
-        head.append(time, badge);
+        head.appendChild(badge);
         // Shared Annotation.strokes is still the legacy point-array type; keep this ready for its future rich shape.
         const candidateStrokes = annotation.strokes as unknown as Array<{
             frame?: unknown;
@@ -528,6 +604,93 @@ export class AkariReviewPanelWidget extends BaseWidget {
         return row;
     }
 
+    /**
+     * doc: target 注釈のクリック導線（L1 受け入れ条件 3）: レポートタブを開き（未オープンなら
+     * 開く）、対象ブロックへスクロール + ピン表示させるメッセージを webview へ送る。
+     * 劣化規約（契約 §6）: path 不在は warning 付きボタン、block-id 消失は「対象消失」表示に
+     * するが、いずれも注釈自体は一覧から消さない。
+     */
+    protected renderDocTargetButton(docTarget: { path: string; blockId: string }): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.setAttribute('data-review-doc-target', `${docTarget.path}#${docTarget.blockId}`);
+        button.textContent = `📄 ${this.reportBaseName(docTarget.path)}`;
+        button.title = `${docTarget.path}#${docTarget.blockId} — クリックでレポートを開く`;
+        Object.assign(button.style, {
+            background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit',
+            color: 'var(--theia-textLink-foreground)'
+        });
+        button.addEventListener('click', () => void this.openReportAndReveal(docTarget));
+        void this.docTargetHealth(docTarget.path, docTarget.blockId).then(health => {
+            if (!button.isConnected) {
+                return;
+            }
+            if (health === 'path-missing') {
+                button.title = `${docTarget.path} が見つかりません（ピン表示は不可。注釈自体は有効です）`;
+                button.textContent = `📄⚠️ ${this.reportBaseName(docTarget.path)}`;
+            } else if (health === 'block-missing') {
+                const lost = document.createElement('span');
+                lost.textContent = '（対象消失）';
+                lost.title = `block-id が現在のレポートにありません: ${docTarget.blockId}`;
+                Object.assign(lost.style, { color: 'var(--theia-warningForeground)', fontSize: '11px', marginLeft: '4px' });
+                button.after(lost);
+            }
+        });
+        return button;
+    }
+
+    /** report.html を開き（既存タブを再利用）、対象ブロックへスクロール + ピン表示させる。 */
+    protected async openReportAndReveal(docTarget: { path: string; blockId: string }): Promise<void> {
+        const location = this.model.location;
+        if (!location) {
+            return;
+        }
+        const reportUri = location.root.resolve(docTarget.path);
+        try {
+            const opened = await open(this.openerService, reportUri);
+            if (opened instanceof WebviewWidget) {
+                opened.sendMessage({ type: 'akari-doc-annotation-reveal', blockId: docTarget.blockId });
+            }
+        } catch (error) {
+            this.messages.error(`レポートを開けません: ${this.errorMessage(error)}`);
+        }
+    }
+
+    /**
+     * report.html を直接読み、blocks マニフェストに block-id が含まれるかを確認する
+     * （webview が開いているかどうかに依存しない・path ごとに読み取り結果をキャッシュする）。
+     */
+    protected async docTargetHealth(path: string, blockId: string): Promise<DocTargetHealth> {
+        const location = this.model.location;
+        if (!location) {
+            return 'path-missing';
+        }
+        const uri = location.root.resolve(path);
+        const cacheKey = uri.toString();
+        let cached = this.docTargetHealthCache.get(cacheKey);
+        if (!cached) {
+            cached = this.readBlocksManifest(uri);
+            this.docTargetHealthCache.set(cacheKey, cached);
+        }
+        const manifest = await cached;
+        if (manifest === undefined) {
+            return 'path-missing';
+        }
+        return collectBlockIds(manifest).has(blockId) ? 'ok' : 'block-missing';
+    }
+
+    protected async readBlocksManifest(uri: URI): Promise<unknown | undefined> {
+        try {
+            if (!(await this.fileService.exists(uri))) {
+                return undefined;
+            }
+            const source = (await this.fileService.readFile(uri)).value.toString();
+            return extractBlocksManifest(source);
+        } catch {
+            return undefined;
+        }
+    }
+
     /** タイムラインのピンから呼ばれる。該当行が絞り込みで隠れている場合は絞り込みを解除する。 */
     protected revealAnnotation(annotationId: string): void {
         const target = this.model.annotations.find(annotation => annotation.id === annotationId);
@@ -554,10 +717,17 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.showNotice('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
             return;
         }
+        const docSelection = this.model.docSelection;
         this.addButton.disabled = true;
         try {
-            const result = await this.model.addAnnotation(text, this.model.selectedSourceT);
+            const result = docSelection
+                ? await this.model.addDocAnnotation(text, docSelection)
+                : await this.model.addAnnotation(text, this.model.selectedSourceT);
             this.textInput.value = '';
+            // 送信後は選択を解除する（同じブロックへ連続で誤って追加しないため）。
+            if (docSelection) {
+                this.model.docSelection = undefined;
+            }
             this.hideNotice();
             this.footer.textContent = result.committed
                 ? '注釈を追加しました。変更を記録しました。'
@@ -636,7 +806,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.notice.style.display = 'none';
     }
 
-    protected formatTimestamp(value: number): string {
+    /** sourceT: null（doc: / image: target）は時刻表示を持たないため縮退させる（契約 §2）。 */
+    protected formatTimestamp(value: number | null): string {
+        if (value === null) {
+            return '--:--:--.---';
+        }
         const milliseconds = Math.max(0, Math.round(value * 1000));
         const hours = Math.floor(milliseconds / 3_600_000);
         const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);

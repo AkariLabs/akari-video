@@ -765,6 +765,58 @@
           scroll-behavior: auto;
         }
       }
+
+      /*
+       * 注釈選択導線（contract-2026-07-26-doc-image-annotations §1/§4-1）。
+       * ペン描画は設けない — クリック選択のハイライトとピンのみ。
+       */
+      [data-block-id] {
+        cursor: pointer;
+      }
+
+      .akari-annotation-selected {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+
+      .akari-annotation-pin {
+        display: inline-block;
+        margin-left: 0.4em;
+        cursor: pointer;
+        font-size: 0.85em;
+        line-height: 1;
+        opacity: 0.85;
+      }
+
+      .akari-annotation-pin:hover {
+        opacity: 1;
+      }
+
+      .akari-annotation-pin[data-status="resolved"] {
+        filter: grayscale(1);
+        opacity: 0.55;
+      }
+
+      .akari-annotation-reveal-flash {
+        animation: akari-annotation-reveal-flash 1.6s ease-out;
+      }
+
+      @keyframes akari-annotation-reveal-flash {
+        0%,
+        30% {
+          background-color: var(--accent-soft);
+        }
+        100% {
+          background-color: transparent;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .akari-annotation-reveal-flash {
+          animation: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -1844,6 +1896,102 @@
         }
 
         main();
+
+        // --- 注釈選択導線（内部契約 contract-2026-07-26-doc-image-annotations §1/§4-1）---
+        //
+        // HTML ブロックは要素直接選択が主（ペンは設けない）。ブロックをクリックすると選択
+        // ハイライトを表示し、シェル側（akari-annotations 拡張）へ通知する。
+        //
+        // 統合点調査（doc-annotation-ui タスク report.md 参照）: このレポートは akari-surfaces
+        // 拡張の WebviewWidget として開かれ、その注入ブリッジ script が acquireVsCodeApi() を
+        // 単一取得済みのため、ここから vscode.postMessage 相当を新規に呼ぶ経路は無い。代わりに
+        // Theia core が常時提供する `command:<id>?<jsonArgs>` リンク（CommandOpenHandler）を使う
+        // — akari-annotations 拡張が WebviewContentOptions.enableCommandUris でこのコマンドの
+        // みを許可し、クリックを akari.annotations.selectDocBlock コマンドとして受け取る。
+        // 逆方向（シェル → レポート）は widget.sendMessage(...) がそのまま window の 'message'
+        // イベントとして届くため、素の addEventListener で受け取れる（acquireVsCodeApi 不要）。
+        function selectDocBlock(blockId) {
+          const link = document.createElement("a");
+          link.href =
+            "command:akari.annotations.selectDocBlock?" +
+            encodeURIComponent(JSON.stringify([blockId]));
+          link.style.display = "none";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
+
+        let selectedBlockElement = null;
+
+        function markSelected(element) {
+          if (selectedBlockElement === element) return;
+          if (selectedBlockElement) {
+            selectedBlockElement.classList.remove("akari-annotation-selected");
+          }
+          selectedBlockElement = element;
+          if (selectedBlockElement) {
+            selectedBlockElement.classList.add("akari-annotation-selected");
+          }
+        }
+
+        document.addEventListener("click", (event) => {
+          const element = event.target.closest && event.target.closest("[data-block-id]");
+          if (!element) return;
+          // <a> や <button> 等、クリックが別の意味を持つ子要素の中でも data-block-id を持つ
+          // 祖先が見つかれば選択扱いにする（本テンプレートはブロックへのリンク/ボタンを
+          // 現状持たないが、将来の拡張に対して壊れない挙動にしておく）。
+          markSelected(element);
+          selectDocBlock(element.getAttribute("data-block-id"));
+        });
+
+        // シェル側（akari-annotations 拡張）からの push を受け取る。acquireVsCodeApi 不要
+        // （widget.sendMessage は window への postMessage としてそのまま届くため）。
+        window.addEventListener("message", (event) => {
+          const message = event.data;
+          if (!message || typeof message !== "object") return;
+          if (message.type === "akari-doc-annotations" && Array.isArray(message.blocks)) {
+            renderAnnotationPins(message.blocks);
+          } else if (message.type === "akari-doc-annotation-reveal" && typeof message.blockId === "string") {
+            revealBlock(message.blockId);
+          }
+        });
+
+        function renderAnnotationPins(blocks) {
+          document.querySelectorAll(".akari-annotation-pin").forEach((pin) => pin.remove());
+          for (const entry of blocks) {
+            if (!entry || typeof entry.blockId !== "string") continue;
+            const target = document.querySelector(
+              `[data-block-id="${cssEscape(entry.blockId)}"]`,
+            );
+            if (!target) continue;
+            const pin = document.createElement("span");
+            pin.className = "akari-annotation-pin";
+            pin.dataset.status = typeof entry.status === "string" ? entry.status : "open";
+            pin.title = "注釈あり（クリックで選択）";
+            pin.textContent = "📌";
+            pin.addEventListener("click", (event) => {
+              event.stopPropagation();
+              markSelected(target);
+              selectDocBlock(entry.blockId);
+            });
+            target.insertAdjacentElement("afterend", pin);
+          }
+        }
+
+        function revealBlock(blockId) {
+          const target = document.querySelector(`[data-block-id="${cssEscape(blockId)}"]`);
+          if (!target) return;
+          target.scrollIntoView({ block: "center", behavior: "smooth" });
+          markSelected(target);
+          target.classList.add("akari-annotation-reveal-flash");
+          window.setTimeout(() => target.classList.remove("akari-annotation-reveal-flash"), 1600);
+        }
+
+        function cssEscape(value) {
+          return window.CSS && CSS.escape
+            ? CSS.escape(value)
+            : String(value).replace(/["\\]/g, "\\$&");
+        }
       })();
     </script>
   </body>

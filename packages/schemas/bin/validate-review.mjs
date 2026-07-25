@@ -29,6 +29,10 @@ const warnings = [];
 const TARGET_KINDS = new Set(["instant", "range", "region", "asset", "insert"]);
 const STATUSES = new Set(["open", "addressed", "resolved"]);
 const INPUTS = new Set(["typed", "voice"]);
+// contract-2026-07-26-doc-image-annotations §1: doc:<プロジェクト相対パス>#<block-id> / image:<プロジェクト相対パス>。
+// この 2 種に限り §2 で sourceT: null を許容する。
+const DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
+const IMAGE_TARGET_PATTERN = /^image:(.+)$/;
 
 if (!isRegularFile(reviewPath)) {
   fail(`review.json が見つかりません: ${reviewPath}`);
@@ -101,9 +105,17 @@ function validateAnnotation(value, index, ids) {
   if (typeof value.createdAt !== "string") {
     fail(`${label}.createdAt は文字列である必要があります`);
   }
-  if (!isFiniteNumber(value.sourceT) || value.sourceT < 0) {
+  const docOrImageTarget = isDocOrImageTarget(value.target);
+  if (value.sourceT === null) {
+    if (!docOrImageTarget) {
+      fail(
+        `${label}.sourceT は target が doc: / image: のときに限り null を許容します（動画面の注釈には時刻が必要です）`,
+      );
+    }
+  } else if (!isFiniteNumber(value.sourceT) || value.sourceT < 0) {
     fail(`${label}.sourceT は 0 以上の有限数（source 秒）である必要があります`);
   }
+  validateTarget(value.target, label);
   if (typeof value.text !== "string") {
     fail(`${label}.text は文字列である必要があります`);
   }
@@ -150,6 +162,23 @@ function validateAnnotation(value, index, ids) {
   }
   if (targetKind === "insert" && !insertPosition) {
     warn(`${label} は targetKind insert ですが insertPosition がありません`);
+  }
+}
+
+function isDocOrImageTarget(value) {
+  return typeof value === "string" && (DOC_TARGET_PATTERN.test(value) || IMAGE_TARGET_PATTERN.test(value));
+}
+
+function validateTarget(value, label) {
+  if (value === undefined || value === null) return;
+  if (typeof value !== "string" || !value) {
+    fail(`${label}.target は null または空でない文字列である必要があります`);
+    return;
+  }
+  if (value.startsWith("doc:") && !DOC_TARGET_PATTERN.test(value)) {
+    fail(`${label}.target は doc:<プロジェクト相対パス>#<block-id> の形式である必要があります: ${value}`);
+  } else if (value.startsWith("image:") && !IMAGE_TARGET_PATTERN.test(value)) {
+    fail(`${label}.target は image:<プロジェクト相対パス> の形式である必要があります: ${value}`);
   }
 }
 
