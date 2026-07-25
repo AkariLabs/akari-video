@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
@@ -429,14 +429,16 @@ function orderOverlaysByTrack(overlays) {
     .map(({ overlay }) => overlay);
 }
 
-export function compositeAnimatedOverlay({
+export async function compositeAnimatedOverlay({
   ffmpegCommand,
   cutPath,
   overlayPath,
   outputPath,
   hasAudio,
+  videoEncodeArgs = null,
+  onProgress,
 }) {
-  runChecked(ffmpegCommand, [
+  const args = [
     "-hide_banner",
     "-loglevel",
     "error",
@@ -451,24 +453,28 @@ export function compositeAnimatedOverlay({
     "-map",
     "[outv]",
     ...(hasAudio ? ["-map", "0:a:0"] : []),
-    "-c:v",
-    "libx264",
-    "-profile:v",
-    "high",
+    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
     "-pix_fmt",
     "yuv420p",
     ...(hasAudio ? ["-c:a", "copy"] : ["-an"]),
     outputPath,
-  ]);
+  ];
+  if (onProgress) {
+    await runCheckedWithProgress(ffmpegCommand, args, { onProgress });
+  } else {
+    runChecked(ffmpegCommand, args);
+  }
 }
 
-export function compositeStaticOverlays({
+export async function compositeStaticOverlays({
   ffmpegCommand,
   cutPath,
   captures,
   outputPath,
   hasAudio,
   duration,
+  videoEncodeArgs = null,
+  onProgress,
 }) {
   const args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", cutPath];
   for (const capture of captures) {
@@ -492,16 +498,17 @@ export function compositeStaticOverlays({
     ...(hasAudio ? ["-map", "0:a:0"] : []),
     "-t",
     formatNumber(duration),
-    "-c:v",
-    "libx264",
-    "-profile:v",
-    "high",
+    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
     "-pix_fmt",
     "yuv420p",
     ...(hasAudio ? ["-c:a", "copy"] : ["-an"]),
     outputPath,
   );
-  runChecked(ffmpegCommand, args);
+  if (onProgress) {
+    await runCheckedWithProgress(ffmpegCommand, args, { onProgress });
+  } else {
+    runChecked(ffmpegCommand, args);
+  }
 }
 
 export function probeHasAlpha(ffprobeCommand, path) {
@@ -528,6 +535,63 @@ export function runChecked(command, args, options = {}) {
     throw new Error(`${command} ${result.signal ?? `exited ${result.status}`}: ${detail}`);
   }
   return result;
+}
+
+/**
+ * `runChecked` の非同期・進捗ストリーミング版（`--progress` 時のみ使う。task
+ * 2026-07-25-export-options）。`args` の先頭に `-progress pipe:1` を足して spawn し、
+ * stdout の `out_time=HH:MM:SS.ffffff` 行だけを拾って `onProgress(elapsedSeconds)` を呼ぶ
+ * （`out_time_ms`/`out_time_us` は ffmpeg のバージョンによって単位表記の慣習が割れているため
+ * 使わない — akari-video-tauri/src-tauri/src/export/ffmpeg.rs の spawn_with_progress と同じ判断）。
+ * stdout/stderr の双方に 'data' リスナーを付けておくことでパイプ詰まりによる子プロセスの
+ * ブロックを避ける（Node の flowing モードでは明示スレッドを立てる必要がない）。
+ */
+export function runCheckedWithProgress(command, args, { cwd, env, onProgress } = {}) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(command, ["-progress", "pipe:1", ...args], {
+      cwd,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdoutTail = "";
+    let stderrText = "";
+    child.stdout.on("data", (chunk) => {
+      stdoutTail += chunk.toString();
+      let newlineIndex;
+      while ((newlineIndex = stdoutTail.indexOf("\n")) !== -1) {
+        const line = stdoutTail.slice(0, newlineIndex).trim();
+        stdoutTail = stdoutTail.slice(newlineIndex + 1);
+        if (line.startsWith("out_time=")) {
+          const seconds = parseFfmpegOutTime(line.slice("out_time=".length));
+          if (seconds !== null) onProgress?.(seconds);
+        }
+      }
+    });
+    child.stderr.on("data", (chunk) => {
+      stderrText = (stderrText + chunk.toString()).slice(-32 * 1024);
+    });
+    child.on("error", (error) => rejectPromise(error));
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        resolvePromise();
+        return;
+      }
+      const detail = stderrText.trim().slice(-8000);
+      rejectPromise(new Error(`${command} ${signal ?? `exited ${code}`}: ${detail}`));
+    });
+  });
+}
+
+// ffmpeg -progress の "out_time=HH:MM:SS.ffffff" を秒に変換する。形式外・非有限値は
+// 進捗欠落として無視する（誤表示より欠落を選ぶ — legacy parse_ffmpeg_timestamp と同じ判断）。
+export function parseFfmpegOutTime(value) {
+  const trimmed = value.trim();
+  const parts = trimmed.split(":");
+  if (parts.length !== 3) return null;
+  const [hours, minutes, seconds] = parts.map(Number);
+  if (![hours, minutes, seconds].every(Number.isFinite)) return null;
+  const total = hours * 3600 + minutes * 60 + seconds;
+  return Number.isFinite(total) ? total : null;
 }
 
 function renderOverlayNode(overlay, index) {

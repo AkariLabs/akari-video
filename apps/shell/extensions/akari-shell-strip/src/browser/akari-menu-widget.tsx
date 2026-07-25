@@ -7,6 +7,7 @@ import { ApplicationShell, OpenerService, QuickInputService, WidgetManager, open
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
+import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import {
     DEFAULT_EXPORT_OUTPUT_NAME,
@@ -15,6 +16,7 @@ import {
 } from '../common/export-request-packet';
 import { RenderProgressState, parseRenderProgress, RENDER_PROGRESS_UNKNOWN_LABEL } from '../common/render-progress';
 import { AkariQuickExportService, QuickExportStatus } from '../common/quick-export-protocol';
+import { QUICK_EXPORT_OUTPUT_DIRECTORY, QuickExportEncoder, QuickExportQuality } from '../common/quick-export-cli';
 
 interface MenuAction {
     id: string;
@@ -50,8 +52,29 @@ const QUICK_EXPORT_RUNNING_TOOLTIP = '書き出しを実行中です。完了ま
 const QUICK_EXPORT_POLL_INTERVAL_MS = 500;
 /** render-cut CLI に解像度を渡す引数は存在しない（出力解像度は edit.json の
  *  output.width/height 由来 — packages/render-cut/src/plan.mjs 参照）。
- *  「この場で書き出す」では正直にこの設定を使わないことを利用者に明示する。 */
-const QUICK_EXPORT_RESOLUTION_NOTE = '解像度プリセットはこの実行方法には反映されません（edit.json の出力設定がそのまま使われます）。';
+ *  「この場で書き出す」では正直にこの設定を使わないことを利用者に明示する
+ *  （task 2026-07-25-export-options #4: 表現を「解像度は edit.json の出力設定に
+ *  従います」へ整えた）。 */
+const QUICK_EXPORT_RESOLUTION_NOTE = '解像度は edit.json の出力設定に従います（このプリセットはこの実行方法には反映されません）。';
+
+const QUICK_EXPORT_QUALITY_CHOICES: Array<{ label: string; value: QuickExportQuality }> = [
+    { label: '標準（standard・既定）', value: 'standard' },
+    { label: '高画質（high・crf 18 相当）', value: 'high' },
+    { label: '軽量（light・crf 26 相当）', value: 'light' }
+];
+
+const QUICK_EXPORT_ENCODER_CHOICES: Array<{ label: string; value: QuickExportEncoder }> = [
+    { label: '自動（既定・ハードウェアが使えれば優先）', value: 'auto' },
+    { label: 'ハードウェア（VideoToolbox）', value: 'videotoolbox' },
+    { label: 'ソフトウェア（x264）', value: 'x264' }
+];
+
+const QUICK_EXPORT_FPS_CHOICES: Array<{ label: string; value: number | undefined }> = [
+    { label: 'そのまま（既定・編集設定に従う）', value: undefined },
+    { label: '24fps', value: 24 },
+    { label: '30fps', value: 30 },
+    { label: '60fps', value: 60 }
+];
 
 /**
  * アクティビティバー5番目のアイコン「メニュー」。
@@ -93,6 +116,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly openers!: OpenerService;
     @inject(AkariQuickExportService)
     protected readonly quickExportService!: AkariQuickExportService;
+    @inject(FileDialogService)
+    protected readonly fileDialogs!: FileDialogService;
 
     protected skills: SkillEntry[] = [];
     protected skillsNotice = '';
@@ -103,6 +128,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected quickExportRunning = false;
     protected quickExportStatus: QuickExportStatus | undefined;
     protected quickExportPollHandle: number | undefined;
+    /** 「ログを表示」の開閉状態（task 2026-07-25-export-options #5）。 */
+    protected quickExportLogExpanded = false;
 
     @postConstruct()
     protected init(): void {
@@ -309,6 +336,51 @@ export class AkariMenuWidget extends ReactWidget {
         if (!lintChoice) {
             return;
         }
+        // 画質・エンジン・fps・出力先（task 2026-07-25-export-options #4）。
+        // 「エージェントに任せる」を選んだ場合は使わない（既存の依頼パケットは無改造のまま）。
+        const qualityChoice = await this.quickInputService.showQuickPick(
+            QUICK_EXPORT_QUALITY_CHOICES,
+            { placeholder: '画質を選択' }
+        );
+        if (!qualityChoice) {
+            return;
+        }
+        const encoderChoice = await this.quickInputService.showQuickPick(
+            QUICK_EXPORT_ENCODER_CHOICES,
+            { placeholder: 'エンコーダ（自動/ハードウェア/ソフトウェア）を選択' }
+        );
+        if (!encoderChoice) {
+            return;
+        }
+        const fpsChoice = await this.quickInputService.showQuickPick(
+            QUICK_EXPORT_FPS_CHOICES,
+            { placeholder: 'フレームレートを選択' }
+        );
+        if (!fpsChoice) {
+            return;
+        }
+        const outputDestinationChoice = await this.quickInputService.showQuickPick(
+            [
+                { label: `既定（${QUICK_EXPORT_OUTPUT_DIRECTORY}/ 直下）`, choice: 'default' as const },
+                { label: 'フォルダを選ぶ…', choice: 'choose' as const }
+            ],
+            { placeholder: '出力先を選択' }
+        );
+        if (!outputDestinationChoice) {
+            return;
+        }
+        let outputDirectoryUri: string | undefined;
+        if (outputDestinationChoice.choice === 'choose') {
+            const destination = await this.fileDialogs.showOpenDialog({
+                title: '書き出し先フォルダを選ぶ',
+                canSelectFiles: false,
+                canSelectFolders: true
+            });
+            if (!destination) {
+                return;
+            }
+            outputDirectoryUri = destination.toString();
+        }
         const executionMethod = await this.quickInputService.showQuickPick(
             [
                 { label: 'この場で書き出す（推奨）', mode: 'local' as const },
@@ -328,12 +400,26 @@ export class AkariMenuWidget extends ReactWidget {
             await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
             return;
         }
-        await this.startLocalQuickExport({ outputName, rerunLint: lintChoice.rerunLint });
+        await this.startLocalQuickExport({
+            outputName,
+            rerunLint: lintChoice.rerunLint,
+            quality: qualityChoice.value,
+            encoder: encoderChoice.value,
+            fps: fpsChoice.value,
+            outputDirectoryUri
+        });
     }
 
     // --- 「この場で書き出す」バックエンド呼び出し（edit-lint / render-cut CLI 直接実行） ----
 
-    protected async startLocalQuickExport(settings: { outputName: string; rerunLint: boolean }): Promise<void> {
+    protected async startLocalQuickExport(settings: {
+        outputName: string;
+        rerunLint: boolean;
+        quality: QuickExportQuality;
+        encoder: QuickExportEncoder;
+        fps: number | undefined;
+        outputDirectoryUri: string | undefined;
+    }): Promise<void> {
         if (this.quickExportRunning) {
             return;
         }
@@ -345,13 +431,18 @@ export class AkariMenuWidget extends ReactWidget {
         const outcome = await this.quickExportService.start({
             projectRootUri: root.toString(),
             outputName: settings.outputName,
-            rerunLint: settings.rerunLint
+            rerunLint: settings.rerunLint,
+            quality: settings.quality,
+            encoder: settings.encoder,
+            fps: settings.fps,
+            outputDirectoryUri: settings.outputDirectoryUri
         });
         if (!outcome.accepted) {
             return;
         }
         this.quickExportRunning = true;
         this.quickExportStatus = undefined;
+        this.quickExportLogExpanded = false;
         this.update();
         this.beginQuickExportPolling();
     }
@@ -478,6 +569,19 @@ export class AkariMenuWidget extends ReactWidget {
         return 'var(--theia-focusBorder, #3794ff)';
     }
 
+    /** ms を mm:ss 表示に整える（1時間を超える見込みは無い工程なので h は出さない）。 */
+    protected formatQuickExportClock(ms: number): string {
+        const totalSeconds = Math.max(0, Math.round(ms / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    protected toggleQuickExportLog(): void {
+        this.quickExportLogExpanded = !this.quickExportLogExpanded;
+        this.update();
+    }
+
     protected renderQuickExportStatus(): React.ReactNode {
         const status = this.quickExportStatus;
         if (!status || status.phase === 'idle') {
@@ -485,6 +589,9 @@ export class AkariMenuWidget extends ReactWidget {
         }
         const running = status.phase === 'linting' || status.phase === 'rendering';
         const failed = status.phase === 'failed' || status.phase === 'lint-failed';
+        // render-cut の --progress 由来（task 2026-07-25-export-options #5）: rendering フェーズで
+        // 最初の PROGRESS 行が届くまでは percent が undefined のまま — その間は不確定バーのまま。
+        const hasDetailedProgress = status.phase === 'rendering' && status.progressPercent !== undefined;
         return (
             <div style={{ marginTop: '10px', border: '1px solid var(--theia-widget-border)', borderRadius: '6px', padding: '8px 10px' }}>
                 <style>{`
@@ -494,7 +601,7 @@ export class AkariMenuWidget extends ReactWidget {
                     }
                 `}</style>
                 <div style={{ fontSize: '0.85em', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>{this.quickExportPhaseLabel(status)}</span>
+                    <span>{this.quickExportPhaseLabel(status)}{hasDetailedProgress && `（${status.progressPercent}%）`}</span>
                     {status.lintIssueCount !== undefined && (
                         <span style={{
                             padding: '1px 7px', borderRadius: '10px', fontSize: '0.85em',
@@ -505,13 +612,50 @@ export class AkariMenuWidget extends ReactWidget {
                     )}
                 </div>
                 <p style={{ opacity: 0.55, fontSize: '0.8em', margin: '0 0 6px' }}>{QUICK_EXPORT_RESOLUTION_NOTE}</p>
-                {running && (
+                {hasDetailedProgress ? (
+                    <>
+                        <div style={{ height: '6px', borderRadius: '3px', background: 'rgba(128,128,128,0.25)', overflow: 'hidden' }}>
+                            <div style={{
+                                height: '100%',
+                                width: `${status.progressPercent}%`,
+                                background: 'var(--theia-focusBorder, #3794ff)',
+                                transition: 'width 0.2s ease'
+                            }} />
+                        </div>
+                        <div style={{ fontSize: '0.78em', opacity: 0.65, marginTop: '3px', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>経過 {this.formatQuickExportClock(status.progressElapsedMs ?? 0)}</span>
+                            <span>
+                                {status.progressRemainingMs !== undefined
+                                    ? `残り約 ${this.formatQuickExportClock(status.progressRemainingMs)}`
+                                    : '残り時間を計算中…'}
+                            </span>
+                        </div>
+                    </>
+                ) : running && (
                     <div style={{ height: '6px', borderRadius: '3px', background: 'rgba(128,128,128,0.25)', overflow: 'hidden', position: 'relative' }}>
                         <div style={{
                             position: 'absolute', top: 0, height: '100%', width: '40%',
                             background: 'var(--theia-focusBorder, #3794ff)',
                             animation: 'akariQuickExportIndeterminate 1.1s ease-in-out infinite'
                         }} />
+                    </div>
+                )}
+                {status.logTail && (
+                    <div style={{ marginTop: '6px' }}>
+                        <button
+                            className='theia-button secondary'
+                            style={{ padding: '2px 8px', fontSize: '0.78em' }}
+                            onClick={() => this.toggleQuickExportLog()}
+                        >
+                            {this.quickExportLogExpanded ? 'ログを隠す' : 'ログを表示'}
+                        </button>
+                        {this.quickExportLogExpanded && (
+                            <pre style={{
+                                fontSize: '0.75em', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                                margin: '6px 0 0', opacity: 0.8, maxHeight: '160px', overflow: 'auto',
+                                background: 'rgba(128,128,128,0.08)', padding: '6px', borderRadius: '4px'
+                            }}>{status.logTail}</pre>
+                        )}
                     </div>
                 )}
                 {status.phase === 'done' && status.artifactPath && (

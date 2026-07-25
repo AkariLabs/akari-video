@@ -19,6 +19,12 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 import { fileURLToPath } from "node:url";
 
 import { generateCaptionOverlays } from "./captions.mjs";
+import {
+  buildVideoEncodeArgs,
+  ENCODER_CHOICES,
+  QUALITY_LEVELS,
+  resolveEncoderChoice,
+} from "./encode-preset.mjs";
 import { buildPlan, selectDefaultOutput } from "./plan.mjs";
 import {
   captureStaticOverlays,
@@ -28,6 +34,7 @@ import {
   probeHasAlpha,
   renderOverlaySheet,
   runChecked,
+  runCheckedWithProgress,
 } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
 
@@ -39,6 +46,14 @@ const packageRequire = createRequire(import.meta.url);
 // never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
+  [--quality high|standard|light] [--encoder auto|videotoolbox|x264]
+  [--fps <number>] [--progress]
+
+Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
+before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
+when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to edit.json's
+output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
+encoding, followed by "PROGRESS done total_ms=<n>".
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
 
@@ -60,7 +75,7 @@ export async function runCli(argv, io = console) {
   }
 
   try {
-    const state = await renderProject(options.projectRoot, options);
+    const state = await renderProject(options.projectRoot, options, io);
     for (const warning of state.warnings ?? []) {
       io.error(`render-cut warning: ${warning}`);
     }
@@ -80,7 +95,7 @@ export async function runCli(argv, io = console) {
   }
 }
 
-export async function renderProject(input, options = {}) {
+export async function renderProject(input, options = {}, io = console) {
   const projectRoot = resolve(input);
   const editPath = join(projectRoot, "edit.json");
   const editText = await readRequired(editPath, "edit.json");
@@ -120,6 +135,9 @@ export async function renderProject(input, options = {}) {
     captionOverlays,
     hasThreeDimensionalOverlay,
     temporaryDirectory,
+    quality: options.quality,
+    encoder: options.encoder,
+    fpsOverride: options.fps,
   });
   const state = {
     version: VERSION,
@@ -176,10 +194,35 @@ export async function renderProject(input, options = {}) {
   await writeState(state, statePath, reportPath, projectRoot);
   if (options.planOnly) return state;
 
+  // --progress (task 2026-07-25-export-options): "cut" always runs; "composite" only exists when
+  // there is overlay/caption HTML to rasterize onto the base video (mirrors the allOverlays.length
+  // check below, decided before entering the try block since both loadedOverlays and
+  // captionOverlays are already resolved here). Each phase is weighted equally by the timeline's
+  // own predicted duration (both phases fully re-encode ~the same duration), so progress is
+  // monotonic even though neither phase's real wall-clock cost is known ahead of time.
+  const progressEnabled = options.progress === true;
+  const progressPhases = loadedOverlays.length + captionOverlays.length > 0 ? ["cut", "composite"] : ["cut"];
+  const progressPhaseDurationMs = Math.max(0, Math.round(plan.predicted_duration_seconds * 1000));
+  const progressTotalMs = progressPhases.length * progressPhaseDurationMs;
+  const emitProgress = (phaseName, elapsedSeconds) => {
+    if (!progressEnabled) return;
+    const phaseIndex = progressPhases.indexOf(phaseName);
+    if (phaseIndex === -1) return;
+    const clampedMs = Math.min(progressPhaseDurationMs, Math.max(0, Math.round(elapsedSeconds * 1000)));
+    io.log(`PROGRESS out_time_ms=${phaseIndex * progressPhaseDurationMs + clampedMs} total_ms=${progressTotalMs}`);
+  };
+
   try {
     const cutPath = join(temporaryDirectory, "cut.mp4");
     const cutCommand = plan.commands.cut;
-    runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
+    if (progressEnabled) {
+      await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
+        cwd: projectRoot,
+        onProgress: (seconds) => emitProgress("cut", seconds),
+      });
+    } else {
+      runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
+    }
 
     const tailPadCommand = plan.commands.tail_pad;
     const tailPaddedPath = join(temporaryDirectory, "cut-tail-padded.mp4");
@@ -234,6 +277,13 @@ export async function renderProject(input, options = {}) {
         capabilities,
         duration: plan.predicted_duration_seconds,
         hasThreeDimensionalOverlay,
+        fps: plan.preset.fps,
+        videoEncodeArgs: buildVideoEncodeArgs({
+          quality: options.quality,
+          encoderChoice: resolveEncoderChoice({ requested: options.encoder, ffmpegCommand: capabilities.ffmpegCommand }),
+          profile: "high",
+        }),
+        onProgress: progressEnabled ? (seconds) => emitProgress("composite", seconds) : undefined,
       });
     }
 
@@ -267,6 +317,7 @@ export async function renderProject(input, options = {}) {
     if (verification.verdict === "pass") {
       await rm(temporaryDirectory, { recursive: true, force: true });
     }
+    if (progressEnabled) io.log(`PROGRESS done total_ms=${progressTotalMs}`);
     return state;
   } catch (error) {
     state.phase = "error";
@@ -281,22 +332,71 @@ export async function renderProject(input, options = {}) {
 }
 
 export function parseArguments(argv) {
-  const options = { projectRoot: null, planOnly: false, out: null, force: false, help: false };
+  const options = {
+    projectRoot: null,
+    planOnly: false,
+    out: null,
+    force: false,
+    help: false,
+    // Left undefined (not null) unless the corresponding flag is actually present in argv: buildPlan
+    // treats "flag absent" and "flag present with its default value" differently (see
+    // src/encode-preset.mjs) so that omitting every new flag reproduces today's exact ffmpeg
+    // command lines (task 2026-07-25-export-options's backward-compat requirement).
+    quality: undefined,
+    encoder: undefined,
+    fps: undefined,
+    progress: false,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--help" || argument === "-h") options.help = true;
     else if (argument === "--plan-only") options.planOnly = true;
     else if (argument === "--force") options.force = true;
+    else if (argument === "--progress") options.progress = true;
     else if (argument === "--out") {
       if (index + 1 >= argv.length) throw new Error("--out requires a path");
       options.out = argv[++index];
     } else if (argument.startsWith("--out=")) options.out = argument.slice(6);
+    else if (argument === "--quality") {
+      if (index + 1 >= argv.length) throw new Error("--quality requires a value");
+      options.quality = parseQualityValue(argv[++index]);
+    } else if (argument.startsWith("--quality=")) options.quality = parseQualityValue(argument.slice(10));
+    else if (argument === "--encoder") {
+      if (index + 1 >= argv.length) throw new Error("--encoder requires a value");
+      options.encoder = parseEncoderValue(argv[++index]);
+    } else if (argument.startsWith("--encoder=")) options.encoder = parseEncoderValue(argument.slice(10));
+    else if (argument === "--fps") {
+      if (index + 1 >= argv.length) throw new Error("--fps requires a number");
+      options.fps = parseFpsValue(argv[++index]);
+    } else if (argument.startsWith("--fps=")) options.fps = parseFpsValue(argument.slice(6));
     else if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
     else if (options.projectRoot === null) options.projectRoot = argument;
     else throw new Error("Only one project root may be provided");
   }
   if (!options.help && options.projectRoot === null) throw new Error("A project root is required");
   return options;
+}
+
+function parseQualityValue(value) {
+  if (!QUALITY_LEVELS.includes(value)) {
+    throw new Error(`--quality must be one of ${QUALITY_LEVELS.join("|")}, got: ${value}`);
+  }
+  return value;
+}
+
+function parseEncoderValue(value) {
+  if (!ENCODER_CHOICES.includes(value)) {
+    throw new Error(`--encoder must be one of ${ENCODER_CHOICES.join("|")}, got: ${value}`);
+  }
+  return value;
+}
+
+function parseFpsValue(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`--fps must be a positive number, got: ${value}`);
+  }
+  return parsed;
 }
 
 async function validateLint(projectRoot, force) {
@@ -470,6 +570,12 @@ export async function rasterizeAndComposite(context) {
     duration,
     hasThreeDimensionalOverlay,
     captureTimeoutMs,
+    // Falls back to edit.json's own fps for callers that predate --fps (task
+    // 2026-07-25-export-options); the overlay rasterizer must always match the base video's actual
+    // output fps, which may differ from edit.output.fps when --fps overrides it.
+    fps = edit.output.fps,
+    videoEncodeArgs = null,
+    onProgress,
   } = context;
   const sheetPath = join(temporaryDirectory, "overlay-sheet.html");
   await writeFile(
@@ -497,7 +603,7 @@ export async function rasterizeAndComposite(context) {
           "--format",
           "webm",
           "--fps",
-          String(edit.output.fps),
+          String(fps),
           "--workers",
           "1",
           "--no-browser-gpu",
@@ -519,12 +625,14 @@ export async function rasterizeAndComposite(context) {
       if (!probeHasAlpha(capabilities.ffprobeCommand, overlayPath)) {
         throw new Error("rendered video has no detectable alpha channel");
       }
-      compositeAnimatedOverlay({
+      await compositeAnimatedOverlay({
         ffmpegCommand: capabilities.ffmpegCommand,
         cutPath,
         overlayPath,
         outputPath: compositePath,
         hasAudio: true,
+        videoEncodeArgs,
+        onProgress,
       });
       adoptRasterizer(state, "hyperframes");
       return;
@@ -545,7 +653,7 @@ export async function rasterizeAndComposite(context) {
         overlayMovPath: overlayPath,
         width: edit.output.width,
         height: edit.output.height,
-        fps: edit.output.fps,
+        fps,
         duration,
         ffmpegCommand: capabilities.ffmpegCommand,
         timeoutMs: captureTimeoutMs,
@@ -554,12 +662,14 @@ export async function rasterizeAndComposite(context) {
       if (!probeHasAlpha(capabilities.ffprobeCommand, overlayPath)) {
         throw new Error("captured video has no detectable alpha channel");
       }
-      compositeAnimatedOverlay({
+      await compositeAnimatedOverlay({
         ffmpegCommand: capabilities.ffmpegCommand,
         cutPath,
         overlayPath,
         outputPath: compositePath,
         hasAudio: true,
+        videoEncodeArgs,
+        onProgress,
       });
       adoptRasterizer(state, "puppeteer-core");
       return;
@@ -583,13 +693,15 @@ export async function rasterizeAndComposite(context) {
       chromePath: capabilities.chromePath,
       timeoutMs: captureTimeoutMs,
     });
-    compositeStaticOverlays({
+    await compositeStaticOverlays({
       ffmpegCommand: capabilities.ffmpegCommand,
       cutPath,
       captures,
       outputPath: compositePath,
       hasAudio: true,
       duration,
+      videoEncodeArgs,
+      onProgress,
     });
     adoptRasterizer(state, "static-screenshot");
   } catch (error) {

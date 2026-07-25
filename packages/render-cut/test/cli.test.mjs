@@ -239,3 +239,63 @@ test("3D overlays skip HyperFrames and use the puppeteer-core path", async (t) =
     await rm(project, { recursive: true, force: true });
   }
 });
+
+test("--progress streams machine-readable PROGRESS lines and ends with a done marker before the verdict", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({ withAudio: false, overlays: false });
+  try {
+    const executed = run(project, ["--progress"]);
+    assert.equal(executed.status, 0, executed.stderr);
+    const lines = executed.stdout.split(/\r?\n/u).filter((line) => line !== "");
+    const progressLines = lines.filter((line) => line.startsWith("PROGRESS "));
+    assert.ok(progressLines.length > 0, `expected at least one PROGRESS line, got:\n${executed.stdout}`);
+    for (const line of progressLines.slice(0, -1)) {
+      assert.match(line, /^PROGRESS out_time_ms=\d+ total_ms=\d+$/);
+    }
+    assert.match(progressLines.at(-1), /^PROGRESS done total_ms=\d+$/);
+    const doneTotal = Number(progressLines.at(-1).match(/total_ms=(\d+)/)[1]);
+    for (const line of progressLines.slice(0, -1)) {
+      const [, outTimeMs, totalMs] = line.match(/out_time_ms=(\d+) total_ms=(\d+)/);
+      assert.equal(Number(totalMs), doneTotal);
+      assert.ok(Number(outTimeMs) <= Number(totalMs));
+    }
+    // The PROGRESS lines must come before the final verdict line, and CLI behavior/exit code must
+    // be unaffected by --progress.
+    const verdictIndex = lines.findIndex((line) => line.startsWith("PASS:") || line.startsWith("FAIL:"));
+    assert.ok(verdictIndex > 0);
+    assert.ok(lines.indexOf(progressLines.at(-1)) < verdictIndex);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("--fps overrides edit.json's output.fps end-to-end (ffprobe measures the override)", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({ withAudio: false, overlays: false });
+  try {
+    const executed = run(project, ["--fps", "5"]);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    assert.equal(state.plan.preset.fps, 5);
+    assert.equal(state.artifacts[0].ffprobe.fps, 5);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("--quality/--encoder are rejected with an unknown value before any rendering starts", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({ withAudio: false, overlays: false });
+  try {
+    const badQuality = run(project, ["--plan-only", "--quality", "ultra"]);
+    assert.equal(badQuality.status, 2);
+    assert.match(badQuality.stderr, /--quality must be one of/);
+
+    const badEncoder = run(project, ["--plan-only", "--encoder", "nvenc"]);
+    assert.equal(badEncoder.status, 2);
+    assert.match(badEncoder.stderr, /--encoder must be one of/);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});

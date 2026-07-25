@@ -9,9 +9,36 @@ import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
  * output.width/height から決まる — packages/render-cut/src/plan.mjs 参照）。
  * そのため設定 quick-pick の「解像度プリセット」は直接実行パスの CLI 引数には
  * 反映できない（正直な縮退。report にも明記）。
+ *
+ * 画質・エンジン・fps（task 2026-07-25-export-options）: 既定値のときは
+ * render-cut への引数を一切追加しない（v0 と同一の `--out` のみの呼び出しを保つ —
+ * render-cut 側の「無引数のとき ffmpeg コマンド列は変更前と deepEqual」という
+ * 後方互換契約と対になる規律）。`--progress` だけは常に付ける — エンコード
+ * パラメータに一切影響しない計装用フラグ（render-cut の plan.commands / 出力
+ * バイトは不変。out_time= を PROGRESS 行に変換して stdout へ流すだけ）なので、
+ * 既定設定での書き出し結果そのものは無改造のまま詳細進捗だけ得られる。
  */
 
 export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
+
+export type QuickExportQuality = 'high' | 'standard' | 'light';
+export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'x264';
+
+/** render-cut --quality/--encoder の既定値と同じ（省略時に選ばれているのと同じ選択）。 */
+export const QUICK_EXPORT_DEFAULT_QUALITY: QuickExportQuality = 'standard';
+export const QUICK_EXPORT_DEFAULT_ENCODER: QuickExportEncoder = 'auto';
+
+export interface QuickExportRenderSettings {
+    readonly outputName: string;
+    /** 既定（'standard'）なら --quality を付けない。 */
+    readonly quality?: QuickExportQuality;
+    /** 既定（'auto'）なら --encoder を付けない。 */
+    readonly encoder?: QuickExportEncoder;
+    /** 未指定（そのまま）なら --fps を付けない。 */
+    readonly fps?: number;
+    /** フォルダ選択ダイアログで得た絶対パス。未指定なら既定の `exports/` を使う。 */
+    readonly outputDirectory?: string;
+}
 
 /** edit-lint CLI: `edit-lint <projectRoot> --json`（`.akari/lint.json` を書く既定の呼び方）。 */
 export function buildEditLintArgs(projectRoot: string): string[] {
@@ -20,7 +47,9 @@ export function buildEditLintArgs(projectRoot: string): string[] {
 
 /**
  * 出力ファイル名からディレクトリ区切り・親ディレクトリ参照を剥がし、
- * 常に `exports/` 直下のファイル名 1 段に収める（パス脱出防止）。
+ * 常に 1 段のファイル名に収める（パス脱出防止）。出力先フォルダ自体は
+ * OS のフォルダ選択ダイアログが返す実在パスなので、この関数の対象は
+ * あくまで自由入力のファイル名だけ。
  * 空文字・空白のみ・`.`/`..` のみになった場合は既定名にフォールバックする。
  */
 export function sanitizeQuickExportOutputName(outputName: string): string {
@@ -30,14 +59,46 @@ export function sanitizeQuickExportOutputName(outputName: string): string {
     return lastSegment || DEFAULT_EXPORT_OUTPUT_NAME;
 }
 
-/** render-cut の `--out` に渡す、プロジェクトルート相対の出力パス（常に `exports/` 直下）。 */
-export function buildRenderCutOutputRelativePath(outputName: string): string {
-    return `${QUICK_EXPORT_OUTPUT_DIRECTORY}/${sanitizeQuickExportOutputName(outputName)}`;
+/**
+ * render-cut の `--out` に渡す出力パス。`outputDirectory` 未指定なら既定の
+ * プロジェクトルート相対 `exports/<name>`（v0 と同一の組み立て）。指定時は
+ * その絶対パス直下に置く（render-cut 自身の `--out` は絶対パスを素通しする —
+ * src/render-cut.mjs の resolveOutput 参照。プロジェクト外の入力ファイルを
+ * 上書きしないことは render-cut 自身の ensureOutputDoesNotReplaceInput が
+ * 常に検査する）。
+ */
+export function buildRenderCutOutputPath(outputName: string, outputDirectory?: string): string {
+    const sanitizedName = sanitizeQuickExportOutputName(outputName);
+    if (!outputDirectory || outputDirectory.trim() === '') {
+        return `${QUICK_EXPORT_OUTPUT_DIRECTORY}/${sanitizedName}`;
+    }
+    const trimmedDirectory = outputDirectory.replace(/[\\/]+$/, '');
+    return `${trimmedDirectory}/${sanitizedName}`;
 }
 
-/** render-cut CLI: `render-cut <projectRoot> --out exports/<name>`。 */
-export function buildRenderCutArgs(projectRoot: string, outputName: string): string[] {
-    return [projectRoot, '--out', buildRenderCutOutputRelativePath(outputName)];
+/** @deprecated 後方互換のためだけに残す薄いラッパー。新規呼び出しは buildRenderCutOutputPath を使う。 */
+export function buildRenderCutOutputRelativePath(outputName: string): string {
+    return buildRenderCutOutputPath(outputName);
+}
+
+/**
+ * render-cut CLI: `render-cut <projectRoot> --out <path> [--quality ...] [--encoder ...]
+ * [--fps ...] --progress`。quality/encoder が既定値のときはその引数自体を省く
+ * （後方互換 — v0 の `[projectRoot, '--out', path]` から増える引数は無い）。
+ */
+export function buildRenderCutArgs(projectRoot: string, settings: QuickExportRenderSettings): string[] {
+    const args = [projectRoot, '--out', buildRenderCutOutputPath(settings.outputName, settings.outputDirectory)];
+    if (settings.quality !== undefined && settings.quality !== QUICK_EXPORT_DEFAULT_QUALITY) {
+        args.push('--quality', settings.quality);
+    }
+    if (settings.encoder !== undefined && settings.encoder !== QUICK_EXPORT_DEFAULT_ENCODER) {
+        args.push('--encoder', settings.encoder);
+    }
+    if (settings.fps !== undefined) {
+        args.push('--fps', String(settings.fps));
+    }
+    args.push('--progress');
+    return args;
 }
 
 export type QuickExportLintOutcome = 'pass' | 'fail' | 'error';

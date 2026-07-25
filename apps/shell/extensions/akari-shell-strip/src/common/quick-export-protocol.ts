@@ -13,6 +13,14 @@ export interface QuickExportStartRequest {
     readonly projectRootUri: string;
     readonly outputName: string;
     readonly rerunLint: boolean;
+    /** 既定（'standard'）なら render-cut に --quality を渡さない。 */
+    readonly quality?: 'high' | 'standard' | 'light';
+    /** 既定（'auto'）なら render-cut に --encoder を渡さない。 */
+    readonly encoder?: 'auto' | 'videotoolbox' | 'x264';
+    /** 未指定（そのまま）なら render-cut に --fps を渡さない。 */
+    readonly fps?: number;
+    /** フォルダ選択ダイアログで得た絶対パスの URI 文字列。未指定なら既定の exports/ を使う。 */
+    readonly outputDirectoryUri?: string;
 }
 
 export type QuickExportStartOutcome =
@@ -40,6 +48,14 @@ export interface QuickExportStatus {
     readonly reportPath?: string;
     /** failed のときだけ、stderr 末尾の要約数行。 */
     readonly failureSummary?: string;
+    /**
+     * render-cut の `--progress` 出力（PROGRESS out_time_ms=.../done）由来の詳細進捗
+     * （task 2026-07-25-export-options）。phase が 'rendering' の間だけ随時更新される。
+     * まだ 1 行も届いていない、または % の分母が無く残り時間を外挿できないうちは undefined。
+     */
+    readonly progressPercent?: number;
+    readonly progressElapsedMs?: number;
+    readonly progressRemainingMs?: number;
 }
 
 export interface AkariQuickExportService {

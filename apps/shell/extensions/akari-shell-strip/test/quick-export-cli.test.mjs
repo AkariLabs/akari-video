@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     buildEditLintArgs,
     buildRenderCutArgs,
+    buildRenderCutOutputPath,
     buildRenderCutOutputRelativePath,
     determineLintOutcome,
     determineRenderOutcome,
@@ -32,15 +33,59 @@ test('sanitizeQuickExportOutputName: 空・空白のみ・..のみは既定名�
     assert.equal(sanitizeQuickExportOutputName('../..'), 'final.mp4');
 });
 
-test('buildRenderCutOutputRelativePath: 常に exports/ 直下', () => {
+test('buildRenderCutOutputRelativePath (後方互換ラッパー): 常に exports/ 直下', () => {
     assert.equal(buildRenderCutOutputRelativePath('final.mp4'), 'exports/final.mp4');
     assert.equal(buildRenderCutOutputRelativePath('../evil.mp4'), 'exports/evil.mp4');
 });
 
-test('buildRenderCutArgs: プロジェクトルート + --out exports/<name>', () => {
+test('buildRenderCutOutputPath: outputDirectory 未指定なら既定の exports/ 直下', () => {
+    assert.equal(buildRenderCutOutputPath('final.mp4'), 'exports/final.mp4');
+});
+
+test('buildRenderCutOutputPath: outputDirectory 指定時はその絶対パス直下（ファイル名は引き続き脱出防止）', () => {
+    assert.equal(buildRenderCutOutputPath('final.mp4', '/Users/someone/Desktop'), '/Users/someone/Desktop/final.mp4');
+    assert.equal(buildRenderCutOutputPath('final.mp4', '/Users/someone/Desktop/'), '/Users/someone/Desktop/final.mp4');
+    assert.equal(buildRenderCutOutputPath('../evil.mp4', '/Users/someone/Desktop'), '/Users/someone/Desktop/evil.mp4');
+});
+
+test('buildRenderCutArgs (task 2026-07-25-export-options backward-compat): 既定設定は --out と --progress のみ', () => {
     assert.deepEqual(
-        buildRenderCutArgs('/tmp/project', 'my-square-export.mp4'),
-        ['/tmp/project', '--out', 'exports/my-square-export.mp4']
+        buildRenderCutArgs('/tmp/project', { outputName: 'my-square-export.mp4' }),
+        ['/tmp/project', '--out', 'exports/my-square-export.mp4', '--progress']
+    );
+    // quality/encoder を明示的に既定値で渡しても、省略時と同じ引数列になる。
+    assert.deepEqual(
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', quality: 'standard', encoder: 'auto' }),
+        ['/tmp/project', '--out', 'exports/x.mp4', '--progress']
+    );
+});
+
+test('buildRenderCutArgs: quality/encoder が既定値以外のときだけ引数が増える', () => {
+    assert.deepEqual(
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', quality: 'high' }),
+        ['/tmp/project', '--out', 'exports/x.mp4', '--quality', 'high', '--progress']
+    );
+    assert.deepEqual(
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', encoder: 'videotoolbox' }),
+        ['/tmp/project', '--out', 'exports/x.mp4', '--encoder', 'videotoolbox', '--progress']
+    );
+    assert.deepEqual(
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', quality: 'light', encoder: 'x264' }),
+        ['/tmp/project', '--out', 'exports/x.mp4', '--quality', 'light', '--encoder', 'x264', '--progress']
+    );
+});
+
+test('buildRenderCutArgs: fps 指定時のみ --fps が付く', () => {
+    assert.deepEqual(
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', fps: 30 }),
+        ['/tmp/project', '--out', 'exports/x.mp4', '--fps', '30', '--progress']
+    );
+});
+
+test('buildRenderCutArgs: outputDirectory 指定時は絶対パスの --out になる', () => {
+    assert.deepEqual(
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', outputDirectory: '/Volumes/Backup/exports' }),
+        ['/tmp/project', '--out', '/Volumes/Backup/exports/x.mp4', '--progress']
     );
 });
 

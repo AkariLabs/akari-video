@@ -13,6 +13,7 @@ import {
 } from "./cut-timeline.mjs";
 import { appendCutVisualTransform, hasCutVisualTransform } from "./cut-transform.mjs";
 import { buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
+import { buildVideoEncodeArgs, resolveEncoderChoice } from "./encode-preset.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
 import {
   buildCutTrackCompositeCommand,
@@ -43,10 +44,19 @@ export function buildPlan({
   // Defaults to the flat, deterministic path so direct callers (unit tests, --plan-only preview)
   // keep producing byte-identical command plans across repeated calls.
   temporaryDirectory = join(projectRoot, ".akari", "render-tmp"),
+  // --quality/--encoder/--fps (task 2026-07-25-export-options). All three default to undefined,
+  // under which buildVideoEncodeArgs/resolveEncoderChoice below resolve to exactly today's
+  // literal command args (no -crf/-preset/-b:v added, fps taken from edit.json unchanged) — the
+  // backward-compat guarantee this task requires.
+  quality,
+  encoder,
+  fpsOverride,
 }) {
   const width = edit.output.width;
   const height = edit.output.height;
-  const fps = edit.output.fps;
+  const fps = isPositiveNumber(fpsOverride) ? fpsOverride : edit.output.fps;
+  const encoderChoice = resolveEncoderChoice({ requested: encoder, ffmpegCommand: capabilities.ffmpegCommand });
+  const videoEncodeArgs = buildVideoEncodeArgs({ quality, encoderChoice, profile: "high" });
   const cutsEndSeconds = predictedDuration(edit.cuts, capabilities.sourceDuration, edit.version);
   const finalDurationSeconds = computeContentDurationSeconds({
     edit,
@@ -78,6 +88,7 @@ export function buildPlan({
       ffmpegCommand: capabilities.ffmpegCommand,
       projectRoot,
       look: edit.output.look,
+      videoEncodeArgs,
     });
   } else {
     const sourcePath = resolve(projectRoot, edit.source.path);
@@ -94,6 +105,7 @@ export function buildPlan({
       projectRoot,
       look: edit.output.look,
       chromaKey: edit.source?.chroma_key,
+      videoEncodeArgs,
     });
   }
   const tailPad = finalDurationSeconds > cutsEndSeconds + 0.001
@@ -225,12 +237,14 @@ export function buildPlan({
           baseVideoPath,
           overlayWebmPath,
           compositePath,
+          videoEncodeArgs,
         ),
         "puppeteer-core": buildAnimatedCompositeCommand(
           capabilities.ffmpegCommand,
           baseVideoPath,
           overlayMovPath,
           compositePath,
+          videoEncodeArgs,
         ),
         "static-screenshot": buildStaticCompositeCommand(
           capabilities.ffmpegCommand,
@@ -239,6 +253,7 @@ export function buildPlan({
           temporary,
           renderOverlays,
           finalDurationSeconds,
+          videoEncodeArgs,
         ),
       },
       layers,
@@ -615,7 +630,7 @@ export function probeAudioDurationSeconds(ffprobeCommand, path) {
   }
 }
 
-function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath) {
+function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath, videoEncodeArgs = null) {
   return {
     command,
     args: [
@@ -634,10 +649,7 @@ function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath
       "[outv]",
       "-map",
       "0:a:0",
-      "-c:v",
-      "libx264",
-      "-profile:v",
-      "high",
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -647,7 +659,7 @@ function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath
   };
 }
 
-function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, overlays, duration) {
+function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, overlays, duration, videoEncodeArgs = null) {
   const args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", cutPath];
   const filters = [];
   let previous = "[0:v]";
@@ -669,10 +681,7 @@ function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, ov
     "0:a:0",
     "-t",
     formatNumber(duration),
-    "-c:v",
-    "libx264",
-    "-profile:v",
-    "high",
+    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
     "-pix_fmt",
     "yuv420p",
     "-c:a",
@@ -781,9 +790,10 @@ export function buildCutCommand({
   projectRoot,
   look,
   chromaKey,
+  videoEncodeArgs = null,
 }) {
   if (needsGapAwareCutTimeline(cuts)) {
-    return buildGapAwareCutCommand({ sourcePath, cutPath, cuts, width, height, fps, hasAudio, duration, ffmpegCommand, projectRoot, look, chromaKey });
+    return buildGapAwareCutCommand({ sourcePath, cutPath, cuts, width, height, fps, hasAudio, duration, ffmpegCommand, projectRoot, look, chromaKey, videoEncodeArgs });
   }
   const effectiveCuts = cuts.length > 0 ? cuts : [{ in: 0, out: null }];
   const transformCuts = hasCutVisualTransform(effectiveCuts);
@@ -961,10 +971,7 @@ export function buildCutCommand({
       "[outv]",
       "-map",
       "[joineda]",
-      "-c:v",
-      "libx264",
-      "-profile:v",
-      "high",
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -987,6 +994,7 @@ export function buildMultiSourceCutCommand({
   ffmpegCommand = "ffmpeg",
   projectRoot,
   look,
+  videoEncodeArgs = null,
 }) {
   const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
   const filters = [];
@@ -1069,10 +1077,7 @@ export function buildMultiSourceCutCommand({
       "[outv]",
       "-map",
       "[joineda]",
-      "-c:v",
-      "libx264",
-      "-profile:v",
-      "high",
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -1098,6 +1103,7 @@ function buildGapAwareCutCommand({
   projectRoot,
   look,
   chromaKey,
+  videoEncodeArgs = null,
 }) {
   const segments = resolveCutSegments(cuts);
   const runs = computeVideoRuns(segments, duration);
@@ -1246,10 +1252,7 @@ function buildGapAwareCutCommand({
       "[outv]",
       "-map",
       "[joineda]",
-      "-c:v",
-      "libx264",
-      "-profile:v",
-      "high",
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",

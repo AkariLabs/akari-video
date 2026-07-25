@@ -12,11 +12,13 @@ import {
 import {
     buildEditLintArgs,
     buildRenderCutArgs,
-    buildRenderCutOutputRelativePath,
+    buildRenderCutOutputPath,
     determineLintOutcome,
     determineRenderOutcome,
+    QuickExportRenderSettings,
     summarizeStderrTail
 } from '../common/quick-export-cli';
+import { estimateElapsedAndRemaining, latestQuickExportProgress } from '../common/quick-export-progress';
 
 const LOG_TAIL_MAX_CHARS = 4000;
 const EDIT_LINT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'edit-lint-report.html');
@@ -39,6 +41,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     protected running = false;
     protected status: QuickExportStatus = { phase: 'idle', logTail: '' };
     protected logBuffer = '';
+    /** render-cut フェーズ開始時刻（--progress の経過/残り時間見積もりに使う）。 */
+    protected renderStartedAt: number | undefined;
     /** テストからの上書き用（実 CLI を起動しない）。 */
     protected readonly fsImpl: typeof fs = fs;
 
@@ -69,7 +73,13 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             }
         }
 
-        await this.runRenderCutPhase(projectRoot, request.outputName);
+        await this.runRenderCutPhase(projectRoot, {
+            outputName: request.outputName,
+            quality: request.quality,
+            encoder: request.encoder,
+            fps: request.fps,
+            outputDirectory: request.outputDirectoryUri ? this.fsPath(request.outputDirectoryUri) : undefined
+        });
     }
 
     protected async runEditLintPhase(projectRoot: string): Promise<'pass' | 'fail' | 'error'> {
@@ -101,8 +111,13 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         return 'error';
     }
 
-    protected async runRenderCutPhase(projectRoot: string, outputName: string): Promise<void> {
-        this.updateStatus({ phase: 'rendering' });
+    protected async runRenderCutPhase(projectRoot: string, settings: QuickExportRenderSettings): Promise<void> {
+        this.updateStatus({
+            phase: 'rendering',
+            progressPercent: undefined,
+            progressElapsedMs: undefined,
+            progressRemainingMs: undefined
+        });
         const cli = await this.findRenderCutCli();
         if (!cli) {
             this.updateStatus({
@@ -111,8 +126,9 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             });
             return;
         }
-        const result = await this.spawnNodeScript(cli, buildRenderCutArgs(projectRoot, outputName), chunk => this.appendLog(chunk));
-        const outputRelativePath = buildRenderCutOutputRelativePath(outputName);
+        this.renderStartedAt = Date.now();
+        const result = await this.spawnNodeScript(cli, buildRenderCutArgs(projectRoot, settings), chunk => this.appendRenderLog(chunk));
+        const outputRelativePath = buildRenderCutOutputPath(settings.outputName, settings.outputDirectory);
         const outputAbsolutePath = resolve(projectRoot, outputRelativePath);
         const outputStat = await this.statOrUndefined(outputAbsolutePath);
         const outcome = determineRenderOutcome(result.exitCode, outputStat && { exists: true, size: outputStat.size });
@@ -158,6 +174,27 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     protected appendLog(chunk: string): void {
         this.logBuffer = (this.logBuffer + chunk).slice(-LOG_TAIL_MAX_CHARS);
         this.updateStatus({ logTail: this.logBuffer });
+    }
+
+    /**
+     * render-cut フェーズ専用の onChunk（edit-lint フェーズは appendLog のみを使う —
+     * lint の stdout に PROGRESS 行が混じることはないため、進捗解析はここだけで十分）。
+     * ログ蓄積は appendLog に委ね、そのうえで直近の PROGRESS 行から % と経過/残り
+     * 時間を見積もって status に反映する。
+     */
+    protected appendRenderLog(chunk: string): void {
+        this.appendLog(chunk);
+        const snapshot = latestQuickExportProgress(this.logBuffer);
+        if (!snapshot || this.renderStartedAt === undefined) {
+            return;
+        }
+        const elapsedMs = Date.now() - this.renderStartedAt;
+        const { remainingMs } = estimateElapsedAndRemaining(snapshot, elapsedMs);
+        this.updateStatus({
+            progressPercent: snapshot.percent,
+            progressElapsedMs: elapsedMs,
+            progressRemainingMs: remainingMs
+        });
     }
 
     /** 既存フィールド（特に随時伸びる logTail）は明示されない限り保持する。 */
