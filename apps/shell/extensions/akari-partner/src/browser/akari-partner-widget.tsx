@@ -162,17 +162,28 @@ export class AkariPartnerWidget extends ReactWidget {
                 await this.verifyPlatformBinary(entry.extensionId, verification);
             }
 
+            const roots = await this.workspaceService.roots;
+            const cwd = roots[0]?.resource.toString();
+
             this.setProgress('CLI を確認しています…', '同梱ランタイムで実行中');
-            const bootstrap = await this.partnerServer.bootstrap(entry.agent);
+            const bootstrap = await this.partnerServer.bootstrap(entry.agent, cwd);
             this.executablePath = bootstrap.executablePath;
             this.setProgress(
                 bootstrap.reused ? 'インストール済みの CLI を検出しました' : 'CLI をダウンロード・インストールしました',
                 bootstrap.executablePath
             );
+            if (entry.agent === 'claude') {
+                // task/2026-07-25-partner-plugin-autowire: the plugin-wiring
+                // step's outcome is always the last bootstrap.log line for the
+                // claude agent (wirePluginSkills runs last in bootstrap-runner.ts's
+                // claude branch, right before it emits the result JSON).
+                const wiringLog = bootstrap.log[bootstrap.log.length - 1];
+                if (wiringLog) {
+                    this.setProgress('スキル配線を確認しています…', wiringLog);
+                }
+            }
             const launch = await this.partnerServer.prepareLaunch(entry.agent);
             this.setProgress('パートナー PTY を起動しています…', `${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
-            const roots = await this.workspaceService.roots;
-            const cwd = roots[0]?.resource.toString();
             const terminal = await this.terminalService.newTerminal({
                 title: entry.name,
                 shellPath: bootstrap.executablePath,
