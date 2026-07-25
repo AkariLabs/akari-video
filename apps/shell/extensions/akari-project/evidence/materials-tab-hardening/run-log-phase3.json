@@ -1,0 +1,121 @@
+[
+  {
+    "t": "2026-07-25T03:11:34.783Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T03:11:36.284Z",
+    "step": "before-watch-additions",
+    "before": [
+      "assets/analyzed-clip.mp4",
+      "assets/clip-2.mp4",
+      "assets/clip.mp4",
+      "assets/frame-01.png",
+      "assets/unanalyzed-image.png",
+      "assets/unanalyzed-video.mp4",
+      "narration.wav"
+    ]
+  },
+  {
+    "t": "2026-07-25T03:11:37.017Z",
+    "step": "external-process-added-asset-file",
+    "addedAssetName": "watch-added-clip.mp4"
+  },
+  {
+    "t": "2026-07-25T03:11:38.186Z",
+    "step": "watch-asset-added-detected",
+    "cards": [
+      "assets/analyzed-clip.mp4",
+      "assets/clip-2.mp4",
+      "assets/clip.mp4",
+      "assets/frame-01.png",
+      "assets/unanalyzed-image.png",
+      "assets/unanalyzed-video.mp4",
+      "assets/watch-added-clip.mp4",
+      "narration.wav"
+    ],
+    "elapsedMs": 1168
+  },
+  {
+    "t": "2026-07-25T03:11:38.518Z",
+    "step": "L1-3-watch-asset-add-PASS",
+    "ok": true,
+    "elapsedMs": 1168
+  },
+  {
+    "t": "2026-07-25T03:11:38.525Z",
+    "step": "external-process-deleted-asset-file",
+    "addedAssetName": "watch-added-clip.mp4"
+  },
+  {
+    "t": "2026-07-25T03:11:39.043Z",
+    "step": "watch-asset-deleted-detected",
+    "cards": [
+      "assets/analyzed-clip.mp4",
+      "assets/clip-2.mp4",
+      "assets/clip.mp4",
+      "assets/frame-01.png",
+      "assets/unanalyzed-image.png",
+      "assets/unanalyzed-video.mp4",
+      "narration.wav"
+    ],
+    "elapsedMs": 518
+  },
+  {
+    "t": "2026-07-25T03:11:39.291Z",
+    "step": "L1-3-watch-asset-delete-PASS",
+    "ok": true,
+    "elapsedMs": 518
+  },
+  {
+    "t": "2026-07-25T03:11:39.891Z",
+    "step": "external-process-added-root-file",
+    "addedRootName": "watch-added-root.png"
+  },
+  {
+    "t": "2026-07-25T03:11:40.326Z",
+    "step": "watch-root-added-detected",
+    "cards": [
+      "assets/analyzed-clip.mp4",
+      "assets/clip-2.mp4",
+      "assets/clip.mp4",
+      "assets/frame-01.png",
+      "assets/unanalyzed-image.png",
+      "assets/unanalyzed-video.mp4",
+      "narration.wav",
+      "watch-added-root.png"
+    ],
+    "elapsedMs": 433
+  },
+  {
+    "t": "2026-07-25T03:11:40.543Z",
+    "step": "L1-3-watch-root-add-PASS",
+    "ok": true,
+    "elapsedMs": 433
+  },
+  {
+    "t": "2026-07-25T03:11:40.545Z",
+    "step": "external-process-deleted-root-file",
+    "addedRootName": "watch-added-root.png"
+  },
+  {
+    "t": "2026-07-25T03:11:40.958Z",
+    "step": "watch-root-deleted-detected",
+    "cards": [
+      "assets/analyzed-clip.mp4",
+      "assets/clip-2.mp4",
+      "assets/clip.mp4",
+      "assets/frame-01.png",
+      "assets/unanalyzed-image.png",
+      "assets/unanalyzed-video.mp4",
+      "narration.wav"
+    ],
+    "elapsedMs": 413
+  },
+  {
+    "t": "2026-07-25T03:11:41.166Z",
+    "step": "L1-3-watch-root-delete-PASS",
+    "ok": true,
+    "elapsedMs": 413
+  }
+]

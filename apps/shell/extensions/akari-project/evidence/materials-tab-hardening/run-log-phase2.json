@@ -1,0 +1,122 @@
+[
+  {
+    "t": "2026-07-25T03:10:22.875Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T03:10:25.262Z",
+    "step": "cancel-dialog-shown",
+    "visible": true,
+    "title": "assets へ移動しますか？",
+    "message": "narration.wav を assets/ 直下へ移動します。edit.json がこのファイルをルート相対パスで参照している場合、参照が壊れる可能性があります（edit.json は自動的に書き換えません）。"
+  },
+  {
+    "t": "2026-07-25T03:10:27.926Z",
+    "step": "cancel-no-op",
+    "narrationStillUnorganized": true
+  },
+  {
+    "t": "2026-07-25T03:10:27.927Z",
+    "step": "L1-2-cancel-PASS",
+    "ok": true,
+    "errBefore": 0,
+    "errAfterCancel": 0
+  },
+  {
+    "t": "2026-07-25T03:10:28.931Z",
+    "step": "move-dialog-shown-no-collision",
+    "visible": true,
+    "title": "assets へ移動しますか？",
+    "message": "frame-01.png を assets/ 直下へ移動します。edit.json がこのファイルをルート相対パスで参照している場合、参照が壊れる可能性があります（edit.json は自動的に書き換えません）。"
+  },
+  {
+    "t": "2026-07-25T03:10:29.585Z",
+    "step": "move-no-collision-result",
+    "afterMoveNoCollision": [
+      {
+        "path": "assets/analyzed-clip.mp4",
+        "unorganized": false
+      },
+      {
+        "path": "assets/clip.mp4",
+        "unorganized": false
+      },
+      {
+        "path": "assets/frame-01.png",
+        "unorganized": false
+      },
+      {
+        "path": "assets/unanalyzed-image.png",
+        "unorganized": false
+      },
+      {
+        "path": "assets/unanalyzed-video.mp4",
+        "unorganized": false
+      },
+      {
+        "path": "clip.mp4",
+        "unorganized": true
+      },
+      {
+        "path": "narration.wav",
+        "unorganized": true
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T03:10:29.585Z",
+    "step": "L1-2-move-no-collision-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T03:10:30.554Z",
+    "step": "move-dialog-shown-collision",
+    "visible": true,
+    "title": "assets へ移動しますか？",
+    "message": "clip.mp4 を assets/ 直下へ移動します。edit.json がこのファイルをルート相対パスで参照している場合、参照が壊れる可能性があります（edit.json は自動的に書き換えません）。"
+  },
+  {
+    "t": "2026-07-25T03:10:31.232Z",
+    "step": "move-collision-result",
+    "afterMoveCollision": [
+      {
+        "path": "assets/analyzed-clip.mp4",
+        "unorganized": false
+      },
+      {
+        "path": "assets/clip-2.mp4",
+        "unorganized": false
+      },
+      {
+        "path": "assets/clip.mp4",
+        "unorganized": false
+      },
+      {
+        "path": "assets/frame-01.png",
+        "unorganized": false
+      },
+      {
+        "path": "assets/unanalyzed-image.png",
+        "unorganized": false
+      },
+      {
+        "path": "assets/unanalyzed-video.mp4",
+        "unorganized": false
+      },
+      {
+        "path": "narration.wav",
+        "unorganized": true
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T03:10:31.232Z",
+    "step": "L1-2-move-collision-numbering-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T03:10:31.567Z",
+    "step": "phase2-final-error-count",
+    "finalErr": 0
+  }
+]

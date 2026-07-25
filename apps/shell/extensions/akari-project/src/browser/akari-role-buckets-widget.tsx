@@ -3,14 +3,17 @@ import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { Message } from '@theia/core/shared/@lumino/messaging';
-import { CommandService, MessageService } from '@theia/core/lib/common';
+import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import { OpenerService, QuickInputService, open } from '@theia/core/lib/browser';
+import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { FileStat } from '@theia/filesystem/lib/common/files';
+import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { AkariProjectService, DroppedAsset } from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
+import { isUnorganizedRootEntry } from '../common/unorganized-materials';
+import { nextCandidateAssetName } from '../common/asset-naming';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
 import { CatalogItemMeta, filterCatalogItems, parseCatalogItemMeta } from '../common/catalog-reader';
@@ -40,6 +43,8 @@ interface MaterialCardEntry {
     thumbnailUri?: URI;
     /** analysis.json のプロジェクト相対パス。analyzed のときのみ設定される。 */
     analysisRelativePath?: string;
+    /** true = プロジェクトルート直下（非再帰）の未整理素材。「assets へ移動」アクションを持つ。 */
+    unorganized: boolean;
 }
 
 /**
@@ -82,7 +87,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected activeTab: TabId = 'materials';
     protected materials: MaterialCardEntry[] = [];
+    protected unorganizedMaterials: MaterialCardEntry[] = [];
     protected materialsLoading = false;
+    protected materialsGeneration = 0;
+    protected materialsWatch = new DisposableCollection();
+    protected materialsWatchRootKey?: string;
+    protected materialsWatchTimer?: ReturnType<typeof setTimeout>;
     protected lintAvailable = false;
     protected lintCount?: number;
 
@@ -106,7 +116,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // に割り込まれず、このウィジェット自身が最後まで処理する。
         this.node.setAttribute('data-akari-dropzone', 'true');
         this.node.addEventListener('drop', event => this.handleDrop(event));
-        this.toDispose.push(this.workflow.onDidChange(() => this.refresh()));
+        this.toDispose.push(this.workflow.onDidChange(() => {
+            this.ensureMaterialsWatch();
+            this.refresh();
+        }));
+        this.ensureMaterialsWatch();
         // カタログはワークスペース非依存（catalog/ は参照配布データ）なので
         // 素材タブと違いプロジェクトを開く前でも読み込む。
         void this.loadCatalog();
@@ -137,17 +151,31 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async loadMaterials(): Promise<void> {
         const root = this.workflow.workspaceRoot;
+        const generation = ++this.materialsGeneration;
         if (!root) {
             this.materials = [];
+            this.unorganizedMaterials = [];
             this.update();
             return;
         }
         this.materialsLoading = true;
         this.update();
-        const files = await this.collectAssetFiles(root.resolve('assets'));
-        this.materials = await Promise.all(files.map(file => this.buildMaterialEntry(root, file)));
+        const [assetFiles, rootFiles] = await Promise.all([
+            this.collectAssetFiles(root.resolve('assets')),
+            this.collectUnorganizedRootFiles(root)
+        ]);
+        const [materials, unorganizedMaterials] = await Promise.all([
+            Promise.all(assetFiles.map(file => this.buildMaterialEntry(root, file, false))),
+            Promise.all(rootFiles.map(file => this.buildMaterialEntry(root, file, true)))
+        ]);
+        if (generation !== this.materialsGeneration) {
+            return; // A newer load superseded this one (e.g. rapid watch events); discard stale results.
+        }
+        this.materials = materials;
+        this.unorganizedMaterials = unorganizedMaterials;
         this.materialsLoading = false;
         this.update();
+        void this.hydrateCachedThumbnails(root, generation, [...materials, ...unorganizedMaterials]);
     }
 
     protected async collectAssetFiles(assetsRoot: URI): Promise<FileStat[]> {
@@ -180,14 +208,34 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return result;
     }
 
-    protected async buildMaterialEntry(root: URI, file: FileStat): Promise<MaterialCardEntry> {
+    /**
+     * プロジェクトルート**直下**（非再帰）の未整理素材を集める。判定は
+     * unorganized-materials.ts の純関数（project-tree-policy.ts の既存ノイズ判定 +
+     * ルート直下契約 JSON の除外）に委ねる。
+     */
+    protected async collectUnorganizedRootFiles(root: URI): Promise<FileStat[]> {
+        let stat: FileStat;
+        try {
+            stat = await this.files.resolve(root);
+        } catch {
+            return [];
+        }
+        const policy = this.workflow.current.tree;
+        const result = (stat.children ?? []).filter(child =>
+            isUnorganizedRootEntry({ name: child.resource.path.base, isDirectory: child.isDirectory }, policy)
+        );
+        result.sort((left, right) => left.resource.path.base.localeCompare(right.resource.path.base, 'ja'));
+        return result;
+    }
+
+    protected async buildMaterialEntry(root: URI, file: FileStat, unorganized: boolean): Promise<MaterialCardEntry> {
         const relativePath = this.workflow.relativePath(file.resource) ?? file.resource.path.base;
         const kind = this.classifyKind(file.resource.path.base);
         const analysisRelativePath = `.akari/sidecars/${relativePath}.analysis/analysis.json`;
         const analysisUri = root.resolve(analysisRelativePath);
         const analysis = await this.readAnalysis(analysisUri);
         if (!analysis) {
-            return { uri: file.resource, relativePath, name: file.resource.path.base, kind, analyzed: false };
+            return { uri: file.resource, relativePath, name: file.resource.path.base, kind, analyzed: false, unorganized };
         }
         return {
             uri: file.resource,
@@ -197,8 +245,110 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             analyzed: true,
             durationSeconds: deriveAnalysisDurationSeconds(analysis),
             thumbnailUri: this.resolveThumbnail(analysisUri, analysis),
-            analysisRelativePath
+            analysisRelativePath,
+            unorganized
         };
+    }
+
+    /**
+     * 分析済みでない動画/画像素材について、`.akari/cache/thumbnails/` のサムネキャッシュを
+     * バックエンドへ問い合わせる（優先順位: analysis keyframe > cache > プレースホルダ）。
+     * 音声・分析済みは対象外。generation が古くなっていれば結果を捨てる（stale ガード）。
+     */
+    protected async hydrateCachedThumbnails(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
+        const candidates = entries.filter(entry => !entry.analyzed && (entry.kind === 'video' || entry.kind === 'image'));
+        await Promise.all(candidates.map(async entry => {
+            let outcome;
+            try {
+                outcome = await this.projectService.resolveMaterialThumbnail(root.toString(), entry.relativePath, entry.kind as 'video' | 'image');
+            } catch {
+                return;
+            }
+            if (generation !== this.materialsGeneration || !outcome.available || !outcome.cacheRelativePath) {
+                return;
+            }
+            entry.thumbnailUri = root.resolve(outcome.cacheRelativePath);
+            this.update();
+        }));
+    }
+
+    // --- ライブ反映（assets/ とルート直下の watch） ---------------------------
+
+    protected ensureMaterialsWatch(): void {
+        const root = this.workflow.workspaceRoot;
+        const rootKey = root?.toString();
+        if (rootKey === this.materialsWatchRootKey) {
+            return;
+        }
+        this.materialsWatch.dispose();
+        this.materialsWatch = new DisposableCollection();
+        this.materialsWatchRootKey = rootKey;
+        if (!root) {
+            return;
+        }
+        const assetsUri = root.resolve('assets');
+        this.materialsWatch.push(this.files.watch(root));
+        this.materialsWatch.push(this.files.watch(assetsUri, { recursive: true, excludes: [] }));
+        this.materialsWatch.push(this.files.onDidFilesChange(event => this.handleMaterialsFileChange(root, assetsUri, event)));
+    }
+
+    protected handleMaterialsFileChange(root: URI, assetsUri: URI, event: FileChangesEvent): void {
+        const rootKey = root.toString();
+        const relevant = event.changes.some(change =>
+            change.resource.parent.toString() === rootKey || assetsUri.isEqualOrParent(change.resource)
+        );
+        if (!relevant) {
+            return;
+        }
+        if (this.materialsWatchTimer) {
+            clearTimeout(this.materialsWatchTimer);
+        }
+        this.materialsWatchTimer = setTimeout(() => {
+            this.materialsWatchTimer = undefined;
+            void this.loadMaterials();
+        }, 300);
+    }
+
+    // --- 未整理 → assets へ移動 ------------------------------------------------
+
+    /**
+     * 「assets へ移動」アクション。edit.json がルート相対パスでこのファイルを参照している
+     * 場合に参照が壊れる可能性を移動前に警告し、承諾したときだけ FileService.move する。
+     * edit.json 自体は書き換えない（契約ファイルへの書き込み禁止 — task.md 指定）。
+     * 同名衝突時は recordDroppedAssets と同じ stem-index.ext 規約で連番回避し、上書きはしない。
+     */
+    protected async moveToAssets(entry: MaterialCardEntry): Promise<void> {
+        const root = this.workflow.workspaceRoot;
+        if (!root) {
+            return;
+        }
+        const confirmed = await new ConfirmDialog({
+            title: 'assets へ移動しますか？',
+            msg: `${entry.name} を assets/ 直下へ移動します。edit.json がこのファイルをルート相対パスで参照している場合、参照が壊れる可能性があります（edit.json は自動的に書き換えません）。`,
+            ok: '移動する',
+            cancel: 'キャンセル'
+        }).open();
+        if (!confirmed) {
+            return;
+        }
+        const assetsUri = root.resolve('assets');
+        const targetName = await this.availableAssetName(assetsUri, entry.name);
+        try {
+            await this.files.move(entry.uri, assetsUri.resolve(targetName), { overwrite: false });
+        } catch {
+            this.messages.error(`${entry.name} を移動できませんでした。`);
+            return;
+        }
+        void this.loadMaterials();
+    }
+
+    protected async availableAssetName(assetsUri: URI, requestedName: string): Promise<string> {
+        let candidate = requestedName;
+        let index = 2;
+        while (await this.files.exists(assetsUri.resolve(candidate))) {
+            candidate = nextCandidateAssetName(requestedName, index++);
+        }
+        return candidate;
     }
 
     protected async readAnalysis(analysisUri: URI): Promise<AnalysisJson | undefined> {
@@ -558,7 +708,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (this.materialsLoading) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
-        if (!this.materials.length) {
+        if (!this.materials.length && !this.unorganizedMaterials.length) {
             return (
                 <p style={{ opacity: 0.7, padding: '16px' }}>
                     ここにはまだ素材がありません。動画・音声・画像をこのパネルへドラッグすると取り込めます。
@@ -566,8 +716,32 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             );
         }
         return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', padding: '10px' }}>
-                {this.materials.map(entry => this.renderMaterialCard(entry))}
+            <div>
+                {this.materials.length
+                    ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', padding: '10px' }}>
+                        {this.materials.map(entry => this.renderMaterialCard(entry))}
+                    </div>
+                    : <p style={{ opacity: 0.7, padding: '10px 16px 0' }}>assets/ にはまだ素材がありません。</p>}
+                {this.unorganizedMaterials.length > 0 && this.renderUnorganizedSection()}
+            </div>
+        );
+    }
+
+    protected renderUnorganizedSection(): React.ReactNode {
+        return (
+            <div style={{ borderTop: '1px solid var(--theia-sideBar-border)', marginTop: '8px' }}>
+                <div style={{ padding: '10px 10px 0', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '0.85em', fontWeight: 600 }}>未整理</span>
+                    <span style={{ opacity: 0.7, fontSize: '0.78em' }}>
+                        プロジェクトルート直下に置かれています。「assets へ移動」で整理できます。
+                    </span>
+                </div>
+                <div
+                    data-akari-unorganized-count={this.unorganizedMaterials.length}
+                    style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', padding: '10px' }}
+                >
+                    {this.unorganizedMaterials.map(entry => this.renderMaterialCard(entry))}
+                </div>
             </div>
         );
     }
@@ -576,6 +750,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <div
                 key={entry.uri.toString()}
+                data-akari-material-path={entry.relativePath}
+                data-akari-material-unorganized={entry.unorganized ? 'true' : 'false'}
                 onClick={() => void this.openFile(entry.uri)}
                 title={entry.name}
                 style={{
@@ -605,6 +781,25 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                         : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
+                    {entry.unorganized && (
+                        <span
+                            title='未整理'
+                            aria-label='未整理'
+                            style={{
+                                position: 'absolute',
+                                top: '4px',
+                                left: '4px',
+                                padding: '0 6px',
+                                borderRadius: '8px',
+                                fontSize: '0.68em',
+                                lineHeight: '16px',
+                                background: 'var(--theia-editorWarning-foreground)',
+                                color: 'var(--theia-editor-background)'
+                            }}
+                        >
+                            未整理
+                        </span>
+                    )}
                     <span
                         title={entry.analyzed ? '分析済み' : '未分析'}
                         aria-label={entry.analyzed ? '分析済み' : '未分析'}
@@ -651,6 +846,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         {entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
                     </span>
                 </div>
+                {entry.unorganized && (
+                    <div style={{ padding: '0 6px 6px' }}>
+                        <button
+                            type='button'
+                            className='theia-button secondary'
+                            title={`${entry.name} を assets へ移動`}
+                            style={{ width: '100%', fontSize: '0.75em', padding: '2px 4px' }}
+                            onClick={event => { event.stopPropagation(); void this.moveToAssets(entry); }}
+                        >
+                            assets へ移動
+                        </button>
+                    </div>
+                )}
             </div>
         );
     }

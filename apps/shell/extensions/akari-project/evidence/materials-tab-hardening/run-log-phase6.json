@@ -1,0 +1,54 @@
+[
+  {
+    "t": "2026-07-25T03:36:01.911Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T03:36:06.161Z",
+    "step": "developer-mode-forced-off",
+    "wasChecked": false,
+    "toggled": false
+  },
+  {
+    "t": "2026-07-25T03:36:08.407Z",
+    "step": "fallback-thumbnail-state",
+    "video": {
+      "found": true,
+      "hasImg": false,
+      "hasPlaceholderIcon": true
+    },
+    "image": {
+      "found": true,
+      "hasImg": false,
+      "hasPlaceholderIcon": true
+    }
+  },
+  {
+    "t": "2026-07-25T03:36:08.819Z",
+    "step": "L1-4-ffmpeg-missing-placeholder-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T03:36:08.859Z",
+    "step": "analyzed-clip-still-works",
+    "found": true,
+    "hasImg": true,
+    "hasPlaceholderIcon": false
+  },
+  {
+    "t": "2026-07-25T03:36:08.860Z",
+    "step": "cache-dir-after-fallback",
+    "count": 0
+  },
+  {
+    "t": "2026-07-25T03:36:08.866Z",
+    "step": "phase6-final-error-count",
+    "finalErrCount": 0,
+    "finalErrLog": []
+  },
+  {
+    "t": "2026-07-25T03:36:08.867Z",
+    "step": "L1-4-ffmpeg-missing-console-error-zero-PASS",
+    "ok": true
+  }
+]

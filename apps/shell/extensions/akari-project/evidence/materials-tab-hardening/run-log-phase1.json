@@ -1,0 +1,93 @@
+[
+  {
+    "t": "2026-07-25T03:09:10.967Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T03:09:15.626Z",
+    "step": "material-cards",
+    "count": 7,
+    "cards": [
+      {
+        "path": "assets/analyzed-clip.mp4",
+        "unorganized": false,
+        "text": "analyzed-clip.mp40:00"
+      },
+      {
+        "path": "assets/clip.mp4",
+        "unorganized": false,
+        "text": "clip.mp4--:--"
+      },
+      {
+        "path": "assets/unanalyzed-image.png",
+        "unorganized": false,
+        "text": "unanalyzed-image.png--:--"
+      },
+      {
+        "path": "assets/unanalyzed-video.mp4",
+        "unorganized": false,
+        "text": "unanalyzed-video.mp4--:--"
+      },
+      {
+        "path": "clip.mp4",
+        "unorganized": true,
+        "text": "未整理clip.mp4--:--assets へ移動"
+      },
+      {
+        "path": "frame-01.png",
+        "unorganized": true,
+        "text": "未整理frame-01.png--:--assets へ移動"
+      },
+      {
+        "path": "narration.wav",
+        "unorganized": true,
+        "text": "未整理narration.wav--:--assets へ移動"
+      }
+    ]
+  },
+  {
+    "t": "2026-07-25T03:09:15.792Z",
+    "step": "l1-1-unorganized-cards",
+    "unorganizedPaths": [
+      "clip.mp4",
+      "frame-01.png",
+      "narration.wav"
+    ]
+  },
+  {
+    "t": "2026-07-25T03:09:15.832Z",
+    "step": "L1-1-unorganized-count-PASS",
+    "ok": true,
+    "count": 3
+  },
+  {
+    "t": "2026-07-25T03:09:15.835Z",
+    "step": "L1-1-noise-excluded-PASS",
+    "ok": true,
+    "allPaths": [
+      "assets/analyzed-clip.mp4",
+      "assets/clip.mp4",
+      "assets/unanalyzed-image.png",
+      "assets/unanalyzed-video.mp4",
+      "clip.mp4",
+      "frame-01.png",
+      "narration.wav"
+    ]
+  },
+  {
+    "t": "2026-07-25T03:09:15.838Z",
+    "step": "unorganized-badge-text",
+    "badgeText": "未整理clip.mp4--:--assets へ移動"
+  },
+  {
+    "t": "2026-07-25T03:09:15.963Z",
+    "step": "L1-1-badge-and-button-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T03:09:15.964Z",
+    "step": "phase1-error-count",
+    "errCount": 0,
+    "errLog": []
+  }
+]

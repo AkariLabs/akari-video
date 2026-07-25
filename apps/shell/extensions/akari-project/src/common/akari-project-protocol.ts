@@ -55,6 +55,16 @@ export interface EditLintOutcome {
     issueCount?: number;
 }
 
+/**
+ * 未分析サムネキャッシュ解決の結果。available=false は「プレースホルダのまま運用する」の意で、
+ * ffmpeg 不在・生成失敗のどちらでも例外を投げず常にこの形で返す。
+ */
+export interface MaterialThumbnailOutcome {
+    available: boolean;
+    /** `.akari/cache/thumbnails/` 配下のプロジェクト相対パス（available=true のときのみ）。 */
+    cacheRelativePath?: string;
+}
+
 export interface AkariProjectService {
     createProject(destinationUri: string): Promise<void>;
     watchProject(projectUri: string): Promise<void>;
@@ -72,4 +82,11 @@ export interface AkariProjectService {
      * 見つからなければ undefined（呼び出し側は空状態文言を出す）。
      */
     resolveCatalogRoot(preferenceRoot: string | undefined): Promise<string | undefined>;
+    /**
+     * 未分析の動画/画像素材のサムネイルキャッシュを解決する。`.akari/cache/thumbnails/` に
+     * 既存キャッシュ（path+size+mtime 由来のキー）があればそれを返し、なければ ffmpeg
+     * （PATH から解決）で非同期生成する。ffmpeg が見つからない・生成に失敗した場合も例外を
+     * 投げず available=false を返す（呼び出し側はプレースホルダ表示へ黙ってフォールバックする）。
+     */
+    resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image'): Promise<MaterialThumbnailOutcome>;
 }

@@ -1,0 +1,86 @@
+[
+  {
+    "t": "2026-07-25T03:25:34.032Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T03:25:35.656Z",
+    "step": "developer-mode-forced-off",
+    "wasChecked": false,
+    "toggled": false
+  },
+  {
+    "t": "2026-07-25T03:25:36.699Z",
+    "step": "before-drop",
+    "count": 7
+  },
+  {
+    "t": "2026-07-25T03:25:36.780Z",
+    "step": "synthetic-drop-dispatched",
+    "found": true
+  },
+  {
+    "t": "2026-07-25T03:25:37.083Z",
+    "step": "after-drop",
+    "afterDrop": [
+      "assets/analyzed-clip.mp4",
+      "assets/clip-2.mp4",
+      "assets/clip.mp4",
+      "assets/drop-source-regression-clip.mp4",
+      "assets/frame-01.png",
+      "assets/unanalyzed-image.png",
+      "assets/unanalyzed-video.mp4",
+      "narration.wav"
+    ]
+  },
+  {
+    "t": "2026-07-25T03:25:37.260Z",
+    "step": "regression-drop-import-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T03:25:37.261Z",
+    "step": "lint-badge-text",
+    "lintBadge": "Lint10 件"
+  },
+  {
+    "t": "2026-07-25T03:25:37.399Z",
+    "step": "regression-lint-badge-PASS",
+    "ok": true,
+    "lintBadge": "Lint10 件"
+  },
+  {
+    "t": "2026-07-25T03:25:39.493Z",
+    "step": "catalog-tab-counts",
+    "itemCount": 24,
+    "missingCount": 36
+  },
+  {
+    "t": "2026-07-25T03:25:39.596Z",
+    "step": "regression-catalog-tab-PASS",
+    "ok": true,
+    "catalogCounts": {
+      "itemCount": 24,
+      "missingCount": 36
+    }
+  },
+  {
+    "t": "2026-07-25T03:25:41.190Z",
+    "step": "ask-agent-quick-input-opened",
+    "qiVisible": true
+  },
+  {
+    "t": "2026-07-25T03:25:42.026Z",
+    "step": "ask-agent-toast-after",
+    "toastsBefore": 0,
+    "toastsAfter": [
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください",
+      "パートナー未接続。ホームの「パートナーに接続する」から接続してください"
+    ]
+  },
+  {
+    "t": "2026-07-25T03:25:42.123Z",
+    "step": "regression-ask-agent-PASS",
+    "ok": true
+  }
+]

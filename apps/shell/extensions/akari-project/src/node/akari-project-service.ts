@@ -16,8 +16,10 @@ import {
     DroppedVideo,
     DroppedVideoImportResult,
     EditLintOutcome,
+    MaterialThumbnailOutcome,
     ProjectGitEligibility
 } from '../common/akari-project-protocol';
+import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
 
 const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
@@ -66,6 +68,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly watchers = new Map<string, { close(): void }>();
     protected readonly processedEvents = new Set<string>();
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
+    protected readonly thumbnailGenerationInFlight = new Map<string, Promise<MaterialThumbnailOutcome>>();
+    protected ffmpegPathPromise?: Promise<string | undefined>;
     /** Overridable for tests: lets the symlink/junction/copy fallback chain be exercised from mac. */
     protected readonly fsImpl: typeof fs = fs;
     /** Overridable for tests: lets the win32-only junction fallback be exercised from mac. */
@@ -404,6 +408,87 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             child.on('error', reject);
             child.on('exit', code => resolvePromise({ code: code ?? 2, stdout, stderr }));
         });
+    }
+
+    /**
+     * `.akari/cache/thumbnails/` に既存キャッシュがあればそれを返し、なければ ffmpeg
+     * （PATH から解決）で生成する。ffmpeg 不在・生成失敗はどちらも例外を投げず
+     * available=false（プレースホルダ運用）にフォールバックする（task.md 指定）。
+     * `.akari/cache/` 以外へは書かない。
+     */
+    async resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image'): Promise<MaterialThumbnailOutcome> {
+        const root = this.fsPath(projectUri);
+        const sourcePath = join(root, relativePath);
+        let stat: { size: number; mtimeMs: number };
+        try {
+            stat = await fs.stat(sourcePath);
+        } catch {
+            return { available: false };
+        }
+        const key = deriveThumbnailCacheKey(relativePath, stat.size, stat.mtimeMs);
+        const extension = kind === 'video' ? '.jpg' : (extname(sourcePath).toLowerCase() || '.jpg');
+        const cacheFileName = thumbnailCacheFileName(key, extension);
+        const cacheDirectory = join(root, '.akari', 'cache', 'thumbnails');
+        const cachePath = join(cacheDirectory, cacheFileName);
+        const cacheRelativePath = `.akari/cache/thumbnails/${cacheFileName}`;
+        if (await fs.stat(cachePath).then(() => true, () => false)) {
+            return { available: true, cacheRelativePath };
+        }
+        const inFlight = this.thumbnailGenerationInFlight.get(cachePath);
+        if (inFlight) {
+            return inFlight;
+        }
+        const generation = this.generateThumbnail(kind, sourcePath, cacheDirectory, cachePath, cacheFileName, cacheRelativePath)
+            .finally(() => this.thumbnailGenerationInFlight.delete(cachePath));
+        this.thumbnailGenerationInFlight.set(cachePath, generation);
+        return generation;
+    }
+
+    protected async generateThumbnail(
+        kind: 'video' | 'image',
+        sourcePath: string,
+        cacheDirectory: string,
+        cachePath: string,
+        cacheFileName: string,
+        cacheRelativePath: string
+    ): Promise<MaterialThumbnailOutcome> {
+        const ffmpeg = await this.resolveFfmpegPath();
+        if (!ffmpeg) {
+            return { available: false };
+        }
+        await fs.mkdir(cacheDirectory, { recursive: true });
+        const temporaryPath = join(cacheDirectory, `.tmp-${process.pid}-${cacheFileName}`);
+        const scaleFilter = "scale='min(320,iw)':-2";
+        const args = kind === 'video'
+            ? ['-y', '-ss', '00:00:00.5', '-i', sourcePath, '-frames:v', '1', '-vf', scaleFilter, temporaryPath]
+            : ['-y', '-i', sourcePath, '-vf', scaleFilter, temporaryPath];
+        try {
+            await execFileAsync(ffmpeg, args);
+            await fs.rename(temporaryPath, cachePath);
+            return { available: true, cacheRelativePath };
+        } catch (error) {
+            await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+            console.warn('[akari-project] thumbnail generation failed; falling back to placeholder:', error);
+            return { available: false };
+        }
+    }
+
+    protected async resolveFfmpegPath(): Promise<string | undefined> {
+        if (!this.ffmpegPathPromise) {
+            this.ffmpegPathPromise = this.locateFfmpegOnPath();
+        }
+        return this.ffmpegPathPromise;
+    }
+
+    /** ffmpeg を PATH から解決する（task.md 指定）。見つからなければ静かに undefined。 */
+    protected async locateFfmpegOnPath(): Promise<string | undefined> {
+        const finder = this.platform === 'win32' ? 'where' : 'which';
+        try {
+            const { stdout } = await execFileAsync(finder, ['ffmpeg']);
+            return stdout.split(/\r?\n/).map(line => line.trim()).find(Boolean);
+        } catch {
+            return undefined;
+        }
     }
 
     async prepareDiffs(projectUri: string): Promise<DiffPreparationResult> {

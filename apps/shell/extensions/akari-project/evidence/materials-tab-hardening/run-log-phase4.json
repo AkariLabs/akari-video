@@ -1,0 +1,75 @@
+[
+  {
+    "t": "2026-07-25T03:23:58.168Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-07-25T03:23:59.786Z",
+    "step": "developer-mode-forced-off",
+    "wasChecked": false,
+    "toggled": false
+  },
+  {
+    "t": "2026-07-25T03:24:00.831Z",
+    "step": "analyzed-clip-thumbnail",
+    "found": true,
+    "hasImg": true,
+    "src": "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-materials-tab-hardening/954d3c6b-17ac-4c51-828e-53844d723c41/scratchpad/materials-hardening-ws/.akari/sidecars/assets/analyzed-clip.mp4.analysis/keyframe-01.png"
+  },
+  {
+    "t": "2026-07-25T03:24:00.832Z",
+    "step": "L1-4-analysis-keyframe-priority-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T03:24:00.835Z",
+    "step": "unanalyzed-thumbnails",
+    "unanalyzedVideo": {
+      "found": true,
+      "hasImg": true,
+      "src": "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-materials-tab-hardening/954d3c6b-17ac-4c51-828e-53844d723c41/scratchpad/materials-hardening-ws/.akari/cache/thumbnails/1c373d089206842a.jpg"
+    },
+    "unanalyzedImage": {
+      "found": true,
+      "hasImg": true,
+      "src": "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-materials-tab-hardening/954d3c6b-17ac-4c51-828e-53844d723c41/scratchpad/materials-hardening-ws/.akari/cache/thumbnails/cc4b68c3860508b5.png"
+    }
+  },
+  {
+    "t": "2026-07-25T03:24:00.835Z",
+    "step": "L1-4-cache-thumbnail-priority-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-07-25T03:24:00.965Z",
+    "step": "cache-dir-listing",
+    "cacheDir": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-materials-tab-hardening/954d3c6b-17ac-4c51-828e-53844d723c41/scratchpad/materials-hardening-ws/.akari/cache/thumbnails",
+    "cacheFiles": [
+      "01d2aa980b1e1a74.jpg",
+      "1c373d089206842a.jpg",
+      "532b5c1772077a99.jpg",
+      "6089d4fe5595476c.jpg",
+      "8ae31cb438ea096b.png",
+      "ad835334f2de6042.png",
+      "b2e15f51b6ae4b5d.jpg",
+      "cc4b68c3860508b5.png"
+    ]
+  },
+  {
+    "t": "2026-07-25T03:24:00.966Z",
+    "step": "L1-4-cache-files-on-disk-PASS",
+    "ok": true,
+    "count": 8
+  },
+  {
+    "t": "2026-07-25T03:24:00.967Z",
+    "step": "phase4-final-error-count",
+    "finalErrCount": 0,
+    "finalErrLog": []
+  },
+  {
+    "t": "2026-07-25T03:24:00.967Z",
+    "step": "L1-4-console-error-zero-PASS",
+    "ok": true
+  }
+]
