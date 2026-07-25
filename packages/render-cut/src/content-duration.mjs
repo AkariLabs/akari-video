@@ -13,9 +13,16 @@ export function computeContentDurationSeconds({
     const path = typeof item?.path === "string" ? item.path : null;
     const t = Number(item?.t);
     if (!path || !Number.isFinite(t) || t < 0) continue;
-    const duration = probeAudioDurationSeconds(ffprobeCommand, resolve(projectRoot, path));
-    if (duration === null) continue;
-    sfxEnd = Math.max(sfxEnd, t + duration);
+    const materialDuration = probeAudioDurationSeconds(ffprobeCommand, resolve(projectRoot, path));
+    if (materialDuration === null) continue;
+    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: the audible span is [in, out), not
+    // the whole material -- mirrors plan.mjs's resolveSfxTrim clamp so a trimmed sfx only extends
+    // the predicted content duration by what actually plays, never by the untrimmed file length.
+    const inSeconds = Number.isFinite(item?.in) && item.in >= 0 ? item.in : 0;
+    const rawOut = Number.isFinite(item?.out) && item.out > 0 ? item.out : materialDuration;
+    const outSeconds = Math.min(rawOut, materialDuration);
+    if (inSeconds >= materialDuration || outSeconds <= inSeconds) continue; // render-cut plays this silently; contributes no duration.
+    sfxEnd = Math.max(sfxEnd, t + (outSeconds - inSeconds));
   }
 
   let layersEnd = 0;

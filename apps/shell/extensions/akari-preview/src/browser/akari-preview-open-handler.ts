@@ -20,6 +20,12 @@ import {
     OverlayRuntimeAssets,
     ReviewStrokeFrame
 } from '../common/akari-preview-protocol';
+import {
+    bgmLoopOffsetSeconds,
+    resolveBgmSourceOffset,
+    resolveSfxTrimWindow,
+    resolveTimedScheduleWindow
+} from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
@@ -85,12 +91,19 @@ interface EditSummaryBgm extends EditSummaryAudioSource {
     ducking: boolean;
     fadeIn?: number;
     fadeOut?: number;
+    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: file-internal start offset (素材秒).
+    in?: number;
 }
 
 interface EditSummaryTimedAudio extends EditSummaryAudioSource {
     id: string;
     t: number;
     track?: number;
+    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (sfx only; narration is unaffected):
+    // playback window = material's [in, out). Omitted in/out are resolved against the decoded
+    // buffer's real duration in the injected preview script (createPreviewAudio's decodeOne).
+    in?: number;
+    out?: number;
 }
 
 interface EditSummaryAudio {
@@ -2094,6 +2107,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     t?: unknown;
                     gain_db?: unknown;
                     track?: unknown;
+                    in?: unknown;
+                    out?: unknown;
                 } | undefined;
                 const label = kind === 'narration' && typeof item?.id === 'string' && item.id
                     ? `audio.narration ${item.id}`
@@ -2118,13 +2133,40 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!src) {
                     continue;
                 }
+                // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: sfx-only playback window
+                // (material's [in, out)). Malformed values are warned-and-ignored (treated as
+                // omitted) rather than dropping the whole item, matching gain_db/fadeIn/fadeOut's
+                // existing tolerance pattern in this function. Real-duration clamping (実尺越え) can
+                // only happen once the buffer is decoded, so it happens later in decodeOne.
+                let trimIn: number | undefined;
+                let trimOut: number | undefined;
+                if (kind === 'sfx') {
+                    if (item.in !== undefined) {
+                        if (typeof item.in === 'number' && Number.isFinite(item.in) && item.in >= 0) {
+                            trimIn = item.in;
+                        } else {
+                            console.warn(`[akari-preview] ${label}.in を無視しました（0以上の有限 number ではありません）`, item.in);
+                        }
+                    }
+                    if (item.out !== undefined) {
+                        if (typeof item.out === 'number' && Number.isFinite(item.out) && item.out > 0) {
+                            trimOut = item.out;
+                        } else {
+                            console.warn(`[akari-preview] ${label}.out を無視しました（0より大きい有限 number ではありません）`, item.out);
+                        }
+                    }
+                }
                 resolved.push({
                     id: kind === 'narration' ? String(item.id) : `sfx-${index + 1}`,
                     src,
                     t: item.t,
                     gainDb: normalizedGain,
                     ...(kind === 'sfx'
-                        ? { track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0 }
+                        ? {
+                            track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
+                            ...(trimIn !== undefined ? { in: trimIn } : {}),
+                            ...(trimOut !== undefined ? { out: trimOut } : {})
+                        }
                         : {})
                 });
             }
@@ -2139,6 +2181,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ducking?: unknown;
                 fadeIn?: unknown;
                 fadeOut?: unknown;
+                in?: unknown;
             } | undefined;
             if (!rawBgm || typeof rawBgm !== 'object' || Array.isArray(rawBgm)) {
                 console.warn('[akari-preview] audio.bgm を無視しました（object ではありません）');
@@ -2156,9 +2199,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             console.warn(`[akari-preview] audio.bgm.${field} を無視しました（0以上の有限 number ではありません）`, raw);
                         }
                     }
+                    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: file-internal start
+                    // offset (素材秒). 実尺越え (in >= real duration) can only be checked once the
+                    // buffer is decoded, so that clamp happens later in decodeOne.
+                    let bgmIn: number | undefined;
+                    if (rawBgm.in !== undefined) {
+                        if (typeof rawBgm.in === 'number' && Number.isFinite(rawBgm.in) && rawBgm.in >= 0) {
+                            bgmIn = rawBgm.in;
+                        } else {
+                            console.warn('[akari-preview] audio.bgm.in を無視しました（0以上の有限 number ではありません）', rawBgm.in);
+                        }
+                    }
                     const src = await resolveSource(rawBgm.path, 'audio.bgm');
                     if (src) {
-                        bgm = { src, gainDb: normalizedGain, ducking: rawBgm.ducking === true, ...fades };
+                        bgm = {
+                            src,
+                            gainDb: normalizedGain,
+                            ducking: rawBgm.ducking === true,
+                            ...fades,
+                            ...(bgmIn !== undefined ? { in: bgmIn } : {})
+                        };
                     }
                 }
             }
@@ -2747,6 +2807,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const masterGain = context.createGain();
                 masterGain.connect(context.destination);
+                // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: sfx/bgm trim + schedule
+                // math, shared with this same module's node:test unit tests
+                // (test/audio-schedule.test.mjs) via src/common/audio-schedule.ts -- see that file's
+                // header comment (same pattern as preview-composite-layout.ts's fitCompositeRect
+                // below).
+                const resolveSfxTrimWindowFn = (${resolveSfxTrimWindow.toString()});
+                const resolveBgmSourceOffsetFn = (${resolveBgmSourceOffset.toString()});
+                const bgmLoopOffsetSecondsFn = (${bgmLoopOffsetSeconds.toString()});
+                const resolveTimedScheduleWindowFn = (${resolveTimedScheduleWindow.toString()});
                 const decoded = { bgm: null, sfx: [], narration: [] };
                 let timelineDuration = 0;
                 let loadPromise = null;
@@ -2770,6 +2839,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     console.warn('[akari-preview] ' + kind + ' ' + id
                         + ' unavailable (fetch/decode failed); skipping element', error);
                 };
+                // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (consumption side): 実尺
+                // (the real decoded duration) is only known post-decode, so in/out clamping happens
+                // here, via the shared resolveSfxTrimWindowFn/resolveBgmSourceOffsetFn -- mirrors
+                // packages/render-cut/src/plan.mjs's resolveSfxTrim/resolveBgmInSeconds.
                 const decodeOne = async (kind, spec) => {
                     try {
                         const response = await fetch(spec.src);
@@ -2777,6 +2850,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         const buffer = await context.decodeAudioData(await response.arrayBuffer());
                         if (!Number.isFinite(buffer.duration) || buffer.duration <= 0) {
                             throw new Error('decoded audio duration is invalid');
+                        }
+                        if (kind === 'sfx' && (spec.in !== undefined || spec.out !== undefined)) {
+                            const trimWindow = resolveSfxTrimWindowFn(spec.in, spec.out, buffer.duration, 'sfx ' + spec.id);
+                            if (trimWindow.warning) console.warn('[akari-preview] ' + trimWindow.warning);
+                            if (trimWindow.skip) return null;
+                            return { ...spec, buffer, durationSec: trimWindow.durationSec, sourceOffset: trimWindow.sourceOffset };
+                        }
+                        if (kind === 'bgm' && spec.in !== undefined) {
+                            const resolved = resolveBgmSourceOffsetFn(spec.in, buffer.duration);
+                            if (resolved.warning) console.warn('[akari-preview] ' + resolved.warning);
+                            return { ...spec, buffer, durationSec: buffer.duration, sourceOffset: resolved.sourceOffset };
                         }
                         return { ...spec, buffer, durationSec: buffer.duration };
                     } catch (error) {
@@ -2910,7 +2994,13 @@ body { display: grid; place-items: center; padding: 32px; }
                             bgmGain = gain;
                             applyBgmDuck(startAt);
                             registerSource(source, gain, 'bgm', 'bgm');
-                            source.start(contextStart, startAt % decoded.bgm.durationSec);
+                            // audio.bgm.in: file-internal start offset, composed with the existing
+                            // timeline-position-to-source-position mapping via bgmLoopOffsetSecondsFn.
+                            // loop=true means once playback reaches the buffer's own end it wraps to
+                            // source position 0 (not back to in) -- the existing loop semantics are
+                            // otherwise untouched; this only computes where playback begins.
+                            const bgmOffset = bgmLoopOffsetSecondsFn(decoded.bgm.sourceOffset || 0, startAt, decoded.bgm.durationSec);
+                            source.start(contextStart, bgmOffset);
                             source.stop(contextStart + remaining);
                             scheduledBgm = true;
                         } catch (error) {
@@ -2919,12 +3009,14 @@ body { display: grid; place-items: center; padding: 32px; }
                         }
                     }
                     const scheduleTimed = (kind, item) => {
-                        const end = item.t + item.durationSec;
-                        if (end <= startAt || item.t >= timelineDuration) return false;
-                        const delay = Math.max(0, item.t - startAt);
-                        const offset = Math.max(0, startAt - item.t);
-                        const available = Math.min(item.durationSec - offset, remaining - delay);
-                        if (available <= 0) return false;
+                        // audio.sfx.in: material source offset, composed via resolveTimedScheduleWindowFn
+                        // with the existing resume-from-mid-playback offset -- when item.sourceOffset is
+                        // absent (narration; sfx without in/out) this reduces to the original schedule math.
+                        const scheduleWindow = resolveTimedScheduleWindowFn(item.t, item.durationSec, item.sourceOffset || 0, startAt, timelineDuration, remaining);
+                        if (!scheduleWindow.shouldSchedule) return false;
+                        const delay = scheduleWindow.delaySec;
+                        const offset = scheduleWindow.sourceOffsetSec;
+                        const available = scheduleWindow.availableSec;
                         try {
                             const source = context.createBufferSource();
                             const gain = context.createGain();
@@ -2981,7 +3073,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         timelineDuration,
                         decoded: {
                             bgm: Boolean(decoded.bgm),
-                            sfx: decoded.sfx.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec })),
+                            bgmSourceOffset: decoded.bgm ? decoded.bgm.sourceOffset || 0 : null,
+                            sfx: decoded.sfx.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec, sourceOffset: item.sourceOffset || 0 })),
                             narration: decoded.narration.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec }))
                         },
                         active: {
@@ -3296,8 +3389,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 const results = await Promise.all(items.map(async item => {
                     if (typeof item.t !== 'number' || !Number.isFinite(item.t) || item.t < 0) return null;
                     if (typeof item.src !== 'string' || !item.src) return null;
-                    const durationSec = await probeMediaDurationSeconds(item.src);
-                    return durationSec === null ? null : (item.t + durationSec);
+                    const materialDuration = await probeMediaDurationSeconds(item.src);
+                    if (materialDuration === null) return null;
+                    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: the audible span is
+                    // [in, out), not the whole material -- mirrors createPreviewAudio's decodeOne /
+                    // render-cut's content-duration.mjs so a trimmed sfx only extends the predicted
+                    // content duration by what actually plays.
+                    const inSeconds = typeof item.in === 'number' && item.in >= 0 ? item.in : 0;
+                    const rawOut = typeof item.out === 'number' && item.out > 0 ? item.out : materialDuration;
+                    const outSeconds = Math.min(rawOut, materialDuration);
+                    if (inSeconds >= materialDuration || outSeconds <= inSeconds) return null;
+                    return item.t + (outSeconds - inSeconds);
                 }));
                 resolvedSfxTails = results.filter(value => typeof value === 'number');
             };

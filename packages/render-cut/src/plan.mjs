@@ -455,7 +455,11 @@ export function buildAudioMixCommand({
 
   let bgmLabel = null;
   if (audio.bgm) {
-    args.push("-stream_loop", "-1", "-i", resolve(projectRoot, audio.bgm.path));
+    const bgmSourcePath = resolve(projectRoot, audio.bgm.path);
+    const bgmIn = resolveBgmInSeconds(audio.bgm, ffprobeCommand, bgmSourcePath);
+    warnings.push(...bgmIn.warnings);
+    if (bgmIn.seconds > 0) args.push("-ss", formatNumber(bgmIn.seconds));
+    args.push("-stream_loop", "-1", "-i", bgmSourcePath);
     const bgmFade = resolveBgmFadeSeconds(audio.bgm, duration);
     warnings.push(...bgmFade.warnings);
     // afade is chained directly onto volume/atrim -- i.e. baked into the [bgm] label itself --
@@ -486,10 +490,14 @@ export function buildAudioMixCommand({
     labels.push(bgmLabel);
   }
   for (const [index, sfx] of audio.sfx.entries()) {
-    args.push("-i", resolve(projectRoot, sfx.path));
+    const sfxSourcePath = resolve(projectRoot, sfx.path);
+    const trim = resolveSfxTrim(sfx, ffprobeCommand, sfxSourcePath, index);
+    warnings.push(...trim.warnings);
+    if (trim.skip) continue;
+    args.push("-i", sfxSourcePath);
     const delay = Math.max(0, Math.round((sfx.t ?? 0) * 1000));
     filters.push(
-      `[${inputIndex}:a]volume=${formatNumber(sfx.gain_db ?? 0)}dB,adelay=${delay}:all=1[sfx${index}]`,
+      `[${inputIndex}:a]${trim.trimFilter}volume=${formatNumber(sfx.gain_db ?? 0)}dB,adelay=${delay}:all=1[sfx${index}]`,
     );
     labels.push(`[sfx${index}]`);
     inputIndex += 1;
@@ -743,6 +751,77 @@ function normalizeAudioPlan(audio) {
     bgm: audio.bgm ? normalize(audio.bgm) : null,
     sfx: Array.isArray(audio.sfx) ? audio.sfx.map(normalize) : [],
   };
+}
+
+// docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (bgm): `in` is a file-internal start
+// offset, applied as an input-side -ss ahead of the existing -stream_loop -1 -- verified empirically
+// (ss-loop-test/, not checked in) that this seeks once before the loop begins and does not disturb
+// the loop's own restart-from-file-start behavior, so "ループの既存意味論は不変" holds. Only probes
+// the real file duration when `in` is actually present, so the omitted-in path (the common case)
+// never pays the extra ffprobe call and stays byte-identical to pre-R6b output.
+function resolveBgmInSeconds(bgm, ffprobeCommand, resolvedPath) {
+  if (bgm.in === undefined) return { seconds: 0, warnings: [] };
+  const raw = bgm.in;
+  if (!isFiniteNumber(raw) || raw <= 0) return { seconds: 0, warnings: [] }; // schema/edit-lint reject negative; render tolerates as "no offset".
+  const actualDuration = probeAudioDurationSeconds(ffprobeCommand, resolvedPath);
+  if (isFiniteNumber(actualDuration) && actualDuration > 0 && raw >= actualDuration) {
+    return {
+      seconds: 0,
+      warnings: [
+        `audio.bgm.in ${formatNumber(raw)}s is at or beyond the material duration (${formatNumber(actualDuration)}s); clamped to 0s`,
+      ],
+    };
+  }
+  return { seconds: raw, warnings: [] };
+}
+
+// docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (sfx): playback window = material's
+// [in, out). in defaults to 0, out defaults to the material's own end. Only probes the material's
+// real duration (an extra ffprobe call) when in/out is actually present on this item -- the
+// in/out-free path (the vast majority of existing sfx) returns immediately with no trim filter,
+// keeping its output byte-identical to pre-R6b.
+function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index) {
+  const hasIn = sfx.in !== undefined;
+  const hasOut = sfx.out !== undefined;
+  if (!hasIn && !hasOut) return { skip: false, trimFilter: "", warnings: [] };
+
+  const label = `audio.sfx[${index}]`;
+  const warnings = [];
+  const inSeconds = hasIn && isFiniteNumber(sfx.in) && sfx.in >= 0 ? sfx.in : 0;
+  let outSeconds = hasOut && isFiniteNumber(sfx.out) && sfx.out > 0 ? sfx.out : null;
+
+  const actualDuration = probeAudioDurationSeconds(ffprobeCommand, resolvedPath);
+  if (isFiniteNumber(actualDuration) && actualDuration > 0) {
+    if (inSeconds >= actualDuration) {
+      warnings.push(
+        `${label}: in ${formatNumber(inSeconds)}s is at or beyond the material duration (${formatNumber(actualDuration)}s); skipped (silent)`,
+      );
+      return { skip: true, warnings };
+    }
+    if (outSeconds === null || outSeconds > actualDuration) {
+      if (outSeconds !== null) {
+        warnings.push(
+          `${label}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
+        );
+      }
+      outSeconds = actualDuration;
+    }
+  }
+
+  // out<=in is edit-lint's job to reject (contract §2: "out > in が必須（edit-lint が検証する）").
+  // render-cut's defense here is deliberately minimal per the task brief: if it ever slips through
+  // anyway, stay safe-side with a silent skip rather than pass a negative-duration atrim to ffmpeg.
+  if (outSeconds !== null && outSeconds <= inSeconds) {
+    warnings.push(
+      `${label}: out <= in after clamping (in=${formatNumber(inSeconds)}s, out=${formatNumber(outSeconds)}s); skipped (silent)`,
+    );
+    return { skip: true, warnings };
+  }
+
+  const end = outSeconds === null ? "" : `:end=${formatNumber(outSeconds)}`;
+  const trimFilter =
+    inSeconds > 0 || end !== "" ? `atrim=start=${formatNumber(inSeconds)}${end},asetpts=PTS-STARTPTS,` : "";
+  return { skip: false, trimFilter, warnings };
 }
 
 // audio.bgm.fadeIn/fadeOut clamp rule: the "clip" bgm occupies is the full timeline (it is
