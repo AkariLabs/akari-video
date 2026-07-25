@@ -3108,6 +3108,8 @@ body { display: grid; place-items: center; padding: 32px; }
             video.muted = globalMuted;
             captionPlate.style.visibility = initial.captionsVisible === false ? 'hidden' : 'visible';
             let animationFrame = 0;
+            let animationWatchdogTimer = 0;
+            let lastTickAtMs = 0;
             let keepRanges = [];
             let timelineOffsets = [];
             let transitionPlates = [];
@@ -4430,16 +4432,37 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyCutsMuteState();
             };
             const animate = () => {
+                lastTickAtMs = performance.now();
                 tick();
                 if (isPlaying) animationFrame = requestAnimationFrame(animate);
             };
             const startAnimation = () => {
                 cancelAnimationFrame(animationFrame);
+                lastTickAtMs = performance.now();
                 animationFrame = requestAnimationFrame(animate);
+                window.clearInterval(animationWatchdogTimer);
+                // rAF の連鎖が途切れると outputTime/シークバー/video が永久停止する一方、
+                // previewAudio は壁時計駆動で鳴り続ける「片肺」状態になる（実機再現済み）。
+                // rAF が生きている間は lastTickAtMs が毎フレーム更新されるため素通りする監視。
+                animationWatchdogTimer = window.setInterval(() => {
+                    if (!isPlaying) {
+                        window.clearInterval(animationWatchdogTimer);
+                        animationWatchdogTimer = 0;
+                        return;
+                    }
+                    if (performance.now() - lastTickAtMs > 400) {
+                        cancelAnimationFrame(animationFrame);
+                        lastTickAtMs = performance.now();
+                        tick();
+                        animationFrame = requestAnimationFrame(animate);
+                    }
+                }, 200);
             };
             const stopAnimation = () => {
                 cancelAnimationFrame(animationFrame);
                 animationFrame = 0;
+                window.clearInterval(animationWatchdogTimer);
+                animationWatchdogTimer = 0;
                 tick(true);
             };
             const showPlaybackError = () => {
