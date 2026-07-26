@@ -5,6 +5,8 @@ description: edit.json と任意の analysis.json / captions.json / メディア
 
 # 編集結果を lint して QA を閉じる
 
+> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+
 ## ハードルール
 
 1. **決定的であること**: 同一入力 → 同一出力。LLM 判断・乱数・現在時刻を判定に混ぜない

@@ -5,6 +5,8 @@ description: 原稿テキストから VOICEVOX（ローカル・ゼロ円の既�
 
 # ナレーション音声を生成する
 
+> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+
 # FORBIDDEN 級ハードルール
 
 次の規則は詳細手順より常に優先する。

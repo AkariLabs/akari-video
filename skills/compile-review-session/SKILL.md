@@ -5,6 +5,8 @@ description: 録音 review セッションの audio.wav・events.jsonl・edit.sn
 
 # review セッションをコンパイルする
 
+> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+
 ## ハードルール
 
 1. `audio.wav`、`events.jsonl`、`strokes.json`、`edit.snapshot.json` を変更しない。

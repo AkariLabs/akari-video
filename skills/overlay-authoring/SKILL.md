@@ -5,6 +5,8 @@ description: AKARI Video のオーバーレイ HTML、字幕、表・グラフ�
 
 # FORBIDDEN 級ハードルール
 
+> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+
 次のいずれかに違反する動画オーバーレイを作成・採用しない。詳細リーフより常に優先する。
 
 1. **調整値を直書きしない。** 位置、拡縮、文字サイズ、色、余白、内容など、人が調整しうる値を CSS 変数として公開する。`--x`、`--y`、`--scale`、`--font-size`、`--color` などを使い、`edit.json.overlays[].vars` から継承できるよう `var(--name, fallback)` で参照する。断片ルートで同名変数を再定義して上書きを遮らない。

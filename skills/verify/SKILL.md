@@ -5,6 +5,8 @@ description: AKARI Video（現行 Theia スタック）のタスク契約が要�
 
 # verify — 検証はしご（L0 / L1 / L2）
 
+> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+
 タスク契約テンプレート（内部リポ `tasks/_template/task.md`）が参照する対応表の実体。
 **発明した定義ではなく、直近タスクの `report.md` / `task.md` の実運用から帰納したもの**（帰納元は末尾「根拠」節）。
 

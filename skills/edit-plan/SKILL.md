@@ -5,6 +5,8 @@ description: analyze-project が作る分析レポート（interpretation.json +
 
 # 編集判断を統合する
 
+> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+
 > **2026-07-22 改訂**: 編集判断レポート（固定 6 章 HTML + 決定カード）の生成は本スキルから
 > 退いた。正式なレポートは [analyze-project](../analyze-project/SKILL.md) が作る分析レポートの
 > みであり、方向性の引き出しはチャットで行う（オーナー口述 F48 第 20 巡）。詳細と移行理由は

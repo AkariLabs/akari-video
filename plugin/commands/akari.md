@@ -1,11 +1,12 @@
 ---
-description: AKARI Video の接続状態を確認し、状態に応じて次の一手を日本語で案内する
+description: AKARI Video の接続状態を確認し、状態に応じて次の一手をユーザーの言語で案内する
 allowed-tools: Bash(node:*), Bash(ls:*), Bash(test:*), Read
 disable-model-invocation: false
 ---
 
 AKARI Video の状態を確認し、利用者に次の一手を案内する。内部の仕組み（JSON・git・
 スキーマ名）ではなく、利用者の言葉（素材・企画・書き出し・やること・尺・おまかせ度）で話す。
+応答はユーザーの使用言語に合わせる（英語で話しかけられたら英語で案内する）。
 
 手順:
 

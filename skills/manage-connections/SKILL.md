@@ -5,6 +5,8 @@ description: AKARI Video の生成プロバイダ・SNS 接続・API キー参�
 
 # FORBIDDEN 級ハードルール
 
+> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+
 次の規則は詳細手順より常に優先する。
 
 1. **キーの値を git 管理下ファイル・HTML・ログ・会話に出さない。** 表示は常にマスク

@@ -5,6 +5,8 @@ description: 承認済み edit.json と edit-lint PASS を入力に、最終 MP4
 
 # 承認済み編集を書き出す
 
+> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
+
 ## ハードルール
 
 1. **edit.json を正本に決定的コマンド生成。自然言語からの即興 ffmpeg 禁止**
