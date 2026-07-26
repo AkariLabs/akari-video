@@ -44,7 +44,21 @@ export interface AnnotationStrokeImageRect {
     sessionRef?: string;
 }
 
-export type AnnotationStroke = AnnotationStrokeContentRect | AnnotationStrokeImageRect;
+/**
+ * `space: "canvas-rect"`（キャンバス面。contract-2026-07-26-canvas-surface §1/§4）:
+ * image-rect と同型（frame は動画フレームアンカーが存在しないため省略必須）だが、
+ * 出所参照フィールド名が `sessionRef` ではなく `canvasRef`（`c-0001/st-0003` 形式）になる。
+ */
+export interface AnnotationStrokeCanvasRect {
+    tool: 'pen';
+    space: 'canvas-rect';
+    /** 正規化 0〜1・キャンバス矩形基準の間引き済みポリライン（〜100 点程度） */
+    points: [number, number][];
+    /** キャンバス原本（review/canvas/c-0001/strokes.json）への出所参照。任意（契約 §5 指示 5）。 */
+    canvasRef?: string;
+}
+
+export type AnnotationStroke = AnnotationStrokeContentRect | AnnotationStrokeImageRect | AnnotationStrokeCanvasRect;
 
 export type AnnotationRef = { src: string } | { path: string };
 
@@ -105,10 +119,13 @@ const SESSION_CONFIDENCES = new Set<AnnotationSessionConfidence>(['high', 'mediu
 const DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
 /** 同契約 §1: image:<プロジェクト相対パス>。 */
 const IMAGE_TARGET_PATTERN = /^image:(.+)$/;
+/** contract-2026-07-26-canvas-surface §4: canvas:<c-NNNN>（採番規律 c- + ゼロ埋め連番と一致させる）。 */
+const CANVAS_TARGET_PATTERN = /^canvas:(c-\d{4,})$/;
 
-/** target が doc: / image: 形式かどうか（§2 の sourceT: null 許容の判定に使う）。 */
+/** target が doc: / image: / canvas: 形式かどうか（§2 の sourceT: null 許容の判定に使う）。 */
 export function isDocOrImageTarget(target: string | null): boolean {
-    return typeof target === 'string' && (DOC_TARGET_PATTERN.test(target) || IMAGE_TARGET_PATTERN.test(target));
+    return typeof target === 'string'
+        && (DOC_TARGET_PATTERN.test(target) || IMAGE_TARGET_PATTERN.test(target) || CANVAS_TARGET_PATTERN.test(target));
 }
 
 export function emptyReviewSource(): string {
@@ -270,9 +287,10 @@ export function normalizeStrokes(value: any, id: string, warnings: string[]): An
 }
 
 /**
- * review セッション契約 §4.2 / contract-2026-07-26-doc-image-annotations §3 の annotation 着地型を
- * 検証する。`space` により分岐する: `content-rect`（動画面・frame + sessionRef 必須）と
- * `image-rect`（画像面・frame は省略・sessionRef は単発注釈では省略可）。
+ * review セッション契約 §4.2 / contract-2026-07-26-doc-image-annotations §3 /
+ * contract-2026-07-26-canvas-surface §4 の annotation 着地型を検証する。`space` により分岐する:
+ * `content-rect`（動画面・frame + sessionRef 必須）、`image-rect`（画像面・frame は省略・
+ * sessionRef は単発注釈では省略可）、`canvas-rect`（キャンバス面・frame は省略・canvasRef は省略可）。
  */
 function normalizeStroke(value: any): AnnotationStroke | undefined {
     if (!value || typeof value !== 'object' || Array.isArray(value) || value.tool !== 'pen') {
@@ -309,6 +327,16 @@ function normalizeStroke(value: any): AnnotationStroke | undefined {
         return sessionRef
             ? { tool: 'pen', space: 'image-rect', points, sessionRef }
             : { tool: 'pen', space: 'image-rect', points };
+    }
+    if (value.space === 'canvas-rect') {
+        // frame は画像面と同じ理由で存在しないアンカー（キャンバスは動画フレームを持たない）。
+        if (Object.prototype.hasOwnProperty.call(value, 'frame') && value.frame != null) {
+            return undefined;
+        }
+        const canvasRef = typeof value.canvasRef === 'string' && value.canvasRef.trim() ? value.canvasRef : undefined;
+        return canvasRef
+            ? { tool: 'pen', space: 'canvas-rect', points, canvasRef }
+            : { tool: 'pen', space: 'canvas-rect', points };
     }
     return undefined;
 }

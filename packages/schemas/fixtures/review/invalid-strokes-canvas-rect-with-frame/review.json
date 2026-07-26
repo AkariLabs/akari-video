@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-26T12:00:00.000Z","src":null,"sourceT":null,"sourceRange":null,"timelineT":null,"target":"canvas:c-0001","targetKind":null,"region":null,"strokes":[{"tool":"pen","space":"canvas-rect","frame":{"sourceT":1,"cutIndex":0},"points":[[0.1,0.1],[0.2,0.2]]}],"refs":null,"insertPosition":null,"intent":null,"text":"キャンバスにペンで構図案を記録","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+  ]
+}

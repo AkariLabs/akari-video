@@ -27,6 +27,14 @@ export const OPEN_AKARI_REVIEW_BOARD: Command = {
 
 export const OPEN_AKARI_REVIEW_BOARD_ID = OPEN_AKARI_REVIEW_BOARD.id;
 
+/** キャンバス面（contract-2026-07-26-canvas-surface）を新規に開く。 */
+export const OPEN_AKARI_CANVAS: Command = {
+    id: 'akari.canvas.open',
+    label: 'キャンバスを開く'
+};
+
+export const OPEN_AKARI_CANVAS_ID = OPEN_AKARI_CANVAS.id;
+
 /**
  * akari-preview から動画オープン時に呼ばれる内部コマンド。label なし = コマンドパレット非表示
  * （AKARI_TRANSCRIPT_SEEK_REQUESTED と同じ「ラベルなし内部コマンド」パターン）。

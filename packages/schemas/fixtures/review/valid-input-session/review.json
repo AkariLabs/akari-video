@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-24T21:05:00.000Z","src":null,"sourceT":105.0,"sourceRange":null,"timelineT":null,"target":"cut:1","targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"字幕をこの位置まで延長してほしい","input":"session","audio":"review/sessions/s-0001/audio.wav","poses":null,"status":"open","response":null}
+  ]
+}

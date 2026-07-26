@@ -28,14 +28,18 @@ const warnings = [];
 
 const TARGET_KINDS = new Set(["instant", "range", "region", "asset", "insert"]);
 const STATUSES = new Set(["open", "addressed", "resolved"]);
-const INPUTS = new Set(["typed", "voice"]);
-// review セッション契約 §4.2 で確定した annotation 着地型。space により frame / sessionRef の
-// 要否が変わる（content-rect = 動画面・録音セッション由来のみ / image-rect = 画像面・単発注釈可）。
-const STROKE_SPACES = new Set(["content-rect", "image-rect"]);
+// ライダー r1（2026-07-26-canvas-surface 起票時点で回収）: review セッション契約 §6 で
+// input: "session" が昇格済みだったが、この enum は追随していなかった（実データに 2 件エラー）。
+const INPUTS = new Set(["typed", "voice", "session"]);
+// review セッション契約 §4.2 で確定した annotation 着地型。space により frame / sessionRef(canvasRef) の
+// 要否が変わる（content-rect = 動画面・録音セッション由来のみ / image-rect = 画像面・単発注釈可 /
+// canvas-rect = キャンバス面・単発注釈可・contract-2026-07-26-canvas-surface §4）。
+const STROKE_SPACES = new Set(["content-rect", "image-rect", "canvas-rect"]);
 // contract-2026-07-26-doc-image-annotations §1: doc:<プロジェクト相対パス>#<block-id> / image:<プロジェクト相対パス>。
-// この 2 種に限り §2 で sourceT: null を許容する。
+// contract-2026-07-26-canvas-surface §4: canvas:<c-NNNN>。この 3 種に限り §2 で sourceT: null を許容する。
 const DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
 const IMAGE_TARGET_PATTERN = /^image:(.+)$/;
+const CANVAS_TARGET_PATTERN = /^canvas:(c-\d{4,})$/;
 
 if (!isRegularFile(reviewPath)) {
   fail(`review.json が見つかりません: ${reviewPath}`);
@@ -169,7 +173,8 @@ function validateAnnotation(value, index, ids) {
 }
 
 function isDocOrImageTarget(value) {
-  return typeof value === "string" && (DOC_TARGET_PATTERN.test(value) || IMAGE_TARGET_PATTERN.test(value));
+  return typeof value === "string"
+    && (DOC_TARGET_PATTERN.test(value) || IMAGE_TARGET_PATTERN.test(value) || CANVAS_TARGET_PATTERN.test(value));
 }
 
 function validateTarget(value, label) {
@@ -182,6 +187,8 @@ function validateTarget(value, label) {
     fail(`${label}.target は doc:<プロジェクト相対パス>#<block-id> の形式である必要があります: ${value}`);
   } else if (value.startsWith("image:") && !IMAGE_TARGET_PATTERN.test(value)) {
     fail(`${label}.target は image:<プロジェクト相対パス> の形式である必要があります: ${value}`);
+  } else if (value.startsWith("canvas:") && !CANVAS_TARGET_PATTERN.test(value)) {
+    fail(`${label}.target は canvas:<c-NNNN> の形式である必要があります: ${value}`);
   }
 }
 
@@ -249,7 +256,7 @@ function validateStroke(stroke, label) {
     return false;
   }
   if (!STROKE_SPACES.has(stroke.space)) {
-    fail(`${label}.space は content-rect または image-rect である必要があります`);
+    fail(`${label}.space は content-rect / image-rect / canvas-rect のいずれかである必要があります`);
     return false;
   }
   if (!validateStrokePoints(stroke.points, label)) {
@@ -274,14 +281,27 @@ function validateStroke(stroke, label) {
     }
     return true;
   }
-  // space === "image-rect"（contract-2026-07-26-doc-image-annotations §3）:
-  // frame は動画フレームアンカーが存在しないため省略必須・sessionRef は単発注釈では省略可。
+  if (stroke.space === "image-rect") {
+    // frame は動画フレームアンカーが存在しないため省略必須・sessionRef は単発注釈では省略可
+    // （contract-2026-07-26-doc-image-annotations §3）。
+    if (hasOwn(stroke, "frame")) {
+      fail(`${label}.frame は image-rect では省略する必要があります（動画フレームアンカーが存在しないため）`);
+      return false;
+    }
+    if (hasOwn(stroke, "sessionRef") && !isNonEmptyString(stroke.sessionRef)) {
+      fail(`${label}.sessionRef を持たせる場合は空でない文字列である必要があります`);
+      return false;
+    }
+    return true;
+  }
+  // space === "canvas-rect"（contract-2026-07-26-canvas-surface §4）: image-rect と同型だが
+  // 出所参照フィールド名が canvasRef（c-0001/st-0003 形式）。frame は同じ理由で省略必須・canvasRef は任意。
   if (hasOwn(stroke, "frame")) {
-    fail(`${label}.frame は image-rect では省略する必要があります（動画フレームアンカーが存在しないため）`);
+    fail(`${label}.frame は canvas-rect では省略する必要があります（動画フレームアンカーが存在しないため）`);
     return false;
   }
-  if (hasOwn(stroke, "sessionRef") && !isNonEmptyString(stroke.sessionRef)) {
-    fail(`${label}.sessionRef を持たせる場合は空でない文字列である必要があります`);
+  if (hasOwn(stroke, "canvasRef") && !isNonEmptyString(stroke.canvasRef)) {
+    fail(`${label}.canvasRef を持たせる場合は空でない文字列である必要があります`);
     return false;
   }
   return true;

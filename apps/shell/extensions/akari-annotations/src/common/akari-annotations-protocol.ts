@@ -137,6 +137,33 @@ export interface ResolveAnnotationRequest {
     annotationId: string;
 }
 
+/** キャンバス面（contract-2026-07-26-canvas-surface）1 ストローク分の入力。space/tool は固定のため送らない。 */
+export interface SaveCanvasStrokeInput {
+    /** 正規化 0〜1・キャンバス矩形基準の点列（記録原本は間引かない）。 */
+    points: [number, number][];
+}
+
+export interface SaveCanvasBackgroundInput {
+    /** 選んだ背景画像アセットの絶対 file URI。 */
+    uri: string;
+}
+
+export interface SaveCanvasRequest {
+    projectRootUri: string;
+    aspect: { w: number; h: number };
+    /** アスペクトの導出元（report.md に記録する調査結果と同じ区分）。 */
+    aspectSource: 'edit.json' | 'default';
+    background?: SaveCanvasBackgroundInput | null;
+    /** 録音なし v0 で唯一のテキスト添付経路（契約 §3「後から typed で添えるメモ」）。 */
+    memo?: string | null;
+    strokes: SaveCanvasStrokeInput[];
+}
+
+export interface SaveCanvasResult {
+    /** `c-` + ゼロ埋め連番。 */
+    id: string;
+}
+
 export interface TrimCutRequest {
     editUri: string;
     projectRootUri: string;
@@ -451,6 +478,7 @@ export interface AkariAnnotationsService {
     getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult>;
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;
     resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }>;
+    saveCanvas(request: SaveCanvasRequest): Promise<SaveCanvasResult>;
     trimCut(request: TrimCutRequest): Promise<WriteBackResult>;
     slipCut(request: SlipCutRequest): Promise<WriteBackResult>;
     reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult>;

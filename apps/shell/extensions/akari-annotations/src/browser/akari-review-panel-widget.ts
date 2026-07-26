@@ -1,12 +1,14 @@
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget, OpenerService, open } from '@theia/core/lib/browser';
+import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke } from '../common/annotation-store';
-import { collectBlockIds, extractBlocksManifest, parseDocTarget, parseImageTarget } from '../common/doc-target';
+import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget } from '../common/doc-target';
+import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
 import { AnnotationStatusFilter, ReviewModel } from './review-model';
@@ -15,6 +17,8 @@ import { AnnotationStatusFilter, ReviewModel } from './review-model';
 type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
 /** image: target のファイル存在チェック結果（同じく契約 §6。block-id の概念が無い分 doc より単純）。 */
 type ImageTargetHealth = 'ok' | 'path-missing';
+/** canvas: target のディレクトリ存在チェック結果（contract-2026-07-26-canvas-surface §6）。 */
+type CanvasTargetHealth = 'ok' | 'dir-missing';
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.BEGIN_ONBOARDING と同一）。
@@ -84,6 +88,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
 
     @inject(OpenerService)
     protected readonly openerService!: OpenerService;
+
+    @inject(FileDialogService)
+    protected readonly fileDialogService!: FileDialogService;
 
     protected readonly toolbar = document.createElement('div');
     protected readonly openBoardButton = document.createElement('button');
@@ -511,10 +518,13 @@ export class AkariReviewPanelWidget extends BaseWidget {
         Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '8px' });
         const docTarget = parseDocTarget(annotation.target);
         const imageTarget = parseImageTarget(annotation.target);
+        const canvasTarget = parseCanvasTarget(annotation.target);
         if (docTarget) {
             head.appendChild(this.renderDocTargetButton(docTarget));
         } else if (imageTarget) {
             head.appendChild(this.renderImageTargetButton(imageTarget, annotation.strokes));
+        } else if (canvasTarget) {
+            head.appendChild(this.renderCanvasTargetButton(canvasTarget, annotation.strokes));
         } else {
             const time = document.createElement('button');
             time.type = 'button';
@@ -715,6 +725,131 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.model
         );
         await dialog.open();
+    }
+
+    /**
+     * canvas: target 注釈のクリック導線（contract-2026-07-26-canvas-surface §5・受け入れ条件 4）:
+     * キャンバスを view モードで再表示する（背景 + strokes 静止）。劣化規約（同契約 §6）:
+     * ディレクトリ不在は warning 付きボタンにし、再表示のみ不可にする（注釈自体は一覧から消さない）。
+     */
+    protected renderCanvasTargetButton(
+        canvasTarget: { id: string }, strokes: Annotation['strokes']
+    ): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.setAttribute('data-review-canvas-target', canvasTarget.id);
+        button.textContent = `🎨 ${canvasTarget.id}`;
+        button.title = `${canvasTarget.id} — クリックでキャンバスを再表示`;
+        Object.assign(button.style, {
+            background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit',
+            fontSize: '11px', color: 'var(--theia-textLink-foreground)'
+        });
+        button.addEventListener('click', () => void this.openCanvasViewPopup(canvasTarget.id, strokes));
+        void this.canvasTargetHealth(canvasTarget.id).then(health => {
+            if (!button.isConnected) {
+                return;
+            }
+            if (health === 'dir-missing') {
+                button.title = `review/canvas/${canvasTarget.id} が見つかりません（再表示は不可。注釈自体は有効です）`;
+                button.textContent = `🎨⚠️ ${canvasTarget.id}`;
+                button.style.color = 'var(--theia-descriptionForeground)';
+            }
+        });
+        return button;
+    }
+
+    /** canvas: target のディレクトリ（canvas.json）が実在するかを確認する。 */
+    protected async canvasTargetHealth(id: string): Promise<CanvasTargetHealth> {
+        const location = this.model.location;
+        if (!location) {
+            return 'dir-missing';
+        }
+        return await this.fileService.exists(location.root.resolve(`review/canvas/${id}/canvas.json`))
+            ? 'ok' : 'dir-missing';
+    }
+
+    protected async openCanvasViewPopup(id: string, embeddedStrokes: Annotation['strokes']): Promise<void> {
+        const location = this.model.location;
+        if (!location) {
+            return;
+        }
+        const canvasJsonUri = location.root.resolve(`review/canvas/${id}/canvas.json`);
+        if (!await this.fileService.exists(canvasJsonUri)) {
+            this.messages.warn(`review/canvas/${id} が見つからないため、キャンバスを再表示できません。`);
+            return;
+        }
+        let aspect = { w: 1920, h: 1080 };
+        let backgroundRef: string | undefined;
+        try {
+            const manifest = JSON.parse((await this.fileService.readFile(canvasJsonUri)).value.toString()) as {
+                aspect?: { w?: unknown; h?: unknown };
+                background?: { ref?: unknown } | null;
+            };
+            if (manifest?.aspect && typeof manifest.aspect.w === 'number' && typeof manifest.aspect.h === 'number'
+                && manifest.aspect.w > 0 && manifest.aspect.h > 0) {
+                aspect = { w: manifest.aspect.w, h: manifest.aspect.h };
+            }
+            if (manifest?.background && typeof manifest.background.ref === 'string') {
+                backgroundRef = manifest.background.ref;
+            }
+        } catch (error) {
+            console.warn('[akari-annotations] canvas.json を読めません', error);
+        }
+
+        let backgroundUri: URI | undefined;
+        let backgroundWarning: string | undefined;
+        if (backgroundRef) {
+            const candidate = location.root.resolve(backgroundRef);
+            if (await this.fileService.exists(candidate)) {
+                backgroundUri = candidate;
+            } else {
+                // 契約 §6: background の ref が存在しない → strokes だけで表示（warning）。
+                backgroundWarning = `背景画像（${backgroundRef}）が見つからないため、ペン描画のみ表示します。`;
+            }
+        }
+
+        const existingStrokes = await this.readCanvasStrokes(
+            location.root.resolve(`review/canvas/${id}/strokes.json`), embeddedStrokes
+        );
+
+        const dialog = new AkariCanvasDialog(
+            {
+                title: `キャンバスの表示（${id}）`, mode: 'view', aspect, backgroundUri, backgroundWarning,
+                existingStrokes, maxWidth: 1200
+            },
+            this.fileService,
+            this.model,
+            this.fileDialogService
+        );
+        await dialog.open();
+    }
+
+    /**
+     * strokes.json 原本（フル精度）を読む。壊れている/無い場合は review.json に埋め込まれた
+     * 間引き済みストロークへフォールバックする（再表示自体は止めない）。
+     */
+    protected async readCanvasStrokes(
+        strokesUri: URI, embeddedStrokes: Annotation['strokes']
+    ): Promise<Array<ReadonlyArray<readonly [number, number]>>> {
+        try {
+            const parsed = JSON.parse((await this.fileService.readFile(strokesUri)).value.toString()) as {
+                version?: unknown;
+                strokes?: Array<{ points?: unknown }>;
+            };
+            if (parsed?.version === 1 && Array.isArray(parsed.strokes)) {
+                const strokes = parsed.strokes
+                    .map(stroke => stroke.points)
+                    .filter((points): points is [number, number][] => Array.isArray(points) && points.length >= 2);
+                if (strokes.length > 0) {
+                    return strokes;
+                }
+            }
+        } catch {
+            // strokes.json が読めない場合は下の embedded フォールバックへ。
+        }
+        return (embeddedStrokes ?? [])
+            .filter((stroke): stroke is Extract<AnnotationStroke, { space: 'canvas-rect' }> => stroke.space === 'canvas-rect')
+            .map(stroke => stroke.points);
     }
 
     /**

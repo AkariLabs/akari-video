@@ -6,6 +6,7 @@ import {
   appendAnnotationLine,
   parseReview,
   updateStatusLine,
+  isDocOrImageTarget,
 } from "../lib/common/annotation-store.js";
 
 function baseAnnotation(overrides = {}) {
@@ -88,6 +89,60 @@ test("image: target の image-rect strokes（frame 省略・sessionRef 省略）
     space: "image-rect",
     points: [[0.4, 0.3], [0.5, 0.5], [0.6, 0.4]],
   });
+});
+
+test("canvas: target の canvas-rect strokes（frame 省略・canvasRef 省略可）を round-trip できる（契約 2026-07-26-canvas-surface §4）", () => {
+  const annotation = baseAnnotation({
+    sourceT: null,
+    target: "canvas:c-0001",
+    text: "キャンバスにペンで構図案を記録（メモなし）",
+    strokes: [
+      { tool: "pen", space: "canvas-rect", points: [[0.4, 0.3], [0.5, 0.5], [0.6, 0.4]] },
+      { tool: "pen", space: "canvas-rect", points: [[0.1, 0.1], [0.2, 0.2]], canvasRef: "c-0001/st-0002" },
+    ],
+  });
+  const source = appendAnnotationLine(emptyReviewSource(), annotation);
+  const parsed = parseReview(source);
+  assert.equal(parsed.warnings.length, 0, parsed.warnings.join(" "));
+  const [roundTripped] = parsed.annotations;
+  assert.equal(roundTripped.strokes.length, 2);
+  assert.deepEqual(roundTripped.strokes[0], {
+    tool: "pen",
+    space: "canvas-rect",
+    points: [[0.4, 0.3], [0.5, 0.5], [0.6, 0.4]],
+  });
+  assert.equal(roundTripped.strokes[1].canvasRef, "c-0001/st-0002");
+});
+
+test("canvas-rect strokes に frame が混入していると不正として無視する（frame は content-rect 専用）", () => {
+  const injectFrame = source =>
+    source.replace(
+      '"points":[[0.1,0.1],[0.2,0.2]]',
+      '"frame":{"sourceT":1,"cutIndex":0},"points":[[0.1,0.1],[0.2,0.2]]'
+    );
+  const annotation = baseAnnotation({
+    sourceT: null,
+    target: "canvas:c-0002",
+    strokes: [{ tool: "pen", space: "canvas-rect", points: [[0.1, 0.1], [0.2, 0.2]] }],
+  });
+  const source = injectFrame(appendAnnotationLine(emptyReviewSource(), annotation));
+  const parsed = parseReview(source);
+  assert.equal(parsed.annotations[0].strokes, null);
+  assert.ok(parsed.warnings.some(warning => warning.includes("strokes")));
+});
+
+test("isDocOrImageTarget は canvas:<c-NNNN> も true にする（§2 の sourceT: null 許容判定に使う）", () => {
+  assert.equal(isDocOrImageTarget("canvas:c-0001"), true);
+  assert.equal(isDocOrImageTarget("canvas:not-an-id"), false);
+  assert.equal(isDocOrImageTarget(null), false);
+});
+
+test("sourceT: null は target が canvas:<c-NNNN> のとき警告なしで round-trip できる", () => {
+  const annotation = baseAnnotation({ sourceT: null, target: "canvas:c-0003" });
+  const source = appendAnnotationLine(emptyReviewSource(), annotation);
+  const parsed = parseReview(source);
+  assert.equal(parsed.warnings.length, 0, parsed.warnings.join(" "));
+  assert.equal(parsed.annotations[0].sourceT, null);
 });
 
 test("image-rect strokes は sessionRef を持たせてもよい（省略可なだけで禁止ではない）", () => {
