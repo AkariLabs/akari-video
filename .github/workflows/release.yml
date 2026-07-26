@@ -1,0 +1,487 @@
+name: Release
+
+# リリース列車 v0（版整合ゲート・latest.json フィード・リリースワークフローの契約は
+# 非公開の内部リポジトリ akari-video-internal 側で管理している）。
+#
+# タグ vX.Y.Z の push、または workflow_dispatch（tag 選択 + dry_run / stable / feed_only 入力）で
+# 発火する。実際にタグを push する・このワークフローを走らせる・GitHub Release を公開する・
+# npm publish を実行する操作そのものは、このワークフローを追加した実装作業の範囲外
+# （検収後に司令塔が行う）。ここに書くのは「発火されたら何が起きるか」のロジックのみ。
+#
+# 流れ: 版整合ゲート → mac シェルビルド ∥ win シェルビルド ∥ CLI tarball（並列）
+#       → latest.json 生成 → draft + prerelease Release 作成・asset 添付
+#       → updates フィード（固定タグ Release）への latest.json 差し替え
+#
+# dry_run: true のときは版整合ゲート〜ビルドまでは通常どおり走らせ、Release 作成と
+# フィード更新だけをスキップして成果物一式を artifact upload に留める。
+# feed_only: true のときはビルド・Release 作成を全てスキップし、指定タグの既存 Release から
+# 成果物を取得して latest.json を作り直し、updates フィードだけを差し替える
+# （本体 Release の draft を司令塔が公開した後、フィードだけ再送したい場合に使う）。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          対象タグ（例 v0.1.0）。未指定なら「Use workflow from」で選んだ ref のタグ名を使う。
+          feed_only での再実行など、ref 選択と別にタグを明示したい場合に使う
+        type: string
+        default: ''
+      dry_run:
+        description: 'true ならビルド成果物を artifact upload のみに留め、Release 作成・フィード更新をスキップする'
+        type: boolean
+        default: false
+      stable:
+        description: 'true なら channel を stable にし、prerelease フラグを外して Release を作成する（既定はプレリリース）'
+        type: boolean
+        default: false
+      feed_only:
+        description: 'true ならビルド・Release 作成を全てスキップし、対象タグの既存 Release から updates フィードだけを再生成・差し替える'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  # release-artifacts/ に置く成果物の固定名。scripts/release/gen-latest-json.mjs の
+  # ARTIFACT_FILES と一致させること（url 組み立て・sha256 計算がこの名前に依存する）。
+  ARTIFACT_MAC: shell-mac.zip
+  ARTIFACT_MAC_DMG: shell-mac.dmg
+  ARTIFACT_WIN: shell-win.zip
+  ARTIFACT_CLI: cli.tgz
+
+jobs:
+  # push:tags と workflow_dispatch の両方から同じ形で「対象タグ文字列」を得るための前段ジョブ。
+  # env コンテキストの三項演算子は inputs が存在しないイベント（push）で型強制の落とし穴が
+  # あるため、bash の文字列比較で解決する（GITHUB_OUTPUT 経由で後続ジョブへ渡す）。
+  resolve-tag:
+    name: resolve-tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - id: resolve
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  version-gate:
+    name: version-gate (check-release-versions)
+    needs: resolve-tag
+    if: ${{ !inputs.feed_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+      - name: 版整合ゲート（タグ ↔ shell/cli/plugin の version）
+        run: node scripts/release/check-release-versions.mjs "${{ needs.resolve-tag.outputs.tag }}"
+
+  build-mac:
+    name: build-mac (theia build + electron-builder zip/dmg + 署名/公証)
+    needs: [resolve-tag, version-gate]
+    if: ${{ !inputs.feed_only }}
+    runs-on: macos-14
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+
+      # verify スキル L0/L1 の既知の地雷: Homebrew Python 3.14 は node-gyp の pyexpat ABI と
+      # 衝突するため、Apple 純正 Python を明示する（docs/dev 系タスクの実測に倣う）
+      - name: Install dependencies
+        working-directory: apps/shell
+        env:
+          PYTHON: /usr/bin/python3
+        run: npm install --no-workspaces
+
+      - name: build:ext (tsc -b, 9 extensions)
+        working-directory: apps/shell
+        run: npm run build:ext
+
+      - name: theia build (production)
+        working-directory: apps/shell
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npm run build
+
+      - name: prepackage (copy native helpers)
+        working-directory: apps/shell
+        run: npm run prepackage
+
+      # secrets 不在でもビルドは継続する（D2 裁定: Apple secrets 登録はオーナー作業で後回し）。
+      # electron-builder は CSC_LINK 未設定なら自動的に未署名ビルドへフォールバックし、
+      # notarize 用の APPLE_API_KEY 系が未設定なら公証ステップを自動でスキップするが、
+      # それとは別に「secrets が無かった」という事実をジョブサマリに日本語で残す。
+      - name: mac 署名・公証 secrets の有無を確認
+        run: |
+          if [ -z "${{ secrets.CSC_LINK }}" ] || [ -z "${{ secrets.CSC_KEY_PASSWORD }}" ]; then
+            {
+              echo "### ⚠️ mac 署名スキップ"
+              echo ""
+              echo "\`CSC_LINK\` / \`CSC_KEY_PASSWORD\` が未登録のため、mac 成果物は未署名のまま作成されました。"
+              echo "署名を有効にするにはリポジトリ secrets に両方を登録してください（登録はオーナー作業）。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -z "${{ secrets.APPLE_API_KEY }}" ] || [ -z "${{ secrets.APPLE_API_KEY_ID }}" ] || [ -z "${{ secrets.APPLE_API_ISSUER }}" ]; then
+            {
+              echo "### ⚠️ mac 公証（notarize）スキップ"
+              echo ""
+              echo "\`APPLE_API_KEY\` / \`APPLE_API_KEY_ID\` / \`APPLE_API_ISSUER\` が未登録のため、公証はスキップされました。"
+              echo "有効にするには 3 つの secrets を登録してください（登録はオーナー作業）。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # APPLE_API_KEY は electron-builder（@electron/notarize 経由）が xcrun notarytool の
+      # `--key` 引数へ無変換でそのまま渡す値で、.p8 秘密鍵ファイルへの「パス」を要求する
+      # （@electron/notarize 2.5.0 lib/types.d.ts の NotaryToolApiKeyCredentials.appleApiKey
+      # doc コメント「File system path to the `.p8` private key...」、および
+      # lib/notarytool.js の authorizationArgs() が opts.appleApiKey をそのまま
+      # `--key` の値として渡している実装で確認。app-builder-lib 26.15.3
+      # out/mac/MacTargetHelper.js の getNotarizeOptions() も process.env.APPLE_API_KEY を
+      # 無変換で appleApiKey に代入するだけなので、env の中身がそのまま notarytool の
+      # --key 引数になる）。オーナーの secret 登録運用は .p8 の中身をそのまま登録する形
+      # （変更不可・司令塔案内済み）のため、ここで一度ファイルに書き出してからパスを渡す。
+      # printf '%s' で書く（echo は改行の扱いが環境依存で、.p8 は複数行の PEM 形式のため
+      # 改行を壊さないことを優先した）。secrets コンテキストは if: 条件では参照できない
+      # （actionlint 実測: "context 'secrets' is not allowed here"）ため、step 自体は常に
+      # 走らせ、env 経由で受け取った値の有無を bash 側で分岐する（secrets を env: に渡すのは
+      # 許可された場所）。secret が空なら path 出力を空文字にし、package ステップの
+      # APPLE_API_KEY env も空文字のまま（従来どおり notarize スキップ）
+      - name: APPLE_API_KEY（.p8）を一時ファイルへ書き出す
+        id: apple-api-key-file
+        env:
+          APPLE_API_KEY_SECRET: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          if [ -n "$APPLE_API_KEY_SECRET" ]; then
+            key_path="$RUNNER_TEMP/apple_api_key.p8"
+            printf '%s' "$APPLE_API_KEY_SECRET" > "$key_path"
+            chmod 600 "$key_path"
+            echo "path=$key_path" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 既存の `npm run package`（package.json の scripts.package）は `electron-builder --dir`
+      # 固定で、apps/shell/package.json の mac.target（"dir"）をそのまま使う。ここでは
+      # zip/dmg という「リリース成果物としての」ターゲットが要るため、package.json の
+      # build 設定（mac.target）自体は変更せず、electron-builder の CLI 引数でこの
+      # 呼び出し限りターゲットを上書きする（--mac zip dmg）。CSC_LINK 等が空文字なら
+      # electron-builder は自動的に未署名ビルドにフォールバックする（エラーにしない）。
+      - name: package (electron-builder --mac zip dmg)
+        working-directory: apps/shell
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ steps.apple-api-key-file.outputs.path }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: npx electron-builder --mac zip dmg
+
+      - name: postpackage (verify asar contents)
+        working-directory: apps/shell
+        run: npm run postpackage
+
+      - name: 成果物を固定名へリネーム
+        working-directory: apps/shell/electron-builder-out
+        run: |
+          zip_src=$(find . -maxdepth 1 -name '*.zip' | head -n1)
+          dmg_src=$(find . -maxdepth 1 -name '*.dmg' | head -n1)
+          test -n "$zip_src" || { echo "mac zip 成果物が見つかりません"; exit 1; }
+          test -n "$dmg_src" || { echo "mac dmg 成果物が見つかりません"; exit 1; }
+          cp "$zip_src" "${{ env.ARTIFACT_MAC }}"
+          cp "$dmg_src" "${{ env.ARTIFACT_MAC_DMG }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shell-mac
+          path: |
+            apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC }}
+            apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC_DMG }}
+          retention-days: 14
+          if-no-files-found: error
+
+  build-win:
+    name: build-win (windows-build.yml の手順を踏襲)
+    needs: [resolve-tag, version-gate]
+    if: ${{ !inputs.feed_only }}
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      # 以下は .github/workflows/windows-build.yml と同一手順の複製。
+      # windows-build.yml 自体は編集禁止（既存トリガー・ジョブの挙動を変えない境界）のため、
+      # reusable workflow 化はせずステップをそのまま複製している（手順・地雷情報の正本は
+      # windows-build.yml 側のコメントを参照）。
+      - name: Enable git symlinks and long paths
+        run: |
+          git config --global core.symlinks true
+          git config --global core.longpaths true
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+
+      - name: Verify skills symlinks materialized
+        run: node scripts/gen-skills-index.mjs --check
+
+      - name: Install dependencies
+        working-directory: apps/shell
+        env:
+          npm_config_enable_lto: 'false'
+          npm_config_enable_thin_lto: 'false'
+        run: |
+          npm install --no-workspaces
+          npm approve-scripts --no-workspaces electron esbuild puppeteer node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" "@vscode/windows-ca-certs" electron-winstaller
+          npm rebuild --no-workspaces
+          $v = node -p "require('./node_modules/electron/package.json').version"
+          Write-Host "=== electron $v direct download"
+          curl.exe -sSL -o electron.zip "https://github.com/electron/electron/releases/download/v$v/electron-v$v-win32-x64.zip"
+          if (Test-Path node_modules/electron/dist) { Remove-Item -Recurse -Force node_modules/electron/dist }
+          Expand-Archive electron.zip -DestinationPath node_modules/electron/dist -Force
+          Remove-Item electron.zip
+          Set-Content -NoNewline node_modules/electron/path.txt "electron.exe"
+          node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
+          node -e "require('fs').accessSync('node_modules/electron/dist/electron.exe'); console.log('electron.exe OK')"
+
+      - name: build:ext (tsc -b, 9 extensions)
+        working-directory: apps/shell
+        run: npm run build:ext
+
+      - name: theia build (production)
+        working-directory: apps/shell
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npm run build
+
+      - name: package (electron-builder --dir + verify-asar)
+        working-directory: apps/shell
+        env:
+          npm_config_enable_lto: 'false'
+          npm_config_enable_thin_lto: 'false'
+        run: npm run package
+
+      # Windows は D2 の対象外・当面未署名（契約 §5 D2）。SmartScreen 警告は許容。
+      - name: Zip win-unpacked
+        working-directory: apps/shell/electron-builder-out
+        run: 7z a -tzip ${{ env.ARTIFACT_WIN }} win-unpacked
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shell-win
+          path: apps/shell/electron-builder-out/${{ env.ARTIFACT_WIN }}
+          retention-days: 14
+          if-no-files-found: error
+
+  build-cli:
+    name: build-cli (npm pack)
+    needs: [resolve-tag, version-gate]
+    if: ${{ !inputs.feed_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+      - name: npm pack
+        working-directory: packages/akari-launcher
+        run: |
+          tgz=$(npm pack --silent)
+          cp "$tgz" "../../${{ env.ARTIFACT_CLI }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-tarball
+          path: ${{ env.ARTIFACT_CLI }}
+          retention-days: 14
+          if-no-files-found: error
+
+  release:
+    name: release (latest.json 生成 + Release 作成 + asset 添付 + npm publish)
+    needs: [resolve-tag, build-mac, build-win, build-cli]
+    if: ${{ !inputs.feed_only }}
+    runs-on: ubuntu-latest
+    # id-token: write は npm publish --provenance（Sigstore OIDC 署名）に必要
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: shell-mac
+          path: release-artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: shell-win
+          path: release-artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-tarball
+          path: release-artifacts
+
+      # D4 裁定（契約 §5）: 既定はプレリリース。stable 化は workflow_dispatch の
+      # stable: true 入力（または Release 編集）でオーナーが行う
+      - name: channel を決定する
+        id: channel
+        run: |
+          if [ "${{ inputs.stable }}" = "true" ]; then
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+            echo "prerelease_flag=" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=prerelease" >> "$GITHUB_OUTPUT"
+            echo "prerelease_flag=--prerelease" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: latest.json 生成
+        run: |
+          node scripts/release/gen-latest-json.mjs \
+            --artifacts-dir release-artifacts \
+            --tag "${{ needs.resolve-tag.outputs.tag }}" \
+            --channel "${{ steps.channel.outputs.channel }}" \
+            --released "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
+            --out release-artifacts/latest.json
+
+      - name: dry_run — 成果物一式を artifact upload のみに留める
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dry-run-${{ needs.resolve-tag.outputs.tag }}
+          path: release-artifacts/
+          retention-days: 14
+
+      # draft + prerelease が既定（契約 §7-1「初回は未署名で出してよい」「NPM_TOKEN 未登録なら
+      # npm publish はスキップ」）。stable: true 入力時のみ --prerelease を外す
+      - name: draft Release 作成 + asset 添付
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ needs.resolve-tag.outputs.tag }}" \
+            --draft ${{ steps.channel.outputs.prerelease_flag }} \
+            --title "AKARI Video ${{ needs.resolve-tag.outputs.tag }}" \
+            --generate-notes \
+            "release-artifacts/${{ env.ARTIFACT_MAC }}" \
+            "release-artifacts/${{ env.ARTIFACT_MAC_DMG }}" \
+            "release-artifacts/${{ env.ARTIFACT_WIN }}" \
+            "release-artifacts/${{ env.ARTIFACT_CLI }}" \
+            release-artifacts/latest.json
+
+      # D1 裁定（契約 §5）= GO。NPM_TOKEN 不在時はスキップ + 警告（tarball 経路がフォールバック）
+      - name: npm publish secret の有無を確認
+        id: npm-secret
+        run: |
+          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### ⚠️ npm publish スキップ"
+              echo ""
+              echo "\`NPM_TOKEN\` が未登録のため npm publish をスキップしました。"
+              echo "latest.json の \`components.cli.tarball.url\` からの tarball 直インストール（\`npm i -g <url>\`）は引き続き機能します。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # unscoped パッケージ（akari-video）なので --access public は本来 no-op だが、将来
+      # スコープを付けた場合の安全策として明示しておく。--provenance は公開リポ +
+      # GitHub Actions + id-token: write の 3 条件が揃っているため付ける
+      # （npm CLI の provenance 要件を満たす。使えない場合の代替手順は report.md 参照）
+      - name: npm publish (packages/akari-launcher)
+        if: ${{ !inputs.dry_run && steps.npm-secret.outputs.present == 'true' }}
+        working-directory: packages/akari-launcher
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+
+  feed-update:
+    name: feed-update (updates フィードへ latest.json を差し替え)
+    needs: [resolve-tag, release]
+    if: ${{ !inputs.feed_only && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      # 契約 §3: updates は固定タグ Release。無ければ prerelease フラグ付き +
+      # 「機械用フィードです」本文で冪等に作成する。既にあれば作成をスキップして
+      # asset だけ --clobber で差し替える
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ needs.resolve-tag.outputs.tag }}" --pattern latest.json --dir .
+          if ! gh release view updates >/dev/null 2>&1; then
+            gh release create updates \
+              --prerelease \
+              --title "updates (machine feed)" \
+              --notes "機械用フィードです。akari / シェルの更新確認が参照する latest.json 専用の固定タグ Release です。人間向けの changelog はここに書きません。"
+          fi
+          gh release upload updates latest.json --clobber
+
+  feed-only:
+    name: feed-only (workflow_dispatch feed_only 単独実行)
+    needs: resolve-tag
+    if: ${{ inputs.feed_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+
+      - name: 対象タグの既存 Release から成果物を取得
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-artifacts
+          gh release download "${{ needs.resolve-tag.outputs.tag }}" --dir release-artifacts --clobber \
+            --pattern "${{ env.ARTIFACT_MAC }}" \
+            --pattern "${{ env.ARTIFACT_WIN }}" \
+            --pattern "${{ env.ARTIFACT_CLI }}"
+
+      - name: channel を対象 Release の現在状態から決定する
+        id: channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          is_prerelease=$(gh release view "${{ needs.resolve-tag.outputs.tag }}" --json isPrerelease -q .isPrerelease)
+          if [ "$is_prerelease" = "true" ]; then
+            echo "channel=prerelease" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: latest.json 再生成
+        run: |
+          node scripts/release/gen-latest-json.mjs \
+            --artifacts-dir release-artifacts \
+            --tag "${{ needs.resolve-tag.outputs.tag }}" \
+            --channel "${{ steps.channel.outputs.channel }}" \
+            --released "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" \
+            --out release-artifacts/latest.json
+
+      - name: updates フィードへ差し替え
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view updates >/dev/null 2>&1; then
+            gh release create updates \
+              --prerelease \
+              --title "updates (machine feed)" \
+              --notes "機械用フィードです。akari / シェルの更新確認が参照する latest.json 専用の固定タグ Release です。人間向けの changelog はここに書きません。"
+          fi
+          gh release upload updates release-artifacts/latest.json --clobber
