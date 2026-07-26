@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -80,6 +80,7 @@
   "build": {
     "appId": "org.akarivideo.shell",
     "productName": "AKARI Video",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "electron-builder-out",
       "buildResources": "resources/icons"
