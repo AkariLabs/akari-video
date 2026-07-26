@@ -98,12 +98,47 @@ jobs:
           node-version: '26.3.0'
 
       # verify スキル L0/L1 の既知の地雷: Homebrew Python 3.14 は node-gyp の pyexpat ABI と
-      # 衝突するため、Apple 純正 Python を明示する（docs/dev 系タスクの実測に倣う）
+      # 衝突するため、Apple 純正 Python を明示する（docs/dev 系タスクの実測に倣う）。
+      #
+      # ランナーの npm（Node 26 同梱）は allow-scripts ゲートが既定で有効で、electron の
+      # postinstall（本体 DL）等の install script をブロックする。これは
+      # .github/workflows/windows-build.yml の Install dependencies ステップ（52-82 行）が
+      # win 向けに既に対処済みの問題と同根だが、その対処が release.yml の build-mac には
+      # 複製されておらず欠陥だった（実測: dry_run run 30196704779 の build-mac ジョブで
+      # `npm warn allow-scripts 11 packages have install scripts not yet covered` の後、
+      # electron/dist/version が ENOENT で theia build が失敗）。windows-build.yml の対処
+      # （approve-scripts + rebuild + electron 公式リリース zip の直接配置 + 早期ゲート）を
+      # mac（bash・macos-14 は arm64）向けに移植する。
+      #
+      # パッケージ列は windows-build.yml の 12 件から Windows 専用の
+      # @vscode/windows-ca-certs を除いたものが基本だが、machine 差を推測に頼らず run
+      # 30196704779 の build-mac 実ログ（npm warn allow-scripts の一覧）で裏取りした。
+      # 結果は 11 件で、win 版と異なり electron-winstaller は mac でも警告対象に**含まれる**
+      # （win 版の想定どおり除外すると承認漏れになるところだった）
       - name: Install dependencies
         working-directory: apps/shell
         env:
           PYTHON: /usr/bin/python3
-        run: npm install --no-workspaces
+        run: |
+          npm install --no-workspaces
+          npm approve-scripts --no-workspaces electron esbuild puppeteer node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" electron-winstaller
+          npm rebuild --no-workspaces
+          # electron 本体は公式リリース zip を直接取得して配置する（windows-build.yml と同じ
+          # rationale: npm rebuild は electron の postinstall〔本体 DL〕を実行しない実測が
+          # win 側にあり、mac でも npm rebuild だけでは dist/version が生成されない前提で
+          # 同じ対処を踏襲する）。zip 展開は verify スキル L1 節が確立済みの ditto -x -k を使う
+          # （unzip でなく ditto を使う理由も同節参照）。macos-14 ランナーは arm64
+          v=$(node -p "require('./node_modules/electron/package.json').version")
+          echo "=== electron $v direct download (darwin-arm64)"
+          curl -sSL -o electron.zip "https://github.com/electron/electron/releases/download/v$v/electron-v$v-darwin-arm64.zip"
+          rm -rf node_modules/electron/dist
+          mkdir -p node_modules/electron/dist
+          ditto -x -k electron.zip node_modules/electron/dist
+          rm electron.zip
+          printf '%s' 'Electron.app/Contents/MacOS/Electron' > node_modules/electron/path.txt
+          # electron 実体が入ったことの早期ゲート（無ければ theia build まで進んでも無意味）
+          node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
+          node -e "require('fs').accessSync('node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'); console.log('Electron.app OK')"
 
       - name: build:ext (tsc -b, 9 extensions)
         working-directory: apps/shell
