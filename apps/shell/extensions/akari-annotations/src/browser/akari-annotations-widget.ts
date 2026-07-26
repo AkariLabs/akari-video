@@ -118,11 +118,11 @@ const FILMSTRIP_MAX_CELLS_PER_CLIP = 160;
 /** 波形の描画帯の高さ（クリップ帯下寄せ・目安 CLIP_HEIGHT の 1/4〜1/3）。clipHeader と非重複にする。 */
 const WAVEFORM_BAND_HEIGHT_PX = 24;
 /**
- * ソーストリマー（R6c-2）: 使用窓 [in,out) のハイライト表示の最小幅（px）。
- * 素材全体に対して使用区間が極端に狭い場合でも掴めるようにする視覚上のクランプで、
- * 実データ（cuts[].in/out）には一切影響しない。
+ * ソーストリマー（R6c2r2・外側延長方式）: クリップ左右の「ウィング」（in より前 /
+ * out より後の素材）に許す最大表示幅（px）。同一 px/秒スケールで描くため、素材が
+ * 長尺でもセル数がズームに関わらずこの幅に収まるようにする（用途は前後数秒の微調整）。
  */
-const TRIMMER_WINDOW_MIN_WIDTH_PX = 24;
+const TRIMMER_WING_MAX_WIDTH_PX = 480;
 const LANE_GAP = 6;
 const SUBROW_HEIGHT = 32;
 const SUBROW_GAP = 4;
@@ -254,11 +254,7 @@ interface DragBase {
 }
 
 type DragDetail =
-    | {
-        kind: 'cut-trim'; index: number; edge: 'left' | 'right'; originalIn: number; originalOut: number;
-        /** ソーストリマー窓のエッジからの起動時のみ設定。px→秒の写像を通常のズーム基準から差し替える。 */
-        trimmerPxPerSec?: number;
-    }
+    | { kind: 'cut-trim'; index: number; edge: 'left' | 'right'; originalIn: number; originalOut: number }
     | { kind: 'cut-move'; index: number; originalAt: number; originalTrack: number; duration: number }
     | { kind: 'caption'; id: string; mode: 'move' | 'start' | 'end'; originalStart: number; originalEnd: number }
     | { kind: 'overlay'; id: string; mode: 'move' | 'resize'; originalStart: number; originalDuration: number; originalTrack: number }
@@ -268,7 +264,6 @@ type DragDetail =
     | {
         /** ソーストリマー窓の中央ドラッグ（slip）: out−in と t を固定したまま in/out を同量シフトする。 */
         kind: 'cut-slip'; index: number; originalIn: number; originalOut: number; sourceDuration: number;
-        trimmerPxPerSec: number;
     };
 
 type DragState = DragBase & DragDetail;
@@ -969,51 +964,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         border-color: #f14c4c !important;
         border-width: 2px !important;
     }
-    .akari-annotations-widget .akari-annotations-strip-clip-trimmer {
-        position: absolute;
-        inset: 0;
-        overflow: hidden;
-        pointer-events: none;
-        background: #0b0d10;
+    .akari-annotations-widget .akari-annotations-strip-clip-trimmer-active {
+        outline: 2px solid #f97316;
+        outline-offset: -2px;
+        cursor: grab;
+        z-index: 6;
     }
-    .akari-annotations-widget .akari-annotations-strip-clip-trimmer-loading {
+    .akari-annotations-widget .akari-annotations-strip-clip-trimmer-content {
         position: absolute;
         inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--theia-descriptionForeground);
-        font-size: 11px;
+        overflow: visible;
         pointer-events: none;
     }
-    .akari-annotations-widget .akari-annotations-strip-clip-trimmer-dim {
+    .akari-annotations-widget .akari-annotations-strip-clip-wing {
         position: absolute;
-        inset: 0;
+        top: 0;
+        height: 100%;
         overflow: hidden;
         opacity: .35;
         pointer-events: none;
-    }
-    .akari-annotations-widget .akari-annotations-strip-clip-trimmer-cell {
-        position: absolute;
-        top: 0;
-        height: 100%;
-        background-repeat: no-repeat;
-    }
-    .akari-annotations-widget .akari-annotations-strip-clip-trimmer-window {
-        position: absolute;
-        top: 0;
-        height: 100%;
-        overflow: hidden;
-        box-sizing: border-box;
-        border-left: 2px solid #f97316;
-        border-right: 2px solid #f97316;
-        box-shadow: 0 0 0 1px rgba(249, 115, 22, .35);
-        cursor: grab;
-    }
-    .akari-annotations-widget .akari-annotations-strip-clip-trimmer-window-inner {
-        position: absolute;
-        top: 0;
-        height: 100%;
     }
 `;
         this.node.appendChild(style);
@@ -3230,6 +3199,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         });
+        // ソーストリマー（R6c2r2）: レンダーパス開始時点の trimmerItemId を固定で使い回す
+        // （ループ内で対象クリップ自身の実尺未解決等により this.trimmerItemId が undefined へ
+        // 巻き戻ることがあるため、既に描画済みの前段クリップの減光判定がその巻き戻りで
+        // 揺れないようにする）。
+        const trimmerActiveIndex = this.trimmerItemId;
         this.segments.forEach(segment => {
             const cutLayout = this.trackLayout('cuts', segment.track);
             if (!cutLayout || !this.isRangeVisible(segment.tlStart, segment.tlEnd)) {
@@ -3245,16 +3219,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemKind = 'cut';
             element.dataset.akariItemId = String(segment.index);
             element.dataset.akariLane = cutLayout.id ?? 'clips';
-            element.style.opacity = cutLayout.hidden ? '.28' : '';
+            const dimForTrimmer = trimmerActiveIndex !== undefined && trimmerActiveIndex !== segment.index;
+            element.style.opacity = cutLayout.hidden ? '.28' : dimForTrimmer ? '.6' : '';
             const widthPercent = Math.max(this.percent(segment.tlEnd) - this.percent(segment.tlStart), 0.3);
             const clipWidth = this.strip.clientWidth * widthPercent / 100;
             if (clipWidth < MICRO_CLIP_WIDTH_PX) {
                 element.classList.add('akari-annotations-strip-clip-micro');
             }
-            // ソーストリマー（R6c-2）: dblclick でこのクリップが選ばれている間だけ、
-            // 通常のフィルムストリップ（使用区間のみ）の代わりに素材全体のトリマー窓を描く。
-            // 実尺（sourceDuration）が解決できない間は素材の場所を特定できないと判断し、
-            // このレンダーパス内で即座にトリマーモードを取り消す（無限ループにはならない）。
+            // ソーストリマー（R6c2r2・外側延長方式）: dblclick でこのクリップが選ばれている間だけ、
+            // クリップ本体（通常表示と同一スケール）の左右に in より前 / out より後の素材を
+            // ウィングとして延長表示する。実尺（sourceDuration）が解決できない間は素材の場所を
+            // 特定できないと判断し、このレンダーパス内で即座にトリマーモードを取り消す
+            // （無限ループにはならない）。
             let showTrimmer = this.trimmerItemId === segment.index;
             let trimmerVideoUri = '';
             let trimmerSourceDuration: number | undefined;
@@ -3276,36 +3252,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                 }
             }
-            // ダブルクリックでのトリマーモード入り／再ダブルクリックでの解除は、cut-move
-            // 判定の pointerup（installDragListeners）／トリマー窓の pointerup
-            // （installTrimmerWindowDrag）内の detectCutDoubleClick で判定する
-            // （cuts 要素は pointerdown で preventDefault するため、ブラウザ標準 'dblclick' は
-            // 合成されない — Pointer Events の互換マウスイベント抑止の仕様どおり）。
             element.style.pointerEvents = 'auto';
             if (showTrimmer) {
-                // 通常クリックが onStripClick（deselect + seek）へ抜けないよう、通常経路
-                // （installDragListeners 側）と同じ stopPropagation をここでも張る。
-                // 窓（installTrimmerWindowDrag）以外＝減光領域への再ダブルクリックでも解除できる
-                // よう、同じ pointerup ベースの自前ダブルクリック判定をここにも張る
-                // （窓のように pointerdown で preventDefault はしない＝通常ドラッグは提供しない領域）。
-                element.addEventListener('click', event => event.stopPropagation());
-                element.addEventListener('pointerdown', event => {
-                    if (event.button !== 0) {
-                        return;
-                    }
-                    event.stopPropagation();
-                });
-                element.addEventListener('pointerup', event => {
-                    if (event.button !== 0) {
-                        return;
-                    }
-                    event.stopPropagation();
-                    if (this.detectCutDoubleClick(segment.index, event.clientX, event.clientY)) {
-                        this.exitTrimmerMode();
-                    }
-                });
-                this.renderTrimmerOverlay(element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration);
+                this.renderTrimmerClip(element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration);
                 element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                this.installTrimmerDrag(element, (event, rect) => {
+                    const localX = event.clientX - rect.left;
+                    const rightDistance = rect.right - event.clientX;
+                    if (localX <= EDGE_ZONE_PX && localX <= rightDistance) {
+                        return { kind: 'cut-trim', index: segment.index, edge: 'left', originalIn: cut.in, originalOut: cut.out };
+                    }
+                    if (rightDistance <= EDGE_ZONE_PX) {
+                        return { kind: 'cut-trim', index: segment.index, edge: 'right', originalIn: cut.in, originalOut: cut.out };
+                    }
+                    // 実尺が未解決（読み込み中）の間は右方向のスリップを 0 クランプする
+                    // フォールバック（cut.out 自身を仮の実尺とみなす）。slipCut RPC は
+                    // 実尺クランプを一切行わないため、ここで安全側に倒しておく必要がある。
+                    return {
+                        kind: 'cut-slip', index: segment.index, originalIn: cut.in, originalOut: cut.out,
+                        sourceDuration: trimmerSourceDuration ?? cut.out
+                    };
+                });
             } else {
                 this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
                 element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
@@ -4407,165 +4374,141 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * ソーストリマー（R6c-2）: 素材全体のフィルムストリップをクリップ帯の幅にぴったり収める
-     * 専用写像（ズームとは独立）で描く。カット外は減光（opacity .35）、使用窓 [in,out) は
-     * 等倍の明るさ＋枠で強調する（旧版 SlipGhost の挙動参照・コードは移植しない）。
-     * atlas は getClipFilmstripChunk（T2 と同じ videoUri+chunkIndex キャッシュ）をそのまま
-     * 再利用するため、トリマーを開いただけでは再焼成は発生しない（未取得チャンクのみ遅延フェッチ）。
+     * ソーストリマー（R6c2r2・外側延長方式）: クリップ本体は通常表示と完全に同一
+     * （renderClipMedia をそのまま呼ぶ・位置/幅/スケールとも通常表示と不変）。
+     * その左右に「in より前」「out より後」の素材区間を、本体と同一の px/秒スケールで
+     * ウィングとして延長描画する（減光 opacity .35・隣接クリップの上へ重ねる z 上位）。
+     * atlas は ensureFilmstripChunk（T2/T3 と同じ videoUri+chunkIndex キャッシュ）を
+     * そのまま再利用するため、トリマーを開いただけでは再焼成は発生しない。
      */
-    protected renderTrimmerOverlay(
+    protected renderTrimmerClip(
         element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment,
         trackHeightPx: number, videoUri: string, sourceDuration: number | undefined
     ): void {
-        const overlay = document.createElement('div');
-        overlay.className = 'akari-annotations-strip-clip-trimmer';
-        element.appendChild(overlay);
+        element.classList.add('akari-annotations-strip-clip-trimmer-active');
+        const content = document.createElement('div');
+        content.className = 'akari-annotations-strip-clip-trimmer-content';
+        element.appendChild(content);
+        this.renderClipMedia(content, cut, clipWidth, segment, trackHeightPx);
         if (sourceDuration === undefined || !(sourceDuration > 0)) {
-            const loading = document.createElement('div');
-            loading.className = 'akari-annotations-strip-clip-trimmer-loading';
-            loading.textContent = '読み込み中…';
-            overlay.appendChild(loading);
             return;
         }
         const geometry = this.clipLocalGeometry(segment);
-        if (!geometry || !(geometry.fullClipWidthPx > 0)) {
+        const sourceSpan = cut.out - cut.in;
+        if (!geometry || !(geometry.fullClipWidthPx > 0) || !(sourceSpan > 0)) {
             return;
         }
         const { fullClipWidthPx, clipLocalOffsetPx } = geometry;
-
         const cellWidthPx = FILMSTRIP_TARGET_CELL_WIDTH_PX;
         const totalCellCount = Math.max(1, Math.round(fullClipWidthPx / cellWidthPx));
-        const visibleStartLocalPx = clipLocalOffsetPx;
-        const visibleEndLocalPx = clipLocalOffsetPx + clipWidth;
-        const i0 = Math.max(0, Math.floor(visibleStartLocalPx / cellWidthPx));
-        let i1 = Math.min(totalCellCount - 1, Math.ceil(visibleEndLocalPx / cellWidthPx) - 1);
-        if (i1 < i0) {
-            i1 = i0;
+        const perCellSourceSeconds = sourceSpan / totalCellCount;
+        // slip ドラッグ中のライブプレビュー（updateTrimmerSlipVisual）が使う px/秒スケール。
+        content.dataset.pxPerSourceSecond = String(cellWidthPx / perCellSourceSeconds);
+        const maxWingCells = Math.max(1, Math.floor(TRIMMER_WING_MAX_WIDTH_PX / cellWidthPx));
+
+        // 左ウィング（in より前）: クリップの真の左端がスクロールで画面外に隠れていない
+        // ときだけ描く（隠れている場合、その左に更に伸ばしても見えないため無駄がない）。
+        if (clipLocalOffsetPx <= 0.5 && cut.in > 0) {
+            const cellCount = Math.min(maxWingCells, Math.floor(cut.in / perCellSourceSeconds));
+            if (cellCount > 0) {
+                const wingWidthPx = cellCount * cellWidthPx;
+                const wing = this.createTrimmerWingElement(wingWidthPx, 'left');
+                wing.style.left = `${-wingWidthPx}px`;
+                for (let k = 0; k < cellCount; k++) {
+                    // k=0 がクリップ本体に最も近いセル（in の直前のフレーム）。
+                    const sourceT = cut.in - (k + 0.5) * perCellSourceSeconds;
+                    const cellLeftPx = wingWidthPx - (k + 1) * cellWidthPx;
+                    this.appendTrimmerWingCell(wing, videoUri, trackHeightPx, cellWidthPx, cellLeftPx, sourceT);
+                }
+                content.appendChild(wing);
+            }
         }
-        if (i1 - i0 + 1 > FILMSTRIP_MAX_CELLS_PER_CLIP) {
-            i1 = i0 + FILMSTRIP_MAX_CELLS_PER_CLIP - 1;
+        // 右ウィング（out より後）: 真の右端が可視のときだけ描く。
+        const rightEdgeVisible = clipLocalOffsetPx + clipWidth >= fullClipWidthPx - 0.5;
+        if (rightEdgeVisible && sourceDuration - cut.out > 0) {
+            const cellCount = Math.min(maxWingCells, Math.floor((sourceDuration - cut.out) / perCellSourceSeconds));
+            if (cellCount > 0) {
+                const wingWidthPx = cellCount * cellWidthPx;
+                const wing = this.createTrimmerWingElement(wingWidthPx, 'right');
+                wing.style.left = `${fullClipWidthPx - clipLocalOffsetPx}px`;
+                for (let k = 0; k < cellCount; k++) {
+                    // k=0 がクリップ本体に最も近いセル（out の直後のフレーム）。
+                    const sourceT = cut.out + (k + 0.5) * perCellSourceSeconds;
+                    const cellLeftPx = k * cellWidthPx;
+                    this.appendTrimmerWingCell(wing, videoUri, trackHeightPx, cellWidthPx, cellLeftPx, sourceT);
+                }
+                content.appendChild(wing);
+            }
         }
+    }
 
-        const dim = document.createElement('div');
-        dim.className = 'akari-annotations-strip-clip-trimmer-dim';
-        const bright = document.createElement('div');
-        bright.className = 'akari-annotations-strip-clip-trimmer-window-inner';
+    /** ウィング（延長表示）のコンテナ要素。外側の端をフェードアウトさせるマスクを掛ける。 */
+    protected createTrimmerWingElement(widthPx: number, side: 'left' | 'right'): HTMLDivElement {
+        const wing = document.createElement('div');
+        wing.className = 'akari-annotations-strip-clip-wing';
+        const fade = side === 'left'
+            ? 'linear-gradient(to right, transparent 0%, black 32px)'
+            : 'linear-gradient(to left, transparent 0%, black 32px)';
+        Object.assign(wing.style, { width: `${widthPx}px`, maskImage: fade, WebkitMaskImage: fade });
+        return wing;
+    }
 
-        for (let i = i0; i <= i1; i++) {
-            const sourceT = ((i + 0.5) / totalCellCount) * sourceDuration;
-            const chunkIndex = filmstripChunkIndexFor(sourceT);
-            const chunk = this.ensureFilmstripChunk(videoUri, chunkIndex);
-            if (chunk === 'unavailable' || chunk === 'pending') {
-                continue;
-            }
-            if (chunk.frameWidth <= 0 || chunk.frameHeight <= 0 || chunk.frameCount <= 0) {
-                continue;
-            }
-            const localSourceT = sourceT - chunk.chunkStartSeconds;
-            const frameIdx = Math.min(chunk.frameCount - 1, Math.max(0, Math.round(localSourceT * chunk.fps)));
-            const col = frameIdx % chunk.cols;
-            const row = Math.floor(frameIdx / chunk.cols);
-            const scale = Math.max(cellWidthPx / chunk.frameWidth, trackHeightPx / chunk.frameHeight);
-            const frameScaledW = chunk.frameWidth * scale;
-            const frameScaledH = chunk.frameHeight * scale;
-            const cropOffsetX = (frameScaledW - cellWidthPx) / 2;
-            const cropOffsetY = (frameScaledH - trackHeightPx) / 2;
-            const backgroundSize = `${chunk.cols * frameScaledW}px ${chunk.rows * frameScaledH}px`;
-            const cellStyle = {
-                left: `${i * cellWidthPx - clipLocalOffsetPx}px`,
-                top: '0',
-                width: `${cellWidthPx}px`,
-                height: '100%',
-                backgroundImage: `url(${chunk.atlasUri})`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: `${-(col * frameScaledW) - cropOffsetX}px ${-(row * frameScaledH) - cropOffsetY}px`,
-                backgroundSize
-            };
-            const dimCell = document.createElement('div');
-            dimCell.className = 'akari-annotations-strip-clip-trimmer-cell';
-            Object.assign(dimCell.style, cellStyle);
-            dim.appendChild(dimCell);
-            const brightCell = document.createElement('div');
-            brightCell.className = 'akari-annotations-strip-clip-trimmer-cell';
-            Object.assign(brightCell.style, cellStyle);
-            bright.appendChild(brightCell);
+    /** ウィング 1 セル分の atlas フレームを敷く（renderFilmstripCells のセル描画と同一の計算）。 */
+    protected appendTrimmerWingCell(
+        wing: HTMLDivElement, videoUri: string, trackHeightPx: number, cellWidthPx: number,
+        cellLeftPx: number, sourceT: number
+    ): void {
+        const chunkIndex = filmstripChunkIndexFor(sourceT);
+        const chunk = this.ensureFilmstripChunk(videoUri, chunkIndex);
+        if (chunk === 'unavailable' || chunk === 'pending') {
+            return;
         }
-        overlay.appendChild(dim);
-
-        const windowBox = this.computeTrimmerWindowBox(cut.in, cut.out, sourceDuration, fullClipWidthPx);
-        const windowEl = document.createElement('div');
-        windowEl.className = 'akari-annotations-strip-clip-trimmer-window';
-        windowEl.style.left = `${windowBox.displayLeftFullPx - clipLocalOffsetPx}px`;
-        windowEl.style.width = `${windowBox.widthPx}px`;
-        windowEl.dataset.fullClipWidthPx = String(fullClipWidthPx);
-        windowEl.dataset.clipLocalOffsetPx = String(clipLocalOffsetPx);
-        bright.style.left = `${-windowBox.displayLeftFullPx}px`;
-        bright.style.width = `${fullClipWidthPx}px`;
-        windowEl.appendChild(bright);
-        overlay.appendChild(windowEl);
-
-        const pxPerSec = fullClipWidthPx / sourceDuration;
-        this.installTrimmerWindowDrag(windowEl, element, (event, rect) => {
-            const localX = event.clientX - rect.left;
-            const rightDistance = rect.right - event.clientX;
-            if (localX <= EDGE_ZONE_PX && localX <= rightDistance) {
-                return {
-                    kind: 'cut-trim', index: segment.index, edge: 'left',
-                    originalIn: cut.in, originalOut: cut.out, trimmerPxPerSec: pxPerSec
-                };
-            }
-            if (rightDistance <= EDGE_ZONE_PX) {
-                return {
-                    kind: 'cut-trim', index: segment.index, edge: 'right',
-                    originalIn: cut.in, originalOut: cut.out, trimmerPxPerSec: pxPerSec
-                };
-            }
-            return {
-                kind: 'cut-slip', index: segment.index, originalIn: cut.in, originalOut: cut.out,
-                sourceDuration, trimmerPxPerSec: pxPerSec
-            };
+        if (chunk.frameWidth <= 0 || chunk.frameHeight <= 0 || chunk.frameCount <= 0) {
+            return;
+        }
+        const localSourceT = sourceT - chunk.chunkStartSeconds;
+        const frameIdx = Math.min(chunk.frameCount - 1, Math.max(0, Math.round(localSourceT * chunk.fps)));
+        const col = frameIdx % chunk.cols;
+        const row = Math.floor(frameIdx / chunk.cols);
+        const scale = Math.max(cellWidthPx / chunk.frameWidth, trackHeightPx / chunk.frameHeight);
+        const frameScaledW = chunk.frameWidth * scale;
+        const frameScaledH = chunk.frameHeight * scale;
+        const cropOffsetX = (frameScaledW - cellWidthPx) / 2;
+        const cropOffsetY = (frameScaledH - trackHeightPx) / 2;
+        const backgroundSize = `${chunk.cols * frameScaledW}px ${chunk.rows * frameScaledH}px`;
+        const cell = document.createElement('div');
+        Object.assign(cell.style, {
+            position: 'absolute',
+            left: `${cellLeftPx}px`,
+            top: '0',
+            width: `${cellWidthPx}px`,
+            height: '100%',
+            backgroundImage: `url(${chunk.atlasUri})`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: `${-(col * frameScaledW) - cropOffsetX}px ${-(row * frameScaledH) - cropOffsetY}px`,
+            backgroundSize
         });
+        wing.appendChild(cell);
     }
 
     /**
-     * 使用窓 [in,out) をクリップ帯（フルクリップ幅 fullClipWidthPx）内の px 範囲へ写像する。
-     * 窓が視覚上小さすぎて掴めない場合は TRIMMER_WINDOW_MIN_WIDTH_PX を最小幅としてクランプし、
-     * 真の中心を保ったまま表示位置をずらす（実データの in/out には影響しない）。
+     * トリマーモード中のクリップ本体へのドラッグ配線。既存 installDragListeners と
+     * ほぼ同型だが、中央ドラッグが 'cut-move'（移動）ではなく 'cut-slip'（スリップ）に
+     * なる点と、ドラッグなしのダブルクリックが「トリマーモードの解除」になる点
+     * （通常クリップは逆に「入場」）が異なる。窓は素材全体ではなくクリップ本体そのもの
+     * （通常表示と同一の位置・幅）なので、専用の縮尺（旧 trimmerPxPerSec）は不要 —
+     * updateDragPreview の通常経路（strip 全体の px/秒）がそのまま使える。
      */
-    protected computeTrimmerWindowBox(
-        inSeconds: number, outSeconds: number, sourceDuration: number, fullClipWidthPx: number
-    ): { displayLeftFullPx: number; widthPx: number } {
-        const leftFullPx = (inSeconds / sourceDuration) * fullClipWidthPx;
-        const rightFullPx = (outSeconds / sourceDuration) * fullClipWidthPx;
-        const rawWidthPx = Math.max(0, rightFullPx - leftFullPx);
-        const widthPx = Math.max(TRIMMER_WINDOW_MIN_WIDTH_PX, Math.min(rawWidthPx, fullClipWidthPx));
-        const centerFullPx = (leftFullPx + rightFullPx) / 2;
-        const displayLeftFullPx = Math.min(
-            Math.max(0, centerFullPx - widthPx / 2),
-            Math.max(0, fullClipWidthPx - widthPx)
-        );
-        return { displayLeftFullPx, widthPx };
-    }
-
-    /**
-     * ソーストリマー窓のドラッグ配線。既存 installDragListeners とほぼ同型だが、
-     * ゴースト複製の基点（クリップ本体 clipElement）とイベント購読先（窓要素 windowEl）を
-     * 分離する点だけが異なる（窓は clipElement の子要素であり、そのまま複製して strip 直下へ
-     * 再配置すると位置が壊れるため）。生成した DragState は既存の updateDragPreview/commitDrag/
-     * cancelDrag をそのまま通す（cut-trim は通常のクリップ端トリムと完全に同じ重なり判定・
-     * スナップ・undo/redo を得る。cut-slip は新規だが同じ土台に乗る）。
-     */
-    protected installTrimmerWindowDrag(
-        windowEl: HTMLDivElement,
-        clipElement: HTMLDivElement,
+    protected installTrimmerDrag(
+        element: HTMLDivElement,
         detail: (event: PointerEvent, rect: DOMRect) => DragDetail
     ): void {
-        windowEl.style.pointerEvents = 'auto';
-        windowEl.style.touchAction = 'none';
-        windowEl.addEventListener('click', event => event.stopPropagation());
-        windowEl.addEventListener('pointermove', event => {
+        element.style.pointerEvents = 'auto';
+        element.style.touchAction = 'none';
+        element.addEventListener('click', event => event.stopPropagation());
+        element.addEventListener('pointermove', event => {
             const state = this.dragState;
-            if (state && state.pointerId === event.pointerId && state.element === clipElement) {
+            if (state && state.pointerId === event.pointerId && state.element === element) {
                 event.preventDefault();
                 if (Math.abs(event.clientX - state.startClientX) > DRAG_THRESHOLD_PX) {
                     state.dragged = true;
@@ -4576,11 +4519,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (this.dragState) {
                 return;
             }
-            const rect = windowEl.getBoundingClientRect();
+            const rect = element.getBoundingClientRect();
             const hoverDetail = detail(event, rect);
-            windowEl.style.cursor = hoverDetail.kind === 'cut-trim' ? 'ew-resize' : 'grab';
+            element.style.cursor = hoverDetail.kind === 'cut-trim' ? 'ew-resize' : 'grab';
         });
-        windowEl.addEventListener('pointerdown', event => {
+        element.addEventListener('pointerdown', event => {
             if (event.button !== 0) {
                 return;
             }
@@ -4589,25 +4532,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             event.preventDefault();
             event.stopPropagation();
-            const ghost = clipElement.cloneNode(true) as HTMLDivElement;
+            const ghost = element.cloneNode(true) as HTMLDivElement;
             ghost.removeAttribute('title');
             Object.assign(ghost.style, {
                 pointerEvents: 'none', opacity: '.5', borderStyle: 'dashed', zIndex: '8', cursor: 'grabbing'
             });
             this.strip.appendChild(ghost);
             const state = {
-                ...detail(event, windowEl.getBoundingClientRect()),
+                ...detail(event, element.getBoundingClientRect()),
                 pointerId: event.pointerId,
                 startClientX: event.clientX,
                 startClientY: event.clientY,
-                element: clipElement,
+                element,
                 ghost,
                 dragged: false
             } as DragState;
             this.dragState = state;
-            clipElement.style.cursor = 'grabbing';
-            clipElement.style.opacity = '.5';
-            windowEl.style.cursor = state.kind === 'cut-slip' ? 'grabbing' : 'ew-resize';
+            element.style.cursor = state.kind === 'cut-slip' ? 'grabbing' : 'ew-resize';
+            element.style.opacity = '.5';
             if (state.kind === 'cut-trim' && state.edge === 'right') {
                 const cut = this.cuts[state.index];
                 const videoUri = cut ? this.cutVideoUri(cut) : '';
@@ -4616,22 +4558,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             try {
-                windowEl.setPointerCapture(event.pointerId);
+                element.setPointerCapture(event.pointerId);
             } catch {
                 // Pointer capture can fail if the element is detached during a file refresh.
             }
         });
-        windowEl.addEventListener('pointerup', event => {
+        element.addEventListener('pointerup', event => {
             const state = this.dragState;
-            if (!state || state.pointerId !== event.pointerId || state.element !== clipElement) {
+            if (!state || state.pointerId !== event.pointerId || state.element !== element) {
                 return;
             }
             event.preventDefault();
             event.stopPropagation();
             if (!state.dragged) {
                 this.cancelDrag(state);
-                // 再ダブルクリック（トリマー窓上）で解除。同じ pointerup ベースの自前判定
-                // （detectCutDoubleClick）を、通常クリップの入口判定と共有する。
+                // 再ダブルクリック（エッジ／中央どちらでも）で解除。同じ pointerup ベースの
+                // 自前判定（detectCutDoubleClick）を、通常クリップの入場判定と共有する。
                 if ((state.kind === 'cut-trim' || state.kind === 'cut-slip')
                     && this.detectCutDoubleClick(state.index, event.clientX, event.clientY)) {
                     this.exitTrimmerMode();
@@ -4642,36 +4584,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.cancelDrag(state);
             void this.commitDrag(preview);
         });
-        windowEl.addEventListener('pointercancel', event => {
+        element.addEventListener('pointercancel', event => {
             const state = this.dragState;
-            if (state && state.pointerId === event.pointerId && state.element === clipElement) {
+            if (state && state.pointerId === event.pointerId && state.element === element) {
                 this.cancelDrag(state);
             }
         });
     }
 
     /**
-     * slip ドラッグ中のライブ視覚更新。窓要素の left/width と内側クローンのオフセットだけを
-     * 直接書き換える（renderStrip は this.dragState が張られている間 early return するため、
-     * ここで直接 DOM を触ってもドラッグ終了までの間は上書きされない）。
+     * スリップドラッグ中のライブ視覚更新。クリップ本体・ウィングのセルは再生成せず、
+     * まとめて transform: translateX() でずらすことで「フィルムストリップが流れる」ように
+     * 見せる（renderStrip はドラッグ中 early return するため、確定までの間だけ直接 DOM を
+     * 書き換える。確定 or Esc キャンセルのどちらでも次の再描画/cancelDrag でリセットされる）。
      */
-    protected updateTrimmerWindowVisual(
-        clipElement: HTMLDivElement, nextIn: number, nextOut: number, sourceDuration: number
-    ): void {
-        const windowEl = clipElement.querySelector<HTMLDivElement>('.akari-annotations-strip-clip-trimmer-window');
-        const innerEl = clipElement.querySelector<HTMLDivElement>('.akari-annotations-strip-clip-trimmer-window-inner');
-        if (!windowEl || !innerEl || !(sourceDuration > 0)) {
+    protected updateTrimmerSlipVisual(clipElement: HTMLDivElement, deltaSeconds: number): void {
+        const content = clipElement.querySelector<HTMLDivElement>('.akari-annotations-strip-clip-trimmer-content');
+        if (!content) {
             return;
         }
-        const fullClipWidthPx = Number(windowEl.dataset.fullClipWidthPx ?? '0');
-        const clipLocalOffsetPx = Number(windowEl.dataset.clipLocalOffsetPx ?? '0');
-        if (!(fullClipWidthPx > 0)) {
+        const pxPerSourceSecond = Number(content.dataset.pxPerSourceSecond ?? '0');
+        if (!(pxPerSourceSecond > 0)) {
             return;
         }
-        const windowBox = this.computeTrimmerWindowBox(nextIn, nextOut, sourceDuration, fullClipWidthPx);
-        windowEl.style.left = `${windowBox.displayLeftFullPx - clipLocalOffsetPx}px`;
-        windowEl.style.width = `${windowBox.widthPx}px`;
-        innerEl.style.left = `${-windowBox.displayLeftFullPx}px`;
+        content.style.transform = `translateX(${-deltaSeconds * pxPerSourceSecond}px)`;
     }
 
     /**
@@ -5095,11 +5031,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
         // strip 全体で秒/px の縮尺は一定なので、この delta は source 秒・出力秒のどちらにもそのまま使える。
-        let delta = rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0;
-        // ソーストリマー窓からの起動時は、ズーム基準ではなく窓専用の px→秒写像（trimmerPxPerSec）で delta を計算し直す。
-        if ((state.kind === 'cut-trim' || state.kind === 'cut-slip') && state.trimmerPxPerSec) {
-            delta = (clientX - state.startClientX) / state.trimmerPxPerSec;
-        }
+        // トリマーモード中のクリップ本体も通常表示と同一スケールのため、専用の写像は不要
+        // （R6c2r2 で撤去。cut-slip もこの delta をそのまま使う）。
+        const delta = rect.width > 0 ? (clientX - state.startClientX) / rect.width * duration : 0;
         const showGuide = allowGuide && this.snapEnabled;
         if (state.kind === 'cut-trim') {
             const cut = this.cuts[state.index];
@@ -5413,7 +5347,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 nextOut = state.sourceDuration;
                 nextIn = Math.max(0, state.sourceDuration - winDuration);
             }
-            this.updateTrimmerWindowVisual(state.element, nextIn, nextOut, state.sourceDuration);
+            this.updateTrimmerSlipVisual(state.element, nextIn - state.originalIn);
             this.updateDragFeedback(
                 state, `slip In ${this.formatTimestamp(nextIn)} / Out ${this.formatTimestamp(nextOut)}`
             );
@@ -5795,6 +5729,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         state.element.style.cursor = 'default';
         state.element.style.opacity = '';
+        // スリップのライブプレビュー（updateTrimmerSlipVisual）が残した transform を戻す
+        // （Esc 等の未確定キャンセルでは renderStrip が走らないことがあるため明示的にリセットする）。
+        const trimmerContent = state.element.querySelector<HTMLDivElement>('.akari-annotations-strip-clip-trimmer-content');
+        if (trimmerContent) {
+            trimmerContent.style.transform = '';
+        }
         state.ghost.remove();
         this.hideSnapGuide();
         this.hideTrackInsertIndicator();
