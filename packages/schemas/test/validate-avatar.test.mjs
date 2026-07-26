@@ -99,3 +99,11 @@ test("energy out of range fails", () => {
   assert.equal(executed.status, 1);
   assert.match(executed.stderr, /persona\.energy は 0-100 の整数である必要があります/);
 });
+
+// schema v0 改訂（S2・2026-07-26）: renditions minItems 1→0 緩和（voice-only アバター）
+test("voice-only avatar (renditions: []) passes", () => {
+  const executed = run("valid-voice-only");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+  assert.equal(executed.stderr.trim(), "");
+});

@@ -28,6 +28,7 @@ description: 原稿テキストから VOICEVOX（ローカル・ゼロ円の既�
    を読み、原稿提示 → 録音 → whisper 照合ガード → fal クローン → 保存 → 耳検収の手順を踏む。
 3. 表示原稿を読み原稿（かな化）に変換する前処理は [reading-text.md](reading-text.md) を読み、
    規約に沿って行う。
+4. 話者がアバターのときは [avatar-voice.md](avatar-voice.md) を読み、`voice/voice.json` の `lane`/`ref` を上記エンジンへ解決する。
 
 現在の工程に対応するファイルだけを読み、先読みしない。
 

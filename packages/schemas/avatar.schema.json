@@ -41,8 +41,9 @@
     "voice": { "$ref": "#/$defs/voiceRef" },
     "renditions": {
       "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/renditionSummary" }
+      "minItems": 0,
+      "items": { "$ref": "#/$defs/renditionSummary" },
+      "$comment": "0 件 = voice-only アバター（声のみ登録。2D/3D/写真の rendition を持たない。例: VOICEVOX プリセット提案の受け入れ登録）を許容する（S2 改訂 2026-07-26。1→0 緩和は追加のみ進化・既存 1 件以上の文書は全て valid のまま）。0 件のとき default_rendition は null 以外にできない（validate-avatar.mjs が検証）。"
     },
     "default_rendition": {
       "oneOf": [

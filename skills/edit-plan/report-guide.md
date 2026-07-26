@@ -100,6 +100,8 @@ Checkpoint 1（方針）として運用し、確定内容を `decision-log.md`�
 
 候補が見つからないことを「あれば提案」と記録しない。BGM と SFX は `audio`、ナレーションは `audio.narration[]`、動画 B ロールは v1 の `sources[]` + `cuts[].src` へ格納できる（[execution.md](execution.md) §1）。公開契約のどのフィールドでも表せない演出だけ、計画上の採用と `edit.json` への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
 
+ナレーションの話者がアバターのときは、原稿を書く前に [avatar-resolution.md](avatar-resolution.md#台本生成への接続persona-注入s2-具体化) の persona 注入手順（ペルソナ要約の反映・NG 遵守）に従う。
+
 このチャット提示は Checkpoint 2（素材計画）として運用し（[approvals-and-generation.md](approvals-and-generation.md)）、確定内容を `decision-log.md` の `material` category に記録する。
 
 ## decision_log

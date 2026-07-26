@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "id": "test-voice-only-avatar",
+  "display_name": "Test Voice-Only Avatar",
+  "variants": [],
+  "persona": {
+    "first_person": "わたし",
+    "tone": "親しみ",
+    "speech_style": "テスト用フィクスチャの口調",
+    "verbal_tics": [],
+    "energy": 50,
+    "ng": [],
+    "default_role": "narrator"
+  },
+  "voice": { "lane": "voicevox", "ref": "speaker:3(ずんだもん/ノーマル)", "credit": "VOICEVOX:ずんだもん" },
+  "renditions": [],
+  "default_rendition": null,
+  "rights": { "subject": "third_party", "consent": "terms:https://example.com/voice-terms", "credit_required": true, "distribution": "private" }
+}
