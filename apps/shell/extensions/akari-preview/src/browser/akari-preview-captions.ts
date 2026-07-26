@@ -17,7 +17,10 @@ export interface PreviewCaptionTextStyle {
 }
 
 // akari-transcript の Caption から、プレビュー表示に必要なフィールドだけを複製する。
+// ㉓ 字幕クリック選択+移動の書き戻し（captions.json text_style.zone）に caption を
+// 一意に特定する id が必要になったため追加（他フィールドは既存どおり最小限のまま）。
 export interface PreviewCaption {
+    id?: string;
     start: number;
     end: number;
     text: string;
@@ -55,7 +58,7 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
             continue;
         }
         const candidate = value as Record<string, unknown>;
-        const { start, end, text } = candidate;
+        const { start, end, text, id } = candidate;
         if (typeof start !== 'number' || typeof end !== 'number'
             || !Number.isFinite(start) || !Number.isFinite(end) || start >= end
             || typeof text !== 'string') {
@@ -85,6 +88,7 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
         }
         const textStyle = mergeTextStyles(defaultTextStyle, captionTextStyle);
         captions.push({
+            ...(typeof id === 'string' && id ? { id } : {}),
             start,
             end,
             text,

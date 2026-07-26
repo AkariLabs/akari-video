@@ -15,9 +15,12 @@ const caption = {
     edited: false
 };
 
-test('配列ルートを従来どおり読み text_style 不在なら追加キーを持たない', () => {
+test('配列ルートを従来どおり読み text_style 不在なら id 以外の追加キーを持たない', () => {
+    // ㉓ 字幕クリック選択+移動の書き戻し（captions.json text_style.zone）に caption を
+    // 一意に特定する id が必要になったため、id は複製対象へ追加された
+    // （akari-preview-captions.ts PreviewCaption）。他のフィールドは変更なし。
     const [parsed] = parsePreviewCaptions(JSON.stringify([caption]));
-    assert.deepEqual(parsed, { start: 0, end: 2, text: '字幕' });
+    assert.deepEqual(parsed, { id: 'c-0001', start: 0, end: 2, text: '字幕' });
 });
 
 test('object ルートを読み default と caption をネストもフィールド単位で合成する', () => {

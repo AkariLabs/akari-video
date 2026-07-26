@@ -91,6 +91,103 @@
       "interaction.selftest(): 合成ドラッグ + 合成拡縮ドラッグの往復検証が成功（旧同等の挙動）"
     );
 
+    // ---- 3b) ㉑ 実寸 bbox 化の再現テスト（inset:0 全画面ラッパー + flex 配置）----
+    window.akari.runtime.tick(55, true); // cap-full-wrapper のみ可視区間（50〜70s）
+    const capFull = stage.querySelector('[data-overlay-id="cap-full-wrapper"]');
+    assert(
+      getComputedStyle(capFull).visibility === "visible",
+      "tick(55, true): cap-full-wrapper（inset:0 ラッパー断片）が visible"
+    );
+
+    const plateRect = capFull.querySelector(".plate").getBoundingClientRect();
+    const stageRectForFull = stage.getBoundingClientRect();
+
+    // 順序が重要: まず「plate から離れた、ラッパーの中では全画面だが見た目は何も無い」
+    // 座標（クリック時点で cap-full-wrapper は一度も選択されていない状態）をクリックし、
+    // 選択されないことを確認する。先に選択してしまうと「素の click は非マッチでも
+    // 選択解除しない」既存挙動と混ざり、このアサーションが意味を持たなくなるため。
+    const emptyClientX = stageRectForFull.left + stageRectForFull.width * 0.7;
+    const emptyClientY = stageRectForFull.top + stageRectForFull.height * 0.7;
+    assert(
+      emptyClientX > plateRect.right || emptyClientY > plateRect.bottom,
+      "テスト座標が実際に plate の外側にある（フィクスチャの前提確認）"
+    );
+    stage.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: emptyClientX,
+        clientY: emptyClientY,
+      })
+    );
+    assert(
+      capFull.getAttribute("data-akari-interaction-selected") !== "true",
+      "plate 実寸外（ラッパーの空白部）クリック: 選択されない（bbox 外クリックは選択されない。" +
+        "修正前は fragmentBounds がステージ全体を返すため選択されていた）"
+    );
+
+    // 続いて実際の plate 中心をクリックすると、今度は選択される。
+    capFull.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: plateRect.left + plateRect.width / 2,
+        clientY: plateRect.top + plateRect.height / 2,
+      })
+    );
+    assert(
+      capFull.getAttribute("data-akari-interaction-selected") === "true",
+      "plate 実寸内クリック: cap-full-wrapper が選択される"
+    );
+
+    const selectionFrameEl = document.querySelector(
+      ".akari-interaction-selection-frame"
+    );
+    const frameRect = selectionFrameEl.getBoundingClientRect();
+    assert(
+      frameRect.width < stageRectForFull.width * 0.5 &&
+        frameRect.height < stageRectForFull.height * 0.5,
+      `選択枠がステージ全体（${stageRectForFull.width.toFixed(0)}x${stageRectForFull.height.toFixed(0)}）` +
+        `ではなく実寸 bbox（実測 ${frameRect.width.toFixed(0)}x${frameRect.height.toFixed(0)}）になっている`
+    );
+
+    // clip-path によりネイティブ当たり判定も実寸へ絞られている（"none" のままなら
+    // フルコンテナ当たり判定のバグが残っている）。
+    assert(
+      capFull.style.clipPath !== "" && capFull.style.clipPath !== "none",
+      `cap-full-wrapper のヒット領域が clip-path で実寸に絞られている（実測: ${capFull.style.clipPath}）`
+    );
+
+    // ---- 3c) ㉒ スナップ統一で追加公開した共有 API の型・基本動作確認 ----
+    assert(
+      typeof window.akari.interaction.computeSnapCorrection === "function" &&
+        typeof window.akari.interaction.stageLocalPoint === "function" &&
+        typeof window.akari.interaction.currentDisplayScale === "function" &&
+        typeof window.akari.interaction.outputSize === "function" &&
+        typeof window.akari.interaction.showSnapGuides === "function" &&
+        typeof window.akari.interaction.hideSnapGuides === "function",
+      "interaction.js が layers[]/cut/caption 実装向けの共有スナップ API を公開している"
+    );
+
+    const outputSizeNow = window.akari.interaction.outputSize();
+    const centerSnap = window.akari.interaction.computeSnapCorrection(
+      {
+        left: outputSizeNow.width / 2 - 3,
+        top: 100,
+        right: outputSizeNow.width / 2 + 3,
+        bottom: 140,
+        centerX: outputSizeNow.width / 2 - 3, // 3px だけセンターからずれた bounds
+        centerY: 120,
+      },
+      { x: null, y: null }
+    );
+    assert(
+      centerSnap.x && Math.abs(centerSnap.x.target - outputSizeNow.width / 2) < 0.01,
+      `computeSnapCorrection(): 出力幅中央付近の bounds がセンター吸着候補を返す（target=${centerSnap.x?.target}）`
+    );
+
     // ---- 4) minimap.update() ----
     window.akari.minimap.update();
     const minimapState = window.akari.minimap.state();

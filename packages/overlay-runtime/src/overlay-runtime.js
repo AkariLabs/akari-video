@@ -107,6 +107,13 @@ window.akari.runtime = (() => {
         if (!visible && overlay.isThreeDimensional) {
           window.akari.threeRuntime?.dispose(overlay.container);
         }
+        // ㉑ 素通し: 可視化した断片の実寸に当たり判定（clip-path）を合わせ直す。
+        // 非可視の間は当たり判定自体が発生しない（visibility:hidden は hit-test 対象外）
+        // ため、可視化タイミングだけに限定して呼べば十分（tick() 全体の毎フレーム負荷は
+        // 増えない = 上の性能原則と同じ「見えている分だけ」）。
+        if (visible) {
+          window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
+        }
         overlay.visible = visible;
       }
 

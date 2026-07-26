@@ -197,6 +197,44 @@ interface LayerWriteRequest {
     };
 }
 
+// CF-write: layerWrite と同型の cuts[] 版（akari-preview-open-handler.ts:2780 layerWrite に倣う。
+// ㉓ 本編ビデオのクリック選択+transform）。追加/削除・in/out はタイムライン側の既存経路の
+// 対象のため扱わない。transform のみ。
+interface CutWriteRequest {
+    type: 'akari-preview-cut-write';
+    requestId: string;
+    cutIndex: number;
+    patch: {
+        transform?: OverlayTransform;
+    };
+}
+
+// ㉓ 字幕クリック選択+移動（v0 スコープ = 選択 + 位置移動の最小）。captions.json は
+// zone が固定 9 値の enum（3x3 配置ゾーン、schemas/captions.schema.json）で自由座標が
+// 無いため、書き戻しは「ドラッグ位置→最近傍 zone への吸着」で表現する（schema 追加なし。
+// zone 語彙で表現できない自由配置が必要になった場合は実装せず report へ設計提案を書く
+// 契約 §のとおり）。
+const CAPTION_ZONES = [
+    'top-left', 'top', 'top-right',
+    'left', 'center', 'right',
+    'bottom-left', 'bottom', 'bottom-right'
+] as const;
+type CaptionZoneValue = typeof CAPTION_ZONES[number];
+
+interface CaptionWriteRequest {
+    type: 'akari-preview-caption-write';
+    requestId: string;
+    captionId: string;
+    patch: {
+        zone: CaptionZoneValue;
+    };
+}
+
+interface PreviewCaptionSelectedRequest {
+    type: 'akari-preview-caption-selected';
+    captionId: string | null;
+}
+
 interface WaveformFetchRequest {
     type: 'akari-preview-waveform-fetch';
     requestId: string;
@@ -274,6 +312,13 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
+// ㉓ forwardOverlaySelection/forwardLayerSelection の流儀で追加した cut 版。
+// タイムライン側（akari-annotations、編集禁止）の購読は本タスクの対象外
+// （既存 2 チャンネルと同じ配線パターンだけをここに追加する）。
+const PREVIEW_CUT_SELECTED_EVENT = 'akari.preview.cutSelected';
+// ㉓ 字幕版。既存 2 チャンネルと同じ配線パターンをここに追加するだけ
+// （タイムライン側〔akari-annotations、編集禁止〕の購読は対象外）。
+const PREVIEW_CAPTION_SELECTED_EVENT = 'akari.preview.captionSelected';
 // akari-annotations の録音セクション側と文字列だけをミラーし、extension 間の npm 依存を作らない。
 const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
 const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
@@ -330,6 +375,12 @@ interface PreviewOverlaySelectedRequest {
 interface PreviewLayerSelectedRequest {
     type: 'akari-preview-layer-selected';
     layerId: string | null;
+}
+
+// ㉓ overlay/layer 選択同期チャンネルの cut 版。true = 現在再生中のカットが選択中。
+interface PreviewCutSelectedRequest {
+    type: 'akari-preview-cut-selected';
+    selected: boolean;
 }
 
 interface PreviewReviewTransportRequest {
@@ -406,6 +457,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
     protected overlayWriteTail = Promise.resolve();
     protected layerWriteTail = Promise.resolve();
+    protected cutWriteTail = Promise.resolve();
+    protected captionWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected retryWidgetSequence = 0;
@@ -1286,6 +1339,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isLayerSelectedRequest(message)) {
                 this.forwardLayerSelection(widget, message);
             }
+            if (this.isCutSelectedRequest(message)) {
+                this.forwardCutSelection(widget, message);
+            }
+            if (this.isCutWriteRequest(message)) {
+                this.cutWriteTail = this.cutWriteTail.then(() => this.handleCutWrite(widget, message));
+            }
+            if (this.isCaptionSelectedRequest(message)) {
+                this.forwardCaptionSelection(widget, message);
+            }
+            if (this.isCaptionWriteRequest(message)) {
+                this.captionWriteTail = this.captionWriteTail.then(() => this.handleCaptionWrite(widget, message));
+            }
             if (this.isReviewTransportRequest(message)) {
                 this.forwardReviewTransport(widget, message);
             }
@@ -1479,6 +1544,41 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             detail: {
                 editUri: editUri.normalizePath().toString(),
                 layerId: message.layerId
+            }
+        }));
+    }
+
+    protected isCutSelectedRequest(message: any): message is PreviewCutSelectedRequest {
+        return message?.type === 'akari-preview-cut-selected' && typeof message.selected === 'boolean';
+    }
+
+    protected forwardCutSelection(widget: PreviewWidgetMarker, message: PreviewCutSelectedRequest): void {
+        const editUri = widget.akariPreviewEditUri;
+        if (!editUri) {
+            return;
+        }
+        window.dispatchEvent(new CustomEvent(PREVIEW_CUT_SELECTED_EVENT, {
+            detail: {
+                editUri: editUri.normalizePath().toString(),
+                selected: message.selected
+            }
+        }));
+    }
+
+    protected isCaptionSelectedRequest(message: any): message is PreviewCaptionSelectedRequest {
+        return message?.type === 'akari-preview-caption-selected'
+            && (typeof message.captionId === 'string' || message.captionId === null);
+    }
+
+    protected forwardCaptionSelection(widget: PreviewWidgetMarker, message: PreviewCaptionSelectedRequest): void {
+        const editUri = widget.akariPreviewEditUri;
+        if (!editUri) {
+            return;
+        }
+        window.dispatchEvent(new CustomEvent(PREVIEW_CAPTION_SELECTED_EVENT, {
+            detail: {
+                editUri: editUri.normalizePath().toString(),
+                captionId: message.captionId
             }
         }));
     }
@@ -2495,6 +2595,120 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
+    // ㉓ layerWrite（上）と同型。cutIndex は segments[].cutIndex（cuts[] の実インデックス）を
+    // クリック時点でプレビュー側が dataset に記録したもの（webview 側 applyCutVisual 参照）。
+    protected async handleCutWrite(widget: PreviewWidgetMarker, request: CutWriteRequest): Promise<void> {
+        const respond = (ok: boolean, error?: string): void => {
+            widget.sendMessage({
+                type: 'akari-preview-cut-write-response',
+                requestId: request.requestId,
+                ok,
+                ...(error ? { error } : {})
+            });
+        };
+        const editUri = widget.akariPreviewEditUri;
+        if (!editUri) {
+            respond(false, '編集中の edit.json がありません');
+            return;
+        }
+        const validationError = this.validateLayerTransformPatch(request.patch.transform);
+        if (validationError) {
+            respond(false, validationError);
+            return;
+        }
+        try {
+            const originalText = await this.readText(editUri);
+            const edit = JSON.parse(originalText);
+            if (!Array.isArray(edit?.cuts)) {
+                throw new Error('edit.json の cuts が配列ではありません');
+            }
+            const cut = edit.cuts[request.cutIndex];
+            if (!cut || typeof cut !== 'object') {
+                throw new Error(`カットが見つかりません: index ${request.cutIndex}`);
+            }
+            if (request.patch.transform) {
+                cut.transform = { ...this.objectRecord(cut.transform), ...request.patch.transform };
+            }
+            const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
+            const lintResult = await this.previewService.lintEditCandidate({
+                editUri: editUri.toString(),
+                candidateText
+            });
+            if (!lintResult.pass) {
+                respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                return;
+            }
+            this.recentWrites.set(editUri.toString(), Date.now());
+            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            respond(true);
+        } catch (error) {
+            respond(false, error instanceof Error ? error.message : String(error));
+        }
+    }
+
+    protected isCutWriteRequest(message: any): message is CutWriteRequest {
+        return message?.type === 'akari-preview-cut-write'
+            && typeof message.requestId === 'string'
+            && Number.isInteger(message.cutIndex)
+            && message.cutIndex >= 0
+            && message.patch
+            && typeof message.patch === 'object';
+    }
+
+    // ㉓ layerWrite/cutWrite と同型だが対象ファイルは captions.json（edit.json ではない）。
+    // text_style.zone のみをフィールド単位で上書き（他フィールド・他キャプションは無傷）。
+    // captions.json は array ルート / {captions:[...], default_text_style} object ルートの
+    // どちらも許容（schemas/captions.schema.json oneOf）ため両形を読む。
+    protected async handleCaptionWrite(widget: PreviewWidgetMarker, request: CaptionWriteRequest): Promise<void> {
+        const respond = (ok: boolean, error?: string): void => {
+            widget.sendMessage({
+                type: 'akari-preview-caption-write-response',
+                requestId: request.requestId,
+                ok,
+                ...(error ? { error } : {})
+            });
+        };
+        const captionsUri = widget.akariPreviewCaptionsUri;
+        if (!captionsUri) {
+            respond(false, '字幕ファイル（captions.json）がありません');
+            return;
+        }
+        if (!(CAPTION_ZONES as readonly string[]).includes(request.patch.zone)) {
+            respond(false, `不正な zone です: ${request.patch.zone}`);
+            return;
+        }
+        try {
+            const originalText = await this.readText(captionsUri);
+            const root = JSON.parse(originalText);
+            const list = Array.isArray(root)
+                ? root
+                : (root && typeof root === 'object' && Array.isArray(root.captions) ? root.captions : undefined);
+            if (!list) {
+                throw new Error('captions.json の形式が不正です（配列、または captions[] を持つオブジェクトである必要があります）');
+            }
+            const caption = list.find((value: any) => value && value.id === request.captionId);
+            if (!caption) {
+                throw new Error(`字幕が見つかりません: ${request.captionId}`);
+            }
+            caption.text_style = { ...this.objectRecord(caption.text_style), zone: request.patch.zone };
+            const candidateText = `${JSON.stringify(root, undefined, 2)}\n`;
+            this.recentWrites.set(captionsUri.toString(), Date.now());
+            await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
+            respond(true);
+        } catch (error) {
+            respond(false, error instanceof Error ? error.message : String(error));
+        }
+    }
+
+    protected isCaptionWriteRequest(message: any): message is CaptionWriteRequest {
+        return message?.type === 'akari-preview-caption-write'
+            && typeof message.requestId === 'string'
+            && typeof message.captionId === 'string'
+            && message.patch
+            && typeof message.patch === 'object'
+            && typeof message.patch.zone === 'string';
+    }
+
     protected isLayerWriteRequest(message: any): message is LayerWriteRequest {
         return message?.type === 'akari-preview-layer-write'
             && typeof message.requestId === 'string'
@@ -2605,11 +2819,20 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #layer-select-box .akari-layer-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
 #layer-select-box .akari-layer-handle-rotate { top: 0; left: 50%; margin-top: -34px; border-radius: 50%; cursor: grab; }
 #layer-select-box .akari-layer-rotate-stem { position: absolute; top: -28px; left: 50%; width: 1.5px; height: 28px; background: #4da3ff; transform: translateX(-50%); pointer-events: none; }
+#cut-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
+#cut-select-box.is-active { display: block; }
+#cut-select-box .akari-cut-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
+#cut-select-box .akari-cut-handle-nw { top: 0; left: 0; cursor: nwse-resize; }
+#cut-select-box .akari-cut-handle-ne { top: 0; left: 100%; cursor: nesw-resize; }
+#cut-select-box .akari-cut-handle-sw { top: 100%; left: 0; cursor: nesw-resize; }
+#cut-select-box .akari-cut-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
+#caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px dashed #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
+#caption-select-box.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; }
-#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
+#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 #caption-plate:empty { display: none; }
 #caption-plate.akari-caption-host--styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
@@ -2662,6 +2885,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <div id="preview-layers"></div>
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
         <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
+        <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div></div>
+        <div id="caption-select-box"></div>
         <canvas id="pen-layer" aria-hidden="true"></canvas>
       </div>
       <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
@@ -2781,6 +3006,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'layer-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-layer-write', requestId, layerId, patch });
+                }),
+                cutWrite: (cutIndex, patch) => new Promise((resolve, reject) => {
+                    const requestId = 'akari-preview-' + (++sequence);
+                    pending.set(requestId, { kind: 'cut-write', resolve, reject });
+                    vscode.postMessage({ type: 'akari-preview-cut-write', requestId, cutIndex, patch });
+                }),
+                captionWrite: (captionId, patch) => new Promise((resolve, reject) => {
+                    const requestId = 'akari-preview-' + (++sequence);
+                    pending.set(requestId, { kind: 'caption-write', resolve, reject });
+                    vscode.postMessage({ type: 'akari-preview-caption-write', requestId, captionId, patch });
                 }),
                 readWaveformBytes: () => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-waveform-' + (++sequence);
@@ -3119,6 +3354,12 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportLayerSelection = layerId => {
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
+            window.akari.reportCutSelection = selected => {
+                vscode.postMessage({ type: 'akari-preview-cut-selected', selected });
+            };
+            window.akari.reportCaptionSelection = captionId => {
+                vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
+            };
             if (outputPreviewLink && initial.relatedEditUri) {
                 outputPreviewLink.addEventListener('click', () => {
                     vscode.postMessage({ type: 'akari-preview-open-output-request' });
@@ -3141,6 +3382,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const PENDING_RESPONSE_TYPES = {
                 'overlay-write': 'akari-preview-overlay-write-response',
                 'layer-write': 'akari-preview-layer-write-response',
+                'cut-write': 'akari-preview-cut-write-response',
+                'caption-write': 'akari-preview-caption-write-response',
                 'waveform-fetch': 'akari-preview-waveform-fetch-response'
             };
             window.addEventListener('message', event => {
@@ -3154,7 +3397,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!message.ok) {
                     const fallback = request.kind === 'waveform-fetch'
                         ? '動画データの読み込みに失敗しました'
-                        : 'edit.json の書き込みに失敗しました';
+                        : request.kind === 'caption-write'
+                            ? 'captions.json の書き込みに失敗しました'
+                            : 'edit.json の書き込みに失敗しました';
                     request.reject(new Error(message.error || fallback));
                     return;
                 }
@@ -3775,6 +4020,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.dataset.akariCutTransformActive = 'false';
                     video.style.transform = '';
                     video.style.opacity = '';
+                    video.dataset.akariCutIndex = '';
+                    // ㉓ ギャップ等クリック選択の対象外へ移った場合は選択を外す
+                    // （deselectCut は後段で定義される const だが、実際の呼び出しは
+                    // 常にトップレベルスクリプト完了後の非同期経路のため安全）。
+                    if (typeof deselectCut === 'function') deselectCut({ report: true });
                     return;
                 }
                 const transform = segment.transform;
@@ -3792,7 +4042,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.dataset.akariCutTransformActive = 'false';
                 }
                 video.style.opacity = Number.isFinite(segment.opacity) ? String(segment.opacity) : '';
+                video.dataset.akariCutIndex = Number.isInteger(segment.cutIndex) ? String(segment.cutIndex) : '';
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (typeof updateCutSelectBox === 'function') updateCutSelectBox();
             };
             const layerEntries = (Array.isArray(summary.layers) ? summary.layers : []).map((layer, index) => {
                 const layerVideo = document.createElement('video');
@@ -3889,8 +4141,73 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 selectedLayerId = nextId;
+                // ㉓ 選択の排他制御: layer を選ぶと cut/caption 選択は外れる（逆方向はそれぞれの select 側）。
+                if (nextId && typeof deselectCut === 'function') deselectCut({ report: true });
+                if (nextId && typeof deselectCaption === 'function') deselectCaption({ report: true });
                 updateLayerSelectBox();
                 if (report) window.akari.reportLayerSelection(selectedLayerId);
+            };
+            // ㉒ スナップ統一: layers[]（この後 cut/caption も同型）の移動・拡縮を、
+            // interaction.js（overlay-runtime、overlays[] 用スナップの単一正本）が公開する
+            // computeSnapCorrection/stageLocalPoint/showSnapGuides/hideSnapGuides へ委譲する。
+            // 出力px（video座標）系の bounds を渡すだけで、キャンバス端5%セーフマージン+
+            // センター縦横・8px吸着/12px解除（表示px基準=ズーム下でも見た目8px相当）・
+            // ガイド線が overlays[] と完全に同一挙動になる（旧実装は resize/layers[] とも
+            // スナップ皆無だった）。
+            const outputBoundsForCenteredBox = (centerX, centerY, boxWidth, boxHeight) => ({
+                left: centerX - boxWidth / 2,
+                right: centerX + boxWidth / 2,
+                top: centerY - boxHeight / 2,
+                bottom: centerY + boxHeight / 2,
+                centerX,
+                centerY
+            });
+            const layerOutputBoundsForTransform = (entry, transform) => {
+                const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                const outputHeight = Number(summary.output && summary.output.height) || 720;
+                return outputBoundsForCenteredBox(
+                    outputWidth / 2 + transform.x,
+                    outputHeight / 2 + transform.y,
+                    (entry.video.videoWidth || 0) * transform.scale,
+                    (entry.video.videoHeight || 0) * transform.scale
+                );
+            };
+            // センターピボットの拡縮（layers[]・cut は共に中心固定で scale する）を、
+            // computeSnapCorrection() の left/center/right 一致点から scale へ逆算する。
+            // center（sourceIndex===1）は scale では動かせないため候補から除外し、
+            // left/right（または top/bottom）のどちらか近い方だけを採用する
+            // （uniform scale の制約上 overlays[] resize と同じく一度に1軸のみ）。
+            const solveCenteredResizeSnap = (bounds, naturalWidth, naturalHeight, currentScale, previousSnap) => {
+                const snap = window.akari.interaction.computeSnapCorrection(bounds, previousSnap);
+                const halfW = (bounds.right - bounds.left) / 2;
+                const halfH = (bounds.bottom - bounds.top) / 2;
+                const axisCandidate = (snapEntry, half, natural) => {
+                    if (!snapEntry || snapEntry.sourceIndex === 1 || !(half > 0) || !(natural > 0)) return null;
+                    const sign = snapEntry.sourceIndex === 2 ? 1 : -1;
+                    const nextHalf = half + sign * snapEntry.correction;
+                    if (!(nextHalf > 0)) return null;
+                    return { snap: snapEntry, scale: (nextHalf * 2) / natural };
+                };
+                const candidateX = axisCandidate(snap.x, halfW, naturalWidth);
+                const candidateY = axisCandidate(snap.y, halfH, naturalHeight);
+                let chosen = null;
+                if (candidateX) chosen = { axis: 'x', ...candidateX };
+                if (candidateY && (!chosen || Math.abs(candidateY.snap.correction) < Math.abs(chosen.snap.correction))) {
+                    chosen = { axis: 'y', ...candidateY };
+                }
+                if (!chosen) {
+                    window.akari.interaction.hideSnapGuides();
+                    return { scale: currentScale, snapX: null, snapY: null };
+                }
+                window.akari.interaction.showSnapGuides(
+                    chosen.axis === 'x' ? chosen.snap : null,
+                    chosen.axis === 'y' ? chosen.snap : null
+                );
+                return {
+                    scale: chosen.scale,
+                    snapX: chosen.axis === 'x' ? chosen.snap : null,
+                    snapY: chosen.axis === 'y' ? chosen.snap : null
+                };
             };
             // CF-write: layerWrite 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
             const beginLayerTransformDrag = (entry, startEvent, computeTransform) => {
@@ -3910,6 +4227,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
                         captureTarget.releasePointerCapture(pointerId);
                     }
+                    window.akari.interaction?.hideSnapGuides?.();
                 };
                 const onMove = moveEvent => {
                     if (moveEvent.pointerId !== pointerId) return;
@@ -3957,20 +4275,85 @@ body { display: grid; place-items: center; padding: 32px; }
             // video underneath via elementsFromPoint.
             stage.addEventListener('pointerdown', event => {
                 if (event.button !== 0 || zoom > 1.05 || event.target !== stage) return;
-                const layerVideo = document.elementsFromPoint(event.clientX, event.clientY)
-                    .find(candidate => candidate.tagName === 'VIDEO' && candidate.dataset
-                        && candidate.dataset.akariLayerId && candidate.style.display !== 'none');
-                if (!layerVideo) return;
-                const entry = findLayerEntry(layerVideo.dataset.akariLayerId);
+                // ㉓ #preview-video も #overlay-stage の裏に隠れる同じ事情のため、layer video と
+                // 同じ elementsFromPoint 委譲に相乗りする（実際の z-order は zForTrack() 経由で
+                // cuts/layers が混在し得るため、ヒットテスト順=画面上の重なり順をそのまま使う）。
+                const hit = document.elementsFromPoint(event.clientX, event.clientY)
+                    .find(candidate => candidate === video
+                        || (candidate.tagName === 'VIDEO' && candidate.dataset
+                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none'));
+                if (!hit) return;
+                if (hit === video) {
+                    if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
+                    selectCut();
+                    const startPoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
+                    let dragSnap = { x: null, y: null };
+                    beginCutTransformDrag(event, (moveEvent, original) => {
+                        const nowPoint = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
+                        const frameScale = window.akari.stageScale() || 1;
+                        let nextX = original.x;
+                        let nextY = original.y;
+                        if (startPoint && nowPoint) {
+                            nextX = original.x + (nowPoint.x - startPoint.x);
+                            nextY = original.y + (nowPoint.y - startPoint.y);
+                        } else {
+                            nextX = original.x + (moveEvent.clientX - event.clientX) / frameScale;
+                            nextY = original.y + (moveEvent.clientY - event.clientY) / frameScale;
+                        }
+                        if (moveEvent.shiftKey || !window.akari.interaction) {
+                            dragSnap = { x: null, y: null };
+                            window.akari.interaction?.hideSnapGuides?.();
+                        } else {
+                            const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                            const outputHeight = Number(summary.output && summary.output.height) || 720;
+                            const bounds = outputBoundsForCenteredBox(
+                                outputWidth / 2 + nextX, outputHeight / 2 + nextY,
+                                outputWidth * original.scale, outputHeight * original.scale
+                            );
+                            const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
+                            dragSnap = snap;
+                            if (snap.x) nextX += snap.x.correction;
+                            if (snap.y) nextY += snap.y.correction;
+                            window.akari.interaction.showSnapGuides(snap.x, snap.y);
+                        }
+                        return { ...original, x: nextX, y: nextY };
+                    });
+                    return;
+                }
+                const entry = findLayerEntry(hit.dataset.akariLayerId);
                 if (!entry) return;
                 selectLayer(entry.spec.id);
+                // stageLocalPoint() は #overlay-stage の getBoundingClientRect() 由来のため、
+                // #zoom-layer のプレビューズーム(scale(zoom))と #overlay-stage 自身の
+                // frameScale の両方を含む倍率で client px → 出力px を変換する（旧実装の
+                // window.akari.stageScale()単独＝frameScaleのみだと zoom 抜け漏れでズーム下の
+                // ドラッグ量が不正確になっていた）。
+                const startPoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
+                let dragSnap = { x: null, y: null };
                 beginLayerTransformDrag(entry, event, (moveEvent, original) => {
-                    const frameScale = window.akari.stageScale() || 1;
-                    return {
-                        ...original,
-                        x: original.x + (moveEvent.clientX - event.clientX) / frameScale,
-                        y: original.y + (moveEvent.clientY - event.clientY) / frameScale
-                    };
+                    const nowPoint = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
+                    let nextX = original.x;
+                    let nextY = original.y;
+                    if (startPoint && nowPoint) {
+                        nextX = original.x + (nowPoint.x - startPoint.x);
+                        nextY = original.y + (nowPoint.y - startPoint.y);
+                    } else {
+                        const frameScale = window.akari.stageScale() || 1;
+                        nextX = original.x + (moveEvent.clientX - event.clientX) / frameScale;
+                        nextY = original.y + (moveEvent.clientY - event.clientY) / frameScale;
+                    }
+                    if (moveEvent.shiftKey || !window.akari.interaction) {
+                        dragSnap = { x: null, y: null };
+                        window.akari.interaction?.hideSnapGuides?.();
+                    } else {
+                        const bounds = layerOutputBoundsForTransform(entry, { ...original, x: nextX, y: nextY });
+                        const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
+                        dragSnap = snap;
+                        if (snap.x) nextX += snap.x.correction;
+                        if (snap.y) nextY += snap.y.correction;
+                        window.akari.interaction.showSnapGuides(snap.x, snap.y);
+                    }
+                    return { ...original, x: nextX, y: nextY };
                 });
             });
             for (const handle of layerHandleElements) {
@@ -3989,27 +4372,370 @@ body { display: grid; place-items: center; padding: 32px; }
                         });
                     } else {
                         const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
+                        let dragSnap = { x: null, y: null };
                         beginLayerTransformDrag(entry, event, (moveEvent, original) => {
                             const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
                             const factor = distance / startDistance;
-                            return { ...original, scale: Math.max(0.01, original.scale * factor) };
+                            let nextScale = Math.max(0.01, original.scale * factor);
+                            if (moveEvent.shiftKey || !window.akari.interaction) {
+                                dragSnap = { x: null, y: null };
+                                window.akari.interaction?.hideSnapGuides?.();
+                            } else {
+                                const bounds = layerOutputBoundsForTransform(entry, { ...original, scale: nextScale });
+                                const solved = solveCenteredResizeSnap(
+                                    bounds, entry.video.videoWidth || 0, entry.video.videoHeight || 0,
+                                    nextScale, dragSnap
+                                );
+                                nextScale = solved.scale;
+                                dragSnap = { x: solved.snapX, y: solved.snapY };
+                            }
+                            return { ...original, scale: nextScale };
                         });
                     }
                 });
             }
             wrapper.addEventListener('click', event => {
-                if (!selectedLayerId) return;
-                if (event.target.closest && event.target.closest('#layer-select-box')) return;
-                // A click that lands on the stage over a layer video reports event.target as the
-                // stage itself (see the delegated pointerdown handler above), so re-check via
-                // elementsFromPoint rather than event.target.closest here.
-                const hitLayer = document.elementsFromPoint(event.clientX, event.clientY)
-                    .some(candidate => candidate.tagName === 'VIDEO' && candidate.dataset
-                        && candidate.dataset.akariLayerId && candidate.style.display !== 'none');
-                if (hitLayer) return;
-                selectLayer(null);
+                if (!selectedLayerId && !cutSelected) return;
+                if (event.target.closest
+                    && (event.target.closest('#layer-select-box') || event.target.closest('#cut-select-box'))) {
+                    return;
+                }
+                // A click that lands on the stage over a layer video/preview-video reports
+                // event.target as the stage itself (see the delegated pointerdown handler above),
+                // so re-check via elementsFromPoint rather than event.target.closest here.
+                const hitSelectable = document.elementsFromPoint(event.clientX, event.clientY)
+                    .some(candidate => candidate === video
+                        || (candidate.tagName === 'VIDEO' && candidate.dataset
+                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none'));
+                if (hitSelectable) return;
+                if (selectedLayerId) selectLayer(null);
+                if (cutSelected) deselectCut();
             });
             new ResizeObserver(() => updateLayerSelectBox()).observe(wrapper);
+
+            // ㉓ 本編ビデオ（#preview-video = 現在再生中のカット）のクリック選択 + transform。
+            // layers[] と同型（4隅ハンドルで移動/拡縮・center-pivot scale・確定時のみ
+            // cutWrite）。box の基準サイズは layers[] の natural media size ではなく
+            // 出力フレーム（outputWidth/outputHeight）— #preview-video 自身が
+            // updateStageScale() で frameRect サイズに敷かれ、その上へ cut transform の
+            // translate/scale/rotate がそのままかかる実装（既存 transform 消費経路）と
+            // 一致させるため。
+            let cutSelected = false;
+            const cutSelectBox = document.getElementById('cut-select-box');
+            const cutHandleElements = Array.from(cutSelectBox.querySelectorAll('[data-akari-handle]'));
+            const cutTransformNow = () => ({
+                x: Number(video.dataset.akariTransformX) || 0,
+                y: Number(video.dataset.akariTransformY) || 0,
+                scale: Number(video.dataset.akariTransformScale) || 1,
+                rotate: Number(video.dataset.akariTransformRotate) || 0
+            });
+            const applyCutTransformNow = transform => {
+                video.dataset.akariCutTransformActive = 'true';
+                video.dataset.akariTransformX = String(transform.x);
+                video.dataset.akariTransformY = String(transform.y);
+                video.dataset.akariTransformScale = String(transform.scale);
+                video.dataset.akariTransformRotate = String(transform.rotate);
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                updateCutSelectBox();
+            };
+            const updateCutSelectBox = () => {
+                const hasCut = video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined;
+                if (!cutSelected || !hasCut || video.style.visibility === 'hidden') {
+                    cutSelectBox.classList.remove('is-active');
+                    return;
+                }
+                const frameRect = window.akari.computeOutputFrameRect();
+                const frameScale = window.akari.stageScale() || 1;
+                const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                const outputHeight = Number(summary.output && summary.output.height) || 720;
+                const transform = cutTransformNow();
+                const outputW = outputWidth * transform.scale;
+                const outputH = outputHeight * transform.scale;
+                const outputCenterX = outputWidth / 2 + transform.x;
+                const outputCenterY = outputHeight / 2 + transform.y;
+                const screenW = outputW * frameScale;
+                const screenH = outputH * frameScale;
+                const screenCenterX = frameRect.x + outputCenterX * frameScale;
+                const screenCenterY = frameRect.y + outputCenterY * frameScale;
+                cutSelectBox.style.left = (screenCenterX - screenW / 2) + 'px';
+                cutSelectBox.style.top = (screenCenterY - screenH / 2) + 'px';
+                cutSelectBox.style.width = screenW + 'px';
+                cutSelectBox.style.height = screenH + 'px';
+                cutSelectBox.style.transform = 'rotate(' + transform.rotate + 'deg)';
+                cutSelectBox.classList.add('is-active');
+            };
+            const selectCut = options => {
+                const report = !options || options.report !== false;
+                if (cutSelected) {
+                    updateCutSelectBox();
+                    return;
+                }
+                cutSelected = true;
+                selectLayer(null, { report: true });
+                if (typeof deselectCaption === 'function') deselectCaption({ report: true });
+                updateCutSelectBox();
+                if (report) window.akari.reportCutSelection(true);
+            };
+            const deselectCut = options => {
+                const report = !options || options.report !== false;
+                if (!cutSelected) {
+                    updateCutSelectBox();
+                    return;
+                }
+                cutSelected = false;
+                updateCutSelectBox();
+                if (report) window.akari.reportCutSelection(false);
+            };
+            const beginCutTransformDrag = (startEvent, computeTransform) => {
+                startEvent.preventDefault();
+                startEvent.stopPropagation();
+                const pointerId = startEvent.pointerId;
+                const original = cutTransformNow();
+                const captureTarget = startEvent.currentTarget;
+                let moved = false;
+                let cancelled = false;
+                try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
+                const cleanup = () => {
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    window.removeEventListener('pointercancel', onUp);
+                    window.removeEventListener('keydown', onKeyDown, true);
+                    if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
+                        captureTarget.releasePointerCapture(pointerId);
+                    }
+                    window.akari.interaction?.hideSnapGuides?.();
+                };
+                const onMove = moveEvent => {
+                    if (moveEvent.pointerId !== pointerId) return;
+                    const dx = moveEvent.clientX - startEvent.clientX;
+                    const dy = moveEvent.clientY - startEvent.clientY;
+                    if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
+                    if (!moved) return;
+                    applyCutTransformNow(computeTransform(moveEvent, original));
+                };
+                const finish = async () => {
+                    cleanup();
+                    if (cancelled) {
+                        applyCutTransformNow(original);
+                        return;
+                    }
+                    if (!moved) return;
+                    const cutIndex = Number(video.dataset.akariCutIndex);
+                    if (!Number.isInteger(cutIndex) || cutIndex < 0) {
+                        applyCutTransformNow(original);
+                        return;
+                    }
+                    const finalTransform = cutTransformNow();
+                    try {
+                        await window.akari.engine.cutWrite(cutIndex, { transform: finalTransform });
+                    } catch (error) {
+                        console.warn('[akari-preview] cut transform write rejected; reverting', error);
+                        applyCutTransformNow(original);
+                    }
+                };
+                const onUp = upEvent => {
+                    if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+                    void finish();
+                };
+                const onKeyDown = keyEvent => {
+                    if (keyEvent.key !== 'Escape') return;
+                    cancelled = true;
+                    void finish();
+                };
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+                window.addEventListener('pointercancel', onUp);
+                window.addEventListener('keydown', onKeyDown, true);
+            };
+            for (const handle of cutHandleElements) {
+                handle.addEventListener('pointerdown', event => {
+                    if (event.button !== 0 || !cutSelected) return;
+                    const boxRect = cutSelectBox.getBoundingClientRect();
+                    const center = { x: boxRect.left + boxRect.width / 2, y: boxRect.top + boxRect.height / 2 };
+                    const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
+                    let dragSnap = { x: null, y: null };
+                    beginCutTransformDrag(event, (moveEvent, original) => {
+                        const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
+                        const factor = distance / startDistance;
+                        let nextScale = Math.max(0.01, original.scale * factor);
+                        if (moveEvent.shiftKey || !window.akari.interaction) {
+                            dragSnap = { x: null, y: null };
+                            window.akari.interaction?.hideSnapGuides?.();
+                        } else {
+                            const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                            const outputHeight = Number(summary.output && summary.output.height) || 720;
+                            const bounds = outputBoundsForCenteredBox(
+                                outputWidth / 2 + original.x,
+                                outputHeight / 2 + original.y,
+                                outputWidth * nextScale,
+                                outputHeight * nextScale
+                            );
+                            const solved = solveCenteredResizeSnap(
+                                bounds, outputWidth, outputHeight, nextScale, dragSnap
+                            );
+                            nextScale = solved.scale;
+                            dragSnap = { x: solved.snapX, y: solved.snapY };
+                        }
+                        return { ...original, scale: nextScale };
+                    });
+                });
+            }
+            new ResizeObserver(() => updateCutSelectBox()).observe(wrapper);
+
+            // ㉓ 字幕クリック選択+移動（v0: 選択+位置移動の最小）。captions.json の zone は
+            // 3x3 固定 enum（schemas/captions.schema.json、自由座標なし・schema 追加禁止）
+            // のため、ドラッグ位置は最近傍 zone へ量子化し pointerup 確定時のみ
+            // captionWrite で書き戻す（overlay/layer/cut と同じ「確定時のみ書き込み」規約）。
+            // captionZoneVars() は akari-preview-captions.ts の zoneVars()（render-cut/src/
+            // captions.mjs にも同型の複製が既にある——このファイル間ミラー方式が既存の
+            // 設計判断）を webview 内 JS として最小限に複製したもの。
+            // 制約: プレーン字幕（text_style 無し）は #caption-plate 自体が bottom-center に
+            // ハードコードされ zone を無視する。zone を書き込むと次の captions.json リロード
+            // （既存の handleFilesChanged → queueCaptionsUpdate 経路）で「styled」扱いに昇格し
+            // 新位置に反映される——ドラッグ中のリアルタイム追従はスキーマの都合上できない
+            // （#caption-select-box の概算矩形でドロップ先ゾーンだけ示す）。report に明記する。
+            let selectedCaptionId = null;
+            let selectedCaptionZone = 'bottom';
+            const captionSelectBox = document.getElementById('caption-select-box');
+            const ZONE_ROW_RANGES = { top: [0, 1 / 3], middle: [1 / 3, 2 / 3], bottom: [2 / 3, 1] };
+            const ZONE_COL_RANGES = { left: [0, 1 / 3], center: [1 / 3, 2 / 3], right: [2 / 3, 1] };
+            const zoneParts = zone => {
+                if (!zone || zone === 'bottom') return { row: 'bottom', col: 'center' };
+                if (zone === 'center') return { row: 'middle', col: 'center' };
+                if (zone === 'top') return { row: 'top', col: 'center' };
+                if (zone === 'left' || zone === 'right') return { row: 'middle', col: zone };
+                const [row, col] = zone.split('-');
+                return { row, col };
+            };
+            const zoneFromFraction = (fx, fy) => {
+                const col = fx < 1 / 3 ? 'left' : fx < 2 / 3 ? 'center' : 'right';
+                const row = fy < 1 / 3 ? 'top' : fy < 2 / 3 ? 'middle' : 'bottom';
+                if (row === 'middle' && col === 'center') return 'center';
+                if (row === 'middle') return col;
+                if (col === 'center') return row;
+                return row + '-' + col;
+            };
+            const updateCaptionSelectBoxForZone = zone => {
+                if (!selectedCaptionId) {
+                    captionSelectBox.classList.remove('is-active');
+                    return;
+                }
+                const frameRect = window.akari.computeOutputFrameRect();
+                const { row, col } = zoneParts(zone);
+                const rowRange = ZONE_ROW_RANGES[row] || ZONE_ROW_RANGES.bottom;
+                const colRange = ZONE_COL_RANGES[col] || ZONE_COL_RANGES.center;
+                captionSelectBox.style.left = (frameRect.x + frameRect.width * colRange[0]) + 'px';
+                captionSelectBox.style.top = (frameRect.y + frameRect.height * rowRange[0]) + 'px';
+                captionSelectBox.style.width = (frameRect.width * (colRange[1] - colRange[0])) + 'px';
+                captionSelectBox.style.height = (frameRect.height * (rowRange[1] - rowRange[0])) + 'px';
+                captionSelectBox.classList.add('is-active');
+            };
+            const updateCaptionSelectBox = () => {
+                if (!selectedCaptionId) {
+                    captionSelectBox.classList.remove('is-active');
+                    return;
+                }
+                const caption = captions.find(candidate => candidate.id === selectedCaptionId);
+                if (!caption) {
+                    selectedCaptionId = null;
+                    captionSelectBox.classList.remove('is-active');
+                    return;
+                }
+                selectedCaptionZone = (caption.textStyle && caption.textStyle.zone) || 'bottom';
+                updateCaptionSelectBoxForZone(selectedCaptionZone);
+            };
+            const selectCaption = (captionId, options) => {
+                const report = !options || options.report !== false;
+                if (captionId === selectedCaptionId) {
+                    updateCaptionSelectBox();
+                    return;
+                }
+                selectedCaptionId = captionId;
+                if (captionId) {
+                    selectLayer(null, { report: true });
+                    deselectCut({ report: true });
+                }
+                updateCaptionSelectBox();
+                if (report) window.akari.reportCaptionSelection(selectedCaptionId);
+            };
+            const deselectCaption = options => selectCaption(null, options);
+            captionPlate.addEventListener('pointerdown', event => {
+                if (event.button !== 0) return;
+                const time = video.currentTime || 0;
+                const caption = captions.find(candidate => candidate.start <= time && time < candidate.end);
+                if (!caption || !caption.id) return;
+                event.preventDefault();
+                event.stopPropagation();
+                selectCaption(caption.id);
+                const pointerId = event.pointerId;
+                const startClientX = event.clientX;
+                const startClientY = event.clientY;
+                const originalZone = selectedCaptionZone;
+                let candidateZone = originalZone;
+                let moved = false;
+                try { captionPlate.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
+                const frameRect = window.akari.computeOutputFrameRect();
+                const cleanup = () => {
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    window.removeEventListener('pointercancel', onCancel);
+                    window.removeEventListener('keydown', onKeyDown, true);
+                    if (captionPlate.hasPointerCapture && captionPlate.hasPointerCapture(pointerId)) {
+                        captionPlate.releasePointerCapture(pointerId);
+                    }
+                };
+                const onMove = moveEvent => {
+                    if (moveEvent.pointerId !== pointerId) return;
+                    const dx = moveEvent.clientX - startClientX;
+                    const dy = moveEvent.clientY - startClientY;
+                    if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
+                    if (!moved || !(frameRect.width > 0) || !(frameRect.height > 0)) return;
+                    const fx = (moveEvent.clientX - frameRect.x) / frameRect.width;
+                    const fy = (moveEvent.clientY - frameRect.y) / frameRect.height;
+                    candidateZone = zoneFromFraction(fx, fy);
+                    updateCaptionSelectBoxForZone(candidateZone);
+                };
+                const finish = async cancelled => {
+                    cleanup();
+                    if (cancelled || !moved || candidateZone === originalZone) {
+                        updateCaptionSelectBox();
+                        return;
+                    }
+                    try {
+                        await window.akari.engine.captionWrite(caption.id, { zone: candidateZone });
+                        selectedCaptionZone = candidateZone;
+                    } catch (error) {
+                        console.warn('[akari-preview] caption zone write rejected; reverting', error);
+                    }
+                    updateCaptionSelectBoxForZone(selectedCaptionZone);
+                };
+                const onUp = upEvent => {
+                    if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+                    void finish(false);
+                };
+                const onCancel = cancelEvent => {
+                    if (cancelEvent.pointerId !== undefined && cancelEvent.pointerId !== pointerId) return;
+                    void finish(true);
+                };
+                const onKeyDown = keyEvent => {
+                    if (keyEvent.key !== 'Escape') return;
+                    void finish(true);
+                };
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+                window.addEventListener('pointercancel', onCancel);
+                window.addEventListener('keydown', onKeyDown, true);
+            });
+            wrapper.addEventListener('click', event => {
+                if (!selectedCaptionId) return;
+                if (event.target.closest
+                    && (event.target.closest('#caption-plate') || event.target.closest('#caption-select-box'))) {
+                    return;
+                }
+                deselectCaption();
+            });
+            new ResizeObserver(() => updateCaptionSelectBox()).observe(wrapper);
+
             const applyTrackVisibility = track => {
                 for (const container of stage.querySelectorAll('[data-akari-track]')) {
                     if (Number(container.getAttribute('data-akari-track')) === track) {
@@ -4784,6 +5510,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     } else {
                         captionPlate.textContent = caption ? caption.text : '';
                     }
+                    // ㉓ 字幕もオーバーレイ同様「inset:0 全画面ラッパー + 内側配置」パターン
+                    // （styled 字幕の .akari-caption 断片）を取り得るため、㉑ と同じ
+                    // clip-path 実寸当たり判定を流用する。プレーン字幕（shrink-to-fit の
+                    // #caption-plate 自体が既に実寸）は fragmentBounds が null を返し
+                    // clip-path 'none'（=元々実寸のフルコンテナ）のまま無害。
+                    window.akari.interaction?.syncOverlayHitRegion?.(captionPlate);
+                    if (typeof updateCaptionSelectBox === 'function') updateCaptionSelectBox();
                 }
                 if (caption && styledCaptionActive) {
                     const localMs = (clamp(time, caption.start, caption.end) - caption.start) * 1000;
