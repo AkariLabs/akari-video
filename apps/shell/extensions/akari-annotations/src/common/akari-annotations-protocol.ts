@@ -375,6 +375,13 @@ export interface SetCutOpacityRequest {
     opacity: number | null;
 }
 
+export interface SetCutTransitionOutRequest {
+    editUri: string;
+    projectRootUri: string;
+    cutIndex: number;
+    transitionOut: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number } | null;
+}
+
 export interface SetLayerTransformRequest {
     editUri: string;
     projectRootUri: string;
@@ -504,6 +511,7 @@ export interface AkariAnnotationsService {
     setCutSpeed(request: SetCutSpeedRequest): Promise<WriteBackResult>;
     setCutTransform(request: SetCutTransformRequest): Promise<WriteBackResult>;
     setCutOpacity(request: SetCutOpacityRequest): Promise<WriteBackResult>;
+    setCutTransitionOut(request: SetCutTransitionOutRequest): Promise<WriteBackResult>;
     setLayerTransform(request: SetLayerTransformRequest): Promise<WriteBackResult>;
     setLayerOpacity(request: SetLayerOpacityRequest): Promise<WriteBackResult>;
     setLayerBlend(request: SetLayerBlendRequest): Promise<WriteBackResult>;

@@ -50,6 +50,7 @@ import {
     SetCutOpacityRequest,
     SetCutSpeedRequest,
     SetCutTransformRequest,
+    SetCutTransitionOutRequest,
     SetLayerBlendRequest,
     SetLayerOpacityRequest,
     SetLayerTransformRequest,
@@ -101,6 +102,7 @@ import {
     slipCutInSource,
     splitCutInSource,
     setCutAtValuesInSource,
+    setCutTransitionOutInSource,
     updateCutOpacityInSource,
     updateCutTransformInSource,
     trimCutInSource,
@@ -485,6 +487,15 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = updateCutOpacityInSource(source, request.cutIndex, request.opacity);
         await this.writeAtomic(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの不透明度を変更') };
+    }
+
+    async setCutTransitionOut(request: SetCutTransitionOutRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = setCutTransitionOutInSource(source, request.cutIndex, request.transitionOut);
+        await this.writeAtomic(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップのトランジションを変更') };
     }
 
     async setLayerTransform(request: SetLayerTransformRequest): Promise<WriteBackResult> {

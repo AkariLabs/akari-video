@@ -403,6 +403,40 @@ export function updateCutOpacityInSource(source: string, cutIndex: number, opaci
     });
 }
 
+export function setCutTransitionOutInSource(
+    source: string,
+    cutIndex: number,
+    transitionOut: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number } | null
+): string {
+    if (transitionOut !== null) {
+        if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black' && transitionOut.type !== 'fade-white') {
+            throw new Error('トランジションの種別が不正です。');
+        }
+        if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {
+            throw new Error('トランジションの尺は正の数で指定してください。');
+        }
+    }
+    return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element => {
+        const hasTransitionOut = hasTopLevelProperty(element, 'transition_out');
+        if (transitionOut === null) {
+            return hasTransitionOut ? removeObjectProperty(element, 'transition_out') : element;
+        }
+        const value = { type: transitionOut.type, duration: transitionOut.duration };
+        if (!hasTransitionOut) {
+            return appendJsonProperty(element, 'transition_out', value);
+        }
+        // schema は transition_out に明示的な null（未設定の別表記）も許容しており、
+        // 実データにも存在する。その場合は object ではないため locateTopLevelObjectProperty が
+        // 例外を投げる — 一旦除去してから追記する（結果は object 直書きと同じ）。
+        try {
+            const located = locateTopLevelObjectProperty(element, 'transition_out');
+            return element.slice(0, located.start) + JSON.stringify(value) + element.slice(located.end);
+        } catch {
+            return appendJsonProperty(removeObjectProperty(element, 'transition_out'), 'transition_out', value);
+        }
+    });
+}
+
 export function reorderCutsInSource(source: string, fromIndex: number, toIndex: number): string {
     const array = locateArray(source, 'cuts');
     const elements = splitTopLevelElements(array.inner);
