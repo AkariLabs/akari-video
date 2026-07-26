@@ -20,8 +20,13 @@ export interface AnnotationStrokeFrame {
 /**
  * annotation への着地型（review セッション契約 §4.2）。strokes.json 原本の間引き済みポリライン
  * を review.json に埋め込み、`sessionRef` で原本（review/sessions/<id>/strokes.json）を指す。
+ *
+ * `space: "content-rect"`（動画面）は review セッション由来（S3）のみのため frame / sessionRef
+ * が必須。`space: "image-rect"`（画像面。contract-2026-07-26-doc-image-annotations §3）は
+ * レポート内画像のポップアップから単発 typed 注釈に付随して作られるため、動画フレームアンカーが
+ * 存在せず frame は省略し、録音セッション由来でもないため sessionRef も省略できる。
  */
-export interface AnnotationStroke {
+export interface AnnotationStrokeContentRect {
     tool: 'pen';
     space: 'content-rect';
     frame: AnnotationStrokeFrame;
@@ -29,6 +34,17 @@ export interface AnnotationStroke {
     points: [number, number][];
     sessionRef: string;
 }
+
+export interface AnnotationStrokeImageRect {
+    tool: 'pen';
+    space: 'image-rect';
+    /** 正規化 0〜1・対象画像の natural size 矩形基準の間引き済みポリライン（〜100 点程度） */
+    points: [number, number][];
+    /** 単発注釈（typed/voice）由来では省略する（契約 §3）。 */
+    sessionRef?: string;
+}
+
+export type AnnotationStroke = AnnotationStrokeContentRect | AnnotationStrokeImageRect;
 
 export type AnnotationRef = { src: string } | { path: string };
 
@@ -253,32 +269,57 @@ export function normalizeStrokes(value: any, id: string, warnings: string[]): An
     return strokes.length > 0 ? strokes : null;
 }
 
-/** review セッション契約 §4.2 の annotation 着地型（`{tool, space, frame, points, sessionRef}`）を検証する。 */
+/**
+ * review セッション契約 §4.2 / contract-2026-07-26-doc-image-annotations §3 の annotation 着地型を
+ * 検証する。`space` により分岐する: `content-rect`（動画面・frame + sessionRef 必須）と
+ * `image-rect`（画像面・frame は省略・sessionRef は単発注釈では省略可）。
+ */
 function normalizeStroke(value: any): AnnotationStroke | undefined {
-    if (!value || typeof value !== 'object' || Array.isArray(value)
-        || value.tool !== 'pen' || value.space !== 'content-rect') {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || value.tool !== 'pen') {
         return undefined;
     }
-    const frame = value.frame;
-    if (!frame || typeof frame !== 'object' || typeof frame.sourceT !== 'number' || !Number.isFinite(frame.sourceT)) {
+    const points = normalizeStrokePoints(value.points);
+    if (!points) {
         return undefined;
     }
-    const cutIndex = typeof frame.cutIndex === 'number' && Number.isFinite(frame.cutIndex) ? frame.cutIndex : null;
-    if (!Array.isArray(value.points) || value.points.length < 2
-        || !value.points.every((point: unknown) => Array.isArray(point) && point.length === 2
+    if (value.space === 'content-rect') {
+        const frame = value.frame;
+        if (!frame || typeof frame !== 'object' || typeof frame.sourceT !== 'number' || !Number.isFinite(frame.sourceT)) {
+            return undefined;
+        }
+        if (typeof value.sessionRef !== 'string' || !value.sessionRef.trim()) {
+            return undefined;
+        }
+        const cutIndex = typeof frame.cutIndex === 'number' && Number.isFinite(frame.cutIndex) ? frame.cutIndex : null;
+        return {
+            tool: 'pen',
+            space: 'content-rect',
+            frame: { sourceT: frame.sourceT, cutIndex },
+            points,
+            sessionRef: value.sessionRef
+        };
+    }
+    if (value.space === 'image-rect') {
+        // frame は画像面では存在しないアンカー（契約 §3）。誤って content-rect 由来の frame が
+        // 混入したレコードは形が信用できないため無視する（無言で捨てない・警告は呼び出し元が出す）。
+        if (Object.prototype.hasOwnProperty.call(value, 'frame') && value.frame != null) {
+            return undefined;
+        }
+        const sessionRef = typeof value.sessionRef === 'string' && value.sessionRef.trim() ? value.sessionRef : undefined;
+        return sessionRef
+            ? { tool: 'pen', space: 'image-rect', points, sessionRef }
+            : { tool: 'pen', space: 'image-rect', points };
+    }
+    return undefined;
+}
+
+function normalizeStrokePoints(value: any): [number, number][] | undefined {
+    if (!Array.isArray(value) || value.length < 2
+        || !value.every((point: unknown) => Array.isArray(point) && point.length === 2
             && point.every(entry => typeof entry === 'number' && Number.isFinite(entry) && entry >= 0 && entry <= 1))) {
         return undefined;
     }
-    if (typeof value.sessionRef !== 'string' || !value.sessionRef.trim()) {
-        return undefined;
-    }
-    return {
-        tool: 'pen',
-        space: 'content-rect',
-        frame: { sourceT: frame.sourceT, cutIndex },
-        points: value.points.map((point: [number, number]) => [point[0], point[1]] as [number, number]),
-        sessionRef: value.sessionRef
-    };
+    return value.map((point: [number, number]) => [point[0], point[1]] as [number, number]);
 }
 
 export function normalizeSessionRef(value: any, id: string, warnings: string[]): AnnotationSessionRef | null {

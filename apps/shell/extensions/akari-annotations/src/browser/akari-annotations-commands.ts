@@ -44,3 +44,12 @@ export const ATTACH_AKARI_ANNOTATIONS_PASSIVE: Command = {
 export const SELECT_DOC_BLOCK: Command = {
     id: 'akari.annotations.selectDocBlock'
 };
+
+/**
+ * 分析レポート内の画像ブロック（`<img data-block-id>`、image-annotation-pen タスク）クリックから
+ * 同じ `command:` URI 経由の bridge で通知される内部コマンド。SELECT_DOC_BLOCK と同じく
+ * enableCommandUris の許可対象・label なし。
+ */
+export const SELECT_IMAGE_BLOCK: Command = {
+    id: 'akari.annotations.selectImage'
+};

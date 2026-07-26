@@ -1,6 +1,7 @@
 import { Emitter, Event } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
+import { AnnotationStroke } from '../common/annotation-store';
 import { ProjectLocation } from './project-location';
 
 export type AnnotationStatusFilter = 'all' | Annotation['status'];
@@ -137,6 +138,35 @@ export class ReviewModel {
             sourceT: null,
             timelineT: null,
             target: `doc:${selection.path}#${selection.blockId}`,
+            text
+        });
+        if (!this._annotations.some(existing => existing.id === result.annotation.id)) {
+            this._annotations = [...this._annotations, result.annotation];
+            this.onChangedEmitter.fire();
+        }
+        return result;
+    }
+
+    /**
+     * image: target 注釈の作成（contract-2026-07-26-doc-image-annotations §1/§3/§4-2）。
+     * sourceT / timelineT / sourceRange は null（doc: と同じ経路）。text は空文字を許容する
+     * — strokes だけの注釈（typed テキストは任意）を許すため、addDocAnnotation とは別に切る
+     * （createAnnotation サービス側は strokes 非空なら空 text を受理する）。
+     */
+    async addImageAnnotation(
+        text: string, imagePath: string, strokes: AnnotationStroke[]
+    ): Promise<{ annotation: Annotation; committed: boolean }> {
+        const location = this._location;
+        if (!location) {
+            throw new Error('プロジェクトを特定できません。');
+        }
+        const result = await this.annotationsService.createAnnotation({
+            reviewUri: location.reviewUri.toString(),
+            projectRootUri: location.root.toString(),
+            sourceT: null,
+            timelineT: null,
+            target: `image:${imagePath}`,
+            strokes: strokes.length > 0 ? strokes : null,
             text
         });
         if (!this._annotations.some(existing => existing.id === result.annotation.id)) {

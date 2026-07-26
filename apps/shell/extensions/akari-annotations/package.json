@@ -16,7 +16,8 @@
   "dependencies": {
     "@theia/core": "1.73.1",
     "@theia/filesystem": "1.73.1",
-    "@theia/workspace": "1.73.1"
+    "@theia/workspace": "1.73.1",
+    "akari-preview": "file:../akari-preview"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

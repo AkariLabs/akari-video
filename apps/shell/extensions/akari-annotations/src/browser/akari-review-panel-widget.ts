@@ -5,12 +5,16 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Annotation } from '../common/akari-annotations-protocol';
+import { AnnotationStroke } from '../common/annotation-store';
 import { collectBlockIds, extractBlocksManifest, parseDocTarget, parseImageTarget } from '../common/doc-target';
+import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
 import { AnnotationStatusFilter, ReviewModel } from './review-model';
 
 /** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応）。 */
 type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
+/** image: target のファイル存在チェック結果（同じく契約 §6。block-id の概念が無い分 doc より単純）。 */
+type ImageTargetHealth = 'ok' | 'path-missing';
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.BEGIN_ONBOARDING と同一）。
@@ -510,11 +514,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         if (docTarget) {
             head.appendChild(this.renderDocTargetButton(docTarget));
         } else if (imageTarget) {
-            const label = document.createElement('span');
-            label.textContent = `🖼️ ${this.reportBaseName(imageTarget.path)}`;
-            label.title = imageTarget.path;
-            Object.assign(label.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
-            head.appendChild(label);
+            head.appendChild(this.renderImageTargetButton(imageTarget, annotation.strokes));
         } else {
             const time = document.createElement('button');
             time.type = 'button';
@@ -654,6 +654,67 @@ export class AkariReviewPanelWidget extends BaseWidget {
         } catch (error) {
             this.messages.error(`レポートを開けません: ${this.errorMessage(error)}`);
         }
+    }
+
+    /**
+     * image: target 注釈のクリック導線（契約 §4-2・受け入れ条件 3）: ポップアップを再表示し、
+     * strokes を静止描画する（揮発しない）。劣化規約（契約 §6）: path 不在は warning 付き
+     * ボタンにし、再表示のみ不可にする（注釈自体は一覧から消さない）。
+     */
+    protected renderImageTargetButton(
+        imageTarget: { path: string }, strokes: Annotation['strokes']
+    ): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.setAttribute('data-review-image-target', imageTarget.path);
+        button.textContent = `🖼️ ${this.reportBaseName(imageTarget.path)}`;
+        button.title = `${imageTarget.path} — クリックでポップアップを再表示`;
+        Object.assign(button.style, {
+            background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit',
+            fontSize: '11px', color: 'var(--theia-textLink-foreground)'
+        });
+        button.addEventListener('click', () => void this.openImageAnnotationPopup(imageTarget.path, strokes));
+        void this.imageTargetHealth(imageTarget.path).then(health => {
+            if (!button.isConnected) {
+                return;
+            }
+            if (health === 'path-missing') {
+                button.title = `${imageTarget.path} が見つかりません（再表示は不可。注釈自体は有効です）`;
+                button.textContent = `🖼️⚠️ ${this.reportBaseName(imageTarget.path)}`;
+                button.style.color = 'var(--theia-descriptionForeground)';
+            }
+        });
+        return button;
+    }
+
+    /** image: target のファイルが実在するかを path ごとにキャッシュして確認する。 */
+    protected async imageTargetHealth(path: string): Promise<ImageTargetHealth> {
+        const location = this.model.location;
+        if (!location) {
+            return 'path-missing';
+        }
+        return await this.fileService.exists(location.root.resolve(path)) ? 'ok' : 'path-missing';
+    }
+
+    protected async openImageAnnotationPopup(path: string, strokes: Annotation['strokes']): Promise<void> {
+        const location = this.model.location;
+        if (!location) {
+            return;
+        }
+        const imageUri = location.root.resolve(path);
+        if (!await this.fileService.exists(imageUri)) {
+            this.messages.warn(`${path} が見つからないため、ポップアップを再表示できません。`);
+            return;
+        }
+        const imageRectStrokes = (strokes ?? []).filter(
+            (stroke): stroke is Extract<AnnotationStroke, { space: 'image-rect' }> => stroke.space === 'image-rect'
+        );
+        const dialog = new AkariImageAnnotationDialog(
+            { title: '画像の注釈', mode: 'view', imageUri, relativePath: path, existingStrokes: imageRectStrokes, maxWidth: 960 },
+            this.fileService,
+            this.model
+        );
+        await dialog.open();
     }
 
     /**

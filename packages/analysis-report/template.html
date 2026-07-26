@@ -1921,6 +1921,24 @@
           link.remove();
         }
 
+        // 画像ブロック（`<img data-block-id>`、image-annotation-pen タスク・契約 §1/§4-2）の
+        // クリック導線。HTML ブロックは要素直接選択（上の selectDocBlock）だが、画像は
+        // クリック → ポップアッププレビュー → ペン領域指示という別経路のため、別コマンドで
+        // 通知する（同じ command: URI bridge に相乗り・akari-annotations 拡張の
+        // enableCommandUris がこのコマンドも許可する）。imageSrc は img の src 属性値
+        // （render-analysis-report.mjs が埋め込む「レポート自身からの相対パス」）をそのまま渡し、
+        // シェル側でレポートの絶対パスを起点に解決する。
+        function selectImageBlock(blockId, imageSrc) {
+          const link = document.createElement("a");
+          link.href =
+            "command:akari.annotations.selectImage?" +
+            encodeURIComponent(JSON.stringify([blockId, imageSrc]));
+          link.style.display = "none";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
+
         let selectedBlockElement = null;
 
         function markSelected(element) {
@@ -1937,11 +1955,18 @@
         document.addEventListener("click", (event) => {
           const element = event.target.closest && event.target.closest("[data-block-id]");
           if (!element) return;
+          const blockId = element.getAttribute("data-block-id");
+          if (element.tagName === "IMG") {
+            // 画像ブロックは選択ハイライト + doc: 選択導線を経由せず、直接ポップアップを開く
+            // （契約 §4-1: 画像面はクリック→ポップアッププレビュー→ペン領域指示）。
+            selectImageBlock(blockId, element.getAttribute("src"));
+            return;
+          }
           // <a> や <button> 等、クリックが別の意味を持つ子要素の中でも data-block-id を持つ
           // 祖先が見つかれば選択扱いにする（本テンプレートはブロックへのリンク/ボタンを
           // 現状持たないが、将来の拡張に対して壊れない挙動にしておく）。
           markSelected(element);
-          selectDocBlock(element.getAttribute("data-block-id"));
+          selectDocBlock(blockId);
         });
 
         // シェル側（akari-annotations 拡張）からの push を受け取る。acquireVsCodeApi 不要

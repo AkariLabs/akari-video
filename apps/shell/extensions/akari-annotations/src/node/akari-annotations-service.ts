@@ -151,7 +151,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult> {
-        if (!request?.reviewUri || !request?.projectRootUri || typeof request.text !== 'string' || !request.text.trim()) {
+        if (!request?.reviewUri || !request?.projectRootUri || typeof request.text !== 'string') {
+            throw new Error('注釈の内容を入力してください。');
+        }
+        // text は typed テキスト（任意）+ strokes を 1 annotation として着地させる画像注釈
+        // （契約 2026-07-26 §4-2）に限り省略できる。strokes が無い既存の全経路（動画面 / doc:）は
+        // 従来どおり非空の text を必須のまま強制する。
+        const hasStrokes = Array.isArray(request.strokes) && request.strokes.length > 0;
+        if (!request.text.trim() && !hasStrokes) {
             throw new Error('注釈の内容を入力してください。');
         }
         // sourceT: null は doc:<path>#<block-id> / image:<path> target に限り許容する
