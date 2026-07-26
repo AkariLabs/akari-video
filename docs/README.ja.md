@@ -8,6 +8,7 @@
 - はじめての人 → [Introduction](./introduction.ja.md)（思想と全体像）→
   [Getting Started](./getting-started.ja.md)（最初のプロジェクト）
 - やりたいことがある人 → [Guides](#guides)
+- どのスキルが何をするか知りたい人 → [スキルカタログ](./skills.ja.md)
 - 仕組み・運用を知りたい人 → [How-to](#how-to)
 - スキーマ・契約を確認したい人 → [Reference](#reference)
 
@@ -33,6 +34,12 @@
 | [書き出す](./guides/export.ja.md) | 計画 → 承認 → レンダリング → 検証（render-cut） |
 | [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物の入庫（setup-library / setup-audio-library / harvest-asset） |
 | [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスでレシピを映像素材に（bake-3d） |
+
+## Skills
+
+ワークフローは 17 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
+その一枚地図です — 各スキルの担当・発動タイミング・接続先の外部ツールと
+アニメーションランタイム（3D の 2 経路含む）をまとめています。
 
 ## How-to
 

@@ -91,6 +91,7 @@ First steps: [docs/getting-started.md](./docs/getting-started.md).
 - **[Introduction](./docs/introduction.md)** — philosophy and the big picture
 - **[Getting Started](./docs/getting-started.md)** — create your first project
 - **[Guides](./docs/README.md#guides)** — task-based guides: analyze footage, plan the edit, export, …
+- **[Skills Catalog](./docs/skills.md)** — the 17-skill map: what each owns and what it connects to
 - **[How-to](./docs/README.md#how-to)** — connections & API keys, project structure, resuming a session
 - **[Reference](./docs/README.md#reference)** — specs for file contracts such as `edit.json`
 - Entry point: [docs/README.md](./docs/README.md)

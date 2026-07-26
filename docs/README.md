@@ -7,6 +7,7 @@
 - First time here → [Introduction](./introduction.md) (philosophy and the big picture) →
   [Getting Started](./getting-started.md) (your first project)
 - Have a task in mind → [Guides](#guides)
+- Wondering which skill does what → [Skills Catalog](./skills.md)
 - Want to know how things work → [How-to](#how-to)
 - Looking for schemas and contracts → [Reference](#reference)
 
@@ -32,6 +33,12 @@ Task-based guides, ordered by the flow of production.
 | [Export](./guides/export.md) | Plan → approval → render → verify (render-cut) |
 | [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables (setup-library / setup-audio-library / harvest-asset) |
 | [Bake 3D scenes](./guides/bake-3d.md) | Blender headless recipes into video assets (bake-3d) |
+
+## Skills
+
+The workflow ships as 17 agent-side skills. The [Skills Catalog](./skills.md) is the
+single map: what each skill owns, when it triggers, and which external tools and
+animation runtimes it connects to — including the two 3D paths.
 
 ## How-to
 
