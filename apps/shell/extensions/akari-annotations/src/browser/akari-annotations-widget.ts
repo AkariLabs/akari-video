@@ -865,17 +865,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         z-index: 5;
     }
     .akari-annotations-widget .akari-annotations-strip-caption-text {
-        position: absolute;
-        height: ${SUBROW_HEIGHT}px;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
         display: flex;
         align-items: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
         font-size: 13px;
         line-height: 1;
         color: var(--theia-foreground);
         pointer-events: none;
         padding-left: 3px;
-        z-index: 3;
         text-shadow: 0 0 2px var(--theia-editorWidget-background), 0 0 3px var(--theia-editorWidget-background);
     }
     .akari-annotations-widget .akari-annotations-pin {
@@ -3094,9 +3096,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 };
             });
             this.strip.appendChild(element);
-            const label = this.captionLabel(outputStart, caption.text, top);
+            const label = this.captionLabel(caption.text);
             label.style.opacity = this.captionsVisible ? '' : '.28';
-            this.strip.appendChild(label);
+            element.appendChild(label);
         });
         this.overlays.forEach(overlay => {
             const layout = this.overlayTrackLayouts.find(candidate => candidate.track === overlay.track);
@@ -4221,13 +4223,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return element;
     }
 
-    protected captionLabel(start: number, text: string, top: number): HTMLDivElement {
+    protected captionLabel(text: string): HTMLDivElement {
         const label = document.createElement('div');
         label.className = 'akari-annotations-strip-caption-text';
         label.textContent = text;
         label.title = text;
-        label.style.left = `${this.percent(start)}%`;
-        label.style.top = `${top}px`;
         return label;
     }
 
