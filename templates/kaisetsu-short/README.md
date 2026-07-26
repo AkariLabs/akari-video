@@ -177,11 +177,13 @@ absolute `file://` URL based on the project dir and builds the preload list auto
 
 `tools/lib/layout-profiles.mjs` defines two profiles: `portrait` (1080×1920) and
 `landscape` (1920×1080). The landscape profile has been polished through a first real
-production run: the speech-bubble tail points downward (the avatar sits below the bubble
-in 16:9), diagram components (`vs-card`, `mini-timeline`, SNS captions) are resized for
-the wider card, and the ending avatar/SNS rows are rebalanced. All landscape-specific
-styling lives behind a `body[data-aspect="landscape"]` CSS guard, so portrait output is
-pixel-identical to the golden-verified original.
+production run plus an owner-review pass: the speech-bubble tail points downward (the
+avatar sits below the bubble in 16:9), diagrams use an editorial heading (accent bar +
+rule) with the heading + content vertically centered as one cluster, the title card
+carries an HTML-drawn editor-timeline motif, and the ending uses a face-up bust framing
+(`avatar.ending.bust: true`) with a centered caption plate (`captionPlateEnding`).
+All landscape-specific styling lives behind a `body[data-aspect="landscape"]` CSS guard,
+so portrait output is pixel-identical to the golden-verified original.
 
 ## Determinism contract
 

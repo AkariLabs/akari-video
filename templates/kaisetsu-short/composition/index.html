@@ -227,6 +227,43 @@
   /* ending: 実ハンドル併記でもキャプション同士が接触しない幅（portrait 240px 採寸のまま
      だと 3 列併記で衝突する） */
   body[data-aspect="landscape"] .sns-item { width: 320px; }
+
+  /* ---------- landscape polish v2（T3 オーナーレビュー反映） ---------- */
+  /* 図解見出しの脱ピル: 左アクセントバー + 下罫線の editorial 見出し（「丸がダサい」対応） */
+  body[data-aspect="landscape"] .dg-eyebrow {
+    display: block; width: 100%; text-align: left;
+    background: none; color: var(--ink); border-radius: 0;
+    padding: 0 0 14px 20px; border-left: 12px solid var(--accent);
+    border-bottom: 3px solid var(--line);
+    font-size: 40px; font-weight: 800; letter-spacing: 0.02em;
+  }
+  /* 図解の縦組み: 眉 + 中身を 1 クラスタとして縦中央へ（眉の孤立と縦空白帯の解消）。
+     big-emph もフローに入れてクラスタと一体化する */
+  body[data-aspect="landscape"] .dg { justify-content: center; gap: 30px; }
+  body[data-aspect="landscape"] .dg-stack { position: static; width: 100%; }
+  body[data-aspect="landscape"] .big-emph { position: static; }
+  /* タイトルの「ビデオっぽさ」: 編集タイムライン風モチーフ（ルーラー + クリップ列 +
+     オーディオトラック + プレイヘッド。ブランド色の HTML 描画） */
+  .title-videodeco { display: none; }
+  body[data-aspect="landscape"] .title-videodeco { display: block; width: 84%; position: relative; margin-top: 6px; }
+  body[data-aspect="landscape"] .tvd-ruler {
+    height: 14px; margin: 0 2px 10px; border-bottom: 2.5px solid var(--line);
+    background: repeating-linear-gradient(90deg, var(--line) 0 3px, transparent 3px 52px);
+  }
+  body[data-aspect="landscape"] .tvd-track { display: flex; gap: 10px; height: 46px; }
+  body[data-aspect="landscape"] .tvd-clip { border-radius: 10px; }
+  body[data-aspect="landscape"] .tvd-audio {
+    margin-top: 10px; height: 30px; border-radius: 9px; border: 2.5px solid var(--line);
+    background: repeating-linear-gradient(90deg, rgba(204,107,73,0.45) 0 3px, rgba(204,107,73,0.10) 3px 7px);
+  }
+  body[data-aspect="landscape"] .tvd-playhead {
+    position: absolute; top: -8px; bottom: -6px; left: 45%; width: 5px;
+    background: var(--accent-dark); border-radius: 3px; box-shadow: 0 0 0 2px rgba(255,255,255,0.7);
+  }
+  body[data-aspect="landscape"] .tvd-playhead::before {
+    content: ""; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    width: 18px; height: 18px; border-radius: 5px; background: var(--accent-dark);
+  }
 </style>
 </head>
 <body>
@@ -238,6 +275,19 @@
       <div class="title-kicker pill" data-role="title-kicker"></div>
       <div class="title-main" data-role="title-main"></div>
       <div class="title-sub" data-role="title-sub"></div>
+      <!-- 編集タイムライン風モチーフ（HTML 描画・装飾）。既定 display:none で
+           landscape 専用 CSS が表示を担う（portrait のピクセル出力に影響しない） -->
+      <div class="title-videodeco" aria-hidden="true">
+        <div class="tvd-ruler"></div>
+        <div class="tvd-track">
+          <div class="tvd-clip" style="flex:2.2; background: var(--accent);"></div>
+          <div class="tvd-clip" style="flex:3.1; background:#f3ede4; border:2.5px solid var(--line);"></div>
+          <div class="tvd-clip" style="flex:1.6; background: var(--accent-dark);"></div>
+          <div class="tvd-clip" style="flex:2.6; background:#e9e2d8; border:2.5px solid var(--line);"></div>
+        </div>
+        <div class="tvd-audio"></div>
+        <div class="tvd-playhead"></div>
+      </div>
     </div>
     <div id="title-flash"></div>
   </div>
@@ -663,12 +713,22 @@
   var TITLE_SIDE_MARGIN = LT.sideMarginMin; // v3 実測値をそのまま採用（layout-profiles.mjs 側の定数）
   var TITLE_HEADROOM = LT.headroomFrac;
 
-  var ENDING_AVATAR_H = LE.height;
-  var ENDING_TIGHT_W = ENDING_AVATAR_H * PERSON.w / PERSON.h;
-  var ENDING_SWAY_MARGIN_TOTAL = Math.ceil(ENDING_AVATAR_H * SWAY_SIN15 * 2) + LE.swayMarginBuffer;
-  var ENDING_AVATAR_W = ENDING_TIGHT_W + ENDING_SWAY_MARGIN_TOTAL;
-  var ENDING_AVATAR = { bottom: LE.bottom, width: ENDING_AVATAR_W, height: ENDING_AVATAR_H };
-  if (LE.centered) ENDING_AVATAR.left = (layout.width - ENDING_AVATAR_W) / 2;
+  // ending の框取りは 2 モード: 既定 = 全身（portrait v3 の設計そのまま）、
+  // プロファイルが bust:true を宣言した場合 = title と同じバストアップ数式
+  //（landscape polish v2 で導入。portrait プロファイルは bust を持たないため無影響）
+  var ENDING_BUST = !!LE.bust;
+  var ENDING_AVATAR;
+  if (ENDING_BUST) {
+    ENDING_AVATAR = { bottom: LE.bottom, width: LE.width, height: LE.height };
+    if (LE.centered) ENDING_AVATAR.left = (layout.width - LE.width) / 2;
+  } else {
+    var ENDING_AVATAR_H = LE.height;
+    var ENDING_TIGHT_W = ENDING_AVATAR_H * PERSON.w / PERSON.h;
+    var ENDING_SWAY_MARGIN_TOTAL = Math.ceil(ENDING_AVATAR_H * SWAY_SIN15 * 2) + LE.swayMarginBuffer;
+    var ENDING_AVATAR_W = ENDING_TIGHT_W + ENDING_SWAY_MARGIN_TOTAL;
+    ENDING_AVATAR = { bottom: LE.bottom, width: ENDING_AVATAR_W, height: ENDING_AVATAR_H };
+    if (LE.centered) ENDING_AVATAR.left = (layout.width - ENDING_AVATAR_W) / 2;
+  }
 
   var DIAGRAM_AVATAR = { right: LD.right, bottom: LD.bottom, width: LD.width, height: LD.height };
   var DIAGRAM_SIDE_MARGIN = LD.sideMarginMin;
@@ -809,6 +869,9 @@
     bubble.style.display = scene === "diagram" ? "flex" : "none";
     endingScene.style.display = scene === "ending" ? "block" : "none";
     captionPlate.style.display = (scene === "title" || scene === "ending") ? "flex" : "none";
+    // ending 専用の字幕プレート位置がプロファイルにあればシーンで切り替える
+    //（landscape polish v2: ED はアバター中央のため字幕も中央へ。portrait は未宣言で無影響）
+    if (layout.captionPlateEnding) setBox(captionPlate, scene === "ending" ? layout.captionPlateEnding : layout.captionPlate);
 
     var boxPos, cropRect, entranceTy = 0, entranceScale = 1;
     if (scene === "title") {
@@ -824,7 +887,9 @@
       var sceneStart = SCENES[2].start;
       var p2 = clamp01((t - sceneStart) / 0.4);
       entranceScale = 0.85 + 0.15 * easeOutBack(p2);
-      cropRect = fullBodyRect(ENDING_AVATAR.width, ENDING_AVATAR.height);
+      cropRect = ENDING_BUST
+        ? bustRect(ENDING_AVATAR.width, ENDING_AVATAR.height, LE.headroomFrac, LE.sideMarginMin)
+        : fullBodyRect(ENDING_AVATAR.width, ENDING_AVATAR.height);
     }
     setBox(avatarBox, boxPos);
     applyImgRect(avatarImg, cropRect);
