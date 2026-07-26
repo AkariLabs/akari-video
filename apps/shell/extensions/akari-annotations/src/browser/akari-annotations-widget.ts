@@ -39,6 +39,7 @@ import {
 } from '../common/edit-store';
 import { deriveDefaultTimelineTracks } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
+import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
@@ -94,23 +95,25 @@ const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const PLAYHEAD_COLOR = '#3b82f6';
 const MICRO_CLIP_WIDTH_PX = 28;
 const CLIP_HEADER_HEIGHT = 28;
-/** クリップ帯の高さ（ヘッダー帯28px + サムネイル/波形本体44px）。cuts トラックの標準（standard）ティアの高さ。 */
+/** クリップ帯の高さ（ヘッダー帯28px + サムネイル/波形本体44px）。cuts トラックの既定高さ。 */
 const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 44;
-/** コンパクトティア: ヘッダー帯のみの薄い帯（サムネイル/波形は描かない）。 */
-const CLIP_HEIGHT_COMPACT_PX = CLIP_HEADER_HEIGHT;
-/** 大ティア: サムネイル/波形本体を標準の倍（88px）にした高さ。 */
-const CLIP_HEIGHT_LARGE_PX = CLIP_HEADER_HEIGHT + 88;
-/** 高さの登録可能な段階（T4 トラック高さ変更）。トグルはこの順で循環する。 */
-const TRACK_SIZE_TIERS = ['compact', 'standard', 'large'] as const;
-type TrackSizeTier = typeof TRACK_SIZE_TIERS[number];
-const DEFAULT_TRACK_SIZE_TIER: TrackSizeTier = 'standard';
-/** per-track 高さの永続化キー接頭辞（StorageService＝ワークスペース状態。edit.json には書かない）。 */
-const TRACK_SIZE_STORAGE_PREFIX = 'akari.annotations.trackSize';
 /**
- * cuts トラックの高さがこの値未満（＝コンパクトティア）ならフィルムストリップ・波形の描画をスキップする。
+ * トラック高さドラッグリサイズ（R7-2・T4 の3段階ボタンを退役し連続値へ一般化）。
+ * cuts/audio トラックのヘッダー下端をドラッグすると、この範囲内で高さを連続変更できる。
+ */
+const MIN_TRACK_HEIGHT_PX = 28;
+const MAX_TRACK_HEIGHT_PX = 240;
+/** audio トラックの既定高さ（波形が視認できる程度の余白を持たせる）。 */
+const DEFAULT_AUDIO_TRACK_HEIGHT_PX = 56;
+/** per-track 高さの永続化キー接頭辞（StorageService＝ワークスペース状態。edit.json には書かない）。 */
+const TRACK_HEIGHT_STORAGE_PREFIX = 'akari.annotations.trackHeight';
+/**
+ * cuts トラックの高さがこの値未満ならフィルムストリップ・波形の描画をスキップする。
  * 幅側の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート。
  */
 const MIN_TRACK_HEIGHT_FOR_MEDIA_PX = CLIP_HEIGHT;
+/** audio sfx バーの高さがこの値未満なら波形の描画をスキップする（ラベルのみ表示）。 */
+const MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX = 40;
 /** フィルムストリップの目標セル幅（atlas フレームのアスペクトから実セル幅を導出する基準値）。 */
 const FILMSTRIP_TARGET_CELL_WIDTH_PX = 36;
 /** クリップ 1 個あたりの最大セル数（暴走防止。実測上はズームしても strip 幅に収まるため頭打ちにはまず届かない）。 */
@@ -366,8 +369,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected audioSfx: EditAudioSfx[] = [];
     protected audioBgm: EditAudioBgm | undefined;
     protected timelineTracks: EditTimelineTrack[] = [];
-    /** cuts トラックの per-track 高さティア（キー = EditTimelineTrack.id）。StorageService から起動/reload 時に読み込む。 */
-    protected readonly trackSizeTiers = new Map<string, TrackSizeTier>();
+    /**
+     * 表示専用のトラック一覧（R7-3・読み込み時の重なり自動配置）。this.timelineTracks（実体・
+     * 書き込み経路の基準）に、重なりを解消するための「表示上」追加トラック行を足したもの。
+     * calculateLaneLayout() の冒頭で毎回再計算する（edit.json へは一切書き戻さない）。
+     */
+    protected displayTimelineTracks: EditTimelineTrack[] = [];
+    /** sfx.id → 表示上の割当トラック ref（重なり自動配置で実際の sfx.track と異なる場合のみ持つ）。 */
+    protected readonly audioAutoTrackOverride = new Map<string, number>();
+    /** トラック id → そのトラックが実際に必要とするサブ行数（bgm と sfx が同じ ref を共有する既存仕様向け）。 */
+    protected readonly audioTrackSubrowCounts = new Map<string, number>();
+    /** cuts/audio トラックの per-track 高さ（px、連続値）。キー = EditTimelineTrack.id。StorageService から遅延読み込み。 */
+    protected readonly trackHeights = new Map<string, number>();
+    protected readonly trackHeightLoadPromises = new Map<string, Promise<void>>();
     protected segments: OutputSegment[] = [];
     protected wordBoundaries: number[] = [];
     protected configured = false;
@@ -440,6 +454,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected beatsMuted = false;
     protected audioVisible = true;
     protected audioMuted = false;
+    /** sfx バーの波形表示トグル（R7-1）。トラックヘッダーの表示切替ボタンで切り替える（edit.json には書かない）。 */
+    protected audioWaveformVisible = true;
     protected readonly hiddenTracks = new Set<number>();
     protected readonly mutedOverlayTracks = new Set<number>();
 
@@ -814,6 +830,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         box-sizing: border-box;
         cursor: grab;
         user-select: none;
+    }
+    .akari-annotations-widget .akari-track-header-resize-handle {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -3px;
+        height: 6px;
+        cursor: ns-resize;
+        z-index: 6;
+        touch-action: none;
+    }
+    .akari-annotations-widget .akari-track-header-resize-handle:hover,
+    .akari-annotations-widget .akari-track-header-resize-handle:active {
+        background: var(--theia-focusBorder);
+        opacity: .5;
     }
     .akari-annotations-widget .akari-track-header-icon {
         width: 17px;
@@ -2619,59 +2650,114 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
         this.syncTimelineTrackTogglesToPreview();
-        await this.loadTrackSizeTiers();
+        await this.loadTrackHeights();
         this.renderStrip();
     }
 
-    /** cuts トラックの高さティアを StorageService（ワークスペース状態）から読み込む。edit.json は経由しない。 */
-    protected async loadTrackSizeTiers(): Promise<void> {
-        this.trackSizeTiers.clear();
+    protected defaultTrackHeight(kind: TimelineTrackKind): number {
+        return kind === 'audio' ? DEFAULT_AUDIO_TRACK_HEIGHT_PX : CLIP_HEIGHT;
+    }
+
+    protected clampTrackHeight(value: number): number {
+        return Math.min(MAX_TRACK_HEIGHT_PX, Math.max(MIN_TRACK_HEIGHT_PX, Math.round(value)));
+    }
+
+    /** cuts/audio トラックの高さを StorageService（ワークスペース状態）から読み込む。edit.json は経由しない。 */
+    protected async loadTrackHeights(): Promise<void> {
+        this.trackHeights.clear();
+        this.trackHeightLoadPromises.clear();
         const editUri = this.location?.editUri;
         if (!editUri) {
             return;
         }
-        const cutsTracks = this.timelineTracks.filter(track => track.kind === 'cuts');
-        const entries = await Promise.all(cutsTracks.map(async track => {
-            const stored = await this.storage.getData<TrackSizeTier>(
-                this.trackSizeStorageKey(editUri, track.id), DEFAULT_TRACK_SIZE_TIER
-            );
-            const tier = (TRACK_SIZE_TIERS as readonly string[]).includes(stored) ? stored : DEFAULT_TRACK_SIZE_TIER;
-            return [track.id, tier] as const;
+        const resizableTracks = this.timelineTracks.filter(track => track.kind === 'cuts' || track.kind === 'audio');
+        const entries = await Promise.all(resizableTracks.map(async track => {
+            const fallback = this.defaultTrackHeight(track.kind);
+            const stored = await this.storage.getData<number>(this.trackHeightStorageKey(editUri, track.id), fallback);
+            const height = typeof stored === 'number' && Number.isFinite(stored) ? this.clampTrackHeight(stored) : fallback;
+            return [track.id, height] as const;
         }));
-        for (const [id, tier] of entries) {
-            this.trackSizeTiers.set(id, tier);
+        for (const [id, height] of entries) {
+            this.trackHeights.set(id, height);
         }
     }
 
-    protected trackSizeStorageKey(editUri: URI, trackId: string): string {
-        return `${TRACK_SIZE_STORAGE_PREFIX}:${editUri.toString()}:${trackId}`;
+    protected trackHeightStorageKey(editUri: URI, trackId: string): string {
+        return `${TRACK_HEIGHT_STORAGE_PREFIX}:${editUri.toString()}:${trackId}`;
     }
 
-    protected cutTrackHeightForTier(tier: TrackSizeTier): number {
-        switch (tier) {
-            case 'compact':
-                return CLIP_HEIGHT_COMPACT_PX;
-            case 'large':
-                return CLIP_HEIGHT_LARGE_PX;
-            default:
-                return CLIP_HEIGHT;
+    /**
+     * トラックの現在の高さ。未ロード（R7-3 の表示専用トラック等、起動時バッチに含まれなかった行）
+     * なら遅延で StorageService から取得しつつ、その間は既定値を返す（ensureVideoDurationFetch と同型）。
+     */
+    protected trackHeightFor(track: EditTimelineTrack): number {
+        const cached = this.trackHeights.get(track.id);
+        if (cached !== undefined) {
+            return cached;
         }
+        this.ensureTrackHeightLoaded(track);
+        return this.defaultTrackHeight(track.kind);
     }
 
-    protected async setTrackSizeTier(track: EditTimelineTrack, tier: TrackSizeTier): Promise<void> {
+    protected ensureTrackHeightLoaded(track: EditTimelineTrack): void {
         const editUri = this.location?.editUri;
-        if (!editUri || track.kind !== 'cuts') {
+        if (!editUri || this.trackHeightLoadPromises.has(track.id)) {
             return;
         }
-        this.trackSizeTiers.set(track.id, tier);
-        this.renderStrip();
-        await this.storage.setData(this.trackSizeStorageKey(editUri, track.id), tier);
+        const fallback = this.defaultTrackHeight(track.kind);
+        const promise = this.storage.getData<number>(this.trackHeightStorageKey(editUri, track.id), fallback)
+            .then(stored => {
+                const height = typeof stored === 'number' && Number.isFinite(stored) ? this.clampTrackHeight(stored) : fallback;
+                this.trackHeights.set(track.id, height);
+                this.renderStrip();
+            });
+        this.trackHeightLoadPromises.set(track.id, promise);
     }
 
-    protected cycleTrackSizeTier(track: EditTimelineTrack): void {
-        const current = this.trackSizeTiers.get(track.id) ?? DEFAULT_TRACK_SIZE_TIER;
-        const nextTier = TRACK_SIZE_TIERS[(TRACK_SIZE_TIERS.indexOf(current) + 1) % TRACK_SIZE_TIERS.length];
-        void this.setTrackSizeTier(track, nextTier);
+    /**
+     * トラック境界の上下ドラッグで高さを連続変更する（R7-2・T4 の3段階ボタンを退役）。
+     * dragState は使わない（renderStrip はドラッグ中の再描画を延期する仕組みのため、
+     * ここではライブ再描画のため直接 renderStrip を呼ぶ）。
+     */
+    protected beginTrackHeightResize(event: PointerEvent, track: EditTimelineTrack): void {
+        event.preventDefault();
+        event.stopPropagation();
+        const pointerId = event.pointerId;
+        const startY = event.clientY;
+        const startHeight = this.trackHeightFor(track);
+        let currentHeight = startHeight;
+        const onMove = (moveEvent: PointerEvent): void => {
+            if (moveEvent.pointerId !== pointerId) {
+                return;
+            }
+            currentHeight = this.clampTrackHeight(startHeight + (moveEvent.clientY - startY));
+            this.trackHeights.set(track.id, currentHeight);
+            this.renderStrip();
+        };
+        const onUp = (upEvent: PointerEvent): void => {
+            if (upEvent.pointerId !== pointerId) {
+                return;
+            }
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            document.removeEventListener('pointercancel', onUp);
+            const editUri = this.location?.editUri;
+            if (editUri) {
+                void this.storage.setData(this.trackHeightStorageKey(editUri, track.id), currentHeight);
+            }
+        };
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onUp);
+    }
+
+    protected trackHeightResizeHandle(track: EditTimelineTrack): HTMLDivElement {
+        const handle = document.createElement('div');
+        handle.className = 'akari-track-header-resize-handle';
+        handle.dataset.akariResize = 'height';
+        handle.setAttribute('aria-hidden', 'true');
+        handle.addEventListener('pointerdown', event => this.beginTrackHeightResize(event, track));
+        return handle;
     }
 
     protected rebuildSourceMap(): void {
@@ -2873,6 +2959,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected calculateLaneLayout(): number {
+        this.computeAudioDisplayTracks();
         this.captionRows = assignSubRows(this.captions.map(caption => ({ start: caption.start, end: caption.end })));
         const captionRowCount = this.captionRows.length ? Math.max(...this.captionRows) + 1 : 0;
         let nextTop = 0;
@@ -2886,14 +2973,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.layerRows.clear();
         const layerTracks: TrackGroupLayout[] = [];
         this.audioSfxRows.clear();
+        this.audioTrackSubrowCounts.clear();
         const audioTracks: TrackGroupLayout[] = [];
         const cutTracks: TrackGroupLayout[] = [];
         const tracks: TrackGroupLayout[] = [];
-        for (const timelineTrack of [...this.timelineTracks].reverse()) {
+        for (const timelineTrack of [...this.displayTimelineTracks].reverse()) {
             const ref = timelineTrack.ref ?? 0;
             let height = SUBROW_STRIDE;
             if (timelineTrack.kind === 'cuts') {
-                height = this.cutTrackHeightForTier(this.trackSizeTiers.get(timelineTrack.id) ?? DEFAULT_TRACK_SIZE_TIER);
+                height = this.trackHeightFor(timelineTrack);
             } else if (timelineTrack.kind === 'layers') {
                 const items = this.layers.filter(layer => (layer.track ?? 0) === ref);
                 const rows = assignSubRows(items.map(layer => ({ start: layer.t, end: layer.t + layer.duration })));
@@ -2911,10 +2999,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else {
                 // audio は track（ref）ごとに独立した帯として積む。BGM はトラック概念を持たないため
                 // 常に ref 0 の帯にのみ乗せる（「bgm の UI 新設はやらない」= 既存の単一表示を維持）。
+                // sfx 同士の重なりは computeAudioDisplayTracks（R7-3）が表示上の別トラックへ
+                // 振り分け済みのため、ここで残る重なりは「bgm（全区間）× sfx」のみ。
                 const intervals = [
                     ...(this.audioBgm && ref === 0 ? [{ start: 0, end: this.totalDuration(), id: this.audioBgm.id }] : []),
-                    ...this.audioSfx.filter(sfx => (sfx.track ?? 0) === ref)
-                        .map(sfx => ({ start: sfx.t, end: sfx.t + sfx.duration, id: sfx.id }))
+                    ...this.audioSfx.filter(sfx => this.sfxDisplayTrack(sfx) === ref)
+                        .map(sfx => ({ start: sfx.t, end: this.sfxIntervalEnd(sfx), id: sfx.id }))
                 ];
                 const rows = assignSubRows(intervals);
                 intervals.forEach((item, index) => {
@@ -2924,7 +3014,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         this.audioSfxRows.set(item.id, rows[index] ?? 0);
                     }
                 });
-                height = Math.max(1, rows.length ? Math.max(...rows) + 1 : 0) * SUBROW_STRIDE;
+                const subrowCount = Math.max(1, rows.length ? Math.max(...rows) + 1 : 0);
+                this.audioTrackSubrowCounts.set(timelineTrack.id, subrowCount);
+                height = Math.max(subrowCount * SUBROW_STRIDE, this.trackHeightFor(timelineTrack));
             }
             const layout = {
                 id: timelineTrack.id, kind: timelineTrack.kind, track: ref, top: nextTop, height,
@@ -2954,6 +3046,57 @@ export class AkariAnnotationsWidget extends BaseWidget {
             tracks
         };
         return Math.max(0, nextTop - LANE_GAP) + STRIP_BOTTOM_MARGIN;
+    }
+
+    /**
+     * R7-3・読み込み時の重なり自動配置: 同一 audio ref 内で時間が重なる sfx を検知し、
+     * 表示上の追加トラック行（this.displayTimelineTracks）へ決定的に振り分ける
+     * （中核アルゴリズムは computeAudioOverlapLayout、common/ の純粋関数として単体テスト済み）。
+     * edit.json への書き戻しは一切行わない（sfx.track は不変）。ユーザーがその sfx を
+     * 実際に動かした時点で、既存の moveSfx 書き込み経路が this.sfxDisplayTrack() の
+     * 値をそのまま採用して確定させる（commitDrag の 'audio' 分岐・originalTrack 参照）。
+     */
+    protected computeAudioDisplayTracks(): void {
+        const declaredRefs: number[] = [];
+        for (const track of this.timelineTracks) {
+            if (track.kind === 'audio') {
+                declaredRefs.push(track.ref ?? 0);
+            }
+        }
+        const items = this.audioSfx.map(sfx => ({
+            id: sfx.id, track: sfx.track ?? 0, start: sfx.t, end: this.sfxIntervalEnd(sfx)
+        }));
+        const { overrides, syntheticTracks } = computeAudioOverlapLayout(items, declaredRefs);
+        this.audioAutoTrackOverride.clear();
+        for (const [id, ref] of overrides) {
+            this.audioAutoTrackOverride.set(id, ref);
+        }
+        if (syntheticTracks.length === 0) {
+            this.displayTimelineTracks = this.timelineTracks;
+            return;
+        }
+        const lastAudioIndex = this.timelineTracks.reduce(
+            (found, track, index) => track.kind === 'audio' ? index : found, -1
+        );
+        const insertAt = lastAudioIndex >= 0 ? lastAudioIndex + 1 : 0;
+        const next = [...this.timelineTracks];
+        next.splice(insertAt, 0, ...syntheticTracks.map(track => (
+            { id: track.id, kind: 'audio' as const, ref: track.ref }
+        )));
+        this.displayTimelineTracks = next;
+    }
+
+    /** sfx の表示上の割当トラック ref（R7-3 の自動配置で上書きされていればそれを、なければ実際の sfx.track を返す）。 */
+    protected sfxDisplayTrack(sfx: EditAudioSfx): number {
+        return this.audioAutoTrackOverride.get(sfx.id) ?? (sfx.track ?? 0);
+    }
+
+    /** sfx の区間終端（出力秒）。実尺が既に解決していればそれを、なければ parseEdit 時点の暫定尺を使う。 */
+    protected sfxIntervalEnd(sfx: EditAudioSfx): number {
+        const inSeconds = sfx.in ?? 0;
+        const cachedDuration = this.audioDurationCache.get(sfx.path);
+        const actualDuration = typeof cachedDuration === 'number' ? cachedDuration : undefined;
+        return sfx.t + this.resolveSfxDisplayDuration(sfx, inSeconds, actualDuration);
     }
 
     /** audio グループ全体（複数トラック分）の縦方向の外接。cuts/layers 等との衝突判定に使う。 */
@@ -3127,8 +3270,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
             const end = this.totalDuration();
+            const bgmSubrowCount = this.audioTrackSubrowCounts.get(bgmLayout.id) ?? 1;
+            const bgmItemHeight = bgmSubrowCount <= 1 ? bgmLayout.height : SUBROW_HEIGHT;
             const element = this.stripSegment(
-                0, end, bgmLayout.top, SUBROW_HEIGHT,
+                0, end, bgmLayout.top, bgmItemHeight,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-bgm', label
             );
             element.dataset.akariItemKind = 'audio';
@@ -3144,7 +3289,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         }
         this.audioSfx.forEach(sfx => {
-            const layout = this.trackLayout('audio', sfx.track ?? 0);
+            const displayTrack = this.sfxDisplayTrack(sfx);
+            const layout = this.trackLayout('audio', displayTrack);
             if (!layout) {
                 return;
             }
@@ -3166,17 +3312,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!this.isRangeVisible(sfx.t, end)) {
                 return;
             }
+            const subrowCount = this.audioTrackSubrowCounts.get(layout.id) ?? 1;
+            const itemHeight = subrowCount <= 1 ? layout.height : SUBROW_HEIGHT;
             const element = this.stripSegment(
-                sfx.t, end, top, SUBROW_HEIGHT,
+                sfx.t, end, top, itemHeight,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-sfx', label
             );
             element.dataset.akariItemKind = 'audio';
             element.dataset.akariItemId = sfx.id;
             element.dataset.akariLane = layout.id ?? 'audio';
-            element.dataset.akariTrack = String(sfx.track ?? 0);
+            element.dataset.akariTrack = String(displayTrack);
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
             element.appendChild(this.segmentLabel(label));
+            const barWidthPercent = Math.max(this.percent(end) - this.percent(sfx.t), 0.3);
+            const barWidthPx = this.strip.clientWidth * barWidthPercent / 100;
+            this.renderSfxWaveform(element, sfx, barWidthPx, itemHeight, inSeconds, inSeconds + durationSeconds, actualDuration);
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
                 const rightDistance = rect.right - event.clientX;
@@ -3193,7 +3344,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     };
                 }
                 return {
-                    kind: 'audio', id: sfx.id, originalT: sfx.t, originalTrack: sfx.track ?? 0,
+                    kind: 'audio', id: sfx.id, originalT: sfx.t, originalTrack: displayTrack,
                     originalDuration: durationSeconds
                 };
             });
@@ -3370,13 +3521,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             ));
         }
-        const displayedTracks = [...this.timelineTracks].reverse();
-        displayedTracks.forEach((track, index) => {
+        const autoNames = this.computeTrackAutoNames();
+        const displayedTracks = [...this.displayTimelineTracks].reverse();
+        displayedTracks.forEach(track => {
             const layout = this.laneLayout.tracks.find(candidate => candidate.id === track.id);
             if (!layout) {
                 return;
             }
-            const name = track.label || `トラック ${index + 1}`;
+            const name = track.label || autoNames.get(track.id) || '';
             const iconKind = this.trackIconKind(track.kind);
             let visible = true;
             let audible = true;
@@ -3452,14 +3604,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.renderStrip();
                 };
             }
-            const sizeTier = track.kind === 'cuts'
-                ? this.trackSizeTiers.get(track.id) ?? DEFAULT_TRACK_SIZE_TIER
-                : undefined;
             this.trackHeaders.appendChild(this.trackHeaderRow(
                 name, iconKind, track.id, layout.top, layout.height,
-                visible, toggleVisibility, audible, toggleMute, layout.track, track, sizeTier
+                visible, toggleVisibility, audible, toggleMute, layout.track, track
             ));
         });
+    }
+
+    /**
+     * R7-4・A/V 命名: トラック表示名をグループ内連番 + 種別プレフィックスへ
+     * （音声 = A1, A2, …（最下段から A1）・映像系 = V1, V2, …（下から V1・従来の縦順のまま））。
+     * this.displayTimelineTracks は配列先頭 = 画面最下段（widget の `[...tracks].reverse()` 規約）
+     * なので、配列を先頭から辿るだけで両グループとも「最下段から連番」になる。
+     */
+    protected computeTrackAutoNames(): Map<string, string> {
+        const names = new Map<string, string>();
+        let audioCount = 0;
+        let videoCount = 0;
+        for (const track of this.displayTimelineTracks) {
+            if (track.kind === 'audio') {
+                audioCount++;
+                names.set(track.id, `A${audioCount}`);
+            } else {
+                videoCount++;
+                names.set(track.id, `V${videoCount}`);
+            }
+        }
+        return names;
     }
 
     protected trackHeaderRow(
@@ -3473,8 +3644,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         audible: boolean,
         toggleMute: () => void,
         track?: number,
-        timelineTrack?: EditTimelineTrack,
-        sizeTier?: TrackSizeTier
+        timelineTrack?: EditTimelineTrack
     ): HTMLDivElement {
         const row = document.createElement('div');
         row.className = 'akari-track-header-row';
@@ -3496,8 +3666,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         nameElement.className = 'akari-track-header-name';
         nameElement.textContent = name;
         row.append(icon, nameElement);
-        if (sizeTier !== undefined && timelineTrack) {
-            row.appendChild(this.trackSizeButton(timelineTrack, sizeTier));
+        if (timelineTrack?.kind === 'audio') {
+            row.appendChild(this.trackHeaderButton(
+                '波形の表示切替', 'waveform', this.audioWaveformVisible, this.waveformToggleSvg(), () => {
+                    this.audioWaveformVisible = !this.audioWaveformVisible;
+                    this.renderStrip();
+                }
+            ));
         }
         row.append(
             this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility),
@@ -3510,6 +3685,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.beginTrackRename(nameElement, timelineTrack);
             });
             row.addEventListener('pointerdown', event => this.onTrackHeaderPointerDown(event, timelineTrack));
+            if (timelineTrack.kind === 'cuts' || timelineTrack.kind === 'audio') {
+                row.appendChild(this.trackHeightResizeHandle(timelineTrack));
+            }
         }
         return row;
     }
@@ -3974,7 +4152,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected trackHeaderButton(
         label: string,
-        toggle: 'visibility' | 'mute',
+        toggle: 'visibility' | 'mute' | 'waveform',
         enabled: boolean,
         svg: string,
         action: () => void
@@ -3993,28 +4171,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return button;
     }
 
-    /** cuts トラック専用の高さティア切替ボタン（コンパクト/標準/大を循環）。 */
-    protected trackSizeButton(track: EditTimelineTrack, tier: TrackSizeTier): HTMLButtonElement {
-        const labelByTier: Record<TrackSizeTier, string> = { compact: 'コンパクト', standard: '標準', large: '大' };
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'akari-track-header-button';
-        button.setAttribute('aria-label', `トラックの高さ: ${labelByTier[tier]}（クリックで切り替え）`);
-        button.dataset.akariToggle = 'size';
-        button.dataset.akariSizeTier = tier;
-        button.innerHTML = this.trackSizeSvg(tier);
-        button.addEventListener('click', event => {
-            event.stopPropagation();
-            this.cycleTrackSizeTier(track);
-        });
-        return button;
-    }
-
-    protected trackSizeSvg(tier: TrackSizeTier): string {
-        const barTopByTier: Record<TrackSizeTier, number> = { compact: 15, standard: 10, large: 5 };
+    protected waveformToggleSvg(): string {
         return '<svg viewBox="0 0 24 24" aria-hidden="true">'
-            + '<rect x="3" y="4" width="18" height="16" rx="2" fill="none"/>'
-            + `<rect x="5" y="${barTopByTier[tier]}" width="14" height="4" rx="1" style="fill:currentColor;stroke:none"/>`
+            + '<path d="M3 12h2M6 8v8M9 5v14M12 9v6M15 3v18M18 8v8M21 12h-2" stroke-linecap="round"/>'
             + '</svg>';
     }
 
@@ -4730,6 +4889,106 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
+     * R7-1・sfx バーの波形表示: 既存の getClipWaveform（動画クリップで実績のある経路）を
+     * 音声ファイルにそのまま再利用する。cuts の波形と違い、キーは素材パス単体
+     * （`sfxwave:${path}`）で in/out を含めない — 常に [0, 実尺) 全域を1回だけ取得して
+     * キャッシュし、トリム（in/out）変更時は取得済みの全域 peaks をクライアント側で
+     * 再スライスするだけで窓を追随させる（バックエンドの再生成は発生しない）。
+     */
+    protected renderSfxWaveform(
+        element: HTMLDivElement, sfx: EditAudioSfx, barWidthPx: number, itemHeightPx: number,
+        inSeconds: number, outSeconds: number, actualDuration: number | undefined
+    ): void {
+        if (!this.audioWaveformVisible || !this.location
+            || barWidthPx < MIN_CLIP_WIDTH_FOR_MEDIA_PX || itemHeightPx < MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX) {
+            return;
+        }
+        if (actualDuration === undefined || actualDuration <= 0) {
+            // 実尺が未解決の間は [in,out) を安全にスライスできないため待つ
+            // （実尺の取得自体は既存の resolveSfxDisplayDuration 呼び出し元が担当する）。
+            return;
+        }
+        const key = `sfxwave:${sfx.path}`;
+        const waveform = this.waveformCache.get(key);
+        if (Array.isArray(waveform)) {
+            const slice = this.sfxWaveformSlice(waveform, inSeconds, outSeconds, actualDuration);
+            if (slice.length > 0) {
+                element.appendChild(this.sfxWaveformCanvas(slice, barWidthPx, itemHeightPx));
+            }
+        } else if (waveform === undefined) {
+            const audioUri = this.resolveEditMediaUri(sfx.path, this.location.editUri).toString();
+            this.fetchSfxWaveform(key, audioUri, actualDuration);
+        }
+    }
+
+    protected fetchSfxWaveform(key: string, audioUri: string, fullDurationSeconds: number): void {
+        if (!this.location) {
+            return;
+        }
+        this.waveformCache.set(key, 'pending');
+        void this.annotationsService.getClipWaveform({
+            projectRootUri: this.location.root.toString(),
+            videoUri: audioUri,
+            startSeconds: 0,
+            endSeconds: fullDurationSeconds
+        }).then(result => {
+            if (result.status === 'ready' && result.peaks) {
+                this.waveformCache.set(key, result.peaks);
+            } else {
+                this.waveformCache.set(key, 'unavailable');
+                this.showFfmpegMissingNotice(result.reason);
+            }
+            this.renderStrip();
+        }).catch(() => {
+            this.waveformCache.set(key, 'unavailable');
+            this.renderStrip();
+        });
+    }
+
+    /** 全域 [0, fullDuration) の peaks から [inSeconds, outSeconds) に対応するバケツだけを切り出す。 */
+    protected sfxWaveformSlice(
+        peaks: readonly number[], inSeconds: number, outSeconds: number, fullDuration: number
+    ): number[] {
+        const bucketCount = peaks.length;
+        if (bucketCount === 0 || fullDuration <= 0) {
+            return [];
+        }
+        const startFrac = Math.min(1, Math.max(0, inSeconds / fullDuration));
+        const endFrac = Math.min(1, Math.max(startFrac, outSeconds / fullDuration));
+        const startIndex = Math.min(bucketCount - 1, Math.floor(startFrac * bucketCount));
+        const endIndex = Math.max(startIndex + 1, Math.min(bucketCount, Math.ceil(endFrac * bucketCount)));
+        return peaks.slice(startIndex, endIndex);
+    }
+
+    /** sfx バー専用の波形 canvas。cuts の waveformCanvas と違いズーム窓は考慮せず、渡された peaks（既に [in,out) 切り出し済み）をバー全幅へ均等割りする。 */
+    protected sfxWaveformCanvas(peaks: readonly number[], widthPx: number, itemHeightPx: number): HTMLCanvasElement {
+        const canvas = document.createElement('canvas');
+        const visibleWidthPx = Math.max(1, Math.round(widthPx));
+        canvas.width = visibleWidthPx;
+        canvas.height = WAVEFORM_BAND_HEIGHT_PX;
+        Object.assign(canvas.style, {
+            position: 'absolute',
+            left: '0',
+            top: `${itemHeightPx - WAVEFORM_BAND_HEIGHT_PX}px`,
+            width: `${visibleWidthPx}px`,
+            height: `${WAVEFORM_BAND_HEIGHT_PX}px`,
+            opacity: '.55',
+            pointerEvents: 'none'
+        });
+        const context = canvas.getContext('2d');
+        const bucketCount = peaks.length;
+        if (context && bucketCount > 0) {
+            context.fillStyle = '#fff';
+            for (let x = 0; x < visibleWidthPx; x++) {
+                const bucket = Math.min(bucketCount - 1, Math.floor(x / visibleWidthPx * bucketCount));
+                const barHeight = Math.max(1, peaks[bucket] * WAVEFORM_BAND_HEIGHT_PX);
+                context.fillRect(x, (WAVEFORM_BAND_HEIGHT_PX - barHeight) / 2, 1, barHeight);
+            }
+        }
+        return canvas;
+    }
+
+    /**
      * SE 実尺の取得を（未取得なら）開始し、進行中または完了済みの Promise を返す
      * （ensureVideoDurationFetch と同型。トリムの Out クランプ確定時の「未取得なら保留」に使う）。
      */
@@ -5167,7 +5426,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected
                 ? '⚠ 移動できません（種別が異なる／重なります）'
-                : `${this.formatTimestamp(at)} / トラック ${hit.track}`);
+                : `${this.formatTimestamp(at)} / 行 ${hit.track + 1}`);
             return {
                 kind: 'cut-move', index: state.index, at, track: hit.track, rejected,
                 insertTrack: hit.insertTrack
@@ -5260,7 +5519,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snapped && !rejected);
             this.updateDragFeedback(state, rejected
                 ? '⚠ 移動できません（種別が異なります）'
-                : `${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒 / トラック ${track}`);
+                : `${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒 / 行 ${track + 1}`);
             return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected, insertTrack };
         }
         if (state.kind === 'audio') {
@@ -5282,7 +5541,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostSnapped(state.ghost, snap.snapped && !hit.rejected);
             this.updateDragFeedback(state, hit.rejected
                 ? '⚠ 移動できません（種別が異なります）'
-                : `${this.formatTimestamp(t)} / トラック ${hit.track}`);
+                : `${this.formatTimestamp(t)} / 行 ${hit.track + 1}`);
             return {
                 kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected
             };
