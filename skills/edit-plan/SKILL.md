@@ -59,5 +59,6 @@ description: analyze-project が作る分析レポート（interpretation.json +
 9. 語レベル演出を書く工程では [emphasis-detection.md](emphasis-detection.md) を読み、`analysis.json` の
    `transcript[].words` から `emphasis_words[]` を導出する（対象 tier のゲート・選定規則 = 候補 / 見せ場連動 /
    密度・`emotion` の文脈判断・`style_hint` の目安・根拠の記録・worked example）。
+10. 人・キャラクター（アバター）の挿入を求められた工程では [avatar-resolution.md](avatar-resolution.md) を読み、段階読み出し（L0/L1/L2）・rendition 解決・decision card・記録の手順に従う。
 
 現在の工程に必要なリーフだけを読み、後工程を先回りして実行しない。

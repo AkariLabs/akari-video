@@ -1,0 +1,23 @@
+{
+  "version": 0,
+  "id": "test-avatar",
+  "display_name": "Test Avatar",
+  "future_field_not_yet_defined": "tolerant reader は未知フィールドを保持し fail しない",
+  "variants": [],
+  "persona": {
+    "first_person": "わたし",
+    "tone": "親しみ",
+    "speech_style": "テスト用フィクスチャの口調",
+    "verbal_tics": ["〜だよ"],
+    "energy": 50,
+    "ng": ["テストNG語"],
+    "default_role": "explainer"
+  },
+  "voice": { "lane": "voicevox", "ref": "speaker:3(ずんだもん/ノーマル)", "credit": "VOICEVOX:ずんだもん" },
+  "renditions": [
+    { "id": "2d-bustup", "kind": "2d", "capabilities": { "lipsync": true, "expressions": ["neutral", "happy"], "framing": ["bustup"] } },
+    { "id": "2d-fullbody", "kind": "2d", "capabilities": { "lipsync": true, "expressions": ["neutral", "happy"], "framing": ["fullbody"] } }
+  ],
+  "default_rendition": null,
+  "rights": { "subject": "original", "consent": "self", "credit_required": false, "distribution": "private" }
+}
