@@ -105,18 +105,38 @@ window.akari.interaction = (() => {
     return null;
   }
 
+  // 断片ルートは「inset:0 全画面ラッパー + flex/絶対配置」パターン（overlay-authoring
+  // 規約・text-behind-person.md 等）を許容するため、ルート自身の矩形がコンテナ（断片の
+  // 親 = [data-overlay-id] 要素。overlay-runtime.js の mount() が inset:0 で全画面付与）
+  // をほぼ覆う場合は「ルート＝見た目上の透明な位置決めラッパー」とみなし、可視子孫の
+  // union へフォールバックする。マット動画等で子孫側も実際に全画面を占める場合は
+  // union も自然に全画面へ収束する（= 見た目どおりで正しい）。
+  const FULL_CONTAINER_COVERAGE_RATIO = 0.98;
+
+  function looksLikeFullContainerWrapper(rect, containerRect) {
+    if (!containerRect || !(containerRect.width > 0) || !(containerRect.height > 0)) {
+      return false;
+    }
+    return (
+      rect.width >= containerRect.width * FULL_CONTAINER_COVERAGE_RATIO &&
+      rect.height >= containerRect.height * FULL_CONTAINER_COVERAGE_RATIO
+    );
+  }
+
   function fragmentBounds(container) {
     const root = fragmentRoot(container);
     if (!root) return null;
 
     const rootRect = root.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
     if (
       !["NOSCRIPT", "SCRIPT", "STYLE", "TEMPLATE"].includes(root.tagName) &&
       [rootRect.left, rootRect.top, rootRect.right, rootRect.bottom].every(
         Number.isFinite
       ) &&
       rootRect.width > 0 &&
-      rootRect.height > 0
+      rootRect.height > 0 &&
+      !looksLikeFullContainerWrapper(rootRect, containerRect)
     ) {
       return {
         left: rootRect.left,
@@ -157,8 +177,69 @@ window.akari.interaction = (() => {
       bottom = Math.max(bottom, rect.bottom);
     }
 
-    if (![left, top, right, bottom].every(Number.isFinite)) return null;
+    if (![left, top, right, bottom].every(Number.isFinite)) {
+      // 可視子孫が一つも無い（ルート自身が唯一のコンテンツ、かつ全画面ラッパー疑い）
+      // 場合、選択そのものを失わせるより「全画面でも」ルート自身の矩形を使う方が実用的。
+      if (
+        !["NOSCRIPT", "SCRIPT", "STYLE", "TEMPLATE"].includes(root.tagName) &&
+        [rootRect.left, rootRect.top, rootRect.right, rootRect.bottom].every(
+          Number.isFinite
+        ) &&
+        rootRect.width > 0 &&
+        rootRect.height > 0
+      ) {
+        return {
+          left: rootRect.left,
+          top: rootRect.top,
+          right: rootRect.right,
+          bottom: rootRect.bottom,
+          width: rootRect.width,
+          height: rootRect.height,
+        };
+      }
+      return null;
+    }
     return { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+
+  // ㉑ 素通し: コンテナ（[data-overlay-id]、mount() が inset:0 で全画面付与）は
+  // pointer-events:auto のまま、clip-path で「可視コンテンツの実寸 bbox」だけに
+  // ネイティブな当たり判定を絞る。clip-path の inset() はコンテナ自身の
+  // ローカル（transform 適用前）ボックスに対する割合として解決されるため、コンテナに
+  // 掛かる translate/scale/rotate（ここでは非回転のみ対応）は clip 領域にも均一に
+  // 適用される。したがって「現在（transform 適用後）のクライアント矩形」同士の比で
+  // 割合を求めれば、transform を打ち消して測り直さなくても正しい割合が得られる
+  // （非回転の平行移動+一様拡縮は比を保存するため）。回転が乗っている場合は
+  // 軸並行 bbox の比が単純な割合にならないため clip を諦め、フルコンテナのまま返す
+  // （現行 UI に回転ハンドルは無く到達しない分岐）。
+  function computeHitClipPath(container) {
+    const transform = readTransform(container);
+    const normalizedRotate = ((transform.rotate % 360) + 360) % 360;
+    if (normalizedRotate > 0.01 && normalizedRotate < 359.99) return null;
+
+    const containerRect = container.getBoundingClientRect();
+    if (!(containerRect.width > 0) || !(containerRect.height > 0)) return null;
+
+    const contentRect = fragmentBounds(container);
+    if (!contentRect) return null;
+
+    const top = ((contentRect.top - containerRect.top) / containerRect.height) * 100;
+    const right = ((containerRect.right - contentRect.right) / containerRect.width) * 100;
+    const bottom = ((containerRect.bottom - contentRect.bottom) / containerRect.height) * 100;
+    const left = ((contentRect.left - containerRect.left) / containerRect.width) * 100;
+    if (![top, right, bottom, left].every(Number.isFinite)) return null;
+
+    return `inset(${top}% ${right}% ${bottom}% ${left}%)`;
+  }
+
+  // mount 直後や表示区間へ入った直後（overlay-runtime.js tick()）、および断片 HTML
+  // が変わり得るタイミング（テキスト編集確定）に呼ぶ。ドラッグ/拡縮そのものは
+  // transform-invariant な割合のため、その最中は呼び直さなくてよい（性能: 可視化・
+  // 内容変化のタイミングだけに限定する運用は overlay-runtime.js 側の既存方針と同じ）。
+  function syncOverlayHitRegion(container) {
+    if (!container) return;
+    const clipPath = computeHitClipPath(container);
+    container.style.clipPath = clipPath || "none";
   }
 
   function outputSize() {
@@ -358,8 +439,19 @@ window.akari.interaction = (() => {
       // 舞台には scale() が付いており、transform は position:fixed の包含ブロックを
       // 作る（= 舞台内に置くと fixed がクライアント座標でなく舞台基準になり、位置も
       // 大きさも倍率で歪む）。選択枠はクライアント座標の矩形（fragmentBounds）を
-      // そのまま使うため、transform を持たない親（ペイン直下）へ置く
-      (stage.parentElement ?? stage).appendChild(selectionFrame);
+      // そのまま使うため、transform を持たない祖先へ置く必要がある。
+      // ㉑ 実機で発見・是正: 旧実装は「stage.parentElement」（テストハーネスでは
+      // transform 無しの #preview-pane）へ置いていたが、本番シェルでは同じ階層が
+      // #zoom-layer（プレビューズーム用に常時 transform: translate() scale() を
+      // 持つ — 100% ズームでも scale(1) が設定される）で、これ自体が新たな
+      // containing block を作ってしまい選択枠が本来の位置から系統的にズレる
+      // （実測: 100% ズームで表示px換算 約36px×46pxの一定オフセット、機能
+      // （選択・ドラッグ・拡縮）は fragmentBounds の生値を直接使うため無傷だが
+      // 視覚表示だけがズレる）。document.body は transform を持たない保証がある
+      // ため、そこへ固定する（listenerRoot 側も同じ理由で document 全体へ広げ済み、
+      // ハンドラ内部の対象絞り込みは変更なし = 既存コメントの「祖先を広げても
+      // 誤発火は無い」という設計判断のまま）。
+      document.body.appendChild(selectionFrame);
     }
 
     const usableRect =
@@ -530,6 +622,22 @@ window.akari.interaction = (() => {
     };
   }
 
+  // stageLocalPoint() と同じ scaleX（表示px / 出力px）を、単独の倍率として返す。
+  // プレビューズーム（#zoom-layer の scale）と #overlay-stage 自身の frameScale の
+  // 両方を stage.getBoundingClientRect() が反映済みなので、この一値だけで
+  // 「見た目 8px 相当」を出力px単位のしきい値へ正規化できる（M2 のスナップしきい値の
+  // ズーム非対応を解消する本実装の核）。
+  function currentDisplayScale() {
+    if (!stage) return 1;
+
+    const rect = stage.getBoundingClientRect();
+    const layoutWidth = stage.clientWidth;
+    if (!(rect.width > 0) || !(layoutWidth > 0)) return 1;
+
+    const scale = rect.width / layoutWidth;
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  }
+
   function fragmentVideoBounds(container) {
     const rect = fragmentBounds(container);
     if (!rect) return null;
@@ -553,14 +661,20 @@ window.akari.interaction = (() => {
     };
   }
 
-  function closestAxisSnap(sources, targets, activeSnap) {
+  // distance/release のしきい値は「表示px（見た目）」で評価する。sources/targets は
+  // 出力px（stage-local）単位のため、比較の直前だけ scale（=currentDisplayScale()）を
+  // 掛けて表示px化する。実際に --x/--y へ加える correction 自体は出力px単位のまま
+  // （見た目と保存値の両方が正しくなる: M2 ㉒ のズーム非対応解消）。
+  function closestAxisSnap(sources, targets, activeSnap, scale) {
+    const displayScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+
     if (activeSnap) {
       const source = sources[activeSnap.sourceIndex];
       const target = targets[activeSnap.targetIndex];
       const correction = target - source;
       if (
         Number.isFinite(correction) &&
-        Math.abs(correction) <= SNAP_RELEASE_DISTANCE
+        Math.abs(correction) * displayScale <= SNAP_RELEASE_DISTANCE
       ) {
         return { ...activeSnap, correction, target };
       }
@@ -570,10 +684,10 @@ window.akari.interaction = (() => {
     for (let sourceIndex = 0; sourceIndex < sources.length; sourceIndex += 1) {
       for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
         const correction = targets[targetIndex] - sources[sourceIndex];
-        const distance = Math.abs(correction);
+        const displayDistance = Math.abs(correction) * displayScale;
         if (
-          distance <= SNAP_DISTANCE &&
-          (!closest || distance < Math.abs(closest.correction))
+          displayDistance <= SNAP_DISTANCE &&
+          (!closest || displayDistance < Math.abs(closest.correction) * displayScale)
         ) {
           closest = {
             sourceIndex,
@@ -585,6 +699,42 @@ window.akari.interaction = (() => {
       }
     }
     return closest;
+  }
+
+  // キャンバス端（セーフマージン5%）+ センター縦横への吸着候補を、出力px単位の bounds
+  // {left,top,right,bottom,centerX,centerY} から計算する。overlays のドラッグに限らず、
+  // resize・layers[]・cut/caption のドラッグからも共通で呼べるよう window.akari.interaction
+  // 経由でも公開する（㉒ スナップ統一の単一正本）。
+  function computeSnapCorrection(bounds, previousSnap) {
+    if (!bounds) return { x: null, y: null };
+
+    const { width, height } = outputSize();
+    const scale = currentDisplayScale();
+    const xTargets = [
+      width * SAFE_MARGIN_RATIO,
+      width / 2,
+      width * (1 - SAFE_MARGIN_RATIO),
+    ];
+    const yTargets = [
+      height * SAFE_MARGIN_RATIO,
+      height / 2,
+      height * (1 - SAFE_MARGIN_RATIO),
+    ];
+
+    const snapX = closestAxisSnap(
+      [bounds.left, bounds.centerX, bounds.right],
+      xTargets,
+      previousSnap?.x ?? null,
+      scale
+    );
+    const snapY = closestAxisSnap(
+      [bounds.top, bounds.centerY, bounds.bottom],
+      yTargets,
+      previousSnap?.y ?? null,
+      scale
+    );
+
+    return { x: snapX, y: snapY };
   }
 
   function applyDragSnapping(drag, rawX, rawY, disabled) {
@@ -606,28 +756,9 @@ window.akari.interaction = (() => {
       return;
     }
 
-    const { width, height } = outputSize();
-    const xTargets = [
-      width * SAFE_MARGIN_RATIO,
-      width / 2,
-      width * (1 - SAFE_MARGIN_RATIO),
-    ];
-    const yTargets = [
-      height * SAFE_MARGIN_RATIO,
-      height / 2,
-      height * (1 - SAFE_MARGIN_RATIO),
-    ];
-
-    drag.snapX = closestAxisSnap(
-      [bounds.left, bounds.centerX, bounds.right],
-      xTargets,
-      drag.snapX
-    );
-    drag.snapY = closestAxisSnap(
-      [bounds.top, bounds.centerY, bounds.bottom],
-      yTargets,
-      drag.snapY
-    );
+    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY });
+    drag.snapX = snap.x;
+    drag.snapY = snap.y;
 
     if (drag.snapX) {
       drag.container.style.setProperty(
@@ -689,6 +820,23 @@ window.akari.interaction = (() => {
     }
   }
 
+  // cornerAnchorPoint() の対角（アンカー）ではなく、実際にドラッグしているハンドル
+  // 自身のコーナー座標（resize スナップの対象点）。
+  function namedCornerPoint(rect, corner) {
+    switch (corner) {
+      case "nw":
+        return { x: rect.left, y: rect.top };
+      case "ne":
+        return { x: rect.right, y: rect.top };
+      case "se":
+        return { x: rect.right, y: rect.bottom };
+      case "sw":
+        return { x: rect.left, y: rect.bottom };
+      default:
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+  }
+
   function clampScale(value) {
     if (!Number.isFinite(value)) return 1;
     return Math.min(SCALE_MAX, Math.max(SCALE_MIN, value));
@@ -727,6 +875,8 @@ window.akari.interaction = (() => {
       startScale: transform.scale,
       startX: transform.x,
       startY: transform.y,
+      snapX: null,
+      snapY: null,
       moved: false,
       writeContext: captureWriteContext(),
     };
@@ -738,6 +888,128 @@ window.akari.interaction = (() => {
     }
 
     if (event.cancelable) event.preventDefault();
+  }
+
+  // resize 中に、ドラッグしているハンドル自身のコーナーをキャンバス端/センターへ吸着
+  // させる（㉒: これまで resize には位置スナップが皆無だった）。
+  //
+  // 幾何: transform-origin はコンテナ中心 C（stage-local）固定・アンカー（対角コーナー）
+  // は anchorPreservingTranslate() により scale が変わっても世界座標で不動に保たれる。
+  // このときアンカー A・ドラッグ中コーナー D は同一 scale S の下で
+  //   D(S) = A + S * (Dlocal - Alocal)
+  // という S の一次式になる（A・(Dlocal-Alocal) は S に依存しない定数）。よって、
+  // 現在の scale での実測 D(scale) と A から (Dlocal-Alocal) を逆算でき、
+  // 目標位置 target に一致させる scale は
+  //   S_snap = (target - A) * scale / (D(scale) - A)
+  // で閉じた形に解ける（軸ごとに独立、uniform scale なので一度に1軸のみ採用）。
+  function applyResizeSnap(resize, scale) {
+    if (!(Math.abs(scale) > 1e-6)) return null;
+
+    const anchor = stageLocalPoint(resize.anchorX, resize.anchorY);
+    const visualRect =
+      fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
+    const draggedClient = namedCornerPoint(visualRect, resize.corner);
+    const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
+    if (!anchor || !dragged) return null;
+
+    const { width, height } = outputSize();
+    const displayScale = currentDisplayScale();
+    const xTargets = [
+      width * SAFE_MARGIN_RATIO,
+      width / 2,
+      width * (1 - SAFE_MARGIN_RATIO),
+    ];
+    const yTargets = [
+      height * SAFE_MARGIN_RATIO,
+      height / 2,
+      height * (1 - SAFE_MARGIN_RATIO),
+    ];
+
+    const findCandidate = (draggedValue, anchorValue, targets, previous) => {
+      const denom = draggedValue - anchorValue;
+      if (Math.abs(denom) < 1e-6) return null;
+
+      let best = null;
+      if (previous) {
+        const target = targets[previous.targetIndex];
+        const distanceOutput = Math.abs(target - draggedValue);
+        if (distanceOutput * displayScale <= SNAP_RELEASE_DISTANCE) {
+          best = { targetIndex: previous.targetIndex, target, distanceOutput };
+        }
+      }
+      if (!best) {
+        for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
+          const target = targets[targetIndex];
+          const distanceOutput = Math.abs(target - draggedValue);
+          if (
+            distanceOutput * displayScale <= SNAP_DISTANCE &&
+            (!best || distanceOutput < best.distanceOutput)
+          ) {
+            best = { targetIndex, target, distanceOutput };
+          }
+        }
+      }
+      if (!best) return null;
+
+      const solvedScale = clampScale(((best.target - anchorValue) * scale) / denom);
+      if (!Number.isFinite(solvedScale)) return null;
+      return { ...best, scale: solvedScale };
+    };
+
+    const candidateX = findCandidate(dragged.x, anchor.x, xTargets, resize.snapX);
+    const candidateY = findCandidate(dragged.y, anchor.y, yTargets, resize.snapY);
+
+    let axis = null;
+    if (candidateX && candidateY) {
+      axis = candidateX.distanceOutput <= candidateY.distanceOutput ? "x" : "y";
+    } else if (candidateX) {
+      axis = "x";
+    } else if (candidateY) {
+      axis = "y";
+    }
+
+    if (!axis) {
+      resize.snapX = null;
+      resize.snapY = null;
+      hideSnapGuides();
+      return null;
+    }
+
+    if (axis === "x") {
+      resize.snapX = { targetIndex: candidateX.targetIndex, target: candidateX.target };
+      resize.snapY = null;
+      showSnapGuides(resize.snapX, null);
+      return candidateX.scale;
+    }
+
+    resize.snapY = { targetIndex: candidateY.targetIndex, target: candidateY.target };
+    resize.snapX = null;
+    showSnapGuides(null, resize.snapY);
+    return candidateY.scale;
+  }
+
+  function applyResizeTransformAt(resize, scaleValue) {
+    // scale を変える前の描画後アンカーを、その時点の stage 矩形で動画座標へ戻す。
+    // 直前フレームの transform を基準に補正するため、resize 中に stage のズームや
+    // 全画面状態が変わっても、古いクライアント座標へ引き戻さない。
+    const visualRect =
+      fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
+    const visualAnchor = cornerAnchorPoint(visualRect, resize.corner);
+    const currentTransform = readTransform(resize.container);
+    const translate = anchorPreservingTranslate({
+      startX: currentTransform.x,
+      startY: currentTransform.y,
+      startScale: currentTransform.scale,
+      scale: scaleValue,
+      anchorClientX: visualAnchor.x,
+      anchorClientY: visualAnchor.y,
+    });
+    if (!translate) return false;
+
+    resize.container.style.setProperty("--x", `${translate.x}px`);
+    resize.container.style.setProperty("--y", `${translate.y}px`);
+    resize.container.style.setProperty("--scale", String(scaleValue));
+    return true;
   }
 
   function updateResize(event) {
@@ -754,28 +1026,20 @@ window.akari.interaction = (() => {
     nextScale = clampScale(nextScale);
     if (Math.abs(nextScale - 1) <= SCALE_SNAP_TOLERANCE) nextScale = 1;
 
-    // scale を変える前の描画後アンカーを、その時点の stage 矩形で動画座標へ戻す。
-    // 直前フレームの transform を基準に補正するため、resize 中に stage のズームや
-    // 全画面状態が変わっても、古いクライアント座標へ引き戻さない。
-    const visualRect =
-      fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
-    const visualAnchor = cornerAnchorPoint(visualRect, resize.corner);
-    const currentTransform = readTransform(resize.container);
-    const translate = anchorPreservingTranslate({
-      startX: currentTransform.x,
-      startY: currentTransform.y,
-      startScale: currentTransform.scale,
-      scale: nextScale,
-      anchorClientX: visualAnchor.x,
-      anchorClientY: visualAnchor.y,
-    });
-    if (!translate) return;
+    if (!applyResizeTransformAt(resize, nextScale)) return;
+
+    if (event.shiftKey) {
+      resize.snapX = null;
+      resize.snapY = null;
+      hideSnapGuides();
+    } else {
+      const snappedScale = applyResizeSnap(resize, nextScale);
+      if (snappedScale !== null) {
+        applyResizeTransformAt(resize, snappedScale);
+      }
+    }
 
     resize.moved = true;
-    resize.container.style.setProperty("--x", `${translate.x}px`);
-    resize.container.style.setProperty("--y", `${translate.y}px`);
-    resize.container.style.setProperty("--scale", String(nextScale));
-
     if (event.cancelable) event.preventDefault();
   }
 
@@ -788,6 +1052,7 @@ window.akari.interaction = (() => {
     resize.container.style.setProperty("--y", `${resize.startY}px`);
     resize.container.style.setProperty("--scale", String(resize.startScale));
     releaseResizePointer(resize);
+    hideSnapGuides();
     refreshSelectionFrame();
   }
 
@@ -797,6 +1062,7 @@ window.akari.interaction = (() => {
     const resize = activeResize;
     activeResize = null;
     releaseResizePointer(resize);
+    hideSnapGuides();
 
     if (!resize.moved) return null;
 
@@ -1049,6 +1315,11 @@ window.akari.interaction = (() => {
       failure.catch(() => undefined);
       return failure;
     }
+
+    // テキスト編集で断片内容の実寸が変わり得るため、当たり判定（clip-path）を
+    // 最新の bbox に合わせ直す（refreshSelectionFrame は毎フレーム再計算されるが、
+    // clip-path は内容変化時のみの明示同期が必要）。
+    syncOverlayHitRegion(edit.container);
 
     const record = enqueueWrite(
       edit.writeContext,
@@ -1429,14 +1700,18 @@ window.akari.interaction = (() => {
     }
   }
 
-  // リスナーの付け先は stage 自体ではなく「stage と選択枠（#preview-pane 直下に
-  // 移設済み）の共通祖先」にする。選択枠の拡縮ハンドルは舞台の外にあるため、
-  // stage にしかリスナーが無いと捕捉フェーズが舞台を経由せずハンドル上の
-  // pointerdown が拾えない（本日の実機回帰: 拡縮ハンドルが効かない）。
+  // リスナーの付け先は stage 自体ではなく「stage と選択枠の共通祖先」にする。
+  // 選択枠の拡縮ハンドルは舞台の外にあるため、stage にしかリスナーが無いと
+  // 捕捉フェーズが舞台を経由せずハンドル上の pointerdown が拾えない
+  // （本日の実機回帰: 拡縮ハンドルが効かない）。
   // ハンドラ内部は findOverlayContainer / findHandleElement で対象を絞っている
-  // ため、祖先を広げても pane 直下の他要素（#drop-hint 等）への誤発火は無い
+  // ため、祖先を広げても他要素（#drop-hint 等）への誤発火は無い
   // （#drop-hint は動画ロード後 display:none で hit-test から外れる）。
-  const listenerRoot = stage?.parentElement ?? document;
+  // ㉑ 実機是正: 選択枠は document.body 直下（上記 refreshSelectionFrame 参照、
+  // 本番シェルの #zoom-layer が常時 transform を持つための移設）に統一したため、
+  // listenerRoot も document 全体へ揃える（stage.parentElement のままだと
+  // body 直下のハンドルが capture フェーズの対象外になり拾えなくなる）。
+  const listenerRoot = document;
 
   listenerRoot.addEventListener("click", onClick, true);
   listenerRoot.addEventListener("pointerdown", onPointerDown, true);
@@ -1471,5 +1746,18 @@ window.akari.interaction = (() => {
   window.addEventListener("pointercancel", onPointerCancel, true);
   window.addEventListener("keydown", onKeyDown, true);
 
-  return { selftest };
+  return {
+    selftest,
+    // ㉒ スナップ統一: layers[] / cut / caption のドラッグ実装（akari-preview-open-handler.ts、
+    // 別パッケージ）が同じしきい値・座標系・ガイド線を再利用するための共有 API。
+    // overlays[] 自身のドラッグ/拡縮（上の内部関数群）も同じ実装を通る（単一正本）。
+    stageLocalPoint,
+    computeSnapCorrection,
+    showSnapGuides,
+    hideSnapGuides,
+    outputSize,
+    currentDisplayScale,
+    // ㉑ 素通し: overlay-runtime.js の tick() が可視化タイミングで呼ぶ。
+    syncOverlayHitRegion,
+  };
 })();

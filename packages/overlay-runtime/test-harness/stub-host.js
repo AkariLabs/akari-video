@@ -50,6 +50,25 @@ const STUB_SUMMARY = {
         "</div>",
       ].join("\n"),
     },
+    // ㉑ の再現フィクスチャ: 断片ルート自身が inset:0 の全画面ラッパー + flex 配置
+    // （overlay-authoring 規約・text-behind-person.md 等の「常套パターン」）。
+    // 実際に見える内容（.plate）はステージ左上隅の小さな矩形のみ。
+    {
+      id: "cap-full-wrapper",
+      start: 50,
+      duration: 20,
+      transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+      vars: {},
+      html: [
+        '<div class="cap-full-root" style="position:absolute;inset:0;display:flex;',
+        'align-items:flex-start;justify-content:flex-start;">',
+        '  <div class="plate" style="margin:24px;padding:8px 16px;border-radius:6px;',
+        'background:rgba(10,10,16,0.75);color:#fff;font-size:20px;font-weight:700;">',
+        "コーナーキャプション",
+        "  </div>",
+        "</div>",
+      ].join("\n"),
+    },
   ],
 };
 
