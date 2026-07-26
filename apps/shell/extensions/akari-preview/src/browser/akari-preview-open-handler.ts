@@ -5422,6 +5422,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     + line.map(word => renderCaptionToken(word, caption.start, style)).join('')
                     + '</p>'
                 ).join('');
+                const blockMode = caption.textStyle && caption.textStyle.background
+                    && caption.textStyle.background.mode === 'block';
+                const plateMarkup = blockMode
+                    ? '<div class="akari-caption__block">' + markup + '</div>'
+                    : markup;
+                const blockCss = blockMode
+                    ? '.akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}'
+                        + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
+                    : '';
                 const emphasisCss = hasEmphasis
                     ? '.akari-caption{--akari-emphasis-joy:var(--vscode-akariTheme-accentLighter,#fdba74);--akari-emphasis-pain:var(--vscode-errorForeground,#ff798c);--akari-emphasis-surprise:var(--vscode-akariTheme-accentLight,#fb923c);--akari-emphasis-anger:var(--vscode-errorForeground,#ff798c);--akari-emphasis-sadness:var(--vscode-descriptionForeground,#a3a3a3);--akari-emphasis-emphasis:var(--vscode-akariTheme-accent,#f97316);}'
                         + '@keyframes akari-emphasis-one-char-bang{from{opacity:0;transform:scale(1.6);}to{opacity:1;transform:scale(1);}}'
@@ -5440,13 +5449,14 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,'
                     + (textStyleActive ? 'transparent' : 'rgba(8,12,22,0.74)')
                     + ');text-align:var(--caption-text-align,center);white-space:pre;}'
+                    + blockCss
                     + '.akari-caption__tok{display:inline-block;will-change:transform,color;}'
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
                     + '@keyframes akari-caption-pop{0%{transform:translateY(0) scale(1);}50%{transform:translateY(-0.08em) scale(1.12);}100%{transform:translateY(0) scale(1);}}'
                     + '.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
                     + '.akari-caption__tok--pop{animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused;}'
                     + emphasisCss
-                    + '</style><div class="akari-caption__plate">' + markup + '</div></div>';
+                    + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };
             const renderPlainCaptionFragment = caption => {
                 const lines = [];
@@ -5456,15 +5466,26 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const markup = lines.map(line => '<p class="akari-caption__line">'
                     + escapeCaptionHtml(line) + '</p>').join('');
+                const blockMode = caption.textStyle && caption.textStyle.background
+                    && caption.textStyle.background.mode === 'block';
+                const plateMarkup = blockMode
+                    ? '<div class="akari-caption__block">' + markup + '</div>'
+                    : markup;
+                const blockCss = blockMode
+                    ? '.akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}'
+                        + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
+                    : '';
                 return '<div class="akari-caption"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
-                    + '</style><div class="akari-caption__plate">' + markup + '</div></div>';
+                    + blockCss
+                    + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };
             const captionStyleVariableNames = [
                 '--caption-color', '--caption-font-size', '--caption-text-shadow',
-                '--plate-bg', '--plate-radius', '--caption-top', '--caption-bottom',
+                '--plate-bg', '--plate-radius', '--plate-block-bg', '--plate-block-radius',
+                '--caption-top', '--caption-bottom',
                 '--caption-left', '--caption-right', '--caption-justify-content',
                 '--caption-align-items', '--caption-line-margin', '--caption-line-max-width',
                 '--caption-text-align'

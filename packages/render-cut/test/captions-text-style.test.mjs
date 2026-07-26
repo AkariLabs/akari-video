@@ -85,3 +85,44 @@ test("単語演出と text_style を同じ overlay 上で共存させる", () =>
   assert.equal(overlay.vars["--caption-color"], "#00FF00");
   assert.equal(overlay.vars["--caption-font-size"], "48px");
 });
+
+test("background.mode 省略と per-line 明示は出力が完全同値", () => {
+  const withoutMode = generateCaptionOverlays([
+    caption({ background: { color: "#11223380", radius_px: 8 } }),
+  ], [])[0];
+  const explicitPerLine = generateCaptionOverlays([
+    caption({ background: { color: "#11223380", radius_px: 8, mode: "per-line" } }),
+  ], [])[0];
+  assert.equal(explicitPerLine.html, withoutMode.html);
+  assert.deepEqual(explicitPerLine.vars, withoutMode.vars);
+});
+
+test("background.mode block は複数行を単一 wrapper と block 専用 var で包む", () => {
+  const [overlay] = generateCaptionOverlays([
+    {
+      ...caption({ background: { color: "#11223380", radius_px: 8, mode: "block" } }),
+      text: "12345678901234567890二行目",
+    },
+  ], []);
+  assert.match(overlay.html, /class="akari-caption__block"/);
+  assert.equal((overlay.html.match(/class="akari-caption__line"/g) ?? []).length, 2);
+  assert.match(overlay.html, /\.akari-caption__block \.akari-caption__line/);
+  assert.equal(overlay.vars["--plate-block-bg"], "rgba(17,34,51,0.502)");
+  assert.equal(overlay.vars["--plate-block-radius"], "8px");
+  assert.equal(overlay.vars["--plate-bg"], undefined);
+});
+
+test("word-level 字幕も background.mode block の単一 wrapper を使う", () => {
+  const [overlay] = generateCaptionOverlays([{
+    ...caption({ background: { color: "#000000CC", mode: "block" } }),
+    text: "12345678901234567890二行目",
+    style: "karaoke",
+    words: [
+      { start: 0, end: 1, text: "12345678901234567890" },
+      { start: 1, end: 2, text: "二行目" },
+    ],
+  }], []);
+  assert.match(overlay.html, /akari-caption__block/);
+  assert.match(overlay.html, /akari-caption__tok--karaoke/);
+  assert.equal(overlay.vars["--plate-block-bg"], "rgba(0,0,0,0.8)");
+});

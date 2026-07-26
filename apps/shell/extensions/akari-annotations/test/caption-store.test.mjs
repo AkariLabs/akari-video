@@ -199,6 +199,59 @@ test('text_style とネスト object を新設し undo 相当の null で空 obj
     assert.equal(removed, source);
 });
 
+test('サイズだけの初回編集は既定/8桁hex座布団へ opacity 0 を混入させない', () => {
+    const source = JSON.stringify({
+        default_text_style: {
+            background: { color: '#FF000080', mode: 'block' }
+        },
+        captions: [caption('c-0001', 0, 'one')]
+    }, null, 2) + '\n';
+
+    const updated = updateCaptionTextStyleInSource(source, 'c-0001', { sizePx: 48 });
+    const parsed = parseCaptions(updated);
+
+    assert.deepEqual(JSON.parse(updated).captions[0].text_style, { size_px: 48 });
+    assert.deepEqual(parsed.defaultTextStyle.background, { color: '#FF000080', mode: 'block' });
+    assert.deepEqual(
+        mergeCaptionTextStyles(parsed.defaultTextStyle, parsed.captions[0].textStyle).background,
+        { color: '#FF000080', mode: 'block' }
+    );
+});
+
+test('background.mode を単独追加・更新・削除できる', () => {
+    const source = JSON.stringify([caption('c-0001', 0, 'one')], null, 2) + '\n';
+    const block = updateCaptionTextStyleInSource(source, 'c-0001', {
+        background: { mode: 'block' }
+    });
+    assert.deepEqual(JSON.parse(block)[0].text_style, { background: { mode: 'block' } });
+    assert.equal(parseCaptions(block).captions[0].textStyle.background.mode, 'block');
+
+    const removed = updateCaptionTextStyleInSource(block, 'c-0001', {
+        background: { mode: null }
+    });
+    assert.equal(removed, source);
+});
+
+test('3字幕へ同じ絶対スタイルを順次適用しても非選択レコードはバイト不変', () => {
+    const source = JSON.stringify([
+        caption('c-0001', 0, 'one'),
+        { ...caption('c-0002', 2, 'two'), text_style: { color: '#FFFFFF' } },
+        { ...caption('c-0003', 4, 'three'), text_style: { color: '#FFD700' } },
+        { ...caption('c-0004', 6, 'untouched'), text_style: { color: '#00FF00', zone: 'top' } }
+    ], null, 2) + '\n';
+    const untouched = source.slice(source.indexOf('  {\n    "id": "c-0004"'));
+    let updated = source;
+    for (const id of ['c-0001', 'c-0002', 'c-0003']) {
+        updated = updateCaptionTextStyleInSource(updated, id, { color: '#3366FF' });
+    }
+
+    assert.deepEqual(
+        JSON.parse(updated).slice(0, 3).map(item => item.text_style.color),
+        ['#3366FF', '#3366FF', '#3366FF']
+    );
+    assert.equal(updated.slice(updated.indexOf('  {\n    "id": "c-0004"')), untouched);
+});
+
 test('text_style なしレコードの挿入シリアライズは従来のバイト列を維持する', () => {
     const record = caption('c-0001', 0, 'one');
     const expected = `{ "id": "c-0001", "start": 0, "end": 1, "text": "one", "speaker": null, "sourceRef": {"segment":0}, "edited": false }`;

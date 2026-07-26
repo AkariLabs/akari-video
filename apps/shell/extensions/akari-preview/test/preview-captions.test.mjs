@@ -74,3 +74,17 @@ test('8桁hexのアルファは opacity 未指定時だけ使う', () => {
     }));
     assert.equal(explicitOpacity.textStyleVars['--plate-bg'], 'rgba(255,0,0,0.2)');
 });
+
+test('block mode は block 専用 var を使い per-line の既存 var と分離する', () => {
+    const [block] = parsePreviewCaptions(JSON.stringify({
+        default_text_style: {
+            background: { color: '#FF000080', radius_px: 12, mode: 'block' }
+        },
+        captions: [caption]
+    }));
+    assert.equal(block.textStyle.background.mode, 'block');
+    assert.equal(block.textStyleVars['--plate-block-bg'], 'rgba(255,0,0,0.502)');
+    assert.equal(block.textStyleVars['--plate-block-radius'], '12px');
+    assert.equal(block.textStyleVars['--plate-bg'], undefined);
+    assert.equal(block.textStyleVars['--plate-radius'], undefined);
+});

@@ -7,6 +7,7 @@ export const CAPTION_ZONES = [
 ] as const;
 
 export type CaptionZone = typeof CAPTION_ZONES[number];
+export type CaptionBackgroundMode = 'per-line' | 'block';
 
 export interface CaptionTextStyle {
     color?: string;
@@ -19,6 +20,7 @@ export interface CaptionTextStyle {
         color?: string;
         opacity?: number;
         radiusPx?: number;
+        mode?: CaptionBackgroundMode;
     };
     zone?: CaptionZone;
 }
@@ -34,6 +36,7 @@ export interface CaptionTextStylePatch {
         color?: string | null;
         opacity?: number | null;
         radiusPx?: number | null;
+        mode?: CaptionBackgroundMode | null;
     };
     zone?: CaptionZone | null;
 }
@@ -213,7 +216,8 @@ export function updateCaptionTextStyleInSource(
             {
                 color: updates.background?.color,
                 opacity: updates.background?.opacity,
-                radius_px: updates.background?.radiusPx
+                radius_px: updates.background?.radiusPx,
+                mode: updates.background?.mode
             },
             `字幕 ${captionId} の text_style.background`
         );
@@ -552,7 +556,7 @@ function normalizeTextStyle(value: unknown): CaptionTextStyle | undefined {
     if (value.background !== undefined) {
         if (!isRecord(value.background)
             || Object.keys(value.background).some(key =>
-                key !== 'color' && key !== 'opacity' && key !== 'radius_px')) {
+                key !== 'color' && key !== 'opacity' && key !== 'radius_px' && key !== 'mode')) {
             return undefined;
         }
         const background: NonNullable<CaptionTextStyle['background']> = {};
@@ -576,6 +580,12 @@ function normalizeTextStyle(value: unknown): CaptionTextStyle | undefined {
             }
             background.radiusPx = value.background.radius_px;
         }
+        if (value.background.mode !== undefined) {
+            if (value.background.mode !== 'per-line' && value.background.mode !== 'block') {
+                return undefined;
+            }
+            background.mode = value.background.mode;
+        }
         style.background = background;
     }
     return style;
@@ -595,7 +605,8 @@ function textStyleToJson(style: CaptionTextStyle): Record<string, unknown> {
             background: {
                 ...(style.background.color !== undefined ? { color: style.background.color } : {}),
                 ...(style.background.opacity !== undefined ? { opacity: style.background.opacity } : {}),
-                ...(style.background.radiusPx !== undefined ? { radius_px: style.background.radiusPx } : {})
+                ...(style.background.radiusPx !== undefined ? { radius_px: style.background.radiusPx } : {}),
+                ...(style.background.mode !== undefined ? { mode: style.background.mode } : {})
             }
         } : {}),
         ...(style.zone !== undefined ? { zone: style.zone } : {})
@@ -617,7 +628,7 @@ function validateTextStylePatch(updates: CaptionTextStylePatch): void {
     const hasUpdate = updates.color !== undefined || updates.sizePx !== undefined || updates.zone !== undefined
         || updates.stroke?.color !== undefined || updates.stroke?.widthPx !== undefined
         || updates.background?.color !== undefined || updates.background?.opacity !== undefined
-        || updates.background?.radiusPx !== undefined;
+        || updates.background?.radiusPx !== undefined || updates.background?.mode !== undefined;
     if (!hasUpdate) {
         throw new Error('変更する字幕スタイルのフィールドを指定してください。');
     }
@@ -642,6 +653,10 @@ function validateTextStylePatch(updates: CaptionTextStylePatch): void {
     if (updates.background?.radiusPx !== undefined && updates.background.radiusPx !== null
         && (!Number.isFinite(updates.background.radiusPx) || updates.background.radiusPx < 0)) {
         throw new Error('字幕の座布団角丸は 0 以上で指定してください。');
+    }
+    if (updates.background?.mode !== undefined && updates.background.mode !== null
+        && updates.background.mode !== 'per-line' && updates.background.mode !== 'block') {
+        throw new Error('字幕の座布団の形が不正です。');
     }
     if (updates.zone !== undefined && updates.zone !== null && !CAPTION_ZONES.includes(updates.zone)) {
         throw new Error('字幕の位置が不正です。');
@@ -668,7 +683,9 @@ function textStylePatchToJson(updates: CaptionTextStylePatch): Record<string, un
                     ...(updates.background.opacity !== undefined && updates.background.opacity !== null
                         ? { opacity: updates.background.opacity } : {}),
                     ...(updates.background.radiusPx !== undefined && updates.background.radiusPx !== null
-                        ? { radius_px: updates.background.radiusPx } : {})
+                        ? { radius_px: updates.background.radiusPx } : {}),
+                    ...(updates.background.mode !== undefined && updates.background.mode !== null
+                        ? { mode: updates.background.mode } : {})
                 }
             } : {}),
         ...(updates.zone !== undefined && updates.zone !== null ? { zone: updates.zone } : {})

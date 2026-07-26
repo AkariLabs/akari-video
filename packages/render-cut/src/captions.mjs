@@ -128,8 +128,13 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               emphasisWords,
               displayTokens: rangeTokens,
               textStyleActive: textStyle !== null,
+              backgroundMode: textStyle?.background?.mode,
             })
-          : renderCaptionFragment(displayText, { maximum, textStyleActive: textStyle !== null });
+          : renderCaptionFragment(displayText, {
+              maximum,
+              textStyleActive: textStyle !== null,
+              backgroundMode: textStyle?.background?.mode,
+            });
       overlays.push({
         id: `${caption.id}-${String(index + 1).padStart(2, "0")}`,
         html,
@@ -184,7 +189,9 @@ export function captionTextStyleVars(style) {
   }
   if (style.background && (typeof style.background.color === "string"
     || (typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)))) {
-    vars["--plate-bg"] = colorWithOpacity(
+    const backgroundVariable = style.background.mode === "block"
+      ? "--plate-block-bg" : "--plate-bg";
+    vars[backgroundVariable] = colorWithOpacity(
       typeof style.background.color === "string" ? style.background.color : "#000000",
       typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)
         ? style.background.opacity : undefined,
@@ -192,7 +199,9 @@ export function captionTextStyleVars(style) {
   }
   if (typeof style.background?.radius_px === "number"
     && Number.isFinite(style.background.radius_px)) {
-    vars["--plate-radius"] = `${style.background.radius_px}px`;
+    const radiusVariable = style.background.mode === "block"
+      ? "--plate-block-radius" : "--plate-radius";
+    vars[radiusVariable] = `${style.background.radius_px}px`;
   }
   Object.assign(vars, zoneVars(style.zone));
   return vars;
@@ -221,6 +230,8 @@ function normalizeTextStyle(value) {
             ...(typeof value.background.radius_px === "number"
               && Number.isFinite(value.background.radius_px)
               ? { radius_px: value.background.radius_px } : {}),
+            ...(value.background.mode === "per-line" || value.background.mode === "block"
+              ? { mode: value.background.mode } : {}),
           },
         } : {}),
     ...(typeof value.zone === "string" ? { zone: value.zone } : {}),
@@ -365,6 +376,32 @@ export function renderCaptionFragment(text, options = {}) {
   const markup = lines
     .map((line) => `<p class="akari-caption__line">${escapeHtml(line)}</p>`)
     .join("");
+  const blockMode = options.backgroundMode === "block";
+  const plateMarkup = blockMode
+    ? `<div class="akari-caption__block">${markup}</div>`
+    : markup;
+  const blockPlateCss = blockMode
+    ? `
+    .akari-caption__block {
+      display: flex;
+      flex-direction: column;
+      width: max-content;
+      max-width: var(--caption-line-max-width, 92%);
+      margin: var(--caption-line-margin, 0 auto);
+      gap: var(--plate-gap, 4px);
+      padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
+      border-radius: var(--plate-block-radius, 10px);
+      background: var(--plate-block-bg, transparent);
+    }
+    .akari-caption__block .akari-caption__line {
+      width: auto;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+    }`
+    : "";
 
   return `<div class="akari-caption">
   <style>
@@ -398,13 +435,13 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-    }
+    }${blockPlateCss}
     @keyframes akari-caption-fade {
       from { opacity: 0; transform: translateY(0.18em); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
-  <div class="akari-caption__plate">${markup}</div>
+  <div class="akari-caption__plate">${plateMarkup}</div>
 </div>`;
 }
 
@@ -469,6 +506,32 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     : lines
         .map((line) => `<p class="akari-caption__line">${renderLine(line)}</p>`)
         .join("");
+  const blockMode = options.backgroundMode === "block";
+  const plateMarkup = blockMode
+    ? `<div class="akari-caption__block">${markup}</div>`
+    : markup;
+  const blockPlateCss = blockMode
+    ? `
+    .akari-caption__block {
+      display: flex;
+      flex-direction: column;
+      width: max-content;
+      max-width: var(--caption-line-max-width, 92%);
+      margin: var(--caption-line-margin, 0 auto);
+      gap: var(--plate-gap, 4px);
+      padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
+      border-radius: var(--plate-block-radius, 10px);
+      background: var(--plate-block-bg, transparent);
+    }
+    .akari-caption__block .akari-caption__line {
+      width: auto;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+    }`
+    : "";
 
   const emphasisCss = hasEmphasis ? renderEmphasisCss() : "";
   const revealCss = effectiveStyle === REVEAL_STYLE ? renderRevealCss() : "";
@@ -505,7 +568,7 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-    }
+    }${blockPlateCss}
     .akari-caption__tok {
       display: inline-block;
       will-change: transform, color;
@@ -530,7 +593,7 @@ ${lineTextAlignCss}      white-space: pre;
       animation: akari-caption-pop 0.2s var(--akari-tok-delay, 0s) ease-out both paused;
     }${revealCss}${emphasisCss}
   </style>
-  <div class="akari-caption__plate">${markup}</div>
+  <div class="akari-caption__plate">${plateMarkup}</div>
 </div>`;
 }
 

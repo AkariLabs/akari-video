@@ -9,17 +9,18 @@ import {
     TimelineCaptionSelection,
     TimelineCutSelection,
     TimelineLayerSelection,
+    TimelineItemSelectionSnapshot,
     TimelineOverlaySelection,
     TimelineSelectionModel,
-    TimelineSelectionSnapshot
+    TimelineSelectionTarget
 } from './timeline-selection-model';
-import { CAPTION_ZONES } from '../common/caption-store';
+import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
 
 // appendScrubNumber の pointermove 中にライブプレビューを送出する最短間隔（ms）。
 // 契約の目安「16〜50ms」の中間値で throttle する。
 const LIVE_PREVIEW_THROTTLE_MS = 30;
 
-type InspectorSnapshot = Exclude<TimelineSelectionSnapshot, undefined | { kind: 'multi'; count: number }>;
+type InspectorSnapshot = TimelineItemSelectionSnapshot;
 
 interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     label: string;
@@ -89,8 +90,20 @@ const CAPTION_STYLE_DEFAULTS = {
     backgroundColor: '#000000',
     backgroundOpacity: 0,
     backgroundRadiusPx: 10,
+    backgroundMode: 'per-line',
     zone: 'bottom'
 } as const;
+
+type CaptionStyleFieldKey =
+    | 'color'
+    | 'size'
+    | 'stroke-color'
+    | 'stroke-width'
+    | 'background-color'
+    | 'background-opacity'
+    | 'background-radius'
+    | 'background-mode'
+    | 'zone';
 
 function captionStyleDisplayValue<T>(
     raw: T | undefined,
@@ -104,6 +117,21 @@ function captionStyleDisplayValue<T>(
 
 function isCaptionHexColor(value: string): boolean {
     return /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
+}
+
+function effectiveCaptionBackgroundOpacity(style: CaptionTextStyle | undefined): number {
+    if (style?.background?.opacity !== undefined) {
+        return style.background.opacity;
+    }
+    const color = style?.background?.color;
+    if (!color) {
+        return CAPTION_STYLE_DEFAULTS.backgroundOpacity;
+    }
+    const hex = color.slice(1);
+    if (hex.length !== 8) {
+        return 1;
+    }
+    return Number((parseInt(hex.slice(6, 8), 16) / 255).toFixed(4));
 }
 
 function formatPayloadValue(value: unknown): string {
@@ -381,30 +409,38 @@ function LAYER_TABS(
 
 function CAPTION_TABS(
     snapshot: TimelineCaptionSelection,
-    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
+    options: {
+        mixedFields?: ReadonlySet<CaptionStyleFieldKey>;
+        targets?: readonly TimelineSelectionTarget[];
+    } = {}
 ): InspectorTabDef[] {
     const raw = snapshot.textStyle;
     const effective = snapshot.effectiveTextStyle;
+    const requestOptions = options.targets ? { targets: options.targets } : {};
     const colorField = (
         label: string,
+        fieldKey: CaptionStyleFieldKey,
         rawValue: string | undefined,
         effectiveValue: string | undefined,
         fallback: string,
         kind: 'caption-style-color' | 'caption-style-stroke-color' | 'caption-style-bg-color'
     ): InspectorFieldDef<TimelineCaptionSelection> => ({
         label,
-        getValue: () => captionStyleDisplayValue(rawValue, effectiveValue, fallback),
-        getEditValue: () => effectiveValue ?? fallback,
+        getValue: () => options.mixedFields?.has(fieldKey)
+            ? '—' : captionStyleDisplayValue(rawValue, effectiveValue, fallback),
+        getEditValue: () => options.mixedFields?.has(fieldKey) ? '—' : effectiveValue ?? fallback,
         inputKind: 'color',
         write: async (_snapshot, nextValue) => {
             if (!isCaptionHexColor(nextValue)) {
                 return { ok: false, message: '色は #RGB / #RRGGBB / #RRGGBBAA で入力してください。' };
             }
-            return requestWrite({ kind, id: snapshot.id, value: nextValue });
+            return requestWrite({ kind, id: snapshot.id, value: nextValue, ...requestOptions });
         }
     });
     const numberField = (
         label: string,
+        fieldKey: CaptionStyleFieldKey,
         rawValue: number | undefined,
         effectiveValue: number | undefined,
         fallback: number,
@@ -416,8 +452,9 @@ function CAPTION_TABS(
         invalidMessage: string
     ): InspectorFieldDef<TimelineCaptionSelection> => ({
         label,
-        getValue: () => captionStyleDisplayValue(rawValue, effectiveValue, fallback),
-        getEditValue: () => String(effectiveValue ?? fallback),
+        getValue: () => options.mixedFields?.has(fieldKey)
+            ? '—' : captionStyleDisplayValue(rawValue, effectiveValue, fallback),
+        getEditValue: () => options.mixedFields?.has(fieldKey) ? '—' : String(effectiveValue ?? fallback),
         inputKind: 'scrub-number',
         scrubStep: step,
         min,
@@ -428,7 +465,7 @@ function CAPTION_TABS(
                 || (kind === 'caption-style-size' && parsed === 0)) {
                 return { ok: false, message: invalidMessage };
             }
-            return requestWrite({ kind, id: snapshot.id, value: parsed });
+            return requestWrite({ kind, id: snapshot.id, value: parsed, ...requestOptions });
         }
     });
     return [
@@ -463,6 +500,7 @@ function CAPTION_TABS(
             fields: [
                 colorField(
                     '文字色',
+                    'color',
                     raw?.color,
                     effective?.color,
                     CAPTION_STYLE_DEFAULTS.color,
@@ -470,6 +508,7 @@ function CAPTION_TABS(
                 ),
                 numberField(
                     'サイズ (px)',
+                    'size',
                     raw?.sizePx,
                     effective?.sizePx,
                     CAPTION_STYLE_DEFAULTS.sizePx,
@@ -481,6 +520,7 @@ function CAPTION_TABS(
                 ),
                 colorField(
                     '縁取り色',
+                    'stroke-color',
                     raw?.stroke?.color,
                     effective?.stroke?.color,
                     CAPTION_STYLE_DEFAULTS.strokeColor,
@@ -488,6 +528,7 @@ function CAPTION_TABS(
                 ),
                 numberField(
                     '縁取り (px)',
+                    'stroke-width',
                     raw?.stroke?.widthPx,
                     effective?.stroke?.widthPx,
                     CAPTION_STYLE_DEFAULTS.strokeWidthPx,
@@ -499,6 +540,7 @@ function CAPTION_TABS(
                 ),
                 colorField(
                     '座布団色',
+                    'background-color',
                     raw?.background?.color,
                     effective?.background?.color,
                     CAPTION_STYLE_DEFAULTS.backgroundColor,
@@ -506,8 +548,9 @@ function CAPTION_TABS(
                 ),
                 numberField(
                     '座布団不透明度',
+                    'background-opacity',
                     raw?.background?.opacity,
-                    effective?.background?.opacity,
+                    effectiveCaptionBackgroundOpacity(effective),
                     CAPTION_STYLE_DEFAULTS.backgroundOpacity,
                     'caption-style-bg-opacity',
                     0,
@@ -517,6 +560,7 @@ function CAPTION_TABS(
                 ),
                 numberField(
                     '座布団角丸 (px)',
+                    'background-radius',
                     raw?.background?.radiusPx,
                     effective?.background?.radiusPx,
                     CAPTION_STYLE_DEFAULTS.backgroundRadiusPx,
@@ -527,13 +571,42 @@ function CAPTION_TABS(
                     '座布団角丸は 0 以上で入力してください。'
                 ),
                 {
+                    label: '座布団の形',
+                    getValue: () => options.mixedFields?.has('background-mode')
+                        ? '—'
+                        : captionStyleDisplayValue(
+                            raw?.background?.mode,
+                            effective?.background?.mode,
+                            CAPTION_STYLE_DEFAULTS.backgroundMode
+                        ),
+                    getEditValue: () => options.mixedFields?.has('background-mode')
+                        ? '—'
+                        : effective?.background?.mode ?? CAPTION_STYLE_DEFAULTS.backgroundMode,
+                    inputKind: 'select',
+                    options: ['per-line', 'block'],
+                    write: async (_snapshot, nextValue) => {
+                        if (nextValue !== 'per-line' && nextValue !== 'block') {
+                            return { ok: false, message: '座布団の形を2つの候補から選んでください。' };
+                        }
+                        return requestWrite({
+                            kind: 'caption-style-bg-mode',
+                            id: snapshot.id,
+                            value: nextValue as CaptionBackgroundMode,
+                            ...requestOptions
+                        });
+                    }
+                },
+                {
                     label: '位置',
-                    getValue: () => captionStyleDisplayValue(
-                        raw?.zone,
-                        effective?.zone,
-                        CAPTION_STYLE_DEFAULTS.zone
-                    ),
-                    getEditValue: () => effective?.zone ?? CAPTION_STYLE_DEFAULTS.zone,
+                    getValue: () => options.mixedFields?.has('zone')
+                        ? '—'
+                        : captionStyleDisplayValue(
+                            raw?.zone,
+                            effective?.zone,
+                            CAPTION_STYLE_DEFAULTS.zone
+                        ),
+                    getEditValue: () => options.mixedFields?.has('zone')
+                        ? '—' : effective?.zone ?? CAPTION_STYLE_DEFAULTS.zone,
                     inputKind: 'select',
                     options: CAPTION_ZONES,
                     write: async (_snapshot, nextValue) => {
@@ -543,7 +616,8 @@ function CAPTION_TABS(
                         return requestWrite({
                             kind: 'caption-style-zone',
                             id: snapshot.id,
-                            value: nextValue as typeof CAPTION_ZONES[number]
+                            value: nextValue as typeof CAPTION_ZONES[number],
+                            ...requestOptions
                         });
                     }
                 }
@@ -561,6 +635,106 @@ function CAPTION_TABS(
                 {
                     label: 'sourceRef.segment',
                     getValue: () => orDash(snapshot.sourceRef?.segment, value => String(value))
+                }
+            ]
+        }
+    ];
+}
+
+function commonCaptionValue<T>(
+    snapshots: readonly TimelineCaptionSelection[],
+    getValue: (snapshot: TimelineCaptionSelection) => T
+): { mixed: boolean; value: T } {
+    const value = getValue(snapshots[0]);
+    return {
+        value,
+        mixed: snapshots.slice(1).some(snapshot => !Object.is(getValue(snapshot), value))
+    };
+}
+
+function MULTI_CAPTION_TABS(
+    snapshots: readonly TimelineCaptionSelection[],
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorTabDef[] {
+    const mixedFields = new Set<CaptionStyleFieldKey>();
+    const common = <T>(
+        field: CaptionStyleFieldKey,
+        getValue: (snapshot: TimelineCaptionSelection) => T
+    ): T => {
+        const result = commonCaptionValue(snapshots, getValue);
+        if (result.mixed) {
+            mixedFields.add(field);
+        }
+        return result.value;
+    };
+    const effectiveStyle: CaptionTextStyle = {
+        color: common('color', snapshot =>
+            snapshot.effectiveTextStyle?.color ?? CAPTION_STYLE_DEFAULTS.color),
+        sizePx: common('size', snapshot =>
+            snapshot.effectiveTextStyle?.sizePx ?? CAPTION_STYLE_DEFAULTS.sizePx),
+        stroke: {
+            color: common('stroke-color', snapshot =>
+                snapshot.effectiveTextStyle?.stroke?.color ?? CAPTION_STYLE_DEFAULTS.strokeColor),
+            widthPx: common('stroke-width', snapshot =>
+                snapshot.effectiveTextStyle?.stroke?.widthPx ?? CAPTION_STYLE_DEFAULTS.strokeWidthPx)
+        },
+        background: {
+            color: common('background-color', snapshot =>
+                snapshot.effectiveTextStyle?.background?.color ?? CAPTION_STYLE_DEFAULTS.backgroundColor),
+            opacity: common('background-opacity', snapshot =>
+                effectiveCaptionBackgroundOpacity(snapshot.effectiveTextStyle)),
+            radiusPx: common('background-radius', snapshot =>
+                snapshot.effectiveTextStyle?.background?.radiusPx ?? CAPTION_STYLE_DEFAULTS.backgroundRadiusPx),
+            mode: common('background-mode', snapshot =>
+                snapshot.effectiveTextStyle?.background?.mode ?? CAPTION_STYLE_DEFAULTS.backgroundMode)
+        },
+        zone: common('zone', snapshot =>
+            snapshot.effectiveTextStyle?.zone ?? CAPTION_STYLE_DEFAULTS.zone)
+    };
+    const aggregate: TimelineCaptionSelection = {
+        ...snapshots[0],
+        textStyle: effectiveStyle,
+        effectiveTextStyle: effectiveStyle
+    };
+    const targets: TimelineSelectionTarget[] = snapshots.map(snapshot => ({
+        kind: 'caption',
+        id: snapshot.id
+    }));
+    const styleTab = CAPTION_TABS(aggregate, requestWrite, { mixedFields, targets })
+        .find(tab => tab.label === 'スタイル')!;
+    const commonDisplay = <T>(
+        getValue: (snapshot: TimelineCaptionSelection) => T,
+        format: (value: T) => string
+    ): string => {
+        const result = commonCaptionValue(snapshots, getValue);
+        return result.mixed ? '—' : format(result.value);
+    };
+    return [
+        styleTab,
+        {
+            label: 'タイミング',
+            fields: [
+                {
+                    label: 'start',
+                    getValue: () => commonDisplay(snapshot => snapshot.sourceStart, formatTimestamp)
+                },
+                {
+                    label: 'end',
+                    getValue: () => commonDisplay(snapshot => snapshot.sourceEnd, formatTimestamp)
+                },
+                {
+                    label: '尺',
+                    getValue: () => commonDisplay(
+                        snapshot => snapshot.sourceEnd - snapshot.sourceStart,
+                        formatDurationSeconds
+                    )
+                },
+                {
+                    label: 'sourceRef.segment',
+                    getValue: () => commonDisplay(
+                        snapshot => snapshot.sourceRef?.segment ?? null,
+                        value => value === null ? '—' : String(value)
+                    )
                 }
             ]
         }
@@ -847,33 +1021,45 @@ export class AkariInspectorWidget extends BaseWidget {
         const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
             this.commitWrite(request);
 
+        let tabs: InspectorTabDef[];
+        let rowSnapshot: InspectorSnapshot;
+        let tabKind: keyof typeof this.selectedTabLabelByKind;
         if (snapshot.kind === 'multi') {
             const summary = document.createElement('div');
             summary.className = 'akari-inspector-heading';
             summary.textContent = `${snapshot.count}件選択`;
             this.body.appendChild(summary);
-            return;
+            const captions = snapshot.items.filter(
+                (item): item is TimelineCaptionSelection => item.kind === 'caption'
+            );
+            if (captions.length !== snapshot.items.length || captions.length === 0) {
+                return;
+            }
+            tabs = MULTI_CAPTION_TABS(captions, requestWrite);
+            rowSnapshot = captions[0];
+            tabKind = 'caption';
+        } else {
+            rowSnapshot = snapshot;
+            tabKind = snapshot.kind;
+            switch (snapshot.kind) {
+                case 'cut':
+                    tabs = CUT_TABS(snapshot, requestWrite);
+                    break;
+                case 'layer':
+                    tabs = LAYER_TABS(snapshot, requestWrite);
+                    break;
+                case 'caption':
+                    tabs = CAPTION_TABS(snapshot, requestWrite);
+                    break;
+                case 'audio':
+                    tabs = AUDIO_TABS(snapshot, requestWrite);
+                    break;
+                case 'overlay':
+                    tabs = OVERLAY_TABS(snapshot, requestWrite);
+                    break;
+            }
         }
-
-        let tabs: InspectorTabDef[];
-        switch (snapshot.kind) {
-            case 'cut':
-                tabs = CUT_TABS(snapshot, requestWrite);
-                break;
-            case 'layer':
-                tabs = LAYER_TABS(snapshot, requestWrite);
-                break;
-            case 'caption':
-                tabs = CAPTION_TABS(snapshot, requestWrite);
-                break;
-            case 'audio':
-                tabs = AUDIO_TABS(snapshot, requestWrite);
-                break;
-            case 'overlay':
-                tabs = OVERLAY_TABS(snapshot, requestWrite);
-                break;
-        }
-        const selectedTabLabel = this.selectedTabLabelByKind[snapshot.kind];
+        const selectedTabLabel = this.selectedTabLabelByKind[tabKind];
         const activeTab = tabs.find(tab => tab.label === selectedTabLabel) ?? tabs[0];
         const tabbar = document.createElement('div');
         tabbar.className = 'akari-inspector-tabbar';
@@ -884,14 +1070,14 @@ export class AkariInspectorWidget extends BaseWidget {
             button.classList.toggle('akari-inspector-tab-active', tab === activeTab);
             button.textContent = tab.label;
             button.addEventListener('click', () => {
-                this.selectedTabLabelByKind[snapshot.kind] = tab.label;
+                this.selectedTabLabelByKind[tabKind] = tab.label;
                 this.render();
             });
             tabbar.appendChild(button);
         });
         this.body.appendChild(tabbar);
 
-        activeTab.fields.forEach(field => this.appendRow(field, snapshot));
+        activeTab.fields.forEach(field => this.appendRow(field, rowSnapshot));
     }
 
     protected async commitWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
@@ -966,6 +1152,13 @@ export class AkariInspectorWidget extends BaseWidget {
             const select = document.createElement('select');
             select.className = 'akari-inspector-row-input';
             const options = field.inputKind === 'boolean-select' ? ['true', 'false'] : field.options ?? [];
+            if (editValue === '—' && !options.includes(editValue)) {
+                const mixedOption = document.createElement('option');
+                mixedOption.value = '—';
+                mixedOption.textContent = '—';
+                mixedOption.disabled = true;
+                select.appendChild(mixedOption);
+            }
             for (const optionValue of options) {
                 const option = document.createElement('option');
                 option.value = optionValue;
@@ -1105,7 +1298,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'akari-inspector-row-input';
-            input.value = editValue;
+            input.value = editValue === '—' ? '' : editValue;
             let cancelled = false;
             let finished = false;
             const finish = async (): Promise<void> => {
@@ -1142,7 +1335,12 @@ export class AkariInspectorWidget extends BaseWidget {
         };
 
         scrub.addEventListener('pointerdown', downEvent => {
-            if (downEvent.button !== 0 || !Number.isFinite(startValue)) {
+            if (downEvent.button !== 0) {
+                return;
+            }
+            if (!Number.isFinite(startValue)) {
+                downEvent.preventDefault();
+                showDirectInput();
                 return;
             }
             downEvent.preventDefault();

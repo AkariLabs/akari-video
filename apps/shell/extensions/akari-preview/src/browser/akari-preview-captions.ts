@@ -12,7 +12,12 @@ export interface PreviewCaptionTextStyle {
     color?: string;
     sizePx?: number;
     stroke?: { color?: string; widthPx?: number };
-    background?: { color?: string; opacity?: number; radiusPx?: number };
+    background?: {
+        color?: string;
+        opacity?: number;
+        radiusPx?: number;
+        mode?: 'per-line' | 'block';
+    };
     zone?: PreviewCaptionZone;
 }
 
@@ -122,13 +127,15 @@ export function captionTextStyleVars(style: PreviewCaptionTextStyle | undefined)
     }
     if (style.background
         && (style.background.color !== undefined || style.background.opacity !== undefined)) {
-        vars['--plate-bg'] = colorWithOpacity(
+        const backgroundVariable = style.background.mode === 'block' ? '--plate-block-bg' : '--plate-bg';
+        vars[backgroundVariable] = colorWithOpacity(
             style.background.color ?? '#000000',
             style.background.opacity
         );
     }
     if (style.background?.radiusPx !== undefined) {
-        vars['--plate-radius'] = `${style.background.radiusPx}px`;
+        const radiusVariable = style.background.mode === 'block' ? '--plate-block-radius' : '--plate-radius';
+        vars[radiusVariable] = `${style.background.radiusPx}px`;
     }
     Object.assign(vars, zoneVars(style.zone));
     return vars;
@@ -161,7 +168,9 @@ function normalizeTextStyle(value: unknown): PreviewCaptionTextStyle | undefined
             ...(typeof value.background.opacity === 'number' && Number.isFinite(value.background.opacity)
                 ? { opacity: value.background.opacity } : {}),
             ...(typeof value.background.radius_px === 'number' && Number.isFinite(value.background.radius_px)
-                ? { radiusPx: value.background.radius_px } : {})
+                ? { radiusPx: value.background.radius_px } : {}),
+            ...(value.background.mode === 'per-line' || value.background.mode === 'block'
+                ? { mode: value.background.mode } : {})
         };
     }
     return style;
