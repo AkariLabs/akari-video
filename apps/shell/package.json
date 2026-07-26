@@ -72,7 +72,7 @@
     "build": "npm run build:ext && theia build --mode production",
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "start": "theia start --plugins=local-dir:plugins",
-    "prepackage": "node resources/scripts/copy-native-helpers.mjs",
+    "prepackage": "node resources/scripts/copy-native-helpers.mjs && node resources/scripts/generate-third-party-notices.mjs",
     "package": "electron-builder --dir",
     "postpackage": "node resources/scripts/verify-asar-contents.mjs",
     "watch": "theia build --watch --mode development"
@@ -111,6 +111,10 @@
       "**/@vscode/ripgrep/**"
     ],
     "extraResources": [
+      {
+        "from": "resources/generated-notices",
+        "to": "."
+      },
       {
         "from": "../../assets/font",
         "to": "assets/font"

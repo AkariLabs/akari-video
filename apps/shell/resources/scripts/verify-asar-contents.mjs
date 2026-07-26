@@ -203,6 +203,45 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
     }
   }
 
+  // サードパーティライセンス通知の同梱検査。生成は prepackage の
+  // generate-third-party-notices.mjs、配置は extraResources("." は mac: Contents/Resources、
+  // win/linux: resources/ に展開される)。存在 3 点に加え、asar 内 top-level パッケージ全数が
+  // ThirdPartyNotices.txt に掲載されていることを照合する(walker の取りこぼし検知。
+  // 自社 file: 拡張はサードパーティではないので照合から除く)。
+  const resourcesDir = targetPlatform === 'darwin'
+    ? path.join(application.displayPath, 'Contents', 'Resources')
+    : path.join(application.displayPath, 'resources');
+  for (const noticeFile of ['ThirdPartyNotices.txt', 'LICENSE.electron.txt', 'LICENSES.chromium.html']) {
+    const exists = await stat(path.join(resourcesDir, noticeFile)).then(s => s.isFile(), () => false);
+    if (exists) {
+      console.log(`✅ ${noticeFile}`);
+    } else {
+      console.error(`❌ MISSING: ${noticeFile}(リソース直下)`);
+      failed = true;
+    }
+  }
+  const noticesText = await readFile(path.join(resourcesDir, 'ThirdPartyNotices.txt'), 'utf8').catch(() => null);
+  if (noticesText !== null) {
+    const asarPackageNames = new Set();
+    for (const entry of entries) {
+      const match = entry.match(/^\/node_modules\/(@[^/]+\/[^/]+|[^@./][^/]*)\//);
+      if (match) {
+        asarPackageNames.add(match[1]);
+      }
+    }
+    const firstParty = new Set(fileDependencies);
+    const missingFromNotices = [...asarPackageNames]
+      .filter(name => !firstParty.has(name))
+      .filter(name => !noticesText.includes(`%% ${name}@`))
+      .sort();
+    if (missingFromNotices.length === 0) {
+      console.log(`✅ ThirdPartyNotices 網羅（asar 内 ${asarPackageNames.size} パッケージ照合）`);
+    } else {
+      console.error(`❌ ThirdPartyNotices 不掲載: ${missingFromNotices.join(', ')}`);
+      failed = true;
+    }
+  }
+
   // サイズは配布をブロックしない（オーナー裁定 2026-07-20 — 「1GB いってもいい」）。
   // 情報として常に表示し、暴走ビルド検知のための緩い目安（SOFT_BUDGET_MB）超過時のみ
   // 警告する。中身チェック（拡張・skills・schemas・templates）は従来どおり厳格。
