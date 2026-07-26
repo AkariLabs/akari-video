@@ -142,6 +142,36 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # APPLE_API_KEY は electron-builder（@electron/notarize 経由）が xcrun notarytool の
+      # `--key` 引数へ無変換でそのまま渡す値で、.p8 秘密鍵ファイルへの「パス」を要求する
+      # （@electron/notarize 2.5.0 lib/types.d.ts の NotaryToolApiKeyCredentials.appleApiKey
+      # doc コメント「File system path to the `.p8` private key...」、および
+      # lib/notarytool.js の authorizationArgs() が opts.appleApiKey をそのまま
+      # `--key` の値として渡している実装で確認。app-builder-lib 26.15.3
+      # out/mac/MacTargetHelper.js の getNotarizeOptions() も process.env.APPLE_API_KEY を
+      # 無変換で appleApiKey に代入するだけなので、env の中身がそのまま notarytool の
+      # --key 引数になる）。オーナーの secret 登録運用は .p8 の中身をそのまま登録する形
+      # （変更不可・司令塔案内済み）のため、ここで一度ファイルに書き出してからパスを渡す。
+      # printf '%s' で書く（echo は改行の扱いが環境依存で、.p8 は複数行の PEM 形式のため
+      # 改行を壊さないことを優先した）。secrets コンテキストは if: 条件では参照できない
+      # （actionlint 実測: "context 'secrets' is not allowed here"）ため、step 自体は常に
+      # 走らせ、env 経由で受け取った値の有無を bash 側で分岐する（secrets を env: に渡すのは
+      # 許可された場所）。secret が空なら path 出力を空文字にし、package ステップの
+      # APPLE_API_KEY env も空文字のまま（従来どおり notarize スキップ）
+      - name: APPLE_API_KEY（.p8）を一時ファイルへ書き出す
+        id: apple-api-key-file
+        env:
+          APPLE_API_KEY_SECRET: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          if [ -n "$APPLE_API_KEY_SECRET" ]; then
+            key_path="$RUNNER_TEMP/apple_api_key.p8"
+            printf '%s' "$APPLE_API_KEY_SECRET" > "$key_path"
+            chmod 600 "$key_path"
+            echo "path=$key_path" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
       # 既存の `npm run package`（package.json の scripts.package）は `electron-builder --dir`
       # 固定で、apps/shell/package.json の mac.target（"dir"）をそのまま使う。ここでは
       # zip/dmg という「リリース成果物としての」ターゲットが要るため、package.json の
@@ -153,7 +183,7 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY: ${{ steps.apple-api-key-file.outputs.path }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: npx electron-builder --mac zip dmg
