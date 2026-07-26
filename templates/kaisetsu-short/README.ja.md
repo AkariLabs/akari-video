@@ -171,7 +171,11 @@ Block 共通フィールド: `id`, `type`, `reveal?: {at, dur}`, `fadeOut?: {at,
 ## レイアウトプロファイル
 
 `tools/lib/layout-profiles.mjs` に `portrait`（1080×1920）/ `landscape`（1920×1080）の2種を
-定義。landscape は現時点でジオメトリの器 + 16:9 スモーク実証まで（デザイン調整は今後の実走で）。
+定義。landscape は実制作の初実走を経て polish 済み: 吹き出しのしっぽは下向き（16:9 では
+アバターが吹き出しの下に立つ）、図解部品（vs-card / mini-timeline / SNS キャプション）は
+広いカード幅に合わせて増寸、ending のアバター/SNS 行も再配分。landscape 専用スタイルは
+すべて `body[data-aspect="landscape"]` ガード配下にあり、portrait 出力は golden 検証済みの
+原型とピクセル一致のまま。
 
 ## 決定論契約
 

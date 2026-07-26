@@ -36,12 +36,14 @@ export const LAYOUT_PROFILES = {
     captionPlate: { left: 96, top: 900, width: 1120, height: 100 },
     diagramCard: { left: 96, top: 54, width: 1120, height: 972 },
     bubble: { left: 1264, top: 300, width: 560, height: 260 },
-    snsRow: { top: 100, left: 0, width: 1920 },
-    followLabel: { top: 340, left: 0, width: 1920 },
+    // T3 初実走の polish: ending のアバターを増寸（650→720）し、SNS 行 / フォローラベルを
+    // その分上へ詰める（badges 64-254 → label 290-342 → avatar head ~360 の縦積み）
+    snsRow: { top: 64, left: 0, width: 1920 },
+    followLabel: { top: 290, left: 0, width: 1920 },
     avatar: {
       title: { width: 500, height: 900, bottom: 0, right: 96, headroomFrac: 0.08, sideMarginMin: 26, centered: false },
       diagram: { right: 0, bottom: 0, width: 420, height: 500, headroomFrac: 0.05, sideMarginMin: 22 },
-      ending: { height: 650, bottom: 0, swayMarginBuffer: 30, centered: true },
+      ending: { height: 720, bottom: 0, swayMarginBuffer: 30, centered: true },
     },
   },
 };

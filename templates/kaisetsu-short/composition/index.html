@@ -199,6 +199,34 @@
   #avatar-box { position: absolute; overflow: hidden; z-index: 20; }
   #avatar-inner { position: absolute; inset: 0; }
   #avatar-img { position: absolute; display: block; }
+
+  /* ---------- landscape 専用 polish（T3 初実走で獲得） ----------
+     body[data-aspect="landscape"] ガード付き。portrait レンダーではセレクタが一致しない
+     ため、golden（portrait）のピクセル出力には一切影響しない。 */
+  /* 吹き出しのしっぽ: landscape ではアバターが吹き出しの「下」にいるため下向きにする
+     （二重三角形パターンは portrait と同じ縫い目 5px を維持） */
+  body[data-aspect="landscape"] #bubble::after {
+    right: auto; top: auto; margin-top: 0;
+    left: 74%; bottom: -22px; margin-left: -20px;
+    border-left: 20px solid transparent; border-right: 20px solid transparent;
+    border-top: 22px solid var(--line); border-bottom: none;
+  }
+  body[data-aspect="landscape"] #bubble .tail-fill {
+    right: auto; top: auto; margin-top: 0;
+    left: 74%; bottom: -17px; margin-left: -16px;
+    border-left: 16px solid transparent; border-right: 16px solid transparent;
+    border-top: 17px solid #fff; border-bottom: none;
+  }
+  /* 図解部品: portrait（840 幅カード）採寸のままだと 1120 幅カードで小さく浮くため増寸 */
+  body[data-aspect="landscape"] .vs-card-item { width: 330px; min-height: 170px; }
+  body[data-aspect="landscape"] .vs-title { font-size: 34px; }
+  body[data-aspect="landscape"] .vs-desc { font-size: 25px; }
+  body[data-aspect="landscape"] .mt-line { width: 64px; }
+  body[data-aspect="landscape"] .mt-label { font-size: 26px; white-space: nowrap; }
+  body[data-aspect="landscape"] .mt-node { flex-shrink: 0; }
+  /* ending: 実ハンドル併記でもキャプション同士が接触しない幅（portrait 240px 採寸のまま
+     だと 3 列併記で衝突する） */
+  body[data-aspect="landscape"] .sns-item { width: 320px; }
 </style>
 </head>
 <body>
@@ -268,6 +296,8 @@
   document.body.style.height = layout.height + "px";
   stage.style.width = layout.width + "px";
   stage.style.height = layout.height + "px";
+  // landscape 専用 CSS のフック（portrait では一致するルールが無い = 出力不変）
+  document.body.dataset.aspect = timelineData.aspect || "portrait";
 
   function setBox(el, box) {
     el.style.left = box.left != null ? box.left + "px" : "auto";

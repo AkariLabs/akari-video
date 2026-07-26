@@ -176,8 +176,12 @@ absolute `file://` URL based on the project dir and builds the preload list auto
 ## Layout profiles
 
 `tools/lib/layout-profiles.mjs` defines two profiles: `portrait` (1080×1920) and
-`landscape` (1920×1080). The landscape profile currently provides the geometry plus a
-16:9 smoke-test level of polish (design refinement comes with future productions).
+`landscape` (1920×1080). The landscape profile has been polished through a first real
+production run: the speech-bubble tail points downward (the avatar sits below the bubble
+in 16:9), diagram components (`vs-card`, `mini-timeline`, SNS captions) are resized for
+the wider card, and the ending avatar/SNS rows are rebalanced. All landscape-specific
+styling lives behind a `body[data-aspect="landscape"]` CSS guard, so portrait output is
+pixel-identical to the golden-verified original.
 
 ## Determinism contract
 
