@@ -11,7 +11,7 @@ import { buildAudioMixCommand } from "../src/plan.mjs";
 // docs/contract-2026-07-22-render-basics.md #5 (audio.master: denoise / loudnorm). L2 requires
 // measuring the rendered file's actual loudness with ffmpeg's own ebur128 scanner, not trusting
 // the command plan alone — this is the "done = appears in the output file" principle from
-// planning/contract-2026-07-22-render-basics.md.
+// the internal render-basics contract.
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");

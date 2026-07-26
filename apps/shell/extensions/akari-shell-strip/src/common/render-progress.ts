@@ -2,8 +2,8 @@
  * `.akari/render.json`（render-cut スキルが書く。本拡張は書き込まない）を
  * 寛容リーダーで読み、進捗表示用の最小状態へ変換する純関数。
  *
- * スキーマは新設しない — render-cut 側の実物（internal
- * tasks/2026-07-22-dogfood-v2/out/.akari/render.json）と skills/render-cut/SKILL.md
+ * スキーマは新設しない — render-cut 側の実物（内部 dogfood-v2 実走の
+ * render.json）と skills/render-cut/SKILL.md
  * の記述から復元した形を読むだけ。未知の形・欠落フィールドは例外を投げず
  * 'unknown' へフォールバックする。
  */

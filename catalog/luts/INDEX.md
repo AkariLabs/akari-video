@@ -4,7 +4,7 @@
 ここに置く LUT は**自前生成**（旧実装 `akari-video-on-os/src/lib/color-grade.ts` の色演算式を
 `bake-luts.mjs` に移植して焼いたもの）で第三者ライセンスの制約がないため、リンクではなく
 実ファイルをそのまま同梱しています（`remote: false`）。出所不明のフリー LUT 収集はしていません
-（`planning/contract-2026-07-22-render-basics.md` 残裁定 2 の裁定）。
+（内部の render-basics 契約・残裁定 2 の裁定）。
 
 ## エントリ
 

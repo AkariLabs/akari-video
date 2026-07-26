@@ -120,7 +120,7 @@ project-default テンプレート・node-pty の win32 ネイティブモジュ
 - **HEVC デコード**: 実機の GPU/OS コーデック拡張に依存する。Windows は「HEVC Video
   Extensions」が既定で入っていない構成が多く、その場合は完全にデコード不能（ソフトウェア
   フォールバックの抜け道は無い見込み）。H.264 → プロキシ変換によるフォールバックは
-  第 2 陣で設計済み・未着手（`planning/waveplan-2026-07-23-windows-port.md` 参照、内部リポ）
+  第 2 陣で設計済み・未着手（内部リポの windows-port 設計計画を参照）
 - **フォント見た目差**: テロップは現状 OS フォントフォールバック（Yu Gothic 等）に依存し、
   Mac の見た目と差が出る。「壊れないが見た目が変わる」状態。Noto Sans JP 同梱は第 2 陣で
   設計済み・未着手
@@ -147,6 +147,6 @@ project-default テンプレート・node-pty の win32 ネイティブモジュ
 
 ## 参考
 
-- 設計の正本（内部リポ）: `planning/waveplan-2026-07-23-windows-port.md`
+- 設計の正本: 内部リポ（`akari-video-internal`）の windows-port 設計計画
 - 本書が検証する範囲は「ビルドが通り、アプリが起動し、基本機能が動く」Tier 0 まで。
   配布形式（NSIS 等）・コード署名・Windows 版 CI は範囲外

@@ -2,8 +2,8 @@
 
 旧エンジン（ATF テロップレンダラー）をヘッドレスブラウザ（puppeteer）で実行し、
 PNG 連番 → アルファ付き ProRes4444 `.mov` へ焼く bake CLI。
-契約 [`planning/contract-2026-07-22-prerender-rail-and-assets.md`](../../../akari-video-internal/planning/contract-2026-07-22-prerender-rail-and-assets.md)
-§1.1 の提供側（R2b レーン）。R2a（`packages/render-cut`）はこの CLI の出力（アルファ付き mov）
+非公開の内部契約（`akari-video-internal`・prerender-rail-and-assets §1.1）の提供側。
+`packages/render-cut` はこの CLI の出力（アルファ付き mov）
 を消費するだけで、本パッケージには依存しない — インターフェース契約のみで疎結合。
 
 > **fx は 2026-07-22 司令塔裁定でスコープ除外**（オーナー判断「FX は使えないものが多いので

@@ -7,8 +7,8 @@ description: review.json の open チケット（annotation）を edit.json へ�
 
 > **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
 
-正典: internal `planning/contract-2026-07-15-review-annotations.md` §1/§3/§5（状態機械）+
-`planning/contract-2026-07-24-review-session.md` §6（session 由来の増補フィールド）。
+正典: 非公開の内部契約（`akari-video-internal`）— review-annotations 契約 §1/§3/§5（状態機械）+
+review-session 契約 §6（session 由来の増補フィールド）。
 
 ## ハードルール
 

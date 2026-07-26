@@ -3,7 +3,7 @@
 // アルゴリズムを変更する場合は両ファイルを同期させること。
 //
 // R6c（2026-07-25、複数音声トラック化）で以下 2 点を正本から意図的に分岐させている
-// （tasks/2026-07-25-r6c1-audio-tracks-ui/report.md に申し送り記載。R5-B の
+// （内部 r6c1-audio-tracks-ui タスクの report に申し送り記載。R5-B の
 // DEFAULT_GROUP_ORDER 是正と同種の先例）:
 //   1. DEFAULT_GROUP_ORDER の audio 位置: 正本は末尾（最上段）だが、R6 契約 §1 裁定 1
 //      「音源グループは最下段固定」を満たすため先頭（reverse 後に最下段）へ変更。

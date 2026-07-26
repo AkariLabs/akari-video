@@ -153,7 +153,7 @@ test("bgm.fadeOut=3 is symmetric with fadeIn=3: the tail ramp mirrors the head r
 
 test("bgm.fadeIn/fadeOut omitted keeps the filtergraph free of afade (regression invariant)", async (t) => {
   // 歴史記録: fade 導入コミット時点では実装前 plan.mjs との並走レンダリングで
-  // final.mp4 のバイト完全一致を実測済み（tasks/2026-07-22-bgm-fade/out/status.json）。
+  // final.mp4 のバイト完全一致を実測済み（内部 bgm-fade タスクの status.json）。
   // 本テストはその不変条件（fade 省略時は afade がフィルタグラフに一切現れない）を
   // git 履歴に依存しない形で恒久検証する。
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");

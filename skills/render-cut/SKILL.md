@@ -21,8 +21,8 @@ description: 承認済み edit.json と edit-lint PASS を入力に、最終 MP4
 8. **外部候補のコード転写禁止**（Kinocut / json-to-ffmpeg は構造参考のみ）
 9. **既存成果物の silent 上書き禁止**
 10. カット連結・合成・verify の ffmpeg / ffprobe は**本体直叩き**（ラッパーライブラリ
-    禁止。工程 10/50/60 共通の下請け方針 — スキルマップ §6 横断の発見）。
-    **例外は HTML ラスタライズ段の HyperFrames のみ**（§2-3 裁定。依存は
+    禁止。分析・書き出し・検証の各工程で共通の方針）。
+    **例外は HTML ラスタライズ段の HyperFrames のみ**（依存は
     `packages/render-cut/` 内に隔離し、リポの他所へ波及させない）
 11. **3D overlay は puppeteer-core 経路で焼かれる**（HyperFrames より速度差があり得る点に注意）
 

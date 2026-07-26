@@ -1,7 +1,6 @@
 # vendor/ 出所
 
-このディレクトリは旧リポの描画エンジンをソース同梱でベンダリングしたもの（契約 残裁定 3 の裁定 —
-`planning/contract-2026-07-22-prerender-rail-and-assets.md` 参照）。**旧リポは読み取り専用**、
+このディレクトリは旧リポの描画エンジンをソース同梱でベンダリングしたもの（内部契約 prerender-rail-and-assets・残裁定 3 の裁定）。**旧リポは読み取り専用**、
 本ディレクトリは移植時点のスナップショット。差分追従が必要になったら再移植する。
 
 | ディレクトリ | 出所リポ | 出所パス | commit |
@@ -13,7 +12,7 @@
 
 ## vendor への追記: テキスト shrink-to-fit（2026-07-22 telop-tunables タスク）
 
-`akari-video-internal/tasks/2026-07-22-telop-tunables/task.md`（内部リポ・テロップ 36 件の
+内部リポの telop-tunables タスク（2026-07-22・テロップ 36 件の
 色ツマミ標準化 + テキスト長堅牢化）に伴い、移植元スナップショットに以下を追記した
 （akari-telop 本家には存在しない akari-video 側の独自拡張。再移植時は要マージ）:
 
@@ -32,12 +31,11 @@
   プレート幅を `@id.width` 式でテキストに追従させる設計を既に一部採用しており
   （`resolve()` の `@id.width/right` スコープが既存機能）、text 側が縮小すれば追従先の
   プレートも自動的に追従する（新規レイヤー間結線は不要）
-- 機械検証: `tasks/2026-07-22-telop-tunables/out/robustness-check.mjs`（36 件 × テキスト長
+- 機械検証: 内部 telop-tunables タスクの robustness-check.mjs（36 件 × テキスト長
   4 種 = 144 ケース。text 部分のみ抽出してキャンバス境界を超えないことを実測）+
   `packages/bake-layer/test/robustness.test.mjs`（代表 6 件・`npm test` に組み込み）。
   **2026-07-22 particle-min-fix タスクで判定基準を強化**（下記参照）: キャンバス境界内かの
-  みではプレート/帯からの突き抜けを見逃すことが判明したため、`tasks/2026-07-22-
-  particle-min-fix/out/audit-v3.mjs` で「shape を持つテキストは標準文の時点で内包する
+  みではプレート/帯からの突き抜けを見逃すことが判明したため、内部 particle-min-fix タスクの audit-v3.mjs で「shape を持つテキストは標準文の時点で内包する
   最もタイトな shape の bbox 内か」を追加基準として全36件×4長=244ケースを再監査
   （244/244 PASS）。`robustness.test.mjs` もこの基準に更新済み
 
@@ -66,8 +64,7 @@
   `dy` 未使用のため影響なし）
 - 4倍長（shrink-to-fit で `content.size` が大きく縮む極端ケース）で目視確認: 固定23pxでは
   ひらがなが本文の下に沈んで見えたのに対し、比率化後は縮小後も本文と同じベースラインに
-  近い位置を保つ（`tasks/2026-07-22-dy-ratio-fix/out/{fixed-dy23_len4x,ratio-dy_len4x}.png`
-  参照）
+  近い位置を保つ（内部 dy-ratio-fix タスクの比較 PNG 参照）
 
 ## vendor への追記: `opacity: 0` の静的解決修正（2026-07-22）
 

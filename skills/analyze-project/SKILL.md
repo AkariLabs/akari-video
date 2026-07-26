@@ -17,7 +17,7 @@ description: プロジェクト内の素材群（analysis.json）と周辺プロ
 - **2 パス目の入力は analysis.json 群に閉じない**。プロジェクトの周辺文脈
   （intake.json・edit.json・`planning/`・README・過去 PJ 参照があればそれも）を読む。
   analysis.json だけでは素材の由来判定（orphan/unclear 等）に確信を持てない実例が
-  実地検証（`tasks/2026-07-22-multiasset-dogfood/`）で確認されている。
+  実地検証（内部リポの multiasset-dogfood 実走・2026-07-22）で確認されている。
 - **周辺プロジェクト文脈の読み合わせに `memory` 接続を含める**。`.akari/connections.json` に
   `memory` 宣言（[contract-2026-07-25-memory-connection-v0.md](../../docs/contract-2026-07-25-memory-connection-v0.md)）
   があれば、`entry`（省略時 `INDEX.md`）起点で `include`/`exclude` の範囲だけを読み、
@@ -35,8 +35,8 @@ description: プロジェクト内の素材群（analysis.json）と周辺プロ
   （取材質問の生成源 + 対話フェーズで AI が提案する種）。表示除去は 2026-07-22 改訂で確定済み。
 - [interpretation.schema.json](../../packages/schemas/interpretation.schema.json) にない
   補助フィールドを追加しない。`validate-interpretation.mjs` が PASS した JSON だけを確定版にする。
-- **レポートに決定 UI（選択肢・ツマミ・確定ボタン）を一切置かない**。方向性はチャットで決める
-  （オーナー口述 F48 第 20 巡）。「どうしますか」ではなく、根拠を示した上で AI が提案する。
+- **レポートに決定 UI（選択肢・ツマミ・確定ボタン）を一切置かない**。方向性はチャットで決める。
+  「どうしますか」ではなく、根拠を示した上で AI が提案する。
 - **判断記録は既存の decision_log 慣行（edit-plan 系）に接続する**。新形式を発明しない。
   詳細は [decision-record.md](decision-record.md)。
 - OpenMontage は構造上の参考に限り、AGPL の文章・コードを転写しない。

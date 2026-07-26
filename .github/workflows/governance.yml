@@ -32,7 +32,21 @@ jobs:
             "docs/contract-2026-07-13-m1-m4.md:57|references the legacy public repo akari-video-tauri's docs/planning/... path (repo named explicitly), not the internal private repo"
             "packages/overlay-runtime/src/interaction.js:2|comment referencing this repo's pre-flatten docs/planning/... path, not the internal private repo"
             "packages/overlay-runtime/src/overlay-runtime.js:2|comment referencing this repo's pre-flatten docs/planning/... path, not the internal private repo"
-            "packages/schemas/bin/validate-asset.mjs:338|comment-only reference to this repo's pre-flatten docs/planning/... path; no runtime effect (confirmed in audit)"
+            "apps/shell/extensions/akari-preview/src/common/edit-asset-path.ts:47|doc-comment example of a Windows path (C:/Users/a/…) — synthetic, identifies no machine"
+            "apps/shell/extensions/akari-preview/test/edit-asset-path.test.mjs:19|synthetic test path (/Users/a/) — identifies no machine"
+            "apps/shell/extensions/akari-preview/test/edit-asset-path.test.mjs:25|synthetic Windows test path (C:/Users/a/) — identifies no machine"
+            "apps/shell/extensions/akari-preview/test/edit-asset-path.test.mjs:36|synthetic test path (/Users/a/) — identifies no machine"
+            "apps/shell/extensions/akari-preview/test/edit-asset-path.test.mjs:54|synthetic Windows test path (C:\\Users\\a\\) — identifies no machine"
+            "apps/shell/extensions/akari-preview/test/edit-asset-path.test.mjs:55|synthetic Windows test path (C:/Users/a/) — identifies no machine"
+            "apps/shell/extensions/akari-preview/test/edit-asset-path.test.mjs:61|synthetic Windows test path (file:///C:/Users/a/) — identifies no machine"
+            "apps/shell/extensions/akari-project/test/catalog-root-search.test.mjs:9|synthetic test path (/Users/example/) — identifies no machine"
+            "apps/shell/extensions/akari-project/test/catalog-root-search.test.mjs:10|synthetic test path (/Users/example/) — identifies no machine"
+            "apps/shell/extensions/akari-project/test/catalog-root-search.test.mjs:17|synthetic test path (/Users/example/) — identifies no machine"
+            "apps/shell/extensions/akari-project/test/catalog-root-search.test.mjs:24|synthetic test path (/Users/example/) — identifies no machine"
+            "apps/shell/extensions/akari-shell-strip/test/quick-export-cli.test.mjs:46|synthetic test path (/Users/someone/) — identifies no machine"
+            "apps/shell/extensions/akari-shell-strip/test/quick-export-cli.test.mjs:47|synthetic test path (/Users/someone/) — identifies no machine"
+            "apps/shell/extensions/akari-shell-strip/test/quick-export-cli.test.mjs:48|synthetic test path (/Users/someone/) — identifies no machine"
+            "packages/schemas/fixtures/recipe/invalid-source-project-path/recipe.json:5|fixture must be path-like by design (tests the path rejection); username is synthetic (/Users/example/)"
           )
 
           is_allowed() {
@@ -46,10 +60,13 @@ jobs:
           }
 
           # $1 label, $2 extended-regex pattern, $3 remediation hint
+          # -I skips binary files: font/media blobs can coincidentally contain any byte
+          # sequence (the M PLUS Rounded TTFs match CJK patterns), and no remediation hint
+          # applies to a binary — prose patterns are only meaningful in text files.
           check() {
             local label="$1" pattern="$2" hint="$3"
             local matches
-            matches="$(git grep -nE "$pattern" -- . ':!.github/workflows/governance.yml' 2>/dev/null || true)"
+            matches="$(git grep -InE "$pattern" -- . ':!.github/workflows/governance.yml' 2>/dev/null || true)"
             [ -z "$matches" ] && return 0
 
             local reported=0
@@ -108,6 +125,17 @@ jobs:
           check "internal repo path (akari-video-internal/…, tasks/YYYY-MM-DD, planning/contract-/waveplan-)" \
             'akari-video-internal/|tasks/20[0-9]{2}-[0-9]{2}-[0-9]{2}|planning/contract-20[0-9]{2}-|planning/waveplan-20[0-9]{2}-' \
             "Rewrite the reference so it doesn't expose the internal repo's directory layout. Naming the repo without a path is fine — see CLAUDE.md:6."
+
+          # Public prose must be self-contained for external readers. Citations of internal
+          # adjudications — オーナー口述 (owner dictation), the F48 feedback ledger, 第 N 巡
+          # (feedback round numbers), スキルマップ §N — resolve only inside the private repo,
+          # so to an outside reader they are dangling references. State the norm itself
+          # (optionally with a date + quoted rationale); keep the adjudication trail in the
+          # internal repo's contracts. (Added 2026-07-26 after an external review flagged
+          # unresolvable F48 citations in public skills.)
+          check "internal adjudication citation (口述 / F48 / 第 N 巡 / スキルマップ)" \
+            '口述|\bF48\b|第 ?[0-9]+ ?巡|スキルマップ' \
+            "Rewrite as a self-contained norm. Move the 口述/F48/巡 provenance to the internal repo's contract and delete it here."
 
           if [ "$FAIL" -ne 0 ]; then
             echo ""

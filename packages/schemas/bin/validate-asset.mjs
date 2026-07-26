@@ -340,7 +340,7 @@ function validateFiles() {
 
   if (category === "3d") {
     // 3d は fragment.html（経路 A: オーバーレイ）か scene.py（経路 B: ベイクレシピ）のどちらか一方
-    // （契約: docs/planning/contract-2026-07-14-3d-bake-recipe.md）
+    // （契約: docs/contract-2026-07-14-3d-bake-recipe.md）
     const hasFragment = isRegularFile(path.join(assetDir, "fragment.html"));
     const hasScene = isRegularFile(path.join(assetDir, "scene.py"));
     if (hasFragment === hasScene) {

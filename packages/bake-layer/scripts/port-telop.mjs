@@ -6,7 +6,12 @@ import { join } from "node:path"
 import { importTsBundle } from "./lib/load-ts-bundle.mjs"
 import { CURATED_TELOP_TAGS } from "./curated-telop.mjs"
 
-const TELOP_REPO = "/Users/ryoma/_edit/30_products/akari-os/akari-telop"
+// 移植元 checkout の位置は環境依存 — 再移植時は AKARI_TELOP_REPO で自分の checkout を指す
+const TELOP_REPO = process.env.AKARI_TELOP_REPO
+if (!TELOP_REPO) {
+  console.error("AKARI_TELOP_REPO=<akari-telop checkout のパス> を指定してください")
+  process.exit(1)
+}
 const TELOP_COMMIT = "f2519143ad27bfa67463df2bf3c461ab6a7fa685"
 const CATALOG_TELOP = join(import.meta.dirname, "..", "..", "..", "catalog", "telop")
 

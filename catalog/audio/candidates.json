@@ -54,7 +54,7 @@
   ],
   "ai_training_policy_note": "ai_training_allowed は「サイトが明示的に AI 学習用途を許可している場合のみ true」を既定にする（audio-import レーン登録分と同じ規律を継承）。CC0 系（Freesound CC0 指定・Kenney・Pixabay Content License）は true。効果音ラボは規約で明示禁止のため false。それ以外の日本語配布元（DOVA-SYNDROME・魔王魂・OtoLogic・甘茶・くらげ工匠・Springin・MusMus 等）は規約に明記がなくても、audio-import 登録分との整合を優先し false（未許諾を許可とみなさない）。Freesound のタグ検索・YouTube Audio Library はライセンスが音源ごとに変わるため null（個別確認が必要な旨を note に明記）。",
   "mood_vocabulary": {
-    "source": "internal: planning/contract-2026-07-21-intake-wizard-v2.md §3（tone[] チップ）",
+    "source": "internal: intake-wizard-v2 契約 §3（tone[] チップ）",
     "values": [
       "真面目",
       "親しみ",
@@ -68,7 +68,7 @@
     "purpose": "intake の bgm-sfx タスク詳細（mood チップ）と同一語彙にすることで、将来「分析→tone決定→mood一致でBGM自動選曲」パイプラインを成立させる。本タスクでは bgm-general カテゴリの各候補に mood[] タグを付けるところまでを行い、自動選曲ロジック自体は実装していない"
   },
   "tempo_vocabulary": {
-    "source": "internal: planning/contract-2026-07-21-intake-wizard-v2.md §3（tempo、値は「高速カット」を「高速」に短縮して転記）",
+    "source": "internal: intake-wizard-v2 契約 §3（tempo、値は「高速カット」を「高速」に短縮して転記）",
     "values": [
       "ゆったり",
       "標準",

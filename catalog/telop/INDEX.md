@@ -4,8 +4,8 @@
 テンプレート 36 件です。`catalog/` の他カテゴリ（3d/audio/broll/font）とは構造が異なります —
 それらは「取得先の索引」（`remote: true` の meta.json）ですが、こちらは本体そのものを
 このリポにベンダリングした「目次方式カタログ」です
-（契約 [`planning/contract-2026-07-22-prerender-rail-and-assets.md`](../../../akari-video-internal/planning/contract-2026-07-22-prerender-rail-and-assets.md) §1.3。
-内部リポの契約のため相対リンクはローカル参照用）。
+（目次方式の採用は非公開の内部契約（`akari-video-internal`・prerender-rail-and-assets §1.3）
+の裁定）。
 
 ## 構造
 
@@ -25,7 +25,7 @@ catalog/telop/
 全 36 件のハードコード色を ATF 変数へ抽出し、テンプレ間で共通の役割ベース命名に統一した
 （`index.jsonl` の `params` に反映済み。AI は目次を読むだけで、どの変数がどの役割かを
 判断できる）。**プリセットの色をそのまま使わず、色・トーンはコンテンツ由来のパラメータで
-上書きする**のが前提（`akari-video-internal` notes 第 30 巡「色味の引きずり」対策）。
+上書きする**のが前提（内部の実機フィードバック「色味の引きずり」対策）。
 
 | 役割 | 意味 | 備考 |
 |---|---|---|
@@ -39,25 +39,24 @@ catalog/telop/
 
 - 全役割 `default` = 移植時点の色そのもの（無指定なら見た目は完全に後方互換）
 - テンプレごとに勝手な変数名は作らない。上表にない役割が必要になったら、まずこの表を拡張する
-- 詳細な変更履歴・堅牢化（後述）の設計判断は
-  `akari-video-internal/tasks/2026-07-22-telop-tunables/`（内部リポ）を参照
+- 詳細な変更履歴・堅牢化（後述）の設計判断は内部リポ（`akari-video-internal`）の
+  telop-tunables タスク記録（2026-07-22）を参照
 
 ## テキスト長への堅牢化（shrink-to-fit・2026-07-22）
 
 どの `text` 型変数にどんな長さの文字列を渡しても、キャンバスからはみ出さない
 （`packages/bake-layer/vendor/telop/atf/resolve.ts` に汎用の自動縮小を実装。
 詳細は `vendor/PROVENANCE.md` の該当節）。36 件 × テキスト長 4 種（1文字/標準/2倍長/
-4倍長・日英混在）= 144 ケースの機械検証結果は内部リポ
-`tasks/2026-07-22-telop-tunables/out/status.json` + `robustness-gallery.html` に記録。
+4倍長・日英混在）= 144 ケースの機械検証結果は内部リポの telop-tunables タスク記録
+（status.json + robustness-gallery.html）に残している。
 
 ## `use_when`（演出エンジン向け意味づけタグ・2026-07-22）
 
 全 36 件に `use_when: {beats, tone, strength, roles}` を追記した。演出エンジン D1（見せ場同期）/
 D5（文脈適合選択）が「どのケースでこのテロップを使うべきか」を機械判定するための対応タグで、
-語彙は `akari-video-internal/planning/contract-2026-07-21-direction-engine.md`（beats kind・
-ドパ度）/ `contract-2026-07-21-intake-wizard-v2.md`（tone 語彙）と完全一致させている
-（正本・対応表は内部リポ `tasks/2026-07-22-expression-semantics/out/expression-usage-guide.md`
-に司令塔検収後 `planning/` へ昇格予定）。
+語彙は非公開の内部契約（`akari-video-internal`）— direction-engine 契約（beats kind・
+ドパ度）/ intake-wizard-v2 契約（tone 語彙）— と完全一致させている
+（正本・対応表も内部リポ側で管理する）。
 
 | フィールド | 型 | 意味 |
 |---|---|---|

@@ -36,7 +36,7 @@ v0 に従う（未知フィールドは足さない。省略可のフィール�
 - 過去 PJ・他社形式テンプレ参照（AKARI Video 形式に限らず、Premiere / DaVinci / CapCut 等の
   他社プロジェクトファイルも対象。`inputs.context.past_projects[]` へ記録）
 
-これは実地検証（`tasks/2026-07-22-multiasset-dogfood/`）で確定した重要な申し送りである:
+これは実地検証（内部リポの multiasset-dogfood 実走・2026-07-22）で確定した重要な申し送りである:
 **orphan/unclear の判定は analysis.json（keyframes の note・events）だけでは確信を持てない
 ことがある**。素材だけを見て「これが何のための素材か」が分からない場合、その素材が置かれて
 いる由来プロジェクトの `edit.json`・`planning/`・`README.md`/`CLAUDE.md` を読みに行って初めて

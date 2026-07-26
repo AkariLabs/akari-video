@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRenderProgress, RENDER_PROGRESS_UNKNOWN_LABEL } from '../lib/common/render-progress.js';
 
-// 実物（internal tasks/2026-07-22-dogfood-v2/out/.akari/render.json）の verify/artifacts 形と、
+// 実物（内部 dogfood-v2 実走の render.json）の verify/artifacts 形と、
 // L1 で使う自作フィクスチャ（開始/50%/失敗/壊れたJSON/未知形）の両方を寛容リーダーで読めることを確認する。
 
 test('parseRenderProgress: 壊れた入力（null/文字列/配列）は unknown フォールバック', () => {

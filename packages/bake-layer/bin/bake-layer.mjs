@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// bake-layer CLI — 契約 §1.1（planning/contract-2026-07-22-prerender-rail-and-assets.md）の
+// bake-layer CLI — 内部契約 prerender-rail-and-assets §1.1 の
 // インターフェースをそのまま実装する。
 //
 //   node bake-layer.mjs --kind telop|fx --preset <id> --params <json> \
