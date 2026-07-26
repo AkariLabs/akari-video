@@ -8,6 +8,9 @@
 /electron-builder-out/
 /*.app/
 
+# generated third-party license notices (prepackage で毎回再生成)
+/resources/generated-notices/
+
 # dependencies
 /node_modules/
 /extensions/*/node_modules/
