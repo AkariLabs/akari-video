@@ -4,6 +4,9 @@ import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { OpenerService, WidgetManager, open } from '@theia/core/lib/browser';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
+import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -24,6 +27,7 @@ import {
     INTAKE_TASK_LABELS,
     durationChoiceToTarget
 } from '../common/intake-labels';
+import { DEFAULT_UPDATE_FEED_URL, UpdateCache, UpdateStatus, evaluateUpdateStatus, formatHomeBannerText, parseUpdateCache, withDismissedVersion } from '../common/update-feed';
 
 // ホーム v2（task.md 2026-07-21-home-flow）の 4 状態。
 // 01 gate（未接続）→ 02 starters（はじめかた 4 択）→ 03 intake（進め方フォーム）
@@ -33,6 +37,11 @@ type StarterId = 'assets' | 'template' | 'reference' | 'consult';
 
 const CONNECTIONS_RELATIVE_PATH = '.akari/connections.json';
 const INTAKE_RELATIVE_PATH = '.akari/intake.json';
+// 更新チェックのキャッシュは `~/.akari/update-check.json`（AKARI_HOME で差し替え可・
+// CLI と共有 — internal contract-2026-07-26-update-and-versioning.md §4）。
+// プロジェクト直下の `.akari/` とは無関係（ホームディレクトリ側）。
+const UPDATE_HOME_SUBDIR = '.akari';
+const UPDATE_CACHE_FILENAME = 'update-check.json';
 // 「AI パートナー接続」の SSOT は connections.json の akari-cloud provider の
 // doctor.status（partner pane が「akari-cloud・接続済み」と表示する対象と同一）。
 const CLOUD_PROVIDER_ID = 'akari-cloud';
@@ -97,6 +106,15 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(WidgetManager)
     protected readonly widgets: WidgetManager;
 
+    @inject(WindowService)
+    protected readonly windowService: WindowService;
+
+    @inject(ApplicationServer)
+    protected readonly applicationServer: ApplicationServer;
+
+    @inject(EnvVariablesServer)
+    protected readonly envVariables: EnvVariablesServer;
+
     protected stages: WorkflowStage[] = [];
     protected guide = 'プロジェクトを開くと、ここに進み具合と次の一手が表示されます。';
     protected workflowUri: URI | undefined;
@@ -143,6 +161,13 @@ export class AkariHomeWidget extends ReactWidget {
     protected intakeAutonomy: IntakeAutonomy = INTAKE_DEFAULT_AUTONOMY;
     protected intakeSubmitting = false;
 
+    // --- 更新チェック（U2 v0・ホームバナー — D5 裁定 2026-07-26） ---
+    // `updateRawCache` は dismiss 書き込み時に feed 等の既存フィールドを
+    // 保つために保持する（`updateStatus` は表示用に評価済みの結果だけを持つ）。
+    protected updateCacheUri: URI | undefined;
+    protected updateRawCache: UpdateCache | null = null;
+    protected updateStatus: UpdateStatus = { available: false };
+
     @postConstruct()
     protected init(): void {
         this.id = AkariHomeWidget.ID;
@@ -156,6 +181,10 @@ export class AkariHomeWidget extends ReactWidget {
     async start(): Promise<void> {
         await this.loadWorkflow();
         await this.loadHomeFlow();
+        // 更新チェック（契約の起動非ブロック原則）: キャッシュの読み比較は待つが
+        // （ローカル I/O のみ・十分高速）、バックグラウンド fetch はここで await しない
+        // （loadUpdateStatus 内で fire-and-forget にしてある）。
+        await this.loadUpdateStatus();
         if (this.watching) {
             return;
         }
@@ -316,6 +345,119 @@ export class AkariHomeWidget extends ReactWidget {
             return 'absent';
         }
     }
+
+    // --- 更新チェック（U2 v0）: 状態読み込み・バックグラウンド fetch・アクション ---
+
+    /**
+     * キャッシュファイルの URI を解決する。`AKARI_HOME` が設定されていれば
+     * それをルートとし（CLI 側 `resolveAkariHome` と同じ規約）、無ければ
+     * ホームディレクトリ配下の `.akari/` を使う。
+     */
+    protected async resolveUpdateCacheUri(): Promise<URI> {
+        const override = await this.envVariables.getValue('AKARI_HOME');
+        if (override?.value) {
+            return URI.fromFilePath(override.value).resolve(UPDATE_CACHE_FILENAME);
+        }
+        const homeDirUri = await this.envVariables.getHomeDirUri();
+        return new URI(homeDirUri).resolve(UPDATE_HOME_SUBDIR).resolve(UPDATE_CACHE_FILENAME);
+    }
+
+    /**
+     * キャッシュを読み、現在のシェル版と比較してバナーを出すかどうかを決める。
+     * ファイルが無い・壊れている場合は「新版なし」と同じ扱いで沈黙する（契約の沈黙原則）。
+     * 読み込み後、バックグラウンド fetch を fire-and-forget で起動する（await しない —
+     * ここが「起動をブロックしない」の核）。
+     */
+    protected async loadUpdateStatus(): Promise<void> {
+        try {
+            const cacheUri = await this.resolveUpdateCacheUri();
+            this.updateCacheUri = cacheUri;
+            const content = await this.fileService.readFile(cacheUri);
+            this.updateRawCache = parseUpdateCache(content.value.toString());
+        } catch {
+            this.updateRawCache = null;
+        }
+        const appInfo = await this.applicationServer.getApplicationInfo().catch(() => undefined);
+        const currentVersion = appInfo?.version ?? '0.0.0';
+        this.updateStatus = evaluateUpdateStatus(currentVersion, this.updateRawCache);
+        this.update();
+        void this.triggerUpdateBackgroundFetch();
+    }
+
+    /**
+     * バックグラウンド fetch。CLI 側は短命プロセスのため detached な子プロセスに
+     * 切り離す必要があるが、シェルは長寿命プロセスなので await しない非同期呼び出し
+     * だけで同じ非ブロッキング特性を得られる（fetch はブラウザ標準 API・
+     * フロントエンドから直接呼べる）。失敗・オフライン・スキーマ不明はすべて沈黙する。
+     */
+    protected async triggerUpdateBackgroundFetch(): Promise<void> {
+        try {
+            const feedUrlVar = await this.envVariables.getValue('AKARI_UPDATE_FEED_URL');
+            const feedUrl = feedUrlVar?.value || DEFAULT_UPDATE_FEED_URL;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            let response: Response;
+            try {
+                response = await fetch(feedUrl, { signal: controller.signal });
+            } finally {
+                clearTimeout(timeout);
+            }
+            if (!response.ok) {
+                return;
+            }
+            const feed = await response.json();
+            if (!feed || typeof feed !== 'object' || typeof feed.schema !== 'number' || typeof feed.product !== 'string') {
+                return;
+            }
+            const cacheUri = this.updateCacheUri ?? await this.resolveUpdateCacheUri();
+            const nowIso = new Date().toISOString();
+            const next: UpdateCache = { schema: 1, fetched_at: nowIso, feed, dismissed: this.updateRawCache?.dismissed ?? {} };
+            try {
+                await this.fileService.createFolder(cacheUri.parent);
+            } catch {
+                // 既に存在する場合は無視する。
+            }
+            await this.fileService.writeFile(cacheUri, BinaryBuffer.fromString(`${JSON.stringify(next, null, 2)}\n`));
+            // このセッション内でも次回のホーム表示から反映されるよう、状態を更新しておく
+            // （契約は「次回セッションで効く」を許容するが、ここでは追加コストなく即時反映できる）。
+            this.updateRawCache = next;
+            const appInfo = await this.applicationServer.getApplicationInfo().catch(() => undefined);
+            this.updateStatus = evaluateUpdateStatus(appInfo?.version ?? '0.0.0', next);
+            this.update();
+        } catch {
+            // オフライン・タイムアウト・JSON パース失敗などをすべてここで沈黙する。
+        }
+    }
+
+    /** 「今回はスキップ」: dismissed に記録し、バナーを消す。 */
+    protected dismissUpdate = async (): Promise<void> => {
+        const version = this.updateStatus.latestVersion;
+        if (!version) {
+            return;
+        }
+        try {
+            const cacheUri = this.updateCacheUri ?? await this.resolveUpdateCacheUri();
+            const next = withDismissedVersion(this.updateRawCache, version, new Date().toISOString());
+            try {
+                await this.fileService.createFolder(cacheUri.parent);
+            } catch {
+                // 既に存在する場合は無視する。
+            }
+            await this.fileService.writeFile(cacheUri, BinaryBuffer.fromString(`${JSON.stringify(next, null, 2)}\n`));
+            this.updateRawCache = next;
+        } catch (error) {
+            console.error('[akari-surfaces] failed to record update dismissal:', error);
+        }
+        this.updateStatus = { available: false, dismissed: true, latestVersion: version };
+        this.update();
+    };
+
+    /** 「リリースページを開く」: notes_url を外部ブラウザで開く（Theia 内部では開かない）。 */
+    protected openReleaseNotes = (): void => {
+        if (this.updateStatus.notesUrl) {
+            this.windowService.openNewWindow(this.updateStatus.notesUrl);
+        }
+    };
 
     // --- ホーム v2: アクション ---
 
@@ -839,6 +981,27 @@ export class AkariHomeWidget extends ReactWidget {
         );
     }
 
+    /**
+     * 更新ホームバナー（D5 裁定・task.md 指示）。新版がある時だけ出す。常時領域を専有しない。
+     * アクション 2 つ: リリースページを開く（外部ブラウザ） / 今回はスキップ（dismissed 記録）。
+     */
+    protected renderUpdateBanner(): React.ReactNode {
+        return (
+            <div role='status' style={homeFlowStyles.updateBanner}>
+                <span className='codicon codicon-arrow-circle-up' aria-hidden='true' style={homeFlowStyles.updateBannerIcon} />
+                <span style={homeFlowStyles.updateBannerText}>{formatHomeBannerText(this.updateStatus)}</span>
+                <div style={homeFlowStyles.updateBannerActions}>
+                    <button type='button' className='theia-button secondary' style={homeFlowStyles.updateBannerButton} onClick={this.openReleaseNotes}>
+                        リリースページを開く
+                    </button>
+                    <button type='button' className='theia-button secondary' style={homeFlowStyles.updateBannerButton} onClick={() => void this.dismissUpdate()}>
+                        今回はスキップ
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     protected renderWorkspace(): React.ReactNode {
         return (
             <>
@@ -854,6 +1017,7 @@ export class AkariHomeWidget extends ReactWidget {
                         <span className='codicon codicon-history' aria-hidden='true' /> 進め方を見直す
                     </button>
                 </header>
+                {this.updateStatus.available && this.renderUpdateBanner()}
                 {this.hasAssets ? this.renderProjectOverview() : this.renderDropzone('hero')}
             </>
         );
@@ -1188,6 +1352,19 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     reviewEntry: {
         display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 600,
         padding: '8px 14px', borderRadius: 9, minHeight: 'auto', height: 'auto', flex: '0 0 auto'
+    },
+
+    // 更新ホームバナー（U2 v0・D5 裁定）。新版がある時だけ出る・常時領域を専有しない。
+    updateBanner: {
+        display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, padding: '11px 16px',
+        borderRadius: 10, border: '1px solid var(--theia-focusBorder)',
+        background: 'var(--theia-editorWidget-background)'
+    },
+    updateBannerIcon: { fontSize: 16, color: 'var(--theia-focusBorder)', flex: '0 0 auto' },
+    updateBannerText: { fontSize: 13, flex: '1 1 auto' },
+    updateBannerActions: { display: 'flex', gap: 8, flex: '0 0 auto' },
+    updateBannerButton: {
+        fontSize: 12, padding: '6px 12px', borderRadius: 8, minHeight: 'auto', height: 'auto'
     }
 };
 

@@ -25,6 +25,17 @@ function collectLogs() {
   return { log: (line) => lines.push(line), lines };
 }
 
+// これらのテストは scaffold/doctor/claude 起動の分岐を見るものであり、更新チェックは
+// 対象外。実 `~/.akari/` に触れず、実ネットワーク（実 GitHub）へも fetch しないよう、
+// AKARI_HOME を隔離した上でバックグラウンド fetch の起動自体を無効化する
+// （更新チェック自体の挙動は update-check.test.mjs / update-command.test.mjs が担当）。
+function isolatedUpdateOptions(root) {
+  return {
+    env: { ...process.env, AKARI_HOME: join(root, '.akari-home-unused') },
+    refreshUpdate: () => {}
+  };
+}
+
 test('scaffold 呼び出し: 未セットアップのフォルダでは実際の project-scaffold が呼ばれ、.akari/intake.json (draft) が生成される', async () => {
   await withScratchRoot(async (root) => {
     const { log, lines } = collectLogs();
@@ -46,7 +57,8 @@ test('scaffold 呼び出し: 未セットアップのフォルダでは実際の
       spawnClaude: (claudePath, args, cwd) => {
         claudeCall = { claudePath, args, cwd };
         return { status: 0 };
-      }
+      },
+      ...isolatedUpdateOptions(root)
     });
 
     // 実 scaffold が実際に .akari/intake.json (draft) と skills 一式を書いたことを確認する。
@@ -101,7 +113,8 @@ test('doctor 分岐: 既にセットアップ済みのフォルダでは scaffol
         return { status: 0 };
       },
       resolveClaude: () => '/fake/bin/claude',
-      spawnClaude: () => ({ status: 0 })
+      spawnClaude: () => ({ status: 0 }),
+      ...isolatedUpdateOptions(root)
     });
 
     assert.equal(scaffoldCalled, false);
@@ -133,7 +146,8 @@ test('claude 不在時の案内: PATH に claude が無い場合は案内を出�
       spawnClaude: () => {
         claudeSpawned = true;
         return { status: 0 };
-      }
+      },
+      ...isolatedUpdateOptions(root)
     });
 
     assert.equal(claudeSpawned, false);
@@ -161,7 +175,8 @@ test('scaffold が例外を投げても claude 起動までは続行する（「
       spawnClaude: (claudePath, args, cwd) => {
         claudeCall = { claudePath, args, cwd };
         return { status: 7 };
-      }
+      },
+      ...isolatedUpdateOptions(root)
     });
 
     assert.ok(lines.some((line) => line.includes('エラーが発生しました（続行します）')));
