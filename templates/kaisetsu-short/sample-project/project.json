@@ -1,0 +1,10 @@
+{
+  "_comment": "L0 実証用ダミープロジェクト。3ビート（title/diagram/ending）の短尺サンプル。channel-sample のプレースホルダ資産を使用。",
+  "aspect": "portrait",
+  "fps": 30,
+  "script": "./script.json",
+  "channel": "../channel-sample/channel.json",
+  "narrationDir": "./narration",
+  "outDir": "./out",
+  "timing": { "leadIn": 0.8, "beatGap": 1.4, "tailHold": 4.5 }
+}

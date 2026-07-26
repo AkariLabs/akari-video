@@ -1,0 +1,10 @@
+{
+  "_comment": "16:9 スモーク検証用。script/channel/narration は portrait 版(project.json)と共有し、aspect と outDir のみ変える。",
+  "aspect": "landscape",
+  "fps": 30,
+  "script": "./script.json",
+  "channel": "../channel-sample/channel.json",
+  "narrationDir": "./narration",
+  "outDir": "./out-landscape",
+  "timing": { "leadIn": 0.8, "beatGap": 1.4, "tailHold": 4.5 }
+}

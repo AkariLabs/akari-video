@@ -2,6 +2,9 @@ node_modules/
 dist/
 lib/
 out/
+# templates/kaisetsu-short の tools/lib/ はビルド出力ではなくテンプレのソース（上の lib/ から除外）
+!templates/kaisetsu-short/tools/lib/
+!templates/kaisetsu-short/tools/lib/**
 electron-builder-out/
 *.app
 *.log

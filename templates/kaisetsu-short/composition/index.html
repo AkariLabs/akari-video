@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>解説ショート（kaisetsu-short）— テンプレコンポジション</title>
+<style>
+  /* ブランド色は既定値（テンプレのフォールバック）。実運用値は channel.json の
+     brand から起動時に JS が上書きする（--accent 等の CSS カスタムプロパティ経由）。
+     この既定値自体に個人・チャンネル固有の意味はない（配色の初期値に過ぎない）。 */
+  :root {
+    --accent: #cc6b49;
+    --accent-dark: #a04f34;
+    --ink: #221f1f;
+    --ink-soft: #6b625c;
+    --line: #e2ddd6;
+    --card-shadow: 0 10px 34px rgba(40,30,20,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    overflow: hidden;
+    background: #fff;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    color: var(--ink);
+  }
+  #stage { position: relative; overflow: hidden; }
+  #bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+
+  /* ---------- shared card look (固定層・汎用部品) ---------- */
+  .card { background: #fff; border: 2px solid var(--line); border-radius: 28px; box-shadow: var(--card-shadow); }
+  .pill { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fff; font-weight: 800; border-radius: 999px; white-space: nowrap; }
+  .pill-outline { background: #fff; color: var(--ink); border: 2.5px solid var(--line); }
+
+  /* ---------- safe-zone debug overlay (QA only, never shown in render) --- */
+  #safe-zone-guide {
+    position: absolute;
+    border: 3px dashed rgba(255,0,120,0.85);
+    z-index: 999;
+    display: none;
+    pointer-events: none;
+  }
+  #safe-zone-guide::after {
+    content: "SAFE ZONE (QA guide)";
+    position: absolute;
+    left: 0; top: -34px;
+    font-size: 22px;
+    font-weight: 800;
+    color: rgba(255,0,120,0.85);
+  }
+
+  /* ---------- title scene ---------- */
+  #title-scene { position: absolute; inset: 0; display: none; }
+  #title-card {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    padding: 48px;
+    transform-origin: 50% 50%;
+  }
+  .title-kicker { font-size: 32px; padding: 14px 32px; }
+  .title-main { font-size: 82px; font-weight: 800; line-height: 1.32; text-align: center; color: var(--ink); }
+  .title-sub { font-size: 38px; font-weight: 700; color: var(--ink-soft); text-align: center; }
+  #title-flash {
+    position: absolute;
+    background: var(--accent);
+    border-radius: 28px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* ---------- shared bottom caption plate (title / ending) ---------- */
+  #caption-plate {
+    position: absolute;
+    background: rgba(255,255,255,0.96);
+    border: 2px solid var(--line);
+    border-radius: 30px;
+    padding: 20px 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--card-shadow);
+    z-index: 30;
+  }
+  #caption-plate .caption-text { width: 100%; font-weight: 700; line-height: 1.4; text-align: center; color: var(--ink); }
+
+  /* ---------- diagram scene ---------- */
+  #diagram-scene { position: absolute; inset: 0; display: none; }
+  .diagram-card { position: absolute; overflow: hidden; z-index: 1; }
+  .dg { position: absolute; left: 36px; top: 36px; right: 36px; bottom: 36px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 22px; }
+  .dg-eyebrow { font-size: 32px; padding: 12px 30px; }
+  .dg-note { font-size: 31px; font-weight: 700; color: var(--ink-soft); text-align: center; line-height: 1.42; }
+  .dg-stack { position: absolute; left: 0; right: 0; top: 100px; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
+
+  /* screenshot presentation card: パディング+角丸+影で「意図的に額装された」印象にする
+     （窮屈な生B ロール化を避ける — v2 検収指摘 §2 の恒久対応） */
+  .shot-card { background: #fff; border-radius: 20px; padding: 28px; box-shadow: 0 10px 24px rgba(40,30,20,0.14); }
+  .shot-card img { display: block; object-fit: contain; }
+
+  /* tier-ladder（段階サイズの汎用語彙。動画固有の名称はテンプレ本体に持ち込まない —
+     rows[].variant は small/medium/large/highlight の4段階のみ。テキスト自体は
+     script.json 側の data） */
+  .tier-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; }
+  .tier-row { width: 500px; text-align: center; border-radius: 18px; border: 3px solid var(--line); background: #faf8f5; color: var(--ink); font-weight: 800; }
+  .tier-row.variant-small { padding: 15px; font-size: 30px; }
+  .tier-row.variant-medium { padding: 18px; font-size: 34px; }
+  .tier-row.variant-large { padding: 21px; font-size: 38px; border-color: #b9afa4; }
+  .tier-row.variant-highlight {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    padding: 26px 30px 22px; font-size: 42px; white-space: nowrap;
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    box-shadow: 0 10px 22px rgba(204,107,73,0.35);
+  }
+  .tier-row-tag {
+    position: absolute; top: -16px; right: 20px; background: #2a2622; color: #fff;
+    font-size: 22px; font-weight: 800; padding: 9px 18px; border-radius: 999px;
+    white-space: nowrap; box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+  }
+  .date-badge { margin-top: 2px; font-size: 26px; padding: 10px 24px; }
+
+  /* note-strip / view-badge / big-emph */
+  .note-strip { font-size: 30px; font-weight: 700; color: var(--ink); text-align: center; background: #faf8f5; border: 2px solid var(--line); border-radius: 18px; padding: 16px 24px; line-height: 1.42; }
+  .note-strip.pos-absolute-bottom { position: absolute; left: 0; right: 0; bottom: 0; }
+  .view-badge { position: relative; align-self: center; margin-top: -10px; font-size: 24px; padding: 8px 20px; background: #2a2622; }
+  .big-emph { position: absolute; left: 0; right: 0; bottom: 14px; font-size: 40px; font-weight: 800; color: var(--accent-dark); text-align: center; }
+
+  /* mini-timeline */
+  .mini-timeline { display: flex; align-items: flex-start; justify-content: center; width: 100%; }
+  .mt-node { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .mt-dot { width: 26px; height: 26px; border-radius: 50%; background: #b9afa4; box-shadow: 0 0 0 4px #faf8f5, 0 0 0 6px var(--line); }
+  .mt-dot-bad { background: #8b8178; }
+  .mt-dot-good { background: var(--accent); box-shadow: 0 0 0 4px #faf8f5, 0 0 0 6px rgba(204,107,73,0.4), 0 0 16px rgba(204,107,73,0.5); }
+  .mt-label { font-size: 24px; font-weight: 800; color: var(--ink-soft); text-align: center; line-height: 1.28; }
+  .mt-line { width: 56px; height: 3px; background: var(--line); margin: 12px 8px 0; }
+
+  /* vs-card */
+  .vs-wrap { position: relative; display: flex; align-items: center; justify-content: center; gap: 22px; width: 100%; }
+  .vs-card-item { width: 220px; min-height: 150px; border-radius: 18px; padding: 16px 12px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .vs-accent { background: var(--accent); color: #fff; box-shadow: 0 8px 18px rgba(204,107,73,0.3); }
+  .vs-outline { background: #faf8f5; border: 3px solid var(--line); color: var(--ink); }
+  .vs-title { font-size: 30px; font-weight: 800; }
+  .vs-desc { font-size: 22px; font-weight: 700; line-height: 1.3; }
+  .vs-bridge {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: #2a2622; color: #fff; font-size: 24px; font-weight: 800; padding: 11px 18px;
+    border-radius: 999px; white-space: nowrap; box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+  }
+
+  /* cond-row */
+  .cond-row { width: 100%; display: flex; align-items: center; gap: 16px; background: #faf8f5; border: 2px solid var(--line); border-radius: 18px; padding: 16px 22px; }
+  .cond-tag { font-size: 24px; padding: 9px 18px; flex-shrink: 0; }
+  .cond-desc { font-size: 30px; font-weight: 800; color: var(--ink); }
+
+  /* bullet-row */
+  .bullet-row { width: 100%; display: flex; align-items: center; gap: 16px; background: #faf8f5; border: 2px solid var(--line); border-radius: 18px; padding: 12px 22px; }
+  .bullet-mark { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .bullet-desc { font-size: 30px; font-weight: 800; color: var(--ink); }
+  .disclaimer-note { position: absolute; right: 4px; bottom: 2px; font-size: 20px; color: var(--ink-soft); font-weight: 700; }
+
+  /* ---------- diagram bottom zone: bubble + avatar ---------- */
+  #bubble {
+    position: absolute;
+    background: #fff;
+    border-radius: 26px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 36px;
+    z-index: 10;
+    filter: drop-shadow(0 8px 18px rgba(40,30,20,0.16));
+  }
+  #bubble::before { content: ""; position: absolute; inset: 0; border: 2px solid var(--line); border-radius: 26px; background: #fff; z-index: -2; }
+  /* しっぽ: 二重三角形パターン（枠色の大三角形の内側に、面色の小三角形を重ねて縫い目
+     を1本の輪郭に見せる）。アバターの顔がある右下方向を指す。 */
+  #bubble::after {
+    content: ""; position: absolute; right: -22px; top: 50%; margin-top: -20px;
+    width: 0; height: 0; border-top: 20px solid transparent; border-bottom: 20px solid transparent;
+    border-left: 22px solid var(--line); z-index: 0;
+  }
+  #bubble .tail-fill {
+    position: absolute; right: -17px; top: 50%; margin-top: -16px;
+    width: 0; height: 0; border-top: 16px solid transparent; border-bottom: 16px solid transparent;
+    border-left: 17px solid #fff; z-index: 1;
+  }
+  #bubble .bubble-text { width: 488px; font-weight: 700; line-height: 1.4; text-align: center; color: var(--ink); }
+
+  /* ---------- ending scene ---------- */
+  #ending-scene { position: absolute; inset: 0; display: none; }
+  #sns-row { position: absolute; display: flex; align-items: flex-start; justify-content: center; gap: 34px; }
+  .sns-item { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 240px; }
+  .sns-badge { width: 108px; height: 108px; border-radius: 28px; background: #fff; border: 2px solid var(--line); box-shadow: var(--card-shadow); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .sns-badge svg { width: 58px; height: 58px; display: block; }
+  .sns-caption { font-size: 26px; font-weight: 800; color: var(--ink-soft); text-align: center; line-height: 1.32; min-height: 34px; }
+  #follow-label { position: absolute; text-align: center; font-size: 44px; font-weight: 800; color: var(--ink); }
+
+  /* ---------- avatar (shared) ---------- */
+  #avatar-box { position: absolute; overflow: hidden; z-index: 20; }
+  #avatar-inner { position: absolute; inset: 0; }
+  #avatar-img { position: absolute; display: block; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg"></div>
+
+  <div id="title-scene">
+    <div id="title-card" class="card">
+      <div class="title-kicker pill" data-role="title-kicker"></div>
+      <div class="title-main" data-role="title-main"></div>
+      <div class="title-sub" data-role="title-sub"></div>
+    </div>
+    <div id="title-flash"></div>
+  </div>
+
+  <div id="diagram-scene">
+    <div id="diagram-card" class="diagram-card card"></div>
+    <div id="bubble"><div class="tail-fill"></div><div class="bubble-text"></div></div>
+  </div>
+
+  <div id="ending-scene">
+    <div id="sns-row"></div>
+    <div id="follow-label">フォローしてね！</div>
+  </div>
+
+  <div id="caption-plate"><div class="caption-text"></div></div>
+  <div id="avatar-box"><div id="avatar-inner"><img id="avatar-img" alt="avatar"></div></div>
+  <div id="safe-zone-guide"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var timelineData = window.__TIMELINE_DATA__;
+  if (!timelineData) {
+    console.error("window.__TIMELINE_DATA__ not set. This composition must be loaded via the render/QA harness, which injects timeline.json before navigation.");
+    return;
+  }
+  var beats = timelineData.beats;
+  var layout = timelineData.layout;
+  var channel = timelineData.channel;
+  var mouthKeyframes = timelineData.mouth.slice().sort(function (a, b) { return a.t - b.t; });
+  var TOTAL = timelineData.total;
+
+  // ============================================================
+  // SNS アイコン（一般公開されているサービスロゴ。個人情報ではないためテンプレ本体に
+  // 静的同梱してよい。表示するかどうか・ハンドル文言は channel.json 側で決める）
+  // ============================================================
+  var SNS_ICONS = {
+    x: '<svg viewBox="0 0 24 24"><path fill="#000000" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+    instagram: '<svg viewBox="0 0 24 24"><path fill="#E4405F" d="M12 0C8.74 0 8.333.014 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.014 8.333 0 8.74 0 12s.014 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.014 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.014-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.014 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.897 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.897-.421-.419-.69-.824-.897-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.207-.57.476-.96.897-1.381.419-.419.81-.689 1.379-.896.42-.165 1.051-.36 2.221-.421 1.275-.045 1.65-.06 4.859-.06zm0 3.678a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>',
+    youtube: '<svg viewBox="0 0 24 24"><path fill="#FF0000" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/><path fill="#ffffff" d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>',
+  };
+
+  function beatById(id) { for (var i = 0; i < beats.length; i++) if (beats[i].id === id) return beats[i]; return null; }
+  function textWithBr(s) { var div = document.createElement("div"); div.textContent = s || ""; return div.innerHTML.split("\n").join("<br>"); }
+  function $(id) { return document.getElementById(id); }
+
+  // ============================================================
+  // 1. レイアウトプロファイル適用（固定層のジオメトリの器。portrait/landscape 切替）
+  // ============================================================
+  var stage = $("stage");
+  document.documentElement.style.width = layout.width + "px";
+  document.documentElement.style.height = layout.height + "px";
+  document.body.style.width = layout.width + "px";
+  document.body.style.height = layout.height + "px";
+  stage.style.width = layout.width + "px";
+  stage.style.height = layout.height + "px";
+
+  function setBox(el, box) {
+    el.style.left = box.left != null ? box.left + "px" : "auto";
+    el.style.right = box.right != null ? box.right + "px" : "auto";
+    el.style.top = box.top != null ? box.top + "px" : "auto";
+    el.style.bottom = box.bottom != null ? box.bottom + "px" : "auto";
+    if (box.width != null) el.style.width = box.width + "px";
+    if (box.height != null) el.style.height = box.height + "px";
+  }
+  setBox($("safe-zone-guide"), layout.safeZone);
+  setBox($("title-card"), layout.titleCard);
+  setBox($("title-flash"), layout.titleCard);
+  setBox($("caption-plate"), layout.captionPlate);
+  setBox($("diagram-card"), layout.diagramCard);
+  setBox($("bubble"), layout.bubble);
+  setBox($("sns-row"), layout.snsRow);
+  setBox($("follow-label"), layout.followLabel);
+
+  // ============================================================
+  // 2. チャンネル資産（ブランド色 / 背景 / SNS）の適用
+  // ============================================================
+  var brand = channel.brand || {};
+  var root = document.documentElement;
+  if (brand.accent) root.style.setProperty("--accent", brand.accent);
+  if (brand.accentDark) root.style.setProperty("--accent-dark", brand.accentDark);
+  if (brand.ink) root.style.setProperty("--ink", brand.ink);
+  if (brand.inkSoft) root.style.setProperty("--ink-soft", brand.inkSoft);
+  if (brand.line) root.style.setProperty("--line", brand.line);
+  if (channel.background) $("bg").style.backgroundImage = "url(\"" + channel.background + "\")";
+
+  // タイトルカード文言
+  if (timelineData.titleCard) {
+    $("title-card").querySelector('[data-role="title-kicker"]').textContent = timelineData.titleCard.kicker || "";
+    $("title-card").querySelector('[data-role="title-main"]').innerHTML = textWithBr(timelineData.titleCard.main || "");
+    $("title-card").querySelector('[data-role="title-sub"]').textContent = timelineData.titleCard.sub || "";
+  }
+
+  // SNS 行（channel.sns の並び順どおりに生成。ハンドル・キャプションは channel 側のデータ）
+  var snsRowEl = $("sns-row");
+  (channel.sns || []).forEach(function (item) {
+    var wrap = document.createElement("div");
+    wrap.className = "sns-item";
+    var badge = document.createElement("div");
+    badge.className = "sns-badge";
+    badge.innerHTML = SNS_ICONS[item.icon] || "";
+    var caption = document.createElement("div");
+    caption.className = "sns-caption";
+    caption.innerHTML = textWithBr(item.caption || "");
+    wrap.appendChild(badge);
+    wrap.appendChild(caption);
+    snsRowEl.appendChild(wrap);
+  });
+
+  // ============================================================
+  // 3. 図解シーン: コンポーネント語彙の汎用レンダラー
+  //    diagram spec（generate-timeline が解決済みの絶対秒付き）から DOM を構築する。
+  // ============================================================
+  var diagramCard = $("diagram-card");
+  var diagramBeatStates = {}; // beatId -> { root, eyebrowEntry?, mode: 'stack'|'crossfade', ... }
+
+  function makeReveal(entry) {
+    var block = entry.spec;
+    if (!block.reveal) return { opacity: 1, ty: 0 };
+    return reveal(entry.tRef || 0, block.reveal.t, block.reveal.dur);
+  }
+
+  function buildEyebrowEl(eyebrowSpec) {
+    var el = document.createElement("div");
+    el.className = "dg-eyebrow pill";
+    el.textContent = eyebrowSpec.text;
+    return { root: el, spec: eyebrowSpec };
+  }
+
+  // ブロック1つぶんの DOM を構築する。type ごとの語彙はここに集約する
+  // （設計指示1: eyebrow pill / shot-card / view-badge / note-strip / mini-timeline /
+  //  tier-ladder / vs-card / cond-row / bullet-row / big-emph / dg-note / disclaimer）。
+  function buildBlockEl(block) {
+    var root = document.createElement("div");
+    root.id = "blk-" + block.id;
+    var entry = { root: root, spec: block, kind: block.type };
+
+    switch (block.type) {
+      case "eyebrow":
+        root.className = "dg-eyebrow pill";
+        root.textContent = block.text;
+        break;
+      case "date-badge":
+        root.className = "date-badge pill pill-outline";
+        root.textContent = block.text;
+        break;
+      case "dg-note":
+        root.className = "dg-note";
+        root.textContent = block.text;
+        break;
+      case "view-badge":
+        root.className = "view-badge pill";
+        root.textContent = block.text;
+        break;
+      case "note-strip":
+        root.className = "note-strip" + (block.position === "absolute-bottom" ? " pos-absolute-bottom" : "");
+        root.textContent = block.text;
+        break;
+      case "disclaimer":
+        root.className = "disclaimer-note";
+        root.textContent = block.text;
+        break;
+      case "big-emph":
+        root.className = "big-emph";
+        root.textContent = block.texts[0].text;
+        entry.textEl = root;
+        break;
+      case "shot-card": {
+        root.className = "shot-card";
+        var img = document.createElement("img");
+        var f0 = block.frames[0];
+        img.src = f0.src;
+        img.style.width = f0.width + "px";
+        img.style.height = f0.height + "px";
+        img.setAttribute("data-cur-idx", "0");
+        root.appendChild(img);
+        entry.imgEl = img;
+        break;
+      }
+      case "tier-ladder": {
+        root.className = "tier-wrap";
+        entry.rowEntries = [];
+        // DOM順 = data順（script.json の rows 宣言順をそのまま反映。動画固有の
+        // 語彙はここに持ち込まない — variant は small/medium/large/highlight の
+        // 4段階のみ。highlight だけが tag バブルに対応する）
+        block.rows.forEach(function (row) {
+          var rowEl = document.createElement("div");
+          rowEl.className = "tier-row variant-" + row.variant;
+          if (row.variant === "highlight") {
+            var span1 = document.createElement("span");
+            span1.textContent = row.text;
+            rowEl.appendChild(span1);
+            if (row.tag) {
+              var tag = document.createElement("span");
+              tag.className = "tier-row-tag";
+              tag.textContent = row.tag;
+              rowEl.appendChild(tag);
+            }
+          } else {
+            rowEl.textContent = row.text;
+          }
+          root.appendChild(rowEl);
+          entry.rowEntries.push({ root: rowEl, spec: row });
+        });
+        break;
+      }
+      case "mini-timeline": {
+        root.className = "mini-timeline";
+        block.nodes.forEach(function (node, i) {
+          if (i > 0) {
+            var line = document.createElement("div");
+            line.className = "mt-line";
+            root.appendChild(line);
+          }
+          var nodeEl = document.createElement("div");
+          nodeEl.className = "mt-node";
+          var dot = document.createElement("div");
+          dot.className = "mt-dot" + (node.state === "bad" ? " mt-dot-bad" : node.state === "good" ? " mt-dot-good" : "");
+          var label = document.createElement("div");
+          label.className = "mt-label";
+          label.innerHTML = textWithBr(node.label);
+          nodeEl.appendChild(dot);
+          nodeEl.appendChild(label);
+          root.appendChild(nodeEl);
+        });
+        break;
+      }
+      case "vs-card": {
+        root.className = "vs-wrap";
+        var leftEl = document.createElement("div");
+        leftEl.className = "vs-card-item vs-" + (block.left.variant === "accent" ? "accent" : "outline");
+        leftEl.innerHTML = '<div class="vs-title"></div><div class="vs-desc"></div>';
+        leftEl.querySelector(".vs-title").textContent = block.left.title;
+        leftEl.querySelector(".vs-desc").textContent = block.left.desc;
+        var rightEl = document.createElement("div");
+        rightEl.className = "vs-card-item vs-" + (block.right.variant === "accent" ? "accent" : "outline");
+        rightEl.innerHTML = '<div class="vs-title"></div><div class="vs-desc"></div>';
+        rightEl.querySelector(".vs-title").textContent = block.right.title;
+        rightEl.querySelector(".vs-desc").textContent = block.right.desc;
+        var bridge = document.createElement("div");
+        bridge.className = "vs-bridge";
+        bridge.textContent = block.bridge;
+        root.appendChild(leftEl);
+        root.appendChild(rightEl);
+        root.appendChild(bridge);
+        break;
+      }
+      case "cond-row": {
+        root.className = "cond-row";
+        var tagEl = document.createElement("div");
+        tagEl.className = "cond-tag pill" + (block.tag.variant === "pill-outline" ? " pill-outline" : "");
+        tagEl.textContent = block.tag.text;
+        var descEl = document.createElement("div");
+        descEl.className = "cond-desc";
+        descEl.textContent = block.desc;
+        root.appendChild(tagEl);
+        root.appendChild(descEl);
+        break;
+      }
+      case "bullet-row": {
+        root.className = "bullet-row";
+        var markEl = document.createElement("div");
+        markEl.className = "bullet-mark";
+        markEl.textContent = block.mark || "✓";
+        var descEl2 = document.createElement("div");
+        descEl2.className = "bullet-desc";
+        descEl2.textContent = block.text;
+        root.appendChild(markEl);
+        root.appendChild(descEl2);
+        break;
+      }
+      default:
+        console.error("unknown diagram block type:", block.type);
+    }
+    return entry;
+  }
+
+  beats.filter(function (b) { return b.scene === "diagram"; }).forEach(function (beat) {
+    var dg = document.createElement("div");
+    dg.className = "dg";
+    dg.id = "dg-" + beat.id;
+    // display は常に flex のまま。表示/非表示は opacity のみで制御する
+    // （v3 と同じ方式 = 全ビートの .dg が絶対配置で重なって常駐し、非アクティブな
+    // ビートは opacity 0 で隠れているだけ。display:none にすると再表示できなくなる）。
+    if (beat.diagram.align === "center") dg.style.justifyContent = "center";
+
+    var state = { beatId: beat.id, root: dg };
+
+    if (beat.diagram.eyebrow) {
+      var eb = buildEyebrowEl(beat.diagram.eyebrow);
+      dg.appendChild(eb.root);
+      state.eyebrow = eb;
+    }
+
+    if (beat.diagram.groups) {
+      state.mode = "crossfade";
+      state.crossfade = beat.diagram.crossfade;
+      state.groups = beat.diagram.groups.map(function (g) {
+        var stackEl = document.createElement("div");
+        stackEl.className = "dg-stack";
+        stackEl.id = "dgstack-" + beat.id + "-" + g.id;
+        var blockEntries = g.blocks.map(function (b) {
+          var be = buildBlockEl(b);
+          stackEl.appendChild(be.root);
+          return be;
+        });
+        dg.appendChild(stackEl);
+        return { id: g.id, root: stackEl, blocks: blockEntries };
+      });
+    } else {
+      state.mode = "stack";
+      var stackEl2 = document.createElement("div");
+      stackEl2.className = "dg-stack";
+      stackEl2.id = "dgstack-" + beat.id;
+      if (beat.diagram.gap != null) stackEl2.style.gap = beat.diagram.gap + "px";
+      if (beat.diagram.stackTop != null) stackEl2.style.top = beat.diagram.stackTop + "px";
+      state.blocks = (beat.diagram.blocks || []).map(function (b) {
+        var be = buildBlockEl(b);
+        stackEl2.appendChild(be.root);
+        return be;
+      });
+      dg.appendChild(stackEl2);
+    }
+
+    diagramCard.appendChild(dg);
+    diagramBeatStates[beat.id] = state;
+  });
+
+  // ============================================================
+  // 4. 表情タイムライン・口パク（timeline.json の expressions/mouth をそのまま消費。
+  //    ロジックは composition-v3 の実装を踏襲・変更なし）
+  // ============================================================
+  var b2Diagram = beats.filter(function (b) { return b.scene === "diagram"; })[0];
+  var bEnding = beats.filter(function (b) { return b.scene === "ending"; })[0];
+  var SCENES = [
+    { name: "title", start: 0, end: b2Diagram ? b2Diagram.start : TOTAL },
+    { name: "diagram", start: b2Diagram ? b2Diagram.start : 0, end: bEnding ? bEnding.start : TOTAL },
+    { name: "ending", start: bEnding ? bEnding.start : TOTAL, end: TOTAL },
+  ];
+  function sceneAt(t) {
+    for (var i = 0; i < SCENES.length; i++) if (t >= SCENES[i].start && t < SCENES[i].end) return SCENES[i].name;
+    return t >= SCENES[SCENES.length - 1].end ? "ending" : "title";
+  }
+
+  var exprSegments = [];
+  beats.forEach(function (b) { b.expressions.forEach(function (e) { exprSegments.push({ t0: e.t0, t1: e.t1, expr: e.expr }); }); });
+  exprSegments.sort(function (a, b) { return a.t0 - b.t0; });
+  function exprAt(t) {
+    for (var i = 0; i < exprSegments.length; i++) { var seg = exprSegments[i]; if (t >= seg.t0 && t < seg.t1) return seg.expr; }
+    var held = null;
+    for (var j = 0; j < exprSegments.length; j++) { if (exprSegments[j].t1 <= t) held = exprSegments[j].expr; else break; }
+    return held || "neutral";
+  }
+
+  function mouthStateAt(t) {
+    var arr = mouthKeyframes;
+    if (!arr.length || t < arr[0].t) return "closed";
+    var lo = 0, hi = arr.length - 1, ans = 0;
+    while (lo <= hi) { var mid = (lo + hi) >> 1; if (arr[mid].t <= t) { ans = mid; lo = mid + 1; } else { hi = mid - 1; } }
+    return arr[ans].state;
+  }
+  function poseKeyFor(t) {
+    var expr = exprAt(t);
+    if (expr === "neutral") {
+      var st = mouthStateAt(t);
+      return "neutral-" + st;
+    }
+    return expr;
+  }
+
+  function captionAt(t) {
+    for (var i = 0; i < beats.length; i++) {
+      var b = beats[i];
+      if (t >= b.start && t < b.end) {
+        var text = null;
+        for (var j = 0; j < b.sentences.length; j++) { var s = b.sentences[j]; if (s.t0 <= t) text = s.text; else break; }
+        return text;
+      }
+    }
+    return null;
+  }
+
+  // ============================================================
+  // 5. easing / reveal ヘルパー（t の純関数・composition-v3 と同一）
+  // ============================================================
+  function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+  function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+  function easeOutBack(x) { var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); }
+  function reveal(t, at, dur) { dur = dur || 0.4; var p = clamp01((t - at) / dur); var e = easeOutCubic(p); return { opacity: e, ty: (1 - e) * 8 }; }
+
+  // ============================================================
+  // 6. アバター切り抜き数式（レイアウトプロファイルの avatar 定義 + channel の
+  //    personBBox を入力とする純関数。ロジック自体は composition-v3 と同一）
+  // ============================================================
+  var PERSON = channel.character.personBBox;
+  var SOURCE = channel.character.sourceSize;
+
+  function fullBodyRect(boxW, boxH) {
+    var scale = boxH / PERSON.h;
+    var personWScaled = PERSON.w * scale;
+    var left = (boxW - personWScaled) / 2 - PERSON.x * scale;
+    var top = -PERSON.y * scale;
+    return { width: SOURCE.width * scale, height: SOURCE.height * scale, left: left, top: top };
+  }
+  function bustRect(boxW, boxH, headroomFrac, sideMargin) {
+    sideMargin = sideMargin || 0;
+    var scale = (boxW - 2 * sideMargin) / PERSON.w;
+    var top = boxH * headroomFrac - PERSON.y * scale;
+    var left = sideMargin - PERSON.x * scale;
+    return { width: SOURCE.width * scale, height: SOURCE.height * scale, left: left, top: top };
+  }
+  function applyImgRect(img, r) { img.style.width = r.width + "px"; img.style.height = r.height + "px"; img.style.left = r.left + "px"; img.style.top = r.top + "px"; }
+
+  var SWAY_SIN15 = Math.sin(1.5 * Math.PI / 180);
+
+  var LT = layout.avatar.title, LD = layout.avatar.diagram, LE = layout.avatar.ending;
+  var TITLE_BOX = { width: LT.width, height: LT.height, bottom: LT.bottom };
+  if (LT.centered) TITLE_BOX.left = (layout.width - TITLE_BOX.width) / 2; else TITLE_BOX.right = LT.right;
+  var TITLE_SIDE_MARGIN = LT.sideMarginMin; // v3 実測値をそのまま採用（layout-profiles.mjs 側の定数）
+  var TITLE_HEADROOM = LT.headroomFrac;
+
+  var ENDING_AVATAR_H = LE.height;
+  var ENDING_TIGHT_W = ENDING_AVATAR_H * PERSON.w / PERSON.h;
+  var ENDING_SWAY_MARGIN_TOTAL = Math.ceil(ENDING_AVATAR_H * SWAY_SIN15 * 2) + LE.swayMarginBuffer;
+  var ENDING_AVATAR_W = ENDING_TIGHT_W + ENDING_SWAY_MARGIN_TOTAL;
+  var ENDING_AVATAR = { bottom: LE.bottom, width: ENDING_AVATAR_W, height: ENDING_AVATAR_H };
+  if (LE.centered) ENDING_AVATAR.left = (layout.width - ENDING_AVATAR_W) / 2;
+
+  var DIAGRAM_AVATAR = { right: LD.right, bottom: LD.bottom, width: LD.width, height: LD.height };
+  var DIAGRAM_SIDE_MARGIN = LD.sideMarginMin;
+  var DIAGRAM_HEADROOM = LD.headroomFrac;
+
+  // ============================================================
+  // 7. テキスト自動フィット（実 DOM 計測による決定論的フィット。仕様は
+  //    composition-v3 と同一）
+  // ============================================================
+  var LINE_HEIGHT_RATIO = 1.4;
+  var FIT_SIZES = [32, 30, 28, 26, 24, 22, 20];
+  var fitCache = {};
+  function fitFontSizeDom(el, str, maxLines, cacheKey) {
+    var cached = fitCache[cacheKey];
+    if (cached && cached.str === str) return cached.size;
+    el.textContent = str;
+    var chosen = FIT_SIZES[FIT_SIZES.length - 1];
+    for (var i = 0; i < FIT_SIZES.length; i++) {
+      var fs = FIT_SIZES[i];
+      el.style.fontSize = fs + "px";
+      var lh = fs * LINE_HEIGHT_RATIO;
+      var lines = Math.round(el.scrollHeight / lh);
+      if (lines <= maxLines) { chosen = fs; break; }
+    }
+    fitCache[cacheKey] = { str: str, size: chosen };
+    return chosen;
+  }
+
+  // ============================================================
+  // 8. DOM refs
+  // ============================================================
+  var titleScene = $("title-scene");
+  var diagramScene = $("diagram-scene");
+  var endingScene = $("ending-scene");
+  var titleCard = $("title-card");
+  var titleFlash = $("title-flash");
+  var bubble = $("bubble");
+  var bubbleText = bubble.querySelector(".bubble-text");
+  var captionPlate = $("caption-plate");
+  var captionText = captionPlate.querySelector(".caption-text");
+  var avatarBox = $("avatar-box");
+  var avatarInner = $("avatar-inner");
+  var avatarImg = $("avatar-img");
+  var snsRow = $("sns-row");
+  var followLabel = $("follow-label");
+
+  // ============================================================
+  // 9. 汎用ブロック更新（type 別の per-frame 処理をここに集約）
+  // ============================================================
+  function applyEntryReveal(entry, t, extraOpacityFactor) {
+    var block = entry.spec;
+    var r = block.reveal ? reveal(t, block.reveal.t, block.reveal.dur) : { opacity: 1, ty: 0 };
+    var opacity = r.opacity;
+    if (block.fadeOut) { var rOut = reveal(t, block.fadeOut.t, block.fadeOut.dur); opacity = opacity * (1 - rOut.opacity); }
+    var floor = block.preRevealOpacity || 0;
+    opacity = floor + (1 - floor) * opacity;
+    if (extraOpacityFactor != null) opacity *= extraOpacityFactor;
+    entry.root.style.opacity = String(opacity);
+    entry.root.style.transform = "translateY(" + r.ty.toFixed(2) + "px)";
+    if (block.collapseWhenHidden) {
+      entry.root.style.display = opacity > 0.01 ? (block.display || "block") : "none";
+    } else {
+      entry.root.style.visibility = opacity > 0.01 ? "visible" : "hidden";
+    }
+    return opacity;
+  }
+
+  function pickFrame(frames, t) {
+    var chosen = 0;
+    for (var i = 0; i < frames.length; i++) { if (frames[i].t == null || frames[i].t <= t) chosen = i; }
+    return chosen;
+  }
+
+  function updateBlock(entry, t) {
+    applyEntryReveal(entry, t);
+    if (entry.kind === "tier-ladder") {
+      entry.rowEntries.forEach(function (rowEntry) { applyEntryReveal(rowEntry, t); });
+    } else if (entry.kind === "shot-card") {
+      var idx = pickFrame(entry.spec.frames, t);
+      var curIdx = entry.imgEl.getAttribute("data-cur-idx");
+      if (String(idx) !== curIdx) {
+        var f = entry.spec.frames[idx];
+        entry.imgEl.src = f.src;
+        entry.imgEl.style.width = f.width + "px";
+        entry.imgEl.style.height = f.height + "px";
+        entry.imgEl.setAttribute("data-cur-idx", String(idx));
+      }
+    } else if (entry.kind === "big-emph") {
+      var tidx = pickFrame(entry.spec.texts, t);
+      entry.textEl.textContent = entry.spec.texts[tidx].text;
+    }
+  }
+
+  function updateDiagramBeat(state, t) {
+    if (state.eyebrow) applyEntryReveal(state.eyebrow, t);
+    if (state.mode === "stack") {
+      state.blocks.forEach(function (entry) { updateBlock(entry, t); });
+    } else {
+      var cf = state.crossfade;
+      var cross = cf ? reveal(t, cf.t, cf.dur) : { opacity: 0, ty: 0 };
+      state.groups.forEach(function (group, gi) {
+        var groupOpacity = gi === 0 ? 1 - cross.opacity : cross.opacity;
+        group.root.style.opacity = String(groupOpacity);
+        group.root.style.visibility = groupOpacity > 0.01 ? "visible" : "hidden";
+        if (gi > 0) group.root.style.transform = "translateY(" + cross.ty.toFixed(2) + "px)";
+        group.blocks.forEach(function (entry) { updateBlock(entry, t); });
+      });
+    }
+  }
+
+  // ============================================================
+  // 10. ビート間の図解クロスフェード（隣接ビート同士の切替。ロジック不変）
+  // ============================================================
+  var diagramBeats = beats.filter(function (b) { return b.scene === "diagram"; });
+  var FADE = 0.3;
+  function diagramOpacity(idx, t) {
+    var cur = diagramBeats[idx];
+    var next = diagramBeats[idx + 1];
+    var s = cur.start;
+    var sNext = next ? next.start : null;
+    if (t < s) return 0;
+    if (t < s + FADE) return (t - s) / FADE;
+    if (sNext === null) return 1;
+    if (t < sNext) return 1;
+    if (t < sNext + FADE) return 1 - (t - sNext) / FADE;
+    return 0;
+  }
+
+  // ============================================================
+  // 11. main per-frame entry point
+  // ============================================================
+  window.akariSetTime = function (tSec) {
+    var t = tSec;
+    var scene = sceneAt(t);
+
+    titleScene.style.display = scene === "title" ? "block" : "none";
+    diagramScene.style.display = scene === "diagram" ? "block" : "none";
+    bubble.style.display = scene === "diagram" ? "flex" : "none";
+    endingScene.style.display = scene === "ending" ? "block" : "none";
+    captionPlate.style.display = (scene === "title" || scene === "ending") ? "flex" : "none";
+
+    var boxPos, cropRect, entranceTy = 0, entranceScale = 1;
+    if (scene === "title") {
+      boxPos = TITLE_BOX;
+      var p1 = clamp01(t / 0.8);
+      entranceTy = (1 - easeOutCubic(p1)) * TITLE_BOX.height;
+      cropRect = bustRect(TITLE_BOX.width, TITLE_BOX.height, TITLE_HEADROOM, TITLE_SIDE_MARGIN);
+    } else if (scene === "diagram") {
+      boxPos = DIAGRAM_AVATAR;
+      cropRect = bustRect(DIAGRAM_AVATAR.width, DIAGRAM_AVATAR.height, DIAGRAM_HEADROOM, DIAGRAM_SIDE_MARGIN);
+    } else {
+      boxPos = ENDING_AVATAR;
+      var sceneStart = SCENES[2].start;
+      var p2 = clamp01((t - sceneStart) / 0.4);
+      entranceScale = 0.85 + 0.15 * easeOutBack(p2);
+      cropRect = fullBodyRect(ENDING_AVATAR.width, ENDING_AVATAR.height);
+    }
+    setBox(avatarBox, boxPos);
+    applyImgRect(avatarImg, cropRect);
+
+    var swayRot = 1.5 * Math.sin(2 * Math.PI * t / 4.8);
+    var swayTy = 6 * Math.sin(2 * Math.PI * t / 3.7);
+    avatarInner.style.transformOrigin = "50% 100%";
+    avatarInner.style.transform = "translateY(" + (entranceTy + swayTy).toFixed(2) + "px) scale(" + entranceScale.toFixed(4) + ") rotate(" + swayRot.toFixed(3) + "deg)";
+
+    var poseKey = poseKeyFor(t);
+    var src = channel.character.poses[poseKey];
+    if (src && avatarImg.getAttribute("data-cur") !== src) { avatarImg.src = src; avatarImg.setAttribute("data-cur", src); }
+
+    if (scene === "title") {
+      var punch = clamp01((t - 0.8) / 0.25);
+      var cardScale = t < 0.8 ? 1.15 : 1.15 - 0.15 * easeOutCubic(punch);
+      titleCard.style.transform = "scale(" + cardScale.toFixed(4) + ")";
+      var flashP = clamp01((t - 0.8) / 0.3);
+      var flashOpacity = t < 0.8 ? 0 : 0.25 * (1 - easeOutCubic(flashP));
+      titleFlash.style.opacity = String(flashOpacity);
+    }
+
+    if (scene === "diagram") {
+      var updaters = diagramBeatStates;
+      diagramBeats.forEach(function (b, idx) {
+        var state = updaters[b.id];
+        var op = diagramOpacity(idx, t);
+        if (state) state.root.style.opacity = String(op);
+        if (state && op > 0.001) updateDiagramBeat(state, t);
+      });
+
+      var cap = captionAt(t);
+      var shown = cap != null;
+      bubble.style.visibility = shown ? "visible" : "hidden";
+      if (shown) {
+        var fs = fitFontSizeDom(bubbleText, cap, 3, "bubble:" + cap);
+        bubbleText.style.fontSize = fs + "px";
+      } else {
+        bubbleText.textContent = "";
+      }
+    } else {
+      if (scene === "ending" && bEnding && bEnding.endingReveal) {
+        var r = reveal(t, bEnding.endingReveal.t, bEnding.endingReveal.dur);
+        snsRow.style.opacity = String(r.opacity);
+        snsRow.style.transform = "translateY(" + r.ty.toFixed(2) + "px)";
+        snsRow.style.visibility = r.opacity > 0.01 ? "visible" : "hidden";
+        followLabel.style.opacity = String(r.opacity);
+        followLabel.style.transform = "translateY(" + r.ty.toFixed(2) + "px)";
+        followLabel.style.visibility = r.opacity > 0.01 ? "visible" : "hidden";
+      }
+      var cap2 = captionAt(t);
+      var shown2 = cap2 != null;
+      captionPlate.style.visibility = shown2 ? "visible" : "hidden";
+      if (shown2) {
+        var fs2 = fitFontSizeDom(captionText, cap2, 3, "caption:" + cap2);
+        captionText.style.fontSize = fs2 + "px";
+      } else {
+        captionText.textContent = "";
+      }
+    }
+
+    return { t: t, scene: scene };
+  };
+
+  // QA-only helper: セーフゾーンガイドの表示切替
+  window.akariSetSafeZoneGuide = function (on) { $("safe-zone-guide").style.display = on ? "block" : "none"; };
+
+  // ---------- preload（設計指示4: preload リストもデータから構築） ----------
+  window.__akariReady = Promise.all((timelineData.preload || []).map(function (src) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve(true); };
+      img.onerror = function () { console.error("preload failed:", src); resolve(false); };
+      img.src = src;
+    });
+  })).then(function () {
+    window.akariSetTime(0);
+    return true;
+  });
+})();
+</script>
+</body>
+</html>

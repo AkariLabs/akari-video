@@ -1,0 +1,51 @@
+{
+  "_comment": "L0 実証用ダミー台本。文分割は sentenceOverride を使わず generate-timeline の自動文分割（音声実測の決定論的近似）を素通しで検証する。",
+  "titleCard": {
+    "kicker": "テンプレ動作確認",
+    "main": "サンプル台本で\n作る解説ショート",
+    "sub": "台本を差し替えるだけで次が作れる"
+  },
+  "beats": [
+    {
+      "id": "s1-hook",
+      "scene": "title",
+      "text": "これはテンプレート動作確認のためのサンプル台本です。台本を差し替えるだけで、次の動画が作れます。",
+      "expression_plan": [
+        { "expr": "surprised", "holdCap": 1.0 },
+        { "expr": "neutral" }
+      ],
+      "visual": "タイトル枠 + プレースホルダキャラ登場"
+    },
+    {
+      "id": "s2-diagram",
+      "scene": "diagram",
+      "text": "図解パートのサンプルです。画像とテキストを段階的に表示します。ポイントは全部で二つ。ひとつ目はこちら。ふたつ目はこちらです。",
+      "expression_plan": [{ "expr": "neutral" }],
+      "visual": "ダミー画像 + 箇条書き2点の段階表示",
+      "diagram": {
+        "eyebrow": { "text": "図解サンプル", "reveal": { "at": { "sentence": 0, "offset": 0 }, "dur": 0.4 } },
+        "blocks": [
+          { "id": "s2-shot", "type": "shot-card", "reveal": { "at": { "sentence": 0, "offset": 0.2 }, "dur": 0.4 },
+            "frames": [{ "src": "./assets/dummy-shot.png", "width": 420, "height": 276 }] },
+          { "id": "s2-viewbadge", "type": "view-badge", "text": "サンプル注記",
+            "reveal": { "at": { "sentence": 1, "offset": 0 }, "dur": 0.4 } },
+          { "id": "s2-bullet1", "type": "bullet-row", "display": "flex", "collapseWhenHidden": true, "mark": "✓",
+            "text": "ポイント その1", "reveal": { "at": { "sentence": 3, "offset": 0 }, "dur": 0.4 } },
+          { "id": "s2-bullet2", "type": "bullet-row", "display": "flex", "collapseWhenHidden": true, "mark": "✓",
+            "text": "ポイント その2", "reveal": { "at": { "sentence": 4, "offset": 0 }, "dur": 0.4 } },
+          { "id": "s2-note", "type": "note-strip", "position": "absolute-bottom",
+            "text": "台本 JSON を差し替えるだけで、この図解も丸ごと入れ替わります。",
+            "reveal": { "at": { "sentence": 2, "offset": 0 }, "dur": 0.4 } }
+        ]
+      }
+    },
+    {
+      "id": "s3-ending",
+      "scene": "ending",
+      "text": "ご視聴ありがとうございました。ぜひフォローしてください。",
+      "expression_plan": [{ "expr": "happy" }, { "expr": "neutral" }],
+      "visual": "プレースホルダキャラ全身 + SNS 誘導",
+      "endingReveal": { "at": { "sentence": 1, "offset": 0 }, "dur": 0.5 }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "_comment": "ダミーチャンネル資産。キャラクター画像は channel-sample/generate-placeholder.mjs によるローカル手続き生成（AI生成不使用・タスク契約の個人情報分離条件）。SNS ハンドルもすべて架空のプレースホルダ。",
+  "character": {
+    "assetsDir": "./assets",
+    "files": {
+      "neutral-closed": "fullbody-neutral-closed.png",
+      "neutral-half": "fullbody-neutral-half.png",
+      "neutral-open": "fullbody-neutral-open.png",
+      "happy": "fullbody-happy.png",
+      "sad": "fullbody-sad.png",
+      "angry": "fullbody-angry.png",
+      "surprised": "fullbody-surprised.png",
+      "laugh": "fullbody-laugh.png"
+    },
+    "sourceSize": { "width": 1024, "height": 1536 },
+    "personBBox": { "x": 182, "y": 70, "w": 661, "h": 1431 }
+  },
+  "background": { "src": "./assets/bg.png" },
+  "brand": {
+    "accent": "#4c7a8c",
+    "accentDark": "#345763",
+    "ink": "#22262b",
+    "inkSoft": "#626b72",
+    "line": "#dbe1e4"
+  },
+  "sns": [
+    { "icon": "x", "caption": "@sample_handle" },
+    { "icon": "instagram", "caption": "@sample_handle" },
+    { "icon": "youtube", "caption": "チャンネル登録も\nぜひしてね" }
+  ]
+}
