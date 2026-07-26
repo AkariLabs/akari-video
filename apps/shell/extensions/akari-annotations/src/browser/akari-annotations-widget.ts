@@ -40,6 +40,7 @@ import {
 import { deriveDefaultTimelineTracks } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
+import { computeCutBoundaries } from '../common/cut-boundaries';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
@@ -133,6 +134,18 @@ const SUBROW_GAP = 4;
 const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
 const STRIP_BOTTOM_MARGIN = 6;
 const TRACK_HEADER_WIDTH = 136;
+/** ㉔ トランジション境界バッジ（隣接カット境界の常時表示 + クリック編集）。 */
+const TRANSITION_BADGE_SIZE_PX = 16;
+const TRANSITION_BADGE_ACCENT_COLOR = '#a855f7';
+const TRANSITION_BADGE_NEUTRAL_BORDER_COLOR = 'rgba(255,255,255,.4)';
+const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
+const TRANSITION_MIN_DURATION_SECONDS = 0.1;
+const TRANSITION_MAX_DURATION_SECONDS = 3;
+const TRANSITION_TYPE_OPTIONS: ReadonlyArray<{ type: 'dissolve' | 'fade-black' | 'fade-white'; label: string; glyph: string }> = [
+    { type: 'dissolve', label: 'ディゾルブ', glyph: 'D' },
+    { type: 'fade-black', label: '黒フェード', glyph: 'B' },
+    { type: 'fade-white', label: '白フェード', glyph: 'W' }
+];
 const BEAT_PROJECTION_EPSILON = 0.000001;
 /** パートナー拡張とは widget ID の文字列だけで疎結合に連携する。 */
 const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
@@ -632,7 +645,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.timelineOverlay.append(
             this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee
         );
-        this.strip.addEventListener('click', event => this.onStripClick(event));
+        // ㉖ 全域クリックシーク: strip 単体ではなく stripScroll（中央寄せの上下ギャップ・
+        // トラック本数不足の余白・黒背景を含む可視領域全体）へバインドする。strip 内の
+        // アイテム要素は自前の click ハンドラで stopPropagation 済みのため、ここまで
+        // バブってくる click は「クリップ・ハンドル・バッジの外側」に限られる。
+        this.stripScroll.addEventListener('click', event => this.onStripClick(event));
         this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
@@ -666,6 +683,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.stripScroll.addEventListener('scroll', () => {
             this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
         });
+        // ㉕/㉗ 中央寄せギャップはビューポート高（stripScroll.clientHeight）に依存するため、
+        // パネルのリサイズ（分割線ドラッグ等）でも再計算されるよう監視する。
+        const stripScrollResizeObserver = new ResizeObserver(() => this.renderStrip());
+        stripScrollResizeObserver.observe(this.stripScroll);
+        this.toDispose.push(Disposable.create(() => stripScrollResizeObserver.disconnect()));
         this.trackHeadersViewport.appendChild(this.trackHeaders);
         this.trackHeaderColumn.append(this.trackHeaderRulerSpacer, this.trackHeadersViewport);
         this.timelineBody.append(this.rulerBar, this.stripScroll, this.timelineOverlay);
@@ -3015,11 +3037,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.viewDuration ?? this.totalDuration();
     }
 
-    protected calculateLaneLayout(): number {
+    /**
+     * ㉕ トラック群の縦中央寄せ: topOffset を全レーンの起点に一様に加算するだけで、
+     * 個々の top 計算式（beats/captions/overlay/layer/cut/audio 各分岐）には一切手を
+     * 入れずに「先頭からの積み上げ全体を下へずらす」を実現する。呼び出し側
+     * （renderStrip）は topOffset=0 で自然高さを測ってからギャップ量を決め、
+     * 中央寄せが要る場合だけ topOffset を与えて再計算する。
+     */
+    protected calculateLaneLayout(topOffset = 0): number {
         this.computeAudioDisplayTracks();
         this.captionRows = assignSubRows(this.captions.map(caption => ({ start: caption.start, end: caption.end })));
         const captionRowCount = this.captionRows.length ? Math.max(...this.captionRows) + 1 : 0;
-        let nextTop = 0;
+        let nextTop = topOffset;
         const beats = { top: nextTop, height: this.beats.length > 0 ? SUBROW_STRIDE : 0 };
         if (beats.height > 0) {
             nextTop += beats.height + LANE_GAP;
@@ -3193,7 +3222,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // （onTrackHeaderPointerDown 参照）。
         // 横軸の位置決めは出力軸（Wave 22）: クリップは this.segments（cuts の at/track 解決結果）、
         // 字幕は sourceRangeToOutputRanges で source 秒→出力秒へ変換する。オーバーレイ・レイヤー・音声は元々出力秒基準。
-        const stripHeight = this.calculateLaneLayout();
+        // ㉕ トラック群の縦中央寄せ: まず topOffset=0 の自然高さを測り、ビューポートより
+        // 短ければ上下均等ギャップぶん topOffset を与えて全レーンを一様に下へずらす
+        // （溢れる場合＝自然高さ ≥ ビューポート高のときは gap=0 のまま従来どおり上詰め + スクロール）。
+        let stripHeight = this.calculateLaneLayout();
+        // calculateLaneLayout の戻り値は末尾に固定 STRIP_BOTTOM_MARGIN（最下段トラックの下の
+        // 化粧パディング、中央寄せとは無関係の既存デザイン）を含む。中央寄せの上下ギャップを
+        // 対称にするには、この固定パディングを除いた「純粋な積み上げ高さ」を基準に測る必要が
+        // ある（そのまま使うと下側だけ +STRIP_BOTTOM_MARGIN 分ずれて上下差が 1px を超える）。
+        const stackHeight = Math.max(0, stripHeight - STRIP_BOTTOM_MARGIN);
+        const viewportHeight = this.stripScroll.clientHeight;
+        const centerGapPx = viewportHeight > 0 ? Math.max(0, Math.floor((viewportHeight - stackHeight) / 2)) : 0;
+        if (centerGapPx > 0) {
+            this.calculateLaneLayout(centerGapPx);
+            stripHeight = stackHeight + centerGapPx * 2;
+        }
         const beatsBandTop = this.laneLayout.beats.top;
         const beatsBandHeight = this.laneLayout.beats.height;
 
@@ -3515,6 +3558,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.strip.appendChild(element);
         });
+        this.renderTransitionBoundaries();
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
         const scrollbarWidth = Math.max(0, this.stripScroll.offsetWidth - this.stripScroll.clientWidth);
         this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
@@ -3560,6 +3604,190 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.strip.appendChild(marker);
             }
         }
+    }
+
+    /**
+     * ㉔ トランジション境界バッジ: cuts の隣接クリップ境界（allowedTransitionOverlap と
+     * 同じ判定基準 = computeCutBoundaries）に常時バッジを描く。transition_out 未設定は
+     * 控えめなニュートラル丸、設定済みはアクセント色 + 種別頭文字。クリックでポップオーバー編集。
+     */
+    protected renderTransitionBoundaries(): void {
+        const boundaries = computeCutBoundaries(this.segments);
+        for (const boundary of boundaries) {
+            const cutLayout = this.trackLayout('cuts', boundary.track);
+            if (!cutLayout || !this.isRangeVisible(boundary.boundaryT, boundary.boundaryT)) {
+                continue;
+            }
+            const badge = document.createElement('button');
+            badge.type = 'button';
+            const option = boundary.transitionOut
+                ? TRANSITION_TYPE_OPTIONS.find(candidate => candidate.type === boundary.transitionOut!.type)
+                : undefined;
+            Object.assign(badge.style, {
+                position: 'absolute',
+                left: `${this.percent(boundary.boundaryT)}%`,
+                top: `${cutLayout.top + cutLayout.height / 2}px`,
+                transform: 'translate(-50%, -50%)',
+                width: `${TRANSITION_BADGE_SIZE_PX}px`,
+                height: `${TRANSITION_BADGE_SIZE_PX}px`,
+                borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '8px', fontWeight: '700', lineHeight: '1', padding: '0',
+                cursor: 'pointer', pointerEvents: 'auto', zIndex: '5', boxSizing: 'border-box',
+                opacity: cutLayout.hidden ? '.28' : '1'
+            });
+            if (boundary.transitionOut) {
+                Object.assign(badge.style, {
+                    background: TRANSITION_BADGE_ACCENT_COLOR,
+                    border: `1px solid ${TRANSITION_BADGE_ACCENT_COLOR}`,
+                    color: '#fff'
+                });
+                badge.textContent = option?.glyph ?? '✨';
+                badge.title = `${option?.label ?? boundary.transitionOut.type} `
+                    + `(${boundary.transitionOut.duration.toFixed(2)}s) — クリックで編集`;
+            } else {
+                Object.assign(badge.style, {
+                    background: 'transparent',
+                    border: `1px solid ${TRANSITION_BADGE_NEUTRAL_BORDER_COLOR}`,
+                    color: TRANSITION_BADGE_NEUTRAL_BORDER_COLOR
+                });
+                badge.textContent = '';
+                badge.title = 'トランジションを追加';
+            }
+            badge.dataset.akariTransitionBoundary = `${boundary.earlierIndex}-${boundary.laterIndex}`;
+            badge.setAttribute('aria-label', badge.title);
+            badge.addEventListener('pointerdown', event => event.stopPropagation());
+            badge.addEventListener('contextmenu', event => event.stopPropagation());
+            badge.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.openTransitionPopup(event.clientX, event.clientY, boundary.earlierIndex, boundary.laterIndex);
+            });
+            this.strip.appendChild(badge);
+        }
+    }
+
+    /** ㉔ 境界バッジのクリックで開くポップオーバー: type（3択）・duration スライダー・削除。 */
+    protected openTransitionPopup(anchorX: number, anchorY: number, earlierIndex: number, laterIndex: number): void {
+        this.closeAnnotationPopup();
+        const popup = document.createElement('div');
+        popup.className = 'akari-annotations-transition-popover';
+        const popoverWidth = 220;
+        const margin = 8;
+        const left = Math.max(margin, Math.min(anchorX - popoverWidth / 2, window.innerWidth - popoverWidth - margin));
+        const top = anchorY + 12;
+        Object.assign(popup.style, {
+            position: 'fixed', left: `${left}px`, top: `${top}px`, zIndex: '10000',
+            display: 'flex', flexDirection: 'column', gap: '6px', width: `${popoverWidth}px`,
+            padding: '8px', borderRadius: '6px', border: '1px solid var(--theia-widget-border)',
+            background: 'var(--theia-menu-background)', boxShadow: '0 3px 12px rgba(0,0,0,.35)',
+            fontSize: '11px'
+        });
+        const render = (): void => {
+            popup.replaceChildren();
+            const current = this.cuts[earlierIndex]?.transitionOut;
+            const heading = document.createElement('div');
+            heading.textContent = `C${earlierIndex + 1} → C${laterIndex + 1}`;
+            heading.style.opacity = '.7';
+            popup.appendChild(heading);
+            const typeRow = document.createElement('div');
+            Object.assign(typeRow.style, { display: 'flex', gap: '4px' });
+            for (const option of TRANSITION_TYPE_OPTIONS) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `theia-button ${current?.type === option.type ? 'main' : 'secondary'}`;
+                button.textContent = option.label;
+                button.style.flex = '1';
+                button.style.padding = '3px 4px';
+                button.setAttribute('aria-pressed', String(current?.type === option.type));
+                button.addEventListener('click', () => {
+                    void this.applyTransitionOut(earlierIndex, {
+                        type: option.type,
+                        duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
+                    }).then(render);
+                });
+                typeRow.appendChild(button);
+            }
+            popup.appendChild(typeRow);
+            if (current) {
+                const sliderRow = document.createElement('div');
+                Object.assign(sliderRow.style, { display: 'flex', alignItems: 'center', gap: '6px' });
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = String(TRANSITION_MIN_DURATION_SECONDS);
+                slider.max = String(TRANSITION_MAX_DURATION_SECONDS);
+                slider.step = '0.05';
+                slider.value = String(current.duration);
+                slider.setAttribute('aria-label', 'トランジションの尺');
+                slider.style.flex = '1';
+                const durationLabel = document.createElement('span');
+                durationLabel.textContent = `${current.duration.toFixed(2)}s`;
+                Object.assign(durationLabel.style, { fontVariantNumeric: 'tabular-nums', minWidth: '34px' });
+                slider.addEventListener('input', () => {
+                    durationLabel.textContent = `${Number(slider.value).toFixed(2)}s`;
+                });
+                slider.addEventListener('change', () => {
+                    void this.applyTransitionOut(earlierIndex, {
+                        type: current.type, duration: Number(slider.value)
+                    }).then(render);
+                });
+                sliderRow.append(slider, durationLabel);
+                popup.appendChild(sliderRow);
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'theia-button secondary';
+                removeButton.textContent = 'トランジションを削除';
+                removeButton.addEventListener('click', () => {
+                    void this.applyTransitionOut(earlierIndex, null).then(() => this.closeAnnotationPopup());
+                });
+                popup.appendChild(removeButton);
+            }
+        };
+        render();
+        popup.addEventListener('contextmenu', popupEvent => popupEvent.preventDefault());
+        popup.addEventListener('pointerdown', popupEvent => popupEvent.stopPropagation());
+        document.body.appendChild(popup);
+        this.contextPopup = popup;
+        const close = (outsideEvent: PointerEvent): void => {
+            if (!popup.contains(outsideEvent.target as Node)) {
+                document.removeEventListener('pointerdown', close, true);
+                this.closeAnnotationPopup();
+            }
+        };
+        setTimeout(() => document.addEventListener('pointerdown', close, true), 0);
+    }
+
+    /** ㉔ トランジション書き戻し: annotations 既存の edit RPC 流儀（setCutOpacity 等と同系）。 */
+    protected async applyTransitionOut(
+        cutIndex: number,
+        next: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number } | null
+    ): Promise<void> {
+        const location = this.location;
+        if (!location?.editUri) {
+            return;
+        }
+        const editUri = location.editUri.toString();
+        const projectRootUri = location.root.toString();
+        const original = this.cuts[cutIndex]?.transitionOut ?? null;
+        await this.annotationsService.setCutTransitionOut({ editUri, projectRootUri, cutIndex, transitionOut: next });
+        this.pushHistory({
+            label: 'トランジションを変更',
+            undo: async () => {
+                await this.annotationsService.setCutTransitionOut({
+                    editUri, projectRootUri, cutIndex, transitionOut: original
+                });
+                await this.reloadEdit();
+            },
+            redo: async () => {
+                await this.annotationsService.setCutTransitionOut({
+                    editUri, projectRootUri, cutIndex, transitionOut: next
+                });
+                await this.reloadEdit();
+            }
+        });
+        await this.reloadEdit();
+        this.hideNotice();
+        this.footer.textContent = next ? 'トランジションを変更しました。' : 'トランジションを削除しました。';
     }
 
     protected renderTrackHeaders(beatsTop: number, beatsHeight: number): void {
