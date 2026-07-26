@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:avatar-rendition:v0",
+  "title": "AKARI Video avatar rendition.json v0",
+  "description": "アバターの表現形態（rendition）1 つ分の能力宣言 + アセット索引。avatars/<id>/renditions/<rendition-id>/rendition.json に置く（段階読み出し契約の L2）。宣言のない能力・アセットは存在しないものとして扱う（捏造ゼロ）。詳細は docs/contract-2026-07-26-avatar-registry-v0.md 参照。",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "id", "kind", "capabilities", "assets"],
+  "properties": {
+    "version": { "const": 0 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "$comment": "renditions/<id>/ ディレクトリ名と一致させる（例: 2d-bustup, 2d-fullbody）。"
+    },
+    "kind": { "enum": ["2d", "3d", "photo"] },
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "assets": { "$ref": "#/$defs/assets" }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["lipsync", "expressions", "framing"],
+      "properties": {
+        "lipsync": { "type": "boolean" },
+        "expressions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        },
+        "framing": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        }
+      },
+      "$comment": "avatar.json の renditions[].capabilities（要約）と同じ形。この rendition.json 側が詳細アセット索引を持つ正典。"
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": true,
+      "minProperties": 1,
+      "properties": {
+        "expressions": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/assetFilename" },
+          "$comment": "表情名 → rendition ディレクトリ相対のファイル名。capabilities.expressions の要素をキーにする（例: {'neutral':'master-neutral-closed.png'}）。"
+        },
+        "lipsync": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/assetFilename" },
+          "$comment": "口パク状態名（neutral-closed/neutral-half/neutral-open 等）→ rendition ディレクトリ相対のファイル名。"
+        }
+      },
+      "$comment": "validate-avatar.mjs ルール(e) がここに列挙された全ファイル名を rendition ディレクトリ配下の実ファイルへ解決できるか検証する（欠落は全数列挙で fail）。"
+    },
+    "assetFilename": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "$comment": "rendition.json と同じディレクトリからの相対パス（サブディレクトリ可）。絶対パス・親ディレクトリ参照は運用上避ける。"
+    }
+  }
+}

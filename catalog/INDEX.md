@@ -22,3 +22,4 @@
 - [Audio](./audio/INDEX.md) — BGM・効果音などの音源素材の取得先。15 件収録（2026-07-22・オーナー私物 SE パックの出典調査で 9 件追加）。
 - [B-roll](./broll/INDEX.md) — 主映像を補足する実写映像素材の取得先。1 件収録。
 - [Font](./font/INDEX.md) — 特定の書体そのもの（グリフ）は生成不能なため、取得先の索引として扱う。2 件収録。
+- [Avatars](./avatars/INDEX.md) — 性格・話し口調を核に 2D/3D/実写/音声を rendition として持つキャラクター登録。`rights.subject` が `original` / `third_party` のもののみ入庫可（実在人物は個人スコープへ）。0 件収録（2026-07-26 時点）。

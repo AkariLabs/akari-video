@@ -1,0 +1,18 @@
+{
+  "version": 0,
+  "id": "2d-fullbody",
+  "kind": "2d",
+  "capabilities": {
+    "lipsync": true,
+    "expressions": ["neutral", "happy"],
+    "framing": ["fullbody"]
+  },
+  "assets": {
+    "expressions": { "neutral": "neutral.png", "happy": "happy.png" },
+    "lipsync": {
+      "neutral-closed": "neutral.png",
+      "neutral-half": "neutral-half.png",
+      "neutral-open": "neutral-open.png"
+    }
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:avatar:v0",
+  "title": "AKARI Video avatar.json v0",
+  "description": "アバター・レジストリの機械可読正典（1 アバター = 1 avatar.json）。アイデンティティ（性格・話し口調）を核とし、2D/3D/実写/音声はその人格の rendition（表現形態）として宣言する。段階読み出し契約の L1（AVATAR.md）と内容を同期させる。詳細は docs/contract-2026-07-26-avatar-registry-v0.md 参照。version は整数・追加のみ進化・寛容リーダーの三原則に従う（docs/contract-2026-07-17-data-contract-versioning.md）。",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "version",
+    "id",
+    "display_name",
+    "variants",
+    "persona",
+    "voice",
+    "renditions",
+    "default_rendition",
+    "rights"
+  ],
+  "properties": {
+    "version": { "const": 0 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "$comment": "kebab-case。avatars/<id>/ ディレクトリ名と一致させる。"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "variants": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "$comment": "例 ['ryoma-casual']。別人格にはしない — 同一 id 配下のバリアントとして持つ（契約 §0-1）。"
+    },
+    "persona": { "$ref": "#/$defs/persona" },
+    "voice": { "$ref": "#/$defs/voiceRef" },
+    "renditions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/renditionSummary" }
+    },
+    "default_rendition": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+      ],
+      "$comment": "null = 挿入のたびに decision card で質問する（契約 §7）。スタイル記憶（系統 B）が承認を経て書き込む。"
+    },
+    "rights": { "$ref": "#/$defs/rights" }
+  },
+  "$defs": {
+    "persona": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "first_person",
+        "tone",
+        "speech_style",
+        "verbal_tics",
+        "energy",
+        "ng",
+        "default_role"
+      ],
+      "properties": {
+        "first_person": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "tone": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "$comment": "direction engine の tone 語彙（真面目/親しみ/高級感/勢い/かわいい/無機質/エモい/シネマ）を軸にした自由記述。複合可（例 '落ち着いた・親しみ'）。enum 強制はしない。"
+        },
+        "speech_style": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "verbal_tics": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        },
+        "energy": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "$comment": "ドパ度（演出の派手さ）とは別軸。キャラ自身のテンション・熱量（0=クール・落ち着き、100=ハイテンション）。尺度のみ共用し意味論は混同しない（契約 §4）。"
+        },
+        "ng": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        },
+        "default_role": {
+          "enum": ["explainer", "listener", "tsukkomi", "narrator", "guest"],
+          "$comment": "配役語彙 5 種（契約 §6-2）。追加のみ進化。"
+        }
+      }
+    },
+    "voiceRef": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["lane", "ref", "credit"],
+      "properties": {
+        "lane": {
+          "enum": ["voicevox", "fal-clone", "recorded"],
+          "$comment": "narration-tts 契約の 3 レーン語彙（voicevox=既製声 / fal-clone=自声クローン / recorded=録音そのまま）。ElevenLabs は凍結中のためレーンとして宣言しない。"
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "$comment": "speaker:3(ずんだもん/ノーマル) または profile:owner-ja のような参照名（narration-tts 契約 §3 と同型）。"
+        },
+        "credit": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "pattern": "\\S" }
+          ],
+          "$comment": "VOICEVOX 系（third_party）はクレジット表記義務がある場合ここに記録し、narration provenance へ転写される。"
+        }
+      }
+    },
+    "renditionSummary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind", "capabilities"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "kind": { "enum": ["2d", "3d", "photo"] },
+        "capabilities": { "$ref": "#/$defs/capabilities" }
+      },
+      "$comment": "詳細（アセット索引）は renditions/<id>/rendition.json（avatar-rendition.schema.json）側の正典。ここは能力宣言の要約のみ。"
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["lipsync", "expressions", "framing"],
+      "properties": {
+        "lipsync": { "type": "boolean" },
+        "expressions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        },
+        "framing": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        }
+      },
+      "$comment": "宣言のない能力は存在しないものとして扱う（捏造ゼロの規律・契約 §0-2）。"
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["subject", "consent", "credit_required", "distribution"],
+      "properties": {
+        "subject": {
+          "enum": ["person", "original", "third_party"],
+          "$comment": "person=実在人物 / original=自作キャラ / third_party=VOICEVOX 等（契約 §6-3）。"
+        },
+        "consent": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "$comment": "self | signed:<path> | terms:<url> のいずれかの形式。詳細な形式検査は validate-avatar.mjs が行う。"
+        },
+        "credit_required": { "type": "boolean" },
+        "distribution": {
+          "enum": ["private", "org", "sellable"],
+          "$comment": "subject=person のとき sellable は禁止（validate-avatar.mjs ルール b）。"
+        }
+      }
+    }
+  }
+}
