@@ -40,5 +40,5 @@
 
 ## 関連
 
-- 最初のセットアップ → [Getting Started](../getting-started.md)
+- 最初のセットアップ → [Getting Started](../getting-started.ja.md)
 - ナレーション生成の有償 / 無償 → [ナレーションを付ける](../guides/narration.md)

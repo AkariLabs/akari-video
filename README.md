@@ -1,8 +1,10 @@
 <div align="center">
 
-![AKARI Video — 意図は人、手は AI。](./docs/assets/brand/hero-banner.png)
+![AKARI Video — Intent is human. Hands are AI.](./docs/assets/brand/hero-banner.png)
 
-**動画を投げるだけで、いい感じに編集されている。開いて確認して、直したいところだけ直す。**
+**English** | [日本語](./README.ja.md)
+
+**Hand over your footage and it comes back edited. Open it, review it, fix only what matters.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-ff8a00)](./LICENSE)
 ![Status: under construction](https://img.shields.io/badge/status-under_construction-1a1a1a)
@@ -11,93 +13,103 @@
 
 </div>
 
-AKARI Video は AI エージェントが編集の主体になる動画編集ツールです。
-アプリは「編集する場所」ではなく「確認して直す場所」。素材を渡すと、分析・カット・テロップ・
-ナレーション・BGM までエージェントが組み上げ、人間は仕上がりを見て意図とのズレだけを直します。
+AKARI Video is a video editor where an AI agent does the editing.
+The app is not a place to edit — it is a place to review and fix. Give the agent your footage
+and it assembles everything from analysis and cuts to captions, narration, and BGM, while you
+look at the result and correct only where it drifts from your intent.
 
-> **意図は人、手は AI。**
+> **Intent is human. Hands are AI.**
 
-**Status: under construction** — シェルアプリは移行中（旧シェル実装は
-[akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri) に保存）。
-ヘッドレス経路（Claude Code + スキル）は今日から使えます。
+**Status: under construction** — the desktop shell is mid-migration (the previous shell
+implementation is preserved at [akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri)).
+The headless path (Claude Code + skills) is usable today.
 
-## なぜ作ったか
+## Why this exists
 
-動画編集を AI に「時短のため」に投げると、誰が作ったかわからない量産コンテンツが出てくる。
-かといって自分で全部やれば、カット・文字起こし・テロップ・整音で一日が終わる。
+Throw video editing at an AI "to save time" and you get mass-produced content nobody can call
+their own. Do it all yourself and cutting, transcription, captions, and audio cleanup eat the
+whole day.
 
-AKARI Video はその二択を壊すために作りました。
+AKARI Video was built to break that trade-off.
 
-- **人間の役割は 2 つだけ** — 何を作りたいかを伝えること。仕上がりが自分らしいかを確認すること。
-  それ以外（解析・カット判断・ドラフト・整形・検証）はエージェントが引き受ける
-- **確認と微修正が最短距離** — 開いたらほぼ終わっている。タイムラインをゼロから組む画面ではなく、
-  できあがった編集をレビューして、ドラッグと一言で直す画面
-- **あなたの判断が残る** — 承認ゲートと決定ログで「どこを人間が決めたか」が常に追跡できる
+- **Humans do exactly two things** — say what you want to make, and check that the result
+  feels like you. Everything else (analysis, cut decisions, drafting, formatting, verification)
+  is the agent's job
+- **Review-and-tweak is the shortest path** — the edit is nearly finished when you open it.
+  Not a screen for building a timeline from scratch, but a screen for reviewing a finished edit
+  and fixing it with a drag and a sentence
+- **Your decisions stay on record** — approval gates and decision logs keep "what the human
+  decided" traceable at all times
 
-## 仕組み — セーブデータがすべて
+## How it works — the save file is everything
 
-エージェントと人間は同じセーブデータ（ファイル契約）の上で協働します。
+The agent and the human collaborate on the same save data (file contracts).
 
 <p align="center">
-  <img src="./docs/assets/brand/concept-savedata.png" alt="エージェントと人間が同じ edit.json を読み書きし、そこからタイムラインが描画される図" width="760">
+  <img src="./docs/assets/brand/concept-savedata.png" alt="The agent and the human read and write the same edit.json, which renders into a timeline" width="760">
 </p>
 
-- **`edit.json` が編集の SSOT** — エージェントはツール呼び出しの積み重ねではなく、
-  セーブデータを直接読み書きする。速く、壊れず、diff で追える
-- **表現にプリセットはない** — 字幕・テロップ・図形・3D は AI が HTML/CSS/Three.js で自由に描く。
-  受け口は広いが、エンジンは合成だけ
-- **人間の操作もデータに着地する** — ドラッグや値の調整は `edit.json`・data 属性・CSS 変数に
-  書き戻される。人間と AI が同じファイル上で衝突しない
-- **headless-first** — UI がなくても Claude Code だけで企画から書き出しまで完結する。
-  アプリはあとから同じプロジェクトを開いて続きができる
+- **`edit.json` is the single source of truth** — instead of stacking tool calls, the agent
+  reads and writes the save data directly. Fast, robust, diffable
+- **No presets for expression** — captions, titles, shapes, and 3D are drawn freely by AI in
+  HTML/CSS/Three.js. The intake is wide open; the engine only does compositing
+- **Human actions land in data too** — drags and value tweaks are written back to `edit.json`,
+  data attributes, and CSS variables. Humans and AI share the same files without colliding
+- **Headless-first** — everything from planning to export works with Claude Code alone, no UI
+  required. The app can open the same project later and continue
 
-ワークフローは段階ごとにスキル化されています:
+The workflow is packaged as skills, one per stage:
 
 ```mermaid
 flowchart LR
-    A["企画<br/>research-plan"] --> B["素材分析<br/>analyze-footage"]
-    B --> C["編集計画<br/>edit-plan"]
-    C --> D["テロップ / ナレーション<br/>overlay-authoring<br/>generate-narration"]
-    D --> E["QA・レビュー<br/>edit-lint<br/>address-review"]
-    E --> F["書き出し<br/>render-cut"]
-    F --> G["素材化<br/>harvest-asset"]
-    G -.素材は次の企画へ.-> A
+    A["Plan<br/>research-plan"] --> B["Analyze footage<br/>analyze-footage"]
+    B --> C["Edit plan<br/>edit-plan"]
+    C --> D["Captions / Narration<br/>overlay-authoring<br/>generate-narration"]
+    D --> E["QA & Review<br/>edit-lint<br/>address-review"]
+    E --> F["Export<br/>render-cut"]
+    F --> G["Harvest assets<br/>harvest-asset"]
+    G -.assets feed the next plan.-> A
     classDef stage fill:#1a1a1a,stroke:#ff8a00,color:#ffffff
     class A,B,C,D,E,F,G stage
 ```
 
-## はじめる — 3 つの入口
+## Getting started — three entrances
 
-どの入口から始めても、同じファイル契約（`.akari/` 配下）に収束します。
-途中でやめても、別の入口から「続きから」再開できます。
+Whichever entrance you start from, everything converges on the same file contracts
+(under `.akari/`). Stop halfway and you can resume from any other entrance.
 
-| 入口 | 実体 | 発動方法 |
+| Entrance | What it is | How to launch |
 |---|---|---|
-| ターミナル | `packages/akari-launcher`（bin: `akari`） | `node packages/akari-launcher/bin/akari.mjs`（npm publish は未実施） |
-| Claude Code セッション内 | `plugin/` の `/akari` コマンド + SessionStart hook | セッション内で `/akari`、または「新しい動画プロジェクトを作りたい」と発話 |
-| アプリ | Theia ベースのデスクトップシェル | 「はじめる」画面の接続ボタンから |
+| Terminal | `packages/akari-launcher` (bin: `akari`) | `node packages/akari-launcher/bin/akari.mjs` (not yet published to npm) |
+| Inside a Claude Code session | `/akari` command + SessionStart hook in `plugin/` | Type `/akari` in a session, or just say "I want to start a new video project" |
+| Desktop app | Theia-based desktop shell | From the connect button on the Start screen |
 
-最初の一歩は [docs/getting-started.md](./docs/getting-started.md) へ。
+First steps: [docs/getting-started.md](./docs/getting-started.md).
 
-## ドキュメント
+## Documentation
 
-- **[Getting Started](./docs/getting-started.md)** — 最初のプロジェクトを作る
-- **[Guides](./docs/README.md#guides)** — 「素材を分析する」「編集計画を立てる」「書き出す」などタスク別ガイド
-- **[How-to](./docs/README.md#how-to)** — 接続と API キー・プロジェクト構成・続きから再開
-- **[Reference](./docs/README.md#reference)** — `edit.json` などファイル契約のスペック
-- 入口: [docs/README.md](./docs/README.md)
+- **[Introduction](./docs/introduction.md)** — philosophy and the big picture
+- **[Getting Started](./docs/getting-started.md)** — create your first project
+- **[Guides](./docs/README.md#guides)** — task-based guides: analyze footage, plan the edit, export, …
+- **[How-to](./docs/README.md#how-to)** — connections & API keys, project structure, resuming a session
+- **[Reference](./docs/README.md#reference)** — specs for file contracts such as `edit.json`
+- Entry point: [docs/README.md](./docs/README.md)
+
+> [!NOTE]
+> Docs beyond Introduction / Getting Started are currently Japanese-first — English versions
+> are in progress. Opening an issue for a page you need translated is welcome.
 
 ## Layout
 
-- `apps/shell/` — Theia ベースのデスクトップシェル
-- `packages/` — シェル非依存ライブラリ（schemas・プレビューエンジン・surface runtime・`akari-launcher`）
-- `plugin/` — Claude Code プラグインバンドル（スキルパック + SessionStart hook + `/akari`）
-- `skills/` — エージェント側ステージスキル（17 本）
-- `templates/` — プロジェクト scaffold
-- `catalog/` — キュレーション済みアドオンカタログ（参照配布のみ）
-- `docs/` — ユーザードキュメント + スペック契約
+- `apps/shell/` — Theia-based desktop shell
+- `packages/` — shell-independent libraries (schemas, preview engine, surface runtime, `akari-launcher`)
+- `plugin/` — Claude Code plugin bundle (skill pack + SessionStart hook + `/akari`)
+- `skills/` — agent-side stage skills (17 of them)
+- `templates/` — project scaffolds
+- `catalog/` — curated add-on catalog (reference-only distribution)
+- `docs/` — user docs + spec contracts
 
 ## License
 
-コードは [MIT License](./LICENSE)。`assets/` / `catalog/` 経由で扱う素材は
-それぞれの `meta.json` に記載されたライセンス表記に従います。
+The code is under the [MIT License](./LICENSE). Assets handled via `assets/` / `catalog/`
+follow the license notice in each item's `meta.json`.

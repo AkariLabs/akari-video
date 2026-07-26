@@ -1,96 +1,109 @@
-# Getting Started — 最初のプロジェクトを作る
+**English** | [日本語](./getting-started.ja.md)
 
-AKARI Video は UI がなくても Claude Code だけで完結します（headless-first）。
-この章では、入口の選び方から最初のプロジェクト作成、進め方フォームの記入までを説明します。
+# Getting Started — your first project
 
-## 前提
+AKARI Video is headless-first: everything works with Claude Code alone, no UI required.
+This page covers picking an entrance, creating your first project, and filling in the
+intake form.
 
-- macOS（Windows 対応は準備中 — [dev/windows-build.md](./dev/windows-build.md)）
+> [!NOTE]
+> The guides and how-tos linked from this page are currently Japanese-first —
+> English versions are in progress.
+
+## Prerequisites
+
+- macOS (Windows support is in progress — [dev/windows-build.md](./dev/windows-build.md))
 - [Claude Code](https://claude.com/claude-code)
-- ffmpeg・whisper.cpp などの CLI ツール類は、初回セットアップ時にスキルが確認・案内します
+- CLI tools such as ffmpeg and whisper.cpp are checked and guided through by the skills
+  on first setup
 
-## 入口を選ぶ
+## Pick an entrance
 
-3 つの入口はどれも同じファイル契約（`.akari/` 配下）に収束します。
-どこから始めても、続きは別の入口から再開できます。
+All three entrances converge on the same file contracts (under `.akari/`).
+Wherever you start, you can pick up the project again from any other entrance.
 
-### A. ターミナルから（`akari` コマンド）
+### A. From the terminal (the `akari` command)
 
 ```sh
-# モノレポ checkout 内から実行（npm publish は未実施）
+# run from inside the monorepo checkout (not yet published to npm)
 node packages/akari-launcher/bin/akari.mjs
 ```
 
-`akari` は次の順で動きます:
+`akari` runs in this order:
 
-1. カレントディレクトリがプロジェクトかどうか診断（`.akari/connections.json` の有無）
-2. 未セットアップなら日本語で案内し、プロジェクトの雛形を作成
-3. 接続状態（生成プロバイダ・API キー）を確認して表示
-4. 最後に `claude` を起動 — 以降はセッション内で会話しながら進める
-   （引数はそのまま `claude` へ渡ります。例: `akari --continue`）
+1. Diagnoses whether the current directory is a project (presence of `.akari/connections.json`)
+2. If not set up yet, walks you through scaffolding a project (prompts are currently in Japanese)
+3. Checks and displays connection status (generation providers, API keys)
+4. Finally launches `claude` — from there you continue conversationally inside the session
+   (arguments are forwarded to `claude` as-is, e.g. `akari --continue`)
 
-### B. Claude Code セッション内から
+### B. From inside a Claude Code session
 
-すでに Claude Code を使っているなら、入口はこちらが自然です。
+If you already use Claude Code, this is the natural entrance.
 
-- **`/akari`** — カレントの状態を診断して、次の一手を案内するスラッシュコマンド
-- **発話** — 「新しい動画プロジェクトを作りたい」「このフォルダを AKARI プロジェクトにして」
-  で `create-project` スキルが発動
+- **`/akari`** — a slash command that diagnoses the current state and suggests the next step
+- **Just say it** — "I want to start a new video project" or "turn this folder into an
+  AKARI project" triggers the `create-project` skill
 
-プラグイン（`plugin/`）を有効化しておくと、プロジェクトのディレクトリでセッションを
-開くだけで状態が自動で読み込まれ、「続きから」が案内されます（SessionStart hook）。
+With the plugin (`plugin/`) enabled, opening a session in a project directory loads its
+state automatically and offers to continue where you left off (SessionStart hook).
 
-### C. アプリから
+### C. From the app
 
-Theia ベースのデスクトップシェル（`apps/shell/`、移行中）の「はじめる」画面から接続します。
-アプリはエージェントが作った編集を**確認して直す場所**なので、
-最初の一歩はターミナルかセッション内から始めるのが現在の推奨です。
+Connect from the Start screen of the Theia-based desktop shell (`apps/shell/`, mid-migration).
+The app is a place to review and fix what the agent built, so starting from the terminal
+or a session is the current recommendation for your first step.
 
-## プロジェクトを作る
+## Create a project
 
-`create-project` スキルがテンプレートから一式を作ります:
+The `create-project` skill scaffolds everything from a template:
 
 ```
 my-video/
 ├── .akari/
-│   ├── intake.json        ← 進め方フォーム（最初に記入する）
-│   ├── connections.json   ← 接続レジストリ（API キー参照・モデル選択）
-│   ├── workflow.json      ← プロジェクトのロール定義
-│   └── events/            ← 節目の記録（「続きから」の合図）
-├── assets/                ← 素材置き場
-├── planning/              ← 企画・計画文書
-└── exports/               ← 書き出し先
+│   ├── intake.json        ← intake form (fill this in first)
+│   ├── connections.json   ← connection registry (API key references, model choices)
+│   ├── workflow.json      ← role definitions for the project
+│   └── events/            ← milestone records (the "resume from here" signal)
+├── assets/                ← source material
+├── planning/              ← plans and planning documents
+└── exports/               ← render output
 ```
 
-## 進め方フォーム（intake.json）を埋める
+## Fill in the intake form (intake.json)
 
-プロジェクト作成直後の `.akari/intake.json` は `status: draft` です。
-3 つの質問に答えて `submitted` にすると、エージェントが動き出せます。
+Right after project creation, `.akari/intake.json` is `status: draft`.
+Answer three questions and set it to `submitted`, and the agent can start working.
 
-| 項目 | 意味 | 例 |
+| Field | Meaning | Example |
 |---|---|---|
-| `tasks` | やること | 「撮影素材からショート動画を 1 本」 |
-| `target` | 尺・出力先 | 「60 秒・縦型」 |
-| `autonomy` | おまかせ度 | `full-auto` / `checkpoint`（既定・節目で承認）/ `collaborative` |
+| `tasks` | What to make | "One short video from this footage" |
+| `target` | Duration & destination | "60 seconds, vertical" |
+| `autonomy` | How much to delegate | `full-auto` / `checkpoint` (default — approve at milestones) / `collaborative` |
 
-フォームはチャットで埋められます。「進め方フォームを埋めたい」と言えば、
-エージェントが質問しながら記入します。
+You can fill the form in chat: say "let's fill in the intake form" and the agent asks
+the questions and records your answers.
 
-## 接続を設定する（必要になったときで OK）
+## Set up connections (only when you need them)
 
-文字起こしのクラウド利用・ナレーション生成・素材生成など、
-**外部 API を使う段になったら** `manage-connections` スキルで設定します。
-ローカル完結の範囲（プロキシ生成・whisper.cpp 文字起こし・編集・書き出し）なら接続なしで使えます。
+Once you reach the point of using external APIs — cloud transcription, narration
+generation, asset generation — configure them with the `manage-connections` skill.
+Everything local (proxy generation, whisper.cpp transcription, editing, export) works
+with no connections at all.
 
-詳細: [How-to: 接続と API キー](./how-to/connections.md)
+Details: [How-to: Connections & API keys](./how-to/connections.md) (Japanese)
 
-## 最初のフロー例
+## A first flow
 
-撮影済み素材が 1 本ある場合:
+If you already have one piece of footage:
 
-1. 素材をプロジェクトに置き、「この動画を分析して」 → [素材を分析する](./guides/analyze-footage.md)
-2. 「編集方針を立てて」 → 分析レポートを見て方針に OK → [編集計画を立てる](./guides/plan-your-edit.md)
-3. エージェントが `edit.json`・テロップ・字幕を組み上げる
-4. 「書き出して」 → lint PASS → 承認 → `exports/` に MP4 → [書き出す](./guides/export.md)
+1. Put it in the project and say "analyze this video" →
+   [Analyze footage](./guides/analyze-footage.md) (Japanese)
+2. "Draft an editing direction" → review the analysis report and approve the direction →
+   [Plan your edit](./guides/plan-your-edit.md) (Japanese)
+3. The agent assembles `edit.json`, titles, and captions
+4. "Export it" → lint PASS → approve → MP4 lands in `exports/` →
+   [Export](./guides/export.md) (Japanese)
 
-素材がまだ無い場合は、企画から始められます → [ゼロから企画する](./guides/plan-from-scratch.md)
+No footage yet? Start from planning →
+[Plan from scratch](./guides/plan-from-scratch.md) (Japanese)

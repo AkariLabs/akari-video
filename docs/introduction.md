@@ -1,100 +1,107 @@
-# Introduction — AKARI Video とは
+**English** | [日本語](./introduction.ja.md)
 
-AKARI Video は、**AI エージェントが編集の主体になる**動画編集ツールです。
+# Introduction — what is AKARI Video?
 
-素材を渡すと、エージェントが分析・カット判断・テロップ・ナレーション・BGM を組み上げます。
-人間の役割は 2 つだけ — **何を作りたいかを伝えること**と、**仕上がりが意図どおりかを確認すること**。
-アプリは「編集する場所」ではなく「確認して直す場所」です。
+AKARI Video is a video editor where **an AI agent is the one doing the editing**.
 
-## 3 つの原則
+Hand over your footage and the agent assembles the edit — analysis, cut decisions, titles
+and captions, narration, BGM. The human does exactly two things: **say what you want to
+make**, and **check that the result matches your intent**. The app is not a place to edit;
+it is a place to review and fix.
 
-### 1. 開いたらほぼ終わっている
+## Three principles
 
-タイムラインをゼロから組む画面は用意しません。エージェントが仕上げた編集を開き、
-気になるところだけドラッグと一言で直す。調整の 9 割はタイミングと配置なので、
-それはデータ（`data-start` / `data-duration` / CSS 変数）の操作で完結します。
+### 1. Nearly finished when you open it
 
-### 2. セーブデータがすべて（SSOT）
+There is no screen for building a timeline from scratch. You open an edit the agent has
+already finished and fix only what bothers you, with a drag and a sentence. Ninety percent
+of adjustments are timing and placement, and those complete as data operations
+(`data-start` / `data-duration` / CSS variables).
 
-編集状態の正本は `edit.json` とオーバーレイ HTML 断片です。
+### 2. The save file is everything (SSOT)
 
-- エージェントはツール呼び出しの積み重ねではなく、**セーブデータを直接読み書き**する。
-  速く、壊れず、git diff で追える
-- 人間の操作（ドラッグ・値変更・テキスト編集）も必ず同じデータに書き戻される。
-  人間と AI が同じファイル上で衝突しない
-- どの入口（ターミナル / Claude Code セッション / アプリ)から触っても、同じファイル契約に収束する
+The canonical edit state is `edit.json` plus overlay HTML fragments.
 
-### 3. 表現にプリセットはない
+- The agent does not stack tool calls — it **reads and writes the save data directly**.
+  Fast, robust, traceable with git diff
+- Human actions (drags, value changes, text edits) are always written back to the same
+  data. Humans and AI share the same files without colliding
+- Whichever entrance you touch it from (terminal / Claude Code session / app), everything
+  converges on the same file contracts
 
-字幕・テロップ・図形・3D は、AI が HTML/CSS/Three.js で自由に描きます。
-テンプレートの組み合わせではないので、表現の受け口は事実上無限。
-そのかわりエンジン側の仕事は「時刻同期と合成」だけに絞ってあります。
+### 3. No presets for expression
 
-エージェントは調整可能な値を **CSS 変数として宣言する**規約で書くため、
-ビューワーはその変数を発見してスライダーやカラーピッカーを自動生成できます。
-「AI が自由に描く」と「人間が GUI で微調整できる」は両立します。
+Captions, titles, shapes, and 3D are drawn freely by AI in HTML/CSS/Three.js.
+It is not a combination of templates, so the range of expression is effectively
+unlimited. In exchange, the engine's job is narrowed down to time sync and compositing.
 
-## アーキテクチャ概観 — サンドイッチ 3 層 + 手
+Agents follow a convention of **declaring adjustable values as CSS variables**, so the
+viewer can discover those variables and auto-generate sliders and color pickers.
+"AI draws freely" and "humans fine-tune in a GUI" coexist.
+
+## Architecture at a glance — a three-layer sandwich, plus hands
 
 ```
 ┌─────────────────────────────────────────────┐
-│ 表現プレーン（Web）                           │ ← 字幕・テロップ・図形・3D
-│  HTML/CSS/SVG/Three.js、時刻同期              │    AI が書き、人間が触れる
+│ Expression plane (Web)                      │ ← captions, titles, shapes, 3D
+│  HTML/CSS/SVG/Three.js, time-synced         │    written by AI, touchable by humans
 ├─────────────────────────────────────────────┤
-│ 映像プレーン（ネイティブ）                     │ ← カットリストのギャップレス再生
-│  サンプル精度同期・HW デコード                 │
+│ Video plane (native)                        │ ← gapless playback of the cut list
+│  sample-accurate sync, HW decode            │
 ├─────────────────────────────────────────────┤
-│ 手（CLI）                                     │ ← ffmpeg / whisper.cpp /
-│  カット・プロキシ・エンコード・書き出し          │    HyperFrames / 生成系 API
+│ Hands (CLI)                                 │ ← ffmpeg / whisper.cpp /
+│  cuts, proxies, encode, export              │    HyperFrames / generation APIs
 └─────────────────────────────────────────────┘
 ```
 
-- **映像はネイティブに任せる** — カット境界のヒッチなし・4K HW デコード
-- **表現は Web に寄せる** — LLM が最も得意な言語（HTML/CSS/Three.js）で描くから、プリセット不要
-- **書き出しはフレーム正確** — プレビューはライブ DOM で即時、書き出しは同一 HTML を
-  フレーム毎キャプチャで通すことで WYSIWYG を保証
+- **Leave video to native code** — no hitches at cut boundaries, 4K hardware decode
+- **Push expression to the Web** — AI draws in the languages LLMs are best at
+  (HTML/CSS/Three.js), so no presets are needed
+- **Export is frame-accurate** — preview is a live DOM for immediacy; export runs the
+  same HTML through per-frame capture, guaranteeing WYSIWYG
 
-設計の全体像と根拠は
+For the full design and rationale, see
 [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md)
-を参照してください。
+(Japanese).
 
-## ワークフロー — ステージとスキル
+## Workflow — stages and skills
 
-制作の各段階はスキルとして独立しており、必要なところから使えます。
+Each stage of production is an independent skill, usable from wherever you need it.
 
 ```
-[企画]         research-plan       ネタ出し → 調査 → 企画書 → 絵コンテ → 撮影リスト
+[Plan]         research-plan       ideas → research → brief → storyboard → shot list
    ↓
-[素材分析]     analyze-footage     1 本ごとにプロキシ・文字起こし・キーフレーム抽出
-               analyze-project     複数素材を読み合わせて解釈レポート
+[Analyze]      analyze-footage     per-clip proxies, transcription, keyframe extraction
+               analyze-project     cross-reads multiple clips into an interpretation report
    ↓
-[編集計画]     edit-plan           方針 → 素材計画 → 実行の 3 段階承認で edit.json へ
-               overlay-authoring   テロップ・字幕・図表・3D・サムネイル
-               generate-narration  ナレーション生成（ローカル無償 / 声クローン）
+[Edit plan]    edit-plan           direction → asset plan → execution: three approval
+                                   steps into edit.json
+               overlay-authoring   titles, captions, figures, 3D, thumbnails
+               generate-narration  narration (free local / voice clone)
    ↓
-[QA・レビュー] edit-lint           決定的 CLI 検査 + フレーム視認
-               compile-review-session / address-review   口頭レビュー → チケット → 対応
+[QA & review]  edit-lint           deterministic CLI checks + frame inspection
+               compile-review-session / address-review   spoken review → tickets → fixes
    ↓
-[書き出し]     render-cut          計画 → 承認 → レンダリング → 検証
+[Export]       render-cut          plan → approval → render → verify
    ↓
-[素材化]       harvest-asset / bake-3d   成果物をライブラリへ入庫・3D ベイク
+[Harvest]      harvest-asset / bake-3d   store deliverables in the library, bake 3D
 ```
 
-各ステージの節目は `.akari/events/` に 1 件ずつ記録され、次にセッションを開いたとき
-「続きから」が自動で案内されます。
+Each stage milestone is recorded in `.akari/events/`, one entry at a time, and the next
+session you open offers to continue from where you left off.
 
-## 人間の確認ポイント（承認ゲート）
+## Human checkpoints (approval gates)
 
-全自動にはしません。既定では次の節目で人間の承認を挟みます:
+It is not fully automatic. By default, human approval is required at these milestones:
 
-1. **編集方針の承認** — 分析レポートを見て、方向性に OK を出す
-2. **書き出しの承認** — lint PASS を確認して、レンダリングに OK を出す
+1. **Approve the editing direction** — look at the analysis report and OK the direction
+2. **Approve the export** — confirm lint PASS and OK the render
 
-おまかせ度（`.akari/intake.json` の `autonomy`）は full-auto / checkpoint（既定）/
-collaborative から選べます。
+The delegation level (`autonomy` in `.akari/intake.json`) can be `full-auto` /
+`checkpoint` (default) / `collaborative`.
 
-## 次に読む
+## Read next
 
-- はじめて使う → [Getting Started](./getting-started.md)
-- タスク別の使い方 → [Guides](./README.md#guides)
-- ファイル契約のスペック → [Reference](./README.md#reference)
+- First time here → [Getting Started](./getting-started.md)
+- Task-based usage → [Guides](./README.md#guides) (Japanese)
+- File contract specs → [Reference](./README.md#reference) (Japanese)

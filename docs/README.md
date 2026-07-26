@@ -2,8 +2,10 @@
 
 **動画を投げるだけで、いい感じに編集されている。開いて確認して、直したいところだけ直す。**
 
-- はじめての人 → [Introduction](./introduction.md)（思想と全体像）→
-  [Getting Started](./getting-started.md)（最初のプロジェクト）
+- English readers → [README](../README.md) / [Introduction](./introduction.md) /
+  [Getting Started](./getting-started.md)（それ以外のドキュメントは日本語のみ・英訳進行中）
+- はじめての人 → [Introduction](./introduction.ja.md)（思想と全体像）→
+  [Getting Started](./getting-started.ja.md)（最初のプロジェクト）
 - やりたいことがある人 → [Guides](#guides)
 - 仕組み・運用を知りたい人 → [How-to](#how-to)
 - スキーマ・契約を確認したい人 → [Reference](#reference)
@@ -12,8 +14,8 @@
 
 | ページ | 内容 |
 |---|---|
-| [Introduction](./introduction.md) | AKARI Video とは — 3 つの原則・アーキテクチャ概観・ワークフロー |
-| [Getting Started](./getting-started.md) | 3 つの入口・最初のプロジェクト作成・進め方フォーム |
+| [Introduction](./introduction.ja.md) | AKARI Video とは — 3 つの原則・アーキテクチャ概観・ワークフロー（[English](./introduction.md)） |
+| [Getting Started](./getting-started.ja.md) | 3 つの入口・最初のプロジェクト作成・進め方フォーム（[English](./getting-started.md)） |
 
 ## Guides
 
