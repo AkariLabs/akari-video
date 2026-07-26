@@ -47,6 +47,7 @@ import {
     InspectorWriteRequest,
     InspectorWriteResult,
     LivePreviewRequest,
+    TimelineItemSelectionSnapshot,
     TimelineSelectionModel
 } from './timeline-selection-model';
 
@@ -1730,77 +1731,117 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 case 'caption-style-bg-color':
                 case 'caption-style-bg-opacity':
                 case 'caption-style-bg-radius':
+                case 'caption-style-bg-mode':
                 case 'caption-style-zone': {
                     const captionsUri = location.captionsUri.toString();
                     const projectRootUri = location.root.toString();
-                    const caption = this.captions.find(candidate => candidate.id === request.id);
-                    if (!caption) {
-                        throw new Error(`字幕 ${request.id} が見つかりません。`);
-                    }
                     let nextStyle: CaptionTextStylePatch;
-                    let originalStyle: CaptionTextStylePatch;
                     switch (request.kind) {
                         case 'caption-style-color':
                             nextStyle = { color: request.value };
-                            originalStyle = { color: caption.textStyle?.color ?? null };
                             break;
                         case 'caption-style-size':
                             nextStyle = { sizePx: request.value };
-                            originalStyle = { sizePx: caption.textStyle?.sizePx ?? null };
                             break;
                         case 'caption-style-stroke-color':
                             nextStyle = { stroke: { color: request.value } };
-                            originalStyle = { stroke: { color: caption.textStyle?.stroke?.color ?? null } };
                             break;
                         case 'caption-style-stroke-width':
                             nextStyle = { stroke: { widthPx: request.value } };
-                            originalStyle = { stroke: { widthPx: caption.textStyle?.stroke?.widthPx ?? null } };
                             break;
                         case 'caption-style-bg-color':
                             nextStyle = { background: { color: request.value } };
-                            originalStyle = { background: { color: caption.textStyle?.background?.color ?? null } };
                             break;
                         case 'caption-style-bg-opacity':
                             nextStyle = { background: { opacity: request.value } };
-                            originalStyle = {
-                                background: { opacity: caption.textStyle?.background?.opacity ?? null }
-                            };
                             break;
                         case 'caption-style-bg-radius':
                             nextStyle = { background: { radiusPx: request.value } };
-                            originalStyle = {
-                                background: { radiusPx: caption.textStyle?.background?.radiusPx ?? null }
-                            };
+                            break;
+                        case 'caption-style-bg-mode':
+                            nextStyle = { background: { mode: request.value } };
                             break;
                         case 'caption-style-zone':
                             nextStyle = { zone: request.value };
-                            originalStyle = { zone: caption.textStyle?.zone ?? null };
                             break;
                     }
-                    await this.annotationsService.setCaptionTextStyle({
-                        captionsUri,
-                        projectRootUri,
-                        captionId: request.id,
-                        textStyle: nextStyle
+                    const targetIds = request.targets
+                        ? request.targets.flatMap(target => target.kind === 'caption' ? [target.id] : [])
+                        : [request.id];
+                    if (request.targets && targetIds.length !== request.targets.length) {
+                        throw new Error('字幕スタイルの一括編集対象に字幕以外が含まれています。');
+                    }
+                    const uniqueTargetIds = [...new Set(targetIds)];
+                    const captions = uniqueTargetIds.map(id => {
+                        const caption = this.captions.find(candidate => candidate.id === id);
+                        if (!caption) {
+                            throw new Error(`字幕 ${id} が見つかりません。`);
+                        }
+                        return caption;
                     });
+                    const originalStyles = captions.map(caption => {
+                        let originalStyle: CaptionTextStylePatch;
+                        switch (request.kind) {
+                            case 'caption-style-color':
+                                originalStyle = { color: caption.textStyle?.color ?? null };
+                                break;
+                            case 'caption-style-size':
+                                originalStyle = { sizePx: caption.textStyle?.sizePx ?? null };
+                                break;
+                            case 'caption-style-stroke-color':
+                                originalStyle = { stroke: { color: caption.textStyle?.stroke?.color ?? null } };
+                                break;
+                            case 'caption-style-stroke-width':
+                                originalStyle = { stroke: { widthPx: caption.textStyle?.stroke?.widthPx ?? null } };
+                                break;
+                            case 'caption-style-bg-color':
+                                originalStyle = {
+                                    background: { color: caption.textStyle?.background?.color ?? null }
+                                };
+                                break;
+                            case 'caption-style-bg-opacity':
+                                originalStyle = {
+                                    background: { opacity: caption.textStyle?.background?.opacity ?? null }
+                                };
+                                break;
+                            case 'caption-style-bg-radius':
+                                originalStyle = {
+                                    background: { radiusPx: caption.textStyle?.background?.radiusPx ?? null }
+                                };
+                                break;
+                            case 'caption-style-bg-mode':
+                                originalStyle = {
+                                    background: { mode: caption.textStyle?.background?.mode ?? null }
+                                };
+                                break;
+                            case 'caption-style-zone':
+                                originalStyle = { zone: caption.textStyle?.zone ?? null };
+                                break;
+                        }
+                        return { id: caption.id, style: originalStyle };
+                    });
+                    const applyStyles = async (
+                        styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>
+                    ): Promise<void> => {
+                        for (const entry of styles) {
+                            await this.annotationsService.setCaptionTextStyle({
+                                captionsUri,
+                                projectRootUri,
+                                captionId: entry.id,
+                                textStyle: entry.style
+                            });
+                        }
+                    };
+                    const nextStyles = captions.map(caption => ({ id: caption.id, style: nextStyle }));
+                    await applyStyles(nextStyles);
                     this.pushHistory({
                         label: '字幕のスタイルを変更',
                         undo: async () => {
-                            await this.annotationsService.setCaptionTextStyle({
-                                captionsUri,
-                                projectRootUri,
-                                captionId: request.id,
-                                textStyle: originalStyle
-                            });
+                            await applyStyles(originalStyles);
                             await this.reloadCaptions();
                         },
                         redo: async () => {
-                            await this.annotationsService.setCaptionTextStyle({
-                                captionsUri,
-                                projectRootUri,
-                                captionId: request.id,
-                                textStyle: nextStyle
-                            });
+                            await applyStyles(nextStyles);
                             await this.reloadCaptions();
                         }
                     });
@@ -2018,7 +2059,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
         if (this.multiSelection.length > 0) {
-            this.selectionModel.snapshot = { kind: 'multi', count: this.multiSelection.length };
+            const items = this.multiSelection.flatMap(selection => {
+                const snapshot = this.snapshotForSelection(selection);
+                return snapshot ? [snapshot] : [];
+            });
+            this.multiSelection = items.map(item => item.kind === 'cut'
+                ? { kind: 'cut', index: item.index }
+                : { kind: item.kind, id: item.id } as TimelineSelectionItem);
+            this.selectionModel.snapshot = items.length > 0
+                ? { kind: 'multi', count: items.length, items }
+                : undefined;
+            this.selectionModel.fps = this.fps;
             return;
         }
         const selection = this.selection;
@@ -2026,15 +2077,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selectionModel.snapshot = undefined;
             return;
         }
+        const snapshot = this.snapshotForSelection(selection);
+        if (!snapshot) {
+            this.selection = undefined;
+            this.selectionModel.snapshot = undefined;
+            return;
+        }
+        this.selectionModel.snapshot = snapshot;
+        this.selectionModel.fps = this.fps;
+    }
+
+    /**
+     * kind ごとの現在値を同じ snapshot 器へ解決する。multi はこの配列をそのまま運び、
+     * inspector 側が今回対応する caption だけを一括編集へ配線する。
+     */
+    protected snapshotForSelection(selection: TimelineSelectionItem): TimelineItemSelectionSnapshot | undefined {
         if (selection.kind === 'cut') {
             const segment = this.segments[selection.index];
             const cut = this.cuts[selection.index];
             if (!segment || !cut) {
-                this.selection = undefined;
-                this.selectionModel.snapshot = undefined;
-                return;
+                return undefined;
             }
-            this.selectionModel.snapshot = {
+            return {
                 kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
                 sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
                 outputStart: segment.tlStart, outputEnd: segment.tlEnd,
@@ -2048,29 +2112,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
                 ...(cut.track !== undefined ? { track: cut.track } : {})
             };
-        } else if (selection.kind === 'overlay') {
+        }
+        if (selection.kind === 'overlay') {
             const overlay = this.overlays.find(candidate => candidate.id === selection.id);
             if (!overlay) {
-                this.selection = undefined;
-                this.selectionModel.snapshot = undefined;
-                return;
+                return undefined;
             }
             const track = Object.prototype.hasOwnProperty.call(overlay.payload, 'track') ? overlay.track : undefined;
-            this.selectionModel.snapshot = {
+            return {
                 kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
                 ...(track !== undefined ? { track } : {}),
                 payload: overlay.payload
             };
-        } else if (selection.kind === 'caption') {
+        }
+        if (selection.kind === 'caption') {
             const caption = this.captions.find(candidate => candidate.id === selection.id);
             if (!caption) {
-                this.selection = undefined;
-                this.selectionModel.snapshot = undefined;
-                return;
+                return undefined;
             }
             const ranges = this.sourceRangeToOutputRanges(caption.start, caption.end);
             const effectiveTextStyle = mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle);
-            this.selectionModel.snapshot = {
+            return {
                 kind: 'caption', id: caption.id, text: caption.text,
                 sourceStart: caption.start, sourceEnd: caption.end,
                 outputStart: ranges.length > 0 ? ranges[0][0] : undefined,
@@ -2079,14 +2141,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(caption.textStyle !== undefined ? { textStyle: caption.textStyle } : {}),
                 ...(effectiveTextStyle !== undefined ? { effectiveTextStyle } : {})
             };
-        } else if (selection.kind === 'layer') {
+        }
+        if (selection.kind === 'layer') {
             const layer = this.layers.find(candidate => candidate.id === selection.id);
             if (!layer) {
-                this.selection = undefined;
-                this.selectionModel.snapshot = undefined;
-                return;
+                return undefined;
             }
-            this.selectionModel.snapshot = {
+            return {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
                 outputStart: layer.t, duration: layer.duration, src: layer.src,
                 ...(layer.preset !== undefined ? { preset: layer.preset } : {}),
@@ -2096,30 +2157,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(layer.chromaKey !== undefined ? { chromaKey: layer.chromaKey } : {}),
                 ...(layer.track !== undefined ? { track: layer.track } : {})
             };
-        } else {
-            const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
-            if (sfx) {
-                this.selectionModel.snapshot = {
-                    kind: 'audio', id: sfx.id, audioKind: 'sfx', label: this.pathBaseName(sfx.path),
-                    outputStart: sfx.t, duration: sfx.duration,
-                    ...(sfx.gainDb !== undefined ? { gainDb: sfx.gainDb } : {})
-                };
-            } else if (selection.id === 'bgm' && this.audioBgm) {
-                this.selectionModel.snapshot = {
-                    kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
-                    outputStart: 0, duration: this.totalDuration(),
-                    ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
-                    ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
-                    ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
-                    ...(this.audioBgm.ducking !== undefined ? { ducking: this.audioBgm.ducking } : {})
-                };
-            } else {
-                this.selection = undefined;
-                this.selectionModel.snapshot = undefined;
-                return;
-            }
         }
-        this.selectionModel.fps = this.fps;
+        const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
+        if (sfx) {
+            return {
+                kind: 'audio', id: sfx.id, audioKind: 'sfx', label: this.pathBaseName(sfx.path),
+                outputStart: sfx.t, duration: sfx.duration,
+                ...(sfx.gainDb !== undefined ? { gainDb: sfx.gainDb } : {})
+            };
+        }
+        if (selection.id === 'bgm' && this.audioBgm) {
+            return {
+                kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
+                outputStart: 0, duration: this.totalDuration(),
+                ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
+                ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
+                ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
+                ...(this.audioBgm.ducking !== undefined ? { ducking: this.audioBgm.ducking } : {})
+            };
+        }
+        return undefined;
     }
 
     protected sourceBaseName(): string {

@@ -248,7 +248,7 @@ function validateTextBackgroundStyle(value, label) {
     fail(`${label} は object である必要があります`);
     return;
   }
-  const allowedKeys = new Set(["color", "opacity", "radius_px"]);
+  const allowedKeys = new Set(["color", "opacity", "radius_px", "mode"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
   }
@@ -261,6 +261,9 @@ function validateTextBackgroundStyle(value, label) {
   }
   if (hasOwn(value, "radius_px") && (!isFiniteNumber(value.radius_px) || value.radius_px < 0)) {
     fail(`${label}.radius_px は 0 以上の有限数である必要があります`);
+  }
+  if (hasOwn(value, "mode") && value.mode !== "per-line" && value.mode !== "block") {
+    fail(`${label}.mode は per-line または block である必要があります`);
   }
 }
 

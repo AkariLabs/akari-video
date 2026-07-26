@@ -289,6 +289,7 @@ test("captions-text-style-record-override-valid accepts root defaults and record
 
 for (const [fixture, message] of [
   ["captions-text-style-opacity-out-of-range-invalid", /opacity/],
+  ["captions-text-style-background-mode-invalid", /mode/],
   ["captions-text-style-zone-invalid", /zone/],
   ["captions-text-style-color-non-hex-invalid", /color/],
 ]) {

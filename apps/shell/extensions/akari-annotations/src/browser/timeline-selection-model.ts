@@ -1,6 +1,6 @@
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
-import type { CaptionTextStyle, CaptionZone } from '../common/caption-store';
+import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
 
 export interface TimelineCutSelection {
     kind: 'cut';
@@ -75,16 +75,30 @@ export interface TimelineAudioSelection {
     ducking?: boolean;
 }
 
-export type TimelineSelectionSnapshot =
+export type TimelineItemSelectionSnapshot =
     | TimelineCutSelection
     | TimelineOverlaySelection
     | TimelineCaptionSelection
     | TimelineLayerSelection
-    | TimelineAudioSelection
-    | { kind: 'multi'; count: number }
+    | TimelineAudioSelection;
+
+export interface TimelineMultiSelectionSnapshot {
+    kind: 'multi';
+    count: number;
+    /** kind 非依存の選択実体。今回の一括 write 配線は caption のみ。 */
+    items: TimelineItemSelectionSnapshot[];
+}
+
+export type TimelineSelectionTarget =
+    | { kind: 'cut'; index: number }
+    | { kind: Exclude<TimelineItemSelectionSnapshot['kind'], 'cut'>; id: string };
+
+export type TimelineSelectionSnapshot =
+    | TimelineItemSelectionSnapshot
+    | TimelineMultiSelectionSnapshot
     | undefined;
 
-export type InspectorWriteRequest =
+type InspectorWriteOperation =
     | { kind: 'cut-speed'; index: number; value: number | null }
     | { kind: 'cut-transform-x'; index: number; value: number | null }
     | { kind: 'cut-transform-y'; index: number; value: number | null }
@@ -108,6 +122,7 @@ export type InspectorWriteRequest =
     | { kind: 'caption-style-bg-color'; id: string; value: string }
     | { kind: 'caption-style-bg-opacity'; id: string; value: number }
     | { kind: 'caption-style-bg-radius'; id: string; value: number }
+    | { kind: 'caption-style-bg-mode'; id: string; value: CaptionBackgroundMode }
     | { kind: 'caption-style-zone'; id: string; value: CaptionZone }
     | { kind: 'sfx-gain'; id: string; value: number | null }
     | { kind: 'bgm-gain'; value: number | null }
@@ -115,6 +130,14 @@ export type InspectorWriteRequest =
     | { kind: 'bgm-fade-out'; value: number | null }
     | { kind: 'bgm-ducking'; value: boolean | null }
     | { kind: 'overlay-var'; id: string; name: string; value: string };
+
+/**
+ * targets は複数選択の kind 非依存な一括 write 器。未指定なら各 operation の id/index が対象。
+ * 現時点で複数 targets を消費するのは caption-style operation だけ。
+ */
+export type InspectorWriteRequest = InspectorWriteOperation & {
+    targets?: readonly TimelineSelectionTarget[];
+};
 
 export interface InspectorWriteResult {
     ok: boolean;

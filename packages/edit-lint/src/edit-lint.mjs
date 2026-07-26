@@ -2206,7 +2206,7 @@ function validateCaptionBackgroundStyle(value, label, findings, path) {
     captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
     return;
   }
-  const allowed = ["color", "opacity", "radius_px"];
+  const allowed = ["color", "opacity", "radius_px", "mode"];
   for (const field of Object.keys(value)) {
     if (!allowed.includes(field)) {
       captionFinding(
@@ -2239,6 +2239,18 @@ function validateCaptionBackgroundStyle(value, label, findings, path) {
       findings,
       "captions.text-style",
       `${label}.radius_px must be a non-negative finite number`,
+      path,
+    );
+  }
+  if (
+    Object.hasOwn(value, "mode")
+    && value.mode !== "per-line"
+    && value.mode !== "block"
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.mode must be either per-line or block`,
       path,
     );
   }

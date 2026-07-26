@@ -4,7 +4,8 @@
     "size_px": 56,
     "background": {
       "color": "#000000",
-      "opacity": 0.65
+      "opacity": 0.65,
+      "mode": "block"
     },
     "zone": "bottom"
   },

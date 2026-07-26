@@ -31,6 +31,7 @@ for (const example of [
 
 for (const [example, message] of [
   ["captions-text-style-opacity-out-of-range-invalid", /background\.opacity/],
+  ["captions-text-style-background-mode-invalid", /background\.mode/],
   ["captions-text-style-zone-invalid", /\.zone/],
   ["captions-text-style-size-non-positive-invalid", /\.size_px/],
   ["captions-text-style-color-non-hex-invalid", /\.color/],
