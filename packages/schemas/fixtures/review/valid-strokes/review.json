@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-07-26T11:00:00.000Z","src":null,"sourceT":12.0,"sourceRange":null,"timelineT":null,"target":"cut:0","targetKind":null,"region":null,"strokes":[{"tool":"pen","space":"content-rect","frame":{"sourceT":12.0,"cutIndex":0},"points":[[0.42,0.31],[0.5,0.5]],"sessionRef":"s-0001/st-0001"}],"refs":null,"insertPosition":null,"intent":null,"text":"ここら辺まで字幕が欲しい","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0002","createdAt":"2026-07-26T11:01:00.000Z","src":null,"sourceT":null,"sourceRange":null,"timelineT":null,"target":"image:assets/thumbnails/candidate-2.png","targetKind":null,"region":null,"strokes":[{"tool":"pen","space":"image-rect","points":[[0.3,0.2],[0.4,0.3],[0.5,0.5]]}],"refs":null,"insertPosition":null,"intent":null,"text":"ここの余白が気になる","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+    , {"id":"a-0003","createdAt":"2026-07-26T11:02:00.000Z","src":null,"sourceT":null,"sourceRange":null,"timelineT":null,"target":"image:assets/thumbnails/candidate-3.png","targetKind":null,"region":null,"strokes":[{"tool":"pen","space":"image-rect","points":[[0.1,0.1],[0.2,0.2]],"sessionRef":"s-0002/st-0004"}],"refs":null,"insertPosition":null,"intent":null,"text":"","input":"typed","audio":null,"poses":null,"status":"open","response":null}
+  ]
+}

@@ -29,6 +29,9 @@ const warnings = [];
 const TARGET_KINDS = new Set(["instant", "range", "region", "asset", "insert"]);
 const STATUSES = new Set(["open", "addressed", "resolved"]);
 const INPUTS = new Set(["typed", "voice"]);
+// review セッション契約 §4.2 で確定した annotation 着地型。space により frame / sessionRef の
+// 要否が変わる（content-rect = 動画面・録音セッション由来のみ / image-rect = 画像面・単発注釈可）。
+const STROKE_SPACES = new Set(["content-rect", "image-rect"]);
 // contract-2026-07-26-doc-image-annotations §1: doc:<プロジェクト相対パス>#<block-id> / image:<プロジェクト相対パス>。
 // この 2 種に限り §2 で sourceT: null を許容する。
 const DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
@@ -233,24 +236,73 @@ function validateStrokes(value, label) {
     return null;
   }
   for (const [strokeIndex, stroke] of value.entries()) {
-    if (!Array.isArray(stroke) || stroke.length < 2) {
-      fail(`${label}.strokes[${strokeIndex}] は 2 点以上の [x, y] 点列である必要があります`);
+    if (!validateStroke(stroke, `${label}.strokes[${strokeIndex}]`)) {
       return null;
-    }
-    for (const point of stroke) {
-      if (
-        !Array.isArray(point) ||
-        point.length !== 2 ||
-        !point.every((entry) => isFiniteNumber(entry) && entry >= 0 && entry <= 1)
-      ) {
-        fail(
-          `${label}.strokes[${strokeIndex}] の点は 0〜1 の正規化座標 [x, y] である必要があります（source フレーム基準）`,
-        );
-        return null;
-      }
     }
   }
   return value;
+}
+
+function validateStroke(stroke, label) {
+  if (!isPlainObject(stroke) || stroke.tool !== "pen") {
+    fail(`${label} は { tool: "pen", space, points, ... } の object である必要があります`);
+    return false;
+  }
+  if (!STROKE_SPACES.has(stroke.space)) {
+    fail(`${label}.space は content-rect または image-rect である必要があります`);
+    return false;
+  }
+  if (!validateStrokePoints(stroke.points, label)) {
+    return false;
+  }
+  if (stroke.space === "content-rect") {
+    if (!isPlainObject(stroke.frame) || !isFiniteNumber(stroke.frame.sourceT) || stroke.frame.sourceT < 0) {
+      fail(`${label}.frame は { sourceT, cutIndex } である必要があります（content-rect は frame 必須）`);
+      return false;
+    }
+    if (
+      hasOwn(stroke.frame, "cutIndex") &&
+      stroke.frame.cutIndex !== null &&
+      !Number.isInteger(stroke.frame.cutIndex)
+    ) {
+      fail(`${label}.frame.cutIndex は null または整数である必要があります`);
+      return false;
+    }
+    if (!isNonEmptyString(stroke.sessionRef)) {
+      fail(`${label}.sessionRef は空でない文字列である必要があります（content-rect は必須）`);
+      return false;
+    }
+    return true;
+  }
+  // space === "image-rect"（contract-2026-07-26-doc-image-annotations §3）:
+  // frame は動画フレームアンカーが存在しないため省略必須・sessionRef は単発注釈では省略可。
+  if (hasOwn(stroke, "frame")) {
+    fail(`${label}.frame は image-rect では省略する必要があります（動画フレームアンカーが存在しないため）`);
+    return false;
+  }
+  if (hasOwn(stroke, "sessionRef") && !isNonEmptyString(stroke.sessionRef)) {
+    fail(`${label}.sessionRef を持たせる場合は空でない文字列である必要があります`);
+    return false;
+  }
+  return true;
+}
+
+function validateStrokePoints(points, label) {
+  if (!Array.isArray(points) || points.length < 2) {
+    fail(`${label}.points は 2 点以上の [x, y] 点列である必要があります`);
+    return false;
+  }
+  for (const point of points) {
+    if (
+      !Array.isArray(point) ||
+      point.length !== 2 ||
+      !point.every((entry) => isFiniteNumber(entry) && entry >= 0 && entry <= 1)
+    ) {
+      fail(`${label}.points の点は 0〜1 の正規化座標 [x, y] である必要があります`);
+      return false;
+    }
+  }
+  return true;
 }
 
 function validateRefs(value, label) {

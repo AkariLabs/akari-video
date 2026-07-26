@@ -27,6 +27,7 @@ import {
     resolveTimedScheduleWindow
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
 import { locatePreviewCaptions, parsePreviewCaptions, PreviewCaption } from './akari-preview-captions';
@@ -3299,24 +3300,12 @@ body { display: grid; place-items: center; padding: 32px; }
             const ZOOM_MAX = 8;
             const SNAP_TOLERANCE = 0.025;
             const CLICK_THRESHOLD_PX = 4;
-            // ペン描画のチューニング定数（密度・グロー・フェード等はここだけで調整する）
-            const PEN_TUNING = {
-                maxDevicePixelRatio: 2,
-                coreWidthPx: 3.4,
-                staticCoreWidthPx: 3,
-                coreAlpha: 0.98,
-                glowAlpha: 0.5,
-                glowSizePx: 30,
-                sparkleSpritePx: 32,
-                sparklesPerSegment: 2,
-                sparkleMaxPoolSize: 220,
-                sparkleJitterPx: 9,
-                sparkleMinSizePx: 5,
-                sparkleMaxSizePx: 13,
-                sparkleLifetimeMs: 620,
-                sparkleTwinkleHz: 2.2,
-                fadeDurationMs: 1500
-            };
+            // ペン描画のチューニング定数（密度・グロー・フェード等）。画像注釈ポップアップ
+            // （akari-annotations）の静的プラチナ描画と単一の正本（../common/pen-canvas-visuals.ts
+            // の PEN_TUNING）を共有する — webview はサンドボックスのためモジュール import が
+            // できず、値を JSON として埋め込む形でのみ共有できる（統合点調査・report.md 参照）。
+            // 実際の描画ロジック（グロー/スパークル/フェード）はここに残したまま無変更。
+            const PEN_TUNING = ${JSON.stringify(PEN_TUNING)};
             const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
             const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"></path></svg>';
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';

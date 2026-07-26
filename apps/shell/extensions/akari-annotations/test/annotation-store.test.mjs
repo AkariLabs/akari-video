@@ -69,6 +69,58 @@ test("review セッション由来の annotation（session/strokes/transcript）
   });
 });
 
+test("image: target の image-rect strokes（frame 省略・sessionRef 省略）を round-trip できる（契約 2026-07-26 §3）", () => {
+  const annotation = baseAnnotation({
+    sourceT: null,
+    target: "image:assets/thumbnails/candidate-1.png",
+    text: "サムネ案、ここの余白が気になる",
+    strokes: [
+      { tool: "pen", space: "image-rect", points: [[0.4, 0.3], [0.5, 0.5], [0.6, 0.4]] },
+    ],
+  });
+  const source = appendAnnotationLine(emptyReviewSource(), annotation);
+  const parsed = parseReview(source);
+  assert.equal(parsed.warnings.length, 0);
+  const [roundTripped] = parsed.annotations;
+  assert.equal(roundTripped.strokes.length, 1);
+  assert.deepEqual(roundTripped.strokes[0], {
+    tool: "pen",
+    space: "image-rect",
+    points: [[0.4, 0.3], [0.5, 0.5], [0.6, 0.4]],
+  });
+});
+
+test("image-rect strokes は sessionRef を持たせてもよい（省略可なだけで禁止ではない）", () => {
+  const annotation = baseAnnotation({
+    sourceT: null,
+    target: "image:assets/thumbnails/candidate-2.png",
+    strokes: [
+      { tool: "pen", space: "image-rect", points: [[0.1, 0.1], [0.2, 0.2]], sessionRef: "s-0002/st-0004" },
+    ],
+  });
+  const source = appendAnnotationLine(emptyReviewSource(), annotation);
+  const parsed = parseReview(source);
+  assert.equal(parsed.warnings.length, 0);
+  assert.equal(parsed.annotations[0].strokes[0].sessionRef, "s-0002/st-0004");
+});
+
+test("image-rect strokes に frame が混入していると不正として無視する（frame は content-rect 専用）", () => {
+  const injectFrame = source =>
+    source.replace(
+      '"points":[[0.1,0.1],[0.2,0.2]]',
+      '"frame":{"sourceT":1,"cutIndex":0},"points":[[0.1,0.1],[0.2,0.2]]'
+    );
+  const annotation = baseAnnotation({
+    sourceT: null,
+    target: "image:assets/thumbnails/candidate-3.png",
+    strokes: [{ tool: "pen", space: "image-rect", points: [[0.1, 0.1], [0.2, 0.2]] }],
+  });
+  const source = injectFrame(appendAnnotationLine(emptyReviewSource(), annotation));
+  const parsed = parseReview(source);
+  assert.equal(parsed.annotations[0].strokes, null);
+  assert.ok(parsed.warnings.some(warning => warning.includes("strokes")));
+});
+
 test("session が不正な形（confidence 未知値・recRange 欠落）なら警告のうえ null に落とす", () => {
   const badSessionSource = source =>
     source.replace('"session":null', '"session":{"id":"s-0001","recRange":[0],"confidence":"maybe"}');

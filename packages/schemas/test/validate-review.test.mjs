@@ -47,3 +47,21 @@ test("image: target without a path fails", () => {
   assert.equal(executed.status, 1);
   assert.match(executed.stderr, /target は image:<プロジェクト相対パス> の形式である必要があります/);
 });
+
+test("strokes: content-rect (frame + sessionRef) and image-rect (frame omitted) both pass", () => {
+  const executed = run("valid-strokes");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("strokes with an unrecognized space value fails", () => {
+  const executed = run("invalid-strokes-bad-space");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /\.space は content-rect または image-rect である必要があります/);
+});
+
+test("image-rect strokes with a frame present fails (frame is a content-rect-only field)", () => {
+  const executed = run("invalid-strokes-image-rect-with-frame");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /image-rect では省略する必要があります/);
+});

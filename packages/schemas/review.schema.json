@@ -38,11 +38,52 @@
       "minItems": 2,
       "maxItems": 2
     },
-    "stroke": {
+    "strokePoints": {
       "type": "array",
       "items": { "$ref": "#/$defs/strokePoint" },
       "minItems": 2,
-      "$comment": "フリーハンド 1 ストローク = [x,y] 点列（source フレーム正規化座標）。"
+      "$comment": "フリーハンド 1 ストロークの間引き済みポリライン（〜100 点程度。review セッション契約 §4.2）。"
+    },
+    "strokeFrame": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["sourceT"],
+      "properties": {
+        "sourceT": { "$ref": "#/$defs/sourceSeconds" },
+        "cutIndex": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] }
+      },
+      "$comment": "描き始めフレーム（アンカー）。content-rect（動画面）のみ持つ。"
+    },
+    "stroke": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["tool", "space", "frame", "points", "sessionRef"],
+          "properties": {
+            "tool": { "const": "pen" },
+            "space": { "const": "content-rect" },
+            "frame": { "$ref": "#/$defs/strokeFrame" },
+            "points": { "$ref": "#/$defs/strokePoints" },
+            "sessionRef": { "$ref": "#/$defs/nonEmptyString" }
+          },
+          "$comment": "動画面（review セッション S3・§4.2）。frame + sessionRef は必須（録音セッション由来のみ）。"
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["tool", "space", "points"],
+          "not": { "required": ["frame"] },
+          "properties": {
+            "tool": { "const": "pen" },
+            "space": { "const": "image-rect" },
+            "points": { "$ref": "#/$defs/strokePoints" },
+            "sessionRef": { "$ref": "#/$defs/nonEmptyString" }
+          },
+          "$comment": "画像面（contract-2026-07-26-doc-image-annotations §3）。frame は動画フレームアンカーが存在しないため省略必須。sessionRef は録音セッション由来でない単発注釈では省略できる。"
+        }
+      ],
+      "$comment": "review セッション契約 §4.2 の annotation 着地型（tool:pen 固定・space で判別）。"
     },
     "refItem": {
       "oneOf": [
@@ -133,9 +174,9 @@
         "strokes": {
           "oneOf": [
             { "type": "null" },
-            { "type": "array", "items": { "$ref": "#/$defs/stroke" } }
+            { "type": "array", "items": { "$ref": "#/$defs/stroke" }, "minItems": 1 }
           ],
-          "$comment": "予約フィールドを有効化（ペン）。region.box と両方非 null の場合は region.box が勝つ（warning）。"
+          "$comment": "review セッション契約 §4.2 で確定した着地型（tool/space/points 等を持つオブジェクト配列）。region.box と両方非 null の場合は region.box が勝つ（warning）。"
         },
         "refs": {
           "oneOf": [

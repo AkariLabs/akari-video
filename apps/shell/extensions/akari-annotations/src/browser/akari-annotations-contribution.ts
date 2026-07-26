@@ -23,10 +23,12 @@ import {
     OPEN_AKARI_INSPECTOR,
     OPEN_AKARI_REVIEW_BOARD,
     OPEN_AKARI_REVIEW_PANEL,
-    SELECT_DOC_BLOCK
+    SELECT_DOC_BLOCK,
+    SELECT_IMAGE_BLOCK
 } from './akari-annotations-commands';
 import { Annotation } from '../common/akari-annotations-protocol';
 import { parseDocTarget } from '../common/doc-target';
+import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
 import { AkariReviewBoardWidget } from './akari-review-board-widget';
@@ -155,6 +157,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(SELECT_DOC_BLOCK, {
             execute: (blockId: unknown) => this.handleSelectDocBlock(blockId)
         });
+        commands.registerCommand(SELECT_IMAGE_BLOCK, {
+            execute: (blockId: unknown, imageSrc: unknown) => this.handleSelectImageBlock(blockId, imageSrc)
+        });
         const onPlaybackTick = (event: Event): void => {
             const request = (event as CustomEvent<PreviewPlaybackTick>).detail;
             if (request && this.timelineWidget?.canHandlePlaybackTick(request.videoUri)) {
@@ -242,6 +247,50 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     /**
+     * `command:akari.annotations.selectImage?["<blockId>","<imageSrc>"]` リンク（template.html
+     * 側が `<img data-block-id>` クリックで合成する）から着地する。doc: と異なりレポート面には
+     * 選択チップ + パネル入力の導線を設けず（契約 §4-1: ペンは文書面ではなく画像面）、クリック
+     * 直後にポップアップ（AkariImageAnnotationDialog・作成モード）を開く。
+     * `imageSrc` は render-analysis-report.mjs が `toPosixRelative(outDir, kfAbsolutePath)` で
+     * 埋め込んだ「レポート HTML 自身からの相対パス」— レポートの絶対 URI（viewId）を起点に解決し、
+     * プロジェクト相対パスへ変換してから `image:<path>` として使う（doc: 解決と同じ規律）。
+     */
+    protected async handleSelectImageBlock(blockId: unknown, imageSrc: unknown): Promise<void> {
+        if (typeof imageSrc !== 'string' || !imageSrc) {
+            return;
+        }
+        const widget = this.resolveActiveSurfaceWidget();
+        const viewId = widget?.identifier.viewId;
+        if (!viewId) {
+            return;
+        }
+        const location = await this.locate();
+        if (!location) {
+            return;
+        }
+        // doc: 経路（addDocAnnotation）はパネル（openReviewPanel が先に attach() を通す）経由でのみ
+        // 呼ばれるため ReviewModel.location は既に設定済みだが、画像ポップアップはパネルを介さず
+        // 直接開くため、ここで明示的に設定しないとタイムライン/パネルを一度も開いていないセッションで
+        // 「プロジェクトを特定できません」になる（実機 L1 で検出）。
+        this.review.location = location;
+        const reportUri = new URI(viewId).normalizePath();
+        const imageUri = reportUri.parent.resolve(imageSrc).normalizePath();
+        const relative = location.root.relative(imageUri);
+        if (!relative) {
+            return;
+        }
+        if (!await this.fileService.exists(imageUri)) {
+            return;
+        }
+        const dialog = new AkariImageAnnotationDialog(
+            { title: '画像に注釈', mode: 'create', imageUri, relativePath: relative.toString(), maxWidth: 960 },
+            this.fileService,
+            this.review
+        );
+        await dialog.open();
+    }
+
+    /**
      * command: URI 実行時点でどのレポートタブが対象かを ApplicationShell.activeWidget から解決する
      * （WebviewWidget は ApplicationShellMouseTracker 経由でクリックをフォーカスとしてシェルへ
      * 報告するため、リンククリック時点で対象の webview が activeWidget になっている想定）。
@@ -269,7 +318,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             allowScripts: true,
             allowForms: true,
             localResourceRoots: [new URI(viewId).parent.toString()],
-            enableCommandUris: [SELECT_DOC_BLOCK.id]
+            enableCommandUris: [SELECT_DOC_BLOCK.id, SELECT_IMAGE_BLOCK.id]
         });
     }
 

@@ -5,12 +5,15 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
-import { parseReview } from '../common/annotation-store';
+import { AnnotationStroke, parseReview } from '../common/annotation-store';
 import { collectBlockIds, extractBlocksManifest, parseDocTarget, parseImageTarget } from '../common/doc-target';
+import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { ReviewModel } from './review-model';
 
 /** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応。akari-review-panel-widget.ts とミラー）。 */
 type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
+/** image: target のファイル存在チェック結果（akari-review-panel-widget.ts とミラー）。 */
+type ImageTargetHealth = 'ok' | 'path-missing';
 
 // akari-preview 側の同名イベントとミラー（extension 間の npm 依存を作らない。
 // akari-review-panel-widget.ts の ✏️ ボタンと同じ経路を再利用する）。
@@ -258,10 +261,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
         if (docTarget) {
             card.appendChild(this.renderDocTargetRow(docTarget));
         } else if (imageTarget) {
-            const target = document.createElement('div');
-            target.textContent = `🖼️ ${imageTarget.path}`;
-            Object.assign(target.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
-            card.appendChild(target);
+            card.appendChild(this.renderImageTargetRow(imageTarget));
         } else if (annotation.target) {
             const target = document.createElement('div');
             target.textContent = annotation.target;
@@ -321,6 +321,11 @@ export class AkariReviewBoardWidget extends BaseWidget {
             void this.openReportAndReveal(docTarget);
             return;
         }
+        const imageTarget = parseImageTarget(annotation.target);
+        if (imageTarget) {
+            void this.openImageAnnotationPopup(imageTarget.path, annotation.strokes);
+            return;
+        }
         const hasStrokes = Array.isArray(annotation.strokes) && annotation.strokes.length > 0;
         const editUri = this.model.location?.editUri?.normalizePath().toString();
         if (hasStrokes && editUri) {
@@ -332,6 +337,59 @@ export class AkariReviewBoardWidget extends BaseWidget {
         if (annotation.sourceT !== null) {
             this.model.requestSeek(annotation.sourceT);
         }
+    }
+
+    /**
+     * image: target 注釈のカードクリック導線（契約 §4-2・受け入れ条件 3。akari-review-panel-widget.ts
+     * の同名メソッドとミラー）: ポップアップを再表示し strokes を静止描画する（揮発しない）。
+     */
+    protected async openImageAnnotationPopup(path: string, strokes: Annotation['strokes']): Promise<void> {
+        const location = this.model.location;
+        if (!location) {
+            return;
+        }
+        const imageUri = location.root.resolve(path);
+        if (!await this.fileService.exists(imageUri)) {
+            this.messages.warn(`${path} が見つからないため、ポップアップを再表示できません。`);
+            return;
+        }
+        const imageRectStrokes = (strokes ?? []).filter(
+            (stroke): stroke is Extract<AnnotationStroke, { space: 'image-rect' }> => stroke.space === 'image-rect'
+        );
+        const dialog = new AkariImageAnnotationDialog(
+            { title: '画像の注釈', mode: 'view', imageUri, relativePath: path, existingStrokes: imageRectStrokes, maxWidth: 960 },
+            this.fileService,
+            this.model
+        );
+        await dialog.open();
+    }
+
+    /** image: target 用の行（契約 §6 の劣化規約: path 不在は warning バッジ）。 */
+    protected renderImageTargetRow(imageTarget: { path: string }): HTMLDivElement {
+        const row = document.createElement('div');
+        Object.assign(row.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
+        row.setAttribute('data-board-image-target', imageTarget.path);
+        row.textContent = `🖼️ ${imageTarget.path}`;
+        row.title = `${imageTarget.path} — クリックでポップアップを再表示`;
+        void this.imageTargetHealth(imageTarget.path).then(health => {
+            if (!row.isConnected) {
+                return;
+            }
+            if (health === 'path-missing') {
+                row.textContent = `🖼️⚠️ ${imageTarget.path}`;
+                row.title = `${imageTarget.path} が見つかりません（再表示は不可。注釈自体は有効です）`;
+                row.style.color = 'var(--theia-warningForeground)';
+            }
+        });
+        return row;
+    }
+
+    protected async imageTargetHealth(path: string): Promise<ImageTargetHealth> {
+        const location = this.model.location;
+        if (!location) {
+            return 'path-missing';
+        }
+        return await this.fileService.exists(location.root.resolve(path)) ? 'ok' : 'path-missing';
     }
 
     /**
