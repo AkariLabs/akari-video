@@ -1,56 +1,63 @@
-# QA・レビューして直す
+**English** | [日本語](./review-and-fix.ja.md)
 
-「開いたらほぼ終わっている」を成立させるのは検査とレビューのループです。
-3 つのスキルが連携します: `edit-lint`（機械検査）→ `compile-review-session`
-（口頭レビューのチケット化）→ `address-review`（チケット対応）。
+# QA, review, and fix
 
-## セルフチェック — `edit-lint`
+The loop of checking and review is what makes "nearly finished when you open it" work.
+Three skills work together: `edit-lint` (mechanical checks) → `compile-review-session`
+(turns spoken review into tickets) → `address-review` (resolves tickets).
 
-**いつ使う**: `edit.json` を作成・変更した直後。書き出しの前。レビュー対応後の再確認。
+## Self-check — `edit-lint`
 
-**頼み方**: 「lint かけて」「書き出す前にチェックして」
+**When to use**: Right after creating or changing `edit.json`. Before export. To re-check
+after addressing review tickets.
 
-**やること**:
+**How to ask**: "run lint" / "check it before I export"
 
-1. 決定的 CLI が `edit.json`・`captions.json`・`analysis.json`・メディア実体を検査
-   （参照切れ・時刻の矛盾・重なり・尺の不整合など）
-2. PASS 後、エージェントがキーフレームを**実際に視認**して品質確認
+**What it does**:
 
-**生成されるもの**:
+1. A deterministic CLI checks `edit.json`, `captions.json`, `analysis.json`, and the media
+   assets themselves (broken references, time inconsistencies, overlaps, duration
+   mismatches, etc.)
+2. After PASS, the agent **actually looks at** keyframes to confirm quality
 
-- `.akari/lint.json` — 検査結果の正本（`verdict: pass / fail`）
-- `.akari/reports/edit-lint-report.html` — 人間向けレポート
+**What it produces**:
 
-FAIL のときはレポートに件数と理由が出ます。「lint の FAIL を直して」で対応まで頼めます。
-render-cut は lint PASS を前提条件にしているので、このゲートは飛ばせません。
+- `.akari/lint.json` — the canonical check result (`verdict: pass / fail`)
+- `.akari/reports/edit-lint-report.html` — a human-readable report
 
-## 喋りながらレビューする — `compile-review-session`
+On FAIL, the report shows counts and reasons. You can ask "fix the lint failures" to have
+them addressed. render-cut requires lint PASS as a precondition, so this gate can't be
+skipped.
 
-**いつ使う**: プレビューを見ながら口頭で気になった点を挙げていきたいとき。
+## Review while talking through it — `compile-review-session`
 
-録音レビューセッション（音声 + 操作イベント + スナップショット）を渡すと:
+**When to use**: When you want to call out issues out loud while watching the preview.
 
-1. 文字起こし → 発話の区切り
-2. 「ここ」「この字幕」などの指示語を、再生位置と操作イベントから**実際の対象に解決**
-3. 命令形に正規化して `review.json` の open チケット（annotation）として着地
+Hand over a recorded review session (audio + interaction events + snapshots) and it:
 
-**頼み方**: 「さっきのレビューセッションをチケットにして」
+1. Transcribes it → segments the utterances
+2. Resolves deictic references like "here" or "this caption" to their **actual targets**
+   using playback position and interaction events
+3. Normalizes them into imperative form and lands them as open tickets (annotations) in
+   `review.json`
 
-## チケットに対応する — `address-review`
+**How to ask**: "turn that review session into tickets"
 
-**いつ使う**: `review.json` に open チケットが溜まっているとき。
+## Address tickets — `address-review`
 
-**頼み方**: 「a-0002 と a-0003 に対応して」「open チケット全部対応して」
+**When to use**: When `review.json` has open tickets piling up.
 
-チケットごとに `edit.json` へ実対応 → edit-lint で再検査 → チケットを
-`open → addressed` に更新、まで型どおりに実行されます。状態遷移は原子的に記録されるので、
-どこまで対応済みかが常に明確です。
+**How to ask**: "address a-0002 and a-0003" / "address all open tickets"
 
-## レビューの永続化について
+For each ticket, it makes the actual fix in `edit.json` → re-checks with edit-lint →
+updates the ticket from `open` to `addressed`, following the same routine every time.
+State transitions are recorded atomically, so it's always clear what's been addressed.
 
-注釈は「タイムライン上の何秒」ではなく **(素材, 素材の原本秒)** で保存されます。
-カットを並び替えてもチケットの指す場所はズレません。
+## About review persistence
 
-## 次のステップ
+Annotations aren't stored as "seconds on the timeline" but as **(asset, source timestamp
+within the asset)**. Reordering cuts doesn't shift what a ticket points to.
 
-- 全部 PASS したら → [書き出す](./export.md)
+## Next steps
+
+- Once everything passes → [Export](./export.md)

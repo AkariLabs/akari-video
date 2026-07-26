@@ -1,48 +1,53 @@
-# ゼロから企画する
+**English** | [日本語](./plan-from-scratch.ja.md)
 
-素材がまだ無くても、企画・調査・構成づくりから始められます。スキルは `research-plan`。
-撮影前の一周（ネタ出し → 調査 → 企画書 → 絵コンテ → 撮影リスト）を担当します。
+# Plan from scratch
 
-## いつ使う
+Even without footage yet, you can start from planning — ideation, research, and structuring.
+The skill is `research-plan`. It handles the full pre-shoot pass (ideation → research → brief
+→ storyboard → shot list).
 
-- 「何か作りたいがネタから決めたい」
-- 撮影の前に構成と撮影リストを固めたい
-- 生成素材中心で 1 本組みたい（撮影なし）
+## When to use it
 
-## 頼み方
+- "I want to make something but need to decide on the topic first"
+- You want to lock down the structure and shot list before shooting
+- You want to assemble a video mostly from generated material (no shoot)
 
-「動画の企画から始めたい」「◯◯のテーマでネタ出しして」
+## How to ask
 
-## 流れ
+"I want to start from planning the video" / "Brainstorm topics for ◯◯"
 
-1. **ネタ出し（ideate）** — テーマ候補を複数提示
-2. **調査** — ターゲット・競合・トレンドを調べて根拠を付ける
-3. **ネタ選定（topic-select）** — 決定カードで承認
-4. **構成・絵コンテ（storyboard）** — 構成案を提示し、structure-confirm で承認
-5. **撮影リスト（shotlist）** — 何をどう撮るかのリスト
+## Flow
 
-承認は決定カード型です。候補と根拠が並び、選ぶと `planning/research-plan.json` に
-確定が記録されます。
+1. **Ideation (ideate)** — presents multiple candidate themes
+2. **Research** — investigates target audience, competitors, and trends to back the ideas up
+3. **Topic selection (topic-select)** — approve via a decision card
+4. **Structure & storyboard (storyboard)** — proposes a structure and confirms it via structure-confirm
+5. **Shot list (shotlist)** — a list of what to shoot and how
 
-## 生成されるもの
+Approval is decision-card style. Candidates and their rationale are laid out side by side; picking
+one records the decision in `planning/research-plan.json`.
 
-| ファイル | 内容 |
+## What gets generated
+
+| File | Contents |
 |---|---|
-| `planning/research-plan.json` | 企画の SSOT（topic / target / structure / shot_list） |
-| `research-plan-report.html` | 企画レポート（決定記録付き） |
+| `planning/research-plan.json` | The SSOT for the plan (topic / target / structure / shot_list) |
+| `research-plan-report.html` | The planning report (with a record of decisions) |
 
-## 撮影しない場合 — 仮枠タイムライン（plan.json）
+## Not shooting — the placeholder timeline (plan.json)
 
-素材ゼロで組む場合、edit-plan は対話を通じて **plan.json（仮枠タイムライン）** を作ります。
-確定度つきのスロット列で、各スロットは 3 つの手段で埋められます:
+When you assemble a video with zero footage, edit-plan builds a **plan.json (placeholder
+timeline)** through conversation. It's a sequence of slots each carrying a confidence level, and
+each slot gets filled by one of three means:
 
-- **generate** — 生成する（画像・映像・3D ベイクなど）
-- **record** — 撮る・録る
-- **import** — 手持ち素材を当てる
+- **generate** — generate it (image, video, 3D bake, etc.)
+- **record** — shoot or record it
+- **import** — bring in existing material
 
-スロットが埋まると plan.json は `edit.json` へコンパイルされ、以降は通常の編集フローに合流します。
+Once all slots are filled, plan.json compiles into `edit.json`, and the project joins the normal
+editing flow from there.
 
-## 次のステップ
+## Next steps
 
-- 撮影素材が揃ったら → [素材を分析する](./analyze-footage.md)
-- スロットを埋めて編集へ → [編集計画を立てて実行する](./plan-your-edit.md)
+- Once you have footage → [Analyze footage](./analyze-footage.md)
+- Fill the slots and move to editing → [Plan your edit](./plan-your-edit.md)

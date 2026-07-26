@@ -1,40 +1,48 @@
-# 続きから再開する
+**English** | [日本語](./resume-session.ja.md)
 
-AKARI Video は「セッションをまたいでも文脈が戻る」ことを設計に組み込んでいます。
-仕掛けは 2 つ — `.akari/events/` と SessionStart hook です。
+# Resume where you left off
 
-## 仕組み
+AKARI Video builds "context carries over across sessions" into its design. Two
+mechanisms make this work — `.akari/events/` and the SessionStart hook.
 
-各ステージの節目（素材追加・レポート生成・承認・編集完了・書き出し完了など）は
-`.akari/events/` に 1 件ずつ記録されます。
+## How it works
 
-プラグインを有効化していると、プロジェクトのディレクトリで Claude Code セッションを
-開いた瞬間に SessionStart hook が:
+Each stage's milestones (asset added, report generated, approval, edit complete,
+export complete, and so on) get recorded one at a time in `.akari/events/`.
 
-1. `.akari/` を自動検知
-2. intake の状態（やること / 尺 / おまかせ度）と直近イベントを読み込み
-3. 「次の一手」をコンテキストとして自動注入
+With the plugin enabled, the moment you open a Claude Code session in a project
+directory, the SessionStart hook:
 
-します。たとえば直近イベントが `video-added` なら「分析しますか」、
-`report-approved` なら「編集計画に進みますか」という続きからの案内になります。
+1. Auto-detects `.akari/`
+2. Reads the intake state (what to make / duration / delegation level) and the
+   most recent events
+3. Automatically injects "what to do next" as context
 
-`.akari/` が無いディレクトリでは何もしません（通常のセッションを邪魔しない）。
+For example, if the most recent event is `video-added`, it asks "want to analyze
+this?"; if it's `report-approved`, it asks "ready to move to edit planning?" —
+picking up right where things left off.
 
-## 手動で状態を確認する
+In a directory without `.akari/`, nothing happens (a normal session isn't
+interrupted).
 
-- セッション内: **`/akari`** — 状態診断 + 次の一手の案内
-- ターミナル: **`akari`** — 同じ診断をしてから `claude` を起動（`akari --continue` で
-  前回のセッションに戻る）
+## Check status manually
 
-## 入口をまたぐ
+- In a session: **`/akari`** — diagnoses state and suggests the next step
+- From the terminal: **`akari`** — runs the same diagnostic, then launches `claude`
+  (`akari --continue` returns to your previous session)
 
-状態はすべてファイル契約にあるので、こういう移動が自由にできます:
+## Crossing entrances
 
-- ターミナルで作ったプロジェクトを、後日アプリで開いてレビューだけする
-- アプリで付けた注釈（review.json）を、セッション内で「チケット対応して」と消化する
-- 別マシンに git clone して続きをやる（セーブデータはテキストなので git で完結）
+Since all state lives in file contracts, moves like these are free to make:
 
-## 関連
+- Create a project from the terminal, then open it later in the app just to
+  review
+- Take annotations added in the app (review.json) and resolve them in a session
+  by saying "work through the tickets"
+- `git clone` to another machine and pick up where you left off (save data is
+  text, so git handles it end to end)
 
-- イベントとファイルの全体像 → [プロジェクト構成](./project-structure.md)
-- チケット対応 → [QA・レビューして直す](../guides/review-and-fix.md)
+## Related
+
+- The full picture of events and files → [Project structure](./project-structure.md)
+- Working tickets → [QA, review, and fix](../guides/review-and-fix.md)

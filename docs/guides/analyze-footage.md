@@ -1,53 +1,58 @@
-# 素材を分析する
+**English** | [日本語](./analyze-footage.ja.md)
 
-撮影素材をエージェントが「読める」状態にする工程です。編集計画の前提になります。
+# Analyze footage
 
-## 1 本ずつの分析 — `analyze-footage`
+The step that turns raw footage into something the agent can "read." It's the prerequisite
+for editing planning.
 
-**いつ使う**: 新しい撮影素材を取り込んだとき。編集計画（edit-plan）の前処理として。
+## Analyzing one clip at a time — `analyze-footage`
 
-**頼み方**: 「この動画を分析して」「`assets/` に入れた素材を取り込んで」
+**When to use it**: whenever you bring in new footage. As preprocessing for editing planning
+(edit-plan).
 
-**やること**:
+**How to ask**: "Analyze this video" / "Ingest the footage I put in `assets/`"
 
-1. 720p プロキシを生成（プレビューは常にプロキシ、書き出しは原本）
-2. 文字起こし — 環境に応じて 3 層から選択:
-   - macOS SpeechAnalyzer（ローカル・高速）
-   - whisper.cpp（ローカル・無償）
-   - クラウド STT（要接続設定。精度が必要なとき）
-3. キーフレーム抽出とエージェントによる視認
-4. イベント抽出（場面転換・人物など）
+**What it does**:
 
-**生成されるもの**: `analysis.json`（素材ごとのサイドカー。
-`.akari/sidecars/<素材相対パス>.analysis/` 配下）
+1. Generates a 720p proxy (preview always uses the proxy; export uses the original)
+2. Transcription — chooses from three tiers depending on your environment:
+   - macOS SpeechAnalyzer (local, fast)
+   - whisper.cpp (local, free)
+   - Cloud STT (requires connection setup; for when you need higher accuracy)
+3. Keyframe extraction and agent visual review
+4. Event extraction (scene changes, people, etc.)
 
-`analysis.json` は「事実層」です。ここには観測できたことだけが書かれ、
-解釈や編集判断は次の工程（interpretation.json / edit.json）に分離されます。
+**What gets generated**: `analysis.json` (a per-clip sidecar, under
+`.akari/sidecars/<clip-relative-path>.analysis/`)
 
-## プロジェクト横断の分析 — `analyze-project`
+`analysis.json` is the "fact layer." It records only what was observed — interpretation and
+editing judgment are kept separate, in the next stages (interpretation.json / edit.json).
 
-**いつ使う**: 素材が複数あるとき。編集方針を決める前に全体像を掴みたいとき。
+## Cross-project analysis — `analyze-project`
 
-**頼み方**: 「プロジェクト全体を分析して」「素材を読み合わせてレポートにして」
+**When to use it**: when you have multiple clips and want to grasp the big picture before
+deciding on an editing direction.
 
-**やること**:
+**How to ask**: "Analyze the whole project" / "Cross-read the footage into a report"
 
-1. 各素材の `analysis.json` と、プロジェクト文脈（`intake.json` / `edit.json` /
-   `planning/` 配下）を読み合わせる（再視聴はしない・テキスト推論のみ）
-2. 解釈層 `interpretation.json` を生成（1 プロジェクト 1 ファイル）
-3. 読み取り専用の**分析レポート HTML** を描画
+**What it does**:
 
-**取材質問（open_questions）**: 素材だけでは判断できないこと
-（「この場面は残したい思い出か、失敗テイクか」など）は `open_questions` として
-レポートに残ります。チャットで答えると解釈が更新されます。
-一次情報が欠けたまま編集判断を捏造しない、という規律のためのものです。
+1. Cross-reads each clip's `analysis.json` together with the project context (`intake.json` /
+   `edit.json` / files under `planning/`) — no re-watching, text reasoning only
+2. Generates the interpretation layer `interpretation.json` (one file per project)
+3. Renders a read-only **analysis report HTML**
 
-## 分析レポートの見方
+**Open questions (`open_questions`)**: things that can't be decided from the footage alone
+(e.g. "is this scene a keeper moment or a failed take?") stay in the report as
+`open_questions`. Answering them in chat updates the interpretation. This exists as a
+discipline against fabricating editorial judgment when primary information is missing.
 
-レポートは「編集方針の承認」の一次証拠です。ここで内容を確認して方向性に OK を出すと、
-編集計画（edit-plan）へ進みます。
+## Reading the analysis report
 
-## 次のステップ
+The report is the primary evidence for "approving the editing direction." Once you review it
+here and give the direction the OK, you move on to editing planning (edit-plan).
 
-- 方針を立てて編集する → [編集計画を立てて実行する](./plan-your-edit.md)
-- 文字起こしのクラウド利用を設定する → [接続と API キー](../how-to/connections.md)
+## Next steps
+
+- Set a direction and edit → [Plan your edit](./plan-your-edit.md)
+- Set up cloud transcription → [Connections & API keys](../how-to/connections.md)

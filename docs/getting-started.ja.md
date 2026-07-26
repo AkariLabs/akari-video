@@ -84,15 +84,15 @@ my-video/
 **外部 API を使う段になったら** `manage-connections` スキルで設定します。
 ローカル完結の範囲（プロキシ生成・whisper.cpp 文字起こし・編集・書き出し）なら接続なしで使えます。
 
-詳細: [How-to: 接続と API キー](./how-to/connections.md)
+詳細: [How-to: 接続と API キー](./how-to/connections.ja.md)
 
 ## 最初のフロー例
 
 撮影済み素材が 1 本ある場合:
 
-1. 素材をプロジェクトに置き、「この動画を分析して」 → [素材を分析する](./guides/analyze-footage.md)
-2. 「編集方針を立てて」 → 分析レポートを見て方針に OK → [編集計画を立てる](./guides/plan-your-edit.md)
+1. 素材をプロジェクトに置き、「この動画を分析して」 → [素材を分析する](./guides/analyze-footage.ja.md)
+2. 「編集方針を立てて」 → 分析レポートを見て方針に OK → [編集計画を立てる](./guides/plan-your-edit.ja.md)
 3. エージェントが `edit.json`・テロップ・字幕を組み上げる
-4. 「書き出して」 → lint PASS → 承認 → `exports/` に MP4 → [書き出す](./guides/export.md)
+4. 「書き出して」 → lint PASS → 承認 → `exports/` に MP4 → [書き出す](./guides/export.ja.md)
 
-素材がまだ無い場合は、企画から始められます → [ゼロから企画する](./guides/plan-from-scratch.md)
+素材がまだ無い場合は、企画から始められます → [ゼロから企画する](./guides/plan-from-scratch.ja.md)

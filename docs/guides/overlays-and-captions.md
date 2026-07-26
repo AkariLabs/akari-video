@@ -1,51 +1,57 @@
-# テロップ・字幕・図表・3D を作る
+**English** | [日本語](./overlays-and-captions.ja.md)
 
-映像に載せる表現はすべて AI が HTML/CSS/Three.js で描きます。プリセットはありません。
-スキルは `overlay-authoring`（edit-plan の実行段階から呼ばれるほか、単独でも使えます）。
+# Make titles, captions, figures, and 3D
 
-## いつ使う
+Everything shown on top of the footage is drawn by AI in HTML/CSS/Three.js. There are no
+presets. The skill is `overlay-authoring` (called from edit-plan's execution stage, and also
+usable on its own).
 
-- 「ここにテロップを入れて」「この数字を表で見せて」「タイトルを 3D で回して」
-- 字幕のスタイルを変えたいとき
-- サムネイルを作りたいとき
+## When to use it
 
-## 作れるもの
+- "Put a caption here" / "Show this number as a table" / "Spin the title in 3D"
+- When you want to change the caption style
+- When you want to make a thumbnail
 
-| 種類 | 例 |
+## What it can make
+
+| Type | Examples |
 |---|---|
-| テロップ | 見出し・チャプターカード・強調ワード |
-| 字幕 | 発話字幕（カラオケ表示・強調対応） |
-| 表・グラフ | 数値の可視化 |
-| 3D | Three.js によるタイトル・オブジェクト演出 |
-| モーショングラフィックス | 図形アニメーション |
-| サムネイル | 静止画サムネ |
-| text-behind-person | 人物の背後に文字を回す演出（人物マット抽出と連携） |
+| Titles | Headlines, chapter cards, emphasis words |
+| Captions | Spoken-word captions (karaoke display, emphasis support) |
+| Tables & charts | Visualizing numbers |
+| 3D | Title and object effects via Three.js |
+| Motion graphics | Shape animation |
+| Thumbnails | Static thumbnail images |
+| text-behind-person | Text wrapped behind a person (works with person matte extraction) |
 
-## 仕組み — 触れるオーバーレイ
+## How it works — touchable overlays
 
-生成されるのは HTML 断片で、`edit.json` の `overlays[]` から参照されます。
-規約が 2 つあります:
+What gets generated is an HTML fragment, referenced from `edit.json`'s `overlays[]`. There
+are two conventions:
 
-1. **タイミングは data 属性** — `data-start` / `data-duration` で宣言。
-   タイムライン上のドラッグはこの値の書き換えに着地する
-2. **調整可能な値は CSS 変数** — 色・サイズ・位置などツマミにしたい値は CSS 変数で宣言。
-   ビューワーが変数を発見してスライダー / カラーピッカーを自動生成する
+1. **Timing lives in data attributes** — declared via `data-start` / `data-duration`.
+   Dragging on the timeline lands as a rewrite of these values
+2. **Adjustable values are CSS variables** — colors, sizes, positions, and anything else you
+   want as a knob are declared as CSS variables. The viewer discovers these variables and
+   auto-generates sliders / color pickers
 
-つまり「AI が自由に描いたもの」でも、人間は HTML を読まずに GUI で微調整できます。
-テキストはダブルクリックで直接編集でき、変更はデータに書き戻されます。
+In other words, even something "the AI drew freely" can be fine-tuned by humans through a GUI
+without reading the HTML. Text can be edited directly with a double-click, and the change is
+written back into the data.
 
-## 頼み方の例
+## Example requests
 
-- 「冒頭に番組タイトル風のテロップ。白抜き・下からスライドイン」
-- 「この区間の字幕を強調スタイルにして、キーワードだけ色を変えて」
-- 「売上の推移を棒グラフのオーバーレイにして 12 秒から 5 秒間」
-- 「人物の後ろに大きく『開幕』って出したい」（text-behind-person）
+- "A title card at the start, TV-show style — white knockout text, sliding in from below"
+- "Make the captions in this range an emphasis style, with only the keywords changing color"
+- "Turn the sales trend into a bar chart overlay, from 12 seconds for 5 seconds"
+- "I want big text behind the person saying 'START'" (text-behind-person)
 
-見た目の大改造も自然言語で頼めば AI が HTML を書き換えます。
-ちょっとした調整はツマミ（CSS 変数）で、大改造は言葉で、が使い分けです。
+Even a full visual overhaul can be requested in natural language and the AI will rewrite the
+HTML. Small tweaks go through the knobs (CSS variables); big overhauls go through words —
+that's the division of labor.
 
-## 次のステップ
+## Next steps
 
-- 仕上がり検査 → [QA・レビューして直す](./review-and-fix.md)
-- よくできたオーバーレイを次回も使う → [素材ライブラリを育てる](./asset-library.md)
-- 3D を映像素材として焼き込む → [3D シーンをベイクする](./bake-3d.md)
+- Inspect the result → [QA, review, and fix](./review-and-fix.md)
+- Reuse a good overlay next time → [Grow your asset library](./asset-library.md)
+- Bake 3D into video footage → [Bake a 3D scene](./bake-3d.md)

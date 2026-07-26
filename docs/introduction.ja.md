@@ -98,5 +98,5 @@ collaborative から選べます。
 ## 次に読む
 
 - はじめて使う → [Getting Started](./getting-started.ja.md)
-- タスク別の使い方 → [Guides](./README.md#guides)
-- ファイル契約のスペック → [Reference](./README.md#reference)
+- タスク別の使い方 → [Guides](./README.ja.md#guides)
+- ファイル契約のスペック → [Reference](./README.ja.md#reference)

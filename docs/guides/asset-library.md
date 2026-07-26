@@ -1,54 +1,57 @@
-# 素材ライブラリを育てる
+**English** | [日本語](./asset-library.ja.md)
 
-テロップ・3D・BGM・SFX・B ロールなどの素材は、プロジェクトをまたいで再利用できる
-ライブラリとして管理します。関わるスキルは 3 つ:
-`setup-library`（初期セットアップ）・`setup-audio-library`（音源）・`harvest-asset`（入庫）。
+# Grow your asset library
 
-## 初回セットアップ — `setup-library`
+Titles, 3D, BGM, SFX, B-roll, and other assets are managed as a library that's reusable
+across projects. Three skills are involved: `setup-library` (initial setup),
+`setup-audio-library` (audio), and `harvest-asset` (adding new assets).
 
-**いつ使う**: AKARI Video を初めて使うとき。使える素材が足りないとき。
+## Initial setup — `setup-library`
 
-**頼み方**: 「素材ライブラリをセットアップして」「使える素材が足りない」
+**When to use**: The first time you use AKARI Video. When you don't have enough usable
+assets.
 
-1. 必要ツール（ffmpeg・whisper-cli・headless Chrome など）の確認
-2. `catalog/`（キュレーション済みカタログ: 3D・テロップ・音源・B ロール・フォント）から
-   スターターパックを提案
-3. 承認 → 取得・配置・検証
+**How to ask**: "set up the asset library" / "I don't have enough usable assets"
 
-**置き場所**: 素材は `assets/<カテゴリ>/<id>/` に、由来と使い方の宣言
-（`meta.json`）・プレビュー画像とセットで配置されます。
+1. Checks required tools (ffmpeg, whisper-cli, headless Chrome, etc.)
+2. Suggests a starter pack from `catalog/` (the curated catalog: 3D, titles, audio,
+   B-roll, fonts)
+3. Approve → fetch, place, and verify
 
-カタログは**参照配布**です — カタログ自体はリンクとメタデータのみを持ち、
-実体は取得時にダウンロード・検証されます。
+**Where assets live**: assets are placed under `assets/<category>/<id>/`, alongside a
+declaration of provenance and usage (`meta.json`) and a preview image.
 
-## 音源を増やす — `setup-audio-library`
+The catalog is **distributed by reference** — the catalog itself holds only links and
+metadata; the actual files are downloaded and verified when fetched.
 
-**頼み方**: 「BGM / 効果音を増やしたい」
+## Add more audio — `setup-audio-library`
 
-候補リスト HTML で試聴 → 選んだものをドロップフォルダ経由で照合・配置 →
-試聴ギャラリーで確認、という半自動フローです。
+**How to ask**: "I want more BGM / sound effects"
 
-## 成果物を入庫する — `harvest-asset`
+A semi-automatic flow: preview candidates in an HTML list → match and place your picks
+via a drop folder → confirm in a listening gallery.
 
-**いつ使う**: 案件で作った高コスト・再利用価値の高い成果物
-（オーバーレイ・3D・モーション・テロップ・音源・B ロール）を今後も使い回したいとき。
+## Add finished work to the library — `harvest-asset`
 
-**頼み方**: 「このテロップ、ライブラリに入れておいて」
+**When to use**: When you want to reuse a costly, high-value deliverable made for a
+project (overlays, 3D, motion, titles, audio, B-roll) in future work.
 
-入庫時に `meta.json`（由来・ライセンス・**調整可能なツマミの宣言**）と
-プレビューが付くので、次の案件でエージェントが「何が使えるか・どこを調整できるか」を
-機械的に発見できます。
+**How to ask**: "add this title to the library"
 
-## スコープ — どこに置かれるか
+Adding to the library attaches a `meta.json` (provenance, license, **a declaration of
+adjustable knobs**) and a preview, so on the next project the agent can mechanically
+discover what's available and what can be tuned.
 
-| スコープ | 場所 | 用途 |
+## Scope — where assets get placed
+
+| Scope | Location | Use |
 |---|---|---|
-| local | プロジェクト内 `assets/` | この案件だけ |
-| shared | 上位ディレクトリ共有 | 複数案件で共有 |
-| user | `~/.akari-video/assets/` | 個人の定番 |
-| builtin | リポ同梱 | 最初から使えるもの |
+| local | project's own `assets/` | this project only |
+| shared | shared parent directory | shared across multiple projects |
+| user | `~/.akari-video/assets/` | your personal go-tos |
+| builtin | bundled with the repo | usable out of the box |
 
-## 次のステップ
+## Next steps
 
-- 3D 素材を作る → [3D シーンをベイクする](./bake-3d.md)
-- 素材の宣言形式（meta.json）の仕様 → [Reference](../README.md#reference)
+- Create 3D assets → [Bake a 3D scene](./bake-3d.md)
+- Spec for the asset declaration format (meta.json) → [Reference](../README.md#reference)

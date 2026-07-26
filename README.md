@@ -96,8 +96,8 @@ First steps: [docs/getting-started.md](./docs/getting-started.md).
 - Entry point: [docs/README.md](./docs/README.md)
 
 > [!NOTE]
-> Docs beyond Introduction / Getting Started are currently Japanese-first — English versions
-> are in progress. Opening an issue for a page you need translated is welcome.
+> Reference documents (data-contract specs and design notes) are currently Japanese-only.
+> Opening an issue for a contract you need in English is welcome.
 
 ## Layout
 

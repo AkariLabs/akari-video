@@ -103,5 +103,5 @@ The delegation level (`autonomy` in `.akari/intake.json`) can be `full-auto` /
 ## Read next
 
 - First time here → [Getting Started](./getting-started.md)
-- Task-based usage → [Guides](./README.md#guides) (Japanese)
+- Task-based usage → [Guides](./README.md#guides)
 - File contract specs → [Reference](./README.md#reference) (Japanese)

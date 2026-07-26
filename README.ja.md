@@ -85,10 +85,10 @@ flowchart LR
 
 - **[Introduction](./docs/introduction.ja.md)** — 思想と全体像
 - **[Getting Started](./docs/getting-started.ja.md)** — 最初のプロジェクトを作る
-- **[Guides](./docs/README.md#guides)** — 「素材を分析する」「編集計画を立てる」「書き出す」などタスク別ガイド
-- **[How-to](./docs/README.md#how-to)** — 接続と API キー・プロジェクト構成・続きから再開
-- **[Reference](./docs/README.md#reference)** — `edit.json` などファイル契約のスペック
-- 入口: [docs/README.md](./docs/README.md)
+- **[Guides](./docs/README.ja.md#guides)** — 「素材を分析する」「編集計画を立てる」「書き出す」などタスク別ガイド
+- **[How-to](./docs/README.ja.md#how-to)** — 接続と API キー・プロジェクト構成・続きから再開
+- **[Reference](./docs/README.ja.md#reference)** — `edit.json` などファイル契約のスペック
+- 入口: [docs/README.ja.md](./docs/README.ja.md)
 
 ## Layout
 

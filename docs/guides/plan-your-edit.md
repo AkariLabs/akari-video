@@ -1,59 +1,67 @@
-# 編集計画を立てて実行する
+**English** | [日本語](./plan-your-edit.ja.md)
 
-分析結果をもとに、エージェントが編集方針を提案し、承認を経て `edit.json`
-（編集のセーブデータ）へ落とし込む中心工程です。スキルは `edit-plan`。
+# Plan your edit and execute it
 
-## いつ使う
+The central step: based on the analysis, the agent proposes an editing direction and, after
+approval, commits it to `edit.json` (the editing save file). The skill is `edit-plan`.
 
-- 素材の分析（[analyze-footage / analyze-project](./analyze-footage.md)）が済んでいるとき
-- カット構成・BGM・SFX・B ロール・テロップ計画をまとめて決めたいとき
-- 素材ゼロから生成で組む場合（→ 先に [ゼロから企画する](./plan-from-scratch.md) を参照）
+## When to use it
 
-## 頼み方
+- After footage analysis ([analyze-footage / analyze-project](./analyze-footage.md)) is done
+- When you want to decide cut structure, BGM, SFX, B-roll, and caption plans all together
+- When assembling from zero footage via generation (→ first see
+  [Plan from scratch](./plan-from-scratch.md))
 
-「編集方針を立てて」「この分析レポートをもとに 60 秒に縮めて」「テンポ重視でカットして」
+## How to ask
 
-## 3 段階の承認ゲート
+"Draft an editing direction" / "Trim this down to 60 seconds based on the analysis report" /
+"Cut for pacing"
 
-edit-plan は一気に最後まで走らず、3 つの節目でチャット承認を挟みます
-（`autonomy: full-auto` の場合は自動承認）:
+## Three approval gates
 
-1. **方針** — 全体の構成・トーン・尺配分。分析レポートを一次証拠として提示
-2. **素材計画** — どの素材のどこを使うか、足りない素材をどう埋めるか（生成 / 撮り足し / 既存流用）
-3. **実行** — edit.json への書き込みとオーバーレイ生成
+edit-plan doesn't run straight through to the end — it pauses for chat approval at three
+milestones (auto-approved when `autonomy: full-auto`):
 
-決定はすべて `decision-log.md` に追記されます。「なぜこうなったか」は後から必ず追えます。
+1. **Direction** — overall structure, tone, and duration allocation. Presents the analysis
+   report as primary evidence
+2. **Asset plan** — which part of which clip to use, and how to fill any gaps (generate /
+   shoot more / reuse existing material)
+3. **Execution** — writes to edit.json and generates overlays
 
-## 生成されるもの
+Every decision is appended to `decision-log.md`, so "why did it end up this way" can always
+be traced afterward.
 
-| ファイル | 内容 |
+## What gets generated
+
+| File | Contents |
 |---|---|
-| `edit.json` | 編集の SSOT。カット列・オーバーレイ参照・音声（BGM/SFX/ナレーション）・ビート・演出 |
-| オーバーレイ HTML 断片 | テロップ・字幕・図形など（`edit.json` の `overlays[]` から参照） |
-| `captions.json` | 字幕データ |
-| `decision-log.md` | 判断の記録 |
+| `edit.json` | The SSOT for the edit: cut sequence, overlay references, audio (BGM/SFX/narration), beats, direction |
+| Overlay HTML fragments | Captions, subtitles, shapes, etc. (referenced from `edit.json`'s `overlays[]`) |
+| `captions.json` | Caption data |
+| `decision-log.md` | A record of decisions |
 
-## edit.json のここだけ知っておく
+## The essentials of edit.json
 
-編集状態の正本はこのファイルです。スキーマの正確な定義は
-[Reference](../README.md#reference) の各契約にありますが、日常の操作で意識するのは:
+This file is the canonical record of the editing state. The exact schema is defined in each
+contract under [Reference](../README.md#reference), but day to day, what matters is:
 
-- **cuts[]** — どの素材（`src`）の何秒から何秒を使うか。時刻は常に**素材の原本秒**で
-  永続化されるので、前後のカットを入れ替えても参照はズレない
-- **overlays[]** — オーバーレイ HTML への参照とタイミング
-- **audio** — BGM / SFX / ナレーション
+- **cuts[]** — which part of which clip (`src`), from what second to what second. Times are
+  always persisted in **the clip's original seconds**, so reordering cuts doesn't break
+  references
+- **overlays[]** — references to overlay HTML and their timing
+- **audio** — BGM / SFX / narration
 
-手で直接編集しても構いません（git diff で差分が追えます）。ただし変更後は
-[edit-lint](./review-and-fix.md) をかけるのが約束です。
+You're free to edit it by hand (git diff will track the changes). Just remember to run
+[edit-lint](./review-and-fix.md) afterward.
 
-## 部分的に頼む
+## Asking for part of it
 
-計画全体を任せず、個別にも頼めます:
+You don't have to hand off the whole plan — you can also ask for individual pieces:
 
-- テロップ・図表・3D だけ → [テロップ・字幕・図表・3D を作る](./overlays-and-captions.md)
-- ナレーションだけ → [ナレーションを付ける](./narration.md)
+- Just captions, figures, or 3D → [Make titles, captions, figures, and 3D](./overlays-and-captions.md)
+- Just narration → [Add narration](./narration.md)
 
-## 次のステップ
+## Next steps
 
-- 仕上がりを検査する → [QA・レビューして直す](./review-and-fix.md)
-- 書き出す → [書き出す](./export.md)
+- Inspect the result → [QA, review, and fix](./review-and-fix.md)
+- Export → [Export](./export.md)

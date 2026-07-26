@@ -1,55 +1,65 @@
-# FAQ・トラブルシューティング
+**English** | [日本語](./faq.ja.md)
 
-## 全般
+# FAQ & troubleshooting
 
-**Q. アプリが無いと使えない？**
-いいえ。headless-first 設計なので、Claude Code だけで企画から書き出しまで完結します。
-アプリ（Theia シェル）は「確認して直す場所」で、現在移行中です。
+## General
 
-**Q. 完全自動で最後まで走らせられる？**
-`intake.json` の `autonomy: full-auto` で節目の承認を自動化できます。
-ただし**課金と外部送信**だけは `connections.json` のコスト承認ポリシーが優先されます。
+**Q. Do I need the app to use this?**
+No. It's headless-first, so Claude Code alone takes you from planning through
+export. The app (the Theia shell) is "a place to review and fix," and it's
+currently mid-migration.
 
-**Q. 外部 API なしでどこまでできる？**
-プロキシ生成・文字起こし（whisper.cpp / macOS SpeechAnalyzer）・編集・テロップ・
-VOICEVOX ナレーション・lint・書き出しまで、ローカル無償で一周できます。
+**Q. Can I run it fully automatically, start to finish?**
+Setting `autonomy: full-auto` in `intake.json` automates approval at milestones.
+That said, the `connections.json` cost approval policy still takes priority for
+**billing and external sends** alone.
 
-**Q. Windows は？**
-準備中です。現状は macOS のみ（進捗: [dev/windows-build.md](../dev/windows-build.md)）。
+**Q. How far can I get without any external API?**
+You can go a full loop for free, locally — proxy generation, transcription
+(whisper.cpp / macOS SpeechAnalyzer), editing, captions, VOICEVOX narration, lint,
+and export.
 
-## 編集・データ
+**Q. What about Windows?**
+In progress. Currently macOS only (progress:
+[dev/windows-build.md](../dev/windows-build.md) (Japanese)).
 
-**Q. edit.json を手で編集していい？**
-構いません。テキストなので直接編集も git 管理もできます。編集後は
-[edit-lint](../guides/review-and-fix.md) をかけてください。
+## Editing & data
 
-**Q. カットを並び替えたら字幕や注釈がズレない？**
-ズレません。時刻は常に (素材, 素材の原本秒) で永続化する規約で、
-タイムライン位置に依存しません。
+**Q. Can I edit edit.json by hand?**
+Sure. It's plain text, so direct edits and git tracking both work. After editing,
+run [edit-lint](../guides/review-and-fix.md).
 
-**Q. 前の状態に戻したい**
-プロジェクトを git 管理していれば、セーブデータはすべてテキストなので
-`git diff` / revert がそのまま「編集履歴」になります。
+**Q. If I reorder cuts, do captions and annotations drift out of sync?**
+No. Timestamps are always persisted as (asset, seconds within the source asset),
+by convention — never dependent on timeline position.
 
-## エラー対処
+**Q. I want to revert to a previous state**
+If the project is tracked in git, all save data is text, so `git diff` and revert
+are your "edit history," directly.
 
-**Q. edit-lint が FAIL する**
-`.akari/reports/edit-lint-report.html` に件数と理由が出ます。
-「lint の FAIL を直して」で対応まで頼めます。FAIL のままでは書き出しに進めません。
+## Error handling
 
-**Q. render-cut の verify が FAIL する**
-`.akari/reports/render-report.html` の stderr 要約を確認してください。
-「render の失敗を調べて」で診断から頼めます。
+**Q. edit-lint FAILs**
+`.akari/reports/edit-lint-report.html` shows the count and reasons. You can ask
+"fix the lint FAILs" to have it handled for you. You can't proceed to export while
+it's FAILing.
 
-**Q. ffmpeg / whisper / Blender が無いと言われる**
-各スキルが検出時に導入手順を案内します。まとめて確認したいときは
-「セットアップの状態を確認して」（setup-library のツールチェック）。
+**Q. render-cut's verify FAILs**
+Check the stderr summary in `.akari/reports/render-report.html`. You can ask
+"investigate the render failure" to start from diagnosis.
 
-**Q. API キーを設定したのに使えない**
-「doctor かけて」で疎通診断を。キーの実体は `~/.config/akari-video/credentials.env`、
-プロジェクト内には参照だけ、が正しい配置です。
+**Q. It says ffmpeg / whisper / Blender is missing**
+Each skill walks you through installation when it detects this. To check
+everything at once, say "check my setup status" (the tool check in
+setup-library).
 
-## 困ったら
+**Q. I set an API key but it's still not working**
+Ask to "run doctor" for a connectivity diagnosis. The key itself should live at
+`~/.config/akari-video/credentials.env`, with only a reference inside the
+project — that's the correct layout.
 
-再現手順とともに [GitHub Issues](https://github.com/AkariLabs/akari-video/issues) へ。
-`.akari/reports/` 配下のレポート HTML を添えてもらえると原因究明が早くなります。
+## Still stuck?
+
+Open a [GitHub Issue](https://github.com/AkariLabs/akari-video/issues) with
+reproduction steps. Attaching the report HTML from `.akari/reports/` speeds up
+root-causing.

@@ -1,59 +1,63 @@
-# プロジェクト構成 — .akari/ の中身を知る
+**English** | [日本語](./project-structure.ja.md)
 
-AKARI Video のプロジェクトは「ファイル契約」で動きます。エージェント・アプリ・人間が
-同じファイルを読み書きすることで、どの入口からでも同じ状態に到達できます。
-このページは日常で目にするファイルの役割一覧です（正確なスキーマは
-[Reference](../README.md#reference) を参照）。
+# Project structure — what's inside .akari/
 
-## プロジェクトルート直下
+AKARI Video projects run on "file contracts." Agents, the app, and humans read and
+write the same files, so you can reach the same state from any entrance. This page
+lists the files you'll see day to day and what they're for (for the exact schemas,
+see [Reference](../README.md#reference)).
 
-| ファイル | 役割 |
+## Project root
+
+| File | Role |
 |---|---|
-| `edit.json` | **編集のセーブデータ（SSOT）**。カット・オーバーレイ・音声・ビート・演出 |
-| `captions.json` | 字幕データ |
-| `review.json` | レビュー注釈（チケット）のサイドカー |
+| `edit.json` | **The edit's save data (SSOT)**. Cuts, overlays, audio, beats, direction |
+| `captions.json` | Caption data |
+| `review.json` | Sidecar for review annotations (tickets) |
 
-ルート直下に置いてよい生成物はこの契約ファイルだけです。それ以外の生成物は
-役割ごとの置き場に入ります（散らかさない規約）。
+These contract files are the only generated output allowed directly at the root.
+Everything else has its own designated place (a no-clutter convention).
 
-## ディレクトリ
+## Directories
 
-| 場所 | 役割 |
+| Location | Role |
 |---|---|
-| `assets/` | 素材置き場（`assets/<カテゴリ>/<id>/` + meta.json） |
-| `planning/` | 企画・計画文書（research-plan.json / plan.json / decision-log.md） |
-| `exports/` | 書き出し先 |
+| `assets/` | Source material (`assets/<category>/<id>/` + meta.json) |
+| `planning/` | Planning documents (research-plan.json / plan.json / decision-log.md) |
+| `exports/` | Render output |
 
-## .akari/ 配下
+## Inside .akari/
 
-| ファイル / ディレクトリ | 役割 |
+| File / Directory | Role |
 |---|---|
-| `.akari/intake.json` | 進め方フォーム（やること / 尺 / おまかせ度） |
-| `.akari/connections.json` | 接続レジストリ（API キー参照・モデル選択・コスト承認ポリシー） |
-| `.akari/workflow.json` | プロジェクトのロール定義 |
-| `.akari/sidecars/` | 素材ごとの `analysis.json`（分析の事実層） |
-| `.akari/events/` | 節目の記録（1 件ずつ追記。「続きから」の合図） |
-| `.akari/lint.json` | edit-lint の検査結果の正本 |
-| `.akari/render.json` | 書き出しの計画・実行結果の正本 |
-| `.akari/diffs/` | 人間 → AI の差分協調の置き場 |
-| `.akari/work/` | エージェントの中間物（**削除安全** — 再生成できる） |
-| `.akari/reports/` | 検証証跡・レポート HTML（**削除しない** — 人間確認の記録） |
-| `.akari/cache/` | サムネ・プロキシ等のキャッシュ（削除安全） |
+| `.akari/intake.json` | The intake form (what to make / duration / delegation level) |
+| `.akari/connections.json` | Connection registry (API key references, model choices, cost approval policy) |
+| `.akari/workflow.json` | Role definitions for the project |
+| `.akari/sidecars/` | Per-asset `analysis.json` (the factual layer of analysis) |
+| `.akari/events/` | Milestone records (appended one at a time — the "resume from here" signal) |
+| `.akari/lint.json` | The canonical record of edit-lint check results |
+| `.akari/render.json` | The canonical record of export plans and run results |
+| `.akari/diffs/` | Where human-to-AI diff collaboration lives |
+| `.akari/work/` | Agent intermediates (**safe to delete** — regenerable) |
+| `.akari/reports/` | Verification evidence and report HTML (**do not delete** — the record of human review) |
+| `.akari/cache/` | Thumbnail/proxy cache and the like (safe to delete) |
 
-## 削除していいもの・いけないもの
+## What's safe to delete, and what isn't
 
-- `.akari/work/`・`.akari/cache/` — 消しても再生成されます
-- `.akari/reports/` — 「人間が何を確認したか」の証跡なので消さない
-- `edit.json`・`.akari/events/` — プロジェクトの記憶そのもの。git 管理を推奨
+- `.akari/work/` and `.akari/cache/` — regenerate automatically if deleted
+- `.akari/reports/` — evidence of what a human reviewed, so don't delete it
+- `edit.json` and `.akari/events/` — the project's memory itself. Git tracking is
+  recommended
 
-## プロジェクトの外にあるもの
+## Outside the project
 
-| 場所 | 役割 |
+| Location | Role |
 |---|---|
-| `~/.config/akari-video/credentials.env` | API キーの実体（プロジェクトに入れない） |
-| `~/.akari-video/assets/` | 個人スコープの素材ライブラリ |
+| `~/.config/akari-video/credentials.env` | Where API keys actually live (never put them in the project) |
+| `~/.akari-video/assets/` | The personal-scope asset library |
 
-## git との相性
+## Git compatibility
 
-セーブデータはすべてテキスト（JSON / HTML）なので、コミットすれば編集履歴が
-そのままバージョン管理になります。「昨日の編集に戻して」が `git diff` と revert で成立します。
+All save data is plain text (JSON / HTML), so committing it turns your edit history
+into version control by itself. "Revert to yesterday's edit" is just `git diff` and
+a revert.

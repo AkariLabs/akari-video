@@ -1,46 +1,51 @@
-# 書き出す
+**English** | [日本語](./export.ja.md)
 
-承認済みの `edit.json` から最終 MP4 をレンダリングします。スキルは `render-cut`。
+# Export
 
-## 前提
+Renders the final MP4 from an approved `edit.json`. The skill is `render-cut`.
 
-- `edit.json` が確定していること
-- [edit-lint](./review-and-fix.md) が PASS していること（`.akari/lint.json` の
-  `verdict: pass` を render-cut が確認します）
+## Prerequisites
 
-## 頼み方
+- `edit.json` is finalized
+- [edit-lint](./review-and-fix.md) has passed (render-cut checks `.akari/lint.json` for
+  `verdict: pass`)
 
-「書き出して」「納品用に MP4 にして」
+## How to ask
 
-## 流れ — 承認してから走る
+"export it" / "make the delivery MP4"
 
-1. **validate** — 入力の妥当性確認
-2. **plan** — 何をどうレンダリングするかの計画を提示（予測尺・処理内容）
-3. **承認** — 人間が OK を出す（ここが 2 つ目のチェックポイント）
-4. **render** — ローカルで ffmpeg レンダリング。映像は原本からカット・エンコード、
-   表現（テロップ・字幕）はプレビューと同一の HTML をフレーム毎キャプチャで合成
-5. **verify** — ffprobe で出力を検証し、キーフレームをエージェントが視認
+## Flow — approve, then run
 
-## 生成されるもの
+1. **validate** — confirm the inputs are valid
+2. **plan** — present a plan for what and how to render (estimated duration, processing
+   steps)
+3. **approve** — a human gives the OK (the second checkpoint)
+4. **render** — renders locally with ffmpeg. Video is cut and encoded from the source
+   footage; expression (titles, captions) is composited from the same HTML as the preview
+   via per-frame capture
+5. **verify** — verifies the output with ffprobe, and the agent looks at keyframes
 
-| ファイル | 内容 |
+## What it produces
+
+| File | Contents |
 |---|---|
-| `exports/<name>.mp4` | 最終出力 |
-| `.akari/render.json` | 書き出し計画・実行結果の正本（コマンド列・provenance） |
-| `.akari/reports/render-report.html` | 人間向けレポート（検証結果込み) |
+| `exports/<name>.mp4` | Final output |
+| `.akari/render.json` | Canonical export plan and execution result (command sequence, provenance) |
+| `.akari/reports/render-report.html` | Human-readable report (includes verification results) |
 
-## プレビューと出力が一致する理由
+## Why the preview and the output match
 
-プレビューはプロキシ + ライブ DOM（即時・触れる）、書き出しは原本 + フレーム毎
-キャプチャ（フレーム正確）。**同じ HTML・同じセーブデータ**を両方に通すので、
-見ていたものがそのまま出てきます。
+The preview runs on proxies + a live DOM (immediate, touchable); export runs on the source
+footage + per-frame capture (frame-accurate). Both pass through **the same HTML and the
+same save data**, so what you saw is exactly what comes out.
 
-## うまくいかないとき
+## If something goes wrong
 
-- **lint FAIL で始まらない** → [QA・レビューして直す](./review-and-fix.md)。
-  FAIL 理由はレポートに件数付きで出ます
-- **verify FAIL** → レポートの stderr 要約を確認。「render の失敗を調べて」で診断まで頼めます
+- **Doesn't start because of a lint FAIL** → [QA, review, and fix](./review-and-fix.md).
+  The report shows FAIL reasons with counts
+- **verify FAIL** → check the stderr summary in the report. You can ask "investigate the
+  render failure" for diagnosis
 
-## 次のステップ
+## Next steps
 
-- よくできた成果物を次回のために保存 → [素材ライブラリを育てる](./asset-library.md)
+- Save a well-made deliverable for next time → [Grow your asset library](./asset-library.md)

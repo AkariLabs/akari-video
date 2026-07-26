@@ -1,42 +1,47 @@
-# ナレーションを付ける
+**English** | [日本語](./narration.ja.md)
 
-原稿から音声を生成して `edit.json` に組み込みます。スキルは `generate-narration`。
+# Add narration
 
-## いつ使う
+Generates audio from a script and wires it into `edit.json`. The skill is `generate-narration`.
 
-- 解説動画・VLOG にナレーションを付けたいとき
-- 仮ナレ（尺確認用）を素早く当てたいとき
-- 自分の声のクローンでナレーションを作りたいとき
+## When to use it
 
-## 2 つのエンジン
+- When you want to add narration to an explainer video or vlog
+- When you want a quick scratch narration (to check duration) fast
+- When you want to generate narration from a clone of your own voice
 
-| エンジン | 特徴 | 費用 |
+## Two engines
+
+| Engine | Characteristics | Cost |
 |---|---|---|
-| VOICEVOX | ローカル実行・キャラクター声 | 無償 |
-| クラウド TTS（声クローン対応） | 自分の声プロファイルから生成 | 有償（接続設定と承認が必要） |
+| VOICEVOX | Runs locally, character voices | Free |
+| Cloud TTS (supports voice cloning) | Generates from your own voice profile | Paid (requires connection setup and approval) |
 
-有償エンジンは `manage-connections` のコスト承認ポリシーを通ってから実行されます。
-勝手に課金されることはありません。
+Paid engines only run after passing `manage-connections`'s cost approval policy. You won't be
+charged without your knowledge.
 
-## 頼み方
+## How to ask
 
-- 「この原稿でナレーションを付けて」
-- 「まず仮ナレで尺を確認したい」（→ VOICEVOX で即生成）
-- 「自分の声で作りたい」（→ 声プロファイルの作成から案内）
+- "Add narration with this script"
+- "I just want to check the duration with a scratch narration first" (→ generated immediately
+  via VOICEVOX)
+- "I want to make it in my own voice" (→ walks you through creating a voice profile)
 
-## 生成されるもの
+## What gets generated
 
-- 音声ファイル（プロジェクト内に配置）
-- `edit.json` の `audio.narration[]` への登録（どの区間にどの音声か）
+- An audio file (placed inside the project)
+- A registration in `edit.json`'s `audio.narration[]` (which audio covers which range)
 
-生成後は [edit-lint](./review-and-fix.md) が尺・重なり・参照切れを検査します。
+After generation, [edit-lint](./review-and-fix.md) checks duration, overlaps, and broken
+references.
 
-## 声プロファイル
+## Voice profiles
 
-自声クローンを使う場合、声プロファイルはプロジェクトの外
-（`~/.config/akari-video/` 配下）に保存され、プロジェクトをまたいで再利用できます。
+If you use your own voice clone, the voice profile is stored outside the project (under
+`~/.config/akari-video/`) and can be reused across projects.
 
-## 次のステップ
+## Next steps
 
-- BGM・SFX も入れる → [編集計画を立てて実行する](./plan-your-edit.md)（audio 計画は edit-plan が担当）
-- 接続設定 → [接続と API キー](../how-to/connections.md)
+- Add BGM and SFX too → [Plan your edit](./plan-your-edit.md) (audio planning is handled by
+  edit-plan)
+- Set up connections → [Connections & API keys](../how-to/connections.md)

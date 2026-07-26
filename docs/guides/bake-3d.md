@@ -1,45 +1,49 @@
-# 3D シーンをベイクする
+**English** | [日本語](./bake-3d.ja.md)
 
-Three.js のライブ 3D とは別に、Blender で 3D シーンを**映像素材として焼き込む**経路です。
-スキルは `bake-3d`。重い 3D 表現を、通常のクリップとして edit.json に載せられます。
+# Bake a 3D scene
 
-## いつ使う
+Separate from Three.js's live 3D, this is the path for **baking a 3D scene into video
+footage** using Blender. The skill is `bake-3d`. It lets you drop heavy 3D expression into
+`edit.json` as an ordinary clip.
 
-- 3D のオープニング・ロゴアニメーション・オブジェクト演出を映像素材にしたいとき
-- 既存のベイクレシピのパラメータを変えて再ベイクしたいとき
+## When to use
 
-## 仕組み — レシピ方式
+- You want a 3D opening, logo animation, or object showcase as video footage
+- You want to re-bake an existing bake recipe with different parameters
 
-3D シーンは「レシピ」（`scene.py` + パラメータ宣言）として管理します。
+## How it works — the recipe model
 
-- レシピは Blender をヘッドレス起動して mp4 に焼く再現可能なスクリプト
-- 色・文字・速度などの調整点はパラメータとして宣言されており、
-  Blender を触らずに値だけ変えて再ベイクできる
-- 焼き上がりは `bakes/*.mp4` に出力され、**edit.json の通常クリップ**として使う
+3D scenes are managed as "recipes" (`scene.py` plus a parameter declaration).
 
-## 頼み方
+- A recipe is a reproducible script that runs Blender headless and bakes it to mp4
+- Adjustable points such as color, text, and speed are declared as parameters, so you
+  can re-bake by changing values alone, without touching Blender
+- The baked output goes to `bakes/*.mp4` and is used as **an ordinary clip in edit.json**
 
-- 「ロゴが回るオープニングを 3D で作って」
-- 「このレシピの文字を『第 2 回』に変えて再ベイク」
-- 「draft で速く確認して、良ければ final で」（`--profile draft / final`）
+## How to ask
 
-## 流れ
+- "make a 3D opening with a spinning logo"
+- "change this recipe's text to 'Episode 2' and re-bake"
+- "check it quickly with draft, and if it looks good, do final" (`--profile draft / final`)
 
-1. レシピ選定または新規作成（カタログ・ライブラリから探索）
-2. パラメータ確認 → ベイク実行（Blender ヘッドレス）
-3. 出力を検証（尺・解像度・キーフレーム視認）
-4. プロジェクトへ配置、または [ライブラリへ入庫](./asset-library.md)
+## Flow
 
-## Three.js との使い分け
+1. Pick a recipe or create a new one (search the catalog / library)
+2. Confirm parameters → run the bake (Blender headless)
+3. Verify the output (duration, resolution, keyframe inspection)
+4. Place it in the project, or [add it to the library](./asset-library.md)
 
-| | ライブ 3D（overlay-authoring） | ベイク（bake-3d） |
+## Three.js vs. baking
+
+| | Live 3D (overlay-authoring) | Baked (bake-3d) |
 |---|---|---|
-| 実体 | Three.js の HTML オーバーレイ | Blender で焼いた mp4 クリップ |
-| 触れる度 | ツマミ（CSS 変数）で即調整 | パラメータ変更 → 再ベイク |
-| 向き | 軽量な演出・タイトル | 重い質感・ライティング・複雑なシーン |
+| What it is | A Three.js HTML overlay | An mp4 clip baked in Blender |
+| How touchable | Instantly adjustable via knobs (CSS variables) | Change parameters → re-bake |
+| Best for | Lightweight effects, titles | Heavy materials, lighting, complex scenes |
 
-## 前提
+## Prerequisites
 
-- Blender がローカルにあること（未導入なら bake-3d が確認・案内します）
+- Blender installed locally (if not yet installed, bake-3d checks for it and walks you
+  through setup)
 
-仕様の詳細: [3D ベイクレシピ契約](../contract-2026-07-14-3d-bake-recipe.md)
+Spec details: [3D Bake Recipe Contract](../contract-2026-07-14-3d-bake-recipe.md) (Japanese)

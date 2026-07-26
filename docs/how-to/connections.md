@@ -1,44 +1,48 @@
-# 接続と API キー
+**English** | [日本語](./connections.ja.md)
 
-外部サービス（クラウド文字起こし・TTS・生成系 API・SNS 連携）の接続は
-`manage-connections` スキルが一元管理します。
+# Connections and API keys
 
-## 原則
+Connections to external services (cloud transcription, TTS, generation APIs, SNS
+integrations) are centrally managed by the `manage-connections` skill.
 
-- **ローカル完結の範囲は接続なしで使える** — プロキシ生成・whisper.cpp 文字起こし・
-  編集・lint・書き出しは外部接続不要
-- **API キーはチャットに出さない** — キーの実体は
-  `~/.config/akari-video/credentials.env`（プロジェクト外）に置き、
-  プロジェクト内の `.akari/connections.json` は**参照**だけを持つ
-- **有償実行は承認ゲートを通る** — コスト承認ポリシーに従い、
-  課金が発生する実行の前に必ず確認が入る
+## Principles
 
-## 状態を確認する（doctor）
+- **Local-only work needs no connection** — proxy generation, whisper.cpp
+  transcription, editing, lint, and export all work with no external connection
+- **API keys never appear in chat** — the key itself lives in
+  `~/.config/akari-video/credentials.env` (outside the project); the project's
+  `.akari/connections.json` holds only a **reference** to it
+- **Paid runs go through an approval gate** — per the cost approval policy, you're
+  always asked to confirm before any run that incurs charges
 
-**頼み方**: 「接続状態を見せて」「doctor かけて」
+## Check status (doctor)
 
-読み取り専用の診断が走り、どのプロバイダが使える状態か・何が未設定かを
-レポート（`connections-report.html`）で確認できます。キー値は表示されません。
+**How to ask**: "show me connection status" / "run doctor"
 
-## キーを登録する
+A read-only diagnostic runs and reports which providers are usable and what's still
+unconfigured, via a report (`connections-report.html`). Key values are never shown.
 
-**頼み方**: 「◯◯の API キーを設定したい」
+## Register a key
 
-エージェントが `credentials.env` への記入手順を案内し、登録後に doctor で疎通を確認します。
+**How to ask**: "I want to set up the API key for ◯◯"
 
-## モデル・プロバイダを選ぶ
+The agent walks you through the steps to write it into `credentials.env`, then
+confirms connectivity with doctor once it's registered.
 
-文字起こし・TTS などバックエンドが複数あるものは、`connections.json` の
-モデル選択で既定を決められます。「文字起こしはローカル whisper を既定にして」のように
-発話で変更できます。
+## Choose a model or provider
 
-## コスト承認ポリシー
+For things with multiple backends — transcription, TTS, and so on — you can set the
+default in `connections.json`'s model selection. You can change it conversationally
+too, e.g. "make local whisper the default for transcription."
 
-おまかせ度（intake.json の `autonomy`）とは独立に、**課金と外部送信**については
-`connections.json` のポリシーが優先されます。full-auto で編集を任せていても、
-有償生成の前には確認が入る、という構えです。
+## Cost approval policy
 
-## 関連
+Independent of the delegation level (`autonomy` in `intake.json`), the
+`connections.json` policy takes priority for **billing and external sends**. Even
+when editing is delegated as full-auto, you're still asked to confirm before any
+paid generation.
 
-- 最初のセットアップ → [Getting Started](../getting-started.ja.md)
-- ナレーション生成の有償 / 無償 → [ナレーションを付ける](../guides/narration.md)
+## Related
+
+- First-time setup → [Getting Started](../getting-started.md)
+- Paid vs. free narration generation → [Add narration](../guides/narration.md)

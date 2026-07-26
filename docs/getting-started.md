@@ -6,13 +6,9 @@ AKARI Video is headless-first: everything works with Claude Code alone, no UI re
 This page covers picking an entrance, creating your first project, and filling in the
 intake form.
 
-> [!NOTE]
-> The guides and how-tos linked from this page are currently Japanese-first —
-> English versions are in progress.
-
 ## Prerequisites
 
-- macOS (Windows support is in progress — [dev/windows-build.md](./dev/windows-build.md))
+- macOS (Windows support is in progress — [dev/windows-build.md](./dev/windows-build.md), Japanese)
 - [Claude Code](https://claude.com/claude-code)
 - CLI tools such as ffmpeg and whisper.cpp are checked and guided through by the skills
   on first setup
@@ -91,19 +87,19 @@ generation, asset generation — configure them with the `manage-connections` sk
 Everything local (proxy generation, whisper.cpp transcription, editing, export) works
 with no connections at all.
 
-Details: [How-to: Connections & API keys](./how-to/connections.md) (Japanese)
+Details: [How-to: Connections & API keys](./how-to/connections.md)
 
 ## A first flow
 
 If you already have one piece of footage:
 
 1. Put it in the project and say "analyze this video" →
-   [Analyze footage](./guides/analyze-footage.md) (Japanese)
+   [Analyze footage](./guides/analyze-footage.md)
 2. "Draft an editing direction" → review the analysis report and approve the direction →
-   [Plan your edit](./guides/plan-your-edit.md) (Japanese)
+   [Plan your edit](./guides/plan-your-edit.md)
 3. The agent assembles `edit.json`, titles, and captions
 4. "Export it" → lint PASS → approve → MP4 lands in `exports/` →
-   [Export](./guides/export.md) (Japanese)
+   [Export](./guides/export.md)
 
 No footage yet? Start from planning →
-[Plan from scratch](./guides/plan-from-scratch.md) (Japanese)
+[Plan from scratch](./guides/plan-from-scratch.md)
