@@ -6,7 +6,15 @@ import { resolveRepoAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
 import { findClaudeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
-import { describeIntake, claudeMissingGuidance } from './messages.mjs';
+import { describeIntake, claudeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import {
+  checkForUpdateSync,
+  readCacheSync,
+  readOwnVersion,
+  recordDismissalSync,
+  resolveCachePath,
+  triggerBackgroundRefresh
+} from './update-check.mjs';
 
 /**
  * `akari` ランチャーの本体。3 入口契約（ターミナル `akari` / セッション内 `/akari` /
@@ -24,6 +32,8 @@ export async function run(args, options = {}) {
   const runDoctor = options.runDoctor ?? defaultRunDoctor;
   const resolveClaude = options.resolveClaude ?? (() => findClaudeExecutable());
   const spawnClaude = options.spawnClaude ?? defaultSpawnClaude;
+  const env = options.env ?? process.env;
+  const currentVersion = options.currentVersion ?? readOwnVersion();
 
   let state = detectProjectState(projectRoot);
 
@@ -56,7 +66,17 @@ export async function run(args, options = {}) {
     } catch (error) {
       log(`接続確認でエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
     }
+    log(describeVersionStatus(currentVersion, readCacheSync(resolveCachePath(env))));
   }
+
+  // 新版通知（契約 §4-1）: キャッシュの読み比較のみ・ネットワークには一切触れない
+  // （起動をブロックしない）。fetch は detached な子プロセスへ切り離し、
+  // 結果は次回セッションで効く。
+  const updateNotice = formatUpdateNotice((options.checkUpdate ?? checkForUpdateSync)({ currentVersion, env }));
+  if (updateNotice) {
+    log(updateNotice);
+  }
+  (options.refreshUpdate ?? triggerBackgroundRefresh)({ env });
 
   log('Claude Code を起動します…');
   const claudePath = resolveClaude();
@@ -86,4 +106,32 @@ function defaultRunDoctor(doctorScript, projectRoot) {
 
 function defaultSpawnClaude(claudePath, args, projectRoot) {
   return spawnSync(claudePath, args, { stdio: 'inherit', cwd: projectRoot });
+}
+
+/**
+ * `akari update`: 現在版・最新版・リリースノート URL を表示し、更新手順を**案内するだけ**
+ * （自動実行はしない — 契約 §4-1）。`--dismiss` を渡すと、キャッシュに載っている最新版の
+ * 通知を今後出さないよう記録する。ネットワークには一切触れない
+ * （表示に使う情報はすべて既存キャッシュ由来 — 最新情報は `akari` 起動時のバックグラウンド
+ * fetch で更新される）。
+ */
+export async function runUpdateCommand(args, options = {}) {
+  const log = options.log ?? ((line) => console.log(line));
+  const env = options.env ?? process.env;
+  const currentVersion = options.currentVersion ?? readOwnVersion();
+  const cachePath = resolveCachePath(env);
+  const cache = readCacheSync(cachePath);
+  const dismissRequested = args.includes('--dismiss');
+
+  let dismissed = false;
+  if (dismissRequested && typeof cache?.feed?.product === 'string') {
+    recordDismissalSync({ version: cache.feed.product, env });
+    dismissed = true;
+  }
+
+  const finalCache = dismissed ? readCacheSync(cachePath) : cache;
+  for (const line of describeUpdateCommand({ currentVersion, cache: finalCache, dismissed })) {
+    log(line);
+  }
+  return { exitCode: 0 };
 }
