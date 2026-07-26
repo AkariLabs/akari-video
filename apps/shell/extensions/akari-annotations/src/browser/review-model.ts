@@ -1,6 +1,6 @@
 import { Emitter, Event } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
+import { AkariAnnotationsService, Annotation, SaveCanvasRequest, SaveCanvasResult } from '../common/akari-annotations-protocol';
 import { AnnotationStroke } from '../common/annotation-store';
 import { ProjectLocation } from './project-location';
 
@@ -174,6 +174,19 @@ export class ReviewModel {
             this.onChangedEmitter.fire();
         }
         return result;
+    }
+
+    /**
+     * キャンバス面の記録原本の保存（contract-2026-07-26-canvas-surface §1/§2）。review.json への
+     * 着地は行わない — skills/compile-review-session が review/canvas/c-NNNN/ を検出して行う
+     * （§4。review セッション s-NNNN と同じ Raw → コンパイルの 2 段構え）。
+     */
+    async saveCanvas(request: Omit<SaveCanvasRequest, 'projectRootUri'>): Promise<SaveCanvasResult> {
+        const location = this._location;
+        if (!location) {
+            throw new Error('プロジェクトを特定できません。');
+        }
+        return this.annotationsService.saveCanvas({ ...request, projectRootUri: location.root.toString() });
     }
 
     async resolveAnnotation(annotationId: string): Promise<Annotation> {

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   parseDocTarget,
   parseImageTarget,
+  parseCanvasTarget,
   collectBlockIds,
   extractBlocksManifest,
 } from "../lib/common/doc-target.js";
@@ -24,6 +25,13 @@ test("parseImageTarget は image:<path> をパースする", () => {
     path: "assets/thumbnails/candidate-1.png",
   });
   assert.equal(parseImageTarget("doc:foo.html#bar"), undefined);
+});
+
+test("parseCanvasTarget は canvas:<c-NNNN> をパースする", () => {
+  assert.deepEqual(parseCanvasTarget("canvas:c-0001"), { id: "c-0001" });
+  assert.equal(parseCanvasTarget("image:assets/thumbnails/candidate-1.png"), undefined);
+  assert.equal(parseCanvasTarget(null), undefined);
+  assert.equal(parseCanvasTarget("canvas:not-a-valid-id"), undefined);
 });
 
 test("collectBlockIds はマニフェストの形状に依存せず文字列の葉を全数集める", () => {

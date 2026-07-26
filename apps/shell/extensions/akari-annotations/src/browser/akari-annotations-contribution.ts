@@ -3,7 +3,8 @@ import {
     CommandContribution,
     CommandRegistry,
     MenuContribution,
-    MenuModelRegistry
+    MenuModelRegistry,
+    MessageService
 } from '@theia/core/lib/common';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import {
@@ -13,6 +14,7 @@ import {
     WidgetManager
 } from '@theia/core/lib/browser';
 import { FileChangeType, FileStat } from '@theia/filesystem/lib/common/files';
+import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
@@ -20,6 +22,7 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
     OPEN_AKARI_ANNOTATIONS,
+    OPEN_AKARI_CANVAS,
     OPEN_AKARI_INSPECTOR,
     OPEN_AKARI_REVIEW_BOARD,
     OPEN_AKARI_REVIEW_PANEL,
@@ -28,6 +31,7 @@ import {
 } from './akari-annotations-commands';
 import { Annotation } from '../common/akari-annotations-protocol';
 import { parseDocTarget } from '../common/doc-target';
+import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
@@ -36,7 +40,10 @@ import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
 
-export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_REVIEW_PANEL };
+export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_CANVAS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_REVIEW_PANEL };
+
+/** キャンバスのアスペクトが取れない場合の既定値（task.md 指示 1）。 */
+const DEFAULT_CANVAS_ASPECT = { w: 1920, h: 1080 };
 
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
@@ -73,6 +80,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     @inject(ReviewModel)
     protected readonly review!: ReviewModel;
+
+    @inject(FileDialogService)
+    protected readonly fileDialogService!: FileDialogService;
+
+    @inject(MessageService)
+    protected readonly messages!: MessageService;
 
     protected readonly toDispose = new DisposableCollection();
 
@@ -151,6 +164,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(OPEN_AKARI_REVIEW_BOARD, {
             execute: () => this.openBoard()
         });
+        commands.registerCommand(OPEN_AKARI_CANVAS, {
+            execute: () => this.openCanvas()
+        });
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()
         });
@@ -205,6 +221,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             commandId: OPEN_AKARI_REVIEW_BOARD.id,
             label: OPEN_AKARI_REVIEW_BOARD.label,
             order: 'z22'
+        });
+        menus.registerMenuAction(CommonMenus.FILE, {
+            commandId: OPEN_AKARI_CANVAS.id,
+            label: OPEN_AKARI_CANVAS.label,
+            order: 'z23'
         });
     }
 
@@ -483,6 +504,58 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         }
         await this.shell.revealWidget(widget.id);
         return widget;
+    }
+
+    /**
+     * 「キャンバスを開く」（contract-2026-07-26-canvas-surface）: 出力アスペクトの白板を
+     * ダイアログで開き、閉じたら review/canvas/c-NNNN/ に記録原本を書く（review.json への着地は
+     * 別途 skills/compile-review-session を実行する — §4）。
+     */
+    protected async openCanvas(): Promise<void> {
+        const location = await this.locate();
+        if (!location) {
+            this.messages.error('プロジェクトを特定できません。タイムラインを開いてから開いてください。');
+            return;
+        }
+        this.review.location = location;
+        const { aspect, aspectSource } = await this.resolveCanvasAspect(location);
+        const dialog = new AkariCanvasDialog(
+            { title: 'キャンバスを開く', mode: 'create', aspect, aspectSource, maxWidth: 1200 },
+            this.fileService,
+            this.review,
+            this.fileDialogService
+        );
+        const id = await dialog.open();
+        if (id) {
+            this.messages.info(`キャンバスを記録しました: ${id}（コンパイルすると review.json の注釈として着地します）`);
+        }
+    }
+
+    /**
+     * プロジェクトの出力解像度からキャンバスのアスペクトを導出する（task.md 指示 1）。
+     * edit.json（v0/v1 共通 `output.width`/`output.height` — packages/schemas/edit.schema.json）
+     * から読めればそれを使い、読めなければ 1920x1080 既定へ落とし、導出元を canvas.json に残す
+     * （呼び出し側 = AkariCanvasDialog.isValid → saveCanvas）。
+     */
+    protected async resolveCanvasAspect(
+        location: ProjectLocation
+    ): Promise<{ aspect: { w: number; h: number }; aspectSource: 'edit.json' | 'default' }> {
+        if (location.editUri) {
+            try {
+                const parsed = JSON.parse(await this.readText(location.editUri)) as {
+                    output?: { width?: unknown; height?: unknown };
+                };
+                const width = parsed?.output?.width;
+                const height = parsed?.output?.height;
+                if (typeof width === 'number' && Number.isFinite(width) && width > 0
+                    && typeof height === 'number' && Number.isFinite(height) && height > 0) {
+                    return { aspect: { w: width, h: height }, aspectSource: 'edit.json' };
+                }
+            } catch (error) {
+                console.warn('[akari-annotations] failed to resolve output aspect from edit.json', error);
+            }
+        }
+        return { aspect: { ...DEFAULT_CANVAS_ASPECT }, aspectSource: 'default' };
     }
 
     protected async locate(): Promise<ProjectLocation | undefined> {

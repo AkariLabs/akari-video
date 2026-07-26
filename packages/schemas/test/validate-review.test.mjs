@@ -57,11 +57,46 @@ test("strokes: content-rect (frame + sessionRef) and image-rect (frame omitted) 
 test("strokes with an unrecognized space value fails", () => {
   const executed = run("invalid-strokes-bad-space");
   assert.equal(executed.status, 1);
-  assert.match(executed.stderr, /\.space は content-rect または image-rect である必要があります/);
+  assert.match(executed.stderr, /\.space は content-rect \/ image-rect \/ canvas-rect のいずれかである必要があります/);
 });
 
 test("image-rect strokes with a frame present fails (frame is a content-rect-only field)", () => {
   const executed = run("invalid-strokes-image-rect-with-frame");
   assert.equal(executed.status, 1);
   assert.match(executed.stderr, /image-rect では省略する必要があります/);
+});
+
+test("canvas: target with canvas-rect strokes (frame omitted, canvasRef optional) passes (contract-2026-07-26-canvas-surface §4)", () => {
+  const executed = run("valid-canvas-target");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+  assert.equal(executed.stderr.trim(), "");
+});
+
+test("canvas: target without a valid c-NNNN id fails", () => {
+  const executed = run("invalid-malformed-canvas-target");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /target は canvas:<c-NNNN> の形式である必要があります/);
+});
+
+test("canvas-rect strokes with a frame present fails (frame is a content-rect-only field)", () => {
+  const executed = run("invalid-strokes-canvas-rect-with-frame");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /canvas-rect では省略する必要があります/);
+});
+
+test("input: \"session\" passes (rider r1 — review セッション契約 §6 で昇格済みの enum を回収)", () => {
+  const executed = run("valid-input-session");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+  assert.equal(executed.stderr.trim(), "");
+});
+
+test("rider r1 regression: skills/address-review dev-fixture (2 pre-existing input:\"session\" records) now passes", () => {
+  const fixturePath = join(
+    packageRoot, "..", "..", "skills", "address-review", "dev-fixtures", "fixture-project", "review.json",
+  );
+  const executed = spawnSync(process.execPath, [cliPath, fixturePath], { encoding: "utf8" });
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
 });

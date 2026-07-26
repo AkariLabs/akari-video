@@ -10,7 +10,8 @@ import {
 import { AnnotationStroke, AnnotationStrokeImageRect } from '../common/annotation-store';
 import { ReviewModel } from './review-model';
 
-const IMAGE_MIME_TYPES = new Map<string, string>([
+/** キャンバス面ダイアログ（akari-canvas-dialog.ts）と共有する拡張子→MIME 対応表。 */
+export const IMAGE_MIME_TYPES = new Map<string, string>([
     ['.jpg', 'image/jpeg'],
     ['.jpeg', 'image/jpeg'],
     ['.png', 'image/png'],
@@ -19,8 +20,21 @@ const IMAGE_MIME_TYPES = new Map<string, string>([
     ['.bmp', 'image/bmp']
 ]);
 
-/** review-session 契約 §4.2「〜100 点程度に間引き可」に従う簡易間引き上限。 */
-const MAX_STROKE_POINTS = 100;
+/** review-session 契約 §4.2「〜100 点程度に間引き可」に従う簡易間引き上限（akari-canvas-dialog.ts と共有）。 */
+export const MAX_STROKE_POINTS = 100;
+
+/** 端点を保ったまま均等間引きする（akari-canvas-dialog.ts と共有する簡易実装）。 */
+export function decimateStrokePoints(points: Array<[number, number]>): Array<[number, number]> {
+    if (points.length <= MAX_STROKE_POINTS) {
+        return points;
+    }
+    const result: Array<[number, number]> = [];
+    const lastIndex = points.length - 1;
+    for (let index = 0; index < MAX_STROKE_POINTS; index += 1) {
+        result.push(points[Math.round((index * lastIndex) / (MAX_STROKE_POINTS - 1))]);
+    }
+    return result;
+}
 /** ダイアログ内で画像を表示する上限（原寸比は保つ・原寸を超えて拡大はしない）。 */
 const MAX_DISPLAY_WIDTH_RATIO = 0.72;
 const MAX_DISPLAY_HEIGHT_RATIO = 0.62;
@@ -295,15 +309,7 @@ export class AkariImageAnnotationDialog extends AbstractDialog<boolean> {
     }
 
     protected decimate(points: Array<[number, number]>): Array<[number, number]> {
-        if (points.length <= MAX_STROKE_POINTS) {
-            return points;
-        }
-        const result: Array<[number, number]> = [];
-        const lastIndex = points.length - 1;
-        for (let index = 0; index < MAX_STROKE_POINTS; index += 1) {
-            result.push(points[Math.round((index * lastIndex) / (MAX_STROKE_POINTS - 1))]);
-        }
-        return result;
+        return decimateStrokePoints(points);
     }
 
     get value(): boolean {

@@ -81,6 +81,19 @@
             "sessionRef": { "$ref": "#/$defs/nonEmptyString" }
           },
           "$comment": "画像面（contract-2026-07-26-doc-image-annotations §3）。frame は動画フレームアンカーが存在しないため省略必須。sessionRef は録音セッション由来でない単発注釈では省略できる。"
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["tool", "space", "points"],
+          "not": { "required": ["frame"] },
+          "properties": {
+            "tool": { "const": "pen" },
+            "space": { "const": "canvas-rect" },
+            "points": { "$ref": "#/$defs/strokePoints" },
+            "canvasRef": { "$ref": "#/$defs/nonEmptyString" }
+          },
+          "$comment": "キャンバス面（contract-2026-07-26-canvas-surface §1/§4）。image-rect と同型だが出所参照フィールド名が canvasRef（c-0001/st-0003 形式）。frame は動画フレームアンカーが存在しないため省略必須。canvasRef は任意。"
         }
       ],
       "$comment": "review セッション契約 §4.2 の annotation 着地型（tool:pen 固定・space で判別）。"
@@ -151,7 +164,7 @@
         },
         "target": {
           "oneOf": [{ "type": "null" }, { "type": "string" }],
-          "$comment": "targetKind とは別物。null / overlay:<id> / cut:<index> に加え、contract-2026-07-26-doc-image-annotations §1 で doc:<プロジェクト相対パス>#<block-id>（分析レポート等のブロック注釈）と image:<プロジェクト相対パス>（画像アセットへの注釈）を追加する。doc: / image: のときに限り sourceT は null を許容する（§2）。"
+          "$comment": "targetKind とは別物。null / overlay:<id> / cut:<index> に加え、contract-2026-07-26-doc-image-annotations §1 で doc:<プロジェクト相対パス>#<block-id>（分析レポート等のブロック注釈）と image:<プロジェクト相対パス>（画像アセットへの注釈）を、contract-2026-07-26-canvas-surface §4 で canvas:<c-NNNN>（キャンバス面への注釈）を追加する。doc: / image: / canvas: のときに限り sourceT は null を許容する（§2 および同契約 §4）。"
         },
         "targetKind": {
           "oneOf": [
@@ -193,7 +206,10 @@
           "$comment": "自由文字列。推奨語彙は契約文書（enum 強制しない）。"
         },
         "text": { "type": "string" },
-        "input": { "enum": ["typed", "voice"] },
+        "input": {
+          "enum": ["typed", "voice", "session"],
+          "$comment": "review セッション契約 §6 で追加された着地元。ライダー r1（2026-07-26-canvas-surface 起票時点で回収）: この enum と apps/shell reader は当初 session 未許可のままだったため実データ（skills/address-review/dev-fixtures/fixture-project/review.json）が validator エラーになっていた。"
+        },
         "audio": {
           "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }]
         },

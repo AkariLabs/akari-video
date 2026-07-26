@@ -16,8 +16,15 @@ export interface ImageTarget {
     path: string;
 }
 
+export interface CanvasTarget {
+    /** `c-` + ゼロ埋め連番（review/canvas/<id>/ のディレクトリ名と一致）。 */
+    id: string;
+}
+
 const DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
 const IMAGE_TARGET_PATTERN = /^image:(.+)$/;
+/** contract-2026-07-26-canvas-surface §4: canvas:<c-NNNN>。 */
+const CANVAS_TARGET_PATTERN = /^canvas:(c-\d{4,})$/;
 
 export function parseDocTarget(target: string | null | undefined): DocTarget | undefined {
     if (typeof target !== 'string') {
@@ -33,6 +40,14 @@ export function parseImageTarget(target: string | null | undefined): ImageTarget
     }
     const match = IMAGE_TARGET_PATTERN.exec(target);
     return match ? { path: match[1] } : undefined;
+}
+
+export function parseCanvasTarget(target: string | null | undefined): CanvasTarget | undefined {
+    if (typeof target !== 'string') {
+        return undefined;
+    }
+    const match = CANVAS_TARGET_PATTERN.exec(target);
+    return match ? { id: match[1] } : undefined;
 }
 
 /**

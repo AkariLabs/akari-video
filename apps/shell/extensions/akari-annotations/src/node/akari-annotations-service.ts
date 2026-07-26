@@ -1,6 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { execFile } from 'child_process';
+import { createHash } from 'crypto';
 import { promises as fs, statSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join, relative, resolve, sep } from 'path';
@@ -38,6 +39,8 @@ import {
     ReorderCutsRequest,
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
+    SaveCanvasRequest,
+    SaveCanvasResult,
     ShiftCaptionRequest,
     SlipCutRequest,
     SetBgmFieldsRequest,
@@ -110,6 +113,14 @@ import {
 } from '../common/edit-store';
 
 const execFileAsync = promisify(execFile);
+
+/** review/canvas/c-NNNN/strokes.json の 1 要素（review-session §4.1 と同型・canvas-rect・frame なし）。 */
+interface CanvasStrokeRecord {
+    id: string;
+    tool: 'pen';
+    space: 'canvas-rect';
+    points: [number, number][];
+}
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
@@ -242,6 +253,119 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw new Error('更新後の注釈を読み取れません。');
         }
         return { annotation };
+    }
+
+    /**
+     * キャンバス面（contract-2026-07-26-canvas-surface §1/§2）の記録原本を
+     * `project/review/canvas/c-NNNN/{canvas.json,strokes.json}` へ書く。review.json への着地は
+     * このメソッドの責務外（skills/compile-review-session が canvas ディレクトリを検出して行う —
+     * §4 のコンパイル分離を review セッション（s-NNNN）と同じ構造で踏襲する）。
+     */
+    async saveCanvas(request: SaveCanvasRequest): Promise<SaveCanvasResult> {
+        if (!request?.projectRootUri) {
+            throw new Error('プロジェクトを特定できません。');
+        }
+        const aspect = request.aspect;
+        if (!aspect || !Number.isFinite(aspect.w) || aspect.w <= 0 || !Number.isFinite(aspect.h) || aspect.h <= 0) {
+            throw new Error('キャンバスの出力解像度が不正です。');
+        }
+        const aspectSource = request.aspectSource === 'edit.json' ? 'edit.json' : 'default';
+        const memo = typeof request.memo === 'string' && request.memo.trim() ? request.memo.trim() : null;
+        const strokes = (Array.isArray(request.strokes) ? request.strokes : [])
+            .map((stroke, index) => this.buildCanvasStroke(stroke, index))
+            .filter((stroke): stroke is CanvasStrokeRecord => stroke !== undefined);
+        if (strokes.length === 0 && !memo) {
+            throw new Error('ペンで描くかメモを入力してください。');
+        }
+
+        const root = this.fsPath(request.projectRootUri);
+        const canvasRoot = join(root, 'review', 'canvas');
+        await fs.mkdir(canvasRoot, { recursive: true });
+        const { id, canvasDirectory } = await this.allocateCanvasDirectory(canvasRoot);
+
+        let background: { ref: string; hash: string } | null = null;
+        if (request.background?.uri) {
+            const backgroundPath = this.fsPath(request.background.uri);
+            const bytes = await fs.readFile(backgroundPath);
+            const hash = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+            const ref = relative(root, backgroundPath).split(sep).join('/');
+            background = { ref, hash };
+        }
+
+        const canvasManifest = {
+            version: 0,
+            id,
+            createdAt: new Date().toISOString(),
+            aspect: { w: aspect.w, h: aspect.h },
+            // 追記(契約 §2 baseline に対する加筆): 取れない場合 1920x1080 既定へ落ちた導出元を
+            // 明示する（task.md 指示 1「取れない場合は…canvas.json に導出元を記録」）。
+            aspectSource,
+            background,
+            audio: null,
+            // 追記: 録音なし v0（§3）で唯一のテキスト添付経路。§4 のコンパイルが読む。
+            memo,
+            status: 'recorded' as const,
+            // 追記: session.json の compiledAnnotations と同じ分担（review-session §1 相乗り）。
+            compiledAnnotations: null
+        };
+        await this.writeAtomic(
+            join(canvasDirectory, 'canvas.json'), `${JSON.stringify(canvasManifest, null, 2)}\n`
+        );
+        await this.writeAtomic(
+            join(canvasDirectory, 'strokes.json'), `${JSON.stringify({ version: 1, strokes }, null, 2)}\n`
+        );
+
+        try {
+            await this.commitIfOwnRoot(root, 'キャンバスを記録');
+        } catch (error) {
+            console.warn('[akari-annotations] canvas commit skipped:', error);
+        }
+
+        return { id };
+    }
+
+    protected buildCanvasStroke(
+        input: SaveCanvasRequest['strokes'][number], index: number
+    ): CanvasStrokeRecord | undefined {
+        if (!input || !Array.isArray(input.points)) {
+            return undefined;
+        }
+        const points = input.points.filter(
+            (point): point is [number, number] => Array.isArray(point) && point.length === 2
+                && point.every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1)
+        );
+        if (points.length < 2) {
+            return undefined;
+        }
+        return {
+            id: `st-${String(index + 1).padStart(4, '0')}`,
+            tool: 'pen',
+            space: 'canvas-rect',
+            points: points.map(([x, y]) => [x, y])
+        };
+    }
+
+    /** `c-` + ゼロ埋め連番。review-session の allocateSessionDirectory と同じ採番規律（再利用しない）。 */
+    protected async allocateCanvasDirectory(canvasRoot: string): Promise<{ id: string; canvasDirectory: string }> {
+        const entries = await fs.readdir(canvasRoot, { withFileTypes: true });
+        let next = entries.reduce((maximum, entry) => {
+            const match = entry.isDirectory() ? /^c-(\d{4,})$/.exec(entry.name) : null;
+            return match ? Math.max(maximum, Number(match[1])) : maximum;
+        }, 0) + 1;
+        while (Number.isSafeInteger(next)) {
+            const id = `c-${String(next).padStart(4, '0')}`;
+            const canvasDirectory = join(canvasRoot, id);
+            try {
+                await fs.mkdir(canvasDirectory);
+                return { id, canvasDirectory };
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+                    throw error;
+                }
+                next += 1;
+            }
+        }
+        throw new Error('キャンバスの採番上限に達しました。');
     }
 
     async trimCut(request: TrimCutRequest): Promise<WriteBackResult> {

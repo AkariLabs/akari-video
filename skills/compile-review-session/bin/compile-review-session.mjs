@@ -11,6 +11,12 @@ import {
   segmentUtterances,
 } from "./core/compiler.mjs";
 import {
+  buildMemoOnlyCanvasAnnotation,
+  isValidCanvasId,
+  validateCanvasManifest,
+  validateCanvasStroke,
+} from "./core/canvas-compiler.mjs";
+import {
   appendAnnotationsAtomic,
   writeAtomic,
   writeJsonAtomic,
@@ -25,9 +31,13 @@ import { transcribeAudio } from "./core/transcription.mjs";
 const USAGE = [
   "使い方:",
   "  node skills/compile-review-session/bin/compile-review-session.mjs <project-root>",
-  "    [--session <s-XXXX>] [--force] [--allow-cloud-stt] [--json]",
+  "    [--session <s-XXXX> | --canvas <c-XXXX>] [--force] [--allow-cloud-stt] [--json]",
   "    [--prepare-only | --apply-proposals]",
   "    [--cloud-provider <scribe|groq> --cloud-approved]",
+  "",
+  "  --session / --prepare-only / --apply-proposals / --cloud-provider / --cloud-approved は",
+  "  review セッション（s-NNNN）専用。--canvas はキャンバス面（contract-2026-07-26-canvas-surface）",
+  "  専用で、指定しない場合は review/sessions と review/canvas の両方を対象にする。",
 ].join("\n");
 
 class CliError extends Error {}
@@ -36,6 +46,7 @@ function parseArguments(argv) {
   const options = {
     projectRoot: null,
     session: null,
+    canvas: null,
     force: false,
     allowCloudStt: false,
     json: false,
@@ -56,10 +67,11 @@ function parseArguments(argv) {
     else if (argument === "--prepare-only") options.prepareOnly = true;
     else if (argument === "--apply-proposals") options.applyProposals = true;
     else if (argument === "--cloud-approved") options.cloudApproved = true;
-    else if (argument === "--session" || argument === "--cloud-provider") {
+    else if (argument === "--session" || argument === "--canvas" || argument === "--cloud-provider") {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) throw new CliError(`${argument} の値がありません`);
       if (argument === "--session") options.session = value;
+      else if (argument === "--canvas") options.canvas = value;
       else options.cloudProvider = value;
       index += 1;
     } else if (argument.startsWith("-")) {
@@ -71,11 +83,20 @@ function parseArguments(argv) {
     }
   }
   if (!options.projectRoot) throw new CliError(USAGE);
+  if (options.session && options.canvas) {
+    throw new CliError("--session と --canvas は同時に指定できません");
+  }
   if (options.prepareOnly && options.applyProposals) {
     throw new CliError("--prepare-only と --apply-proposals は同時に指定できません");
   }
+  if (options.canvas && (options.prepareOnly || options.applyProposals)) {
+    throw new CliError("--canvas は --prepare-only / --apply-proposals と併用できません（キャンバスに提案フェーズはありません）");
+  }
   if (options.session && !/^s-\d{4,}$/.test(options.session)) {
     throw new CliError("--session は s- + 4 桁以上の数字で指定してください");
+  }
+  if (options.canvas && !isValidCanvasId(options.canvas)) {
+    throw new CliError("--canvas は c- + 4 桁以上の数字で指定してください");
   }
   if (options.cloudProvider && !["scribe", "groq"].includes(options.cloudProvider)) {
     throw new CliError("--cloud-provider は scribe または groq です");
@@ -521,6 +542,7 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
 }
 
 async function sessionIds(options) {
+  if (options.canvas) return [];
   const sessionsRoot = path.join(options.projectRoot, "review", "sessions");
   if (options.session) return [options.session];
   let entries;
@@ -532,6 +554,170 @@ async function sessionIds(options) {
   }
   return entries
     .filter((entry) => entry.isDirectory() && /^s-\d{4,}$/.test(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+function canvasReportSource({ canvasId, landedAnnotation, warnings = [], recompile, error = null }) {
+  const lines = [
+    `# ${canvasId} コンパイルレポート`,
+    "",
+    `- 結果: ${error ? "拒否 / スキップ" : "コンパイル済み"}`,
+    `- 実行: ${recompile ? "再コンパイル（既存 annotation は保持）" : "初回コンパイル"}`,
+    "- モード: no-audio-memo（v0 は録音なし・strokes + メモを 1 annotation に集約）",
+  ];
+  if (error) {
+    lines.push("", "## 拒否 / スキップ理由", "", `- ${markdown(error)}`);
+  }
+  if (landedAnnotation) {
+    lines.push(
+      "",
+      "## 着地した annotation",
+      "",
+      `- ${landedAnnotation.id}: target=${markdown(landedAnnotation.target)}`
+      + ` strokes=${landedAnnotation.strokes?.length ?? 0} 本`,
+      `  text: ${markdown(landedAnnotation.text)}`,
+    );
+  }
+  if (warnings.length > 0) {
+    lines.push("", "## warning", "");
+    for (const warning of warnings) lines.push(`- ${markdown(warning)}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+async function writeCanvasFailureReport(canvasDirectory, canvasId, message, recompile = false) {
+  await writeAtomic(path.join(canvasDirectory, "compile-report.md"), canvasReportSource({
+    canvasId,
+    warnings: [],
+    recompile,
+    error: message,
+  }));
+}
+
+async function loadCanvasStrokes(canvasDirectory) {
+  const strokesPath = path.join(canvasDirectory, "strokes.json");
+  let document;
+  try {
+    document = await readJson(strokesPath, "strokes.json");
+  } catch (error) {
+    if (error?.code === "ENOENT") return { strokes: [], warnings: [] };
+    throw new Error(`strokes.json を読めません: ${errorText(error)}`);
+  }
+  if (document?.version !== 1 || !Array.isArray(document.strokes)) {
+    throw new Error("strokes.json の version または strokes が不正です");
+  }
+  const strokes = [];
+  const warnings = [];
+  for (const [index, stroke] of document.strokes.entries()) {
+    if (!validateCanvasStroke(stroke)) {
+      warnings.push(`strokes.json strokes[${index}] をスキップ: stroke の形式が不正です`);
+      continue;
+    }
+    strokes.push(stroke);
+  }
+  return { strokes, warnings };
+}
+
+/**
+ * キャンバス面（contract-2026-07-26-canvas-surface）のコンパイル。session と異なり timeline/cuts が
+ * 無いため参照解決は不要 — target は常に `canvas:<id>` に固定される。v0 は録音なし（audio は常に
+ * null）のため strokes + メモを 1 annotation に集約する経路のみを実装する（report.md §調査「録音
+ * 流用」参照。audio 付きキャンバスに遭遇した場合は黙って処理せず明示的に拒否として報告する）。
+ */
+async function compileCanvas({ canvasId, canvasDirectory, options }) {
+  const canvasPath = path.join(canvasDirectory, "canvas.json");
+  let rawManifest;
+  try {
+    rawManifest = await readJson(canvasPath, "canvas.json");
+  } catch (error) {
+    const message = errorText(error);
+    await writeCanvasFailureReport(canvasDirectory, canvasId, message);
+    return { canvasId, status: "skipped", reason: message };
+  }
+  const manifest = validateCanvasManifest(rawManifest);
+  if (!manifest || manifest.id !== canvasId) {
+    const message = "canvas.json の形式、または id がディレクトリ名と一致しません";
+    await writeCanvasFailureReport(canvasDirectory, canvasId, message);
+    return { canvasId, status: "skipped", reason: message };
+  }
+  const recompile = manifest.status === "compiled";
+  if (recompile && !options.force) {
+    return { canvasId, status: "skipped", reason: "既に compiled のためスキップ" };
+  }
+  if (manifest.audio) {
+    const message = "audio 付きキャンバスのコンパイルは本バージョンで未実装です（v0 は録音なしのみ）";
+    await writeCanvasFailureReport(canvasDirectory, canvasId, message, recompile);
+    return { canvasId, status: "rejected", reason: message };
+  }
+
+  let strokes;
+  let warnings;
+  try {
+    const loaded = await loadCanvasStrokes(canvasDirectory);
+    strokes = loaded.strokes;
+    warnings = loaded.warnings;
+  } catch (error) {
+    // 契約 §6: strokes.json が壊れている → コンパイル拒否（推測着地はしない）。
+    const message = `コンパイル拒否: ${errorText(error)}`;
+    await writeCanvasFailureReport(canvasDirectory, canvasId, message, recompile);
+    return { canvasId, status: "rejected", reason: message };
+  }
+
+  const memo = typeof manifest.memo === "string" ? manifest.memo : null;
+  if (strokes.length === 0 && !(memo && memo.trim())) {
+    const message = "strokes も memo も無いため着地する内容がありません";
+    await writeCanvasFailureReport(canvasDirectory, canvasId, message, recompile);
+    return { canvasId, status: "rejected", reason: message };
+  }
+
+  const annotation = buildMemoOnlyCanvasAnnotation({
+    canvasId,
+    strokes,
+    memo,
+    createdAt: new Date().toISOString(),
+  });
+  const assigned = await appendAnnotationsAtomic(
+    path.join(options.projectRoot, "review.json"),
+    [annotation],
+  );
+  const landedAnnotation = assigned[0];
+
+  const previousIds = Array.isArray(manifest.compiledAnnotations) ? manifest.compiledAnnotations : [];
+  const updatedManifest = {
+    ...manifest,
+    status: "compiled",
+    compiledAnnotations: [...previousIds, landedAnnotation.id],
+  };
+  await writeJsonAtomic(canvasPath, updatedManifest);
+  await writeAtomic(path.join(canvasDirectory, "compile-report.md"), canvasReportSource({
+    canvasId,
+    landedAnnotation,
+    warnings,
+    recompile,
+  }));
+
+  return {
+    canvasId,
+    status: "compiled",
+    recompiled: recompile,
+    annotations: [{ id: landedAnnotation.id, target: landedAnnotation.target }],
+  };
+}
+
+async function canvasIds(options) {
+  if (options.session) return [];
+  if (options.canvas) return [options.canvas];
+  const canvasRoot = path.join(options.projectRoot, "review", "canvas");
+  let entries;
+  try {
+    entries = await fs.readdir(canvasRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && /^c-\d{4,}$/.test(entry.name))
     .map((entry) => entry.name)
     .sort();
 }
@@ -551,12 +737,23 @@ async function main() {
   const results = [];
   for (const sessionId of ids) {
     const directory = path.join(options.projectRoot, "review", "sessions", sessionId);
-    results.push(await compileSession({
-      sessionId,
-      sessionDirectory: directory,
-      options,
-      repoRoot,
-    }));
+    results.push({
+      kind: "session",
+      ...(await compileSession({
+        sessionId,
+        sessionDirectory: directory,
+        options,
+        repoRoot,
+      })),
+    });
+  }
+  const canvasIdList = await canvasIds(options);
+  for (const canvasId of canvasIdList) {
+    const directory = path.join(options.projectRoot, "review", "canvas", canvasId);
+    results.push({
+      kind: "canvas",
+      ...(await compileCanvas({ canvasId, canvasDirectory: directory, options })),
+    });
   }
   const summary = {
     projectRoot: options.projectRoot,
@@ -564,7 +761,8 @@ async function main() {
     mode: options.prepareOnly ? "prepare" : options.applyProposals ? "apply-proposals" : "automatic",
     results,
     totals: {
-      sessions: results.length,
+      sessions: results.filter((result) => result.kind === "session").length,
+      canvases: results.filter((result) => result.kind === "canvas").length,
       compiled: results.filter((result) => result.status === "compiled").length,
       prepared: results.filter((result) => result.status === "prepared").length,
       skipped: results.filter((result) => result.status === "skipped").length,
@@ -578,12 +776,15 @@ async function main() {
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   } else {
     for (const result of results) {
+      const label = result.sessionId ?? result.canvasId;
       const detail = result.reason
-        ?? (result.annotations ? `annotation ${result.annotations.length} 件 / 破棄 ${result.discarded} 件` : "");
-      process.stdout.write(`${result.sessionId}: ${result.status}${detail ? ` — ${detail}` : ""}\n`);
+        ?? (result.annotations
+          ? `annotation ${result.annotations.length} 件${result.discarded !== undefined ? ` / 破棄 ${result.discarded} 件` : ""}`
+          : "");
+      process.stdout.write(`${label}: ${result.status}${detail ? ` — ${detail}` : ""}\n`);
     }
     process.stdout.write(
-      `集計: sessions=${summary.totals.sessions}, compiled=${summary.totals.compiled},`
+      `集計: sessions=${summary.totals.sessions}, canvases=${summary.totals.canvases}, compiled=${summary.totals.compiled},`
       + ` annotations=${summary.totals.annotations}, discarded=${summary.totals.discarded},`
       + ` skipped=${summary.totals.skipped}, rejected=${summary.totals.rejected}, failed=${summary.totals.failed}\n`,
     );
