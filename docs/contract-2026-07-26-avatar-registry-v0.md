@@ -249,3 +249,15 @@ urn:akari-video:schema:avatar-rendition:v0`）を参照。
 （`contract-2026-07-17-data-contract-versioning.md`）を `avatar.json` / `rendition.json` /
 `relationships.json` の全てに適用する。破壊的変更は明示マイグレーションを伴う `version` bump
 としてのみ行う。
+
+## 13. 改訂注記（S2・2026-07-26）
+
+- **`renditions` の `minItems` を `1` から `0` へ緩和した**（`packages/schemas/avatar.schema.json`
+  / `validate-avatar.mjs`）。voice-only アバター（rendition を持たず声のみを登録するケース。
+  例: §1 の VOICEVOX プリセット提案を個人スコープへ登録するとき）を表現するため。既存の
+  `avatar.json`（`renditions` 1 件以上）は全て valid のまま（三原則「追加のみ進化」に適合。
+  破壊的変更ではない）
+- `renditions: []` のとき `default_rendition` は必ず `null` のままとする（選べる rendition が
+  無いため。非 `null` を指定すると `renditions[]` に存在しないとして検証エラーになる）
+- §4 の `avatar.json` サンプルは `renditions` 1 件以上のケースのまま変更していない
+  （voice-only は本節の追記のみで表現し、既存サンプルを voice-only に書き換えない）

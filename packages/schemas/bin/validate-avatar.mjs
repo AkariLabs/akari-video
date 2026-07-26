@@ -234,10 +234,7 @@ function validateRenditionSummaries(value) {
     fail("renditions は配列である必要があります");
     return null;
   }
-  if (value.length === 0) {
-    fail("renditions は最低 1 件が必要です");
-    return null;
-  }
+  // 0 件 = voice-only アバター（声のみ登録。S2 改訂 2026-07-26 で minItems 1→0 へ緩和）。
   const ids = new Set();
   for (const [index, rendition] of value.entries()) {
     const label = `renditions[${index}]`;
