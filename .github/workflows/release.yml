@@ -213,15 +213,59 @@ jobs:
       # build 設定（mac.target）自体は変更せず、electron-builder の CLI 引数でこの
       # 呼び出し限りターゲットを上書きする（--mac zip dmg）。CSC_LINK 等が空文字なら
       # electron-builder は自動的に未署名ビルドにフォールバックする（エラーにしない）。
+      # secrets 不在時に env: で直接 CSC_LINK 等をセットすると「空文字列」になり、
+      # app-builder-lib 側は unset と空文字を区別しないコード経路を通ってしまう
+      # （dry_run run 30197297936 の実測: `empty password will be used for code signing`
+      # の後 `.../apps/shell not a file` で package が失敗。原因は
+      # app-builder-lib@26.15.3 out/platformPackager.js:81-84 の getCscLink() /
+      # :708-710 の chooseNotNull(v1,v2){ return v1==null?v2:v1 } —
+      # `''=='' == null` は false なので空文字は「値あり」と判定される。macPackager.js:24-26
+      # の codeSigningInfo は `cscLink==null` の場合のみ signing をスキップするため、空文字は
+      # スキップされず codeSign/codesign.js:8-31 の importCertificate() へ進み、https/base64
+      # どちらでもないため builder-util/out/cscLink.js:20-38 の resolveCscLinkPath('', currentDir)
+      # → path.resolve(currentDir, '') = currentDir（= apps/shell、ディレクトリ）に解決され、
+      # codesign.js:26-27 で `${file} not a file` の InvalidConfigurationError になる。
+      # 対策: secrets は一旦 *_SECRET 名で受け、非空のときだけ本来の env 名へ export する
+      # （export しなければ process.env に一切現れず、chooseNotNull は undefined を見て
+      # 正しく unset 扱いになる）。
+      #
+      # CSC_LINK が空のときは CSC_IDENTITY_AUTO_DISCOVERY=false も明示する。理由:
+      # app-builder-lib@26.15.3 out/util/flags.js:14 の isAutoDiscoveryCodeSignIdentity() は
+      # `process.env.CSC_IDENTITY_AUTO_DISCOVERY !== "false"` で既定 true を返し、
+      # out/codeSign/macCodeSign.js:264-269 の findIdentity() はこの既定 true のとき
+      # ランナーのキーチェーンから署名 identity を自動探索してしまう
+      # （CSC_LINK 不在＝明示的な証明書指定なしでも、ランナーのキーチェーンに何か identity が
+      # あれば拾われ得る）。CSC_IDENTITY_AUTO_DISCOVERY=false で findIdentity() は探索せず
+      # 即 null を返すため、CSC_LINK 不在時は確実に未署名になる
+      #
+      # APPLE_API_KEY_ID / APPLE_API_ISSUER も同じ *_SECRET パターンへ揃えたが、実害は無い
+      # ことをソースで確認済み: app-builder-lib@26.15.3 out/mac/MacTargetHelper.js:236-241 の
+      # getNotarizeOptions() は `appleApiKey || appleApiKeyId || appleApiIssuer` という
+      # truthy 判定（chooseNotNull の `==null` 判定ではない）を使うため、空文字は falsy として
+      # 正しく「未設定」扱いになる（3つとも空文字なら通常どおり notarize スキップに落ちる）。
+      # APPLE_API_KEY は前段ステップの出力（steps.apple-api-key-file.outputs.path）を
+      # そのまま使う点は変更なし（secret 本文ではなく計算済みの値のため、この空文字問題の対象外）
       - name: package (electron-builder --mac zip dmg)
         working-directory: apps/shell
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ steps.apple-api-key-file.outputs.path }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: npx electron-builder --mac zip dmg
+          CSC_LINK_SECRET: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD_SECRET: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_PATH: ${{ steps.apple-api-key-file.outputs.path }}
+          APPLE_API_KEY_ID_SECRET: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_SECRET: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [ -n "$CSC_LINK_SECRET" ]; then
+            export CSC_LINK="$CSC_LINK_SECRET"
+            export CSC_KEY_PASSWORD="$CSC_KEY_PASSWORD_SECRET"
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          if [ -n "$APPLE_API_KEY_PATH" ] && [ -n "$APPLE_API_KEY_ID_SECRET" ] && [ -n "$APPLE_API_ISSUER_SECRET" ]; then
+            export APPLE_API_KEY="$APPLE_API_KEY_PATH"
+            export APPLE_API_KEY_ID="$APPLE_API_KEY_ID_SECRET"
+            export APPLE_API_ISSUER="$APPLE_API_ISSUER_SECRET"
+          fi
+          npx electron-builder --mac zip dmg
 
       - name: postpackage (verify asar contents)
         working-directory: apps/shell
