@@ -29,12 +29,14 @@ async function withFixture(callback) {
     // フィクスチャ成果物 — ダミーバイト列で可（task.md 受け入れ条件どおり）
     const macBytes = Buffer.from('dummy-mac-zip-bytes');
     const winBytes = Buffer.from('dummy-win-zip-bytes');
+    const winSetupBytes = Buffer.from('dummy-win-setup-exe-bytes');
     const cliBytes = Buffer.from('dummy-cli-tarball-bytes');
     await writeFile(join(artifactsDir, ARTIFACT_FILES.shellMac), macBytes);
     await writeFile(join(artifactsDir, ARTIFACT_FILES.shellWin), winBytes);
+    await writeFile(join(artifactsDir, ARTIFACT_FILES.shellWinSetup), winSetupBytes);
     await writeFile(join(artifactsDir, ARTIFACT_FILES.cli), cliBytes);
 
-    return await callback({ repoRoot, artifactsDir, macBytes, winBytes, cliBytes });
+    return await callback({ repoRoot, artifactsDir, macBytes, winBytes, winSetupBytes, cliBytes });
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
     await rm(artifactsDir, { recursive: true, force: true });
@@ -42,7 +44,7 @@ async function withFixture(callback) {
 }
 
 test('generateLatestJson: 契約 §3 のスキーマ形状と一致し、sha256 が実ファイルと一致する', async () => {
-  await withFixture(async ({ repoRoot, artifactsDir, macBytes, winBytes, cliBytes }) => {
+  await withFixture(async ({ repoRoot, artifactsDir, macBytes, winBytes, winSetupBytes, cliBytes }) => {
     const latest = await generateLatestJson({
       artifactsDir,
       tag: 'v0.1.0',
@@ -62,13 +64,19 @@ test('generateLatestJson: 契約 §3 のスキーマ形状と一致し、sha256 
 
     assert.equal(latest.components.shell.version, '0.1.0');
     assert.equal(latest.components.shell.mac.sha256, sha256(macBytes));
-    assert.equal(latest.components.shell.win.sha256, sha256(winBytes));
+    // 契約 §3 の例示どおり win の正はインストーラ（...exe）。zip は win_zip に併記
+    assert.equal(latest.components.shell.win.sha256, sha256(winSetupBytes));
+    assert.equal(latest.components.shell.win_zip.sha256, sha256(winBytes));
     assert.equal(
       latest.components.shell.mac.url,
       'https://github.com/AkariLabs/akari-video/releases/download/v0.1.0/shell-mac.zip'
     );
     assert.equal(
       latest.components.shell.win.url,
+      'https://github.com/AkariLabs/akari-video/releases/download/v0.1.0/shell-win-setup.exe'
+    );
+    assert.equal(
+      latest.components.shell.win_zip.url,
       'https://github.com/AkariLabs/akari-video/releases/download/v0.1.0/shell-win.zip'
     );
 

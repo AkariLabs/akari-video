@@ -141,6 +141,13 @@
       "icon": "resources/icons/icon.png",
       "target": "dir"
     },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "shortcutName": "AKARI Video"
+    },
     "linux": {
       "icon": "resources/icons/icon.png",
       "target": "dir"

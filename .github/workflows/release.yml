@@ -52,6 +52,7 @@ env:
   ARTIFACT_MAC: shell-mac.zip
   ARTIFACT_MAC_DMG: shell-mac.dmg
   ARTIFACT_WIN: shell-win.zip
+  ARTIFACT_WIN_SETUP: shell-win-setup.exe
   ARTIFACT_CLI: cli.tgz
 
 jobs:
@@ -358,10 +359,31 @@ jobs:
         working-directory: apps/shell/electron-builder-out
         run: 7z a -tzip ${{ env.ARTIFACT_WIN }} win-unpacked
 
+      # 契約 §2 の「win nsis」成果物（one-click installer・per-user・未署名）。
+      # --pd (--prepackaged) で verify-asar を通過済みの win-unpacked をそのまま
+      # installer に包む（asar の再パックをしないため、zip と installer の中身が
+      # 同一実体であることが構成上保証される）。LTO 無効化 env は --pd 経路では
+      # native rebuild が走らない想定だが、走った場合に備えて Install と同じ値を与える
+      - name: installer (electron-builder --win nsis, prepackaged)
+        working-directory: apps/shell
+        env:
+          npm_config_enable_lto: 'false'
+          npm_config_enable_thin_lto: 'false'
+        run: npx electron-builder --win nsis --pd electron-builder-out/win-unpacked
+
+      - name: installer を固定名へリネーム
+        working-directory: apps/shell/electron-builder-out
+        run: |
+          $exe = Get-ChildItem -File -Filter *.exe | Select-Object -First 1
+          if (-not $exe) { Write-Error "win installer (.exe) が electron-builder-out に見つかりません"; exit 1 }
+          Copy-Item $exe.FullName "${{ env.ARTIFACT_WIN_SETUP }}"
+
       - uses: actions/upload-artifact@v4
         with:
           name: shell-win
-          path: apps/shell/electron-builder-out/${{ env.ARTIFACT_WIN }}
+          path: |
+            apps/shell/electron-builder-out/${{ env.ARTIFACT_WIN }}
+            apps/shell/electron-builder-out/${{ env.ARTIFACT_WIN_SETUP }}
           retention-days: 14
           if-no-files-found: error
 
@@ -460,6 +482,7 @@ jobs:
             "release-artifacts/${{ env.ARTIFACT_MAC }}" \
             "release-artifacts/${{ env.ARTIFACT_MAC_DMG }}" \
             "release-artifacts/${{ env.ARTIFACT_WIN }}" \
+            "release-artifacts/${{ env.ARTIFACT_WIN_SETUP }}" \
             "release-artifacts/${{ env.ARTIFACT_CLI }}" \
             release-artifacts/latest.json
 
@@ -530,6 +553,7 @@ jobs:
           gh release download "${{ needs.resolve-tag.outputs.tag }}" --dir release-artifacts --clobber \
             --pattern "${{ env.ARTIFACT_MAC }}" \
             --pattern "${{ env.ARTIFACT_WIN }}" \
+            --pattern "${{ env.ARTIFACT_WIN_SETUP }}" \
             --pattern "${{ env.ARTIFACT_CLI }}"
 
       - name: channel を対象 Release の現在状態から決定する
