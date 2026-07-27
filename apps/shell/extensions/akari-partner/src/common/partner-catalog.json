@@ -1,20 +1,46 @@
 [
   {
-    "id": "anthropic/claude-code",
+    "id": "anthropic/claude-code-cli",
+    "agent": "claude",
+    "form": "cli",
+    "name": "Claude Code CLI",
+    "description": "Claude Code を PTY タブで直接使います",
+    "recommended": true
+  },
+  {
+    "id": "anthropic/claude-code-extension",
     "extensionId": "anthropic.claude-code",
     "agent": "claude",
-    "name": "Claude Code",
-    "description": "Anthropic 公式の Claude Code パートナー拡張",
-    "recommended": true,
+    "form": "extension",
+    "name": "Claude Code 拡張",
+    "description": "Anthropic 公式拡張のビューを使います",
+    "recommended": false,
+    "viewContainerIds": [
+      "workbench.view.extension.claude-sidebar-secondary",
+      "workbench.view.extension.claude-sidebar"
+    ],
     "binaryVerification": {}
   },
   {
-    "id": "openai/chatgpt",
+    "id": "openai/codex-cli",
+    "agent": "codex",
+    "form": "cli",
+    "name": "Codex CLI",
+    "description": "Codex を PTY タブで直接使います",
+    "recommended": false
+  },
+  {
+    "id": "openai/codex-extension",
     "extensionId": "openai.chatgpt",
     "agent": "codex",
-    "name": "Codex",
-    "description": "OpenAI 公式の Codex パートナー拡張",
+    "form": "extension",
+    "name": "Codex 拡張",
+    "description": "OpenAI 公式拡張のビューを使います",
     "recommended": false,
+    "viewContainerIds": [
+      "workbench.view.extension.codexSecondaryViewContainer",
+      "workbench.view.extension.codexViewContainer"
+    ],
     "binaryVerification": {
       "darwin-arm64": {
         "required": true,
