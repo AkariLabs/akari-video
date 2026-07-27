@@ -235,7 +235,7 @@ test("task 2026-07-25-export-options backward-compat guard: omitting quality/enc
     "-i",
     "/project/.akari/render-tmp/cut.mp4",
     "-i",
-    "/project/.akari/render-tmp/overlay.webm",
+    "/project/.akari/render-tmp/overlay.mov",
     "-filter_complex",
     "[0:v][1:v]overlay=0:0:format=auto:shortest=1[outv]",
     "-map",

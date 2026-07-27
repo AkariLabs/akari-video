@@ -70,7 +70,6 @@ export function buildPlan({
   const cutPath = join(temporary, "cut.mp4");
   const tailPaddedPath = join(temporary, "cut-tail-padded.mp4");
   const layeredPath = join(temporary, "layered.mp4");
-  const overlayWebmPath = join(temporary, "overlay.webm");
   const overlayMovPath = join(temporary, "overlay.mov");
   const compositePath = join(temporary, "composite.mp4");
   const finalPath = join(temporary, "final.mp4");
@@ -179,7 +178,6 @@ export function buildPlan({
       ...(layers ? [layeredPath] : []),
       ...(trackStack ? trackStack.intermediates : []),
       sheetPath,
-      overlayWebmPath,
       overlayMovPath,
       join(temporary, "frames", "frame-%08d.png"),
       ...renderOverlays.flatMap((_, index) => {
@@ -194,19 +192,20 @@ export function buildPlan({
       tail_pad: tailPad,
       rasterize: {
         hyperframes: {
-          command: localBinary(projectRoot, "hyperframes"),
+          command: process.execPath,
           cwd: projectRoot,
           env: {
             HYPERFRAMES_BROWSER_PATH: capabilities.chromePath,
             DO_NOT_TRACK: "1",
           },
           args: [
+            hyperframesEntry(),
             "render",
             ".",
             "--composition",
             relative(projectRoot, sheetPath),
             "--format",
-            "webm",
+            "mov",
             "--fps",
             String(fps),
             "--workers",
@@ -214,7 +213,7 @@ export function buildPlan({
             "--no-browser-gpu",
             "--no-best-effort",
             "-o",
-            relative(projectRoot, overlayWebmPath),
+            relative(projectRoot, overlayMovPath),
           ],
         },
         "puppeteer-core": {
@@ -235,7 +234,7 @@ export function buildPlan({
         hyperframes: buildAnimatedCompositeCommand(
           capabilities.ffmpegCommand,
           baseVideoPath,
-          overlayWebmPath,
+          overlayMovPath,
           compositePath,
           videoEncodeArgs,
         ),
@@ -1419,8 +1418,10 @@ function selectRasterizer(capabilities, hasThreeDimensionalOverlay) {
   return "static-screenshot";
 }
 
-function localBinary(_projectRoot, name) {
-  return fileURLToPath(new URL(`../node_modules/.bin/${name}`, import.meta.url));
+// The npm .bin shim is not spawnable on Windows, so the plan advertises the same
+// node + package-entry invocation that execution uses (see rasterizeAndComposite).
+function hyperframesEntry() {
+  return fileURLToPath(new URL("../node_modules/hyperframes/bin/hyperframes.mjs", import.meta.url));
 }
 
 function relativeOrAbsolute(root, value) {
