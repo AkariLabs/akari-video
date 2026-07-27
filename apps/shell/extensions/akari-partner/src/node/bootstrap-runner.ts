@@ -12,7 +12,8 @@ export function bootstrapRunner(): void {
     const { spawn } = require('child_process') as typeof import('child_process');
     const { gunzipSync } = require('zlib') as typeof import('zlib');
 
-    const claudeInstallUrl = process.env.AKARI_PARTNER_CLAUDE_INSTALL_URL || 'https://claude.ai/install.sh';
+    const claudeInstallUrl = process.env.AKARI_PARTNER_CLAUDE_INSTALL_URL
+        || (process.platform === 'win32' ? 'https://claude.ai/install.ps1' : 'https://claude.ai/install.sh');
     const codexReleaseApiUrl = process.env.AKARI_PARTNER_CODEX_RELEASE_API_URL || 'https://api.github.com/repos/openai/codex/releases/latest';
     const requestTimeoutMs = 120_000;
     // Escape hatch for forcing a fresh (re)install even when a usable binary is
@@ -29,14 +30,19 @@ export function bootstrapRunner(): void {
     // (.claude-plugin/marketplace.json / plugin/.claude-plugin/plugin.json).
     const akariPluginId = 'akari@akari';
     const akariMarketplaceKey = 'akari';
-    const explicitSystemPath = [
-        '/opt/homebrew/bin',
-        '/usr/local/bin',
-        '/usr/bin',
-        '/bin',
-        '/usr/sbin',
-        '/sbin'
-    ].join(path.delimiter);
+    // On win32 this POSIX directory list would replace PATH with directories that
+    // don't exist there (breaking installers and `claude plugin install`), so keep
+    // the inherited PATH on Windows and pin the well-known system dirs elsewhere.
+    const explicitSystemPath = process.platform === 'win32'
+        ? (process.env.PATH ?? '')
+        : [
+            '/opt/homebrew/bin',
+            '/usr/local/bin',
+            '/usr/bin',
+            '/bin',
+            '/usr/sbin',
+            '/sbin'
+        ].join(path.delimiter);
 
     interface BootstrapOutcome {
         executablePath: string;
@@ -46,10 +52,11 @@ export function bootstrapRunner(): void {
     }
 
     function claudeCandidates(): string[] {
+        const claude = process.platform === 'win32' ? 'claude.exe' : 'claude';
         return [
-            path.join(os.homedir(), '.local', 'bin', 'claude'),
-            path.join(os.homedir(), '.claude', 'bin', 'claude'),
-            path.join(os.homedir(), '.claude', 'local', 'claude')
+            path.join(os.homedir(), '.local', 'bin', claude),
+            path.join(os.homedir(), '.claude', 'bin', claude),
+            path.join(os.homedir(), '.claude', 'local', claude)
         ];
     }
 
@@ -88,20 +95,33 @@ export function bootstrapRunner(): void {
                 return { executablePath: existing, reused: true };
             }
         }
-        if (process.platform === 'win32') {
-            throw new Error('Claude Code native bootstrap currently requires macOS or Linux');
-        }
         console.log(`Claude installer を取得しています: ${claudeInstallUrl}`);
         const script = await request(claudeInstallUrl, 'text/plain');
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'akari-claude-'));
-        const installer = path.join(tempDir, 'install.sh');
         try {
-            await fs.writeFile(installer, script, { mode: 0o700 });
             console.log('Claude Code をユーザー領域へインストールしています');
-            await run('/bin/sh', [installer], {
-                ...process.env,
-                PATH: explicitSystemPath
-            });
+            if (process.platform === 'win32') {
+                const installer = path.join(tempDir, 'install.ps1');
+                await fs.writeFile(installer, script);
+                // Windows PowerShell 5.1 は System32 配下に常在するので PATH に依存せず
+                // 絶対パスで起動する。-ExecutionPolicy Bypass はこのプロセス限りの指定で、
+                // RemoteSigned 既定でもダウンロードした .ps1 を実行できる（マシン GPO で
+                // ロックされている環境は除く）。公式の `irm | iex` と同じ官製スクリプト。
+                const powershell = path.join(
+                    process.env.SystemRoot || 'C:\\Windows',
+                    'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'
+                );
+                await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', installer], {
+                    ...process.env
+                });
+            } else {
+                const installer = path.join(tempDir, 'install.sh');
+                await fs.writeFile(installer, script, { mode: 0o700 });
+                await run('/bin/sh', [installer], {
+                    ...process.env,
+                    PATH: explicitSystemPath
+                });
+            }
             const executable = await firstExecutable(claudeCandidates());
             if (!executable) {
                 throw new Error('Claude installer completed but the claude executable was not found');
@@ -205,7 +225,8 @@ export function bootstrapRunner(): void {
 
     async function run(command: string, args: string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<void> {
         await new Promise<void>((resolve, reject) => {
-            const child = spawn(command, args, { env, cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+            // windowsHide: GUI アプリ (Electron backend) からの起動でコンソール窓を出さない。POSIX では無効果。
+            const child = spawn(command, args, { env, cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
             let stderr = '';
             child.stdout.on('data', (chunk: Buffer) => process.stdout.write(chunk));
             child.stderr.on('data', (chunk: Buffer) => {
