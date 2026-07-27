@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '26.3.0'
       - run: npm install --no-workspaces --ignore-scripts --no-audit --no-fund
-      - run: node scripts/gen-skills-index.mjs --check
+      - run: node scripts/gen-skills-index.mjs --check --strict
 
   l0:
     name: L0 (build:ext + lint)

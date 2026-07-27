@@ -7,8 +7,8 @@
     "apps/*"
   ],
   "scripts": {
-    "gen:skills-index": "node scripts/gen-skills-index.mjs",
-    "check:skills-index": "node scripts/gen-skills-index.mjs --check"
+    "gen:skills-index": "node scripts/gen-skills-index.mjs --strict",
+    "check:skills-index": "node scripts/gen-skills-index.mjs --check --strict"
   },
   "devDependencies": {
     "js-yaml": "^4.3.0"

@@ -9,12 +9,18 @@ import { fileURLToPath } from 'node:url';
 // ci.yml / windows-build.yml / release.yml はこのスクリプトを npm install より前に
 // 依存ゼロで実行する（Windows レーンの主目的は symlink 実体化チェック）。そのため
 // js-yaml は動的 import とし、不在時は下の最小 YAML サブセット解釈へフォールバックする。
-// 厳密判定（issue #4 の再発ゲート）は js-yaml が入っている環境で効く — CI では
-// ci.yml の check ジョブが root devDependencies を入れて厳密モードを担保する。
+// ただしフォールバックは厳密判定（issue #4 の再発ゲート）を黙って無効化するため、
+// 厳密検証を期待する呼び出し（ci.yml の skills-index ジョブ / npm scripts）は --strict を
+// 付けて js-yaml 不在を exit 1 にする（issue #4 別件指摘）。install 前の symlink
+// 早期ゲート（windows-build.yml / release.yml）だけが --strict なしのフォールバック許容。
 let yamlLoad = null;
 try {
   yamlLoad = (await import('js-yaml')).default.load;
 } catch {
+  if (process.argv.includes('--strict')) {
+    console.error('gen-skills-index: js-yaml 不在 — --strict のため失敗にします。npm install で root devDependencies を入れてから再実行してください');
+    process.exit(1);
+  }
   console.error('gen-skills-index: js-yaml 不在 — 最小フォールバックで frontmatter を解釈します（厳密 YAML 検証はスキップ）');
 }
 
