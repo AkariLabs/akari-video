@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, readdirSync, lstatSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import yaml from 'js-yaml';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BEGIN = '<!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->';
@@ -22,11 +23,15 @@ const skills = skillNames.map((name) => {
   const path = join(root, 'skills', name, 'SKILL.md');
   const m = readFileSync(path, 'utf8').match(/^---\n([\s\S]*?)\n---/);
   if (!m) fail(`frontmatter がない: skills/${name}/SKILL.md`);
-  const fm = {};
-  for (const line of m[1].split('\n')) {
-    const kv = line.match(/^([\w-]+):\s*(.*)$/);
-    if (kv) fm[kv[1]] = kv[2].trim();
+  // 行正規表現ではなく YAML として parse する。Claude Code 実行時と同じ判定にしないと、
+  // 不正 YAML（例: 引用符なし値中の「: 」）が索引生成を素通りして実行時だけ落ちる（issue #4）
+  let fm;
+  try {
+    fm = yaml.load(m[1]);
+  } catch (e) {
+    fail(`frontmatter が YAML として parse できない: skills/${name}/SKILL.md — ${e.message.split('\n')[0]}`);
   }
+  if (typeof fm !== 'object' || fm === null) fail(`frontmatter が mapping でない: skills/${name}/SKILL.md`);
   if (!fm.name || !fm.description) fail(`name / description が欠落: skills/${name}/SKILL.md`);
   if (fm.name !== name) fail(`frontmatter name とディレクトリ名が不一致: ${fm.name} != ${name}`);
   return fm;
