@@ -45,7 +45,7 @@
     "stdout": "既存の claude を検出: /tmp/akari-plugin-autowire-l1/d-home/.local/bin/claude\nakari プラグインの配線に失敗しました。スキル配線は手動が必要です（接続は続行します）: /tmp/akari-plugin-autowire-l1/d-home/.local/bin/claude exited with code 7\n{\"executablePath\":\"/tmp/akari-plugin-autowire-l1/d-home/.local/bin/claude\",\"reused\":true}\n",
     "stderr": "",
     "stubInvoked": true,
-    "invocationRecord": "{\"argv\":\"plugin install akari@akari --scope project\",\"cwd\":\"/private/tmp/akari-plugin-autowire-l1/d-project\"}",
+    "invocationRecord": "{\"argv\":\"plugin install akari@akari --scope project\",\"cwd\":\"<scratch>/d-project\"}",
     "pass": true
   },
   "noWorkspace": {
@@ -100,7 +100,7 @@
         "akari": {
           "source": {
             "source": "directory",
-            "path": "/Users/ryoma/_edit/30_products/akari-video-wt/partner-plugin-autowire"
+            "path": "<WORKTREE>"
           }
         }
       }
@@ -110,7 +110,7 @@
         "akari": {
           "source": {
             "source": "directory",
-            "path": "/Users/ryoma/_edit/30_products/akari-video-wt/partner-plugin-autowire"
+            "path": "<WORKTREE>"
           }
         }
       }

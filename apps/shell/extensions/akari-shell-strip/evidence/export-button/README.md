@@ -20,7 +20,7 @@ updated: 2026-07-25
 共有ヘルパー（様式踏襲・中身無改変）。
 
 1. `apps/shell` を `npm run build`（`build:ext` → `theia build --mode production`）でビルド
-2. `templates/project-default/` を隔離ワークスペース（リポ外の scratchpad）へコピーし、
+2. `templates/project-default/` を隔離ワークスペース（リポ外）へコピーし、
    `.akari/intake.json`（`status: "submitted"`）でホーム v2 の home-flow ゲートを解放。
    `exports/final.mp4` は ffmpeg で生成した実 2 秒動画（成果物リンクの実クリック検証用）
 3. `node_modules/electron/dist/Electron.app/Contents/MacOS/Electron <apps/shell 絶対パス>

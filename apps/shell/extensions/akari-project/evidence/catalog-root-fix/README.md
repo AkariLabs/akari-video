@@ -18,7 +18,7 @@ updated: 2026-07-25
 （この worktree・同日）と同じ共有ヘルパー（様式踏襲・中身無改変）。
 
 1. `apps/shell` を `npm run build`（`build:ext` → `theia build --mode production`）でビルド
-2. `templates/project-default/` を隔離ワークスペース（リポ外の scratchpad）へ 2 本コピー
+2. `templates/project-default/` を隔離ワークスペース（リポ外）へ 2 本コピー
    （`ws-scenario1` / `ws-scenario2`）。それぞれ `.akari/intake.json`（`status: "submitted"`）
    でホーム v2 の home-flow ゲートを解放。`ws-scenario2` には ffmpeg で生成した実 2 秒動画
    `assets/regression-clip.mp4`（素材タブ回帰用）と、ルート直下に実 1x1 PNG
@@ -112,19 +112,19 @@ resolve(apps/shell/lib/backend, '../../../../../../../catalog') → false（_edi
 
 検証前:
 ```
-58f5109da22fb40af6aa8bf1aeda2e61e26c0c0c7790106e6b51d6b89987f82d  /Users/ryoma/.theia/settings.json
+58f5109da22fb40af6aa8bf1aeda2e61e26c0c0c7790106e6b51d6b89987f82d  <HOME>/.theia/settings.json
 ```
 
 scenario2/scenario3 で `akari.catalog.root` を 3 回書き換えた（不正パス →
 実カタログパス → 再起動での読み取りのみ）後:
 ```
-58f5109da22fb40af6aa8bf1aeda2e61e26c0c0c7790106e6b51d6b89987f82d  /Users/ryoma/.theia/settings.json
+58f5109da22fb40af6aa8bf1aeda2e61e26c0c0c7790106e6b51d6b89987f82d  <HOME>/.theia/settings.json
 ```
 sha256 完全一致——不変を確認。実際の書き込み先は
 `<THEIA_CONFIG_DIR>/settings.json`（scenario2 の隔離ディレクトリ）のみで、最終的な内容は:
 ```json
 {
-    "akari.catalog.root": "/Users/ryoma/_edit/30_products/akari-video-wt/catalog-root-fix/catalog"
+    "akari.catalog.root": "<WORKTREE>/catalog"
 }
 ```
 

@@ -12,7 +12,7 @@ const path = require('path');
 const os = require('os');
 const { spawn, execFileSync } = require('child_process');
 
-const REPO_ROOT = '/Users/ryoma/_edit/30_products/akari-video-wt/partner-plugin-autowire';
+const REPO_ROOT = '<WORKTREE>';
 const RUNNER_PATH = path.join(REPO_ROOT, 'apps/shell/extensions/akari-partner/lib/node/bootstrap-runner.js');
 const { bootstrapRunner } = require(RUNNER_PATH);
 const runnerSource = `(${bootstrapRunner.toString()})()`;

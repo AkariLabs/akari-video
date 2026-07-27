@@ -19,7 +19,7 @@ updated: 2026-07-25
 （様式踏襲・中身無改変）。
 
 1. `apps/shell` を `npm run build`（`build:ext` → `theia build --mode production`）でビルド
-2. `templates/project-default/` を隔離ワークスペース（リポ外の scratchpad）へコピーし、
+2. `templates/project-default/` を隔離ワークスペース（リポ外）へコピーし、
    `.akari/intake.json`（`status: "submitted"`）でホーム v2 の home-flow ゲートを解放。
    `assets/regression-clip.mp4` は ffmpeg で生成した実 2 秒動画（素材タブ回帰確認用）
 3. フィクスチャカタログを別ディレクトリに新規構成（`catalog/` は読み取り専用のため
@@ -136,7 +136,7 @@ updated: 2026-07-25
 ## preferences.set 事故の復旧確認（透明性のため記録）
 
 事故発生時に `~/.theia/settings.json` に書き込まれたのは `akari.catalog.root`
-キー 1 件のみ（値は隔離 scratchpad 内のフィクスチャパス）。検出直後に当該
+キー 1 件のみ（値は隔離ワークスペース内のフィクスチャパス）。検出直後に当該
 キーだけを削除し、他のキー（`security.workspace.trust.trustedFolders` /
 `akari.developerMode` / `workbench.colorTheme` / `akari.cloud.account`）は
 一切変更していない。復旧後の内容（本 README 作成時点で再確認済み）:
@@ -144,8 +144,8 @@ updated: 2026-07-25
 ```json
 {
     "security.workspace.trust.trustedFolders": [
-        "file:///Users/ryoma/_edit/30_products/akari-video-internal/lab/theia-poc/sandbox-project",
-        "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-internal/77763a52-f140-4375-9e43-b628cd5765df/scratchpad/fresh-ws"
+        "file://<internal-repo>/lab/theia-poc/sandbox-project",
+        "file://<scratch>/fresh-ws"
     ],
     "akari.developerMode": false,
     "workbench.colorTheme": "dark",

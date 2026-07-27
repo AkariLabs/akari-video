@@ -11,9 +11,9 @@ import {
 } from './scenario-helpers.mjs';
 
 const CDP_PORT = 29903;
-const WORKSPACE = '/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-quick-export/82766364-1be8-4985-8ada-df6f44377f25/scratchpad/fixtures/ws-broken';
-const USER_DATA_DIR = '/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-quick-export/82766364-1be8-4985-8ada-df6f44377f25/scratchpad/user-data/scenario-c-' + CDP_PORT;
-const EVIDENCE_DIR = '/Users/ryoma/_edit/30_products/akari-video-wt/quick-export/apps/shell/extensions/akari-shell-strip/evidence/quick-export';
+const WORKSPACE = '<scratch>/fixtures/ws-broken';
+const USER_DATA_DIR = '<scratch>/user-data/scenario-c-' + CDP_PORT;
+const EVIDENCE_DIR = '<WORKTREE>/apps/shell/extensions/akari-shell-strip/evidence/quick-export';
 
 const log = [];
 function record(step, data) { const e = { t: new Date().toISOString(), step, ...data }; log.push(e); console.log(`[${step}]`, JSON.stringify(data)); }

@@ -21,7 +21,7 @@
   {
     "t": "2026-07-24T14:57:24.972Z",
     "step": "drop-drop-video.mp4-copy-verified",
-    "destPath": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-left-panel-domain-browser/e103d869-224f-4233-9e47-7e29a23a67b7/scratchpad/l1-project-main/assets/drop-video.mp4",
+    "destPath": "<scratch>/l1-project-main/assets/drop-video.mp4",
     "size": 300
   },
   {
@@ -38,7 +38,7 @@
   {
     "t": "2026-07-24T14:57:26.193Z",
     "step": "drop-drop-audio.wav-copy-verified",
-    "destPath": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-left-panel-domain-browser/e103d869-224f-4233-9e47-7e29a23a67b7/scratchpad/l1-project-main/assets/drop-audio.wav",
+    "destPath": "<scratch>/l1-project-main/assets/drop-audio.wav",
     "size": 300
   },
   {
@@ -56,7 +56,7 @@
   {
     "t": "2026-07-24T14:57:27.411Z",
     "step": "drop-drop-image.png-copy-verified",
-    "destPath": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-left-panel-domain-browser/e103d869-224f-4233-9e47-7e29a23a67b7/scratchpad/l1-project-main/assets/drop-image.png",
+    "destPath": "<scratch>/l1-project-main/assets/drop-image.png",
     "size": 287
   },
   {

@@ -1,8 +1,8 @@
 /**
  * 更新フィード（`~/.akari/update-check.json`）の評価ロジック。
  *
- * internal `planning/contract-2026-07-26-update-and-versioning.md` §3 §4 の契約に
- * 従う。CLI 側（公開リポ `packages/akari-launcher/src/update-check.mjs`）と
+ * update-and-versioning 契約（内部リポ）§3 §4 に従う。CLI 側
+ * （公開リポ `packages/akari-launcher/src/update-check.mjs`）と
  * 同一のキャッシュファイル・同一の判定規則（新版あり/dismissed 済み/壊れたフィード
  * は沈黙）を共有するが、コードは意図的に複製している —
  * CLI は Node 専用 API（`node:fs` / `node:child_process`）で直接ファイルを触るのに対し、
