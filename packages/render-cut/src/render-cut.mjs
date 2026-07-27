@@ -433,7 +433,7 @@ async function measureCapabilities(projectRoot, edit) {
     if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) {
       throw new ExecutionError("ffprobe did not report a positive source duration");
     }
-    const hyperframesPath = join(PACKAGE_ROOT, "node_modules", ".bin", "hyperframes");
+    const hyperframesPath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "bin", "hyperframes.mjs");
     const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
     const puppeteerPath = resolvePuppeteerPackagePath();
     return {
@@ -445,7 +445,7 @@ async function measureCapabilities(projectRoot, edit) {
       chromePath,
       chromeVersion,
       hyperframesPath,
-      hyperframesAvailable: await isExecutable(hyperframesPath),
+      hyperframesAvailable: await isReadable(hyperframesPath),
       hyperframesVersion: await readPackageVersion(hyperframesPackagePath),
       puppeteerAvailable: puppeteerPath !== null,
       puppeteerVersion: puppeteerPath ? await readPackageVersion(puppeteerPath) : null,
@@ -454,7 +454,7 @@ async function measureCapabilities(projectRoot, edit) {
     };
   }
 
-  const hyperframesPath = join(PACKAGE_ROOT, "node_modules", ".bin", "hyperframes");
+  const hyperframesPath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "bin", "hyperframes.mjs");
   const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
   const puppeteerPath = resolvePuppeteerPackagePath();
   const shared = {
@@ -466,7 +466,7 @@ async function measureCapabilities(projectRoot, edit) {
     chromePath,
     chromeVersion,
     hyperframesPath,
-    hyperframesAvailable: await isExecutable(hyperframesPath),
+    hyperframesAvailable: await isReadable(hyperframesPath),
     hyperframesVersion: await readPackageVersion(hyperframesPackagePath),
     puppeteerAvailable: puppeteerPath !== null,
     puppeteerVersion: puppeteerPath ? await readPackageVersion(puppeteerPath) : null,
@@ -607,9 +607,12 @@ export async function rasterizeAndComposite(context) {
   } else if (capabilities.hyperframesAvailable) {
     const overlayPath = join(temporaryDirectory, "overlay.webm");
     try {
+      // The npm .bin shim is not spawnable on Windows (extensionless sh script; Node 22 also
+      // refuses .cmd without a shell), so launch the package entry through the node executable.
       runChecked(
-        capabilities.hyperframesPath,
+        process.execPath,
         [
+          capabilities.hyperframesPath,
           "render",
           projectRoot,
           "--composition",
@@ -1115,6 +1118,17 @@ async function isRegularFile(path) {
 async function isExecutable(path) {
   try {
     await access(path, fsConstants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// For files launched via process.execPath: X_OK is meaningless on Windows (any existing file
+// passes), and the script only needs to be readable by node.
+async function isReadable(path) {
+  try {
+    await access(path, fsConstants.R_OK);
     return true;
   } catch {
     return false;
