@@ -7,15 +7,19 @@ on:
 
 jobs:
   # skills/ 正本と .claude/skills / .agents/skills の symlink 整合 + AGENTS.md 生成索引のドリフト検査。
-  # 依存インストール不要（node 単体）。
+  # スクリプト自体は依存ゼロで動く（js-yaml 不在時は最小フォールバック）が、この
+  # ジョブでは root devDependencies（js-yaml のみ）を入れて厳密 YAML 検証（issue #4 の
+  # 再発ゲート）を CI で 1 レーン担保する。--no-workspaces で apps/shell 等の重い
+  # workspace install は走らない
   skills-index:
-    name: skills-index (symlink 整合 + AGENTS.md drift)
+    name: skills-index (symlink 整合 + AGENTS.md drift + frontmatter YAML)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '26.3.0'
+      - run: npm install --no-workspaces --ignore-scripts --no-audit --no-fund
       - run: node scripts/gen-skills-index.mjs --check
 
   l0:
