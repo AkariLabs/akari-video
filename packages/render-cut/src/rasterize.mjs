@@ -70,18 +70,91 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
 ${nodes}
   </div>
   <script>
+    // Overlay fragments author entrance animations as plain CSS keyframes, but plain CSS
+    // animations cannot survive a HyperFrames render: its producer free-runs this sheet on
+    // a virtual clock (so they finish during page setup), and its deterministic CSS adapter
+    // re-seeks them to composition time with no clip offset right before every frame
+    // capture, baking the fill end state (issue #3). Convert each authored CSS animation
+    // into a paused WAAPI clone whose delay absorbs the container's start instead: a write
+    // of currentTime = composition time then lands every clone on the correct local frame
+    // no matter which writer runs last — __akariSeek (puppeteer-core), the transport hold
+    // loop below (HyperFrames), or HyperFrames' own WAAPI adapter. Disabling animation-name
+    // afterwards cancels the originals so nothing free-runs or double-drives the elements.
+    (function() {
+      for (const container of document.querySelectorAll('.akari-overlay-container')) {
+        const startMilliseconds = Number(container.dataset.start) * 1000;
+        const conversions = [];
+        for (const animation of container.getAnimations({ subtree: true })) {
+          if (typeof CSSAnimation === 'undefined' || !(animation instanceof CSSAnimation)) continue;
+          const effect = animation.effect;
+          if (!effect || typeof effect.getKeyframes !== 'function' || !effect.target) continue;
+          try {
+            conversions.push({
+              target: effect.target,
+              keyframes: effect.getKeyframes(),
+              timing: effect.getTiming(),
+            });
+          } catch {}
+        }
+        for (const conversion of conversions) {
+          conversion.target.style.animationName = 'none';
+        }
+        for (const conversion of conversions) {
+          const timing = conversion.timing;
+          try {
+            const clone = conversion.target.animate(conversion.keyframes, {
+              delay: (Number(timing.delay) || 0) + startMilliseconds,
+              endDelay: timing.endDelay,
+              duration: timing.duration,
+              iterations: timing.iterations,
+              iterationStart: timing.iterationStart,
+              direction: timing.direction,
+              easing: timing.easing,
+              fill: 'both',
+            });
+            clone.pause();
+            clone.currentTime = 0;
+          } catch {}
+        }
+      }
+    })();
+    window.__akariSyncAnimations = function(seconds) {
+      const milliseconds = seconds * 1000;
+      for (const container of document.querySelectorAll('.akari-overlay-container')) {
+        for (const animation of container.getAnimations({ subtree: true })) {
+          try { animation.pause(); } catch {}
+          try { animation.currentTime = milliseconds; } catch {}
+        }
+      }
+    };
+    // HyperFrames never calls __akariSeek, so follow its transport clock instead. Only the
+    // HyperFrames runtime defines window.__player; the puppeteer-core and static-screenshot
+    // rasterizers never do, so for them the loop stays an idle poll for the life of the
+    // page. It must never give up waiting for the player: setup burns virtual-clock rAF
+    // ticks at an unpredictable rate, so any finite tick budget can die before the player
+    // appears (observed with a 600-tick cap).
+    (function() {
+      if (document.querySelectorAll('.akari-overlay-container').length === 0) return;
+      const hold = () => {
+        try {
+          const player = window.__player;
+          const seconds = player && typeof player.getTime === 'function'
+            ? Number(player.getTime())
+            : NaN;
+          if (Number.isFinite(seconds)) window.__akariSyncAnimations(seconds);
+        } catch {}
+        window.requestAnimationFrame(hold);
+      };
+      if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(hold);
+    })();
     window.__akariSeek = async function(seconds) {
       for (const container of document.querySelectorAll('.akari-overlay-container')) {
         const start = Number(container.dataset.start);
         const duration = Number(container.dataset.duration);
         const active = seconds >= start && seconds < start + duration;
-        container.style.visibility = active ? 'visible' : 'hidden';
-        const localMilliseconds = Math.max(0, Math.min(duration, seconds - start)) * 1000;
-        for (const animation of container.getAnimations({ subtree: true })) {
-          animation.pause();
-          try { animation.currentTime = localMilliseconds; } catch {}
-        }${threeSeekBranch}
+        container.style.visibility = active ? 'visible' : 'hidden';${threeSeekBranch}
       }
+      window.__akariSyncAnimations(seconds);
       const videoSeekTimeoutMilliseconds = 5000;
       const waitForVideo = (video, index) => new Promise((resolve) => {
         let animationFrameOne = null;
