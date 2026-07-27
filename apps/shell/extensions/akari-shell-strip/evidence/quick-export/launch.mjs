@@ -11,7 +11,7 @@ import { spawn, execSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { writeFileSync } from 'node:fs';
 
-const REPO = '/Users/ryoma/_edit/30_products/akari-video-wt/quick-export';
+const REPO = '<WORKTREE>';
 const SHELL_APP = `${REPO}/apps/shell`;
 const ELECTRON_BIN = `${SHELL_APP}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron`;
 

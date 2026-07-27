@@ -14,7 +14,7 @@
     "step": "analyzed-clip-thumbnail",
     "found": true,
     "hasImg": true,
-    "src": "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-materials-tab-hardening/954d3c6b-17ac-4c51-828e-53844d723c41/scratchpad/materials-hardening-ws/.akari/sidecars/assets/analyzed-clip.mp4.analysis/keyframe-01.png"
+    "src": "file://<scratch>/materials-hardening-ws/.akari/sidecars/assets/analyzed-clip.mp4.analysis/keyframe-01.png"
   },
   {
     "t": "2026-07-25T03:24:00.832Z",
@@ -27,12 +27,12 @@
     "unanalyzedVideo": {
       "found": true,
       "hasImg": true,
-      "src": "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-materials-tab-hardening/954d3c6b-17ac-4c51-828e-53844d723c41/scratchpad/materials-hardening-ws/.akari/cache/thumbnails/1c373d089206842a.jpg"
+      "src": "file://<scratch>/materials-hardening-ws/.akari/cache/thumbnails/1c373d089206842a.jpg"
     },
     "unanalyzedImage": {
       "found": true,
       "hasImg": true,
-      "src": "file:///private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-materials-tab-hardening/954d3c6b-17ac-4c51-828e-53844d723c41/scratchpad/materials-hardening-ws/.akari/cache/thumbnails/cc4b68c3860508b5.png"
+      "src": "file://<scratch>/materials-hardening-ws/.akari/cache/thumbnails/cc4b68c3860508b5.png"
     }
   },
   {
@@ -43,7 +43,7 @@
   {
     "t": "2026-07-25T03:24:00.965Z",
     "step": "cache-dir-listing",
-    "cacheDir": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-materials-tab-hardening/954d3c6b-17ac-4c51-828e-53844d723c41/scratchpad/materials-hardening-ws/.akari/cache/thumbnails",
+    "cacheDir": "<scratch>/materials-hardening-ws/.akari/cache/thumbnails",
     "cacheFiles": [
       "01d2aa980b1e1a74.jpg",
       "1c373d089206842a.jpg",

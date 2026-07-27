@@ -472,12 +472,12 @@
     "step": "assertion-ok",
     "message": "同一チャンクキーへの fetchFilmstripChunk 呼び出しは高頻度な再描画の間も重複しない（pending 同期書き込みガードの実測）",
     "fetchKeys": [
-      "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:6",
-      "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:21",
-      "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:23",
-      "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:30",
-      "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:31",
-      "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:0"
+      "file://<scratch>/selection-dogfood/source.mp4:6",
+      "file://<scratch>/selection-dogfood/source.mp4:21",
+      "file://<scratch>/selection-dogfood/source.mp4:23",
+      "file://<scratch>/selection-dogfood/source.mp4:30",
+      "file://<scratch>/selection-dogfood/source.mp4:31",
+      "file://<scratch>/selection-dogfood/source.mp4:0"
     ],
     "dupKeys": []
   },
@@ -1004,47 +1004,47 @@
       ],
       "fetchCalls": [
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:6",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:6",
           "chunkIndex": 6,
           "t": 115914.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:21",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:21",
           "chunkIndex": 21,
           "t": 115919
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:23",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:23",
           "chunkIndex": 23,
           "t": 115923.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:30",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:30",
           "chunkIndex": 30,
           "t": 115930.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:31",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:31",
           "chunkIndex": 31,
           "t": 115930.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:0",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:0",
           "chunkIndex": 0,
           "t": 146754.19999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:22",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:22",
           "chunkIndex": 22,
           "t": 156742.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:26",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:26",
           "chunkIndex": 26,
           "t": 156987.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:27",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:27",
           "chunkIndex": 27,
           "t": 157132.89999997616
         }
@@ -1139,47 +1139,47 @@
       ],
       "fetchCalls": [
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:6",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:6",
           "chunkIndex": 6,
           "t": 115914.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:21",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:21",
           "chunkIndex": 21,
           "t": 115919
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:23",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:23",
           "chunkIndex": 23,
           "t": 115923.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:30",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:30",
           "chunkIndex": 30,
           "t": 115930.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:31",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:31",
           "chunkIndex": 31,
           "t": 115930.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:0",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:0",
           "chunkIndex": 0,
           "t": 146754.19999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:22",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:22",
           "chunkIndex": 22,
           "t": 156742.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:26",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:26",
           "chunkIndex": 26,
           "t": 156987.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:27",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:27",
           "chunkIndex": 27,
           "t": 157132.89999997616
         }
@@ -1274,47 +1274,47 @@
       ],
       "fetchCalls": [
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:6",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:6",
           "chunkIndex": 6,
           "t": 115914.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:21",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:21",
           "chunkIndex": 21,
           "t": 115919
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:23",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:23",
           "chunkIndex": 23,
           "t": 115923.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:30",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:30",
           "chunkIndex": 30,
           "t": 115930.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:31",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:31",
           "chunkIndex": 31,
           "t": 115930.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:0",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:0",
           "chunkIndex": 0,
           "t": 146754.19999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:22",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:22",
           "chunkIndex": 22,
           "t": 156742.39999997616
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:26",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:26",
           "chunkIndex": 26,
           "t": 156987.69999992847
         },
         {
-          "key": "file:///private/tmp/t3-filmstrip-lazy-l1/selection-dogfood/source.mp4:27",
+          "key": "file://<scratch>/selection-dogfood/source.mp4:27",
           "chunkIndex": 27,
           "t": 157132.89999997616
         }

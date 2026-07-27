@@ -18,7 +18,7 @@ updated: 2026-07-25
 ベースに、本タスク専用の `ensureDeveloperModeOff`（後述）を追加した。
 
 1. `apps/shell` を `npm run build`（`build:ext` → `theia build --mode production`）でビルド
-2. `templates/project-default/` を隔離ワークスペース（リポ外の scratchpad）へコピーし、
+2. `templates/project-default/` を隔離ワークスペース（リポ外）へコピーし、
    `.akari/intake.json`（`status: "submitted"`）でホーム v2 の home-flow ゲートを解放
 3. フィクスチャ実体（すべて ffmpeg 実生成の実メディア。読み取り専用の `~/Movies/AkariVideo/**`
    には一切触れていない）:

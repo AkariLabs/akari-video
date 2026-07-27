@@ -1,4 +1,4 @@
-page: ホーム - workspace file:///Users/ryoma/_edit/30_products/akari-video-wt/partner-raw-terminal-default/apps/shell/lib/frontend/index.html?port=52285#/private/tmp/akari-l1-2026-07-25/workspace
+page: ホーム - workspace file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=52285#<scratch>/workspace
 widget debug hook present: true
 attachTerminal result: {
   terminalId: 'terminal-2',

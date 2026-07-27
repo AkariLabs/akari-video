@@ -8,7 +8,7 @@
 # Usage: run-l1.sh
 set -uo pipefail
 
-SHELL_DIR="/Users/ryoma/_edit/30_products/akari-video-wt/t4-track-height-resize/apps/shell"
+SHELL_DIR="<WORKTREE>/apps/shell"
 EVIDENCE_DIR="$SHELL_DIR/extensions/akari-annotations/evidence/t4-track-height-resize"
 SCRIPTS_DIR="$EVIDENCE_DIR/scripts"
 DOGFOOD_SRC="$HOME/Movies/AkariVideo/selection-dogfood"

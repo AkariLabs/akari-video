@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * CLI（と、同じ契約に従うシェル）の更新検知・通知の共通ロジック
- * （internal `planning/contract-2026-07-26-update-and-versioning.md` §3 §4、
- * `planning/contract-2026-07-17-skills-update-check.md` §2 の検知規律を継承）。
+ * （update-and-versioning 契約（内部リポ）§3 §4、
+ * skills-update-check 契約（内部リポ）§2 の検知規律を継承）。
  *
  * 起動をブロックしない: このファイルの同期関数（`checkForUpdateSync` /
  * `readCacheSync` など）は一切ネットワークに触れない。fetch は

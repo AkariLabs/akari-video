@@ -23,7 +23,7 @@ akari-shell-strip 自身のバックエンドが `packages/edit-lint` /
 共通ヘルパー（Electron 起動・kill・quick-pick 操作）。
 
 1. `apps/shell` を `npm run build`（`build:ext` → `theia build --mode production`）でビルド
-2. `templates/project-default/` を隔離ワークスペース（リポ外の scratchpad）へ
+2. `templates/project-default/` を隔離ワークスペース（リポ外）へ
    複数コピーし、`.akari/intake.json`（akari-surfaces の実物 submitIntake が
    書く shape そのまま — version/tasks/target/autonomy/status/submitted_at）で
    ホーム v2 の home-flow ゲートを解放:

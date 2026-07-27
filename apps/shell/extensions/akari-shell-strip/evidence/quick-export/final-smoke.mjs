@@ -16,9 +16,9 @@ import {
 } from './scenario-helpers.mjs';
 
 const CDP_PORT = 29905;
-const WORKSPACE = '/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-quick-export/82766364-1be8-4985-8ada-df6f44377f25/scratchpad/fixtures/ws-agent';
-const USER_DATA_DIR = '/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-quick-export/82766364-1be8-4985-8ada-df6f44377f25/scratchpad/user-data/final-smoke-' + CDP_PORT;
-const EVIDENCE_DIR = '/Users/ryoma/_edit/30_products/akari-video-wt/quick-export/apps/shell/extensions/akari-shell-strip/evidence/quick-export';
+const WORKSPACE = '<scratch>/fixtures/ws-agent';
+const USER_DATA_DIR = '<scratch>/user-data/final-smoke-' + CDP_PORT;
+const EVIDENCE_DIR = '<WORKTREE>/apps/shell/extensions/akari-shell-strip/evidence/quick-export';
 const EDIT_JSON_PATH = path.join(WORKSPACE, 'edit.json');
 const EDIT_JSON_BACKUP_PATH = path.join(WORKSPACE, '.edit.json.bak');
 

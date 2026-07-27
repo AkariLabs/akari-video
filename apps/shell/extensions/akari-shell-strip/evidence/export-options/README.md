@@ -17,7 +17,7 @@ fps・出力先の 4 問を追加し、render-cut CLI の `--progress` 出力を
 1. `apps/shell` を `PYTHON=/usr/bin/python3 npm run build`（`build:ext` →
    `theia build --mode production`）でビルド（electron の `dist/` は既存キャッシュから
    利用済みだったため再展開は不要だった）
-2. リポ外の scratchpad に隔離ワークスペースを作成し、`.akari/intake.json`
+2. リポ外に隔離ワークスペースを作成し、`.akari/intake.json`
    （`status: "submitted"` を含む、`packages/schemas/fixtures/intake/valid-submitted/`
    と同シェイプ）でホーム v2 の home-flow ゲートを解放（メニュー/素材アイコンが
    出現する条件。パートナー接続は不要）
@@ -26,7 +26,7 @@ fps・出力先の 4 問を追加し、render-cut CLI の `--progress` 出力を
 4. `node_modules/electron/dist/Electron.app/Contents/MacOS/Electron <apps/shell 絶対パス>
    <隔離ワークスペース絶対パス> --remote-debugging-port=9333 --user-data-dir=<隔離dir>
    --no-sandbox` で直接起動（`THEIA_CONFIG_DIR` も同じ隔離dirへ）
-5. `playwright-core` を検証用 scratchpad にのみ `npm install`（リポジトリ本体には
+5. `playwright-core` を検証用の隔離ワークスペースにのみ `npm install`（リポジトリ本体には
    追加していない）し `chromium.connectOverCDP` でアタッチ。本ディレクトリの
    `screenshot.mjs` / `click-and-shot.mjs` / `key-and-shot.mjs` / `find-and-click.mjs`
    が実際に使った最小ドライバ（quick-pick はキーボード操作 `ArrowDown`/`Enter` で確定）
@@ -74,4 +74,4 @@ t1/t2 は同一の書き出し実行中に ~22 秒間隔で撮った 2 時点（
   out_time= を自前の PROGRESS 行に変換するだけ）であることをコードと
   `packages/render-cut/test/cli.test.mjs` の専用テストで担保している
 
-詳細な対応表・全実測ログは `internal/tasks/2026-07-25-export-options/report.md` 参照。
+詳細な対応表・全実測ログは内部リポの該当タスク記録を参照。
