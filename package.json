@@ -9,5 +9,8 @@
   "scripts": {
     "gen:skills-index": "node scripts/gen-skills-index.mjs",
     "check:skills-index": "node scripts/gen-skills-index.mjs --check"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.3.0"
   }
 }
