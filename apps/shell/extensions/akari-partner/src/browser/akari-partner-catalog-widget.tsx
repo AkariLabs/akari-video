@@ -32,7 +32,8 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {PARTNER_CATALOG.map(entry => {
-                        const verifiesBinary = Object.values(entry.binaryVerification).some(rule => rule.required);
+                        const verifiesBinary = entry.form === 'extension'
+                            && Object.values(entry.binaryVerification).some(rule => rule.required);
                         return <section key={entry.id} style={cardStyle} data-extension-id={entry.id}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                 <strong>{entry.name}</strong>

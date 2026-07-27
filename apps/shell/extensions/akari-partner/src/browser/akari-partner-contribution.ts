@@ -9,6 +9,7 @@ import { StorageService } from '@theia/core/lib/browser/storage-service';
 import { VSXExtensionsViewContainer } from '@theia/vsx-registry/lib/browser/vsx-extensions-view-container';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { AkariPartnerCatalogWidget } from './akari-partner-catalog-widget';
+import { installPartnerTerminalStyle } from './partner-terminal-style';
 
 // パートナーペイン既定幅（契約 §2「パートナーペインは全状態で右側既定 44%」、
 // モック mock-2026-07-21-shell-home-chat-first.html の `.app`
@@ -33,6 +34,7 @@ export class AkariPartnerContribution implements FrontendApplicationContribution
     protected readonly storageService!: StorageService;
 
     async onStart(app: FrontendApplication): Promise<void> {
+        installPartnerTerminalStyle();
         this.applyDefaultPaneWidth(app);
 
         const onboarding = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
@@ -63,6 +65,8 @@ export class AkariPartnerContribution implements FrontendApplicationContribution
         if (!hadPersistedLayout) {
             this.correctFirstLaunchPaneWidth(app);
         }
+        const onboarding = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
+        await onboarding.restorePartnerTerminals();
     }
 
     /**
