@@ -605,7 +605,9 @@ export async function rasterizeAndComposite(context) {
       "3D overlay requires the puppeteer-core path",
     );
   } else if (capabilities.hyperframesAvailable) {
-    const overlayPath = join(temporaryDirectory, "overlay.webm");
+    // mov (ProRes 4444), not webm: on Windows HyperFrames emits webm as vp9/yuv420p with no
+    // alpha channel, which the alpha probe below would reject on every run (issue #2).
+    const overlayPath = join(temporaryDirectory, "overlay.mov");
     try {
       // The npm .bin shim is not spawnable on Windows (extensionless sh script; Node 22 also
       // refuses .cmd without a shell), so launch the package entry through the node executable.
@@ -618,7 +620,7 @@ export async function rasterizeAndComposite(context) {
           "--composition",
           relative(projectRoot, sheetPath),
           "--format",
-          "webm",
+          "mov",
           "--fps",
           String(fps),
           "--workers",
