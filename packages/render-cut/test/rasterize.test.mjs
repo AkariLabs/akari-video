@@ -28,12 +28,152 @@ test("non-3D overlay sheets remain byte-identical", () => {
     duration: 2,
   });
 
-  assert.equal(sheet.length, 5271);
+  assert.equal(sheet.length, 8960);
   assert.equal(
     createHash("sha256").update(sheet).digest("hex"),
-    "25fc2d3cc4fc665766b4b015b520984a5d75c21e5a01379f321450eac9b6ebdc",
+    "c13acd01d098bc14bb0a750237040dec6294c209f9135ef5f0b9405f00c3f2c9",
   );
   assert.doesNotMatch(sheet, /threeRuntime|AkariThree|data:model\/gltf-binary/);
+});
+
+test("overlay sheet holds container animations to the HyperFrames transport clock", () => {
+  const sheet = renderOverlaySheet({
+    overlays: [
+      {
+        id: "cap",
+        start: 0.5,
+        duration: 3,
+        html: "<div>cap</div>\n",
+        transform: {},
+        vars: {},
+      },
+    ],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 4,
+  });
+  const script = sheet.match(/<script>\n([\s\S]*?)\n  <\/script>/u)?.[1];
+  assert.ok(script);
+
+  const animation = {
+    currentTime: null,
+    pauseCalls: 0,
+    pause() {
+      this.pauseCalls += 1;
+    },
+  };
+  const container = {
+    dataset: { start: "0.5", duration: "3" },
+    getAnimations() {
+      return [animation];
+    },
+  };
+  const never = new Promise(() => {});
+  const document = {
+    fonts: { ready: never },
+    images: [],
+    querySelectorAll(selector) {
+      if (selector === ".akari-overlay-container") return [container];
+      return [];
+    },
+  };
+  const scheduled = [];
+  const window = {
+    __player: { getTime: () => 0.55 },
+    requestAnimationFrame(callback) {
+      scheduled.push(callback);
+      return scheduled.length;
+    },
+  };
+  vm.runInNewContext(script, {
+    document,
+    window,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    console,
+  });
+
+  assert.equal(scheduled.length, 1, "the hold loop must schedule itself at parse time");
+  scheduled[0]();
+  assert.ok(Math.abs(animation.currentTime - 550) < 1e-6, "sync must write composition time");
+  assert.ok(animation.pauseCalls >= 1);
+  assert.equal(scheduled.length, 2, "the hold loop must keep running while the player exists");
+
+  window.__player.getTime = () => 2;
+  scheduled[1]();
+  assert.equal(animation.currentTime, 2000);
+
+  window.__player.getTime = () => 0;
+  scheduled[2]();
+  assert.equal(animation.currentTime, 0);
+});
+
+test("transport hold loop keeps polling until the HyperFrames player appears", () => {
+  const sheet = renderOverlaySheet({
+    overlays: [
+      {
+        id: "cap",
+        start: 0.5,
+        duration: 3,
+        html: "<div>cap</div>\n",
+        transform: {},
+        vars: {},
+      },
+    ],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 4,
+  });
+  const script = sheet.match(/<script>\n([\s\S]*?)\n  <\/script>/u)?.[1];
+  assert.ok(script);
+
+  const animation = {
+    currentTime: null,
+    pause() {},
+  };
+  const container = {
+    dataset: { start: "0.5", duration: "3" },
+    getAnimations() {
+      return [animation];
+    },
+  };
+  const never = new Promise(() => {});
+  const document = {
+    fonts: { ready: never },
+    images: [],
+    querySelectorAll(selector) {
+      if (selector === ".akari-overlay-container") return [container];
+      return [];
+    },
+  };
+  const queue = [];
+  const window = {
+    requestAnimationFrame(callback) {
+      queue.push(callback);
+      return queue.length;
+    },
+  };
+  vm.runInNewContext(script, {
+    document,
+    window,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    console,
+  });
+
+  // Setup can burn an unbounded number of ticks before the player appears; the loop
+  // must survive all of them (a finite tick budget died in production, issue #3).
+  for (let tick = 0; tick < 1000; tick += 1) {
+    assert.ok(queue.length > 0, "the hold loop must keep rescheduling without a player");
+    queue.shift()();
+  }
+  assert.equal(animation.currentTime, null, "no player means no sync writes");
+
+  window.__player = { getTime: () => 1.25 };
+  queue.shift()();
+  assert.ok(Math.abs(animation.currentTime - 1250) < 1e-6, "sync must start once the player appears");
 });
 
 test("__akariSeek waits for requestVideoFrameCallback before resolving", async () => {
