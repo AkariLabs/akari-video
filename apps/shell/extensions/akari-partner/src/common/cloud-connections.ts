@@ -52,8 +52,7 @@ function createCloudDoctor(nowIso: string): CloudDoctorEntry {
 }
 
 /**
- * 追加する `akari-cloud` エントリ。形は
- * internal `planning/contract-2026-07-17-manage-connections.md` §3 のスキーマ
+ * 追加する `akari-cloud` エントリ。形は manage-connections 契約（内部リポ）§3 のスキーマ
  * （実体は `packages/schemas/connections.schema.json`）に従い、
  * `templates/project-default/.akari/connections.json` の同 ID エントリと同一にする
  * （雛形と後付け修復で中身が食い違わないようにするため）。
