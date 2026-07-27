@@ -32,6 +32,22 @@ export interface PartnerLaunchPlan {
 }
 
 /**
+ * アプリ単位の「パートナー接続済み」マーカーの中身
+ * （既定の置き場は `~/.akari/partner-connection.json`。ルートは環境変数
+ * `AKARI_HOME` で差し替え可 — `packages/akari-launcher` の `update-check.json`
+ * と同じ規約）。プロジェクト内の `.akari/connections.json` がワークスペース
+ * 単位の接続レジストリなのに対し、こちらは「このアプリではもう初回ではない」
+ * だけを表す最小の状態。
+ */
+export interface PartnerConnectionMarker {
+    schema: 1;
+    status: 'ok';
+    agent: PartnerAgentId;
+    executablePath: string;
+    connected_at: string;
+}
+
+/**
  * Versions of rendering-facing assets the running app ships. Projects record these
  * as a reproducibility pin (contract §6 — 器まで). Keys are asset ids, values versions.
  */
@@ -55,4 +71,11 @@ export interface AkariPartnerServer {
     verifyExtensionBinary(request: BinaryVerificationRequest): Promise<BinaryVerificationResult>;
     prepareLaunch(agent: PartnerAgentId): Promise<PartnerLaunchPlan>;
     getRenderPins(): Promise<RenderPins>;
+    /**
+     * 接続成立時にアプリ単位マーカーを書き、書いた内容を返す。フロントエンドが
+     * ホームディレクトリを直接触らないための薄い RPC（`AKARI_HOME` の解決も
+     * node 側で行う）。失敗は例外として呼び出し側へ伝わるが、呼び出し側は
+     * 警告ログだけ出して接続フローを止めない（沈黙原則）。
+     */
+    recordConnection(agent: PartnerAgentId, executablePath: string): Promise<PartnerConnectionMarker>;
 }

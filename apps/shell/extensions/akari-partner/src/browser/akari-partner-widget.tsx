@@ -11,6 +11,7 @@ import { TerminalWidget } from '@theia/terminal/lib/browser/base/terminal-widget
 import { VSXExtensionsModel } from '@theia/vsx-registry/lib/browser/vsx-extensions-model';
 import { PluginViewRegistry } from '@theia/plugin-ext/lib/main/browser/view/plugin-view-registry';
 import { AkariPartnerServer } from '../common/akari-partner-protocol';
+import { CONNECTIONS_RELATIVE_PATH, repairCloudConnection } from '../common/cloud-connections';
 import {
     PARTNER_CATALOG,
     PARTNER_CLI_ICON_CLASSES,
@@ -21,14 +22,6 @@ import {
 } from './partner-catalog';
 import { PartnerSessionService, PartnerTerminal } from './partner-session-service';
 import { PartnerChannel, TerminalPartnerChannel } from './partner-channel';
-
-// ホーム v2（task.md 2026-07-21-home-flow）の接続ゲートが読む SSOT と同じ
-// フィールド。「接続済み」の唯一の判定源は connections.json の
-// akari-cloud provider の doctor.status（skills/manage-connections/bin/doctor.mjs
-// が書く語彙をそのまま使う）— ここでは新しい判定基準を作らず、CLI 接続が
-// 実際に成立した瞬間にその同じフィールドを ok へ倒すだけ。
-const CONNECTIONS_RELATIVE_PATH = '.akari/connections.json';
-const CLOUD_PROVIDER_ID = 'akari-cloud';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -525,13 +518,18 @@ export class AkariPartnerWidget extends ReactWidget {
         // フィールドを ok へ更新する（新しい判定基準を作らず、既存 SSOT を
         // 実態に追従させるだけ）。
         await this.markCloudConnectionOk();
+        // connections.json はワークスペース単位なので、これだけだと新しい
+        // プロジェクトを開くたびにゲートが復活する。「初回のみ」を成立させる
+        // アプリ単位の状態は、ホームディレクトリ側のマーカーが持つ。
+        await this.recordAppConnection(terminal, entry);
     }
 
     /**
      * connections.json の akari-cloud provider の doctor を ok に倒す。
-     * provider エントリが存在しない（プロジェクトが古い/手動生成された）場合や
-     * ファイルが読めない場合は何もしない（ホーム v2 のゲートは未接続のまま
-     * 留まるだけで、他の機能に影響しない安全側のフォールバック）。
+     * エントリが無い（プロジェクトが古い/手動生成された）場合はスキーマどおりの
+     * エントリを追加して ok にする。**ファイル自体が無い場合は何も作らない** —
+     * 無関係フォルダへ `.akari/` をスキャフォールドしないため（その場合の
+     * ゲートは `recordAppConnection` のアプリ単位マーカーが救う）。
      */
     protected async markCloudConnectionOk(): Promise<void> {
         try {
@@ -541,21 +539,55 @@ export class AkariPartnerWidget extends ReactWidget {
                 return;
             }
             const uri = root.resolve(CONNECTIONS_RELATIVE_PATH);
-            const content = await this.fileService.readFile(uri);
-            const registry = JSON.parse(content.value.toString());
-            const providers = Array.isArray(registry?.providers) ? registry.providers : undefined;
-            const provider = providers?.find((candidate: { id?: unknown }) => candidate?.id === CLOUD_PROVIDER_ID);
-            if (!provider) {
-                return;
+            const outcome = await repairCloudConnection({
+                read: async () => {
+                    try {
+                        return (await this.fileService.readFile(uri)).value.toString();
+                    } catch {
+                        // 無い / 読めない。ここで undefined を返すと書き込みは起きない。
+                        return undefined;
+                    }
+                },
+                write: async text => {
+                    await this.fileService.writeFile(uri, BinaryBuffer.fromString(text));
+                }
+            }, new Date().toISOString());
+            if (outcome !== 'updated') {
+                console.info(`[akari-partner] connections.json cloud provider: ${outcome}`);
             }
-            provider.doctor = {
-                last_checked: new Date().toISOString(),
-                status: 'ok',
-                detail: 'AI パートナーの接続を確認しました（ローカル CLI 接続の成立で判定、v0）。'
-            };
-            await this.fileService.writeFile(uri, BinaryBuffer.fromString(`${JSON.stringify(registry, null, 2)}\n`));
         } catch (error) {
             console.warn('[akari-partner] connections.json update skipped:', error);
+        }
+    }
+
+    /**
+     * アプリ単位マーカー（`~/.akari/partner-connection.json`。`AKARI_HOME` で
+     * ルート差し替え可）を書く。ホームディレクトリはフロントエンドから直接
+     * 触らず node バックエンド経由で解決・書き込みする。失敗しても接続フローは
+     * 止めない（警告ログのみ — 沈黙原則）。
+     */
+    protected async recordAppConnection(terminal: TerminalWidget, entry: PartnerCliCatalogEntry): Promise<void> {
+        try {
+            await this.partnerServer.recordConnection(entry.agent, await this.resolveExecutablePath(terminal));
+        } catch (error) {
+            console.warn('[akari-partner] partner connection marker skipped:', error);
+        }
+    }
+
+    /**
+     * マーカーへ記録する CLI の実体パス。ブートストラップ直後は `beginCli()` が
+     * 掴んだ値をそのまま使えるが、既存 PTY の再利用・レイアウト復元経由では
+     * その値が無いので、実際に走っているプロセスの情報から引き直す。
+     */
+    protected async resolveExecutablePath(terminal: TerminalWidget): Promise<string> {
+        if (this.executablePath) {
+            return this.executablePath;
+        }
+        try {
+            const info = await terminal.processInfo;
+            return info?.executable ?? '';
+        } catch {
+            return '';
         }
     }
 
