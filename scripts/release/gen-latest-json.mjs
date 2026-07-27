@@ -32,6 +32,7 @@ const CHANNELS = new Set(['prerelease', 'stable']);
 export const ARTIFACT_FILES = {
   shellMac: 'shell-mac.zip',
   shellWin: 'shell-win.zip',
+  shellWinSetup: 'shell-win-setup.exe',
   cli: 'cli.tgz'
 };
 
@@ -102,11 +103,13 @@ export async function generateLatestJson({ artifactsDir, tag, channel, released,
 
   const shellMacPath = join(artifactsDir, ARTIFACT_FILES.shellMac);
   const shellWinPath = join(artifactsDir, ARTIFACT_FILES.shellWin);
+  const shellWinSetupPath = join(artifactsDir, ARTIFACT_FILES.shellWinSetup);
   const cliPath = join(artifactsDir, ARTIFACT_FILES.cli);
 
-  const [shellMacSha, shellWinSha, cliSha] = await Promise.all([
+  const [shellMacSha, shellWinSha, shellWinSetupSha, cliSha] = await Promise.all([
     sha256File(shellMacPath),
     sha256File(shellWinPath),
+    sha256File(shellWinSetupPath),
     sha256File(cliPath)
   ]);
 
@@ -120,7 +123,10 @@ export async function generateLatestJson({ artifactsDir, tag, channel, released,
       shell: {
         version: shellPkg.version,
         mac: { url: releaseAssetUrl(tag, ARTIFACT_FILES.shellMac), sha256: shellMacSha },
-        win: { url: releaseAssetUrl(tag, ARTIFACT_FILES.shellWin), sha256: shellWinSha }
+        // 契約 §3 の例示どおり win の正はインストーラ（...exe）。ポータブル zip は
+        // win_zip として併記する（後方互換の追加のみ → schema は 1 のまま）
+        win: { url: releaseAssetUrl(tag, ARTIFACT_FILES.shellWinSetup), sha256: shellWinSetupSha },
+        win_zip: { url: releaseAssetUrl(tag, ARTIFACT_FILES.shellWin), sha256: shellWinSha }
       },
       cli: {
         version: cliPkg.version,
