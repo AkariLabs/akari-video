@@ -9,10 +9,13 @@ import {
     BinaryVerificationResult,
     BootstrapResult,
     PartnerAgentId,
+    PartnerConnectionMarker,
     PartnerLaunchPlan,
     RenderPins
 } from '../common/akari-partner-protocol';
+import { buildPartnerConnectionMarker } from '../common/partner-connection-marker';
 import { bootstrapRunner } from './bootstrap-runner';
+import { resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
@@ -90,6 +93,12 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
             args: [],
             log: []
         };
+    }
+
+    async recordConnection(agent: PartnerAgentId, executablePath: string): Promise<PartnerConnectionMarker> {
+        const marker = buildPartnerConnectionMarker(agent, executablePath, new Date().toISOString());
+        await writePartnerConnectionMarker(marker, resolvePartnerConnectionMarkerPath());
+        return marker;
     }
 
     async getRenderPins(): Promise<RenderPins> {

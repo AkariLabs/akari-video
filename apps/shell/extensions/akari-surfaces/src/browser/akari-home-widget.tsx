@@ -1,4 +1,5 @@
 import * as React from '@theia/core/shared/react';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import URI from '@theia/core/lib/common/uri';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { CommandService, MessageService } from '@theia/core/lib/common';
@@ -37,13 +38,16 @@ type StarterId = 'assets' | 'template' | 'reference' | 'consult';
 
 const CONNECTIONS_RELATIVE_PATH = '.akari/connections.json';
 const INTAKE_RELATIVE_PATH = '.akari/intake.json';
-// 更新チェックのキャッシュは `~/.akari/update-check.json`（AKARI_HOME で差し替え可・
-// CLI と共有 — internal contract-2026-07-26-update-and-versioning.md §4）。
-// プロジェクト直下の `.akari/` とは無関係（ホームディレクトリ側）。
-const UPDATE_HOME_SUBDIR = '.akari';
+// ホームディレクトリ側の AKARI 共有ディレクトリ（`~/.akari/`。AKARI_HOME で
+// 差し替え可・CLI と共有 — internal contract-2026-07-26-update-and-versioning.md §4）。
+// プロジェクト直下の `.akari/` とは無関係。
+const AKARI_HOME_SUBDIR = '.akari';
 const UPDATE_CACHE_FILENAME = 'update-check.json';
-// 「AI パートナー接続」の SSOT は connections.json の akari-cloud provider の
-// doctor.status（partner pane が「akari-cloud・接続済み」と表示する対象と同一）。
+// アプリ単位の「パートナー接続済み」マーカー。akari-partner の node バックエンドが
+// 接続成立時に書く（ファイル契約のみで結合する — 拡張間の import 依存は増やさない）。
+const PARTNER_CONNECTION_FILENAME = 'partner-connection.json';
+// 「AI パートナー接続」のプロジェクト単位 SSOT は connections.json の akari-cloud
+// provider の doctor.status（partner pane が「akari-cloud・接続済み」と表示する対象と同一）。
 const CLOUD_PROVIDER_ID = 'akari-cloud';
 const BEGIN_ONBOARDING_COMMAND = 'akari.partner.beginOnboarding';
 const SEND_TO_PARTNER_COMMAND = 'akari.partner.send';
@@ -223,6 +227,16 @@ export class AkariHomeWidget extends ReactWidget {
         }
     }
 
+    /**
+     * ホームが再表示されるたびに接続状態を読み直す。アプリ単位マーカーは
+     * watch していない（v0）ため、他のタブから戻ってきたときにゲートが
+     * 取り残されないようにするのはこの経路。
+     */
+    protected override onAfterShow(msg: Message): void {
+        super.onAfterShow(msg);
+        void this.refreshHomeFlow();
+    }
+
     protected overviewWatchTargets(): URI[] {
         if (!this.projectRoot) {
             return [];
@@ -313,12 +327,23 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     /**
+     * 01 ゲートの「接続済み」判定。ゲート自身の文言（「初回のみ · 完了すると
+     * 次からは自動接続」）どおりに振る舞わせるため、**プロジェクト単位**の
+     * connections.json だけでなく**アプリ単位**のマーカーも見る。どちらかが
+     * ok ならゲートは出さない（connections.json が未整備の別プロジェクトを
+     * 開いても、一度つないだアプリなら 02 以降から始まる）。
+     */
+    protected async readConnected(): Promise<boolean> {
+        return (await this.readProjectConnected()) || (await this.readAppConnected());
+    }
+
+    /**
      * connections.json の doctor 判定を読むだけで、判定ロジック自体は
      * 再実装しない（skills/manage-connections/bin/doctor.mjs が唯一の書き手）。
      * ファイルが無い/壊れている/対象 provider が無ければ未接続扱い
      * （フェイルセーフ側に倒す）。
      */
-    protected async readConnected(): Promise<boolean> {
+    protected async readProjectConnected(): Promise<boolean> {
         if (!this.connectionsUri) {
             return false;
         }
@@ -328,6 +353,27 @@ export class AkariHomeWidget extends ReactWidget {
             const providers = Array.isArray(parsed?.providers) ? parsed.providers : [];
             const partner = providers.find((provider: { id?: unknown }) => provider?.id === CLOUD_PROVIDER_ID);
             return partner?.doctor?.status === 'ok';
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * アプリ単位マーカー（`~/.akari/partner-connection.json`、`AKARI_HOME` で
+     * 差し替え可）を読む。akari-partner への import 依存は増やさず、ファイル契約
+     * だけで結合する（読み方は update-check.json と同じ EnvVariablesServer +
+     * FileService 経路）。無い/壊れている/status が ok でなければ未接続扱い。
+     *
+     * v0 ではこのファイルの watch は張らない（マーカーは「次回起動時に効く」で
+     * 足りる契約）。同一セッション内の反映は connectPartner の完了時と
+     * ホーム再表示時の読み直しで担保する。
+     */
+    protected async readAppConnected(): Promise<boolean> {
+        try {
+            const uri = (await this.resolveAkariHomeUri()).resolve(PARTNER_CONNECTION_FILENAME);
+            const content = await this.fileService.readFile(uri);
+            const parsed = JSON.parse(content.value.toString());
+            return parsed?.status === 'ok';
         } catch {
             return false;
         }
@@ -349,17 +395,23 @@ export class AkariHomeWidget extends ReactWidget {
     // --- 更新チェック（U2 v0）: 状態読み込み・バックグラウンド fetch・アクション ---
 
     /**
-     * キャッシュファイルの URI を解決する。`AKARI_HOME` が設定されていれば
-     * それをルートとし（CLI 側 `resolveAkariHome` と同じ規約）、無ければ
-     * ホームディレクトリ配下の `.akari/` を使う。
+     * ホームディレクトリ側の AKARI 共有ディレクトリを解決する。`AKARI_HOME` が
+     * 設定されていればそれ自体をルートとし（CLI 側 `resolveAkariHome` と同じ規約）、
+     * 無ければホームディレクトリ配下の `.akari/` を使う。更新キャッシュとパートナー
+     * 接続マーカーはどちらもこの直下に置かれる。
      */
-    protected async resolveUpdateCacheUri(): Promise<URI> {
+    protected async resolveAkariHomeUri(): Promise<URI> {
         const override = await this.envVariables.getValue('AKARI_HOME');
         if (override?.value) {
-            return URI.fromFilePath(override.value).resolve(UPDATE_CACHE_FILENAME);
+            return URI.fromFilePath(override.value);
         }
         const homeDirUri = await this.envVariables.getHomeDirUri();
-        return new URI(homeDirUri).resolve(UPDATE_HOME_SUBDIR).resolve(UPDATE_CACHE_FILENAME);
+        return new URI(homeDirUri).resolve(AKARI_HOME_SUBDIR);
+    }
+
+    /** 更新チェックのキャッシュファイル（`<AKARI ホーム>/update-check.json`）。 */
+    protected async resolveUpdateCacheUri(): Promise<URI> {
+        return (await this.resolveAkariHomeUri()).resolve(UPDATE_CACHE_FILENAME);
     }
 
     /**
@@ -471,7 +523,11 @@ export class AkariHomeWidget extends ReactWidget {
             await this.commands.executeCommand(BEGIN_ONBOARDING_COMMAND);
         } finally {
             this.connecting = false;
-            this.update();
+            // アプリ単位マーカーは watch していない（v0）。接続フローが終わった
+            // この時点で読み直すことで、connections.json を持たないプロジェクト
+            // でも同一セッション内でゲートが消える。connections.json 側の修復は
+            // watch でも拾われるが、二重に読んでも害はない。
+            await this.refreshHomeFlow();
         }
     };
 
