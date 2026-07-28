@@ -1,6 +1,6 @@
 # akari-launcher（`akari` コマンド）
 
-「UI に依存したくない。Claude Code 単体でも、どんなディレクトリでも始められるように」を
+「UI に依存したくない。opencode 単体でも、どんなディレクトリでも始められるように」を
 実現する薄いラッパー CLI。npm パッケージ名は `akari-video`、提供するコマンド名は `akari`
 （npm の `akari` は別プロダクトが取得済みのため。オーナー裁定 2026-07-21 §8-2）。
 
@@ -21,12 +21,12 @@ akari
   │     .akari/connections.json の doctor ブロックを更新・表示する
   │     （キーの値は一切表示しない）
   │
-  └─ 4. 最後に claude を exec する
-        （PATH に claude が無ければ、インストール案内を出して終了する）
+  └─ 4. 最後に opencode を exec する
+        （PATH に opencode が無ければ、インストール案内を出して終了する）
 ```
 
-`akari` に渡した引数はそのまま `claude` に転送する（例: `akari --continue` は
-`claude --continue` を起動する）。
+`akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
+`opencode --continue` を起動する）。
 
 ## 3 入口の対応表
 
@@ -35,8 +35,8 @@ AKARI Video は「同じファイル契約（`.akari/` 配下の JSON）に収�
 
 | 入口 | 実体 | 発動方法 |
 |---|---|---|
-| ターミナル | この `akari` ランチャー CLI | シェルで `akari` と打つ（`npm i -g akari-video` または `npx akari-video` 相当。器のみ、npm publish は本タスクのスコープ外） |
-| セッション内 | プラグインの `/akari` スラッシュコマンド、または発話 | Claude Code セッション内で `/akari` と打つ、または普通に話しかけて `create-project` スキルを発動させる |
+| ターミナル | この `akari` ランチャー CLI | シェルで `akari --opencode` と打つ（`npm i -g akari-video` または `npx akari-video` 相当。器のみ、npm publish は本タスクのスコープ外） |
+| セッション内 | opencode スキルの自動発見、またはプラグインの `/akari` スラッシュコマンド | opencode セッション内で「新しい動画プロジェクトを作りたい」と発話、または Claude Code セッション内で `/akari` と打つ |
 | アプリ | 接続ボタン（AKARI Video アプリ） | アプリの「はじめる」画面から接続 → はじめかた選択 |
 
 3 つとも最終的に同じもの（`.akari/connections.json` / `.akari/intake.json` /
@@ -48,7 +48,10 @@ AKARI Video は「同じファイル契約（`.akari/` 配下の JSON）に収�
 npm publish は本タスクのスコープ外（「器まで」）。現状は次のいずれかで実行できる:
 
 ```sh
-# モノレポ checkout 内から、bin を直接実行する
+# モノレポ checkout 内から、bin を直接実行する（opencode モード）
+node packages/akari-launcher/bin/akari.mjs --opencode
+
+# Claude Code モード
 node packages/akari-launcher/bin/akari.mjs
 
 # 将来 npm publish された場合の想定コマンド（現状は publish していないため未検証）

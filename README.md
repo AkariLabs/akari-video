@@ -9,8 +9,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-ff8a00)](./LICENSE)
 ![Status: under construction](https://img.shields.io/badge/status-under_construction-1a1a1a)
 ![Agent skills: 17](https://img.shields.io/badge/agent_skills-17-ff8a00)
-![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
 ![opencode compatible](https://img.shields.io/badge/opencode-compatible-1a1a1a)
+![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
 
 </div>
 
@@ -23,7 +23,7 @@ look at the result and correct only where it drifts from your intent.
 
 **Status: under construction** — the desktop shell is mid-migration (the previous shell
 implementation is preserved at [akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri)).
-The headless path (Claude Code + skills) is usable today.
+The headless path (opencode + skills) is usable today.
 
 ## Why this exists
 
@@ -56,7 +56,7 @@ The agent and the human collaborate on the same save data (file contracts).
   HTML/CSS/Three.js. The intake is wide open; the engine only does compositing
 - **Human actions land in data too** — drags and value tweaks are written back to `edit.json`,
   data attributes, and CSS variables. Humans and AI share the same files without colliding
-- **Headless-first** — everything from planning to export works with Claude Code or opencode
+- **Headless-first** — everything from planning to export works with opencode or Claude Code
   alone, no UI required. The app can open the same project later and continue
 
 The workflow is packaged as skills, one per stage:
@@ -81,9 +81,9 @@ Whichever entrance you start from, everything converges on the same file contrac
 
 | Entrance | What it is | How to launch |
 |---|---|---|
-| Terminal | `packages/akari-launcher` (bin: `akari`) | `node packages/akari-launcher/bin/akari.mjs` (not yet published to npm) |
-| Inside a Claude Code session | `/akari` command + SessionStart hook in `plugin/` | Type `/akari` in a session, or just say "I want to start a new video project" |
+| Terminal | `packages/akari-launcher` (bin: `akari`) | `node packages/akari-launcher/bin/akari.mjs --opencode` (not yet published to npm) |
 | Inside an opencode session | Skills auto-discovered from `.opencode/skills/` | Just say "I want to start a new video project" |
+| Inside a Claude Code session | `/akari` command + SessionStart hook in `plugin/` | Type `/akari` in a session, or just say "I want to start a new video project" |
 | Desktop app | Theia-based desktop shell | From the connect button on the Start screen |
 
 First steps: [docs/getting-started.md](./docs/getting-started.md).
@@ -106,9 +106,9 @@ First steps: [docs/getting-started.md](./docs/getting-started.md).
 
 - `apps/shell/` — Theia-based desktop shell
 - `packages/` — shell-independent libraries (schemas, preview engine, surface runtime, `akari-launcher`)
-- `plugin/` — Claude Code plugin bundle (skill pack + SessionStart hook + `/akari`)
+- `templates/` — project scaffolds (include `.opencode/` config)
 - `skills/` — agent-side stage skills (17 of them)
-- `templates/` — project scaffolds (include `.opencode/` config for opencode support)
+- `plugin/` — Claude Code plugin bundle (skill pack + SessionStart hook + `/akari`)
 - `catalog/` — curated add-on catalog (reference-only distribution)
 - `docs/` — user docs + spec contracts
 

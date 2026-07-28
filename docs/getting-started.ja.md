@@ -6,7 +6,7 @@ AKARI Video は **AI エージェントが動画編集を行う** システム�
 人間がやることは 2 つだけ：**作りたいものを伝える** と **結果を確認する**。
 
 「動画編集を始めたことがあるが、テロップやナレーションまで自力でやるのは面倒」
-「短い動画をなんとか作りたいが、ソフトの使い方を覚える時間がない」
+「短い動画をなんとか作りたいが、軟體の使い方を覚える時間がない」
 そんなときに使うと便利です。
 
 ## このドキュメントでわかること
@@ -24,52 +24,49 @@ AKARI Video はターミナル（コマンドライン）で動きます。
 
 **オートインストール（おすすめ）**:
 ```sh
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
-
 # Windows (PowerShell)
 irm https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.ps1 | iex
 
 # Windows (CMD)
 curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.cmd -o install.cmd && install.cmd
+
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
 ```
 
 スクリプトが自動で以下を確認・インストールします:
 - Node.js v20+（無ければ自動インストール）
-- Claude Code または opencode（案内表示）
+- opencode または Claude Code（案内表示）
 - ffmpeg（オプション、自動インストール可）
 
 **手動でインストールする場合** は以下の手順を参照:
 
-### 2. Claude Code または opencode（AI エージェント）
+### 1. Node.js（JavaScript 実行環境）
+
+Node.js は AKARI Video の本体を動かすために必要です。
+
+**インストール方法**:
+
+- **Windows**: [nodejs.org](https://nodejs.org/) から LTS 版をダウンロードしてインストール
+- **Linux (Ubuntu/WSL2)**:
+  ```sh
+  curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+  ```
+- **macOS**: [nodejs.org](https://nodejs.org/) から LTS 版をダウンロード、または `brew install node`
+
+**確認方法**:
+```sh
+node --version
+# v20.x.x とか表示されれば OK
+```
+
+### 2. opencode または Claude Code（AI エージェント）
 
 AKARI Video を動かすには、AI エージェントが必要です。
 どちらか一方、または両方を入れてください。
 
-#### Claude Code を使う場合
-
-Claude Code は Anthropic 社の AI コーディングアシスタントです。
-**有料の Claude サブスクリプション** が必要です。
-
-**インストール方法**:
-
-```sh
-# macOS / Linux / WSL2
-curl -fsSL https://claude.ai/install.sh | bash
-
-# Windows (PowerShell)
-irm https://claude.ai/install.ps1 | iex
-```
-
-**確認方法**:
-```sh
-claude --version
-# バージョン番号が表示されれば OK
-```
-
-詳しくは [Claude Code 公式ドキュメント](https://docs.anthropic.com/en/docs/claude-code/overview) を参照。
-
-#### opencode を使う場合
+#### opencode を使う場合（おすすめ）
 
 opencode はオープンソースの AI コーディングアシスタントです。
 **無料のモデル** が同梱されていますが、より高性能なモデルを使う場合は
@@ -89,6 +86,26 @@ opencode --version
 
 詳しくは [opencode 公式サイト](https://opencode.ai) を参照。
 
+#### Claude Code を使う場合
+
+Claude Code は Anthropic 社の AI コーディングアシスタントです。
+**有料の Claude サブスクリプション** が必要です。
+
+**インストール方法**:
+
+```sh
+# Windows / Linux / macOS
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+**確認方法**:
+```sh
+claude --version
+# バージョン番号が表示されれば OK
+```
+
+詳しくは [Claude Code 公式ドキュメント](https://docs.anthropic.com/en/docs/claude-code/overview) を参照。
+
 ### 3. ffmpeg（動画処理ツール）
 
 ffmpeg は動画の切り貼り・変換・書き出しに使います。
@@ -97,9 +114,9 @@ ffmpeg は動画の切り貼り・変換・書き出しに使います。
 
 **インストール方法**:
 
-- **macOS**: `brew install ffmpeg` ([Homebrew](https://brew.sh/) が必要)
-- **Windows**: [ffmpeg 公式サイト](https://ffmpeg.org/download.html) からダウンロードして PATH に通す
+- **Windows**: `winget install Gyan.FFmpeg` または [ffmpeg 公式サイト](https://ffmpeg.org/download.html) からダウンロード
 - **Linux**: `sudo apt install ffmpeg`
+- **macOS**: `brew install ffmpeg` ([Homebrew](https://brew.sh/) が必要)
 
 **確認方法**:
 ```sh
@@ -117,8 +134,8 @@ AKARI Video には 3 つの入口があります。
 
 | 入口 | おすすめの人 | 発動方法 |
 |---|---|---|
-| A. ターミナル | コマンドラインに慣れている人 | `node packages/akari-launcher/bin/akari.mjs` |
-| B. Claude Code / opencode セッション | すでに AI エージェントを使っている人 | 「新しい動画プロジェクトを作りたい」と発話 |
+| A. ターミナル | コマンドラインに慣れている人 | `node packages/akari-launcher/bin/akari.mjs --opencode` |
+| B. opencode / Claude Code セッション | すでに AI エージェントを使っている人 | 「新しい動画プロジェクトを作りたい」と発話 |
 | C. アプリ | GUI で操作したい人 | Theia ベースのデスクトップシェルから接続 |
 
 **初めての方は A から** がおすすめです。
@@ -129,7 +146,7 @@ AKARI Video には 3 つの入口があります。
 
 ```sh
 # モノレポ checkout 内から実行（npm publish は未実施）
-node packages/akari-launcher/bin/akari.mjs
+node packages/akari-launcher/bin/akari.mjs --opencode
 ```
 
 `akari` は次の順で動きます:
@@ -139,20 +156,20 @@ node packages/akari-launcher/bin/akari.mjs
 3. 接続状態（生成プロバイダ・API キー）を確認して表示
 4. 最後に AI エージェントを起動 — 以降はセッション内で会話しながら進める
 
-**opencode を使う場合**:
+**Claude Code を使う場合**:
 
 ```sh
-node packages/akari-launcher/bin/akari.mjs --opencode
+node packages/akari-launcher/bin/akari.mjs
 ```
 
-### B. Claude Code / opencode セッション内から
+### B. opencode / Claude Code セッション内から
 
 すでに AI エージェントを使っているなら、入口はこちらが自然です。
 
-- **Claude Code**: **`/akari`** — カレントの状態を診断して、次の一手を案内するスラッシュコマンド
-  または「新しい動画プロジェクトを作りたい」と発話
 - **opencode**: 「新しい動画プロジェクトを作りたい」と発話すると
   `create-project` スキルが発動
+- **Claude Code**: **`/akari`** — カレントの状態を診断して、次の一手を案内するスラッシュコマンド
+  または「新しい動画プロジェクトを作りたい」と発話
 
 ### C. アプリから
 
@@ -255,7 +272,7 @@ my-video/
 外部 API（クラウド文字起こし・ナレーション生成など）を使う場合のみ課金されます。
 
 **Q. Windows で動きますか？**
-はい。macOS、Linux（WSL2 含む）、Windows に対応しています。
+はい。Windows、Linux（WSL2 含む）、macOS に対応しています。
 
 **Q. 英語しかわからないのですが？**
 エージェントとの対話は日本語で可能です。

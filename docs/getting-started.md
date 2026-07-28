@@ -23,52 +23,49 @@ Install the following three items in order.
 
 **Auto-install (recommended)**:
 ```sh
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
-
 # Windows (PowerShell)
 irm https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.ps1 | iex
 
 # Windows (CMD)
 curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.cmd -o install.cmd && install.cmd
+
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
 ```
 
 The script automatically checks and installs:
 - Node.js v20+ (auto-installs if missing)
-- Claude Code or opencode (shows instructions)
+- opencode or Claude Code (shows instructions)
 - ffmpeg (optional, can auto-install)
 
 **For manual installation**, see below:
 
-### 2. Claude Code or opencode (AI agent)
+### 1. Node.js (JavaScript runtime)
+
+Node.js is required to run the AKARI Video core.
+
+**How to install**:
+
+- **Windows**: Download and install the LTS version from [nodejs.org](https://nodejs.org/)
+- **Linux (Ubuntu/WSL2)**:
+  ```sh
+  curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+  ```
+- **macOS**: Download from [nodejs.org](https://nodejs.org/) or `brew install node`
+
+**Verify installation**:
+```sh
+node --version
+# Should show v20.x.x or similar
+```
+
+### 2. opencode or Claude Code (AI agent)
 
 You need an AI agent to run AKARI Video.
 Install one or both.
 
-#### Using Claude Code
-
-Claude Code is Anthropic's AI coding assistant.
-**A paid Claude subscription** is required.
-
-**How to install**:
-
-```sh
-# macOS / Linux / WSL2
-curl -fsSL https://claude.ai/install.sh | bash
-
-# Windows (PowerShell)
-irm https://claude.ai/install.ps1 | iex
-```
-
-**Verify installation**:
-```sh
-claude --version
-# Should show a version number
-```
-
-See [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code/overview) for details.
-
-#### Using opencode
+#### Using opencode (recommended)
 
 opencode is an open-source AI coding assistant.
 **Free models** are included, but a provider account is needed for more powerful models.
@@ -87,6 +84,26 @@ opencode --version
 
 See [opencode website](https://opencode.ai) for details.
 
+#### Using Claude Code
+
+Claude Code is Anthropic's AI coding assistant.
+**A paid Claude subscription** is required.
+
+**How to install**:
+
+```sh
+# Windows / Linux / macOS
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+**Verify installation**:
+```sh
+claude --version
+# Should show a version number
+```
+
+See [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code/overview) for details.
+
 ### 3. ffmpeg (video processing tool)
 
 ffmpeg is used for cutting, converting, and exporting video.
@@ -95,9 +112,9 @@ Installing it beforehand makes things smoother.
 
 **How to install**:
 
-- **macOS**: `brew install ffmpeg` (requires [Homebrew](https://brew.sh/))
-- **Windows**: Download from [ffmpeg official site](https://ffmpeg.org/download.html) and add to PATH
+- **Windows**: `winget install Gyan.FFmpeg` or download from [ffmpeg official site](https://ffmpeg.org/download.html)
 - **Linux**: `sudo apt install ffmpeg`
+- **macOS**: `brew install ffmpeg` (requires [Homebrew](https://brew.sh/))
 
 **Verify installation**:
 ```sh
@@ -115,8 +132,8 @@ so you can start from anywhere and continue from another later.
 
 | Entrance | Best for | How to start |
 |---|---|---|
-| A. Terminal | Comfortable with command line | `node packages/akari-launcher/bin/akari.mjs` |
-| B. Claude Code / opencode session | Already using an AI agent | Say "I want to start a new video project" |
+| A. Terminal | Comfortable with command line | `node packages/akari-launcher/bin/akari.mjs --opencode` |
+| B. opencode / Claude Code session | Already using an AI agent | Say "I want to start a new video project" |
 | C. App | Prefer GUI | Connect from the Theia-based desktop shell |
 
 **Recommended for beginners: start with A**.
@@ -127,7 +144,7 @@ so you can start from anywhere and continue from another later.
 
 ```sh
 # Run from inside the monorepo checkout (not yet published to npm)
-node packages/akari-launcher/bin/akari.mjs
+node packages/akari-launcher/bin/akari.mjs --opencode
 ```
 
 `akari` runs in this order:
@@ -137,19 +154,19 @@ node packages/akari-launcher/bin/akari.mjs
 3. Checks and displays connection status (generation providers, API keys)
 4. Finally launches the AI agent — from there you continue conversationally inside the session
 
-**Using opencode instead**:
+**Using Claude Code instead**:
 
 ```sh
-node packages/akari-launcher/bin/akari.mjs --opencode
+node packages/akari-launcher/bin/akari.mjs
 ```
 
-### B. From inside a Claude Code or opencode session
+### B. From inside an opencode or Claude Code session
 
-If you already use Claude Code or opencode, this is the natural entrance.
+If you already use opencode or Claude Code, this is the natural entrance.
 
+- **opencode**: Say "I want to start a new video project" and the `create-project` skill triggers
 - **Claude Code**: **`/akari`** — a slash command that diagnoses the current state and suggests
   the next step. Or just say "I want to start a new video project"
-- **opencode**: Say "I want to start a new video project" and the `create-project` skill triggers
 
 ### C. From the app
 
@@ -249,8 +266,8 @@ No. The AI agent does everything. You just say what you want to make and approve
 Local operations (proxy generation, transcription, editing, export) are free.
 Only external APIs (cloud transcription, narration generation, etc.) incur costs.
 
-**Q. Does it work on Windows??
-Yes. macOS, Linux (including WSL2), and Windows are supported.
+**Q. Does it work on Windows?**
+Yes. Windows, Linux (including WSL2), and macOS are supported.
 
 **Q. I only speak English — is that okay?**
 Conversations with the agent can be in English.

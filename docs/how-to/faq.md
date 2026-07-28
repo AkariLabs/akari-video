@@ -5,7 +5,7 @@
 ## General
 
 **Q. Do I need the app to use this?**
-No. It's headless-first, so Claude Code or opencode alone takes you from planning
+No. It's headless-first, so opencode or Claude Code alone takes you from planning
 through export. The app (the Theia shell) is "a place to review and fix," and it's
 currently mid-migration.
 
