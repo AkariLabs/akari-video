@@ -68,7 +68,13 @@ jobs:
           # 経緯: npm rebuild は electron の postinstall（本体 DL）を実行せず
           # （run 29998465875）、install.js 直接実行も 0.65s で無音 exit 0 し dist/version が
           # 生成されない（run 29999213390 / 30000017794 実測・env は SKIP 未設定を確認済み）。
-          # ブラックボックスの切り分けを打ち切り、決定的な直接ダウンロードに切替
+          # ブラックボックスの切り分けを打ち切り、決定的な直接ダウンロードに切替。
+          # 根本原因はその後 issue #7（Windows 実機切り分け）で確定: extract-zip → yauzl
+          # 2.10 の read stream が Node 24 以降の Windows で停止し、promise が settle しない
+          # まま event loop が枯れて exit 0 になる（=「無音」の正体。cache 済み zip は
+          # SHA256 一致で無実・Node 22 では同一 zip が展開できることも実機対照済み）。
+          # 上の approve-scripts の「ブロック」観測もこの無音失敗と紛れていた可能性がある。
+          # 直接配置は問題を構造的に回避するので本 workflow は現状維持
           $v = node -p "require('./node_modules/electron/package.json').version"
           Write-Host "=== electron $v direct download"
           curl.exe -sSL -o electron.zip "https://github.com/electron/electron/releases/download/v$v/electron-v$v-win32-x64.zip"

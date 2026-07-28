@@ -1,4 +1,5 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat, mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -201,6 +202,56 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
       console.error(`❌ MISSING: ${check.label}（platform=${targetPlatform}）`);
       failed = true;
     }
+  }
+
+  // issue #5: ripgrep は child_process.spawn で起動するため asar 内では実行できない
+  // （Electron は require の asar → asar.unpacked リダイレクトはするが spawn はしない。
+  // win 実機 ENOENT / mac 実測 ENOTDIR）。asar 内エントリ検査だけでは「unpack される
+  // べきものが unpack されていない」を検出できず今回すり抜けたため、検収は 2 点:
+  // (1) rg 実体が app.asar.unpacked 側に存在し実行可能であること
+  //     （build.asarUnpack の lib/backend/native/** が効いている証拠）
+  // (2) asar 内 lib/backend/main.js の rgPath が asar.unpacked 置換を持つこと
+  //     （prepackage の patch-ripgrep-asar-path.mjs の適用痕）
+  const rgName = targetPlatform === 'win32' ? 'rg.exe' : 'rg';
+  const rgUnpacked = path.join(`${asar}.unpacked`, 'lib', 'backend', 'native', rgName);
+  const rgStat = await stat(rgUnpacked).then(s => s, () => null);
+  const rgExecutable = rgStat != null && rgStat.isFile()
+    && (targetPlatform === 'win32' || (rgStat.mode & 0o111) !== 0);
+  if (rgExecutable) {
+    console.log(`✅ ripgrep unpacked（app.asar.unpacked/lib/backend/native/${rgName}）`);
+  } else {
+    console.error(
+      `❌ MISSING/NOT-EXECUTABLE: app.asar.unpacked/lib/backend/native/${rgName}` +
+      '（issue #5 — build.asarUnpack の lib/backend/native/** を確認）'
+    );
+    failed = true;
+  }
+  try {
+    const extractDir = await mkdtemp(path.join(os.tmpdir(), 'akari-verify-asar-'));
+    try {
+      execSync(
+        `npx --yes @electron/asar extract-file ${JSON.stringify(asar)} ` +
+        JSON.stringify(path.join('lib', 'backend', 'main.js')),
+        { cwd: extractDir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
+      );
+      const bundledMain = await readFile(path.join(extractDir, 'main.js'), 'utf8');
+      if (bundledMain.includes('app.asar.unpacked$1')) {
+        console.log('✅ rgPath asar.unpacked 置換（patch-ripgrep-asar-path 適用痕）');
+      } else {
+        console.error(
+          '❌ rgPath が素の asar パスのまま（prepackage の patch-ripgrep-asar-path.mjs 未適用 — issue #5）'
+        );
+        failed = true;
+      }
+    } finally {
+      await rm(extractDir, { recursive: true, force: true });
+    }
+  } catch (error) {
+    console.error(
+      '❌ asar 内 lib/backend/main.js の rgPath 検査に失敗:',
+      error instanceof Error ? error.message : String(error)
+    );
+    failed = true;
   }
 
   // サードパーティライセンス通知の同梱検査。生成は prepackage の
