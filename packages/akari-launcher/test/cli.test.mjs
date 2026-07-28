@@ -184,3 +184,60 @@ test('scaffold が例外を投げても claude 起動までは続行する（「
     assert.equal(result.exitCode, 7, 'claude の終了コードがそのまま伝播すること');
   });
 });
+
+test('opencode モード: --opencode フラグで opencode を起動する', async () => {
+  await withScratchRoot(async (root) => {
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
+
+    const { log, lines } = collectLogs();
+    let opencodeCall = null;
+
+    const result = await run(['--opencode', '--continue'], {
+      projectRoot: root,
+      log,
+      assets: resolveRepoAssets(repoRoot),
+      runDoctor: () => ({ status: 0 }),
+      resolveOpencode: () => '/fake/bin/opencode',
+      spawnOpencode: (opencodePath, args, cwd) => {
+        opencodeCall = { opencodePath, args, cwd };
+        return { status: 0 };
+      },
+      ...isolatedUpdateOptions(root)
+    });
+
+    assert.deepEqual(opencodeCall, { opencodePath: '/fake/bin/opencode', args: ['--continue'], cwd: root });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.opencodeLaunched, true);
+    assert.ok(lines.some((line) => line.includes('opencode を起動します…')));
+  });
+});
+
+test('opencode 不在時の案内: PATH に opencode が無い場合は案内を出し、opencode を起動せずに終了する', async () => {
+  await withScratchRoot(async (root) => {
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
+
+    const { log, lines } = collectLogs();
+    let opencodeSpawned = false;
+
+    const result = await run(['--opencode'], {
+      projectRoot: root,
+      log,
+      assets: resolveRepoAssets(repoRoot),
+      runDoctor: () => ({ status: 0 }),
+      resolveOpencode: () => null,
+      spawnOpencode: () => {
+        opencodeSpawned = true;
+        return { status: 0 };
+      },
+      ...isolatedUpdateOptions(root)
+    });
+
+    assert.equal(opencodeSpawned, false);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.opencodeLaunched, false);
+    assert.ok(lines.some((line) => line.includes('opencode コマンドが見つかりませんでした')));
+    assert.ok(lines.some((line) => line.includes('npm install -g opencode')));
+  });
+});

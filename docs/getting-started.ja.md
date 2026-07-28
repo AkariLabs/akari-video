@@ -8,7 +8,7 @@ AKARI Video は UI がなくても Claude Code だけで完結します（headle
 ## 前提
 
 - macOS（Windows 対応は準備中 — [dev/windows-build.md](./dev/windows-build.md)）
-- [Claude Code](https://claude.com/claude-code)
+- [Claude Code](https://claude.com/claude-code) または [opencode](https://opencode.ai)
 - ffmpeg・whisper.cpp などの CLI ツール類は、初回セットアップ時にスキルが確認・案内します
 
 ## 入口を選ぶ
@@ -30,6 +30,14 @@ node packages/akari-launcher/bin/akari.mjs
 3. 接続状態（生成プロバイダ・API キー）を確認して表示
 4. 最後に `claude` を起動 — 以降はセッション内で会話しながら進める
    （引数はそのまま `claude` へ渡ります。例: `akari --continue`）
+
+**opencode を使う場合**:
+
+```sh
+node packages/akari-launcher/bin/akari.mjs --opencode
+```
+
+`--opencode` フラグを付けると、`claude` の代わりに `opencode` を起動します。
 
 ### B. Claude Code セッション内から
 
@@ -59,6 +67,10 @@ my-video/
 │   ├── connections.json   ← 接続レジストリ（API キー参照・モデル選択）
 │   ├── workflow.json      ← プロジェクトのロール定義
 │   └── events/            ← 節目の記録（「続きから」の合図）
+├── .opencode/
+│   ├── config.json        ← opencode 設定
+│   ├── skills/            ← スキル定義
+│   └── hooks/             ← セッション開始フック
 ├── assets/                ← 素材置き場
 ├── planning/              ← 企画・計画文書
 └── exports/               ← 書き出し先

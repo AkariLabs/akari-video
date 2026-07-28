@@ -164,6 +164,22 @@ export async function writeFallbackTemplate(destinationDir) {
             }
         }, null, 2) + '\n',
         '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
+        '.opencode/config.json': JSON.stringify({
+            name: "AKARI Video Project",
+            version: "1.0.0",
+            description: "AKARI Video プロジェクト設定",
+            skills: {
+                autoDiscover: true,
+                path: "./skills"
+            },
+            hooks: {
+                sessionStart: "./hooks/session-start.mjs"
+            },
+            project: {
+                type: "akari-video",
+                version: "0.1.0"
+            }
+        }, null, 2) + '\n',
         '.akari/workflow.json': JSON.stringify(FALLBACK_WORKFLOW, null, 2) + '\n',
         '.akari/intake.json': JSON.stringify(FALLBACK_INTAKE, null, 2) + '\n',
         'assets/.gitkeep': '',
@@ -191,7 +207,7 @@ export async function writeFallbackTemplate(destinationDir) {
     return { writtenFiles, skippedExisting };
 }
 
-const SKILL_ADAPTER_DIRECTORIES = ['.agents', '.codex'];
+const SKILL_ADAPTER_DIRECTORIES = ['.agents', '.codex', '.opencode'];
 
 function isPermissionDenied(error) {
     return error && typeof error === 'object' && (error.code === 'EPERM' || error.code === 'EACCES');

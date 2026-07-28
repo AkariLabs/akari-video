@@ -1,0 +1,15 @@
+name: create-project
+description: AKARI Video の新規プロジェクトを headless で作成する。`templates/project-default/` を再帰コピーし、雛形バージョンを記録し、安全な場合のみ git 初期化して、作成結果レポート HTML を生成する。アプリ起動は不要。新しい動画プロジェクトを作るとき、または既存フォルダを AKARI Video プロジェクトとして補完するときに使う。
+triggers:
+  - 新しいプロジェクトを作りたい
+  - create project
+  - プロジェクト作成
+  - 動画プロジェクト
+tools:
+  - bash
+  - read
+  - write
+  - edit
+  - grep
+  - glob
+skillPath: ../../skills/create-project/SKILL.md

@@ -21,7 +21,7 @@ AKARI Video は AI エージェントが編集の主体になる動画編集ツ�
 
 **Status: under construction** — シェルアプリは移行中（旧シェル実装は
 [akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri) に保存）。
-ヘッドレス経路（Claude Code + スキル）は今日から使えます。
+ヘッドレス経路（Claude Code / opencode + スキル）は今日から使えます。
 
 ## なぜ作ったか
 
