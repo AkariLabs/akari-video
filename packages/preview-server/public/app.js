@@ -24,6 +24,13 @@ const wrapper = document.getElementById('preview-wrapper');
 const zoomLayer = document.getElementById('zoom-layer');
 const previewMessage = document.getElementById('preview-message');
 const previewMessageText = document.getElementById('preview-message-text');
+const editToggle = document.getElementById('edit-toggle');
+const selectionLabel = document.getElementById('selection-label');
+const transformPopup = document.getElementById('transform-popup');
+const txInput = document.getElementById('tx');
+const tyInput = document.getElementById('ty');
+const tsInput = document.getElementById('ts');
+const trInput = document.getElementById('tr');
 
 const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
 const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>';
@@ -41,8 +48,10 @@ let zoom = 1;
 let pan = { x: 0, y: 0 };
 let drag = null;
 
-// Multi-track: top-visible track determination
-let mainVideoRuns = [];
+// Edit mode
+let editMode = false;
+let selectedId = null;
+let selectedKind = null;
 
 // Audio graph
 let audioCtx = null;
@@ -66,10 +75,7 @@ async function init() {
     fps = timelineData.fps || 30;
 
     buildSegments();
-    computeMainVideo();
-    if (summary?.cuts?.length > 0) {
-      video.src = getVideoSource(0);
-    }
+    if (summary?.cuts?.length > 0) video.src = getVideoSource(0);
     setupAudioGraph();
     setupWaveform();
     scheduleTransitions();
@@ -89,7 +95,6 @@ function getVideoSource(cutIndex) {
   return clip ? clip.src : (timelineData.clips[0]?.src || '');
 }
 
-// Build segments (multi-track aware)
 function buildSegments() {
   if (!summary?.cuts) return;
   segments = [];
@@ -99,169 +104,101 @@ function buildSegments() {
     const speed = cut.speed || 1;
     const inSec = cut.in || 0;
     const outSec = cut.out || inSec + 1;
-    const durationSec = (outSec - inSec) / speed;
-    const at = cut.at;
-    const track = cut.track ?? 0;
-    cutEvents.push({ index: i, inSec, outSec, speed, durationSec, track, at, isGap: false });
+    const dur = (outSec - inSec) / speed;
+    cutEvents.push({ index: i, inSec, outSec, speed, durationSec: dur, track: cut.track ?? 0, at: cut.at });
   }
-  const trackSegments = {};
+  const trackMap = {};
   for (const c of cutEvents) {
-    const t = c.track;
-    if (!trackSegments[t]) trackSegments[t] = [];
-    trackSegments[t].push(c);
+    if (!trackMap[c.track]) trackMap[c.track] = [];
+    trackMap[c.track].push(c);
   }
-  const effectiveTracks = Object.keys(trackSegments).map(Number).sort((a, b) => a - b);
-  const combined = [];
-  for (let ti = 0; ti < effectiveTracks.length; ti++) {
-    const trackNum = effectiveTracks[ti];
-    const trackCuts = trackSegments[trackNum];
+  const tracks = Object.keys(trackMap).map(Number).sort((a, b) => a - b);
+  for (const tn of tracks) {
+    const tc = trackMap[tn];
     let cursor = 0;
-    for (let ci = 0; ci < trackCuts.length; ci++) {
-      const c = trackCuts[ci];
+    for (let ci = 0; ci < tc.length; ci++) {
+      const c = tc[ci];
       if (c.at !== undefined) cursor = c.at;
-      const gap = ci === 0 ? 0 : Math.max(0, cursor - combined.reduce((s, seg) => s + seg.durationSec, 0));
-      if (gap > 0) {
-        combined.push({ index: -1, inSec: 0, outSec: 0, speed: 1, durationSec: gap, track: trackNum, isGap: true });
-      }
-      combined.push({ ...c });
+      const gap = ci === 0 ? 0 : Math.max(0, cursor - segments.reduce((s, seg) => s + seg.durationSec, 0));
+      if (gap > 0) segments.push({ index: -1, durationSec: gap, isGap: true });
+      c.isGap = false;
+      segments.push(c);
       cursor += c.durationSec;
     }
   }
-  segments = combined;
-  totalDuration = Math.max(...summary.cuts.map((c, i) => {
-    const cut = summary.cuts[i];
-    return (cut.at ?? calculateDefaultEnd(i));
-  }), combined.reduce((s, seg) => s + seg.durationSec, 0));
+  totalDuration = segments.reduce((s, seg) => s + seg.durationSec, 0);
   seek.max = totalDuration;
   updateTimeLabel();
 }
 
-function calculateDefaultEnd(upToIndex) {
-  let cursor = 0;
-  for (let i = 0; i <= upToIndex && i < summary.cuts.length; i++) {
-    const cut = summary.cuts[i];
-    const speed = cut.speed || 1;
-    const inSec = cut.in || 0;
-    const outSec = cut.out || inSec + 1;
-    const dur = (outSec - inSec) / speed;
-    if (cut.at !== undefined) cursor = cut.at;
-    cursor += dur;
-  }
-  return cursor;
-}
-
-// Compute main video runs (highest-priority visible track)
-function computeMainVideo() {
-  mainVideoRuns = timelineData.clips.map(c => ({
-    id: c.id,
-    src: c.src,
-    startFrame: c.startFrame,
-    endFrame: c.endFrame,
-    sourceInUs: c.sourceInUs,
-    track: c.track ?? 0,
-  }));
-}
-
 // Audio graph
 function setupAudioGraph() {
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  } catch { return; }
-
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
   const audio = summary?.audio;
   if (!audio) return;
-
-  // BGM
-  const bgm = audio.bgm;
-  if (bgm?.src) {
+  if (audio.bgm?.src) {
     const gain = audioCtx.createGain();
-    gain.gain.value = dbToGain(bgm.gainDb ?? 0);
+    gain.gain.value = dbToGain(audio.bgm.gainDb ?? 0);
     gain.connect(audioCtx.destination);
     bgmNode = gain;
-    loadAudioBuffer(bgm.src).then((buf) => {
+    loadAudioBuffer(audio.bgm.src).then((buf) => {
       if (!buf) return;
       const src = audioCtx.createBufferSource();
-      src.buffer = buf;
-      src.loop = bgm.loop !== false;
+      src.buffer = buf; src.loop = audio.bgm.loop !== false;
       src.connect(gain);
       bgmNode._source = src;
     });
   }
-
-  // Narration
   if (Array.isArray(audio.narration)) {
     for (const n of audio.narration) {
       if (!n.src) continue;
       const gain = audioCtx.createGain();
       gain.gain.value = dbToGain(n.gainDb ?? 0);
       gain.connect(audioCtx.destination);
-      const node = { gain, src: n.src, t: n.t ?? 0, _source: null };
+      const node = { gain, src: n.src, t: n.t ?? 0 };
       narrationNodes.push(node);
-      loadAudioBuffer(n.src).then((buf) => {
-        if (!buf) return;
-        node._buffer = buf;
-      });
+      loadAudioBuffer(n.src).then((buf) => { node._buffer = buf; });
     }
   }
-
-  // SFX
   if (Array.isArray(audio.sfx)) {
     for (const s of audio.sfx) {
       if (!s.src) continue;
       const gain = audioCtx.createGain();
       gain.gain.value = dbToGain(s.gainDb ?? 0);
       gain.connect(audioCtx.destination);
-      const node = { gain, src: s.src, t: s.t ?? 0, _source: null };
+      const node = { gain, src: s.src, t: s.t ?? 0 };
       sfxNodes.push(node);
-      loadAudioBuffer(s.src).then((buf) => {
-        if (!buf) return;
-        node._buffer = buf;
-      });
+      loadAudioBuffer(s.src).then((buf) => { node._buffer = buf; });
     }
   }
 }
-
 function dbToGain(db) { return Math.pow(10, (db ?? 0) / 20); }
-
 async function loadAudioBuffer(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return audioCtx.decodeAudioData(await res.arrayBuffer());
-  } catch { return null; }
+  try { const r = await fetch(url); return r.ok ? audioCtx.decodeAudioData(await r.arrayBuffer()) : null; } catch { return null; }
 }
-
 function syncAudio(t) {
   if (!audioCtx) return;
-  // Narration: scheduled playback at specified timestamps
   for (const n of narrationNodes) {
     if (!n._buffer) continue;
-    const shouldPlay = t >= n.t && t < n.t + n._buffer.duration;
-    const isPlaying = n._source && !n._source._ended;
-    if (shouldPlay && !isPlaying) {
-      if (n._source) { try { n._source.stop(); } catch {} }
+    const should = t >= n.t && t < n.t + n._buffer.duration;
+    if (should && (!n._source || n._source._ended)) {
+      if (n._source) try { n._source.stop(); } catch {}
       const src = audioCtx.createBufferSource();
-      src.buffer = n._buffer;
-      src.connect(n.gain);
+      src.buffer = n._buffer; src.connect(n.gain);
       src.start(0, Math.max(0, t - n.t));
-      src._ended = false;
-      src.onended = () => { src._ended = true; };
+      src._ended = false; src.onended = () => { src._ended = true; };
       n._source = src;
     }
   }
-  // SFX: similar scheduling
   for (const s of sfxNodes) {
     if (!s._buffer) continue;
-    const shouldPlay = t >= s.t && t < s.t + s._buffer.duration;
-    const isPlaying = s._source && !s._source._ended;
-    if (shouldPlay && !isPlaying) {
-      if (s._source) { try { s._source.stop(); } catch {} }
+    const should = t >= s.t && t < s.t + s._buffer.duration;
+    if (should && (!s._source || s._source._ended)) {
+      if (s._source) try { s._source.stop(); } catch {}
       const src = audioCtx.createBufferSource();
-      src.buffer = s._buffer;
-      src.connect(s.gain);
+      src.buffer = s._buffer; src.connect(s.gain);
       src.start(0, Math.max(0, t - s.t));
-      src._ended = false;
-      src.onended = () => { src._ended = true; };
+      src._ended = false; src.onended = () => { src._ended = true; };
       s._source = src;
     }
   }
@@ -271,11 +208,10 @@ function syncAudio(t) {
 async function setupWaveform() {
   waveformCanvas.width = waveformCanvas.clientWidth * devicePixelRatio;
   waveformCanvas.height = waveformCanvas.clientHeight * devicePixelRatio;
-  if (timelineData.clips.length === 0 || !audioCtx) return;
-  const src = timelineData.clips[0].src;
+  if (!timelineData.clips.length || !audioCtx) return;
   try {
-    const res = await fetch(src);
-    const ab = await res.arrayBuffer();
+    const r = await fetch(timelineData.clips[0].src);
+    const ab = await r.arrayBuffer();
     const buf = await audioCtx.decodeAudioData(ab.slice(0));
     waveformDuration = buf.duration;
     const ch = buf.getChannelData(0);
@@ -290,58 +226,33 @@ async function setupWaveform() {
     drawWaveform(0);
   } catch { waveformPeaks = null; }
 }
-
 function drawWaveform(ratio) {
   const ctx = waveformCanvas.getContext('2d');
-  const w = waveformCanvas.width;
-  const h = waveformCanvas.height;
+  const w = waveformCanvas.width, h = waveformCanvas.height;
   ctx.clearRect(0, 0, w, h);
   if (!waveformPeaks) return;
   const barW = w / waveformPeaks.length;
   const mid = h / 2;
   ctx.fillStyle = '#888';
   for (let i = 0; i < waveformPeaks.length; i++) {
-    const barH = Math.max(1, waveformPeaks[i] * (h - 4));
-    ctx.fillRect(i * barW, mid - barH / 2, Math.max(1, barW - 0.5), barH);
+    const bH = Math.max(1, waveformPeaks[i] * (h - 4));
+    ctx.fillRect(i * barW, mid - bH / 2, Math.max(1, barW - 0.5), bH);
   }
-  if (ratio > 0) {
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(ratio * w - 0.5, 0, 1, h);
-  }
+  if (ratio > 0) { ctx.fillStyle = '#fff'; ctx.fillRect(ratio * w - 0.5, 0, 1, h); }
 }
 
 // Transitions
-function scheduleTransitions() {
-  transitionPlate.style.transition = 'opacity 0.3s';
-}
+function scheduleTransitions() { transitionPlate.style.transition = 'opacity 0.3s'; }
 
 function getVideoTimeForOutput(t) {
   let acc = 0;
   for (const seg of segments) {
     if (seg.isGap) { acc += seg.durationSec; continue; }
-    if (t <= acc + seg.durationSec || seg === segments[segments.length - 1]) {
-      const local = t - acc;
-      return seg.inSec + local * seg.speed;
-    }
+    if (t <= acc + seg.durationSec || seg === segments[segments.length - 1]) return seg.inSec + (t - acc) * seg.speed;
     acc += seg.durationSec;
   }
   return 0;
 }
-
-function seekTo(t) {
-  outputTime = Math.max(0, Math.min(t, totalDuration));
-  const videoTime = getVideoTimeForOutput(outputTime);
-  if (videoTime >= 0) {
-    const seg = getActiveSegment(outputTime);
-    if (seg && seg.index >= 0) video.src = getVideoSource(seg.index);
-    video.currentTime = videoTime;
-  }
-  seek.value = outputTime;
-  updateTimeLabel();
-  updateOverlays();
-  syncAudio(outputTime);
-}
-
 function getActiveSegment(t) {
   let acc = 0;
   for (const seg of segments) {
@@ -351,14 +262,25 @@ function getActiveSegment(t) {
   return null;
 }
 
+function seekTo(t) {
+  outputTime = Math.max(0, Math.min(t, totalDuration));
+  const vt = getVideoTimeForOutput(outputTime);
+  if (vt >= 0) {
+    const seg = getActiveSegment(outputTime);
+    if (seg && seg.index >= 0) video.src = getVideoSource(seg.index);
+    video.currentTime = vt;
+  }
+  seek.value = outputTime;
+  updateTimeLabel();
+  updateOverlays();
+  syncAudio(outputTime);
+}
+
 function play() {
-  if (isPlaying || segments.length === 0) return;
+  if (isPlaying || !segments.length) return;
   isPlaying = true;
   if (audioCtx?.state === 'suspended') audioCtx.resume();
-  if (bgmNode?._source && !bgmNode._source._started) {
-    bgmNode._source.start();
-    bgmNode._source._started = true;
-  }
+  if (bgmNode?._source && !bgmNode._source._started) { bgmNode._source.start(); bgmNode._source._started = true; }
   syncAudio(outputTime);
   video.play();
   playToggle.innerHTML = pauseIcon;
@@ -366,11 +288,9 @@ function play() {
   playToggle.title = '一時停止';
   requestAnimationFrame(playbackLoop);
 }
-
 function pause() {
   if (!isPlaying) return;
-  isPlaying = false;
-  video.pause();
+  isPlaying = false; video.pause();
   playToggle.innerHTML = playIcon;
   playToggle.setAttribute('aria-label', '再生');
   playToggle.title = '再生';
@@ -382,10 +302,8 @@ function playbackLoop() {
   const now = performance.now();
   const dt = lastWallMs > 0 ? (now - lastWallMs) / 1000 : 0;
   lastWallMs = now;
-
   outputTime += dt;
   if (outputTime >= totalDuration) { outputTime = totalDuration; pause(); return; }
-
   const target = getVideoTimeForOutput(outputTime);
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
@@ -393,7 +311,6 @@ function playbackLoop() {
     if (src && video.src !== src) video.src = src;
     if (Math.abs(video.currentTime - target) > 0.1) video.currentTime = target;
   }
-
   seek.value = outputTime;
   updateTimeLabel();
   updateOverlays();
@@ -406,21 +323,19 @@ function playbackLoop() {
 
 function updateWaveformPlayhead() {
   if (!waveformPeaks || totalDuration <= 0) return;
-  const ratio = outputTime / totalDuration;
-  drawWaveform(ratio);
-  waveformPlayhead.style.left = `${ratio * 100}%`;
+  const r = outputTime / totalDuration;
+  drawWaveform(r);
+  waveformPlayhead.style.left = `${r * 100}%`;
 }
 
 function updateTransitions() {
   const cuts = summary?.cuts ?? [];
-  if (!cuts.length) return;
+  if (!cuts.length) { transitionPlate.style.visibility = 'hidden'; return; }
   let cursor = 0;
   for (let i = 0; i < cuts.length; i++) {
     const cut = cuts[i];
     const speed = cut.speed || 1;
-    const inSec = cut.in || 0;
-    const outSec = cut.out || inSec + 1;
-    const dur = (outSec - inSec) / speed;
+    const dur = ((cut.out ?? cut.in + 1) - (cut.in ?? 0)) / speed;
     if (cut.at !== undefined) cursor = cut.at;
     const nextStart = cursor + (cut.at !== undefined ? 0 : dur);
     if (cut.transitionOut && outputTime >= nextStart - cut.transitionOut.duration && outputTime < nextStart) {
@@ -437,12 +352,8 @@ function updateTransitions() {
 }
 
 function updateTimeLabel() {
-  const fmt = (sec) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s.toFixed(2).padStart(5, '0')}`;
-  };
-  timeLabel.textContent = `${fmt(outputTime)} / ${fmt(totalDuration)}`;
+  const fm = (sec) => { const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; };
+  timeLabel.textContent = `${fm(outputTime)} / ${fm(totalDuration)}`;
 }
 
 playToggle.addEventListener('click', () => isPlaying ? pause() : play());
@@ -450,14 +361,7 @@ frameBack.addEventListener('click', () => { pause(); seekTo(outputTime - 1 / fps
 frameForward.addEventListener('click', () => { pause(); seekTo(outputTime + 1 / fps); });
 skipBack.addEventListener('click', () => { pause(); seekTo(outputTime - 10); });
 skipForward.addEventListener('click', () => { pause(); seekTo(outputTime + 10); });
-
-seek.addEventListener('input', () => {
-  const was = isPlaying;
-  if (was) pause();
-  seekTo(Number(seek.value));
-  if (was) play();
-});
-
+seek.addEventListener('input', () => { const w = isPlaying; if (w) pause(); seekTo(Number(seek.value)); if (w) play(); });
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   switch (e.code) {
@@ -470,8 +374,95 @@ document.addEventListener('keydown', (e) => {
     case 'End': e.preventDefault(); seekTo(totalDuration); break;
   }
 });
-
 video.addEventListener('loadedmetadata', () => { if (isPlaying) video.play(); });
+
+// Edit mode
+let transformDirty = false;
+editToggle.addEventListener('click', () => {
+  editMode = !editMode;
+  editToggle.setAttribute('aria-pressed', String(editMode));
+  stage.style.pointerEvents = editMode ? 'auto' : 'none';
+  if (!editMode) clearSelection();
+});
+
+function clearSelection() {
+  selectedId = null;
+  selectedKind = null;
+  selectionLabel.textContent = '';
+  transformPopup.hidden = true;
+  stage.querySelectorAll('.selected-overlay').forEach(el => el.classList.remove('selected-overlay'));
+}
+
+function selectOverlay(id) {
+  clearSelection();
+  selectedKind = 'overlay';
+  selectedId = id;
+  const el = stage.querySelector(`[data-overlay-id="${id}"]`);
+  if (el) el.classList.add('selected-overlay');
+  selectionLabel.textContent = `オーバーレイ ${id}`;
+  const overlay = summary?.overlays?.find(o => String(o.id) === String(id));
+  if (overlay) showTransform(overlay.transform || {});
+}
+
+stage.addEventListener('click', (e) => {
+  if (!editMode) return;
+  const container = e.target.closest('[data-overlay-id]');
+  if (container) {
+    selectOverlay(container.dataset.overlayId);
+    return;
+  }
+  const el = e.target.closest('[data-layer-id]');
+  if (el) {
+    clearSelection();
+    selectedKind = 'layer';
+    selectedId = el.dataset.layerId;
+    selectionLabel.textContent = `レイヤー ${el.dataset.layerId}`;
+    transformPopup.hidden = false;
+    return;
+  }
+  clearSelection();
+});
+
+function showTransform(t) {
+  txInput.value = t.x ?? 0;
+  tyInput.value = t.y ?? 0;
+  tsInput.value = t.scale ?? 1;
+  trInput.value = t.rotate ?? 0;
+  transformPopup.hidden = false;
+  transformDirty = false;
+}
+
+[txInput, tyInput, tsInput, trInput].forEach(inp => {
+  inp.addEventListener('input', () => { transformDirty = true; });
+  inp.addEventListener('change', async () => {
+    if (!transformDirty || !selectedId) return;
+    const patch = { transform: { x: Number(txInput.value), y: Number(tyInput.value), scale: Number(tsInput.value), rotate: Number(trInput.value) } };
+    await writeEditJson(selectedKind, selectedId, patch);
+    transformDirty = false;
+  });
+});
+
+async function writeEditJson(kind, id, patch) {
+  try {
+    const res = await fetch('/api/summary');
+    const edit = await res.json();
+    if (kind === 'overlay') {
+      const ov = edit.overlays?.find(o => String(o.id) === String(id));
+      if (ov) { Object.assign(ov, patch.transform ? { transform: { ...ov.transform, ...patch.transform } } : patch); }
+    } else if (kind === 'layer') {
+      const ly = edit.layers?.find(l => String(l.id) === String(id));
+      if (ly) { Object.assign(ly, patch.transform ? { transform: { ...ly.transform, ...patch.transform } } : patch); }
+    } else if (kind === 'cut') {
+      const idx = parseInt(id, 10);
+      if (edit.cuts?.[idx]) { Object.assign(edit.cuts[idx], patch.transform ? { transform: { ...edit.cuts[idx].transform, ...patch.transform } } : patch); }
+    }
+    const saveRes = await fetch('/api/edit.json', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(edit) });
+    if (saveRes.ok) {
+      summary = edit;
+      window.akari?.runtime?.mount(summary);
+    }
+  } catch (e) { console.error('write failed', e); }
+}
 
 // Waveform toggle
 let waveformVisible = false;
@@ -483,64 +474,43 @@ waveformToggle.addEventListener('click', () => {
 });
 
 // Zoom
-const ZOOM_MIN = 0.25;
-const ZOOM_MAX = 8;
+const ZOOM_MIN = 0.25, ZOOM_MAX = 8;
 function updateZoom() {
   zoomLayer.style.transform = `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`;
   zoomValue.textContent = `${Math.round(zoom * 100)}%`;
   zoomSlider.value = Math.log2(zoom / ZOOM_MIN) / Math.log2(ZOOM_MAX / ZOOM_MIN);
 }
 zoomToggle.addEventListener('click', () => {
-  const open = !zoomPopup.hidden;
-  zoomPopup.hidden = open;
-  zoomToggle.setAttribute('aria-expanded', String(!open));
+  const o = !zoomPopup.hidden;
+  zoomPopup.hidden = o;
+  zoomToggle.setAttribute('aria-expanded', String(!o));
 });
 zoomSlider.addEventListener('input', () => {
   const t = Number(zoomSlider.value);
   zoom = ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, t);
-  pan = { x: 0, y: 0 };
-  updateZoom();
+  pan = { x: 0, y: 0 }; updateZoom();
 });
 document.querySelectorAll('.zoom-preset').forEach(btn => {
-  btn.addEventListener('click', () => {
-    zoom = Number(btn.dataset.zoom);
-    pan = { x: 0, y: 0 };
-    updateZoom();
-    zoomPopup.hidden = true;
-    zoomToggle.setAttribute('aria-expanded', 'false');
-  });
+  btn.addEventListener('click', () => { zoom = Number(btn.dataset.zoom); pan = { x: 0, y: 0 }; updateZoom(); zoomPopup.hidden = true; zoomToggle.setAttribute('aria-expanded', 'false'); });
 });
 wrapper.addEventListener('wheel', (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
-  const delta = e.deltaY > 0 ? -0.1 : 0.1;
-  zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + delta * zoom));
-  pan = { x: 0, y: 0 };
-  updateZoom();
+  const d = e.deltaY > 0 ? -0.1 : 0.1;
+  zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + d * zoom));
+  pan = { x: 0, y: 0 }; updateZoom();
 }, { passive: false });
 wrapper.addEventListener('pointerdown', (e) => {
-  if (zoom <= 1 || e.target.closest('.icon-button, .zoom-popup, #seek')) return;
+  if (zoom <= 1 || e.target.closest('.icon-button, .popup, #seek')) return;
   drag = { startX: e.clientX - pan.x, startY: e.clientY - pan.y };
   wrapper.setPointerCapture(e.pointerId);
   wrapper.style.cursor = 'grabbing';
 });
-wrapper.addEventListener('pointermove', (e) => {
-  if (!drag) return;
-  pan.x = e.clientX - drag.startX;
-  pan.y = e.clientY - drag.startY;
-  updateZoom();
-});
+wrapper.addEventListener('pointermove', (e) => { if (!drag) return; pan.x = e.clientX - drag.startX; pan.y = e.clientY - drag.startY; updateZoom(); });
 wrapper.addEventListener('pointerup', () => { drag = null; wrapper.style.cursor = ''; });
 fullscreenToggle.addEventListener('click', () => {
-  if (document.fullscreenElement) {
-    document.exitFullscreen();
-    fullscreenToggle.innerHTML = fullscreenIcon;
-    fullscreenToggle.setAttribute('aria-pressed', 'false');
-  } else {
-    wrapper.requestFullscreen();
-    fullscreenToggle.innerHTML = restoreIcon;
-    fullscreenToggle.setAttribute('aria-pressed', 'true');
-  }
+  if (document.fullscreenElement) { document.exitFullscreen(); fullscreenToggle.innerHTML = fullscreenIcon; fullscreenToggle.setAttribute('aria-pressed', 'false'); }
+  else { wrapper.requestFullscreen(); fullscreenToggle.innerHTML = restoreIcon; fullscreenToggle.setAttribute('aria-pressed', 'true'); }
 });
 
 // Overlay runtime
@@ -580,25 +550,22 @@ function createOverlayRuntime() {
 }
 function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
 
-// Enhanced captions
+// Captions
 function updateCaption() {
   const caps = summary?.captions;
   if (!Array.isArray(caps) || !caps.length) { captionPlate.textContent = ''; return; }
-  const active = caps.find(c => {
-    const s = Number(c.start) || 0, d = Number(c.duration) || 0;
-    return outputTime >= s && outputTime < s + d;
-  });
+  const active = caps.find(c => { const s = Number(c.start) || 0, d = Number(c.duration) || 0; return outputTime >= s && outputTime < s + d; });
   if (!active) { captionPlate.textContent = ''; return; }
   const words = active.words ?? [];
   if (words.length > 0) {
     const start = Number(active.start) || 0;
-    const localMs = (outputTime - start) * 1000;
+    const ms = (outputTime - start) * 1000;
     captionPlate.innerHTML = words.map(w => {
-      const ws = (w.t ?? 0), wd = (w.d ?? 0.3), we = ws + wd;
-      let color = '#fff', shadow = '0 1px 2px #000';
-      if (localMs >= we) { color = '#aaa'; shadow = 'none'; }
-      else if (localMs >= ws) { color = '#ff0'; shadow = '0 0 8px rgba(255,255,0,0.6)'; }
-      return `<span style="color:${color};text-shadow:${shadow};transition:color 0.05s">${esc(w.word || w.w || (typeof w === 'string' ? w : ''))}</span>`;
+      const ws = (w.t ?? 0), we = ws + (w.d ?? 0.3);
+      let c = '#fff', s = '0 1px 2px #000';
+      if (ms >= we) { c = '#aaa'; s = 'none'; }
+      else if (ms >= ws) { c = '#ff0'; s = '0 0 8px rgba(255,255,0,0.6)'; }
+      return `<span style="color:${c};text-shadow:${s};transition:color 0.05s">${esc(w.word || w.w || '')}</span>`;
     }).join(' ');
   } else {
     captionPlate.textContent = active.text || active.caption || '';
@@ -606,22 +573,12 @@ function updateCaption() {
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-// Message
-function showMessage(text) {
-  if (text) { previewMessage.hidden = false; previewMessageText.textContent = text; }
-  else { previewMessage.hidden = true; }
-}
+function showMessage(text) { if (text) { previewMessage.hidden = false; previewMessageText.textContent = text; } else { previewMessage.hidden = true; } }
 
-// WebSocket live reload
 function connectWs() {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${proto}//${location.host}`);
-  ws.onmessage = (e) => {
-    try {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'reload' || msg.type === 'captions-reload') location.reload();
-    } catch {}
-  };
+  const p = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${p}//${location.host}`);
+  ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'reload' || m.type === 'captions-reload') location.reload(); } catch {} };
   ws.onclose = () => setTimeout(connectWs, 2000);
   ws.onerror = () => ws.close();
 }
