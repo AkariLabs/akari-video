@@ -32,7 +32,11 @@ async function readBody(req) {
 
 function sendJson(res, status, body) {
     const text = JSON.stringify(body);
-    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(text) });
+    res.writeHead(status, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Length': Buffer.byteLength(text),
+        'X-Content-Type-Options': 'nosniff',
+    });
     res.end(text);
 }
 
@@ -48,7 +52,11 @@ export function createIntakeFormServer(projectRoot) {
 
             if (req.method === 'GET' && url.pathname === '/') {
                 const html = await readFile(TEMPLATE_PATH, 'utf8');
-                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.writeHead(200, {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; img-src data:; base-uri 'none'; form-action 'none'",
+                    'X-Content-Type-Options': 'nosniff',
+                });
                 res.end(html);
                 return;
             }
