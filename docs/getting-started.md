@@ -25,29 +25,20 @@ Install the following three items in order.
 
 Copy and run the command for your OS.
 
-<details><summary>Windows (PowerShell) — click to expand</summary>
-
+**Windows (PowerShell)**:
 ```sh
 irm https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.ps1 | iex
 ```
 
-</details>
-
-<details><summary>Windows (CMD) — click to expand</summary>
-
+**Windows (CMD)**:
 ```sh
 curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.cmd -o install.cmd && install.cmd
 ```
 
-</details>
-
-<details><summary>Linux / macOS — click to expand</summary>
-
+**Linux / macOS**:
 ```sh
 curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
 ```
-
-</details>
 
 The script automatically checks and installs:
 - Node.js v20+ (auto-installs if missing)
