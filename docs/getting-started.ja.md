@@ -2,19 +2,128 @@
 
 # Getting Started — 最初のプロジェクトを作る
 
-AKARI Video は UI がなくても Claude Code だけで完結します（headless-first）。
-この章では、入口の選び方から最初のプロジェクト作成、進め方フォームの記入までを説明します。
+AKARI Video は **AI エージェントが動画編集を行う** システムです。
+人間がやることは 2 つだけ：**作りたいものを伝える** と **結果を確認する**。
 
-## 前提
+「動画編集を始めたことがあるが、テロップやナレーションまで自力でやるのは面倒」
+「短い動画をなんとか作りたいが、ソフトの使い方を覚える時間がない」
+そんなときに使うと便利です。
 
-- macOS、Linux（WSL2 含む）、Windows
-- [Claude Code](https://claude.com/claude-code) または [opencode](https://opencode.ai)
-- ffmpeg・whisper.cpp などの CLI ツール類は、初回セットアップ時にスキルが確認・案内します
+## このドキュメントでわかること
+
+1. 使うために何を揃えるか（前提条件）
+2. インストール方法
+3. 最初のプロジェクトを作って動画を書き出すまで
+
+---
+
+## 前提条件 — 何を揃えるか
+
+AKARI Video はターミナル（コマンドライン）で動きます。
+下の 3 つを順にインストールしてください。
+
+**オートインストール（おすすめ）**:
+```sh
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.ps1 | iex
+
+# Windows (CMD)
+curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.cmd -o install.cmd && install.cmd
+```
+
+スクリプトが自動で以下を確認・インストールします:
+- Node.js v20+（無ければ自動インストール）
+- Claude Code または opencode（案内表示）
+- ffmpeg（オプション、自動インストール可）
+
+**手動でインストールする場合** は以下の手順を参照:
+
+### 2. Claude Code または opencode（AI エージェント）
+
+AKARI Video を動かすには、AI エージェントが必要です。
+どちらか一方、または両方を入れてください。
+
+#### Claude Code を使う場合
+
+Claude Code は Anthropic 社の AI コーディングアシスタントです。
+**有料の Claude サブスクリプション** が必要です。
+
+**インストール方法**:
+
+```sh
+# macOS / Linux / WSL2
+curl -fsSL https://claude.ai/install.sh | bash
+
+# Windows (PowerShell)
+irm https://claude.ai/install.ps1 | iex
+```
+
+**確認方法**:
+```sh
+claude --version
+# バージョン番号が表示されれば OK
+```
+
+詳しくは [Claude Code 公式ドキュメント](https://docs.anthropic.com/en/docs/claude-code/overview) を参照。
+
+#### opencode を使う場合
+
+opencode はオープンソースの AI コーディングアシスタントです。
+**無料のモデル** が同梱されていますが、より高性能なモデルを使う場合は
+プロバイダのアカウントが必要です。
+
+**インストール方法**:
+
+```sh
+curl -fsSL https://opencode.ai/install | bash
+```
+
+**確認方法**:
+```sh
+opencode --version
+# バージョン番号が表示されれば OK
+```
+
+詳しくは [opencode 公式サイト](https://opencode.ai) を参照。
+
+### 3. ffmpeg（動画処理ツール）
+
+ffmpeg は動画の切り貼り・変換・書き出しに使います。
+**セットアップ時にスキルが自動で確認し、必要ならインストールを案内します**。
+先に入れておくとスムーズです。
+
+**インストール方法**:
+
+- **macOS**: `brew install ffmpeg` ([Homebrew](https://brew.sh/) が必要)
+- **Windows**: [ffmpeg 公式サイト](https://ffmpeg.org/download.html) からダウンロードして PATH に通す
+- **Linux**: `sudo apt install ffmpeg`
+
+**確認方法**:
+```sh
+ffmpeg -version
+# バージョン情報が表示されれば OK
+```
+
+---
 
 ## 入口を選ぶ
 
-3 つの入口はどれも同じファイル契約（`.akari/` 配下）に収束します。
-どこから始めても、続きは別の入口から再開できます。
+AKARI Video には 3 つの入口があります。
+どれも同じファイル契約（`.akari/` 配下）に収束するので、
+どこから始めても続きは別の入口から再開できます。
+
+| 入口 | おすすめの人 | 発動方法 |
+|---|---|---|
+| A. ターミナル | コマンドラインに慣れている人 | `node packages/akari-launcher/bin/akari.mjs` |
+| B. Claude Code / opencode セッション | すでに AI エージェントを使っている人 | 「新しい動画プロジェクトを作りたい」と発話 |
+| C. アプリ | GUI で操作したい人 | Theia ベースのデスクトップシェルから接続 |
+
+**初めての方は A から** がおすすめです。
+
+---
 
 ### A. ターミナルから（`akari` コマンド）
 
@@ -28,8 +137,7 @@ node packages/akari-launcher/bin/akari.mjs
 1. カレントディレクトリがプロジェクトかどうか診断（`.akari/connections.json` の有無）
 2. 未セットアップなら日本語で案内し、プロジェクトの雛形を作成
 3. 接続状態（生成プロバイダ・API キー）を確認して表示
-4. 最後に `claude` を起動 — 以降はセッション内で会話しながら進める
-   （引数はそのまま `claude` へ渡ります。例: `akari --continue`）
+4. 最後に AI エージェントを起動 — 以降はセッション内で会話しながら進める
 
 **opencode を使う場合**:
 
@@ -37,28 +145,30 @@ node packages/akari-launcher/bin/akari.mjs
 node packages/akari-launcher/bin/akari.mjs --opencode
 ```
 
-`--opencode` フラグを付けると、`claude` の代わりに `opencode` を起動します。
+### B. Claude Code / opencode セッション内から
 
-### B. Claude Code セッション内から
+すでに AI エージェントを使っているなら、入口はこちらが自然です。
 
-すでに Claude Code を使っているなら、入口はこちらが自然です。
-
-- **`/akari`** — カレントの状態を診断して、次の一手を案内するスラッシュコマンド
-- **発話** — 「新しい動画プロジェクトを作りたい」「このフォルダを AKARI プロジェクトにして」
-  で `create-project` スキルが発動
-
-プラグイン（`plugin/`）を有効化しておくと、プロジェクトのディレクトリでセッションを
-開くだけで状態が自動で読み込まれ、「続きから」が案内されます（SessionStart hook）。
+- **Claude Code**: **`/akari`** — カレントの状態を診断して、次の一手を案内するスラッシュコマンド
+  または「新しい動画プロジェクトを作りたい」と発話
+- **opencode**: 「新しい動画プロジェクトを作りたい」と発話すると
+  `create-project` スキルが発動
 
 ### C. アプリから
 
-Theia ベースのデスクトップシェル（`apps/shell/`、移行中）の「はじめる」画面から接続します。
+Theia ベースのデスクトップシェル（`apps/shell/`、移行中）の
+「はじめる」画面から接続します。
 アプリはエージェントが作った編集を**確認して直す場所**なので、
 最初の一歩はターミナルかセッション内から始めるのが現在の推奨です。
 
+---
+
 ## プロジェクトを作る
 
-`create-project` スキルがテンプレートから一式を作ります:
+入口を選んだら、まずプロジェクトを作ります。
+
+AI エージェントに「**プロジェクトを作りたい**」と伝えると、
+テンプレートから以下の一式が自動で作られます:
 
 ```
 my-video/
@@ -76,6 +186,8 @@ my-video/
 └── exports/               ← 書き出し先
 ```
 
+---
+
 ## 進め方フォーム（intake.json）を埋める
 
 プロジェクト作成直後の `.akari/intake.json` は `status: draft` です。
@@ -87,24 +199,64 @@ my-video/
 | `target` | 尺・出力先 | 「60 秒・縦型」 |
 | `autonomy` | おまかせ度 | `full-auto` / `checkpoint`（既定・節目で承認）/ `collaborative` |
 
-フォームはチャットで埋められます。「進め方フォームを埋めたい」と言えば、
+フォームはチャットで埋められます。「**進め方フォームを埋めたい**」と言えば、
 エージェントが質問しながら記入します。
+
+---
 
 ## 接続を設定する（必要になったときで OK）
 
 文字起こしのクラウド利用・ナレーション生成・素材生成など、
 **外部 API を使う段になったら** `manage-connections` スキルで設定します。
-ローカル完結の範囲（プロキシ生成・whisper.cpp 文字起こし・編集・書き出し）なら接続なしで使えます。
+
+ローカル完結の範囲（プロキシ生成・whisper.cpp 文字起こし・編集・書き出し）なら
+**接続なしで使えます**。
 
 詳細: [How-to: 接続と API キー](./how-to/connections.ja.md)
 
-## 最初のフロー例
+---
 
-撮影済み素材が 1 本ある場合:
+## 最初のフロー例 — 何ができるか
 
-1. 素材をプロジェクトに置き、「この動画を分析して」 → [素材を分析する](./guides/analyze-footage.ja.md)
-2. 「編集方針を立てて」 → 分析レポートを見て方針に OK → [編集計画を立てる](./guides/plan-your-edit.ja.md)
-3. エージェントが `edit.json`・テロップ・字幕を組み上げる
-4. 「書き出して」 → lint PASS → 承認 → `exports/` に MP4 → [書き出す](./guides/export.ja.md)
+### 素材がある場合
 
-素材がまだ無い場合は、企画から始められます → [ゼロから企画する](./guides/plan-from-scratch.ja.md)
+撮影済みの動画が 1 本ある場合の流れです:
+
+1. **素材をプロジェクトに置く** → 「この動画を分析して」
+   → エージェントが 720p プロキシ・文字起こし・キーフレームを作成
+   → [素材を分析する](./guides/analyze-footage.ja.md)
+
+2. **編集方針を立てる** → 「編集方針を立てて」
+   → 分析レポートを元にエージェントが方向性を提案 → あなたが OK を出す
+   → [編集計画を立てる](./guides/plan-your-edit.ja.md)
+
+3. **編集を組み立てる** → エージェントが `edit.json`・テロップ・字幕を自動で作成
+
+4. **書き出す** → 「書き出して」
+   → lint PASS → あなたが承認 → `exports/` に MP4 が保存される
+   → [書き出す](./guides/export.ja.md)
+
+### 素材がない場合
+
+「何か動画を作りたい」という話題から始められます。
+エージェントが質問しながら企画を立て、素材の調達方法を提案します。
+→ [ゼロから企画する](./guides/plan-from-scratch.ja.md)
+
+---
+
+## よくある質問
+
+**Q. プログラミングの知識は必要？**
+いりません。AI エージェントがすべてやります。
+あなたは「何を作りたいか」と「いいか確認」するだけです。
+
+**Q. 料金はかかる？**
+ローカル完結の範囲（プロキシ生成・文字起こし・編集・書き出し）は無料です。
+外部 API（クラウド文字起こし・ナレーション生成など）を使う場合のみ課金されます。
+
+**Q. Windows で動きますか？**
+はい。macOS、Linux（WSL2 含む）、Windows に対応しています。
+
+**Q. 英語しかわからないのですが？**
+エージェントとの対話は日本語で可能です。
+ただし一部のエラーメッセージやドキュメントは英語のことがあります。
