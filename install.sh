@@ -95,7 +95,7 @@ install_node() {
             elif has pacman; then sudo pacman -S --noconfirm nodejs npm
             elif has apk; then sudo apk add --no-cache nodejs npm
             elif has zypper; then sudo zypper install --non-interactive nodejs20 npm
-            else warn "Install Node.js manually: https://nodejs.org/"; return 1 fi ;;
+            else warn "Install Node.js manually: https://nodejs.org/"; return 1; fi ;;
     esac
     if has node; then info "  Node.js $(node --version) installed"; else err "Install failed: https://nodejs.org/"; return 1; fi
 }
