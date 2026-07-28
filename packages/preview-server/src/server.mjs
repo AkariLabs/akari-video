@@ -6,14 +6,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline, setPort } from './edit-to-timeline.mjs';
+import { lintProject } from '../../edit-lint/src/edit-lint.mjs';
 
 const args = process.argv.slice(2);
 let port = 3000;
 let projectRoot = process.cwd();
+let noLint = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--port' && args[i + 1]) {
     port = Number(args[++i]);
+  } else if (args[i] === '--no-lint') {
+    noLint = true;
   } else if (!args[i].startsWith('-')) {
     projectRoot = path.resolve(args[i]);
   }
@@ -137,8 +141,25 @@ const router = {
     const body = await collectBody(req);
     try {
       const obj = JSON.parse(body);
-      const r = writeJson(path.join(projectRoot, 'edit.json'), obj);
-      if (r.error) return respond(res, 500, { error: r.error });
+      const editPath = path.join(projectRoot, 'edit.json');
+      if (!noLint) {
+        const tmp = editPath + '.tmp';
+        fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf-8');
+        try {
+          const lintResult = await lintProject(editPath);
+          if (lintResult.verdict === 'fail') {
+            fs.unlinkSync(tmp);
+            return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
+          }
+        } catch (lintErr) {
+          fs.unlinkSync(tmp);
+          return respond(res, 500, { error: 'Lint error: ' + lintErr.message });
+        }
+        fs.renameSync(tmp, editPath);
+      } else {
+        const r = writeJson(editPath, obj);
+        if (r.error) return respond(res, 500, { error: r.error });
+      }
       wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
       respond(res, 200, { ok: true });
     } catch (e) {
