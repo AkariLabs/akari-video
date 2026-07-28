@@ -9,7 +9,7 @@ intake form.
 ## Prerequisites
 
 - macOS (Windows support is in progress — [dev/windows-build.md](./dev/windows-build.md), Japanese)
-- [Claude Code](https://claude.com/claude-code)
+- [Claude Code](https://claude.com/claude-code) or [opencode](https://opencode.ai)
 - CLI tools such as ffmpeg and whisper.cpp are checked and guided through by the skills
   on first setup
 
@@ -33,16 +33,25 @@ node packages/akari-launcher/bin/akari.mjs
 4. Finally launches `claude` — from there you continue conversationally inside the session
    (arguments are forwarded to `claude` as-is, e.g. `akari --continue`)
 
-### B. From inside a Claude Code session
+**Using opencode instead**:
 
-If you already use Claude Code, this is the natural entrance.
+```sh
+node packages/akari-launcher/bin/akari.mjs --opencode
+```
 
-- **`/akari`** — a slash command that diagnoses the current state and suggests the next step
-- **Just say it** — "I want to start a new video project" or "turn this folder into an
-  AKARI project" triggers the `create-project` skill
+With the `--opencode` flag, `opencode` is launched instead of `claude`.
 
-With the plugin (`plugin/`) enabled, opening a session in a project directory loads its
-state automatically and offers to continue where you left off (SessionStart hook).
+### B. From inside a Claude Code or opencode session
+
+If you already use Claude Code or opencode, this is the natural entrance.
+
+- **Claude Code**: **`/akari`** — a slash command that diagnoses the current state and suggests
+  the next step. Or just say "I want to start a new video project"
+- **opencode**: Skills are auto-discovered from `.opencode/skills/`. Just say "I want to start
+  a new video project" and the `create-project` skill triggers
+
+With the Claude Code plugin (`plugin/`) enabled, opening a session in a project directory loads
+its state automatically and offers to continue where you left off (SessionStart hook).
 
 ### C. From the app
 
@@ -61,6 +70,10 @@ my-video/
 │   ├── connections.json   ← connection registry (API key references, model choices)
 │   ├── workflow.json      ← role definitions for the project
 │   └── events/            ← milestone records (the "resume from here" signal)
+├── .opencode/
+│   ├── config.json        ← opencode configuration
+│   ├── skills/            ← skill definitions (symlinks to skills/)
+│   └── hooks/             ← session start hooks
 ├── assets/                ← source material
 ├── planning/              ← plans and planning documents
 └── exports/               ← render output

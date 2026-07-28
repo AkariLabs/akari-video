@@ -69,7 +69,7 @@ my-video/
 │   └── events/            ← 節目の記録（「続きから」の合図）
 ├── .opencode/
 │   ├── config.json        ← opencode 設定
-│   ├── skills/            ← スキル定義
+│   ├── skills/            ← スキル定義（skills/ への symlink）
 │   └── hooks/             ← セッション開始フック
 ├── assets/                ← 素材置き場
 ├── planning/              ← 企画・計画文書
