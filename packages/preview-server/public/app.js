@@ -1,5 +1,4 @@
-// AKARI Video Preview — client (macOS UI port)
-// <video> 要素ベース。preview-engine の WebCodecs は使わない（互換性重視）。
+// AKARI Video Preview — client (full-featured port)
 
 const video = document.getElementById('preview-video');
 const playToggle = document.getElementById('play-toggle');
@@ -20,6 +19,7 @@ const waveformCanvas = document.getElementById('waveform-canvas');
 const waveformPlayhead = document.querySelector('.transport-waveform-playhead');
 const stage = document.getElementById('overlay-stage');
 const captionPlate = document.getElementById('caption-plate');
+const transitionPlate = document.getElementById('transition-plate');
 const wrapper = document.getElementById('preview-wrapper');
 const zoomLayer = document.getElementById('zoom-layer');
 const previewMessage = document.getElementById('preview-message');
@@ -41,30 +41,38 @@ let zoom = 1;
 let pan = { x: 0, y: 0 };
 let drag = null;
 
-// --- init ---
+// Audio graph
+let audioCtx = null;
+let audioSources = [];
+let audioNodes = [];
+
+// Waveform
+let waveformPeaks = null;
+let waveformDuration = 0;
 
 async function init() {
   try {
     const [timelineRes, editRes] = await Promise.all([
       fetch('/api/timeline'),
-      fetch('/api/raw-edit.json'),
+      fetch('/api/summary'),
     ]);
     if (!timelineRes.ok) throw new Error(`timeline: HTTP ${timelineRes.status}`);
     timelineData = await timelineRes.json();
     summary = await editRes.json();
     fps = timelineData.fps || 30;
 
-    // video source: first clip's src
     if (timelineData.clips.length > 0) {
       video.src = timelineData.clips[0].src;
     }
 
-    // build segments from cuts
     buildSegments();
+    setupAudioGraph();
+    setupWaveform();
+    scheduleTransitions();
 
-    // wire overlay runtime
     window.akari = window.akari || {};
     window.akari.runtime = createOverlayRuntime();
+    if (window.akari.runtime.mount) window.akari.runtime.mount(summary);
 
     showMessage(null);
   } catch (e) {
@@ -74,35 +82,177 @@ async function init() {
 
 function buildSegments() {
   if (!summary || !summary.cuts) return;
-  segments = summary.cuts.map((cut, i) => {
+  segments = [];
+  let cursor = 0;
+  for (let i = 0; i < summary.cuts.length; i++) {
+    const cut = summary.cuts[i];
     const speed = cut.speed || 1;
     const inSec = cut.in || 0;
     const outSec = cut.out || inSec + 1;
-    return { index: i, inSec, outSec, speed, durationSec: (outSec - inSec) / speed };
-  });
+    const durationSec = (outSec - inSec) / speed;
+    const at = cut.at;
+    if (at !== undefined) cursor = at;
+    const gap = cursor > 0 && segments.length > 0
+      ? Math.max(0, cursor - segments.reduce((s, seg) => s + seg.durationSec, 0))
+      : 0;
+    if (gap > 0) {
+      segments.push({ index: -1, inSec: 0, outSec: 0, speed: 1, durationSec: gap, isGap: true });
+    }
+    segments.push({ index: i, inSec, outSec, speed, durationSec, track: cut.track ?? 0, isGap: false });
+    if (at === undefined) cursor += durationSec;
+  }
   totalDuration = segments.reduce((sum, s) => sum + s.durationSec, 0);
   seek.max = totalDuration;
   updateTimeLabel();
 }
 
-// --- playback ---
+// Audio graph
+function setupAudioGraph() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const bgm = summary?.audio?.bgm;
+  if (bgm?.src) {
+    const gain = audioCtx.createGain();
+    gain.gain.value = dbToGain(bgm.gainDb ?? 0);
+    audioNodes.push(gain);
+    const src = audioCtx.createBufferSource();
+    loadAudio(bgm.src).then((buf) => {
+      src.buffer = buf;
+      src.loop = bgm.loop !== false;
+      src.connect(gain);
+      gain.connect(audioCtx.destination);
+      audioSources.push(src);
+    });
+  }
+}
 
+function dbToGain(db) { return Math.pow(10, (db ?? 0) / 20); }
+
+async function loadAudio(url) {
+  const res = await fetch(url);
+  const arrayBuffer = await res.arrayBuffer();
+  return audioCtx.decodeAudioData(arrayBuffer);
+}
+
+// Waveform
+async function setupWaveform() {
+  waveformCanvas.width = waveformCanvas.clientWidth * devicePixelRatio;
+  waveformCanvas.height = waveformCanvas.clientHeight * devicePixelRatio;
+  if (timelineData.clips.length === 0) return;
+  const src = timelineData.clips[0].src;
+  try {
+    const res = await fetch(src);
+    const arrayBuffer = await res.arrayBuffer();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    waveformDuration = audioBuffer.duration;
+    const channel = audioBuffer.getChannelData(0);
+    const peaks = 400;
+    const samplesPerPeak = Math.max(1, Math.floor(channel.length / peaks));
+    waveformPeaks = [];
+    for (let i = 0; i < peaks; i++) {
+      const start = i * samplesPerPeak;
+      let max = 0;
+      for (let j = 0; j < samplesPerPeak && start + j < channel.length; j++) {
+        max = Math.max(max, Math.abs(channel[start + j]));
+      }
+      waveformPeaks.push(max);
+    }
+    drawWaveform(0);
+  } catch {
+    waveformPeaks = null;
+  }
+}
+
+function drawWaveform(playheadRatio) {
+  const ctx = waveformCanvas.getContext('2d');
+  const w = waveformCanvas.width;
+  const h = waveformCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (!waveformPeaks) return;
+  const barW = w / waveformPeaks.length;
+  const mid = h / 2;
+  ctx.fillStyle = '#888';
+  for (let i = 0; i < waveformPeaks.length; i++) {
+    const peak = waveformPeaks[i];
+    const barH = Math.max(1, peak * (h - 4));
+    ctx.fillRect(i * barW, mid - barH / 2, Math.max(1, barW - 0.5), barH);
+  }
+  if (playheadRatio > 0) {
+    const px = playheadRatio * w;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(px - 0.5, 0, 1, h);
+  }
+}
+
+// Transitions
+function scheduleTransitions() {
+  const cuts = summary?.cuts ?? [];
+  let cursor = 0;
+  transitionPlate.style.transition = 'opacity 0.3s';
+  const check = () => {
+    if (!isPlaying) { requestAnimationFrame(check); return; }
+    for (let i = 0; i < cuts.length; i++) {
+      const cut = cuts[i];
+      const speed = cut.speed || 1;
+      const inSec = cut.in || 0;
+      const outSec = cut.out || inSec + 1;
+      const durationSec = (outSec - inSec) / speed;
+      const at = cut.at;
+      if (at !== undefined) cursor = at;
+      const nextStart = cursor + (at === undefined ? durationSec : 0);
+      if (cut.transitionOut && outputTime >= nextStart - cut.transitionOut.duration && outputTime < nextStart) {
+        const local = outputTime - (nextStart - cut.transitionOut.duration);
+        const progress = local / cut.transitionOut.duration;
+        const type = cut.transitionOut.type;
+        if (type === 'fade-black' || type === 'fade-white') {
+          transitionPlate.style.background = type === 'fade-black' ? '#000' : '#fff';
+          transitionPlate.style.opacity = String(progress);
+          transitionPlate.style.visibility = 'visible';
+        }
+        requestAnimationFrame(check); return;
+      } else if (at === undefined) cursor += durationSec;
+    }
+    transitionPlate.style.opacity = '0';
+    transitionPlate.style.visibility = 'hidden';
+    requestAnimationFrame(check);
+  };
+  check();
+}
+
+// Playback
 function getVideoTimeForOutput(outTime) {
   let acc = 0;
   for (const seg of segments) {
+    if (seg.isGap) {
+      if (outTime <= acc + seg.durationSec) return -1;
+      acc += seg.durationSec;
+      continue;
+    }
     if (outTime <= acc + seg.durationSec) {
       const localOut = outTime - acc;
       return seg.inSec + localOut * seg.speed;
     }
     acc += seg.durationSec;
   }
-  return segments.length > 0 ? segments[segments.length - 1].outSec : 0;
+  return segments.length > 0 ? segments[segments.length - 1]?.inSec ?? 0 : 0;
+}
+
+function getActiveSegment(outTime) {
+  let acc = 0;
+  for (const seg of segments) {
+    if (outTime <= acc + seg.durationSec || seg === segments[segments.length - 1]) return seg;
+    acc += seg.durationSec;
+  }
+  return null;
 }
 
 function seekTo(outTime) {
   outputTime = Math.max(0, Math.min(outTime, totalDuration));
   const videoTime = getVideoTimeForOutput(outputTime);
-  video.currentTime = videoTime;
+  const seg = getActiveSegment(outputTime);
+  if (videoTime >= 0 && seg && !seg.isGap) {
+    video.src = timelineData.clips[seg.index]?.src || video.src;
+    video.currentTime = videoTime;
+  }
   seek.value = outputTime;
   updateTimeLabel();
   updateOverlays();
@@ -111,6 +261,10 @@ function seekTo(outTime) {
 function play() {
   if (isPlaying || segments.length === 0) return;
   isPlaying = true;
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  for (const src of audioSources) {
+    if (!src.started) { src.start(); src.started = true; }
+  }
   video.play();
   playToggle.innerHTML = pauseIcon;
   playToggle.setAttribute('aria-label', '一時停止');
@@ -141,20 +295,32 @@ function playbackLoop() {
     return;
   }
 
-  // sync video to correct position
   const targetVideoTime = getVideoTimeForOutput(outputTime);
-  if (Math.abs(video.currentTime - targetVideoTime) > 0.1) {
-    video.currentTime = targetVideoTime;
+  const seg = getActiveSegment(outputTime);
+  if (targetVideoTime >= 0 && seg && !seg.isGap) {
+    const currentSrc = timelineData.clips[seg.index]?.src;
+    if (currentSrc && video.src !== currentSrc) video.src = currentSrc;
+    if (Math.abs(video.currentTime - targetVideoTime) > 0.1) {
+      video.currentTime = targetVideoTime;
+    }
   }
 
   seek.value = outputTime;
   updateTimeLabel();
   updateOverlays();
+  updateWaveformPlayhead();
+  updateCaption();
   requestAnimationFrame(playbackLoop);
 }
 
-// --- transport ---
+function updateWaveformPlayhead() {
+  if (!waveformPeaks || waveformDuration <= 0) return;
+  const ratio = outputTime / totalDuration;
+  drawWaveform(ratio);
+  waveformPlayhead.style.left = `${ratio * 100}%`;
+}
 
+// Transport
 function updateTimeLabel() {
   const fmt = (sec) => {
     const m = Math.floor(sec / 60);
@@ -190,17 +356,20 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// --- waveform toggle ---
+video.addEventListener('loadedmetadata', () => {
+  if (isPlaying) video.play();
+});
 
+// Waveform toggle
 let waveformVisible = false;
 waveformToggle.addEventListener('click', () => {
   waveformVisible = !waveformVisible;
   waveformRow.hidden = !waveformVisible;
   waveformToggle.setAttribute('aria-pressed', String(waveformVisible));
+  if (waveformVisible) setupWaveform();
 });
 
-// --- zoom ---
-
+// Zoom
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 8;
 
@@ -233,7 +402,17 @@ document.querySelectorAll('.zoom-preset').forEach(btn => {
   });
 });
 
-// pan
+// Zoom via Ctrl+wheel
+wrapper.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.1 : 0.1;
+  zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + delta * zoom));
+  pan = { x: 0, y: 0 };
+  updateZoom();
+}, { passive: false });
+
+// Pan
 wrapper.addEventListener('pointerdown', (e) => {
   if (zoom <= 1 || e.target.closest('.icon-button, .zoom-popup, #seek')) return;
   drag = { startX: e.clientX - pan.x, startY: e.clientY - pan.y };
@@ -251,8 +430,7 @@ wrapper.addEventListener('pointerup', () => {
   wrapper.style.cursor = '';
 });
 
-// --- fullscreen ---
-
+// Fullscreen
 fullscreenToggle.addEventListener('click', () => {
   if (document.fullscreenElement) {
     document.exitFullscreen();
@@ -265,16 +443,10 @@ fullscreenToggle.addEventListener('click', () => {
   }
 });
 
-// --- overlay runtime (macOS 版と同等) ---
-
+// Overlay runtime
 function createOverlayRuntime() {
   const mountedOverlays = [];
-
-  function unmount() {
-    stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove());
-    mountedOverlays.length = 0;
-  }
-
+  function unmount() { stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove()); mountedOverlays.length = 0; }
   function mount(summary) {
     unmount();
     const overlays = summary?.overlays;
@@ -298,51 +470,74 @@ function createOverlayRuntime() {
     }
     stage.appendChild(fragment);
   }
-
   function tick(t) {
     for (const overlay of mountedOverlays) {
       const visible = overlay.start <= t && t < overlay.start + overlay.duration;
-      if (visible !== overlay.visible) {
-        overlay.container.style.visibility = visible ? 'visible' : 'hidden';
-        overlay.visible = visible;
-      }
+      if (visible !== overlay.visible) { overlay.container.style.visibility = visible ? 'visible' : 'hidden'; overlay.visible = visible; }
       if (!visible) continue;
       const localMs = Math.max(0, (t - overlay.start) * 1000);
       const animations = overlay.container.getAnimations({ subtree: true });
       for (const a of animations) { a.pause(); a.currentTime = localMs; }
     }
   }
-
   return { mount, tick, unmount };
 }
 
 function updateOverlays() {
-  if (window.akari?.runtime) {
-    window.akari.runtime.tick(outputTime);
-  }
+  if (window.akari?.runtime) window.akari.runtime.tick(outputTime);
 }
 
-// --- caption plate ---
+// Enhanced captions
+let currentCaptionSegments = [];
+let captionRAF = null;
 
 function updateCaption() {
-  if (!summary?.captions || !Array.isArray(summary.captions)) return;
-  const cap = summary.captions.find(c => outputTime >= c.start && outputTime < c.start + c.duration);
-  captionPlate.textContent = cap?.text || '';
-}
-
-// --- message ---
-
-function showMessage(text) {
-  if (text) {
-    previewMessage.hidden = false;
-    previewMessageText.textContent = text;
+  const caps = summary?.captions;
+  if (!Array.isArray(caps) || caps.length === 0) return;
+  const active = caps.find(c => {
+    const start = Number(c.start) || 0;
+    const dur = Number(c.duration) || 0;
+    return outputTime >= start && outputTime < start + dur;
+  });
+  if (!active) {
+    captionPlate.textContent = '';
+    if (captionRAF) { cancelAnimationFrame(captionRAF); captionRAF = null; }
+    return;
+  }
+  const words = active.words ?? [];
+  if (words.length > 0 && Array.isArray(words)) {
+    const start = Number(active.start) || 0;
+    const localMs = (outputTime - start) * 1000;
+    captionPlate.innerHTML = words.map((w) => {
+      const wStart = (w.t ?? 0);
+      const wDur = (w.d ?? 0.3);
+      const wEnd = wStart + wDur;
+      const isPast = localMs >= wEnd;
+      const isActive = localMs >= wStart && localMs < wEnd;
+      let color = '#fff';
+      let shadow = '0 1px 2px #000';
+      if (isPast) { color = '#aaa'; shadow = 'none'; }
+      else if (isActive) { color = '#ff0'; shadow = '0 0 8px rgba(255,255,0,0.6)'; }
+      return `<span style="color:${color};text-shadow:${shadow};transition:color 0.05s">${escapeHtml(w.t ? (w.word || w.w || '') : (w.word || w.w || w))}</span>`;
+    }).join(' ');
   } else {
-    previewMessage.hidden = true;
+    captionPlate.textContent = active.text || active.caption || '';
   }
 }
 
-// --- WebSocket live reload ---
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
 
+// Message
+function showMessage(text) {
+  if (text) { previewMessage.hidden = false; previewMessageText.textContent = text; }
+  else { previewMessage.hidden = true; }
+}
+
+// WebSocket live reload
 function connectWs() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${protocol}//${location.host}`);
@@ -356,7 +551,6 @@ function connectWs() {
   ws.onerror = () => ws.close();
 }
 
-// --- boot ---
-
+// Boot
 init();
 connectWs();
