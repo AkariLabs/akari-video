@@ -23,16 +23,32 @@ AKARI Video はターミナル（コマンドライン）で動きます。
 下の 3 つを順にインストールしてください。
 
 **オートインストール（おすすめ）**:
+
+OS に合ったコマンドをコピーして実行してください。
+
+<details><summary>Windows (PowerShell) — クリックで展開</summary>
+
 ```sh
-# Windows (PowerShell)
 irm https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.ps1 | iex
+```
 
-# Windows (CMD)
+</details>
+
+<details><summary>Windows (CMD) — クリックで展開</summary>
+
+```sh
 curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.cmd -o install.cmd && install.cmd
+```
 
-# Linux / macOS
+</details>
+
+<details><summary>Linux / macOS — クリックで展開</summary>
+
+```sh
 curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
 ```
+
+</details>
 
 スクリプトが自動で以下を確認・インストールします:
 - Node.js v20+（無ければ自動インストール）
