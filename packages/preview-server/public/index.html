@@ -14,10 +14,17 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
 #preview-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+#layer-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+#layer-container video { position: absolute; object-fit: contain; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
+#pen-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2147483645; }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; background: #000; }
 #caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: 18px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 #caption-plate:empty { display: none; }
+#zoom-minimap { position: absolute; bottom: 8px; right: 8px; z-index: 20; width: 120px; height: 67.5px; border: 1px solid #505050; background: rgba(0,0,0,0.6); overflow: hidden; }
+#zoom-minimap[hidden] { display: none; }
+#zoom-minimap video { width: 100%; height: 100%; object-fit: contain; }
+#zoom-minimap-viewport { position: absolute; border: 1px solid #ff0; background: rgba(255,255,0,0.08); pointer-events: none; }
 .message-card { position: absolute; inset: 0; z-index: 10; display: grid; gap: 16px; place-items: center; padding: 32px; background: #111; }
 .message-card[hidden] { display: none; }
 .message-card p { max-width: 520px; margin: 0; color: #e5e5e5; font-size: 15px; line-height: 1.7; text-align: center; }
@@ -54,6 +61,11 @@ input[type=range] { width: 100%; }
 .transform-row input { flex: 1; background: #303030; border: 1px solid #505050; border-radius: 3px; color: #fff; font-size: 12px; padding: 2px 4px; width: 0; }
 .transform-row input:focus { border-color: #7af; outline: none; }
 #selection-label { font-size: 11px; color: #888; }
+.indicator-popup { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 20; width: 260px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+.indicator-popup[hidden] { display: none; }
+.indicator-item { display: flex; gap: 6px; margin-bottom: 3px; font-size: 12px; color: #ccc; }
+.indicator-item .key { color: #8af; min-width: 100px; }
+.indicator-item .val { color: #aaa; }
 </style>
 </head>
 <body>
@@ -62,8 +74,10 @@ input[type=range] { width: 100%; }
     <div id="preview-wrapper">
       <div id="zoom-layer">
         <video id="preview-video" preload="auto"></video>
-        <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
+        <div id="layer-container"></div>
+        <div id="overlay-stage"><div id="pen-layer"><canvas id="pen-canvas"></canvas></div><div id="transition-plate"></div><div id="caption-plate"></div></div>
       </div>
+      <div id="zoom-minimap" hidden><video id="minimap-video" preload="auto"></video><div id="zoom-minimap-viewport"></div></div>
       <div id="preview-message" class="message-card" hidden role="status">
         <p id="preview-message-text"></p>
       </div>
@@ -83,7 +97,9 @@ input[type=range] { width: 100%; }
       <button id="waveform-toggle" class="icon-button" type="button" aria-label="波形" title="波形" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
       <span id="time-label">0:00 / 0:00</span>
       <button id="edit-toggle" class="icon-button" type="button" aria-label="編集" title="編集" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a1.0 1.0 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+      <button id="indicator-toggle" class="icon-button" type="button" aria-label="指標" title="指標" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></button>
       <span id="selection-label"></span>
+      <div id="indicator-popup" class="indicator-popup" hidden></div>
     </div>
     <div class="transport-center">
       <button id="skip-back" class="icon-button" type="button" aria-label="10秒戻る" title="10秒戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>

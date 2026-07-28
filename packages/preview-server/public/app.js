@@ -31,6 +31,13 @@ const txInput = document.getElementById('tx');
 const tyInput = document.getElementById('ty');
 const tsInput = document.getElementById('ts');
 const trInput = document.getElementById('tr');
+const layerContainer = document.getElementById('layer-container');
+const penCanvas = document.getElementById('pen-canvas');
+const minimap = document.getElementById('zoom-minimap');
+const minimapVideo = document.getElementById('minimap-video');
+const minimapViewport = document.getElementById('zoom-minimap-viewport');
+const indicatorBtn = document.getElementById('indicator-toggle');
+const indicatorPopup = document.getElementById('indicator-popup');
 
 const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
 const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>';
@@ -48,20 +55,24 @@ let zoom = 1;
 let pan = { x: 0, y: 0 };
 let drag = null;
 
-// Edit mode
 let editMode = false;
 let selectedId = null;
 let selectedKind = null;
 
-// Audio graph
 let audioCtx = null;
 let bgmNode = null;
 let sfxNodes = [];
 let narrationNodes = [];
 
-// Waveform
 let waveformPeaks = null;
 let waveformDuration = 0;
+
+// B-roll layer videos
+let layerVideos = [];
+
+// Pen annotation
+let penPoints = [];
+let penActive = false;
 
 async function init() {
   try {
@@ -76,9 +87,12 @@ async function init() {
 
     buildSegments();
     if (summary?.cuts?.length > 0) video.src = getVideoSource(0);
+    setupLayers();
+    setupPenCanvas();
     setupAudioGraph();
     setupWaveform();
     scheduleTransitions();
+    setupMinimap();
 
     window.akari = window.akari || {};
     window.akari.runtime = createOverlayRuntime();
@@ -95,6 +109,7 @@ function getVideoSource(cutIndex) {
   return clip ? clip.src : (timelineData.clips[0]?.src || '');
 }
 
+// --- Segments ---
 function buildSegments() {
   if (!summary?.cuts) return;
   segments = [];
@@ -121,7 +136,6 @@ function buildSegments() {
       if (c.at !== undefined) cursor = c.at;
       const gap = ci === 0 ? 0 : Math.max(0, cursor - segments.reduce((s, seg) => s + seg.durationSec, 0));
       if (gap > 0) segments.push({ index: -1, durationSec: gap, isGap: true });
-      c.isGap = false;
       segments.push(c);
       cursor += c.durationSec;
     }
@@ -131,7 +145,91 @@ function buildSegments() {
   updateTimeLabel();
 }
 
-// Audio graph
+// --- B-roll layers ---
+function setupLayers() {
+  const layers = summary?.layers ?? [];
+  for (const layer of layers) {
+    if (layer.kind === 'baked' || !layer.src) continue;
+    const el = document.createElement('video');
+    el.preload = 'auto';
+    el.src = layer.src;
+    el.dataset.layerId = layer.id;
+    el.style.opacity = String(layer.opacity ?? 1);
+    if (layer.blend) el.style.mixBlendMode = layer.blend;
+    el.style.pointerEvents = 'none';
+    if (layer.transform) {
+      const t = layer.transform;
+      el.style.transform = `translate(${t.x||0}px, ${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`;
+    }
+    layerContainer.appendChild(el);
+    layerVideos.push({ el, layer, visible: false });
+  }
+}
+
+function syncLayers(t) {
+  for (const lv of layerVideos) {
+    const l = lv.layer;
+    const shouldShow = t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
+    if (shouldShow !== lv.visible) {
+      lv.el.style.display = shouldShow ? 'block' : 'none';
+      lv.visible = shouldShow;
+    }
+    if (shouldShow) {
+      const localT = t - (l.t ?? 0);
+      if (Math.abs(lv.el.currentTime - localT) > 0.1) lv.el.currentTime = localT;
+    }
+  }
+}
+
+// --- Pen annotation canvas ---
+function setupPenCanvas() {
+  penCanvas.width = zoomLayer.clientWidth * devicePixelRatio;
+  penCanvas.height = zoomLayer.clientHeight * devicePixelRatio;
+  penCanvas.style.width = '100%';
+  penCanvas.style.height = '100%';
+}
+function drawPen() {
+  const ctx = penCanvas.getContext('2d');
+  ctx.clearRect(0, 0, penCanvas.width, penCanvas.height);
+  if (!penPoints.length) return;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const stroke of penPoints) {
+    if (stroke.length < 2) continue;
+    ctx.beginPath();
+    ctx.moveTo(stroke[0].x * devicePixelRatio, stroke[0].y * devicePixelRatio);
+    for (let i = 1; i < stroke.length; i++) {
+      ctx.lineTo(stroke[i].x * devicePixelRatio, stroke[i].y * devicePixelRatio);
+    }
+    ctx.strokeStyle = 'rgba(255,200,50,0.85)';
+    ctx.lineWidth = 3 * devicePixelRatio;
+    ctx.shadowColor = 'rgba(255,200,50,0.5)';
+    ctx.shadowBlur = 8 * devicePixelRatio;
+    ctx.stroke();
+  }
+}
+
+// --- Minimap ---
+function setupMinimap() {
+  if (!summary?.cuts?.length) return;
+  minimapVideo.src = video.src;
+}
+function updateMinimap() {
+  if (zoom <= 1) { minimap.hidden = true; return; }
+  minimap.hidden = false;
+  const vw = minimap.clientWidth;
+  const vh = minimap.clientHeight;
+  const vpW = vw / zoom;
+  const vpH = vh / zoom;
+  const cx = vw / 2 + pan.x / (zoomLayer.clientWidth / vw);
+  const cy = vh / 2 + pan.y / (zoomLayer.clientHeight / vh);
+  minimapViewport.style.width = `${vpW}px`;
+  minimapViewport.style.height = `${vpH}px`;
+  minimapViewport.style.left = `${cx - vpW / 2}px`;
+  minimapViewport.style.top = `${cy - vpH / 2}px`;
+}
+
+// --- Audio graph ---
 function setupAudioGraph() {
   try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
   const audio = summary?.audio;
@@ -204,7 +302,7 @@ function syncAudio(t) {
   }
 }
 
-// Waveform
+// --- Waveform ---
 async function setupWaveform() {
   waveformCanvas.width = waveformCanvas.clientWidth * devicePixelRatio;
   waveformCanvas.height = waveformCanvas.clientHeight * devicePixelRatio;
@@ -231,8 +329,7 @@ function drawWaveform(ratio) {
   const w = waveformCanvas.width, h = waveformCanvas.height;
   ctx.clearRect(0, 0, w, h);
   if (!waveformPeaks) return;
-  const barW = w / waveformPeaks.length;
-  const mid = h / 2;
+  const barW = w / waveformPeaks.length, mid = h / 2;
   ctx.fillStyle = '#888';
   for (let i = 0; i < waveformPeaks.length; i++) {
     const bH = Math.max(1, waveformPeaks[i] * (h - 4));
@@ -241,7 +338,6 @@ function drawWaveform(ratio) {
   if (ratio > 0) { ctx.fillStyle = '#fff'; ctx.fillRect(ratio * w - 0.5, 0, 1, h); }
 }
 
-// Transitions
 function scheduleTransitions() { transitionPlate.style.transition = 'opacity 0.3s'; }
 
 function getVideoTimeForOutput(t) {
@@ -274,6 +370,7 @@ function seekTo(t) {
   updateTimeLabel();
   updateOverlays();
   syncAudio(outputTime);
+  syncLayers(outputTime);
 }
 
 function play() {
@@ -283,6 +380,7 @@ function play() {
   if (bgmNode?._source && !bgmNode._source._started) { bgmNode._source.start(); bgmNode._source._started = true; }
   syncAudio(outputTime);
   video.play();
+  for (const lv of layerVideos) if (lv.visible) lv.el.play();
   playToggle.innerHTML = pauseIcon;
   playToggle.setAttribute('aria-label', '一時停止');
   playToggle.title = '一時停止';
@@ -291,6 +389,7 @@ function play() {
 function pause() {
   if (!isPlaying) return;
   isPlaying = false; video.pause();
+  for (const lv of layerVideos) lv.el.pause();
   playToggle.innerHTML = playIcon;
   playToggle.setAttribute('aria-label', '再生');
   playToggle.title = '再生';
@@ -317,7 +416,9 @@ function playbackLoop() {
   updateWaveformPlayhead();
   updateCaption();
   updateTransitions();
+  updateMinimap();
   syncAudio(outputTime);
+  syncLayers(outputTime);
   requestAnimationFrame(playbackLoop);
 }
 
@@ -376,7 +477,7 @@ document.addEventListener('keydown', (e) => {
 });
 video.addEventListener('loadedmetadata', () => { if (isPlaying) video.play(); });
 
-// Edit mode
+// --- Edit mode ---
 let transformDirty = false;
 editToggle.addEventListener('click', () => {
   editMode = !editMode;
@@ -384,54 +485,28 @@ editToggle.addEventListener('click', () => {
   stage.style.pointerEvents = editMode ? 'auto' : 'none';
   if (!editMode) clearSelection();
 });
-
 function clearSelection() {
-  selectedId = null;
-  selectedKind = null;
-  selectionLabel.textContent = '';
-  transformPopup.hidden = true;
-  stage.querySelectorAll('.selected-overlay').forEach(el => el.classList.remove('selected-overlay'));
+  selectedId = null; selectedKind = null;
+  selectionLabel.textContent = ''; transformPopup.hidden = true;
 }
-
 function selectOverlay(id) {
   clearSelection();
-  selectedKind = 'overlay';
-  selectedId = id;
-  const el = stage.querySelector(`[data-overlay-id="${id}"]`);
-  if (el) el.classList.add('selected-overlay');
+  selectedKind = 'overlay'; selectedId = id;
   selectionLabel.textContent = `オーバーレイ ${id}`;
   const overlay = summary?.overlays?.find(o => String(o.id) === String(id));
   if (overlay) showTransform(overlay.transform || {});
 }
-
 stage.addEventListener('click', (e) => {
   if (!editMode) return;
-  const container = e.target.closest('[data-overlay-id]');
-  if (container) {
-    selectOverlay(container.dataset.overlayId);
-    return;
-  }
-  const el = e.target.closest('[data-layer-id]');
-  if (el) {
-    clearSelection();
-    selectedKind = 'layer';
-    selectedId = el.dataset.layerId;
-    selectionLabel.textContent = `レイヤー ${el.dataset.layerId}`;
-    transformPopup.hidden = false;
-    return;
-  }
+  const c = e.target.closest('[data-overlay-id]');
+  if (c) { selectOverlay(c.dataset.overlayId); return; }
   clearSelection();
 });
-
 function showTransform(t) {
-  txInput.value = t.x ?? 0;
-  tyInput.value = t.y ?? 0;
-  tsInput.value = t.scale ?? 1;
-  trInput.value = t.rotate ?? 0;
-  transformPopup.hidden = false;
-  transformDirty = false;
+  txInput.value = t.x ?? 0; tyInput.value = t.y ?? 0;
+  tsInput.value = t.scale ?? 1; trInput.value = t.rotate ?? 0;
+  transformPopup.hidden = false; transformDirty = false;
 }
-
 [txInput, tyInput, tsInput, trInput].forEach(inp => {
   inp.addEventListener('input', () => { transformDirty = true; });
   inp.addEventListener('change', async () => {
@@ -441,30 +516,39 @@ function showTransform(t) {
     transformDirty = false;
   });
 });
-
 async function writeEditJson(kind, id, patch) {
   try {
     const res = await fetch('/api/summary');
     const edit = await res.json();
     if (kind === 'overlay') {
       const ov = edit.overlays?.find(o => String(o.id) === String(id));
-      if (ov) { Object.assign(ov, patch.transform ? { transform: { ...ov.transform, ...patch.transform } } : patch); }
+      if (ov) Object.assign(ov, patch.transform ? { transform: { ...ov.transform, ...patch.transform } } : patch);
     } else if (kind === 'layer') {
       const ly = edit.layers?.find(l => String(l.id) === String(id));
-      if (ly) { Object.assign(ly, patch.transform ? { transform: { ...ly.transform, ...patch.transform } } : patch); }
-    } else if (kind === 'cut') {
-      const idx = parseInt(id, 10);
-      if (edit.cuts?.[idx]) { Object.assign(edit.cuts[idx], patch.transform ? { transform: { ...edit.cuts[idx].transform, ...patch.transform } } : patch); }
+      if (ly) Object.assign(ly, patch.transform ? { transform: { ...ly.transform, ...patch.transform } } : patch);
     }
     const saveRes = await fetch('/api/edit.json', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(edit) });
-    if (saveRes.ok) {
-      summary = edit;
-      window.akari?.runtime?.mount(summary);
-    }
+    if (saveRes.ok) { summary = edit; window.akari?.runtime?.mount(summary); }
   } catch (e) { console.error('write failed', e); }
 }
 
-// Waveform toggle
+// --- Indicator popup ---
+indicatorBtn.addEventListener('click', () => {
+  const h = indicatorPopup.hidden;
+  indicatorPopup.hidden = !h;
+  indicatorBtn.setAttribute('aria-pressed', String(!h));
+  if (!h) renderIndicators();
+});
+function renderIndicators() {
+  const ind = summary?.indicators;
+  if (!Array.isArray(ind) || !ind.length) {
+    indicatorPopup.innerHTML = '<div class="indicator-item"><span class="val">指標なし</span></div>';
+    return;
+  }
+  indicatorPopup.innerHTML = ind.map(i => `<div class="indicator-item"><span class="key">${esc(i)}</span></div>`).join('');
+}
+
+// --- Waveform toggle ---
 let waveformVisible = false;
 waveformToggle.addEventListener('click', () => {
   waveformVisible = !waveformVisible;
@@ -473,31 +557,23 @@ waveformToggle.addEventListener('click', () => {
   if (waveformVisible) setupWaveform();
 });
 
-// Zoom
+// --- Zoom ---
 const ZOOM_MIN = 0.25, ZOOM_MAX = 8;
 function updateZoom() {
   zoomLayer.style.transform = `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`;
   zoomValue.textContent = `${Math.round(zoom * 100)}%`;
   zoomSlider.value = Math.log2(zoom / ZOOM_MIN) / Math.log2(ZOOM_MAX / ZOOM_MIN);
+  updateMinimap();
 }
-zoomToggle.addEventListener('click', () => {
-  const o = !zoomPopup.hidden;
-  zoomPopup.hidden = o;
-  zoomToggle.setAttribute('aria-expanded', String(!o));
-});
-zoomSlider.addEventListener('input', () => {
-  const t = Number(zoomSlider.value);
-  zoom = ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, t);
-  pan = { x: 0, y: 0 }; updateZoom();
-});
+zoomToggle.addEventListener('click', () => { const o = !zoomPopup.hidden; zoomPopup.hidden = o; zoomToggle.setAttribute('aria-expanded', String(!o)); });
+zoomSlider.addEventListener('input', () => { zoom = ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, Number(zoomSlider.value)); pan = { x: 0, y: 0 }; updateZoom(); });
 document.querySelectorAll('.zoom-preset').forEach(btn => {
   btn.addEventListener('click', () => { zoom = Number(btn.dataset.zoom); pan = { x: 0, y: 0 }; updateZoom(); zoomPopup.hidden = true; zoomToggle.setAttribute('aria-expanded', 'false'); });
 });
 wrapper.addEventListener('wheel', (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
-  const d = e.deltaY > 0 ? -0.1 : 0.1;
-  zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + d * zoom));
+  zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + (e.deltaY > 0 ? -0.1 : 0.1) * zoom));
   pan = { x: 0, y: 0 }; updateZoom();
 }, { passive: false });
 wrapper.addEventListener('pointerdown', (e) => {
@@ -513,7 +589,7 @@ fullscreenToggle.addEventListener('click', () => {
   else { wrapper.requestFullscreen(); fullscreenToggle.innerHTML = restoreIcon; fullscreenToggle.setAttribute('aria-pressed', 'true'); }
 });
 
-// Overlay runtime
+// --- Overlay runtime ---
 function createOverlayRuntime() {
   const overlays = [];
   function unmount() { stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove()); overlays.length = 0; }
@@ -527,10 +603,7 @@ function createOverlayRuntime() {
       c.dataset.start = String(o.start);
       c.dataset.duration = String(o.duration);
       c.style.cssText = 'position:absolute;inset:0;pointer-events:auto;visibility:hidden;';
-      if (o.transform) {
-        const t = o.transform;
-        c.style.transform = `translate(${t.x||0}px,${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`;
-      }
+      if (o.transform) { const t = o.transform; c.style.transform = `translate(${t.x||0}px,${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`; }
       c.innerHTML = o.html || '';
       frag.appendChild(c);
       overlays.push({ el: c, start: o.start, duration: o.duration, visible: false });
@@ -550,7 +623,7 @@ function createOverlayRuntime() {
 }
 function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
 
-// Captions
+// --- Captions ---
 function updateCaption() {
   const caps = summary?.captions;
   if (!Array.isArray(caps) || !caps.length) { captionPlate.textContent = ''; return; }
