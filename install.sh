@@ -205,7 +205,7 @@ fi
 
 echo ""
 info "Installing npm dependencies..."
-(cd "$INSTALL_DIR" && npm install --omit=dev --no-audit --no-fund)
+(cd "$INSTALL_DIR" && npm install --ignore-scripts --no-audit --no-fund)
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
