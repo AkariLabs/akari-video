@@ -22,9 +22,15 @@ while [[ $# -gt 0 ]]; do
             echo "AKARI Video Installer"
             echo ""
             echo "Usage: install.sh [options]"
+            echo ""
+            echo "Options:"
             echo "  -d, --dir <path>    Install directory (default: ~/akari-video)"
             echo "      --skip-deps     Skip dependency checks"
             echo "  -h, --help          Show this help"
+            echo ""
+            echo "Examples:"
+            echo "  curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash"
+            echo "  curl -fsSL ... | bash -s -- -d ~/my-project"
             exit 0 ;;
         -d|--dir)    INSTALL_DIR="$2"; shift 2 ;;
         --skip-deps) SKIP_DEPS=true; shift ;;
@@ -173,15 +179,22 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
     if [[ "$agent_ok" == "false" ]]; then
         echo ""
         warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        warn "  AI agent is required. Install one of:"
+        warn "  AI agent is required."
         warn ""
-        warn "  opencode (free, recommended):"
-        warn "    curl -fsSL https://opencode.ai/install | bash"
-        warn ""
-        warn "  Claude Code (paid):"
-        warn "    curl -fsSL https://claude.ai/install.sh | bash"
+        warn "  opencode (free, recommended)"
+        warn "  Claude Code (paid) — https://claude.ai/install.sh"
         warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
+        read -rp "Install opencode now? [Y/n] " answer
+        if [[ "${answer:-Y}" =~ ^[Yy] ]]; then
+            install_opencode || true
+        else
+            echo ""
+            warn "  Install manually:"
+            warn "    curl -fsSL https://opencode.ai/install | bash"
+            echo ""
+        fi
+        check_agent && agent_ok=true
     fi
 
     if [[ "$ffmpeg_ok" == "false" ]] && [[ "$node_ok" == "true" ]]; then
@@ -205,12 +218,15 @@ fi
 
 echo ""
 info "Installing npm dependencies..."
-(cd "$INSTALL_DIR" && npm install --ignore-scripts --no-audit --no-fund)
+(cd "$INSTALL_DIR" && npm install --ignore-scripts --no-audit --no-fund --loglevel=error 2>&1 | grep -v "^npm warn" || true)
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}  Installation complete!${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+echo -e "  ${BOLD}Installed to:${NC} $INSTALL_DIR"
 echo ""
 
 if has opencode; then
