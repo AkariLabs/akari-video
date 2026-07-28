@@ -72,7 +72,7 @@
     "build": "npm run build:ext && theia build --mode production",
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "start": "theia start --plugins=local-dir:plugins",
-    "prepackage": "node resources/scripts/copy-native-helpers.mjs && node resources/scripts/generate-third-party-notices.mjs",
+    "prepackage": "node resources/scripts/copy-native-helpers.mjs && node resources/scripts/patch-ripgrep-asar-path.mjs && node resources/scripts/generate-third-party-notices.mjs",
     "package": "electron-builder --dir",
     "postpackage": "node resources/scripts/verify-asar-contents.mjs",
     "watch": "theia build --watch --mode development"
@@ -107,6 +107,7 @@
     "asarUnpack": [
       "**/*.node",
       "lib/prebuilds/**/spawn-helper",
+      "lib/backend/native/**",
       "**/vscode-ripgrep/**",
       "**/@vscode/ripgrep/**"
     ],
