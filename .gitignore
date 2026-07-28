@@ -12,4 +12,5 @@ electron-builder-out/
 .env
 .env.*
 *.vsix
+*.tsbuildinfo
 plugins/
