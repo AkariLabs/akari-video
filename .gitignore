@@ -14,3 +14,4 @@ electron-builder-out/
 *.vsix
 *.tsbuildinfo
 plugins/
+x.sh
