@@ -1,4 +1,4 @@
-// AKARI Video Preview — client (full-featured port)
+// AKARI Video Preview — full-featured client
 
 const video = document.getElementById('preview-video');
 const playToggle = document.getElementById('play-toggle');
@@ -41,10 +41,14 @@ let zoom = 1;
 let pan = { x: 0, y: 0 };
 let drag = null;
 
+// Multi-track: top-visible track determination
+let mainVideoRuns = [];
+
 // Audio graph
 let audioCtx = null;
-let audioSources = [];
-let audioNodes = [];
+let bgmNode = null;
+let sfxNodes = [];
+let narrationNodes = [];
 
 // Waveform
 let waveformPeaks = null;
@@ -61,11 +65,11 @@ async function init() {
     summary = await editRes.json();
     fps = timelineData.fps || 30;
 
-    if (timelineData.clips.length > 0) {
-      video.src = timelineData.clips[0].src;
-    }
-
     buildSegments();
+    computeMainVideo();
+    if (summary?.cuts?.length > 0) {
+      video.src = getVideoSource(0);
+    }
     setupAudioGraph();
     setupWaveform();
     scheduleTransitions();
@@ -80,10 +84,16 @@ async function init() {
   }
 }
 
+function getVideoSource(cutIndex) {
+  const clip = timelineData.clips.find(c => c.id === `cut-${cutIndex}`);
+  return clip ? clip.src : (timelineData.clips[0]?.src || '');
+}
+
+// Build segments (multi-track aware)
 function buildSegments() {
-  if (!summary || !summary.cuts) return;
+  if (!summary?.cuts) return;
   segments = [];
-  let cursor = 0;
+  const cutEvents = [];
   for (let i = 0; i < summary.cuts.length; i++) {
     const cut = summary.cuts[i];
     const speed = cut.speed || 1;
@@ -91,78 +101,197 @@ function buildSegments() {
     const outSec = cut.out || inSec + 1;
     const durationSec = (outSec - inSec) / speed;
     const at = cut.at;
-    if (at !== undefined) cursor = at;
-    const gap = cursor > 0 && segments.length > 0
-      ? Math.max(0, cursor - segments.reduce((s, seg) => s + seg.durationSec, 0))
-      : 0;
-    if (gap > 0) {
-      segments.push({ index: -1, inSec: 0, outSec: 0, speed: 1, durationSec: gap, isGap: true });
-    }
-    segments.push({ index: i, inSec, outSec, speed, durationSec, track: cut.track ?? 0, isGap: false });
-    if (at === undefined) cursor += durationSec;
+    const track = cut.track ?? 0;
+    cutEvents.push({ index: i, inSec, outSec, speed, durationSec, track, at, isGap: false });
   }
-  totalDuration = segments.reduce((sum, s) => sum + s.durationSec, 0);
+  const trackSegments = {};
+  for (const c of cutEvents) {
+    const t = c.track;
+    if (!trackSegments[t]) trackSegments[t] = [];
+    trackSegments[t].push(c);
+  }
+  const effectiveTracks = Object.keys(trackSegments).map(Number).sort((a, b) => a - b);
+  const combined = [];
+  for (let ti = 0; ti < effectiveTracks.length; ti++) {
+    const trackNum = effectiveTracks[ti];
+    const trackCuts = trackSegments[trackNum];
+    let cursor = 0;
+    for (let ci = 0; ci < trackCuts.length; ci++) {
+      const c = trackCuts[ci];
+      if (c.at !== undefined) cursor = c.at;
+      const gap = ci === 0 ? 0 : Math.max(0, cursor - combined.reduce((s, seg) => s + seg.durationSec, 0));
+      if (gap > 0) {
+        combined.push({ index: -1, inSec: 0, outSec: 0, speed: 1, durationSec: gap, track: trackNum, isGap: true });
+      }
+      combined.push({ ...c });
+      cursor += c.durationSec;
+    }
+  }
+  segments = combined;
+  totalDuration = Math.max(...summary.cuts.map((c, i) => {
+    const cut = summary.cuts[i];
+    return (cut.at ?? calculateDefaultEnd(i));
+  }), combined.reduce((s, seg) => s + seg.durationSec, 0));
   seek.max = totalDuration;
   updateTimeLabel();
 }
 
+function calculateDefaultEnd(upToIndex) {
+  let cursor = 0;
+  for (let i = 0; i <= upToIndex && i < summary.cuts.length; i++) {
+    const cut = summary.cuts[i];
+    const speed = cut.speed || 1;
+    const inSec = cut.in || 0;
+    const outSec = cut.out || inSec + 1;
+    const dur = (outSec - inSec) / speed;
+    if (cut.at !== undefined) cursor = cut.at;
+    cursor += dur;
+  }
+  return cursor;
+}
+
+// Compute main video runs (highest-priority visible track)
+function computeMainVideo() {
+  mainVideoRuns = timelineData.clips.map(c => ({
+    id: c.id,
+    src: c.src,
+    startFrame: c.startFrame,
+    endFrame: c.endFrame,
+    sourceInUs: c.sourceInUs,
+    track: c.track ?? 0,
+  }));
+}
+
 // Audio graph
 function setupAudioGraph() {
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const bgm = summary?.audio?.bgm;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch { return; }
+
+  const audio = summary?.audio;
+  if (!audio) return;
+
+  // BGM
+  const bgm = audio.bgm;
   if (bgm?.src) {
     const gain = audioCtx.createGain();
     gain.gain.value = dbToGain(bgm.gainDb ?? 0);
-    audioNodes.push(gain);
-    const src = audioCtx.createBufferSource();
-    loadAudio(bgm.src).then((buf) => {
+    gain.connect(audioCtx.destination);
+    bgmNode = gain;
+    loadAudioBuffer(bgm.src).then((buf) => {
+      if (!buf) return;
+      const src = audioCtx.createBufferSource();
       src.buffer = buf;
       src.loop = bgm.loop !== false;
       src.connect(gain);
-      gain.connect(audioCtx.destination);
-      audioSources.push(src);
+      bgmNode._source = src;
     });
+  }
+
+  // Narration
+  if (Array.isArray(audio.narration)) {
+    for (const n of audio.narration) {
+      if (!n.src) continue;
+      const gain = audioCtx.createGain();
+      gain.gain.value = dbToGain(n.gainDb ?? 0);
+      gain.connect(audioCtx.destination);
+      const node = { gain, src: n.src, t: n.t ?? 0, _source: null };
+      narrationNodes.push(node);
+      loadAudioBuffer(n.src).then((buf) => {
+        if (!buf) return;
+        node._buffer = buf;
+      });
+    }
+  }
+
+  // SFX
+  if (Array.isArray(audio.sfx)) {
+    for (const s of audio.sfx) {
+      if (!s.src) continue;
+      const gain = audioCtx.createGain();
+      gain.gain.value = dbToGain(s.gainDb ?? 0);
+      gain.connect(audioCtx.destination);
+      const node = { gain, src: s.src, t: s.t ?? 0, _source: null };
+      sfxNodes.push(node);
+      loadAudioBuffer(s.src).then((buf) => {
+        if (!buf) return;
+        node._buffer = buf;
+      });
+    }
   }
 }
 
 function dbToGain(db) { return Math.pow(10, (db ?? 0) / 20); }
 
-async function loadAudio(url) {
-  const res = await fetch(url);
-  const arrayBuffer = await res.arrayBuffer();
-  return audioCtx.decodeAudioData(arrayBuffer);
+async function loadAudioBuffer(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return audioCtx.decodeAudioData(await res.arrayBuffer());
+  } catch { return null; }
+}
+
+function syncAudio(t) {
+  if (!audioCtx) return;
+  // Narration: scheduled playback at specified timestamps
+  for (const n of narrationNodes) {
+    if (!n._buffer) continue;
+    const shouldPlay = t >= n.t && t < n.t + n._buffer.duration;
+    const isPlaying = n._source && !n._source._ended;
+    if (shouldPlay && !isPlaying) {
+      if (n._source) { try { n._source.stop(); } catch {} }
+      const src = audioCtx.createBufferSource();
+      src.buffer = n._buffer;
+      src.connect(n.gain);
+      src.start(0, Math.max(0, t - n.t));
+      src._ended = false;
+      src.onended = () => { src._ended = true; };
+      n._source = src;
+    }
+  }
+  // SFX: similar scheduling
+  for (const s of sfxNodes) {
+    if (!s._buffer) continue;
+    const shouldPlay = t >= s.t && t < s.t + s._buffer.duration;
+    const isPlaying = s._source && !s._source._ended;
+    if (shouldPlay && !isPlaying) {
+      if (s._source) { try { s._source.stop(); } catch {} }
+      const src = audioCtx.createBufferSource();
+      src.buffer = s._buffer;
+      src.connect(s.gain);
+      src.start(0, Math.max(0, t - s.t));
+      src._ended = false;
+      src.onended = () => { src._ended = true; };
+      s._source = src;
+    }
+  }
 }
 
 // Waveform
 async function setupWaveform() {
   waveformCanvas.width = waveformCanvas.clientWidth * devicePixelRatio;
   waveformCanvas.height = waveformCanvas.clientHeight * devicePixelRatio;
-  if (timelineData.clips.length === 0) return;
+  if (timelineData.clips.length === 0 || !audioCtx) return;
   const src = timelineData.clips[0].src;
   try {
     const res = await fetch(src);
-    const arrayBuffer = await res.arrayBuffer();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-    waveformDuration = audioBuffer.duration;
-    const channel = audioBuffer.getChannelData(0);
-    const peaks = 400;
-    const samplesPerPeak = Math.max(1, Math.floor(channel.length / peaks));
+    const ab = await res.arrayBuffer();
+    const buf = await audioCtx.decodeAudioData(ab.slice(0));
+    waveformDuration = buf.duration;
+    const ch = buf.getChannelData(0);
+    const peaks = Math.min(400, ch.length);
+    const spp = Math.max(1, Math.floor(ch.length / peaks));
     waveformPeaks = [];
     for (let i = 0; i < peaks; i++) {
-      const start = i * samplesPerPeak;
       let max = 0;
-      for (let j = 0; j < samplesPerPeak && start + j < channel.length; j++) {
-        max = Math.max(max, Math.abs(channel[start + j]));
-      }
+      for (let j = 0; j < spp && i * spp + j < ch.length; j++) max = Math.max(max, Math.abs(ch[i * spp + j]));
       waveformPeaks.push(max);
     }
     drawWaveform(0);
-  } catch {
-    waveformPeaks = null;
-  }
+  } catch { waveformPeaks = null; }
 }
 
-function drawWaveform(playheadRatio) {
+function drawWaveform(ratio) {
   const ctx = waveformCanvas.getContext('2d');
   const w = waveformCanvas.width;
   const h = waveformCanvas.height;
@@ -172,99 +301,65 @@ function drawWaveform(playheadRatio) {
   const mid = h / 2;
   ctx.fillStyle = '#888';
   for (let i = 0; i < waveformPeaks.length; i++) {
-    const peak = waveformPeaks[i];
-    const barH = Math.max(1, peak * (h - 4));
+    const barH = Math.max(1, waveformPeaks[i] * (h - 4));
     ctx.fillRect(i * barW, mid - barH / 2, Math.max(1, barW - 0.5), barH);
   }
-  if (playheadRatio > 0) {
-    const px = playheadRatio * w;
+  if (ratio > 0) {
     ctx.fillStyle = '#fff';
-    ctx.fillRect(px - 0.5, 0, 1, h);
+    ctx.fillRect(ratio * w - 0.5, 0, 1, h);
   }
 }
 
 // Transitions
 function scheduleTransitions() {
-  const cuts = summary?.cuts ?? [];
-  let cursor = 0;
   transitionPlate.style.transition = 'opacity 0.3s';
-  const check = () => {
-    if (!isPlaying) { requestAnimationFrame(check); return; }
-    for (let i = 0; i < cuts.length; i++) {
-      const cut = cuts[i];
-      const speed = cut.speed || 1;
-      const inSec = cut.in || 0;
-      const outSec = cut.out || inSec + 1;
-      const durationSec = (outSec - inSec) / speed;
-      const at = cut.at;
-      if (at !== undefined) cursor = at;
-      const nextStart = cursor + (at === undefined ? durationSec : 0);
-      if (cut.transitionOut && outputTime >= nextStart - cut.transitionOut.duration && outputTime < nextStart) {
-        const local = outputTime - (nextStart - cut.transitionOut.duration);
-        const progress = local / cut.transitionOut.duration;
-        const type = cut.transitionOut.type;
-        if (type === 'fade-black' || type === 'fade-white') {
-          transitionPlate.style.background = type === 'fade-black' ? '#000' : '#fff';
-          transitionPlate.style.opacity = String(progress);
-          transitionPlate.style.visibility = 'visible';
-        }
-        requestAnimationFrame(check); return;
-      } else if (at === undefined) cursor += durationSec;
-    }
-    transitionPlate.style.opacity = '0';
-    transitionPlate.style.visibility = 'hidden';
-    requestAnimationFrame(check);
-  };
-  check();
 }
 
-// Playback
-function getVideoTimeForOutput(outTime) {
+function getVideoTimeForOutput(t) {
   let acc = 0;
   for (const seg of segments) {
-    if (seg.isGap) {
-      if (outTime <= acc + seg.durationSec) return -1;
-      acc += seg.durationSec;
-      continue;
-    }
-    if (outTime <= acc + seg.durationSec) {
-      const localOut = outTime - acc;
-      return seg.inSec + localOut * seg.speed;
+    if (seg.isGap) { acc += seg.durationSec; continue; }
+    if (t <= acc + seg.durationSec || seg === segments[segments.length - 1]) {
+      const local = t - acc;
+      return seg.inSec + local * seg.speed;
     }
     acc += seg.durationSec;
   }
-  return segments.length > 0 ? segments[segments.length - 1]?.inSec ?? 0 : 0;
+  return 0;
 }
 
-function getActiveSegment(outTime) {
-  let acc = 0;
-  for (const seg of segments) {
-    if (outTime <= acc + seg.durationSec || seg === segments[segments.length - 1]) return seg;
-    acc += seg.durationSec;
-  }
-  return null;
-}
-
-function seekTo(outTime) {
-  outputTime = Math.max(0, Math.min(outTime, totalDuration));
+function seekTo(t) {
+  outputTime = Math.max(0, Math.min(t, totalDuration));
   const videoTime = getVideoTimeForOutput(outputTime);
-  const seg = getActiveSegment(outputTime);
-  if (videoTime >= 0 && seg && !seg.isGap) {
-    video.src = timelineData.clips[seg.index]?.src || video.src;
+  if (videoTime >= 0) {
+    const seg = getActiveSegment(outputTime);
+    if (seg && seg.index >= 0) video.src = getVideoSource(seg.index);
     video.currentTime = videoTime;
   }
   seek.value = outputTime;
   updateTimeLabel();
   updateOverlays();
+  syncAudio(outputTime);
+}
+
+function getActiveSegment(t) {
+  let acc = 0;
+  for (const seg of segments) {
+    if (t <= acc + seg.durationSec || seg === segments[segments.length - 1]) return seg;
+    acc += seg.durationSec;
+  }
+  return null;
 }
 
 function play() {
   if (isPlaying || segments.length === 0) return;
   isPlaying = true;
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  for (const src of audioSources) {
-    if (!src.started) { src.start(); src.started = true; }
+  if (audioCtx?.state === 'suspended') audioCtx.resume();
+  if (bgmNode?._source && !bgmNode._source._started) {
+    bgmNode._source.start();
+    bgmNode._source._started = true;
   }
+  syncAudio(outputTime);
   video.play();
   playToggle.innerHTML = pauseIcon;
   playToggle.setAttribute('aria-label', '一時停止');
@@ -289,20 +384,14 @@ function playbackLoop() {
   lastWallMs = now;
 
   outputTime += dt;
-  if (outputTime >= totalDuration) {
-    outputTime = totalDuration;
-    pause();
-    return;
-  }
+  if (outputTime >= totalDuration) { outputTime = totalDuration; pause(); return; }
 
-  const targetVideoTime = getVideoTimeForOutput(outputTime);
+  const target = getVideoTimeForOutput(outputTime);
   const seg = getActiveSegment(outputTime);
-  if (targetVideoTime >= 0 && seg && !seg.isGap) {
-    const currentSrc = timelineData.clips[seg.index]?.src;
-    if (currentSrc && video.src !== currentSrc) video.src = currentSrc;
-    if (Math.abs(video.currentTime - targetVideoTime) > 0.1) {
-      video.currentTime = targetVideoTime;
-    }
+  if (target >= 0 && seg && seg.index >= 0) {
+    const src = getVideoSource(seg.index);
+    if (src && video.src !== src) video.src = src;
+    if (Math.abs(video.currentTime - target) > 0.1) video.currentTime = target;
   }
 
   seek.value = outputTime;
@@ -310,17 +399,43 @@ function playbackLoop() {
   updateOverlays();
   updateWaveformPlayhead();
   updateCaption();
+  updateTransitions();
+  syncAudio(outputTime);
   requestAnimationFrame(playbackLoop);
 }
 
 function updateWaveformPlayhead() {
-  if (!waveformPeaks || waveformDuration <= 0) return;
+  if (!waveformPeaks || totalDuration <= 0) return;
   const ratio = outputTime / totalDuration;
   drawWaveform(ratio);
   waveformPlayhead.style.left = `${ratio * 100}%`;
 }
 
-// Transport
+function updateTransitions() {
+  const cuts = summary?.cuts ?? [];
+  if (!cuts.length) return;
+  let cursor = 0;
+  for (let i = 0; i < cuts.length; i++) {
+    const cut = cuts[i];
+    const speed = cut.speed || 1;
+    const inSec = cut.in || 0;
+    const outSec = cut.out || inSec + 1;
+    const dur = (outSec - inSec) / speed;
+    if (cut.at !== undefined) cursor = cut.at;
+    const nextStart = cursor + (cut.at !== undefined ? 0 : dur);
+    if (cut.transitionOut && outputTime >= nextStart - cut.transitionOut.duration && outputTime < nextStart) {
+      const p = (outputTime - (nextStart - cut.transitionOut.duration)) / cut.transitionOut.duration;
+      transitionPlate.style.background = cut.transitionOut.type === 'fade-white' ? '#fff' : '#000';
+      transitionPlate.style.opacity = String(p);
+      transitionPlate.style.visibility = 'visible';
+      return;
+    }
+    if (cut.at === undefined) cursor += dur;
+  }
+  transitionPlate.style.opacity = '0';
+  transitionPlate.style.visibility = 'hidden';
+}
+
 function updateTimeLabel() {
   const fmt = (sec) => {
     const m = Math.floor(sec / 60);
@@ -337,10 +452,10 @@ skipBack.addEventListener('click', () => { pause(); seekTo(outputTime - 10); });
 skipForward.addEventListener('click', () => { pause(); seekTo(outputTime + 10); });
 
 seek.addEventListener('input', () => {
-  const wasPlaying = isPlaying;
-  if (wasPlaying) pause();
+  const was = isPlaying;
+  if (was) pause();
   seekTo(Number(seek.value));
-  if (wasPlaying) play();
+  if (was) play();
 });
 
 document.addEventListener('keydown', (e) => {
@@ -356,9 +471,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-video.addEventListener('loadedmetadata', () => {
-  if (isPlaying) video.play();
-});
+video.addEventListener('loadedmetadata', () => { if (isPlaying) video.play(); });
 
 // Waveform toggle
 let waveformVisible = false;
@@ -372,26 +485,22 @@ waveformToggle.addEventListener('click', () => {
 // Zoom
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 8;
-
 function updateZoom() {
   zoomLayer.style.transform = `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`;
   zoomValue.textContent = `${Math.round(zoom * 100)}%`;
   zoomSlider.value = Math.log2(zoom / ZOOM_MIN) / Math.log2(ZOOM_MAX / ZOOM_MIN);
 }
-
 zoomToggle.addEventListener('click', () => {
   const open = !zoomPopup.hidden;
   zoomPopup.hidden = open;
   zoomToggle.setAttribute('aria-expanded', String(!open));
 });
-
 zoomSlider.addEventListener('input', () => {
   const t = Number(zoomSlider.value);
   zoom = ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, t);
   pan = { x: 0, y: 0 };
   updateZoom();
 });
-
 document.querySelectorAll('.zoom-preset').forEach(btn => {
   btn.addEventListener('click', () => {
     zoom = Number(btn.dataset.zoom);
@@ -401,8 +510,6 @@ document.querySelectorAll('.zoom-preset').forEach(btn => {
     zoomToggle.setAttribute('aria-expanded', 'false');
   });
 });
-
-// Zoom via Ctrl+wheel
 wrapper.addEventListener('wheel', (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
@@ -411,8 +518,6 @@ wrapper.addEventListener('wheel', (e) => {
   pan = { x: 0, y: 0 };
   updateZoom();
 }, { passive: false });
-
-// Pan
 wrapper.addEventListener('pointerdown', (e) => {
   if (zoom <= 1 || e.target.closest('.icon-button, .zoom-popup, #seek')) return;
   drag = { startX: e.clientX - pan.x, startY: e.clientY - pan.y };
@@ -425,12 +530,7 @@ wrapper.addEventListener('pointermove', (e) => {
   pan.y = e.clientY - drag.startY;
   updateZoom();
 });
-wrapper.addEventListener('pointerup', () => {
-  drag = null;
-  wrapper.style.cursor = '';
-});
-
-// Fullscreen
+wrapper.addEventListener('pointerup', () => { drag = null; wrapper.style.cursor = ''; });
 fullscreenToggle.addEventListener('click', () => {
   if (document.fullscreenElement) {
     document.exitFullscreen();
@@ -445,91 +545,66 @@ fullscreenToggle.addEventListener('click', () => {
 
 // Overlay runtime
 function createOverlayRuntime() {
-  const mountedOverlays = [];
-  function unmount() { stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove()); mountedOverlays.length = 0; }
-  function mount(summary) {
+  const overlays = [];
+  function unmount() { stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove()); overlays.length = 0; }
+  function mount(s) {
     unmount();
-    const overlays = summary?.overlays;
-    if (!Array.isArray(overlays)) return;
-    const fragment = document.createDocumentFragment();
-    for (const overlay of overlays) {
-      const start = Number(overlay.start) || 0;
-      const duration = Number(overlay.duration) || 0;
-      const container = document.createElement('div');
-      container.dataset.overlayId = String(overlay.id);
-      container.dataset.start = String(start);
-      container.dataset.duration = String(duration);
-      container.style.cssText = 'position:absolute;inset:0;pointer-events:auto;visibility:hidden;';
-      if (overlay.transform) {
-        const t = overlay.transform;
-        container.style.transform = `translate(${t.x || 0}px,${t.y || 0}px) scale(${t.scale || 1}) rotate(${t.rotate || 0}deg)`;
+    if (!Array.isArray(s?.overlays)) return;
+    const frag = document.createDocumentFragment();
+    for (const o of s.overlays) {
+      const c = document.createElement('div');
+      c.dataset.overlayId = String(o.id);
+      c.dataset.start = String(o.start);
+      c.dataset.duration = String(o.duration);
+      c.style.cssText = 'position:absolute;inset:0;pointer-events:auto;visibility:hidden;';
+      if (o.transform) {
+        const t = o.transform;
+        c.style.transform = `translate(${t.x||0}px,${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`;
       }
-      container.innerHTML = overlay.html || '';
-      fragment.appendChild(container);
-      mountedOverlays.push({ container, start, duration, visible: false });
+      c.innerHTML = o.html || '';
+      frag.appendChild(c);
+      overlays.push({ el: c, start: o.start, duration: o.duration, visible: false });
     }
-    stage.appendChild(fragment);
+    stage.appendChild(frag);
   }
   function tick(t) {
-    for (const overlay of mountedOverlays) {
-      const visible = overlay.start <= t && t < overlay.start + overlay.duration;
-      if (visible !== overlay.visible) { overlay.container.style.visibility = visible ? 'visible' : 'hidden'; overlay.visible = visible; }
-      if (!visible) continue;
-      const localMs = Math.max(0, (t - overlay.start) * 1000);
-      const animations = overlay.container.getAnimations({ subtree: true });
-      for (const a of animations) { a.pause(); a.currentTime = localMs; }
+    for (const o of overlays) {
+      const v = o.start <= t && t < o.start + o.duration;
+      if (v !== o.visible) { o.el.style.visibility = v ? 'visible' : 'hidden'; o.visible = v; }
+      if (!v) continue;
+      const ms = Math.max(0, (t - o.start) * 1000);
+      for (const a of o.el.getAnimations({ subtree: true })) { a.pause(); a.currentTime = ms; }
     }
   }
   return { mount, tick, unmount };
 }
-
-function updateOverlays() {
-  if (window.akari?.runtime) window.akari.runtime.tick(outputTime);
-}
+function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
 
 // Enhanced captions
-let currentCaptionSegments = [];
-let captionRAF = null;
-
 function updateCaption() {
   const caps = summary?.captions;
-  if (!Array.isArray(caps) || caps.length === 0) return;
+  if (!Array.isArray(caps) || !caps.length) { captionPlate.textContent = ''; return; }
   const active = caps.find(c => {
-    const start = Number(c.start) || 0;
-    const dur = Number(c.duration) || 0;
-    return outputTime >= start && outputTime < start + dur;
+    const s = Number(c.start) || 0, d = Number(c.duration) || 0;
+    return outputTime >= s && outputTime < s + d;
   });
-  if (!active) {
-    captionPlate.textContent = '';
-    if (captionRAF) { cancelAnimationFrame(captionRAF); captionRAF = null; }
-    return;
-  }
+  if (!active) { captionPlate.textContent = ''; return; }
   const words = active.words ?? [];
-  if (words.length > 0 && Array.isArray(words)) {
+  if (words.length > 0) {
     const start = Number(active.start) || 0;
     const localMs = (outputTime - start) * 1000;
-    captionPlate.innerHTML = words.map((w) => {
-      const wStart = (w.t ?? 0);
-      const wDur = (w.d ?? 0.3);
-      const wEnd = wStart + wDur;
-      const isPast = localMs >= wEnd;
-      const isActive = localMs >= wStart && localMs < wEnd;
-      let color = '#fff';
-      let shadow = '0 1px 2px #000';
-      if (isPast) { color = '#aaa'; shadow = 'none'; }
-      else if (isActive) { color = '#ff0'; shadow = '0 0 8px rgba(255,255,0,0.6)'; }
-      return `<span style="color:${color};text-shadow:${shadow};transition:color 0.05s">${escapeHtml(w.t ? (w.word || w.w || '') : (w.word || w.w || w))}</span>`;
+    captionPlate.innerHTML = words.map(w => {
+      const ws = (w.t ?? 0), wd = (w.d ?? 0.3), we = ws + wd;
+      let color = '#fff', shadow = '0 1px 2px #000';
+      if (localMs >= we) { color = '#aaa'; shadow = 'none'; }
+      else if (localMs >= ws) { color = '#ff0'; shadow = '0 0 8px rgba(255,255,0,0.6)'; }
+      return `<span style="color:${color};text-shadow:${shadow};transition:color 0.05s">${esc(w.word || w.w || (typeof w === 'string' ? w : ''))}</span>`;
     }).join(' ');
   } else {
     captionPlate.textContent = active.text || active.caption || '';
   }
 }
-
-function escapeHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 // Message
 function showMessage(text) {
@@ -539,18 +614,17 @@ function showMessage(text) {
 
 // WebSocket live reload
 function connectWs() {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${protocol}//${location.host}`);
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}`);
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.type === 'reload') location.reload();
+      if (msg.type === 'reload' || msg.type === 'captions-reload') location.reload();
     } catch {}
   };
   ws.onclose = () => setTimeout(connectWs, 2000);
   ws.onerror = () => ws.close();
 }
 
-// Boot
 init();
 connectWs();
