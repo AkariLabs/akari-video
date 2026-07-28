@@ -7,7 +7,7 @@ AKARI Video は UI がなくても Claude Code だけで完結します（headle
 
 ## 前提
 
-- macOS（Windows 対応は準備中 — [dev/windows-build.md](./dev/windows-build.md)）
+- macOS、Linux（WSL2 含む）、Windows
 - [Claude Code](https://claude.com/claude-code) または [opencode](https://opencode.ai)
 - ffmpeg・whisper.cpp などの CLI ツール類は、初回セットアップ時にスキルが確認・案内します
 

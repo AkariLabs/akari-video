@@ -20,8 +20,8 @@ You can go a full loop for free, locally — proxy generation, transcription
 and export.
 
 **Q. What about Windows?**
-In progress. Currently macOS only (progress:
-[dev/windows-build.md](../dev/windows-build.md) (Japanese)).
+Windows is supported (including WSL2). See [dev/windows-build.md](../dev/windows-build.md)
+for build details (Japanese).
 
 ## Editing & data
 

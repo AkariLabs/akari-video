@@ -17,7 +17,7 @@
 VOICEVOX ナレーション・lint・書き出しまで、ローカル無償で一周できます。
 
 **Q. Windows は？**
-準備中です。現状は macOS のみ（進捗: [dev/windows-build.md](../dev/windows-build.md)）。
+Windows（WSL2 含む）に対応しています。詳細は [dev/windows-build.md](../dev/windows-build.md) を参照。
 
 ## 編集・データ
 

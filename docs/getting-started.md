@@ -8,7 +8,7 @@ intake form.
 
 ## Prerequisites
 
-- macOS (Windows support is in progress — [dev/windows-build.md](./dev/windows-build.md), Japanese)
+- macOS, Linux (WSL2 included), or Windows
 - [Claude Code](https://claude.com/claude-code) or [opencode](https://opencode.ai)
 - CLI tools such as ffmpeg and whisper.cpp are checked and guided through by the skills
   on first setup
