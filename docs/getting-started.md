@@ -19,11 +19,11 @@ or when you want to add titles, captions, and narration but find it tedious to d
 ## Prerequisites — what you need
 
 AKARI Video runs in the terminal (command line).
-Install the following three items in order.
+You need **three things**: Node.js, an AI agent, and ffmpeg.
 
 **Auto-install (recommended)**:
 
-Copy and run the command for your OS.
+Run only **one** command — the one for your OS.
 
 **Windows (PowerShell)**:
 ```sh
