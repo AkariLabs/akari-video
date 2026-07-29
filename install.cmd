@@ -96,6 +96,9 @@ echo ━━━━━━━━━━━━━━━━━━━━━━━━━
 echo   Installation complete!
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo.
+echo   0. ヘルプを表示（サブコマンド一覧）
+echo      akari.cmd --help
+echo.
 echo   1. 作業用ディレクトリを作って移動
 echo      mkdir C:\Users\%USERNAME%\my-first-video ^&^& cd /d C:\Users\%USERNAME%\my-first-video
 echo.

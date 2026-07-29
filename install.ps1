@@ -137,6 +137,9 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 Write-Host ""
 Write-Host "  Quick start:"
 Write-Host ""
+Write-Host "    0. ヘルプを表示（サブコマンド一覧）"
+Write-Host "       akari.ps1 --help" -ForegroundColor DarkGray
+Write-Host ""
 Write-Host "    1. 作業用ディレクトリを作って移動"
 Write-Host "       mkdir ~/my-first-video; cd ~/my-first-video" -ForegroundColor DarkGray
 Write-Host ""
