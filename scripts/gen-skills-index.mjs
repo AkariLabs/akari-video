@@ -74,7 +74,7 @@ const skills = skillNames.map((name) => {
   return fm;
 });
 
-for (const adapter of ['.claude/skills', '.agents/skills', '.codex/skills']) {
+for (const adapter of ['.claude/skills', '.agents/skills', '.codex/skills', '.opencode/skills']) {
   for (const name of skillNames) {
     const link = join(root, adapter, name);
     let target;

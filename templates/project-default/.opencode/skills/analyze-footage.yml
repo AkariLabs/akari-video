@@ -1,0 +1,16 @@
+name: analyze-footage
+description: 動画素材 1 本から 720p プロキシ、ローカル既定の文字起こし（Mac は macOS SpeechAnalyzer / 共通は whisper.cpp・クラウドは承認制）、視認済みキーフレーム、編集イベント、人物関連トラックを作り、analysis.json v0 にまとめるスキル。新しい撮影素材を取り込むとき、素材単体の編集前分析を頼まれたとき、または edit-plan の前処理として素材ごとの分析が必要なときに使う。
+triggers:
+  - 素材を分析して
+  - analyze footage
+  - 動画を分析
+  - プロキシ作成
+  - 文字起こし
+tools:
+  - bash
+  - read
+  - write
+  - edit
+  - grep
+  - glob
+skillPath: ../../skills/analyze-footage/SKILL.md

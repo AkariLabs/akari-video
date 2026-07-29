@@ -26,8 +26,8 @@ The canonical edit state is `edit.json` plus overlay HTML fragments.
   Fast, robust, traceable with git diff
 - Human actions (drags, value changes, text edits) are always written back to the same
   data. Humans and AI share the same files without colliding
-- Whichever entrance you touch it from (terminal / Claude Code session / app), everything
-  converges on the same file contracts
+- Whichever entrance you touch it from (terminal / opencode session / Claude Code session / app),
+  everything converges on the same file contracts
 
 ### 3. No presets for expression
 

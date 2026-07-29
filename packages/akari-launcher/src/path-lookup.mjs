@@ -45,3 +45,26 @@ export function findClaudeExecutable(pathEnv = process.env.PATH ?? '', platform 
   }
   return null;
 }
+
+/**
+ * PATH 上に `opencode` 実行ファイルがあるかを探す。`findClaudeExecutable` と同じ規約。
+ */
+export function findOpencodeExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
+  const directories = pathEnv.split(path.delimiter).filter(Boolean);
+  const candidateNames = platform === 'win32'
+    ? resolveWindowsExtensions(pathExt).map((extension) => `opencode${extension.toLowerCase()}`)
+    : ['opencode'];
+
+  for (const directory of directories) {
+    for (const name of candidateNames) {
+      const candidate = path.join(directory, name);
+      try {
+        accessSync(candidate, fsConstants.X_OK);
+        return candidate;
+      } catch {
+        // このディレクトリには無い。次を探す。
+      }
+    }
+  }
+  return null;
+}
