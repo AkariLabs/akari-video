@@ -64,7 +64,12 @@ set INSTALL_DIR=%USERPROFILE%\akari-video
 if exist "%INSTALL_DIR%\.git" (
     echo Pulling latest...
     cd /d "%INSTALL_DIR%"
-    git pull --ff-only
+    git fetch origin
+    git merge --ff-only origin/main 2>nul
+    if !ERRORLEVEL! neq 0 (
+        echo   Fast-forward failed -- resetting to origin/main...
+        git reset --hard origin/main
+    )
 ) else if exist "%INSTALL_DIR%" (
     echo Directory exists: %INSTALL_DIR% — skipping clone.
 ) else (

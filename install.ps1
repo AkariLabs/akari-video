@@ -106,7 +106,7 @@ if (-not $ffmpegOk -and -not $SkipDeps -and $nodeOk) {
 Write-Host ""
 if (Test-Path "$InstallDir\.git") {
     Write-Info "Repository exists at $InstallDir — pulling latest..."
-    Push-Location $InstallDir; git pull --ff-only 2>$null; Pop-Location
+    Push-Location $InstallDir; git fetch origin; if (-not (git merge --ff-only origin/main 2>$null)) { Write-Warn "  Fast-forward failed — resetting to origin/main..."; git reset --hard origin/main }; Pop-Location
 } elseif (Test-Path $InstallDir) {
     Write-Warn "Directory exists but is not a git repo: $InstallDir — skipping."
 } else {

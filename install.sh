@@ -208,7 +208,13 @@ echo ""
 if [[ -d "$INSTALL_DIR/.git" ]]; then
     info "Repository exists at $INSTALL_DIR"
     info "Pulling latest..."
-    git -C "$INSTALL_DIR" pull --ff-only 2>/dev/null || warn "Could not pull. Using existing version."
+    git -C "$INSTALL_DIR" fetch origin 2>&1 | grep -v "^remote:" || true
+    if git -C "$INSTALL_DIR" merge --ff-only origin/main 2>&1; then
+        info "  Updated to $(git -C "$INSTALL_DIR" log --oneline -1)"
+    else
+        warn "  Fast-forward failed — resetting to origin/main..."
+        git -C "$INSTALL_DIR" reset --hard origin/main
+    fi
 elif [[ -d "$INSTALL_DIR" ]]; then
     warn "Directory exists but is not a git repo: $INSTALL_DIR — skipping clone."
 else
@@ -218,7 +224,7 @@ fi
 
 echo ""
 info "Installing npm dependencies..."
-(cd "$INSTALL_DIR" && npm install --ignore-scripts --no-audit --no-fund --loglevel=error 2>&1 | grep -v "^npm warn" || true)
+(cd "$INSTALL_DIR" && npm install --no-audit --no-fund --loglevel=error 2>&1 | grep -v "^npm warn" || true)
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
