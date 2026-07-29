@@ -724,8 +724,8 @@ function getActiveSegment(t) {
   return null;
 }
 
-function seekTo(t, opts = {}) {
-  if (!opts.keepCutPopup) cutInfoPopup.hidden = true;
+function seekTo(t) {
+  cutInfoPopup.hidden = true;
   const prev = outputTime;
   outputTime = Math.max(0, Math.min(t, totalDuration));
   if (Math.abs(outputTime - prev) > 0.05) logReviewEvent('seek', { from: +prev.toFixed(3), to: +outputTime.toFixed(3) });
@@ -1078,7 +1078,7 @@ seekVisual.addEventListener('click', (e) => {
   const ratio = (e.clientX - rect.left) / rect.width;
   const t = Math.max(0, Math.min(totalDuration, ratio * totalDuration));
   const w = isPlaying; if (w) pause();
-  seekTo(t, { keepCutPopup: true });
+  seekTo(t);
   showCutInfoAt(t);
   if (w) play();
 });
@@ -1091,7 +1091,7 @@ skipForward.addEventListener('click', () => { pause(); seekTo(outputTime + 10); 
 seek.addEventListener('input', () => {
   const t = Number(seek.value);
   const w = isPlaying; if (w) pause();
-  seekTo(t, { keepCutPopup: true });
+  seekTo(t);
   showCutInfoAt(t);
   if (w) play();
 });

@@ -46,7 +46,7 @@ function startServer(projectDir, port) {
     path.join(root, 'packages/preview-server/src/server.mjs'),
     projectDir,
     '--port', String(port),
-  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  ], { stdio: 'ignore' });
   return proc;
 }
 
@@ -74,14 +74,48 @@ async function httpJson(method, port, pathname, body) {
   });
 }
 
-// B1: seek handler opens popup (static source check)
-{
-  const app = fs.readFileSync(path.join(root, 'packages/preview-server/public/app.js'), 'utf8');
-  const b1Input = app.includes('keepCutPopup: true') && app.includes('showCutInfoAt(t)');
-  const b1SeekTo = app.includes('if (!opts.keepCutPopup) cutInfoPopup.hidden = true');
-  if (b1Input && b1SeekTo) {
-    pass('B1', 'シークバー input で showCutInfoAt + seekTo(keepCutPopup)（seekTo が即閉じない）');
-  } else fail('B1', 'シークバー input ハンドラ未修正', `input=${b1Input} seekTo=${b1SeekTo}`);
+function getListenOutput(port) {
+  const ss = spawnSync('ss', ['-tlnp'], { encoding: 'utf8' });
+  if (ss.status === 0 && ss.stdout?.trim()) return ss.stdout;
+  const netstat = spawnSync('netstat', ['-tlnp'], { encoding: 'utf8' });
+  if (netstat.status === 0 && netstat.stdout?.trim()) return netstat.stdout;
+  const lsof = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
+  if (lsof.status === 0 && lsof.stdout?.trim()) return lsof.stdout;
+  return '';
+}
+
+function isLoopbackBind(port, listenOut) {
+  const portLines = listenOut.split('\n').filter((l) => l.includes(String(port))).join('\n');
+  return portLines.includes(`127.0.0.1:${port}`) && !/0\.0\.0\.0:\d+|\*:\d+|\[::\]:/.test(portLines);
+}
+
+async function verifySeekPopupOpens(port) {
+  try {
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage();
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.waitForSelector('#seek', { timeout: 10000 });
+      return await page.evaluate(async () => {
+        for (let i = 0; i < 50; i++) {
+          const seek = document.getElementById('seek');
+          if (seek && Number(seek.max) > 0) {
+            seek.value = String(Number(seek.max) * 0.5);
+            seek.dispatchEvent(new Event('input', { bubbles: true }));
+            const popup = document.getElementById('cut-info-popup');
+            return popup && popup.hidden === false;
+          }
+          await new Promise((r) => setTimeout(r, 200));
+        }
+        return false;
+      });
+    } finally {
+      await browser.close().catch(() => {});
+    }
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
 // B2: lint tmp file
@@ -122,19 +156,26 @@ async function httpJson(method, port, pathname, body) {
 }
 
 // B6: bind 127.0.0.1
-const port = 4012 + (process.pid % 100);
+const port = 4100 + Math.floor(Math.random() * 500);
 const project = path.join(root, 'test-project');
 let proc;
 try {
   proc = startServer(project, port);
   await waitForServer(port);
-  const listenOut = spawnSync('ss', ['-tlnp'], { encoding: 'utf8' }).stdout
-    || spawnSync('netstat', ['-tlnp'], { encoding: 'utf8' }).stdout
-    || '';
-  if (listenOut.includes(`127.0.0.1:${port}`) && !listenOut.match(new RegExp(`0\\.0\\.0\\.0:${port}|\\*:${port}`))) {
+  const listenOut = getListenOutput(port);
+  if (isLoopbackBind(port, listenOut)) {
     pass('B6', `プレビューサーバーが 127.0.0.1:${port} にバインド`, listenOut.split('\n').find((l) => l.includes(String(port)))?.trim());
   } else {
     fail('B6', '127.0.0.1 バインド未確認', listenOut.split('\n').filter((l) => l.includes(String(port))).join(' | '));
+  }
+
+  try {
+    const popupResult = await verifySeekPopupOpens(port);
+    if (popupResult === true) pass('B1', 'シーク input → #cut-info-popup が hidden=false（Playwright）');
+    else if (popupResult && popupResult.error) fail('B1', 'Playwright ポップアップ検証', popupResult.error);
+    else fail('B1', 'シーク後もポップアップが hidden のまま');
+  } catch (e) {
+    fail('B1', 'Playwright ポップアップ検証', e.message);
   }
 
   // B2 runtime: invalid PUT lints new content

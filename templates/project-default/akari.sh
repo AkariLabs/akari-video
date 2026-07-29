@@ -96,6 +96,8 @@ cmd_preview() {
 
 # ─── Main ───
 if [[ $# -eq 0 ]]; then
+  # デフォルトは Claude Code（launcher の自動検出に任せる）
+  # --opencode を付けたい場合は明示的に指定
   exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs"
 fi
 
@@ -107,23 +109,31 @@ case "$1" in
     echo "Usage: $SCRIPT_NAME [command] [options...]"
     echo ""
     echo "Commands:"
-    echo "  (no args)             Launch AI agent (opencode or Claude Code)"
+    echo "  (no args)             Launch AI agent (Claude Code優先)"
     echo "  --preview, -pv        Start preview server"
     echo "  update                Check for updates"
-    echo "  --opencode            Launch with opencode explicitly"
+    echo "  --opencode            Use opencode instead of Claude Code"
+    echo "  --claude, --claudecode  Launch Claude Code explicitly"
+    echo "  -y, --yes             Auto-confirm (skip permissions; opencode:--auto / Claude:--permission-mode acceptEdits)"
     echo "  -h, --help, -?        Show this help"
     echo ""
-    echo "Examples:"
-    echo "  ./$SCRIPT_NAME                     # Launch AI agent"
-    echo "  ./$SCRIPT_NAME --opencode          # Launch with opencode"
-    echo "  ./$SCRIPT_NAME --preview           # Start preview server"
-    echo "  ./$SCRIPT_NAME --preview 3000      # With port"
-    echo "  ./$SCRIPT_NAME --preview ~/my-project 3000"
-    echo "  ./$SCRIPT_NAME update              # Check for updates"
+    echo "Typical workflow:"
+    echo "  1. mkdir ~/my-first-video && cd ~/my-first-video"
+    echo "  2. $SCRIPT_NAME                        # AI agent (project auto-created)"
+    echo "  3. $SCRIPT_NAME --preview               # Preview server (別の端末で)"
     echo ""
+    echo "Examples:"
+    echo "  $SCRIPT_NAME                           # Claude Code起動"
+    echo "  $SCRIPT_NAME -y                        # Claude Code + auto-confirm"
+    echo "  $SCRIPT_NAME --opencode -y             # opencode + auto-confirm"
+    echo "  $SCRIPT_NAME --preview                 # Preview (current dir)"
+    echo "  $SCRIPT_NAME --preview ~/my-project 3000"
+    echo "  $SCRIPT_NAME update"
     exit 0 ;;
   --preview|-pv) shift; cmd_preview "$@" ;;
   update) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "update" ;;
-  --opencode) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" ;;
+  --opencode) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" "$@" ;;
+  --claude|--claudecode) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--claude" "$@" ;;
+  -y|--yes) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--yes" "$@" ;;
   *) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "$@" ;;
 esac
