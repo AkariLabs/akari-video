@@ -16,7 +16,7 @@
 import { mkdir } from "node:fs/promises"
 import { dirname } from "node:path"
 import { launchBakeBrowser, withBakePage } from "../src/browser.mjs"
-import { loadTelopPreset, resolveCatalogRoot } from "../src/catalog.mjs"
+import { loadTelopPreset, resolvePresetsRoot } from "../src/presets.mjs"
 import {
   encodeMovToPreviewProxy,
   encodePngSeqToProResMov,
@@ -31,7 +31,7 @@ const HELP = `Usage:
 
 Normal bake writes the ProRes4444 mov and, by default, an alpha VP9 preview sidecar.
 For foo.mov the sidecar is foo.preview.webm; other input names receive .preview.webm.
---no-preview-proxy suppresses the sidecar. --proxy-only skips browser/catalog rendering.
+--no-preview-proxy suppresses the sidecar. --proxy-only skips browser/preset rendering.
 Preview proxies are approximate viewer assets only and are never used for final output.`
 
 function parseArgs(argv) {
@@ -101,7 +101,8 @@ async function main() {
   const fps = Number(args.fps ?? 30)
   const size = parseSize(args.size ?? "1920x1080")
   const params = args.params ? JSON.parse(args.params) : {}
-  const catalogRoot = resolveCatalogRoot(args.catalog)
+  // --presets が正。--catalog は移設前（catalog/telop）の呼び出しを壊さないための別名。
+  const presetsRoot = resolvePresetsRoot(args.presets ?? args.catalog)
 
   if (kind !== "telop" && kind !== "fx") {
     throw new Error(`[bake-layer] --kind は telop|fx のいずれか: ${kind}`)
@@ -109,7 +110,7 @@ async function main() {
   if (kind === "fx") {
     throw new Error(
       "[bake-layer] --kind fx は未対応です（2026-07-22 司令塔裁定でスコープ除外。" +
-        "catalog/fx は作られていません。telop のみ対応）。",
+        "presets/fx は作られていません。telop のみ対応）。",
     )
   }
   if (!presetId) throw new Error("[bake-layer] --preset は必須です")
@@ -120,7 +121,7 @@ async function main() {
 
   const browser = await launchBakeBrowser()
   try {
-    const { doc } = await loadTelopPreset(catalogRoot, presetId)
+    const { doc } = await loadTelopPreset(presetsRoot, presetId)
     const aspect = deriveAspect(size)
     const frames = await withBakePage(browser, size, (page) =>
       renderTelopFrames(page, { doc, bindings: params, aspect, size, duration, fps }),

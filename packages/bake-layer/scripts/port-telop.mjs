@@ -1,4 +1,4 @@
-// port-telop — 旧 akari-telop の wave3 / wave3b テンプレ（235 件）を catalog/telop/ へ全件機械移植する。
+// port-telop — 旧 akari-telop の wave3 / wave3b テンプレ（235 件）を presets/telop/ へ全件機械移植する。
 // 各テンプレの本体（AtfDoc）を template.json に、1 行メタデータを index.jsonl に書く（契約 §1.3）。
 // 旧リポは読み取り専用（絶対パスで直接 import するのみ・書き込みは一切しない）。
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises"
@@ -13,7 +13,7 @@ if (!TELOP_REPO) {
   process.exit(1)
 }
 const TELOP_COMMIT = "f2519143ad27bfa67463df2bf3c461ab6a7fa685"
-const CATALOG_TELOP = join(import.meta.dirname, "..", "..", "..", "catalog", "telop")
+const PRESETS_TELOP = join(import.meta.dirname, "..", "..", "..", "presets", "telop")
 
 async function buildIdToSourceMap() {
   const map = new Map()
@@ -73,7 +73,7 @@ function autoTagsFromId(id, kind) {
 }
 
 async function main() {
-  await mkdir(CATALOG_TELOP, { recursive: true })
+  await mkdir(PRESETS_TELOP, { recursive: true })
   const idToSource = await buildIdToSourceMap()
 
   const { wave3Templates } = await importTsBundle(join(TELOP_REPO, "src", "samples", "wave3", "index.ts"))
@@ -92,7 +92,7 @@ async function main() {
     if (curatedTags) curatedCount += 1
     const tags = curatedTags ?? autoTagsFromId(doc.id, doc.kind)
 
-    const dir = join(CATALOG_TELOP, doc.id)
+    const dir = join(PRESETS_TELOP, doc.id)
     await mkdir(dir, { recursive: true })
     await writeFile(join(dir, "template.json"), JSON.stringify(doc, null, 2) + "\n")
 
@@ -116,7 +116,7 @@ async function main() {
     indexLines.push(JSON.stringify(entry))
   }
 
-  await writeFile(join(CATALOG_TELOP, "index.jsonl"), indexLines.join("\n") + "\n")
+  await writeFile(join(PRESETS_TELOP, "index.jsonl"), indexLines.join("\n") + "\n")
 
   console.log(
     JSON.stringify({

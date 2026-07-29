@@ -95,7 +95,7 @@ test("output.look (catalog LUT 'natural') measurably shifts pixel color versus n
     const lutRgb = averageFrameRgb(lutOutput);
     const distance = colorDistance(plainRgb, lutRgb);
     t.diagnostic(`no-look RGB=${JSON.stringify(plainRgb)}; natural-LUT RGB=${JSON.stringify(lutRgb)}; distance=${distance.toFixed(2)}`);
-    // "natural" is deliberately subtle (catalog/luts/INDEX.md: a safe, minimal default look, not
+    // "natural" is deliberately subtle (presets/luts/INDEX.md: a safe, minimal default look, not
     // a strong grade like "cinematic" below) — measured empirically at ~1.9 on this fixture,
     // reproducibly nonzero (a flat neutral-gray fixture measured exactly 0.00 for comparison, see
     // git history of this test), so > 1 confirms the LUT is genuinely applied without demanding

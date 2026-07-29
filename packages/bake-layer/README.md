@@ -19,7 +19,7 @@ node bin/bake-layer.mjs --kind telop|fx --preset <id> --params <json> \
 node bin/bake-layer.mjs --proxy-only <existing.mov>
 ```
 
-- `--kind telop`: `catalog/telop/<preset>/template.json`（AtfDoc）を読み、`--params` を
+- `--kind telop`: `presets/telop/<preset>/template.json`（AtfDoc）を読み、`--params` を
   ATF の `variables` bindings として解決する
 - `--kind fx`: 未対応（エラーを返す）
 - 出力: `--out` にアルファ付き ProRes4444 `.mov`（`prores_ks -profile:v 4 -pix_fmt yuva444p10le`。
@@ -29,7 +29,7 @@ node bin/bake-layer.mjs --proxy-only <existing.mov>
   同じディレクトリの `foo.preview.webm`（`.MOV` 等も同様）。`.mov` 以外の出力名には
   `.preview.webm` をそのまま追記する
 - `--no-preview-proxy`: プレビューサイドカーを生成せず、ProRes4444 mov だけを出力する
-- `--proxy-only <existing.mov>`: puppeteer とカタログ処理を経由せず、既存 mov から上記命名の
+- `--proxy-only <existing.mov>`: puppeteer とプリセット処理を経由せず、既存 mov から上記命名の
   プレビューサイドカーだけを後追い生成する
 
 > `.preview.webm` は Chromium ビューワーでの**近似表示専用**です。最終書き出しには一切使わず、
@@ -45,10 +45,10 @@ src/find-chrome.mjs          Chrome for Testing 実行ファイル解決（pin �
 src/build-harness.mjs        harness/*.ts を esbuild でブラウザ注入用 IIFE にオンメモリ束ね
 src/harness/telop-entry.ts    vendor/telop を呼び、resolve()→drawScene() で canvas 2D に描画
 src/render-session.mjs       harness をページへ注入し、フレームごとに PNG data URL を取得
-src/catalog.mjs              catalog/telop から本体（template.json）を読む
+src/presets.mjs              presets/telop から本体（template.json）を読む
 src/encode.mjs               PNG 連番 → ProRes4444 mov / mov → alpha VP9 preview proxy
 vendor/telop/                旧エンジンのソース同梱（vendor/PROVENANCE.md に出所・commit 記録）
-scripts/port-telop.mjs        catalog/telop 全件移植スクリプト（再実行可能）
+scripts/port-telop.mjs        presets/telop 全件移植スクリプト（再実行可能）
 scripts/verify-l2.mjs         L2 検証（代表 telop 3 件を実 bake → アルファ/アニメ実測）
 ```
 

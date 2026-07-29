@@ -77,7 +77,7 @@
 | `source_project` | string | 要 | プロジェクト名 + 日付の自由記述（例 `acme-product-launch-2026-07-20`）。**パスは書かない** — プロジェクトの移動・削除で壊れる参照を持たないため（§6） |
 | `workflow` | enum | 要 | `edit`（`skills/edit-plan` の選好）/ `research`（`skills/research-plan` の選好） |
 | `confirmed` | object | 要（最低 1 フィールド） | **確認済み選好のみ**。全フィールド任意・null 不可（確認されていない項目はキー自体を書かない。§3 規律 1） |
-| `confirmed.aspect` | enum | 任意 | `16:9` / `9:16` / `1:1`（既存カタログタグの慣用値。`catalog/3d/vintage-camera/meta.json` 等の `tags[]` に既出。§6） |
+| `confirmed.aspect` | enum | 任意 | `16:9` / `9:16` / `1:1`（既存カタログタグの慣用値。`catalog/scene3d/vintage-camera/meta.json` 等の `tags[]` に既出。§6） |
 | `confirmed.target_duration_band` | string | 任意 | 尺そのものではなく帯（例 `30-60s`）。素材が変われば正確な秒数は転用できないため帯で記録する（§6） |
 | `confirmed.caption_style_ref` | string | 任意 | 字幕スタイルの参照名（カタログの telop プリセット名、または字幕方針を指す自由記述） |
 | `confirmed.bgm_profile` | string | 任意 | BGM の選好を指す自由記述（ジャンル・ムード・カタログ候補名等） |
@@ -164,7 +164,7 @@ freeze の offer-once を、それぞれ数行で組み込み recipe.md へリ�
   「このプロジェクトの」厳密な尺だが、レシピは別プロジェクトへの転用が前提。次の素材の
   尺は前回と同じにはならないため、厳密な秒数ではなく「30-60s」のような帯で好みを記録する
 - **`aspect` の enum が `16:9`/`9:16`/`1:1` の 3 値である理由**: 新しい語彙を作らず、
-  `catalog/3d/vintage-camera/meta.json` 等で既に使われているタグ慣用値をそのまま採用した
+  `catalog/scene3d/vintage-camera/meta.json` 等で既に使われているタグ慣用値をそのまま採用した
   （`edit.schema.json` の `render.master` は width/height の実数で持つが、レシピは
   「次はどの向きで作るか」という選好であり、具体的な解像度ではなく比率のカテゴリで十分）
 - **`overlay_kinds[]` を enum で縛らない理由**: `skills/overlay-authoring/` 配下のリーフは

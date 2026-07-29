@@ -12,8 +12,9 @@
 | `apps/shell/` | Theia ベースのシェル本体（タブ + ツリー + 右パートナー + 4 アイコン） |
 | `packages/` | シェル非依存ライブラリ（schemas / preview-engine / サーフェスランタイム / decision-cards） |
 | `skills/` | ステージスキル（調査・企画・編集・QA。ステージはアプリ機能にしない） |
-| `templates/` | プロジェクト雛形（英語正準: assets/ planning/ exports/ + CLAUDE.md + AGENTS.md + .akari/ + .claude/） |
+| `templates/` | プロジェクトの出発点（`templates/INDEX.md`）。**器**（`project-default/` — assets/ planning/ exports/ + CLAUDE.md + AGENTS.md + .akari/ + .claude/。コードとスキルが参照する製品の一部）と**作例**（`kaisetsu-short/` — 人が複製して改造する完成フロー）の 2 種 |
 | `catalog/` | 🧩 キュレーションカタログ定義（**参照配布のみ** — メタデータ・ツマミ宣言・プレビュー。実体バイナリは置かない） |
+| `presets/` | コードが id で引く参照表（テロップテンプレ・LUT）。素材ライブラリ契約の対象外（`presets/INDEX.md`） |
 | `docs/` | 設計文書（シェル非依存のものを internal / legacy から選別移送） |
 
 ## 設計の不変条件（正本は internal の契約群）

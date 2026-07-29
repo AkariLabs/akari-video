@@ -31,7 +31,7 @@
 ## レシピ構造（素材ライブラリ契約 v0 準拠）
 
 ```
-assets/3d/<id>/
+assets/scene3d/<id>/
   meta.json          ← knobs は param で宣言（cssVar の代わり）
   scene.py           ← 実体。bpy スクリプト（シーン構築 or .blend 読み込み + param 適用 + レンダー設定）
   *.glb / *.hdr      ← 参照アセット（ライセンス確認のうえコピー。catalog 参照配布の規律に従う）
@@ -101,7 +101,7 @@ blender -b -P scene.py -- \
 素材ライブラリ契約の「**コピーして使う。リンクしない**」をレシピにも適用する:
 
 ```
-<project>/assets/3d/<id>/     ← レシピ一式を複製（scene.py + 参照アセット + meta.json）
+<project>/assets/scene3d/<id>/     ← レシピ一式を複製（scene.py + 参照アセット + meta.json）
   bakes/                      ← ベイク出力（再生成可能・削除可）
     <id>-draft.mp4
     <id>-final.mp4
@@ -129,7 +129,7 @@ blender -b -P scene.py -- \
 - [x] bake スキル: `.claude/skills/bake-3d/SKILL.md`（scene.py authoring 契約・実行・検証・
       入庫までの手順）
 - [x] setup スキルの道具チェックに Blender を追加（条件付き道具。常設 3 道具に影響させない）
-- [x] 最初のレシピ: `assets/3d/vintage-camera-turntable/`（catalog の vintage-camera +
+- [x] 最初のレシピ: `assets/scene3d/vintage-camera-turntable/`（catalog の vintage-camera +
       studio-hdri を取得し、glTF 2k を単一 .glb へ梱包。validate-asset.mjs 通過）
 - [x] EEVEE ヘッドレス実測（Blender 5.1.2 / macOS / Apple Silicon）: 720p・16 samples で
       約 0.55 秒/フレーム。4 秒素材（120 フレーム）のドラフトが約 66 秒
@@ -143,7 +143,7 @@ blender -b -P scene.py -- \
       （draft の約 7 倍）。運用は「ツマミ調整は draft で反復、final は書き出し直前の 1 回」で確定
 - [x] プロジェクト採用フロー実戦: レシピ複製 → params 上書き → ベイク → edit.json 配置 →
       構造検証まで通過。mp4 書き出しの実機確認のみ GUI アプリ起動が必要なため未実施（既知ギャップ）
-- [x] レシピ 2 本目 `assets/3d/smartphone-mockup/`: media 型ツマミ（`screen_src`）の実証。
+- [x] レシピ 2 本目 `assets/scene3d/smartphone-mockup/`: media 型ツマミ（`screen_src`）の実証。
       スクリーン面のみ Emission 差し替え、動画差し込み時のフレーム同期も ImageUser 経由で
       frame の純関数（wall-clock 不使用）。取得元は CC0（OpenGameArt）、catalog に
       `modern-smartphone` として取得先索引も追加

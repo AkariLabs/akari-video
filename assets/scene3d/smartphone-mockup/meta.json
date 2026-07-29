@@ -1,0 +1,32 @@
+{
+  "id": "smartphone-mockup",
+  "category": "scene3d",
+  "title": "スマホモックアップ（画面差し込み・ベイクレシピ）",
+  "description": "現代的な縁なしスクリーンのスマートフォン実機モデルの画面に、任意の静止画/動画（UI キャプチャ・アプリ画面等）を差し込んでヒーローショットに焼き込むベイクレシピ。media 型ツマミ（screen_src）でスクリーンの中身だけを差し替え、ボディ形状・質感は改変しない",
+  "when_to_use": "アプリ紹介・UI 解説・プロダクトデモの冒頭カットで、実機に自社アプリ画面を映し込んだ説得力のあるモックアップ映像が要るとき。静止画のスクリーンショットでも短尺動画キャプチャでも同じレシピで焼ける",
+  "tags": ["bake-recipe", "product-demo", "smartphone", "mockup", "screen-insert", "ui", "hero-shot", "media-knob", "16:9"],
+  "knobs": [
+    { "param": "screen_src", "type": "media", "group": "content", "label": "画面に映す静止画/動画" },
+    { "param": "screen_brightness", "type": "slider", "min": 0.2, "max": 2.5, "unit": "x", "group": "content", "label": "画面の明るさ（自発光強度）" },
+    { "param": "orbit_start_deg", "type": "slider", "min": -60, "max": 60, "unit": "deg", "group": "pose", "label": "周回の開始角" },
+    { "param": "orbit_sweep_deg", "type": "slider", "min": -60, "max": 60, "unit": "deg", "group": "pose", "label": "周回量" },
+    { "param": "camera_elevation_deg", "type": "slider", "min": -20, "max": 30, "unit": "deg", "group": "pose", "label": "見下ろし角" },
+    { "param": "camera_distance", "type": "slider", "min": 0.6, "max": 2, "unit": "x", "group": "pose", "label": "寄り引き（自動フレーミング比）" },
+    { "param": "hdri_rotation_deg", "type": "slider", "min": 0, "max": 360, "unit": "deg", "group": "light", "label": "環境光の向き" },
+    { "param": "exposure", "type": "slider", "min": 0.2, "max": 2, "unit": "x", "group": "light", "label": "露出（環境光強度）" }
+  ],
+  "ai_usage": "調整はツマミ（scene.py の PARAM_DEFAULTS と 1:1）の範囲で行う。screen_src はスクリーン面（ScreenMaterial、単一 UV 島に正規化済み）の Image Texture だけを差し替え、model.glb のジオメトリ・ボディ側マテリアル（Mat）は改変しない。動画を渡す場合もフレーム同期は Blender の ImageUser 経由でシーンの現在フレームから決定的に求まる（wall-clock 不使用）。画面のアスペクト比は約 0.463:1（横:縦、edge-to-edge）のため、screen_src はこの比率に近い素材だと歪みが少ない。カメラ推奨範囲を超えるオービスは自動フレーミングが破綻しうるので推奨レンジ内で使う",
+  "requires": ["blender"],
+  "provenance": {
+    "origin": "OpenGameArt『Smartphone (phone.zip)』（nisu 投稿, https://opengameart.org/content/smartphone-2, CC0-1.0）を 2026-07-14 に取得。Phone.obj + PBR テクスチャ一式（Base Color / Metallic / Roughness / Mixed AO。Normal・Height は未使用）を Blender 5.1.2 で検品・再構築: (1) メッシュ内の全 1668 面から法線・UV サンプリングでスクリーン面を特定（front 面全体が edge-to-edge の 1 枚パネルで、3 三角形・面積合計 9935 平方単位、他の黒色面は背面カメラレンズの縁の誤検出除外済み）(2) ボディを Base Color×AO・Metallic・Roughness の Principled BSDF に再構築 (3) スクリーン面専用に新規 UV レイヤーを解析的に生成し、Emission シェーダの ScreenMaterial を新規マテリアルスロットとして追加 (4) 縦持ち姿勢になるようオブジェクトを -90° 回転して適用 (5) 単一 model.glb へ export（glTF エクスポータが Base Color×AO を単一テクスチャへ、Metallic/Roughness を ORM 相当へ自動統合）。studio-2k.hdr は catalog/scene3d/studio-hdri（Poly Haven, CC0-1.0）と同一ファイルを複製。placeholder.png は screen_src 既定値としてこのレシピのために ffmpeg で新規生成した色ブロックのみの UI モックアップ（実在 UI の模写ではない）",
+    "generator": "Claude Code (Fable 5) — scene.py 手書き・model.glb を Blender スクリプトで梱包 / 2026-07-14"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null
+}

@@ -1,0 +1,33 @@
+{
+  "id": "modern-smartphone",
+  "category": "scene3d",
+  "title": "現代的なスマートフォン 3D モデル（縁なしスクリーン）",
+  "description": "縁なし（edge-to-edge）スクリーンを持つ現代的なスマートフォンの高精細 3D モデル（4K テクスチャ、Base Color / Metallic / Roughness / Mixed AO / Normal / Height）。画面差し込みのモックアップ用途に使える",
+  "when_to_use": "アプリ紹介・UI 解説・プロダクトデモで、実機に画面を映し込んだモックアップ映像を作るとき",
+  "tags": ["product-demo", "smartphone", "mockup", "screen-insert", "ui", "hero-shot", "16:9"],
+  "knobs": [
+    { "cssVar": "--rotate-y", "type": "slider", "min": -45, "max": 45, "unit": "deg", "group": "pose", "label": "水平回転" }
+  ],
+  "ai_usage": "取得後に fragment化 / ベイクレシピ化する際は、画面（フロントパネル全体。edge-to-edgeのため単一の平面）を独立 UV 島として再展開し、Emission 等の差し替え可能な画面用マテリアルを新設してよい。ボディ側のジオメトリ・PBR テクスチャ（傷・質感等）は改変しない。付属の .mtl にはテクスチャ参照が無いため、ファイル名規約（Mat_Base_Color 等）から手動でマテリアルノードを組む必要がある",
+  "requires": ["three.js", "gltf"],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（OpenGameArt / nisu 投稿）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "nisu (opengameart.org)",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://opengameart.org/content/smartphone-2",
+    "acquisition": "direct",
+    "license_at_source": "CC0",
+    "attribution_required": false,
+    "preview_url": "https://opengameart.org/sites/default/files/phone.jpg"
+  }
+}

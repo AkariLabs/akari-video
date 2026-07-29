@@ -39,7 +39,7 @@
       "properties": {
         "aspect": {
           "enum": ["16:9", "9:16", "1:1"],
-          "$comment": "既存カタログタグの慣用値（例 catalog/3d/vintage-camera/meta.json の tags[]）をそのまま採用。新しい語彙を作らない。"
+          "$comment": "既存カタログタグの慣用値（例 catalog/scene3d/vintage-camera/meta.json の tags[]）をそのまま採用。新しい語彙を作らない。"
         },
         "target_duration_band": {
           "$ref": "#/$defs/nonEmptyString",

@@ -25,8 +25,13 @@ import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt } from '../com
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 
 const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
-/** カタログルート直下の走査対象カテゴリディレクトリ（task.md 指定の 6 種）。 */
-const CATALOG_CATEGORIES = ['3d', 'telop', 'audio', 'broll', 'font', 'luts'] as const;
+/**
+ * カタログルート直下の走査対象カテゴリディレクトリ（meta.json v0 の category enum と同値）。
+ * 2026-07-29 にカテゴリ軸を主題から配布物の形へ変更（3d→scene3d / telop→overlay /
+ * thumbnail→still）。telop テンプレと luts は同日 presets/ へ移設した（コードが id で引く
+ * 参照表であり素材カタログではないため）。
+ */
+const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'] as const;
 const CATALOG_UNRESOLVED_MESSAGE = 'カタログの場所が未設定です（設定 akari.catalog.root）';
 
 type TabId = 'materials' | 'plan' | 'catalog';
@@ -541,7 +546,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return {
             valid: false,
             reason: '選んだフォルダーにカタログの内容が見つかりません'
-                + '（3d・telop・audio・broll・font・luts のいずれかのフォルダー、または INDEX.md が必要です）。'
+                + '（scene3d・overlay・still・audio・broll・font のいずれかのフォルダー、または INDEX.md が必要です）。'
         };
     }
 
@@ -574,12 +579,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected catalogPlaceholderIcon(category: string): string {
         switch (category) {
-            case '3d': return 'codicon codicon-package';
-            case 'telop': return 'codicon codicon-text-size';
+            case 'scene3d': return 'codicon codicon-package';
+            case 'overlay': return 'codicon codicon-text-size';
+            case 'still': return 'codicon codicon-file-media';
             case 'audio': return 'codicon codicon-unmute';
             case 'broll': return 'codicon codicon-device-camera-video';
             case 'font': return 'codicon codicon-symbol-key';
-            case 'luts': return 'codicon codicon-symbol-color';
             default: return 'codicon codicon-file';
         }
     }

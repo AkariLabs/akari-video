@@ -33,7 +33,7 @@ test -x "$BLENDER" && "$BLENDER" --version | head -1
 
 # 2. scene.py の authoring 契約
 
-参照実装: [`assets/3d/vintage-camera-turntable/scene.py`](../../assets/3d/vintage-camera-turntable/scene.py)
+参照実装: [`assets/scene3d/vintage-camera-turntable/scene.py`](../../assets/scene3d/vintage-camera-turntable/scene.py)
 
 - **自己完結**: レシピディレクトリ単体をプロジェクトへコピーしても動くこと。リポ内の他ファイルを import しない。アセットは `os.path.dirname(os.path.abspath(__file__))` 相対で読む
 - **引数契約**（`--` 以降を argparse で受ける）:
@@ -60,13 +60,13 @@ test -x "$BLENDER" && "$BLENDER" --version | head -1
 
 1. `ffprobe` で解像度・fps・フレーム数が指定と一致することを確認する
 2. 先頭・中間・末尾のフレームを `ffmpeg -ss <t> -frames:v 1` で抽出して目視する（構図・ライティング・アニメーションの向き）
-3. ライブラリ入庫時は中間フレームから `preview.png` を作り、`node packages/schemas/bin/validate-asset.mjs assets/3d/<id>` を通す
+3. ライブラリ入庫時は中間フレームから `preview.png` を作り、`node packages/schemas/bin/validate-asset.mjs assets/scene3d/<id>` を通す
 
 # 5. ライブラリ入庫 / プロジェクト採用
 
 - 入庫基準は素材ライブラリ契約と同じ: シーン構築・ライティング・カメラワークの設計コストが高いレシピだけを入れる
 - meta.json は knobs を `param` で宣言し、`requires: ["blender"]`。provenance にアセットの取得元・ライセンス・梱包手順を書く
-- プロジェクト採用 = レシピ一式を `<project>/assets/3d/<id>/` へ複製 → params 上書き → ベイク → mp4 を edit.json にクリップ配置。provenance にレシピ id / 版 / params / Blender バージョンを記録する
+- プロジェクト採用 = レシピ一式を `<project>/assets/scene3d/<id>/` へ複製 → params 上書き → ベイク → mp4 を edit.json にクリップ配置。provenance にレシピ id / 版 / params / Blender バージョンを記録する
 
 # よくある間違い
 

@@ -27,7 +27,8 @@
     },
     "category": {
       "type": "string",
-      "enum": ["3d", "motion", "telop", "audio", "broll", "font", "thumbnail"]
+      "$comment": "2026-07-29 に主題（3d/motion/telop/thumbnail…）から配布物の形へ切り替えた。overlay=時間を持つ HTML 断片 / still=時間を持たない HTML シート / scene3d=glTF+Three.js またはベイクレシピ / audio=音声トラックに載るバイナリ / broll=映像トラックに載る実写バイナリ / font=書体バイナリ。主題は tags に逃がす（カテゴリを増やさない）。",
+      "enum": ["overlay", "still", "scene3d", "audio", "broll", "font"]
     },
     "title": {
       "type": "string",

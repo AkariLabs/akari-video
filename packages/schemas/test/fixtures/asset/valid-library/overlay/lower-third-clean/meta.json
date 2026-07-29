@@ -1,0 +1,32 @@
+{
+  "id": "lower-third-clean",
+  "category": "overlay",
+  "title": "クリーン・ロワーサード",
+  "description": "名前と肩書を端正な2行で見せる、ダークプレートとアクセントラインのロワーサード。日本語の人物紹介に最適化している。",
+  "when_to_use": "インタビュー、登壇者紹介、採用・企業映像など、話者の名前と肩書を落ち着いたトーンで提示するシーン",
+  "tags": ["lower-third", "nameplate", "interview", "corporate", "clean", "japanese", "16:9"],
+  "knobs": [
+    { "cssVar": "--primary-color", "type": "color", "group": "style", "label": "プレート色" },
+    { "cssVar": "--accent-color", "type": "color", "group": "style", "label": "アクセント色" },
+    { "cssVar": "--text-color", "type": "color", "group": "style", "label": "名前の色" },
+    { "cssVar": "--muted-color", "type": "color", "group": "style", "label": "肩書の色" },
+    { "cssVar": "--font-size", "type": "slider", "min": 24, "max": 64, "unit": "px", "group": "typography", "label": "名前サイズ" },
+    { "cssVar": "--role-font-size", "type": "slider", "min": 12, "max": 30, "unit": "px", "group": "typography", "label": "肩書サイズ" },
+    { "cssVar": "--max-width", "type": "slider", "min": 320, "max": 880, "unit": "px", "group": "layout", "label": "最大幅" }
+  ],
+  "ai_usage": "名前と肩書の文言は断片内の .lower-third-clean__name / __role の要素テキストを直接書き換える（人間は contenteditable、エージェントは html パッチ経由。CSS 変数でテキストを持たせない）。位置・拡大率・回転は edit.json.overlays[].transform、配色・文字サイズ・最大幅は対応する素材固有 knob で変更してよい。名前+肩書の2行階層、左アクセント、transform/opacityだけの入場構造は保つ。長い名前では先に --font-size を下げ、filter・backdrop-filter・wall-clock駆動を追加しない。",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材ライブラリ初期シード / 2026-07-13",
+    "generator": "OpenAI Codex; prompt: 日本語向けの高品質な2行ロワーサードを authoring 規約に沿って作成"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "MIT",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "matched_by": "title-normalized"
+}

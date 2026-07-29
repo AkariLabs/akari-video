@@ -17,7 +17,7 @@
 | 1 | 定速変更（クリップ単位の倍速/スロー） | `cuts[].speed`（number・既定 1.0・v0 は定速のみ、ランプは将来） | `setpts` + `atempo`（>2x/<0.5x の段組み） | 出力尺が理論値と一致（ffprobe）・音程/同期の実聴確認 1 点 |
 | 2 | クロマキー背景置換 | `source.chroma_key`: {color, similarity, blend, background(色 or 画像/動画パス)} | `chromakey`/`colorkey` + 背景入力の `overlay` | 緑背景フィクスチャで背景が置換された出力のピクセルサンプル検証 |
 | 3 | 基本トランジション | `cuts[].transition_out`: {type: dissolve/fade-black/fade-white, duration} | `xfade`（transition 指定があるカット境界のみ xfade 経路） | 境界フレームの中間ブレンド実在をフレーム抽出で確認・指定なし境界はハードカット維持 |
-| 4 | 色調フィルター（LUT） | `output.look`: {lut(カタログ参照 or パス), intensity} | `lut3d`（intensity は `blend` 併用） | LUT 有無 2 出力のフレームピクセル差分・カタログ `catalog/luts/`（初期 2〜3 本） |
+| 4 | 色調フィルター（LUT） | `output.look`: {lut(プリセット参照 or パス), intensity} | `lut3d`（intensity は `blend` 併用） | LUT 有無 2 出力のフレームピクセル差分・プリセット表 `presets/luts/`（初期 2〜3 本。2026-07-29 に `catalog/luts/` から移設） |
 | 5 | 音声マスター処理 | `audio.master`: {denoise(off/std/strong), loudnorm(target LUFS・既定 -14)} | `afftdn` / `loudnorm`（2 パスでなく 1 パス許容 v0） | 出力のラウドネス実測（ffmpeg ebur128）が目標 ±1LU |
 
 - 除外（次段送り）: ブレンドモード・PinP・プリレンダ合成レール（レイヤー機構が前提のため）

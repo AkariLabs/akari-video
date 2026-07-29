@@ -27,18 +27,22 @@
 ```
 assets/                     ← 当面はローカルディレクトリ。コミュニティ化で独立リポへ昇格
   INDEX.md                  ← 背骨。カテゴリごと 1 行説明
-  3d/
+  scene3d/
     INDEX.md                ← 「smartphone-mockup — 手に持てる iPhone 風。製品紹介向け」
     smartphone-mockup/
       meta.json
       fragment.html         ← 実体（Three.js + glTF 参照、authoring 規約準拠）
       model.glb
       preview.png
-  motion/ …
-  telop/ …
-  audio/   （bgm / sfx を tags で区別）
+  overlay/  （telop / board / mockup / motion を tags で区別）
+  still/    （サムネ構図など）
+  audio/    （bgm / sfx を tags で区別）
   broll/
+  font/
 ```
+
+> カテゴリ名は 2026-07-29 に主題軸（`3d` / `motion` / `telop` / `thumbnail`）から**配布物の形**へ
+> 切り替えた。以下本文に残る旧名は歴史的記述であり、正となる語彙は §カテゴリ軸の再定義（本書末尾）。
 
 - **階層はカテゴリ → 素材の 2 段で打ち止め**（Fab がカテゴリ縮退した教訓）。
   横断軸（雰囲気・シーン種別・アスペクト）は tags に逃がす
@@ -49,7 +53,7 @@ assets/                     ← 当面はローカルディレクトリ。コミ
 ```jsonc
 {
   "id": "smartphone-mockup",
-  "category": "3d",                       // ディレクトリと一致（単一。複数カテゴリ禁止）
+  "category": "scene3d",                  // ディレクトリと一致（単一。複数カテゴリ禁止）
   "title": "スマホ 3D モックアップ",
   "description": "手に持てる iPhone 風モックアップ。画面に任意動画/画像を差し込める",  // 検索用
   "when_to_use": "アプリ紹介・製品デモ・UI 解説のシーン",   // AI 検索の主シグナル
@@ -70,6 +74,12 @@ assets/                     ← 当面はローカルディレクトリ。コミ
 ```
 
 - `license` / `author` / `price` は**最初から予約**（後の販売プラットフォーム化で再梱包不要に）
+- **`knobs.unit` は「値に付く CSS 単位」**（2026-07-29 明確化）。`px` / `s` のように実際に
+  値へ付く単位だけを書き、**無単位の倍率・比率（短辺比など）では `unit` を省略する**。
+  意味は `label` に書く（例「木枠の太さ（短辺比。0 で枠なし）」）。この規律により、
+  ツールが `--var board-width=940` を `940px` へ、比率のツマミは数値のまま渡せる
+  （`packages/template-render`）。ここを混ぜると `width: 940` という無効な CSS が生まれ、
+  **絵は変わるが「効いた」のではなく「壊れた」**という誤検知が検査側にも起きる
 - `knobs.type` の語彙: `text` / `color` / `slider` / `dropdown` / `checkbox` / `media`
   （.mogrt と同じ心的モデル。世界中のモーションデザイナーが既に知っている語彙）
 - `.mogrt` フォーマット自体は**採用しない**（AE ランタイム前提の専有コンテナ。実行不能）。
@@ -269,3 +279,100 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
   使わない（他ソフトウェアの所有名と衝突するため）。AKARI Video 自身のキャッシュは
   プロジェクト内 `.akari/cache/` に置く（project-structure v0 契約を参照）
 - **既存物の扱い**: 併存する既存物の整理・移設は AKARI Video 側の契約・タスクの射程外
+
+## 同梱基準 — 何をリポに置き、何を取りに行かせるか（2026-07-29 オーナー裁定）
+
+**原則: 取得はオンライン、使用はローカル。** レンダー時に外部から実体を引く経路は作らない。
+
+- オンラインでやるのは**検索・プレビュー表示・購入/ライセンス検証・更新通知**まで
+- 実体は取得時にローカル層（`local` / `shared` / `user`）へ固定し、**使用は常にローカル**
+- 理由 3 点: (1) `edit.json` 自己完結の決定論が壊れる（素材が更新・削除されると過去案件を再現できない）
+  (2) レンダー中に外部 GET を挟む経路を作らない (3) 第三者素材は再配布不可のものがあり、
+  ユーザー自身の環境に取得させる構造（`remote: true`）が権利面の解でもある
+- この原則により、将来マーケットプレイス化しても**本契約の構造は変わらない**。`catalog/` が
+  外部化されるだけで、`meta.json` がそのまま API の形になる
+
+### builtin（本リポ `assets/`）に同梱してよいもの
+
+1. 素材ゼロでも製品が動くための最小シード
+2. **環境差を吸収するために必要なもの** — 書体がこれに当たる。Mac / Windows でグリフを揃える
+   土台であり、`packages/render-cut/src/captions.mjs` が焼き込みキャプションで `@font-face` 固定する。
+   実測 32 MB あるが**同梱のまま維持する**（2026-07-29 裁定）
+3. 目安: 1 素材 5 MB 以下 / builtin 合計 50 MB 程度まで。超えるものは `catalog/` へ
+
+### `catalog/`（取得先索引）へ出すもの
+
+重く、かつ環境差の吸収に不要なもの —— 3D モデル・HDRI・音源・B ロール。
+
+- 実測（2026-07-29）: `assets/scene3d/` は 20 MB で、うち `studio-2k.hdr`（6.4 MB）が
+  2 エントリに**同一内容で重複同梱**されている
+- **外出しは `asset_dependencies`（素材間依存の宣言）の導入とセットで行う。** 現行の自己完結契約
+  （validator が素材ディレクトリ外への参照を fail させる）のままバイナリだけ抜くと検証が壊れる。
+  依存を宣言できるようになれば、共有 HDRI を 1 本にまとめたうえで取得スキルが依存を先に解決できる
+
+### テンプレートのサンプル出力
+
+`templates/<name>/sample-project/` の見本 mp4・ナレーション wav は**同梱を許容する**（2026-07-29 裁定。
+実測 5 MB）。テンプレートは今後増える見込みだが、「複製してすぐ動く・完成形が見える」価値が
+数 MB のコストを上回るという判断。ただし 1 テンプレあたりの見本は最小限に保つ。
+
+## カテゴリ軸の再定義（2026-07-29）
+
+`category` を**主題**（何を表すか）から**配布物の形**（どう配られ、どう消費されるか）へ切り替える。
+主題は無限に増えて enum が追いつかないため（実際 `lut` が enum 外に生え、`assets/` 側は 4 カテゴリが
+空のまま新カテゴリ要求が発生していた）、増えない軸へ移す。
+
+| v1 category | 形の定義 | 判定 | 旧 category |
+|---|---|---|---|
+| `overlay` | 時間を持つ HTML 断片 | `fragment.html` + `data-start` / `data-duration` を持ち `overlays[]` から合成 | `telop` / `motion` |
+| `still` | 時間を持たない HTML シート | `fragment.html`。決定的スクショで画像に焼く | `thumbnail` |
+| `scene3d` | 3D モデル + 表示断片、またはベイクレシピ | `fragment.html` + glTF、または `scene.py` | `3d` |
+| `audio` | 音声トラックに載るバイナリ | `edit.json` の `audio.bgm` / `sfx` が参照 | `audio`（変更なし） |
+| `broll` | 映像トラックに載る実写バイナリ | `sources[]` が参照 | `broll`（変更なし） |
+| `font` | 書体バイナリ | `@font-face` / 焼き込みが参照 | `font`（変更なし） |
+
+- **主題は `tags` に逃がす**。`lower-third` / `board` / `chalkboard` / `frame` / `mockup` /
+  `thumbnail` / `motion` / `bgm` / `sfx` などはすべて tags であり、カテゴリにしない
+- **カテゴリを増やさない**のが本改訂の要点である。新しい主題（ホワイトボード、ノート風、付箋…）は
+  既存カテゴリ + tags で表す。カテゴリ追加を提案するときは「既存 6 つのどの形にも当てはまらない
+  配布・消費のされ方か」を先に示す
+- `audio` を `media` に畳む案は見送った。`~/.akari/assets/audio/`（user 層）に実データがあり、
+  リポ外のユーザー資産の移設を伴うため。`audio` と `broll` は消費経路（音声トラック / 映像トラック）が
+  異なるので、形の軸としても分けたままで筋が通る
+- 移行時の実績: `assets/` 3 件・`catalog/` 3 件のディレクトリ移動と `category` 値の書き換え、
+  検証は `validate-asset.mjs` を全エントリで再実行
+
+## `presets/` — 本契約の対象外（2026-07-29 新設）
+
+リポ直下の `presets/` は**素材ライブラリではない**。本契約（meta.json v0）の対象外であり、
+`validate-asset.mjs` も走らせない。
+
+| | `assets/` `catalog/`（本契約） | `presets/`（対象外） |
+|---|---|---|
+| 使い方 | 人 / AI が選び、プロジェクトへ**コピーする** | **名前で参照し続ける**（コピーしない） |
+| 改変 | コピー先で自由に改変する | 改変しない。差し替えるか再生成する |
+| 解決の主体 | 人 / AI（INDEX.md → meta.json を読む） | **コード**（解決パスが実装に埋まっている） |
+| 記述形式 | `meta.json` v0 | 各表の形式（`template.json` / `.cube` + `index.jsonl`） |
+
+現在の収録:
+
+- `presets/telop/` — ATF テロップテンプレート 36 件。`packages/bake-layer` が
+  `--preset <id>` から `presets/telop/<id>/template.json` を解決する
+- `presets/luts/` — 3D LUT 2 件（自前生成）。`packages/render-cut/src/plan.mjs` が
+  `edit.json` の `output.look.lut`（区切り文字を含まない名前）から
+  `presets/luts/<id>/<id>.cube` を解決する
+
+### 移設の経緯
+
+両者はもともと `catalog/` 配下にあったが、`catalog/` の契約（`remote: true` で**実体を持たない**
+取得先索引）と実体が矛盾していた。テロップは `meta.json` を持たない別形式、LUT は実ファイルを
+同梱したうえで本契約に合わない `meta.json` を持たされており、`validate-asset.mjs` が 1 件あたり
+8 件の赤を出していた（`category: "lut"` が enum 外・`knobs` が文字列配列・`license.spdx` が null・
+`remote: false` なのに `source` を持つ 等）。LUT 側の `meta.json` は移設に伴い
+`presets/luts/index.jsonl` へ置き換えた。
+
+### 新しい表を足すときの判定
+
+**人が選んでコピーするか / コードが id で引くか**で置き場を決める。前者は `assets/` か `catalog/`、
+後者は `presets/`。後者をここへ足すときは、解決するコードのパスと 1:1 で対応させ、その参照箇所を
+表の INDEX.md に明記する。

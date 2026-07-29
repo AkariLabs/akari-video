@@ -1,0 +1,33 @@
+{
+  "id": "vintage-camera",
+  "category": "scene3d",
+  "title": "ヴィンテージカメラ 3D モデル",
+  "description": "革ストラップと使用感のある装飾を持つ、クラシックなレンジファインダーカメラの高精細 3D モデル（27K トライアングル）。レトロ演出・製品紹介の画角作りに使える",
+  "when_to_use": "レトロ・アナログ演出のプロダクト紹介、写真/映像機材を扱う動画のヒーローショット、静物風のオープニングカットなど、実写では用意しにくい精巧な小物モデルが要るシーン",
+  "tags": ["product-demo", "vintage", "camera", "hero-shot", "prop", "16:9", "9:16", "1:1"],
+  "knobs": [
+    { "cssVar": "--rotate-y", "type": "slider", "min": -45, "max": 45, "unit": "deg", "group": "pose", "label": "水平回転" }
+  ],
+  "ai_usage": "取得後に fragment 化する際は、ポーズ（回転角）と配置・拡大率のみ変数化してよい。素材固有のジオメトリ・ベイク済みテクスチャ（革の質感・傷等）は改変しない。カメラボディの色は焼き込みテクスチャのため knob 化しない",
+  "requires": ["three.js", "gltf"],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Poly Haven）/ 2026-07-14",
+    "generator": null
+  },
+  "author": "Rajil Jose Macatangay (Poly Haven)",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://polyhaven.com/a/Camera_01",
+    "acquisition": "direct",
+    "license_at_source": "CC0 1.0",
+    "attribution_required": false,
+    "preview_url": "https://cdn.polyhaven.com/asset_img/thumbs/Camera_01.png?width=256"
+  }
+}
