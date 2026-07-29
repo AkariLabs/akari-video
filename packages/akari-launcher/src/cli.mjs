@@ -4,24 +4,39 @@ import { existsSync } from 'node:fs';
 import { createProject } from '../../project-scaffold/src/index.mjs';
 import { resolveRepoAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
-import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs';
+import {
+  findClaudeExecutable,
+  findCodexExecutable,
+  findCursorAgentExecutable,
+  findOpencodeExecutable,
+} from './path-lookup.mjs';
+import { buildHarnessArgv, harnessLaunchLabel, parseHarnessArgs } from './harnesses.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
-import { describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import {
+  describeIntake,
+  claudeMissingGuidance,
+  codexMissingGuidance,
+  cursorMissingGuidance,
+  opencodeMissingGuidance,
+  describeUpdateCommand,
+  describeVersionStatus,
+  formatUpdateNotice,
+} from './messages.mjs';
 import {
   checkForUpdateSync,
   readCacheSync,
   readOwnVersion,
   recordDismissalSync,
   resolveCachePath,
-  triggerBackgroundRefresh
+  triggerBackgroundRefresh,
 } from './update-check.mjs';
 
 /**
  * `akari` ランチャーの本体。3 入口契約（ターミナル `akari` / セッション内 `/akari` /
  * アプリ接続ボタン）のうち、ターミナル入口を実装する:
- *   doctor（接続チェック）→ 未セットアップなら案内 + scaffold → 最後に `claude` を exec。
+ *   doctor（接続チェック）→ 未セットアップなら案内 + scaffold → 最後に AI エージェントを exec。
  *
- * すべての副作用（scaffold・doctor 実行・claude 起動・claude 探索）は options 経由で
+ * すべての副作用（scaffold・doctor 実行・エージェント起動・実行ファイル探索）は options 経由で
  * 差し替え可能にしてあり、node --test から実プロセスを起動せずに分岐を検証できる。
  */
 export async function run(args, options = {}) {
@@ -32,15 +47,16 @@ export async function run(args, options = {}) {
   const runDoctor = options.runDoctor ?? defaultRunDoctor;
   const resolveClaude = options.resolveClaude ?? (() => findClaudeExecutable());
   const resolveOpencode = options.resolveOpencode ?? (() => findOpencodeExecutable());
+  const resolveCursorAgent = options.resolveCursorAgent ?? (() => findCursorAgentExecutable());
+  const resolveCodex = options.resolveCodex ?? (() => findCodexExecutable());
   const spawnClaude = options.spawnClaude ?? defaultSpawnClaude;
   const spawnOpencode = options.spawnOpencode ?? defaultSpawnOpencode;
+  const spawnCursorAgent = options.spawnCursorAgent ?? defaultSpawnCursorAgent;
+  const spawnCodex = options.spawnCodex ?? defaultSpawnCodex;
   const env = options.env ?? process.env;
   const currentVersion = options.currentVersion ?? readOwnVersion();
-  
-  // --opencode / --claude / --claudecode / --yes フラグを解析
-  const useOpencode = args.includes('--opencode');
-  const autoConfirm = args.includes('--yes') || args.includes('-y');
-  const filteredArgs = args.filter(arg => arg !== '--opencode' && arg !== '--claude' && arg !== '--claudecode' && arg !== '--yes' && arg !== '-y');
+
+  const { harness, filteredArgs, autoConfirm } = parseHarnessArgs(args);
 
   let state = detectProjectState(projectRoot);
 
@@ -54,7 +70,6 @@ export async function run(args, options = {}) {
         const report = await scaffold(projectRoot, assets);
         log(`プロジェクトを作成しました（コピー ${report.copy.copiedFiles.length} 件 / 補完 ${report.fallback.writtenFiles.length} 件 / git: ${report.git.action}）。`);
       } catch (error) {
-        // scaffold の失敗で claude 起動まで止めない（「最後に claude を exec」は不変条件）。
         log(`プロジェクトの雛形作成でエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
       }
       state = detectProjectState(projectRoot);
@@ -76,49 +91,156 @@ export async function run(args, options = {}) {
     log(describeVersionStatus(currentVersion, readCacheSync(resolveCachePath(env))));
   }
 
-  // 新版通知（契約 §4-1）: キャッシュの読み比較のみ・ネットワークには一切触れない
-  // （起動をブロックしない）。fetch は detached な子プロセスへ切り離し、
-  // 結果は次回セッションで効く。
   const updateNotice = formatUpdateNotice((options.checkUpdate ?? checkForUpdateSync)({ currentVersion, env }));
   if (updateNotice) {
     log(updateNotice);
   }
   (options.refreshUpdate ?? triggerBackgroundRefresh)({ env });
 
-  if (useOpencode) {
-    log('opencode を起動します…');
-    const opencodePath = resolveOpencode();
-    if (!opencodePath) {
-      log(opencodeMissingGuidance());
-      return { exitCode: 1, scaffolded: state.scaffolded, opencodeLaunched: false };
-    }
+  const launch = await launchHarness({
+    harness,
+    filteredArgs,
+    autoConfirm,
+    projectRoot,
+    log,
+    resolveClaude,
+    resolveOpencode,
+    resolveCursorAgent,
+    resolveCodex,
+    spawnClaude,
+    spawnOpencode,
+    spawnCursorAgent,
+    spawnCodex,
+  });
 
-    const opencodeArgs = autoConfirm ? ['--auto', ...filteredArgs] : filteredArgs;
-    const result = spawnOpencode(opencodePath, opencodeArgs, projectRoot);
-    const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
-    return { exitCode, scaffolded: state.scaffolded, opencodeLaunched: true };
-  } else {
-    const claudePath = resolveClaude();
-    if (claudePath) {
-      log('Claude Code を起動します…');
-      const claudeArgs = autoConfirm ? ['--permission-mode', 'acceptEdits', ...filteredArgs] : filteredArgs;
-      const result = spawnClaude(claudePath, claudeArgs, projectRoot);
-      const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
-      return { exitCode, scaffolded: state.scaffolded, claudeLaunched: true };
-    }
+  return {
+    exitCode: launch.exitCode,
+    scaffolded: state.scaffolded,
+    claudeLaunched: launch.harness === 'claude' && launch.launched,
+    opencodeLaunched: launch.harness === 'opencode' && launch.launched,
+    cursorLaunched: launch.harness === 'cursor' && launch.launched,
+    codexLaunched: launch.harness === 'codex' && launch.launched,
+    harness: launch.harness,
+  };
+}
 
-    log('Claude Code が見つかりません。opencode を起動します…');
-    const opencodePath = resolveOpencode();
-    if (!opencodePath) {
-      log(claudeMissingGuidance());
-      return { exitCode: 1, scaffolded: state.scaffolded, opencodeLaunched: false };
-    }
+async function launchHarness({
+  harness,
+  filteredArgs,
+  autoConfirm,
+  projectRoot,
+  log,
+  resolveClaude,
+  resolveOpencode,
+  resolveCursorAgent,
+  resolveCodex,
+  spawnClaude,
+  spawnOpencode,
+  spawnCursorAgent,
+  spawnCodex,
+}) {
+  const argv = buildHarnessArgv(harness, autoConfirm, filteredArgs);
 
-    const opencodeArgs = autoConfirm ? ['--auto', ...filteredArgs] : filteredArgs;
-    const result = spawnOpencode(opencodePath, opencodeArgs, projectRoot);
-    const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
-    return { exitCode, scaffolded: state.scaffolded, opencodeLaunched: true };
+  if (harness === 'opencode') {
+    return launchExecutable({
+      harness,
+      label: harnessLaunchLabel(harness),
+      resolve: resolveOpencode,
+      spawn: spawnOpencode,
+      missingGuidance: opencodeMissingGuidance,
+      argv,
+      projectRoot,
+      log,
+    });
   }
+
+  if (harness === 'cursor') {
+    return launchExecutable({
+      harness,
+      label: harnessLaunchLabel(harness),
+      resolve: resolveCursorAgent,
+      spawn: spawnCursorAgent,
+      missingGuidance: cursorMissingGuidance,
+      argv,
+      projectRoot,
+      log,
+    });
+  }
+
+  if (harness === 'codex') {
+    return launchExecutable({
+      harness,
+      label: harnessLaunchLabel(harness),
+      resolve: resolveCodex,
+      spawn: spawnCodex,
+      missingGuidance: codexMissingGuidance,
+      argv,
+      projectRoot,
+      log,
+    });
+  }
+
+  if (harness === 'claude') {
+    return launchExecutable({
+      harness,
+      label: harnessLaunchLabel(harness),
+      resolve: resolveClaude,
+      spawn: spawnClaude,
+      missingGuidance: claudeMissingGuidance,
+      argv,
+      projectRoot,
+      log,
+    });
+  }
+
+  const claudePath = resolveClaude();
+  if (claudePath) {
+    return launchExecutable({
+      harness: 'claude',
+      label: harnessLaunchLabel('claude'),
+      resolve: () => claudePath,
+      spawn: spawnClaude,
+      missingGuidance: claudeMissingGuidance,
+      argv: buildHarnessArgv('claude', autoConfirm, filteredArgs),
+      projectRoot,
+      log,
+    });
+  }
+
+  log('Claude Code が見つかりません。opencode を起動します…');
+  const opencodeLaunch = await launchExecutable({
+    harness: 'opencode',
+    label: harnessLaunchLabel('opencode'),
+    resolve: resolveOpencode,
+    spawn: spawnOpencode,
+    missingGuidance: () => claudeMissingGuidance(),
+    argv: buildHarnessArgv('opencode', autoConfirm, filteredArgs),
+    projectRoot,
+    log,
+  });
+  return opencodeLaunch;
+}
+
+function launchExecutable({
+  harness,
+  label,
+  resolve,
+  spawn,
+  missingGuidance,
+  argv,
+  projectRoot,
+  log,
+}) {
+  log(`${label} を起動します…`);
+  const executablePath = resolve();
+  if (!executablePath) {
+    log(missingGuidance());
+    return { exitCode: 1, launched: false, harness };
+  }
+
+  const result = spawn(executablePath, argv, projectRoot);
+  const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
+  return { exitCode, launched: true, harness };
 }
 
 function defaultScaffold(projectRoot, assets) {
@@ -141,6 +263,14 @@ function defaultSpawnClaude(claudePath, args, projectRoot) {
 
 function defaultSpawnOpencode(opencodePath, args, projectRoot) {
   return spawnSync(opencodePath, args, { stdio: 'inherit', cwd: projectRoot });
+}
+
+function defaultSpawnCursorAgent(agentPath, args, projectRoot) {
+  return spawnSync(agentPath, args, { stdio: 'inherit', cwd: projectRoot });
+}
+
+function defaultSpawnCodex(codexPath, args, projectRoot) {
+  return spawnSync(codexPath, args, { stdio: 'inherit', cwd: projectRoot });
 }
 
 /**

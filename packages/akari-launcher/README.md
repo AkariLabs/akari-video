@@ -21,12 +21,12 @@ akari
   │     .akari/connections.json の doctor ブロックを更新・表示する
   │     （キーの値は一切表示しない）
   │
-  └─ 4. 最後に opencode を exec する
-        （PATH に opencode が無ければ、インストール案内を出して終了する）
+  └─ 4. 最後に AI エージェントを exec する
+        （`--opencode` / `--claude` / `--cursor` / `--codex` で明示選択。
+        未指定時は Claude Code → opencode の順でフォールバック）
 ```
 
-`akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
-`opencode --continue` を起動する）。
+`akari` に渡した引数（ハーネスフラグと `-y` / `--yes` を除く）は、選んだエージェントへそのまま転送する（例: `akari --cursor --continue` は Cursor Agent に `--continue` を渡す）。
 
 ## 3 入口の対応表
 
@@ -35,8 +35,8 @@ AKARI Video は「同じファイル契約（`.akari/` 配下の JSON）に収�
 
 | 入口 | 実体 | 発動方法 |
 |---|---|---|
-| ターミナル | この `akari` ランチャー CLI | シェルで `akari --opencode` と打つ（`npm i -g akari-video` または `npx akari-video` 相当。器のみ、npm publish は本タスクのスコープ外） |
-| セッション内 | opencode スキルの自動発見、またはプラグインの `/akari` スラッシュコマンド | opencode セッション内で「新しい動画プロジェクトを作りたい」と発話、または Claude Code セッション内で `/akari` と打つ |
+| ターミナル | この `akari` ランチャー CLI | `./akari.sh` / `./akari.sh --opencode` / `./akari.sh --cursor` / `./akari.sh --codex` |
+| セッション内 | 各ハーネスのスキル自動発見、または Claude Code プラグインの `/akari` | セッション内で「新しい動画プロジェクトを作りたい」と発話、または `/akari` |
 | アプリ | 接続ボタン（AKARI Video アプリ） | アプリの「はじめる」画面から接続 → はじめかた選択 |
 
 3 つとも最終的に同じもの（`.akari/connections.json` / `.akari/intake.json` /
@@ -48,10 +48,12 @@ AKARI Video は「同じファイル契約（`.akari/` 配下の JSON）に収�
 npm publish は本タスクのスコープ外（「器まで」）。現状は次のいずれかで実行できる:
 
 ```sh
-# モノレポ checkout 内から、bin を直接実行する（opencode モード）
+# モノレポ checkout 内から、bin を直接実行する
 node packages/akari-launcher/bin/akari.mjs --opencode
+node packages/akari-launcher/bin/akari.mjs --cursor
+node packages/akari-launcher/bin/akari.mjs --codex
 
-# Claude Code モード
+# Claude Code モード（既定。未インストール時は opencode へフォールバック）
 node packages/akari-launcher/bin/akari.mjs
 
 # 将来 npm publish された場合の想定コマンド（現状は publish していないため未検証）

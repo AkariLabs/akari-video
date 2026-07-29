@@ -169,7 +169,10 @@ so you can start from anywhere and continue from another later.
 ### A. From the terminal (`akari` command)
 
 ```sh
-./akari.sh --opencode
+./akari.sh --opencode   # opencode
+./akari.sh --cursor     # Cursor Agent (cursor-agent / agent CLI)
+./akari.sh --codex      # OpenAI Codex CLI
+./akari.sh              # Claude Code (falls back to opencode if Claude is missing)
 ```
 
 `akari` runs in this order:
@@ -177,12 +180,15 @@ so you can start from anywhere and continue from another later.
 1. Diagnoses whether the current directory is a project (presence of `.akari/connections.json`)
 2. If not set up yet, walks you through scaffolding a project (prompts are currently in Japanese)
 3. Checks and displays connection status (generation providers, API keys)
-4. Finally launches the AI agent — from there you continue conversationally inside the session
+4. Finally launches the selected AI agent — from there you continue conversationally inside the session
 
-**Using Claude Code instead**:
+Pass **`-y` / `--yes`** to auto-confirm where the harness supports it
+(Claude: `-y`, opencode: `--auto`, Cursor: `--force`, Codex: `--full-auto`).
+
+**Using Claude Code explicitly**:
 
 ```sh
-./akari.sh
+./akari.sh --claude
 ```
 
 ### B. From inside an opencode or Claude Code session

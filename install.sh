@@ -113,11 +113,19 @@ install_node() {
 check_agent() {
     local found=false
     if has opencode; then
-        info "  [OK] opencode (primary)"
+        info "  [OK] opencode"
         found=true
     fi
     if has claude; then
-        info "  [OK] Claude Code (secondary)"
+        info "  [OK] Claude Code"
+        found=true
+    fi
+    if has cursor-agent || has agent; then
+        info "  [OK] Cursor Agent"
+        found=true
+    fi
+    if has codex; then
+        info "  [OK] Codex CLI"
         found=true
     fi
     if [[ "$found" == "false" ]]; then
@@ -183,7 +191,10 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
         warn "  AI agent is required."
         warn ""
         warn "  opencode (free, recommended)"
+        warn "    curl -fsSL https://opencode.ai/install | bash"
         warn "  Claude Code (paid) — https://claude.ai/install.sh"
+        warn "  Cursor Agent — https://cursor.com/docs/cli/overview"
+        warn "  Codex CLI — https://chatgpt.com/codex/install.sh"
         warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
         read -rp "Install opencode now? [Y/n] " answer </dev/tty
@@ -265,6 +276,10 @@ if has claude; then
   AGENT_NAME="Claude Code"
 elif has opencode; then
   AGENT_NAME="opencode"
+elif has cursor-agent || has agent; then
+  AGENT_NAME="Cursor Agent"
+elif has codex; then
+  AGENT_NAME="Codex"
 else
   AGENT_NAME="AI エージェント"
 fi

@@ -48,8 +48,25 @@ export function claudeMissingGuidance() {
 export function opencodeMissingGuidance() {
   return [
     'opencode コマンドが見つかりませんでした。',
-    'opencode をインストールしてください: npm install -g opencode',
+    'opencode をインストールしてください: curl -fsSL https://opencode.ai/install | bash',
     'インストール後、このフォルダーで再度 `akari --opencode` を実行してください。'
+  ].join('\n');
+}
+
+export function cursorMissingGuidance() {
+  return [
+    'Cursor Agent CLI（cursor-agent / agent）が見つかりませんでした。',
+    'Cursor をインストールし、CLI を有効化してください: https://cursor.com/docs/cli/overview',
+    'インストール後、このフォルダーで再度 `akari --cursor` を実行してください。'
+  ].join('\n');
+}
+
+export function codexMissingGuidance() {
+  return [
+    'codex コマンドが見つかりませんでした。',
+    'Codex CLI をインストールしてください: curl -fsSL https://chatgpt.com/codex/install.sh | sh',
+    '（または `npm install -g @openai/codex`）',
+    'インストール後、このフォルダーで再度 `akari --codex` を実行してください。'
   ].join('\n');
 }
 

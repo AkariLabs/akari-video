@@ -18,6 +18,32 @@ function resolveWindowsExtensions(pathExt) {
 }
 
 /**
+ * PATH 上の実行可能ファイルを名前で探す共通実装。
+ */
+function findExecutableByNames(names, pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
+  const directories = pathEnv.split(path.delimiter).filter(Boolean);
+
+  for (const directory of directories) {
+    for (const baseName of names) {
+      const candidateNames = platform === 'win32'
+        ? resolveWindowsExtensions(pathExt).map((extension) => `${baseName}${extension.toLowerCase()}`)
+        : [baseName];
+
+      for (const name of candidateNames) {
+        const candidate = path.join(directory, name);
+        try {
+          accessSync(candidate, fsConstants.X_OK);
+          return candidate;
+        } catch {
+          // このディレクトリには無い。次を探す。
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * PATH 上に `claude` 実行ファイルがあるかを探す。純粋関数（`pathEnv` / `platform` /
  * `pathExt` を引数として渡せる）にして、実 PATH やシェル alias に依存せずテストできる
  * ようにする。シェル alias（例: 対話シェルの `alias claude=...`）は子プロセス起動では
@@ -27,44 +53,27 @@ function resolveWindowsExtensions(pathExt) {
  * を判定するため、拡張子なしファイル（npm の POSIX シムなど）は直接 spawn できない。
  */
 export function findClaudeExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
-  const directories = pathEnv.split(path.delimiter).filter(Boolean);
-  const candidateNames = platform === 'win32'
-    ? resolveWindowsExtensions(pathExt).map((extension) => `claude${extension.toLowerCase()}`)
-    : ['claude'];
-
-  for (const directory of directories) {
-    for (const name of candidateNames) {
-      const candidate = path.join(directory, name);
-      try {
-        accessSync(candidate, fsConstants.X_OK);
-        return candidate;
-      } catch {
-        // このディレクトリには無い。次を探す。
-      }
-    }
-  }
-  return null;
+  return findExecutableByNames(['claude'], pathEnv, platform, pathExt);
 }
 
 /**
  * PATH 上に `opencode` 実行ファイルがあるかを探す。`findClaudeExecutable` と同じ規約。
  */
 export function findOpencodeExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
-  const directories = pathEnv.split(path.delimiter).filter(Boolean);
-  const candidateNames = platform === 'win32'
-    ? resolveWindowsExtensions(pathExt).map((extension) => `opencode${extension.toLowerCase()}`)
-    : ['opencode'];
+  return findExecutableByNames(['opencode'], pathEnv, platform, pathExt);
+}
 
-  for (const directory of directories) {
-    for (const name of candidateNames) {
-      const candidate = path.join(directory, name);
-      try {
-        accessSync(candidate, fsConstants.X_OK);
-        return candidate;
-      } catch {
-        // このディレクトリには無い。次を探す。
-      }
-    }
-  }
-  return null;
+/**
+ * PATH 上に Cursor Agent CLI があるかを探す。
+ * インストール形態により `cursor-agent` または `agent` になる。
+ */
+export function findCursorAgentExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
+  return findExecutableByNames(['cursor-agent', 'agent'], pathEnv, platform, pathExt);
+}
+
+/**
+ * PATH 上に OpenAI Codex CLI があるかを探す。
+ */
+export function findCodexExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
+  return findExecutableByNames(['codex'], pathEnv, platform, pathExt);
 }
