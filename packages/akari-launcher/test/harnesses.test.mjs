@@ -20,5 +20,6 @@ test('buildHarnessArgv: auto-confirm maps to harness-specific flags', () => {
   assert.deepEqual(buildHarnessArgv('claude', true, ['--continue']), ['--permission-mode', 'acceptEdits', '--continue']);
   assert.deepEqual(buildHarnessArgv('opencode', true, []), ['--auto']);
   assert.deepEqual(buildHarnessArgv('cursor', true, ['--continue']), ['--force', '--continue']);
-  assert.deepEqual(buildHarnessArgv('codex', true, []), ['--full-auto']);
+  assert.deepEqual(buildHarnessArgv('codex', true, []), []);
+  assert.deepEqual(buildHarnessArgv('codex', true, ['fix lint']), ['fix lint']);
 });

@@ -55,7 +55,7 @@ export function opencodeMissingGuidance() {
 
 export function cursorMissingGuidance() {
   return [
-    'Cursor Agent CLI（cursor-agent / agent）が見つかりませんでした。',
+    'Cursor Agent CLI（cursor-agent）が見つかりませんでした。',
     'Cursor をインストールし、CLI を有効化してください: https://cursor.com/docs/cli/overview',
     'インストール後、このフォルダーで再度 `akari --cursor` を実行してください。'
   ].join('\n');

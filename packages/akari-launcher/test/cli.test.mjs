@@ -382,7 +382,7 @@ test('--cursor -y: Cursor Agent に --force を付加する', async () => {
   });
 });
 
-test('--cursor 不在時の案内: cursor-agent / agent が無い場合は案内を出して終了する', async () => {
+test('--cursor 不在時の案内: cursor-agent が無い場合は案内を出して終了する', async () => {
   await withScratchRoot(async (root) => {
     await mkdir(join(root, '.akari'), { recursive: true });
     await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
@@ -438,7 +438,7 @@ test('--codex: Codex CLI を起動する', async () => {
   });
 });
 
-test('--codex -y: Codex に --full-auto を付加する', async () => {
+test('--codex -y: 現行 Codex CLI に --full-auto が無いため追加フラグなし', async () => {
   await withScratchRoot(async (root) => {
     await mkdir(join(root, '.akari'), { recursive: true });
     await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
@@ -459,7 +459,7 @@ test('--codex -y: Codex に --full-auto を付加する', async () => {
       ...isolatedUpdateOptions(root),
     });
 
-    assert.deepEqual(codexCall, { codexPath: '/fake/bin/codex', args: ['--full-auto'], cwd: root });
+    assert.deepEqual(codexCall, { codexPath: '/fake/bin/codex', args: [], cwd: root });
     assert.equal(result.exitCode, 0);
     assert.equal(result.codexLaunched, true);
   });

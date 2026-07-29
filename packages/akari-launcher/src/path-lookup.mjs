@@ -64,11 +64,11 @@ export function findOpencodeExecutable(pathEnv = process.env.PATH ?? '', platfor
 }
 
 /**
- * PATH 上に Cursor Agent CLI があるかを探す。
- * インストール形態により `cursor-agent` または `agent` になる。
+ * PATH 上に Cursor Agent CLI（`cursor-agent`）があるかを探す。
+ * 一般名 `agent` は他 CLI（例: Grok）と衝突するため候補に含めない。
  */
 export function findCursorAgentExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
-  return findExecutableByNames(['cursor-agent', 'agent'], pathEnv, platform, pathExt);
+  return findExecutableByNames(['cursor-agent'], pathEnv, platform, pathExt);
 }
 
 /**

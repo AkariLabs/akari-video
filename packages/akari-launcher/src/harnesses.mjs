@@ -51,7 +51,8 @@ export function buildHarnessArgv(harness, autoConfirm, filteredArgs) {
     case 'cursor':
       return autoConfirm ? ['--force', ...filteredArgs] : filteredArgs;
     case 'codex':
-      return autoConfirm ? ['--full-auto', ...filteredArgs] : filteredArgs;
+      // Codex CLI 0.144 系に --full-auto は無い。autoConfirm のマッピングは保留。
+      return filteredArgs;
     default:
       return filteredArgs;
   }
