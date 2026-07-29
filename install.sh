@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ─── AKARI Video Installer (Windows / Linux / macOS) ───
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -12,7 +12,7 @@ YELLOW='\033[38;5;214m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO="kuwa2005/akari-video"
+REPO="AkariLabs/akari-video"
 INSTALL_DIR="${AKARI_INSTALL_DIR:-$HOME/akari-video}"
 SKIP_DEPS=false
 
@@ -29,7 +29,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -h, --help          Show this help"
             echo ""
             echo "Examples:"
-            echo "  curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash"
+            echo "  curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash"
             echo "  curl -fsSL ... | bash -s -- -d ~/my-project"
             exit 0 ;;
         -d|--dir)    INSTALL_DIR="$2"; shift 2 ;;

@@ -8,7 +8,7 @@
     clones the repository, and installs npm dependencies.
 
 .EXAMPLE
-    irm https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.ps1 | iex
+    irm https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.ps1 | iex
 #>
 param(
     [string]$InstallDir = "$env:USERPROFILE\akari-video",
@@ -110,8 +110,8 @@ if (Test-Path "$InstallDir\.git") {
 } elseif (Test-Path $InstallDir) {
     Write-Warn "Directory exists but is not a git repo: $InstallDir — skipping."
 } else {
-    Write-Info "Cloning kuwa2005/akari-video..."
-    git clone "https://github.com/kuwa2005/akari-video.git" $InstallDir
+    Write-Info "Cloning AkariLabs/akari-video..."
+    git clone "https://github.com/AkariLabs/akari-video.git" $InstallDir
 }
 
 # ═══ npm install ═══
@@ -157,5 +157,5 @@ Write-Host ""
 Write-Host "    3. 別の端末でプレビューサーバー"
 Write-Host "       akari.ps1 --preview" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "Docs: https://github.com/kuwa2005/akari-video/blob/main/docs/getting-started.ja.md" -ForegroundColor DarkGray
+Write-Host "Docs: https://github.com/AkariLabs/akari-video/blob/main/docs/getting-started.ja.md" -ForegroundColor DarkGray
 Write-Host ""

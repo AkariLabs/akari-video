@@ -29,17 +29,17 @@ AKARI Video はターミナル（コマンドライン）で動きます。
 
 **Windows (PowerShell)**:
 ```sh
-irm https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.ps1 | iex
 ```
 
 **Windows (CMD)**:
 ```sh
-curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.cmd -o install.cmd && install.cmd
+curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.cmd -o install.cmd && install.cmd
 ```
 
 **Linux / macOS**:
 ```sh
-curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash
 ```
 
 スクリプトが自動で以下を確認・インストールします:

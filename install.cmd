@@ -1,7 +1,7 @@
 @echo off
 :: AKARI Video Installer for Windows CMD
 :: Usage:
-::   curl -fsSL https://raw.githubusercontent.com/kuwa2005/akari-video/main/install.cmd -o install.cmd && install.cmd
+::   curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.cmd -o install.cmd && install.cmd
 
 echo.
 echo     _             _ _             _   _     _
@@ -73,8 +73,8 @@ if exist "%INSTALL_DIR%\.git" (
 ) else if exist "%INSTALL_DIR%" (
     echo Directory exists: %INSTALL_DIR% — skipping clone.
 ) else (
-    echo Cloning kuwa2005/akari-video...
-    git clone https://github.com/kuwa2005/akari-video.git "%INSTALL_DIR%"
+    echo Cloning AkariLabs/akari-video...
+    git clone https://github.com/AkariLabs/akari-video.git "%INSTALL_DIR%"
 )
 
 echo.
@@ -117,6 +117,6 @@ echo.
 echo   3. 別の端末でプレビューサーバー
 echo      akari.cmd --preview
 echo.
-echo Docs: https://github.com/kuwa2005/akari-video/blob/main/docs/getting-started.ja.md
+echo Docs: https://github.com/AkariLabs/akari-video/blob/main/docs/getting-started.ja.md
 echo.
 pause
