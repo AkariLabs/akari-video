@@ -103,7 +103,7 @@ echo   2. AI エージェントを起動（プロジェクトが自動生成さ�
 echo      akari.cmd
 echo.
 echo   3. 別の端末でプレビューサーバー
-echo      akari-preview.cmd
+echo      akari.cmd --preview
 echo.
 echo Docs: https://github.com/kuwa2005/akari-video/blob/main/docs/getting-started.ja.md
 echo.

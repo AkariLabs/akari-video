@@ -144,7 +144,7 @@ Write-Host "    2. AI エージェントを起動（プロジェクトが自動�
 Write-Host "       akari.ps1" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "    3. 別の端末でプレビューサーバー"
-Write-Host "       akari-preview.ps1" -ForegroundColor DarkGray
+Write-Host "       akari.ps1 --preview" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Docs: https://github.com/kuwa2005/akari-video/blob/main/docs/getting-started.ja.md" -ForegroundColor DarkGray
 Write-Host ""
