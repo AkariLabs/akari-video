@@ -35,6 +35,9 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #shortcut-help-inner td { padding: 4px 8px; color: #ccc; }
 #shortcut-help-inner td:first-child { color: #8af; white-space: nowrap; font-family: monospace; }
 #shortcut-help-inner .close-hint { margin-top: 12px; color: #888; font-size: 11px; text-align: center; }
+#review-record-btn.is-recording { color:#ff4444; filter:drop-shadow(0 0 6px #ff4444); animation:review-rec-pulse 1s ease-in-out infinite; }
+@keyframes review-rec-pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+#review-timer.is-active { display:inline;color:#ff4444;font-size:12px;font-variant-numeric:tabular-nums;min-width:70px;text-align:center; }
 #layer-select-box { position: absolute; z-index: 1899; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #layer-select-box.is-active { display: block; }
 .akari-layer-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
@@ -184,6 +187,8 @@ input[type=range] { width: 100%; }
         <div style="display:flex;gap:6px;margin-top:6px"><label style="color:#aaa;font-size:11px;flex:1">色 <input id="caption-color-input" type="color" style="width:100%;background:#303030;border:1px solid #505050;border-radius:3px;height:24px"></label><label style="color:#aaa;font-size:11px;flex:1">サイズ <input id="caption-size-input" type="number" min="12" max="120" step="1" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label></div>
       </div>
       <button id="output-preview-btn" class="icon-button" type="button" aria-label="出力プレビュー" title="出力プレビュー" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 5h2v5h-2z"/></svg></button>
+      <button id="review-record-btn" class="icon-button" type="button" aria-label="レビュー録音" title="レビュー録音" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></button>
+      <span id="review-timer" style="display:none;color:#ff4444;font-size:12px;font-variant-numeric:tabular-nums;min-width:70px;text-align:center">0:00</span>
       <div id="zoom-popup" class="popup" hidden>
         <div class="popup-header"><span>ズーム</span><span id="zoom-value">100%</span></div>
         <input id="zoom-slider" type="range" min="0" max="1" step="0.001" aria-label="ズーム倍率">

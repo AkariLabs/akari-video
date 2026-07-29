@@ -64,6 +64,8 @@ const minimapVideo = document.getElementById('minimap-video');
 const minimapViewport = document.getElementById('zoom-minimap-viewport');
 const indicatorBtn = document.getElementById('indicator-toggle');
 const indicatorPopup = document.getElementById('indicator-popup');
+const reviewRecordBtn = document.getElementById('review-record-btn');
+const reviewTimer = document.getElementById('review-timer');
 
 const ZONE_ROW_RANGES = { top: [0, 1 / 3], middle: [1 / 3, 2 / 3], bottom: [2 / 3, 1] };
 const ZONE_COL_RANGES = { left: [0, 1 / 3], center: [1 / 3, 2 / 3], right: [2 / 3, 1] };
@@ -100,6 +102,12 @@ let narrationNodes = [];
 
 let waveformPeaks = null;
 let waveformDuration = 0;
+let reviewSession = null;
+let reviewRecorder = null;
+let reviewStream = null;
+let reviewRecStart = 0;
+let reviewTimerRAF = 0;
+let reviewEvents = [];
 let trackWaveforms = { bgm: null, narration: null, sfx: null };
 let captionsData = null;
 let captionStylesInjected = false;
@@ -710,7 +718,9 @@ function getActiveSegment(t) {
 
 function seekTo(t) {
   cutInfoPopup.hidden = true;
+  const prev = outputTime;
   outputTime = Math.max(0, Math.min(t, totalDuration));
+  if (Math.abs(outputTime - prev) > 0.05) logReviewEvent('seek', { from: +prev.toFixed(3), to: +outputTime.toFixed(3) });
   const vt = getVideoTimeForOutput(outputTime);
   if (vt >= 0) {
     const seg = getActiveSegment(outputTime);
@@ -729,6 +739,7 @@ function seekTo(t) {
 
 function play() {
   if (isPlaying || !segments.length) return;
+  logReviewEvent('play');
   isPlaying = true;
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   if (bgmNode?._source && !bgmNode._source._started) { bgmNode._source.start(); bgmNode._source._started = true; }
@@ -742,6 +753,7 @@ function play() {
 }
 function pause() {
   if (!isPlaying) return;
+  logReviewEvent('pause');
   isPlaying = false; video.pause();
   for (const lv of layerVideos) lv.el.pause();
   playToggle.innerHTML = playIcon;
@@ -1871,11 +1883,114 @@ function sendWsTick() {
   ws.send(JSON.stringify({ type: 'tick', time: outputTime, playing: isPlaying }));
 }
 
+// --- Review recording ---
+reviewRecordBtn.addEventListener('click', async () => {
+  if (reviewSession) { await stopReviewRecording(); return; }
+  try {
+    reviewStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    reviewRecorder = new MediaRecorder(reviewStream, { mimeType: 'audio/webm;codecs=opus' });
+  } catch {
+    reviewStream = null; reviewRecorder = null;
+    showMessage('マイクへのアクセスを許可してください');
+    return;
+  }
+  showMessage('レビュー録音中…');
+  const startedAt = new Date().toISOString();
+  try {
+    const r = await fetch('/api/review/start', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ startedAt }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    reviewSession = data.id;
+  } catch (e) {
+    reviewStream.getTracks().forEach(t => t.stop());
+    reviewStream = null; reviewRecorder = null;
+    showMessage('セッション開始に失敗: ' + e.message);
+    return;
+  }
+  reviewRecStart = performance.now();
+  reviewRecordBtn.classList.add('is-recording');
+  reviewRecordBtn.setAttribute('aria-pressed', 'true');
+  reviewTimer.classList.add('is-active');
+  reviewTimer.textContent = '0:00';
+  reviewTimerRAF = requestAnimationFrame(updateReviewTimer);
+  // Snapshot edit.json at start
+  fetch('/api/review/' + reviewSession + '/snapshot', { method: 'POST' }).catch(() => {});
+  // Start MediaRecorder
+  const audioChunks = [];
+  reviewRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+  reviewRecorder.onstop = async () => {
+    cancelAnimationFrame(reviewTimerRAF);
+    reviewTimer.classList.remove('is-active');
+    reviewRecordBtn.classList.remove('is-recording');
+    reviewRecordBtn.setAttribute('aria-pressed', 'false');
+    try {
+      await sendReviewAudio(audioChunks);
+      await sendReviewEvents();
+      await sendReviewEnd();
+    } catch (e) {
+      showMessage('録音の保存に失敗: ' + e.message);
+    }
+    reviewStream.getTracks().forEach(t => t.stop());
+    reviewStream = null; reviewRecorder = null;
+    reviewSession = null;
+    reviewEvents = [];
+    showMessage(null);
+  };
+  reviewRecorder.start();
+});
+reviewRecordBtn.addEventListener('dblclick', async () => {
+  if (!reviewSession) return;
+  await stopReviewRecording();
+});
+async function stopReviewRecording() {
+  if (reviewRecorder && reviewRecorder.state === 'recording') reviewRecorder.stop();
+}
+async function sendReviewAudio(chunks) {
+  if (!chunks.length) return;
+  const blob = new Blob(chunks, { type: 'audio/webm' });
+  // Convert to WAV-ish blob or just send raw
+  await fetch('/api/review/' + reviewSession + '/audio', {
+    method: 'POST',
+    body: blob,
+  });
+}
+async function sendReviewEvents() {
+  if (!reviewEvents.length) return;
+  await fetch('/api/review/' + reviewSession + '/events', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(reviewEvents),
+  });
+}
+async function sendReviewEnd() {
+  const editRes = await fetch('/api/review/' + reviewSession + '/snapshot', { method: 'POST' });
+  const { editHash } = editRes.ok ? await editRes.json() : {};
+  await fetch('/api/review/' + reviewSession + '/end', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ endedAt: new Date().toISOString(), editHash }),
+  });
+}
+function updateReviewTimer() {
+  const elapsed = (performance.now() - reviewRecStart) / 1000;
+  const m = Math.floor(elapsed / 60);
+  const s = Math.floor(elapsed % 60);
+  reviewTimer.textContent = m + ':' + String(s).padStart(2, '0');
+  reviewTimerRAF = requestAnimationFrame(updateReviewTimer);
+}
+function logReviewEvent(type, extra) {
+  if (!reviewSession) return;
+  const recT = (performance.now() - reviewRecStart) / 1000;
+  reviewEvents.push({ recT: +recT.toFixed(3), type, timelineT: +outputTime.toFixed(3), playing: isPlaying, ...extra });
+}
+
 // --- Output preview ---
 const outputBtn = document.getElementById('output-preview-btn');
 if (isOutputMode) {
   document.title = 'AKARI Video Preview (出力)';
   outputBtn.hidden = true;
+  reviewRecordBtn.hidden = true;
 } else {
   outputBtn.hidden = false;
   outputBtn.addEventListener('click', () => {

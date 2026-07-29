@@ -3,6 +3,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline, setPort } from './edit-to-timeline.mjs';
@@ -277,8 +278,77 @@ const router = {
       proxyDir: PROXY_DIR,
     });
   },
+  // Review session recording
+  'POST /api/review/start': async (req, res) => {
+    try {
+      const body = await collectBody(req);
+      const { startedAt } = JSON.parse(body);
+      ensureDir(path.join(projectRoot, 'review', 'sessions'));
+      const dirs = fs.readdirSync(path.join(projectRoot, 'review', 'sessions'))
+        .filter(d => /^s-\d{4}$/.test(d));
+      const maxNum = dirs.reduce((m, d) => Math.max(m, parseInt(d.slice(2), 10)), 0);
+      const id = `s-${String(maxNum + 1).padStart(4, '0')}`;
+      const sessionDir = path.join(projectRoot, 'review', 'sessions', id);
+      fs.mkdirSync(sessionDir, { recursive: true });
+      const session = { version: 1, id, startedAt: startedAt || new Date().toISOString(), status: 'recorded' };
+      writeJson(path.join(sessionDir, 'session.json'), session);
+      respond(res, 200, { id });
+    } catch (e) {
+      respond(res, 500, { error: e.message });
+    }
+  },
 };
+const REVIEW_ROUTES = [
+  { method: 'POST', pattern: /^\/api\/review\/(s-\d{4})\/audio$/, fn: async (req, res, m) => {
+    const sessionDir = path.join(projectRoot, 'review', 'sessions', m[1]);
+    if (!fs.existsSync(sessionDir)) return respond(res, 404, { error: 'Session not found' });
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const buf = Buffer.concat(chunks);
+    const wavPath = path.join(sessionDir, 'audio.wav');
+    // Save as webm first, convert to wav via ffmpeg if available
+    fs.writeFileSync(path.join(sessionDir, 'audio.webm'), buf);
+    if (hasFfmpeg) {
+      const r = spawnSync('ffmpeg', ['-y', '-i', path.join(sessionDir, 'audio.webm'), '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', wavPath], { stdio: 'ignore', timeout: 30000 });
+      if (r.status !== 0) console.warn('[review] ffmpeg audio conversion failed');
+    } else {
+      // Without ffmpeg, save raw blob as wav (likely not playable but preserves data)
+      fs.writeFileSync(wavPath, buf);
+    }
+    respond(res, 200, { ok: true });
+  }},
+  { method: 'POST', pattern: /^\/api\/review\/(s-\d{4})\/events$/, fn: async (req, res, m) => {
+    const sessionDir = path.join(projectRoot, 'review', 'sessions', m[1]);
+    if (!fs.existsSync(sessionDir)) return respond(res, 404, { error: 'Session not found' });
+    const events = JSON.parse(await collectBody(req));
+    const lines = Array.isArray(events) ? events.map(e => JSON.stringify(e)).join('\n') + '\n' : '';
+    fs.appendFileSync(path.join(sessionDir, 'events.jsonl'), lines, 'utf-8');
+    respond(res, 200, { ok: true });
+  }},
+  { method: 'POST', pattern: /^\/api\/review\/(s-\d{4})\/snapshot$/, fn: async (req, res, m) => {
+    const sessionDir = path.join(projectRoot, 'review', 'sessions', m[1]);
+    if (!fs.existsSync(sessionDir)) return respond(res, 404, { error: 'Session not found' });
+    const r = readJson(path.join(projectRoot, 'edit.json'));
+    if (r.error) return respond(res, 500, { error: r.error });
+    writeJson(path.join(sessionDir, 'edit.snapshot.json'), r.data);
+    const hash = crypto.createHash('sha256').update(JSON.stringify(r.data)).digest('hex');
+    respond(res, 200, { ok: true, editHash: `sha256:${hash}` });
+  }},
+  { method: 'POST', pattern: /^\/api\/review\/(s-\d{4})\/end$/, fn: async (req, res, m) => {
+    const sessionDir = path.join(projectRoot, 'review', 'sessions', m[1]);
+    const sessionPath = path.join(sessionDir, 'session.json');
+    if (!fs.existsSync(sessionPath)) return respond(res, 404, { error: 'Session not found' });
+    const { endedAt, editHash } = JSON.parse(await collectBody(req));
+    const existing = readJson(sessionPath).data || {};
+    writeJson(sessionPath, { ...existing, endedAt: endedAt || new Date().toISOString(), ...(editHash ? { editHash } : {}) });
+    respond(res, 200, { ok: true });
+  }},
+];
 addOutputRoutes(router);
+
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+}
 
 function servePublicFile(res, pathname) {
   const filePath = path.join(PUBLIC_DIR, pathname);
@@ -322,6 +392,12 @@ const server = http.createServer(async (req, res) => {
 
   const handler = router[routeKey];
   if (handler) return handler(req, res);
+
+  for (const r of REVIEW_ROUTES) {
+    if (req.method !== r.method) continue;
+    const m = pathname.match(r.pattern);
+    if (m) return r.fn(req, res, m);
+  }
 
   if (pathname === '/' || pathname === '/index.html') {
     return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
