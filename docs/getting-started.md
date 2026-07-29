@@ -139,7 +139,7 @@ so you can start from anywhere and continue from another later.
 
 | Entrance | Best for | How to start |
 |---|---|---|
-| A. Terminal | Comfortable with command line | `node packages/akari-launcher/bin/akari.mjs --opencode` |
+| A. Terminal | Comfortable with command line | `./akari.sh --opencode` |
 | B. opencode / Claude Code session | Already using an AI agent | Say "I want to start a new video project" |
 | C. App | Prefer GUI | Connect from the Theia-based desktop shell |
 
@@ -150,8 +150,7 @@ so you can start from anywhere and continue from another later.
 ### A. From the terminal (`akari` command)
 
 ```sh
-# Run from inside the monorepo checkout (not yet published to npm)
-node packages/akari-launcher/bin/akari.mjs --opencode
+./akari.sh --opencode
 ```
 
 `akari` runs in this order:
@@ -164,7 +163,7 @@ node packages/akari-launcher/bin/akari.mjs --opencode
 **Using Claude Code instead**:
 
 ```sh
-node packages/akari-launcher/bin/akari.mjs
+./akari.sh
 ```
 
 ### B. From inside an opencode or Claude Code session
