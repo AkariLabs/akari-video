@@ -1,6 +1,6 @@
 @echo off
 :: AKARI Video Preview Server — 起動スクリプト (Windows CMD)
-:: Usage: preview.cmd [project-path] [port]
+:: Usage: akari-preview.cmd [project-path] [port]
 
 setlocal enabledelayedexpansion
 
@@ -85,7 +85,7 @@ exit /b 0
 :help
 echo AKARI Video Preview Server
 echo.
-echo Usage: preview.cmd [options] [project-path] [port]
+echo Usage: akari-preview.cmd [options] [project-path] [port]
 echo.
 echo Options:
 echo   -p, --port ^<port^>    Port number (default: 4567, env: AKARI_PORT)
@@ -95,8 +95,8 @@ echo.
 echo Port can also be given as a bare number (the last positional arg).
 echo.
 echo Examples:
-echo   preview.cmd                          current dir, port 4567
-echo   preview.cmd 3000                     current dir, port 3000
-echo   preview.cmd test-project 3000        project + port
-echo   preview.cmd C:\project -o            open browser
+echo   akari-preview.cmd                          current dir, port 4567
+echo   akari-preview.cmd 3000                     current dir, port 3000
+echo   akari-preview.cmd test-project 3000        project + port
+echo   akari-preview.cmd C:\project -o            open browser
 exit /b 0

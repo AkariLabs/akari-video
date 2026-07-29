@@ -16,7 +16,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       echo "AKARI Video Preview Server"
       echo ""
-      echo "Usage: preview.sh [options] [project-path] [port]"
+      echo "Usage: akari-preview.sh [options] [project-path] [port]"
       echo ""
       echo "Options:"
       echo "  -p, --port <port>    Port number (default: 4567, env: AKARI_PORT)"
@@ -29,10 +29,10 @@ while [[ $# -gt 0 ]]; do
       echo "it will be auto-created from the default template."
       echo ""
       echo "Examples:"
-      echo "  ./preview.sh                          # current dir, port 4567"
-      echo "  ./preview.sh 3000                     # current dir, port 3000"
-      echo "  ./preview.sh ~/my-video 3000           # create + preview"
-      echo "  ./preview.sh ./test-project -o        # open browser"
+      echo "  ./akari-preview.sh                          # current dir, port 4567"
+      echo "  ./akari-preview.sh 3000                     # current dir, port 3000"
+      echo "  ./akari-preview.sh ~/my-video 3000           # create + preview"
+      echo "  ./akari-preview.sh ./test-project -o        # open browser"
       exit 0 ;;
     -p|--port) PORT="$2"; shift 2 ;;
     -o|--open) OPEN_BROWSER=true; shift ;;

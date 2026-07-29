@@ -16,7 +16,7 @@ $ErrorActionPreference = "Stop"
 if ($Help) {
   Write-Host "AKARI Video Preview Server" -ForegroundColor Green
   Write-Host ""
-  Write-Host "Usage: preview.ps1 [[-Project] <path>] [[-Port] <int>] [-Open] [-Help]"
+  Write-Host "Usage: akari-preview.ps1 [[-Project] <path>] [[-Port] <int>] [-Open] [-Help]"
   Write-Host ""
   Write-Host "Bare number as first argument is treated as port (project=current dir)."
   Write-Host ""
@@ -27,10 +27,10 @@ if ($Help) {
   Write-Host "  -Help             Show this help"
   Write-Host ""
   Write-Host "Examples:"
-  Write-Host "  .\preview.ps1                    # current dir, port 4567"
-  Write-Host "  .\preview.ps1 3000               # current dir, port 3000"
-  Write-Host "  .\preview.ps1 .\test-project     # port 4567"
-  Write-Host "  .\preview.ps1 .\test-project 3000"
+  Write-Host "  .\akari-preview.ps1                    # current dir, port 4567"
+  Write-Host "  .\akari-preview.ps1 3000               # current dir, port 3000"
+  Write-Host "  .\akari-preview.ps1 .\test-project     # port 4567"
+  Write-Host "  .\akari-preview.ps1 .\test-project 3000"
   exit 0
 }
 
