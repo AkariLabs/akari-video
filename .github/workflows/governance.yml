@@ -166,6 +166,7 @@ jobs:
 
           check_skill_symlinks ".agents/skills"
           check_skill_symlinks ".claude/skills"
+          check_skill_symlinks ".opencode/skills"
 
           if [ "$FAIL" -ne 0 ]; then
             echo ""

@@ -186,7 +186,7 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
         warn "  Claude Code (paid) — https://claude.ai/install.sh"
         warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-        read -rp "Install opencode now? [Y/n] " answer
+        read -rp "Install opencode now? [Y/n] " answer </dev/tty
         if [[ "${answer:-Y}" =~ ^[Yy] ]]; then
             install_opencode || true
         else
@@ -199,13 +199,17 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
     fi
 
     if [[ "$ffmpeg_ok" == "false" ]] && [[ "$node_ok" == "true" ]]; then
-        read -rp "Install ffmpeg now? [Y/n] " answer
+        read -rp "Install ffmpeg now? [Y/n] " answer </dev/tty
         [[ "${answer:-Y}" =~ ^[Yy] ]] && install_ffmpeg || true
     fi
 fi
 
 # Clone or update
 echo ""
+if ! has git; then
+    err "git is required but not found. Install git and retry."
+    exit 1
+fi
 if [[ -d "$INSTALL_DIR/.git" ]]; then
     info "Repository exists at $INSTALL_DIR"
     info "Pulling latest..."

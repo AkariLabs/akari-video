@@ -68,7 +68,7 @@ cmd_preview() {
     cp -r "$MONOREPO/templates/project-default/".* "$PROJECT/" 2>/dev/null || true
     touch "$PROJECT/assets/.gitkeep" "$PROJECT/exports/.gitkeep" "$PROJECT/planning/.gitkeep" 2>/dev/null || true
     mkdir -p "$PROJECT/.akari/cache" "$PROJECT/.akari/diffs" "$PROJECT/.akari/events" "$PROJECT/.akari/reports" "$PROJECT/.akari/sidecars" "$PROJECT/.akari/work" 2>/dev/null || true
-    echo '{"version":1,"status":"draft"}' > "$PROJECT/intake.json" 2>/dev/null || true
+    echo '{"version":1,"status":"draft"}' > "$PROJECT/.akari/intake.json" 2>/dev/null || true
     echo "{}" > "$PROJECT/edit.json" 2>/dev/null || true
     info "  Created: $PROJECT"
   fi

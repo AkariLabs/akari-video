@@ -56,7 +56,7 @@ if not exist "%PPROJECT%\edit.json" (
     )
     xcopy /E /I /Y "%MONOREPO%\templates\project-default" "%PPROJECT%" >nul
     mkdir "%PPROJECT%\.akari\cache" "%PPROJECT%\.akari\diffs" "%PPROJECT%\.akari\events" "%PPROJECT%\.akari\reports" "%PPROJECT%\.akari\sidecars" "%PPROJECT%\.akari\work" 2>nul
-    echo {"version":1,"status":"draft"} > "%PPROJECT%\intake.json"
+    echo {"version":1,"status":"draft"} > "%PPROJECT%\.akari\intake.json"
     echo {} > "%PPROJECT%\edit.json"
     echo   Created: %PPROJECT%
 )

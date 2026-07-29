@@ -104,6 +104,10 @@ if (-not $ffmpegOk -and -not $SkipDeps -and $nodeOk) {
 # ═══ Clone or update ═══
 
 Write-Host ""
+if (-not (Has-Cmd git)) {
+    Write-Err "git is required but not found. Install git and retry."
+    exit 1
+}
 if (Test-Path "$InstallDir\.git") {
     Write-Info "Repository exists at $InstallDir — pulling latest..."
     Push-Location $InstallDir; git fetch origin; if (-not (git merge --ff-only origin/main 2>$null)) { Write-Warn "  Fast-forward failed — resetting to origin/main..."; git reset --hard origin/main }; Pop-Location
@@ -146,16 +150,16 @@ Write-Host ""
 Write-Host "  Quick start:"
 Write-Host ""
 Write-Host "    0. ヘルプを表示（サブコマンド一覧）"
-Write-Host "       akari.ps1 --help" -ForegroundColor DarkGray
+Write-Host "       akari.cmd --help" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "    1. 作業用ディレクトリを作って移動"
 Write-Host "       mkdir ~/my-first-video; cd ~/my-first-video" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "    2. $agentName を起動（プロジェクトが自動生成される）"
-Write-Host "       akari.ps1" -ForegroundColor DarkGray
+Write-Host "       akari.cmd" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "    3. 別の端末でプレビューサーバー"
-Write-Host "       akari.ps1 --preview" -ForegroundColor DarkGray
+Write-Host "       akari.cmd --preview" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Docs: https://github.com/AkariLabs/akari-video/blob/main/docs/getting-started.ja.md" -ForegroundColor DarkGray
 Write-Host ""

@@ -494,39 +494,44 @@ function setupAudioGraph() {
   try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
   const audio = summary?.audio;
   if (!audio) return;
-  if (audio.bgm?.src) {
-    const gain = audioCtx.createGain();
-    gain.gain.value = dbToGain(audio.bgm.gainDb ?? 0);
-    gain.connect(audioCtx.destination);
-    bgmNode = gain;
-    loadAudioBuffer(audio.bgm.src).then((buf) => {
-      if (!buf) return;
-      const src = audioCtx.createBufferSource();
-      src.buffer = buf; src.loop = audio.bgm.loop !== false;
-      src.connect(gain);
-      bgmNode._source = src;
-    });
+  if (audio.bgm) {
+    const bgmUrl = audio.bgm.src || resolveMediaUrl(audio.bgm.path);
+    if (bgmUrl) {
+      const gain = audioCtx.createGain();
+      gain.gain.value = dbToGain(audio.bgm.gainDb ?? audio.bgm.gain_db ?? 0);
+      gain.connect(audioCtx.destination);
+      bgmNode = gain;
+      loadAudioBuffer(bgmUrl).then((buf) => {
+        if (!buf) return;
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf; src.loop = audio.bgm.loop !== false;
+        src.connect(gain);
+        bgmNode._source = src;
+      });
+    }
   }
   if (Array.isArray(audio.narration)) {
     for (const n of audio.narration) {
-      if (!n.src) continue;
+      const nUrl = n.src || resolveMediaUrl(n.path);
+      if (!nUrl) continue;
       const gain = audioCtx.createGain();
       gain.gain.value = dbToGain(n.gainDb ?? 0);
       gain.connect(audioCtx.destination);
-      const node = { gain, src: n.src, t: n.t ?? 0 };
+      const node = { gain, src: nUrl, t: n.t ?? 0 };
       narrationNodes.push(node);
-      loadAudioBuffer(n.src).then((buf) => { node._buffer = buf; });
+      loadAudioBuffer(nUrl).then((buf) => { node._buffer = buf; });
     }
   }
   if (Array.isArray(audio.sfx)) {
     for (const s of audio.sfx) {
-      if (!s.src) continue;
+      const sUrl = s.src || resolveMediaUrl(s.path);
+      if (!sUrl) continue;
       const gain = audioCtx.createGain();
       gain.gain.value = dbToGain(s.gainDb ?? 0);
       gain.connect(audioCtx.destination);
-      const node = { gain, src: s.src, t: s.t ?? 0 };
+      const node = { gain, src: sUrl, t: s.t ?? 0 };
       sfxNodes.push(node);
-      loadAudioBuffer(s.src).then((buf) => { node._buffer = buf; });
+      loadAudioBuffer(sUrl).then((buf) => { node._buffer = buf; });
     }
   }
 }
@@ -604,15 +609,17 @@ async function setupWaveform() {
   if (main) { waveformPeaks = main.peaks; waveformDuration = main.duration; }
   trackWaveforms = { bgm: null, narration: null, sfx: null };
   const audio = summary?.audio;
-  if (audio?.bgm?.src) {
-    const t = await computePeaks(audio.bgm.src, 200);
+  const bgmUrl = audio?.bgm?.src || resolveMediaUrl(audio?.bgm?.path);
+  if (bgmUrl) {
+    const t = await computePeaks(bgmUrl, 200);
     if (t) { t.color = TRACK_COLORS.bgm; t.t = audio.bgm.t ?? 0; trackWaveforms.bgm = t; }
   }
   if (Array.isArray(audio?.narration)) {
     const all = [];
     for (const n of audio.narration) {
-      if (!n.src) continue;
-      const t = await computePeaks(n.src, 80);
+      const nUrl = n.src || resolveMediaUrl(n.path);
+      if (!nUrl) continue;
+      const t = await computePeaks(nUrl, 80);
       if (t) { t.t = n.t ?? 0; all.push(t); }
     }
     if (all.length) trackWaveforms.narration = { segments: all, color: TRACK_COLORS.narration };
@@ -620,8 +627,9 @@ async function setupWaveform() {
   if (Array.isArray(audio?.sfx)) {
     const all = [];
     for (const s of audio.sfx) {
-      if (!s.src) continue;
-      const t = await computePeaks(s.src, 60);
+      const sUrl = s.src || resolveMediaUrl(s.path);
+      if (!sUrl) continue;
+      const t = await computePeaks(sUrl, 60);
       if (t) { t.t = s.t ?? 0; all.push(t); }
     }
     if (all.length) trackWaveforms.sfx = { segments: all, color: TRACK_COLORS.sfx };
@@ -878,6 +886,19 @@ async function editSaveErrorMessage(res) {
   } catch {
     return `保存に失敗しました (HTTP ${res.status})`;
   }
+}
+
+function resolveMediaUrl(pathOrSrc) {
+  if (!pathOrSrc) return null;
+  if (/^(https?:|blob:)/.test(pathOrSrc)) return pathOrSrc;
+  return `/${String(pathOrSrc).replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')}`;
+}
+
+async function reloadSummary() {
+  const res = await fetch(api.summary);
+  if (!res.ok) throw new Error(`summary: HTTP ${res.status}`);
+  summary = await res.json();
+  return summary;
 }
 
 function showCutInfoAt(t) {
@@ -1230,7 +1251,7 @@ captionPlate.addEventListener('pointerdown', (e) => {
           method: 'PUT', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ captions })
         });
-        if (res.ok) { summary = await res.json(); selectedCaptionZone = candidateZone; }
+        if (res.ok) { await reloadSummary(); selectedCaptionZone = candidateZone; }
       } catch (err) { console.warn('caption zone write failed', err); }
       updateCaptionSelectBox();
     })();
@@ -1252,7 +1273,7 @@ captionZoneSelect.addEventListener('change', async () => {
       method: 'PUT', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ captions })
     });
-    if (res.ok) { summary = await res.json(); }
+    if (res.ok) { await reloadSummary(); }
   } catch (err) { console.warn('caption zone write failed', err); }
 });
 captionColorInput.addEventListener('change', async () => {
@@ -1267,7 +1288,7 @@ captionColorInput.addEventListener('change', async () => {
       method: 'PUT', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ captions })
     });
-    if (res.ok) summary = await res.json();
+    if (res.ok) await reloadSummary();
   } catch (err) { console.warn('caption color write failed', err); }
 });
 captionSizeInput.addEventListener('change', async () => {
@@ -1282,7 +1303,7 @@ captionSizeInput.addEventListener('change', async () => {
       method: 'PUT', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ captions })
     });
-    if (res.ok) summary = await res.json();
+    if (res.ok) await reloadSummary();
   } catch (err) { console.warn('caption size write failed', err); }
 });
 
@@ -1368,7 +1389,7 @@ function beginLayerDrag(lv, startEvent, computeTransform) {
           method: 'PUT', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ ...summary, layers })
         });
-        if (res.ok) { summary = await res.json(); }
+        if (res.ok) { await reloadSummary(); }
         else { applyLayerTransform(lv, orig); }
       } catch { applyLayerTransform(lv, orig); }
       updateLayerSelectBox();
@@ -1430,7 +1451,7 @@ stage.addEventListener('dblclick', (e) => {
         method: 'PUT', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ...summary, layers })
       });
-      if (res.ok) { summary = await res.json(); popup.hidden = true; }
+      if (res.ok) { await reloadSummary(); popup.hidden = true; }
     } catch {}
   });
   popup.hidden = false;

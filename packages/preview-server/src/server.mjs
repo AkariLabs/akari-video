@@ -4,6 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline, setPort } from './edit-to-timeline.mjs';
@@ -49,7 +50,7 @@ const MIME = {
   '.woff': 'font/woff',
 };
 
-const PUBLIC_DIR = new URL('../public/', import.meta.url).pathname;
+const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 
 // --- ffmpeg/ffprobe detection ---
@@ -235,18 +236,33 @@ const router = {
       const editPath = path.join(projectRoot, 'edit.json');
       if (!noLint) {
         const tmp = editPath + '.tmp';
+        const bak = editPath + '.bak';
         fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf-8');
+        let hadBackup = false;
         try {
-          const lintResult = await lintProject(tmp);
+          if (fs.existsSync(bak)) fs.unlinkSync(bak);
+          if (fs.existsSync(editPath)) {
+            fs.renameSync(editPath, bak);
+            hadBackup = true;
+          }
+          fs.renameSync(tmp, editPath);
+          const lintResult = await lintProject(projectRoot);
           if (lintResult.verdict === 'fail') {
-            fs.unlinkSync(tmp);
+            fs.unlinkSync(editPath);
+            if (hadBackup) fs.renameSync(bak, editPath);
             return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
           }
+          if (hadBackup && fs.existsSync(bak)) fs.unlinkSync(bak);
         } catch (lintErr) {
-          fs.unlinkSync(tmp);
+          if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+          if (fs.existsSync(editPath) && hadBackup) {
+            try { fs.unlinkSync(editPath); } catch {}
+            if (fs.existsSync(bak)) fs.renameSync(bak, editPath);
+          } else if (!fs.existsSync(editPath) && hadBackup && fs.existsSync(bak)) {
+            fs.renameSync(bak, editPath);
+          }
           return respond(res, 500, { error: 'Lint error: ' + lintErr.message });
         }
-        fs.renameSync(tmp, editPath);
       } else {
         const r = writeJson(editPath, obj);
         if (r.error) return respond(res, 500, { error: r.error });
