@@ -1,7 +1,6 @@
-import { readdir, readFile, stat, mkdtemp, rm } from 'node:fs/promises';
-import os from 'node:os';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { listPackage, extractFile } from '@electron/asar';
 import { fileURLToPath } from 'node:url';
 
 const shellRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -146,11 +145,7 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
     // Windows の asar list はエントリをバックスラッシュ区切りで返すため、以降の
     // `/lib/...` 前提の照合が全滅する（CI run 30000812912 実測: 547MB の asar 全項目 MISSING）。
     // 区切りを '/' に正規化してから照合する。
-    entries = execSync(`npx --yes @electron/asar list ${JSON.stringify(asar)}`, {
-      cwd: shellRoot,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024
-    }).split(/\r?\n/).filter(Boolean).map(entry => entry.replace(/\\/g, '/'));
+    entries = listPackage(asar, { isPack: false }).map(entry => entry.replace(/\\/g, '/'));
   } catch (error) {
     console.error(`❌ app.asar を読み取れません: ${path.relative(shellRoot, asar)}`);
     console.error(error instanceof Error ? error.message : String(error));
@@ -226,25 +221,29 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
     );
     failed = true;
   }
+  // asar 内エントリの取り出しは @electron/asar を直接 import して呼ぶ（CLI をシェル経由で
+  // 叩かない）。issue #5 の Windows 実機報告で、旧実装の
+  // `execSync(... ${JSON.stringify(path.join('lib','backend','main.js'))})` が win32 で
+  // false-fail することが判明したため（= 配布可能なパッケージを「配布禁止」と誤判定する）。
+  // 機構: win32 では path.join が 'lib\backend\main.js' を返し、JSON.stringify がそれを
+  // '"lib\\backend\\main.js"' へエスケープする。cmd.exe は二重引用符しか剥がさず
+  // バックスラッシュのエスケープを解釈しないので、CLI には区切りが二重化した文字列が渡る。
+  // アーカイブ内の検索は path.sep 分割（@electron/asar filesystem.js の searchNodeFromPath）
+  // なので空セグメントが混入して miss する。mac 上の等価再現（区切りを '//' に二重化）でも
+  // 同一の "was not found in this archive" になることを実測済み。
+  // なお archivePath 側は Windows の FS が '\\' を吸収するため開けてしまい、
+  // アーカイブ内キーの照合だけが落ちる、という非対称な壊れ方をしていた。
+  // 引数を文字列連結でシェルに渡さなければ区切り・引用符の解釈段が消える。
+  // 検索キーは path.sep 分割に合わせるため path.join のまま（正規化してはいけない）。
   try {
-    const extractDir = await mkdtemp(path.join(os.tmpdir(), 'akari-verify-asar-'));
-    try {
-      execSync(
-        `npx --yes @electron/asar extract-file ${JSON.stringify(asar)} ` +
-        JSON.stringify(path.join('lib', 'backend', 'main.js')),
-        { cwd: extractDir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
+    const bundledMain = extractFile(asar, path.join('lib', 'backend', 'main.js')).toString('utf8');
+    if (bundledMain.includes('app.asar.unpacked$1')) {
+      console.log('✅ rgPath asar.unpacked 置換（patch-ripgrep-asar-path 適用痕）');
+    } else {
+      console.error(
+        '❌ rgPath が素の asar パスのまま（prepackage の patch-ripgrep-asar-path.mjs 未適用 — issue #5）'
       );
-      const bundledMain = await readFile(path.join(extractDir, 'main.js'), 'utf8');
-      if (bundledMain.includes('app.asar.unpacked$1')) {
-        console.log('✅ rgPath asar.unpacked 置換（patch-ripgrep-asar-path 適用痕）');
-      } else {
-        console.error(
-          '❌ rgPath が素の asar パスのまま（prepackage の patch-ripgrep-asar-path.mjs 未適用 — issue #5）'
-        );
-        failed = true;
-      }
-    } finally {
-      await rm(extractDir, { recursive: true, force: true });
+      failed = true;
     }
   } catch (error) {
     console.error(
