@@ -246,8 +246,10 @@ if [[ -n "$SHELL_CONFIG" ]] && ! grep -q "$INSTALL_DIR" "$SHELL_CONFIG" 2>/dev/n
   echo "" >> "$SHELL_CONFIG"
   echo "# AKARI Video" >> "$SHELL_CONFIG"
   echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$SHELL_CONFIG"
+  # 現在のセッションにも反映
+  export PATH="$PATH:$INSTALL_DIR"
   info "  PATH を通しました: $SHELL_CONFIG"
-  info "  → 次回以降 端末を開き直せば ./akari.sh だけで使えます"
+  info "  → akari.sh がすぐに使えます"
 elif [[ -z "$SHELL_CONFIG" ]]; then
   warn "  PATH の自動登録に対応していないシェルです。手動で以下を PATH に追加してください:"
   warn "    $INSTALL_DIR"
