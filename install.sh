@@ -122,8 +122,9 @@ check_agent() {
     fi
     if [[ "$found" == "false" ]]; then
         err "  [--] No AI agent found"
+        return 1
     fi
-    return $( [[ "$found" == "false" ]] )
+    return 0
 }
 
 install_opencode() {

@@ -868,6 +868,18 @@ function updateSeekVisual() {
 let selectedCutIndex = -1;
 let selectedCutAcc = 0;
 
+async function editSaveErrorMessage(res) {
+  try {
+    const body = await res.json();
+    if (Array.isArray(body.findings) && body.findings.length) {
+      return body.findings.map((f) => f.message || f.check).filter(Boolean).join(' / ');
+    }
+    return body.error || `保存に失敗しました (HTTP ${res.status})`;
+  } catch {
+    return `保存に失敗しました (HTTP ${res.status})`;
+  }
+}
+
 function showCutInfoAt(t) {
   let acc = 0;
   for (const seg of segments) {
@@ -972,13 +984,13 @@ function renderCutInfoContent(seg) {
         body: JSON.stringify({ ...summary, cuts: newCuts })
       });
       if (res.ok) {
-        summary = await res.json();
         buildSegments();
         seekTo(outputTime);
       } else {
         Object.assign(cut, old);
+        showMessage(await editSaveErrorMessage(res));
       }
-    } catch { Object.assign(cut, old); }
+    } catch (e) { Object.assign(cut, old); showMessage(e?.message || String(e)); }
   });
 }
 
@@ -997,9 +1009,10 @@ async function addCutAt(index, where) {
     body: JSON.stringify({ ...summary, cuts: newCuts })
   });
   if (res.ok) {
-    summary = await res.json();
     buildSegments();
     seekTo(outputTime);
+  } else {
+    showMessage(await editSaveErrorMessage(res));
   }
 }
 
@@ -1015,9 +1028,10 @@ async function moveCut(index, dir) {
     body: JSON.stringify({ ...summary, cuts: newCuts })
   });
   if (res.ok) {
-    summary = await res.json();
     buildSegments();
     seekTo(outputTime);
+  } else {
+    showMessage(await editSaveErrorMessage(res));
   }
 }
 
@@ -1030,9 +1044,10 @@ async function deleteCut(index) {
     body: JSON.stringify({ ...summary, cuts: newCuts })
   });
   if (res.ok) {
-    summary = await res.json();
     buildSegments();
     seekTo(outputTime);
+  } else {
+    showMessage(await editSaveErrorMessage(res));
   }
 }
 
@@ -1052,7 +1067,7 @@ frameBack.addEventListener('click', () => { pause(); seekTo(outputTime - 1 / fps
 frameForward.addEventListener('click', () => { pause(); seekTo(outputTime + 1 / fps); });
 skipBack.addEventListener('click', () => { pause(); seekTo(outputTime - 10); });
 skipForward.addEventListener('click', () => { pause(); seekTo(outputTime + 10); });
-seek.addEventListener('input', () => { cutInfoPopup.hidden = true; const w = isPlaying; if (w) pause(); seekTo(Number(seek.value)); if (w) play(); });
+seek.addEventListener('input', () => { showCutInfoAt(Number(seek.value)); const w = isPlaying; if (w) pause(); seekTo(Number(seek.value)); if (w) play(); });
 // Snap to nearest cut boundary
 function snapToCut(t, dir) {
   if (!segments.length) return t;

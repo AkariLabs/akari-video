@@ -273,7 +273,7 @@ test('opencode 不在時の案内: PATH に opencode が無い場合は案内を
   });
 });
 
-test('--yes: Claude Code に -y を付加する', async () => {
+test('--yes: Claude Code に --permission-mode acceptEdits を付加する', async () => {
   await withScratchRoot(async (root) => {
     await mkdir(join(root, '.akari'), { recursive: true });
     await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
@@ -294,7 +294,7 @@ test('--yes: Claude Code に -y を付加する', async () => {
       ...isolatedUpdateOptions(root)
     });
 
-    assert.deepEqual(claudeCall, { claudePath: '/fake/bin/claude', args: ['-y', '--continue'], cwd: root });
+    assert.deepEqual(claudeCall, { claudePath: '/fake/bin/claude', args: ['--permission-mode', 'acceptEdits', '--continue'], cwd: root });
     assert.equal(result.exitCode, 0);
     assert.equal(result.claudeLaunched, true);
   });

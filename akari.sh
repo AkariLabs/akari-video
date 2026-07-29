@@ -114,7 +114,7 @@ case "$1" in
     echo "  update                Check for updates"
     echo "  --opencode            Use opencode instead of Claude Code"
     echo "  --claude, --claudecode  Launch Claude Code explicitly"
-    echo "  -y, --yes             Auto-confirm (skip permissions; opencode:--auto / Claude:-y)"
+    echo "  -y, --yes             Auto-confirm (skip permissions; opencode:--auto / Claude:--permission-mode acceptEdits)"
     echo "  -h, --help, -?        Show this help"
     echo ""
     echo "Typical workflow:"
@@ -132,8 +132,8 @@ case "$1" in
     exit 0 ;;
   --preview|-pv) shift; cmd_preview "$@" ;;
   update) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "update" ;;
-  --opencode) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" ;;
-  --claude|--claudecode) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--claude" ;;
-  -y|--yes) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--yes" ;;
+  --opencode) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" "$@" ;;
+  --claude|--claudecode) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--claude" "$@" ;;
+  -y|--yes) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--yes" "$@" ;;
   *) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "$@" ;;
 esac

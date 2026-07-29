@@ -101,7 +101,7 @@ export async function run(args, options = {}) {
     const claudePath = resolveClaude();
     if (claudePath) {
       log('Claude Code を起動します…');
-      const claudeArgs = autoConfirm ? ['-y', ...filteredArgs] : filteredArgs;
+      const claudeArgs = autoConfirm ? ['--permission-mode', 'acceptEdits', ...filteredArgs] : filteredArgs;
       const result = spawnClaude(claudePath, claudeArgs, projectRoot);
       const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
       return { exitCode, scaffolded: state.scaffolded, claudeLaunched: true };

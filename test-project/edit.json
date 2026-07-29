@@ -15,10 +15,11 @@
       "out": 5
     },
     {
-      "in": 2,
-      "out": 8
+      "in": 5,
+      "out": 10
     }
   ],
+  "overlays": [],
   "audio": {
     "bgm": {
       "path": "bgm.mp3",

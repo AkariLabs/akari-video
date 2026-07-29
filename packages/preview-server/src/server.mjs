@@ -13,10 +13,13 @@ const args = process.argv.slice(2);
 let port = 3000;
 let projectRoot = process.cwd();
 let noLint = false;
+let host = '127.0.0.1';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--port' && args[i + 1]) {
     port = Number(args[++i]);
+  } else if (args[i] === '--host' && args[i + 1]) {
+    host = args[++i];
   } else if (args[i] === '--no-lint') {
     noLint = true;
   } else if (!args[i].startsWith('-')) {
@@ -234,7 +237,7 @@ const router = {
         const tmp = editPath + '.tmp';
         fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf-8');
         try {
-          const lintResult = await lintProject(editPath);
+          const lintResult = await lintProject(tmp);
           if (lintResult.verdict === 'fail') {
             fs.unlinkSync(tmp);
             return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
@@ -446,9 +449,11 @@ fs.watch(projectRoot, { recursive: false }, (eventType, filename) => {
 });
 console.log(`[watch] watching ${projectRoot}`);
 
-server.listen(port, () => {
+server.listen(port, host, () => {
+  const displayHost = host === '0.0.0.0' ? 'localhost' : host;
   console.log(`\n  AKARI Video Preview Server`);
-  console.log(`  http://localhost:${port}`);
+  console.log(`  http://${displayHost}:${port}`);
+  console.log(`  bind: ${host}:${port}`);
   console.log(`  project: ${projectRoot}`);
   if (hasFfprobe) console.log(`  ffprobe: available`);
   if (hasFfmpeg) console.log(`  ffmpeg: available (HEVC proxy enabled)`);
