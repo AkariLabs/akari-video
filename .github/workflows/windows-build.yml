@@ -74,7 +74,10 @@ jobs:
           # まま event loop が枯れて exit 0 になる（=「無音」の正体。cache 済み zip は
           # SHA256 一致で無実・Node 22 では同一 zip が展開できることも実機対照済み）。
           # 上の approve-scripts の「ブロック」観測もこの無音失敗と紛れていた可能性がある。
-          # 直接配置は問題を構造的に回避するので本 workflow は現状維持
+          # 直接配置は問題を構造的に回避するので本 workflow は現状維持。
+          # 上流: 正本は yauzl#176（#177 は duplicate close）。修正は yauzl v3.3.1+ のみで
+          # v2 系にバックポートされず、electron は extract-zip 2.0.1 → yauzl ^2 の経路の
+          # ため、根治は上流の v3 バンプ待ち = この直接配置は恒久手当て（issue #7）
           $v = node -p "require('./node_modules/electron/package.json').version"
           Write-Host "=== electron $v direct download"
           curl.exe -sSL -o electron.zip "https://github.com/electron/electron/releases/download/v$v/electron-v$v-win32-x64.zip"

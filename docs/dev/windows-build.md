@@ -98,6 +98,14 @@ npm install --no-workspaces
 #     このまま進むと theia build が一見無関係なエラーで死ぬため、ここで dist を確認し、
 #     無ければ公式リリース zip を直接配置する（CI windows-build.yml と同じ手当て。
 #     ARM64 機は zip 名の x64 を arm64 に読み替え）
+#
+#     上流の状況（2026-07-28 時点・issue #7 で追跡）: 正本は yauzl#176
+#     （thejoshwolfe/yauzl#177 は duplicate として close）。yauzl 3.3.1 より前は
+#     node stream の destroy() を undefined behavior な形で使っており、新しめの Node が
+#     それを「stream callback が発火しない」形で顕在化させたもの。修正は v3 系のみで
+#     v2 系にはバックポートされない。electron の install.js は extract-zip 2.0.1 →
+#     yauzl ^2 の経路なので、上流の根治は extract-zip / electron 側の yauzl v3 バンプ待ち。
+#     したがってこの直接配置は暫定ではなく恒久の手当てとして扱う
 if (-not (Test-Path node_modules/electron/dist/electron.exe)) {
   $v = node -p "require('./node_modules/electron/package.json').version"
   curl.exe -sSL -o electron.zip "https://github.com/electron/electron/releases/download/v$v/electron-v$v-win32-x64.zip"
@@ -170,9 +178,14 @@ project-default テンプレート・node-pty の win32 ネイティブモジュ
   設計済み・未着手
 - **codex/claude CLI 連携（akari-partner 拡張）**: `claude` が PATH にある環境は
   **Windows 実機で動作確認済み**（issue #9 — 右ペイン PTY で CLI の信頼確認プロンプト
-  まで到達。conpty / node-pty prebuilt で動作）。CLI 未導入時の自動取得（bootstrap）は
-  win32 分岐の実装済み・実機未検証（旧記述「win32 では例外を投げる」は bootstrap
-  実装前の情報で、issue #9 の実機確認を受けて更新）
+  まで到達。conpty / node-pty prebuilt で動作）。**PATH に無い環境でも起動する** —
+  bootstrap-runner は既知のインストール先（`~/.local/bin` / `~/.claude/bin` /
+  `~/.claude/local`、win32 は `claude.exe`）を絶対パスで先に探し、見つかれば再利用する
+  ため（issue #9 で Windows 実機確認済み — PATH から外しても `~\.local\bin\claude.exe`
+  が起動）。したがってインストーラを実行する bootstrap 本体に入るのは、これらの候補に
+  実体が一切無い環境のみで、**その経路は win32 分岐の実装済み・実機未検証**
+  （旧記述「win32 では例外を投げる」は bootstrap 実装前の情報で、issue #9 の実機確認を
+  受けて更新）
 - **署名なし配布 → SmartScreen 警告**: コード署名していないため、初回起動時に Windows
   SmartScreen の警告が出る。配布用の署名・NSIS インストーラ化は「配布系」として本書のスコープ外
   （第 2 陣以降の課題）
