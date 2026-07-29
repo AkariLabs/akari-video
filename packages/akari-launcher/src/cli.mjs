@@ -96,16 +96,24 @@ export async function run(args, options = {}) {
     const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
     return { exitCode, scaffolded: state.scaffolded, opencodeLaunched: true };
   } else {
-    log('Claude Code を起動します…');
     const claudePath = resolveClaude();
-    if (!claudePath) {
-      log(claudeMissingGuidance());
-      return { exitCode: 1, scaffolded: state.scaffolded, claudeLaunched: false };
+    if (claudePath) {
+      log('Claude Code を起動します…');
+      const result = spawnClaude(claudePath, filteredArgs, projectRoot);
+      const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
+      return { exitCode, scaffolded: state.scaffolded, claudeLaunched: true };
     }
 
-    const result = spawnClaude(claudePath, filteredArgs, projectRoot);
+    log('Claude Code が見つかりません。opencode を起動します…');
+    const opencodePath = resolveOpencode();
+    if (!opencodePath) {
+      log(claudeMissingGuidance());
+      return { exitCode: 1, scaffolded: state.scaffolded, opencodeLaunched: false };
+    }
+
+    const result = spawnOpencode(opencodePath, filteredArgs, projectRoot);
     const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
-    return { exitCode, scaffolded: state.scaffolded, claudeLaunched: true };
+    return { exitCode, scaffolded: state.scaffolded, opencodeLaunched: true };
   }
 }
 

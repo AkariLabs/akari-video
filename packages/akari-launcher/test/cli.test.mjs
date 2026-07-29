@@ -129,13 +129,14 @@ test('doctor 分岐: 既にセットアップ済みのフォルダでは scaffol
   });
 });
 
-test('claude 不在時の案内: PATH に claude が無い場合は案内を出し、claude を起動せずに終了する', async () => {
+test('claude 不在→opencode 不在: 両方無い場合は案内を出して終了する', async () => {
   await withScratchRoot(async (root) => {
     await mkdir(join(root, '.akari'), { recursive: true });
     await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
 
     const { log, lines } = collectLogs();
     let claudeSpawned = false;
+    let opencodeSpawned = false;
 
     const result = await run([], {
       projectRoot: root,
@@ -143,18 +144,48 @@ test('claude 不在時の案内: PATH に claude が無い場合は案内を出�
       assets: resolveRepoAssets(repoRoot),
       runDoctor: () => ({ status: 0 }),
       resolveClaude: () => null,
-      spawnClaude: () => {
-        claudeSpawned = true;
+      spawnClaude: () => { claudeSpawned = true; return { status: 0 }; },
+      resolveOpencode: () => null,
+      spawnOpencode: () => { opencodeSpawned = true; return { status: 0 }; },
+      ...isolatedUpdateOptions(root)
+    });
+
+    assert.equal(claudeSpawned, false);
+    assert.equal(opencodeSpawned, false);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.opencodeLaunched, false);
+    assert.ok(lines.some((line) => line.includes('claude コマンドが見つかりませんでした')));
+    assert.ok(lines.some((line) => line.includes('https://claude.ai/install.sh')));
+  });
+});
+
+test('claude 不在→opencode でフォールバック: opencode が見つかれば起動する', async () => {
+  await withScratchRoot(async (root) => {
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
+
+    const { log, lines } = collectLogs();
+    let opencodeCall = null;
+
+    const result = await run([], {
+      projectRoot: root,
+      log,
+      assets: resolveRepoAssets(repoRoot),
+      runDoctor: () => ({ status: 0 }),
+      resolveClaude: () => null,
+      spawnClaude: () => { return { status: 0 }; },
+      resolveOpencode: () => '/fake/bin/opencode',
+      spawnOpencode: (opencodePath, args, cwd) => {
+        opencodeCall = { opencodePath, args, cwd };
         return { status: 0 };
       },
       ...isolatedUpdateOptions(root)
     });
 
-    assert.equal(claudeSpawned, false);
-    assert.equal(result.exitCode, 1);
-    assert.equal(result.claudeLaunched, false);
-    assert.ok(lines.some((line) => line.includes('claude コマンドが見つかりませんでした')));
-    assert.ok(lines.some((line) => line.includes('https://claude.ai/install.sh')));
+    assert.deepEqual(opencodeCall, { opencodePath: '/fake/bin/opencode', args: [], cwd: root });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.opencodeLaunched, true);
+    assert.ok(lines.some((line) => line.includes('Claude Code が見つかりません。opencode を起動します…')));
   });
 });
 
