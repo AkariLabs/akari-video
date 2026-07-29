@@ -11,6 +11,7 @@
 ![Agent skills: 17](https://img.shields.io/badge/agent_skills-17-ff8a00)
 ![opencode compatible](https://img.shields.io/badge/opencode-compatible-1a1a1a)
 ![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
+![Cursor Agent](https://img.shields.io/badge/Cursor_Agent-skills-1a1a1a)
 
 </div>
 
@@ -23,7 +24,7 @@ look at the result and correct only where it drifts from your intent.
 
 **Status: under construction** — the desktop shell is mid-migration (the previous shell
 implementation is preserved at [akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri)).
-The headless path (opencode + skills) is usable today.
+The headless path (opencode + Claude Code + Cursor Agent + skills) is usable today.
 
 ## Why this exists
 
@@ -56,8 +57,8 @@ The agent and the human collaborate on the same save data (file contracts).
   HTML/CSS/Three.js. The intake is wide open; the engine only does compositing
 - **Human actions land in data too** — drags and value tweaks are written back to `edit.json`,
   data attributes, and CSS variables. Humans and AI share the same files without colliding
-- **Headless-first** — everything from planning to export works with opencode or Claude Code
-  alone, no UI required. The app can open the same project later and continue
+- **Headless-first** — everything from planning to export works with opencode, Claude Code, or
+  Cursor Agent alone, no UI required. The app can open the same project later and continue
 
 The workflow is packaged as skills, one per stage:
 
@@ -74,7 +75,7 @@ flowchart LR
     class A,B,C,D,E,F,G stage
 ```
 
-## Getting started — three entrances
+## Getting started — four entrances
 
 Whichever entrance you start from, everything converges on the same file contracts
 (under `.akari/`). Stop halfway and you can resume from any other entrance.
@@ -84,6 +85,7 @@ Whichever entrance you start from, everything converges on the same file contrac
 | Terminal | `packages/akari-launcher` (bin: `akari`) | `node packages/akari-launcher/bin/akari.mjs --opencode` (not yet published to npm) |
 | Inside an opencode session | Skills auto-discovered from `.opencode/skills/` | Just say "I want to start a new video project" |
 | Inside a Claude Code session | `/akari` command + SessionStart hook in `plugin/` | Type `/akari` in a session, or just say "I want to start a new video project" |
+| Inside Cursor Agent | Skills auto-discovered from `.cursor/skills/` (monorepo) or project adapters | Open the repo or project folder in Cursor and say "I want to start a new video project" |
 | Desktop app | Theia-based desktop shell | From the connect button on the Start screen |
 
 First steps: [docs/getting-started.md](./docs/getting-started.md).

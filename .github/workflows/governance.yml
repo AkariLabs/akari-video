@@ -137,8 +137,8 @@ jobs:
             '口述|\bF48\b|第 ?[0-9]+ ?巡|スキルマップ' \
             "Rewrite as a self-contained norm. Move the 口述/F48/巡 provenance to the internal repo's contract and delete it here."
 
-          # Skill adapter symlink integrity: .agents/skills/ and .claude/skills/ must be
-          # symlinks pointing to ../../skills/<name>. A redirected symlink could cause the
+          # Skill adapter symlink integrity: .agents/skills/, .claude/skills/, and .cursor/skills/
+          # must be symlinks pointing to ../../skills/<name>. A redirected symlink could cause the
           # agent to load a tampered SKILL.md.
           check_skill_symlinks() {
             local adapter_dir="$1"
@@ -166,6 +166,7 @@ jobs:
 
           check_skill_symlinks ".agents/skills"
           check_skill_symlinks ".claude/skills"
+          check_skill_symlinks ".cursor/skills"
           check_skill_symlinks ".opencode/skills"
 
           if [ "$FAIL" -ne 0 ]; then

@@ -11,6 +11,7 @@
 ![Agent skills: 17](https://img.shields.io/badge/agent_skills-17-ff8a00)
 ![opencode compatible](https://img.shields.io/badge/opencode-compatible-1a1a1a)
 ![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
+![Cursor Agent](https://img.shields.io/badge/Cursor_Agent-skills-1a1a1a)
 
 </div>
 
@@ -22,7 +23,7 @@ AKARI Video は AI エージェントが編集の主体になる動画編集ツ�
 
 **Status: under construction** — シェルアプリは移行中（旧シェル実装は
 [akari-video-tauri](https://github.com/AkariLabs/akari-video-tauri) に保存）。
-ヘッドレス経路（opencode / Claude Code + スキル）は今日から使えます。
+ヘッドレス経路（opencode / Claude Code / Cursor Agent + スキル）は今日から使えます。
 
 ## なぜ作ったか
 
@@ -51,7 +52,7 @@ AKARI Video はその二択を壊すために作りました。
   受け口は広いが、エンジンは合成だけ
 - **人間の操作もデータに着地する** — ドラッグや値の調整は `edit.json`・data 属性・CSS 変数に
   書き戻される。人間と AI が同じファイル上で衝突しない
-- **headless-first** — UI がなくても opencode や Claude Code だけで企画から書き出しまで完結する。
+- **headless-first** — UI がなくても opencode、Claude Code、Cursor Agent だけで企画から書き出しまで完結する。
   アプリはあとから同じプロジェクトを開いて続きができる
 
 ワークフローは段階ごとにスキル化されています:
@@ -69,7 +70,7 @@ flowchart LR
     class A,B,C,D,E,F,G stage
 ```
 
-## はじめる — 3 つの入口
+## はじめる — 4 つの入口
 
 どの入口から始めても、同じファイル契約（`.akari/` 配下）に収束します。
 途中でやめても、別の入口から「続きから」再開できます。
@@ -79,6 +80,7 @@ flowchart LR
 | ターミナル | `packages/akari-launcher`（bin: `akari`） | `node packages/akari-launcher/bin/akari.mjs --opencode`（npm publish は未実施） |
 | opencode セッション内 | `.opencode/skills/` から自動発見 | 「新しい動画プロジェクトを作りたい」と発話 |
 | Claude Code セッション内 | `plugin/` の `/akari` コマンド + SessionStart hook | セッション内で `/akari`、または「新しい動画プロジェクトを作りたい」と発話 |
+| Cursor Agent | `.cursor/skills/`（モノレポ）またはプロジェクトのアダプタから自動発見 | リポジトリまたはプロジェクトフォルダを Cursor で開き、「新しい動画プロジェクトを作りたい」と発話 |
 | アプリ | Theia ベースのデスクトップシェル | 「はじめる」画面の接続ボタンから |
 
 最初の一歩は [docs/getting-started.ja.md](./docs/getting-started.ja.md) へ。

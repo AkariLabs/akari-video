@@ -8,7 +8,7 @@
 このリポにはスキル（[Agent Skills オープン標準](https://agentskills.io) / SKILL.md 形式）が同梱されている。
 正本は `skills/<name>/SKILL.md`。
 
-- **ネイティブ対応ハーネス**: `.opencode/skills/`（opencode）/ `.claude/skills/`（Claude Code）/ `.agents/skills/`（agentskills.io
+- **ネイティブ対応ハーネス**: `.opencode/skills/`（opencode）/ `.claude/skills/`（Claude Code）/ `.cursor/skills/`（Cursor Agent）/ `.agents/skills/`（agentskills.io
   互換ハーネスの標準位置。新しめの Codex 等）/ `.codex/skills/`（Codex CLI 0.144 系の旧探索位置）に
   同一実体への symlink があり、自動発見・自動発動する
 - **スキル探索非対応のハーネス**: 着手前に下の索引を確認し、タスクが description に合致したら

@@ -20,7 +20,7 @@ Claude Code のプラグインマニフェスト（`plugin.json`）のコンポ�
 そこで `plugin/skills` をリポジトリ直下 `skills/` へのシンボリックリンクにした。
 `plugin.json` 側はデフォルトの `./skills` 探索パスをそのまま使うだけで、
 ファイルシステム越しに正本を参照できる（`packages/project-scaffold` が
-`.agents/skills` / `.codex/skills` を `.claude/skills` へのシンボリックリンクに
+`.agents/skills` / `.cursor/skills` / `.codex/skills` を `.claude/skills` へのシンボリックリンクに
 する既存の流儀と同じ考え方）。
 
 **既知の制約**: この方式はプラグインが本リポジトリの checkout と同じ場所に置かれて

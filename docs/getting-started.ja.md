@@ -69,10 +69,10 @@ node --version
 # v20.x.x とか表示されれば OK
 ```
 
-### 2. opencode または Claude Code（AI エージェント）
+### 2. opencode、Claude Code、または Cursor Agent（AI エージェント）
 
 AKARI Video を動かすには、AI エージェントが必要です。
-どちらか一方、または両方を入れてください。
+以下のいずれか（複数可）を入れてください。
 
 #### opencode を使う場合（おすすめ）
 
@@ -114,6 +114,22 @@ claude --version
 
 詳しくは [Claude Code 公式ドキュメント](https://docs.anthropic.com/en/docs/claude-code/overview) を参照。
 
+#### Cursor Agent を使う場合
+
+[Cursor](https://cursor.com) は Agent モード付きの AI ネイティブ IDE です。
+AKARI Video のモノレポ、または動画プロジェクトフォルダを Cursor で開くと、
+`.cursor/skills/`（モノレポ）またはプロジェクトのアダプタ（`create-project` 後）から
+[Agent Skills](https://agentskills.io) 形式のスキルが自動発見されます。
+
+**始め方**:
+
+1. リポジトリまたはプロジェクトを Cursor で開く
+2. Agent チャットで **「新しい動画プロジェクトを作りたい」** と発話
+3. エージェントが `AGENTS.md` と `.cursor/skills/` 配下の `SKILL.md` を読んで進める
+
+Cursor 専用の `/akari` スラッシュコマンドは現時点ではありません。自然言語の依頼や
+`skills/edit-plan/SKILL.md` などの明示パス指定で、他ハーネスと同様に使えます。
+
 ### 3. ffmpeg（動画処理ツール）
 
 ffmpeg は動画の切り貼り・変換・書き出しに使います。
@@ -136,15 +152,16 @@ ffmpeg -version
 
 ## 入口を選ぶ
 
-AKARI Video には 3 つの入口があります。
+AKARI Video には 4 つの入口があります。
 どれも同じファイル契約（`.akari/` 配下）に収束するので、
 どこから始めても続きは別の入口から再開できます。
 
 | 入口 | おすすめの人 | 発動方法 |
 |---|---|---|
 | A. ターミナル | コマンドラインに慣れている人 | `./akari.sh --opencode` |
-| B. opencode / Claude Code セッション | すでに AI エージェントを使っている人 | 「新しい動画プロジェクトを作りたい」と発話 |
-| C. アプリ | GUI で操作したい人 | Theia ベースのデスクトップシェルから接続 |
+| B. opencode / Claude Code セッション | すでに AI エージェント CLI を使っている人 | 「新しい動画プロジェクトを作りたい」と発話 |
+| C. Cursor Agent | IDE の Agent チャットで進めたい人 | リポジトリまたはプロジェクトを Cursor で開き、「新しい動画プロジェクトを作りたい」と発話 |
+| D. アプリ | GUI で操作したい人 | Theia ベースのデスクトップシェルから接続 |
 
 **初めての方は A から** がおすすめです。
 
@@ -171,14 +188,26 @@ AKARI Video には 3 つの入口があります。
 
 ### B. opencode / Claude Code セッション内から
 
-すでに AI エージェントを使っているなら、入口はこちらが自然です。
+すでに AI エージェント CLI を使っているなら、入口はこちらが自然です。
 
 - **opencode**: 「新しい動画プロジェクトを作りたい」と発話すると
   `create-project` スキルが発動
 - **Claude Code**: **`/akari`** — カレントの状態を診断して、次の一手を案内するスラッシュコマンド
   または「新しい動画プロジェクトを作りたい」と発話
 
-### C. アプリから
+### C. Cursor Agent から
+
+モノレポ（`akari-video`）または動画プロジェクトフォルダを Cursor で開きます。
+スキルは `.cursor/skills/`（モノレポでは `skills/` への symlink）または
+`create-project` が作るプロジェクトアダプタから自動発見されます。
+
+Agent チャットで **「新しい動画プロジェクトを作りたい」** と発話するか、
+`skills/edit-plan/SKILL.md` などスキルパスを明示してください。
+
+プレビューは別ターミナルで `./akari.sh --preview` を実行し、
+http://localhost:4567 を開きます。
+
+### D. アプリから
 
 Theia ベースのデスクトップシェル（`apps/shell/`、移行中）の
 「はじめる」画面から接続します。
