@@ -136,8 +136,15 @@ Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Quick start:"
-Write-Host "    akari-preview.ps1                  # プレビューサーバー"
-Write-Host "    akari.ps1                          # AI エージェント起動"
+Write-Host ""
+Write-Host "    1. 作業用ディレクトリを作って移動"
+Write-Host "       mkdir ~/my-first-video; cd ~/my-first-video" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "    2. AI エージェントを起動（プロジェクトが自動生成される）"
+Write-Host "       akari.ps1" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "    3. 別の端末でプレビューサーバー"
+Write-Host "       akari-preview.ps1" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Docs: https://github.com/kuwa2005/akari-video/blob/main/docs/getting-started.ja.md" -ForegroundColor DarkGray
 Write-Host ""

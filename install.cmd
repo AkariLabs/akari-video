@@ -96,7 +96,14 @@ echo ━━━━━━━━━━━━━━━━━━━━━━━━━
 echo   Installation complete!
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo.
-echo   akari-preview.cmd                  # プレビューサーバー
+echo   1. 作業用ディレクトリを作って移動
+echo      mkdir C:\Users\%USERNAME%\my-first-video ^&^& cd /d C:\Users\%USERNAME%\my-first-video
+echo.
+echo   2. AI エージェントを起動（プロジェクトが自動生成される）
+echo      akari.cmd
+echo.
+echo   3. 別の端末でプレビューサーバー
+echo      akari-preview.cmd
 echo.
 echo Docs: https://github.com/kuwa2005/akari-video/blob/main/docs/getting-started.ja.md
 echo.
