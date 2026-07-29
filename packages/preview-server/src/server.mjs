@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// AKARI Video Preview Server — full-featured
 
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline, setPort } from './edit-to-timeline.mjs';
 import { lintProject } from '../../edit-lint/src/edit-lint.mjs';
@@ -46,6 +46,49 @@ const MIME = {
 };
 
 const PUBLIC_DIR = new URL('../public/', import.meta.url).pathname;
+const PROXY_DIR = path.join(projectRoot, '.proxy');
+
+// --- ffmpeg/ffprobe detection ---
+const hasFfprobe = spawnSync('ffprobe', ['-version'], { stdio: 'ignore' }).status === 0;
+const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
+const codecCache = new Map();
+
+function detectCodec(filePath) {
+  if (!hasFfprobe || codecCache.has(filePath)) return codecCache.get(filePath);
+  try {
+    const r = spawnSync('ffprobe', [
+      '-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=codec_name',
+      '-of', 'csv=p=0', filePath,
+    ], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000 });
+    const codec = r.stdout.toString().trim();
+    codecCache.set(filePath, codec);
+    return codec;
+  } catch { codecCache.set(filePath, null); return null; }
+}
+
+function proxyPathFor(filePath) {
+  const rel = path.relative(projectRoot, filePath);
+  return path.join(PROXY_DIR, rel + '.h264.mp4');
+}
+
+function ensureProxy(filePath) {
+  if (!hasFfmpeg) return null;
+  const proxy = proxyPathFor(filePath);
+  if (fs.existsSync(proxy)) return proxy;
+  const dir = path.dirname(proxy);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const r = spawnSync('ffmpeg', [
+    '-i', filePath,
+    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+    '-c:a', 'aac',
+    '-y', proxy,
+  ], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 300000 });
+  if (r.status === 0) { console.log(`[proxy] generated ${proxy}`); return proxy; }
+  console.error(`[proxy] ffmpeg failed for ${filePath}`);
+  try { fs.unlinkSync(proxy); } catch {}
+  return null;
+}
 
 function resolveSafe(base, userPath) {
   const resolved = path.resolve(base, userPath.replace(/^\/+/, ''));
@@ -183,20 +226,12 @@ const router = {
       respond(res, 400, { error: 'Invalid JSON: ' + e.message });
     }
   },
-  'GET /api/waveform-bytes': (req, res) => {
-    const filePath = path.join(projectRoot, '.' + req.url.split('?')[0].replace('/api/waveform-bytes', ''));
-    const safe = resolveSafe(projectRoot, filePath.replace(projectRoot, ''));
-    if (!safe || !fs.existsSync(safe) || !fs.statSync(safe).isFile()) {
-      return respond(res, 404, { error: 'File not found' });
-    }
-    const stat = fs.statSync(safe);
-    res.writeHead(200, {
-      'content-type': 'application/octet-stream',
-      'content-length': stat.size,
-      'access-control-allow-origin': '*',
-      'cache-control': 'no-cache',
+  'GET /api/codec-info': (req, res) => {
+    respond(res, 200, {
+      ffprobe: hasFfprobe,
+      ffmpeg: hasFfmpeg,
+      proxyDir: PROXY_DIR,
     });
-    fs.createReadStream(safe).pipe(res);
   },
 };
 
@@ -214,7 +249,18 @@ function serveProjectFile(res, pathname, rangeHeader) {
   if (!safe || !fs.existsSync(safe) || !fs.statSync(safe).isFile()) return false;
   const ext = path.extname(safe).toLowerCase();
   const mime = MIME[ext] ?? 'application/octet-stream';
-  if (rangeHeader && (mime.startsWith('video/') || mime.startsWith('audio/'))) {
+  if (rangeHeader && mime.startsWith('video/')) {
+    const codec = detectCodec(safe);
+    if (codec === 'hevc') {
+      const proxy = ensureProxy(safe);
+      if (proxy) {
+        console.log(`[proxy] serving ${path.basename(proxy)} for HEVC ${path.basename(safe)}`);
+        serveRange(res, proxy, 'video/mp4', rangeHeader);
+        return true;
+      }
+    }
+    serveRange(res, safe, mime, rangeHeader);
+  } else if (rangeHeader && mime.startsWith('audio/')) {
     serveRange(res, safe, mime, rangeHeader);
   } else {
     const extra = (mime.startsWith('video/') || mime.startsWith('audio/'))
@@ -261,5 +307,8 @@ console.log(`[watch] watching ${projectRoot}`);
 server.listen(port, () => {
   console.log(`\n  AKARI Video Preview Server`);
   console.log(`  http://localhost:${port}`);
-  console.log(`  project: ${projectRoot}\n`);
+  console.log(`  project: ${projectRoot}`);
+  if (hasFfprobe) console.log(`  ffprobe: available`);
+  if (hasFfmpeg) console.log(`  ffmpeg: available (HEVC proxy enabled)`);
+  if (!hasFfprobe) console.log(`  ffprobe: not found (HEVC detection disabled)`);
 });
