@@ -114,6 +114,7 @@ case "$1" in
     echo "  update                Check for updates"
     echo "  --opencode            Use opencode instead of Claude Code"
     echo "  --claude, --claudecode  Launch Claude Code explicitly"
+    echo "  -y, --yes             Auto-confirm (skip permissions; opencode:--auto / Claude:-y)"
     echo "  -h, --help, -?        Show this help"
     echo ""
     echo "Typical workflow:"
@@ -123,8 +124,8 @@ case "$1" in
     echo ""
     echo "Examples:"
     echo "  $SCRIPT_NAME                           # Claude Code起動"
-    echo "  $SCRIPT_NAME --claude                  # Claude Code (explicit)"
-    echo "  $SCRIPT_NAME --opencode                # opencode起動"
+    echo "  $SCRIPT_NAME -y                        # Claude Code + auto-confirm"
+    echo "  $SCRIPT_NAME --opencode -y             # opencode + auto-confirm"
     echo "  $SCRIPT_NAME --preview                 # Preview (current dir)"
     echo "  $SCRIPT_NAME --preview ~/my-project 3000"
     echo "  $SCRIPT_NAME update"
@@ -133,5 +134,6 @@ case "$1" in
   update) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "update" ;;
   --opencode) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" ;;
   --claude|--claudecode) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--claude" ;;
+  -y|--yes) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--yes" ;;
   *) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "$@" ;;
 esac

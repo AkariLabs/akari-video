@@ -272,3 +272,57 @@ test('opencode 不在時の案内: PATH に opencode が無い場合は案内を
     assert.ok(lines.some((line) => line.includes('npm install -g opencode')));
   });
 });
+
+test('--yes: Claude Code に -y を付加する', async () => {
+  await withScratchRoot(async (root) => {
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
+
+    const { log, lines } = collectLogs();
+    let claudeCall = null;
+
+    const result = await run(['--yes', '--continue'], {
+      projectRoot: root,
+      log,
+      assets: resolveRepoAssets(repoRoot),
+      runDoctor: () => ({ status: 0 }),
+      resolveClaude: () => '/fake/bin/claude',
+      spawnClaude: (claudePath, args, cwd) => {
+        claudeCall = { claudePath, args, cwd };
+        return { status: 0 };
+      },
+      ...isolatedUpdateOptions(root)
+    });
+
+    assert.deepEqual(claudeCall, { claudePath: '/fake/bin/claude', args: ['-y', '--continue'], cwd: root });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.claudeLaunched, true);
+  });
+});
+
+test('--yes: opencode に --auto を付加する', async () => {
+  await withScratchRoot(async (root) => {
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
+
+    const { log, lines } = collectLogs();
+    let opencodeCall = null;
+
+    const result = await run(['-y', '--opencode', '--continue'], {
+      projectRoot: root,
+      log,
+      assets: resolveRepoAssets(repoRoot),
+      runDoctor: () => ({ status: 0 }),
+      resolveOpencode: () => '/fake/bin/opencode',
+      spawnOpencode: (opencodePath, args, cwd) => {
+        opencodeCall = { opencodePath, args, cwd };
+        return { status: 0 };
+      },
+      ...isolatedUpdateOptions(root)
+    });
+
+    assert.deepEqual(opencodeCall, { opencodePath: '/fake/bin/opencode', args: ['--auto', '--continue'], cwd: root });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.opencodeLaunched, true);
+  });
+});
