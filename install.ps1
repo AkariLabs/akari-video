@@ -134,6 +134,14 @@ Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
 Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
+# Detect primary AI agent for Quick Start
+$agentName = "AI エージェント"
+if (Get-Command "claude" -ErrorAction SilentlyContinue) {
+    $agentName = "Claude Code"
+} elseif (Get-Command "opencode" -ErrorAction SilentlyContinue) {
+    $agentName = "opencode"
+}
+
 Write-Host ""
 Write-Host "  Quick start:"
 Write-Host ""
@@ -143,7 +151,7 @@ Write-Host ""
 Write-Host "    1. 作業用ディレクトリを作って移動"
 Write-Host "       mkdir ~/my-first-video; cd ~/my-first-video" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "    2. AI エージェントを起動（プロジェクトが自動生成される）"
+Write-Host "    2. $agentName を起動（プロジェクトが自動生成される）"
 Write-Host "       akari.ps1" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "    3. 別の端末でプレビューサーバー"

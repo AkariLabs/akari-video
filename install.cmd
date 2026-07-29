@@ -91,6 +91,15 @@ if errorlevel 1 (
     echo [OK] PATH を登録しました（次回以降の端末で有効）
 )
 
+:: ─── Detect primary AI agent for Quick Start ───
+set AGENT_NAME=AI エージェント
+where claude >nul 2>nul
+if not errorlevel 1 set AGENT_NAME=Claude Code
+if "%AGENT_NAME%"=="AI エージェント" (
+    where opencode >nul 2>nul
+    if not errorlevel 1 set AGENT_NAME=opencode
+)
+
 echo.
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo   Installation complete!
@@ -102,7 +111,7 @@ echo.
 echo   1. 作業用ディレクトリを作って移動
 echo      mkdir C:\Users\%USERNAME%\my-first-video ^&^& cd /d C:\Users\%USERNAME%\my-first-video
 echo.
-echo   2. AI エージェントを起動（プロジェクトが自動生成される）
+echo   2. %AGENT_NAME% を起動（プロジェクトが自動生成される）
 echo      akari.cmd
 echo.
 echo   3. 別の端末でプレビューサーバー

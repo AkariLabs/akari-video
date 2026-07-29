@@ -255,6 +255,15 @@ elif [[ -z "$SHELL_CONFIG" ]]; then
   warn "    $INSTALL_DIR"
 fi
 
+# ─── Detect primary AI agent for Quick Start ───
+if has claude; then
+  AGENT_NAME="Claude Code"
+elif has opencode; then
+  AGENT_NAME="opencode"
+else
+  AGENT_NAME="AI エージェント"
+fi
+
 echo ""
 echo -e "  ${BOLD}Quick start:${NC}"
 echo ""
@@ -264,7 +273,7 @@ echo ""
 echo -e "    1. 作業用ディレクトリを作って移動"
 echo -e "       ${MUTED}mkdir ~/my-first-video && cd ~/my-first-video${NC}"
 echo ""
-echo -e "    2. AI エージェントを起動（プロジェクトが自動生成される）"
+echo -e "    2. ${AGENT_NAME} を起動（プロジェクトが自動生成される）"
 echo -e "       ${MUTED}akari.sh${NC}"
 echo ""
 echo -e "    3. 別の端末でプレビューサーバーを起動"
