@@ -1,5 +1,5 @@
 {
-  "name": "akari-video",
+  "name": "akari-video-monorepo",
   "private": true,
   "license": "MIT",
   "workspaces": [
