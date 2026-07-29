@@ -16,3 +16,4 @@ electron-builder-out/
 plugins/
 x.sh
 .akari/
+test-results/
