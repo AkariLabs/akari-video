@@ -24,6 +24,7 @@ You need **three things**: Node.js, an AI agent, and ffmpeg.
 **Auto-install (recommended)**:
 
 Run only **one** command — the one for your OS.
+If already installed, the same command updates to the latest version.
 
 **Windows (PowerShell)**:
 ```sh
