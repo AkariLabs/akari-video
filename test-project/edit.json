@@ -1,16 +1,49 @@
 {
   "version": 0,
-  "output": { "width": 1280, "height": 720, "fps": 30 },
-  "source": { "path": "source.mp4", "proxy": null },
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "source": {
+    "path": "source.mp4",
+    "proxy": null
+  },
   "cuts": [
-    { "in": 0, "out": 5 },
-    { "in": 2, "out": 8 }
+    {
+      "in": 0,
+      "out": 5
+    },
+    {
+      "in": 2,
+      "out": 8
+    }
   ],
   "audio": {
-    "bgm": { "path": "bgm.mp3", "gain_db": -18, "ducking": true },
+    "bgm": {
+      "path": "bgm.mp3",
+      "gain_db": -18,
+      "ducking": true
+    },
     "narration": [
-      { "id": "n-0001", "path": "narration/n-0001.mp3", "t": 1.0, "provenance": { "provider": "voicevox", "voice": "speaker:3", "credit": "VOICEVOX:ずんだもん" } },
-      { "id": "n-0002", "path": "narration/n-0002.mp3", "t": 6.0, "provenance": { "provider": "human" } }
+      {
+        "id": "n-0001",
+        "path": "narration/n-0001.mp3",
+        "t": 1,
+        "provenance": {
+          "provider": "voicevox",
+          "voice": "speaker:3",
+          "credit": "VOICEVOX:ずんだもん"
+        }
+      },
+      {
+        "id": "n-0002",
+        "path": "narration/n-0002.mp3",
+        "t": 6,
+        "provenance": {
+          "provider": "human"
+        }
+      }
     ]
   }
 }

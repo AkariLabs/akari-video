@@ -105,9 +105,16 @@ function respond(res, status, data, contentType = 'application/json; charset=utf
 function serveFile(res, filePath, contentType, extraHeaders = {}) {
   try {
     const data = fs.readFileSync(filePath);
-    respond(res, 200, data, contentType);
+    if (Buffer.isBuffer(data)) {
+      res.writeHead(200, { 'content-type': contentType, 'access-control-allow-origin': '*', 'cache-control': 'no-cache', ...extraHeaders });
+      res.end(data);
+    } else {
+      respond(res, 200, data, contentType);
+    }
+    return true;
   } catch {
     respond(res, 404, { error: 'File not found' });
+    return true;
   }
 }
 
@@ -149,6 +156,43 @@ function writeJson(filePath, obj) {
   } catch (e) {
     return { error: e.message };
   }
+}
+
+function addOutputRoutes(routes) {
+  const editFile = () => path.join(projectRoot, 'edit.output.json');
+  const captionsFile = () => path.join(projectRoot, 'captions.output.json');
+
+  function outReadJson(p) {
+    try { return { data: JSON.parse(fs.readFileSync(p, 'utf-8')) }; }
+    catch (e) { return { error: e.message }; }
+  }
+
+  function hasEdit() { return fs.existsSync(editFile()); }
+
+  routes['GET /api/output/raw-edit.json'] = (req, res) => {
+    if (!hasEdit()) return respond(res, 404, { error: 'edit.output.json not found' });
+    const r = outReadJson(editFile());
+    r.error ? respond(res, 404, { error: r.error }) : respond(res, 200, r.data);
+  };
+  routes['GET /api/output/summary'] = (req, res) => {
+    if (!hasEdit()) return respond(res, 404, { error: 'edit.output.json not found' });
+    const r = outReadJson(editFile());
+    r.error ? respond(res, 404, { error: r.error }) : respond(res, 200, r.data);
+  };
+  routes['GET /api/output/timeline'] = (req, res) => {
+    if (!hasEdit()) return respond(res, 404, { error: 'edit.output.json not found' });
+    const r = outReadJson(editFile());
+    if (r.error) return respond(res, 404, { error: r.error });
+    try { respond(res, 200, editToTimeline(r.data, projectRoot)); }
+    catch (e) { respond(res, 500, { error: e.message }); }
+  };
+  routes['GET /api/output/captions.json'] = (req, res) => {
+    if (!hasEdit()) return respond(res, 404, { error: 'edit.output.json not found' });
+    const cf = captionsFile();
+    const r = outReadJson(fs.existsSync(cf) ? cf : null);
+    if (!r || r.error) return respond(res, 200, []);
+    respond(res, 200, r.data);
+  };
 }
 
 function collectBody(req) {
@@ -211,7 +255,7 @@ const router = {
   },
   'GET /api/captions.json': (req, res) => {
     const r = readJson(path.join(projectRoot, 'captions.json'));
-    if (r.error) return respond(res, 404, { error: r.error });
+    if (r.error) return respond(res, 200, []);
     respond(res, 200, r.data);
   },
   'PUT /api/captions.json': async (req, res) => {
@@ -234,6 +278,7 @@ const router = {
     });
   },
 };
+addOutputRoutes(router);
 
 function servePublicFile(res, pathname) {
   const filePath = path.join(PUBLIC_DIR, pathname);
@@ -282,6 +327,12 @@ const server = http.createServer(async (req, res) => {
     return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
   }
 
+  if (pathname === '/api/output-preview') {
+    res.writeHead(302, { location: '/?mode=output' });
+    res.end();
+    return;
+  }
+
   const prefixMatch = pathname.match(/^\/api\/asset\/(.+)/);
   if (prefixMatch) {
     const assetPath = prefixMatch[1];
@@ -296,6 +347,21 @@ const server = http.createServer(async (req, res) => {
 });
 
 const wss = new MiniWSServer(server);
+const playState = { time: 0, playing: false };
+
+// Bidirectional timeline sync
+wss.on('tick', (msg, socket) => {
+  const t = msg.time != null ? msg.time : playState.time;
+  const p = msg.playing != null ? msg.playing : playState.playing;
+  playState.time = t;
+  playState.playing = p;
+  wss.broadcastExcept({ type: 'tick', time: t, playing: p, ts: Date.now() }, socket);
+});
+wss.on('seek', (msg, socket) => {
+  const t = msg.time != null ? msg.time : 0;
+  playState.time = t;
+  wss.broadcastExcept({ type: 'seek', time: t, ts: Date.now() }, socket);
+});
 
 fs.watch(projectRoot, { recursive: false }, (eventType, filename) => {
   if (filename === 'edit.json' || filename === 'captions.json') {

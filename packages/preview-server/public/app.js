@@ -1,5 +1,24 @@
 // AKARI Video Preview — full-featured client
 
+const SETTINGS_KEY = 'akari-preview-settings';
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
+}
+function saveSettings(partial) {
+  const s = loadSettings();
+  Object.assign(s, partial);
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch {}
+}
+const savedSettings = loadSettings();
+
+const isOutputMode = new URLSearchParams(location.search).get('mode') === 'output';
+const api = {
+  timeline: isOutputMode ? '/api/output/timeline' : '/api/timeline',
+  summary: isOutputMode ? '/api/output/summary' : '/api/summary',
+  edit: '/api/edit.json',
+  captions: isOutputMode ? '/api/output/captions.json' : '/api/captions.json',
+};
+
 const video = document.getElementById('preview-video');
 const playToggle = document.getElementById('play-toggle');
 const frameBack = document.getElementById('frame-back');
@@ -17,6 +36,11 @@ const waveformToggle = document.getElementById('waveform-toggle');
 const waveformRow = document.querySelector('.transport-waveform');
 const waveformCanvas = document.getElementById('waveform-canvas');
 const waveformPlayhead = document.querySelector('.transport-waveform-playhead');
+const trackCanvases = {
+  bgm: document.querySelector('.waveform-track-canvas[data-track="bgm"]'),
+  narration: document.querySelector('.waveform-track-canvas[data-track="narration"]'),
+  sfx: document.querySelector('.waveform-track-canvas[data-track="sfx"]'),
+};
 const stage = document.getElementById('overlay-stage');
 const captionPlate = document.getElementById('caption-plate');
 const transitionPlate = document.getElementById('transition-plate');
@@ -33,11 +57,18 @@ const tsInput = document.getElementById('ts');
 const trInput = document.getElementById('tr');
 const layerContainer = document.getElementById('layer-container');
 const penCanvas = document.getElementById('pen-canvas');
+const loadingIndicator = document.getElementById('loading-indicator');
+const shortcutHelp = document.getElementById('shortcut-help');
 const minimap = document.getElementById('zoom-minimap');
 const minimapVideo = document.getElementById('minimap-video');
 const minimapViewport = document.getElementById('zoom-minimap-viewport');
 const indicatorBtn = document.getElementById('indicator-toggle');
 const indicatorPopup = document.getElementById('indicator-popup');
+
+const ZONE_ROW_RANGES = { top: [0, 1 / 3], middle: [1 / 3, 2 / 3], bottom: [2 / 3, 1] };
+const ZONE_COL_RANGES = { left: [0, 1 / 3], center: [1 / 3, 2 / 3], right: [2 / 3, 1] };
+const CAPTION_ZONE_LIST = ['bottom', 'bottom-left', 'bottom-right', 'center', 'left', 'right', 'top', 'top-left', 'top-right'];
+const TRACK_COLORS = { bgm: '#4da3ff', narration: '#ffd94a', sfx: '#ff798c' };
 
 const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
 const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>';
@@ -58,6 +89,9 @@ let drag = null;
 let editMode = false;
 let selectedId = null;
 let selectedKind = null;
+let captionEditMode = false;
+let selectedCaptionId = null;
+let selectedCaptionZone = 'bottom';
 
 let audioCtx = null;
 let bgmNode = null;
@@ -66,6 +100,9 @@ let narrationNodes = [];
 
 let waveformPeaks = null;
 let waveformDuration = 0;
+let trackWaveforms = { bgm: null, narration: null, sfx: null };
+let captionsData = null;
+let captionStylesInjected = false;
 
 // B-roll layer videos
 let layerVideos = [];
@@ -74,21 +111,33 @@ let layerVideos = [];
 let penPoints = [];
 let penActive = false;
 
+// WebSocket for timeline sync
+let ws = null;
+let wsTickInterval = null;
+
 async function init() {
   try {
-    const [timelineRes, editRes] = await Promise.all([
-      fetch('/api/timeline'),
-      fetch('/api/summary'),
+    const [timelineRes, editRes, captionsRes] = await Promise.all([
+      fetch(api.timeline),
+      fetch(api.summary),
+      fetch(api.captions).catch(() => new Response(null, { status: 404 })),
     ]);
     if (!timelineRes.ok) throw new Error(`timeline: HTTP ${timelineRes.status}`);
     timelineData = await timelineRes.json();
     summary = await editRes.json();
+    if (captionsRes.ok) {
+      const body = await captionsRes.json();
+      captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
+    } else {
+      captionsData = [];
+    }
     fps = timelineData.fps || 30;
 
     buildSegments();
     if (summary?.cuts?.length > 0) video.src = getVideoSource(0);
     setupLayers();
     setupPenCanvas();
+    initPenSprites();
     setupAudioGraph();
     setupWaveform();
     scheduleTransitions();
@@ -97,6 +146,20 @@ async function init() {
     window.akari = window.akari || {};
     window.akari.runtime = createOverlayRuntime();
     if (window.akari.runtime.mount) window.akari.runtime.mount(summary);
+    window.akari.stageScale = () => zoomLayer.clientWidth / wrapper.clientWidth;
+    const os = summary?.output || {};
+    window.akari.outputSize = () => ({ width: os.width || 1280, height: os.height || 720 });
+    if (window.akari.interaction) window.akari.interaction.init();
+
+    // Restore settings
+    if (savedSettings.zoom && savedSettings.zoom >= ZOOM_MIN && savedSettings.zoom <= ZOOM_MAX) {
+      zoom = savedSettings.zoom; updateZoom();
+    }
+    if (savedSettings.waveformVisible) {
+      waveformVisible = true; waveformRow.hidden = false;
+      waveformToggle.setAttribute('aria-pressed', 'true');
+      setTimeout(setupWaveform, 100);
+    }
 
     showMessage(null);
   } catch (e) {
@@ -143,6 +206,7 @@ function buildSegments() {
   totalDuration = segments.reduce((s, seg) => s + seg.durationSec, 0);
   seek.max = totalDuration;
   updateTimeLabel();
+  updateSeekVisual();
 }
 
 // --- B-roll layers ---
@@ -156,7 +220,10 @@ function setupLayers() {
     el.dataset.layerId = layer.id;
     el.style.opacity = String(layer.opacity ?? 1);
     if (layer.blend) el.style.mixBlendMode = layer.blend;
-    el.style.pointerEvents = 'none';
+    el.dataset.layerX = layer.transform?.x || 0;
+    el.dataset.layerY = layer.transform?.y || 0;
+    el.dataset.layerScale = layer.transform?.scale || 1;
+    el.dataset.layerRotate = layer.transform?.rotate || 0;
     if (layer.transform) {
       const t = layer.transform;
       el.style.transform = `translate(${t.x||0}px, ${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`;
@@ -172,6 +239,7 @@ function syncLayers(t) {
     const shouldShow = t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
     if (shouldShow !== lv.visible) {
       lv.el.style.display = shouldShow ? 'block' : 'none';
+      lv.el.style.pointerEvents = shouldShow && editMode ? 'auto' : 'none';
       lv.visible = shouldShow;
     }
     if (shouldShow) {
@@ -181,31 +249,215 @@ function syncLayers(t) {
   }
 }
 
-// --- Pen annotation canvas ---
+// --- Pen annotation canvas (upgraded: glow + gradient + sparkle) ---
 function setupPenCanvas() {
   penCanvas.width = zoomLayer.clientWidth * devicePixelRatio;
   penCanvas.height = zoomLayer.clientHeight * devicePixelRatio;
   penCanvas.style.width = '100%';
   penCanvas.style.height = '100%';
+  rebuildPlatinumGradient();
 }
-function drawPen() {
-  const ctx = penCanvas.getContext('2d');
-  ctx.clearRect(0, 0, penCanvas.width, penCanvas.height);
-  if (!penPoints.length) return;
+let penCtx = penCanvas.getContext('2d');
+let platinumGradient = null;
+let penCurrentStroke = null;
+let penFadingStrokes = [];
+let penSparkles = [];
+let penGlowSprite = null;
+let penSparkleSprite = null;
+let penAnimHandle = 0;
+
+const PEN_TUNING = {
+  coreWidthPx: 3.2, coreAlpha: 0.88, glowSizePx: 28, glowAlpha: 0.35,
+  sparkleSpritePx: 48, sparkleLifetimeMs: 540, sparkleTwinkleHz: 4.2,
+  sparklesPerSegment: 2, sparkleMaxPoolSize: 120, sparkleJitterPx: 14,
+  sparkleMinSizePx: 7, sparkleMaxSizePx: 18, fadeDurationMs: 600,
+  drawnIndex: 0
+};
+
+function createGlowSprite(size) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const cx = c.getContext('2d');
+  const g = cx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, 'rgba(255,255,255,0.95)');
+  g.addColorStop(0.4, 'rgba(226,234,255,0.55)');
+  g.addColorStop(1, 'rgba(226,234,255,0)');
+  cx.fillStyle = g; cx.fillRect(0, 0, size, size);
+  return c;
+}
+function createSparkleSprite(size) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const cx = c.getContext('2d');
+  const h = size / 2;
+  const g = cx.createRadialGradient(h, h, 0, h, h, h);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  cx.fillStyle = g; cx.fillRect(0, 0, size, size);
+  cx.strokeStyle = 'rgba(255,255,255,0.9)';
+  cx.lineWidth = Math.max(1, size * 0.06);
+  cx.lineCap = 'round';
+  cx.beginPath();
+  cx.moveTo(h, h - size * 0.42);
+  cx.lineTo(h, h + size * 0.42);
+  cx.moveTo(h - size * 0.42, h);
+  cx.lineTo(h + size * 0.42, h);
+  cx.stroke();
+  return c;
+}
+
+function rebuildPlatinumGradient() {
+  const w = penCanvas.width, h = penCanvas.height;
+  if (!(w > 0) || !(h > 0)) { platinumGradient = null; return; }
+  const g = penCtx.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.48, '#d9deea');
+  g.addColorStop(0.72, '#ffffff');
+  g.addColorStop(1, '#c8cfdd');
+  platinumGradient = g;
+}
+
+function drawPenSegment(ctx, from, to) {
+  const w = penCanvas.width, h = penCanvas.height;
+  const fpx = [from.x * w, from.y * h];
+  const tpx = [to.x * w, to.y * h];
+  const gs = PEN_TUNING.glowSizePx;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = PEN_TUNING.glowAlpha;
+  const dpr = devicePixelRatio;
+  ctx.drawImage(penGlowSprite, tpx[0] - gs / 2, tpx[1] - gs / 2, gs, gs);
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = PEN_TUNING.coreAlpha;
+  ctx.strokeStyle = platinumGradient || '#eef2fb';
+  ctx.lineWidth = PEN_TUNING.coreWidthPx;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  for (const stroke of penPoints) {
-    if (stroke.length < 2) continue;
-    ctx.beginPath();
-    ctx.moveTo(stroke[0].x * devicePixelRatio, stroke[0].y * devicePixelRatio);
-    for (let i = 1; i < stroke.length; i++) {
-      ctx.lineTo(stroke[i].x * devicePixelRatio, stroke[i].y * devicePixelRatio);
-    }
-    ctx.strokeStyle = 'rgba(255,200,50,0.85)';
-    ctx.lineWidth = 3 * devicePixelRatio;
-    ctx.shadowColor = 'rgba(255,200,50,0.5)';
-    ctx.shadowBlur = 8 * devicePixelRatio;
-    ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(fpx[0], fpx[1]);
+  ctx.lineTo(tpx[0], tpx[1]);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function spawnPenSparkles(point) {
+  const w = penCanvas.width, h = penCanvas.height;
+  for (let i = 0; i < PEN_TUNING.sparklesPerSegment; i++) {
+    if (penSparkles.length >= PEN_TUNING.sparkleMaxPoolSize) penSparkles.shift();
+    const angle = Math.random() * Math.PI * 2;
+    const jitter = Math.random() * PEN_TUNING.sparkleJitterPx;
+    penSparkles.push({
+      x: point.x * w + Math.cos(angle) * jitter,
+      y: point.y * h + Math.sin(angle) * jitter,
+      bornAt: performance.now(),
+      lifetimeMs: PEN_TUNING.sparkleLifetimeMs * (0.6 + Math.random() * 0.8),
+      size: PEN_TUNING.sparkleMinSizePx + Math.random() * (PEN_TUNING.sparkleMaxSizePx - PEN_TUNING.sparkleMinSizePx),
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function drawPenSparkles(ctx, timestamp) {
+  if (!penSparkles.length) return;
+  const alive = [];
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const s of penSparkles) {
+    const age = timestamp - s.bornAt;
+    if (age >= s.lifetimeMs) continue;
+    const fade = 1 - age / s.lifetimeMs;
+    const twinkle = 0.6 + 0.4 * Math.sin((timestamp / 1000) * PEN_TUNING.sparkleTwinkleHz * Math.PI * 2 + s.phase);
+    ctx.globalAlpha = Math.max(0, Math.min(1, fade * twinkle));
+    const size = s.size * (0.7 + 0.3 * fade);
+    ctx.drawImage(penSparkleSprite, s.x - size / 2, s.y - size / 2, size, size);
+    alive.push(s);
+  }
+  ctx.restore();
+  penSparkles = alive;
+}
+
+function penFadeAlpha(fading, timestamp) {
+  const now = timestamp || performance.now();
+  return Math.max(0, Math.min(1, 1 - (now - fading.fadeStartedAt) / PEN_TUNING.fadeDurationMs));
+}
+
+function penRecomposite(timestamp) {
+  const w = penCanvas.width, h = penCanvas.height;
+  if (!(w > 0) || !(h > 0)) return;
+  penCtx.clearRect(0, 0, w, h);
+  for (const fading of penFadingStrokes) {
+    penCtx.globalAlpha = penFadeAlpha(fading, timestamp);
+    drawPenStrokePoints(fading);
+  }
+  penCtx.globalAlpha = 1;
+  if (penCurrentStroke) drawPenStrokePoints(penCurrentStroke);
+  drawPenSparkles(penCtx, timestamp || performance.now());
+}
+
+function drawPenStrokePoints(stroke) {
+  const pts = stroke.points;
+  if (pts.length < 2) return;
+  let i = stroke.drawnIndex || 0;
+  while (i < pts.length - 1) {
+    drawPenSegment(penCtx, pts[i], pts[i + 1]);
+    spawnPenSparkles(pts[i + 1]);
+    i++;
+  }
+  stroke.drawnIndex = i;
+}
+
+function penTick(timestamp) {
+  if (penCurrentStroke) drawPenStrokePoints(penCurrentStroke);
+  penFadingStrokes = penFadingStrokes.filter(f => penFadeAlpha(f, timestamp) > 0);
+  penRecomposite(timestamp);
+  const stillActive = penCurrentStroke !== null || penFadingStrokes.length > 0 || penSparkles.length > 0;
+  penAnimHandle = stillActive ? requestAnimationFrame(penTick) : 0;
+}
+
+function ensurePenLoop() {
+  if (!penAnimHandle) penAnimHandle = requestAnimationFrame(penTick);
+}
+
+function initPenSprites() {
+  if (!penGlowSprite) penGlowSprite = createGlowSprite(Math.max(64, PEN_TUNING.glowSizePx * 3));
+  if (!penSparkleSprite) penSparkleSprite = createSparkleSprite(Math.max(48, PEN_TUNING.sparkleSpritePx * 3));
+}
+
+// Pointer event handling for pen drawing
+function getPenPoint(e) {
+  const rect = zoomLayer.getBoundingClientRect();
+  return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
+}
+function onPenPointerDown(e) {
+  if (!penActive) return;
+  penCurrentStroke = { points: [getPenPoint(e)], drawnIndex: 0 };
+  e.preventDefault();
+}
+function onPenPointerMove(e) {
+  if (!penActive || !penCurrentStroke) return;
+  penCurrentStroke.points.push(getPenPoint(e));
+  ensurePenLoop();
+  e.preventDefault();
+}
+function onPenPointerUp(e) {
+  if (!penCurrentStroke) return;
+  penCurrentStroke.fadeStartedAt = performance.now();
+  penFadingStrokes.push(penCurrentStroke);
+  penCurrentStroke = null;
+  ensurePenLoop();
+  e.preventDefault();
+}
+
+function penEnable(enabled) {
+  penActive = enabled;
+  penCanvas.style.pointerEvents = enabled ? 'auto' : 'none';
+  document.body.style.cursor = enabled ? 'crosshair' : '';
+  if (!enabled && !penCurrentStroke) return;
+  if (!enabled && penCurrentStroke) {
+    penCurrentStroke.fadeStartedAt = performance.now();
+    penFadingStrokes.push(penCurrentStroke);
+    penCurrentStroke = null;
+    ensurePenLoop();
   }
 }
 
@@ -300,29 +552,118 @@ function syncAudio(t) {
       s._source = src;
     }
   }
+  // BGM ducking + fade in/out
+  if (bgmNode) {
+    const audio = summary?.audio;
+    const ducking = audio?.bgm?.ducking === true;
+    const hasNarration = narrationNodes.some(n => n._buffer && t >= n.t && t < n.t + n._buffer.duration);
+    const duckDb = ducking && hasNarration ? -12 : 0;
+    const fadeIn = Number.isFinite(audio?.bgm?.fadeIn) && audio.bgm.fadeIn > 0 ? Math.min(audio.bgm.fadeIn, totalDuration / 2) : 0;
+    const fadeOut = Number.isFinite(audio?.bgm?.fadeOut) && audio.bgm.fadeOut > 0 ? Math.min(audio.bgm.fadeOut, totalDuration / 2) : 0;
+    let fadeMul = 1;
+    if (fadeIn > 0 && t < fadeIn) fadeMul = Math.min(fadeMul, t / fadeIn);
+    if (fadeOut > 0 && t > totalDuration - fadeOut) fadeMul = Math.min(fadeMul, (totalDuration - t) / fadeOut);
+    const baseGain = dbToGain(audio?.bgm?.gainDb ?? 0);
+    const targetGain = baseGain * Math.pow(10, duckDb / 20) * fadeMul;
+    bgmNode.gain.value = targetGain;
+  }
 }
 
 // --- Waveform ---
+async function computePeaks(url, numPeaks) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const ab = await r.arrayBuffer();
+    const buf = await audioCtx.decodeAudioData(ab.slice(0));
+    const ch = buf.getChannelData(0);
+    const pn = Math.min(numPeaks || 200, ch.length);
+    const spp = Math.max(1, Math.floor(ch.length / pn));
+    const peaks = [];
+    for (let i = 0; i < pn; i++) {
+      let max = 0;
+      for (let j = 0; j < spp && i * spp + j < ch.length; j++) max = Math.max(max, Math.abs(ch[i * spp + j]));
+      peaks.push(max);
+    }
+    return { peaks, duration: buf.duration };
+  } catch { return null; }
+}
 async function setupWaveform() {
   waveformCanvas.width = waveformCanvas.clientWidth * devicePixelRatio;
   waveformCanvas.height = waveformCanvas.clientHeight * devicePixelRatio;
   if (!timelineData.clips.length || !audioCtx) return;
-  try {
-    const r = await fetch(timelineData.clips[0].src);
-    const ab = await r.arrayBuffer();
-    const buf = await audioCtx.decodeAudioData(ab.slice(0));
-    waveformDuration = buf.duration;
-    const ch = buf.getChannelData(0);
-    const peaks = Math.min(400, ch.length);
-    const spp = Math.max(1, Math.floor(ch.length / peaks));
-    waveformPeaks = [];
-    for (let i = 0; i < peaks; i++) {
-      let max = 0;
-      for (let j = 0; j < spp && i * spp + j < ch.length; j++) max = Math.max(max, Math.abs(ch[i * spp + j]));
-      waveformPeaks.push(max);
+  const main = await computePeaks(timelineData.clips[0].src, 400);
+  if (main) { waveformPeaks = main.peaks; waveformDuration = main.duration; }
+  trackWaveforms = { bgm: null, narration: null, sfx: null };
+  const audio = summary?.audio;
+  if (audio?.bgm?.src) {
+    const t = await computePeaks(audio.bgm.src, 200);
+    if (t) { t.color = TRACK_COLORS.bgm; t.t = audio.bgm.t ?? 0; trackWaveforms.bgm = t; }
+  }
+  if (Array.isArray(audio?.narration)) {
+    const all = [];
+    for (const n of audio.narration) {
+      if (!n.src) continue;
+      const t = await computePeaks(n.src, 80);
+      if (t) { t.t = n.t ?? 0; all.push(t); }
     }
-    drawWaveform(0);
-  } catch { waveformPeaks = null; }
+    if (all.length) trackWaveforms.narration = { segments: all, color: TRACK_COLORS.narration };
+  }
+  if (Array.isArray(audio?.sfx)) {
+    const all = [];
+    for (const s of audio.sfx) {
+      if (!s.src) continue;
+      const t = await computePeaks(s.src, 60);
+      if (t) { t.t = s.t ?? 0; all.push(t); }
+    }
+    if (all.length) trackWaveforms.sfx = { segments: all, color: TRACK_COLORS.sfx };
+  }
+  for (const [name, canvas] of Object.entries(trackCanvases)) {
+    if (!canvas) continue;
+    const track = trackWaveforms[name];
+    const tr = canvas.closest('.waveform-track');
+    if (track) {
+      canvas.width = canvas.clientWidth * devicePixelRatio;
+      canvas.height = canvas.clientHeight * devicePixelRatio;
+      if (tr) tr.hidden = false;
+    } else {
+      if (tr) tr.hidden = true;
+    }
+  }
+  drawWaveform(0);
+  drawTrackWaveforms(0);
+}
+function drawTrackWaveforms(ratio) {
+  for (const [name, canvas] of Object.entries(trackCanvases)) {
+    if (!canvas || !canvas.width) continue;
+    const track = trackWaveforms[name];
+    if (!track) continue;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    if (track.segments) {
+      for (const seg of track.segments) {
+        if (!seg.peaks) continue;
+        const sx = ((seg.t ?? 0) / totalDuration) * w;
+        const sw = (seg.duration / totalDuration) * w;
+        ctx.fillStyle = track.color;
+        for (let i = 0; i < seg.peaks.length; i++) {
+          const bH = Math.max(1, seg.peaks[i] * (h - 4));
+          ctx.fillRect(sx + (i / seg.peaks.length) * sw, (h - bH) / 2, Math.max(1, sw / seg.peaks.length - 0.5), bH);
+        }
+      }
+    } else if (track.peaks) {
+      const sx = ((track.t ?? 0) / totalDuration) * w;
+      const sw = (track.duration / totalDuration) * w;
+      const barW = sw / track.peaks.length;
+      ctx.fillStyle = track.color;
+      for (let i = 0; i < track.peaks.length; i++) {
+        const bH = Math.max(1, track.peaks[i] * (h - 4));
+        ctx.fillRect(sx + i * barW, (h - bH) / 2, Math.max(1, barW - 0.5), bH);
+      }
+    }
+    if (ratio > 0) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(ratio * w - 0.5, 0, 1, h); }
+  }
 }
 function drawWaveform(ratio) {
   const ctx = waveformCanvas.getContext('2d');
@@ -337,6 +678,15 @@ function drawWaveform(ratio) {
   }
   if (ratio > 0) { ctx.fillStyle = '#fff'; ctx.fillRect(ratio * w - 0.5, 0, 1, h); }
 }
+
+// Waveform click-to-seek
+waveformCanvas.addEventListener('pointerdown', (e) => {
+  if (!waveformPeaks || totalDuration <= 0) return;
+  const rect = waveformCanvas.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const w = isPlaying; if (w) pause();
+  seekTo(ratio * totalDuration);
+});
 
 function scheduleTransitions() { transitionPlate.style.transition = 'opacity 0.3s'; }
 
@@ -359,6 +709,7 @@ function getActiveSegment(t) {
 }
 
 function seekTo(t) {
+  cutInfoPopup.hidden = true;
   outputTime = Math.max(0, Math.min(t, totalDuration));
   const vt = getVideoTimeForOutput(outputTime);
   if (vt >= 0) {
@@ -368,6 +719,9 @@ function seekTo(t) {
   }
   seek.value = outputTime;
   updateTimeLabel();
+  updateStatusBar();
+  updateCaption();
+  syncCaptionAnimations();
   updateOverlays();
   syncAudio(outputTime);
   syncLayers(outputTime);
@@ -412,13 +766,17 @@ function playbackLoop() {
   }
   seek.value = outputTime;
   updateTimeLabel();
+  updateStatusBar();
   updateOverlays();
   updateWaveformPlayhead();
   updateCaption();
+  syncCaptionAnimations();
   updateTransitions();
   updateMinimap();
   syncAudio(outputTime);
   syncLayers(outputTime);
+  const tickNow = performance.now();
+  if (tickNow - wsTickLast > 200) { sendWsTick(); wsTickLast = tickNow; }
   requestAnimationFrame(playbackLoop);
 }
 
@@ -426,7 +784,13 @@ function updateWaveformPlayhead() {
   if (!waveformPeaks || totalDuration <= 0) return;
   const r = outputTime / totalDuration;
   drawWaveform(r);
+  drawTrackWaveforms(r);
   waveformPlayhead.style.left = `${r * 100}%`;
+  for (const canvas of Object.values(trackCanvases)) {
+    if (!canvas) continue;
+    const ph = canvas.parentElement?.querySelector('.transport-waveform-playhead');
+    if (ph) ph.style.left = `${r * 100}%`;
+  }
 }
 
 function updateTransitions() {
@@ -456,15 +820,242 @@ function updateTimeLabel() {
   const fm = (sec) => { const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; };
   timeLabel.textContent = `${fm(outputTime)} / ${fm(totalDuration)}`;
 }
+function updateStatusBar() {
+  const el = document.getElementById('status-info');
+  if (!el) return;
+  const seg = getActiveSegment(outputTime);
+  const parts = [fm(outputTime)];
+  if (seg && !seg.isGap && seg.index >= 0) parts.push(`カット #${seg.index + 1}`);
+  if (zoom !== 1) parts.push(`${Math.round(zoom * 100)}%`);
+  el.textContent = parts.join(' · ');
+  const bar = el.parentElement;
+  if (!bar._shown) { bar._shown = true; bar.style.opacity = '1'; setTimeout(() => { bar.style.opacity = '0'; bar._shown = false; }, 3000); }
+}
+
+// --- Cut segment visual on seek bar ---
+const seekVisual = document.getElementById('seek-visual');
+const cutInfoPopup = document.getElementById('cut-info-popup');
+const cutInfoContent = document.getElementById('cut-info-content');
+const CUT_COLORS = ['#4da3ff', '#ff6b6b', '#51cf66', '#ffd43b', '#cc5de8', '#20c997', '#ff922b', '#748ffc'];
+function updateSeekVisual() {
+  if (!segments.length || totalDuration <= 0) { seekVisual.style.display = 'none'; return; }
+  seekVisual.style.display = 'flex';
+  let html = '';
+  for (const seg of segments) {
+    const pct = (seg.durationSec / totalDuration * 100);
+    if (seg.isGap) {
+      html += `<div style="width:${pct}%;background:#333"></div>`;
+    } else {
+      const color = CUT_COLORS[seg.index % CUT_COLORS.length];
+      html += `<div style="width:${pct}%;background:${color};flex-shrink:0" data-cut-index="${seg.index}"></div>`;
+    }
+  }
+  seekVisual.innerHTML = html;
+}
+
+let selectedCutIndex = -1;
+let selectedCutAcc = 0;
+
+function showCutInfoAt(t) {
+  let acc = 0;
+  for (const seg of segments) {
+    if (t <= acc + seg.durationSec || seg === segments[segments.length - 1]) {
+      selectedCutIndex = seg.isGap ? -1 : seg.index;
+      selectedCutAcc = acc;
+      renderCutInfoContent(seg);
+      cutInfoPopup.hidden = false;
+      return;
+    }
+    acc += seg.durationSec;
+  }
+  cutInfoPopup.hidden = true;
+  selectedCutIndex = -1;
+}
+
+function renderCutInfoContent(seg) {
+  if (seg.isGap) {
+    cutInfoContent.innerHTML = '<div style="margin-bottom:8px"><b>ギャップ</b><br><span style="color:#888">' + seg.durationSec.toFixed(2) + 's</span></div>';
+    return;
+  }
+  const cut = summary?.cuts?.[seg.index];
+  if (!cut) { cutInfoContent.innerHTML = '<div>不明なカット</div>'; return; }
+  const srcName = cut.src ? cut.src.split('/').pop() : 'メイン';
+  const inVal = seg.inSec.toFixed(2);
+  const outVal = seg.outSec.toFixed(2);
+  const speedVal = seg.speed.toFixed(2);
+  const tiType = cut.transitionIn?.type || '';
+  const tiDur = cut.transitionIn?.duration !== undefined ? cut.transitionIn.duration.toFixed(2) : '';
+  const toType = cut.transitionOut?.type || '';
+  const toDur = cut.transitionOut?.duration !== undefined ? cut.transitionOut.duration.toFixed(2) : '';
+  const atVal = cut.at !== undefined ? String(cut.at) : '';
+  cutInfoContent.innerHTML = `
+    <div style="margin-bottom:6px"><b>カット #${seg.index + 1}</b> <span style="color:#888">${esc(srcName)}</span></div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <label style="flex:1;color:#888;font-size:11px">IN <input id="cut-inp-in" type="number" step="0.01" value="${inVal}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
+      <label style="flex:1;color:#888;font-size:11px">OUT <input id="cut-inp-out" type="number" step="0.01" value="${outVal}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:4px">
+      <label style="flex:1;color:#888;font-size:11px">速度 <input id="cut-inp-speed" type="number" step="0.01" min="0.01" value="${speedVal}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
+      <label style="flex:0;color:#888;font-size:11px">絶対位置 <input id="cut-inp-at" type="number" step="0.01" value="${atVal}" placeholder="" style="width:80px;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <label style="flex:1;color:#888;font-size:11px">IN トランジション
+        <select id="cut-inp-ti-type" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px">
+          <option value="">なし</option>
+          <option value="dissolve"${tiType==='dissolve'?' selected':''}>dissolve</option>
+          <option value="fade-black"${tiType==='fade-black'?' selected':''}>fade-black</option>
+          <option value="fade-white"${tiType==='fade-white'?' selected':''}>fade-white</option>
+        </select>
+        <input id="cut-inp-ti-dur" type="number" step="0.01" min="0" value="${tiDur}" placeholder="秒" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px;margin-top:2px">
+      </label>
+      <label style="flex:1;color:#888;font-size:11px">OUT トランジション
+        <select id="cut-inp-to-type" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px">
+          <option value="">なし</option>
+          <option value="dissolve"${toType==='dissolve'?' selected':''}>dissolve</option>
+          <option value="fade-black"${toType==='fade-black'?' selected':''}>fade-black</option>
+          <option value="fade-white"${toType==='fade-white'?' selected':''}>fade-white</option>
+     </select>
+        <input id="cut-inp-to-dur" type="number" step="0.01" min="0" value="${toDur}" placeholder="秒" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px;margin-top:2px">
+      </label>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button id="cut-apply-btn" style="flex:1;background:#4da3ff;color:#fff;border:none;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:12px">適用</button>
+      <button id="cut-close-btn" style="flex:0;background:#505050;color:#fff;border:none;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:12px">閉じる</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;border-top:1px solid #505050;padding-top:6px">
+      <button id="cut-add-before-btn" style="flex:1;background:#303030;color:#aaa;border:1px solid #505050;border-radius:3px;padding:3px 6px;cursor:pointer;font-size:11px">＋前に追加</button>
+      <button id="cut-add-after-btn" style="flex:1;background:#303030;color:#aaa;border:1px solid #505050;border-radius:3px;padding:3px 6px;cursor:pointer;font-size:11px">＋後に追加</button>
+      <button id="cut-move-up-btn" style="flex:0;background:#303030;color:#aaa;border:1px solid #505050;border-radius:3px;padding:3px 6px;cursor:pointer;font-size:11px">▲</button>
+      <button id="cut-move-down-btn" style="flex:0;background:#303030;color:#aaa;border:1px solid #505050;border-radius:3px;padding:3px 6px;cursor:pointer;font-size:11px">▼</button>
+      <button id="cut-delete-btn" style="flex:0;background:#6b2020;color:#fff;border:1px solid #8b3030;border-radius:3px;padding:3px 6px;cursor:pointer;font-size:11px">✕</button>
+    </div>`;
+  document.getElementById('cut-close-btn').addEventListener('click', () => { cutInfoPopup.hidden = true; });
+  document.getElementById('cut-add-before-btn').addEventListener('click', () => addCutAt(selectedCutIndex, 'before'));
+  document.getElementById('cut-add-after-btn').addEventListener('click', () => addCutAt(selectedCutIndex, 'after'));
+  document.getElementById('cut-move-up-btn').addEventListener('click', () => moveCut(selectedCutIndex, -1));
+  document.getElementById('cut-move-down-btn').addEventListener('click', () => moveCut(selectedCutIndex, 1));
+  document.getElementById('cut-delete-btn').addEventListener('click', () => deleteCut(selectedCutIndex));
+  document.getElementById('cut-apply-btn').addEventListener('click', async () => {
+    if (selectedCutIndex < 0) return;
+    const inVal = Number(document.getElementById('cut-inp-in').value);
+    const outVal = Number(document.getElementById('cut-inp-out').value);
+    const speedVal = Number(document.getElementById('cut-inp-speed').value);
+    const atVal = document.getElementById('cut-inp-at').value;
+    const tiType = document.getElementById('cut-inp-ti-type').value;
+    const tiDur = Number(document.getElementById('cut-inp-ti-dur').value);
+    const toType = document.getElementById('cut-inp-to-type').value;
+    const toDur = Number(document.getElementById('cut-inp-to-dur').value);
+    if (!Number.isFinite(inVal) || !Number.isFinite(outVal) || !Number.isFinite(speedVal) || speedVal <= 0) return;
+    const newCuts = [...(summary?.cuts || [])];
+    const cut = newCuts[selectedCutIndex];
+    if (!cut) return;
+    const old = { in: cut.in, out: cut.out, speed: cut.speed, at: cut.at, transitionIn: cut.transitionIn, transitionOut: cut.transitionOut };
+    cut.in = inVal; cut.out = outVal; cut.speed = speedVal;
+    cut.at = atVal ? Number(atVal) : undefined;
+    cut.transitionIn = tiType ? { type: tiType, duration: Number.isFinite(tiDur) && tiDur > 0 ? tiDur : 0.3 } : undefined;
+    cut.transitionOut = toType ? { type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
+    try {
+      const res = await fetch('/api/edit.json', {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...summary, cuts: newCuts })
+      });
+      if (res.ok) {
+        summary = await res.json();
+        buildSegments();
+        seekTo(outputTime);
+      } else {
+        Object.assign(cut, old);
+      }
+    } catch { Object.assign(cut, old); }
+  });
+}
+
+async function addCutAt(index, where) {
+  const cuts = summary?.cuts;
+  if (!Array.isArray(cuts) || index < 0) return;
+  const ref = cuts[index];
+  if (!ref) return;
+  const inSec = where === 'before' ? ref.in : ref.out;
+  const outSec = Math.min(inSec + 1, (cuts[cuts.length - 1]?.out ?? inSec + 5));
+  const newCut = { in: inSec, out: outSec };
+  const idx = where === 'before' ? index : index + 1;
+  const newCuts = [...cuts.slice(0, idx), newCut, ...cuts.slice(idx)];
+  const res = await fetch('/api/edit.json', {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...summary, cuts: newCuts })
+  });
+  if (res.ok) {
+    summary = await res.json();
+    buildSegments();
+    seekTo(outputTime);
+  }
+}
+
+async function moveCut(index, dir) {
+  const cuts = summary?.cuts;
+  if (!Array.isArray(cuts) || index < 0) return;
+  const target = index + dir;
+  if (target < 0 || target >= cuts.length) return;
+  const newCuts = [...cuts];
+  [newCuts[index], newCuts[target]] = [newCuts[target], newCuts[index]];
+  const res = await fetch('/api/edit.json', {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...summary, cuts: newCuts })
+  });
+  if (res.ok) {
+    summary = await res.json();
+    buildSegments();
+    seekTo(outputTime);
+  }
+}
+
+async function deleteCut(index) {
+  const cuts = summary?.cuts;
+  if (!Array.isArray(cuts) || index < 0 || cuts.length <= 1) return;
+  const newCuts = [...cuts.slice(0, index), ...cuts.slice(index + 1)];
+  const res = await fetch('/api/edit.json', {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...summary, cuts: newCuts })
+  });
+  if (res.ok) {
+    summary = await res.json();
+    buildSegments();
+    seekTo(outputTime);
+  }
+}
+
+// Wire seek visual click
+seekVisual.addEventListener('click', (e) => {
+  const rect = seek.getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  const t = Math.max(0, Math.min(totalDuration, ratio * totalDuration));
+  showCutInfoAt(t);
+  const w = isPlaying; if (w) pause();
+  seekTo(t);
+  if (w) play();
+});
 
 playToggle.addEventListener('click', () => isPlaying ? pause() : play());
 frameBack.addEventListener('click', () => { pause(); seekTo(outputTime - 1 / fps); });
 frameForward.addEventListener('click', () => { pause(); seekTo(outputTime + 1 / fps); });
 skipBack.addEventListener('click', () => { pause(); seekTo(outputTime - 10); });
 skipForward.addEventListener('click', () => { pause(); seekTo(outputTime + 10); });
-seek.addEventListener('input', () => { const w = isPlaying; if (w) pause(); seekTo(Number(seek.value)); if (w) play(); });
+seek.addEventListener('input', () => { cutInfoPopup.hidden = true; const w = isPlaying; if (w) pause(); seekTo(Number(seek.value)); if (w) play(); });
+// Snap to nearest cut boundary
+function snapToCut(t, dir) {
+  if (!segments.length) return t;
+  let acc = 0;
+  for (const seg of segments) {
+    const segEnd = acc + seg.durationSec;
+    if (dir > 0 && t >= acc && t < segEnd) return Math.min(t, segEnd - 0.001);
+    if (dir < 0 && t > acc && t <= segEnd) return Math.max(t, acc);
+    acc = segEnd;
+  }
+  return t;
+}
+
 document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   switch (e.code) {
     case 'Space': e.preventDefault(); isPlaying ? pause() : play(); break;
     case 'ArrowLeft': e.preventDefault(); pause(); seekTo(outputTime - 1 / fps); break;
@@ -473,24 +1064,439 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowDown': e.preventDefault(); pause(); seekTo(outputTime + 10); break;
     case 'Home': e.preventDefault(); seekTo(0); break;
     case 'End': e.preventDefault(); seekTo(totalDuration); break;
+    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime - 0.1, -1)); break;
+    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime + 0.1, 1)); break;
+    case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
+    case 'Escape': shortcutHelp.hidden = true; if (editMode) { clearSelection(); } break;
+    case 'KeyZ': if (e.ctrlKey || e.metaKey) { e.preventDefault(); } break;
   }
 });
-video.addEventListener('loadedmetadata', () => { if (isPlaying) video.play(); });
+video.addEventListener('loadstart', () => { loadingIndicator.style.display = 'block'; });
+video.addEventListener('canplay', () => { loadingIndicator.style.display = 'none'; });
+video.addEventListener('waiting', () => { loadingIndicator.style.display = 'block'; });
+video.addEventListener('playing', () => { loadingIndicator.style.display = 'none'; });
+video.addEventListener('error', () => { loadingIndicator.style.display = 'none'; });
+
+// --- Pen mode ---
+const penToggle = document.getElementById('pen-toggle');
+penToggle.addEventListener('click', () => {
+  const next = !penActive;
+  if (next) { editMode = false; editToggle.setAttribute('aria-pressed', 'false'); stage.style.pointerEvents = 'none'; clearSelection(); captionEnable(false); }
+  penToggle.setAttribute('aria-pressed', String(next));
+  penEnable(next);
+  if (next) zoomLayer.style.cursor = 'crosshair';
+});
+// Pointer events for pen drawing on zoomLayer
+zoomLayer.addEventListener('pointerdown', onPenPointerDown);
+zoomLayer.addEventListener('pointermove', onPenPointerMove);
+zoomLayer.addEventListener('pointerup', onPenPointerUp);
+zoomLayer.addEventListener('pointerleave', onPenPointerUp);
+
+// --- Caption edit mode ---
+const captionToggle = document.getElementById('caption-toggle');
+const captionEditPopup = document.getElementById('caption-edit-popup');
+const captionIdLabel = document.getElementById('caption-id-label');
+const captionZoneSelect = document.getElementById('caption-zone-select');
+const captionColorInput = document.getElementById('caption-color-input');
+const captionSizeInput = document.getElementById('caption-size-input');
+const captionSelectBox = document.getElementById('caption-select-box');
+captionZoneSelect.innerHTML = CAPTION_ZONE_LIST.map(z => `<option value="${z}">${z}</option>`).join('');
+
+function captionEnable(enabled) {
+  captionEditMode = enabled;
+  captionToggle.setAttribute('aria-pressed', String(enabled));
+  captionPlate.style.cursor = enabled ? 'pointer' : 'move';
+  if (!enabled) { deselectCaption(); }
+}
+function selectCaption(id) {
+  if (id === selectedCaptionId) return;
+  selectedCaptionId = id;
+  const cap = summary?.captions?.find(c => c.id === id);
+  if (!cap) { deselectCaption(); return; }
+  const ts = cap.text_style || {};
+  captionIdLabel.textContent = id;
+  captionZoneSelect.value = ts.zone || 'bottom';
+  captionColorInput.value = ts.color || '#ffffff';
+  captionSizeInput.value = ts.size_px || 38;
+  captionEditPopup.hidden = false;
+  updateCaptionSelectBox();
+}
+function deselectCaption() {
+  selectedCaptionId = null;
+  captionEditPopup.hidden = true;
+  captionSelectBox.classList.remove('is-active');
+}
+
+function updateCaptionSelectBox() {
+  if (!selectedCaptionId) { captionSelectBox.classList.remove('is-active'); return; }
+  const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
+  if (!cap) { deselectCaption(); return; }
+  selectedCaptionZone = cap.text_style?.zone || 'bottom';
+  const parts = captionZoneParts(selectedCaptionZone);
+  const wr = wrapper.getBoundingClientRect();
+  const zl = zoomLayer.getBoundingClientRect();
+  const scaleX = zl.width / wr.width;
+  const scaleY = zl.height / wr.height;
+  const rowR = ZONE_ROW_RANGES[parts.row] || ZONE_ROW_RANGES.bottom;
+  const colR = ZONE_COL_RANGES[parts.col] || ZONE_COL_RANGES.center;
+  captionSelectBox.style.left = ((zl.left - wr.left) + wr.width * colR[0] * scaleX) + 'px';
+  captionSelectBox.style.top = ((zl.top - wr.top) + wr.height * rowR[0] * scaleY) + 'px';
+  captionSelectBox.style.width = (wr.width * (colR[1] - colR[0]) * scaleX) + 'px';
+  captionSelectBox.style.height = (wr.height * (rowR[1] - rowR[0]) * scaleY) + 'px';
+  captionSelectBox.classList.add('is-active');
+}
+
+captionToggle.addEventListener('click', () => {
+  const next = !captionEditMode;
+  if (next) { editMode = false; editToggle.setAttribute('aria-pressed', 'false'); stage.style.pointerEvents = 'none'; clearSelection(); penEnable(false); }
+  captionEnable(next);
+});
+captionPlate.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || !captionEditMode) return;
+  const cap = summary?.captions?.find(c => {
+    const s = Number(c.start) || 0, d = Number(c.end) || Number(c.duration) || 0;
+    return outputTime >= s && outputTime < s + d;
+  });
+  if (!cap || !cap.id) return;
+  e.preventDefault(); e.stopPropagation();
+  selectCaption(cap.id);
+  const ptrId = e.pointerId;
+  const startX = e.clientX, startY = e.clientY;
+  const origZone = selectedCaptionZone;
+  let candidateZone = origZone, moved = false;
+  try { captionPlate.setPointerCapture(ptrId); } catch {}
+  const cleanup = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+  };
+  const onMove = (ev) => {
+    if (ev.pointerId !== ptrId) return;
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if (!moved && Math.hypot(dx, dy) > 4) moved = true;
+    if (!moved) return;
+    const wr = wrapper.getBoundingClientRect();
+    const fx = (ev.clientX - wr.left) / wr.width;
+    const fy = (ev.clientY - wr.top) / wr.height;
+    candidateZone = captionZoneFromFraction(fx, fy);
+    const parts = captionZoneParts(candidateZone);
+    const zl = zoomLayer.getBoundingClientRect();
+    const scaleX = zl.width / wr.width;
+    const scaleY = zl.height / wr.height;
+    const rowR = ZONE_ROW_RANGES[parts.row] || ZONE_ROW_RANGES.bottom;
+    const colR = ZONE_COL_RANGES[parts.col] || ZONE_COL_RANGES.center;
+    captionSelectBox.style.left = ((zl.left - wr.left) + wr.width * colR[0] * scaleX) + 'px';
+    captionSelectBox.style.top = ((zl.top - wr.top) + wr.height * rowR[0] * scaleY) + 'px';
+    captionSelectBox.style.width = (wr.width * (colR[1] - colR[0]) * scaleX) + 'px';
+    captionSelectBox.style.height = (wr.height * (rowR[1] - rowR[0]) * scaleY) + 'px';
+  };
+  const onUp = () => {
+    cleanup();
+    if (!moved || candidateZone === origZone) { updateCaptionSelectBox(); return; }
+    (async () => {
+      const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
+      if (!cap) return;
+      const ts = { ...(cap.text_style || {}), zone: candidateZone };
+      const captions = summary.captions.map(c => c.id === selectedCaptionId ? { ...c, text_style: ts } : c);
+      try {
+        const res = await fetch('/api/edit.json?captions', {
+          method: 'PUT', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ captions })
+        });
+        if (res.ok) { summary = await res.json(); selectedCaptionZone = candidateZone; }
+      } catch (err) { console.warn('caption zone write failed', err); }
+      updateCaptionSelectBox();
+    })();
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+});
+// Caption style editing via popup
+captionZoneSelect.addEventListener('change', async () => {
+  if (!selectedCaptionId) return;
+  const zone = captionZoneSelect.value;
+  const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
+  if (!cap) return;
+  const ts = { ...(cap.text_style || {}), zone };
+  const captions = summary.captions.map(c => c.id === selectedCaptionId ? { ...c, text_style: ts } : c);
+  try {
+    const res = await fetch('/api/edit.json?captions', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ captions })
+    });
+    if (res.ok) { summary = await res.json(); }
+  } catch (err) { console.warn('caption zone write failed', err); }
+});
+captionColorInput.addEventListener('change', async () => {
+  if (!selectedCaptionId) return;
+  const color = captionColorInput.value;
+  const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
+  if (!cap) return;
+  const ts = { ...(cap.text_style || {}), color };
+  const captions = summary.captions.map(c => c.id === selectedCaptionId ? { ...c, text_style: ts } : c);
+  try {
+    const res = await fetch('/api/edit.json?captions', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ captions })
+    });
+    if (res.ok) summary = await res.json();
+  } catch (err) { console.warn('caption color write failed', err); }
+});
+captionSizeInput.addEventListener('change', async () => {
+  if (!selectedCaptionId) return;
+  const size_px = Number(captionSizeInput.value);
+  const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
+  if (!cap) return;
+  const ts = { ...(cap.text_style || {}), size_px };
+  const captions = summary.captions.map(c => c.id === selectedCaptionId ? { ...c, text_style: ts } : c);
+  try {
+    const res = await fetch('/api/edit.json?captions', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ captions })
+    });
+    if (res.ok) summary = await res.json();
+  } catch (err) { console.warn('caption size write failed', err); }
+});
+
+// --- Layer (B-roll) editing ---
+let selectedLayerId = null;
+const layerSelectBox = document.getElementById('layer-select-box');
+
+function updateLayerSelectBox() {
+  if (!selectedLayerId) { layerSelectBox.classList.remove('is-active'); return; }
+  const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+  if (!lv || !lv.visible || !lv.el.offsetParent) { layerSelectBox.classList.remove('is-active'); return; }
+  const wr = wrapper.getBoundingClientRect();
+  const zl = zoomLayer.getBoundingClientRect();
+  const scaleX = zl.width / wr.width;
+  const scaleY = zl.height / wr.height;
+  const t = lv.layer.transform || {};
+  const x = t.x || 0, y = t.y || 0;
+  const w = lv.el.videoWidth || 640, h = lv.el.videoHeight || 360;
+  const s = t.scale || 1;
+  const cx = wr.width / 2 * scaleX + x * scaleX;
+  const cy = wr.height / 2 * scaleY + y * scaleY;
+  const bw = w * s * scaleX;
+  const bh = h * s * scaleY;
+  layerSelectBox.style.left = (cx - bw / 2) + 'px';
+  layerSelectBox.style.top = (cy - bh / 2) + 'px';
+  layerSelectBox.style.width = bw + 'px';
+  layerSelectBox.style.height = bh + 'px';
+  layerSelectBox.style.transform = `rotate(${t.rotate || 0}deg)`;
+  layerSelectBox.classList.add('is-active');
+}
+
+function selectLayer(id) {
+  if (id === selectedLayerId && id) { updateLayerSelectBox(); return; }
+  selectedLayerId = id;
+  if (id) { clearSelection(); }
+  updateLayerSelectBox();
+}
+
+function clearLayerSelection() {
+  selectedLayerId = null;
+  layerSelectBox.classList.remove('is-active');
+}
+
+// Layer drag-to-move + resize
+function getLayerTransform(lv) {
+  const t = lv.layer.transform || {};
+  return { x: t.x || 0, y: t.y || 0, scale: t.scale || 1, rotate: t.rotate || 0 };
+}
+function applyLayerTransform(lv, tr) {
+  const el = lv.el;
+  el.dataset.layerX = tr.x; el.dataset.layerY = tr.y;
+  el.dataset.layerScale = tr.scale; el.dataset.layerRotate = tr.rotate;
+  el.style.transform = `translate(${tr.x}px, ${tr.y}px) scale(${tr.scale}) rotate(${tr.rotate}deg)`;
+}
+
+function beginLayerDrag(lv, startEvent, computeTransform) {
+  startEvent.preventDefault();
+  startEvent.stopPropagation();
+  const ptrId = startEvent.pointerId;
+  const orig = getLayerTransform(lv);
+  let moved = false, cancelled = false;
+  try { startEvent.target.setPointerCapture(ptrId); } catch {}
+  const cleanup = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
+    window.removeEventListener('keydown', onKey);
+  };
+  const onMove = (ev) => {
+    if (ev.pointerId !== ptrId) return;
+    const next = computeTransform(ev, orig);
+    if (!moved && (Math.abs(next.x - orig.x) > 2 || Math.abs(next.y - orig.y) > 2 || Math.abs(next.scale - orig.scale) > 0.02)) moved = true;
+    applyLayerTransform(lv, next);
+  };
+  const onUp = () => {
+    cleanup();
+    if (cancelled || !moved) { applyLayerTransform(lv, orig); updateLayerSelectBox(); return; }
+    const final = getLayerTransform(lv);
+    (async () => {
+      const layers = (summary?.layers || []).map(l => l.id === lv.layer.id ? { ...l, transform: final } : l);
+      try {
+        const res = await fetch('/api/edit.json', {
+          method: 'PUT', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ...summary, layers })
+        });
+        if (res.ok) { summary = await res.json(); }
+        else { applyLayerTransform(lv, orig); }
+      } catch { applyLayerTransform(lv, orig); }
+      updateLayerSelectBox();
+    })();
+  };
+  const onCancel = () => { cancelled = true; cleanup(); applyLayerTransform(lv, orig); updateLayerSelectBox(); };
+  const onKey = (e) => { if (e.code === 'Escape') { cancelled = true; cleanup(); applyLayerTransform(lv, orig); updateLayerSelectBox(); }};
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onCancel);
+  window.addEventListener('keydown', onKey);
+}
+
+// Layer timing popup (double-click on selected layer)
+const layerInfoPopup = document.getElementById('layer-info-popup');
+if (!layerInfoPopup) {
+  const div = document.createElement('div');
+  div.id = 'layer-info-popup';
+  div.className = 'popup';
+  div.style.cssText = 'left:0;right:auto;width:260px';
+  div.hidden = true;
+  div.innerHTML = '<div class="popup-header"><span>レイヤー</span><span id="layer-id-label"></span></div><div id="layer-info-content" style="font-size:12px;color:#ccc;line-height:1.6"></div>';
+  document.querySelector('.transport-seek').appendChild(div);
+}
+stage.addEventListener('dblclick', (e) => {
+  if (!editMode || !selectedLayerId) return;
+  const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+  if (!lv) return;
+  const layer = lv.layer;
+  const popup = document.getElementById('layer-info-popup');
+  const content = document.getElementById('layer-info-content');
+  document.getElementById('layer-id-label').textContent = layer.id;
+  const tVal = (layer.t ?? 0).toFixed(2);
+  const durVal = (layer.duration ?? 0).toFixed(2);
+  content.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <label style="flex:1;color:#888;font-size:11px">開始 <input id="ly-t" type="number" step="0.01" value="${tVal}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
+      <label style="flex:1;color:#888;font-size:11px">長さ <input id="ly-dur" type="number" step="0.01" min="0" value="${durVal}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:4px">
+      <label style="flex:1;color:#888;font-size:11px">不透明度 <input id="ly-opacity" type="number" step="0.05" min="0" max="1" value="${layer.opacity ?? 1}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
+      <label style="flex:1;color:#888;font-size:11px">blend
+        <select id="ly-blend" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px">
+          <option value="">通常</option>
+          ${['multiply','screen','overlay','darken','lighten','color-dodge','color-burn','hard-light','soft-light','difference','exclusion'].map(b => `<option value="${b}"${layer.blend===b?' selected':''}>${b}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    <button id="ly-apply-btn" style="width:100%;background:#4da3ff;color:#fff;border:none;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:12px">適用</button>`;
+  content.querySelector('#ly-apply-btn').addEventListener('click', async () => {
+    const newT = Number(document.getElementById('ly-t').value);
+    const newDur = Number(document.getElementById('ly-dur').value);
+    const newOp = Number(document.getElementById('ly-opacity').value);
+    const newBlend = document.getElementById('ly-blend').value;
+    if (!Number.isFinite(newT) || !Number.isFinite(newDur) || newDur <= 0) return;
+    const layers = (summary?.layers || []).map(l => l.id === layer.id ? { ...l, t: newT, duration: newDur, opacity: newOp, blend: newBlend || undefined } : l);
+    try {
+      const res = await fetch('/api/edit.json', {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...summary, layers })
+      });
+      if (res.ok) { summary = await res.json(); popup.hidden = true; }
+    } catch {}
+  });
+  popup.hidden = false;
+});
+
+// Wire pointer events for layers
+stage.addEventListener('pointerdown', (e) => {
+  if (!editMode || e.button !== 0) return;
+  const hit = document.elementsFromPoint(e.clientX, e.clientY)
+    .find(c => c.tagName === 'VIDEO' && c.dataset && c.dataset.layerId && c.style.display !== 'none');
+  if (!hit) return;
+  const lv = layerVideos.find(v => v.el === hit);
+  if (!lv) return;
+  e.preventDefault(); e.stopPropagation();
+  selectLayer(lv.layer.id);
+  const wr = wrapper.getBoundingClientRect();
+  const startFX = (e.clientX - wr.left) / wr.width;
+  const startFY = (e.clientY - wr.top) / wr.height;
+  beginLayerDrag(lv, e, (ev, orig) => {
+    const fx = (ev.clientX - wr.left) / wr.width;
+    const fy = (ev.clientY - wr.top) / wr.height;
+    const dx = (fx - startFX) * wr.width;
+    const dy = (fy - startFY) * wr.height;
+    return { ...orig, x: orig.x + dx, y: orig.y + dy };
+  });
+});
+
+// Layer handle resize/rotate
+document.querySelectorAll('.akari-layer-handle').forEach(h => {
+  h.addEventListener('pointerdown', (e) => {
+    if (!editMode || !selectedLayerId || e.button !== 0) return;
+    const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+    if (!lv || !lv.visible) return;
+    e.preventDefault(); e.stopPropagation();
+    const wr = wrapper.getBoundingClientRect();
+    const handle = h.dataset.handle;
+    const zl = zoomLayer.getBoundingClientRect();
+    const scaleX = zl.width / wr.width;
+    const startFX = (e.clientX - wr.left) / wr.width;
+    const startFY = (e.clientY - wr.top) / wr.height;
+    if (handle === 'rotate') {
+      const tr = getLayerTransform(lv);
+      const centerX = wr.width / 2 + tr.x;
+      const centerY = wr.height / 2 + tr.y;
+      const startAngle = Math.atan2(startFY * wr.height - centerY, startFX * wr.width - centerX) * 180 / Math.PI;
+      beginLayerDrag(lv, e, (ev, orig) => {
+        const fx = (ev.clientX - wr.left) / wr.width;
+        const fy = (ev.clientY - wr.top) / wr.height;
+        const angle = Math.atan2(fy * wr.height - centerY, fx * wr.width - centerX) * 180 / Math.PI;
+        return { ...orig, rotate: orig.rotate + (angle - startAngle) };
+      });
+    } else {
+      const tr = getLayerTransform(lv);
+      const origCx = wr.width / 2 + tr.x;
+      const origCy = wr.height / 2 + tr.y;
+      const startDist = Math.hypot((startFX * wr.width - origCx) / scaleX, (startFY * wr.height - origCy) / scaleY);
+      const w = lv.el.videoWidth || 640, h = lv.el.videoHeight || 360;
+      const baseSize = Math.sqrt(w * w + h * h) / 2;
+      beginLayerDrag(lv, e, (ev, orig) => {
+        const fx = (ev.clientX - wr.left) / wr.width;
+        const fy = (ev.clientY - wr.top) / wr.height;
+        const dist = Math.hypot((fx * wr.width - origCx) / scaleX, (fy * wr.height - origCy) / scaleY);
+        return { ...orig, scale: Math.max(0.05, orig.scale * (dist / startDist)) };
+      });
+    }
+  });
+});
+
+function updateLayerPointerEvents() {
+  for (const lv of layerVideos) {
+    lv.el.style.pointerEvents = lv.visible && editMode ? 'auto' : 'none';
+  }
+}
 
 // --- Edit mode ---
 let transformDirty = false;
 editToggle.addEventListener('click', () => {
   editMode = !editMode;
+  if (editMode) { penEnable(false); captionEnable(false); }
   editToggle.setAttribute('aria-pressed', String(editMode));
   stage.style.pointerEvents = editMode ? 'auto' : 'none';
-  if (!editMode) clearSelection();
+  updateLayerPointerEvents();
+  if (!editMode) { clearSelection(); clearLayerSelection(); }
+  if (editMode && selectedLayerId) updateLayerSelectBox();
 });
 function clearSelection() {
   selectedId = null; selectedKind = null;
   selectionLabel.textContent = ''; transformPopup.hidden = true;
+  clearLayerSelection();
 }
 function selectOverlay(id) {
   clearSelection();
+  clearLayerSelection();
   selectedKind = 'overlay'; selectedId = id;
   selectionLabel.textContent = `オーバーレイ ${id}`;
   const overlay = summary?.overlays?.find(o => String(o.id) === String(id));
@@ -500,6 +1506,7 @@ stage.addEventListener('click', (e) => {
   if (!editMode) return;
   const c = e.target.closest('[data-overlay-id]');
   if (c) { selectOverlay(c.dataset.overlayId); return; }
+  if (e.target.tagName === 'VIDEO' && e.target.dataset?.layerId) return;
   clearSelection();
 });
 function showTransform(t) {
@@ -518,7 +1525,7 @@ function showTransform(t) {
 });
 async function writeEditJson(kind, id, patch) {
   try {
-    const res = await fetch('/api/summary');
+    const res = await fetch(api.summary);
     const edit = await res.json();
     if (kind === 'overlay') {
       const ov = edit.overlays?.find(o => String(o.id) === String(id));
@@ -554,6 +1561,7 @@ waveformToggle.addEventListener('click', () => {
   waveformVisible = !waveformVisible;
   waveformRow.hidden = !waveformVisible;
   waveformToggle.setAttribute('aria-pressed', String(waveformVisible));
+  saveSettings({ waveformVisible });
   if (waveformVisible) setupWaveform();
 });
 
@@ -566,9 +1574,9 @@ function updateZoom() {
   updateMinimap();
 }
 zoomToggle.addEventListener('click', () => { const o = !zoomPopup.hidden; zoomPopup.hidden = o; zoomToggle.setAttribute('aria-expanded', String(!o)); });
-zoomSlider.addEventListener('input', () => { zoom = ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, Number(zoomSlider.value)); pan = { x: 0, y: 0 }; updateZoom(); });
+zoomSlider.addEventListener('input', () => { zoom = ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, Number(zoomSlider.value)); pan = { x: 0, y: 0 }; updateZoom(); saveSettings({ zoom }); });
 document.querySelectorAll('.zoom-preset').forEach(btn => {
-  btn.addEventListener('click', () => { zoom = Number(btn.dataset.zoom); pan = { x: 0, y: 0 }; updateZoom(); zoomPopup.hidden = true; zoomToggle.setAttribute('aria-expanded', 'false'); });
+  btn.addEventListener('click', () => { zoom = Number(btn.dataset.zoom); pan = { x: 0, y: 0 }; updateZoom(); zoomPopup.hidden = true; zoomToggle.setAttribute('aria-expanded', 'false'); saveSettings({ zoom }); });
 });
 wrapper.addEventListener('wheel', (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
@@ -602,8 +1610,13 @@ function createOverlayRuntime() {
       c.dataset.overlayId = String(o.id);
       c.dataset.start = String(o.start);
       c.dataset.duration = String(o.duration);
-      c.style.cssText = 'position:absolute;inset:0;pointer-events:auto;visibility:hidden;';
-      if (o.transform) { const t = o.transform; c.style.transform = `translate(${t.x||0}px,${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`; }
+      c.style.cssText = 'position:absolute;inset:0;pointer-events:auto;visibility:hidden;touch-action:none;';
+      const t = o.transform || {};
+      c.style.setProperty('--x', `${t.x||0}px`);
+      c.style.setProperty('--y', `${t.y||0}px`);
+      c.style.setProperty('--scale', String(t.scale||1));
+      c.style.setProperty('--rotate', `${t.rotate||0}deg`);
+      c.style.transform = 'translate(var(--x,0px), var(--y,0px)) scale(var(--scale,1)) rotate(var(--rotate,0deg))';
       c.innerHTML = o.html || '';
       frag.appendChild(c);
       overlays.push({ el: c, start: o.start, duration: o.duration, visible: false });
@@ -623,37 +1636,251 @@ function createOverlayRuntime() {
 }
 function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
 
-// --- Captions ---
+function captionZoneParts(zone) {
+  if (!zone || zone === 'bottom') return { row: 'bottom', col: 'center' };
+  if (zone === 'center') return { row: 'middle', col: 'center' };
+  if (zone === 'top') return { row: 'top', col: 'center' };
+  if (zone === 'left' || zone === 'right') return { row: 'middle', col: zone };
+  const [row, col] = zone.split('-');
+  return { row, col };
+}
+function captionZoneFromFraction(fx, fy) {
+  const col = fx < 1 / 3 ? 'left' : fx < 2 / 3 ? 'center' : 'right';
+  const row = fy < 1 / 3 ? 'top' : fy < 2 / 3 ? 'middle' : 'bottom';
+  if (row === 'middle' && col === 'center') return 'center';
+  if (row === 'middle') return col;
+  if (col === 'center') return row;
+  return row + '-' + col;
+}
+function captionZoneVars(zone) {
+  if (!zone || zone === 'bottom') return {};
+  const parts = captionZoneParts(zone);
+  const v = parts.row === 'top' ? '7%' : parts.row === 'middle' ? '0' : 'auto';
+  const b = parts.row === 'bottom' ? '7%' : parts.row === 'middle' ? '0' : 'auto';
+  const align = parts.col === 'left' ? 'flex-start' : parts.col === 'right' ? 'flex-end' : 'center';
+  return {
+    '--caption-top': v,
+    '--caption-bottom': b,
+    '--caption-left': '4%',
+    '--caption-right': '4%',
+    '--caption-justify-content': parts.row === 'middle' ? 'center' : 'flex-start',
+    '--caption-align-items': align,
+    '--caption-text-align': align
+  };
+}
+
+function applyCaptionStyle(caption) {
+  let vars = {};
+  const ts = caption?.text_style;
+  const dts = summary?.default_text_style;
+  if (ts?.color) vars['--caption-color'] = ts.color;
+  else if (dts?.color) vars['--caption-color'] = dts.color;
+  if (ts?.size_px) vars['--caption-font-size'] = ts.size_px + 'px';
+  else if (dts?.size_px) vars['--caption-font-size'] = dts.size_px + 'px';
+  else vars['--caption-font-size'] = '38px';
+  const zone = ts?.zone || dts?.zone || 'bottom';
+  Object.assign(vars, captionZoneVars(zone));
+  for (const [k, v] of Object.entries(vars)) captionPlate.style.setProperty(k, v);
+  captionPlate.classList.toggle('akari-caption-styled', !!ts || !!dts);
+}
+
+function getActiveCaptions() {
+  const fromEdit = summary?.captions;
+  if (Array.isArray(fromEdit) && fromEdit.length > 0) return fromEdit;
+  return captionsData || [];
+}
+function normalizeWords(words) {
+  if (!Array.isArray(words) || !words.length) return [];
+  return words.map(w => ({
+    start: w.start ?? w.t ?? 0,
+    end: w.end ?? (w.t ?? 0) + (w.d ?? 0.3),
+    text: w.text ?? w.word ?? w.w ?? '',
+  }));
+}
+const EMPHASIS_STYLE_MAP = { pain: 'one-char-bang', surprise: 'one-char-bang', anger: 'one-char-bang', joy: 'size-pulse', emphasis: 'size-pulse' };
+function findMatchingEmphasis(word, list) {
+  return list?.find(e =>
+    e.t_end > word.start && e.t_start < word.end &&
+    (word.text === e.word || e.word.includes(word.text))
+  ) || null;
+}
+function resolveEmphasisStyle(emphasis) {
+  return emphasis.style_hint || EMPHASIS_STYLE_MAP[emphasis.emotion] || 'color-accent';
+}
+function groupWordsIntoLines(words, maxLen = 13) {
+  const lines = [];
+  let cur = [], len = 0;
+  for (const w of words) {
+    const wlen = Array.from(w.text).length;
+    if (len + wlen > maxLen && cur.length > 0) { lines.push(cur); cur = []; len = 0; }
+    cur.push(w); len += wlen;
+  }
+  if (cur.length > 0) lines.push(cur);
+  return lines;
+}
+function injectCaptionStyles() {
+  if (captionStylesInjected) return;
+  captionStylesInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+@keyframes akari-caption-karaoke-lit {
+  from { color: var(--caption-color, #fff); }
+  to   { color: var(--caption-highlight-color, #ffd94a); }
+}
+@keyframes akari-caption-pop {
+  0%   { transform: translateY(0) scale(1); }
+  50%  { transform: translateY(-0.08em) scale(1.12); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes akari-emphasis-one-char-bang {
+  from { opacity: 0; transform: scale(1.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes akari-emphasis-size-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6)); font-family:"Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:1.42; text-align:center; }
+.akari-caption__plate { position:absolute; top:var(--caption-top,auto); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; }
+.akari-caption__line { width:max-content; max-width:92%; margin:0 auto; padding:0.08em 0.42em; border-radius:10px; background:rgba(8,12,22,0.74); text-align:center; white-space:pre; }
+.akari-caption__tok { display:inline-block; will-change:transform,color; }
+.akari-caption__tok--karaoke { animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
+.akari-caption__tok--pop { animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused; }
+.akari-caption__tok--emphasis { }
+.akari-caption__tok--one-char-bang { color:var(--akari-emphasis-color,var(--caption-color,#fff)); }
+.akari-caption__tok--size-pulse { animation:akari-emphasis-size-pulse var(--akari-emphasis-dur,0.2s) var(--akari-emphasis-delay,0s) ease-in-out both paused; color:var(--akari-emphasis-color,var(--caption-color,#fff)); }
+.akari-caption__tok--color-accent { color:var(--akari-emphasis-color,var(--caption-color,#fff)); }
+.akari-caption__emphasis-char { display:inline-block; opacity:0; animation:akari-emphasis-one-char-bang var(--akari-emphasis-dur,0.1s) var(--akari-emphasis-delay,0s) ease-out both paused; }
+.akari-caption--pop .akari-caption__line { background:rgba(8,12,22,0.74); }
+.akari-caption--emphasis .akari-caption__line { background:rgba(8,12,22,0.74); }
+`;
+  document.head.appendChild(style);
+}
+function renderStyledToken(word, captionStart, style) {
+  const delay = word.start - captionStart;
+  const dur = Math.max(0.01, word.end - word.start);
+  const cls = style === 'pop' ? 'akari-caption__tok--pop' : 'akari-caption__tok--karaoke';
+  const vars = style === 'pop'
+    ? `--akari-tok-delay:${delay}s`
+    : `--akari-tok-delay:${delay}s;--akari-tok-dur:${dur}s`;
+  return `<span class="akari-caption__tok ${cls}" style="${vars}">${esc(word.text)}</span>`;
+}
+function renderEmphasisToken(word, captionStart, emphasis) {
+  const estyle = resolveEmphasisStyle(emphasis);
+  const overlapStart = Math.max(word.start, emphasis.t_start);
+  const overlapEnd = Math.min(word.end, emphasis.t_end);
+  const delay = Math.max(0, overlapStart - captionStart);
+  const dur = Math.max(0.01, overlapEnd - overlapStart);
+  const emotion = ['joy', 'pain', 'surprise', 'anger', 'sadness', 'emphasis'].includes(emphasis.emotion) ? emphasis.emotion : 'emphasis';
+  const colorVar = `--akari-emphasis-color:var(--akari-emphasis-${emotion},var(--caption-color,#fff))`;
+  if (estyle === 'one-char-bang') {
+    const chars = Array.from(word.text);
+    const charDur = dur / chars.length;
+    const charHtml = chars.map((ch, i) =>
+      `<span class="akari-caption__emphasis-char" style="${colorVar};--akari-emphasis-delay:${(delay + charDur * i).toFixed(3)}s;--akari-emphasis-dur:${charDur.toFixed(3)}s">${esc(ch)}</span>`
+    ).join('');
+    return `<span class="akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--one-char-bang" data-emphasis-id="${esc(emphasis.id)}">${charHtml}</span>`;
+  }
+  if (estyle === 'size-pulse') {
+    return `<span class="akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--size-pulse" data-emphasis-id="${esc(emphasis.id)}" style="${colorVar};--akari-emphasis-delay:${delay}s;--akari-emphasis-dur:${dur}s">${esc(word.text)}</span>`;
+  }
+  return `<span class="akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--color-accent" data-emphasis-id="${esc(emphasis.id)}" style="${colorVar}">${esc(word.text)}</span>`;
+}
+let _lastCaptionId = null;
 function updateCaption() {
-  const caps = summary?.captions;
-  if (!Array.isArray(caps) || !caps.length) { captionPlate.textContent = ''; return; }
-  const active = caps.find(c => { const s = Number(c.start) || 0, d = Number(c.duration) || 0; return outputTime >= s && outputTime < s + d; });
-  if (!active) { captionPlate.textContent = ''; return; }
-  const words = active.words ?? [];
-  if (words.length > 0) {
+  const caps = getActiveCaptions();
+  if (!caps.length) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
+  const active = caps.find(c => { const s = Number(c.start) || 0, d = Number(c.end) || Number(c.duration) || 0; return outputTime >= s && outputTime < s + d; });
+  if (!active) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
+  if (active.id === _lastCaptionId) return;
+  _lastCaptionId = active.id;
+  applyCaptionStyle(active);
+  const words = normalizeWords(active.words);
+  const emphasisWords = summary?.emphasis_words;
+  const hasWords = words.length > 0;
+  const hasEmphasis = hasWords && emphasisWords?.length > 0 && words.some(w => findMatchingEmphasis(w, emphasisWords));
+  const style = active.style;
+  const wordStyle = (style && ['karaoke', 'pop', 'reveal'].includes(style)) ? style : (hasEmphasis ? 'emphasis' : null);
+  if (wordStyle && hasWords) {
+    injectCaptionStyles();
+    const start = Number(active.start) || 0;
+    const lines = groupWordsIntoLines(words);
+    captionPlate.innerHTML = `<div class="akari-caption akari-caption--${wordStyle}"><div class="akari-caption__plate">${
+      lines.map(line => `<p class="akari-caption__line">${
+        line.map(w => {
+          const ew = findMatchingEmphasis(w, emphasisWords);
+          return ew ? renderEmphasisToken(w, start, ew) : renderStyledToken(w, start, style);
+        }).join(' ')
+      }</p>`).join('')
+    }</div></div>`;
+    captionPlate.dataset.captionStart = String(start);
+  } else if (hasWords) {
     const start = Number(active.start) || 0;
     const ms = (outputTime - start) * 1000;
     captionPlate.innerHTML = words.map(w => {
-      const ws = (w.t ?? 0), we = ws + (w.d ?? 0.3);
+      const ws = w.start, we = w.end;
       let c = '#fff', s = '0 1px 2px #000';
       if (ms >= we) { c = '#aaa'; s = 'none'; }
-      else if (ms >= ws) { c = '#ff0'; s = '0 0 8px rgba(255,255,0,0.6)'; }
-      return `<span style="color:${c};text-shadow:${s};transition:color 0.05s">${esc(w.word || w.w || '')}</span>`;
+      else if (ms >= ws) { c = '#ff0'; s = '0 0 8px rgba(255,255,255,0.4)'; }
+      return `<span style="color:${c};text-shadow:${s};transition:color 0.05s">${esc(w.text)}</span>`;
     }).join(' ');
   } else {
-    captionPlate.textContent = active.text || active.caption || '';
+    captionPlate.innerHTML = esc(active.text || active.display_text || '');
+  }
+}
+function syncCaptionAnimations() {
+  const start = Number(captionPlate.dataset.captionStart);
+  if (!Number.isFinite(start)) return;
+  const localMs = Math.max(0, (outputTime - start) * 1000);
+  for (const a of captionPlate.getAnimations({ subtree: true })) {
+    a.pause();
+    a.currentTime = localMs;
   }
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 function showMessage(text) { if (text) { previewMessage.hidden = false; previewMessageText.textContent = text; } else { previewMessage.hidden = true; } }
 
+let wsTickLast = 0;
 function connectWs() {
   const p = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${p}//${location.host}`);
-  ws.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type === 'reload' || m.type === 'captions-reload') location.reload(); } catch {} };
-  ws.onclose = () => setTimeout(connectWs, 2000);
-  ws.onerror = () => ws.close();
+  ws = new WebSocket(`${p}//${location.host}`);
+  ws.onmessage = (e) => {
+    try {
+      const m = JSON.parse(e.data);
+      if (m.type === 'reload') return location.reload();
+      if (m.type === 'captions-reload') {
+        fetch(api.summary).then(r => r.ok && r.json()).then(d => { if (d) summary = d; }).catch(() => {});
+        return;
+      }
+      if (m.type === 'seek') { pause(); seekTo(m.time); }
+      if (m.type === 'tick') {
+        if (m.playing && !isPlaying) { outputTime = m.time; seekTo(m.time); play(); }
+        else if (!m.playing && isPlaying) { pause(); }
+        else if (Math.abs(outputTime - m.time) > 0.3) { seekTo(m.time); }
+      }
+    } catch {}
+  };
+  ws.onclose = () => { ws = null; setTimeout(connectWs, 2000); };
+  ws.onerror = () => { if (ws) ws.close(); };
+}
+
+function sendWsTick() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: 'tick', time: outputTime, playing: isPlaying }));
+}
+
+// --- Output preview ---
+const outputBtn = document.getElementById('output-preview-btn');
+if (isOutputMode) {
+  document.title = 'AKARI Video Preview (出力)';
+  outputBtn.hidden = true;
+} else {
+  outputBtn.hidden = false;
+  outputBtn.addEventListener('click', () => {
+    window.open('/?mode=output', 'akari-output-preview', 'width=960,height=600');
+  });
 }
 
 init();
