@@ -235,31 +235,29 @@ echo ""
 echo -e "  ${BOLD}Installed to:${NC} $INSTALL_DIR"
 echo ""
 
-if has opencode; then
-    echo -e "  ${BOLD}Quick start (opencode):${NC}"
-    echo ""
-    echo -e "    cd $INSTALL_DIR"
-    echo -e "    node packages/akari-launcher/bin/akari.mjs --opencode"
-    echo ""
+# ─── PATH 登録 ───
+SHELL_CONFIG=""
+case "$(basename "${SHELL:-bash}")" in
+  zsh) SHELL_CONFIG="$HOME/.zshrc" ;;
+  bash) SHELL_CONFIG="$HOME/.bashrc" ;;
+esac
+
+if [[ -n "$SHELL_CONFIG" ]] && ! grep -q "$INSTALL_DIR" "$SHELL_CONFIG" 2>/dev/null; then
+  echo "" >> "$SHELL_CONFIG"
+  echo "# AKARI Video" >> "$SHELL_CONFIG"
+  echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$SHELL_CONFIG"
+  info "  PATH を通しました: $SHELL_CONFIG"
+  info "  → 次回以降 端末を開き直せば ./akari.sh だけで使えます"
+elif [[ -z "$SHELL_CONFIG" ]]; then
+  warn "  PATH の自動登録に対応していないシェルです。手動で以下を PATH に追加してください:"
+  warn "    $INSTALL_DIR"
 fi
 
-if has claude; then
-    echo -e "  ${BOLD}Quick start (Claude Code):${NC}"
-    echo ""
-    echo -e "    cd $INSTALL_DIR"
-    echo -e "    node packages/akari-launcher/bin/akari.mjs"
-    echo ""
-fi
-
-if ! has opencode && ! has claude; then
-    echo -e "  ${YELLOW}AI agent not yet installed.${NC}"
-    echo ""
-    echo -e "  After installing opencode (or Claude Code), run:"
-    echo ""
-    echo -e "    cd $INSTALL_DIR"
-    echo -e "    node packages/akari-launcher/bin/akari.mjs"
-    echo ""
-fi
-
+echo ""
+echo -e "  ${BOLD}Quick start:${NC}"
+echo ""
+echo -e "    akari.sh                     # AI エージェント起動"
+echo -e "    akari.sh --preview 3000       # プレビューサーバー"
+echo ""
 echo -e "${MUTED}Docs: https://github.com/$REPO/blob/main/docs/getting-started.ja.md${NC}"
 echo ""

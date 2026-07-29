@@ -82,13 +82,21 @@ echo Installing npm dependencies...
 cd /d "%INSTALL_DIR%"
 call npm install --no-audit --no-fund
 
+:: ─── PATH 登録 ───
+set "PATH=%INSTALL_DIR%;%PATH%"
+for /f "skip=2 tokens=3*" %%a in ('reg query HKCU\Environment /v PATH 2^>nul') do set USER_PATH=%%a%%b
+echo "%USER_PATH%" | findstr /i "%INSTALL_DIR%" >nul 2>&1
+if errorlevel 1 (
+    setx PATH "%INSTALL_DIR%;%USER_PATH%" >nul 2>&1
+    echo [OK] PATH を登録しました（次回以降の端末で有効）
+)
+
 echo.
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo   Installation complete!
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo.
-echo   cd %INSTALL_DIR%
-echo   node packages\akari-launcher\bin\akari.mjs --opencode
+echo   akari-preview.cmd                  # プレビューサーバー
 echo.
 echo Docs: https://github.com/kuwa2005/akari-video/blob/main/docs/getting-started.ja.md
 echo.

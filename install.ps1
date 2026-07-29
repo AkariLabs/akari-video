@@ -119,6 +119,15 @@ if (Test-Path "$InstallDir\.git") {
 Write-Host ""; Write-Info "Installing npm dependencies..."
 Push-Location $InstallDir; npm install --no-audit --no-fund; Pop-Location
 
+# ═══ PATH 登録 ═══
+$currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+if ($currentPath -notlike "*$InstallDir*") {
+    [Environment]::SetEnvironmentVariable("PATH", "$InstallDir;$currentPath", "User")
+    Write-Info "  PATH を登録しました（次回以降の端末で有効）"
+}
+# 現在のセッションにも反映
+$env:PATH = "$InstallDir;$env:PATH"
+
 # ═══ Done ═══
 
 Write-Host ""
@@ -126,25 +135,9 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
 Write-Host ""
-
-if (Has-Cmd opencode) {
-    Write-Host "  Quick start (opencode):"
-    Write-Host "    cd $InstallDir"
-    Write-Host "    node packages/akari-launcher/bin/akari.mjs --opencode"
-    Write-Host ""
-}
-if (Has-Cmd claude) {
-    Write-Host "  Quick start (Claude Code):"
-    Write-Host "    cd $InstallDir"
-    Write-Host "    node packages/akari-launcher/bin/akari.mjs"
-    Write-Host ""
-}
-if (-not (Has-Cmd opencode) -and -not (Has-Cmd claude)) {
-    Write-Host "  AI agent not yet installed." -ForegroundColor Yellow
-    Write-Host "  After installing opencode, run:"
-    Write-Host "    cd $InstallDir"
-    Write-Host "    node packages/akari-launcher/bin/akari.mjs"
-    Write-Host ""
-}
+Write-Host "  Quick start:"
+Write-Host "    akari-preview.ps1                  # プレビューサーバー"
+Write-Host "    akari.ps1                          # AI エージェント起動"
+Write-Host ""
 Write-Host "Docs: https://github.com/kuwa2005/akari-video/blob/main/docs/getting-started.ja.md" -ForegroundColor DarkGray
 Write-Host ""
