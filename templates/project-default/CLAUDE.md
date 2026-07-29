@@ -21,7 +21,7 @@
 
 編集スキルは `.claude/skills/` に入っています。`/analyze-footage`、`/edit-plan`、
 `/overlay-authoring`、`/setup-library`、`/harvest-asset`、`/bake-3d` の素の名前で使えます。
-Codex など他の AI エージェント用の入り口が `.agents/skills/` と `.codex/skills/` にあります
+Codex や Cursor など他の AI エージェント用の入り口が `.agents/skills/`、`.cursor/skills/`、`.codex/skills/` にあります
 （中身は `.claude/skills/` へのリンクです）。
 詳しい進め方と、スキル文書を直接読む場合の場所は `AGENTS.md` を参照してください。
 

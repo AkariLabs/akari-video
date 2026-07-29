@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // AGENTS.md のスキル索引を skills/*/SKILL.md の frontmatter (name / description) から再生成する。
 // マーカーコメント間だけを書き換える。--check は再生成結果と現状の diff が出たら exit 1（CI 用）。
-// あわせて .claude/skills / .agents/skills の symlink が skills/ と 1:1 で解決することも検査する。
+// あわせて .claude/skills / .agents/skills / .cursor/skills / .codex/skills / .opencode/skills の symlink が
+// skills/ と 1:1 で解決することも検査する。
 import { readFileSync, writeFileSync, readdirSync, lstatSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -74,7 +75,7 @@ const skills = skillNames.map((name) => {
   return fm;
 });
 
-for (const adapter of ['.claude/skills', '.agents/skills', '.codex/skills', '.opencode/skills']) {
+for (const adapter of ['.claude/skills', '.agents/skills', '.cursor/skills', '.codex/skills', '.opencode/skills']) {
   for (const name of skillNames) {
     const link = join(root, adapter, name);
     let target;

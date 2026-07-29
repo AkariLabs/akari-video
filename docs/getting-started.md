@@ -68,10 +68,10 @@ node --version
 # Should show v20.x.x or similar
 ```
 
-### 2. opencode or Claude Code (AI agent)
+### 2. opencode, Claude Code, or Cursor Agent (AI agent)
 
 You need an AI agent to run AKARI Video.
-Install one or both.
+Install one or more of the following.
 
 #### Using opencode (recommended)
 
@@ -112,6 +112,23 @@ claude --version
 
 See [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code/overview) for details.
 
+#### Using Cursor Agent
+
+[Cursor](https://cursor.com) is an AI-native IDE with an Agent mode.
+Open the AKARI Video monorepo or a video project folder in Cursor — skills under
+`.cursor/skills/` (monorepo) or project adapters (after `create-project`) are
+auto-discovered from the [Agent Skills](https://agentskills.io) layout.
+
+**How to start**:
+
+1. Open the repository or project in Cursor
+2. Start an Agent chat and say **"I want to start a new video project"**
+3. The agent reads `AGENTS.md` and the matching `SKILL.md` under `.cursor/skills/`
+
+There is no dedicated `/akari` slash command in Cursor today; natural-language
+requests and explicit skill paths (for example `skills/edit-plan/SKILL.md`) work the same
+as in other harnesses.
+
 ### 3. ffmpeg (video processing tool)
 
 ffmpeg is used for cutting, converting, and exporting video.
@@ -134,15 +151,16 @@ ffmpeg -version
 
 ## Pick an entrance
 
-AKARI Video has three entrances.
+AKARI Video has four entrances.
 All converge on the same file contracts (under `.akari/`),
 so you can start from anywhere and continue from another later.
 
 | Entrance | Best for | How to start |
 |---|---|---|
 | A. Terminal | Comfortable with command line | `./akari.sh --opencode` |
-| B. opencode / Claude Code session | Already using an AI agent | Say "I want to start a new video project" |
-| C. App | Prefer GUI | Connect from the Theia-based desktop shell |
+| B. opencode / Claude Code session | Already using an AI agent CLI | Say "I want to start a new video project" |
+| C. Cursor Agent | Prefer an IDE with Agent chat | Open the repo or project in Cursor and say "I want to start a new video project" |
+| D. App | Prefer GUI | Connect from the Theia-based desktop shell |
 
 **Recommended for beginners: start with A**.
 
@@ -175,7 +193,18 @@ If you already use opencode or Claude Code, this is the natural entrance.
 - **Claude Code**: **`/akari`** — a slash command that diagnoses the current state and suggests
   the next step. Or just say "I want to start a new video project"
 
-### C. From the app
+### C. From Cursor Agent
+
+Open the monorepo (`akari-video`) or a video project folder in Cursor.
+Skills are discovered from `.cursor/skills/` (symlinks to `skills/` in the monorepo) or from
+project adapters created by `create-project`.
+
+Say **"I want to start a new video project"** in Agent chat, or point the agent at a specific
+skill (for example `skills/edit-plan/SKILL.md`).
+
+Preview while editing: run `./akari.sh --preview` in a terminal and open http://localhost:4567.
+
+### D. From the app
 
 Connect from the Start screen of the Theia-based desktop shell (`apps/shell/`, mid-migration).
 The app is a place to review and fix what the agent built, so starting from the terminal

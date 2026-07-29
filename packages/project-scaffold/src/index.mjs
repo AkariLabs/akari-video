@@ -29,7 +29,7 @@ const FALLBACK_CLAUDE_GUIDANCE = [
     '- `.akari/sidecars/` は分析結果、`.akari/events/` は作業の節目の記録を置く場所です。',
     '- 節目の記録は 1 件ずつ新しく追加し、すでにある記録は変更しません。',
     '- 編集スキルは `.claude/skills/` にあり、`/analyze-footage` などの素の名前で使えます。',
-    '- Codex など他の AI エージェント用の入り口が `.agents/skills/` と `.codex/skills/` にあります（中身は `.claude/skills/` へのリンク）。',
+    '- Codex や Cursor など他の AI エージェント用の入り口が `.agents/skills/`、`.cursor/skills/`、`.codex/skills/` にあります（中身は `.claude/skills/` へのリンク）。',
     '- `.akari/intake.json` の `status` が `submitted` なら、そこに書かれた `tasks` / `target` / `autonomy` に従って進めます。`autonomy` が `checkpoint`（既定）なら、企画の承認や書き出し前などの要所で必ず人に確認します。`status` が `draft` のときは進め方がまだ決まっていないので、フォームや対話で確定させてから作業を始めます。',
     '- 利用者へは日本語で、内部の仕組みではなく「変更履歴」「企画メモ」「素材」などの言葉で説明します。',
     '',
@@ -46,7 +46,7 @@ const FALLBACK_AGENT_GUIDANCE = [
     'スキルは `/analyze-footage`、`/edit-plan`、`/overlay-authoring`、`/setup-library`、',
     '`/harvest-asset`、`/bake-3d` の素の名前で使う。手順を直接読む場合は',
     '`.claude/skills/<スキル名>/SKILL.md` を開く。',
-    'Codex 等のハーネスでは `.agents/skills/` / `.codex/skills/`（`.claude/skills/` への',
+    'Codex / Cursor 等のハーネスでは `.agents/skills/` / `.cursor/skills/` / `.codex/skills/`（`.claude/skills/` への',
     'symlink）から同じスキルが自動発見される。',
     '',
     '`.akari/intake.json` の `status` が `submitted` なら `tasks` / `target` / `autonomy` に従って進める。',
@@ -63,7 +63,7 @@ const FALLBACK_SKILLS_GUIDANCE = [
     '',
     '6 本の編集スキルはこのフォルダーに実体で入り、素の名前で使えます。',
     '各手順は `.claude/skills/<スキル名>/SKILL.md` から直接読めます。',
-    '`.agents/skills/` と `.codex/skills/` は他の AI エージェント用の入り口で、この実体への symlink です。',
+    '`.agents/skills/`、`.cursor/skills/`、`.codex/skills/` は他の AI エージェント用の入り口で、この実体への symlink です。',
     '`AKARI-SKILLS-VERSION` はプロジェクト作成時のスキル内容を示します。',
     'この案内と各スキルは、運用に合わせて自由に書き換えて構いません。',
     ''
@@ -88,7 +88,7 @@ const FALLBACK_WORKFLOW = {
         { path: 'exports', label: '書き出し', kind: 'exports' }
     ],
     tree: {
-        hidden: ['.claude', '.agents', '.codex', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
+        hidden: ['.claude', '.agents', '.codex', '.cursor', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
         sidecarSuffixes: ['.meta.json', '.decisions.json', '.analysis.json'],
         developerModePreference: 'akari.developerMode'
     },
@@ -207,7 +207,7 @@ export async function writeFallbackTemplate(destinationDir) {
     return { writtenFiles, skippedExisting };
 }
 
-const SKILL_ADAPTER_DIRECTORIES = ['.agents', '.codex', '.opencode'];
+const SKILL_ADAPTER_DIRECTORIES = ['.agents', '.codex', '.cursor', '.opencode'];
 
 function isPermissionDenied(error) {
     return error && typeof error === 'object' && (error.code === 'EPERM' || error.code === 'EACCES');
