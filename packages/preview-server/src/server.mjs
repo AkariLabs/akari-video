@@ -235,34 +235,19 @@ const router = {
       const obj = JSON.parse(body);
       const editPath = path.join(projectRoot, 'edit.json');
       if (!noLint) {
-        const tmp = editPath + '.tmp';
-        const bak = editPath + '.bak';
+        const tmp = editPath + '.put-tmp';
         fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf-8');
-        let hadBackup = false;
         try {
-          if (fs.existsSync(bak)) fs.unlinkSync(bak);
-          if (fs.existsSync(editPath)) {
-            fs.renameSync(editPath, bak);
-            hadBackup = true;
-          }
-          fs.renameSync(tmp, editPath);
-          const lintResult = await lintProject(projectRoot);
+          const lintResult = await lintProject(projectRoot, { editPath: tmp });
           if (lintResult.verdict === 'fail') {
-            fs.unlinkSync(editPath);
-            if (hadBackup) fs.renameSync(bak, editPath);
+            if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
             return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
           }
-          if (hadBackup && fs.existsSync(bak)) fs.unlinkSync(bak);
         } catch (lintErr) {
           if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
-          if (fs.existsSync(editPath) && hadBackup) {
-            try { fs.unlinkSync(editPath); } catch {}
-            if (fs.existsSync(bak)) fs.renameSync(bak, editPath);
-          } else if (!fs.existsSync(editPath) && hadBackup && fs.existsSync(bak)) {
-            fs.renameSync(bak, editPath);
-          }
           return respond(res, 500, { error: 'Lint error: ' + lintErr.message });
         }
+        fs.renameSync(tmp, editPath);
       } else {
         const r = writeJson(editPath, obj);
         if (r.error) return respond(res, 500, { error: r.error });

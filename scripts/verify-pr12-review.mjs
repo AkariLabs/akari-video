@@ -118,12 +118,12 @@ async function verifySeekPopupOpens(port) {
   }
 }
 
-// B2: lint tmp file
+// B2: lint tmp file (not existing edit.json on disk)
 {
   const server = fs.readFileSync(path.join(root, 'packages/preview-server/src/server.mjs'), 'utf8');
-  if (server.includes('await lintProject(projectRoot)') && !server.includes('await lintProject(editPath)')) {
-    pass('B2', 'PUT lint が新 edit.json を projectRoot 経由で検査');
-  } else fail('B2', 'PUT lint が旧 editPath/tmp のまま');
+  if (server.includes('lintProject(projectRoot, { editPath: tmp })') || server.includes('.put-tmp')) {
+    pass('B2', 'PUT lint が tmp ファイルを editPath オプションで直接検査');
+  } else fail('B2', 'PUT lint が tmp 直接検査でない');
 }
 
 // B3: test-project lint + 422 message helper
@@ -240,12 +240,62 @@ try {
   await httpJson('PUT', port, '/api/edit.json', overlapPut);
   const diskAfterBad = JSON.parse(fs.readFileSync(editPath, 'utf8'));
   if (diskAfterBad.cuts?.[1]?.in === 5) {
-    pass('B2-rollback', '422 後ディスク無傷（swap 失敗時復元）');
+    pass('B2-rollback', '422 後ディスク無傷（tmp ファイルのみ作成・削除）');
   } else fail('B2-rollback', '422 後に不正内容が残存', `cuts[1].in=${diskAfterBad.cuts?.[1]?.in}`);
 
-  if (!fs.existsSync(editPath + '.bak') && !fs.existsSync(editPath + '.tmp')) {
-    pass('B2-cleanup', '422 後 .bak/.tmp 残骸なし');
+  if (!fs.existsSync(editPath + '.put-tmp')) {
+    pass('B2-cleanup', '422 後 .put-tmp 残骸なし');
   } else fail('B2-cleanup', '一時ファイル残骸あり');
+
+  // B2-reload: 422 must not broadcast reload via WebSocket
+  {
+    const wsKey = 'dGhpcyBpcyBhIHRlc3Qga2V5';
+    const wsFrames = [];
+    const wsPromise = new Promise((resolve) => {
+      const req = http.request({
+        hostname: '127.0.0.1', port, path: '/', method: 'GET',
+        headers: { Upgrade: 'websocket', Connection: 'Upgrade',
+          'Sec-WebSocket-Key': wsKey, 'Sec-WebSocket-Version': '13' }
+      });
+      req.on('upgrade', (_res, socket) => {
+        let buf = Buffer.alloc(0);
+        socket.on('data', (chunk) => {
+          buf = Buffer.concat([buf, chunk]);
+          while (buf.length >= 2) {
+            const opcode = buf[0] & 0x0f;
+            const masked = (buf[1] & 0x80) !== 0;
+            let len = buf[1] & 0x7f;
+            let off = 2;
+            if (len === 126) { if (buf.length < 4) break; len = buf.readUInt16BE(2); off = 4; }
+            else if (len === 127) { if (buf.length < 10) break; len = Number(buf.readBigUInt64BE(2)); off = 10; }
+            const maskSize = masked ? 4 : 0;
+            if (buf.length < off + maskSize + len) break;
+            const k = masked ? buf.subarray(off, off + 4) : null;
+            off += maskSize;
+            if (opcode === 1 || opcode === 2) {
+              const payload = Buffer.alloc(len);
+              if (masked) { for (let i = 0; i < len; i++) payload[i] = buf[off + i] ^ k[i % 4]; }
+              else { buf.copy(payload, 0, off, off + len); }
+              wsFrames.push(payload.toString('utf8'));
+            }
+            buf = buf.subarray(off + len);
+          }
+        });
+        socket.on('close', () => resolve(wsFrames));
+        setTimeout(() => { socket.destroy(); resolve(wsFrames); }, 3000);
+      });
+      req.on('error', () => resolve(wsFrames));
+      req.end();
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    const r422reload = await httpJson('PUT', port, '/api/edit.json', overlapPut);
+    await new Promise((r) => setTimeout(r, 400));
+    const frames = await wsPromise;
+    const reloadFrames = frames.filter((f) => f.includes('"type":"reload"'));
+    if (r422reload.status === 422 && reloadFrames.length === 0) {
+      pass('B2-reload', '422 PUT で reload WS 非送信（クライアントエラー維持）');
+    } else fail('B2-reload', `422 PUT で ${reloadFrames.length} 件の reload 送信`, JSON.stringify(frames));
+  }
 } catch (e) {
   fail('B6', 'サーバー起動/検証エラー', e.message);
 } finally {
