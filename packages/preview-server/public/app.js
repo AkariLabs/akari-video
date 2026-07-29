@@ -724,8 +724,8 @@ function getActiveSegment(t) {
   return null;
 }
 
-function seekTo(t) {
-  cutInfoPopup.hidden = true;
+function seekTo(t, opts = {}) {
+  if (!opts.keepCutPopup) cutInfoPopup.hidden = true;
   const prev = outputTime;
   outputTime = Math.max(0, Math.min(t, totalDuration));
   if (Math.abs(outputTime - prev) > 0.05) logReviewEvent('seek', { from: +prev.toFixed(3), to: +outputTime.toFixed(3) });
@@ -1077,9 +1077,9 @@ seekVisual.addEventListener('click', (e) => {
   const rect = seek.getBoundingClientRect();
   const ratio = (e.clientX - rect.left) / rect.width;
   const t = Math.max(0, Math.min(totalDuration, ratio * totalDuration));
-  showCutInfoAt(t);
   const w = isPlaying; if (w) pause();
-  seekTo(t);
+  seekTo(t, { keepCutPopup: true });
+  showCutInfoAt(t);
   if (w) play();
 });
 
@@ -1088,7 +1088,13 @@ frameBack.addEventListener('click', () => { pause(); seekTo(outputTime - 1 / fps
 frameForward.addEventListener('click', () => { pause(); seekTo(outputTime + 1 / fps); });
 skipBack.addEventListener('click', () => { pause(); seekTo(outputTime - 10); });
 skipForward.addEventListener('click', () => { pause(); seekTo(outputTime + 10); });
-seek.addEventListener('input', () => { showCutInfoAt(Number(seek.value)); const w = isPlaying; if (w) pause(); seekTo(Number(seek.value)); if (w) play(); });
+seek.addEventListener('input', () => {
+  const t = Number(seek.value);
+  const w = isPlaying; if (w) pause();
+  seekTo(t, { keepCutPopup: true });
+  showCutInfoAt(t);
+  if (w) play();
+});
 // Snap to nearest cut boundary
 function snapToCut(t, dir) {
   if (!segments.length) return t;

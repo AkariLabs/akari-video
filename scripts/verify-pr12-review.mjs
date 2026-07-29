@@ -77,9 +77,11 @@ async function httpJson(method, port, pathname, body) {
 // B1: seek handler opens popup (static source check)
 {
   const app = fs.readFileSync(path.join(root, 'packages/preview-server/public/app.js'), 'utf8');
-  if (app.includes("seek.addEventListener('input', () => { showCutInfoAt(Number(seek.value));")) {
-    pass('B1', 'シークバー input で showCutInfoAt を呼ぶ');
-  } else fail('B1', 'シークバー input ハンドラ未修正');
+  const b1Input = app.includes('keepCutPopup: true') && app.includes('showCutInfoAt(t)');
+  const b1SeekTo = app.includes('if (!opts.keepCutPopup) cutInfoPopup.hidden = true');
+  if (b1Input && b1SeekTo) {
+    pass('B1', 'シークバー input で showCutInfoAt + seekTo(keepCutPopup)（seekTo が即閉じない）');
+  } else fail('B1', 'シークバー input ハンドラ未修正', `input=${b1Input} seekTo=${b1SeekTo}`);
 }
 
 // B2: lint tmp file
