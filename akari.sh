@@ -113,14 +113,16 @@ case "$1" in
     echo "  --opencode            Launch with opencode explicitly"
     echo "  -h, --help, -?        Show this help"
     echo ""
-    echo "Examples:"
-    echo "  ./$SCRIPT_NAME                     # Launch AI agent"
-    echo "  ./$SCRIPT_NAME --opencode          # Launch with opencode"
-    echo "  ./$SCRIPT_NAME --preview           # Start preview server"
-    echo "  ./$SCRIPT_NAME --preview 3000      # With port"
-    echo "  ./$SCRIPT_NAME --preview ~/my-project 3000"
-    echo "  ./$SCRIPT_NAME update              # Check for updates"
+    echo "Typical workflow:"
+    echo "  1. mkdir ~/my-first-video && cd ~/my-first-video"
+    echo "  2. $SCRIPT_NAME                        # AI agent (project auto-created)"
+    echo "  3. $SCRIPT_NAME --preview               # Preview server (別の端末で)"
     echo ""
+    echo "Examples:"
+    echo "  $SCRIPT_NAME                           # AI agent"
+    echo "  $SCRIPT_NAME --preview                 # Preview (current dir)"
+    echo "  $SCRIPT_NAME --preview ~/my-project 3000"
+    echo "  $SCRIPT_NAME update"
     exit 0 ;;
   --preview|-pv) shift; cmd_preview "$@" ;;
   update) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "update" ;;
