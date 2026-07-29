@@ -828,8 +828,8 @@ function updateTransitions() {
   transitionPlate.style.visibility = 'hidden';
 }
 
+const fm = (sec) => { const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; };
 function updateTimeLabel() {
-  const fm = (sec) => { const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; };
   timeLabel.textContent = `${fm(outputTime)} / ${fm(totalDuration)}`;
 }
 function updateStatusBar() {
