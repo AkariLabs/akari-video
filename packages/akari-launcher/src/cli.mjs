@@ -37,9 +37,9 @@ export async function run(args, options = {}) {
   const env = options.env ?? process.env;
   const currentVersion = options.currentVersion ?? readOwnVersion();
   
-  // --opencode フラグを解析
+  // --opencode / --claude / --claudecode フラグを解析
   const useOpencode = args.includes('--opencode');
-  const filteredArgs = args.filter(arg => arg !== '--opencode');
+  const filteredArgs = args.filter(arg => arg !== '--opencode' && arg !== '--claude' && arg !== '--claudecode');
 
   let state = detectProjectState(projectRoot);
 
