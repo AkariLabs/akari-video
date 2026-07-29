@@ -141,7 +141,7 @@ AKARI Video には 3 つの入口があります。
 
 | 入口 | おすすめの人 | 発動方法 |
 |---|---|---|
-| A. ターミナル | コマンドラインに慣れている人 | `node packages/akari-launcher/bin/akari.mjs --opencode` |
+| A. ターミナル | コマンドラインに慣れている人 | `./akari.sh --opencode` |
 | B. opencode / Claude Code セッション | すでに AI エージェントを使っている人 | 「新しい動画プロジェクトを作りたい」と発話 |
 | C. アプリ | GUI で操作したい人 | Theia ベースのデスクトップシェルから接続 |
 
@@ -152,8 +152,7 @@ AKARI Video には 3 つの入口があります。
 ### A. ターミナルから（`akari` コマンド）
 
 ```sh
-# モノレポ checkout 内から実行（npm publish は未実施）
-node packages/akari-launcher/bin/akari.mjs --opencode
+./akari.sh --opencode
 ```
 
 `akari` は次の順で動きます:
@@ -166,7 +165,7 @@ node packages/akari-launcher/bin/akari.mjs --opencode
 **Claude Code を使う場合**:
 
 ```sh
-node packages/akari-launcher/bin/akari.mjs
+./akari.sh
 ```
 
 ### B. opencode / Claude Code セッション内から
