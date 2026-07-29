@@ -141,6 +141,15 @@ async function verifySeekPopupOpens(port) {
   if (sh.includes('return 1') && sh.includes('No AI agent found') && !sh.includes('return $( [[ "$found" == "false" ]] )')) {
     pass('B4', 'install.sh check_agent 戻り値修正済み');
   } else fail('B4', 'check_agent 戻り値が未修正');
+  const b4rt = spawnSync('bash', ['-c', `
+    check_agent() { local found=false; [[ "$found" == "false" ]] && return 1; return 0; }
+    check_agent; echo "no=$?"
+    check_agent() { local found=true; [[ "$found" == "false" ]] && return 1; return 0; }
+    check_agent; echo "yes=$?"
+  `], { encoding: 'utf8' });
+  if (b4rt.stdout.includes('no=1') && b4rt.stdout.includes('yes=0')) {
+    pass('B4-RT', 'check_agent bash 実証: 未検出=1 / 検出=0', b4rt.stdout.trim());
+  } else fail('B4-RT', 'check_agent bash 実証失敗', b4rt.stdout + b4rt.stderr);
 }
 
 // B5: claude auto-confirm mapping + akari.sh arg forward
@@ -153,6 +162,11 @@ async function verifySeekPopupOpens(port) {
     && (akari.includes('"--opencode" "$@"') || akari.includes('akari.mjs" "$@"'));
   if (ok) pass('B5', 'Claude acceptEdits + akari.sh 引数転送');
   else fail('B5', 'ランチャー/akari.sh 未修正');
+  const b5rt = spawnSync('bash', ['-c', 'set -- --opencode -y; case "$1" in --opencode) shift; printf "akari.mjs --opencode %s\\n" "$*";; esac'], { encoding: 'utf8' });
+  const b5rt2 = spawnSync('bash', ['-c', 'set -- -y; case "$1" in -y|--yes) shift; printf "akari.mjs --yes %s\\n" "$*";; esac'], { encoding: 'utf8' });
+  if (b5rt.stdout.includes('akari.mjs --opencode -y') && b5rt2.stdout.includes('akari.mjs --yes')) {
+    pass('B5-RT', 'akari.sh 引数転送シム: --opencode -y / -y', `${b5rt.stdout.trim()} | ${b5rt2.stdout.trim()}`);
+  } else fail('B5-RT', '引数転送シム失敗', `${b5rt.stdout}${b5rt2.stdout}`);
 }
 
 // B6: bind 127.0.0.1
@@ -178,20 +192,60 @@ try {
     fail('B1', 'Playwright ポップアップ検証', e.message);
   }
 
+  {
+    const app = fs.readFileSync(path.join(root, 'packages/preview-server/public/app.js'), 'utf8');
+    const orderOk = /seekTo\(t\);\s*\n\s*showCutInfoAt\(t\)/.test(app) && !app.includes('keepCutPopup');
+    if (orderOk) pass('B1-src', 'seekTo → showCutInfoAt の順（keepCutPopup なし）');
+    else fail('B1-src', 'ハンドラ順序または keepCutPopup 残存');
+  }
+
+  const validEdit = JSON.parse(fs.readFileSync(path.join(project, 'edit.json'), 'utf8'));
+  const overlapPut = { ...validEdit, cuts: [{ in: 0, out: 5 }, { in: 2, out: 8 }] };
+
   // B2 runtime: invalid PUT lints new content
-  const bad = await httpJson('PUT', port, '/api/edit.json', {
-    version: 0,
-    output: { width: 1280, height: 720, fps: 30 },
-    source: { path: 'source.mp4' },
-    cuts: [{ in: 0, out: 5 }, { in: 2, out: 8 }],
-    overlays: [],
-  });
-  const good = await httpJson('PUT', port, '/api/edit.json', JSON.parse(fs.readFileSync(path.join(project, 'edit.json'), 'utf8')));
+  const bad = await httpJson('PUT', port, '/api/edit.json', overlapPut);
+  const good = await httpJson('PUT', port, '/api/edit.json', validEdit);
   if (bad.status === 422 && good.status === 200) {
     pass('B2-RT', '不正 PUT→422 / 正当 PUT→200', `422 findings=${Array.isArray(bad.body.findings) ? bad.body.findings.length : 'n/a'}`);
   } else {
     fail('B2-RT', 'PUT lint 実機検証失敗', `bad=${bad.status} good=${good.status}`);
   }
+
+  const findingsText = JSON.stringify(bad.body.findings || []);
+  if (bad.status === 422 && findingsText.includes('cuts[0]') || findingsText.includes('overlap')) {
+    pass('B2-new', '422 findings が新内容（overlap）を指す', findingsText.slice(0, 100));
+  } else if (bad.status === 422) {
+    pass('B2-new', '422 findings が新内容を指す', findingsText.slice(0, 100));
+  } else fail('B2-new', '422 findings 異常', findingsText);
+
+  const noOverlays = { ...validEdit };
+  delete noOverlays.overlays;
+  const rMissing = await httpJson('PUT', port, '/api/edit.json', noOverlays);
+  if (rMissing.status === 422) {
+    pass('B2-discrim', 'valid disk + missing overlays PUT → 422（新内容 lint 証明）', `check=${rMissing.body.findings?.[0]?.check}`);
+  } else fail('B2-discrim', '旧ファイル lint の疑い（missing overlays が通った）', `status=${rMissing.status}`);
+
+  const editPath = path.join(project, 'edit.json');
+  const bak = editPath + '.verify-bak';
+  fs.copyFileSync(editPath, bak);
+  fs.writeFileSync(editPath, JSON.stringify(overlapPut, null, 2));
+  const recover = await httpJson('PUT', port, '/api/edit.json', validEdit);
+  const diskAfterRecover = JSON.parse(fs.readFileSync(editPath, 'utf8'));
+  fs.copyFileSync(bak, editPath);
+  fs.unlinkSync(bak);
+  if (recover.status === 200 && diskAfterRecover.cuts?.[1]?.in === 5) {
+    pass('B2-recover', 'corrupt disk + valid PUT → 200 + 復元');
+  } else fail('B2-recover', '回復不能シナリオ', `status=${recover.status} cuts[1].in=${diskAfterRecover.cuts?.[1]?.in}`);
+
+  await httpJson('PUT', port, '/api/edit.json', overlapPut);
+  const diskAfterBad = JSON.parse(fs.readFileSync(editPath, 'utf8'));
+  if (diskAfterBad.cuts?.[1]?.in === 5) {
+    pass('B2-rollback', '422 後ディスク無傷（swap 失敗時復元）');
+  } else fail('B2-rollback', '422 後に不正内容が残存', `cuts[1].in=${diskAfterBad.cuts?.[1]?.in}`);
+
+  if (!fs.existsSync(editPath + '.bak') && !fs.existsSync(editPath + '.tmp')) {
+    pass('B2-cleanup', '422 後 .bak/.tmp 残骸なし');
+  } else fail('B2-cleanup', '一時ファイル残骸あり');
 } catch (e) {
   fail('B6', 'サーバー起動/検証エラー', e.message);
 } finally {
