@@ -41,6 +41,26 @@ node skills/create-project/bin/create-project.mjs <target-dir> [--template <path
 - `<target-dir>`: 作成先ディレクトリ。新規でも既存の非空フォルダでもよい。既存ファイルは上書きしない。
 - `--template <path>`: 雛形ディレクトリを明示指定する。省略時はリポ checkout の `templates/project-default/` を使う。それ以外の解決手段はない。
 
+## 作例から始めたいと言われたとき
+
+「解説ショートを作りたい」「あの縦型の解説動画みたいなやつ」のように**完成形の作例から
+始めたい**依頼は、雛形解決の 2 択（ハードルール 1）とは別の話である。本スキルは**器**を作る
+ものであり、作例は器ではない。
+
+- 解説ショート（3 面構成の縦型・VOICEVOX ナレーション駆動・図解カードの段階表示）:
+  [`templates/kaisetsu-short/`](../../templates/kaisetsu-short/README.ja.md)
+- 使い方はディレクトリごと複製し、`sample-project/` を自分の台本 JSON に置き換える。
+  まず動作確認するなら同梱サンプル（音声同梱のため VOICEVOX 不要）:
+
+  ```sh
+  cd templates/kaisetsu-short && node tools/build.mjs sample-project --no-synthesize
+  ```
+
+- **作例を `--template` に渡さない。** `.akari/` などの器の構造を持たないため、
+  雛形として解決すると不完全なプロジェクトになる。器が要るなら通常どおり
+  `templates/project-default/` で作成し、そのうえで作例を複製して中身を持ち込む
+- テンプレート 2 種（器 / 作例）の違いは [`templates/INDEX.md`](../../templates/INDEX.md) を参照
+
 ## intake.json（進め方フォームの保存先）
 
 作成直後の `.akari/intake.json` は `status: "draft"`・空 `tasks` から始まる（契約: `packages/schemas/intake.schema.json`）。プロジェクトの CLAUDE.md には intake の規律を追記する — `status: "submitted"` なら `tasks` / `target` / `autonomy` に従い、`autonomy: "checkpoint"`（既定）なら企画承認・書き出し前などの要所で人に確認し、`status: "draft"` のままなら進め方をフォームまたは対話で確定させてから進める。

@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const usage = "使い方: node packages/schemas/bin/validate-asset.mjs assets/telop/<id>";
+const usage = "使い方: node packages/schemas/bin/validate-asset.mjs assets/overlay/<id>";
 const assetArgument = process.argv[2];
 
 if (!assetArgument || process.argv.length !== 3) {
@@ -84,9 +84,10 @@ function validateMeta(value) {
     fail("id は英小文字・数字の kebab-case である必要があります");
   }
 
-  const categories = new Set(["3d", "motion", "telop", "audio", "broll", "font", "thumbnail"]);
+  // 2026-07-29: 主題（3d/motion/telop/thumbnail）から配布物の形へ切り替え。主題は tags に逃がす。
+  const categories = new Set(["overlay", "still", "scene3d", "audio", "broll", "font"]);
   if (typeof value.category !== "string" || !categories.has(value.category)) {
-    fail("category は 3d / motion / telop / audio / broll / font / thumbnail のいずれかである必要があります");
+    fail("category は overlay / still / scene3d / audio / broll / font のいずれかである必要があります");
   }
 
   for (const field of ["title", "description", "when_to_use", "ai_usage", "author"]) {
@@ -331,23 +332,23 @@ function validateFiles() {
   }
 
   const category = path.basename(path.dirname(assetDir));
-  if (["motion", "telop", "thumbnail"].includes(category)) {
+  if (["overlay", "still"].includes(category)) {
     const fragmentPath = path.join(assetDir, "fragment.html");
     if (!isRegularFile(fragmentPath)) {
       fail(`${category} 素材には fragment.html が必要です`);
     }
   }
 
-  if (category === "3d") {
-    // 3d は fragment.html（経路 A: オーバーレイ）か scene.py（経路 B: ベイクレシピ）のどちらか一方
+  if (category === "scene3d") {
+    // scene3d は fragment.html（経路 A: オーバーレイ）か scene.py（経路 B: ベイクレシピ）のどちらか一方
     // （契約: docs/contract-2026-07-14-3d-bake-recipe.md）
     const hasFragment = isRegularFile(path.join(assetDir, "fragment.html"));
     const hasScene = isRegularFile(path.join(assetDir, "scene.py"));
     if (hasFragment === hasScene) {
-      fail("3d 素材は fragment.html（オーバーレイ）か scene.py（ベイクレシピ）のどちらか一方を実体に持つ必要があります");
+      fail("scene3d 素材は fragment.html（オーバーレイ）か scene.py（ベイクレシピ）のどちらか一方を実体に持つ必要があります");
     }
     if (hasFragment && !payloadFiles.some((filePath) => /\.(?:glb|gltf)$/i.test(filePath))) {
-      fail("3d オーバーレイ素材には glTF 実体（.glb または .gltf）が必要です");
+      fail("scene3d 素材には glTF 実体（.glb または .gltf）が必要です");
     }
   }
 

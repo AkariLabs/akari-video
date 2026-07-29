@@ -46,7 +46,7 @@ source fragment と同階層の依存 asset を読み、作業用一時ディレ
 ### その他の自動導出
 
 - `id`: source 名と内容から kebab-case で生成する。
-- `category`: `3d` / `motion` / `telop` / `audio` / `broll` / `font` / `thumbnail` から単一カテゴリを内容から選ぶ。横断軸は `tags` にする。サムネイルの HTML 文字組テンプレは `thumbnail`（背景差し替え前提で、文字組レイヤーだけを素材化する）。
+- `category`: `overlay` / `still` / `scene3d` / `audio` / `broll` / `font` から単一カテゴリを**配布物の形**で選ぶ（2026-07-29 に主題軸から変更）。時間を持つ HTML 断片は `overlay`、時間を持たず画像に焼く HTML シート（サムネ構図等）は `still`、Three.js + glTF またはベイクレシピは `scene3d`。**主題（テロップ・黒板・ロワーサード・BGM・SFX・サムネ等）はカテゴリにせず `tags` に逃がす。カテゴリを増やさない。**
 - `title` / `description` / `tags`: 見た目、役割、aspect、scene を source と利用文脈から要約する。
 - `provenance`: origin project、元 path、生成手、prompt、日時を既存情報から埋める。分からない値を捏造しない。
 - media の寸法、duration、codec、model 情報は `sips`、`ffprobe`、利用可能な GLB inspector などで読める場合だけ確認し、description / tags / preview 判断へ使う。schema にないトップレベル field は追加しない。

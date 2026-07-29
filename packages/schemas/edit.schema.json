@@ -28,7 +28,7 @@
         "lut": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "intensity": { "type": "number", "minimum": 0, "maximum": 1 }
       },
-      "$comment": "docs/contract-2026-07-22-render-basics.md #4。lut はカタログ参照名（catalog/luts/ 配下）または .cube への相対パス。intensity 省略時 1.0。"
+      "$comment": "docs/contract-2026-07-22-render-basics.md #4。lut はプリセット参照名（presets/luts/ 配下）または .cube への相対パス。intensity 省略時 1.0。"
     },
     "output": {
       "type": "object",

@@ -14,12 +14,15 @@ assets.
 **How to ask**: "set up the asset library" / "I don't have enough usable assets"
 
 1. Checks required tools (ffmpeg, whisper-cli, headless Chrome, etc.)
-2. Suggests a starter pack from `catalog/` (the curated catalog: 3D, titles, audio,
+2. Suggests a starter pack from `catalog/` (the curated catalog: 3D, audio,
    B-roll, fonts)
 3. Approve → fetch, place, and verify
 
 **Where assets live**: assets are placed under `assets/<category>/<id>/`, alongside a
-declaration of provenance and usage (`meta.json`) and a preview image.
+declaration of provenance and usage (`meta.json`) and a preview image. Categories describe
+the **shape of the artifact**, not its subject — six of them: `overlay` (timed HTML fragment),
+`still` (HTML sheet baked to an image), `scene3d` (3D model + fragment or bake recipe),
+`audio`, `broll`, `font`. Subjects such as lower thirds, chalkboards, or thumbnails are tags.
 
 The catalog is **distributed by reference** — the catalog itself holds only links and
 metadata; the actual files are downloaded and verified when fetched.

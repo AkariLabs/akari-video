@@ -15,7 +15,7 @@ function run(fixture) {
 }
 
 test("library meta with title-normalized matched_by passes", () => {
-  const executed = run("valid-library/telop/lower-third-clean");
+  const executed = run("valid-library/overlay/lower-third-clean");
   assert.equal(executed.status, 0, executed.stderr);
   assert.match(executed.stdout, /^OK: /);
   assert.equal(executed.stderr.trim(), "");

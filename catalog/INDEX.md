@@ -14,12 +14,22 @@
 
 ## カテゴリ
 
-計 57 件収録（2026-07-22 時点）。
+計 22 件収録（2026-07-29 時点）。
 
-- [3D](./3d/INDEX.md) — 製品モックアップなど、再生成が難しい 3D モデル・HDRI の取得先。3 件収録。
-- **Motion** — 多要素で組まれた、制作コストの高い決定的モーション表現の取得先。整備中。
-- [Telop](./telop/INDEX.md) — テロップテンプレート（ATF 形式・bake-layer CLI で書き出し）。36 件収録（2026-07-22・235 件から オーナー選別で剪定）。
-- [Audio](./audio/INDEX.md) — BGM・効果音などの音源素材の取得先。15 件収録（2026-07-22・オーナー私物 SE パックの出典調査で 9 件追加）。
-- [B-roll](./broll/INDEX.md) — 主映像を補足する実写映像素材の取得先。1 件収録。
-- [Font](./font/INDEX.md) — 特定の書体そのもの（グリフ）は生成不能なため、取得先の索引として扱う。2 件収録。
-- [Avatars](./avatars/INDEX.md) — 性格・話し口調を核に 2D/3D/実写/音声を rendition として持つキャラクター登録。`rights.subject` が `original` / `third_party` のもののみ入庫可（実在人物は個人スコープへ）。0 件収録（2026-07-26 時点）。
+カテゴリは `assets/` と同じく**配布物の形**で切ります（2026-07-29 変更）。主題は tags です。
+
+- [scene3d](./scene3d/INDEX.md) — 製品モックアップなど、再生成が難しい 3D モデル・HDRI の取得先。3 件収録。
+- **overlay** — 映像に重ねる時間つき HTML 断片の取得先。整備中。
+- [audio](./audio/INDEX.md) — BGM・効果音などの音源素材の取得先。15 件収録（2026-07-22・オーナー私物 SE パックの出典調査で 9 件追加）。
+- [broll](./broll/INDEX.md) — 主映像を補足する実写映像素材の取得先。1 件収録。
+- [font](./font/INDEX.md) — 特定の書体そのもの（グリフ）は生成不能なため、取得先の索引として扱う。3 件収録。
+- [avatars](./avatars/INDEX.md) — 性格・話し口調を核に 2D/3D/実写/音声を rendition として持つキャラクター登録。`rights.subject` が `original` / `third_party` のもののみ入庫可（実在人物は個人スコープへ）。0 件収録（2026-07-26 時点）。**本カテゴリだけは meta.json v0 ではなく avatar registry v0（`packages/schemas/avatar.schema.json`）で検証する**別契約です（`docs/contract-2026-07-26-avatar-registry-v0.md`）。
+
+## ここに無いもの（2026-07-29 移設）
+
+テロップテンプレート（36 件）と LUT（2 件）は [presets/](../presets/INDEX.md) へ移しました。
+どちらも実体を持ち、人が選んでコピーするのではなく**コードが id でファイルを引く参照表**であり、
+「実体を持たない取得先の索引」というこのディレクトリの契約に合わなかったためです。
+
+- テロップテンプレート → [presets/telop/](../presets/telop/INDEX.md)（`bake-layer --preset <id>`）
+- LUT → [presets/luts/](../presets/luts/INDEX.md)（`edit.json` の `output.look.lut`）

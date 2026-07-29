@@ -21,10 +21,10 @@
 import { test, before, after } from "node:test"
 import assert from "node:assert/strict"
 import { launchBakeBrowser, withBakePage } from "../src/browser.mjs"
-import { loadTelopPreset, resolveCatalogRoot } from "../src/catalog.mjs"
+import { loadTelopPreset, resolvePresetsRoot } from "../src/presets.mjs"
 import { buildTelopHarness } from "../src/build-harness.mjs"
 
-const CATALOG_ROOT = resolveCatalogRoot()
+const PRESETS_ROOT = resolvePresetsRoot()
 const ALPHA_THRESHOLD = 12
 const CANVAS_TOLERANCE_PX = 3
 const PLATE_TOLERANCE_PX = 6
@@ -186,7 +186,7 @@ async function renderAndGetBBox(page, doc, bindings, size) {
 
 for (const id of CASES) {
   test(`telop robustness: ${id} — 1文字/標準/2倍長/4倍長・日英混在 すべてプレート内（or自由配置はキャンバス内）`, async () => {
-    const { doc } = await loadTelopPreset(CATALOG_ROOT, id)
+    const { doc } = await loadTelopPreset(PRESETS_ROOT, id)
     const size = { w: doc.stage.width, h: doc.stage.height }
     const textLayerIds = doc.layers.filter((l) => l.type === "text").map((l) => l.id)
     const shapeLayerIds = doc.layers.filter((l) => l.type === "shape").map((l) => l.id)

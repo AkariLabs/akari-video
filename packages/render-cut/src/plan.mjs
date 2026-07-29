@@ -27,9 +27,10 @@ const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
 // docs/contract-2026-07-20-edit-json-v1-narration.md §1: gain_db clamp range, shared with bgm/sfx.
 const GAIN_DB_MIN = -60;
 const GAIN_DB_MAX = 12;
-// catalog/luts/<id>/<id>.cube — packages/render-cut/src/../../.. is the monorepo root, sibling to
-// catalog/ (see catalog/luts/INDEX.md for the bare-name catalog reference convention).
-const CATALOG_LUTS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "catalog", "luts");
+// presets/luts/<id>/<id>.cube — packages/render-cut/src/../../.. is the monorepo root, sibling to
+// presets/ (see presets/luts/INDEX.md for the bare-name preset reference convention). Moved from
+// catalog/luts on 2026-07-29: LUTs are a lookup table resolved by id in code, not a library asset.
+const PRESETS_LUTS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "presets", "luts");
 
 export function buildPlan({
   edit,
@@ -698,12 +699,12 @@ function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, ov
   return { command, args };
 }
 
-// docs/contract-2026-07-22-render-basics.md #4: "lut(カタログ参照 or パス)" — a bare name (no
-// path separator) resolves against catalog/luts/<name>/<name>.cube; anything else is treated as a
+// docs/contract-2026-07-22-render-basics.md #4: "lut(プリセット参照 or パス)" — a bare name (no
+// path separator) resolves against presets/luts/<name>/<name>.cube; anything else is treated as a
 // path relative to the project root (same regel as source.path / audio.bgm.path elsewhere).
 function resolveLutPath(projectRoot, lutRef) {
   if (!lutRef.includes("/") && !lutRef.includes("\\")) {
-    return join(CATALOG_LUTS_ROOT, lutRef, `${lutRef}.cube`);
+    return join(PRESETS_LUTS_ROOT, lutRef, `${lutRef}.cube`);
   }
   return resolve(projectRoot, lutRef);
 }
