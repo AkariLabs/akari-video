@@ -25,10 +25,13 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Port can also be given as a bare number (the last positional arg)."
       echo ""
+      echo "If the project directory does not have edit.json yet,"
+      echo "it will be auto-created from the default template."
+      echo ""
       echo "Examples:"
       echo "  ./preview.sh                          # current dir, port 4567"
       echo "  ./preview.sh 3000                     # current dir, port 3000"
-      echo "  ./preview.sh ./test-project 3000      # project + port"
+      echo "  ./preview.sh ~/my-video 3000           # create + preview"
       echo "  ./preview.sh ./test-project -o        # open browser"
       exit 0 ;;
     -p|--port) PORT="$2"; shift 2 ;;
@@ -48,22 +51,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Resolve project to absolute path
-PROJECT="$(cd "$PROJECT" 2>/dev/null && pwd)" || { err "Project directory not found: $PROJECT"; exit 1; }
-
-# Confirm project has edit.json
-if [[ ! -f "$PROJECT/edit.json" ]]; then
-  err "Not an AKARI Video project: $PROJECT/edit.json not found"
-  echo ""
-  echo "  Create a project first with:"
-  echo "    node packages/create-project/bin/create-project.mjs <path>"
-  echo ""
-  echo "  Or point to an existing project:"
-  echo "    ./preview.sh /path/to/akari-video-project"
-  echo ""
-  exit 1
-fi
-
 # Find monorepo root by walking up from this script's directory
 find_monorepo() {
   local dir; dir="$(cd "$(dirname "$1")" && pwd)"
@@ -73,13 +60,29 @@ find_monorepo() {
     fi
     dir="$(dirname "$dir")"
   done
-  # Fallback to AKARI_MONOREPO env var
   if [[ -n "${AKARI_MONOREPO:-}" ]] && [[ -f "$AKARI_MONOREPO/packages/preview-server/src/server.mjs" ]]; then
     echo "$AKARI_MONOREPO"; return 0
   fi
   return 1
 }
 MONOREPO="$(find_monorepo "$0")" || { err "Cannot find AKARI Video monorepo. Set AKARI_MONOREPO or run from within the repo."; exit 1; }
+
+# Resolve project to absolute path (create dir if needed)
+mkdir -p "$PROJECT" 2>/dev/null || true
+PROJECT="$(cd "$PROJECT" 2>/dev/null && pwd)" || { err "Project directory not found: $PROJECT"; exit 1; }
+
+# Auto-create project if edit.json is missing
+if [[ ! -f "$PROJECT/edit.json" ]]; then
+  info "Project not initialized. Scaffolding from template..."
+  cp -r "$MONOREPO/templates/project-default/"* "$PROJECT/" 2>/dev/null
+  cp "$MONOREPO/templates/project-default/.gitignore" "$PROJECT/" 2>/dev/null
+  cp -r "$MONOREPO/templates/project-default/".* "$PROJECT/" 2>/dev/null || true
+  touch "$PROJECT/assets/.gitkeep" "$PROJECT/exports/.gitkeep" "$PROJECT/planning/.gitkeep" 2>/dev/null || true
+  mkdir -p "$PROJECT/.akari/cache" "$PROJECT/.akari/diffs" "$PROJECT/.akari/events" "$PROJECT/.akari/reports" "$PROJECT/.akari/sidecars" "$PROJECT/.akari/work" 2>/dev/null || true
+  echo '{"version":1,"status":"draft"}' > "$PROJECT/intake.json" 2>/dev/null || true
+  echo "{}" > "$PROJECT/edit.json" 2>/dev/null || true
+  info "  Created: $PROJECT"
+fi
 
 info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 info "  AKARI Video Preview Server"

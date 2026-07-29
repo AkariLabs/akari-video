@@ -29,20 +29,6 @@ exit /b 1
 
 :endparse
 
-:: Validate project
-if not exist "%PROJECT%\edit.json" (
-    echo [ERR] Not an AKARI Video project: %PROJECT%\edit.json not found
-    echo.
-    echo   Point to an existing project:
-    echo     preview.cmd C:\path\to\project
-    echo.
-    pause
-    exit /b 1
-)
-
-:: Resolve absolute path
-for %%i in ("%PROJECT%") do set PROJECT=%%~fi
-
 :: Find monorepo root (walk up from script dir)
 set MONOREPO=%AKARI_MONOREPO%
 if defined MONOREPO goto :found_monorepo
@@ -51,11 +37,28 @@ set MONOREPO=%~dp0
 if exist "%MONOREPO%packages\preview-server\src\server.mjs" goto :found_monorepo
 set MONOREPO=%MONOREPO%..\
 if exist "%MONOREPO%" goto :walk_loop
-:: Not found — fall back to script dir and let node fail
 set MONOREPO=%~dp0
 :found_monorepo
-:: Remove trailing backslash
 if "%MONOREPO:~-1%"=="\" set MONOREPO=%MONOREPO:~0,-1%
+
+:: Resolve absolute project path
+if not exist "%PROJECT%" mkdir "%PROJECT%"
+for %%i in ("%PROJECT%") do set PROJECT=%%~fi
+
+:: Auto-create project if edit.json missing
+if not exist "%PROJECT%\edit.json" (
+    echo [INFO] Project not initialized. Scaffolding from template...
+    if not exist "%MONOREPO%\templates\project-default" (
+        echo [ERR] Template not found at %MONOREPO%\templates\project-default
+        pause
+        exit /b 1
+    )
+    xcopy /E /I /Y "%MONOREPO%\templates\project-default" "%PROJECT%" >nul
+    mkdir "%PROJECT%\.akari\cache" "%PROJECT%\.akari\diffs" "%PROJECT%\.akari\events" "%PROJECT%\.akari\reports" "%PROJECT%\.akari\sidecars" "%PROJECT%\.akari\work" 2>nul
+    echo {"version":1,"status":"draft"} > "%PROJECT%\intake.json"
+    echo {} > "%PROJECT%\edit.json"
+    echo   Created: %PROJECT%
+)
 
 echo.
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

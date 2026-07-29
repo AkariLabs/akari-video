@@ -40,20 +40,6 @@ if ($Project -match '^\d+$') {
   $Project = "."
 }
 
-# Resolve absolute path
-$Project = Resolve-Path $Project -ErrorAction Stop
-
-# Validate project
-if (-not (Test-Path "$Project\edit.json")) {
-  Write-Host "[ERR] Not an AKARI Video project: $Project\edit.json not found" -ForegroundColor Red
-  Write-Host ""
-  Write-Host "  Point to an existing project:"
-  Write-Host "    .\preview.ps1 C:\path\to\project"
-  Write-Host ""
-  Read-Host "Press Enter to exit"
-  exit 1
-}
-
 # Find monorepo root (walk up from script dir)
 $MonoRepo = if ($env:AKARI_MONOREPO) { $env:AKARI_MONOREPO } else { Split-Path -Parent $PSCommandPath }
 while (-not (Test-Path "$MonoRepo\packages\preview-server\src\server.mjs")) {
@@ -64,6 +50,23 @@ while (-not (Test-Path "$MonoRepo\packages\preview-server\src\server.mjs")) {
 if (-not (Test-Path "$MonoRepo\packages\preview-server\src\server.mjs")) {
   Write-Host "[ERR] Cannot find AKARI Video monorepo. Set AKARI_MONOREPO or run from within the repo." -ForegroundColor Red
   Read-Host "Press Enter to exit"; exit 1
+}
+
+# Resolve absolute project path (create if needed)
+if (-not (Test-Path $Project)) { New-Item -ItemType Directory -Path $Project -Force | Out-Null }
+$Project = Resolve-Path $Project -ErrorAction Stop
+
+# Auto-create project if edit.json missing
+if (-not (Test-Path "$Project\edit.json")) {
+  Write-Host "[INFO] Project not initialized. Scaffolding from template..." -ForegroundColor Yellow
+  $template = "$MonoRepo\templates\project-default"
+  if (-not (Test-Path $template)) { Write-Host "[ERR] Template not found: $template" -ForegroundColor Red; Read-Host "Press Enter to exit"; exit 1 }
+  Copy-Item "$template\*" $Project -Recurse -Force
+  Get-ChildItem $template -Directory | Where-Object { $_.Name -like '.*' } | ForEach-Object { Copy-Item $_.FullName $Project -Recurse -Force }
+  @('.akari\cache','.akari\diffs','.akari\events','.akari\reports','.akari\sidecars','.akari\work') | ForEach-Object { New-Item -ItemType Directory -Path "$Project\$_" -Force | Out-Null }
+  '{"version":1,"status":"draft"}' | Out-File "$Project\intake.json" -Encoding utf8
+  '{}' | Out-File "$Project\edit.json" -Encoding utf8
+  Write-Host "  Created: $Project" -ForegroundColor Green
 }
 
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
