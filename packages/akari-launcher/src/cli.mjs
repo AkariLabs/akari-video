@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
-import { createProject } from '../../project-scaffold/src/index.mjs';
-import { resolveRepoAssets } from './repo-assets.mjs';
+import { resolveLauncherAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
 import { findClaudeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
@@ -27,7 +27,7 @@ import {
 export async function run(args, options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
   const log = options.log ?? ((line) => console.log(line));
-  const assets = options.assets ?? resolveRepoAssets();
+  const assets = options.assets ?? resolveLauncherAssets();
   const scaffold = options.scaffold ?? defaultScaffold;
   const runDoctor = options.runDoctor ?? defaultRunDoctor;
   const resolveClaude = options.resolveClaude ?? (() => findClaudeExecutable());
@@ -39,7 +39,7 @@ export async function run(args, options = {}) {
 
   if (!state.scaffolded) {
     log(`このフォルダーは AKARI Video プロジェクトとしてまだセットアップされていません: ${projectRoot}`);
-    if (!assets.templateDir) {
+    if (!assets.templateDir || !assets.scaffoldModulePath) {
       log('プロジェクト雛形が見つからないため、雛形の作成をスキップしました。');
     } else {
       log('プロジェクトの雛形を作成します…');
@@ -90,7 +90,10 @@ export async function run(args, options = {}) {
   return { exitCode, scaffolded: state.scaffolded, claudeLaunched: true };
 }
 
-function defaultScaffold(projectRoot, assets) {
+async function defaultScaffold(projectRoot, assets) {
+  // scaffold 実装はパッケージ外（モノレポ workspace）と vendor 同梱（npm 配布時）の
+  // 両方があり得るため、静的 import ではなく assets で解決したパスを動的 import する。
+  const { createProject } = await import(pathToFileURL(assets.scaffoldModulePath).href);
   const scaffoldOptions = assets.skillsSourceDir
     ? { skillsSourceDir: assets.skillsSourceDir, schemasSourceDir: assets.schemasSourceDir ?? undefined }
     : {};

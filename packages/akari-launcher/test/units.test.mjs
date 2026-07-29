@@ -10,7 +10,7 @@ import { findClaudeExecutable } from '../src/path-lookup.mjs';
 import { detectProjectState } from '../src/project-state.mjs';
 import { describeIntake, claudeMissingGuidance } from '../src/messages.mjs';
 import { loadTaskLabels } from '../src/task-labels.mjs';
-import { resolveRepoAssets } from '../src/repo-assets.mjs';
+import { resolveLauncherAssets, resolveRepoAssets } from '../src/repo-assets.mjs';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = join(packageRoot, '..', '..');
@@ -201,5 +201,56 @@ test('resolveRepoAssets: 何も見つからないディレクトリでは全フ�
     assert.equal(assets.templateDir, null);
     assert.equal(assets.schemasSourceDir, null);
     assert.equal(assets.doctorScript, null);
+  });
+});
+
+async function writeRepoMarkers(root) {
+  const markers = [
+    ['skills', 'analyze-footage', 'SKILL.md'],
+    ['skills', 'manage-connections', 'bin', 'doctor.mjs'],
+    ['templates', 'project-default', 'CLAUDE.md'],
+    ['packages', 'schemas', 'analysis.schema.json'],
+    ['packages', 'project-scaffold', 'src', 'index.mjs']
+  ];
+  for (const segments of markers) {
+    const filePath = join(root, ...segments);
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, '', 'utf8');
+  }
+}
+
+test('resolveRepoAssets: scaffold 実装（project-scaffold）のパスも解決する', () => {
+  const assets = resolveRepoAssets(repoRoot);
+  assert.ok(assets.scaffoldModulePath);
+  assert.match(assets.scaffoldModulePath, /project-scaffold/);
+});
+
+test('resolveLauncherAssets: checkout に同梱物があれば vendor は見ない', async () => {
+  await withScratchRoot(async (root) => {
+    const candidateRoot = join(root, 'checkout');
+    const vendorRoot = join(root, 'vendor');
+    await writeRepoMarkers(candidateRoot);
+    await writeRepoMarkers(vendorRoot);
+
+    const assets = resolveLauncherAssets({ candidateRoot, vendorRoot });
+    assert.equal(assets.repoRoot, candidateRoot);
+    assert.ok(assets.skillsSourceDir.startsWith(candidateRoot));
+  });
+});
+
+test('resolveLauncherAssets: checkout に何も無ければ vendor 同梱（npm 配布時）へ fallback する', async () => {
+  await withScratchRoot(async (root) => {
+    const candidateRoot = join(root, 'empty-checkout');
+    const vendorRoot = join(root, 'vendor');
+    await mkdir(candidateRoot, { recursive: true });
+    await writeRepoMarkers(vendorRoot);
+
+    const assets = resolveLauncherAssets({ candidateRoot, vendorRoot });
+    assert.equal(assets.repoRoot, vendorRoot);
+    assert.ok(assets.skillsSourceDir.startsWith(vendorRoot));
+    assert.ok(assets.templateDir.startsWith(vendorRoot));
+    assert.ok(assets.schemasSourceDir.startsWith(vendorRoot));
+    assert.ok(assets.doctorScript.startsWith(vendorRoot));
+    assert.ok(assets.scaffoldModulePath.startsWith(vendorRoot));
   });
 });
