@@ -94,9 +94,15 @@ cmd_preview() {
   wait $PID
 }
 
+# ─── Detect default AI agent ───
+DEFAULT_AGENT=""
+if command -v opencode &>/dev/null; then
+  DEFAULT_AGENT="--opencode"
+fi
+
 # ─── Main ───
 if [[ $# -eq 0 ]]; then
-  exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs"
+  exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" $DEFAULT_AGENT
 fi
 
 case "$1" in
@@ -107,10 +113,10 @@ case "$1" in
     echo "Usage: $SCRIPT_NAME [command] [options...]"
     echo ""
     echo "Commands:"
-    echo "  (no args)             Launch AI agent (opencode or Claude Code)"
+    echo "  (no args)             Launch AI agent (defaults to installed one)"
     echo "  --preview, -pv        Start preview server"
     echo "  update                Check for updates"
-    echo "  --opencode            Launch with opencode explicitly"
+    echo "  --opencode            Force opencode (default if installed)"
     echo "  -h, --help, -?        Show this help"
     echo ""
     echo "Typical workflow:"
@@ -119,7 +125,8 @@ case "$1" in
     echo "  3. $SCRIPT_NAME --preview               # Preview server (別の端末で)"
     echo ""
     echo "Examples:"
-    echo "  $SCRIPT_NAME                           # AI agent"
+    echo "  $SCRIPT_NAME                           # AI agent (opencode優先)"
+    echo "  $SCRIPT_NAME --opencode                # Force opencode"
     echo "  $SCRIPT_NAME --preview                 # Preview (current dir)"
     echo "  $SCRIPT_NAME --preview ~/my-project 3000"
     echo "  $SCRIPT_NAME update"
