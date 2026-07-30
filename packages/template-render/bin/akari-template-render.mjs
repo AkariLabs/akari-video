@@ -22,6 +22,11 @@ const HELP = `akari-template-render — テンプレート素材を動画へ書�
   --alpha <file>          アルファ付き ProRes4444 .mov（他社 NLE 用）
   --png-sequence <dir>    連番 PNG（ffmpeg が無くても書き出せる）
 
+画面に入れるもの（スマホ / ノート PC / ブラウザなど画面を持つ素材）:
+  --screen-video <file>   動画をそのまま画面に入れる（毎フレーム同じ時刻へシークするので決定論）
+  --screen-image <file>   写真・スクリーンショットを画面に入れる
+                          尺が足りない動画は先頭へ巻き戻して繰り返す
+
 内容:
   --var <名前=値>          ツマミを 1 つ変える（繰り返し可）
                           例: --var board-color=#1c1f1e --var title-size=9
@@ -168,7 +173,19 @@ const inlineVars = args.var
     return `--${name}:${withDeclaredUnit(name, entry.slice(at + 1))};`;
   })
   .join("");
-const vars = `${args.vars ?? ""}${inlineVars}`;
+// 画面に写真・動画を差し込むときは、既定のダミー画面を自動で消す
+// （買った人が --show-placeholder を知らなくても、意図した絵になる）。
+const screenVideo = args["screen-video"] ? String(args["screen-video"]) : null;
+const screenImage = args["screen-image"] ? String(args["screen-image"]) : null;
+for (const [flag, value] of [["--screen-video", screenVideo], ["--screen-image", screenImage]]) {
+  if (value && !existsSync(resolve(value))) {
+    console.error(`${flag} のファイルがありません: ${value}`);
+    process.exit(1);
+  }
+}
+const autoHidePlaceholder = screenVideo || screenImage ? "--show-placeholder:0;" : "";
+
+const vars = `${args.vars ?? ""}${autoHidePlaceholder}${inlineVars}`;
 
 const wantsMp4 = !args["png-sequence"] || args.out;
 const outPath = resolve(String(args.out ?? "demo.mp4"));
@@ -208,7 +225,7 @@ try {
       backdrop: String(args.backdrop ?? "#141414"),
       under: args.under ? String(args.under) : null,
       transparent: Boolean(args.transparent),
-      chromePath, textReplacements: args.text, onProgress: progress,
+      chromePath, textReplacements: args.text, screenVideo, screenImage, onProgress: progress,
     });
     process.stdout.write("\n");
     if (wantsMp4) {
@@ -225,7 +242,7 @@ try {
       fragmentPath, outDir: alphaDir, prefix: "alpha",
       width, height, fps, frames, vars,
       backdrop: "transparent", under: null, transparent: true,
-      chromePath, textReplacements: args.text, onProgress: progress,
+      chromePath, textReplacements: args.text, screenVideo, screenImage, onProgress: progress,
     });
     process.stdout.write("\n");
     await encode({

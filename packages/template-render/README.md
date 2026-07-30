@@ -68,12 +68,30 @@ Frame times come from `frame index ÷ fps`, never from the wall clock. Animation
 seeked explicitly. The same inputs always produce the same output, so re-rendering a template
 after a text change gives you a clean diff rather than a slightly different take.
 
+## Put your own video or photo in the screen
+
+Templates with a screen (phone, laptop, browser) declare the slot with
+`data-akari-slot="screen"`. Point the tool at a file and it lands inside the frame:
+
+```sh
+npx @akari-video/template-render ./phone-2d --out promo.mp4 \
+  --size 1080x1920 --duration 5 --screen-video ./my-app-recording.mp4
+```
+
+- **Deterministic**: the video is seeked to `frame index ÷ fps` for every frame, never played on
+  the wall clock. Re-render and you get the identical file
+- A video shorter than `--duration` loops from the start
+- `--screen-image photo.png` does the same for a still
+- The template's built-in dummy screen is hidden automatically
+
 ## Options
 
 ```
 --out <file>            H.264 mp4 (default: demo.mp4)
 --alpha <file>          ProRes 4444 .mov with alpha
 --png-sequence <dir>    numbered PNGs
+--screen-video <file>    put a video in the screen
+--screen-image <file>    put a photo in the screen
 --var <name=value>      set one knob (repeatable)
 --vars "<css>"          set several at once
 --text <old=new>        replace sample copy (repeatable)

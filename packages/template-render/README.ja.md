@@ -68,12 +68,30 @@ npx @akari-video/template-render ./chalkboard-jp \
 明示的に seek します。同じ入力なら必ず同じ出力になるので、文言を直して撮り直しても
 「微妙に違うテイク」ではなく素直な差分になります。
 
+## 画面に自分の動画・写真を入れる
+
+画面を持つテンプレート（スマホ・ノート PC・ブラウザ）は `data-akari-slot="screen"` で
+差し込み口を宣言しています。ファイルを渡すだけで枠の中に入ります。
+
+```sh
+npx @akari-video/template-render ./phone-2d --out promo.mp4 \
+  --size 1080x1920 --duration 5 --screen-video ./my-app-recording.mp4
+```
+
+- **決定論**: 動画は毎フレーム「フレーム番号 ÷ fps」の時刻へシークして撮ります。壁時計で
+  再生させないので、撮り直しても同じファイルになります
+- `--duration` より短い動画は先頭へ巻き戻して繰り返します
+- 写真・スクリーンショットは `--screen-image photo.png`
+- テンプレート内蔵のダミー画面は自動で消えます
+
 ## オプション
 
 ```
 --out <file>            H.264 mp4（既定: demo.mp4）
 --alpha <file>          アルファ付き ProRes4444 .mov
 --png-sequence <dir>    連番 PNG
+--screen-video <file>   動画を画面に入れる
+--screen-image <file>   写真を画面に入れる
 --var <名前=値>          ツマミを 1 つ変える（繰り返し可）
 --vars "<css>"          まとめて指定
 --text <旧=新>           見本の文言を差し替える（繰り返し可）

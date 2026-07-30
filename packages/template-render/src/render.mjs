@@ -72,6 +72,8 @@ export async function shootFrames({
   transparent,
   chromePath,
   textReplacements = [],
+  screenVideo = null,
+  screenImage = null,
   onProgress,
 }) {
   const puppeteer = loadPuppeteer();
@@ -95,6 +97,45 @@ export async function shootFrames({
     await page.goto(`file://${htmlPath.split("\\").join("/")}`, { waitUntil: "load" });
     await page.evaluate(() => document.fonts.ready);
 
+    // 画面へ写真・動画を差し込む。差し込み口は素材側が data-akari-slot="screen" で宣言する。
+    if (screenVideo || screenImage) {
+      const source = `file://${resolve(screenVideo ?? screenImage).split("\\").join("/")}`;
+      const placed = await page.evaluate(
+        ({ src, isVideo }) => {
+          const slot = document.querySelector('[data-akari-slot="screen"]');
+          if (!slot) return false;
+          const node = document.createElement(isVideo ? "video" : "img");
+          node.src = src;
+          if (isVideo) {
+            node.muted = true;
+            node.preload = "auto";
+          }
+          // 反射やノッチより下、既定のダミー画面より上に置く（先頭挿入 + ダミーは非表示にする）。
+          slot.insertBefore(node, slot.firstChild);
+          return true;
+        },
+        { src: source, isVideo: Boolean(screenVideo) },
+      );
+      if (!placed) {
+        throw new Error(
+          "この素材には画面の差し込み口がありません（data-akari-slot=\"screen\" を持つ要素が無い）。\n" +
+            "写真・動画を入れられるのは画面を持つ素材（スマホ / ノート PC / ブラウザ等）です。",
+        );
+      }
+      if (screenVideo) {
+        await page.evaluate(
+          () =>
+            new Promise((done) => {
+              const video = document.querySelector('[data-akari-slot="screen"] video');
+              if (!video || video.readyState >= 2) return done();
+              video.addEventListener("loadeddata", () => done(), { once: true });
+              video.addEventListener("error", () => done(), { once: true });
+              setTimeout(done, 8000);
+            }),
+        );
+      }
+    }
+
     for (let index = 0; index < frames; index += 1) {
       await page.evaluate((seconds) => {
         for (const animation of document.getAnimations()) {
@@ -102,6 +143,21 @@ export async function shootFrames({
           animation.currentTime = seconds * 1000;
         }
       }, index / fps);
+
+      // 動画も同じ時刻へシークする。壁時計で再生させないので、何度回しても同じ絵になる。
+      if (screenVideo) {
+        await page.evaluate(async (seconds) => {
+          const video = document.querySelector('[data-akari-slot="screen"] video');
+          if (!video) return;
+          const length = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+          // 尺が足りなければ先頭へ巻き戻して繰り返す（素材の尺に合わせて破綻させない）。
+          video.currentTime = length ? seconds % length : seconds;
+          await new Promise((done) => {
+            video.addEventListener("seeked", () => done(), { once: true });
+            setTimeout(done, 1000);
+          });
+        }, index / fps);
+      }
       await page.screenshot({
         path: join(outDir, `${prefix}-${String(index).padStart(5, "0")}.png`),
         omitBackground: transparent,
