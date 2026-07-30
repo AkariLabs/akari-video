@@ -2,7 +2,7 @@ import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ApplicationShell } from '@theia/core/lib/browser';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
-import { PreferenceService } from '@theia/core/lib/common';
+import { Disposable, PreferenceService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -44,6 +44,11 @@ const DEVELOPER_MODE_PREFERENCE = 'akari.developerMode';
 
 // 最大保持メッセージ数（無制限成長を避けるための素朴なキャップ、v0）。
 const MAX_MESSAGES = 200;
+
+// ステータスカードの役割は「進行中の進捗」と「失敗の原因表示」（renderOnboarding
+// 下部の note 文言が正）。成功は開いた拡張ビュー / PTY 自体で自明なので、
+// complete のカードだけ一定時間で自動的に消す（working / failed は残す）。
+const COMPLETE_AUTO_DISMISS_MS = 6000;
 
 // 4 分割前に永続化された PTY タブだけを新しい一意ラベルへ移行する。
 // kind も同時に照合するため、同名の一般ターミナルや拡張ビューには触れない。
@@ -90,6 +95,7 @@ export class AkariPartnerWidget extends ReactWidget {
     protected detail = '';
     protected warning = '';
     protected readonly entryFlows = new Map<string, EntryFlow>();
+    protected readonly completeDismissTimers = new Map<string, ReturnType<typeof setTimeout>>();
     protected readonly liveTerminals = new Map<string, TerminalWidget>();
     protected readonly observedTerminals = new WeakSet<TerminalWidget>();
 
@@ -120,6 +126,12 @@ export class AkariPartnerWidget extends ReactWidget {
             }
         });
         void this.preferences.ready.then(() => this.refreshDeveloperMode());
+        this.toDispose.push(Disposable.create(() => {
+            for (const timer of this.completeDismissTimers.values()) {
+                clearTimeout(timer);
+            }
+            this.completeDismissTimers.clear();
+        }));
         this.extensionsModel.onDidChange(() => this.update());
         this.terminalService.onDidCreateTerminal(terminal => {
             if (terminal.kind === PartnerTerminal.KIND) {
@@ -354,7 +366,35 @@ export class AkariPartnerWidget extends ReactWidget {
         this.status = flow.status;
         this.detail = flow.detail;
         this.warning = flow.warning;
+        this.scheduleCompleteDismiss(entry, flow);
         this.update();
+    }
+
+    protected scheduleCompleteDismiss(entry: PartnerCatalogEntry, flow: EntryFlow): void {
+        const pending = this.completeDismissTimers.get(entry.id);
+        if (pending !== undefined) {
+            clearTimeout(pending);
+            this.completeDismissTimers.delete(entry.id);
+        }
+        // warning 付きの完了は自動で消さない（バイナリ検証の注意書き等を読める
+        // ように残す。この場合の消し方は従来どおり = 同エントリの再操作）。
+        if (flow.state !== 'complete' || flow.warning) {
+            return;
+        }
+        this.completeDismissTimers.set(entry.id, setTimeout(() => {
+            this.completeDismissTimers.delete(entry.id);
+            if (this.isDisposed || this.entryFlows.get(entry.id) !== flow) {
+                return;
+            }
+            this.entryFlows.delete(entry.id);
+            if (this.selected?.id === entry.id) {
+                this.flowState = 'idle';
+                this.status = '';
+                this.detail = '';
+                this.warning = '';
+            }
+            this.update();
+        }, COMPLETE_AUTO_DISMISS_MS));
     }
 
     /**
@@ -820,7 +860,7 @@ const styles: Record<string, React.CSSProperties> = {
     buttonLabel: { display: 'inline-flex', alignItems: 'center', gap: 7, textAlign: 'left' },
     buttonAction: { fontSize: 11, opacity: 0.82, whiteSpace: 'nowrap' },
     recommendedBadge: { padding: '2px 6px', borderRadius: 9, fontSize: 9, background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' },
-    statusCard: { padding: 16, borderRadius: 8, background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)' },
+    statusCard: { marginTop: 14, padding: 16, borderRadius: 8, background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)' },
     statusRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
     detail: { marginTop: 9, opacity: 0.75, fontSize: 12, overflowWrap: 'anywhere' },
     warning: { marginTop: 12, padding: 9, textAlign: 'left', borderRadius: 5, color: 'var(--theia-warningForeground)', background: 'var(--theia-inputValidation-warningBackground)' },
