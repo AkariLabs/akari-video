@@ -1,6 +1,6 @@
 # 3D ベイクレシピ: vintage-camera-turntable
 # ヴィンテージカメラのターンテーブル・ヒーローショットをヘッドレスで焼く。
-# 契約: docs/planning/contract-2026-07-14-3d-bake-recipe.md（レシピ = SSOT、ベイク = 再生成可能キャッシュ）
+# 契約: 3D ベイクレシピ契約 — 非公開の内部リポジトリ akari-video-internal 側で管理（レシピ = SSOT、ベイク = 再生成可能キャッシュ）
 #
 # 実行例:
 #   blender -b -P scene.py -- --out bakes/vintage-camera-turntable-draft.mp4 \

@@ -29,4 +29,5 @@
 `<プロジェクト>/assets/`（`local`）、組織・事業単位は上位ディレクトリの
 `.akari/assets/`（`shared`）、個人の定番は `~/.akari/assets/`（`user`）へ。
 検索は近い層から行い、同一 id は近い層が勝ちます。詳細は
-`docs/planning/contract-2026-07-13-asset-library.md` の「アセットのスコープ階層」を参照。
+アセットライブラリ契約（非公開の内部リポジトリ akari-video-internal 側で管理）の
+「アセットのスコープ階層」を参照。
