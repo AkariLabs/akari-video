@@ -33,6 +33,28 @@ even when it is not merged as-is.**
   current `main` is much more likely to land — please don't take a scope-close
   personally
 
+## PR salvage & co-authorship
+
+To cut down review round-trips, maintainers may **salvage** a PR — instead of
+sending it back for another round, we take over the branch, finish the remaining
+work, and carry it to merge. Your credit is always preserved:
+
+- Your commits are kept as-is (or cherry-picked) wherever possible, so your
+  authorship stays in git history
+- Where maintainers rewrite or squash your work, you are credited with a
+  `Co-authored-by:` trailer; salvage PRs carry `(salvage of #N)` in the title to
+  reference the original
+- When similar fixes for the same problem arrive from multiple people, they may
+  be consolidated into one commit **crediting everyone as co-authors**
+- **Credit goes to humans.** Even if you build your PR with an AI agent, we
+  recommend the commit author be you (the human contributor), not the tool —
+  please set your git author identity to yourself
+
+Keeping **"Allow edits by maintainers"** enabled on your PR lets your PR itself
+be merged and makes salvage much faster. If you would rather finish the PR
+yourself, say so in the PR description — we will send regular review feedback
+instead.
+
 ## Acceptance screening for external PRs
 
 External PRs go through **automated screening plus maintainer review** before merge.
