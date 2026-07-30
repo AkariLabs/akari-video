@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 :: AKARI Video Installer for Windows CMD
 :: Usage:
 ::   curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.cmd -o install.cmd && install.cmd
@@ -62,19 +63,28 @@ echo.
 :: Clone or update
 set INSTALL_DIR=%USERPROFILE%\akari-video
 if exist "%INSTALL_DIR%\.git" (
-    echo Pulling latest...
+    echo Fetching updates...
     cd /d "%INSTALL_DIR%"
-    git fetch origin
-    git merge --ff-only origin/main 2>nul
-    if !ERRORLEVEL! neq 0 (
-        echo   Fast-forward failed -- resetting to origin/main...
-        git reset --hard origin/main
-    )
+    git fetch --tags --force origin
 ) else if exist "%INSTALL_DIR%" (
     echo Directory exists: %INSTALL_DIR% — skipping clone.
 ) else (
     echo Cloning AkariLabs/akari-video...
     git clone https://github.com/AkariLabs/akari-video.git "%INSTALL_DIR%"
+)
+
+:: 配布はリリースタグ固定（既定で main を配らない。AKARI_REF 環境変数で上書き可）
+if exist "%INSTALL_DIR%\.git" (
+    cd /d "%INSTALL_DIR%"
+    set "TARGET_REF=%AKARI_REF%"
+    if not defined TARGET_REF (
+        for /f "delims=" %%t in ('git tag -l "v[0-9]*" --sort=-v:refname') do if not defined TARGET_REF set "TARGET_REF=%%t"
+    )
+    if not defined TARGET_REF (
+        echo   No release tag found -- falling back to origin/main.
+        set "TARGET_REF=origin/main"
+    )
+    git checkout --force --detach !TARGET_REF!
 )
 
 echo.

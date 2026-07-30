@@ -109,13 +109,25 @@ if (-not (Has-Cmd git)) {
     exit 1
 }
 if (Test-Path "$InstallDir\.git") {
-    Write-Info "Repository exists at $InstallDir — pulling latest..."
-    Push-Location $InstallDir; git fetch origin; if (-not (git merge --ff-only origin/main 2>$null)) { Write-Warn "  Fast-forward failed — resetting to origin/main..."; git reset --hard origin/main }; Pop-Location
+    Write-Info "Repository exists at $InstallDir — fetching updates..."
+    Push-Location $InstallDir; git fetch --tags --force origin; Pop-Location
 } elseif (Test-Path $InstallDir) {
     Write-Warn "Directory exists but is not a git repo: $InstallDir — skipping."
 } else {
     Write-Info "Cloning AkariLabs/akari-video..."
     git clone "https://github.com/AkariLabs/akari-video.git" $InstallDir
+}
+
+# 配布はリリースタグ固定（既定で main を配らない）。AKARI_REF 環境変数で上書き可。
+if (Test-Path "$InstallDir\.git") {
+    Push-Location $InstallDir
+    $targetRef = $env:AKARI_REF
+    if (-not $targetRef) { $targetRef = git tag -l 'v[0-9]*' --sort=-v:refname | Select-Object -First 1 }
+    if (-not $targetRef) { Write-Warn "  No release tag found — falling back to origin/main."; $targetRef = "origin/main" }
+    git checkout --force --detach $targetRef 2>$null
+    if ($LASTEXITCODE -ne 0) { Write-Err "Failed to checkout $targetRef"; Pop-Location; exit 1 }
+    Write-Info "  Checked out: $targetRef"
+    Pop-Location
 }
 
 # ═══ npm install ═══

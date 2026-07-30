@@ -204,7 +204,10 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
     fi
 fi
 
-# Clone or update
+# Clone or update — 配布はリリースタグ固定（既定で main を配らない）
+# main には検収前の変更が入り得るため、版整合ゲートを通過した最新のリリースタグ
+# （vX.Y.Z）へ checkout する。開発者が main や特定 ref を追いたい場合は
+# AKARI_REF=main のように環境変数で上書きできる。
 echo ""
 if ! has git; then
     err "git is required but not found. Install git and retry."
@@ -212,19 +215,31 @@ if ! has git; then
 fi
 if [[ -d "$INSTALL_DIR/.git" ]]; then
     info "Repository exists at $INSTALL_DIR"
-    info "Pulling latest..."
-    git -C "$INSTALL_DIR" fetch origin 2>&1 | grep -v "^remote:" || true
-    if git -C "$INSTALL_DIR" merge --ff-only origin/main 2>&1; then
-        info "  Updated to $(git -C "$INSTALL_DIR" log --oneline -1)"
-    else
-        warn "  Fast-forward failed — resetting to origin/main..."
-        git -C "$INSTALL_DIR" reset --hard origin/main
-    fi
+    info "Fetching updates..."
+    # --force: リリース前に付け直されたタグにも追随する
+    git -C "$INSTALL_DIR" fetch --tags --force origin 2>&1 | grep -v "^remote:" || true
 elif [[ -d "$INSTALL_DIR" ]]; then
     warn "Directory exists but is not a git repo: $INSTALL_DIR — skipping clone."
 else
     info "Cloning $REPO..."
     git clone "https://github.com/$REPO.git" "$INSTALL_DIR"
+fi
+
+if [[ -d "$INSTALL_DIR/.git" ]]; then
+    TARGET_REF="${AKARI_REF:-}"
+    if [[ -z "$TARGET_REF" ]]; then
+        TARGET_REF="$(git -C "$INSTALL_DIR" tag -l 'v[0-9]*' --sort=-v:refname | head -1)"
+    fi
+    if [[ -z "$TARGET_REF" ]]; then
+        warn "  No release tag found — falling back to origin/main."
+        TARGET_REF="origin/main"
+    fi
+    if git -C "$INSTALL_DIR" checkout --force --detach "$TARGET_REF" >/dev/null 2>&1; then
+        info "  Checked out: $TARGET_REF ($(git -C "$INSTALL_DIR" log --oneline -1 --no-decorate))"
+    else
+        err "Failed to checkout $TARGET_REF"
+        exit 1
+    fi
 fi
 
 echo ""
