@@ -96,8 +96,6 @@ cmd_preview() {
 
 # ─── Main ───
 if [[ $# -eq 0 ]]; then
-  # デフォルトは Claude Code（launcher の自動検出に任せる）
-  # --opencode を付けたい場合は明示的に指定
   exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs"
 fi
 
@@ -109,12 +107,18 @@ case "$1" in
     echo "Usage: $SCRIPT_NAME [command] [options...]"
     echo ""
     echo "Commands:"
-    echo "  (no args)             Launch AI agent (Claude Code優先)"
+    echo "  (no args)             Launch AI agent (Claude Code → opencode fallback)"
     echo "  --preview, -pv        Start preview server"
     echo "  update                Check for updates"
-    echo "  --opencode            Use opencode instead of Claude Code"
+    echo ""
+    echo "Agent options (pick one):"
     echo "  --claude, --claudecode  Launch Claude Code explicitly"
-    echo "  -y, --yes             Auto-confirm (skip permissions; opencode:--auto / Claude:--permission-mode acceptEdits)"
+    echo "  --opencode              Launch opencode explicitly"
+    echo "  --cursor                Launch Cursor Agent (cursor-agent CLI)"
+    echo "  --codex                 Launch OpenAI Codex CLI"
+    echo ""
+    echo "Common options:"
+    echo "  -y, --yes             Auto-confirm (Claude: --permission-mode acceptEdits / opencode: --auto / Cursor: --force)"
     echo "  -h, --help, -?        Show this help"
     echo ""
     echo "Typical workflow:"
@@ -123,17 +127,17 @@ case "$1" in
     echo "  3. $SCRIPT_NAME --preview               # Preview server (別の端末で)"
     echo ""
     echo "Examples:"
-    echo "  $SCRIPT_NAME                           # Claude Code起動"
+    echo "  $SCRIPT_NAME                           # Claude Code (or opencode fallback)"
     echo "  $SCRIPT_NAME -y                        # Claude Code + auto-confirm"
     echo "  $SCRIPT_NAME --opencode -y             # opencode + auto-confirm"
+    echo "  $SCRIPT_NAME --cursor                  # Cursor Agent"
+    echo "  $SCRIPT_NAME --cursor -y --continue    # Cursor Agent + auto-confirm + resume"
+    echo "  $SCRIPT_NAME --codex                   # Codex CLI"
     echo "  $SCRIPT_NAME --preview                 # Preview (current dir)"
     echo "  $SCRIPT_NAME --preview ~/my-project 3000"
     echo "  $SCRIPT_NAME update"
     exit 0 ;;
   --preview|-pv) shift; cmd_preview "$@" ;;
-  update) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "update" ;;
-  --opencode) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" "$@" ;;
-  --claude|--claudecode) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--claude" "$@" ;;
-  -y|--yes) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--yes" "$@" ;;
+  update) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" update "$@" ;;
   *) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "$@" ;;
 esac

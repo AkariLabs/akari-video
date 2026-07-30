@@ -158,7 +158,7 @@ AKARI Video には 4 つの入口があります。
 
 | 入口 | おすすめの人 | 発動方法 |
 |---|---|---|
-| A. ターミナル | コマンドラインに慣れている人 | `./akari.sh --opencode` |
+| A. ターミナル | コマンドラインに慣れている人 | `./akari.sh` / `./akari.sh --opencode` / `./akari.sh --cursor` / `./akari.sh --codex` |
 | B. opencode / Claude Code セッション | すでに AI エージェント CLI を使っている人 | 「新しい動画プロジェクトを作りたい」と発話 |
 | C. Cursor Agent | IDE の Agent チャットで進めたい人 | リポジトリまたはプロジェクトを Cursor で開き、「新しい動画プロジェクトを作りたい」と発話 |
 | D. アプリ | GUI で操作したい人 | Theia ベースのデスクトップシェルから接続 |
@@ -170,7 +170,10 @@ AKARI Video には 4 つの入口があります。
 ### A. ターミナルから（`akari` コマンド）
 
 ```sh
-./akari.sh --opencode
+./akari.sh --opencode   # opencode
+./akari.sh --cursor     # Cursor Agent（cursor-agent / agent CLI）
+./akari.sh --codex      # OpenAI Codex CLI
+./akari.sh              # Claude Code（未インストール時は opencode へフォールバック）
 ```
 
 `akari` は次の順で動きます:
@@ -178,12 +181,15 @@ AKARI Video には 4 つの入口があります。
 1. カレントディレクトリがプロジェクトかどうか診断（`.akari/connections.json` の有無）
 2. 未セットアップなら日本語で案内し、プロジェクトの雛形を作成
 3. 接続状態（生成プロバイダ・API キー）を確認して表示
-4. 最後に AI エージェントを起動 — 以降はセッション内で会話しながら進める
+4. 最後に選んだ AI エージェントを起動 — 以降はセッション内で会話しながら進める
 
-**Claude Code を使う場合**:
+**`-y` / `--yes`** を付けると、ハーネスごとの自動承認フラグが有効になります
+（Claude: `-y`、opencode: `--auto`、Cursor: `--force`、Codex: `--full-auto`）。
+
+**Claude Code を明示的に使う場合**:
 
 ```sh
-./akari.sh
+./akari.sh --claude
 ```
 
 ### B. opencode / Claude Code セッション内から
