@@ -11,16 +11,12 @@ import { AkariFrontendApplication } from './akari-frontend-application';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { AkariTerminalMenuCuration } from './akari-terminal-menu-curation';
 import { AkariRightPanelCuration } from './akari-right-panel-curation';
-import { AkariHomeFlowGate } from './akari-home-flow-gate';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     // 「この場で書き出す」バックエンド（edit-lint / render-cut CLI 直接実行）。
     bind(AkariQuickExportService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_QUICK_EXPORT_SERVICE_PATH)
     ).inSingletonScope();
-
-    // ホーム v2: 「04 作業中」まで左パネル（素材/メニュー）を隠すゲート。
-    bind(AkariHomeFlowGate).toSelf().inSingletonScope();
 
     // S15: activity bar curation（起動時一括 + onDidAddWidget 常時フィルタ）
     bind(AkariActivityBarCuration).toSelf().inSingletonScope();

@@ -3,7 +3,6 @@ import { FrontendApplicationContribution, FrontendApplication, ApplicationShell,
 import { Widget } from '@theia/core/shared/@lumino/widgets';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
-import { AkariHomeFlowGate } from './akari-home-flow-gate';
 
 /**
  * AKARI Video shell — S15 動的 activity bar curation。
@@ -77,8 +76,6 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected readonly widgetManager!: WidgetManager;
     @inject(AkariDeveloperModeService)
     protected readonly developerMode!: AkariDeveloperModeService;
-    @inject(AkariHomeFlowGate)
-    protected readonly homeFlowGate!: AkariHomeFlowGate;
 
     protected shell?: ApplicationShell;
     protected loggedIds = new Set<string>();
@@ -109,29 +106,18 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
         this.developerMode.onDidChange(() => {
             void this.ensureModeAppropriateAssetView('developerModeChanged');
         });
-
-        // ホーム v2: 「04 作業中」（intake submitted）に到達したら 素材/メニュー
-        // を初めて出す。到達前は reconcileLeftPanel が isHidden() 経由で隠す。
-        this.homeFlowGate.onDidChange(() => {
-            void this.ensureModeAppropriateAssetView('homeFlowGateChanged');
-            void this.ensureMenuWidgetAttachment('homeFlowGateChanged');
-        });
     }
 
     /**
      * 現在の developer mode に合う側（explorer-view-container もしくは
      * akari-role-buckets-widget）を作る/取り出し、左パネルへ未接続なら
      * 追加する。もう一方が表示中なら reconcileLeftPanel が close() で退避する。
-     * ホーム v2 のゲートが閉じている間（04 未到達）は作成/追加自体を行わず、
-     * reconcileLeftPanel だけを走らせて（既に開いていれば）隠す側に倒す。
+     * 2026-07-30 裁定 R2 により、シェルは工程をゲートせずサーフェスを常時提供する。
+     * 工程の状態管理はエージェント + ファイルが担う。
      */
     protected async ensureModeAppropriateAssetView(trigger: string): Promise<void> {
         const shell = this.shell;
         if (!shell) {
-            return;
-        }
-        if (!this.homeFlowGate.isUnlocked) {
-            this.reconcileLeftPanel(trigger);
             return;
         }
         const showId = this.developerMode.isEnabled ? DEVELOPER_MODE_WIDGET_ID : NON_DEVELOPER_MODE_WIDGET_ID;
@@ -143,14 +129,12 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     }
 
     /**
-     * メニュー（`akari-menu-widget`）はホーム v2 のゲートが開くまで
-     * 作成/追加しない。素材の対と違い常時 1 種類の widget なので、
-     * ゲートが開いた瞬間に「無ければ作る/あれば再アタッチ」するだけでよい
-     * （閉じている側の detach は reconcileLeftPanel の isHidden() に委ねる）。
+     * メニュー（`akari-menu-widget`）は常時 1 種類の widget なので、
+     * 無ければ作り、既存なら再アタッチする。
      */
     protected async ensureMenuWidgetAttachment(trigger: string): Promise<void> {
         const shell = this.shell;
-        if (!shell || !this.homeFlowGate.isUnlocked) {
+        if (!shell) {
             return;
         }
         const widget = await this.widgetManager.getOrCreateWidget(MENU_WIDGET_ID);
@@ -180,9 +164,8 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 continue;
             }
             if (this.isHidden(id)) {
-                // developer mode に合わない側（Explorer もしくはロールバケット）、
-                // またはホーム v2 のゲートが未到達（素材/メニュー）は
-                // dispose せず close() のみ（detach）。条件が満たされれば再利用する。
+                // developer mode に合わない側（Explorer もしくはロールバケット）は
+                // dispose せず close() のみ（detach）。モード切り替え時に再利用する。
                 console.info(`[akari-shell-strip] closing hidden left activity bar widget (trigger=${trigger}):`, id);
                 title.owner.close();
                 continue;
@@ -206,20 +189,12 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     }
 
     /**
-     * ホーム v2 + developer mode の 2 軸をまとめた「今この widget を隠すべきか」
-     * の判定。素材（Explorer/ロールバケットの対）は、ゲートが閉じている間は
-     * developer mode に関わらず両方隠し、開いた後は従来通り developer mode で
-     * 出し分ける。メニューはゲートのみで出し分ける。
+     * 素材（Explorer/ロールバケットの対）を developer mode で出し分ける。
+     * メニューを含むその他の allowlist widget はここでは隠さない。
      */
     protected isHidden(id: string): boolean {
         if (id === DEVELOPER_MODE_WIDGET_ID || id === NON_DEVELOPER_MODE_WIDGET_ID) {
-            if (!this.homeFlowGate.isUnlocked) {
-                return true;
-            }
             return this.isModeMismatched(id);
-        }
-        if (id === MENU_WIDGET_ID) {
-            return !this.homeFlowGate.isUnlocked;
         }
         return false;
     }
