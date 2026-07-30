@@ -2027,6 +2027,487 @@ function logReviewEvent(type, extra) {
   reviewEvents.push({ recT: +recT.toFixed(3), type, timelineT: +outputTime.toFixed(3), playing: isPlaying, ...extra });
 }
 
+// --- Asset Browser ---
+const assetList = document.getElementById('asset-list');
+const assetSearch = document.getElementById('asset-search');
+const assetTabs = document.querySelectorAll('.asset-tab');
+const ASSET_ICONS = { video: '🎬', audio: '🎵', image: '🖼️' };
+
+let allAssets = [];
+let assetFilterCat = 'all';
+let assetFilterText = '';
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+}
+
+function renderAssets() {
+  const filtered = allAssets.filter(a => {
+    if (assetFilterCat !== 'all' && a.category !== assetFilterCat) return false;
+    if (assetFilterText && !a.name.toLowerCase().includes(assetFilterText)) return false;
+    return true;
+  });
+  if (!filtered.length) {
+    assetList.innerHTML = '<div class="asset-empty">素材がありません<br>ファイルをドロップして追加</div>';
+    return;
+  }
+  assetList.innerHTML = filtered.map(a => `
+    <div class="asset-item" draggable="true" data-path="${a.path}" data-category="${a.category}">
+      <div class="asset-icon ${a.category}">${ASSET_ICONS[a.category] || '📄'}</div>
+      <div class="asset-info">
+        <div class="asset-name">${esc(a.name)}</div>
+        <div class="asset-meta">${a.category} · ${formatSize(a.size)}</div>
+      </div>
+    </div>
+  `).join('');
+  // Drag start — store asset path for timeline drop
+  assetList.querySelectorAll('.asset-item').forEach(el => {
+    el.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', el.dataset.path);
+      e.dataTransfer.effectAllowed = 'copy';
+      el.classList.add('is-active');
+    });
+    el.addEventListener('dragend', () => el.classList.remove('is-active'));
+  });
+}
+
+function setupAssetBrowser() {
+  // Tabs
+  for (const tab of assetTabs) {
+    tab.addEventListener('click', () => {
+      assetTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      assetFilterCat = tab.dataset.cat;
+      renderAssets();
+    });
+  }
+  // Search
+  assetSearch.addEventListener('input', () => {
+    assetFilterText = assetSearch.value.toLowerCase();
+    renderAssets();
+  });
+  // Click to show in editor (add to sources or navigate)
+  assetList.addEventListener('click', (e) => {
+    const item = e.target.closest('.asset-item');
+    if (!item) return;
+    showMessage(null);
+  });
+  // Drag-and-drop upload
+  const assetPane = document.getElementById('asset-pane');
+  let dropOverlay = null;
+  function showDropOverlay(show) {
+    if (show) {
+      if (!dropOverlay) {
+        dropOverlay = document.createElement('div');
+        dropOverlay.style.cssText = 'position:absolute;inset:0;z-index:100;background:rgba(77,163,255,0.12);border:2px dashed #4da3ff;display:grid;place-items:center;font-size:14px;color:#4da3ff;font-weight:600;pointer-events:none;border-radius:4px;';
+        dropOverlay.textContent = 'ドロップして素材を追加';
+        assetPane.style.position = 'relative';
+      }
+      assetPane.appendChild(dropOverlay);
+    } else {
+      if (dropOverlay && dropOverlay.parentNode) dropOverlay.remove();
+    }
+  }
+  assetPane.addEventListener('dragenter', (e) => { e.preventDefault(); showDropOverlay(true); });
+  assetPane.addEventListener('dragover', (e) => { e.preventDefault(); });
+  assetPane.addEventListener('dragleave', (e) => {
+    if (!assetPane.contains(e.relatedTarget)) showDropOverlay(false);
+  });
+  assetPane.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    showDropOverlay(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => {
+      const ext = '.' + f.name.split('.').pop().toLowerCase();
+      return /\.(mp4|webm|mov|avi|mkv|m4v|mp3|wav|ogg|aac|flac|m4a|png|jpg|jpeg|gif|webp)$/i.test(ext);
+    });
+    if (!files.length) { showMessage('対応形式: mp4/webm/mov/avi/mkv/mp3/wav/ogg/png/jpg など'); return; }
+    showMessage(`${files.length}個のファイルをアップロード中...`);
+    let ok = 0, err = 0;
+    for (const file of files) {
+      try {
+        const res = await fetch('/api/assets/upload', {
+          method: 'POST',
+          headers: { 'X-File-Name': encodeURIComponent(file.name) },
+          body: file,
+        });
+        if (res.ok) ok++; else err++;
+      } catch { err++; }
+    }
+    if (err === 0) showMessage(`${ok}個のファイルを追加しました`);
+    else showMessage(`${ok}個追加、${err}個失敗`);
+    await loadAssets();
+  });
+}
+
+async function loadAssets() {
+  try {
+    const res = await fetch('/api/project-files');
+    if (!res.ok) return;
+    allAssets = await res.json();
+    renderAssets();
+  } catch {}
+}
+
+// --- Timeline Editor ---
+const tlCanvas = document.getElementById('timeline-canvas');
+const tlRulerCanvas = document.getElementById('tl-ruler-canvas');
+const tlPlayhead = document.getElementById('tl-playhead');
+const tlCanvasWrap = document.getElementById('tl-canvas-wrap');
+const tlZoomIn = document.getElementById('tl-zoom-in');
+const tlZoomOut = document.getElementById('tl-zoom-out');
+const tlZoomLabel = document.getElementById('tl-zoom-label');
+const tlFitBtn = document.getElementById('tl-fit-btn');
+
+let tlZoom = 1;
+let tlScrollLeft = 0;
+let tlDrag = null;
+const TL_TRACK_HEIGHT = 28;
+const TL_MIN_ZOOM = 5;
+const TL_MAX_ZOOM = 500;
+const TL_HANDLE_PX = 8;
+const TL_CUT_COLORS = ['#4da3ff', '#ff6b6b', '#51cf66', '#ffd43b', '#cc5de8', '#20c997', '#ff922b', '#748ffc'];
+
+function computeNaturalZoom() {
+  if (totalDuration <= 0) return 100;
+  const w = tlCanvasWrap.clientWidth - 16;
+  return Math.max(TL_MIN_ZOOM, Math.min(TL_MAX_ZOOM, w / totalDuration));
+}
+
+function tlTimelineX(e) {
+  const rect = tlCanvas.getBoundingClientRect();
+  return e.clientX - rect.left + tlCanvasWrap.scrollLeft;
+}
+
+function tlTimeFromX(px) {
+  return Math.max(0, Math.min(totalDuration, px / tlZoom));
+}
+
+function tlHitTest(px, py) {
+  if (py < 0 || py > TL_TRACK_HEIGHT * 2) return null;
+  const track = py < TL_TRACK_HEIGHT ? 0 : 1;
+  let cursor = 0;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (seg.isGap) { cursor += seg.durationSec; continue; }
+    if (seg.track !== track) { cursor += seg.durationSec; continue; }
+    const sx = cursor * tlZoom;
+    const sw = seg.durationSec * tlZoom;
+    if (px >= sx && px < sx + sw) {
+      const distL = px - sx;
+      const distR = (sx + sw) - px;
+      let mode;
+      if (distL < TL_HANDLE_PX && sw > TL_HANDLE_PX * 2) mode = 'trim-in';
+      else if (distR < TL_HANDLE_PX && sw > TL_HANDLE_PX * 2) mode = 'trim-out';
+      else mode = 'move';
+      return { segIndex: i, cutIndex: seg.index, mode, cursor };
+    }
+    cursor += seg.durationSec;
+  }
+  return null;
+}
+
+function setupTimeline() {
+  tlZoomIn.addEventListener('click', () => { tlZoom = Math.min(TL_MAX_ZOOM, tlZoom * 1.5); renderTimeline(); });
+  tlZoomOut.addEventListener('click', () => { tlZoom = Math.max(TL_MIN_ZOOM, tlZoom / 1.5); renderTimeline(); });
+  tlFitBtn.addEventListener('click', () => { tlZoom = computeNaturalZoom(); renderTimeline(); });
+  tlCanvasWrap.addEventListener('scroll', () => { tlScrollLeft = tlCanvasWrap.scrollLeft; updateTimelinePlayhead(); });
+
+  // Pointer interaction: trim / move / seek
+  tlCanvas.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const px = tlTimelineX(e);
+    const py = e.clientY - tlCanvas.getBoundingClientRect().top;
+    const hit = tlHitTest(px, py);
+    if (!hit || hit.mode === 'move' && hit.segIndex < 0) {
+      // seek
+      const t = tlTimeFromX(px);
+      const w = isPlaying; if (w) pause();
+      seekTo(t);
+      return;
+    }
+    const seg = segments[hit.segIndex];
+    const cut = summary?.cuts?.[hit.cutIndex];
+    if (!cut) return;
+    tlDrag = {
+      mode: hit.mode, segIndex: hit.segIndex, cutIndex: hit.cutIndex,
+      startPx: px,
+      startIn: cut.in, startOut: cut.out,
+      startSegIn: seg.inSec, startSegOut: seg.outSec,
+      startAt: cut.at !== undefined ? cut.at : null,
+      saved: false, moved: false,
+      cursorStart: hit.cursor,
+    };
+    tlCanvas.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  tlCanvas.addEventListener('pointermove', (e) => {
+    if (!tlDrag) {
+      // Cursor change on hover
+      const px = tlTimelineX(e);
+      const py = e.offsetY || (e.clientY - tlCanvas.getBoundingClientRect().top);
+      const hit = tlHitTest(px, py);
+      tlCanvas.style.cursor = hit ? (hit.mode === 'trim-in' || hit.mode === 'trim-out' ? 'ew-resize' : 'grab') : 'default';
+      return;
+    }
+    const px = tlTimelineX(e);
+    const deltaSec = (px - tlDrag.startPx) / tlZoom;
+    const deltaFrames = Math.round(deltaSec * fps) / fps;
+    const newEdit = JSON.parse(JSON.stringify(summary));
+    const cut = newEdit.cuts[tlDrag.cutIndex];
+    if (!cut) return;
+    if (Math.abs(px - tlDrag.startPx) > 3) tlDrag.moved = true;
+    if (tlDrag.mode === 'trim-in') {
+      const newIn = Math.max(0, +(tlDrag.startIn + deltaFrames).toFixed(2));
+      if (newIn < cut.out - (1 / fps)) cut.in = newIn;
+    } else if (tlDrag.mode === 'trim-out') {
+      const newOut = Math.max(cut.in + (1 / fps), +(tlDrag.startOut + deltaFrames).toFixed(2));
+      cut.out = newOut;
+    } else if (tlDrag.mode === 'move') {
+      const newAt = Math.max(0, +(tlDrag.startAt + deltaFrames).toFixed(2));
+      cut.at = newAt;
+    }
+    // Re-render timeline with new cuts
+    const oldCuts = summary.cuts;
+    summary.cuts = newEdit.cuts;
+    buildSegments();
+    summary.cuts = oldCuts;
+    tlDrag.saved = false;
+    e.preventDefault();
+  });
+
+  tlCanvas.addEventListener('pointerup', async (e) => {
+    if (!tlDrag) return;
+    tlCanvas.releasePointerCapture(e.pointerId);
+    if (tlDrag.saved) { tlDrag = null; return; }
+    if (!tlDrag.moved) {
+      // No drag — just seek
+      const t = tlTimeFromX(tlTimelineX(e));
+      const w = isPlaying; if (w) pause();
+      seekTo(t);
+      tlDrag = null;
+      return;
+    }
+    // Save to server
+    const newEdit = JSON.parse(JSON.stringify(summary));
+    const cut = newEdit.cuts[tlDrag.cutIndex];
+    if (!cut) { tlDrag = null; return; }
+    if (tlDrag.mode === 'trim-in') {
+      const deltaSec = (tlTimelineX(e) - tlDrag.startPx) / tlZoom;
+      cut.in = Math.max(0, +(tlDrag.startIn + deltaSec).toFixed(2));
+    } else if (tlDrag.mode === 'trim-out') {
+      const deltaSec = (tlTimelineX(e) - tlDrag.startPx) / tlZoom;
+      cut.out = Math.max(cut.in + (1 / fps), +(tlDrag.startOut + deltaSec).toFixed(2));
+    } else if (tlDrag.mode === 'move') {
+      const deltaSec = (tlTimelineX(e) - tlDrag.startPx) / tlZoom;
+      cut.at = Math.max(0, +(tlDrag.startAt + deltaSec).toFixed(2));
+    }
+    try {
+      const res = await fetch('/api/edit.json', {
+        method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
+      });
+      if (res.ok) {
+        await reloadSummary();
+        buildSegments();
+        seekTo(outputTime);
+        tlDrag.saved = true;
+      } else {
+        showMessage(await editSaveErrorMessage(res));
+        buildSegments();
+        renderTimeline();
+      }
+    } catch (err) { showMessage(err?.message || String(err)); buildSegments(); renderTimeline(); }
+    tlDrag = null;
+  });
+
+  tlCanvas.addEventListener('pointercancel', () => {
+    if (tlDrag) { tlDrag = null; buildSegments(); renderTimeline(); }
+  });
+
+  // Mouse wheel to zoom
+  tlCanvasWrap.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const rect = tlCanvasWrap.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const tUnder = (mx + tlCanvasWrap.scrollLeft) / tlZoom;
+    const factor = e.deltaY > 0 ? 1 / 1.15 : 1.15;
+    tlZoom = Math.max(TL_MIN_ZOOM, Math.min(TL_MAX_ZOOM, tlZoom * factor));
+    renderTimeline();
+    tlCanvasWrap.scrollLeft = tUnder * tlZoom - mx;
+  }, { passive: false });
+
+  // Drop asset on timeline
+  let dropIndicator = null;
+  tlCanvas.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!dropIndicator) {
+      dropIndicator = document.createElement('div');
+      dropIndicator.style.cssText = 'position:absolute;top:0;bottom:0;width:2px;background:#4da3ff;z-index:6;pointer-events:none;';
+      (tlCanvasWrap.querySelector('div') || tlCanvasWrap).appendChild(dropIndicator);
+    }
+    dropIndicator.style.left = (tlTimelineX(e) - tlCanvasWrap.scrollLeft) + 'px';
+  });
+  tlCanvasWrap.addEventListener('dragleave', (e) => {
+    if (!tlCanvasWrap.contains(e.relatedTarget)) { dropIndicator?.remove(); dropIndicator = null; }
+  });
+  tlCanvas.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropIndicator?.remove(); dropIndicator = null;
+    const assetPath = e.dataTransfer.getData('text/plain');
+    if (!assetPath || !summary?.cuts) return;
+    const t = tlTimeFromX(tlTimelineX(e));
+    const newEdit = JSON.parse(JSON.stringify(summary));
+    if (!Array.isArray(newEdit.sources)) newEdit.sources = [];
+    const srcId = 'src-' + Date.now();
+    newEdit.sources.push({ id: srcId, path: assetPath });
+    newEdit.cuts = [...newEdit.cuts, { in: 0, out: 2, src: srcId, at: +t.toFixed(2) }];
+    try {
+      const res = await fetch('/api/edit.json', {
+        method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
+      });
+      if (res.ok) { await reloadSummary(); buildSegments(); seekTo(outputTime); }
+      else showMessage(await editSaveErrorMessage(res));
+    } catch (err) { showMessage(err?.message || String(err)); }
+  });
+}
+
+function renderTimeline() {
+  const wrapW = tlCanvasWrap.clientWidth;
+  const totalPx = Math.max(wrapW, totalDuration * tlZoom);
+  const h = TL_TRACK_HEIGHT * 2;
+  tlCanvas.width = Math.ceil(totalPx) * devicePixelRatio;
+  tlCanvas.height = h * devicePixelRatio;
+  tlCanvas.style.width = Math.ceil(totalPx) + 'px';
+  tlCanvas.style.height = h + 'px';
+  const ctx = tlCanvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.fillStyle = '#161616';
+  ctx.fillRect(0, 0, totalPx, h);
+  // Grid
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 1;
+  const step = tlZoom >= 100 ? 1 : tlZoom >= 40 ? 5 : tlZoom >= 15 ? 10 : 30;
+  for (let t = step; t <= totalDuration; t += step) {
+    const x = t * tlZoom;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  // Draw cuts with handles
+  let cursor = 0;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (seg.isGap) { cursor += seg.durationSec; continue; }
+    const sx = cursor * tlZoom;
+    const sw = seg.durationSec * tlZoom;
+    const color = TL_CUT_COLORS[seg.index % TL_CUT_COLORS.length];
+    const y = seg.track === 0 ? 0 : TL_TRACK_HEIGHT;
+    const segH = TL_TRACK_HEIGHT - 4;
+    // Main body
+    const grad = ctx.createLinearGradient(sx, y, sx, y + TL_TRACK_HEIGHT);
+    grad.addColorStop(0, color);
+    grad.addColorStop(0.5, color);
+    grad.addColorStop(1, '#000');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    const r = 3;
+    const rx = sx, ry = y + 2, rw = Math.max(2, sw), rh = segH;
+    ctx.moveTo(rx + r, ry); ctx.lineTo(rx + rw - r, ry); ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + r);
+    ctx.lineTo(rx + rw, ry + rh - r); ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - r, ry + rh);
+    ctx.lineTo(rx + r, ry + rh); ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - r);
+    ctx.lineTo(rx, ry + r); ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+    ctx.fill();
+    // Handle zones
+    if (sw > TL_HANDLE_PX * 3) {
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(sx, y + 2, TL_HANDLE_PX, segH);
+      ctx.fillRect(sx + sw - TL_HANDLE_PX, y + 2, TL_HANDLE_PX, segH);
+      // Handle grips
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      for (let g = 0; g < 3; g++) {
+        const gh = y + 2 + 5 + g * 6;
+        ctx.fillRect(sx + 2, gh, 4, 2);
+        ctx.fillRect(sx + sw - 6, gh, 4, 2);
+      }
+    }
+    // Label
+    if (sw > 30) {
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`#${seg.index + 1}`, sx + sw / 2, y + TL_TRACK_HEIGHT / 2);
+    }
+    cursor += seg.durationSec;
+  }
+  // Track separator
+  ctx.strokeStyle = '#303030';
+  ctx.beginPath(); ctx.moveTo(0, TL_TRACK_HEIGHT); ctx.lineTo(totalPx, TL_TRACK_HEIGHT); ctx.stroke();
+  // Ruler
+  tlRulerCanvas.width = Math.ceil(totalPx) * devicePixelRatio;
+  tlRulerCanvas.height = 22 * devicePixelRatio;
+  tlRulerCanvas.style.width = Math.ceil(totalPx) + 'px';
+  const rctx = tlRulerCanvas.getContext('2d');
+  rctx.scale(devicePixelRatio, devicePixelRatio);
+  rctx.fillStyle = '#141414';
+  rctx.fillRect(0, 0, totalPx, 22);
+  rctx.strokeStyle = '#333';
+  rctx.lineWidth = 1;
+  rctx.fillStyle = '#666';
+  rctx.font = '9px system-ui, sans-serif';
+  rctx.textAlign = 'center';
+  rctx.textBaseline = 'bottom';
+  for (let t = 0; t <= totalDuration; t += step) {
+    const x = t * tlZoom;
+    const rh = t % (step * 5) === 0 ? 14 : 8;
+    rctx.beginPath(); rctx.moveTo(x, 22); rctx.lineTo(x, 22 - rh); rctx.stroke();
+    if (t % (step * 5) === 0 || step <= 1) {
+      const m = Math.floor(t / 60);
+      const s = Math.floor(t % 60);
+      rctx.fillText(`${m}:${String(s).padStart(2, '0')}`, x, 20);
+    }
+  }
+  tlZoomLabel.textContent = Math.round(tlZoom) + 'px/s';
+  // drag preview overlay
+  if (tlDrag) {
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    const seg = segments[tlDrag.segIndex];
+    if (seg && !seg.isGap) {
+      let dc = 0;
+      for (let j = 0; j < tlDrag.segIndex; j++) { if (!segments[j].isGap) dc += segments[j].durationSec; }
+      const dx = (tlDrag.cursorStart + (segments[tlDrag.segIndex]?.durationSec || 0) / 2) * tlZoom - 20;
+      ctx.fillRect(dx, 0, 40, h);
+    }
+  }
+  updateTimelinePlayhead();
+}
+
+function updateTimelinePlayhead() {
+  if (totalDuration <= 0) { tlPlayhead.style.display = 'none'; return; }
+  tlPlayhead.style.display = 'block';
+  const x = outputTime * tlZoom - tlCanvasWrap.scrollLeft;
+  tlPlayhead.style.left = Math.max(0, x) + 'px';
+  tlPlayhead.style.height = (TL_TRACK_HEIGHT * 2) + 'px';
+}
+
+// Extend existing functions
+const origSeekTo = seekTo;
+seekTo = function(t) {
+  origSeekTo(t);
+  updateTimelinePlayhead();
+};
+
+const origBuildSegments = buildSegments;
+buildSegments = function() {
+  origBuildSegments();
+  if (totalDuration > 0) {
+    tlZoom = computeNaturalZoom();
+    renderTimeline();
+  }
+};
+
 // --- Output preview ---
 const outputBtn = document.getElementById('output-preview-btn');
 if (isOutputMode) {
@@ -2042,3 +2523,6 @@ if (isOutputMode) {
 
 init();
 connectWs();
+setupAssetBrowser();
+setupTimeline();
+loadAssets();

@@ -292,6 +292,76 @@ const router = {
       proxyDir: PROXY_DIR,
     });
   },
+  // Project file browser
+  'GET /api/project-files': (req, res) => {
+    const MEDIA_EXT = {
+      video: ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v'],
+      audio: ['.mp3', '.wav', '.ogg', '.aac', '.flac', '.m4a'],
+      image: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'],
+    };
+    const excludeDirs = new Set(['.proxy', 'node_modules', '.git', 'review', '.akari', '.opencode', '.claude', '.cursor', '.codex', '.agents']);
+    try {
+      const files = [];
+      function scan(dir, relPath) {
+        let entries;
+        try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const entry of entries) {
+          if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+          const fullPath = path.join(dir, entry.name);
+          const rel = relPath ? `${relPath}/${entry.name}` : entry.name;
+          if (entry.isDirectory()) {
+            if (!excludeDirs.has(entry.name)) scan(fullPath, rel);
+          } else if (entry.isFile()) {
+            const ext = path.extname(entry.name).toLowerCase();
+            let cat = null;
+            for (const [c, exts] of Object.entries(MEDIA_EXT)) {
+              if (exts.includes(ext)) { cat = c; break; }
+            }
+            if (cat) {
+              try {
+                const stat = fs.statSync(fullPath);
+                files.push({ name: entry.name, path: rel, category: cat, size: stat.size, mtime: stat.mtimeMs });
+              } catch {}
+            }
+          }
+        }
+      }
+      scan(projectRoot, '');
+      files.sort((a, b) => b.mtime - a.mtime);
+      respond(res, 200, files);
+    } catch (e) {
+      respond(res, 500, { error: e.message });
+    }
+  },
+  // Asset upload via drag-and-drop
+  'POST /api/assets/upload': async (req, res) => {
+    const fileName = req.headers['x-file-name'];
+    if (!fileName) return respond(res, 400, { error: 'Missing X-File-Name header' });
+    const safeName = path.basename(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
+    if (!safeName) return respond(res, 400, { error: 'Invalid filename' });
+    const assetsDir = path.join(projectRoot, 'assets');
+    try { if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir, { recursive: true }); } catch (e) { return respond(res, 500, { error: e.message }); }
+    const dest = path.join(assetsDir, safeName);
+    if (fs.existsSync(dest)) {
+      const ext = path.extname(safeName);
+      const base = path.basename(safeName, ext);
+      for (let i = 1; ; i++) {
+        const candidate = path.join(assetsDir, `${base}_${i}${ext}`);
+        if (!fs.existsSync(candidate)) { dest !== candidate && (dest = candidate); break; }
+      }
+    }
+    try {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const buf = Buffer.concat(chunks);
+      fs.writeFileSync(dest, buf);
+      const stat = fs.statSync(dest);
+      respond(res, 200, { name: safeName, path: `assets/${safeName}`, size: stat.size, category: 'video' });
+      console.log(`[assets] uploaded ${safeName} (${(buf.length / 1024 / 1024).toFixed(1)} MB)`);
+    } catch (e) {
+      respond(res, 500, { error: e.message });
+    }
+  },
   // Review session recording
   'POST /api/review/start': async (req, res) => {
     try {
