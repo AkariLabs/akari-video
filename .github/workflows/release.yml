@@ -468,8 +468,9 @@ jobs:
           path: release-artifacts/
           retention-days: 14
 
-      # draft + prerelease が既定（契約 §7-1「初回は未署名で出してよい」「NPM_TOKEN 未登録なら
-      # npm publish はスキップ」）。stable: true 入力時のみ --prerelease を外す
+      # draft + prerelease が既定（契約 §7-1「初回は未署名で出してよい」。npm publish の
+      # 認証は Trusted Publishing に移行済み — 下の publish ステップのコメント参照）。
+      # stable: true 入力時のみ --prerelease を外す
       - name: draft Release 作成 + asset 添付
         if: ${{ !inputs.dry_run }}
         env:
@@ -486,32 +487,23 @@ jobs:
             "release-artifacts/${{ env.ARTIFACT_CLI }}" \
             release-artifacts/latest.json
 
-      # D1 裁定（契約 §5）= GO。NPM_TOKEN 不在時はスキップ + 警告（tarball 経路がフォールバック）
-      - name: npm publish secret の有無を確認
-        id: npm-secret
-        run: |
-          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            {
-              echo "### ⚠️ npm publish スキップ"
-              echo ""
-              echo "\`NPM_TOKEN\` が未登録のため npm publish をスキップしました。"
-              echo "latest.json の \`components.cli.tarball.url\` からの tarball 直インストール（\`npm i -g <url>\`）は引き続き機能します。"
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
+      # D1 裁定（契約 §5）= GO。認証は NPM_TOKEN secret ではなく npm Trusted Publishing
+      # （OIDC）に移行済み（2026-07-29）: npm 側にこのリポ + このワークフローファイル名
+      # （release.yml）が trusted publisher として登録されており、長寿命トークンは使わない。
+      # 登録ファイル名とこのファイル名がズレると npm が publish を拒否する（改名時は
+      # `npm trust` で再登録）。認証失敗時はステップが fail し列車が止まる（npm レールが
+      # CLI 配布の正のため fail-loud を選ぶ。tarball 直インストールは応急経路として残る）。
+      #
       # unscoped パッケージ（akari-video）なので --access public は本来 no-op だが、将来
-      # スコープを付けた場合の安全策として明示しておく。--provenance は公開リポ +
-      # GitHub Actions + id-token: write の 3 条件が揃っているため付ける
-      # （npm CLI の provenance 要件を満たす。使えない場合の代替手順は report.md 参照）
-      - name: npm publish (packages/akari-launcher)
-        if: ${{ !inputs.dry_run && steps.npm-secret.outputs.present == 'true' }}
-        working-directory: packages/akari-launcher
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public
+      # スコープを付けた場合の安全策として明示しておく。provenance は Trusted Publishing
+      # 経由なら自動生成が建前だが、明示フラグが必要だった実測報告があるため付けたままにする
+      # （公開リポ + GitHub Actions + id-token: write の 3 条件は引き続き満たしている）。
+      # cwd ではなく -w で対象を固定するのは、workspace 子ディレクトリからの npm 実行が
+      # ルートパッケージ（akari-video-monorepo）に解決される事故の実測（npm trust で確認）
+      # を踏まえた防御
+      - name: npm publish (packages/akari-launcher, Trusted Publishing)
+        if: ${{ !inputs.dry_run }}
+        run: npm publish -w packages/akari-launcher --provenance --access public
 
   feed-update:
     name: feed-update (updates フィードへ latest.json を差し替え)
