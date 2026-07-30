@@ -35,7 +35,7 @@ AKARI Video は「同じファイル契約（`.akari/` 配下の JSON）に収�
 
 | 入口 | 実体 | 発動方法 |
 |---|---|---|
-| ターミナル | この `akari` ランチャー CLI | シェルで `akari --opencode` と打つ（`npm i -g akari-video` または `npx akari-video` 相当。器のみ、npm publish は本タスクのスコープ外） |
+| ターミナル | この `akari` ランチャー CLI | `npm i -g akari-video` で導入し、シェルで `akari`（または `akari --opencode`）と打つ |
 | セッション内 | opencode スキルの自動発見、またはプラグインの `/akari` スラッシュコマンド | opencode セッション内で「新しい動画プロジェクトを作りたい」と発話、または Claude Code セッション内で `/akari` と打つ |
 | アプリ | 接続ボタン（AKARI Video アプリ） | アプリの「はじめる」画面から接続 → はじめかた選択 |
 
@@ -43,9 +43,12 @@ AKARI Video は「同じファイル契約（`.akari/` 配下の JSON）に収�
 `skills/create-project`）を読み書きするため、どの入口から始めても続きは他の入口から
 再開できる。
 
-## インストール（現状の到達点）
+## インストール
 
-npm publish は本タスクのスコープ外（「器まで」）。現状は次のいずれかで実行できる:
+npm publish 済み（v0.1.0 から・provenance 付き）。npm 版はランチャー + エージェント
+ワークフロー（skills / 雛形 / schemas を vendor 同梱）のみで、ブラウザプレビュー
+（`packages/preview-server`）は含まない。フル構成はリポジトリのインストーラー
+（`install.sh` — リリースタグ固定配布）を使う。実行方法:
 
 ```sh
 # モノレポ checkout 内から、bin を直接実行する（opencode モード）
@@ -54,7 +57,7 @@ node packages/akari-launcher/bin/akari.mjs --opencode
 # Claude Code モード
 node packages/akari-launcher/bin/akari.mjs
 
-# 将来 npm publish された場合の想定コマンド（現状は publish していないため未検証）
+# 既定の導入（npm publish 済み）
 npm i -g akari-video && akari
 npx akari-video
 ```

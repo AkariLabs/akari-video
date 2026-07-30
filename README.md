@@ -82,7 +82,7 @@ Whichever entrance you start from, everything converges on the same file contrac
 
 | Entrance | What it is | How to launch |
 |---|---|---|
-| Terminal | `packages/akari-launcher` (bin: `akari`) | `node packages/akari-launcher/bin/akari.mjs --opencode` (not yet published to npm) |
+| Terminal | One-line installer (full setup — browser preview included) → `akari.sh` | `curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh \| bash` — CLI only: `npm i -g akari-video` |
 | Inside an opencode session | Skills auto-discovered from `.opencode/skills/` | Just say "I want to start a new video project" |
 | Inside a Claude Code session | `/akari` command + SessionStart hook in `plugin/` | Type `/akari` in a session, or just say "I want to start a new video project" |
 | Inside Cursor Agent | Skills auto-discovered from `.cursor/skills/` (monorepo) or project adapters | Open the repo or project folder in Cursor and say "I want to start a new video project" |

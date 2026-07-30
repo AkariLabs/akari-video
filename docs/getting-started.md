@@ -24,7 +24,8 @@ You need **three things**: Node.js, an AI agent, and ffmpeg.
 **Auto-install (recommended)**:
 
 Run only **one** command — the one for your OS.
-If already installed, the same command updates to the latest version.
+The installer checks out the **latest release** (not the development branch). If already
+installed, the same command updates you to the newest release.
 
 **Windows (PowerShell)**:
 ```sh
@@ -45,6 +46,10 @@ The script automatically checks and installs:
 - Node.js v20+ (auto-installs if missing)
 - opencode or Claude Code (shows instructions)
 - ffmpeg (optional, can auto-install)
+
+**Prefer a lightweight CLI-only install?** `npm i -g akari-video` installs just the `akari`
+command (agent workflow bundled; the browser preview server is not included — use the
+installer above for the full setup).
 
 **For manual installation**, see below:
 

@@ -77,7 +77,7 @@ flowchart LR
 
 | 入口 | 実体 | 発動方法 |
 |---|---|---|
-| ターミナル | `packages/akari-launcher`（bin: `akari`） | `node packages/akari-launcher/bin/akari.mjs --opencode`（npm publish は未実施） |
+| ターミナル | ワンライナーインストーラー（フル構成 — ブラウザプレビュー込み）→ `akari.sh` | `curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh \| bash` — CLI だけ軽量に入れるなら `npm i -g akari-video` |
 | opencode セッション内 | `.opencode/skills/` から自動発見 | 「新しい動画プロジェクトを作りたい」と発話 |
 | Claude Code セッション内 | `plugin/` の `/akari` コマンド + SessionStart hook | セッション内で `/akari`、または「新しい動画プロジェクトを作りたい」と発話 |
 | Cursor Agent | `.cursor/skills/`（モノレポ）またはプロジェクトのアダプタから自動発見 | リポジトリまたはプロジェクトフォルダを Cursor で開き、「新しい動画プロジェクトを作りたい」と発話 |
