@@ -2634,3 +2634,11 @@ connectWs();
 setupAssetBrowser();
 setupTimeline();
 loadAssets();
+
+// Expose internals for tests
+window.__test = {
+  get summary() { return summary; },
+  get segments() { return segments; },
+  get outputTime() { return outputTime; },
+  seekTo, getActiveSegment, tlSplitCut, tlDeleteCut,
+};

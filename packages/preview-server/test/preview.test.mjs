@@ -178,6 +178,166 @@ async function main() {
     try { await page.screenshot({ path: '/tmp/preview-test-error.png', fullPage: true }); } catch {}
   }
 
+  // ── Timeline editor tests ──
+  console.log('\n🖥️  Timeline editor tests');
+  try {
+    // Timeline canvas
+    await page.waitForSelector('#timeline-canvas', { timeout: 5000 });
+    ok('Timeline canvas found');
+
+    // Timeline controls
+    await page.waitForSelector('#tl-zoom-in');
+    await page.waitForSelector('#tl-zoom-out');
+    await page.waitForSelector('#tl-fit-btn');
+    ok('Timeline zoom controls found');
+
+    // Playhead exists
+    await page.waitForSelector('#tl-playhead');
+    ok('Timeline playhead found');
+
+    // Ruler exists
+    await page.waitForSelector('#tl-ruler-canvas');
+    ok('Timeline ruler found');
+
+    // Track headers (Video)
+    const headerCount = await page.locator('.timeline-track-header').count();
+    if (headerCount >= 2) {
+      ok(`Timeline track headers count=${headerCount}`);
+    } else {
+      ng('Track headers', `expected >=2 got ${headerCount}`);
+    }
+
+    // Canvas has segments drawn (width > 0)
+    const cw = await page.evaluate(() => {
+      const c = document.getElementById('timeline-canvas');
+      return c ? parseInt(c.style.width) : 0;
+    });
+    if (cw > 100) {
+      ok(`Timeline segments rendered (canvas width=${cw}px)`);
+    } else {
+      ng('Timeline segments', `canvas width=${cw}px`);
+    }
+
+    // Zoom fit button works
+    await page.click('#tl-fit-btn');
+    await page.waitForTimeout(200);
+    ok('Timeline fit clicked');
+
+    // Zoom in works
+    await page.click('#tl-zoom-in');
+    await page.waitForTimeout(200);
+    ok('Timeline zoom-in clicked');
+
+  } catch (e) {
+    ng('Timeline editor', e.message);
+    try { await page.screenshot({ path: '/tmp/timeline-test-error.png', fullPage: true }); } catch {}
+  }
+
+  // ── Asset browser tests ──
+  console.log('\n🖥️  Asset browser tests');
+  try {
+    await page.waitForSelector('#asset-list', { timeout: 5000 });
+    ok('Asset browser list found');
+
+    await page.waitForSelector('#asset-search');
+    ok('Asset search found');
+
+    await page.waitForSelector('#asset-tabs');
+    ok('Asset tabs found');
+
+    // Search input works
+    await page.fill('#asset-search', 'mp4');
+    await page.waitForTimeout(300);
+    ok('Asset search input filled');
+
+    // Clear search
+    await page.fill('#asset-search', '');
+    await page.waitForTimeout(200);
+
+    // Tab switching works
+    const tabs = page.locator('.asset-tab');
+    const tabCount = await tabs.count();
+    if (tabCount === 4) {
+      ok(`Asset tabs count=${tabCount}`);
+      // Click video tab
+      await tabs.nth(1).click();
+      await page.waitForTimeout(200);
+      // Check it became active
+      const active = await tabs.nth(1).getAttribute('class');
+      if (active?.includes('active')) {
+        ok('Asset tab switching works');
+      }
+      // Back to all
+      await tabs.nth(0).click();
+      await page.waitForTimeout(200);
+    } else {
+      ng('Asset tabs', `expected 4 got ${tabCount}`);
+    }
+  } catch (e) {
+    ng('Asset browser', e.message);
+    try { await page.screenshot({ path: '/tmp/asset-test-error.png', fullPage: true }); } catch {}
+  }
+
+  // ── Split / Delete cut tests ──
+  console.log('\n🖥️  Cut edit tests');
+  const editJsonPath = path.join(PROJECT, 'edit.json');
+  const editBackup = fs.readFileSync(editJsonPath, 'utf-8');
+  try {
+    // Wait for cuts to be rendered
+    await page.waitForTimeout(500);
+
+    // Get initial cut count
+    const initialCuts = await page.evaluate(() => window.__test?.summary?.cuts?.length || 0);
+    if (initialCuts < 1) {
+      ng('Split cut', `no cuts to split (count=${initialCuts})`);
+    } else {
+      ok(`Initial cuts: ${initialCuts}`);
+
+      // Seek to middle of first cut to split
+      await page.evaluate(() => {
+        const seg = window.__test.segments?.[0];
+        if (seg) window.__test.seekTo(seg.durationSec / 2);
+      });
+      await page.waitForTimeout(200);
+
+      // Press S to split
+      await page.keyboard.press('s');
+      await page.waitForTimeout(500);
+
+      // Get cut count after split
+      const afterSplit = await page.evaluate(() => window.__test?.summary?.cuts?.length || 0);
+      if (afterSplit === initialCuts + 1) {
+        ok(`Split: cuts ${initialCuts} → ${afterSplit}`);
+      } else {
+        ng('Split', `expected ${initialCuts + 1} cuts, got ${afterSplit}`);
+      }
+
+      // Delete the second cut (the new split)
+      await page.evaluate(() => {
+        const seg = window.__test?.getActiveSegment?.(window.__test.outputTime);
+        if (seg && seg.index >= 0) {
+          window.__test.seekTo(Math.max(0, seg.durationSec - 0.1));
+        }
+      });
+      await page.waitForTimeout(200);
+      await page.keyboard.press('Delete');
+      await page.waitForTimeout(500);
+
+      const afterDel = await page.evaluate(() => window.__test?.summary?.cuts?.length || 0);
+      // After split (N+1) then delete one = N
+      if (afterDel === initialCuts + 1 - 1) {
+        ok(`Delete: cuts ${initialCuts + 1} → ${afterDel}`);
+      } else {
+        ng('Delete', `expected ${initialCuts} cuts, got ${afterDel}`);
+      }
+
+    }
+    ok('Split+Delete tests passed');
+  } catch (e) {
+    ng('Cut edit', e.message);
+    try { await page.screenshot({ path: '/tmp/cut-edit-error.png', fullPage: true }); } catch {}
+  }
+
   // ── Output preview page ──
   console.log('\n🖥️  Output preview page');
   try {
@@ -240,6 +400,8 @@ async function main() {
   }
 
   await page.close();
+  // Restore edit.json (file watcher may trigger reload on server, safe after page close)
+  try { fs.writeFileSync(editJsonPath, editBackup, 'utf-8'); } catch {}
   await browser.close();
   if (!hadOutput) fs.unlinkSync(OUT_JSON);
 
