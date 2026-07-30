@@ -538,8 +538,12 @@ jobs:
       # 契約 §3: updates は固定タグ Release。無ければ prerelease フラグ付き +
       # 「機械用フィードです」本文で冪等に作成する。既にあれば作成をスキップして
       # asset だけ --clobber で差し替える
+      #
+      # GH_REPO 必須: このジョブは checkout を持たないため、無いと gh CLI が
+      # 「not a git repository」で対象リポを特定できず即死する（run 30524056952 実測）
       - env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release download "${{ needs.resolve-tag.outputs.tag }}" --pattern latest.json --dir .
           if ! gh release view updates >/dev/null 2>&1; then
