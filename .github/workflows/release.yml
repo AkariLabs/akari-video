@@ -511,9 +511,23 @@ jobs:
           npm install -g npm@latest
           npm --version
 
+      # 診断: npm のレジストリが照合に使う OIDC クレームを表示する（トークン本体は
+      # 出力しない — デコードした claim のみ）。npm 側の trusted publisher 登録
+      # （repository / workflow filename / environment）と突き合わせるため
+      - name: OIDC クレーム確認（診断）
+        run: |
+          payload=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org"             | jq -r .value | cut -d. -f2)
+          # base64url → base64 パディング補正
+          pad=$(( (4 - ${#payload} % 4) % 4 )); payload="$payload$(printf '=%.0s' $(seq 1 $pad 2>/dev/null))"
+          echo "$payload" | tr '_-' '/+' | base64 -d 2>/dev/null | jq '{repository, workflow_ref, job_workflow_ref, event_name, ref, environment}'
+
+      # -w（workspace 指定）ではなくパッケージディレクトリ内で実行する: OIDC の
+      # 資格情報交換が workspace 経由だとルートパッケージ名で行われる疑いを排除する
+      # （npm pack は同ディレクトリ実行で正しく launcher を対象にすることを build-cli で実証済み）
       - name: npm publish (packages/akari-launcher, Trusted Publishing)
         if: ${{ !inputs.dry_run }}
-        run: npm publish -w packages/akari-launcher --provenance --access public
+        working-directory: packages/akari-launcher
+        run: npm publish --provenance --access public
 
   feed-update:
     name: feed-update (updates フィードへ latest.json を差し替え)
