@@ -501,6 +501,16 @@ jobs:
       # cwd ではなく -w で対象を固定するのは、workspace 子ディレクトリからの npm 実行が
       # ルートパッケージ（akari-video-monorepo）に解決される事故の実測（npm trust で確認）
       # を踏まえた防御
+      # Trusted Publishing の OIDC 交換はランナー同梱 npm が古いと紛らわしい E404 で
+      # 落ちる（実測 run 30521667859: provenance 署名・透明性ログ掲載まで成功 →
+      # レジストリへの PUT だけ 404。npm >= 11.5.1 + workspaces 周りの修正を含む
+      # 最新版で解消する既知パターン）。同梱版に依存せず publish 直前に更新し、
+      # 使用版をログへ残す
+      - name: npm を最新へ更新（Trusted Publishing E404 対策）
+        run: |
+          npm install -g npm@latest
+          npm --version
+
       - name: npm publish (packages/akari-launcher, Trusted Publishing)
         if: ${{ !inputs.dry_run }}
         run: npm publish -w packages/akari-launcher --provenance --access public
