@@ -30,11 +30,12 @@ import {
 } from '../common/intake-labels';
 import { DEFAULT_UPDATE_FEED_URL, UpdateCache, UpdateStatus, evaluateUpdateStatus, formatHomeBannerText, parseUpdateCache, withDismissedVersion } from '../common/update-feed';
 
-// ホーム v2（task.md 2026-07-21-home-flow）の 4 状態。
-// 01 gate（未接続）→ 02 starters（はじめかた 4 択）→ 03 intake（進め方フォーム）
-// → 04 workspace（作業中 = 既存 v1 の地図）。
-type HomeFlowStage = 'gate' | 'starters' | 'intake' | 'workspace';
-type StarterId = 'assets' | 'template' | 'reference' | 'consult';
+// ホーム v3（裁定 R3+R4+R5・2026-07-30）: 画面は dashboard 1 枚だけ。
+// v2 の 4 状態（01 gate → 02 starters → 03 intake → 04 workspace）という
+// state machine は廃止した — 工程はエージェント + ファイル（intake.json /
+// edit.json）が持ち、シェルは「今の状態を映すサーフェス」に徹する。
+// 接続案内・進め方案内はロックではなくカードとして dashboard に重なる。
+type QuickActionId = 'assets' | 'template' | 'reference' | 'consult';
 
 const CONNECTIONS_RELATIVE_PATH = '.akari/connections.json';
 const INTAKE_RELATIVE_PATH = '.akari/intake.json';
@@ -71,6 +72,18 @@ interface EntryCard {
     hint: string;
     icon: string;
     open: () => Promise<void>;
+}
+
+/**
+ * intake.json（方向性の SSOT）を読んだ結果。進め方カードのサマリ表示と
+ * フォームのプリフィルの両方がこの 1 経路を通る（パースを二重に持たない）。
+ */
+interface IntakeSnapshot {
+    status: 'absent' | 'draft' | 'submitted';
+    tasks: IntakeTaskId[];
+    duration: IntakeDurationChoice;
+    autonomy: IntakeAutonomy;
+    taste: string | null;
 }
 
 /** ドロップ／ダイアログで取り込める素材の拡張子。動画と写真のみ（音声・その他は対象外）。 */
@@ -135,27 +148,22 @@ export class AkariHomeWidget extends ReactWidget {
     protected importedNotice: string | undefined;
     protected dragActive = false;
 
-    // --- ホーム v2: 接続ゲート / はじめかた / 進め方フォーム ---
+    // --- ホーム v3: 接続案内カード / 進め方カード + 展開フォーム ---
     protected connectionsUri: URI | undefined;
     protected intakeUri: URI | undefined;
     protected connected = false;
     protected intakeStatus: 'absent' | 'draft' | 'submitted' = 'absent';
+    protected intakeSnapshot: IntakeSnapshot | undefined;
     protected connecting = false;
 
-    // 「はじめかた」選択は intake submit 前は永続化しない一時状態（契約が
-    // 明記する「02 か 03 かは実装に任せる」の解決: 選ぶまでは 02、選んだら
-    // メモリ上だけで 03 へ進む。再読込すれば 02 に戻る — draft の永続化は
-    // 本タスクのスコープでは行わない、report.md に明記）。
-    protected starterChosen: StarterId | undefined;
     protected referenceProjectPath: string | undefined;
 
-    // --- F47 戻る導線（2026-07-21 最小修正） ---
-    // 04 から「進め方を見直す」で 03 を開いているときだけ true。true の間は
-    // intakeStatus が submitted でも stage を強制的に 'intake' にする
-    // （通常の未送信フローと同じ画面を使い回す・新しい state machine は作らない）。
-    protected reviewIntake = false;
+    // 進め方フォームを dashboard 内の展開セクションとして開いているか。
+    // 画面の切り替えではなく「開いている / 畳んでいる」だけの純粋な UI 状態で、
+    // 工程の状態は一切表さない（工程の SSOT は intake.json のまま）。
+    protected intakeFormOpen = false;
     // プリフィル時に intake.json から読んだ target.taste の生値。フォーム自体に
-    // taste の編集 UI は無い（reference 選択でのみ入る）ため、review 中に
+    // taste の編集 UI は無い（reference 選択でのみ入る）ため、見直し中に
     // referenceProjectPath を選び直さなければこの値を再送信時にそのまま使う
     // （そうしないとアプリ再起動後の見直しで taste が消えてしまう）。
     protected intakeReviewTaste: string | null = null;
@@ -283,22 +291,7 @@ export class AkariHomeWidget extends ReactWidget {
         await this.refreshOverview();
     }
 
-    // --- ホーム v2: 状態判定（SSOT はファイル。task.md 指示1） ---
-
-    /**
-     * 現在の画面状態。接続 → intake の順で判定する（task.md 指示1の遷移表）。
-     * `reviewIntake`（F47）は 04 到達後に「進め方を見直す」で 03 を開くための
-     * 例外で、submitted でも 'intake' を強制表示する。
-     */
-    protected get stage(): HomeFlowStage {
-        if (!this.connected) {
-            return 'gate';
-        }
-        if (this.intakeStatus === 'submitted' && !this.reviewIntake) {
-            return 'workspace';
-        }
-        return (this.starterChosen || this.reviewIntake) ? 'intake' : 'starters';
-    }
+    // --- ホーム v3: 状態読み取り（SSOT はファイル。裁定 R1/R5） ---
 
     protected async loadHomeFlow(): Promise<void> {
         const roots = await this.workspaceService.roots;
@@ -308,6 +301,7 @@ export class AkariHomeWidget extends ReactWidget {
             this.intakeUri = undefined;
             this.connected = false;
             this.intakeStatus = 'absent';
+            this.intakeSnapshot = undefined;
             this.update();
             return;
         }
@@ -316,13 +310,18 @@ export class AkariHomeWidget extends ReactWidget {
         await this.refreshHomeFlow();
     }
 
+    /**
+     * ファイル watch（connections.json / intake.json）とホーム再表示から呼ばれる
+     * 唯一の反映経路。エージェントが intake.json を直接書き換えた場合も、この
+     * 経路で進め方カードの表示（案内 ⇄ サマリ）が追随する（裁定 R5）。
+     * 展開中のフォームはここで畳まない — 編集中に外部書き込みが来ても
+     * 入力が消えないようにするため（フォームの開閉は純粋な UI 状態）。
+     */
     protected async refreshHomeFlow(): Promise<void> {
         this.connected = await this.readConnected();
-        this.intakeStatus = await this.readIntakeStatus();
-        if (this.intakeStatus === 'submitted') {
-            // 04 に到達したら「はじめかた」選択の一時状態は不要。
-            this.starterChosen = undefined;
-        }
+        const intake = await this.readIntake();
+        this.intakeSnapshot = intake;
+        this.intakeStatus = intake.status;
         this.update();
     }
 
@@ -379,16 +378,39 @@ export class AkariHomeWidget extends ReactWidget {
         }
     }
 
-    protected async readIntakeStatus(): Promise<'absent' | 'draft' | 'submitted'> {
+    /**
+     * intake.json を読んで進め方カード / フォームが使う値まで正規化する。
+     * 無い・壊れている・未解決の場合は `absent` + 既定値を返す（フェイルセーフ側）。
+     * 判定ロジックの重複を避けるため、状態表示もプリフィルもここだけを通す。
+     */
+    protected async readIntake(): Promise<IntakeSnapshot> {
+        const fallback: IntakeSnapshot = {
+            status: 'absent',
+            tasks: [...INTAKE_TASK_DEFAULTS],
+            duration: INTAKE_DEFAULT_DURATION,
+            autonomy: INTAKE_DEFAULT_AUTONOMY,
+            taste: null
+        };
         if (!this.intakeUri) {
-            return 'absent';
+            return fallback;
         }
         try {
             const content = await this.fileService.readFile(this.intakeUri);
             const parsed = JSON.parse(content.value.toString());
-            return parsed?.status === 'submitted' ? 'submitted' : 'draft';
+            const knownTasks = new Set<string>(INTAKE_TASK_IDS);
+            const rawTasks: unknown[] = Array.isArray(parsed?.tasks) ? parsed.tasks : [];
+            const target = parsed?.target ?? {};
+            return {
+                status: parsed?.status === 'submitted' ? 'submitted' : 'draft',
+                tasks: rawTasks.filter((id): id is IntakeTaskId => typeof id === 'string' && knownTasks.has(id)),
+                duration: this.durationChoiceFromTarget(target),
+                autonomy: (INTAKE_AUTONOMY_ORDER as readonly string[]).includes(parsed?.autonomy)
+                    ? parsed.autonomy as IntakeAutonomy
+                    : INTAKE_DEFAULT_AUTONOMY,
+                taste: typeof target?.taste === 'string' ? target.taste : null
+            };
         } catch {
-            return 'absent';
+            return fallback;
         }
     }
 
@@ -531,9 +553,12 @@ export class AkariHomeWidget extends ReactWidget {
         }
     };
 
-    protected async chooseStarter(id: StarterId): Promise<void> {
-        this.starterChosen = id;
-        this.update();
+    /**
+     * クイックアクション（裁定 R4）。v2 の「はじめかた 4 択」から**ステージ性を
+     * 剥奪**したもので、動作は当時と同一（定型プロンプト送信 / assets はピッカー /
+     * reference はフォルダ選択）だが**画面遷移を一切しない**。
+     */
+    protected async runQuickAction(id: QuickActionId): Promise<void> {
         switch (id) {
             case 'assets':
                 void this.pickFiles();
@@ -578,45 +603,41 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     /**
-     * F47「← はじめかたに戻る」導線（最小修正）。03 に来た経路を問わず、
-     * 一時選択状態をクリアするだけ。intake がまだ未送信なら stage は 02
-     * （starters）に落ち、既に submitted 済み（= 04 から見直しに来ていた）
-     * なら 04（workspace）に戻る — 単一のハンドラで両方の「戻る」を賄う
-     * （task.md 指示3どおり 01 への導線は作らない）。
+     * 進め方フォームを dashboard 内の展開セクションとして開く（裁定 R5）。
+     * 「進め方を決める」（absent / draft）と「進め方を見直す」（submitted）は
+     * どちらもこの 1 ハンドラで、intake.json が読めればその内容をプリフィルする
+     * — ファイルが SSOT なので、エージェントが書いた draft もそのまま
+     * 編集の出発点になる。
+     *
+     * submitted 済みなのに読めなかったときだけ開かずにエラーを出す
+     * （空フォームからの送信で既存の内容を失わせないため）。
      */
-    protected backToStarters = (): void => {
-        this.starterChosen = undefined;
-        this.reviewIntake = false;
+    protected openIntakeForm = async (): Promise<void> => {
+        const snapshot = await this.readIntake();
+        if (this.intakeStatus === 'submitted' && snapshot.status !== 'submitted') {
+            console.error('[akari-surfaces] failed to read submitted intake.json for review');
+            this.messages.error('進め方の読み込みに失敗しました。');
+            return;
+        }
+        this.intakeSnapshot = snapshot;
+        this.intakeStatus = snapshot.status;
+        if (snapshot.status !== 'absent') {
+            this.intakeTasks = new Set(snapshot.tasks);
+            this.intakeDuration = snapshot.duration;
+            this.intakeAutonomy = snapshot.autonomy;
+            this.intakeReviewTaste = snapshot.taste;
+        }
+        this.intakeFormOpen = true;
         this.update();
     };
 
     /**
-     * F47「進め方を見直す」導線（04 → 03、最小修正）。submitted 済みの
-     * intake.json を読み、フォームの状態にプリフィルしてから 03 を強制表示する。
-     * 読み込みに失敗したら何もしない（既存の 04 表示のまま・エラー通知のみ）。
+     * フォームを畳む唯一の導線（「ダッシュボードに戻る」）。v2 の 02 へ戻す
+     * ラベルは廃止した — 戻り先は dashboard の 1 種類だけで、どこへ着地するかが
+     * 状態次第で変わることはもう無い（F3 の構造的解消）。
      */
-    protected openIntakeReview = async (): Promise<void> => {
-        if (!this.intakeUri) {
-            return;
-        }
-        try {
-            const content = await this.fileService.readFile(this.intakeUri);
-            const parsed = JSON.parse(content.value.toString());
-            const rawTasks: unknown[] = Array.isArray(parsed?.tasks) ? parsed.tasks : [];
-            const knownTasks = new Set<string>(INTAKE_TASK_IDS);
-            this.intakeTasks = new Set(rawTasks.filter((id): id is IntakeTaskId => typeof id === 'string' && knownTasks.has(id)));
-            const target = parsed?.target ?? {};
-            this.intakeDuration = this.durationChoiceFromTarget(target);
-            this.intakeAutonomy = (INTAKE_AUTONOMY_ORDER as readonly string[]).includes(parsed?.autonomy)
-                ? parsed.autonomy as IntakeAutonomy
-                : INTAKE_DEFAULT_AUTONOMY;
-            this.intakeReviewTaste = typeof target?.taste === 'string' ? target.taste : null;
-        } catch (error) {
-            console.error('[akari-surfaces] failed to read intake.json for review:', error);
-            this.messages.error('進め方の読み込みに失敗しました。');
-            return;
-        }
-        this.reviewIntake = true;
+    protected closeIntakeForm = (): void => {
+        this.intakeFormOpen = false;
         this.update();
     };
 
@@ -660,8 +681,8 @@ export class AkariHomeWidget extends ReactWidget {
         this.update();
 
         const tasks = INTAKE_TASK_IDS.filter(id => this.intakeTasks.has(id));
-        // 見直し（reviewIntake）で reference を選び直していなければ、元の
-        // intake.json の taste をそのまま維持する（無ければ null のまま）。
+        // 見直しで reference を選び直していなければ、元の intake.json の
+        // taste をそのまま維持する（無ければ null のまま）。
         const taste = this.referenceProjectPath
             ? `参考プロジェクト: ${this.referenceProjectPath}`
             : this.intakeReviewTaste;
@@ -697,8 +718,9 @@ export class AkariHomeWidget extends ReactWidget {
         void this.commands.executeCommand(SEND_TO_PARTNER_COMMAND, this.buildIntakeSummaryText(tasks, target));
 
         this.intakeSubmitting = false;
-        // 見直し経由の再送信でも、送信が終われば 04 に戻る（F47）。
-        this.reviewIntake = false;
+        // 送信が終わればフォームを畳んで dashboard に戻る（初回送信でも見直しの
+        // 再送信でも同じ挙動 — 戻り先は常に dashboard の 1 種類）。
+        this.intakeFormOpen = false;
         await this.refreshHomeFlow();
     }
 
@@ -1025,14 +1047,23 @@ export class AkariHomeWidget extends ReactWidget {
 
     // --- レンダリング ---
 
+    /**
+     * ホーム v3: 分岐なしで常に dashboard 1 枚を描く（裁定 R3）。
+     * 上から (a) 接続案内カード（未接続時のみ） (b) 進め方カード（+ 展開フォーム）
+     * (c) クイックアクション列 (d) 素材 / エントリカード群。
+     * `data-akari-home-stage` は state machine 廃止に伴い `"dashboard"` 固定
+     * （属性自体は既存 evidence / 検証スクリプトの掴みどころとして残す）。
+     */
     protected override render(): React.ReactNode {
-        const stage = this.stage;
         return (
-            <div className='akari-home-surface' data-akari-home-stage={stage} style={{ height: '100%', overflow: 'auto', padding: '24px 26px', boxSizing: 'border-box' }}>
-                {stage === 'gate' && this.renderGate()}
-                {stage === 'starters' && this.renderStarters()}
-                {stage === 'intake' && this.renderIntakeForm()}
-                {stage === 'workspace' && this.renderWorkspace()}
+            <div className='akari-home-surface' data-akari-home-stage='dashboard' style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box' }}>
+                {this.renderDashboardHeader()}
+                {this.updateStatus.available && this.renderUpdateBanner()}
+                {!this.connected && this.renderConnectCard()}
+                {this.renderIntakeCard()}
+                {this.intakeFormOpen && this.renderIntakeForm()}
+                {this.renderQuickActions()}
+                {this.hasAssets ? this.renderProjectOverview() : this.renderDropzone('hero')}
             </div>
         );
     }
@@ -1058,104 +1089,151 @@ export class AkariHomeWidget extends ReactWidget {
         );
     }
 
-    protected renderWorkspace(): React.ReactNode {
+    protected renderDashboardHeader(): React.ReactNode {
         return (
-            <>
-                <header style={{ marginBottom: 22, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-                    <div>
-                        <div style={{ fontSize: 12, letterSpacing: '0.12em', opacity: 0.65 }}>AKARI VIDEO</div>
-                        <h1 style={{ margin: '6px 0 4px', fontSize: 26 }}>ホーム</h1>
-                        <p style={{ margin: 0, opacity: 0.7 }}>いまどこにいて、次に何をするかを一望できます。</p>
-                    </div>
-                    {/* F47: 進め方フォームへ後戻りする唯一の導線。submitted 済み intake.json を
-                        プリフィルして 03 を再表示し、再送信で上書きする（01 への導線は作らない）。 */}
-                    <button type='button' className='theia-button secondary' style={homeFlowStyles.reviewEntry} onClick={() => void this.openIntakeReview()}>
-                        <span className='codicon codicon-history' aria-hidden='true' /> 進め方を見直す
-                    </button>
-                </header>
-                {this.updateStatus.available && this.renderUpdateBanner()}
-                {this.hasAssets ? this.renderProjectOverview() : this.renderDropzone('hero')}
-            </>
+            <header style={{ marginBottom: 14, display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                <h1 style={{ margin: 0, fontSize: 21 }}>ホーム</h1>
+                <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>いまどこにいて、次に何をするかを一望できます。</p>
+            </header>
         );
     }
 
-    /** 01: 接続ゲート。これしか出さない（task.md 指示2）。 */
-    protected renderGate(): React.ReactNode {
+    /**
+     * 接続案内カード（裁定 R6）。未接続のときだけ dashboard 最上部に出る**案内**で、
+     * ゲートではない — このカードの下にある素材取り込み・クイックアクション・
+     * 進め方フォームはすべて未接続のまま操作できる。
+     */
+    protected renderConnectCard(): React.ReactNode {
         return (
-            <div style={homeFlowStyles.gateWrap}>
-                <div style={homeFlowStyles.gateMark} aria-hidden='true'>
-                    <span className='codicon codicon-comment-discussion' style={{ fontSize: 28, color: '#fff' }} />
+            <section style={{ ...homeFlowStyles.card, ...homeFlowStyles.cardAccent }}>
+                <div style={homeFlowStyles.cardMark} aria-hidden='true'>
+                    <span className='codicon codicon-comment-discussion' style={{ fontSize: 20, color: 'var(--theia-button-foreground)' }} />
                 </div>
-                <h2 style={homeFlowStyles.gateHeading}>AI パートナーとつないで始めましょう</h2>
-                <p style={homeFlowStyles.gateLead}>
-                    AKARI Video は、AI と話しながら動画を仕上げるエディタです。すべての操作がパートナー経由で動くため、最初にこれだけ済ませてください。
-                </p>
+                <div style={homeFlowStyles.cardBody}>
+                    <strong style={homeFlowStyles.cardTitle}>パートナーとつなぐ</strong>
+                    <p style={homeFlowStyles.cardLead}>
+                        素材の取り込みなど下の操作は、つなぐ前でも使えます。
+                    </p>
+                    <p style={homeFlowStyles.cardFine}>初回のみ · 完了すると次からは自動接続</p>
+                </div>
                 <button
                     type='button'
                     className='theia-button main'
-                    style={homeFlowStyles.cta}
+                    style={homeFlowStyles.cardCta}
                     disabled={this.connecting}
                     onClick={() => void this.connectPartner()}
                 >
                     {this.connecting ? '接続しています…' : 'パートナーに接続する'}
                 </button>
-                <p style={homeFlowStyles.gateFine}>初回のみ · 完了すると次からは自動接続</p>
-            </div>
+            </section>
         );
     }
 
-    /** 02: はじめかた 4 択（task.md 指示3）。どれを選んでも 03 に進む。 */
-    protected renderStarters(): React.ReactNode {
-        const cards: Array<{ id: StarterId; icon: string; title: string; desc: string; go: string }> = [
+    /**
+     * 進め方カード（裁定 R5）。intake.json の状態で 1 枚を出し分ける:
+     * 未送信（absent / draft）は「進め方を決める」案内、submitted は現在の設定
+     * サマリ + 「進め方を見直す」。どちらもフォームを開く導線であり、ロックではない。
+     */
+    protected renderIntakeCard(): React.ReactNode {
+        const submitted = this.intakeStatus === 'submitted';
+        const snapshot = this.intakeSnapshot;
+        return (
+            <section style={homeFlowStyles.card}>
+                <div style={homeFlowStyles.cardMark} aria-hidden='true'>
+                    <span className={`codicon ${submitted ? 'codicon-checklist' : 'codicon-compass'}`}
+                        style={{ fontSize: 20, color: 'var(--theia-button-foreground)' }} />
+                </div>
+                <div style={homeFlowStyles.cardBody}>
+                    <strong style={homeFlowStyles.cardTitle}>{submitted ? '今回の進め方' : '進め方が未定です'}</strong>
+                    {submitted && snapshot ? (
+                        <dl style={homeFlowStyles.summaryList}>
+                            <div style={homeFlowStyles.summaryItem}>
+                                <dt style={homeFlowStyles.summaryKey}>やること</dt>
+                                <dd style={homeFlowStyles.summaryValue}>
+                                    {snapshot.tasks.length ? snapshot.tasks.map(id => INTAKE_TASK_LABELS[id]).join('、') : '（未選択）'}
+                                </dd>
+                            </div>
+                            <div style={homeFlowStyles.summaryItem}>
+                                <dt style={homeFlowStyles.summaryKey}>仕上がりの尺</dt>
+                                <dd style={homeFlowStyles.summaryValue}>{INTAKE_DURATION_LABELS[snapshot.duration]}</dd>
+                            </div>
+                            <div style={homeFlowStyles.summaryItem}>
+                                <dt style={homeFlowStyles.summaryKey}>おまかせの度合い</dt>
+                                <dd style={homeFlowStyles.summaryValue}>{INTAKE_AUTONOMY_LABELS[snapshot.autonomy]}</dd>
+                            </div>
+                        </dl>
+                    ) : (
+                        <p style={homeFlowStyles.cardLead}>
+                            やること・尺・おまかせの度合いがパートナーへの指示になります。決めなくても先に進めます。
+                        </p>
+                    )}
+                </div>
+                <button
+                    type='button'
+                    className='theia-button secondary'
+                    style={homeFlowStyles.reviewEntry}
+                    aria-expanded={this.intakeFormOpen}
+                    onClick={() => void this.openIntakeForm()}
+                >
+                    <span className={`codicon ${submitted ? 'codicon-history' : 'codicon-edit'}`} aria-hidden='true' />
+                    {submitted ? ' 進め方を見直す' : ' 進め方を決める'}
+                </button>
+            </section>
+        );
+    }
+
+    /**
+     * クイックアクション列（裁定 R4）。押しても画面は変わらず、パートナーへ
+     * 定型プロンプトが飛ぶ（assets はピッカー / reference はフォルダ選択も同時）。
+     * v2 の「どの入り口も最後は進め方フォームに合流します」という合流文言は廃止
+     * — 進め方はいつでも決められる 1 サーフェスになったため合流点が無い。
+     */
+    protected renderQuickActions(): React.ReactNode {
+        const actions: Array<{ id: QuickActionId; icon: string; label: string; hint: string }> = [
             {
-                id: 'assets', icon: 'codicon-folder-opened', title: '素材から始める',
-                desc: '動画・写真を入れて、何が撮れているかの分析から。まだ完成形が決まっていない人向け。',
-                go: '→ 素材を取り込んで分析を依頼'
+                id: 'assets', icon: 'codicon-folder-opened', label: '素材から始める',
+                hint: '動画・写真を取り込んで、何が撮れているかの分析を依頼する'
             },
             {
-                id: 'template', icon: 'codicon-layout', title: 'テンプレートから',
-                desc: 'Vlog ダイジェスト / 30 秒 CM / 字幕入りインタビューなど、完成形が決まった型に素材を流し込む。',
-                go: '→ テンプレ一覧をチャットに表示'
+                id: 'template', icon: 'codicon-layout', label: 'テンプレートから',
+                hint: 'Vlog ダイジェスト / 30 秒 CM など、完成形が決まった型の候補をチャットに出す'
             },
             {
-                id: 'reference', icon: 'codicon-history', title: '過去のプロジェクトを参考に',
-                desc: '前に作ったものと同じ雰囲気・同じ流れで。過去の実績から真似て始める。',
-                go: '→ 参考にするプロジェクトを選ぶ'
+                id: 'reference', icon: 'codicon-history', label: '過去のプロジェクトを参考に',
+                hint: '参考にするプロジェクトのフォルダを選んで、同じ雰囲気・同じ流れで進める'
             },
             {
-                id: 'consult', icon: 'codicon-comment-discussion', title: '相談しながら決める',
-                desc: 'まだ何も決まっていなくて OK。パートナーが質問しながら一緒に方向性を固める。',
-                go: '→ チャットで相談を開始'
+                id: 'consult', icon: 'codicon-comment-discussion', label: '相談しながら決める',
+                hint: 'まだ何も決まっていなくて OK。パートナーが質問しながら方向性を固める'
             }
         ];
         return (
-            <div>
-                <p style={homeFlowStyles.eyebrow}>Home — Start</p>
-                <h2 style={homeFlowStyles.h2}>どこから始めますか？</h2>
-                <p style={homeFlowStyles.sub}>どれを選んでも、右のパートナーに引き継がれます。迷ったらそのまま話しかけても OK。</p>
-                <div style={homeFlowStyles.starterGrid}>
-                    {cards.map(card => (
-                        <button key={card.id} type='button' style={homeFlowStyles.starterCard} onClick={() => void this.chooseStarter(card.id)}>
-                            <span className={`codicon ${card.icon}`} style={homeFlowStyles.starterIcon} aria-hidden='true' />
-                            <strong style={homeFlowStyles.starterTitle}>{card.title}</strong>
-                            <p style={homeFlowStyles.starterDesc}>{card.desc}</p>
-                            <span style={homeFlowStyles.starterGo}>{card.go}</span>
+            <section style={{ marginBottom: 16 }}>
+                <p style={homeFlowStyles.glabel}>クイックアクション — 押してもこの画面のまま</p>
+                <div style={homeFlowStyles.chipRow}>
+                    {actions.map(action => (
+                        <button key={action.id} type='button' style={homeFlowStyles.chip} title={action.hint}
+                            onClick={() => void this.runQuickAction(action.id)}>
+                            <span className={`codicon ${action.icon}`} style={homeFlowStyles.chipIcon} aria-hidden='true' />
+                            {action.label}
                         </button>
                     ))}
                 </div>
-                <p style={homeFlowStyles.orTalk}>どの入り口も最後は<strong>進め方フォーム</strong>に合流します — 方向性は人間が決める。</p>
-            </div>
+            </section>
         );
     }
 
-    /** 03: 進め方フォーム（intake サーフェス、task.md 指示4）。 */
+    /**
+     * 進め方フォーム（intake サーフェス）。ステージではなく dashboard 内の展開
+     * セクションで、畳む導線は「ダッシュボードに戻る」の 1 種類だけ（裁定 R5）。
+     */
     protected renderIntakeForm(): React.ReactNode {
         return (
-            <div>
-                <button type='button' style={homeFlowStyles.backLink} onClick={this.backToStarters}>
-                    <span className='codicon codicon-arrow-left' aria-hidden='true' /> はじめかたに戻る
+            <div style={homeFlowStyles.intakeSection}>
+                <button type='button' style={homeFlowStyles.backLink} onClick={this.closeIntakeForm}>
+                    <span className='codicon codicon-arrow-left' aria-hidden='true' /> ダッシュボードに戻る
                 </button>
-                {this.reviewIntake && (
+                {this.intakeStatus === 'submitted' && (
                     <p style={homeFlowStyles.reviewNotice}>
                         以前送信した内容を表示しています。内容を直して送信すると上書きされます。
                     </p>
@@ -1314,34 +1392,38 @@ export class AkariHomeWidget extends ReactWidget {
                 onKeyDown={this.handleDropzoneKeyDown}
                 style={{
                     display: 'flex',
-                    flexDirection: isHero ? 'column' : 'row',
+                    // v3: hero も「画面いっぱいの入口」ではなく dashboard の一区画になったため、
+                    // 縦積み・minHeight 320 をやめて inline と同じ横並びに揃える
+                    // （案内カード・クイックアクションと同時に見えることが受け入れ条件）。
+                    // hero / inline の差は文言と＋ボタンの大きさだけ。
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: isHero ? 'center' : 'flex-start',
-                    gap: isHero ? 14 : 12,
-                    minHeight: isHero ? 320 : 64,
-                    padding: isHero ? 32 : '14px 18px',
+                    justifyContent: 'flex-start',
+                    gap: 14,
+                    minHeight: isHero ? 84 : 64,
+                    padding: isHero ? '16px 18px' : '14px 18px',
                     borderRadius: 14,
                     cursor: 'pointer',
                     border: `2px dashed ${this.dragActive ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`,
                     background: this.dragActive ? 'var(--theia-list-dropBackground)' : 'var(--theia-editorWidget-background)',
-                    textAlign: isHero ? 'center' : 'left'
+                    textAlign: 'left'
                 }}
             >
                 <button type='button' className='theia-button' aria-label='ファイルを選ぶ'
                     onClick={event => { event.stopPropagation(); void this.pickFiles(); }}
                     style={{
-                        width: isHero ? 56 : 36, height: isHero ? 56 : 36, borderRadius: '50%',
-                        fontSize: isHero ? 28 : 18, lineHeight: 1, padding: 0, flex: '0 0 auto'
+                        width: isHero ? 46 : 36, height: isHero ? 46 : 36, borderRadius: '50%',
+                        fontSize: isHero ? 24 : 18, lineHeight: 1, padding: 0, flex: '0 0 auto'
                     }}>
                     +
                 </button>
                 <div>
                     {isHero ? (
                         <>
-                            <h2 style={{ margin: 0 }}>ここに動画や写真を入れると始まります</h2>
-                            <p style={{ margin: '6px 0 0', opacity: 0.75, maxWidth: 420 }}>
+                            <strong style={{ fontSize: 15 }}>ここに動画や写真を入れると始まります</strong>
+                            <div style={{ marginTop: 4, opacity: 0.75, fontSize: 12.5 }}>
                                 ドラッグ＆ドロップするか、＋ボタンから選んでください。
-                            </p>
+                            </div>
                         </>
                     ) : (
                         <>
@@ -1356,47 +1438,73 @@ export class AkariHomeWidget extends ReactWidget {
     }
 }
 
-// ホーム v2（01〜03）のスタイル。色は Theia テーマ変数のみ参照する
+// ホーム v3（dashboard）のスタイル。色は Theia テーマ変数のみ参照する
 // （T1 が --theia-* を LP トークン=黒×オレンジへ差し替え済みのため、ここは
 // 無変更で追随する。akari-partner-widget.tsx の chatStyles と同じ流儀）。
+// v3 で持ち込む新しい語彙は無い — カード / チップはいずれも既存の
+// 「1px widget-border + editorWidget-background + focusBorder アクセント」の再構成。
 const homeFlowStyles: Record<string, React.CSSProperties> = {
     eyebrow: { fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
     h2: { fontSize: 22, fontWeight: 800, lineHeight: 1.4, margin: 0 },
     sub: { color: 'var(--theia-descriptionForeground)', fontSize: 13.5, marginTop: 8, maxWidth: '38em' },
-
-    gateWrap: { maxWidth: 440, margin: '80px auto 0', textAlign: 'center' },
-    gateMark: {
-        width: 68, height: 68, margin: '0 auto 24px', borderRadius: 19,
-        background: 'var(--theia-button-background)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-    },
-    gateHeading: { fontSize: 21, fontWeight: 800, margin: 0 },
-    gateLead: { color: 'var(--theia-descriptionForeground)', margin: '12px auto 28px', lineHeight: 1.7 },
-    gateFine: { marginTop: 16, fontSize: 11.5, opacity: 0.6, fontFamily: 'monospace' },
 
     cta: {
         display: 'inline-block', padding: '12px 30px', borderRadius: 10, fontWeight: 700, fontSize: 14.5,
         minHeight: 'auto', height: 'auto'
     },
 
-    starterGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 24 },
-    starterCard: {
-        textAlign: 'left', padding: 18, borderRadius: 14, background: 'var(--theia-editorWidget-background)',
-        // 素の <button> は色を継承しないため明示する（未指定だと UA 既定の暗色が黒背景に載る）
-        color: 'var(--theia-editorWidget-foreground)',
-        border: '1px solid var(--theia-widget-border)', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4
+    // 案内カード（接続 / 進め方）。ロックではないので画面を占有せず 1 枚に収める。
+    card: {
+        display: 'flex', alignItems: 'flex-start', gap: 13, marginBottom: 12, padding: '13px 15px',
+        borderRadius: 12, border: '1px solid var(--theia-widget-border)',
+        background: 'var(--theia-editorWidget-background)'
     },
-    starterIcon: { fontSize: 20, color: 'var(--theia-focusBorder)', marginBottom: 8 },
-    starterTitle: { fontSize: 15, fontWeight: 700 },
-    starterDesc: { fontSize: 12.5, opacity: 0.72, lineHeight: 1.7, margin: 0 },
-    starterGo: { fontFamily: 'monospace', fontSize: 11, color: 'var(--theia-focusBorder)', marginTop: 8 },
-    orTalk: { marginTop: 20, fontSize: 12.5, opacity: 0.65 },
+    cardAccent: { borderColor: 'var(--theia-focusBorder)' },
+    cardMark: {
+        width: 38, height: 38, flex: '0 0 auto', borderRadius: 11,
+        background: 'var(--theia-button-background)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+    },
+    cardBody: { flex: '1 1 auto', minWidth: 0 },
+    cardTitle: { display: 'block', fontSize: 15, fontWeight: 700 },
+    cardLead: { color: 'var(--theia-descriptionForeground)', fontSize: 12.5, lineHeight: 1.75, margin: '6px 0 0', maxWidth: '44em' },
+    cardFine: { marginTop: 8, marginBottom: 0, fontSize: 11, opacity: 0.6, fontFamily: 'monospace' },
+    cardCta: {
+        flex: '0 0 auto', padding: '9px 18px', borderRadius: 9, fontWeight: 700, fontSize: 13,
+        minHeight: 'auto', height: 'auto'
+    },
 
+    // 進め方カードの現在設定サマリ（submitted 時）。
+    summaryList: { margin: '8px 0 0', display: 'flex', flexDirection: 'column', gap: 5 },
+    summaryItem: { display: 'flex', gap: 10, alignItems: 'baseline' },
+    summaryKey: {
+        margin: 0, flex: '0 0 auto', minWidth: '9.5em', whiteSpace: 'nowrap',
+        fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.1em',
+        textTransform: 'uppercase', color: 'var(--theia-focusBorder)'
+    },
+    summaryValue: { margin: 0, fontSize: 12.5, lineHeight: 1.7 },
+
+    // クイックアクション列（横並びチップ 4 つ）。押しても画面遷移しない。
+    chipRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+    chip: {
+        display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 999,
+        fontSize: 12.5, fontWeight: 600, minHeight: 'auto', height: 'auto',
+        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        // 素の <button> は色を継承しないため明示する（未指定だと UA 既定の暗色が黒背景に載る）
+        color: 'var(--theia-editorWidget-foreground)', cursor: 'pointer'
+    },
+    chipIcon: { fontSize: 14, color: 'var(--theia-focusBorder)' },
+
+    // dashboard 内に展開する進め方フォーム（ステージではない）。
+    intakeSection: {
+        marginBottom: 22, padding: '16px 18px', borderRadius: 12,
+        border: '1px solid var(--theia-focusBorder)', background: 'var(--theia-editorWidget-background)'
+    },
     formWrap: { marginTop: 22, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 560 },
     glabel: { fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.16em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
     checks: { display: 'flex', flexDirection: 'column', gap: 8 },
     pills: { display: 'flex', flexWrap: 'wrap', gap: 8 },
 
-    // F47: 03 の「← はじめかたに戻る」・04 の「進め方を見直す」（最小修正）。
+    // 展開フォームを畳む唯一の導線「← ダッシュボードに戻る」。
     backLink: {
         display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, padding: 0,
         background: 'transparent', border: 'none', color: 'var(--theia-descriptionForeground)',
@@ -1407,9 +1515,11 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
         color: 'var(--theia-descriptionForeground)'
     },
+    // 進め方カードのアクション（「進め方を決める」/「進め方を見直す」）。
     reviewEntry: {
         display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 600,
-        padding: '8px 14px', borderRadius: 9, minHeight: 'auto', height: 'auto', flex: '0 0 auto'
+        padding: '8px 14px', borderRadius: 9, minHeight: 'auto', height: 'auto', flex: '0 0 auto',
+        whiteSpace: 'nowrap'
     },
 
     // 更新ホームバナー（U2 v0・D5 裁定）。新版がある時だけ出る・常時領域を専有しない。
