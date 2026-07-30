@@ -21,33 +21,30 @@ import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 // import './x.css' で lib/ に .css を要求すると esbuild バンドル時に
 // 解決できず theia build が落ちる。TS 側から <style> を注入する形にして
 // asset copy 抜きの既存ビルド構成のまま完結させる。
-const ACCENT = '#f97316';
-const ACCENT_LIGHT = '#fb923c';
-const CARD = '#141414';
-const ELEVATED = '#1a1a1a';
-const BG = '#0a0a0a';
-const INK = '#e5e5e5';
-
+//
+// 2026-07-30: 直値をやめ、akari-css-variable-force-contribution.ts が
+// テーマ追従で書き込む --akari-* 変数を参照する（ライトモード対応）。
+// フォールバック値はダークパレット（変数が書かれる前の一瞬のため）。
 const CSS = `
 .theia-button {
-    background-color: ${ACCENT} !important;
-    color: ${BG} !important;
+    background-color: var(--akari-accent, #f97316) !important;
+    color: var(--akari-bg, #0a0a0a) !important;
 }
 .theia-button:hover:not([disabled]) {
-    background-color: ${ACCENT_LIGHT} !important;
+    background-color: var(--akari-accent-light, #fb923c) !important;
 }
 .theia-button.secondary {
-    background-color: ${CARD} !important;
-    color: ${INK} !important;
+    background-color: var(--akari-card, #141414) !important;
+    color: var(--akari-ink, #e5e5e5) !important;
 }
 .theia-button.secondary:hover:not([disabled]) {
-    background-color: ${ELEVATED} !important;
+    background-color: var(--akari-elevated, #1a1a1a) !important;
 }
 
 /* 進捗バー（theia-progress-bar）も同じ理由で progressBar.background が
-   反映されないため直値で上書きする。 */
+   反映されないため上書きする。 */
 .theia-progress-bar {
-    background-color: ${ACCENT} !important;
+    background-color: var(--akari-accent, #f97316) !important;
 }
 
 /* ネイティブフォームコントロール（チェックボックス・ラジオ・range）は
@@ -56,12 +53,12 @@ const CSS = `
 input[type="checkbox"],
 input[type="radio"],
 input[type="range"] {
-    accent-color: ${ACCENT} !important;
+    accent-color: var(--akari-accent, #f97316) !important;
 }
 
 /* フォーカスリング。focusBorder が反映されないケースの保険。 */
 :focus-visible {
-    outline-color: ${ACCENT_LIGHT} !important;
+    outline-color: var(--akari-accent-light, #fb923c) !important;
 }
 `;
 
