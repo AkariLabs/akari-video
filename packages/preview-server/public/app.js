@@ -123,6 +123,185 @@ let penActive = false;
 let ws = null;
 let wsTickInterval = null;
 
+// Track management state
+let trackHeadersContainer = null;
+let trackAddBtn = null;
+
+function normalizeTracks(edit) {
+  if (!edit) return;
+  const hasValidVideo = edit.tracks?.some(t => t.type === 'video');
+  if (edit.tracks && edit.tracks.length > 0 && hasValidVideo) {
+    syncLegacyFromTracks(edit);
+    return;
+  }
+  const tracks = [];
+  if (Array.isArray(edit.cuts) && edit.cuts.length > 0) {
+    tracks.push({
+      id: 'trk-video-0',
+      type: 'video',
+      label: 'Video',
+      isMain: true,
+      clips: edit.cuts.map((c, i) => ({
+        id: c.id || `clip-v-${i}`,
+        src: c.src || (edit.sources?.[0]?.id) || 'src-0',
+        in: c.in || 0,
+        out: c.out || (c.in ?? 0) + 1,
+        speed: c.speed || 1,
+        at: c.at,
+        transitionIn: c.transitionIn,
+        transitionOut: c.transitionOut,
+      })),
+      transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+      opacity: 1,
+    });
+  }
+  if (Array.isArray(edit.layers)) {
+    for (const layer of edit.layers) {
+      const lid = layer.id || `trk-video-overlay-${tracks.length}`;
+      tracks.push({
+        id: lid,
+        type: 'video',
+        label: layer.name || layer.id || 'Overlay',
+        isMain: false,
+        clips: [{
+          id: `clip-${lid}`,
+          src: layer.src,
+          in: 0,
+          out: layer.duration || 5,
+          at: layer.t || 0,
+          speed: 1,
+        }],
+        transform: layer.transform || { x: 0, y: 0, scale: 1, rotate: 0 },
+        opacity: layer.opacity ?? 1,
+        blend: layer.blend,
+      });
+    }
+  }
+  if (edit.audio) {
+    if (edit.audio.bgm) {
+      tracks.push({
+        id: 'trk-audio-bgm',
+        type: 'audio',
+        label: 'BGM',
+        clips: [{
+          id: 'clip-bgm',
+          src: edit.audio.bgm.path || edit.audio.bgm.src,
+          at: edit.audio.bgm.t ?? 0,
+          gainDb: edit.audio.bgm.gainDb ?? edit.audio.bgm.gain_db ?? 0,
+          ducking: edit.audio.bgm.ducking ?? false,
+          loop: edit.audio.bgm.loop !== false,
+          fadeIn: edit.audio.bgm.fadeIn,
+          fadeOut: edit.audio.bgm.fadeOut,
+        }],
+      });
+    }
+    if (Array.isArray(edit.audio.narration)) {
+      for (const n of edit.audio.narration) {
+        const existing = tracks.find(t => t.type === 'narration');
+        if (existing) {
+          existing.clips.push({
+            id: n.id || `clip-nar-${existing.clips.length}`,
+            src: n.path || n.src,
+            at: n.t ?? 0,
+            gainDb: n.gainDb ?? 0,
+          });
+        } else {
+          tracks.push({
+            id: 'trk-narration',
+            type: 'narration',
+            label: 'Narration',
+            clips: [{
+              id: n.id || 'clip-nar-0',
+              src: n.path || n.src,
+              at: n.t ?? 0,
+              gainDb: n.gainDb ?? 0,
+            }],
+          });
+        }
+      }
+    }
+    if (Array.isArray(edit.audio.sfx)) {
+      for (const s of edit.audio.sfx) {
+        const existing = tracks.find(t => t.id === 'trk-sfx');
+        if (existing) {
+          existing.clips.push({
+            id: `clip-sfx-${existing.clips.length}`,
+            src: s.path || s.src,
+            at: s.t ?? 0,
+            gainDb: s.gainDb ?? 0,
+          });
+        } else {
+          tracks.push({
+            id: 'trk-sfx',
+            type: 'audio',
+            label: 'SFX',
+            clips: [{
+              id: 'clip-sfx-0',
+              src: s.path || s.src,
+              at: s.t ?? 0,
+              gainDb: s.gainDb ?? 0,
+            }],
+          });
+        }
+      }
+    }
+  }
+  edit.tracks = tracks;
+  syncLegacyFromTracks(edit);
+}
+
+function syncLegacyFromTracks(edit) {
+  if (!edit?.tracks) return;
+  // Ensure first video track has isMain
+  const firstVid = edit.tracks.find(t => t.type === 'video');
+  if (firstVid) firstVid.isMain = true;
+  const mainVid = edit.tracks.find(t => t.type === 'video' && t.isMain) || firstVid;
+  if (mainVid) {
+    edit.cuts = mainVid.clips.map((clip, i) => ({
+      ...(clip.transitionIn ? { transitionIn: clip.transitionIn } : {}),
+      ...(clip.transitionOut ? { transitionOut: clip.transitionOut } : {}),
+      in: clip.in ?? 0,
+      out: clip.out ?? (clip.in ?? 0) + 1,
+      speed: clip.speed || 1,
+      at: clip.at,
+      src: clip.src || (edit.sources?.[0]?.id),
+    }));
+  }
+  const bgmTrack = edit.tracks.find(t => t.type === 'audio' && t.id === 'trk-audio-bgm');
+  const narTrack = edit.tracks.find(t => t.type === 'narration');
+  const sfxTrack = edit.tracks.find(t => t.type === 'audio' && t.id === 'trk-sfx');
+  const audio = {};
+  if (bgmTrack && bgmTrack.clips.length > 0) {
+    const c = bgmTrack.clips[0];
+    audio.bgm = {
+      path: c.src, gain_db: c.gainDb ?? 0,
+      ducking: c.ducking ?? false, loop: c.loop !== false,
+      ...(c.fadeIn !== undefined ? { fadeIn: c.fadeIn } : {}),
+      ...(c.fadeOut !== undefined ? { fadeOut: c.fadeOut } : {}),
+    };
+  }
+  if (narTrack && narTrack.clips.length > 0) {
+    audio.narration = narTrack.clips.map(c => ({
+      id: c.id, path: c.src, t: c.at ?? 0, gainDb: c.gainDb ?? 0,
+    }));
+  }
+  if (sfxTrack && sfxTrack.clips.length > 0) {
+    audio.sfx = sfxTrack.clips.map(c => ({
+      path: c.src, t: c.at ?? 0, gainDb: c.gainDb ?? 0,
+    }));
+  }
+  edit.audio = audio;
+  const overlayTracks = edit.tracks.filter(t => t.type === 'video' && !t.isMain);
+  edit.layers = overlayTracks.map(t => {
+    const c = t.clips?.[0];
+    return {
+      id: t.id, name: t.label, src: c?.src, t: c?.at ?? 0,
+      duration: c ? ((c.out ?? 5) - (c.in ?? 0)) / (c.speed || 1) : 5,
+      transform: t.transform || {}, opacity: t.opacity ?? 1, blend: t.blend,
+    };
+  });
+}
+
 async function init() {
   try {
     const [timelineRes, editRes, captionsRes] = await Promise.all([
@@ -133,6 +312,7 @@ async function init() {
     if (!timelineRes.ok) throw new Error(`timeline: HTTP ${timelineRes.status}`);
     timelineData = await timelineRes.json();
     summary = await editRes.json();
+    normalizeTracks(summary);
     if (captionsRes.ok) {
       const body = await captionsRes.json();
       captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
@@ -182,34 +362,28 @@ function getVideoSource(cutIndex) {
 
 // --- Segments ---
 function buildSegments() {
-  if (!summary?.cuts) return;
+  if (!summary?.tracks?.length) return;
   segments = [];
-  const cutEvents = [];
-  for (let i = 0; i < summary.cuts.length; i++) {
-    const cut = summary.cuts[i];
-    const speed = cut.speed || 1;
-    const inSec = cut.in || 0;
-    const outSec = cut.out || inSec + 1;
-    const dur = (outSec - inSec) / speed;
-    cutEvents.push({ index: i, inSec, outSec, speed, durationSec: dur, track: cut.track ?? 0, at: cut.at });
-  }
-  const trackMap = {};
-  for (const c of cutEvents) {
-    if (!trackMap[c.track]) trackMap[c.track] = [];
-    trackMap[c.track].push(c);
-  }
-  const tracks = Object.keys(trackMap).map(Number).sort((a, b) => a - b);
-  for (const tn of tracks) {
-    const tc = trackMap[tn];
-    let cursor = 0;
-    for (let ci = 0; ci < tc.length; ci++) {
-      const c = tc[ci];
-      if (c.at !== undefined) cursor = c.at;
-      const gap = ci === 0 ? 0 : Math.max(0, cursor - segments.reduce((s, seg) => s + seg.durationSec, 0));
-      if (gap > 0) segments.push({ index: -1, durationSec: gap, isGap: true });
-      segments.push(c);
-      cursor += c.durationSec;
-    }
+  const mainVid = summary.tracks.find(t => t.type === 'video' && t.isMain) || summary.tracks.find(t => t.type === 'video');
+  if (!mainVid) return;
+  const clips = mainVid.clips || [];
+  const sorted = clips.map((clip, i) => ({
+    index: i, clip,
+    inSec: clip.in || 0,
+    outSec: clip.out || (clip.in || 0) + 1,
+    speed: clip.speed || 1,
+    durationSec: ((clip.out || (clip.in || 0) + 1) - (clip.in || 0)) / (clip.speed || 1),
+    trackId: mainVid.id,
+    at: clip.at,
+  }));
+  let cursor = 0;
+  for (let ci = 0; ci < sorted.length; ci++) {
+    const c = sorted[ci];
+    if (c.at !== undefined) cursor = c.at;
+    const gap = ci === 0 ? 0 : Math.max(0, cursor - segments.reduce((s, seg) => s + seg.durationSec, 0));
+    if (gap > 0) segments.push({ index: -1, durationSec: gap, isGap: true });
+    segments.push(c);
+    cursor += c.durationSec;
   }
   totalDuration = segments.reduce((s, seg) => s + seg.durationSec, 0);
   seek.max = totalDuration;
@@ -503,6 +677,7 @@ function setupAudioGraph() {
       bgmNode = gain;
       loadAudioBuffer(bgmUrl).then((buf) => {
         if (!buf) return;
+        bgmNode._buffer = buf;
         const src = audioCtx.createBufferSource();
         src.buffer = buf; src.loop = audio.bgm.loop !== false;
         src.connect(gain);
@@ -582,6 +757,16 @@ function syncAudio(t) {
   }
 }
 
+function recreateBgmSource(t) {
+  if (!bgmNode || !bgmNode._buffer || !audioCtx) return;
+  if (bgmNode._source) { try { bgmNode._source.stop(); } catch {} bgmNode._source = null; }
+  const src = audioCtx.createBufferSource();
+  src.buffer = bgmNode._buffer;
+  src.loop = summary?.audio?.bgm?.loop !== false;
+  src.connect(bgmNode);
+  if (isPlaying) { src.start(0, Math.max(0, t)); src._started = true; }
+  bgmNode._source = src;
+}
 // --- Waveform ---
 async function computePeaks(url, numPeaks) {
   try {
@@ -743,6 +928,8 @@ function seekTo(t) {
   updateOverlays();
   syncAudio(outputTime);
   syncLayers(outputTime);
+  // Recreate BGM source at seeked position
+  if (bgmNode?._buffer && outputTime < totalDuration) recreateBgmSource(outputTime);
 }
 
 function play() {
@@ -750,8 +937,19 @@ function play() {
   logReviewEvent('play');
   isPlaying = true;
   if (audioCtx?.state === 'suspended') audioCtx.resume();
-  if (bgmNode?._source && !bgmNode._source._started) { bgmNode._source.start(); bgmNode._source._started = true; }
+  if (bgmNode?._source) {
+    if (!bgmNode._source._started) { bgmNode._source.start(); bgmNode._source._started = true; }
+    if (bgmNode._savedGain !== undefined) { bgmNode.gain.value = bgmNode._savedGain; delete bgmNode._savedGain; }
+  }
   syncAudio(outputTime);
+  // Seek video before playing to prevent stale-frame flash
+  const pTarget = getVideoTimeForOutput(outputTime);
+  const pSeg = getActiveSegment(outputTime);
+  if (pTarget >= 0 && pSeg && pSeg.index >= 0) {
+    const pSrc = getVideoSource(pSeg.index);
+    if (pSrc && video.src !== pSrc) video.src = pSrc;
+    video.currentTime = pTarget;
+  }
   video.play();
   for (const lv of layerVideos) if (lv.visible) lv.el.play();
   playToggle.innerHTML = pauseIcon;
@@ -764,6 +962,10 @@ function pause() {
   logReviewEvent('pause');
   isPlaying = false; video.pause();
   for (const lv of layerVideos) lv.el.pause();
+  // Mute BGM without destroying source (AudioBufferSourceNode can only start once)
+  if (bgmNode) { bgmNode._savedGain ??= bgmNode.gain.value; bgmNode.gain.value = 0; }
+  for (const n of narrationNodes) { if (n._source) { try { n._source.stop(); } catch {} n._source._ended = true; } }
+  for (const s of sfxNodes) { if (s._source) { try { s._source.stop(); } catch {} s._source._ended = true; } }
   playToggle.innerHTML = playIcon;
   playToggle.setAttribute('aria-label', '再生');
   playToggle.title = '再生';
@@ -898,7 +1100,23 @@ async function reloadSummary() {
   const res = await fetch(api.summary);
   if (!res.ok) throw new Error(`summary: HTTP ${res.status}`);
   summary = await res.json();
+  normalizeTracks(summary);
   return summary;
+}
+
+function syncTracksFromCuts(edit) {
+  const mainVid = edit.tracks?.find(t => t.type === 'video' && t.isMain);
+  if (!mainVid || !edit.cuts) return;
+  mainVid.clips = edit.cuts.map((c, i) => ({
+    id: mainVid.clips[i]?.id || `clip-v-${i}`,
+    src: c.src || (edit.sources?.[0]?.id) || 'src-0',
+    in: c.in || 0,
+    out: c.out || (c.in ?? 0) + 1,
+    speed: c.speed || 1,
+    at: c.at,
+    transitionIn: c.transitionIn,
+    transitionOut: c.transitionOut,
+  }));
 }
 
 function showCutInfoAt(t) {
@@ -1000,9 +1218,11 @@ function renderCutInfoContent(seg) {
     cut.transitionIn = tiType ? { type: tiType, duration: Number.isFinite(tiDur) && tiDur > 0 ? tiDur : 0.3 } : undefined;
     cut.transitionOut = toType ? { type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
     try {
+      const body = { ...JSON.parse(JSON.stringify(summary)), cuts: newCuts };
+      syncTracksFromCuts(body);
       const res = await fetch('/api/edit.json', {
         method: 'PUT', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...summary, cuts: newCuts })
+        body: JSON.stringify(body)
       });
       if (res.ok) {
         buildSegments();
@@ -1025,9 +1245,11 @@ async function addCutAt(index, where) {
   const newCut = { in: inSec, out: outSec };
   const idx = where === 'before' ? index : index + 1;
   const newCuts = [...cuts.slice(0, idx), newCut, ...cuts.slice(idx)];
+  const body = { ...JSON.parse(JSON.stringify(summary)), cuts: newCuts };
+  syncTracksFromCuts(body);
   const res = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...summary, cuts: newCuts })
+    body: JSON.stringify(body)
   });
   if (res.ok) {
     buildSegments();
@@ -1044,9 +1266,11 @@ async function moveCut(index, dir) {
   if (target < 0 || target >= cuts.length) return;
   const newCuts = [...cuts];
   [newCuts[index], newCuts[target]] = [newCuts[target], newCuts[index]];
+  const body = { ...JSON.parse(JSON.stringify(summary)), cuts: newCuts };
+  syncTracksFromCuts(body);
   const res = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...summary, cuts: newCuts })
+    body: JSON.stringify(body)
   });
   if (res.ok) {
     buildSegments();
@@ -1060,9 +1284,11 @@ async function deleteCut(index) {
   const cuts = summary?.cuts;
   if (!Array.isArray(cuts) || index < 0 || cuts.length <= 1) return;
   const newCuts = [...cuts.slice(0, index), ...cuts.slice(index + 1)];
+  const body = { ...JSON.parse(JSON.stringify(summary)), cuts: newCuts };
+  syncTracksFromCuts(body);
   const res = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...summary, cuts: newCuts })
+    body: JSON.stringify(body)
   });
   if (res.ok) {
     buildSegments();
@@ -1071,7 +1297,6 @@ async function deleteCut(index) {
     showMessage(await editSaveErrorMessage(res));
   }
 }
-
 // Wire seek visual click
 seekVisual.addEventListener('click', (e) => {
   const rect = seek.getBoundingClientRect();
@@ -1084,8 +1309,8 @@ seekVisual.addEventListener('click', (e) => {
 });
 
 playToggle.addEventListener('click', () => isPlaying ? pause() : play());
-frameBack.addEventListener('click', () => { pause(); seekTo(outputTime - 1 / fps); });
-frameForward.addEventListener('click', () => { pause(); seekTo(outputTime + 1 / fps); });
+frameBack.addEventListener('click', () => { pause(); seekTo(0); });
+frameForward.addEventListener('click', () => { pause(); seekTo(totalDuration); });
 skipBack.addEventListener('click', () => { pause(); seekTo(outputTime - 10); });
 skipForward.addEventListener('click', () => { pause(); seekTo(outputTime + 10); });
 seek.addEventListener('input', () => {
@@ -1591,8 +1816,10 @@ async function writeEditJson(kind, id, patch) {
       const ly = edit.layers?.find(l => String(l.id) === String(id));
       if (ly) Object.assign(ly, patch.transform ? { transform: { ...ly.transform, ...patch.transform } } : patch);
     }
+    syncTracksFromCuts(edit);
+    syncLegacyFromTracks(edit);
     const saveRes = await fetch('/api/edit.json', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(edit) });
-    if (saveRes.ok) { summary = edit; window.akari?.runtime?.mount(summary); }
+    if (saveRes.ok) { summary = edit; normalizeTracks(summary); window.akari?.runtime?.mount(summary); }
   } catch (e) { console.error('write failed', e); }
 }
 
@@ -1906,7 +2133,10 @@ function connectWs() {
   ws.onmessage = (e) => {
     try {
       const m = JSON.parse(e.data);
-      if (m.type === 'reload') return location.reload();
+      if (m.type === 'reload') {
+        reloadSummary().then(() => { buildSegments(); seekTo(outputTime); renderTimeline(); }).catch(() => location.reload());
+        return;
+      }
       if (m.type === 'captions-reload') {
         fetch(api.summary).then(r => r.ok && r.json()).then(d => { if (d) summary = d; }).catch(() => {});
         return;
@@ -2097,6 +2327,121 @@ function setupAssetBrowser() {
     if (!item) return;
     showMessage(null);
   });
+
+  // Asset context menu (right-click)
+  const assetCtx = document.getElementById('asset-ctx-menu');
+  assetCtx.addEventListener('contextmenu', e => e.preventDefault());
+
+  const CATEGORY_TYPE = {
+    video: { defaultType: 'video', typeLocked: true },
+    audio: { defaultType: 'audio', typeLocked: false, typeFilter: ['audio', 'narration', 'sfx'] },
+    image: { defaultType: 'video', typeLocked: true },
+  };
+
+  function buildAssetCtxMenu(path, name, category) {
+    const otherTracks = (summary?.tracks || []).filter(t => !t.isMain);
+    let html = `<button class="ctx-actx" data-action="main">メインタイムラインに追加</button>`;
+    if (otherTracks.length > 0) {
+      html += `<div class="ctx-section-title">既存トラックに追加:</div>`;
+      for (const t of otherTracks) {
+        html += `<button class="ctx-actx" data-action="track" data-id="${t.id}">${esc(t.label)}</button>`;
+      }
+    }
+    html += `<button class="ctx-actx" data-action="new">＋ 新規トラックを作成し追加</button>`;
+    html += `<hr><button class="ctx-actx" data-action="copy">ファイル名をコピー</button>`;
+    assetCtx.innerHTML = html;
+    assetCtx._path = path;
+    assetCtx._name = name;
+    assetCtx._category = category;
+  }
+
+  assetList.addEventListener('contextmenu', (e) => {
+    const item = e.target.closest('.asset-item');
+    if (!item) return;
+    e.preventDefault();
+    const path = item.dataset.path;
+    const name = item.querySelector('.asset-name')?.textContent || '';
+    const category = item.dataset.category || 'video';
+    buildAssetCtxMenu(path, name, category);
+    assetCtx.style.left = `${e.clientX}px`;
+    assetCtx.style.top = `${e.clientY}px`;
+    assetCtx.hidden = false;
+  });
+
+  assetCtx.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.ctx-actx');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const path = assetCtx._path;
+    const name = assetCtx._name;
+    const category = assetCtx._category;
+    assetCtx.hidden = true;
+
+    if (action === 'copy') {
+      if (!name) return;
+      try { await navigator.clipboard.writeText(name); showMessage('ファイル名をコピーしました'); }
+      catch { showMessage('コピーに失敗しました'); }
+      return;
+    }
+
+    if (!path || !summary?.cuts) return;
+    const t = outputTime;
+    const srcId = 'src-' + Date.now();
+
+    if (action === 'main') {
+      const newEdit = ensureV1(JSON.parse(JSON.stringify(summary)));
+      newEdit.sources.push({ id: srcId, path });
+      newEdit.cuts = [...newEdit.cuts, { in: 0, out: 2, src: srcId, at: +t.toFixed(2) }];
+      try {
+        syncTracksFromCuts(newEdit);
+        const res = await fetch('/api/edit.json', {
+          method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
+        });
+        if (res.ok) { await reloadSummary(); buildSegments(); seekTo(outputTime); showMessage('メインタイムラインに追加しました'); }
+        else showMessage(await editSaveErrorMessage(res));
+      } catch (err) { showMessage(err?.message || String(err)); }
+      return;
+    }
+
+    if (action === 'new') {
+      const ct = CATEGORY_TYPE[category] || CATEGORY_TYPE.video;
+      const result = await showAddTrackDialog({ ...ct, defaultName: '' });
+      if (!result) return;
+      const { type, name: trackName } = result;
+      const edit = JSON.parse(JSON.stringify(summary));
+      edit.sources.push({ id: srcId, path });
+      const count = edit.tracks.filter(t => t.type === type && !t.isMain).length;
+      const nid = `trk-${type}-${Date.now()}`;
+      const track = { id: nid, type, label: trackName, isMain: false, clips: [] };
+      if (type === 'video') { track.transform = { x: 0, y: 0, scale: 0.3, rotate: 0 }; track.opacity = 1; }
+      track.clips.push({ id: `clip-${nid}`, src: srcId, in: 0, out: 2, at: +t.toFixed(2), speed: 1 });
+      edit.tracks.push(track);
+      try {
+        const res = await fetch('/api/edit.json', {
+          method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(edit)
+        });
+        if (res.ok) { await reloadSummary(); buildSegments(); seekTo(outputTime); showMessage(`トラック「${trackName}」に追加しました`); }
+        else showMessage(await editSaveErrorMessage(res));
+      } catch (err) { showMessage(err?.message || String(err)); }
+      return;
+    }
+
+    // action === 'track' — add to existing track
+    const edit = JSON.parse(JSON.stringify(summary));
+    edit.sources.push({ id: srcId, path });
+    const trackId = btn.dataset.id;
+    const track = edit.tracks.find(t => t.id === trackId);
+    if (track) {
+      track.clips.push({ id: `clip-${trackId}-${Date.now()}`, src: srcId, in: 0, out: 2, at: +t.toFixed(2), speed: 1 });
+      try {
+        const res = await fetch('/api/edit.json', {
+          method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(edit)
+        });
+        if (res.ok) { await reloadSummary(); buildSegments(); seekTo(outputTime); showMessage('トラックに追加しました'); }
+        else showMessage(await editSaveErrorMessage(res));
+      } catch (err) { showMessage(err?.message || String(err)); }
+    }
+  });
   // Drag-and-drop upload
   const assetPane = document.getElementById('asset-pane');
   let dropOverlay = null;
@@ -2144,6 +2489,23 @@ function setupAssetBrowser() {
   });
 }
 
+function ensureV1(edit) {
+  if (edit.source && !Array.isArray(edit.sources)) {
+    edit.version = 1;
+    const id = 'src-main-' + Date.now();
+    const srcObj = typeof edit.source === 'string' ? {} : edit.source;
+    edit.sources = [{ id, path: srcObj.path, proxy: srcObj.proxy || null }];
+    delete edit.source;
+    let at = 0;
+    edit.cuts = (edit.cuts || []).map(c => {
+      const cut = { ...c, src: id, at: +at.toFixed(3) };
+      at += (c.out - c.in);
+      return cut;
+    });
+  }
+  return edit;
+}
+
 async function loadAssets() {
   try {
     const res = await fetch('/api/project-files');
@@ -2151,6 +2513,114 @@ async function loadAssets() {
     allAssets = await res.json();
     renderAssets();
   } catch {}
+}
+
+// --- Track management ---
+const TYPE_OPTIONS = [
+  { value: 'video', label: 'ビデオ（オーバーレイ）' },
+  { value: 'audio', label: 'ミュージック' },
+  { value: 'narration', label: 'ナレーション' },
+  { value: 'sfx', label: '効果音' },
+];
+
+function showAddTrackDialog(opts) {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById('add-track-dialog');
+    const typeSel = document.getElementById('atd-type');
+    const nameInp = document.getElementById('atd-name');
+    const okBtn = document.getElementById('atd-ok');
+    const cancelBtn = document.getElementById('atd-cancel');
+
+    // Filter type options if requested
+    const filtered = opts.typeFilter ? TYPE_OPTIONS.filter(o => opts.typeFilter.includes(o.value)) : TYPE_OPTIONS;
+    typeSel.innerHTML = filtered.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    typeSel.value = opts.defaultType || filtered[0]?.value || 'video';
+    typeSel.disabled = !!opts.typeLocked;
+    nameInp.value = opts.defaultName || '';
+    nameInp.placeholder = opts.defaultName ? '' : 'トラック名を入力';
+
+    function cleanup() {
+      dialog.hidden = true;
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      dialog.removeEventListener('keydown', onKey);
+    }
+    function onOk() {
+      const type = typeSel.value;
+      const name = nameInp.value.trim() || typeSel.options[typeSel.selectedIndex].text;
+      cleanup();
+      resolve({ type, name });
+    }
+    function onCancel() {
+      cleanup();
+      resolve(null);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Enter') onOk();
+    }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    dialog.addEventListener('keydown', onKey);
+
+    dialog.hidden = false;
+    setTimeout(() => nameInp.focus(), 100);
+  });
+}
+
+function addTrack() {
+  if (!summary?.tracks) return;
+  showAddTrackDialog({ defaultType: 'video', defaultName: '' }).then(result => {
+    if (!result) return;
+    const { type, name } = result;
+    const count = summary.tracks.filter(t => t.type === type && !t.isMain).length;
+    const nid = `trk-${type}-${Date.now()}`;
+    const base = { id: nid, label: name, isMain: false };
+    let newTrack;
+    if (type === 'video') {
+      newTrack = { ...base, type: 'video', clips: [], transform: { x: 0, y: 0, scale: 0.3, rotate: 0 }, opacity: 1 };
+    } else {
+      newTrack = { ...base, type, clips: [] };
+    }
+    if (!newTrack) return;
+    summary.tracks.push(newTrack);
+    syncLegacyFromTracks(summary);
+    buildSegments();
+    showMessage(`トラック「${name}」を追加しました`);
+  });
+}
+
+async function removeTrack(trackId) {
+  if (!summary?.tracks) return;
+  const idx = summary.tracks.findIndex(t => t.id === trackId);
+  if (idx < 0) return;
+  const track = summary.tracks[idx];
+  if (track.isMain) { showMessage('メインビデオトラックは削除できません'); return; }
+  summary.tracks.splice(idx, 1);
+  syncLegacyFromTracks(summary);
+  try {
+    const res = await fetch('/api/edit.json', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(summary)
+    });
+    if (res.ok) { await reloadSummary(); buildSegments(); showMessage(`トラック「${track.label}」を削除しました`); }
+    else showMessage(await editSaveErrorMessage(res));
+  } catch (e) { showMessage(e?.message || String(e)); }
+}
+
+async function renameTrack(trackId, newLabel) {
+  if (!summary?.tracks) return;
+  const track = summary.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  track.label = newLabel;
+  try {
+    const res = await fetch('/api/edit.json', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(summary)
+    });
+    if (res.ok) { await reloadSummary(); buildSegments(); }
+    else showMessage(await editSaveErrorMessage(res));
+  } catch (e) { showMessage(e?.message || String(e)); }
 }
 
 // --- Timeline Editor ---
@@ -2188,25 +2658,47 @@ function tlTimeFromX(px) {
 }
 
 function tlHitTest(px, py) {
-  if (py < 0 || py > TL_TRACK_HEIGHT * 2) return null;
-  const track = py < TL_TRACK_HEIGHT ? 0 : 1;
-  let cursor = 0;
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    if (seg.isGap) { cursor += seg.durationSec; continue; }
-    if (seg.track !== track) { cursor += seg.durationSec; continue; }
-    const sx = cursor * tlZoom;
-    const sw = seg.durationSec * tlZoom;
-    if (px >= sx && px < sx + sw) {
-      const distL = px - sx;
-      const distR = (sx + sw) - px;
-      let mode;
-      if (distL < TL_HANDLE_PX && sw > TL_HANDLE_PX * 2) mode = 'trim-in';
-      else if (distR < TL_HANDLE_PX && sw > TL_HANDLE_PX * 2) mode = 'trim-out';
-      else mode = 'move';
-      return { segIndex: i, cutIndex: seg.index, mode, cursor };
+  const numTracks = getTimelineTrackCount();
+  if (py < 0 || py > TL_TRACK_HEIGHT * numTracks) return null;
+  const trackN = Math.floor(py / TL_TRACK_HEIGHT);
+  const tracks = summary?.tracks?.filter(t => t.type === 'video') || [];
+  const track = tracks[trackN];
+  if (!track) return null;
+  if (track.isMain) {
+    // Main track hit test using segments
+    let cursor = 0;
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      if (seg.isGap) { cursor += seg.durationSec; continue; }
+      const sx = cursor * tlZoom;
+      const sw = seg.durationSec * tlZoom;
+      if (px >= sx && px < sx + sw) {
+        const distL = px - sx;
+        const distR = (sx + sw) - px;
+        let mode;
+        if (distL < TL_HANDLE_PX && sw > TL_HANDLE_PX * 2) mode = 'trim-in';
+        else if (distR < TL_HANDLE_PX && sw > TL_HANDLE_PX * 2) mode = 'trim-out';
+        else mode = 'move';
+        return { segIndex: i, cutIndex: seg.index, mode, cursor, trackId: track.id };
+      }
+      cursor += seg.durationSec;
     }
-    cursor += seg.durationSec;
+  } else {
+    // Overlay track: hit test on clips directly
+    let cursor = 0;
+    for (let ci = 0; ci < track.clips.length; ci++) {
+      const clip = track.clips[ci];
+      const inSec = clip.in || 0;
+      const outSec = clip.out || inSec + 1;
+      const dur = (outSec - inSec) / (clip.speed || 1);
+      const at = clip.at !== undefined ? clip.at : cursor;
+      const sx = at * tlZoom;
+      const sw = Math.max(2, dur * tlZoom);
+      if (px >= sx && px < sx + sw) {
+        return { segIndex: -1, cutIndex: -1, mode: 'move', cursor: at, trackId: track.id, clipIndex: ci, isOverlay: true };
+      }
+      cursor = at + dur;
+    }
   }
   return null;
 }
@@ -2246,6 +2738,7 @@ async function tlSplitCut(t) {
   const cutB = { ...orig, in: +srcSplit.toFixed(3), at: +t.toFixed(3) };
   newEdit.cuts.splice(seg.index, 1, cutA, cutB);
   try {
+    syncTracksFromCuts(newEdit);
     const res = await fetch('/api/edit.json', {
       method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
     });
@@ -2260,6 +2753,7 @@ async function tlDeleteCut(t) {
   const newEdit = JSON.parse(JSON.stringify(summary));
   newEdit.cuts.splice(seg.index, 1);
   try {
+    syncTracksFromCuts(newEdit);
     const res = await fetch('/api/edit.json', {
       method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
     });
@@ -2273,6 +2767,15 @@ function setupTimeline() {
   tlZoomOut.addEventListener('click', () => { tlZoom = Math.max(TL_MIN_ZOOM, tlZoom / 1.5); renderTimeline(); });
   tlFitBtn.addEventListener('click', () => { tlZoom = computeNaturalZoom(); renderTimeline(); });
   tlCanvasWrap.addEventListener('scroll', () => { tlScrollLeft = tlCanvasWrap.scrollLeft; updateTimelinePlayhead(); });
+
+  // Add track button — near タイムライン label
+  const addTrackBtn = document.createElement('button');
+  addTrackBtn.className = 'tl-btn';
+  addTrackBtn.textContent = '+';
+  addTrackBtn.title = 'トラックを追加';
+  addTrackBtn.style.cssText = 'margin-left:4px;font-weight:bold';
+  addTrackBtn.addEventListener('click', () => addTrack());
+  document.querySelector('#timeline-pane .pane-header span')?.after(addTrackBtn);
 
   // Pointer interaction: trim / move / seek
   tlCanvas.addEventListener('pointerdown', (e) => {
@@ -2295,13 +2798,42 @@ function setupTimeline() {
       startPx: px,
       startIn: cut.in, startOut: cut.out,
       startSegIn: seg.inSec, startSegOut: seg.outSec,
-      startAt: cut.at !== undefined ? cut.at : null,
+      startAt: cut.at !== undefined ? cut.at : hit.cursor,
       saved: false, moved: false,
       cursorStart: hit.cursor,
     };
     tlCanvas.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
+
+  document.getElementById('ctx-menu').addEventListener('contextmenu', e => e.preventDefault());
+
+  tlCanvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const px = tlTimelineX(e);
+    const py = e.clientY - tlCanvas.getBoundingClientRect().top;
+    const hit = tlHitTest(px, py);
+    const seg = hit ? segments[hit.segIndex] : null;
+    const ctxMenu = document.getElementById('ctx-menu');
+    const ctxTime = hit ? tlTimeFromX(px) : outputTime;
+    ctxMenu._segIndex = hit?.segIndex ?? -1;
+    ctxMenu._cutIndex = hit?.cutIndex ?? -1;
+    ctxMenu._time = ctxTime;
+    ctxMenu.style.left = `${e.clientX}px`;
+    ctxMenu.style.top = `${e.clientY}px`;
+    ctxMenu.hidden = false;
+    document.getElementById('ctx-split').disabled = !seg || seg.isGap;
+    document.getElementById('ctx-delete').disabled = !seg || seg.isGap;
+    document.getElementById('ctx-add-before').disabled = hit?.cutIndex < 0;
+    document.getElementById('ctx-add-after').disabled = hit?.cutIndex < 0;
+    document.getElementById('ctx-move-up').disabled = hit?.cutIndex <= 0;
+    document.getElementById('ctx-move-down').disabled = hit?.cutIndex < 0 || hit?.cutIndex >= (summary?.cuts?.length ?? 0) - 1;
+  });
+
+  document.addEventListener('click', (e) => {
+    const ctxMenu = document.getElementById('ctx-menu');
+    if (!ctxMenu.hidden && !ctxMenu.contains(e.target)) ctxMenu.hidden = true;
+  }, { capture: true });
 
   tlCanvas.addEventListener('pointermove', (e) => {
     if (!tlDrag) {
@@ -2404,6 +2936,7 @@ function setupTimeline() {
       cut.at = Math.max(0, +(tlDrag.startAt + deltaSec).toFixed(2));
     }
     try {
+      syncTracksFromCuts(newEdit);
       const res = await fetch('/api/edit.json', {
         method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
       });
@@ -2459,12 +2992,12 @@ function setupTimeline() {
     const assetPath = e.dataTransfer.getData('text/plain');
     if (!assetPath || !summary?.cuts) return;
     const t = tlTimeFromX(tlTimelineX(e));
-    const newEdit = JSON.parse(JSON.stringify(summary));
-    if (!Array.isArray(newEdit.sources)) newEdit.sources = [];
+    const newEdit = ensureV1(JSON.parse(JSON.stringify(summary)));
     const srcId = 'src-' + Date.now();
     newEdit.sources.push({ id: srcId, path: assetPath });
     newEdit.cuts = [...newEdit.cuts, { in: 0, out: 2, src: srcId, at: +t.toFixed(2) }];
     try {
+      syncTracksFromCuts(newEdit);
       const res = await fetch('/api/edit.json', {
         method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
       });
@@ -2474,10 +3007,74 @@ function setupTimeline() {
   });
 }
 
+function renderTrackHeaders() {
+  const headers = document.getElementById('tl-headers');
+  if (!headers) return;
+  const tracks = summary?.tracks?.filter(t => t.type === 'video') || [];
+  let html = `<div class="timeline-track-header" style="height:22px"></div>`;
+  for (const t of tracks) {
+    const isM = t.isMain ? ' ★' : '';
+    html += `<div class="timeline-track-header" data-track-id="${t.id}">${t.label}${isM}</div>`;
+  }
+  headers.innerHTML = html;
+  // Context menu for non-main tracks
+  if (!trackHeaderCtxInitialized) {
+    trackHeaderCtxInitialized = true;
+    headers.addEventListener('contextmenu', (e) => {
+      const header = e.target.closest('.timeline-track-header[data-track-id]');
+      if (!header) return;
+      const trackId = header.dataset.trackId;
+      const track = summary?.tracks?.find(t => t.id === trackId);
+      if (!track || track.isMain) return;
+      e.preventDefault();
+      const ctx = document.getElementById('ctx-menu');
+      ctx.innerHTML = `
+        <button id="ctx-remove-track">トラックを削除</button>
+        <button id="ctx-rename-track">リネーム</button>
+        <hr>
+        <button id="ctx-add-track">トラックを追加</button>
+      `;
+      ctx._trackId = trackId;
+      ctx.style.left = e.clientX + 'px';
+      ctx.style.top = e.clientY + 'px';
+      ctx.hidden = false;
+      document.getElementById('ctx-remove-track').addEventListener('click', () => {
+        ctx.hidden = true;
+        removeTrack(ctx._trackId);
+      }, { once: true });
+      document.getElementById('ctx-rename-track').addEventListener('click', () => {
+        ctx.hidden = true;
+        const newLabel = prompt('新しいトラック名:', track.label);
+        if (newLabel && newLabel.trim()) renameTrack(trackId, newLabel.trim());
+      }, { once: true });
+      document.getElementById('ctx-add-track').addEventListener('click', () => {
+        ctx.hidden = true;
+        addTrack();
+      }, { once: true });
+    });
+  }
+}
+let trackHeaderCtxInitialized = false;
+
+function getTimelineTrackCount() {
+  return (summary?.tracks?.filter(t => t.type === 'video') || []).length || 1;
+}
+
+function getTrackY(trackId) {
+  const tracks = summary?.tracks?.filter(t => t.type === 'video') || [];
+  const idx = tracks.findIndex(t => t.id === trackId);
+  return idx >= 0 ? idx * TL_TRACK_HEIGHT : 0;
+}
+
+function computeTimelineHeight() {
+  return TL_TRACK_HEIGHT * Math.max(1, getTimelineTrackCount());
+}
+
 function renderTimeline() {
   const wrapW = tlCanvasWrap.clientWidth;
   const totalPx = Math.max(wrapW, totalDuration * tlZoom);
-  const h = TL_TRACK_HEIGHT * 2;
+  const numTracks = getTimelineTrackCount();
+  const h = TL_TRACK_HEIGHT * numTracks;
   tlCanvas.width = Math.ceil(totalPx) * devicePixelRatio;
   tlCanvas.height = h * devicePixelRatio;
   tlCanvas.style.width = Math.ceil(totalPx) + 'px';
@@ -2494,65 +3091,89 @@ function renderTimeline() {
     const x = t * tlZoom;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
   }
-  // Draw cuts with handles
-  let cursor = 0;
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    if (seg.isGap) { cursor += seg.durationSec; continue; }
-    const sx = cursor * tlZoom;
-    const sw = seg.durationSec * tlZoom;
-    const color = TL_CUT_COLORS[seg.index % TL_CUT_COLORS.length];
-    const y = seg.track === 0 ? 0 : TL_TRACK_HEIGHT;
-    const segH = TL_TRACK_HEIGHT - 4;
-    // Main body
-    const grad = ctx.createLinearGradient(sx, y, sx, y + TL_TRACK_HEIGHT);
-    grad.addColorStop(0, color);
-    grad.addColorStop(0.5, color);
-    grad.addColorStop(1, '#000');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    const r = 3;
-    const rx = sx, ry = y + 2, rw = Math.max(2, sw), rh = segH;
-    ctx.moveTo(rx + r, ry); ctx.lineTo(rx + rw - r, ry); ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + r);
-    ctx.lineTo(rx + rw, ry + rh - r); ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - r, ry + rh);
-    ctx.lineTo(rx + r, ry + rh); ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - r);
-    ctx.lineTo(rx, ry + r); ctx.quadraticCurveTo(rx, ry, rx + r, ry);
-    ctx.fill();
-    // Handle zones
-    if (sw > TL_HANDLE_PX * 3) {
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.fillRect(sx, y + 2, TL_HANDLE_PX, segH);
-      ctx.fillRect(sx + sw - TL_HANDLE_PX, y + 2, TL_HANDLE_PX, segH);
-      // Handle grips
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      for (let g = 0; g < 3; g++) {
-        const gh = y + 2 + 5 + g * 6;
-        ctx.fillRect(sx + 2, gh, 4, 2);
-        ctx.fillRect(sx + sw - 6, gh, 4, 2);
-      }
-    }
-    // Label
-    if (sw > 30) {
-      ctx.fillStyle = '#fff';
-      ctx.font = '10px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`#${seg.index + 1}`, sx + sw / 2, y + TL_TRACK_HEIGHT / 2);
-    }
-    // Source time label (in/out)
-    if (sw > 80) {
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.font = '8px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      const fmt = (sec) => { const m = Math.floor(sec / 60); return `${m}:${String(Math.floor(sec % 60)).padStart(2, '0')}.${String(Math.floor((sec % 1) * 100)).padStart(2, '0')}`; };
-      ctx.fillText(`${fmt(seg.inSec)} → ${fmt(seg.outSec)}`, sx + sw / 2, y + 1);
-    }
-    cursor += seg.durationSec;
-  }
-  // Track separator
+  // Track separator lines
   ctx.strokeStyle = '#303030';
-  ctx.beginPath(); ctx.moveTo(0, TL_TRACK_HEIGHT); ctx.lineTo(totalPx, TL_TRACK_HEIGHT); ctx.stroke();
+  for (let tn = 1; tn < numTracks; tn++) {
+    const y = tn * TL_TRACK_HEIGHT;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(totalPx, y); ctx.stroke();
+  }
+  // Draw clips for each video track
+  const videoTracks = summary?.tracks?.filter(t => t.type === 'video') || [];
+  for (const track of videoTracks) {
+    const tY = getTrackY(track.id);
+    const segH = TL_TRACK_HEIGHT - 4;
+    let cursor = 0;
+    let cursorAcc = 0;
+    for (let ci = 0; ci < track.clips.length; ci++) {
+      const clip = track.clips[ci];
+      const inSec = clip.in || 0;
+      const outSec = clip.out || inSec + 1;
+      const speed = clip.speed || 1;
+      const dur = (outSec - inSec) / speed;
+      const at = clip.at;
+      // Position: if at is specified, use it; else sequential
+      let clipStart;
+      if (at !== undefined) {
+        clipStart = at;
+        cursorAcc = at;
+      } else {
+        clipStart = cursor;
+      }
+      // Gap if not contiguous
+      if (ci > 0 && at !== undefined) {
+        // gap is handled by at positioning
+      }
+      const segIndex = track.isMain ? ci : -1;
+      const sx = clipStart * tlZoom;
+      const sw = Math.max(2, dur * tlZoom);
+      const color = track.isMain ? TL_CUT_COLORS[ci % TL_CUT_COLORS.length] : '#6ab04c';
+      // Draw clip body
+      const grad = ctx.createLinearGradient(sx, tY, sx, tY + TL_TRACK_HEIGHT);
+      grad.addColorStop(0, color);
+      grad.addColorStop(0.5, color);
+      grad.addColorStop(1, '#000');
+      ctx.fillStyle = grad;
+      const rx = sx, ry = tY + 2, rw = sw, rh = segH;
+      const r = 3;
+      ctx.beginPath();
+      ctx.moveTo(rx + r, ry); ctx.lineTo(rx + rw - r, ry); ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + r);
+      ctx.lineTo(rx + rw, ry + rh - r); ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - r, ry + rh);
+      ctx.lineTo(rx + r, ry + rh); ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - r);
+      ctx.lineTo(rx, ry + r); ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+      ctx.fill();
+      // Handles on main track
+      if (track.isMain && sw > TL_HANDLE_PX * 3) {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(sx, tY + 2, TL_HANDLE_PX, segH);
+        ctx.fillRect(sx + sw - TL_HANDLE_PX, tY + 2, TL_HANDLE_PX, segH);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        for (let g = 0; g < 3; g++) {
+          const gh = tY + 2 + 5 + g * 6;
+          ctx.fillRect(sx + 2, gh, 4, 2);
+          ctx.fillRect(sx + sw - 6, gh, 4, 2);
+        }
+      }
+      // Label
+      if (sw > 30) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = track.isMain ? `#${ci + 1}` : (clip.id ? clip.id.slice(0, 8) : '');
+        ctx.fillText(label, sx + sw / 2, tY + TL_TRACK_HEIGHT / 2);
+      }
+      if (track.isMain && sw > 80) {
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '8px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const fmt = (sec) => { const m = Math.floor(sec / 60); return `${m}:${String(Math.floor(sec % 60)).padStart(2, '0')}.${String(Math.floor((sec % 1) * 100)).padStart(2, '0')}`; };
+        ctx.fillText(`${fmt(inSec)} → ${fmt(outSec)}`, sx + sw / 2, tY + 1);
+      }
+      cursor = clipStart + dur;
+      if (at === undefined) cursorAcc = cursor;
+    }
+  }
   // Ruler
   tlRulerCanvas.width = Math.ceil(totalPx) * devicePixelRatio;
   tlRulerCanvas.height = 22 * devicePixelRatio;
@@ -2589,6 +3210,7 @@ function renderTimeline() {
       ctx.fillRect(dx, 0, 40, h);
     }
   }
+  renderTrackHeaders();
   updateTimelinePlayhead();
 }
 
@@ -2597,7 +3219,7 @@ function updateTimelinePlayhead() {
   tlPlayhead.style.display = 'block';
   const x = outputTime * tlZoom - tlCanvasWrap.scrollLeft;
   tlPlayhead.style.left = Math.max(0, x) + 'px';
-  tlPlayhead.style.height = (TL_TRACK_HEIGHT * 2) + 'px';
+  tlPlayhead.style.height = computeTimelineHeight() + 'px';
 }
 
 // Extend existing functions
@@ -2640,5 +3262,9 @@ window.__test = {
   get summary() { return summary; },
   get segments() { return segments; },
   get outputTime() { return outputTime; },
+  get totalDuration() { return totalDuration; },
+  get isPlaying() { return isPlaying; },
   seekTo, getActiveSegment, tlSplitCut, tlDeleteCut,
+  addTrack, removeTrack, renderTrackHeaders,
+  normalizeTracks, syncTracksFromCuts,
 };
