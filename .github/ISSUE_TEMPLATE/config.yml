@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 脆弱性の報告 / Security vulnerability
+    url: https://github.com/AkariLabs/akari-video/security
+    about: 脆弱性は公開 issue にしないでください。Security タブ（private vulnerability reporting）から報告をお願いします。
+  - name: はじめかたガイド / Getting started
+    url: https://github.com/AkariLabs/akari-video/blob/main/docs/getting-started.ja.md
+    about: セットアップ・使い方はまずこちらを確認してください。

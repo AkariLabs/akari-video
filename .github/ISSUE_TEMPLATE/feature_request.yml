@@ -1,0 +1,47 @@
+name: 機能要望 / Feature request
+description: 改善・新機能の提案 / Suggest an improvement
+title: "Feature: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提案ありがとうございます。大きなアイデアはコードより先に issue で方向をすり合わせるのがおすすめです。
+        業種特化・案件特化の挙動は、コア機能ではなくテンプレート / 素材 / プリセット側への誘導になる場合があります。
+  - type: textarea
+    id: use_case
+    attributes:
+      label: ユースケース / Use case
+      description: どんな作業・誰の課題を良くしたいか
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 提案する挙動 / Proposed behavior
+      description: 期待する動き・インターフェース
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 検討した代替案 / Alternatives considered
+      description: 任意。いまの回避策・他ツールの例など
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 規模感 / Expected scope
+      options:
+        - "小さなコア改善"
+        - "大きめのコア機能"
+        - "テンプレート / 素材 / プリセット候補"
+        - "ドキュメント / 例"
+        - "わからない"
+  - type: checkboxes
+    id: understanding
+    attributes:
+      label: 確認 / Understanding
+      options:
+        - label: "`accepted` ラベルは「方向性 OK」の意味で、実装の約束ではないことを理解しています"
+        - label: この提案の説明に secrets・API キー・私的データを含めていません
+          required: true

@@ -1,0 +1,71 @@
+name: バグ報告 / Bug report
+description: 動かない・期待と違う挙動の報告 / Report something that is not working
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        バグ報告ありがとうございます。投稿前に以下を必ず除去してください:
+        **`.akari/connections.json` の中身・API キー・トークン・私的データを含む映像 / スクリーンショット**。
+
+        未修正の脆弱性・攻撃手順・キー漏洩を含む場合は、公開 issue にせず
+        [Security タブ](https://github.com/AkariLabs/akari-video/security)から報告してください（手順: [SECURITY.ja.md](https://github.com/AkariLabs/akari-video/blob/main/SECURITY.ja.md)）。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 何が起きたか / Problem
+      description: 何が起き、何を期待していたか
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順 / Reproduction steps
+      description: 再現できる最小の手順
+      placeholder: |
+        1. `./akari.sh` を実行
+        2. ...
+        3. こうなる
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: バージョン / Version
+      description: リリース版 or コミット SHA
+      placeholder: "v0.x.x / abc1234"
+  - type: input
+    id: environment
+    attributes:
+      label: 環境 / Environment
+      placeholder: "macOS 15, Node 22, installer 経由 / clone"
+  - type: dropdown
+    id: risk_area
+    attributes:
+      label: 領域 / Area
+      description: 一番近いものを選んでください（トリアージが速くなります）
+      options:
+        - "セットアップ / インストール"
+        - "ランチャー / CLI"
+        - "レンダー / 書き出し"
+        - "テロップ / presets / 素材"
+        - "プレビュー / アプリ"
+        - "スキル / エージェントの挙動"
+        - "ドキュメント"
+        - "わからない"
+  - type: textarea
+    id: logs
+    attributes:
+      label: ログ・スクリーンショット / Logs or screenshots
+      description: サニタイズ済みのもののみ（API キー・私的データを除去）
+      render: shell
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 安全チェック / Safety check
+      options:
+        - label: "`.akari/connections.json` の中身・API キー・トークン・私的データを除去しました"
+          required: true
+        - label: これは未修正の脆弱性の公開開示ではありません（該当する場合は Security タブで報告します）
+          required: true
