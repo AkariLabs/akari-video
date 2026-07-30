@@ -1118,6 +1118,9 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowDown': e.preventDefault(); pause(); seekTo(outputTime + 10); break;
     case 'Home': e.preventDefault(); seekTo(0); break;
     case 'End': e.preventDefault(); seekTo(totalDuration); break;
+    case 'KeyS': e.preventDefault(); pause(); tlSplitCut(outputTime); break;
+    case 'Delete':
+    case 'Backspace': e.preventDefault(); pause(); tlDeleteCut(outputTime); break;
     case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime - 0.1, -1)); break;
     case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime + 0.1, 1)); break;
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
@@ -2208,6 +2211,63 @@ function tlHitTest(px, py) {
   return null;
 }
 
+const TL_SNAP_PX = 6;
+
+function tlSnapTime(t, excludeIndex) {
+  let bestSnap = null;
+  let bestDist = TL_SNAP_PX / tlZoom;
+  let cursor = 0;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (seg.isGap) { cursor += seg.durationSec; continue; }
+    if (seg.index === excludeIndex) { cursor += seg.durationSec; continue; }
+    [cursor, cursor + seg.durationSec].forEach(b => {
+      const d = Math.abs(t - b);
+      if (d < bestDist) { bestDist = d; bestSnap = b; }
+    });
+    cursor += seg.durationSec;
+  }
+  return bestSnap;
+}
+
+async function tlSplitCut(t) {
+  const seg = getActiveSegment(t);
+  if (!seg || seg.isGap || !summary?.cuts?.[seg.index]) return;
+  let cursor = 0;
+  for (const s of segments) {
+    if (s === seg) break;
+    cursor += s.durationSec;
+  }
+  const srcSplit = seg.inSec + (t - cursor) * seg.speed;
+  if (srcSplit <= seg.inSec || srcSplit >= seg.outSec) return;
+  const newEdit = JSON.parse(JSON.stringify(summary));
+  const orig = newEdit.cuts[seg.index];
+  const cutA = { ...orig, out: +srcSplit.toFixed(3) };
+  const cutB = { ...orig, in: +srcSplit.toFixed(3), at: +t.toFixed(3) };
+  newEdit.cuts.splice(seg.index, 1, cutA, cutB);
+  try {
+    const res = await fetch('/api/edit.json', {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
+    });
+    if (res.ok) { await reloadSummary(); buildSegments(); seekTo(t); showMessage('カットを分割しました (S)'); }
+    else showMessage(await editSaveErrorMessage(res));
+  } catch (err) { showMessage(err?.message || String(err)); }
+}
+
+async function tlDeleteCut(t) {
+  const seg = getActiveSegment(t);
+  if (!seg || seg.isGap || !summary?.cuts?.[seg.index]) return;
+  const newEdit = JSON.parse(JSON.stringify(summary));
+  newEdit.cuts.splice(seg.index, 1);
+  try {
+    const res = await fetch('/api/edit.json', {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newEdit)
+    });
+    if (res.ok) { await reloadSummary(); buildSegments(); seekTo(t); showMessage('カットを削除しました (Del)'); }
+    else showMessage(await editSaveErrorMessage(res));
+  } catch (err) { showMessage(err?.message || String(err)); }
+}
+
 function setupTimeline() {
   tlZoomIn.addEventListener('click', () => { tlZoom = Math.min(TL_MAX_ZOOM, tlZoom * 1.5); renderTimeline(); });
   tlZoomOut.addEventListener('click', () => { tlZoom = Math.max(TL_MIN_ZOOM, tlZoom / 1.5); renderTimeline(); });
@@ -2250,6 +2310,24 @@ function setupTimeline() {
       const py = e.offsetY || (e.clientY - tlCanvas.getBoundingClientRect().top);
       const hit = tlHitTest(px, py);
       tlCanvas.style.cursor = hit ? (hit.mode === 'trim-in' || hit.mode === 'trim-out' ? 'ew-resize' : 'grab') : 'default';
+      // Cut info popup on hover
+      const infoPopup = document.getElementById('cut-info-popup');
+      const infoContent = document.getElementById('cut-info-content');
+      if (hit && summary?.cuts?.[hit.cutIndex]) {
+        const c = summary.cuts[hit.cutIndex];
+        const src = summary.sources?.find(s => s.id === c.src)?.path || c.src || '(no source)';
+        const srcName = src.split('/').pop();
+        const dur = (((c.out || 0) - (c.in || 0)) / (c.speed || 1)).toFixed(2);
+        const fmt = (sec) => { const m = Math.floor(sec / 60); return `${m}:${String(Math.floor(sec % 60)).padStart(2, '0')}.${String(Math.floor((sec % 1) * 100)).padStart(2, '0')}`; };
+        infoContent.innerHTML = `<div><b>#${hit.cutIndex + 1}</b> ${srcName}</div><div>in: ${fmt(c.in || 0)}  out: ${fmt(c.out || 0)}  dur: ${dur}s</div>${c.at !== undefined ? `<div>at: ${fmt(c.at)}</div>` : ''}`;
+        const wrapRect = tlCanvasWrap.getBoundingClientRect();
+        infoPopup.style.position = 'fixed';
+        infoPopup.style.left = Math.min(e.clientX + 12, window.innerWidth - 292) + 'px';
+        infoPopup.style.top = Math.max(8, e.clientY - infoPopup.offsetHeight - 8) + 'px';
+        infoPopup.hidden = false;
+      } else if (infoPopup) {
+        infoPopup.hidden = true;
+      }
       return;
     }
     const px = tlTimelineX(e);
@@ -2267,7 +2345,23 @@ function setupTimeline() {
       cut.out = newOut;
     } else if (tlDrag.mode === 'move') {
       const newAt = Math.max(0, +(tlDrag.startAt + deltaFrames).toFixed(2));
-      cut.at = newAt;
+      const snap = tlSnapTime(newAt, tlDrag.cutIndex);
+      cut.at = snap !== null ? snap : newAt;
+    }
+    // Snap right edge for trim
+    if (tlDrag.mode === 'trim-out' || tlDrag.mode === 'trim-in') {
+      const atPos = tlDrag.startAt !== null ? tlDrag.startAt : tlDrag.cursorStart;
+      const speed = cut.speed || 1;
+      const rightEdge = atPos + ((cut.out || 0) - (cut.in || 0)) / speed;
+      const snap = tlSnapTime(rightEdge, tlDrag.cutIndex);
+      if (snap !== null) {
+        const newDur = snap - atPos;
+        if (tlDrag.mode === 'trim-out') {
+          cut.out = Math.max(cut.in + 1 / fps, +(cut.in + newDur * speed).toFixed(3));
+        } else {
+          cut.in = Math.max(0, Math.min(cut.out - 1 / fps, +(cut.out - newDur * speed).toFixed(3)));
+        }
+      }
     }
     // Re-render timeline with new cuts
     const oldCuts = summary.cuts;
@@ -2276,6 +2370,11 @@ function setupTimeline() {
     summary.cuts = oldCuts;
     tlDrag.saved = false;
     e.preventDefault();
+  });
+
+  tlCanvas.addEventListener('pointerleave', () => {
+    const p = document.getElementById('cut-info-popup');
+    if (p) p.hidden = true;
   });
 
   tlCanvas.addEventListener('pointerup', async (e) => {
@@ -2439,6 +2538,15 @@ function renderTimeline() {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`#${seg.index + 1}`, sx + sw / 2, y + TL_TRACK_HEIGHT / 2);
+    }
+    // Source time label (in/out)
+    if (sw > 80) {
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.font = '8px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const fmt = (sec) => { const m = Math.floor(sec / 60); return `${m}:${String(Math.floor(sec % 60)).padStart(2, '0')}.${String(Math.floor((sec % 1) * 100)).padStart(2, '0')}`; };
+      ctx.fillText(`${fmt(seg.inSec)} → ${fmt(seg.outSec)}`, sx + sw / 2, y + 1);
     }
     cursor += seg.durationSec;
   }
