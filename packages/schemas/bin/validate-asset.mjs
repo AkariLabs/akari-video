@@ -68,9 +68,9 @@ function validateMeta(value) {
     "license",
     "price",
   ];
-  // source / remote / matched_by は任意フィールド。
-  // 後方互換のため必須フィールドには加えない。
-  const optionalFields = ["source", "remote", "matched_by"];
+  // source / remote / matched_by / version / min_app_version は任意フィールド。
+  // 後方互換のため必須フィールドには加えない（version は 2026-07-30 導入で、既存エントリは未設定）。
+  const optionalFields = ["source", "remote", "matched_by", "version", "min_app_version"];
   const allowedFields = [...requiredFields, ...optionalFields];
   for (const field of requiredFields) {
     if (!hasOwn(value, field)) fail(`必須フィールドがありません: ${field}`);
@@ -102,6 +102,16 @@ function validateMeta(value) {
 
   if (value.price !== null && (!isFiniteNumber(value.price) || value.price < 0)) {
     fail("price は null または 0 以上の有限数である必要があります");
+  }
+
+  if (hasOwn(value, "version")) {
+    if (!Number.isInteger(value.version) || value.version < 1) {
+      fail("version は 1 以上の整数である必要があります");
+    }
+  }
+
+  if (hasOwn(value, "min_app_version") && !/^\d+\.\d+\.\d+$/.test(String(value.min_app_version))) {
+    fail("min_app_version は x.y.z 形式である必要があります");
   }
 
   const matchedByValues = new Set(["title-normalized"]);

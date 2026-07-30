@@ -1255,7 +1255,7 @@ export class AkariHomeWidget extends ReactWidget {
                         {this.stages.map((stage, index) => (
                             <section key={stage.id} style={{
                                 border: '1px solid var(--theia-widget-border)', borderRadius: 10,
-                                padding: 16, background: 'var(--theia-sideBar-background)', minHeight: 150
+                                padding: 16, background: 'var(--theia-editorWidget-background)', minHeight: 150
                             }}>
                                 <div style={{ opacity: 0.55, fontSize: 12 }}>STAGE {index + 1}</div>
                                 <h2 style={{ margin: '8px 0 12px', fontSize: 18 }}>{stage.label}</h2>
@@ -1323,7 +1323,7 @@ export class AkariHomeWidget extends ReactWidget {
                     borderRadius: 14,
                     cursor: 'pointer',
                     border: `2px dashed ${this.dragActive ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`,
-                    background: this.dragActive ? 'var(--theia-list-dropBackground)' : 'var(--theia-sideBar-background)',
+                    background: this.dragActive ? 'var(--theia-list-dropBackground)' : 'var(--theia-editorWidget-background)',
                     textAlign: isHero ? 'center' : 'left'
                 }}
             >
@@ -1380,7 +1380,9 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
 
     starterGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 24 },
     starterCard: {
-        textAlign: 'left', padding: 18, borderRadius: 14, background: 'var(--theia-sideBar-background)',
+        textAlign: 'left', padding: 18, borderRadius: 14, background: 'var(--theia-editorWidget-background)',
+        // 素の <button> は色を継承しないため明示する（未指定だと UA 既定の暗色が黒背景に載る）
+        color: 'var(--theia-editorWidget-foreground)',
         border: '1px solid var(--theia-widget-border)', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4
     },
     starterIcon: { fontSize: 20, color: 'var(--theia-focusBorder)', marginBottom: 8 },
@@ -1427,7 +1429,7 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
 function homeFlowCheckStyle(checked: boolean): React.CSSProperties {
     return {
         display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 13px', borderRadius: 11,
-        background: checked ? 'var(--theia-list-activeSelectionBackground)' : 'var(--theia-sideBar-background)',
+        background: checked ? 'var(--theia-list-activeSelectionBackground)' : 'var(--theia-editorWidget-background)',
         border: `1px solid ${checked ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`, cursor: 'pointer'
     };
 }
@@ -1436,7 +1438,7 @@ function homeFlowPillStyle(selected: boolean): React.CSSProperties {
     return {
         position: 'relative', display: 'inline-block', padding: '7px 15px', borderRadius: 999, fontSize: 12.5,
         border: `1px solid ${selected ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`,
-        background: selected ? 'var(--theia-list-activeSelectionBackground)' : 'var(--theia-sideBar-background)',
+        background: selected ? 'var(--theia-list-activeSelectionBackground)' : 'var(--theia-editorWidget-background)',
         cursor: 'pointer'
     };
 }

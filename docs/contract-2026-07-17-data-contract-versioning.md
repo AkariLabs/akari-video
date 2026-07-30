@@ -52,7 +52,7 @@
 | edit.json | あり（運用明文化済み） | — |
 | `.akari/workflow.json` | あり（`1`） | — |
 | `.analysis.json`（`analysis.schema.json`） | あり | — |
-| `.meta.json`（`asset-meta.schema.json`） | **無し** | 任意フィールドとして追加（additive なので bump 不要） |
+| `.meta.json`（`asset-meta.schema.json`） | **あり**（2026-07-30 追加。初版 1） | 完了。任意フィールドとして追加し、bump 基準と機械検査は素材ライブラリ契約「素材の版と互換性」に定義 |
 | `.decisions.json` | 未整備 | 次のスキーマ改訂時に追加 |
 
 ギャップの解消は各契約側のタスクとして扱う。本書が固定するのは原則のみ。
