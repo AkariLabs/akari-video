@@ -137,6 +137,38 @@ jobs:
             '口述|\bF48\b|第 ?[0-9]+ ?巡|スキルマップ' \
             "Rewrite as a self-contained norm. Move the 口述/F48/巡 provenance to the internal repo's contract and delete it here."
 
+          # Skill adapter symlink integrity: .agents/skills/, .claude/skills/, and .cursor/skills/
+          # must be symlinks pointing to ../../skills/<name>. A redirected symlink could cause the
+          # agent to load a tampered SKILL.md.
+          check_skill_symlinks() {
+            local adapter_dir="$1"
+            [ -d "$adapter_dir" ] || return 0
+            for entry in "$adapter_dir"/*; do
+              [ -e "$entry" ] || continue
+              local name
+              name="$(basename "$entry")"
+              if [ ! -L "$entry" ]; then
+                echo "::error::Governance gate — skill adapter is not a symlink: ${entry}"
+                echo "  -> Each entry in ${adapter_dir}/ must be a symlink to ../../skills/${name}"
+                FAIL=1
+                continue
+              fi
+              local target
+              target="$(readlink "$entry")"
+              local expected="../../skills/${name}"
+              if [ "$target" != "$expected" ]; then
+                echo "::error::Governance gate — skill adapter symlink target mismatch: ${entry} -> ${target} (expected ${expected})"
+                echo "  -> Redirected symlinks could load a tampered SKILL.md"
+                FAIL=1
+              fi
+            done
+          }
+
+          check_skill_symlinks ".agents/skills"
+          check_skill_symlinks ".claude/skills"
+          check_skill_symlinks ".cursor/skills"
+          check_skill_symlinks ".opencode/skills"
+
           if [ "$FAIL" -ne 0 ]; then
             echo ""
             echo "Governance gate failed — see the errors above for file, line, and which pattern matched."

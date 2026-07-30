@@ -1,0 +1,15 @@
+name: edit-plan
+description: analyze-project が作る分析レポート（interpretation.json + analysis-report.html）を一次証拠として読み、方針・素材計画・実行をチャットの明示承認で確定したうえで edit.json v0 とオーバーレイ HTML へ落とすスキル。複数素材の編集計画、素材ゼロからの生成計画（質問対話 → plan.json の仮枠タイムライン確定）、分析結果からカットや BGM・SFX・B ロールを決める依頼で使う。
+triggers:
+  - 編集方針を立てて
+  - edit plan
+  - 編集計画
+  - カット構成
+tools:
+  - bash
+  - read
+  - write
+  - edit
+  - grep
+  - glob
+skillPath: ../../skills/edit-plan/SKILL.md

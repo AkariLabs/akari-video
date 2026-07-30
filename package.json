@@ -11,6 +11,7 @@
     "check:skills-index": "node scripts/gen-skills-index.mjs --check --strict"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "js-yaml": "^4.3.0"
   }
 }

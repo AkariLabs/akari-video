@@ -5,8 +5,8 @@
 ## General
 
 **Q. Do I need the app to use this?**
-No. It's headless-first, so Claude Code alone takes you from planning through
-export. The app (the Theia shell) is "a place to review and fix," and it's
+No. It's headless-first, so opencode or Claude Code alone takes you from planning
+through export. The app (the Theia shell) is "a place to review and fix," and it's
 currently mid-migration.
 
 **Q. Can I run it fully automatically, start to finish?**
@@ -20,8 +20,8 @@ You can go a full loop for free, locally — proxy generation, transcription
 and export.
 
 **Q. What about Windows?**
-In progress. Currently macOS only (progress:
-[dev/windows-build.md](../dev/windows-build.md) (Japanese)).
+Windows is supported (including WSL2). See [dev/windows-build.md](../dev/windows-build.md)
+for build details (Japanese).
 
 ## Editing & data
 

@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  # skills/ 正本と .claude/skills / .agents/skills の symlink 整合 + AGENTS.md 生成索引のドリフト検査。
+  # skills/ 正本と .claude/skills / .agents/skills / .cursor/skills の symlink 整合 + AGENTS.md 生成索引のドリフト検査。
   # スクリプト自体は依存ゼロで動く（js-yaml 不在時は最小フォールバック）が、この
   # ジョブでは root devDependencies（js-yaml のみ）を入れて厳密 YAML 検証（issue #4 の
   # 再発ゲート）を CI で 1 レーン担保する。--no-workspaces で apps/shell 等の重い

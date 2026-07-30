@@ -4,9 +4,9 @@ import { pathToFileURL } from 'node:url';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
-import { findClaudeExecutable } from './path-lookup.mjs';
+import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
-import { describeIntake, claudeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import { describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
 import {
   checkForUpdateSync,
   readCacheSync,
@@ -31,9 +31,16 @@ export async function run(args, options = {}) {
   const scaffold = options.scaffold ?? defaultScaffold;
   const runDoctor = options.runDoctor ?? defaultRunDoctor;
   const resolveClaude = options.resolveClaude ?? (() => findClaudeExecutable());
+  const resolveOpencode = options.resolveOpencode ?? (() => findOpencodeExecutable());
   const spawnClaude = options.spawnClaude ?? defaultSpawnClaude;
+  const spawnOpencode = options.spawnOpencode ?? defaultSpawnOpencode;
   const env = options.env ?? process.env;
   const currentVersion = options.currentVersion ?? readOwnVersion();
+  
+  // --opencode / --claude / --claudecode / --yes フラグを解析
+  const useOpencode = args.includes('--opencode');
+  const autoConfirm = args.includes('--yes') || args.includes('-y');
+  const filteredArgs = args.filter(arg => arg !== '--opencode' && arg !== '--claude' && arg !== '--claudecode' && arg !== '--yes' && arg !== '-y');
 
   let state = detectProjectState(projectRoot);
 
@@ -78,16 +85,40 @@ export async function run(args, options = {}) {
   }
   (options.refreshUpdate ?? triggerBackgroundRefresh)({ env });
 
-  log('Claude Code を起動します…');
-  const claudePath = resolveClaude();
-  if (!claudePath) {
-    log(claudeMissingGuidance());
-    return { exitCode: 1, scaffolded: state.scaffolded, claudeLaunched: false };
-  }
+  if (useOpencode) {
+    log('opencode を起動します…');
+    const opencodePath = resolveOpencode();
+    if (!opencodePath) {
+      log(opencodeMissingGuidance());
+      return { exitCode: 1, scaffolded: state.scaffolded, opencodeLaunched: false };
+    }
 
-  const result = spawnClaude(claudePath, args, projectRoot);
-  const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
-  return { exitCode, scaffolded: state.scaffolded, claudeLaunched: true };
+    const opencodeArgs = autoConfirm ? ['--auto', ...filteredArgs] : filteredArgs;
+    const result = spawnOpencode(opencodePath, opencodeArgs, projectRoot);
+    const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
+    return { exitCode, scaffolded: state.scaffolded, opencodeLaunched: true };
+  } else {
+    const claudePath = resolveClaude();
+    if (claudePath) {
+      log('Claude Code を起動します…');
+      const claudeArgs = autoConfirm ? ['--permission-mode', 'acceptEdits', ...filteredArgs] : filteredArgs;
+      const result = spawnClaude(claudePath, claudeArgs, projectRoot);
+      const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
+      return { exitCode, scaffolded: state.scaffolded, claudeLaunched: true };
+    }
+
+    log('Claude Code が見つかりません。opencode を起動します…');
+    const opencodePath = resolveOpencode();
+    if (!opencodePath) {
+      log(claudeMissingGuidance());
+      return { exitCode: 1, scaffolded: state.scaffolded, opencodeLaunched: false };
+    }
+
+    const opencodeArgs = autoConfirm ? ['--auto', ...filteredArgs] : filteredArgs;
+    const result = spawnOpencode(opencodePath, opencodeArgs, projectRoot);
+    const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
+    return { exitCode, scaffolded: state.scaffolded, opencodeLaunched: true };
+  }
 }
 
 async function defaultScaffold(projectRoot, assets) {
@@ -109,6 +140,10 @@ function defaultRunDoctor(doctorScript, projectRoot) {
 
 function defaultSpawnClaude(claudePath, args, projectRoot) {
   return spawnSync(claudePath, args, { stdio: 'inherit', cwd: projectRoot });
+}
+
+function defaultSpawnOpencode(opencodePath, args, projectRoot) {
+  return spawnSync(opencodePath, args, { stdio: 'inherit', cwd: projectRoot });
 }
 
 /**

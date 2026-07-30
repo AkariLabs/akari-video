@@ -45,6 +45,14 @@ export function claudeMissingGuidance() {
   ].join('\n');
 }
 
+export function opencodeMissingGuidance() {
+  return [
+    'opencode コマンドが見つかりませんでした。',
+    'opencode をインストールしてください: npm install -g opencode',
+    'インストール後、このフォルダーで再度 `akari --opencode` を実行してください。'
+  ].join('\n');
+}
+
 /**
  * `akari` 起動時、claude 起動直前に出す 1 行通知（契約 §4-1）。
  * `checkForUpdateSync` が返す状態から組み立てる。新版が無ければ null。

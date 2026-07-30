@@ -1,0 +1,16 @@
+{
+  "name": "AKARI Video Project",
+  "version": "1.0.0",
+  "description": "AKARI Video プロジェクト設定",
+  "skills": {
+    "autoDiscover": true,
+    "path": "./skills"
+  },
+  "hooks": {
+    "sessionStart": "./hooks/session-start.mjs"
+  },
+  "project": {
+    "type": "akari-video",
+    "version": "0.1.0"
+  }
+}
