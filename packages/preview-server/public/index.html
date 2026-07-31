@@ -11,9 +11,9 @@
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
 
-.app-root { width: 100%; height: 100%; display: grid; grid-template-rows: 1fr auto auto; min-height: 0; }
+.app-root { width: 100%; height: 100%; display: grid; grid-template-rows: 1fr 4px var(--pane-bottom-height, 220px); min-height: 0; }
 
-.main-panes { min-height: 0; display: grid; grid-template-columns: 260px 1fr; overflow: hidden; }
+.main-panes { min-height: 0; display: grid; grid-template-columns: var(--pane-left-width, 260px) 4px 1fr; overflow: hidden; }
 
 .pane { display: flex; flex-direction: column; min-height: 0; }
 .pane-header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #1a1a1a; border-bottom: 1px solid #303030; font-size: 12px; font-weight: 600; color: #aaa; flex-shrink: 0; }
@@ -31,6 +31,9 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background:
 .asset-item:hover { background: #222; }
 .asset-item:active { background: #2a2a2a; }
 .asset-item.is-active { background: #1a3050; }
+.asset-item.selected { background: #123a63; box-shadow: inset 3px 0 0 #4da3ff; }
+.asset-item.selected::after { content: '▶'; margin-left: auto; color: #4da3ff; font-size: 10px; }
+.asset-item.selected .asset-name { color: #fff; }
 .asset-icon { flex-shrink: 0; width: 28px; height: 28px; border-radius: 3px; background: #222; display: grid; place-items: center; font-size: 14px; }
 .asset-icon.video { color: #4da3ff; }
 .asset-icon.audio { color: #ffd94a; }
@@ -80,9 +83,30 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background:
 #zoom-minimap[hidden] { display: none; }
 #zoom-minimap video { width: 100%; height: 100%; object-fit: contain; }
 #zoom-minimap-viewport { position: absolute; border: 1px solid #ff0; background: rgba(255,255,0,0.08); pointer-events: none; }
-.message-card { position: absolute; inset: 0; z-index: 10; display: grid; gap: 16px; place-items: center; padding: 32px; background: #111; }
-.message-card[hidden] { display: none; }
-.message-card p { max-width: 520px; margin: 0; color: #e5e5e5; font-size: 15px; line-height: 1.7; text-align: center; }
+#toast { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 80; max-width: 80%; padding: 6px 14px; background: rgba(0,0,0,0.75); border: 1px solid #404040; border-radius: 4px; color: #eee; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+#toast[hidden] { display: none; }
+#toast.show { animation: toast-in .12s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 4px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Asset preview */
+#asset-preview { position: absolute; inset: 0; z-index: 30; background: #000; display: grid; place-items: center; padding: 16px; }
+#asset-preview[hidden] { display: none; }
+#asset-preview img, #asset-preview video { max-width: 100%; max-height: 100%; object-fit: contain; }
+#asset-preview video { width: 100%; height: 100%; }
+#asset-preview-note { display: grid; place-items: center; gap: 16px; }
+#asset-preview-note[hidden] { display: none; }
+#asset-preview-note .note-symbol { font-size: 90px; color: #3a3a3a; line-height: 1; user-select: none; transition: color .15s; }
+#asset-preview-note .note-eq { display: flex; gap: 5px; align-items: flex-end; height: 34px; }
+#asset-preview-note .note-eq span { width: 6px; height: 6px; border-radius: 2px; background: #3a3a3a; }
+#asset-preview-note.playing .note-symbol { color: #4da3ff; animation: note-pulse 1.2s ease-in-out infinite; }
+#asset-preview-note.playing .note-eq span { background: #4da3ff; animation: eq-bounce 1s ease-in-out infinite; }
+#asset-preview-note.playing .note-eq span:nth-child(2) { animation-delay: .15s; }
+#asset-preview-note.playing .note-eq span:nth-child(3) { animation-delay: .3s; }
+#asset-preview-note.playing .note-eq span:nth-child(4) { animation-delay: .45s; }
+#asset-preview-note.playing .note-eq span:nth-child(5) { animation-delay: .6s; }
+@keyframes note-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+@keyframes eq-bounce { 0%,100% { height: 6px; } 50% { height: 34px; } }
+#asset-preview-label { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); max-width: 90%; background: rgba(0,0,0,0.65); border: 1px solid #404040; color: #ddd; font-size: 12px; padding: 3px 12px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 
 /* Timeline pane */
 .pane-bottom { border-top: 1px solid #303030; background: #1a1a1a; }
@@ -102,13 +126,6 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background:
 #tl-ruler-canvas { display: block; width: 100%; height: 100%; }
 
 /* Transport */
-.transport-waveform { border-top: 1px solid #303030; background: #1e1e1e; padding: 0 12px; }
-.transport-waveform[hidden] { display: none; }
-.waveform-track { position: relative; height: 22px; display: flex; align-items: center; border-bottom: 1px solid #282828; cursor: pointer; touch-action: none; }
-.waveform-track-label { position: absolute; left: 4px; z-index: 2; color: #666; font-size: 8px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; pointer-events: none; text-shadow: 0 0 3px #000; }
-.waveform-track-visual { position: absolute; inset: 0; }
-.waveform-track-canvas, #waveform-canvas { display: block; width: 100%; height: 100%; }
-.transport-waveform-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: rgba(255, 255, 255, 0.7); pointer-events: none; z-index: 1; }
 .transport-seek { display: flex; width: 100%; position: relative; background:#1e1e1e; }
 .transport-seek input { width: 100%; }
 .pane-center .transport-seek { border-top: none; }
@@ -125,21 +142,24 @@ html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background:
 .icon-button:disabled { opacity: 0.45; cursor: default; }
 .icon-button svg { width: 16px; height: 16px; fill: currentColor; stroke: currentColor; }
 #time-label { min-width: 100px; color: #d0d0d0; font-variant-numeric: tabular-nums; text-align: left; font-size: 13px; }
-.popup { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 20; width: 224px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+.popup { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 60; width: 224px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
 .popup[hidden] { display: none; }
 .popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #d8d8d8; font-size: 12px; }
 #zoom-value { color: #fff; font-variant-numeric: tabular-nums; }
 input[type=range] { width: 100%; }
 .zoom-presets { display: grid; grid-template-columns: repeat(4, 32px); justify-content: space-between; gap: 5px; margin-top: 8px; }
 .zoom-preset { width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; font-size: 10px; cursor: pointer; }
-.transform-popup { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 20; width: 200px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+.zoom-fit { width: 100%; margin-top: 8px; padding: 5px 0; border: 1px solid #505050; border-radius: 4px; background: #303030; color: #ccc; font-size: 11px; cursor: pointer; }
+.zoom-fit:hover { background: #404040; color: #fff; }
+.zoom-fit.is-active { border-color: #4da3ff; color: #4da3ff; }
+.transform-popup { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 60; width: 200px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
 .transform-popup[hidden] { display: none; }
 .transform-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .transform-row label { color: #aaa; font-size: 11px; width: 32px; }
 .transform-row input { flex: 1; background: #303030; border: 1px solid #505050; border-radius: 3px; color: #fff; font-size: 12px; padding: 2px 4px; width: 0; }
 .transform-row input:focus { border-color: #7af; outline: none; }
 #selection-label { font-size: 11px; color: #888; }
-    .indicator-popup { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 20; width: 260px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+    .indicator-popup { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 60; width: 260px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
     .indicator-popup[hidden] { display: none; }
     #ctx-menu { position: fixed; z-index: 100; min-width: 160px; border: 1px solid #505050; border-radius: 6px; padding: 4px 0; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
     #ctx-menu[hidden] { display: none; }
@@ -162,9 +182,11 @@ input[type=range] { width: 100%; }
 #loading-indicator > div:first-child { width:32px;height:32px;border:3px solid #505050;border-top-color:#4da3ff;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 8px; }
 #loading-indicator > div:last-child { color:#888;font-size:12px; }
 
-/* Resize handle */
+/* Resize handles */
 .pane-left-resize { flex-shrink: 0; width: 4px; cursor: col-resize; background: transparent; transition: background 0.2s; }
-.pane-left-resize:hover { background: #4da3ff; }
+.pane-left-resize:hover, .pane-left-resize.is-dragging { background: #4da3ff; }
+.pane-bottom-resize { height: 4px; cursor: row-resize; background: transparent; transition: background 0.2s; }
+.pane-bottom-resize:hover, .pane-bottom-resize.is-dragging { background: #4da3ff; }
 /* Add-track dialog */
 #add-track-dialog { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.6); display: grid; place-items: center; }
 #add-track-dialog[hidden] { display: none; }
@@ -200,13 +222,14 @@ input[type=range] { width: 100%; }
       <input class="asset-search" id="asset-search" type="search" placeholder="素材を検索..." spellcheck="false">
       <div class="pane-content" id="asset-list"></div>
     </aside>
+    <div class="pane-left-resize"></div>
 
     <!-- Center: Preview -->
     <div class="pane pane-center" style="display:flex;flex-direction:column">
       <div class="preview-area" style="flex:1;min-height:0">
         <div id="preview-wrapper">
           <div id="zoom-layer">
-            <video id="preview-video" preload="auto"></video>
+            <video id="preview-video" preload="auto" muted></video>
             <div id="layer-container"></div>
             <div id="overlay-stage">
               <div id="pen-layer"><canvas id="pen-canvas"></canvas></div>
@@ -222,9 +245,19 @@ input[type=range] { width: 100%; }
               </div>
             </div>
           </div>
+          <div id="asset-preview" hidden>
+            <img id="asset-preview-image" alt="">
+            <video id="asset-preview-video" preload="auto"></video>
+            <audio id="asset-preview-audio" preload="auto"></audio>
+            <div id="asset-preview-note" hidden>
+              <div class="note-symbol">♫</div>
+              <div class="note-eq"><span></span><span></span><span></span><span></span><span></span></div>
+            </div>
+            <div id="asset-preview-label"></div>
+          </div>
           <div id="loading-indicator"><div></div><div>読み込み中...</div></div>
           <div id="zoom-minimap" hidden><video id="minimap-video" preload="auto"></video><div id="zoom-minimap-viewport"></div></div>
-          <div id="preview-message" class="message-card" hidden role="status"><p id="preview-message-text"></p></div>
+          <div id="toast" hidden role="status"></div>
         </div>
       </div>
       <div class="transport-seek" style="padding:3px 12px">
@@ -237,7 +270,6 @@ input[type=range] { width: 100%; }
       </div>
       <div class="transport-controls">
         <div class="transport-left">
-          <button id="waveform-toggle" class="icon-button" type="button" aria-label="波形" title="波形" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
           <span id="time-label">0:00 / 0:00</span>
           <button id="edit-toggle" class="icon-button" type="button" aria-label="編集" title="編集" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a1.0 1.0 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
           <button id="indicator-toggle" class="icon-button" type="button" aria-label="指標" title="指標" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></button>
@@ -268,13 +300,14 @@ input[type=range] { width: 100%; }
             <div><label style="color:#aaa;font-size:11px">ゾーン</label><select id="caption-zone-select" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></select></div>
             <div style="display:flex;gap:6px;margin-top:6px"><label style="color:#aaa;font-size:11px;flex:1">色 <input id="caption-color-input" type="color" style="width:100%;background:#303030;border:1px solid #505050;border-radius:3px;height:24px"></label><label style="color:#aaa;font-size:11px;flex:1">サイズ <input id="caption-size-input" type="number" min="12" max="120" step="1" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label></div>
           </div>
-          <button id="output-preview-btn" class="icon-button" type="button" aria-label="出力プレビュー" title="出力プレビュー" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 5h2v5h-2z"/></svg></button>
+          <button id="output-preview-btn" class="icon-button" type="button" aria-label="出力プレビュー" title="出力プレビュー"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 5h2v5h-2z"/></svg></button>
           <button id="review-record-btn" class="icon-button" type="button" aria-label="レビュー録音" title="レビュー録音" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></button>
           <span id="review-timer" style="display:none;color:#ff4444;font-size:12px;font-variant-numeric:tabular-nums;min-width:70px;text-align:center">0:00</span>
           <div id="zoom-popup" class="popup" hidden>
             <div class="popup-header"><span>ズーム</span><span id="zoom-value">100%</span></div>
             <input id="zoom-slider" type="range" min="0" max="1" step="0.001" aria-label="ズーム倍率">
             <div class="zoom-presets"><button class="zoom-preset" type="button" data-zoom="0.5">50%</button><button class="zoom-preset" type="button" data-zoom="1">100%</button><button class="zoom-preset" type="button" data-zoom="2">200%</button><button class="zoom-preset" type="button" data-zoom="4">400%</button></div>
+            <button id="zoom-fit" class="zoom-fit" type="button">画面に合わせる</button>
           </div>
         </div>
       </div>
@@ -282,6 +315,7 @@ input[type=range] { width: 100%; }
   </div>
 
   <!-- Bottom: Timeline -->
+  <div class="pane-bottom-resize"></div>
   <div class="pane pane-bottom" id="timeline-pane">
     <div class="pane-header">
       <span>タイムライン</span>
@@ -312,37 +346,6 @@ input[type=range] { width: 100%; }
       <button id="ctx-move-down">下へ移動</button>
     </div>
     <div id="asset-ctx-menu" hidden></div>
-    </div>
-  </div>
-
-  <div class="transport-waveform" hidden>
-    <div class="waveform-track">
-      <span class="waveform-track-label">Video</span>
-      <div class="waveform-track-visual">
-        <canvas id="waveform-canvas" aria-label="音声波形"></canvas>
-        <div class="transport-waveform-playhead" aria-hidden="true"></div>
-      </div>
-    </div>
-    <div class="waveform-track" id="waveform-track-bgm" hidden>
-      <span class="waveform-track-label">BGM</span>
-      <div class="waveform-track-visual">
-        <canvas class="waveform-track-canvas" data-track="bgm"></canvas>
-        <div class="transport-waveform-playhead" aria-hidden="true"></div>
-      </div>
-    </div>
-    <div class="waveform-track" id="waveform-track-narration" hidden>
-      <span class="waveform-track-label">Nar</span>
-      <div class="waveform-track-visual">
-        <canvas class="waveform-track-canvas" data-track="narration"></canvas>
-        <div class="transport-waveform-playhead" aria-hidden="true"></div>
-      </div>
-    </div>
-    <div class="waveform-track" id="waveform-track-sfx" hidden>
-      <span class="waveform-track-label">SFX</span>
-      <div class="waveform-track-visual">
-        <canvas class="waveform-track-canvas" data-track="sfx"></canvas>
-        <div class="transport-waveform-playhead" aria-hidden="true"></div>
-      </div>
     </div>
   </div>
 </div>

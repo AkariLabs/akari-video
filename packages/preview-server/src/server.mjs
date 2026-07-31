@@ -16,6 +16,7 @@ let port = 3000;
 let projectRoot = process.cwd();
 let noLint = false;
 let host = '127.0.0.1';
+let viewerMode = process.env.AKARI_PREVIEW_VIEWER === '1';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--port' && args[i + 1]) {
@@ -24,6 +25,8 @@ for (let i = 0; i < args.length; i++) {
     host = args[++i];
   } else if (args[i] === '--no-lint') {
     noLint = true;
+  } else if (args[i] === '--viewer') {
+    viewerMode = true;
   } else if (!args[i].startsWith('-')) {
     projectRoot = path.resolve(args[i]);
   }
@@ -484,7 +487,14 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/' || pathname === '/index.html') {
-    return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+    const filePath = path.join(PUBLIC_DIR, 'index.html');
+    const html = fs.readFileSync(filePath, 'utf-8');
+    if (viewerMode) {
+      const injected = html.replace('</head>', '<script>window.__VIEWER_MODE__ = true;</script></head>');
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      return res.end(injected);
+    }
+    return serveFile(res, filePath, 'text/html; charset=utf-8');
   }
 
   if (pathname === '/api/output-preview') {

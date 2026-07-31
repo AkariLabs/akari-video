@@ -160,6 +160,7 @@ window.akari.interaction = (() => {
   }
 
   function selectOverlay(container) {
+    if (!window.akari.editMode || !window.akari.editMode()) return;
     clearSelection();
     selected = container;
     container.setAttribute('data-akari-interaction-selected', 'true');
@@ -344,6 +345,7 @@ window.akari.interaction = (() => {
   // ─── Write-back ───
 
   function enqueueWrite(container, patch) {
+    if (!window.akari.editMode || !window.akari.editMode()) return;
     const id = container.getAttribute('data-overlay-id');
     const p = writeTail.then(async () => {
       const res = await fetch('/api/edit.json', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(applyPatch(id, patch)) });
