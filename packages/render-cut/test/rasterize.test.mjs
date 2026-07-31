@@ -670,6 +670,42 @@ test("environment.map rejects absolute paths and non-image sources", async () =>
   }
 });
 
+test("an oversized video texture is refused instead of silently embedding the master", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "render-cut-3d-proxy-"));
+  try {
+    await writeFile(join(projectRoot, "model.glb"), Buffer.from([0x67, 0x6c, 0x54, 0x46]));
+    // 24MB の上限をまたぐ 2 本。プロキシ相当は通り、マスター相当は落ちる
+    await writeFile(join(projectRoot, "proxy.mp4"), Buffer.alloc(4 * 1024 * 1024));
+    await writeFile(join(projectRoot, "master.mp4"), Buffer.alloc(25 * 1024 * 1024));
+    const sheetWith = (texture) => () =>
+      renderOverlaySheet({
+        overlays: [
+          {
+            id: "model",
+            start: 0,
+            duration: 2,
+            html: `<div class="model"><canvas></canvas><script data-akari-3d-scene type="application/json">{
+              "model": "model.glb",
+              "materialOverrides": { "ScreenMaterial": { "texture": ${JSON.stringify(texture)} } }
+            }</script></div>`,
+            transform: {},
+            vars: {},
+          },
+        ],
+        edit: { output: { width: 320, height: 180, fps: 30 } },
+        projectRoot,
+        duration: 2,
+      });
+
+    assert.doesNotThrow(sheetWith("proxy.mp4"));
+    assert.throws(sheetWith("master.mp4"), /too large .*25MiB > 24MiB/u);
+    // 直し方（720p プロキシの作り方）まで伝える
+    assert.throws(sheetWith("master.mp4"), /scale=-2:720/u);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("looping videos wrap the seek time instead of freezing on the last frame", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "render-cut-loop-"));
   try {

@@ -31,6 +31,12 @@ const TEXTURE_MIME_TYPES = new Map([
   [".mp4", "video/mp4"],
   [".webm", "video/webm"],
 ]);
+// 動画テクスチャの上限。「原本を黙って通さない」（skills/overlay-authoring/3d.md）を実際に効かせる。
+// 解像度ではなくバイト数で見るのは、シート生成が同期・純関数で ffprobe を呼ばないため
+// （呼ぶと単体テストが使う極小のダミー動画も読めなくなる）。24MB は 720p / H.264 / CRF 23 なら
+// 数分ぶんに相当し、実運用のプロキシは通るが 4K マスターは通らない目安。
+// 埋め込みは base64（約 1.37 倍）になり、プレビューは毎 tick これをシークする
+const MAX_VIDEO_TEXTURE_BYTES = 24 * 1024 * 1024;
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const orderedOverlays = orderOverlaysByTrack(overlays);
@@ -776,6 +782,17 @@ function embedThreeModels(html, projectRoot, overlayId) {
             }
             const texture = readFileSync(resolve(projectRoot, override.texture));
             const mimeType = textureMimeType(override.texture);
+            if (mimeType.startsWith("video/") && texture.length > MAX_VIDEO_TEXTURE_BYTES) {
+              throw new Error(
+                `3D overlay ${overlayId} materialOverrides.${materialName}.texture is too large `
+                  + `(${Math.round(texture.length / 1024 / 1024)}MiB > ${MAX_VIDEO_TEXTURE_BYTES / 1024 / 1024}MiB): `
+                  + `${override.texture}\n`
+                  + "  Give the 720p editing proxy, not the master. The sheet embeds this as base64\n"
+                  + "  (~1.37x), and live preview seeks it on every tick.\n"
+                  + `  ffmpeg -i <master> -vf scale=-2:720 -c:v libx264 -crf 23 -preset medium `
+                  + "-pix_fmt yuv420p -an <proxy>.mp4",
+              );
+            }
             return [materialName, {
               texture: `data:${mimeType};base64,${texture.toString("base64")}`,
             }];
