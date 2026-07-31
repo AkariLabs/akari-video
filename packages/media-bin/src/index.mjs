@@ -1,15 +1,15 @@
 // media-bin — ffmpeg / ffprobe バイナリ解決の一元化。
 //
 // 探索順: 明示指定（AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN） → 既存互換（FFMPEG_PATH、ffmpeg のみ）
-// → PATH → ffmpeg-static / ffprobe-static 同梱バイナリ。
+// → PATH → 同梱バイナリ（vendor/ 配下。binary-manifest.mjs でピン留めした GPL-only・真ネイティブ
+// ビルドを postinstall で取得済み — task/2026-08-01-gpl-only-ffmpeg-swap）。
 // 見つからなければサイレントに "ffmpeg" へフォールバックせず、何を入れればよいかを含む Error を投げる。
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
 import { platform } from "node:os";
 
-const require = createRequire(import.meta.url);
+import { vendorBinaryPath } from "./binary-manifest.mjs";
 
 const INSTALL_HINT = {
   darwin: "  brew install ffmpeg",
@@ -32,26 +32,16 @@ function requireExisting(envVar, value) {
   return value;
 }
 
-function loadStaticBinary(packageName, pickPath) {
-  let mod;
-  try {
-    mod = require(packageName);
-  } catch {
-    return null;
-  }
-  const resolved = pickPath(mod);
-  return typeof resolved === "string" && resolved.length > 0 ? resolved : null;
-}
-
-function notFoundMessage({ label, envVar, legacyEnvVar, staticPackage }) {
+function notFoundMessage({ label, envVar, legacyEnvVar, vendorPath }) {
   const legacyStep = legacyEnvVar ? ` → ${legacyEnvVar}（既存互換）` : "";
   return [
     `${label} が見つかりませんでした。`,
     "",
-    `探索順: ${envVar}（明示指定）${legacyStep} → PATH → ${staticPackage} 同梱バイナリ`,
+    `探索順: ${envVar}（明示指定）${legacyStep} → PATH → 同梱バイナリ（${vendorPath}）`,
     "",
-    `${staticPackage} が依存として入っているはずですが、対応バイナリが見つかりませんでした。`,
-    "npm install をやり直すか、対応プラットフォームが無い場合は手動で導入してください:",
+    "同梱バイナリは packages/media-bin の npm install（postinstall）で取得されるはずですが、",
+    "見つかりませんでした。npm install をやり直すか、対応プラットフォームが無い場合は",
+    "手動で導入してください:",
     "",
     INSTALL_HINT[platform()] ?? "  https://ffmpeg.org/download.html",
     "",
@@ -59,7 +49,7 @@ function notFoundMessage({ label, envVar, legacyEnvVar, staticPackage }) {
   ].join("\n");
 }
 
-function resolveBinary({ label, envVar, legacyEnvVar, command, staticPackage, pickStaticPath, env }) {
+function resolveBinary({ label, envVar, legacyEnvVar, command, vendorName, env }) {
   const explicit = env[envVar];
   if (explicit) return requireExisting(envVar, explicit);
 
@@ -69,10 +59,10 @@ function resolveBinary({ label, envVar, legacyEnvVar, command, staticPackage, pi
 
   if (canRun(command, env)) return command;
 
-  const staticPath = loadStaticBinary(staticPackage, pickStaticPath);
-  if (staticPath && existsSync(staticPath)) return staticPath;
+  const vendorPath = vendorBinaryPath(vendorName);
+  if (existsSync(vendorPath)) return vendorPath;
 
-  throw new Error(notFoundMessage({ label, envVar, legacyEnvVar, staticPackage }));
+  throw new Error(notFoundMessage({ label, envVar, legacyEnvVar, vendorPath }));
 }
 
 /**
@@ -85,8 +75,7 @@ export function resolveFfmpeg({ env = process.env } = {}) {
     envVar: "AKARI_FFMPEG_BIN",
     legacyEnvVar: "FFMPEG_PATH",
     command: "ffmpeg",
-    staticPackage: "ffmpeg-static",
-    pickStaticPath: (mod) => mod,
+    vendorName: "ffmpeg",
     env,
   });
 }
@@ -101,8 +90,7 @@ export function resolveFfprobe({ env = process.env } = {}) {
     envVar: "AKARI_FFPROBE_BIN",
     legacyEnvVar: null,
     command: "ffprobe",
-    staticPackage: "ffprobe-static",
-    pickStaticPath: (mod) => mod?.path,
+    vendorName: "ffprobe",
     env,
   });
 }
