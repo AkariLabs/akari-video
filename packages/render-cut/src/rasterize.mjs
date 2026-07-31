@@ -25,6 +25,11 @@ const TEXTURE_MIME_TYPES = new Map([
   [".png", "image/png"],
   [".svg", "image/svg+xml"],
   [".webp", "image/webp"],
+  // 動画テクスチャ。原本ではなく編集用 720p プロキシを差すこと（skills/overlay-authoring/3d.md）
+  [".m4v", "video/mp4"],
+  [".mov", "video/quicktime"],
+  [".mp4", "video/mp4"],
+  [".webm", "video/webm"],
 ]);
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
@@ -44,8 +49,24 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const threeRuntimeScripts = hasThreeDimensionalOverlay
     ? `\n  <script>${inlineScript(readFileSync(THREE_BUNDLE_PATH, "utf8"))}</script>\n  <script>${inlineScript(readFileSync(THREE_RUNTIME_PATH, "utf8"))}</script>`
     : "";
+  // 3D は「動画テクスチャのシークが終わってから」描く。ここで描いてしまうと <video> がまだ
+  // 前フレームの絵のままテクスチャへ上がり、同じ時刻でも直前に何を撮ったかで結果が変わる。
+  // 収集だけ先にして、実際の描画は video の提示フレーム確定後（threeDrawStep）へ回す
+  const threeSeekCollector = hasThreeDimensionalOverlay
+    ? `\n      const pendingThreeDraws = [];`
+    : "";
   const threeSeekBranch = hasThreeDimensionalOverlay
-    ? `\n        const threeContainer = container.querySelector(':scope > .scene-content');\n        if (active && threeContainer?.querySelector('script[type="application/json"][data-akari-3d-scene]')) {\n          window.akari.threeRuntime.render(threeContainer, seconds - start);\n        }`
+    ? `\n        const threeContainer = container.querySelector(':scope > .scene-content');\n        if (active && threeContainer?.querySelector('script[type="application/json"][data-akari-3d-scene]')) {\n          pendingThreeDraws.push([threeContainer, seconds - start]);\n        }`
+    : "";
+  const threeDrawStep = hasThreeDimensionalOverlay
+    ? `\n      for (const [threeContainer, localSeconds] of pendingThreeDraws) {\n        window.akari.threeRuntime.render(threeContainer, localSeconds);\n      }`
+    : "";
+  // 3D の動画テクスチャはランタイムが loop を立てて作るので、素材の尺より合成が長いときは
+  // 畳んで回す（畳まないと末尾のフレームで静止する）。2D だけのシートは従来どおり
+  // 合成時刻をそのまま渡す — 非 3D シートのバイト同一性を崩さないため宣言ごと出し分ける
+  const videoSeekTarget = hasThreeDimensionalOverlay ? "target" : "seconds";
+  const videoSeekTargetDeclaration = hasThreeDimensionalOverlay
+    ? `\n          const target = video.loop && Number.isFinite(video.duration) && video.duration > 0\n            ? seconds % video.duration\n            : seconds;`
     : "";
   const threeReadySetup = hasThreeDimensionalOverlay
     ? `\n    const threeContainers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][data-akari-3d-scene]')\n    );\n    for (const container of threeContainers) {\n      window.akari.threeRuntime.render(container, 0);\n    }\n    async function waitForThreeContainer(container) {\n      while (true) {\n        const status = window.akari.threeRuntime.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-three] 3D scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-three] 3D scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`
@@ -147,7 +168,7 @@ ${nodes}
       };
       if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(hold);
     })();
-    window.__akariSeek = async function(seconds) {
+    window.__akariSeek = async function(seconds) {${threeSeekCollector}
       for (const container of document.querySelectorAll('.akari-overlay-container')) {
         const start = Number(container.dataset.start);
         const duration = Number(container.dataset.duration);
@@ -196,17 +217,17 @@ ${nodes}
           videoSeekTimeoutMilliseconds,
         );
         try {
-          video.pause();
+          video.pause();${videoSeekTargetDeclaration}
           const alreadyAtTarget = !video.seeking
             && video.readyState >= 2
-            && Math.abs(video.currentTime - seconds) < 0.000001;
+            && Math.abs(video.currentTime - ${videoSeekTarget}) < 0.000001;
           if (alreadyAtTarget) {
             finish();
             return;
           }
           const usesVideoFrameCallback = typeof video.requestVideoFrameCallback === 'function';
           if (usesVideoFrameCallback) {
-            video.currentTime = seconds;
+            video.currentTime = ${videoSeekTarget};
             waitForPresentedVideoFrame();
           } else {
             seekedListener = () => {
@@ -214,7 +235,7 @@ ${nodes}
               waitForPresentedFrameWithAnimationFrames();
             };
             video.addEventListener('seeked', seekedListener, { once: true });
-            video.currentTime = seconds;
+            video.currentTime = ${videoSeekTarget};
           }
         } catch {
           finish();
@@ -222,7 +243,7 @@ ${nodes}
       });
       const warnings = (await Promise.all(
         Array.from(document.querySelectorAll('video'), waitForVideo),
-      )).filter(Boolean);
+      )).filter(Boolean);${threeDrawStep}
       await Promise.resolve();
       return { warnings };
     };${threeReadySetup}
@@ -712,6 +733,26 @@ function embedThreeModels(html, projectRoot, overlayId) {
         ...descriptor,
         model: `data:model/gltf-binary;base64,${model.toString("base64")}`,
       };
+      if (descriptor.environment?.map !== undefined) {
+        const map = descriptor.environment.map;
+        if (typeof map !== "string"
+          || map.length === 0
+          || map.startsWith("/")
+          || /^[a-z][a-z\d+.-]*:/i.test(map)) {
+          throw new TypeError(`3D overlay ${overlayId} environment.map must be a relative path`);
+        }
+        const mimeType = textureMimeType(map);
+        if (!mimeType.startsWith("image/")) {
+          throw new TypeError(
+            `3D overlay ${overlayId} environment.map must be an equirectangular image: ${map}`,
+          );
+        }
+        const image = readFileSync(resolve(projectRoot, map));
+        embeddedDescriptor.environment = {
+          ...descriptor.environment,
+          map: `data:${mimeType};base64,${image.toString("base64")}`,
+        };
+      }
       if (descriptor.materialOverrides !== undefined) {
         if (!descriptor.materialOverrides
           || typeof descriptor.materialOverrides !== "object"

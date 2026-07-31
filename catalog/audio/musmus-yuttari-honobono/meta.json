@@ -1,0 +1,35 @@
+{
+  "id": "musmus-yuttari-honobono",
+  "category": "audio",
+  "title": "MusMus ゆったり（ひとやすみ / ノスタルジア / 夢の跡の僕ら）",
+  "description": "ローテンポで落ち着いた敷き BGM 3 点。（収録数: 3点）",
+  "when_to_use": "ゆるい場面の敷き・哀愁のある夜・ひとやすみの間",
+  "tags": [
+    "bgm",
+    "calm",
+    "chill",
+    "nostalgic"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「BGM:MusMus」（フル表記: フリーBGM・音楽素材 MusMus https://musmus.main.jp）を動画概要欄等に明記する。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "候補リスト経由の assisted-fetch（BGM 系: 内部タスク audio-fetch-gallery 2026-07-22 / pocket: 2026-07-31 追加取得）→ オーナー試聴 keep（2026-07-31 sfx-review-result）で正式登録。取得時の来歴 sidecar は .origin-*.meta.json として同梱",
+    "generator": null
+  },
+  "author": "MusMus（watson）",
+  "license": {
+    "spdx": "LicenseRef-MusMus-Free",
+    "scope": "commercial-ok",
+    "attribution_required": true,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "source": {
+    "url": "https://musmus.main.jp/music_img1.html",
+    "acquisition": "direct",
+    "license_at_source": "商用可・無料・クレジット表記必須・素材単体の再配布禁止（https://musmus.main.jp/info.html）",
+    "attribution_required": true
+  },
+  "remote": true
+}

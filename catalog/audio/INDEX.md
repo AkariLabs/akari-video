@@ -31,6 +31,11 @@ songs[] の個別曲は一覧ページのタイトル表示から採用してお
 - [corporate-upbeat-bgm](./corporate-upbeat-bgm/meta.json) — ミニマルなビート主体の明るいコーポレート BGM（尺 2分05秒）。SaaS/製品デモ向け。（license: LicenseRef-Pixabay-Content-License / acquisition: direct）
 - [cozy-lofi-bgm](./cozy-lofi-bgm/meta.json) — Pixabay Editor's Choice のローファイ・チルビート（尺 2分27秒）。Vlog・作業風景向け。（license: LicenseRef-Pixabay-Content-License / acquisition: direct）
 - [dova-syndrome-cheerleaders-bgm](./dova-syndrome-cheerleaders-bgm/meta.json) — 明るく楽しい雰囲気のアップテンポ BGM（Anonyment / DOVA-SYNDROME）。応援・盛り上げシーンに。（license: LicenseRef-DOVA-SYNDROME-Free / acquisition: direct）
+- [dova-syndrome-user-manual](./dova-syndrome-user-manual/meta.json) — 2:23 AM / Morning。Vlog の出だし・締め・敷きに万能な定番 BGM 2 点（DOVA-SYNDROME）。（license: LicenseRef-DOVA-SYNDROME-Free / acquisition: direct）
+- [maoudamashii-bgm-neorock](./maoudamashii-bgm-neorock/meta.json) — 対決・闘志の演出に使う激しめロック BGM 3 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
+- [maoudamashii-bgm-piano](./maoudamashii-bgm-piano/meta.json) — 静寂・ゆったりした時間を出すピアノ BGM 2 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
+- [musmus-hageshii-atsui-upper](./musmus-hageshii-atsui-upper/meta.json) — 戦闘準備中。対決前の熱い煽り BGM 1 点（MusMus）。要クレジット。（license: LicenseRef-MusMus-Free / acquisition: direct）
+- [musmus-yuttari-honobono](./musmus-yuttari-honobono/meta.json) — ひとやすみ / ノスタルジア / 夢の跡の僕ら。ローテンポの敷き BGM 3 点（MusMus）。要クレジット。（license: LicenseRef-MusMus-Free / acquisition: direct）
 
 ### SFX
 
@@ -46,3 +51,7 @@ songs[] の個別曲は一覧ページのタイトル表示から採用してお
 - [dova-syndrome-hatena-mark-se](./dova-syndrome-hatena-mark-se/meta.json) — キャラクターの疑問・困惑を表す「はてなマーク」ポップアップ音（DOVA-SYNDROME）。（license: LicenseRef-DOVA-SYNDROME-Free / acquisition: direct）
 - [freesound-inspectorj-pencil-writing](./freesound-inspectorj-pencil-writing/meta.json) — 鉛筆で紙に書くリアルな筆記音（尺12.7秒、InspectorJ）。要クレジット。（license: CC-BY-4.0 / acquisition: login）
 - [maoudamashii-object-sound-15](./maoudamashii-object-sound-15/meta.json) — 汎用的な物音効果音「物音15」（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
+- [maoudamashii-se-magic-category](./maoudamashii-se-magic-category/meta.json) — マジカル27。IT/ガジェットのロゴ・ノイズ演出音 1 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
+- [maoudamashii-se-onepoint-category](./maoudamashii-se-onepoint-category/meta.json) — 不吉な不協和音・ふざけた失敗音・ダメ出しブッブーの 3 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
+- [maoudamashii-se-system-category](./maoudamashii-se-system-category/meta.json) — コイン系上昇音・解説ポイント提示音の 3 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
+- [pocket-se-fail-pack](./pocket-se-fail-pack/meta.json) — 呆れ「チーン」・ゲーム死亡音・失敗「デデーン」。やらかし演出の定番 SE 3 点（ポケットサウンド）。要クレジット。（license: LicenseRef-PocketSound-Free / acquisition: direct）

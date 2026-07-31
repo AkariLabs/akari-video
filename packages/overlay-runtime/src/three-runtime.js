@@ -11,7 +11,11 @@ window.akari.threeRuntime = (() => {
     "lights",
     "animationClip",
     "materialOverrides",
+    "shadows",
   ]);
+  // materialOverrides.texture が動画かどうか。export では相対パスが data URI へ
+  // 埋め込まれた後にランタイムへ届くので、拡張子と data: の MIME 型の両方を見る
+  const VIDEO_TEXTURE_PATTERN = /^data:video\/|\.(?:mp4|m4v|mov|webm)(?:[?#]|$)/i;
 
   function finiteNumber(value, fallback) {
     const number = Number(value);
@@ -21,6 +25,88 @@ window.akari.threeRuntime = (() => {
   function vector3(value, fallback) {
     if (!Array.isArray(value) || value.length !== 3) return [...fallback];
     return value.map((item, index) => finiteNumber(item, fallback[index]));
+  }
+
+  function isAnimationClipSelector(value) {
+    if (typeof value === "string") return value.length > 0;
+    return Array.isArray(value)
+      && value.length > 0
+      && value.every((name) => typeof name === "string" && name.length > 0);
+  }
+
+  function selectAnimationClips(animations, selector) {
+    const available = Array.isArray(animations) ? animations : [];
+    // Blender の glTF 書き出しはオブジェクトごとに clip を分けるので、1 個のモデルに
+    // 複数の動き（本体のカメラワークと装飾など）があると clip も分かれる。"*" はそれを束ねて同時に回す
+    if (selector === "*") {
+      if (available.length === 0) throw new Error("glTF に animation clip がありません");
+      return available;
+    }
+    const names = Array.isArray(selector) ? selector : [selector];
+    return names.map((name) => {
+      const clip = available.find((candidate) => candidate.name === name);
+      if (!clip) throw new Error(`glTF animation clip が見つかりません: ${name}`);
+      return clip;
+    });
+  }
+
+  function shadowSettings(descriptor) {
+    if (descriptor === undefined || descriptor === false) return { enabled: false };
+    const settings = descriptor === true ? {} : descriptor;
+    return {
+      enabled: settings.enabled !== false,
+      mapSize: Math.max(1, Math.round(finiteNumber(settings.mapSize, 2048))),
+      // 既定は被写体の実寸から決める（wireShadows）。宣言があればそちらを優先する
+      bias: settings.bias === undefined ? null : finiteNumber(settings.bias, 0),
+      normalBias: settings.normalBias === undefined ? null : finiteNumber(settings.normalBias, 0),
+    };
+  }
+
+  function isEmissiveMesh(material) {
+    const materials = Array.isArray(material) ? material : material ? [material] : [];
+    return materials.some((entry) => {
+      if (!entry?.emissive) return false;
+      if (finiteNumber(entry.emissiveIntensity, 1) <= 0) return false;
+      return entry.emissive.r > 0 || entry.emissive.g > 0 || entry.emissive.b > 0;
+    });
+  }
+
+  function wireShadows(THREE, instance, settings) {
+    // 影は shadowMap を有効にしただけでは出ない。どのメッシュが落とし / 受け、
+    // どの光が投げるかの配線と、被写体の実寸に畳んだ shadow camera が要る
+    instance.scene.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(instance.model);
+    if (bounds.isEmpty()) return;
+    const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+    const radius = Math.max(sphere.radius, 1e-6);
+    instance.model.traverse((object) => {
+      if (!object.isMesh) return;
+      // 自発光マテリアルは光源側の扱い。影を落とすと発光体が自分の影で汚れ、
+      // 受けると画面へ差した絵が影で沈む
+      const emissive = isEmissiveMesh(object.material);
+      object.castShadow = !emissive;
+      object.receiveShadow = !emissive;
+    });
+    instance.scene.traverse((object) => {
+      if (!object.isDirectionalLight) return;
+      object.castShadow = true;
+      object.shadow.mapSize.set(settings.mapSize, settings.mapSize);
+      // DirectionalLight の shadow camera は既定が ±5 の正射影。数 cm〜数十 cm の
+      // 被写体をそのまま撮ると深度の分解能を使い切れず、影が出ないか縞になる。
+      // 注視点が被写体の中心からずれている分も足して、必ず全体を覆う
+      const extent = radius + sphere.center.distanceTo(object.target.position);
+      const camera = object.shadow.camera;
+      camera.left = -extent;
+      camera.right = extent;
+      camera.top = extent;
+      camera.bottom = -extent;
+      const distance = object.position.distanceTo(object.target.position);
+      camera.near = Math.max(extent * 0.01, distance - extent * 2);
+      camera.far = distance + extent * 2;
+      camera.updateProjectionMatrix();
+      object.shadow.bias = settings.bias ?? -0.0027 * extent;
+      object.shadow.normalBias = settings.normalBias ?? 0.01 * extent;
+    });
   }
 
   function readDescriptor(container) {
@@ -52,17 +138,33 @@ window.akari.threeRuntime = (() => {
     if (typeof descriptor.model !== "string" || descriptor.model.length === 0) {
       throw new TypeError("data-akari-3d-scene.model は配信 URL である必要があります");
     }
-    if (descriptor.animationClip !== undefined && typeof descriptor.animationClip !== "string") {
-      throw new TypeError("animationClip は glTF clip 名の文字列である必要があります");
+    if (descriptor.animationClip !== undefined && !isAnimationClipSelector(descriptor.animationClip)) {
+      throw new TypeError('animationClip は glTF clip 名の文字列、その配列、または "*" である必要があります');
     }
     if (descriptor.environment !== undefined) {
       if (!descriptor.environment
         || typeof descriptor.environment !== "object"
         || Array.isArray(descriptor.environment)
         || Object.keys(descriptor.environment).some(
-          (key) => key !== "intensity" && key !== "exposure"
+          (key) => key !== "intensity" && key !== "exposure" && key !== "map"
         )) {
-        throw new TypeError("environment は intensity / exposure を指定する object である必要があります");
+        throw new TypeError("environment は intensity / exposure / map を指定する object である必要があります");
+      }
+      if (descriptor.environment.map !== undefined
+        && (typeof descriptor.environment.map !== "string" || descriptor.environment.map.length === 0)) {
+        throw new TypeError("environment.map は正距円筒画像の URL である必要があります");
+      }
+    }
+    if (descriptor.shadows !== undefined && typeof descriptor.shadows !== "boolean") {
+      if (!descriptor.shadows
+        || typeof descriptor.shadows !== "object"
+        || Array.isArray(descriptor.shadows)
+        || Object.keys(descriptor.shadows).some(
+          (key) => key !== "enabled" && key !== "mapSize" && key !== "bias" && key !== "normalBias"
+        )) {
+        throw new TypeError(
+          "shadows は真偽値、または enabled / mapSize / bias / normalBias を指定する object である必要があります"
+        );
       }
     }
     if (descriptor.materialOverrides !== undefined) {
@@ -86,7 +188,52 @@ window.akari.threeRuntime = (() => {
     return descriptor;
   }
 
-  async function applyMaterialOverrides(THREE, root, overrides) {
+  async function loadVideoTexture(THREE, instance, url) {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    // 壁時計で再生させない。時刻を決めるのは常に外側 —
+    // export は rasterize の決定的シーク（currentTime → 提示フレーム確定）、
+    // preview は overlay-runtime の tick。autoplay に任せると同じ時刻で絵が変わる
+    video.autoplay = false;
+    // 素材の尺より合成が長いときは巻き戻して回す。シーク側はこの loop を見て時刻を畳む
+    video.loop = true;
+    video.dataset.akariThreeVideoTexture = "";
+    // DOM へ置くのが要点 — 決定的シークは document.querySelectorAll('video') を対象に
+    // するので、DOM にいるだけで既存の機構に乗る
+    video.style.cssText =
+      "position:absolute;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
+    document.body.appendChild(video);
+    instance.videoElements.add(video);
+    video.src = url;
+    await new Promise((resolve, reject) => {
+      video.addEventListener("loadeddata", resolve, { once: true });
+      video.addEventListener(
+        "error",
+        () => reject(new Error(`materialOverrides の動画を読み込めません: ${url.slice(0, 96)}`)),
+        { once: true }
+      );
+    });
+    const texture = new THREE.VideoTexture(video);
+    // VideoTexture の既定は generateMipmaps=false / minFilter=LinearFilter。大きな画面素材を
+    // 3D 上の小さな面へ潰すと 1 テクセルしか拾わず細部が割れ、モデルが回ると割れ方が毎フレーム
+    // 変わるので「カクついている」ように見える（静止画は TextureLoader が既定でミップマップを
+    // 作るためこの症状が出ない = 動画テクスチャだけが素通しになっていた）
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = Math.min(16, instance.renderer.capabilities.getMaxAnisotropy());
+    return texture;
+  }
+
+  function loadTexture(THREE, instance, textureLoader, url) {
+    if (!VIDEO_TEXTURE_PATTERN.test(url)) return textureLoader.loadAsync(url);
+    return loadVideoTexture(THREE, instance, url);
+  }
+
+  async function applyMaterialOverrides(THREE, instance, root, overrides) {
     if (!overrides) return;
     const materialsByName = new Map();
     root.traverse((object) => {
@@ -108,7 +255,7 @@ window.akari.threeRuntime = (() => {
         console.warn(`[akari-three] materialOverrides の対象が見つかりません: ${materialName}`);
         return;
       }
-      const texture = await textureLoader.loadAsync(override.texture);
+      const texture = await loadTexture(THREE, instance, textureLoader, override.texture);
       texture.flipY = false;
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.needsUpdate = true;
@@ -131,6 +278,9 @@ window.akari.threeRuntime = (() => {
           configuredTexture.colorSpace = THREE.SRGBColorSpace;
           configuredTexture.needsUpdate = true;
           configuredTextures.set(configurationKey, configuredTexture);
+          // clone も元と同じ <video> を指す別テクスチャなので、GPU への上げ直しは各自に要る。
+          // 追跡しないと同名マテリアルが複数あるときに clone 側だけ 1 枚目で固まる
+          if (configuredTexture.isVideoTexture) instance.videoTextures.add(configuredTexture);
         }
         material.emissiveMap = configuredTexture;
         material.needsUpdate = true;
@@ -201,6 +351,36 @@ window.akari.threeRuntime = (() => {
     }
   }
 
+  async function applyEnvironmentMap(THREE, instance, url) {
+    // 金属は環境の映り込みでしか見えないのに、手続き生成の RoomEnvironment は強度スカラーしか
+    // 触れず光源に「形」が無い。正距円筒画像を PMREM へ通して差し替えると輪郭のある映り込みが出る。
+    // 差し替えは非同期なので、完了を status: ready の前に置く（待たずに焼くと既定の部屋のまま出る）
+    const texture = await new Promise((resolve, reject) => {
+      new THREE.TextureLoader().load(
+        url,
+        resolve,
+        undefined,
+        () => reject(new Error(`environment.map を読み込めません: ${url.slice(0, 96)}`))
+      );
+    });
+    if (instances.get(instance.container) !== instance || !instance.active) {
+      texture.dispose();
+      return;
+    }
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const pmremGenerator = new THREE.PMREMGenerator(instance.renderer);
+    try {
+      const target = pmremGenerator.fromEquirectangular(texture);
+      instance.scene.environment = target.texture;
+      instance.environmentTarget?.dispose();
+      instance.environmentTarget = target;
+    } finally {
+      pmremGenerator.dispose();
+      texture.dispose();
+    }
+  }
+
   function setFallback(container, visible) {
     const fallback = container.querySelector("[data-akari-3d-fallback]");
     if (!(fallback instanceof HTMLElement)) return;
@@ -228,6 +408,9 @@ window.akari.threeRuntime = (() => {
     if (!instance.active || !instance.model) return;
     rendererSize(instance);
     if (instance.mixer) instance.mixer.setTime(Math.max(0, localSeconds));
+    // 動画テクスチャは「今 <video> に出ているフレーム」を GPU へ上げ直さないと 1 枚目で固まる。
+    // どの時刻を出すかは外側が currentTime で決め、ここは上げ直しだけを担う
+    for (const texture of instance.videoTextures) texture.needsUpdate = true;
     instance.renderer.render(instance.scene, instance.camera);
   }
 
@@ -258,10 +441,27 @@ window.akari.threeRuntime = (() => {
     for (const geometry of geometries) geometry.dispose();
   }
 
+  function releaseVideoTextures(instance) {
+    // VideoTexture の dispose は requestVideoFrameCallback を止める。<video> は自分で body へ
+    // 挿しているので自分で外す（外さないと mount / unmount のたびにデコーダが積み上がる）
+    for (const texture of instance.videoTextures) texture.dispose();
+    instance.videoTextures.clear();
+    for (const video of instance.videoElements) {
+      try {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      } catch {}
+      video.remove();
+    }
+    instance.videoElements.clear();
+  }
+
   function disposeInstance(instance) {
     instance.active = false;
     instance.mixer?.stopAllAction();
     disposeObject(instance.model);
+    releaseVideoTextures(instance);
     instance.model = null;
     instance.mixer = null;
     instance.scene.environment = null;
@@ -300,6 +500,14 @@ window.akari.threeRuntime = (() => {
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(1);
     renderer.setClearColor(0x000000, 0);
+    const shadows = shadowSettings(descriptor.shadows);
+    if (shadows.enabled) {
+      // shadowMap の有無は material の shader program に焼かれるので、最初の render より前に立てる。
+      // PCFSoftShadowMap は同梱 Three で非推奨（内部で PCFShadowMap へ落ちて警告を出す）ため
+      // 実際に使われる型を明示する
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
+    }
     let environmentTarget;
     try {
       environmentTarget = configureEnvironment(
@@ -317,6 +525,7 @@ window.akari.threeRuntime = (() => {
 
     const instance = {
       active: true,
+      animationClips: 0,
       camera,
       canvas,
       container,
@@ -327,7 +536,10 @@ window.akari.threeRuntime = (() => {
       model: null,
       renderer,
       scene,
+      shadows,
       status: "loading",
+      videoElements: new Set(),
+      videoTextures: new Set(),
     };
     instances.set(container, instance);
     setFallback(container, true);
@@ -339,19 +551,23 @@ window.akari.threeRuntime = (() => {
         return;
       }
       instance.model = gltf.scene;
-      await applyMaterialOverrides(THREE, gltf.scene, descriptor.materialOverrides);
+      await applyMaterialOverrides(THREE, instance, gltf.scene, descriptor.materialOverrides);
+      if (descriptor.environment?.map) {
+        await applyEnvironmentMap(THREE, instance, descriptor.environment.map);
+      }
       if (instances.get(container) !== instance || !instance.active) {
         disposeObject(gltf.scene);
         if (instance.model === gltf.scene) instance.model = null;
         return;
       }
       instance.scene.add(gltf.scene);
-      if (descriptor.animationClip) {
-        const clip = gltf.animations.find((candidate) => candidate.name === descriptor.animationClip);
-        if (!clip) throw new Error(`glTF animation clip が見つかりません: ${descriptor.animationClip}`);
+      if (descriptor.animationClip !== undefined) {
+        const clips = selectAnimationClips(gltf.animations, descriptor.animationClip);
         instance.mixer = new THREE.AnimationMixer(gltf.scene);
-        instance.mixer.clipAction(clip).play();
+        for (const clip of clips) instance.mixer.clipAction(clip).play();
+        instance.animationClips = clips.length;
       }
+      if (instance.shadows.enabled) wireShadows(THREE, instance, instance.shadows);
       instance.status = "ready";
       setFallback(container, false);
       draw(instance, instance.lastTime);
@@ -363,6 +579,7 @@ window.akari.threeRuntime = (() => {
         instance.model = null;
         instance.mixer = null;
       }
+      releaseVideoTextures(instance);
       instance.status = "error";
       console.error("[akari-three] 3D scene の読み込みに失敗しました", error);
       setFallback(container, true);
@@ -395,6 +612,10 @@ window.akari.threeRuntime = (() => {
       memory: { ...instance.renderer.info.memory },
       render: { ...instance.renderer.info.render },
       pixelRatio: instance.renderer.getPixelRatio(),
+      // 配線できたかを絵の比較なしに確かめるための実測値（検証・証跡用）
+      shadows: instance.renderer.shadowMap.enabled,
+      videoTextures: instance.videoTextures.size,
+      animationClips: instance.animationClips,
     };
   }
 

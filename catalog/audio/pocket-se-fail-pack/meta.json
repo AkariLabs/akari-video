@@ -1,0 +1,35 @@
+{
+  "id": "pocket-se-fail-pack",
+  "category": "audio",
+  "title": "ポケットサウンド 失敗系SE（呆れチーン / 死亡音 / デデーン）",
+  "description": "やらかし・失敗の定番 3 点。呆れ「チーン」・ゲーム死亡音・失敗「デデーン」。（収録数: 3点）",
+  "when_to_use": "ずっこけ・ツッコミ（chin）、撃沈・退場（deathse）、「〇〇アウト！」の失敗提示（deden）",
+  "tags": [
+    "sfx",
+    "fail",
+    "gag",
+    "buzzer"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「効果音：ポケットサウンド – https://pocket-se.info/」を動画概要欄等に明記する（リンクでも可）。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "候補リスト経由の assisted-fetch（BGM 系: 内部タスク audio-fetch-gallery 2026-07-22 / pocket: 2026-07-31 追加取得）→ オーナー試聴 keep（2026-07-31 sfx-review-result）で正式登録。取得時の来歴 sidecar は .origin-*.meta.json として同梱",
+    "generator": null
+  },
+  "author": "ポケットサウンド",
+  "license": {
+    "spdx": "LicenseRef-PocketSound-Free",
+    "scope": "commercial-ok",
+    "attribution_required": true,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "source": {
+    "url": "https://pocket-se.info/archives/1632/",
+    "acquisition": "direct",
+    "license_at_source": "商用無料・加工OK・作品利用時はクレジット表記またはリンク必須・直リンク/二次配布/転売禁止（https://pocket-se.info/rules/ 2023/05/31 版・2025-09-06 更新）",
+    "attribution_required": true
+  },
+  "remote": true
+}
