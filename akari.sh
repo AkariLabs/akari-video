@@ -24,6 +24,29 @@ find_monorepo() {
 }
 MONOREPO="$(find_monorepo "$SCRIPT_PATH")" || { err "Cannot find AKARI Video monorepo. Set AKARI_MONOREPO or run from within the repo."; exit 1; }
 
+# ─── Resolve Node.js: system PATH first, then portable Node (install.sh's
+#     ~/.akari/runtime/ fallback for machines without a system Node).
+#     `NODE_BIN` はグローバル変数に直接代入する — $(...) はサブシェルなので
+#     中の export PATH が親シェルへ伝わらない ───
+resolve_node() {
+  if command -v node >/dev/null 2>&1; then
+    NODE_BIN="node"
+    return 0
+  fi
+  local runtime_dir="$HOME/.akari/runtime"
+  local candidate
+  candidate="$(find "$runtime_dir" -mindepth 1 -maxdepth 1 -type d -name 'node-v*' 2>/dev/null | sort -V | tail -1)"
+  if [[ -n "$candidate" ]] && [[ -x "$candidate/bin/node" ]]; then
+    # このプロセス以降で spawn される子（npm・ffmpeg-static 探索など）にも
+    # 効くよう PATH の先頭に足す。
+    export PATH="$candidate/bin:$PATH"
+    NODE_BIN="$candidate/bin/node"
+    return 0
+  fi
+  return 1
+}
+resolve_node || { err "Node.js not found (system PATH also has no ~/.akari/runtime/ portable Node). Run install.sh again, or install Node.js v20+."; exit 1; }
+
 # ─── Preview server launcher ───
 cmd_preview() {
   local PROJECT="${AKARI_PROJECT:-.}"
@@ -83,7 +106,7 @@ cmd_preview() {
   echo -e "  ${MUTED}Ctrl+C で停止${NC}"
   echo ""
 
-  node "$MONOREPO/packages/preview-server/src/server.mjs" "$PROJECT" --port "$PORT" &
+  "$NODE_BIN" "$MONOREPO/packages/preview-server/src/server.mjs" "$PROJECT" --port "$PORT" &
   PID=$!
   trap "kill $PID 2>/dev/null; exit" INT TERM
 
@@ -98,7 +121,7 @@ cmd_preview() {
 if [[ $# -eq 0 ]]; then
   # デフォルトは Claude Code（launcher の自動検出に任せる）
   # --opencode を付けたい場合は明示的に指定
-  exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs"
+  exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs"
 fi
 
 case "$1" in
@@ -131,9 +154,9 @@ case "$1" in
     echo "  $SCRIPT_NAME update"
     exit 0 ;;
   --preview|-pv) shift; cmd_preview "$@" ;;
-  update) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "update" ;;
-  --opencode) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" "$@" ;;
-  --claude|--claudecode) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--claude" "$@" ;;
-  -y|--yes) shift; exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--yes" "$@" ;;
-  *) exec node "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "$@" ;;
+  update) exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "update" ;;
+  --opencode) shift; exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" "$@" ;;
+  --claude|--claudecode) shift; exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--claude" "$@" ;;
+  -y|--yes) shift; exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--yes" "$@" ;;
+  *) exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "$@" ;;
 esac
