@@ -4,8 +4,10 @@
 import { spawn } from "node:child_process"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { resolveFfmpeg } from "../../media-bin/src/index.mjs"
 
 const BIN = join(import.meta.dirname, "..", "bin", "bake-layer.mjs")
+const FFMPEG = resolveFfmpeg()
 
 const CASES = [
   { kind: "telop", preset: "ref3_name_rounded", label: "人名スーパー（lower-third）" },
@@ -33,7 +35,7 @@ function run(cmd, args) {
 }
 
 async function extractFramePng(movPath, frameIdx, outPng) {
-  await run("ffmpeg", ["-y", "-i", movPath, "-vf", `select=eq(n\\,${frameIdx})`, "-vframes", "1", "-update", "1", outPng])
+  await run(FFMPEG, ["-y", "-i", movPath, "-vf", `select=eq(n\\,${frameIdx})`, "-vframes", "1", "-update", "1", outPng])
 }
 
 async function alphaStats(pngPath) {

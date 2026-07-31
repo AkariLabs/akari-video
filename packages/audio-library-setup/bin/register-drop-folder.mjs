@@ -23,6 +23,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveFfmpeg } from '../../media-bin/src/index.mjs';
 import {
     loadCandidates,
     flattenCandidates,
@@ -96,13 +97,16 @@ async function pathExists(candidate) {
     }
 }
 
-let ffmpegAvailableCache;
-function ffmpegAvailable() {
-    if (ffmpegAvailableCache === undefined) {
-        const result = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
-        ffmpegAvailableCache = result.status === 0;
+let ffmpegPathCache;
+function resolvedFfmpegPath() {
+    if (ffmpegPathCache === undefined) {
+        try {
+            ffmpegPathCache = resolveFfmpeg();
+        } catch {
+            ffmpegPathCache = null;
+        }
     }
-    return ffmpegAvailableCache;
+    return ffmpegPathCache;
 }
 
 function normalizeTitle(value) {
@@ -149,10 +153,11 @@ function findTitleMatches(filename, flatCandidates) {
  * （実物と違う mock を preview として作らない）。
  */
 function generateWaveformPreview(sourceAudioPath, destPngPath) {
-    if (!ffmpegAvailable()) {
+    const ffmpegPath = resolvedFfmpegPath();
+    if (!ffmpegPath) {
         return { ok: false, reason: 'ffmpeg が見つからないため preview.png を生成できません' };
     }
-    const result = spawnSync('ffmpeg', [
+    const result = spawnSync(ffmpegPath, [
         '-y',
         '-i', sourceAudioPath,
         '-filter_complex', 'showwavespic=s=640x120:colors=0d6efd',

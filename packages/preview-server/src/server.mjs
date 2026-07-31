@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline, setPort } from './edit-to-timeline.mjs';
 import { lintProject } from '../../edit-lint/src/edit-lint.mjs';
+import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 
 const args = process.argv.slice(2);
 let port = 3000;
@@ -54,14 +55,23 @@ const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 
 // --- ffmpeg/ffprobe detection ---
-const hasFfprobe = spawnSync('ffprobe', ['-version'], { stdio: 'ignore' }).status === 0;
-const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
+function tryResolve(resolver) {
+  try {
+    return resolver();
+  } catch {
+    return null;
+  }
+}
+const ffprobePath = tryResolve(resolveFfprobe);
+const ffmpegPath = tryResolve(resolveFfmpeg);
+const hasFfprobe = ffprobePath !== null;
+const hasFfmpeg = ffmpegPath !== null;
 const codecCache = new Map();
 
 function detectCodec(filePath) {
   if (!hasFfprobe || codecCache.has(filePath)) return codecCache.get(filePath);
   try {
-    const r = spawnSync('ffprobe', [
+    const r = spawnSync(ffprobePath, [
       '-v', 'error', '-select_streams', 'v:0',
       '-show_entries', 'stream=codec_name',
       '-of', 'csv=p=0', filePath,
@@ -83,7 +93,7 @@ function ensureProxy(filePath) {
   if (fs.existsSync(proxy)) return proxy;
   const dir = path.dirname(proxy);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const r = spawnSync('ffmpeg', [
+  const r = spawnSync(ffmpegPath, [
     '-i', filePath,
     '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
     '-c:a', 'aac',
@@ -313,7 +323,7 @@ const REVIEW_ROUTES = [
     // Save as webm first, convert to wav via ffmpeg if available
     fs.writeFileSync(path.join(sessionDir, 'audio.webm'), buf);
     if (hasFfmpeg) {
-      const r = spawnSync('ffmpeg', ['-y', '-i', path.join(sessionDir, 'audio.webm'), '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', wavPath], { stdio: 'ignore', timeout: 30000 });
+      const r = spawnSync(ffmpegPath, ['-y', '-i', path.join(sessionDir, 'audio.webm'), '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', wavPath], { stdio: 'ignore', timeout: 30000 });
       if (r.status !== 0) console.warn('[review] ffmpeg audio conversion failed');
     } else {
       // Without ffmpeg, save raw blob as wav (likely not playable but preserves data)

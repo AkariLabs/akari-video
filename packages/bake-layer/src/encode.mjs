@@ -4,6 +4,7 @@ import { spawn } from "node:child_process"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import { resolveFfmpeg } from "../../media-bin/src/index.mjs"
 
 /**
  * @param {string[]} pngFrames base64 PNG（data URL の "data:image/png;base64," 以降 or 生base64）の配列
@@ -89,9 +90,12 @@ export async function encodeMovToPreviewProxy(inputMov, opts = {}) {
   return { out }
 }
 
+let cachedFfmpegPath
+
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
-    const child = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] })
+    if (!cachedFfmpegPath) cachedFfmpegPath = resolveFfmpeg()
+    const child = spawn(cachedFfmpegPath, args, { stdio: ["ignore", "ignore", "pipe"] })
     let stderr = ""
     child.stderr.on("data", (d) => {
       stderr += d.toString()
