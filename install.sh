@@ -4,6 +4,11 @@ set -euo pipefail
 # ─── AKARI Video Installer (Windows / Linux / macOS) ───
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash
+#
+# brew / git / sudo は一切要求しない（さらのマシンでも 1 行で完結させるため）。
+# Node.js は見つからなければ nodejs.org の公式 tarball をユーザー領域
+# （~/.akari/runtime/）へ展開する。リポジトリ取得は git ではなく GitHub の
+# tarball（codeload.github.com）を使う。
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -15,6 +20,7 @@ NC='\033[0m'
 REPO="AkariLabs/akari-video"
 INSTALL_DIR="${AKARI_INSTALL_DIR:-$HOME/akari-video}"
 SKIP_DEPS=false
+PORTABLE_NODE_VERSION="20.18.1"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -82,28 +88,89 @@ check_node() {
     return 1
 }
 
+# sudo にパスワードなしでアクセスできるか（-n はプロンプトを一切出さず即座に
+# 成否だけ返す）。ダイアログ・プロンプトを一切出さないための必須ガード。
+have_passwordless_sudo() {
+    has sudo && sudo -n true >/dev/null 2>&1
+}
+
+# nodejs.org の公式 tarball を ~/.akari/runtime/ へ展開する。admin 権限不要・
+# sudo 不使用。以後このプロセス内では PATH の先頭に置いて node/npm を使う。
+install_portable_node() {
+    local target_os arch node_platform node_arch node_name dest_dir url tmp_dir tmp_tar
+    target_os=$(os)
+    arch="$(uname -m)"
+
+    case "$target_os" in
+        macos) node_platform="darwin" ;;
+        linux) node_platform="linux" ;;
+        *) err "  Portable Node.js is not available for this OS: $target_os"; return 1 ;;
+    esac
+    case "$arch" in
+        x86_64|amd64)  node_arch="x64" ;;
+        arm64|aarch64) node_arch="arm64" ;;
+        *) err "  Portable Node.js is not available for this architecture: $arch"; return 1 ;;
+    esac
+
+    node_name="node-v${PORTABLE_NODE_VERSION}-${node_platform}-${node_arch}"
+    dest_dir="$HOME/.akari/runtime/${node_name}"
+
+    if [[ -x "$dest_dir/bin/node" ]]; then
+        info "  [OK] Portable Node.js already installed: $dest_dir"
+    else
+        echo ""
+        info "Downloading portable Node.js v${PORTABLE_NODE_VERSION} (${node_platform}-${node_arch})..."
+        info "  → $HOME/.akari/runtime/ (no admin password needed)"
+        mkdir -p "$HOME/.akari/runtime"
+        url="https://nodejs.org/dist/v${PORTABLE_NODE_VERSION}/${node_name}.tar.gz"
+        tmp_dir="$(mktemp -d)"
+        tmp_tar="$tmp_dir/node.tar.gz"
+        if ! curl -fsSL "$url" -o "$tmp_tar"; then
+            err "  Failed to download portable Node.js from $url"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+        tar -xzf "$tmp_tar" -C "$HOME/.akari/runtime"
+        rm -rf "$tmp_dir"
+    fi
+
+    export PATH="$dest_dir/bin:$PATH"
+    if has node; then
+        info "  Node.js $(node --version) ready (portable — $dest_dir)"
+        return 0
+    fi
+    err "  Portable Node.js install did not produce a working binary"
+    return 1
+}
+
 install_node() {
     local target_os
     target_os=$(os)
-    echo ""
-    info "Installing Node.js (v20 LTS)..."
-    case "$target_os" in
-        macos)
-            if has brew; then brew install node@20 && brew link --overwrite node@20
-            else warn "Install Homebrew first: https://brew.sh"; return 1; fi ;;
-        linux)
-            if has apt-get; then
-                curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-                sudo apt-get install -y nodejs
-            elif has dnf; then
-                curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-                sudo dnf install -y nodejs
-            elif has pacman; then sudo pacman -S --noconfirm nodejs npm
-            elif has apk; then sudo apk add --no-cache nodejs npm
-            elif has zypper; then sudo zypper install --non-interactive nodejs20 npm
-            else warn "Install Node.js manually: https://nodejs.org/"; return 1; fi ;;
-    esac
-    if has node; then info "  Node.js $(node --version) installed"; else err "Install failed: https://nodejs.org/"; return 1; fi
+
+    # sudo がパスワードなしで使える Linux だけ、システムパッケージマネージャ
+    # 経由の高速路を試す。それ以外（macOS 全般・sudo 不可の Linux）は最初から
+    # ポータブル Node へ進む — brew / パスワード付き sudo は一切呼ばない。
+    if [[ "$target_os" == "linux" ]] && have_passwordless_sudo; then
+        echo ""
+        info "Installing Node.js (v20 LTS) via system package manager..."
+        if has apt-get; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+        elif has dnf; then
+            curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+            sudo dnf install -y nodejs
+        elif has pacman; then sudo pacman -S --noconfirm nodejs npm
+        elif has apk; then sudo apk add --no-cache nodejs npm
+        elif has zypper; then sudo zypper install --non-interactive nodejs20 npm
+        fi
+        if has node; then
+            info "  Node.js $(node --version) installed"
+            return 0
+        fi
+        warn "  System package manager install did not produce a usable Node.js — falling back to portable Node.js"
+    fi
+
+    install_portable_node
 }
 
 # ═══════════════════════════════════════════════
@@ -134,33 +201,75 @@ install_opencode() {
 }
 
 # ═══════════════════════════════════════════════
-#  3. ffmpeg
+#  3. ffmpeg — 検出のみ。① ffmpeg-resolver が入れた ffmpeg-static が
+#     npm install で自動的に入るため、ここでの brew/apt 経由インストールは不要。
 # ═══════════════════════════════════════════════
 
 check_ffmpeg() {
     if has ffmpeg; then
-        info "  [OK] ffmpeg $(ffmpeg -version 2>/dev/null | head -1 | awk '{print $3}')"
+        info "  [OK] ffmpeg $(ffmpeg -version 2>/dev/null | head -1 | awk '{print $3}') (PATH)"
         return 0
     fi
-    warn "  [--] ffmpeg not found (optional, recommended)"
+    warn "  [--] ffmpeg not found on PATH — no action needed: 'npm install' below pulls in the bundled ffmpeg-static automatically"
     return 1
 }
 
-install_ffmpeg() {
-    local target_os
-    target_os=$(os)
-    echo ""
-    info "Installing ffmpeg..."
-    case "$target_os" in
-        macos) has brew && brew install ffmpeg || { warn "Install Homebrew: https://brew.sh"; return 1; } ;;
-        linux)
-            if has apt-get; then sudo apt-get update && sudo apt-get install -y ffmpeg
-            elif has dnf; then sudo dnf install -y ffmpeg
-            elif has pacman; then sudo pacman -S --noconfirm ffmpeg
-            elif has apk; then sudo apk add --no-cache ffmpeg
-            elif has zypper; then sudo zypper install --non-interactive ffmpeg
-            else warn "Install ffmpeg manually: https://ffmpeg.org/download.html"; return 1; fi ;;
+# ═══════════════════════════════════════════════
+#  4. Repository fetch — git ではなく GitHub tarball（codeload）を使う。
+#     さらの Mac で git を叩くと Xcode CLT ダイアログが出るため。
+# ═══════════════════════════════════════════════
+
+# AKARI_REF が明示されていればそれを使う。無ければ最新の vX.Y.Z タグ、
+# それも無ければ main ブランチへ落とす（従来の git 版と同じ優先順位）。
+resolve_target_ref() {
+    if [[ -n "${AKARI_REF:-}" ]]; then
+        echo "$AKARI_REF"
+        return 0
+    fi
+    local tags
+    tags="$(curl -fsSL "https://api.github.com/repos/$REPO/tags?per_page=100" 2>/dev/null \
+        | grep -o '"name": *"v[0-9][^"]*"' | sed -E 's/.*"(v[^"]+)"/\1/' || true)"
+    if [[ -n "$tags" ]]; then
+        printf '%s\n' "$tags" | sort -V | tail -1
+        return 0
+    fi
+    echo "main"
+}
+
+# $ref のソースツリーを $dest へ展開する（$dest は展開前に空でなくてもよい —
+# 既存ファイルは tarball の内容で上書きされる）。
+fetch_release_tarball() {
+    local ref="$1" dest="$2" url tmp_dir tmp_tar
+    case "$ref" in
+        main|master) url="https://codeload.github.com/$REPO/tar.gz/refs/heads/$ref" ;;
+        *)           url="https://codeload.github.com/$REPO/tar.gz/refs/tags/$ref" ;;
     esac
+    mkdir -p "$dest"
+    tmp_dir="$(mktemp -d)"
+    tmp_tar="$tmp_dir/archive.tar.gz"
+    if ! curl -fsSL "$url" -o "$tmp_tar"; then
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+    tar -xzf "$tmp_tar" -C "$dest" --strip-components=1
+    rm -rf "$tmp_dir"
+}
+
+# 既存インストールの更新: node_modules は再利用（この後の npm install が整合
+# させる）、それ以外は取得した新しい内容で丸ごと置き換える（git checkout
+# --force 相当）。
+update_install() {
+    local ref="$1"
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    if ! fetch_release_tarball "$ref" "$tmp_dir"; then
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+    find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 ! -name node_modules -exec rm -rf {} +
+    cp -a "$tmp_dir"/. "$INSTALL_DIR"/
+    rm -rf "$tmp_dir"
+    echo "$ref" > "$INSTALL_DIR/.akari-install-ref"
 }
 
 # ═══════════════════════════════════════════════
@@ -172,7 +281,7 @@ echo ""
 
 node_ok=false; check_node && node_ok=true
 agent_ok=false; check_agent && agent_ok=true
-ffmpeg_ok=false; check_ffmpeg && ffmpeg_ok=true
+check_ffmpeg || true
 
 if [[ "$SKIP_DEPS" == "false" ]]; then
     if [[ "$node_ok" == "false" ]]; then install_node || true; has node && node_ok=true; fi
@@ -197,47 +306,34 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
         fi
         check_agent && agent_ok=true
     fi
-
-    if [[ "$ffmpeg_ok" == "false" ]] && [[ "$node_ok" == "true" ]]; then
-        read -rp "Install ffmpeg now? [Y/n] " answer </dev/tty
-        [[ "${answer:-Y}" =~ ^[Yy] ]] && install_ffmpeg || true
-    fi
 fi
 
 # Clone or update — 配布はリリースタグ固定（既定で main を配らない）
 # main には検収前の変更が入り得るため、版整合ゲートを通過した最新のリリースタグ
-# （vX.Y.Z）へ checkout する。開発者が main や特定 ref を追いたい場合は
-# AKARI_REF=main のように環境変数で上書きできる。
+# （vX.Y.Z）へ展開する。開発者が main や特定 ref を追いたい場合は
+# AKARI_REF=main のように環境変数で上書きできる。git は使わない — GitHub の
+# tarball（codeload.github.com）を curl + tar で展開する。
 echo ""
-if ! has git; then
-    err "git is required but not found. Install git and retry."
-    exit 1
-fi
-if [[ -d "$INSTALL_DIR/.git" ]]; then
+if [[ -f "$INSTALL_DIR/.akari-install-ref" ]]; then
     info "Repository exists at $INSTALL_DIR"
     info "Fetching updates..."
-    # --force: リリース前に付け直されたタグにも追随する
-    git -C "$INSTALL_DIR" fetch --tags --force origin 2>&1 | grep -v "^remote:" || true
-elif [[ -d "$INSTALL_DIR" ]]; then
-    warn "Directory exists but is not a git repo: $INSTALL_DIR — skipping clone."
-else
-    info "Cloning $REPO..."
-    git clone "https://github.com/$REPO.git" "$INSTALL_DIR"
-fi
-
-if [[ -d "$INSTALL_DIR/.git" ]]; then
-    TARGET_REF="${AKARI_REF:-}"
-    if [[ -z "$TARGET_REF" ]]; then
-        TARGET_REF="$(git -C "$INSTALL_DIR" tag -l 'v[0-9]*' --sort=-v:refname | head -1)"
-    fi
-    if [[ -z "$TARGET_REF" ]]; then
-        warn "  No release tag found — falling back to origin/main."
-        TARGET_REF="origin/main"
-    fi
-    if git -C "$INSTALL_DIR" checkout --force --detach "$TARGET_REF" >/dev/null 2>&1; then
-        info "  Checked out: $TARGET_REF ($(git -C "$INSTALL_DIR" log --oneline -1 --no-decorate))"
+    TARGET_REF="$(resolve_target_ref)"
+    if update_install "$TARGET_REF"; then
+        info "  Updated to: $TARGET_REF"
     else
-        err "Failed to checkout $TARGET_REF"
+        err "Failed to fetch update ($TARGET_REF)"
+        exit 1
+    fi
+elif [[ -d "$INSTALL_DIR" ]] && [[ -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]]; then
+    warn "Directory exists but was not created by this installer: $INSTALL_DIR — skipping download."
+else
+    TARGET_REF="$(resolve_target_ref)"
+    info "Downloading $REPO ($TARGET_REF)..."
+    if fetch_release_tarball "$TARGET_REF" "$INSTALL_DIR"; then
+        echo "$TARGET_REF" > "$INSTALL_DIR/.akari-install-ref"
+        info "  Downloaded: $TARGET_REF"
+    else
+        err "Failed to download $REPO ($TARGET_REF)"
         exit 1
     fi
 fi
