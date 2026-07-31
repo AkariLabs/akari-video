@@ -295,7 +295,12 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
         warn "  Claude Code (paid) — https://claude.ai/install.sh"
         warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-        read -rp "Install opencode now? [Y/n] " answer </dev/tty
+        # /dev/tty はパーミッションビット上は rw に見えても、制御端末を持たない
+        # プロセス（コンテナ・CI・パイプ実行）では open(2) 自体が ENXIO で失敗する。
+        # -r/-w の事前チェックでは検出できないため、read を直接試みて失敗を拾う。
+        if ! read -rp "Install opencode now? [Y/n] " answer 2>/dev/null </dev/tty; then
+            answer=n
+        fi
         if [[ "${answer:-Y}" =~ ^[Yy] ]]; then
             install_opencode || true
         else
