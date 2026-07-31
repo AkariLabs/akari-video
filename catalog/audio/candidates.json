@@ -50,6 +50,15 @@
         "DOVA-SYNDROME はDLランキングページのfetchで得られた曲数が少なく（1ページ目の一部のみ）、他サイトに比べ収録曲数が少ない（5曲相当）。ページネーションを辿った追加調査は今回未実施",
         "MusMus「激しい・熱い・アッパー」は27曲中10曲のみ採用（残り17曲は未収録）。魔王魂アコースティック/ネオロックも各カテゴリの一部（全55曲/85曲中10曲/8曲）のみ採用。全量収録は意図的に見送り（オーナー指示「全件個別ページ確認は不要」を優先）"
       ]
+    },
+    {
+      "pass": 2,
+      "date": "2026-07-31",
+      "by": "sfx-perfile-tagging session",
+      "method": "pocket-se.info/rules/（ご利用規約 2023/05/31 版・2025-09-06 更新）を直接取得して確認",
+      "corrections": [
+        "#38 ポケットサウンド: attribution_required を false → true に訂正。規約は「作品でのクレジット表記、またはポケットサウンドへのリンク」を必須とする（Twitter/YouTube/TikTok 向けの表記例あり）。直リンク・二次配布・転売禁止。AI 学習は規約に言及なし → 安全側で false 維持"
+      ]
     }
   ],
   "ai_training_policy_note": "ai_training_allowed は「サイトが明示的に AI 学習用途を許可している場合のみ true」を既定にする（audio-import レーン登録分と同じ規律を継承）。CC0 系（Freesound CC0 指定・Kenney・Pixabay Content License）は true。効果音ラボは規約で明示禁止のため false。それ以外の日本語配布元（DOVA-SYNDROME・魔王魂・OtoLogic・甘茶・くらげ工匠・Springin・MusMus 等）は規約に明記がなくても、audio-import 登録分との整合を優先し false（未許諾を許可とみなさない）。Freesound のタグ検索・YouTube Audio Library はライセンスが音源ごとに変わるため null（個別確認が必要な旨を note に明記）。",
@@ -1022,17 +1031,17 @@
           "expected_filenames": [],
           "filename_patterns": [],
           "license": {
-            "attribution_required": false,
+            "attribution_required": true,
             "ai_training_allowed": false,
-            "redistribution": "unknown",
-            "note": "表記/リンクで無料"
+            "redistribution": "prohibited",
+            "note": "商用無料・加工OK。作品利用時はクレジット表記またはリンク必須（例: 効果音：ポケットサウンド – https://pocket-se.info/）。直リンク・二次配布・転売禁止。有償プランでクレジット免除あり"
           },
           "confidence": "confirmed_by_lane",
           "verification": {
             "checked_by": "lane",
             "checked_at": "2026-07-22",
             "method": "WebFetch 直接取得",
-            "result_note": "10件以上（ページネーションあり、サイト全体で2367点）。「クイズ不正解・誤答音」「ゲームオーバー」「失敗『デデーン』」等を確認。本カテゴリの本命候補として#37より優先推奨"
+            "result_note": "10件以上（ページネーションあり、サイト全体で2367点）。「クイズ不正解・誤答音」「ゲームオーバー」「失敗『デデーン』」等を確認。本カテゴリの本命候補として#37より優先推奨／2026-07-31 pass2: /rules/ を直接確認しクレジット要件を訂正（旧 attribution_required: false は誤り）"
           }
         },
         {

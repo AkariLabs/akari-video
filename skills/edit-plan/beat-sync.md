@@ -225,12 +225,23 @@
 |---|---|---|---|---|---|
 | `hook` | インパクト系（ドン/ガツン） | `soundeffect-lab-ambient-life-pack/和太鼓でドン.mp3`<br>`soundeffect-lab-anime-direction-pack/シャキーン1.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
 | `turn` | スウィッシュ系（シュッ/whoosh） | `soundeffect-lab-anime-direction-pack/シュッ！.mp3`<br>`soundeffect-lab-anime-direction-pack/シーン切り替え1.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
-| `punchline` | ポップ/決定音系（ポン/ジャン） | `soundeffect-lab-ui-signal-pack/決定ボタンを押す1.mp3`<br>`musmus-onomatope-sfx-pack/ポッ.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MusMus-Free | 1 点目は不要<br>2 点目は**必須**（下記 MusMus） | 充足（ライブラリ層） |
+| `punchline` | ポップ/決定音系（ポン/ジャン） | `soundeffect-lab-ui-signal-pack/決定ボタンを押す1.mp3`<br>`soundeffect-lab-ui-signal-pack/決定ボタンを押す26.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
 | `reveal` | キラーン/チャイム系 | `soundeffect-lab-anime-direction-pack/きらーん1.mp3`<br>`musmus-onomatope-sfx-pack/チャイム.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MusMus-Free | 1 点目は不要<br>2 点目は**必須**（下記 MusMus） | 充足（ライブラリ層） |
 | `emotion` | 控えめなポップ系（強い衝撃音を使わない） | `otologic-motion-pop-sfx-pack/Motion-Pop19-1.mp3`<br>`soundeffect-lab-anime-direction-pack/パッ.mp3` | CC-BY-4.0<br>LicenseRef-SoundEffectLab-Free | 1 点目は**必須**（下記 OtoLogic）<br>2 点目は不要 | 充足（ライブラリ層） |
+| `fail` | やらかし・がっかり（お鈴チーン/デデーン） | `soundeffect-lab-ui-signal-pack/チーン1.mp3`<br>`pocket-se-fail-pack/deden.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-PocketSound-Free | 1 点目は不要<br>2 点目は**必須**（下記 ポケットサウンド） | 充足（ライブラリ層） |
+| `wrong` | 不正解・NG 提示（ブブー） | `soundeffect-lab-ui-signal-pack/クイズ不正解1.mp3`<br>`maoudamashii-se-onepoint-category/ワンポイント33.mp3` | LicenseRef-SoundEffectLab-Free<br>LicenseRef-MaouDamashii-Free | 1 点目は不要<br>2 点目は**必須**（下記 魔王魂） | 充足（ライブラリ層） |
+| `correct` | 正解・肯定（ピンポン） | `soundeffect-lab-ui-signal-pack/クイズ正解2.mp3`<br>`soundeffect-lab-ui-signal-pack/クイズ正解3.mp3` | LicenseRef-SoundEffectLab-Free | 不要（任意） | 充足（ライブラリ層） |
+| `question` | 疑問・はてな | `dova-syndrome-hatena-mark-se/はてなマーク.mp3` | LicenseRef-DOVA-SYNDROME-Free | 不要（任意） | 充足（ライブラリ層） |
 
 `kind` は enum ではない（beats 契約 §2）。上表に無い `kind` の beat は既定 SE を持たないため、
 SE を付けずに無音の見せ場として残すか、素材計画としてチャットで提案して承認を得る。
+
+2026-07-31 改定: オーナー全件試聴（sfx-review）の per-file タグを根拠に `fail` / `wrong` /
+`correct` / `question` の 4 行を追加した。`fail` 1 点目のチーン1 は配布元公式説明が
+「がっかりした時の演出に」であり、**完了・決定の合図に使ってはならない**（誤用の前例があるため
+明記。ライブラリ各パックの `index.jsonl` に per-file の使う場面 / 使わない場面が焼き込まれて
+いるので、選定時はそれを参照する）。同改定で旧 `punchline` 2 点目（MusMus ポッ）はオーナー
+判断で除却され、効果音ラボ「決定ボタンを押す26」（公式説明「ポップなイメージ」）に差し替えた。
 
 ### 文脈による選び分け（優先順は既定のまま）
 
@@ -256,6 +267,8 @@ SE を付けずに無音の見せ場として残すか、素材計画として�
 |---|---|
 | `musmus-onomatope-sfx-pack` | `BGM:MusMus`（フル表記: `フリーBGM・音楽素材 MusMus https://musmus.main.jp`） |
 | `otologic-motion-pop-sfx-pack` | `音：OtoLogic（https://otologic.jp/）` |
+| `pocket-se-fail-pack` | `効果音：ポケットサウンド – https://pocket-se.info/`（リンクでも可） |
+| `maoudamashii-se-onepoint-category`（他 魔王魂系パック） | `音楽：魔王魂（https://maou.audio/）` |
 
 `attribution_required: false` のパック（効果音ラボ・DOVA-SYNDROME）はクレジット任意である。
 ただし効果音ラボ・MusMus・OtoLogic はいずれも**素材単体の再配布を禁じている**。採用 SE を

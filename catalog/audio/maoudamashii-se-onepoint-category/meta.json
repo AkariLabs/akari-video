@@ -1,0 +1,35 @@
+{
+  "id": "maoudamashii-se-onepoint-category",
+  "category": "audio",
+  "title": "魔王魂 ワンポイント（不吉 / ふざけた失敗 / ダメ出し）",
+  "description": "不協和音・コミカルな失敗音・ブッブーというダメ出し音の 3 点。（収録数: 3点）",
+  "when_to_use": "不吉な予兆（29）、ふざけた失敗・ツッコミ（31）、ダメ出し・NG 提示（33）",
+  "tags": [
+    "sfx",
+    "fail",
+    "buzzer",
+    "comical"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「音楽：魔王魂（https://maou.audio/）」を動画概要欄等に明記する。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "候補リスト経由の assisted-fetch（BGM 系: 内部タスク audio-fetch-gallery 2026-07-22 / pocket: 2026-07-31 追加取得）→ オーナー試聴 keep（2026-07-31 sfx-review-result）で正式登録。取得時の来歴 sidecar は .origin-*.meta.json として同梱",
+    "generator": null
+  },
+  "author": "魔王魂（森田交一）",
+  "license": {
+    "spdx": "LicenseRef-MaouDamashii-Free",
+    "scope": "commercial-ok",
+    "attribution_required": true,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "source": {
+    "url": "https://maou.audio/category/se/se-onepoint/",
+    "acquisition": "direct",
+    "license_at_source": "商用利用無制限・クレジット必須（表記例あり）・単品再配布禁止（教材収録は例外）（https://maou.audio/rule/）",
+    "attribution_required": true
+  },
+  "remote": true
+}
