@@ -4,9 +4,10 @@ import {
   resolveCutSegments,
   segmentDuration,
 } from "./cut-timeline.mjs";
+import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
 
 export function buildTrackBaseCommand({
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand = resolveFfmpeg(),
   inputPath,
   outputPath,
   duration,
@@ -48,7 +49,7 @@ export function buildTrackBaseCommand({
 }
 
 export function buildCutTrackCompositeCommand({
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand = resolveFfmpeg(),
   inputPath,
   trackPath,
   outputPath,

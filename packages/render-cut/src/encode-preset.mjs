@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 
+import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
+
 // Ported from akari-video-tauri/src-tauri/src/export/ffmpeg.rs (videotoolbox_available /
 // append_encode_args) — read-only reference, task 2026-07-25-export-options. This render-cut
 // (Node) pipeline does not split intermediate/final into two differently-tuned stages the way the
@@ -30,14 +32,18 @@ export function resetVideotoolboxCacheForTests() {
  * 失敗する環境があり得るため — legacy videotoolbox_available の移植）。
  */
 export function isVideotoolboxAvailable({
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand,
   env = process.env,
   spawnSyncImpl = spawnSync,
 } = {}) {
   if (env.AKARI_EXPORT_FORCE_X264 === "1") return false;
-  if (videotoolboxCache.has(ffmpegCommand)) return videotoolboxCache.get(ffmpegCommand);
-  const available = hasVideotoolboxEncoder(ffmpegCommand, spawnSyncImpl) && videotoolboxSmokeTest(ffmpegCommand, spawnSyncImpl);
-  videotoolboxCache.set(ffmpegCommand, available);
+  // Resolved lazily (only once the FORCE_X264 short-circuit above is ruled out) so a forced x264
+  // choice never touches media-bin's resolveFfmpeg(), matching the pre-existing
+  // "must not probe" contract this function has always had.
+  const resolvedFfmpegCommand = ffmpegCommand ?? resolveFfmpeg();
+  if (videotoolboxCache.has(resolvedFfmpegCommand)) return videotoolboxCache.get(resolvedFfmpegCommand);
+  const available = hasVideotoolboxEncoder(resolvedFfmpegCommand, spawnSyncImpl) && videotoolboxSmokeTest(resolvedFfmpegCommand, spawnSyncImpl);
+  videotoolboxCache.set(resolvedFfmpegCommand, available);
   return available;
 }
 
@@ -86,7 +92,7 @@ function videotoolboxSmokeTest(ffmpegCommand, spawnSyncImpl) {
  */
 export function resolveEncoderChoice({
   requested,
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand,
   env = process.env,
   spawnSyncImpl = spawnSync,
 } = {}) {
@@ -94,7 +100,10 @@ export function resolveEncoderChoice({
   if (requested === "x264") return { engine: "x264" };
   if (requested === "videotoolbox") return { engine: "videotoolbox" };
   if (requested === "auto") {
-    const useVideotoolbox = isVideotoolboxAvailable({ ffmpegCommand, env, spawnSyncImpl });
+    // Resolved lazily (only for "auto") so an explicit x264/videotoolbox choice never touches
+    // media-bin's resolveFfmpeg(), matching the docstring's "無引数のとき... 一切実行しない".
+    const resolvedFfmpegCommand = ffmpegCommand ?? resolveFfmpeg();
+    const useVideotoolbox = isVideotoolboxAvailable({ ffmpegCommand: resolvedFfmpegCommand, env, spawnSyncImpl });
     return { engine: useVideotoolbox ? "videotoolbox" : "x264" };
   }
   throw new RangeError(`Unknown --encoder value: ${requested}`);

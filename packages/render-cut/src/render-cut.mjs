@@ -37,6 +37,7 @@ import {
   runCheckedWithProgress,
 } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
+import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 const VERSION = 1;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -419,8 +420,8 @@ async function validateLint(projectRoot, force) {
 }
 
 async function measureCapabilities(projectRoot, edit) {
-  const ffmpegCommand = process.env.FFMPEG ?? "ffmpeg";
-  const ffprobeCommand = process.env.FFPROBE ?? "ffprobe";
+  const ffmpegCommand = process.env.FFMPEG ?? resolveFfmpeg();
+  const ffprobeCommand = process.env.FFPROBE ?? resolveFfprobe();
   const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"], "ffmpeg", ffmpegInstallHint());
   const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"], "ffprobe");
   const chromePath = await findChromePath();
@@ -774,7 +775,7 @@ async function cleanupStaleRunDirectories(renderTmpRoot) {
   );
 }
 
-export function verifyArtifact({ outputPath, plan, ffprobeCommand = "ffprobe" }) {
+export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfprobe() }) {
   const measured = probeMedia(ffprobeCommand, outputPath);
   const video = measured.streams.find((stream) => stream.codec_type === "video");
   const audio = measured.streams.find((stream) => stream.codec_type === "audio");
