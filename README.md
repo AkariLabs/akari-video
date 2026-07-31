@@ -117,4 +117,5 @@ First steps: [docs/getting-started.md](./docs/getting-started.md).
 ## License
 
 The code is under the [MIT License](./LICENSE). Assets handled via `assets/` / `catalog/`
-follow the license notice in each item's `meta.json`.
+follow the license notice in each item's `meta.json`. Bundled third-party binaries
+(ffmpeg / ffprobe, GPL builds) are documented in [NOTICE.md](./NOTICE.md).
