@@ -1,0 +1,35 @@
+{
+  "id": "dova-syndrome-user-manual",
+  "category": "audio",
+  "title": "DOVA-SYNDROME 定番BGM（2:23 AM / Morning）",
+  "description": "Vlog・解説の敷きに使える定番の落ち着き/ポップ系 BGM 2 点。（収録数: 2点）",
+  "when_to_use": "Vlog の出だし・締め・ガジェット/IT 系の敷き（2_23_AM）、外出・ポジティブな場面（Morning）",
+  "tags": [
+    "bgm",
+    "calm",
+    "vlog",
+    "versatile"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=false を厳守し、クレジット表記は任意（つけなくてよい）。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "候補リスト経由の assisted-fetch（BGM 系: tasks/2026-07-22-audio-fetch-gallery / pocket: 2026-07-31 追加取得）→ オーナー試聴 keep（2026-07-31 sfx-review-result）で正式登録。取得時の来歴 sidecar は .origin-*.meta.json として同梱",
+    "generator": null
+  },
+  "author": "DOVA-SYNDROME",
+  "license": {
+    "spdx": "LicenseRef-DOVA-SYNDROME-Free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "source": {
+    "url": "https://dova-s.jp/creator/detail/101",
+    "acquisition": "direct",
+    "license_at_source": "商用/非商用問わず無料・クレジット不要（任意で歓迎）・単体の二次配布/転載禁止（https://dova-s.jp/contents/terms）",
+    "attribution_required": false
+  },
+  "remote": true
+}
