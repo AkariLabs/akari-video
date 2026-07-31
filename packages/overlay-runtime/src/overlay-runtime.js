@@ -127,7 +127,12 @@ window.akari.runtime = (() => {
 
       const localTimeMs = Math.max(0, (timelineTime - overlay.start) * 1000);
       if (overlay.isThreeDimensional) {
-        window.akari.threeRuntime?.render(overlay.container, localTimeMs / 1000);
+        // syncVideos: ライブプレビューでは動画テクスチャの時刻を誰も進めないので、
+        // ここで overlay のローカル時刻へ合わせる（書き出しは rasterize が自前で
+        // フレーム精度シークを済ませるため、この指定を渡さない = 決定性を崩さない）
+        window.akari.threeRuntime?.render(overlay.container, localTimeMs / 1000, {
+          syncVideos: true,
+        });
         continue;
       }
       const animations = overlay.container.getAnimations({ subtree: true });

@@ -404,6 +404,29 @@ window.akari.threeRuntime = (() => {
     }
   }
 
+  // 動画テクスチャの時刻を overlay のローカル時刻へ合わせる。
+  //
+  // **呼ぶのはライブプレビューだけ**。書き出し（rasterize）は自前でフレーム精度シークを
+  // 済ませてから render() を呼ぶので、ここで currentTime を書くと確定済みの提示フレームを
+  // 崩して決定性が壊れる。だから既定では同期せず、preview が明示的に要求したときだけ行う。
+  //
+  // preview は壁時計で進むので提示フレームの確定は待たない（待つと tick が詰まる）。
+  // 1 つ前後のフレームがずれることはあるが、絵は必ず「その時刻の近傍」になる。
+  function syncVideoTextures(instance, localSeconds) {
+    for (const video of instance.videoElements) {
+      const duration = video.duration;
+      const target = video.loop && Number.isFinite(duration) && duration > 0
+        ? Math.max(0, localSeconds) % duration
+        : Math.max(0, localSeconds);
+      // 既に十分近ければ書かない。毎 tick 無条件に代入すると再生中でも
+      // シークが走り続けてデコーダが追いつかなくなる
+      if (Math.abs(video.currentTime - target) < 0.02) continue;
+      try {
+        video.currentTime = target;
+      } catch {}
+    }
+  }
+
   function draw(instance, localSeconds) {
     if (!instance.active || !instance.model) return;
     rendererSize(instance);
@@ -587,7 +610,7 @@ window.akari.threeRuntime = (() => {
     return instance;
   }
 
-  function render(container, localTimeSeconds) {
+  function render(container, localTimeSeconds, options) {
     if (failedContainers.has(container)) return;
     let instance = instances.get(container);
     if (!instance) {
@@ -601,6 +624,10 @@ window.akari.threeRuntime = (() => {
       }
     }
     instance.lastTime = Math.max(0, finiteNumber(localTimeSeconds, 0));
+    // syncVideos はライブプレビュー専用の opt-in（既定は同期しない = 書き出しの決定性を守る）
+    if (options?.syncVideos && instance.videoElements.size > 0) {
+      syncVideoTextures(instance, instance.lastTime);
+    }
     draw(instance, instance.lastTime);
   }
 
