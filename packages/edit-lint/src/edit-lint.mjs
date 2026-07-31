@@ -11,6 +11,7 @@ import {
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { renderLintReport } from "./report.mjs";
+import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 const VERSION = 1;
 const EPSILON = 1e-6;
@@ -2807,7 +2808,7 @@ function isIsoDateTime(value) {
 }
 
 function runMediaChecks(sourcePath, findings, paths, options, captions) {
-  const command = options.ffmpegCommand ?? process.env.FFMPEG ?? "ffmpeg";
+  const command = options.ffmpegCommand ?? process.env.FFMPEG ?? resolveFfmpeg();
   const sourceRelative = relativePath(paths.projectRoot, sourcePath);
   const silence = runCommand(command, [
     "-hide_banner",
@@ -2914,7 +2915,7 @@ function runMediaChecks(sourcePath, findings, paths, options, captions) {
 }
 
 function probeDuration(sourcePath, configuredCommand) {
-  const command = configuredCommand ?? process.env.FFPROBE ?? "ffprobe";
+  const command = configuredCommand ?? process.env.FFPROBE ?? resolveFfprobe();
   const result = runCommand(command, [
     "-v",
     "error",
