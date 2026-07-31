@@ -11,12 +11,15 @@ import { fileURLToPath } from 'node:url';
 // 依存ツリーは npm CLI に頼らず自前で辿る。`npm query` はリポ root の workspaces 文脈を
 // 拾って root パッケージを混入させる(実測)ため、package.json の dependencies +
 // optionalDependencies を Node の解決規則(fromDir から node_modules を上方探索、
-// shellRoot で打ち切り)で BFS する。devDependencies は配布物に入らないので辿らない。
+// repoRoot で打ち切り)で BFS する。devDependencies は配布物に入らないので辿らない。
+// 打ち切りは当初 shellRoot だったが、npm workspaces の hoisting で依存はリポ直下の
+// node_modules に居るのが通常形（dedupe 結果で揺れる）ため、リポ直下まで遡る。
 // file: 依存(自社 akari-* 拡張)はサードパーティではないため通知対象から除外し、
 // その依存だけを辿る。
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const shellRoot = path.resolve(scriptDir, '../..');
+const repoRoot = path.resolve(shellRoot, '../..');
 const outDir = path.join(shellRoot, 'resources', 'generated-notices');
 const licenseTextsDir = path.join(scriptDir, 'license-texts');
 
@@ -26,12 +29,12 @@ async function isDirectory(candidate) {
 
 async function resolvePackageDir(name, fromDir) {
   let dir = fromDir;
-  while (dir === shellRoot || dir.startsWith(shellRoot + path.sep)) {
+  while (dir === repoRoot || dir.startsWith(repoRoot + path.sep)) {
     const candidate = path.join(dir, 'node_modules', name);
     if (await isDirectory(candidate)) {
       return candidate;
     }
-    if (dir === shellRoot) {
+    if (dir === repoRoot) {
       break;
     }
     dir = path.dirname(dir);
@@ -184,7 +187,13 @@ if (unresolved.length > 0) {
 
 // Electron / Chromium のライセンス文。electron-builder は win/linux では実行ファイル横に
 // 自動で置くが mac では .app に入れない(実測)ため、全 platform で自前同梱に統一する。
-const electronDist = path.join(shellRoot, 'node_modules', 'electron', 'dist');
+// electron も hoisting 次第で置き場が揺れるため resolvePackageDir で実在位置を引く。
+const electronPackageDir = await resolvePackageDir('electron', shellRoot);
+if (!electronPackageDir) {
+  console.error('THIRD-PARTY-NOTICES FAILED — electron パッケージが node_modules に見つかりません。');
+  process.exit(1);
+}
+const electronDist = path.join(electronPackageDir, 'dist');
 const electronLicense = path.join(electronDist, 'LICENSE');
 const chromiumLicenses = path.join(electronDist, 'LICENSES.chromium.html');
 for (const required of [electronLicense, chromiumLicenses]) {
