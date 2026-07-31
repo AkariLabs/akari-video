@@ -44,9 +44,13 @@ curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.
 ```
 
 スクリプトが自動で以下を確認・インストールします:
-- Node.js v20+（無ければ自動インストール）
+- Node.js v20+（無ければポータブル版を `~/.akari/` 配下へ配置 — Homebrew 不要・
+  管理者パスワード不要）
 - opencode または Claude Code（案内表示）
-- ffmpeg（オプション、自動インストール可）
+- ffmpeg（何もしなくて OK — `npm install` が同梱の GPL ビルドを自動で取得します。
+  sha256 検証付き。PATH に ffmpeg があればそちらを優先）
+
+git も不要です — インストーラーはリポジトリを tarball で取得します。
 
 **CLI だけを軽量に入れたい場合**は `npm i -g akari-video` でも導入できます（エージェント
 ワークフローは同梱。ブラウザプレビューは含まれないため、フル構成は上のインストーラーで）。
@@ -66,6 +70,9 @@ Node.js は AKARI Video の本体を動かすために必要です。
   sudo apt-get install -y nodejs
   ```
 - **macOS**: [nodejs.org](https://nodejs.org/) から LTS 版をダウンロード、または `brew install node`
+
+> ワンライナーインストーラーを使う場合はこの節ごと不要です — Node が無ければポータブル版を
+> `~/.akari/` 配下に自動配置します（Homebrew も管理者パスワードも使いません）。
 
 **確認方法**:
 ```sh
@@ -137,10 +144,11 @@ Cursor 専用の `/akari` スラッシュコマンドは現時点ではありま
 ### 3. ffmpeg（動画処理ツール）
 
 ffmpeg は動画の切り貼り・変換・書き出しに使います。
-**セットアップ時にスキルが自動で確認し、必要ならインストールを案内します**。
-先に入れておくとスムーズです。
+**通常はインストール不要です** — ワンライナーインストーラーが実行する `npm install` が
+同梱の GPL ビルドを自動で取得します（ピン留めした sha256 で検証）。PATH に ffmpeg が
+既にあればそちらを優先して使います。
 
-**インストール方法**:
+**手動インストール（任意 — システム全体に入れたい場合）**:
 
 - **Windows**: `winget install Gyan.FFmpeg` または [ffmpeg 公式サイト](https://ffmpeg.org/download.html) からダウンロード
 - **Linux**: `sudo apt install ffmpeg`

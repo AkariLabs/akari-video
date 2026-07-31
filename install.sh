@@ -201,8 +201,8 @@ install_opencode() {
 }
 
 # ═══════════════════════════════════════════════
-#  3. ffmpeg — 検出のみ。① ffmpeg-resolver が入れた ffmpeg-static が
-#     npm install で自動的に入るため、ここでの brew/apt 経由インストールは不要。
+#  3. ffmpeg — 検出のみ。packages/media-bin の postinstall が GPL-only ビルドを
+#     pinned URL + sha256 検証で取得するため、ここでの brew/apt 経由インストールは不要。
 # ═══════════════════════════════════════════════
 
 check_ffmpeg() {
@@ -210,7 +210,7 @@ check_ffmpeg() {
         info "  [OK] ffmpeg $(ffmpeg -version 2>/dev/null | head -1 | awk '{print $3}') (PATH)"
         return 0
     fi
-    warn "  [--] ffmpeg not found on PATH — no action needed: 'npm install' below pulls in the bundled ffmpeg-static automatically"
+    warn "  [--] ffmpeg not found on PATH — no action needed: 'npm install' below pulls in a bundled GPL build automatically (sha256-verified)"
     return 1
 }
 
