@@ -433,7 +433,17 @@ const CLAIMED_VIDEO_EXTENSIONS = new Set([
 ]);
 const UNSUPPORTED_FORMAT_MESSAGE = 'この形式はアプリ内プレビューに未対応です。書き出し後の MP4 をプレビューできます。';
 const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビューできません。';
-const THREE_SCENE_KEYS = new Set(['model', 'camera', 'lights', 'animationClip', 'materialOverrides']);
+const THREE_SCENE_KEYS = new Set([
+    'model',
+    'camera',
+    'lights',
+    'animationClip',
+    'materialOverrides',
+    // environment / shadows がここに無いと宣言ごと拒否され、model パスが空になって
+    // preview の読み込みが失敗していた（export は別経路のため影響を受けていなかった）
+    'environment',
+    'shadows'
+]);
 const LAYER_BLEND_TO_CSS = new Map<string, string>([
     ['normal', 'normal'],
     ['screen', 'screen'],
@@ -2399,6 +2409,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return stream.url;
                 };
                 descriptor.model = await resolveAsset(descriptor.model, 'data-akari-3d-scene.model');
+                if (descriptor.environment?.map !== undefined) {
+                    if (typeof descriptor.environment.map !== 'string' || !descriptor.environment.map) {
+                        throw new TypeError('environment.map は正距円筒画像の相対パスである必要があります');
+                    }
+                    descriptor.environment.map = await resolveAsset(
+                        descriptor.environment.map,
+                        'data-akari-3d-scene.environment.map'
+                    );
+                }
                 if (descriptor.materialOverrides !== undefined) {
                     if (!descriptor.materialOverrides
                         || typeof descriptor.materialOverrides !== 'object'

@@ -538,11 +538,163 @@ test("3D overlay sheets inline the shared runtime and embed GLB data", async () 
     assert.match(sheet, /querySelector\(':scope > \.scene-content'\)/);
     assert.match(
       sheet,
-      /threeRuntime\.render\(threeContainer, seconds - start\)/,
+      /pendingThreeDraws\.push\(\[threeContainer, seconds - start\]\)/,
     );
     assert.match(sheet, /threeRuntime\.render\(container, 0\)/);
     assert.match(sheet, /threeRuntime\.inspect\(container\)\.status/);
     assert.match(sheet, /Promise\.all\(threeContainers\.map\(waitForThreeContainer\)\)/);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("3D overlays are drawn after the video seek, not before it", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "render-cut-3d-order-"));
+  try {
+    await writeFile(join(projectRoot, "model.glb"), Buffer.from([0x67, 0x6c, 0x54, 0x46]));
+    const sheet = renderOverlaySheet({
+      overlays: [
+        {
+          id: "model",
+          start: 0,
+          duration: 2,
+          html: `<div class="model"><canvas></canvas><script data-akari-3d-scene type="application/json">{
+            "model": "model.glb"
+          }</script></div>`,
+          transform: {},
+          vars: {},
+        },
+      ],
+      edit: { output: { width: 320, height: 180, fps: 30 } },
+      projectRoot,
+      duration: 2,
+    });
+
+    // 3D を先に描くと <video> がまだ前フレームの絵のままテクスチャへ上がる。
+    // 収集 → 動画シークの await → 描画、の順序が崩れていないことを位置で確かめる
+    const collected = sheet.indexOf("pendingThreeDraws.push(");
+    const awaited = sheet.indexOf("Array.from(document.querySelectorAll('video'), waitForVideo)");
+    const drawn = sheet.indexOf("window.akari.threeRuntime.render(threeContainer, localSeconds)");
+    assert.ok(collected > 0 && awaited > 0 && drawn > 0);
+    assert.ok(collected < awaited, "3D の収集は動画シークより前であること");
+    assert.ok(awaited < drawn, "3D の描画は動画シークの完了より後であること");
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("3D overlays embed video textures and an equirectangular environment map", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "render-cut-3d-video-"));
+  try {
+    const modelBytes = Buffer.from([0x67, 0x6c, 0x54, 0x46]);
+    const videoBytes = Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]);
+    const environmentBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    await writeFile(join(projectRoot, "model.glb"), modelBytes);
+    await writeFile(join(projectRoot, "screen.mp4"), videoBytes);
+    await writeFile(join(projectRoot, "studio.png"), environmentBytes);
+    const sheet = renderOverlaySheet({
+      overlays: [
+        {
+          id: "model",
+          start: 0,
+          duration: 2,
+          html: `<div class="model"><canvas></canvas><script data-akari-3d-scene type="application/json">{
+            "model": "model.glb",
+            "environment": { "intensity": 2.8, "map": "studio.png" },
+            "shadows": true,
+            "animationClip": "*",
+            "materialOverrides": {
+              "ScreenMaterial": { "texture": "screen.mp4" }
+            }
+          }</script></div>`,
+          transform: {},
+          vars: {},
+        },
+      ],
+      edit: { output: { width: 320, height: 180, fps: 30 } },
+      projectRoot,
+      duration: 2,
+    });
+
+    const declaration = sheet.match(
+      /<script data-akari-3d-scene type="application\/json">([\s\S]*?)<\/script>/u,
+    );
+    assert.ok(declaration);
+    const descriptor = JSON.parse(declaration[1]);
+    assert.equal(
+      descriptor.materialOverrides.ScreenMaterial.texture,
+      `data:video/mp4;base64,${videoBytes.toString("base64")}`,
+    );
+    assert.deepEqual(descriptor.environment, {
+      intensity: 2.8,
+      map: `data:image/png;base64,${environmentBytes.toString("base64")}`,
+    });
+    assert.equal(descriptor.shadows, true);
+    assert.equal(descriptor.animationClip, "*");
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("environment.map rejects absolute paths and non-image sources", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "render-cut-3d-envmap-"));
+  try {
+    await writeFile(join(projectRoot, "model.glb"), Buffer.from([0x67, 0x6c, 0x54, 0x46]));
+    await writeFile(join(projectRoot, "studio.mp4"), Buffer.from([0x00]));
+    const sheetWith = (environment) => () =>
+      renderOverlaySheet({
+        overlays: [
+          {
+            id: "model",
+            start: 0,
+            duration: 2,
+            html: `<div class="model"><canvas></canvas><script data-akari-3d-scene type="application/json">{
+              "model": "model.glb",
+              "environment": ${JSON.stringify(environment)}
+            }</script></div>`,
+            transform: {},
+            vars: {},
+          },
+        ],
+        edit: { output: { width: 320, height: 180, fps: 30 } },
+        projectRoot,
+        duration: 2,
+      });
+
+    assert.throws(sheetWith({ map: "/etc/passwd.png" }), /must be a relative path/u);
+    assert.throws(sheetWith({ map: "https://example.com/studio.png" }), /must be a relative path/u);
+    // 正距円筒は画像。動画を差されたら黙って通さない
+    assert.throws(sheetWith({ map: "studio.mp4" }), /must be an equirectangular image/u);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("looping videos wrap the seek time instead of freezing on the last frame", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "render-cut-loop-"));
+  try {
+    await writeFile(join(projectRoot, "model.glb"), Buffer.from([0x67, 0x6c, 0x54, 0x46]));
+    const sheet = renderOverlaySheet({
+      overlays: [
+        {
+          id: "model",
+          start: 0,
+          duration: 2,
+          html: `<div class="model"><canvas></canvas><script data-akari-3d-scene type="application/json">{
+            "model": "model.glb"
+          }</script></div>`,
+          transform: {},
+          vars: {},
+        },
+      ],
+      edit: { output: { width: 320, height: 180, fps: 30 } },
+      projectRoot,
+      duration: 2,
+    });
+
+    assert.match(sheet, /video\.loop && Number\.isFinite\(video\.duration\) && video\.duration > 0/);
+    assert.match(sheet, /\? seconds % video\.duration/);
+    assert.match(sheet, /video\.currentTime = target;/);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
