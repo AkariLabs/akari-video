@@ -22,7 +22,7 @@ PNG 連番を焼く。フレームは md5 と「不透明画素数・平均 RGB�
 
 モデルは 2 種。
 
-- `phone-pro-titanium-live` の `model.glb`（内部リポの実素材）— 画面へ差し込む検証用。
+- 実運用の 3D 実機モデル 1 件（非公開素材のため本リポには同梱しない）— 画面へ差し込む検証用。
   本体を静止させる（`animationClip` を宣言しない）ので、**フレーム間の差は画面の動画だけに由来する**
 - 決定的に生成した最小フィクスチャ 2 個 — 影と複数クリップは実素材では判定しづらいため
   - `shadow-scene.glb`: 床 + 浮いた箱（影が出れば床にはっきり落ちる）
@@ -35,7 +35,7 @@ ffmpeg で生成した。いずれも外部素材を使わず再生成できる�
 
 ### 1. 決定性 — 別プロセスで 2 回焼いて md5 完全一致
 
-`phone-video`（画面に動画・本体静止）を別プロセスで 2 回焼き、4 フレームすべて md5 一致。
+`model-video`（画面に動画・本体静止）を別プロセスで 2 回焼き、4 フレームすべて md5 一致。
 
 ```
 frame-00000001.png  677ba900f0b61d984d959f25a7564c03
@@ -78,7 +78,7 @@ frame-00000004.png  cabbc1421366c732392cf8a34628593d
 |---|---|---|---|---|---|
 | shadow-off | false | 0 | 0 | 2 | 14 |
 | shadow-on | **true** | 0 | 0 | **4** | **28** |
-| phone-video | false | **1** | 0 | 50 | 19096 |
+| model-video | false | **1** | 0 | 50 | 19096 |
 | clips-one | false | 0 | **1** | 2 | 24 |
 | clips-all (`"*"`) | false | 0 | **2** | 2 | 24 |
 | clips-array | false | 0 | **2** | 2 | 24 |
@@ -121,7 +121,8 @@ frame-00000004.png  cabbc1421366c732392cf8a34628593d
 node verify-3d.mjs <シナリオ名> <出力ディレクトリ>
 ```
 
-シナリオ: `phone-placeholder` / `phone-video` / `phone-video-envmap` / `shadow-off` /
+シナリオ: `model-placeholder` / `model-video` / `model-video-envmap` / `shadow-off` /
 `shadow-on` / `clips-one` / `clips-all` / `clips-array`。
-ハーネスとフィクスチャ生成器は内部リポ（`akari-video-internal`）の
-`lab/three-video-texture/` に置いてある。
+ハーネスとフィクスチャ生成器は非公開の作業リポ側に置いてある（実運用モデルを読むため）。
+公開できるのは決定的に生成する 2 個のフィクスチャ（`shadow-scene.glb` / `two-clips.glb`）までで、
+そちらは本 README の記述だけから再現できる。
