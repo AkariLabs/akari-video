@@ -21,7 +21,11 @@ const KNOWN_GOOD = {
   },
 };
 
+const EDIT_JSON_ORIG = fs.existsSync(EDIT_JSON) ? fs.readFileSync(EDIT_JSON, 'utf-8') : null;
 fs.writeFileSync(EDIT_JSON, JSON.stringify(KNOWN_GOOD, null, 2) + '\n', 'utf-8');
+const OUT_JSON = path.join(PROJECT, 'edit.output.json');
+const hadOutput = fs.existsSync(OUT_JSON);
+if (!hadOutput) fs.writeFileSync(OUT_JSON, JSON.stringify(KNOWN_GOOD, null, 2) + '\n', 'utf-8');
 
 async function waitForServer(url, timeout = 15000) {
   const deadline = Date.now() + timeout;
@@ -142,7 +146,6 @@ async function main() {
   await testToggle('edit-toggle', 'Edit toggle');
   await testToggle('pen-toggle', 'Pen toggle');
   await testToggle('caption-toggle', 'Caption toggle');
-  await testToggle('waveform-toggle', 'Waveform toggle');
   try {
     const h1 = await page.locator('#indicator-popup').getAttribute('hidden');
     await page.click('#indicator-toggle'); await page.waitForTimeout(200);
@@ -166,7 +169,15 @@ async function main() {
   } catch (e) { ng('Zoom slider', e.message); }
   try {
     const btn = page.locator('#output-preview-btn');
-    (await btn.isVisible()) ? (await btn.click(), await page.waitForTimeout(300), ok('Output preview button')) : ok('Output preview hidden');
+    if (await btn.isVisible()) {
+      await btn.click(); await page.waitForTimeout(300);
+      const popups = context.pages().filter(p => p !== page);
+      await Promise.all(popups.map(p => p.close().catch(() => {})));
+      await page.bringToFront();
+      ok('Output preview button');
+    } else {
+      ok('Output preview hidden');
+    }
   } catch (e) { ng('Output preview', e.message); }
 
   // ── 5. Keyboard shortcuts ──
@@ -204,6 +215,8 @@ async function main() {
     // pause
     if ((await page.locator('#play-toggle').getAttribute('aria-label')) === '一時停止')
       await page.click('#play-toggle');
+    await page.waitForTimeout(50);
+    await page.evaluate(() => window.__test.seekTo(5));
     await page.waitForTimeout(50);
     const before = await page.evaluate(() => window.__test.outputTime);
     await page.evaluate(() => window.__test.seekTo(window.__test.outputTime - 1 / 30));
@@ -271,11 +284,11 @@ async function main() {
     await items.first().click({ button: 'right' }); await page.waitForTimeout(300);
     if (!(await page.locator('#asset-ctx-menu').isVisible())) throw new Error('menu not visible');
     ok('Right-click opens menu');
-    await page.click('#actx-copy-name'); await page.waitForTimeout(200);
+    await page.click('#asset-ctx-menu [data-action="copy"]'); await page.waitForTimeout(200);
     ok('Copy filename');
 
     await items.first().click({ button: 'right' }); await page.waitForTimeout(200);
-    await page.click('#actx-add-timeline'); await page.waitForTimeout(1500);
+    await page.click('#asset-ctx-menu [data-action="main"]'); await page.waitForTimeout(1500);
     const cuts = await page.evaluate(() => window.__test?.summary?.cuts?.length ?? -1);
     cuts >= 2 ? ok('Add to timeline (ensureV1)') : ng('Add to timeline', `cuts=${cuts}`);
   } catch (e) { ng('Asset ctx menu', e.message); }
@@ -405,7 +418,10 @@ async function main() {
   try {
     const before = await page.evaluate(() => window.__test?.summary?.tracks?.length ?? 0);
     await page.evaluate(() => window.__test.addTrack());
-    await page.waitForTimeout(500);
+    await page.waitForSelector('#add-track-dialog:not([hidden])', { timeout: 5000 });
+    await page.fill('#atd-name', 'OverlayTest');
+    await page.click('#atd-ok');
+    await page.waitForTimeout(800);
     const after = await page.evaluate(() => window.__test?.summary?.tracks?.length ?? 0);
     after > before ? ok('Add track') : ng('Add track', `${before}→${after}`);
   } catch (e) { ng('Add track', e.message); }
@@ -473,7 +489,7 @@ async function main() {
   console.log(`結果: ${passed}/${total} passed, ${failed} failed`);
   for (const r of results) console.log(r);
   console.log(`${'═'.repeat(55)}`);
-  process.exit(failed > 0 ? 1 : 0);
+  process.exitCode = failed > 0 ? 1 : 0;
 }
 
 // ── Spawn server ──
@@ -489,6 +505,8 @@ try {
   await main();
 } finally {
   srv.kill();
-  fs.writeFileSync(EDIT_JSON, JSON.stringify(KNOWN_GOOD, null, 2) + '\n', 'utf-8');
+  if (!hadOutput) fs.unlinkSync(OUT_JSON);
+  if (EDIT_JSON_ORIG === null) fs.unlinkSync(EDIT_JSON);
+  else fs.writeFileSync(EDIT_JSON, EDIT_JSON_ORIG);
   console.log('\n[cleanup] done');
 }

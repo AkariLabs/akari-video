@@ -410,7 +410,7 @@ async function main() {
   console.log(`結果: ${passed}/${total} passed, ${failed} failed\n`);
   for (const r of results) console.log(r);
   console.log(`\n${'═'.repeat(50)}`);
-  process.exit(failed > 0 ? 1 : 0);
+  process.exitCode = failed > 0 ? 1 : 0;
 }
 
 // ── Spawn server ──

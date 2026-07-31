@@ -43,7 +43,8 @@ async function main() {
     ng('Page load', e.message);
     await browser.close();
     printResults(passed, failed, results);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   // Helper: check aria-label
@@ -298,7 +299,7 @@ async function main() {
   await browser.close();
 
   printResults(passed, failed, results);
-  process.exit(failed > 0 ? 1 : 0);
+  process.exitCode = failed > 0 ? 1 : 0;
 }
 
 function printResults(passed, failed, results) {
