@@ -188,6 +188,20 @@ window.akari.threeRuntime = (() => {
     return descriptor;
   }
 
+  function createVideoTexture(THREE, instance, video) {
+    const texture = new THREE.VideoTexture(video);
+    // VideoTexture の既定は generateMipmaps=false / minFilter=LinearFilter。大きな画面素材を
+    // 3D 上の小さな面へ潰すと 1 テクセルしか拾わず細部が割れ、モデルが回ると割れ方が毎フレーム
+    // 変わるので「カクついている」ように見える（静止画は TextureLoader が既定でミップマップを
+    // 作るためこの症状が出ない = 動画テクスチャだけが素通しになっていた）
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = Math.min(16, instance.renderer.capabilities.getMaxAnisotropy());
+    instance.videoTextures.add(texture);
+    return texture;
+  }
+
   async function loadVideoTexture(THREE, instance, url) {
     const video = document.createElement("video");
     video.muted = true;
@@ -216,16 +230,7 @@ window.akari.threeRuntime = (() => {
         { once: true }
       );
     });
-    const texture = new THREE.VideoTexture(video);
-    // VideoTexture の既定は generateMipmaps=false / minFilter=LinearFilter。大きな画面素材を
-    // 3D 上の小さな面へ潰すと 1 テクセルしか拾わず細部が割れ、モデルが回ると割れ方が毎フレーム
-    // 変わるので「カクついている」ように見える（静止画は TextureLoader が既定でミップマップを
-    // 作るためこの症状が出ない = 動画テクスチャだけが素通しになっていた）
-    texture.generateMipmaps = true;
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = Math.min(16, instance.renderer.capabilities.getMaxAnisotropy());
-    return texture;
+    return createVideoTexture(THREE, instance, video);
   }
 
   function loadTexture(THREE, instance, textureLoader, url) {
@@ -270,7 +275,18 @@ window.akari.threeRuntime = (() => {
         const configurationKey = `${channel}:${wrapS}:${wrapT}`;
         let configuredTexture = configuredTextures.get(configurationKey);
         if (!configuredTexture) {
-          configuredTexture = configuredTextures.size === 0 ? texture : texture.clone();
+          if (configuredTextures.size === 0) {
+            configuredTexture = texture;
+          } else if (texture.isVideoTexture) {
+            // **動画に Texture.clone() は使えない。** clone は `this.source = source.source` で
+            // Source を共有するが、GPU へのアップロードは Source の version で門番されている
+            // （`sourceProperties.__version !== source.version` のときだけ上げ直す）。
+            // つまり先に上げた側が version を消費し、**もう一方は 1 枚目で固まる**。
+            // 同じ <video> から VideoTexture を作り直せば Source が別になり、両方が更新される
+            configuredTexture = createVideoTexture(THREE, instance, texture.image);
+          } else {
+            configuredTexture = texture.clone();
+          }
           configuredTexture.channel = channel;
           configuredTexture.wrapS = wrapS;
           configuredTexture.wrapT = wrapT;
@@ -278,9 +294,6 @@ window.akari.threeRuntime = (() => {
           configuredTexture.colorSpace = THREE.SRGBColorSpace;
           configuredTexture.needsUpdate = true;
           configuredTextures.set(configurationKey, configuredTexture);
-          // clone も元と同じ <video> を指す別テクスチャなので、GPU への上げ直しは各自に要る。
-          // 追跡しないと同名マテリアルが複数あるときに clone 側だけ 1 枚目で固まる
-          if (configuredTexture.isVideoTexture) instance.videoTextures.add(configuredTexture);
         }
         material.emissiveMap = configuredTexture;
         material.needsUpdate = true;
