@@ -29,6 +29,14 @@ export interface PartnerLaunchPlan {
     agent: PartnerAgentId;
     args: string[];
     log: string[];
+    /**
+     * Extra environment variables to merge into the partner PTY's environment
+     * (task/2026-07-31-shell-ffmpeg-bundle). Currently AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN,
+     * resolved node-side so skill scripts inside the PTY (which import
+     * packages/media-bin's resolveFfmpeg/resolveFfprobe) see the same explicit-env tier the
+     * app itself resolved to (PATH when available, otherwise the app-bundled binary).
+     */
+    env?: Record<string, string>;
 }
 
 /**

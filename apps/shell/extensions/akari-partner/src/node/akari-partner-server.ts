@@ -1,6 +1,6 @@
 import { injectable } from '@theia/core/shared/inversify';
-import { spawn } from 'child_process';
-import { promises as fs } from 'fs';
+import { spawn, spawnSync } from 'child_process';
+import { existsSync, promises as fs } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -91,8 +91,60 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
         return {
             agent,
             args: [],
-            log: []
+            log: [],
+            env: this.resolveMediaBinEnv()
         };
+    }
+
+    /**
+     * task/2026-07-31-shell-ffmpeg-bundle: パートナー PTY 内で動くスキルスクリプト
+     * （packages/media-bin の resolveFfmpeg/resolveFfprobe を使うもの）が、PATH に
+     * ffmpeg/ffprobe が無い環境でもアプリ同梱バイナリを見つけられるよう、この時点で解決した
+     * パスを AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN として渡す。優先順位は media-bin 側と同じ
+     * （明示指定 env → PATH → 同梱）。ユーザーが自分の shell で既に指定済みの場合はそれを
+     * そのまま通す（この関数は process.env を上書きしない — 呼び出し側が widget の
+     * newTerminal() の env に載せるだけ）。
+     */
+    protected resolveMediaBinEnv(): Record<string, string> {
+        const env: Record<string, string> = {};
+        const ffmpeg = this.resolveMediaBinPath('ffmpeg', 'AKARI_FFMPEG_BIN');
+        const ffprobe = this.resolveMediaBinPath('ffprobe', 'AKARI_FFPROBE_BIN');
+        if (ffmpeg) {
+            env.AKARI_FFMPEG_BIN = ffmpeg;
+        }
+        if (ffprobe) {
+            env.AKARI_FFPROBE_BIN = ffprobe;
+        }
+        return env;
+    }
+
+    protected resolveMediaBinPath(name: 'ffmpeg' | 'ffprobe', explicitEnvVar: 'AKARI_FFMPEG_BIN' | 'AKARI_FFPROBE_BIN'): string | undefined {
+        const explicit = process.env[explicitEnvVar];
+        if (explicit) {
+            return explicit;
+        }
+        if (this.canRunOnPath(name)) {
+            return name;
+        }
+        return this.bundledMediaBinPath(name);
+    }
+
+    protected canRunOnPath(command: string): boolean {
+        try {
+            return spawnSync(command, ['-version'], { stdio: 'ignore' }).status === 0;
+        } catch {
+            return false;
+        }
+    }
+
+    protected bundledMediaBinPath(name: 'ffmpeg' | 'ffprobe'): string | undefined {
+        const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+        if (!resourcesPath) {
+            return undefined;
+        }
+        const exe = process.platform === 'win32' ? `${name}.exe` : name;
+        const candidate = path.join(resourcesPath, 'media-bin', exe);
+        return existsSync(candidate) ? candidate : undefined;
     }
 
     async recordConnection(agent: PartnerAgentId, executablePath: string): Promise<PartnerConnectionMarker> {

@@ -31,7 +31,7 @@ import {
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
-import { getH264Proxy } from './hevc-proxy';
+import { getH264Proxy, resolveFfmpegPath } from './hevc-proxy';
 import { ReviewSessionWriter } from './review-session-writer';
 
 interface StreamTarget {
@@ -456,10 +456,13 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         );
     }
 
-    protected runAudioTranscode(inputPath: string, outputPath: string): Promise<TranscodeAudioErrorKind | undefined> {
+    protected async runAudioTranscode(inputPath: string, outputPath: string): Promise<TranscodeAudioErrorKind | undefined> {
+        // task/2026-07-31-shell-ffmpeg-bundle: PATH に無ければ hevc-proxy.ts と同じ優先順位
+        // （明示指定env → PATH → アプリ同梱バイナリ）でアプリ同梱の ffmpeg を使う。
+        const ffmpegPath = await resolveFfmpegPath() ?? 'ffmpeg';
         return new Promise(resolveResult => {
             let settled = false;
-            const child = spawn('ffmpeg', [
+            const child = spawn(ffmpegPath, [
                 '-hide_banner',
                 '-loglevel', 'error',
                 '-nostdin',

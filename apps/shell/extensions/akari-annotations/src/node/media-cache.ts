@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
-import { promises as fs } from 'fs';
+import { existsSync, promises as fs } from 'fs';
 import { dirname, join } from 'path';
 import { promisify } from 'util';
 import { pathToFileURL } from 'url';
@@ -21,25 +21,59 @@ import {
 import { planFilmstripChunk } from '../common/filmstrip-geometry';
 
 const execFileAsync = promisify(execFile);
-let ffmpegAvailable: Promise<boolean> | undefined;
-let ffprobeAvailable: Promise<boolean> | undefined;
+
+// task/2026-07-31-shell-ffmpeg-bundle: PATH に ffmpeg/ffprobe が無い環境向けのフォールバック。
+// 優先順位は packages/media-bin の resolveFfmpeg/resolveFfprobe と揃える（明示指定 env → PATH →
+// アプリ同梱バイナリ）。media-bin をそのまま import しないのは apps/shell/extensions/akari-preview/
+// src/node/hevc-proxy.ts と同じ理由（この extension の tsconfig は rootDir: src で閉じており、
+// media-bin 側の require('ffmpeg-static') が asar 化されたバックエンドから解決できる保証もない）。
+// 同梱バイナリの実体は apps/shell/package.json の extraResources（resources/vendor-ffmpeg →
+// Resources/media-bin、prepackage の bundle-ffmpeg-binaries.mjs が生成）。
+function bundledMediaBinPath(name: 'ffmpeg' | 'ffprobe'): string | undefined {
+    const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+    if (!resourcesPath) {
+        return undefined;
+    }
+    const exe = process.platform === 'win32' ? `${name}.exe` : name;
+    const candidate = join(resourcesPath, 'media-bin', exe);
+    return existsSync(candidate) ? candidate : undefined;
+}
+
+let ffmpegPathPromise: Promise<string | undefined> | undefined;
+let ffprobePathPromise: Promise<string | undefined> | undefined;
+
+async function ffmpegPath(): Promise<string | undefined> {
+    if (!ffmpegPathPromise) {
+        ffmpegPathPromise = (async () => {
+            if (process.env.AKARI_FFMPEG_BIN) {
+                return process.env.AKARI_FFMPEG_BIN;
+            }
+            const onPath = await execFileAsync('ffmpeg', ['-version']).then(() => true).catch(() => false);
+            return onPath ? 'ffmpeg' : bundledMediaBinPath('ffmpeg');
+        })();
+    }
+    return ffmpegPathPromise;
+}
+
+async function ffprobePath(): Promise<string | undefined> {
+    if (!ffprobePathPromise) {
+        ffprobePathPromise = (async () => {
+            if (process.env.AKARI_FFPROBE_BIN) {
+                return process.env.AKARI_FFPROBE_BIN;
+            }
+            const onPath = await execFileAsync('ffprobe', ['-version']).then(() => true).catch(() => false);
+            return onPath ? 'ffprobe' : bundledMediaBinPath('ffprobe');
+        })();
+    }
+    return ffprobePathPromise;
+}
 
 async function hasFfmpeg(): Promise<boolean> {
-    if (!ffmpegAvailable) {
-        ffmpegAvailable = execFileAsync('ffmpeg', ['-version'])
-            .then(() => true)
-            .catch(() => false);
-    }
-    return ffmpegAvailable;
+    return (await ffmpegPath()) !== undefined;
 }
 
 async function hasFfprobe(): Promise<boolean> {
-    if (!ffprobeAvailable) {
-        ffprobeAvailable = execFileAsync('ffprobe', ['-version'])
-            .then(() => true)
-            .catch(() => false);
-    }
-    return ffprobeAvailable;
+    return (await ffprobePath()) !== undefined;
 }
 
 function cacheHash(parts: readonly (string | number)[]): string {
@@ -97,7 +131,7 @@ export async function getClipThumbnail(
         }
         const temporary = `${destination}.${process.pid}.tmp`;
         try {
-            await execFileAsync('ffmpeg', [
+            await execFileAsync(await ffmpegPath() ?? 'ffmpeg', [
                 '-y', '-ss', String(atSeconds), '-i', videoPath,
                 '-frames:v', '1', '-vf', `scale=${THUMBNAIL_WIDTH_PX}:-1`, '-q:v', '4',
                 '-f', 'image2', temporary
@@ -162,7 +196,7 @@ interface FilmstripProbe {
 
 async function probeForFilmstrip(videoPath: string): Promise<FilmstripProbe | undefined> {
     try {
-        const { stdout } = await execFileAsync('ffprobe', [
+        const { stdout } = await execFileAsync(await ffprobePath() ?? 'ffprobe', [
             '-v', 'error',
             '-select_streams', 'v:0',
             '-show_entries', 'stream=width,height:format=duration',
@@ -303,7 +337,7 @@ export async function getClipFilmstripChunk(
                     // getClipThumbnail と同じく -f で明示する。
                     '-f', 'image2', temporary
                 ];
-            await execFileAsync('ffmpeg', args);
+            await execFileAsync(await ffmpegPath() ?? 'ffmpeg', args);
             await fs.rename(temporary, atlasPath);
         } catch {
             await fs.unlink(temporary).catch(() => undefined);
@@ -367,7 +401,7 @@ export async function getClipWaveform(
             // A cache miss falls through to extraction.
         }
         try {
-            await execFileAsync('ffmpeg', [
+            await execFileAsync(await ffmpegPath() ?? 'ffmpeg', [
                 '-y', '-ss', String(startSeconds), '-to', String(endSeconds), '-i', videoPath,
                 '-ac', '1', '-ar', '8000', '-f', 's16le', temporaryPcm
             ]);
@@ -412,7 +446,7 @@ export async function getAudioDuration(
         } catch {
             // A cache miss falls through to extraction.
         }
-        const { stdout } = await execFileAsync('ffprobe', [
+        const { stdout } = await execFileAsync(await ffprobePath() ?? 'ffprobe', [
             '-v', 'error',
             '-show_entries', 'format=duration',
             '-of', 'default=noprint_wrappers=1:nokey=1',

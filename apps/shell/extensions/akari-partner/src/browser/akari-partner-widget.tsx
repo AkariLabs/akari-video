@@ -228,6 +228,10 @@ export class AkariPartnerWidget extends ReactWidget {
                 // This is a CLI process, not a shell. Avoid Theia's platform shell args (for example, macOS `-l`).
                 shellArgs: launch.args,
                 cwd,
+                // task/2026-07-31-shell-ffmpeg-bundle: AKARI_FFMPEG_BIN/AKARI_FFPROBE_BIN so
+                // skill scripts running inside this PTY (via packages/media-bin) find ffmpeg
+                // even when the system has none on PATH.
+                env: launch.env,
                 kind: PartnerTerminal.KIND,
                 attributes: {
                     'akari.partner': entry.agent,

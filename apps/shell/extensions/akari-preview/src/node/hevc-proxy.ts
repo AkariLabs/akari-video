@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
-import { promises as fs } from 'fs';
+import { existsSync, promises as fs } from 'fs';
 import { dirname, join } from 'path';
 import { promisify } from 'util';
 
@@ -12,21 +12,59 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
-let ffmpegAvailable: Promise<boolean> | undefined;
-let ffprobeAvailable: Promise<boolean> | undefined;
-
-async function hasFfmpeg(): Promise<boolean> {
-    if (!ffmpegAvailable) {
-        ffmpegAvailable = execFileAsync('ffmpeg', ['-version']).then(() => true).catch(() => false);
+// task/2026-07-31-shell-ffmpeg-bundle: PATH に ffmpeg/ffprobe が無い環境向けのフォールバック。
+// 優先順位は packages/media-bin の resolveFfmpeg/resolveFfprobe と揃える（明示指定 env → PATH →
+// アプリ同梱バイナリ）。media-bin をそのまま import しないのは、この extension の tsconfig が
+// rootDir: src で閉じており（他 extension も含め本リポにクロス extension の TS import 例が無い）、
+// media-bin 側の同梱バイナリ解決（require('ffmpeg-static') 経由）が asar 化されたバックエンドから
+// 実行時に解決できる保証がないため。同梱バイナリの実体は apps/shell/package.json の
+// extraResources（resources/vendor-ffmpeg → Resources/media-bin、prepackage の
+// bundle-ffmpeg-binaries.mjs が生成）。
+function bundledMediaBinPath(name: 'ffmpeg' | 'ffprobe'): string | undefined {
+    const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+    if (!resourcesPath) {
+        return undefined;
     }
-    return ffmpegAvailable;
+    const exe = process.platform === 'win32' ? `${name}.exe` : name;
+    const candidate = join(resourcesPath, 'media-bin', exe);
+    return existsSync(candidate) ? candidate : undefined;
 }
 
-async function hasFfprobe(): Promise<boolean> {
-    if (!ffprobeAvailable) {
-        ffprobeAvailable = execFileAsync('ffprobe', ['-version']).then(() => true).catch(() => false);
+let ffmpegPathPromise: Promise<string | undefined> | undefined;
+let ffprobePathPromise: Promise<string | undefined> | undefined;
+
+export async function resolveFfmpegPath(): Promise<string | undefined> {
+    if (!ffmpegPathPromise) {
+        ffmpegPathPromise = (async () => {
+            if (process.env.AKARI_FFMPEG_BIN) {
+                return process.env.AKARI_FFMPEG_BIN;
+            }
+            const onPath = await execFileAsync('ffmpeg', ['-version']).then(() => true).catch(() => false);
+            return onPath ? 'ffmpeg' : bundledMediaBinPath('ffmpeg');
+        })();
     }
-    return ffprobeAvailable;
+    return ffmpegPathPromise;
+}
+
+async function resolveFfprobePath(): Promise<string | undefined> {
+    if (!ffprobePathPromise) {
+        ffprobePathPromise = (async () => {
+            if (process.env.AKARI_FFPROBE_BIN) {
+                return process.env.AKARI_FFPROBE_BIN;
+            }
+            const onPath = await execFileAsync('ffprobe', ['-version']).then(() => true).catch(() => false);
+            return onPath ? 'ffprobe' : bundledMediaBinPath('ffprobe');
+        })();
+    }
+    return ffprobePathPromise;
+}
+
+export async function hasFfmpeg(): Promise<boolean> {
+    return (await resolveFfmpegPath()) !== undefined;
+}
+
+export async function hasFfprobe(): Promise<boolean> {
+    return (await resolveFfprobePath()) !== undefined;
 }
 
 function cacheHash(parts: readonly (string | number)[]): string {
@@ -55,7 +93,8 @@ interface FfprobeStreamsResult {
  * codec_name since that's the only field this fallback needs.
  */
 export async function probeVideoCodecName(videoPath: string): Promise<string | undefined> {
-    const { stdout } = await execFileAsync('ffprobe', [
+    const ffprobePath = await resolveFfprobePath() ?? 'ffprobe';
+    const { stdout } = await execFileAsync(ffprobePath, [
         '-v', 'error',
         '-select_streams', 'v:0',
         '-show_entries', 'stream=codec_name',
@@ -125,7 +164,8 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
         }
         const temporary = `${destination}.${process.pid}.tmp`;
         try {
-            await execFileAsync('ffmpeg', [
+            const ffmpegPath = await resolveFfmpegPath() ?? 'ffmpeg';
+            await execFileAsync(ffmpegPath, [
                 '-y',
                 '-i', videoPath,
                 '-c:v', 'libx264',
