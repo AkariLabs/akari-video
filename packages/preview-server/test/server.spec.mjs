@@ -18,7 +18,8 @@ test.beforeAll(async () => {
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('server start timeout')), 8000);
     serverProc.stdout.on('data', (data) => {
-      if (data.toString().includes('http://localhost:')) {
+      // 既定 host は 127.0.0.1（--host 指定時は任意）なので、起動行はポート番号で待つ
+      if (data.toString().includes(`:${PORT}`)) {
         clearTimeout(timeout);
         resolve();
       }

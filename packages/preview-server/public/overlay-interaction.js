@@ -222,6 +222,7 @@ window.akari.interaction = (() => {
 
   function onPointerDown(event) {
     if (event.button !== 0) return;
+    if (!window.akari?.editMode) return;
     if (drag || resize) return;
 
     const handle = findHandle(event);
@@ -346,7 +347,8 @@ window.akari.interaction = (() => {
   function enqueueWrite(container, patch) {
     const id = container.getAttribute('data-overlay-id');
     const p = writeTail.then(async () => {
-      const res = await fetch('/api/edit.json', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(applyPatch(id, patch)) });
+      const body = JSON.stringify(await applyPatch(id, patch));
+      const res = await fetch('/api/edit.json', { method: 'PUT', headers: { 'content-type': 'application/json' }, body });
       if (!res.ok) throw new Error(`write-back failed: HTTP ${res.status}`);
     });
     writeTail = p.catch(() => {});
@@ -365,6 +367,7 @@ window.akari.interaction = (() => {
   // ─── OnClick / OnDblClick ───
 
   function onClick(event) {
+    if (!window.akari?.editMode) return;
     const container = overlayForEvent(event);
     if (container && isSelectable(container)) selectOverlay(container);
   }

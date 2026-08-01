@@ -20,13 +20,11 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
 #pen-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2147483645; }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; background: #000; }
-#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: 18px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
+#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: 18px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
 #caption-plate:empty { display: none; }
 #caption-plate.akari-caption-styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-color: #fff; --caption-font-size: 38px; }
 #caption-plate.akari-caption-styled .akari-caption__plate { position: absolute; top: var(--caption-top, auto); left: var(--caption-left, 0); right: var(--caption-right, 0); bottom: var(--caption-bottom, 7%); display: flex; flex-direction: column; justify-content: var(--caption-justify-content, flex-start); align-items: var(--caption-align-items, center); }
 #caption-plate.akari-caption-styled .akari-caption__text { color: var(--caption-color, #fff); font-size: var(--caption-font-size, 38px); font-weight: 700; line-height: 1.45; text-align: var(--caption-text-align, center); text-shadow: -1.5px -1.5px 0 rgba(0,0,0,.85), 1.5px -1.5px 0 rgba(0,0,0,.85), -1.5px 1.5px 0 rgba(0,0,0,.85), 1.5px 1.5px 0 rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6); white-space: pre-wrap; padding: 0.35em 0.7em; }
-#caption-select-box { position: absolute; z-index: 1900; border: 1.5px dashed #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
-#caption-select-box.is-active { display: block; }
 #shortcut-help { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.7); display: grid; place-items: center; }
 #shortcut-help[hidden] { display: none; }
 #shortcut-help-inner { background: #202020; border: 1px solid #505050; border-radius: 8px; padding: 20px 28px; max-width: 480px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
@@ -38,14 +36,6 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #review-record-btn.is-recording { color:#ff4444; filter:drop-shadow(0 0 6px #ff4444); animation:review-rec-pulse 1s ease-in-out infinite; }
 @keyframes review-rec-pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 #review-timer.is-active { display:inline;color:#ff4444;font-size:12px;font-variant-numeric:tabular-nums;min-width:70px;text-align:center; }
-#layer-select-box { position: absolute; z-index: 1899; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
-#layer-select-box.is-active { display: block; }
-.akari-layer-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
-.akari-layer-handle-nw { top: 0; left: 0; cursor: nwse-resize; }
-.akari-layer-handle-ne { top: 0; right: 0; cursor: nesw-resize; }
-.akari-layer-handle-sw { bottom: 0; left: 0; cursor: nesw-resize; }
-.akari-layer-handle-se { bottom: 0; right: 0; cursor: nwse-resize; }
-.akari-layer-handle-rotate { top: 0; left: 50%; margin-top: -34px; margin-left: -6px; border-radius: 50%; cursor: grab; }
 #zoom-minimap { position: absolute; bottom: 8px; right: 8px; z-index: 20; width: 120px; height: 67.5px; border: 1px solid #505050; background: rgba(0,0,0,0.6); overflow: hidden; }
 #zoom-minimap[hidden] { display: none; }
 #zoom-minimap video { width: 100%; height: 100%; object-fit: contain; }
@@ -82,13 +72,6 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 input[type=range] { width: 100%; }
 .zoom-presets { display: grid; grid-template-columns: repeat(4, 32px); justify-content: space-between; gap: 5px; margin-top: 8px; }
 .zoom-preset { width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; font-size: 10px; cursor: pointer; }
-.transform-popup { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 20; width: 200px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
-.transform-popup[hidden] { display: none; }
-.transform-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.transform-row label { color: #aaa; font-size: 11px; width: 32px; }
-.transform-row input { flex: 1; background: #303030; border: 1px solid #505050; border-radius: 3px; color: #fff; font-size: 12px; padding: 2px 4px; width: 0; }
-.transform-row input:focus { border-color: #7af; outline: none; }
-#selection-label { font-size: 11px; color: #888; }
 .indicator-popup { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 20; width: 260px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
 .indicator-popup[hidden] { display: none; }
 .indicator-item { display: flex; gap: 6px; margin-bottom: 3px; font-size: 12px; color: #ccc; }
@@ -104,7 +87,7 @@ input[type=range] { width: 100%; }
       <div id="zoom-layer">
         <video id="preview-video" preload="auto"></video>
         <div id="layer-container"></div>
-        <div id="overlay-stage"><div id="pen-layer"><canvas id="pen-canvas"></canvas></div><div id="transition-plate"></div><div id="caption-plate"></div><div id="caption-select-box"></div><div id="layer-select-box"><div class="akari-layer-handle akari-layer-handle-nw" data-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-handle="rotate"></div></div></div>
+        <div id="overlay-stage"><div id="pen-layer"><canvas id="pen-canvas"></canvas></div><div id="transition-plate"></div><div id="caption-plate"></div></div>
       </div>
       <div id="loading-indicator" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;display:none"><div style="width:32px;height:32px;border:3px solid #505050;border-top-color:#4da3ff;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 8px"></div><div style="color:#888;font-size:12px">読み込み中...</div></div>
       <div id="zoom-minimap" hidden><video id="minimap-video" preload="auto"></video><div id="zoom-minimap-viewport"></div></div>
@@ -159,7 +142,6 @@ input[type=range] { width: 100%; }
       <span id="time-label">0:00 / 0:00</span>
       <button id="edit-toggle" class="icon-button" type="button" aria-label="編集" title="編集" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a1.0 1.0 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
       <button id="indicator-toggle" class="icon-button" type="button" aria-label="指標" title="指標" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></button>
-      <span id="selection-label"></span>
       <div id="indicator-popup" class="indicator-popup" hidden></div>
     </div>
     <div class="transport-center">
@@ -170,22 +152,9 @@ input[type=range] { width: 100%; }
       <button id="skip-forward" class="icon-button" type="button" aria-label="10秒進む" title="10秒進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5V2l4.5 4-4.5 4V7a6 6 0 1 0 5.65 8h2.09A8 8 0 1 1 13 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
     </div>
     <div class="transport-right">
-      <div class="transform-popup" id="transform-popup" hidden>
-        <div class="popup-header"><span>トランスフォーム</span></div>
-        <div class="transform-row"><label>X</label><input id="tx" type="number" step="1"></div>
-        <div class="transform-row"><label>Y</label><input id="ty" type="number" step="1"></div>
-        <div class="transform-row"><label>拡大</label><input id="ts" type="number" step="0.01" min="0.01"></div>
-        <div class="transform-row"><label>回転</label><input id="tr" type="number" step="1"></div>
-      </div>
       <button id="zoom-toggle" class="icon-button" type="button" aria-label="ズーム" title="ズーム" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
       <button id="fullscreen-toggle" class="icon-button" type="button" aria-label="全画面" title="全画面" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"/></svg></button>
-      <button id="caption-toggle" class="icon-button" type="button" aria-label="字幕編集" title="字幕編集" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/></svg></button>
       <button id="pen-toggle" class="icon-button" type="button" aria-label="ペン" title="ペン" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a1.0 1.0 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
-      <div id="caption-edit-popup" class="popup" hidden>
-        <div class="popup-header"><span>字幕スタイル</span><span id="caption-id-label"></span></div>
-        <div><label style="color:#aaa;font-size:11px">ゾーン</label><select id="caption-zone-select" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></select></div>
-        <div style="display:flex;gap:6px;margin-top:6px"><label style="color:#aaa;font-size:11px;flex:1">色 <input id="caption-color-input" type="color" style="width:100%;background:#303030;border:1px solid #505050;border-radius:3px;height:24px"></label><label style="color:#aaa;font-size:11px;flex:1">サイズ <input id="caption-size-input" type="number" min="12" max="120" step="1" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label></div>
-      </div>
       <button id="output-preview-btn" class="icon-button" type="button" aria-label="出力プレビュー" title="出力プレビュー" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 5h2v5h-2z"/></svg></button>
       <button id="review-record-btn" class="icon-button" type="button" aria-label="レビュー録音" title="レビュー録音" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></button>
       <span id="review-timer" style="display:none;color:#ff4444;font-size:12px;font-variant-numeric:tabular-nums;min-width:70px;text-align:center">0:00</span>

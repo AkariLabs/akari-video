@@ -2539,11 +2539,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (request.patch.transform) {
                 overlay.transform = { ...this.objectRecord(overlay.transform), ...request.patch.transform };
             }
+            const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
+            const lintResult = await this.previewService.lintEditCandidate({
+                editUri: editUri.toString(),
+                candidateText
+            });
+            if (!lintResult.pass) {
+                widget.sendMessage({
+                    type: 'akari-preview-overlay-write-response',
+                    requestId: request.requestId,
+                    ok: false,
+                    error: lintResult.errors[0] ?? 'edit-lint が変更を拒否しました'
+                });
+                return;
+            }
             this.recentWrites.set(editUri.toString(), Date.now());
-            await this.fileService.writeFile(
-                editUri,
-                BinaryBuffer.fromString(`${JSON.stringify(edit, undefined, 2)}\n`)
-            );
+            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
             widget.sendMessage({
                 type: 'akari-preview-overlay-write-response',
                 requestId: request.requestId,

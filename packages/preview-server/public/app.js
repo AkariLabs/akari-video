@@ -49,12 +49,6 @@ const zoomLayer = document.getElementById('zoom-layer');
 const previewMessage = document.getElementById('preview-message');
 const previewMessageText = document.getElementById('preview-message-text');
 const editToggle = document.getElementById('edit-toggle');
-const selectionLabel = document.getElementById('selection-label');
-const transformPopup = document.getElementById('transform-popup');
-const txInput = document.getElementById('tx');
-const tyInput = document.getElementById('ty');
-const tsInput = document.getElementById('ts');
-const trInput = document.getElementById('tr');
 const layerContainer = document.getElementById('layer-container');
 const penCanvas = document.getElementById('pen-canvas');
 const loadingIndicator = document.getElementById('loading-indicator');
@@ -67,9 +61,6 @@ const indicatorPopup = document.getElementById('indicator-popup');
 const reviewRecordBtn = document.getElementById('review-record-btn');
 const reviewTimer = document.getElementById('review-timer');
 
-const ZONE_ROW_RANGES = { top: [0, 1 / 3], middle: [1 / 3, 2 / 3], bottom: [2 / 3, 1] };
-const ZONE_COL_RANGES = { left: [0, 1 / 3], center: [1 / 3, 2 / 3], right: [2 / 3, 1] };
-const CAPTION_ZONE_LIST = ['bottom', 'bottom-left', 'bottom-right', 'center', 'left', 'right', 'top', 'top-left', 'top-right'];
 const TRACK_COLORS = { bgm: '#4da3ff', narration: '#ffd94a', sfx: '#ff798c' };
 
 const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
@@ -89,11 +80,6 @@ let pan = { x: 0, y: 0 };
 let drag = null;
 
 let editMode = false;
-let selectedId = null;
-let selectedKind = null;
-let captionEditMode = false;
-let selectedCaptionId = null;
-let selectedCaptionZone = 'bottom';
 
 let audioCtx = null;
 let bgmNode = null;
@@ -226,6 +212,7 @@ function setupLayers() {
     el.preload = 'auto';
     el.src = layer.src;
     el.dataset.layerId = layer.id;
+    el.style.display = 'none';
     el.style.opacity = String(layer.opacity ?? 1);
     if (layer.blend) el.style.mixBlendMode = layer.blend;
     el.dataset.layerX = layer.transform?.x || 0;
@@ -247,7 +234,6 @@ function syncLayers(t) {
     const shouldShow = t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
     if (shouldShow !== lv.visible) {
       lv.el.style.display = shouldShow ? 'block' : 'none';
-      lv.el.style.pointerEvents = shouldShow && editMode ? 'auto' : 'none';
       lv.visible = shouldShow;
     }
     if (shouldShow) {
@@ -541,7 +527,7 @@ async function loadAudioBuffer(url) {
 }
 function syncAudio(t) {
   if (!audioCtx) return;
-  for (const n of narrationNodes) {
+  if (isPlaying) for (const n of narrationNodes) {
     if (!n._buffer) continue;
     const should = t >= n.t && t < n.t + n._buffer.duration;
     if (should && (!n._source || n._source._ended)) {
@@ -553,7 +539,7 @@ function syncAudio(t) {
       n._source = src;
     }
   }
-  for (const s of sfxNodes) {
+  if (isPlaying) for (const s of sfxNodes) {
     if (!s._buffer) continue;
     const should = t >= s.t && t < s.t + s._buffer.duration;
     if (should && (!s._source || s._source._ended)) {
@@ -749,6 +735,7 @@ function play() {
   if (isPlaying || !segments.length) return;
   logReviewEvent('play');
   isPlaying = true;
+  lastWallMs = 0;
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   if (bgmNode?._source && !bgmNode._source._started) { bgmNode._source.start(); bgmNode._source._started = true; }
   syncAudio(outputTime);
@@ -763,6 +750,10 @@ function pause() {
   if (!isPlaying) return;
   logReviewEvent('pause');
   isPlaying = false; video.pause();
+  for (const n of [...narrationNodes, ...sfxNodes]) {
+    if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
+  }
+  if (audioCtx?.state === 'running') audioCtx.suspend();
   for (const lv of layerVideos) lv.el.pause();
   playToggle.innerHTML = playIcon;
   playToggle.setAttribute('aria-label', '再生');
@@ -1121,7 +1112,7 @@ document.addEventListener('keydown', (e) => {
     case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime - 0.1, -1)); break;
     case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime + 0.1, 1)); break;
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
-    case 'Escape': shortcutHelp.hidden = true; if (editMode) { clearSelection(); } break;
+    case 'Escape': shortcutHelp.hidden = true; break;
     case 'KeyZ': if (e.ctrlKey || e.metaKey) { e.preventDefault(); } break;
   }
 });
@@ -1135,7 +1126,7 @@ video.addEventListener('error', () => { loadingIndicator.style.display = 'none';
 const penToggle = document.getElementById('pen-toggle');
 penToggle.addEventListener('click', () => {
   const next = !penActive;
-  if (next) { editMode = false; editToggle.setAttribute('aria-pressed', 'false'); stage.style.pointerEvents = 'none'; clearSelection(); captionEnable(false); }
+  if (next) { setEditMode(false); }
   penToggle.setAttribute('aria-pressed', String(next));
   penEnable(next);
   if (next) zoomLayer.style.cursor = 'crosshair';
@@ -1146,453 +1137,20 @@ zoomLayer.addEventListener('pointermove', onPenPointerMove);
 zoomLayer.addEventListener('pointerup', onPenPointerUp);
 zoomLayer.addEventListener('pointerleave', onPenPointerUp);
 
-// --- Caption edit mode ---
-const captionToggle = document.getElementById('caption-toggle');
-const captionEditPopup = document.getElementById('caption-edit-popup');
-const captionIdLabel = document.getElementById('caption-id-label');
-const captionZoneSelect = document.getElementById('caption-zone-select');
-const captionColorInput = document.getElementById('caption-color-input');
-const captionSizeInput = document.getElementById('caption-size-input');
-const captionSelectBox = document.getElementById('caption-select-box');
-captionZoneSelect.innerHTML = CAPTION_ZONE_LIST.map(z => `<option value="${z}">${z}</option>`).join('');
-
-function captionEnable(enabled) {
-  captionEditMode = enabled;
-  captionToggle.setAttribute('aria-pressed', String(enabled));
-  captionPlate.style.cursor = enabled ? 'pointer' : 'move';
-  if (!enabled) { deselectCaption(); }
-}
-function selectCaption(id) {
-  if (id === selectedCaptionId) return;
-  selectedCaptionId = id;
-  const cap = summary?.captions?.find(c => c.id === id);
-  if (!cap) { deselectCaption(); return; }
-  const ts = cap.text_style || {};
-  captionIdLabel.textContent = id;
-  captionZoneSelect.value = ts.zone || 'bottom';
-  captionColorInput.value = ts.color || '#ffffff';
-  captionSizeInput.value = ts.size_px || 38;
-  captionEditPopup.hidden = false;
-  updateCaptionSelectBox();
-}
-function deselectCaption() {
-  selectedCaptionId = null;
-  captionEditPopup.hidden = true;
-  captionSelectBox.classList.remove('is-active');
-}
-
-function updateCaptionSelectBox() {
-  if (!selectedCaptionId) { captionSelectBox.classList.remove('is-active'); return; }
-  const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
-  if (!cap) { deselectCaption(); return; }
-  selectedCaptionZone = cap.text_style?.zone || 'bottom';
-  const parts = captionZoneParts(selectedCaptionZone);
-  const wr = wrapper.getBoundingClientRect();
-  const zl = zoomLayer.getBoundingClientRect();
-  const scaleX = zl.width / wr.width;
-  const scaleY = zl.height / wr.height;
-  const rowR = ZONE_ROW_RANGES[parts.row] || ZONE_ROW_RANGES.bottom;
-  const colR = ZONE_COL_RANGES[parts.col] || ZONE_COL_RANGES.center;
-  captionSelectBox.style.left = ((zl.left - wr.left) + wr.width * colR[0] * scaleX) + 'px';
-  captionSelectBox.style.top = ((zl.top - wr.top) + wr.height * rowR[0] * scaleY) + 'px';
-  captionSelectBox.style.width = (wr.width * (colR[1] - colR[0]) * scaleX) + 'px';
-  captionSelectBox.style.height = (wr.height * (rowR[1] - rowR[0]) * scaleY) + 'px';
-  captionSelectBox.classList.add('is-active');
-}
-
-captionToggle.addEventListener('click', () => {
-  const next = !captionEditMode;
-  if (next) { editMode = false; editToggle.setAttribute('aria-pressed', 'false'); stage.style.pointerEvents = 'none'; clearSelection(); penEnable(false); }
-  captionEnable(next);
-});
-captionPlate.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || !captionEditMode) return;
-  const cap = summary?.captions?.find(c => {
-    const s = Number(c.start) || 0, d = Number(c.end) || Number(c.duration) || 0;
-    return outputTime >= s && outputTime < s + d;
-  });
-  if (!cap || !cap.id) return;
-  e.preventDefault(); e.stopPropagation();
-  selectCaption(cap.id);
-  const ptrId = e.pointerId;
-  const startX = e.clientX, startY = e.clientY;
-  const origZone = selectedCaptionZone;
-  let candidateZone = origZone, moved = false;
-  try { captionPlate.setPointerCapture(ptrId); } catch {}
-  const cleanup = () => {
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onUp);
-  };
-  const onMove = (ev) => {
-    if (ev.pointerId !== ptrId) return;
-    const dx = ev.clientX - startX, dy = ev.clientY - startY;
-    if (!moved && Math.hypot(dx, dy) > 4) moved = true;
-    if (!moved) return;
-    const wr = wrapper.getBoundingClientRect();
-    const fx = (ev.clientX - wr.left) / wr.width;
-    const fy = (ev.clientY - wr.top) / wr.height;
-    candidateZone = captionZoneFromFraction(fx, fy);
-    const parts = captionZoneParts(candidateZone);
-    const zl = zoomLayer.getBoundingClientRect();
-    const scaleX = zl.width / wr.width;
-    const scaleY = zl.height / wr.height;
-    const rowR = ZONE_ROW_RANGES[parts.row] || ZONE_ROW_RANGES.bottom;
-    const colR = ZONE_COL_RANGES[parts.col] || ZONE_COL_RANGES.center;
-    captionSelectBox.style.left = ((zl.left - wr.left) + wr.width * colR[0] * scaleX) + 'px';
-    captionSelectBox.style.top = ((zl.top - wr.top) + wr.height * rowR[0] * scaleY) + 'px';
-    captionSelectBox.style.width = (wr.width * (colR[1] - colR[0]) * scaleX) + 'px';
-    captionSelectBox.style.height = (wr.height * (rowR[1] - rowR[0]) * scaleY) + 'px';
-  };
-  const onUp = () => {
-    cleanup();
-    if (!moved || candidateZone === origZone) { updateCaptionSelectBox(); return; }
-    (async () => {
-      const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
-      if (!cap) return;
-      const ts = { ...(cap.text_style || {}), zone: candidateZone };
-      const captions = summary.captions.map(c => c.id === selectedCaptionId ? { ...c, text_style: ts } : c);
-      try {
-        const res = await fetch('/api/edit.json?captions', {
-          method: 'PUT', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ captions })
-        });
-        if (res.ok) { await reloadSummary(); selectedCaptionZone = candidateZone; }
-      } catch (err) { console.warn('caption zone write failed', err); }
-      updateCaptionSelectBox();
-    })();
-  };
-  window.addEventListener('pointermove', onMove);
-  window.addEventListener('pointerup', onUp);
-  window.addEventListener('pointercancel', onUp);
-});
-// Caption style editing via popup
-captionZoneSelect.addEventListener('change', async () => {
-  if (!selectedCaptionId) return;
-  const zone = captionZoneSelect.value;
-  const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
-  if (!cap) return;
-  const ts = { ...(cap.text_style || {}), zone };
-  const captions = summary.captions.map(c => c.id === selectedCaptionId ? { ...c, text_style: ts } : c);
-  try {
-    const res = await fetch('/api/edit.json?captions', {
-      method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ captions })
-    });
-    if (res.ok) { await reloadSummary(); }
-  } catch (err) { console.warn('caption zone write failed', err); }
-});
-captionColorInput.addEventListener('change', async () => {
-  if (!selectedCaptionId) return;
-  const color = captionColorInput.value;
-  const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
-  if (!cap) return;
-  const ts = { ...(cap.text_style || {}), color };
-  const captions = summary.captions.map(c => c.id === selectedCaptionId ? { ...c, text_style: ts } : c);
-  try {
-    const res = await fetch('/api/edit.json?captions', {
-      method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ captions })
-    });
-    if (res.ok) await reloadSummary();
-  } catch (err) { console.warn('caption color write failed', err); }
-});
-captionSizeInput.addEventListener('change', async () => {
-  if (!selectedCaptionId) return;
-  const size_px = Number(captionSizeInput.value);
-  const cap = summary?.captions?.find(c => c.id === selectedCaptionId);
-  if (!cap) return;
-  const ts = { ...(cap.text_style || {}), size_px };
-  const captions = summary.captions.map(c => c.id === selectedCaptionId ? { ...c, text_style: ts } : c);
-  try {
-    const res = await fetch('/api/edit.json?captions', {
-      method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ captions })
-    });
-    if (res.ok) await reloadSummary();
-  } catch (err) { console.warn('caption size write failed', err); }
-});
-
-// --- Layer (B-roll) editing ---
-let selectedLayerId = null;
-const layerSelectBox = document.getElementById('layer-select-box');
-
-function updateLayerSelectBox() {
-  if (!selectedLayerId) { layerSelectBox.classList.remove('is-active'); return; }
-  const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
-  if (!lv || !lv.visible || !lv.el.offsetParent) { layerSelectBox.classList.remove('is-active'); return; }
-  const wr = wrapper.getBoundingClientRect();
-  const zl = zoomLayer.getBoundingClientRect();
-  const scaleX = zl.width / wr.width;
-  const scaleY = zl.height / wr.height;
-  const t = lv.layer.transform || {};
-  const x = t.x || 0, y = t.y || 0;
-  const w = lv.el.videoWidth || 640, h = lv.el.videoHeight || 360;
-  const s = t.scale || 1;
-  const cx = wr.width / 2 * scaleX + x * scaleX;
-  const cy = wr.height / 2 * scaleY + y * scaleY;
-  const bw = w * s * scaleX;
-  const bh = h * s * scaleY;
-  layerSelectBox.style.left = (cx - bw / 2) + 'px';
-  layerSelectBox.style.top = (cy - bh / 2) + 'px';
-  layerSelectBox.style.width = bw + 'px';
-  layerSelectBox.style.height = bh + 'px';
-  layerSelectBox.style.transform = `rotate(${t.rotate || 0}deg)`;
-  layerSelectBox.classList.add('is-active');
-}
-
-function selectLayer(id) {
-  if (id === selectedLayerId && id) { updateLayerSelectBox(); return; }
-  selectedLayerId = id;
-  if (id) { clearSelection(); }
-  updateLayerSelectBox();
-}
-
-function clearLayerSelection() {
-  selectedLayerId = null;
-  layerSelectBox.classList.remove('is-active');
-}
-
-// Layer drag-to-move + resize
-function getLayerTransform(lv) {
-  const t = lv.layer.transform || {};
-  return { x: t.x || 0, y: t.y || 0, scale: t.scale || 1, rotate: t.rotate || 0 };
-}
-function applyLayerTransform(lv, tr) {
-  const el = lv.el;
-  el.dataset.layerX = tr.x; el.dataset.layerY = tr.y;
-  el.dataset.layerScale = tr.scale; el.dataset.layerRotate = tr.rotate;
-  el.style.transform = `translate(${tr.x}px, ${tr.y}px) scale(${tr.scale}) rotate(${tr.rotate}deg)`;
-}
-
-function beginLayerDrag(lv, startEvent, computeTransform) {
-  startEvent.preventDefault();
-  startEvent.stopPropagation();
-  const ptrId = startEvent.pointerId;
-  const orig = getLayerTransform(lv);
-  let moved = false, cancelled = false;
-  try { startEvent.target.setPointerCapture(ptrId); } catch {}
-  const cleanup = () => {
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onCancel);
-    window.removeEventListener('keydown', onKey);
-  };
-  const onMove = (ev) => {
-    if (ev.pointerId !== ptrId) return;
-    const next = computeTransform(ev, orig);
-    if (!moved && (Math.abs(next.x - orig.x) > 2 || Math.abs(next.y - orig.y) > 2 || Math.abs(next.scale - orig.scale) > 0.02)) moved = true;
-    applyLayerTransform(lv, next);
-  };
-  const onUp = () => {
-    cleanup();
-    if (cancelled || !moved) { applyLayerTransform(lv, orig); updateLayerSelectBox(); return; }
-    const final = getLayerTransform(lv);
-    (async () => {
-      const layers = (summary?.layers || []).map(l => l.id === lv.layer.id ? { ...l, transform: final } : l);
-      try {
-        const res = await fetch('/api/edit.json', {
-          method: 'PUT', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ ...summary, layers })
-        });
-        if (res.ok) { await reloadSummary(); }
-        else { applyLayerTransform(lv, orig); }
-      } catch { applyLayerTransform(lv, orig); }
-      updateLayerSelectBox();
-    })();
-  };
-  const onCancel = () => { cancelled = true; cleanup(); applyLayerTransform(lv, orig); updateLayerSelectBox(); };
-  const onKey = (e) => { if (e.code === 'Escape') { cancelled = true; cleanup(); applyLayerTransform(lv, orig); updateLayerSelectBox(); }};
-  window.addEventListener('pointermove', onMove);
-  window.addEventListener('pointerup', onUp);
-  window.addEventListener('pointercancel', onCancel);
-  window.addEventListener('keydown', onKey);
-}
-
-// Layer timing popup (double-click on selected layer)
-const layerInfoPopup = document.getElementById('layer-info-popup');
-if (!layerInfoPopup) {
-  const div = document.createElement('div');
-  div.id = 'layer-info-popup';
-  div.className = 'popup';
-  div.style.cssText = 'left:0;right:auto;width:260px';
-  div.hidden = true;
-  div.innerHTML = '<div class="popup-header"><span>レイヤー</span><span id="layer-id-label"></span></div><div id="layer-info-content" style="font-size:12px;color:#ccc;line-height:1.6"></div>';
-  document.querySelector('.transport-seek').appendChild(div);
-}
-stage.addEventListener('dblclick', (e) => {
-  if (!editMode || !selectedLayerId) return;
-  const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
-  if (!lv) return;
-  const layer = lv.layer;
-  const popup = document.getElementById('layer-info-popup');
-  const content = document.getElementById('layer-info-content');
-  document.getElementById('layer-id-label').textContent = layer.id;
-  const tVal = (layer.t ?? 0).toFixed(2);
-  const durVal = (layer.duration ?? 0).toFixed(2);
-  content.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:6px">
-      <label style="flex:1;color:#888;font-size:11px">開始 <input id="ly-t" type="number" step="0.01" value="${tVal}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
-      <label style="flex:1;color:#888;font-size:11px">長さ <input id="ly-dur" type="number" step="0.01" min="0" value="${durVal}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:4px">
-      <label style="flex:1;color:#888;font-size:11px">不透明度 <input id="ly-opacity" type="number" step="0.05" min="0" max="1" value="${layer.opacity ?? 1}" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
-      <label style="flex:1;color:#888;font-size:11px">blend
-        <select id="ly-blend" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px">
-          <option value="">通常</option>
-          ${['multiply','screen','overlay','darken','lighten','color-dodge','color-burn','hard-light','soft-light','difference','exclusion'].map(b => `<option value="${b}"${layer.blend===b?' selected':''}>${b}</option>`).join('')}
-        </select>
-      </label>
-    </div>
-    <button id="ly-apply-btn" style="width:100%;background:#4da3ff;color:#fff;border:none;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:12px">適用</button>`;
-  content.querySelector('#ly-apply-btn').addEventListener('click', async () => {
-    const newT = Number(document.getElementById('ly-t').value);
-    const newDur = Number(document.getElementById('ly-dur').value);
-    const newOp = Number(document.getElementById('ly-opacity').value);
-    const newBlend = document.getElementById('ly-blend').value;
-    if (!Number.isFinite(newT) || !Number.isFinite(newDur) || newDur <= 0) return;
-    const layers = (summary?.layers || []).map(l => l.id === layer.id ? { ...l, t: newT, duration: newDur, opacity: newOp, blend: newBlend || undefined } : l);
-    try {
-      const res = await fetch('/api/edit.json', {
-        method: 'PUT', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...summary, layers })
-      });
-      if (res.ok) { await reloadSummary(); popup.hidden = true; }
-    } catch {}
-  });
-  popup.hidden = false;
-});
-
-// Wire pointer events for layers
-stage.addEventListener('pointerdown', (e) => {
-  if (!editMode || e.button !== 0) return;
-  const hit = document.elementsFromPoint(e.clientX, e.clientY)
-    .find(c => c.tagName === 'VIDEO' && c.dataset && c.dataset.layerId && c.style.display !== 'none');
-  if (!hit) return;
-  const lv = layerVideos.find(v => v.el === hit);
-  if (!lv) return;
-  e.preventDefault(); e.stopPropagation();
-  selectLayer(lv.layer.id);
-  const wr = wrapper.getBoundingClientRect();
-  const startFX = (e.clientX - wr.left) / wr.width;
-  const startFY = (e.clientY - wr.top) / wr.height;
-  beginLayerDrag(lv, e, (ev, orig) => {
-    const fx = (ev.clientX - wr.left) / wr.width;
-    const fy = (ev.clientY - wr.top) / wr.height;
-    const dx = (fx - startFX) * wr.width;
-    const dy = (fy - startFY) * wr.height;
-    return { ...orig, x: orig.x + dx, y: orig.y + dy };
-  });
-});
-
-// Layer handle resize/rotate
-document.querySelectorAll('.akari-layer-handle').forEach(h => {
-  h.addEventListener('pointerdown', (e) => {
-    if (!editMode || !selectedLayerId || e.button !== 0) return;
-    const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
-    if (!lv || !lv.visible) return;
-    e.preventDefault(); e.stopPropagation();
-    const wr = wrapper.getBoundingClientRect();
-    const handle = h.dataset.handle;
-    const zl = zoomLayer.getBoundingClientRect();
-    const scaleX = zl.width / wr.width;
-    const startFX = (e.clientX - wr.left) / wr.width;
-    const startFY = (e.clientY - wr.top) / wr.height;
-    if (handle === 'rotate') {
-      const tr = getLayerTransform(lv);
-      const centerX = wr.width / 2 + tr.x;
-      const centerY = wr.height / 2 + tr.y;
-      const startAngle = Math.atan2(startFY * wr.height - centerY, startFX * wr.width - centerX) * 180 / Math.PI;
-      beginLayerDrag(lv, e, (ev, orig) => {
-        const fx = (ev.clientX - wr.left) / wr.width;
-        const fy = (ev.clientY - wr.top) / wr.height;
-        const angle = Math.atan2(fy * wr.height - centerY, fx * wr.width - centerX) * 180 / Math.PI;
-        return { ...orig, rotate: orig.rotate + (angle - startAngle) };
-      });
-    } else {
-      const tr = getLayerTransform(lv);
-      const origCx = wr.width / 2 + tr.x;
-      const origCy = wr.height / 2 + tr.y;
-      const startDist = Math.hypot((startFX * wr.width - origCx) / scaleX, (startFY * wr.height - origCy) / scaleY);
-      const w = lv.el.videoWidth || 640, h = lv.el.videoHeight || 360;
-      const baseSize = Math.sqrt(w * w + h * h) / 2;
-      beginLayerDrag(lv, e, (ev, orig) => {
-        const fx = (ev.clientX - wr.left) / wr.width;
-        const fy = (ev.clientY - wr.top) / wr.height;
-        const dist = Math.hypot((fx * wr.width - origCx) / scaleX, (fy * wr.height - origCy) / scaleY);
-        return { ...orig, scale: Math.max(0.05, orig.scale * (dist / startDist)) };
-      });
-    }
-  });
-});
-
-function updateLayerPointerEvents() {
-  for (const lv of layerVideos) {
-    lv.el.style.pointerEvents = lv.visible && editMode ? 'auto' : 'none';
-  }
-}
-
-// --- Edit mode ---
-let transformDirty = false;
-editToggle.addEventListener('click', () => {
-  editMode = !editMode;
-  if (editMode) { penEnable(false); captionEnable(false); }
+// --- Edit mode（オーバーレイのドラッグ編集のみ。レイヤー/字幕スタイルの編集は shell 側の担当） ---
+function setEditMode(next) {
+  editMode = next;
+  window.akari = window.akari || {};
+  window.akari.editMode = editMode;
   editToggle.setAttribute('aria-pressed', String(editMode));
   stage.style.pointerEvents = editMode ? 'auto' : 'none';
-  updateLayerPointerEvents();
-  if (!editMode) { clearSelection(); clearLayerSelection(); }
-  if (editMode && selectedLayerId) updateLayerSelectBox();
+  if (!editMode) window.akari.interaction?.clearSelection?.();
+}
+editToggle.addEventListener('click', () => {
+  const next = !editMode;
+  if (next) { penEnable(false); }
+  setEditMode(next);
 });
-function clearSelection() {
-  selectedId = null; selectedKind = null;
-  selectionLabel.textContent = ''; transformPopup.hidden = true;
-  clearLayerSelection();
-}
-function selectOverlay(id) {
-  clearSelection();
-  clearLayerSelection();
-  selectedKind = 'overlay'; selectedId = id;
-  selectionLabel.textContent = `オーバーレイ ${id}`;
-  const overlay = summary?.overlays?.find(o => String(o.id) === String(id));
-  if (overlay) showTransform(overlay.transform || {});
-}
-stage.addEventListener('click', (e) => {
-  if (!editMode) return;
-  const c = e.target.closest('[data-overlay-id]');
-  if (c) { selectOverlay(c.dataset.overlayId); return; }
-  if (e.target.tagName === 'VIDEO' && e.target.dataset?.layerId) return;
-  clearSelection();
-});
-function showTransform(t) {
-  txInput.value = t.x ?? 0; tyInput.value = t.y ?? 0;
-  tsInput.value = t.scale ?? 1; trInput.value = t.rotate ?? 0;
-  transformPopup.hidden = false; transformDirty = false;
-}
-[txInput, tyInput, tsInput, trInput].forEach(inp => {
-  inp.addEventListener('input', () => { transformDirty = true; });
-  inp.addEventListener('change', async () => {
-    if (!transformDirty || !selectedId) return;
-    const patch = { transform: { x: Number(txInput.value), y: Number(tyInput.value), scale: Number(tsInput.value), rotate: Number(trInput.value) } };
-    await writeEditJson(selectedKind, selectedId, patch);
-    transformDirty = false;
-  });
-});
-async function writeEditJson(kind, id, patch) {
-  try {
-    const res = await fetch(api.summary);
-    const edit = await res.json();
-    if (kind === 'overlay') {
-      const ov = edit.overlays?.find(o => String(o.id) === String(id));
-      if (ov) Object.assign(ov, patch.transform ? { transform: { ...ov.transform, ...patch.transform } } : patch);
-    } else if (kind === 'layer') {
-      const ly = edit.layers?.find(l => String(l.id) === String(id));
-      if (ly) Object.assign(ly, patch.transform ? { transform: { ...ly.transform, ...patch.transform } } : patch);
-    }
-    const saveRes = await fetch('/api/edit.json', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(edit) });
-    if (saveRes.ok) { summary = edit; window.akari?.runtime?.mount(summary); }
-  } catch (e) { console.error('write failed', e); }
-}
-
 // --- Indicator popup ---
 indicatorBtn.addEventListener('click', () => {
   const h = indicatorPopup.hidden;
@@ -1671,7 +1229,22 @@ function createOverlayRuntime() {
       c.style.setProperty('--scale', String(t.scale||1));
       c.style.setProperty('--rotate', `${t.rotate||0}deg`);
       c.style.transform = 'translate(var(--x,0px), var(--y,0px)) scale(var(--scale,1)) rotate(var(--rotate,0deg))';
-      c.innerHTML = o.html || '';
+      if (o.vars && typeof o.vars === 'object') {
+        for (const [k, v] of Object.entries(o.vars)) {
+          if (k.startsWith('--') && (typeof v === 'string' || typeof v === 'number')) c.style.setProperty(k, String(v));
+        }
+      }
+      // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
+      const rawHtml = typeof o.html === 'string' ? o.html : '';
+      if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
+        c.innerHTML = '';
+        fetch(resolveMediaUrl(rawHtml))
+          .then(r => (r.ok ? r.text() : ''))
+          .then(html => { c.innerHTML = html || ''; })
+          .catch(() => {});
+      } else {
+        c.innerHTML = rawHtml;
+      }
       frag.appendChild(c);
       overlays.push({ el: c, start: o.start, duration: o.duration, visible: false });
     }
@@ -1697,14 +1270,6 @@ function captionZoneParts(zone) {
   if (zone === 'left' || zone === 'right') return { row: 'middle', col: zone };
   const [row, col] = zone.split('-');
   return { row, col };
-}
-function captionZoneFromFraction(fx, fy) {
-  const col = fx < 1 / 3 ? 'left' : fx < 2 / 3 ? 'center' : 'right';
-  const row = fy < 1 / 3 ? 'top' : fy < 2 / 3 ? 'middle' : 'bottom';
-  if (row === 'middle' && col === 'center') return 'center';
-  if (row === 'middle') return col;
-  if (col === 'center') return row;
-  return row + '-' + col;
 }
 function captionZoneVars(zone) {
   if (!zone || zone === 'bottom') return {};
@@ -1739,9 +1304,10 @@ function applyCaptionStyle(caption) {
 }
 
 function getActiveCaptions() {
+  // captions.json が正本（shell と同一）。edit.json 埋め込みはフォールバックのみ
+  if (Array.isArray(captionsData) && captionsData.length > 0) return captionsData;
   const fromEdit = summary?.captions;
-  if (Array.isArray(fromEdit) && fromEdit.length > 0) return fromEdit;
-  return captionsData || [];
+  return Array.isArray(fromEdit) ? fromEdit : [];
 }
 function normalizeWords(words) {
   if (!Array.isArray(words) || !words.length) return [];
@@ -1842,10 +1408,17 @@ function renderEmphasisToken(word, captionStart, emphasis) {
   return `<span class="akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--color-accent" data-emphasis-id="${esc(emphasis.id)}" style="${colorVar}">${esc(word.text)}</span>`;
 }
 let _lastCaptionId = null;
+// 字幕の start/end はソース時間軸の絶対秒（shell と同一解釈）。duration は end 不在時のみ相対
+function captionWindow(c) {
+  const s = Number(c.start) || 0;
+  const e = c.end != null && Number.isFinite(Number(c.end)) ? Number(c.end) : s + (Number(c.duration) || 0);
+  return { s, e };
+}
 function updateCaption() {
   const caps = getActiveCaptions();
   if (!caps.length) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
-  const active = caps.find(c => { const s = Number(c.start) || 0, d = Number(c.end) || Number(c.duration) || 0; return outputTime >= s && outputTime < s + d; });
+  const srcT = getVideoTimeForOutput(outputTime);
+  const active = caps.find(c => { const { s, e } = captionWindow(c); return srcT >= s && srcT < e; });
   if (!active) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
   if (active.id === _lastCaptionId) return;
   _lastCaptionId = active.id;
@@ -1871,7 +1444,7 @@ function updateCaption() {
     captionPlate.dataset.captionStart = String(start);
   } else if (hasWords) {
     const start = Number(active.start) || 0;
-    const ms = (outputTime - start) * 1000;
+    const ms = (srcT - start) * 1000;
     captionPlate.innerHTML = words.map(w => {
       const ws = w.start, we = w.end;
       let c = '#fff', s = '0 1px 2px #000';
@@ -1886,7 +1459,7 @@ function updateCaption() {
 function syncCaptionAnimations() {
   const start = Number(captionPlate.dataset.captionStart);
   if (!Number.isFinite(start)) return;
-  const localMs = Math.max(0, (outputTime - start) * 1000);
+  const localMs = Math.max(0, (getVideoTimeForOutput(outputTime) - start) * 1000);
   for (const a of captionPlate.getAnimations({ subtree: true })) {
     a.pause();
     a.currentTime = localMs;
