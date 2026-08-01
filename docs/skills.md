@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-The agent-side workflow of AKARI Video is split into **17 skills** (one per production stage, plus two cross-cutting ones). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
+The agent-side workflow of AKARI Video is split into **18 skills** (one per production stage, plus two cross-cutting ones). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
 
 The canonical source for each skill is its `skills/<name>/SKILL.md`. This page is an index; for procedures and hard rules, follow each SKILL.md and the related contracts ([Reference](./README.md#reference)).
 
@@ -52,6 +52,7 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 | Skill | Owns | External tools / connections |
 |---|---|---|
 | [render-cut](../skills/render-cut/SKILL.md) | From approved edit.json: plan → explicit approval → local export → verification → keyframe inspection | ffmpeg / ffprobe |
+| [export-nle](../skills/export-nle/SKILL.md) | **BETA (untested against real NLEs)**: one-way export of edit.json to FCPXML (Final Cut / Resolve), FCP7 XML (Premiere) and SRT. Non-portable fields are reported in dropped[] | bundled deterministic CLI (ffprobe optional) |
 
 ### Cross-cutting
 

@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **17 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **18 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -52,6 +52,7 @@ AKARI Video のエージェント側ワークフローは **17 のスキル**に
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
 | [render-cut](../skills/render-cut/SKILL.md) | 承認済み edit.json から最終 MP4 の計画 → 明示承認 → ローカル書き出し → 検証 → キーフレーム視認 | ffmpeg / ffprobe |
+| [export-nle](../skills/export-nle/SKILL.md) | **BETA（実 NLE 取り込み未確認）**: edit.json → FCPXML（Final Cut / Resolve）・FCP7 XML（Premiere）・SRT の片道書き出し。移せないフィールドは dropped[] で明示 | 同梱の決定的 CLI（ffprobe は任意） |
 
 ### 横断
 
