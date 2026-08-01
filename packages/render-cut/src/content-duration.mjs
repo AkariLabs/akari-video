@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 
+import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
+
 export function computeContentDurationSeconds({
   edit,
   cutsEndSeconds,
@@ -45,7 +47,7 @@ export function computeContentDurationSeconds({
 }
 
 export function buildTailPadCommand({
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand = resolveFfmpeg(),
   inputPath,
   outputPath,
   cutsEndSeconds,

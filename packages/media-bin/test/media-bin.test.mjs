@@ -19,7 +19,7 @@ function baseEnv(overrides = {}) {
   };
 }
 
-// PATH からシステムの ffmpeg/ffprobe を外し、ffmpeg-static/ffprobe-static の
+// PATH からシステムの ffmpeg/ffprobe を外し、vendor/ 同梱バイナリへの
 // フォールバックだけが効く状態を作る（task.md 記載の `env PATH=/usr/bin:/bin` と同じ狙い）。
 const STRIPPED_PATH_ENV = baseEnv({ PATH: "/usr/bin:/bin" });
 
@@ -73,7 +73,7 @@ test("resolveFfmpeg: PATH に ffmpeg があればコマンド名を返す", () =
   assert.equal(resolved, "ffmpeg");
 });
 
-test("resolveFfmpeg: PATH から外すと ffmpeg-static の同梱バイナリへフォールバックし、実行できる", () => {
+test("resolveFfmpeg: PATH から外すと vendor 同梱バイナリへフォールバックし、実行できる", () => {
   const resolved = resolveFfmpeg({ env: STRIPPED_PATH_ENV });
   assert.notEqual(resolved, "ffmpeg");
   assert.ok(path.isAbsolute(resolved), `絶対パスのはず: ${resolved}`);
@@ -83,7 +83,7 @@ test("resolveFfmpeg: PATH から外すと ffmpeg-static の同梱バイナリへ
   assert.match(result.stdout, /ffmpeg version/);
 });
 
-test("resolveFfprobe: PATH から外すと ffprobe-static の同梱バイナリへフォールバックし、実行できる", () => {
+test("resolveFfprobe: PATH から外すと vendor 同梱バイナリへフォールバックし、実行できる", () => {
   const resolved = resolveFfprobe({ env: STRIPPED_PATH_ENV });
   assert.notEqual(resolved, "ffprobe");
   assert.ok(path.isAbsolute(resolved), `絶対パスのはず: ${resolved}`);

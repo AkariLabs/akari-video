@@ -43,9 +43,13 @@ curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.
 ```
 
 The script automatically checks and installs:
-- Node.js v20+ (auto-installs if missing)
+- Node.js v20+ (if missing, a portable copy is placed under `~/.akari/` — no Homebrew,
+  no admin password)
 - opencode or Claude Code (shows instructions)
-- ffmpeg (optional, can auto-install)
+- ffmpeg (nothing to do — `npm install` pulls in a bundled GPL build automatically,
+  sha256-verified; a system ffmpeg on PATH is preferred when present)
+
+git is not required either — the installer fetches the repository as a tarball.
 
 **Prefer a lightweight CLI-only install?** `npm i -g akari-video` installs just the `akari`
 command (agent workflow bundled; the browser preview server is not included — use the
@@ -66,6 +70,9 @@ Node.js is required to run the AKARI Video core.
   sudo apt-get install -y nodejs
   ```
 - **macOS**: Download from [nodejs.org](https://nodejs.org/) or `brew install node`
+
+> Using the one-line installer? You can skip this section entirely — when Node is
+> missing it places a portable copy under `~/.akari/` (no Homebrew, no admin password).
 
 **Verify installation**:
 ```sh
@@ -137,10 +144,11 @@ as in other harnesses.
 ### 3. ffmpeg (video processing tool)
 
 ffmpeg is used for cutting, converting, and exporting video.
-**The skill checks this automatically during setup and guides you if needed**.
-Installing it beforehand makes things smoother.
+**Normally there is nothing to install** — `npm install` (run for you by the one-line
+installer) pulls in a bundled GPL build automatically, verified against pinned sha256
+checksums. If an ffmpeg is already on your PATH, it is used first.
 
-**How to install**:
+**Manual install (optional, for a system-wide copy)**:
 
 - **Windows**: `winget install Gyan.FFmpeg` or download from [ffmpeg official site](https://ffmpeg.org/download.html)
 - **Linux**: `sudo apt install ffmpeg`

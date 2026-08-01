@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 
+import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
+
 // contract-2026-07-22-prerender-rail-and-assets.md §0/§1.2: render-cut composites edit.json
 // layers[] (baked alpha mov / video PinP) onto the cuts-composited base video, ordered by t.
 // This module builds the single ffmpeg filter_complex for that stage; render-cut.mjs only calls
@@ -24,7 +26,7 @@ export function hasLayers(edit) {
 export function buildLayersCompositeCommand({
   layers,
   projectRoot,
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand = resolveFfmpeg(),
   inputPath,
   outputPath,
   duration,

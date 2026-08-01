@@ -21,6 +21,7 @@ import {
   resolveCutTrackRanges,
 } from "./track-compose.mjs";
 import { resolveTrackOrder, usesDefaultTrackOrder } from "./track-order.mjs";
+import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
 const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
@@ -404,8 +405,8 @@ export function buildAudioMixCommand({
   inputPath,
   outputPath,
   duration,
-  ffmpegCommand = "ffmpeg",
-  ffprobeCommand = "ffprobe",
+  ffmpegCommand = resolveFfmpeg(),
+  ffprobeCommand = resolveFfprobe(),
 }) {
   const audio = normalizeAudioPlan(edit.audio);
   const { tracks: narrationTracks, warnings } = resolveNarrationTracks({
@@ -865,7 +866,7 @@ export function buildCutCommand({
   fps,
   hasAudio,
   duration,
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand = resolveFfmpeg(),
   projectRoot,
   look,
   chromaKey,
@@ -1070,7 +1071,7 @@ export function buildMultiSourceCutCommand({
   width,
   height,
   fps,
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand = resolveFfmpeg(),
   projectRoot,
   look,
   videoEncodeArgs = null,
@@ -1178,7 +1179,7 @@ function buildGapAwareCutCommand({
   fps,
   hasAudio,
   duration,
-  ffmpegCommand = "ffmpeg",
+  ffmpegCommand = resolveFfmpeg(),
   projectRoot,
   look,
   chromaKey,
