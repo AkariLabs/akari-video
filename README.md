@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-ff8a00)](./LICENSE)
 ![Status: under construction](https://img.shields.io/badge/status-under_construction-1a1a1a)
-![Agent skills: 17](https://img.shields.io/badge/agent_skills-17-ff8a00)
+![Agent skills: 18](https://img.shields.io/badge/agent_skills-18-ff8a00)
 ![opencode compatible](https://img.shields.io/badge/opencode-compatible-1a1a1a)
 ![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
 ![Cursor Agent](https://img.shields.io/badge/Cursor_Agent-skills-1a1a1a)
@@ -95,7 +95,7 @@ First steps: [docs/getting-started.md](./docs/getting-started.md).
 - **[Introduction](./docs/introduction.md)** — philosophy and the big picture
 - **[Getting Started](./docs/getting-started.md)** — create your first project
 - **[Guides](./docs/README.md#guides)** — task-based guides: analyze footage, plan the edit, export, …
-- **[Skills Catalog](./docs/skills.md)** — the 17-skill map: what each owns and what it connects to
+- **[Skills Catalog](./docs/skills.md)** — the 18-skill map: what each owns and what it connects to
 - **[How-to](./docs/README.md#how-to)** — connections & API keys, project structure, resuming a session
 - **[Reference](./docs/README.md#reference)** — specs for file contracts such as `edit.json`
 - Entry point: [docs/README.md](./docs/README.md)
@@ -109,7 +109,7 @@ First steps: [docs/getting-started.md](./docs/getting-started.md).
 - `apps/shell/` — Theia-based desktop shell
 - `packages/` — shell-independent libraries (schemas, preview engine, surface runtime, `akari-launcher`)
 - `templates/` — project scaffolds (include `.opencode/` config)
-- `skills/` — agent-side stage skills (17 of them)
+- `skills/` — agent-side stage skills (18 of them)
 - `plugin/` — Claude Code plugin bundle (skill pack + SessionStart hook + `/akari`)
 - `catalog/` — curated add-on catalog (reference-only distribution)
 - `docs/` — user docs + spec contracts

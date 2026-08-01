@@ -1,0 +1,19 @@
+{
+  "name": "@akari-video/export-nle",
+  "version": "0.0.0",
+  "private": true,
+  "description": "edit.json を他社 NLE の交換形式（FCPXML / FCP7 XML / SRT)へ書き出す決定的 CLI。BETA — 実 NLE での取り込み動作は未確認。",
+  "type": "module",
+  "bin": {
+    "export-nle": "bin/export-nle.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@akari-video/media-bin": "0.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
