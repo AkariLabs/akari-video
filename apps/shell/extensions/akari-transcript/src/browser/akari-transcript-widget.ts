@@ -8,6 +8,7 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import * as monaco from '@theia/monaco-editor-core';
+import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import {
     Caption,
     parseCaptions,
@@ -39,6 +40,11 @@ export class AkariTranscriptWidget extends BaseWidget {
 
     @inject(MessageService)
     protected readonly messages: MessageService;
+
+    // captions.json の lint ゲート付き書き込み（writeEditSnapshot RPC）。バインドは
+    // akari-annotations の frontend module（同一アプリコンテナ）に相乗りする
+    @inject(AkariAnnotationsService)
+    protected readonly annotationsService: AkariAnnotationsService;
 
     protected readonly toolbar = document.createElement('div');
     protected readonly generateButton = document.createElement('button');
@@ -346,7 +352,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             const generated = regenerateCaptions(this.analysisSource, existing);
             await this.fileService.createFolder(this.captionsUri.parent, { fromUserGesture: false });
             this.recentWrite = Date.now();
-            await this.fileService.writeFile(this.captionsUri, BinaryBuffer.fromString(generated.source));
+            await this.writeCaptionsGuarded(generated.source);
             await this.reloadCaptions();
             this.showWarnings(generated.warnings);
             this.footer.textContent = '字幕を更新しました。編集済みの行は保持されています。';
@@ -398,7 +404,7 @@ export class AkariTranscriptWidget extends BaseWidget {
                     : replaceCaptionLine(source, caption.id, change.text);
             }
             this.recentWrite = Date.now();
-            await this.fileService.writeFile(this.captionsUri, BinaryBuffer.fromString(source));
+            await this.writeCaptionsGuarded(source);
             for (const change of changed) {
                 const caption = this.captions[change.index];
                 if (this.showingDisplayText.has(caption.id) && caption.displayText !== undefined) {
@@ -582,6 +588,31 @@ export class AkariTranscriptWidget extends BaseWidget {
     protected async workspaceRootFor(uri: URI): Promise<URI | undefined> {
         const roots = await this.workspaceService.roots;
         return roots.find(root => root.resource.isEqualOrParent(uri))?.resource ?? roots[0]?.resource;
+    }
+
+    /**
+     * captions.json の書き込み。edit.json が特定できるプロジェクトでは annotations の
+     * writeEditSnapshot RPC（lint ゲート付き — パリティ契約 §2.7、audit §5 の残り 2 箇所）を
+     * 通す。edit.json の無い作業場（root 直下 captions.json 等）は edit-lint が実行できない
+     * （edit.json 必須で実行エラー = fail-closed になってしまう）ため従来どおり直書き。
+     */
+    protected async writeCaptionsGuarded(source: string): Promise<void> {
+        if (!this.captionsUri) {
+            return;
+        }
+        if (this.editUri && await this.fileService.exists(this.editUri)) {
+            const root = await this.workspaceRootFor(this.captionsUri);
+            if (root) {
+                await this.annotationsService.writeEditSnapshot({
+                    editUri: this.editUri.toString(),
+                    projectRootUri: root.toString(),
+                    captionsUri: this.captionsUri.toString(),
+                    captionsSource: source
+                });
+                return;
+            }
+        }
+        await this.fileService.writeFile(this.captionsUri, BinaryBuffer.fromString(source));
     }
 
     protected async configureCaptionStorage(root: URI): Promise<void> {

@@ -218,6 +218,10 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
         captions.push({ ...caption, sourceRef: null });
     }
 
+    // 保持した既存字幕を末尾へ追記したままだと start 順が崩れ、captions.schema の
+    // 並び順契約（edit-lint captions.order）に落ちる。安定ソートで時刻順に整える
+    captions.sort((left, right) => left.start - right.start);
+
     return { captions, source: serializeCaptions(captions), warnings };
 }
 

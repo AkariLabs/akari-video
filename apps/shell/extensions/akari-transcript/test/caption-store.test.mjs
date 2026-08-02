@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const {
     parseCaptions,
+    regenerateCaptions,
     replaceCaptionDisplayTextLine,
     replaceCaptionLine,
     serializeCaptions
@@ -104,4 +105,22 @@ test('任意フィールドが無い既存 caption はバイト等価で round-t
 
     assert.equal(serializeCaptions(parseCaptions(source).captions), source);
     assert.equal(source.includes('"display_text"'), false);
+});
+
+test('regenerateCaptions: 保持した既存字幕を含めて start 順に並ぶ（edit-lint captions.order 契約）', () => {
+    const analysis = JSON.stringify({
+        transcript: [
+            { start: 3, end: 4, text: 'gen-line-1' },
+            { start: 8, end: 9, text: 'gen-line-2' }
+        ]
+    });
+    const existing = JSON.stringify([
+        { id: 'c-0001', start: 13, end: 14, text: 'manual-late', speaker: null, sourceRef: null, edited: false },
+        { id: 'c-0002', start: 5, end: 6, text: 'manual-mid', speaker: null, sourceRef: null, edited: false }
+    ]);
+    const { captions } = regenerateCaptions(analysis, existing);
+    assert.deepEqual(captions.map(caption => caption.start), [3, 5, 8, 13]);
+    // 保持行（sourceRef null 化）と生成行が混在してもソートで契約を満たす
+    assert.deepEqual(captions.map(caption => caption.text),
+        ['gen-line-1', 'manual-mid', 'gen-line-2', 'manual-late']);
 });

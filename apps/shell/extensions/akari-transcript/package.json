@@ -20,7 +20,8 @@
     "@theia/workspace": "1.73.1",
     "@theia/editor": "1.73.1",
     "@theia/monaco": "1.73.1",
-    "@theia/monaco-editor-core": "1.108.201"
+    "@theia/monaco-editor-core": "1.108.201",
+    "akari-annotations": "file:../akari-annotations"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
