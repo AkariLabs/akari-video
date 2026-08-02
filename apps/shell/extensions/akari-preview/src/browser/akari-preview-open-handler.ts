@@ -3007,6 +3007,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
 <script>${this.inlineScript(assets.runtimeJavaScript)}</script>
 <script>${this.inlineScript(assets.interactionJavaScript)}</script>
+<script>${this.inlineScript(assets.webviewKernelJavaScript)}</script>
 <script>${this.previewBootstrapScript()}</script>
 </body>
 </html>`;
@@ -3651,12 +3652,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let animationFrame = 0;
             let animationWatchdogTimer = 0;
             let lastTickAtMs = 0;
-            let keepRanges = [];
-            let timelineOffsets = [];
             let transitionPlates = [];
             let totalTimelineDuration = 0;
-            let currentSegmentIndex = 0;
-            let keepRangesReady = false;
             let segments = [];
             const probeMediaDurationSeconds = src => new Promise(resolve => {
                 const probe = new Audio();
@@ -4722,7 +4719,8 @@ body { display: grid; place-items: center; padding: 32px; }
             captionPlate.addEventListener('pointerdown', event => {
                 if (event.button !== 0) return;
                 const time = video.currentTime || 0;
-                const caption = captions.find(candidate => candidate.start <= time && time < candidate.end);
+                // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
+                const caption = window.AkariEditKernel.findActiveCaption(captions, time);
                 if (!caption || !caption.id) return;
                 event.preventDefault();
                 event.stopPropagation();
@@ -4813,192 +4811,44 @@ body { display: grid; place-items: center; padding: 32px; }
                     container.style.display = hiddenTracks.has(track) ? 'none' : '';
                 }
             };
-            const buildExplicitKeepRanges = () => {
-                const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
-                const valid = [];
-                for (let index = 0; index < rawCuts.length; index += 1) {
-                    const candidate = rawCuts[index];
-                    const start = Number(candidate && candidate.in);
-                    const end = Number(candidate && candidate.out);
-                    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-                        const speed = Number.isFinite(candidate.speed) && candidate.speed > 0 ? candidate.speed : 1;
-                        const transition = candidate.transitionOut;
-                        const transitionOut = index < rawCuts.length - 1
-                            && transition
-                            && (transition.type === 'dissolve'
-                                || transition.type === 'fade-black'
-                                || transition.type === 'fade-white')
-                            && Number.isFinite(transition.duration)
-                            && transition.duration > 0
-                            ? { type: transition.type, duration: transition.duration }
-                            : null;
-                        valid.push({
-                            cutIndex: index,
-                            in: start,
-                            out: end,
-                            speed,
-                            transitionOut,
-                            transform: candidate.transform,
-                            opacity: candidate.opacity
-                        });
-                    }
-                }
-                return valid;
-            };
-            const syncPlaybackRate = () => {
-                const range = keepRangesReady ? keepRanges[currentSegmentIndex] : null;
-                const speed = range && Number.isFinite(range.speed) && range.speed > 0 ? range.speed : 1;
-                if (video.playbackRate !== speed) {
-                    video.playbackRate = speed;
-                    window.akari.reviewTransport({ type: 'rate', value: speed, timelineT: outputTime });
-                }
-            };
-            // Phase 2-3 注記: source↔output 写像の正本は packages/edit-store/src/timeline-map.ts
-            // （Web UI は timeline-map.bundle.js で共有済み）。この webview インライン実装は
-            // サンドボックス制約（ペンと同じ import 不能問題）で残る複製 — 意味論を変える場合は
-            // 正本側と同期すること。既知の差: gaps/tracks モードの暗黙 at にトランジション重なりを
-            // 載せない（正本 = 書き込み側 computeCutTrackSegments は載せる）。
-            const rebuildKeepRanges = () => {
-                const explicit = buildExplicitKeepRanges();
-                if (explicit.length > 0) {
-                    keepRanges = explicit;
-                } else {
-                    const duration = videoDuration();
-                    keepRanges = duration > 0
-                        ? [{ cutIndex: null, in: 0, out: duration, speed: 1, transitionOut: null }]
-                        : [];
-                }
-                timelineOffsets = [];
-                transitionPlates = [];
-                let accumulated = 0;
-                for (let index = 0; index < keepRanges.length; index += 1) {
-                    const range = keepRanges[index];
-                    timelineOffsets.push(accumulated);
-                    const segmentDuration = (range.out - range.in) / range.speed;
-                    const naturalJump = accumulated + segmentDuration;
-                    accumulated = naturalJump;
-                    if (range.transitionOut && index < keepRanges.length - 1) {
-                        if (range.transitionOut.type === 'fade-black' || range.transitionOut.type === 'fade-white') {
-                            const duration = range.transitionOut.duration;
-                            transitionPlates.push({
-                                start: naturalJump - duration / 2,
-                                end: naturalJump + duration / 2,
-                                mid: naturalJump,
-                                color: range.transitionOut.type === 'fade-black' ? '#000000' : '#ffffff'
-                            });
-                        }
-                        accumulated -= range.transitionOut.duration;
-                    }
-                }
-                totalTimelineDuration = accumulated;
-                keepRangesReady = keepRanges.length > 0;
-                if (currentSegmentIndex >= keepRanges.length) {
-                    currentSegmentIndex = Math.max(0, keepRanges.length - 1);
-                }
-                syncPlaybackRate();
-            };
-            const cutsUseGapsOrTracks = () => {
-                const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
-                return rawCuts.some(cut => cut.at !== undefined
-                    || (Number.isInteger(cut.track) && cut.track !== 0));
-            };
-            const resolveCutSegments = cuts => {
-                const cursorByTrack = new Map();
-                const resolved = [];
-                cuts.forEach((cut, index) => {
-                    const track = Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0;
-                    const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
-                    const duration = (cut.out - cut.in) / speed;
-                    const cursor = cursorByTrack.get(track) || 0;
-                    const start = typeof cut.at === 'number' && Number.isFinite(cut.at) && cut.at >= 0
-                        ? cut.at : cursor;
-                    const end = start + duration;
-                    cursorByTrack.set(track, end);
-                    resolved.push({ index, cut, track, start, end });
-                });
-                return resolved;
-            };
-            const computeVideoRuns = (resolved, outputDuration) => {
-                const boundarySet = new Set([0, outputDuration]);
-                for (const segment of resolved) {
-                    boundarySet.add(segment.start);
-                    boundarySet.add(segment.end);
-                }
-                const boundaries = [...boundarySet].sort((left, right) => left - right);
-                const pieces = [];
-                for (let index = 0; index < boundaries.length - 1; index += 1) {
-                    const start = boundaries[index];
-                    const end = boundaries[index + 1];
-                    if (end - start <= 0.000001) continue;
-                    const midpoint = (start + end) / 2;
-                    let winner = null;
-                    for (const segment of resolved) {
-                        if (segment.start <= midpoint && segment.end > midpoint
-                            && (!winner
-                                || zForTrack('cuts', segment.track) > zForTrack('cuts', winner.track))) {
-                            winner = segment;
-                        }
-                    }
-                    pieces.push({ start, end, winner });
-                }
-                const runs = [];
-                for (const piece of pieces) {
-                    const last = runs[runs.length - 1];
-                    const sameWinner = last
-                        && ((last.winner === null && piece.winner === null)
-                            || (last.winner && piece.winner && last.winner.index === piece.winner.index));
-                    if (sameWinner && Math.abs(last.end - piece.start) <= 0.000001) {
-                        last.end = piece.end;
-                    } else {
-                        runs.push({ ...piece });
-                    }
-                }
-                return runs;
-            };
+            // source↔output 写像の正本は packages/edit-store/src/timeline-map.ts。webview は
+            // sandbox 制約で import できないため、共有カーネル webview-kernel.js（IIFE バンドル、
+            // global: AkariEditKernel）をインライン注入して共有する（overlay-runtime と同経路）。
+            // 旧インライン複製（rebuildKeepRanges / computeVideoRuns 等）は撤去済み。旧複製との
+            // 意味論差: gaps/tracks モードの暗黙 at にもトランジション重なりが載る（書き込み側
+            // computeCutTrackSegments と同じ = 正本挙動へ収斂）。
             const rebuildSegments = () => {
-                if (!cutsUseGapsOrTracks()) {
-                    rebuildKeepRanges();
-                    segments = keepRanges.map((range, index) => ({
-                        outStart: timelineOffsets[index] || 0,
-                        outEnd: (timelineOffsets[index] || 0) + (range.out - range.in) / range.speed,
-                        kind: 'src',
-                        in: range.in,
-                        out: range.out,
-                        speed: range.speed,
-                        transitionOut: range.transitionOut,
-                        transform: range.transform,
-                        opacity: range.opacity,
-                        track: 0,
-                        cutIndex: range.cutIndex
-                    }));
-                } else {
-                    const resolved = resolveCutSegments(Array.isArray(summary.cuts) ? summary.cuts : []);
-                    const outputDuration = resolved.reduce((maximum, segment) => Math.max(maximum, segment.end), 0);
-                    segments = computeVideoRuns(resolved, outputDuration).map(run => {
-                        if (!run.winner) {
-                            return { outStart: run.start, outEnd: run.end, kind: 'gap' };
+                const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
+                const map = window.AkariEditKernel.buildTimelineMap(rawCuts, {
+                    trackZ: track => zForTrack('cuts', track)
+                });
+                if (map.segments.length > 0) {
+                    // transform / opacity は再生時の見た目情報で写像には関与しないため、
+                    // 共有カーネルの segment には無い。元 cuts から補う。
+                    segments = map.segments.map(segment => {
+                        if (segment.kind !== 'src' || !Number.isInteger(segment.cutIndex)) {
+                            return segment;
                         }
-                        const speed = Number.isFinite(run.winner.cut.speed) && run.winner.cut.speed > 0
-                            ? run.winner.cut.speed : 1;
+                        const cut = rawCuts[segment.cutIndex];
                         return {
-                            outStart: run.start,
-                            outEnd: run.end,
-                            kind: 'src',
-                            in: run.winner.cut.in + (run.start - run.winner.start) * speed,
-                            out: run.winner.cut.in + (run.end - run.winner.start) * speed,
-                            speed,
-                            transitionOut: null,
-                            transform: run.winner.cut.transform,
-                            opacity: run.winner.cut.opacity,
-                            track: run.winner.track,
-                            cutIndex: run.winner.index
+                            ...segment,
+                            transform: cut ? cut.transform : undefined,
+                            opacity: cut ? cut.opacity : undefined
                         };
                     });
-                    keepRanges = [];
-                    timelineOffsets = [];
+                    transitionPlates = map.transitionPlates;
+                    totalTimelineDuration = map.totalDuration;
+                } else {
+                    // cuts 無し（または全て不正）: 全編を 1 セグメントとして扱う（従来挙動）
+                    const duration = videoDuration();
+                    segments = duration > 0
+                        ? [{
+                            kind: 'src', outStart: 0, outEnd: duration, cutIndex: null,
+                            in: 0, out: duration, speed: 1, track: 0, transitionOut: null
+                        }]
+                        : [];
                     transitionPlates = [];
-                    totalTimelineDuration = outputDuration;
-                    keepRangesReady = false;
+                    totalTimelineDuration = duration > 0 ? duration : 0;
                 }
                 const cutsEndSeconds = totalTimelineDuration;
                 const contentDurationSeconds = computeContentDurationSeconds(cutsEndSeconds);
@@ -5013,6 +4863,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     activeSegmentIndex = Math.max(0, segments.length - 1);
                 }
                 outputTime = clamp(outputTime, 0, totalTimelineDuration);
+                syncSegmentPlaybackRate();
             };
             const syncSegmentPlaybackRate = () => {
                 const segment = segments[activeSegmentIndex];
@@ -5063,7 +4914,6 @@ body { display: grid; place-items: center; padding: 32px; }
             const enterSegment = index => {
                 if (index < 0 || index >= segments.length) return;
                 activeSegmentIndex = index;
-                currentSegmentIndex = index;
                 const segment = segments[index];
                 if (segment.kind === 'gap') {
                     applyCutVisual(segment);
@@ -5116,7 +4966,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const result = clampSourceTime(current, activeSegmentIndex);
                 activeSegmentIndex = result.index;
-                currentSegmentIndex = result.index;
                 syncSegmentPlaybackRate();
                 if (result.ended) {
                     const nextIndex = activeSegmentIndex + 1;
@@ -5573,9 +5422,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const renderCaption = () => {
                 const activeSegment = segments[activeSegmentIndex];
                 const time = video.currentTime || 0;
+                // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
                 const caption = (activeSegment && activeSegment.kind === 'gap')
                     ? null
-                    : (captions.find(candidate => candidate.start <= time && time < candidate.end) || null);
+                    : (window.AkariEditKernel.findActiveCaption(captions, time) || null);
                 if (caption !== activeCaption) {
                     activeCaption = caption;
                     applyCaptionStyleVars(caption);

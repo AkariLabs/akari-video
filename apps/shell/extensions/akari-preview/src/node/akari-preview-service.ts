@@ -137,6 +137,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             runtimeJavaScript: readFileSync(resolve(directory, 'overlay-runtime.js'), 'utf8'),
             interactionJavaScript: readFileSync(resolve(directory, 'interaction.js'), 'utf8'),
             interactionCss: readFileSync(resolve(directory, 'interaction.css'), 'utf8'),
+            webviewKernelJavaScript: readFileSync(this.findWebviewKernelBundle(), 'utf8'),
             captionFontDataUri: this.readCaptionFontDataUri()
         };
         return this.assets;
@@ -644,6 +645,36 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             }
         }
         throw new Error(`overlay-runtime assets were not found (tried: ${candidates.join(', ')})`);
+    }
+
+    // 共有カーネルの webview 用 IIFE バンドル（generated — 正本は packages/edit-store/src/
+    // webview-kernel.ts、`npm run build` が lib/webview-kernel.js を再生成する）。
+    // overlay-runtime と違い生成物のため src/ には置けず、edit-store の lib/ から読む。
+    // パッケージ済みアプリでは copy-native-helpers.mjs が lib/overlay-runtime/ へ同梱する。
+    protected findWebviewKernelBundle(): string {
+        const fileName = 'webview-kernel.js';
+        const candidates: string[] = [];
+
+        const packagedCandidate = resolve(__dirname, '../overlay-runtime', fileName);
+        candidates.push(packagedCandidate);
+        if (this.isFile(packagedCandidate)) {
+            return packagedCandidate;
+        }
+
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            const candidate = resolve(ancestor, 'packages/edit-store/lib', fileName);
+            candidates.push(candidate);
+            if (this.isFile(candidate)) {
+                return candidate;
+            }
+            const parent = dirname(ancestor);
+            if (parent === ancestor) {
+                break;
+            }
+            ancestor = parent;
+        }
+        throw new Error(`webview-kernel bundle was not found (tried: ${candidates.join(', ')})`);
     }
 
     protected isOverlayRuntimeDirectory(candidate: string): boolean {

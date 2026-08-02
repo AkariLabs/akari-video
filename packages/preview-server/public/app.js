@@ -2,7 +2,7 @@
 
 // タイムライン写像（source↔output）の正本は packages/edit-store/src/timeline-map.ts
 // （パリティ契約 §2.1/§2.2。書き込み側 SSOT computeCutTrackSegments と同じ意味論）。
-import { buildTimelineMap, outputToSource } from '/timeline-map.bundle.js';
+import { buildTimelineMap, outputToSource, findActiveCaption } from '/edit-kernel.bundle.js';
 // ペンの視覚正本は packages/pen-visuals（パリティ契約 §2.8）。定数も描画コードも共有する。
 import {
   PEN_TUNING,
@@ -1392,17 +1392,13 @@ function renderEmphasisToken(word, captionStart, emphasis) {
   return `<span class="akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--color-accent" data-emphasis-id="${esc(emphasis.id)}" style="${colorVar}">${esc(word.text)}</span>`;
 }
 let _lastCaptionId = null;
-// 字幕の start/end はソース時間軸の絶対秒（shell と同一解釈）。duration は end 不在時のみ相対
-function captionWindow(c) {
-  const s = Number(c.start) || 0;
-  const e = c.end != null && Number.isFinite(Number(c.end)) ? Number(c.end) : s + (Number(c.duration) || 0);
-  return { s, e };
-}
+// 字幕ウィンドウ判定（start/end はソース秒・duration は end 不在時のみ）は
+// 共有カーネル findActiveCaption（edit-kernel.bundle.js — packages/edit-store/src/caption-window.ts）
 function updateCaption() {
   const caps = getActiveCaptions();
   if (!caps.length) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
   const srcT = getVideoTimeForOutput(outputTime);
-  const active = caps.find(c => { const { s, e } = captionWindow(c); return srcT >= s && srcT < e; });
+  const active = findActiveCaption(caps, srcT);
   if (!active) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
   if (active.id === _lastCaptionId) return;
   _lastCaptionId = active.id;

@@ -1,0 +1,10 @@
+/**
+ * shell webview へインライン注入する共有カーネルの束（IIFE バンドルのエントリ）。
+ *
+ * webview は sandbox 制約で import できないため、ここから esbuild で
+ * lib/webview-kernel.js（global: AkariEditKernel）を生成し、shell が
+ * overlay-runtime と同じ経路（getOverlayRuntimeAssets → インライン <script>）で注入する。
+ * ブラウザで動く純粋関数だけを export すること（Node API・ファイル IO は不可）。
+ */
+export * from './timeline-map';
+export * from './caption-window';

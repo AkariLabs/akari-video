@@ -6,13 +6,15 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && npm run bundle:webview",
+    "bundle:webview": "esbuild src/webview-kernel.ts --bundle --format=iife --global-name=AkariEditKernel --outfile=lib/webview-kernel.js --target=chrome122 --platform=browser",
     "clean": "rimraf lib",
     "test": "tsc -b && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0",
-    "rimraf": "^5.0.0"
+    "rimraf": "^5.0.0",
+    "esbuild": "^0.24.0"
   }
 }

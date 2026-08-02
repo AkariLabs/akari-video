@@ -141,8 +141,24 @@ function outputToSource(segments, outputT) {
   }
   return { segment: null, sourceT: null };
 }
+
+// ../edit-store/src/caption-window.ts
+function captionWindowSeconds(caption) {
+  const start = typeof caption.start === "number" && Number.isFinite(caption.start) ? caption.start : 0;
+  const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
+  const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
+  return { start, end };
+}
+function findActiveCaption(captions, sourceSeconds) {
+  return captions.find((caption) => {
+    const window = captionWindowSeconds(caption);
+    return window.start <= sourceSeconds && sourceSeconds < window.end;
+  });
+}
 export {
   buildTimelineMap,
+  captionWindowSeconds,
   cutsUseGapsOrTracks,
+  findActiveCaption,
   outputToSource
 };

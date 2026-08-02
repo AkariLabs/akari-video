@@ -34,6 +34,13 @@ await copyFile(
   path.join(repoRoot, 'packages', 'overlay-runtime', 'package.json'),
   path.join(overlayRuntimeDestination, 'package.json')
 );
+// 共有カーネルの webview 用 IIFE バンドル（edit-store の build が生成・lib/ にコミット済み）。
+// akari-preview-service の findWebviewKernelBundle() が packaged では
+// lib/overlay-runtime/webview-kernel.js を最初に探す。
+await copyFile(
+  path.join(repoRoot, 'packages', 'edit-store', 'lib', 'webview-kernel.js'),
+  path.join(overlayRuntimeDestination, 'webview-kernel.js')
+);
 console.log(`Copied overlay-runtime assets to ${path.relative(shellRoot, overlayRuntimeDestination)}`);
 
 // Bundle the repo-root skills/ as the source used when a packaged app creates a

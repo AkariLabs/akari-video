@@ -6,11 +6,11 @@
  * カーソル意味論）の上に、再生用の出力セグメント列と写像関数を提供する。
  *
  * 消費者:
- *   - Web UI（packages/preview-server public/app.js）— timeline-map.bundle.js（ESM）で import
+ *   - Web UI（packages/preview-server public/app.js）— edit-kernel.bundle.js（ESM）で import
  *   - shell annotations widget — computeCutTrackSegments を直接使用（従来どおり）
- *   - shell 動画面（previewBootstrapScript の webview インライン実装）は未接続の複製が残る。
- *     既知の意味論差: インライン版の gaps/tracks モードは暗黙 at にトランジション重なりを
- *     載せない（本モジュールは書き込み側と同じく載せる）。webview への注入共有は次フェーズ
+ *   - shell 動画面（previewBootstrapScript）— webview-kernel.js（IIFE、global: AkariEditKernel）
+ *     のインライン注入で共有（旧インライン複製は撤去済み。gaps/tracks モードの暗黙 at にも
+ *     トランジション重なりが載る = 書き込み側と同一の正本挙動へ収斂）
  *
  * モード判定は webview 実装と同一:
  *   - cuts に at 指定 or track≠0 が無い → シーケンシャル（トランジション重なり + プレート算出）
