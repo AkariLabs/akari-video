@@ -135,6 +135,40 @@ if (applications.length === 0) {
 const fileDependencies = Object.entries(packageJson.dependencies ?? {})
   .filter(([, specification]) => typeof specification === 'string' && specification.startsWith('file:'))
   .map(([name]) => name);
+
+// 自社 file: 依存を再帰収集する（ThirdPartyNotices 照合の除外用）。拡張がさらに file: で
+// 自社共有カーネル（例 @akari-video/edit-store / pen-visuals）へ依存する形が生まれたため、
+// shell 直下 1 階層の fileDependencies だけでは除外から取りこぼして誤検知する。
+// generate-third-party-notices.mjs の「file: 依存 = 自社拡張。通知対象にせず依存だけ辿る」と
+// 同じ深さで辿る（直上の fileDependencies は asar 内の拡張存在検査用で、従来どおり直下のみ）。
+async function collectFirstPartyPackageNames(rootManifest, rootDir) {
+  const names = new Set();
+  const visited = new Set();
+  const queue = [{ manifest: rootManifest, dir: rootDir }];
+  while (queue.length > 0) {
+    const { manifest, dir } = queue.shift();
+    for (const [name, specification] of Object.entries(manifest.dependencies ?? {})) {
+      if (typeof specification !== 'string' || !specification.startsWith('file:')) {
+        continue;
+      }
+      names.add(name);
+      const dependencyDir = path.resolve(dir, specification.slice('file:'.length));
+      if (visited.has(dependencyDir)) {
+        continue;
+      }
+      visited.add(dependencyDir);
+      try {
+        const dependencyManifest = JSON.parse(await readFile(path.join(dependencyDir, 'package.json'), 'utf8'));
+        queue.push({ manifest: dependencyManifest, dir: dependencyDir });
+      } catch {
+        // package.json が読めない file: 依存はここでは無視する（存在の検証は別段の責務）
+      }
+    }
+  }
+  return names;
+}
+const firstPartyPackageNames = await collectFirstPartyPackageNames(packageJson, shellRoot);
+
 let failed = false;
 const verified = [];
 
@@ -279,7 +313,7 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
         asarPackageNames.add(match[1]);
       }
     }
-    const firstParty = new Set(fileDependencies);
+    const firstParty = firstPartyPackageNames;
     const missingFromNotices = [...asarPackageNames]
       .filter(name => !firstParty.has(name))
       .filter(name => !noticesText.includes(`%% ${name}@`))
