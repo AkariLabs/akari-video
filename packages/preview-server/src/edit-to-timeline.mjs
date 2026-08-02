@@ -3,10 +3,6 @@
 
 import path from 'node:path';
 
-let gPort = 3000;
-
-export function setPort(p) { gPort = p; }
-
 /**
  * edit.json を TimelineSpec に変換する。
  * @param {object} edit - edit.json のパース済みオブジェクト
@@ -113,5 +109,7 @@ function fileToUrl(filePath, projectRoot) {
   }
   const resolved = path.resolve(projectRoot, filePath);
   const relative = path.relative(projectRoot, resolved).split(path.sep).join('/');
-  return `http://localhost:${gPort}/${relative}`;
+  // ルート相対 URL で返す（P2-9: http://localhost:<port> ハードコードだと --host 0.0.0.0 で
+  // LAN の別デバイスから動画が読めず、127.0.0.1 アクセスでもクロスオリジン扱いになっていた）
+  return `/${relative}`;
 }

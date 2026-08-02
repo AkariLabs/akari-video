@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
-import { editToTimeline, setPort } from './edit-to-timeline.mjs';
+import { editToTimeline } from './edit-to-timeline.mjs';
 // 書き込み前の lint ゲートと atomic 書き込みは shell と同じ共有カーネル（packages/edit-store）。
 // lint 実行系が見つからない場合は fail-open（オーナー裁定 2026-08-02 — shell と同一挙動に統一）。
 import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-gate.js';
@@ -30,8 +30,6 @@ for (let i = 0; i < args.length; i++) {
     projectRoot = path.resolve(args[i]);
   }
 }
-
-setPort(port);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',

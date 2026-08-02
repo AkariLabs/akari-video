@@ -141,6 +141,7 @@ async function init() {
 
     buildSegments();
     if (summary?.cuts?.length > 0) video.src = getVideoSource(0);
+    updateStageScale();
     setupLayers();
     setupPenCanvas();
     initPenSprites();
@@ -152,7 +153,8 @@ async function init() {
     window.akari = window.akari || {};
     window.akari.runtime = createOverlayRuntime();
     if (window.akari.runtime.mount) window.akari.runtime.mount(summary);
-    window.akari.stageScale = () => zoomLayer.clientWidth / wrapper.clientWidth;
+    // shell と同じ契約: 論理出力 px → 表示 px の倍率（interaction の異常系退避 / selftest 用）
+    window.akari.stageScale = () => frameScale;
     const os = summary?.output || {};
     window.akari.outputSize = () => ({ width: os.width || 1280, height: os.height || 720 });
     // overlay-interaction.bundle.js（packages/overlay-runtime 正本）はスクリプト読込時に
@@ -177,6 +179,45 @@ async function init() {
     showMessage(e.message);
   }
 }
+
+// --- P1-2: ステージ座標系をビデオ枠（出力フレーム矩形）に一致させる ---
+// 正本は shell の updateStageScale（akari-preview-open-handler.ts）。stage / layer-container を
+// 論理サイズ = 出力 px（overlay/layer の px 座標・字幕の px 指定が render-cut と同じ意味になる）
+// にし、transform: scale(frameScale) で wrapper 内の出力フレーム矩形へ写像する。
+// wrapper は aspect-ratio が max-height で破れてペイン全体に広がることがある（レターボックス）。
+let frameScale = 1;
+function outputSizePx() {
+  const os = summary?.output || {};
+  return {
+    width: Number(os.width) > 0 ? Number(os.width) : 1280,
+    height: Number(os.height) > 0 ? Number(os.height) : 720
+  };
+}
+function computeOutputFrameRect() {
+  const boxW = wrapper.clientWidth;
+  const boxH = wrapper.clientHeight;
+  const os = outputSizePx();
+  if (!(boxW > 0) || !(boxH > 0)) return { x: 0, y: 0, width: boxW, height: boxH };
+  const fit = Math.min(boxW / os.width, boxH / os.height);
+  const width = os.width * fit;
+  const height = os.height * fit;
+  return { x: (boxW - width) / 2, y: (boxH - height) / 2, width, height };
+}
+function updateStageScale() {
+  const os = outputSizePx();
+  const rect = computeOutputFrameRect();
+  const next = rect.width / os.width;
+  frameScale = Number.isFinite(next) && next > 0 ? next : 1;
+  for (const el of [stage, layerContainer]) {
+    el.style.left = `${rect.x}px`;
+    el.style.top = `${rect.y}px`;
+    el.style.width = `${os.width}px`;
+    el.style.height = `${os.height}px`;
+    el.style.transformOrigin = '0 0';
+    el.style.transform = `scale(${frameScale})`;
+  }
+}
+new ResizeObserver(() => { updateStageScale(); setupPenCanvas(); }).observe(wrapper);
 
 function getVideoSource(cutIndex) {
   const clip = timelineData.clips.find(c => c.id === `cut-${cutIndex}`);
@@ -245,9 +286,12 @@ function syncLayers(t) {
 // --- Pen annotation canvas (upgraded: glow + gradient + sparkle) ---
 function setupPenCanvas() {
   // DPR クランプは shell と同じ正本値（PEN_TUNING.maxDevicePixelRatio）に従う。
+  // 裏バッファは表示 px（出力フレーム矩形）基準 — CSS サイズは論理ステージの 100% で、
+  // stage の scale(frameScale) を経て正味 dpr 密度になる（P1-2）。
   const dpr = Math.min(devicePixelRatio || 1, PEN_TUNING.maxDevicePixelRatio);
-  penCanvas.width = zoomLayer.clientWidth * dpr;
-  penCanvas.height = zoomLayer.clientHeight * dpr;
+  const rect = computeOutputFrameRect();
+  penCanvas.width = Math.max(1, Math.round(rect.width * dpr));
+  penCanvas.height = Math.max(1, Math.round(rect.height * dpr));
   penCanvas.style.width = '100%';
   penCanvas.style.height = '100%';
   rebuildPlatinumGradient();
@@ -361,7 +405,9 @@ function initPenSprites() {
 
 // Pointer event handling for pen drawing
 function getPenPoint(e) {
-  const rect = zoomLayer.getBoundingClientRect();
+  // ビデオ枠（= 論理ステージの表示矩形）基準で正規化する。ペイン全体（zoomLayer）基準だと
+  // レターボックス時に描画位置がずれる（P1-2）。getBoundingClientRect はズーム変換も織り込む
+  const rect = stage.getBoundingClientRect();
   return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
 }
 function onPenPointerDown(e) {
@@ -677,6 +723,8 @@ function seekTo(t) {
   updateCaption();
   syncCaptionAnimations();
   updateOverlays();
+  // 一時停止中のシークでもトランジション帯を反映する（P2-1）
+  updateTransitions();
   syncAudio(outputTime);
   syncLayers(outputTime);
 }
@@ -825,7 +873,11 @@ async function editSaveErrorMessage(res) {
   try {
     const body = await res.json();
     if (Array.isArray(body.findings) && body.findings.length) {
-      return body.findings.map((f) => f.message || f.check).filter(Boolean).join(' / ');
+      // warning が先頭に混ざると真因が埋もれる — error のみ表示（P2-5）。
+      // error が無い異常応答では従来どおり全 findings にフォールバック
+      const errors = body.findings.filter((f) => f.severity === 'error');
+      const shown = errors.length ? errors : body.findings;
+      return shown.map((f) => f.message || f.check).filter(Boolean).join(' / ');
     }
     return body.error || `保存に失敗しました (HTTP ${res.status})`;
   } catch {
@@ -843,6 +895,7 @@ async function reloadSummary() {
   const res = await fetch(api.summary);
   if (!res.ok) throw new Error(`summary: HTTP ${res.status}`);
   summary = await res.json();
+  updateStageScale();
   return summary;
 }
 
@@ -957,14 +1010,45 @@ function renderCutInfoContent(seg) {
   });
 }
 
+// lint 契約（cuts.overlap / 最小尺 0.15s / 実尺内）を満たす空き source 区間を探す（P2-6:
+// 旧実装は隣接カットと source 範囲が重なる {in: ref.out, out: ref.out+1} を作り 422 になっていた）
+function findFreeSourceRange(cuts, fromSec, direction) {
+  const MIN = 0.15;
+  const want = 1;
+  const materialEnd = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Infinity;
+  const used = cuts.map(c => [Number(c.in) || 0, Number(c.out) || 0]).sort((a, b) => a[0] - b[0]);
+  if (direction > 0) {
+    let start = Math.max(0, fromSec);
+    for (let guard = 0; guard <= used.length; guard++) {
+      const hit = used.find(([a, b]) => a < start + MIN && b > start);
+      if (!hit) break;
+      start = hit[1];
+    }
+    const end = Math.min(start + want, materialEnd, ...used.filter(([a]) => a >= start + MIN).map(([a]) => a));
+    return end - start >= MIN ? { in: start, out: end } : null;
+  }
+  let end = fromSec;
+  for (let guard = 0; guard <= used.length; guard++) {
+    const hit = used.find(([a, b]) => a < end && b > end - MIN);
+    if (!hit) break;
+    end = hit[0];
+  }
+  const start = Math.max(0, end - want, ...used.filter(([, b]) => b <= end - MIN).map(([, b]) => b));
+  return end - start >= MIN && end <= materialEnd ? { in: start, out: end } : null;
+}
+
 async function addCutAt(index, where) {
   const cuts = summary?.cuts;
   if (!Array.isArray(cuts) || index < 0) return;
   const ref = cuts[index];
   if (!ref) return;
-  const inSec = where === 'before' ? ref.in : ref.out;
-  const outSec = Math.min(inSec + 1, (cuts[cuts.length - 1]?.out ?? inSec + 5));
-  const newCut = { in: inSec, out: outSec };
+  const newCut = where === 'before'
+    ? findFreeSourceRange(cuts, ref.in, -1)
+    : findFreeSourceRange(cuts, ref.out, 1);
+  if (!newCut) {
+    showMessage('追加できる空き区間が素材内にありません。');
+    return;
+  }
   const idx = where === 'before' ? index : index + 1;
   const newCuts = [...cuts.slice(0, idx), newCut, ...cuts.slice(idx)];
   const res = await fetch('/api/edit.json', {
@@ -1037,14 +1121,18 @@ seek.addEventListener('input', () => {
   showCutInfoAt(t);
   if (w) play();
 });
-// Snap to nearest cut boundary
+// カット境界へジャンプ（P2-2: 旧実装は区間内の t をそのまま返す恒等関数だった）
 function snapToCut(t, dir) {
   if (!segments.length) return t;
-  for (const seg of segments) {
-    if (dir > 0 && t >= seg.outStart && t < seg.outEnd) return Math.min(t, seg.outEnd - 0.001);
-    if (dir < 0 && t > seg.outStart && t <= seg.outEnd) return Math.max(t, seg.outStart);
+  const EPS = 0.001;
+  const bounds = [...new Set(segments.flatMap(seg => [seg.outStart, seg.outEnd]))]
+    .sort((left, right) => left - right);
+  if (dir > 0) {
+    const next = bounds.find(b => b > t + EPS);
+    return next !== undefined ? next : t;
   }
-  return t;
+  const prev = bounds.filter(b => b < t - EPS).pop();
+  return prev !== undefined ? prev : 0;
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1057,8 +1145,8 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowDown': e.preventDefault(); pause(); seekTo(outputTime + 10); break;
     case 'Home': e.preventDefault(); seekTo(0); break;
     case 'End': e.preventDefault(); seekTo(totalDuration); break;
-    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime - 0.1, -1)); break;
-    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime + 0.1, 1)); break;
+    case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, -1)); break;
+    case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, 1)); break;
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
     case 'Escape': shortcutHelp.hidden = true; break;
     case 'KeyZ': if (e.ctrlKey || e.metaKey) { e.preventDefault(); } break;
@@ -1104,7 +1192,8 @@ indicatorBtn.addEventListener('click', () => {
   const h = indicatorPopup.hidden;
   indicatorPopup.hidden = !h;
   indicatorBtn.setAttribute('aria-pressed', String(!h));
-  if (!h) renderIndicators();
+  // h = 「閉じていた」= これから開く時に描画する（P2-8: 判定が反転していて開くと空白だった）
+  if (h) renderIndicators();
 });
 function renderIndicators() {
   const ind = summary?.indicators;
@@ -1145,7 +1234,8 @@ wrapper.addEventListener('wheel', (e) => {
   pan = { x: 0, y: 0 }; updateZoom();
 }, { passive: false });
 wrapper.addEventListener('pointerdown', (e) => {
-  if (zoom <= 1 || e.target.closest('.icon-button, .popup, #seek')) return;
+  // ペン使用中はパンでポインタを奪わない（P2-3: ズーム中に注釈が描けなかった）
+  if (zoom <= 1 || penActive || e.target.closest('.icon-button, .popup, #seek')) return;
   drag = { startX: e.clientX - pan.x, startY: e.clientY - pan.y };
   wrapper.setPointerCapture(e.pointerId);
   wrapper.style.cursor = 'grabbing';
@@ -1447,7 +1537,21 @@ function syncCaptionAnimations() {
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-function showMessage(text) { if (text) { previewMessage.hidden = false; previewMessageText.textContent = text; } else { previewMessage.hidden = true; } }
+// メッセージカードはクリックか Escape で閉じられる（P2-4: 以前は次の正常保存かリロードまで居座った）
+function showMessage(text) {
+  if (text) {
+    previewMessage.hidden = false;
+    previewMessageText.textContent = text;
+    previewMessage.title = 'クリックで閉じる';
+    previewMessage.style.cursor = 'pointer';
+  } else {
+    previewMessage.hidden = true;
+  }
+}
+previewMessage.addEventListener('click', () => showMessage(null));
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' && !previewMessage.hidden) showMessage(null);
+});
 
 let wsTickLast = 0;
 function connectWs() {

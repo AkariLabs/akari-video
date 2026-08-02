@@ -183,6 +183,45 @@ async function main() {
     try { await page.screenshot({ path: '/tmp/preview-test-error.png', fullPage: true }); } catch {}
   }
 
+  // ── P1-2: レターボックス時のステージ＝ビデオ枠一致 ──
+  // 横長ペインでは wrapper の aspect-ratio が max-height で破れる。stage は出力フレーム矩形
+  // （出力アスペクトで中央フィット）に一致し、論理サイズは出力 px でなければならない
+  console.log('\n🖥️  Stage/letterbox alignment (P1-2)');
+  try {
+    const wide = await context.newPage();
+    await wide.setViewportSize({ width: 1600, height: 500 });
+    await wide.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await wide.waitForTimeout(1200);
+    const geom = await wide.evaluate(() => {
+      const wrapperEl = document.getElementById('preview-wrapper');
+      const stageEl = document.getElementById('overlay-stage');
+      const w = wrapperEl.getBoundingClientRect();
+      const s = stageEl.getBoundingClientRect();
+      return {
+        wrapper: { x: w.x, y: w.y, width: w.width, height: w.height },
+        stage: { x: s.x, y: s.y, width: s.width, height: s.height },
+        logicalWidth: stageEl.clientWidth,
+        logicalHeight: stageEl.clientHeight,
+        output: (window.akari && window.akari.outputSize) ? window.akari.outputSize() : null
+      };
+    });
+    const os = geom.output || { width: 1280, height: 720 };
+    const aspectExpected = os.width / os.height;
+    const aspectActual = geom.stage.width / geom.stage.height;
+    Math.abs(aspectActual - aspectExpected) < 0.02
+      ? ok(`Stage keeps output aspect under letterbox (${aspectActual.toFixed(3)})`)
+      : ng('Stage aspect', `expected ${aspectExpected.toFixed(3)} got ${aspectActual.toFixed(3)}`);
+    (geom.logicalWidth === os.width && geom.logicalHeight === os.height)
+      ? ok('Stage logical size equals output px')
+      : ng('Stage logical size', JSON.stringify({ logical: [geom.logicalWidth, geom.logicalHeight], output: os }));
+    const centered = Math.abs((geom.stage.x - geom.wrapper.x) - (geom.wrapper.width - geom.stage.width) / 2) < 2;
+    const fitsBox = geom.stage.width <= geom.wrapper.width + 1 && geom.stage.height <= geom.wrapper.height + 1;
+    (centered && fitsBox)
+      ? ok('Stage centered inside wrapper frame rect')
+      : ng('Stage placement', JSON.stringify(geom));
+    await wide.close();
+  } catch (e) { ng('Stage/letterbox alignment', e.message); }
+
   // ── Output preview page ──
   console.log('\n🖥️  Output preview page');
   try {
