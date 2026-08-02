@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **18 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **19 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -21,6 +21,7 @@ AKARI Video のエージェント側ワークフローは **18 のスキル**に
 | [create-project](../skills/create-project/SKILL.md) | 新規プロジェクトの headless 作成（雛形コピー・作成レポート） | git（安全な場合のみ初期化） |
 | [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証 | ffmpeg / whisper-cli / headless Chrome（存在検査） |
 | [setup-audio-library](../skills/setup-audio-library/SKILL.md) | BGM・SFX の半自動入庫（候補リスト → 手動 DL 照合 → 試聴 keep/drop） | フリー音源配布元（ダウンロードは人間） |
+| [setup-remote](../skills/setup-remote/SKILL.md) | 遠隔セットアップ。Tailscale doctor → 導入ガイド（人間手番）→ プレビューサーバーの tailnet 限定 HTTPS 化 → Taildrop 受信を作業場 inbox/ へ接続 → 疎通確認。公開インターネットへは既定で一切出さない | Tailscale / Taildrop（導入・ログインは人間） |
 | [harvest-asset](../skills/harvest-asset/SKILL.md) | 案件で作った高コスト成果物の素材ライブラリ入庫 | — |
 | [bake-3d](../skills/bake-3d/SKILL.md) | 3D シーンを映像素材（クリップ）に焼く。レシピ `scene.py` の作成・調整・再ベイク | **Blender**（ヘッドレス・bpy） |
 

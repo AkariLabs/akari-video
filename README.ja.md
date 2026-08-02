@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-ff8a00)](./LICENSE)
 ![Status: under construction](https://img.shields.io/badge/status-under_construction-1a1a1a)
-![Agent skills: 18](https://img.shields.io/badge/agent_skills-18-ff8a00)
+![Agent skills: 19](https://img.shields.io/badge/agent_skills-19-ff8a00)
 ![opencode compatible](https://img.shields.io/badge/opencode-compatible-1a1a1a)
 ![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
 ![Cursor Agent](https://img.shields.io/badge/Cursor_Agent-skills-1a1a1a)
@@ -90,7 +90,7 @@ flowchart LR
 - **[Introduction](./docs/introduction.ja.md)** — 思想と全体像
 - **[Getting Started](./docs/getting-started.ja.md)** — 最初のプロジェクトを作る
 - **[Guides](./docs/README.ja.md#guides)** — 「素材を分析する」「編集計画を立てる」「書き出す」などタスク別ガイド
-- **[スキルカタログ](./docs/skills.ja.md)** — 18 スキルの一枚地図（各スキルの担当と接続先）
+- **[スキルカタログ](./docs/skills.ja.md)** — 19 スキルの一枚地図（各スキルの担当と接続先）
 - **[How-to](./docs/README.ja.md#how-to)** — 接続と API キー・プロジェクト構成・続きから再開
 - **[Reference](./docs/README.ja.md#reference)** — `edit.json` などファイル契約のスペック
 - 入口: [docs/README.ja.md](./docs/README.ja.md)
