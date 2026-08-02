@@ -75,6 +75,17 @@ export interface EditAudioSfx {
     in?: number;
     out?: number;
 }
+/**
+ * audio.narration[] の表示用最小形（スキーマ: id は n-NNNN、t は秒、duration は持たない —
+ * 実尺は音声ファイルから解決する）。provenance 等の残りは表示に使わないため保持しない。
+ */
+export interface EditAudioNarration {
+    id: string;
+    t: number;
+    path: string;
+    gainDb?: number;
+    script?: string;
+}
 export interface CutTrackSegment {
     index: number;
     track: number;
@@ -195,6 +206,7 @@ export declare function parseEdit(source: string): {
     beats?: EditBeat[];
     layers: EditLayer[];
     audioSfx: EditAudioSfx[];
+    audioNarration: EditAudioNarration[];
     audioBgm?: EditAudioBgm;
     timeline?: {
         tracks: EditTimelineTrack[];

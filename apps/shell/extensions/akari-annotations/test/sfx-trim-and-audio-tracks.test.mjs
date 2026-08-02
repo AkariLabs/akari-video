@@ -94,3 +94,15 @@ test("deriveDefaultTimelineTracks places the audio group first in storage order 
   assert.equal(derived[1].kind, "cuts");
   assert.equal(derived[2].kind, "layers");
 });
+
+test('deriveDefaultTimelineTracks derives an audio track for narration-only projects (Phase 2-5 逆輸入)', () => {
+    const tracks = deriveDefaultTimelineTracks({
+        cuts: [{ in: 0, out: 5 }],
+        audio: {
+            narration: [{ id: 'n-0001', path: 'narration/n-0001.mp3', t: 1, provenance: { provider: 'human' } }]
+        }
+    });
+    const audioTracks = tracks.filter(track => track.kind === 'audio');
+    assert.strictEqual(audioTracks.length, 1);
+    assert.strictEqual(audioTracks[0].ref, 0);
+});

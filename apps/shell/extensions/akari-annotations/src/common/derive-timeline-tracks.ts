@@ -30,7 +30,14 @@ export function deriveTracks(edit: unknown): EditTimelineTrack[] {
         append('captions');
     }
     const audio = isRecord(value?.audio) ? value.audio : undefined;
-    for (const track of collectTrackNumbers(audio?.sfx)) {
+    const audioTracks = new Set(collectTrackNumbers(audio?.sfx));
+    // 意図的分岐 3（Phase 2-5 narration 逆輸入・2026-08-02）: narration は track を持たず
+    // 常に ref 0 帯へ表示するため、narration だけのプロジェクトでも audio トラックを導出する
+    // （表示専用の導出であり edit.json は変更しない）。
+    if (Array.isArray(audio?.narration) && audio.narration.length > 0) {
+        audioTracks.add(0);
+    }
+    for (const track of [...audioTracks].sort((left, right) => left - right)) {
         append('audio', track);
     }
     return derived;

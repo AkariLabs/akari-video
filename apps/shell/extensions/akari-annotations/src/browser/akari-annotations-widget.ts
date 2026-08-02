@@ -23,6 +23,7 @@ import {
 } from '../common/caption-store';
 import {
     EditAudioBgm,
+    EditAudioNarration,
     EditAudioSfx,
     EditBeat,
     EditCut,
@@ -380,6 +381,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected beats: EditBeat[] = [];
     protected layers: EditLayer[] = [];
     protected audioSfx: EditAudioSfx[] = [];
+    protected audioNarration: EditAudioNarration[] = [];
     protected audioBgm: EditAudioBgm | undefined;
     protected timelineTracks: EditTimelineTrack[] = [];
     /**
@@ -459,6 +461,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly overlayRows = new Map<string, number>();
     protected readonly layerRows = new Map<string, number>();
     protected readonly audioSfxRows = new Map<string, number>();
+    protected readonly audioNarrationRows = new Map<string, number>();
     protected captionRows: number[] = [];
     protected audioBgmTop = 0;
     protected captionsVisible = true;
@@ -786,6 +789,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     .akari-annotations-widget .akari-annotations-strip-audio-bgm {
         background: color-mix(in srgb, var(--theia-charts-green, #89d185) 50%, var(--theia-charts-blue, #3794ff));
         opacity: .66;
+    }
+    .akari-annotations-widget .akari-annotations-strip-audio-narration {
+        background: var(--theia-charts-orange, #d18616);
+        opacity: .72;
     }
     .akari-annotations-widget .akari-track-band {
         position: absolute;
@@ -2696,6 +2703,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.beats = [];
         this.layers = [];
         this.audioSfx = [];
+        this.audioNarration = [];
         this.audioBgm = undefined;
         this.timelineTracks = [];
         this.fps = 30;
@@ -2712,6 +2720,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.beats = parsed.beats ?? [];
                 this.layers = parsed.layers;
                 this.audioSfx = parsed.audioSfx;
+                this.audioNarration = parsed.audioNarration;
                 this.audioBgm = parsed.audioBgm;
                 this.timelineTracks = this.pinAudioGroupToBottom(
                     parsed.timeline?.tracks ?? deriveDefaultTimelineTracks(rawValue)
@@ -2946,7 +2955,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const overlaysEnd = this.overlays.reduce((max, overlay) => Math.max(max, overlay.start + overlay.duration), 0);
             const layersEnd = this.layers.reduce((max, layer) => Math.max(max, layer.t + layer.duration), 0);
             const sfxEnd = this.audioSfx.reduce((max, sfx) => Math.max(max, sfx.t + sfx.duration), 0);
-            return Math.max(cutsDuration, overlaysEnd, layersEnd, sfxEnd);
+            const narrationEnd = this.audioNarration.reduce(
+                (max, narration) => Math.max(max, narration.t + this.narrationDisplayDuration(narration)), 0);
+            return Math.max(cutsDuration, overlaysEnd, layersEnd, sfxEnd, narrationEnd);
         }
         const candidates = [
             10,
@@ -2954,6 +2965,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.overlays.map(overlay => overlay.start + overlay.duration),
             ...this.layers.map(layer => layer.t + layer.duration),
             ...this.audioSfx.map(sfx => sfx.t + sfx.duration),
+            ...this.audioNarration.map(narration => narration.t + this.narrationDisplayDuration(narration)),
             ...this.beats.map(beat => beat.t + 1),
             ...this.annotations.map(annotation => annotation.sourceT + 1)
         ];
@@ -3058,6 +3070,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.layerRows.clear();
         const layerTracks: TrackGroupLayout[] = [];
         this.audioSfxRows.clear();
+        this.audioNarrationRows.clear();
         this.audioTrackSubrowCounts.clear();
         const audioTracks: TrackGroupLayout[] = [];
         const cutTracks: TrackGroupLayout[] = [];
@@ -3087,14 +3100,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // sfx 同士の重なりは computeAudioDisplayTracks（R7-3）が表示上の別トラックへ
                 // 振り分け済みのため、ここで残る重なりは「bgm（全区間）× sfx」のみ。
                 const intervals = [
-                    ...(this.audioBgm && ref === 0 ? [{ start: 0, end: this.totalDuration(), id: this.audioBgm.id }] : []),
+                    ...(this.audioBgm && ref === 0
+                        ? [{ start: 0, end: this.totalDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
+                    // narration は track を持たないため常に ref 0 帯へ乗せる（Phase 2-5 逆輸入）。
+                    ...(ref === 0 ? this.audioNarration.map(narration => ({
+                        start: narration.t,
+                        end: narration.t + this.narrationDisplayDuration(narration),
+                        id: narration.id,
+                        kind: 'narration' as const
+                    })) : []),
                     ...this.audioSfx.filter(sfx => this.sfxDisplayTrack(sfx) === ref)
-                        .map(sfx => ({ start: sfx.t, end: this.sfxIntervalEnd(sfx), id: sfx.id }))
+                        .map(sfx => ({ start: sfx.t, end: this.sfxIntervalEnd(sfx), id: sfx.id, kind: 'sfx' as const }))
                 ];
                 const rows = assignSubRows(intervals);
                 intervals.forEach((item, index) => {
-                    if (item.id === 'bgm') {
+                    if (item.kind === 'bgm') {
                         this.audioBgmTop = nextTop + (rows[index] ?? 0) * SUBROW_STRIDE;
+                    } else if (item.kind === 'narration') {
+                        this.audioNarrationRows.set(item.id, rows[index] ?? 0);
                     } else {
                         this.audioSfxRows.set(item.id, rows[index] ?? 0);
                     }
@@ -3172,6 +3195,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** sfx の表示上の割当トラック ref（R7-3 の自動配置で上書きされていればそれを、なければ実際の sfx.track を返す）。 */
+    /** narration は in/out を持たず実尺そのまま表示する。実尺未解決の間は 1 秒のプレースホルダ。 */
+    protected narrationDisplayDuration(narration: EditAudioNarration): number {
+        const cached = this.audioDurationCache.get(narration.path);
+        return typeof cached === 'number' && cached > 0 ? cached : 1;
+    }
+
     protected sfxDisplayTrack(sfx: EditAudioSfx): number {
         return this.audioAutoTrackOverride.get(sfx.id) ?? (sfx.track ?? 0);
     }
@@ -3387,6 +3416,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         }
+        // Phase 2-5 逆輸入: narration を audio ref 0 帯に表示する（v1 は表示のみ —
+        // narration の編集 RPC は未提供のため、シーク等の操作を遮らない pointer-events: none）。
+        this.audioNarration.forEach(narration => {
+            const layout = this.trackLayout('audio', 0);
+            if (!layout) {
+                return;
+            }
+            if (this.location?.editUri && this.audioDurationCache.get(narration.path) === undefined) {
+                const audioUri = this.resolveEditMediaUri(narration.path, this.location.editUri).toString();
+                this.fetchAudioDuration(narration.path, audioUri);
+            }
+            const durationSeconds = this.narrationDisplayDuration(narration);
+            const end = narration.t + durationSeconds;
+            if (!this.isRangeVisible(narration.t, end)) {
+                return;
+            }
+            const top = layout.top + (this.audioNarrationRows.get(narration.id) ?? 0) * SUBROW_STRIDE;
+            const label = `${narration.id} ${this.pathBaseName(narration.path)}`;
+            const subrowCount = this.audioTrackSubrowCounts.get(layout.id) ?? 1;
+            const itemHeight = subrowCount <= 1 ? layout.height : SUBROW_HEIGHT;
+            const element = this.stripSegment(
+                narration.t, end, top, itemHeight,
+                'akari-annotations-strip-audio akari-annotations-strip-audio-narration', label
+            );
+            element.dataset.akariItemKind = 'audio';
+            element.dataset.akariItemId = narration.id;
+            element.dataset.akariLane = layout.id ?? 'audio';
+            element.style.pointerEvents = 'none';
+            element.style.opacity = this.audioVisible ? '' : '.28';
+            element.appendChild(this.segmentLabel(label));
+            if (narration.script) {
+                element.title = narration.script;
+            }
+            this.strip.appendChild(element);
+        });
         this.audioSfx.forEach(sfx => {
             const displayTrack = this.sfxDisplayTrack(sfx);
             const layout = this.trackLayout('audio', displayTrack);
@@ -4327,7 +4391,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (track.kind === 'captions') {
             return this.captions.length;
         }
-        return this.audioSfx.filter(sfx => (sfx.track ?? 0) === ref).length + (this.audioBgm && ref === 0 ? 1 : 0);
+        return this.audioSfx.filter(sfx => (sfx.track ?? 0) === ref).length
+            + (this.audioBgm && ref === 0 ? 1 : 0)
+            + (ref === 0 ? this.audioNarration.length : 0);
     }
 
     protected async writeDeclaredTimelineTracks(tracks: readonly EditTimelineTrack[]): Promise<void> {
@@ -4398,6 +4464,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else if (track.kind === 'audio' && value.audio && typeof value.audio === 'object') {
                 value.audio.sfx = [];
                 delete value.audio.bgm;
+                delete value.audio.narration;
             }
             const tracks = this.timelineTracks.filter(candidate => candidate.id !== trackId);
             let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;

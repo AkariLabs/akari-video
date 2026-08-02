@@ -71,6 +71,18 @@ export interface EditAudioSfx {
     out?: number;
 }
 
+/**
+ * audio.narration[] の表示用最小形（スキーマ: id は n-NNNN、t は秒、duration は持たない —
+ * 実尺は音声ファイルから解決する）。provenance 等の残りは表示に使わないため保持しない。
+ */
+export interface EditAudioNarration {
+    id: string;
+    t: number;
+    path: string;
+    gainDb?: number;
+    script?: string;
+}
+
 export interface CutTrackSegment {
     index: number;
     track: number;
@@ -1009,6 +1021,7 @@ export function parseEdit(source: string): {
     beats?: EditBeat[];
     layers: EditLayer[];
     audioSfx: EditAudioSfx[];
+    audioNarration: EditAudioNarration[];
     audioBgm?: EditAudioBgm;
     timeline?: { tracks: EditTimelineTrack[] };
     fps: number;
@@ -1024,6 +1037,7 @@ export function parseEdit(source: string): {
     const beats: EditBeat[] = [];
     const layers: EditLayer[] = [];
     const audioSfx: EditAudioSfx[] = [];
+    const audioNarration: EditAudioNarration[] = [];
     let timeline: { tracks: EditTimelineTrack[] } | undefined;
     let audioBgm: EditAudioBgm | undefined;
     const sources: EditSource[] = [];
@@ -1389,6 +1403,42 @@ export function parseEdit(source: string): {
                 }
             }
         }
+        if (Array.isArray(value.audio.narration)) {
+            const seenNarrationIds = new Set<string>();
+            for (let index = 0; index < value.audio.narration.length; index++) {
+                const narration = value.audio.narration[index];
+                if (narration === null || typeof narration !== 'object'
+                    || typeof narration.id !== 'string' || narration.id.length === 0
+                    || typeof narration.path !== 'string' || narration.path.length === 0
+                    || typeof narration.t !== 'number' || !Number.isFinite(narration.t) || narration.t < 0) {
+                    warnings.push(`${index + 1} 番目のナレーションは識別情報・時刻・素材のいずれかが不正なため表示しません。`);
+                    continue;
+                }
+                if (seenNarrationIds.has(narration.id)) {
+                    warnings.push(`ナレーション ${narration.id} が重複しているため、後の要素は表示しません。`);
+                    continue;
+                }
+                seenNarrationIds.add(narration.id);
+                let gainDb: number | undefined;
+                if (narration.gain_db !== undefined && narration.gain_db !== null) {
+                    if (typeof narration.gain_db === 'number' && Number.isFinite(narration.gain_db)
+                        && narration.gain_db >= -60 && narration.gain_db <= 12) {
+                        gainDb = narration.gain_db;
+                    } else {
+                        warnings.push(`ナレーション ${narration.id} の gain_db が不正なため無視します。`);
+                    }
+                }
+                audioNarration.push({
+                    id: narration.id,
+                    t: narration.t,
+                    path: narration.path,
+                    ...(gainDb !== undefined ? { gainDb } : {}),
+                    ...(typeof narration.script === 'string' && narration.script ? { script: narration.script } : {})
+                });
+            }
+        } else if (value.audio.narration !== undefined) {
+            warnings.push('audio.narration が配列ではないためナレーションを表示しません。');
+        }
         const bgm = value.audio.bgm;
         if (bgm !== undefined && bgm !== null) {
             if (typeof bgm === 'object' && !Array.isArray(bgm)
@@ -1482,6 +1532,7 @@ export function parseEdit(source: string): {
         ...(Array.isArray(value.beats) ? { beats } : {}),
         layers,
         audioSfx,
+        audioNarration,
         ...(audioBgm ? { audioBgm } : {}),
         ...(timeline ? { timeline } : {}),
         fps,
