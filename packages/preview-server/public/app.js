@@ -152,7 +152,12 @@ async function init() {
     window.akari.stageScale = () => zoomLayer.clientWidth / wrapper.clientWidth;
     const os = summary?.output || {};
     window.akari.outputSize = () => ({ width: os.width || 1280, height: os.height || 720 });
-    if (window.akari.interaction) window.akari.interaction.init();
+    // overlay-interaction.bundle.js（packages/overlay-runtime 正本）はスクリプト読込時に
+    // 自己初期化する。書き込みブリッジ（engine.overlayWrite）と出力サイズ参照
+    // （state.summary.output）だけこちらが供給する。editPath はサーバ側 projectRoot 直下
+    // 固定のため名目値でよい（PUT /api/edit.json に届く）。
+    window.akari.state = { editPath: 'edit.json', summary };
+    window.akari.engine = { overlayWrite: overlayWriteViaPut };
 
     // Restore settings
     if (savedSettings.zoom && savedSettings.zoom >= ZOOM_MIN && savedSettings.zoom <= ZOOM_MAX) {
@@ -1205,7 +1210,13 @@ function createOverlayRuntime() {
   function tick(t) {
     for (const o of overlays) {
       const v = o.start <= t && t < o.start + o.duration;
-      if (v !== o.visible) { o.el.style.visibility = v ? 'visible' : 'hidden'; o.visible = v; }
+      if (v !== o.visible) {
+        o.el.style.visibility = v ? 'visible' : 'hidden';
+        o.visible = v;
+        // ㉑ shell の overlay-runtime.js と同じ契約: 可視化タイミングで当たり判定
+        // （clip-path）を断片の実寸に合わせ直す（inset:0 全画面コンテナの素通し化）。
+        if (v) window.akari.interaction?.syncOverlayHitRegion?.(o.el);
+      }
       if (!v) continue;
       const ms = Math.max(0, (t - o.start) * 1000);
       for (const a of o.el.getAnimations({ subtree: true })) { a.pause(); a.currentTime = ms; }
@@ -1214,6 +1225,36 @@ function createOverlayRuntime() {
   return { mount, tick, unmount };
 }
 function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
+
+// interaction（overlay-runtime 正本）の書き込みブリッジ。shell では engine.overlayWrite が
+// RPC（lint ゲート付き）に相当し、Web UI では PUT /api/edit.json（サーバ側で同じ lint ゲート）に
+// 落ちる。patch は { transform } / { html } /（将来 { vars }）— 旧フォークの applyPatch と同じ
+// 「最新 summary を取得 → 対象 overlay へマージ → 全文 PUT」方式。
+async function overlayWriteViaPut(editPath, overlayId, patch) {
+  const res = await fetch('/api/summary');
+  if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
+  const edit = await res.json();
+  const ov = (edit.overlays || []).find(o => String(o.id) === String(overlayId));
+  if (!ov) throw new Error(`オーバーレイが見つかりません: ${overlayId}`);
+  for (const [key, value] of Object.entries(patch || {})) {
+    if (key === 'transform') ov.transform = { ...ov.transform, ...value };
+    else if (key === 'vars') ov.vars = { ...ov.vars, ...value };
+    else ov[key] = value;
+  }
+  const put = await fetch('/api/edit.json', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(edit),
+  });
+  if (!put.ok) {
+    let detail = `HTTP ${put.status}`;
+    try {
+      const body = await put.json();
+      if (body?.findings?.length) detail = body.findings[0].message || detail;
+    } catch {}
+    throw new Error(`書き戻しに失敗しました: ${detail}`);
+  }
+}
 
 function captionZoneParts(zone) {
   if (!zone || zone === 'bottom') return { row: 'bottom', col: 'center' };

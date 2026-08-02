@@ -1759,5 +1759,8 @@ window.akari.interaction = (() => {
     currentDisplayScale,
     // ㉑ 素通し: overlay-runtime.js の tick() が可視化タイミングで呼ぶ。
     syncOverlayHitRegion,
+    // Web UI（preview-server）が編集モードを抜けるときに選択枠を畳むための公開口
+    // （Phase 2-4 一本化。shell では未使用の追加 export で挙動不変）。
+    clearSelection,
   };
 })();
