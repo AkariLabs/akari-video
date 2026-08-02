@@ -1,0 +1,11 @@
+{
+  "name": "@akari-video/creator-root",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AKARI Video の作業場（CreatorRoot）を解決・生成・養子縁組する Electron 非依存・pure Node ESM・外部 npm 依存ゼロの共有モジュール。",
+  "type": "module",
+  "main": "src/index.mjs",
+  "scripts": {
+    "test": "node --test \"test/*.mjs\""
+  }
+}
