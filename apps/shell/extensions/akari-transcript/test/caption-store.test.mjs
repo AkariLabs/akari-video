@@ -107,6 +107,77 @@ test('任意フィールドが無い既存 caption はバイト等価で round-t
     assert.equal(source.includes('"display_text"'), false);
 });
 
+test('parseCaptions: オブジェクト形式 { default_text_style, captions } を受理し形式を報告する', () => {
+    const source = JSON.stringify({
+        default_text_style: { color: '#FFCC00', zone: 'top' },
+        captions: [
+            { id: 'c-0001', start: 1, end: 2, text: 'あ', speaker: null, sourceRef: null, edited: false }
+        ]
+    });
+    const parsed = parseCaptions(source);
+    assert.equal(parsed.captions.length, 1);
+    assert.equal(parsed.captions[0].id, 'c-0001');
+    assert.deepEqual(parsed.shape, {
+        root: 'object',
+        defaultTextStyle: { color: '#FFCC00', zone: 'top' }
+    });
+    // 配列形式は従来どおり
+    assert.deepEqual(parseCaptions('[]').shape, { root: 'array' });
+});
+
+test('serializeCaptions: オブジェクト形式で default_text_style と 1 レコード 1 行を保持する', () => {
+    const captions = parseCaptions(JSON.stringify({
+        default_text_style: { color: '#FFFFFF' },
+        captions: [
+            { id: 'c-0001', start: 1, end: 2, text: 'あ', speaker: null, sourceRef: null, edited: false },
+            { id: 'c-0002', start: 2, end: 3, text: 'い', speaker: null, sourceRef: null, edited: false }
+        ]
+    }));
+    const source = serializeCaptions(captions.captions, captions.shape);
+    const reparsed = parseCaptions(source);
+    assert.deepEqual(reparsed.shape, { root: 'object', defaultTextStyle: { color: '#FFFFFF' } });
+    assert.deepEqual(reparsed.captions.map(c => c.id), ['c-0001', 'c-0002']);
+    // 行手術契約: 各レコードは 1 物理行（"id" を含む行がレコード数と一致）
+    const idLines = source.split('\n').filter(line => line.includes('"id"'));
+    assert.equal(idLines.length, 2);
+    // default_text_style 行はレコード行と独立
+    assert.equal(source.split('\n').filter(line => line.includes('default_text_style')).length, 1);
+});
+
+test('replaceCaptionLine: オブジェクト形式でも該当行だけ書き換え default_text_style を壊さない', () => {
+    const parsed = parseCaptions(JSON.stringify({
+        default_text_style: { color: '#FF0000', size_px: 44 },
+        captions: [
+            { id: 'c-0001', start: 1, end: 2, text: 'before', speaker: null, sourceRef: null, edited: false }
+        ]
+    }));
+    const source = serializeCaptions(parsed.captions, parsed.shape);
+    const updated = replaceCaptionLine(source, 'c-0001', 'after');
+    const reparsed = parseCaptions(updated);
+    assert.equal(reparsed.captions[0].text, 'after');
+    assert.equal(reparsed.captions[0].edited, true);
+    assert.deepEqual(reparsed.shape.defaultTextStyle, { color: '#FF0000', size_px: 44 });
+});
+
+test('regenerateCaptions: 既存がオブジェクト形式なら形式と default_text_style を保持して出力する', () => {
+    const analysis = JSON.stringify({
+        transcript: [{ start: 1, end: 2, text: 'gen' }]
+    });
+    const existing = JSON.stringify({
+        default_text_style: { zone: 'bottom' },
+        captions: [
+            { id: 'c-0001', start: 5, end: 6, text: 'manual', speaker: null, sourceRef: null, edited: false }
+        ]
+    });
+    const { source } = regenerateCaptions(analysis, existing);
+    const reparsed = parseCaptions(source);
+    assert.deepEqual(reparsed.shape, { root: 'object', defaultTextStyle: { zone: 'bottom' } });
+    assert.deepEqual(reparsed.captions.map(c => c.text), ['gen', 'manual']);
+    // 既存が配列形式なら従来どおり配列で出力
+    const arrayOut = regenerateCaptions(analysis, '[]').source;
+    assert.equal(parseCaptions(arrayOut).shape.root, 'array');
+});
+
 test('regenerateCaptions: 保持した既存字幕を含めて start 順に並ぶ（edit-lint captions.order 契約）', () => {
     const analysis = JSON.stringify({
         transcript: [

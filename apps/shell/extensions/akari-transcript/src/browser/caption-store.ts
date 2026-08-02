@@ -33,6 +33,17 @@ export interface RegenerationResult {
     warnings: string[];
 }
 
+/**
+ * captions.json のルート形式（captions.schema.json は配列そのままと
+ * { default_text_style?, captions: [...] } のオブジェクト形式の両方を許す）。
+ * 書き戻しで元の形式と default_text_style を保持するために持ち回る。
+ */
+export interface CaptionsDocumentShape {
+    root: 'array' | 'object';
+    /** オブジェクト形式のときの default_text_style 原値（無ければ undefined） */
+    defaultTextStyle?: unknown;
+}
+
 export interface DerivedCaptionWord {
     start: number;
     end: number;
@@ -100,16 +111,35 @@ export function replaceCaptionDisplayTextLine(source: string, captionId: string,
     return updated;
 }
 
-export function parseCaptions(source: string): { captions: Caption[]; warnings: string[] } {
-    const value = JSON.parse(source);
-    if (!Array.isArray(value)) {
-        throw new Error('字幕データの形式を確認できません。');
+/** 配列ルート / オブジェクトルートの両形式からレコード列と形式情報を取り出す。 */
+function extractCaptionRecords(value: unknown): { records: unknown[]; shape: CaptionsDocumentShape } {
+    if (Array.isArray(value)) {
+        return { records: value, shape: { root: 'array' } };
     }
+    if (value && typeof value === 'object' && Array.isArray((value as Record<string, unknown>).captions)) {
+        const root = value as Record<string, unknown>;
+        return {
+            records: root.captions as unknown[],
+            shape: {
+                root: 'object',
+                ...(root.default_text_style !== undefined ? { defaultTextStyle: root.default_text_style } : {})
+            }
+        };
+    }
+    throw new Error('字幕データの形式を確認できません。');
+}
+
+export function parseCaptions(source: string): {
+    captions: Caption[];
+    warnings: string[];
+    shape: CaptionsDocumentShape;
+} {
+    const { records, shape } = extractCaptionRecords(JSON.parse(source));
     const captions: Caption[] = [];
     const warnings: string[] = [];
     const seenIds = new Set<string>();
-    for (let index = 0; index < value.length; index++) {
-        const caption = normalizeCaption(value[index]);
+    for (let index = 0; index < records.length; index++) {
+        const caption = normalizeCaption(records[index]);
         if (!caption) {
             warnings.push(`${index + 1} 番目の字幕は時刻または内容が不正なため表示しません。`);
             continue;
@@ -121,7 +151,7 @@ export function parseCaptions(source: string): { captions: Caption[]; warnings: 
         seenIds.add(caption.id);
         captions.push(caption);
     }
-    return { captions, warnings };
+    return { captions, warnings, shape };
 }
 
 export function regenerateCaptions(analysisSource: string, existingSource?: string): RegenerationResult {
@@ -142,13 +172,18 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
     }
 
     const existing: Caption[] = [];
+    let shape: CaptionsDocumentShape = { root: 'array' };
     if (existingSource !== undefined) {
-        const parsed = JSON.parse(existingSource);
-        if (!Array.isArray(parsed)) {
-            throw new Error('既存の字幕データの形式を確認できません。');
+        let records: unknown[];
+        try {
+            ({ records, shape } = extractCaptionRecords(JSON.parse(existingSource)));
+        } catch (error) {
+            throw error instanceof SyntaxError
+                ? error
+                : new Error('既存の字幕データの形式を確認できません。');
         }
-        for (let index = 0; index < parsed.length; index++) {
-            const value = parsed[index];
+        for (let index = 0; index < records.length; index++) {
+            const value = records[index];
             const caption = normalizeCaptionForRegeneration(value);
             if (!caption) {
                 warnings.push(`既存の ${index + 1} 番目の字幕は時刻または内容が不正なため使いません。`);
@@ -222,12 +257,23 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
     // 並び順契約（edit-lint captions.order）に落ちる。安定ソートで時刻順に整える
     captions.sort((left, right) => left.start - right.start);
 
-    return { captions, source: serializeCaptions(captions), warnings };
+    // 既存がオブジェクト形式なら、その形式と default_text_style を保持して書き戻す
+    return { captions, source: serializeCaptions(captions, shape), warnings };
 }
 
-export function serializeCaptions(captions: readonly Caption[]): string {
-    const rows = captions.map(caption => `  ${serializeCaption(caption)}`);
-    return rows.length > 0 ? `[\n${rows.join(',\n')}\n]\n` : '[]\n';
+export function serializeCaptions(captions: readonly Caption[], shape?: CaptionsDocumentShape): string {
+    if (!shape || shape.root === 'array') {
+        const rows = captions.map(caption => `  ${serializeCaption(caption)}`);
+        return rows.length > 0 ? `[\n${rows.join(',\n')}\n]\n` : '[]\n';
+    }
+    // オブジェクト形式: default_text_style は 1 行の原値のまま、レコードは従来どおり
+    // 1 レコード 1 物理行（replaceCaptionLine 系の行手術契約を維持する）
+    const rows = captions.map(caption => `    ${serializeCaption(caption)}`);
+    const defaultTextStyle = shape.defaultTextStyle !== undefined
+        ? `  "default_text_style": ${JSON.stringify(shape.defaultTextStyle)},\n`
+        : '';
+    const body = rows.length > 0 ? `[\n${rows.join(',\n')}\n  ]` : '[]';
+    return `{\n${defaultTextStyle}  "captions": ${body}\n}\n`;
 }
 
 /** Deterministic display-only timing derived from character count; it is never persisted to captions.json. */
