@@ -114,6 +114,17 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
      * 追加する。もう一方が表示中なら reconcileLeftPanel が close() で退避する。
      * 2026-07-30 裁定 R2 により、シェルは工程をゲートせずサーフェスを常時提供する。
      * 工程の状態管理はエージェント + ファイルが担う。
+     *
+     * F1（task 2026-08-03-shell-quickwins-feedback）: 起動直後に左パネルの
+     * 既定選択が「検索」になってしまう実機不具合の修正。原因は Theia core の
+     * `SearchInWorkspaceFrontendContribution.initializeLayout()` が
+     * `openView({ activate: false })` を「素材」ウィジェット追加より早い
+     * レイアウト初期化フェーズで呼び、空だった左パネルの tabBar に最初に
+     * 挿入されたタブとして自動的に current になる（Lumino TabBar は
+     * currentIndex が -1 のときだけ新規タブを自動選択する）ため。ここで
+     * `shell.revealWidget()` を呼んで「素材」側を tabBar の current に
+     * 選び直す — `activateWidget()` と異なり `.activate()`（フォーカス奪取）は
+     * 呼ばないため、起動時に意図せず左パネルへキーボードフォーカスが移ることはない。
      */
     protected async ensureModeAppropriateAssetView(trigger: string): Promise<void> {
         const shell = this.shell;
@@ -126,6 +137,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             await shell.addWidget(widget, { area: 'left', rank: 100 });
         }
         this.reconcileLeftPanel(trigger);
+        await shell.revealWidget(showId);
     }
 
     /**

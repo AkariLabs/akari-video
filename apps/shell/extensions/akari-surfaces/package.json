@@ -6,7 +6,8 @@
   "main": "lib/browser/akari-surfaces-frontend-module.js",
   "theiaExtensions": [
     {
-      "frontend": "lib/browser/akari-surfaces-frontend-module"
+      "frontend": "lib/browser/akari-surfaces-frontend-module",
+      "backend": "lib/node/akari-surfaces-backend-module"
     }
   ],
   "scripts": {

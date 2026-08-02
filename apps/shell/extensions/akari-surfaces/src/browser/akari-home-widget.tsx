@@ -6,6 +6,7 @@ import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { WidgetManager } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { WindowTitleService } from '@theia/core/lib/browser/window/window-title-service';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -29,6 +30,15 @@ import {
     durationChoiceToTarget
 } from '../common/intake-labels';
 import { DEFAULT_UPDATE_FEED_URL, UpdateCache, UpdateStatus, evaluateUpdateStatus, formatHomeBannerText, parseUpdateCache, withDismissedVersion } from '../common/update-feed';
+import {
+    buildReleaseNotesUrl,
+    evaluateVersionNotice,
+    formatVersionNoticeText,
+    parseShellLastVersion,
+    withRecordedVersion
+} from '../common/shell-version-notice';
+import { AkariNewProjectService } from '../common/akari-new-project-protocol';
+import { AkariCurrentLocationHolder } from './akari-current-location-holder';
 
 // ホーム v4（裁定 R1〜R3・notes-2026-08-02-home-v4-minimal）: dashboard の
 // 構成要素を 3 つだけに削る — ①説明（2 動作） ②過去プロジェクト一覧
@@ -79,12 +89,28 @@ const CREATOR_ROOT_CHANNELS_DIRNAME = 'channels';
 const CREATOR_ROOT_VIDEOS_DIRNAME = 'videos';
 const CREATOR_ROOT_PROJECT_DISPLAY_LIMIT = 10;
 const CREATOR_ROOT_MISSING_NOTICE = '作業場はまだありません — 右の相棒に頼むか、ターミナルで `akari` を実行すると作れます。';
+// 既定チャンネル名（packages/creator-root/src/index.mjs の DEFAULT_CHANNEL_NAME と
+// 同じ値。root.json の channels が空/未解決のときのフォールバックにのみ使う —
+// 通常は manifest.channels[0]（誕生時に作られた最初のチャンネル）を使う）。
+const CREATOR_ROOT_DEFAULT_CHANNEL = 'my-channel';
+
+// --- F2 更新ポップアップ（task 2026-08-03-shell-quickwins-feedback） ---
+// アプリ単位マーカーや更新キャッシュと同じ `<AKARI_HOME>/` 直下に置く。
+const SHELL_LAST_VERSION_FILENAME = 'shell-last-version.json';
+
+// --- F5 新しい動画を始める（task 2026-08-03-shell-quickwins-feedback） ---
+const NEW_PROJECT_NAME_SLUG = 'new-video';
 
 interface CreatorRootProjectEntry {
     name: string;
     channel: string;
     uri: URI;
 }
+
+/** F6 現在地 1 行の表示に使う解決結果（task 2026-08-03-shell-quickwins-feedback）。 */
+type CurrentLocation =
+    | { kind: 'inside'; rootPath: string; channel: string; project: string }
+    | { kind: 'outside'; projectPath: string };
 
 /** workflow.json の roles 要素（v3 から再利用。assets ロールパスの解決にのみ使う）。 */
 interface WorkflowRole {
@@ -127,11 +153,20 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(WindowService)
     protected readonly windowService: WindowService;
 
+    @inject(WindowTitleService)
+    protected readonly windowTitleService: WindowTitleService;
+
     @inject(ApplicationServer)
     protected readonly applicationServer: ApplicationServer;
 
     @inject(EnvVariablesServer)
     protected readonly envVariables: EnvVariablesServer;
+
+    @inject(AkariNewProjectService)
+    protected readonly newProjectService: AkariNewProjectService;
+
+    @inject(AkariCurrentLocationHolder)
+    protected readonly locationHolder: AkariCurrentLocationHolder;
 
     protected watching = false;
 
@@ -143,6 +178,15 @@ export class AkariHomeWidget extends ReactWidget {
     // --- ホーム v4: 過去プロジェクト一覧（裁定 R3） ---
     protected creatorRootAvailable = false;
     protected creatorRootProjects: CreatorRootProjectEntry[] = [];
+    // F5/F6 が resolveCreatorRootDir() の結果を再利用するために保持する
+    // （task 2026-08-03-shell-quickwins-feedback）。
+    protected creatorRootUri: URI | undefined;
+
+    // --- F5 新しい動画を始める ---
+    protected startingNewProject = false;
+
+    // --- F6 現在地 1 行（表示のみ） ---
+    protected currentLocation: CurrentLocation | undefined;
 
     // --- ホーム v3 由来: 接続案内カード / 進め方フォーム ---
     protected connectionsUri: URI | undefined;
@@ -188,10 +232,16 @@ export class AkariHomeWidget extends ReactWidget {
     async start(): Promise<void> {
         await this.loadHomeFlow();
         await this.loadCreatorRootProjects();
+        // F6: 過去プロジェクト解決（creatorRootUri）の後に読む — 現在地が
+        // 作業場の内側かどうかの判定に使うため。
+        await this.refreshCurrentLocation();
         // 更新チェック（契約の起動非ブロック原則）: キャッシュの読み比較は待つが
         // （ローカル I/O のみ・十分高速）、バックグラウンド fetch はここで await しない
         // （loadUpdateStatus 内で fire-and-forget にしてある）。
         await this.loadUpdateStatus();
+        // F2: 「更新されました」ポップアップ（U2 のリモートフィード比較とは独立・
+        // ローカル前回起動記録のみで判定。起動を待たせないほど重くはないため await する）。
+        await this.checkVersionNotice();
         if (this.watching) {
             return;
         }
@@ -214,7 +264,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected override onAfterShow(msg: Message): void {
         super.onAfterShow(msg);
         void this.refreshHomeFlow();
-        void this.loadCreatorRootProjects();
+        void this.loadCreatorRootProjects().then(() => this.refreshCurrentLocation());
     }
 
     // --- ホーム v3: 状態読み取り（SSOT はファイル。裁定 R1/R5） ---
@@ -357,10 +407,12 @@ export class AkariHomeWidget extends ReactWidget {
         if (!rootUri) {
             this.creatorRootAvailable = false;
             this.creatorRootProjects = [];
+            this.creatorRootUri = undefined;
             this.update();
             return;
         }
         this.creatorRootAvailable = true;
+        this.creatorRootUri = rootUri;
         this.creatorRootProjects = await this.listCreatorRootProjects(rootUri);
         this.update();
     }
@@ -449,6 +501,210 @@ export class AkariHomeWidget extends ReactWidget {
     protected openCreatorRootProject = (uri: URI): void => {
         this.workspaceService.open(uri);
     };
+
+    // --- F5 新しい動画を始める（task 2026-08-03-shell-quickwins-feedback） -----
+
+    /**
+     * 作業場の「既定チャンネル」= root.json の `channels` 先頭要素（誕生時に
+     * 生成される最初のチャンネル。creator-root-v1 契約 §3・§5）。読めない/
+     * 空配列のときだけ `packages/creator-root` と同じ既定名にフォールバックする。
+     */
+    protected async resolveDefaultChannelName(rootUri: URI): Promise<string> {
+        try {
+            const content = await this.fileService.readFile(rootUri.resolve(CREATOR_ROOT_MANIFEST_RELATIVE_PATH));
+            const manifest = JSON.parse(content.value.toString());
+            const channels: unknown = manifest?.channels;
+            if (Array.isArray(channels) && typeof channels[0] === 'string' && channels[0].length > 0) {
+                return channels[0];
+            }
+        } catch {
+            // フォールバックへ倒す。
+        }
+        return CREATOR_ROOT_DEFAULT_CHANNEL;
+    }
+
+    /**
+     * `<root>/channels/<channel>/videos/` 配下で空いているプロジェクト名を探す
+     * （日付プレフィックスは過去プロジェクト一覧の並び順（sortCreatorRootProjects）と
+     * 揃える）。同名衝突時は `-2` `-3` ... を試す（`availableTarget` と同じ流儀）。
+     */
+    protected async reserveNewProjectName(rootUri: URI, channel: string): Promise<string> {
+        const videosUri = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME);
+        const datePrefix = new Date().toISOString().slice(0, 10);
+        const stem = `${datePrefix}-${NEW_PROJECT_NAME_SLUG}`;
+        let candidate = stem;
+        for (let index = 2; await this.fileService.exists(videosUri.resolve(candidate)); index++) {
+            candidate = `${stem}-${index}`;
+        }
+        return candidate;
+    }
+
+    /**
+     * 「+ 新しい動画を始める」。作業場の既定チャンネルの `videos/` 配下に
+     * 新規プロジェクトを作り、開く（孤児禁止 — task.md 指定）。
+     * 生成は `akari-project` 拡張の既存バックエンドサービス
+     * `AkariProjectService#createProject()` を呼ぶだけで再実装しない
+     * （テンプレコピー・フォールバック補完・スキル同梱・git init は向こう側の責務）。
+     * 生成できたら `openCreatorRootProject` と同じ `WorkspaceService#open` で開く。
+     */
+    protected startNewProject = async (): Promise<void> => {
+        if (this.startingNewProject || !this.creatorRootUri) {
+            return;
+        }
+        this.startingNewProject = true;
+        this.update();
+        const rootUri = this.creatorRootUri;
+        try {
+            const channel = await this.resolveDefaultChannelName(rootUri);
+            const name = await this.reserveNewProjectName(rootUri, channel);
+            const destination = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME).resolve(name);
+            await this.newProjectService.createProject(destination.toString());
+            this.workspaceService.open(destination);
+        } catch (error) {
+            console.error('[akari-surfaces] failed to start a new project:', error);
+            this.messages.error('新しい動画の作成に失敗しました。');
+            this.startingNewProject = false;
+            this.update();
+        }
+    };
+
+    // --- F6 現在地 1 行（表示のみ・task 2026-08-03-shell-quickwins-feedback） --
+
+    /**
+     * ホーム上部の現在地表示 + ウィンドウタイトル反映（ベストエフォート）用の解決。
+     * 開いているワークスペース root が無ければ何も表示しない（ホーム = プロジェクト
+     * 未選択の状態はそもそも「現在地」を持たない）。作業場ルート（`creatorRootUri`。
+     * loadCreatorRootProjects が解決済み）の `channels/<channel>/videos/<project>`
+     * の内側なら `kind: 'inside'`、そうでなければ「作業場外のプロジェクト」= お試し
+     * モード（お試しモードの用語は creator-root-v1 契約 §1）として `kind: 'outside'`。
+     * クリックでの階層ナビゲーションは付けない（開き方の裁定 — task.md 指定）。
+     */
+    protected async refreshCurrentLocation(): Promise<void> {
+        const roots = await this.workspaceService.roots;
+        const projectUri = roots[0]?.resource;
+        if (!projectUri) {
+            this.currentLocation = undefined;
+            this.pushLocationToTitle(undefined);
+            this.update();
+            return;
+        }
+
+        const rootUri = this.creatorRootUri;
+        if (rootUri) {
+            const relative = rootUri.relative(projectUri)?.toString();
+            const segments = relative ? relative.split('/').filter(Boolean) : [];
+            if (
+                segments.length === 4 &&
+                segments[0] === CREATOR_ROOT_CHANNELS_DIRNAME &&
+                segments[2] === CREATOR_ROOT_VIDEOS_DIRNAME
+            ) {
+                const channel = segments[1];
+                const project = segments[3];
+                this.currentLocation = { kind: 'inside', rootPath: await this.formatDisplayPath(rootUri), channel, project };
+                this.pushLocationToTitle({ kind: 'inside', workspaceName: this.labelForPath(rootUri), channel, project });
+                this.update();
+                return;
+            }
+        }
+
+        this.currentLocation = { kind: 'outside', projectPath: await this.formatDisplayPath(projectUri) };
+        this.pushLocationToTitle({ kind: 'outside' });
+        this.update();
+    }
+
+    /**
+     * `AkariCurrentLocationHolder` へ書き込み、`WindowTitleService` を空更新で
+     * 再計算させる（ウィンドウタイトル反映はベストエフォート）。`update({})` は
+     * パーツを増やさないが `updateTitle()`（`WindowTitleContribution.enhanceTitle`
+     * を含む）を必ず再実行するため、ホルダーの変更をタイトルへ即時反映できる —
+     * ホルダーの変更自体は `WindowTitleService` の更新パイプラインを起動する
+     * トリガーを持たないため、呼び出し側であるここが明示的に蹴る必要がある。
+     */
+    protected pushLocationToTitle(descriptor: Parameters<AkariCurrentLocationHolder['set']>[0]): void {
+        this.locationHolder.set(descriptor);
+        this.windowTitleService.update({});
+    }
+
+    /** URI の末尾セグメント（ディレクトリ名）だけを取り出す（ウィンドウタイトル用の短い表示名）。 */
+    protected labelForPath(uri: URI): string {
+        return uri.path.base || uri.path.toString();
+    }
+
+    /** ホームディレクトリ配下なら `~` に短縮して表示する（絶対パスのままより読みやすいため）。 */
+    protected async formatDisplayPath(uri: URI): Promise<string> {
+        const fsPath = uri.path.fsPath();
+        try {
+            const homeDirUri = await this.envVariables.getHomeDirUri();
+            const homeFsPath = new URI(homeDirUri).path.fsPath();
+            if (fsPath === homeFsPath) {
+                return '~';
+            }
+            if (fsPath.startsWith(`${homeFsPath}/`) || fsPath.startsWith(`${homeFsPath}\\`)) {
+                return `~${fsPath.slice(homeFsPath.length)}`;
+            }
+        } catch {
+            // ホームディレクトリが解決できなければ絶対パスのまま表示する（フェイルセーフ側）。
+        }
+        return fsPath;
+    }
+
+    // --- F2 更新ポップアップ（task 2026-08-03-shell-quickwins-feedback） ------
+
+    /**
+     * 前回起動版と現在版を比べ、違えば 1 回だけ MessageService の info トースト
+     * （モーダルではない）で「更新されました」を通知する。初回起動（記録なし）は
+     * ポップアップを出さず記録だけ書く（task.md 指定）。バージョン記録は
+     * 通知の有無に関わらず、今回の版が前回の記録と違えば毎回更新する。
+     */
+    protected async checkVersionNotice(): Promise<void> {
+        let cacheUri: URI;
+        try {
+            cacheUri = (await this.resolveAkariHomeUri()).resolve(SHELL_LAST_VERSION_FILENAME);
+        } catch (error) {
+            console.error('[akari-surfaces] failed to resolve shell-last-version.json location:', error);
+            return;
+        }
+
+        let record: ReturnType<typeof parseShellLastVersion> = null;
+        try {
+            const content = await this.fileService.readFile(cacheUri);
+            record = parseShellLastVersion(content.value.toString());
+        } catch {
+            // 初回起動・壊れた記録はどちらも record=null（フェイルセーフ側）。
+        }
+
+        const appInfo = await this.applicationServer.getApplicationInfo().catch(() => undefined);
+        const currentVersion = appInfo?.version ?? '0.0.0';
+        const status = evaluateVersionNotice(currentVersion, record);
+
+        if (status.shouldNotify) {
+            // `MessageService.info()` は利用者がトーストを閉じる/アクションを選ぶまで
+            // 解決しない Promise を返す。`checkVersionNotice` は `start()`（=
+            // `AkariHomeContribution.onDidInitializeLayout`）から await されているため、
+            // ここを await すると起動シーケンス全体（プリロード画面が消えるところ）が
+            // ユーザーがトーストを閉じるまで止まってしまう（実機で確認したフリーズ）。
+            // 通知は fire-and-forget にし、後続のアクション処理だけ `.then()` で繋ぐ。
+            void this.messages.info(formatVersionNoticeText(currentVersion), '変更点を見る').then(action => {
+                if (action === '変更点を見る') {
+                    this.windowService.openNewWindow(buildReleaseNotesUrl(currentVersion));
+                }
+            });
+        }
+
+        if (record?.lastVersion !== currentVersion) {
+            try {
+                const next = withRecordedVersion(currentVersion, new Date().toISOString());
+                try {
+                    await this.fileService.createFolder(cacheUri.parent);
+                } catch {
+                    // 既に存在する場合は無視する。
+                }
+                await this.fileService.writeFile(cacheUri, BinaryBuffer.fromString(`${JSON.stringify(next, null, 2)}\n`));
+            } catch (error) {
+                console.error('[akari-surfaces] failed to record shell-last-version.json:', error);
+            }
+        }
+    }
 
     // --- 更新チェック（U2 v0）: 状態読み込み・バックグラウンド fetch・アクション ---
 
@@ -1020,7 +1276,24 @@ export class AkariHomeWidget extends ReactWidget {
         return (
             <header style={{ marginBottom: 14 }}>
                 <h1 style={{ margin: 0, fontSize: 21 }}>ホーム</h1>
+                {this.renderCurrentLocation()}
             </header>
+        );
+    }
+
+    /**
+     * F6 現在地 1 行（表示のみ・クリックナビ無し）。開いているワークスペースが
+     * 無ければ何も出さない。
+     */
+    protected renderCurrentLocation(): React.ReactNode {
+        if (!this.currentLocation) {
+            return undefined;
+        }
+        const text = this.currentLocation.kind === 'inside'
+            ? `作業場 ${this.currentLocation.rootPath} › ${this.currentLocation.channel} › ${this.currentLocation.project}`
+            : `作業場外のプロジェクト: ${this.currentLocation.projectPath}`;
+        return (
+            <p data-akari-current-location='true' style={homeFlowStyles.currentLocation}>{text}</p>
         );
     }
 
@@ -1061,21 +1334,14 @@ export class AkariHomeWidget extends ReactWidget {
                 </section>
             );
         }
-        if (this.creatorRootProjects.length === 0) {
-            return (
-                <section style={homeFlowStyles.card}>
-                    <div style={homeFlowStyles.cardBody}>
-                        <strong style={homeFlowStyles.cardTitle}>過去プロジェクト</strong>
-                        <p style={homeFlowStyles.cardLead}>まだプロジェクトがありません。</p>
-                    </div>
-                </section>
-            );
-        }
         return (
             <section style={{ marginBottom: 16 }}>
                 <p style={homeFlowStyles.glabel}>過去プロジェクト</p>
                 <div style={homeFlowStyles.projectList}>
-                    {this.creatorRootProjects.map(project => (
+                    {this.renderNewProjectItem()}
+                    {this.creatorRootProjects.length === 0 ? (
+                        <p style={homeFlowStyles.cardLead}>まだプロジェクトがありません。</p>
+                    ) : this.creatorRootProjects.map(project => (
                         <button
                             key={project.uri.toString()}
                             type='button'
@@ -1092,6 +1358,31 @@ export class AkariHomeWidget extends ReactWidget {
                     ))}
                 </div>
             </section>
+        );
+    }
+
+    /**
+     * F5「+ 新しい動画を始める」（過去プロジェクト一覧の先頭に 1 個。
+     * task.md 指定）。`renderPastProjects` が `creatorRootAvailable` の時しか
+     * 呼ばないため、ここは「作業場が無ければボタンを出さない」を自然に満たす。
+     */
+    protected renderNewProjectItem(): React.ReactNode {
+        return (
+            <button
+                type='button'
+                className='theia-button main'
+                style={homeFlowStyles.newProjectItem}
+                disabled={this.startingNewProject}
+                data-akari-new-project='true'
+                onClick={() => void this.startNewProject()}
+            >
+                <span className={`codicon ${this.startingNewProject ? 'codicon-loading codicon-modifier-spin' : 'codicon-add'}`} aria-hidden='true' style={homeFlowStyles.chipIcon} />
+                <span style={homeFlowStyles.projectItemBody}>
+                    <strong style={homeFlowStyles.projectItemName}>
+                        {this.startingNewProject ? '作成しています…' : '+ 新しい動画を始める'}
+                    </strong>
+                </span>
+            </button>
         );
     }
 
@@ -1266,6 +1557,19 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     projectItemName: { fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
     projectItemChannel: { opacity: 0.6, fontSize: 11 },
     chipIcon: { fontSize: 14, color: 'var(--theia-focusBorder)' },
+
+    // F5「+ 新しい動画を始める」（過去プロジェクト一覧の先頭）。
+    newProjectItem: {
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9,
+        fontSize: 12.5, minHeight: 'auto', height: 'auto', width: '100%',
+        justifyContent: 'flex-start', textAlign: 'left'
+    },
+
+    // F6 現在地 1 行（表示のみ）。
+    currentLocation: {
+        margin: '4px 0 0', fontSize: 11.5, fontFamily: 'monospace',
+        color: 'var(--theia-descriptionForeground)', overflowWrap: 'anywhere'
+    },
 
     // dashboard 内に展開する進め方フォーム（ステージではない）。
     intakeSection: {

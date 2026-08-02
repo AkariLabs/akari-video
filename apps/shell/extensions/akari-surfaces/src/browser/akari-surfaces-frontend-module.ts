@@ -4,18 +4,35 @@ import { ContainerModule } from '@theia/core/shared/inversify';
 import {
     FrontendApplicationContribution,
     OpenHandler,
+    WebSocketConnectionProvider,
     WidgetFactory
 } from '@theia/core/lib/browser';
+import { WindowTitleContribution } from '@theia/core/lib/browser/window/window-title-service';
 import { AkariHomeCommandContribution } from './akari-home-command-contribution';
 import { AkariHomeContribution } from './akari-home-contribution';
 import { AkariHomeWidget } from './akari-home-widget';
 import { AkariPreferenceContribution } from './akari-preferences';
 import { AkariSettingsWidget } from './akari-settings-widget';
 import { AkariSurfaceOpenHandler } from './akari-surface-open-handler';
+import { AkariCurrentLocationHolder } from './akari-current-location-holder';
+import { AkariWindowTitleContribution } from './akari-window-title-contribution';
+import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../common/akari-new-project-protocol';
 
 export default new ContainerModule(bind => {
     bind(AkariPreferenceContribution).toSelf().inSingletonScope();
     bind(PreferenceContribution).toService(AkariPreferenceContribution);
+
+    // F5: 専用バックエンドサービスへの RPC プロキシ（akari-project 拡張の既存
+    // サービスとパスを共有すると channel 二重 open で恒久ハングするため専用パスにした
+    // 経緯は common/akari-new-project-protocol.ts のコメント参照）。
+    bind(AkariNewProjectService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_NEW_PROJECT_SERVICE_PATH)
+    ).inSingletonScope();
+
+    // F6: 現在地の共有ホルダー（ホームの表示とウィンドウタイトル拡張が両方読む）。
+    bind(AkariCurrentLocationHolder).toSelf().inSingletonScope();
+    bind(AkariWindowTitleContribution).toSelf().inSingletonScope();
+    bind(WindowTitleContribution).toService(AkariWindowTitleContribution);
 
     bind(AkariHomeWidget).toSelf();
     bind(WidgetFactory).toDynamicValue(ctx => ({
