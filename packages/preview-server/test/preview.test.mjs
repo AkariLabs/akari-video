@@ -3,6 +3,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+// 総尺の期待値は Web UI と同じ共有カーネルで計算する（P2-7 テスト用）
+const { buildTimelineMap } = require('../../edit-store/lib/timeline-map.js');
 
 // リポ内 test-project を直接使うと PUT テストが edit.json を汚すため、
 // 一時ディレクトリへコピーしてから回す（リポは読み取りのみ）。
@@ -281,6 +286,59 @@ async function main() {
     await page2.close();
   } catch (e) {
     ng('WebSocket sync test', e.message);
+  }
+
+  // ── P2-7: 編集適用の差分化（location.reload しない・再生位置を保持） ──
+  console.log('\n🔁 Soft reload on edit apply (P2-7)');
+  try {
+    const editPath = path.join(PROJECT, 'edit.json');
+    const originalEdit = fs.readFileSync(editPath, 'utf8');
+    // ページ再読込されたら消えるマーカー + 既知の再生位置に合わせる
+    await page.evaluate(() => {
+      window.__softReloadMarker = 'alive';
+      const el = document.getElementById('seek');
+      el.value = 3;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(300);
+
+    // 末尾カットの out を 1 秒縮める（総尺が変わる観測可能な編集）を PUT で適用。
+    // 先行テストが edit.json を書き換えている可能性があるため、期待総尺は
+    // 変更後 cuts から共有カーネルで計算する
+    const modified = JSON.parse(originalEdit);
+    const lastCut = modified.cuts[modified.cuts.length - 1];
+    lastCut.out = lastCut.out - 1;
+    const expectedTotal = buildTimelineMap(modified.cuts).totalDuration;
+    const putRes = await fetch(`${BASE}/api/edit.json`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(modified, null, 2)
+    });
+    if (!putRes.ok) throw new Error(`PUT failed: HTTP ${putRes.status}`);
+    await page.waitForTimeout(2000);
+
+    const state = await page.evaluate(() => ({
+      marker: window.__softReloadMarker || null,
+      seekMax: parseFloat(document.getElementById('seek').max),
+      t: parseFloat(document.getElementById('seek').value)
+    }));
+    state.marker === 'alive'
+      ? ok('Edit apply does not reload the page (marker survives)')
+      : ng('Soft reload', `page reloaded (marker=${state.marker})`);
+    Math.abs(state.seekMax - expectedTotal) < 0.05
+      ? ok(`New total duration applied in place (seek.max=${state.seekMax})`)
+      : ng('Soft reload duration', `expected seek.max ~${expectedTotal} got ${state.seekMax}`);
+    Math.abs(state.t - 3) < 0.2
+      ? ok(`Playback position preserved (t=${state.t.toFixed(2)})`)
+      : ng('Soft reload position', `expected t ~3 got ${state.t}`);
+
+    // 元に戻す（後続の実行やサーバ状態を汚さない）
+    await fetch(`${BASE}/api/edit.json`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: originalEdit
+    });
+    await page.waitForTimeout(800);
+  } catch (e) {
+    ng('Soft reload on edit apply', e.message);
   }
 
   await page.close();

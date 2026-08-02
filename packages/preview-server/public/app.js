@@ -899,6 +899,67 @@ async function reloadSummary() {
   return summary;
 }
 
+// --- P2-7: 編集適用の差分化 ---
+// 編集適用（PUT / file watch → WS reload）のたびに location.reload すると再生位置・
+// 再生状態・ズーム・編集モードが毎回失われる。ページは再読込せず、変わり得るデータ
+// （timeline / summary / captions）だけ再取得して組み直す。オーバーレイ選択だけは
+// DOM が入れ替わるため解除する。失敗時は従来どおり全リロードへフォールバック
+let softReloadTail = Promise.resolve();
+function requestSoftReload() {
+  softReloadTail = softReloadTail.then(applySoftReload).catch((err) => {
+    console.warn('[preview] soft reload failed; falling back to full reload', err);
+    location.reload();
+  });
+}
+
+async function applySoftReload() {
+  const keep = { t: outputTime, playing: isPlaying };
+  if (isPlaying) pause();
+
+  const [timelineRes, editRes, captionsRes] = await Promise.all([
+    fetch(api.timeline),
+    fetch(api.summary),
+    fetch(api.captions).catch(() => new Response(null, { status: 404 })),
+  ]);
+  if (!timelineRes.ok || !editRes.ok) {
+    throw new Error(`reload fetch failed (timeline=${timelineRes.status}, summary=${editRes.status})`);
+  }
+  timelineData = await timelineRes.json();
+  summary = await editRes.json();
+  if (captionsRes.ok) {
+    const body = await captionsRes.json();
+    captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
+  } else {
+    captionsData = [];
+  }
+  fps = timelineData.fps || 30;
+
+  buildSegments();
+  updateStageScale();
+
+  // B-roll レイヤーを組み直し
+  for (const lv of layerVideos) lv.el.remove();
+  layerVideos = [];
+  setupLayers();
+
+  // 音声グラフを作り直し（旧 context を閉じて鳴っているソースも止める）
+  if (audioCtx) { try { audioCtx.close(); } catch { /* already closed */ } }
+  audioCtx = null; bgmNode = null; narrationNodes = []; sfxNodes = [];
+  setupAudioGraph();
+
+  // オーバーレイ再マウント（選択は旧 DOM を指すため解除）
+  window.akari.interaction?.clearSelection?.();
+  if (window.akari.runtime?.mount) window.akari.runtime.mount(summary);
+  window.akari.state = { editPath: 'edit.json', summary };
+
+  cutInfoPopup.hidden = true;
+  _lastCaptionId = null;
+
+  // 再生位置と状態を復元（新しい総尺にクランプ）
+  seekTo(Math.min(keep.t, totalDuration));
+  if (keep.playing) play();
+}
+
 function showCutInfoAt(t) {
   const seg = getActiveSegment(t);
   if (seg) {
@@ -1712,9 +1773,12 @@ function connectWs() {
   ws.onmessage = (e) => {
     try {
       const m = JSON.parse(e.data);
-      if (m.type === 'reload') return location.reload();
+      if (m.type === 'reload') { requestSoftReload(); return; }
       if (m.type === 'captions-reload') {
         fetch(api.summary).then(r => r.ok && r.json()).then(d => { if (d) summary = d; }).catch(() => {});
+        fetch(api.captions).then(r => r.ok && r.json()).then(d => {
+          if (d) { captionsData = Array.isArray(d) ? d : (d?.captions ?? []); _lastCaptionId = null; updateCaption(); }
+        }).catch(() => {});
         return;
       }
       if (m.type === 'seek') { pause(); seekTo(m.time); }
