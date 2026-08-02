@@ -1,10 +1,10 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
+import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
-import { promises as fs, statSync } from 'fs';
-import { tmpdir } from 'os';
-import { dirname, join, relative, resolve, sep } from 'path';
+import { promises as fs } from 'fs';
+import { basename, dirname, join, relative, sep } from 'path';
 import { promisify } from 'util';
 import {
     AkariAnnotationsService,
@@ -59,7 +59,8 @@ import {
     SplitCutRequest,
     TrimCutRequest,
     TrimSfxRequest,
-    WriteBackResult
+    WriteBackResult,
+    WriteEditSnapshotRequest
 } from '../common/akari-annotations-protocol';
 import * as mediaCache from './media-cache';
 import {
@@ -380,7 +381,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = trimCutInSource(
             source, request.cutIndex, request.in, request.out, maxOutSeconds
         );
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップをトリム') };
     }
 
@@ -397,8 +398,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             ? request.maxOutSeconds
             : await this.probeMaxOutSeconds(source, editPath, this.fsPath(request.projectRootUri), request.cutIndex);
         const updated = slipCutInSource(source, request.cutIndex, request.in, request.out, maxOutSeconds);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップをスリップ') };
     }
 
@@ -462,7 +462,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = setCutSpeedInSource(source, request.cutIndex, request.speed);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの速度を変更') };
     }
 
@@ -476,7 +476,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             scale: request.scale,
             rotate: request.rotate
         });
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの変形を変更') };
     }
 
@@ -485,7 +485,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = updateCutOpacityInSource(source, request.cutIndex, request.opacity);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの不透明度を変更') };
     }
 
@@ -494,7 +494,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = setCutTransitionOutInSource(source, request.cutIndex, request.transitionOut);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップのトランジションを変更') };
     }
 
@@ -508,8 +508,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             scale: request.scale,
             rotate: request.rotate
         });
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材の変形を変更') };
     }
 
@@ -518,8 +517,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = updateLayerOpacityInSource(source, request.layerId, request.opacity);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材の不透明度を変更') };
     }
 
@@ -528,8 +526,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = updateLayerBlendInSource(source, request.layerId, request.blend);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材の合成を変更') };
     }
 
@@ -538,8 +535,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = setSfxGainDbInSource(source, request.sfxIndex, request.gainDb);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE の音量を変更') };
     }
 
@@ -553,8 +549,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             fadeOut: request.fadeOut,
             ducking: request.ducking
         });
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'BGM の設定を変更') };
     }
 
@@ -563,7 +558,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = updateOverlayVarInSource(source, request.overlayId, request.name, request.value);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイのパラメータを変更') };
     }
 
@@ -575,7 +570,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             text: request.text,
             speaker: request.speaker
         });
-        await this.writeAtomic(captionsPath, updated);
+        await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更') };
     }
 
@@ -584,7 +579,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {});
-        await this.writeAtomic(captionsPath, updated);
+        await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のスタイルを変更') };
     }
 
@@ -593,7 +588,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = reorderCutsInSource(source, request.fromIndex, request.toIndex);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの順序を入れ替え') };
     }
 
@@ -602,7 +597,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = moveCutInSource(source, request.cutIndex, request.at, request.track, request.trackState);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを移動') };
     }
 
@@ -611,7 +606,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = setCutAtValuesInSource(source, request.entries);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップ間の空白を詰める') };
     }
 
@@ -620,7 +615,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = shiftCaptionLine(source, request.captionId, request.deltaStart, request.deltaEnd);
-        await this.writeAtomic(captionsPath, updated);
+        await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
     }
 
@@ -629,7 +624,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = insertCaptionLine(source, request.caption);
-        await this.writeAtomic(captionsPath, updated);
+        await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕を複製') };
     }
 
@@ -638,7 +633,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = removeCaptionLine(source, request.captionId);
-        await this.writeAtomic(captionsPath, updated);
+        await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の複製を取り消し') };
     }
 
@@ -647,7 +642,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = moveOverlayInSource(source, request.overlayId, request.start, request.track, request.trackState);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイを移動') };
     }
 
@@ -656,7 +651,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = resizeOverlayInSource(source, request.overlayId, request.duration);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイの尺を変更') };
     }
 
@@ -665,7 +660,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = splitCutInSource(source, request.cutIndex, request.atSeconds);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを分割') };
     }
 
@@ -674,7 +669,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const { source: updated, removedText } = deleteCutInSource(source, request.cutIndex);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         const committed = await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを削除');
         return { committed, removedText };
     }
@@ -684,7 +679,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = insertCutInSource(source, request.cutIndex, request.elementText);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを挿入') };
     }
 
@@ -693,7 +688,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = insertOverlayInSource(source, request.overlay);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイを複製') };
     }
 
@@ -702,7 +697,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = removeOverlayInSource(source, request.overlayId);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'オーバーレイの複製を取り消し') };
     }
 
@@ -713,8 +708,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = moveLayerInSource(
             source, request.layerId, request.t, request.duration, request.track, request.trackState
         );
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材を移動') };
     }
 
@@ -723,8 +717,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const { source: updated, removedText, layerIndex } = deleteLayerByIdInSource(source, request.layerId);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         const committed = await this.commitWrite(this.fsPath(request.projectRootUri), '素材を削除');
         return { committed, removedText, layerIndex };
     }
@@ -734,8 +727,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = insertLayerInSource(source, request.layerIndex, request.elementText);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '素材を挿入') };
     }
 
@@ -744,8 +736,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = moveSfxInSource(source, request.sfxIndex, request.t, request.track, request.trackState);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を移動') };
     }
 
@@ -754,8 +745,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = trimSfxInSource(source, request.sfxIndex, request.in, request.out, request.t);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE をトリム') };
     }
 
@@ -764,8 +754,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const { source: updated, removedText } = deleteSfxInSource(source, request.sfxIndex);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         const committed = await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を削除');
         return { committed, removedText, sfxIndex: request.sfxIndex };
     }
@@ -775,9 +764,34 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
         const updated = insertSfxInSource(source, request.sfxIndex, request.elementText);
-        await this.assertLintPasses(editPath, updated);
-        await this.writeAtomic(editPath, updated);
+        await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE を挿入') };
+    }
+
+    /**
+     * edit.json（と必要なら captions.json）全文スナップショットの lint ゲート付き書き戻し。
+     * widget の FileService 直書き経路（タイムライントラック操作・undo/redo）の置き換え先
+     * （パリティ契約 §2.7）。両ファイル同時変更は同じ一時ディレクトリで 1 回の lint にかけ、
+     * 整合した組として検証する。従来の FileService 直書きは git commit していなかったため、
+     * この RPC も commit しない（committed は常に false）。
+     */
+    async writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        if (typeof request.editSource !== 'string' && typeof request.captionsSource !== 'string') {
+            throw new Error('書き戻す内容がありません。');
+        }
+        const editPath = this.fsPath(request.editUri);
+        const projectDir = dirname(editPath);
+        const candidates: Record<string, string> = {};
+        if (typeof request.editSource === 'string') {
+            candidates[basename(editPath)] = request.editSource;
+        }
+        if (typeof request.captionsSource === 'string') {
+            const captionsPath = request.captionsUri ? this.fsPath(request.captionsUri) : join(projectDir, 'captions.json');
+            candidates[basename(captionsPath)] = request.captionsSource;
+        }
+        await writeProjectFilesGuarded(projectDir, candidates);
+        return { committed: false };
     }
 
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {
@@ -786,146 +800,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
     }
 
-    // CF-write: layerWrite/audioWrite の書き込み前ゲート。候補全文を実ファイルへは一切書かず、
-    // 兄弟ファイル（source 動画・captions.json 等）をシンボリックリンクで写した一時ディレクトリに
-    // 候補 edit.json だけを置いて packages/edit-lint/bin/edit-lint.mjs --json を叩く
-    // （packages/edit-lint は「呼び出しのみ」— 改変しない）。不正なら書き込まずに例外を投げる
-    // （呼び出し側の catch → { ok: false, message } で UI が巻き戻る）。
-    protected async assertLintPasses(editPath: string, candidateText: string): Promise<void> {
-        const projectRoot = dirname(editPath);
-        const tempRoot = await fs.mkdtemp(resolve(tmpdir(), 'akari-lint-'));
-        try {
-            let siblingNames: string[] = [];
-            try {
-                siblingNames = await fs.readdir(projectRoot);
-            } catch {
-                siblingNames = [];
-            }
-            await Promise.all(siblingNames.map(async name => {
-                if (name === 'edit.json') {
-                    return;
-                }
-                try {
-                    const targetStat = await fs.stat(join(projectRoot, name));
-                    await fs.symlink(
-                        join(projectRoot, name), join(tempRoot, name), targetStat.isDirectory() ? 'dir' : 'file'
-                    );
-                } catch {
-                    // Reference is unreadable or a broken symlink; edit-lint will report it as a
-                    // missing-file finding on its own, same as it would against the real project.
-                }
-            }));
-            await fs.writeFile(join(tempRoot, 'edit.json'), candidateText, 'utf8');
-            const result = await this.runEditLint(tempRoot);
-            if (!result.pass) {
-                throw new Error(result.errors[0] ?? 'edit-lint が変更を拒否しました');
-            }
-        } finally {
-            await fs.rm(tempRoot, { recursive: true, force: true });
-        }
-    }
-
-    // 安全弁（fail-open 降格・2026-07-26 editlint-packaged-resolve）: bin 解決に失敗した
-    // 場合（パッケージ版に edit-lint が同梱されていない等）、書き込みを全面ブロックせず
-    // 検証スキップで続行する。編集不能より lint なし保存の方が被害が小さいという司令塔判断
-    // （schema 由来の型不正は各 write のローカル検証が別途残るため安全側は保たれる）。
-    protected async runEditLint(projectRoot: string): Promise<{ pass: boolean; errors: string[] }> {
-        let binPath: string;
-        try {
-            binPath = this.findEditLintBinPath();
-        } catch (error) {
-            this.warnEditLintUnavailableOnce(error);
-            return { pass: true, errors: [] };
-        }
-        // ELECTRON_RUN_AS_NODE: パッケージ版で process.execPath が Electron 実行体を指すため、
-        // 付与しないと node スクリプトではなく Electron アプリとして再起動してしまう
-        // （akari-project-service.ts の runNodeScript 等、既存の同型対処と同じ）。
-        const stdout = await execFileAsync(process.execPath, [binPath, projectRoot, '--json'], {
-            encoding: 'utf8', maxBuffer: 10 * 1024 * 1024,
-            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-        }).then(
-            result => result.stdout,
-            (error: NodeJS.ErrnoException & { stdout?: string }) => typeof error.stdout === 'string' ? error.stdout : '{}'
-        );
-        let parsed: { findings?: Array<{ severity?: string; message?: string; check?: string }> };
-        try {
-            parsed = JSON.parse(stdout);
-        } catch (error) {
-            return {
-                pass: false,
-                errors: [`edit-lint の出力を解析できませんでした: ${error instanceof Error ? error.message : String(error)}`]
-            };
-        }
-        const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
-        const errorFindings = findings.filter(finding => finding.severity === 'error');
-        return {
-            pass: errorFindings.length === 0,
-            errors: errorFindings.map(finding => `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`)
-        };
-    }
-
-    protected findEditLintBinPath(): string {
-        const candidates: string[] = [];
-
-        const packagedCandidate = resolve(__dirname, '../edit-lint/bin/edit-lint.mjs');
-        candidates.push(packagedCandidate);
-        if (this.isFile(packagedCandidate)) {
-            return packagedCandidate;
-        }
-
-        let ancestor = resolve(__dirname);
-        for (let depth = 0; depth < 10; depth++) {
-            const candidate = resolve(ancestor, 'packages/edit-lint/bin/edit-lint.mjs');
-            candidates.push(candidate);
-            if (this.isFile(candidate)) {
-                return candidate;
-            }
-            const parent = dirname(ancestor);
-            if (parent === ancestor) {
-                break;
-            }
-            ancestor = parent;
-        }
-
-        const cwdCandidates = [
-            resolve(process.cwd(), '../../packages/edit-lint/bin/edit-lint.mjs'),
-            resolve(process.cwd(), 'packages/edit-lint/bin/edit-lint.mjs'),
-            resolve(process.cwd(), '../packages/edit-lint/bin/edit-lint.mjs')
-        ];
-        for (const candidate of cwdCandidates) {
-            if (candidates.includes(candidate)) {
-                continue;
-            }
-            candidates.push(candidate);
-            if (this.isFile(candidate)) {
-                return candidate;
-            }
-        }
-        throw new Error(`edit-lint bin was not found (tried: ${candidates.join(', ')})`);
-    }
-
-    protected editLintUnavailableWarned = false;
-
-    // 安全弁の警告 notice（初回のみ）。widget（browser）側は本タスクの境界外のため変更せず、
-    // ここではプロセスログへの明示的な警告として実装する（バックエンドログ・開発者ツールの
-    // コンソールから確認可能）。
-    protected warnEditLintUnavailableOnce(error: unknown): void {
-        if (this.editLintUnavailableWarned) {
-            return;
-        }
-        this.editLintUnavailableWarned = true;
-        console.warn(
-            '[akari-annotations] edit-lint bin が見つからないため、検証なしで保存しています。',
-            error instanceof Error ? error.message : error
-        );
-    }
-
-    protected isFile(candidate: string): boolean {
-        try {
-            return statSync(candidate).isFile();
-        } catch {
-            return false;
-        }
+    /**
+     * edit.json / captions.json への唯一の正規書き込み経路。lint ゲート（一時ディレクトリで
+     * edit-lint --json・fail-open）→ atomic 書き込みを packages/edit-store の共有カーネルで行う
+     * （パリティ契約 §2.7「すべての書き込み経路は edit-lint を通す」— Phase 2 で全 RPC に適用）。
+     * 不正なら書き込まずに例外を投げる（呼び出し側の catch → UI が巻き戻る）。
+     */
+    protected async writeProjectFileGuarded(filePath: string, content: string): Promise<void> {
+        await writeProjectFilesGuarded(dirname(filePath), { [basename(filePath)]: content });
     }
 
     protected async commitWrite(root: string, message: string): Promise<boolean> {
@@ -988,11 +870,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return execFileAsync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
     }
 
+    /** lint 対象外ファイル（review.json / canvas / events）用。edit.json / captions.json は writeProjectFileGuarded を使うこと。 */
     protected async writeAtomic(destination: string, content: string): Promise<void> {
-        await fs.mkdir(dirname(destination), { recursive: true });
-        const temporary = `${destination}.${process.pid}.tmp`;
-        await fs.writeFile(temporary, content, 'utf8');
-        await fs.rename(temporary, destination);
+        await writeAtomic(destination, content);
     }
 
     protected fsPath(uri: string): string {

@@ -5,8 +5,12 @@
   "private": true,
   "main": "lib/browser/akari-annotations-frontend-module.js",
   "theiaExtensions": [
-    { "frontend": "lib/browser/akari-annotations-frontend-module" },
-    { "backend": "lib/node/akari-annotations-backend-module" }
+    {
+      "frontend": "lib/browser/akari-annotations-frontend-module"
+    },
+    {
+      "backend": "lib/node/akari-annotations-backend-module"
+    }
   ],
   "scripts": {
     "build": "tsc -b",
@@ -17,7 +21,8 @@
     "@theia/core": "1.73.1",
     "@theia/filesystem": "1.73.1",
     "@theia/workspace": "1.73.1",
-    "akari-preview": "file:../akari-preview"
+    "akari-preview": "file:../akari-preview",
+    "@akari-video/edit-store": "file:../../../../packages/edit-store"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

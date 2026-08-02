@@ -463,6 +463,21 @@ export interface WriteBackResult {
     committed: boolean;
 }
 
+/**
+ * edit.json（と必要なら captions.json）全文スナップショットの lint ゲート付き書き戻し
+ * （パリティ契約 §2.7 — widget の FileService 直書き経路の置き換え先）。
+ * editSource / captionsSource の少なくとも一方は必須。両方渡すと同じ一時ディレクトリで
+ * 1 回の lint にかけ、整合した組として検証する。この RPC は git commit しない
+ * （置き換え元の FileService 直書きが commit していなかった挙動を維持）。
+ */
+export interface WriteEditSnapshotRequest {
+    editUri: string;
+    projectRootUri: string;
+    editSource?: string;
+    captionsUri?: string;
+    captionsSource?: string;
+}
+
 export interface DeleteArrayItemResult extends WriteBackResult {
     /** 削除した cuts 要素の原文（undo で insertCut に渡す） */
     removedText: string;
@@ -520,4 +535,5 @@ export interface AkariAnnotationsService {
     setOverlayVar(request: SetOverlayVarRequest): Promise<WriteBackResult>;
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
     setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
+    writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
 }

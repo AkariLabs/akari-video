@@ -2742,6 +2742,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             caption.text_style = { ...this.objectRecord(caption.text_style), zone: request.patch.zone };
             const candidateText = `${JSON.stringify(root, undefined, 2)}\n`;
+            // layerWrite / cutWrite と同型の書き込み前ゲート（パリティ契約 §2.7）。
+            // captions.json 候補も lintEditCandidate で検証できる（URI の basename が候補名）。
+            const lintResult = await this.previewService.lintEditCandidate({
+                editUri: captionsUri.toString(),
+                candidateText
+            });
+            if (!lintResult.pass) {
+                respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                return;
+            }
             this.recentWrites.set(captionsUri.toString(), Date.now());
             await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
             respond(true);

@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline, setPort } from './edit-to-timeline.mjs';
-import { lintProject } from '../../edit-lint/src/edit-lint.mjs';
+// 書き込み前の lint ゲートと atomic 書き込みは shell と同じ共有カーネル（packages/edit-store）。
+// lint 実行系が見つからない場合は fail-open（オーナー裁定 2026-08-02 — shell と同一挙動に統一）。
+import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-gate.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 
 const args = process.argv.slice(2);
@@ -241,31 +243,24 @@ const router = {
   },
   'PUT /api/edit.json': async (req, res) => {
     const body = await collectBody(req);
+    let text;
     try {
-      const obj = JSON.parse(body);
-      const editPath = path.join(projectRoot, 'edit.json');
+      text = JSON.stringify(JSON.parse(body), null, 2);
+    } catch (e) {
+      return respond(res, 400, { error: 'Invalid JSON: ' + e.message });
+    }
+    try {
       if (!noLint) {
-        const tmp = editPath + '.put-tmp';
-        fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf-8');
-        try {
-          const lintResult = await lintProject(projectRoot, { editPath: tmp });
-          if (lintResult.verdict === 'fail') {
-            if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
-            return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
-          }
-        } catch (lintErr) {
-          if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
-          return respond(res, 500, { error: 'Lint error: ' + lintErr.message });
+        const lintResult = await lintProjectCandidates(projectRoot, { 'edit.json': text });
+        if (!lintResult.pass) {
+          return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
         }
-        fs.renameSync(tmp, editPath);
-      } else {
-        const r = writeJson(editPath, obj);
-        if (r.error) return respond(res, 500, { error: r.error });
       }
+      await writeAtomic(path.join(projectRoot, 'edit.json'), text);
       wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
       respond(res, 200, { ok: true });
     } catch (e) {
-      respond(res, 400, { error: 'Invalid JSON: ' + e.message });
+      respond(res, 500, { error: e.message });
     }
   },
   'GET /api/captions.json': (req, res) => {
@@ -275,14 +270,25 @@ const router = {
   },
   'PUT /api/captions.json': async (req, res) => {
     const body = await collectBody(req);
+    let text;
     try {
-      const obj = JSON.parse(body);
-      const r = writeJson(path.join(projectRoot, 'captions.json'), obj);
-      if (r.error) return respond(res, 500, { error: r.error });
+      text = JSON.stringify(JSON.parse(body), null, 2);
+    } catch (e) {
+      return respond(res, 400, { error: 'Invalid JSON: ' + e.message });
+    }
+    try {
+      // shell の caption 系 RPC と同じく captions.json 候補も書き込み前に lint する（契約 §2.7）。
+      if (!noLint) {
+        const lintResult = await lintProjectCandidates(projectRoot, { 'captions.json': text });
+        if (!lintResult.pass) {
+          return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
+        }
+      }
+      await writeAtomic(path.join(projectRoot, 'captions.json'), text);
       wss.broadcast(JSON.stringify({ type: 'captions-reload', ts: Date.now() }));
       respond(res, 200, { ok: true });
     } catch (e) {
-      respond(res, 400, { error: 'Invalid JSON: ' + e.message });
+      respond(res, 500, { error: e.message });
     }
   },
   'GET /api/codec-info': (req, res) => {

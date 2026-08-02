@@ -1,6 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
-import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -4128,15 +4127,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (after === before) {
                 return;
             }
-            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+            await this.writeEditSnapshotGuarded(after);
             this.pushHistory({
                 label,
                 undo: async () => {
-                    await this.fileService.writeFile(editUri, BinaryBuffer.fromString(before));
+                    await this.writeEditSnapshotGuarded(before);
                     await this.reloadEdit();
                 },
                 redo: async () => {
-                    await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+                    await this.writeEditSnapshotGuarded(after);
                     await this.reloadEdit();
                 }
             });
@@ -4209,15 +4208,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             afterItemMove,
             this.insertedTimelineTracks(before, kind, insertTrack)
         );
-        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+        await this.writeEditSnapshotGuarded(after);
         this.pushHistory({
             label,
             undo: async () => {
-                await this.fileService.writeFile(editUri, BinaryBuffer.fromString(before));
+                await this.writeEditSnapshotGuarded(before);
                 await this.reloadEdit();
             },
             redo: async () => {
-                await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+                await this.writeEditSnapshotGuarded(after);
                 await this.reloadEdit();
             }
         });
@@ -4338,7 +4337,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const source = (await this.fileService.readFile(editUri)).value.toString();
         const updated = writeTimelineTracksInSource(source, [...tracks]);
-        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(updated));
+        await this.writeEditSnapshotGuarded(updated);
         await this.reloadEdit();
     }
 
@@ -4361,7 +4360,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return undefined;
         }
         const updated = writeTimelineTracksInSource(source, after);
-        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(updated));
+        await this.writeEditSnapshotGuarded(updated);
         await this.reloadEdit();
         return { before, after };
     }
@@ -4429,10 +4428,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.location?.editUri) {
             return;
         }
-        await this.fileService.writeFile(this.location.editUri, BinaryBuffer.fromString(editSource));
-        if (captionsSource !== undefined) {
-            await this.fileService.writeFile(this.location.captionsUri, BinaryBuffer.fromString(captionsSource));
+        // edit.json と captions.json の同時変更は 1 回の lint で整合した組として検証される。
+        await this.writeEditSnapshotGuarded(editSource, captionsSource);
+    }
+
+    /**
+     * FileService 直書きの置き換え（パリティ契約 §2.7）: 全文スナップショットの書き戻しも
+     * RPC（writeEditSnapshot）経由で lint ゲートを通す。lint 拒否時は例外が飛び、
+     * 呼び出し側の catch で UI が巻き戻る。
+     */
+    protected async writeEditSnapshotGuarded(editSource?: string, captionsSource?: string): Promise<void> {
+        const location = this.location;
+        if (!location?.editUri) {
+            throw new Error('edit.json がありません。');
         }
+        await this.annotationsService.writeEditSnapshot({
+            editUri: location.editUri.toString(),
+            projectRootUri: location.root.toString(),
+            ...(editSource !== undefined ? { editSource } : {}),
+            ...(captionsSource !== undefined
+                ? { captionsUri: location.captionsUri.toString(), captionsSource } : {})
+        });
     }
 
     protected trackHeaderButton(

@@ -141,6 +141,10 @@ export type ResolveHevcProxyResult =
 // packages/edit-lint（呼び出しのみ・改変禁止）で検証する。プロジェクトルートの兄弟ファイル
 // （source 動画・captions.json 等）はシンボリックリンクで一時ディレクトリへ写し、参照整合チェックが
 // 誤検出しないようにする。
+/**
+ * 書き込み前 lint ゲートの検証依頼。editUri は対象ファイルの URI — edit.json のほか
+ * captions.json も渡せる（URI の basename がそのまま lint 候補のファイル名になる）。
+ */
 export interface LintEditCandidateRequest {
     editUri: string;
     candidateText: string;

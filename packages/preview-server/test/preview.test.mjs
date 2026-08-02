@@ -1,9 +1,14 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
-const PROJECT = path.resolve(import.meta.dirname, '..', '..', '..', 'test-project');
+// リポ内 test-project を直接使うと PUT テストが edit.json を汚すため、
+// 一時ディレクトリへコピーしてから回す（リポは読み取りのみ）。
+const SRC_PROJECT = path.resolve(import.meta.dirname, '..', '..', '..', 'test-project');
+const PROJECT = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-preview-test-run-'));
+fs.cpSync(SRC_PROJECT, PROJECT, { recursive: true });
 const PORT = 4567;
 const BASE = `http://localhost:${PORT}`;
 const OUT_JSON = path.join(PROJECT, 'edit.output.json');
@@ -266,5 +271,6 @@ try {
   await main();
 } finally {
   srv.kill();
+  fs.rmSync(PROJECT, { recursive: true, force: true });
   console.log('\n[cleanup] server stopped');
 }

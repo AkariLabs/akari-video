@@ -1,7 +1,7 @@
 # プレビュー・パリティ契約 v0（Web UI と shell の挙動仕様を単一化する）
 
-- 日付: 2026-08-02
-- 状態: draft（Phase 0 実装済み。TBD 2 点はオーナー裁定待ち）
+- 日付: 2026-08-02（TBD 2 点のオーナー裁定を同日反映 — fail-open / ペン 600ms）
+- 状態: draft（Phase 0 実装済み。Phase 2-1 で書き込み層を共通化済み）
 - 対象: `packages/preview-server`（Web UI）と `apps/shell/extensions/akari-preview` / `akari-annotations`（shell）
 - 背景: 両者は同じ概念（再生・字幕・オーバーレイ・レイヤー・ペン・レビュー録音・lint ゲート）を
   独立に二重実装しており、挙動と数値が乖離していた。本契約は「どちらの UI でも同じ入力
@@ -48,17 +48,20 @@
 - 視覚描画は `fade-black` / `fade-white` のみ（dissolve は尺計算のみ）— 現状の両実装の共通仕様として明文化
 
 ### 2.7 書き込み
-- edit.json への**すべての書き込み経路は edit-lint を通す**（UI・API・RPC を問わず）。
-  lint 失敗時は書き込まない
-- lint 実行系が見つからない場合の挙動: **TBD（オーナー裁定待ち）** —
-  現状 shell = fail-open（警告して保存continue）/ preview-server = fail-closed（`--no-lint` 明示時のみスキップ）
+- edit.json への**すべての書き込み経路は edit-lint を通す**（UI・API・RPC を問わず)。
+  lint 失敗時は書き込まない。captions.json の書き込みも同じゲートを通す
+- lint 実行系が見つからない場合の挙動: **fail-open（オーナー裁定 2026-08-02）** —
+  警告を出して検証スキップで保存を続行する（編集不能より lint なし保存の方が被害が小さい）。
+  preview-server の `--no-lint` は明示的スキップとして存置
 - 書き込みは atomic（tmp + rename）で行う
+- 実装は `packages/edit-store`（テキスト手術 + lint ゲート + atomic 書き込みの共有カーネル）に
+  一本化されており、shell RPC / preview-server PUT の双方がこれを使う（独自実装の追加は契約違反）
 
 ### 2.8 ペン
 - 描画仕様（グロー + プラチナグラデーション + スパークル + フェード）は
   `apps/shell/extensions/akari-preview/src/common/pen-canvas-visuals.ts` の `PEN_TUNING` を単一正本とする
-- 現状 Web UI は別値の複製を持つ（fade 600ms vs 正本 1500ms 等）。**どちらの値を正とするかは TBD
-  （オーナー実機比較待ち）**。裁定後、複製を正本値に同期し、Phase 2 でコード共有に置き換える
+- チューニング値は **フェード 600ms（Web UI 現行値）を正とする（オーナー裁定 2026-08-02）**。
+  正本 `PEN_TUNING` を 600ms へ改め、Phase 2 でコード共有に置き換える
 
 ## 3. 適合状況（2026-08-02 時点）
 
@@ -69,7 +72,7 @@
 | 2.3 オーバーレイ解決 | ✅（ファイルパス解決 + vars 適用 修正済み） | ✅ |
 | 2.4 レイヤー初期非表示 | ✅（修正済み） | ✅ |
 | 2.5 音声停止 | ✅（suspend + source stop 修正済み） | ✅ |
-| 2.7 lint 全経路 | ✅（PUT 一律） | ⚠️ 部分的（overlayWrite は修正済み。annotations RPC の cuts/caption/overlay 系と FileService 直書き経路が未ゲート — Phase 2 の edit-store 共通化で解消予定） |
+| 2.7 lint 全経路 | ✅（PUT 一律・edit-store 共有ゲート） | ✅（Phase 2-1: 全 annotations RPC + FileService 直書き経路を writeEditSnapshot RPC 経由のゲートに統一。preview の captionWrite もゲート追加） |
 | 2.8 ペン正本 | ⚠️ 複製のまま（値 TBD） | ✅ 正本を保持 |
 
 ## 4. 収斂ロードマップ（正本は内部リポ）

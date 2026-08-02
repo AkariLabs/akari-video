@@ -5,6 +5,10 @@ out/
 # templates/kaisetsu-short の tools/lib/ はビルド出力ではなくテンプレのソース（上の lib/ から除外）
 !templates/kaisetsu-short/tools/lib/
 !templates/kaisetsu-short/tools/lib/**
+# packages/edit-store の lib/ はコミットする（preview-server がビルドなしで直接 import するため。
+# 再生成: cd packages/edit-store && npm run build — src と drift させないこと）
+!packages/edit-store/lib/
+!packages/edit-store/lib/**
 electron-builder-out/
 *.app
 *.log
