@@ -9,6 +9,9 @@ out/
 # 再生成: cd packages/edit-store && npm run build — src と drift させないこと）
 !packages/edit-store/lib/
 !packages/edit-store/lib/**
+# packages/pen-visuals の lib/ も同様にコミットする（shell extension の tsc が型解決に使うため）
+!packages/pen-visuals/lib/
+!packages/pen-visuals/lib/**
 electron-builder-out/
 *.app
 *.log

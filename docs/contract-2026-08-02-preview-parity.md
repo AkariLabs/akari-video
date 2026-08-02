@@ -59,9 +59,10 @@
 
 ### 2.8 ペン
 - 描画仕様（グロー + プラチナグラデーション + スパークル + フェード）は
-  `apps/shell/extensions/akari-preview/src/common/pen-canvas-visuals.ts` の `PEN_TUNING` を単一正本とする
+  `packages/pen-visuals` の `PEN_TUNING` と描画プリミティブを単一正本とする（Phase 2-2 で
+  shell 内から昇格。shell へは CJS lib、Web UI へは `pen-visuals.bundle.js`（ESM）で供給）
 - チューニング値は **フェード 600ms（Web UI 現行値）を正とする（オーナー裁定 2026-08-02）**。
-  正本 `PEN_TUNING` を 600ms へ改め、Phase 2 でコード共有に置き換える
+  それ以外の値は shell 従来値が正本（Web UI 側が正本値に収斂する）
 
 ## 3. 適合状況（2026-08-02 時点）
 
@@ -73,7 +74,7 @@
 | 2.4 レイヤー初期非表示 | ✅（修正済み） | ✅ |
 | 2.5 音声停止 | ✅（suspend + source stop 修正済み） | ✅ |
 | 2.7 lint 全経路 | ✅（PUT 一律・edit-store 共有ゲート） | ✅（Phase 2-1: 全 annotations RPC + FileService 直書き経路を writeEditSnapshot RPC 経由のゲートに統一。preview の captionWrite もゲート追加） |
-| 2.8 ペン正本 | ⚠️ 複製のまま（値 TBD） | ✅ 正本を保持 |
+| 2.8 ペン正本 | ✅（Phase 2-2: pen-visuals.bundle.js から定数 + 描画コードを import） | ✅（正本は packages/pen-visuals へ昇格。動画面 webview は正本値の埋め込み） |
 
 ## 4. 収斂ロードマップ（正本は内部リポ）
 

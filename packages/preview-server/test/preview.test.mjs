@@ -253,7 +253,9 @@ async function main() {
   console.log(`結果: ${passed}/${total} passed, ${failed} failed\n`);
   for (const r of results) console.log(r);
   console.log(`\n${'═'.repeat(50)}`);
-  process.exit(failed > 0 ? 1 : 0);
+  // ここで process.exit すると finally（srv.kill）が走らずサーバが残骸化し、
+  // 次回実行が古いサーバへ接続してしまう。失敗数を返して呼び出し側で exit する。
+  return failed;
 }
 
 // ── Spawn server ──
@@ -266,11 +268,13 @@ const srv = spawn('node', [
 srv.stdout.on('data', d => process.stdout.write(`[srv] ${d}`));
 srv.stderr.on('data', d => process.stderr.write(`[srv] ${d}`));
 
+let failedCount = 1;
 try {
   await waitForServer(`http://localhost:${PORT}/api/codec-info`);
-  await main();
+  failedCount = await main();
 } finally {
   srv.kill();
   fs.rmSync(PROJECT, { recursive: true, force: true });
   console.log('\n[cleanup] server stopped');
 }
+process.exit(failedCount > 0 ? 1 : 0);

@@ -1,0 +1,16 @@
+{
+  "name": "@akari-video/pen-visuals",
+  "version": "0.1.0",
+  "description": "AKARI Video — ペン描画の視覚チューニング（PEN_TUNING 単一正本）と描画プリミティブ（shell と Web UI の共有カーネル）",
+  "private": true,
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}

@@ -1,5 +1,14 @@
 // AKARI Video Preview — full-featured client
 
+// ペンの視覚正本は packages/pen-visuals（パリティ契約 §2.8）。定数も描画コードも共有する。
+import {
+  PEN_TUNING,
+  createGlowSprite,
+  createSparkleSprite,
+  createPlatinumGradient,
+  drawPenSegment as drawPenSegmentShared,
+} from '/pen-visuals.bundle.js';
+
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
@@ -245,8 +254,10 @@ function syncLayers(t) {
 
 // --- Pen annotation canvas (upgraded: glow + gradient + sparkle) ---
 function setupPenCanvas() {
-  penCanvas.width = zoomLayer.clientWidth * devicePixelRatio;
-  penCanvas.height = zoomLayer.clientHeight * devicePixelRatio;
+  // DPR クランプは shell と同じ正本値（PEN_TUNING.maxDevicePixelRatio）に従う。
+  const dpr = Math.min(devicePixelRatio || 1, PEN_TUNING.maxDevicePixelRatio);
+  penCanvas.width = zoomLayer.clientWidth * dpr;
+  penCanvas.height = zoomLayer.clientHeight * dpr;
   penCanvas.style.width = '100%';
   penCanvas.style.height = '100%';
   rebuildPlatinumGradient();
@@ -260,78 +271,19 @@ let penGlowSprite = null;
 let penSparkleSprite = null;
 let penAnimHandle = 0;
 
-const PEN_TUNING = {
-  coreWidthPx: 3.2, coreAlpha: 0.88, glowSizePx: 28, glowAlpha: 0.35,
-  sparkleSpritePx: 48, sparkleLifetimeMs: 540, sparkleTwinkleHz: 4.2,
-  sparklesPerSegment: 2, sparkleMaxPoolSize: 120, sparkleJitterPx: 14,
-  sparkleMinSizePx: 7, sparkleMaxSizePx: 18, fadeDurationMs: 600,
-  drawnIndex: 0
-};
-
-function createGlowSprite(size) {
-  const c = document.createElement('canvas'); c.width = c.height = size;
-  const cx = c.getContext('2d');
-  const g = cx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  g.addColorStop(0, 'rgba(255,255,255,0.95)');
-  g.addColorStop(0.4, 'rgba(226,234,255,0.55)');
-  g.addColorStop(1, 'rgba(226,234,255,0)');
-  cx.fillStyle = g; cx.fillRect(0, 0, size, size);
-  return c;
-}
-function createSparkleSprite(size) {
-  const c = document.createElement('canvas'); c.width = c.height = size;
-  const cx = c.getContext('2d');
-  const h = size / 2;
-  const g = cx.createRadialGradient(h, h, 0, h, h, h);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.25, 'rgba(255,255,255,0.85)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  cx.fillStyle = g; cx.fillRect(0, 0, size, size);
-  cx.strokeStyle = 'rgba(255,255,255,0.9)';
-  cx.lineWidth = Math.max(1, size * 0.06);
-  cx.lineCap = 'round';
-  cx.beginPath();
-  cx.moveTo(h, h - size * 0.42);
-  cx.lineTo(h, h + size * 0.42);
-  cx.moveTo(h - size * 0.42, h);
-  cx.lineTo(h + size * 0.42, h);
-  cx.stroke();
-  return c;
-}
+// PEN_TUNING / スプライト生成は pen-visuals.bundle.js（単一正本）から import する。
 
 function rebuildPlatinumGradient() {
   const w = penCanvas.width, h = penCanvas.height;
-  if (!(w > 0) || !(h > 0)) { platinumGradient = null; return; }
-  const g = penCtx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, '#ffffff');
-  g.addColorStop(0.48, '#d9deea');
-  g.addColorStop(0.72, '#ffffff');
-  g.addColorStop(1, '#c8cfdd');
-  platinumGradient = g;
+  platinumGradient = (w > 0 && h > 0) ? createPlatinumGradient(penCtx, w, h) : null;
 }
 
 function drawPenSegment(ctx, from, to) {
-  const w = penCanvas.width, h = penCanvas.height;
-  const fpx = [from.x * w, from.y * h];
-  const tpx = [to.x * w, to.y * h];
-  const gs = PEN_TUNING.glowSizePx;
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = PEN_TUNING.glowAlpha;
-  const dpr = devicePixelRatio;
-  ctx.drawImage(penGlowSprite, tpx[0] - gs / 2, tpx[1] - gs / 2, gs, gs);
-  ctx.restore();
-  ctx.save();
-  ctx.globalAlpha = PEN_TUNING.coreAlpha;
-  ctx.strokeStyle = platinumGradient || '#eef2fb';
-  ctx.lineWidth = PEN_TUNING.coreWidthPx;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(fpx[0], fpx[1]);
-  ctx.lineTo(tpx[0], tpx[1]);
-  ctx.stroke();
-  ctx.restore();
+  drawPenSegmentShared(
+    ctx, penGlowSprite, platinumGradient,
+    [from.x, from.y], [to.x, to.y],
+    penCanvas.width, penCanvas.height
+  );
 }
 
 function spawnPenSparkles(point) {

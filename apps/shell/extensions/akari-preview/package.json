@@ -31,7 +31,8 @@
     "@theia/terminal": "1.73.1",
     "@theia/plugin-ext": "1.73.1",
     "jsonc-parser": "^3.3.1",
-    "@akari-video/edit-store": "file:../../../../packages/edit-store"
+    "@akari-video/edit-store": "file:../../../../packages/edit-store",
+    "@akari-video/pen-visuals": "file:../../../../packages/pen-visuals"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
