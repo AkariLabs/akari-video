@@ -21,10 +21,13 @@ const TEMPLATE_MARKER = path.join('templates', 'project-default', 'CLAUDE.md');
 const SCHEMAS_MARKER = path.join('packages', 'schemas', 'analysis.schema.json');
 const DOCTOR_SCRIPT_RELATIVE = path.join('skills', 'manage-connections', 'bin', 'doctor.mjs');
 const SCAFFOLD_MODULE_RELATIVE = path.join('packages', 'project-scaffold', 'src', 'index.mjs');
+// 作業場（creator-root）モジュール。① Wave（packages/creator-root）の成果物で、本パッケージ
+// からは読み取り専用（動的 import のみ）。scaffoldModulePath と同型の解決方式。
+const CREATOR_ROOT_MODULE_RELATIVE = path.join('packages', 'creator-root', 'src', 'index.mjs');
 
 /**
- * 指定ルート配下に同梱されているスキル正本・雛形・schemas・scaffold 実装を探す。
- * 見つからないフィールドは null になり、呼び出し側はそれに応じて機能をスキップする。
+ * 指定ルート配下に同梱されているスキル正本・雛形・schemas・scaffold 実装・creator-root
+ * 実装を探す。見つからないフィールドは null になり、呼び出し側はそれに応じて機能をスキップする。
  */
 export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const hasSkills = existsSync(path.join(repoRoot, SKILLS_MARKER));
@@ -32,6 +35,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const hasSchemas = existsSync(path.join(repoRoot, SCHEMAS_MARKER));
   const doctorScript = path.join(repoRoot, DOCTOR_SCRIPT_RELATIVE);
   const scaffoldModulePath = path.join(repoRoot, SCAFFOLD_MODULE_RELATIVE);
+  const creatorRootModulePath = path.join(repoRoot, CREATOR_ROOT_MODULE_RELATIVE);
 
   return {
     repoRoot,
@@ -39,7 +43,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     templateDir: hasTemplate ? path.join(repoRoot, 'templates', 'project-default') : null,
     schemasSourceDir: hasSchemas ? path.join(repoRoot, 'packages', 'schemas') : null,
     doctorScript: existsSync(doctorScript) ? doctorScript : null,
-    scaffoldModulePath: existsSync(scaffoldModulePath) ? scaffoldModulePath : null
+    scaffoldModulePath: existsSync(scaffoldModulePath) ? scaffoldModulePath : null,
+    creatorRootModulePath: existsSync(creatorRootModulePath) ? creatorRootModulePath : null
   };
 }
 
@@ -54,6 +59,6 @@ export function resolveLauncherAssets({
 } = {}) {
   const checkout = resolveRepoAssets(candidateRoot);
   const found = checkout.skillsSourceDir || checkout.templateDir || checkout.schemasSourceDir
-    || checkout.doctorScript || checkout.scaffoldModulePath;
+    || checkout.doctorScript || checkout.scaffoldModulePath || checkout.creatorRootModulePath;
   return found ? checkout : resolveRepoAssets(vendorRoot);
 }

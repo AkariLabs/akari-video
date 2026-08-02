@@ -74,6 +74,36 @@ export function describeVersionStatus(currentVersion, cache) {
 }
 
 /**
+ * 初回動線（作業場・creator-root）関連の 1 行メッセージ群（契約
+ * `docs/contract-2026-08-02-creator-root-v1.md` §5）。既存の流儀に従い日本語・1 行主義。
+ */
+
+/** (a) 既存プロジェクトが作業場の中にある場合に添える 1 行。 */
+export function creatorRootFoundNotice(rootDir) {
+  return `作業場: ${rootDir}`;
+}
+
+/** (b) 作業場の中だがプロジェクトではない cwd から新規プロジェクトを作るときの 1 行。 */
+export function creatorRootNewProjectNotice(rootDir, projectDir) {
+  return `作業場 ${rootDir} に新規プロジェクトを作成します: ${projectDir}`;
+}
+
+/** (c) 作業場を新規作成してプロジェクトを作るときの 1 行。 */
+export function creatorRootCreatedNotice(rootDir, projectDir) {
+  return `作業場を作成しました: ${rootDir}（新規プロジェクト: ${projectDir}）`;
+}
+
+/** (c) 作業場の作成でエラーが発生した場合の 1 行（このフォルダでの単体運用を続ける）。 */
+export function creatorRootCreateFailedNotice(errorMessage) {
+  return `作業場の作成でエラーが発生しました（このフォルダでの単体運用を続けます）: ${errorMessage}`;
+}
+
+/** (c) の TTY プロンプト文言。既定パスを 1 行で提示する。 */
+export function creatorRootPromptText(defaultPath) {
+  return `作業場を作って始めますか？ [Enter: ${defaultPath} / パスを入力 / n: このフォルダだけで試す] `;
+}
+
+/**
  * `akari update` の出力本文（複数行）。フィード未取得・最新・新版ありで案内が変わる。
  * `dismissed` は今回の実行で dismiss 記録を書いたかどうか（表示文言の切り替えのみに使う）。
  */

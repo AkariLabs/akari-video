@@ -32,7 +32,11 @@ const VENDOR_SOURCES = [
   'skills',
   'templates/project-default',
   'packages/schemas',
-  'packages/project-scaffold'
+  'packages/project-scaffold',
+  // 作業場（creator-root）モジュール。npm 配布時も初回動線（first-run.mjs 経由の
+  // 動的 import）が機能するよう同梱する。未同梱の場合は repo-assets.mjs 側で
+  // creatorRootModulePath が null になり、現行動作へフォールバックする。
+  'packages/creator-root'
 ];
 
 if (process.argv[2] === 'clean') {

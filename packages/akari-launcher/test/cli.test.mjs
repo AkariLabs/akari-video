@@ -29,10 +29,14 @@ function collectLogs() {
 // 対象外。実 `~/.akari/` に触れず、実ネットワーク（実 GitHub）へも fetch しないよう、
 // AKARI_HOME を隔離した上でバックグラウンド fetch の起動自体を無効化する
 // （更新チェック自体の挙動は update-check.test.mjs / update-command.test.mjs が担当）。
+// isTTY: false は、実 TTY 端末でこのテストを実行した場合に creator-root 初回動線の
+// 対話プロンプト（first-run.mjs）が実 stdin を待って固まるのを防ぐための明示的な隔離
+// （creator-root 初回動線自体の挙動は creator-root-first-run.test.mjs が担当）。
 function isolatedUpdateOptions(root) {
   return {
     env: { ...process.env, AKARI_HOME: join(root, '.akari-home-unused') },
-    refreshUpdate: () => {}
+    refreshUpdate: () => {},
+    isTTY: false
   };
 }
 

@@ -7,6 +7,7 @@ import { detectProjectState } from './project-state.mjs';
 import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
 import { describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import { resolveEffectiveProjectRoot } from './first-run.mjs';
 import {
   checkForUpdateSync,
   readCacheSync,
@@ -19,13 +20,13 @@ import {
 /**
  * `akari` ランチャーの本体。3 入口契約（ターミナル `akari` / セッション内 `/akari` /
  * アプリ接続ボタン）のうち、ターミナル入口を実装する:
- *   doctor（接続チェック）→ 未セットアップなら案内 + scaffold → 最後に `claude` を exec。
+ *   作業場（creator-root）の初回動線（`first-run.mjs`）→ doctor（接続チェック）→
+ *   未セットアップなら案内 + scaffold → 最後に `claude` を exec。
  *
- * すべての副作用（scaffold・doctor 実行・claude 起動・claude 探索）は options 経由で
- * 差し替え可能にしてあり、node --test から実プロセスを起動せずに分岐を検証できる。
+ * すべての副作用（creator-root 解決・scaffold・doctor 実行・claude 起動・claude 探索）は
+ * options 経由で差し替え可能にしてあり、node --test から実プロセスを起動せずに分岐を検証できる。
  */
 export async function run(args, options = {}) {
-  const projectRoot = options.projectRoot ?? process.cwd();
   const log = options.log ?? ((line) => console.log(line));
   const assets = options.assets ?? resolveLauncherAssets();
   const scaffold = options.scaffold ?? defaultScaffold;
@@ -35,12 +36,26 @@ export async function run(args, options = {}) {
   const spawnClaude = options.spawnClaude ?? defaultSpawnClaude;
   const spawnOpencode = options.spawnOpencode ?? defaultSpawnOpencode;
   const env = options.env ?? process.env;
+  const platform = options.platform ?? process.platform;
   const currentVersion = options.currentVersion ?? readOwnVersion();
-  
-  // --opencode / --claude / --claudecode / --yes フラグを解析
+  const now = options.now ?? new Date();
+
+  // --opencode / --claude / --claudecode / --yes / --here フラグを解析
   const useOpencode = args.includes('--opencode');
   const autoConfirm = args.includes('--yes') || args.includes('-y');
-  const filteredArgs = args.filter(arg => arg !== '--opencode' && arg !== '--claude' && arg !== '--claudecode' && arg !== '--yes' && arg !== '-y');
+  const hereOnly = args.includes('--here');
+  const filteredArgs = args.filter(arg =>
+    arg !== '--opencode' && arg !== '--claude' && arg !== '--claudecode'
+    && arg !== '--yes' && arg !== '-y' && arg !== '--here'
+  );
+
+  let projectRoot = options.projectRoot ?? process.cwd();
+
+  // 作業場（creator-root）の初回動線（契約 §5・§6-1）。`--here` はお試しモード強制
+  // （現行動作）のため丸ごとスキップする（契約 §9・非 TTY と同じ現行動作互換の扱い）。
+  if (!hereOnly) {
+    projectRoot = await resolveEffectiveProjectRoot({ projectRoot, env, platform, now, log, assets, autoConfirm, options });
+  }
 
   let state = detectProjectState(projectRoot);
 

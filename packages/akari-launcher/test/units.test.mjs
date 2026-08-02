@@ -8,7 +8,15 @@ import test from 'node:test';
 
 import { findClaudeExecutable } from '../src/path-lookup.mjs';
 import { detectProjectState } from '../src/project-state.mjs';
-import { describeIntake, claudeMissingGuidance } from '../src/messages.mjs';
+import {
+  describeIntake,
+  claudeMissingGuidance,
+  creatorRootFoundNotice,
+  creatorRootNewProjectNotice,
+  creatorRootCreatedNotice,
+  creatorRootCreateFailedNotice,
+  creatorRootPromptText
+} from '../src/messages.mjs';
 import { loadTaskLabels } from '../src/task-labels.mjs';
 import { resolveLauncherAssets, resolveRepoAssets } from '../src/repo-assets.mjs';
 
@@ -186,6 +194,36 @@ test('claudeMissingGuidance: インストール手順の URL を含む', () => {
   assert.match(text, /https:\/\/claude\.ai\/install\.sh/);
 });
 
+test('creatorRootFoundNotice: 作業場パスを 1 行で示す', () => {
+  const text = creatorRootFoundNotice('/home/user/AkariVideo');
+  assert.equal(text, '作業場: /home/user/AkariVideo');
+  assert.equal(text.includes('\n'), false, '1 行主義');
+});
+
+test('creatorRootNewProjectNotice: 作業場パスと新規プロジェクトパスを両方含む', () => {
+  const text = creatorRootNewProjectNotice('/root', '/root/channels/my-channel/videos/2026-08-02-video');
+  assert.match(text, /\/root/);
+  assert.match(text, /2026-08-02-video/);
+});
+
+test('creatorRootCreatedNotice: 作業場を作成した旨と新規プロジェクトパスを含む', () => {
+  const text = creatorRootCreatedNotice('/root', '/root/channels/my-channel/videos/2026-08-02-video');
+  assert.match(text, /作業場を作成しました/);
+  assert.match(text, /2026-08-02-video/);
+});
+
+test('creatorRootCreateFailedNotice: エラーメッセージを含み、続行の旨を示す', () => {
+  const text = creatorRootCreateFailedNotice('EACCES');
+  assert.match(text, /EACCES/);
+  assert.match(text, /続けます/);
+});
+
+test('creatorRootPromptText: 既定パスを含む 1 行の質問文', () => {
+  const text = creatorRootPromptText('/home/user/AkariVideo');
+  assert.match(text, /\/home\/user\/AkariVideo/);
+  assert.match(text, /n:/);
+});
+
 test('resolveRepoAssets: モノレポ checkout 内では skills / templates / schemas / doctor を全て見つける', () => {
   const assets = resolveRepoAssets(repoRoot);
   assert.ok(assets.skillsSourceDir);
@@ -201,7 +239,14 @@ test('resolveRepoAssets: 何も見つからないディレクトリでは全フ�
     assert.equal(assets.templateDir, null);
     assert.equal(assets.schemasSourceDir, null);
     assert.equal(assets.doctorScript, null);
+    assert.equal(assets.creatorRootModulePath, null);
   });
+});
+
+test('resolveRepoAssets: creator-root モジュールのパスも解決する', () => {
+  const assets = resolveRepoAssets(repoRoot);
+  assert.ok(assets.creatorRootModulePath, 'このテストはモノレポ checkout 内で実行する前提');
+  assert.match(assets.creatorRootModulePath, /creator-root/);
 });
 
 async function writeRepoMarkers(root) {
@@ -210,7 +255,8 @@ async function writeRepoMarkers(root) {
     ['skills', 'manage-connections', 'bin', 'doctor.mjs'],
     ['templates', 'project-default', 'CLAUDE.md'],
     ['packages', 'schemas', 'analysis.schema.json'],
-    ['packages', 'project-scaffold', 'src', 'index.mjs']
+    ['packages', 'project-scaffold', 'src', 'index.mjs'],
+    ['packages', 'creator-root', 'src', 'index.mjs']
   ];
   for (const segments of markers) {
     const filePath = join(root, ...segments);
@@ -252,5 +298,6 @@ test('resolveLauncherAssets: checkout に何も無ければ vendor 同梱（npm 
     assert.ok(assets.schemasSourceDir.startsWith(vendorRoot));
     assert.ok(assets.doctorScript.startsWith(vendorRoot));
     assert.ok(assets.scaffoldModulePath.startsWith(vendorRoot));
+    assert.ok(assets.creatorRootModulePath.startsWith(vendorRoot));
   });
 });

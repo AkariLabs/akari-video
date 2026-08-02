@@ -26,10 +26,14 @@ function collectLogs() {
   return { log: (line) => lines.push(line), lines };
 }
 
+// isTTY: false は、実 TTY 端末でこのテストを実行した場合に creator-root 初回動線の
+// 対話プロンプト（first-run.mjs）が実 stdin を待って固まるのを防ぐための明示的な隔離
+// （cli.test.mjs の isolatedUpdateOptions と同じ理由）。
 function isolatedUpdateOptions(root) {
   return {
     env: { ...process.env, AKARI_HOME: join(root, '.akari-home-unused') },
-    refreshUpdate: () => {}
+    refreshUpdate: () => {},
+    isTTY: false
   };
 }
 
