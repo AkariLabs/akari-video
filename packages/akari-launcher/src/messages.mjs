@@ -136,3 +136,28 @@ export function describeUpdateCommand({ currentVersion, cache, dismissed }) {
   );
   return lines;
 }
+
+/**
+ * `akari init` の出力文言（タスク契約 tasks/2026-08-02-launcher-init）。作業場
+ * （creator-root）の作成・確認だけを行う入口コマンド専用。1 行主義の既存流儀に従う。
+ */
+
+/** 既存の作業場が見つかり、何も作らず確認しただけの場合の人間向け行。 */
+export function initFoundNotice(rootDir) {
+  return `既存の作業場を確認しました: ${rootDir}`;
+}
+
+/** 新規に作業場を作成した場合の人間向け行。 */
+export function initCreatedNotice(rootDir) {
+  return `作業場を作成しました: ${rootDir}`;
+}
+
+/** creator-root モジュールが解決できない場合のエラー（stderr 1 行。init にフォールバック先は無い）。 */
+export function initModuleMissingError() {
+  return '作業場モジュール（creator-root）が見つかりませんでした。';
+}
+
+/** 作業場の初期化に失敗した場合のエラー（root.json 破損・未知 schema・書き込み不能など。stderr 1 行）。 */
+export function initFailedError(errorMessage) {
+  return `作業場の初期化に失敗しました: ${errorMessage}`;
+}
