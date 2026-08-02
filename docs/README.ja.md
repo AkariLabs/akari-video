@@ -63,6 +63,7 @@
 | [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md) | agent-native アーキテクチャの思想の正本（サンドイッチ 3 層・編集モデル・MVP マイルストーン） |
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | データ契約の版管理・移行原則（横断契約） |
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | 生成物の置き場所契約（層の定義・ルート直下原則・削除安全） |
+| [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | 作業場（CreatorRoot）契約 — プロジェクトの上の階層。3 つの場所・所有権 4 層・初回起動動線・可搬性 |
 
 ### edit.json（編集のセーブデータ）
 
