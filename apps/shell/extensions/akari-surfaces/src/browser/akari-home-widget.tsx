@@ -4,6 +4,7 @@ import URI from '@theia/core/lib/common/uri';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { WidgetManager } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
@@ -32,10 +33,15 @@ import { DEFAULT_UPDATE_FEED_URL, UpdateCache, UpdateStatus, evaluateUpdateStatu
 // ホーム v4（裁定 R1〜R3・notes-2026-08-02-home-v4-minimal）: dashboard の
 // 構成要素を 3 つだけに削る — ①説明（2 動作） ②過去プロジェクト一覧
 // ③接続案内カード（未接続時のみ）。v3 の intake カード・はじめかた 4 択・
-// ワークフロー俯瞰カード・ホーム自前のドロップゾーンはここで撤去した
-// （素材の取り込みは左パネル「素材」に一本化 — 裁定の言う「左に素材を入れる」は
-// そちら側の導線を指す）。工程はエージェント + ファイルが持ち、シェルは
-// 「今の状態を映すサーフェス」に徹する方針（v3 R1）は不変。
+// ワークフロー俯瞰カードはここで撤去した。工程はエージェント + ファイルが持ち、
+// シェルは「今の状態を映すサーフェス」に徹する方針（v3 R1）は不変。
+//
+// D&D 復活（task 2026-08-02-home-dnd-restore・オーナー裁定追記）: 見た目 3 要素は
+// 不変のまま、ホーム面全体（.akari-home-surface）をドロップターゲットにする。
+// 専用のドロップゾーンカードは置かず、dragover 時のみオーバーレイで受け付けを
+// 可視化する。取り込み処理（拡張子判定・重複回避・コピー・assets ロール解決）は
+// bacd7f5 時点の v3 home dropzone と同じ経路を再利用した（挙動は変えていない）。
+// `data-akari-dropzone='true'` は evidence 互換のため面全体の要素に復活させた。
 
 const CONNECTIONS_RELATIVE_PATH = '.akari/connections.json';
 const INTAKE_RELATIVE_PATH = '.akari/intake.json';
@@ -52,6 +58,14 @@ const PARTNER_CONNECTION_FILENAME = 'partner-connection.json';
 const CLOUD_PROVIDER_ID = 'akari-cloud';
 const BEGIN_ONBOARDING_COMMAND = 'akari.partner.beginOnboarding';
 const SEND_TO_PARTNER_COMMAND = 'akari.partner.send';
+
+// --- D&D 復活（v3 home dropzone からの再利用。bacd7f5 時点の akari-home-widget.tsx） ---
+// workflow.json の roles に assets kind が無いときの既定パス（v3 と同じ既定値）。
+const DEFAULT_ASSETS_ROLE_PATH = 'assets';
+// ドロップ／ダイアログで取り込める素材の拡張子。動画と写真のみ（音声・その他は対象外・v3 と同じ）。
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi'];
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif', '.tiff', '.bmp'];
+const IMPORTABLE_EXTENSIONS = [...VIDEO_EXTENSIONS, ...IMAGE_EXTENSIONS];
 
 // 過去プロジェクト一覧（裁定 R3・2026-08-02）。作業場（creator-root）の規約は
 // 公開リポ契約 `docs/contract-2026-08-02-creator-root-v1.md` §3 と
@@ -70,6 +84,13 @@ interface CreatorRootProjectEntry {
     name: string;
     channel: string;
     uri: URI;
+}
+
+/** workflow.json の roles 要素（v3 から再利用。assets ロールパスの解決にのみ使う）。 */
+interface WorkflowRole {
+    path: string;
+    label: string;
+    kind: string;
 }
 
 /**
@@ -100,6 +121,9 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(MessageService)
     protected readonly messages: MessageService;
 
+    @inject(WidgetManager)
+    protected readonly widgets: WidgetManager;
+
     @inject(WindowService)
     protected readonly windowService: WindowService;
 
@@ -110,6 +134,11 @@ export class AkariHomeWidget extends ReactWidget {
     protected readonly envVariables: EnvVariablesServer;
 
     protected watching = false;
+
+    // --- D&D 復活: 素材の取り込み（v3 home dropzone から再利用） ---
+    protected importing = false;
+    protected importedNotice: string | undefined;
+    protected dragActive = false;
 
     // --- ホーム v4: 過去プロジェクト一覧（裁定 R3） ---
     protected creatorRootAvailable = false;
@@ -695,25 +724,273 @@ export class AkariHomeWidget extends ReactWidget {
         return lines.join('\n');
     }
 
+    // --- D&D 復活: 素材の取り込み（v3 home dropzone [bacd7f5] からの再利用。
+    // 挙動は変えていない — 差分は「専用カード」ではなく「面全体」が対象になった点のみ） ---
+
+    /**
+     * 取り込み先ディレクトリ（assets ロール）の相対パスを workflow.json から解決する。
+     * v3 の `normalizeRoles` + `roleForKind('assets')` と同じアルゴリズム・同じ既定値
+     * （`DEFAULT_ASSETS_ROLE_PATH = 'assets'`）。v3 は起動時に読んで stages 表示等と
+     * 一緒にフィールドへキャッシュしていたが、v4 はホーム俯瞰カード自体が無いため、
+     * ドロップの都度フレッシュに読み直す（常に最新の workflow.json を見る・
+     * 新しい watch ライフサイクルを増やさない）。読めない/未設定なら既定値。
+     */
+    protected async resolveAssetsRolePath(root: URI): Promise<string> {
+        try {
+            const content = await this.fileService.readFile(root.resolve('.akari/workflow.json'));
+            const parsed = JSON.parse(content.value.toString());
+            const roles = this.normalizeRoles(parsed);
+            return this.roleForKind(roles, 'assets') ?? DEFAULT_ASSETS_ROLE_PATH;
+        } catch {
+            return DEFAULT_ASSETS_ROLE_PATH;
+        }
+    }
+
+    protected normalizeRoles(workflow: any): WorkflowRole[] {
+        const source = Array.isArray(workflow?.roles) ? workflow.roles : [];
+        return source
+            .filter((entry: any) => entry && typeof entry.path === 'string')
+            .map((entry: any) => ({
+                path: entry.path,
+                label: String(entry.label ?? entry.path),
+                kind: String(entry.kind ?? '')
+            }));
+    }
+
+    protected roleForKind(roles: WorkflowRole[], kind: string): string | undefined {
+        return roles.find(role => role.kind === kind)?.path;
+    }
+
+    protected handleDragOver = (event: React.DragEvent): void => {
+        if (!this.hasImportableDrag(event.dataTransfer)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = 'copy';
+        if (!this.dragActive) {
+            this.dragActive = true;
+            this.update();
+        }
+    };
+
+    protected handleDragLeave = (event: React.DragEvent): void => {
+        const next = event.relatedTarget as Node | null;
+        if (next && event.currentTarget.contains(next)) {
+            return;
+        }
+        if (this.dragActive) {
+            this.dragActive = false;
+            this.update();
+        }
+    };
+
+    /**
+     * v3 は `data-akari-dropzone` を持つ専用の小さな div にだけ付けていたハンドラを、
+     * v4 ではホーム面全体（`.akari-home-surface`）に付ける。子要素（カード・ボタン等）を
+     * 跨ぐ dragenter/dragleave は `handleDragLeave` の `relatedTarget` ガードで吸収される
+     * （v3 から無変更）。
+     */
+    protected handleDrop = (event: React.DragEvent): void => {
+        if (!this.hasImportableDrag(event.dataTransfer)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        this.dragActive = false;
+        const sources = this.resolveDroppedSources(event.dataTransfer);
+        if (!sources.length) {
+            this.messages.warn('動画または写真のファイルをドロップしてください。');
+            this.update();
+            return;
+        }
+        this.update();
+        void this.importDroppedSources(sources);
+    };
+
+    /**
+     * v3 は `this.projectRoot`（起動時にキャッシュ済み）を直接参照していたが、v4 は
+     * その俯瞰用フィールドを持たないため、ドロップの都度 `workspaceService.roots` から
+     * 解決する。未接続時と同じく「先にプロジェクトを開いてください」の警告文言は
+     * v3 のまま維持。
+     */
+    protected async importDroppedSources(sources: URI[]): Promise<void> {
+        const roots = await this.workspaceService.roots;
+        const root = roots[0]?.resource;
+        if (!root) {
+            this.messages.warn('先にプロジェクトを開いてください。');
+            return;
+        }
+        await this.importSources(sources, root);
+    }
+
+    protected hasImportableDrag(transfer: DataTransfer | null): boolean {
+        return !!transfer && (transfer.types.includes('Files') || transfer.types.includes('text/uri-list'));
+    }
+
+    /**
+     * ドロップされた実ファイルの絶対パスを解決する。Electron の preload ブリッジ
+     * （`electronTheiaCore.getPathForFile`）を優先し、無い環境では `File#path` に
+     * フォールバックする（akari-project の動画ドロップ実装と同じ経路。v3 から無変更）。
+     */
+    protected resolveDroppedSources(transfer: DataTransfer | null): URI[] {
+        if (!transfer) {
+            return [];
+        }
+        const fromFiles = Array.from(transfer.files)
+            .filter(file => IMPORTABLE_EXTENSIONS.includes(this.extensionOf(file.name)))
+            .map(file => {
+                const theiaCore = (window as Window & {
+                    electronTheiaCore?: { getPathForFile?: (candidate: File) => string };
+                }).electronTheiaCore;
+                let sourcePath: string | undefined;
+                if (typeof theiaCore?.getPathForFile === 'function') {
+                    try {
+                        sourcePath = theiaCore.getPathForFile(file) || undefined;
+                    } catch {
+                        // Fall back for environments without the Electron preload bridge.
+                    }
+                }
+                sourcePath ||= (file as File & { path?: string }).path;
+                return sourcePath ? URI.fromFilePath(sourcePath) : undefined;
+            })
+            .filter((uri): uri is URI => !!uri);
+        if (fromFiles.length) {
+            return fromFiles;
+        }
+        const uriList = transfer.getData('text/uri-list');
+        return uriList.split(/\r?\n/)
+            .filter(line => line.startsWith('file:') && IMPORTABLE_EXTENSIONS.includes(this.extensionOf(line)))
+            .map(line => new URI(line));
+    }
+
+    protected async importSources(sources: URI[], root: URI): Promise<void> {
+        const supported = sources.filter(uri => IMPORTABLE_EXTENSIONS.includes(this.extensionOf(uri.path.base)));
+        if (!supported.length) {
+            this.messages.warn('動画または写真のファイルを選んでください。');
+            return;
+        }
+        this.importing = true;
+        this.update();
+        const assetsRolePath = await this.resolveAssetsRolePath(root);
+        const assetsUri = root.resolve(assetsRolePath);
+        let imported = 0;
+        let failed = 0;
+        for (const source of supported) {
+            try {
+                // FileService.copy は同名ファイルがあると例外になる（自動リネームはしない）。
+                // 同じ素材の再ドロップを失敗にしないため、空いている名前を探してからコピーする。
+                const target = await this.availableTarget(assetsUri, this.safeFileName(source.path.base));
+                await this.fileService.copy(source, target, { fromUserGesture: true });
+                imported++;
+            } catch (error) {
+                failed++;
+                console.error('[akari-surfaces] failed to import asset', error);
+            }
+        }
+        this.importing = false;
+        if (imported) {
+            this.importedNotice = failed
+                ? `${imported} 件を取り込みました（${failed} 件は失敗）。分析やプラン作成に進めます。`
+                : '素材を取り込みました。分析やプラン作成に進めます。';
+            this.messages.info(this.importedNotice);
+            await this.refreshExplorer();
+        } else {
+            this.messages.error('取り込めませんでした。Finder からもう一度お試しください。');
+        }
+        this.update();
+    }
+
+    protected async refreshExplorer(): Promise<void> {
+        try {
+            const navigator = await this.widgets.getOrCreateWidget('files') as any;
+            await navigator.model?.refresh?.();
+        } catch {
+            // Explorer がまだ無い場合はワークスペースの監視側で追従する。
+        }
+    }
+
+    protected safeFileName(name: string): string {
+        return name.replace(/[\\/]/g, '_').replace(/[^\p{L}\p{N}._ -]/gu, '_');
+    }
+
+    /** 同名ファイルが既にあるときは `name-2.ext` 形式で空きを探す（上書きしない）。 */
+    protected async availableTarget(directory: URI, name: string): Promise<URI> {
+        const extension = this.extensionOf(name);
+        const stem = extension ? name.slice(0, -extension.length) : name;
+        let candidate = directory.resolve(name);
+        for (let index = 2; await this.fileService.exists(candidate); index++) {
+            candidate = directory.resolve(`${stem}-${index}${extension}`);
+        }
+        return candidate;
+    }
+
+    protected extensionOf(name: string): string {
+        const match = name.match(/\.[^./\\]+$/);
+        return match ? match[0].toLowerCase() : '';
+    }
+
     // --- レンダリング ---
 
     /**
      * ホーム v4: 分岐なしで常に dashboard 1 枚を描く。上から
      * (a) 説明ブロック（2 動作） (b) 過去プロジェクト一覧（あれば列挙・無ければ
      * 案内 1 行） (c) 接続案内カード（未接続時のみ） (d) 進め方フォーム
-     * （コマンドから開いたときだけ展開）。それ以外の制御 UI は持たない
+     * （コマンドから開いたときだけ展開）。それ以外の静的な制御 UI は持たない
      * （裁定 R1・R4）。`data-akari-home-stage` は v3 からの既存 evidence /
      * 検証スクリプトの掴みどころとして値 `"dashboard"` のまま残す。
+     *
+     * D&D 復活（task 2026-08-02-home-dnd-restore）: 面全体（このルート div）が
+     * ドロップターゲット。専用カードは足さず、dragover 中だけ
+     * {@link renderDropOverlay} を重ねて可視化する。`data-akari-dropzone='true'`
+     * は evidence 互換のためこの要素に復活させた。
      */
     protected override render(): React.ReactNode {
         return (
-            <div className='akari-home-surface' data-akari-home-stage='dashboard' style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box' }}>
+            <div
+                className='akari-home-surface'
+                data-akari-home-stage='dashboard'
+                data-akari-dropzone='true'
+                onDragOver={this.handleDragOver}
+                onDragLeave={this.handleDragLeave}
+                onDrop={this.handleDrop}
+                style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box', position: 'relative' }}
+            >
                 {this.renderDashboardHeader()}
                 {this.updateStatus.available && this.renderUpdateBanner()}
+                {this.importedNotice && this.renderImportedNotice()}
                 {this.renderExplanation()}
                 {this.renderPastProjects()}
                 {!this.connected && this.renderConnectCard()}
                 {this.intakeFormOpen && this.renderIntakeForm()}
+                {this.dragActive && this.renderDropOverlay()}
+            </div>
+        );
+    }
+
+    /**
+     * ドロップ受け付けの可視化（dragover 中のみ）。静的レイアウトには何も足さず、
+     * このオーバーレイだけが一時的に重なる。`pointerEvents: 'none'` により
+     * オーバーレイ自身が `dragenter`/`dragleave` の relatedTarget にならないようにする
+     * （面全体が対象になったことで子要素間の drag イベントが増えるため重要）。
+     */
+    protected renderDropOverlay(): React.ReactNode {
+        return (
+            <div role='status' aria-live='polite' style={homeFlowStyles.dropOverlay}>
+                <span className='codicon codicon-cloud-upload' aria-hidden='true' style={{ fontSize: 26 }} />
+                <strong style={{ fontSize: 14.5 }}>ここに落とすと素材に取り込みます</strong>
+            </div>
+        );
+    }
+
+    /** 取り込み完了後の一時的なステータス表示（v3 renderProjectOverview から再利用）。 */
+    protected renderImportedNotice(): React.ReactNode {
+        return (
+            <div role='status' style={{
+                marginBottom: 16, padding: '10px 14px', borderRadius: 8,
+                border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)'
+            }}>
+                {this.importedNotice}
             </div>
         );
     }
@@ -762,6 +1039,7 @@ export class AkariHomeWidget extends ReactWidget {
                         左に動画・写真を入れるか、右で相棒に話しかけてください。
                     </p>
                     <p style={homeFlowStyles.cardFine}>真ん中には、進めた結果（プレビューやレポート）が表示されます。</p>
+                    <p style={homeFlowStyles.cardFine}>この画面のどこにドラッグ＆ドロップしても素材を取り込めます。</p>
                 </div>
             </section>
         );
@@ -1022,6 +1300,15 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     updateBannerActions: { display: 'flex', gap: 8, flex: '0 0 auto' },
     updateBannerButton: {
         fontSize: 12, padding: '6px 12px', borderRadius: 8, minHeight: 'auto', height: 'auto'
+    },
+
+    // D&D 復活: dragover 中だけ面全体に重なるオーバーレイ（静的レイアウトには何も足さない）。
+    dropOverlay: {
+        position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
+        background: 'var(--theia-list-dropBackground, rgba(127,127,127,0.12))',
+        border: '2px dashed var(--theia-focusBorder)', borderRadius: 8,
+        color: 'var(--theia-editorWidget-foreground)'
     }
 };
 
