@@ -36,7 +36,8 @@ test("defaultTextStyle と per-caption をネストもフィールド単位で�
 
   assert.equal(overlay.vars["--caption-color"], "#AABBCC");
   assert.equal(overlay.vars["--caption-font-size"], "42px");
-  assert.match(overlay.vars["--caption-text-shadow"], /3px 3px 0 #000000/);
+  // width_px=3（per-caption）+ color=#000000（default）→ 中心線 2 倍指定で外側 3px の実線ストローク
+  assert.equal(overlay.vars["--caption-stroke"], "6px #000000");
   assert.equal(overlay.vars["--plate-bg"], "rgba(68,85,102,0.35)");
   assert.equal(overlay.vars["--plate-radius"], "12px");
   assert.deepEqual({

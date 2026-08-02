@@ -29,6 +29,25 @@
 - `words[]` のタイムスタンプもソース時間軸。カラオケ / pop / 強調語（`emphasis_words`）の
   アニメーションはシーク同期（CSS animation pause + currentTime 手動セット）で描画する
 
+#### 2.2.1 字幕の見た目の既定（2026-08-03 改定。正本: `packages/render-cut/src/captions.mjs`）
+- **縁取りは実ストローク**: `-webkit-text-stroke`（既定 `0.14em rgba(0,0,0,.9)`）+
+  `paint-order: stroke fill`。4 方向 text-shadow の擬似輪郭は廃止（カクカクの原因だった）。
+  `text_style.stroke.width_px` は「外側に見える太さ」で、実装は中心線ストロークのため 2 倍を指定する
+  （`--caption-stroke: <width_px×2>px <color>`）。text-shadow は柔らかい落ち影
+  （`0 2px 8px rgba(0,0,0,.35)`）のみに使う
+- **座布団（プレート背景）の既定はなし**（`--plate-bg: transparent`）。背景は
+  `text_style.background` の明示指定（opt-in）のみ
+- **縦横で既定を切り替える**（`output.height > output.width` = 縦長）:
+  | 既定 | 横長 | 縦長 |
+  |---|---|---|
+  | フォントサイズ | 38px | `round(output.width × 0.06)`（1080 幅 → 65px） |
+  | 1 行の文字数予算 | 20 | 10 |
+  | 複数行になる無指定字幕 | 全行を静的表示 | `words[]` があれば **reveal（行単位の順送り）へ自動昇格**。words 不在は静的表示のまま |
+- 行分割の優先順位は従来どおり（句読点 → 空白 → 文節境界 → 文字上限。word 途中では折り返さず
+  最寄りの word 境界へスナップ）。明示指定（`text_style.size_px` / style / maxCharacters）は常に既定より優先
+- 3 サーフェス（render-cut / Web UI app.js / shell webview）は同じ既定で描く。実装は意図的な
+  コード重複（render-cut は CLI パッケージで相互 import しない方針。共有カーネル化は将来課題）
+
 ### 2.3 オーバーレイ（edit.json overlays[]）
 - `html` は「`<` で始まればインライン HTML、それ以外は edit.json からの相対ファイルパス」として解決する
   （edit-lint の references.files と同一契約。パス参照が正、インラインは後方互換）

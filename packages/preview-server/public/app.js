@@ -1370,11 +1370,10 @@ function applyCaptionStyle(caption) {
   else if (dts?.color) vars['--caption-color'] = dts.color;
   if (ts?.size_px) vars['--caption-font-size'] = ts.size_px + 'px';
   else if (dts?.size_px) vars['--caption-font-size'] = dts.size_px + 'px';
-  else vars['--caption-font-size'] = '38px';
+  else vars['--caption-font-size'] = defaultCaptionFontSize() + 'px';
   const zone = ts?.zone || dts?.zone || 'bottom';
   Object.assign(vars, captionZoneVars(zone));
   for (const [k, v] of Object.entries(vars)) captionPlate.style.setProperty(k, v);
-  captionPlate.classList.toggle('akari-caption-styled', !!ts || !!dts);
 }
 
 function getActiveCaptions() {
@@ -1412,6 +1411,138 @@ function groupWordsIntoLines(words, maxLen = 13) {
   if (cur.length > 0) lines.push(cur);
   return lines;
 }
+// --- render-cut とのパリティ層（正本: packages/render-cut/src/captions.mjs）---
+// 縦長出力では「行を短く（10 字）・文字を大きく（幅 6%）・複数行字幕は行単位の順送り（reveal）」
+// が焼き込み側の既定。プレビューも同じ既定で描く。ロジックは意図的な文字列/コード重複
+// （render-cut は CLI パッケージで相互 import しない方針）。
+function isPortraitOutput() {
+  const os = summary?.output || {};
+  return Number(os.height) > Number(os.width);
+}
+function captionLineBudget() { return isPortraitOutput() ? 10 : 20; }
+function defaultCaptionFontSize() {
+  const os = summary?.output || {};
+  return isPortraitOutput() ? Math.round(Number(os.width) * 0.06) : 38;
+}
+const CAPTION_BOUNDARIES = ['から', 'まで', 'ので', 'のに', 'けど', 'て', 'で', 'は', 'が', 'を', 'に', 'へ', 'と', 'も', 'の'];
+function splitCaptionLines(text, maximum) {
+  const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : 20;
+  const lines = [];
+  for (const value of String(text).split(/\r?\n/u)) {
+    if (value.length === 0) { lines.push(''); continue; }
+    for (const segment of splitAfterPunctuation(value)) {
+      lines.push(...splitAtNaturalBoundaries(segment, limit));
+    }
+  }
+  return lines;
+}
+function splitAfterPunctuation(value) {
+  const characters = Array.from(value);
+  const segments = [];
+  let start = 0;
+  for (let index = 0; index < characters.length; index += 1) {
+    if ((characters[index] === '、' || characters[index] === '。') && index + 1 < characters.length) {
+      segments.push(characters.slice(start, index + 1).join(''));
+      start = index + 1;
+    }
+  }
+  segments.push(characters.slice(start).join(''));
+  return segments;
+}
+function splitAtNaturalBoundaries(value, maximum) {
+  const lines = [];
+  let remaining = Array.from(value);
+  while (remaining.length > maximum) {
+    const spaceBoundary = findLastSpaceBoundary(remaining, maximum);
+    const phraseBoundary = spaceBoundary ?? findLastPhraseBoundary(remaining, maximum);
+    const boundary = phraseBoundary ?? maximum;
+    lines.push(remaining.slice(0, boundary).join(''));
+    remaining = remaining.slice(boundary);
+  }
+  if (remaining.length > 0) lines.push(remaining.join(''));
+  return lines;
+}
+function findLastSpaceBoundary(characters, maximum) {
+  for (let index = maximum - 1; index > 0; index -= 1) {
+    if (characters[index] === ' ' || characters[index] === '　') return index + 1;
+  }
+  return null;
+}
+function findLastPhraseBoundary(characters, maximum) {
+  const prefix = characters.slice(0, maximum).join('');
+  let best = null;
+  for (const boundary of CAPTION_BOUNDARIES) {
+    const index = prefix.lastIndexOf(boundary);
+    if (index >= 0) {
+      const candidate = Array.from(prefix.slice(0, index + boundary.length)).length;
+      if (candidate > 0 && (best === null || candidate > best)) best = candidate;
+    }
+  }
+  return best;
+}
+// splitCaptionLines の分割点を word 境界へスナップして words を行へ配る
+// （captions.mjs groupDisplayTokensIntoLines の words 専用ポート）。
+function groupWordsIntoDisplayLines(words, maximum) {
+  if (words.length === 0) return [];
+  const text = words.map(w => w.text).join('');
+  const desiredBoundaries = [];
+  let desiredOffset = 0;
+  for (const line of splitCaptionLines(text, maximum).slice(0, -1)) {
+    desiredOffset += Array.from(line).length;
+    desiredBoundaries.push(desiredOffset);
+  }
+  const ranges = [];
+  let offset = 0;
+  for (const word of words) {
+    const start = offset;
+    offset += Array.from(word.text).length;
+    ranges.push({ word, start, end: offset });
+  }
+  const boundaries = [];
+  let previous = 0;
+  for (const desired of desiredBoundaries) {
+    const containing = ranges.find(({ start, end }) => start < desired && desired < end);
+    let snapped = desired;
+    if (containing) {
+      const candidates = [containing.start, containing.end]
+        .filter(candidate => candidate > previous && candidate < offset);
+      const withinTolerance = candidates.filter(candidate => candidate - previous <= maximum + 2);
+      const eligible = withinTolerance.length > 0 ? withinTolerance : candidates;
+      if (eligible.length === 0) continue;
+      snapped = eligible.reduce((best, candidate) =>
+        Math.abs(candidate - desired) < Math.abs(best - desired) ? candidate : best);
+    }
+    if (snapped > previous && snapped < offset) { boundaries.push(snapped); previous = snapped; }
+  }
+  const lines = [];
+  let start = 0;
+  for (const end of [...boundaries, offset]) {
+    const line = ranges.filter(r => r.end > start && r.start < end).map(r => r.word);
+    if (line.length > 0) lines.push(line);
+    start = end;
+  }
+  return lines;
+}
+// 行グループを開始時刻ごとに束ねて順送り表示の markup を作る
+// （captions.mjs renderRevealGroups のポート。preview は速度リマップ無しの source 秒）。
+function renderRevealGroupsMarkup(lines, rangeStart, rangeEnd, renderLine) {
+  const groups = [];
+  for (const line of lines) {
+    const start = line[0]?.start ?? rangeStart;
+    const previous = groups[groups.length - 1];
+    if (previous && previous.start === start) previous.lines.push(line);
+    else groups.push({ start, lines: [line] });
+  }
+  return groups.map((group, index) => {
+    const nextStart = groups[index + 1]?.start ?? rangeEnd;
+    const delay = Math.max(0, group.start - rangeStart);
+    const duration = Math.max(0.01, nextStart - group.start);
+    const lineMarkup = group.lines
+      .map(line => `<p class="akari-caption__line">${renderLine(line)}</p>`)
+      .join('');
+    return `<div class="akari-caption__reveal-group" style="--akari-reveal-delay:${delay.toFixed(3)}s;--akari-reveal-dur:${duration.toFixed(3)}s">${lineMarkup}</div>`;
+  }).join('');
+}
 function injectCaptionStyles() {
   if (captionStylesInjected) return;
   captionStylesInjected = true;
@@ -1435,9 +1566,17 @@ function injectCaptionStyles() {
   50%  { transform: scale(1.25); }
   100% { transform: scale(1); }
 }
-.akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6)); font-family:"Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:1.42; text-align:center; }
+.akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9)); paint-order:stroke fill; text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:"Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:1.42; text-align:center; }
 .akari-caption__plate { position:absolute; top:var(--caption-top,auto); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; }
-.akari-caption__line { width:max-content; max-width:92%; margin:0 auto; padding:0.08em 0.42em; border-radius:10px; background:rgba(8,12,22,0.74); text-align:center; white-space:pre; }
+.akari-caption__line { width:max-content; max-width:92%; margin:0 auto; padding:0.08em 0.42em; border-radius:10px; background:var(--plate-bg,transparent); text-align:center; white-space:pre; }
+.akari-caption--reveal .akari-caption__plate { display:grid; }
+.akari-caption__reveal-group { grid-area:1 / 1; display:flex; flex-direction:column; gap:4px; opacity:0; animation:akari-caption-reveal var(--akari-reveal-dur,0.2s) var(--akari-reveal-delay,0s) linear both paused; }
+@keyframes akari-caption-reveal {
+  0% { opacity:0; transform:translateY(0.18em); }
+  12% { opacity:1; transform:translateY(0); }
+  99.99% { opacity:1; transform:translateY(0); }
+  100% { opacity:0; transform:translateY(0); }
+}
 .akari-caption__tok { display:inline-block; will-change:transform,color; }
 .akari-caption__tok--karaoke { animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--pop { animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused; }
@@ -1446,8 +1585,6 @@ function injectCaptionStyles() {
 .akari-caption__tok--size-pulse { animation:akari-emphasis-size-pulse var(--akari-emphasis-dur,0.2s) var(--akari-emphasis-delay,0s) ease-in-out both paused; color:var(--akari-emphasis-color,var(--caption-color,#fff)); }
 .akari-caption__tok--color-accent { color:var(--akari-emphasis-color,var(--caption-color,#fff)); }
 .akari-caption__emphasis-char { display:inline-block; opacity:0; animation:akari-emphasis-one-char-bang var(--akari-emphasis-dur,0.1s) var(--akari-emphasis-delay,0s) ease-out both paused; }
-.akari-caption--pop .akari-caption__line { background:rgba(8,12,22,0.74); }
-.akari-caption--emphasis .akari-caption__line { background:rgba(8,12,22,0.74); }
 `;
   document.head.appendChild(style);
 }
@@ -1498,11 +1635,31 @@ function updateCaption() {
   const hasWords = words.length > 0;
   const hasEmphasis = hasWords && emphasisWords?.length > 0 && words.some(w => findMatchingEmphasis(w, emphasisWords));
   const style = active.style;
-  const wordStyle = (style && ['karaoke', 'pop', 'reveal'].includes(style)) ? style : (hasEmphasis ? 'emphasis' : null);
-  if (wordStyle && hasWords) {
-    injectCaptionStyles();
+  const explicitStyle = (style && ['karaoke', 'pop'].includes(style)) ? style : null;
+  // reveal（行単位の順送り表示）: 明示指定に加え、縦長では複数行に折り返す無指定字幕を
+  // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
+  const displayText = active.display_text || active.text || '';
+  const wantsReveal = hasWords && (style === 'reveal'
+    || (!style && isPortraitOutput()
+      && splitCaptionLines(displayText, captionLineBudget()).length > 1));
+  const wordStyle = explicitStyle ?? (hasEmphasis ? 'emphasis' : null);
+  injectCaptionStyles();
+  if (wantsReveal) {
     const start = Number(active.start) || 0;
-    const lines = groupWordsIntoLines(words);
+    const end = Number(active.end) || (words[words.length - 1]?.end ?? start);
+    const lines = groupWordsIntoDisplayLines(words, captionLineBudget());
+    captionPlate.innerHTML = `<div class="akari-caption akari-caption--reveal"><div class="akari-caption__plate">${
+      renderRevealGroupsMarkup(lines, start, end, line =>
+        line.map(w => {
+          const ew = findMatchingEmphasis(w, emphasisWords);
+          return ew ? renderEmphasisToken(w, start, ew)
+            : `<span class="akari-caption__tok">${esc(w.text)}</span>`;
+        }).join(''))
+    }</div></div>`;
+    captionPlate.dataset.captionStart = String(start);
+  } else if (wordStyle && hasWords) {
+    const start = Number(active.start) || 0;
+    const lines = groupWordsIntoLines(words, captionLineBudget());
     captionPlate.innerHTML = `<div class="akari-caption akari-caption--${wordStyle}"><div class="akari-caption__plate">${
       lines.map(line => `<p class="akari-caption__line">${
         line.map(w => {
@@ -1512,18 +1669,13 @@ function updateCaption() {
       }</p>`).join('')
     }</div></div>`;
     captionPlate.dataset.captionStart = String(start);
-  } else if (hasWords) {
-    const start = Number(active.start) || 0;
-    const ms = (srcT - start) * 1000;
-    captionPlate.innerHTML = words.map(w => {
-      const ws = w.start, we = w.end;
-      let c = '#fff', s = '0 1px 2px #000';
-      if (ms >= we) { c = '#aaa'; s = 'none'; }
-      else if (ms >= ws) { c = '#ff0'; s = '0 0 8px rgba(255,255,255,0.4)'; }
-      return `<span style="color:${c};text-shadow:${s};transition:color 0.05s">${esc(w.text)}</span>`;
-    }).join(' ');
   } else {
-    captionPlate.innerHTML = esc(active.text || active.display_text || '');
+    // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
+    const lines = splitCaptionLines(displayText, captionLineBudget());
+    captionPlate.innerHTML = `<div class="akari-caption"><div class="akari-caption__plate">${
+      lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join('')
+    }</div></div>`;
+    delete captionPlate.dataset.captionStart;
   }
 }
 function syncCaptionAnimations() {

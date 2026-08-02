@@ -4,6 +4,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
 
 const DEFAULT_MAX_CHARACTERS = 20;
+// 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
+// （オーナー裁定 2026-08-03: 縦は 5〜10 文字級のチャンクを大きく順送りで見せる）。
+const PORTRAIT_MAX_CHARACTERS = 10;
+// 縦長の既定フォントサイズは出力幅比で決める（1080px 幅 → 65px）。
+const PORTRAIT_FONT_SIZE_RATIO = 0.06;
+const DEFAULT_FONT_SIZE_PX = 38;
 
 // 焼き込みキャプションのフォント固定（win2-fonts-wire）。CI/Docker 等 Hiragino も Noto CJK も
 // 無い/バージョン違いの環境でも同一グリフでレンダリングされるよう、同梱済み Noto Sans JP
@@ -28,8 +34,10 @@ const CAPTION_FONT_FACE_CSS = `@font-face {
       font-style: normal;
     }`;
 
-// opt-in word-level スタイル（既定 = 未指定 = 従来のプレーン字幕。既定出力はバイト等価を保つため、
-// このセットに含まれないスタイル値・words 未充填の場合は必ず renderCaptionFragment に fall back する）。
+// opt-in word-level スタイル。横長では既定 = 未指定 = 従来のプレーン字幕（既定出力のバイト等価を保つ）。
+// 縦長（portrait）だけは例外で、words[] があり複数行に折り返す字幕を reveal（行単位の順送り表示）へ
+// 自動昇格させる（2026-08-03 オーナー要望: 縦で文章の壁を出さない）。words 未充填・未対応スタイル値は
+// 従来どおり renderCaptionFragment に fall back する。
 const KARAOKE_STYLE = "karaoke";
 const POP_STYLE = "pop";
 const REVEAL_STYLE = "reveal";
@@ -54,7 +62,17 @@ const SUPPORTED_EMPHASIS_STYLES = new Set([
 ]);
 
 export function generateCaptionOverlays(captions, cuts, options = {}) {
-  const maximum = options.maxCharacters ?? DEFAULT_MAX_CHARACTERS;
+  // output（edit.output の {width,height}）が縦長なら、行を短く・文字を大きくする既定へ切り替える。
+  // 明示指定（maxCharacters / text_style.size_px）は常に既定より優先。
+  const output = options.output;
+  const portrait = typeof output?.width === "number"
+    && typeof output?.height === "number"
+    && output.height > output.width;
+  const maximum = options.maxCharacters
+    ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
+  const baseFontSize = portrait
+    ? Math.round(output.width * PORTRAIT_FONT_SIZE_RATIO)
+    : DEFAULT_FONT_SIZE_PX;
   const emphasisWords = normalizeEmphasisWords(options.emphasisWords);
   const sourceCount = options.sourceCount ?? 1;
   const linearTimeline = options.linearTimeline === true;
@@ -78,10 +96,20 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       captionSource,
       linearTimeline,
     );
-    const style = normalizeCaptionStyle(caption.style);
+    let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
     const textStyleVars = captionTextStyleVars(textStyle);
     const allWords = clipWordsToRange(caption.words, caption.start, caption.end);
+    // 縦長の既定: 複数行へ折り返す長さの字幕は全行を一度に出さず、既存 reveal 機構で
+    // 行単位に順送り表示する（words[] のタイミングが無い字幕は従来どおり静的表示）。
+    if (
+      portrait
+      && style === null
+      && allWords.length > 0
+      && splitCaptionLines(displayText, maximum).length > 1
+    ) {
+      style = REVEAL_STYLE;
+    }
     const fullCoverage = allWords.map((word) => word.text).join("") === caption.text;
     const usesTimedRendering = style !== null || emphasisWords.length > 0;
     const mappedRendering = usesTimedRendering
@@ -122,6 +150,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         words.length > 0 && (style || hasEmphasis)
           ? renderStyledCaptionFragment(words, style, {
               maximum,
+              baseFontSize,
               rangeStart: range.sourceStart,
               rangeEnd: range.sourceEnd,
               emphasisTimeScale: range.emphasisTimeScale ?? 1,
@@ -132,6 +161,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
             })
           : renderCaptionFragment(displayText, {
               maximum,
+              baseFontSize,
               textStyleActive: textStyle !== null,
               backgroundMode: textStyle?.background?.mode,
             });
@@ -181,11 +211,14 @@ export function captionTextStyleVars(style) {
   }
   if (style.stroke && (typeof style.stroke.color === "string"
     || (typeof style.stroke.width_px === "number" && Number.isFinite(style.stroke.width_px)))) {
-    vars["--caption-text-shadow"] = strokeShadow(
-      typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)",
-      typeof style.stroke.width_px === "number" && Number.isFinite(style.stroke.width_px)
-        ? style.stroke.width_px : 1.5,
-    );
+    // -webkit-text-stroke はグリフ輪郭の中心に乗るので、外側に width_px 見えるよう 2 倍を指定する
+    // （paint-order: stroke fill で塗りが上に乗り、内側半分は隠れる）。
+    const strokeWidth = typeof style.stroke.width_px === "number"
+      && Number.isFinite(style.stroke.width_px)
+      ? style.stroke.width_px : 1.5;
+    const strokeColor = typeof style.stroke.color === "string"
+      ? style.stroke.color : "rgba(0,0,0,.9)";
+    vars["--caption-stroke"] = `${strokeWidth * 2}px ${strokeColor}`;
   }
   if (style.background && (typeof style.background.color === "string"
     || (typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)))) {
@@ -236,14 +269,6 @@ function normalizeTextStyle(value) {
         } : {}),
     ...(typeof value.zone === "string" ? { zone: value.zone } : {}),
   };
-}
-
-function strokeShadow(color, width) {
-  const negative = width === 0 ? "0" : `-${width}px`;
-  const positive = width === 0 ? "0" : `${width}px`;
-  return `${negative} ${negative} 0 ${color}, ${positive} ${negative} 0 ${color}, `
-    + `${negative} ${positive} 0 ${color}, ${positive} ${positive} 0 ${color}, `
-    + "0 0 8px rgba(0,0,0,.6)";
 }
 
 function colorWithOpacity(color, explicitOpacity) {
@@ -353,6 +378,7 @@ function isValidWord(word) {
 
 export function renderCaptionFragment(text, options = {}) {
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
+  const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
       left: var(--caption-left, 0);
@@ -411,9 +437,11 @@ export function renderCaptionFragment(text, options = {}) {
       inset: 0;
       pointer-events: none;
       color: var(--caption-color, #fff);
-      text-shadow: var(--caption-text-shadow, -1.5px -1.5px 0 rgba(0,0,0,.85), 1.5px -1.5px 0 rgba(0,0,0,.85), -1.5px 1.5px 0 rgba(0,0,0,.85), 1.5px 1.5px 0 rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6));
+      -webkit-text-stroke: var(--caption-stroke, 0.14em rgba(0,0,0,.9));
+      paint-order: stroke fill;
+      text-shadow: var(--caption-text-shadow, 0 2px 8px rgba(0,0,0,.35));
       font-family: ${CAPTION_FONT_STACK};
-      font-size: var(--caption-font-size, 38px);
+      font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: 700;
       line-height: 1.42;
       text-align: center;
@@ -456,6 +484,7 @@ ${lineTextAlignCss}      white-space: pre;
 // __akariSeek はコンテナ単位でしか data-start を見ないため）。
 export function renderStyledCaptionFragment(words, style, options = {}) {
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
+  const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
       left: var(--caption-left, 0);
@@ -544,9 +573,11 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       inset: 0;
       pointer-events: none;
       color: var(--caption-color, #fff);
-      text-shadow: var(--caption-text-shadow, -1.5px -1.5px 0 rgba(0,0,0,.85), 1.5px -1.5px 0 rgba(0,0,0,.85), -1.5px 1.5px 0 rgba(0,0,0,.85), 1.5px 1.5px 0 rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6));
+      -webkit-text-stroke: var(--caption-stroke, 0.14em rgba(0,0,0,.9));
+      paint-order: stroke fill;
+      text-shadow: var(--caption-text-shadow, 0 2px 8px rgba(0,0,0,.35));
       font-family: ${CAPTION_FONT_STACK};
-      font-size: var(--caption-font-size, 38px);
+      font-size: var(--caption-font-size, ${baseFontSize}px);
       font-weight: 700;
       line-height: 1.42;
       text-align: center;
@@ -971,7 +1002,7 @@ function renderEmphasisCss() {
     }
     .akari-caption__tok--outline-bold {
       font-weight: var(--akari-emphasis-outline-weight, 900);
-      text-shadow: var(--akari-emphasis-outline, -2px -2px 0 #111, 2px -2px 0 #111, -2px 2px 0 #111, 2px 2px 0 #111);
+      -webkit-text-stroke: var(--akari-emphasis-outline-stroke, 0.2em rgba(17,17,17,.95));
     }
     .akari-caption__tok--danger {
       color: var(--akari-emphasis-danger, var(--vscode-errorForeground, #ff5c72));

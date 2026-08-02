@@ -20,11 +20,10 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
 #pen-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2147483645; }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; background: #000; }
-#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: 18px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: none; user-select: none; }
+/* 字幕の見た目は app.js injectCaptionStyles（render-cut captions.mjs とパリティ）が正本。
+   host は透明な出力座標フレームのみ提供する（黒座布団の既定は 2026-08-03 撤去 — 焼き込み既定は透明）。 */
+#caption-plate { position: absolute; inset: 0; z-index: 2147483647; pointer-events: none; user-select: none; --caption-color: #fff; }
 #caption-plate:empty { display: none; }
-#caption-plate.akari-caption-styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-color: #fff; --caption-font-size: 38px; }
-#caption-plate.akari-caption-styled .akari-caption__plate { position: absolute; top: var(--caption-top, auto); left: var(--caption-left, 0); right: var(--caption-right, 0); bottom: var(--caption-bottom, 7%); display: flex; flex-direction: column; justify-content: var(--caption-justify-content, flex-start); align-items: var(--caption-align-items, center); }
-#caption-plate.akari-caption-styled .akari-caption__text { color: var(--caption-color, #fff); font-size: var(--caption-font-size, 38px); font-weight: 700; line-height: 1.45; text-align: var(--caption-text-align, center); text-shadow: -1.5px -1.5px 0 rgba(0,0,0,.85), 1.5px -1.5px 0 rgba(0,0,0,.85), -1.5px 1.5px 0 rgba(0,0,0,.85), 1.5px 1.5px 0 rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6); white-space: pre-wrap; padding: 0.35em 0.7em; }
 #shortcut-help { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.7); display: grid; place-items: center; }
 #shortcut-help[hidden] { display: none; }
 #shortcut-help-inner { background: #202020; border: 1px solid #505050; border-radius: 8px; padding: 20px 28px; max-width: 480px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }

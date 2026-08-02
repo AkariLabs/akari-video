@@ -2831,7 +2831,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         initialSeekTime?: number
     ): string {
         const { width, height } = model.summary.output;
-        const captionFontSize = Math.round(height * 0.05);
+        // render-cut captions.mjs の既定とパリティ（stage は出力 px 論理空間）:
+        // 縦長 = 出力幅 6% / 横長 = 38px。従来の height*0.05 は焼き込みよりも大きく表示される乖離だった。
+        const captionFontSize = height > width ? Math.round(width * 0.06) : 38;
         const initialState = this.safeJson({
             summary: model.summary,
             captions: model.captions,
@@ -2892,7 +2894,9 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; }
-#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 88%; transform: translateX(-50%); padding: 0.35em 0.7em; border-radius: 0.18em; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.45; text-align: center; text-shadow: 0 1px 2px #000; white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
+/* プレーン字幕 host の見た目は焼き込み既定（captions.mjs）とパリティ: 透明座布団 + 実ストローク縁取り。
+   shrink-to-fit の形状と cursor: move はドラッグ当たり判定のため維持する。 */
+#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 92%; transform: translateX(-50%); padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 #caption-plate:empty { display: none; }
 #caption-plate.akari-caption-host--styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
@@ -5260,6 +5264,132 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (current.length > 0) lines.push(current);
                 return lines;
             };
+            // --- render-cut とのパリティ層（正本: packages/render-cut/src/captions.mjs）---
+            // 縦長出力の既定: 行 10 字・文字は出力幅 6%・複数行の無指定字幕は行単位の順送り（reveal）。
+            // webview はサンドボックスで import できないため、意図的なコード重複（app.js と同じ判断）。
+            const captionOutput = (initial.summary && initial.summary.output) || {};
+            const captionPortrait = Number(captionOutput.height) > Number(captionOutput.width);
+            const captionLineBudget = captionPortrait ? 10 : 20;
+            const captionDefaultFontSize = captionPortrait
+                ? Math.round(Number(captionOutput.width) * 0.06) : 38;
+            const CAPTION_BOUNDARIES = ['から', 'まで', 'ので', 'のに', 'けど', 'て', 'で', 'は', 'が', 'を', 'に', 'へ', 'と', 'も', 'の'];
+            const findLastSpaceBoundary = (characters, maximum) => {
+                for (let index = maximum - 1; index > 0; index -= 1) {
+                    if (characters[index] === ' ' || characters[index] === '　') return index + 1;
+                }
+                return null;
+            };
+            const findLastPhraseBoundary = (characters, maximum) => {
+                const prefix = characters.slice(0, maximum).join('');
+                let best = null;
+                for (const boundary of CAPTION_BOUNDARIES) {
+                    const index = prefix.lastIndexOf(boundary);
+                    if (index >= 0) {
+                        const candidate = Array.from(prefix.slice(0, index + boundary.length)).length;
+                        if (candidate > 0 && (best === null || candidate > best)) best = candidate;
+                    }
+                }
+                return best;
+            };
+            const splitAtNaturalBoundaries = (value, maximum) => {
+                const lines = [];
+                let remaining = Array.from(value);
+                while (remaining.length > maximum) {
+                    const spaceBoundary = findLastSpaceBoundary(remaining, maximum);
+                    const phraseBoundary = spaceBoundary !== null ? spaceBoundary : findLastPhraseBoundary(remaining, maximum);
+                    const boundary = phraseBoundary !== null ? phraseBoundary : maximum;
+                    lines.push(remaining.slice(0, boundary).join(''));
+                    remaining = remaining.slice(boundary);
+                }
+                if (remaining.length > 0) lines.push(remaining.join(''));
+                return lines;
+            };
+            const splitAfterPunctuation = value => {
+                const characters = Array.from(value);
+                const segments = [];
+                let start = 0;
+                for (let index = 0; index < characters.length; index += 1) {
+                    if ((characters[index] === '、' || characters[index] === '。') && index + 1 < characters.length) {
+                        segments.push(characters.slice(start, index + 1).join(''));
+                        start = index + 1;
+                    }
+                }
+                segments.push(characters.slice(start).join(''));
+                return segments;
+            };
+            const splitCaptionLines = (text, maximum) => {
+                const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : 20;
+                const lines = [];
+                for (const value of String(text).split(/\\r?\\n/u)) {
+                    if (value.length === 0) { lines.push(''); continue; }
+                    for (const segment of splitAfterPunctuation(value)) {
+                        lines.push(...splitAtNaturalBoundaries(segment, limit));
+                    }
+                }
+                return lines;
+            };
+            // splitCaptionLines の分割点を word 境界へスナップして words を行へ配る
+            const groupWordsIntoDisplayLines = (words, maximum) => {
+                if (words.length === 0) return [];
+                const text = words.map(word => word.text).join('');
+                const desiredBoundaries = [];
+                let desiredOffset = 0;
+                for (const line of splitCaptionLines(text, maximum).slice(0, -1)) {
+                    desiredOffset += Array.from(line).length;
+                    desiredBoundaries.push(desiredOffset);
+                }
+                const ranges = [];
+                let offset = 0;
+                for (const word of words) {
+                    const start = offset;
+                    offset += Array.from(word.text).length;
+                    ranges.push({ word, start, end: offset });
+                }
+                const boundaries = [];
+                let previous = 0;
+                for (const desired of desiredBoundaries) {
+                    const containing = ranges.find(range => range.start < desired && desired < range.end);
+                    let snapped = desired;
+                    if (containing) {
+                        const candidates = [containing.start, containing.end]
+                            .filter(candidate => candidate > previous && candidate < offset);
+                        const withinTolerance = candidates.filter(candidate => candidate - previous <= maximum + 2);
+                        const eligible = withinTolerance.length > 0 ? withinTolerance : candidates;
+                        if (eligible.length === 0) continue;
+                        snapped = eligible.reduce((best, candidate) =>
+                            Math.abs(candidate - desired) < Math.abs(best - desired) ? candidate : best);
+                    }
+                    if (snapped > previous && snapped < offset) { boundaries.push(snapped); previous = snapped; }
+                }
+                const lines = [];
+                let start = 0;
+                for (const end of [...boundaries, offset]) {
+                    const line = ranges.filter(range => range.end > start && range.start < end).map(range => range.word);
+                    if (line.length > 0) lines.push(line);
+                    start = end;
+                }
+                return lines;
+            };
+            const renderRevealGroupsMarkup = (lines, rangeStart, rangeEnd, renderLine) => {
+                const groups = [];
+                for (const line of lines) {
+                    const start = line.length > 0 ? line[0].start : rangeStart;
+                    const previous = groups[groups.length - 1];
+                    if (previous && previous.start === start) previous.lines.push(line);
+                    else groups.push({ start, lines: [line] });
+                }
+                return groups.map((group, index) => {
+                    const nextStart = index + 1 < groups.length ? groups[index + 1].start : rangeEnd;
+                    const delay = Math.max(0, group.start - rangeStart);
+                    const duration = Math.max(0.01, nextStart - group.start);
+                    const lineMarkup = group.lines
+                        .map(line => '<p class="akari-caption__line">' + renderLine(line) + '</p>')
+                        .join('');
+                    return '<div class="akari-caption__reveal-group" style="--akari-reveal-delay: '
+                        + formatCaptionSeconds(delay) + 's; --akari-reveal-dur: '
+                        + formatCaptionSeconds(duration) + 's">' + lineMarkup + '</div>';
+                }).join('');
+            };
             const findMatchingEmphasis = word => emphasisWords.find(emphasis =>
                 emphasis.t_end > word.start
                 && emphasis.t_start < word.end
@@ -5330,12 +5460,26 @@ body { display: grid; place-items: center; padding: 32px; }
                 const textStyleActive = Boolean(caption.textStyle
                     && Object.keys(caption.textStyle).length > 0);
                 const hasEmphasis = caption.words.some(word => findMatchingEmphasis(word));
-                const rootStyle = style || (hasEmphasis ? 'emphasis' : 'karaoke');
-                const markup = groupWordsIntoLines(caption.words, 13).map(line =>
-                    '<p class="akari-caption__line">'
-                    + line.map(word => renderCaptionToken(word, caption.start, style)).join('')
-                    + '</p>'
-                ).join('');
+                // reveal（行単位の順送り）: 明示指定に加え、縦長では複数行に折り返す無指定字幕を
+                // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
+                const reveal = style === 'reveal'
+                    || (!style && captionPortrait
+                        && splitCaptionLines(caption.text || '', captionLineBudget).length > 1);
+                const rootStyle = reveal ? 'reveal' : (style || (hasEmphasis ? 'emphasis' : 'karaoke'));
+                const renderLine = line =>
+                    line.map(word => renderCaptionToken(word, caption.start, reveal ? null : style)).join('');
+                const markup = reveal
+                    ? renderRevealGroupsMarkup(
+                        groupWordsIntoDisplayLines(caption.words, captionLineBudget),
+                        caption.start, caption.end, renderLine)
+                    : groupWordsIntoLines(caption.words, captionLineBudget).map(line =>
+                        '<p class="akari-caption__line">' + renderLine(line) + '</p>'
+                    ).join('');
+                const revealCss = reveal
+                    ? '.akari-caption--reveal .akari-caption__plate{display:grid;}'
+                        + '.akari-caption__reveal-group{grid-area:1 / 1;display:flex;flex-direction:column;gap:var(--plate-gap,4px);opacity:0;animation:akari-caption-reveal var(--akari-reveal-dur,0.2s) var(--akari-reveal-delay,0s) linear both paused;}'
+                        + '@keyframes akari-caption-reveal{0%{opacity:0;transform:translateY(0.18em);}12%{opacity:1;transform:translateY(0);}99.99%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(0);}}'
+                    : '';
                 const blockMode = caption.textStyle && caption.textStyle.background
                     && caption.textStyle.background.mode === 'block';
                 const plateMarkup = blockMode
@@ -5355,29 +5499,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 return '<div class="akari-caption akari-caption--' + rootStyle + '">'
                     + '<style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);'
-                    + (textStyleActive
-                        ? 'text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));'
-                        : '')
+                    + '-webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9));paint-order:stroke fill;text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
                     + 'font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
-                    + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,'
-                    + (textStyleActive ? 'transparent' : 'rgba(8,12,22,0.74)')
-                    + ');text-align:var(--caption-text-align,center);white-space:pre;}'
+                    + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + blockCss
                     + '.akari-caption__tok{display:inline-block;will-change:transform,color;}'
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
                     + '@keyframes akari-caption-pop{0%{transform:translateY(0) scale(1);}50%{transform:translateY(-0.08em) scale(1.12);}100%{transform:translateY(0) scale(1);}}'
                     + '.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
                     + '.akari-caption__tok--pop{animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused;}'
+                    + revealCss
                     + emphasisCss
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };
             const renderPlainCaptionFragment = caption => {
-                const lines = [];
-                const characters = Array.from(caption.text);
-                for (let index = 0; index < characters.length; index += 20) {
-                    lines.push(characters.slice(index, index + 20).join(''));
-                }
+                // 焼き込みと同じ自然な区切り（句読点 → 空白 → 文節境界 → 文字上限）で折り返す
+                const lines = splitCaptionLines(caption.text || '', captionLineBudget);
                 const markup = lines.map(line => '<p class="akari-caption__line">'
                     + escapeCaptionHtml(line) + '</p>').join('');
                 const blockMode = caption.textStyle && caption.textStyle.background
@@ -5390,7 +5528,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
                     : '';
                 return '<div class="akari-caption"><style>'
-                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
+                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9));paint-order:stroke fill;text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + blockCss
@@ -5416,7 +5554,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     captionPlate.style.setProperty(name, String(value));
                 }
                 if (!Object.prototype.hasOwnProperty.call(vars, '--caption-font-size')) {
-                    captionPlate.style.setProperty('--caption-font-size', '38px');
+                    // 明示 size_px が無いときの既定は render-cut と同じ（縦長 = 幅 6% / 横長 = 38px）
+                    captionPlate.style.setProperty('--caption-font-size', captionDefaultFontSize + 'px');
                 }
             };
             const renderCaption = () => {
@@ -5433,13 +5572,22 @@ body { display: grid; place-items: center; padding: 32px; }
                         && caption.words.some(word => findMatchingEmphasis(word)));
                     const hasTextStyle = Boolean(caption && caption.textStyle
                         && Object.keys(caption.textStyle).length > 0);
+                    const hasCaptionWords = Boolean(caption && Array.isArray(caption.words)
+                        && caption.words.length > 0);
+                    // reveal（明示 + 縦長の複数行自動昇格）も word ベースの styled 経路で描く
+                    const wantsCaptionReveal = hasCaptionWords
+                        && (caption.style === 'reveal'
+                            || (!caption.style && captionPortrait
+                                && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
                     styledCaptionActive = Boolean(caption
-                        && (hasTextStyle || (Array.isArray(caption.words) && caption.words.length > 0
-                            && ((caption.style === 'karaoke' || caption.style === 'pop') || hasEmphasis))));
+                        && (hasTextStyle || (hasCaptionWords
+                            && ((caption.style === 'karaoke' || caption.style === 'pop')
+                                || hasEmphasis || wantsCaptionReveal))));
                     captionPlate.classList.toggle('akari-caption-host--styled', styledCaptionActive);
                     if (styledCaptionActive) {
-                        const usesWords = Array.isArray(caption.words) && caption.words.length > 0
-                            && ((caption.style === 'karaoke' || caption.style === 'pop') || hasEmphasis);
+                        const usesWords = hasCaptionWords
+                            && ((caption.style === 'karaoke' || caption.style === 'pop')
+                                || hasEmphasis || wantsCaptionReveal);
                         captionPlate.innerHTML = usesWords
                             ? renderStyledCaptionFragment(caption)
                             : renderPlainCaptionFragment(caption);

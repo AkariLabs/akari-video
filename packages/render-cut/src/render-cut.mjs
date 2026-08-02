@@ -559,12 +559,14 @@ async function loadCaptions(projectRoot, edit) {
     return generateCaptionOverlays(captions, edit.cuts, {
       emphasisWords: edit.emphasis_words,
       defaultTextStyle,
+      output: edit.output,
     });
   }
   const warnings = [];
   const overlays = generateCaptionOverlays(captions, edit.cuts, {
     emphasisWords: edit.emphasis_words,
     defaultTextStyle,
+    output: edit.output,
     sourceCount: edit.version === 1 ? edit.sources.length : 1,
     linearTimeline: edit.version === 1,
     onWarning: (warning) => warnings.push(warning),
