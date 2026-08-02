@@ -21,3 +21,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
  */
 __exportStar(require("./edit-store"), exports);
 __exportStar(require("./caption-store"), exports);
+__exportStar(require("./timeline-map"), exports);

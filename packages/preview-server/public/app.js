@@ -1,5 +1,8 @@
 // AKARI Video Preview — full-featured client
 
+// タイムライン写像（source↔output）の正本は packages/edit-store/src/timeline-map.ts
+// （パリティ契約 §2.1/§2.2。書き込み側 SSOT computeCutTrackSegments と同じ意味論）。
+import { buildTimelineMap, outputToSource } from '/timeline-map.bundle.js';
 // ペンの視覚正本は packages/pen-visuals（パリティ契約 §2.8）。定数も描画コードも共有する。
 import {
   PEN_TUNING,
@@ -183,35 +186,17 @@ function getVideoSource(cutIndex) {
 // --- Segments ---
 function buildSegments() {
   if (!summary?.cuts) return;
-  segments = [];
-  const cutEvents = [];
-  for (let i = 0; i < summary.cuts.length; i++) {
-    const cut = summary.cuts[i];
-    const speed = cut.speed || 1;
-    const inSec = cut.in || 0;
-    const outSec = cut.out || inSec + 1;
-    const dur = (outSec - inSec) / speed;
-    cutEvents.push({ index: i, inSec, outSec, speed, durationSec: dur, track: cut.track ?? 0, at: cut.at });
-  }
-  const trackMap = {};
-  for (const c of cutEvents) {
-    if (!trackMap[c.track]) trackMap[c.track] = [];
-    trackMap[c.track].push(c);
-  }
-  const tracks = Object.keys(trackMap).map(Number).sort((a, b) => a - b);
-  for (const tn of tracks) {
-    const tc = trackMap[tn];
-    let cursor = 0;
-    for (let ci = 0; ci < tc.length; ci++) {
-      const c = tc[ci];
-      if (c.at !== undefined) cursor = c.at;
-      const gap = ci === 0 ? 0 : Math.max(0, cursor - segments.reduce((s, seg) => s + seg.durationSec, 0));
-      if (gap > 0) segments.push({ index: -1, durationSec: gap, isGap: true });
-      segments.push(c);
-      cursor += c.durationSec;
-    }
-  }
-  totalDuration = segments.reduce((s, seg) => s + seg.durationSec, 0);
+  // 写像の構築は共有カーネル（timeline-map）に委譲し、ここでは既存 UI が使う
+  // 旧フィールド名（index / inSec / outSec / speed / durationSec / isGap）へ写す。
+  // outStart / outEnd が正で、トランジション重なり時は隣接 src が出力時間上重なる。
+  const built = buildTimelineMap(summary.cuts);
+  segments = built.segments.map(s => s.kind === 'gap'
+    ? { index: -1, isGap: true, durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd }
+    : {
+        index: s.cutIndex, isGap: false, inSec: s.in, outSec: s.out, speed: s.speed || 1,
+        durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd, track: s.track ?? 0
+      });
+  totalDuration = built.totalDuration;
   seek.max = totalDuration;
   updateTimeLabel();
   updateSeekVisual();
@@ -650,21 +635,29 @@ waveformCanvas.addEventListener('pointerdown', (e) => {
 function scheduleTransitions() { transitionPlate.style.transition = 'opacity 0.3s'; }
 
 function getVideoTimeForOutput(t) {
-  let acc = 0;
-  for (const seg of segments) {
-    if (seg.isGap) { acc += seg.durationSec; continue; }
-    if (t <= acc + seg.durationSec || seg === segments[segments.length - 1]) return seg.inSec + (t - acc) * seg.speed;
-    acc += seg.durationSec;
-  }
-  return 0;
+  // gap 上は -1（呼び出し側の vt >= 0 ガードで video シークを抑止）。
+  const mapped = outputToSource(sharedSegmentsView(), t);
+  return mapped.sourceT === null ? -1 : mapped.sourceT;
 }
 function getActiveSegment(t) {
-  let acc = 0;
-  for (const seg of segments) {
-    if (t <= acc + seg.durationSec || seg === segments[segments.length - 1]) return seg;
-    acc += seg.durationSec;
-  }
-  return null;
+  const mapped = outputToSource(sharedSegmentsView(), t);
+  if (!mapped.segment) return null;
+  return segments[sharedSegmentsView().indexOf(mapped.segment)] ?? null;
+}
+// outputToSource（共有カーネル）が期待する形へ、旧フィールドの segments から復元する。
+let _sharedView = { source: null, view: [] };
+function sharedSegmentsView() {
+  if (_sharedView.source === segments) return _sharedView.view;
+  _sharedView = {
+    source: segments,
+    view: segments.map(seg => seg.isGap
+      ? { kind: 'gap', outStart: seg.outStart, outEnd: seg.outEnd, cutIndex: null }
+      : {
+          kind: 'src', outStart: seg.outStart, outEnd: seg.outEnd, cutIndex: seg.index,
+          in: seg.inSec, out: seg.outSec, speed: seg.speed
+        })
+  };
+  return _sharedView.view;
 }
 
 function seekTo(t) {
@@ -809,8 +802,12 @@ function updateSeekVisual() {
   if (!segments.length || totalDuration <= 0) { seekVisual.style.display = 'none'; return; }
   seekVisual.style.display = 'flex';
   let html = '';
+  let prevEnd = 0;
   for (const seg of segments) {
-    const pct = (seg.durationSec / totalDuration * 100);
+    // トランジション重なり分は先行カットの帯に含める（帯の合計幅を 100% に保つ）。
+    const width = Math.max(0, seg.outEnd - Math.max(seg.outStart, prevEnd));
+    prevEnd = Math.max(prevEnd, seg.outEnd);
+    const pct = (width / totalDuration * 100);
     if (seg.isGap) {
       html += `<div style="width:${pct}%;background:#333"></div>`;
     } else {
@@ -850,16 +847,13 @@ async function reloadSummary() {
 }
 
 function showCutInfoAt(t) {
-  let acc = 0;
-  for (const seg of segments) {
-    if (t <= acc + seg.durationSec || seg === segments[segments.length - 1]) {
-      selectedCutIndex = seg.isGap ? -1 : seg.index;
-      selectedCutAcc = acc;
-      renderCutInfoContent(seg);
-      cutInfoPopup.hidden = false;
-      return;
-    }
-    acc += seg.durationSec;
+  const seg = getActiveSegment(t);
+  if (seg) {
+    selectedCutIndex = seg.isGap ? -1 : seg.index;
+    selectedCutAcc = seg.outStart;
+    renderCutInfoContent(seg);
+    cutInfoPopup.hidden = false;
+    return;
   }
   cutInfoPopup.hidden = true;
   selectedCutIndex = -1;
@@ -1046,12 +1040,9 @@ seek.addEventListener('input', () => {
 // Snap to nearest cut boundary
 function snapToCut(t, dir) {
   if (!segments.length) return t;
-  let acc = 0;
   for (const seg of segments) {
-    const segEnd = acc + seg.durationSec;
-    if (dir > 0 && t >= acc && t < segEnd) return Math.min(t, segEnd - 0.001);
-    if (dir < 0 && t > acc && t <= segEnd) return Math.max(t, acc);
-    acc = segEnd;
+    if (dir > 0 && t >= seg.outStart && t < seg.outEnd) return Math.min(t, seg.outEnd - 0.001);
+    if (dir < 0 && t > seg.outStart && t <= seg.outEnd) return Math.max(t, seg.outStart);
   }
   return t;
 }

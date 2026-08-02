@@ -4853,6 +4853,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.reviewTransport({ type: 'rate', value: speed, timelineT: outputTime });
                 }
             };
+            // Phase 2-3 注記: source↔output 写像の正本は packages/edit-store/src/timeline-map.ts
+            // （Web UI は timeline-map.bundle.js で共有済み）。この webview インライン実装は
+            // サンドボックス制約（ペンと同じ import 不能問題）で残る複製 — 意味論を変える場合は
+            // 正本側と同期すること。既知の差: gaps/tracks モードの暗黙 at にトランジション重なりを
+            // 載せない（正本 = 書き込み側 computeCutTrackSegments は載せる）。
             const rebuildKeepRanges = () => {
                 const explicit = buildExplicitKeepRanges();
                 if (explicit.length > 0) {

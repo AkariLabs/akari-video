@@ -7,7 +7,7 @@
     "akari-preview": "src/server.mjs"
   },
   "scripts": {
-    "build": "esbuild ../preview-engine/src/index.ts --bundle --format=esm --outfile=public/preview-engine.bundle.js --target=chrome122 --platform=browser && esbuild ../pen-visuals/src/index.ts --bundle --format=esm --outfile=public/pen-visuals.bundle.js --target=chrome122 --platform=browser && esbuild ../overlay-runtime/src/interaction.js --bundle --format=iife --outfile=public/overlay-interaction.bundle.js --target=chrome122 --platform=browser",
+    "build": "esbuild ../preview-engine/src/index.ts --bundle --format=esm --outfile=public/preview-engine.bundle.js --target=chrome122 --platform=browser && esbuild ../pen-visuals/src/index.ts --bundle --format=esm --outfile=public/pen-visuals.bundle.js --target=chrome122 --platform=browser && esbuild ../overlay-runtime/src/interaction.js --bundle --format=iife --outfile=public/overlay-interaction.bundle.js --target=chrome122 --platform=browser && esbuild ../edit-store/src/timeline-map.ts --bundle --format=esm --outfile=public/timeline-map.bundle.js --target=chrome122 --platform=browser",
     "start": "node src/server.mjs",
     "typecheck": "echo 'pure ESM, no TS'"
   },
