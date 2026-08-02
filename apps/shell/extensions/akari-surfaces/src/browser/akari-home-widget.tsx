@@ -4,12 +4,11 @@ import URI from '@theia/core/lib/common/uri';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
-import { OpenerService, WidgetManager, open } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { FileDialogService } from '@theia/filesystem/lib/browser';
+import { FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
@@ -30,12 +29,13 @@ import {
 } from '../common/intake-labels';
 import { DEFAULT_UPDATE_FEED_URL, UpdateCache, UpdateStatus, evaluateUpdateStatus, formatHomeBannerText, parseUpdateCache, withDismissedVersion } from '../common/update-feed';
 
-// ホーム v3（裁定 R3+R4+R5・2026-07-30）: 画面は dashboard 1 枚だけ。
-// v2 の 4 状態（01 gate → 02 starters → 03 intake → 04 workspace）という
-// state machine は廃止した — 工程はエージェント + ファイル（intake.json /
-// edit.json）が持ち、シェルは「今の状態を映すサーフェス」に徹する。
-// 接続案内・進め方案内はロックではなくカードとして dashboard に重なる。
-type QuickActionId = 'assets' | 'template' | 'reference' | 'consult';
+// ホーム v4（裁定 R1〜R3・notes-2026-08-02-home-v4-minimal）: dashboard の
+// 構成要素を 3 つだけに削る — ①説明（2 動作） ②過去プロジェクト一覧
+// ③接続案内カード（未接続時のみ）。v3 の intake カード・はじめかた 4 択・
+// ワークフロー俯瞰カード・ホーム自前のドロップゾーンはここで撤去した
+// （素材の取り込みは左パネル「素材」に一本化 — 裁定の言う「左に素材を入れる」は
+// そちら側の導線を指す）。工程はエージェント + ファイルが持ち、シェルは
+// 「今の状態を映すサーフェス」に徹する方針（v3 R1）は不変。
 
 const CONNECTIONS_RELATIVE_PATH = '.akari/connections.json';
 const INTAKE_RELATIVE_PATH = '.akari/intake.json';
@@ -53,30 +53,28 @@ const CLOUD_PROVIDER_ID = 'akari-cloud';
 const BEGIN_ONBOARDING_COMMAND = 'akari.partner.beginOnboarding';
 const SEND_TO_PARTNER_COMMAND = 'akari.partner.send';
 
-interface WorkflowStage {
-    id: string;
-    label: string;
-    status: string;
-    nextAction: string;
-}
+// 過去プロジェクト一覧（裁定 R3・2026-08-02）。作業場（creator-root）の規約は
+// 公開リポ契約 `docs/contract-2026-08-02-creator-root-v1.md` §3 と
+// `packages/creator-root/src/index.mjs` が正本。あちらは pure Node ESM で
+// browser からは import できないため、ここではファイル名・schema 文字列だけを
+// 規約として揃える（実装は複製しない — 読み取り専用でこの widget が使う分だけ）。
+const CREATOR_ROOT_POINTER_FILENAME = 'creator-root.json';
+const CREATOR_ROOT_MANIFEST_RELATIVE_PATH = '.akari/root.json';
+const CREATOR_ROOT_SCHEMA = 'creator-root/v1';
+const CREATOR_ROOT_CHANNELS_DIRNAME = 'channels';
+const CREATOR_ROOT_VIDEOS_DIRNAME = 'videos';
+const CREATOR_ROOT_PROJECT_DISPLAY_LIMIT = 10;
+const CREATOR_ROOT_MISSING_NOTICE = '作業場はまだありません — 右の相棒に頼むか、ターミナルで `akari` を実行すると作れます。';
 
-interface WorkflowRole {
-    path: string;
-    label: string;
-    kind: string;
-}
-
-interface EntryCard {
-    id: string;
-    label: string;
-    hint: string;
-    icon: string;
-    open: () => Promise<void>;
+interface CreatorRootProjectEntry {
+    name: string;
+    channel: string;
+    uri: URI;
 }
 
 /**
- * intake.json（方向性の SSOT）を読んだ結果。進め方カードのサマリ表示と
- * フォームのプリフィルの両方がこの 1 経路を通る（パースを二重に持たない）。
+ * intake.json（方向性の SSOT）を読んだ結果。進め方フォームのプリフィルが
+ * この 1 経路を通る（パースを二重に持たない）。
  */
 interface IntakeSnapshot {
     status: 'absent' | 'draft' | 'submitted';
@@ -85,18 +83,6 @@ interface IntakeSnapshot {
     autonomy: IntakeAutonomy;
     taste: string | null;
 }
-
-/** ドロップ／ダイアログで取り込める素材の拡張子。動画と写真のみ（音声・その他は対象外）。 */
-const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi'];
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif', '.tiff', '.bmp'];
-const IMPORTABLE_EXTENSIONS = [...VIDEO_EXTENSIONS, ...IMAGE_EXTENSIONS];
-
-// workflow.json の roles に該当 kind が無いときの既定パス。
-const DEFAULT_ASSETS_ROLE_PATH = 'assets';
-const DEFAULT_PLANNING_ROLE_PATH = 'planning';
-const DEFAULT_EXPORTS_ROLE_PATH = 'exports';
-
-const OPEN_TIMELINE_COMMAND = 'akari.annotations.open';
 
 @injectable()
 export class AkariHomeWidget extends ReactWidget {
@@ -108,20 +94,11 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(WorkspaceService)
     protected readonly workspaceService: WorkspaceService;
 
-    @inject(FileDialogService)
-    protected readonly fileDialogs: FileDialogService;
-
     @inject(CommandService)
     protected readonly commands: CommandService;
 
     @inject(MessageService)
     protected readonly messages: MessageService;
-
-    @inject(OpenerService)
-    protected readonly openerService: OpenerService;
-
-    @inject(WidgetManager)
-    protected readonly widgets: WidgetManager;
 
     @inject(WindowService)
     protected readonly windowService: WindowService;
@@ -132,23 +109,13 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(EnvVariablesServer)
     protected readonly envVariables: EnvVariablesServer;
 
-    protected stages: WorkflowStage[] = [];
-    protected guide = 'プロジェクトを開くと、ここに進み具合と次の一手が表示されます。';
-    protected workflowUri: URI | undefined;
     protected watching = false;
 
-    protected projectRoot: URI | undefined;
-    protected assetsRolePath = DEFAULT_ASSETS_ROLE_PATH;
-    protected planningRolePath = DEFAULT_PLANNING_ROLE_PATH;
-    protected exportsRolePath = DEFAULT_EXPORTS_ROLE_PATH;
+    // --- ホーム v4: 過去プロジェクト一覧（裁定 R3） ---
+    protected creatorRootAvailable = false;
+    protected creatorRootProjects: CreatorRootProjectEntry[] = [];
 
-    protected hasAssets = false;
-    protected entryCards: EntryCard[] = [];
-    protected importing = false;
-    protected importedNotice: string | undefined;
-    protected dragActive = false;
-
-    // --- ホーム v3: 接続案内カード / 進め方カード + 展開フォーム ---
+    // --- ホーム v3 由来: 接続案内カード / 進め方フォーム ---
     protected connectionsUri: URI | undefined;
     protected intakeUri: URI | undefined;
     protected connected = false;
@@ -156,16 +123,15 @@ export class AkariHomeWidget extends ReactWidget {
     protected intakeSnapshot: IntakeSnapshot | undefined;
     protected connecting = false;
 
-    protected referenceProjectPath: string | undefined;
-
     // 進め方フォームを dashboard 内の展開セクションとして開いているか。
-    // 画面の切り替えではなく「開いている / 畳んでいる」だけの純粋な UI 状態で、
-    // 工程の状態は一切表さない（工程の SSOT は intake.json のまま）。
+    // v4 ではホーム上のカードから開く経路が無くなったため、
+    // `akari.home.openIntakeForm` コマンド（akari-home-command-contribution.ts）
+    // 経由でのみ開く。画面の切り替えではなく「開いている / 畳んでいる」だけの
+    // 純粋な UI 状態で、工程の状態は一切表さない（工程の SSOT は intake.json のまま）。
     protected intakeFormOpen = false;
-    // プリフィル時に intake.json から読んだ target.taste の生値。フォーム自体に
-    // taste の編集 UI は無い（reference 選択でのみ入る）ため、見直し中に
-    // referenceProjectPath を選び直さなければこの値を再送信時にそのまま使う
-    // （そうしないとアプリ再起動後の見直しで taste が消えてしまう）。
+    // プリフィル時に intake.json から読んだ target.taste の生値。見直し中に
+    // 変えなければ再送信時にそのまま使う（そうしないとアプリ再起動後の
+    // 見直しで taste が消えてしまう）。
     protected intakeReviewTaste: string | null = null;
 
     protected intakeTasks: Set<IntakeTaskId> = new Set(INTAKE_TASK_DEFAULTS);
@@ -191,8 +157,8 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     async start(): Promise<void> {
-        await this.loadWorkflow();
         await this.loadHomeFlow();
+        await this.loadCreatorRootProjects();
         // 更新チェック（契約の起動非ブロック原則）: キャッシュの読み比較は待つが
         // （ローカル I/O のみ・十分高速）、バックグラウンド fetch はここで await しない
         // （loadUpdateStatus 内で fire-and-forget にしてある）。
@@ -202,93 +168,24 @@ export class AkariHomeWidget extends ReactWidget {
         }
         this.watching = true;
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
-            if (this.workflowUri && event.contains(this.workflowUri)) {
-                void this.loadWorkflow();
-            } else if (this.overviewWatchTargets().some(uri => event.contains(uri))) {
-                void this.refreshOverview();
-            } else if (
+            if (
                 (this.connectionsUri && event.contains(this.connectionsUri)) ||
                 (this.intakeUri && event.contains(this.intakeUri))
             ) {
                 void this.refreshHomeFlow();
             }
         }));
-        if (this.workflowUri) {
-            try {
-                this.toDispose.push(await this.fileService.watch(this.workflowUri.parent));
-            } catch {
-                try {
-                    // `.akari` がまだ無い空プロジェクトではルートを監視し、
-                    // workflow.json が後から作られた時にも追従する。
-                    this.toDispose.push(await this.fileService.watch(this.workflowUri.parent.parent));
-                } catch (error) {
-                    console.info('[akari-surfaces] workflow watch unavailable:', error);
-                }
-            }
-        }
-        for (const target of this.overviewWatchTargets()) {
-            try {
-                this.toDispose.push(await this.fileService.watch(target));
-            } catch (error) {
-                console.info('[akari-surfaces] overview watch unavailable:', error);
-            }
-        }
     }
 
     /**
-     * ホームが再表示されるたびに接続状態を読み直す。アプリ単位マーカーは
-     * watch していない（v0）ため、他のタブから戻ってきたときにゲートが
-     * 取り残されないようにするのはこの経路。
+     * ホームが再表示されるたびに接続状態・過去プロジェクト一覧を読み直す。
+     * アプリ単位マーカーや作業場のプロジェクト一覧は watch していない（v0）ため、
+     * 他のタブから戻ってきたときに取り残されないようにするのはこの経路。
      */
     protected override onAfterShow(msg: Message): void {
         super.onAfterShow(msg);
         void this.refreshHomeFlow();
-    }
-
-    protected overviewWatchTargets(): URI[] {
-        if (!this.projectRoot) {
-            return [];
-        }
-        const root = this.projectRoot;
-        return [
-            root.resolve(this.assetsRolePath),
-            root.resolve(this.planningRolePath),
-            root.resolve(this.exportsRolePath)
-        ];
-    }
-
-    protected async loadWorkflow(): Promise<void> {
-        const roots = await this.workspaceService.roots;
-        const root = roots[0]?.resource;
-        this.projectRoot = root;
-        if (!root) {
-            this.stages = [];
-            this.guide = 'プロジェクトを開くと、ここに進み具合と次の一手が表示されます。';
-            this.hasAssets = false;
-            this.entryCards = [];
-            this.update();
-            return;
-        }
-        this.workflowUri = root.resolve('.akari/workflow.json');
-        let roles: WorkflowRole[] = [];
-        try {
-            const content = await this.fileService.readFile(this.workflowUri);
-            const parsed = JSON.parse(content.value.toString());
-            this.stages = this.normalizeStages(parsed);
-            roles = this.normalizeRoles(parsed);
-            this.guide = this.stages.length === 0
-                ? 'workflow.json にステージを追加すると、プロジェクト全体をここホームで見渡せます。'
-                : '';
-        } catch (error) {
-            this.stages = [];
-            this.guide = '進行データをまだ読めません。.akari/workflow.json を作成または修復すると自動で更新されます。';
-            console.info('[akari-surfaces] workflow empty or invalid:', error);
-        }
-        // フォルダ名 "assets" 等のハードコードは workflow.json に role が無いときの fallback に留める。
-        this.assetsRolePath = this.roleForKind(roles, 'assets') ?? DEFAULT_ASSETS_ROLE_PATH;
-        this.planningRolePath = this.roleForKind(roles, 'planning') ?? DEFAULT_PLANNING_ROLE_PATH;
-        this.exportsRolePath = this.roleForKind(roles, 'exports') ?? DEFAULT_EXPORTS_ROLE_PATH;
-        await this.refreshOverview();
+        void this.loadCreatorRootProjects();
     }
 
     // --- ホーム v3: 状態読み取り（SSOT はファイル。裁定 R1/R5） ---
@@ -313,7 +210,7 @@ export class AkariHomeWidget extends ReactWidget {
     /**
      * ファイル watch（connections.json / intake.json）とホーム再表示から呼ばれる
      * 唯一の反映経路。エージェントが intake.json を直接書き換えた場合も、この
-     * 経路で進め方カードの表示（案内 ⇄ サマリ）が追随する（裁定 R5）。
+     * 経路で進め方フォームのプリフィルが追随する（裁定 R5）。
      * 展開中のフォームはここで畳まない — 編集中に外部書き込みが来ても
      * 入力が消えないようにするため（フォームの開閉は純粋な UI 状態）。
      */
@@ -330,7 +227,7 @@ export class AkariHomeWidget extends ReactWidget {
      * 次からは自動接続」）どおりに振る舞わせるため、**プロジェクト単位**の
      * connections.json だけでなく**アプリ単位**のマーカーも見る。どちらかが
      * ok ならゲートは出さない（connections.json が未整備の別プロジェクトを
-     * 開いても、一度つないだアプリなら 02 以降から始まる）。
+     * 開いても、一度つないだアプリなら接続案内は出ない）。
      */
     protected async readConnected(): Promise<boolean> {
         return (await this.readProjectConnected()) || (await this.readAppConnected());
@@ -379,7 +276,7 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     /**
-     * intake.json を読んで進め方カード / フォームが使う値まで正規化する。
+     * intake.json を読んで進め方フォームが使う値まで正規化する。
      * 無い・壊れている・未解決の場合は `absent` + 既定値を返す（フェイルセーフ側）。
      * 判定ロジックの重複を避けるため、状態表示もプリフィルもここだけを通す。
      */
@@ -414,13 +311,124 @@ export class AkariHomeWidget extends ReactWidget {
         }
     }
 
+    // --- ホーム v4: 過去プロジェクト一覧（裁定 R3・2026-08-02） -----------------
+
+    /**
+     * 作業場（creator-root）を解決し、各チャンネルの videos 配下を列挙する。
+     * 規約は公開リポ契約 `docs/contract-2026-08-02-creator-root-v1.md` §3 と同じ:
+     *   `<AKARI_HOME>/creator-root.json` の `lastRoot` →
+     *   `<lastRoot>/.akari/root.json`（`schema === 'creator-root/v1'` を検証） →
+     *   `<lastRoot>/channels/<channel>/videos/<project>`
+     * 途中のどの段階が壊れていても（ポインタ不在・root.json 不在/壊れた JSON/
+     * 未知 schema・channels/videos ディレクトリ不在）書き込み・修復はせず、
+     * 一覧なしのフォールバック表示に倒す（読み取り専用の不変原則）。
+     */
+    protected async loadCreatorRootProjects(): Promise<void> {
+        const rootUri = await this.resolveCreatorRootDir();
+        if (!rootUri) {
+            this.creatorRootAvailable = false;
+            this.creatorRootProjects = [];
+            this.update();
+            return;
+        }
+        this.creatorRootAvailable = true;
+        this.creatorRootProjects = await this.listCreatorRootProjects(rootUri);
+        this.update();
+    }
+
+    /**
+     * マシンポインタ `<AKARI_HOME>/creator-root.json` の `lastRoot` を読み、
+     * `.akari/root.json` の schema 検証まで通った場合だけ作業場ルート URI を返す。
+     * 失敗経路（ファイル不在・壊れた JSON・未知 schema）はすべて `undefined` に
+     * 揉み消す — ここは「一覧を出すかどうか」の判定だけが目的で、エラー種別を
+     * UI に出し分ける契約ではない（§task「案内 1 行にフォールバック」）。
+     */
+    protected async resolveCreatorRootDir(): Promise<URI | undefined> {
+        try {
+            const pointerUri = (await this.resolveAkariHomeUri()).resolve(CREATOR_ROOT_POINTER_FILENAME);
+            const pointerContent = await this.fileService.readFile(pointerUri);
+            const pointer = JSON.parse(pointerContent.value.toString());
+            const lastRoot = pointer?.lastRoot;
+            if (typeof lastRoot !== 'string' || lastRoot.length === 0) {
+                return undefined;
+            }
+            const rootUri = URI.fromFilePath(lastRoot);
+            const manifestContent = await this.fileService.readFile(rootUri.resolve(CREATOR_ROOT_MANIFEST_RELATIVE_PATH));
+            const manifest = JSON.parse(manifestContent.value.toString());
+            if (!manifest || typeof manifest !== 'object' || manifest.schema !== CREATOR_ROOT_SCHEMA) {
+                return undefined;
+            }
+            return rootUri;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /** ディレクトリの子ディレクトリ一覧。解決できなければ空配列（フェイルセーフ側）。 */
+    protected async resolveChildDirectories(uri: URI): Promise<FileStat[]> {
+        try {
+            const stat = await this.fileService.resolve(uri);
+            return (stat.children ?? []).filter(child => child.isDirectory);
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * `<root>/channels/<channel>/videos/<project>` をフラット列挙する（全チャンネル横断・
+     * チャンネル名はサブラベル表示用に保持するだけ — §task「v1 では既定チャンネル +
+     * 全チャンネル横断のフラット列挙でよい」）。
+     */
+    protected async listCreatorRootProjects(rootUri: URI): Promise<CreatorRootProjectEntry[]> {
+        const entries: CreatorRootProjectEntry[] = [];
+        const channelDirs = await this.resolveChildDirectories(rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME));
+        for (const channelDir of channelDirs) {
+            const projectDirs = await this.resolveChildDirectories(channelDir.resource.resolve(CREATOR_ROOT_VIDEOS_DIRNAME));
+            for (const projectDir of projectDirs) {
+                entries.push({ name: projectDir.name, channel: channelDir.name, uri: projectDir.resource });
+            }
+        }
+        return this.sortCreatorRootProjects(entries).slice(0, CREATOR_ROOT_PROJECT_DISPLAY_LIMIT);
+    }
+
+    /** 名前の日付プレフィックス（`YYYY-MM-DD-...`）降順。プレフィックスが無いものは末尾（辞書順）。 */
+    protected sortCreatorRootProjects(entries: CreatorRootProjectEntry[]): CreatorRootProjectEntry[] {
+        const datePrefix = (name: string): string | undefined => name.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+        return [...entries].sort((left, right) => {
+            const leftDate = datePrefix(left.name);
+            const rightDate = datePrefix(right.name);
+            if (leftDate && rightDate) {
+                return rightDate.localeCompare(leftDate);
+            }
+            if (leftDate) {
+                return -1;
+            }
+            if (rightDate) {
+                return 1;
+            }
+            return left.name.localeCompare(right.name);
+        });
+    }
+
+    /**
+     * クリックでそのプロジェクトをワークスペースとして開く。既存の Theia
+     * `WorkspaceService#open` をそのまま呼ぶだけで新規実装はしない
+     * （§task「既存の Theia workspace open 系サービス/コマンドを使う」）。
+     * `preserveWindow` は指定しない = 既定の「別ウィンドウで開く」（Theia 標準の
+     * フォルダ切り替え挙動。現在開いているプロジェクトはそのまま残る）。
+     */
+    protected openCreatorRootProject = (uri: URI): void => {
+        this.workspaceService.open(uri);
+    };
+
     // --- 更新チェック（U2 v0）: 状態読み込み・バックグラウンド fetch・アクション ---
 
     /**
      * ホームディレクトリ側の AKARI 共有ディレクトリを解決する。`AKARI_HOME` が
      * 設定されていればそれ自体をルートとし（CLI 側 `resolveAkariHome` と同じ規約）、
-     * 無ければホームディレクトリ配下の `.akari/` を使う。更新キャッシュとパートナー
-     * 接続マーカーはどちらもこの直下に置かれる。
+     * 無ければホームディレクトリ配下の `.akari/` を使う。更新キャッシュ・
+     * パートナー接続マーカー・作業場マシンポインタ（creator-root.json）は
+     * いずれもこの直下に置かれる。
      */
     protected async resolveAkariHomeUri(): Promise<URI> {
         const override = await this.envVariables.getValue('AKARI_HOME');
@@ -554,65 +562,18 @@ export class AkariHomeWidget extends ReactWidget {
     };
 
     /**
-     * クイックアクション（裁定 R4）。v2 の「はじめかた 4 択」から**ステージ性を
-     * 剥奪**したもので、動作は当時と同一（定型プロンプト送信 / assets はピッカー /
-     * reference はフォルダ選択）だが**画面遷移を一切しない**。
-     */
-    protected async runQuickAction(id: QuickActionId): Promise<void> {
-        switch (id) {
-            case 'assets':
-                void this.pickFiles();
-                void this.commands.executeCommand(SEND_TO_PARTNER_COMMAND, '素材から始めます。取り込んだ素材の分析をお願いします。');
-                break;
-            case 'template':
-                void this.commands.executeCommand(SEND_TO_PARTNER_COMMAND, 'テンプレートから始めたいです。候補を見せてください。');
-                break;
-            case 'reference':
-                await this.pickReferenceProject();
-                break;
-            case 'consult':
-                void this.commands.executeCommand(SEND_TO_PARTNER_COMMAND, 'まだ何も決まっていません。相談しながら方向性を決めたいです。');
-                break;
-            default:
-                break;
-        }
-    }
-
-    /**
-     * 「過去のプロジェクトを参考に」v0 = 参照パス渡しのみ（オーナー裁定
-     * 2026-07-21 §8-4）。スタイル学習連携は別契約のスコープ外。
-     */
-    protected async pickReferenceProject(): Promise<void> {
-        const selection = await this.fileDialogs.showOpenDialog({
-            title: '参考にするプロジェクトのフォルダを選ぶ',
-            openLabel: 'これを参考にする',
-            canSelectFiles: false,
-            canSelectFolders: true,
-            canSelectMany: false
-        });
-        const uri = Array.isArray(selection) ? selection[0] : selection;
-        if (!uri) {
-            return;
-        }
-        this.referenceProjectPath = uri.path.toString();
-        this.update();
-        void this.commands.executeCommand(
-            SEND_TO_PARTNER_COMMAND,
-            `過去のプロジェクト「${this.referenceProjectPath}」と同じ雰囲気・同じ流れで進めたいです（参照パス渡しのみ、v0）。`
-        );
-    }
-
-    /**
      * 進め方フォームを dashboard 内の展開セクションとして開く（裁定 R5）。
-     * 「進め方を決める」（absent / draft）と「進め方を見直す」（submitted）は
-     * どちらもこの 1 ハンドラで、intake.json が読めればその内容をプリフィルする
-     * — ファイルが SSOT なので、エージェントが書いた draft もそのまま
-     * 編集の出発点になる。
+     * v4 ではホーム上にカードが無いため、`AkariHomeCommandContribution`
+     * （`akari.home.openIntakeForm` コマンド）からのみ呼ばれる —
+     * そのため public にしてある。「進め方を決める」（absent / draft）と
+     * 「進め方を見直す」（submitted）はどちらもこの 1 経路で、intake.json が
+     * 読めればその内容をプリフィルする — ファイルが SSOT なので、エージェントが
+     * 書いた draft もそのまま編集の出発点になる。
      *
      * submitted 済みなのに読めなかったときだけ開かずにエラーを出す
      * （空フォームからの送信で既存の内容を失わせないため）。
      */
-    protected openIntakeForm = async (): Promise<void> => {
+    openIntakeForm = async (): Promise<void> => {
         const snapshot = await this.readIntake();
         if (this.intakeStatus === 'submitted' && snapshot.status !== 'submitted') {
             console.error('[akari-surfaces] failed to read submitted intake.json for review');
@@ -632,9 +593,8 @@ export class AkariHomeWidget extends ReactWidget {
     };
 
     /**
-     * フォームを畳む唯一の導線（「ダッシュボードに戻る」）。v2 の 02 へ戻す
-     * ラベルは廃止した — 戻り先は dashboard の 1 種類だけで、どこへ着地するかが
-     * 状態次第で変わることはもう無い（F3 の構造的解消）。
+     * フォームを畳む唯一の導線（「ダッシュボードに戻る」）。戻り先は dashboard の
+     * 1 種類だけで、どこへ着地するかが状態次第で変わることはない。
      */
     protected closeIntakeForm = (): void => {
         this.intakeFormOpen = false;
@@ -681,14 +641,9 @@ export class AkariHomeWidget extends ReactWidget {
         this.update();
 
         const tasks = INTAKE_TASK_IDS.filter(id => this.intakeTasks.has(id));
-        // 見直しで reference を選び直していなければ、元の intake.json の
-        // taste をそのまま維持する（無ければ null のまま）。
-        const taste = this.referenceProjectPath
-            ? `参考プロジェクト: ${this.referenceProjectPath}`
-            : this.intakeReviewTaste;
         const target = {
             ...durationChoiceToTarget(this.intakeDuration),
-            taste
+            taste: this.intakeReviewTaste
         };
         const body = {
             version: 1,
@@ -740,330 +695,25 @@ export class AkariHomeWidget extends ReactWidget {
         return lines.join('\n');
     }
 
-    protected async refreshOverview(): Promise<void> {
-        const root = this.projectRoot;
-        if (!root) {
-            this.hasAssets = false;
-            this.entryCards = [];
-            this.update();
-            return;
-        }
-        this.hasAssets = await this.directoryHasVisibleFiles(root.resolve(this.assetsRolePath));
-
-        const cards: EntryCard[] = [];
-        const latestReport = await this.findLatestFile(root.resolve(this.planningRolePath), ['.md', '.html']);
-        if (latestReport) {
-            cards.push({
-                id: 'report',
-                label: '最新のレポートを開く',
-                hint: latestReport.path.base,
-                icon: 'codicon-preview',
-                open: () => open(this.openerService, latestReport, { mode: 'activate' }).then(() => undefined)
-            });
-        }
-        const latestExport = await this.findLatestFile(root.resolve(this.exportsRolePath), ['.mp4']);
-        if (latestExport) {
-            cards.push({
-                id: 'export',
-                label: '最新の書き出しを開く',
-                hint: latestExport.path.base,
-                icon: 'codicon-file-media',
-                open: () => open(this.openerService, latestExport, { mode: 'activate' }).then(() => undefined)
-            });
-        }
-        if (this.hasAssets) {
-            cards.push({
-                id: 'timeline',
-                label: 'タイムラインを開く',
-                hint: '注釈・テロップを編集',
-                icon: 'codicon-list-tree',
-                open: () => this.commands.executeCommand(OPEN_TIMELINE_COMMAND).then(() => undefined)
-            });
-        }
-        this.entryCards = cards;
-        this.update();
-    }
-
-    protected normalizeStages(workflow: any): WorkflowStage[] {
-        const source = workflow?.stages ?? workflow?.steps ?? workflow?.workflow ?? [];
-        const entries: Array<[string, any]> = Array.isArray(source)
-            ? source.map((value: any, index: number) => [String(value?.id ?? index + 1), value])
-            : source && typeof source === 'object'
-                ? Object.entries(source)
-                : [];
-        return entries.map(([id, value]) => {
-            const item = value && typeof value === 'object' ? value : { status: value };
-            return {
-                id,
-                label: String(item.label ?? item.name ?? item.title ?? id),
-                status: String(item.status ?? item.state ?? '未着手'),
-                nextAction: String(item.nextAction ?? item.next_action ?? item.action ?? item.next ?? '次の一手を確認')
-            };
-        });
-    }
-
-    protected normalizeRoles(workflow: any): WorkflowRole[] {
-        const source = Array.isArray(workflow?.roles) ? workflow.roles : [];
-        return source
-            .filter((entry: any) => entry && typeof entry.path === 'string')
-            .map((entry: any) => ({
-                path: entry.path,
-                label: String(entry.label ?? entry.path),
-                kind: String(entry.kind ?? '')
-            }));
-    }
-
-    protected roleForKind(roles: WorkflowRole[], kind: string): string | undefined {
-        return roles.find(role => role.kind === kind)?.path;
-    }
-
-    protected async directoryHasVisibleFiles(uri: URI): Promise<boolean> {
-        try {
-            const stat = await this.fileService.resolve(uri);
-            return !!stat.children?.some(child => !child.isDirectory && this.isVisibleEntry(child.name));
-        } catch {
-            return false;
-        }
-    }
-
-    protected async findLatestFile(uri: URI, extensions: string[]): Promise<URI | undefined> {
-        try {
-            const stat = await this.fileService.resolve(uri, { resolveMetadata: true });
-            const candidates = (stat.children ?? [])
-                .filter(child => !child.isDirectory && this.isVisibleEntry(child.name) && extensions.includes(this.extensionOf(child.name)));
-            if (!candidates.length) {
-                return undefined;
-            }
-            candidates.sort((left, right) => (right.mtime ?? 0) - (left.mtime ?? 0));
-            return candidates[0].resource;
-        } catch {
-            return undefined;
-        }
-    }
-
-    protected isVisibleEntry(name: string): boolean {
-        return name !== '.gitkeep' && !name.startsWith('.');
-    }
-
-    protected extensionOf(name: string): string {
-        const match = name.match(/\.[^./\\]+$/);
-        return match ? match[0].toLowerCase() : '';
-    }
-
-    protected statusColor(status: string): string {
-        if (/完了|done|complete/i.test(status)) {
-            return 'var(--theia-charts-green)';
-        }
-        if (/進行|作業|active|doing|progress/i.test(status)) {
-            // 青全廃（v2 T1）: charts-blue ではなく AKARI アクセントのオレンジを使う。
-            return 'var(--theia-charts-orange)';
-        }
-        if (/停止|blocked|error|失敗/i.test(status)) {
-            return 'var(--theia-charts-red)';
-        }
-        return 'var(--theia-descriptionForeground)';
-    }
-
-    // --- 素材の取り込み（プラスボタン / ドラッグ＆ドロップ、どちらも実コピー） ---
-
-    protected async pickFiles(): Promise<void> {
-        if (this.importing) {
-            return;
-        }
-        const root = this.projectRoot;
-        if (!root) {
-            this.messages.warn('先にプロジェクトを開いてください。');
-            return;
-        }
-        const selection = await this.fileDialogs.showOpenDialog({
-            title: '取り込む動画・写真を選ぶ',
-            openLabel: '取り込む',
-            canSelectFiles: true,
-            canSelectFolders: false,
-            canSelectMany: true,
-            filters: { '動画・写真': IMPORTABLE_EXTENSIONS.map(extension => extension.slice(1)) }
-        });
-        if (!selection) {
-            return;
-        }
-        const uris = Array.isArray(selection) ? selection : [selection];
-        await this.importSources(uris, root);
-    }
-
-    protected handleDragOver = (event: React.DragEvent): void => {
-        if (!this.hasImportableDrag(event.dataTransfer)) {
-            return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        event.dataTransfer.dropEffect = 'copy';
-        if (!this.dragActive) {
-            this.dragActive = true;
-            this.update();
-        }
-    };
-
-    protected handleDragLeave = (event: React.DragEvent): void => {
-        const next = event.relatedTarget as Node | null;
-        if (next && event.currentTarget.contains(next)) {
-            return;
-        }
-        if (this.dragActive) {
-            this.dragActive = false;
-            this.update();
-        }
-    };
-
-    protected handleDrop = (event: React.DragEvent): void => {
-        if (!this.hasImportableDrag(event.dataTransfer)) {
-            return;
-        }
-        // ここに来たドロップはこのドロップゾーンが引き取る
-        // （akari-project 側のグローバルなドロップ処理は data-akari-dropzone を見て道を譲る）。
-        event.preventDefault();
-        event.stopPropagation();
-        this.dragActive = false;
-        const sources = this.resolveDroppedSources(event.dataTransfer);
-        if (!sources.length) {
-            this.messages.warn('動画または写真のファイルをドロップしてください。');
-            this.update();
-            return;
-        }
-        const root = this.projectRoot;
-        if (!root) {
-            this.messages.warn('先にプロジェクトを開いてください。');
-            this.update();
-            return;
-        }
-        void this.importSources(sources, root);
-    };
-
-    protected handleDropzoneKeyDown = (event: React.KeyboardEvent): void => {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            void this.pickFiles();
-        }
-    };
-
-    protected hasImportableDrag(transfer: DataTransfer | null): boolean {
-        return !!transfer && (transfer.types.includes('Files') || transfer.types.includes('text/uri-list'));
-    }
-
-    /**
-     * ドロップされた実ファイルの絶対パスを解決する。Electron の preload ブリッジ
-     * （`electronTheiaCore.getPathForFile`）を優先し、無い環境では `File#path` に
-     * フォールバックする（akari-project の動画ドロップ実装と同じ経路）。
-     */
-    protected resolveDroppedSources(transfer: DataTransfer | null): URI[] {
-        if (!transfer) {
-            return [];
-        }
-        const fromFiles = Array.from(transfer.files)
-            .filter(file => IMPORTABLE_EXTENSIONS.includes(this.extensionOf(file.name)))
-            .map(file => {
-                const theiaCore = (window as Window & {
-                    electronTheiaCore?: { getPathForFile?: (candidate: File) => string };
-                }).electronTheiaCore;
-                let sourcePath: string | undefined;
-                if (typeof theiaCore?.getPathForFile === 'function') {
-                    try {
-                        sourcePath = theiaCore.getPathForFile(file) || undefined;
-                    } catch {
-                        // Fall back for environments without the Electron preload bridge.
-                    }
-                }
-                sourcePath ||= (file as File & { path?: string }).path;
-                return sourcePath ? URI.fromFilePath(sourcePath) : undefined;
-            })
-            .filter((uri): uri is URI => !!uri);
-        if (fromFiles.length) {
-            return fromFiles;
-        }
-        const uriList = transfer.getData('text/uri-list');
-        return uriList.split(/\r?\n/)
-            .filter(line => line.startsWith('file:') && IMPORTABLE_EXTENSIONS.includes(this.extensionOf(line)))
-            .map(line => new URI(line));
-    }
-
-    protected async importSources(sources: URI[], root: URI): Promise<void> {
-        const supported = sources.filter(uri => IMPORTABLE_EXTENSIONS.includes(this.extensionOf(uri.path.base)));
-        if (!supported.length) {
-            this.messages.warn('動画または写真のファイルを選んでください。');
-            return;
-        }
-        this.importing = true;
-        this.update();
-        const assetsUri = root.resolve(this.assetsRolePath);
-        let imported = 0;
-        let failed = 0;
-        for (const source of supported) {
-            try {
-                // FileService.copy は同名ファイルがあると例外になる（自動リネームはしない）。
-                // 同じ素材の再ドロップを失敗にしないため、空いている名前を探してからコピーする。
-                const target = await this.availableTarget(assetsUri, this.safeFileName(source.path.base));
-                await this.fileService.copy(source, target, { fromUserGesture: true });
-                imported++;
-            } catch (error) {
-                failed++;
-                console.error('[akari-surfaces] failed to import asset', error);
-            }
-        }
-        this.importing = false;
-        if (imported) {
-            this.importedNotice = failed
-                ? `${imported} 件を取り込みました（${failed} 件は失敗）。分析やプラン作成に進めます。`
-                : '素材を取り込みました。分析やプラン作成に進めます。';
-            this.messages.info(this.importedNotice);
-            await this.refreshExplorer();
-        } else {
-            this.messages.error('取り込めませんでした。Finder からもう一度お試しください。');
-        }
-        await this.refreshOverview();
-    }
-
-    protected async refreshExplorer(): Promise<void> {
-        try {
-            const navigator = await this.widgets.getOrCreateWidget('files') as any;
-            await navigator.model?.refresh?.();
-        } catch {
-            // Explorer がまだ無い場合はワークスペースの監視側で追従する。
-        }
-    }
-
-    protected safeFileName(name: string): string {
-        return name.replace(/[\\/]/g, '_').replace(/[^\p{L}\p{N}._ -]/gu, '_');
-    }
-
-    /** 同名ファイルが既にあるときは `name-2.ext` 形式で空きを探す（上書きしない）。 */
-    protected async availableTarget(directory: URI, name: string): Promise<URI> {
-        const extension = this.extensionOf(name);
-        const stem = extension ? name.slice(0, -extension.length) : name;
-        let candidate = directory.resolve(name);
-        for (let index = 2; await this.fileService.exists(candidate); index++) {
-            candidate = directory.resolve(`${stem}-${index}${extension}`);
-        }
-        return candidate;
-    }
-
     // --- レンダリング ---
 
     /**
-     * ホーム v3: 分岐なしで常に dashboard 1 枚を描く（裁定 R3）。
-     * 上から (a) 接続案内カード（未接続時のみ） (b) 進め方カード（+ 展開フォーム）
-     * (c) クイックアクション列 (d) 素材 / エントリカード群。
-     * `data-akari-home-stage` は state machine 廃止に伴い `"dashboard"` 固定
-     * （属性自体は既存 evidence / 検証スクリプトの掴みどころとして残す）。
+     * ホーム v4: 分岐なしで常に dashboard 1 枚を描く。上から
+     * (a) 説明ブロック（2 動作） (b) 過去プロジェクト一覧（あれば列挙・無ければ
+     * 案内 1 行） (c) 接続案内カード（未接続時のみ） (d) 進め方フォーム
+     * （コマンドから開いたときだけ展開）。それ以外の制御 UI は持たない
+     * （裁定 R1・R4）。`data-akari-home-stage` は v3 からの既存 evidence /
+     * 検証スクリプトの掴みどころとして値 `"dashboard"` のまま残す。
      */
     protected override render(): React.ReactNode {
         return (
             <div className='akari-home-surface' data-akari-home-stage='dashboard' style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box' }}>
                 {this.renderDashboardHeader()}
                 {this.updateStatus.available && this.renderUpdateBanner()}
+                {this.renderExplanation()}
+                {this.renderPastProjects()}
                 {!this.connected && this.renderConnectCard()}
-                {this.renderIntakeCard()}
                 {this.intakeFormOpen && this.renderIntakeForm()}
-                {this.renderQuickActions()}
-                {this.hasAssets ? this.renderProjectOverview() : this.renderDropzone('hero')}
             </div>
         );
     }
@@ -1091,17 +741,85 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected renderDashboardHeader(): React.ReactNode {
         return (
-            <header style={{ marginBottom: 14, display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+            <header style={{ marginBottom: 14 }}>
                 <h1 style={{ margin: 0, fontSize: 21 }}>ホーム</h1>
-                <p style={{ margin: 0, fontSize: 12.5, opacity: 0.7 }}>いまどこにいて、次に何をするかを一望できます。</p>
             </header>
         );
     }
 
     /**
-     * 接続案内カード（裁定 R6）。未接続のときだけ dashboard 最上部に出る**案内**で、
-     * ゲートではない — このカードの下にある素材取り込み・クイックアクション・
-     * 進め方フォームはすべて未接続のまま操作できる。
+     * 説明ブロック（裁定 R1 ①・2026-08-02）。ホームが教えるのは 2 動作だけ:
+     * 「左に素材を入れる」「右で相棒に話す」。真ん中（結果サーフェス・裁定 R4）
+     * についても 1 行だけ触れる。ここから先の工程はエージェント + ファイルに
+     * 委ね、ホーム自身はこれ以上の制御 UI を持たない。
+     */
+    protected renderExplanation(): React.ReactNode {
+        return (
+            <section style={homeFlowStyles.card}>
+                <div style={homeFlowStyles.cardBody}>
+                    <strong style={homeFlowStyles.cardTitle}>はじめかたはこれだけです</strong>
+                    <p style={homeFlowStyles.cardLead}>
+                        左に動画・写真を入れるか、右で相棒に話しかけてください。
+                    </p>
+                    <p style={homeFlowStyles.cardFine}>真ん中には、進めた結果（プレビューやレポート）が表示されます。</p>
+                </div>
+            </section>
+        );
+    }
+
+    /**
+     * 過去プロジェクト一覧（裁定 R3・2026-08-02）。作業場（creator-root）が
+     * 解決できた場合だけ列挙し、クリックでそのプロジェクトをワークスペースとして
+     * 開く。無ければ一覧を出さず 1 行の案内にフォールバックする（作成は促すが、
+     * 作成 UI 自体はホームに足さない — 作成は相棒 / `akari` CLI に委ねる）。
+     */
+    protected renderPastProjects(): React.ReactNode {
+        if (!this.creatorRootAvailable) {
+            return (
+                <section style={homeFlowStyles.card}>
+                    <div style={homeFlowStyles.cardBody}>
+                        <p style={homeFlowStyles.cardLead}>{CREATOR_ROOT_MISSING_NOTICE}</p>
+                    </div>
+                </section>
+            );
+        }
+        if (this.creatorRootProjects.length === 0) {
+            return (
+                <section style={homeFlowStyles.card}>
+                    <div style={homeFlowStyles.cardBody}>
+                        <strong style={homeFlowStyles.cardTitle}>過去プロジェクト</strong>
+                        <p style={homeFlowStyles.cardLead}>まだプロジェクトがありません。</p>
+                    </div>
+                </section>
+            );
+        }
+        return (
+            <section style={{ marginBottom: 16 }}>
+                <p style={homeFlowStyles.glabel}>過去プロジェクト</p>
+                <div style={homeFlowStyles.projectList}>
+                    {this.creatorRootProjects.map(project => (
+                        <button
+                            key={project.uri.toString()}
+                            type='button'
+                            className='theia-button secondary'
+                            style={homeFlowStyles.projectItem}
+                            onClick={() => this.openCreatorRootProject(project.uri)}
+                        >
+                            <span className='codicon codicon-folder' aria-hidden='true' style={homeFlowStyles.chipIcon} />
+                            <span style={homeFlowStyles.projectItemBody}>
+                                <strong style={homeFlowStyles.projectItemName}>{project.name}</strong>
+                                <small style={homeFlowStyles.projectItemChannel}>{project.channel}</small>
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            </section>
+        );
+    }
+
+    /**
+     * 接続案内カード（裁定 R6）。未接続のときだけ dashboard に出る**案内**で、
+     * ゲートではない — 上にある説明・過去プロジェクトを開く操作は未接続のまま行える。
      */
     protected renderConnectCard(): React.ReactNode {
         return (
@@ -1112,7 +830,7 @@ export class AkariHomeWidget extends ReactWidget {
                 <div style={homeFlowStyles.cardBody}>
                     <strong style={homeFlowStyles.cardTitle}>パートナーとつなぐ</strong>
                     <p style={homeFlowStyles.cardLead}>
-                        素材の取り込みなど下の操作は、つなぐ前でも使えます。
+                        過去プロジェクトを開くなど、ここまでの操作は接続前でも使えます。
                     </p>
                     <p style={homeFlowStyles.cardFine}>初回のみ · 完了すると次からは自動接続</p>
                 </div>
@@ -1130,102 +848,10 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     /**
-     * 進め方カード（裁定 R5）。intake.json の状態で 1 枚を出し分ける:
-     * 未送信（absent / draft）は「進め方を決める」案内、submitted は現在の設定
-     * サマリ + 「進め方を見直す」。どちらもフォームを開く導線であり、ロックではない。
-     */
-    protected renderIntakeCard(): React.ReactNode {
-        const submitted = this.intakeStatus === 'submitted';
-        const snapshot = this.intakeSnapshot;
-        return (
-            <section style={homeFlowStyles.card}>
-                <div style={homeFlowStyles.cardMark} aria-hidden='true'>
-                    <span className={`codicon ${submitted ? 'codicon-checklist' : 'codicon-compass'}`}
-                        style={{ fontSize: 20, color: 'var(--theia-button-foreground)' }} />
-                </div>
-                <div style={homeFlowStyles.cardBody}>
-                    <strong style={homeFlowStyles.cardTitle}>{submitted ? '今回の進め方' : '進め方が未定です'}</strong>
-                    {submitted && snapshot ? (
-                        <dl style={homeFlowStyles.summaryList}>
-                            <div style={homeFlowStyles.summaryItem}>
-                                <dt style={homeFlowStyles.summaryKey}>やること</dt>
-                                <dd style={homeFlowStyles.summaryValue}>
-                                    {snapshot.tasks.length ? snapshot.tasks.map(id => INTAKE_TASK_LABELS[id]).join('、') : '（未選択）'}
-                                </dd>
-                            </div>
-                            <div style={homeFlowStyles.summaryItem}>
-                                <dt style={homeFlowStyles.summaryKey}>仕上がりの尺</dt>
-                                <dd style={homeFlowStyles.summaryValue}>{INTAKE_DURATION_LABELS[snapshot.duration]}</dd>
-                            </div>
-                            <div style={homeFlowStyles.summaryItem}>
-                                <dt style={homeFlowStyles.summaryKey}>おまかせの度合い</dt>
-                                <dd style={homeFlowStyles.summaryValue}>{INTAKE_AUTONOMY_LABELS[snapshot.autonomy]}</dd>
-                            </div>
-                        </dl>
-                    ) : (
-                        <p style={homeFlowStyles.cardLead}>
-                            やること・尺・おまかせの度合いがパートナーへの指示になります。決めなくても先に進めます。
-                        </p>
-                    )}
-                </div>
-                <button
-                    type='button'
-                    className='theia-button secondary'
-                    style={homeFlowStyles.reviewEntry}
-                    aria-expanded={this.intakeFormOpen}
-                    onClick={() => void this.openIntakeForm()}
-                >
-                    <span className={`codicon ${submitted ? 'codicon-history' : 'codicon-edit'}`} aria-hidden='true' />
-                    {submitted ? ' 進め方を見直す' : ' 進め方を決める'}
-                </button>
-            </section>
-        );
-    }
-
-    /**
-     * クイックアクション列（裁定 R4）。押しても画面は変わらず、パートナーへ
-     * 定型プロンプトが飛ぶ（assets はピッカー / reference はフォルダ選択も同時）。
-     * v2 の「どの入り口も最後は進め方フォームに合流します」という合流文言は廃止
-     * — 進め方はいつでも決められる 1 サーフェスになったため合流点が無い。
-     */
-    protected renderQuickActions(): React.ReactNode {
-        const actions: Array<{ id: QuickActionId; icon: string; label: string; hint: string }> = [
-            {
-                id: 'assets', icon: 'codicon-folder-opened', label: '素材から始める',
-                hint: '動画・写真を取り込んで、何が撮れているかの分析を依頼する'
-            },
-            {
-                id: 'template', icon: 'codicon-layout', label: 'テンプレートから',
-                hint: 'Vlog ダイジェスト / 30 秒 CM など、完成形が決まった型の候補をチャットに出す'
-            },
-            {
-                id: 'reference', icon: 'codicon-history', label: '過去のプロジェクトを参考に',
-                hint: '参考にするプロジェクトのフォルダを選んで、同じ雰囲気・同じ流れで進める'
-            },
-            {
-                id: 'consult', icon: 'codicon-comment-discussion', label: '相談しながら決める',
-                hint: 'まだ何も決まっていなくて OK。パートナーが質問しながら方向性を固める'
-            }
-        ];
-        return (
-            <section style={{ marginBottom: 16 }}>
-                <p style={homeFlowStyles.glabel}>クイックアクション — 押してもこの画面のまま</p>
-                <div style={homeFlowStyles.chipRow}>
-                    {actions.map(action => (
-                        <button key={action.id} type='button' style={homeFlowStyles.chip} title={action.hint}
-                            onClick={() => void this.runQuickAction(action.id)}>
-                            <span className={`codicon ${action.icon}`} style={homeFlowStyles.chipIcon} aria-hidden='true' />
-                            {action.label}
-                        </button>
-                    ))}
-                </div>
-            </section>
-        );
-    }
-
-    /**
      * 進め方フォーム（intake サーフェス）。ステージではなく dashboard 内の展開
      * セクションで、畳む導線は「ダッシュボードに戻る」の 1 種類だけ（裁定 R5）。
+     * v4 では `akari.home.openIntakeForm` コマンドからのみ開く（v3 の
+     * 「進め方カード」はホームから撤去済み）。
      */
     protected renderIntakeForm(): React.ReactNode {
         return (
@@ -1313,136 +939,13 @@ export class AkariHomeWidget extends ReactWidget {
             </div>
         );
     }
-
-    protected renderProjectOverview(): React.ReactNode {
-        return (
-            <>
-                {this.importedNotice && (
-                    <div role='status' style={{
-                        marginBottom: 16, padding: '10px 14px', borderRadius: 8,
-                        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)'
-                    }}>
-                        {this.importedNotice}
-                    </div>
-                )}
-                {this.stages.length > 0 ? (
-                    <div style={{
-                        display: 'grid', gridTemplateColumns: `repeat(${Math.min(this.stages.length, 4)}, minmax(190px, 1fr))`,
-                        gap: 12, marginBottom: 20
-                    }}>
-                        {this.stages.map((stage, index) => (
-                            <section key={stage.id} style={{
-                                border: '1px solid var(--theia-widget-border)', borderRadius: 10,
-                                padding: 16, background: 'var(--theia-editorWidget-background)', minHeight: 150
-                            }}>
-                                <div style={{ opacity: 0.55, fontSize: 12 }}>STAGE {index + 1}</div>
-                                <h2 style={{ margin: '8px 0 12px', fontSize: 18 }}>{stage.label}</h2>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 16 }}>
-                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: this.statusColor(stage.status) }} />
-                                    <span>{stage.status}</span>
-                                </div>
-                                <div style={{ borderTop: '1px solid var(--theia-widget-border)', paddingTop: 11 }}>
-                                    <div style={{ opacity: 0.55, fontSize: 11, marginBottom: 4 }}>次の一手</div>
-                                    <strong>{stage.nextAction}</strong>
-                                </div>
-                            </section>
-                        ))}
-                    </div>
-                ) : (
-                    this.guide && <p style={{ opacity: 0.7, marginBottom: 20 }}>{this.guide}</p>
-                )}
-                {this.entryCards.length > 0 && (
-                    <div style={{
-                        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                        gap: 12, marginBottom: 24
-                    }}>
-                        {this.entryCards.map(card => (
-                            <button key={card.id} type='button' className='theia-button secondary'
-                                onClick={() => void card.open()}
-                                style={{
-                                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6,
-                                    padding: '14px 16px', borderRadius: 10, textAlign: 'left', height: 'auto'
-                                }}>
-                                <span className={`codicon ${card.icon}`} aria-hidden='true' style={{ fontSize: 18 }} />
-                                <strong>{card.label}</strong>
-                                <small style={{ opacity: 0.65, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                                    {card.hint}
-                                </small>
-                            </button>
-                        ))}
-                    </div>
-                )}
-                {this.renderDropzone('inline')}
-            </>
-        );
-    }
-
-    protected renderDropzone(variant: 'hero' | 'inline'): React.ReactNode {
-        const isHero = variant === 'hero';
-        return (
-            <div
-                role='button'
-                tabIndex={0}
-                aria-label='動画や写真を取り込む'
-                data-akari-dropzone='true'
-                onDragOver={this.handleDragOver}
-                onDragLeave={this.handleDragLeave}
-                onDrop={this.handleDrop}
-                onClick={() => void this.pickFiles()}
-                onKeyDown={this.handleDropzoneKeyDown}
-                style={{
-                    display: 'flex',
-                    // v3: hero も「画面いっぱいの入口」ではなく dashboard の一区画になったため、
-                    // 縦積み・minHeight 320 をやめて inline と同じ横並びに揃える
-                    // （案内カード・クイックアクションと同時に見えることが受け入れ条件）。
-                    // hero / inline の差は文言と＋ボタンの大きさだけ。
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'flex-start',
-                    gap: 14,
-                    minHeight: isHero ? 84 : 64,
-                    padding: isHero ? '16px 18px' : '14px 18px',
-                    borderRadius: 14,
-                    cursor: 'pointer',
-                    border: `2px dashed ${this.dragActive ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`,
-                    background: this.dragActive ? 'var(--theia-list-dropBackground)' : 'var(--theia-editorWidget-background)',
-                    textAlign: 'left'
-                }}
-            >
-                <button type='button' className='theia-button' aria-label='ファイルを選ぶ'
-                    onClick={event => { event.stopPropagation(); void this.pickFiles(); }}
-                    style={{
-                        width: isHero ? 46 : 36, height: isHero ? 46 : 36, borderRadius: '50%',
-                        fontSize: isHero ? 24 : 18, lineHeight: 1, padding: 0, flex: '0 0 auto'
-                    }}>
-                    +
-                </button>
-                <div>
-                    {isHero ? (
-                        <>
-                            <strong style={{ fontSize: 15 }}>ここに動画や写真を入れると始まります</strong>
-                            <div style={{ marginTop: 4, opacity: 0.75, fontSize: 12.5 }}>
-                                ドラッグ＆ドロップするか、＋ボタンから選んでください。
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <strong>素材を追加</strong>
-                            <div style={{ opacity: 0.7, fontSize: 12 }}>ドラッグ＆ドロップ、または＋で選択</div>
-                        </>
-                    )}
-                    {this.importing && <div role='status' style={{ marginTop: 6, fontSize: 12 }}>取り込み中…</div>}
-                </div>
-            </div>
-        );
-    }
 }
 
-// ホーム v3（dashboard）のスタイル。色は Theia テーマ変数のみ参照する
+// ホーム v4（dashboard）のスタイル。色は Theia テーマ変数のみ参照する
 // （T1 が --theia-* を LP トークン=黒×オレンジへ差し替え済みのため、ここは
 // 無変更で追随する。akari-partner-widget.tsx の chatStyles と同じ流儀）。
-// v3 で持ち込む新しい語彙は無い — カード / チップはいずれも既存の
-// 「1px widget-border + editorWidget-background + focusBorder アクセント」の再構成。
+// v3 から持ち込む語彙は「1px widget-border + editorWidget-background +
+// focusBorder アクセント」のカード再構成のみ（v4 で新規の語彙は増やさない）。
 const homeFlowStyles: Record<string, React.CSSProperties> = {
     eyebrow: { fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
     h2: { fontSize: 22, fontWeight: 800, lineHeight: 1.4, margin: 0 },
@@ -1453,7 +956,7 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         minHeight: 'auto', height: 'auto'
     },
 
-    // 案内カード（接続 / 進め方）。ロックではないので画面を占有せず 1 枚に収める。
+    // 案内カード（説明 / 過去プロジェクトのフォールバック / 接続）。ロックではないので画面を占有せず 1 枚に収める。
     card: {
         display: 'flex', alignItems: 'flex-start', gap: 13, marginBottom: 12, padding: '13px 15px',
         borderRadius: 12, border: '1px solid var(--theia-widget-border)',
@@ -1473,25 +976,17 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         minHeight: 'auto', height: 'auto'
     },
 
-    // 進め方カードの現在設定サマリ（submitted 時）。
-    summaryList: { margin: '8px 0 0', display: 'flex', flexDirection: 'column', gap: 5 },
-    summaryItem: { display: 'flex', gap: 10, alignItems: 'baseline' },
-    summaryKey: {
-        margin: 0, flex: '0 0 auto', minWidth: '9.5em', whiteSpace: 'nowrap',
-        fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.1em',
-        textTransform: 'uppercase', color: 'var(--theia-focusBorder)'
-    },
-    summaryValue: { margin: 0, fontSize: 12.5, lineHeight: 1.7 },
-
-    // クイックアクション列（横並びチップ 4 つ）。押しても画面遷移しない。
-    chipRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-    chip: {
-        display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 999,
-        fontSize: 12.5, fontWeight: 600, minHeight: 'auto', height: 'auto',
+    // 過去プロジェクト一覧（裁定 R3）。
+    projectList: { display: 'flex', flexDirection: 'column', gap: 6 },
+    projectItem: {
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9,
+        fontSize: 12.5, minHeight: 'auto', height: 'auto', width: '100%',
         border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
-        // 素の <button> は色を継承しないため明示する（未指定だと UA 既定の暗色が黒背景に載る）
-        color: 'var(--theia-editorWidget-foreground)', cursor: 'pointer'
+        color: 'var(--theia-editorWidget-foreground)', cursor: 'pointer', textAlign: 'left'
     },
+    projectItemBody: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
+    projectItemName: { fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+    projectItemChannel: { opacity: 0.6, fontSize: 11 },
     chipIcon: { fontSize: 14, color: 'var(--theia-focusBorder)' },
 
     // dashboard 内に展開する進め方フォーム（ステージではない）。
@@ -1514,12 +1009,6 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         marginBottom: 16, padding: '9px 13px', borderRadius: 9, fontSize: 12.5,
         border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
         color: 'var(--theia-descriptionForeground)'
-    },
-    // 進め方カードのアクション（「進め方を決める」/「進め方を見直す」）。
-    reviewEntry: {
-        display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 600,
-        padding: '8px 14px', borderRadius: 9, minHeight: 'auto', height: 'auto', flex: '0 0 auto',
-        whiteSpace: 'nowrap'
     },
 
     // 更新ホームバナー（U2 v0・D5 裁定）。新版がある時だけ出る・常時領域を専有しない。
