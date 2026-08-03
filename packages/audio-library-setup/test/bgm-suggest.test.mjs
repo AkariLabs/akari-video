@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -213,6 +213,30 @@ test('CLI: --declarations で宣言合流の出力（宣言行 + JSON フィー�
     ], { encoding: 'utf8', env: { ...process.env, AKARI_HOME: path.join(root, '.akari') } });
     assert.match(human.stdout, /サビ頭 20\.5s/);
     assert.match(human.stdout, /耳検証済み \+1/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 既定パス <ライブラリ>/declarations.json を自動検出する（宣言パック購入者の導入先）', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'akari-bgm-suggest-defdecl-'));
+  try {
+    const catalogPath = path.join(root, 'catalog.json');
+    await writeFile(catalogPath, JSON.stringify(FIXTURE));
+    const libRoot = path.join(root, '.akari', 'assets', 'audio');
+    await mkdir(libRoot, { recursive: true });
+    await writeFile(path.join(libRoot, 'declarations.json'), JSON.stringify({
+      'bgm-lofi-piano-084': { bpm: 84, sections: [{ label: 'drop', start_sec: 12.3, end_sec: 30 }], hit_points: [] },
+    }));
+    const env = { ...process.env, AKARI_HOME: path.join(root, '.akari') };
+    delete env.AKARI_SOUNDS_DECLARATIONS;
+    const result = spawnSync(process.execPath, [
+      cliPath, '--tone', '親しみ', '--catalog', catalogPath, '--json',
+    ], { encoding: 'utf8', env });
+    assert.equal(result.status, 0, result.stderr);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.declarations_source, path.join(libRoot, 'declarations.json'));
+    assert.equal(parsed.suggestions[0].declaration.drop_in_sec, 12.3);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

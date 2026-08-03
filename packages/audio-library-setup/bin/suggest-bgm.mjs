@@ -15,10 +15,11 @@
 //   --count <N>      提示件数（既定 5）
 //   --catalog <path> catalog.json をローカルファイルから読む（検証用の上書き）
 //   --declarations <path>  耳検証済み宣言データ（{id: {bpm, sections[], hit_points[] …}} の JSON）。
-//                    未指定なら環境変数 AKARI_SOUNDS_DECLARATIONS のパスを見る。
+//                    解決順: --declarations → 環境変数 AKARI_SOUNDS_DECLARATIONS →
+//                    既定パス <ライブラリ>/declarations.json（宣言パック購入者の導入先 —
+//                    zip 内の declarations.json をそこへ置くだけで自動検出される）。
 //                    あるトラックは実測 BPM 置換 + ランキング優先 + サビ頭出し（audio.bgm.in の
-//                    推奨値）が提案に付く。将来の宣言パック導入時は user スコープ meta.json から
-//                    自動で拾う予定（現状は内部 dogfood 用の明示指定）
+//                    推奨値）が提案に付く
 //   --json           機械可読 JSON で出力（エージェント向け）
 
 import { existsSync } from 'node:fs';
@@ -55,11 +56,18 @@ function parseArguments(argv, env = process.env) {
   return options;
 }
 
-async function loadDeclarations(options) {
-  if (!options.declarations) {
+async function loadDeclarations(options, libraryRoot) {
+  let resolved = options.declarations ? path.resolve(options.declarations) : null;
+  if (!resolved) {
+    // 宣言パック購入者の既定導入先（zip 内の declarations.json をここへ置くだけ）
+    const defaultPath = path.join(libraryRoot, 'declarations.json');
+    if (existsSync(defaultPath)) {
+      resolved = defaultPath;
+    }
+  }
+  if (!resolved) {
     return { declarations: null, declarationsSource: null };
   }
-  const resolved = path.resolve(options.declarations);
   try {
     return { declarations: JSON.parse(await readFile(resolved, 'utf8')), declarationsSource: resolved };
   } catch (error) {
@@ -121,7 +129,7 @@ async function main() {
   const options = parseArguments(process.argv.slice(2));
   const libraryRoot = resolveLibraryRoot();
   const { catalog, source } = await loadCatalog(options, libraryRoot);
-  const { declarations, declarationsSource } = await loadDeclarations(options);
+  const { declarations, declarationsSource } = await loadDeclarations(options, libraryRoot);
 
   const result = suggestBgm(catalog, { tones: options.tones, tempo: options.tempo, count: options.count, declarations });
   const withPaths = {
