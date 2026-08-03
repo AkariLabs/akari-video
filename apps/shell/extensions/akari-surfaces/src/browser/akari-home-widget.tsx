@@ -11,6 +11,7 @@ import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { isOSX, isWindows } from '@theia/core/lib/common/os';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -72,6 +73,10 @@ const UPDATE_CACHE_FILENAME = 'update-check.json';
 // アプリ単位の「パートナー接続済み」マーカー。akari-partner の node バックエンドが
 // 接続成立時に書く（ファイル契約のみで結合する — 拡張間の import 依存は増やさない）。
 const PARTNER_CONNECTION_FILENAME = 'partner-connection.json';
+// AKARI Store の接続資格情報。書き手は launcher CLI（`akari store connect`）だけ —
+// ここでもファイル契約のみで結合する（store-command.mjs への import 依存は増やさない）。
+const STORE_CREDENTIALS_FILENAME = 'store-credentials.json';
+const STORE_SITE_FALLBACK = 'https://akari-oss.app/store/';
 // 「AI パートナー接続」のプロジェクト単位 SSOT は connections.json の akari-cloud
 // provider の doctor.status（partner pane が「akari-cloud・接続済み」と表示する対象と同一）。
 const CLOUD_PROVIDER_ID = 'akari-cloud';
@@ -203,7 +208,15 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(AkariNewProjectService)
     protected readonly newProjectService: AkariNewProjectService;
 
+    @inject(TerminalService)
+    protected readonly terminalService: TerminalService;
+
     protected watching = false;
+
+    // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
+    protected storeEmail: string | null = null;
+    protected storeConnecting = false;
+    protected storeSiteUrl = STORE_SITE_FALLBACK;
 
     // --- D&D 復活: 素材の取り込み（v3 home dropzone から再利用） ---
     protected importing = false;
@@ -340,10 +353,34 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected async refreshHomeFlow(): Promise<void> {
         this.connected = await this.readConnected();
+        this.storeEmail = await this.readStoreConnection();
         const intake = await this.readIntake();
         this.intakeSnapshot = intake;
         this.intakeStatus = intake.status;
         this.update();
+    }
+
+    /**
+     * AKARI Store の接続状態（`~/.akari/store-credentials.json`・AKARI_HOME で差し替え可）。
+     * 読み方は partner-connection.json と同じ EnvVariablesServer + FileService 経路。
+     * 無い/壊れていれば未接続扱い（フェイルセーフ側）。watch は張らない —
+     * 反映は connectStore のポーリングとホーム再表示時の読み直しで担保する（v0 の流儀）。
+     */
+    protected async readStoreConnection(): Promise<string | null> {
+        try {
+            const uri = (await this.resolveAkariHomeUri()).resolve(STORE_CREDENTIALS_FILENAME);
+            const parsed = JSON.parse((await this.fileService.readFile(uri)).value.toString());
+            if (typeof parsed?.token !== 'string') {
+                return null;
+            }
+            if (typeof parsed?.url === 'string') {
+                // 資格情報の url は API 基点（…/api/store）。サイト側の基点に読み替える
+                this.storeSiteUrl = parsed.url.replace(/\/api\/store\/?$/, '/store/');
+            }
+            return typeof parsed?.email === 'string' ? parsed.email : '接続済み';
+        } catch {
+            return null;
+        }
     }
 
     /**
@@ -1024,6 +1061,47 @@ export class AkariHomeWidget extends ReactWidget {
     };
 
     /**
+     * ストア接続（オーナー要望 2026-08-03）。アプリ内ターミナルで CLI の
+     * デバイスコードフロー（ブラウザ承認）を起動するだけ — 資格情報の書き手は
+     * launcher CLI のまま。完了はファイルの出現ポーリングで検知する（最大 5 分）。
+     */
+    protected connectStore = async (): Promise<void> => {
+        if (this.storeConnecting) {
+            return;
+        }
+        this.storeConnecting = true;
+        this.update();
+        try {
+            const terminal = await this.terminalService.newTerminal({ title: 'AKARI Store 接続' });
+            await terminal.start();
+            this.terminalService.open(terminal);
+            terminal.sendText('akari store connect\n');
+        } catch (error) {
+            console.error('[akari-surfaces] store connect terminal failed', error);
+            this.messages.error('ターミナルを開けませんでした。手動で `akari store connect` を実行してください。');
+            this.storeConnecting = false;
+            this.update();
+            return;
+        }
+        const deadline = Date.now() + 5 * 60 * 1000;
+        const poll = async (): Promise<void> => {
+            this.storeEmail = await this.readStoreConnection();
+            if (this.storeEmail !== null || Date.now() > deadline) {
+                this.storeConnecting = false;
+                this.update();
+                return;
+            }
+            setTimeout(() => void poll(), 4000);
+        };
+        setTimeout(() => void poll(), 4000);
+    };
+
+    protected openStoreSite = (): void => {
+        const base = this.storeSiteUrl.replace(/\/$/, '');
+        this.windowService.openNewWindow(this.storeEmail !== null ? `${base}/library` : `${base}/`, { external: true });
+    };
+
+    /**
      * 進め方フォームを dashboard 内の展開セクションとして開く（裁定 R5）。
      * v4 ではホーム上にカードが無いため、`AkariHomeCommandContribution`
      * （`akari.home.openIntakeForm` コマンド）からのみ呼ばれる —
@@ -1395,6 +1473,7 @@ export class AkariHomeWidget extends ReactWidget {
                 {this.renderExplanation()}
                 {this.renderProjectList()}
                 {!this.connected && this.renderConnectCard()}
+                {this.renderStoreCard()}
                 {this.intakeFormOpen && this.renderIntakeForm()}
                 {this.dragActive && this.renderDropOverlay()}
             </div>
@@ -1683,6 +1762,53 @@ export class AkariHomeWidget extends ReactWidget {
                 >
                     {this.connecting ? '接続しています…' : 'パートナーに接続する'}
                 </button>
+            </section>
+        );
+    }
+
+    /**
+     * AKARI Store カード（ホーム v4 の 3 要素へのオーナー承認済み追加・2026-08-03）。
+     * 未接続 = 接続ボタン（アプリ内ターミナルでブラウザ承認フロー）。
+     * 接続済み = メール表示 + マイページを外部ブラウザで開く。
+     */
+    protected renderStoreCard(): React.ReactNode {
+        const connected = this.storeEmail !== null;
+        return (
+            <section style={homeFlowStyles.card}>
+                <div style={homeFlowStyles.cardMark} aria-hidden='true'>
+                    <span className='codicon codicon-package' style={{ fontSize: 20, color: 'var(--theia-button-foreground)' }} />
+                </div>
+                <div style={homeFlowStyles.cardBody}>
+                    <strong style={homeFlowStyles.cardTitle}>AKARI Store</strong>
+                    <p style={homeFlowStyles.cardLead}>
+                        {connected
+                            ? `接続中: ${this.storeEmail}`
+                            : '購入した素材（宣言パック・3D モックなど）を本体で使うには接続します。'}
+                    </p>
+                    {connected && (
+                        <p style={homeFlowStyles.cardFine}>購入素材の導入は「購入した素材をセットアップして」と頼むだけ</p>
+                    )}
+                </div>
+                {connected ? (
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        style={homeFlowStyles.cardCta}
+                        onClick={() => this.openStoreSite()}
+                    >
+                        ストアを開く
+                    </button>
+                ) : (
+                    <button
+                        type='button'
+                        className='theia-button main'
+                        style={homeFlowStyles.cardCta}
+                        disabled={this.storeConnecting}
+                        onClick={() => void this.connectStore()}
+                    >
+                        {this.storeConnecting ? '承認を待っています…' : 'ストアに接続する'}
+                    </button>
+                )}
             </section>
         );
     }
