@@ -169,3 +169,17 @@ const to = layer.transform.opacity ? resolveNum(layer.transform.opacity, 1) : 1
 - 機械検証: `test/text-runs-resolution.test.mjs`（パース・閉じ忘れ・Value 解決・未宣言・長文収縮）と
   `test/text-runs-render.test.mjs`（plain / perChar の色・サイズ実効、未宣言 pixel parity、縦位置、
   長文安全域、hormozi_snap 旧 2 レイヤーとの alpha bbox parity）
+
+## vendor への追記: テロップアニメ標準ツマミ（2026-08-03 telop-anim-knobs）
+
+textanim 47 語彙を ATF canvas テロップの in / out / loop スロットから選べるようにする
+akari-video 側の独自拡張（akari-telop 本家には未収録。再移植時は要マージ）:
+
+- `atf/types.ts`: `Variable.type` に options 必須の操作面として `'select'` を追加
+- `atf/textanim-recipes.mjs`: render-cut の CSS 語彙と同型の opacity / translate / scale /
+  rotate キーフレームを数値 ATF track として定義。out は in のキー列と easing を時間反転する
+- `atf/resolve.ts`: `original` は従来の timing / tracks / perChar を完全スキップで維持。
+  語彙または `none` 選択時だけ対象 phase の焼き込み track（perChar を含む）を除去し、
+  全レイヤーへ同一レシピを合成する。loop は hold 区間を既定 1.6 秒周期で反復する
+- 機械検証: textanim カタログ一致 lint、全 36 テンプレの original parity、47 語彙の実効、
+  out 時間反転、`none` の焼き込み除去を `packages/bake-layer/test/` で固定
