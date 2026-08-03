@@ -32,7 +32,10 @@ akari
 ```
 
 サブコマンド: `akari update`（更新確認）/ `akari init`（作業場の作成・確認のみ）/
-`akari sounds [--variant wav] [--force]`（公式音源の一括ダウンロード。プロンプトなし・headless 可）。
+`akari sounds [--variant wav] [--force]`（公式音源の一括ダウンロード。プロンプトなし・headless 可）/
+`akari store <connect|status|download|disconnect>`（AKARI Store 連携。マイページで発行した
+接続トークンを `~/.akari/store-credentials.json`（0600）に保存し、購入済み一覧の確認と
+配布物の取得ができる。`src/store-command.mjs`）。
 
 `akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
 `opencode --continue` を起動する）。
