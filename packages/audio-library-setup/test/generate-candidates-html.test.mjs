@@ -10,6 +10,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..', '..');
 const scriptPath = path.join(here, '..', 'bin', 'generate-candidates-html.mjs');
 const candidatesPath = path.join(repoRoot, 'catalog', 'audio', 'candidates.json');
+const legacyCandidatesPath = path.join(repoRoot, 'catalog', 'audio', 'candidates-legacy.json');
 const realCatalogAudioDir = path.join(repoRoot, 'catalog', 'audio');
 
 async function withTempOut(run) {
@@ -21,7 +22,7 @@ async function withTempOut(run) {
     }
 }
 
-test('generates a self-contained static HTML with all 68 candidate cards and no auto-download links to raw audio', async () => {
+test('generates a self-contained static HTML with the 13 v2 candidate cards, the AKARI Sounds first-party banner, and no auto-download links to raw audio', async () => {
     await withTempOut(async (root) => {
         const outPath = path.join(root, 'candidates.html');
         const result = spawnSync(process.execPath, [
@@ -34,83 +35,55 @@ test('generates a self-contained static HTML with all 68 candidate cards and no 
         assert.equal(result.status, 0, result.stderr);
         const html = await readFile(outPath, 'utf8');
 
-        assert.match(html, /候補カード 68 件/);
+        assert.match(html, /候補カード 13 件/);
+        assert.match(html, /既定ソース: AKARI Sounds/);
+        assert.match(html, /fetch-akari-sounds\.mjs/);
         assert.match(html, /AI はここから自動ダウンロードしません/);
 
-        // リンクは必ずダウンロードページ URL。音声ファイル拡張子への直リンクを禁止する。
+        // 外部候補のリンクは必ずダウンロードページ URL。音声ファイル拡張子への直リンクを禁止する。
         const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-        assert.ok(hrefs.length >= 68);
+        assert.ok(hrefs.length >= 13);
         for (const href of hrefs) {
             assert.doesNotMatch(href, /\.(mp3|wav|m4a|ogg|flac)(\?|$)/i, `直リンク疑い: ${href}`);
         }
     });
 });
 
-test('BGM is split into bgm-calm/bgm-uplift/bgm-other with ~100 songs total, mood tags aligned to intake tone vocabulary (>=5 each), MusMus represented', async () => {
-    await withTempOut(async (root) => {
-        const outPath = path.join(root, 'candidates.html');
-        const result = spawnSync(process.execPath, [
-            scriptPath,
-            '--candidates', candidatesPath,
-            '--catalog-dir', realCatalogAudioDir,
-            '--out', outPath,
-        ], { encoding: 'utf8' });
-        assert.equal(result.status, 0, result.stderr);
+test('v2 contract: BGM cards are fully unified into first-party AKARI Sounds, kept SFX categories are the AKARI Sounds gaps, legacy JSON preserves all 68 v1 cards', async () => {
+    const v2 = JSON.parse(await readFile(candidatesPath, 'utf8'));
 
-        const raw = await readFile(candidatesPath, 'utf8');
-        const data = JSON.parse(raw);
-        const bgmCategoryIds = ['bgm-calm', 'bgm-uplift', 'bgm-other'];
-        const bgmCategories = bgmCategoryIds.map((id) => {
-            const category = data.categories.find((c) => c.id === id);
-            assert.ok(category, `カテゴリ ${id} が存在すること`);
-            return category;
-        });
+    // first_party が既定ソースとして宣言されている（2026-08-03 オーナー裁定）
+    assert.equal(v2.first_party.id, 'akari-sounds');
+    assert.equal(v2.first_party.role, 'default_source');
+    assert.equal(v2.first_party.repo, 'AkariLabs/akari-sounds');
+    assert.ok(v2.first_party.kinds.bgm >= 90, 'BGM は AKARI Sounds 側で 90 トラック以上ある想定');
 
-        const unitsPerCategory = new Map();
-        let totalUnits = 0;
-        for (const category of bgmCategories) {
-            const units = category.items.reduce((sum, item) => sum + (item.songs?.length ?? 1), 0);
-            unitsPerCategory.set(category.id, units);
-            totalUnits += units;
-        }
-        assert.ok(totalUnits >= 90 && totalUnits <= 120, `BGM合計は約100曲相当を想定: 実際は${totalUnits}`);
+    // BGM の外部カテゴリは v2 に存在しない（BGM は全量 AKARI Sounds）
+    const v2Ids = v2.categories.map((c) => c.id);
+    for (const id of v2Ids) {
+        assert.doesNotMatch(id, /^bgm-/, `BGM カテゴリが v2 に残っている: ${id}`);
+    }
 
-        // 落ち着き系6割・盛り上げ系3割・その他1割の構成比目安（±15ポイントの余裕を許容）
-        const calmRatio = unitsPerCategory.get('bgm-calm') / totalUnits;
-        const upliftRatio = unitsPerCategory.get('bgm-uplift') / totalUnits;
-        assert.ok(calmRatio >= 0.45, `落ち着き系の比率が低すぎる: ${calmRatio}`);
-        assert.ok(upliftRatio >= 0.15 && upliftRatio <= 0.45, `盛り上げ系の比率が目安から外れている: ${upliftRatio}`);
+    // 残す外部 SFX カテゴリは「AKARI Sounds に無い系統」だけ
+    assert.deepEqual([...v2Ids].sort(), ['applause', 'fail-buzzer', 'impact-hit']);
+    const totalCards = v2.categories.reduce((n, c) => n + c.items.length, 0);
+    assert.equal(totalCards, 13);
 
-        const toneVocabulary = data.mood_vocabulary.values;
-        assert.deepEqual(toneVocabulary, ['真面目', '親しみ', '高級感', '勢い', 'かわいい', '無機質', 'エモい', 'シネマ']);
+    // レガシー JSON は v1 の全 68 カードを原文のまま保持している（不変・参照用）
+    const legacy = JSON.parse(await readFile(legacyCandidatesPath, 'utf8'));
+    const legacyCards = legacy.categories.reduce((n, c) => n + c.items.length, 0);
+    assert.equal(legacyCards, 68);
 
-        const coverage = new Map(toneVocabulary.map((tone) => [tone, 0]));
-        for (const category of bgmCategories) {
-            for (const item of category.items) {
-                for (const mood of item.mood ?? []) {
-                    assert.ok(coverage.has(mood), `mood_vocabulary に無い値: ${mood} (item: ${item.id})`);
-                    coverage.set(mood, coverage.get(mood) + 1);
-                }
-                for (const song of item.songs ?? []) {
-                    for (const mood of song.mood ?? []) {
-                        assert.ok(coverage.has(mood), `mood_vocabulary に無い値: ${mood} (song in item: ${item.id})`);
-                        coverage.set(mood, coverage.get(mood) + 1);
-                    }
-                }
-            }
-        }
-        for (const [tone, count] of coverage) {
-            assert.ok(count >= 5, `mood "${tone}" の候補が5件未満: ${count}件`);
-        }
-
-        const allBgmItems = bgmCategories.flatMap((c) => c.items);
-        assert.ok(allBgmItems.some((item) => item.site === 'MusMus'), 'MusMus が BGM 候補に含まれていること');
-
-        const html = await readFile(outPath, 'utf8');
-        assert.match(html, /badge-mood/);
-        assert.match(html, /BGM:MusMus/); // credit_template がそのまま表示される
-        assert.match(html, /収録曲/); // songs[] の展開表示
+    // v1 時点の BGM 構成（約100曲・落ち着き6割）はレガシー側にそのまま残る
+    const legacyBgm = ['bgm-calm', 'bgm-uplift', 'bgm-other'].map((id) => {
+        const category = legacy.categories.find((c) => c.id === id);
+        assert.ok(category, `レガシーにカテゴリ ${id} が残っていること`);
+        return category;
     });
+    const units = legacyBgm.map((c) => c.items.reduce((sum, item) => sum + (item.songs?.length ?? 1), 0));
+    const totalUnits = units.reduce((a, b) => a + b, 0);
+    assert.ok(totalUnits >= 90 && totalUnits <= 120, `レガシー BGM は約100曲相当: 実際は${totalUnits}`);
+    assert.deepEqual(legacy.mood_vocabulary.values, ['真面目', '親しみ', '高級感', '勢い', 'かわいい', '無機質', 'エモい', 'シネマ']);
 });
 
 test('marks catalog-owned entries and reflects them dynamically (no hardcoded id list)', async () => {
@@ -122,9 +95,9 @@ test('marks catalog-owned entries and reflects them dynamically (no hardcoded id
         await mkdir(path.join(scratchCatalogDir, 'exact-owned-entry'), { recursive: true });
         await writeFile(
             path.join(scratchCatalogDir, 'exact-owned-entry', 'meta.json'),
-            // rank #1 のみが使う一意な URL（OtoLogic の個別ページ）。rank #21 は同じホスト
-            // （otologic.jp）だが異なるページ URL のため、これは "site" 扱いになるはず。
-            JSON.stringify({ source: { url: 'https://otologic.jp/free/se/motion-swish01.html' } }),
+            // rank #27（拍手）のみが使う一意な URL。他の効果音ラボ候補（doon1 / battle / people 等）は
+            // 同じホストだが異なるページ URL のため、それらは "site" 扱いになるはず。
+            JSON.stringify({ source: { url: 'https://soundeffect-lab.info/sound/various/various3.html' } }),
         );
 
         const outPath = path.join(root, 'candidates.html');

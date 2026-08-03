@@ -27,8 +27,13 @@ node packages/audio-library-setup/bin/generate-candidates-html.mjs \
 
 ## 3. 何が起きるか
 
-- `catalog/audio/candidates.json` の 68 候補カード（カテゴリ 11 種、うち BGM 27 カード・
-  収録曲換算 約110曲）をカードとして並べる
+- ページ先頭に**既定ソース AKARI Sounds のバナー**（トラック数・一括取得コマンド・
+  Release リンク）を表示する。BGM・ジングルの既定はこちら（[first-party.md](first-party.md)）
+- `catalog/audio/candidates.json`（v2・2026-08-03 オーナー裁定）の 13 候補カード
+  （カテゴリ 3 種: 拍手 / 失敗音 / ヒット・ドンの和風/バトル系 — いずれも AKARI Sounds に
+  無い系統だけ）をカードとして並べる。v1 の 68 カード（外部 BGM 27 カード・
+  被り SFX カードを含む）は `catalog/audio/candidates-legacy.json` に原文のまま
+  レガシー保存されている（HTML には出さない）
 - 各カードのリンクは**ダウンロードページ URL のみ**（`target="_blank"`）。クリックすると
   配布元の正規ページが新規タブで開くだけで、音声ファイルは一切取得しない
 - **「既所有」判定はスクリプト実行のたびに `catalog/audio/*/meta.json` を読んで動的に
@@ -37,22 +42,12 @@ node packages/audio-library-setup/bin/generate-candidates-html.mjs \
   他レーンの登録がハードコードなしに反映されるのはこのため
 - 各カードに confidence バッジ（本レーンで実在確認済み／リサーチ時点で確認済み／
   自動検証不能・要手動確認）とライセンスバッジ（クレジット要否・AI学習可否）を表示する
-- **BGM（`bgm-calm` / `bgm-uplift` / `bgm-other` の3カテゴリ、計27カード）は追加で
-  `mood[]` / `tempo` バッジを表示する。** `mood` は intake の tone チップ（`真面目`・
-  `親しみ`・`高級感`・`勢い`・`かわいい`・`無機質`・`エモい`・`シネマ`）と同一語彙で、
-  各 tone に最低 2 曲を大きく上回る割り当てがある（`catalog/audio/candidates.json` の
-  `mood_vocabulary` 参照）。複数曲を束ねるカードは `songs[]` を持ち、カード内に
-  「収録曲 N 件」の折りたたみリストとして曲ごとの mood/tempo を表示する。将来 intake の
-  tone 決定結果と `mood[]` を突き合わせて BGM を自動提案するための布石であり、
-  自動選曲ロジック自体は本スキルの対象外（提示のみ）
-- 3カテゴリの構成比は「落ち着き系（bgm-calm）6割・盛り上げ系（bgm-uplift）3割・
-  補完（bgm-other）1割」を目安にしている（オーナー指示）。`songs[]` の個別曲は
-  DOVA-SYNDROME・MusMus・魔王魂・甘茶の音楽工房の一覧/ランキングページから
-  「よく使われている」ものを優先収集しており、全曲の個別ページ確認はしていない
-  （カテゴリ/ランキングページ単位の確認 + confidence マークで正直に表示）
-- `credit_template` を持つ候補（MusMus・魔王魂 等、クレジット表記必須の配布元）は、
+- `credit_template` を持つ候補（クレジット表記必須の配布元）は、
   規約に書かれている書式そのままの文言をカードに表示する。ユーザーが編集時に
   そのままコピーして使える正確さを優先し、要約や言い換えをしない
+- 補足: v1 にあった BGM の `mood[]` / `tempo` バッジ・`songs[]` 折りたたみ表示の描画は
+  generator に現存する（`songs[]` を持つカードが将来復活してもそのまま出る）。
+  mood 語彙と BGM 構成比の設計はレガシー JSON 側の記録を参照
 
 ## 4. ユーザーへの案内文言（テンプレート）
 

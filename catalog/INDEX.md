@@ -14,13 +14,13 @@
 
 ## カテゴリ
 
-計 22 件収録（2026-07-29 時点）。
+計 34 件収録（2026-08-03 時点。audio 27 = 既定 3 + 補完 12 + レガシー 12）。
 
 カテゴリは `assets/` と同じく**配布物の形**で切ります（2026-07-29 変更）。主題は tags です。
 
 - [scene3d](./scene3d/INDEX.md) — 製品モックアップなど、再生成が難しい 3D モデル・HDRI の取得先。3 件収録。
 - **overlay** — 映像に重ねる時間つき HTML 断片の取得先。整備中。
-- [audio](./audio/INDEX.md) — BGM・効果音などの音源素材の取得先。15 件収録（2026-07-22・オーナー私物 SE パックの出典調査で 9 件追加）。
+- [audio](./audio/INDEX.md) — BGM・効果音などの音源素材の取得先。**既定は自社ライブラリ AKARI Sounds**（BGM/効果音/ジングルの 3 パック・GitHub Release から一括取得可。2026-08-03 裁定で BGM は全量一本化）+ AKARI Sounds に無い系統の外部 SFX 補完 12 件。役目を終えた既登録 12 件はレガシー節に残置。
 - [broll](./broll/INDEX.md) — 主映像を補足する実写映像素材の取得先。1 件収録。
 - [font](./font/INDEX.md) — 特定の書体そのもの（グリフ）は生成不能なため、取得先の索引として扱う。3 件収録。
 - [avatars](./avatars/INDEX.md) — 性格・話し口調を核に 2D/3D/実写/音声を rendition として持つキャラクター登録。`rights.subject` が `original` / `third_party` のもののみ入庫可（実在人物は個人スコープへ）。0 件収録（2026-07-26 時点）。**本カテゴリだけは meta.json v0 ではなく avatar registry v0（`packages/schemas/avatar.schema.json`）で検証する**別契約です（`docs/contract-2026-07-26-avatar-registry-v0.md`）。

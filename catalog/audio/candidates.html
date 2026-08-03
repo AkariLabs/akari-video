@@ -11,6 +11,9 @@
   h2 { font-size: 1.1rem; margin-top: 2.5rem; border-bottom: 1px solid #8884; padding-bottom: 0.3rem; }
   .hard-rule { background: #fff3cd; color: #664d03; border: 1px solid #ffe69c; border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
   @media (prefers-color-scheme: dark) { .hard-rule { background: #4d3b00; color: #ffe69c; border-color: #6b5300; } }
+  .first-party { border: 2px solid #0d6efd55; border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
+  .first-party h2 { margin-top: 0; border-bottom: none; }
+  .first-party code { font-family: ui-monospace, monospace; font-size: 0.85rem; }
   .summary { font-size: 0.9rem; opacity: 0.8; }
   .candidate-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
   .candidate { border: 1px solid #8883; border-radius: 10px; padding: 12px 16px; }
@@ -54,158 +57,37 @@
 </head>
 <body>
   <h1>音源セットアップ候補リスト（BGM・SFX）</h1>
+  
+  <section class="first-party">
+    <h2>既定ソース: AKARI Sounds</h2>
+    <p>自社（first-party）音源ライブラリ。全トラック AI 生成（Suno 有料プラン）・生成記録公開・商用可・クレジット不要。BGM とジングルの既定はここ。効果音もまずここを見て、無い系統だけ下の外部候補を使う。first-party のため第三者サイト向けの一括取得禁止ルールは適用されない（skills/setup-audio-library/first-party.md 参照）</p>
+    <p class="summary">BGM 99 / 効果音 77 / ジングル 12（計 188 トラック / 200 テイク）</p>
+    <p class="summary">一括取得: <code>node packages/audio-library-setup/bin/fetch-akari-sounds.mjs</code></p>
+    <a class="open-button" href="https://github.com/AkariLabs/akari-sounds/releases/tag/v0" target="_blank" rel="noopener noreferrer">
+      GitHub Release を開く ↗
+    </a>
+  </section>
   <div class="hard-rule">
-    <strong>AI はここから自動ダウンロードしません。</strong>
+    <strong>以下の外部候補は、AI はここから自動ダウンロードしません。</strong>
     「ダウンロードページを開く」を押すと配布元の正規ページが新規タブで開きます。実際の保存はあなた自身が行ってください。
     保存後はドロップフォルダへ置くと、次回のセットアップ実行時に自動で照合・登録されます。
+    （既定ソース AKARI Sounds だけは自社配布のため、上記の一括取得コマンドで直接ダウンロードできます）
   </div>
   <p class="summary">
-    生成日時: 2026-07-22T05:27:10.960Z ／ 候補カード 68 件（11 カテゴリ、うち収録曲換算 151 件）／
-    既所有（catalog 登録済み）: 0 件
+    生成日時: 2026-08-03T00:53:17.672Z ／ 候補カード 13 件（3 カテゴリ、うち収録曲換算 13 件）／
+    既所有（catalog 登録済み）: 2 件
   </p>
   
-    <section class="category">
-      <h2>ウーッシュ（whoosh / swish）</h2>
-      <ul class="candidate-list">
-        
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#1</span>
-          <span class="site">OtoLogic</span>
-          <span class="title">モーション・スイング</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">CC BY 相当・無料版はクレジット必須（研究時点で直接確認済み）</p>
-        
-        <p class="note verify-note">検証メモ: ユーザー本人の手動確認を推奨</p>
-        
-        <a class="open-button" href="https://otologic.jp/free/se/motion-swish01.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#2</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">演出・アニメ カテゴリ（ウーッシュ系多数）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">商用利用無料・クレジット任意・直リンク禁止・AI学習利用は規約で明示禁止</p>
-        
-        
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#3</span>
-          <span class="site">Freesound</span>
-          <span class="title">タグ検索 &quot;whoosh&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, whoosh-transition）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
-        </div>
-        
-        <p class="note">音源ごとに CC ライセンスが異なる。CC0 フィルタを掛ければ ai_training_allowed=true 相当で扱える</p>
-        
-        
-        
-        <a class="open-button" href="https://freesound.org/search/?q=whoosh" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#4</span>
-          <span class="site">Pixabay</span>
-          <span class="title">効果音検索 &quot;whoosh&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: corporate-upbeat-bgm, cozy-lofi-bgm）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
-        </div>
-        
-        <p class="note">Pixabay Content License・クレジット不要・単体再配布/転売禁止。スクレイピング/自動取得は規約で明示禁止のため必ず手動クリック</p>
-        
-        
-        
-        <a class="open-button" href="https://pixabay.com/sound-effects/search/whoosh/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#5</span>
-          <span class="site">DOVA-SYNDROME</span>
-          <span class="title">効果音検索（詳細検索でウーッシュ系ワード指定）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">商用/非商用問わず無料・クレジット不要・単体の二次配布/転載禁止</p>
-        
-        
-        
-        <a class="open-button" href="https://dova-s.jp/se/search" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-      </ul>
-    </section>
-
     <section class="category">
       <h2>ヒット/ドン（impact / hit）</h2>
       <ul class="candidate-list">
         
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#6</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">衝撃・ヒット系（ショック1〜6）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">同上（演出・アニメカテゴリ）</p>
-        
-        <p class="note verify-note">検証メモ: shock1〜shock6.mp3 全6件、タイトルまで実在確認（例: shock1=「ショック1衝撃の一瞬」）</p>
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
+      <li class="candidate owned">
         <div class="candidate-head">
           <span class="rank">#7</span>
           <span class="site">効果音ラボ</span>
           <span class="title">ドーン（和太鼓・ビブラスラップ一斉）</span>
-          
+          <span class="badge badge-owned">既所有（catalog: soundeffect-lab-ambient-life-pack, soundeffect-lab-anime-direction-pack, soundeffect-lab-ui-signal-pack）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-ok">本レーンで実在確認済み</span>
@@ -226,7 +108,7 @@
           <span class="rank">#8</span>
           <span class="site">効果音ラボ</span>
           <span class="title">戦闘 カテゴリ（打撃・衝撃音）</span>
-          
+          <span class="badge badge-partial">同配布元から登録あり（catalog: soundeffect-lab-ambient-life-pack, soundeffect-lab-anime-direction-pack, soundeffect-lab-ui-signal-pack）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
@@ -238,48 +120,6 @@
         
         
         <a class="open-button" href="https://soundeffect-lab.info/sound/battle/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#9</span>
-          <span class="site">Freesound</span>
-          <span class="title">タグ検索 &quot;impact hit&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, whoosh-transition）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
-        </div>
-        
-        <p class="note">音源ごとに異なる。CC0 フィルタ推奨</p>
-        
-        
-        
-        <a class="open-button" href="https://freesound.org/search/?q=impact+hit" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#10</span>
-          <span class="site">Pixabay</span>
-          <span class="title">効果音検索 &quot;impact&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: corporate-upbeat-bgm, cozy-lofi-bgm）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
-        </div>
-        
-        <p class="note">Pixabay Content License</p>
-        
-        
-        
-        <a class="open-button" href="https://pixabay.com/sound-effects/search/impact/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
         </a>
       </li>
@@ -308,339 +148,6 @@
     </section>
 
     <section class="category">
-      <h2>ポップ（pop）</h2>
-      <ul class="candidate-list">
-        
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#12</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">ボタン・システム音 カテゴリ（ポップ/クリック系）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">商用利用無料・クレジット任意・AI学習利用禁止</p>
-        
-        
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#13</span>
-          <span class="site">DOVA-SYNDROME</span>
-          <span class="title">効果音検索（ポップ系ワード指定）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">同上</p>
-        
-        
-        
-        <a class="open-button" href="https://dova-s.jp/se/search" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#14</span>
-          <span class="site">Pixabay</span>
-          <span class="title">効果音検索 &quot;pop&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: corporate-upbeat-bgm, cozy-lofi-bgm）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
-        </div>
-        
-        <p class="note">Pixabay Content License</p>
-        
-        
-        
-        <a class="open-button" href="https://pixabay.com/sound-effects/search/pop/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#15</span>
-          <span class="site">Freesound</span>
-          <span class="title">タグ検索 &quot;pop bubble&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, whoosh-transition）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
-        </div>
-        
-        <p class="note">音源ごとに異なる</p>
-        
-        
-        
-        <a class="open-button" href="https://freesound.org/search/?q=pop+bubble" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#16</span>
-          <span class="site">くらげ工匠</span>
-          <span class="title">システム音カテゴリ（ポップ系）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">詳細URL要現地確認（トップページからカテゴリを辿る）</p>
-        
-        
-        
-        <a class="open-button" href="http://www.kurage-kosho.info/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-      </ul>
-    </section>
-
-    <section class="category">
-      <h2>チーン/決定音（chime / decision）</h2>
-      <ul class="candidate-list">
-        
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#17</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">決定ボタン（53種）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">同上（ボタン・システム音）</p>
-        
-        <p class="note verify-note">検証メモ: decision1〜decision53.mp3 全53件を確認（例: decision1=「ピッ。アプリなどに」）</p>
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#18</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">キャンセル（9種）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">同上</p>
-        
-        <p class="note verify-note">検証メモ: cancel1〜cancel9.mp3 全9件を確認</p>
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#19</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">カーソル移動（12種）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">同上</p>
-        
-        <p class="note verify-note">検証メモ: cursor1〜cursor12.mp3 全12件を確認</p>
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/button/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#20</span>
-          <span class="site">魔王魂</span>
-          <span class="title">システム音 カテゴリ（決定音・キャンセル音）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">商用利用無制限・クレジット必須（表記例あり）。単品再配布は原則禁止（教材収録は例外）</p>
-        
-        
-        
-        <a class="open-button" href="https://maou.audio/category/se/se-system/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#21</span>
-          <span class="site">OtoLogic</span>
-          <span class="title">決定音・システム音（要現地確認、優先度低）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-danger">自動検証不能・要手動確認</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">無料版はクレジット必須。#17（効果音ラボ decision1-53）で用途代替可能なため優先度は低い</p>
-        
-        <p class="note verify-note">検証メモ: 自動検証不能。ユーザー本人の手動確認が必要。#17 で代替できるため候補リストでは低優先表示にする</p>
-        
-        <a class="open-button" href="https://otologic.jp/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-      </ul>
-    </section>
-
-    <section class="category">
-      <h2>場面転換（scene transition）</h2>
-      <ul class="candidate-list">
-        
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#22</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">シーン切り替え（2種）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">演出・アニメカテゴリ内</p>
-        
-        <p class="note verify-note">検証メモ: sceneswitch1（木琴で演奏）・sceneswitch2（ブオッ）実在確認</p>
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#23</span>
-          <span class="site">魔王魂</span>
-          <span class="title">ワンポイント カテゴリ（演出音・ジングル）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">商用利用無制限・クレジット必須</p>
-        
-        
-        
-        <a class="open-button" href="https://maou.audio/category/se/se-onepoint/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#24</span>
-          <span class="site">DOVA-SYNDROME</span>
-          <span class="title">ジングル素材（場面転換用の短尺）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">商用/非商用問わず無料・クレジット不要</p>
-        
-        
-        
-        <a class="open-button" href="https://dova-s.jp/bgm?kind=2" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#25</span>
-          <span class="site">Freesound</span>
-          <span class="title">タグ検索 &quot;transition&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, whoosh-transition）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
-        </div>
-        
-        <p class="note">音源ごとに異なる</p>
-        
-        
-        
-        <a class="open-button" href="https://freesound.org/search/?q=transition" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#26</span>
-          <span class="site">Pixabay</span>
-          <span class="title">効果音検索 &quot;transition&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: corporate-upbeat-bgm, cozy-lofi-bgm）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
-        </div>
-        
-        <p class="note">Pixabay Content License</p>
-        
-        
-        
-        <a class="open-button" href="https://pixabay.com/sound-effects/search/transition/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-      </ul>
-    </section>
-
-    <section class="category">
       <h2>拍手（applause）</h2>
       <ul class="candidate-list">
         
@@ -649,7 +156,7 @@
           <span class="rank">#27</span>
           <span class="site">効果音ラボ</span>
           <span class="title">大勢で拍手 / スタジアムの拍手 / 小さなホールでの拍手</span>
-          
+          <span class="badge badge-partial">同配布元から登録あり（catalog: soundeffect-lab-ambient-life-pack, soundeffect-lab-anime-direction-pack, soundeffect-lab-ui-signal-pack）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-warn">本レーンで内容を修正済み</span>
@@ -670,7 +177,7 @@
           <span class="rank">#28</span>
           <span class="site">効果音ラボ</span>
           <span class="title">歓声と拍手（大盛り上がり/中盛り上がり）</span>
-          
+          <span class="badge badge-partial">同配布元から登録あり（catalog: soundeffect-lab-ambient-life-pack, soundeffect-lab-anime-direction-pack, soundeffect-lab-ui-signal-pack）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-warn">本レーンで内容を修正済み</span>
@@ -712,7 +219,7 @@
           <span class="rank">#30</span>
           <span class="site">Freesound</span>
           <span class="title">タグ検索 &quot;applause crowd&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, whoosh-transition）</span>
+          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, freesound-inspectorj-pencil-writing, whoosh-transition）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
@@ -733,7 +240,7 @@
           <span class="rank">#31</span>
           <span class="site">DOVA-SYNDROME</span>
           <span class="title">効果音検索（拍手・歓声系ワード指定）</span>
-          
+          <span class="badge badge-partial">同配布元から登録あり（catalog: dova-syndrome-cheerleaders-bgm, dova-syndrome-hatena-mark-se, dova-syndrome-user-manual）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
@@ -752,126 +259,15 @@
     </section>
 
     <section class="category">
-      <h2>キラキラ（sparkle）</h2>
-      <ul class="candidate-list">
-        
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#32</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">きらきら輝く（6種）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">演出・アニメカテゴリ内</p>
-        
-        <p class="note verify-note">検証メモ: shine1〜shine6.mp3 全6件を確認</p>
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#33</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">きらーん（目が光る音/刃物、2種）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">同上</p>
-        
-        <p class="note verify-note">検証メモ: eye-shine1（目が光る音）・eye-shine2（刃物）を確認</p>
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#34</span>
-          <span class="site">効果音ラボ</span>
-          <span class="title">キラッ（鉄琴/一瞬だけ光る、2種）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">同上</p>
-        
-        <p class="note verify-note">検証メモ: kira1（鉄琴で演奏）・kira2（一瞬だけ光る）を確認</p>
-        
-        <a class="open-button" href="https://soundeffect-lab.info/sound/anime/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#35</span>
-          <span class="site">魔王魂</span>
-          <span class="title">魔法 カテゴリ（キラキラ系エフェクト音含む）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">商用利用無制限・クレジット必須</p>
-        
-        
-        
-        <a class="open-button" href="https://maou.audio/category/se/se-magic/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#36</span>
-          <span class="site">Pixabay</span>
-          <span class="title">効果音検索 &quot;sparkle&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: corporate-upbeat-bgm, cozy-lofi-bgm）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
-        </div>
-        
-        <p class="note">Pixabay Content License</p>
-        
-        
-        
-        <a class="open-button" href="https://pixabay.com/sound-effects/search/sparkle/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-      </ul>
-    </section>
-
-    <section class="category">
       <h2>失敗音（fail / buzzer）</h2>
       <ul class="candidate-list">
         
-      <li class="candidate">
+      <li class="candidate owned">
         <div class="candidate-head">
           <span class="rank">#37</span>
           <span class="site">効果音ラボ</span>
           <span class="title">エラー音「ブブー」（ビープ音カテゴリ内の1点。独立した「失敗音セット」ではない点に注意）</span>
-          
+          <span class="badge badge-owned">既所有（catalog: soundeffect-lab-ambient-life-pack, soundeffect-lab-anime-direction-pack, soundeffect-lab-ui-signal-pack）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-warn">本レーンで内容を修正済み</span>
@@ -892,16 +288,16 @@
           <span class="rank">#38</span>
           <span class="site">ポケットサウンド</span>
           <span class="title">「失敗」タグ一覧</span>
-          
+          <span class="badge badge-partial">同配布元から登録あり（catalog: pocket-se-fail-pack）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
+          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
         </div>
         
-        <p class="note">表記/リンクで無料</p>
+        <p class="note">商用無料・加工OK。作品利用時はクレジット表記またはリンク必須（例: 効果音：ポケットサウンド – https://pocket-se.info/）。直リンク・二次配布・転売禁止。有償プランでクレジット免除あり</p>
         
-        <p class="note verify-note">検証メモ: 10件以上（ページネーションあり、サイト全体で2367点）。「クイズ不正解・誤答音」「ゲームオーバー」「失敗『デデーン』」等を確認。本カテゴリの本命候補として#37より優先推奨</p>
+        <p class="note verify-note">検証メモ: 10件以上（ページネーションあり、サイト全体で2367点）。「クイズ不正解・誤答音」「ゲームオーバー」「失敗『デデーン』」等を確認。本カテゴリの本命候補として#37より優先推奨／2026-07-31 pass2: /rules/ を直接確認しクレジット要件を訂正（旧 attribution_required: false は誤り）</p>
         
         <a class="open-button" href="https://pocket-se.info/archives/tag/%E5%A4%B1%E6%95%97/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
@@ -934,7 +330,7 @@
           <span class="rank">#40</span>
           <span class="site">Freesound</span>
           <span class="title">タグ検索 &quot;fail wrong buzzer&quot;</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, whoosh-transition）</span>
+          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, freesound-inspectorj-pencil-writing, whoosh-transition）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
@@ -955,7 +351,7 @@
           <span class="rank">#41</span>
           <span class="site">DOVA-SYNDROME</span>
           <span class="title">効果音検索（失敗・ブー系ワード指定）</span>
-          
+          <span class="badge badge-partial">同配布元から登録あり（catalog: dova-syndrome-cheerleaders-bgm, dova-syndrome-hatena-mark-se, dova-syndrome-user-manual）</span>
         </div>
         <div class="candidate-meta">
           <span class="badge badge-ok">リサーチ時点で確認済み</span>
@@ -967,750 +363,6 @@
         
         
         <a class="open-button" href="https://dova-s.jp/se/search" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-      </ul>
-    </section>
-
-    <section class="category">
-      <h2>落ち着き系BGM（作業・解説・vlog に敷ける定番、目安6割）</h2>
-      <ul class="candidate-list">
-        
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#42</span>
-          <span class="site">DOVA-SYNDROME</span>
-          <span class="title">BGM ダウンロード数順ランキング（落ち着き系）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">商用/非商用問わず無料・クレジット不要</p>
-        
-        <p class="note verify-note">検証メモ: DLランキングページから確認できた曲のうち落ち着き系3曲を採用。ページ要約ツール経由のため取得できたのは冒頭数曲のみ（サイト全体は19,080件超・全3,816ページ）。ランキング内での厳密な順位は未検証、上位表示であることの確認に留まる</p>
-        
-        <details class="songs">
-          <summary>収録曲 3 件</summary>
-          <ul class="song-list"><li>2:23 AM <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>なんでしょう？ <span class="badge badge-mood">親しみ</span> <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>パステルハウス <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></li></ul>
-        </details>
-        <a class="open-button" href="https://dova-s.jp/bgm?sort=2" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#43</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「明るい」印象の楽曲一覧</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
-        
-        <p class="note verify-note">検証メモ: 第1ページ掲載8曲中4曲を採用。実在確認済み</p>
-        
-        <details class="songs">
-          <summary>収録曲 4 件</summary>
-          <ul class="song-list"><li>夏休みの探検 <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>ハッピータイム <span class="badge badge-mood">親しみ</span> <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>カピバラの夢 <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ラブリーフラワー <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 標準</span></li></ul>
-        </details>
-        <a class="open-button" href="https://amachamusic.chagasi.com/image_akarui.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#44</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「ほのぼの」印象の楽曲一覧</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
-        
-        <p class="note verify-note">検証メモ: 第1ページ掲載8曲すべてを採用。実在確認済み（他ページにも楽曲あり、要フォロー）</p>
-        
-        <details class="songs">
-          <summary>収録曲 8 件</summary>
-          <ul class="song-list"><li>放課後の夕空 <span class="badge badge-mood">親しみ</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ハープを弾くネズミ <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ゆるやかな朝焼け <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>昼下がりのハバネラ <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>カスミソウ <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>小さな足あと <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>秋色の丘 <span class="badge badge-mood">親しみ</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>秋うらら <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li></ul>
-        </details>
-        <a class="open-button" href="https://amachamusic.chagasi.com/image_honobono.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#45</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「癒し」印象の楽曲一覧</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">親しみ</span> <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
-        
-        <p class="note verify-note">検証メモ: 第1ページ掲載8曲すべてを採用。実在確認済み（全4ページ中の1ページ目、要フォロー）</p>
-        
-        <details class="songs">
-          <summary>収録曲 8 件</summary>
-          <ul class="song-list"><li>フィヨルドの澄んだ風 <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>静止した宇宙 <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>緩やかな風 <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>聖夜 <span class="badge badge-mood">高級感</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>2つのヴァイオリン <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ブナの森に舞う雪 <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>蛍舞う空 <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>夜空に舞う鳥 <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li></ul>
-        </details>
-        <a class="open-button" href="https://amachamusic.chagasi.com/image_iyashi.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#46</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「シリアス」印象の楽曲一覧</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">真面目</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
-        
-        <p class="note verify-note">検証メモ: 「雨の日のネオン」「寂寞」「闇に沈む光」等、実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 3 件</summary>
-          <ul class="song-list"><li>雨の日のネオン <span class="badge badge-mood">真面目</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>寂寞 <span class="badge badge-mood">真面目</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>闇に沈む光 <span class="badge badge-mood">真面目</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li></ul>
-        </details>
-        <a class="open-button" href="https://amachamusic.chagasi.com/image_serious.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#47</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「大人な雰囲気」印象の楽曲一覧</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
-        
-        <p class="note verify-note">検証メモ: 「ネオンパープル」「孤独とささやき」「砂漠の摩天楼」等、実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 3 件</summary>
-          <ul class="song-list"><li>ネオンパープル <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>孤独とささやき <span class="badge badge-mood">高級感</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>砂漠の摩天楼 <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li></ul>
-        </details>
-        <a class="open-button" href="https://amachamusic.chagasi.com/image_otona.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#48</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「しみじみ」印象の楽曲一覧</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
-        
-        <p class="note verify-note">検証メモ: 「月明かりの灯台」「3月の澄んだ空」「春へ向かう草花へ」等、実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 3 件</summary>
-          <ul class="song-list"><li>月明かりの灯台 <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>3月の澄んだ空 <span class="badge badge-mood">エモい</span> <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>春へ向かう草花へ <span class="badge badge-mood">エモい</span> <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li></ul>
-        </details>
-        <a class="open-button" href="https://amachamusic.chagasi.com/image_shimijimi.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#49</span>
-          <span class="site">MusMus</span>
-          <span class="title">「ゆったり・のんびり・ほのぼの」イメージ別ページ</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">商用/非商用問わず無料。クレジット表記必須（規約に書式指定あり）。表記できない場合の有償ライセンスあり</p>
-        <p class="note credit-note">クレジット表記: BGM:MusMus（フル表記は「フリーBGM・音楽素材MusMus https://musmus.main.jp」。出典: https://musmus.main.jp/info.html）</p>
-        <p class="note verify-note">検証メモ: 掲載10曲すべてを実在確認。全て「ゆったり、のんびり、ほのぼの、まったり、優しい、癒し系」に分類済みのページ</p>
-        
-        <details class="songs">
-          <summary>収録曲 10 件</summary>
-          <ul class="song-list"><li>グッバイ・ハロー <span class="badge badge-mood">親しみ</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>悲しみボッサ <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>夢の跡の僕ら <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>展望書庫にて <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>水底月夜姫 <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ノスタルジア <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>朧月 <span class="badge badge-mood">エモい</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ひとやすみ <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>氷龍の夢 <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>妖精の隠れ里へ <span class="badge badge-mood">シネマ</span> <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li></ul>
-        </details>
-        <a class="open-button" href="https://musmus.main.jp/music_img1.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#50</span>
-          <span class="site">魔王魂</span>
-          <span class="title">カテゴリ「アコースティック」（カフェ系オシャレBGM）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">高級感</span> <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">商用利用無制限・クレジット必須。「カフェで流れてそうなオシャレな曲」がテーマ、店内BGM/トーク中BGM向け（全55曲収録の一部を採用）</p>
-        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
-        <p class="note verify-note">検証メモ: 第1ページ掲載10曲（アコースティック54〜45）を実在確認。カテゴリ全体は55曲</p>
-        
-        <details class="songs">
-          <summary>収録曲 10 件</summary>
-          <ul class="song-list"><li>アコースティック54 <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>アコースティック53 <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>アコースティック52 <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>アコースティック51 <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>アコースティック50 <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>アコースティック49 <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>アコースティック48 <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>アコースティック47 <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>アコースティック46 <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>アコースティック45 <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li></ul>
-        </details>
-        <a class="open-button" href="https://maou.audio/category/bgm/bgm-acoustic/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#51</span>
-          <span class="site">魔王魂</span>
-          <span class="title">カテゴリ「ピアノ」</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">エモい</span> <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">商用利用無制限・クレジット必須</p>
-        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
-        <p class="note verify-note">検証メモ: ピアノ41〜32（サブタイトル込み）を実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 10 件</summary>
-          <ul class="song-list"><li>ピアノ41（Last daily sound 2） <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ40（安らぎの思い） <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ39（時の道を越えて） <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ38（うつろな一時） <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ37（セピアの風） <span class="badge badge-mood">エモい</span> <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ36（宿命のシナリオ） <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ35（見渡す街へ） <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ34（静寂の世界へ） <span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ33（記憶を抱いて） <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>ピアノ32（脈動） <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: 標準</span></li></ul>
-        </details>
-        <a class="open-button" href="https://maou.audio/category/bgm/bgm-piano/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#52</span>
-          <span class="site">魔王魂</span>
-          <span class="title">タグ「優雅」</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">高級感</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">商用利用無制限・クレジット必須</p>
-        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
-        <p class="note verify-note">検証メモ: 「ピアノ30（Departure）」等、「やや優雅なピアノ曲」として実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 1 件</summary>
-          <ul class="song-list"><li>ピアノ30（Departure） <span class="badge badge-mood">高級感</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li></ul>
-        </details>
-        <a class="open-button" href="https://maou.audio/tag/%e5%84%aa%e9%9b%85/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-      </ul>
-    </section>
-
-    <section class="category">
-      <h2>盛り上げ系BGM（オープニング・見せ場・テンション上げ、目安3割）</h2>
-      <ul class="candidate-list">
-        
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#53</span>
-          <span class="site">DOVA-SYNDROME</span>
-          <span class="title">BGM ダウンロード数順ランキング（盛り上げ系）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">勢い</span> <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">商用/非商用問わず無料・クレジット不要</p>
-        
-        <p class="note verify-note">検証メモ: DLランキングページから確認できた曲のうち明るく/爽やかな盛り上げ系2曲を採用。取得できたのは冒頭数曲のみ（#42 と同じ制約）</p>
-        
-        <details class="songs">
-          <summary>収録曲 2 件</summary>
-          <ul class="song-list"><li>Morning <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">親しみ</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>野良猫は宇宙を目指した <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li></ul>
-        </details>
-        <a class="open-button" href="https://dova-s.jp/bgm?sort=2" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#54</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「疾走感」印象の楽曲一覧（見せ場同期・盛り上がり用）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></div>
-        <p class="note">クレジット任意（推奨）。直リンク禁止のためダウンロードページ経由必須</p>
-        
-        <p class="note verify-note">検証メモ: 掲載7曲すべてを実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 7 件</summary>
-          <ul class="song-list"><li>悲しみの曖昧な対象 <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ゲーム・オーバー <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>残業戦士 <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>渦巻き <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>エナジー <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>チェス <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">真面目</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>バクテリア <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 高速</span></li></ul>
-        </details>
-        <a class="open-button" href="https://amachamusic.chagasi.com/image_shissoukan.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#55</span>
-          <span class="site">MusMus</span>
-          <span class="title">「元気・明るい」イメージ別ページ</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">かわいい</span> <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">商用/非商用問わず無料。クレジット表記必須（規約に書式指定あり）。表記できない場合の有償ライセンスあり</p>
-        <p class="note credit-note">クレジット表記: BGM:MusMus（フル表記は「フリーBGM・音楽素材MusMus https://musmus.main.jp」。出典: https://musmus.main.jp/info.html）</p>
-        <p class="note verify-note">検証メモ: 「キラキラ」「ガーリーガール」「HONEY BEE CRASH !」等、実在確認。利用規約ページ https://musmus.main.jp/info.html でクレジット必須・書式指定を確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 5 件</summary>
-          <ul class="song-list"><li>キラキラ <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>ガーリーガール <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>HONEY BEE CRASH ! <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>放課後アフタースクール <span class="badge badge-mood">親しみ</span> <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>Funky Goat Store <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li></ul>
-        </details>
-        <a class="open-button" href="https://musmus.main.jp/music_img2.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#56</span>
-          <span class="site">MusMus</span>
-          <span class="title">「激しい・熱い・アッパー」イメージ別ページ</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></div>
-        <p class="note">商用/非商用問わず無料。クレジット表記必須（規約に書式指定あり）</p>
-        <p class="note credit-note">クレジット表記: BGM:MusMus（フル表記は「フリーBGM・音楽素材MusMus https://musmus.main.jp」。出典: https://musmus.main.jp/info.html）</p>
-        <p class="note verify-note">検証メモ: ページ掲載27曲中10曲を採用（全曲実在確認済み、残り17曲は未採用のまま候補データに含めていない）</p>
-        
-        <details class="songs">
-          <summary>収録曲 10 件</summary>
-          <ul class="song-list"><li>聖戦のオブスキュラ <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>復讐者 <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>Fateful Encounter <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>イクスゲイナー <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>戦闘準備中 <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>Attack of the Cyborg Legion <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>キュリオシティ <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ロケンロー <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>reflectable <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>dear Dragon <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 高速</span></li></ul>
-        </details>
-        <a class="open-button" href="https://musmus.main.jp/music_img5.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#57</span>
-          <span class="site">魔王魂</span>
-          <span class="title">カテゴリ「ネオロック」</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></div>
-        <p class="note">商用利用無制限・クレジット必須。「ロックなギターサウンドがテンションアップ」（カテゴリ全体は85曲収録の一部を採用）</p>
-        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
-        <p class="note verify-note">検証メモ: 第1ページ掲載10曲中8曲（ネオロック83〜76）を採用。カテゴリ全体は85曲</p>
-        
-        <details class="songs">
-          <summary>収録曲 8 件</summary>
-          <ul class="song-list"><li>ネオロック83（厳戒態勢） <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ネオロック82（君が見ていた世界の果て） <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ネオロック81（狙撃手の葛藤） <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ネオロック80（Hallucination） <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ネオロック79（Desert journey） <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ネオロック78（Speed King） <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ネオロック77（Burn Place） <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li>
-<li>ネオロック76（太陽の覇者） <span class="badge badge-mood">勢い</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 高速</span></li></ul>
-        </details>
-        <a class="open-button" href="https://maou.audio/category/bgm/bgm-neorock/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#58</span>
-          <span class="site">Pixabay</span>
-          <span class="title">音楽検索 &quot;upbeat corporate&quot;（見せ場同期の汎用ハイテンションBGM）</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: corporate-upbeat-bgm, cozy-lofi-bgm）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-ok">AI学習可</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">真面目</span> <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></div>
-        <p class="note">Pixabay Content License</p>
-        
-        
-        
-        <a class="open-button" href="https://pixabay.com/music/search/upbeat%20corporate/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-      </ul>
-    </section>
-
-    <section class="category">
-      <h2>補完（エモ・シネマ・コミカル・参照系、目安1割）</h2>
-      <ul class="candidate-list">
-        
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#59</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「シネマティック」ジャンル一覧</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">同上</p>
-        
-        
-        
-        <a class="open-button" href="https://amachamusic.chagasi.com/genre_hollywood.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#60</span>
-          <span class="site">甘茶の音楽工房</span>
-          <span class="title">「コミカル」印象の楽曲一覧</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">かわいい</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">同上</p>
-        
-        
-        
-        <a class="open-button" href="https://amachamusic.chagasi.com/image_comical.html" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#61</span>
-          <span class="site">魔王魂</span>
-          <span class="title">カテゴリ「サイバー」（未来的・電子音）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">商用利用無制限・クレジット必須</p>
-        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
-        <p class="note verify-note">検証メモ: 「サイバー45（アジトへの道）」「サイバー44（チュートリアル）」「サイバー43（Crossing）」等、実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 3 件</summary>
-          <ul class="song-list"><li>サイバー45（アジトへの道） <span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>サイバー44（チュートリアル） <span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>サイバー43（Crossing） <span class="badge badge-mood">無機質</span> <span class="badge badge-mood">勢い</span> <span class="badge badge-tempo">テンポ: 高速</span></li></ul>
-        </details>
-        <a class="open-button" href="https://maou.audio/category/bgm/bgm-cyber/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#62</span>
-          <span class="site">魔王魂</span>
-          <span class="title">タグ「科学」</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">商用利用無制限・クレジット必須</p>
-        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
-        <p class="note verify-note">検証メモ: 「サイバー08（シャレオツなサイバー曲）」等、実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 1 件</summary>
-          <ul class="song-list"><li>サイバー08（シャレオツなサイバー曲） <span class="badge badge-mood">無機質</span> <span class="badge badge-tempo">テンポ: 標準</span></li></ul>
-        </details>
-        <a class="open-button" href="https://maou.audio/tag/%e7%a7%91%e5%ad%a6/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#63</span>
-          <span class="site">魔王魂</span>
-          <span class="title">タグ「感動」</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></div>
-        <p class="note">商用利用無制限・クレジット必須</p>
-        <p class="note credit-note">クレジット表記: 音楽：魔王魂（出典: https://maou.audio/rule/）</p>
-        <p class="note verify-note">検証メモ: 「ピアノ19」「オーケストラ04」「オーケストラ03」等、実在確認</p>
-        
-        <details class="songs">
-          <summary>収録曲 3 件</summary>
-          <ul class="song-list"><li>ピアノ19 <span class="badge badge-mood">エモい</span> <span class="badge badge-tempo">テンポ: ゆったり</span></li>
-<li>オーケストラ04 <span class="badge badge-mood">エモい</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 標準</span></li>
-<li>オーケストラ03 <span class="badge badge-mood">エモい</span> <span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 標準</span></li></ul>
-        </details>
-        <a class="open-button" href="https://maou.audio/tag/%e6%84%9f%e5%8b%95/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#64</span>
-          <span class="site">魔王魂</span>
-          <span class="title">BGM カテゴリ総合（民族音楽・ファンタジー等、他の subcategory への入口）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-warn">本レーンで内容を修正済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">商用利用無制限・クレジット必須</p>
-        <p class="note credit-note">クレジット表記: 音楽：魔王魂（「魔王魂」の代わりに「まおうだましい」「MaouDamashii」も可。「音楽」は「BGM」等に差し替え可。出典: https://maou.audio/rule/）</p>
-        <p class="note verify-note">検証メモ: アコースティック/ピアノ/オーケストラ/サイバー/民族音楽/ファンタジー/ネオロック等のsubcategoryを確認。個別カードで採用済みの他に、民族音楽・ファンタジー等は本カードから辿る前提</p>
-        
-        <a class="open-button" href="https://maou.audio/category/bgm/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#65</span>
-          <span class="site">PeriTune</span>
-          <span class="title">ファンタジー/シネマティック系タグ一覧（旧曲 CC BY 4.0 のみ初期セット候補）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-warn">本レーンで内容を修正済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        <div class="mood-row"><span class="badge badge-mood">シネマ</span> <span class="badge badge-tempo">テンポ: 標準</span></div>
-        <p class="note">旧曲は CC BY 4.0（要クレジット）。2026-03-01付で新規約へ移行（新曲には適用されない可能性、要個別確認）。もう一つのタグ: https://peritune.com/blog/tag/cinematic/</p>
-        
-        <p class="note verify-note">検証メモ: 2026-03-01付「楽曲の利用規約変更のお知らせ」を確認。旧曲CC BY4.0の適用範囲は個別に要確認（ハードルールに反しない範囲で人手確認を継続）</p>
-        
-        <a class="open-button" href="https://peritune.com/blog/tag/fantasy/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#66</span>
-          <span class="site">Kevin MacLeod (incompetech)</span>
-          <span class="title">ロイヤリティフリー楽曲一覧（著名曲中心）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">本レーンで実在確認済み</span>
-          <span class="badge badge-warn">要クレジット</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">クレジット必須（書式指定）。YouTube収益化可</p>
-        
-        <p class="note verify-note">検証メモ: ページ自体は正規（1997年運営のIncompetech Inc.）。曲一覧の閲覧はユーザー本人のブラウザ操作に委ねる</p>
-        
-        <a class="open-button" href="https://incompetech.com/music/royalty-free/" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#67</span>
-          <span class="site">Freesound</span>
-          <span class="title">タグ検索 &quot;background music loop&quot;（CC0限定フィルタ推奨）</span>
-          <span class="badge badge-partial">同配布元から登録あり（catalog: camera-shutter, whoosh-transition）</span>
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-unknown">クレジット要否: 個別確認</span> <span class="badge badge-unknown">AI学習可否: 不明</span>
-        </div>
-        
-        <p class="note">CC0 でフィルタすれば ai_training_allowed=true 相当で扱える</p>
-        
-        
-        
-        <a class="open-button" href="https://freesound.org/search/?q=background+music+loop" target="_blank" rel="noopener noreferrer">
-          ダウンロードページを開く ↗
-        </a>
-      </li>
-
-      <li class="candidate">
-        <div class="candidate-head">
-          <span class="rank">#68</span>
-          <span class="site">Springin&#39; Sound Stock</span>
-          <span class="title">BGM カテゴリ（ゲーム系だが場面転換BGMにも転用可）</span>
-          
-        </div>
-        <div class="candidate-meta">
-          <span class="badge badge-ok">リサーチ時点で確認済み</span>
-          <span class="badge badge-ok">クレジット不要</span> <span class="badge badge-danger">AI学習禁止</span>
-        </div>
-        
-        <p class="note">登録不要・クレジット任意</p>
-        
-        
-        
-        <a class="open-button" href="https://www.springin.org/sound-stock/" target="_blank" rel="noopener noreferrer">
           ダウンロードページを開く ↗
         </a>
       </li>

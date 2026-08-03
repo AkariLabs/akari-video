@@ -19,11 +19,10 @@
 //     [--library-root <path>] [--catalog-dir <path>] [--candidates <path>]
 
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveFfmpeg } from '../../media-bin/src/index.mjs';
+import { generateWaveformPreview } from '../shared/waveform-preview.mjs';
 import {
     loadCandidates,
     flattenCandidates,
@@ -97,18 +96,6 @@ async function pathExists(candidate) {
     }
 }
 
-let ffmpegPathCache;
-function resolvedFfmpegPath() {
-    if (ffmpegPathCache === undefined) {
-        try {
-            ffmpegPathCache = resolveFfmpeg();
-        } catch {
-            ffmpegPathCache = null;
-        }
-    }
-    return ffmpegPathCache;
-}
-
 function normalizeTitle(value) {
     return String(value)
         .normalize('NFKC')
@@ -145,29 +132,6 @@ function findTitleMatches(filename, flatCandidates) {
         }
     }
     return matches;
-}
-
-/**
- * harvest-asset の規律（audio: waveform を preview にする）に従い、library scope の
- * 実体エントリへ preview.png（波形画像）を作る。ffmpeg が無ければ生成せず理由を返す
- * （実物と違う mock を preview として作らない）。
- */
-function generateWaveformPreview(sourceAudioPath, destPngPath) {
-    const ffmpegPath = resolvedFfmpegPath();
-    if (!ffmpegPath) {
-        return { ok: false, reason: 'ffmpeg が見つからないため preview.png を生成できません' };
-    }
-    const result = spawnSync(ffmpegPath, [
-        '-y',
-        '-i', sourceAudioPath,
-        '-filter_complex', 'showwavespic=s=640x120:colors=0d6efd',
-        '-frames:v', '1',
-        destPngPath,
-    ], { stdio: 'ignore' });
-    if (result.status !== 0) {
-        return { ok: false, reason: `ffmpeg の実行に失敗しました（exit ${result.status}）。音声実体が壊れているか非対応形式の可能性` };
-    }
-    return { ok: true };
 }
 
 async function buildPlan({ dropDir, catalogDir, flatCandidates }) {

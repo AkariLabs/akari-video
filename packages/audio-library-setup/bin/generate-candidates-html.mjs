@@ -134,6 +134,26 @@ function renderItem(item, ownership) {
       </li>`;
 }
 
+function renderFirstParty(firstParty) {
+    if (!firstParty) return '';
+    const kinds = firstParty.kinds ?? {};
+    const kindSummary = [
+        kinds.bgm ? `BGM ${kinds.bgm}` : null,
+        kinds.sfx ? `効果音 ${kinds.sfx}` : null,
+        kinds.jingle ? `ジングル ${kinds.jingle}` : null,
+    ].filter(Boolean).join(' / ');
+    return `
+  <section class="first-party">
+    <h2>既定ソース: ${escapeHtml(firstParty.label ?? firstParty.id)}</h2>
+    <p>${escapeHtml(firstParty.note ?? '')}</p>
+    <p class="summary">${escapeHtml(kindSummary)}（計 ${escapeHtml(String(firstParty.track_count ?? '?'))} トラック / ${escapeHtml(String(firstParty.take_count ?? '?'))} テイク）</p>
+    <p class="summary">一括取得: <code>${escapeHtml(firstParty.bulk_fetch_command ?? '')}</code></p>
+    <a class="open-button" href="${escapeHtml(firstParty.release_page_url ?? '')}" target="_blank" rel="noopener noreferrer">
+      GitHub Release を開く ↗
+    </a>
+  </section>`;
+}
+
 function renderCategory(category, ownershipMap) {
     const items = category.items
         .map((item) => renderItem(item, ownershipMap.get(item.id) ?? { status: 'none', matchedIds: [] }))
@@ -165,6 +185,9 @@ function renderPage({ data, flat, ownershipMap, generatedAt }) {
   h2 { font-size: 1.1rem; margin-top: 2.5rem; border-bottom: 1px solid #8884; padding-bottom: 0.3rem; }
   .hard-rule { background: #fff3cd; color: #664d03; border: 1px solid #ffe69c; border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
   @media (prefers-color-scheme: dark) { .hard-rule { background: #4d3b00; color: #ffe69c; border-color: #6b5300; } }
+  .first-party { border: 2px solid #0d6efd55; border-radius: 10px; padding: 12px 16px; margin: 16px 0; }
+  .first-party h2 { margin-top: 0; border-bottom: none; }
+  .first-party code { font-family: ui-monospace, monospace; font-size: 0.85rem; }
   .summary { font-size: 0.9rem; opacity: 0.8; }
   .candidate-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
   .candidate { border: 1px solid #8883; border-radius: 10px; padding: 12px 16px; }
@@ -208,10 +231,12 @@ function renderPage({ data, flat, ownershipMap, generatedAt }) {
 </head>
 <body>
   <h1>音源セットアップ候補リスト（BGM・SFX）</h1>
+  ${renderFirstParty(data.first_party)}
   <div class="hard-rule">
-    <strong>AI はここから自動ダウンロードしません。</strong>
+    <strong>以下の外部候補は、AI はここから自動ダウンロードしません。</strong>
     「ダウンロードページを開く」を押すと配布元の正規ページが新規タブで開きます。実際の保存はあなた自身が行ってください。
     保存後はドロップフォルダへ置くと、次回のセットアップ実行時に自動で照合・登録されます。
+    （既定ソース AKARI Sounds だけは自社配布のため、上記の一括取得コマンドで直接ダウンロードできます）
   </div>
   <p class="summary">
     生成日時: ${escapeHtml(generatedAt)} ／ 候補カード ${flat.length} 件（${data.categories.length} カテゴリ、うち収録曲換算 ${totalUnits} 件）／

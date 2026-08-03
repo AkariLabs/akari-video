@@ -1,53 +1,39 @@
 # Audio カタログ
 
-`assets/audio/` と同じ入庫基準（利用許諾と来歴を明示できる、再収録コストの高い BGM・効果音）の取得先索引です。実体は同梱せず、`source.url` から各自取得してください。BGM / SFX の区別は tags に持たせています。
+`assets/audio/` と同じ入庫基準（利用許諾と来歴を明示できる、再収録コストの高い BGM・効果音）の取得先索引です。実体は同梱せず、各エントリの `source.url` から取得してください。BGM / SFX の区別は tags に持たせています。
 
-## 音源セットアップ（半自動ドロップフォルダ方式）
+## 既定ソース: AKARI Sounds（2026-08-03 オーナー裁定）
 
-[`candidates.json`](./candidates.json) は、フリー配布元 68 候補カード（8 用途 SFX カテゴリ 41 件 +
-BGM 27 件・収録曲換算 約110曲）のデータ SSOT です。`node packages/audio-library-setup/bin/generate-candidates-html.mjs`
-で候補リスト HTML（ダウンロードページを開くボタン付き・既所有は動的グレーアウト）を
-生成できます。手順は [`skills/setup-audio-library/`](../../skills/setup-audio-library/SKILL.md)
-を参照してください。
+音源の既定は自社（first-party）ライブラリ **[AKARI Sounds](https://github.com/AkariLabs/akari-sounds)**（BGM 99 / 効果音 77 / ジングル 12 = 188 トラック・200 テイク。全トラック AI 生成・生成記録公開・商用可・クレジット不要）です。
 
-BGM は「落ち着き系」（`bgm-calm`、11カード・約63曲、作業・解説・vlog 向けの定番）／
-「盛り上げ系」（`bgm-uplift`、6カード・約33曲、OP・見せ場・テンション上げ）／
-「補完」（`bgm-other`、10カード・約14曲、エモ・シネマ・コミカル・参照系）の3カテゴリに
-分割し、構成比は目安どおり概ね 6:3:1（実測 57%/30%/13%）です。各候補（カード）は
-`mood[]`（真面目・親しみ・高級感・勢い・かわいい・無機質・エモい・シネマ — intake の
-tone チップと同一語彙）+ `tempo`（ゆったり/標準/高速）タグを持ち、複数曲を束ねるカードは
-`songs[]` に曲ごとの mood/tempo を個別記録します（全8トーンで最低2件を大きく上回るカバレッジ）。
-将来「分析 → tone 決定 → mood 一致で BGM 自動選曲」のパイプラインを見据えたデータ設計で、
-選曲ロジック自体は未実装です。DOVA-SYNDROME・MusMus・魔王魂・甘茶の音楽工房を中心に、
-「よく使われている」定番曲（DLランキング上位・各サイトの主要カテゴリ）を優先収録
-（MusMus・魔王魂はクレジット表記必須・書式は各候補の `credit_template` を参照）。
-songs[] の個別曲は一覧ページのタイトル表示から採用しており、実ファイル名が未確認のため
-`expected_filenames` は空のまま（ドロップフォルダの自動照合はサイト単位の一部候補にのみ効く）。
+- **BGM・ジングルは全量 AKARI Sounds**。外部フリー配布元の BGM 候補は廃止しました
+- **効果音は AKARI Sounds が既定 + 外部で補完**。AKARI Sounds に無い系統（拍手・歓声 / 失敗音の日本のお約束 / 和風・バトル打撃 / フォーリー）だけ外部候補・既存エントリを使います
+- 自社 GitHub Release が配布主体のため**一括ダウンロード可**。動線は `akari` 初回起動時の
+  [Y/n] 1 問（既定 Yes・生涯 1 回）または `akari sounds`
+  （実体: `node packages/audio-library-setup/bin/fetch-akari-sounds.mjs`。
+  手順: [`skills/setup-audio-library/first-party.md`](../../skills/setup-audio-library/first-party.md)）
+
+## 音源セットアップ（補完分・半自動ドロップフォルダ方式）
+
+[`candidates.json`](./candidates.json)（**v2**）は、AKARI Sounds を `first_party`（既定ソース）として宣言し、外部候補は補完 3 カテゴリ・13 カード（拍手 / 失敗音 / ヒット・ドンの和風・バトル系）だけを保持するデータ SSOT です。`node packages/audio-library-setup/bin/generate-candidates-html.mjs` で候補リスト HTML（既定ソースバナー + ダウンロードページを開くボタン付き・既所有は動的グレーアウト）を生成できます。手順は [`skills/setup-audio-library/`](../../skills/setup-audio-library/SKILL.md) を参照してください。
+
+**レガシー**: v1 の全 68 カード（外部 BGM 27 カード・約 110 曲の選曲データ、mood/tempo 語彙、検証パス履歴を含む）は [`candidates-legacy.json`](./candidates-legacy.json) に原文のまま保存しています（不変・参照用。セットアップフローからは使いません）。
 
 ## エントリ
 
-### BGM
+### 既定（AKARI Sounds・first-party）
 
-- [corporate-upbeat-bgm](./corporate-upbeat-bgm/meta.json) — ミニマルなビート主体の明るいコーポレート BGM（尺 2分05秒）。SaaS/製品デモ向け。（license: LicenseRef-Pixabay-Content-License / acquisition: direct）
-- [cozy-lofi-bgm](./cozy-lofi-bgm/meta.json) — Pixabay Editor's Choice のローファイ・チルビート（尺 2分27秒）。Vlog・作業風景向け。（license: LicenseRef-Pixabay-Content-License / acquisition: direct）
-- [dova-syndrome-cheerleaders-bgm](./dova-syndrome-cheerleaders-bgm/meta.json) — 明るく楽しい雰囲気のアップテンポ BGM（Anonyment / DOVA-SYNDROME）。応援・盛り上げシーンに。（license: LicenseRef-DOVA-SYNDROME-Free / acquisition: direct）
-- [dova-syndrome-user-manual](./dova-syndrome-user-manual/meta.json) — 2:23 AM / Morning。Vlog の出だし・締め・敷きに万能な定番 BGM 2 点（DOVA-SYNDROME）。（license: LicenseRef-DOVA-SYNDROME-Free / acquisition: direct）
-- [maoudamashii-bgm-neorock](./maoudamashii-bgm-neorock/meta.json) — 対決・闘志の演出に使う激しめロック BGM 3 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
-- [maoudamashii-bgm-piano](./maoudamashii-bgm-piano/meta.json) — 静寂・ゆったりした時間を出すピアノ BGM 2 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
-- [musmus-hageshii-atsui-upper](./musmus-hageshii-atsui-upper/meta.json) — 戦闘準備中。対決前の熱い煽り BGM 1 点（MusMus）。要クレジット。（license: LicenseRef-MusMus-Free / acquisition: direct）
-- [musmus-yuttari-honobono](./musmus-yuttari-honobono/meta.json) — ひとやすみ / ノスタルジア / 夢の跡の僕ら。ローテンポの敷き BGM 3 点（MusMus）。要クレジット。（license: LicenseRef-MusMus-Free / acquisition: direct）
+- [akari-sounds-bgm](./akari-sounds-bgm/meta.json) — BGM パック（99 トラック / 110 テイク）。解説・Vlog・作業風景の敷きから tension / cinematic / beatslide まで。（license: LicenseRef-AKARI-Sounds-Terms-v0 / acquisition: direct・一括取得可）
+- [akari-sounds-sfx](./akari-sounds-sfx/meta.json) — 効果音パック（77 トラック / 78 テイク）。クリック・ポップ・whoosh・チャイム・ライザー・グリッチ等のワンショット。（license: LicenseRef-AKARI-Sounds-Terms-v0 / acquisition: direct・一括取得可）
+- [akari-sounds-jingle](./akari-sounds-jingle/meta.json) — ジングルパック（12 トラック）。イントロ / アウトロ / 場面転換 / 達成のスティンガー。（license: LicenseRef-AKARI-Sounds-Terms-v0 / acquisition: direct・一括取得可）
 
-### SFX
+### SFX 補完（AKARI Sounds に無い系統・現役）
 
-- [camera-shutter](./camera-shutter/meta.json) — 一眼レフ実機（Canon T2i）のシャッター音（尺 0.3秒）。カット送り・決定的瞬間の演出に。（license: CC0-1.0 / acquisition: login）
 - [impact-sfx-pack](./impact-sfx-pack/meta.json) — 衝突・打撃・フォーリー系の効果音 130 点セット。強調テロップの出現・アクセントに。（license: CC0-1.0 / acquisition: direct）
-- [ui-click-sfx-pack](./ui-click-sfx-pack/meta.json) — ボタン・スイッチ・クリックなど UI 操作音 50 点セット。UI 解説・アプリデモ向け。（license: CC0-1.0 / acquisition: direct）
-- [whoosh-transition](./whoosh-transition/meta.json) — 竹の棒を振って収録した短く鋭いウッシュ音（尺 0.43秒）。シーン転換・ワイプに。（license: CC0-1.0 / acquisition: login）
 - [soundeffect-lab-ui-signal-pack](./soundeffect-lab-ui-signal-pack/meta.json) — 決定ボタン・クイズ判定・警告・チーン系の UI/合図 SE 19 点セット（効果音ラボ）。（license: LicenseRef-SoundEffectLab-Free / acquisition: direct・要直リンク回避）
 - [soundeffect-lab-anime-direction-pack](./soundeffect-lab-anime-direction-pack/meta.json) — シーン切り替え・強調カット・コミカルリアクション・キラキラ演出 SE 17 点セット（効果音ラボ）。（license: LicenseRef-SoundEffectLab-Free / acquisition: direct・要直リンク回避）
 - [soundeffect-lab-ambient-life-pack](./soundeffect-lab-ambient-life-pack/meta.json) — 和楽器（和太鼓・拍子木・木魚）・観客リアクション・生活/環境音 SE 13 点セット（効果音ラボ）。（license: LicenseRef-SoundEffectLab-Free / acquisition: direct・要直リンク回避）
 - [musmus-onomatope-sfx-pack](./musmus-onomatope-sfx-pack/meta.json) — ポップ/クリック系の電子オノマトペ音・Yes/No判定・チャイム 16 点セット（MusMus）。要クレジット。（license: LicenseRef-MusMus-Free / acquisition: direct）
-- [otologic-motion-pop-sfx-pack](./otologic-motion-pop-sfx-pack/meta.json) — ポップなモーション音・光るオノマトペ音 5 点セット（OtoLogic）。要クレジット。（license: CC-BY-4.0 / acquisition: direct）
 - [dova-syndrome-hatena-mark-se](./dova-syndrome-hatena-mark-se/meta.json) — キャラクターの疑問・困惑を表す「はてなマーク」ポップアップ音（DOVA-SYNDROME）。（license: LicenseRef-DOVA-SYNDROME-Free / acquisition: direct）
 - [freesound-inspectorj-pencil-writing](./freesound-inspectorj-pencil-writing/meta.json) — 鉛筆で紙に書くリアルな筆記音（尺12.7秒、InspectorJ）。要クレジット。（license: CC-BY-4.0 / acquisition: login）
 - [maoudamashii-object-sound-15](./maoudamashii-object-sound-15/meta.json) — 汎用的な物音効果音「物音15」（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
@@ -55,3 +41,10 @@ songs[] の個別曲は一覧ページのタイトル表示から採用してお
 - [maoudamashii-se-onepoint-category](./maoudamashii-se-onepoint-category/meta.json) — 不吉な不協和音・ふざけた失敗音・ダメ出しブッブーの 3 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
 - [maoudamashii-se-system-category](./maoudamashii-se-system-category/meta.json) — コイン系上昇音・解説ポイント提示音の 3 点（魔王魂）。要クレジット。（license: LicenseRef-MaouDamashii-Free / acquisition: direct）
 - [pocket-se-fail-pack](./pocket-se-fail-pack/meta.json) — 呆れ「チーン」・ゲーム死亡音・失敗「デデーン」。やらかし演出の定番 SE 3 点（ポケットサウンド）。要クレジット。（license: LicenseRef-PocketSound-Free / acquisition: direct）
+
+### レガシー（AKARI Sounds への一本化で役目を終えた既登録分）
+
+2026-08-03 オーナー裁定により新規の編集では使いません（既存プロジェクトの参照と来歴のためにエントリは残置。ディレクトリ・meta.json は不変）。BGM は全量 AKARI Sounds へ、以下の SFX は AKARI Sounds の同系統（`sfx-click-camera-shutter` / `sfx-whoosh-*` / `sfx-click-*` / `sfx-pop-*`・`sfx-shimmer-sparkle` 等）で置き換え。
+
+- BGM（8 件）: [corporate-upbeat-bgm](./corporate-upbeat-bgm/meta.json) / [cozy-lofi-bgm](./cozy-lofi-bgm/meta.json) / [dova-syndrome-cheerleaders-bgm](./dova-syndrome-cheerleaders-bgm/meta.json) / [dova-syndrome-user-manual](./dova-syndrome-user-manual/meta.json) / [maoudamashii-bgm-neorock](./maoudamashii-bgm-neorock/meta.json) / [maoudamashii-bgm-piano](./maoudamashii-bgm-piano/meta.json) / [musmus-hageshii-atsui-upper](./musmus-hageshii-atsui-upper/meta.json) / [musmus-yuttari-honobono](./musmus-yuttari-honobono/meta.json)
+- SFX（4 件）: [camera-shutter](./camera-shutter/meta.json)（→ sfx-click-camera-shutter） / [whoosh-transition](./whoosh-transition/meta.json)（→ sfx-whoosh-* / sfx-swoosh-*） / [ui-click-sfx-pack](./ui-click-sfx-pack/meta.json)（→ sfx-click-* 15 種） / [otologic-motion-pop-sfx-pack](./otologic-motion-pop-sfx-pack/meta.json)（→ sfx-pop-* / sfx-shimmer-sparkle）

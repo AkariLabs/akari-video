@@ -60,8 +60,9 @@ test('plan-only mode does not move any files', async () => {
 
 test('--apply registers matched files into library-root and catalog, quarantines unmatched', async () => {
     await withFixture(async ({ dropDir, libraryRoot, catalogDir }) => {
+        // shock2.wav（旧 soundeffect-lab-shock-1-6）は candidates v2 でカード撤去済み
+        // （AKARI Sounds の sfx-impact-* が既定になったため）。v2 に残る doon1 で照合を検証する
         await writeFile(path.join(dropDir, 'doon1.mp3'), 'dummy-audio-bytes');
-        await writeFile(path.join(dropDir, 'shock2.wav'), 'dummy-audio-bytes');
         await writeFile(path.join(dropDir, 'unknown-track.mp3'), 'dummy-audio-bytes');
         await writeFile(path.join(dropDir, 'notes.txt'), 'not audio, must be ignored');
 
@@ -203,22 +204,35 @@ test('generated library entries pass validate-asset.mjs when ffmpeg preview succ
 });
 
 test('song titles uniquely match normalized drop filenames and record provenance', async () => {
-    await withFixture(async ({ dropDir, libraryRoot, catalogDir }) => {
+    // BGM の songs[] カードは candidates v2 で全廃（AKARI Sounds へ一本化）されたため、
+    // タイトル正規化照合の機構自体はフィクスチャで検証し続ける（機構は共有ロジックに現存）。
+    await withFixture(async ({ dropDir, libraryRoot, catalogDir, root }) => {
+        const tempCandidates = path.join(root, 'candidates-title-unique.json');
+        await writeFile(tempCandidates, JSON.stringify({
+            categories: [{
+                id: 'test',
+                label_ja: 'テスト',
+                items: [
+                    songCandidate({ rank: 1, id: 'title-calm', title: '2:23 AM' }),
+                    songCandidate({ rank: 2, id: 'title-uplift', title: 'Morning' }),
+                ],
+            }],
+        }));
         await writeFile(path.join(dropDir, '223 AM.mp3'), 'dummy-audio-bytes');
         await writeFile(path.join(dropDir, 'morning.wav'), 'dummy-audio-bytes');
 
         const { status, json } = runScript([
             '--drop-dir', dropDir, '--library-root', libraryRoot, '--catalog-dir', catalogDir,
-            '--candidates', candidatesPath, '--apply',
+            '--candidates', tempCandidates, '--apply',
         ]);
 
         assert.equal(status, 0);
         assert.deepEqual(
             json.matched_candidates.map(({ candidate_id: candidateId }) => candidateId).sort(),
-            ['dova-syndrome-ranking-calm', 'dova-syndrome-ranking-uplift'],
+            ['title-calm', 'title-uplift'],
         );
 
-        for (const candidateId of ['dova-syndrome-ranking-calm', 'dova-syndrome-ranking-uplift']) {
+        for (const candidateId of ['title-calm', 'title-uplift']) {
             const libraryMeta = JSON.parse(await readFile(path.join(libraryRoot, candidateId, 'meta.json'), 'utf8'));
             const catalogMeta = JSON.parse(await readFile(path.join(catalogDir, candidateId, 'meta.json'), 'utf8'));
             assert.equal(libraryMeta.matched_by, 'title-normalized');

@@ -1,6 +1,6 @@
 ---
 name: setup-audio-library
-description: BGM・効果音の音源ライブラリを増やしたいときに発動する。フリー配布元の候補リスト HTML を生成し、ユーザーが手動保存したファイルをドロップフォルダから照合・登録するか、ユーザーの指示があればエージェントが取得を代行する。試聴ギャラリーで keep/drop するまでの半自動セットアップ。setup-library / harvest-asset の姉妹スキル（音源だけ流儀が異なるため独立）。
+description: BGM・効果音の音源ライブラリを増やしたいときに発動する。既定は自社ライブラリ AKARI Sounds の一括取得（GitHub Release から直接ダウンロード。BGM・ジングルはこれで全量揃う）。AKARI Sounds に無い系統（拍手・失敗音・和風打撃）だけ、フリー配布元の候補リスト HTML + ドロップフォルダ照合/取得代行で補完する。試聴ギャラリーで keep/drop するまでの半自動セットアップ。setup-library / harvest-asset の姉妹スキル（音源だけ流儀が異なるため独立）。
 ---
 
 # FORBIDDEN 級ハードルール
@@ -9,10 +9,17 @@ description: BGM・効果音の音源ライブラリを増やしたいときに�
 
 次のいずれかに違反する形で音源セットアップを進めない。詳細リーフより常に優先する。
 
-1. **エージェントによる取得はユーザーの指示で行う。** 既定フローは「候補リスト HTML を
-   生成する」「ドロップフォルダを走査する」であり、ユーザーが取得を指示したときだけ
-   配布元から直接取得する（取得する/しないの判断はユーザーに委ねる。配布元ごとの可否を
-   こちらで先回りして断定・列挙しない）。取得を実行するときの動作は
+> **適用範囲**: ルール 1・2 の取得規律は**第三者配布元**（効果音ラボ・DOVA-SYNDROME 等、
+> candidates.json の `categories` に載る外部サイト）を守るためのもの。自社（first-party）の
+> AKARI Sounds（candidates.json の `first_party`。**既定ソース**）は自社 GitHub Release が
+> 配布主体のため一括取得してよい（2026-08-03 オーナー裁定。動作は
+> [first-party.md](first-party.md)。取得先を AkariLabs/akari-sounds 以外へ広げない）。
+> ルール 3〜8 は first-party にも同様に適用する。
+
+1. **エージェントによる取得はユーザーの指示で行う（第三者配布元）。** 第三者分の既定フローは
+   「候補リスト HTML を生成する」「ドロップフォルダを走査する」であり、ユーザーが取得を
+   指示したときだけ配布元から直接取得する（取得する/しないの判断はユーザーに委ねる。
+   配布元ごとの可否をこちらで先回りして断定・列挙しない）。取得を実行するときの動作は
    [assisted-fetch.md](assisted-fetch.md) に従う:
    - 取得できるかは実行時にその場で確認する。取得できなかった配布元は理由を添えて
      そのまま報告し、ダウンロードページへのリンクを案内して手動に切り替える
@@ -47,13 +54,16 @@ description: BGM・効果音の音源ライブラリを増やしたいときに�
 
 # 実行順リーフ
 
-1. [candidate-list.md](candidate-list.md) — `catalog/audio/candidates.json` を元に候補リスト
+1. [first-party.md](first-party.md) — **既定**: 自社ライブラリ AKARI Sounds を GitHub Release
+   から一括取得し user スコープへ登録する（BGM・ジングルはこれで全量。初回セットアップは
+   まずこれ）
+2. [candidate-list.md](candidate-list.md) — AKARI Sounds に無い系統の補完: `catalog/audio/candidates.json` を元に候補リスト
    HTML を生成する。既所有（catalog 登録済み）はグレーアウト表示になる
-2. [drop-folder.md](drop-folder.md) — ユーザーがドロップフォルダへ保存したファイルを走査し、
-   候補と照合してライブラリ配置 + catalog メタ登録、または隔離する（既定フロー）
-3. [assisted-fetch.md](assisted-fetch.md) — ユーザーの指示があるときだけ: エージェントが
+3. [drop-folder.md](drop-folder.md) — ユーザーがドロップフォルダへ保存したファイルを走査し、
+   候補と照合してライブラリ配置 + catalog メタ登録、または隔離する（第三者分の既定フロー）
+4. [assisted-fetch.md](assisted-fetch.md) — ユーザーの指示があるときだけ: エージェントが
    取得を代行し、来歴付きで `_staging/` に置く
-4. [gallery.md](gallery.md) — 登録済み音源を試聴し、keep/drop を記録する
+5. [gallery.md](gallery.md) — 登録済み音源を試聴し、keep/drop を記録する
 
 詳細を先読みせず、現在の工程に対応するファイルだけを読む。
 
