@@ -9,7 +9,7 @@
     "build": "tsc -b && npm run bundle:webview",
     "bundle:webview": "esbuild src/webview-kernel.ts --bundle --format=iife --global-name=AkariEditKernel --outfile=lib/webview-kernel.js --target=chrome122 --platform=browser",
     "clean": "rimraf lib",
-    "test": "tsc -b && node --test test/*.test.mjs"
+    "test": "npm run build && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

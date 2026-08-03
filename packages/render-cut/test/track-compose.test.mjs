@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import test from "node:test";
 
 import { buildPlan } from "../src/plan.mjs";
 import { renderProject } from "../src/render-cut.mjs";
+import { buildTailPadCommand } from "../src/content-duration.mjs";
+import { buildVideoEncodeArgs } from "../src/encode-preset.mjs";
+import { compositeAnimatedOverlay, compositeStaticOverlays, runChecked } from "../src/rasterize.mjs";
 import { resolveCutTrackRanges } from "../src/track-compose.mjs";
 import { usesDefaultTrackOrder } from "../src/track-order.mjs";
 
@@ -101,6 +104,203 @@ test("an interleaved declaration plans per-track cuts and ordered cuts/layers st
   assert.match(plan.commands.track_stack.outputPath, /layered\.mp4$/u);
 });
 
+test("master policy reaches every video encode stage while audio-only mux is explicitly copy", () => {
+  const plan = buildPlan({
+    edit: {
+      ...edit,
+      output: { ...edit.output, encoding: { quality: "master" } },
+      audio: { master: {} },
+      layers: [{ ...edit.layers[0], t: 1, duration: 1 }],
+      timeline: {
+        tracks: [
+          { id: "c0", kind: "cuts", ref: 0 },
+          { id: "l0", kind: "layers", ref: 0 },
+          { id: "c1", kind: "cuts", ref: 1 },
+        ],
+      },
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      sourceInputs: [
+        { id: "green", path: "/project/green.mp4", hasAudio: true },
+        { id: "blue", path: "/project/blue.mp4", hasAudio: true },
+      ],
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      chromePath: "chrome",
+      hyperframesAvailable: false,
+      puppeteerAvailable: false,
+    },
+    hasSourceAudio: true,
+  });
+  const commands = [
+    plan.commands.cut,
+    plan.commands.tail_pad,
+    ...Object.values(plan.commands.composite),
+    plan.commands.track_stack.base,
+    ...plan.commands.track_stack.cutTracks.map(track => track.command),
+    ...plan.commands.track_stack.stages.map(stage => stage.command),
+  ].filter(command => command?.args);
+  assert.ok(commands.length >= 10, `expected broad stage coverage, got ${commands.length}`);
+  for (const command of commands) {
+    const joined = command.args.join(" ");
+    assert.match(joined, /-c:v libx264/u);
+    assert.match(joined, /-profile:v high/u);
+    assert.match(joined, /-preset slow/u);
+    assert.match(joined, /-crf 15/u);
+  }
+  assert.deepEqual(plan.encoding.effective, {
+    quality: { value: "master", origin: "edit" },
+    encoder: { value: "x264", origin: "master-required" },
+  });
+  assert.deepEqual(plan.encoding.non_encoding_stages, [
+    {
+      stage: "overlay_alpha_intermediate",
+      reason: "qtrle/ProRes 4444 carries transparency into composite and is not an H.264 delivery-video reencode",
+    },
+    {
+      stage: "audio_mix",
+      reason: "audio-only mix/mux preserves the already encoded video with -c:v copy",
+    },
+  ]);
+  assert.match(plan.commands.audio_mix.args.join(" "), /-c:v copy/u);
+});
+
+test("tail, animated overlay, and static overlay execution boundaries issue the master x264 policy", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "render-cut-master-stage-recorder-"));
+  try {
+    const logPath = join(directory, "ffmpeg-stage-execution.jsonl");
+    const wrapper = join(directory, "ffmpeg-stage-recorder.mjs");
+    await writeFile(wrapper, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+appendFileSync(process.env.AKARI_FFMPEG_STAGE_LOG, JSON.stringify(process.argv.slice(2)) + "\\n");
+`);
+    await chmod(wrapper, 0o755);
+    const previous = process.env.AKARI_FFMPEG_STAGE_LOG;
+    process.env.AKARI_FFMPEG_STAGE_LOG = logPath;
+    try {
+      const videoEncodeArgs = buildVideoEncodeArgs({
+        quality: "master",
+        encoderChoice: { engine: "x264" },
+        profile: "high",
+      });
+      const tail = buildTailPadCommand({
+        ffmpegCommand: wrapper,
+        inputPath: join(directory, "cut.mp4"),
+        outputPath: join(directory, "tail-padded.mp4"),
+        cutsEndSeconds: 1,
+        finalDurationSeconds: 2,
+        videoEncodeArgs,
+      });
+      runChecked(tail.command, tail.args);
+      await compositeAnimatedOverlay({
+        ffmpegCommand: wrapper,
+        cutPath: join(directory, "tail-padded.mp4"),
+        overlayPath: join(directory, "overlay.mov"),
+        outputPath: join(directory, "animated-composite.mp4"),
+        hasAudio: true,
+        videoEncodeArgs,
+      });
+      await compositeStaticOverlays({
+        ffmpegCommand: wrapper,
+        cutPath: join(directory, "tail-padded.mp4"),
+        captures: [{ path: join(directory, "static.png"), start: 0, duration: 2 }],
+        outputPath: join(directory, "static-composite.mp4"),
+        hasAudio: true,
+        duration: 2,
+        videoEncodeArgs,
+      });
+    } finally {
+      if (previous === undefined) delete process.env.AKARI_FFMPEG_STAGE_LOG;
+      else process.env.AKARI_FFMPEG_STAGE_LOG = previous;
+    }
+    const invocations = (await readFile(logPath, "utf8")).trim().split("\n").map(JSON.parse);
+    assert.deepEqual(invocations.map(args => basename(args.at(-1))), [
+      "tail-padded.mp4",
+      "animated-composite.mp4",
+      "static-composite.mp4",
+    ]);
+    for (const args of invocations) {
+      assert.deepEqual(executedEncoding(args), {
+        codec: "libx264", profile: "high", preset: "slow", crf: "15",
+      });
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("real master render records identical encoding policy at every executed video FFmpeg boundary", async (t) => {
+  const ffmpegPath = spawnSync("which", ["ffmpeg"], { encoding: "utf8" }).stdout.trim();
+  if (!ffmpegPath || !existsSync(chromePath)) return t.skip("ffmpeg or Chrome unavailable");
+  const project = await mkdtemp(join(tmpdir(), "render-cut-master-execution-test-"));
+  try {
+    await mkdir(join(project, ".akari"));
+    await writeFile(join(project, ".akari", "lint.json"), '{"version":1,"verdict":"pass"}\n');
+    makeColorSource(join(project, "green.mp4"), "green", 220, 1.5);
+    makeColorSource(join(project, "blue.mp4"), "blue", 660, 1);
+    makeLayer(join(project, "telop.mov"));
+    await writeFile(join(project, "edit.json"), `${JSON.stringify({
+      ...edit,
+      output: { ...edit.output, encoding: { quality: "master" } },
+      audio: { master: { denoise: "off", loudnorm: -14, true_peak_dbtp: -1.7 } },
+      timeline: { tracks: [
+        { id: "c0", kind: "cuts", ref: 0 },
+        { id: "l0", kind: "layers", ref: 0 },
+        { id: "c1", kind: "cuts", ref: 1 },
+      ] },
+    }, null, 2)}\n`);
+    const logPath = join(project, "ffmpeg-execution.jsonl");
+    const wrapper = join(project, "ffmpeg-recorder.mjs");
+    await writeFile(wrapper, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+const args = process.argv.slice(2);
+appendFileSync(process.env.AKARI_FFMPEG_LOG, JSON.stringify(args) + "\\n");
+const result = spawnSync(${JSON.stringify(ffmpegPath)}, args, { stdio: "inherit" });
+process.exit(result.status ?? 2);
+`);
+    await chmod(wrapper, 0o755);
+    const previousFfmpeg = process.env.FFMPEG;
+    const previousLog = process.env.AKARI_FFMPEG_LOG;
+    const previousChrome = process.env.CHROME_PATH;
+    process.env.FFMPEG = wrapper;
+    process.env.AKARI_FFMPEG_LOG = logPath;
+    process.env.CHROME_PATH = chromePath;
+    let state;
+    try {
+      state = await renderProject(project);
+    } finally {
+      if (previousFfmpeg === undefined) delete process.env.FFMPEG; else process.env.FFMPEG = previousFfmpeg;
+      if (previousLog === undefined) delete process.env.AKARI_FFMPEG_LOG; else process.env.AKARI_FFMPEG_LOG = previousLog;
+      if (previousChrome === undefined) delete process.env.CHROME_PATH; else process.env.CHROME_PATH = previousChrome;
+    }
+    assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
+    const invocations = (await readFile(logPath, "utf8")).trim().split("\n").map(JSON.parse);
+    const videoEncodes = invocations.filter(args => {
+      const codecIndex = args.lastIndexOf("-c:v");
+      return codecIndex !== -1 && args[codecIndex + 1] !== "copy";
+    });
+    const outputs = videoEncodes.map(args => basename(args.at(-1)));
+    assert.ok(outputs.includes("cut.mp4"), JSON.stringify(outputs));
+    assert.ok(outputs.includes("track-base.mp4"), JSON.stringify(outputs));
+    assert.ok(outputs.some(value => value.startsWith("cut-track-")), JSON.stringify(outputs));
+    assert.ok(outputs.some(value => value.startsWith("track-stage-") || value === "layered.mp4"), JSON.stringify(outputs));
+    assert.ok(videoEncodes.length >= 7, `captured video stages: ${JSON.stringify(outputs)}`);
+    for (const args of videoEncodes) {
+      assert.deepEqual(executedEncoding(args), { codec: "libx264", profile: "high", preset: "slow", crf: "15" });
+    }
+    assert.deepEqual(state.plan.encoding.effective, {
+      quality: { value: "master", origin: "edit" },
+      encoder: { value: "x264", origin: "master-required" },
+    });
+    t.diagnostic(`captured real FFmpeg video stages (${videoEncodes.length}): ${outputs.join(", ")}`);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
 test("real render follows interleaved cuts/layers z order in both directions", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0 || !existsSync(chromePath)) {
     return t.skip("ffmpeg or Chrome unavailable");
@@ -173,4 +373,17 @@ function assertColor({ r, g, b }, expected) {
   if (expected === "blue") assert.ok(b > 150 && r < 100 && g < 100, `rgb(${r},${g},${b})`);
   if (expected === "yellow") assert.ok(r > 180 && g > 180 && b < 100, `rgb(${r},${g},${b})`);
   if (expected === "green") assert.ok(g > 100 && r < 50 && b < 50, `rgb(${r},${g},${b})`);
+}
+
+function executedEncoding(args) {
+  const valueAfter = flag => {
+    const index = args.lastIndexOf(flag);
+    return index === -1 ? null : args[index + 1];
+  };
+  return {
+    codec: valueAfter("-c:v"),
+    profile: valueAfter("-profile:v"),
+    preset: valueAfter("-preset"),
+    crf: valueAfter("-crf"),
+  };
 }

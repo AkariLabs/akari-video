@@ -1,7 +1,5 @@
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
 import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
+import { CAPTION_FONT_FILE_URL } from "./caption-font.mjs";
 
 const DEFAULT_MAX_CHARACTERS = 20;
 // 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
@@ -15,24 +13,23 @@ const DEFAULT_FONT_SIZE_PX = 38;
 // 無い/バージョン違いの環境でも同一グリフでレンダリングされるよう、同梱済み Noto Sans JP
 // （win2-fonts-assets、assets/font/noto-sans-jp/、可変フォント 1 本）を @font-face で固定する。
 // captions.mjs から見て ../../../ が repo root（packages/render-cut/src/ → render-cut → packages
-// → repo root）。preview（akari-preview-open-handler.ts）にも同一のフォントスタック文字列
-// '"Noto Sans JP", sans-serif' を使うが、両パッケージ間に依存関係が無い（render-cut は
-// CLI パッケージ、akari-preview は Electron 拡張で互いを import しない）ため定数の共有はせず、
-// 文字列を意図的に重複させている（判断は report に記録）。
+// → repo root）。resolved caption は OS の同名フォントへ fall back しない固有 family alias を使う。
+// legacy caption は既存スナップショットのバイト互換性を保つため従来 family 名を維持する。
 const CAPTION_FONT_STACK = '"Noto Sans JP", sans-serif';
-const CAPTION_FONT_PATH = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf",
-);
+const RESOLVED_CAPTION_FONT_STACK = '"AKARI Noto Sans JP", sans-serif';
 // font-weight を 100 900 の範囲指定にすることで、可変フォントの wght 軸を
 // font-weight:700 等の指定に応じて実際に補間させる（範囲を省略すると単一ウェイトのみ
 // マッチし、キャプションの font-weight:700 が無視される）。
 const CAPTION_FONT_FACE_CSS = `@font-face {
       font-family: "Noto Sans JP";
-      src: url("${pathToFileURL(CAPTION_FONT_PATH).href}") format("truetype-variations");
+      src: url("${CAPTION_FONT_FILE_URL}") format("truetype-variations");
       font-weight: 100 900;
       font-style: normal;
     }`;
+const RESOLVED_CAPTION_FONT_FACE_CSS = CAPTION_FONT_FACE_CSS.replace(
+  'font-family: "Noto Sans JP"',
+  'font-family: "AKARI Noto Sans JP"',
+);
 
 // opt-in word-level スタイル。横長では既定 = 未指定 = 従来のプレーン字幕（既定出力のバイト等価を保つ）。
 // 縦長（portrait）だけは例外で、words[] があり複数行に折り返す字幕を reveal（行単位の順送り表示）へ
@@ -178,6 +175,70 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   }
 
   return overlays;
+}
+
+/**
+ * Opt-in single-line policy renderer. Cues are already projected and split by
+ * edit-store's Node kernel; this consumer never segments text again.
+ */
+export function generateResolvedCaptionOverlays(displayResult) {
+  return displayResult.display_cues.map((cue) => ({
+    id: cue.id,
+    html: renderResolvedSingleLineCaption(cue.text),
+    start: cue.start,
+    duration: cue.end - cue.start,
+    transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+    vars: cue.style_vars ?? {},
+    generatedFrom: cue.source_cue_id,
+    sourceCueId: cue.source_cue_id,
+    displayCue: cue,
+  }));
+}
+
+export function renderResolvedSingleLineCaption(text) {
+  return `<div class="akari-caption akari-caption--single-line">
+  <style>
+    ${RESOLVED_CAPTION_FONT_FACE_CSS}
+    .akari-caption--single-line {
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      color:var(--caption-color,#fff);
+      text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));
+      -webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);
+      paint-order:var(--caption-paint-order,normal);
+      font-family:${RESOLVED_CAPTION_FONT_STACK};
+      font-size:var(--caption-font-size,38px);
+      font-weight:var(--caption-font-weight,700);
+      line-height:var(--caption-line-height,1.42);
+      text-align:center;
+    }
+    .akari-caption--single-line .akari-caption__plate {
+      position:absolute;
+      left:var(--caption-left,0);
+      right:var(--caption-right,0);
+      bottom:var(--caption-bottom,7%);
+      width:var(--caption-width,auto);
+      max-width:100%;
+      display:flex;
+      flex-direction:column;
+      gap:0;
+      padding:0;
+      background:transparent;
+    }
+    .akari-caption--single-line .akari-caption__line {
+      width:100%;
+      max-width:100%;
+      margin:0;
+      padding:0;
+      border-radius:0;
+      background:transparent;
+      text-align:center;
+      white-space:nowrap;
+    }
+  </style>
+  <div class="akari-caption__plate"><p class="akari-caption__line">${escapeHtml(text)}</p></div>
+</div>`;
 }
 
 function normalizeCaptionStyle(style) {

@@ -1,0 +1,73 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+
+const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const repositoryRoot = join(packageRoot, '../..');
+const expectedSources = [
+  'caption-display.ts',
+  'caption-store.ts',
+  'caption-window.ts',
+  'edit-store.ts',
+  'index.ts',
+  'timeline-map.ts',
+  'webview-kernel.ts',
+  'write-gate.ts',
+];
+
+test('checked generated surfaces have the exact source list and deterministic bytes', async () => {
+  assert.deepEqual((await readdir(join(packageRoot, 'src'))).filter(name => name.endsWith('.ts')).sort(), expectedSources);
+  const expectedLibraryFiles = expectedSources.flatMap(name => {
+    const stem = name.slice(0, -3);
+    return [`${stem}.d.ts`, `${stem}.js`];
+  }).sort();
+  assert.deepEqual((await readdir(join(packageRoot, 'lib'))).filter(name => /\.(?:d\.ts|js)$/u.test(name)).sort(), expectedLibraryFiles);
+
+  const temporary = await mkdtemp(join(tmpdir(), 'akari-edit-store-supply-'));
+  try {
+    const tscOut = join(temporary, 'tsc');
+    execFileSync(process.execPath, [
+      join(repositoryRoot, 'node_modules/typescript/bin/tsc'),
+      '--project', join(packageRoot, 'tsconfig.json'),
+      '--outDir', tscOut,
+      '--incremental', 'false',
+    ], { cwd: repositoryRoot, stdio: 'pipe' });
+
+    for (const name of expectedLibraryFiles) {
+      if (name === 'webview-kernel.js') continue;
+      assert.equal(
+        sha256(await readFile(join(tscOut, name))),
+        sha256(await readFile(join(packageRoot, 'lib', name))),
+        `${name} differs from a clean TypeScript generation`,
+      );
+    }
+
+    const esbuild = join(repositoryRoot, 'node_modules/esbuild/bin/esbuild');
+    const editStoreBundle = join(temporary, 'edit-store-webview.js');
+    execFileSync(process.execPath, [esbuild, 'src/webview-kernel.ts',
+      '--bundle', '--format=iife', '--global-name=AkariEditKernel', `--outfile=${editStoreBundle}`,
+      '--target=chrome122', '--platform=browser'], { cwd: packageRoot, stdio: 'pipe' });
+    assert.equal(sha256(await readFile(editStoreBundle)), sha256(await readFile(join(packageRoot, 'lib/webview-kernel.js'))));
+
+    const previewBundle = join(temporary, 'preview-edit-kernel.js');
+    const previewRoot = join(repositoryRoot, 'packages/preview-server');
+    execFileSync(process.execPath, [esbuild, '../edit-store/src/webview-kernel.ts',
+      '--bundle', '--format=esm', `--outfile=${previewBundle}`,
+      '--target=chrome122', '--platform=browser'], { cwd: previewRoot, stdio: 'pipe' });
+    assert.equal(
+      sha256(await readFile(previewBundle)),
+      sha256(await readFile(join(repositoryRoot, 'packages/preview-server/public/edit-kernel.bundle.js'))),
+    );
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}

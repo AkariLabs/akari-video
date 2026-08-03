@@ -155,10 +155,16 @@ function findActiveCaption(captions, sourceSeconds) {
     return window.start <= sourceSeconds && sourceSeconds < window.end;
   });
 }
+
+// ../edit-store/src/webview-kernel.ts
+function findActiveResolvedCaption(cues, outputTime) {
+  return cues.find((cue) => cue.start <= outputTime && outputTime < cue.end);
+}
 export {
   buildTimelineMap,
   captionWindowSeconds,
   cutsUseGapsOrTracks,
   findActiveCaption,
+  findActiveResolvedCaption,
   outputToSource
 };

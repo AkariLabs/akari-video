@@ -37,6 +37,21 @@ akari
 `akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
 `opencode --continue` を起動する）。
 
+## 状態・受理・能力検索
+
+```sh
+akari status [project-path] --json
+akari status [project-path] --full --json
+akari accept [project-path]                         # 実 TTY でのみ対話記録
+akari capability <query> --json
+akari capability <query> --record-miss --json      # 0 hit のときだけ absence receipt
+```
+
+fast status は現在工程を決定的に返すが、最終受理を true にしない。full status だけが immutable
+render receipt の全 input / output と人間受理 event を再検証し、`release.accepted:true` を返せる。
+`accept` が作るのは協調的ローカル運用の人間操作記録であり、暗号学的な本人署名ではない。
+capability の 0 hit receipt は `approved_to_build:false` 固定で、新設許可を意味しない。
+
 ## 3 入口の対応表
 
 AKARI Video は「同じファイル契約（`.akari/` 配下の JSON）に収束する 3 つの入口」を
@@ -71,18 +86,11 @@ npm i -g akari-video && akari
 npx akari-video
 ```
 
-`package.json` は `"private": true` のままにしてある（誤って publish されることを防ぐ
-セーフティネット）。実際に npm へ配信する契約が別途 approve されたときに、まず
-この 1 行を外すところから始める。
-
 ## 既知の制約
 
-- **配布パッケージとしての自己完結性は未整備**: `akari` はスキル正本・
-  `templates/project-default`・`packages/schemas` を、自分の checkout 位置からの
-  相対パスで解決する（`skills/create-project/bin/create-project.mjs` と同じ方式）。
-  これはこのリポジトリの checkout 内で実行される前提であり、npm レジストリ経由で
-  単体インストールされた場合にこれらのアセットを同梱する build/vendor 手順はまだ
-  実装していない（マーケットプレイス配布・審査は上位契約 §7 でスコープ外）。
+- npm tarball は追跡済み skills・雛形・schemas と capability source set を `vendor/` に同梱する。
+  Claude plugin の status は単体コピーでも動くが、skill symlink と CLI capability は checkout / CLI
+  の有無に依存し、利用不能なら明示的に unsupported とする。
 - Windows での動作は未検証（`claude.exe` / `claude.cmd` の探索ロジックはあるが
   実機確認していない）。
 

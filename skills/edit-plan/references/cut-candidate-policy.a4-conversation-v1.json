@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "a4-conversation-v1",
+  "silence_detection_db": -35,
+  "minimum_silence_seconds": 0.45,
+  "retained_pause_seconds": {
+    "within_sentence": 0.1,
+    "sentence_end": 0.166667,
+    "topic_transition": 0.3
+  },
+  "surrounding_context_seconds": 1,
+  "speech_guard_seconds": 0.033333,
+  "frame_rate": 30
+}

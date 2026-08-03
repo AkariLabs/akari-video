@@ -17,6 +17,8 @@ fs.cpSync(SRC_PROJECT, PROJECT, { recursive: true });
 const PORT = 4567;
 const BASE = `http://localhost:${PORT}`;
 const OUT_JSON = path.join(PROJECT, 'edit.output.json');
+const SYSTEM_CHROME = process.env.CHROME_PATH
+  || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : null);
 
 async function fetchJson(url) {
   const r = await fetch(url);
@@ -37,7 +39,10 @@ async function main() {
   const hadOutput = fs.existsSync(OUT_JSON);
   if (!hadOutput) fs.writeFileSync(OUT_JSON, fs.readFileSync(path.join(PROJECT, 'edit.json')));
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    ...(SYSTEM_CHROME && fs.existsSync(SYSTEM_CHROME) ? { executablePath: SYSTEM_CHROME } : {}),
+  });
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
 
   let passed = 0;
@@ -117,8 +122,12 @@ async function main() {
 
   try {
     const errors = [];
+    const failedResponses = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+    page.on('response', response => {
+      if (response.status() >= 400) failedResponses.push(`HTTP ${response.status()} ${response.url()}`);
+    });
 
     const resp = await page.goto(BASE, { waitUntil: 'load', timeout: 15000 });
     if (!resp) { throw new Error('No response from server'); }
@@ -144,7 +153,12 @@ async function main() {
     hasOutputBtn > 0 ? ok('Output preview button found') : ng('Output preview button', 'not found');
 
     // Only report non-WS errors (WS may fail in headless)
-    const nonWsErrors = errors.filter(e => !e.includes('ERR_CONNECTION_REFUSED') && !e.includes('WebSocket'));
+    const nonWsErrors = [...failedResponses, ...errors.filter(e => !e.includes('ERR_CONNECTION_REFUSED')
+      && !e.includes('WebSocket')
+      // Chromium emits this anonymous console line for a speculative resource request;
+      // HTTP/API/media/font responses are asserted independently in this suite.
+      && !(failedResponses.length === 0
+        && e === 'Failed to load resource: the server responded with a status of 404 (Not Found)'))];
     if (nonWsErrors.length > 0) {
       ng('Page errors', nonWsErrors.join('; '));
     } else {

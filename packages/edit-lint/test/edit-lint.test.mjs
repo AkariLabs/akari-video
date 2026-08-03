@@ -9,6 +9,9 @@ import test from "node:test";
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "edit-lint.mjs");
 const fixtureRoot = join(packageRoot, "fixtures");
+const styleParity = JSON.parse(await readFile(join(
+  packageRoot, "../edit-store/test/fixtures/caption-style-validation-parity.json"
+), "utf8"));
 
 async function withFixtures(callback) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-test-"));
@@ -32,6 +35,17 @@ function parseResult(runResult) {
   assert.equal(runResult.signal, null, runResult.stderr);
   assert.notEqual(runResult.stdout.trim(), "", runResult.stderr);
   return JSON.parse(runResult.stdout);
+}
+
+function styleRootForCase(item, caption = styleParity.caption) {
+  const root = {
+    display_policy: styleParity.display_policy,
+    default_text_style: styleParity.valid_default_style,
+    captions: [{ ...caption, text_style: { color: "#FFF4D6" } }],
+  };
+  if (Object.hasOwn(item, "default_text_style")) root.default_text_style = item.default_text_style;
+  if (Object.hasOwn(item, "caption_text_style")) root.captions[0].text_style = item.caption_text_style;
+  return root;
 }
 
 test("valid fixture passes and writes both reports", async () => {
@@ -243,6 +257,77 @@ test("captions validate source-time visibility and edited metadata", async () =>
     const result = parseResult(invalid);
     assert.ok(result.findings.some((finding) => finding.check === "captions.cut-visibility"));
     assert.ok(result.findings.some((finding) => finding.check === "captions.edited"));
+  });
+});
+
+test("display policy, reference-pixel style, master encoding, and true peak lint through the shared kernel", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.output.encoding = { quality: "master", encoder: "x264" };
+    edit.audio = { master: { loudnorm: -14, true_peak_dbtp: -1.7 } };
+    await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`, "utf8");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify({
+      display_policy: {
+        mode: "single_line_sequential",
+        algorithm: "a4-ja-two-fragment-v1",
+        unit_metric: "ascii-half-other-one-v1",
+        max_line_units: 8,
+        minimum_fragment_duration_seconds: 0.72,
+        locale: "ja",
+      },
+      default_text_style: {
+        size_px: 82,
+        font_weight: 600,
+        line_height: 1.08,
+        stroke: { method: "webkit-outline", color: "#050505", width_px: 5 },
+        layout: {
+          mode: "reference-pixel", reference_width_px: 1920, reference_height_px: 1080,
+          left_px: 261, width_px: 1120, bottom_px: 29, text_align: "center", max_lines: 1,
+        },
+      },
+      captions: [{
+        id: "c-0001", start: 5, end: 7, text: "正常です", speaker: null,
+        sourceRef: null, edited: true,
+      }],
+    }, null, 2)}\n`, "utf8");
+
+    const valid = run(project);
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.ok(!parseResult(valid).findings.some(finding => finding.severity === "error"));
+
+    edit.emphasis_words = [{
+      id: "e-0001", t_start: 5.1, t_end: 5.2, word: "正", emotion: "emphasis",
+    }];
+    await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`, "utf8");
+    const invalid = run(project);
+    assert.equal(invalid.status, 1, invalid.stderr);
+    assert.ok(parseResult(invalid).findings.some(finding => finding.check === "captions.display-policy-emphasis"));
+  });
+});
+
+test("shared opt-in text-style parity matrix matches edit-lint and the kernel gate", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    const adjustedCaption = { ...styleParity.caption, start: 5, end: 7 };
+    for (const item of styleParity.valid_style_cases) {
+      await writeFile(join(project, "captions.json"), `${JSON.stringify({
+        display_policy: styleParity.display_policy,
+        default_text_style: item.style,
+        captions: [adjustedCaption],
+      }, null, 2)}\n`, "utf8");
+      const executed = run(project);
+      assert.equal(executed.status, 0, `${item.id}: ${executed.stderr}`);
+    }
+    for (const item of styleParity.invalid_cases) {
+      await writeFile(join(project, "captions.json"), `${JSON.stringify(styleRootForCase(item, adjustedCaption), null, 2)}\n`, "utf8");
+      const executed = run(project);
+      assert.equal(executed.status, 1, `${item.id}: ${executed.stderr}`);
+      assert.ok(parseResult(executed).findings.some(finding =>
+        finding.check === "captions.text-style" || finding.check === "captions.display-policy"
+      ), item.id);
+    }
   });
 });
 

@@ -1,42 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findMatchingBracket = findMatchingBracket;
-exports.splitTopLevelElements = splitTopLevelElements;
-exports.computeCutTrackSegments = computeCutTrackSegments;
-exports.trimCutInSource = trimCutInSource;
-exports.slipCutInSource = slipCutInSource;
-exports.setCutSpeedInSource = setCutSpeedInSource;
-exports.updateCutTransformInSource = updateCutTransformInSource;
-exports.updateCutOpacityInSource = updateCutOpacityInSource;
-exports.setCutTransitionOutInSource = setCutTransitionOutInSource;
-exports.reorderCutsInSource = reorderCutsInSource;
-exports.splitCutInSource = splitCutInSource;
-exports.deleteCutInSource = deleteCutInSource;
-exports.insertCutInSource = insertCutInSource;
-exports.deleteLayerByIdInSource = deleteLayerByIdInSource;
-exports.deleteLayerInSource = deleteLayerInSource;
-exports.insertLayerInSource = insertLayerInSource;
-exports.deleteSfxInSource = deleteSfxInSource;
-exports.insertSfxInSource = insertSfxInSource;
-exports.moveCutInSource = moveCutInSource;
-exports.setCutAtValuesInSource = setCutAtValuesInSource;
-exports.updateLayerInSource = updateLayerInSource;
-exports.updateLayerTransformInSource = updateLayerTransformInSource;
-exports.updateLayerOpacityInSource = updateLayerOpacityInSource;
-exports.updateLayerBlendInSource = updateLayerBlendInSource;
-exports.moveLayerInSource = moveLayerInSource;
-exports.moveSfxInSource = moveSfxInSource;
-exports.trimSfxInSource = trimSfxInSource;
-exports.setSfxGainDbInSource = setSfxGainDbInSource;
-exports.updateBgmInSource = updateBgmInSource;
-exports.moveOverlayInSource = moveOverlayInSource;
-exports.resizeOverlayInSource = resizeOverlayInSource;
-exports.insertOverlayInSource = insertOverlayInSource;
-exports.removeOverlayInSource = removeOverlayInSource;
-exports.parseEdit = parseEdit;
-exports.writeTimelineTracksInSource = writeTimelineTracksInSource;
-exports.updateArrayElementByIndex = updateArrayElementByIndex;
-exports.updateOverlayVarInSource = updateOverlayVarInSource;
+exports.updateOverlayVarInSource = exports.updateArrayElementByIndex = exports.writeTimelineTracksInSource = exports.parseEdit = exports.removeOverlayInSource = exports.insertOverlayInSource = exports.resizeOverlayInSource = exports.moveOverlayInSource = exports.updateBgmInSource = exports.setSfxGainDbInSource = exports.trimSfxInSource = exports.moveSfxInSource = exports.moveLayerInSource = exports.updateLayerBlendInSource = exports.updateLayerOpacityInSource = exports.updateLayerTransformInSource = exports.updateLayerInSource = exports.setCutAtValuesInSource = exports.moveCutInSource = exports.insertSfxInSource = exports.deleteSfxInSource = exports.insertLayerInSource = exports.deleteLayerInSource = exports.deleteLayerByIdInSource = exports.insertCutInSource = exports.deleteCutInSource = exports.splitCutInSource = exports.reorderCutsInSource = exports.setCutTransitionOutInSource = exports.updateCutOpacityInSource = exports.updateCutTransformInSource = exports.setCutSpeedInSource = exports.slipCutInSource = exports.trimCutInSource = exports.computeCutTrackSegments = exports.splitTopLevelElements = exports.findMatchingBracket = void 0;
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
 const LAYER_BLEND_MODES = [
     'normal', 'screen', 'multiply', 'add', 'difference',
@@ -82,6 +46,7 @@ function findMatchingBracket(source, openIndex) {
     }
     throw new Error('JSON の閉じ括弧が見つかりません。');
 }
+exports.findMatchingBracket = findMatchingBracket;
 function splitTopLevelElements(innerText) {
     const ranges = [];
     let start = 0;
@@ -142,6 +107,7 @@ function splitTopLevelElements(innerText) {
     }
     return elements;
 }
+exports.splitTopLevelElements = splitTopLevelElements;
 function computeCutTrackSegments(cuts) {
     const cursorByTrack = new Map();
     const previousIndexByTrack = new Map();
@@ -163,6 +129,7 @@ function computeCutTrackSegments(cuts) {
     });
     return segments;
 }
+exports.computeCutTrackSegments = computeCutTrackSegments;
 function trimCutInSource(source, cutIndex, nextIn, nextOut, maxOutSeconds) {
     if (maxOutSeconds !== undefined) {
         if (!Number.isFinite(maxOutSeconds) || maxOutSeconds < 0) {
@@ -206,6 +173,7 @@ function trimCutInSource(source, cutIndex, nextIn, nextOut, maxOutSeconds) {
     }
     return replaceElement(source, array.openIndex + 1, element, nextText);
 }
+exports.trimCutInSource = trimCutInSource;
 /**
  * ソーストリマーの slip 操作: out−in（尺）と t（タイムライン位置）を固定したまま
  * in/out を同量シフトする。trimCutInSource と異なり尺そのものは変化しないため、
@@ -245,6 +213,7 @@ function slipCutInSource(source, cutIndex, nextIn, nextOut, maxOutSeconds) {
     }
     return replaceElement(source, array.openIndex + 1, element, nextText);
 }
+exports.slipCutInSource = slipCutInSource;
 function setCutSpeedInSource(source, cutIndex, speed) {
     if (speed !== null && (!Number.isFinite(speed) || speed <= 0)) {
         throw new Error('speed は正の数で指定してください。');
@@ -259,6 +228,7 @@ function setCutSpeedInSource(source, cutIndex, speed) {
             : appendNumberProperty(element, 'speed', speed);
     });
 }
+exports.setCutSpeedInSource = setCutSpeedInSource;
 function updateCutTransformInSource(source, cutIndex, updates) {
     if (updates.x === undefined && updates.y === undefined
         && updates.scale === undefined && updates.rotate === undefined) {
@@ -302,6 +272,7 @@ function updateCutTransformInSource(source, cutIndex, updates) {
         return element.slice(0, located.start) + transform + element.slice(located.end);
     });
 }
+exports.updateCutTransformInSource = updateCutTransformInSource;
 function updateCutOpacityInSource(source, cutIndex, opacity) {
     if (opacity !== null && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
         throw new Error('opacity は 0〜1 の範囲で指定してください。');
@@ -316,6 +287,7 @@ function updateCutOpacityInSource(source, cutIndex, opacity) {
             : appendNumberProperty(element, 'opacity', opacity);
     });
 }
+exports.updateCutOpacityInSource = updateCutOpacityInSource;
 function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
     if (transitionOut !== null) {
         if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black' && transitionOut.type !== 'fade-white') {
@@ -346,6 +318,7 @@ function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
         }
     });
 }
+exports.setCutTransitionOutInSource = setCutTransitionOutInSource;
 function reorderCutsInSource(source, fromIndex, toIndex) {
     const array = locateArray(source, 'cuts');
     const elements = splitTopLevelElements(array.inner);
@@ -370,6 +343,7 @@ function reorderCutsInSource(source, fromIndex, toIndex) {
     }
     return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
 }
+exports.reorderCutsInSource = reorderCutsInSource;
 function splitCutInSource(source, cutIndex, atSeconds) {
     if (!Number.isFinite(atSeconds)) {
         throw new Error('分割位置の時刻が不正です。');
@@ -400,10 +374,12 @@ function splitCutInSource(source, cutIndex, atSeconds) {
         : ', ';
     return replaceElement(source, array.openIndex + 1, element, `${firstText}${separator}${secondText}`);
 }
+exports.splitCutInSource = splitCutInSource;
 function deleteCutInSource(source, cutIndex) {
     source = freezeNextImplicitCutAt(source, cutIndex, readCutsForSurgery(source));
     return removeArrayElementByIndex(source, 'cuts', cutIndex);
 }
+exports.deleteCutInSource = deleteCutInSource;
 function removeArrayElementByIndex(source, key, index) {
     const array = locateArray(source, key);
     const elements = splitTopLevelElements(array.inner);
@@ -435,6 +411,7 @@ function removeArrayElementByIndex(source, key, index) {
 function insertCutInSource(source, cutIndex, elementText) {
     return insertArrayElementByIndex(source, 'cuts', cutIndex, elementText);
 }
+exports.insertCutInSource = insertCutInSource;
 function insertArrayElementByIndex(source, key, index, elementText) {
     const array = locateArray(source, key);
     const elements = splitTopLevelElements(array.inner);
@@ -466,18 +443,23 @@ function deleteLayerByIdInSource(source, layerId) {
     }
     return { ...removeArrayElementByIndex(source, 'layers', layerIndex), layerIndex };
 }
+exports.deleteLayerByIdInSource = deleteLayerByIdInSource;
 function deleteLayerInSource(source, layerIndex) {
     return removeArrayElementByIndex(source, 'layers', layerIndex);
 }
+exports.deleteLayerInSource = deleteLayerInSource;
 function insertLayerInSource(source, layerIndex, elementText) {
     return insertArrayElementByIndex(source, 'layers', layerIndex, elementText);
 }
+exports.insertLayerInSource = insertLayerInSource;
 function deleteSfxInSource(source, sfxIndex) {
     return removeArrayElementByIndex(source, 'sfx', sfxIndex);
 }
+exports.deleteSfxInSource = deleteSfxInSource;
 function insertSfxInSource(source, sfxIndex, elementText) {
     return insertArrayElementByIndex(source, 'sfx', sfxIndex, elementText);
 }
+exports.insertSfxInSource = insertSfxInSource;
 function moveCutInSource(source, cutIndex, nextAt, nextTrack, trackState) {
     if (!Number.isFinite(nextAt) || nextAt < 0) {
         throw new Error('クリップの開始時刻が不正です。');
@@ -501,6 +483,7 @@ function moveCutInSource(source, cutIndex, nextAt, nextTrack, trackState) {
     assertMovedCutDoesNotOverlap(updated, cutIndex);
     return updated;
 }
+exports.moveCutInSource = moveCutInSource;
 function setCutAtValuesInSource(source, entries) {
     const updates = new Map(entries.map(entry => [entry.cutIndex, entry.at]));
     for (const [index, value] of updates) {
@@ -524,6 +507,7 @@ function setCutAtValuesInSource(source, entries) {
     });
     return rebuildArrayElements(source, array, elements, texts);
 }
+exports.setCutAtValuesInSource = setCutAtValuesInSource;
 function updateLayerInSource(source, layerId, updates) {
     return updateArrayElementById(source, 'layers', layerId, '素材', element => {
         let next = element;
@@ -540,6 +524,7 @@ function updateLayerInSource(source, layerId, updates) {
         return next;
     });
 }
+exports.updateLayerInSource = updateLayerInSource;
 function updateLayerTransformInSource(source, layerId, updates) {
     if (updates.x === undefined && updates.y === undefined
         && updates.scale === undefined && updates.rotate === undefined) {
@@ -583,6 +568,7 @@ function updateLayerTransformInSource(source, layerId, updates) {
         return element.slice(0, located.start) + transform + element.slice(located.end);
     });
 }
+exports.updateLayerTransformInSource = updateLayerTransformInSource;
 function updateLayerOpacityInSource(source, layerId, opacity) {
     if (opacity !== null && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
         throw new Error('opacity は 0〜1 の範囲で指定してください。');
@@ -597,6 +583,7 @@ function updateLayerOpacityInSource(source, layerId, opacity) {
             : appendNumberProperty(element, 'opacity', opacity);
     });
 }
+exports.updateLayerOpacityInSource = updateLayerOpacityInSource;
 function updateLayerBlendInSource(source, layerId, blend) {
     if (blend !== null && !LAYER_BLEND_MODES.includes(blend)) {
         throw new Error('blend の値が不正です。');
@@ -611,6 +598,7 @@ function updateLayerBlendInSource(source, layerId, blend) {
             : appendJsonProperty(element, 'blend', blend);
     });
 }
+exports.updateLayerBlendInSource = updateLayerBlendInSource;
 function moveLayerInSource(source, layerId, nextT, nextDuration, nextTrack, trackState) {
     if (!Number.isFinite(nextT) || nextT < 0 || !Number.isFinite(nextDuration) || nextDuration < 0.15) {
         throw new Error('素材の時刻または尺が不正です。');
@@ -636,6 +624,7 @@ function moveLayerInSource(source, layerId, nextT, nextDuration, nextTrack, trac
     }
     return updated;
 }
+exports.moveLayerInSource = moveLayerInSource;
 function moveSfxInSource(source, sfxIndex, nextT, nextTrack, trackState) {
     if (!Number.isFinite(nextT) || nextT < 0) {
         throw new Error('SE の開始時刻が不正です。');
@@ -665,6 +654,7 @@ function moveSfxInSource(source, sfxIndex, nextT, nextTrack, trackState) {
     }
     return updated;
 }
+exports.moveSfxInSource = moveSfxInSource;
 /**
  * SE の in/out（素材秒）を書き戻す。動画クリップのトリム（trimCutInSource）と同じ操作感に
  * 合わせ、左端ドラッグ（in の変更）は t も連動させる呼び出し側の責務で nextT を渡す。
@@ -710,6 +700,7 @@ function trimSfxInSource(source, sfxIndex, nextIn, nextOut, nextT) {
         return next;
     });
 }
+exports.trimSfxInSource = trimSfxInSource;
 function setSfxGainDbInSource(source, sfxIndex, gainDb) {
     if (gainDb !== null && (!Number.isFinite(gainDb) || gainDb < -60 || gainDb > 12)) {
         throw new Error('gain_db は -60〜12 の範囲で指定してください。');
@@ -724,6 +715,7 @@ function setSfxGainDbInSource(source, sfxIndex, gainDb) {
             : appendNumberProperty(element, 'gain_db', gainDb);
     });
 }
+exports.setSfxGainDbInSource = setSfxGainDbInSource;
 function updateBgmInSource(source, updates) {
     if (updates.gainDb === undefined && updates.fadeIn === undefined
         && updates.fadeOut === undefined && updates.ducking === undefined) {
@@ -765,6 +757,7 @@ function updateBgmInSource(source, updates) {
     apply('ducking', updates.ducking);
     return source.slice(0, located.start) + next + source.slice(located.end);
 }
+exports.updateBgmInSource = updateBgmInSource;
 function moveOverlayInSource(source, overlayId, nextStart, nextTrack, trackState) {
     if (!Number.isFinite(nextStart)) {
         throw new Error('オーバーレイの開始時刻が不正です。');
@@ -785,12 +778,14 @@ function moveOverlayInSource(source, overlayId, nextStart, nextTrack, trackState
     }
     return updated;
 }
+exports.moveOverlayInSource = moveOverlayInSource;
 function resizeOverlayInSource(source, overlayId, nextDuration) {
     if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
         throw new Error('オーバーレイの尺は正の値にしてください。');
     }
     return updateOverlay(source, overlayId, element => replaceNumberProperty(element, 'duration', nextDuration, `オーバーレイ ${overlayId}`));
 }
+exports.resizeOverlayInSource = resizeOverlayInSource;
 function insertOverlayInSource(source, overlay) {
     const id = overlay.id;
     const start = overlay.start;
@@ -819,6 +814,7 @@ function insertOverlayInSource(source, overlay) {
     }
     return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
 }
+exports.insertOverlayInSource = insertOverlayInSource;
 function removeOverlayInSource(source, overlayId) {
     const array = locateArray(source, 'overlays');
     const elements = splitTopLevelElements(array.inner);
@@ -838,6 +834,7 @@ function removeOverlayInSource(source, overlayId) {
     }
     return source.slice(0, array.openIndex + 1) + nextInner + source.slice(array.closeIndex);
 }
+exports.removeOverlayInSource = removeOverlayInSource;
 function parseEdit(source) {
     const value = JSON.parse(source);
     if (!value || typeof value !== 'object') {
@@ -1368,6 +1365,7 @@ function parseEdit(source) {
         warnings
     };
 }
+exports.parseEdit = parseEdit;
 function writeTimelineTracksInSource(source, tracks) {
     const serialized = JSON.stringify(tracks);
     let timeline;
@@ -1394,6 +1392,7 @@ function writeTimelineTracksInSource(source, tracks) {
     }
     return source.slice(0, timeline.start) + updatedTimeline + source.slice(timeline.end);
 }
+exports.writeTimelineTracksInSource = writeTimelineTracksInSource;
 function locateArray(source, key) {
     const match = new RegExp(`"${key}"\\s*:\\s*\\[`).exec(source);
     if (!match) {
@@ -1505,6 +1504,7 @@ function updateArrayElementByIndex(source, key, index, label, update) {
     }
     return replaceElement(source, array.openIndex + 1, element, update(element.text));
 }
+exports.updateArrayElementByIndex = updateArrayElementByIndex;
 function updateArrayElementById(source, key, id, label, update) {
     const array = locateArray(source, key);
     const elements = splitTopLevelElements(array.inner);
@@ -1710,6 +1710,7 @@ function updateOverlayVarInSource(source, overlayId, varName, nextValue) {
         return element.slice(0, vars.start) + nextVarsText + element.slice(vars.end);
     });
 }
+exports.updateOverlayVarInSource = updateOverlayVarInSource;
 function replaceElement(source, innerOffset, element, nextText) {
     const start = innerOffset + element.start;
     const end = innerOffset + element.end;

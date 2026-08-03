@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { buildAudioMixCommand } from "../src/plan.mjs";
+import { inspectFullIntegrity } from "../../akari-launcher/src/status-core/integrity.mjs";
 
 // docs/contract-2026-07-22-render-basics.md #5 (audio.master: denoise / loudnorm). L2 requires
 // measuring the rendered file's actual loudness with ffmpeg's own ebur128 scanner, not trusting
@@ -16,8 +17,8 @@ import { buildAudioMixCommand } from "../src/plan.mjs";
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
 
-function run(project, args = []) {
-  return spawnSync(process.execPath, [cliPath, project, ...args], { encoding: "utf8" });
+function run(project, args = [], env = process.env) {
+  return spawnSync(process.execPath, [cliPath, project, ...args], { encoding: "utf8", env });
 }
 
 function ffmpeg(args) {
@@ -89,9 +90,17 @@ test("audio.master.loudnorm normalizes the final output to the target LUFS withi
   const project = await makeProject({ duration: 4, master: { denoise: "off", loudnorm: target } });
   try {
     const executed = run(project);
-    assert.equal(executed.status, 0, executed.stderr);
+    const failedState = executed.status === 0 ? null : JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(executed.status, 0, `${executed.stderr}\n${JSON.stringify(failedState?.audio_qc)}`);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
+    assert.equal(state.audio_qc.verdict, "INCONCLUSIVE");
+    assert.equal(state.audio_qc.verdict, "INCONCLUSIVE");
+    assert.equal(typeof state.audio_qc.filter_report.raw.output_i, "string");
+    assert.equal(typeof state.audio_qc.decoded_measurement.raw.input_i, "string");
+    assert.equal(state.audio_qc.decoded_measurement.metric, "ffmpeg-loudnorm-input-v1");
+    const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
+    assert.deepEqual(receipt.audio_qc, state.audio_qc);
     assert.match(state.plan.commands.audio_mix.args.join(" "), /loudnorm=I=-20:TP=-1.5:LRA=11/);
 
     const outputPath = join(project, state.artifacts[0].path);
@@ -106,12 +115,71 @@ test("audio.master.loudnorm normalizes the final output to the target LUFS withi
   }
 });
 
+test("explicit -1.7 dBTP real render keeps filter output and independent decoded input evidence distinct and receipt-bound", async (t) => {
+  const ffmpegPath = spawnSync("which", ["ffmpeg"], { encoding: "utf8" }).stdout.trim();
+  if (!ffmpegPath) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({
+    duration: 2,
+    master: { denoise: "off", loudnorm: -14, true_peak_dbtp: -1.7 },
+  });
+  try {
+    const logPath = join(project, "ffmpeg-audio-evidence.jsonl");
+    const wrapper = join(project, "ffmpeg-audio-recorder.mjs");
+    await writeFile(wrapper, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+const args = process.argv.slice(2);
+appendFileSync(process.env.AKARI_FFMPEG_LOG, JSON.stringify(args) + "\\n");
+const result = spawnSync(${JSON.stringify(ffmpegPath)}, args, { stdio: "inherit" });
+process.exit(result.status ?? 2);
+`);
+    await chmod(wrapper, 0o755);
+    const executed = run(project, [], { ...process.env, FFMPEG: wrapper, AKARI_FFMPEG_LOG: logPath });
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    assert.deepEqual(state.audio_qc.configured, { integrated_lufs: -14, true_peak_dbtp: -1.7 });
+    assert.deepEqual(Object.keys(state.audio_qc.filter_report.raw).sort(), ["output_i", "output_tp"]);
+    assert.deepEqual(Object.keys(state.audio_qc.decoded_measurement.raw).sort(), ["input_i", "input_tp"]);
+    assert.equal(state.audio_qc.decoded_measurement.metric, "ffmpeg-loudnorm-input-v1");
+    assert.equal(Number(state.audio_qc.filter_report.raw.output_i), state.audio_qc.filter_report.normalized.output_i);
+    assert.equal(Number(state.audio_qc.filter_report.raw.output_tp), state.audio_qc.filter_report.normalized.output_tp);
+    assert.equal(Number(state.audio_qc.decoded_measurement.raw.input_i), state.audio_qc.decoded_measurement.normalized.input_i);
+    assert.equal(Number(state.audio_qc.decoded_measurement.raw.input_tp), state.audio_qc.decoded_measurement.normalized.input_tp);
+    assert.notEqual(state.audio_qc.filter_report.raw.output_tp, state.audio_qc.decoded_measurement.raw.input_tp,
+      "filter output estimate must not replace the independent decoded input measurement");
+    assert.match(state.plan.commands.audio_mix.args.join(" "), /loudnorm=I=-14:TP=-1\.7:LRA=11:print_format=json/u);
+
+    const invocations = (await readFile(logPath, "utf8")).trim().split("\n").map(JSON.parse);
+    const loudnormCalls = invocations.filter(args => args.some(value => value.includes("loudnorm=")));
+    assert.equal(loudnormCalls.length, 2, JSON.stringify(loudnormCalls));
+    const filterCall = loudnormCalls.find(args => args.includes("-filter_complex"));
+    const decodedCall = loudnormCalls.find(args => args.includes("-af") && args.at(-1) === "-");
+    assert.ok(filterCall, "filter execution was not captured");
+    assert.ok(decodedCall, "independent decoded measurement execution was not captured");
+    assert.notDeepEqual(filterCall, decodedCall);
+    assert.match(filterCall.join(" "), /TP=-1\.7/u);
+    assert.match(decodedCall.join(" "), /TP=-1\.7/u);
+
+    const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
+    assert.deepEqual(receipt.audio_qc, state.audio_qc);
+    const integrity = await inspectFullIntegrity(project);
+    assert.equal(integrity.ok, true, integrity.problems.join("; "));
+    assert.deepEqual(integrity.candidate.audio_qc, state.audio_qc);
+    assert.ok(integrity.warnings.some(value => value.includes("INCONCLUSIVE")));
+    t.diagnostic(`filter output TP=${state.audio_qc.filter_report.raw.output_tp}; decoded input TP=${state.audio_qc.decoded_measurement.raw.input_tp}`);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
 test("audio.master with loudnorm omitted defaults to -14 LUFS", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeProject({ duration: 4, master: { denoise: "off" } });
   try {
     const executed = run(project);
-    assert.equal(executed.status, 0, executed.stderr);
+    const failedState = executed.status === 0 ? null : JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(executed.status, 0, `${executed.stderr}\n${JSON.stringify(failedState?.audio_qc)}`);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
 
@@ -249,5 +317,90 @@ test("audio.master absent preserves today's copy-only behavior (non-regression)"
     assert.equal(state.plan.commands.audio_mix.operation, "copy");
   } finally {
     await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("audio filter process failure preserves a content-addressed artifact and MEASUREMENT_ERROR receipt", async (t) => {
+  const ffmpegPath = spawnSync("which", ["ffmpeg"], { encoding: "utf8" }).stdout.trim();
+  if (!ffmpegPath) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({ duration: 1, master: { denoise: "off", loudnorm: -14 } });
+  try {
+    const wrapper = join(project, "ffmpeg-filter-failure.mjs");
+    await writeFile(wrapper, `#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+const args = process.argv.slice(2);
+if (args.some(value => value.includes("loudnorm=")) && args.at(-1)?.endsWith("final.mp4")) {
+  process.stderr.write("fixture audio filter failure\\n");
+  process.exit(1);
+}
+const result = spawnSync(${JSON.stringify(ffmpegPath)}, args, { stdio: "inherit" });
+process.exit(result.status ?? 2);
+`, "utf8");
+    await chmod(wrapper, 0o755);
+    const executed = run(project, [], { ...process.env, FFMPEG: wrapper });
+    assert.equal(executed.status, 1, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.phase, "error");
+    assert.equal(state.audio_qc.verdict, "MEASUREMENT_ERROR");
+    assert.deepEqual(state.audio_qc.error, {
+      phase: "filter_report",
+      code: "PROCESS_FAILED",
+      message: "audio filter process exited unsuccessfully",
+    });
+    assert.match(state.artifacts[0].path, /^\.akari\/reports\/failed-render-artifacts\/[a-f0-9]{64}\.mp4$/u);
+    const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
+    assert.deepEqual(receipt.audio_qc, state.audio_qc);
+    assert.equal(receipt.output.path, state.artifacts[0].path);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("failed-render artifact persistence refuses child symlinks and a retargeted reports parent without external writes", async (t) => {
+  const ffmpegPath = spawnSync("which", ["ffmpeg"], { encoding: "utf8" }).stdout.trim();
+  if (!ffmpegPath) return t.skip("ffmpeg unavailable");
+  for (const target of ["failed-render-artifacts", "retargeted-reports"]) {
+    await t.test(target, async () => {
+      const project = await makeProject({ duration: 1, master: { denoise: "off", loudnorm: -14 } });
+      const external = await mkdtemp(join(tmpdir(), "render-cut-failed-artifact-external-"));
+      try {
+        const wrapper = join(project, "ffmpeg-filter-failure-containment.mjs");
+        await writeFile(wrapper, `#!/usr/bin/env node
+import { rm, symlink } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
+const args = process.argv.slice(2);
+if (args.some(value => value.includes("loudnorm=")) && args.at(-1)?.endsWith("final.mp4")) {
+  if (process.env.AKARI_TEST_RETARGET_REPORTS === "1") {
+    const reports = join(process.env.AKARI_TEST_PROJECT, ".akari", "reports");
+    await rm(reports, { recursive: true, force: true });
+    await symlink(process.env.AKARI_TEST_EXTERNAL, reports);
+  }
+  process.stderr.write("fixture audio filter failure\\n");
+  process.exit(1);
+}
+const result = spawnSync(${JSON.stringify(ffmpegPath)}, args, { stdio: "inherit" });
+process.exit(result.status ?? 2);
+`, "utf8");
+        await chmod(wrapper, 0o755);
+        if (target === "failed-render-artifacts") {
+          await mkdir(join(project, ".akari", "reports"));
+          await symlink(external, join(project, ".akari", "reports", "failed-render-artifacts"));
+        }
+        const executed = run(project, [], {
+          ...process.env,
+          FFMPEG: wrapper,
+          AKARI_TEST_PROJECT: project,
+          AKARI_TEST_EXTERNAL: external,
+          AKARI_TEST_RETARGET_REPORTS: target === "retargeted-reports" ? "1" : "0",
+        });
+        assert.equal(executed.status, 2, executed.stderr);
+        assert.match(executed.stderr, /not a regular contained project directory/u);
+        assert.deepEqual(await readdir(external), []);
+      } finally {
+        await rm(project, { recursive: true, force: true });
+        await rm(external, { recursive: true, force: true });
+      }
+    });
   }
 });

@@ -4,6 +4,19 @@
 
 このファイルは Checkpoint 3 の明示承認後だけ読む。承認された manifest を [M1〜M4 契約](../../docs/contract-2026-07-13-m1-m4.md) の `edit.json` と authoring 規約へ忠実に変換し、表現できない計画を独自フィールドで補わない。使ってよいのは公開契約が定めたフィールドだけである（[SKILL.md](SKILL.md) のハードルール）。
 
+cut candidate report がある場合も、それ自体は実行承認ではない。`decision:"REVIEW_REQUIRED"` の
+候補を直接 cuts へ写さず、人間が今回の report に対して採否を明示し、append-only decision log に
+追記されたものだけを使う。final edit の fps が 30 以外、speed が 1 以外、track が 0 以外、または
+timeline `at` を加える場合、report の pause frame proposal は無効として再計算・再 review する。
+Checkpoint 3 まで `edit.json` を変更しない。
+
+候補適用後も完了を自動判定しない。同じ preview/render 版について、人間が
+`POST_CUT_ASR_REVIEW`（cut 後の再文字起こしと原音照合）、`POST_CUT_INFORMATION_RETENTION`
+（前後文脈と必要情報の保持）、`POST_CUT_UI_TIMING_REVIEW`（クリック・遷移・読込待ち・結果表示）、
+`POST_CUT_AUDIO_BOUNDARY_REVIEW`（click、語頭語尾、呼吸、残響、無音）を確認し、最後に
+`HUMAN_APPLY_GATE` を明示承認するまで完成扱いにしない。どれかを修正した場合は新しい版で全項目を
+再確認し、結果を append-only `decision-log.md` に追記する。
+
 ## 1. source 構成を確定する
 
 **複数の映像素材が最終構成に必要なら、`edit.json v1`（`sources[]` + `cuts[].src`）で書く**。これが第一選択肢であり、[マルチソース契約](../../docs/contract-2026-07-18-edit-json-v1-sources.md) が定める公開フィールドである。render-cut は v1 の複数入力書き出しに対応済みで、素材をまたぐ順序・同じ素材の再登場・並べ替えをそのまま書き出せる。

@@ -23,6 +23,35 @@
 生成物の原本と provenance は再検証できるよう残す。方針・素材計画の証拠は analyze-project の
 分析レポート（読み取り専用・自己完結 HTML）を参照する。
 
+## Checkpoint 1 後の cut candidate bridge
+
+Checkpoint 1 で human-approved になった semantic keep 順序を、専用 derived input
+`.akari/work/semantic-keep-plan.json` に写す。これは `edit.json` でも新しい編集正本でもない。
+v0 は source 1 件・`id:null`、v1 は unique string id とし、`occurrences[]` の順を出力順として
+`explicit` または `full_source` range を記録する。speed、track、timeline `at` は発明しない。
+
+次の helper を、解決済み edit-plan skill から直接呼ぶ。
+
+```sh
+node <resolved-edit-plan-skill>/bin/propose-cut-candidates.mjs \
+  --project <project-root> \
+  --keep-plan .akari/work/semantic-keep-plan.json \
+  --decision-log edit-plan/decision-log.md \
+  --approval-ref checkpoint-1/<subject>/<yyyy-mm-dd> [--write]
+```
+
+`--write` なしは canonical report を stdout へ出す。`--write` は同じ stdout bytes を保ったまま
+`.akari/reports/cut-candidates/<sha256>.json` に content-addressed copy を置く。`--apply` は存在しない。
+report の `semantic_event_review` と `pause_shortening_review` は全件 `REVIEW_REQUIRED` であり、
+0.10 / 0.166667 / 0.30 秒 classification も採用判断ではなく根拠付き候補である。
+
+report を提示して候補ごとの keep/drop、classification 修正、情報保持、画面操作待ちを確認する。
+採否は人間の明示回答に基づいて append-only `decision-log.md` へ別途追記する。helper の成功、
+report の存在、過去の包括承認を Checkpoint 3 とみなさない。
+Checkpoint 3 後に候補を反映した版も、[execution.md](execution.md) の `POST_CUT_ASR_REVIEW`、
+`POST_CUT_INFORMATION_RETENTION`、`POST_CUT_UI_TIMING_REVIEW`、`POST_CUT_AUDIO_BOUNDARY_REVIEW` を
+人間が同じ版で確認し、`HUMAN_APPLY_GATE` を明示承認するまでは完成へ進めない。
+
 ## 2. 素材の有無で分岐する
 
 ### 録画素材がある場合

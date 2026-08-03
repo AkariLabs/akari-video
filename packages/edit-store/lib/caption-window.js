@@ -12,14 +12,14 @@
  *     webview-kernel.js 経由で注入）
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.captionWindowSeconds = captionWindowSeconds;
-exports.findActiveCaption = findActiveCaption;
+exports.findActiveCaption = exports.captionWindowSeconds = void 0;
 function captionWindowSeconds(caption) {
     const start = typeof caption.start === 'number' && Number.isFinite(caption.start) ? caption.start : 0;
     const duration = typeof caption.duration === 'number' && Number.isFinite(caption.duration) ? caption.duration : 0;
     const end = typeof caption.end === 'number' && Number.isFinite(caption.end) ? caption.end : start + duration;
     return { start, end };
 }
+exports.captionWindowSeconds = captionWindowSeconds;
 /** source 秒 t に表示すべき字幕（最初にヒットしたもの）。無ければ undefined */
 function findActiveCaption(captions, sourceSeconds) {
     return captions.find(caption => {
@@ -27,3 +27,4 @@ function findActiveCaption(captions, sourceSeconds) {
         return window.start <= sourceSeconds && sourceSeconds < window.end;
     });
 }
+exports.findActiveCaption = findActiveCaption;

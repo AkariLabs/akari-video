@@ -13,8 +13,9 @@ import {
 } from "./cut-timeline.mjs";
 import { appendCutVisualTransform, hasCutVisualTransform } from "./cut-transform.mjs";
 import { buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
-import { buildVideoEncodeArgs, resolveEncoderChoice } from "./encode-preset.mjs";
+import { resolveEncodingPolicy } from "./encode-preset.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
+import { resolveLutPath } from "./render-inputs.mjs";
 import {
   buildCutTrackCompositeCommand,
   buildTrackBaseCommand,
@@ -28,10 +29,6 @@ const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
 // docs/contract-2026-07-20-edit-json-v1-narration.md §1: gain_db clamp range, shared with bgm/sfx.
 const GAIN_DB_MIN = -60;
 const GAIN_DB_MAX = 12;
-// presets/luts/<id>/<id>.cube — packages/render-cut/src/../../.. is the monorepo root, sibling to
-// presets/ (see presets/luts/INDEX.md for the bare-name preset reference convention). Moved from
-// catalog/luts on 2026-07-29: LUTs are a lookup table resolved by id in code, not a library asset.
-const PRESETS_LUTS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "presets", "luts");
 
 export function buildPlan({
   edit,
@@ -52,13 +49,16 @@ export function buildPlan({
   // backward-compat guarantee this task requires.
   quality,
   encoder,
+  encodingPolicy,
   fpsOverride,
 }) {
   const width = edit.output.width;
   const height = edit.output.height;
   const fps = isPositiveNumber(fpsOverride) ? fpsOverride : edit.output.fps;
-  const encoderChoice = resolveEncoderChoice({ requested: encoder, ffmpegCommand: capabilities.ffmpegCommand });
-  const videoEncodeArgs = buildVideoEncodeArgs({ quality, encoderChoice, profile: "high" });
+  const resolvedEncodingPolicy = encodingPolicy === undefined
+    ? resolveEncodingPolicy({ cli: { quality, encoder }, edit, capabilities })
+    : encodingPolicy;
+  const videoEncodeArgs = resolvedEncodingPolicy?.video_encode_args ?? null;
   const cutsEndSeconds = predictedDuration(edit.cuts, capabilities.sourceDuration, edit.version);
   const finalDurationSeconds = computeContentDurationSeconds({
     edit,
@@ -115,7 +115,8 @@ export function buildPlan({
         inputPath: cutPath,
         outputPath: tailPaddedPath,
         cutsEndSeconds,
-        finalDurationSeconds,
+      finalDurationSeconds,
+      videoEncodeArgs,
       })
     : null;
   const cutOutputPath = tailPad ? tailPaddedPath : cutPath;
@@ -133,6 +134,7 @@ export function buildPlan({
         duration: finalDurationSeconds,
         width,
         height,
+        videoEncodeArgs,
       })
     : null;
   const trackStack = defaultTrackOrder
@@ -150,6 +152,7 @@ export function buildPlan({
         height,
         fps,
         hasSourceAudio,
+        videoEncodeArgs,
       });
   const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutOutputPath);
 
@@ -166,6 +169,7 @@ export function buildPlan({
       height,
       fps,
     },
+    ...(resolvedEncodingPolicy ? { encoding: resolvedEncodingPolicy } : {}),
     rasterizer: {
       selected: rasterizer,
       // 3D scenes cannot degrade to a still image: execution rejects HyperFrames and requires
@@ -289,6 +293,7 @@ function buildTrackStackPlan({
   height,
   fps,
   hasSourceAudio,
+  videoEncodeArgs,
 }) {
   const ordered = resolveTrackOrder(edit)
     .map((track, orderIndex) => {
@@ -311,6 +316,7 @@ function buildTrackStackPlan({
     width,
     height,
     fps,
+    videoEncodeArgs,
   });
   const cutTracks = [];
   const stages = [];
@@ -332,6 +338,7 @@ function buildTrackStackPlan({
             ffmpegCommand: capabilities.ffmpegCommand,
             projectRoot,
             look: edit.output.look,
+            videoEncodeArgs,
           })
         : buildCutCommand({
             sourcePath: resolve(projectRoot, edit.source.path),
@@ -346,6 +353,7 @@ function buildTrackStackPlan({
             projectRoot,
             look: edit.output.look,
             chromaKey: edit.source?.chroma_key,
+            videoEncodeArgs,
           });
       cutTracks.push({ ref: track.ref, path: trackPath, command });
       stages.push({
@@ -362,6 +370,7 @@ function buildTrackStackPlan({
             outputDuration: duration,
           }),
           duration,
+          videoEncodeArgs,
         }),
       });
     } else {
@@ -377,6 +386,7 @@ function buildTrackStackPlan({
           duration,
           width,
           height,
+          videoEncodeArgs,
         }),
       });
     }
@@ -422,7 +432,16 @@ export function buildAudioMixCommand({
     return { operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration };
   }
 
-  const args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", inputPath];
+  const args = [
+    "-hide_banner",
+    "-loglevel",
+    master ? "info" : "error",
+    ...(master ? ["-nostats"] : []),
+    "-nostdin",
+    "-y",
+    "-i",
+    inputPath,
+  ];
   const labels = ["[0:a]"];
   const filters = [];
   let inputIndex = 1;
@@ -522,7 +541,7 @@ export function buildAudioMixCommand({
       filters.push(`${finalLabel}afftdn=nr=${nr}:nf=-30[master_dn]`);
       finalLabel = "[master_dn]";
     }
-    filters.push(`${finalLabel}loudnorm=I=${formatNumber(master.loudnormTarget)}:TP=-1.5:LRA=11[master_ln]`);
+    filters.push(`${finalLabel}loudnorm=I=${formatNumber(master.loudnormTarget)}:TP=${formatNumber(master.truePeakTarget)}:LRA=11:print_format=json[master_ln]`);
     finalLabel = "[master_ln]";
   }
 
@@ -555,7 +574,9 @@ function normalizeMasterPlan(master) {
   const denoise = ["off", "std", "strong"].includes(master.denoise) ? master.denoise : "off";
   const rawTarget = master.loudnorm;
   const loudnormTarget = typeof rawTarget === "number" && Number.isFinite(rawTarget) ? rawTarget : -14;
-  return { denoise, loudnormTarget };
+  const rawTruePeak = master.true_peak_dbtp;
+  const truePeakTarget = typeof rawTruePeak === "number" && Number.isFinite(rawTruePeak) ? rawTruePeak : -1.5;
+  return { denoise, loudnormTarget, truePeakTarget };
 }
 
 // docs/contract-2026-07-20-edit-json-v1-narration.md §4: resolve each narration element against the
@@ -703,13 +724,6 @@ function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, ov
 // docs/contract-2026-07-22-render-basics.md #4: "lut(プリセット参照 or パス)" — a bare name (no
 // path separator) resolves against presets/luts/<name>/<name>.cube; anything else is treated as a
 // path relative to the project root (same regel as source.path / audio.bgm.path elsewhere).
-function resolveLutPath(projectRoot, lutRef) {
-  if (!lutRef.includes("/") && !lutRef.includes("\\")) {
-    return join(PRESETS_LUTS_ROOT, lutRef, `${lutRef}.cube`);
-  }
-  return resolve(projectRoot, lutRef);
-}
-
 // ffmpeg filter option values split on ':' and quote-related characters; escape both before
 // wrapping the value in single quotes (lut3d's file= option; same convention as chromakey's color=).
 function escapeFilterPath(path) {

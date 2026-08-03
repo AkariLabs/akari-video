@@ -8,3 +8,11 @@
  */
 export * from './timeline-map';
 export * from './caption-window';
+
+/** Browser selection is timeline-domain only. Segmentation stays in the Node caller. */
+export function findActiveResolvedCaption<T extends { start: number; end: number }>(
+    cues: readonly T[],
+    outputTime: number
+): T | undefined {
+    return cues.find(cue => cue.start <= outputTime && outputTime < cue.end);
+}

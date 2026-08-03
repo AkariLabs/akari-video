@@ -14,6 +14,7 @@ export function buildTrackBaseCommand({
   width,
   height,
   fps,
+  videoEncodeArgs = null,
 }) {
   return {
     command: ffmpegCommand,
@@ -35,10 +36,7 @@ export function buildTrackBaseCommand({
       "0:a:0",
       "-t",
       formatNumber(duration),
-      "-c:v",
-      "libx264",
-      "-profile:v",
-      "high",
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -55,6 +53,7 @@ export function buildCutTrackCompositeCommand({
   outputPath,
   ranges,
   duration,
+  videoEncodeArgs = null,
 }) {
   const filters = [];
   const sources = ranges.length === 1
@@ -98,10 +97,7 @@ export function buildCutTrackCompositeCommand({
       "0:a:0",
       "-t",
       formatNumber(duration),
-      "-c:v",
-      "libx264",
-      "-profile:v",
-      "high",
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",

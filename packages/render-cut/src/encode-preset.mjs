@@ -8,14 +8,65 @@ import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
 // legacy Rust one did; instead the same resolved preset is applied to every video-encoding ffmpeg
 // call a given render performs, so an overlay-composited intermediate is never coarser than the
 // final output ("中間生成物は最終より劣化させない").
-export const QUALITY_LEVELS = ["high", "standard", "light"];
+export const QUALITY_LEVELS = ["master", "high", "standard", "light"];
 export const ENCODER_CHOICES = ["auto", "videotoolbox", "x264"];
 
 export const QUALITY_PRESETS = {
+  master: { crf: 15, preset: "slow", videotoolboxBitrate: null },
   high: { crf: 18, preset: "slow", videotoolboxBitrate: "12M" },
   standard: { crf: 23, preset: "medium", videotoolboxBitrate: "8M" },
   light: { crf: 26, preset: "fast", videotoolboxBitrate: "5M" },
 };
+
+/** Resolve CLI/edit/legacy precedence once. Null means the byte-identical legacy path. */
+export function resolveEncodingPolicy({ cli = {}, edit = {}, capabilities = {}, env = process.env, spawnSyncImpl = spawnSync } = {}) {
+  const editEncoding = edit?.output?.encoding ?? {};
+  const hasOptIn = cli.quality !== undefined || cli.encoder !== undefined
+    || editEncoding.quality !== undefined || editEncoding.encoder !== undefined;
+  if (!hasOptIn) return null;
+  const qualityRequested = fieldRequest(cli.quality, editEncoding.quality, "standard");
+  const encoderRequested = fieldRequest(cli.encoder, editEncoding.encoder, "x264");
+  if (!QUALITY_LEVELS.includes(qualityRequested.value)) throw new RangeError(`Unknown quality value: ${qualityRequested.value}`);
+  if (!ENCODER_CHOICES.includes(encoderRequested.value)) throw new RangeError(`Unknown encoder value: ${encoderRequested.value}`);
+  if (qualityRequested.value === "master" && encoderRequested.origin !== "legacy-default"
+      && encoderRequested.value !== "x264") {
+    throw new RangeError("master quality requires x264; explicit auto/videotoolbox is not allowed");
+  }
+  const effectiveEncoder = qualityRequested.value === "master"
+    ? { value: "x264", origin: encoderRequested.origin === "legacy-default" ? "master-required" : encoderRequested.origin }
+    : {
+        value: resolveEncoderChoice({
+          requested: encoderRequested.value,
+          ffmpegCommand: capabilities.ffmpegCommand,
+          env,
+          spawnSyncImpl,
+        }).engine,
+        origin: encoderRequested.value === "auto" ? "capability-resolution" : encoderRequested.origin,
+      };
+  const effectiveQuality = { ...qualityRequested };
+  const encoderChoice = { engine: effectiveEncoder.value };
+  return {
+    requested: { quality: qualityRequested, encoder: encoderRequested },
+    effective: { quality: effectiveQuality, encoder: effectiveEncoder },
+    video_encode_args: buildVideoEncodeArgs({ quality: effectiveQuality.value, encoderChoice, profile: "high" }),
+    non_encoding_stages: [
+      {
+        stage: "overlay_alpha_intermediate",
+        reason: "qtrle/ProRes 4444 carries transparency into composite and is not an H.264 delivery-video reencode",
+      },
+      {
+        stage: "audio_mix",
+        reason: "audio-only mix/mux preserves the already encoded video with -c:v copy",
+      },
+    ],
+  };
+}
+
+function fieldRequest(cliValue, editValue, legacyValue) {
+  if (cliValue !== undefined) return { value: cliValue, origin: "cli" };
+  if (editValue !== undefined) return { value: editValue, origin: "edit" };
+  return { value: legacyValue, origin: "legacy-default" };
+}
 
 // Process-wide cache keyed by the ffmpeg binary path (mirrors the legacy OnceLock: detection runs
 // at most once per ffmpeg binary for the lifetime of the process).
@@ -122,6 +173,7 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high" 
   if (!resolvedPreset) throw new RangeError(`Unknown --quality value: ${quality}`);
   const engine = encoderChoice?.engine ?? "x264";
   if (engine === "videotoolbox") {
+    if (quality === "master") throw new RangeError("master quality does not support videotoolbox");
     return [
       "-c:v",
       "h264_videotoolbox",

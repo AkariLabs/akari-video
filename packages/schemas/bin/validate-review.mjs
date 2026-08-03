@@ -116,7 +116,7 @@ function validateAnnotation(value, index, ids) {
   if (value.sourceT === null) {
     if (!docOrImageTarget) {
       fail(
-        `${label}.sourceT は target が doc: / image: のときに限り null を許容します（動画面の注釈には時刻が必要です）`,
+        `${label}.sourceT は target が doc: / image: / canvas: のときに限り null を許容します（動画面の注釈には時刻が必要です）`,
       );
     }
   } else if (!isFiniteNumber(value.sourceT) || value.sourceT < 0) {
@@ -127,7 +127,7 @@ function validateAnnotation(value, index, ids) {
     fail(`${label}.text は文字列である必要があります`);
   }
   if (!INPUTS.has(value.input)) {
-    fail(`${label}.input は typed または voice である必要があります`);
+    fail(`${label}.input は typed / voice / session のいずれかである必要があります`);
   }
   if (!STATUSES.has(value.status)) {
     fail(`${label}.status は open / addressed / resolved のいずれかである必要があります`);

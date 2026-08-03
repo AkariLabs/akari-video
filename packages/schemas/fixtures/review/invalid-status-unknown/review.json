@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-08-03T09:00:00+09:00","sourceT":1,"text":"bad status","input":"typed","status":"done"}
+  ]
+}

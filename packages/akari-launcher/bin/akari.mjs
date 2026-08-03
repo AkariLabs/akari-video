@@ -2,6 +2,9 @@
 import { run, runUpdateCommand } from '../src/cli.mjs';
 import { runInitCommand } from '../src/init-command.mjs';
 import { runSoundsCommand } from '../src/sounds-setup.mjs';
+import { runStatusCommand } from '../src/status-command.mjs';
+import { runAcceptCommand } from '../src/accept-command.mjs';
+import { runCapabilityCommand } from '../src/capability-command.mjs';
 
 const argv = process.argv.slice(2);
 // `akari update` / `akari init` / `akari sounds` は claude へ転送せず、専用のサブコマンド
@@ -10,6 +13,9 @@ const argv = process.argv.slice(2);
 const invoke = argv[0] === 'update' ? runUpdateCommand(argv.slice(1))
   : argv[0] === 'init' ? runInitCommand(argv.slice(1))
   : argv[0] === 'sounds' ? runSoundsCommand(argv.slice(1))
+  : argv[0] === 'status' ? runStatusCommand(argv.slice(1))
+  : argv[0] === 'accept' ? runAcceptCommand(argv.slice(1))
+  : argv[0] === 'capability' ? runCapabilityCommand(argv.slice(1))
   : run(argv);
 
 const result = await invoke.catch((error) => {

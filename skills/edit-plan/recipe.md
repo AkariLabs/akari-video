@@ -25,6 +25,12 @@
    採用を宣言したときだけ、対応する `confirmed` フィールドを今回の方針・素材計画へ**一括で**
    反映してよい（契約 §3 規律 3）。採用宣言が無ければ、レシピは参考情報のまま通常の
    Checkpoint 1〜3（[approvals-and-generation.md](approvals-and-generation.md)）を進める
+   - `caption_style_ref` は現時点では **descriptive only** の自由記述であり、registry-backed profile
+     ではない。値の名前から `display_policy`、`display_fragments`、`text_style`、`output.encoding`、
+     `audio.master` などの W5〜W7 field を推測・自動注入してはならない。採用宣言後も、各値は通常の
+     Checkpoint で今回用に明示確認する
+   - versioned profile registry と content SHA が無いため、unknown raw key の
+     `render_profile_ref` を読んだり新設したりしない。A4 の方式値を unknown key から流用しない
 6. レシピの提示は **intake の進め方フォーム等、必須質問をスキップさせる理由にしない**。
    レシピが見つかっても intake は通常どおり提出させる（契約 §3 規律 2）
 7. 複数の `workflow: "edit"` レシピが見つかった場合は、`frozen_at` が新しいものを先頭にして
@@ -70,5 +76,7 @@ Checkpoint 3（実行）の承認を得て `edit.json` と最終 overlay を作�
 - レシピの推奨値で今回の依頼を上書きする、または intake 等の必須質問をスキップする
 - 同一プロジェクトで freeze を何度も申し出る（offer-once 違反）
 - レシピ採用の明示宣言（「前回と同じで」等）が無いのに `confirmed` を無言で今回の計画へ流用する
+- descriptive-only の `caption_style_ref` を registry key と見なし、W5〜W7 field を自動適用する
+- `render_profile_ref` を先行追加する、または unknown raw key へ A4 の数値を保存・復元する
 - `~/.akari/recipes/` 以外（プロジェクト内 `planning/` 等）にレシピを保存する
 - `validate-recipe.mjs` を通さずに freeze 完了として報告する

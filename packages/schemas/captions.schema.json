@@ -32,8 +32,24 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "method": { "enum": ["webkit-outline"] },
         "color": { "$ref": "#/$defs/hexColor" },
         "width_px": { "type": "number", "minimum": 0 }
+      }
+    },
+    "referencePixelLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "reference_width_px", "reference_height_px", "left_px", "width_px", "bottom_px", "text_align", "max_lines"],
+      "properties": {
+        "mode": { "const": "reference-pixel" },
+        "reference_width_px": { "type": "integer", "minimum": 1 },
+        "reference_height_px": { "type": "integer", "minimum": 1 },
+        "left_px": { "type": "number", "minimum": 0 },
+        "width_px": { "type": "number", "exclusiveMinimum": 0 },
+        "bottom_px": { "type": "number", "minimum": 0 },
+        "text_align": { "const": "center" },
+        "max_lines": { "const": 1 }
       }
     },
     "textBackgroundStyle": {
@@ -55,12 +71,18 @@
     "textStyle": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        { "not": { "required": ["zone", "layout"] } }
+      ],
       "properties": {
         "color": { "$ref": "#/$defs/hexColor" },
         "size_px": { "type": "number", "exclusiveMinimum": 0 },
+        "font_weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "line_height": { "type": "number", "exclusiveMinimum": 0 },
         "stroke": { "$ref": "#/$defs/textStrokeStyle" },
         "background": { "$ref": "#/$defs/textBackgroundStyle" },
-        "zone": { "$ref": "#/$defs/captionZone" }
+        "zone": { "$ref": "#/$defs/captionZone" },
+        "layout": { "$ref": "#/$defs/referencePixelLayout" }
       },
       "$comment": "全フィールド任意。captionRecord.text_style は default_text_style をフィールド単位で上書きする。合成処理は消費側の責務。zone 省略時の実効値は bottom。"
     },
@@ -119,9 +141,38 @@
         },
         "style": { "enum": ["karaoke", "pop", "reveal"] },
         "display_text": { "type": "string" },
+        "display_fragments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        },
         "text_style": { "$ref": "#/$defs/textStyle" }
       },
       "$comment": "end > start、ID 一意性、words[].end >= start は JSON Schema 標準だけでは兄弟値を比較できないため validate-captions.mjs でも検証する。style は既存の単語リビール演出、text_style は見た目のスタイルであり別契約。"
+    },
+    "captionBreakHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preferred_second_starts": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "\\S" } },
+        "preferred_first_ends": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "\\S" } },
+        "protected_terms": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "\\S" } }
+      }
+    },
+    "captionDisplayPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "algorithm", "unit_metric", "max_line_units", "minimum_fragment_duration_seconds", "locale"],
+      "properties": {
+        "mode": { "const": "single_line_sequential" },
+        "algorithm": { "const": "a4-ja-two-fragment-v1" },
+        "unit_metric": { "const": "ascii-half-other-one-v1" },
+        "max_line_units": { "type": "number", "exclusiveMinimum": 0 },
+        "minimum_fragment_duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "locale": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "break_hints": { "$ref": "#/$defs/captionBreakHints" }
+      }
     },
     "captionsArray": {
       "type": "array",
@@ -133,6 +184,7 @@
       "required": ["captions"],
       "properties": {
         "default_text_style": { "$ref": "#/$defs/textStyle" },
+        "display_policy": { "$ref": "#/$defs/captionDisplayPolicy" },
         "captions": { "$ref": "#/$defs/captionsArray" }
       },
       "$comment": "default_text_style は任意。省略時は従来表示と同値。"

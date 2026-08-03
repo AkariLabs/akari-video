@@ -20,6 +20,12 @@ description: analyze-project が作る分析レポート（interpretation.json +
   チャットで決め、決定は `decision-log.md` へ記録する。`decision-log.md` の既存行は変更・削除せず、
   常に追記する。
 - **方針 → 素材計画 → 実行**の各チェックポイントで停止する。無操作、タイムアウト、過去の包括承認を今回の承認に読み替えない。
+- Checkpoint 1 で semantic keep/drop を明示承認した後、pause 候補が必要な場合だけ
+  [workflow.md](workflow.md) の cut candidate bridge を使う。bridge の全候補は
+  `REVIEW_REQUIRED` であり、`approved_to_apply:false` の report を作るだけである。
+  `edit.json` や `decision-log.md` を自動更新せず、候補 review 後も Checkpoint 3 の実行承認まで停止する。
+  適用後は [execution.md](execution.md) の cut 後 ASR 再検証、情報保持、UI timing、audio 境界を人間が
+  同じ版で確認し、`HUMAN_APPLY_GATE` を明示承認するまで完成扱いにしない。
 - 静止画は生成物として保存し、provenance とともにチャットで提示する。i2v、アバター、その他の動画生成は対応静止画・素材計画・実行の承認がすべて揃うまで行わない。
 - 有償または重い生成の前に、使う手、理由、代替案、影響を宣言する。画像生成は Codex 画像生成を先に検討し、次に Akari Cloud を検討する。OpenAI、Gemini 等の API キーを直叩きしない。
 - `edit.json` は [M1〜M4 v0 契約](../../docs/contract-2026-07-13-m1-m4.md) の単一 `source` 形を既定とし、勝手に複数 source、音声 track、B ロール track を発明しない。足してよいのは**公開契約が定めたフィールドだけ**である（[sources[]](../../docs/contract-2026-07-18-edit-json-v1-sources.md) / [audio](../../docs/contract-2026-07-14-edit-json-v1-audio.md) / [audio.narration[]](../../docs/contract-2026-07-20-edit-json-v1-narration.md) / [beats[]](../../docs/contract-2026-07-22-edit-json-v1-beats.md)）。契約のない未定義フィールドは足さない。
@@ -46,19 +52,22 @@ description: analyze-project が作る分析レポート（interpretation.json +
 3. 方針をチャットで人間に提示し（推奨・代替案・理由・得失を示す。「どうしますか」で丸投げ
    しない）、明示承認または修正指示を得る。確定内容を `decision-log.md` に追記する。
 4. [approvals-and-generation.md](approvals-and-generation.md) を読み、生成宣言、provenance、3 段階承認を運用する。Checkpoint 1 はチャットでの明示承認を得るまで編集実行に進まない。
-5. 実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json`（単一素材なら v0、複数素材なら v1）とオーバーレイ HTML を生成・検証する。完了処理として [recipe.md](recipe.md) の freeze 手順を確認し、そのプロジェクトで未申し出なら一度だけ（offer-once）レシピ化を人間に申し出る。
-6. 見せ場マーカーを書く工程では [beats.md](beats.md) を読み、`analysis.json` の events / transcript から
+5. Checkpoint 1 の承認後に無音短縮を検討する場合は [workflow.md](workflow.md) の専用 keep plan を組み、
+   `bin/propose-cut-candidates.mjs` で review-only report を提示する。候補の採否・classification 修正を
+   チャットで確認し、`decision-log.md` へ人間承認に基づき追記する。helper 自身には追記させない。
+6. Checkpoint 3 の実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json`（単一素材なら v0、複数素材なら v1）とオーバーレイ HTML を生成・検証する。完了処理として [recipe.md](recipe.md) の freeze 手順を確認し、そのプロジェクトで未申し出なら一度だけ（offer-once）レシピ化を人間に申し出る。
+7. 見せ場マーカーを書く工程では [beats.md](beats.md) を読み、`analysis.json` の events / transcript から
    `beats[]` を導出する（マッピング表・座標系・導出段のガードレール = 下限と根拠・worked example）。
-7. 承認済みの `beats[]` を演出へ連動させる工程では [beat-sync.md](beat-sync.md) を読み、射影・SE 発火
+8. 承認済みの `beats[]` を演出へ連動させる工程では [beat-sync.md](beat-sync.md) を読み、射影・SE 発火
    規則・章転換のスナップ・密度ガードレール・SE 既定表に従って `audio.sfx[]` を組む（v0 は SE + カット境界 + 既存
    overlay 部品まで。トランジション語彙の発明とビート連動の BGM 操作をしない）。
-8. シーンごとに使う表現手段を決める工程では [expression-selection.md](expression-selection.md) を読み、
+9. シーンごとに使う表現手段を決める工程では [expression-selection.md](expression-selection.md) を読み、
    意味 → 手段の対応表・演出カードの `allowed_means` によるハードフィルタ・カタログ接続
    （`when_to_use` / `tags` 検索とライセンス確認）・選択根拠の記録に従って候補を決める
    （候補の決め方であり、素材計画の承認ゲートは従来どおり通す）。
-9. 語レベル演出を書く工程では [emphasis-detection.md](emphasis-detection.md) を読み、`analysis.json` の
+10. 語レベル演出を書く工程では [emphasis-detection.md](emphasis-detection.md) を読み、`analysis.json` の
    `transcript[].words` から `emphasis_words[]` を導出する（対象 tier のゲート・選定規則 = 候補 / 見せ場連動 /
    密度・`emotion` の文脈判断・`style_hint` の目安・根拠の記録・worked example）。
-10. 人・キャラクター（アバター）の挿入を求められた工程では [avatar-resolution.md](avatar-resolution.md) を読み、段階読み出し（L0/L1/L2）・rendition 解決・decision card・記録の手順に従う。
+11. 人・キャラクター（アバター）の挿入を求められた工程では [avatar-resolution.md](avatar-resolution.md) を読み、段階読み出し（L0/L1/L2）・rendition 解決・decision card・記録の手順に従う。
 
 現在の工程に必要なリーフだけを読み、後工程を先回りして実行しない。

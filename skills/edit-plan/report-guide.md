@@ -54,6 +54,13 @@ analyze-project を実行するよう促す（analyze-project 自身は edit-pla
 チャットでの提示 → 回答は [approvals-and-generation.md](approvals-and-generation.md) の
 Checkpoint 1（方針）として運用し、確定内容を `decision-log.md`（[decision_log](#decision_log) 節の慣行）へ追記する。
 
+Checkpoint 1 で semantic keep/drop と source occurrence 順を承認した後、会話の間を短くする必要が
+ある場合は [workflow.md](workflow.md) の cut candidate bridge を追加 review に使う。report は
+`analysis.json` の filler/trouble と、承認済み occurrence 内に完全包含された -35 dB / 0.45 秒以上の
+silence を提示する。候補は自動採用しない。特に `UI_WAIT_UNRESOLVED`、
+`INFORMATION_RETENTION_REVIEW`、`PARTIAL_EVENT_OCCURRENCE` を人間が確認し、画面 keyframe があっても
+操作待ち解決済みとは扱わない。語時刻が不完全な source は pause 検出自体を行わない。
+
 ## サムネイル案
 
 3 経路（実フレーム / Codex 生成 / 混成）の候補画像を作り、チャットで比較提示する。
