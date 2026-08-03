@@ -12,6 +12,9 @@
   [Y/n] 1 問（既定 Yes・生涯 1 回）または `akari sounds`
   （実体: `node packages/audio-library-setup/bin/fetch-akari-sounds.mjs`。
   手順: [`skills/setup-audio-library/first-party.md`](../../skills/setup-audio-library/first-party.md)）
+- **BGM の選曲は自動提案 CLI が起点**: `node packages/audio-library-setup/bin/suggest-bgm.mjs --tone <トーン>`
+  （表現選定と同じ 8 語彙 × 系統対応表 × 体感 BPM の決定論ランキング。編集フローでの使い方:
+  [`skills/edit-plan/report-guide.md`](../../skills/edit-plan/report-guide.md) §素材計画）
 
 ## 音源セットアップ（補完分・半自動ドロップフォルダ方式）
 

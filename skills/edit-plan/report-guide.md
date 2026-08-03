@@ -98,6 +98,25 @@ Checkpoint 1（方針）として運用し、確定内容を `decision-log.md`�
 2. **なければ生成**: prompt、生成する手、生成済み静止プレビュー、provenance を示す。動画 B ロールはまず静止画だけを作る。
 3. **使わない**: 無理に埋めず、非採用理由を示す。
 
+**BGM の「あれば提案」は自動提案 CLI が既定の起点**（2026-08-03 導入。BGM の既定ソースは
+自社ライブラリ AKARI Sounds — [catalog/audio/INDEX.md](../../catalog/audio/INDEX.md)）:
+
+```sh
+node packages/audio-library-setup/bin/suggest-bgm.mjs --tone <トーン> [--tone <トーン>] [--tempo ゆったり|標準|高速] [--json]
+```
+
+- `--tone` は方針で確定した作品トーン（表現選定と同じ 8 語彙:
+  真面目/親しみ/高級感/勢い/かわいい/無機質/エモい/シネマ。複合トーンは複数指定）。
+  出力の `path` はローカル実体（`~/.akari/assets/audio/akari-sounds-bgm/`）で、
+  そのまま `audio.bgm.path` に書ける。**未導入（`akari sounds` 未実行）なら CLI が案内を出す** —
+  その場合は導入を促すか、従来どおりの手動検索に切り替える
+- これは**候補の提示まで**。上位候補から試聴参照つきで提示し、採用は Checkpoint 2 の承認で
+  決める（自動提案の結果を無承認で `edit.json` に書かない）。提示には
+  「suggest-bgm の第 N 候補（tone: ◯◯）」と根拠を書き、別の候補や手動選定へ逸脱するときは
+  理由を 1 行残す
+- AKARI Sounds に合う系統が無い（該当なし・トーンが特殊）ときだけ、従来のスコープ層検索と
+  外部補完（`catalog/audio/` の SFX 補完・候補リスト）へ広げる
+
 候補が見つからないことを「あれば提案」と記録しない。BGM と SFX は `audio`、ナレーションは `audio.narration[]`、動画 B ロールは v1 の `sources[]` + `cuts[].src` へ格納できる（[execution.md](execution.md) §1）。公開契約のどのフィールドでも表せない演出だけ、計画上の採用と `edit.json` への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
 
 ナレーションの話者がアバターのときは、原稿を書く前に [avatar-resolution.md](avatar-resolution.md#台本生成への接続persona-注入s2-具体化) の persona 注入手順（ペルソナ要約の反映・NG 遵守）に従う。

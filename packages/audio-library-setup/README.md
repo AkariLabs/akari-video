@@ -13,6 +13,8 @@
 | `shared/akari-sounds.mjs` | 自社（first-party）ライブラリ AKARI Sounds の URL 構築・catalog.json → パック登録プラン・meta.json 組み立て（純粋ロジックのみ） |
 | `shared/waveform-preview.mjs` | 音声実体から preview.png（波形画像）を ffmpeg で生成する共有ロジック |
 | `bin/fetch-akari-sounds.mjs` | AKARI Sounds を GitHub Release から**一括取得**し user スコープへ登録する CLI（first-party のみ許可。取得先は AkariLabs/akari-sounds に限定） |
+| `shared/bgm-suggest.mjs` | BGM 自動提案の純粋ロジック — tone 語彙（表現選定と同じ 8 語）× 系統対応表 `FAMILY_TONE_RULES` × 体感 BPM で決定論ランキング |
+| `bin/suggest-bgm.mjs` | BGM 自動提案 CLI。導入済みスナップショット（`.origin-catalog.json`）を読み、`--tone`（複数可）`--tempo` から候補 + ローカル実体パスを提示（`--json` あり）。ネットワーク不使用 |
 | `bin/generate-candidates-html.mjs` | 候補リストの静的自己完結 HTML を生成する CLI。ダウンロードは一切行わない |
 | `bin/register-drop-folder.mjs` | ドロップフォルダを走査し、候補と照合して `~/.akari/assets/audio/<id>/`（user スコープ）へ実体配置 + `catalog/audio/<id>/meta.json`（remote 参照）を書く CLI。既定は plan-only、`--apply` で実行 |
 | `gallery-server.mjs` + `gallery-template.html` | 登録済み音源の試聴 + keep/drop を記録するローカル HTTP サーバ（`127.0.0.1` のみ） |
@@ -34,6 +36,9 @@
 # 既定: AKARI Sounds（BGM/効果音/ジングル）を一括取得して登録
 # （ユーザー向けには `akari` 初回起動時の [Y/n] 1 問、または `akari sounds` が同じ処理を呼ぶ）
 node packages/audio-library-setup/bin/fetch-akari-sounds.mjs
+
+# BGM 自動提案（tone → AKARI Sounds 候補 + ローカルパス。編集エージェントの素材計画用）
+node packages/audio-library-setup/bin/suggest-bgm.mjs --tone 親しみ --tempo ゆったり
 
 # 補完分（拍手・失敗音など）の候補リスト HTML を生成
 node packages/audio-library-setup/bin/generate-candidates-html.mjs
