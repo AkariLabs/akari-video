@@ -5275,7 +5275,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const CAPTION_BOUNDARIES = ['から', 'まで', 'ので', 'のに', 'けど', 'て', 'で', 'は', 'が', 'を', 'に', 'へ', 'と', 'も', 'の'];
             const findLastSpaceBoundary = (characters, maximum) => {
                 for (let index = maximum - 1; index > 0; index -= 1) {
-                    if (characters[index] === ' ' || characters[index] === '　') return index + 1;
+                    if (characters[index] === ' ' || characters[index] === '\u3000') return index + 1;
                 }
                 return null;
             };
