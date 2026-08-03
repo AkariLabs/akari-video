@@ -10,8 +10,9 @@ export interface Variable {
   /**
    * 'font' は 2026-08-03 拡張（fontFamily ツマミ）: 値は CSS フォントスタック文字列。
    * UI は options から選択制にする（同梱フォントだけを選ばせて環境差を出さないため）
+   * 'select' は同日拡張（標準アニメツマミ）: 値は options 内の id 文字列。
    */
-  type: 'text' | 'color' | 'number' | 'font'
+  type: 'text' | 'color' | 'number' | 'font' | 'select'
   label: string
   default: string | number
   /** UI / AI 操作面で同じ要素に属するツマミを束ねるグループ id */
@@ -19,7 +20,7 @@ export interface Variable {
   /** テンプレート間でツマミの意味を横断検索するための固定 role 語彙 */
   role?: string
   optional?: boolean
-  /** type='font' 用の選択肢（CSS フォントスタック文字列）。他 type では未使用 */
+  /** type='font' / 'select' 用の選択肢。font は CSS stack、select は安定 id */
   options?: string[]
 }
 

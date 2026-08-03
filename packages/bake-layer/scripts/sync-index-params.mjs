@@ -14,7 +14,8 @@ const REPO_ROOT = join(import.meta.dirname, "..", "..", "..")
 const PRESETS_TELOP = join(REPO_ROOT, "presets", "telop")
 const INDEX_PATH = join(PRESETS_TELOP, "index.jsonl")
 
-// index.jsonl の params に載せるフィールド（Variable のうち UI に要るものだけ）
+// index.jsonl の params に載せるフィールド（Variable のうち UI に要るものだけ）。
+// font / select は options もそのまま同期し、安定 id の選択面を index 側でも保持する。
 const PARAM_FIELDS = ["key", "type", "label", "default", "options", "optional", "group", "role"]
 
 function paramsFromVariables(variables) {

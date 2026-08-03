@@ -1,10 +1,11 @@
 // ATF → ResolvedScene の変換（変数解決 + 式評価 + 実測）
-import type { AtfDoc, AtfLayer, ClipSpec, GradientFill, PerChar, ResolvedClipSpec, ResolvedGradientFill, ResolvedLayer, ResolvedScene, ResolvedTextContent, ResolvedShapeContent, TextContent, ShapeContent, Value } from './types'
+import type { AtfDoc, AtfLayer, ClipSpec, GradientFill, PerChar, ResolvedClipSpec, ResolvedGradientFill, ResolvedLayer, ResolvedScene, ResolvedTextContent, ResolvedShapeContent, TextContent, ShapeContent, Track, Value } from './types'
 import type { MeasureText } from './measure'
 import { verticalLayout } from './vertical'
 import { evalExprWithHas } from './expr'
 import { classifyGlyph } from '../render/perchar'
 import { isEmphasizedAt, parseTextRuns, type TextRun } from './text-runs'
+import { buildTextAnimationTracks, TEXTANIM_RECIPE_SLOTS } from './textanim-recipes.mjs'
 
 // --- テキスト堅牢化（shrink-to-fit）定数 ---
 // 2026-07-22 telop-tunables タスクで追加（vendor/PROVENANCE.md 参照）。
@@ -23,6 +24,95 @@ const FIT_MAX_ITERATIONS = 4
 const FIT_ABSOLUTE_MIN_PX = 10
 /** 既定の最小スケール（元サイズに対する比率）。layer.fit.minScale で上書き可能 */
 const FIT_DEFAULT_MIN_SCALE = 0.3
+const DEFAULT_TEXTANIM_DURATION_SEC = 0.6
+const DEFAULT_TEXTANIM_LOOP_PERIOD_SEC = 1.6
+
+type AnimationSlot = 'in' | 'hold' | 'out'
+
+function numericBinding(value: string | number | undefined, fallback: number): number {
+  const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''))
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback
+}
+
+function animationSelection(
+  vars: Record<string, string | number>,
+  key: 'animIn' | 'animOut' | 'animLoop',
+): string {
+  const value = String(vars[key] ?? 'original')
+  if (value === 'original' || value === 'none') return value
+  const expectedSlot = key === 'animLoop' ? 'loop' : 'in'
+  return TEXTANIM_RECIPE_SLOTS[value] === expectedSlot ? value : 'original'
+}
+
+function stripAnimationPhase(layer: ResolvedLayer, phase: AnimationSlot): void {
+  layer.tracks = layer.tracks?.filter((track) => (track.phase ?? 'hold') !== phase)
+  if (!layer.perChar) return
+  layer.perChar = {
+    ...layer.perChar,
+    tracks: layer.perChar.tracks.filter((track) => (track.phase ?? 'hold') !== phase),
+    ...(phase === 'hold' ? { loop: undefined } : {}),
+  }
+}
+
+/**
+ * 標準アニメ変数を resolve 済み全レイヤーへ合成する。
+ * 3 スロットすべて original のときは呼び出し側が完全スキップする。
+ */
+function composeTextAnimation(
+  layers: ResolvedLayer[],
+  timing: AtfDoc['timing'],
+  stage: ResolvedScene['stage'],
+  vars: Record<string, string | number>,
+): AtfDoc['timing'] {
+  const selections = {
+    in: animationSelection(vars, 'animIn'),
+    hold: animationSelection(vars, 'animLoop'),
+    out: animationSelection(vars, 'animOut'),
+  }
+  const durations = {
+    in: selections.in === 'none' ? 0 : numericBinding(vars.animInSec, DEFAULT_TEXTANIM_DURATION_SEC),
+    hold: DEFAULT_TEXTANIM_LOOP_PERIOD_SEC,
+    out: selections.out === 'none' ? 0 : numericBinding(vars.animOutSec, DEFAULT_TEXTANIM_DURATION_SEC),
+  }
+  const nextTiming = {
+    ...(timing ?? {
+      inDur: 0,
+      outDur: 0,
+      hold: 'stretch' as const,
+      previewTotal: stage.duration,
+    }),
+  }
+
+  if (selections.in !== 'original') nextTiming.inDur = durations.in
+  if (selections.out !== 'original') nextTiming.outDur = durations.out
+  if (selections.hold !== 'original') {
+    nextTiming.hold = 'stretch'
+    nextTiming.holdDur = durations.hold
+    nextTiming.loopHold = selections.hold !== 'none'
+  }
+
+  for (const layer of layers) {
+    for (const phase of ['in', 'hold', 'out'] as const) {
+      const selection = selections[phase]
+      if (selection === 'original') continue
+      stripAnimationPhase(layer, phase)
+      if (selection === 'none') continue
+      const tracks = buildTextAnimationTracks(
+        selection,
+        phase,
+        durations[phase],
+        layer.transform.opacity,
+        stage,
+      ) as Track[]
+      layer.tracks = [...(layer.tracks ?? []), ...tracks]
+    }
+    // sampleLayerTransform は後勝ちなので、完了済み in が original out を上書きしないよう
+    // phase 順を必ず in → hold → out に揃える（同 phase 内の既存順は stable sort で維持）。
+    const phaseRank = { in: 0, hold: 1, out: 2 }
+    layer.tracks?.sort((a, b) => phaseRank[a.phase ?? 'hold'] - phaseRank[b.phase ?? 'hold'])
+  }
+  return nextTiming
+}
 
 /** テンプレート全体 bbox 上の 9 点アンカーを相対座標へ変換する。 */
 export const ANCHOR_FRACS: Record<NonNullable<AtfDoc['anchor']>, { fracX: number; fracY: number }> = {
@@ -807,5 +897,14 @@ export function resolve(
     .filter(l => resolvedMap.has(l.id))
     .map(l => resolvedMap.get(l.id)!)
 
-  return { stage, timing: doc.timing, layers: orderedLayers }
+  const animIn = animationSelection(vars, 'animIn')
+  const animOut = animationSelection(vars, 'animOut')
+  const animLoop = animationSelection(vars, 'animLoop')
+  // original は完全スキップ。既存 timing / tracks / perChar を参照も複製もせず返すことで、
+  // 標準アニメ変数追加前と同じ resolve 結果・レンダ出力を保つ。
+  const resolvedTiming = animIn === 'original' && animOut === 'original' && animLoop === 'original'
+    ? doc.timing
+    : composeTextAnimation(orderedLayers, doc.timing, stage, vars)
+
+  return { stage, timing: resolvedTiming, layers: orderedLayers }
 }
