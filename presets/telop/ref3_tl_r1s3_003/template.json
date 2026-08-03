@@ -76,6 +76,41 @@
       "type": "color",
       "label": "影色",
       "default": "rgba(0,0,0,0.55)"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 700
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（ずらし）",
+      "default": 0
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（ずらし）",
+      "default": 0
     }
   ],
   "layers": [
@@ -112,8 +147,12 @@
         "h": 120
       },
       "transform": {
-        "x": 60,
-        "y": 890,
+        "x": {
+          "expr": "posX + 60"
+        },
+        "y": {
+          "expr": "posY + 890"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -172,8 +211,12 @@
         "h": 5
       },
       "transform": {
-        "x": 60,
-        "y": 890,
+        "x": {
+          "expr": "posX + 60"
+        },
+        "y": {
+          "expr": "posY + 890"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -226,8 +269,12 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 700,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -243,8 +290,12 @@
         }
       },
       "transform": {
-        "x": 88,
-        "y": 904,
+        "x": {
+          "expr": "posX + 88"
+        },
+        "y": {
+          "expr": "posY + 888"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -297,7 +348,9 @@
         "size": {
           "var": "subFontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 400,
         "color": {
           "var": "color_text_2"
@@ -306,8 +359,12 @@
         "letterSpacing": 1
       },
       "transform": {
-        "x": 88,
-        "y": 976,
+        "x": {
+          "expr": "posX + 88"
+        },
+        "y": {
+          "expr": "posY + 968"
+        },
         "anchor": {
           "x": 0,
           "y": 0

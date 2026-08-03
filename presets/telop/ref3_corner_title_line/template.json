@@ -40,6 +40,42 @@
       "type": "color",
       "label": "シャドウ色",
       "default": "rgba(0,0,0,0.45)"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "system-ui",
+      "options": [
+        "system-ui",
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 800
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（ずらし）",
+      "default": 0
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（ずらし）",
+      "default": 0
     }
   ],
   "layers": [
@@ -51,8 +87,12 @@
           "var": "title"
         },
         "size": 88,
-        "font": "system-ui",
-        "weight": 800,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -67,8 +107,12 @@
         }
       },
       "transform": {
-        "x": 60,
-        "y": 60,
+        "x": {
+          "expr": "posX + 60"
+        },
+        "y": {
+          "expr": "posY + 60"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -122,9 +166,11 @@
         "h": 5
       },
       "transform": {
-        "x": 60,
+        "x": {
+          "expr": "posX + 60"
+        },
         "y": {
-          "expr": "60 + @ref3_corner_title_line_title.height + 8"
+          "expr": "posY + (60 + @ref3_corner_title_line_title.height + 8)"
         },
         "anchor": {
           "x": 0,

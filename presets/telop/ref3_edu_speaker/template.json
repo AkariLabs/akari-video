@@ -34,6 +34,41 @@
       "type": "color",
       "label": "縁色",
       "default": "#000000"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 800
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（ずらし）",
+      "default": 0
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（ずらし）",
+      "default": 0
     }
   ],
   "layers": [
@@ -45,8 +80,12 @@
           "var": "text"
         },
         "size": 92,
-        "font": "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
-        "weight": 800,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -62,10 +101,10 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "posX + (@stage.width / 2)"
         },
         "y": {
-          "expr": "@stage.height - 72"
+          "expr": "posY + (@stage.height - 72)"
         },
         "anchor": {
           "x": 0.5,

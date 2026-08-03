@@ -1213,7 +1213,11 @@ function drawText(
   }
 
   // shimmer は時刻 t に依存するため必ず引き渡す（未指定だと NaN グラデで例外になる）
-  drawTextRun(ctx, content, displayText, textX, strokeOutset, content.size, 0, w, content.color, t)
+  // y の +size*0.1: レイヤー box 高さは実測 1.2×size（measure.ts）。em ボックス（1.0×size）を
+  // box 内で上下対称に置くための補正で、perChar 経路（drawPerChar の glyphY）・カーソル経路と
+  // 同一。これが無いと em が box 上端に張り付き、anchor 中央合わせのテキストが約 0.1×size
+  // 上ずれする（2026-08-03 テロップ棚の全体上ずれの根本原因）。
+  drawTextRun(ctx, content, displayText, textX, strokeOutset + content.size * 0.1, content.size, 0, w, content.color, t)
 
   // letterSpacing リセット
   if (letterSpacing !== 0) {

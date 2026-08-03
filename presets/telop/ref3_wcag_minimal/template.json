@@ -34,6 +34,41 @@
       "type": "color",
       "label": "文字色",
       "default": "#000000"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 600
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（ずらし）",
+      "default": 0
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（ずらし）",
+      "default": 0
     }
   ],
   "layers": [
@@ -55,9 +90,11 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "posX + (@stage.width / 2)"
         },
-        "y": 900,
+        "y": {
+          "expr": "posY + 900"
+        },
         "anchor": {
           "x": 0.5,
           "y": 0.5
@@ -102,8 +139,12 @@
           "var": "text"
         },
         "size": 64,
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 600,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -111,9 +152,11 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "posX + (@stage.width / 2)"
         },
-        "y": 900,
+        "y": {
+          "expr": "posY + 900"
+        },
         "anchor": {
           "x": 0.5,
           "y": 0.5

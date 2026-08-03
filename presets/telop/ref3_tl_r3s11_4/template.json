@@ -112,6 +112,29 @@
       "type": "color",
       "label": "グロー色",
       "default": "rgba(220,170,20,0.38)"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 400
     }
   ],
   "layers": [
@@ -304,8 +327,12 @@
         "size": {
           "var": "titleFontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 400,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text_2"
         },
@@ -325,7 +352,7 @@
           "expr": "posX + 28"
         },
         "y": {
-          "expr": "posY - nameFontSize - titleFontSize - padY - 2"
+          "expr": "posY - nameFontSize - titleFontSize - padY - 32"
         },
         "anchor": {
           "x": 0,
@@ -439,7 +466,7 @@
           "expr": "posX + 28"
         },
         "y": {
-          "expr": "posY - nameFontSize - padY"
+          "expr": "posY - nameFontSize - padY - 30"
         },
         "anchor": {
           "x": 0,

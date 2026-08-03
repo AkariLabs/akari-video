@@ -94,6 +94,29 @@
       "type": "color",
       "label": "影色",
       "default": "rgba(0,0,0,0.14)"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 900
     }
   ],
   "layers": [
@@ -181,7 +204,7 @@
           "expr": "posX + 20"
         },
         "y": {
-          "expr": "posY + fontSize * 0.54"
+          "expr": "posY + fontSize * 0.26"
         },
         "anchor": {
           "x": 0,
@@ -253,8 +276,12 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
-        "weight": 900,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -278,7 +305,7 @@
           "expr": "posX + 28"
         },
         "y": {
-          "expr": "posY - subFontSize * 0.55"
+          "expr": "posY - fontSize * 0.42"
         },
         "anchor": {
           "x": 0,
@@ -355,7 +382,9 @@
         "size": {
           "var": "subFontSize"
         },
-        "font": "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 500,
         "color": {
           "var": "color_text_2"
@@ -368,7 +397,7 @@
           "expr": "posX + 30"
         },
         "y": {
-          "expr": "posY + fontSize * 0.52"
+          "expr": "posY + fontSize * 0.65"
         },
         "anchor": {
           "x": 0,

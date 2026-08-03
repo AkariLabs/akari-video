@@ -41,6 +41,41 @@
       "type": "color",
       "label": "文字色",
       "default": "#111111"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Serif JP', serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 800
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（ずらし）",
+      "default": 0
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（ずらし）",
+      "default": 0
     }
   ],
   "layers": [
@@ -62,8 +97,12 @@
         }
       },
       "transform": {
-        "x": 0,
-        "y": 0,
+        "x": {
+          "expr": "posX + 0"
+        },
+        "y": {
+          "expr": "posY + 0"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -110,8 +149,12 @@
           "var": "word"
         },
         "size": 486,
-        "font": "'Noto Serif JP', serif",
-        "weight": 800,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -119,10 +162,10 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "posX + (@stage.width / 2)"
         },
         "y": {
-          "expr": "@stage.height / 2"
+          "expr": "posY + (@stage.height / 2)"
         },
         "anchor": {
           "x": 0.5,
@@ -170,7 +213,9 @@
           "var": "text2"
         },
         "size": 216,
-        "font": "'Noto Serif JP', serif",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 800,
         "color": {
           "var": "color_text"
@@ -179,10 +224,10 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "posX + (@stage.width / 2)"
         },
         "y": {
-          "expr": "@stage.height / 2 + 300"
+          "expr": "posY + (@stage.height / 2 + 300)"
         },
         "anchor": {
           "x": 0.5,

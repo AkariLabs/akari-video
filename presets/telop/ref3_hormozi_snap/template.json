@@ -58,6 +58,30 @@
       "type": "number",
       "label": "テロップの縦位置（px）",
       "default": 700
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "system-ui",
+      "options": [
+        "system-ui",
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 900
     }
   ],
   "layers": [
@@ -69,7 +93,9 @@
           "var": "normalText"
         },
         "size": 108,
-        "font": "system-ui",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 900,
         "color": {
           "var": "color_text"
@@ -159,8 +185,12 @@
           "var": "emphasisText"
         },
         "size": 128,
-        "font": "system-ui",
-        "weight": 900,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_accent"
         },

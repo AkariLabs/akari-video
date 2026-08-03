@@ -1,9 +1,12 @@
 // render-session — harness バンドルをページへ注入し、フレームごとに PNG data URL を取り出す。
 // fx 版（renderFxFrames）は 2026-07-22 司令塔裁定でスコープ除外に伴い削除済み。
 import { buildTelopHarness } from "./build-harness.mjs"
+import { registerBundledFonts } from "./fonts.mjs"
 
 export async function renderTelopFrames(page, { doc, bindings = {}, aspect, size, duration, fps }) {
   const bundle = await buildTelopHarness()
+  // 同梱フォントを先に登録する（harness の init は注入直後に実測するため、後からでは効かない）
+  await registerBundledFonts(page, doc)
   await page.addScriptTag({ content: bundle })
   await page.evaluate(
     (docArg, bindingsArg, aspectArg) => {

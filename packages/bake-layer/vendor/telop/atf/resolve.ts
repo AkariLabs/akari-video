@@ -249,6 +249,8 @@ export function resolve(
       collect(c.text)
       collect(c.size)
       collect(c.color)
+      if (c.font !== undefined) collect(c.font)
+      if (c.weight !== undefined) collect(c.weight)
       if (c.letterSpacing !== undefined) collect(c.letterSpacing)
       if (c.stroke) {
         collect(c.stroke.color)
@@ -375,7 +377,12 @@ export function resolve(
     if (layer.type === 'text') {
       const c = layer.content as TextContent
       const text = resolveStr(c.text)
-      const font = c.font ?? 'system-ui'
+      // font / weight は Value（2026-08-03 fontFamily / fontWeight ツマミ対応）。
+      // 実測（measureBlock）より前に解決しないと、ツマミでフォントを替えたとき
+      // 実測と描画が食い違う
+      const font = c.font !== undefined ? resolveStr(c.font, 'system-ui') : 'system-ui'
+      const weightNum = c.weight !== undefined ? resolveNum(c.weight, 0) : 0
+      const resolvedWeight = Number.isFinite(weightNum) && weightNum > 0 ? weightNum : undefined
       // size は Value なので数値へ解決する（shrink-to-fit で縮小しうるため let）
       let resolvedSize = resolveNum(c.size, 0)
       // letterSpacing は Value（なければ 0）
@@ -398,7 +405,7 @@ export function resolve(
       const measureBlock = (size: number): { width: number; height: number } =>
         isVertical
           ? verticalLayout(text, size, resolvedLetterSpacing)
-          : measureTextLayer(text, font, size, c.weight, layer.perChar, measure, resolvedLetterSpacing)
+          : measureTextLayer(text, font, size, resolvedWeight, layer.perChar, measure, resolvedLetterSpacing)
 
       // --- テキスト堅牢化（shrink-to-fit） ---
       // どんな長さのテキストでもキャンバス安全域（+ layer.fit の任意指定）からはみ出さないよう、
@@ -406,8 +413,30 @@ export function resolve(
       // 算出する（このレイヤー自身の @id.width 等はまだスコープに無いため、self 参照はしない）。
       const anchorX = layer.transform.anchor.x
       const anchorY = layer.transform.anchor.y
-      const tx0 = resolveNum(layer.transform.x)
-      const ty0 = resolveNum(layer.transform.y)
+      // 位置ツマミ（posX / posY / xOffset / yOffset）はキャンバス外への意図的な移動にも使う
+      // （画面外から入る/出る演出前提・2026-08-03 オーナー裁定）。shrink-to-fit の安全域は
+      // ツマミの現在値ではなく既定値で評価し、「動かしたら文字が縮む」誤発動を防ぐ。
+      const fitScope: Record<string, number> = { ...scope }
+      for (const variable of doc.variables) {
+        if (!['posX', 'posY', 'xOffset', 'yOffset'].includes(variable.key)) continue
+        const def = typeof variable.default === 'number' ? variable.default : parseFloat(String(variable.default))
+        if (Number.isFinite(def)) fitScope[variable.key] = def
+      }
+      const resolveNumForFit = (v: Value, fallback = 0): number => {
+        if (typeof v === 'number') return v
+        if (typeof v === 'string') return parseFloat(v) || fallback
+        if ('var' in v) {
+          if (v.var in fitScope) return fitScope[v.var]
+          const val = vars[v.var]
+          if (typeof val === 'number') return val
+          if (typeof val === 'string') return parseFloat(val) || fallback
+          return fallback
+        }
+        if ('expr' in v) return evalExprWithHas(v.expr, fitScope, hasKeys)
+        return fallback
+      }
+      const tx0 = resolveNumForFit(layer.transform.x)
+      const ty0 = resolveNumForFit(layer.transform.y)
       const marginX = stageWidth * FIT_SAFE_MARGIN_FRAC
       const marginY = stageHeight * FIT_SAFE_MARGIN_FRAC
       const canvasMaxW = Math.max(
@@ -468,8 +497,8 @@ export function resolve(
       const textContent: ResolvedTextContent = {
         text,
         size: resolvedSize,
-        font: c.font,
-        weight: c.weight,
+        font: c.font !== undefined ? font : undefined,
+        weight: resolvedWeight,
         color: resolveStr(c.color, '#ffffff'),
         align: c.align,
         vertical: c.vertical,

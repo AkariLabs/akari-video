@@ -52,6 +52,42 @@
       "type": "color",
       "label": "タイトルのシャドウ色",
       "default": "rgba(0,0,0,0.5)"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "system-ui",
+      "options": [
+        "system-ui",
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 600
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（ずらし）",
+      "default": 0
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（ずらし）",
+      "default": 0
     }
   ],
   "layers": [
@@ -74,8 +110,12 @@
         }
       },
       "transform": {
-        "x": 60,
-        "y": 60,
+        "x": {
+          "expr": "posX + 60"
+        },
+        "y": {
+          "expr": "posY + 60"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -135,7 +175,9 @@
           "var": "chapterLabel"
         },
         "size": 25,
-        "font": "system-ui",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 600,
         "color": {
           "var": "color_text_2"
@@ -143,8 +185,12 @@
         "align": "left"
       },
       "transform": {
-        "x": 80,
-        "y": 70,
+        "x": {
+          "expr": "posX + 80"
+        },
+        "y": {
+          "expr": "posY + 70"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -204,8 +250,12 @@
           "var": "chapterTitle"
         },
         "size": 30,
-        "font": "system-ui",
-        "weight": 600,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -221,10 +271,10 @@
       },
       "transform": {
         "x": {
-          "expr": "60 + @ref3_chapter_tag_label.width + 40 + 12"
+          "expr": "posX + (60 + @ref3_chapter_tag_label.width + 40 + 12)"
         },
         "y": {
-          "expr": "60 + (@ref3_chapter_tag_label.height + 20) / 2"
+          "expr": "posY + (60 + (@ref3_chapter_tag_label.height + 20) / 2)"
         },
         "anchor": {
           "x": 0,

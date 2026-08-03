@@ -7,10 +7,16 @@ export type Value = number | string | { var: string } | { expr: string }
 /** テンプレート変数定義 */
 export interface Variable {
   key: string
-  type: 'text' | 'color' | 'number'
+  /**
+   * 'font' は 2026-08-03 拡張（fontFamily ツマミ）: 値は CSS フォントスタック文字列。
+   * UI は options から選択制にする（同梱フォントだけを選ばせて環境差を出さないため）
+   */
+  type: 'text' | 'color' | 'number' | 'font'
   label: string
   default: string | number
   optional?: boolean
+  /** type='font' 用の選択肢（CSS フォントスタック文字列）。他 type では未使用 */
+  options?: string[]
 }
 
 /** イージング種別 */
@@ -311,8 +317,10 @@ export interface TextContent {
   text: Value
   /** フォントサイズ（px）。Value で変数・式による動的サイズ変更が可能 */
   size: Value
-  font?: string
-  weight?: number
+  /** CSS フォントスタック。Value 化（2026-08-03）で fontFamily ツマミ（type='font' 変数）を参照できる */
+  font?: Value
+  /** フォントウェイト（100〜900）。Value 化（2026-08-03）で fontWeight ツマミを参照できる */
+  weight?: Value
   color: Value
   /** Track.prop='colorT' で stops 上を移動する本文色アニメーション */
   colorRamp?: ColorRamp

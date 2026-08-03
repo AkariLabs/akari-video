@@ -105,3 +105,33 @@ const to = layer.transform.opacity ? resolveNum(layer.transform.opacity, 1) : 1
   （2秒/1080pのfire-blazeで466MB、bokehで175MB）。契約の残裁定1「ファイルサイズ問題が出たら
   VP9/webm alpha 等を再検討」は fx について実際に該当する可能性が高い。再開時は VP9 alpha か
   ProRes422(HQ)+マット分離等の代替を先に検討すべき
+
+## vendor への追記: plain テキストの縦センタリング補正（2026-08-03 テロップ位置ずれ修正）
+
+ストア字幕棚で発覚した「全 36 テンプレの文字が座布団に対して上ずれする」問題の根本原因修正
+（akari-telop 本家 f251914 にも存在する旧来バグ。再移植時は要マージ）:
+
+- `render/canvas2d.ts` の `drawText`（plain 一枚描き経路）で `drawTextRun` へ渡す y を
+  `strokeOutset` → `strokeOutset + content.size * 0.1` に修正
+- 根拠: text レイヤーの box 高さは実測 `1.2×size`（`atf/measure.ts`）。旧実装は em ボックス
+  （1.0×size）を box 上端に張り付けて描いていたため、anchor 中央合わせのテキストが
+  約 0.1×size（48px 文字で実測 -6px）上ずれしていた。perChar 経路（`drawPerChar` の
+  `glyphY = strokeOutset + content.size * 0.1 + glyph.dy`）とカーソル経路は元から補正済みで、
+  plain 経路だけ抜けていた（同一テキストが perChar アニメの有無で縦位置が変わる非一貫性）
+- フォント読み込みの有無は無関係であることを実測で棄却済み（Noto Sans JP 読み込み前後で
+  ±0.5px。ずれは純粋に描画側の座標計算）
+- 機械検証: `test/text-centering.test.mjs`（帯 shape と anchor 中央 text の実測 bbox 中心一致）
+
+## vendor への追記: fontFamily / fontWeight ツマミ対応（2026-08-03）
+
+オーナー要望「フォントを選べる・太さを変えられる」（handoff-2026-08-03-store-telop-shelf-and-sound-dl
+§追記-3）の実装。akari-telop 本家には無い akari-video 側の独自拡張（再移植時は要マージ）:
+
+- `atf/types.ts`: `Variable.type` に `'font'` を追加（値 = CSS フォントスタック文字列・
+  `options` で選択肢を宣言）。`TextContent.font` / `TextContent.weight` を `Value` 化
+  （変数・式参照可。従来の素の string / number もそのまま有効 = 後方互換）
+- `atf/resolve.ts`: font / weight を実測（measureBlock）前に resolveStr / resolveNum で解決。
+  weight は 0 以下・非有限を undefined に落とす（不正値でフォント文字列が壊れるのを防ぐ）。
+  collectExprs にも font / weight を追加（式参照時の topo-sort 対応）
+- テンプレ側の機械追加（fontFamily = 主要フォントスタック共有レイヤーへ・fontWeight = 最大
+  fontSize レイヤーへ・default は現行値のまま = 既定の見た目は不変）とあわせて使う

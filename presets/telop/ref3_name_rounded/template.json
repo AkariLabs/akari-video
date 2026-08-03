@@ -52,6 +52,41 @@
       "type": "color",
       "label": "肩書きテキスト色",
       "default": "#e82b2b"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ]
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 900
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（ずらし）",
+      "default": 0
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（ずらし）",
+      "default": 0
     }
   ],
   "layers": [
@@ -74,7 +109,9 @@
         }
       },
       "transform": {
-        "x": 96,
+        "x": {
+          "expr": "posX + 96"
+        },
         "y": {
           "expr": "(@ref3_name_rounded_title.top + @ref3_name_rounded_name.bottom) / 2"
         },
@@ -146,7 +183,9 @@
         "h": 6
       },
       "transform": {
-        "x": 96,
+        "x": {
+          "expr": "posX + 96"
+        },
         "y": {
           "expr": "@ref3_name_rounded_name.bottom + 22 - 3"
         },
@@ -209,7 +248,9 @@
           "var": "title"
         },
         "size": 40,
-        "font": "'Noto Sans JP', sans-serif",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 700,
         "color": {
           "var": "color_text_2"
@@ -217,7 +258,9 @@
         "align": "left"
       },
       "transform": {
-        "x": 128,
+        "x": {
+          "expr": "posX + 128"
+        },
         "y": {
           "expr": "@ref3_name_rounded_name.top - 6"
         },
@@ -280,16 +323,24 @@
           "var": "name"
         },
         "size": 72,
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 900,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
         "align": "left"
       },
       "transform": {
-        "x": 128,
-        "y": 910,
+        "x": {
+          "expr": "posX + 128"
+        },
+        "y": {
+          "expr": "posY + 910"
+        },
         "anchor": {
           "x": 0,
           "y": 0.5
