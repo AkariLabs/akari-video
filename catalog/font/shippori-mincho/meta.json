@@ -1,0 +1,38 @@
+{
+  "id": "shippori-mincho",
+  "category": "font",
+  "title": "Shippori Mincho",
+  "description": "ディスプレイ寄りの日本語明朝体。文芸・シネマ・和風の演出に向く representativeな明朝トーン。 実体（Regular）は本リポの assets/font/shippori-mincho/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
+  "when_to_use": "シネマ調・和風・感情的な決め台詞のテロップ",
+  "tags": [
+    "font",
+    "japanese",
+    "mincho",
+    "serif",
+    "cinema",
+    "google-fonts",
+    "ofl"
+  ],
+  "knobs": [],
+  "ai_usage": "ウェイトは用途に応じて選び分けてよい。字間・行間・カラーは overlay/テロップ側で調整してよいが、グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Google Fonts / google/fonts リポ ofl 配下から取得）/ 2026-08-03 fontFamily ツマミ拡充",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.google.com/specimen/Shippori+Mincho",
+    "acquisition": "direct",
+    "license_at_source": "SIL Open Font License 1.1（google/fonts リポの各ディレクトリ OFL.txt を同梱・確認済み）",
+    "attribution_required": false
+  }
+}

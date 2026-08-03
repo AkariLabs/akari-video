@@ -1,0 +1,38 @@
+{
+  "id": "zen-maru-gothic",
+  "category": "font",
+  "title": "Zen Maru Gothic",
+  "description": "やわらかい印象の丸ゴシック。M PLUS Rounded 1c より落ち着いた骨格で、やさしい・ほっこり系のトーンに向く。 実体（Regular・Bold の 2 ウェイト）は本リポの assets/font/zen-maru-gothic/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
+  "when_to_use": "キッズ・ライフスタイル・やさしい解説のテロップ/字幕",
+  "tags": [
+    "font",
+    "japanese",
+    "gothic",
+    "rounded",
+    "soft",
+    "google-fonts",
+    "ofl"
+  ],
+  "knobs": [],
+  "ai_usage": "ウェイトは用途に応じて選び分けてよい。字間・行間・カラーは overlay/テロップ側で調整してよいが、グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Google Fonts / google/fonts リポ ofl 配下から取得）/ 2026-08-03 fontFamily ツマミ拡充",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.google.com/specimen/Zen+Maru+Gothic",
+    "acquisition": "direct",
+    "license_at_source": "SIL Open Font License 1.1（google/fonts リポの各ディレクトリ OFL.txt を同梱・確認済み）",
+    "attribution_required": false
+  }
+}
