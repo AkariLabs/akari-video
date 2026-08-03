@@ -120,6 +120,66 @@ test('store download: 未購入（403）は exit 1', async () => {
   }
 });
 
+test('store connect（既定 = デバイスフロー）: start → ブラウザ → 承認待ち → 保存', async () => {
+  let claimCount = 0;
+  const opened = [];
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/device/start')) {
+        return new Response(JSON.stringify({
+          device_code: 'dev-code-1', user_code: 'ABCD-2345',
+          verification_url: 'http://localhost:9999/store/connect?code=ABCD-2345',
+          interval: 0, expires_in: 60
+        }), { status: 200 });
+      }
+      if (url.endsWith('/device/claim')) {
+        claimCount++;
+        return claimCount < 3
+          ? new Response(JSON.stringify({ status: 'pending' }), { status: 200 })
+          : new Response(JSON.stringify({ status: 'approved', token: TOKEN }), { status: 200 });
+      }
+      return new Response(JSON.stringify(ENTITLEMENTS), { status: 200 });
+    }
+  });
+  ctx.options.openBrowser = (url) => { opened.push(url); return true; };
+  ctx.options.sleep = async () => {};
+  try {
+    const result = await runStoreCommand(['connect', '--url', 'http://localhost:9999/api/store'], ctx.options);
+    assert.equal(result.exitCode, 0);
+    assert.equal(opened.length, 1, 'browser opened once');
+    assert.ok(opened[0].includes('/store/connect?code='), 'verification url opened');
+    assert.ok(ctx.lines.some((l) => l.includes('ABCD-2345')), 'user code shown');
+    const saved = JSON.parse(readFileSync(resolveCredentialsPath(ctx.env), 'utf8'));
+    assert.equal(saved.token, TOKEN, 'token persisted');
+    assert.ok(claimCount >= 3, 'polled until approved');
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test('store connect（デバイスフロー）: 期限切れ（410）は exit 1・保存しない', async () => {
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/device/start')) {
+        return new Response(JSON.stringify({
+          device_code: 'dev-code-2', user_code: 'EFGH-6789',
+          verification_url: 'http://localhost:9999/store/connect', interval: 0, expires_in: 60
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ status: 'expired' }), { status: 410 });
+    }
+  });
+  ctx.options.openBrowser = () => true;
+  ctx.options.sleep = async () => {};
+  try {
+    const result = await runStoreCommand(['connect', '--no-open', '--url', 'http://localhost:9999/api/store'], ctx.options);
+    assert.equal(result.exitCode, 1);
+    assert.ok(!existsSync(resolveCredentialsPath(ctx.env)), 'no credentials saved');
+  } finally {
+    ctx.cleanup();
+  }
+});
+
 test('store disconnect: 資格情報を削除する', async () => {
   const ctx = makeContext();
   try {
