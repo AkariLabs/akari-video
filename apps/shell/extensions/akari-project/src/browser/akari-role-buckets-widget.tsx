@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
+import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
 import { AkariProjectService, DroppedAsset } from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
@@ -34,8 +34,10 @@ const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'] as const;
 const CATALOG_UNRESOLVED_MESSAGE = 'カタログの場所が未設定です（設定 akari.catalog.root）';
 
-type TabId = 'materials' | 'plan' | 'catalog';
+/** 上段（素材）の内部遷移先。タブではなく widget 内遷移 — U6 裁定。 */
+type TopView = 'materials' | 'catalog';
 type MaterialKind = 'video' | 'audio' | 'image' | 'other';
+type OutputEntryKind = 'export' | 'report';
 
 const SUPPORTED_DROP_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|png|jpg|jpeg|gif|webp)$/i;
 
@@ -53,15 +55,37 @@ interface MaterialCardEntry {
     unorganized: boolean;
 }
 
+/** 下段「できたもの」の 1 件（exports/ 直下のファイル、または .akari/reports/ の HTML）。read-only。 */
+interface OutputEntry {
+    uri: URI;
+    relativePath: string;
+    name: string;
+    kind: OutputEntryKind;
+    mtime: number;
+    size: number;
+    /** report のみ: <title> から抽出した見出し。無ければ未設定（ファイル名で表示）。 */
+    title?: string;
+    /** export の動画/画像のみ: サムネキャッシュ。無ければアイコン表示。 */
+    thumbnailUri?: URI;
+}
+
 /**
  * 非開発者モード向けの「素材」差し替えビュー。
  *
- * 標準 Explorer ツリーの代わりに、パネル内タブ（素材 / プラン / カタログ）と
- * ドメインオブジェクトのカード棚を見せる。素材タブはノイズ（隠しディレクトリ・
- * サイドカー）を project-tree-policy.ts の判定に委ねて隠し、analyze-footage が
- * 書く analysis.json（.akari/sidecars/<素材相対パス>.analysis/analysis.json）から
- * サムネ・尺・分析済み判定を読む。プラン / カタログタブは本ラウンドでは空状態のみ。
- * 書き出しタブは置かない（オーナー裁定 — ノイズ。書き出しは将来 Export ボタン側）。
+ * 標準 Explorer ツリーの代わりに、上下 2 分割のドメインビューを見せる
+ * （U6 裁定 2026-08-03、正本: internal `planning/notes-2026-08-03-owner-feedback-shell-v013.md`）:
+ * - 上段「素材」: assets/ カード + 未整理セクション + D&D。末尾の「＋ カタログから
+ *   素材をさがす」ボタンで widget 内遷移してカタログ面を表示する（タブではない —
+ *   `topView` で表示先を切り替えるだけで、両者は同じ widget インスタンスの状態）
+ * - 下段「できたもの」: exports/ 直下のファイルと .akari/reports/ の HTML を
+ *   新しい順に read-only 一覧表示。クリックで中央に開く（`openFile` — 既存の
+ *   akari-menu-widget.openExportedArtifact と同じ `open(this.openers, uri)` 型）
+ *
+ * 「プラン」タブは撤去済み（2026-08-03 — 空実装 stub のため。旧 `renderEmptyTab`/
+ * `TabId.plan` は削除）。素材タブはノイズ（隠しディレクトリ・サイドカー）を
+ * project-tree-policy.ts の判定に委ねて隠し、analyze-footage が書く analysis.json
+ * （.akari/sidecars/<素材相対パス>.analysis/analysis.json）からサムネ・尺・
+ * 分析済み判定を読む。
  *
  * activity bar 上での explorer-view-container との切り替え（表示するのはどちらか
  * 一方のみ）は akari-shell-strip の AkariActivityBarCuration が担当する
@@ -93,7 +117,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     @inject(FileDialogService)
     protected readonly dialogs!: FileDialogService;
 
-    protected activeTab: TabId = 'materials';
+    protected topView: TopView = 'materials';
     protected materials: MaterialCardEntry[] = [];
     protected unorganizedMaterials: MaterialCardEntry[] = [];
     protected materialsLoading = false;
@@ -103,6 +127,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected materialsWatchTimer?: ReturnType<typeof setTimeout>;
     protected lintAvailable = false;
     protected lintCount?: number;
+
+    protected outputs: OutputEntry[] = [];
+    protected outputsLoading = false;
+    protected outputsGeneration = 0;
+    protected outputsWatch = new DisposableCollection();
+    protected outputsWatchRootKey?: string;
+    protected outputsWatchTimer?: ReturnType<typeof setTimeout>;
 
     protected catalogItems: CatalogItemMeta[] = [];
     protected catalogLoading = false;
@@ -128,9 +159,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.node.addEventListener('drop', event => this.handleDrop(event));
         this.toDispose.push(this.workflow.onDidChange(() => {
             this.ensureMaterialsWatch();
+            this.ensureOutputsWatch();
             this.refresh();
         }));
         this.ensureMaterialsWatch();
+        this.ensureOutputsWatch();
         // カタログはワークスペース非依存（catalog/ は参照配布データ）なので
         // 素材タブと違いプロジェクトを開く前でも読み込む。
         void this.loadCatalog();
@@ -149,11 +182,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected refresh(): void {
         void this.loadMaterials();
+        void this.loadOutputs();
         void this.refreshLint();
     }
 
-    protected selectTab(tab: TabId): void {
-        this.activeTab = tab;
+    protected selectTopView(view: TopView): void {
+        this.topView = view;
         this.update();
     }
 
@@ -429,6 +463,167 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             request
         );
         await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+    }
+
+    // --- できたもの（下段・read-only） -----------------------------------------
+
+    /**
+     * `exports/` 直下のファイルと `.akari/reports/` の HTML を新しい順にまとめて読み込む。
+     * どちらも非再帰（直下のみ）— exports/ のサブフォルダや reports/ の PNG 視認証跡は
+     * 対象外（task.md 指定: 「HTML レポート」のみ）。
+     */
+    protected async loadOutputs(): Promise<void> {
+        const root = this.workflow.workspaceRoot;
+        const generation = ++this.outputsGeneration;
+        if (!root) {
+            this.outputs = [];
+            this.update();
+            return;
+        }
+        this.outputsLoading = true;
+        this.update();
+        const [exportFiles, reportFiles] = await Promise.all([
+            this.collectTopLevelFiles(root.resolve('exports')),
+            this.collectTopLevelFiles(root.resolve('.akari/reports'))
+        ]);
+        const [exportEntries, reportEntries] = await Promise.all([
+            Promise.all(exportFiles.map(file => this.buildOutputEntry(root, file, 'export'))),
+            Promise.all(
+                reportFiles
+                    .filter(file => /\.html?$/i.test(file.resource.path.base))
+                    .map(file => this.buildOutputEntry(root, file, 'report'))
+            )
+        ]);
+        if (generation !== this.outputsGeneration) {
+            return; // A newer load superseded this one; discard stale results.
+        }
+        const merged = [...exportEntries, ...reportEntries];
+        merged.sort((left, right) => right.mtime - left.mtime);
+        this.outputs = merged;
+        this.outputsLoading = false;
+        this.update();
+        void this.hydrateOutputThumbnails(root, generation, exportEntries);
+    }
+
+    /** ディレクトリ直下のファイルのみ（非再帰・ドットファイル除外）を size/mtime 付きで返す。 */
+    protected async collectTopLevelFiles(dirUri: URI): Promise<FileStatWithMetadata[]> {
+        let stat: FileStatWithMetadata;
+        try {
+            stat = await this.files.resolve(dirUri, { resolveMetadata: true });
+        } catch {
+            return [];
+        }
+        return (stat.children ?? []).filter(child => !child.isDirectory && !child.resource.path.base.startsWith('.'));
+    }
+
+    protected async buildOutputEntry(root: URI, file: FileStatWithMetadata, kind: OutputEntryKind): Promise<OutputEntry> {
+        const relativePath = this.workflow.relativePath(file.resource) ?? file.resource.path.base;
+        const entry: OutputEntry = {
+            uri: file.resource,
+            relativePath,
+            name: file.resource.path.base,
+            kind,
+            mtime: file.mtime,
+            size: file.size
+        };
+        if (kind === 'report') {
+            entry.title = await this.readReportTitle(file.resource);
+        }
+        return entry;
+    }
+
+    /** report タイトル抽出。先頭 8KB のみ読む（埋め込み base64 等で巨大なレポートを丸読みしない）。 */
+    protected async readReportTitle(uri: URI): Promise<string | undefined> {
+        try {
+            const content = await this.files.readFile(uri, { length: 8192 });
+            const match = /<title[^>]*>([^<]*)<\/title>/i.exec(content.value.toString());
+            const title = match?.[1]?.trim();
+            return title || undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /** exports/ の動画・画像のみサムネを試みる（既存の素材サムネキャッシュを流用）。 */
+    protected async hydrateOutputThumbnails(root: URI, generation: number, entries: OutputEntry[]): Promise<void> {
+        const candidates = entries.filter(entry => {
+            const kind = this.classifyKind(entry.name);
+            return kind === 'video' || kind === 'image';
+        });
+        await Promise.all(candidates.map(async entry => {
+            const kind = this.classifyKind(entry.name) as 'video' | 'image';
+            let outcome;
+            try {
+                outcome = await this.projectService.resolveMaterialThumbnail(root.toString(), entry.relativePath, kind);
+            } catch {
+                return;
+            }
+            if (generation !== this.outputsGeneration || !outcome.available || !outcome.cacheRelativePath) {
+                return;
+            }
+            entry.thumbnailUri = root.resolve(outcome.cacheRelativePath);
+            this.update();
+        }));
+    }
+
+    protected ensureOutputsWatch(): void {
+        const root = this.workflow.workspaceRoot;
+        const rootKey = root?.toString();
+        if (rootKey === this.outputsWatchRootKey) {
+            return;
+        }
+        this.outputsWatch.dispose();
+        this.outputsWatch = new DisposableCollection();
+        this.outputsWatchRootKey = rootKey;
+        if (!root) {
+            return;
+        }
+        const exportsUri = root.resolve('exports');
+        const reportsUri = root.resolve('.akari/reports');
+        this.outputsWatch.push(this.files.watch(exportsUri, { recursive: true, excludes: [] }));
+        this.outputsWatch.push(this.files.watch(reportsUri, { recursive: true, excludes: [] }));
+        this.outputsWatch.push(this.files.onDidFilesChange(event => this.handleOutputsFileChange(exportsUri, reportsUri, event)));
+    }
+
+    protected handleOutputsFileChange(exportsUri: URI, reportsUri: URI, event: FileChangesEvent): void {
+        const relevant = event.changes.some(change =>
+            exportsUri.isEqualOrParent(change.resource) || reportsUri.isEqualOrParent(change.resource)
+        );
+        if (!relevant) {
+            return;
+        }
+        if (this.outputsWatchTimer) {
+            clearTimeout(this.outputsWatchTimer);
+        }
+        this.outputsWatchTimer = setTimeout(() => {
+            this.outputsWatchTimer = undefined;
+            void this.loadOutputs();
+        }, 300);
+    }
+
+    protected formatOutputTimestamp(mtime: number): string {
+        const date = new Date(mtime);
+        const pad = (value: number) => value.toString().padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    protected formatFileSize(bytes: number): string {
+        if (bytes < 1024) {
+            return `${bytes}B`;
+        }
+        const units = ['KB', 'MB', 'GB'];
+        let value = bytes / 1024;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024;
+            unitIndex++;
+        }
+        return `${value.toFixed(value >= 10 ? 0 : 1)}${units[unitIndex]}`;
+    }
+
+    protected formatOutputMeta(entry: OutputEntry): string {
+        const when = this.formatOutputTimestamp(entry.mtime);
+        return entry.kind === 'report' ? `${when} · HTML` : `${when} · ${this.formatFileSize(entry.size)}`;
     }
 
     // --- カタログ ---------------------------------------------------------
@@ -712,60 +907,56 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     // --- 描画 -----------------------------------------------------------------
 
+    /**
+     * 上下 2 分割（U6）。上 = 素材（+ カタログへの widget 内遷移）/ 下 = できたもの。
+     * モック比率（上がやや広い）に合わせ flex-grow 1.2 : 1 を割り当てる
+     * （`planning/attachments/2026-08-03-owner-feedback-shell-v013/shell-home-mock.html`
+     * の `.lp-top { flex: 1.2 }` / `.lp-bottom { flex: 1 }` と同値）。
+     */
     protected override render(): React.ReactNode {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                {this.renderTabBar()}
-                <div style={{ flex: '1 1 auto', overflow: 'auto' }}>
-                    {this.activeTab === 'materials' && this.renderMaterialsTab()}
-                    {this.activeTab === 'plan' && this.renderEmptyTab(
-                        'プランはここに入ります。企画・構成の管理は今後この場所でできるようになります。'
-                    )}
-                    {this.activeTab === 'catalog' && this.renderCatalogTab()}
+                <div style={{
+                    flex: '1.2 1 0%',
+                    minHeight: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderBottom: '1px solid var(--theia-sideBar-border)'
+                }}>
+                    {this.renderMaterialsPane()}
+                </div>
+                <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    {this.renderOutputsPane()}
                 </div>
                 {this.renderLintBadge()}
             </div>
         );
     }
 
-    protected renderTabBar(): React.ReactNode {
-        const tabs: Array<{ id: TabId; label: string }> = [
-            { id: 'materials', label: '素材' },
-            { id: 'plan', label: 'プラン' },
-            { id: 'catalog', label: 'カタログ' }
-        ];
+    protected renderMaterialsPane(): React.ReactNode {
         return (
-            <div role='tablist' style={{ display: 'flex', flex: '0 0 auto', borderBottom: '1px solid var(--theia-sideBar-border)' }}>
-                {tabs.map(tab => {
-                    const active = this.activeTab === tab.id;
-                    return (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }} data-akari-top-view={this.topView}>
+                {this.topView === 'materials' && (
+                    <div style={{ flex: '0 0 auto', padding: '8px 10px 4px' }}>
+                        <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>素材</span>
+                    </div>
+                )}
+                <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
+                    {this.topView === 'materials' ? this.renderMaterialsTab() : this.renderCatalogTab()}
+                </div>
+                {this.topView === 'materials' && (
+                    <div style={{ flex: '0 0 auto', padding: '8px', borderTop: '1px solid var(--theia-sideBar-border)' }}>
                         <button
-                            key={tab.id}
-                            role='tab'
-                            aria-selected={active}
-                            onClick={() => this.selectTab(tab.id)}
-                            style={{
-                                flex: '1 1 0',
-                                padding: '8px 4px',
-                                background: 'transparent',
-                                border: 'none',
-                                borderBottom: active ? '2px solid var(--theia-focusBorder)' : '2px solid transparent',
-                                color: active ? 'var(--theia-sideBar-foreground)' : 'var(--theia-descriptionForeground)',
-                                cursor: 'pointer'
-                            }}
+                            type='button'
+                            className='theia-button secondary'
+                            data-akari-open-catalog
+                            style={{ width: '100%' }}
+                            onClick={() => this.selectTopView('catalog')}
                         >
-                            {tab.label}
+                            ＋ カタログから素材をさがす
                         </button>
-                    );
-                })}
-            </div>
-        );
-    }
-
-    protected renderEmptyTab(description: string): React.ReactNode {
-        return (
-            <div style={{ padding: '16px' }}>
-                <p style={{ margin: 0, opacity: 0.75 }}>{description}</p>
+                    </div>
+                )}
             </div>
         );
     }
@@ -932,7 +1123,34 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
+    /** widget 内遷移した「カタログ」面。「← 素材にもどる」で戻る（タブではない）。 */
     protected renderCatalogTab(): React.ReactNode {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                {this.renderCatalogBackBar()}
+                <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
+                    {this.renderCatalogBody()}
+                </div>
+            </div>
+        );
+    }
+
+    protected renderCatalogBackBar(): React.ReactNode {
+        return (
+            <div style={{ flex: '0 0 auto', padding: '6px 8px', borderBottom: '1px solid var(--theia-sideBar-border)' }}>
+                <button
+                    type='button'
+                    className='theia-button secondary'
+                    data-akari-back-to-materials
+                    onClick={() => this.selectTopView('materials')}
+                >
+                    ← 素材にもどる
+                </button>
+            </div>
+        );
+    }
+
+    protected renderCatalogBody(): React.ReactNode {
         if (this.catalogLoading) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
@@ -1129,6 +1347,114 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             頼む
                         </button>
                     </div>
+                </div>
+            </div>
+        );
+    }
+
+    protected renderOutputsPane(): React.ReactNode {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                <div style={{
+                    flex: '0 0 auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px 4px'
+                }}>
+                    <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>できたもの</span>
+                    <button
+                        type='button'
+                        title='できたものを更新'
+                        aria-label='できたものを更新'
+                        data-akari-outputs-refresh
+                        onClick={() => void this.loadOutputs()}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            opacity: 0.7,
+                            padding: '2px 4px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                    >
+                        <span className='codicon codicon-refresh' aria-hidden='true' />
+                    </button>
+                </div>
+                <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
+                    {this.renderOutputsBody()}
+                </div>
+            </div>
+        );
+    }
+
+    protected renderOutputsBody(): React.ReactNode {
+        if (!this.workflow.workspaceRoot) {
+            return <p style={{ opacity: 0.7, padding: '16px' }}>プロジェクトを開いてください。</p>;
+        }
+        if (this.outputsLoading) {
+            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+        }
+        if (!this.outputs.length) {
+            return <p style={{ opacity: 0.7, padding: '16px' }}>まだありません — 書き出すとここに並びます</p>;
+        }
+        return (
+            <div
+                data-akari-outputs-count={this.outputs.length}
+                style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px 10px 10px' }}
+            >
+                {this.outputs.map(entry => this.renderOutputCard(entry))}
+            </div>
+        );
+    }
+
+    protected renderOutputCard(entry: OutputEntry): React.ReactNode {
+        const label = entry.title ?? entry.name;
+        return (
+            <div
+                key={entry.uri.toString()}
+                data-akari-output-path={entry.relativePath}
+                data-akari-output-kind={entry.kind}
+                onClick={() => void this.openFile(entry.uri)}
+                title={label}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    borderRadius: '6px',
+                    padding: '6px 8px',
+                    background: 'var(--theia-sideBar-background)',
+                    border: '1px solid var(--theia-sideBar-border)'
+                }}
+            >
+                <div style={{
+                    width: '34px',
+                    height: '22px',
+                    flex: 'none',
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                    background: 'var(--theia-editorWidget-background)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    {entry.thumbnailUri
+                        ? <img src={entry.thumbnailUri.toString()} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span
+                            className={entry.kind === 'report' ? 'codicon codicon-file-code' : this.placeholderIcon(this.classifyKind(entry.name))}
+                            aria-hidden='true'
+                            style={{ fontSize: '1.1em', opacity: 0.55 }}
+                        />}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85em' }}>
+                        {label}
+                    </span>
+                    <span style={{ opacity: 0.65, fontSize: '0.72em' }}>
+                        {this.formatOutputMeta(entry)}
+                    </span>
                 </div>
             </div>
         );

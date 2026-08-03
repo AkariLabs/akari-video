@@ -1,0 +1,98 @@
+{
+  "00-boot": {
+    "found": true,
+    "materialsHeaderVisible": true,
+    "outputsHeaderVisible": true,
+    "catalogBtnVisible": true,
+    "dropzonePresent": true,
+    "materialsTop": 45.5,
+    "outputsTop": 379.2265625
+  },
+  "01-materials-regression": {
+    "cardCount": 1,
+    "names": [
+      "assets/interview.mp4"
+    ]
+  },
+  "02-outputs-list": {
+    "count": 4,
+    "entries": [
+      {
+        "path": ".akari/reports/edit-lint-report.html",
+        "kind": "report",
+        "label": "編集チェックレポート — L1 検証用",
+        "meta": "2026-08-02 23:15 · HTML"
+      },
+      {
+        "path": "exports/final-v2.mp4",
+        "kind": "export",
+        "label": "final-v2.mp4",
+        "meta": "2026-08-02 23:10 · 12KB"
+      },
+      {
+        "path": "exports/final-v1.mp4",
+        "kind": "export",
+        "label": "final-v1.mp4",
+        "meta": "2026-08-02 22:41 · 12KB"
+      },
+      {
+        "path": ".akari/reports/render-report.html",
+        "kind": "report",
+        "label": "render-report.html",
+        "meta": "2026-08-02 19:00 · HTML"
+      }
+    ]
+  },
+  "03-catalog-navigated": {
+    "backBtnPresent": true,
+    "materialsCardsVisibleWhileInCatalog": 0,
+    "outputsStillVisibleWhileInCatalog": 4,
+    "searchInputPresent": true,
+    "catalogItemCount": "31"
+  },
+  "04-back-to-materials": {
+    "materialsCardsVisible": 1,
+    "catalogBtnVisibleAgain": true,
+    "outputsStillVisible": 4
+  },
+  "05-report-opened-in-center": {
+    "clickedPath": ".akari/reports/edit-lint-report.html",
+    "tabCountBefore": 21,
+    "tabCountAfter": 22,
+    "openedTabTitles": [
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "設定",
+      "メニュー",
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "設定",
+      "メニュー",
+      "設定",
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "メニュー",
+      "ホーム",
+      "edit-lint-report.html",
+      "zsh",
+      "Problems",
+      "パートナーを追加",
+      "パートナーを追加",
+      "パートナーを追加"
+    ]
+  },
+  "06-export-opened-in-center": {
+    "clickedPath": "exports/final-v2.mp4",
+    "tabCountBeforeExport": 22,
+    "tabCountAfterExport": 23
+  },
+  "07-refresh-button-present": {
+    "refreshBtnPresent": true
+  },
+  "08-console-error-count": {
+    "errCount": 0
+  }
+}
