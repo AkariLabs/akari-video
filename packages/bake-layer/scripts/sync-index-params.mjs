@@ -4,8 +4,8 @@
 //
 //   node packages/bake-layer/scripts/sync-index-params.mjs [--check]
 //
-// - params 以外のフィールド（name / tags / use_when / source 等）は一切触らない
-// - 行の並び順・エントリの JSON キー順も維持する（params だけ差し替え）
+// - 既存フィールド（name / tags / use_when / source 等）は一切触らない
+// - 行の並び順・既存 JSON キー順も維持する（params 差し替え + groups / anchor 追記）
 // - --check: 書き込まず、差分があれば exit 1（CI 向け drift 検出）
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
@@ -15,7 +15,7 @@ const PRESETS_TELOP = join(REPO_ROOT, "presets", "telop")
 const INDEX_PATH = join(PRESETS_TELOP, "index.jsonl")
 
 // index.jsonl の params に載せるフィールド（Variable のうち UI に要るものだけ）
-const PARAM_FIELDS = ["key", "type", "label", "default", "options", "optional"]
+const PARAM_FIELDS = ["key", "type", "label", "default", "options", "optional", "group", "role"]
 
 function paramsFromVariables(variables) {
   return (variables ?? []).map((variable) => {
@@ -39,11 +39,19 @@ for (const line of lines) {
   const templatePath = join(PRESETS_TELOP, entry.id, "template.json")
   const doc = JSON.parse(await readFile(templatePath, "utf8"))
   const nextParams = paramsFromVariables(doc.variables)
-  if (JSON.stringify(entry.params) !== JSON.stringify(nextParams)) {
+  const nextGroups = doc.groups
+  const nextAnchor = doc.anchor
+  if (
+    JSON.stringify(entry.params) !== JSON.stringify(nextParams) ||
+    JSON.stringify(entry.groups) !== JSON.stringify(nextGroups) ||
+    entry.anchor !== nextAnchor
+  ) {
     changed += 1
     if (checkOnly) console.error(`drift: ${entry.id}`)
   }
   entry.params = nextParams
+  entry.groups = nextGroups
+  entry.anchor = nextAnchor
   outLines.push(JSON.stringify(entry))
 }
 
@@ -55,5 +63,5 @@ if (checkOnly) {
   console.log("[sync-index-params] drift なし")
 } else {
   await writeFile(INDEX_PATH, outLines.join("\n") + "\n")
-  console.log(`[sync-index-params] ${lines.length} エントリ中 ${changed} 件の params を更新`)
+  console.log(`[sync-index-params] ${lines.length} エントリ中 ${changed} 件の params/groups/anchor を更新`)
 }

@@ -21,61 +21,81 @@
       "key": "text",
       "type": "text",
       "label": "キャプションテキスト",
-      "default": "政府が緊急対策本部を設置"
+      "default": "政府が緊急対策本部を設置",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "labelText",
       "type": "text",
       "label": "ラベル文字（速報 等）",
-      "default": "速報"
+      "default": "速報",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "ラベル背景色",
-      "default": "#CC0000"
+      "default": "#CC0000",
+      "group": "badge",
+      "role": "color-bg"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "ラベルテキスト色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "メイン帯背景色",
-      "default": "#111111"
+      "default": "#111111",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "メインテキスト色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "アクセントライン色",
-      "default": "#FF4444"
+      "default": "#FF4444",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "labelFontSize",
       "type": "number",
       "label": "ラベルフォントサイズ",
-      "default": 36
+      "default": 36,
+      "group": "badge",
+      "role": "size"
     },
     {
       "key": "mainFontSize",
       "type": "number",
       "label": "メインフォントサイズ",
-      "default": 52
+      "default": 52,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.6)"
+      "default": "rgba(0,0,0,0.6)",
+      "group": "main",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -92,25 +112,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -880,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 411,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -131,10 +159,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (150 - max(@ref3_tl_r3s9_002_label_text.width + 48, 140) / 2)"
+          "expr": "0 + (150 - max(@ref3_tl_r3s9_002_label_text.width + 48, 140) / 2)"
         },
         "y": {
-          "expr": "posY + 880"
+          "expr": "0 + 880"
         },
         "anchor": {
           "x": 0,
@@ -195,10 +223,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 220"
+          "expr": "0 + 220"
         },
         "y": {
-          "expr": "posY + 880"
+          "expr": "0 + 880"
         },
         "anchor": {
           "x": 0,
@@ -257,10 +285,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 80"
+          "expr": "0 + 80"
         },
         "y": {
-          "expr": "posY + 948"
+          "expr": "0 + 948"
         },
         "anchor": {
           "x": 0,
@@ -327,10 +355,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 150"
+          "expr": "0 + 150"
         },
         "y": {
-          "expr": "posY + 914"
+          "expr": "0 + 914"
         },
         "anchor": {
           "x": 0.5,
@@ -418,10 +446,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 240"
+          "expr": "0 + 240"
         },
         "y": {
-          "expr": "posY + 914"
+          "expr": "0 + 914"
         },
         "anchor": {
           "x": 0,
@@ -480,5 +508,28 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }

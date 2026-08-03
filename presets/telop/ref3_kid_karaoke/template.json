@@ -21,91 +21,121 @@
       "key": "lyrics",
       "type": "text",
       "label": "歌詞本文",
-      "default": "きらきらひかる おそらのほしよ"
+      "default": "きらきらひかる おそらのほしよ",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "furigana",
       "type": "text",
       "label": "ふりがな",
-      "default": "きらきらひかる おそらのほしよ"
+      "default": "きらきらひかる おそらのほしよ",
+      "group": "ruby",
+      "role": "text"
     },
     {
       "key": "lyricsSize",
       "type": "number",
       "label": "歌詞サイズ",
-      "default": 96
+      "default": 96,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "furiganaSize",
       "type": "number",
       "label": "ふりがなサイズ",
-      "default": 48
+      "default": 48,
+      "group": "ruby",
+      "role": "size"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "点灯色",
-      "default": "#FFE600"
+      "default": "#FFE600",
+      "group": "main",
+      "role": "color-accent"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁取り色",
-      "default": "#FF8FAB"
+      "default": "#FF8FAB",
+      "group": "global",
+      "role": "color-stroke"
     },
     {
       "key": "strokeWeight",
       "type": "number",
       "label": "縁取り太さ",
-      "default": 8
+      "default": 8,
+      "group": "global",
+      "role": "strength"
     },
     {
       "key": "barProgress",
       "type": "number",
       "label": "進行度",
-      "default": 0
+      "default": 0,
+      "group": "line",
+      "role": "progress"
     },
     {
       "key": "color_accent_2",
       "type": "color",
       "label": "バー色",
-      "default": "#FFE600"
+      "default": "#FFE600",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "barHeight",
       "type": "number",
       "label": "バー高さ",
-      "default": 12
+      "default": 12,
+      "group": "line",
+      "role": "other"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "歌詞文字色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "ふりがな文字色",
-      "default": "rgba(255,255,255,0.92)"
+      "default": "rgba(255,255,255,0.92)",
+      "group": "ruby",
+      "role": "color"
     },
     {
       "key": "color_stroke_2",
       "type": "color",
       "label": "内側の白フチ色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "global",
+      "role": "color-stroke"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "歌詞の影色",
-      "default": "rgba(255,143,171,0.28)"
+      "default": "rgba(255,143,171,0.28)",
+      "group": "main",
+      "role": "color-shadow"
     },
     {
       "key": "color_shadow_2",
       "type": "color",
       "label": "ふりがなの影色",
-      "default": "rgba(255,143,171,0.34)"
+      "default": "rgba(255,143,171,0.34)",
+      "group": "ruby",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -123,25 +153,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 700
+      "default": 700,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 346.4,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -193,10 +231,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + (@stage.height * 0.67)"
+          "expr": "0 + (@stage.height * 0.67)"
         },
         "anchor": {
           "x": 0.5,
@@ -293,10 +331,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + (@stage.height * 0.76)"
+          "expr": "0 + (@stage.height * 0.76)"
         },
         "anchor": {
           "x": 0.5,
@@ -388,10 +426,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 0"
+          "expr": "0 + 0"
         },
         "y": {
-          "expr": "posY + (@stage.height * 0.84)"
+          "expr": "0 + (@stage.height * 0.84)"
         },
         "anchor": {
           "x": 0,
@@ -431,5 +469,24 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "ruby",
+      "label": "ルビ・ふりがな"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bc"
 }

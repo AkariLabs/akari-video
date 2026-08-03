@@ -135,3 +135,17 @@ const to = layer.transform.opacity ? resolveNum(layer.transform.opacity, 1) : 1
   collectExprs にも font / weight を追加（式参照時の topo-sort 対応）
 - テンプレ側の機械追加（fontFamily = 主要フォントスタック共有レイヤーへ・fontWeight = 最大
   fontSize レイヤーへ・default は現行値のまま = 既定の見た目は不変）とあわせて使う
+
+## vendor への追記: テロップ標準ツマミと中央基準 9 点アンカー（2026-08-03 telop-standard-knobs）
+
+- `atf/types.ts`: `Variable` に optional の `group` / `role`、`AtfDoc` に optional の
+  `groups` / `anchor`（tl/tc/tr/ml/mc/mr/bl/bc/br）を追加。既存の最小 ad-hoc doc は
+  宣言なしのまま型・実行時とも後方互換
+- `atf/resolve.ts`: 全レイヤー解決後の自然 bbox を union し、`doc.anchor` 上の点を
+  `stage 中央 + posX/posY` へ一度だけ移すテンプレート全体の剛体シフトを追加。
+  `doc.anchor` 未宣言時はシフト処理を完全にスキップし、従来座標を維持する
+- 自然 bbox の union では幅または高さが 0 の縮退レイヤーを除外する。進捗 0% の不可視バー等の
+  座標が、実際に描画されるコンテンツのアンカーを歪めないため
+- 機械検証: `scripts/codemod-standard-knobs.mjs` の全 36 件座標パリティ（±0.1px）・
+  実ブラウザ利用時の既定レンダ byte parity、`test/standard-knobs.test.mjs` の
+  anchor 中央配置・全レイヤー剛体移動・4 段階文言伸縮アンカー固定、既存 `npm test`

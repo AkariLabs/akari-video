@@ -14,6 +14,10 @@ export interface Variable {
   type: 'text' | 'color' | 'number' | 'font'
   label: string
   default: string | number
+  /** UI / AI 操作面で同じ要素に属するツマミを束ねるグループ id */
+  group?: string
+  /** テンプレート間でツマミの意味を横断検索するための固定 role 語彙 */
+  role?: string
   optional?: boolean
   /** type='font' 用の選択肢（CSS フォントスタック文字列）。他 type では未使用 */
   options?: string[]
@@ -507,6 +511,10 @@ export interface AtfDoc {
   kind: 'lower-third' | 'caption' | 'popup' | 'corner' | 'free'
   stage: Stage
   timing?: Timing
+  /** variables の表示・操作単位。旧テンプレートとの互換のため optional */
+  groups?: Array<{ id: string; label: string }>
+  /** テンプレート全体 bbox 上の 9 点アンカー。旧 doc との互換のため optional */
+  anchor?: 'tl' | 'tc' | 'tr' | 'ml' | 'mc' | 'mr' | 'bl' | 'bc' | 'br'
   variables: Variable[]
   layers: AtfLayer[]
 }

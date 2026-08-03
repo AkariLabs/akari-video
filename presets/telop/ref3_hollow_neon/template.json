@@ -21,37 +21,49 @@
       "key": "caption",
       "type": "text",
       "label": "字幕",
-      "default": "HOLLOW NEON"
+      "default": "HOLLOW NEON",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁色",
-      "default": "#00FFFF"
+      "default": "#00FFFF",
+      "group": "main",
+      "role": "color-stroke"
     },
     {
       "key": "color_glow",
       "type": "color",
       "label": "グロー色",
-      "default": "rgba(0,255,255,0.86)"
+      "default": "rgba(0,255,255,0.86)",
+      "group": "main",
+      "role": "color-shadow"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "文字サイズ",
-      "default": 128
+      "default": 128,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "letterSpacing",
       "type": "number",
       "label": "字間",
-      "default": 8
+      "default": 8,
+      "group": "main",
+      "role": "other"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "中身の色（既定は透明＝中抜き）",
-      "default": "rgba(0,0,0,0)"
+      "default": "rgba(0,0,0,0)",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "fontFamily",
@@ -68,25 +80,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 800
+      "default": 800,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 237.6,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -142,10 +162,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + (@stage.height * 0.72)"
+          "expr": "0 + (@stage.height * 0.72)"
         },
         "anchor": {
           "x": 0.5,
@@ -239,5 +259,16 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "mc"
 }

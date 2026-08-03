@@ -21,37 +21,65 @@
       "key": "label",
       "type": "text",
       "label": "ラベル",
-      "default": "特集"
+      "default": "特集",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "title",
       "type": "text",
       "label": "タイトル",
-      "default": "暮らしを変える最新トピック"
+      "default": "暮らしを変える最新トピック",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "color_primary",
       "type": "color",
       "label": "キーカラー",
-      "default": "#0067B8"
+      "default": "#0067B8",
+      "group": "band",
+      "role": "color-accent"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "右帯色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "ラベル文字色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "タイトル文字色",
-      "default": "#111111"
+      "default": "#111111",
+      "group": "main",
+      "role": "color"
+    },
+    {
+      "key": "labelFontSize",
+      "type": "number",
+      "label": "ラベル文字サイズ",
+      "default": 44,
+      "group": "badge",
+      "role": "size"
+    },
+    {
+      "key": "titleFontSize",
+      "type": "number",
+      "label": "タイトル文字サイズ",
+      "default": 48,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "fontFamily",
@@ -68,25 +96,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 700
+      "default": 700,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -888,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": -468,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -108,10 +144,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 72"
+          "expr": "0 + 72"
         },
         "y": {
-          "expr": "posY + 72"
+          "expr": "0 + 72"
         },
         "anchor": {
           "x": 0,
@@ -208,7 +244,7 @@
           "expr": "@ref3_dual_band_left_band.right"
         },
         "y": {
-          "expr": "posY + 72"
+          "expr": "0 + 72"
         },
         "anchor": {
           "x": 0,
@@ -291,7 +327,9 @@
         "text": {
           "var": "label"
         },
-        "size": 44,
+        "size": {
+          "var": "labelFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -303,10 +341,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 104"
+          "expr": "0 + 104"
         },
         "y": {
-          "expr": "posY + 120"
+          "expr": "0 + 120"
         },
         "anchor": {
           "x": 0,
@@ -370,7 +408,9 @@
         "text": {
           "var": "title"
         },
-        "size": 48,
+        "size": {
+          "var": "titleFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -387,7 +427,7 @@
           "expr": "@ref3_dual_band_left_band.right + 42"
         },
         "y": {
-          "expr": "posY + 120"
+          "expr": "0 + 120"
         },
         "anchor": {
           "x": 0,
@@ -444,5 +484,24 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "tl"
 }

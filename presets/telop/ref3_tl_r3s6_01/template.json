@@ -21,79 +21,105 @@
       "key": "text",
       "type": "text",
       "label": "名前",
-      "default": "田中 花子"
+      "default": "田中 花子",
+      "group": "name",
+      "role": "text"
     },
     {
       "key": "subText",
       "type": "text",
       "label": "肩書き",
-      "default": "フリーランスデザイナー"
+      "default": "フリーランスデザイナー",
+      "group": "sub",
+      "role": "text"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "名前 文字サイズ",
-      "default": 76
+      "default": 76,
+      "group": "name",
+      "role": "size"
     },
     {
       "key": "subFontSize",
       "type": "number",
       "label": "肩書き 文字サイズ",
-      "default": 38
+      "default": 38,
+      "group": "sub",
+      "role": "size"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "マーカーインク色",
-      "default": "#1C1C2E"
+      "default": "#1C1C2E",
+      "group": "name",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "肩書き色",
-      "default": "#3A3A55"
+      "default": "#3A3A55",
+      "group": "sub",
+      "role": "color"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "プレート色",
-      "default": "rgba(255,255,255,0.94)"
+      "default": "rgba(255,255,255,0.94)",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "マーカー下線色",
-      "default": "#FF5C5C"
+      "default": "#FF5C5C",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "lineOpacity",
       "type": "number",
       "label": "マーカー下線不透明度",
-      "default": 0.82
+      "default": 0.82,
+      "group": "line",
+      "role": "strength"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置",
-      "default": 140
+      "label": "X位置（中央基準）",
+      "default": -820,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置",
-      "default": 875
+      "label": "Y位置（中央基準）",
+      "default": 420,
+      "group": "global",
+      "role": "pos-y"
     },
     {
       "key": "letterSpacing",
       "type": "number",
       "label": "字間",
-      "default": 2
+      "default": 2,
+      "group": "name",
+      "role": "other"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.14)"
+      "default": "rgba(0,0,0,0.14)",
+      "group": "name",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -110,13 +136,17 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
     }
   ],
   "layers": [
@@ -139,12 +169,8 @@
         }
       },
       "transform": {
-        "x": {
-          "var": "posX"
-        },
-        "y": {
-          "var": "posY"
-        },
+        "x": 140,
+        "y": 875,
         "anchor": {
           "x": 0,
           "y": 0.5
@@ -201,10 +227,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 20"
+          "expr": "140 + 20"
         },
         "y": {
-          "expr": "posY + fontSize * 0.26"
+          "expr": "875 + fontSize * 0.26"
         },
         "anchor": {
           "x": 0,
@@ -302,10 +328,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 28"
+          "expr": "140 + 28"
         },
         "y": {
-          "expr": "posY - fontSize * 0.42"
+          "expr": "875 - fontSize * 0.42"
         },
         "anchor": {
           "x": 0,
@@ -394,10 +420,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 30"
+          "expr": "140 + 30"
         },
         "y": {
-          "expr": "posY + fontSize * 0.65"
+          "expr": "875 + fontSize * 0.65"
         },
         "anchor": {
           "x": 0,
@@ -437,5 +463,28 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "name",
+      "label": "名前"
+    },
+    {
+      "id": "sub",
+      "label": "補足"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }

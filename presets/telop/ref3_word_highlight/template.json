@@ -21,61 +21,81 @@
       "key": "captionText",
       "type": "text",
       "label": "本文テキスト",
-      "default": "THIS IS THE IMPORTANT PART"
+      "default": "THIS IS THE IMPORTANT PART",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "アクティブカラー",
-      "default": "#FFD93D"
+      "default": "#FFD93D",
+      "group": "main",
+      "role": "color-accent"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "ベースカラー",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "フォントサイズ",
-      "default": 72
+      "default": 72,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "plateOpacity",
       "type": "number",
       "label": "プレート透明度",
-      "default": 0.72
+      "default": 0.72,
+      "group": "band",
+      "role": "strength"
     },
     {
       "key": "staggerAdjust",
       "type": "number",
       "label": "stagger調整",
-      "default": 0.45
+      "default": 0.45,
+      "group": "global",
+      "role": "interval"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "プレート背景色",
-      "default": "#000000"
+      "default": "#000000",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁色（外）",
-      "default": "rgba(0,0,0,0.92)"
+      "default": "rgba(0,0,0,0.92)",
+      "group": "main",
+      "role": "color-stroke"
     },
     {
       "key": "color_stroke_2",
       "type": "color",
       "label": "縁色（内）",
-      "default": "rgba(0,0,0,0.45)"
+      "default": "rgba(0,0,0,0.45)",
+      "group": "main",
+      "role": "color-stroke"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.65)"
+      "default": "rgba(0,0,0,0.65)",
+      "group": "main",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -92,25 +112,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 237.6,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -134,10 +162,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + (@stage.height * 0.72)"
+          "expr": "0 + (@stage.height * 0.72)"
         },
         "anchor": {
           "x": 0.5,
@@ -194,10 +222,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + (@stage.height * 0.72)"
+          "expr": "0 + (@stage.height * 0.72)"
         },
         "anchor": {
           "x": 0.5,
@@ -296,10 +324,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + (@stage.height * 0.72)"
+          "expr": "0 + (@stage.height * 0.72)"
         },
         "anchor": {
           "x": 0.5,
@@ -366,5 +394,20 @@
         "minScale": 0.12
       }
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "mc"
 }

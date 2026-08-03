@@ -21,37 +21,65 @@
       "key": "text",
       "type": "text",
       "label": "本文",
-      "default": "字幕テキスト"
+      "default": "字幕テキスト",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "rubyText",
       "type": "text",
       "label": "ルビ（空で非表示）",
-      "default": "じまくテキスト"
+      "default": "じまくテキスト",
+      "group": "ruby",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "プレート色",
-      "default": "rgba(0,0,0,0.8)"
+      "default": "rgba(0,0,0,0.8)",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "本文色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁取り色",
-      "default": "#000000"
+      "default": "#000000",
+      "group": "global",
+      "role": "color-stroke"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "ルビ色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "ruby",
+      "role": "color"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "本文文字サイズ",
+      "default": 72,
+      "group": "main",
+      "role": "size"
+    },
+    {
+      "key": "rubyTextFontSize",
+      "type": "number",
+      "label": "ルビ（空で非表示）文字サイズ",
+      "default": 28,
+      "group": "ruby",
+      "role": "size"
     },
     {
       "key": "fontFamily",
@@ -68,25 +96,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 700
+      "default": 700,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 434,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -108,10 +144,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 960"
+          "expr": "0 + 960"
         },
         "y": {
-          "expr": "posY + 922"
+          "expr": "0 + 922"
         },
         "anchor": {
           "x": 0.5,
@@ -156,7 +192,9 @@
         "text": {
           "var": "text"
         },
-        "size": 72,
+        "size": {
+          "var": "fontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -176,10 +214,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 960"
+          "expr": "0 + 960"
         },
         "y": {
-          "expr": "posY + 922"
+          "expr": "0 + 922"
         },
         "anchor": {
           "x": 0.5,
@@ -224,7 +262,9 @@
         "text": {
           "var": "rubyText"
         },
-        "size": 28,
+        "size": {
+          "var": "rubyTextFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -242,10 +282,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 960"
+          "expr": "0 + 960"
         },
         "y": {
-          "expr": "posY + 866"
+          "expr": "0 + 866"
         },
         "anchor": {
           "x": 0.5,
@@ -286,5 +326,24 @@
         "expr": "has(rubyText)"
       }
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "ruby",
+      "label": "ルビ・ふりがな"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bc"
 }

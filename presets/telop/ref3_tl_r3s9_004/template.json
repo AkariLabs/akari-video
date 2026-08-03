@@ -21,55 +21,73 @@
       "key": "text",
       "type": "text",
       "label": "ニュース本文テキスト",
-      "default": "首脳会談が明日から始まる見通し"
+      "default": "首脳会談が明日から始まる見通し",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "topicLabel",
       "type": "text",
       "label": "トピックラベル",
-      "default": "国際"
+      "default": "国際",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "ベース帯色",
-      "default": "#0A0A0A"
+      "default": "#0A0A0A",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "トピック帯色",
-      "default": "#1560A8"
+      "default": "#1560A8",
+      "group": "badge",
+      "role": "color-bg"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "トピックテキスト色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "本文テキスト色",
-      "default": "#F0F0F0"
+      "default": "#F0F0F0",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "上辺ラインカラー",
-      "default": "#1E88E5"
+      "default": "#1E88E5",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "labelFontSize",
       "type": "number",
       "label": "トピックフォントサイズ",
-      "default": 32
+      "default": 32,
+      "group": "badge",
+      "role": "size"
     },
     {
       "key": "bodyFontSize",
       "type": "number",
       "label": "本文フォントサイズ",
-      "default": 46
+      "default": 46,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "fontFamily",
@@ -86,25 +104,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -920,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 483,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -125,10 +151,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 40"
+          "expr": "0 + 40"
         },
         "y": {
-          "expr": "posY + 951"
+          "expr": "0 + 951"
         },
         "anchor": {
           "x": 0,
@@ -185,10 +211,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 40"
+          "expr": "0 + 40"
         },
         "y": {
-          "expr": "posY + 951"
+          "expr": "0 + 951"
         },
         "anchor": {
           "x": 0,
@@ -245,10 +271,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (100 - max(@ref3_tl_r3s9_004_label_text.width + 44, 120) / 2)"
+          "expr": "0 + (100 - max(@ref3_tl_r3s9_004_label_text.width + 44, 120) / 2)"
         },
         "y": {
-          "expr": "posY + 951"
+          "expr": "0 + 951"
         },
         "anchor": {
           "x": 0,
@@ -315,10 +341,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 100"
+          "expr": "0 + 100"
         },
         "y": {
-          "expr": "posY + 987"
+          "expr": "0 + 987"
         },
         "anchor": {
           "x": 0.5,
@@ -377,10 +403,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 170"
+          "expr": "0 + 170"
         },
         "y": {
-          "expr": "posY + 961"
+          "expr": "0 + 961"
         },
         "anchor": {
           "x": 0,
@@ -446,10 +472,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 190"
+          "expr": "0 + 190"
         },
         "y": {
-          "expr": "posY + 987"
+          "expr": "0 + 987"
         },
         "anchor": {
           "x": 0,
@@ -512,5 +538,28 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }
