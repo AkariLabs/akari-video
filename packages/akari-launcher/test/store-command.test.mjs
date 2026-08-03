@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -175,6 +175,41 @@ test('store connect（デバイスフロー）: 期限切れ（410）は exit 1�
     const result = await runStoreCommand(['connect', '--no-open', '--url', 'http://localhost:9999/api/store'], ctx.options);
     assert.equal(result.exitCode, 1);
     assert.ok(!existsSync(resolveCredentialsPath(ctx.env)), 'no credentials saved');
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test('store install: 宣言パックは declarations.json を所定の場所へ導入（既存は退避）', async () => {
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/v1/entitlements')) return new Response(JSON.stringify(ENTITLEMENTS), { status: 200 });
+      return new Response(Buffer.from('PKdummyzip'), {
+        status: 200,
+        headers: { 'content-disposition': 'attachment; filename="sounds-declaration-pack-v1.zip"' }
+      });
+    }
+  });
+  // unzip 依存を切って展開結果を注入（zip 実体の検証は統合テスト側でやる）
+  ctx.options.extract = (zipPath, dir) => {
+    const inner = path.join(dir, 'sounds-declaration-pack-v1');
+    mkdirSync(inner, { recursive: true });
+    writeFileSync(path.join(inner, 'declarations.json'), '{"new":true}');
+    return true;
+  };
+  try {
+    await runStoreCommand(['connect', '--token', TOKEN, '--url', 'http://localhost:9999/api/store'], ctx.options);
+    const dest = path.join(ctx.home, 'assets', 'audio', 'declarations.json');
+    mkdirSync(path.dirname(dest), { recursive: true });
+    writeFileSync(dest, '{"old":true}');
+
+    const result = await runStoreCommand(['install', 'sounds-declaration-pack'], ctx.options);
+    assert.equal(result.exitCode, 0);
+    assert.equal(readFileSync(dest, 'utf8'), '{"new":true}', 'new declarations installed');
+    const backups = readFileSync(dest, 'utf8') && existsSync(path.dirname(dest))
+      ? (await import('node:fs')).readdirSync(path.dirname(dest)).filter((f) => f.startsWith('declarations.json.bak-'))
+      : [];
+    assert.equal(backups.length, 1, 'old file backed up');
   } finally {
     ctx.cleanup();
   }

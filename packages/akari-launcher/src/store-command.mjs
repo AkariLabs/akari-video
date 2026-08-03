@@ -1,6 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, hostname } from 'node:os';
+import {
+  chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync,
+  readdirSync, readFileSync, rmSync, writeFileSync
+} from 'node:fs';
+import { homedir, hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 
 /**
@@ -51,6 +54,19 @@ function writeCredentials(env, creds) {
 function parseFlag(args, name) {
   const i = args.indexOf(name);
   return i >= 0 && i + 1 < args.length ? args[i + 1] : null;
+}
+
+function findFile(dir, name) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const hit = findFile(p, name);
+      if (hit) return hit;
+    } else if (entry.name === name) {
+      return p;
+    }
+  }
+  return null;
 }
 
 function defaultOpenBrowser(url, platform = process.platform) {
@@ -237,6 +253,68 @@ export async function runStoreCommand(args, options = {}) {
     return { exitCode: 0, filePath };
   }
 
+  if (sub === 'install') {
+    const productId = args[1];
+    if (!productId || productId.startsWith('--')) {
+      log('使い方: akari store install <productId>');
+      return { exitCode: 1 };
+    }
+    const stage = mkdtempSync(path.join(tmpdir(), 'akari-store-install-'));
+    try {
+      const dl = await runStoreCommand(['download', productId, '--dest', stage], options);
+      if (dl.exitCode !== 0) return { exitCode: 1 };
+      const extractDir = path.join(stage, 'x');
+      mkdirSync(extractDir, { recursive: true });
+      // unzip 優先・無ければ bsdtar（Windows 10+ の tar は zip を読める）
+      const extracted = options.extract
+        ? options.extract(dl.filePath, extractDir)
+        : ['unzip', 'tar'].some((tool) => {
+            const cmdArgs = tool === 'unzip' ? ['-o', '-q', dl.filePath, '-d', extractDir] : ['-xf', dl.filePath, '-C', extractDir];
+            try {
+              return spawnSync(tool, cmdArgs, { stdio: 'ignore' }).status === 0;
+            } catch {
+              return false;
+            }
+          });
+      if (!extracted) {
+        log(`zip の展開に失敗しました。手動で展開してください: ${dl.filePath}`);
+        return { exitCode: 1 };
+      }
+
+      if (productId === 'sounds-declaration-pack') {
+        // パック同梱 README の導入手順どおり「declarations.json を 1 個置くだけ」
+        const found = findFile(extractDir, 'declarations.json');
+        if (!found) {
+          log('パック内に declarations.json が見つかりませんでした。zip の中身を確認してください。');
+          return { exitCode: 1 };
+        }
+        const destDir = path.join(resolveAkariHome(env), 'assets', 'audio');
+        mkdirSync(destDir, { recursive: true });
+        const dest = path.join(destDir, 'declarations.json');
+        if (existsSync(dest)) {
+          const backup = `${dest}.bak-${Date.now()}`;
+          copyFileSync(dest, backup);
+          log(`既存の declarations.json を退避しました: ${backup}`);
+        }
+        copyFileSync(found, dest);
+        log(`導入しました: ${dest}`);
+        log('AKARI Video の BGM 自動提案（suggest-bgm）が収録曲を実測 BPM・サビ頭出し付きで優先提案します。');
+        return { exitCode: 0 };
+      }
+
+      // 既知の導入手順が無い商品は素材置き場に展開して README を案内
+      const destDir = path.join(resolveAkariHome(env), 'assets', 'store', productId);
+      rmSync(destDir, { recursive: true, force: true });
+      cpSync(extractDir, destDir, { recursive: true });
+      const readme = findFile(destDir, 'README.md');
+      log(`展開しました: ${destDir}`);
+      if (readme) log(`導入手順: ${readme}`);
+      return { exitCode: 0 };
+    } finally {
+      rmSync(stage, { recursive: true, force: true });
+    }
+  }
+
   if (sub === 'disconnect') {
     const file = resolveCredentialsPath(env);
     if (existsSync(file)) {
@@ -248,10 +326,11 @@ export async function runStoreCommand(args, options = {}) {
     return { exitCode: 0 };
   }
 
-  log('使い方: akari store <connect|status|download|disconnect>');
+  log('使い方: akari store <connect|status|install|download|disconnect>');
   log('  connect                              ブラウザで承認して接続（既定。--token akst_... で手動 / --no-open でブラウザを開かない / --url <base>）');
   log('  status                               接続状態と購入済み一覧');
-  log('  download <productId> [--dest <dir>]  購入済み配布物の取得');
+  log('  install <productId>                  購入済み商品のダウンロード + 導入まで一括');
+  log('  download <productId> [--dest <dir>]  購入済み配布物の取得のみ');
   log('  disconnect                           接続解除');
   return { exitCode: sub ? 1 : 0 };
 }
