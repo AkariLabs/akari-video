@@ -12,6 +12,7 @@ import {
     formatHomeBannerText,
     isValidFeedShape,
     parseUpdateCache,
+    resolveUpdateDownloadUrl,
     withDismissedVersion,
     withFetchedFeed
 } from '../../lib/common/update-feed.js';
@@ -22,6 +23,21 @@ const VALID_FEED = {
     channel: 'prerelease',
     notes_url: 'https://github.com/AkariLabs/akari-video/releases/tag/v0.2.0',
     components: { cli: { version: '0.2.0' } }
+};
+
+// 実スキーマ（scripts/release/gen-latest-json.mjs が生成する latest.json）どおり
+// components.shell.mac/win/win_zip を持つフィード（F7-v1 のテスト用）。
+const FEED_WITH_SHELL_ASSETS = {
+    ...VALID_FEED,
+    components: {
+        ...VALID_FEED.components,
+        shell: {
+            version: '0.2.0',
+            mac: { url: 'https://github.com/AkariLabs/akari-video/releases/download/v0.2.0/shell-mac.zip', sha256: 'aaa' },
+            win: { url: 'https://github.com/AkariLabs/akari-video/releases/download/v0.2.0/shell-win-setup.exe', sha256: 'bbb' },
+            win_zip: { url: 'https://github.com/AkariLabs/akari-video/releases/download/v0.2.0/shell-win.zip', sha256: 'ccc' }
+        }
+    }
 };
 
 test('compareVersions: major.minor.patch を数値比較する', () => {
@@ -75,6 +91,33 @@ test('evaluateUpdateStatus: キャッシュ無し(null)は available: false（�
 test('evaluateUpdateStatus: 壊れたフィード（product が無い）は available: false', () => {
     const cache = { schema: 1, feed: { schema: 1 }, dismissed: {} };
     assert.equal(evaluateUpdateStatus('0.1.0', cache).available, false);
+});
+
+test('evaluateUpdateStatus: platform を渡すと downloadUrl に自プラットフォームの配布物 URL が入る（F7-v1）', () => {
+    const cache = { schema: 1, feed: FEED_WITH_SHELL_ASSETS, dismissed: {} };
+    assert.equal(evaluateUpdateStatus('0.1.0', cache, 'mac').downloadUrl, FEED_WITH_SHELL_ASSETS.components.shell.mac.url);
+    assert.equal(evaluateUpdateStatus('0.1.0', cache, 'win').downloadUrl, FEED_WITH_SHELL_ASSETS.components.shell.win.url);
+});
+
+test('evaluateUpdateStatus: platform 省略時 / 配布物 URL が無い版は downloadUrl が notes_url にフォールバックする', () => {
+    const cache = { schema: 1, feed: FEED_WITH_SHELL_ASSETS, dismissed: {} };
+    assert.equal(evaluateUpdateStatus('0.1.0', cache).downloadUrl, FEED_WITH_SHELL_ASSETS.notes_url);
+    const noAssetsCache = { schema: 1, feed: VALID_FEED, dismissed: {} };
+    assert.equal(evaluateUpdateStatus('0.1.0', noAssetsCache, 'mac').downloadUrl, VALID_FEED.notes_url);
+});
+
+test('resolveUpdateDownloadUrl: 自プラットフォームの配布物 URL を優先する', () => {
+    assert.equal(resolveUpdateDownloadUrl(FEED_WITH_SHELL_ASSETS, 'mac'), FEED_WITH_SHELL_ASSETS.components.shell.mac.url);
+});
+
+test('resolveUpdateDownloadUrl: 配布物 URL が無ければ notes_url へフォールバックする', () => {
+    assert.equal(resolveUpdateDownloadUrl(VALID_FEED, 'mac'), VALID_FEED.notes_url);
+    assert.equal(resolveUpdateDownloadUrl(FEED_WITH_SHELL_ASSETS, undefined), FEED_WITH_SHELL_ASSETS.notes_url);
+});
+
+test('resolveUpdateDownloadUrl: feed が無ければ undefined', () => {
+    assert.equal(resolveUpdateDownloadUrl(null, 'mac'), undefined);
+    assert.equal(resolveUpdateDownloadUrl(undefined, undefined), undefined);
 });
 
 test('formatHomeBannerText: プレリリースの版名が付く（task.md 指示どおりの文言）', () => {

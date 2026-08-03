@@ -34,4 +34,16 @@ export interface AkariNewProjectService {
      * フォルダーに既存ファイルがあると失敗する。
      */
     createProject(destinationUri: string): Promise<void>;
+
+    /**
+     * U5「チャンネルに入れる」（task 2026-08-03-home-v5-terms）。単体プロジェクト
+     * `projectUri` を作業場 `rootUri` の `channel` へ養子縁組する。実処理は
+     * `packages/creator-root` の `adoptProject()` をそのまま呼ぶだけで、
+     * ロジックは複製しない（このパスの専用実装理由・動的 import の流儀は
+     * `akari-surfaces/src/node/akari-new-project-service.ts` 参照）。
+     * 成功時は移動先の URI 文字列を返す。失敗時（同名衝突・EBUSY 等）は、
+     * そのまま表示できる 1 行の日本語メッセージを持つ `Error` を投げる
+     * （元プロジェクトは残ったまま — creator-root の adoptProject 自身の契約）。
+     */
+    adoptProject(rootUri: string, projectUri: string, channel: string): Promise<string>;
 }
