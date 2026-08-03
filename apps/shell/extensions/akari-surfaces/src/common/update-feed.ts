@@ -25,6 +25,20 @@ export interface UpdateFeedCliComponent {
     tarball?: UpdateFeedAsset;
 }
 
+/**
+ * shell コンポーネントの配布物（F7-v1・task 2026-08-03-home-v5-terms）。
+ * 実スキーマは非公開の release ジェネレータ `scripts/release/gen-latest-json.mjs`
+ * （このパッケージの編集境界外）が正本 — `mac` / `win`（インストーラ） /
+ * `win_zip`（ポータブル zip）の 3 キー。ここでは「更新する」ボタンが読む範囲だけを
+ * 型として揃える（複製ではなく形状の追随）。
+ */
+export interface UpdateFeedShellComponent {
+    version?: string;
+    mac?: UpdateFeedAsset;
+    win?: UpdateFeedAsset;
+    win_zip?: UpdateFeedAsset;
+}
+
 export interface UpdateFeed {
     schema?: number;
     product?: string;
@@ -33,10 +47,13 @@ export interface UpdateFeed {
     notes_url?: string;
     components?: {
         cli?: UpdateFeedCliComponent;
-        shell?: { version?: string };
+        shell?: UpdateFeedShellComponent;
         plugin?: { version?: string };
     };
 }
+
+/** 「更新する」ボタンが対応する自プラットフォームのキー（F7-v1）。Linux 等の未対応 OS は undefined。 */
+export type ShellPlatformKey = 'mac' | 'win';
 
 export interface UpdateCache {
     schema?: number;
@@ -52,6 +69,8 @@ export interface UpdateStatus {
     currentVersion?: string;
     channel?: string;
     notesUrl?: string;
+    /** F7-v1（task 2026-08-03-home-v5-terms）: 「更新する」ボタンの遷移先。resolveUpdateDownloadUrl 参照。 */
+    downloadUrl?: string;
 }
 
 /** "major.minor.patch" の先頭 3 要素だけを数値比較する（prerelease 考慮不要 — 契約 D4: stable のみ）。 */
@@ -96,8 +115,18 @@ export function parseUpdateCache(raw: string): UpdateCache | null {
     }
 }
 
+/**
+ * 「更新する」ボタン（F7-v1）の遷移先を決める純粋関数。自プラットフォームの配布物 URL
+ * （`components.shell.mac.url` 等）を優先し、無ければ `notes_url` へフォールバックする
+ * （task.md 指示どおり）。`platform` が undefined（未対応 OS）のときも `notes_url` へ倒す。
+ */
+export function resolveUpdateDownloadUrl(feed: UpdateFeed | null | undefined, platform: ShellPlatformKey | undefined): string | undefined {
+    const asset = platform ? feed?.components?.shell?.[platform] : undefined;
+    return asset?.url || feed?.notes_url || undefined;
+}
+
 /** キャッシュ + 現在版から、ホームバナーを出すかどうかを判定する（同期・純粋関数）。 */
-export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache | null): UpdateStatus {
+export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache | null, platform?: ShellPlatformKey): UpdateStatus {
     const feed = cache?.feed;
     if (!isValidFeedShape(feed)) {
         return { available: false };
@@ -115,7 +144,8 @@ export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache 
         latestVersion: latest,
         currentVersion,
         channel: typeof feed.channel === 'string' ? feed.channel : undefined,
-        notesUrl: typeof feed.notes_url === 'string' ? feed.notes_url : undefined
+        notesUrl: typeof feed.notes_url === 'string' ? feed.notes_url : undefined,
+        downloadUrl: resolveUpdateDownloadUrl(feed, platform)
     };
 }
 
