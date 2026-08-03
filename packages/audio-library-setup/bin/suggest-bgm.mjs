@@ -14,6 +14,11 @@
 //   --tempo <値>     ゆったり | 標準 | 高速（任意。体感テンポ一致にボーナス）
 //   --count <N>      提示件数（既定 5）
 //   --catalog <path> catalog.json をローカルファイルから読む（検証用の上書き）
+//   --declarations <path>  耳検証済み宣言データ（{id: {bpm, sections[], hit_points[] …}} の JSON）。
+//                    未指定なら環境変数 AKARI_SOUNDS_DECLARATIONS のパスを見る。
+//                    あるトラックは実測 BPM 置換 + ランキング優先 + サビ頭出し（audio.bgm.in の
+//                    推奨値）が提案に付く。将来の宣言パック導入時は user スコープ meta.json から
+//                    自動で拾う予定（現状は内部 dogfood 用の明示指定）
 //   --json           機械可読 JSON で出力（エージェント向け）
 
 import { existsSync } from 'node:fs';
@@ -32,14 +37,15 @@ function resolveLibraryRoot(env = process.env) {
   return path.join(env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'assets', 'audio');
 }
 
-function parseArguments(argv) {
-  const options = { tones: [], tempo: null, count: 5, catalog: null, json: false };
+function parseArguments(argv, env = process.env) {
+  const options = { tones: [], tempo: null, count: 5, catalog: null, declarations: env.AKARI_SOUNDS_DECLARATIONS || null, json: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--tone') { options.tones.push(argv[++i]); continue; }
     if (arg === '--tempo') { options.tempo = argv[++i]; continue; }
     if (arg === '--count') { options.count = Number(argv[++i]); continue; }
     if (arg === '--catalog') { options.catalog = path.resolve(argv[++i]); continue; }
+    if (arg === '--declarations') { options.declarations = argv[++i]; continue; }
     if (arg === '--json') { options.json = true; continue; }
     throw new Error(`Unknown option: ${arg}`);
   }
@@ -47,6 +53,18 @@ function parseArguments(argv) {
     throw new Error('--count は 1 以上の整数で指定してください');
   }
   return options;
+}
+
+async function loadDeclarations(options) {
+  if (!options.declarations) {
+    return { declarations: null, declarationsSource: null };
+  }
+  const resolved = path.resolve(options.declarations);
+  try {
+    return { declarations: JSON.parse(await readFile(resolved, 'utf8')), declarationsSource: resolved };
+  } catch (error) {
+    throw new Error(`宣言データを読めません: ${resolved}（${error.message}）`);
+  }
 }
 
 async function loadCatalog(options, libraryRoot) {
@@ -72,16 +90,22 @@ function attachLocalPaths(suggestion, libraryRoot) {
   return { ...suggestion, takes };
 }
 
-function formatHuman(result, { tones, tempo, source }) {
+function formatHuman(result, { tones, tempo, source, declarationsSource }) {
   const lines = [];
-  lines.push(`BGM 候補（tone: ${tones.join('・')}${tempo ? ` / tempo: ${tempo}` : ''} / 出典: ${source}）`);
+  lines.push(`BGM 候補（tone: ${tones.join('・')}${tempo ? ` / tempo: ${tempo}` : ''} / 出典: ${source}${declarationsSource ? ' + 宣言データ' : ''}）`);
   if (result.suggestions.length === 0) {
     lines.push('該当なし — tone の組み合わせを変えるか、tempo 指定を外してください。');
   }
   result.suggestions.forEach((s, index) => {
     const toneNote = Object.entries(s.matchedTones).map(([tone, w]) => `${tone}${w === 2 ? '◎' : '○'}`).join(' ');
     lines.push(`${index + 1}. ${s.id} — ${s.title}`);
-    lines.push(`   系統: ${s.family} / 体感BPM: ${s.bpm ?? '不明'}（${s.tempoClass ?? '—'}） / 一致: ${toneNote} / スコア: ${s.score}`);
+    lines.push(`   系統: ${s.family} / ${s.declaration ? '実測BPM' : '体感BPM'}: ${s.bpm ?? '不明'}（${s.tempoClass ?? '—'}） / 一致: ${toneNote} / スコア: ${s.score}${s.declaredScore ? '（耳検証済み +' + s.declaredScore + '）' : ''}`);
+    if (s.declaration) {
+      const d = s.declaration;
+      const secText = d.sections.map((x) => `${x.label} ${x.start_sec}-${x.end_sec}`).join(' / ');
+      lines.push(`   宣言: ${d.drop_in_sec !== null ? `サビ頭 ${d.drop_in_sec}s（audio.bgm.in に指定でサビから敷ける）` : 'サビ宣言なし'}${d.hit_points.length ? ` / キメ ${d.hit_points.length} 点` : ''}`);
+      if (secText) lines.push(`   構成: ${secText}`);
+    }
     for (const take of s.takes) {
       lines.push(`   ${take.exists ? 'path' : '未取得'}: ${take.path ?? '(mp3 情報なし)'}${take.duration_sec ? `（${take.duration_sec}s）` : ''}`);
     }
@@ -97,8 +121,9 @@ async function main() {
   const options = parseArguments(process.argv.slice(2));
   const libraryRoot = resolveLibraryRoot();
   const { catalog, source } = await loadCatalog(options, libraryRoot);
+  const { declarations, declarationsSource } = await loadDeclarations(options);
 
-  const result = suggestBgm(catalog, { tones: options.tones, tempo: options.tempo, count: options.count });
+  const result = suggestBgm(catalog, { tones: options.tones, tempo: options.tempo, count: options.count, declarations });
   const withPaths = {
     ...result,
     suggestions: result.suggestions.map((s) => attachLocalPaths(s, libraryRoot)),
@@ -108,6 +133,7 @@ async function main() {
     console.log(JSON.stringify({
       query: { tones: options.tones, tempo: options.tempo, count: options.count },
       source,
+      declarations_source: declarationsSource,
       library_root: libraryRoot,
       tone_vocabulary: TONE_VOCABULARY,
       tempo_vocabulary: TEMPO_VOCABULARY,
@@ -115,7 +141,7 @@ async function main() {
     }, null, 2));
     return;
   }
-  console.log(formatHuman(withPaths, { tones: options.tones, tempo: options.tempo, source }));
+  console.log(formatHuman(withPaths, { tones: options.tones, tempo: options.tempo, source, declarationsSource }));
 }
 
 main().catch((error) => {

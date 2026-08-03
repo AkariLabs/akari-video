@@ -114,6 +114,10 @@ node packages/audio-library-setup/bin/suggest-bgm.mjs --tone <トーン> [--tone
   決める（自動提案の結果を無承認で `edit.json` に書かない）。提示には
   「suggest-bgm の第 N 候補（tone: ◯◯）」と根拠を書き、別の候補や手動選定へ逸脱するときは
   理由を 1 行残す
+- 耳検証済みの宣言データがある環境（宣言パック導入時、または `--declarations` /
+  env `AKARI_SOUNDS_DECLARATIONS`）では、該当トラックが優先表示され、**サビ頭出し
+  （`audio.bgm.in` にそのまま書ける推奨秒）**・実測 BPM・曲構成（intro/サビ/outro）付きで
+  提案される。サビから敷きたい・見せ場に合わせたい場面ではこの値を使う
 - AKARI Sounds に合う系統が無い（該当なし・トーンが特殊）ときだけ、従来のスコープ層検索と
   外部補完（`catalog/audio/` の SFX 補完・候補リスト）へ広げる
 

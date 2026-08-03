@@ -14,7 +14,7 @@
 | `shared/waveform-preview.mjs` | 音声実体から preview.png（波形画像）を ffmpeg で生成する共有ロジック |
 | `bin/fetch-akari-sounds.mjs` | AKARI Sounds を GitHub Release から**一括取得**し user スコープへ登録する CLI（first-party のみ許可。取得先は AkariLabs/akari-sounds に限定） |
 | `shared/bgm-suggest.mjs` | BGM 自動提案の純粋ロジック — tone 語彙（表現選定と同じ 8 語）× 系統対応表 `FAMILY_TONE_RULES` × 体感 BPM で決定論ランキング |
-| `bin/suggest-bgm.mjs` | BGM 自動提案 CLI。導入済みスナップショット（`.origin-catalog.json`）を読み、`--tone`（複数可）`--tempo` から候補 + ローカル実体パスを提示（`--json` あり）。ネットワーク不使用 |
+| `bin/suggest-bgm.mjs` | BGM 自動提案 CLI。導入済みスナップショット（`.origin-catalog.json`）を読み、`--tone`（複数可）`--tempo` から候補 + ローカル実体パスを提示（`--json` あり）。`--declarations`（または env `AKARI_SOUNDS_DECLARATIONS`）で耳検証済み宣言を合流 — 実測 BPM 置換・耳検証ボーナス・**サビ頭出し（`audio.bgm.in` の推奨値）**・構成表示が付く。ネットワーク不使用 |
 | `shared/sfx-suggest.mjs` | SFX / ジングル自動提案の純粋ロジック — 「場面の意味」14 語 × 宣言表 `MEANING_RULES`（候補順 = 優先順・外部補完の参照つき） |
 | `bin/suggest-sfx.mjs` | SFX / ジングル自動提案 CLI（`--meaning` / `--list` / `--json`）。suggest-bgm の姉妹 |
 | `bin/review-sfx-mapping.mjs` | 「意味 → 音」対応表の**耳レビュー面**を生成（全意味 × 候補の試聴プレイヤー + 判定 JSON 書き出し。既定出力 `~/.akari/reviews/sfx-mapping.html`） |
