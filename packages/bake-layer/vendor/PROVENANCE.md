@@ -149,3 +149,23 @@ const to = layer.transform.opacity ? resolveNum(layer.transform.opacity, 1) : 1
 - 機械検証: `scripts/codemod-standard-knobs.mjs` の全 36 件座標パリティ（±0.1px）・
   実ブラウザ利用時の既定レンダ byte parity、`test/standard-knobs.test.mjs` の
   anchor 中央配置・全レイヤー剛体移動・4 段階文言伸縮アンカー固定、既存 `npm test`
+
+## vendor への追記: ATF テキストラン v1（2026-08-03 atf-text-runs）
+
+文言中の `**…**` で任意範囲を強調できる akari-video 側の独自拡張
+（akari-telop 本家には未収録。再移植時は要マージ）:
+
+- `atf/text-runs.ts`: 対になった `**` を除去して通常 / 強調ランへ変換する決定論的パーサーを追加。
+  複数範囲に対応し、閉じ忘れ（マーカーが奇数個）は入力全体を変換せず fail-visible にする
+- `atf/types.ts` / `atf/resolve.ts`: `TextContent.emphasisStyle?` の `color` / `scale` / `weight`
+  をすべて `Value` として追加。解決済みランを measure より前に作り、強調倍率とウェイトを
+  実測・反復 shrink-to-fit に含める。`emphasisStyle` 未宣言でも対になったマーカーは描画文字列
+  から除去し、本文と同じ単一描画経路へ戻すためスタイル差を作らない
+- `render/canvas2d.ts`: plain 経路はランごとにフォント・色・サイズ・太さを切り替え、最大ラン高の
+  中央へ各ランを揃える。明示した強調色は本文の gradient / pattern より優先する
+- `render/perchar.ts`: マーカー除去後の grapheme / word offset とランを対応付け、既存の
+  classStyles / glyphStyles / randomize と強調 scale を合成する。字詰め実測にも同じ scale / weight
+  を使い、plain と同じ実測高を基準に縦位置を揃える
+- 機械検証: `test/text-runs-resolution.test.mjs`（パース・閉じ忘れ・Value 解決・未宣言・長文収縮）と
+  `test/text-runs-render.test.mjs`（plain / perChar の色・サイズ実効、未宣言 pixel parity、縦位置、
+  長文安全域、hormozi_snap 旧 2 レイヤーとの alpha bbox parity）
