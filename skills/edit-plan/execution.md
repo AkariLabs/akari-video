@@ -129,6 +129,22 @@ v0 では、source 時刻 `s` が keep-range `[in, out]` にあるとき、timel
 - **按分 fallback（`words` が取れず segment の start/end を文字数比で分配する推定）を使うときも、敷き詰め禁止は同じ**。按分は末尾語 end の**時刻の推定**であって**区間の拡張ではない**ので、推定した末尾 end + 読み切り猶予で閉じ、次 caption まで伸ばさない。
 - 参照挙動: 旧 Akari-OS（video-on-os）の字幕表示。字幕の付ける/付けない・スタイル等の方針レベルは [report-guide.md](report-guide.md) の素材計画 §字幕枠で決め、ここでは区間の作り方だけを定める。
 
+### 字幕スタイルを適用する
+
+ユーザーが「このスタイルで」など preset 名・系統を指定した場合は、`presets/textstyle/INDEX.md` または `presets/textstyle/index.jsonl` から対応する preset id を引く。プロジェクト全体へ適用するときはリポジトリルートから次を実行する。
+
+```sh
+node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id>
+```
+
+特定の字幕行だけへ適用するときは、0-based index または caption id を `--caption` に指定する（複数回指定可）。
+
+```sh
+node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id> --caption <index|id>
+```
+
+書き込み前に差分 JSON を確認する場合は、どちらのコマンドにも `--dry-run` を加える。preset が持つフィールドは既存の `default_text_style` または `captions[].text_style` へマージされ、preset が宣言していない既存フィールドは保持される。preset の語彙にない微調整、または preset を使わない微調整は、従来どおり `text_style` を `captions.json` に直接書いて行う。
+
 ## 5. 検証して判断記録を閉じる
 
 - [edit-lint](../edit-lint/SKILL.md) を実行し、`edit.json` の構造、cuts 整合、参照解決、

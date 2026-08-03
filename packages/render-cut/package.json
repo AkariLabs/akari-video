@@ -5,7 +5,8 @@
   "description": "承認済み edit.json を決定的に MP4 へ書き出し検証する CLI。",
   "type": "module",
   "bin": {
-    "render-cut": "bin/render-cut.mjs"
+    "render-cut": "bin/render-cut.mjs",
+    "akari-apply-textstyle": "bin/akari-apply-textstyle.mjs"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs"
