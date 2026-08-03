@@ -15,6 +15,9 @@
 | `bin/fetch-akari-sounds.mjs` | AKARI Sounds を GitHub Release から**一括取得**し user スコープへ登録する CLI（first-party のみ許可。取得先は AkariLabs/akari-sounds に限定） |
 | `shared/bgm-suggest.mjs` | BGM 自動提案の純粋ロジック — tone 語彙（表現選定と同じ 8 語）× 系統対応表 `FAMILY_TONE_RULES` × 体感 BPM で決定論ランキング |
 | `bin/suggest-bgm.mjs` | BGM 自動提案 CLI。導入済みスナップショット（`.origin-catalog.json`）を読み、`--tone`（複数可）`--tempo` から候補 + ローカル実体パスを提示（`--json` あり）。ネットワーク不使用 |
+| `shared/sfx-suggest.mjs` | SFX / ジングル自動提案の純粋ロジック — 「場面の意味」14 語 × 宣言表 `MEANING_RULES`（候補順 = 優先順・外部補完の参照つき） |
+| `bin/suggest-sfx.mjs` | SFX / ジングル自動提案 CLI（`--meaning` / `--list` / `--json`）。suggest-bgm の姉妹 |
+| `bin/review-sfx-mapping.mjs` | 「意味 → 音」対応表の**耳レビュー面**を生成（全意味 × 候補の試聴プレイヤー + 判定 JSON 書き出し。既定出力 `~/.akari/reviews/sfx-mapping.html`） |
 | `bin/generate-candidates-html.mjs` | 候補リストの静的自己完結 HTML を生成する CLI。ダウンロードは一切行わない |
 | `bin/register-drop-folder.mjs` | ドロップフォルダを走査し、候補と照合して `~/.akari/assets/audio/<id>/`（user スコープ）へ実体配置 + `catalog/audio/<id>/meta.json`（remote 参照）を書く CLI。既定は plan-only、`--apply` で実行 |
 | `gallery-server.mjs` + `gallery-template.html` | 登録済み音源の試聴 + keep/drop を記録するローカル HTTP サーバ（`127.0.0.1` のみ） |
