@@ -187,6 +187,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               displayTokens: rangeTokens,
               textStyleActive: textStyle !== null,
               backgroundMode: textStyle?.background?.mode,
+              extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
             })
           : renderCaptionFragment(displayText, {
@@ -194,6 +195,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               baseFontSize,
               textStyleActive: textStyle !== null,
               backgroundMode: textStyle?.background?.mode,
+              extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
             });
       overlays.push({
@@ -234,6 +236,8 @@ export function mergeCaptionTextStyles(defaultStyle, captionStyle) {
 export function captionTextStyleVars(style) {
   if (!style || typeof style !== "object") return {};
   const vars = {};
+  const extendedBackground = usesExtendedPerLineBackground(style.background);
+  const percentageBackground = usesPercentageBackground(style.background);
   if (typeof style.color === "string") {
     vars["--caption-color"] = style.color;
   }
@@ -254,7 +258,7 @@ export function captionTextStyleVars(style) {
   if (style.background && (typeof style.background.color === "string"
     || (typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)))) {
     const backgroundVariable = style.background.mode === "block"
-      ? "--plate-block-bg" : "--plate-bg";
+      ? "--plate-block-bg" : extendedBackground ? "--plate-ext-bg" : "--plate-bg";
     vars[backgroundVariable] = colorWithOpacity(
       typeof style.background.color === "string" ? style.background.color : "#000000",
       typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)
@@ -264,7 +268,7 @@ export function captionTextStyleVars(style) {
   if (typeof style.background?.radius_px === "number"
     && Number.isFinite(style.background.radius_px)) {
     const radiusVariable = style.background.mode === "block"
-      ? "--plate-block-radius" : "--plate-radius";
+      ? "--plate-block-radius" : extendedBackground ? "--plate-ext-radius" : "--plate-radius";
     vars[radiusVariable] = `${style.background.radius_px}px`;
   }
   // --- 2026-08-03 textstyle v0 拡張 ---
@@ -289,7 +293,22 @@ export function captionTextStyleVars(style) {
     vars["--caption-line-max-width"] = `${style.max_width_pct}%`;
   }
   if (style.vertical) vars["--caption-writing-mode"] = "vertical-rl";
-  if (typeof style.background?.padding_px === "number") {
+  if (extendedBackground) {
+    const horizontalExpansion = percentageBackground
+      ? `${style.background.width_pct ?? 0}%`
+      : `${style.background.padding_px ?? 0}px`;
+    const verticalExpansion = percentageBackground
+      ? `${style.background.height_pct ?? 0}%`
+      : `${style.background.padding_px ?? 0}px`;
+    vars["--plate-ext-width"] = horizontalExpansion;
+    vars["--plate-ext-height"] = verticalExpansion;
+    if (typeof style.background.offset_x === "number") {
+      vars["--plate-offset-x"] = `${style.background.offset_x}px`;
+    }
+    if (typeof style.background.offset_y === "number") {
+      vars["--plate-offset-y"] = `${style.background.offset_y}px`;
+    }
+  } else if (typeof style.background?.padding_px === "number") {
     vars["--plate-pad-y"] = `${style.background.padding_px}px`;
     vars["--plate-pad-x"] = `${style.background.padding_px}px`;
   }
@@ -298,7 +317,7 @@ export function captionTextStyleVars(style) {
     vars["--caption-text-shadow"] = textShadow;
   }
   Object.assign(vars, zoneVars(style.zone));
-  Object.assign(vars, anchorPositionVars(style.text_anchor, style.position));
+  Object.assign(vars, anchorPositionVars(style.text_anchor, style.position, style.vertical_align));
   if (style.align) {
     // 明示 align は zone / anchor の水平配置より優先する
     vars["--caption-text-align"] = style.align;
@@ -335,16 +354,18 @@ function captionTextShadowValue(shadow, glow) {
 // text_anchor（9 点）+ position（0..1 相対）→ プレート配置の CSS 変数。
 // position 未指定なら anchor は zone 相当の縁寄せとして効く。position 指定時は
 // その座標へ anchor の縦成分（t/m/b）を合わせる（m は 100% を超えないよう近似で top 配置）。
-function anchorPositionVars(anchor, position) {
-  if (!anchor && !position) return {};
+function anchorPositionVars(anchor, position, verticalAlign) {
+  if (!anchor && !position && !verticalAlign) return {};
   const vars = {};
-  const vertical = anchor ? anchor[0] : "b";
+  const vertical = anchor
+    ? anchor[0]
+    : verticalAlign === "top" ? "t" : verticalAlign === "middle" ? "m" : "b";
   const horizontal = anchor ? anchor[1] : "c";
   if (typeof position?.y === "number") {
     const clamped = Math.min(1, Math.max(0, position.y));
     vars["--caption-top"] = `${Math.round(clamped * 10000) / 100}%`;
     vars["--caption-bottom"] = "auto";
-  } else if (anchor) {
+  } else if (anchor || verticalAlign) {
     vars["--caption-top"] = vertical === "t" ? "7%" : vertical === "m" ? "0" : "auto";
     vars["--caption-bottom"] = vertical === "b" ? "7%" : vertical === "m" ? "0" : "auto";
     if (vertical === "m") vars["--caption-justify-content"] = "center";
@@ -377,6 +398,7 @@ const TEXT_TRANSFORM_MAP = {
   none: "none",
 };
 const TEXT_ANCHOR_VALUES = new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
+const VERTICAL_ALIGN_VALUES = new Set(["top", "middle", "bottom"]);
 
 function finiteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
@@ -414,6 +436,8 @@ function normalizeTextStyle(value) {
       ? { line_height: value.line_height } : {}),
     ...(value.align === "left" || value.align === "center" || value.align === "right"
       ? { align: value.align } : {}),
+    ...(VERTICAL_ALIGN_VALUES.has(value.vertical_align)
+      ? { vertical_align: value.vertical_align } : {}),
     ...(value.vertical === true ? { vertical: true } : {}),
     ...(TEXT_TRANSFORM_MAP[value.text_transform]
       ? { text_transform: TEXT_TRANSFORM_MAP[value.text_transform] } : {}),
@@ -473,12 +497,28 @@ function normalizeTextStyle(value) {
             ...(finiteNumber(value.background.opacity) ? { opacity: value.background.opacity } : {}),
             ...(finiteNumber(value.background.radius_px) ? { radius_px: value.background.radius_px } : {}),
             ...(finiteNumber(value.background.padding_px) ? { padding_px: value.background.padding_px } : {}),
+            ...(finiteNumber(value.background.height_pct) ? { height_pct: value.background.height_pct } : {}),
+            ...(finiteNumber(value.background.width_pct) ? { width_pct: value.background.width_pct } : {}),
+            ...(finiteNumber(value.background.offset_x) ? { offset_x: value.background.offset_x } : {}),
+            ...(finiteNumber(value.background.offset_y) ? { offset_y: value.background.offset_y } : {}),
             ...(value.background.mode === "per-line" || value.background.mode === "block"
               ? { mode: value.background.mode } : {}),
           },
         } : {}),
     ...(typeof value.zone === "string" ? { zone: value.zone } : {}),
   };
+}
+
+function usesPercentageBackground(background) {
+  return (finiteNumber(background?.width_pct) && background.width_pct > 0)
+    || (finiteNumber(background?.height_pct) && background.height_pct > 0);
+}
+
+function usesExtendedPerLineBackground(background) {
+  if (!background || background.mode === "block") return false;
+  return usesPercentageBackground(background)
+    || (finiteNumber(background.offset_x) && background.offset_x !== 0)
+    || (finiteNumber(background.offset_y) && background.offset_y !== 0);
 }
 
 function colorWithOpacity(color, explicitOpacity) {
@@ -784,6 +824,24 @@ export function renderCaptionFragment(text, options = {}) {
       background: transparent;
     }`
     : "";
+  const extendedPlateCss = options.extendedBackground
+    ? `
+    .akari-caption__line {
+      position: relative;
+      isolation: isolate;
+      padding: 0;
+      border-radius: 0;
+    }
+    .akari-caption__line::before {
+      content: "";
+      position: absolute;
+      inset: calc(0px - var(--plate-ext-height, 0px)) calc(0px - var(--plate-ext-width, 0px));
+      z-index: -1;
+      border-radius: var(--plate-ext-radius, 10px);
+      background: var(--plate-ext-bg, transparent);
+      transform: translate(var(--plate-offset-x, 0px), var(--plate-offset-y, 0px));
+    }`
+    : "";
 
   return `<div class="akari-caption">
   <style>
@@ -816,7 +874,7 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-${writingModeCss}    }${blockPlateCss}
+${writingModeCss}    }${blockPlateCss}${extendedPlateCss}
     @keyframes akari-caption-fade {
       from { opacity: 0; transform: translateY(0.18em); }
       to { opacity: 1; transform: translateY(0); }
@@ -937,6 +995,24 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       background: transparent;
     }`
     : "";
+  const extendedPlateCss = options.extendedBackground
+    ? `
+    .akari-caption__line {
+      position: relative;
+      isolation: isolate;
+      padding: 0;
+      border-radius: 0;
+    }
+    .akari-caption__line::before {
+      content: "";
+      position: absolute;
+      inset: calc(0px - var(--plate-ext-height, 0px)) calc(0px - var(--plate-ext-width, 0px));
+      z-index: -1;
+      border-radius: var(--plate-ext-radius, 10px);
+      background: var(--plate-ext-bg, transparent);
+      transform: translate(var(--plate-offset-x, 0px), var(--plate-offset-y, 0px));
+    }`
+    : "";
 
   const emphasisCss = hasEmphasis ? renderEmphasisCss() : "";
   const revealCss = effectiveStyle === REVEAL_STYLE ? renderRevealCss() : "";
@@ -972,7 +1048,7 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-${writingModeCss}    }${blockPlateCss}
+${writingModeCss}    }${blockPlateCss}${extendedPlateCss}
     .akari-caption__tok {
       display: inline-block;
       will-change: transform, color;
