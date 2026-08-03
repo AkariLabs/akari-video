@@ -4,6 +4,7 @@ import type { MeasureText } from './measure'
 import { verticalLayout } from './vertical'
 import { evalExprWithHas } from './expr'
 import { classifyGlyph } from '../render/perchar'
+import { isEmphasizedAt, parseTextRuns, type TextRun } from './text-runs'
 
 // --- テキスト堅牢化（shrink-to-fit）定数 ---
 // 2026-07-22 telop-tunables タスクで追加（vendor/PROVENANCE.md 参照）。
@@ -79,8 +80,24 @@ function hash01(seed: number, index: number, salt: number): number {
   return (h >>> 0) / 0x100000000
 }
 
-function splitTextForPerChar(perChar: PerChar, text: string): string[] {
-  if (perChar.split === 'word') return text.split(/\s+/).filter(Boolean)
+function splitTextForPerChar(perChar: PerChar, text: string, runs?: TextRun[]): string[] {
+  if (perChar.split === 'word') {
+    return Array.from(text.matchAll(/\S+/g)).flatMap((match) => {
+      const start = match.index ?? 0
+      const end = start + match[0].length
+      const cuts = new Set([start, end])
+      for (const run of runs ?? []) {
+        if (run.start > start && run.start < end) cuts.add(run.start)
+        if (run.end > start && run.end < end) cuts.add(run.end)
+      }
+      const offsets = Array.from(cuts).sort((a, b) => a - b)
+      return offsets.slice(0, -1).map((at, index) => text.slice(at, offsets[index + 1]))
+    })
+  }
+  return splitTextForGrapheme(text)
+}
+
+function splitTextForGrapheme(text: string): string[] {
   if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
     const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
     return Array.from(segmenter.segment(text), seg => seg.segment)
@@ -116,8 +133,11 @@ function measureTextLayer(
   perChar: PerChar | undefined,
   measure: MeasureText,
   letterSpacing: number,
+  runs?: TextRun[],
+  emphasisStyle?: { scale: number; weight?: number },
 ): { width: number; height: number } {
-  if (!perChar?.classStyles && !perChar?.glyphStyles && !perChar?.randomize?.sizeAmp) {
+  const hasRunStyle = !!runs?.some((run) => run.emphasis) && emphasisStyle !== undefined
+  if (!hasRunStyle && !perChar?.classStyles && !perChar?.glyphStyles && !perChar?.randomize?.sizeAmp) {
     const base = measure(text, font, size, weight)
     // 字間: 文字間スペースは (文字数 - 1) ぶん追加
     const charCount = typeof Intl !== 'undefined' && 'Segmenter' in Intl
@@ -127,17 +147,39 @@ function measureTextLayer(
     return { width: base.width + extra, height: base.height }
   }
 
-  const chars = splitTextForPerChar(perChar, text)
+  if (hasRunStyle && !perChar) {
+    let width = 0
+    let height = 0
+    for (const run of runs ?? []) {
+      const runText = text.slice(run.start, run.end)
+      const runScale = run.emphasis ? emphasisStyle?.scale ?? 1 : 1
+      const runWeight = run.emphasis ? emphasisStyle?.weight ?? weight : weight
+      const measured = measure(runText, font, size * runScale, runWeight)
+      width += measured.width
+      height = Math.max(height, measured.height)
+    }
+    const charCount = splitTextForGrapheme(text).length
+    if (letterSpacing > 0 && charCount > 1) width += letterSpacing * (charCount - 1)
+    return { width, height }
+  }
+
+  const chars = perChar ? splitTextForPerChar(perChar, text, runs) : splitTextForGrapheme(text)
   if (chars.length === 0) return measure(text, font, size, weight)
 
   let width = 0
   let height = 0
+  let offset = 0
   for (let i = 0; i < chars.length; i++) {
-    const glyphSize = size * perCharFontScale(perChar, chars[i], i)
-    const measured = measure(chars[i], font, glyphSize, weight)
+    const emphasized = isEmphasizedAt(runs, text.indexOf(chars[i], offset))
+    const runScale = emphasized ? emphasisStyle?.scale ?? 1 : 1
+    const perGlyphScale = perChar ? perCharFontScale(perChar, chars[i], i) : 1
+    const glyphSize = size * runScale * perGlyphScale
+    const glyphWeight = emphasized ? emphasisStyle?.weight ?? weight : weight
+    const measured = measure(chars[i], font, glyphSize, glyphWeight)
     width += measured.width
     if (i < chars.length - 1) width += letterSpacing
     height = Math.max(height, measured.height)
+    offset = text.indexOf(chars[i], offset) + chars[i].length
   }
   return { width, height }
 }
@@ -297,6 +339,9 @@ export function resolve(
       collect(c.color)
       if (c.font !== undefined) collect(c.font)
       if (c.weight !== undefined) collect(c.weight)
+      if (c.emphasisStyle?.color !== undefined) collect(c.emphasisStyle.color)
+      if (c.emphasisStyle?.scale !== undefined) collect(c.emphasisStyle.scale)
+      if (c.emphasisStyle?.weight !== undefined) collect(c.emphasisStyle.weight)
       if (c.letterSpacing !== undefined) collect(c.letterSpacing)
       if (c.stroke) {
         collect(c.stroke.color)
@@ -422,13 +467,35 @@ export function resolve(
 
     if (layer.type === 'text') {
       const c = layer.content as TextContent
-      const text = resolveStr(c.text)
+      const parsedText = parseTextRuns(resolveStr(c.text))
+      const text = parsedText.text
       // font / weight は Value（2026-08-03 fontFamily / fontWeight ツマミ対応）。
       // 実測（measureBlock）より前に解決しないと、ツマミでフォントを替えたとき
       // 実測と描画が食い違う
       const font = c.font !== undefined ? resolveStr(c.font, 'system-ui') : 'system-ui'
       const weightNum = c.weight !== undefined ? resolveNum(c.weight, 0) : 0
       const resolvedWeight = Number.isFinite(weightNum) && weightNum > 0 ? weightNum : undefined
+      const resolvedColor = resolveStr(c.color, '#ffffff')
+      const emphasisScaleNum = c.emphasisStyle?.scale !== undefined
+        ? resolveNum(c.emphasisStyle.scale, 1)
+        : 1
+      const emphasisWeightNum = c.emphasisStyle?.weight !== undefined
+        ? resolveNum(c.emphasisStyle.weight, 0)
+        : 0
+      const resolvedEmphasisStyle = c.emphasisStyle
+        ? {
+            color: c.emphasisStyle.color !== undefined
+              ? resolveStr(c.emphasisStyle.color, resolvedColor)
+              : undefined,
+            scale: Number.isFinite(emphasisScaleNum) && emphasisScaleNum > 0 ? emphasisScaleNum : 1,
+            weight: Number.isFinite(emphasisWeightNum) && emphasisWeightNum > 0
+              ? emphasisWeightNum
+              : resolvedWeight,
+          }
+        : undefined
+      const resolvedRuns = parsedText.parsed && resolvedEmphasisStyle && parsedText.runs.some((run) => run.emphasis)
+        ? parsedText.runs
+        : undefined
       // size は Value なので数値へ解決する（shrink-to-fit で縮小しうるため let）
       let resolvedSize = resolveNum(c.size, 0)
       // letterSpacing は Value（なければ 0）
@@ -450,8 +517,22 @@ export function resolve(
       // 縦書き/横書き共通の実測ヘルパー（現在の resolvedSize で測る）
       const measureBlock = (size: number): { width: number; height: number } =>
         isVertical
-          ? verticalLayout(text, size, resolvedLetterSpacing)
-          : measureTextLayer(text, font, size, resolvedWeight, layer.perChar, measure, resolvedLetterSpacing)
+          ? verticalLayout(
+              text,
+              size * (resolvedRuns ? resolvedEmphasisStyle?.scale ?? 1 : 1),
+              resolvedLetterSpacing,
+            )
+          : measureTextLayer(
+              text,
+              font,
+              size,
+              resolvedWeight,
+              layer.perChar,
+              measure,
+              resolvedLetterSpacing,
+              resolvedRuns,
+              resolvedEmphasisStyle,
+            )
 
       // --- テキスト堅牢化（shrink-to-fit） ---
       // どんな長さのテキストでもキャンバス安全域（+ layer.fit の任意指定）からはみ出さないよう、
@@ -542,10 +623,12 @@ export function resolve(
 
       const textContent: ResolvedTextContent = {
         text,
+        runs: resolvedRuns,
+        emphasisStyle: resolvedRuns ? resolvedEmphasisStyle : undefined,
         size: resolvedSize,
         font: c.font !== undefined ? font : undefined,
         weight: resolvedWeight,
-        color: resolveStr(c.color, '#ffffff'),
+        color: resolvedColor,
         align: c.align,
         vertical: c.vertical,
         stroke: resolvedStroke,

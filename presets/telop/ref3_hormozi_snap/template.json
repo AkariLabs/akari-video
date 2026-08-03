@@ -18,19 +18,11 @@
   },
   "variables": [
     {
-      "key": "normalText",
+      "key": "text",
       "type": "text",
-      "label": "前半テキスト（通常語）",
-      "default": "この動画を見れば",
+      "label": "テキスト（**…** で強調）",
+      "default": "この動画を見れば   **全部わかる**",
       "group": "main",
-      "role": "text"
-    },
-    {
-      "key": "emphasisText",
-      "type": "text",
-      "label": "強調語",
-      "default": "全部わかる",
-      "group": "accent",
       "role": "text"
     },
     {
@@ -46,13 +38,13 @@
       "type": "color",
       "label": "強調語の文字色（アクセント）",
       "default": "#ffd400",
-      "group": "accent",
+      "group": "main",
       "role": "color-accent"
     },
     {
       "key": "color_stroke",
       "type": "color",
-      "label": "縁取り色（両レイヤー共通）",
+      "label": "縁取り色",
       "default": "#000000",
       "group": "global",
       "role": "color-stroke"
@@ -66,19 +58,11 @@
       "role": "color-shadow"
     },
     {
-      "key": "normalTextFontSize",
+      "key": "fontSize",
       "type": "number",
-      "label": "前半テキスト（通常語）文字サイズ",
+      "label": "文字サイズ",
       "default": 108,
       "group": "main",
-      "role": "size"
-    },
-    {
-      "key": "emphasisTextFontSize",
-      "type": "number",
-      "label": "強調語文字サイズ",
-      "default": 128,
-      "group": "accent",
       "role": "size"
     },
     {
@@ -128,106 +112,14 @@
   ],
   "layers": [
     {
-      "id": "ref3_hormozi_snap_normal",
+      "id": "ref3_hormozi_snap_text",
       "type": "text",
       "content": {
         "text": {
-          "var": "normalText"
+          "var": "text"
         },
         "size": {
-          "var": "normalTextFontSize"
-        },
-        "font": {
-          "var": "fontFamily"
-        },
-        "weight": 900,
-        "color": {
-          "var": "color_text"
-        },
-        "align": "left",
-        "strokes": [
-          {
-            "color": {
-              "var": "color_stroke"
-            },
-            "width": 12
-          }
-        ],
-        "shadow": {
-          "color": {
-            "var": "color_shadow"
-          },
-          "blur": 8,
-          "x": 3,
-          "y": 3
-        }
-      },
-      "transform": {
-        "x": {
-          "expr": "@stage.width / 2 - 20"
-        },
-        "y": 700,
-        "anchor": {
-          "x": 1,
-          "y": 0.5
-        }
-      },
-      "tracks": [
-        {
-          "prop": "opacity",
-          "phase": "in",
-          "keys": [
-            {
-              "t": 0,
-              "v": 0,
-              "ease": "step"
-            },
-            {
-              "t": 0.01,
-              "v": 1
-            }
-          ]
-        },
-        {
-          "prop": "scale",
-          "phase": "in",
-          "keys": [
-            {
-              "t": 0,
-              "v": 1.18,
-              "ease": "out-cubic"
-            },
-            {
-              "t": 0.1,
-              "v": 1
-            }
-          ]
-        },
-        {
-          "prop": "opacity",
-          "phase": "out",
-          "keys": [
-            {
-              "t": 0,
-              "v": 1
-            },
-            {
-              "t": 0.12,
-              "v": 0
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "ref3_hormozi_snap_emphasis",
-      "type": "text",
-      "content": {
-        "text": {
-          "var": "emphasisText"
-        },
-        "size": {
-          "var": "emphasisTextFontSize"
+          "var": "fontSize"
         },
         "font": {
           "var": "fontFamily"
@@ -236,7 +128,16 @@
           "var": "fontWeight"
         },
         "color": {
-          "var": "color_accent"
+          "var": "color_text"
+        },
+        "emphasisStyle": {
+          "color": {
+            "var": "color_accent"
+          },
+          "scale": 1.1851851851851851,
+          "weight": {
+            "var": "fontWeight"
+          }
         },
         "align": "left",
         "strokes": [
@@ -257,12 +158,10 @@
         }
       },
       "transform": {
-        "x": {
-          "expr": "@stage.width / 2 + 20"
-        },
+        "x": 960,
         "y": 700,
         "anchor": {
-          "x": 0,
+          "x": 0.5,
           "y": 0.5
         }
       },
@@ -318,10 +217,6 @@
     {
       "id": "main",
       "label": "本文"
-    },
-    {
-      "id": "accent",
-      "label": "強調"
     },
     {
       "id": "global",

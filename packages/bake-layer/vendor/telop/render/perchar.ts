@@ -1,11 +1,14 @@
 // per-character アニメーション: 文字分割 + グリフ変形計算
 import type { GlyphClass, GlyphStyle, PerChar, ResolvedLayer, ResolvedTextContent, Timing, Value } from '../atf/types'
 import { evalExprWithHas } from '../atf/expr'
+import { isEmphasizedAt } from '../atf/text-runs'
 import { phaseContains, phaseLocalTime, sampleTrackInPhase, trackPhaseHasStarted } from './timing'
 
 /** グリフ変形データ */
 export interface GlyphTransform {
   ch: string
+  /** `**…**` 由来の強調ランに属するグリフ。 */
+  emphasis?: boolean
   /** ベースX位置（字詰め結果） */
   x: number
   /** per-char トラックによる追加 X オフセット */
@@ -187,10 +190,44 @@ interface GlyphLayout {
   totalWidth: number
 }
 
-/** perChar 設定に従って本文を文字（または単語）配列へ分割する */
-function splitContent(perChar: ResolvedLayer['perChar'], text: string): string[] {
-  if (!perChar) return []
-  return perChar.split === 'grapheme' ? splitGraphemes(text) : text.split(/\s+/).filter(Boolean)
+function splitContentWithOffsets(
+  perChar: NonNullable<ResolvedLayer['perChar']>,
+  text: string,
+  runs?: ResolvedTextContent['runs'],
+): { text: string; offset: number }[] {
+  if (perChar.split === 'word') {
+    return Array.from(text.matchAll(/\S+/g)).flatMap((match) => {
+      const start = match.index ?? 0
+      const end = start + match[0].length
+      const cuts = new Set([start, end])
+      for (const run of runs ?? []) {
+        if (run.start > start && run.start < end) cuts.add(run.start)
+        if (run.end > start && run.end < end) cuts.add(run.end)
+      }
+      const offsets = Array.from(cuts).sort((a, b) => a - b)
+      return offsets.slice(0, -1).map((offset, index) => ({
+        text: text.slice(offset, offsets[index + 1]),
+        offset,
+      }))
+    })
+  }
+  let offset = 0
+  return splitGraphemes(text).map((ch) => {
+    const unit = { text: ch, offset }
+    offset += ch.length
+    return unit
+  })
+}
+
+function applyTextRunStyle(
+  style: StaticGlyphStyle,
+  content: ResolvedTextContent,
+  offset: number,
+): void {
+  if (!content.emphasisStyle || !isEmphasizedAt(content.runs, offset)) return
+  style.fontScale *= content.emphasisStyle.scale
+  if (style.color === undefined && content.emphasisStyle.color !== undefined) style.color = content.emphasisStyle.color
+  if (style.weight === undefined) style.weight = content.emphasisStyle.weight
 }
 
 /**
@@ -275,10 +312,12 @@ export function glyphTransforms(
   const perChar = layer.perChar
   if (!perChar) return []
 
-  const chars = splitContent(perChar, content.text)
+  const units = splitContentWithOffsets(perChar, content.text, content.runs)
+  const chars = units.map((unit) => unit.text)
   if (chars.length === 0) return []
 
   const staticStyles = chars.map((ch, index) => staticGlyphStyle(perChar, ch, index, content.size))
+  staticStyles.forEach((style, index) => applyTextRunStyle(style, content, units[index].offset))
   // letterSpacing は content.letterSpacing を使う（track 由来の上書きは drawPerChar 側で処理）
   const letterSpacing = content.letterSpacing ?? 0
   const { glyphXPositions } = layoutGlyphs(
@@ -368,6 +407,7 @@ export function glyphTransforms(
 
     return {
       ch,
+      emphasis: isEmphasizedAt(content.runs, units[index].offset),
       x: glyphXPositions[index],
       dx,
       dy,
@@ -411,10 +451,12 @@ export function caretState(
   // カーソルは左→右の打鍵（ltr）専用
   if (perChar.order === 'center-out') return null
 
-  const chars = splitContent(perChar, content.text)
+  const units = splitContentWithOffsets(perChar, content.text, content.runs)
+  const chars = units.map((unit) => unit.text)
   if (chars.length === 0) return null
 
   const staticStyles = chars.map((ch, index) => staticGlyphStyle(perChar, ch, index, content.size))
+  staticStyles.forEach((style, index) => applyTextRunStyle(style, content, units[index].offset))
   const { charWidths, glyphXPositions } = layoutGlyphs(
     content,
     chars,
