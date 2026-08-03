@@ -843,7 +843,8 @@ export class AkariHomeWidget extends ReactWidget {
             // 通知は fire-and-forget にし、後続のアクション処理だけ `.then()` で繋ぐ。
             void this.messages.info(formatVersionNoticeText(currentVersion), '変更点を見る').then(action => {
                 if (action === '変更点を見る') {
-                    this.windowService.openNewWindow(buildReleaseNotesUrl(currentVersion));
+                    // {external: true} が無いと Electron 版 WindowService は内蔵ウィンドウで開いてしまう
+                    this.windowService.openNewWindow(buildReleaseNotesUrl(currentVersion), { external: true });
                 }
             });
         }
