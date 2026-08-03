@@ -21,26 +21,50 @@
       "key": "word",
       "type": "text",
       "label": "本文（1行目）",
-      "default": "絶望"
+      "default": "絶望",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "text2",
       "type": "text",
       "label": "2行目（省略可）",
       "default": "",
-      "optional": true
+      "optional": true,
+      "group": "sub",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "背景色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "文字色",
-      "default": "#111111"
+      "default": "#111111",
+      "group": "global",
+      "role": "color"
+    },
+    {
+      "key": "wordFontSize",
+      "type": "number",
+      "label": "本文（1行目）文字サイズ",
+      "default": 486,
+      "group": "main",
+      "role": "size"
+    },
+    {
+      "key": "text2FontSize",
+      "type": "number",
+      "label": "2行目（省略可）文字サイズ",
+      "default": 216,
+      "group": "sub",
+      "role": "size"
     },
     {
       "key": "fontFamily",
@@ -57,25 +81,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 800
+      "default": 800,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -98,10 +130,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 0"
+          "expr": "0 + 0"
         },
         "y": {
-          "expr": "posY + 0"
+          "expr": "0 + 0"
         },
         "anchor": {
           "x": 0,
@@ -148,7 +180,9 @@
         "text": {
           "var": "word"
         },
-        "size": 486,
+        "size": {
+          "var": "wordFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -162,10 +196,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + (@stage.height / 2)"
+          "expr": "0 + (@stage.height / 2)"
         },
         "anchor": {
           "x": 0.5,
@@ -212,7 +246,9 @@
         "text": {
           "var": "text2"
         },
-        "size": 216,
+        "size": {
+          "var": "text2FontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -224,10 +260,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + (@stage.height / 2 + 300)"
+          "expr": "0 + (@stage.height / 2 + 300)"
         },
         "anchor": {
           "x": 0.5,
@@ -270,5 +306,24 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "sub",
+      "label": "補足"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "mc"
 }

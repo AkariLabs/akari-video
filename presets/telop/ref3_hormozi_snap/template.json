@@ -21,43 +21,73 @@
       "key": "normalText",
       "type": "text",
       "label": "前半テキスト（通常語）",
-      "default": "この動画を見れば"
+      "default": "この動画を見れば",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "emphasisText",
       "type": "text",
       "label": "強調語",
-      "default": "全部わかる"
+      "default": "全部わかる",
+      "group": "accent",
+      "role": "text"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "通常語の文字色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "強調語の文字色（アクセント）",
-      "default": "#ffd400"
+      "default": "#ffd400",
+      "group": "accent",
+      "role": "color-accent"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁取り色（両レイヤー共通）",
-      "default": "#000000"
+      "default": "#000000",
+      "group": "global",
+      "role": "color-stroke"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "ドロップシャドウ色",
-      "default": "rgba(0,0,0,0.75)"
+      "default": "rgba(0,0,0,0.75)",
+      "group": "global",
+      "role": "color-shadow"
+    },
+    {
+      "key": "normalTextFontSize",
+      "type": "number",
+      "label": "前半テキスト（通常語）文字サイズ",
+      "default": 108,
+      "group": "main",
+      "role": "size"
+    },
+    {
+      "key": "emphasisTextFontSize",
+      "type": "number",
+      "label": "強調語文字サイズ",
+      "default": 128,
+      "group": "accent",
+      "role": "size"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "テロップの縦位置（px）",
-      "default": 700
+      "label": "Y位置（中央基準）",
+      "default": 160,
+      "group": "global",
+      "role": "pos-y"
     },
     {
       "key": "fontFamily",
@@ -75,13 +105,25 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（中央基準）",
+      "default": -110,
+      "group": "global",
+      "role": "pos-x"
     }
   ],
   "layers": [
@@ -92,7 +134,9 @@
         "text": {
           "var": "normalText"
         },
-        "size": 108,
+        "size": {
+          "var": "normalTextFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -122,9 +166,7 @@
         "x": {
           "expr": "@stage.width / 2 - 20"
         },
-        "y": {
-          "var": "posY"
-        },
+        "y": 700,
         "anchor": {
           "x": 1,
           "y": 0.5
@@ -184,7 +226,9 @@
         "text": {
           "var": "emphasisText"
         },
-        "size": 128,
+        "size": {
+          "var": "emphasisTextFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -216,9 +260,7 @@
         "x": {
           "expr": "@stage.width / 2 + 20"
         },
-        "y": {
-          "var": "posY"
-        },
+        "y": 700,
         "anchor": {
           "x": 0,
           "y": 0.5
@@ -271,5 +313,20 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "accent",
+      "label": "強調"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "mc"
 }

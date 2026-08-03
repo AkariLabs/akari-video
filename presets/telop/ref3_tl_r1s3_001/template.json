@@ -21,55 +21,73 @@
       "key": "text",
       "type": "text",
       "label": "名前",
-      "default": "山田 太郎"
+      "default": "山田 太郎",
+      "group": "name",
+      "role": "text"
     },
     {
       "key": "subText",
       "type": "text",
       "label": "肩書き・補足",
-      "default": "経済評論家"
+      "default": "経済評論家",
+      "group": "sub",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "帯メインカラー",
-      "default": "#003F88"
+      "default": "#003F88",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "アクセントライン色",
-      "default": "#00AAFF"
+      "default": "#00AAFF",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "名前テキスト色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "name",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "肩書きテキスト色",
-      "default": "#CCDDFF"
+      "default": "#CCDDFF",
+      "group": "sub",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "名前フォントサイズ",
-      "default": 64
+      "default": 64,
+      "group": "name",
+      "role": "size"
     },
     {
       "key": "subFontSize",
       "type": "number",
       "label": "肩書きフォントサイズ",
-      "default": 36
+      "default": 36,
+      "group": "sub",
+      "role": "size"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.6)"
+      "default": "rgba(0,0,0,0.6)",
+      "group": "name",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -86,25 +104,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 700
+      "default": 700,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -880,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 460,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -125,10 +151,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 80"
+          "expr": "0 + 80"
         },
         "y": {
-          "expr": "posY + 870"
+          "expr": "0 + 870"
         },
         "anchor": {
           "x": 0,
@@ -183,10 +209,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 80"
+          "expr": "0 + 80"
         },
         "y": {
-          "expr": "posY + 870"
+          "expr": "0 + 870"
         },
         "anchor": {
           "x": 0,
@@ -257,10 +283,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 108"
+          "expr": "0 + 108"
         },
         "y": {
-          "expr": "posY + 876"
+          "expr": "0 + 876"
         },
         "anchor": {
           "x": 0,
@@ -325,10 +351,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 108"
+          "expr": "0 + 108"
         },
         "y": {
-          "expr": "posY + 954"
+          "expr": "0 + 954"
         },
         "anchor": {
           "x": 0,
@@ -372,5 +398,28 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "name",
+      "label": "名前"
+    },
+    {
+      "id": "sub",
+      "label": "補足"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }

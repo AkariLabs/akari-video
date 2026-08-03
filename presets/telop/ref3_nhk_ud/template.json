@@ -21,25 +21,41 @@
       "key": "text",
       "type": "text",
       "label": "字幕本文",
-      "default": "これはテロップのサンプルです"
+      "default": "これはテロップのサンプルです",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "座布団色",
-      "default": "rgba(80,80,80,0.65)"
+      "default": "rgba(80,80,80,0.65)",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "文字色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "borderRadius",
       "type": "number",
       "label": "角丸",
-      "default": 8
+      "default": 8,
+      "group": "global",
+      "role": "radius"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "字幕本文文字サイズ",
+      "default": 54,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "fontFamily",
@@ -56,25 +72,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 600
+      "default": 600,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 419,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -96,10 +120,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + 920"
+          "expr": "0 + 920"
         },
         "anchor": {
           "x": 0.5,
@@ -144,7 +168,9 @@
         "text": {
           "var": "text"
         },
-        "size": 54,
+        "size": {
+          "var": "fontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -159,10 +185,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (@stage.width / 2)"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "posY + 920"
+          "expr": "0 + 920"
         },
         "anchor": {
           "x": 0.5,
@@ -203,5 +229,20 @@
         "maxWidth": 1608
       }
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bc"
 }

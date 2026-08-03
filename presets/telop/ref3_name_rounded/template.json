@@ -21,37 +21,65 @@
       "key": "title",
       "type": "text",
       "label": "肩書き",
-      "default": "コメンテーター"
+      "default": "コメンテーター",
+      "group": "sub",
+      "role": "text"
     },
     {
       "key": "name",
       "type": "text",
       "label": "氏名",
-      "default": "山田 太郎"
+      "default": "山田 太郎",
+      "group": "name",
+      "role": "text"
     },
     {
       "key": "color_primary",
       "type": "color",
       "label": "キーカラー",
-      "default": "#e82b2b"
+      "default": "#e82b2b",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "帯色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "名前テキスト色",
-      "default": "#1a1a1a"
+      "default": "#1a1a1a",
+      "group": "name",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "肩書きテキスト色",
-      "default": "#e82b2b"
+      "default": "#e82b2b",
+      "group": "sub",
+      "role": "color"
+    },
+    {
+      "key": "titleFontSize",
+      "type": "number",
+      "label": "肩書き文字サイズ",
+      "default": 40,
+      "group": "sub",
+      "role": "size"
+    },
+    {
+      "key": "nameFontSize",
+      "type": "number",
+      "label": "氏名文字サイズ",
+      "default": 72,
+      "group": "name",
+      "role": "size"
     },
     {
       "key": "fontFamily",
@@ -68,25 +96,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -864,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 435.2,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -110,7 +146,7 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 96"
+          "expr": "0 + 96"
         },
         "y": {
           "expr": "(@ref3_name_rounded_title.top + @ref3_name_rounded_name.bottom) / 2"
@@ -184,7 +220,7 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 96"
+          "expr": "0 + 96"
         },
         "y": {
           "expr": "@ref3_name_rounded_name.bottom + 22 - 3"
@@ -247,7 +283,9 @@
         "text": {
           "var": "title"
         },
-        "size": 40,
+        "size": {
+          "var": "titleFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -259,7 +297,7 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 128"
+          "expr": "0 + 128"
         },
         "y": {
           "expr": "@ref3_name_rounded_name.top - 6"
@@ -322,7 +360,9 @@
         "text": {
           "var": "name"
         },
-        "size": 72,
+        "size": {
+          "var": "nameFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -336,10 +376,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 128"
+          "expr": "0 + 128"
         },
         "y": {
-          "expr": "posY + 910"
+          "expr": "0 + 910"
         },
         "anchor": {
           "x": 0,
@@ -392,5 +432,28 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "name",
+      "label": "名前"
+    },
+    {
+      "id": "sub",
+      "label": "補足"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }

@@ -21,61 +21,81 @@
       "key": "text",
       "type": "text",
       "label": "名前",
-      "default": "鈴木 花子"
+      "default": "鈴木 花子",
+      "group": "name",
+      "role": "text"
     },
     {
       "key": "affiliation",
       "type": "text",
       "label": "所属・役職",
-      "default": "○○テレビ　キャスター"
+      "default": "○○テレビ　キャスター",
+      "group": "sub",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "帯グラデ上端",
-      "default": "#00205C"
+      "default": "#00205C",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "帯グラデ下端",
-      "default": "#003F88"
+      "default": "#003F88",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "アクセントライン色",
-      "default": "#F0A500"
+      "default": "#F0A500",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "名前色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "name",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "所属テキスト色",
-      "default": "#FFD080"
+      "default": "#FFD080",
+      "group": "sub",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "名前フォントサイズ",
-      "default": 68
+      "default": 68,
+      "group": "name",
+      "role": "size"
     },
     {
       "key": "subFontSize",
       "type": "number",
       "label": "所属フォントサイズ",
-      "default": 34
+      "default": 34,
+      "group": "sub",
+      "role": "size"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.55)"
+      "default": "rgba(0,0,0,0.55)",
+      "group": "name",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -92,25 +112,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 700
+      "default": 700,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -900,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 470,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -148,10 +176,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 60"
+          "expr": "0 + 60"
         },
         "y": {
-          "expr": "posY + 890"
+          "expr": "0 + 890"
         },
         "anchor": {
           "x": 0,
@@ -212,10 +240,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 60"
+          "expr": "0 + 60"
         },
         "y": {
-          "expr": "posY + 890"
+          "expr": "0 + 890"
         },
         "anchor": {
           "x": 0,
@@ -291,10 +319,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 88"
+          "expr": "0 + 88"
         },
         "y": {
-          "expr": "posY + 888"
+          "expr": "0 + 888"
         },
         "anchor": {
           "x": 0,
@@ -360,10 +388,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 88"
+          "expr": "0 + 88"
         },
         "y": {
-          "expr": "posY + 968"
+          "expr": "0 + 968"
         },
         "anchor": {
           "x": 0,
@@ -407,5 +435,28 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "name",
+      "label": "名前"
+    },
+    {
+      "id": "sub",
+      "label": "補足"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }

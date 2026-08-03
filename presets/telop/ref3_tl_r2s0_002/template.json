@@ -21,79 +21,105 @@
       "key": "text",
       "type": "text",
       "label": "ステップラベル",
-      "default": "ファイルを開く"
+      "default": "ファイルを開く",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "stepNum",
       "type": "number",
       "label": "ステップ番号",
-      "default": 1
+      "default": 1,
+      "group": "badge",
+      "role": "other"
     },
     {
       "key": "stepTotal",
       "type": "number",
       "label": "ステップ総数",
-      "default": 5
+      "default": 5,
+      "group": "global",
+      "role": "other"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "バッジ色",
-      "default": "#FF6B35"
+      "default": "#FF6B35",
+      "group": "badge",
+      "role": "color-bg"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "プレート色",
-      "default": "rgba(20,20,20,0.85)"
+      "default": "rgba(20,20,20,0.85)",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "番号文字色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "ラベル文字色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "STEP文字色",
-      "default": "#FF9966"
+      "default": "#FF9966",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "左端X位置",
-      "default": 80
+      "label": "X位置（中央基準）",
+      "default": -960,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "上端Y位置",
-      "default": 80
+      "label": "Y位置（中央基準）",
+      "default": -460,
+      "group": "global",
+      "role": "pos-y"
     },
     {
       "key": "badgeSize",
       "type": "number",
       "label": "バッジサイズ",
-      "default": 120
+      "default": 120,
+      "group": "badge",
+      "role": "size"
     },
     {
       "key": "labelFontSize",
       "type": "number",
       "label": "ラベル文字サイズ",
-      "default": 52
+      "default": 52,
+      "group": "badge",
+      "role": "size"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.5)"
+      "default": "rgba(0,0,0,0.5)",
+      "group": "badge",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -110,13 +136,17 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
     }
   ],
   "layers": [
@@ -140,10 +170,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + badgeSize / 2"
+          "expr": "80 + badgeSize / 2"
         },
         "y": {
-          "expr": "posY + badgeSize / 2"
+          "expr": "80 + badgeSize / 2"
         },
         "anchor": {
           "x": 0.5,
@@ -231,10 +261,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + badgeSize / 2"
+          "expr": "80 + badgeSize / 2"
         },
         "y": {
-          "expr": "posY + badgeSize / 2"
+          "expr": "80 + badgeSize / 2"
         },
         "anchor": {
           "x": 0.5,
@@ -324,10 +354,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + badgeSize + labelFontSize * 4.5 + 12"
+          "expr": "80 + badgeSize + labelFontSize * 4.5 + 12"
         },
         "y": {
-          "expr": "posY + badgeSize / 2"
+          "expr": "80 + badgeSize / 2"
         },
         "anchor": {
           "x": 0.5,
@@ -397,10 +427,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + badgeSize + 20"
+          "expr": "80 + badgeSize + 20"
         },
         "y": {
-          "expr": "posY + badgeSize / 2"
+          "expr": "80 + badgeSize / 2"
         },
         "anchor": {
           "x": 0,
@@ -455,5 +485,24 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "tl"
 }

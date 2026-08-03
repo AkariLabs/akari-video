@@ -23,6 +23,52 @@ const FIT_ABSOLUTE_MIN_PX = 10
 /** 既定の最小スケール（元サイズに対する比率）。layer.fit.minScale で上書き可能 */
 const FIT_DEFAULT_MIN_SCALE = 0.3
 
+/** テンプレート全体 bbox 上の 9 点アンカーを相対座標へ変換する。 */
+export const ANCHOR_FRACS: Record<NonNullable<AtfDoc['anchor']>, { fracX: number; fracY: number }> = {
+  tl: { fracX: 0, fracY: 0 },
+  tc: { fracX: 0.5, fracY: 0 },
+  tr: { fracX: 1, fracY: 0 },
+  ml: { fracX: 0, fracY: 0.5 },
+  mc: { fracX: 0.5, fracY: 0.5 },
+  mr: { fracX: 1, fracY: 0.5 },
+  bl: { fracX: 0, fracY: 1 },
+  bc: { fracX: 0.5, fracY: 1 },
+  br: { fracX: 1, fracY: 1 },
+}
+
+export interface ResolvedLayersBBox {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/** 解決済み（visibleIf 適用後）レイヤーの transform / size から自然 bbox を求める。 */
+export function resolvedLayersBBox(layers: ResolvedLayer[]): ResolvedLayersBBox | null {
+  let left = Infinity
+  let top = Infinity
+  let right = -Infinity
+  let bottom = -Infinity
+
+  for (const layer of layers) {
+    // 進捗 0% のバーなど、面積を持たず描画されない縮退レイヤーは視覚コンテンツの
+    // アンカーを定義しない。座標だけを union すると、不可視レイヤーが全体を歪める。
+    if (!(layer.size.w > 0) || !(layer.size.h > 0)) continue
+    const layerLeft = layer.transform.x - layer.transform.anchor.x * layer.size.w
+    const layerTop = layer.transform.y - layer.transform.anchor.y * layer.size.h
+    const layerRight = layerLeft + layer.size.w
+    const layerBottom = layerTop + layer.size.h
+    if (![layerLeft, layerTop, layerRight, layerBottom].every(Number.isFinite)) continue
+    left = Math.min(left, layerLeft)
+    top = Math.min(top, layerTop)
+    right = Math.max(right, layerRight)
+    bottom = Math.max(bottom, layerBottom)
+  }
+
+  if (![left, top, right, bottom].every(Number.isFinite)) return null
+  return { left, top, right, bottom }
+}
+
 function hash01(seed: number, index: number, salt: number): number {
   let h = (seed | 0) ^ Math.imul(index + 0x9e3779b9, 0x85ebca6b) ^ Math.imul(salt + 0xc2b2ae35, 0x27d4eb2d)
   h ^= h >>> 16
@@ -642,6 +688,35 @@ export function resolve(
 
     resolvedMap.set(id, resolved)
     resolvedLayers.push(resolved)
+  }
+
+  // doc.anchor を宣言したテンプレートだけ、全レイヤー解決後の自然 bbox を 1 回だけ
+  // posX / posY の中央基準座標へ剛体移動する。anchor 未宣言の旧 ad-hoc doc は完全に従来どおり。
+  if (doc.anchor) {
+    const naturalBBox = resolvedLayersBBox(resolvedLayers)
+    if (naturalBBox) {
+      const { fracX, fracY } = ANCHOR_FRACS[doc.anchor]
+      const naturalAnchorX = naturalBBox.left + fracX * (naturalBBox.right - naturalBBox.left)
+      const naturalAnchorY = naturalBBox.top + fracY * (naturalBBox.bottom - naturalBBox.top)
+      const numericVar = (key: string): number => {
+        const value = vars[key]
+        const parsed = typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? parseFloat(value)
+            : NaN
+        return Number.isFinite(parsed) ? parsed : 0
+      }
+      const targetX = stageWidth / 2 + numericVar('posX')
+      const targetY = stageHeight / 2 + numericVar('posY')
+      const shiftX = targetX - naturalAnchorX
+      const shiftY = targetY - naturalAnchorY
+
+      for (const layer of resolvedLayers) {
+        layer.transform.x += shiftX
+        layer.transform.y += shiftY
+      }
+    }
   }
 
   // 元の配列順に並べ直す（描画順を維持）

@@ -21,37 +21,65 @@
       "key": "chapterLabel",
       "type": "text",
       "label": "章ラベル",
-      "default": "第1章"
+      "default": "第1章",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "chapterTitle",
       "type": "text",
       "label": "章タイトル",
-      "default": "問題の本質"
+      "default": "問題の本質",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "color_primary",
       "type": "color",
       "label": "キーカラー（帯）",
-      "default": "#1B4FD8"
+      "default": "#1B4FD8",
+      "group": "badge",
+      "role": "color-accent"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "タイトル文字色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "章ラベル文字色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "タイトルのシャドウ色",
-      "default": "rgba(0,0,0,0.5)"
+      "default": "rgba(0,0,0,0.5)",
+      "group": "main",
+      "role": "color-shadow"
+    },
+    {
+      "key": "chapterLabelFontSize",
+      "type": "number",
+      "label": "章ラベル文字サイズ",
+      "default": 25,
+      "group": "badge",
+      "role": "size"
+    },
+    {
+      "key": "chapterTitleFontSize",
+      "type": "number",
+      "label": "章タイトル文字サイズ",
+      "default": 30,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "fontFamily",
@@ -69,25 +97,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 600
+      "default": 600,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -900,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": -480,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -111,10 +147,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 60"
+          "expr": "0 + 60"
         },
         "y": {
-          "expr": "posY + 60"
+          "expr": "0 + 60"
         },
         "anchor": {
           "x": 0,
@@ -174,7 +210,9 @@
         "text": {
           "var": "chapterLabel"
         },
-        "size": 25,
+        "size": {
+          "var": "chapterLabelFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -186,10 +224,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 80"
+          "expr": "0 + 80"
         },
         "y": {
-          "expr": "posY + 70"
+          "expr": "0 + 70"
         },
         "anchor": {
           "x": 0,
@@ -249,7 +287,9 @@
         "text": {
           "var": "chapterTitle"
         },
-        "size": 30,
+        "size": {
+          "var": "chapterTitleFontSize"
+        },
         "font": {
           "var": "fontFamily"
         },
@@ -271,10 +311,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (60 + @ref3_chapter_tag_label.width + 40 + 12)"
+          "expr": "0 + (60 + @ref3_chapter_tag_label.width + 40 + 12)"
         },
         "y": {
-          "expr": "posY + (60 + (@ref3_chapter_tag_label.height + 20) / 2)"
+          "expr": "0 + (60 + (@ref3_chapter_tag_label.height + 20) / 2)"
         },
         "anchor": {
           "x": 0,
@@ -327,5 +367,20 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "tl"
 }

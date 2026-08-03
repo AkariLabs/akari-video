@@ -21,49 +21,65 @@
       "key": "text",
       "type": "text",
       "label": "速報テキスト",
-      "default": "政府が緊急会見を開く予定　詳細は不明"
+      "default": "政府が緊急会見を開く予定　詳細は不明",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "badgeLabel",
       "type": "text",
       "label": "バッジラベル",
-      "default": "速　報"
+      "default": "速　報",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "バッジ背景色",
-      "default": "#CC0000"
+      "default": "#CC0000",
+      "group": "badge",
+      "role": "color-bg"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "帯背景色",
-      "default": "#1A1A1A"
+      "default": "#1A1A1A",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "速報テキスト色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "バッジ文字色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "フォントサイズ",
-      "default": 52
+      "default": 52,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "badgeFontSize",
       "type": "number",
       "label": "バッジフォントサイズ",
-      "default": 46
+      "default": 46,
+      "group": "badge",
+      "role": "size"
     },
     {
       "key": "fontFamily",
@@ -80,25 +96,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（帯の左端）",
-      "default": 40
+      "label": "X位置（中央基準）",
+      "default": -920,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（帯の上端）",
-      "default": 955
+      "label": "Y位置（中央基準）",
+      "default": 415,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -113,17 +137,13 @@
       },
       "size": {
         "w": {
-          "expr": "@ref3_tl_r1s3_002_headline.right + 36 - posX"
+          "expr": "@ref3_tl_r1s3_002_headline.right + 36 - 40"
         },
         "h": 90
       },
       "transform": {
-        "x": {
-          "var": "posX"
-        },
-        "y": {
-          "var": "posY"
-        },
+        "x": 40,
+        "y": 955,
         "anchor": {
           "x": 0,
           "y": 0
@@ -194,11 +214,9 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 105 - max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2"
+          "expr": "40 + 105 - max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2"
         },
-        "y": {
-          "var": "posY"
-        },
+        "y": 955,
         "anchor": {
           "x": 0,
           "y": 0
@@ -276,10 +294,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 105"
+          "expr": "40 + 105"
         },
         "y": {
-          "expr": "posY + 45"
+          "expr": "955 + 45"
         },
         "anchor": {
           "x": 0.5,
@@ -356,10 +374,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 105 + max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2 + 18"
+          "expr": "40 + 105 + max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2 + 18"
         },
         "y": {
-          "expr": "posY + 45"
+          "expr": "955 + 45"
         },
         "anchor": {
           "x": 0,
@@ -414,5 +432,24 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "tl"
 }

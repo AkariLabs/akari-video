@@ -21,55 +21,73 @@
       "key": "text",
       "type": "text",
       "label": "見出しテキスト",
-      "default": "政府が新たな経済対策を発表"
+      "default": "政府が新たな経済対策を発表",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "category",
       "type": "text",
       "label": "カテゴリラベル",
-      "default": "政治"
+      "default": "政治",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "帯グラデ上端",
-      "default": "#004B8D"
+      "default": "#004B8D",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "帯グラデ下端",
-      "default": "#001F4A"
+      "default": "#001F4A",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "カテゴリ背景色",
-      "default": "#F0A500"
+      "default": "#F0A500",
+      "group": "band",
+      "role": "color-accent"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "見出し文字色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "見出しフォントサイズ",
-      "default": 52
+      "default": 52,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "categoryFontSize",
       "type": "number",
       "label": "カテゴリフォントサイズ",
-      "default": 38
+      "default": 38,
+      "group": "badge",
+      "role": "size"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "カテゴリ文字色",
-      "default": "#1A1A1A"
+      "default": "#1A1A1A",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "fontFamily",
@@ -86,25 +104,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 700
+      "default": 700,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -880,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 516,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -142,10 +168,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 80"
+          "expr": "0 + 80"
         },
         "y": {
-          "expr": "posY + 970"
+          "expr": "0 + 970"
         },
         "anchor": {
           "x": 0,
@@ -203,10 +229,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + (160 - max(@ref3_tl_r2s6_002_category.width + 48, 128) / 2)"
+          "expr": "0 + (160 - max(@ref3_tl_r2s6_002_category.width + 48, 128) / 2)"
         },
         "y": {
-          "expr": "posY + 985"
+          "expr": "0 + 985"
         },
         "anchor": {
           "x": 0,
@@ -273,10 +299,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 160"
+          "expr": "0 + 160"
         },
         "y": {
-          "expr": "posY + 1013"
+          "expr": "0 + 1013"
         },
         "anchor": {
           "x": 0.5,
@@ -342,10 +368,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 248"
+          "expr": "0 + 248"
         },
         "y": {
-          "expr": "posY + 1013"
+          "expr": "0 + 1013"
         },
         "anchor": {
           "x": 0,
@@ -389,5 +415,24 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }

@@ -21,61 +21,81 @@
       "key": "text",
       "type": "text",
       "label": "出演者名・演目",
-      "default": "桂 小朝"
+      "default": "桂 小朝",
+      "group": "name",
+      "role": "text"
     },
     {
       "key": "subText",
       "type": "text",
       "label": "高座名・肩書",
-      "default": "落語家"
+      "default": "落語家",
+      "group": "sub",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "和紙色",
-      "default": "#F5EED6"
+      "default": "#F5EED6",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "墨文字色",
-      "default": "#1A1208"
+      "default": "#1A1208",
+      "group": "name",
+      "role": "color"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "朱罫線色",
-      "default": "#C0392B"
+      "default": "#C0392B",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "サブ文字色",
-      "default": "#5C3D1E"
+      "default": "#5C3D1E",
+      "group": "sub",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "文字サイズ",
-      "default": 88
+      "default": 88,
+      "group": "name",
+      "role": "size"
     },
     {
       "key": "subFontSize",
       "type": "number",
       "label": "サブ文字サイズ",
-      "default": 46
+      "default": 46,
+      "group": "sub",
+      "role": "size"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "本文の影色",
-      "default": "rgba(0,0,0,0.25)"
+      "default": "rgba(0,0,0,0.25)",
+      "group": "name",
+      "role": "color-shadow"
     },
     {
       "key": "color_shadow_2",
       "type": "color",
       "label": "サブの影色",
-      "default": "rgba(200,150,80,0.3)"
+      "default": "rgba(200,150,80,0.3)",
+      "group": "sub",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -92,25 +112,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 400
+      "default": 400,
+      "group": "global",
+      "role": "weight"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（ずらし）",
-      "default": 0
+      "label": "X位置（中央基準）",
+      "default": -880,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（ずらし）",
-      "default": 0
+      "label": "Y位置（中央基準）",
+      "default": 474,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -132,10 +160,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 80"
+          "expr": "0 + 80"
         },
         "y": {
-          "expr": "posY + 850"
+          "expr": "0 + 850"
         },
         "anchor": {
           "x": 0,
@@ -196,10 +224,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 80"
+          "expr": "0 + 80"
         },
         "y": {
-          "expr": "posY + 850"
+          "expr": "0 + 850"
         },
         "anchor": {
           "x": 0,
@@ -260,10 +288,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 80"
+          "expr": "0 + 80"
         },
         "y": {
-          "expr": "posY + 1011"
+          "expr": "0 + 1011"
         },
         "anchor": {
           "x": 0,
@@ -339,10 +367,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 110"
+          "expr": "0 + 110"
         },
         "y": {
-          "expr": "posY + 856"
+          "expr": "0 + 856"
         },
         "anchor": {
           "x": 0,
@@ -415,10 +443,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 110"
+          "expr": "0 + 110"
         },
         "y": {
-          "expr": "posY + 905"
+          "expr": "0 + 905"
         },
         "anchor": {
           "x": 0,
@@ -461,5 +489,28 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "name",
+      "label": "名前"
+    },
+    {
+      "id": "sub",
+      "label": "補足"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }

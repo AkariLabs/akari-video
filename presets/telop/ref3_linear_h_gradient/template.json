@@ -21,55 +21,65 @@
       "key": "color_bg",
       "type": "color",
       "label": "キーカラー",
-      "default": "#1168D8"
+      "default": "#1168D8",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "label",
       "type": "text",
       "label": "表示テキスト",
-      "default": "現場から最新情報"
+      "default": "現場から最新情報",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "textSize",
       "type": "number",
       "label": "文字サイズ",
-      "default": 68
+      "default": 68,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "bannerHeight",
       "type": "number",
       "label": "帯の高さ",
-      "default": 118
+      "default": 118,
+      "group": "band",
+      "role": "other"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "下線色",
-      "default": "#F5C84B"
-    },
-    {
-      "key": "xOffset",
-      "type": "number",
-      "label": "X位置調整",
-      "default": 0
+      "default": "#F5C84B",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "帯グラデ終端（既定は透明フェード）",
-      "default": "rgba(0,0,0,0)"
+      "default": "rgba(0,0,0,0)",
+      "group": "line",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "文字色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.38)"
+      "default": "rgba(0,0,0,0.38)",
+      "group": "main",
+      "role": "color-shadow"
     },
     {
       "key": "fontFamily",
@@ -86,13 +96,33 @@
         "'Shippori Mincho', 'Noto Serif JP', serif",
         "'DotGothic16', 'Noto Sans JP', sans-serif",
         "'Klee One', 'Noto Sans JP', sans-serif"
-      ]
+      ],
+      "group": "global",
+      "role": "font"
     },
     {
       "key": "fontWeight",
       "type": "number",
       "label": "太さ（100〜900）",
-      "default": 900
+      "default": 900,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（中央基準）",
+      "default": -864,
+      "group": "global",
+      "role": "pos-x"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（中央基準）",
+      "default": 383.2,
+      "group": "global",
+      "role": "pos-y"
     }
   ],
   "layers": [
@@ -133,7 +163,7 @@
       },
       "transform": {
         "x": {
-          "expr": "96 + xOffset"
+          "expr": "96 + 0"
         },
         "y": {
           "expr": "@stage.height * 0.74"
@@ -222,7 +252,7 @@
       },
       "transform": {
         "x": {
-          "expr": "96 + xOffset"
+          "expr": "96 + 0"
         },
         "y": {
           "expr": "@stage.height * 0.74 + bannerHeight"
@@ -325,7 +355,7 @@
       },
       "transform": {
         "x": {
-          "expr": "136 + xOffset"
+          "expr": "136 + 0"
         },
         "y": {
           "expr": "@stage.height * 0.74 + bannerHeight / 2"
@@ -396,5 +426,24 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    }
+  ],
+  "anchor": "bl"
 }
