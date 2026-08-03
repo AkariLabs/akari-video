@@ -33,6 +33,13 @@ function collectLogs() {
   return { log: (line) => lines.push(line), lines };
 }
 
+// 音源セットアップ（sounds-setup.mjs）はこのテストの対象外。差し替えずに run() を呼ぶと
+// isTTY: true + prompt スタブの組み合わせが音源側の質問にも届き、「n 以外 = Yes」で
+// 実ダウンロード（395MB）まで走ってしまうため、必ず無効化して注入する
+// （update-check を refreshUpdate: () => {} で殺すのと同じ隔離規律。
+// 音源側の挙動は sounds-setup.test.mjs / cli-sounds.test.mjs が担当）。
+const soundsIsolation = { setupSounds: async () => ({ action: 'isolated-in-test' }) };
+
 // 実 ~/.akari/ や実 ~ に一切触れないよう、HOME・AKARI_HOME を隔離した env を作る。
 // AKARI_CREATOR_ROOT は明示的に無効化し、開発機の実運用状態を拾わないようにする。
 function isolatedEnv(root) {
@@ -73,6 +80,7 @@ test('(a) 作業場内の既存プロジェクトでは scaffold を呼ばず現
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: false
     });
 
@@ -106,6 +114,7 @@ test('(a) 作業場を伴わない独立プロジェクト（従来どおり）�
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: false
     });
 
@@ -136,6 +145,7 @@ test('(b) 作業場の中だがプロジェクトではない cwd からは既�
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: false,
       now: new Date(2026, 7, 2)
     });
@@ -181,6 +191,7 @@ test('(b) プロジェクト名衝突: 同日に複数回作成すると -2, -3 
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: false,
       now: new Date(2026, 7, 2)
     });
@@ -211,6 +222,7 @@ test('(b) root.json の channels が欠如している手作りケースでは D
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: false,
       now: new Date(2026, 7, 2)
     });
@@ -240,6 +252,7 @@ test('(c) --yes: 作業場もプロジェクトも無い場所では既定パス
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       prompt: async () => {
         promptCalled = true;
         return '';
@@ -284,6 +297,7 @@ test('(c) TTY: 1 問の確認で Enter（既定応答）なら既定パスに作
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: true,
       prompt: async (text) => {
         promptText = text;
@@ -321,6 +335,7 @@ test("(c) TTY: パスを入力するとそのパスに作業場を作成する",
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: true,
       prompt: async () => customRoot,
       now: new Date(2026, 7, 2)
@@ -353,6 +368,7 @@ test("(c) TTY: 'n' と答えるとこのフォルダを単体プロジェクト�
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: true,
       prompt: async () => 'n',
       now: new Date(2026, 7, 2)
@@ -386,6 +402,7 @@ test('(c) 非 TTY: プロンプトを出さずに現行動作（このフォル�
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: false,
       prompt: async () => {
         promptCalled = true;
@@ -420,6 +437,7 @@ test('--here: 作業場の中にいてもお試しモードを強制し、現行
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: true,
       prompt: async () => {
         throw new Error('--here のときは対話プロンプトが呼ばれてはいけない');
@@ -455,6 +473,7 @@ test('creator-root モジュール未解決（npm 配布で vendor 未同梱等�
         return { status: 0 };
       },
       refreshUpdate: () => {},
+      ...soundsIsolation,
       isTTY: false
     });
 

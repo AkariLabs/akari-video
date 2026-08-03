@@ -36,7 +36,12 @@ const VENDOR_SOURCES = [
   // 作業場（creator-root）モジュール。npm 配布時も初回動線（first-run.mjs 経由の
   // 動的 import）が機能するよう同梱する。未同梱の場合は repo-assets.mjs 側で
   // creatorRootModulePath が null になり、現行動作へフォールバックする。
-  'packages/creator-root'
+  'packages/creator-root',
+  // 公式音源ライブラリ（AKARI Sounds）の一括取得（sounds-setup.mjs / `akari sounds`）。
+  // media-bin は fetch スクリプトの preview.png 生成（waveform-preview.mjs）が ffmpeg 解決に
+  // 使う。未同梱なら audioFetchScriptPath が null になり、音源セットアップだけスキップされる。
+  'packages/audio-library-setup',
+  'packages/media-bin'
 ];
 
 if (process.argv[2] === 'clean') {

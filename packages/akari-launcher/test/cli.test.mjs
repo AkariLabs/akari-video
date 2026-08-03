@@ -36,7 +36,11 @@ function isolatedUpdateOptions(root) {
   return {
     env: { ...process.env, AKARI_HOME: join(root, '.akari-home-unused') },
     refreshUpdate: () => {},
-    isTTY: false
+    isTTY: false,
+    // 音源セットアップ（sounds-setup.mjs）も対象外として必ず殺す: --yes ケースは
+    // autoConfirm が TTY ゲートを迂回するため、放置すると実ダウンロード（395MB）が走る。
+    // 音源側の挙動は sounds-setup.test.mjs / cli-sounds.test.mjs が担当。
+    setupSounds: async () => ({ action: 'isolated-in-test' })
   };
 }
 

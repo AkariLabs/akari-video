@@ -24,6 +24,9 @@ const SCAFFOLD_MODULE_RELATIVE = path.join('packages', 'project-scaffold', 'src'
 // 作業場（creator-root）モジュール。① Wave（packages/creator-root）の成果物で、本パッケージ
 // からは読み取り専用（動的 import のみ）。scaffoldModulePath と同型の解決方式。
 const CREATOR_ROOT_MODULE_RELATIVE = path.join('packages', 'creator-root', 'src', 'index.mjs');
+// 公式音源ライブラリ（AKARI Sounds）の一括取得スクリプト。初回動線（sounds-setup.mjs）と
+// `akari sounds` が子プロセスとして起動する。未同梱なら null（機能スキップ）。
+const AUDIO_FETCH_SCRIPT_RELATIVE = path.join('packages', 'audio-library-setup', 'bin', 'fetch-akari-sounds.mjs');
 
 /**
  * 指定ルート配下に同梱されているスキル正本・雛形・schemas・scaffold 実装・creator-root
@@ -36,6 +39,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const doctorScript = path.join(repoRoot, DOCTOR_SCRIPT_RELATIVE);
   const scaffoldModulePath = path.join(repoRoot, SCAFFOLD_MODULE_RELATIVE);
   const creatorRootModulePath = path.join(repoRoot, CREATOR_ROOT_MODULE_RELATIVE);
+  const audioFetchScriptPath = path.join(repoRoot, AUDIO_FETCH_SCRIPT_RELATIVE);
 
   return {
     repoRoot,
@@ -44,7 +48,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     schemasSourceDir: hasSchemas ? path.join(repoRoot, 'packages', 'schemas') : null,
     doctorScript: existsSync(doctorScript) ? doctorScript : null,
     scaffoldModulePath: existsSync(scaffoldModulePath) ? scaffoldModulePath : null,
-    creatorRootModulePath: existsSync(creatorRootModulePath) ? creatorRootModulePath : null
+    creatorRootModulePath: existsSync(creatorRootModulePath) ? creatorRootModulePath : null,
+    audioFetchScriptPath: existsSync(audioFetchScriptPath) ? audioFetchScriptPath : null
   };
 }
 

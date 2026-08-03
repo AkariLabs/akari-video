@@ -161,3 +161,33 @@ export function initModuleMissingError() {
 export function initFailedError(errorMessage) {
   return `作業場の初期化に失敗しました: ${errorMessage}`;
 }
+
+/**
+ * 公式音源ライブラリ（AKARI Sounds）初回セットアップの文言群（2026-08-03 オーナー裁定:
+ * 質問は 1 回だけ・既定 Yes・項目ごとの選択はさせない）。1 行主義の既存流儀に従う。
+ */
+
+/** 初回 1 回だけ出す TTY プロンプト文言。曲数は Release で変わるためあえて書かない。 */
+export function soundsPromptText() {
+  return '公式音源ライブラリ AKARI Sounds（無料・商用可・クレジット不要 / BGM・効果音・ジングル / mp3 約 400MB）を一括ダウンロードしますか？ [Y/n] ';
+}
+
+/** ダウンロード成功後の完了 + 追加カタログ（外部補完）の案内。 */
+export function soundsCompleteNotice() {
+  return '公式音源ライブラリの登録が完了しました。公式に無い系統（拍手・失敗音・和風打撃など）は追加カタログにあります — セッションで「追加の音源も入れて」と頼むと取得を代行します。';
+}
+
+/** n を選んだときの 1 行（この質問は今後出さない・再入口を示す）。 */
+export function soundsDeclinedNotice() {
+  return 'スキップしました（この質問は今後表示しません）。後から `akari sounds` でいつでも一括ダウンロードできます。';
+}
+
+/** ダウンロード失敗時の 1 行（起動は止めない・再入口を示す）。 */
+export function soundsFailedNotice() {
+  return '音源のダウンロードに失敗しました（続行します）。後から `akari sounds` で再試行できます。';
+}
+
+/** `akari sounds`: セットアップスクリプトが同梱されていない場合のエラー（stderr 1 行）。 */
+export function soundsUnavailableError() {
+  return '音源セットアップスクリプト（audio-library-setup）が見つかりませんでした。';
+}

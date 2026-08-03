@@ -135,6 +135,7 @@ case "$1" in
     echo "  (no args)             Launch AI agent (Claude Code優先)"
     echo "  --preview, -pv        Start preview server"
     echo "  update                Check for updates"
+    echo "  sounds                Download official sound library (AKARI Sounds, free)"
     echo "  --opencode            Use opencode instead of Claude Code"
     echo "  --claude, --claudecode  Launch Claude Code explicitly"
     echo "  -y, --yes             Auto-confirm (skip permissions; opencode:--auto / Claude:--permission-mode acceptEdits)"
@@ -155,6 +156,7 @@ case "$1" in
     exit 0 ;;
   --preview|-pv) shift; cmd_preview "$@" ;;
   update) exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "update" ;;
+  sounds) shift; exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "sounds" "$@" ;;
   --opencode) shift; exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--opencode" "$@" ;;
   --claude|--claudecode) shift; exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--claude" "$@" ;;
   -y|--yes) shift; exec "$NODE_BIN" "$MONOREPO/packages/akari-launcher/bin/akari.mjs" "--yes" "$@" ;;

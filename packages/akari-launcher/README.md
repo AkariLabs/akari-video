@@ -21,9 +21,18 @@ akari
   │     .akari/connections.json の doctor ブロックを更新・表示する
   │     （キーの値は一切表示しない）
   │
-  └─ 4. 最後に opencode を exec する
+  ├─ 4. 公式音源ライブラリ（AKARI Sounds）の初回セットアップ（src/sounds-setup.mjs）:
+  │     未導入かつ TTY のとき生涯 1 回だけ [Y/n]（既定 Yes）を聞き、Yes なら
+  │     packages/audio-library-setup/bin/fetch-akari-sounds.mjs で一括ダウンロード。
+  │     n は marker（~/.akari/assets/audio/.akari-sounds-declined.json）を書いて以後
+  │     聞かない。再入口は `akari sounds`。失敗しても起動は止めない
+  │
+  └─ 5. 最後に opencode を exec する
         （PATH に opencode が無ければ、インストール案内を出して終了する）
 ```
+
+サブコマンド: `akari update`（更新確認）/ `akari init`（作業場の作成・確認のみ）/
+`akari sounds [--variant wav] [--force]`（公式音源の一括ダウンロード。プロンプトなし・headless 可）。
 
 `akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
 `opencode --continue` を起動する）。

@@ -8,6 +8,7 @@ import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs'
 import { loadTaskLabels } from './task-labels.mjs';
 import { describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
 import { resolveEffectiveProjectRoot } from './first-run.mjs';
+import { maybeSetupSounds } from './sounds-setup.mjs';
 import {
   checkForUpdateSync,
   readCacheSync,
@@ -99,6 +100,20 @@ export async function run(args, options = {}) {
     log(updateNotice);
   }
   (options.refreshUpdate ?? triggerBackgroundRefresh)({ env });
+
+  // 公式音源ライブラリ（AKARI Sounds）の初回セットアップ（質問は生涯 1 回・既定 Yes）。
+  // 導入済み / 過去に n / 非 TTY / スクリプト未同梱では何も表示しない。
+  // どんな失敗でも claude 起動までは止めない（「最後に claude を exec」は不変条件）。
+  try {
+    await (options.setupSounds ?? maybeSetupSounds)({
+      env, log, assets, autoConfirm,
+      // isTTY / prompt は first-run（creator-root プロンプト）と同じトップレベル注入を引き継ぐ
+      // （prompt を引き継がないと、isTTY 注入 + 非対話 stdin の組み合わせで実 stdin 待ちになる）
+      options: { isTTY: options.isTTY, prompt: options.prompt, ...(options.soundsOptions ?? {}) }
+    });
+  } catch (error) {
+    log(`音源セットアップでエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
+  }
 
   if (useOpencode) {
     log('opencode を起動します…');
