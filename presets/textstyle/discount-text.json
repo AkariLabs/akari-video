@@ -1,0 +1,23 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "discount-text",
+  "name": "割引バッジテキスト",
+  "category": "price",
+  "sample_text": "30% OFF",
+  "style": {
+    "size_px": 72,
+    "weight": 400,
+    "color": "#FF2D55",
+    "letter_spacing_em": 0.04,
+    "stroke": {
+      "color": "#ffffff",
+      "width_px": 3
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "discount-text"
+  }
+}

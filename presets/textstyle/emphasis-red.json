@@ -1,0 +1,22 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "emphasis-red",
+  "name": "強調",
+  "category": "emphasis",
+  "sample_text": "ここ重要！",
+  "style": {
+    "size_px": 92,
+    "weight": 700,
+    "color": "#ff1744",
+    "stroke": {
+      "color": "#ffffff",
+      "width_px": 6
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "emphasis-red"
+  }
+}

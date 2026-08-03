@@ -1,0 +1,32 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "neon",
+  "name": "ネオン",
+  "category": "decorative",
+  "sample_text": "NEON",
+  "style": {
+    "size_px": 120,
+    "weight": 700,
+    "color": "#aefcff",
+    "letter_spacing_em": 0.12,
+    "text_transform": "uppercase",
+    "shadow": {
+      "color": "#00e5ff",
+      "opacity": 0.9,
+      "blur_px": 24,
+      "distance_px": 0,
+      "angle_deg": 90
+    },
+    "glow": {
+      "color": "#00e5ff",
+      "density": 80,
+      "spread": 60
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "neon"
+  }
+}

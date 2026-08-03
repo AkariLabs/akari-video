@@ -1,0 +1,29 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "verdict-badge",
+  "name": "判定バッジ",
+  "category": "emphasis",
+  "sample_text": "買い！",
+  "style": {
+    "size_px": 80,
+    "weight": 400,
+    "letter_spacing_em": -0.02,
+    "stroke": {
+      "color": "#E53935",
+      "width_px": 4
+    },
+    "shadow": {
+      "color": "rgba(229,57,53,0.6)",
+      "opacity": 0.6,
+      "blur_px": 16,
+      "distance_px": 0,
+      "angle_deg": 90
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "verdict-badge"
+  }
+}
