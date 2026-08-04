@@ -47,7 +47,7 @@
         },
         "caption_style_ref": {
           "$ref": "#/$defs/nonEmptyString",
-          "$comment": "字幕スタイルの参照名（カタログの telop プリセット名、または字幕方針を指す自由記述）。"
+          "$comment": "字幕スタイルを説明する自由記述（descriptive only）。versioned registry と content SHA に裏付けられた profile key ではなく、display_policy/text_style/output.encoding/audio.master 等を自動注入してはならない。"
         },
         "bgm_profile": {
           "$ref": "#/$defs/nonEmptyString",

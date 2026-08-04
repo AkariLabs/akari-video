@@ -9,9 +9,12 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { createRequire } from "node:module";
 
 import { renderLintReport } from "./report.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+
+const { resolveCaptionDisplay } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 const VERSION = 1;
 const EPSILON = 1e-6;
@@ -206,6 +209,7 @@ export async function lintProject(input, options = {}) {
   await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
   validateSfxTracks(edit?.audio?.sfx, findings);
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
+  validateOutputEncoding(edit?.output?.encoding, findings, "edit.json#output.encoding");
   validateLayerTracks(edit.layers, findings);
   validateBeats(edit.beats, edit.version, structure.sourceIds, findings);
   validateEmphasisWords(edit.emphasis_words, edit.version, structure.sourceIds, findings);
@@ -555,6 +559,29 @@ function validateAudioMaster(value, findings, path) {
     (!isFiniteNumber(value.loudnorm) || value.loudnorm < -70 || value.loudnorm > 0)
   ) {
     addFinding(findings, { severity: "error", check: "audio.master.loudnorm", message: "loudnorm must be a finite number within [-70, 0]", path });
+  }
+  if (
+    Object.hasOwn(value, "true_peak_dbtp") &&
+    (!isFiniteNumber(value.true_peak_dbtp) || value.true_peak_dbtp < -9 || value.true_peak_dbtp > 0)
+  ) {
+    addFinding(findings, { severity: "error", check: "audio.master.true-peak", message: "true_peak_dbtp must be a finite number within [-9, 0]", path });
+  }
+}
+
+function validateOutputEncoding(value, findings, path) {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    addFinding(findings, { severity: "error", check: "output.encoding.structure", message: "encoding must be an object", path });
+    return;
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== "quality" && key !== "encoder") addFinding(findings, { severity: "error", check: "output.encoding.structure", message: `${key} is not defined by output.encoding`, path });
+  }
+  if (Object.hasOwn(value, "quality") && !["master", "high", "standard", "light"].includes(value.quality)) {
+    addFinding(findings, { severity: "error", check: "output.encoding.quality", message: "quality must be master/high/standard/light", path });
+  }
+  if (Object.hasOwn(value, "encoder") && !["auto", "videotoolbox", "x264"].includes(value.encoder)) {
+    addFinding(findings, { severity: "error", check: "output.encoding.encoder", message: "encoder must be auto/videotoolbox/x264", path });
   }
 }
 
@@ -1836,6 +1863,8 @@ async function validateReferences(edit, findings, paths) {
 
 function validateCaptions(captions, edit, analysis, findings, paths) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
+  const captionsRoot = captions;
+  let displayPolicy;
   if (!Array.isArray(captions)) {
     if (!isRecord(captions)) {
       addFinding(findings, {
@@ -1847,7 +1876,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       return;
     }
     for (const field of Object.keys(captions)) {
-      if (field !== "default_text_style" && field !== "captions") {
+      if (field !== "default_text_style" && field !== "display_policy" && field !== "captions") {
         captionFinding(
           findings,
           "captions.schema",
@@ -1856,6 +1885,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
         );
       }
     }
+    displayPolicy = captions.display_policy;
     if (Object.hasOwn(captions, "default_text_style")) {
       validateTextStyle(
         captions.default_text_style,
@@ -1890,7 +1920,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "words", "style", "display_text", "text_style"];
+    const optional = ["src", "words", "style", "display_text", "display_fragments", "text_style"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -1970,6 +2000,9 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
         "display_text must be a string when present",
         itemPath,
       );
+    }
+    if (Object.hasOwn(caption, "display_fragments") && !Array.isArray(caption.display_fragments)) {
+      captionFinding(findings, "captions.schema", "display_fragments must be an array when present", itemPath);
     }
     if (Object.hasOwn(caption, "text_style")) {
       validateTextStyle(caption.text_style, "text_style", findings, itemPath);
@@ -2057,6 +2090,24 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       });
     }
   }
+
+  if (displayPolicy !== undefined) {
+    const policyCaptions = Array.isArray(captionsRoot?.captions) ? captionsRoot.captions : [];
+    const emphasis = Array.isArray(edit?.emphasis_words) ? edit.emphasis_words : [];
+    for (const [index, caption] of policyCaptions.entries()) {
+      if (!isRecord(caption)) continue;
+      const conflict = emphasis.some(word => isRecord(word)
+        && (!isNonEmptyString(word.src) || !isNonEmptyString(caption.src) || word.src === caption.src)
+        && isFiniteNumber(word.t_start) && isFiniteNumber(word.t_end)
+        && word.t_end > caption.start && word.t_start < caption.end);
+      if (conflict) captionFinding(findings, "captions.display-policy-emphasis", "emphasis_words cannot act on a cue under display_policy v1", `captions.json#[${index}]`);
+    }
+    try {
+      resolveCaptionDisplay(captionsRoot, edit);
+    } catch (error) {
+      captionFinding(findings, "captions.display-policy", error instanceof Error ? error.message : String(error), captionPath);
+    }
+  }
 }
 
 const CAPTION_WORD_FIELDS = ["start", "end", "text"];
@@ -2134,7 +2185,7 @@ function validateTextStyle(value, label, findings, path) {
     captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
     return;
   }
-  const allowed = ["color", "size_px", "stroke", "background", "zone"];
+  const allowed = ["color", "size_px", "font_weight", "line_height", "stroke", "background", "zone", "layout"];
   for (const field of Object.keys(value)) {
     if (!allowed.includes(field)) {
       captionFinding(
@@ -2159,6 +2210,12 @@ function validateTextStyle(value, label, findings, path) {
       path,
     );
   }
+  if (Object.hasOwn(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1000)) {
+    captionFinding(findings, "captions.text-style", `${label}.font_weight must be an integer within [1, 1000]`, path);
+  }
+  if (Object.hasOwn(value, "line_height") && (!isFiniteNumber(value.line_height) || value.line_height <= 0)) {
+    captionFinding(findings, "captions.text-style", `${label}.line_height must be a positive finite number`, path);
+  }
   if (Object.hasOwn(value, "stroke")) {
     validateCaptionStrokeStyle(value.stroke, `${label}.stroke`, findings, path);
   }
@@ -2173,6 +2230,15 @@ function validateTextStyle(value, label, findings, path) {
       path,
     );
   }
+  if (Object.hasOwn(value, "layout")) validateCaptionReferenceLayout(value.layout, `${label}.layout`, findings, path);
+  if (Object.hasOwn(value, "zone") && Object.hasOwn(value, "layout")) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label} cannot contain both zone and layout`,
+      path,
+    );
+  }
 }
 
 function validateCaptionStrokeStyle(value, label, findings, path) {
@@ -2181,7 +2247,7 @@ function validateCaptionStrokeStyle(value, label, findings, path) {
     return;
   }
   for (const field of Object.keys(value)) {
-    if (field !== "color" && field !== "width_px") {
+    if (field !== "method" && field !== "color" && field !== "width_px") {
       captionFinding(
         findings,
         "captions.text-style",
@@ -2189,6 +2255,9 @@ function validateCaptionStrokeStyle(value, label, findings, path) {
         path,
       );
     }
+  }
+  if (Object.hasOwn(value, "method") && value.method !== "webkit-outline") {
+    captionFinding(findings, "captions.text-style", `${label}.method must be webkit-outline`, path);
   }
   if (Object.hasOwn(value, "color")) {
     validateCaptionHexColor(value.color, `${label}.color`, findings, path);
@@ -2204,6 +2273,22 @@ function validateCaptionStrokeStyle(value, label, findings, path) {
       path,
     );
   }
+}
+
+function validateCaptionReferenceLayout(value, label, findings, path) {
+  if (!isRecord(value)) return captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
+  const keys = ["mode", "reference_width_px", "reference_height_px", "left_px", "width_px", "bottom_px", "text_align", "max_lines"];
+  for (const field of Object.keys(value)) if (!keys.includes(field)) captionFinding(findings, "captions.text-style", `${label}.${field} is not defined by reference-pixel layout`, path);
+  for (const field of keys) if (!Object.hasOwn(value, field)) captionFinding(findings, "captions.text-style", `${label}.${field} is required`, path);
+  const valid = value.mode === "reference-pixel"
+    && Number.isInteger(value.reference_width_px) && value.reference_width_px > 0
+    && Number.isInteger(value.reference_height_px) && value.reference_height_px > 0
+    && isFiniteNumber(value.left_px) && value.left_px >= 0
+    && isFiniteNumber(value.width_px) && value.width_px > 0
+    && value.left_px + value.width_px <= value.reference_width_px
+    && isFiniteNumber(value.bottom_px) && value.bottom_px >= 0
+    && value.text_align === "center" && value.max_lines === 1;
+  if (!valid) captionFinding(findings, "captions.text-style", `${label} must be a bounded reference-pixel layout with center/max_lines=1`, path);
 }
 
 function validateCaptionBackgroundStyle(value, label, findings, path) {
@@ -2273,6 +2358,12 @@ function validateCaptionHexColor(value, label, findings, path) {
 }
 
 const REVIEW_TARGET_KINDS = new Set(["instant", "range", "region", "asset", "insert"]);
+const REVIEW_INPUTS = new Set(["typed", "voice", "session"]);
+const REVIEW_STATUSES = new Set(["open", "addressed", "resolved"]);
+const REVIEW_STROKE_SPACES = new Set(["content-rect", "image-rect", "canvas-rect"]);
+const REVIEW_DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
+const REVIEW_IMAGE_TARGET_PATTERN = /^image:(.+)$/;
+const REVIEW_CANVAS_TARGET_PATTERN = /^canvas:(c-\d{4,})$/;
 const REVIEW_REQUIRED_FIELDS = ["id", "createdAt", "sourceT", "text", "input", "status"];
 const REVIEW_OPTIONAL_FIELDS = [
   "src",
@@ -2357,17 +2448,35 @@ async function validateReview(review, edit, findings, paths, skipped) {
     } else if (Object.hasOwn(annotation, "id")) {
       reviewFinding(findings, "review.schema", "id must be a non-empty string", itemPath);
     }
-    if (
-      Object.hasOwn(annotation, "sourceT") &&
-      (!isFiniteNumber(annotation.sourceT) || annotation.sourceT < 0)
-    ) {
+    if (Object.hasOwn(annotation, "createdAt") && typeof annotation.createdAt !== "string") {
+      reviewFinding(findings, "review.schema", "createdAt must be a string", itemPath);
+    }
+    const nonVideoTarget = isNonVideoReviewTarget(annotation.target);
+    if (Object.hasOwn(annotation, "sourceT") && annotation.sourceT === null && !nonVideoTarget) {
       reviewFinding(
         findings,
         "review.schema",
-        "sourceT must be a non-negative finite number (source seconds)",
+        "sourceT may be null only for doc:, image:, or canvas: targets",
         itemPath,
       );
+    } else if (
+      Object.hasOwn(annotation, "sourceT") &&
+      annotation.sourceT !== null &&
+      (!isFiniteNumber(annotation.sourceT) || annotation.sourceT < 0)
+    ) {
+      reviewFinding(findings, "review.schema", "sourceT must be null or a non-negative finite number (source seconds)", itemPath);
     }
+    validateReviewTarget(annotation.target, findings, itemPath);
+    if (Object.hasOwn(annotation, "text") && typeof annotation.text !== "string") {
+      reviewFinding(findings, "review.schema", "text must be a string", itemPath);
+    }
+    if (Object.hasOwn(annotation, "input") && !REVIEW_INPUTS.has(annotation.input)) {
+      reviewFinding(findings, "review.schema", "input must be typed / voice / session", itemPath);
+    }
+    if (Object.hasOwn(annotation, "status") && !REVIEW_STATUSES.has(annotation.status)) {
+      reviewFinding(findings, "review.schema", "status must be open / addressed / resolved", itemPath);
+    }
+    validateReviewResponse(annotation.response, findings, itemPath);
     if (annotation.sourceRange !== undefined && annotation.sourceRange !== null) {
       const range = annotation.sourceRange;
       if (
@@ -2517,25 +2626,84 @@ function validateReviewStrokes(strokes, findings, itemPath) {
   const valid =
     Array.isArray(strokes) &&
     strokes.length > 0 &&
-    strokes.every(
-      (stroke) =>
-        Array.isArray(stroke) &&
-        stroke.length >= 2 &&
-        stroke.every(
-          (point) =>
-            Array.isArray(point) &&
-            point.length === 2 &&
-            point.every((entry) => isFiniteNumber(entry) && entry >= 0 && entry <= 1),
-        ),
-    );
+    strokes.every((stroke) => validateReviewStroke(stroke));
   if (valid) return strokes;
   reviewFinding(
     findings,
     "review.schema",
-    "strokes must be null or an array of [x, y] paths (2+ points, normalized to the source frame)",
+    "strokes must be null or object strokes with tool, space, and normalized points",
     itemPath,
   );
   return null;
+}
+
+function validateReviewStroke(stroke) {
+  if (!isRecord(stroke) || stroke.tool !== "pen" || !REVIEW_STROKE_SPACES.has(stroke.space)) {
+    return false;
+  }
+  if (
+    !Array.isArray(stroke.points) ||
+    stroke.points.length < 2 ||
+    !stroke.points.every(
+      (point) =>
+        Array.isArray(point) &&
+        point.length === 2 &&
+        point.every((entry) => isFiniteNumber(entry) && entry >= 0 && entry <= 1),
+    )
+  ) {
+    return false;
+  }
+  if (stroke.space === "content-rect") {
+    return isRecord(stroke.frame)
+      && isFiniteNumber(stroke.frame.sourceT)
+      && stroke.frame.sourceT >= 0
+      && (!Object.hasOwn(stroke.frame, "cutIndex")
+        || stroke.frame.cutIndex === null
+        || (Number.isInteger(stroke.frame.cutIndex) && stroke.frame.cutIndex >= 0))
+      && isNonEmptyString(stroke.sessionRef);
+  }
+  if (Object.hasOwn(stroke, "frame")) return false;
+  if (stroke.space === "image-rect") {
+    return !Object.hasOwn(stroke, "sessionRef") || isNonEmptyString(stroke.sessionRef);
+  }
+  return !Object.hasOwn(stroke, "canvasRef") || isNonEmptyString(stroke.canvasRef);
+}
+
+function isNonVideoReviewTarget(value) {
+  return typeof value === "string"
+    && (REVIEW_DOC_TARGET_PATTERN.test(value)
+      || REVIEW_IMAGE_TARGET_PATTERN.test(value)
+      || REVIEW_CANVAS_TARGET_PATTERN.test(value));
+}
+
+function validateReviewTarget(value, findings, itemPath) {
+  if (value === undefined || value === null) return;
+  if (typeof value !== "string" || value === "") {
+    reviewFinding(findings, "review.schema", "target must be null or a non-empty string", itemPath);
+  } else if (value.startsWith("doc:") && !REVIEW_DOC_TARGET_PATTERN.test(value)) {
+    reviewFinding(findings, "review.schema", "target must use doc:<project-relative-path>#<block-id>", itemPath);
+  } else if (value.startsWith("image:") && !REVIEW_IMAGE_TARGET_PATTERN.test(value)) {
+    reviewFinding(findings, "review.schema", "target must use image:<project-relative-path>", itemPath);
+  } else if (value.startsWith("canvas:") && !REVIEW_CANVAS_TARGET_PATTERN.test(value)) {
+    reviewFinding(findings, "review.schema", "target must use canvas:<c-NNNN>", itemPath);
+  }
+}
+
+function validateReviewResponse(value, findings, itemPath) {
+  if (value === undefined || value === null) return;
+  if (
+    !isRecord(value)
+    || typeof value.summary !== "string"
+    || (value.action !== "edited" && value.action !== "declined")
+    || typeof value.respondedAt !== "string"
+  ) {
+    reviewFinding(
+      findings,
+      "review.schema",
+      "response must be null or { summary, action: edited|declined, respondedAt }",
+      itemPath,
+    );
+  }
 }
 
 async function validateReviewRefs(refs, edit, sourceIds, findings, paths, itemPath) {

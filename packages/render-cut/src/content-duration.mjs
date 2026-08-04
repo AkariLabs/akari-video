@@ -52,6 +52,7 @@ export function buildTailPadCommand({
   outputPath,
   cutsEndSeconds,
   finalDurationSeconds,
+  videoEncodeArgs = null,
 }) {
   const padSeconds = finalDurationSeconds - cutsEndSeconds;
   return {
@@ -70,10 +71,7 @@ export function buildTailPadCommand({
       "[padv]",
       "-map",
       "[pada]",
-      "-c:v",
-      "libx264",
-      "-profile:v",
-      "high",
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",

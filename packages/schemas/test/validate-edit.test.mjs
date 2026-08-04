@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -12,6 +14,15 @@ function run(exampleDir) {
   return spawnSync(process.execPath, [cliPath, join(exampleRoot, exampleDir, "edit.json")], {
     encoding: "utf8",
   });
+}
+
+function runPatchedExample(mutator) {
+  const directory = mkdtempSync(join(tmpdir(), "akari-edit-schema-"));
+  const value = JSON.parse(readFileSync(join(exampleRoot, "edit-v0-sample", "edit.json"), "utf8"));
+  mutator(value);
+  const path = join(directory, "edit.json");
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  return spawnSync(process.execPath, [cliPath, path], { encoding: "utf8" });
 }
 
 test("existing v0 sample passes unchanged (non-regression)", () => {
@@ -209,6 +220,25 @@ test("audio.master.denoise/loudnorm are validated", () => {
     executed.stderr,
     /audio\.master\.loudnorm は -70 から 0 の範囲の有限数である必要があります/,
   );
+});
+
+test("output.encoding master/x264 and audio.master.true_peak_dbtp pass", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.output.encoding = { quality: "master", encoder: "x264" };
+    edit.audio = { master: { denoise: "std", loudnorm: -14, true_peak_dbtp: -1.7 } };
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("output.encoding and true_peak_dbtp closed enums/range fail", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.output.encoding = { quality: "lossless", encoder: "gpu" };
+    edit.audio = { master: { true_peak_dbtp: -9.1 } };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /output\.encoding\.quality/u);
+  assert.match(executed.stderr, /output\.encoding\.encoder/u);
+  assert.match(executed.stderr, /audio\.master\.true_peak_dbtp/u);
 });
 
 test("layers with a baked fx and a chroma-keyed video PinP passes", () => {

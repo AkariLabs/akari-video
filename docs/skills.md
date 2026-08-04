@@ -98,6 +98,18 @@ Only runtimes that pass both gates are on board.
 
 Note: among the unsupported group, Lottie fits the shape best (assets carry their own timeline and expose an externally controllable playhead). No adoption timeline is set.
 
+## Search the shipped capability surface
+
+Use `akari capability <query> --json` to search the actual tracked skill leaves, contracts, package
+READMEs/manifests, and manifest-declared public CLI entries. Search includes nested Markdown leaves,
+so a query such as `beat-sync` reaches `skills/edit-plan/beat-sync.md`, not only SKILL.md frontmatter.
+
+When a query has zero text matches, `--record-miss` may record the inspected source-set hashes under
+the current project's `.akari/reports/absence/`. Its fixed verdict requires review and always carries
+`approved_to_build:false`; it is evidence of no text match, never permission to add a new capability.
+The CLI works in a checkout and in the npm tarball. A copied Claude plugin without the CLI reports
+capability search as unsupported instead of inventing a second catalog.
+
 ## Related pages
 
 - [Guides](./README.md#guides) — task-based guides for each skill (how to use them)

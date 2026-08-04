@@ -7,6 +7,8 @@
     "apps/*"
   ],
   "scripts": {
+    "gen:status-core": "node scripts/gen-status-core-mirror.mjs",
+    "check:status-core": "node scripts/gen-status-core-mirror.mjs --check",
     "gen:skills-index": "node scripts/gen-skills-index.mjs --strict",
     "check:skills-index": "node scripts/gen-skills-index.mjs --check --strict"
   },

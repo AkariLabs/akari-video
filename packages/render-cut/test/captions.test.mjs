@@ -3,10 +3,41 @@ import test from "node:test";
 
 import {
   generateCaptionOverlays,
+  generateResolvedCaptionOverlays,
   renderCaptionFragment,
   renderStyledCaptionFragment,
   sourceRangeToTimeline,
 } from "../src/captions.mjs";
+
+test("resolved caption overlay consumes the Node-resolved cue without re-splitting or animation", () => {
+  const [overlay] = generateResolvedCaptionOverlays({
+    display_cues: [{
+      id: "c-0001-occ-0001-part-1",
+      source_cue_id: "c-0001",
+      start: 1,
+      end: 2.25,
+      text: "<今回>",
+      style_vars: {
+        "--caption-left": "261px",
+        "--caption-width": "1120px",
+        "--caption-bottom": "29px",
+      },
+    }],
+  });
+  assert.equal(overlay.start, 1);
+  assert.equal(overlay.duration, 1.25);
+  assert.equal(overlay.generatedFrom, "c-0001");
+  assert.deepEqual(overlay.vars, {
+    "--caption-left": "261px",
+    "--caption-width": "1120px",
+    "--caption-bottom": "29px",
+  });
+  assert.match(overlay.html, /&lt;今回&gt;/u);
+  assert.match(overlay.html, /white-space:nowrap/u);
+  assert.match(overlay.html, /gap:0/u);
+  assert.match(overlay.html, /padding:0/u);
+  assert.doesNotMatch(overlay.html, /animation:/u);
+});
 
 test("caption generation is deterministic and uses the line-fit plate structure", () => {
   const captions = [

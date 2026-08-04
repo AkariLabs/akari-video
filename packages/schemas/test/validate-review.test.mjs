@@ -33,7 +33,7 @@ test("example review-v1-sample still passes (regression, contract-2026-07-15 v0)
 test("sourceT: null on a video-face annotation (no doc:/image: target) fails", () => {
   const executed = run("invalid-video-null-sourcet");
   assert.equal(executed.status, 1);
-  assert.match(executed.stderr, /sourceT は target が doc: \/ image: のときに限り null を許容します/);
+  assert.match(executed.stderr, /sourceT は target が doc: \/ image: \/ canvas: のときに限り null を許容します/);
 });
 
 test("doc: target without #block-id fails", () => {
@@ -90,6 +90,24 @@ test("input: \"session\" passes (rider r1 — review セッション契約 §6 �
   assert.equal(executed.status, 0, executed.stderr);
   assert.match(executed.stdout, /^OK: /);
   assert.equal(executed.stderr.trim(), "");
+});
+
+test("open / addressed / resolved lifecycle statuses all pass", () => {
+  const executed = run("valid-status-lifecycle");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("unknown annotation input fails", () => {
+  const executed = run("invalid-input-unknown");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /typed \/ voice \/ session/);
+});
+
+test("unknown annotation status fails", () => {
+  const executed = run("invalid-status-unknown");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /open \/ addressed \/ resolved/);
 });
 
 test("rider r1 regression: skills/address-review dev-fixture (2 pre-existing input:\"session\" records) now passes", () => {

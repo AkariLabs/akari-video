@@ -1,0 +1,145 @@
+{
+  "display_policy": {
+    "mode": "single_line_sequential",
+    "algorithm": "a4-ja-two-fragment-v1",
+    "unit_metric": "ascii-half-other-one-v1",
+    "max_line_units": 8,
+    "minimum_fragment_duration_seconds": 0.72,
+    "locale": "ja"
+  },
+  "caption": {
+    "id": "c-0001",
+    "start": 0,
+    "end": 2,
+    "text": "正常です",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": true
+  },
+  "edit": {
+    "version": 0,
+    "source": { "path": "source.mp4" },
+    "cuts": [{ "in": 0, "out": 2 }],
+    "overlays": [],
+    "output": { "width": 1920, "height": 1080, "fps": 30 }
+  },
+  "valid_default_style": {
+    "color": "#FFFFFF",
+    "size_px": 82,
+    "font_weight": 600,
+    "line_height": 1.08,
+    "stroke": {
+      "method": "webkit-outline",
+      "color": "#050505",
+      "width_px": 5
+    },
+    "background": {
+      "color": "#00000000",
+      "opacity": 0,
+      "radius_px": 0,
+      "mode": "per-line"
+    },
+    "layout": {
+      "mode": "reference-pixel",
+      "reference_width_px": 1920,
+      "reference_height_px": 1080,
+      "left_px": 261,
+      "width_px": 1120,
+      "bottom_px": 29,
+      "text_align": "center",
+      "max_lines": 1
+    }
+  },
+  "valid_style_cases": [
+    { "id": "empty", "style": {} },
+    { "id": "hex-three", "style": { "color": "#FFF" } },
+    { "id": "hex-eight", "style": { "color": "#11223380" } },
+    { "id": "empty-stroke", "style": { "stroke": {} } },
+    { "id": "empty-background", "style": { "background": {} } },
+    { "id": "zero-deep-values", "style": { "stroke": { "width_px": 0 }, "background": { "opacity": 0, "radius_px": 0 } } },
+    { "id": "legacy-zone", "style": { "zone": "top-left" } },
+    {
+      "id": "reference-layout",
+      "style": {
+        "layout": {
+          "mode": "reference-pixel",
+          "reference_width_px": 1920,
+          "reference_height_px": 1080,
+          "left_px": 261,
+          "width_px": 1120,
+          "bottom_px": 29,
+          "text_align": "center",
+          "max_lines": 1
+        }
+      }
+    }
+  ],
+  "invalid_cases": [
+    { "id": "default-not-object", "default_text_style": "invalid" },
+    { "id": "caption-not-object", "caption_text_style": [] },
+    { "id": "unknown-style-key", "default_text_style": { "invented": true } },
+    { "id": "invalid-scalar-types", "default_text_style": { "color": 17, "size_px": "82", "font_weight": "600", "line_height": 0 } },
+    { "id": "invalid-hex", "caption_text_style": { "color": "#GGGGGG" } },
+    { "id": "size-non-positive", "caption_text_style": { "size_px": 0 } },
+    { "id": "font-weight-range", "caption_text_style": { "font_weight": 1001 } },
+    { "id": "font-weight-fraction", "caption_text_style": { "font_weight": 600.5 } },
+    { "id": "stroke-not-object", "caption_text_style": { "stroke": "outline" } },
+    { "id": "stroke-method", "caption_text_style": { "stroke": { "method": "invented" } } },
+    { "id": "stroke-unknown-key", "caption_text_style": { "stroke": { "method": "webkit-outline", "invented": true } } },
+    { "id": "stroke-color", "caption_text_style": { "stroke": { "color": "black" } } },
+    { "id": "stroke-width", "caption_text_style": { "stroke": { "width_px": -1 } } },
+    { "id": "background-not-object", "caption_text_style": { "background": false } },
+    { "id": "background-unknown-key", "caption_text_style": { "background": { "invented": true } } },
+    { "id": "background-color", "caption_text_style": { "background": { "color": "rgba(0,0,0,.5)" } } },
+    { "id": "background-opacity", "caption_text_style": { "background": { "opacity": 1.1 } } },
+    { "id": "background-radius", "caption_text_style": { "background": { "radius_px": -0.1 } } },
+    { "id": "background-mode", "caption_text_style": { "background": { "mode": "invented" } } },
+    { "id": "zone", "caption_text_style": { "zone": "lower-third" } },
+    { "id": "layout-not-object", "caption_text_style": { "layout": [] } },
+    { "id": "layout-missing-required", "caption_text_style": { "layout": { "mode": "reference-pixel" } } },
+    {
+      "id": "layout-unknown-key",
+      "caption_text_style": {
+        "layout": {
+          "mode": "reference-pixel", "reference_width_px": 1920, "reference_height_px": 1080,
+          "left_px": 261, "width_px": 1120, "bottom_px": 29, "text_align": "center", "max_lines": 1,
+          "invented": true
+        }
+      }
+    },
+    {
+      "id": "layout-invalid-values",
+      "caption_text_style": {
+        "layout": {
+          "mode": "reference-pixel", "reference_width_px": 1920, "reference_height_px": 1080,
+          "left_px": 1000, "width_px": 1000, "bottom_px": 29, "text_align": "left", "max_lines": 2
+        }
+      }
+    },
+    {
+      "id": "same-input-zone-layout-conflict",
+      "caption_text_style": {
+        "zone": "bottom",
+        "layout": {
+          "mode": "reference-pixel", "reference_width_px": 1920, "reference_height_px": 1080,
+          "left_px": 261, "width_px": 1120, "bottom_px": 29, "text_align": "center", "max_lines": 1
+        }
+      }
+    },
+    {
+      "id": "merged-zone-layout-conflict",
+      "default_text_style": { "zone": "bottom" },
+      "caption_text_style": {
+        "layout": {
+          "mode": "reference-pixel", "reference_width_px": 1920, "reference_height_px": 1080,
+          "left_px": 261, "width_px": 1120, "bottom_px": 29, "text_align": "center", "max_lines": 1
+        }
+      }
+    },
+    {
+      "id": "invalid-default-hidden-by-valid-override",
+      "default_text_style": { "stroke": { "method": "invented", "color": "#050505", "width_px": 5 } },
+      "caption_text_style": { "stroke": { "method": "webkit-outline" } }
+    }
+  ]
+}

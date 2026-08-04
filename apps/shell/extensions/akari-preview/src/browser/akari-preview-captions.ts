@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { ResolvedCaptionDisplayPayload } from '../common/akari-preview-protocol';
 
 export const PREVIEW_CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
@@ -33,6 +34,8 @@ export interface PreviewCaption {
     words?: { start: number; end: number; text: string }[];
     textStyle?: PreviewCaptionTextStyle;
     textStyleVars?: Record<string, string>;
+    sourceCueId?: string;
+    resolvedTimeline?: boolean;
 }
 
 export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: URI | undefined): URI | undefined {
@@ -114,6 +117,22 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
         });
     }
     return captions;
+}
+
+export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayload): PreviewCaption[] {
+    if (payload?.schema !== 'caption-layout/v1' || !Array.isArray(payload.captions)) {
+        throw new Error('resolved caption payload is invalid');
+    }
+    return payload.captions.map(cue => ({
+        id: cue.id,
+        sourceCueId: cue.source_cue_id,
+        resolvedTimeline: true,
+        start: cue.start,
+        end: cue.end,
+        text: cue.text,
+        ...(cue.text_style ? { textStyle: normalizeTextStyle(cue.text_style) } : {}),
+        ...(cue.style_vars ? { textStyleVars: cue.style_vars } : {})
+    }));
 }
 
 export function captionTextStyleVars(style: PreviewCaptionTextStyle | undefined): Record<string, string> {

@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-08-03T09:00:00+09:00","src":null,"sourceT":1,"sourceRange":null,"timelineT":null,"target":"cut:0","targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"open","input":"typed","audio":null,"poses":null,"status":"open","response":null},
+    {"id":"a-0002","createdAt":"2026-08-03T09:01:00+09:00","src":null,"sourceT":2,"sourceRange":null,"timelineT":null,"target":"cut:0","targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"addressed","input":"session","audio":null,"poses":null,"status":"addressed","response":{"summary":"edited","action":"edited","respondedAt":"2026-08-03T09:02:00+09:00"}},
+    {"id":"a-0003","createdAt":"2026-08-03T09:03:00+09:00","src":null,"sourceT":3,"sourceRange":null,"timelineT":null,"target":"cut:0","targetKind":null,"region":null,"strokes":null,"refs":null,"insertPosition":null,"intent":null,"text":"resolved","input":"voice","audio":null,"poses":null,"status":"resolved","response":{"summary":"edited","action":"edited","respondedAt":"2026-08-03T09:04:00+09:00"}}
+  ]
+}

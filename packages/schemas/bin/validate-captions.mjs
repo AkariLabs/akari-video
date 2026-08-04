@@ -33,6 +33,7 @@ const CAPTION_FIELDS = new Set([
   "words",
   "style",
   "display_text",
+  "display_fragments",
   "text_style",
 ]);
 const REQUIRED_CAPTION_FIELDS = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
@@ -87,13 +88,14 @@ function validateCaptionsRoot(value) {
     captions = value;
   } else if (isPlainObject(value)) {
     for (const key of Object.keys(value)) {
-      if (key !== "default_text_style" && key !== "captions") {
+      if (key !== "default_text_style" && key !== "display_policy" && key !== "captions") {
         fail(`captions.json のルートに未知のキーがあります: ${key}`);
       }
     }
     if (hasOwn(value, "default_text_style")) {
       validateTextStyle(value.default_text_style, "default_text_style");
     }
+    if (hasOwn(value, "display_policy")) validateDisplayPolicy(value.display_policy);
     if (!hasOwn(value, "captions")) {
       fail("captions.json の object ルートでは captions が必須です");
       return;
@@ -103,14 +105,18 @@ function validateCaptionsRoot(value) {
       return;
     }
     captions = value.captions;
+    if (hasOwn(value, "display_policy")) validateDisplayPolicyCaptions(captions, value.display_policy);
   } else {
     fail("captions.json のルートは配列または object である必要があります");
     return;
   }
-  validateCaptionsArray(captions);
+  validateCaptionsArray(
+    captions,
+    isPlainObject(value) && hasOwn(value, "display_policy") ? value.default_text_style : null,
+  );
 }
 
-function validateCaptionsArray(captions) {
+function validateCaptionsArray(captions, optInDefaultTextStyle = null) {
   const ids = new Set();
   captions.forEach((caption, index) => {
     const label = `captions[${index}]`;
@@ -159,8 +165,18 @@ function validateCaptionsArray(captions) {
     if (hasOwn(caption, "display_text") && typeof caption.display_text !== "string") {
       fail(`${label}.display_text は文字列である必要があります`);
     }
+    if (hasOwn(caption, "display_fragments") && !Array.isArray(caption.display_fragments)) {
+      fail(`${label}.display_fragments は配列である必要があります`);
+    }
     if (hasOwn(caption, "text_style")) {
       validateTextStyle(caption.text_style, `${label}.text_style`);
+      if (isPlainObject(optInDefaultTextStyle) && isPlainObject(caption.text_style)) {
+        const mergedHasZone = hasOwn(caption.text_style, "zone") || hasOwn(optInDefaultTextStyle, "zone");
+        const mergedHasLayout = hasOwn(caption.text_style, "layout") || hasOwn(optInDefaultTextStyle, "layout");
+        if (mergedHasZone && mergedHasLayout) {
+          fail(`${label}.text_style は default_text_style とのマージ後に zone と layout を併用できません`);
+        }
+      }
     }
   });
 }
@@ -212,7 +228,7 @@ function validateTextStyle(value, label) {
     fail(`${label} は object である必要があります`);
     return;
   }
-  const allowedKeys = new Set(["color", "size_px", "stroke", "background", "zone"]);
+  const allowedKeys = new Set(["color", "size_px", "font_weight", "line_height", "stroke", "background", "zone", "layout"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
   }
@@ -220,12 +236,22 @@ function validateTextStyle(value, label) {
   if (hasOwn(value, "size_px") && (!isFiniteNumber(value.size_px) || value.size_px <= 0)) {
     fail(`${label}.size_px は 0 より大きい有限数である必要があります`);
   }
+  if (hasOwn(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1000)) {
+    fail(`${label}.font_weight は 1 から 1000 の整数である必要があります`);
+  }
+  if (hasOwn(value, "line_height") && (!isFiniteNumber(value.line_height) || value.line_height <= 0)) {
+    fail(`${label}.line_height は 0 より大きい有限数である必要があります`);
+  }
   if (hasOwn(value, "stroke")) validateTextStrokeStyle(value.stroke, `${label}.stroke`);
   if (hasOwn(value, "background")) {
     validateTextBackgroundStyle(value.background, `${label}.background`);
   }
   if (hasOwn(value, "zone") && !CAPTION_ZONES.has(value.zone)) {
     fail(`${label}.zone は定義済みの 9 値のいずれかである必要があります`);
+  }
+  if (hasOwn(value, "layout")) validateReferencePixelLayout(value.layout, `${label}.layout`);
+  if (hasOwn(value, "zone") && hasOwn(value, "layout")) {
+    fail(`${label} では zone と layout を併用できません`);
   }
 }
 
@@ -235,12 +261,78 @@ function validateTextStrokeStyle(value, label) {
     return;
   }
   for (const key of Object.keys(value)) {
-    if (key !== "color" && key !== "width_px") fail(`${label} に未知のキーがあります: ${key}`);
+    if (key !== "method" && key !== "color" && key !== "width_px") fail(`${label} に未知のキーがあります: ${key}`);
   }
+  if (hasOwn(value, "method") && value.method !== "webkit-outline") fail(`${label}.method は webkit-outline である必要があります`);
   if (hasOwn(value, "color")) validateHexColor(value.color, `${label}.color`);
   if (hasOwn(value, "width_px") && (!isFiniteNumber(value.width_px) || value.width_px < 0)) {
     fail(`${label}.width_px は 0 以上の有限数である必要があります`);
   }
+}
+
+function validateDisplayPolicy(value) {
+  if (!isPlainObject(value)) {
+    fail("display_policy は object である必要があります");
+    return;
+  }
+  const allowed = new Set(["mode", "algorithm", "unit_metric", "max_line_units", "minimum_fragment_duration_seconds", "locale", "break_hints"]);
+  for (const key of Object.keys(value)) if (!allowed.has(key)) fail(`display_policy に未知のキーがあります: ${key}`);
+  if (value.mode !== "single_line_sequential") fail("display_policy.mode は single_line_sequential である必要があります");
+  if (value.algorithm !== "a4-ja-two-fragment-v1") fail("display_policy.algorithm は a4-ja-two-fragment-v1 である必要があります");
+  if (value.unit_metric !== "ascii-half-other-one-v1") fail("display_policy.unit_metric は ascii-half-other-one-v1 である必要があります");
+  if (!isFiniteNumber(value.max_line_units) || value.max_line_units <= 0) fail("display_policy.max_line_units は正の有限数である必要があります");
+  if (!isFiniteNumber(value.minimum_fragment_duration_seconds) || value.minimum_fragment_duration_seconds <= 0) fail("display_policy.minimum_fragment_duration_seconds は正の有限数である必要があります");
+  if (!strictText(value.locale)) fail("display_policy.locale は NFC かつ前後空白のない文字列である必要があります");
+  if (value.break_hints !== undefined) {
+    if (!isPlainObject(value.break_hints)) return fail("display_policy.break_hints は object である必要があります");
+    const keys = ["preferred_second_starts", "preferred_first_ends", "protected_terms"];
+    for (const key of Object.keys(value.break_hints)) if (!keys.includes(key)) fail(`display_policy.break_hints に未知のキーがあります: ${key}`);
+    for (const key of keys) {
+      const list = value.break_hints[key];
+      if (list !== undefined && (!Array.isArray(list) || list.some(item => !strictText(item)))) {
+        fail(`display_policy.break_hints.${key} は NFC かつ前後空白のない文字列配列である必要があります`);
+      }
+    }
+  }
+}
+
+function validateDisplayPolicyCaptions(captions, policy) {
+  if (!isPlainObject(policy) || !isFiniteNumber(policy.max_line_units)) return;
+  captions.forEach((caption, index) => {
+    if (!isPlainObject(caption)) return;
+    const text = caption.display_text ?? caption.text;
+    if (!strictText(text)) fail(`captions[${index}] の display_text ?? text は NFC かつ前後空白なしである必要があります`);
+    if (["karaoke", "pop", "reveal"].includes(caption.style)) fail(`captions[${index}].style は display_policy と併用できません`);
+    if (caption.display_fragments !== undefined) {
+      const fragments = caption.display_fragments;
+      if (!Array.isArray(fragments) || fragments.length < 1 || fragments.length > 2 || fragments.some(item => !strictText(item))) {
+        fail(`captions[${index}].display_fragments は 1〜2 件の NFC かつ前後空白のない文字列である必要があります`);
+      } else {
+        if (fragments.join("") !== text) fail(`captions[${index}].display_fragments は表示文字列を厳密に保存する必要があります`);
+        if (fragments.some(item => measureUnits(item) > policy.max_line_units)) fail(`captions[${index}].display_fragments は max_line_units 以下である必要があります`);
+      }
+    }
+  });
+}
+
+function validateReferencePixelLayout(value, label) {
+  if (!isPlainObject(value)) return fail(`${label} は object である必要があります`);
+  const keys = ["mode", "reference_width_px", "reference_height_px", "left_px", "width_px", "bottom_px", "text_align", "max_lines"];
+  for (const key of Object.keys(value)) if (!keys.includes(key)) fail(`${label} に未知のキーがあります: ${key}`);
+  for (const key of keys) if (!hasOwn(value, key)) fail(`${label}.${key} は必須です`);
+  if (value.mode !== "reference-pixel") fail(`${label}.mode は reference-pixel である必要があります`);
+  if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0) fail(`${label} の reference dimensions は正整数である必要があります`);
+  if (!isFiniteNumber(value.left_px) || value.left_px < 0 || !isFiniteNumber(value.width_px) || value.width_px <= 0 || value.left_px + value.width_px > value.reference_width_px) fail(`${label} の left_px/width_px は参照幅内である必要があります`);
+  if (!isFiniteNumber(value.bottom_px) || value.bottom_px < 0) fail(`${label}.bottom_px は 0 以上の有限数である必要があります`);
+  if (value.text_align !== "center" || value.max_lines !== 1) fail(`${label} は text_align=center / max_lines=1 である必要があります`);
+}
+
+function strictText(value) {
+  return typeof value === "string" && value.length > 0 && value.trim() === value && value.normalize("NFC") === value;
+}
+
+function measureUnits(value) {
+  return Array.from(value).reduce((sum, character) => sum + (/^[\x00-\x7F]$/u.test(character) ? 0.5 : 1), 0);
 }
 
 function validateTextBackgroundStyle(value, label) {

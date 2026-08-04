@@ -11,6 +11,7 @@ import {
   createPlatinumGradient,
   drawPenSegment as drawPenSegmentShared,
 } from '/pen-visuals.bundle.js';
+import { replaceCaptionStyleVariables } from '/caption-style.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -108,7 +109,19 @@ let reviewTimerRAF = 0;
 let reviewEvents = [];
 let trackWaveforms = { bgm: null, narration: null, sfx: null };
 let captionsData = null;
+let captionsResolvedTimeline = false;
 let captionStylesInjected = false;
+
+// All geometry/capture paths await the exact repository-owned variable font.
+// The unique family name makes a system-installed Noto unable to satisfy check().
+window.__akariCaptionFontReady = (async () => {
+  await document.fonts.load('600 82px "AKARI Noto Sans JP"');
+  await document.fonts.ready;
+  if (!document.fonts.check('600 82px "AKARI Noto Sans JP"')) {
+    throw new Error('AKARI caption font did not load');
+  }
+  return true;
+})();
 
 // B-roll layer videos
 let layerVideos = [];
@@ -123,6 +136,7 @@ let wsTickInterval = null;
 
 async function init() {
   try {
+    await window.__akariCaptionFontReady;
     const [timelineRes, editRes, captionsRes] = await Promise.all([
       fetch(api.timeline),
       fetch(api.summary),
@@ -134,6 +148,7 @@ async function init() {
     if (captionsRes.ok) {
       const body = await captionsRes.json();
       captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
+      captionsResolvedTimeline = body?.schema === 'caption-layout/v1';
     } else {
       captionsData = [];
     }
@@ -1548,6 +1563,12 @@ const CAPTION_STYLE_VARS = [
 function applyCaptionStyle(caption) {
   for (const name of CAPTION_STYLE_VARS) captionPlate.style.removeProperty(name);
   let vars = {};
+  if (captionsResolvedTimeline) {
+    vars = caption?.style_vars && typeof caption.style_vars === 'object' ? { ...caption.style_vars } : {};
+    replaceCaptionStyleVariables(captionPlate.style, vars);
+    captionPlate.classList.add('akari-caption-resolved', 'akari-caption-styled');
+    return;
+  }
   const ts = caption?.text_style;
   const dts = summary?.default_text_style;
   if (ts?.color) vars['--caption-color'] = ts.color;
@@ -1557,7 +1578,9 @@ function applyCaptionStyle(caption) {
   else vars['--caption-font-size'] = defaultCaptionFontSize() + 'px';
   const zone = ts?.zone || dts?.zone || 'bottom';
   Object.assign(vars, captionZoneVars(zone));
-  for (const [k, v] of Object.entries(vars)) captionPlate.style.setProperty(k, v);
+  replaceCaptionStyleVariables(captionPlate.style, vars);
+  captionPlate.classList.toggle('akari-caption-resolved', captionsResolvedTimeline);
+  captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
 }
 
 function getActiveCaptions() {
@@ -1809,7 +1832,7 @@ function updateCaption() {
   const caps = getActiveCaptions();
   if (!caps.length) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
   const srcT = getVideoTimeForOutput(outputTime);
-  const active = findActiveCaption(caps, srcT);
+  const active = findActiveCaption(caps, captionsResolvedTimeline ? outputTime : srcT);
   if (!active) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
   if (active.id === _lastCaptionId) return;
   _lastCaptionId = active.id;
@@ -1854,11 +1877,15 @@ function updateCaption() {
     }</div></div>`;
     captionPlate.dataset.captionStart = String(start);
   } else {
-    // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
-    const lines = splitCaptionLines(displayText, captionLineBudget());
-    captionPlate.innerHTML = `<div class="akari-caption"><div class="akari-caption__plate">${
-      lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join('')
-    }</div></div>`;
+    if (captionsResolvedTimeline) {
+      captionPlate.innerHTML = `<span class="akari-caption__resolved-line">${esc(active.text || '')}</span>`;
+    } else {
+      // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
+      const lines = splitCaptionLines(displayText, captionLineBudget());
+      captionPlate.innerHTML = `<div class="akari-caption"><div class="akari-caption__plate">${
+        lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join('')
+      }</div></div>`;
+    }
     delete captionPlate.dataset.captionStart;
   }
 }
@@ -1898,9 +1925,15 @@ function connectWs() {
       const m = JSON.parse(e.data);
       if (m.type === 'reload') { requestSoftReload(); return; }
       if (m.type === 'captions-reload') {
-        fetch(api.summary).then(r => r.ok && r.json()).then(d => { if (d) summary = d; }).catch(() => {});
-        fetch(api.captions).then(r => r.ok && r.json()).then(d => {
-          if (d) { captionsData = Array.isArray(d) ? d : (d?.captions ?? []); _lastCaptionId = null; updateCaption(); }
+        Promise.all([fetch(api.summary), fetch(api.captions)]).then(async ([summaryResponse, captionsResponse]) => {
+          if (summaryResponse.ok) summary = await summaryResponse.json();
+          if (captionsResponse.ok) {
+            const body = await captionsResponse.json();
+            captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
+            captionsResolvedTimeline = body?.schema === 'caption-layout/v1';
+            _lastCaptionId = null;
+            updateCaption();
+          }
         }).catch(() => {});
         return;
       }

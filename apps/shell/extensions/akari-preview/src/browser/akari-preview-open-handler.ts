@@ -27,10 +27,20 @@ import {
     resolveTimedScheduleWindow
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import {
+    CAPTION_FONT_FAMILY,
+    CAPTION_FONT_LOAD_DESCRIPTOR,
+    captionFontFaceCss,
+    RESOLVED_CAPTION_STYLE_VARIABLE_NAMES,
+    RESOLVED_SINGLE_LINE_CAPTION_CSS,
+    RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE,
+    RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE,
+    RESOLVED_SINGLE_LINE_FRAGMENT_OPEN
+} from '../common/caption-visual-contract';
 import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
-import { locatePreviewCaptions, parsePreviewCaptions, PreviewCaption } from './akari-preview-captions';
+import { locatePreviewCaptions, parsePreviewCaptions, parseResolvedPreviewCaptions, PreviewCaption } from './akari-preview-captions';
 import {
     ReviewSessionRecorder,
     ReviewSessionUiState,
@@ -1644,7 +1654,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
         const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
         widget.akariPreviewCaptionsUpdate = previous.then(async () => {
-            const captions = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri);
+            const captions = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
             widget.sendMessage({ type: 'akari-preview-captions-update', captions });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
@@ -1909,7 +1919,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected async loadPreviewModel(editUri: URI): Promise<PreviewModel> {
         const [workspaceRoot] = await this.workspaceService.roots;
         const captionsUri = locatePreviewCaptions(editUri, workspaceRoot?.resource);
-        const captions = await this.loadPreviewCaptions(captionsUri);
+        const captions = await this.loadPreviewCaptions(captionsUri, editUri);
         const assetStreams = new Map<string, { id: string; url: string }>();
         const assetUris: URI[] = [];
         let sourceUri: URI | undefined;
@@ -2524,11 +2534,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return document.body.innerHTML;
     }
 
-    protected async loadPreviewCaptions(captionsUri: URI | undefined): Promise<PreviewCaption[]> {
+    protected async loadPreviewCaptions(captionsUri: URI | undefined, editUri?: URI): Promise<PreviewCaption[]> {
         if (!captionsUri) {
             return [];
         }
         try {
+            if (editUri) {
+                const resolved = await this.previewService.resolveCaptionDisplay({
+                    captionsUri: captionsUri.toString(),
+                    editUri: editUri.toString()
+                });
+                if (resolved) return parseResolvedPreviewCaptions(resolved);
+            }
             return parsePreviewCaptions(await this.readText(captionsUri));
         } catch (error) {
             if (await this.fileService.exists(captionsUri)) {
@@ -2936,8 +2953,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; connect-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob:; img-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob: data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:">
 <style>
 ${this.inlineStyle(assets.interactionCss)}
-@font-face { font-family: "Noto Sans JP"; src: url("${assets.captionFontDataUri}") format("truetype-variations"); font-weight: 100 900; font-style: normal; }
-:root { color-scheme: dark; font-family: "Noto Sans JP", sans-serif; }
+${captionFontFaceCss(assets.captionFontDataUri)}
+:root { color-scheme: dark; font-family: "${CAPTION_FONT_FAMILY}", sans-serif; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
@@ -3084,6 +3101,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   </div>
 </div>
 <script>window.__akariPreview = ${initialState};</script>
+<script>window.__akariCaptionFontReady = (async () => { await document.fonts.load(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)}); await document.fonts.ready; if (!document.fonts.check(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)})) throw new Error('AKARI caption font did not load'); return true; })();</script>
 <script>${this.hostAdapterScript()}</script>
 <script>${this.inlineScript(assets.threeJavaScript)}</script>
 <script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
@@ -4774,7 +4792,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     captionSelectBox.classList.remove('is-active');
                     return;
                 }
-                const caption = captions.find(candidate => candidate.id === selectedCaptionId);
+                const caption = captions.find(candidate => (candidate.sourceCueId || candidate.id) === selectedCaptionId);
                 if (!caption) {
                     selectedCaptionId = null;
                     captionSelectBox.classList.remove('is-active');
@@ -4802,11 +4820,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (event.button !== 0) return;
                 const time = video.currentTime || 0;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
-                const caption = window.AkariEditKernel.findActiveCaption(captions, time);
+                const resolvedTimeline = captions.some(candidate => candidate.resolvedTimeline);
+                const caption = window.AkariEditKernel.findActiveCaption(captions, resolvedTimeline ? outputTime : time);
                 if (!caption || !caption.id) return;
                 event.preventDefault();
                 event.stopPropagation();
-                selectCaption(caption.id);
+                selectCaption(caption.sourceCueId || caption.id);
                 const pointerId = event.pointerId;
                 const startClientX = event.clientX;
                 const startClientY = event.clientY;
@@ -4842,7 +4861,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         return;
                     }
                     try {
-                        await window.akari.engine.captionWrite(caption.id, { zone: candidateZone });
+                        await window.akari.engine.captionWrite(caption.sourceCueId || caption.id, { zone: candidateZone });
                         selectedCaptionZone = candidateZone;
                     } catch (error) {
                         console.warn('[akari-preview] caption zone write rejected; reverting', error);
@@ -5605,8 +5624,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 return '<div class="akari-caption akari-caption--' + rootStyle + '">'
                     + '<style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);'
-                    + '-webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9));paint-order:stroke fill;text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
-                    + 'font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
+                    + '-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));'
+                    + 'paint-order:var(--caption-paint-order,stroke fill);'
+                    + 'text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
+                    + 'font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + blockCss
@@ -5620,6 +5641,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };
             const renderPlainCaptionFragment = caption => {
+                if (caption.resolvedTimeline) {
+                    return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
+                        + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                        + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
+                        + escapeCaptionHtml(caption.text)
+                        + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)};
+                }
                 // 焼き込みと同じ自然な区切り（句読点 → 空白 → 文節境界 → 文字上限）で折り返す
                 const lines = splitCaptionLines(caption.text || '', captionLineBudget);
                 const markup = lines.map(line => '<p class="akari-caption__line">'
@@ -5634,26 +5662,19 @@ body { display: grid; place-items: center; padding: 32px; }
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
                     : '';
                 return '<div class="akari-caption"><style>'
-                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9));paint-order:stroke fill;text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:"Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
+                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + blockCss
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };
-            const captionStyleVariableNames = [
-                '--caption-color', '--caption-font-size', '--caption-text-shadow',
-                '--plate-bg', '--plate-radius', '--plate-block-bg', '--plate-block-radius',
-                '--caption-top', '--caption-bottom',
-                '--caption-left', '--caption-right', '--caption-justify-content',
-                '--caption-align-items', '--caption-line-margin', '--caption-line-max-width',
-                '--caption-text-align'
-            ];
+            const captionStyleVariableNames = ${JSON.stringify(RESOLVED_CAPTION_STYLE_VARIABLE_NAMES)};
             const applyCaptionStyleVars = caption => {
                 for (const name of captionStyleVariableNames) {
                     captionPlate.style.removeProperty(name);
                 }
-                const textStyleActive = Boolean(caption && caption.textStyle
-                    && Object.keys(caption.textStyle).length > 0);
+                const textStyleActive = Boolean(caption && ((caption.textStyle
+                    && Object.keys(caption.textStyle).length > 0) || caption.resolvedTimeline));
                 if (!textStyleActive) return;
                 const vars = caption.textStyleVars || {};
                 for (const [name, value] of Object.entries(vars)) {
@@ -5667,17 +5688,18 @@ body { display: grid; place-items: center; padding: 32px; }
             const renderCaption = () => {
                 const activeSegment = segments[activeSegmentIndex];
                 const time = video.currentTime || 0;
+                const resolvedTimeline = captions.some(candidate => candidate.resolvedTimeline);
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
                 const caption = (activeSegment && activeSegment.kind === 'gap')
                     ? null
-                    : (window.AkariEditKernel.findActiveCaption(captions, time) || null);
+                    : (window.AkariEditKernel.findActiveCaption(captions, resolvedTimeline ? outputTime : time) || null);
                 if (caption !== activeCaption) {
                     activeCaption = caption;
                     applyCaptionStyleVars(caption);
                     const hasEmphasis = Boolean(caption && Array.isArray(caption.words)
                         && caption.words.some(word => findMatchingEmphasis(word)));
-                    const hasTextStyle = Boolean(caption && caption.textStyle
-                        && Object.keys(caption.textStyle).length > 0);
+                    const hasTextStyle = Boolean(caption && ((caption.textStyle
+                        && Object.keys(caption.textStyle).length > 0) || caption.resolvedTimeline));
                     const hasCaptionWords = Boolean(caption && Array.isArray(caption.words)
                         && caption.words.length > 0);
                     // reveal（明示 + 縦長の複数行自動昇格）も word ベースの styled 経路で描く
@@ -6404,7 +6426,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 subtree: true
             });
 
-            Promise.all([window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
+            Promise.all([window.__akariCaptionFontReady, window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
                 applyOverlayTracks();
                 stage.append(transitionPlate, captionPlate);
                 const indicators = Array.isArray(summary.indicators) ? summary.indicators : [];

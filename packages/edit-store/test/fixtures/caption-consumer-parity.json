@@ -1,0 +1,67 @@
+{
+  "captionsRoot": {
+    "display_policy": {
+      "mode": "single_line_sequential",
+      "algorithm": "a4-ja-two-fragment-v1",
+      "unit_metric": "ascii-half-other-one-v1",
+      "max_line_units": 8,
+      "minimum_fragment_duration_seconds": 0.72,
+      "locale": "ja",
+      "break_hints": {
+        "preferred_second_starts": ["設定"],
+        "preferred_first_ends": ["です"],
+        "protected_terms": ["Claude Code"]
+      }
+    },
+    "default_text_style": {
+      "color": "#FFFFFF",
+      "size_px": 82,
+      "font_weight": 600,
+      "line_height": 1.08,
+      "stroke": {
+        "method": "webkit-outline",
+        "color": "#050505",
+        "width_px": 5
+      },
+      "layout": {
+        "mode": "reference-pixel",
+        "reference_width_px": 1920,
+        "reference_height_px": 1080,
+        "left_px": 261,
+        "width_px": 1120,
+        "bottom_px": 29,
+        "text_align": "center",
+        "max_lines": 1
+      }
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "src": "a",
+        "start": 1,
+        "end": 5,
+        "text": "前半です設定後半",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": true,
+        "display_fragments": ["前半です", "設定後半"],
+        "text_style": {
+          "color": "#FFFFFF"
+        }
+      }
+    ]
+  },
+  "edit": {
+    "version": 1,
+    "sources": [
+      { "id": "a", "path": "a.mp4" },
+      { "id": "b", "path": "b.mp4" }
+    ],
+    "cuts": [
+      { "src": "a", "in": 0, "out": 3 },
+      { "src": "b", "in": 0, "out": 1 },
+      { "src": "a", "in": 2, "out": 6, "speed": 2 }
+    ],
+    "output": { "width": 1920, "height": 1080, "fps": 30 }
+  }
+}

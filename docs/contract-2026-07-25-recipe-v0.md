@@ -79,7 +79,7 @@
 | `confirmed` | object | 要（最低 1 フィールド） | **確認済み選好のみ**。全フィールド任意・null 不可（確認されていない項目はキー自体を書かない。§3 規律 1） |
 | `confirmed.aspect` | enum | 任意 | `16:9` / `9:16` / `1:1`（既存カタログタグの慣用値。`catalog/scene3d/vintage-camera/meta.json` 等の `tags[]` に既出。§6） |
 | `confirmed.target_duration_band` | string | 任意 | 尺そのものではなく帯（例 `30-60s`）。素材が変われば正確な秒数は転用できないため帯で記録する（§6） |
-| `confirmed.caption_style_ref` | string | 任意 | 字幕スタイルの参照名（カタログの telop プリセット名、または字幕方針を指す自由記述） |
+| `confirmed.caption_style_ref` | string | 任意 | 字幕スタイルを説明する自由記述。registry-backed profile key ではなく自動適用不可 |
 | `confirmed.bgm_profile` | string | 任意 | BGM の選好を指す自由記述（ジャンル・ムード・カタログ候補名等） |
 | `confirmed.overlay_kinds[]` | string[] | 任意 | 重複なし・最低 1 件。`skills/overlay-authoring/*.md` の kind 名（`telop`/`3d`/`table`/`motion`/`text-behind-person`/`thumbnail` 等）を目安にするが enum 強制はしない（overlay-authoring の追加に追従できるように。§6） |
 | `confirmed.narration` | object | 任意（最低 1 フィールド） | `engine`・`voice`（ともに任意・null 不可）。`edit.schema.json` の `narrationProvenance.engine`/`voice` と同じ自由記述語彙（enum 強制なし） |

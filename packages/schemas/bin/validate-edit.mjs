@@ -424,6 +424,11 @@ function validateMaster(value) {
       fail("audio.master.loudnorm は -70 から 0 の範囲の有限数である必要があります");
     }
   }
+  if (hasOwn(value, "true_peak_dbtp")) {
+    if (!isFiniteNumber(value.true_peak_dbtp) || value.true_peak_dbtp < -9 || value.true_peak_dbtp > 0) {
+      fail("audio.master.true_peak_dbtp は -9 から 0 の範囲の有限数である必要があります");
+    }
+  }
 }
 
 function validateBgm(value) {
@@ -551,6 +556,22 @@ function validateOutput(value) {
     }
   }
   validateLook(value.look);
+  validateEncoding(value.encoding);
+}
+
+function validateEncoding(value) {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    fail("output.encoding は object である必要があります");
+    return;
+  }
+  for (const key of Object.keys(value)) if (key !== "quality" && key !== "encoder") fail(`output.encoding に未知のキーがあります: ${key}`);
+  if (hasOwn(value, "quality") && !["master", "high", "standard", "light"].includes(value.quality)) {
+    fail("output.encoding.quality は master/high/standard/light のいずれかである必要があります");
+  }
+  if (hasOwn(value, "encoder") && !["auto", "videotoolbox", "x264"].includes(value.encoder)) {
+    fail("output.encoding.encoder は auto/videotoolbox/x264 のいずれかである必要があります");
+  }
 }
 
 function validateLook(value) {

@@ -24,6 +24,7 @@ var AkariEditKernel = (() => {
     captionWindowSeconds: () => captionWindowSeconds,
     cutsUseGapsOrTracks: () => cutsUseGapsOrTracks,
     findActiveCaption: () => findActiveCaption,
+    findActiveResolvedCaption: () => findActiveResolvedCaption,
     outputToSource: () => outputToSource
   });
 
@@ -183,6 +184,11 @@ var AkariEditKernel = (() => {
       const window = captionWindowSeconds(caption);
       return window.start <= sourceSeconds && sourceSeconds < window.end;
     });
+  }
+
+  // src/webview-kernel.ts
+  function findActiveResolvedCaption(cues, outputTime) {
+    return cues.find((cue) => cue.start <= outputTime && outputTime < cue.end);
   }
   return __toCommonJS(webview_kernel_exports);
 })();

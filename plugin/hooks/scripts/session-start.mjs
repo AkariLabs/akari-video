@@ -1,197 +1,93 @@
 #!/usr/bin/env node
-// SessionStart hook: カレントに .akari/ プロジェクトがあれば「続きから」体験として
-// 進捗（intake 状態・直近イベント）+ 次の一手をコンテキストへ注入する。無ければ
-// 何もしない（発話で create-project スキルが発動する通常経路を邪魔しない）。
-//
-// HOOK SAFETY: 何があってもセッションを壊してはならない。想定外のエラーは握りつぶし、
-// 常に exit 0 する。stdout に何も書かなければ、Claude Code は何も注入しない。
+// Generated status-core is the only workflow-state resolver used by this hook. The hook remains
+// fail-safe for Claude SessionStart, but a missing/broken core is reported explicitly and never
+// replaced with a second stage table.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
-// packages/schemas/intake.schema.json の x-akari-labels が唯一の出典。読めない場合だけ
-// このフォールバックを使う（packages/akari-launcher/src/task-labels.mjs と同じ方針だが、
-// プラグインは ${CLAUDE_PLUGIN_ROOT} 単体で自己完結させるため、あえて別コピーにしてある）。
-const FALLBACK_TASK_LABELS = {
-  'transcribe-captions': '文字起こし・テロップ',
-  'silence-cut': 'いらない間・NG のカット',
-  'bgm-sfx': 'BGM・効果音',
-  narration: 'ナレーション（自分の声 / 既製の声）',
-  '3d-inserts': '3D・画面はめ込みの演出'
-};
-
-const AUTONOMY_LABELS = {
-  'full-auto': 'すべておまかせ',
-  checkpoint: '要所で確認（既定）',
-  collaborative: '相談しながら'
-};
+const STATUS_CORE_URL = new URL("../../runtime/status-core/status.mjs", import.meta.url);
 
 async function main() {
-  const stdin = await readStdin();
-  let hookInput = {};
-  try {
-    hookInput = JSON.parse(stdin || '{}');
-  } catch {
-    hookInput = {};
-  }
-
-  const cwd = typeof hookInput.cwd === 'string' && hookInput.cwd
-    ? hookInput.cwd
-    : (process.env.CLAUDE_PROJECT_DIR || process.cwd());
-
-  const akariDir = path.join(cwd, '.akari');
-  if (!existsSync(akariDir)) {
-    // AKARI プロジェクトではない: 何もしない。
+  if (process.argv[2] === "--status-json") {
+    try {
+      const core = await import(STATUS_CORE_URL);
+      const argumentsList = process.argv.slice(3);
+      const full = argumentsList.includes("--full");
+      const paths = argumentsList.filter((value) => value !== "--full");
+      if (paths.length > 1 || paths.some((value) => value.startsWith("-"))) {
+        throw new Error("plugin status accepts one project path and optional --full");
+      }
+      const projectRoot = resolve(paths[0] ?? process.cwd());
+      const status = full
+        ? await core.resolveFullProjectStatus(projectRoot)
+        : core.resolveProjectStatus(projectRoot, { mode: "fast" });
+      process.stdout.write(core.serializeStatus(status));
+    } catch (error) {
+      process.stderr.write(`AKARI status unsupported: canonical plugin status-core is unavailable (${messageOf(error)})\n`);
+      process.exitCode = 1;
+    }
     return;
   }
 
-  const context = buildContext(cwd, akariDir);
-  if (!context) return;
+  const hookInput = await readHookInput();
+  const cwd = typeof hookInput.cwd === "string" && hookInput.cwd
+    ? resolve(hookInput.cwd)
+    : resolve(process.env.CLAUDE_PROJECT_DIR || process.cwd());
+  if (!existsSync(resolve(cwd, ".akari"))) return;
 
+  let additionalContext;
+  try {
+    const core = await import(STATUS_CORE_URL);
+    const status = core.resolveProjectStatus(cwd, { mode: "fast" });
+    additionalContext = [
+      "AKARI Video プロジェクトの続きから。",
+      core.formatStatusSummary(status),
+      "Canonical status JSON:",
+      core.serializeStatus(status).trimEnd(),
+    ].join("\n");
+  } catch (error) {
+    additionalContext = `AKARI Video: 状態取得不能。canonical status-core を読み込めませんでした (${messageOf(error)})。旧ロジックへのフォールバックはしません。`;
+  }
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
-      hookEventName: 'SessionStart',
-      additionalContext: context
-    }
+      hookEventName: "SessionStart",
+      additionalContext,
+    },
   }));
 }
 
-function buildContext(cwd, akariDir) {
-  const lines = ['AKARI Video プロジェクトの続きから。'];
-
-  const intake = readJsonSafe(path.join(akariDir, 'intake.json'));
-  lines.push(summarizeIntake(intake, cwd));
-
-  const latestEvent = readLatestEvent(path.join(akariDir, 'events'));
-  lines.push(latestEvent ? nudgeFor(latestEvent) : 'まだ記録された節目はありません。');
-
-  return lines.join('\n');
-}
-
-function summarizeIntake(intake) {
-  if (!intake) {
-    return '進め方フォーム（.akari/intake.json）がまだありません。';
-  }
-  if (intake.status !== 'submitted') {
-    return '進め方はまだ未確定です（.akari/intake.json: draft）。/akari またはフォーム・対話で「やること・尺・おまかせ度」を確定してください。';
-  }
-  const labels = loadTaskLabels();
-  const tasks = Array.isArray(intake.tasks) ? intake.tasks : [];
-  const taskText = tasks.length > 0 ? tasks.map((id) => labels[id] ?? id).join('、') : '（やること未選択）';
-  const autonomyText = AUTONOMY_LABELS[intake.autonomy] ?? intake.autonomy ?? '未設定';
-  const target = intake.target ?? {};
-  const targetText = target.keep_length
-    ? '尺は素材のまま'
-    : typeof target.duration_s === 'number'
-      ? `目標尺 ${target.duration_s} 秒`
-      : '尺は未指定';
-  return `進め方: ${taskText} / ${targetText} / 進め方は${autonomyText}。checkpoint なら企画承認・書き出し前などの要所で人に確認する。`;
-}
-
-function loadTaskLabels() {
+async function readHookInput() {
+  const source = await readStdin();
   try {
-    // plugin/hooks/scripts -> plugin -> リポジトリルート（このプラグインはモノレポ
-    // checkout に同梱される前提。マーケットプレイス配布は本契約のスコープ外）。
-    const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-    const repoRoot = path.resolve(scriptDir, '..', '..', '..');
-    const schemaPath = path.join(repoRoot, 'packages', 'schemas', 'intake.schema.json');
-    const schema = readJsonSafe(schemaPath);
-    const labels = schema?.['x-akari-labels'];
-    if (labels && typeof labels === 'object' && !Array.isArray(labels)) {
-      return labels;
-    }
+    const value = JSON.parse(source || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   } catch {
-    // フォールバックへ。
-  }
-  return FALLBACK_TASK_LABELS;
-}
-
-function readLatestEvent(eventsDir) {
-  if (!existsSync(eventsDir)) return null;
-  let entries;
-  try {
-    entries = readdirSync(eventsDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith('.json'));
-  } catch {
-    return null;
-  }
-
-  let latest = null;
-  let latestTime = -Infinity;
-  for (const entry of entries) {
-    const parsed = readJsonSafe(path.join(eventsDir, entry.name));
-    if (!parsed || typeof parsed.type !== 'string') continue;
-    // 正典イベントは occurredAt、旧フィクスチャは at（apps/shell の akari-partner と同じ受容）。
-    const timestamp = parsed.occurredAt ?? parsed.at;
-    const time = typeof timestamp === 'string' ? Date.parse(timestamp) : NaN;
-    if (Number.isNaN(time)) continue;
-    if (time > latestTime) {
-      latestTime = time;
-      latest = parsed;
-    }
-  }
-  return latest;
-}
-
-// apps/shell/extensions/akari-partner の PartnerSessionService.nudgeFor と同じ語彙・分岐
-// （工程名・gateTypes の呼称を製品全体で揃える）。
-function nudgeFor(event) {
-  const subject = sanitize(event.asset ?? event.artifact ?? event.path);
-  switch (event.type) {
-    case 'video-added':
-      return subject
-        ? `${subject} が追加されました。analyze-footage スキルで分析を開始してください。`
-        : '新しい素材が追加されました。analyze-footage スキルで分析を開始してください。';
-    case 'report-generated':
-      return subject
-        ? `レポートを作成しました（${subject}）。内容を確認し、問題なければ承認してください。`
-        : 'レポートを作成しました。内容を確認し、問題なければ承認してください。';
-    case 'report-approved':
-      return 'レポートが承認されました。edit-plan スキルで編集を進めてください。';
-    case 'edit-completed':
-      return '編集が完了しました。プレビューで仕上がりを確認し、必要ならテロップ等を overlay-authoring スキルで調整してください。';
-    case 'export-completed':
-      return subject
-        ? `書き出しが完了しました（${subject}）。exports フォルダーで最終版を確認してください。`
-        : '書き出しが完了しました。exports フォルダーで最終版を確認してください。';
-    default:
-      return subject
-        ? `${subject} が更新されました。内容を確認し、次の一手を進めてください。`
-        : `更新がありました（${event.type}）。内容を確認し、次の一手を進めてください。`;
-  }
-}
-
-function sanitize(value) {
-  const trimmed = typeof value === 'string' ? value.replace(/[\r\n]+/g, ' ').trim() : '';
-  return trimmed || undefined;
-}
-
-function readJsonSafe(filePath) {
-  try {
-    return JSON.parse(readFileSync(filePath, 'utf8'));
-  } catch {
-    return null;
+    return {};
   }
 }
 
 function readStdin() {
-  return new Promise((resolve) => {
-    if (process.stdin.isTTY) {
-      resolve('');
-      return;
-    }
-    let data = '';
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => { data += chunk; });
-    process.stdin.on('end', () => resolve(data));
-    process.stdin.on('error', () => resolve(data));
+  return new Promise((resolvePromise) => {
+    if (process.stdin.isTTY) return resolvePromise("");
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => { data += chunk; });
+    process.stdin.on("end", () => resolvePromise(data));
+    process.stdin.on("error", () => resolvePromise(data));
   });
 }
 
-main()
-  .catch(() => {
-    // HOOK SAFETY: 何が起きてもセッションを壊さない。
-  })
-  .finally(() => {
-    process.exitCode = 0;
-  });
+function messageOf(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+main().catch((error) => {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "SessionStart",
+      additionalContext: `AKARI Video: 状態取得不能 (${messageOf(error)})。`,
+    },
+  }));
+  process.exitCode = 0;
+});

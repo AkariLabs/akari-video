@@ -159,6 +159,24 @@ export interface LintEditCandidateResult {
     errors: string[];
 }
 
+export interface ResolveCaptionDisplayRequest {
+    captionsUri: string;
+    editUri: string;
+}
+
+export interface ResolvedCaptionDisplayPayload {
+    schema: 'caption-layout/v1';
+    captions: Array<{
+        id: string;
+        source_cue_id: string;
+        start: number;
+        end: number;
+        text: string;
+        text_style?: Record<string, unknown>;
+        style_vars?: Record<string, string>;
+    }>;
+}
+
 export interface AkariPreviewService {
     getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets>;
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
@@ -175,4 +193,5 @@ export interface AkariPreviewService {
     endReviewSession(request: EndReviewSessionRequest): Promise<void>;
     listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
     lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;
+    resolveCaptionDisplay(request: ResolveCaptionDisplayRequest): Promise<ResolvedCaptionDisplayPayload | null>;
 }

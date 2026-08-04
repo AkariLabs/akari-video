@@ -19,9 +19,11 @@
  *   生成物を残さない
  */
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, rmSync, statSync, chmodSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, rmSync, statSync, chmodSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { discoverCheckoutCapabilitySources } from '../src/capability-sources.mjs';
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_ROOT = path.resolve(PACKAGE_ROOT, '..', '..');
@@ -31,6 +33,8 @@ const LICENSE_COPY = path.join(PACKAGE_ROOT, 'LICENSE');
 const VENDOR_SOURCES = [
   'skills',
   'templates/project-default',
+  'presets/luts',
+  'assets/font/noto-sans-jp/NotoSansJP-Variable.ttf',
   'packages/schemas',
   'packages/project-scaffold',
   // 作業場（creator-root）モジュール。npm 配布時も初回動線（first-run.mjs 経由の
@@ -61,10 +65,16 @@ if (!existsSync(path.join(REPO_ROOT, 'skills', 'analyze-footage', 'SKILL.md'))) 
   process.exit(1);
 }
 
-const listed = execFileSync('git', ['-C', REPO_ROOT, 'ls-files', '-z', '--', ...VENDOR_SOURCES], {
+const listed = execFileSync('git', ['-C', REPO_ROOT, 'ls-files', '-z'], {
   maxBuffer: 64 * 1024 * 1024
 });
-const trackedFiles = listed.toString('utf8').split('\0').filter(Boolean);
+const allTrackedFiles = listed.toString('utf8').split('\0').filter(Boolean);
+const baseVendorFiles = allTrackedFiles.filter((relative) => VENDOR_SOURCES.some(
+  (source) => relative === source || relative.startsWith(`${source}/`),
+));
+const capabilityFiles = discoverCheckoutCapabilitySources(REPO_ROOT, { trackedFiles: allTrackedFiles });
+const trackedFiles = [...new Set([...baseVendorFiles, ...capabilityFiles])]
+  .sort((left, right) => left.localeCompare(right, 'en'));
 if (trackedFiles.length === 0) {
   console.error('prepack: git ls-files が対象を 1 件も返しませんでした（checkout が壊れていないか確認してください）');
   process.exit(1);
@@ -84,6 +94,11 @@ for (const relative of trackedFiles) {
   chmodSync(to, statSync(from).mode);
   copied += 1;
 }
+writeFileSync(
+  path.join(VENDOR_ROOT, '.akari-capability-sources.json'),
+  `${JSON.stringify({ version: 1, sources: capabilityFiles }, null, 2)}\n`,
+  'utf8',
+);
 copyFileSync(path.join(REPO_ROOT, 'LICENSE'), LICENSE_COPY);
 
 console.error(`prepack: vendor 同梱を作成しました（追跡ファイル ${copied} 件 → ${VENDOR_ROOT}）`);
