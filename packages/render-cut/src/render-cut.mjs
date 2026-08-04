@@ -21,6 +21,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 import { fileURLToPath } from "node:url";
 
 import { generateCaptionOverlays, generateResolvedCaptionOverlays } from "./captions.mjs";
+import { deriveContactSheetTimestamps, renderContactSheet } from "./contact-sheet.mjs";
 import {
   ENCODER_CHOICES,
   QUALITY_LEVELS,
@@ -328,6 +329,7 @@ export async function renderProject(input, options = {}, io = console) {
         outputPath: failedArtifactPath,
         plan,
         ffprobeCommand: capabilities.ffprobeCommand,
+        ffmpegCommand: capabilities.ffmpegCommand,
       });
       state.artifacts = [{
         path: relativeOrAbsolute(projectRoot, failedArtifactPath),
@@ -382,6 +384,7 @@ export async function renderProject(input, options = {}, io = console) {
       outputPath,
       plan,
       ffprobeCommand: capabilities.ffprobeCommand,
+      ffmpegCommand: capabilities.ffmpegCommand,
     });
     state.verify = verification;
     state.artifacts = [
@@ -392,6 +395,29 @@ export async function renderProject(input, options = {}, io = console) {
       },
     ];
     state.phase = "verified";
+    if (verification.verdict === "pass") {
+      const contactSheetTimestamps = deriveContactSheetTimestamps({
+        cuts: edit.cuts,
+        overlays: allOverlays,
+        durationSeconds: plan.predicted_duration_seconds,
+        fps: plan.preset.fps,
+      });
+      const contactSheetPath = join(projectRoot, ".akari", "reports", "contact-sheet.png");
+      await mkdir(dirname(contactSheetPath), { recursive: true });
+      const generatedContactSheet = await renderContactSheet({
+        ffmpegCommand: capabilities.ffmpegCommand,
+        videoPath: outputPath,
+        timestamps: contactSheetTimestamps,
+        temporaryDirectory,
+        outputPath: contactSheetPath,
+      });
+      if (generatedContactSheet) {
+        state.contact_sheet = {
+          path: relativeOrAbsolute(projectRoot, contactSheetPath),
+          timestamps_seconds: contactSheetTimestamps,
+        };
+      }
+    }
     if (verification.verdict === "pass") {
       const receipt = await createImmutableRenderReceipt({
         projectRoot,
@@ -952,7 +978,7 @@ async function cleanupStaleRunDirectories(renderTmpRoot) {
   );
 }
 
-export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfprobe() }) {
+export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfprobe(), ffmpegCommand = resolveFfmpeg() }) {
   const measured = probeMedia(ffprobeCommand, outputPath);
   const video = measured.streams.find((stream) => stream.codec_type === "video");
   const audio = measured.streams.find((stream) => stream.codec_type === "audio");
@@ -971,6 +997,20 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
       + " Pre-composite the upper track into one source, or move it to overlays[] / layers[]."
     : "";
   compare(findings, "verify.duration", durationOk, `duration ${actualDuration}s; expected ${plan.predicted_duration_seconds}s ±${plan.duration_tolerance_seconds}s${trackHint}`);
+
+  // 検査 1 + 2（task 2026-08-04-render-verify-media-checks）: 1 パスの全デコードで
+  // (a) 実フレーム数と (b) デコードエラーの有無を同時に測る。ffprobe -count_frames も同じだけ
+  // デコードが要るので、長尺で二重にコストを払わないよう ffmpeg 側 1 回に統合する。
+  const decodePass = decodeAllFramesAndCount(ffmpegCommand, outputPath);
+  const expectedFrameCount = Math.round(plan.predicted_duration_seconds * expected.fps);
+  const frameTolerance = Math.round(plan.duration_tolerance_seconds * expected.fps);
+  compare(
+    findings,
+    "verify.frame-count",
+    decodePass.frameCount !== null && Math.abs(decodePass.frameCount - expectedFrameCount) <= frameTolerance,
+    `frame count ${decodePass.frameCount ?? "unknown"}; expected ${expectedFrameCount} ±${frameTolerance}`,
+  );
+
   compare(findings, "verify.resolution", video?.width === expected.width && video?.height === expected.height, `resolution ${video?.width ?? "missing"}x${video?.height ?? "missing"}; expected ${expected.width}x${expected.height}`);
   compare(findings, "verify.fps", Number.isFinite(actualFps) && Math.abs(actualFps - expected.fps) < 0.001, `fps ${actualFps}; expected ${expected.fps}`);
   compare(findings, "verify.video-codec", video?.codec_name === "h264", `video codec ${video?.codec_name ?? "missing"}; expected h264`);
@@ -980,6 +1020,12 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
   if (plan.commands.audio_mix?.hasNarration) {
     compare(findings, "verify.narration-audio", Boolean(audio), `narration audio stream present: ${Boolean(audio)}; expected an audio stream because edit.json has audio.narration`);
   }
+  compare(
+    findings,
+    "verify.decode",
+    decodePass.ok,
+    decodePass.ok ? "all frames decoded without error" : `decode error: ${decodePass.errorExcerpt}`,
+  );
   return {
     verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
     findings,
@@ -992,8 +1038,47 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
       video_profile: video?.profile ?? null,
       pixel_format: video?.pix_fmt ?? null,
       audio_codec: audio?.codec_name ?? null,
+      frame_count: decodePass.frameCount,
     },
   };
+}
+
+// render-cut ハードルール 10: ffmpeg 本体を直叩き（ラッパー禁止）。task が挙げる
+// `ffmpeg -v error -i <out> -f null -` 相当（map 指定なし = 全ストリームをデコード）に
+// `-progress pipe:1` を足し、stdout に構造化された frame=N の進捗行（常に映像フレーム数）を
+// 吐かせつつ stderr は `-v error` のみ（デコードエラーだけが載る）にすることで、1 回の全デコード
+// から実フレーム数とデコード成否の両方を取り出す（検査 1 + 2 の統合。task 契約が許容する範囲）。
+function decodeAllFramesAndCount(ffmpegCommand, outputPath) {
+  const result = spawnSync(
+    ffmpegCommand,
+    [
+      "-hide_banner",
+      "-v",
+      "error",
+      "-nostdin",
+      "-i",
+      outputPath,
+      "-progress",
+      "pipe:1",
+      "-f",
+      "null",
+      "-",
+    ],
+    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+  );
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
+  const frameMatches = [...stdout.matchAll(/^frame=(\d+)$/gmu)];
+  const frameCount = frameMatches.length > 0 ? Number(frameMatches.at(-1)[1]) : null;
+  const spawnFailed = Boolean(result.error);
+  const ok = !spawnFailed && result.status === 0 && stderr.trim() === "";
+  const errorExcerpt = spawnFailed
+    ? messageOf(result.error)
+    : (stderr.trim() || `ffmpeg exited ${result.status ?? "unknown"} with no stderr output`)
+        .split(/\r?\n/u)
+        .slice(0, 5)
+        .join(" / ");
+  return { ok, frameCount, errorExcerpt };
 }
 
 async function writeState(state, statePath, reportPath, projectRoot) {

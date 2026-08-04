@@ -68,6 +68,10 @@ export function renderReport(state, reportPath, projectRoot) {
   <h2>Verification</h2>
   <ul>${findings.length ? findings.map((finding) => `<li class="${escapeHtml(finding.severity)}"><code>${escapeHtml(finding.check)}</code> — ${escapeHtml(finding.message)}</li>`).join("") : "<li>Not run</li>"}</ul>
   ${state.artifacts?.length ? `<p>Artifact SHA-256: <code>${escapeHtml(state.artifacts[0].sha256)}</code></p>` : ""}
+
+  ${state.contact_sheet ? `<h2>Contact sheet</h2>
+  <p>Deterministic keyframes at (s): ${state.contact_sheet.timestamps_seconds.map((seconds) => escapeHtml(seconds)).join(", ")}</p>
+  <img src="contact-sheet.png" alt="contact sheet" style="max-width:100%;border:1px solid #293451;border-radius:8px">` : ""}
   <p class="meta">Serve locally with <code>node ${escapeHtml(helperPath)} ${escapeHtml(reportRelativePath)}</code>.</p>
 </main>
 </body>
