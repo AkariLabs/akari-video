@@ -202,6 +202,7 @@ export async function lintProject(input, options = {}) {
       range: { start: segment.start, end: segment.end },
     });
   }
+  validateCutTrackRenderSupport(edit, cutTrackSegments, findings);
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
   validateOutputAxisDurationMax(edit.outputs, cutTrackSegments, findings);
   await validateOverlays(edit.overlays, timeline, findings, paths);
@@ -606,6 +607,46 @@ function computeCutTrackSegments(cuts) {
     segments.push({ index, track, start, end });
   }
   return segments;
+}
+
+// edit.json v1（sources[] 形式）の書き出しは buildMultiSourceCutCommand を通り、
+// そこは cuts[] を配列順に連結するだけで track / at を見ない（v0 単一ソース経路にだけ
+// gap-aware / track-aware の合成がある）。宣言だけ通って絵が消えるのが最悪なので、
+// 「lint は通ったのに映像層が丸ごと無い動画が焼ける」前に error で止める。
+// 実測（2026-08-04 PV ドッグフーディング）: track 1 のカットは合成されず出力尺へ連結され、
+// 一度も画面に出ないまま尺だけ伸びた mp4 が PASS で焼き上がった。
+function validateCutTrackRenderSupport(edit, segments, findings) {
+  if (edit?.version !== 1 || !Array.isArray(edit.cuts)) return;
+  const cursorByTrack = new Map();
+  for (const segment of segments) {
+    const cut = edit.cuts[segment.index];
+    if (!isRecord(cut)) continue;
+    const cursor = cursorByTrack.get(segment.track) ?? 0;
+    cursorByTrack.set(segment.track, segment.end);
+    if (segment.track > 0) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "cuts.track-render-unsupported",
+        message:
+          `cuts[].track >= 1 is declared but the v1 (sources[]) render path concatenates cuts instead of compositing them; `
+          + `the clip never appears on screen. Pre-composite the upper track into one source, or move it to overlays[] / layers[].`,
+        path: `edit.json#cuts[${segment.index}]`,
+        range: { start: segment.start, end: segment.end },
+      });
+      continue;
+    }
+    if (Math.abs(segment.start - cursor) > EPSILON) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "cuts.at-render-unsupported",
+        message:
+          `cuts[].at leaves a gap/overlap on track 0, but the v1 (sources[]) render path ignores at and concatenates cuts; `
+          + `the rendered timing will not match this declaration.`,
+        path: `edit.json#cuts[${segment.index}]`,
+        range: { start: segment.start, end: segment.end },
+      });
+    }
+  }
 }
 
 function findTrackOverlaps(segments) {

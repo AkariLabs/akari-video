@@ -156,7 +156,14 @@ export function buildPlan({
       });
   const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutOutputPath);
 
+  // v1（sources[]）の書き出しは cuts[] を連結するだけで track / at を合成しない。
+  // 宣言だけ通って絵が消える事故を検証メッセージで名指しするための旗（verifyArtifact が読む）。
+  const cutTrackDeclarationUnrendered = edit.version === 1
+    && Array.isArray(edit.cuts)
+    && needsGapAwareCutTimeline(edit.cuts);
+
   return {
+    cut_track_declaration_unrendered: cutTrackDeclarationUnrendered,
     predicted_duration_seconds: finalDurationSeconds,
     duration_tolerance_seconds: Math.max(0.1, 2 / fps),
     output: relativeOrAbsolute(projectRoot, outputPath),

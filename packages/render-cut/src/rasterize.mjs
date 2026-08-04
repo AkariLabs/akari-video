@@ -6,6 +6,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
+// タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
+const PAGE_MESSAGE_LIMIT = 20;
+const RECENT_FRAME_LIMIT = 5;
+
+// シートに埋まった 3D シーン宣言の数。負荷起因のタイムアウトかを一目で判断する材料。
+function countThreeDimensionalScenes(sheetPath) {
+  try {
+    return readFileSync(sheetPath, "utf8").split("data-akari-3d-scene").length - 1;
+  } catch {
+    return 0;
+  }
+}
 const THREE_BUNDLE_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/vendor/three-bundle.js",
@@ -307,6 +319,8 @@ export async function captureWithPuppeteer({
   let screenshotMilliseconds = 0;
   let browser = null;
   let watchdogExpired = false;
+  const pageMessages = [];
+  const recentFrameMilliseconds = [];
   try {
     browser = await withTimeout(
       puppeteer.launch({
@@ -329,6 +343,21 @@ export async function captureWithPuppeteer({
     );
     browserLaunched = performance.now();
     const page = await withTimeout(browser.newPage(), timeoutMs, "opening a Puppeteer page");
+    // タイムアウトしたとき「固まった」のか「単に遅い」のかを事後に切り分けられるよう、
+    // ページ側の声と直近フレームの所要時間を握っておく（2026-08-04 PV ドッグフーディングで、
+    // 診断が無いまま同じ症状を 3 回別々の原因に誤診した — 相関で犯人を決めさせないための材料）。
+    if (typeof page.on === "function") {
+      page.on("pageerror", (error) => {
+        pageMessages.push(`pageerror: ${String(error).slice(0, 200)}`);
+        if (pageMessages.length > PAGE_MESSAGE_LIMIT) pageMessages.shift();
+      });
+      page.on("console", (message) => {
+        const type = message.type();
+        if (type !== "error" && type !== "warning") return;
+        pageMessages.push(`console.${type}: ${message.text().slice(0, 200)}`);
+        if (pageMessages.length > PAGE_MESSAGE_LIMIT) pageMessages.shift();
+      });
+    }
     page.setDefaultTimeout(timeoutMs);
     page.setDefaultNavigationTimeout(timeoutMs);
     await withTimeout(
@@ -373,10 +402,28 @@ export async function captureWithPuppeteer({
         `capturing frame ${frame + 1}`,
       );
       screenshotMilliseconds += performance.now() - screenshotStarted;
+      recentFrameMilliseconds.push(Math.round(performance.now() - seekStarted));
+      if (recentFrameMilliseconds.length > RECENT_FRAME_LIMIT) recentFrameMilliseconds.shift();
     }
     frameLoopFinished = performance.now();
   } catch (error) {
     watchdogExpired = isTimeoutError(error);
+    if (watchdogExpired) {
+      // 「遅くて 60 秒に触れた」のか「ページごと固着した」のかは、直前フレームの所要時間が
+      // 伸びていたかどうかで読める。3D シーン数も併記して、負荷起因かを一目で判断できるようにする。
+      const trend = recentFrameMilliseconds.length > 0
+        ? `recent frame times: ${recentFrameMilliseconds.join("ms, ")}ms`
+        : "no frame completed before the timeout";
+      const scenes = countThreeDimensionalScenes(sheetPath);
+      const voices = pageMessages.length > 0
+        ? `; page said: ${pageMessages.slice(-3).join(" | ")}`
+        : "; the page reported no errors or warnings";
+      onWarning?.(
+        `rasterizer timed out (${trend}; 3D scenes: ${scenes}${voices}). `
+        + "Rising frame times mean the composition is too heavy for this machine's software WebGL — "
+        + "reduce simultaneous 3D scenes or the output resolution.",
+      );
+    }
     throw error;
   } finally {
     await terminateBrowser(browser, { force: watchdogExpired, timeoutMs });

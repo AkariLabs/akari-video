@@ -960,7 +960,17 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
   const actualFps = parseRate(video?.avg_frame_rate ?? video?.r_frame_rate);
   const expected = plan.preset;
   const findings = [];
-  compare(findings, "verify.duration", Number.isFinite(actualDuration) && Math.abs(actualDuration - plan.predicted_duration_seconds) <= plan.duration_tolerance_seconds, `duration ${actualDuration}s; expected ${plan.predicted_duration_seconds}s ±${plan.duration_tolerance_seconds}s`);
+  // 尺だけ告げても原因に辿り着けないので、v1 の track/at 宣言が効いていない典型ケース
+  // （上のトラックが合成されず出力尺へ連結される）は失敗時にその場で名指しする。
+  // 2026-08-04 の実測: track 1 のカットが一度も画面に出ないまま尺だけ伸びた mp4 が焼けた。
+  const durationOk = Number.isFinite(actualDuration)
+    && Math.abs(actualDuration - plan.predicted_duration_seconds) <= plan.duration_tolerance_seconds;
+  const trackHint = !durationOk && plan.cut_track_declaration_unrendered
+    ? " — cuts[].track / at are declared but the v1 (sources[]) render path concatenates cuts instead of compositing them,"
+      + " so upper-track clips never appear and their length is appended instead."
+      + " Pre-composite the upper track into one source, or move it to overlays[] / layers[]."
+    : "";
+  compare(findings, "verify.duration", durationOk, `duration ${actualDuration}s; expected ${plan.predicted_duration_seconds}s ±${plan.duration_tolerance_seconds}s${trackHint}`);
   compare(findings, "verify.resolution", video?.width === expected.width && video?.height === expected.height, `resolution ${video?.width ?? "missing"}x${video?.height ?? "missing"}; expected ${expected.width}x${expected.height}`);
   compare(findings, "verify.fps", Number.isFinite(actualFps) && Math.abs(actualFps - expected.fps) < 0.001, `fps ${actualFps}; expected ${expected.fps}`);
   compare(findings, "verify.video-codec", video?.codec_name === "h264", `video codec ${video?.codec_name ?? "missing"}; expected h264`);
