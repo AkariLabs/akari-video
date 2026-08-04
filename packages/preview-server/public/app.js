@@ -259,13 +259,36 @@ function buildSegments() {
 }
 
 // --- B-roll layers ---
+// baked レイヤー（bake-layer が焼いた .mov）は ProRes 4444 でブラウザがデコードできない。
+// bake-layer は同じ場所へプレビュー用サイドカー（.preview.webm / VP9 + アルファ）を必ず
+// 併せて出すので、そちらを再生する。shell の previewProxyUri と同じ命名規約。
+function layerPlaybackPath(layer) {
+  if (layer.kind !== 'baked') return layer.src;
+  return /\.mov$/i.test(layer.src)
+    ? layer.src.replace(/\.mov$/i, '.preview.webm')
+    : `${layer.src}.preview.webm`;
+}
+
 function setupLayers() {
   const layers = summary?.layers ?? [];
   for (const layer of layers) {
-    if (layer.kind === 'baked' || !layer.src) continue;
+    if (!layer.src) continue;
     const el = document.createElement('video');
     el.preload = 'auto';
-    el.src = layer.src;
+    el.muted = true;
+    el.playsInline = true;
+    // サイドカーが無い案件（--no-preview-proxy で焼いた等）は 404 で error になる。
+    // その場合だけ非表示にして知らせる（黒板で映像を覆わないため）
+    el.addEventListener('error', () => {
+      const lv = layerVideos.find(x => x.el === el);
+      if (lv) lv.unplayable = true;
+      el.style.display = 'none';
+      console.warn('[preview] レイヤーを再生できません（プレビュー用サイドカーを確認）', layer.id, el.src);
+    });
+    // 一時停止中は syncLayers がシーク時にしか走らない。読み込みがそれより遅いと
+    // 「窓の中なのに出ない」まま次の操作まで固まるので、メタデータ到着で貼り直す
+    el.addEventListener('loadedmetadata', () => syncLayers(outputTime));
+    el.src = resolveMediaUrl(layerPlaybackPath(layer));
     el.dataset.layerId = layer.id;
     el.style.display = 'none';
     el.style.opacity = String(layer.opacity ?? 1);
@@ -286,14 +309,21 @@ function setupLayers() {
 function syncLayers(t) {
   for (const lv of layerVideos) {
     const l = lv.layer;
-    const shouldShow = t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
+    // メタデータ前に出すと最初のフレームが黒板になるので、読めてから出す（shell と同じ規約）
+    const shouldShow = !lv.unplayable
+      && lv.el.readyState >= HTMLMediaElement.HAVE_METADATA
+      && t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
     if (shouldShow !== lv.visible) {
       lv.el.style.display = shouldShow ? 'block' : 'none';
       lv.visible = shouldShow;
+      if (!shouldShow && !lv.el.paused) lv.el.pause();
     }
     if (shouldShow) {
       const localT = t - (l.t ?? 0);
-      if (Math.abs(lv.el.currentTime - localT) > 0.1) lv.el.currentTime = localT;
+      const tolerance = isPlaying ? 0.05 : 0.001;
+      if (Math.abs(lv.el.currentTime - localT) > tolerance) lv.el.currentTime = localT;
+      if (isPlaying && lv.el.paused) void lv.el.play().catch(() => undefined);
+      else if (!isPlaying && !lv.el.paused) lv.el.pause();
     }
   }
 }
@@ -1378,6 +1408,11 @@ function createOverlayRuntime() {
       const v = o.start <= t && t < o.start + o.duration;
       if (v !== o.visible) {
         o.el.style.visibility = v ? 'visible' : 'hidden';
+        // 断片の出入りアニメは `[data-akari-active] .foo { animation: ... }` で宣言する規約
+        // （overlay-authoring/telop.md）。shell の overlay-runtime は必ずこの属性を立てる。
+        // Web UI は visibility しか切り替えておらず、規約どおりに書かれた断片は
+        // base opacity:0 のまま一切アニメせず「何も出ない」状態になっていた。
+        o.el.toggleAttribute('data-akari-active', v);
         o.visible = v;
         // ㉑ shell の overlay-runtime.js と同じ契約: 可視化タイミングで当たり判定
         // （clip-path）を断片の実寸に合わせ直す（inset:0 全画面コンテナの素通し化）。

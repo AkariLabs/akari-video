@@ -244,7 +244,18 @@ async function main() {
     st.settled
       ? ok('Loading spinner clears during playback (not stuck)')
       : ng('Loading spinner stuck', `display=${st.spinner} readyState=${st.readyState} paused=${st.paused}`);
+    // 再生したまま閉じると、このページが送り続けた ws tick に他のクライアント
+    // （後続テストが使う page）が追従して勝手に再生・シークしてしまう。必ず止める。
+    await pp.click('#play-toggle');
+    await pp.waitForTimeout(400);
     await pp.close();
+    // 追従で動いてしまった分を戻す
+    await page.evaluate(() => {
+      const el = document.getElementById('seek');
+      el.value = '0';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(300);
   } catch (e) { ng('Playback reload check', e.message); }
 
   // ── オーバーレイ操作層の CSS が配線されている（回帰: 未配線だと選択枠が
@@ -276,6 +287,50 @@ async function main() {
       : ng('Layout shift', `body grid rows ${probe.beforeRows} → ${probe.afterRows}`);
     await cp.close();
   } catch (e) { ng('Interaction stylesheet wiring', e.message); }
+
+  // ── ベイクレイヤーとアニメ断片が edit.json どおりに描かれる ──
+  // 回帰: baked を丸ごとスキップしていた（ProRes .mov が再生できないため）ので、
+  // bake-layer が併せて出す .preview.webm サイドカーを使う。アニメ断片は
+  // data-akari-active 前提で書く規約なのに Web UI が属性を立てず全部不可視だった。
+  console.log('\n🎬 Baked layers + animated fragments');
+  try {
+    const lp = await context.newPage();
+    await lp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await lp.waitForTimeout(2000);
+    const wiring = await lp.evaluate(() => {
+      const vids = Array.from(document.querySelectorAll('#layer-container video'));
+      return {
+        count: vids.length,
+        allSidecar: vids.length > 0 && vids.every(v => /\.preview\.webm(\?|$)/.test(v.src)),
+        srcs: vids.map(v => v.src.split('/').pop()).slice(0, 3),
+      };
+    });
+    // test-project に baked レイヤーが無い場合は配線だけ確認して抜ける
+    if (wiring.count === 0) {
+      ok('No baked layers in fixture (wiring check skipped)');
+    } else {
+      wiring.allSidecar
+        ? ok(`Baked layers use .preview.webm sidecars (${wiring.count})`)
+        : ng('Baked layer src', `expected .preview.webm, got ${JSON.stringify(wiring.srcs)}`);
+    }
+    // アニメ規約の属性が可視状態と連動すること（オーバーレイが在る場合のみ）
+    const attr = await lp.evaluate(() => {
+      const el = document.querySelector('#overlay-stage [data-overlay-id]');
+      if (!el) return { skipped: true };
+      const rt = window.akari?.runtime;
+      if (!rt?.tick) return { skipped: true };
+      const start = Number(el.dataset.start) || 0;
+      rt.tick(start + 0.01);
+      const on = el.hasAttribute('data-akari-active');
+      rt.tick(start + (Number(el.dataset.duration) || 0) + 10);
+      const off = el.hasAttribute('data-akari-active');
+      return { skipped: false, on, off };
+    });
+    if (attr.skipped) ok('No overlays in fixture (animation attribute check skipped)');
+    else if (attr.on && !attr.off) ok('data-akari-active follows overlay visibility');
+    else ng('data-akari-active', `inside=${attr.on} outside=${attr.off}`);
+    await lp.close();
+  } catch (e) { ng('Baked layers + animation', e.message); }
 
   // ── P1-2: レターボックス時のステージ＝ビデオ枠一致 ──
   // 横長ペインでは wrapper の aspect-ratio が max-height で破れる。stage は出力フレーム矩形
