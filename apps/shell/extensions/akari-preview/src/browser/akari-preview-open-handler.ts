@@ -4249,6 +4249,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.preload = 'auto';
                 layerVideo.tabIndex = -1;
                 layerVideo.disablePictureInPicture = true;
+                // アルファ実測（選択枠のコンテンツフィット・透明素通し）で canvas に描くため。
+                // ストリームサーバは Access-Control-Allow-Origin: * を返す
+                layerVideo.crossOrigin = 'anonymous';
                 layerVideo.dataset.akariLayerId = String(layer.id);
                 layerVideo.dataset.akariLayerIndex = String(index);
                 layerVideo.dataset.akariLayerKind = String(layer.kind);
@@ -4303,6 +4306,81 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 updateLayerSelectBox();
             };
+            // ベイクテロップは全面サイズの透明動画なので、要素の箱で選択枠を描くと画面いっぱいに
+            // なり分かりにくい。現フレームのアルファを実測し、不透明領域（コンテンツ）へ枠を
+            // フィットさせ、透明部分のクリックは下へ素通しする。計測不能（CORS 等）時は従来挙動
+            const layerAlphaCanvasEl = document.createElement('canvas');
+            const layerVideoPointFor = (entry, clientX, clientY) => {
+                const p = window.akari.interaction && window.akari.interaction.stageLocalPoint
+                    ? window.akari.interaction.stageLocalPoint(clientX, clientY) : null;
+                if (!p) return null;
+                const t = layerTransformNow(entry);
+                const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                const outputHeight = Number(summary.output && summary.output.height) || 720;
+                const dx = p.x - (outputWidth / 2 + t.x);
+                const dy = p.y - (outputHeight / 2 + t.y);
+                const rad = -t.rotate * Math.PI / 180;
+                const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+                const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+                const vx = rx / (t.scale || 1) + entry.video.videoWidth / 2;
+                const vy = ry / (t.scale || 1) + entry.video.videoHeight / 2;
+                if (!(vx >= 0) || !(vy >= 0) || vx >= entry.video.videoWidth || vy >= entry.video.videoHeight) return null;
+                return { x: Math.floor(vx), y: Math.floor(vy) };
+            };
+            const layerAlphaAtPoint = (entry, clientX, clientY) => {
+                try {
+                    if (!(entry.video.videoWidth > 0) || entry.video.readyState < 2) return 255;
+                    const vp = layerVideoPointFor(entry, clientX, clientY);
+                    if (!vp) return 0;
+                    layerAlphaCanvasEl.width = 1;
+                    layerAlphaCanvasEl.height = 1;
+                    const ctx = layerAlphaCanvasEl.getContext('2d', { willReadFrequently: true });
+                    ctx.clearRect(0, 0, 1, 1);
+                    ctx.drawImage(entry.video, vp.x, vp.y, 1, 1, 0, 0, 1, 1);
+                    return ctx.getImageData(0, 0, 1, 1).data[3];
+                } catch (_error) {
+                    return 255;
+                }
+            };
+            const measureLayerOpaqueBox = entry => {
+                try {
+                    const vw = entry.video.videoWidth;
+                    const vh = entry.video.videoHeight;
+                    if (!(vw > 0) || !(vh > 0) || entry.video.readyState < 2) return null;
+                    const shrink = Math.min(1, 320 / Math.max(vw, vh));
+                    const w = Math.max(1, Math.round(vw * shrink));
+                    const h = Math.max(1, Math.round(vh * shrink));
+                    layerAlphaCanvasEl.width = w;
+                    layerAlphaCanvasEl.height = h;
+                    const ctx = layerAlphaCanvasEl.getContext('2d', { willReadFrequently: true });
+                    ctx.clearRect(0, 0, w, h);
+                    ctx.drawImage(entry.video, 0, 0, w, h);
+                    const data = ctx.getImageData(0, 0, w, h).data;
+                    let minX = w, minY = h, maxX = -1, maxY = -1;
+                    for (let y = 0; y < h; y++) {
+                        for (let x = 0; x < w; x++) {
+                            if (data[(y * w + x) * 4 + 3] > 16) {
+                                if (x < minX) minX = x;
+                                if (x > maxX) maxX = x;
+                                if (y < minY) minY = y;
+                                if (y > maxY) maxY = y;
+                            }
+                        }
+                    }
+                    if (maxX < 0) return null;
+                    const sx = vw / w;
+                    const sy = vh / h;
+                    const pad = Math.max(4, sx * 1.5);
+                    return {
+                        x: Math.max(0, minX * sx - pad),
+                        y: Math.max(0, minY * sy - pad),
+                        w: Math.min(vw, (maxX - minX + 1) * sx + pad * 2),
+                        h: Math.min(vh, (maxY - minY + 1) * sy + pad * 2)
+                    };
+                } catch (_error) {
+                    return null;
+                }
+            };
             const updateLayerSelectBox = () => {
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
                 if (!entry || entry.video.style.display === 'none' || !(entry.video.videoWidth > 0)) {
@@ -4314,10 +4392,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
                 const transform = layerTransformNow(entry);
-                const outputW = entry.video.videoWidth * transform.scale;
-                const outputH = entry.video.videoHeight * transform.scale;
-                const outputCenterX = outputWidth / 2 + transform.x;
-                const outputCenterY = outputHeight / 2 + transform.y;
+                // 枠は要素の箱ではなく不透明領域（コンテンツ）にフィットさせる（未計測なら計測）
+                if (entry.opaqueBox === undefined) entry.opaqueBox = measureLayerOpaqueBox(entry);
+                const cb = entry.opaqueBox || { x: 0, y: 0, w: entry.video.videoWidth, h: entry.video.videoHeight };
+                const outputW = cb.w * transform.scale;
+                const outputH = cb.h * transform.scale;
+                // コンテンツ中心のビデオ中心からのオフセット。回転はビデオ中心まわりなので、
+                // 回転後のコンテンツ中心位置に枠を置き、枠自身をその中心で回せば一致する
+                const offX = (cb.x + cb.w / 2 - entry.video.videoWidth / 2) * transform.scale;
+                const offY = (cb.y + cb.h / 2 - entry.video.videoHeight / 2) * transform.scale;
+                const rad = transform.rotate * Math.PI / 180;
+                const rotOffX = offX * Math.cos(rad) - offY * Math.sin(rad);
+                const rotOffY = offX * Math.sin(rad) + offY * Math.cos(rad);
+                const outputCenterX = outputWidth / 2 + transform.x + rotOffX;
+                const outputCenterY = outputHeight / 2 + transform.y + rotOffY;
                 const screenW = outputW * frameScale;
                 const screenH = outputH * frameScale;
                 const screenCenterX = frameRect.x + outputCenterX * frameScale;
@@ -4327,6 +4415,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerSelectBox.style.width = screenW + 'px';
                 layerSelectBox.style.height = screenH + 'px';
                 layerSelectBox.style.transform = 'rotate(' + transform.rotate + 'deg)';
+                // ハンドルの拡縮・回転ピボット（= ビデオ中心）を箱から逆算するためのオフセット
+                layerSelectBox.dataset.akariPivotOffX = String(rotOffX);
+                layerSelectBox.dataset.akariPivotOffY = String(rotOffY);
                 layerSelectBox.classList.add('is-active');
             };
             const selectLayer = (layerId, options) => {
@@ -4340,6 +4431,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 // ㉓ 選択の排他制御: layer を選ぶと cut/caption 選択は外れる（逆方向はそれぞれの select 側）。
                 if (nextId && typeof deselectCut === 'function') deselectCut({ report: true });
                 if (nextId && typeof deselectCaption === 'function') deselectCaption({ report: true });
+                if (nextId) {
+                    const measured = findLayerEntry(nextId);
+                    if (measured) measured.opaqueBox = measureLayerOpaqueBox(measured);
+                }
                 updateLayerSelectBox();
                 if (report) window.akari.reportLayerSelection(selectedLayerId);
             };
@@ -4475,9 +4570,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 同じ elementsFromPoint 委譲に相乗りする（実際の z-order は zForTrack() 経由で
                 // cuts/layers が混在し得るため、ヒットテスト順=画面上の重なり順をそのまま使う）。
                 const hit = document.elementsFromPoint(event.clientX, event.clientY)
-                    .find(candidate => candidate === video
-                        || (candidate.tagName === 'VIDEO' && candidate.dataset
-                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none'));
+                    .find(candidate => {
+                        if (candidate === video) return true;
+                        if (!(candidate.tagName === 'VIDEO' && candidate.dataset
+                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
+                        // 全面サイズの透明動画（ベイクテロップ）は箱で当てると画面全部が当たりになる。
+                        // クリック地点のアルファを実測し、透明部分は下（別レイヤー / 本編）へ素通し
+                        const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
+                        return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
+                    });
                 if (!hit) return;
                 if (hit === video) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
@@ -4559,7 +4660,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!entry) return;
                     const kind = handle.getAttribute('data-akari-handle');
                     const boxRect = layerSelectBox.getBoundingClientRect();
-                    const center = { x: boxRect.left + boxRect.width / 2, y: boxRect.top + boxRect.height / 2 };
+                    // 枠はコンテンツにフィットしているが、拡縮・回転のピボットは transform モデルの
+                    // 中心 = ビデオ中心のまま。箱中心からピボットオフセット（出力 px）を引き戻す
+                    const pivotPerOutput = (window.akari.stageScale() || 1) * (typeof zoom === 'number' && zoom > 0 ? zoom : 1);
+                    const pivotOffX = (Number(layerSelectBox.dataset.akariPivotOffX) || 0) * pivotPerOutput;
+                    const pivotOffY = (Number(layerSelectBox.dataset.akariPivotOffY) || 0) * pivotPerOutput;
+                    const center = {
+                        x: boxRect.left + boxRect.width / 2 - pivotOffX,
+                        y: boxRect.top + boxRect.height / 2 - pivotOffY
+                    };
                     if (kind === 'rotate') {
                         const startAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * 180 / Math.PI;
                         beginLayerTransformDrag(entry, event, (moveEvent, original) => {
@@ -4600,9 +4709,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 // event.target as the stage itself (see the delegated pointerdown handler above),
                 // so re-check via elementsFromPoint rather than event.target.closest here.
                 const hitSelectable = document.elementsFromPoint(event.clientX, event.clientY)
-                    .some(candidate => candidate === video
-                        || (candidate.tagName === 'VIDEO' && candidate.dataset
-                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none'));
+                    .some(candidate => {
+                        if (candidate === video) return true;
+                        if (!(candidate.tagName === 'VIDEO' && candidate.dataset
+                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
+                        const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
+                        return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
+                    });
                 if (hitSelectable) return;
                 if (selectedLayerId) selectLayer(null);
                 if (cutSelected) deselectCut();

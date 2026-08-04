@@ -337,6 +337,10 @@ function syncLayers(t) {
       lv.el.style.display = shouldShow ? 'block' : 'none';
       lv.visible = shouldShow;
       if (!shouldShow && !lv.el.paused) lv.el.pause();
+      if (selectedLayerId !== null && lv.layer.id === selectedLayerId) {
+        if (shouldShow) lv.opaqueBox = measureLayerOpaqueBox(lv.el);
+        updateLayerSelectBox();
+      }
     }
     if (shouldShow) {
       const localT = t - (l.t ?? 0);
@@ -355,9 +359,125 @@ function syncLayers(t) {
 // リサイズ / 回転ハンドルは未実装（shell のみ）。
 let selectedLayerId = null;
 
+// 選択枠。ベイクテロップは全面サイズの透明動画なので、要素の箱ではなく
+// アルファ実測した不透明領域（コンテンツ）へフィットさせる
+const layerSelectBox = document.createElement('div');
+layerSelectBox.id = 'layer-select-box';
+layerSelectBox.style.cssText = 'position:absolute;pointer-events:none;display:none;z-index:1000;';
+const layerSelectRect = document.createElement('div');
+layerSelectRect.style.cssText = 'position:absolute;border:2px solid #4da3ff;box-shadow:0 0 0 1px rgba(0,0,0,0.35);border-radius:2px;';
+layerSelectBox.appendChild(layerSelectRect);
+
+const layerAlphaCanvas = document.createElement('canvas');
+function layerAlphaCtx() {
+  return layerAlphaCanvas.getContext('2d', { willReadFrequently: true });
+}
+
+// 現フレームの不透明ピクセルのバウンディングボックス（要素ローカル論理 px）。
+// 縮小キャンバスで走査するので誤差は数 px。全透明・未ロードは null（= 全体にフォールバック）
+function measureLayerOpaqueBox(el) {
+  try {
+    const vw = el.videoWidth;
+    const vh = el.videoHeight;
+    if (!(vw > 0 && vh > 0) || el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return null;
+    const shrink = Math.min(1, 320 / Math.max(vw, vh));
+    const w = Math.max(1, Math.round(vw * shrink));
+    const h = Math.max(1, Math.round(vh * shrink));
+    layerAlphaCanvas.width = w;
+    layerAlphaCanvas.height = h;
+    const ctx = layerAlphaCtx();
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(el, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > 16) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return null;
+    const sx = el.offsetWidth / w;
+    const sy = el.offsetHeight / h;
+    const pad = 3;
+    return {
+      x: minX * sx - pad,
+      y: minY * sy - pad,
+      w: (maxX - minX + 1) * sx + pad * 2,
+      h: (maxY - minY + 1) * sy + pad * 2,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// クリック地点のアルファ値（0-255）。透明部分のクリックを素通しさせるための当たり判定。
+// transform（translate/scale/rotate・origin は要素中心）の逆写像で要素ローカルへ戻す
+function layerAlphaAt(el, clientX, clientY) {
+  try {
+    const vw = el.videoWidth;
+    const vh = el.videoHeight;
+    if (!(vw > 0 && vh > 0) || el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return 255;
+    const contRect = layerContainer.getBoundingClientRect();
+    if (!(contRect.width > 0)) return 255;
+    const viewScale = contRect.width / layerContainer.offsetWidth; // frameScale × zoom
+    const px = (clientX - contRect.left) / viewScale;
+    const py = (clientY - contRect.top) / viewScale;
+    const cx = el.offsetLeft + el.offsetWidth / 2;
+    const cy = el.offsetTop + el.offsetHeight / 2;
+    const computed = getComputedStyle(el).transform;
+    const m = computed && computed !== 'none' ? new DOMMatrix(computed) : new DOMMatrix();
+    const p = m.inverse().transformPoint(new DOMPoint(px - cx, py - cy));
+    const lx = p.x + cx - el.offsetLeft;
+    const ly = p.y + cy - el.offsetTop;
+    if (lx < 0 || ly < 0 || lx >= el.offsetWidth || ly >= el.offsetHeight) return 0;
+    const vx = Math.min(vw - 1, Math.floor(lx * vw / el.offsetWidth));
+    const vy = Math.min(vh - 1, Math.floor(ly * vh / el.offsetHeight));
+    layerAlphaCanvas.width = 1;
+    layerAlphaCanvas.height = 1;
+    const ctx = layerAlphaCtx();
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.drawImage(el, vx, vy, 1, 1, 0, 0, 1, 1);
+    return ctx.getImageData(0, 0, 1, 1).data[3];
+  } catch {
+    return 255; // 計測できない環境では従来どおり要素の箱で当てる
+  }
+}
+
+function updateLayerSelectBox() {
+  if (!layerSelectBox.parentElement) layerContainer.appendChild(layerSelectBox);
+  const lv = layerVideos.find(v => selectedLayerId !== null && v.layer.id === selectedLayerId);
+  if (!lv || lv.el.style.display === 'none') {
+    layerSelectBox.style.display = 'none';
+    return;
+  }
+  const el = lv.el;
+  layerSelectBox.style.display = 'block';
+  layerSelectBox.style.left = `${el.offsetLeft}px`;
+  layerSelectBox.style.top = `${el.offsetTop}px`;
+  layerSelectBox.style.width = `${el.offsetWidth}px`;
+  layerSelectBox.style.height = `${el.offsetHeight}px`;
+  layerSelectBox.style.transform = el.style.transform || '';
+  layerSelectBox.style.transformOrigin = '50% 50%';
+  const r = lv.opaqueBox ?? { x: 0, y: 0, w: el.offsetWidth, h: el.offsetHeight };
+  layerSelectRect.style.left = `${r.x}px`;
+  layerSelectRect.style.top = `${r.y}px`;
+  layerSelectRect.style.width = `${r.w}px`;
+  layerSelectRect.style.height = `${r.h}px`;
+}
+
 function setLayerSelected(id) {
   selectedLayerId = id;
-  for (const lv of layerVideos) lv.el.classList.toggle('layer-selected', id !== null && lv.layer.id === id);
+  for (const lv of layerVideos) {
+    const on = id !== null && lv.layer.id === id;
+    lv.el.classList.toggle('layer-selected', on);
+    if (on) lv.opaqueBox = measureLayerOpaqueBox(lv.el);
+  }
+  updateLayerSelectBox();
 }
 
 // zoom 込みの実効倍率（表示 px / 論理出力 px）。frameScale 直参照だと zoom>1 でずれる
@@ -396,7 +516,12 @@ function findLayerHit(e) {
     if (el.hasAttribute && el.hasAttribute('data-akari-interaction')) return null; // 選択枠・ハンドル
     if (el.closest && el.closest('[data-overlay-id]')) return null; // 断片優先
     if (el.closest && el.closest('#caption-plate')) return null;
-    if (el.tagName === 'VIDEO' && el.dataset && el.dataset.layerId && el.style.display !== 'none') return el;
+    if (el.tagName === 'VIDEO' && el.dataset && el.dataset.layerId && el.style.display !== 'none') {
+      // 全面サイズの透明動画（ベイクテロップ）は箱で当てると画面全部が当たりになる。
+      // クリック地点のアルファを実測し、透明部分は下のレイヤーへ素通しする
+      if (layerAlphaAt(el, e.clientX, e.clientY) > 16) return el;
+      continue;
+    }
   }
   return null;
 }
@@ -429,7 +554,10 @@ wrapper.addEventListener('pointerdown', (e) => {
   };
   const onMove = (ev) => {
     if (!moved && Math.hypot(ev.clientX - startX, ev.clientY - startY) >= 3) moved = true;
-    if (moved) apply(baseX + (ev.clientX - startX) / scale, baseY + (ev.clientY - startY) / scale);
+    if (moved) {
+      apply(baseX + (ev.clientX - startX) / scale, baseY + (ev.clientY - startY) / scale);
+      updateLayerSelectBox();
+    }
   };
   const onUp = async (ev) => {
     detach();
@@ -444,12 +572,14 @@ wrapper.addEventListener('pointerdown', (e) => {
       el.dataset.layerX = String(baseX);
       el.dataset.layerY = String(baseY);
       apply(baseX, baseY);
+      updateLayerSelectBox();
       showMessage(String(err?.message || err));
     }
   };
   const onCancel = () => {
     detach();
     apply(baseX, baseY);
+    updateLayerSelectBox();
   };
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
