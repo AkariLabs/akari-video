@@ -70,6 +70,8 @@ interface EditSummaryLayer {
 }
 
 interface EditSummaryCut {
+    /** 参照するソース id（v1 cuts[].src。v0 は既定 id）。webview はこれで <video> を切り替える */
+    src: string;
     in: number;
     out: number;
     transform?: OverlayTransform;
@@ -156,6 +158,8 @@ interface PreviewModel {
     editUri?: URI;
     relatedEditUri?: URI;
     sourceUri?: URI;
+    /** ソース id → 実体 URI（v0 は既定 id ひとつ・v1 は sources[] 全件） */
+    sourcesById?: Map<string, { uri: URI; proxyUri?: URI }>;
     // Explicit edit.json source.proxy (v0/v1 schema field), read-only, highest priority over the
     // HEVC-triggered proxy resolved in refreshPreview(). Only set when the file actually exists.
     sourceProxyUri?: URI;
@@ -275,6 +279,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewTrackedSuffixes?: Set<string>;
     akariPreviewStreamId?: string;
+    /** v1 マルチソースで代表ソース以外に開いた動画ストリーム id（代表は akariPreviewStreamId） */
+    akariPreviewExtraStreamIds?: string[];
     akariPreviewAssetStreamIds?: string[];
     akariPreviewSeekable?: boolean;
     akariPreviewMuted?: boolean;
@@ -419,6 +425,9 @@ const EMPTY_SUMMARY: EditSummary = {
     cuts: [],
     indicators: []
 };
+// v0（単一 source）を v1 と同じ「id → ソース」表で扱うための既定 id。
+// cuts[].src を持たない v0 のカットは全てこの id を指す。
+const DEFAULT_SOURCE_ID = '__default__';
 const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
 const PLAYABLE_VIDEO_MIME_TYPES = new Map<string, string>([
     ['.mp4', 'video/mp4'],
@@ -1685,6 +1694,32 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             await this.disposeAssetStreams(model.assetStreamIds);
             throw error;
         });
+        // v1 マルチソース: 代表ソース以外の cuts[].src 先も webview から再生できるよう
+        // それぞれストリームを開く（代表ソースは上の videoStream を再利用）。
+        // 全ストリームは同一のローカルサーバ由来なので CSP の media-src は据え置きでよい。
+        const extraVideoStreams = new Map<string, { id: string; url: string }>();
+        const sourceUrlById: Record<string, string> = {};
+        if (kind === 'output' && model.sourcesById) {
+            for (const [sourceId, entry] of model.sourcesById) {
+                if (model.sourceUri && entry.uri.toString() === model.sourceUri.toString()) {
+                    sourceUrlById[sourceId] = videoStream.url;
+                    continue;
+                }
+                if (!PLAYABLE_VIDEO_MIME_TYPES.has(entry.uri.path.ext.toLowerCase())
+                    || !(await this.isInsideWorkspace(entry.uri))) {
+                    console.warn('[akari-preview] sources[] の素材を再生できません（形式か配置）', entry.uri.toString());
+                    continue;
+                }
+                try {
+                    const streamUri = await this.resolveStreamVideoUri(entry.uri, model);
+                    const stream = await this.previewService.createVideoStream({ videoUri: streamUri.toString() });
+                    extraVideoStreams.set(sourceId, stream);
+                    sourceUrlById[sourceId] = stream.url;
+                } catch (error) {
+                    console.warn('[akari-preview] sources[] のストリームを開けませんでした', entry.uri.toString(), error);
+                }
+            }
+        }
         if (widget.isDisposed) {
             await Promise.all([
                 this.disposeVideoStreamId(videoStream.id),
@@ -1701,6 +1736,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         widget.akariPreviewStreamId = videoStream.id;
+        widget.akariPreviewExtraStreamIds = [...extraVideoStreams.values()].map(stream => stream.id);
         widget.akariPreviewAssetStreamIds = model.assetStreamIds;
         widget.akariPreviewEditUri = model.editUri;
         widget.akariPreviewRelatedEditUri = model.relatedEditUri;
@@ -1797,7 +1833,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             videoStream.url,
             model,
             assets,
-            initialSeekTime
+            initialSeekTime,
+            sourceUrlById
         ));
     }
 
@@ -1877,22 +1914,50 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const assetUris: URI[] = [];
         let sourceUri: URI | undefined;
         let sourceProxyUri: URI | undefined;
+        const sourcesById = new Map<string, { uri: URI; proxyUri?: URI }>();
         try {
             const edit = JSON.parse(await this.readText(editUri));
-            if (typeof edit?.source?.path !== 'string' || !edit.source.path.trim()) {
-                throw new TypeError('edit.json の source.path が不正です。');
+            // edit.json は v0（単一 source）と v1（sources[] + cuts[].src）の両方が公開契約
+            // （packages/schemas/edit.schema.json）。どちらも「id → URI」の表に正規化し、
+            // 以降は表引きで扱う。v0 は既定 id 一つだけの表になる。
+            const declaredSources: Array<{ id: string; path: unknown; proxy?: unknown }> =
+                Array.isArray(edit?.sources)
+                    ? edit.sources.map((value: any) => ({
+                        id: typeof value?.id === 'string' ? value.id : '',
+                        path: value?.path,
+                        proxy: value?.proxy
+                    }))
+                    : [{ id: DEFAULT_SOURCE_ID, path: edit?.source?.path, proxy: edit?.source?.proxy }];
+            for (const declared of declaredSources) {
+                if (typeof declared.path !== 'string' || !declared.path.trim()) {
+                    throw new TypeError(Array.isArray(edit?.sources)
+                        ? `edit.json の sources[${declared.id || '?'}].path が不正です。`
+                        : 'edit.json の source.path が不正です。');
+                }
+                if (!declared.id) {
+                    throw new TypeError('edit.json の sources[].id が不正です。');
+                }
+                const uri = this.resolveEditAssetUri(declared.path, editUri);
+                let proxyUri: URI | undefined;
+                if (typeof declared.proxy === 'string' && declared.proxy.trim()) {
+                    const candidate = this.resolveEditAssetUri(declared.proxy, editUri);
+                    proxyUri = await this.fileService.exists(candidate) ? candidate : undefined;
+                }
+                sourcesById.set(declared.id, { uri, ...(proxyUri ? { proxyUri } : {}) });
             }
             const emphasisWords = this.normalizeEmphasisWords(edit?.emphasis_words);
-            sourceUri = this.resolveEditAssetUri(edit.source.path, editUri);
-            // edit.json's schema already declares an explicit source.proxy field (v0 sourceV0 /
-            // v1 sourceV1, see packages/schemas/edit.schema.json) that no consumer reads yet. If
-            // it's set, it wins over the HEVC-triggered proxy this task adds below (read-only —
-            // never written back). Falls through to HEVC detection if the declared file is
-            // missing, same as how layers[].kind==='baked' treats a missing preview sidecar.
-            if (typeof edit?.source?.proxy === 'string' && edit.source.proxy.trim()) {
-                const candidate = this.resolveEditAssetUri(edit.source.proxy, editUri);
-                sourceProxyUri = await this.fileService.exists(candidate) ? candidate : undefined;
-            }
+            // 代表ソース（字幕の探索・ファイル監視・タイトル・単一ソース時の従来経路）は
+            // 先頭カットが参照するソース。無ければ宣言順の先頭。
+            const firstCutSourceId = Array.isArray(edit?.cuts)
+                ? edit.cuts.map((cut: any) => cut?.src).find((id: unknown) => typeof id === 'string' && sourcesById.has(id))
+                : undefined;
+            const primaryId = firstCutSourceId ?? [...sourcesById.keys()][0];
+            sourceUri = sourcesById.get(primaryId)?.uri;
+            // 宣言済み proxy（v0 sourceV0 / v1 sourceV1 の source.proxy）は上のソース表構築時に
+            // 解決済み。存在するときだけ HEVC 検出（refreshPreview）より優先される（読み取り専用・
+            // 書き戻さない）。ファイルが無ければ HEVC 検出へ落ちる（baked レイヤーの preview
+            // サイドカーが無いときと同じ扱い）。
+            sourceProxyUri = sourcesById.get(primaryId)?.proxyUri;
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
             const width = this.positiveNumber(edit?.output?.width, EMPTY_SUMMARY.output.width);
@@ -1928,7 +1993,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const at = typeof value?.at === 'number' && Number.isFinite(value.at) && value.at >= 0
                         ? value.at : undefined;
                     const track = Number.isInteger(value?.track) && value.track >= 0 ? value.track : 0;
+                    // v1 は cuts[].src がソース id。未知 id / 未指定（v0）は代表ソースへ寄せる
+                    const cutSourceId = typeof value?.src === 'string' && sourcesById.has(value.src)
+                        ? value.src : primaryId;
+                    if (typeof value?.src === 'string' && !sourcesById.has(value.src)) {
+                        console.warn('[akari-preview] cut.src が sources[] に見つかりません。代表ソースで代用します', value.src);
+                    }
                     cuts.push({
+                        src: cutSourceId,
                         in: inSeconds,
                         out: outSeconds,
                         ...(value?.transform && typeof value.transform === 'object' && !Array.isArray(value.transform)
@@ -2135,6 +2207,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 editUri,
                 sourceUri,
                 sourceProxyUri,
+                sourcesById,
                 overlayUris,
                 assetUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
@@ -2164,6 +2237,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 editUri,
                 sourceUri,
                 sourceProxyUri,
+                sourcesById,
                 summary: EMPTY_SUMMARY,
                 overlayUris: [],
                 assetUris: [],
@@ -2828,7 +2902,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         videoSource: string,
         model: PreviewModel,
         assets: OverlayRuntimeAssets,
-        initialSeekTime?: number
+        initialSeekTime?: number,
+        sourceUrlById: Record<string, string> = {}
     ): string {
         const { width, height } = model.summary.output;
         // render-cut captions.mjs の既定とパリティ（stage は出力 px 論理空間）:
@@ -2841,6 +2916,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             editPath: model.editUri?.toString() ?? null,
             relatedEditUri: model.relatedEditUri?.toString() ?? null,
             videoUri: videoUri.toString(),
+            // v1 マルチソース: ソース id → ストリーム URL。webview は cuts[].src が
+            // 変わる継ぎ目で <video> をこの表から差し替える（v0 は 1 件のみの表）
+            videoSources: sourceUrlById,
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
@@ -4881,6 +4959,26 @@ body { display: grid; place-items: center; padding: 32px; }
             const findSegmentForSource = sourceTime => segments.findIndex(
                 segment => segment.kind === 'src' && sourceTime >= segment.in && sourceTime < segment.out
             );
+            // v1 マルチソース（edit.json sources[] + cuts[].src）。id → ストリーム URL の表を
+            // ホストから受け取り、カットの継ぎ目でソースが変わるときだけ <video> を差し替える。
+            // v0 / 単一ソースの案件は表が 1 件なので一度も差し替えが起きない。
+            const videoSources = initial.videoSources || {};
+            let currentVideoSourceId = null;
+            for (const [id, url] of Object.entries(videoSources)) {
+                if (url === video.getAttribute('src')) currentVideoSourceId = id;
+            }
+            // 差し替えたときだけ true を返す（呼び出し側は false なら即座に続行する）
+            const applySegmentSource = (segment, onReady) => {
+                const nextId = segment && segment.src;
+                if (!nextId || nextId === currentVideoSourceId) return false;
+                const nextUrl = videoSources[nextId];
+                if (!nextUrl) return false;
+                currentVideoSourceId = nextId;
+                video.addEventListener('loadedmetadata', () => onReady(), { once: true });
+                video.src = nextUrl;
+                video.load();
+                return true;
+            };
             const clampSourceTime = (sourceTime, preferredIndex) => {
                 const preferred = segments[preferredIndex];
                 if (preferred && preferred.kind === 'src'
@@ -4940,11 +5038,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segmentDuration = segment.outEnd - segment.outStart;
                 const withinSegment = clamp(outputTime - segment.outStart, 0, segmentDuration);
                 const target = segment.in + withinSegment * segment.speed;
-                if (Math.abs((video.currentTime || 0) - target) > 0.0005) {
-                    video.currentTime = target;
-                }
-                if (isPlaying && video.paused) {
-                    void video.play().catch(error => console.error('[akari-preview] playback failed', error));
+                const seekAndResume = () => {
+                    if (Math.abs((video.currentTime || 0) - target) > 0.0005) {
+                        video.currentTime = target;
+                    }
+                    if (isPlaying && video.paused) {
+                        void video.play().catch(error => console.error('[akari-preview] playback failed', error));
+                    }
+                };
+                // v1 マルチソース: このカットが別ソースを指しているならストリームを差し替える。
+                // 差し替え直後は readyState が 0 に戻り currentTime 代入が無視されるため、
+                // loadedmetadata を待ってからシークする（単一ソースでは分岐しない）
+                if (!applySegmentSource(segment, seekAndResume)) {
+                    seekAndResume();
                 }
             };
             const stopAtNaturalEnd = () => {
@@ -6367,8 +6473,11 @@ body { display: grid; place-items: center; padding: 32px; }
     protected async disposePreviewStreams(widget: PreviewWidgetMarker): Promise<void> {
         const assetIds = widget.akariPreviewAssetStreamIds ?? [];
         widget.akariPreviewAssetStreamIds = [];
+        const extraIds = widget.akariPreviewExtraStreamIds ?? [];
+        widget.akariPreviewExtraStreamIds = [];
         await Promise.all([
             this.disposeVideoStream(widget),
+            ...extraIds.map(id => this.disposeVideoStreamId(id)),
             this.disposeAssetStreams(assetIds)
         ]);
     }
