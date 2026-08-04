@@ -215,6 +215,17 @@ async function main() {
     });
     await pp.click('#play-toggle');
     await pp.waitForTimeout(2500);
+    // スピナーは一時的な waiting でも点くのが正常。ここで押さえたいのは
+    // 「出たまま戻らない（＝実際の不具合）」なので、数秒以内に消えるかを見る。
+    let settled = false;
+    for (let i = 0; i < 12 && !settled; i++) {
+      settled = await pp.evaluate(() => {
+        const v = document.getElementById('preview-video');
+        return v.readyState >= 3
+          && getComputedStyle(document.getElementById('loading-indicator')).display === 'none';
+      });
+      if (!settled) await pp.waitForTimeout(400);
+    }
     const st = await pp.evaluate(() => {
       const v = document.getElementById('preview-video');
       return {
@@ -223,14 +234,15 @@ async function main() {
         spinner: getComputedStyle(document.getElementById('loading-indicator')).display,
       };
     });
+    st.settled = settled;
     st.reloads === 0
       ? ok('No video reload during playback (loadstart 0)')
       : ng('Video reload storm', `loadstart fired ${st.reloads} times in 2.5s`);
     st.seeks < 10
       ? ok(`No seek storm during playback (${st.seeks})`)
       : ng('Seek storm', `${st.seeks} seeks in 2.5s`);
-    st.spinner === 'none'
-      ? ok('Loading spinner hidden during playback')
+    st.settled
+      ? ok('Loading spinner clears during playback (not stuck)')
       : ng('Loading spinner stuck', `display=${st.spinner} readyState=${st.readyState} paused=${st.paused}`);
     await pp.close();
   } catch (e) { ng('Playback reload check', e.message); }

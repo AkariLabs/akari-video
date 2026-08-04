@@ -775,6 +775,9 @@ function pause() {
 }
 
 let lastWallMs = 0;
+// 壁時計で進める出力時刻と <video> の再生位置の許容ズレ。シーク 1 回の遅延より
+// 広く取らないと補正が自己増殖する（下の playbackLoop の注記参照）。
+const SYNC_DEADBAND_SEC = 0.35;
 function playbackLoop() {
   if (!isPlaying) return;
   const now = performance.now();
@@ -786,7 +789,13 @@ function playbackLoop() {
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
     setVideoSourceIfChanged(video, getVideoSource(seg.index));
-    if (Math.abs(video.currentTime - target) > 0.1) video.currentTime = target;
+    // ズレ補正は「シーク中でない」かつ「シーク遅延より大きくズレた」ときだけ。
+    // 旧実装（閾値 0.1・シーク中も発行）は、1 回のシーク遅延がそのまま次フレームの
+    // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
+    // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
+    if (!video.seeking && Math.abs(video.currentTime - target) > SYNC_DEADBAND_SEC) {
+      video.currentTime = target;
+    }
   }
   seek.value = outputTime;
   updateTimeLabel();
