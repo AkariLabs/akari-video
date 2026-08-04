@@ -338,7 +338,7 @@ function syncLayers(t) {
       lv.visible = shouldShow;
       if (!shouldShow && !lv.el.paused) lv.el.pause();
       if (selectedLayerId !== null && lv.layer.id === selectedLayerId) {
-        if (shouldShow) lv.opaqueBox = measureLayerOpaqueBox(lv.el);
+        if (shouldShow) lv.opaqueBox = undefined; // 表示時点のフレームで測り直す
         updateLayerSelectBox();
       }
     }
@@ -456,6 +456,17 @@ function updateLayerSelectBox() {
     return;
   }
   const el = lv.el;
+  // undefined = 未計測。フレーム未着ならまだ測れない — 全面フォールバック枠を
+  // 一瞬見せず（移動確定後の再構築でチラつく実害）、フレーム到着後に測ってから出す
+  if (lv.opaqueBox === undefined) {
+    if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      lv.opaqueBox = measureLayerOpaqueBox(el);
+    } else {
+      layerSelectBox.style.display = 'none';
+      el.addEventListener('loadeddata', () => updateLayerSelectBox(), { once: true });
+      return;
+    }
+  }
   layerSelectBox.style.display = 'block';
   layerSelectBox.style.left = `${el.offsetLeft}px`;
   layerSelectBox.style.top = `${el.offsetTop}px`;
@@ -475,7 +486,7 @@ function setLayerSelected(id) {
   for (const lv of layerVideos) {
     const on = id !== null && lv.layer.id === id;
     lv.el.classList.toggle('layer-selected', on);
-    if (on) lv.opaqueBox = measureLayerOpaqueBox(lv.el);
+    if (on) lv.opaqueBox = undefined; // 選択時点のフレームで測り直す（updateLayerSelectBox が遅延計測）
   }
   updateLayerSelectBox();
 }
@@ -1825,6 +1836,28 @@ const CAPTION_STYLE_VARS = [
   '--caption-line-margin', '--caption-line-max-width', '--caption-text-align'
 ];
 
+// shell captionTextStyleVars の colorWithOpacity / strokeShadow と同じ変換（パリティ層）
+function captionColorWithOpacity(color, explicitOpacity) {
+  if (typeof color !== 'string' || !color.startsWith('#')) {
+    return explicitOpacity === undefined ? String(color) : String(color);
+  }
+  const expanded = color.slice(1).length === 3
+    ? color.slice(1).split('').map(ch => ch + ch).join('')
+    : color.slice(1);
+  const rgb = expanded.slice(0, 6).padEnd(6, '0');
+  const alphaFromColor = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+  const alpha = explicitOpacity ?? alphaFromColor;
+  return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},`
+    + `${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
+}
+function captionStrokeShadow(color, width) {
+  const negative = width === 0 ? '0' : `-${width}px`;
+  const positive = width === 0 ? '0' : `${width}px`;
+  return `${negative} ${negative} 0 ${color}, ${positive} ${negative} 0 ${color}, `
+    + `${negative} ${positive} 0 ${color}, ${positive} ${positive} 0 ${color}, `
+    + '0 0 8px rgba(0,0,0,.6)';
+}
+
 function applyCaptionStyle(caption) {
   for (const name of CAPTION_STYLE_VARS) captionPlate.style.removeProperty(name);
   let vars = {};
@@ -1841,6 +1874,21 @@ function applyCaptionStyle(caption) {
   if (ts?.size_px) vars['--caption-font-size'] = ts.size_px + 'px';
   else if (dts?.size_px) vars['--caption-font-size'] = dts.size_px + 'px';
   else vars['--caption-font-size'] = defaultCaptionFontSize() + 'px';
+  // 座布団（background）: block は 1 枚板の --plate-block-*、per-line/無指定は行ごとの --plate-*
+  // （shell captionTextStyleVars と同じ振り分け。ここが無く座布団が一切描かれていなかった）
+  const bg = ts?.background ?? dts?.background;
+  if (bg && (bg.color !== undefined || bg.opacity !== undefined)) {
+    const bgVar = bg.mode === 'block' ? '--plate-block-bg' : '--plate-bg';
+    vars[bgVar] = captionColorWithOpacity(bg.color ?? '#000000', bg.opacity);
+  }
+  if (bg?.radius_px !== undefined) {
+    const radiusVar = bg.mode === 'block' ? '--plate-block-radius' : '--plate-radius';
+    vars[radiusVar] = bg.radius_px + 'px';
+  }
+  const stroke = ts?.stroke ?? dts?.stroke;
+  if (stroke && (stroke.color !== undefined || stroke.width_px !== undefined)) {
+    vars['--caption-text-shadow'] = captionStrokeShadow(stroke.color ?? 'rgba(0,0,0,.85)', stroke.width_px ?? 1.5);
+  }
   const zone = ts?.zone || dts?.zone || 'bottom';
   Object.assign(vars, captionZoneVars(zone));
   replaceCaptionStyleVariables(captionPlate.style, vars);
@@ -2041,6 +2089,8 @@ function injectCaptionStyles() {
 .akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9)); paint-order:stroke fill; text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:"Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:1.42; text-align:center; }
 .akari-caption__plate { position:absolute; top:var(--caption-top,auto); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; }
 .akari-caption__line { width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:0.08em 0.42em; border-radius:10px; background:var(--plate-bg,transparent); text-align:var(--caption-text-align,center); white-space:pre; }
+.akari-caption__block { display:flex; flex-direction:column; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); gap:var(--plate-gap,4px); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-block-radius,10px); background:var(--plate-block-bg,transparent); }
+.akari-caption__block .akari-caption__line { width:auto; max-width:none; margin:0; padding:0; border-radius:0; background:transparent; }
 .akari-caption--reveal .akari-caption__plate { display:grid; }
 .akari-caption__reveal-group { grid-area:1 / 1; display:flex; flex-direction:column; gap:4px; opacity:0; animation:akari-caption-reveal var(--akari-reveal-dur,0.2s) var(--akari-reveal-delay,0s) linear both paused; }
 @keyframes akari-caption-reveal {
@@ -2115,30 +2165,34 @@ function updateCaption() {
     || (!style && isPortraitOutput()
       && splitCaptionLines(displayText, captionLineBudget()).length > 1));
   const wordStyle = explicitStyle ?? (hasEmphasis ? 'emphasis' : null);
+  // 座布団 block モード: 行群を 1 枚板ラッパーで包む（shell / render-cut と同じ構造）
+  const blockMode = (active.text_style?.background?.mode
+    ?? summary?.default_text_style?.background?.mode) === 'block';
+  const wrapPlate = inner => blockMode ? `<div class="akari-caption__block">${inner}</div>` : inner;
   injectCaptionStyles();
   if (wantsReveal) {
     const start = Number(active.start) || 0;
     const end = Number(active.end) || (words[words.length - 1]?.end ?? start);
     const lines = groupWordsIntoDisplayLines(words, captionLineBudget());
     captionPlate.innerHTML = `<div class="akari-caption akari-caption--reveal"><div class="akari-caption__plate">${
-      renderRevealGroupsMarkup(lines, start, end, line =>
+      wrapPlate(renderRevealGroupsMarkup(lines, start, end, line =>
         line.map(w => {
           const ew = findMatchingEmphasis(w, emphasisWords);
           return ew ? renderEmphasisToken(w, start, ew)
             : `<span class="akari-caption__tok">${esc(w.text)}</span>`;
-        }).join(''))
+        }).join('')))
     }</div></div>`;
     captionPlate.dataset.captionStart = String(start);
   } else if (wordStyle && hasWords) {
     const start = Number(active.start) || 0;
     const lines = groupWordsIntoLines(words, captionLineBudget());
     captionPlate.innerHTML = `<div class="akari-caption akari-caption--${wordStyle}"><div class="akari-caption__plate">${
-      lines.map(line => `<p class="akari-caption__line">${
+      wrapPlate(lines.map(line => `<p class="akari-caption__line">${
         line.map(w => {
           const ew = findMatchingEmphasis(w, emphasisWords);
           return ew ? renderEmphasisToken(w, start, ew) : renderStyledToken(w, start, style);
         }).join(' ')
-      }</p>`).join('')
+      }</p>`).join(''))
     }</div></div>`;
     captionPlate.dataset.captionStart = String(start);
   } else {
@@ -2148,7 +2202,7 @@ function updateCaption() {
       // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
       const lines = splitCaptionLines(displayText, captionLineBudget());
       captionPlate.innerHTML = `<div class="akari-caption"><div class="akari-caption__plate">${
-        lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join('')
+        wrapPlate(lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join(''))
       }</div></div>`;
     }
     delete captionPlate.dataset.captionStart;

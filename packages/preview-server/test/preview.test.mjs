@@ -719,6 +719,60 @@ async function main() {
     ng('Overlay html write-back', e.message);
   }
 
+  // ── 座布団 block モード字幕（2 行でも 1 枚板）──
+  // 回帰: Web UI の applyCaptionStyle が text_style.background を変数に落とさず、
+  // block ラッパー（.akari-caption__block）も無かったため座布団が一切描かれなかった
+  console.log('\n💺 Block-mode caption plate');
+  try {
+    const captionsPath = path.join(PROJECT, 'captions.json');
+    const hadCaptions = fs.existsSync(captionsPath);
+    const origCaptions = hadCaptions ? fs.readFileSync(captionsPath, 'utf8') : null;
+    fs.writeFileSync(captionsPath, JSON.stringify([{
+      id: 'c-block-1', start: 0.5, end: 3, edited: false,
+      text: '一行目のテキスト\n二行目のテキスト',
+      text_style: { size_px: 40, background: { color: '#101828', opacity: 0.7, radius_px: 14, mode: 'block' } }
+    }]));
+    const cp = await context.newPage();
+    await cp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await cp.waitForTimeout(2000);
+    await cp.evaluate(() => {
+      const el = document.getElementById('seek');
+      el.value = '1';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await cp.waitForTimeout(600);
+    const state = await cp.evaluate(() => {
+      const block = document.querySelector('#caption-plate .akari-caption__block');
+      if (!block) return { block: false };
+      const bg = getComputedStyle(block).backgroundColor;
+      const lines = [...block.querySelectorAll('.akari-caption__line')];
+      return {
+        block: true,
+        bg,
+        bgOpaque: /rgba?\(/.test(bg) && !/rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\)/.test(bg),
+        lineCount: lines.length,
+        linesTransparent: lines.every(l => /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\)/.test(getComputedStyle(l).backgroundColor)),
+      };
+    });
+    state.block
+      ? ok('Block caption renders a single plate wrapper')
+      : ng('Block caption wrapper missing', 'no .akari-caption__block in DOM');
+    if (state.block) {
+      state.bgOpaque
+        ? ok(`Block plate has visible background (${state.bg})`)
+        : ng('Block plate background', `transparent: ${state.bg}`);
+      (state.lineCount >= 2 && state.linesTransparent)
+        ? ok(`Lines share one plate (count=${state.lineCount}, per-line bg transparent)`)
+        : ng('Block line structure', `count=${state.lineCount} transparent=${state.linesTransparent}`);
+    }
+    await cp.close();
+    if (hadCaptions) fs.writeFileSync(captionsPath, origCaptions);
+    else fs.unlinkSync(captionsPath);
+    await page.waitForTimeout(400);
+  } catch (e) {
+    ng('Block-mode caption plate', e.message);
+  }
+
   // ── レイヤー（ベイクテロップ / B-roll）のクリック選択 + ドラッグ移動 ──
   // 回帰: Web UI はレイヤーが pointer-events:none + 選択系未実装で、ベイクテロップを
   // 選択も移動もできなかった（実機報告）。shell CF-select と同じ transform 書き戻し契約

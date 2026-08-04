@@ -4398,8 +4398,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
                 const transform = layerTransformNow(entry);
-                // 枠は要素の箱ではなく不透明領域（コンテンツ）にフィットさせる（未計測なら計測）
-                if (entry.opaqueBox === undefined) entry.opaqueBox = measureLayerOpaqueBox(entry);
+                // 枠は要素の箱ではなく不透明領域（コンテンツ）にフィットさせる（未計測なら計測）。
+                // フレーム未着で測れないうちは全面フォールバック枠を一瞬見せず、届いてから出す
+                if (entry.opaqueBox === undefined) {
+                    if (entry.video.readyState >= 2) {
+                        entry.opaqueBox = measureLayerOpaqueBox(entry);
+                    } else {
+                        layerSelectBox.classList.remove('is-active');
+                        entry.video.addEventListener('loadeddata', () => updateLayerSelectBox(), { once: true });
+                        return;
+                    }
+                }
                 const cb = entry.opaqueBox || { x: 0, y: 0, w: entry.video.videoWidth, h: entry.video.videoHeight };
                 const outputW = cb.w * transform.scale;
                 const outputH = cb.h * transform.scale;
@@ -4439,7 +4448,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (nextId && typeof deselectCaption === 'function') deselectCaption({ report: true });
                 if (nextId) {
                     const measured = findLayerEntry(nextId);
-                    if (measured) measured.opaqueBox = measureLayerOpaqueBox(measured);
+                    // 選択時点のフレームで測り直す（updateLayerSelectBox が遅延計測する）
+                    if (measured) measured.opaqueBox = undefined;
                 }
                 updateLayerSelectBox();
                 if (report) window.akari.reportLayerSelection(selectedLayerId);
