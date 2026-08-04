@@ -8,7 +8,7 @@ import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs'
 import { loadTaskLabels } from './task-labels.mjs';
 import { describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
 import { resolveEffectiveProjectRoot } from './first-run.mjs';
-import { maybeSetupSounds } from './sounds-setup.mjs';
+import { maybeShowAssetIntroNotice } from './sounds-setup.mjs';
 import {
   checkForUpdateSync,
   readCacheSync,
@@ -101,18 +101,14 @@ export async function run(args, options = {}) {
   }
   (options.refreshUpdate ?? triggerBackgroundRefresh)({ env });
 
-  // 公式音源ライブラリ（AKARI Sounds）の初回セットアップ（質問は生涯 1 回・既定 Yes）。
-  // 導入済み / 過去に n / 非 TTY / スクリプト未同梱では何も表示しない。
-  // どんな失敗でも claude 起動までは止めない（「最後に claude を exec」は不変条件）。
+  // 素材の取得方式案内（2026-08-04〜。旧: AKARI Sounds 初回一括 DL の [Y/n] 質問は廃止 —
+  // 設計正本 planning/notes-2026-08-04-asset-reference-distribution.md §8）。質問はしない・
+  // 対話をブロックしない。生涯 1 回だけ表示し、どんな失敗でも claude 起動までは止めない
+  // （「最後に claude を exec」は不変条件）。
   try {
-    await (options.setupSounds ?? maybeSetupSounds)({
-      env, log, assets, autoConfirm,
-      // isTTY / prompt は first-run（creator-root プロンプト）と同じトップレベル注入を引き継ぐ
-      // （prompt を引き継がないと、isTTY 注入 + 非対話 stdin の組み合わせで実 stdin 待ちになる）
-      options: { isTTY: options.isTTY, prompt: options.prompt, ...(options.soundsOptions ?? {}) }
-    });
+    await (options.showAssetIntro ?? maybeShowAssetIntroNotice)({ env, log });
   } catch (error) {
-    log(`音源セットアップでエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
+    log(`素材案内の表示でエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   if (useOpencode) {

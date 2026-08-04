@@ -33,12 +33,12 @@ function collectLogs() {
   return { log: (line) => lines.push(line), lines };
 }
 
-// 音源セットアップ（sounds-setup.mjs）はこのテストの対象外。差し替えずに run() を呼ぶと
-// isTTY: true + prompt スタブの組み合わせが音源側の質問にも届き、「n 以外 = Yes」で
-// 実ダウンロード（395MB）まで走ってしまうため、必ず無効化して注入する
-// （update-check を refreshUpdate: () => {} で殺すのと同じ隔離規律。
-// 音源側の挙動は sounds-setup.test.mjs / cli-sounds.test.mjs が担当）。
-const soundsIsolation = { setupSounds: async () => ({ action: 'isolated-in-test' }) };
+// 素材案内（sounds-setup.mjs の maybeShowAssetIntroNotice）はこのテストの対象外。2026-08-04
+// の一括 DL 撤去後は質問もダウンロードもしない無害な処理だが、このテスト群のログ出力を
+// creator-root 初回動線の検証だけに絞るため無効化して注入する（update-check を
+// refreshUpdate: () => {} で殺すのと同じ隔離規律。素材案内自体の挙動は
+// sounds-setup.test.mjs / cli-asset-intro.test.mjs が担当）。
+const soundsIsolation = { showAssetIntro: async () => ({ action: 'isolated-in-test' }) };
 
 // 実 ~/.akari/ や実 ~ に一切触れないよう、HOME・AKARI_HOME を隔離した env を作る。
 // AKARI_CREATOR_ROOT は明示的に無効化し、開発機の実運用状態を拾わないようにする。

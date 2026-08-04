@@ -1,62 +1,70 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
-import { defaultPrompt } from './first-run.mjs';
 import {
-  soundsPromptText,
+  assetIntroNotice,
   soundsCompleteNotice,
-  soundsDeclinedNotice,
   soundsFailedNotice,
   soundsUnavailableError
 } from './messages.mjs';
 
 /**
- * 公式音源ライブラリ（AKARI Sounds）の初回セットアップ動線（2026-08-03 オーナー裁定）:
- *   - 既定 = 一括ダウンロード。質問は初回 1 回だけ（[Y/n]・空 Enter = Yes）。
- *     曲ごと・配布元ごとの選択は一切させない
- *   - n を選んだら marker を書いて以後は聞かない（再入口は `akari sounds`）
- *   - 追加カタログ（外部補完 = 拍手・失敗音・和風打撃など）は完了時に 1 行案内するだけ。
- *     取得はセッション内でエージェントに頼む（setup-audio-library の assisted-fetch）
+ * 公式音源ライブラリ（AKARI Sounds）まわりの launcher 動線。
  *
- * ダウンロード実体は packages/audio-library-setup/bin/fetch-akari-sounds.mjs（自社 GitHub
- * Release のみが取得先）。本モジュールは「いつ聞くか・聞いた結果をどう覚えるか」の配線だけを
- * 持ち、失敗しても `akari` の「最後に claude を exec」の不変条件を壊さない。
+ * 2026-08-04 オーナー方針（正本: `planning/notes-2026-08-04-asset-reference-distribution.md`
+ * §8）により、2026-08-03 裁定の初回起動 [Y/n] 一括ダウンロード質問（既定 Yes・約 400MB）は
+ * 廃止した。素材（B-roll・背景・音源 188 曲）は使うときに必要な分だけ resolver
+ * （`packages/asset-resolver` の `akari-assets`）がオンデマンド取得する設計に一本化されたため、
+ * launcher 起動のたびに「入れるか入れないか」を聞く必要が無くなった。
+ *
+ * 代わりに `maybeShowAssetIntroNotice` が「取得方式が変わったこと」と「アカウントを接続すると
+ * 購入済み素材も同じ一覧に出ること」（`akari store connect`）を**生涯 1 回だけ**案内する。
+ * 質問ではないので TTY 判定も対話ブロックも無い — 単なる 1 行ログ + マーカーファイル。
+ * 「生涯 1 回」判定の仕組み自体は旧 declined マーカー方式を踏襲している（存在チェックで
+ * 二度と出さない、という枠組みだけ流用し、中身は「declined/n」ではなく「shown」に変えた）。
+ *
+ * 一括で欲しい人向けの逃げ道として `akari sounds`（`runSoundsCommand`）は残す・変更しない。
+ * ダウンロード実体は `packages/audio-library-setup/bin/fetch-akari-sounds.mjs`（自社 GitHub
+ * Release のみが取得先）で、この逃げ道からのみ呼ばれる。
  */
 
-const DECLINED_MARKER = '.akari-sounds-declined.json';
-const PACK_IDS = ['akari-sounds-bgm', 'akari-sounds-sfx', 'akari-sounds-jingle'];
+const ASSET_INTRO_MARKER = '.akari-asset-intro-shown.json';
 
 /** `~/.akari`（既定）または `AKARI_HOME`（update-check.mjs と同じ差し替え規約）。 */
 function resolveAkariHome(env = process.env) {
   return env.AKARI_HOME || path.join(homedir(), '.akari');
 }
 
-export function resolveAudioLibraryRoot(env = process.env) {
-  return path.join(resolveAkariHome(env), 'assets', 'audio');
+function assetIntroMarkerPath(env) {
+  return path.join(resolveAkariHome(env), ASSET_INTRO_MARKER);
 }
 
-function declinedMarkerPath(env) {
-  return path.join(resolveAudioLibraryRoot(env), DECLINED_MARKER);
+/** 素材案内（アカウント接続 + オンデマンド取得）を生涯 1 回だけ表示したかどうか。 */
+export function detectAssetIntroState(env = process.env) {
+  return { shown: existsSync(assetIntroMarkerPath(env)) };
+}
+
+function writeAssetIntroShownMarker(env) {
+  const markerPath = assetIntroMarkerPath(env);
+  mkdirSync(path.dirname(markerPath), { recursive: true });
+  writeFileSync(markerPath, `${JSON.stringify({ shown_at: new Date().toISOString() }, null, 2)}\n`);
 }
 
 /**
- * 導入状態の判定。installed は 3 パックすべての meta.json が揃っていること
- * （fetch-akari-sounds.mjs が最後に書くファイルなので「完走した」ことの近似として十分）。
+ * `akari` 起動時の 1 ステップ（2026-08-04〜）。質問はしない・対話をブロックしない —
+ * 素材の取得方式案内を生涯 1 回だけ表示するだけ。返り値の action は
+ * 'shown' | 'already-shown'。同期関数だが、呼び出し側は他ステップと同じ流儀で await する。
  */
-export function detectSoundsState(env = process.env) {
-  const root = resolveAudioLibraryRoot(env);
-  const installed = PACK_IDS.every((id) => existsSync(path.join(root, id, 'meta.json')));
-  const declined = existsSync(declinedMarkerPath(env));
-  return { installed, declined };
-}
-
-function writeDeclinedMarker(env) {
-  const markerPath = declinedMarkerPath(env);
-  mkdirSync(path.dirname(markerPath), { recursive: true });
-  writeFileSync(markerPath, `${JSON.stringify({ declined_at: new Date().toISOString() }, null, 2)}\n`);
+export function maybeShowAssetIntroNotice({ env = process.env, log = console.log } = {}) {
+  if (detectAssetIntroState(env).shown) {
+    return { action: 'already-shown' };
+  }
+  writeAssetIntroShownMarker(env);
+  log(assetIntroNotice());
+  return { action: 'shown' };
 }
 
 function defaultSpawnFetch(fetchScriptPath, args, env) {
@@ -68,10 +76,7 @@ function defaultSpawnFetch(fetchScriptPath, args, env) {
 
 function runFetch({ fetchScriptPath, fetchArgs = [], env, log, spawnFetch }) {
   const result = spawnFetch(fetchScriptPath, fetchArgs, env);
-  const ok = result.status === 0;
-  if (ok) {
-    // 過去に n を選んでいても、明示的に入れ直したら marker は役目を終える。
-    rmSync(declinedMarkerPath(env), { force: true });
+  if (result.status === 0) {
     log(soundsCompleteNotice());
     return { action: 'downloaded' };
   }
@@ -80,47 +85,8 @@ function runFetch({ fetchScriptPath, fetchArgs = [], env, log, spawnFetch }) {
 }
 
 /**
- * `akari` 起動時の 1 ステップ。返り値の action は
- * 'unavailable' | 'installed' | 'declined' | 'skipped-non-tty' | 'downloaded' | 'declined-now' | 'failed'。
- * unavailable / installed / declined / 非 TTY では何も表示しない（毎回の起動を汚さない）。
- */
-export async function maybeSetupSounds({ env = process.env, log = console.log, assets, autoConfirm = false, options = {} } = {}) {
-  const fetchScriptPath = assets?.audioFetchScriptPath;
-  if (!fetchScriptPath) {
-    return { action: 'unavailable' };
-  }
-
-  const state = detectSoundsState(env);
-  if (state.installed) {
-    return { action: 'installed' };
-  }
-  if (state.declined) {
-    return { action: 'declined' };
-  }
-
-  const spawnFetch = options.spawnFetch ?? defaultSpawnFetch;
-
-  if (!autoConfirm) {
-    const isTTY = options.isTTY ?? Boolean(process.stdin.isTTY);
-    if (!isTTY) {
-      // 非 TTY（自動化・CI）では聞かずに何もしない（現行動作互換。creator-root と同じ扱い）。
-      return { action: 'skipped-non-tty' };
-    }
-    const promptFn = options.prompt ?? defaultPrompt;
-    const answerRaw = await promptFn(soundsPromptText());
-    const answer = typeof answerRaw === 'string' ? answerRaw.trim().toLowerCase() : '';
-    if (answer === 'n' || answer === 'no') {
-      writeDeclinedMarker(env);
-      log(soundsDeclinedNotice());
-      return { action: 'declined-now' };
-    }
-  }
-
-  return runFetch({ fetchScriptPath, env, log, spawnFetch });
-}
-
-/**
- * `akari sounds [--variant wav] [--force] …` — 一括ダウンロードの明示的な再入口。
+ * `akari sounds [--variant wav] [--force] …` — 一括ダウンロードの明示的な再入口
+ * （初回起動の一括 DL 撤去後も、まとめて欲しい人向けの逃げ道として残す・変更しない）。
  * プロンプトは持たない（引数はそのまま fetch-akari-sounds.mjs へ渡す）。headless 可。
  */
 export async function runSoundsCommand(args, options = {}) {

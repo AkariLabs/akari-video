@@ -163,23 +163,23 @@ export function initFailedError(errorMessage) {
 }
 
 /**
- * 公式音源ライブラリ（AKARI Sounds）初回セットアップの文言群（2026-08-03 オーナー裁定:
- * 質問は 1 回だけ・既定 Yes・項目ごとの選択はさせない）。1 行主義の既存流儀に従う。
+ * 素材の取得方式案内 + 公式音源ライブラリ（AKARI Sounds）明示再入口（`akari sounds`）の
+ * 文言群。1 行主義の既存流儀に従う。
+ *
+ * 2026-08-04 オーナー方針（正本: `planning/notes-2026-08-04-asset-reference-distribution.md`
+ * §8）により、初回起動での AKARI Sounds 一括ダウンロード [Y/n] 質問（2026-08-03 裁定）は
+ * 廃止した。素材は resolver がオンデマンド取得する設計に一本化されたため、質問文言
+ * （`soundsPromptText` / `soundsDeclinedNotice`）はもう使わない。
  */
 
-/** 初回 1 回だけ出す TTY プロンプト文言。曲数は Release で変わるためあえて書かない。 */
-export function soundsPromptText() {
-  return '公式音源ライブラリ AKARI Sounds（無料・商用可・クレジット不要 / BGM・効果音・ジングル / mp3 約 400MB）を一括ダウンロードしますか？ [Y/n] ';
+/** `akari` 起動時に生涯 1 回だけ出す素材案内（質問ではない・対話をブロックしない）。 */
+export function assetIntroNotice() {
+  return '素材（B-roll・背景・音源）は使うときに必要な分だけ自動で取得されます。`akari store connect` でアカウントを接続すると購入済み素材も同じ一覧に並びます。まとめて欲しい場合は `akari sounds` で音源を一括ダウンロードできます（この案内は次回以降表示しません）。';
 }
 
-/** ダウンロード成功後の完了 + 追加カタログ（外部補完）の案内。 */
+/** ダウンロード成功後の完了 + 追加カタログ（外部補完）の案内。`akari sounds` の完了時に使う。 */
 export function soundsCompleteNotice() {
   return '公式音源ライブラリの登録が完了しました。公式に無い系統（拍手・失敗音・和風打撃など）は追加カタログにあります — セッションで「追加の音源も入れて」と頼むと取得を代行します。';
-}
-
-/** n を選んだときの 1 行（この質問は今後出さない・再入口を示す）。 */
-export function soundsDeclinedNotice() {
-  return 'スキップしました（この質問は今後表示しません）。後から `akari sounds` でいつでも一括ダウンロードできます。';
 }
 
 /** ダウンロード失敗時の 1 行（起動は止めない・再入口を示す）。 */

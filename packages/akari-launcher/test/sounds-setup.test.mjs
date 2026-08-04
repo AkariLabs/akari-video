@@ -1,27 +1,18 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { detectSoundsState, maybeSetupSounds, runSoundsCommand } from '../src/sounds-setup.mjs';
-
-const PACK_IDS = ['akari-sounds-bgm', 'akari-sounds-sfx', 'akari-sounds-jingle'];
+import { detectAssetIntroState, maybeShowAssetIntroNotice, runSoundsCommand } from '../src/sounds-setup.mjs';
 
 async function withAkariHome(run) {
     const home = await mkdtemp(path.join(tmpdir(), 'akari-sounds-setup-'));
     try {
-        await run({ env: { AKARI_HOME: home }, home, audioRoot: path.join(home, 'assets', 'audio') });
+        await run({ env: { AKARI_HOME: home }, home });
     } finally {
         await rm(home, { recursive: true, force: true });
-    }
-}
-
-async function markInstalled(audioRoot) {
-    for (const id of PACK_IDS) {
-        await mkdir(path.join(audioRoot, id), { recursive: true });
-        await writeFile(path.join(audioRoot, id, 'meta.json'), '{}');
     }
 }
 
@@ -36,121 +27,54 @@ function recordingFetch(status = 0) {
 
 const FAKE_ASSETS = { audioFetchScriptPath: '/fake/fetch-akari-sounds.mjs' };
 
-test('skips silently when the fetch script is not bundled', async () => {
-    await withAkariHome(async ({ env }) => {
+// --- maybeShowAssetIntroNotice（2026-08-04〜: 初回起動の一括 DL [Y/n] 質問は廃止し、
+//     素材の取得方式 + アカウント接続の案内を生涯 1 回だけ出す。質問は一切しない）。
+
+test('first call: shows the notice once, mentions on-demand fetch, account connect and the akari sounds escape hatch', async () => {
+    await withAkariHome(async ({ env, home }) => {
         const logs = [];
-        const result = await maybeSetupSounds({ env, log: (l) => logs.push(l), assets: {}, autoConfirm: true });
-        assert.equal(result.action, 'unavailable');
+        const result = maybeShowAssetIntroNotice({ env, log: (l) => logs.push(l) });
+        assert.equal(result.action, 'shown');
+        assert.equal(logs.length, 1, '案内は 1 行だけ');
+        assert.match(logs[0], /使うときに必要な分だけ/);
+        assert.match(logs[0], /akari store connect/);
+        assert.match(logs[0], /akari sounds/);
+        assert.ok(existsSync(path.join(home, '.akari-asset-intro-shown.json')), '生涯 1 回のマーカーを書く');
+    });
+});
+
+test('second call: shows nothing (no [Y/n], never asks twice)', async () => {
+    await withAkariHome(async ({ env }) => {
+        const first = maybeShowAssetIntroNotice({ env, log: () => {} });
+        assert.equal(first.action, 'shown');
+
+        const logs = [];
+        const second = maybeShowAssetIntroNotice({ env, log: (l) => logs.push(l) });
+        assert.equal(second.action, 'already-shown');
         assert.deepEqual(logs, []);
+        assert.equal(detectAssetIntroState(env).shown, true);
     });
 });
 
-test('skips silently when all three packs are already installed', async () => {
-    await withAkariHome(async ({ env, audioRoot }) => {
-        await markInstalled(audioRoot);
-        const { calls, spawnFetch } = recordingFetch();
-        const logs = [];
-        const result = await maybeSetupSounds({
-            env, log: (l) => logs.push(l), assets: FAKE_ASSETS, autoConfirm: true,
-            options: { spawnFetch }
-        });
-        assert.equal(result.action, 'installed');
-        assert.equal(calls.length, 0);
-        assert.deepEqual(logs, []);
-    });
-});
-
-test('non-TTY without --yes asks nothing and downloads nothing (automation compatibility)', async () => {
+test('does not touch spawnFetch — the notice never downloads anything on its own', async () => {
     await withAkariHome(async ({ env }) => {
-        const { calls, spawnFetch } = recordingFetch();
-        const logs = [];
-        const result = await maybeSetupSounds({
-            env, log: (l) => logs.push(l), assets: FAKE_ASSETS, autoConfirm: false,
-            options: { spawnFetch, isTTY: false }
+        let spawnCalled = false;
+        const result = maybeShowAssetIntroNotice({
+            env,
+            log: () => {},
+            // maybeShowAssetIntroNotice は spawnFetch を受け取らない設計だが、渡っても
+            // 無視される（呼ばれない）ことを確認する。
+            spawnFetch: () => { spawnCalled = true; return { status: 0 }; }
         });
-        assert.equal(result.action, 'skipped-non-tty');
-        assert.equal(calls.length, 0);
-        assert.deepEqual(logs, []);
+        assert.equal(result.action, 'shown');
+        assert.equal(spawnCalled, false);
     });
 });
 
-test('TTY: empty Enter means Yes (default) and downloads once, then shows the additional-catalog notice', async () => {
+// --- runSoundsCommand（`akari sounds` — 一括ダウンロードの明示的な逃げ道。変更しない）。
+
+test('akari sounds: passes arguments through and reports success', async () => {
     await withAkariHome(async ({ env }) => {
-        const { calls, spawnFetch } = recordingFetch(0);
-        const logs = [];
-        const prompts = [];
-        const result = await maybeSetupSounds({
-            env, log: (l) => logs.push(l), assets: FAKE_ASSETS, autoConfirm: false,
-            options: {
-                spawnFetch,
-                isTTY: true,
-                prompt: async (text) => { prompts.push(text); return ''; }
-            }
-        });
-        assert.equal(result.action, 'downloaded');
-        assert.equal(prompts.length, 1, '質問は 1 回だけ');
-        assert.match(prompts[0], /AKARI Sounds/);
-        assert.match(prompts[0], /\[Y\/n\]/);
-        assert.equal(calls.length, 1);
-        assert.equal(calls[0].script, FAKE_ASSETS.audioFetchScriptPath);
-        assert.ok(logs.some((l) => l.includes('追加カタログ')), '完了時に追加カタログを案内する');
-    });
-});
-
-test('TTY: answering n writes a persistent marker, downloads nothing, and never asks again', async () => {
-    await withAkariHome(async ({ env, audioRoot }) => {
-        const { calls, spawnFetch } = recordingFetch();
-        const logs = [];
-        const first = await maybeSetupSounds({
-            env, log: (l) => logs.push(l), assets: FAKE_ASSETS, autoConfirm: false,
-            options: { spawnFetch, isTTY: true, prompt: async () => 'n' }
-        });
-        assert.equal(first.action, 'declined-now');
-        assert.equal(calls.length, 0);
-        assert.ok(existsSync(path.join(audioRoot, '.akari-sounds-declined.json')));
-        assert.ok(logs.some((l) => l.includes('akari sounds')), '再入口コマンドを案内する');
-
-        // 2 回目はプロンプト自体を出さない
-        const second = await maybeSetupSounds({
-            env, log: () => {}, assets: FAKE_ASSETS, autoConfirm: false,
-            options: { spawnFetch, isTTY: true, prompt: async () => { throw new Error('should not prompt'); } }
-        });
-        assert.equal(second.action, 'declined');
-    });
-});
-
-test('--yes downloads without prompting', async () => {
-    await withAkariHome(async ({ env }) => {
-        const { calls, spawnFetch } = recordingFetch(0);
-        const result = await maybeSetupSounds({
-            env, log: () => {}, assets: FAKE_ASSETS, autoConfirm: true,
-            options: { spawnFetch, prompt: async () => { throw new Error('should not prompt'); } }
-        });
-        assert.equal(result.action, 'downloaded');
-        assert.equal(calls.length, 1);
-    });
-});
-
-test('fetch failure reports the retry command, writes no marker, and asks again next time', async () => {
-    await withAkariHome(async ({ env, audioRoot }) => {
-        const { spawnFetch } = recordingFetch(1);
-        const logs = [];
-        const result = await maybeSetupSounds({
-            env, log: (l) => logs.push(l), assets: FAKE_ASSETS, autoConfirm: true,
-            options: { spawnFetch }
-        });
-        assert.equal(result.action, 'failed');
-        assert.ok(logs.some((l) => l.includes('akari sounds')));
-        assert.ok(!existsSync(path.join(audioRoot, '.akari-sounds-declined.json')), '失敗では marker を書かない（次回また聞く）');
-        assert.equal(detectSoundsState(env).declined, false);
-    });
-});
-
-test('akari sounds: passes arguments through, clears a stale declined marker on success', async () => {
-    await withAkariHome(async ({ env, audioRoot }) => {
-        await mkdir(audioRoot, { recursive: true });
-        await writeFile(path.join(audioRoot, '.akari-sounds-declined.json'), '{}');
-
         const { calls, spawnFetch } = recordingFetch(0);
         const logs = [];
         const result = await runSoundsCommand(['--variant', 'wav', '--force'], {
@@ -158,8 +82,17 @@ test('akari sounds: passes arguments through, clears a stale declined marker on 
         });
         assert.equal(result.exitCode, 0);
         assert.deepEqual(calls[0].args, ['--variant', 'wav', '--force']);
-        assert.ok(!existsSync(path.join(audioRoot, '.akari-sounds-declined.json')), '明示的に入れ直したら marker は消す');
         assert.ok(logs.some((l) => l.includes('追加カタログ')));
+    });
+});
+
+test('akari sounds: reports failure with the retry command and exit code 1', async () => {
+    await withAkariHome(async ({ env }) => {
+        const { spawnFetch } = recordingFetch(1);
+        const logs = [];
+        const result = await runSoundsCommand([], { env, log: (l) => logs.push(l), assets: FAKE_ASSETS, spawnFetch });
+        assert.equal(result.exitCode, 1);
+        assert.ok(logs.some((l) => l.includes('akari sounds')));
     });
 });
 

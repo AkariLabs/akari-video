@@ -40,8 +40,9 @@
 ## 使い方
 
 ```sh
-# 既定: AKARI Sounds（BGM/効果音/ジングル）を一括取得して登録
-# （ユーザー向けには `akari` 初回起動時の [Y/n] 1 問、または `akari sounds` が同じ処理を呼ぶ）
+# AKARI Sounds（BGM/効果音/ジングル）を一括取得して登録
+# （ユーザー向けには `akari sounds` が同じ処理を呼ぶ。2026-08-04 以降、初回起動での
+#   一括取得は行わない — 既定は asset-resolver による必要曲だけのオンデマンド取得）
 node packages/audio-library-setup/bin/fetch-akari-sounds.mjs
 
 # BGM 自動提案（tone → AKARI Sounds 候補 + ローカルパス。編集エージェントの素材計画用）
