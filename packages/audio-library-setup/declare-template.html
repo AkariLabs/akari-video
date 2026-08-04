@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>音源の宣言づけ（AKARI Video）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #14161a; color: #e8eaed; display: flex; height: 100vh; }
+  #side { width: 320px; min-width: 320px; overflow-y: auto; border-right: 1px solid #2a2e35; padding: 10px; }
+  #side h1 { font-size: 14px; margin: 4px 0 4px; }
+  #side .lead { font-size: 11.5px; opacity: .6; line-height: 1.6; margin: 0 0 8px; }
+  #filter { width: 100%; padding: 6px; margin-bottom: 8px; background: #1d2026; border: 1px solid #2a2e35; color: inherit; border-radius: 6px; }
+  .track { padding: 7px 8px; border-radius: 6px; cursor: pointer; font-size: 12.5px; line-height: 1.5; }
+  .track:hover { background: #1d2026; }
+  .track.active { background: #223046; }
+  .track .id { font-family: ui-monospace, monospace; opacity: .85; }
+  .badge { display: inline-block; font-size: 10.5px; padding: 0 6px; border-radius: 999px; margin-left: 4px; background: #2a2e35; }
+  .badge.done { background: #1d4c33; color: #9be8b8; }
+  .badge.pack { background: #2b2043; color: #d0b3fa; }
+  #main { flex: 1; display: flex; flex-direction: column; padding: 14px 18px; gap: 10px; overflow-y: auto; }
+  #title { font-size: 15px; font-weight: 600; }
+  #title small { font-weight: 400; opacity: .65; margin-left: 8px; }
+  #controls, #actions, #gridrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; }
+  button { background: #2a2e35; color: inherit; border: 1px solid #3a3f47; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 12.5px; }
+  button:hover { background: #333842; }
+  button.primary { background: #1f5eff33; border-color: #1f5eff; }
+  button.dirty { background: #7a3b0033; border-color: #ff9800; }
+  button:disabled { opacity: .4; cursor: default; }
+  .secbtn { border-width: 1px; border-style: solid; opacity: .65; }
+  .secbtn.active { opacity: 1; box-shadow: 0 0 0 2px #ffffff33 inset; font-weight: 600; }
+  input[type=number] { background: #1d2026; border: 1px solid #2a2e35; color: inherit; border-radius: 6px; padding: 4px 6px; width: 90px; }
+  select { background: #1d2026; border: 1px solid #2a2e35; color: inherit; border-radius: 6px; padding: 4px 6px; }
+  kbd { background: #2a2e35; border-radius: 4px; padding: 0 5px; font-family: ui-monospace, monospace; }
+  #wave-wrap { position: relative; background: #0e1013; border: 1px solid #2a2e35; border-radius: 8px; }
+  #overview { display: block; width: 100%; cursor: pointer; border-bottom: 1px solid #22262d; }
+  #sections-band { position: relative; height: 28px; overflow: hidden; }
+  .sec { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; font-size: 10.5px; padding: 2px 8px; cursor: pointer; color: #fff; white-space: nowrap; }
+  .sec .grip { position: absolute; top: 0; bottom: 0; width: 10px; cursor: ew-resize; }
+  .sec .grip.l { left: -5px; } .sec .grip.r { right: -5px; }
+  .sec .grip::after { content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px; width: 2px; background: #ffffffaa; border-radius: 2px; }
+  canvas#wave { display: block; width: 100%; cursor: crosshair; }
+  #zoominfo, #readout, #estimate { font-family: ui-monospace, monospace; font-size: 11.5px; opacity: .8; }
+  #status { font-size: 12.5px; min-height: 1.5em; color: #ffd166; }
+  #status.error { color: #ff8a8a; }
+  #howto { font-size: 12px; line-height: 1.9; background: #1a1d22; border: 1px solid #2a2e35; border-radius: 8px; padding: 10px 14px; }
+  #howto b { color: #9ec5fe; }
+  #howto details { opacity: .8; margin-top: 4px; }
+  #empty { opacity: .7; font-size: 13px; line-height: 1.9; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>音源の宣言づけ</h1>
+  <p class="lead">曲の「サビはどこか・キメはどこか・拍はどこか」を耳で付けます。付けた宣言は編集エージェントが読み、BGM の自動提案とサビ頭出しに使います。</p>
+  <input id="filter" placeholder="絞り込み（曲名 / 済 / 未）">
+  <div id="list"></div>
+</div>
+<div id="main">
+  <div id="title">← 左からトラックを選択</div>
+  <div id="empty" hidden></div>
+  <div id="controls">
+    <button id="play">▶ 再生</button>
+    <span id="readout">0.000s</span>
+    <label>速度 <select id="rate"><option>1</option><option>0.75</option><option>0.5</option></select></label>
+    <label>拍に吸着 <input type="checkbox" id="snap" checked></label>
+    <button id="zoom-out">ー</button><button id="zoom-in">＋</button><button id="zoom-fit">全体</button>
+    <span id="zoominfo"></span>
+    <button id="save" class="primary">保存</button>
+  </div>
+  <div id="actions">
+    <span>区間の種類:</span><span id="secbuttons"></span>
+    <button id="btn-del" disabled>選択を削除</button>
+    <button id="btn-loop" disabled>選択区間をループ</button>
+  </div>
+  <div id="gridrow">
+    <label>BPM <input type="number" id="bpm" step="0.1"></label>
+    <label>頭拍(s) <input type="number" id="offset" step="0.001"></label>
+    <button data-nudge="-0.01">-10ms</button><button data-nudge="0.01">+10ms</button>
+    <button id="btn-here">今の位置を頭拍に</button>
+    <button id="btn-tap">タップでテンポ</button>
+    <button id="btn-estimate">自動推定</button>
+    <button id="btn-click">🥁 クリック音で確認</button>
+    <label>拍子 <select id="tsig"><option>4/4</option><option>3/4</option><option>6/8</option></select></label>
+    <label>グリッド <input type="checkbox" id="showgrid" checked></label>
+    <span id="estimate"></span>
+  </div>
+  <div id="wave-wrap">
+    <canvas id="overview" height="34"></canvas>
+    <div id="sections-band"></div>
+    <canvas id="wave" height="170"></canvas>
+  </div>
+  <div id="status"></div>
+  <div id="howto">
+    <b>使い方</b>:<br>
+    1. トラックを選ぶと <b>BPM と頭拍を自動推定</b>します（推定なので ±1〜2 ずれることがあります）。
+    <b>「🥁 クリック音で確認」を ON にして再生</b>すると、宣言した拍でクリックが鳴ります。曲のキックとズレて聞こえたら BPM / 頭拍を直してください（「タップでテンポ」で曲に合わせて 4 回以上叩く手もあります）<br>
+    2. <b>区間（サビなど）= 波形を横にドラッグ</b>。上の「区間の種類」ボタンで選んだ種類になります。<b>サビ（drop）は必ず 1 つ</b>付けてください — これが「サビ頭から敷く」の値になります<br>
+    3. <b>ピン（キメの瞬間）= 波形をダブルクリック</b>（ピンの上でもう一度ダブルクリックで削除）。多くは要りません — 写真の入れ替えを決めたい拍だけで十分です<br>
+    4. <b>拡大・移動</b>: ピンチイン/アウト（ホイール・「ー ＋ 全体」ボタン）でズーム、2 本指で横スライド、上のミニマップをクリックでジャンプ<br>
+    5. <b>調整</b>: 色帯の左右の白い持ち手をドラッグで伸縮 ／ ピンはドラッグで移動 ／ 色帯クリックで選択 → 種類変更・ループ再生・削除<br>
+    6. 「保存」で <code id="declpath">declarations.json</code> に書き込みます<br>
+    <details><summary>キーボード近道（英数入力のときだけ。日本語入力 ON だと効きません）</summary>
+      <kbd>Space</kbd> 再生/停止 ／ <kbd>Enter</kbd> or <kbd>H</kbd> 再生ヘッドにピン ／
+      <kbd>[</kbd> 区間ここから → <kbd>]</kbd> ここまで確定 ／
+      選択ピン <kbd>←</kbd><kbd>→</kbd> ±10ms（<kbd>Shift</kbd> ±1ms）／
+      <kbd>Backspace</kbd> 削除 ／ <kbd>L</kbd> ループ ／ <kbd>T</kbd> タップ
+    </details>
+  </div>
+</div>
+<script>
+const $ = (s) => document.querySelector(s);
+const SEC_DEFS = [
+  ['intro', '前奏・導入', '#4f8cff'],
+  ['build', '盛り上げ', '#c77dff'],
+  ['drop', 'サビ・見せ場', '#ff5d73'],
+  ['outro', '後奏・締め', '#3ddc97'],
+  ['bridge', '間奏', '#ffd166'],
+  ['break', '静寂', '#9aa4b2'],
+];
+const SEC_COLORS = Object.fromEntries(SEC_DEFS.map(([v, , c]) => [v, c]));
+const SEC_NAMES = Object.fromEntries(SEC_DEFS.map(([v, n]) => [v, n]));
+const PEAK_RES = 1000;
+const MIN_VIEW = 1.5;
+
+const state = {
+  tracks: [], declarations: {}, current: null, minipeaks: null, duration: 0,
+  view: { start: 0, end: 1 }, decl: null, dirty: false,
+  selPin: -1, selSec: -1, pendingStart: null, loopSec: null, curLabel: 'drop',
+  drag: null, taps: [], estimated: false, click: null,
+};
+const audio = new Audio();
+const canvas = $('#wave'), band = $('#sections-band'), ov = $('#overview');
+const ctx2d = canvas.getContext('2d');
+const ovctx = ov.getContext('2d');
+
+async function boot() {
+  const data = await (await fetch('/api/tracks')).json();
+  state.tracks = data.tracks;
+  state.declarations = data.declarations ?? {};
+  $('#declpath').textContent = data.declarations_path;
+  if (state.tracks.length === 0) {
+    $('#empty').hidden = false;
+    $('#empty').innerHTML = `音源が見つかりませんでした（${data.library_root}）。<br>` +
+      '先に音源を入れてください: <code>akari sounds</code>（公式ライブラリの一括ダウンロード）、' +
+      'または自分の曲を <code>&lt;ライブラリ&gt;/&lt;曲名&gt;/&lt;曲名&gt;.mp3</code> の形で置いてください。';
+  }
+  renderList();
+}
+function renderList() {
+  const q = $('#filter').value.trim();
+  const list = $('#list'); list.innerHTML = '';
+  for (const t of state.tracks) {
+    const d = state.declarations[t.id];
+    const done = Boolean(d && ((d.hit_points ?? []).length || (d.sections ?? []).length));
+    const fromPack = Boolean(d && d.source && d.source !== 'declare-audio');
+    const hay = `${t.id} ${t.pack} ${done ? '済' : '未'}`;
+    if (q && !hay.includes(q)) continue;
+    const div = document.createElement('div');
+    div.className = 'track' + (state.current?.id === t.id ? ' active' : '');
+    div.innerHTML = `<span class="id">${t.id}</span>` +
+      (done ? '<span class="badge done">宣言済</span>' : '') +
+      (fromPack ? '<span class="badge pack">パック由来</span>' : '');
+    div.onclick = () => selectTrack(t);
+    list.appendChild(div);
+  }
+}
+
+async function selectTrack(t) {
+  audio.pause();
+  Object.assign(state, { current: t, selPin: -1, selSec: -1, pendingStart: null, loopSec: null, drag: null, taps: [], estimated: false });
+  renderList(); syncActionButtons();
+  $('#title').innerHTML = `${t.id}<small>${t.title}${t.when_to_use ? ' ／ ' + t.when_to_use : ''}</small>`;
+  setStatus('読み込み中…');
+  const d = state.declarations[t.id] ?? {};
+  state.decl = {
+    bpm: d.bpm ?? null,
+    beat_offset_s: d.beat_offset_s ?? 0,
+    time_signature: d.time_signature ?? '4/4',
+    sections: (d.sections ?? []).map((s) => ({ ...s })),
+    hit_points: (d.hit_points ?? []).slice(),
+    note: d.note ?? '',
+  };
+  syncGridInputsFromState();
+  $('#estimate').textContent = d.source ? `保存済み（${d.source}${d.verified_at ? ' / ' + d.verified_at.slice(0, 10) : ''}）` : '';
+  setDirty(false);
+
+  audio.src = `/media/${t.media}`;
+  if (state.click) state.click.scheduledUntil = 0;
+  const buf = await (await fetch(`/media/${t.media}`)).arrayBuffer();
+  const actx = new (window.AudioContext || window.webkitAudioContext)();
+  const decoded = await actx.decodeAudioData(buf);
+  actx.close();
+  state.duration = decoded.duration;
+  computeMinipeaks(decoded);
+  setupCanvas();
+  state.view = { start: 0, end: state.duration };
+  if (state.decl.bpm === null) {
+    estimateGrid();
+  } else {
+    setStatus(`読み込み完了（${state.duration.toFixed(2)}s）— 拡大して拍が合っているか確認してください`);
+  }
+  renderBand(); draw(); updateZoomInfo();
+}
+
+function computeMinipeaks(decoded) {
+  const n = Math.ceil(decoded.duration * PEAK_RES);
+  const peaks = new Float32Array(n);
+  const ch0 = decoded.getChannelData(0);
+  const ch1 = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : ch0;
+  const per = decoded.sampleRate / PEAK_RES;
+  for (let i = 0; i < n; i++) {
+    let max = 0;
+    const base = Math.floor(i * per), endIdx = Math.min(Math.floor((i + 1) * per), ch0.length);
+    for (let j = base; j < endIdx; j += 8) {
+      const v = Math.max(Math.abs(ch0[j] || 0), Math.abs(ch1[j] || 0));
+      if (v > max) max = v;
+    }
+    peaks[i] = max;
+  }
+  state.minipeaks = peaks;
+
+  // オンセット包絡（200Hz）: 拍推定用。波形表示用のピーク（最大値プーリング済み）を
+  // 使い回すと立ち上がりが鈍って BPM が数 % ずれるので、生サンプルから RMS を取り直し、
+  // 対数圧縮してから半波整流の差分にする（打点の立ち上がりだけが残る）。
+  const ONSET_RATE = 200;
+  const hopSamples = Math.max(1, Math.round(decoded.sampleRate / ONSET_RATE));
+  const frames = Math.floor(ch0.length / hopSamples);
+  const env = new Float32Array(frames);
+  for (let i = 0; i < frames; i++) {
+    let sum = 0, count = 0;
+    for (let j = i * hopSamples; j < (i + 1) * hopSamples; j += 2) {
+      const v = (ch0[j] + ch1[j]) * 0.5;
+      sum += v * v; count += 1;
+    }
+    env[i] = Math.log1p(Math.sqrt(sum / Math.max(1, count)) * 40);
+  }
+  const onset = new Float32Array(frames);
+  for (let i = 1; i < frames; i++) onset[i] = Math.max(0, env[i] - env[i - 1]);
+  state.onset = onset;
+  state.onsetRate = ONSET_RATE;
+}
+
+/** オンセット包絡の自己相関から BPM と頭拍を推定する（推定であることを画面に明示する）。 */
+function estimateGrid() {
+  const onset = state.onset, rate = state.onsetRate;
+  if (!onset || onset.length < rate * 4) { setStatus('推定できる長さがありません — BPM を手で入れてください'); return; }
+  // 1 拍ぶんの自己相関だけだと、キックの弱い曲（lofi 等）でピークが鈍って 2 BPM 級の
+  // ずれが出る。1〜4 拍先の相関を 1/k 重みで足す櫛形にして山を立たせ、粗探索 → 微探索の
+  // 2 段で詰める（粗 0.5 BPM → その周辺 ±1.5 BPM を 0.05 BPM 刻み）。
+  const scoreOf = (bpm) => {
+    const beat = 60 / bpm * rate;
+    if (beat < 2 || beat * 2 >= onset.length) return -1;
+    let total = 0;
+    for (let k = 1; k <= 4; k++) {
+      const lag = Math.round(beat * k);
+      if (lag >= onset.length) break;
+      let sum = 0;
+      for (let i = 0; i + lag < onset.length; i++) sum += onset[i] * onset[i + lag];
+      total += (sum / (onset.length - lag)) / k;
+    }
+    // 80〜160 を軽く優遇（倍取り・半分取りの誤検出を抑える）
+    return total * (bpm >= 80 && bpm <= 160 ? 1.08 : 1);
+  };
+  let best = { bpm: null, score: 0 };
+  for (let bpm = 60; bpm <= 200; bpm += 0.5) {
+    const score = scoreOf(bpm);
+    if (score > best.score) best = { bpm, score };
+  }
+  if (!best.bpm) { setStatus('拍を推定できませんでした — BPM を手で入れてください'); return; }
+  for (let bpm = best.bpm - 1.5; bpm <= best.bpm + 1.5; bpm += 0.05) {
+    const score = scoreOf(bpm);
+    if (score > best.score) best = { bpm: Math.round(bpm * 100) / 100, score };
+  }
+  const beatSamples = 60 / best.bpm * rate;
+  let bestPhase = { offset: 0, score: -1 };
+  for (let p = 0; p < Math.round(beatSamples); p++) {
+    let score = 0;
+    for (let i = p; i < onset.length; i += beatSamples) score += onset[Math.round(i)] ?? 0;
+    if (score > bestPhase.score) bestPhase = { offset: p / rate, score };
+  }
+  state.decl.bpm = Math.round(best.bpm * 10) / 10;
+  state.decl.beat_offset_s = Math.round(bestPhase.offset * 1000) / 1000;
+  state.estimated = true;
+  syncGridInputsFromState();
+  $('#estimate').textContent = `自動推定: ♩${state.decl.bpm} / 頭拍 ${state.decl.beat_offset_s}s`;
+  setStatus('BPM と頭拍を推定しました（推定です）— 拡大して、グリッド線がキックと合っているか耳で確かめてください');
+  draw();
+}
+
+function setupCanvas() {
+  const width = canvas.clientWidth || 1200;
+  canvas.width = width * devicePixelRatio;
+  ov.width = width * devicePixelRatio;
+}
+function cssW() { return canvas.width / devicePixelRatio; }
+function viewLen() { return state.view.end - state.view.start; }
+function xOf(sec) { return (sec - state.view.start) / viewLen() * cssW(); }
+function secOf(x) { return Math.min(Math.max(state.view.start + x / cssW() * viewLen(), 0), state.duration); }
+function snapSec(sec, force) {
+  if (!$('#snap').checked || force === false) return sec;
+  const bpm = Number($('#bpm').value);
+  if (!bpm) return sec;
+  const beat = 60 / bpm, off = Number($('#offset').value) || 0;
+  return Math.max(0, Math.round((sec - off) / beat) * beat + off);
+}
+function r3(v) { return Math.round(v * 1000) / 1000; }
+function createBounds(d) {
+  const rawA = Math.min(d.rawStart, d.rawCur), rawB = Math.max(d.rawStart, d.rawCur);
+  const a = snapSec(rawA, d.free ? false : undefined), b = snapSec(rawB, d.free ? false : undefined);
+  return b - a >= 0.1 ? [a, b] : [rawA, rawB];
+}
+
+function setView(start, len) {
+  len = Math.min(Math.max(len, MIN_VIEW), state.duration);
+  start = Math.max(0, Math.min(start, state.duration - len));
+  state.view = { start, end: start + len };
+  renderBand(); draw(); updateZoomInfo();
+}
+function zoomAround(anchorSec, factor) {
+  const len = viewLen() * factor;
+  const ratio = (anchorSec - state.view.start) / viewLen();
+  setView(anchorSec - len * ratio, len);
+}
+function updateZoomInfo() {
+  if (!state.duration) { $('#zoominfo').textContent = ''; return; }
+  const zoomX = state.duration / viewLen();
+  $('#zoominfo').textContent = zoomX < 1.01 ? `全体 ${state.duration.toFixed(1)}s`
+    : `×${zoomX.toFixed(1)} — ${state.view.start.toFixed(1)}〜${state.view.end.toFixed(1)}s / 全${state.duration.toFixed(1)}s`;
+}
+$('#wave-wrap').addEventListener('wheel', (e) => {
+  if (!state.decl) return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const anchor = secOf(e.clientX - rect.left);
+  if (e.ctrlKey || Math.abs(e.deltaY) >= Math.abs(e.deltaX)) zoomAround(anchor, Math.exp(e.deltaY * (e.ctrlKey ? 0.02 : 0.002)));
+  else setView(state.view.start + e.deltaX * viewLen() / cssW(), viewLen());
+}, { passive: false });
+
+function draw() {
+  if (!state.minipeaks) return;
+  const W = canvas.width, H = canvas.height, dpr = devicePixelRatio;
+  const vs = state.view.start, vl = viewLen();
+  ctx2d.clearRect(0, 0, W, H);
+  const bpm = Number($('#bpm').value);
+  if ($('#showgrid').checked && bpm > 0) {
+    const beat = 60 / bpm, off = Number($('#offset').value) || 0;
+    const per = Number(($('#tsig').value || '4/4').split('/')[0]);
+    const i0 = Math.max(0, Math.floor((vs - off) / beat));
+    for (let i = i0, t = off + i0 * beat; t < state.view.end; i++, t = off + i * beat) {
+      const x = (t - vs) / vl * W;
+      ctx2d.fillStyle = i % per === 0 ? '#3a4a5c' : '#242a33';
+      ctx2d.fillRect(x, 0, i % per === 0 ? 2 : 1, H);
+    }
+  }
+  ctx2d.fillStyle = '#5aa2e8';
+  const mid = H / 2, binsPerPx = vl * PEAK_RES / W;
+  for (let i = 0; i < W; i++) {
+    const a = Math.floor((vs + i / W * vl) * PEAK_RES);
+    const b = Math.max(a + 1, Math.floor(a + binsPerPx));
+    let max = 0;
+    for (let j = a; j < b && j < state.minipeaks.length; j++) if (state.minipeaks[j] > max) max = state.minipeaks[j];
+    const h = Math.max(1, max * (H * 0.92));
+    ctx2d.fillRect(i, mid - h / 2, 1, h);
+  }
+  if (state.drag?.mode === 'create') {
+    const [a, b] = createBounds(state.drag);
+    ctx2d.fillStyle = (SEC_COLORS[state.curLabel] || '#9aa4b2') + '44';
+    ctx2d.fillRect((a - vs) / vl * W, 0, (b - a) / vl * W, H);
+  }
+  if (state.pendingStart !== null) {
+    ctx2d.fillStyle = '#ffd16688';
+    ctx2d.fillRect((state.pendingStart - vs) / vl * W, 0, 2 * dpr, H);
+  }
+  state.decl.hit_points.forEach((t, idx) => {
+    if (t < vs - 0.001 || t > state.view.end + 0.001) return;
+    const x = (t - vs) / vl * W;
+    ctx2d.fillStyle = idx === state.selPin ? '#ffde59' : '#ff9800';
+    ctx2d.fillRect(x - dpr, 0, 2 * dpr, H);
+    ctx2d.beginPath();
+    ctx2d.moveTo(x - 6 * dpr, 0); ctx2d.lineTo(x + 6 * dpr, 0); ctx2d.lineTo(x, 9 * dpr);
+    ctx2d.closePath(); ctx2d.fill();
+  });
+  ctx2d.fillStyle = '#ffffff';
+  ctx2d.fillRect((audio.currentTime - vs) / vl * W, 0, 1.5 * dpr, H);
+}
+function drawOverview() {
+  if (!state.minipeaks) return;
+  const W = ov.width, H = ov.height, n = state.minipeaks.length;
+  ovctx.clearRect(0, 0, W, H);
+  ovctx.fillStyle = '#3f4a58';
+  const mid = H / 2, step = Math.max(1, Math.floor(n / W));
+  for (let i = 0; i < W; i++) {
+    let max = 0;
+    const base = Math.floor(i / W * n);
+    for (let j = base; j < base + step && j < n; j++) if (state.minipeaks[j] > max) max = state.minipeaks[j];
+    ovctx.fillRect(i, mid - Math.max(1, max * (H * 0.8)) / 2, 1, Math.max(1, max * (H * 0.8)));
+  }
+  for (const s of state.decl?.sections ?? []) {
+    ovctx.fillStyle = SEC_COLORS[s.label] || '#9aa4b2';
+    ovctx.fillRect(s.start_sec / state.duration * W, H - 4, Math.max(2, (s.end_sec - s.start_sec) / state.duration * W), 3);
+  }
+  const a = state.view.start / state.duration * W, b = state.view.end / state.duration * W;
+  ovctx.fillStyle = '#ffffff18'; ovctx.fillRect(a, 0, b - a, H);
+  ovctx.strokeStyle = '#9ec5fe'; ovctx.lineWidth = 1.5;
+  ovctx.strokeRect(a + 0.5, 0.5, Math.max(2, b - a) - 1, H - 1);
+  ovctx.fillStyle = '#ffffffcc';
+  ovctx.fillRect(audio.currentTime / state.duration * W, 0, 1.5, H);
+}
+ov.addEventListener('mousedown', (e) => { if (state.decl) { e.preventDefault(); state.drag = { mode: 'view' }; moveViewTo(e); } });
+function moveViewTo(e) {
+  const rect = ov.getBoundingClientRect();
+  setView((e.clientX - rect.left) / rect.width * state.duration - viewLen() / 2, viewLen());
+}
+
+function renderBand() {
+  band.innerHTML = '';
+  if (!state.decl) return;
+  const w = cssW();
+  state.decl.sections.forEach((s, idx) => {
+    const left = xOf(s.start_sec), right = xOf(s.end_sec);
+    if (right < 0 || left > w) return;
+    const el = document.createElement('div');
+    const color = SEC_COLORS[s.label] || '#9aa4b2';
+    el.className = 'sec';
+    el.style.cssText = `left:${left}px;width:${Math.max(6, right - left)}px;background:${color}${idx === state.selSec ? 'cc' : '55'};border:1px solid ${color};`;
+    el.textContent = `${SEC_NAMES[s.label] || s.label} ${s.start_sec.toFixed(1)}–${s.end_sec.toFixed(1)}`;
+    el.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      state.selSec = idx; state.selPin = -1;
+      syncActionButtons(); renderBand(); draw();
+      setStatus(`区間を選択: ${SEC_NAMES[s.label] || s.label} — 種類ボタンで変更 / 持ち手で伸縮 / ループ・削除`);
+    });
+    for (const edge of ['start', 'end']) {
+      const grip = document.createElement('div');
+      grip.className = `grip ${edge === 'start' ? 'l' : 'r'}`;
+      grip.title = 'ドラッグで伸縮';
+      grip.addEventListener('mousedown', (e) => {
+        e.stopPropagation(); e.preventDefault();
+        state.selSec = idx; state.selPin = -1;
+        state.drag = { mode: 'resize', idx, edge };
+        syncActionButtons(); renderBand();
+      });
+      el.appendChild(grip);
+    }
+    band.appendChild(el);
+  });
+}
+
+function setStatus(msg, isError) { const el = $('#status'); el.textContent = msg; el.className = isError ? 'error' : ''; }
+function setDirty(dirty) {
+  state.dirty = dirty;
+  $('#save').className = dirty ? 'dirty' : 'primary';
+  $('#save').textContent = dirty ? '保存（未保存あり）' : '保存';
+}
+function touch() { setDirty(true); renderBand(); draw(); }
+function syncActionButtons() {
+  $('#btn-del').disabled = state.selPin < 0 && state.selSec < 0;
+  $('#btn-loop').disabled = state.selSec < 0;
+}
+function syncGridInputsFromState() {
+  $('#bpm').value = state.decl.bpm ?? '';
+  $('#offset').value = state.decl.beat_offset_s ?? 0;
+  $('#tsig').value = state.decl.time_signature ?? '4/4';
+}
+function syncGridInputs() {
+  state.decl.bpm = Number($('#bpm').value) || null;
+  state.decl.beat_offset_s = Number($('#offset').value) || 0;
+  state.decl.time_signature = $('#tsig').value;
+}
+
+function actPlayPause() { if (state.decl) (audio.paused ? audio.play() : audio.pause()); }
+function addPinAt(sec) {
+  const t = r3(snapSec(sec));
+  if (!state.decl.hit_points.includes(t)) state.decl.hit_points.push(t);
+  state.decl.hit_points.sort((a, b) => a - b);
+  state.selPin = state.decl.hit_points.indexOf(t); state.selSec = -1;
+  syncActionButtons(); touch();
+  setStatus(`ピンを追加: ${t.toFixed(3)}s（ドラッグで微調整 / もう一度ダブルクリックで削除）`);
+}
+function addSection(a, b, label) {
+  state.decl.sections.push({ label, start_sec: Math.round(a * 100) / 100, end_sec: Math.round(b * 100) / 100 });
+  state.decl.sections.sort((x, y) => x.start_sec - y.start_sec);
+  // 作った区間は**選択したままにしない**。選択が残っていると、次の区間の種類を選ぶつもりで
+  // 種類ボタンを押したときに「今作った区間の種類変更」になってしまう（実機で踏んだ罠）。
+  state.selSec = -1; state.selPin = -1;
+  syncActionButtons(); touch();
+  setStatus(`区間を追加: ${SEC_NAMES[label]}（${a.toFixed(2)}–${b.toFixed(2)}s）— 種類を変える・ループ・削除は色帯をクリックしてから`);
+}
+function actDelete() {
+  if (state.selPin >= 0) {
+    const t = state.decl.hit_points.splice(state.selPin, 1)[0];
+    state.selPin = -1; syncActionButtons(); touch(); setStatus(`ピンを削除: ${t}s`);
+  } else if (state.selSec >= 0) {
+    const s = state.decl.sections.splice(state.selSec, 1)[0];
+    state.selSec = -1; state.loopSec = null; syncActionButtons(); touch(); setStatus(`区間を削除: ${SEC_NAMES[s.label] || s.label}`);
+  }
+}
+function actLoop() {
+  if (state.selSec < 0) return;
+  state.loopSec = state.loopSec === state.selSec ? null : state.selSec;
+  const s = state.decl.sections[state.selSec];
+  if (state.loopSec !== null) { audio.currentTime = s.start_sec; audio.play(); } else { audio.pause(); }
+  $('#btn-loop').textContent = state.loopSec !== null ? 'ループ停止' : '選択区間をループ';
+  setStatus(state.loopSec !== null ? `ループ中: ${SEC_NAMES[s.label] || s.label} ${s.start_sec}–${s.end_sec}s` : 'ループ解除');
+}
+function setCurLabel(label) {
+  state.curLabel = label;
+  document.querySelectorAll('.secbtn').forEach((b) => b.classList.toggle('active', b.dataset.label === label));
+  if (state.selSec >= 0) {
+    state.decl.sections[state.selSec].label = label;
+    touch(); setStatus(`選択中の区間を「${SEC_NAMES[label]}」に変更しました`);
+  } else {
+    setStatus(`区間の種類: ${SEC_NAMES[label]} — 波形を横ドラッグするとこの種類になります`);
+  }
+}
+/**
+ * 宣言した拍でクリック音を鳴らす（拍グリッドの耳での答え合わせ）。
+ * 曲の再生位置（media element）を時計に、少し先の拍を WebAudio へ先出しで予約する。
+ * 小節頭だけ高い音にして、拍子（4/4 等）の取り方も耳で確認できるようにする。
+ */
+function toggleClick() {
+  if (state.click) { stopClick(); return; }
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  state.click = { ctx, scheduledUntil: 0, count: 0 };
+  $('#btn-click').classList.add('secbtn', 'active');
+  setStatus('クリック音: ON — 再生して、曲のキックと合っているか聴いてください（ズレていたら BPM / 頭拍を直す）');
+}
+function stopClick() {
+  if (!state.click) return;
+  state.click.ctx.close();
+  state.click = null;
+  $('#btn-click').classList.remove('active');
+  setStatus('クリック音: OFF');
+}
+function scheduleClicks() {
+  const click = state.click;
+  if (!click || audio.paused) return;
+  const bpm = Number($('#bpm').value);
+  if (!bpm) return;
+  const beat = 60 / bpm, off = Number($('#offset').value) || 0;
+  const per = Number(($('#tsig').value || '4/4').split('/')[0]);
+  const rate = audio.playbackRate || 1;
+  const now = audio.currentTime;
+  const horizon = now + 0.3;
+  let index = Math.max(0, Math.ceil((Math.max(now, click.scheduledUntil) - off) / beat));
+  for (let t = off + index * beat; t < horizon; index += 1, t = off + index * beat) {
+    if (t < now) continue;
+    const when = click.ctx.currentTime + (t - now) / rate;
+    const osc = click.ctx.createOscillator();
+    const gain = click.ctx.createGain();
+    osc.frequency.value = index % per === 0 ? 1600 : 1000;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(index % per === 0 ? 0.35 : 0.18, when + 0.001);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.045);
+    osc.connect(gain).connect(click.ctx.destination);
+    osc.start(when);
+    osc.stop(when + 0.06);
+    click.count += 1;
+    click.scheduledUntil = t + 0.0001;
+  }
+}
+
+function actTap() {
+  const now = performance.now() / 1000;
+  state.taps = state.taps.filter((t) => now - t < 3).concat(now);
+  if (state.taps.length < 4) { setStatus(`タップ ${state.taps.length} 回目… 曲に合わせて 4 回以上叩いてください`); return; }
+  const spans = state.taps.slice(1).map((t, i) => t - state.taps[i]);
+  const mean = spans.reduce((a, b) => a + b, 0) / spans.length;
+  const bpm = Math.round(60 / mean * 10) / 10;
+  if (bpm < 20 || bpm > 300) { setStatus('テンポを取れませんでした — もう一度', true); state.taps = []; return; }
+  $('#bpm').value = bpm;
+  // 最後のタップ時刻に対応する再生位置を頭拍にする（再生中のみ意味がある）
+  if (!audio.paused) $('#offset').value = r3(Math.max(0, audio.currentTime % (60 / bpm)));
+  syncGridInputs(); touch();
+  $('#estimate').textContent = `タップ: ♩${bpm}（${state.taps.length} 回）`;
+  setStatus(`タップからテンポを取りました: ♩${bpm}`);
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  if (!state.decl) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const near = state.decl.hit_points.findIndex((t) => Math.abs(xOf(t) - x) < 5);
+  if (near >= 0) {
+    state.selPin = near; state.selSec = -1; state.drag = { mode: 'pin', idx: near };
+    syncActionButtons(); renderBand(); draw();
+    return;
+  }
+  // 何もない所を触ったら選択を解く（種類ボタンが「次に作る区間の種類」に戻る）
+  state.selSec = -1; syncActionButtons(); renderBand();
+  state.drag = { mode: 'maybe-seek', x, sec: secOf(x) };
+});
+window.addEventListener('mousemove', (e) => {
+  if (!state.drag || !state.decl) return;
+  if (state.drag.mode === 'view') { moveViewTo(e); return; }
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  if (state.drag.mode === 'pin') {
+    state.decl.hit_points[state.drag.idx] = r3(snapSec(secOf(x), e.shiftKey ? false : undefined));
+    setDirty(true); draw(); return;
+  }
+  if (state.drag.mode === 'maybe-seek') {
+    if (Math.abs(x - state.drag.x) > 5) state.drag = { mode: 'create', rawStart: state.drag.sec, rawCur: secOf(x), free: e.shiftKey };
+    return;
+  }
+  if (state.drag.mode === 'create') { state.drag.rawCur = secOf(x); state.drag.free = e.shiftKey; draw(); return; }
+  if (state.drag.mode === 'resize') {
+    const s = state.decl.sections[state.drag.idx];
+    const sec = snapSec(secOf(x), e.shiftKey ? false : undefined);
+    if (state.drag.edge === 'start') s.start_sec = Math.round(Math.min(sec, s.end_sec - 0.1) * 100) / 100;
+    else s.end_sec = Math.round(Math.max(sec, s.start_sec + 0.1) * 100) / 100;
+    setDirty(true); renderBand(); draw();
+  }
+});
+window.addEventListener('mouseup', () => {
+  if (!state.drag || !state.decl) { state.drag = null; return; }
+  const d = state.drag; state.drag = null;
+  if (d.mode === 'pin') { state.decl.hit_points.sort((a, b) => a - b); touch(); }
+  else if (d.mode === 'maybe-seek') { audio.currentTime = d.sec; state.selPin = -1; syncActionButtons(); draw(); }
+  else if (d.mode === 'create') {
+    const [a, b] = createBounds(d);
+    if (b - a >= 0.1) addSection(a, b, state.curLabel); else draw();
+  } else if (d.mode === 'resize') {
+    const s = state.decl.sections[d.idx];
+    state.decl.sections.sort((x, y) => x.start_sec - y.start_sec);
+    state.selSec = state.decl.sections.indexOf(s);
+    syncActionButtons(); touch();
+    setStatus(`区間を調整: ${SEC_NAMES[s.label] || s.label} ${s.start_sec}–${s.end_sec}s`);
+  }
+});
+canvas.addEventListener('dblclick', (e) => {
+  if (!state.decl) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const near = state.decl.hit_points.findIndex((t) => Math.abs(xOf(t) - x) < 6);
+  if (near >= 0) {
+    const t = state.decl.hit_points.splice(near, 1)[0];
+    state.selPin = -1; syncActionButtons(); touch(); setStatus(`ピンを削除: ${t}s`);
+    return;
+  }
+  addPinAt(secOf(x));
+});
+
+window.addEventListener('keydown', (e) => {
+  if (!state.decl) return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (e.isComposing || e.key === 'Process') {
+    setStatus('日本語入力（IME）が ON のようです — 英数に切り替えるとキーボード近道が効きます（マウス操作はそのまま使えます）');
+    return;
+  }
+  if (e.code === 'Space') { e.preventDefault(); actPlayPause(); }
+  else if (e.key === 'Enter' || e.key === 'h' || e.key === 'H') { e.preventDefault(); addPinAt(audio.currentTime); }
+  else if (e.key === 't' || e.key === 'T') { actTap(); }
+  else if (e.key === '[') { state.pendingStart = snapSec(audio.currentTime); draw(); setStatus(`区間の開始: ${state.pendingStart.toFixed(2)}s — 終わりで ] を押すと確定`); }
+  else if (e.key === ']' && state.pendingStart !== null) {
+    const end = snapSec(audio.currentTime);
+    if (end > state.pendingStart) addSection(state.pendingStart, end, state.curLabel);
+    state.pendingStart = null; draw();
+  }
+  else if (e.key === 'Backspace') { e.preventDefault(); actDelete(); }
+  else if (e.key === 'l' || e.key === 'L') { actLoop(); }
+  else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && state.selPin >= 0) {
+    e.preventDefault();
+    const delta = (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 0.001 : 0.01);
+    state.decl.hit_points[state.selPin] = r3(state.decl.hit_points[state.selPin] + delta);
+    touch();
+  }
+});
+
+// シーク・トラック切替の直後は、先出し済みのクリック予約を捨てて取り直す
+audio.addEventListener('seeking', () => { if (state.click) state.click.scheduledUntil = 0; });
+audio.addEventListener('timeupdate', () => {
+  if (state.loopSec !== null) {
+    const s = state.decl.sections[state.loopSec];
+    if (s && (audio.currentTime >= s.end_sec || audio.currentTime < s.start_sec - 0.2)) audio.currentTime = s.start_sec;
+  }
+});
+(function tick() {
+  if (state.minipeaks) {
+    if (!audio.paused && viewLen() < state.duration - 0.01 && (audio.currentTime > state.view.end || audio.currentTime < state.view.start)) {
+      setView(audio.currentTime - viewLen() * 0.1, viewLen());
+    }
+    draw(); drawOverview(); scheduleClicks();
+    $('#readout').textContent = `${audio.currentTime.toFixed(3)}s`;
+    $('#play').textContent = audio.paused ? '▶ 再生' : '⏸ 停止';
+  }
+  requestAnimationFrame(tick);
+})();
+
+function wireButton(id, fn) { $(id).addEventListener('click', (e) => { fn(); e.currentTarget.blur(); }); }
+wireButton('#play', actPlayPause);
+wireButton('#btn-del', actDelete);
+wireButton('#btn-loop', actLoop);
+wireButton('#btn-tap', actTap);
+wireButton('#btn-click', toggleClick);
+wireButton('#btn-estimate', () => { if (state.decl) estimateGrid(); });
+wireButton('#btn-here', () => {
+  if (!state.decl) return;
+  $('#offset').value = r3(audio.currentTime % (60 / (Number($('#bpm').value) || 120)));
+  syncGridInputs(); touch();
+  setStatus(`頭拍を現在位置に合わせました: ${$('#offset').value}s`);
+});
+wireButton('#zoom-in', () => zoomAround(audio.currentTime || (state.view.start + viewLen() / 2), 0.5));
+wireButton('#zoom-out', () => zoomAround(state.view.start + viewLen() / 2, 2));
+wireButton('#zoom-fit', () => setView(0, state.duration));
+$('#rate').onchange = (e) => { audio.playbackRate = Number($('#rate').value); e.target.blur(); };
+for (const id of ['bpm', 'offset', 'tsig']) $('#' + id).addEventListener('change', () => { syncGridInputs(); touch(); });
+$('#showgrid').onchange = () => draw();
+document.querySelectorAll('[data-nudge]').forEach((b) => b.addEventListener('click', (e) => {
+  $('#offset').value = (Number($('#offset').value) + Number(b.dataset.nudge)).toFixed(3);
+  syncGridInputs(); touch(); e.currentTarget.blur();
+}));
+$('#filter').oninput = renderList;
+for (const [value, name, color] of SEC_DEFS) {
+  const b = document.createElement('button');
+  b.className = 'secbtn' + (value === state.curLabel ? ' active' : '');
+  b.dataset.label = value; b.style.borderColor = color; b.style.background = color + '22';
+  b.textContent = name;
+  b.addEventListener('click', (e) => { setCurLabel(value); e.currentTarget.blur(); });
+  $('#secbuttons').appendChild(b);
+}
+
+$('#save').addEventListener('click', async (e) => {
+  e.currentTarget.blur();
+  if (!state.current) return;
+  syncGridInputs();
+  const res = await fetch('/api/declaration', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: state.current.id, duration_sec: state.duration, declaration: state.decl }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (res.ok) {
+    setDirty(false);
+    state.declarations[state.current.id] = body.declaration;
+    renderList();
+    const hasDrop = state.decl.sections.some((s) => s.label === 'drop');
+    setStatus(`保存しました（区間 ${state.decl.sections.length} / ピン ${state.decl.hit_points.length}）`
+      + (hasDrop ? '' : ' — サビ（drop）が未指定です。付けると「サビ頭から敷く」が使えます'));
+  } else {
+    setStatus(`保存できません: ${(body.problems ?? [body.error ?? '不明なエラー']).join(' / ')}`, true);
+  }
+});
+
+boot();
+</script>
+</body>
+</html>

@@ -15,6 +15,10 @@
 - **BGM の選曲は自動提案 CLI が起点**: `node packages/audio-library-setup/bin/suggest-bgm.mjs --tone <トーン>`
   （表現選定と同じ 8 語彙 × 系統対応表 × 体感 BPM の決定論ランキング。編集フローでの使い方:
   [`skills/edit-plan/report-guide.md`](../../skills/edit-plan/report-guide.md) §素材計画）
+- **宣言（サビ・キメ・拍）は自分で付けられる**: `node packages/audio-library-setup/bin/declare-helper.mjs`
+  → ブラウザのタイムライン画面で耳で付けて `<ライブラリ>/declarations.json` へ保存
+  （スキル: [`skills/declare-audio/`](../../skills/declare-audio/SKILL.md)）。
+  AKARI Sounds の曲は AKARI Store の宣言パック（耳検証済み・版ごと買い切り）でも入る
 - **効果音・ジングルは「場面の意味」から**: `node packages/audio-library-setup/bin/suggest-sfx.mjs --meaning <意味>`
   （14 語の意味語彙 → 宣言表。AKARI Sounds に無い意味は本カタログの外部補完エントリへ誘導。
   対応表の耳レビューは `bin/review-sfx-mapping.mjs`）
