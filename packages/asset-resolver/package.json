@@ -1,0 +1,16 @@
+{
+  "name": "@akari-video/asset-resolver",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "無料素材の参照配布 + オンデマンド取得 resolver。akari-oss.app/assets のカタログとエンタイトルメントを合成し、使った素材だけを ~/.akari/assets/ へ取得・sha256 検証・validate-asset 検証してから登録する。外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ）。",
+  "bin": {
+    "akari-assets": "bin/akari-assets.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

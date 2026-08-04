@@ -1,0 +1,151 @@
+// resolve(id): 「使った素材だけをオンデマンドで取得する」の核。
+//
+// キャッシュヒット → 即パスを返す。未取得 → 全ファイルを一時ディレクトリへ実体化 →
+// sha256 検証 → （meta.json を持つ素材は）validate-asset で契約検証 →
+// 全部通ってから ~/.akari/assets/<category>/<id>/ へ原子的に move する。
+// 失敗は fail-closed（一時ディレクトリを破棄し、登録先には部分状態を残さない）。
+// 有料未購入（locked）は resolve を拒否する。
+
+import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { cp, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadCatalog } from './catalog.mjs';
+import { resolveAkariHome, resolveEffectiveBase } from './env.mjs';
+import { fetchEntitlements } from './entitlements.mjs';
+import { materialize, resolveFileLocation } from './fetch-file.mjs';
+import { sha256File } from './hash.mjs';
+import { isAssetCached, localAssetDir } from './library.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+// src/ の 1 つ上（パッケージ root）のさらに 2 つ上（packages/）のさらに 1 つ上（リポ root）。
+// fetch-akari-sounds.mjs（packages/audio-library-setup/bin/）と同じ深さの相対規約。
+const repoRoot = path.resolve(here, '..', '..', '..');
+const VALIDATE_ASSET_SCRIPT = path.join(repoRoot, 'packages', 'schemas', 'bin', 'validate-asset.mjs');
+
+export class AssetResolverError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'AssetResolverError';
+    this.code = code;
+  }
+}
+
+async function copyIntoProject(sourceDir, projectDir, category, id) {
+  // ライブラリ（~/.akari/assets/<category>/<id>/）と同型に揃える（2026-08-04 決定）。
+  // 素材箱側が「meta.json を含むディレクトリ = 1 カード」でグルーピングする際、
+  // 深さではなくディレクトリ形で判定するため、置き場の形をライブラリと合わせておく必要はないが、
+  // カテゴリ別に整理された配置の方が人間が見ても分かりやすいのでライブラリ型に統一する。
+  const dest = path.join(path.resolve(projectDir), 'assets', category, id);
+  await mkdir(path.dirname(dest), { recursive: true });
+  await rm(dest, { recursive: true, force: true });
+  await cp(sourceDir, dest, { recursive: true });
+  return dest;
+}
+
+async function moveIntoLibrary(tempDir, destDir) {
+  await mkdir(path.dirname(destDir), { recursive: true });
+  if (existsSync(destDir)) {
+    await rm(destDir, { recursive: true, force: true });
+  }
+  try {
+    await rename(tempDir, destDir);
+  } catch (error) {
+    // 一時ディレクトリと登録先が別ファイルシステムの場合（EXDEV）は copy + rm でフォールバック
+    if (error && error.code === 'EXDEV') {
+      await cp(tempDir, destDir, { recursive: true });
+      await rm(tempDir, { recursive: true, force: true });
+      return;
+    }
+    throw error;
+  }
+}
+
+/**
+ * @param {string} id カタログの素材 id
+ * @param {{ env?: object, fetchImpl?: Function, project?: string|null, force?: boolean }} options
+ */
+export async function resolve(id, { env = process.env, fetchImpl = fetch, project = null, force = false } = {}) {
+  const home = resolveAkariHome(env);
+  const catalog = await loadCatalog({ env, fetchImpl });
+  const item = catalog.items.find((entry) => entry.id === id);
+  if (!item) {
+    throw new AssetResolverError(`未知の素材 id です: ${id}`, 'not_found');
+  }
+
+  const destDir = localAssetDir(home, item.category, item.id);
+
+  // キャッシュヒット → 即返す（未購入だったとしても、一度取得済みなら手元にある実体をそのまま使う。
+  // ゲートは「新規に取得するとき」だけにかける）
+  if (!force && isAssetCached(home, item.category, item.id)) {
+    const result = { id: item.id, category: item.category, dir: destDir, cached: true };
+    if (project) result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+    return result;
+  }
+
+  const price = item.price ?? 0;
+  if (price > 0) {
+    const entitlements = await fetchEntitlements({ env, fetchImpl });
+    if (!entitlements.has(item.id)) {
+      throw new AssetResolverError(
+        `未購入の素材です（¥${price.toLocaleString()}）。ストアで購入してから再度お試しください: ${item.id}`,
+        'locked',
+      );
+    }
+  }
+
+  if (!Array.isArray(item.files) || item.files.length === 0) {
+    throw new AssetResolverError(`カタログに files[] がありません: ${item.id}`, 'invalid_catalog_item');
+  }
+
+  const base = resolveEffectiveBase(env, catalog);
+  await mkdir(home, { recursive: true });
+  const tempRoot = await mkdtemp(path.join(home, '.tmp-resolve-'));
+  // validate-asset はディレクトリ名（basename）= id・親ディレクトリ名 = category を要求するので、
+  // 一時ディレクトリの中にも同じ形（<tempRoot>/<category>/<id>/）を作っておく
+  // （move 前後でパスの「形」を変えない — 検証した実体をそのまま登録先に置くだけにする）
+  const tempAssetDir = path.join(tempRoot, item.category, item.id);
+
+  try {
+    await mkdir(tempAssetDir, { recursive: true });
+    let hasMeta = false;
+    for (const file of item.files) {
+      if (typeof file.name !== 'string' || !file.name) {
+        throw new AssetResolverError(`files[] エントリに name がありません: ${item.id}`, 'invalid_catalog_item');
+      }
+      if (file.name === 'meta.json') hasMeta = true;
+
+      const destPath = path.join(tempAssetDir, file.name);
+      const resolved = resolveFileLocation(base, file);
+      await materialize(resolved, destPath, { fetchImpl });
+
+      if (file.sha256) {
+        const actual = await sha256File(destPath);
+        if (actual !== file.sha256) {
+          throw new AssetResolverError(
+            `sha256 が一致しません（改竄または破損の可能性）: ${item.id}/${file.name}（期待 ${file.sha256} / 実際 ${actual}）`,
+            'integrity',
+          );
+        }
+      }
+    }
+
+    // still / scene3d 等、meta.json を実体に持つ素材は validate-asset で契約検証してから登録する
+    if (hasMeta) {
+      const result = spawnSync(process.execPath, [VALIDATE_ASSET_SCRIPT, tempAssetDir], { encoding: 'utf8' });
+      if (result.status !== 0) {
+        const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+        throw new AssetResolverError(`validate-asset 検証に失敗しました: ${item.id}\n${output}`, 'validation');
+      }
+    }
+
+    await moveIntoLibrary(tempAssetDir, destDir);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true }).catch(() => {});
+  }
+
+  const result = { id: item.id, category: item.category, dir: destDir, cached: false };
+  if (project) result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+  return result;
+}
