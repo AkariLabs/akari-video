@@ -21,49 +21,245 @@
       "key": "text",
       "type": "text",
       "label": "速報テキスト",
-      "default": "政府が緊急会見を開く予定　詳細は不明"
+      "default": "政府が緊急会見を開く予定　詳細は不明",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "badgeLabel",
       "type": "text",
       "label": "バッジラベル",
-      "default": "速　報"
+      "default": "速　報",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "バッジ背景色",
-      "default": "#CC0000"
+      "default": "#CC0000",
+      "group": "badge",
+      "role": "color-bg"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "帯背景色",
-      "default": "#1A1A1A"
+      "default": "#1A1A1A",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "速報テキスト色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "バッジ文字色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "フォントサイズ",
-      "default": 52
+      "default": 52,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "badgeFontSize",
       "type": "number",
       "label": "バッジフォントサイズ",
-      "default": 46
+      "default": 46,
+      "group": "badge",
+      "role": "size"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ],
+      "group": "global",
+      "role": "font"
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 900,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（中央基準）",
+      "default": -920,
+      "group": "global",
+      "role": "pos-x"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（中央基準）",
+      "default": 415,
+      "group": "global",
+      "role": "pos-y"
+    },
+    {
+      "key": "animIn",
+      "type": "select",
+      "label": "入りアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-in"
+    },
+    {
+      "key": "animOut",
+      "type": "select",
+      "label": "抜けアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-out"
+    },
+    {
+      "key": "animLoop",
+      "type": "select",
+      "label": "ループアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ],
+      "group": "anim",
+      "role": "anim-loop"
+    },
+    {
+      "key": "animInSec",
+      "type": "number",
+      "label": "入り時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
+    },
+    {
+      "key": "animOutSec",
+      "type": "number",
+      "label": "抜け時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
     }
   ],
   "layers": [
@@ -77,11 +273,13 @@
         }
       },
       "size": {
-        "w": 1920,
+        "w": {
+          "expr": "@ref3_tl_r1s3_002_headline.right + 36 - 40"
+        },
         "h": 90
       },
       "transform": {
-        "x": 0,
+        "x": 40,
         "y": 955,
         "anchor": {
           "x": 0,
@@ -153,7 +351,7 @@
       },
       "transform": {
         "x": {
-          "expr": "85 - max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2"
+          "expr": "40 + 105 - max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2"
         },
         "y": 955,
         "anchor": {
@@ -219,8 +417,12 @@
         "size": {
           "var": "badgeFontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 900,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text_2"
         },
@@ -228,8 +430,12 @@
         "letterSpacing": 2
       },
       "transform": {
-        "x": 85,
-        "y": 1000,
+        "x": {
+          "expr": "40 + 105"
+        },
+        "y": {
+          "expr": "955 + 45"
+        },
         "anchor": {
           "x": 0.5,
           "y": 0.5
@@ -293,7 +499,9 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 700,
         "color": {
           "var": "color_text"
@@ -303,9 +511,11 @@
       },
       "transform": {
         "x": {
-          "expr": "85 + max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2 + 18"
+          "expr": "40 + 105 + max(@ref3_tl_r1s3_002_badge_text.width + 48, 170) / 2 + 18"
         },
-        "y": 1000,
+        "y": {
+          "expr": "955 + 45"
+        },
         "anchor": {
           "x": 0,
           "y": 0.5
@@ -359,5 +569,28 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    },
+    {
+      "id": "anim",
+      "label": "アニメ"
+    }
+  ],
+  "anchor": "tl"
 }

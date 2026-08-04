@@ -1,0 +1,79 @@
+/* ../overlay-runtime/src/interaction.css */
+#overlay-stage > [data-overlay-id] {
+  touch-action: none;
+}
+.akari-interaction-selection-frame[data-akari-interaction] {
+  position: fixed;
+  z-index: 2147483647;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 157, 66, 0.98);
+  pointer-events: none;
+}
+.akari-interaction-selection-frame[hidden] {
+  display: none;
+}
+.akari-interaction-snap-guide[data-akari-interaction] {
+  position: absolute;
+  z-index: 2147483646;
+  pointer-events: none;
+  background: #ff8b2c;
+}
+.akari-interaction-snap-guide.is-vertical[data-akari-interaction] {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-0.5px);
+}
+.akari-interaction-snap-guide.is-horizontal[data-akari-interaction] {
+  right: 0;
+  left: 0;
+  height: 1px;
+  transform: translateY(-0.5px);
+}
+.akari-interaction-snap-guide[data-akari-interaction][hidden] {
+  display: none;
+}
+.akari-interaction-handle[data-akari-interaction] {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #ff8b2c;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  pointer-events: auto;
+  touch-action: none;
+}
+.akari-interaction-handle.is-nw {
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  cursor: nwse-resize;
+}
+.akari-interaction-handle.is-ne {
+  top: 0;
+  right: 0;
+  transform: translate(50%, -50%);
+  cursor: nesw-resize;
+}
+.akari-interaction-handle.is-se {
+  right: 0;
+  bottom: 0;
+  transform: translate(50%, 50%);
+  cursor: nwse-resize;
+}
+.akari-interaction-handle.is-sw {
+  bottom: 0;
+  left: 0;
+  transform: translate(-50%, 50%);
+  cursor: nesw-resize;
+}
+[data-akari-interaction-editing=true] {
+  outline: 2px solid rgba(77, 190, 255, 0.98) !important;
+  outline-offset: 3px;
+  cursor: text !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}

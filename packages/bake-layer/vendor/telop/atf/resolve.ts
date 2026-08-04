@@ -1,9 +1,11 @@
 // ATF → ResolvedScene の変換（変数解決 + 式評価 + 実測）
-import type { AtfDoc, AtfLayer, ClipSpec, GradientFill, PerChar, ResolvedClipSpec, ResolvedGradientFill, ResolvedLayer, ResolvedScene, ResolvedTextContent, ResolvedShapeContent, TextContent, ShapeContent, Value } from './types'
+import type { AtfDoc, AtfLayer, ClipSpec, GradientFill, PerChar, ResolvedClipSpec, ResolvedGradientFill, ResolvedLayer, ResolvedScene, ResolvedTextContent, ResolvedShapeContent, TextContent, ShapeContent, Track, Value } from './types'
 import type { MeasureText } from './measure'
 import { verticalLayout } from './vertical'
 import { evalExprWithHas } from './expr'
 import { classifyGlyph } from '../render/perchar'
+import { isEmphasizedAt, parseTextRuns, type TextRun } from './text-runs'
+import { buildTextAnimationTracks, TEXTANIM_RECIPE_SLOTS } from './textanim-recipes.mjs'
 
 // --- テキスト堅牢化（shrink-to-fit）定数 ---
 // 2026-07-22 telop-tunables タスクで追加（vendor/PROVENANCE.md 参照）。
@@ -22,6 +24,141 @@ const FIT_MAX_ITERATIONS = 4
 const FIT_ABSOLUTE_MIN_PX = 10
 /** 既定の最小スケール（元サイズに対する比率）。layer.fit.minScale で上書き可能 */
 const FIT_DEFAULT_MIN_SCALE = 0.3
+const DEFAULT_TEXTANIM_DURATION_SEC = 0.6
+const DEFAULT_TEXTANIM_LOOP_PERIOD_SEC = 1.6
+
+type AnimationSlot = 'in' | 'hold' | 'out'
+
+function numericBinding(value: string | number | undefined, fallback: number): number {
+  const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''))
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback
+}
+
+function animationSelection(
+  vars: Record<string, string | number>,
+  key: 'animIn' | 'animOut' | 'animLoop',
+): string {
+  const value = String(vars[key] ?? 'original')
+  if (value === 'original' || value === 'none') return value
+  const expectedSlot = key === 'animLoop' ? 'loop' : 'in'
+  return TEXTANIM_RECIPE_SLOTS[value] === expectedSlot ? value : 'original'
+}
+
+function stripAnimationPhase(layer: ResolvedLayer, phase: AnimationSlot): void {
+  layer.tracks = layer.tracks?.filter((track) => (track.phase ?? 'hold') !== phase)
+  if (!layer.perChar) return
+  layer.perChar = {
+    ...layer.perChar,
+    tracks: layer.perChar.tracks.filter((track) => (track.phase ?? 'hold') !== phase),
+    ...(phase === 'hold' ? { loop: undefined } : {}),
+  }
+}
+
+/**
+ * 標準アニメ変数を resolve 済み全レイヤーへ合成する。
+ * 3 スロットすべて original のときは呼び出し側が完全スキップする。
+ */
+function composeTextAnimation(
+  layers: ResolvedLayer[],
+  timing: AtfDoc['timing'],
+  stage: ResolvedScene['stage'],
+  vars: Record<string, string | number>,
+): AtfDoc['timing'] {
+  const selections = {
+    in: animationSelection(vars, 'animIn'),
+    hold: animationSelection(vars, 'animLoop'),
+    out: animationSelection(vars, 'animOut'),
+  }
+  const durations = {
+    in: selections.in === 'none' ? 0 : numericBinding(vars.animInSec, DEFAULT_TEXTANIM_DURATION_SEC),
+    hold: DEFAULT_TEXTANIM_LOOP_PERIOD_SEC,
+    out: selections.out === 'none' ? 0 : numericBinding(vars.animOutSec, DEFAULT_TEXTANIM_DURATION_SEC),
+  }
+  const nextTiming = {
+    ...(timing ?? {
+      inDur: 0,
+      outDur: 0,
+      hold: 'stretch' as const,
+      previewTotal: stage.duration,
+    }),
+  }
+
+  if (selections.in !== 'original') nextTiming.inDur = durations.in
+  if (selections.out !== 'original') nextTiming.outDur = durations.out
+  if (selections.hold !== 'original') {
+    nextTiming.hold = 'stretch'
+    nextTiming.holdDur = durations.hold
+    nextTiming.loopHold = selections.hold !== 'none'
+  }
+
+  for (const layer of layers) {
+    for (const phase of ['in', 'hold', 'out'] as const) {
+      const selection = selections[phase]
+      if (selection === 'original') continue
+      stripAnimationPhase(layer, phase)
+      if (selection === 'none') continue
+      const tracks = buildTextAnimationTracks(
+        selection,
+        phase,
+        durations[phase],
+        layer.transform.opacity,
+        stage,
+      ) as Track[]
+      layer.tracks = [...(layer.tracks ?? []), ...tracks]
+    }
+    // sampleLayerTransform は後勝ちなので、完了済み in が original out を上書きしないよう
+    // phase 順を必ず in → hold → out に揃える（同 phase 内の既存順は stable sort で維持）。
+    const phaseRank = { in: 0, hold: 1, out: 2 }
+    layer.tracks?.sort((a, b) => phaseRank[a.phase ?? 'hold'] - phaseRank[b.phase ?? 'hold'])
+  }
+  return nextTiming
+}
+
+/** テンプレート全体 bbox 上の 9 点アンカーを相対座標へ変換する。 */
+export const ANCHOR_FRACS: Record<NonNullable<AtfDoc['anchor']>, { fracX: number; fracY: number }> = {
+  tl: { fracX: 0, fracY: 0 },
+  tc: { fracX: 0.5, fracY: 0 },
+  tr: { fracX: 1, fracY: 0 },
+  ml: { fracX: 0, fracY: 0.5 },
+  mc: { fracX: 0.5, fracY: 0.5 },
+  mr: { fracX: 1, fracY: 0.5 },
+  bl: { fracX: 0, fracY: 1 },
+  bc: { fracX: 0.5, fracY: 1 },
+  br: { fracX: 1, fracY: 1 },
+}
+
+export interface ResolvedLayersBBox {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/** 解決済み（visibleIf 適用後）レイヤーの transform / size から自然 bbox を求める。 */
+export function resolvedLayersBBox(layers: ResolvedLayer[]): ResolvedLayersBBox | null {
+  let left = Infinity
+  let top = Infinity
+  let right = -Infinity
+  let bottom = -Infinity
+
+  for (const layer of layers) {
+    // 進捗 0% のバーなど、面積を持たず描画されない縮退レイヤーは視覚コンテンツの
+    // アンカーを定義しない。座標だけを union すると、不可視レイヤーが全体を歪める。
+    if (!(layer.size.w > 0) || !(layer.size.h > 0)) continue
+    const layerLeft = layer.transform.x - layer.transform.anchor.x * layer.size.w
+    const layerTop = layer.transform.y - layer.transform.anchor.y * layer.size.h
+    const layerRight = layerLeft + layer.size.w
+    const layerBottom = layerTop + layer.size.h
+    if (![layerLeft, layerTop, layerRight, layerBottom].every(Number.isFinite)) continue
+    left = Math.min(left, layerLeft)
+    top = Math.min(top, layerTop)
+    right = Math.max(right, layerRight)
+    bottom = Math.max(bottom, layerBottom)
+  }
+
+  if (![left, top, right, bottom].every(Number.isFinite)) return null
+  return { left, top, right, bottom }
+}
 
 function hash01(seed: number, index: number, salt: number): number {
   let h = (seed | 0) ^ Math.imul(index + 0x9e3779b9, 0x85ebca6b) ^ Math.imul(salt + 0xc2b2ae35, 0x27d4eb2d)
@@ -33,8 +170,24 @@ function hash01(seed: number, index: number, salt: number): number {
   return (h >>> 0) / 0x100000000
 }
 
-function splitTextForPerChar(perChar: PerChar, text: string): string[] {
-  if (perChar.split === 'word') return text.split(/\s+/).filter(Boolean)
+function splitTextForPerChar(perChar: PerChar, text: string, runs?: TextRun[]): string[] {
+  if (perChar.split === 'word') {
+    return Array.from(text.matchAll(/\S+/g)).flatMap((match) => {
+      const start = match.index ?? 0
+      const end = start + match[0].length
+      const cuts = new Set([start, end])
+      for (const run of runs ?? []) {
+        if (run.start > start && run.start < end) cuts.add(run.start)
+        if (run.end > start && run.end < end) cuts.add(run.end)
+      }
+      const offsets = Array.from(cuts).sort((a, b) => a - b)
+      return offsets.slice(0, -1).map((at, index) => text.slice(at, offsets[index + 1]))
+    })
+  }
+  return splitTextForGrapheme(text)
+}
+
+function splitTextForGrapheme(text: string): string[] {
   if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
     const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
     return Array.from(segmenter.segment(text), seg => seg.segment)
@@ -70,8 +223,11 @@ function measureTextLayer(
   perChar: PerChar | undefined,
   measure: MeasureText,
   letterSpacing: number,
+  runs?: TextRun[],
+  emphasisStyle?: { scale: number; weight?: number },
 ): { width: number; height: number } {
-  if (!perChar?.classStyles && !perChar?.glyphStyles && !perChar?.randomize?.sizeAmp) {
+  const hasRunStyle = !!runs?.some((run) => run.emphasis) && emphasisStyle !== undefined
+  if (!hasRunStyle && !perChar?.classStyles && !perChar?.glyphStyles && !perChar?.randomize?.sizeAmp) {
     const base = measure(text, font, size, weight)
     // 字間: 文字間スペースは (文字数 - 1) ぶん追加
     const charCount = typeof Intl !== 'undefined' && 'Segmenter' in Intl
@@ -81,17 +237,39 @@ function measureTextLayer(
     return { width: base.width + extra, height: base.height }
   }
 
-  const chars = splitTextForPerChar(perChar, text)
+  if (hasRunStyle && !perChar) {
+    let width = 0
+    let height = 0
+    for (const run of runs ?? []) {
+      const runText = text.slice(run.start, run.end)
+      const runScale = run.emphasis ? emphasisStyle?.scale ?? 1 : 1
+      const runWeight = run.emphasis ? emphasisStyle?.weight ?? weight : weight
+      const measured = measure(runText, font, size * runScale, runWeight)
+      width += measured.width
+      height = Math.max(height, measured.height)
+    }
+    const charCount = splitTextForGrapheme(text).length
+    if (letterSpacing > 0 && charCount > 1) width += letterSpacing * (charCount - 1)
+    return { width, height }
+  }
+
+  const chars = perChar ? splitTextForPerChar(perChar, text, runs) : splitTextForGrapheme(text)
   if (chars.length === 0) return measure(text, font, size, weight)
 
   let width = 0
   let height = 0
+  let offset = 0
   for (let i = 0; i < chars.length; i++) {
-    const glyphSize = size * perCharFontScale(perChar, chars[i], i)
-    const measured = measure(chars[i], font, glyphSize, weight)
+    const emphasized = isEmphasizedAt(runs, text.indexOf(chars[i], offset))
+    const runScale = emphasized ? emphasisStyle?.scale ?? 1 : 1
+    const perGlyphScale = perChar ? perCharFontScale(perChar, chars[i], i) : 1
+    const glyphSize = size * runScale * perGlyphScale
+    const glyphWeight = emphasized ? emphasisStyle?.weight ?? weight : weight
+    const measured = measure(chars[i], font, glyphSize, glyphWeight)
     width += measured.width
     if (i < chars.length - 1) width += letterSpacing
     height = Math.max(height, measured.height)
+    offset = text.indexOf(chars[i], offset) + chars[i].length
   }
   return { width, height }
 }
@@ -249,6 +427,11 @@ export function resolve(
       collect(c.text)
       collect(c.size)
       collect(c.color)
+      if (c.font !== undefined) collect(c.font)
+      if (c.weight !== undefined) collect(c.weight)
+      if (c.emphasisStyle?.color !== undefined) collect(c.emphasisStyle.color)
+      if (c.emphasisStyle?.scale !== undefined) collect(c.emphasisStyle.scale)
+      if (c.emphasisStyle?.weight !== undefined) collect(c.emphasisStyle.weight)
       if (c.letterSpacing !== undefined) collect(c.letterSpacing)
       if (c.stroke) {
         collect(c.stroke.color)
@@ -374,8 +557,35 @@ export function resolve(
 
     if (layer.type === 'text') {
       const c = layer.content as TextContent
-      const text = resolveStr(c.text)
-      const font = c.font ?? 'system-ui'
+      const parsedText = parseTextRuns(resolveStr(c.text))
+      const text = parsedText.text
+      // font / weight は Value（2026-08-03 fontFamily / fontWeight ツマミ対応）。
+      // 実測（measureBlock）より前に解決しないと、ツマミでフォントを替えたとき
+      // 実測と描画が食い違う
+      const font = c.font !== undefined ? resolveStr(c.font, 'system-ui') : 'system-ui'
+      const weightNum = c.weight !== undefined ? resolveNum(c.weight, 0) : 0
+      const resolvedWeight = Number.isFinite(weightNum) && weightNum > 0 ? weightNum : undefined
+      const resolvedColor = resolveStr(c.color, '#ffffff')
+      const emphasisScaleNum = c.emphasisStyle?.scale !== undefined
+        ? resolveNum(c.emphasisStyle.scale, 1)
+        : 1
+      const emphasisWeightNum = c.emphasisStyle?.weight !== undefined
+        ? resolveNum(c.emphasisStyle.weight, 0)
+        : 0
+      const resolvedEmphasisStyle = c.emphasisStyle
+        ? {
+            color: c.emphasisStyle.color !== undefined
+              ? resolveStr(c.emphasisStyle.color, resolvedColor)
+              : undefined,
+            scale: Number.isFinite(emphasisScaleNum) && emphasisScaleNum > 0 ? emphasisScaleNum : 1,
+            weight: Number.isFinite(emphasisWeightNum) && emphasisWeightNum > 0
+              ? emphasisWeightNum
+              : resolvedWeight,
+          }
+        : undefined
+      const resolvedRuns = parsedText.parsed && resolvedEmphasisStyle && parsedText.runs.some((run) => run.emphasis)
+        ? parsedText.runs
+        : undefined
       // size は Value なので数値へ解決する（shrink-to-fit で縮小しうるため let）
       let resolvedSize = resolveNum(c.size, 0)
       // letterSpacing は Value（なければ 0）
@@ -397,8 +607,22 @@ export function resolve(
       // 縦書き/横書き共通の実測ヘルパー（現在の resolvedSize で測る）
       const measureBlock = (size: number): { width: number; height: number } =>
         isVertical
-          ? verticalLayout(text, size, resolvedLetterSpacing)
-          : measureTextLayer(text, font, size, c.weight, layer.perChar, measure, resolvedLetterSpacing)
+          ? verticalLayout(
+              text,
+              size * (resolvedRuns ? resolvedEmphasisStyle?.scale ?? 1 : 1),
+              resolvedLetterSpacing,
+            )
+          : measureTextLayer(
+              text,
+              font,
+              size,
+              resolvedWeight,
+              layer.perChar,
+              measure,
+              resolvedLetterSpacing,
+              resolvedRuns,
+              resolvedEmphasisStyle,
+            )
 
       // --- テキスト堅牢化（shrink-to-fit） ---
       // どんな長さのテキストでもキャンバス安全域（+ layer.fit の任意指定）からはみ出さないよう、
@@ -406,8 +630,30 @@ export function resolve(
       // 算出する（このレイヤー自身の @id.width 等はまだスコープに無いため、self 参照はしない）。
       const anchorX = layer.transform.anchor.x
       const anchorY = layer.transform.anchor.y
-      const tx0 = resolveNum(layer.transform.x)
-      const ty0 = resolveNum(layer.transform.y)
+      // 位置ツマミ（posX / posY / xOffset / yOffset）はキャンバス外への意図的な移動にも使う
+      // （画面外から入る/出る演出前提・2026-08-03 オーナー裁定）。shrink-to-fit の安全域は
+      // ツマミの現在値ではなく既定値で評価し、「動かしたら文字が縮む」誤発動を防ぐ。
+      const fitScope: Record<string, number> = { ...scope }
+      for (const variable of doc.variables) {
+        if (!['posX', 'posY', 'xOffset', 'yOffset'].includes(variable.key)) continue
+        const def = typeof variable.default === 'number' ? variable.default : parseFloat(String(variable.default))
+        if (Number.isFinite(def)) fitScope[variable.key] = def
+      }
+      const resolveNumForFit = (v: Value, fallback = 0): number => {
+        if (typeof v === 'number') return v
+        if (typeof v === 'string') return parseFloat(v) || fallback
+        if ('var' in v) {
+          if (v.var in fitScope) return fitScope[v.var]
+          const val = vars[v.var]
+          if (typeof val === 'number') return val
+          if (typeof val === 'string') return parseFloat(val) || fallback
+          return fallback
+        }
+        if ('expr' in v) return evalExprWithHas(v.expr, fitScope, hasKeys)
+        return fallback
+      }
+      const tx0 = resolveNumForFit(layer.transform.x)
+      const ty0 = resolveNumForFit(layer.transform.y)
       const marginX = stageWidth * FIT_SAFE_MARGIN_FRAC
       const marginY = stageHeight * FIT_SAFE_MARGIN_FRAC
       const canvasMaxW = Math.max(
@@ -467,10 +713,12 @@ export function resolve(
 
       const textContent: ResolvedTextContent = {
         text,
+        runs: resolvedRuns,
+        emphasisStyle: resolvedRuns ? resolvedEmphasisStyle : undefined,
         size: resolvedSize,
-        font: c.font,
-        weight: c.weight,
-        color: resolveStr(c.color, '#ffffff'),
+        font: c.font !== undefined ? font : undefined,
+        weight: resolvedWeight,
+        color: resolvedColor,
         align: c.align,
         vertical: c.vertical,
         stroke: resolvedStroke,
@@ -615,10 +863,48 @@ export function resolve(
     resolvedLayers.push(resolved)
   }
 
+  // doc.anchor を宣言したテンプレートだけ、全レイヤー解決後の自然 bbox を 1 回だけ
+  // posX / posY の中央基準座標へ剛体移動する。anchor 未宣言の旧 ad-hoc doc は完全に従来どおり。
+  if (doc.anchor) {
+    const naturalBBox = resolvedLayersBBox(resolvedLayers)
+    if (naturalBBox) {
+      const { fracX, fracY } = ANCHOR_FRACS[doc.anchor]
+      const naturalAnchorX = naturalBBox.left + fracX * (naturalBBox.right - naturalBBox.left)
+      const naturalAnchorY = naturalBBox.top + fracY * (naturalBBox.bottom - naturalBBox.top)
+      const numericVar = (key: string): number => {
+        const value = vars[key]
+        const parsed = typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? parseFloat(value)
+            : NaN
+        return Number.isFinite(parsed) ? parsed : 0
+      }
+      const targetX = stageWidth / 2 + numericVar('posX')
+      const targetY = stageHeight / 2 + numericVar('posY')
+      const shiftX = targetX - naturalAnchorX
+      const shiftY = targetY - naturalAnchorY
+
+      for (const layer of resolvedLayers) {
+        layer.transform.x += shiftX
+        layer.transform.y += shiftY
+      }
+    }
+  }
+
   // 元の配列順に並べ直す（描画順を維持）
   const orderedLayers = doc.layers
     .filter(l => resolvedMap.has(l.id))
     .map(l => resolvedMap.get(l.id)!)
 
-  return { stage, timing: doc.timing, layers: orderedLayers }
+  const animIn = animationSelection(vars, 'animIn')
+  const animOut = animationSelection(vars, 'animOut')
+  const animLoop = animationSelection(vars, 'animLoop')
+  // original は完全スキップ。既存 timing / tracks / perChar を参照も複製もせず返すことで、
+  // 標準アニメ変数追加前と同じ resolve 結果・レンダ出力を保つ。
+  const resolvedTiming = animIn === 'original' && animOut === 'original' && animLoop === 'original'
+    ? doc.timing
+    : composeTextAnimation(orderedLayers, doc.timing, stage, vars)
+
+  return { stage, timing: resolvedTiming, layers: orderedLayers }
 }

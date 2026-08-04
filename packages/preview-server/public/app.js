@@ -234,6 +234,21 @@ function updateStageScale() {
 }
 new ResizeObserver(() => { updateStageScale(); setupPenCanvas(); }).observe(wrapper);
 
+// clip.src はルート相対（/assets/foo.mp4）だが video.src は常に絶対 URL を返すため、
+// 生の文字列比較では必ず不一致になり毎フレーム再代入 → 動画がロードし直され続ける
+// （読み込み中スピナーが出っぱなし・実質再生不能）。解決後の URL で比較する。
+function isSameVideoSource(el, src) {
+  if (!src) return true;
+  try {
+    return el.src === new URL(src, document.baseURI).href;
+  } catch {
+    return el.src === src;
+  }
+}
+function setVideoSourceIfChanged(el, src) {
+  if (src && !isSameVideoSource(el, src)) el.src = src;
+}
+
 function getVideoSource(cutIndex) {
   const clip = timelineData.clips.find(c => c.id === `cut-${cutIndex}`);
   return clip ? clip.src : (timelineData.clips[0]?.src || '');
@@ -729,7 +744,8 @@ function seekTo(t) {
   const vt = getVideoTimeForOutput(outputTime);
   if (vt >= 0) {
     const seg = getActiveSegment(outputTime);
-    if (seg && seg.index >= 0) video.src = getVideoSource(seg.index);
+    // 同じソースへの再代入はロードをやり直してシーク自体を潰すため、変わった時だけ差し替える
+    if (seg && seg.index >= 0) setVideoSourceIfChanged(video, getVideoSource(seg.index));
     video.currentTime = vt;
   }
   seek.value = outputTime;
@@ -774,6 +790,9 @@ function pause() {
 }
 
 let lastWallMs = 0;
+// 壁時計で進める出力時刻と <video> の再生位置の許容ズレ。シーク 1 回の遅延より
+// 広く取らないと補正が自己増殖する（下の playbackLoop の注記参照）。
+const SYNC_DEADBAND_SEC = 0.35;
 function playbackLoop() {
   if (!isPlaying) return;
   const now = performance.now();
@@ -784,9 +803,14 @@ function playbackLoop() {
   const target = getVideoTimeForOutput(outputTime);
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
-    const src = getVideoSource(seg.index);
-    if (src && video.src !== src) video.src = src;
-    if (Math.abs(video.currentTime - target) > 0.1) video.currentTime = target;
+    setVideoSourceIfChanged(video, getVideoSource(seg.index));
+    // ズレ補正は「シーク中でない」かつ「シーク遅延より大きくズレた」ときだけ。
+    // 旧実装（閾値 0.1・シーク中も発行）は、1 回のシーク遅延がそのまま次フレームの
+    // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
+    // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
+    if (!video.seeking && Math.abs(video.currentTime - target) > SYNC_DEADBAND_SEC) {
+      video.currentTime = target;
+    }
   }
   seek.value = outputTime;
   updateTimeLabel();

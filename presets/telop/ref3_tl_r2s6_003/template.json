@@ -21,67 +21,269 @@
       "key": "text",
       "type": "text",
       "label": "名前",
-      "default": "田中 一郎"
+      "default": "田中 一郎",
+      "group": "name",
+      "role": "text"
     },
     {
       "key": "affiliation",
       "type": "text",
       "label": "所属・肩書き",
-      "default": "○○大学 経済学部 教授"
+      "default": "○○大学 経済学部 教授",
+      "group": "sub",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "帯グラデ上端色",
-      "default": "#0A3D8F"
+      "default": "#0A3D8F",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_bg_2",
       "type": "color",
       "label": "帯グラデ下端色",
-      "default": "#052260"
+      "default": "#052260",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "左縦ライン色",
-      "default": "#00BFFF"
+      "default": "#00BFFF",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "名前文字色",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "name",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "肩書き文字色",
-      "default": "#A8CFFF"
+      "default": "#A8CFFF",
+      "group": "sub",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "名前フォントサイズ",
-      "default": 68
+      "default": 68,
+      "group": "name",
+      "role": "size"
     },
     {
       "key": "subFontSize",
       "type": "number",
       "label": "肩書きフォントサイズ",
-      "default": 38
+      "default": 38,
+      "group": "sub",
+      "role": "size"
     },
     {
       "key": "color_accent_2",
       "type": "color",
       "label": "区切り線色",
-      "default": "rgba(255,255,255,0.25)"
+      "default": "rgba(255,255,255,0.25)",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.55)"
+      "default": "rgba(0,0,0,0.55)",
+      "group": "name",
+      "role": "color-shadow"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ],
+      "group": "global",
+      "role": "font"
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 700,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（中央基準）",
+      "default": -880,
+      "group": "global",
+      "role": "pos-x"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（中央基準）",
+      "default": 470,
+      "group": "global",
+      "role": "pos-y"
+    },
+    {
+      "key": "animIn",
+      "type": "select",
+      "label": "入りアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-in"
+    },
+    {
+      "key": "animOut",
+      "type": "select",
+      "label": "抜けアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-out"
+    },
+    {
+      "key": "animLoop",
+      "type": "select",
+      "label": "ループアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ],
+      "group": "anim",
+      "role": "anim-loop"
+    },
+    {
+      "key": "animInSec",
+      "type": "number",
+      "label": "入り時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
+    },
+    {
+      "key": "animOutSec",
+      "type": "number",
+      "label": "抜け時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
     }
   ],
   "layers": [
@@ -118,8 +320,12 @@
         "h": 148
       },
       "transform": {
-        "x": 80,
-        "y": 862,
+        "x": {
+          "expr": "0 + 80"
+        },
+        "y": {
+          "expr": "0 + 862"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -187,8 +393,12 @@
         "h": 148
       },
       "transform": {
-        "x": 80,
-        "y": 862,
+        "x": {
+          "expr": "0 + 80"
+        },
+        "y": {
+          "expr": "0 + 862"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -256,8 +466,12 @@
         "h": 1
       },
       "transform": {
-        "x": 106,
-        "y": 951,
+        "x": {
+          "expr": "0 + 106"
+        },
+        "y": {
+          "expr": "0 + 954"
+        },
         "anchor": {
           "x": 0,
           "y": 0.5
@@ -310,8 +524,12 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 700,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -326,8 +544,12 @@
         }
       },
       "transform": {
-        "x": 108,
-        "y": 878,
+        "x": {
+          "expr": "0 + 108"
+        },
+        "y": {
+          "expr": "0 + 868"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -380,7 +602,9 @@
         "size": {
           "var": "subFontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 400,
         "color": {
           "var": "color_text_2"
@@ -389,8 +613,12 @@
         "letterSpacing": 0.5
       },
       "transform": {
-        "x": 108,
-        "y": 962,
+        "x": {
+          "expr": "0 + 108"
+        },
+        "y": {
+          "expr": "0 + 958"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -433,5 +661,32 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "name",
+      "label": "名前"
+    },
+    {
+      "id": "sub",
+      "label": "補足"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    },
+    {
+      "id": "anim",
+      "label": "アニメ"
+    }
+  ],
+  "anchor": "bl"
 }

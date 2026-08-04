@@ -1,0 +1,39 @@
+{
+  "id": "dotgothic16",
+  "category": "font",
+  "title": "DotGothic16",
+  "description": "16px ビットマップ由来のドット絵ゴシック。レトロゲーム・8bit・デジタル演出の定番。 実体（Regular のみ（書体自体が単ウェイト））は本リポの assets/font/dotgothic16/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
+  "when_to_use": "レトロゲーム風・8bit 演出・デジタル/グリッチ系テロップ",
+  "tags": [
+    "font",
+    "japanese",
+    "gothic",
+    "pixel",
+    "retro",
+    "game",
+    "google-fonts",
+    "ofl"
+  ],
+  "knobs": [],
+  "ai_usage": "ウェイトは用途に応じて選び分けてよい。字間・行間・カラーは overlay/テロップ側で調整してよいが、グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Google Fonts / google/fonts リポ ofl 配下から取得）/ 2026-08-03 fontFamily ツマミ拡充",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.google.com/specimen/DotGothic16",
+    "acquisition": "direct",
+    "license_at_source": "SIL Open Font License 1.1（google/fonts リポの各ディレクトリ OFL.txt を同梱・確認済み）",
+    "attribution_required": false
+  }
+}

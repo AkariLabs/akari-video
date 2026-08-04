@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -135,6 +135,34 @@ test('suggestBgm: 複数 tone は重みを合算し、tempo 指定は体感テ�
   assert.equal(fast.suggestions[0].score, 4);
 });
 
+test('suggestBgm: 宣言データ合流 — 実測 BPM 置換・耳検証ボーナスで順位が上がる・サビ頭出しが付く', () => {
+  const declarations = {
+    // jazzhop（親しみ○）に宣言 → 無宣言の lofi（親しみ◎）と同点(2)になり、id 順で lofi が先頭のまま。
+    // sparkle（親しみ○）は無宣言なので jazzhop が上に出る = ボーナスの順位効果
+    'bgm-jazzhop-piano-086': {
+      bpm: 86, beat_offset_s: 0.5, time_signature: '4/4',
+      sections: [
+        { label: 'intro', start_sec: 0, end_sec: 11.2 },
+        { label: 'drop', start_sec: 11.2, end_sec: 44.8 },
+      ],
+      hit_points: [11.2, 33.6],
+      note: '', verified_at: 'x', source: 'test',
+    },
+  };
+  const result = suggestBgm(FIXTURE, { tones: ['親しみ'], declarations });
+  assert.deepEqual(
+    result.suggestions.map((s) => s.id),
+    ['bgm-lofi-piano-084', 'bgm-jazzhop-piano-086', 'bgm-electropop-sparkle-120'],
+    '宣言ボーナスで jazzhop が sparkle を追い越す',
+  );
+  const declared = result.suggestions[1];
+  assert.equal(declared.declaredScore, 1);
+  assert.equal(declared.bpm, 86, '実測 BPM に置換');
+  assert.equal(declared.declaration.drop_in_sec, 11.2, '最初のサビ区間の頭が audio.bgm.in の推奨値');
+  assert.equal(declared.declaration.hit_points.length, 2);
+  assert.equal(result.suggestions[0].declaration, null, '無宣言トラックは null');
+});
+
 test('suggestBgm: 語彙外の tone / tempo・tone 未指定は明示エラー', () => {
   assert.throws(() => suggestBgm(FIXTURE, { tones: ['楽しい'] }), /語彙に無い値/);
   assert.throws(() => suggestBgm(FIXTURE, { tones: [] }), /tone を 1 つ以上/);
@@ -157,6 +185,58 @@ test('CLI: --catalog + --json で機械可読出力、path は AKARI_HOME のラ
     assert.ok(parsed.suggestions[0].takes[0].path.startsWith(path.join(root, '.akari', 'assets', 'audio', 'akari-sounds-bgm')));
     assert.equal(parsed.suggestions[0].takes[0].exists, false, 'フィクスチャでは実体未取得');
     assert.deepEqual(parsed.tempo_vocabulary, TEMPO_VOCABULARY);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: --declarations で宣言合流の出力（宣言行 + JSON フィールド）が出る', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'akari-bgm-suggest-decl-'));
+  try {
+    const catalogPath = path.join(root, 'catalog.json');
+    await writeFile(catalogPath, JSON.stringify(FIXTURE));
+    const declPath = path.join(root, 'declarations.json');
+    await writeFile(declPath, JSON.stringify({
+      'bgm-lofi-piano-084': { bpm: 84, sections: [{ label: 'drop', start_sec: 20.5, end_sec: 40 }], hit_points: [20.5] },
+    }));
+    const result = spawnSync(process.execPath, [
+      cliPath, '--tone', '親しみ', '--catalog', catalogPath, '--declarations', declPath, '--json',
+    ], { encoding: 'utf8', env: { ...process.env, AKARI_HOME: path.join(root, '.akari') } });
+    assert.equal(result.status, 0, result.stderr);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.declarations_source, declPath);
+    assert.equal(parsed.suggestions[0].id, 'bgm-lofi-piano-084');
+    assert.equal(parsed.suggestions[0].declaration.drop_in_sec, 20.5);
+
+    const human = spawnSync(process.execPath, [
+      cliPath, '--tone', '親しみ', '--catalog', catalogPath, '--declarations', declPath,
+    ], { encoding: 'utf8', env: { ...process.env, AKARI_HOME: path.join(root, '.akari') } });
+    assert.match(human.stdout, /サビ頭 20\.5s/);
+    assert.match(human.stdout, /耳検証済み \+1/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI: 既定パス <ライブラリ>/declarations.json を自動検出する（宣言パック購入者の導入先）', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'akari-bgm-suggest-defdecl-'));
+  try {
+    const catalogPath = path.join(root, 'catalog.json');
+    await writeFile(catalogPath, JSON.stringify(FIXTURE));
+    const libRoot = path.join(root, '.akari', 'assets', 'audio');
+    await mkdir(libRoot, { recursive: true });
+    await writeFile(path.join(libRoot, 'declarations.json'), JSON.stringify({
+      'bgm-lofi-piano-084': { bpm: 84, sections: [{ label: 'drop', start_sec: 12.3, end_sec: 30 }], hit_points: [] },
+    }));
+    const env = { ...process.env, AKARI_HOME: path.join(root, '.akari') };
+    delete env.AKARI_SOUNDS_DECLARATIONS;
+    const result = spawnSync(process.execPath, [
+      cliPath, '--tone', '親しみ', '--catalog', catalogPath, '--json',
+    ], { encoding: 'utf8', env });
+    assert.equal(result.status, 0, result.stderr);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.declarations_source, path.join(libRoot, 'declarations.json'));
+    assert.equal(parsed.suggestions[0].declaration.drop_in_sec, 12.3);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

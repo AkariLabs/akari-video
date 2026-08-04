@@ -21,97 +21,293 @@
       "key": "name",
       "type": "text",
       "label": "名前",
-      "default": "鈴木 一郎"
+      "default": "鈴木 一郎",
+      "group": "name",
+      "role": "text"
     },
     {
       "key": "title",
       "type": "text",
       "label": "肩書き",
-      "default": "代表取締役社長"
+      "default": "代表取締役社長",
+      "group": "sub",
+      "role": "text"
     },
     {
       "key": "nameFontSize",
       "type": "number",
       "label": "名前フォントサイズ",
-      "default": 84
+      "default": 84,
+      "group": "name",
+      "role": "size"
     },
     {
       "key": "titleFontSize",
       "type": "number",
       "label": "肩書きフォントサイズ",
-      "default": 42
+      "default": 42,
+      "group": "sub",
+      "role": "size"
     },
     {
       "key": "posX",
       "type": "number",
-      "label": "X位置（左端）",
-      "default": 100
+      "label": "X位置（中央基準）",
+      "default": -860,
+      "group": "global",
+      "role": "pos-x"
     },
     {
       "key": "posY",
       "type": "number",
-      "label": "Y位置（下辺基準）",
-      "default": 940
+      "label": "Y位置（中央基準）",
+      "default": 400,
+      "group": "global",
+      "role": "pos-y"
     },
     {
       "key": "padX",
       "type": "number",
       "label": "帯横余白",
-      "default": 56
+      "default": 56,
+      "group": "band",
+      "role": "pad"
     },
     {
       "key": "padY",
       "type": "number",
       "label": "帯縦余白",
-      "default": 28
+      "default": 28,
+      "group": "band",
+      "role": "pad"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "帯背景色",
-      "default": "rgba(8,4,1,0.90)"
+      "default": "rgba(8,4,1,0.90)",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_primary",
       "type": "color",
       "label": "金 上端",
-      "default": "#C09010"
+      "default": "#C09010",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_primary_2",
       "type": "color",
       "label": "金 中間",
-      "default": "#FDEC90"
+      "default": "#FDEC90",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_primary_3",
       "type": "color",
       "label": "金 下端",
-      "default": "#8A5A08"
+      "default": "#8A5A08",
+      "group": "line",
+      "role": "color-accent"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "肩書き色",
-      "default": "#D4A830"
+      "default": "#D4A830",
+      "group": "sub",
+      "role": "color"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁取り色",
-      "default": "#301800"
+      "default": "#301800",
+      "group": "name",
+      "role": "color-stroke"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(50,22,0,0.70)"
+      "default": "rgba(50,22,0,0.70)",
+      "group": "global",
+      "role": "color-shadow"
     },
     {
       "key": "color_glow",
       "type": "color",
       "label": "グロー色",
-      "default": "rgba(220,170,20,0.38)"
+      "default": "rgba(220,170,20,0.38)",
+      "group": "name",
+      "role": "color-shadow"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ],
+      "group": "global",
+      "role": "font"
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 400,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "animIn",
+      "type": "select",
+      "label": "入りアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-in"
+    },
+    {
+      "key": "animOut",
+      "type": "select",
+      "label": "抜けアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-out"
+    },
+    {
+      "key": "animLoop",
+      "type": "select",
+      "label": "ループアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ],
+      "group": "anim",
+      "role": "anim-loop"
+    },
+    {
+      "key": "animInSec",
+      "type": "number",
+      "label": "入り時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
+    },
+    {
+      "key": "animOutSec",
+      "type": "number",
+      "label": "抜け時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
     }
   ],
   "layers": [
@@ -134,11 +330,9 @@
         }
       },
       "transform": {
-        "x": {
-          "var": "posX"
-        },
+        "x": 100,
         "y": {
-          "expr": "posY - nameFontSize - titleFontSize - padY * 2 - 12"
+          "expr": "940 - nameFontSize - titleFontSize - padY * 2 - 12"
         },
         "anchor": {
           "x": 0,
@@ -236,11 +430,9 @@
         }
       },
       "transform": {
-        "x": {
-          "var": "posX"
-        },
+        "x": 100,
         "y": {
-          "expr": "posY - nameFontSize - titleFontSize - padY * 2 - 12"
+          "expr": "940 - nameFontSize - titleFontSize - padY * 2 - 12"
         },
         "anchor": {
           "x": 0,
@@ -304,8 +496,12 @@
         "size": {
           "var": "titleFontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 400,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text_2"
         },
@@ -322,10 +518,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 28"
+          "expr": "100 + 28"
         },
         "y": {
-          "expr": "posY - nameFontSize - titleFontSize - padY - 2"
+          "expr": "940 - nameFontSize - titleFontSize - padY - 32"
         },
         "anchor": {
           "x": 0,
@@ -436,10 +632,10 @@
       },
       "transform": {
         "x": {
-          "expr": "posX + 28"
+          "expr": "100 + 28"
         },
         "y": {
-          "expr": "posY - nameFontSize - padY"
+          "expr": "940 - nameFontSize - padY - 30"
         },
         "anchor": {
           "x": 0,
@@ -500,5 +696,32 @@
         ]
       }
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "name",
+      "label": "名前"
+    },
+    {
+      "id": "sub",
+      "label": "補足"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "line",
+      "label": "線・装飾"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    },
+    {
+      "id": "anim",
+      "label": "アニメ"
+    }
+  ],
+  "anchor": "bl"
 }

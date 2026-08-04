@@ -21,37 +21,229 @@
       "key": "caption",
       "type": "text",
       "label": "字幕",
-      "default": "HOLLOW NEON"
+      "default": "HOLLOW NEON",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁色",
-      "default": "#00FFFF"
+      "default": "#00FFFF",
+      "group": "main",
+      "role": "color-stroke"
     },
     {
       "key": "color_glow",
       "type": "color",
       "label": "グロー色",
-      "default": "rgba(0,255,255,0.86)"
+      "default": "rgba(0,255,255,0.86)",
+      "group": "main",
+      "role": "color-shadow"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "文字サイズ",
-      "default": 128
+      "default": 128,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "letterSpacing",
       "type": "number",
       "label": "字間",
-      "default": 8
+      "default": 8,
+      "group": "main",
+      "role": "other"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "中身の色（既定は透明＝中抜き）",
-      "default": "rgba(0,0,0,0)"
+      "default": "rgba(0,0,0,0)",
+      "group": "main",
+      "role": "color"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ],
+      "group": "global",
+      "role": "font"
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 800,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（中央基準）",
+      "default": 237.6,
+      "group": "global",
+      "role": "pos-y"
+    },
+    {
+      "key": "animIn",
+      "type": "select",
+      "label": "入りアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-in"
+    },
+    {
+      "key": "animOut",
+      "type": "select",
+      "label": "抜けアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-out"
+    },
+    {
+      "key": "animLoop",
+      "type": "select",
+      "label": "ループアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ],
+      "group": "anim",
+      "role": "anim-loop"
+    },
+    {
+      "key": "animInSec",
+      "type": "number",
+      "label": "入り時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
+    },
+    {
+      "key": "animOutSec",
+      "type": "number",
+      "label": "抜け時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
     }
   ],
   "layers": [
@@ -65,8 +257,12 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 800,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -103,10 +299,10 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "@stage.height * 0.72"
+          "expr": "0 + (@stage.height * 0.72)"
         },
         "anchor": {
           "x": 0.5,
@@ -200,5 +396,20 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    },
+    {
+      "id": "anim",
+      "label": "アニメ"
+    }
+  ],
+  "anchor": "mc"
 }

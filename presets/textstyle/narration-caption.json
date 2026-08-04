@@ -1,0 +1,30 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "narration-caption",
+  "name": "ナレーション字幕",
+  "category": "subtitle",
+  "sample_text": "この街には、まだ誰も知らない物語がある。",
+  "style": {
+    "font_family": "'Noto Serif JP', serif",
+    "size_px": 28,
+    "weight": 400,
+    "letter_spacing_em": 0.06,
+    "shadow": {
+      "color": "#000000",
+      "opacity": 0.55,
+      "blur_px": 6,
+      "distance_px": 1,
+      "angle_deg": 90
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "narration-caption",
+    "note": "font_family は同梱フォントへ差し替え（元: 'Hiragino Mincho ProN','Yu Mincho',serif）"
+  },
+  "position": {
+    "y": 0.38
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "subtitle-variety",
+  "name": "バラエティ",
+  "category": "subtitle",
+  "sample_text": "ここがすごい！",
+  "style": {
+    "size_px": 80,
+    "weight": 700,
+    "color": "#fff200",
+    "stroke": {
+      "color": "#1a1a1a",
+      "width_px": 9
+    },
+    "shadow": {
+      "color": "#000000",
+      "opacity": 0.6,
+      "blur_px": 6,
+      "distance_px": 6,
+      "angle_deg": 90
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "subtitle-variety"
+  }
+}

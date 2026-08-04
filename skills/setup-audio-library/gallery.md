@@ -28,7 +28,14 @@ node packages/audio-library-setup/bin/gallery-helper.mjs \
 - keep / drop ボタンで決定を記録する。決定は `~/.akari/assets/audio/_gallery-state.json`
   へ即時保存される（ページを閉じても消えない）。もう一度同じボタンを押すと決定を解除する
 
-## 3. keep / drop の扱い
+## 3. keep したあとの一歩（宣言づけ）
+
+keep した曲に「サビはどこか・キメはどこか・拍はどこか」を付けると、編集時の BGM 自動提案が
+その曲を優先し、**サビ頭から敷ける**ようになる。付け方は姉妹スキル
+[declare-audio](../declare-audio/SKILL.md)（ブラウザのタイムライン画面で人が耳で付ける）。
+本スキルの守備範囲は入庫と keep/drop までで、宣言づけはそちらに委ねる。
+
+## 4. keep / drop の扱い
 
 このスキルは keep/drop の**記録**までを行う。`drop` にした素材の実ファイル削除や、
 `assets/audio/INDEX.md` への反映は別途人間の判断で行う（自動削除しない。取り違えた

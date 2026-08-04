@@ -1,0 +1,27 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "glitch",
+  "name": "グリッチ風",
+  "category": "decorative",
+  "sample_text": "GLITCH",
+  "style": {
+    "size_px": 116,
+    "weight": 700,
+    "color": "#f5f5f5",
+    "letter_spacing_em": 0.06,
+    "text_transform": "uppercase",
+    "shadow": {
+      "color": "#ff0066",
+      "opacity": 0.9,
+      "blur_px": 0,
+      "distance_px": 8,
+      "angle_deg": 0
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "glitch"
+  }
+}

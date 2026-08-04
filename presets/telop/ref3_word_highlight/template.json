@@ -21,61 +21,261 @@
       "key": "captionText",
       "type": "text",
       "label": "本文テキスト",
-      "default": "THIS IS THE IMPORTANT PART"
+      "default": "THIS IS THE IMPORTANT PART",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "color_accent",
       "type": "color",
       "label": "アクティブカラー",
-      "default": "#FFD93D"
+      "default": "#FFD93D",
+      "group": "main",
+      "role": "color-accent"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "ベースカラー",
-      "default": "#FFFFFF"
+      "default": "#FFFFFF",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "fontSize",
       "type": "number",
       "label": "フォントサイズ",
-      "default": 72
+      "default": 72,
+      "group": "main",
+      "role": "size"
     },
     {
       "key": "plateOpacity",
       "type": "number",
       "label": "プレート透明度",
-      "default": 0.72
+      "default": 0.72,
+      "group": "band",
+      "role": "strength"
     },
     {
       "key": "staggerAdjust",
       "type": "number",
       "label": "stagger調整",
-      "default": 0.45
+      "default": 0.45,
+      "group": "global",
+      "role": "interval"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "プレート背景色",
-      "default": "#000000"
+      "default": "#000000",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁色（外）",
-      "default": "rgba(0,0,0,0.92)"
+      "default": "rgba(0,0,0,0.92)",
+      "group": "main",
+      "role": "color-stroke"
     },
     {
       "key": "color_stroke_2",
       "type": "color",
       "label": "縁色（内）",
-      "default": "rgba(0,0,0,0.45)"
+      "default": "rgba(0,0,0,0.45)",
+      "group": "main",
+      "role": "color-stroke"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "影色",
-      "default": "rgba(0,0,0,0.65)"
+      "default": "rgba(0,0,0,0.65)",
+      "group": "main",
+      "role": "color-shadow"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ],
+      "group": "global",
+      "role": "font"
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 900,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（中央基準）",
+      "default": 237.6,
+      "group": "global",
+      "role": "pos-y"
+    },
+    {
+      "key": "animIn",
+      "type": "select",
+      "label": "入りアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-in"
+    },
+    {
+      "key": "animOut",
+      "type": "select",
+      "label": "抜けアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-out"
+    },
+    {
+      "key": "animLoop",
+      "type": "select",
+      "label": "ループアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ],
+      "group": "anim",
+      "role": "anim-loop"
+    },
+    {
+      "key": "animInSec",
+      "type": "number",
+      "label": "入り時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
+    },
+    {
+      "key": "animOutSec",
+      "type": "number",
+      "label": "抜け時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
     }
   ],
   "layers": [
@@ -99,10 +299,10 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "@stage.height * 0.72"
+          "expr": "0 + (@stage.height * 0.72)"
         },
         "anchor": {
           "x": 0.5,
@@ -123,8 +323,12 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 900,
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -155,10 +359,10 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "@stage.height * 0.72"
+          "expr": "0 + (@stage.height * 0.72)"
         },
         "anchor": {
           "x": 0.5,
@@ -223,7 +427,9 @@
         "size": {
           "var": "fontSize"
         },
-        "font": "'Noto Sans JP', sans-serif",
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 900,
         "color": {
           "var": "color_accent"
@@ -255,10 +461,10 @@
       },
       "transform": {
         "x": {
-          "expr": "@stage.width / 2"
+          "expr": "0 + (@stage.width / 2)"
         },
         "y": {
-          "expr": "@stage.height * 0.72"
+          "expr": "0 + (@stage.height * 0.72)"
         },
         "anchor": {
           "x": 0.5,
@@ -325,5 +531,24 @@
         "minScale": 0.12
       }
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    },
+    {
+      "id": "anim",
+      "label": "アニメ"
+    }
+  ],
+  "anchor": "mc"
 }

@@ -13,6 +13,19 @@
 - `noto-serif-jp/NotoSerifJP-Variable.ttf` — 定番の日本語明朝。可変フォント（wght 100〜900）
 - `mplus-rounded-1c/` — 丸ゴシック。Medium / ExtraBold / Black の 3 ウェイトを静的同梱
 
+2026-08-03 拡充（テロップの fontFamily ツマミ選択肢。オーナー裁定「全部入れ」・
+取得元はすべて google/fonts リポの ofl/ 配下）:
+
+- `biz-udgothic/` — UD ゴシック（ニュース・字幕向け）。Regular / Bold
+- `dela-gothic-one/` — 極太ディスプレイ（インパクト・サムネ級）。Regular のみ提供の書体
+- `zen-maru-gothic/` — 丸ゴシック（やわらか）。Regular / Bold
+- `shippori-mincho/` — 明朝ディスプレイ（シネマ・和風）。Regular
+- `dotgothic16/` — ドット絵ゴシック（レトロ・ゲーム風）。Regular のみ提供の書体
+- `klee-one/` — 手書き教科書体。Regular
+
+追加ウェイトが必要になったら同じ取得元から足す（bake 側の登録は
+`packages/bake-layer/src/fonts.mjs` の `FONT_SPECS` に 1 行追加）。
+
 各ディレクトリに `OFL.txt`（ライセンス原文）を同梱しています。**削除・改変しないでください**。
 
 ## このカテゴリに入るもの

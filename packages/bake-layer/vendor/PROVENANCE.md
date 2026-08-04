@@ -105,3 +105,81 @@ const to = layer.transform.opacity ? resolveNum(layer.transform.opacity, 1) : 1
   （2秒/1080pのfire-blazeで466MB、bokehで175MB）。契約の残裁定1「ファイルサイズ問題が出たら
   VP9/webm alpha 等を再検討」は fx について実際に該当する可能性が高い。再開時は VP9 alpha か
   ProRes422(HQ)+マット分離等の代替を先に検討すべき
+
+## vendor への追記: plain テキストの縦センタリング補正（2026-08-03 テロップ位置ずれ修正）
+
+ストア字幕棚で発覚した「全 36 テンプレの文字が座布団に対して上ずれする」問題の根本原因修正
+（akari-telop 本家 f251914 にも存在する旧来バグ。再移植時は要マージ）:
+
+- `render/canvas2d.ts` の `drawText`（plain 一枚描き経路）で `drawTextRun` へ渡す y を
+  `strokeOutset` → `strokeOutset + content.size * 0.1` に修正
+- 根拠: text レイヤーの box 高さは実測 `1.2×size`（`atf/measure.ts`）。旧実装は em ボックス
+  （1.0×size）を box 上端に張り付けて描いていたため、anchor 中央合わせのテキストが
+  約 0.1×size（48px 文字で実測 -6px）上ずれしていた。perChar 経路（`drawPerChar` の
+  `glyphY = strokeOutset + content.size * 0.1 + glyph.dy`）とカーソル経路は元から補正済みで、
+  plain 経路だけ抜けていた（同一テキストが perChar アニメの有無で縦位置が変わる非一貫性）
+- フォント読み込みの有無は無関係であることを実測で棄却済み（Noto Sans JP 読み込み前後で
+  ±0.5px。ずれは純粋に描画側の座標計算）
+- 機械検証: `test/text-centering.test.mjs`（帯 shape と anchor 中央 text の実測 bbox 中心一致）
+
+## vendor への追記: fontFamily / fontWeight ツマミ対応（2026-08-03）
+
+オーナー要望「フォントを選べる・太さを変えられる」（handoff-2026-08-03-store-telop-shelf-and-sound-dl
+§追記-3）の実装。akari-telop 本家には無い akari-video 側の独自拡張（再移植時は要マージ）:
+
+- `atf/types.ts`: `Variable.type` に `'font'` を追加（値 = CSS フォントスタック文字列・
+  `options` で選択肢を宣言）。`TextContent.font` / `TextContent.weight` を `Value` 化
+  （変数・式参照可。従来の素の string / number もそのまま有効 = 後方互換）
+- `atf/resolve.ts`: font / weight を実測（measureBlock）前に resolveStr / resolveNum で解決。
+  weight は 0 以下・非有限を undefined に落とす（不正値でフォント文字列が壊れるのを防ぐ）。
+  collectExprs にも font / weight を追加（式参照時の topo-sort 対応）
+- テンプレ側の機械追加（fontFamily = 主要フォントスタック共有レイヤーへ・fontWeight = 最大
+  fontSize レイヤーへ・default は現行値のまま = 既定の見た目は不変）とあわせて使う
+
+## vendor への追記: テロップ標準ツマミと中央基準 9 点アンカー（2026-08-03 telop-standard-knobs）
+
+- `atf/types.ts`: `Variable` に optional の `group` / `role`、`AtfDoc` に optional の
+  `groups` / `anchor`（tl/tc/tr/ml/mc/mr/bl/bc/br）を追加。既存の最小 ad-hoc doc は
+  宣言なしのまま型・実行時とも後方互換
+- `atf/resolve.ts`: 全レイヤー解決後の自然 bbox を union し、`doc.anchor` 上の点を
+  `stage 中央 + posX/posY` へ一度だけ移すテンプレート全体の剛体シフトを追加。
+  `doc.anchor` 未宣言時はシフト処理を完全にスキップし、従来座標を維持する
+- 自然 bbox の union では幅または高さが 0 の縮退レイヤーを除外する。進捗 0% の不可視バー等の
+  座標が、実際に描画されるコンテンツのアンカーを歪めないため
+- 機械検証: `scripts/codemod-standard-knobs.mjs` の全 36 件座標パリティ（±0.1px）・
+  実ブラウザ利用時の既定レンダ byte parity、`test/standard-knobs.test.mjs` の
+  anchor 中央配置・全レイヤー剛体移動・4 段階文言伸縮アンカー固定、既存 `npm test`
+
+## vendor への追記: ATF テキストラン v1（2026-08-03 atf-text-runs）
+
+文言中の `**…**` で任意範囲を強調できる akari-video 側の独自拡張
+（akari-telop 本家には未収録。再移植時は要マージ）:
+
+- `atf/text-runs.ts`: 対になった `**` を除去して通常 / 強調ランへ変換する決定論的パーサーを追加。
+  複数範囲に対応し、閉じ忘れ（マーカーが奇数個）は入力全体を変換せず fail-visible にする
+- `atf/types.ts` / `atf/resolve.ts`: `TextContent.emphasisStyle?` の `color` / `scale` / `weight`
+  をすべて `Value` として追加。解決済みランを measure より前に作り、強調倍率とウェイトを
+  実測・反復 shrink-to-fit に含める。`emphasisStyle` 未宣言でも対になったマーカーは描画文字列
+  から除去し、本文と同じ単一描画経路へ戻すためスタイル差を作らない
+- `render/canvas2d.ts`: plain 経路はランごとにフォント・色・サイズ・太さを切り替え、最大ラン高の
+  中央へ各ランを揃える。明示した強調色は本文の gradient / pattern より優先する
+- `render/perchar.ts`: マーカー除去後の grapheme / word offset とランを対応付け、既存の
+  classStyles / glyphStyles / randomize と強調 scale を合成する。字詰め実測にも同じ scale / weight
+  を使い、plain と同じ実測高を基準に縦位置を揃える
+- 機械検証: `test/text-runs-resolution.test.mjs`（パース・閉じ忘れ・Value 解決・未宣言・長文収縮）と
+  `test/text-runs-render.test.mjs`（plain / perChar の色・サイズ実効、未宣言 pixel parity、縦位置、
+  長文安全域、hormozi_snap 旧 2 レイヤーとの alpha bbox parity）
+
+## vendor への追記: テロップアニメ標準ツマミ（2026-08-03 telop-anim-knobs）
+
+textanim 47 語彙を ATF canvas テロップの in / out / loop スロットから選べるようにする
+akari-video 側の独自拡張（akari-telop 本家には未収録。再移植時は要マージ）:
+
+- `atf/types.ts`: `Variable.type` に options 必須の操作面として `'select'` を追加
+- `atf/textanim-recipes.mjs`: render-cut の CSS 語彙と同型の opacity / translate / scale /
+  rotate キーフレームを数値 ATF track として定義。out は in のキー列と easing を時間反転する
+- `atf/resolve.ts`: `original` は従来の timing / tracks / perChar を完全スキップで維持。
+  語彙または `none` 選択時だけ対象 phase の焼き込み track（perChar を含む）を除去し、
+  全レイヤーへ同一レシピを合成する。loop は hold 区間を既定 1.6 秒周期で反復する
+- 機械検証: textanim カタログ一致 lint、全 36 テンプレの original parity、47 語彙の実効、
+  out 時間反転、`none` の焼き込み除去を `packages/bake-layer/test/` で固定

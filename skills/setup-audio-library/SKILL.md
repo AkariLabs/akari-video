@@ -64,6 +64,8 @@ description: BGM・効果音の音源ライブラリを増やしたいときに�
 4. [assisted-fetch.md](assisted-fetch.md) — ユーザーの指示があるときだけ: エージェントが
    取得を代行し、来歴付きで `_staging/` に置く
 5. [gallery.md](gallery.md) — 登録済み音源を試聴し、keep/drop を記録する
+6. [store-unlock.md](store-unlock.md) — AKARI Store で購入した宣言パックの導入
+   （`akari store status` → `install` → 検証。「購入した素材をセットアップして」で発動）
 
 詳細を先読みせず、現在の工程に対応するファイルだけを読む。
 

@@ -155,14 +155,39 @@ function assertVocabulary(values, vocabulary, label) {
 }
 
 /**
+ * 宣言データ（耳検証済みの構造）1 トラック分を提案向けに要約する。
+ * 宣言の出どころは 2 系統で中身は同じ形:
+ * 内部 dogfood = 工房 declarations.json（harness/audio-declare）/
+ * 公開ユーザー = 宣言パック購入時に展開される meta.json の宣言フィールド。
+ */
+function summarizeDeclaration(decl) {
+  const sections = (decl.sections ?? []).map(({ label, start_sec: startSec, end_sec: endSec }) => ({ label, start_sec: startSec, end_sec: endSec }));
+  const firstDrop = sections.find((s) => s.label === 'drop') ?? null;
+  return {
+    bpm: decl.bpm ?? null,
+    beat_offset_s: decl.beat_offset_s ?? null,
+    sections,
+    hit_points: (decl.hit_points ?? []).slice(),
+    // audio.bgm.in にこの値を指定するとサビ頭から敷ける（サビ宣言が無ければ null）
+    drop_in_sec: firstDrop ? firstDrop.start_sec : null,
+  };
+}
+
+/** 耳検証済みトラックをランキングで優先する固定ボーナス。 */
+export const DECLARED_BONUS = 1;
+
+/**
  * BGM 候補の決定論ランキング。
  * @param {object} catalog akari-sounds catalog.json（tracks[]）
- * @param {object} query { tones: string[](1〜複数・必須), tempo?: string, count?: number }
+ * @param {object} query { tones: string[](1〜複数・必須), tempo?: string, count?: number,
+ *   declarations?: {id: 宣言} — 耳検証済みデータ。bpm を実測置換・DECLARED_BONUS を加点・
+ *   declaration 要約（drop_in_sec / sections / hit_points）を候補に添える }
  * @returns {object} { suggestions: [...], unmappedIds: string[] }
- *   suggestion = { id, title, bpm, tempoClass, score, toneScore, tempoScore, family,
- *                  matchedTones: {tone: weight}, takes: [{ file, mp3, duration_sec }] }
+ *   suggestion = { id, title, bpm, tempoClass, score, toneScore, tempoScore, declaredScore,
+ *                  family, matchedTones: {tone: weight}, declaration: 要約|null,
+ *                  takes: [{ file, mp3, duration_sec }] }
  */
-export function suggestBgm(catalog, { tones, tempo = null, count = 5 } = {}) {
+export function suggestBgm(catalog, { tones, tempo = null, count = 5, declarations = null } = {}) {
   if (!catalog || !Array.isArray(catalog.tracks)) {
     throw new Error('catalog.json の形式が想定と違います（tracks 配列がない）');
   }
@@ -197,19 +222,24 @@ export function suggestBgm(catalog, { tones, tempo = null, count = 5 } = {}) {
     if (toneScore === 0) {
       continue; // どの指定 tone にも合わない系統は候補にしない
     }
-    const bpm = feltBpm(track);
+    const declaration = declarations?.[track.id] ? summarizeDeclaration(declarations[track.id]) : null;
+    // 耳検証済みの実測 BPM があれば推定（felt BPM）より優先する
+    const bpm = declaration?.bpm ?? feltBpm(track);
     const tempoClass = tempoClassOf(bpm);
     const tempoScore = tempoBonus(tempo, tempoClass);
+    const declaredScore = declaration ? DECLARED_BONUS : 0;
     scored.push({
       id: track.id,
       title: track.title ?? track.id,
       bpm,
       tempoClass,
-      score: toneScore + tempoScore,
+      score: toneScore + tempoScore + declaredScore,
       toneScore,
       tempoScore,
+      declaredScore,
       family: rule.family,
       matchedTones,
+      declaration,
       takes: (track.files ?? []).map(({ file, mp3, duration_sec: durationSec }) => ({ file, mp3, duration_sec: durationSec })),
     });
   }

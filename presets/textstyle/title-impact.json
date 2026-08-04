@@ -1,0 +1,29 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "title-impact",
+  "name": "インパクト",
+  "category": "title",
+  "sample_text": "衝撃の事実",
+  "style": {
+    "size_px": 168,
+    "weight": 700,
+    "color": "#ffeb3b",
+    "stroke": {
+      "color": "#000000",
+      "width_px": 10
+    },
+    "shadow": {
+      "color": "#000000",
+      "opacity": 0.7,
+      "blur_px": 14,
+      "distance_px": 8,
+      "angle_deg": 90
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "title-impact"
+  }
+}

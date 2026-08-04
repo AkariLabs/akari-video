@@ -1,0 +1,22 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "subtitle-commentary",
+  "name": "実況テロップ",
+  "category": "subtitle",
+  "sample_text": "ここで一気に加速！",
+  "style": {
+    "size_px": 60,
+    "weight": 700,
+    "color": "#00e676",
+    "stroke": {
+      "color": "#000000",
+      "width_px": 7
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "subtitle-commentary"
+  }
+}

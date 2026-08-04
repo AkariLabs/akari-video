@@ -1,0 +1,37 @@
+{
+  "id": "klee-one",
+  "category": "font",
+  "title": "Klee One",
+  "description": "手書きの教科書体（クレー）。人の手のぬくもりが要るシーン・手紙風・ナレーション風テロップに向く。 実体（Regular）は本リポの assets/font/klee-one/ に同梱済み（2026-08-03 追加。catalog 側は索引のまま・下記 source は取得元記録）。",
+  "when_to_use": "手書き風・手紙風・やさしいナレーションテロップ",
+  "tags": [
+    "font",
+    "japanese",
+    "handwriting",
+    "textbook",
+    "google-fonts",
+    "ofl"
+  ],
+  "knobs": [],
+  "ai_usage": "ウェイトは用途に応じて選び分けてよい。字間・行間・カラーは overlay/テロップ側で調整してよいが、グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Google Fonts / google/fonts リポ ofl 配下から取得）/ 2026-08-03 fontFamily ツマミ拡充",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.google.com/specimen/Klee+One",
+    "acquisition": "direct",
+    "license_at_source": "SIL Open Font License 1.1（google/fonts リポの各ディレクトリ OFL.txt を同梱・確認済み）",
+    "attribution_required": false
+  }
+}

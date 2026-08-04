@@ -21,37 +21,245 @@
       "key": "text",
       "type": "text",
       "label": "本文",
-      "default": "字幕テキスト"
+      "default": "字幕テキスト",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "rubyText",
       "type": "text",
       "label": "ルビ（空で非表示）",
-      "default": "じまくテキスト"
+      "default": "じまくテキスト",
+      "group": "ruby",
+      "role": "text"
     },
     {
       "key": "color_bg",
       "type": "color",
       "label": "プレート色",
-      "default": "rgba(0,0,0,0.8)"
+      "default": "rgba(0,0,0,0.8)",
+      "group": "band",
+      "role": "color-bg"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "本文色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_stroke",
       "type": "color",
       "label": "縁取り色",
-      "default": "#000000"
+      "default": "#000000",
+      "group": "global",
+      "role": "color-stroke"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "ルビ色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "ruby",
+      "role": "color"
+    },
+    {
+      "key": "fontSize",
+      "type": "number",
+      "label": "本文文字サイズ",
+      "default": 72,
+      "group": "main",
+      "role": "size"
+    },
+    {
+      "key": "rubyTextFontSize",
+      "type": "number",
+      "label": "ルビ（空で非表示）文字サイズ",
+      "default": 28,
+      "group": "ruby",
+      "role": "size"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "'Noto Sans JP', sans-serif",
+      "options": [
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ],
+      "group": "global",
+      "role": "font"
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 700,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（中央基準）",
+      "default": 0,
+      "group": "global",
+      "role": "pos-x"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（中央基準）",
+      "default": 434,
+      "group": "global",
+      "role": "pos-y"
+    },
+    {
+      "key": "animIn",
+      "type": "select",
+      "label": "入りアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-in"
+    },
+    {
+      "key": "animOut",
+      "type": "select",
+      "label": "抜けアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-out"
+    },
+    {
+      "key": "animLoop",
+      "type": "select",
+      "label": "ループアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ],
+      "group": "anim",
+      "role": "anim-loop"
+    },
+    {
+      "key": "animInSec",
+      "type": "number",
+      "label": "入り時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
+    },
+    {
+      "key": "animOutSec",
+      "type": "number",
+      "label": "抜け時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
     }
   ],
   "layers": [
@@ -72,8 +280,12 @@
         "h": 104
       },
       "transform": {
-        "x": 960,
-        "y": 922,
+        "x": {
+          "expr": "0 + 960"
+        },
+        "y": {
+          "expr": "0 + 922"
+        },
         "anchor": {
           "x": 0.5,
           "y": 0.5
@@ -117,9 +329,15 @@
         "text": {
           "var": "text"
         },
-        "size": 72,
-        "font": "'Noto Sans JP', sans-serif",
-        "weight": 700,
+        "size": {
+          "var": "fontSize"
+        },
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -132,8 +350,12 @@
         }
       },
       "transform": {
-        "x": 960,
-        "y": 922,
+        "x": {
+          "expr": "0 + 960"
+        },
+        "y": {
+          "expr": "0 + 922"
+        },
         "anchor": {
           "x": 0.5,
           "y": 0.5
@@ -177,8 +399,12 @@
         "text": {
           "var": "rubyText"
         },
-        "size": 28,
-        "font": "'Noto Sans JP', sans-serif",
+        "size": {
+          "var": "rubyTextFontSize"
+        },
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 700,
         "color": {
           "var": "color_text_2"
@@ -192,8 +418,12 @@
         }
       },
       "transform": {
-        "x": 960,
-        "y": 866,
+        "x": {
+          "expr": "0 + 960"
+        },
+        "y": {
+          "expr": "0 + 866"
+        },
         "anchor": {
           "x": 0.5,
           "y": 0.5
@@ -233,5 +463,28 @@
         "expr": "has(rubyText)"
       }
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "ruby",
+      "label": "ルビ・ふりがな"
+    },
+    {
+      "id": "band",
+      "label": "帯・背景"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    },
+    {
+      "id": "anim",
+      "label": "アニメ"
+    }
+  ],
+  "anchor": "bc"
 }

@@ -1,0 +1,24 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "subtitle-news",
+  "name": "ニュース風",
+  "category": "subtitle",
+  "sample_text": "速報ニュース",
+  "style": {
+    "size_px": 56,
+    "weight": 700,
+    "color": "#ffffff",
+    "background": {
+      "color": "#c62828",
+      "opacity": 1,
+      "padding_px": 16,
+      "radius_px": 0
+    }
+  },
+  "source": {
+    "repo": "akari-video-on-os",
+    "path": "src/lib/text-templates.ts",
+    "original_id": "subtitle-news"
+  }
+}

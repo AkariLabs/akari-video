@@ -21,37 +21,246 @@
       "key": "chapterLabel",
       "type": "text",
       "label": "章ラベル",
-      "default": "第1章"
+      "default": "第1章",
+      "group": "badge",
+      "role": "text"
     },
     {
       "key": "chapterTitle",
       "type": "text",
       "label": "章タイトル",
-      "default": "問題の本質"
+      "default": "問題の本質",
+      "group": "main",
+      "role": "text"
     },
     {
       "key": "color_primary",
       "type": "color",
       "label": "キーカラー（帯）",
-      "default": "#1B4FD8"
+      "default": "#1B4FD8",
+      "group": "badge",
+      "role": "color-accent"
     },
     {
       "key": "color_text",
       "type": "color",
       "label": "タイトル文字色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "main",
+      "role": "color"
     },
     {
       "key": "color_text_2",
       "type": "color",
       "label": "章ラベル文字色",
-      "default": "#ffffff"
+      "default": "#ffffff",
+      "group": "badge",
+      "role": "color"
     },
     {
       "key": "color_shadow",
       "type": "color",
       "label": "タイトルのシャドウ色",
-      "default": "rgba(0,0,0,0.5)"
+      "default": "rgba(0,0,0,0.5)",
+      "group": "main",
+      "role": "color-shadow"
+    },
+    {
+      "key": "chapterLabelFontSize",
+      "type": "number",
+      "label": "章ラベル文字サイズ",
+      "default": 25,
+      "group": "badge",
+      "role": "size"
+    },
+    {
+      "key": "chapterTitleFontSize",
+      "type": "number",
+      "label": "章タイトル文字サイズ",
+      "default": 30,
+      "group": "main",
+      "role": "size"
+    },
+    {
+      "key": "fontFamily",
+      "type": "font",
+      "label": "フォント",
+      "default": "system-ui",
+      "options": [
+        "system-ui",
+        "'Noto Sans JP', sans-serif",
+        "'Noto Serif JP', serif",
+        "'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif",
+        "'BIZ UDGothic', 'Noto Sans JP', sans-serif",
+        "'Dela Gothic One', 'Noto Sans JP', sans-serif",
+        "'Zen Maru Gothic', 'M PLUS Rounded 1c', sans-serif",
+        "'Shippori Mincho', 'Noto Serif JP', serif",
+        "'DotGothic16', 'Noto Sans JP', sans-serif",
+        "'Klee One', 'Noto Sans JP', sans-serif"
+      ],
+      "group": "global",
+      "role": "font"
+    },
+    {
+      "key": "fontWeight",
+      "type": "number",
+      "label": "太さ（100〜900）",
+      "default": 600,
+      "group": "global",
+      "role": "weight"
+    },
+    {
+      "key": "posX",
+      "type": "number",
+      "label": "X位置（中央基準）",
+      "default": -900,
+      "group": "global",
+      "role": "pos-x"
+    },
+    {
+      "key": "posY",
+      "type": "number",
+      "label": "Y位置（中央基準）",
+      "default": -480,
+      "group": "global",
+      "role": "pos-y"
+    },
+    {
+      "key": "animIn",
+      "type": "select",
+      "label": "入りアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-in"
+    },
+    {
+      "key": "animOut",
+      "type": "select",
+      "label": "抜けアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "caption-rise"
+      ],
+      "group": "anim",
+      "role": "anim-out"
+    },
+    {
+      "key": "animLoop",
+      "type": "select",
+      "label": "ループアニメ",
+      "default": "original",
+      "options": [
+        "original",
+        "none",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ],
+      "group": "anim",
+      "role": "anim-loop"
+    },
+    {
+      "key": "animInSec",
+      "type": "number",
+      "label": "入り時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
+    },
+    {
+      "key": "animOutSec",
+      "type": "number",
+      "label": "抜け時間（秒）",
+      "default": 0.6,
+      "group": "anim",
+      "role": "anim-duration"
     }
   ],
   "layers": [
@@ -74,8 +283,12 @@
         }
       },
       "transform": {
-        "x": 60,
-        "y": 60,
+        "x": {
+          "expr": "0 + 60"
+        },
+        "y": {
+          "expr": "0 + 60"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -134,8 +347,12 @@
         "text": {
           "var": "chapterLabel"
         },
-        "size": 25,
-        "font": "system-ui",
+        "size": {
+          "var": "chapterLabelFontSize"
+        },
+        "font": {
+          "var": "fontFamily"
+        },
         "weight": 600,
         "color": {
           "var": "color_text_2"
@@ -143,8 +360,12 @@
         "align": "left"
       },
       "transform": {
-        "x": 80,
-        "y": 70,
+        "x": {
+          "expr": "0 + 80"
+        },
+        "y": {
+          "expr": "0 + 70"
+        },
         "anchor": {
           "x": 0,
           "y": 0
@@ -203,9 +424,15 @@
         "text": {
           "var": "chapterTitle"
         },
-        "size": 30,
-        "font": "system-ui",
-        "weight": 600,
+        "size": {
+          "var": "chapterTitleFontSize"
+        },
+        "font": {
+          "var": "fontFamily"
+        },
+        "weight": {
+          "var": "fontWeight"
+        },
         "color": {
           "var": "color_text"
         },
@@ -221,10 +448,10 @@
       },
       "transform": {
         "x": {
-          "expr": "60 + @ref3_chapter_tag_label.width + 40 + 12"
+          "expr": "0 + (60 + @ref3_chapter_tag_label.width + 40 + 12)"
         },
         "y": {
-          "expr": "60 + (@ref3_chapter_tag_label.height + 20) / 2"
+          "expr": "0 + (60 + (@ref3_chapter_tag_label.height + 20) / 2)"
         },
         "anchor": {
           "x": 0,
@@ -277,5 +504,24 @@
         }
       ]
     }
-  ]
+  ],
+  "groups": [
+    {
+      "id": "main",
+      "label": "本文"
+    },
+    {
+      "id": "badge",
+      "label": "ラベル・バッジ"
+    },
+    {
+      "id": "global",
+      "label": "全体"
+    },
+    {
+      "id": "anim",
+      "label": "アニメ"
+    }
+  ],
+  "anchor": "tl"
 }

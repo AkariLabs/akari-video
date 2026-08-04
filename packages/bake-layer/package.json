@@ -10,7 +10,7 @@
   "scripts": {
     "bake": "node bin/bake-layer.mjs",
     "port:catalog": "node scripts/port-telop.mjs",
-    "test": "node --test --test-concurrency=1 \"test/*.test.mjs\""
+    "test": "node --test --test-concurrency=1 \"test/*.test.mjs\" && node scripts/lint-standard-knobs.mjs && node scripts/lint-textanim-recipes.mjs && node scripts/sync-index-params.mjs --check"
   },
   "dependencies": {
     "esbuild": "^0.24.2",

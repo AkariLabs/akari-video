@@ -1139,25 +1139,55 @@ function drawVerticalText(
   ctx: CanvasRenderingContext2D,
   content: ResolvedTextContent,
   letterSpacing: number,
+  baseWeight: number | undefined,
   t?: number,
 ): void {
   const size = content.size
-  const v = verticalLayout(content.text, size, letterSpacing)
+  const cellSize = size * (content.runs ? content.emphasisStyle?.scale ?? 1 : 1)
+  const v = verticalLayout(content.text, cellSize, letterSpacing)
   const strokeOutset = textStrokeOutset(content)
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'center'
+  let columnOffset = 0
   for (let i = 0; i < v.columns.length; i += 1) {
     // 右→左: 列 0 を右端に置く（bbox は [strokeOutset, strokeOutset + blockW]）
     const xCenter = strokeOutset + v.width - v.colStep * (i + 0.5)
     const chars = v.columns[i]
+    let charOffset = columnOffset
     for (let j = 0; j < chars.length; j += 1) {
       const yCenter = strokeOutset + v.charStep * (j + 0.5)
+      const emphasized = !!content.runs?.some(
+        (run) => run.emphasis && charOffset >= run.start && charOffset < run.end,
+      )
+      const glyphSize = size * (emphasized ? content.emphasisStyle?.scale ?? 1 : 1)
+      const glyphWeight = emphasized
+        ? content.emphasisStyle?.weight ?? baseWeight
+        : baseWeight
+      ctx.font = glyphWeight
+        ? `${glyphWeight} ${glyphSize}px ${content.font ?? 'system-ui'}`
+        : `${glyphSize}px ${content.font ?? 'system-ui'}`
+      const glyphContent = emphasized && content.emphasisStyle?.color !== undefined
+        ? { ...content, fill: undefined, patternFill: undefined }
+        : content
       // グリフ中心を原点にして描く（グラデ/シャドウのローカル座標が一致するように）
       ctx.save()
       ctx.translate(xCenter, yCenter)
-      drawTextRun(ctx, content, chars[j], 0, 0, size, -size / 2, size, content.color, t)
+      drawTextRun(
+        ctx,
+        glyphContent,
+        chars[j],
+        0,
+        0,
+        glyphSize,
+        -glyphSize / 2,
+        glyphSize,
+        emphasized ? content.emphasisStyle?.color ?? content.color : content.color,
+        t,
+      )
       ctx.restore()
+      charOffset += chars[j].length
     }
+    columnOffset += content.text.split('\n')[i].length + 1
   }
 }
 
@@ -1184,7 +1214,7 @@ function drawText(
 
   // 縦書きは専用パス（列右→左・文字上→下。counter/align は対象外）
   if (content.vertical) {
-    drawVerticalText(ctx, content, letterSpacing, t)
+    drawVerticalText(ctx, content, letterSpacing, baseWeight, t)
     return
   }
 
@@ -1212,8 +1242,70 @@ function drawText(
     displayText = formatCounter(content.counter, counterProgress)
   }
 
+  if (content.runs && content.emphasisStyle && !content.counter) {
+    const textWidth = Math.max(0, content.measuredWidth - strokeOutset * 2)
+    let cursorX = strokeOutset
+    if (content.align === 'center') cursorX = w / 2 - textWidth / 2
+    else if (content.align === 'right') cursorX = w - strokeOutset - textWidth
+
+    ctx.textAlign = 'left'
+    const innerHeight = Math.max(0, content.measuredHeight - strokeOutset * 2)
+    for (let index = 0; index < content.runs.length; index += 1) {
+      const run = content.runs[index]
+      const runText = content.text.slice(run.start, run.end)
+      if (runText.length === 0) continue
+      const runSize = content.size * (run.emphasis ? content.emphasisStyle.scale : 1)
+      const runWeight = run.emphasis
+        ? content.emphasisStyle.weight ?? baseWeight
+        : baseWeight
+      ctx.font = runWeight
+        ? `${runWeight} ${runSize}px ${content.font ?? 'system-ui'}`
+        : `${runSize}px ${content.font ?? 'system-ui'}`
+      if (letterSpacing !== 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(ctx as any).letterSpacing = '0px'
+      }
+      const graphemeCount = typeof Intl !== 'undefined' && 'Segmenter' in Intl
+        ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(runText)).length
+        : Array.from(runText).length
+      const runWidth = ctx.measureText(runText).width + letterSpacing * Math.max(0, graphemeCount - 1)
+      if (letterSpacing !== 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(ctx as any).letterSpacing = `${letterSpacing}px`
+      }
+      const runY = strokeOutset + (innerHeight - runSize) / 2
+      const runContent = run.emphasis && content.emphasisStyle.color !== undefined
+        ? { ...content, fill: undefined, patternFill: undefined }
+        : content
+      drawTextRun(
+        ctx,
+        runContent,
+        runText,
+        cursorX,
+        runY,
+        runSize,
+        strokeOutset,
+        textWidth,
+        run.emphasis ? content.emphasisStyle.color ?? content.color : content.color,
+        t,
+      )
+      cursorX += runWidth
+      if (letterSpacing !== 0 && index < content.runs.length - 1) cursorX += letterSpacing
+    }
+
+    if (letterSpacing !== 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(ctx as any).letterSpacing = '0px'
+    }
+    return
+  }
+
   // shimmer は時刻 t に依存するため必ず引き渡す（未指定だと NaN グラデで例外になる）
-  drawTextRun(ctx, content, displayText, textX, strokeOutset, content.size, 0, w, content.color, t)
+  // y の +size*0.1: レイヤー box 高さは実測 1.2×size（measure.ts）。em ボックス（1.0×size）を
+  // box 内で上下対称に置くための補正で、perChar 経路（drawPerChar の glyphY）・カーソル経路と
+  // 同一。これが無いと em が box 上端に張り付き、anchor 中央合わせのテキストが約 0.1×size
+  // 上ずれする（2026-08-03 テロップ棚の全体上ずれの根本原因）。
+  drawTextRun(ctx, content, displayText, textX, strokeOutset + content.size * 0.1, content.size, 0, w, content.color, t)
 
   // letterSpacing リセット
   if (letterSpacing !== 0) {
@@ -1278,7 +1370,10 @@ function drawPerChar(
 
     // グリフのベース位置に移動
     const glyphX = baseOffsetX + glyph.x + glyph.dx
-    const glyphY = strokeOutset + content.size * 0.1 + glyph.dy
+    const glyphSize = content.size * glyph.fontScale
+    const glyphY = content.runs
+      ? strokeOutset + (Math.max(0, content.measuredHeight - strokeOutset * 2) - glyphSize) / 2 + glyph.dy
+      : strokeOutset + content.size * 0.1 + glyph.dy
 
     ctx.translate(glyphX, glyphY)
     if (glyph.rotation !== 0) ctx.rotate((glyph.rotation * Math.PI) / 180)
@@ -1287,8 +1382,10 @@ function drawPerChar(
       ctx.filter = appendFilterString(layerFilter, `blur(${glyph.blur}px)`)
     }
 
-    const glyphSize = content.size * glyph.fontScale
-    drawTextRun(ctx, content, glyph.ch, 0, 0, glyphSize, 0, glyphSize * 1.2, glyph.color ?? content.color, t)
+    const glyphContent = glyph.emphasis && content.emphasisStyle?.color !== undefined
+      ? { ...content, fill: undefined, patternFill: undefined }
+      : content
+    drawTextRun(ctx, glyphContent, glyph.ch, 0, 0, glyphSize, 0, glyphSize * 1.2, glyph.color ?? content.color, t)
 
     ctx.restore()
   }

@@ -14,11 +14,16 @@
 | `shared/waveform-preview.mjs` | 音声実体から preview.png（波形画像）を ffmpeg で生成する共有ロジック |
 | `bin/fetch-akari-sounds.mjs` | AKARI Sounds を GitHub Release から**一括取得**し user スコープへ登録する CLI（first-party のみ許可。取得先は AkariLabs/akari-sounds に限定） |
 | `shared/bgm-suggest.mjs` | BGM 自動提案の純粋ロジック — tone 語彙（表現選定と同じ 8 語）× 系統対応表 `FAMILY_TONE_RULES` × 体感 BPM で決定論ランキング |
-| `bin/suggest-bgm.mjs` | BGM 自動提案 CLI。導入済みスナップショット（`.origin-catalog.json`）を読み、`--tone`（複数可）`--tempo` から候補 + ローカル実体パスを提示（`--json` あり）。ネットワーク不使用 |
+| `bin/suggest-bgm.mjs` | BGM 自動提案 CLI。導入済みスナップショット（`.origin-catalog.json`）を読み、`--tone`（複数可）`--tempo` から候補 + ローカル実体パスを提示（`--json` あり）。`--declarations`（または env `AKARI_SOUNDS_DECLARATIONS`）で耳検証済み宣言を合流 — 実測 BPM 置換・耳検証ボーナス・**サビ頭出し（`audio.bgm.in` の推奨値）**・構成表示が付く。ネットワーク不使用 |
+| `shared/sfx-suggest.mjs` | SFX / ジングル自動提案の純粋ロジック — 「場面の意味」14 語 × 宣言表 `MEANING_RULES`（候補順 = 優先順・外部補完の参照つき） |
+| `bin/suggest-sfx.mjs` | SFX / ジングル自動提案 CLI（`--meaning` / `--list` / `--json`）。suggest-bgm の姉妹 |
+| `bin/review-sfx-mapping.mjs` | 「意味 → 音」対応表の**耳レビュー面**を生成（全意味 × 候補の試聴プレイヤー + 判定 JSON 書き出し。既定出力 `~/.akari/reviews/sfx-mapping.html`） |
 | `bin/generate-candidates-html.mjs` | 候補リストの静的自己完結 HTML を生成する CLI。ダウンロードは一切行わない |
 | `bin/register-drop-folder.mjs` | ドロップフォルダを走査し、候補と照合して `~/.akari/assets/audio/<id>/`（user スコープ）へ実体配置 + `catalog/audio/<id>/meta.json`（remote 参照）を書く CLI。既定は plan-only、`--apply` で実行 |
 | `gallery-server.mjs` + `gallery-template.html` | 登録済み音源の試聴 + keep/drop を記録するローカル HTTP サーバ（`127.0.0.1` のみ） |
 | `bin/gallery-helper.mjs` | 試聴ギャラリーの起動 CLI |
+| `declare-server.mjs` + `declare-template.html` | **宣言づけ**（サビ区間・キメのピン・ビートグリッドを人が耳で付ける）のローカル HTTP サーバ + タイムライン画面。保存先は `<ライブラリ>/declarations.json`（保存前にサーバ側で妥当性検査 = fail closed）。スキル: [`skills/declare-audio/`](../../skills/declare-audio/SKILL.md) |
+| `bin/declare-helper.mjs` | 宣言づけ画面の起動 CLI |
 | `test/*.test.mjs` | `node --test` によるユニット/統合テスト（`mkdtemp` で隔離、本リポや実ホームディレクトリには書き込まない） |
 
 ## ハードルール（詳細は SKILL.md）
@@ -54,6 +59,9 @@ node packages/audio-library-setup/bin/register-drop-folder.mjs \
 # 試聴ギャラリーを起動
 node packages/audio-library-setup/bin/gallery-helper.mjs \
   --library-root ~/.akari/assets/audio
+
+# 宣言づけ（サビ・キメ・拍を自分の耳で付ける）画面を起動
+node packages/audio-library-setup/bin/declare-helper.mjs
 ```
 
 ## テスト

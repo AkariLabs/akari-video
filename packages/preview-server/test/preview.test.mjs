@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import net from 'node:net';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -14,7 +15,17 @@ const { buildTimelineMap } = require('../../edit-store/lib/timeline-map.js');
 const SRC_PROJECT = path.resolve(import.meta.dirname, '..', '..', '..', 'test-project');
 const PROJECT = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-preview-test-run-'));
 fs.cpSync(SRC_PROJECT, PROJECT, { recursive: true });
-const PORT = 4567;
+// ポートは固定しない。固定にすると、別セッションが同じポートで別プロジェクトを
+// 配信していたときにテストがそちらへ接続し、偽の失敗（404 / 422 / 別プロジェクトの
+// lint 結果）を出す（実際に起きた既知の罠）。毎回 OS から空きポートを借りる。
+const PORT = await new Promise((resolve, reject) => {
+  const probe = net.createServer();
+  probe.on('error', reject);
+  probe.listen(0, '127.0.0.1', () => {
+    const { port } = probe.address();
+    probe.close(() => resolve(port));
+  });
+});
 const BASE = `http://localhost:${PORT}`;
 const OUT_JSON = path.join(PROJECT, 'edit.output.json');
 const SYSTEM_CHROME = process.env.CHROME_PATH
@@ -201,6 +212,84 @@ async function main() {
     // screenshot for debugging
     try { await page.screenshot({ path: '/tmp/preview-test-error.png', fullPage: true }); } catch {}
   }
+
+  // ── 再生中に動画が再読み込みされない（回帰: clip.src のルート相対化で
+  //    `video.src !== src` が常に真になり毎フレーム再代入 → スピナー固着・再生不能） ──
+  console.log('\n▶️  Playback does not reload the video element');
+  try {
+    const pp = await context.newPage();
+    await pp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await pp.waitForTimeout(2500);
+    await pp.evaluate(() => {
+      window.__reloads = 0;
+      window.__seeks = 0;
+      const v = document.getElementById('preview-video');
+      v.addEventListener('loadstart', () => window.__reloads++);
+      v.addEventListener('seeking', () => window.__seeks++);
+    });
+    await pp.click('#play-toggle');
+    await pp.waitForTimeout(2500);
+    // スピナーは一時的な waiting でも点くのが正常。ここで押さえたいのは
+    // 「出たまま戻らない（＝実際の不具合）」なので、数秒以内に消えるかを見る。
+    let settled = false;
+    for (let i = 0; i < 12 && !settled; i++) {
+      settled = await pp.evaluate(() => {
+        const v = document.getElementById('preview-video');
+        return v.readyState >= 3
+          && getComputedStyle(document.getElementById('loading-indicator')).display === 'none';
+      });
+      if (!settled) await pp.waitForTimeout(400);
+    }
+    const st = await pp.evaluate(() => {
+      const v = document.getElementById('preview-video');
+      return {
+        reloads: window.__reloads, seeks: window.__seeks,
+        readyState: v.readyState, paused: v.paused,
+        spinner: getComputedStyle(document.getElementById('loading-indicator')).display,
+      };
+    });
+    st.settled = settled;
+    st.reloads === 0
+      ? ok('No video reload during playback (loadstart 0)')
+      : ng('Video reload storm', `loadstart fired ${st.reloads} times in 2.5s`);
+    st.seeks < 10
+      ? ok(`No seek storm during playback (${st.seeks})`)
+      : ng('Seek storm', `${st.seeks} seeks in 2.5s`);
+    st.settled
+      ? ok('Loading spinner clears during playback (not stuck)')
+      : ng('Loading spinner stuck', `display=${st.spinner} readyState=${st.readyState} paused=${st.paused}`);
+    await pp.close();
+  } catch (e) { ng('Playback reload check', e.message); }
+
+  // ── オーバーレイ操作層の CSS が配線されている（回帰: 未配線だと選択枠が
+  //    position:fixed を失い body(display:grid) の行を増やしてプレビューが縮む） ──
+  console.log('\n🎯 Interaction stylesheet wiring');
+  try {
+    const cssRes = await fetch(`${BASE}/overlay-interaction.css`);
+    cssRes.ok ? ok('/overlay-interaction.css served') : ng('/overlay-interaction.css', `HTTP ${cssRes.status}`);
+
+    const cp = await context.newPage();
+    await cp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await cp.waitForTimeout(1500);
+    const probe = await cp.evaluate(() => {
+      const before = getComputedStyle(document.body).gridTemplateRows;
+      const el = document.createElement('div');
+      el.className = 'akari-interaction-selection-frame';
+      el.setAttribute('data-akari-interaction', 'selection-frame');
+      document.body.appendChild(el);
+      const pos = getComputedStyle(el).position;
+      const after = getComputedStyle(document.body).gridTemplateRows;
+      el.remove();
+      return { pos, beforeRows: before.split(' ').length, afterRows: after.split(' ').length };
+    });
+    probe.pos === 'fixed'
+      ? ok('Selection frame resolves to position:fixed')
+      : ng('Selection frame position', `expected fixed got ${probe.pos} (interaction.css not applied)`);
+    probe.afterRows === probe.beforeRows
+      ? ok('Selection frame does not add a body grid row')
+      : ng('Layout shift', `body grid rows ${probe.beforeRows} → ${probe.afterRows}`);
+    await cp.close();
+  } catch (e) { ng('Interaction stylesheet wiring', e.message); }
 
   // ── P1-2: レターボックス時のステージ＝ビデオ枠一致 ──
   // 横長ペインでは wrapper の aspect-ratio が max-height で破れる。stage は出力フレーム矩形

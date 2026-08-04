@@ -7,10 +7,21 @@ export type Value = number | string | { var: string } | { expr: string }
 /** テンプレート変数定義 */
 export interface Variable {
   key: string
-  type: 'text' | 'color' | 'number'
+  /**
+   * 'font' は 2026-08-03 拡張（fontFamily ツマミ）: 値は CSS フォントスタック文字列。
+   * UI は options から選択制にする（同梱フォントだけを選ばせて環境差を出さないため）
+   * 'select' は同日拡張（標準アニメツマミ）: 値は options 内の id 文字列。
+   */
+  type: 'text' | 'color' | 'number' | 'font' | 'select'
   label: string
   default: string | number
+  /** UI / AI 操作面で同じ要素に属するツマミを束ねるグループ id */
+  group?: string
+  /** テンプレート間でツマミの意味を横断検索するための固定 role 語彙 */
+  role?: string
   optional?: boolean
+  /** type='font' / 'select' 用の選択肢。font は CSS stack、select は安定 id */
+  options?: string[]
 }
 
 /** イージング種別 */
@@ -311,9 +322,20 @@ export interface TextContent {
   text: Value
   /** フォントサイズ（px）。Value で変数・式による動的サイズ変更が可能 */
   size: Value
-  font?: string
-  weight?: number
+  /** CSS フォントスタック。Value 化（2026-08-03）で fontFamily ツマミ（type='font' 変数）を参照できる */
+  font?: Value
+  /** フォントウェイト（100〜900）。Value 化（2026-08-03）で fontWeight ツマミを参照できる */
+  weight?: Value
   color: Value
+  /** `**…**` で指定した強調ランへ適用するスタイル（全フィールド Value）。 */
+  emphasisStyle?: {
+    /** 省略時は本文色 */
+    color?: Value
+    /** 本文 font size に対する倍率。省略時は 1 */
+    scale?: Value
+    /** 省略時は本文 weight */
+    weight?: Value
+  }
   /** Track.prop='colorT' で stops 上を移動する本文色アニメーション */
   colorRamp?: ColorRamp
   align?: 'left' | 'center' | 'right'
@@ -499,6 +521,10 @@ export interface AtfDoc {
   kind: 'lower-third' | 'caption' | 'popup' | 'corner' | 'free'
   stage: Stage
   timing?: Timing
+  /** variables の表示・操作単位。旧テンプレートとの互換のため optional */
+  groups?: Array<{ id: string; label: string }>
+  /** テンプレート全体 bbox 上の 9 点アンカー。旧 doc との互換のため optional */
+  anchor?: 'tl' | 'tc' | 'tr' | 'ml' | 'mc' | 'mr' | 'bl' | 'bc' | 'br'
   variables: Variable[]
   layers: AtfLayer[]
 }
@@ -533,6 +559,14 @@ export interface ResolvedTextShadow {
 /** 解決済みテキストコンテンツ（測定済み幅/高さを含む） */
 export interface ResolvedTextContent {
   text: string
+  /** マーカー除去後テキスト上の強調範囲。強調スタイル宣言時だけ保持する。 */
+  runs?: { start: number; end: number; emphasis: boolean }[]
+  emphasisStyle?: {
+    /** 明示指定時だけ保持。省略時は本文の fill / pattern を含む見た目を継承する。 */
+    color?: string
+    scale: number
+    weight?: number
+  }
   size: number
   font?: string
   weight?: number

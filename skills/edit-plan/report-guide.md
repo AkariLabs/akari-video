@@ -121,8 +121,28 @@ node packages/audio-library-setup/bin/suggest-bgm.mjs --tone <トーン> [--tone
   決める（自動提案の結果を無承認で `edit.json` に書かない）。提示には
   「suggest-bgm の第 N 候補（tone: ◯◯）」と根拠を書き、別の候補や手動選定へ逸脱するときは
   理由を 1 行残す
+- 耳検証済みの宣言データがある環境（宣言パック導入時、または `--declarations` /
+  env `AKARI_SOUNDS_DECLARATIONS`）では、該当トラックが優先表示され、**サビ頭出し
+  （`audio.bgm.in` にそのまま書ける推奨秒）**・実測 BPM・曲構成（intro/サビ/outro）付きで
+  提案される。サビから敷きたい・見せ場に合わせたい場面ではこの値を使う
+  - 宣言がまだ無い曲でユーザーが「サビから敷きたい」と言ったときは、
+    [declare-audio](../declare-audio/SKILL.md) で自分で付けられることを案内する
+    （画面で 1 曲 1〜2 分。付けた宣言は以後の提案すべてに効く）
 - AKARI Sounds に合う系統が無い（該当なし・トーンが特殊）ときだけ、従来のスコープ層検索と
   外部補完（`catalog/audio/` の SFX 補完・候補リスト）へ広げる
+
+**効果音・ジングルの「あれば提案」は「場面の意味」から引く**（BGM の tone と違い、SFX は
+イベント級。語彙は 14 語固定 — 一覧は `--list`）:
+
+```sh
+node packages/audio-library-setup/bin/suggest-sfx.mjs --meaning 場面転換 [--json]
+```
+
+- 候補順がそのまま優先順（宣言表 `shared/sfx-suggest.mjs` の `MEANING_RULES`）。AKARI Sounds に
+  無い意味（拍手・失敗音の日本のお約束・和太鼓）は外部補完（`catalog/audio/` の存続エントリ）へ
+  正直に落ち、取得済みかどうかも表示される。行を発明せず、無い意味は最も近い行を借りて根拠に書く
+- 出力の `duration_sec` は発火タイミング設計（[beat-sync.md](beat-sync.md)）の入力である。
+  採用は同じく Checkpoint 2 の承認で決める
 
 候補が見つからないことを「あれば提案」と記録しない。BGM と SFX は `audio`、ナレーションは `audio.narration[]`、動画 B ロールは v1 の `sources[]` + `cuts[].src` へ格納できる（[execution.md](execution.md) §1）。公開契約のどのフィールドでも表せない演出だけ、計画上の採用と `edit.json` への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
 
