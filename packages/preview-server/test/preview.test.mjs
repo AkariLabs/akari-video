@@ -332,6 +332,38 @@ async function main() {
     await lp.close();
   } catch (e) { ng('Baked layers + animation', e.message); }
 
+  // ── 編集中（contenteditable）は再生ショートカットに取られない ──
+  // 回帰: キーガードが INPUT/SELECT しか除外しておらず、断片の文字編集中に ← → が
+  // 「1 コマ戻す/送る」に、Space が再生トグルに取られてキャレットが動かせなかった。
+  console.log('\n⌨️  Editing keys are not stolen by transport shortcuts');
+  try {
+    const kp = await context.newPage();
+    await kp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await kp.waitForTimeout(2000);
+    const r = await kp.evaluate(() => {
+      const host = document.createElement('div');
+      host.contentEditable = 'true';
+      host.textContent = 'あいうえお';
+      document.body.appendChild(host);
+      host.focus();
+      const seek = document.getElementById('seek');
+      const before = Number(seek.value);
+      let defaultPrevented = false;
+      for (const code of ['ArrowLeft', 'ArrowRight', 'Space']) {
+        const ev = new KeyboardEvent('keydown', { code, key: code, bubbles: true, cancelable: true });
+        host.dispatchEvent(ev);
+        if (ev.defaultPrevented) defaultPrevented = true;
+      }
+      const after = Number(seek.value);
+      host.remove();
+      return { before, after, defaultPrevented };
+    });
+    (!r.defaultPrevented && Math.abs(r.after - r.before) < 0.001)
+      ? ok('Arrow/Space are left to the caret while editing')
+      : ng('Editing keys stolen', `prevented=${r.defaultPrevented} seek ${r.before}→${r.after}`);
+    await kp.close();
+  } catch (e) { ng('Editing keys', e.message); }
+
   // ── 字幕 zone の水平成分 + 変数の持ち越し ──
   // 回帰: 行が margin:0 auto 固定で align-items が効かず top-right が上中央に出ていた。
   // さらに前の字幕の CSS 変数が消えず、次の既定 bottom 字幕が上段へ持ち越されていた。
@@ -365,12 +397,15 @@ async function main() {
           (document.getElementById('caption-plate').textContent || '').trim());
         if (shown === expectText) break;
       }
+      // 位置とテキストを同時に読む（別々に読むと取り違えに気づけない）
       return zp.evaluate(() => {
         const stage = document.getElementById('overlay-stage').getBoundingClientRect();
-        const line = document.getElementById('caption-plate').querySelector('.akari-caption__line');
+        const plate = document.getElementById('caption-plate');
+        const line = plate.querySelector('.akari-caption__line');
         if (!line || !stage.width || !stage.height) return null;
         const r = line.getBoundingClientRect();
         return {
+          text: (plate.textContent || '').trim(),
           cx: ((r.left + r.width / 2) - stage.left) / stage.width,
           cy: ((r.top + r.height / 2) - stage.top) / stage.height,
         };
@@ -380,6 +415,9 @@ async function main() {
     const bottom = await measure(5, '既定は下段中央');
     if (!right || !bottom) {
       ng('Caption zone', `字幕を描画できなかった right=${JSON.stringify(right)} bottom=${JSON.stringify(bottom)}`);
+    } else if (right.text !== '右上に出る字幕' || bottom.text !== '既定は下段中央') {
+      // 期待した字幕が出ないまま測ると位置の合否が無意味になる。取り違えとして明示する
+      ng('Caption zone', `想定と違う字幕を測った right="${right.text}" bottom="${bottom.text}"`);
     } else {
       right.cx > 0.55
         ? ok(`top-right renders on the right half (cx=${right.cx.toFixed(2)})`)

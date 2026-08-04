@@ -254,6 +254,7 @@ const router = {
           return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
         }
       }
+      markSelfWrite();
       await writeAtomic(path.join(projectRoot, 'edit.json'), text);
       wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
       respond(res, 200, { ok: true });
@@ -282,6 +283,7 @@ const router = {
           return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
         }
       }
+      markSelfWrite();
       await writeAtomic(path.join(projectRoot, 'captions.json'), text);
       wss.broadcast(JSON.stringify({ type: 'captions-reload', ts: Date.now() }));
       respond(res, 200, { ok: true });
@@ -457,9 +459,24 @@ wss.on('seek', (msg, socket) => {
   wss.broadcastExcept({ type: 'seek', time: t, ts: Date.now() }, socket);
 });
 
+// 1 回の編集で reload が何度も飛ぶとプレビューがその回数ぶんチラつく（実測 3 回）。
+// 原因は (a) PUT 自身の通知 (b) atomic 書き込み（tmp + rename）が watch を複数回発火させること。
+// 自分で書いた直後の watch イベントは PUT が既に通知済みなので捨て、残りはまとめて 1 回にする。
+let selfWriteAt = 0;
+function markSelfWrite() { selfWriteAt = Date.now(); }
+let reloadTimer = null;
+function scheduleReload() {
+  if (Date.now() - selfWriteAt < 1000) return;
+  if (reloadTimer) return;
+  reloadTimer = setTimeout(() => {
+    reloadTimer = null;
+    wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
+  }, 120);
+}
+
 fs.watch(projectRoot, { recursive: false }, (eventType, filename) => {
   if (filename === 'edit.json' || filename === 'captions.json') {
-    wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
+    scheduleReload();
   }
 });
 console.log(`[watch] watching ${projectRoot}`);

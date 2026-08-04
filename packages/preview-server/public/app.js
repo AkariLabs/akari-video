@@ -966,8 +966,14 @@ function requestSoftReload() {
   });
 }
 
+// 断片の「顔ぶれ」— これが変わらない限り DOM は作り直さない（位置や見た目の変更は貼り直しで足りる）
+function overlaySignature(s) {
+  return JSON.stringify((s?.overlays || []).map(o => [String(o.id), o.html, o.start, o.duration]));
+}
+
 async function applySoftReload() {
   const keep = { t: outputTime, playing: isPlaying };
+  const signatureBefore = overlaySignature(summary);
   if (isPlaying) pause();
 
   const [timelineRes, editRes, captionsRes] = await Promise.all([
@@ -1001,9 +1007,14 @@ async function applySoftReload() {
   audioCtx = null; bgmNode = null; narrationNodes = []; sfxNodes = [];
   setupAudioGraph();
 
-  // オーバーレイ再マウント（選択は旧 DOM を指すため解除）
-  window.akari.interaction?.clearSelection?.();
-  if (window.akari.runtime?.mount) window.akari.runtime.mount(summary);
+  // オーバーレイ: 顔ぶれが同じなら作り直さず位置と見た目だけ貼り直す
+  // （ドラッグのたびに全部作り直すと画面がチラつき、選択も毎回外れる）
+  if (overlaySignature(summary) === signatureBefore) {
+    window.akari.runtime?.applyProps?.(summary);
+  } else {
+    window.akari.interaction?.clearSelection?.();
+    if (window.akari.runtime?.mount) window.akari.runtime.mount(summary);
+  }
   window.akari.state = { editPath: 'edit.json', summary };
 
   cutInfoPopup.hidden = true;
@@ -1252,6 +1263,10 @@ function snapToCut(t, dir) {
 
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  // 断片のダブルクリック編集中（contenteditable）は文字入力とカーソル操作が優先。
+  // ここを抜けないと ← → が「1 コマ戻す/送る」に取られてキャレットが動かず、
+  // Space も再生トグルになって空白が打てない
+  if (e.target.isContentEditable || (e.target.closest && e.target.closest('[contenteditable="true"]'))) return;
   switch (e.code) {
     case 'Space': e.preventDefault(); isPlaying ? pause() : play(); break;
     case 'ArrowLeft': e.preventDefault(); pause(); seekTo(outputTime - 1 / fps); break;
@@ -1403,6 +1418,12 @@ function createOverlayRuntime() {
     }
     stage.appendChild(frag);
   }
+  // 断片の実寸はアニメで毎フレーム変わりうる。外枠のサイズは固定なのでキャッシュ判定が
+  // できず、可視中の断片は毎回測り直す（同時に見えている断片は通常 1〜3 枚）。
+  function syncHitRegion(el) {
+    window.akari.interaction?.syncOverlayHitRegion?.(el);
+  }
+
   function tick(t) {
     for (const o of overlays) {
       const v = o.start <= t && t < o.start + o.duration;
@@ -1414,16 +1435,43 @@ function createOverlayRuntime() {
         // base opacity:0 のまま一切アニメせず「何も出ない」状態になっていた。
         o.el.toggleAttribute('data-akari-active', v);
         o.visible = v;
-        // ㉑ shell の overlay-runtime.js と同じ契約: 可視化タイミングで当たり判定
-        // （clip-path）を断片の実寸に合わせ直す（inset:0 全画面コンテナの素通し化）。
-        if (v) window.akari.interaction?.syncOverlayHitRegion?.(o.el);
       }
       if (!v) continue;
       const ms = Math.max(0, (t - o.start) * 1000);
       for (const a of o.el.getAnimations({ subtree: true })) { a.pause(); a.currentTime = ms; }
+      // ㉑ 当たり判定（clip-path）は断片の実寸に合わせる。ただし可視化時に 1 回だけ測ると、
+      // その後アニメで拡大した分がはみ出して**見た目まで切り取られる**（実測: pop 断片が
+      // 1.13 倍に育った瞬間、円が角丸四角に切れた）。アニメを進めた後に測り直す。
+      syncHitRegion(o.el);
     }
   }
-  return { mount, tick, unmount };
+  // 断片の顔ぶれ（id / html / 表示窓）が変わっていないときに、位置や見た目だけを
+  // 貼り直す。ドラッグ 1 回のたびに 13 枚を作り直すと画面がチラつくため、
+  // 再マウントは「構成が変わったとき」だけに絞る。
+  function applyProps(s) {
+    for (const o of (s?.overlays || [])) {
+      const entry = overlays.find(x => x.el.dataset.overlayId === String(o.id));
+      if (!entry) continue;
+      const t = o.transform || {};
+      entry.el.style.setProperty('--x', `${t.x || 0}px`);
+      entry.el.style.setProperty('--y', `${t.y || 0}px`);
+      entry.el.style.setProperty('--scale', String(t.scale || 1));
+      entry.el.style.setProperty('--rotate', `${t.rotate || 0}deg`);
+      if (o.vars && typeof o.vars === 'object') {
+        for (const [k, v] of Object.entries(o.vars)) {
+          if (k.startsWith('--') && (typeof v === 'string' || typeof v === 'number')) {
+            entry.el.style.setProperty(k, String(v));
+          }
+        }
+      }
+      entry.start = o.start;
+      entry.duration = o.duration;
+      entry.el.dataset.start = String(o.start);
+      entry.el.dataset.duration = String(o.duration);
+    }
+  }
+
+  return { mount, tick, unmount, applyProps };
 }
 function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
 
