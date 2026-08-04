@@ -1239,17 +1239,6 @@ async function deleteCut(index) {
   }
 }
 
-// Wire seek visual click
-seekVisual.addEventListener('click', (e) => {
-  const rect = seek.getBoundingClientRect();
-  const ratio = (e.clientX - rect.left) / rect.width;
-  const t = Math.max(0, Math.min(totalDuration, ratio * totalDuration));
-  const w = isPlaying; if (w) pause();
-  seekTo(t);
-  showCutInfoAt(t);
-  if (w) play();
-});
-
 playToggle.addEventListener('click', () => isPlaying ? pause() : play());
 frameBack.addEventListener('click', () => { pause(); seekTo(outputTime - 1 / fps); });
 frameForward.addEventListener('click', () => { pause(); seekTo(outputTime + 1 / fps); });
@@ -1259,8 +1248,17 @@ seek.addEventListener('input', () => {
   const t = Number(seek.value);
   const w = isPlaying; if (w) pause();
   seekTo(t);
-  showCutInfoAt(t);
   if (w) play();
+});
+// カット情報はスクラブでは開かない。ドラッグを伴わないクリックだけで開く
+// （seek-visual は pointer-events:none でクリックを受けられないため range 側で判定する）
+let seekPointerDown = null;
+seek.addEventListener('pointerdown', (e) => { seekPointerDown = { x: e.clientX, y: e.clientY }; });
+seek.addEventListener('pointerup', (e) => {
+  if (!seekPointerDown) return;
+  const moved = Math.hypot(e.clientX - seekPointerDown.x, e.clientY - seekPointerDown.y);
+  seekPointerDown = null;
+  if (moved < 4) showCutInfoAt(Number(seek.value));
 });
 // カット境界へジャンプ（P2-2: 旧実装は区間内の t をそのまま返す恒等関数だった）
 function snapToCut(t, dir) {
@@ -1276,8 +1274,13 @@ function snapToCut(t, dir) {
   return prev !== undefined ? prev : 0;
 }
 
+// 文字入力を受ける input 型だけ素通しする（シェルの isEditable と同じ判定）。
+// INPUT を無差別に除外すると、シークバー（type=range）をクリックした後フォーカスが
+// そこに残り、Space の再生トグルが飲まれる（実機報告: 効かない時がある）
+const NON_TEXT_INPUT_TYPES = ['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file', 'image'];
 document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.target.tagName === 'INPUT' && !NON_TEXT_INPUT_TYPES.includes(e.target.type)) return;
   // 断片のダブルクリック編集中（contenteditable）は文字入力とカーソル操作が優先。
   // ここを抜けないと ← → が「1 コマ戻す/送る」に取られてキャレットが動かず、
   // Space も再生トグルになって空白が打てない

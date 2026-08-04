@@ -191,6 +191,74 @@ async function main() {
       ng('Play toggle', `labels same: "${label1}"`);
     }
 
+    // ── カット情報ポップアップはスクラブでは開かない（監査 P3 回帰）──
+    // seek.max が実総尺のうち（下の Seek テストが max=100 に書き換える前）に実施する
+    {
+      const box = await page.locator('#seek').boundingBox();
+      await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.6, box.y + box.height / 2, { steps: 5 });
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+      const hiddenAfterScrub = await page.evaluate(() => document.getElementById('cut-info-popup').hidden);
+      hiddenAfterScrub
+        ? ok('Scrub drag keeps cut info popup closed')
+        : ng('Scrub opened cut info popup', 'popup visible after drag');
+      await page.evaluate(() => {
+        const el = document.getElementById('seek');
+        el.value = '0.5';
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      const hiddenAfterInput = await page.evaluate(() => document.getElementById('cut-info-popup').hidden);
+      hiddenAfterInput
+        ? ok('Programmatic seek input keeps cut info popup closed')
+        : ng('Programmatic input opened cut info popup', 'popup visible after input event');
+      await page.mouse.click(box.x + box.width * 0.3, box.y + box.height / 2);
+      await page.waitForTimeout(200);
+      const openAfterClick = await page.evaluate(() => !document.getElementById('cut-info-popup').hidden);
+      openAfterClick
+        ? ok('Plain click on seek opens cut info popup')
+        : ng('Plain click did not open cut info popup', 'popup still hidden');
+      // 後続テストへ影響しないよう閉じる
+      await page.evaluate(() => { document.getElementById('cut-info-popup').hidden = true; });
+    }
+
+    // ── シークバーにフォーカスが残っていても Space が再生トグルに届く（実機報告回帰:
+    //    旧ガードは INPUT を無差別に除外していたため type=range で Space が飲まれた）──
+    {
+      await page.click('#seek'); // range にフォーカスを残す（開いたポップアップは閉じる）
+      await page.evaluate(() => { document.getElementById('cut-info-popup').hidden = true; });
+      const focusOnSeek = await page.evaluate(() => document.activeElement?.id === 'seek');
+      focusOnSeek ? ok('Focus sits on seek range input') : ng('Focus setup', 'activeElement is not #seek');
+      const before = await page.locator('#play-toggle').getAttribute('aria-label');
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(300);
+      const after = await page.locator('#play-toggle').getAttribute('aria-label');
+      before !== after
+        ? ok('Space toggles playback while seek range is focused')
+        : ng('Space swallowed by focused seek range', `aria-label stays "${before}"`);
+      // 元の再生状態へ戻す
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(300);
+      // 数値入力（カット情報ポップアップの IN 欄）内では Space は打鍵のまま
+      await page.click('#seek');
+      await page.waitForTimeout(200);
+      const hasNumberInput = await page.evaluate(() => !!document.getElementById('cut-inp-in'));
+      if (hasNumberInput) {
+        await page.focus('#cut-inp-in');
+        const b2 = await page.locator('#play-toggle').getAttribute('aria-label');
+        await page.keyboard.press('Space');
+        await page.waitForTimeout(300);
+        const a2 = await page.locator('#play-toggle').getAttribute('aria-label');
+        b2 === a2
+          ? ok('Space inside number input does not toggle playback')
+          : ng('Space stolen from number input', `aria-label changed to "${a2}"`);
+      } else {
+        ng('Cut info popup for number-input check', 'cut-inp-in not present after seek click');
+      }
+      await page.evaluate(() => { document.getElementById('cut-info-popup').hidden = true; });
+    }
+
     // Seek
     await page.evaluate(() => {
       const el = document.getElementById('seek');
