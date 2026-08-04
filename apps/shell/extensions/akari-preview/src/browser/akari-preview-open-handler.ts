@@ -1280,7 +1280,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected reportOpenFailure(uri: URI, error: unknown): void {
         console.error('[akari-preview] failed to open preview', uri.toString(), error);
-        void this.messages.error(`${uri.path.base}: ${PREVIEW_OPEN_ERROR_MESSAGE}`);
+        // データ起因（TypeError = edit.json の検証エラー等）は「しばらく待て」では直らないので、
+        // 実因メッセージをそのまま出す。原因不明のときだけ従来の汎用文言に落とす。
+        const reason = error instanceof Error && error.message ? error.message : undefined;
+        void this.messages.error(
+            reason
+                ? `${uri.path.base}: 動画プレビューを開けませんでした — ${reason}`
+                : `${uri.path.base}: ${PREVIEW_OPEN_ERROR_MESSAGE}`
+        );
     }
 
     protected async configurePreview(
