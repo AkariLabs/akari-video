@@ -122,30 +122,6 @@
       "role": "color"
     },
     {
-      "key": "color_stroke",
-      "type": "color",
-      "label": "縁取り色",
-      "default": "#301800",
-      "group": "name",
-      "role": "color-stroke"
-    },
-    {
-      "key": "color_shadow",
-      "type": "color",
-      "label": "影色",
-      "default": "rgba(50,22,0,0.70)",
-      "group": "global",
-      "role": "color-shadow"
-    },
-    {
-      "key": "color_glow",
-      "type": "color",
-      "label": "グロー色",
-      "default": "rgba(220,170,20,0.38)",
-      "group": "name",
-      "role": "color-shadow"
-    },
-    {
       "key": "fontFamily",
       "type": "font",
       "label": "フォント",
@@ -171,6 +147,86 @@
       "default": 400,
       "group": "global",
       "role": "weight"
+    },
+    {
+      "key": "bgEnabled",
+      "type": "bool",
+      "label": "座布団",
+      "default": true,
+      "group": "fx",
+      "role": "toggle"
+    },
+    {
+      "key": "strokeEnabled",
+      "type": "bool",
+      "label": "縁取り",
+      "default": true,
+      "group": "fx",
+      "role": "toggle"
+    },
+    {
+      "key": "strokeWidth",
+      "type": "number",
+      "label": "縁取り太さ",
+      "default": 12,
+      "group": "fx",
+      "role": "stroke-width"
+    },
+    {
+      "key": "color_stroke",
+      "type": "color",
+      "label": "縁取り色",
+      "default": "#301800",
+      "group": "fx",
+      "role": "color-stroke"
+    },
+    {
+      "key": "shadowEnabled",
+      "type": "bool",
+      "label": "影",
+      "default": true,
+      "group": "fx",
+      "role": "toggle"
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(50,22,0,0.70)",
+      "group": "fx",
+      "role": "color-shadow"
+    },
+    {
+      "key": "glowEnabled",
+      "type": "bool",
+      "label": "グロー",
+      "default": true,
+      "group": "fx",
+      "role": "toggle"
+    },
+    {
+      "key": "color_glow",
+      "type": "color",
+      "label": "グロー色",
+      "default": "rgba(220,170,20,0.38)",
+      "group": "fx",
+      "role": "color-glow"
+    },
+    {
+      "key": "glowStrength",
+      "type": "number",
+      "label": "グロー強度",
+      "default": 1,
+      "group": "fx",
+      "role": "strength"
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 5,
+      "group": "fx",
+      "role": "spacing"
     },
     {
       "key": "animIn",
@@ -384,7 +440,8 @@
             }
           ]
         }
-      ]
+      ],
+      "fxTag": "bg"
     },
     {
       "id": "ref3_tl_r3s11_4_bracket_left",
@@ -717,6 +774,10 @@
     {
       "id": "global",
       "label": "全体"
+    },
+    {
+      "id": "fx",
+      "label": "装飾"
     },
     {
       "id": "anim",

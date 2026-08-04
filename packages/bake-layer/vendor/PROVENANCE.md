@@ -183,3 +183,21 @@ akari-video 側の独自拡張（akari-telop 本家には未収録。再移植�
   全レイヤーへ同一レシピを合成する。loop は hold 区間を既定 1.6 秒周期で反復する
 - 機械検証: textanim カタログ一致 lint、全 36 テンプレの original parity、47 語彙の実効、
   out 時間反転、`none` の焼き込み除去を `packages/bake-layer/test/` で固定
+
+## vendor への追記: テロップ標準装飾ツマミ（2026-08-04 telop-fx-knobs）
+
+- `atf/types.ts`: `Variable.type` に `bool`（default は boolean）を追加し、変数実値と
+  `resolve()` の bindings が true/false を保持できるよう拡張。`AtfLayer.fxTag?: 'bg'` も追加し、
+  コードモッドが目視確定した座布団・帯 shape だけを背景トグルへ明示的に紐づける
+- `atf/resolve.ts`: `bgEnabled` / `strokeEnabled` / `shadowEnabled` / `glowEnabled` をテンプレート級で
+  全 text レイヤーへ適用。OFF は元装飾を除去し、ON は元装飾があるテンプレートでは多重縁取り・
+  多重影・グラデ縁を保持する。元効果が無いテンプレートだけ font size 比の標準座布団・縁・影・
+  グローを合成する
+- 標準座布団は text bbox に pad `0.35×size` / radius `0.15×size`、標準縁は
+  width `0.07×size`、標準影は offset `0.06×size`・135°・blur `0.08×size`、標準グローは
+  blur `0.25×size×glowStrength`。既定色も標準契約に固定した
+- `strokeWidth` は既存装飾の主系幅へ既定値との差分を適用し、`letterSpacing` は各 text レイヤーの
+  元値を保ったままテンプレート共通差分として適用。装飾トグルを操作しても shrink-to-fit の
+  安全域は各トグルの既定値で評価するため、ON/OFF による意図しない文字縮小は起きない
+- 機械検証: 36 件の既定レンダ parity、背景対象全件と各効果の OFF/ON ピクセル実効、字間の
+  実測幅単調変化を `packages/bake-layer/test/` に固定

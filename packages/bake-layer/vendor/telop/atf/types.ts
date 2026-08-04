@@ -1,6 +1,9 @@
 // ATF（Akari Telop Format）型定義 v0.2
 // 変数・式・実測を使ったレスポンシブテロップテンプレートのスキーマ
 
+/** 変数の実値。bool はチェックボックスと式スコープで true/false のまま扱う。 */
+export type VariableValue = number | string | boolean
+
 /** プロパティの三態: 定数 / 変数参照 / 式 */
 export type Value = number | string | { var: string } | { expr: string }
 
@@ -12,9 +15,9 @@ export interface Variable {
    * UI は options から選択制にする（同梱フォントだけを選ばせて環境差を出さないため）
    * 'select' は同日拡張（標準アニメツマミ）: 値は options 内の id 文字列。
    */
-  type: 'text' | 'color' | 'number' | 'font' | 'select'
+  type: 'text' | 'color' | 'number' | 'font' | 'select' | 'bool'
   label: string
-  default: string | number
+  default: VariableValue
   /** UI / AI 操作面で同じ要素に属するツマミを束ねるグループ id */
   group?: string
   /** テンプレート間でツマミの意味を横断検索するための固定 role 語彙 */
@@ -464,6 +467,8 @@ export interface AtfLayer {
   tracks?: Track[]
   perChar?: PerChar
   visibleIf?: { expr: string }
+  /** 標準装飾トグルへ紐づくレイヤー種別。現在は座布団/帯だけを宣言する。 */
+  fxTag?: 'bg'
   /** Canvas filter チェーン。各 value は filter.* track で上書き可能 */
   filters?: FilterSpec[]
   /** wipe より汎用的な clip-path 相当のクリップ */

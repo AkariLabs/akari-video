@@ -1,5 +1,5 @@
 // ATF → ResolvedScene の変換（変数解決 + 式評価 + 実測）
-import type { AtfDoc, AtfLayer, ClipSpec, GradientFill, PerChar, ResolvedClipSpec, ResolvedGradientFill, ResolvedLayer, ResolvedScene, ResolvedTextContent, ResolvedShapeContent, TextContent, ShapeContent, Track, Value } from './types'
+import type { AtfDoc, AtfLayer, ClipSpec, GradientFill, PerChar, ResolvedClipSpec, ResolvedGradientFill, ResolvedLayer, ResolvedScene, ResolvedTextContent, ResolvedTextShadow, ResolvedShapeContent, TextContent, TextShadow, ShapeContent, Track, Value, VariableValue } from './types'
 import type { MeasureText } from './measure'
 import { verticalLayout } from './vertical'
 import { evalExprWithHas } from './expr'
@@ -29,13 +29,18 @@ const DEFAULT_TEXTANIM_LOOP_PERIOD_SEC = 1.6
 
 type AnimationSlot = 'in' | 'hold' | 'out'
 
-function numericBinding(value: string | number | undefined, fallback: number): number {
-  const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''))
+function numericBinding(value: VariableValue | undefined, fallback: number): number {
+  const parsed = scalarBinding(value, fallback)
   return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback
 }
 
+function scalarBinding(value: VariableValue | undefined, fallback: number): number {
+  const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''))
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 function animationSelection(
-  vars: Record<string, string | number>,
+  vars: Record<string, VariableValue>,
   key: 'animIn' | 'animOut' | 'animLoop',
 ): string {
   const value = String(vars[key] ?? 'original')
@@ -62,7 +67,7 @@ function composeTextAnimation(
   layers: ResolvedLayer[],
   timing: AtfDoc['timing'],
   stage: ResolvedScene['stage'],
-  vars: Record<string, string | number>,
+  vars: Record<string, VariableValue>,
 ): AtfDoc['timing'] {
   const selections = {
     in: animationSelection(vars, 'animIn'),
@@ -233,8 +238,8 @@ function measureTextLayer(
     const charCount = typeof Intl !== 'undefined' && 'Segmenter' in Intl
       ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)).length
       : Array.from(text).length
-    const extra = letterSpacing > 0 && charCount > 1 ? letterSpacing * (charCount - 1) : 0
-    return { width: base.width + extra, height: base.height }
+    const extra = charCount > 1 ? letterSpacing * (charCount - 1) : 0
+    return { width: Math.max(0, base.width + extra), height: base.height }
   }
 
   if (hasRunStyle && !perChar) {
@@ -249,8 +254,8 @@ function measureTextLayer(
       height = Math.max(height, measured.height)
     }
     const charCount = splitTextForGrapheme(text).length
-    if (letterSpacing > 0 && charCount > 1) width += letterSpacing * (charCount - 1)
-    return { width, height }
+    if (charCount > 1) width += letterSpacing * (charCount - 1)
+    return { width: Math.max(0, width), height }
   }
 
   const chars = perChar ? splitTextForPerChar(perChar, text, runs) : splitTextForGrapheme(text)
@@ -315,6 +320,98 @@ function resolveClip(
   }
 }
 
+const FX_KEYS = {
+  bgEnabled: 'bgEnabled',
+  strokeEnabled: 'strokeEnabled',
+  strokeWidth: 'strokeWidth',
+  strokeColor: 'color_stroke',
+  shadowEnabled: 'shadowEnabled',
+  shadowColor: 'color_shadow',
+  glowEnabled: 'glowEnabled',
+  glowColor: 'color_glow',
+  glowStrength: 'glowStrength',
+  letterSpacing: 'letterSpacing',
+} as const
+
+function booleanBinding(value: VariableValue | undefined, fallback: boolean): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true' || normalized === '1') return true
+    if (normalized === 'false' || normalized === '0' || normalized === '') return false
+  }
+  return fallback
+}
+
+function variableRef(value: Value): string | undefined {
+  return typeof value === 'object' && value !== null && 'var' in value ? value.var : undefined
+}
+
+function valueAtDefaults(doc: AtfDoc, value: Value, fallback = 0): number {
+  if (typeof value === 'number') return value
+  if (typeof value === 'boolean') return value ? 1 : 0
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+  if ('var' in value) {
+    const variable = doc.variables.find((candidate) => candidate.key === value.var)
+    return variable ? scalarBinding(variable.default, fallback) : fallback
+  }
+  return fallback
+}
+
+/**
+ * ATF には歴史的に glow 専用配列がなく、外側光彩は offset 0 の shadow pass で表現される。
+ * glow 色キー / 専用 glow レイヤーを優先して識別し、単なる柔らかい影は glow に誤分類しない。
+ */
+function isGlowShadow(doc: AtfDoc, layer: AtfLayer, shadow: TextShadow): boolean {
+  const colorKey = variableRef(shadow.color)
+  if (colorKey && /glow/i.test(colorKey)) return true
+  if (/glow/i.test(layer.id)) return true
+  const hasGlowLayer = doc.layers.some((candidate) => /glow/i.test(candidate.id))
+  return hasGlowLayer
+    && valueAtDefaults(doc, shadow.x) === 0
+    && valueAtDefaults(doc, shadow.y) === 0
+    && valueAtDefaults(doc, shadow.blur) > 0
+}
+
+function textShadows(layer: AtfLayer): TextShadow[] {
+  if (layer.type !== 'text') return []
+  const content = layer.content as TextContent
+  return [...(content.shadow ? [content.shadow] : []), ...(content.shadows ?? [])]
+}
+
+function generatedBackground(textLayer: ResolvedLayer, color: string): ResolvedLayer {
+  const content = textLayer.content as ResolvedTextContent
+  const pad = content.size * 0.35
+  const width = textLayer.size.w + pad * 2
+  const height = textLayer.size.h + pad * 2
+  const centerX = textLayer.transform.x + (0.5 - textLayer.transform.anchor.x) * textLayer.size.w
+  const centerY = textLayer.transform.y + (0.5 - textLayer.transform.anchor.y) * textLayer.size.h
+  return {
+    id: `__fx_bg_${textLayer.id}`,
+    type: 'shape',
+    content: {
+      shape: 'rect',
+      fill: color,
+      cornerRadius: content.size * 0.15,
+    },
+    transform: {
+      x: centerX,
+      y: centerY,
+      anchor: { x: 0.5, y: 0.5 },
+      rotation: textLayer.transform.rotation,
+      opacity: textLayer.transform.opacity,
+      skewX: textLayer.transform.skewX,
+      skewY: textLayer.transform.skewY,
+    },
+    size: { w: width, h: height },
+    tracks: textLayer.tracks,
+  }
+}
+
 /**
  * ATF ドキュメントを具体値の ResolvedScene に変換する
  * @param doc ATF ドキュメント
@@ -324,15 +421,51 @@ function resolveClip(
  */
 export function resolve(
   doc: AtfDoc,
-  bindings: Record<string, string | number>,
+  bindings: Record<string, VariableValue>,
   aspect: string | undefined,
   measure: MeasureText,
 ): ResolvedScene {
   // (1) variables を bindings で上書き（無ければ default）
-  const vars: Record<string, string | number> = {}
+  const vars: Record<string, VariableValue> = {}
   for (const v of doc.variables) {
     vars[v.key] = v.key in bindings ? bindings[v.key] : v.default
   }
+
+  const variablesByKey = new Map(doc.variables.map((variable) => [variable.key, variable]))
+  const hasFxVariable = (key: string): boolean => variablesByKey.has(key)
+  const currentBoolean = (key: string, fallback: boolean): boolean =>
+    booleanBinding(vars[key], fallback)
+  const defaultBoolean = (key: string, fallback: boolean): boolean =>
+    booleanBinding(variablesByKey.get(key)?.default, fallback)
+  const currentNumber = (key: string, fallback: number): number =>
+    scalarBinding(vars[key], fallback)
+  const defaultNumber = (key: string, fallback: number): number =>
+    scalarBinding(variablesByKey.get(key)?.default, fallback)
+  const currentString = (key: string, fallback: string): string => {
+    const value = vars[key]
+    return value === undefined ? fallback : String(value)
+  }
+  const defaultString = (key: string, fallback: string): string => {
+    const value = variablesByKey.get(key)?.default
+    return value === undefined ? fallback : String(value)
+  }
+  const hasOriginalBackground = doc.layers.some((layer) => layer.fxTag === 'bg')
+  const hasOriginalStroke = doc.layers.some((layer) => {
+    if (layer.type !== 'text') return false
+    const content = layer.content as TextContent
+    return !!content.stroke || (content.strokes?.length ?? 0) > 0
+  })
+  const hasOriginalGlow = doc.layers.some((layer) =>
+    layer.type === 'text' && (
+      !!(layer.content as TextContent).innerGlow
+      || textShadows(layer).some((shadow) => isGlowShadow(doc, layer, shadow))
+    ))
+  const hasOriginalShadow = doc.layers.some((layer) => {
+    if (layer.type !== 'text') return false
+    const content = layer.content as TextContent
+    return (content.innerShadows?.length ?? 0) > 0
+      || textShadows(layer).some((shadow) => !isGlowShadow(doc, layer, shadow))
+  })
 
   // has() で使う: 値が空文字でなく定義されている変数のキーセット
   const hasKeys = new Set<string>()
@@ -376,6 +509,8 @@ export function resolve(
     const val = vars[v.key]
     if (typeof val === 'number') {
       baseScope[v.key] = val
+    } else if (v.type === 'bool') {
+      baseScope[v.key] = booleanBinding(val, booleanBinding(v.default, false)) ? 1 : 0
     } else if (v.type === 'number' && typeof val === 'string') {
       const n = parseFloat(val)
       if (Number.isFinite(n)) baseScope[v.key] = n
@@ -514,7 +649,6 @@ export function resolve(
   // (4) レイヤーを順番に解決する
   const scope: Record<string, number> = { ...baseScope }
   const resolvedMap = new Map<string, ResolvedLayer>()
-  const resolvedLayers: ResolvedLayer[] = []
 
   for (const id of sortedIds) {
     const layer = layerMap.get(id)!
@@ -528,10 +662,12 @@ export function resolve(
     // Value を解決するヘルパー（数値）
     const resolveNum = (v: Value, fallback = 0): number => {
       if (typeof v === 'number') return v
+      if (typeof v === 'boolean') return v ? 1 : 0
       if (typeof v === 'string') return parseFloat(v) || fallback
       if ('var' in v) {
         const val = vars[v.var]
         if (typeof val === 'number') return val
+        if (typeof val === 'boolean') return val ? 1 : 0
         if (typeof val === 'string') return parseFloat(val) || fallback
         return fallback
       }
@@ -542,6 +678,7 @@ export function resolve(
     // Value を解決するヘルパー（文字列）
     const resolveStr = (v: Value, fallback = ''): string => {
       if (typeof v === 'number') return String(v)
+      if (typeof v === 'boolean') return String(v)
       if (typeof v === 'string') return v
       if ('var' in v) {
         const val = vars[v.var]
@@ -588,21 +725,76 @@ export function resolve(
         : undefined
       // size は Value なので数値へ解決する（shrink-to-fit で縮小しうるため let）
       let resolvedSize = resolveNum(c.size, 0)
-      // letterSpacing は Value（なければ 0）
-      const resolvedLetterSpacing = c.letterSpacing !== undefined ? resolveNum(c.letterSpacing, 0) : 0
+      // 標準字間はテンプレート級の差分値として全 text レイヤーへ一括適用する。
+      // コードモッドは各レイヤーの元値をリテラルで保持するため、既定値では完全 no-op。
+      const originalLetterSpacing = c.letterSpacing !== undefined ? resolveNum(c.letterSpacing, 0) : 0
+      const resolvedLetterSpacing = hasFxVariable(FX_KEYS.letterSpacing)
+        ? originalLetterSpacing
+          + currentNumber(FX_KEYS.letterSpacing, 0)
+          - defaultNumber(FX_KEYS.letterSpacing, 0)
+        : originalLetterSpacing
       const isVertical = !!c.vertical
       // ストローク幅は Value（変数・式）を許可するため、測定前に数値へ解決する
-      const resolvedStroke = c.stroke
+      const originalResolvedStroke = c.stroke
         ? { color: resolveStr(c.stroke.color), width: resolveNum(c.stroke.width, 0) }
         : undefined
-      const resolvedStrokes = c.strokes?.map((stroke) => ({
+      const originalResolvedStrokes = c.strokes?.map((stroke) => ({
         color: resolveStr(stroke.color),
         width: resolveNum(stroke.width, 0),
         fill: stroke.fill ? resolveGradientFill(stroke.fill, resolveStr) : undefined,
       }))
+      let resolvedStroke = originalResolvedStroke
+      let resolvedStrokes = originalResolvedStrokes
+      if (hasFxVariable(FX_KEYS.strokeEnabled)) {
+        const enabled = currentBoolean(FX_KEYS.strokeEnabled, true)
+        if (!enabled) {
+          resolvedStroke = undefined
+          // 歴史的な空配列宣言は描画上 no-op。既定 resolve の構造パリティも維持する。
+          resolvedStrokes = originalResolvedStrokes?.length === 0 ? [] : undefined
+        } else if (!hasOriginalStroke) {
+          const defaultWidth = Math.max(0, defaultNumber(FX_KEYS.strokeWidth, resolvedSize * 0.07))
+          const requestedWidth = Math.max(0, currentNumber(FX_KEYS.strokeWidth, defaultWidth))
+          const widthScale = defaultWidth > 0 ? requestedWidth / defaultWidth : 1
+          resolvedStroke = {
+            color: currentString(FX_KEYS.strokeColor, '#000000'),
+            width: resolvedSize * 0.07 * widthScale,
+          }
+        } else {
+          const widthDelta = currentNumber(FX_KEYS.strokeWidth, 0)
+            - defaultNumber(FX_KEYS.strokeWidth, 0)
+          const color = currentString(FX_KEYS.strokeColor, '#000000')
+          const colorChanged = color !== defaultString(FX_KEYS.strokeColor, color)
+          if (resolvedStroke) {
+            resolvedStroke = {
+              ...resolvedStroke,
+              width: Math.max(0, resolvedStroke.width + widthDelta),
+              ...(colorChanged ? { color } : {}),
+            }
+          } else if (resolvedStrokes && resolvedStrokes.length > 0) {
+            resolvedStrokes = resolvedStrokes.map((stroke, index) => index === 0
+              ? {
+                  ...stroke,
+                  width: Math.max(0, stroke.width + widthDelta),
+                  ...(colorChanged ? { color, fill: undefined } : {}),
+                }
+              : stroke)
+          }
+        }
+      }
       const strokeOutset = resolvedStrokes && resolvedStrokes.length > 0
         ? Math.max(...resolvedStrokes.map((s) => s.width))
         : resolvedStroke?.width ?? 0
+      // shrink-to-fit はトグル操作値から独立させ、必ずトグルの既定値で安全域を評価する。
+      const originalStrokeOutset = originalResolvedStrokes && originalResolvedStrokes.length > 0
+        ? Math.max(...originalResolvedStrokes.map((stroke) => stroke.width))
+        : originalResolvedStroke?.width ?? 0
+      const fitStrokeOutset = !hasFxVariable(FX_KEYS.strokeEnabled)
+        ? originalStrokeOutset
+        : !defaultBoolean(FX_KEYS.strokeEnabled, hasOriginalStroke)
+          ? 0
+          : hasOriginalStroke
+            ? originalStrokeOutset
+            : resolvedSize * 0.07
 
       // 縦書き/横書き共通の実測ヘルパー（現在の resolvedSize で測る）
       const measureBlock = (size: number): { width: number; height: number } =>
@@ -635,17 +827,26 @@ export function resolve(
       // ツマミの現在値ではなく既定値で評価し、「動かしたら文字が縮む」誤発動を防ぐ。
       const fitScope: Record<string, number> = { ...scope }
       for (const variable of doc.variables) {
-        if (!['posX', 'posY', 'xOffset', 'yOffset'].includes(variable.key)) continue
-        const def = typeof variable.default === 'number' ? variable.default : parseFloat(String(variable.default))
+        if (![
+          'posX', 'posY', 'xOffset', 'yOffset',
+          FX_KEYS.bgEnabled, FX_KEYS.strokeEnabled, FX_KEYS.shadowEnabled, FX_KEYS.glowEnabled,
+        ].includes(variable.key)) continue
+        const def = variable.type === 'bool'
+          ? (booleanBinding(variable.default, false) ? 1 : 0)
+          : typeof variable.default === 'number'
+            ? variable.default
+            : parseFloat(String(variable.default))
         if (Number.isFinite(def)) fitScope[variable.key] = def
       }
       const resolveNumForFit = (v: Value, fallback = 0): number => {
         if (typeof v === 'number') return v
+        if (typeof v === 'boolean') return v ? 1 : 0
         if (typeof v === 'string') return parseFloat(v) || fallback
         if ('var' in v) {
           if (v.var in fitScope) return fitScope[v.var]
           const val = vars[v.var]
           if (typeof val === 'number') return val
+          if (typeof val === 'boolean') return val ? 1 : 0
           if (typeof val === 'string') return parseFloat(val) || fallback
           return fallback
         }
@@ -670,8 +871,8 @@ export function resolve(
           anchorY < 1 ? (stageHeight - marginY - ty0) / (1 - anchorY) : Infinity,
         ),
       )
-      const fitMaxW = layer.fit?.maxWidth !== undefined ? resolveNum(layer.fit.maxWidth, Infinity) : Infinity
-      const fitMaxH = layer.fit?.maxHeight !== undefined ? resolveNum(layer.fit.maxHeight, Infinity) : Infinity
+      const fitMaxW = layer.fit?.maxWidth !== undefined ? resolveNumForFit(layer.fit.maxWidth, Infinity) : Infinity
+      const fitMaxH = layer.fit?.maxHeight !== undefined ? resolveNumForFit(layer.fit.maxHeight, Infinity) : Infinity
       const effectiveMaxW = Math.min(canvasMaxW, fitMaxW)
       const effectiveMaxH = Math.min(canvasMaxH, fitMaxH)
 
@@ -681,8 +882,8 @@ export function resolve(
         const floor = Math.max(originalSize * minScale, FIT_ABSOLUTE_MIN_PX)
         for (let iter = 0; iter < FIT_MAX_ITERATIONS; iter += 1) {
           const measured = measureBlock(resolvedSize)
-          const totalW = measured.width + strokeOutset * 2
-          const totalH = measured.height + strokeOutset * 2
+          const totalW = measured.width + fitStrokeOutset * 2
+          const totalH = measured.height + fitStrokeOutset * 2
           const ratioW = Number.isFinite(effectiveMaxW) && totalW > effectiveMaxW ? effectiveMaxW / totalW : 1
           const ratioH = Number.isFinite(effectiveMaxH) && totalH > effectiveMaxH ? effectiveMaxH / totalH : 1
           const ratio = Math.min(ratioW, ratioH)
@@ -742,23 +943,50 @@ export function resolve(
       if (resolvedStrokes) {
         textContent.strokes = resolvedStrokes
       }
-      if (c.shadow) {
-        textContent.shadow = {
-          color: resolveStr(c.shadow.color),
-          blur: resolveNum(c.shadow.blur, 0),
-          x: resolveNum(c.shadow.x, 0),
-          y: resolveNum(c.shadow.y, 0),
+      const shadowEnabled = !hasFxVariable(FX_KEYS.shadowEnabled)
+        || currentBoolean(FX_KEYS.shadowEnabled, true)
+      const glowEnabled = !hasFxVariable(FX_KEYS.glowEnabled)
+        || currentBoolean(FX_KEYS.glowEnabled, true)
+      const shadowColor = currentString(FX_KEYS.shadowColor, 'rgba(0,0,0,0.55)')
+      const glowColor = currentString(FX_KEYS.glowColor, resolvedColor)
+      const shadowColorChanged = shadowColor !== defaultString(FX_KEYS.shadowColor, shadowColor)
+      const glowColorChanged = glowColor !== defaultString(FX_KEYS.glowColor, glowColor)
+      const glowStrength = Math.max(0, currentNumber(FX_KEYS.glowStrength, 1))
+      const defaultGlowStrength = Math.max(0, defaultNumber(FX_KEYS.glowStrength, 1))
+      const glowScale = defaultGlowStrength > 0 ? glowStrength / defaultGlowStrength : glowStrength
+      let shadowColorApplied = false
+      let glowColorApplied = false
+      const resolveOuterShadow = (shadow: TextShadow) => {
+        const glow = isGlowShadow(doc, layer, shadow)
+        if ((glow && !glowEnabled) || (!glow && !shadowEnabled)) return undefined
+        const resolved = {
+          color: resolveStr(shadow.color),
+          blur: resolveNum(shadow.blur, 0),
+          x: resolveNum(shadow.x, 0),
+          y: resolveNum(shadow.y, 0),
         }
+        if (glow) {
+          if (glowColorChanged && !glowColorApplied) {
+            resolved.color = glowColor
+            glowColorApplied = true
+          }
+          if (glowStrength !== defaultGlowStrength) resolved.blur = Math.max(0, resolved.blur * glowScale)
+        } else if (shadowColorChanged && !shadowColorApplied) {
+          resolved.color = shadowColor
+          shadowColorApplied = true
+        }
+        return resolved
+      }
+      if (c.shadow) {
+        textContent.shadow = resolveOuterShadow(c.shadow)
       }
       if (c.shadows) {
-        textContent.shadows = c.shadows.map((sh) => ({
-          color: resolveStr(sh.color),
-          blur: resolveNum(sh.blur, 0),
-          x: resolveNum(sh.x, 0),
-          y: resolveNum(sh.y, 0),
-        }))
+        const shadows = c.shadows
+          .map(resolveOuterShadow)
+          .filter((shadow): shadow is ResolvedTextShadow => shadow !== undefined)
+        if (shadows.length > 0) textContent.shadows = shadows
       }
-      if (c.innerShadows) {
+      if (c.innerShadows && shadowEnabled) {
         textContent.innerShadows = c.innerShadows.map((sh) => ({
           color: resolveStr(sh.color),
           blur: resolveNum(sh.blur, 0),
@@ -766,11 +994,46 @@ export function resolve(
           y: resolveNum(sh.y, 0),
         }))
       }
-      if (c.innerGlow) {
+      if (c.innerGlow && glowEnabled) {
         textContent.innerGlow = {
-          color: resolveStr(c.innerGlow.color),
-          blur: resolveNum(c.innerGlow.blur, 0),
+          color: glowColorChanged ? glowColor : resolveStr(c.innerGlow.color),
+          blur: Math.max(0, resolveNum(c.innerGlow.blur, 0) * (
+            glowStrength !== defaultGlowStrength ? glowScale : 1
+          )),
         }
+      }
+      const addOuterShadow = (shadow: NonNullable<ResolvedTextContent['shadow']>) => {
+        if (textContent.shadows && textContent.shadows.length > 0) {
+          if (textContent.shadow) {
+            textContent.shadows.unshift(textContent.shadow)
+            textContent.shadow = undefined
+          }
+          textContent.shadows.push(shadow)
+        } else if (textContent.shadow) {
+          textContent.shadows = [textContent.shadow, shadow]
+          textContent.shadow = undefined
+        } else {
+          textContent.shadow = shadow
+        }
+      }
+      if (hasFxVariable(FX_KEYS.shadowEnabled) && shadowEnabled && !hasOriginalShadow) {
+        const offset = resolvedSize * 0.06
+        const angle = 135 * Math.PI / 180
+        addOuterShadow({
+          color: shadowColor,
+          blur: resolvedSize * 0.08,
+          // 映像ツールの方向角（0°=上、時計回り）に合わせ、135°を右下へ落とす。
+          x: Math.sin(angle) * offset,
+          y: -Math.cos(angle) * offset,
+        })
+      }
+      if (hasFxVariable(FX_KEYS.glowEnabled) && glowEnabled && !hasOriginalGlow) {
+        addOuterShadow({
+          color: glowColor === defaultString(FX_KEYS.glowColor, glowColor) ? resolvedColor : glowColor,
+          blur: resolvedSize * 0.25 * glowStrength,
+          x: 0,
+          y: 0,
+        })
       }
       if (c.bevel) {
         textContent.bevel = {
@@ -859,14 +1122,35 @@ export function resolve(
     scope[`@${id}.cx`] = left + sizeW / 2
     scope[`@${id}.cy`] = top + sizeH / 2
 
-    resolvedMap.set(id, resolved)
-    resolvedLayers.push(resolved)
+    const hiddenBackground = layer.fxTag === 'bg'
+      && hasFxVariable(FX_KEYS.bgEnabled)
+      && !currentBoolean(FX_KEYS.bgEnabled, true)
+    if (!hiddenBackground) {
+      resolvedMap.set(id, resolved)
+    }
+  }
+
+  // 元の配列順を維持する。元背景を持たないテンプレートで bgEnabled=true のときだけ、
+  // 各 text bbox に対する標準座布団を全コンテンツより背面へ合成する。
+  let orderedLayers = doc.layers
+    .filter(l => resolvedMap.has(l.id))
+    .map(l => resolvedMap.get(l.id)!)
+  if (
+    hasFxVariable(FX_KEYS.bgEnabled)
+    && currentBoolean(FX_KEYS.bgEnabled, false)
+    && !hasOriginalBackground
+  ) {
+    const color = currentString('color_bg', 'rgba(0,0,0,0.62)')
+    const backgrounds = orderedLayers
+      .filter((layer) => layer.type === 'text')
+      .map((layer) => generatedBackground(layer, color))
+    orderedLayers = [...backgrounds, ...orderedLayers]
   }
 
   // doc.anchor を宣言したテンプレートだけ、全レイヤー解決後の自然 bbox を 1 回だけ
   // posX / posY の中央基準座標へ剛体移動する。anchor 未宣言の旧 ad-hoc doc は完全に従来どおり。
   if (doc.anchor) {
-    const naturalBBox = resolvedLayersBBox(resolvedLayers)
+    const naturalBBox = resolvedLayersBBox(orderedLayers)
     if (naturalBBox) {
       const { fracX, fracY } = ANCHOR_FRACS[doc.anchor]
       const naturalAnchorX = naturalBBox.left + fracX * (naturalBBox.right - naturalBBox.left)
@@ -885,17 +1169,12 @@ export function resolve(
       const shiftX = targetX - naturalAnchorX
       const shiftY = targetY - naturalAnchorY
 
-      for (const layer of resolvedLayers) {
+      for (const layer of orderedLayers) {
         layer.transform.x += shiftX
         layer.transform.y += shiftY
       }
     }
   }
-
-  // 元の配列順に並べ直す（描画順を維持）
-  const orderedLayers = doc.layers
-    .filter(l => resolvedMap.has(l.id))
-    .map(l => resolvedMap.get(l.id)!)
 
   const animIn = animationSelection(vars, 'animIn')
   const animOut = animationSelection(vars, 'animOut')

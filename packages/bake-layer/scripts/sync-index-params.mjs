@@ -20,6 +20,9 @@ const PARAM_FIELDS = ["key", "type", "label", "default", "options", "optional", 
 
 function paramsFromVariables(variables) {
   return (variables ?? []).map((variable) => {
+    if (variable.type === "bool" && typeof variable.default !== "boolean") {
+      throw new Error(`${variable.key}: type=bool の default は true/false 必須です`)
+    }
     const param = {}
     for (const field of PARAM_FIELDS) {
       if (variable[field] !== undefined) param[field] = variable[field]

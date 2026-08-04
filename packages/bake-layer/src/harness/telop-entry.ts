@@ -5,7 +5,7 @@
 import { resolve } from "../../vendor/telop/atf/resolve"
 import { canvasMeasure } from "../../vendor/telop/atf/measure"
 import { drawScene } from "../../vendor/telop/render/canvas2d"
-import type { AtfDoc } from "../../vendor/telop/atf/types"
+import type { AtfDoc, ResolvedScene, VariableValue } from "../../vendor/telop/atf/types"
 
 interface BakeTelopHandle {
   renderFrame(w: number, h: number, t: number, T: number): string
@@ -14,13 +14,22 @@ interface BakeTelopHandle {
 declare global {
   interface Window {
     __bakeTelop?: {
-      init(doc: AtfDoc, bindings: Record<string, string | number>, aspect: string | undefined): BakeTelopHandle
+      init(doc: AtfDoc, bindings: Record<string, VariableValue>, aspect: string | undefined): BakeTelopHandle
+      resolve(doc: AtfDoc, bindings: Record<string, VariableValue>, aspect: string | undefined): ResolvedScene
     }
   }
 }
 
-function init(doc: AtfDoc, bindings: Record<string, string | number>, aspect: string | undefined): BakeTelopHandle {
-  const scene = resolve(doc, bindings, aspect, canvasMeasure)
+function resolveScene(
+  doc: AtfDoc,
+  bindings: Record<string, VariableValue>,
+  aspect: string | undefined,
+): ResolvedScene {
+  return resolve(doc, bindings, aspect, canvasMeasure)
+}
+
+function init(doc: AtfDoc, bindings: Record<string, VariableValue>, aspect: string | undefined): BakeTelopHandle {
+  const scene = resolveScene(doc, bindings, aspect)
   // ATF レイヤーは scene.stage.width/height の座標系に絶対配置される（byAspect 解決済み）。
   // --size が doc のネイティブ解像度と異なる場合に備え、ネイティブ解像度で描いてから
   // 出力サイズへ高品質スケールする（旧 telop-prerender.ts のスーパーサンプリング縮小と同じ考え方）。
@@ -56,4 +65,4 @@ function init(doc: AtfDoc, bindings: Record<string, string | number>, aspect: st
   }
 }
 
-window.__bakeTelop = { init }
+window.__bakeTelop = { init, resolve: resolveScene }
