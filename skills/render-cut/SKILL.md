@@ -44,9 +44,10 @@ description: 承認済み edit.json と edit-lint PASS を入力に、最終 MP4
    ```
 
    出力を明示する場合だけ `--out <path>` を加える。CLI の validate → plan → render → verify を分解して手作業で代替しない。
-6. exit code と `.akari/render.json` を確認する。`0` は完走して verify PASS、`1` は拒否または verify FAIL、`2` は実行エラーを表す。`provenance.rasterizer` で採用手段と上位候補を落とした理由を確認する。
-7. verify PASS 後に成果物から少なくとも冒頭、各カット境界の前後、各オーバーレイまたは字幕の表示中をキーフレームとして抽出し、実画像を視認する。カット元時刻、文字、位置、欠落、透明合成を確認する。
-8. 機械検証値、成果物 SHA-256、採用したラスタライズ手段、フォールバック理由、キーフレーム視認結果を報告する。verify FAIL の場合は納品可能と表現せず、`.akari/render-tmp/` を保持して原因を報告する。
+6. exit code と `.akari/render.json` を確認する。`0` は完走して verify PASS、`1` は拒否または verify FAIL、`2` は実行エラーを表す。`provenance.rasterizer` で採用手段と上位候補を落とした理由を確認する。`verify.findings` には
+   尺・フレーム数厳密一致（`verify.frame-count`）・全フレームデコード成功（`verify.decode`）・解像度・fps・コーデック等が並ぶ。
+7. verify PASS 後、CLI が `<project>/.akari/reports/contact-sheet.png` へ自動生成したコンタクトシート（plan から決定論導出した代表時刻 — 冒頭・各カット境界の直後・各オーバーレイ/字幕区間の中点・終盤 — をタイル結合した静止画。`render.json` の `contact_sheet.timestamps_seconds` に時刻列を記録）をキーフレーム視認の起点にする。これで足りない区間（コンタクトシートの上限枚数を超えて間引かれた箇所など）だけ追加でフレーム抽出して視認する。カット元時刻、文字、位置、欠落、透明合成を確認する。
+8. 機械検証値、成果物 SHA-256、採用したラスタライズ手段、フォールバック理由、コンタクトシート起点のキーフレーム視認結果を報告する。verify FAIL の場合は納品可能と表現せず、`.akari/render-tmp/` を保持して原因を報告する。
 
 ## 出力契約
 
@@ -55,9 +56,15 @@ description: 承認済み edit.json と edit-lint PASS を入力に、最終 MP4
 - 成功時だけ `<project>/.akari/render-tmp/` を削除する。失敗時は診断用に保持する。
 - 字幕は `captions.json` から決定的な HTML へ生成し、他のオーバーレイと同じ経路で焼き込む。
 - 字幕スタイルの preset は `presets/textstyle/` にあり、`packages/render-cut/bin/akari-apply-textstyle.mjs` で `captions.json` へ適用できる。通常は edit-plan 段階で適用を済ませ、render-cut はその結果をそのまま描画する。
-- 視認用に抽出するキーフレーム静止画は `<project>/.akari/reports/` へ置く。CLI 自身が使う
-  `.akari/render-tmp/` とは別に、確認用の一時スクリプトや実験的な中間生成物を人が作る場合は
-  `<project>/.akari/work/` へ置く（[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
+- verify PASS 後、CLI が `<project>/.akari/reports/contact-sheet.png` を自動生成する（判定材料の
+  生成のみで合否判定はしない）。時刻列は plan（`predicted_duration_seconds` / `preset.fps` /
+  cuts / overlays）だけから決定論で導出し、同一 edit.json + 同一素材なら時刻列・タイル画像とも
+  バイト同一になる。時刻列は `render.json` の `contact_sheet.timestamps_seconds` に記録し、
+  `render-report.html` から参照する。
+- コンタクトシートで足りない区間を追加で視認するときの静止画も `<project>/.akari/reports/` へ置く。
+  CLI 自身が使う `.akari/render-tmp/` とは別に、確認用の一時スクリプトや実験的な中間生成物を
+  人が作る場合は `<project>/.akari/work/` へ置く
+  （[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
   いずれもプロジェクトルート直下には置かない。
 
 ## 公開契約
