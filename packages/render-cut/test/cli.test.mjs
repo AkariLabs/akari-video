@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -136,6 +136,7 @@ test("plan commands are stable and the report is self-contained", async (t) => {
   try {
     assert.equal(run(project, ["--plan-only"]).status, 0);
     const first = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(Object.keys(first.inputs).some(path => path.includes("NotoSansJP-Variable.ttf")), false);
     assert.equal(run(project, ["--plan-only"]).status, 0);
     const second = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.deepEqual(second.plan.commands, first.plan.commands);
@@ -166,8 +167,49 @@ test("plan-only accepts the object captions root with default_text_style", async
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify, null);
     assert.ok(state.plan);
+    const captionFontPath = "akari:assets/font/noto-sans-jp/NotoSansJP-Variable.ttf";
+    assert.match(state.inputs[captionFontPath]?.sha256 ?? "", /^[a-f0-9]{64}$/u);
+    assert.ok(state.inputs[captionFontPath].bytes > 0);
   } finally {
     await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("caption layout persistence refuses external report-directory symlinks before writing", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  for (const target of ["reports", "caption-layout"]) {
+    await t.test(target, async () => {
+      const project = await makeProject({ captions: true, overlays: false });
+      const external = await mkdtemp(join(tmpdir(), "render-cut-caption-layout-external-"));
+      try {
+        const captions = JSON.parse(await readFile(join(project, "captions.json"), "utf8"));
+        await writeFile(join(project, "captions.json"), `${JSON.stringify({
+          display_policy: {
+            mode: "single_line_sequential",
+            algorithm: "a4-ja-two-fragment-v1",
+            unit_metric: "ascii-half-other-one-v1",
+            max_line_units: 8,
+            minimum_fragment_duration_seconds: 0.72,
+            locale: "ja",
+          },
+          captions,
+        }, null, 2)}\n`, "utf8");
+        if (target === "reports") {
+          await symlink(external, join(project, ".akari", "reports"));
+        } else {
+          await mkdir(join(project, ".akari", "reports"));
+          await symlink(external, join(project, ".akari", "reports", "caption-layout"));
+        }
+
+        const planned = run(project, ["--plan-only"]);
+        assert.equal(planned.status, 2, planned.stderr);
+        assert.match(planned.stderr, /not a regular contained project directory/u);
+        assert.deepEqual(await readdir(external), []);
+      } finally {
+        await rm(project, { recursive: true, force: true });
+        await rm(external, { recursive: true, force: true });
+      }
+    });
   }
 });
 

@@ -67,6 +67,8 @@ All contracts follow the
 | [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md) | The canonical agent-native architecture rationale (three-layer sandwich, editing model, MVP milestones) |
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | Versioning and migration principles for data contracts (cross-cutting) |
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | Where generated artifacts live (layer definitions, root-level principle, deletion safety) |
+| [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | Canonical status, immutable render receipts, human acceptance records, and capability absence receipts |
+| [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | Shared caption display/layout, master encoding, audio QC evidence, and recipe boundaries |
 
 ### edit.json (the editing save file)
 
@@ -92,6 +94,7 @@ All contracts follow the
 | [contract-2026-07-20-plan-json-v0.md](./contract-2026-07-20-plan-json-v0.md) | plan.json v0 (provisional timeline; slot sequence with confidence levels) |
 | [contract-2026-07-25-plan-comments-v0.md](./contract-2026-07-25-plan-comments-v0.md) | plan-comments.json v0 (structured push-back on the approvable plan layer) |
 | [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 annotation model (five target types) |
+| [contract-2026-08-03-cut-candidate-bridge-v1.md](./contract-2026-08-03-cut-candidate-bridge-v1.md) | Review-only semantic event and A4 pause-shortening candidate bridge |
 
 ### Assets & personal layer
 

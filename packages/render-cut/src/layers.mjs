@@ -32,6 +32,7 @@ export function buildLayersCompositeCommand({
   duration,
   width,
   height,
+  videoEncodeArgs = null,
 }) {
   const inputArgs = [];
   const filters = [];
@@ -179,10 +180,7 @@ export function buildLayersCompositeCommand({
       previous,
       "-map",
       "0:a:0",
-      "-c:v",
-      "libx264",
-      "-profile:v",
-      "high",
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",

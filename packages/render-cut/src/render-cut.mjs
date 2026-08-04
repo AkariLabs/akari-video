@@ -4,10 +4,12 @@ import { constants as fsConstants, createReadStream, existsSync } from "node:fs"
 import {
   access,
   copyFile,
+  lstat,
   mkdir,
   mkdtemp,
   readdir,
   readFile,
+  realpath,
   rename,
   rm,
   stat,
@@ -18,12 +20,11 @@ import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { generateCaptionOverlays } from "./captions.mjs";
+import { generateCaptionOverlays, generateResolvedCaptionOverlays } from "./captions.mjs";
 import {
-  buildVideoEncodeArgs,
   ENCODER_CHOICES,
   QUALITY_LEVELS,
-  resolveEncoderChoice,
+  resolveEncodingPolicy,
 } from "./encode-preset.mjs";
 import { buildPlan, selectDefaultOutput } from "./plan.mjs";
 import {
@@ -37,17 +38,22 @@ import {
   runCheckedWithProgress,
 } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
+import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "./render-inputs.mjs";
+import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
+import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
 
 const VERSION = 1;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRequire = createRequire(import.meta.url);
+const { resolveCaptionDisplay } = packageRequire("../../edit-store/lib/index.js");
 // A stale run directory belongs to a process that crashed/was killed without cleaning up after
 // itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
 // never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
-  [--quality high|standard|light] [--encoder auto|videotoolbox|x264]
+  [--quality master|high|standard|light] [--encoder auto|videotoolbox|x264]
   [--fps <number>] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
@@ -105,9 +111,31 @@ export async function renderProject(input, options = {}, io = console) {
 
   const lint = await validateLint(projectRoot, options.force === true);
   const capabilities = await measureCapabilities(projectRoot, edit);
-  const inputs = await collectInputReceipts(projectRoot, edit, editText);
+  const encodingPolicy = resolveEncodingPolicy({
+    cli: { quality: options.quality, encoder: options.encoder },
+    edit,
+    capabilities,
+  });
   const plannedCaptions = await loadCaptions(projectRoot, edit);
-  const captionOverlays = edit.version === 1 ? plannedCaptions.overlays : plannedCaptions;
+  // Caption HTML embeds this exact canonical file URL. Resolve the binding once only when an
+  // overlay will actually be rasterized, then hand the same binding to the receipt enumerator.
+  const captionFontAsset = plannedCaptions.overlays.length > 0
+    ? resolveCanonicalCaptionFontAsset()
+    : null;
+  const declaredInputs = await enumerateDeclaredRenderInputs({
+    projectRoot, edit, editText, captionFontAsset,
+  });
+  const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
+  const inputs = Object.fromEntries(
+    inputSnapshot.map((input) => [input.path, {
+      sha256: input.sha256,
+      bytes: input.bytes,
+    }]),
+  );
+  const captionOverlays = plannedCaptions.overlays;
+  const captionLayout = plannedCaptions.layout
+    ? await persistCaptionLayout(projectRoot, plannedCaptions.layout, capabilities)
+    : null;
   const loadedOverlays = await loadOverlays(projectRoot, edit);
   const hasThreeDimensionalOverlay = loadedOverlays.some((overlay) =>
     overlay.html.includes("data-akari-3d-scene"),
@@ -138,6 +166,7 @@ export async function renderProject(input, options = {}, io = console) {
     temporaryDirectory,
     quality: options.quality,
     encoder: options.encoder,
+    encodingPolicy,
     fpsOverride: options.fps,
   });
   const state = {
@@ -185,10 +214,9 @@ export async function renderProject(input, options = {}, io = console) {
     },
     artifacts: [],
     verify: null,
+    ...(captionLayout ? { caption_layout: captionLayout } : {}),
   };
-  if (edit.version === 1) {
-    for (const warning of plannedCaptions.warnings) addWarning(state, warning);
-  }
+  for (const warning of plannedCaptions.warnings) addWarning(state, warning);
 
   const statePath = join(projectRoot, ".akari", "render.json");
   const reportPath = join(projectRoot, ".akari", "reports", "render-report.html");
@@ -279,17 +307,55 @@ export async function renderProject(input, options = {}, io = console) {
         duration: plan.predicted_duration_seconds,
         hasThreeDimensionalOverlay,
         fps: plan.preset.fps,
-        videoEncodeArgs: buildVideoEncodeArgs({
-          quality: options.quality,
-          encoderChoice: resolveEncoderChoice({ requested: options.encoder, ffmpegCommand: capabilities.ffmpegCommand }),
-          profile: "high",
-        }),
+        videoEncodeArgs: encodingPolicy?.video_encode_args ?? null,
         onProgress: progressEnabled ? (seconds) => emitProgress("composite", seconds) : undefined,
       });
     }
 
     const finalPath = join(temporaryDirectory, "final.mp4");
-    await executeAudioPlan(plan.commands.audio_mix);
+    const audioExecution = await executeAudioPlan(plan.commands.audio_mix);
+    const audioMaster = edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
+    if (audioMaster && audioExecution.error) {
+      state.audio_qc = measurementErrorAudioQc({
+        master: audioMaster,
+        phase: "filter_report",
+        code: audioExecution.error.code,
+        message: audioExecution.error.message,
+        toolVersion: capabilities.ffmpegVersion,
+      });
+      const failedArtifactPath = await persistFailedRenderArtifact(projectRoot, compositePath);
+      const failedVerification = verifyArtifact({
+        outputPath: failedArtifactPath,
+        plan,
+        ffprobeCommand: capabilities.ffprobeCommand,
+      });
+      state.artifacts = [{
+        path: relativeOrAbsolute(projectRoot, failedArtifactPath),
+        sha256: await sha256File(failedArtifactPath),
+        ffprobe: failedVerification.measured,
+      }];
+      if (failedVerification.verdict === "pass") {
+        const receipt = await createImmutableRenderReceipt({
+          projectRoot,
+          declaredInputs,
+          inputSnapshot,
+          outputPath: failedArtifactPath,
+          ffprobe: failedVerification.measured,
+          plan,
+          verify: failedVerification,
+          tools: {
+            node: capabilities.nodeVersion,
+            ffmpeg: capabilities.ffmpegVersion,
+            ffprobe: capabilities.ffprobeVersion,
+          },
+          captionLayout,
+          audioQc: state.audio_qc,
+          createdAt: options.receiptCreatedAt,
+        });
+        state.render_receipt = { path: receipt.path, sha256: receipt.sha256 };
+      }
+      throw new RefusalError("audio QC filter report measurement failed");
+    }
 
     await mkdir(dirname(outputPath), { recursive: true });
     if (explicitOutput) {
@@ -300,6 +366,18 @@ export async function renderProject(input, options = {}, io = console) {
       await rm(finalPath, { force: true });
     }
     state.phase = "rendered";
+    if (audioMaster) {
+      state.audio_qc = buildAudioQc({
+        master: audioMaster,
+        filterStderr: audioExecution.stderr,
+        outputPath,
+        ffmpegCommand: capabilities.ffmpegCommand,
+        toolVersion: capabilities.ffmpegVersion,
+      });
+      if (state.audio_qc.verdict === "INCONCLUSIVE") {
+        addWarning(state, "audio_qc is INCONCLUSIVE and requires human acceptance review");
+      }
+    }
     const verification = verifyArtifact({
       outputPath,
       plan,
@@ -314,6 +392,32 @@ export async function renderProject(input, options = {}, io = console) {
       },
     ];
     state.phase = "verified";
+    if (verification.verdict === "pass") {
+      const receipt = await createImmutableRenderReceipt({
+        projectRoot,
+        declaredInputs,
+        inputSnapshot,
+        outputPath,
+        ffprobe: verification.measured,
+        plan,
+        verify: verification,
+        tools: {
+          node: capabilities.nodeVersion,
+          ffmpeg: capabilities.ffmpegVersion,
+          ffprobe: capabilities.ffprobeVersion,
+        },
+        captionLayout,
+        audioQc: state.audio_qc ?? null,
+        createdAt: options.receiptCreatedAt,
+      });
+      state.render_receipt = {
+        path: receipt.path,
+        sha256: receipt.sha256,
+      };
+    }
+    if (state.audio_qc?.verdict === "MEASUREMENT_ERROR") {
+      throw new RefusalError("audio QC decoded artifact measurement failed");
+    }
     await writeState(state, statePath, reportPath, projectRoot);
     if (verification.verdict === "pass") {
       await rm(temporaryDirectory, { recursive: true, force: true });
@@ -541,7 +645,7 @@ async function loadOverlays(projectRoot, edit) {
 async function loadCaptions(projectRoot, edit) {
   const captionsPath = join(projectRoot, "captions.json");
   if (!(await isRegularFile(captionsPath))) {
-    return edit.version === 1 ? { overlays: [], warnings: [] } : [];
+    return { overlays: [], warnings: [], layout: null };
   }
   const captionsRoot = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
   const captions = Array.isArray(captionsRoot)
@@ -552,15 +656,23 @@ async function loadCaptions(projectRoot, edit) {
   if (!captions) {
     throw new ExecutionError("captions.json root must be an array or an object with captions[]");
   }
+  const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: edit.output });
+  if (resolved) {
+    return { overlays: generateResolvedCaptionOverlays(resolved), warnings: [], layout: resolved };
+  }
   const defaultTextStyle = Array.isArray(captionsRoot)
     ? undefined
     : captionsRoot.default_text_style;
   if (edit.version === 0) {
-    return generateCaptionOverlays(captions, edit.cuts, {
-      emphasisWords: edit.emphasis_words,
-      defaultTextStyle,
-      output: edit.output,
-    });
+    return {
+      overlays: generateCaptionOverlays(captions, edit.cuts, {
+        emphasisWords: edit.emphasis_words,
+        defaultTextStyle,
+        output: edit.output,
+      }),
+      warnings: [],
+      layout: null,
+    };
   }
   const warnings = [];
   const overlays = generateCaptionOverlays(captions, edit.cuts, {
@@ -571,7 +683,39 @@ async function loadCaptions(projectRoot, edit) {
     linearTimeline: edit.version === 1,
     onWarning: (warning) => warnings.push(warning),
   });
-  return { overlays, warnings };
+  return { overlays, warnings, layout: null };
+}
+
+async function persistCaptionLayout(projectRoot, result, capabilities) {
+  const root = await realpath(resolve(projectRoot));
+  const boundaryProjectionSha256 = sha256(JSON.stringify(result.boundary_projection));
+  const payload = {
+    ...result,
+    runtime: { node: capabilities.nodeVersion, icu: process.versions.icu ?? null },
+    boundary_projection_sha256: boundaryProjectionSha256,
+  };
+  const bytes = `${JSON.stringify(payload, null, 2)}\n`;
+  const digest = sha256(bytes);
+  const directory = await prepareContainedReportDirectory(root, "caption-layout");
+  const path = join(directory, `${digest}.json`);
+  try {
+    await writeFile(path, bytes, { encoding: "utf8", flag: "wx" });
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    if (await readFile(path, "utf8") !== bytes) throw new ExecutionError("caption layout content-address collision");
+  }
+  return {
+    path: relative(root, path),
+    sha256: digest,
+    schema: result.schema,
+    summary: {
+      source_cue_count: result.source_cue_count,
+      occurrence_count: result.occurrence_count,
+      display_cue_count: result.display_cue_count,
+      split_source_cue_count: result.split_source_cue_count,
+      boundary_projection_sha256: boundaryProjectionSha256,
+    },
+  };
 }
 
 export async function rasterizeAndComposite(context) {
@@ -735,9 +879,40 @@ export async function rasterizeAndComposite(context) {
 async function executeAudioPlan(audioPlan) {
   if (audioPlan.operation === "copy") {
     await copyFile(audioPlan.input, audioPlan.output);
-    return;
+    return { stderr: "" };
   }
-  runChecked(audioPlan.command, audioPlan.args);
+  const result = spawnSync(audioPlan.command, audioPlan.args, {
+    encoding: "utf8",
+    maxBuffer: AUDIO_QC_CAPTURE_LIMIT_BYTES,
+  });
+  if (result.error) {
+    return {
+      stderr: result.stderr ?? "",
+      error: {
+        code: result.error.code === "ENOBUFS" ? "CAPTURE_LIMIT" : "PROCESS_FAILED",
+        message: result.error.code === "ENOBUFS" ? "filter report exceeded bounded capture" : "audio filter process failed",
+      },
+    };
+  }
+  if (result.status !== 0) {
+    return { stderr: result.stderr ?? "", error: { code: "PROCESS_FAILED", message: "audio filter process exited unsuccessfully" } };
+  }
+  return { stderr: result.stderr ?? "" };
+}
+
+async function persistFailedRenderArtifact(projectRoot, sourcePath) {
+  const root = await realpath(resolve(projectRoot));
+  const digest = await sha256File(sourcePath);
+  const directory = await prepareContainedReportDirectory(root, "failed-render-artifacts");
+  const target = join(directory, `${digest}.mp4`);
+  try {
+    await copyFile(sourcePath, target, fsConstants.COPYFILE_EXCL);
+  } catch (error) {
+    if (error?.code !== "EEXIST" || await sha256File(target) !== digest) {
+      throw new ExecutionError("failed render artifact content-address collision");
+    }
+  }
+  return join(resolve(projectRoot), relative(root, target));
 }
 
 // Allocates this run's own render-tmp subdirectory (fs.mkdtemp-equivalent uniqueness: an
@@ -812,10 +987,39 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
 }
 
 async function writeState(state, statePath, reportPath, projectRoot) {
-  await mkdir(dirname(statePath), { recursive: true });
-  await mkdir(dirname(reportPath), { recursive: true });
+  const root = await realpath(projectRoot);
+  const akariDirectory = dirname(statePath);
+  try {
+    await mkdir(akariDirectory);
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+  await assertContainedDirectory(root, akariDirectory, ".akari");
+  const reportsDirectory = dirname(reportPath);
+  try {
+    await mkdir(reportsDirectory);
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+  await assertContainedDirectory(root, reportsDirectory, ".akari/reports");
   await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
   await writeFile(reportPath, renderReport(state, reportPath, projectRoot), "utf8");
+}
+
+async function assertContainedDirectory(root, directory, label) {
+  let info;
+  let actual;
+  try {
+    info = await lstat(directory);
+    actual = await realpath(directory);
+  } catch (error) {
+    throw new ExecutionError(`${label} is not a regular project directory: ${messageOf(error)}`);
+  }
+  const value = relative(root, actual);
+  if (!info.isDirectory() || info.isSymbolicLink()
+    || !(value === "" || (!value.startsWith("..") && !isAbsolute(value)))) {
+    throw new ExecutionError(`${label} is not a regular contained project directory`);
+  }
 }
 
 function validateEditShape(edit) {

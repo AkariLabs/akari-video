@@ -7,8 +7,9 @@ Claude Code のプラグイン形式で、AKARI Video の編集スキル一式�
 | コンポーネント | 場所 | 役割 |
 |---|---|---|
 | スキルパック | `skills/`（`../skills` へのシンボリックリンク。正本を**コピーせず参照**する） | `analyze-footage` / `edit-plan` / `overlay-authoring` などの編集スキル一式 |
-| SessionStart hook | `hooks/hooks.json` + `hooks/scripts/session-start.mjs` | カレントに `.akari/` プロジェクトがあれば、intake 状態・直近イベントから「次の一手」をセッション開始時にコンテキスト注入する。無ければ何もしない |
-| `/akari` スラッシュコマンド | `commands/akari.md` | doctor 判定 → 状態に応じた案内（未セットアップなら create-project / manage-connections への導線、セットアップ済みなら続きの提示） |
+| status core | `runtime/status-core/`（generator output） | launcher 正本の byte-identical mirror。fast/full の工程・受理判定を共有する |
+| SessionStart hook | `hooks/hooks.json` + `hooks/scripts/session-start.mjs` | canonical fast status と次の一手をコンテキスト注入する。無ければ何もしない |
+| `/akari` スラッシュコマンド | `commands/akari.md` | canonical status を根拠に案内する。独自の工程表は持たない |
 
 ## なぜシンボリックリンクか
 
@@ -23,12 +24,16 @@ Claude Code のプラグインマニフェスト（`plugin.json`）のコンポ�
 `.agents/skills` / `.cursor/skills` / `.codex/skills` を `.claude/skills` へのシンボリックリンクに
 する既存の流儀と同じ考え方）。
 
-**既知の制約**: この方式はプラグインが本リポジトリの checkout と同じ場所に置かれて
-いることを前提にする。マーケットプレイス経由でのリモート配布・npm 経由の単体配布
+**既知の制約**: skill シンボリックリンクはプラグインが本リポジトリの checkout と同じ場所に置かれて
+いることを前提にする。status core と SessionStart は `plugin/` 単体コピーでも動作するが、
+マーケットプレイス経由でのリモート配布・npm 経由の単体配布
 （プラグインだけを別ディレクトリへコピーする配布形態）では、シンボリックリンクの
 参照先が失われる。マーケットプレイス公開・配布チャネル整備は本タスクのスコープ外
 （上位契約 §7）のため、現状は「モノレポ checkout 内で有効なプラグイン」として設計
 している。
+
+capability 検索は `akari capability` CLI の責務である。単体コピー先で CLI が無ければ
+明示的に unsupported とし、プラグイン独自カタログへフォールバックしない。
 
 ## 有効化（ローカル検証）
 

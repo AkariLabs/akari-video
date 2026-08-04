@@ -1,9 +1,24 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
-const { parsePreviewCaptions } = require('../lib/browser/akari-preview-captions.js');
+const { parsePreviewCaptions, parseResolvedPreviewCaptions } = require('../lib/browser/akari-preview-captions.js');
+const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
+const shellVisualContract = require('../lib/common/caption-visual-contract.js');
+const { resolveCaptionDisplay } = require('../../../../../packages/edit-store/lib/index.js');
+const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const repositoryRoot = join(extensionRoot, '../../../..');
+const styleParity = JSON.parse(await readFile(join(
+    repositoryRoot, 'packages/edit-store/test/fixtures/caption-style-validation-parity.json'
+), 'utf8'));
+const checkedVisualContract = JSON.parse(await readFile(join(
+    repositoryRoot, 'packages/edit-store/src/caption-visual-contract.json'
+), 'utf8'));
 
 const caption = {
     id: 'c-0001',
@@ -14,6 +29,17 @@ const caption = {
     sourceRef: { segment: 0 },
     edited: false
 };
+
+test('shell resolved-caption fragment and managed variables come from the checked source contract', () => {
+    assert.equal(shellVisualContract.RESOLVED_SINGLE_LINE_CAPTION_CSS, checkedVisualContract.resolved_single_line_caption_css);
+    assert.equal(shellVisualContract.RESOLVED_SINGLE_LINE_FRAGMENT_OPEN, checkedVisualContract.resolved_single_line_fragment_open);
+    assert.equal(shellVisualContract.RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE, checkedVisualContract.resolved_single_line_fragment_middle);
+    assert.equal(shellVisualContract.RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE, checkedVisualContract.resolved_single_line_fragment_close);
+    assert.deepEqual(
+        shellVisualContract.RESOLVED_CAPTION_STYLE_VARIABLE_NAMES,
+        checkedVisualContract.resolved_caption_style_variable_names
+    );
+});
 
 test('配列ルートを従来どおり読み text_style 不在なら id 以外の追加キーを持たない', () => {
     // ㉓ 字幕クリック選択+移動の書き戻し（captions.json text_style.zone）に caption を
@@ -88,3 +114,288 @@ test('block mode は block 専用 var を使い per-line の既存 var と分離
     assert.equal(block.textStyleVars['--plate-bg'], undefined);
     assert.equal(block.textStyleVars['--plate-radius'], undefined);
 });
+
+test('resolved payload remains timeline-domain and preserves source cue identity for writeback', () => {
+    const [parsed] = parseResolvedPreviewCaptions({
+        schema: 'caption-layout/v1',
+        captions: [{
+            id: 'c-0001-occ-0001-part-1',
+            source_cue_id: 'c-0001',
+            start: 3,
+            end: 4,
+            text: '今回',
+            style_vars: { '--caption-left': '261px' }
+        }]
+    });
+    assert.deepEqual(parsed, {
+        id: 'c-0001-occ-0001-part-1',
+        sourceCueId: 'c-0001',
+        resolvedTimeline: true,
+        start: 3,
+        end: 4,
+        text: '今回',
+        textStyleVars: { '--caption-left': '261px' }
+    });
+});
+
+test('shell backend resolves policy while browser source contains no segmentation implementation', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-shell-caption-display-'));
+    const captionsPath = join(root, 'captions.json');
+    const editPath = join(root, 'edit.json');
+    await writeFile(captionsPath, JSON.stringify({
+        display_policy: {
+            mode: 'single_line_sequential',
+            algorithm: 'a4-ja-two-fragment-v1',
+            unit_metric: 'ascii-half-other-one-v1',
+            max_line_units: 6,
+            minimum_fragment_duration_seconds: 0.72,
+            locale: 'ja'
+        },
+        captions: [{ ...caption, text: '今回設定します', display_fragments: ['今回', '設定します'] }]
+    }));
+    await writeFile(editPath, JSON.stringify({
+        version: 0,
+        source: { path: 'source.mp4' },
+        cuts: [{ in: 0, out: 2 }],
+        output: { width: 1920, height: 1080, fps: 30 }
+    }));
+    const service = new AkariPreviewServiceImpl();
+    service.workspaceServer = { getMostRecentlyUsedWorkspace: async () => pathToFileURL(root).toString() };
+    const payload = await service.resolveCaptionDisplay({
+        captionsUri: pathToFileURL(captionsPath).toString(),
+        editUri: pathToFileURL(editPath).toString()
+    });
+    assert.deepEqual(payload.captions.map(cue => cue.text), ['今回', '設定します']);
+
+    await writeFile(captionsPath, JSON.stringify({
+        display_policy: {
+            mode: 'single_line_sequential',
+            algorithm: 'a4-ja-two-fragment-v1',
+            unit_metric: 'ascii-half-other-one-v1',
+            max_line_units: 6,
+            minimum_fragment_duration_seconds: 0.72,
+            locale: 'ja'
+        },
+        captions: [{ ...caption, src: 'ghost' }]
+    }));
+    await writeFile(editPath, JSON.stringify({
+        version: 1,
+        sources: [{ id: 'a', path: 'a.mp4' }, { id: 'b', path: 'b.mp4' }],
+        cuts: [{ src: 'a', in: 0, out: 2 }],
+        output: { width: 1920, height: 1080, fps: 30 }
+    }));
+    await assert.rejects(service.resolveCaptionDisplay({
+        captionsUri: pathToFileURL(captionsPath).toString(),
+        editUri: pathToFileURL(editPath).toString()
+    }), /captions\[0\]\.src does not reference edit\.json sources/u);
+
+    const browserSource = await readFile(join(extensionRoot, 'src', 'browser', 'akari-preview-captions.ts'), 'utf8');
+    assert.doesNotMatch(browserSource, /Intl\.Segmenter/u);
+    assert.doesNotMatch(browserSource, /resolveCaptionDisplay\s*\(/u);
+});
+
+test('shell RPC direct calls reject malformed opt-in styles and unknown nested keys', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-shell-caption-invalid-style-'));
+    try {
+        const captionsPath = join(root, 'captions.json');
+        const editPath = join(root, 'edit.json');
+        await writeFile(editPath, JSON.stringify(styleParity.edit));
+        const service = captionService(root);
+        await writeFile(captionsPath, JSON.stringify({
+            display_policy: styleParity.display_policy,
+            default_text_style: { color: 17, size_px: '82', font_weight: '600', line_height: 0 },
+            captions: [styleParity.caption]
+        }));
+        await assert.rejects(resolveFrom(service, captionsPath, editPath), /default_text_style/u);
+
+        await writeFile(captionsPath, JSON.stringify({
+            display_policy: styleParity.display_policy,
+            captions: [{ ...styleParity.caption, text_style: {
+                stroke: { method: 'webkit-outline', color: '#050505', width_px: 5, invented: true }
+            } }]
+        }));
+        await assert.rejects(resolveFrom(service, captionsPath, editPath), /invented/u);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('kernel, render, preview API, and shell return the exact same complete display cues', async () => {
+    const fixture = JSON.parse(await readFile(join(
+        repositoryRoot, 'packages/edit-store/test/fixtures/caption-consumer-parity.json'
+    ), 'utf8'));
+    const kernel = resolveCaptionDisplay(fixture.captionsRoot, fixture.edit, { output: fixture.edit.output });
+    const { generateResolvedCaptionOverlays } = await import(pathToFileURL(join(
+        repositoryRoot, 'packages/render-cut/src/captions.mjs'
+    )).toString());
+    const { resolveCaptionApiPayload } = await import(pathToFileURL(join(
+        repositoryRoot, 'packages/preview-server/src/caption-api.mjs'
+    )).toString());
+
+    const root = await mkdtemp(join(tmpdir(), 'akari-shell-caption-parity-'));
+    const captionsPath = join(root, 'captions.json');
+    const editPath = join(root, 'edit.json');
+    await writeFile(captionsPath, JSON.stringify(fixture.captionsRoot));
+    await writeFile(editPath, JSON.stringify(fixture.edit));
+    const service = new AkariPreviewServiceImpl();
+    service.workspaceServer = { getMostRecentlyUsedWorkspace: async () => pathToFileURL(root).toString() };
+    const shell = await service.resolveCaptionDisplay({
+        captionsUri: pathToFileURL(captionsPath).toString(),
+        editUri: pathToFileURL(editPath).toString()
+    });
+
+    assert.deepEqual(generateResolvedCaptionOverlays(kernel).map(overlay => overlay.displayCue), kernel.display_cues);
+    assert.deepEqual(resolveCaptionApiPayload(fixture.captionsRoot, fixture.edit).captions, kernel.display_cues);
+    assert.deepEqual(shell.captions, kernel.display_cues);
+    assert.ok(kernel.display_cues.every(cue => cue.text_style && cue.style_vars && cue.layout));
+    await rm(root, { recursive: true, force: true });
+});
+
+test('caption display rejects static symlinks for both captions and edit inputs', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'akari-caption-static-link-workspace-'));
+    const outside = await mkdtemp(join(tmpdir(), 'akari-caption-static-link-outside-'));
+    try {
+        const fixture = captionRaceFixture('INSIDE');
+        const captionsPath = join(workspace, 'captions.json');
+        const editPath = join(workspace, 'edit.json');
+        const outsideCaptions = join(outside, 'captions.json');
+        const outsideEdit = join(outside, 'edit.json');
+        await writeFile(captionsPath, JSON.stringify(fixture.captionsRoot));
+        await writeFile(editPath, JSON.stringify(fixture.edit));
+        await writeFile(outsideCaptions, JSON.stringify(captionRaceFixture('OUTSIDE').captionsRoot));
+        await writeFile(outsideEdit, JSON.stringify({ ...fixture.edit, cuts: [{ in: 0, out: 1 }] }));
+        const service = captionService(workspace);
+
+        await rename(captionsPath, `${captionsPath}.regular`);
+        await symlink(outsideCaptions, captionsPath);
+        await assert.rejects(resolveFrom(service, captionsPath, editPath), /symlink|safely/u);
+        await rm(captionsPath);
+        await rename(`${captionsPath}.regular`, captionsPath);
+
+        await rename(editPath, `${editPath}.regular`);
+        await symlink(outsideEdit, editPath);
+        await assert.rejects(resolveFrom(service, captionsPath, editPath), /symlink|safely/u);
+    } finally {
+        await rm(workspace, { recursive: true, force: true });
+        await rm(outside, { recursive: true, force: true });
+    }
+});
+
+test('caption and edit retarget races never return outside content across 10k RPC calls each', { timeout: 180_000 }, async t => {
+    const workspace = await mkdtemp(join(tmpdir(), 'akari-caption-race-workspace-'));
+    const outside = await mkdtemp(join(tmpdir(), 'akari-caption-race-outside-'));
+    try {
+        const fixture = captionRaceFixture('INSIDE');
+        const captionsPath = join(workspace, 'captions.json');
+        const editPath = join(workspace, 'edit.json');
+        const outsideCaptions = join(outside, 'captions.json');
+        const outsideEdit = join(outside, 'edit.json');
+        await writeFile(captionsPath, JSON.stringify(fixture.captionsRoot));
+        await writeFile(editPath, JSON.stringify(fixture.edit));
+        await writeFile(outsideCaptions, JSON.stringify(captionRaceFixture('OUTSIDE').captionsRoot));
+        await writeFile(outsideEdit, JSON.stringify({ ...fixture.edit, cuts: [{ in: 0, out: 1 }] }));
+        const service = captionService(workspace);
+
+        const captionsRace = await stressRetarget({
+            service, racePath: captionsPath, outsidePath: outsideCaptions,
+            request: () => resolveFrom(service, captionsPath, editPath),
+            outsideSeen: payload => payload?.captions?.some(cue => cue.text === 'OUTSIDE')
+        });
+        assert.equal(captionsRace.outside, 0);
+        assert.ok(captionsRace.rejected > 0);
+
+        const editRace = await stressRetarget({
+            service, racePath: editPath, outsidePath: outsideEdit,
+            request: () => resolveFrom(service, captionsPath, editPath),
+            outsideSeen: payload => payload?.captions?.some(cue => cue.end === 1)
+        });
+        assert.equal(editRace.outside, 0);
+        assert.ok(editRace.rejected > 0);
+        assert.equal(captionsRace.attempts, 10_000);
+        assert.equal(editRace.attempts, 10_000);
+        t.diagnostic(`captions race: attempts=${captionsRace.attempts} rejected=${captionsRace.rejected} outside=${captionsRace.outside}`);
+        t.diagnostic(`edit race: attempts=${editRace.attempts} rejected=${editRace.rejected} outside=${editRace.outside}`);
+    } finally {
+        await rm(workspace, { recursive: true, force: true });
+        await rm(outside, { recursive: true, force: true });
+    }
+});
+
+function captionRaceFixture(text) {
+    return {
+        captionsRoot: {
+            display_policy: {
+                mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+                unit_metric: 'ascii-half-other-one-v1', max_line_units: 20,
+                minimum_fragment_duration_seconds: 0.72, locale: 'ja'
+            },
+            captions: [{ ...caption, text, sourceRef: null }]
+        },
+        edit: {
+            version: 0, source: { path: 'source.mp4' }, cuts: [{ in: 0, out: 2 }],
+            output: { width: 1920, height: 1080, fps: 30 }
+        }
+    };
+}
+
+function captionService(workspace) {
+    const service = new AkariPreviewServiceImpl();
+    service.workspaceServer = { getMostRecentlyUsedWorkspace: async () => pathToFileURL(workspace).toString() };
+    return service;
+}
+
+function resolveFrom(service, captionsPath, editPath) {
+    return service.resolveCaptionDisplay({
+        captionsUri: pathToFileURL(captionsPath).toString(),
+        editUri: pathToFileURL(editPath).toString()
+    });
+}
+
+async function stressRetarget({ racePath, outsidePath, request, outsideSeen }) {
+    const regularSlot = `${racePath}.inside`;
+    const linkSlot = `${racePath}.outside-link`;
+    await symlink(outsidePath, linkSlot);
+    let running = true;
+    const flipper = (async () => {
+        while (running) {
+            try {
+                await rename(racePath, regularSlot);
+                await rename(linkSlot, racePath);
+                await rename(racePath, linkSlot);
+                await rename(regularSlot, racePath);
+            } catch {
+                // Expected if the test is stopping between atomic rename steps.
+            }
+        }
+    })();
+    let rejected = 0;
+    let outside = 0;
+    const attempts = 10_000;
+    for (let offset = 0; offset < attempts; offset += 32) {
+        await Promise.all(Array.from({ length: Math.min(32, attempts - offset) }, async () => {
+            try {
+                const payload = await request();
+                if (outsideSeen(payload)) outside += 1;
+            } catch {
+                rejected += 1;
+            }
+        }));
+    }
+    running = false;
+    await flipper;
+    if (await fileExists(regularSlot)) {
+        await rm(racePath, { force: true });
+        await rename(regularSlot, racePath);
+    }
+    await rm(linkSlot, { force: true });
+    return { attempts, rejected, outside };
+}
+
+async function fileExists(path) {
+    try {
+        await readFile(path);
+        return true;
+    } catch {
+        return false;
+    }
+}

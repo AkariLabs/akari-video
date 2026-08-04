@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:semantic-keep-plan:v1",
+  "title": "AKARI semantic keep plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "kind",
+    "intended_edit_version",
+    "candidate_frame_rate",
+    "sources",
+    "occurrences"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "kind": { "const": "akari-semantic-keep-plan-v1" },
+    "intended_edit_version": { "enum": [0, 1] },
+    "candidate_frame_rate": { "const": 30 },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "occurrences": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": { "$ref": "#/$defs/occurrence" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path"],
+      "properties": {
+        "id": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "pattern": "\\S" }
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"
+        }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_index", "range"],
+      "properties": {
+        "source_index": { "type": "integer", "minimum": 0 },
+        "range": {
+          "oneOf": [
+            { "$ref": "#/$defs/explicitRange" },
+            { "$ref": "#/$defs/fullSourceRange" }
+          ]
+        }
+      }
+    },
+    "explicitRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "in", "out"],
+      "properties": {
+        "mode": { "const": "explicit" },
+        "in": { "type": "number", "minimum": 0 },
+        "out": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "fullSourceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "const": "full_source" }
+      }
+    }
+  }
+}

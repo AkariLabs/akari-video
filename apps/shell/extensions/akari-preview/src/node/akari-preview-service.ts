@@ -1,10 +1,11 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { WorkspaceServer } from '@theia/workspace/lib/common';
 import { lintProjectCandidates } from '@akari-video/edit-store/lib/write-gate';
+import { resolveCaptionDisplay } from '@akari-video/edit-store';
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
-import { createReadStream, readFileSync, rmdirSync, statSync, unlinkSync } from 'fs';
-import { mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, symlink, unlink, writeFile } from 'fs/promises';
+import { constants as fsConstants, createReadStream, readFileSync, rmdirSync, statSync, unlinkSync } from 'fs';
+import { FileHandle, lstat, mkdtemp, open, readdir, readFile, realpath, rm, rmdir, stat, symlink, unlink, writeFile } from 'fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -24,6 +25,8 @@ import {
     ResolveHevcProxyRequest,
     ResolveHevcProxyResult,
     ReviewSessionSummary,
+    ResolveCaptionDisplayRequest,
+    ResolvedCaptionDisplayPayload,
     StartReviewSessionRequest,
     StartReviewSessionResult,
     TranscodeAudioErrorKind,
@@ -340,6 +343,118 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             dirname(targetPath), { [basename(targetPath)]: request.candidateText }
         );
         return { pass: result.pass, errors: result.errors };
+    }
+
+    async resolveCaptionDisplay(request: ResolveCaptionDisplayRequest): Promise<ResolvedCaptionDisplayPayload | null> {
+        if (!request || typeof request.captionsUri !== 'string' || typeof request.editUri !== 'string') {
+            throw new Error('Invalid caption display request');
+        }
+        const roots = await this.resolveWorkspaceRoots();
+        // Bind each parse to the regular file actually opened. A prior realpath followed by
+        // readFile(path) is a TOCTOU boundary: an attacker can retarget the path between those
+        // calls. readWorkspaceRegularFile opens with O_NOFOLLOW where available, reads from the
+        // descriptor, and verifies file/parent identity and workspace containment before and
+        // after the read. Any rename or symlink race therefore fails closed.
+        const captionsRoot = JSON.parse(await this.readWorkspaceRegularFile(
+            request.captionsUri, roots, 'captions.json'
+        ));
+        if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object'
+            || captionsRoot.display_policy === undefined) {
+            return null;
+        }
+        const edit = JSON.parse(await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json'));
+        const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: edit.output });
+        if (!resolved) return null;
+        return { schema: resolved.schema, captions: resolved.display_cues };
+    }
+
+    protected async readWorkspaceRegularFile(uri: string, roots: string[], label: string): Promise<string> {
+        const uriPath = resolve(this.filePath(uri));
+        // Resolve the parent once and then bind all operations to that canonical directory.
+        // This both normalizes platform aliases such as macOS /var -> /private/var and prevents
+        // a later retarget of an URI-level directory symlink from changing the opened namespace.
+        const requestedPath = join(await realpath(dirname(uriPath)), basename(uriPath));
+        const containingRoot = roots.find(root => this.contains(root, requestedPath));
+        if (!containingRoot) {
+            throw new Error(`Caption display ${label} must be inside the workspace`);
+        }
+
+        await this.assertSafePathBinding(containingRoot, requestedPath, undefined, label);
+        let handle: FileHandle | undefined;
+        try {
+            const noFollow = typeof fsConstants.O_NOFOLLOW === 'number' ? fsConstants.O_NOFOLLOW : 0;
+            handle = await open(requestedPath, fsConstants.O_RDONLY | noFollow);
+            const initial = await handle.stat({ bigint: true });
+            if (!initial.isFile()) {
+                throw new Error(`Caption display ${label} must be a regular file`);
+            }
+            await this.assertSafePathBinding(containingRoot, requestedPath, initial, label);
+            const content = await handle.readFile({ encoding: 'utf8' });
+            const final = await handle.stat({ bigint: true });
+            if (!this.sameFileVersion(initial, final)) {
+                throw new Error(`Caption display ${label} changed while it was being read`);
+            }
+            await this.assertSafePathBinding(containingRoot, requestedPath, final, label);
+            return content;
+        } catch (error) {
+            const detail = error instanceof Error ? `: ${error.message}` : '';
+            throw new Error(`Caption display ${label} could not be read safely${detail}`);
+        } finally {
+            await handle?.close();
+        }
+    }
+
+    protected async assertSafePathBinding(
+        workspaceRoot: string,
+        requestedPath: string,
+        openedStat: Awaited<ReturnType<FileHandle['stat']>> | undefined,
+        label: string
+    ): Promise<void> {
+        const pathStat = await lstat(requestedPath, { bigint: true });
+        if (!pathStat.isFile() || pathStat.isSymbolicLink()) {
+            throw new Error(`Caption display ${label} symlinks and non-regular files are forbidden`);
+        }
+        if (openedStat && !this.sameFileIdentity(pathStat, openedStat)) {
+            throw new Error(`Caption display ${label} path no longer identifies the opened file`);
+        }
+        const resolvedPath = await realpath(requestedPath);
+        if (!this.contains(workspaceRoot, resolvedPath)) {
+            throw new Error(`Caption display ${label} resolved outside the workspace`);
+        }
+
+        let parent = dirname(requestedPath);
+        for (;;) {
+            const parentStat = await lstat(parent, { bigint: true });
+            if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) {
+                throw new Error(`Caption display ${label} has an unsafe parent directory`);
+            }
+            const resolvedParent = await realpath(parent);
+            if (!this.contains(workspaceRoot, resolvedParent)) {
+                throw new Error(`Caption display ${label} parent resolved outside the workspace`);
+            }
+            if (parent === workspaceRoot) break;
+            const next = dirname(parent);
+            if (next === parent || !this.contains(workspaceRoot, next)) {
+                throw new Error(`Caption display ${label} parent escaped the workspace`);
+            }
+            parent = next;
+        }
+    }
+
+    protected sameFileIdentity(
+        left: { dev: bigint | number; ino: bigint | number; mode: bigint | number },
+        right: { dev: bigint | number; ino: bigint | number; mode: bigint | number }
+    ): boolean {
+        return left.dev === right.dev && left.ino === right.ino && left.mode === right.mode;
+    }
+
+    protected sameFileVersion(
+        left: { dev: bigint | number; ino: bigint | number; mode: bigint | number; size: bigint | number; mtimeNs?: bigint },
+        right: { dev: bigint | number; ino: bigint | number; mode: bigint | number; size: bigint | number; mtimeNs?: bigint }
+    ): boolean {
+        return this.sameFileIdentity(left, right)
+            && left.size === right.size
+            && left.mtimeNs === right.mtimeNs;
     }
 
     protected async runAudioTranscode(inputPath: string, outputPath: string): Promise<TranscodeAudioErrorKind | undefined> {

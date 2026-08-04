@@ -49,6 +49,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
         html: embedThreeModels(overlay.html, projectRoot, overlay.id),
       }))
     : orderedOverlays;
+  const hasResolvedSingleLineCaption = sheetOverlays.some((overlay) =>
+    overlay.html.includes("akari-caption--single-line"),
+  );
   const nodes = sheetOverlays
     .map((overlay, index) => renderOverlayNode(overlay, index))
     .join("\n");
@@ -79,6 +82,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     : "";
   const threeReadyWait = hasThreeDimensionalOverlay
     ? `\n      await Promise.all(threeContainers.map(waitForThreeContainer));`
+    : "";
+  const captionFontReadyWait = hasResolvedSingleLineCaption
+    ? `\n      await document.fonts.load('600 82px "AKARI Noto Sans JP"');\n      if (!document.fonts.check('600 82px "AKARI Noto Sans JP"')) {\n        throw new Error('AKARI caption font did not load');\n      }`
     : "";
   return `<!doctype html>
 <html>
@@ -254,7 +260,7 @@ ${nodes}
       return { warnings };
     };${threeReadySetup}
     window.__akariReady = (async function() {
-      await document.fonts.ready;
+      await document.fonts.ready;${captionFontReadyWait}
       await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${threeReadyWait}
       await Promise.all(Array.from(document.querySelectorAll('video')).map((video) =>
         video.readyState >= 2

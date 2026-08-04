@@ -23,3 +23,4 @@ __exportStar(require("./edit-store"), exports);
 __exportStar(require("./caption-store"), exports);
 __exportStar(require("./caption-window"), exports);
 __exportStar(require("./timeline-map"), exports);
+__exportStar(require("./caption-display"), exports);

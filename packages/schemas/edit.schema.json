@@ -38,7 +38,15 @@
         "width": { "$ref": "#/$defs/positiveNumber" },
         "height": { "$ref": "#/$defs/positiveNumber" },
         "fps": { "$ref": "#/$defs/positiveNumber" },
-        "look": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/look" }] }
+        "look": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/look" }] },
+        "encoding": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "quality": { "enum": ["master", "high", "standard", "light"] },
+            "encoder": { "enum": ["auto", "videotoolbox", "x264"] }
+          }
+        }
       }
     },
     "chromaKey": {
@@ -144,7 +152,8 @@
       "additionalProperties": true,
       "properties": {
         "denoise": { "enum": ["off", "std", "strong"] },
-        "loudnorm": { "type": "number", "minimum": -70, "maximum": 0 }
+        "loudnorm": { "type": "number", "minimum": -70, "maximum": 0 },
+        "true_peak_dbtp": { "type": "number", "minimum": -9, "maximum": 0 }
       },
       "$comment": "docs/contract-2026-07-22-render-basics.md #5。denoise 省略時 off（無処理）。loudnorm 省略時 -14（既定ターゲット LUFS）— master オブジェクトが存在する時点でラウドネス正規化は既定で有効という実装判断（司令塔裁定。denoise には off という無効化用の値があるが loudnorm には無いため）。"
     },

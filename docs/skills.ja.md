@@ -99,6 +99,18 @@ AKARI Video のエージェント側ワークフローは **19 のスキル**に
 
 補足: 未対応群の中では Lottie が最も型に馴染む候補（アセットが自前のタイムラインを持ち、再生ヘッドを外部制御できるため）。採用時期は未定。
 
+## 同梱 capability surface を検索する
+
+実際に追跡されている skill の leaf、契約、package README / manifest、manifest が宣言する
+公開 CLI entry は `akari capability <query> --json` で検索できる。frontmatter だけでなく nested
+Markdown も対象なので、`beat-sync` は `skills/edit-plan/beat-sync.md` まで到達する。
+
+text match が 0 件のときに限り、`--record-miss` で調べた source set の hash を現在の
+project の `.akari/reports/absence/` に記録できる。固定 verdict は review 必須を表し、
+`approved_to_build:false` である。これは「記述が見つからなかった」証拠であり、新設許可ではない。
+CLI は checkout と npm tarball で動作する。CLI の無い copied Claude plugin は独自 catalog を
+推測せず、capability 検索を unsupported と明示する。
+
 ## 関連ページ
 
 - [Guides](./README.ja.md#guides) — 各スキルのタスク別ガイド（使い方）

@@ -48,7 +48,7 @@
       "targetKind": "region",      // 任意。"instant"|"range"|"region"|"asset"|"insert"|null
                                    // null = 旧レコード（sourceRange の有無で instant/range を解釈）
       "region": { "box": [0.62, 0.08, 0.30, 0.22] }, // 任意。[x,y,w,h] 正規化 0〜1・source フレーム基準
-      "strokes": null,             // 予約フィールドを有効化。[[[x,y],...],...] ペンストローク配列
+      "strokes": null,             // 予約フィールドを有効化。§1.1 の object stroke 配列
       "refs": null,                // 任意。[{ "src": "s2" } | { "path": "assets/broll/city.mp4" }]
       "insertPosition": null,      // 任意。"before"|"after"|null（targetKind insert 用）
 
@@ -76,11 +76,28 @@
 | `src` | string \| null | 否 | null | edit.json v1 `sources[].id` 参照（contract-2026-07-18 §4 の昇格） |
 | `targetKind` | enum \| null | 否 | null（= 旧レコード解釈） | `instant` / `range` / `region` / `asset` / `insert` |
 | `region` | `{ box: [x,y,w,h] }` \| null | 否 | null | 正規化 0〜1・**source フレーム基準**。`faceBox` / `crop.box` と同一形式。`x+w<=1` かつ `y+h<=1` |
-| `strokes` | `[[x,y],...][]` \| null | 否 | null | ペンストローク。各点は正規化 0〜1・source フレーム基準。1 ストローク 2 点以上 |
+| `strokes` | `stroke[]` \| null | 否 | null | §1.1 の object stroke。points は正規化 0〜1、1 ストローク 2 点以上 |
 | `refs` | `[{src} \| {path}][]` \| null | 否 | null | 1 エントリにつき `src` / `path` 排他。`path` はプロジェクト相対 |
 | `insertPosition` | `"before"` \| `"after"` \| null | 否 | null | アンカー (src, sourceT) の timeline 射影位置の前/後 |
 | `intent` | string \| null | 否 | null | 自由文字列（§3 推奨語彙。enum 強制しない） |
 | `timelineT` | number \| null | 否 | null | **非推奨**（§2）。新規書き込みは常に null |
+
+### 1.1 review session / document surface rider
+
+実装済みの追加契約を全 consumer で同じ形に固定する。
+
+- `input` は `"typed" | "voice" | "session"`。
+- `status` は `"open" | "addressed" | "resolved"`。`addressed` は AI の対応済みであって
+  人間確認済みではなく、未解決として扱う。`resolved` だけが人間確認済みである。
+- `target` が `doc:<path>#<block-id>`、`image:<path>`、`canvas:<c-NNNN>` のときだけ
+  `sourceT:null` を許容する。動画面では従来どおり 0 以上の source 秒が必要である。
+- `strokes[]` は `{tool:"pen", space, points, ...}` の object。`content-rect` は
+  `frame:{sourceT,cutIndex?}` と `sessionRef` が必須、`image-rect` / `canvas-rect` は
+  `frame` を持たない。後二者の `sessionRef` / `canvasRef` は任意である。
+
+実行可能仕様は `packages/schemas/fixtures/review/` に一元化し、`validate-review` と
+`edit-lint` が同じ valid / invalid 全件を消費する。片方だけの専用 fixture で契約差を
+覆い隠してはならない。
 
 ## 2. 座標系
 

@@ -12,6 +12,7 @@ import { editToTimeline } from './edit-to-timeline.mjs';
 // lint 実行系が見つからない場合は fail-open（オーナー裁定 2026-08-02 — shell と同一挙動に統一）。
 import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-gate.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
+import { resolveCaptionApiPayload } from './caption-api.mjs';
 
 const args = process.argv.slice(2);
 let port = 3000;
@@ -49,9 +50,12 @@ const MIME = {
   '.ogg': 'audio/ogg',
   '.woff2': 'font/woff2',
   '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
 };
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
+const CAPTION_FONT_PATH = fileURLToPath(new URL('../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url));
+const CAPTION_FONT_ROUTE = '/assets/fonts/akari-noto-sans-jp.ttf';
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 
 // --- ffmpeg/ffprobe detection ---
@@ -264,7 +268,16 @@ const router = {
   'GET /api/captions.json': (req, res) => {
     const r = readJson(path.join(projectRoot, 'captions.json'));
     if (r.error) return respond(res, 200, []);
-    respond(res, 200, r.data);
+    if (Array.isArray(r.data) || !r.data || typeof r.data !== 'object' || r.data.display_policy === undefined) {
+      return respond(res, 200, r.data);
+    }
+    const edit = readJson(path.join(projectRoot, 'edit.json'));
+    if (edit.error) return respond(res, 422, { error: 'edit.json is required to resolve caption display policy' });
+    try {
+      respond(res, 200, resolveCaptionApiPayload(r.data, edit.data));
+    } catch (error) {
+      respond(res, 422, { error: error instanceof Error ? error.message : String(error) });
+    }
   },
   'PUT /api/captions.json': async (req, res) => {
     const body = await collectBody(req);
@@ -419,6 +432,28 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/' || pathname === '/index.html') {
     return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+  }
+
+  // Fixed route to the repository-owned caption font. It is intentionally not
+  // resolved from user input or projectRoot, so traversal cannot select another file.
+  if (pathname === CAPTION_FONT_ROUTE && (req.method === 'GET' || req.method === 'HEAD')) {
+    if (req.method === 'HEAD') {
+      try {
+        const size = fs.statSync(CAPTION_FONT_PATH).size;
+        res.writeHead(200, {
+          'content-type': 'font/ttf',
+          'content-length': size,
+          'access-control-allow-origin': '*',
+          'cache-control': 'public, max-age=31536000, immutable',
+        });
+        return res.end();
+      } catch {
+        return respond(res, 404, { error: 'Caption font not found' });
+      }
+    }
+    return serveFile(res, CAPTION_FONT_PATH, 'font/ttf', {
+      'cache-control': 'public, max-age=31536000, immutable',
+    });
   }
 
   if (pathname === '/api/output-preview') {

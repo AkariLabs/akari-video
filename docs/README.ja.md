@@ -64,6 +64,8 @@
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | データ契約の版管理・移行原則（横断契約） |
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | 生成物の置き場所契約（層の定義・ルート直下原則・削除安全） |
 | [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | 作業場（CreatorRoot）契約 — プロジェクトの上の階層。3 つの場所・所有権 4 層・初回起動動線・可搬性 |
+| [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | canonical status・immutable render receipt・人間受理記録・capability absence receipt |
+| [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | 共有字幕表示・reference-pixel layout・master encode・audio QC・recipe 境界 |
 
 ### edit.json（編集のセーブデータ）
 
@@ -89,6 +91,7 @@
 | [contract-2026-07-20-plan-json-v0.md](./contract-2026-07-20-plan-json-v0.md) | plan.json v0（仮枠タイムライン・確定度つきスロット列） |
 | [contract-2026-07-25-plan-comments-v0.md](./contract-2026-07-25-plan-comments-v0.md) | plan-comments.json v0（承認可能プラン層への構造化差し戻し） |
 | [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 注釈モデル（target 5 型） |
+| [contract-2026-08-03-cut-candidate-bridge-v1.md](./contract-2026-08-03-cut-candidate-bridge-v1.md) | semantic event と A4 pause 短縮の review-only candidate bridge |
 
 ### 素材・個人層
 
