@@ -53,6 +53,24 @@ node packages/edit-lint/bin/edit-lint.mjs <project> --media --silence-error-seco
 
 黒フレーム、フリーズ、ビート、シーン、フラッシュフレーム、ギャップ、重複クリップ、オフラインメディア、セーフゾーン、フレームレート不整合は将来候補であり、現在の PASS 条件へ推測で追加しない。
 
+## 音楽グリッド検査（宣言があるときだけ）
+
+`audio.bgm.path` に対応する宣言が見つかったときだけ、
+`packages/audio-library-setup/shared/beat-grid.mjs` の `musicGrid` で timeline 秒のグリッドを作り、
+`audio.sfx[].t` を照合する。宣言ファイルの解決順は `suggest-bgm` / `beat-grid`
+と同じく、`--declarations` → 環境変数 `AKARI_SOUNDS_DECLARATIONS` →
+`<ライブラリ>/declarations.json` である。
+
+- `audio.sfx.music-grid`（warning）: kind を問わず真に最寄りのグリッド点との差が ±0.12 秒を
+  超えると警告する。同距離の場合だけキメ > 小節頭 > 拍の順で優先する。拍に乗せない演出も
+  正当なので error にはしない。
+- `audio.sfx.music-grid-seam`（warning）: BGM が末尾から先頭へ戻るループ継ぎ目の ±0.3 秒以内で
+  SE が発火すると警告する。
+
+宣言が無い、`audio.bgm` が無い、`audio.sfx` が空、または BGM の実尺を ffprobe で取得できない
+場合は検査を静かにスキップする。理由は `skipped[]` に残すが warning は出さない。宣言は任意であり、
+media からビートを自動検出する機能とは別の検査である。
+
 ## 公開契約
 
 edit.json の検査対象は次の公開契約が定めるフィールドである。契約に無いフィールドの検査を推測で
