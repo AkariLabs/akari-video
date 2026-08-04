@@ -16,7 +16,8 @@ interface ProjectScaffoldModule {
 
 /**
  * `packages/creator-root/src/index.mjs` が export する部分のうち、adopt メソッド
- * （U5・task 2026-08-03-home-v5-terms）が使う範囲だけの型。
+ * （U5・task 2026-08-03-home-v5-terms）と ensure メソッド（無 root 対応・
+ * task 2026-08-04-home-no-root-flow）が使う範囲だけの型。
  */
 interface CreatorRootModule {
     adoptProject(
@@ -24,6 +25,16 @@ interface CreatorRootModule {
         projectDir: string,
         options?: { channel?: string }
     ): Promise<{ destinationDir: string; channel: string; moveMethod: string }>;
+    defaultRootPath(env?: NodeJS.ProcessEnv, options?: { platform?: NodeJS.Platform }): string;
+    createCreatorRoot(
+        targetDir: string,
+        options?: { channelName?: string }
+    ): Promise<{ rootDir: string; manifest: unknown; created: boolean }>;
+    updateMachinePointer(
+        rootDir: string,
+        env?: NodeJS.ProcessEnv,
+        options?: { platform?: NodeJS.Platform }
+    ): Promise<{ lastRoot: string; updatedAt: string }>;
 }
 
 /**
@@ -105,6 +116,52 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
             throw new Error('creator-root（packages/creator-root/src/index.mjs）が見つかりませんでした。');
         }
         return importEsm<CreatorRootModule>(pathToFileURL(candidate).toString());
+    }
+
+    // --- 無 root 対応（task 2026-08-04-home-no-root-flow） ----------------------
+
+    /**
+     * 作業場が 1 つも解決できない状態で「チャンネルに入れる」が押されたときの ensure。
+     * `packages/creator-root` の `createCreatorRoot(defaultRootPath())` +
+     * `updateMachinePointer()` を、`adoptProject` と同じ動的 import の流儀でそのまま
+     * 呼ぶだけ（ロジックは複製しない・creator-root は読み取り専用の契約は不変）。
+     * 既に有効な作業場が既定パスにあれば `createCreatorRoot` 自体が冪等に no-op で
+     * 返す（新規作成の場合と同じ経路で安全に呼べる）。
+     * 成功時は作成/解決した作業場ルートの `file://` URI 文字列を返す。
+     */
+    async ensureCreatorRoot(): Promise<string> {
+        const creatorRoot = await this.loadCreatorRootModule();
+        try {
+            const targetDir = creatorRoot.defaultRootPath();
+            const createResult = await creatorRoot.createCreatorRoot(targetDir);
+            await creatorRoot.updateMachinePointer(createResult.rootDir);
+            return pathToFileURL(createResult.rootDir).toString();
+        } catch (error) {
+            throw new Error(this.describeEnsureError(error));
+        }
+    }
+
+    /**
+     * `CreatorRootError.code` を 1 行の日本語メッセージへ変換する（`describeAdoptError`
+     * と同型）。UI から「作業場」の語を追放する裁定（U1）にあわせ、ここでは
+     * 「チャンネルの置き場」と呼ぶ。
+     */
+    protected describeEnsureError(error: unknown): string {
+        const code = typeof error === 'object' && error !== null && 'code' in error
+            ? String((error as { code?: unknown }).code)
+            : undefined;
+        switch (code) {
+            case 'ROOT_MANIFEST_INVALID_JSON':
+            case 'ROOT_MANIFEST_UNKNOWN_SCHEMA':
+                return 'チャンネルの置き場を確認できませんでした（データの場所の中身を確認してください）。';
+            case 'EACCES':
+            case 'EPERM':
+                return 'チャンネルの置き場を作る権限がありませんでした。';
+            default:
+                return error instanceof Error
+                    ? `チャンネルの置き場の作成に失敗しました（${error.message}）。`
+                    : 'チャンネルの置き場の作成に失敗しました。';
+        }
     }
 
     /**

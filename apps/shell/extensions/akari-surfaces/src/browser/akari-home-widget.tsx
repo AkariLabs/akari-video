@@ -102,7 +102,11 @@ const CREATOR_ROOT_SCHEMA = 'creator-root/v1';
 const CREATOR_ROOT_CHANNELS_DIRNAME = 'channels';
 const CREATOR_ROOT_VIDEOS_DIRNAME = 'videos';
 const CREATOR_ROOT_PROJECT_DISPLAY_LIMIT = 10;
-const CREATOR_ROOT_MISSING_NOTICE = '作業場はまだありません — 右の相棒に頼むか、ターミナルで `akari` を実行すると作れます。';
+// 無 root 時のプロジェクト一覧フォールバック（task 2026-08-04-home-no-root-flow）。
+// v4 時代の独立案内行「作業場はまだありません…」は状態バッジ（U2/U5）と二重表示に
+// なっていたため撤去した — 案内は状態バッジ 1 箇所に集約し、ここは見出し下の薄い
+// 1 行に留める（U1: 「作業場」の語は使わない）。
+const CREATOR_ROOT_LIST_PLACEHOLDER = 'プロジェクトはここに並びます';
 // 既定チャンネル名（packages/creator-root/src/index.mjs の DEFAULT_CHANNEL_NAME と
 // 同じ値。root.json の channels が空/未解決のときのフォールバックにのみ使う —
 // 通常は manifest.channels[0]（誕生時に作られた最初のチャンネル）を使う）。
@@ -766,24 +770,30 @@ export class AkariHomeWidget extends ReactWidget {
     // --- U5 チャンネルに入れる（養子縁組。task 2026-08-03-home-v5-terms） -------
 
     /**
-     * 「チャンネルに入れる」ボタン。(a) チャンネルが 1 つなら確認ダイアログのみ
-     * (b) 複数なら QuickPick でチャンネル名を選んでから確認 (c) 実行は
-     * `AkariNewProjectService#adoptProject`（node 側で creator-root の
-     * `adoptProject()` を呼ぶだけ） (d) 成功したら移動先を `workspaceService.open`
-     * で開き直す (e) 失敗したら `MessageService.error` で 1 行 + 何も壊さない
-     * （adoptProject は失敗時に元の場所を残す契約 — task.md §4 指定どおり）。
+     * 「チャンネルに入れる」ボタン。作業場が既に解決できていれば既存の確認 →
+     * 移動 → 開き直しへ（`confirmAndAdopt`）。1 つも解決できない（マシンに
+     * チャンネルの置き場がまだ無い）ときは、失敗させずに「作成 → 取り込み」の
+     * 連結フローへ分岐する（`createChannelDestinationAndJoin` ・
+     * task 2026-08-04-home-no-root-flow）。
      */
     protected joinChannel = async (): Promise<void> => {
         if (this.joiningChannel || this.currentLocation?.kind !== 'outside') {
             return;
         }
         const projectUri = this.currentLocation.projectUri;
-        const rootUri = this.creatorRootUri;
-        if (!rootUri) {
-            this.messages.error('作業場が見つからないため、チャンネルに入れられませんでした。');
+        if (!this.creatorRootUri) {
+            await this.createChannelDestinationAndJoin(projectUri);
             return;
         }
+        await this.confirmAndAdopt(this.creatorRootUri, projectUri);
+    };
 
+    /**
+     * 作業場が既に解決できている経路（home-v5 で検証済み・不変）。(a) チャンネルが
+     * 1 つなら確認ダイアログのみ (b) 複数なら QuickPick でチャンネル名を選んでから
+     * 確認 (c) 実行は `performAdopt` に委ねる。
+     */
+    protected async confirmAndAdopt(rootUri: URI, projectUri: URI): Promise<void> {
         const channels = await this.resolveManifestChannels(rootUri);
         const channel = channels.length > 1 ? await this.pickChannel(channels) : channels[0];
         if (!channel) {
@@ -799,9 +809,61 @@ export class AkariHomeWidget extends ReactWidget {
         if (!confirmed) {
             return;
         }
+        this.joiningChannel = true;
+        this.update();
+        await this.performAdopt(rootUri, projectUri, channel);
+    }
+
+    /**
+     * 無 root 時の「作成 → 取り込み」連結フロー（task 2026-08-04-home-no-root-flow）。
+     * 確認は 1 回だけ — 文言自体が「作成して、このプロジェクトを入れますか？」と
+     * 作成 + 取り込みをまとめて尋ねる形なので、作成直後に `confirmAndAdopt` の
+     * 2 回目の確認は挟まない。「作業場」の語は出さない（U1）— 事実表記の
+     * 「データの場所: ~/AkariVideo」だけ許可される。ensure 直後の作業場は必ず
+     * チャンネルが 1 つ（`createCreatorRoot` の既定チャンネル）なので QuickPick も
+     * 不要 — 解決したチャンネル名をそのまま `performAdopt` に渡す。
+     */
+    protected async createChannelDestinationAndJoin(projectUri: URI): Promise<void> {
+        const confirmed = await new ConfirmDialog({
+            title: 'チャンネルの置き場を作成しますか？',
+            msg: 'チャンネルの置き場がまだありません。作成して、このプロジェクトを入れますか？（データの場所: ~/AkariVideo）',
+            ok: '作成して入れる',
+            cancel: 'キャンセル'
+        }).open();
+        if (!confirmed) {
+            return;
+        }
 
         this.joiningChannel = true;
         this.update();
+        let rootUri: URI;
+        try {
+            const rootUriString = await this.newProjectService.ensureCreatorRoot();
+            rootUri = new URI(rootUriString);
+        } catch (error) {
+            console.error('[akari-surfaces] failed to ensure a channel destination:', error);
+            this.messages.error(error instanceof Error ? error.message : 'チャンネルの置き場の作成に失敗しました。');
+            this.joiningChannel = false;
+            this.update();
+            return;
+        }
+        // 以後の一覧・状態バッジ解決が新しい置き場を見られるようにしておく
+        // （このプロジェクトはこのあと開き直されるため即座には効かないが、
+        // 途中でエラーになった場合でも次の再表示から反映される）。
+        this.creatorRootUri = rootUri;
+        this.creatorRootAvailable = true;
+
+        const channels = await this.resolveManifestChannels(rootUri);
+        await this.performAdopt(rootUri, projectUri, channels[0]);
+    }
+
+    /**
+     * 実移動 + 開き直し（`AkariNewProjectService#adoptProject` を呼ぶだけ）。
+     * 呼び出し側で確認済み・`joiningChannel` を立てた後に呼ぶ。失敗したら
+     * `MessageService.error` で 1 行 + 何も壊さない（adoptProject は失敗時に
+     * 元の場所を残す契約 — task.md §2(d) 指定どおり）。
+     */
+    protected async performAdopt(rootUri: URI, projectUri: URI, channel: string): Promise<void> {
         try {
             const destinationUri = await this.newProjectService.adoptProject(rootUri.toString(), projectUri.toString(), channel);
             // 成功後はワークスペースが切り替わり本ウィジェットは作り直されるため、
@@ -813,7 +875,7 @@ export class AkariHomeWidget extends ReactWidget {
             this.joiningChannel = false;
             this.update();
         }
-    };
+    }
 
     /** 複数チャンネルから 1 つを選ばせる QuickPick（U5 (b)）。キャンセル時は undefined。 */
     protected async pickChannel(channels: string[]): Promise<string | undefined> {
@@ -1621,16 +1683,16 @@ export class AkariHomeWidget extends ReactWidget {
      * 旧・過去プロジェクト一覧 裁定 R3 を改称・拡張）。creatorRootProjects（過去+
      * 現在）と standaloneProjects（単体・履歴由来）を 1 本の行配列に統合する。
      * 現在開いているプロジェクトは ▶ +「開いています」を付け、クリックを無効化する
-     * （task.md 指定）。作業場が解決できなければ一覧を出さず 1 行の案内へ
-     * フォールバックする（作成 UI 自体はホームに足さない — 作成は相棒 / `akari` CLI）。
+     * （task.md 指定）。作業場が解決できないときは、状態バッジ（U2/U5・単体プロジェクト
+     * なら「チャンネルに入れる」がそこに出る）と案内が二重にならないよう、ここは
+     * 見出し下の薄い 1 行だけに留める（task 2026-08-04-home-no-root-flow）。
      */
     protected renderProjectList(): React.ReactNode {
         if (!this.creatorRootAvailable) {
             return (
-                <section style={homeFlowStyles.card}>
-                    <div style={homeFlowStyles.cardBody}>
-                        <p style={homeFlowStyles.cardLead}>{CREATOR_ROOT_MISSING_NOTICE}</p>
-                    </div>
+                <section style={{ marginBottom: 16 }}>
+                    <p style={homeFlowStyles.glabel}>プロジェクト</p>
+                    <p style={homeFlowStyles.cardFine}>{CREATOR_ROOT_LIST_PLACEHOLDER}</p>
                 </section>
             );
         }
