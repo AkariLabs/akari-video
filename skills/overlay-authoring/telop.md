@@ -59,6 +59,18 @@ YouTube の safe zone も全端末保証ではない。オーガニック投稿�
 - CSS animation / WAAPI を使い、ランタイムが `currentTime = (t - start) * 1000` を設定できる形にする。
 - 位置移動の transform は断片内の子要素へ付け、AKARI が所有する外側コンテナの幾何 transform と分離する。
 
+### IN/OUT を 1 本の `animation` に並べるときの fill-mode の罠（2026-08-04 実測）
+
+`animation: X__in 0.6s both, X__out 0.6s 3.2s both` のように **OUT 側へ `both` を付けると IN が死ぬ**。
+OUT の `both`（= backwards fill）は**遅延中に OUT の開始値（`opacity: 1` 等）を先に適用**し、
+後に書かれたアニメーションが同一プロパティでは勝つため、遅延中ずっと IN の値を上書きする。
+結果、フェード IN / スライド IN が出ないまま最初から表示済みになる。これは標準の CSS 挙動であり、
+**プレビューでも焼き込みでも同じ結果になる**（プレビューのバグではない）。
+
+- **OUT は `forwards` にする**（`animation: X__in 0.6s both, X__out 0.6s 3.2s forwards`）
+- 単一アニメの断片（stagger / loop）では起きない。IN と OUT を 1 本のプロパティに並べたときだけ
+- チェック: 断片の冒頭数フレームをシークし、IN の開始値（opacity 0 / 画面外）から始まることを目視する
+
 ## よくある間違い
 
 - 文字が多いまま font-size だけを下げる。
