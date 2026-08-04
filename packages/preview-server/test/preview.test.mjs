@@ -668,6 +668,122 @@ async function main() {
     ng('Soft reload on edit apply', e.message);
   }
 
+  // ── PUT /api/overlay-html: 断片テキスト編集の書き戻し先 ──
+  // 回帰: overlays[].html は契約上ファイル参照。マークアップを edit.json へマージすると
+  // lint「html does not resolve to a regular file」で 422 になり、文字編集が永続化できなかった
+  console.log('\n📝 Overlay html write-back endpoint');
+  const editJsonPath = path.join(PROJECT, 'edit.json');
+  try {
+    const origText = fs.readFileSync(editJsonPath, 'utf8');
+    const fragRel = 'overlays/test-frag.html';
+    fs.mkdirSync(path.join(PROJECT, 'overlays'), { recursive: true });
+    fs.writeFileSync(path.join(PROJECT, fragRel), '<div class="tf__root">元テキスト</div>\n');
+    const withOverlay = JSON.parse(origText);
+    withOverlay.overlays = [{ id: 'tf-1', html: fragRel, start: 0, duration: 2 }];
+    fs.writeFileSync(editJsonPath, JSON.stringify(withOverlay, null, 2));
+
+    const put1 = await fetch(`${BASE}/api/overlay-html`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'tf-1', html: '<div class="tf__root">書き換え後</div>' })
+    });
+    const written = fs.readFileSync(path.join(PROJECT, fragRel), 'utf8');
+    (put1.ok && written.includes('書き換え後'))
+      ? ok('overlay-html writes markup into the referenced fragment file')
+      : ng('overlay-html write', `HTTP ${put1.status} content=${written.slice(0, 60)}`);
+    const editAfter = JSON.parse(fs.readFileSync(editJsonPath, 'utf8'));
+    editAfter.overlays[0].html === fragRel
+      ? ok('edit.json keeps the file reference (no inline markup)')
+      : ng('edit.json polluted', `overlays[0].html=${String(editAfter.overlays[0].html).slice(0, 60)}`);
+
+    const put404 = await fetch(`${BASE}/api/overlay-html`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'no-such-overlay', html: '<div>x</div>' })
+    });
+    put404.status === 404
+      ? ok('unknown overlay id is rejected with 404')
+      : ng('unknown id', `expected 404 got ${put404.status}`);
+
+    const evil = JSON.parse(origText);
+    evil.overlays = [{ id: 'tf-1', html: '../outside.html', start: 0, duration: 2 }];
+    fs.writeFileSync(editJsonPath, JSON.stringify(evil, null, 2));
+    const put422 = await fetch(`${BASE}/api/overlay-html`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'tf-1', html: '<div>x</div>' })
+    });
+    put422.status === 422
+      ? ok('path traversal outside the project is rejected with 422')
+      : ng('traversal guard', `expected 422 got ${put422.status}`);
+
+    fs.writeFileSync(editJsonPath, origText);
+  } catch (e) {
+    ng('Overlay html write-back', e.message);
+  }
+
+  // ── レイヤー（ベイクテロップ / B-roll）のクリック選択 + ドラッグ移動 ──
+  // 回帰: Web UI はレイヤーが pointer-events:none + 選択系未実装で、ベイクテロップを
+  // 選択も移動もできなかった（実機報告）。shell CF-select と同じ transform 書き戻し契約
+  console.log('\n🎞  Layer click-select + drag-move');
+  try {
+    const origText = fs.readFileSync(editJsonPath, 'utf8');
+    const withLayer = JSON.parse(origText);
+    withLayer.layers = [{ id: 'l-test', kind: 'video', src: 'source2.mp4', t: 0, duration: 3 }];
+    fs.writeFileSync(editJsonPath, JSON.stringify(withLayer, null, 2));
+
+    const lp = await context.newPage();
+    await lp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await lp.waitForTimeout(2500);
+    await lp.evaluate(() => {
+      const el = document.getElementById('seek');
+      el.value = '1';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await lp.waitForTimeout(1200);
+    const geom = await lp.evaluate(() => {
+      const v = document.querySelector('#layer-container video[data-layer-id="l-test"]');
+      if (!v) return null;
+      const r = v.getBoundingClientRect();
+      const w = document.getElementById('preview-wrapper').getBoundingClientRect();
+      const cx = Math.max(w.left + 8, Math.min(w.right - 8, r.left + r.width / 2));
+      const cy = Math.max(w.top + 8, Math.min(w.bottom - 8, r.top + r.height / 2));
+      return { cx, cy, display: v.style.display, ready: v.readyState };
+    });
+    if (!geom || geom.display === 'none') {
+      ng('Layer visible for interaction', `geom=${JSON.stringify(geom)}`);
+    } else {
+      await lp.mouse.click(geom.cx, geom.cy);
+      await lp.waitForTimeout(300);
+      const selected = await lp.evaluate(() =>
+        document.querySelector('#layer-container video.layer-selected')?.dataset.layerId ?? null);
+      selected === 'l-test'
+        ? ok('Click selects the layer (outline class applied)')
+        : ng('Layer click select', `selected=${selected}`);
+
+      await lp.mouse.move(geom.cx, geom.cy);
+      await lp.mouse.down();
+      await lp.mouse.move(geom.cx + 50, geom.cy + 30, { steps: 6 });
+      await lp.mouse.up();
+      await lp.waitForTimeout(1200);
+      const summaryAfter = await fetch(`${BASE}/api/summary`).then(r => r.json());
+      const t = summaryAfter.layers?.[0]?.transform;
+      (t && t.x > 10 && t.y > 5)
+        ? ok(`Drag writes layers[].transform (x=${t.x.toFixed(1)}, y=${t.y.toFixed(1)})`)
+        : ng('Layer drag write', `transform=${JSON.stringify(t)}`);
+
+      await lp.keyboard.press('Escape');
+      await lp.waitForTimeout(200);
+      const afterEsc = await lp.evaluate(() =>
+        !!document.querySelector('#layer-container video.layer-selected'));
+      !afterEsc
+        ? ok('Escape clears layer selection')
+        : ng('Escape deselect', 'layer still selected');
+    }
+    await lp.close();
+    fs.writeFileSync(editJsonPath, origText);
+    await page.waitForTimeout(500);
+  } catch (e) {
+    ng('Layer click-select + drag', e.message);
+  }
+
   await page.close();
   await browser.close();
   if (!hadOutput) fs.unlinkSync(OUT_JSON);

@@ -197,6 +197,9 @@ interface OverlayWriteRequest {
     patch: {
         vars?: Record<string, unknown>;
         transform?: OverlayTransform;
+        // 断片テキスト編集（contenteditable）の書き戻し。overlays[].html は契約上ファイル参照
+        // なので、この値は edit.json ではなく参照先の断片ファイルへ書く
+        html?: string;
     };
 }
 
@@ -2631,28 +2634,57 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (!overlay) {
                 throw new Error(`オーバーレイが見つかりません: ${request.overlayId}`);
             }
+            // 断片テキスト編集の html patch は overlays[].html が指す断片ファイルへ書く。
+            // 旧実装はここで html を黙って捨てて ok を返しており、contenteditable の編集が
+            // どのサーフェスでも一度も永続化されていなかった（edit.json へマージすると
+            // lint「html does not resolve to a regular file」で弾かれる — 契約上ファイル参照）
+            if (typeof request.patch.html === 'string') {
+                if (!request.patch.html.trim()) {
+                    throw new Error('html が空です');
+                }
+                if (typeof overlay.html !== 'string' || !overlay.html) {
+                    throw new Error(`overlays[].html がファイル参照ではありません: ${request.overlayId}`);
+                }
+                const projectRoot = editUri.parent;
+                const htmlPath = String(overlay.html);
+                // URI.resolve は '..' を正規化しない可能性があるため、セグメント検査で先に弾く
+                if (htmlPath.startsWith('/') || htmlPath.split(/[\\/]/).some(segment => segment === '..')) {
+                    throw new Error('プロジェクト外への書き込みは拒否しました');
+                }
+                const target = projectRoot.resolve(htmlPath);
+                if (!`${target.toString()}/`.startsWith(`${projectRoot.toString()}/`)) {
+                    throw new Error('プロジェクト外への書き込みは拒否しました');
+                }
+                if (!(await this.fileService.exists(target))) {
+                    throw new Error(`断片ファイルがありません: ${overlay.html}`);
+                }
+                this.recentWrites.set(target.toString(), Date.now());
+                await this.fileService.writeFile(target, BinaryBuffer.fromString(request.patch.html));
+            }
             if (request.patch.vars) {
                 overlay.vars = { ...this.objectRecord(overlay.vars), ...request.patch.vars };
             }
             if (request.patch.transform) {
                 overlay.transform = { ...this.objectRecord(overlay.transform), ...request.patch.transform };
             }
-            const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
-            const lintResult = await this.previewService.lintEditCandidate({
-                editUri: editUri.toString(),
-                candidateText
-            });
-            if (!lintResult.pass) {
-                widget.sendMessage({
-                    type: 'akari-preview-overlay-write-response',
-                    requestId: request.requestId,
-                    ok: false,
-                    error: lintResult.errors[0] ?? 'edit-lint が変更を拒否しました'
+            if (request.patch.vars || request.patch.transform) {
+                const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
+                const lintResult = await this.previewService.lintEditCandidate({
+                    editUri: editUri.toString(),
+                    candidateText
                 });
-                return;
+                if (!lintResult.pass) {
+                    widget.sendMessage({
+                        type: 'akari-preview-overlay-write-response',
+                        requestId: request.requestId,
+                        ok: false,
+                        error: lintResult.errors[0] ?? 'edit-lint が変更を拒否しました'
+                    });
+                    return;
+                }
+                this.recentWrites.set(editUri.toString(), Date.now());
+                await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
             }
-            this.recentWrites.set(editUri.toString(), Date.now());
-            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
             widget.sendMessage({
                 type: 'akari-preview-overlay-write-response',
                 requestId: request.requestId,

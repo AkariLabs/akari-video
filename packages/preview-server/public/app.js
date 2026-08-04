@@ -316,6 +316,11 @@ function setupLayers() {
       const t = layer.transform;
       el.style.transform = `translate(${t.x||0}px, ${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`;
     }
+    // elementsFromPoint のヒット対象にする（実際の当たり判定は wrapper の capture 側）
+    el.style.pointerEvents = 'auto';
+    el.style.cursor = 'move';
+    // 編集適用の再構築（要素作り直し）をまたいで選択を保つ
+    if (selectedLayerId !== null && layer.id === selectedLayerId) el.classList.add('layer-selected');
     layerContainer.appendChild(el);
     layerVideos.push({ el, layer, visible: false });
   }
@@ -342,6 +347,114 @@ function syncLayers(t) {
     }
   }
 }
+
+// --- レイヤー（ベイクテロップ / B-roll）のクリック選択 + ドラッグ移動 ---
+// shell の CF-select と同じ書き込み契約: 確定（pointerup）時のみ layers[].transform へ
+// merge して PUT（サーバ側 lint ゲート）。ベイクテロップの文字はベイク済み映像のため
+// プレビューでは編集できない（ATF を直して再ベイク）— ここで提供するのは移動のみ。
+// リサイズ / 回転ハンドルは未実装（shell のみ）。
+let selectedLayerId = null;
+
+function setLayerSelected(id) {
+  selectedLayerId = id;
+  for (const lv of layerVideos) lv.el.classList.toggle('layer-selected', id !== null && lv.layer.id === id);
+}
+
+// zoom 込みの実効倍率（表示 px / 論理出力 px）。frameScale 直参照だと zoom>1 でずれる
+function layerEffectiveScale() {
+  const os = outputSizePx();
+  const rect = layerContainer.getBoundingClientRect();
+  return rect.width > 0 ? rect.width / os.width : 1;
+}
+
+async function layerWriteViaPut(layerId, patch) {
+  const res = await fetch('/api/summary');
+  if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
+  const edit = await res.json();
+  const layer = (edit.layers || []).find(l => String(l.id) === String(layerId));
+  if (!layer) throw new Error(`素材が見つかりません: ${layerId}`);
+  if (patch.transform) layer.transform = { ...layer.transform, ...patch.transform };
+  const put = await fetch('/api/edit.json', {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(edit),
+  });
+  if (!put.ok) {
+    let detail = `HTTP ${put.status}`;
+    try {
+      const body = await put.json();
+      if (body?.findings?.length) detail = body.findings[0].message || detail;
+    } catch {}
+    throw new Error(`書き戻しに失敗しました: ${detail}`);
+  }
+}
+
+// 編集モード ON では #overlay-stage（pointer-events:auto・全面）がクリックを受けるため、
+// レイヤー実体へのリスナーでは届かない。shell（CF-select）と同じく elementsFromPoint で
+// スタックを貫通して当てる。断片・選択枠・字幕プレートが上にあるときはそちらを優先する
+function findLayerHit(e) {
+  for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
+    if (el.hasAttribute && el.hasAttribute('data-akari-interaction')) return null; // 選択枠・ハンドル
+    if (el.closest && el.closest('[data-overlay-id]')) return null; // 断片優先
+    if (el.closest && el.closest('#caption-plate')) return null;
+    if (el.tagName === 'VIDEO' && el.dataset && el.dataset.layerId && el.style.display !== 'none') return el;
+  }
+  return null;
+}
+
+wrapper.addEventListener('pointerdown', (e) => {
+  if (penActive || e.button !== 0) return;
+  const el = findLayerHit(e);
+  if (!el) {
+    if (selectedLayerId !== null) setLayerSelected(null);
+    return;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+  setLayerSelected(el.dataset.layerId);
+  const scale = layerEffectiveScale();
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const baseX = Number(el.dataset.layerX) || 0;
+  const baseY = Number(el.dataset.layerY) || 0;
+  const baseScale = Number(el.dataset.layerScale) || 1;
+  const baseRotate = Number(el.dataset.layerRotate) || 0;
+  let moved = false;
+  const apply = (x, y) => {
+    el.style.transform = `translate(${x}px, ${y}px) scale(${baseScale}) rotate(${baseRotate}deg)`;
+  };
+  const detach = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
+  };
+  const onMove = (ev) => {
+    if (!moved && Math.hypot(ev.clientX - startX, ev.clientY - startY) >= 3) moved = true;
+    if (moved) apply(baseX + (ev.clientX - startX) / scale, baseY + (ev.clientY - startY) / scale);
+  };
+  const onUp = async (ev) => {
+    detach();
+    if (!moved) return; // 動かしていなければクリック = 選択のみ
+    const x = baseX + (ev.clientX - startX) / scale;
+    const y = baseY + (ev.clientY - startY) / scale;
+    el.dataset.layerX = String(x);
+    el.dataset.layerY = String(y);
+    try {
+      await layerWriteViaPut(el.dataset.layerId, { transform: { x, y } });
+    } catch (err) {
+      el.dataset.layerX = String(baseX);
+      el.dataset.layerY = String(baseY);
+      apply(baseX, baseY);
+      showMessage(String(err?.message || err));
+    }
+  };
+  const onCancel = () => {
+    detach();
+    apply(baseX, baseY);
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onCancel);
+}, true);
 
 // --- Pen annotation canvas (upgraded: glow + gradient + sparkle) ---
 function setupPenCanvas() {
@@ -1296,7 +1409,7 @@ document.addEventListener('keydown', (e) => {
     case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, -1)); break;
     case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, 1)); break;
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
-    case 'Escape': shortcutHelp.hidden = true; break;
+    case 'Escape': shortcutHelp.hidden = true; setLayerSelected(null); break;
     case 'KeyZ': if (e.ctrlKey || e.metaKey) { e.preventDefault(); } break;
   }
 });
@@ -1498,12 +1611,31 @@ function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
 // 落ちる。patch は { transform } / { html } /（将来 { vars }）— 旧フォークの applyPatch と同じ
 // 「最新 summary を取得 → 対象 overlay へマージ → 全文 PUT」方式。
 async function overlayWriteViaPut(editPath, overlayId, patch) {
+  // html は edit.json ではなく overlays[].html が指す断片ファイルへ書く（契約上ファイル参照。
+  // edit.json へマージすると lint「html does not resolve to a regular file」で 422 になる）
+  const { html, ...rest } = patch || {};
+  if (typeof html === 'string') {
+    const put = await fetch('/api/overlay-html', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: String(overlayId), html }),
+    });
+    if (!put.ok) {
+      let detail = `HTTP ${put.status}`;
+      try {
+        const body = await put.json();
+        if (body?.error) detail = body.error;
+      } catch {}
+      throw new Error(`断片の書き戻しに失敗しました: ${detail}`);
+    }
+  }
+  if (Object.keys(rest).length === 0) return;
   const res = await fetch('/api/summary');
   if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
   const edit = await res.json();
   const ov = (edit.overlays || []).find(o => String(o.id) === String(overlayId));
   if (!ov) throw new Error(`オーバーレイが見つかりません: ${overlayId}`);
-  for (const [key, value] of Object.entries(patch || {})) {
+  for (const [key, value] of Object.entries(rest)) {
     if (key === 'transform') ov.transform = { ...ov.transform, ...value };
     else if (key === 'vars') ov.vars = { ...ov.vars, ...value };
     else ov[key] = value;

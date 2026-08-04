@@ -304,6 +304,43 @@ const router = {
       respond(res, 500, { error: e.message });
     }
   },
+  // 断片テキスト編集（contenteditable）の書き戻し先。overlays[].html は契約上ファイル参照
+  // （edit-lint が regular file を要求）なので、マークアップは edit.json ではなく参照先の
+  // 断片ファイルへ書く。edit.json へ直接マージすると lint 422 で全滅する（実測）
+  'PUT /api/overlay-html': async (req, res) => {
+    const body = await collectBody(req);
+    let parsed;
+    try {
+      parsed = JSON.parse(body);
+    } catch (e) {
+      return respond(res, 400, { error: 'Invalid JSON: ' + e.message });
+    }
+    const { id, html } = parsed ?? {};
+    if (typeof id !== 'string' || !id) return respond(res, 400, { error: 'id が必要です' });
+    if (typeof html !== 'string' || !html.trim()) return respond(res, 400, { error: 'html が必要です' });
+    const edit = readJson(path.join(projectRoot, 'edit.json'));
+    if (edit.error) return respond(res, 404, { error: edit.error });
+    const overlay = (edit.data.overlays || []).find(o => String(o?.id) === id);
+    if (!overlay) return respond(res, 404, { error: `オーバーレイが見つかりません: ${id}` });
+    if (typeof overlay.html !== 'string' || !overlay.html) {
+      return respond(res, 422, { error: `overlays[].html がファイル参照ではありません: ${id}` });
+    }
+    const target = resolveSafe(projectRoot, overlay.html);
+    if (!target) return respond(res, 422, { error: 'プロジェクト外への書き込みは拒否しました' });
+    try {
+      if (!fs.statSync(target).isFile()) throw new Error('not a file');
+    } catch {
+      return respond(res, 422, { error: `断片ファイルがありません: ${overlay.html}` });
+    }
+    try {
+      markSelfWrite();
+      await writeAtomic(target, html);
+      wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
+      respond(res, 200, { ok: true });
+    } catch (e) {
+      respond(res, 500, { error: e.message });
+    }
+  },
   'GET /api/codec-info': (req, res) => {
     respond(res, 200, {
       ffprobe: hasFfprobe,
