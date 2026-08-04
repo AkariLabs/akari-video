@@ -441,7 +441,9 @@ const EMPTY_SUMMARY: EditSummary = {
 // v0（単一 source）を v1 と同じ「id → ソース」表で扱うための既定 id。
 // cuts[].src を持たない v0 のカットは全てこの id を指す。
 const DEFAULT_SOURCE_ID = '__default__';
-const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
+// ドットディレクトリ（.git/.akari/.claude 等）と node_modules は名前探索の対象外。
+// スキル同梱の開発用フィクスチャ（.claude/skills/**/dev-fixtures/）を拾わないための除外。
+const isSkippedSearchDirectory = (name: string): boolean => name.startsWith('.') || name === 'node_modules';
 const PLAYABLE_VIDEO_MIME_TYPES = new Map<string, string>([
     ['.mp4', 'video/mp4'],
     ['.mov', 'video/mp4'],
@@ -2604,11 +2606,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             const children = [...(stat.children ?? [])]
-                // ドット始まり（.backups / .pretest-* 等）はバックアップ・作業ディレクトリの
-                // 定番置き場で、そこの edit.json を拾うとタイムラインとプレビューが別ファイルに
-                // 割れる実害が出た（2026-08-04）。名指しの SKIPPED に加えて一律飛ばす
-                .filter(child => !SKIPPED_DIRECTORIES.has(child.resource.path.base)
-                    && !child.resource.path.base.startsWith('.'))
+                // ドット始まりは一律飛ばす（isSkippedSearchDirectory = ドット始まり + node_modules）。
+                // 実害 2 系統（いずれも 2026-08-04 実機）: (1) .claude のスキル同梱フィクスチャの
+                // edit.json を拾って謎タイムラインが開く (2) .backups / .pretest-* 等の
+                // バックアップ置き場を拾ってタイムラインとプレビューが別ファイルに割れる
+                .filter(child => !isSkippedSearchDirectory(child.resource.path.base))
                 .sort((left, right) => left.resource.toString().localeCompare(right.resource.toString()));
             for (const child of children) {
                 await visit(child.resource);

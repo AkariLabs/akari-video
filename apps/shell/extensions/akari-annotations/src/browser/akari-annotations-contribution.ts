@@ -45,7 +45,9 @@ export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_CANVAS, OPEN_AKARI_INSPECTOR, OPEN_A
 /** キャンバスのアスペクトが取れない場合の既定値（task.md 指示 1）。 */
 const DEFAULT_CANVAS_ASPECT = { w: 1920, h: 1080 };
 
-const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
+// ドットディレクトリ（.git/.akari/.claude 等）と node_modules は名前探索の対象外。
+// スキル同梱の開発用フィクスチャ（.claude/skills/**/dev-fixtures/）を拾わないための除外。
+const isSkippedSearchDirectory = (name: string): boolean => name.startsWith('.') || name === 'node_modules';
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
 // akari-preview 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
@@ -640,7 +642,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             return stat.resource.path.base === name ? stat.resource : undefined;
         }
         const children = [...(stat.children ?? [])]
-            .filter(child => !SKIPPED_DIRECTORIES.has(child.resource.path.base))
+            .filter(child => !isSkippedSearchDirectory(child.resource.path.base))
             .sort((left, right) => left.resource.toString().localeCompare(right.resource.toString()));
         for (const child of children) {
             const found = await this.findFirstNamed(child.resource, name);
