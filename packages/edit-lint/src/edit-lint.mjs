@@ -8,10 +8,12 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { createRequire } from "node:module";
 
 import { renderLintReport } from "./report.mjs";
+import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 const { resolveCaptionDisplay } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
@@ -21,6 +23,7 @@ const EPSILON = 1e-6;
 const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json]
        [--silence-error-seconds N] [--max-volume-error-db N]
        [--caption-silence-warn-percent N]
+       [--declarations PATH]
 
 Exit codes: 0 PASS, 1 FAIL, 2 execution error`;
 
@@ -208,6 +211,15 @@ export async function lintProject(input, options = {}) {
   await validateOverlays(edit.overlays, timeline, findings, paths);
   await validateNarration(edit?.audio?.narration, timeline, findings, paths);
   await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
+  await validateMusicGrid(
+    edit?.audio?.bgm,
+    edit?.audio?.sfx,
+    timeline,
+    findings,
+    skipped,
+    paths,
+    options,
+  );
   validateSfxTracks(edit?.audio?.sfx, findings);
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
   validateOutputEncoding(edit?.output?.encoding, findings, "edit.json#output.encoding");
@@ -291,6 +303,7 @@ export function parseArguments(argv) {
     silenceErrorSeconds: null,
     maxVolumeErrorDb: null,
     captionSilenceWarnPercent: null,
+    declarationsPath: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -335,6 +348,22 @@ export function parseArguments(argv) {
         argument.slice("--caption-silence-warn-percent=".length),
         "--caption-silence-warn-percent",
       );
+      continue;
+    }
+    if (argument === "--declarations") {
+      const value = argv[++index];
+      if (!isNonEmptyString(value)) {
+        throw new ExecutionError("--declarations requires a path");
+      }
+      options.declarationsPath = resolve(value);
+      continue;
+    }
+    if (argument.startsWith("--declarations=")) {
+      const value = argument.slice("--declarations=".length);
+      if (!isNonEmptyString(value)) {
+        throw new ExecutionError("--declarations requires a path");
+      }
+      options.declarationsPath = resolve(value);
       continue;
     }
     if (argument.startsWith("-")) {
@@ -1841,6 +1870,193 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
   }
 }
 
+async function validateMusicGrid(bgm, sfx, timeline, findings, skipped, paths, options) {
+  if (!isRecord(bgm) || !isNonEmptyString(bgm.path)) {
+    addSkipped(
+      skipped,
+      "audio.music-grid",
+      "audio.bgm is absent; music grid checks require audio.bgm.path",
+    );
+    return;
+  }
+  if (!Array.isArray(sfx) || sfx.length === 0) {
+    addSkipped(
+      skipped,
+      "audio.music-grid",
+      "audio.sfx is empty; nothing to check against the music grid",
+    );
+    return;
+  }
+
+  const {
+    declarations,
+    source: declarationsSource,
+    error: declarationsError,
+  } = await loadMusicDeclarations(options);
+  if (declarationsError) {
+    addSkipped(skipped, "audio.music-grid", declarationsError);
+    return;
+  }
+  if (!declarations) {
+    addSkipped(
+      skipped,
+      "audio.music-grid",
+      "no declarations file found (declarations are optional)",
+    );
+    return;
+  }
+
+  const trackId = resolveBgmTrackId(bgm.path, declarations);
+  const declaration = declarations[trackId];
+  if (!declaration) {
+    addSkipped(
+      skipped,
+      "audio.music-grid",
+      `no declaration for bgm track "${trackId}" (declarations source: ${declarationsSource})`,
+    );
+    return;
+  }
+
+  if (timeline === null || !(timeline > 0)) {
+    addSkipped(
+      skipped,
+      "audio.music-grid",
+      "timeline duration is unavailable (cuts are invalid or empty)",
+    );
+    return;
+  }
+
+  const filePath = resolveReference(paths.editPath, bgm.path);
+  const probed = await probeAudioDuration(filePath, options.ffprobeCommand);
+  if (probed.duration === null) {
+    addSkipped(
+      skipped,
+      "audio.music-grid",
+      `bgm track duration is unavailable (${probed.reason})`,
+    );
+    return;
+  }
+
+  const bgmIn = isFiniteNumber(bgm.in) ? bgm.in : 0;
+  const grid = musicGrid({
+    declaration,
+    trackDuration: probed.duration,
+    bgmIn,
+    timelineDuration: timeline,
+  });
+  const snapWindow = 0.12;
+  const seamWindow = 0.3;
+
+  for (const [index, item] of sfx.entries()) {
+    if (!isRecord(item) || !isFiniteNumber(item.t)) continue;
+    const itemPath = `edit.json#audio.sfx[${index}]`;
+    const nearest = nearestGridPoint(item.t, grid);
+    if (nearest && Math.abs(nearest.delta) > snapWindow + EPSILON) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "audio.sfx.music-grid",
+        message: `t ${formatNumber(item.t)}s is ${formatNumber(Math.abs(nearest.delta))}s off the nearest ${nearest.kind} at ${formatNumber(nearest.t)}s (window ±${snapWindow}s)`,
+        path: itemPath,
+        range: { start: item.t, end: item.t },
+      });
+    }
+
+    for (const seam of grid.seams) {
+      if (Math.abs(item.t - seam) <= seamWindow + EPSILON) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.sfx.music-grid-seam",
+          message: `t ${formatNumber(item.t)}s fires within ${formatNumber(seamWindow)}s of a bgm loop seam at ${formatNumber(seam)}s`,
+          path: itemPath,
+          range: { start: item.t, end: item.t },
+        });
+      }
+    }
+  }
+}
+
+const GRID_KIND_ORDER = ["hit", "downbeat", "beat"];
+const GRID_KIND_KEYS = {
+  hit: "hits",
+  downbeat: "downbeats",
+  beat: "beats",
+};
+
+function nearestGridPoint(t, grid) {
+  let best = null;
+  for (const kind of GRID_KIND_ORDER) {
+    for (const candidate of grid[GRID_KIND_KEYS[kind]] ?? []) {
+      const delta = candidate - t;
+      const absDelta = Math.abs(delta);
+      const better =
+        best === null ||
+        absDelta < best.absDelta - 1e-9 ||
+        (absDelta <= best.absDelta + 1e-9 &&
+          GRID_KIND_ORDER.indexOf(kind) < GRID_KIND_ORDER.indexOf(best.kind));
+      if (better) best = { t: candidate, kind, delta, absDelta };
+    }
+  }
+  return best;
+}
+
+function resolveMusicLibraryRoot(env = process.env) {
+  const home = env.AKARI_HOME || join(os.homedir(), ".akari");
+  return join(home, "assets", "audio");
+}
+
+async function loadMusicDeclarations(options) {
+  const fromEnv = process.env.AKARI_SOUNDS_DECLARATIONS
+    ? resolve(process.env.AKARI_SOUNDS_DECLARATIONS)
+    : null;
+  const candidate =
+    options.declarationsPath ??
+    fromEnv ??
+    join(resolveMusicLibraryRoot(), "declarations.json");
+  try {
+    await access(candidate, fsConstants.R_OK);
+  } catch {
+    return { declarations: null, source: null, error: null };
+  }
+
+  let text;
+  try {
+    text = await readFile(candidate, "utf8");
+  } catch (error) {
+    return {
+      declarations: null,
+      source: candidate,
+      error: `declarations file could not be read: ${candidate} (${messageOf(error)})`,
+    };
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    return {
+      declarations: null,
+      source: candidate,
+      error: `declarations file is not valid JSON: ${candidate} (${messageOf(error)})`,
+    };
+  }
+  if (!isRecord(parsed)) {
+    return {
+      declarations: null,
+      source: candidate,
+      error: `declarations file must be a JSON object: ${candidate}`,
+    };
+  }
+  return { declarations: parsed, source: candidate, error: null };
+}
+
+function resolveBgmTrackId(bgmPath, declarations) {
+  const baseNoExt = basename(bgmPath).replace(/\.[^./]+$/, "");
+  if (Object.hasOwn(declarations, baseNoExt)) return baseNoExt;
+  const parentDir = basename(dirname(bgmPath));
+  if (Object.hasOwn(declarations, parentDir)) return parentDir;
+  return baseNoExt;
+}
+
 async function validateReferences(edit, findings, paths) {
   const references = [];
   if (isRecord(edit?.source)) {
@@ -3139,6 +3355,41 @@ function probeDuration(sourcePath, configuredCommand) {
     throw new ExecutionError("ffprobe did not return a positive source duration");
   }
   return duration;
+}
+
+async function probeAudioDuration(filePath, configuredCommand) {
+  let command;
+  try {
+    command = configuredCommand ?? process.env.FFPROBE ?? resolveFfprobe();
+  } catch (error) {
+    return { duration: null, reason: messageOf(error) };
+  }
+  const result = spawnSync(
+    command,
+    [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      filePath,
+    ],
+    { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+  );
+  if (result.error) return { duration: null, reason: messageOf(result.error) };
+  if (result.status !== 0) {
+    const detail = String(result.stderr ?? result.stdout ?? "").trim().split("\n").at(-1);
+    return {
+      duration: null,
+      reason: detail || `ffprobe exited with status ${result.status}`,
+    };
+  }
+  const duration = Number(String(result.stdout ?? "").trim());
+  if (!isPositiveNumber(duration)) {
+    return { duration: null, reason: "ffprobe did not return a positive duration" };
+  }
+  return { duration, reason: null };
 }
 
 function runCommand(command, args) {
