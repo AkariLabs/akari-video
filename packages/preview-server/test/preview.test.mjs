@@ -332,6 +332,69 @@ async function main() {
     await lp.close();
   } catch (e) { ng('Baked layers + animation', e.message); }
 
+  // ── 字幕 zone の水平成分 + 変数の持ち越し ──
+  // 回帰: 行が margin:0 auto 固定で align-items が効かず top-right が上中央に出ていた。
+  // さらに前の字幕の CSS 変数が消えず、次の既定 bottom 字幕が上段へ持ち越されていた。
+  console.log('\n📝 Caption zone (horizontal + no carry-over)');
+  try {
+    // zone 検証用の字幕をフィクスチャへ足す（top-right の直後に既定 bottom を置き、
+    // 水平成分と持ち越しの両方を 1 本の再生列で見る）
+    const mk = (id, start, end, text, zone) => ({
+      id, start, end, text, speaker: null, sourceRef: null, edited: false,
+      ...(zone ? { text_style: { zone } } : {})
+    });
+    fs.writeFileSync(path.join(PROJECT, 'captions.json'), JSON.stringify([
+      mk('c-0001', 1, 3, '右上に出る字幕', 'top-right'),
+      mk('c-0002', 4, 6, '既定は下段中央', null)
+    ], null, 2));
+
+    const zp = await context.newPage();
+    await zp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await zp.waitForTimeout(2500);
+    // 期待する字幕が実際に出るまで待ってから測る。行の有無だけで待つと、シーク直後の
+    // 過渡状態（前の字幕が残っている）を拾って測定が入れ替わる
+    const measure = async (sec, expectText) => {
+      for (let attempt = 0; attempt < 16; attempt++) {
+        await zp.evaluate(s => {
+          const el = document.getElementById('seek');
+          el.value = String(s);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }, sec);
+        await zp.waitForTimeout(450);
+        const shown = await zp.evaluate(() =>
+          (document.getElementById('caption-plate').textContent || '').trim());
+        if (shown === expectText) break;
+      }
+      return zp.evaluate(() => {
+        const stage = document.getElementById('overlay-stage').getBoundingClientRect();
+        const line = document.getElementById('caption-plate').querySelector('.akari-caption__line');
+        if (!line || !stage.width || !stage.height) return null;
+        const r = line.getBoundingClientRect();
+        return {
+          cx: ((r.left + r.width / 2) - stage.left) / stage.width,
+          cy: ((r.top + r.height / 2) - stage.top) / stage.height,
+        };
+      });
+    };
+    const right = await measure(2, '右上に出る字幕');
+    const bottom = await measure(5, '既定は下段中央');
+    if (!right || !bottom) {
+      ng('Caption zone', `字幕を描画できなかった right=${JSON.stringify(right)} bottom=${JSON.stringify(bottom)}`);
+    } else {
+      right.cx > 0.55
+        ? ok(`top-right renders on the right half (cx=${right.cx.toFixed(2)})`)
+        : ng('Zone horizontal ignored', `top-right cx=${right.cx.toFixed(2)} (expected > 0.55)`);
+      right.cy < 0.35
+        ? ok(`top-right renders in the upper band (cy=${right.cy.toFixed(2)})`)
+        : ng('Zone vertical', `cy=${right.cy.toFixed(2)}`);
+      (Math.abs(bottom.cx - 0.5) < 0.12 && bottom.cy > 0.6)
+        ? ok(`following default caption returns to bottom-center (cx=${bottom.cx.toFixed(2)}, cy=${bottom.cy.toFixed(2)})`)
+        : ng('Zone carry-over', `default caption at cx=${bottom.cx.toFixed(2)} cy=${bottom.cy.toFixed(2)}`);
+    }
+    await zp.close();
+    fs.rmSync(path.join(PROJECT, 'captions.json'), { force: true });
+  } catch (e) { ng('Caption zone', e.message); }
+
   // ── P1-2: レターボックス時のステージ＝ビデオ枠一致 ──
   // 横長ペインでは wrapper の aspect-ratio が max-height で破れる。stage は出力フレーム矩形
   // （出力アスペクトで中央フィット）に一致し、論理サイズは出力 px でなければならない

@@ -1478,11 +1478,27 @@ function captionZoneVars(zone) {
     '--caption-right': '4%',
     '--caption-justify-content': parts.row === 'middle' ? 'center' : 'flex-start',
     '--caption-align-items': align,
-    '--caption-text-align': align
+    // 行は既定で margin:0 auto（中央寄せ）なので、これを外さないと align-items が効かず
+    // top-right などの水平成分が無視されて上中央に出る。shell の zoneVars と同じ指定。
+    '--caption-line-margin': '0',
+    '--caption-line-max-width': '100%',
+    // text-align に flex-* を渡すと無効値。CSS の水平キーワードへ落とす
+    '--caption-text-align': parts.col
   };
 }
 
+// 字幕ごとに設定しうる CSS 変数。前の字幕の指定が残ると次の字幕に持ち越されるため
+// （実害: top-right の直後に出る既定 bottom の字幕が上段に出ていた）、毎回消してから積む。
+const CAPTION_STYLE_VARS = [
+  '--caption-color', '--caption-font-size', '--caption-text-shadow',
+  '--plate-bg', '--plate-radius', '--plate-block-bg', '--plate-block-radius',
+  '--caption-top', '--caption-bottom', '--caption-left', '--caption-right',
+  '--caption-justify-content', '--caption-align-items',
+  '--caption-line-margin', '--caption-line-max-width', '--caption-text-align'
+];
+
 function applyCaptionStyle(caption) {
+  for (const name of CAPTION_STYLE_VARS) captionPlate.style.removeProperty(name);
   let vars = {};
   const ts = caption?.text_style;
   const dts = summary?.default_text_style;
@@ -1688,7 +1704,7 @@ function injectCaptionStyles() {
 }
 .akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9)); paint-order:stroke fill; text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:"Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:1.42; text-align:center; }
 .akari-caption__plate { position:absolute; top:var(--caption-top,auto); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; }
-.akari-caption__line { width:max-content; max-width:92%; margin:0 auto; padding:0.08em 0.42em; border-radius:10px; background:var(--plate-bg,transparent); text-align:center; white-space:pre; }
+.akari-caption__line { width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:0.08em 0.42em; border-radius:10px; background:var(--plate-bg,transparent); text-align:var(--caption-text-align,center); white-space:pre; }
 .akari-caption--reveal .akari-caption__plate { display:grid; }
 .akari-caption__reveal-group { grid-area:1 / 1; display:flex; flex-direction:column; gap:4px; opacity:0; animation:akari-caption-reveal var(--akari-reveal-dur,0.2s) var(--akari-reveal-delay,0s) linear both paused; }
 @keyframes akari-caption-reveal {
