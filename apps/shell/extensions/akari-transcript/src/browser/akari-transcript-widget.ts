@@ -18,7 +18,9 @@ import {
 } from './caption-store';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from './akari-transcript-commands';
 
-const EDIT_SEARCH_SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules']);
+// ドットディレクトリ（.git/.akari/.claude 等）と node_modules は名前探索の対象外。
+// スキル同梱の開発用フィクスチャ（.claude/skills/**/dev-fixtures/）を拾わないための除外。
+const isSkippedSearchDirectory = (name: string): boolean => name.startsWith('.') || name === 'node_modules';
 
 interface KeepRange {
     in: number;
@@ -651,7 +653,7 @@ export class AkariTranscriptWidget extends BaseWidget {
                 return;
             }
             const children = [...(stat.children ?? [])]
-                .filter(child => !EDIT_SEARCH_SKIPPED_DIRECTORIES.has(child.resource.path.base))
+                .filter(child => !isSkippedSearchDirectory(child.resource.path.base))
                 .sort((left, right) => left.resource.toString().localeCompare(right.resource.toString()));
             for (const child of children) {
                 await visit(child.resource);

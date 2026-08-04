@@ -268,6 +268,12 @@ async function copySkillsTree(source, destination) {
         if (entry.name === '.gitkeep' || entry.name === '.DS_Store') {
             continue;
         }
+        // dev-fixtures/ はスキル開発用のサンプル素材（例: skills/address-review/dev-fixtures/
+        // 配下の edit.json）で、プロジェクトへ持ち込むとシェルの edit.json 探索が誤って拾う
+        // （F10）。プロジェクトの .claude/skills/ には不要なため元栓として除外する。
+        if (entry.isDirectory() && entry.name === 'dev-fixtures') {
+            continue;
+        }
         const from = path.join(source, entry.name);
         const to = path.join(destination, entry.name);
         if (entry.isDirectory()) {

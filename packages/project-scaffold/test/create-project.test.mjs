@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,5 +77,35 @@ test("real templates/project-default/: .akari/intake.json is generated via the f
 
     const agentsMd = await readFile(join(destination, "AGENTS.md"), "utf8");
     assert.match(agentsMd, /intake\.json/);
+  });
+});
+
+test("installProjectSkills 経由の createProject(): dev-fixtures/ ディレクトリはスキルコピーから除外される（F10 元栓）", async () => {
+  await withScratchRoot(async (root) => {
+    const templateDir = join(root, "empty-template");
+    const destination = join(root, "project");
+    await mkdir(templateDir, { recursive: true });
+
+    // 実スキル同梱の開発用フィクスチャ（例: skills/address-review/dev-fixtures/fixture-project/
+    // edit.json）を模した合成 skillsSourceDir。SKILL.md 等の本体ファイルは従来どおりコピーされ、
+    // dev-fixtures/ ディレクトリだけが除外されることを確認する。
+    const skillsSourceDir = join(root, "skills-source");
+    const skillDir = join(skillsSourceDir, "address-review");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(join(skillDir, "SKILL.md"), "# address-review\n", "utf8");
+    const fixtureDir = join(skillDir, "dev-fixtures", "fixture-project");
+    await mkdir(fixtureDir, { recursive: true });
+    await writeFile(join(fixtureDir, "edit.json"), "{}\n", "utf8");
+    await writeFile(join(fixtureDir, "source.mp4"), "", "utf8");
+
+    await createProject(destination, templateDir, { skillsSourceDir });
+
+    const installedSkillDir = join(destination, ".claude", "skills", "address-review");
+    assert.ok((await stat(join(installedSkillDir, "SKILL.md"))).isFile());
+
+    await assert.rejects(
+      () => stat(join(installedSkillDir, "dev-fixtures")),
+      (error) => error.code === "ENOENT"
+    );
   });
 });
