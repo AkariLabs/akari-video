@@ -85,11 +85,19 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
                     : [];
             })
             : [];
-        const captionTextStyle = candidate.text_style === undefined
+        // text_style は「見た目の上書き」であって字幕の本体ではない。読めない値でも
+        // 字幕そのものは既定スタイルで出す（消さない）。null は「指定なし」— スキーマ検証も
+        // 共有カーネル mergeCaptionTextStyles も render-cut も Web UI も null を既定扱いする。
+        // 旧実装は null / 不正値のとき caption ごと捨てており、カラオケ字幕が無言で消えていた。
+        const captionTextStyle = candidate.text_style === undefined || candidate.text_style === null
             ? undefined
             : normalizeTextStyle(candidate.text_style);
-        if (candidate.text_style !== undefined && captionTextStyle === undefined) {
-            continue;
+        if (candidate.text_style !== undefined && candidate.text_style !== null
+            && captionTextStyle === undefined) {
+            console.warn(
+                '[akari-preview] text_style を読み取れないため既定スタイルで表示します',
+                typeof id === 'string' ? id : '(id なし)'
+            );
         }
         const textStyle = mergeTextStyles(defaultTextStyle, captionTextStyle);
         captions.push({

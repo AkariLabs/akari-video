@@ -88,3 +88,34 @@ test('block mode は block 専用 var を使い per-line の既存 var と分離
     assert.equal(block.textStyleVars['--plate-bg'], undefined);
     assert.equal(block.textStyleVars['--plate-radius'], undefined);
 });
+
+test('text_style: null の字幕を捨てない（指定なし = 既定スタイルで表示する）', () => {
+    // captions.schema の検証も共有カーネル mergeCaptionTextStyles も render-cut も Web UI も
+    // null を「指定なし」として扱う。旧実装だけが caption ごと破棄しており、実プロジェクトの
+    // カラオケ字幕 2 本が無言で消えていた（fieldtest 2026-08-03-preview-feature-matrix）。
+    const parsed = parsePreviewCaptions(JSON.stringify([
+        { ...caption, id: 'c-0001', text_style: null },
+        { ...caption, id: 'c-0002', start: 3, end: 5, text_style: undefined },
+        { ...caption, id: 'c-0003', start: 6, end: 8 }
+    ]));
+    assert.deepEqual(parsed.map(c => c.id), ['c-0001', 'c-0002', 'c-0003']);
+});
+
+test('読めない text_style でも字幕本体は残す（既定スタイルへフォールバック）', () => {
+    const parsed = parsePreviewCaptions(JSON.stringify([
+        { ...caption, id: 'c-0001', text_style: 'これは物ではない' },
+        { ...caption, id: 'c-0002', start: 3, end: 5, text_style: 42 }
+    ]));
+    assert.deepEqual(parsed.map(c => c.id), ['c-0001', 'c-0002']);
+    assert.deepEqual(parsed.map(c => c.text), ['字幕', '字幕']);
+});
+
+test('words[] 付きカラオケ字幕が text_style: null でも保持される', () => {
+    const parsed = parsePreviewCaptions(JSON.stringify([{
+        ...caption, id: 'c-0001', style: 'karaoke', text_style: null,
+        words: [{ start: 0, end: 1, text: '文字' }, { start: 1, end: 2, text: 'ごと' }]
+    }]));
+    assert.equal(parsed.length, 1);
+    assert.equal(parsed[0].style, 'karaoke');
+    assert.equal(parsed[0].words.length, 2);
+});
