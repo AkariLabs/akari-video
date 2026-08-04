@@ -9,7 +9,14 @@ test("/akari keeps canonical status routing and restores CreatorRoot consent gui
   const command = await readFile(commandPath, "utf8");
   assert.match(command, /session-start\.mjs" --status-json/u);
   assert.match(command, /工程判定の正本/u);
-  assert.match(command, /allowed-tools:.*Bash\(akari:\*\).*Bash\(mkdir:\*\).*Write/u);
+  // `Bash(akari:*)` の全面許可は禁止 — `akari` は未知引数を claude へ丸ごと転送するため、
+  // `akari -y` 一発で「acceptEdits の入れ子セッション起動」となり外側の確認ゲートを迂回できる。
+  // 本文が使うサブコマンド（status / capability / init）だけを許可する。
+  assert.doesNotMatch(command, /Bash\(akari:\*\)/u);
+  assert.match(
+    command,
+    /allowed-tools:.*Bash\(akari status:\*\).*Bash\(akari capability:\*\).*Bash\(akari init:\*\).*Bash\(mkdir:\*\).*Write/u,
+  );
   assert.match(command, /作業場（CreatorRoot）の検出・作成・案内/u);
   assert.match(
     command,

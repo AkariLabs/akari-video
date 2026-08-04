@@ -1,6 +1,6 @@
 ---
 description: AKARI Video の canonical status を確認し、記録された次の一手を案内する
-allowed-tools: Bash(node:*), Bash(akari:*), Bash(ls:*), Bash(test:*), Bash(mkdir:*), Read, Write
+allowed-tools: Bash(node:*), Bash(akari status:*), Bash(akari capability:*), Bash(akari init:*), Bash(ls:*), Bash(test:*), Bash(mkdir:*), Read, Write
 disable-model-invocation: false
 ---
 
