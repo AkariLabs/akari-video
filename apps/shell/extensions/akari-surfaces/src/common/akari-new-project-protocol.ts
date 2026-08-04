@@ -46,4 +46,15 @@ export interface AkariNewProjectService {
      * （元プロジェクトは残ったまま — creator-root の adoptProject 自身の契約）。
      */
     adoptProject(rootUri: string, projectUri: string, channel: string): Promise<string>;
+
+    /**
+     * 無 root 対応（task 2026-08-04-home-no-root-flow）: 作業場が 1 つも解決できない
+     * 状態で「チャンネルに入れる」が押されたときの ensure。既定パス
+     * （`defaultRootPath()`）に作業場を作成し、マシンポインタを更新する。実処理は
+     * `packages/creator-root` の `createCreatorRoot()` + `updateMachinePointer()` を
+     * そのまま呼ぶだけで、ロジックは複製しない。成功時は作成/解決した作業場ルートの
+     * URI 文字列を返す。失敗時は、そのまま表示できる 1 行の日本語メッセージを持つ
+     * `Error` を投げる（元プロジェクトには一切触れていないので、失敗しても何も壊れない）。
+     */
+    ensureCreatorRoot(): Promise<string>;
 }
