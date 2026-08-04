@@ -25,6 +25,7 @@ AKARI Video のエージェント側ワークフローは **19 のスキル**に
 | [setup-remote](../skills/setup-remote/SKILL.md) | 遠隔セットアップ。Tailscale doctor → 導入ガイド（人間手番）→ プレビューサーバーの tailnet 限定 HTTPS 化 → Taildrop 受信を作業場 inbox/ へ接続 → 疎通確認。公開インターネットへは既定で一切出さない | Tailscale / Taildrop（導入・ログインは人間） |
 | [harvest-asset](../skills/harvest-asset/SKILL.md) | 案件で作った高コスト成果物の素材ライブラリ入庫 | — |
 | [bake-3d](../skills/bake-3d/SKILL.md) | 3D シーンを映像素材（クリップ）に焼く。レシピ `scene.py` の作成・調整・再ベイク | **Blender**（ヘッドレス・bpy） |
+| [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | 宣言済み音源の拍・キメ・区間を唯一の時刻ソースにして、拍にスナップした edit.json とオーバーレイ一式を「生成器」から機械生成する（音に合わせて画面が動く PV・ショーケース） | ffmpeg / ffprobe（宣言は declare-audio で人間が付ける） |
 
 ### 分析
 
