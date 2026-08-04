@@ -219,6 +219,21 @@ function updateStageScale() {
 }
 new ResizeObserver(() => { updateStageScale(); setupPenCanvas(); }).observe(wrapper);
 
+// clip.src はルート相対（/assets/foo.mp4）だが video.src は常に絶対 URL を返すため、
+// 生の文字列比較では必ず不一致になり毎フレーム再代入 → 動画がロードし直され続ける
+// （読み込み中スピナーが出っぱなし・実質再生不能）。解決後の URL で比較する。
+function isSameVideoSource(el, src) {
+  if (!src) return true;
+  try {
+    return el.src === new URL(src, document.baseURI).href;
+  } catch {
+    return el.src === src;
+  }
+}
+function setVideoSourceIfChanged(el, src) {
+  if (src && !isSameVideoSource(el, src)) el.src = src;
+}
+
 function getVideoSource(cutIndex) {
   const clip = timelineData.clips.find(c => c.id === `cut-${cutIndex}`);
   return clip ? clip.src : (timelineData.clips[0]?.src || '');
@@ -714,7 +729,8 @@ function seekTo(t) {
   const vt = getVideoTimeForOutput(outputTime);
   if (vt >= 0) {
     const seg = getActiveSegment(outputTime);
-    if (seg && seg.index >= 0) video.src = getVideoSource(seg.index);
+    // 同じソースへの再代入はロードをやり直してシーク自体を潰すため、変わった時だけ差し替える
+    if (seg && seg.index >= 0) setVideoSourceIfChanged(video, getVideoSource(seg.index));
     video.currentTime = vt;
   }
   seek.value = outputTime;
@@ -769,8 +785,7 @@ function playbackLoop() {
   const target = getVideoTimeForOutput(outputTime);
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
-    const src = getVideoSource(seg.index);
-    if (src && video.src !== src) video.src = src;
+    setVideoSourceIfChanged(video, getVideoSource(seg.index));
     if (Math.abs(video.currentTime - target) > 0.1) video.currentTime = target;
   }
   seek.value = outputTime;

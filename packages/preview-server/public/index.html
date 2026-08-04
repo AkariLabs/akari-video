@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AKARI Video Preview</title>
+<!-- オーバーレイ操作層のスタイル（packages/overlay-runtime/src/interaction.css の写し・
+     build が生成）。これが無いと選択枠が position:fixed を失い、body(display:grid) の
+     グリッド項目として新しい行を作ってしまいプレビューが縮む。shell は同じ CSS を
+     webview へインライン注入している（サーフェス間パリティ） -->
+<link rel="stylesheet" href="/overlay-interaction.css">
 <style>
 :root { color-scheme: dark; font-family: "Noto Sans JP", system-ui, sans-serif; }
 @keyframes spin { to { transform: rotate(360deg); } }
