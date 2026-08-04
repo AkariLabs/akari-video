@@ -9,7 +9,11 @@ import { AKARI_TRANSCRIPT_SEEK_REQUESTED, OPEN_AKARI_TRANSCRIPT } from './akari-
 import { AkariTranscriptSeekRequest, AkariTranscriptSeekService } from './akari-transcript-seek-service';
 import { AkariTranscriptWidget } from './akari-transcript-widget';
 
-const SKIPPED_DIRECTORIES = new Set(['.git', '.akari', 'node_modules', 'project']);
+const SKIPPED_DIRECTORIES = new Set(['node_modules', 'project']);
+// ドット始まり（.claude のスキル同梱フィクスチャ・.backups 等）は一律スキップする
+// （F10 と同種の混入防止 — edit.json 探索側の isSkippedSearchDirectory と同じ規則）
+const isSkippedAnalysisDirectory = (name: string): boolean =>
+    name.startsWith('.') || SKIPPED_DIRECTORIES.has(name);
 const CANONICAL_ANALYSIS_SUFFIX = '.analysis/analysis.json';
 
 interface CanonicalAnalysis {
@@ -155,7 +159,7 @@ export class AkariTranscriptContribution implements OpenHandler, CommandContribu
             return stat.resource.path.base.toLowerCase().endsWith('.analysis.json') ? stat.resource : undefined;
         }
         const children = [...(stat.children ?? [])]
-            .filter(child => !SKIPPED_DIRECTORIES.has(child.resource.path.base))
+            .filter(child => !isSkippedAnalysisDirectory(child.resource.path.base))
             .sort((left, right) => left.resource.toString().localeCompare(right.resource.toString()));
         for (const child of children) {
             const found = await this.findAnalysis(child.resource);
