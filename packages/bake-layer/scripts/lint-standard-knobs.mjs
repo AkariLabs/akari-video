@@ -9,6 +9,7 @@ const ROLES = new Set([
   "text", "size", "weight", "font", "color", "color-bg", "color-stroke", "color-shadow",
   "color-accent", "pos-x", "pos-y", "pad", "radius", "progress", "interval", "strength", "other",
   "anim-in", "anim-out", "anim-loop", "anim-duration",
+  "toggle", "stroke-width", "spacing", "color-glow",
 ])
 const ANCHORS = new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"])
 const STANDARD = new Map([
@@ -33,6 +34,18 @@ const ANIMATION_STANDARD = new Map([
   ["animInSec", { default: 0.6, role: "anim-duration" }],
   ["animOutSec", { default: 0.6, role: "anim-duration" }],
 ])
+const FX_STANDARD = new Map([
+  ["bgEnabled", { type: "bool", role: "toggle" }],
+  ["strokeEnabled", { type: "bool", role: "toggle" }],
+  ["strokeWidth", { type: "number", role: "stroke-width" }],
+  ["color_stroke", { type: "color", role: "color-stroke" }],
+  ["shadowEnabled", { type: "bool", role: "toggle" }],
+  ["color_shadow", { type: "color", role: "color-shadow" }],
+  ["glowEnabled", { type: "bool", role: "toggle" }],
+  ["color_glow", { type: "color", role: "color-glow" }],
+  ["glowStrength", { type: "number", role: "strength" }],
+  ["letterSpacing", { type: "number", role: "spacing" }],
+])
 
 const errors = []
 let checked = 0
@@ -51,6 +64,11 @@ for (const entry of entries.filter((item) => item.isDirectory()).sort((a, b) => 
   const variables = doc.variables ?? []
   const groups = doc.groups ?? []
   const groupIds = new Set(groups.map((group) => group.id))
+  const variableKeys = new Set()
+  for (const variable of variables) {
+    if (variableKeys.has(variable.key)) errors.push(`${doc.id}/${variable.key}: key が重複しています`)
+    variableKeys.add(variable.key)
+  }
 
   for (const [key, type] of STANDARD) {
     const variable = variables.find((candidate) => candidate.key === key)
@@ -67,11 +85,39 @@ for (const entry of entries.filter((item) => item.isDirectory()).sort((a, b) => 
       errors.push(`${doc.id}/${key}: options が textanim 語彙と一致しません`)
     }
   }
+  for (const [key, expected] of FX_STANDARD) {
+    const variable = variables.find((candidate) => candidate.key === key)
+    if (!variable) {
+      errors.push(`${doc.id}: 装飾必須キー ${key} がありません`)
+      continue
+    }
+    if (variable.type !== expected.type) errors.push(`${doc.id}/${key}: type=${variable.type}（期待 ${expected.type}）`)
+    if (variable.group !== "fx") errors.push(`${doc.id}/${key}: group=${variable.group}（期待 fx）`)
+    if (variable.role !== expected.role) errors.push(`${doc.id}/${key}: role=${variable.role}（期待 ${expected.role}）`)
+    if (expected.type === "bool" && typeof variable.default !== "boolean") {
+      errors.push(`${doc.id}/${key}: bool default は true/false 必須です`)
+    }
+  }
+  const bgVariable = variables.find((candidate) => candidate.key === "bgEnabled")
+  const backgroundLayers = (doc.layers ?? []).filter((layer) => layer.fxTag === "bg")
+  if (bgVariable?.default === true && backgroundLayers.length === 0) {
+    errors.push(`${doc.id}: bgEnabled=true ですが fxTag=bg レイヤーがありません`)
+  }
+  if (bgVariable?.default === false && backgroundLayers.length > 0) {
+    errors.push(`${doc.id}: bgEnabled=false ですが fxTag=bg レイヤーがあります`)
+  }
+  for (const layer of backgroundLayers) {
+    if (layer.type !== "shape") errors.push(`${doc.id}/${layer.id}: fxTag=bg は shape 専用です`)
+  }
   if (!Array.isArray(doc.groups)) errors.push(`${doc.id}: groups がありません`)
   if (!groupIds.has("global")) errors.push(`${doc.id}: groups に global がありません`)
   if (!groupIds.has("anim")) errors.push(`${doc.id}: groups に anim がありません`)
+  if (!groupIds.has("fx")) errors.push(`${doc.id}: groups に fx がありません`)
   if (groups.find((group) => group.id === "anim")?.label !== "アニメ") {
     errors.push(`${doc.id}: group anim の label は「アニメ」必須です`)
+  }
+  if (groups.find((group) => group.id === "fx")?.label !== "装飾") {
+    errors.push(`${doc.id}: group fx の label は「装飾」必須です`)
   }
   for (const group of groups) {
     if (!/^[a-z]+$/.test(group.id)) errors.push(`${doc.id}/groups/${group.id}: id は latin 小文字のみです`)
@@ -87,6 +133,9 @@ for (const entry of entries.filter((item) => item.isDirectory()).sort((a, b) => 
     }
     if (variable.type === "select" && (!Array.isArray(variable.options) || variable.options.length === 0)) {
       errors.push(`${doc.id}/${variable.key}: type=select は options 必須です`)
+    }
+    if (variable.type === "bool" && typeof variable.default !== "boolean") {
+      errors.push(`${doc.id}/${variable.key}: type=bool は boolean default 必須です`)
     }
   }
   const textGroups = new Set(variables.filter((variable) => variable.role === "text").map((variable) => variable.group))

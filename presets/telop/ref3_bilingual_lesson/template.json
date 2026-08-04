@@ -66,22 +66,6 @@
       "role": "color"
     },
     {
-      "key": "color_stroke",
-      "type": "color",
-      "label": "縁取り色",
-      "default": "rgba(0,0,0,0.92)",
-      "group": "global",
-      "role": "color-stroke"
-    },
-    {
-      "key": "color_shadow",
-      "type": "color",
-      "label": "影色",
-      "default": "rgba(0,0,0,0.50)",
-      "group": "global",
-      "role": "color-shadow"
-    },
-    {
       "key": "foreignFontSize",
       "type": "number",
       "label": "外国語フォントサイズ",
@@ -164,6 +148,86 @@
       "default": 435,
       "group": "global",
       "role": "pos-y"
+    },
+    {
+      "key": "bgEnabled",
+      "type": "bool",
+      "label": "座布団",
+      "default": true,
+      "group": "fx",
+      "role": "toggle"
+    },
+    {
+      "key": "strokeEnabled",
+      "type": "bool",
+      "label": "縁取り",
+      "default": true,
+      "group": "fx",
+      "role": "toggle"
+    },
+    {
+      "key": "strokeWidth",
+      "type": "number",
+      "label": "縁取り太さ",
+      "default": 7,
+      "group": "fx",
+      "role": "stroke-width"
+    },
+    {
+      "key": "color_stroke",
+      "type": "color",
+      "label": "縁取り色",
+      "default": "rgba(0,0,0,0.92)",
+      "group": "fx",
+      "role": "color-stroke"
+    },
+    {
+      "key": "shadowEnabled",
+      "type": "bool",
+      "label": "影",
+      "default": true,
+      "group": "fx",
+      "role": "toggle"
+    },
+    {
+      "key": "color_shadow",
+      "type": "color",
+      "label": "影色",
+      "default": "rgba(0,0,0,0.50)",
+      "group": "fx",
+      "role": "color-shadow"
+    },
+    {
+      "key": "glowEnabled",
+      "type": "bool",
+      "label": "グロー",
+      "default": false,
+      "group": "fx",
+      "role": "toggle"
+    },
+    {
+      "key": "color_glow",
+      "type": "color",
+      "label": "グロー色",
+      "default": "#FFD940",
+      "group": "fx",
+      "role": "color-glow"
+    },
+    {
+      "key": "glowStrength",
+      "type": "number",
+      "label": "グロー強度",
+      "default": 1,
+      "group": "fx",
+      "role": "strength"
+    },
+    {
+      "key": "letterSpacing",
+      "type": "number",
+      "label": "字間",
+      "default": 0,
+      "group": "fx",
+      "role": "spacing"
     },
     {
       "key": "animIn",
@@ -363,7 +427,8 @@
             }
           ]
         }
-      ]
+      ],
+      "fxTag": "bg"
     },
     {
       "id": "ref3_bilingual_lesson_band_highlight",
@@ -424,7 +489,8 @@
             }
           ]
         }
-      ]
+      ],
+      "fxTag": "bg"
     },
     {
       "id": "ref3_bilingual_lesson_foreign",
@@ -599,6 +665,10 @@
     {
       "id": "global",
       "label": "全体"
+    },
+    {
+      "id": "fx",
+      "label": "装飾"
     },
     {
       "id": "anim",
