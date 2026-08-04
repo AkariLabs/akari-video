@@ -25,6 +25,16 @@ export interface CatalogItemMeta {
     source?: CatalogItemSource;
 }
 
+/**
+ * カタログルート直下の走査対象カテゴリディレクトリ（meta.json v0 の category enum と同値）。
+ * frontend（akari-role-buckets-widget.tsx のフォルダー検証）と backend
+ * （akari-project-service.ts の 1 ビュー用ローカル catalog/ 走査）の両方が使う共有定数。
+ * 2026-07-29 にカテゴリ軸を主題から配布物の形へ変更（3d→scene3d / telop→overlay /
+ * thumbnail→still）。telop テンプレと luts は同日 presets/ へ移設した（コードが id で引く
+ * 参照表であり素材カタログではないため）。
+ */
+export const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'] as const;
+
 export function parseCatalogItemMeta(raw: string): CatalogItemMeta | undefined {
     let parsed: unknown;
     try {
@@ -52,14 +62,30 @@ export function parseCatalogItemMeta(raw: string): CatalogItemMeta | undefined {
 }
 
 /**
- * 検索（名前 / description / tags）+ カテゴリチップ絞り込みの純関数。
+ * filterCatalogItems が検索対象にする最小フィールド集合。ローカル catalog/ 由来の
+ * CatalogItemMeta と、1 ビュー（resolver 合成分含む）の AssetCatalogViewItem
+ * （akari-project-protocol.ts）の両方がこの形を満たすため、同じ純関数を両方の
+ * データ源で再利用できる。
+ */
+export interface CatalogSearchable {
+    id: string;
+    category: string;
+    title: string;
+    description?: string;
+    tags?: string[];
+    /** resolver 合成分の生成プロンプト（provenance.prompt）。あれば検索対象に含める。 */
+    prompt?: string;
+}
+
+/**
+ * 検索（名前 / description / tags / prompt）+ カテゴリチップ絞り込みの純関数。
  * category は 'all' で全カテゴリを通す。
  */
-export function filterCatalogItems(
-    items: readonly CatalogItemMeta[],
+export function filterCatalogItems<T extends CatalogSearchable>(
+    items: readonly T[],
     query: string,
     category: string
-): CatalogItemMeta[] {
+): T[] {
     const normalizedQuery = query.trim().toLowerCase();
     return items.filter(item => {
         if (category !== 'all' && item.category !== category) {
@@ -68,7 +94,7 @@ export function filterCatalogItems(
         if (!normalizedQuery) {
             return true;
         }
-        const haystack = [item.title, item.id, item.description ?? '', ...(item.tags ?? [])]
+        const haystack = [item.title, item.id, item.description ?? '', item.prompt ?? '', ...(item.tags ?? [])]
             .join(' ')
             .toLowerCase();
         return haystack.includes(normalizedQuery);

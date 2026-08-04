@@ -10,29 +10,29 @@ import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/prefe
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
-import { AkariProjectService, DroppedAsset } from '../common/akari-project-protocol';
+import { AkariProjectService, AssetCatalogViewItem, DroppedAsset } from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { isUnorganizedRootEntry } from '../common/unorganized-materials';
 import { nextCandidateAssetName } from '../common/asset-naming';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
-import { CatalogItemMeta, filterCatalogItems, parseCatalogItemMeta } from '../common/catalog-reader';
+import { CATALOG_CATEGORIES, CatalogItemMeta, filterCatalogItems, parseCatalogItemMeta } from '../common/catalog-reader';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt } from '../common/catalog-context-packet';
+import { assetStateBadgeText } from '../common/asset-catalog-view';
+import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 
 const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
-/**
- * カタログルート直下の走査対象カテゴリディレクトリ（meta.json v0 の category enum と同値）。
- * 2026-07-29 にカテゴリ軸を主題から配布物の形へ変更（3d→scene3d / telop→overlay /
- * thumbnail→still）。telop テンプレと luts は同日 presets/ へ移設した（コードが id で引く
- * 参照表であり素材カタログではないため）。
- */
-const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'] as const;
 const CATALOG_UNRESOLVED_MESSAGE = 'カタログの場所が未設定です（設定 akari.catalog.root）';
+const ASSET_STATE_BADGE_LABEL: Record<NonNullable<AssetCatalogViewItem['state']>, string> = {
+    cached: '✓ 取得済み',
+    available: '☁ 未取得',
+    locked: '¥ 未購入'
+};
 
 /** 上段（素材）の内部遷移先。タブではなく widget 内遷移 — U6 裁定。 */
 type TopView = 'materials' | 'catalog';
@@ -53,6 +53,11 @@ interface MaterialCardEntry {
     analysisRelativePath?: string;
     /** true = プロジェクトルート直下（非再帰）の未整理素材。「assets へ移動」アクションを持つ。 */
     unorganized: boolean;
+    /**
+     * meta.json を含むディレクトリ = 1 素材グループのときのみ設定される（task.md 決定事項2）。
+     * 設定されている場合、タイトル/サムネ/種別バッジは meta.json 由来の値で表示する。
+     */
+    assetGroup?: { category: string };
 }
 
 /** 下段「できたもの」の 1 件（exports/ 直下のファイル、または .akari/reports/ の HTML）。read-only。 */
@@ -135,15 +140,28 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected outputsWatchRootKey?: string;
     protected outputsWatchTimer?: ReturnType<typeof setTimeout>;
 
-    protected catalogItems: CatalogItemMeta[] = [];
+    /** カタログ面「1 ビュー」= resolver 合成 + ローカル catalog/ のマージ済み一覧。 */
+    protected assetCatalogItems: AssetCatalogViewItem[] = [];
     protected catalogLoading = false;
-    protected catalogRootResolved = false;
-    protected catalogMissingCount = 0;
     protected catalogQuery = '';
     protected catalogCategory = 'all';
     protected readonly catalogBrokenThumbnails = new Set<string>();
     protected catalogPickError?: string;
     protected catalogPicking = false;
+    /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
+    protected readonly resolvingAssetKeys = new Set<string>();
+
+    /**
+     * カタログ面 audio カードの共有試聴プレイヤー。ウィジェット全体で 1 本だけ生成し、
+     * 別カードを再生すると前の再生を止めて切り替える（同時再生 1 本 —
+     * lab/asset-oneview-proto の共有プレイヤー方式）。preload しない（クリックまで
+     * ネットワークへ触れない）ため src はトグル時にだけ設定する。
+     */
+    protected readonly catalogAudioElement: HTMLAudioElement = new Audio();
+    /** 再生中カードの key。undefined は非再生中。 */
+    protected playingCatalogAudioKey?: string;
+    /** 直近の再生失敗カードの key。カード上へ短いエラー表示するために使う。 */
+    protected catalogAudioErrorKey?: string;
 
     @postConstruct()
     protected init(): void {
@@ -164,12 +182,29 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }));
         this.ensureMaterialsWatch();
         this.ensureOutputsWatch();
-        // カタログはワークスペース非依存（catalog/ は参照配布データ）なので
-        // 素材タブと違いプロジェクトを開く前でも読み込む。
-        void this.loadCatalog();
+        // カタログはワークスペース非依存（resolver 合成分・ローカル catalog/ 分ともに
+        // アカウント/参照データなので）素材タブと違いプロジェクトを開く前でも読み込む。
+        void this.loadAssetCatalogView();
+        this.catalogAudioElement.preload = 'none';
+        this.catalogAudioElement.addEventListener('ended', () => {
+            this.playingCatalogAudioKey = undefined;
+            this.update();
+        });
+        this.catalogAudioElement.addEventListener('error', () => {
+            // src 未設定の初期状態（'' 相当）では発火しない —
+            // 実際に再生を試みていたときだけエラー扱いにする。
+            if (!this.playingCatalogAudioKey) {
+                return;
+            }
+            console.warn('[akari-project] カタログ音源の再生に失敗しました:', this.catalogAudioElement.error);
+            this.catalogAudioErrorKey = this.playingCatalogAudioKey;
+            this.playingCatalogAudioKey = undefined;
+            this.update();
+        });
+        this.toDispose.push({ dispose: () => this.catalogAudioElement.pause() });
         this.toDispose.push(this.preferences.onPreferenceChanged(change => {
             if (change.preferenceName === AKARI_CATALOG_ROOT_PREFERENCE) {
-                void this.loadCatalog();
+                void this.loadAssetCatalogView();
             }
         }));
         this.update();
@@ -204,17 +239,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         this.materialsLoading = true;
         this.update();
-        const [assetFiles, rootFiles] = await Promise.all([
-            this.collectAssetFiles(root.resolve('assets')),
+        const [assetEntries, rootFiles] = await Promise.all([
+            this.collectAssetEntries(root.resolve('assets')),
             this.collectUnorganizedRootFiles(root)
         ]);
-        const [materials, unorganizedMaterials] = await Promise.all([
-            Promise.all(assetFiles.map(file => this.buildMaterialEntry(root, file, false))),
+        const [fileMaterials, groupMaterials, unorganizedMaterials] = await Promise.all([
+            Promise.all(assetEntries.files.map(file => this.buildMaterialEntry(root, file, false))),
+            Promise.all(assetEntries.assetGroups.map(dir => this.buildAssetGroupEntry(root, dir))),
             Promise.all(rootFiles.map(file => this.buildMaterialEntry(root, file, true)))
         ]);
         if (generation !== this.materialsGeneration) {
             return; // A newer load superseded this one (e.g. rapid watch events); discard stale results.
         }
+        const materials = [...fileMaterials, ...groupMaterials];
+        materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
         this.materials = materials;
         this.unorganizedMaterials = unorganizedMaterials;
         this.materialsLoading = false;
@@ -222,34 +260,57 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         void this.hydrateCachedThumbnails(root, generation, [...materials, ...unorganizedMaterials]);
     }
 
-    protected async collectAssetFiles(assetsRoot: URI): Promise<FileStat[]> {
+    /**
+     * `assets/` を再帰 walk し、ファイル単位の従来素材（`files`）と
+     * 「meta.json を含むディレクトリ = 1 素材」のグループ（`assetGroups`）に分ける
+     * （task.md 決定事項2）。判定そのものは深さに依存しない純関数
+     * （asset-bin-grouping.ts の isAssetBinGroupDirectory）に委ねる — この walk は
+     * 訪れたディレクトリごとにその直下の子一覧を渡して判定させているだけなので、
+     * 旧配置 `assets/<id>/` 直下・新配置 `assets/<category>/<id>/` のどちらでも同じ
+     * ロジックで 1 カードに集約される（受入2）。meta.json が見つかったディレクトリは
+     * そこで打ち切り、配下（fragment.html 等）は展開しない。見つからなければ従来どおり
+     * ファイル単位まで再帰する（受入3: 撮影素材の挙動は無変更）。
+     */
+    protected async collectAssetEntries(assetsRoot: URI): Promise<{ files: FileStat[]; assetGroups: FileStat[] }> {
         let stat: FileStat;
         try {
             stat = await this.files.resolve(assetsRoot);
         } catch {
-            return [];
+            return { files: [], assetGroups: [] };
         }
-        const result: FileStat[] = [];
+        const files: FileStat[] = [];
+        const assetGroups: FileStat[] = [];
         const walk = async (node: FileStat): Promise<void> => {
             for (const child of node.children ?? []) {
                 const relative = this.workflow.relativePath(child.resource);
                 if (!shouldShowProjectPath(relative, this.workflow.current.tree, false)) {
                     continue;
                 }
-                if (child.isDirectory) {
-                    try {
-                        await walk(await this.files.resolve(child.resource));
-                    } catch {
-                        // Directory disappeared mid-walk; skip it.
-                    }
-                } else {
-                    result.push(child);
+                if (!child.isDirectory) {
+                    files.push(child);
+                    continue;
                 }
+                let resolvedChild: FileStat;
+                try {
+                    resolvedChild = await this.files.resolve(child.resource);
+                } catch {
+                    continue; // Directory disappeared mid-walk; skip it.
+                }
+                if (isAssetBinGroupDirectory(this.toAssetBinChildren(resolvedChild))) {
+                    assetGroups.push(resolvedChild);
+                    continue;
+                }
+                await walk(resolvedChild);
             }
         };
         await walk(stat);
-        result.sort((left, right) => left.resource.path.base.localeCompare(right.resource.path.base, 'ja'));
-        return result;
+        files.sort((left, right) => left.resource.path.base.localeCompare(right.resource.path.base, 'ja'));
+        assetGroups.sort((left, right) => left.resource.path.base.localeCompare(right.resource.path.base, 'ja'));
+        return { files, assetGroups };
+    }
+
+    protected toAssetBinChildren(node: FileStat): AssetBinChildNode[] {
+        return (node.children ?? []).map(child => ({ name: child.resource.path.base, isDirectory: child.isDirectory }));
     }
 
     /**
@@ -292,6 +353,49 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             analysisRelativePath,
             unorganized
         };
+    }
+
+    /**
+     * meta.json を含むディレクトリ = 1 素材グループのカードを組み立てる。
+     * タイトル = meta.title（読めなければディレクトリ名）/ サムネ = 同ディレクトリの
+     * preview.png（あれば）/ 種別バッジ = meta.category（task.md 決定事項2）。
+     * クリック対象（uri）はディレクトリ自体を開けないため、preview.png → meta.json →
+     * ディレクトリ自身の順にフォールバックする（最低限、素材として選択できること）。
+     */
+    protected async buildAssetGroupEntry(root: URI, dirStat: FileStat): Promise<MaterialCardEntry> {
+        const relativePath = this.workflow.relativePath(dirStat.resource) ?? dirStat.resource.path.base;
+        const dirName = dirStat.resource.path.base;
+        const meta = await this.readAssetGroupMeta(dirStat);
+        const children = dirStat.children ?? [];
+        const previewChild = children.find(child => !child.isDirectory && child.resource.path.base === 'preview.png');
+        const metaChild = children.find(child => !child.isDirectory && child.resource.path.base === 'meta.json');
+        const openUri = previewChild?.resource ?? metaChild?.resource ?? dirStat.resource;
+        return {
+            uri: openUri,
+            relativePath,
+            name: meta?.title || dirName,
+            kind: 'other',
+            analyzed: false,
+            thumbnailUri: previewChild?.resource,
+            unorganized: false,
+            assetGroup: { category: meta?.category ?? '' }
+        };
+    }
+
+    /** グループ対象ディレクトリの meta.json を寛容リーダーで読む。無い/壊れていれば undefined（呼び出し側でディレクトリ名にフォールバック）。 */
+    protected async readAssetGroupMeta(dirStat: FileStat): Promise<CatalogItemMeta | undefined> {
+        const metaChild = (dirStat.children ?? []).find(
+            child => !child.isDirectory && child.resource.path.base === 'meta.json'
+        );
+        if (!metaChild) {
+            return undefined;
+        }
+        try {
+            const content = await this.files.readFile(metaChild.resource);
+            return parseCatalogItemMeta(content.value.toString());
+        } catch {
+            return undefined;
+        }
     }
 
     /**
@@ -629,69 +733,26 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     // --- カタログ ---------------------------------------------------------
 
     /**
-     * カタログルート解決 → 6 カテゴリディレクトリ走査 → 各アイテムの meta.json を
-     * 寛容リーダーで読む。取得もステージ実装もしない（読み取り専用の参照データ）。
-     * meta.json 欠落・壊れは例外にせず catalogMissingCount へ計上するだけで、
-     * 他アイテムの表示は継続する。
+     * カタログ面「1 ビュー」の読み込み。backend の getAssetCatalogView() が
+     * resolver 合成分（無料 + 購入済み + 取得状態）とローカル catalog/（外部ソース系）を
+     * 既にマージ済みで返すため、ここでは preference を渡して結果をそのまま保持するだけ。
+     * 空配列（=完全に何も無い）のときだけ従来の「フォルダを選ぶ」空状態を出す。
      */
-    protected async loadCatalog(): Promise<void> {
+    protected async loadAssetCatalogView(): Promise<void> {
         this.catalogLoading = true;
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
-        const rootUriString = await this.projectService.resolveCatalogRoot(preferenceRoot);
-        if (!rootUriString) {
-            this.catalogRootResolved = false;
-            this.catalogItems = [];
-            this.catalogMissingCount = 0;
-            this.catalogLoading = false;
-            this.update();
-            return;
-        }
         this.catalogPickError = undefined;
-        const rootUri = new URI(rootUriString);
-        const items: CatalogItemMeta[] = [];
-        let missing = 0;
-        for (const category of CATALOG_CATEGORIES) {
-            let categoryStat: FileStat;
-            try {
-                categoryStat = await this.files.resolve(rootUri.resolve(category));
-            } catch {
-                continue;
-            }
-            for (const child of categoryStat.children ?? []) {
-                if (!child.isDirectory) {
-                    continue;
-                }
-                const parsed = await this.readCatalogItemMeta(child.resource.resolve('meta.json'));
-                if (parsed) {
-                    items.push(parsed);
-                } else {
-                    missing++;
-                }
-            }
-        }
-        items.sort((left, right) => left.title.localeCompare(right.title, 'ja'));
-        this.catalogRootResolved = true;
-        this.catalogItems = items;
-        this.catalogMissingCount = missing;
+        this.assetCatalogItems = await this.projectService.getAssetCatalogView(preferenceRoot);
         this.catalogLoading = false;
         this.update();
-    }
-
-    protected async readCatalogItemMeta(metaUri: URI): Promise<CatalogItemMeta | undefined> {
-        try {
-            const content = await this.files.readFile(metaUri);
-            return parseCatalogItemMeta(content.value.toString());
-        } catch {
-            return undefined;
-        }
     }
 
     /**
      * 空状態の「フォルダを選ぶ」ボタン。ネイティブフォルダ選択 → 妥当性検証 →
      * 合格なら preference（akari.catalog.root）を User スコープへ書き込む
      * （再起動後も効くように — ワークスペース依存にしない）。書き込み後は
-     * onPreferenceChanged 経由でも loadCatalog() が走るが、体感を待たせないよう
+     * onPreferenceChanged 経由でも loadAssetCatalogView() が走るが、体感を待たせないよう
      * ここでも明示的に再読込する。不合格・キャンセル時は preference を書き換えない。
      */
     protected async pickCatalogFolder(): Promise<void> {
@@ -715,7 +776,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         await this.preferences.set(AKARI_CATALOG_ROOT_PREFERENCE, destination.path.fsPath(), PreferenceScope.User);
         this.catalogPicking = false;
-        void this.loadCatalog();
+        void this.loadAssetCatalogView();
     }
 
     /**
@@ -745,12 +806,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         };
     }
 
-    protected filteredCatalogItems(): CatalogItemMeta[] {
-        return filterCatalogItems(this.catalogItems, this.catalogQuery, this.catalogCategory);
+    protected filteredCatalogItems(): AssetCatalogViewItem[] {
+        return filterCatalogItems(this.assetCatalogItems, this.catalogQuery, this.catalogCategory);
     }
 
     protected catalogCategoryChips(): string[] {
-        return Array.from(new Set(this.catalogItems.map(item => item.category))).sort((left, right) => left.localeCompare(right, 'ja'));
+        return Array.from(new Set(this.assetCatalogItems.map(item => item.category))).sort((left, right) => left.localeCompare(right, 'ja'));
     }
 
     protected setCatalogQuery(query: string): void {
@@ -763,13 +824,40 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
-    protected catalogItemKey(item: CatalogItemMeta): string {
-        return `${item.category}/${item.id}`;
+    protected handleCatalogThumbnailError(item: AssetCatalogViewItem): void {
+        this.catalogBrokenThumbnails.add(item.key);
+        this.update();
     }
 
-    protected handleCatalogThumbnailError(item: CatalogItemMeta): void {
-        this.catalogBrokenThumbnails.add(this.catalogItemKey(item));
+    /**
+     * カタログ面 audio カードの再生/停止トグル。同じカードを再クリックすると停止し、
+     * 別カードをクリックすると共有プレイヤーの再生対象を切り替える。試聴のみが目的で
+     * 「使う」（useAssetCatalogItem/resolveAsset）とは完全に独立 — カタログ項目の
+     * state 等は一切変更しない。
+     */
+    protected toggleCatalogAudio(item: AssetCatalogViewItem): void {
+        if (!item.mediaUrl) {
+            return;
+        }
+        this.catalogAudioErrorKey = undefined;
+        if (this.playingCatalogAudioKey === item.key) {
+            this.catalogAudioElement.pause();
+            this.playingCatalogAudioKey = undefined;
+            this.update();
+            return;
+        }
+        this.catalogAudioElement.pause();
+        this.catalogAudioElement.src = item.mediaUrl;
+        this.playingCatalogAudioKey = item.key;
         this.update();
+        this.catalogAudioElement.play().catch(error => {
+            console.warn('[akari-project] カタログ音源の再生を開始できませんでした:', error);
+            this.catalogAudioErrorKey = item.key;
+            if (this.playingCatalogAudioKey === item.key) {
+                this.playingCatalogAudioKey = undefined;
+            }
+            this.update();
+        });
     }
 
     protected catalogPlaceholderIcon(category: string): string {
@@ -784,20 +872,78 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
-    /** 「取り込む」— 固定パケット。取得・配置は setup-library 系スキルの領分。 */
-    protected async importCatalogItem(item: CatalogItemMeta): Promise<void> {
-        await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, composeCatalogImportPrompt(item));
+    /**
+     * origin='local'（ローカル catalog/ 由来。resolver 合成分には無い項目）専用の
+     * 「取り込む」「頼む」が要る CatalogItemMeta 形へ戻すアダプタ。catalog-context-packet.ts
+     * は既存パケット文言をそのまま維持するため変更しない（フィールド名の対応だけをここで吸収する）。
+     */
+    protected toLocalCatalogItemMeta(item: AssetCatalogViewItem): CatalogItemMeta {
+        return {
+            id: item.id,
+            category: item.category,
+            title: item.title,
+            description: item.description,
+            tags: item.tags,
+            when_to_use: item.whenToUse,
+            license: item.licenseSpdx ? { spdx: item.licenseSpdx } : undefined,
+            source: (item.sourceUrl || item.previewUrl) ? { url: item.sourceUrl, preview_url: item.previewUrl } : undefined
+        };
     }
 
-    /** 「頼む」— quick-input 1 行 → 同要素 + when_to_use 先頭 1 文 + 入力文。 */
-    protected async askAgentAboutCatalogItem(item: CatalogItemMeta): Promise<void> {
+    /** 「取り込む」— 固定パケット。取得・配置は setup-library 系スキルの領分（origin='local' 専用）。 */
+    protected async importCatalogItem(item: AssetCatalogViewItem): Promise<void> {
+        await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, composeCatalogImportPrompt(this.toLocalCatalogItemMeta(item)));
+    }
+
+    /** 「頼む」— quick-input 1 行 → 同要素 + when_to_use 先頭 1 文 + 入力文（origin='local' 専用）。 */
+    protected async askAgentAboutCatalogItem(item: AssetCatalogViewItem): Promise<void> {
         const request = await this.quickInputService.input({
             placeHolder: 'この素材で何をしますか'
         });
         if (!request || !request.trim()) {
             return;
         }
-        await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, composeCatalogAskAgentPrompt(item, request));
+        await this.commandService.executeCommand(
+            PARTNER_INJECT_PROMPT_COMMAND_ID,
+            composeCatalogAskAgentPrompt(this.toLocalCatalogItemMeta(item), request)
+        );
+    }
+
+    /**
+     * 「使う」— origin='resolver' の無料/取得済み素材専用（resolver 直行・エージェント非経由）。
+     * resolveAsset() 完了で (1) バッジを cached へ更新 (2) 素材箱（loadMaterials）を再読込して
+     * 反映を確認できるようにする。in-flight は resolvingAssetKeys でスピナー/二重クリック防止。
+     */
+    protected async useAssetCatalogItem(item: AssetCatalogViewItem): Promise<void> {
+        const root = this.workflow.workspaceRoot;
+        if (!root) {
+            this.messages.warn('先にプロジェクトを開いてください。');
+            return;
+        }
+        if (this.resolvingAssetKeys.has(item.key)) {
+            return;
+        }
+        this.resolvingAssetKeys.add(item.key);
+        this.update();
+        try {
+            const outcome = await this.projectService.resolveAsset(item.id, root.toString());
+            // tsconfig の strict:false（strictNullChecks off）下では `!outcome.success` /
+            // if-else の判別共用体絞り込みが効かない（実測で確認済み）。`=== false` の
+            // 明示比較だけが確実に絞り込めるため、これを使う。
+            if (outcome.success === false) {
+                this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
+                return;
+            }
+            this.assetCatalogItems = this.assetCatalogItems.map(entry =>
+                entry.key === item.key ? { ...entry, state: 'cached' } : entry
+            );
+            void this.loadMaterials();
+        } catch {
+            this.messages.error('素材を取得できませんでした。ネットワーク環境をご確認ください。');
+        } finally {
+            this.resolvingAssetKeys.delete(item.key);
+            this.update();
+        }
     }
 
     // --- ドロップ振り分け -----------------------------------------------------
@@ -1012,6 +1158,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 key={entry.uri.toString()}
                 data-akari-material-path={entry.relativePath}
                 data-akari-material-unorganized={entry.unorganized ? 'true' : 'false'}
+                data-akari-material-asset-group={entry.assetGroup ? 'true' : 'false'}
                 onClick={() => void this.openFile(entry.uri)}
                 title={entry.name}
                 style={{
@@ -1058,6 +1205,26 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             }}
                         >
                             未整理
+                        </span>
+                    )}
+                    {entry.assetGroup && (
+                        <span
+                            title={`種別: ${entry.assetGroup.category || '不明'}`}
+                            aria-label={`種別: ${entry.assetGroup.category || '不明'}`}
+                            data-akari-asset-group-category={entry.assetGroup.category}
+                            style={{
+                                position: 'absolute',
+                                top: '4px',
+                                left: '4px',
+                                padding: '0 6px',
+                                borderRadius: '8px',
+                                fontSize: '0.68em',
+                                lineHeight: '16px',
+                                background: 'var(--theia-badge-background)',
+                                color: 'var(--theia-badge-foreground)'
+                            }}
+                        >
+                            {entry.assetGroup.category || '素材'}
                         </span>
                     )}
                     <span
@@ -1154,24 +1321,21 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (this.catalogLoading) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
-        if (!this.catalogRootResolved) {
+        // resolver 合成分・ローカル catalog/ 分のどちらも 1 件も無いときだけ、
+        // 従来の「フォルダを選ぶ」空状態を出す（片方にでも項目があれば一覧を出す）。
+        if (!this.assetCatalogItems.length) {
             return this.renderCatalogEmptyState();
         }
         const filtered = this.filteredCatalogItems();
         return (
             <div
                 style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
-                data-akari-catalog-item-count={this.catalogItems.length}
-                data-akari-catalog-missing-count={this.catalogMissingCount}
+                data-akari-catalog-item-count={this.assetCatalogItems.length}
             >
                 {this.renderCatalogControls()}
                 <div style={{ flex: '1 1 auto', overflow: 'auto' }}>
                     {!filtered.length
-                        ? <p style={{ opacity: 0.7, padding: '16px' }}>
-                            {this.catalogItems.length
-                                ? '条件に一致するカタログ項目がありません。'
-                                : 'カタログ項目が見つかりませんでした。'}
-                        </p>
+                        ? <p style={{ opacity: 0.7, padding: '16px' }}>条件に一致するカタログ項目がありません。</p>
                         : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', padding: '10px' }}>
                             {filtered.map(item => this.renderCatalogCard(item))}
                         </div>}
@@ -1260,16 +1424,148 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
-    protected renderCatalogCard(item: CatalogItemMeta): React.ReactNode {
-        const key = this.catalogItemKey(item);
-        const thumbnailBroken = this.catalogBrokenThumbnails.has(key);
-        const previewUrl = item.source?.preview_url;
-        const tags = (item.tags ?? []).slice(0, 3);
+    /** 状態バッジ（origin='resolver' のみ）。左上のサムネオーバーレイに乗せる小片を返す。 */
+    protected renderAssetStateBadge(item: AssetCatalogViewItem): React.ReactNode {
+        const label = assetStateBadgeText(item);
+        if (!item.state || !label) {
+            return undefined;
+        }
+        return (
+            <span
+                title={ASSET_STATE_BADGE_LABEL[item.state]}
+                style={{
+                    position: 'absolute',
+                    top: '4px',
+                    left: '4px',
+                    padding: '1px 5px',
+                    borderRadius: '10px',
+                    fontSize: '0.72em',
+                    fontWeight: 600,
+                    background: item.state === 'locked' ? 'var(--theia-badge-background)' : 'var(--theia-editorWidget-background)',
+                    color: item.state === 'locked' ? 'var(--theia-badge-foreground)' : 'var(--theia-sideBar-foreground)',
+                    border: '1px solid var(--theia-sideBar-border)'
+                }}
+            >
+                {label}
+            </span>
+        );
+    }
+
+    /**
+     * audio カードのサムネ右下に重ねる再生/停止ボタン。mediaUrl が無ければ何も出さない
+     * （origin='local' の音源や、files[] に音声拡張子が無い項目はここで自然に非表示になる）。
+     */
+    protected renderCatalogAudioControl(item: AssetCatalogViewItem): React.ReactNode {
+        if (item.category !== 'audio' || !item.mediaUrl) {
+            return undefined;
+        }
+        const playing = this.playingCatalogAudioKey === item.key;
+        return (
+            <button
+                type='button'
+                title={playing ? '停止' : '試聴する'}
+                aria-label={playing ? `${item.title} の再生を停止` : `${item.title} を試聴`}
+                data-akari-catalog-audio-toggle
+                data-akari-catalog-audio-playing={playing ? 'true' : 'false'}
+                onClick={event => { event.stopPropagation(); this.toggleCatalogAudio(item); }}
+                style={{
+                    position: 'absolute',
+                    bottom: '4px',
+                    right: '4px',
+                    width: '24px',
+                    height: '24px',
+                    padding: 0,
+                    borderRadius: '50%',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'var(--theia-button-background)',
+                    color: 'var(--theia-button-foreground)',
+                    cursor: 'pointer'
+                }}
+            >
+                <span className={playing ? 'codicon codicon-debug-stop' : 'codicon codicon-play'} aria-hidden='true' style={{ fontSize: '12px' }} />
+            </button>
+        );
+    }
+
+    /** 直近の再生失敗をカード上へ短く表示する（コンソールに黙って捨てない）。 */
+    protected renderCatalogAudioError(item: AssetCatalogViewItem): React.ReactNode {
+        if (this.catalogAudioErrorKey !== item.key) {
+            return undefined;
+        }
+        return (
+            <p data-akari-catalog-audio-error style={{ margin: 0, color: 'var(--theia-errorForeground)', fontSize: '0.72em' }}>
+                再生できませんでした
+            </p>
+        );
+    }
+
+    /** カード下部のアクション行。origin で「使う」（resolver）か「取り込む/頼む」（local）かを切り替える。 */
+    protected renderCatalogCardActions(item: AssetCatalogViewItem): React.ReactNode {
+        if (item.origin === 'local') {
+            return (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        title={`${item.title} をエージェントに取り込ませる`}
+                        style={{ flex: '1 1 0', fontSize: '0.78em', padding: '2px 4px' }}
+                        onClick={() => void this.importCatalogItem(item)}
+                    >
+                        取り込む
+                    </button>
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        title={`${item.title} についてエージェントに頼む`}
+                        style={{ flex: '1 1 0', fontSize: '0.78em', padding: '2px 4px' }}
+                        onClick={() => void this.askAgentAboutCatalogItem(item)}
+                    >
+                        頼む
+                    </button>
+                </div>
+            );
+        }
+        if (item.state === 'locked') {
+            return (
+                <button
+                    type='button'
+                    className='theia-button secondary'
+                    disabled
+                    title='購入すると使えるようになります（ストア連携は今後実装）'
+                    style={{ width: '100%', fontSize: '0.78em', padding: '2px 4px', opacity: 0.7 }}
+                >
+                    ストアで見る
+                </button>
+            );
+        }
+        const resolving = this.resolvingAssetKeys.has(item.key);
+        return (
+            <button
+                type='button'
+                className='theia-button'
+                disabled={resolving}
+                title={item.state === 'cached' ? `${item.title} はプロジェクトに配置済みです` : `${item.title} を取得してプロジェクトに配置します`}
+                style={{ width: '100%', fontSize: '0.78em', padding: '2px 4px' }}
+                onClick={() => void this.useAssetCatalogItem(item)}
+            >
+                {resolving ? '取得中…' : '使う'}
+            </button>
+        );
+    }
+
+    protected renderCatalogCard(item: AssetCatalogViewItem): React.ReactNode {
+        const thumbnailBroken = this.catalogBrokenThumbnails.has(item.key);
+        const previewUrl = item.previewUrl;
+        const tags = item.tags.slice(0, 3);
         return (
             <div
-                key={key}
+                key={item.key}
                 title={item.title}
-                data-akari-catalog-item={key}
+                data-akari-catalog-item={item.key}
+                data-akari-catalog-item-state={item.state ?? 'local'}
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -1301,6 +1597,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             aria-hidden='true'
                             style={{ fontSize: '1.8em', opacity: 0.5 }}
                         />}
+                    {this.renderAssetStateBadge(item)}
+                    {this.renderCatalogAudioControl(item)}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px' }}>
                     <span style={{ fontSize: '0.85em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1321,32 +1619,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                 {tag}
                             </span>
                         ))}
-                        {item.license?.spdx && (
+                        {item.licenseSpdx && (
                             <span style={{ padding: '0 4px', borderRadius: '8px', border: '1px solid var(--theia-sideBar-border)' }}>
-                                {item.license.spdx}
+                                {item.licenseSpdx}
                             </span>
                         )}
                     </div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                            type='button'
-                            className='theia-button secondary'
-                            title={`${item.title} をエージェントに取り込ませる`}
-                            style={{ flex: '1 1 0', fontSize: '0.78em', padding: '2px 4px' }}
-                            onClick={() => void this.importCatalogItem(item)}
-                        >
-                            取り込む
-                        </button>
-                        <button
-                            type='button'
-                            className='theia-button secondary'
-                            title={`${item.title} についてエージェントに頼む`}
-                            style={{ flex: '1 1 0', fontSize: '0.78em', padding: '2px 4px' }}
-                            onClick={() => void this.askAgentAboutCatalogItem(item)}
-                        >
-                            頼む
-                        </button>
-                    </div>
+                    {this.renderCatalogAudioError(item)}
+                    {this.renderCatalogCardActions(item)}
                 </div>
             </div>
         );
