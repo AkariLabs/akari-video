@@ -68,10 +68,16 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 
 | Path | Purpose | Runtime | Entry point |
 |---|---|---|---|
-| A: Three.js overlay | Live 3D **layered on top of** footage (spinning logos, VideoTexture screens, …) | Transparent canvas + declarative JSON + bundled Three.js | [overlay-authoring/3d.md](../skills/overlay-authoring/3d.md) |
-| B: Blender bake | Animating a 3D scene to produce **footage (a clip) itself** | None (the baked mp4 is ordinary footage) | [bake-3d](../skills/bake-3d/SKILL.md) |
+| A: Three.js overlay (**default**) | 3D in general — composites transparently, can play video on a screen, animates via clips baked into the glb | Transparent canvas + declarative JSON + bundled Three.js | [overlay-authoring/3d.md](../skills/overlay-authoring/3d.md) |
+| B: Blender bake | Looks A cannot produce, cutting the simultaneous scene count, delivering a reusable library clip | None (the baked mp4 is ordinary footage) | [bake-3d](../skills/bake-3d/SKILL.md) |
 
-Routing rule: **if it sits on the timeline as a clip, it's B; if it layers on top of footage, it's A.**
+Routing rule: **A is the default. Choose by the capability you need, not by where the result sits**
+("I want it on the timeline as a clip" is not a reason for B). Pick B only when (1) you need a look the
+declarative runtime cannot produce (depth of field, motion blur, ray-traced reflections, GI, particles),
+(2) you must drop below ~2 simultaneous 3D scenes to stay inside the export's performance budget, or
+(3) you are delivering a reusable clip to the asset library. A baked clip always carries an opaque
+background and costs ~10 minutes to re-bake, so when in doubt start with A and fall back only once
+you are stuck (confirmed in production on 2026-08-04).
 
 Why path B uses Blender (from the contract):
 
