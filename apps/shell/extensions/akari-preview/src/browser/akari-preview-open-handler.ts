@@ -2604,7 +2604,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             const children = [...(stat.children ?? [])]
-                .filter(child => !SKIPPED_DIRECTORIES.has(child.resource.path.base))
+                // ドット始まり（.backups / .pretest-* 等）はバックアップ・作業ディレクトリの
+                // 定番置き場で、そこの edit.json を拾うとタイムラインとプレビューが別ファイルに
+                // 割れる実害が出た（2026-08-04）。名指しの SKIPPED に加えて一律飛ばす
+                .filter(child => !SKIPPED_DIRECTORIES.has(child.resource.path.base)
+                    && !child.resource.path.base.startsWith('.'))
                 .sort((left, right) => left.resource.toString().localeCompare(right.resource.toString()));
             for (const child of children) {
                 await visit(child.resource);
