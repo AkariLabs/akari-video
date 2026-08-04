@@ -17,7 +17,12 @@
  * ローカル検証が別途残るため安全側は保たれる）。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findEditLintBinPath = exports.runEditLint = exports.writeAtomic = exports.writeProjectFilesGuarded = exports.assertLintPasses = exports.lintProjectCandidates = void 0;
+exports.lintProjectCandidates = lintProjectCandidates;
+exports.assertLintPasses = assertLintPasses;
+exports.writeProjectFilesGuarded = writeProjectFilesGuarded;
+exports.writeAtomic = writeAtomic;
+exports.runEditLint = runEditLint;
+exports.findEditLintBinPath = findEditLintBinPath;
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 const os_1 = require("os");
@@ -60,7 +65,6 @@ async function lintProjectCandidates(projectRoot, candidates) {
         await fs_1.promises.rm(tempRoot, { recursive: true, force: true });
     }
 }
-exports.lintProjectCandidates = lintProjectCandidates;
 /** lint に落ちたら書き込まずに例外を投げる（呼び出し側の catch で UI が巻き戻る）。 */
 async function assertLintPasses(projectRoot, candidates) {
     const result = await lintProjectCandidates(projectRoot, candidates);
@@ -68,7 +72,6 @@ async function assertLintPasses(projectRoot, candidates) {
         throw new Error(result.errors[0] ?? 'edit-lint が変更を拒否しました');
     }
 }
-exports.assertLintPasses = assertLintPasses;
 /** lint ゲート → atomic 書き込み（tmp + rename）を一括で行う唯一の正規経路。 */
 async function writeProjectFilesGuarded(projectRoot, candidates) {
     await assertLintPasses(projectRoot, candidates);
@@ -76,14 +79,12 @@ async function writeProjectFilesGuarded(projectRoot, candidates) {
         await writeAtomic((0, path_1.join)(projectRoot, name), text);
     }
 }
-exports.writeProjectFilesGuarded = writeProjectFilesGuarded;
 async function writeAtomic(destination, content) {
     await fs_1.promises.mkdir((0, path_1.dirname)(destination), { recursive: true });
     const temporary = `${destination}.${process.pid}.tmp`;
     await fs_1.promises.writeFile(temporary, content, 'utf8');
     await fs_1.promises.rename(temporary, destination);
 }
-exports.writeAtomic = writeAtomic;
 async function runEditLint(projectRoot) {
     let binPath;
     try {
@@ -119,7 +120,6 @@ async function runEditLint(projectRoot) {
         findings
     };
 }
-exports.runEditLint = runEditLint;
 function findEditLintBinPath() {
     const candidates = [];
     // パッケージ版 shell: バンドル済みバックエンドの隣に edit-lint が同梱される配置。
@@ -157,7 +157,6 @@ function findEditLintBinPath() {
     }
     throw new Error(`edit-lint bin was not found (tried: ${candidates.join(', ')})`);
 }
-exports.findEditLintBinPath = findEditLintBinPath;
 let editLintUnavailableWarned = false;
 function warnEditLintUnavailableOnce(error) {
     if (editLintUnavailableWarned) {

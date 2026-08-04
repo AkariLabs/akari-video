@@ -47,16 +47,18 @@ test('checked generated surfaces have the exact source list and deterministic by
       );
     }
 
+    // esbuild の bin は postinstall がネイティブバイナリへ置換する環境がある（macOS 等）。
+    // `node <bin>` 起動は JS シム前提で壊れるため、直接実行する（シムは shebang で node に乗る）。
     const esbuild = join(repositoryRoot, 'node_modules/esbuild/bin/esbuild');
     const editStoreBundle = join(temporary, 'edit-store-webview.js');
-    execFileSync(process.execPath, [esbuild, 'src/webview-kernel.ts',
+    execFileSync(esbuild, ['src/webview-kernel.ts',
       '--bundle', '--format=iife', '--global-name=AkariEditKernel', `--outfile=${editStoreBundle}`,
       '--target=chrome122', '--platform=browser'], { cwd: packageRoot, stdio: 'pipe' });
     assert.equal(sha256(await readFile(editStoreBundle)), sha256(await readFile(join(packageRoot, 'lib/webview-kernel.js'))));
 
     const previewBundle = join(temporary, 'preview-edit-kernel.js');
     const previewRoot = join(repositoryRoot, 'packages/preview-server');
-    execFileSync(process.execPath, [esbuild, '../edit-store/src/webview-kernel.ts',
+    execFileSync(esbuild, ['../edit-store/src/webview-kernel.ts',
       '--bundle', '--format=esm', `--outfile=${previewBundle}`,
       '--target=chrome122', '--platform=browser'], { cwd: previewRoot, stdio: 'pipe' });
     assert.equal(

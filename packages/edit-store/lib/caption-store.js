@@ -1,6 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeCaptionLine = exports.insertCaptionLine = exports.updateCaptionTextStyleInSource = exports.updateCaptionFieldsInSource = exports.shiftCaptionLine = exports.mergeCaptionTextStyles = exports.parseCaptions = exports.CAPTION_ZONES = void 0;
+exports.CAPTION_ZONES = void 0;
+exports.parseCaptions = parseCaptions;
+exports.mergeCaptionTextStyles = mergeCaptionTextStyles;
+exports.shiftCaptionLine = shiftCaptionLine;
+exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
+exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
+exports.insertCaptionLine = insertCaptionLine;
+exports.removeCaptionLine = removeCaptionLine;
 const edit_store_1 = require("./edit-store");
 exports.CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
@@ -47,7 +54,6 @@ function parseCaptions(source) {
         warnings
     };
 }
-exports.parseCaptions = parseCaptions;
 function mergeCaptionTextStyles(defaultStyle, captionStyle) {
     const merged = {
         ...defaultStyle,
@@ -69,7 +75,6 @@ function mergeCaptionTextStyles(defaultStyle, captionStyle) {
     }
     return Object.keys(merged).length > 0 ? merged : undefined;
 }
-exports.mergeCaptionTextStyles = mergeCaptionTextStyles;
 function shiftCaptionLine(source, captionId, deltaStart, deltaEnd) {
     if (!captionId || !Number.isFinite(deltaStart) || !Number.isFinite(deltaEnd)) {
         throw new Error('字幕の調整値が不正です。');
@@ -89,7 +94,6 @@ function shiftCaptionLine(source, captionId, deltaStart, deltaEnd) {
     nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
-exports.shiftCaptionLine = shiftCaptionLine;
 function updateCaptionFieldsInSource(source, captionId, updates) {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
@@ -115,7 +119,6 @@ function updateCaptionFieldsInSource(source, captionId, updates) {
     nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
-exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
 function updateCaptionTextStyleInSource(source, captionId, updates) {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
@@ -154,7 +157,6 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
-exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
 function insertCaptionLine(source, caption) {
     const parsed = parseCaptions(source);
     if (!normalizeCaption(caption)) {
@@ -189,7 +191,6 @@ function insertCaptionLine(source, caption) {
     }
     return replaceArrayInner(source, array, insertIntoEmptyArray(array.inner, serialized, lineEnding));
 }
-exports.insertCaptionLine = insertCaptionLine;
 function removeCaptionLine(source, captionId) {
     const parsed = parseCaptions(source);
     const array = locateCaptionArray(source);
@@ -214,7 +215,6 @@ function removeCaptionLine(source, captionId) {
     }
     return replaceArrayInner(source, array, nextInner);
 }
-exports.removeCaptionLine = removeCaptionLine;
 function normalizeCaption(value) {
     if (!value || typeof value !== 'object' || typeof value.id !== 'string' || !value.id
         || typeof value.text !== 'string' || typeof value.edited !== 'boolean') {

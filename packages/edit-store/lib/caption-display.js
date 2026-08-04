@@ -6,7 +6,16 @@
  * select a resolved cue by output time.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatCssNumber = exports.resolveCaptionStyleForOutput = exports.mergeCaptionDisplayStyles = exports.scheduleCaptionFragments = exports.splitCaptionFragments = exports.validateCaptionTextStyle = exports.resolveCaptionDisplay = exports.validateCaptionDisplayPolicy = exports.measureCaptionUnits = exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
+exports.measureCaptionUnits = measureCaptionUnits;
+exports.validateCaptionDisplayPolicy = validateCaptionDisplayPolicy;
+exports.resolveCaptionDisplay = resolveCaptionDisplay;
+exports.validateCaptionTextStyle = validateCaptionTextStyle;
+exports.splitCaptionFragments = splitCaptionFragments;
+exports.scheduleCaptionFragments = scheduleCaptionFragments;
+exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
+exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
+exports.formatCssNumber = formatCssNumber;
 exports.CAPTION_DISPLAY_SCHEMA = 'caption-layout/v1';
 exports.CAPTION_DISPLAY_MODE = 'single_line_sequential';
 exports.CAPTION_DISPLAY_ALGORITHM = 'a4-ja-two-fragment-v1';
@@ -37,7 +46,6 @@ exports.CaptionDisplayError = CaptionDisplayError;
 function measureCaptionUnits(text) {
     return Array.from(text).reduce((total, character) => total + (/^[\x00-\x7F]$/u.test(character) ? 0.5 : 1), 0);
 }
-exports.measureCaptionUnits = measureCaptionUnits;
 function validateCaptionDisplayPolicy(value) {
     if (!isRecord(value))
         fail('INVALID_POLICY', 'display_policy must be an object');
@@ -70,7 +78,6 @@ function validateCaptionDisplayPolicy(value) {
         ...(breakHints ? { break_hints: breakHints } : {})
     };
 }
-exports.validateCaptionDisplayPolicy = validateCaptionDisplayPolicy;
 function validateBreakHints(value) {
     if (!isRecord(value))
         fail('INVALID_POLICY', 'display_policy.break_hints must be an object');
@@ -187,7 +194,6 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         display_cues: displayCues
     };
 }
-exports.resolveCaptionDisplay = resolveCaptionDisplay;
 /**
  * Strict captions.schema textStyle validation for the opt-in display-policy kernel.
  * Validation happens on each source object before merge so a valid override can never
@@ -223,7 +229,6 @@ function validateCaptionTextStyle(value, label = 'text_style') {
     }
     return value;
 }
-exports.validateCaptionTextStyle = validateCaptionTextStyle;
 function validateCaptionStroke(value, label) {
     if (!isRecord(value))
         fail('INVALID_TEXT_STYLE', `${label} must be an object`);
@@ -479,7 +484,6 @@ function splitCaptionFragments(text, policy) {
     candidates.sort((left, right) => right.score - left.score || left.boundary - right.boundary);
     return { fragments: candidates[0].fragments, boundaries };
 }
-exports.splitCaptionFragments = splitCaptionFragments;
 function captionBreakScore(first, second, firstUnits, secondUnits, hints) {
     let score = 100 - Math.abs(firstUnits - secondUnits) * 4;
     if ((hints?.preferred_second_starts ?? []).some(value => second.startsWith(value)))
@@ -527,7 +531,6 @@ function scheduleCaptionFragments(start, end, fragments, minimumSeconds) {
         return { start: fragmentStart, end: fragmentEnd, text: fragment };
     });
 }
-exports.scheduleCaptionFragments = scheduleCaptionFragments;
 function mergeCaptionDisplayStyles(base, override) {
     const left = isRecord(base) ? base : {};
     const right = isRecord(override) ? override : {};
@@ -542,7 +545,6 @@ function mergeCaptionDisplayStyles(base, override) {
         fail('STYLE_LAYOUT_CONFLICT', 'merged caption text style cannot contain both zone and layout');
     return merged;
 }
-exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
 function resolveCaptionStyleForOutput(style, output) {
     const vars = {};
     let layout;
@@ -584,7 +586,6 @@ function resolveCaptionStyleForOutput(style, output) {
     }
     return { vars, ...(layout ? { layout } : {}) };
 }
-exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
 function resolveReferencePixelLayout(value, output) {
     if (!isRecord(value) || value.mode !== 'reference-pixel')
         fail('INVALID_LAYOUT', 'caption layout.mode must be reference-pixel');
@@ -623,7 +624,6 @@ function resolveReferencePixelLayout(value, output) {
 function formatCssNumber(value) {
     return Number(value.toFixed(6)).toString();
 }
-exports.formatCssNumber = formatCssNumber;
 function strokeShadow(color, width, rounded) {
     const serialized = rounded ? formatCssNumber(width) : String(width);
     const negative = width === 0 ? '0' : `-${serialized}px`;

@@ -18,13 +18,14 @@
  *     webview の zForTrack フォールバックと同順。宣言トラック順を持つ呼び出し側は trackZ で上書き）
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.outputToSource = exports.buildTimelineMap = exports.cutsUseGapsOrTracks = void 0;
+exports.cutsUseGapsOrTracks = cutsUseGapsOrTracks;
+exports.buildTimelineMap = buildTimelineMap;
+exports.outputToSource = outputToSource;
 const edit_store_1 = require("./edit-store");
 function cutsUseGapsOrTracks(cuts) {
     return cuts.some(cut => cut.at !== undefined
         || (typeof cut.track === 'number' && Number.isInteger(cut.track) && cut.track !== 0));
 }
-exports.cutsUseGapsOrTracks = cutsUseGapsOrTracks;
 function buildTimelineMap(cuts, options) {
     const usable = [];
     cuts.forEach((cut, index) => {
@@ -135,7 +136,6 @@ function buildTimelineMap(cuts, options) {
     });
     return { segments, totalDuration: outputDuration, transitionPlates: [], usesGapsOrTracks: true };
 }
-exports.buildTimelineMap = buildTimelineMap;
 /**
  * 出力秒 → ソース秒。トランジション重なり区間（隣接 src が重なる出力時刻）は
  * 先行セグメントが勝つ（webview / 旧 Web UI の「先に終わる方を先に見る」走査と同順）。
@@ -158,4 +158,3 @@ function outputToSource(segments, outputT) {
     }
     return { segment: null, sourceT: null };
 }
-exports.outputToSource = outputToSource;
