@@ -32,6 +32,7 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { AkariProjectService, DroppedVideo } from '../common/akari-project-protocol';
 import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
+import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 
 export const NEW_AKARI_PROJECT: Command = {
     id: 'akari.project.new',
@@ -44,6 +45,10 @@ export const SHOW_AKARI_CHANGES: Command = {
 export const TOGGLE_AKARI_DEVELOPER_MODE: Command = {
     id: 'akari.project.toggleDeveloperMode',
     label: '開発者モードを切り替える'
+};
+export const DISCONNECT_AKARI_STORE_ACCOUNT: Command = {
+    id: 'akari.project.disconnectStoreAccount',
+    label: 'AKARI アカウントの接続を解除'
 };
 const PROJECT_CONSENT_MESSAGE =
     'このフォルダを AKARI Video プロジェクトとして使いますか？' +
@@ -90,6 +95,9 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         commands.registerCommand(TOGGLE_AKARI_DEVELOPER_MODE, {
             execute: () => this.toggleDeveloperMode(),
             isToggled: () => this.mode.developerMode
+        });
+        commands.registerCommand(DISCONNECT_AKARI_STORE_ACCOUNT, {
+            execute: () => this.disconnectStoreAccount()
         });
     }
 
@@ -346,6 +354,29 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         const navigator = await this.widgets.getOrCreateWidget('files') as any;
         await navigator.model?.refresh?.();
         this.app?.shell.update();
+    }
+
+    protected async disconnectStoreAccount(): Promise<void> {
+        try {
+            const connection = await this.projectService.getStoreConnectionStatus();
+            if (!connection.connected) {
+                this.messages.info('AKARI アカウントは未接続です。');
+                return;
+            }
+            const action = await this.messages.warn(
+                `${connection.identifier} として接続中です。この端末の接続情報を削除しますか？`,
+                '切断する'
+            );
+            if (action !== '切断する') {
+                return;
+            }
+            await this.projectService.disconnectStoreAccount();
+            const widget = await this.widgets.getOrCreateWidget(AkariRoleBucketsWidget.ID) as AkariRoleBucketsWidget;
+            await widget.refreshStoreConnectionStatus();
+            this.messages.info('AKARI アカウントの接続を解除しました。');
+        } catch (error) {
+            this.messages.error(`接続を解除できませんでした: ${this.errorMessage(error)}`);
+        }
     }
 
     protected errorMessage(error: unknown): string {

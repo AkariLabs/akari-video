@@ -118,6 +118,36 @@ export type AssetResolveOutcome =
     | { success: true; projectAssetPath: string }
     | { success: false; error: string };
 
+export interface StoreConnectionStatus {
+    connected: boolean;
+    identifier?: string;
+    email?: string;
+    url?: string;
+}
+
+export type StoreDeviceStartOutcome =
+    | {
+        status: 'started';
+        baseUrl: string;
+        deviceCode: string;
+        userCode: string;
+        verificationUrl: string;
+        intervalMs: number;
+        expiresAt: number;
+    }
+    | { status: 'network-error' | 'error'; error: string };
+
+export interface StoreDevicePollRequest {
+    baseUrl: string;
+    deviceCode: string;
+}
+
+export type StoreDevicePollOutcome =
+    | { status: 'pending' }
+    | { status: 'approved'; connection: StoreConnectionStatus }
+    | { status: 'expired' }
+    | { status: 'network-error' | 'error'; error: string };
+
 export interface AkariProjectService {
     createProject(destinationUri: string): Promise<void>;
     watchProject(projectUri: string): Promise<void>;
@@ -156,4 +186,8 @@ export interface AkariProjectService {
      * success=false + 購入案内メッセージで返る（resolver 自体の fail-closed をそのまま透過）。
      */
     resolveAsset(id: string, projectUri: string): Promise<AssetResolveOutcome>;
+    getStoreConnectionStatus(): Promise<StoreConnectionStatus>;
+    startStoreDeviceConnection(): Promise<StoreDeviceStartOutcome>;
+    pollStoreDeviceConnection(request: StoreDevicePollRequest): Promise<StoreDevicePollOutcome>;
+    disconnectStoreAccount(): Promise<boolean>;
 }

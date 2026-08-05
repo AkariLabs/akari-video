@@ -25,7 +25,8 @@
     "@theia/monaco": "1.73.1",
     "@theia/navigator": "1.73.1",
     "@theia/terminal": "1.73.1",
-    "@theia/plugin-ext": "1.73.1"
+    "@theia/plugin-ext": "1.73.1",
+    "akari-video": "^0.1.3"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
