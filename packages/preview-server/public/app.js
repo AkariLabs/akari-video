@@ -12,6 +12,8 @@ import {
   drawPenSegment as drawPenSegmentShared,
 } from '/pen-visuals.bundle.js';
 import { replaceCaptionStyleVariables } from '/caption-style.js';
+// cuts[].framing / cuts[].freeze のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
+import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -90,6 +92,9 @@ let segments = [];
 let totalDuration = 0;
 let zoom = 1;
 let pan = { x: 0, y: 0 };
+// cuts[].freeze の一時停止ホールド（近似実装。尺は伸ばさない — contract-2026-08-02-preview-parity.md §2.4.3）。
+let freezeHoldUntilMs = 0;
+let freezeHoldConsumedForCutIndex = null;
 let drag = null;
 
 let editMode = false;
@@ -284,12 +289,19 @@ function buildSegments() {
     ? { index: -1, isGap: true, durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd }
     : {
         index: s.cutIndex, isGap: false, inSec: s.in, outSec: s.out, speed: s.speed || 1,
-        durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd, track: s.track ?? 0
+        durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd, track: s.track ?? 0,
+        // framing / freeze は再生時の見た目情報で写像には関与しないため、共有カーネルの
+        // segment には無い。元 cuts から補う（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
+        framing: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].framing : undefined,
+        freeze: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].freeze : undefined
       });
   totalDuration = built.totalDuration;
   seek.max = totalDuration;
   updateTimeLabel();
   updateSeekVisual();
+  // 初回描画・編集後の再読み込みのどちらでも framing を反映する（このタイミングは playbackLoop
+  // が回っていないことがあるため個別に呼ぶ必要がある）。
+  applyCutFramingVisual();
 }
 
 // --- B-roll layers ---
@@ -1360,8 +1372,49 @@ function sharedSegmentsView() {
   return _sharedView.view;
 }
 
+// cuts[].framing の毎フレーム反映（contract-2026-08-02-preview-parity.md §2.4.2）。#preview-video
+// は shell と異なり cuts[].transform を持たない（layers[] のみが transform をサポートする）ため、
+// この transform/transformOrigin をここで単独所有できる（合成の必要が無い）。
+function playedCutLocalSeconds(seg) {
+  if (!seg || seg.isGap) return 0;
+  const speed = seg.speed > 0 ? seg.speed : 1;
+  return ((video.currentTime || 0) - seg.inSec) / speed;
+}
+function applyCutFramingVisual() {
+  const seg = getActiveSegment(outputTime);
+  const visual = computeCutFramingVisual(seg && !seg.isGap ? seg.framing : null, playedCutLocalSeconds(seg));
+  if (visual) {
+    video.style.transformOrigin = visual.transformOrigin;
+    video.style.transform = visual.transform;
+  } else {
+    video.style.transformOrigin = '';
+    video.style.transform = '';
+  }
+}
+
+// cuts[].freeze の一時停止ホールド（近似実装。尺は伸ばさない -- contract-2026-08-02-preview-parity.md
+// §2.4.3）。pause()/play() の既存一時停止・再開ロジックを直接呼ばず、isPlaying/playToggle UI や
+// logReviewEvent には触れない小さなサブセットとして独立させている（フリーズはユーザー操作ではない）。
+function pauseAllPlaybackForFreeze() {
+  video.pause();
+  for (const n of [...narrationNodes, ...sfxNodes]) {
+    if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
+  }
+  if (audioCtx?.state === 'running') audioCtx.suspend();
+  for (const lv of layerVideos) lv.el.pause();
+}
+function resumeAllPlaybackForFreeze() {
+  if (video.paused) video.play();
+  if (audioCtx?.state === 'suspended') audioCtx.resume();
+  for (const lv of layerVideos) if (lv.visible) lv.el.play();
+}
+
 function seekTo(t) {
   cutInfoPopup.hidden = true;
+  // フリーズホールドはシーク（=カットが変わりうる操作）で必ず打ち切る（contract-2026-08-02-preview-
+  // parity.md §2.4.3）。古い holdSeconds タイマーが新しい位置の再生を誤って一時停止させるのを防ぐ。
+  freezeHoldUntilMs = 0;
+  freezeHoldConsumedForCutIndex = null;
   const prev = outputTime;
   outputTime = Math.max(0, Math.min(t, totalDuration));
   if (Math.abs(outputTime - prev) > 0.05) logReviewEvent('seek', { from: +prev.toFixed(3), to: +outputTime.toFixed(3) });
@@ -1382,6 +1435,7 @@ function seekTo(t) {
   updateTransitions();
   syncAudio(outputTime);
   syncLayers(outputTime);
+  applyCutFramingVisual();
 }
 
 function play() {
@@ -1402,6 +1456,9 @@ function play() {
 function pause() {
   if (!isPlaying) return;
   logReviewEvent('pause');
+  // 手動一時停止はフリーズホールドを打ち切る（保留中タイマーを引きずったまま次の再開で
+  // 誤って再一時停止しない -- contract-2026-08-02-preview-parity.md §2.4.3）。
+  freezeHoldUntilMs = 0;
   isPlaying = false; video.pause();
   for (const n of [...narrationNodes, ...sfxNodes]) {
     if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
@@ -1420,6 +1477,19 @@ const SYNC_DEADBAND_SEC = 0.35;
 function playbackLoop() {
   if (!isPlaying) return;
   const now = performance.now();
+  // cuts[].freeze の一時停止ホールド中（近似実装。尺は伸ばさない -- contract-2026-08-02-preview-
+  // parity.md §2.4.3）: outputTime を進めず video/audio を実時間で止めたまま rAF だけ生かす。
+  // lastWallMs を毎フレーム更新しておくことで、ホールドが明けた直後の dt がホールド全体の
+  // 長さを含んでしまう（=明けた瞬間に outputTime が一気に進む）のを防ぐ。
+  if (freezeHoldUntilMs > 0) {
+    if (now < freezeHoldUntilMs) {
+      lastWallMs = now;
+      requestAnimationFrame(playbackLoop);
+      return;
+    }
+    freezeHoldUntilMs = 0;
+    resumeAllPlaybackForFreeze();
+  }
   const dt = lastWallMs > 0 ? (now - lastWallMs) / 1000 : 0;
   lastWallMs = now;
   outputTime += dt;
@@ -1435,7 +1505,16 @@ function playbackLoop() {
     if (!video.seeking && Math.abs(video.currentTime - target) > SYNC_DEADBAND_SEC) {
       video.currentTime = target;
     }
+    if (seg.index !== freezeHoldConsumedForCutIndex) {
+      const freezeCheck = checkCutFreezeCrossing(seg.freeze, playedCutLocalSeconds(seg));
+      if (freezeCheck.shouldHold) {
+        freezeHoldConsumedForCutIndex = seg.index;
+        freezeHoldUntilMs = performance.now() + freezeCheck.holdSeconds * 1000;
+        pauseAllPlaybackForFreeze();
+      }
+    }
   }
+  applyCutFramingVisual();
   seek.value = outputTime;
   updateTimeLabel();
   updateStatusBar();
