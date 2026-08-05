@@ -2,6 +2,7 @@ import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import { OpenerService, QuickInputService, open } from '@theia/core/lib/browser';
@@ -10,7 +11,13 @@ import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/prefe
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
-import { AkariProjectService, AssetCatalogViewItem, DroppedAsset } from '../common/akari-project-protocol';
+import {
+    AkariProjectService,
+    AssetCatalogViewItem,
+    DroppedAsset,
+    StoreConnectionStatus,
+    StoreDeviceStartOutcome
+} from '../common/akari-project-protocol';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { isUnorganizedRootEntry } from '../common/unorganized-materials';
@@ -121,6 +128,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly preferences!: PreferenceService;
     @inject(FileDialogService)
     protected readonly dialogs!: FileDialogService;
+    @inject(WindowService)
+    protected readonly windowService!: WindowService;
 
     protected topView: TopView = 'materials';
     protected materials: MaterialCardEntry[] = [];
@@ -148,6 +157,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly catalogBrokenThumbnails = new Set<string>();
     protected catalogPickError?: string;
     protected catalogPicking = false;
+    protected storeConnection: StoreConnectionStatus = { connected: false };
+    protected storeConnectionLoading = true;
+    protected storeConnectionPhase: 'idle' | 'starting' | 'pending' | 'expired' | 'error' = 'idle';
+    protected storeConnectionError?: string;
+    protected storeDeviceStart?: Extract<StoreDeviceStartOutcome, { status: 'started' }>;
+    protected storePollTimer?: ReturnType<typeof setTimeout>;
+    protected storeFlowGeneration = 0;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
     protected readonly resolvingAssetKeys = new Set<string>();
 
@@ -185,6 +201,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // カタログはワークスペース非依存（resolver 合成分・ローカル catalog/ 分ともに
         // アカウント/参照データなので）素材タブと違いプロジェクトを開く前でも読み込む。
         void this.loadAssetCatalogView();
+        void this.refreshStoreConnectionStatus();
         this.catalogAudioElement.preload = 'none';
         this.catalogAudioElement.addEventListener('ended', () => {
             this.playingCatalogAudioKey = undefined;
@@ -202,6 +219,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.update();
         });
         this.toDispose.push({ dispose: () => this.catalogAudioElement.pause() });
+        this.toDispose.push({ dispose: () => this.stopStorePolling() });
         this.toDispose.push(this.preferences.onPreferenceChanged(change => {
             if (change.preferenceName === AKARI_CATALOG_ROOT_PREFERENCE) {
                 void this.loadAssetCatalogView();
@@ -223,6 +241,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected selectTopView(view: TopView): void {
         this.topView = view;
+        if (view === 'catalog') {
+            void this.refreshStoreConnectionStatus();
+        }
         this.update();
     }
 
@@ -746,6 +767,173 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.assetCatalogItems = await this.projectService.getAssetCatalogView(preferenceRoot);
         this.catalogLoading = false;
         this.update();
+    }
+
+    public async refreshStoreConnectionStatus(): Promise<void> {
+        this.storeConnectionLoading = true;
+        this.update();
+        try {
+            const connection = await this.projectService.getStoreConnectionStatus();
+            this.storeConnection = connection;
+            if (connection.connected) {
+                this.stopStorePolling();
+                this.storeFlowGeneration++;
+                this.storeConnectionPhase = 'idle';
+                this.storeConnectionError = undefined;
+                this.storeDeviceStart = undefined;
+            }
+        } catch (error) {
+            if (this.storeConnectionPhase === 'idle') {
+                this.storeConnectionPhase = 'error';
+                this.storeConnectionError = `接続状態を確認できませんでした: ${this.errorMessage(error)}`;
+            }
+        } finally {
+            this.storeConnectionLoading = false;
+            this.update();
+        }
+    }
+
+    protected async startStoreConnection(): Promise<void> {
+        this.stopStorePolling();
+        const generation = ++this.storeFlowGeneration;
+        this.storeConnectionPhase = 'starting';
+        this.storeConnectionError = undefined;
+        this.storeDeviceStart = undefined;
+        this.update();
+        let outcome: StoreDeviceStartOutcome;
+        try {
+            outcome = await this.projectService.startStoreDeviceConnection();
+        } catch (error) {
+            if (generation !== this.storeFlowGeneration) {
+                return;
+            }
+            this.storeConnectionPhase = 'error';
+            this.storeConnectionError = `接続を開始できませんでした: ${this.errorMessage(error)}`;
+            this.update();
+            return;
+        }
+        if (generation !== this.storeFlowGeneration) {
+            return;
+        }
+        if (outcome.status !== 'started') {
+            this.storeConnectionPhase = 'error';
+            this.storeConnectionError = outcome.error;
+            this.update();
+            return;
+        }
+        this.storeDeviceStart = outcome;
+        try {
+            this.windowService.openNewWindow(outcome.verificationUrl, { external: true });
+        } catch (error) {
+            this.storeConnectionPhase = 'error';
+            this.storeConnectionError = `承認ページを開けませんでした: ${this.errorMessage(error)}`;
+            this.update();
+            return;
+        }
+        this.storeConnectionPhase = 'pending';
+        this.update();
+        this.scheduleStorePoll(generation, outcome.intervalMs);
+    }
+
+    protected scheduleStorePoll(generation: number, intervalMs: number): void {
+        this.stopStorePolling();
+        this.storePollTimer = setTimeout(() => void this.pollStoreConnection(generation), intervalMs);
+    }
+
+    protected async pollStoreConnection(generation: number): Promise<void> {
+        const start = this.storeDeviceStart;
+        if (generation !== this.storeFlowGeneration || !start || this.storeConnectionPhase !== 'pending') {
+            return;
+        }
+        if (Date.now() >= start.expiresAt) {
+            this.expireStoreConnection();
+            return;
+        }
+        let outcome;
+        try {
+            outcome = await this.projectService.pollStoreDeviceConnection({
+                baseUrl: start.baseUrl,
+                deviceCode: start.deviceCode
+            });
+        } catch (error) {
+            if (generation !== this.storeFlowGeneration) {
+                return;
+            }
+            this.storeConnectionPhase = 'error';
+            this.storeConnectionError = `接続を確認できませんでした: ${this.errorMessage(error)}`;
+            this.update();
+            return;
+        }
+        if (generation !== this.storeFlowGeneration) {
+            return;
+        }
+        if (outcome.status === 'pending') {
+            this.scheduleStorePoll(generation, start.intervalMs);
+            return;
+        }
+        if (outcome.status === 'expired') {
+            this.expireStoreConnection();
+            return;
+        }
+        if (outcome.status === 'network-error' || outcome.status === 'error') {
+            this.storeConnectionPhase = 'error';
+            this.storeConnectionError = outcome.error;
+            this.update();
+            return;
+        }
+        this.stopStorePolling();
+        this.storeFlowGeneration++;
+        this.storeConnection = outcome.connection;
+        this.storeConnectionPhase = 'idle';
+        this.storeConnectionError = undefined;
+        this.storeDeviceStart = undefined;
+        this.update();
+        await this.loadAssetCatalogView();
+    }
+
+    protected expireStoreConnection(): void {
+        this.stopStorePolling();
+        this.storeConnectionPhase = 'expired';
+        this.storeConnectionError = '確認コードの有効期限が切れました。';
+        this.storeDeviceStart = undefined;
+        this.update();
+    }
+
+    protected cancelStoreConnection(): void {
+        this.stopStorePolling();
+        this.storeFlowGeneration++;
+        this.storeConnectionPhase = 'idle';
+        this.storeConnectionError = undefined;
+        this.storeDeviceStart = undefined;
+        this.update();
+    }
+
+    protected stopStorePolling(): void {
+        if (this.storePollTimer) {
+            clearTimeout(this.storePollTimer);
+            this.storePollTimer = undefined;
+        }
+    }
+
+    protected async disconnectStoreAccount(): Promise<void> {
+        const confirmed = await new ConfirmDialog({
+            title: 'AKARI アカウントの接続を解除しますか？',
+            msg: 'この端末に保存された接続情報を削除します。無料素材は引き続き使えます。',
+            ok: '切断する',
+            cancel: 'キャンセル'
+        }).open();
+        if (!confirmed) {
+            return;
+        }
+        try {
+            await this.projectService.disconnectStoreAccount();
+            this.cancelStoreConnection();
+            this.storeConnection = { connected: false };
+            this.update();
+            await this.loadAssetCatalogView();
+        } catch (error) {
+            this.messages.error(`接続を解除できませんでした: ${this.errorMessage(error)}`);
+        }
     }
 
     /**
@@ -1295,6 +1483,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                 {this.renderCatalogBackBar()}
+                {this.renderStoreConnectionHeader()}
                 <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
                     {this.renderCatalogBody()}
                 </div>
@@ -1312,6 +1501,90 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     onClick={() => this.selectTopView('materials')}
                 >
                     ← 素材にもどる
+                </button>
+            </div>
+        );
+    }
+
+    protected renderStoreConnectionHeader(): React.ReactNode {
+        const baseStyle: React.CSSProperties = {
+            flex: '0 0 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            padding: '8px',
+            borderBottom: '1px solid var(--theia-sideBar-border)',
+            fontSize: '0.82em'
+        };
+        if (this.storeConnection.connected) {
+            return (
+                <div style={baseStyle} data-akari-store-connection='connected'>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span style={{ color: 'var(--theia-successBackground, #3fb950)', marginRight: '4px' }}>●</span>
+                            {this.storeConnection.identifier} として接続中
+                        </span>
+                        <button
+                            type='button'
+                            className='theia-button secondary'
+                            data-akari-store-disconnect
+                            style={{ flex: '0 0 auto', padding: '2px 8px' }}
+                            onClick={() => void this.disconnectStoreAccount()}
+                        >
+                            切断
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        if (this.storeConnectionLoading && this.storeConnectionPhase === 'idle') {
+            return <div style={baseStyle} data-akari-store-connection='loading'>接続状態を確認中…</div>;
+        }
+        if (this.storeConnectionPhase === 'starting') {
+            return <div style={baseStyle} data-akari-store-connection='starting'>接続を開始しています…</div>;
+        }
+        if (this.storeConnectionPhase === 'pending') {
+            return (
+                <div style={baseStyle} data-akari-store-connection='pending'>
+                    <span>ブラウザで承認してください…</span>
+                    {this.storeDeviceStart?.userCode && <span style={{ opacity: 0.75 }}>確認コード: {this.storeDeviceStart.userCode}</span>}
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        style={{ alignSelf: 'flex-start', padding: '2px 8px' }}
+                        onClick={() => this.cancelStoreConnection()}
+                    >
+                        キャンセル
+                    </button>
+                </div>
+            );
+        }
+        if (this.storeConnectionPhase === 'expired' || this.storeConnectionPhase === 'error') {
+            return (
+                <div style={baseStyle} data-akari-store-connection={this.storeConnectionPhase}>
+                    <span style={{ color: 'var(--theia-errorForeground)' }}>{this.storeConnectionError}</span>
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        style={{ alignSelf: 'flex-start', padding: '2px 8px' }}
+                        onClick={() => void this.startStoreConnection()}
+                    >
+                        もう一度試す
+                    </button>
+                </div>
+            );
+        }
+        return (
+            <div style={baseStyle} data-akari-store-connection='disconnected'>
+                <span>アカウント未接続 — 接続すると購入素材もここに並びます</span>
+                <button
+                    type='button'
+                    className='theia-button'
+                    data-akari-store-connect
+                    style={{ alignSelf: 'flex-start' }}
+                    onClick={() => void this.startStoreConnection()}
+                >
+                    AKARI アカウントを接続
                 </button>
             </div>
         );
@@ -1758,5 +2031,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 </button>
             </div>
         );
+    }
+
+    protected errorMessage(error: unknown): string {
+        return error instanceof Error ? error.message : String(error);
     }
 }

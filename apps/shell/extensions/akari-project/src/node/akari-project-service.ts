@@ -19,13 +19,23 @@ import {
     DroppedVideoImportResult,
     EditLintOutcome,
     MaterialThumbnailOutcome,
-    ProjectGitEligibility
+    ProjectGitEligibility,
+    StoreConnectionStatus,
+    StoreDevicePollOutcome,
+    StoreDevicePollRequest,
+    StoreDeviceStartOutcome
 } from '../common/akari-project-protocol';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
 import { CATALOG_ROOT_UPWARD_MAX_DEPTH, resolveUpwardCatalogRoot } from './catalog-root-search';
 import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-reader';
 import { mergeAssetCatalogViews, ResolverRawCatalogItem, selectResolverAudioFileRef, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { resolveResolverPreviewUrl } from './resolver-preview-url';
+import {
+    pollDeviceConnection,
+    readCredentials,
+    removeCredentials,
+    startDeviceConnection
+} from 'akari-video/src/store-device-connect.mjs';
 
 const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
@@ -80,6 +90,56 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly fsImpl: typeof fs = fs;
     /** Overridable for tests: lets the win32-only junction fallback be exercised from mac. */
     protected readonly platform: NodeJS.Platform = process.platform;
+
+    async getStoreConnectionStatus(): Promise<StoreConnectionStatus> {
+        return this.toStoreConnectionStatus(readCredentials());
+    }
+
+    async startStoreDeviceConnection(): Promise<StoreDeviceStartOutcome> {
+        const result = await startDeviceConnection();
+        if (result.status !== 'started') {
+            return { status: result.status, error: result.error };
+        }
+        return {
+            status: 'started',
+            baseUrl: result.baseUrl,
+            deviceCode: result.deviceCode,
+            userCode: result.userCode,
+            verificationUrl: result.verificationUrl,
+            intervalMs: result.intervalMs,
+            expiresAt: result.expiresAt
+        };
+    }
+
+    async pollStoreDeviceConnection(request: StoreDevicePollRequest): Promise<StoreDevicePollOutcome> {
+        const result = await pollDeviceConnection({
+            baseUrl: request.baseUrl,
+            deviceCode: request.deviceCode
+        });
+        if (result.status === 'approved') {
+            return { status: 'approved', connection: this.toStoreConnectionStatus(result.credentials) };
+        }
+        if (result.status === 'network-error' || result.status === 'error') {
+            return { status: result.status, error: result.error };
+        }
+        return { status: result.status };
+    }
+
+    async disconnectStoreAccount(): Promise<boolean> {
+        return removeCredentials();
+    }
+
+    protected toStoreConnectionStatus(credentials: { email?: string; url?: string } | null): StoreConnectionStatus {
+        if (!credentials?.url) {
+            return { connected: false };
+        }
+        return {
+            connected: true,
+            identifier: credentials.email || credentials.url,
+            email: credentials.email,
+            url: credentials.url
+        };
+    }
 
     async createProject(destinationUri: string): Promise<void> {
         const root = this.fsPath(destinationUri);
