@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [
+    {
+      "in": 0.0,
+      "out": 5.0,
+      "fx": [
+        { "id": "noise", "intensity": 0.4 },
+        { "id": "vignette", "intensity": 1, "params": { "color": "white" } },
+        { "id": "color-overlay", "intensity": 0.2, "params": { "color": "red" } }
+      ]
+    },
+    { "in": 5.0, "out": 8.0, "fx": [{ "id": "particles" }] },
+    { "in": 8.0, "out": 10.0, "fx": [{ "id": "flare", "intensity": 0.7 }] }
+  ],
+  "overlays": []
+}

@@ -464,6 +464,45 @@ for (const [fixture, expectedError] of [
   });
 }
 
+test("cuts[].fx (画面 FX 小語彙 v0): stacked entries across multiple cuts pass", () => {
+  const executed = run("edit-cuts-fx-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("cuts[].fx[].id must be one of the v0 5-item vocabulary", () => {
+  const executed = run("edit-cuts-fx-invalid-id");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /cuts\[0\]\.fx\[0\]\.id は noise\/particles\/vignette\/flare\/color-overlay のいずれかである必要があります/,
+  );
+});
+
+test("cuts[].fx[].intensity must stay within [0, 1]", () => {
+  const executed = run("edit-cuts-fx-intensity-out-of-range-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /cuts\[0\]\.fx\[0\]\.intensity は 0 から 1 の範囲の有限数である必要があります/,
+  );
+});
+
+test("cuts[].fx[].params.color is required when id is color-overlay", () => {
+  const executed = run("edit-cuts-fx-color-overlay-missing-color-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /cuts\[0\]\.fx\[0\]\.params\.color は id が color-overlay のとき必須です/,
+  );
+});
+
+test("cuts[].fx[] rejects unknown keys", () => {
+  const executed = run("edit-cuts-fx-unknown-key-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.fx\[0\] に未知のキーがあります: seed/);
+});
+
 test("layers[].track must be a non-negative integer", () => {
   const executed = run("edit-layers-track-invalid");
   assert.equal(executed.status, 1, executed.stdout);

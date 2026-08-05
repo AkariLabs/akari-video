@@ -284,6 +284,37 @@
       },
       "$comment": "docs/contract-2026-07-22-render-basics.md #7（cuts[].freeze）。at_sec はカット内秒（速度適用後）でフレームを静止する時刻。duration_sec だけカット尺が伸びる（コンテンツを削らない）。at_sec がカットの再生尺を超えないことは兄弟値比較のため validate-edit.mjs で検証する。v0 は gap-aware タイムライン（明示 at/track）との併用不可（同ファイル #7 に明記）。"
     },
+    "cutFx": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "enum": ["noise", "particles", "vignette", "flare", "color-overlay"] },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "id": { "const": "color-overlay" } },
+            "required": ["id"]
+          },
+          "then": {
+            "required": ["params"],
+            "properties": {
+              "params": { "required": ["color"] }
+            }
+          }
+        }
+      ],
+      "$comment": "docs/contract-2026-08-05-fx-v0.md（画面 FX 小語彙 v0。旧実装 FX 479 の移植ではなく新規 5 id）。intensity は全 id 共通ツマミ（省略時 1・0 は恒等）。params.color は vignette では black/white の選択（既定 black）、color-overlay では必須（フェード赤・黒マット相当を 1 id でカバーするため色指定なしに意味を持たない）。noise/particles/flare は params を使わない。"
+    },
     "cutV0": {
       "type": "object",
       "additionalProperties": true,
@@ -298,10 +329,11 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] },
         "framing": { "$ref": "#/$defs/cutFraming" },
-        "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] }
+        "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] },
+        "fx": { "type": "array", "items": { "$ref": "#/$defs/cutFx" } }
       },
       "not": { "required": ["src"] },
-      "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
+      "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。fx は配列順 = 適用順（複数重ね掛け可）。"
     },
     "cutV1": {
       "type": "object",
@@ -318,9 +350,10 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] },
         "framing": { "$ref": "#/$defs/cutFraming" },
-        "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] }
+        "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] },
+        "fx": { "type": "array", "items": { "$ref": "#/$defs/cutFx" } }
       },
-      "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
+      "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。fx は配列順 = 適用順（複数重ね掛け可）。"
     },
     "overlayItem": {
       "type": "object",
