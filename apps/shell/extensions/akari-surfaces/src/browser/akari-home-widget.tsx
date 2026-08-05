@@ -14,6 +14,7 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
+import { WorkspaceCommands } from '@theia/workspace/lib/browser/workspace-commands';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
     IntakeAutonomy,
@@ -217,6 +218,12 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected watching = false;
 
+    // --- F11 ウェルカム画面（状態 0・task 2026-08-05-welcome-screen） ---
+    // `workspaceService.roots` が空（プロジェクト未選択で起動）のときだけ true。
+    // true の間は render() が renderWelcomeSurface() に分岐し、通常ホームの要素
+    // （状態バッジ・説明・接続カード等）は一切描画しない（task.md §2）。
+    protected welcomeMode = false;
+
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
     protected storeConnecting = false;
@@ -288,6 +295,9 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     async start(): Promise<void> {
+        // F11: ウェルカム判定は roots の有無だけを見る軽い判定なので最初に済ませる
+        // （後続のロードが終わるのを待たせない）。
+        await this.refreshWelcomeMode();
         await this.loadHomeFlow();
         await this.loadCreatorRootProjects();
         // U3: 履歴由来の「単体」プロジェクトは creatorRootProjects（重複除外に使う）の後に読む。
@@ -323,10 +333,21 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected override onAfterShow(msg: Message): void {
         super.onAfterShow(msg);
+        void this.refreshWelcomeMode();
         void this.refreshHomeFlow();
         void this.loadCreatorRootProjects()
             .then(() => this.loadStandaloneProjects())
             .then(() => this.refreshCurrentLocation());
+    }
+
+    /**
+     * F11 ウェルカム判定（task 2026-08-05-welcome-screen）。開いているワークスペース
+     * root が 1 つも無ければウェルカム面へ（`roots.length === 0`）。
+     */
+    protected async refreshWelcomeMode(): Promise<void> {
+        const roots = await this.workspaceService.roots;
+        this.welcomeMode = roots.length === 0;
+        this.update();
     }
 
     // --- ホーム v3: 状態読み取り（SSOT はファイル。裁定 R1/R5） ---
@@ -696,20 +717,30 @@ export class AkariHomeWidget extends ReactWidget {
 
     /**
      * 「+ 新しい動画を始める」。作業場の既定チャンネルの `videos/` 配下に
-     * 新規プロジェクトを作り、開く（孤児禁止 — task.md 指定）。
+     * 新規プロジェクトを作り、開く（孤児禁止 — task.md 指定）。作業場が一つも
+     * 解決できていない（`creatorRootUri` 未解決 — ウェルカム画面の完全初回など）
+     * ときは、F9 の ensureCreatorRoot 連結（確認 → 作成）を経てから同じ生成へ
+     * 続ける（task 2026-08-05-welcome-screen §1「F9 の ensureCreatorRoot 連結に
+     * 繋ぐ」指定）。確認をキャンセルした/作成に失敗したときは何も変えず戻る
+     * （エラーメッセージは失敗時のみ ensureCreatorRootForNewProject 側で出す）。
      * 生成は `akari-project` 拡張の既存バックエンドサービス
      * `AkariProjectService#createProject()` を呼ぶだけで再実装しない
      * （テンプレコピー・フォールバック補完・スキル同梱・git init は向こう側の責務）。
      * 生成できたら `openCreatorRootProject` と同じ `WorkspaceService#open` で開く。
      */
     protected startNewProject = async (): Promise<void> => {
-        if (this.startingNewProject || !this.creatorRootUri) {
+        if (this.startingNewProject) {
             return;
         }
         this.startingNewProject = true;
         this.update();
-        const rootUri = this.creatorRootUri;
         try {
+            const rootUri = this.creatorRootUri ?? await this.ensureCreatorRootForNewProject();
+            if (!rootUri) {
+                this.startingNewProject = false;
+                this.update();
+                return;
+            }
             const channel = await this.resolveDefaultChannelName(rootUri);
             const name = await this.reserveNewProjectName(rootUri, channel);
             const destination = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME).resolve(name);
@@ -722,6 +753,37 @@ export class AkariHomeWidget extends ReactWidget {
             this.update();
         }
     };
+
+    /**
+     * 無 root 時の「+ 新しい動画を始める」連結（F9 ensureCreatorRoot・
+     * task 2026-08-05-welcome-screen §1）。`createChannelDestinationAndJoin`
+     * （U5「チャンネルに入れる」の無 root 連結・task 2026-08-04-home-no-root-flow）と
+     * 対になる新規プロジェクト版 — 確認は 1 回だけ、「作業場」の語は出さない（U1）。
+     * 解決できたら以後の一覧・状態バッジ解決も新しい置き場を見られるようにしておく
+     * （`createChannelDestinationAndJoin` と同じ流儀）。
+     */
+    protected async ensureCreatorRootForNewProject(): Promise<URI | undefined> {
+        const confirmed = await new ConfirmDialog({
+            title: 'チャンネルの置き場を作成しますか？',
+            msg: 'チャンネルの置き場がまだありません。作成して、新しい動画を始めますか？（データの場所: ~/AkariVideo）',
+            ok: '作成してはじめる',
+            cancel: 'キャンセル'
+        }).open();
+        if (!confirmed) {
+            return undefined;
+        }
+        try {
+            const rootUriString = await this.newProjectService.ensureCreatorRoot();
+            const rootUri = new URI(rootUriString);
+            this.creatorRootUri = rootUri;
+            this.creatorRootAvailable = true;
+            return rootUri;
+        } catch (error) {
+            console.error('[akari-surfaces] failed to ensure a channel destination for a new project:', error);
+            this.messages.error(error instanceof Error ? error.message : 'チャンネルの置き場の作成に失敗しました。');
+            return undefined;
+        }
+    }
 
     // --- U2 状態バッジ（旧 F6 現在地 1 行を置換。task 2026-08-03-home-v5-terms） --
 
@@ -1517,8 +1579,15 @@ export class AkariHomeWidget extends ReactWidget {
      * ドロップターゲット。専用カードは足さず、dragover 中だけ
      * {@link renderDropOverlay} を重ねて可視化する。`data-akari-dropzone='true'`
      * は evidence 互換のためこの要素に復活させた。
+     *
+     * F11（task 2026-08-05-welcome-screen）: `welcomeMode` の間は dashboard を
+     * 一切描かず {@link renderWelcomeSurface} だけを返す — 通常ホームの要素
+     * （状態バッジ・説明・接続カード等）を混在させない（task.md §2 指定）。
      */
     protected override render(): React.ReactNode {
+        if (this.welcomeMode) {
+            return this.renderWelcomeSurface();
+        }
         return (
             <div
                 className='akari-home-surface'
@@ -1541,6 +1610,103 @@ export class AkariHomeWidget extends ReactWidget {
             </div>
         );
     }
+
+    /**
+     * F11 ウェルカム面（状態 0・task 2026-08-05-welcome-screen）。見た目の正は
+     * `planning/attachments/2026-08-03-owner-feedback-shell-v013/shell-home-mock.html`
+     * の「状態 0: ウェルカム」。中央カード 1 枚に「プロジェクトを開く」だけを
+     * 集中させる。更新があればカードより先/上に案内する（F11 追補・
+     * オーナー追加裁定「起動 → 更新案内 → ウェルカム」。既存の
+     * {@link renderUpdateBanner} をそのまま流用し、スキップ/更新後はバナーが
+     * 消えてカードだけが残る = ウェルカムへ集中が移る）。左パネル・パートナー
+     * ペインの沈黙化（薄化・無効化）は akari-shell-strip 側の担当でスコープ外
+     * （task.md §4 指定 — この widget からは触らない）。
+     */
+    protected renderWelcomeSurface(): React.ReactNode {
+        return (
+            <div
+                className='akari-home-surface akari-home-welcome'
+                data-akari-home-stage='welcome'
+                style={homeFlowStyles.welcomeSurface}
+            >
+                <div style={homeFlowStyles.welcomeStack}>
+                    {this.updateStatus.available && this.renderUpdateBanner()}
+                    {this.renderWelcomeCard()}
+                </div>
+            </div>
+        );
+    }
+
+    /**
+     * ウェルカムカード本体（モックの `.w-card`）。新規ボタンは常時表示
+     * （F9 ensureCreatorRoot 連結込みの {@link startNewProject} を流用）。一覧は
+     * 既存の {@link buildProjectRows}（U3）をそのまま流用する — ウェルカム中は
+     * `currentProjectUri`/`currentLocation` がどちらも undefined のため「開いて
+     * います」判定は自然に出ない（現在開いているプロジェクトという概念自体が
+     * 無い）。作業場もプロジェクト履歴も無い完全初回（rows が空）は見出しごと
+     * 出さず新規ボタンのみにする（task.md §1 指定）。
+     */
+    protected renderWelcomeCard(): React.ReactNode {
+        const rows = this.buildProjectRows();
+        return (
+            <div data-akari-welcome-card='true' style={homeFlowStyles.welcomeCard}>
+                <div style={homeFlowStyles.welcomeLogo}>🏮 AKARI Video</div>
+                <div style={homeFlowStyles.welcomeSub}>プロジェクトを開いてはじめましょう</div>
+                <button
+                    type='button'
+                    className='theia-button main'
+                    style={homeFlowStyles.welcomeNewButton}
+                    disabled={this.startingNewProject}
+                    data-akari-welcome-new-project='true'
+                    onClick={() => void this.startNewProject()}
+                >
+                    {this.startingNewProject ? '作成しています…' : '＋ 新しい動画を始める'}
+                </button>
+                {rows.length > 0 && (
+                    <>
+                        <p style={homeFlowStyles.welcomeListHeading}>最近のプロジェクト</p>
+                        <div style={homeFlowStyles.welcomeList} data-akari-welcome-list='true'>
+                            {rows.map(row => (
+                                <button
+                                    key={row.key}
+                                    type='button'
+                                    className='theia-button secondary'
+                                    style={homeFlowStyles.welcomeProjectItem}
+                                    data-akari-project-item='true'
+                                    data-akari-project-standalone={row.standalone ? 'true' : undefined}
+                                    onClick={() => this.openCreatorRootProject(row.uri)}
+                                >
+                                    <span className='codicon codicon-folder' aria-hidden='true' style={homeFlowStyles.chipIcon} />
+                                    <span style={homeFlowStyles.projectItemBody}>
+                                        <strong style={homeFlowStyles.projectItemName}>{row.name}</strong>
+                                    </span>
+                                    {!row.standalone && row.channel && <span style={homeFlowStyles.welcomeProjectBadge}>{row.channel}</span>}
+                                    {row.standalone && <span style={homeFlowStyles.welcomeProjectBadge}>単体</span>}
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
+                <button
+                    type='button'
+                    style={homeFlowStyles.welcomeOpenFolder}
+                    data-akari-welcome-open-folder='true'
+                    onClick={this.openFolderAdvanced}
+                >
+                    フォルダを開く…（上級者向け）
+                </button>
+            </div>
+        );
+    }
+
+    /**
+     * 「フォルダを開く…（上級者向け）」= 既存の Open Folder コマンド呼び出し
+     * （task.md §1 指定・新規実装はしない）。Electron 版 Theia 標準の
+     * `workspace:openFolder`（`WorkspaceCommands.OPEN_FOLDER`）をそのまま叩く。
+     */
+    protected openFolderAdvanced = (): void => {
+        void this.commands.executeCommand(WorkspaceCommands.OPEN_FOLDER.id);
+    };
 
     /**
      * ドロップ受け付けの可視化（dragover 中のみ）。静的レイアウトには何も足さず、
@@ -2090,6 +2256,46 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         background: 'var(--theia-list-dropBackground, rgba(127,127,127,0.12))',
         border: '2px dashed var(--theia-focusBorder)', borderRadius: 8,
         color: 'var(--theia-editorWidget-foreground)'
+    },
+
+    // F11 ウェルカム面（状態 0・task 2026-08-05-welcome-screen）。見た目の正は
+    // shell-home-mock.html の `.w-card` 系（幅 min(480px,92%) の中央カード）。
+    welcomeSurface: {
+        height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+    },
+    welcomeStack: { width: 'min(480px, 92%)', display: 'flex', flexDirection: 'column', gap: 14 },
+    welcomeCard: {
+        width: '100%', boxSizing: 'border-box', padding: '28px 28px 22px', borderRadius: 14,
+        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        display: 'flex', flexDirection: 'column', alignItems: 'stretch'
+    },
+    welcomeLogo: { fontSize: 22, fontWeight: 800, textAlign: 'center', marginBottom: 4 },
+    welcomeSub: { color: 'var(--theia-descriptionForeground)', fontSize: 13, textAlign: 'center', marginBottom: 20 },
+    welcomeNewButton: {
+        width: '100%', padding: '13px', borderRadius: 9, fontSize: 15, fontWeight: 800,
+        minHeight: 'auto', height: 'auto', marginBottom: 16
+    },
+    welcomeListHeading: {
+        fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase',
+        color: 'var(--theia-descriptionForeground)', margin: '0 0 8px'
+    },
+    welcomeList: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 },
+    welcomeProjectItem: {
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 8,
+        fontSize: 13, minHeight: 'auto', height: 'auto', width: '100%',
+        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        color: 'var(--theia-editorWidget-foreground)', cursor: 'pointer', textAlign: 'left'
+    },
+    welcomeProjectBadge: {
+        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px', borderRadius: 999,
+        border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
+        background: 'var(--theia-editorWidget-background)'
+    },
+    welcomeOpenFolder: {
+        display: 'block', margin: '14px auto 0', background: 'transparent', border: 'none',
+        color: 'var(--theia-descriptionForeground)', fontSize: 12, cursor: 'pointer',
+        textDecoration: 'underline', padding: 0, minHeight: 'auto', height: 'auto'
     }
 };
 
