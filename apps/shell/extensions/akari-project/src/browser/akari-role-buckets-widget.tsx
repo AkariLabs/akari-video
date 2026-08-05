@@ -247,6 +247,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
+    /**
+     * F12「カタログを開く」コマンド（task 2026-08-05-welcome-screen）専用の公開
+     * エントリ。`akari-home-widget.tsx` の `openIntakeForm` と同じ流儀 — widget
+     * 自身は呼び出し元（コマンド）を意識せず、表示先の出し分け（left/main area・
+     * developer mode の出し分けとの衝突回避）は呼び出し側
+     * （AkariCatalogCommandContribution）の責務にする。
+     */
+    openCatalogView(): void {
+        this.selectTopView('catalog');
+    }
+
     // --- 素材カード ---------------------------------------------------------
 
     protected async loadMaterials(): Promise<void> {

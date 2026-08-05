@@ -17,6 +17,7 @@ import { AkariFileNavigatorFilter } from './akari-file-navigator-filter';
 import { AkariRoleLabelProvider } from './akari-role-label-provider';
 import { AkariAssetInspector } from './akari-asset-inspector';
 import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
+import { AkariCatalogCommandContribution } from './akari-catalog-command-contribution';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariProjectService).toDynamicValue(ctx =>
@@ -51,6 +52,11 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(MenuContribution).toService(AkariProjectContribution);
     bind(FrontendApplicationContribution).toService(AkariProjectContribution);
     bind(TabBarToolbarContribution).toService(AkariProjectContribution);
+
+    // F12（task 2026-08-05-welcome-screen）: コマンドパレット「カタログを開く」。
+    // developer mode で消える「＋ カタログから素材をさがす」入口の逃げ道。
+    bind(AkariCatalogCommandContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariCatalogCommandContribution);
     bind(PreferenceContribution).toConstantValue({
         schema: {
             type: 'object',
