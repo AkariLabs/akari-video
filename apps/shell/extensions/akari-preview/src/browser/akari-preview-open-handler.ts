@@ -39,6 +39,7 @@ import {
 } from '../common/caption-visual-contract';
 import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visual';
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
+import { LayerPerspective, computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
@@ -220,8 +221,14 @@ interface LayerCropPatch {
     h: number;
 }
 
+// ㉖ layers[].perspective（corner-pin パース変形。v0 静的。#/$defs/layerPerspective）。
+interface LayerPerspectivePatch {
+    corners: [number, number][];
+}
+
 // CF-write: overlayWrite と同型の layers[] 版。追加/削除は CF-dnd（別レーン）の範囲のため対象外、
-// transform/crop 変更のみ扱う（t/duration 変更は既存の timeline moveLayer 経路で既に書き戻る）。
+// transform/crop/perspective 変更のみ扱う（t/duration 変更は既存の timeline moveLayer 経路で
+// 既に書き戻る）。perspective: null は「解除」（layer.perspective を削除）を表す。
 interface LayerWriteRequest {
     type: 'akari-preview-layer-write';
     requestId: string;
@@ -229,6 +236,7 @@ interface LayerWriteRequest {
     patch: {
         transform?: OverlayTransform;
         crop?: LayerCropPatch;
+        perspective?: LayerPerspectivePatch | null;
     };
 }
 
@@ -2777,6 +2785,45 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return undefined;
     }
 
+    // ㉖ layers[].perspective の schema 定義（edit.schema.json #layerPerspective — corners は
+    // [TL,TR,BL,BR] の 4 要素・各 [x,y] は 0..1）と同じ制約をここで先に弾く。patch.perspective ===
+    // null（明示的な解除）は常に有効。退化四角形（面積がほぼ 0）の拒否も
+    // packages/schemas/bin/validate-edit.mjs の validateLayerPerspective と同じシューレース公式で
+    // 揃える（意図的なコード重複 — 検収ゲートを edit-lint に一本化する契約どおり、ここでの拒否は
+    // 「早期に分かりやすいエラーを返す」ための先弾きであり、真の正本は edit-lint 経由の schema 検証）。
+    protected validateLayerPerspectivePatch(patch: LayerPerspectivePatch | null | undefined): string | undefined {
+        if (patch === undefined || patch === null) {
+            return undefined;
+        }
+        const corners = patch.corners;
+        if (!Array.isArray(corners) || corners.length !== 4) {
+            return 'perspective.corners は [TL,TR,BL,BR] の 4 要素配列である必要があります。';
+        }
+        const names = ['TL', 'TR', 'BL', 'BR'];
+        for (let i = 0; i < 4; i += 1) {
+            const corner = corners[i];
+            if (!Array.isArray(corner) || corner.length !== 2) {
+                return `perspective.corners[${i}] (${names[i]}) は [x, y] の 2 要素配列である必要があります。`;
+            }
+            const [x, y] = corner;
+            if (!Number.isFinite(x) || x < 0 || x > 1 || !Number.isFinite(y) || y < 0 || y > 1) {
+                return `perspective.corners[${i}] (${names[i]}) は 0 から 1 の範囲の有限数である必要があります。`;
+            }
+        }
+        const [tl, tr, bl, br] = corners;
+        const ring = [tl, tr, br, bl];
+        let area2 = 0;
+        for (let i = 0; i < ring.length; i += 1) {
+            const [x1, y1] = ring[i];
+            const [x2, y2] = ring[(i + 1) % ring.length];
+            area2 += x1 * y2 - x2 * y1;
+        }
+        if (Math.abs(area2) < 1e-4) {
+            return 'perspective.corners は退化した四角形（面積がほぼ 0）であってはなりません。';
+        }
+        return undefined;
+    }
+
     protected async handleLayerWrite(widget: PreviewWidgetMarker, request: LayerWriteRequest): Promise<void> {
         const respond = (ok: boolean, error?: string): void => {
             widget.sendMessage({
@@ -2792,7 +2839,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         const validationError = this.validateLayerTransformPatch(request.patch.transform)
-            ?? this.validateLayerCropPatch(request.patch.crop);
+            ?? this.validateLayerCropPatch(request.patch.crop)
+            ?? this.validateLayerPerspectivePatch(request.patch.perspective);
         if (validationError) {
             respond(false, validationError);
             return;
@@ -2812,6 +2860,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             if (request.patch.crop) {
                 layer.crop = { ...request.patch.crop };
+            }
+            if (request.patch.perspective !== undefined) {
+                // null = explicit clear (removes layer.perspective entirely, matching the
+                // schema's "absent = no perspective, byte-identical render" default).
+                if (request.patch.perspective === null) {
+                    delete layer.perspective;
+                } else {
+                    layer.perspective = { corners: request.patch.perspective.corners.map(([x, y]) => [x, y]) };
+                }
             }
             const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
             const lintResult = await this.previewService.lintEditCandidate({
@@ -3097,6 +3154,20 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #layer-crop-toggle { position: absolute; z-index: 1960; display: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: 4px; border: 1px solid #4da3ff; background: rgba(20,20,20,0.85); color: #cfe6ff; font-size: 13px; line-height: 20px; text-align: center; cursor: pointer; pointer-events: auto; user-select: none; }
 #layer-crop-toggle.is-target-active { display: flex; align-items: center; justify-content: center; }
 #layer-crop-toggle.is-crop-mode { background: #4da3ff; color: #0b1a2a; }
+/* ㉖ layers[].perspective（v0）: プリセット(右奥/左奥/上奥/下奥) + 角度ツマミのみ（4隅の直接
+   ドラッグハンドルは次段）。トグルはクロップトグルの隣（左）に並べ、常に同じ場所に留まる。 */
+#layer-perspective-toggle { position: absolute; z-index: 1960; display: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: 4px; border: 1px solid #4da3ff; background: rgba(20,20,20,0.85); color: #cfe6ff; font-size: 13px; line-height: 20px; text-align: center; cursor: pointer; pointer-events: auto; user-select: none; }
+#layer-perspective-toggle.is-target-active { display: flex; align-items: center; justify-content: center; }
+#layer-perspective-toggle.is-panel-open { background: #4da3ff; color: #0b1a2a; }
+#layer-perspective-toggle.is-declared { border-color: #ffb84d; }
+#layer-perspective-panel { position: absolute; z-index: 1970; display: none; flex-direction: column; gap: 6px; padding: 8px; width: 168px; box-sizing: border-box; border-radius: 6px; border: 1px solid #4da3ff; background: rgba(20,20,20,0.92); color: #cfe6ff; font-size: 11px; pointer-events: auto; user-select: none; }
+#layer-perspective-panel.is-open { display: flex; }
+#layer-perspective-panel .akari-perspective-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+#layer-perspective-panel .akari-perspective-preset { border: 1px solid #4da3ff; border-radius: 4px; background: rgba(255,255,255,0.06); color: #cfe6ff; font-size: 11px; padding: 4px 2px; cursor: pointer; }
+#layer-perspective-panel .akari-perspective-preset.is-active { background: #4da3ff; color: #0b1a2a; }
+#layer-perspective-panel .akari-perspective-angle-row { display: flex; align-items: center; gap: 6px; }
+#layer-perspective-panel .akari-perspective-angle-row input[type=range] { flex: 1; }
+#layer-perspective-panel .akari-perspective-clear { align-self: flex-end; border: none; background: none; color: #ff8a8a; font-size: 11px; cursor: pointer; padding: 2px 4px; }
 #cut-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #cut-select-box.is-active { display: block; }
 #cut-select-box .akari-cut-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
@@ -3167,6 +3238,21 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
         <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
         <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
+        <div id="layer-perspective-toggle" title="パース変形パネル">◈</div>
+        <div id="layer-perspective-panel">
+          <div class="akari-perspective-presets">
+            <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="right">右奥</button>
+            <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="left">左奥</button>
+            <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="top">上奥</button>
+            <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="bottom">下奥</button>
+          </div>
+          <div class="akari-perspective-angle-row">
+            <span>角度</span>
+            <input type="range" min="0" max="75" step="1" value="30" data-akari-perspective-angle />
+            <span data-akari-perspective-angle-value>30°</span>
+          </div>
+          <button type="button" class="akari-perspective-clear" data-akari-perspective-clear>パースを解除</button>
+        </div>
         <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div></div>
         <div id="caption-select-box"></div>
         <canvas id="pen-layer" aria-hidden="true"></canvas>
@@ -3262,6 +3348,11 @@ body { display: grid; place-items: center; padding: 32px; }
             const initial = window.__akariPreview;
             const vscode = acquireVsCodeApi();
             const pending = new Map();
+            // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.3）: updateStageScale
+            // (below, in this same IIFE) needs this at layout time, which runs before
+            // previewBootstrapScript's own copy of this function is ever reached -- so this script
+            // block injects its own copy rather than relying on cross-<script>-tag scope.
+            const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});
             let sequence = 0;
             let displayScale = 1;
             // frameScale: 出力キャンバス(output.width/height)を wrapper 内の出力フレーム矩形へ
@@ -3771,7 +3862,25 @@ body { display: grid; place-items: center; padding: 32px; }
                     layerVideo.style.left = (outputWidth / 2 + x) + 'px';
                     layerVideo.style.top = (outputHeight / 2 + y) + 'px';
                     layerVideo.style.transformOrigin = pivotXPct + '% ' + pivotYPct + '%';
-                    layerVideo.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct + '%) rotate(' + rotate + 'deg)';
+                    // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.3）: applies
+                    // after scale, before rotate (crop → scale → perspective → rotate). Appended as
+                    // the innermost (rightmost) transform function -- since transform-origin already
+                    // wraps the whole chain at the crop pivot, matrix3d receives pivot-relative
+                    // coordinates and composes correctly under the *existing* translate/rotate without
+                    // any extra bookkeeping (computeLayerPerspectiveVisualFn is built specifically for
+                    // this). The box it operates on is the crop rect's own *rendered* (already scaled)
+                    // pixel size, matching layer-perspective-visual.ts's box-size contract.
+                    let perspectiveFn = '';
+                    const perspectiveRaw = layerVideo.dataset.akariPerspectiveCorners;
+                    if (perspectiveRaw) {
+                        let corners = null;
+                        try { corners = JSON.parse(perspectiveRaw); } catch (_error) { corners = null; }
+                        const boxWidthPx = layerVideo.videoWidth * cropW * scale;
+                        const boxHeightPx = layerVideo.videoHeight * cropH * scale;
+                        const visual = corners ? computeLayerPerspectiveVisualFn({ corners }, boxWidthPx, boxHeightPx) : null;
+                        if (visual) perspectiveFn = ' ' + visual.transformFunction;
+                    }
+                    layerVideo.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct + '%) rotate(' + rotate + 'deg)' + perspectiveFn;
                     layerVideo.style.clipPath = (cropX > 0 || cropY > 0 || cropW < 1 || cropH < 1)
                         ? 'inset(' + (cropY * 100) + '% ' + (Math.max(0, (1 - cropX - cropW)) * 100) + '% '
                             + (Math.max(0, (1 - cropY - cropH)) * 100) + '% ' + (cropX * 100) + '%)'
@@ -3912,6 +4021,8 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
             const computeCutFramingVisualFn = (${computeCutFramingVisual.toString()});
             const checkCutFreezeCrossingFn = (${checkCutFreezeCrossing.toString()});
+            // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.3）。
+            const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});
             // freeze の一時停止ホールド（近似実装。尺は伸ばさない — 詳細はコメント参照）。
             let freezeHoldUntilMs = 0;
             let freezeHoldConsumedForSegmentIndex = null;
@@ -4395,6 +4506,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
                 layerVideo.dataset.akariCropW = String(cropW);
                 layerVideo.dataset.akariCropH = String(cropH);
+                // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.3）。absent/invalid
+                // (schema-invalid corners, etc.) is represented as an empty dataset value --
+                // updateStageScale's computeLayerPerspectiveVisualFn call already treats a falsy/
+                // unparseable value as "no perspective", so no separate validity flag is needed here.
+                const perspectiveCorners = layer.perspective && Array.isArray(layer.perspective.corners) ? layer.perspective.corners : null;
+                if (perspectiveCorners) layerVideo.dataset.akariPerspectiveCorners = JSON.stringify(perspectiveCorners);
+                else delete layerVideo.dataset.akariPerspectiveCorners;
                 const position = () => {
                     if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) return;
                     if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
@@ -4424,6 +4542,16 @@ body { display: grid; place-items: center; padding: 32px; }
             const layerCropRect = layerCropBox.querySelector('.akari-layer-crop-rect');
             const layerCropHandleElements = Array.from(layerCropBox.querySelectorAll('[data-akari-crop-handle]'));
             const layerCropToggle = document.getElementById('layer-crop-toggle');
+            // ㉖ layers[].perspective（v0）: プリセット(右奥/左奥/上奥/下奥) + 角度ツマミのみ。4隅の
+            // 直接ドラッグハンドルは次段のため、クロップのようなハンドル/モードの仕組みは持たない。
+            let perspectivePanelOpen = false;
+            let activePerspectivePreset = null;
+            const layerPerspectiveToggle = document.getElementById('layer-perspective-toggle');
+            const layerPerspectivePanel = document.getElementById('layer-perspective-panel');
+            const layerPerspectivePresetButtons = Array.from(layerPerspectivePanel.querySelectorAll('[data-akari-perspective-preset]'));
+            const layerPerspectiveAngleInput = layerPerspectivePanel.querySelector('[data-akari-perspective-angle]');
+            const layerPerspectiveAngleValueEl = layerPerspectivePanel.querySelector('[data-akari-perspective-angle-value]');
+            const layerPerspectiveClearButton = layerPerspectivePanel.querySelector('[data-akari-perspective-clear]');
             const layerSelectBox = document.getElementById('layer-select-box');
             const layerHandleElements = Array.from(layerSelectBox.querySelectorAll('[data-akari-handle]'));
             const findLayerEntry = id => layerEntries.find(entry => String(entry.spec.id) === String(id));
@@ -4586,6 +4714,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!entry || entry.video.style.display === 'none' || !(entry.video.videoWidth > 0)) {
                     layerSelectBox.classList.remove('is-active');
                     positionLayerCropToggle(null);
+                    positionLayerPerspectiveToggle(null);
                     return;
                 }
                 const transform = layerTransformNow(entry);
@@ -4633,6 +4762,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerSelectBox.dataset.akariPivotOffY = String(box.rotOffY);
                 layerSelectBox.classList.add('is-active');
                 if (!cropModeActive) positionLayerCropToggle(box);
+                if (!cropModeActive) positionLayerPerspectiveToggle(box);
+                layerPerspectiveToggle.classList.toggle('is-declared', !!layerPerspectiveNow(entry));
             };
             // クロップトグルボタンは通常枠/クロップ枠のどちらが出ていても常に同じ場所（右上角の外側）
             // に留まり続ける（モード切替のたびに探し直させない）。box=null でレイヤー未選択として隠す。
@@ -4703,6 +4834,129 @@ body { display: grid; place-items: center; padding: 32px; }
             window.addEventListener('keydown', event => {
                 if (event.key === 'Escape' && cropModeActive) setCropMode(false);
             });
+            // ㉖ layers[].perspective（v0）: 常に同じ場所（クロップトグルの下）に留まるトグル + パネル。
+            // box=null でレイヤー未選択として隠す（クロップトグルと同じ規律）。
+            const positionLayerPerspectiveToggle = box => {
+                if (!box) {
+                    layerPerspectiveToggle.classList.remove('is-target-active');
+                    if (perspectivePanelOpen) setPerspectivePanelOpen(false);
+                    return;
+                }
+                layerPerspectiveToggle.style.left = (box.left + box.width + 4) + 'px';
+                layerPerspectiveToggle.style.top = Math.max(4, box.top - 26) + 26 + 4 + 'px';
+                layerPerspectiveToggle.classList.add('is-target-active');
+                if (perspectivePanelOpen) {
+                    layerPerspectivePanel.style.left = layerPerspectiveToggle.style.left;
+                    layerPerspectivePanel.style.top = (parseFloat(layerPerspectiveToggle.style.top) + 26 + 4) + 'px';
+                }
+            };
+            const layerPerspectiveNow = entry => {
+                const raw = entry.video.dataset.akariPerspectiveCorners;
+                if (!raw) return null;
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) && parsed.length === 4 ? parsed : null;
+                } catch (_error) {
+                    return null;
+                }
+            };
+            const applyLayerPerspectiveNow = (entry, corners) => {
+                if (corners) entry.video.dataset.akariPerspectiveCorners = JSON.stringify(corners);
+                else delete entry.video.dataset.akariPerspectiveCorners;
+                layerPerspectiveToggle.classList.toggle('is-declared', !!corners);
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+            };
+            // プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の
+            // 便宜であり、schema には「プリセット」「角度」という概念自体は存在しない
+            // (contract-2026-08-02-preview-parity.md §2.4.3)。奥行き感は sin(角度) で圧縮量を決め、
+            // 該当する辺の中点方向へ両端点を寄せる（角度0=無変形、角度が大きいほど強い台形）。
+            const perspectivePresetCorners = (preset, angleDeg) => {
+                const compression = Math.max(0, Math.min(0.9, Math.sin((Number(angleDeg) || 0) * Math.PI / 180)));
+                const half = compression / 2;
+                if (preset === 'right') return [[0, 0], [1, half], [0, 1], [1, 1 - half]];
+                if (preset === 'left') return [[0, half], [1, 0], [0, 1 - half], [1, 1]];
+                if (preset === 'top') return [[half, 0], [1 - half, 0], [0, 1], [1, 1]];
+                if (preset === 'bottom') return [[0, 0], [1, 0], [half, 1], [1 - half, 1]];
+                return null;
+            };
+            const commitLayerPerspective = async (entry, corners) => {
+                const original = layerPerspectiveNow(entry);
+                applyLayerPerspectiveNow(entry, corners);
+                try {
+                    await window.akari.engine.layerWrite(entry.spec.id, { perspective: corners ? { corners } : null });
+                } catch (error) {
+                    console.warn('[akari-preview] layer perspective write rejected; reverting', error);
+                    applyLayerPerspectiveNow(entry, original);
+                }
+            };
+            const setPerspectivePanelOpen = open => {
+                perspectivePanelOpen = !!(open && selectedLayerId);
+                layerPerspectiveToggle.classList.toggle('is-panel-open', perspectivePanelOpen);
+                layerPerspectivePanel.classList.toggle('is-open', perspectivePanelOpen);
+                if (perspectivePanelOpen) {
+                    if (cropModeActive) setCropMode(false);
+                    updateLayerSelectBox();
+                }
+            };
+            layerPerspectiveToggle.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                try { layerPerspectiveToggle.setPointerCapture(event.pointerId); } catch (_error) { /* not capturable */ }
+            });
+            layerPerspectiveToggle.addEventListener('pointerup', event => {
+                event.stopPropagation();
+                setPerspectivePanelOpen(!perspectivePanelOpen);
+            });
+            for (const button of layerPerspectivePresetButtons) {
+                button.addEventListener('pointerdown', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    try { button.setPointerCapture(event.pointerId); } catch (_error) { /* not capturable */ }
+                });
+                button.addEventListener('pointerup', event => {
+                    event.stopPropagation();
+                    if (!selectedLayerId) return;
+                    const entry = findLayerEntry(selectedLayerId);
+                    if (!entry) return;
+                    const preset = button.getAttribute('data-akari-perspective-preset');
+                    activePerspectivePreset = preset;
+                    for (const other of layerPerspectivePresetButtons) other.classList.toggle('is-active', other === button);
+                    const corners = perspectivePresetCorners(preset, layerPerspectiveAngleInput.value);
+                    void commitLayerPerspective(entry, corners);
+                });
+            }
+            layerPerspectiveAngleInput.addEventListener('input', () => {
+                layerPerspectiveAngleValueEl.textContent = layerPerspectiveAngleInput.value + '°';
+                if (!activePerspectivePreset || !selectedLayerId) return;
+                const entry = findLayerEntry(selectedLayerId);
+                if (!entry) return;
+                // ライブプレビューのみ（書き戻しはしない） -- ドラッグ中に毎回 lint/書き込みを
+                // 往復させないため、既存の crop ハンドルと同じ「確定時のみ書き戻す」規律に倣う。
+                applyLayerPerspectiveNow(entry, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value));
+            });
+            layerPerspectiveAngleInput.addEventListener('change', () => {
+                if (!activePerspectivePreset || !selectedLayerId) return;
+                const entry = findLayerEntry(selectedLayerId);
+                if (!entry) return;
+                void commitLayerPerspective(entry, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value));
+            });
+            layerPerspectiveClearButton.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                try { layerPerspectiveClearButton.setPointerCapture(event.pointerId); } catch (_error) { /* not capturable */ }
+            });
+            layerPerspectiveClearButton.addEventListener('pointerup', event => {
+                event.stopPropagation();
+                if (!selectedLayerId) return;
+                const entry = findLayerEntry(selectedLayerId);
+                if (!entry) return;
+                activePerspectivePreset = null;
+                for (const button of layerPerspectivePresetButtons) button.classList.remove('is-active');
+                void commitLayerPerspective(entry, null);
+            });
+            window.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && perspectivePanelOpen) setPerspectivePanelOpen(false);
+            });
             const selectLayer = (layerId, options) => {
                 const report = !options || options.report !== false;
                 const nextId = layerId && findLayerEntry(layerId) ? layerId : null;
@@ -4711,6 +4965,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (cropModeActive) setCropMode(false);
+                if (perspectivePanelOpen) setPerspectivePanelOpen(false);
+                activePerspectivePreset = null;
+                for (const button of layerPerspectivePresetButtons) button.classList.remove('is-active');
                 selectedLayerId = nextId;
                 // ㉓ 選択の排他制御: layer を選ぶと cut/caption 選択は外れる（逆方向はそれぞれの select 側）。
                 if (nextId && typeof deselectCut === 'function') deselectCut({ report: true });
@@ -5079,7 +5336,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!selectedLayerId && !cutSelected) return;
                 if (event.target.closest
                     && (event.target.closest('#layer-select-box') || event.target.closest('#cut-select-box')
-                        || event.target.closest('#layer-crop-box') || event.target.closest('#layer-crop-toggle'))) {
+                        || event.target.closest('#layer-crop-box') || event.target.closest('#layer-crop-toggle')
+                        || event.target.closest('#layer-perspective-toggle') || event.target.closest('#layer-perspective-panel'))) {
                     return;
                 }
                 // A click that lands on the stage over a layer video/preview-video reports
