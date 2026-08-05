@@ -58,6 +58,14 @@ jobs:
       - name: Install dependencies
         run: npm install --no-workspaces --ignore-scripts
 
+      # akari-video は workspace パッケージ（packages/akari-launcher）の公開名。
+      # --no-workspaces install は npm registry の公開版を持ってくるため、未リリースの
+      # モジュールを import する拡張（akari-project → store-device-connect）が TS2307 で
+      # 落ちる。tsc の前に registry 版をローカル実体へ張り替える（ローカル開発は
+      # repo-root の workspace link で同じ解決になっている — 挙動を CI が再現するだけ）。
+      - name: Link workspace akari-video (launcher) over the registry copy
+        run: rm -rf node_modules/akari-video && ln -s ../../../packages/akari-launcher node_modules/akari-video
+
       - name: build:ext (tsc -b, 6 extensions)
         run: npm run build:ext
 

@@ -18,14 +18,14 @@
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 20
+スキル数: 21
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
 | `address-review` | review.json の open チケット（annotation）を edit.json への実対応 → edit-lint → チケット更新まで型どおりに執行するスキル。「a-0002 と a-0003 に対応して」「open チケット全部に対応して」で発動する。状態機械（open → addressed + response 必須・resolved 不可侵・黙殺禁止）を bin/respond.mjs が原子的に守る QA ループの消費側。 | `skills/address-review/SKILL.md` |
 | `analyze-footage` | 動画素材 1 本から 720p プロキシ、ローカル既定の文字起こし（Mac は macOS SpeechAnalyzer / 共通は whisper.cpp・クラウドは承認制）、視認済みキーフレーム、編集イベント、人物関連トラックを作り、analysis.json v0 にまとめるスキル。新しい撮影素材を取り込むとき、素材単体の編集前分析を頼まれたとき、または edit-plan の前処理として素材ごとの分析が必要なときに使う。 | `skills/analyze-footage/SKILL.md` |
 | `analyze-project` | プロジェクト内の素材群（analysis.json）と周辺プロジェクト文脈（intake.json・edit.json・planning/・README・過去 PJ）を読み合わせて interpretation.json（解釈層）を作り、事実 + 素材の読みに限定した読み取り専用の分析レポートを描画するスキル。複数素材プロジェクトの内容を素材横断で把握したいとき、analyze-footage が素材ごとの分析を終えたあとの統合、方向性を決める前に一次情報の欠落（取材質問）を洗い出したいときに使う。edit-plan は方針決めの前提としてこのスキルの出力を読む。 | `skills/analyze-project/SKILL.md` |
-| `bake-3d` | 3D シーンを映像素材（クリップ）として使いたいとき、3D ベイクレシピ（scene.py）を新規作成・調整・再ベイクするときに発動する。Blender ヘッドレスでレシピを mp4 に焼き、検証し、素材ライブラリ / プロジェクトへ配置するまでを担う。映像の上に重なるオーバーレイ 3D は対象外（overlay-authoring/3d.md へ）。 | `skills/bake-3d/SKILL.md` |
+| `bake-3d` | Blender ヘッドレスで 3D ベイクレシピ（scene.py）を mp4 へ焼き、検証し、素材ライブラリ / プロジェクトへ配置する。**3D の既定は Three.js オーバーレイ（overlay-authoring/3d.md）** であり、本スキルは「宣言型ランタイムで出せない絵（被写界深度・モーションブラー・レイトレース反射・GI・パーティクル）」「同時 3D シーンを 2 枚以下へ減らすための事前焼き」「素材ライブラリへ納品するクリップ」のいずれかに当てはまるときだけ使う。 | `skills/bake-3d/SKILL.md` |
 | `beat-sync-edit` | 宣言済み音源（declarations.json の BPM・頭拍・キメ・区間）を唯一の時刻ソースにして、拍にスナップした edit.json とオーバーレイ一式を「生成器」から機械生成する制作スキル。音に合わせて画面が動く PV・ハイライト・ショーケースを、手打ちの秒数ゼロで作る。「リズムに合わせて動画を作って」「この曲で PV を作って」「拍に合わせて切り替えたい」「音に反応するモーションにして」で発動。宣言づけ自体は declare-audio（別物）、素材ゼロからの企画は edit-plan（別物）。 | `skills/beat-sync-edit/SKILL.md` |
 | `compile-review-session` | 録音 review セッションの audio.wav・events.jsonl・edit.snapshot.json・session.json を、analyze-footage と同じ 3 層 STT で文字起こしし、発話区切り・軌跡からの参照解決・命令形への正規化を経て review.json の open annotation とコンパイルレポートへ着地する。喋りながら行った QA セッションをチケット化するとき、recorded / transcribed セッションをコンパイルするとき、または compiled セッションを明示的に再コンパイルするときに使う。 | `skills/compile-review-session/SKILL.md` |
 | `create-project` | AKARI Video の新規プロジェクトを headless で作成する。`templates/project-default/` を再帰コピーし、雛形バージョンを記録し、安全な場合のみ git 初期化して、作成結果レポート HTML を生成する。アプリ起動は不要。新しい動画プロジェクトを作るとき、または既存フォルダを AKARI Video プロジェクトとして補完するときに使う。 | `skills/create-project/SKILL.md` |
