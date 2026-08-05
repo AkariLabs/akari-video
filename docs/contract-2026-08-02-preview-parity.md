@@ -83,6 +83,71 @@
   pivot**で描く（現在のクロップ値によるピボットのドリフトを避ける実装上の単純化 — 編集時の
   近似であり、確定後の実際の合成/プレビューは上記の「クロップ中心 pivot」で描画される）
 
+#### 2.4.2 画角操作（`cuts[].framing`。2026-08-06 追記）
+
+`cuts[].framing`（静的クロップ `crop` / ズームキーフレーム `keyframes`）のプレビュー再現。
+render-cut（`packages/render-cut/src/cut-framing.mjs`）は「出力キャンバスへフィット済みの
+フレーム（`width x height`）を crop で窓抜きし、必要なら scale で再拡大するパンチイン」として
+実装している（`contract-2026-07-22-render-basics.md` #6 §4-1）。プレビューはこの窓抜き演算を
+CSS `transform` で近似再現する。
+
+- **座標系**: `framing.keyframes[].t` はカット内秒（速度適用後の再生秒）。両 UI とも
+  「該当カットのソース時間経過 ÷ `cuts[].speed`」で毎フレーム算出する
+  （freeze の `at_sec` と同一の時間軸 — §2.4.3）
+- **CSS 変換**: `transform-origin: 0 0` を基準に、静的 crop は
+  `scale(1/crop.w, 1/crop.h) translate(-crop.x%, -crop.y%)`、ズームは
+  `translate(-cropXFrac%, -cropYFrac%) scale(scale)`（`cropXFrac = clip(cx*scale-0.5, 0, scale-1)`、
+  `cy` も同様）を、対象要素（shell/Web とも「フィット済みフレーム」を表す `<video>` 本体）へ
+  直接適用する。render-cut の crop→scale 演算と数値的に等価であることは実測ではなく
+  幾何学的な参照点比較でユニットテストしている
+  （shell: `test/cut-framing-visual.test.mjs`、Web: `packages/preview-server/test/framing-visual.test.mjs`。
+  各サーフェスは独立実装 — §2.2.1 と同じ「意図的なコード重複」方針）
+- **crop と keyframes の併存**: render-cut と同じく keyframes を優先する
+- **shell 固有の制約（既知の割り切り）**: shell の `<video>` 本体は `cuts[].transform`
+  （PIP 的な位置決め・既存機能）も同じ `transform` プロパティを使う。framing が有効なカットでは
+  `transform-origin` を `0 0` に切り替えるため、**同一カットに `cuts[].transform` と
+  `cuts[].framing` を両方宣言した場合、`cuts[].transform` 側の scale/rotate のピボットが
+  本来の中心（50%/50%）ではなく左上（0%/0%）にずれる**（框 = 両方無し・framing のみ・
+  transform のみの 3 パターンは全て正確。組み合わせのみの既知差分）。Web UI は
+  `cuts[].transform` を `<video>` 本体に適用する機能自体が無いため、この制約は生じない
+- **表示更新のタイミング**: 静的 crop は該当カットに入った時点で確定するが、ズームは再生中
+  毎フレーム再計算が必要（shell: `tick()`、Web: `playbackLoop()` + `seekTo()` の双方から呼ぶ
+  ことでスクラブ中も追随する）
+- **回帰なし**: framing 未宣言のカットは本変更前と完全に同じ transform/transformOrigin のまま
+  （null を返す = 呼び出し側は何もしない）
+
+#### 2.4.3 フリーズ（`cuts[].freeze`。2026-08-06 追記・プレビュー近似の割り切りあり）
+
+`cuts[].freeze`（`{at_sec, duration_sec}`）は render-cut ではカットの尺そのものを
+`duration_sec` だけ伸ばす（`contract-2026-07-22-render-basics.md` #7）。プレビューは
+**この尺の伸びを再現しない**（タイムライン表示・シークバー・経過秒は書き出しと乖離する既知の
+近似）。かわりに、再生が `at_sec`（カット内・速度適用後の再生秒）へ到達した瞬間、
+`duration_sec` 分だけ **実時間で** 動画要素と音声（narration/SFX/BGM）を一時停止し、
+その間 `outputTime`（タイムライン上の出力秒）を進めないことで「静止して見える」挙動だけを
+再現する:
+
+- 一時停止の対象は動画要素（そのままフレームが止まって見える）と `previewAudio`
+  （shell）/ `narrationNodes`・`sfxNodes`・`AudioContext`・レイヤー動画（Web）。
+  render-cut 本来の「フリーズ区間は無音を挿入し、narration/BGM は独立タイムラインで継続する」
+  という仕様とは異なり、**プレビューでは narration/BGM も一緒に止まる**
+  （近似のための単純化。書き出し結果とプレビューの音の鳴り方は一致しない）
+- ホールドは「該当カットで 1 回だけ」発火する（同じカットを巻き戻して再生し直すと再度発火する）。
+  シーク・手動一時停止はホールドを即座に打ち切る（stale なタイマーが別の位置の再生を
+  誤って止めないようにするため）
+- 交差判定（`shouldHold = played >= at_sec`）は shell/Web とも
+  `checkCutFreezeCrossing`（それぞれ `cut-freeze-visual.ts` / `framing-visual.js`）に
+  切り出し済み・ユニットテスト済み。実際のホールド開始/終了（wall-clock タイマー・
+  一時停止/再開の呼び分け）は各サーフェスの再生ループ内に実装
+  （shell: `tick()` 内 `freezeHoldUntilMs`、Web: `playbackLoop()` 内 同名変数）
+- **この割り切りを採った理由**: 正確な再現には「該当カットの出力尺を `duration_sec` 伸ばし、
+  以降のセグメントを後ろへずらす」タイムライン写像の変更が要る。写像の正本
+  （`packages/edit-store/src/timeline-map.ts` の共有カーネル）は本タスクの
+  編集禁止領域（`packages/render-cut/**` 同様、preview 側から見て書き込み不可の共有基盤）に
+  あり、変更には別途の設計判断（gap-aware タイムラインとの整合など、
+  `contract-2026-07-22-render-basics.md` #7 の v0 制約と同種の考慮）を要するため、
+  本ラウンドでは見送った
+- **回帰なし**: freeze 未宣言のカットは本変更前と完全に同じ再生挙動のまま
+
 ### 2.5 音声
 - **一時停止で全音声を止める**: narration / SFX の BufferSource は stop、AudioContext は suspend
 - 一時停止中のシークで音源を発火させない
@@ -119,12 +184,15 @@
 | 2.5 音声停止 | ✅（suspend + source stop 修正済み） | ✅ |
 | 2.7 lint 全経路 | ✅（PUT 一律・edit-store 共有ゲート） | ✅（Phase 2-1: 全 annotations RPC + FileService 直書き経路を writeEditSnapshot RPC 経由のゲートに統一。preview の captionWrite もゲート追加） |
 | 2.8 ペン正本 | ✅（Phase 2-2: pen-visuals.bundle.js から定数 + 描画コードを import） | ✅（正本は packages/pen-visuals へ昇格。動画面 webview は正本値の埋め込み） |
-| `cuts[].framing` / `cuts[].freeze`（2026-08-06 追記） | ❌ 未対応 | ❌ 未対応 |
+| `cuts[].framing`（2026-08-06 実装） | ✅（§2.4.2） | ✅（§2.4.2。`cuts[].transform` 併用時のみ既知の割り切りあり） |
+| `cuts[].freeze`（2026-08-06 実装・近似） | 🟡（§2.4.3。静止表示のみ・尺表示は非対応） | 🟡（§2.4.3。同左） |
 
-- `cuts[].framing`（静的クロップ / ズームキーフレーム / 段階縮小）・`cuts[].freeze`（フリーズ）は
-  `contract-2026-07-22-render-basics.md` #6/#7 としてレンダ（render-cut）のみ実装済み。
-  Web UI・shell のプレビュー実装は本タスクの対象外であり、両宣言はプレビュー上では無視される
-  （書き出し結果と見た目が乖離する既知の差分。プレビュー追随は別タスク）
+- `cuts[].framing`（静的クロップ / ズームキーフレーム）・`cuts[].freeze`（フリーズ）は
+  `contract-2026-07-22-render-basics.md` #6/#7 としてレンダ（render-cut）に加え、
+  Web UI・shell のプレビューでも表示再現した（詳細は §2.4.2/§2.4.3）。framing は
+  crop/zoom の見た目を CSS transform で数値的に再現、freeze は「静止して見える」挙動のみを
+  実時間の一時停止で近似し、書き出しが行うタイムライン尺の伸びは再現しない
+  （宣言済みの割り切り。§2.4.3 に理由を明記）
 
 ## 4. 収斂ロードマップ（正本は内部リポ）
 

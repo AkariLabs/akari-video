@@ -1,5 +1,13 @@
 # edit.json v1 crop（リフレーミング）契約
 
+> **[2026-08-06 追記] superseded**: 本契約が定める `cuts[].crop`（`keyframes[].box` 形式・
+> source 秒 / source フレーム相対）は実装されないまま、後継の `cuts[].framing.crop`
+> （`{x,y,w,h}` 単一オブジェクト・出力キャンバス相対・静的。ズームは `framing.keyframes` が
+> 別途担う）に置き換わった。後継の契約行は `docs/contract-2026-07-22-render-basics.md` #6、
+> プレビュー実装は `docs/contract-2026-08-02-preview-parity.md` §2.4.2 を参照。
+> 本文（§1〜§11）はレンダ未実装だった当時の設計記録として不変のまま残す（訂正は本追記のみで
+> 行い、以降の本文は書き換えない）。
+
 - 日付: 2026-07-14
 - 状態: 実装ラウンドの SSOT（`cuts[].crop` フィールドのみ確定）
 - 前提: `contract-2026-07-13-m1-m4.md`（edit.json v0 の確定契約）、
