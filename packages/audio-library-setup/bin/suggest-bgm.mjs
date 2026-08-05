@@ -8,10 +8,11 @@
 // これは**候補の提示まで**。採用の決定は edit-plan の Checkpoint 2（素材計画）の
 // 承認ゲートで人間が行う（skills/edit-plan/report-guide.md §素材計画）。
 //
-// Usage: node bin/suggest-bgm.mjs --tone <値> [--tone <値>] [options]
+// Usage: node bin/suggest-bgm.mjs (--from-decision-log <path> | --tone <値>) [options]
+//   --from-decision-log <path> decision-log.md の最新の (direction, tone) 行から tone / tempo を読む
 //   --tone <値>      表現選定と同じ 8 語彙（真面目/親しみ/高級感/勢い/かわいい/無機質/エモい/シネマ）。
-//                    複数指定可（重みを合算）
-//   --tempo <値>     ゆったり | 標準 | 高速（任意。体感テンポ一致にボーナス）
+//                    複数指定可（重みを合算）。decision-log より優先
+//   --tempo <値>     ゆったり | 標準 | 高速（任意。decision-log より優先）
 //   --count <N>      提示件数（既定 5）
 //   --catalog <path> catalog.json をローカルファイルから読む（検証用の上書き）
 //   --declarations <path>  耳検証済み宣言データ（{id: {bpm, sections[], hit_points[] …}} の JSON）。
@@ -31,6 +32,7 @@ import {
   TEMPO_VOCABULARY,
   TONE_VOCABULARY,
 } from '../shared/bgm-suggest.mjs';
+import { readToneDecision } from '../shared/decision-log.mjs';
 
 const BGM_PACK_ID = 'akari-sounds-bgm';
 
@@ -39,9 +41,10 @@ function resolveLibraryRoot(env = process.env) {
 }
 
 function parseArguments(argv, env = process.env) {
-  const options = { tones: [], tempo: null, count: 5, catalog: null, declarations: env.AKARI_SOUNDS_DECLARATIONS || null, json: false };
+  const options = { tones: [], tempo: null, decisionLog: null, count: 5, catalog: null, declarations: env.AKARI_SOUNDS_DECLARATIONS || null, json: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
+    if (arg === '--from-decision-log') { options.decisionLog = path.resolve(argv[++i]); continue; }
     if (arg === '--tone') { options.tones.push(argv[++i]); continue; }
     if (arg === '--tempo') { options.tempo = argv[++i]; continue; }
     if (arg === '--count') { options.count = Number(argv[++i]); continue; }
@@ -128,10 +131,13 @@ function formatHuman(result, { tones, tempo, source, declarationsSource }) {
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   const libraryRoot = resolveLibraryRoot();
+  const decision = options.decisionLog ? await readToneDecision(options.decisionLog) : null;
+  const tones = options.tones.length > 0 ? options.tones : decision?.tones ?? [];
+  const tempo = options.tempo ?? decision?.tempo ?? null;
   const { catalog, source } = await loadCatalog(options, libraryRoot);
   const { declarations, declarationsSource } = await loadDeclarations(options, libraryRoot);
 
-  const result = suggestBgm(catalog, { tones: options.tones, tempo: options.tempo, count: options.count, declarations });
+  const result = suggestBgm(catalog, { tones, tempo, count: options.count, declarations });
   const withPaths = {
     ...result,
     suggestions: result.suggestions.map((s) => attachLocalPaths(s, libraryRoot)),
@@ -139,7 +145,7 @@ async function main() {
 
   if (options.json) {
     console.log(JSON.stringify({
-      query: { tones: options.tones, tempo: options.tempo, count: options.count },
+      query: { tones, tempo, count: options.count },
       source,
       declarations_source: declarationsSource,
       library_root: libraryRoot,
@@ -149,7 +155,7 @@ async function main() {
     }, null, 2));
     return;
   }
-  console.log(formatHuman(withPaths, { tones: options.tones, tempo: options.tempo, source, declarationsSource }));
+  console.log(formatHuman(withPaths, { tones, tempo, source, declarationsSource }));
 }
 
 main().catch((error) => {

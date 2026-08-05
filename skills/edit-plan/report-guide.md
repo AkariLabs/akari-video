@@ -109,11 +109,14 @@ silence を提示する。候補は自動採用しない。特に `UI_WAIT_UNRES
 自社ライブラリ AKARI Sounds — [catalog/audio/INDEX.md](../../catalog/audio/INDEX.md)）:
 
 ```sh
-node packages/audio-library-setup/bin/suggest-bgm.mjs --tone <トーン> [--tone <トーン>] [--tempo ゆったり|標準|高速] [--json]
+node packages/audio-library-setup/bin/suggest-bgm.mjs --from-decision-log <プロジェクト>/decision-log.md [--json]
 ```
 
-- `--tone` は方針で確定した作品トーン（表現選定と同じ 8 語彙:
+- 方針で確定した作品トーン（表現選定と同じ 8 語彙:
   真面目/親しみ/高級感/勢い/かわいい/無機質/エモい/シネマ。複合トーンは複数指定）。
+  `decision-log.md` の最新の `(direction, tone)` 行から `--from-decision-log` でそのまま渡す。
+  一時的に人が上書きするときだけ `--tone <トーン>`（複数可）または
+  `--tempo ゆったり|標準|高速` を併記し、これらの明示指定を decision-log より優先する。
   出力の `path` はローカル実体（`~/.akari/assets/audio/akari-sounds-bgm/`）で、
   そのまま `audio.bgm.path` に書ける。**未導入（`akari sounds` 未実行）なら CLI が案内を出す** —
   その場合は導入を促すか、従来どおりの手動検索に切り替える
@@ -155,6 +158,19 @@ node packages/audio-library-setup/bin/suggest-sfx.mjs --meaning 場面転換 [--
 `(category, subject)` を判断対象のキーとして、時刻順に追記する。各行に ISO 8601 日時、category、subject、決定、理由、決定者、関連 checkpoint を持たせる。同じキーの方針が変わっても過去行を直さず、新しい行を追加して以前の決定を参照する。
 
 **置き場所**（2026-07-22 改訂）: 固定 6 章 HTML の 1 節として埋め込む運用は retired。プロジェクト直下の独立ファイル `decision-log.md` に追記する（[analyze-project の decision-record.md](../analyze-project/decision-record.md) と共有する単一 SSOT — analyze-project の 2 パス目判断・取材 Q&A と、edit-plan の承認・生成判断が同じファイルへ時系列に積み重なる）。フィールド構成・追記専用の規律はここで変えていない。
+
+### 機械可読の方針行
+
+`(category, subject) = (direction, tone)` の行だけは、決定セルの先頭にインラインコード 1 個で
+JSON を置く。`tone` は表現選定と共通の 8 語彙から 1 個以上の配列、`tempo` は任意で
+`ゆったり` / `標準` / `高速` のいずれかとする。JSON の後ろには空白区切りで自由記述の補足を
+続けてよい。同じキーを更新するときも過去行は変えず、最後に追記した行を有効とする。
+
+```markdown
+| 日時 | category | subject | 決定 | 理由 | 決定者 | 関連 checkpoint |
+|---|---|---|---|---|---|---|
+| 2026-08-05T10:00:00+09:00 | direction | tone | `{"tone":["勢い"],"tempo":"高速"}` テンポ感を出したい | 冒頭で視聴者を引き込むため | オーナー | Checkpoint 1 |
+```
 
 次を決定として記録する。
 
