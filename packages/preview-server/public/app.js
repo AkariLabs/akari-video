@@ -208,6 +208,22 @@ function outputSizePx() {
     height: Number(os.height) > 0 ? Number(os.height) : 720
   };
 }
+// wrapper の外枠比率を出力サイズへ追従させる（shell の動的 aspect-ratio とパリティ）。
+// output 欠落時は outputSizePx() のフォールバック（1280x720 = 16:9）がそのまま効く。
+function applyWrapperAspectRatio() {
+  const os = outputSizePx();
+  wrapper.style.aspectRatio = `${os.width} / ${os.height}`;
+}
+// ミニマップ箱の縦横比も出力サイズへ追従させる（shell zoomMinimap と同じ式:
+// akari-preview-open-handler.ts の aspectRatio>=1 分岐。基準辺 120px は従来の横長既定
+// 120x67.5 を保つ値 — 16:9 では従来どおり 120x67.5 のまま、回帰なし）。
+function applyMinimapAspectRatio() {
+  const os = outputSizePx();
+  const ratio = os.width / os.height;
+  const base = 120;
+  minimap.style.width = `${ratio >= 1 ? base : base * ratio}px`;
+  minimap.style.height = `${ratio >= 1 ? base / ratio : base}px`;
+}
 function computeOutputFrameRect() {
   const boxW = wrapper.clientWidth;
   const boxH = wrapper.clientHeight;
@@ -219,6 +235,8 @@ function computeOutputFrameRect() {
   return { x: (boxW - width) / 2, y: (boxH - height) / 2, width, height };
 }
 function updateStageScale() {
+  applyWrapperAspectRatio();
+  applyMinimapAspectRatio();
   const os = outputSizePx();
   const rect = computeOutputFrameRect();
   const next = rect.width / os.width;
@@ -232,6 +250,7 @@ function updateStageScale() {
     el.style.transform = `scale(${frameScale})`;
   }
 }
+updateStageScale();
 new ResizeObserver(() => { updateStageScale(); setupPenCanvas(); }).observe(wrapper);
 
 // clip.src はルート相対（/assets/foo.mp4）だが video.src は常に絶対 URL を返すため、
