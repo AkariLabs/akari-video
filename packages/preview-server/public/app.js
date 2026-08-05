@@ -303,6 +303,34 @@ function layerPlaybackPath(layer) {
     : `${layer.src}.preview.webm`;
 }
 
+// ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。contract-2026-08-02-preview-parity.md）。
+// crop 未指定は既定 {x:0,y:0,w:1,h:1} = 全面（従来と完全に見た目が同じになる境界値）。
+function cropOf(el) {
+  const cw = Number(el.dataset.layerCropW);
+  const ch = Number(el.dataset.layerCropH);
+  return {
+    x: Number(el.dataset.layerCropX) || 0,
+    y: Number(el.dataset.layerCropY) || 0,
+    w: Number.isFinite(cw) && cw > 0 ? cw : 1,
+    h: Number.isFinite(ch) && ch > 0 ? ch : 1,
+  };
+}
+// crop を要素の transform-origin（拡縮・回転の pivot）と clip-path（見た目の切り抜き）へ反映する。
+// translate/scale/rotate の値そのものはクロップで変わらない（既存の transform 文字列はそのまま） —
+// CSS の transform-origin をクロップ矩形の中心へ動かすだけで、平行移動込みの pivot 補正が要らない
+// （layer-container の video は static position（要素自身の自然な左上）+ translate(x,y) という、
+// shell の「left/top を中心に置いてから -50% 平行移動」とは異なる基準点の実装のため。crop 無し
+// （既定 pivot=50%/50%）では現状と完全に同じ見た目のまま — 参照: probe-web-layer-position 実測）。
+function applyLayerCropVisual(el) {
+  const crop = cropOf(el);
+  const pivotXPct = (crop.x + crop.w / 2) * 100;
+  const pivotYPct = (crop.y + crop.h / 2) * 100;
+  el.style.transformOrigin = `${pivotXPct}% ${pivotYPct}%`;
+  el.style.clipPath = (crop.x > 0 || crop.y > 0 || crop.w < 1 || crop.h < 1)
+    ? `inset(${crop.y * 100}% ${Math.max(0, (1 - crop.x - crop.w)) * 100}% ${Math.max(0, (1 - crop.y - crop.h)) * 100}% ${crop.x * 100}%)`
+    : '';
+}
+
 function setupLayers() {
   const layers = summary?.layers ?? [];
   for (const layer of layers) {
@@ -335,6 +363,14 @@ function setupLayers() {
       const t = layer.transform;
       el.style.transform = `translate(${t.x||0}px, ${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`;
     }
+    const crop = layer.crop;
+    const cropW = crop && Number.isFinite(crop.w) && crop.w > 0 ? crop.w : 1;
+    const cropH = crop && Number.isFinite(crop.h) && crop.h > 0 ? crop.h : 1;
+    el.dataset.layerCropX = String(crop && Number.isFinite(crop.x) ? crop.x : 0);
+    el.dataset.layerCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
+    el.dataset.layerCropW = String(cropW);
+    el.dataset.layerCropH = String(cropH);
+    applyLayerCropVisual(el);
     // elementsFromPoint のヒット対象にする（実際の当たり判定は wrapper の capture 側）
     el.style.pointerEvents = 'auto';
     el.style.cursor = 'move';
@@ -435,7 +471,8 @@ function measureLayerOpaqueBox(el) {
 }
 
 // クリック地点のアルファ値（0-255）。透明部分のクリックを素通しさせるための当たり判定。
-// transform（translate/scale/rotate・origin は要素中心）の逆写像で要素ローカルへ戻す
+// transform（translate/scale/rotate・origin はクロップ矩形の中心 — crop 無しなら要素中心と一致）
+// の逆写像で要素ローカルへ戻す
 function layerAlphaAt(el, clientX, clientY) {
   try {
     const vw = el.videoWidth;
@@ -446,8 +483,9 @@ function layerAlphaAt(el, clientX, clientY) {
     const viewScale = contRect.width / layerContainer.offsetWidth; // frameScale × zoom
     const px = (clientX - contRect.left) / viewScale;
     const py = (clientY - contRect.top) / viewScale;
-    const cx = el.offsetLeft + el.offsetWidth / 2;
-    const cy = el.offsetTop + el.offsetHeight / 2;
+    const crop = cropOf(el);
+    const cx = el.offsetLeft + (crop.x + crop.w / 2) * el.offsetWidth;
+    const cy = el.offsetTop + (crop.y + crop.h / 2) * el.offsetHeight;
     const computed = getComputedStyle(el).transform;
     const m = computed && computed !== 'none' ? new DOMMatrix(computed) : new DOMMatrix();
     const p = m.inverse().transformPoint(new DOMPoint(px - cx, py - cy));
@@ -472,6 +510,7 @@ function updateLayerSelectBox() {
   const lv = layerVideos.find(v => selectedLayerId !== null && v.layer.id === selectedLayerId);
   if (!lv || lv.el.style.display === 'none') {
     layerSelectBox.style.display = 'none';
+    positionLayerCropToggle(null);
     return;
   }
   const el = lv.el;
@@ -492,15 +531,31 @@ function updateLayerSelectBox() {
   layerSelectBox.style.width = `${el.offsetWidth}px`;
   layerSelectBox.style.height = `${el.offsetHeight}px`;
   layerSelectBox.style.transform = el.style.transform || '';
-  layerSelectBox.style.transformOrigin = '50% 50%';
-  const r = lv.opaqueBox ?? { x: 0, y: 0, w: el.offsetWidth, h: el.offsetHeight };
+  // ㉔ pivot はクロップ矩形の中心（crop 無しなら 50%/50% = 従来どおり）— el 自身の
+  // transform-origin（applyLayerCropVisual が設定）をそのまま流用する。
+  layerSelectBox.style.transformOrigin = el.style.transformOrigin || '50% 50%';
+  const naturalBox = lv.opaqueBox ?? { x: 0, y: 0, w: el.offsetWidth, h: el.offsetHeight };
+  // クロップ窓（要素ローカル px。object-fit:contain は箱サイズ未指定のため無効 = 要素ローカル px
+  // ≈ ソース px。shell 側の同名処理を参照）と不透明領域の交差 = 実際に見えている範囲。
+  const crop = cropOf(el);
+  const cropBoxPx = {
+    x: crop.x * el.offsetWidth, y: crop.y * el.offsetHeight,
+    w: crop.w * el.offsetWidth, h: crop.h * el.offsetHeight,
+  };
+  const ix0 = Math.max(naturalBox.x, cropBoxPx.x);
+  const iy0 = Math.max(naturalBox.y, cropBoxPx.y);
+  const ix1 = Math.min(naturalBox.x + naturalBox.w, cropBoxPx.x + cropBoxPx.w);
+  const iy1 = Math.min(naturalBox.y + naturalBox.h, cropBoxPx.y + cropBoxPx.h);
+  const r = (ix1 > ix0 && iy1 > iy0) ? { x: ix0, y: iy0, w: ix1 - ix0, h: iy1 - iy0 } : cropBoxPx;
   layerSelectRect.style.left = `${r.x}px`;
   layerSelectRect.style.top = `${r.y}px`;
   layerSelectRect.style.width = `${r.w}px`;
   layerSelectRect.style.height = `${r.h}px`;
+  positionLayerCropToggle(el);
 }
 
 function setLayerSelected(id) {
+  if (cropModeActive) setCropMode(false);
   selectedLayerId = id;
   for (const lv of layerVideos) {
     const on = id !== null && lv.layer.id === id;
@@ -509,6 +564,264 @@ function setLayerSelected(id) {
   }
   updateLayerSelectBox();
 }
+
+// --- ㉔ クロップモード（2026-08-06 オーナー裁定: shell/Web 両面）---
+// 移動と操作が衝突しないための排他モード切替。8 方向ハンドルで layers[].crop
+// （0..1 正規化・ソースフレーム相対）を編集し、確定（pointerup）時のみ書き戻す。
+let cropModeActive = false;
+const CROP_MIN = 0.02;
+function clampCrop(x, y, w, h) {
+  const cw = Math.min(1, Math.max(CROP_MIN, Number.isFinite(w) ? w : 1));
+  const ch = Math.min(1, Math.max(CROP_MIN, Number.isFinite(h) ? h : 1));
+  const cx = Math.min(1 - cw, Math.max(0, Number.isFinite(x) ? x : 0));
+  const cy = Math.min(1 - ch, Math.max(0, Number.isFinite(y) ? y : 0));
+  return { x: cx, y: cy, w: cw, h: ch };
+}
+function layerTransformOf(el) {
+  return {
+    x: Number(el.dataset.layerX) || 0,
+    y: Number(el.dataset.layerY) || 0,
+    scale: Number(el.dataset.layerScale) || 1,
+    rotate: Number(el.dataset.layerRotate) || 0,
+  };
+}
+// ソース px（要素ローカル px。object-fit:contain 無効のため videoWidth/Height と一致）の矩形/pivot
+// を画面上の箱（layerContainer ローカル座標。frameScale/zoom は親コンテナの scale() が別途処理）へ
+// 正写像する。shell の layerScreenRectForVideoRect と同型（P' = O + (tx,ty) + s·R(θ)·(P-O)）。
+function screenBoxForFraction(el, transform, rectFrac, pivotFrac) {
+  const boxW = el.offsetWidth, boxH = el.offsetHeight;
+  const ox = pivotFrac.x * boxW, oy = pivotFrac.y * boxH;
+  const rcx = (rectFrac.x + rectFrac.w / 2) * boxW;
+  const rcy = (rectFrac.y + rectFrac.h / 2) * boxH;
+  const dx = rcx - ox, dy = rcy - oy;
+  const rad = transform.rotate * Math.PI / 180;
+  const sx = dx * Math.cos(rad) - dy * Math.sin(rad);
+  const sy = dx * Math.sin(rad) + dy * Math.cos(rad);
+  const centerX = el.offsetLeft + ox + transform.x + transform.scale * sx;
+  const centerY = el.offsetTop + oy + transform.y + transform.scale * sy;
+  const w = rectFrac.w * boxW * transform.scale;
+  const h = rectFrac.h * boxH * transform.scale;
+  return { left: centerX - w / 2, top: centerY - h / 2, width: w, height: h };
+}
+// 画面クライアント座標 → ソースフレーム正規化座標（0..1）の逆写像。screenBoxForFraction の逆。
+function fractionForClient(el, transform, pivotFrac, clientX, clientY) {
+  const contRect = layerContainer.getBoundingClientRect();
+  if (!(contRect.width > 0)) return null;
+  const viewScale = contRect.width / layerContainer.offsetWidth;
+  const px = (clientX - contRect.left) / viewScale;
+  const py = (clientY - contRect.top) / viewScale;
+  const boxW = el.offsetWidth, boxH = el.offsetHeight;
+  const ox = el.offsetLeft + pivotFrac.x * boxW;
+  const oy = el.offsetTop + pivotFrac.y * boxH;
+  const dx = px - (ox + transform.x);
+  const dy = py - (oy + transform.y);
+  const rad = -transform.rotate * Math.PI / 180;
+  const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+  const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+  const lx = rx / (transform.scale || 1) + pivotFrac.x * boxW;
+  const ly = ry / (transform.scale || 1) + pivotFrac.y * boxH;
+  return { x: lx / boxW, y: ly / boxH };
+}
+
+const layerCropBox = document.createElement('div');
+layerCropBox.id = 'layer-crop-box';
+layerCropBox.setAttribute('data-akari-interaction', '1');
+layerCropBox.style.cssText = 'position:absolute;pointer-events:none;display:none;z-index:1001;overflow:hidden;outline:1px dashed rgba(255,255,255,0.5);';
+const layerCropRect = document.createElement('div');
+layerCropRect.style.cssText = 'position:absolute;box-sizing:border-box;outline:1.5px solid #4da3ff;box-shadow:0 0 0 2000px rgba(0,0,0,0.45);pointer-events:none;';
+layerCropBox.appendChild(layerCropRect);
+const CROP_HANDLE_DIRS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+const CROP_HANDLE_POS = {
+  nw: { top: '0', left: '0', cursor: 'nwse-resize' },
+  n: { top: '0', left: '50%', cursor: 'ns-resize' },
+  ne: { top: '0', left: '100%', cursor: 'nesw-resize' },
+  e: { top: '50%', left: '100%', cursor: 'ew-resize' },
+  se: { top: '100%', left: '100%', cursor: 'nwse-resize' },
+  s: { top: '100%', left: '50%', cursor: 'ns-resize' },
+  sw: { top: '100%', left: '0', cursor: 'nesw-resize' },
+  w: { top: '50%', left: '0', cursor: 'ew-resize' },
+};
+const layerCropHandleElements = CROP_HANDLE_DIRS.map(dir => {
+  const h = document.createElement('div');
+  const pos = CROP_HANDLE_POS[dir];
+  h.dataset.akariCropHandle = dir;
+  h.setAttribute('data-akari-interaction', '1');
+  h.style.cssText = `position:absolute;width:12px;height:12px;margin:-6px;box-sizing:border-box;border:1.5px solid #4da3ff;border-radius:2px;background:#fff;pointer-events:auto;top:${pos.top};left:${pos.left};cursor:${pos.cursor};`;
+  layerCropRect.appendChild(h);
+  return h;
+});
+const layerCropToggle = document.createElement('div');
+layerCropToggle.id = 'layer-crop-toggle';
+layerCropToggle.title = 'クロップモード切替 (Esc で終了)';
+layerCropToggle.textContent = '⛶';
+layerCropToggle.setAttribute('data-akari-interaction', '1');
+layerCropToggle.style.cssText = 'position:absolute;display:none;width:22px;height:22px;box-sizing:border-box;border-radius:4px;border:1px solid #4da3ff;background:rgba(20,20,20,0.85);color:#cfe6ff;font-size:13px;line-height:20px;text-align:center;cursor:pointer;pointer-events:auto;user-select:none;z-index:1002;';
+
+function positionLayerCropToggle(el) {
+  if (!layerCropToggle.parentElement) layerContainer.appendChild(layerCropToggle);
+  if (!el) {
+    layerCropToggle.style.display = 'none';
+    return;
+  }
+  layerCropToggle.style.display = 'flex';
+  layerCropToggle.style.alignItems = 'center';
+  layerCropToggle.style.justifyContent = 'center';
+  // 箱の上端がキャンバス上端に近いと「箱の外側・上」が画面外へはみ出す。0 未満にはせず、
+  // 収まらないときは箱の内側上端へフォールバックする。
+  const box = cropModeActive ? layerCropBox : el;
+  layerCropToggle.style.left = `${box.offsetLeft + box.offsetWidth + 4}px`;
+  layerCropToggle.style.top = `${Math.max(4, box.offsetTop - 26)}px`;
+}
+
+function updateLayerCropBox() {
+  if (!layerCropBox.parentElement) layerContainer.appendChild(layerCropBox);
+  const lv = layerVideos.find(v => selectedLayerId !== null && v.layer.id === selectedLayerId);
+  if (!cropModeActive || !lv || lv.el.style.display === 'none') {
+    layerCropBox.style.display = 'none';
+    return;
+  }
+  const el = lv.el;
+  const transform = layerTransformOf(el);
+  const crop = cropOf(el);
+  // 全面中心固定 pivot（クロップ現在値によるピボットのドリフトを避け、常に自分の中心で回る
+  // 素直な参照系にする — 編集時だけの近似。shell と同じ設計判断）。
+  const fullPivot = { x: 0.5, y: 0.5 };
+  const outer = screenBoxForFraction(el, transform, { x: 0, y: 0, w: 1, h: 1 }, fullPivot);
+  const inner = screenBoxForFraction(el, transform, crop, fullPivot);
+  layerCropBox.style.display = 'block';
+  layerCropBox.style.left = `${outer.left}px`;
+  layerCropBox.style.top = `${outer.top}px`;
+  layerCropBox.style.width = `${outer.width}px`;
+  layerCropBox.style.height = `${outer.height}px`;
+  layerCropBox.style.transform = `rotate(${transform.rotate}deg)`;
+  layerCropRect.style.left = `${inner.left - outer.left}px`;
+  layerCropRect.style.top = `${inner.top - outer.top}px`;
+  layerCropRect.style.width = `${inner.width}px`;
+  layerCropRect.style.height = `${inner.height}px`;
+  positionLayerCropToggle(el);
+}
+
+function applyLayerCropDataset(el, crop) {
+  el.dataset.layerCropX = String(crop.x);
+  el.dataset.layerCropY = String(crop.y);
+  el.dataset.layerCropW = String(crop.w);
+  el.dataset.layerCropH = String(crop.h);
+  applyLayerCropVisual(el);
+}
+
+function setCropMode(active) {
+  cropModeActive = !!(active && selectedLayerId !== null);
+  layerCropToggle.classList.toggle('is-crop-mode', cropModeActive);
+  layerCropToggle.style.background = cropModeActive ? '#4da3ff' : 'rgba(20,20,20,0.85)';
+  layerCropToggle.style.color = cropModeActive ? '#0b1a2a' : '#cfe6ff';
+  if (cropModeActive) {
+    layerSelectBox.style.display = 'none';
+    updateLayerCropBox();
+  } else {
+    layerCropBox.style.display = 'none';
+    updateLayerSelectBox();
+  }
+}
+// click ではなく pointerdown+pointerup（setPointerCapture 付き）で拾う — 再生中は毎フレーム
+// positionLayerCropToggle が呼ばれてボタンが数 px 動くため、down/up の間にボタンが動くと
+// click イベントの合成対象がズレて発火しなくなることがある（実マウス操作で再現・
+// 実測確認済み）。ドラッグハンドルと同じ pointer capture 方式にして確実に拾う。
+layerCropToggle.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  try { layerCropToggle.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+});
+layerCropToggle.addEventListener('pointerup', (e) => {
+  e.stopPropagation();
+  setCropMode(!cropModeActive);
+});
+// Escape でのクロップモード終了は、既存のグローバル Escape ハンドラ（setLayerSelected(null) を
+// 呼ぶ）が setLayerSelected 内の cropModeActive ガード経由で兼ねる（専用リスナーは不要）。
+
+for (const handle of layerCropHandleElements) {
+  handle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || selectedLayerId === null || !cropModeActive) return;
+    const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+    if (!lv) return;
+    const el = lv.el;
+    const dir = handle.dataset.akariCropHandle;
+    const startTransform = layerTransformOf(el);
+    const fullPivot = { x: 0.5, y: 0.5 };
+    const original = clampCrop(
+      Number(el.dataset.layerCropX), Number(el.dataset.layerCropY),
+      Number(el.dataset.layerCropW), Number(el.dataset.layerCropH),
+    );
+    const anchorRight = original.x + original.w;
+    const anchorBottom = original.y + original.h;
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    const captureTarget = event.currentTarget;
+    let moved = false;
+    let cancelled = false;
+    try { captureTarget.setPointerCapture(pointerId); } catch { /* not capturable */ }
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('keydown', onKeyDown, true);
+      if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
+        captureTarget.releasePointerCapture(pointerId);
+      }
+    };
+    const computeNext = (moveEvent) => {
+      const point = fractionForClient(el, startTransform, fullPivot, moveEvent.clientX, moveEvent.clientY);
+      if (!point) return original;
+      let nextX = original.x, nextY = original.y, nextRight = anchorRight, nextBottom = anchorBottom;
+      if (dir.indexOf('w') >= 0) nextX = Math.min(point.x, anchorRight - CROP_MIN);
+      if (dir.indexOf('e') >= 0) nextRight = Math.max(point.x, original.x + CROP_MIN);
+      if (dir.indexOf('n') >= 0) nextY = Math.min(point.y, anchorBottom - CROP_MIN);
+      if (dir.indexOf('s') >= 0) nextBottom = Math.max(point.y, original.y + CROP_MIN);
+      return clampCrop(nextX, nextY, nextRight - nextX, nextBottom - nextY);
+    };
+    const onMove = (moveEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      moved = true;
+      const next = computeNext(moveEvent);
+      applyLayerCropDataset(el, next);
+      updateLayerCropBox();
+    };
+    const finish = async () => {
+      cleanup();
+      if (cancelled) {
+        applyLayerCropDataset(el, original);
+        updateLayerCropBox();
+        return;
+      }
+      if (!moved) return;
+      const finalCrop = clampCrop(
+        Number(el.dataset.layerCropX), Number(el.dataset.layerCropY),
+        Number(el.dataset.layerCropW), Number(el.dataset.layerCropH),
+      );
+      try {
+        await layerWriteViaPut(selectedLayerId, { crop: finalCrop });
+      } catch (err) {
+        applyLayerCropDataset(el, original);
+        updateLayerCropBox();
+        showMessage(String(err?.message || err));
+      }
+    };
+    const onUp = (upEvent) => {
+      if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+      void finish();
+    };
+    const onKeyDown = (keyEvent) => {
+      if (keyEvent.key !== 'Escape') return;
+      cancelled = true;
+      void finish();
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('keydown', onKeyDown, true);
+  });
+}
+new ResizeObserver(() => updateLayerCropBox()).observe(wrapper);
 
 // zoom 込みの実効倍率（表示 px / 論理出力 px）。frameScale 直参照だと zoom>1 でずれる
 function layerEffectiveScale() {
@@ -524,6 +837,7 @@ async function layerWriteViaPut(layerId, patch) {
   const layer = (edit.layers || []).find(l => String(l.id) === String(layerId));
   if (!layer) throw new Error(`素材が見つかりません: ${layerId}`);
   if (patch.transform) layer.transform = { ...layer.transform, ...patch.transform };
+  if (patch.crop) layer.crop = { ...patch.crop };
   const put = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(edit),
@@ -557,7 +871,14 @@ function findLayerHit(e) {
 }
 
 wrapper.addEventListener('pointerdown', (e) => {
-  if (penActive || e.button !== 0) return;
+  // ㉔ クロップモード中は移動と操作が衝突しないよう本編ボディのドラッグ選択/移動を止める
+  // （ハンドル/トグルは別要素の専用リスナーが処理する。Esc/トグルクリックで抜けるまで無効）。
+  if (penActive || e.button !== 0 || cropModeActive) return;
+  // インタラクション UI 自体（選択枠・ハンドル・クロップトグル）へのクリックは、findLayerHit が
+  // レイヤー本体ではないため null を返す — それを「背景クリック」と誤認して選択解除しないよう、
+  // このキャプチャフェーズの時点で先に弾く（このリスナーは true=capture のため、トグル自身の
+  // pointerdown ハンドラより先に実行される）。
+  if (e.target && e.target.closest && e.target.closest('[data-akari-interaction]')) return;
   const el = findLayerHit(e);
   if (!el) {
     if (selectedLayerId !== null) setLayerSelected(null);
