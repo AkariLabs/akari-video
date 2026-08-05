@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { buildLayersCompositeCommand, hasLayers } from "../src/layers.mjs";
+import { computePerspectiveFfmpegCorners } from "../src/perspective-homography.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
@@ -233,6 +234,77 @@ test("buildLayersCompositeCommand: layer.crop inserts a crop= step before scale,
   const cropIndex = filterComplex.indexOf("crop=");
   const scaleIndex = filterComplex.indexOf("scale=");
   assert.ok(cropIndex >= 0 && scaleIndex >= 0 && cropIndex < scaleIndex, "crop= must appear before scale= in the filter chain");
+});
+
+test("buildLayersCompositeCommand: layer.perspective inserts pad/perspective/crop between scale and rotate, in that order", () => {
+  const { args } = buildLayersCompositeCommand({
+    layers: [
+      {
+        id: "pinp",
+        t: 0,
+        duration: 2,
+        kind: "video",
+        src: "guest.mp4",
+        transform: { scale: 1.5, rotate: 30 },
+        perspective: { corners: [[0.1, 0], [0.9, 0], [0, 1], [1, 1]] },
+      },
+    ],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/.akari/render-tmp/cut.mp4",
+    outputPath: "/project/.akari/render-tmp/layered.mp4",
+    duration: 5,
+  });
+  const filterComplex = args[args.indexOf("-filter_complex") + 1];
+  assert.match(filterComplex, /pad=trunc\(iw\*2\/2\)\*2:trunc\(ih\*2\/2\)\*2:x=trunc\(iw\*0\.5\/2\)\*2:y=trunc\(ih\*0\.5\/2\)\*2:color=black@0/);
+  assert.match(filterComplex, /perspective=x0=[-\d.]+\*W:y0=[-\d.]+\*H:x1=[-\d.]+\*W:y1=[-\d.]+\*H:x2=[-\d.]+\*W:y2=[-\d.]+\*H:x3=[-\d.]+\*W:y3=[-\d.]+\*H:sense=destination:eval=init/);
+  assert.match(filterComplex, /crop=trunc\(\(iw\/2\)\/2\)\*2:trunc\(\(ih\/2\)\/2\)\*2:trunc\(\(iw\*0\.5\/2\)\/2\)\*2:trunc\(\(ih\*0\.5\/2\)\/2\)\*2/);
+  const scaleIndex = filterComplex.indexOf("scale=");
+  const padIndex = filterComplex.indexOf("pad=");
+  const perspectiveIndex = filterComplex.indexOf("perspective=");
+  // The crop= that removes the perspective padding is the *second* crop= in the chain (the first,
+  // if present, would be layer.crop; there is none declared here) -- locate it after perspective=.
+  const cropBackIndex = filterComplex.indexOf("crop=", perspectiveIndex);
+  const rotateIndex = filterComplex.indexOf("rotate=");
+  assert.ok(
+    scaleIndex >= 0 && scaleIndex < padIndex && padIndex < perspectiveIndex && perspectiveIndex < cropBackIndex && cropBackIndex < rotateIndex,
+    `expected order scale < pad < perspective < crop(back) < rotate, got indices ${JSON.stringify({ scaleIndex, padIndex, perspectiveIndex, cropBackIndex, rotateIndex })}`,
+  );
+});
+
+test("buildLayersCompositeCommand: layer.perspective dest-corner coefficients match perspective-homography.mjs exactly (no drift between the two modules)", () => {
+  const corners = [[0.15, 0.05], [0.8, 0.1], [0.05, 0.9], [0.95, 0.85]];
+  const { args } = buildLayersCompositeCommand({
+    layers: [{ id: "pinp", t: 0, duration: 2, kind: "video", src: "guest.mp4", perspective: { corners } }],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/.akari/render-tmp/cut.mp4",
+    outputPath: "/project/.akari/render-tmp/layered.mp4",
+    duration: 5,
+  });
+  const filterComplex = args[args.indexOf("-filter_complex") + 1];
+  const expected = computePerspectiveFfmpegCorners(corners);
+  const flatExpected = expected.flat();
+  const match = filterComplex.match(/perspective=x0=([-\d.]+)\*W:y0=([-\d.]+)\*H:x1=([-\d.]+)\*W:y1=([-\d.]+)\*H:x2=([-\d.]+)\*W:y2=([-\d.]+)\*H:x3=([-\d.]+)\*W:y3=([-\d.]+)\*H/);
+  assert.ok(match, "expected a perspective= clause with x0..y3 factors");
+  const actual = match.slice(1, 9).map(Number);
+  actual.forEach((value, index) => {
+    assert.ok(Math.abs(value - flatExpected[index]) < 1e-9, `coefficient[${index}] = ${value}, expected ${flatExpected[index]}`);
+  });
+});
+
+test("buildLayersCompositeCommand: layer without perspective emits no pad/perspective step (byte-identical filter chain)", () => {
+  const { args } = buildLayersCompositeCommand({
+    layers: [{ id: "fx", t: 0, duration: 2, kind: "baked", src: "fx.mov", transform: { scale: 1.2, rotate: 10 } }],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/.akari/render-tmp/cut.mp4",
+    outputPath: "/project/.akari/render-tmp/layered.mp4",
+    duration: 5,
+  });
+  const filterComplex = args[args.indexOf("-filter_complex") + 1];
+  assert.doesNotMatch(filterComplex, /perspective=/);
+  assert.doesNotMatch(filterComplex, /pad=/);
 });
 
 test("buildLayersCompositeCommand: layer without crop emits no crop= step (byte-identical filter chain)", () => {
@@ -753,6 +825,171 @@ test("layers[].crop combined with transform.scale + transform.rotate applies cro
     assertColor(outsideFootprint, [0, 0, 255], "outside the crop+scale+rotate footprint, base blue still shows through");
   } finally {
     await rm(project, { recursive: true, force: true });
+  }
+});
+
+// L1 acceptance — perspective corner-pin: a declared trapezoid ([[0.1,0],[0.9,0],[0,1],[1,1]] --
+// top edge inset 10%/90%, bottom edge full width) must land at those exact pixel positions in the
+// real render, with the area outside the trapezoid (but inside the layer's original box) showing
+// the base video through — i.e. alpha=0, not the edge-clamped opaque content a naive
+// (unpadded) perspective= application would produce. Sample points straddle each measured
+// transition (§4 of the internal implementation notes: the padding-then-crop-back approach was
+// verified against this exact declaration with a standalone ffmpeg invocation before wiring it
+// into layers.mjs).
+test("layers[].perspective corner-pin: declared trapezoid lands at the right pixels, outside is transparent (real render)", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 640;
+  const height = 360;
+  const fps = 25;
+  const duration = 3;
+  const project = await makeProject({
+    width,
+    height,
+    fps,
+    duration,
+    layers: [
+      {
+        id: "pinp-perspective",
+        t: 0.5,
+        duration: 2,
+        kind: "video",
+        src: "guest.mp4",
+        transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+        perspective: { corners: [[0.1, 0], [0.9, 0], [0, 1], [1, 1]] },
+      },
+    ],
+  });
+  try {
+    makeSolidSource(join(project, "guest.mp4"), { color: "lime", width: 300, height: 200, duration: 2, fps });
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const outputPath = join(project, state.artifacts[0].path);
+    const frame = Math.round(1.5 * fps);
+
+    // Box (300x200, unscaled) centered at (640-300)/2=170,(360-200)/2=80 -> spans (170,80)-(470,280).
+    // Declared corners TL=(0.1,0) TR=(0.9,0) BL=(0,1) BR=(1,1) -> local pixel targets
+    // TL=(30,0) TR=(270,0) BL=(0,200) BR=(300,200): the top edge is inset, the bottom edge is not.
+    const justOutsideTL = samplePixel(outputPath, frame, 190, 83); // local (20,3)
+    const justInsideTL = samplePixel(outputPath, frame, 210, 83); // local (40,3)
+    const justOutsideTR = samplePixel(outputPath, frame, 450, 83); // local (280,3)
+    const justInsideTR = samplePixel(outputPath, frame, 430, 83); // local (260,3)
+    const bottomLeftCorner = samplePixel(outputPath, frame, 173, 275); // local (3,195) -- bottom edge is full-width
+    const bottomRightCorner = samplePixel(outputPath, frame, 467, 275); // local (297,195)
+    const center = samplePixel(outputPath, frame, 320, 180); // local (150,100)
+    const outsideOriginalBoxCorner = samplePixel(outputPath, frame, 172, 82); // local (2,2) -- inside the un-warped box, outside the trapezoid
+    t.diagnostic(`just-outside-TL (190,83) rgb=(${justOutsideTL.r},${justOutsideTL.g},${justOutsideTL.b}) [expect base blue]`);
+    t.diagnostic(`just-inside-TL (210,83) rgb=(${justInsideTL.r},${justInsideTL.g},${justInsideTL.b}) [expect lime]`);
+    t.diagnostic(`just-outside-TR (450,83) rgb=(${justOutsideTR.r},${justOutsideTR.g},${justOutsideTR.b}) [expect base blue]`);
+    t.diagnostic(`just-inside-TR (430,83) rgb=(${justInsideTR.r},${justInsideTR.g},${justInsideTR.b}) [expect lime]`);
+    assertColor(justOutsideTL, [0, 0, 255], "just outside the inset top-left corner: base video shows through (alpha=0)");
+    assertColor(justInsideTL, [0, 255, 0], "just inside the inset top-left corner: layer content (lime)");
+    assertColor(justOutsideTR, [0, 0, 255], "just outside the inset top-right corner: base video shows through (alpha=0)");
+    assertColor(justInsideTR, [0, 255, 0], "just inside the inset top-right corner: layer content (lime)");
+    assertColor(bottomLeftCorner, [0, 255, 0], "bottom-left corner (bottom edge is full-width, not inset): layer content");
+    assertColor(bottomRightCorner, [0, 255, 0], "bottom-right corner (bottom edge is full-width, not inset): layer content");
+    assertColor(center, [0, 255, 0], "footprint center: layer content");
+    assertColor(outsideOriginalBoxCorner, [0, 0, 255], "the original box's own top-left corner sits outside the trapezoid: base video shows through");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+// L1 acceptance — perspective combined with crop + rotate, proving the apply order is
+// crop → scale → perspective → rotate (contract-2026-08-02-preview-parity.md §2.4.3): crop
+// selects the source's right half (lime top / magenta bottom, matching the existing
+// "crop + scale + rotate" acceptance above), perspective then warps *that already-cropped* box
+// into a top-inset trapezoid, and rotate=180 flips the whole (still-transparent-margined) result.
+// If perspective ran before crop, the trapezoid would be sized/positioned against the *uncropped*
+// source; if it ran after rotate, the inset edge would be on the bottom instead of the top.
+test("layers[].perspective combined with crop + rotate applies in crop → perspective → rotate order (real render)", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 640;
+  const height = 480;
+  const fps = 25;
+  const duration = 3;
+  const project = await makeProject({
+    width,
+    height,
+    fps,
+    duration,
+    layers: [
+      {
+        id: "pinp-crop-perspective-rotate",
+        t: 0.5,
+        duration: 2,
+        kind: "video",
+        src: "guest.mp4",
+        transform: { x: 0, y: 0, scale: 1, rotate: 180 },
+        crop: { x: 0.5, y: 0, w: 0.5, h: 1 },
+        perspective: { corners: [[0.1, 0], [0.9, 0], [0, 1], [1, 1]] },
+      },
+    ],
+  });
+  try {
+    makeQuadrantLayer(join(project, "guest.mp4"), { width: 400, height: 300, duration: 2, fps });
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const outputPath = join(project, state.artifacts[0].path);
+    const frame = Math.round(1.5 * fps);
+
+    // crop keeps the right half (200x300: lime top / magenta bottom) -> perspective insets the
+    // *top* edge of that 200x300 box -> rotate=180 flips both content and shape, so the *bottom*
+    // edge of the final (still 200x300) footprint is the inset one, and the top half of the
+    // rotated content is magenta (was the bottom half pre-rotate). Footprint centers at
+    // (640-200)/2=220,(480-300)/2=90 -> spans (220,90)-(420,390).
+    const topCenter = samplePixel(outputPath, frame, 320, 110); // pre-rotate local (100,280): bottom edge (full-width), magenta
+    const bottomCenter = samplePixel(outputPath, frame, 320, 370); // pre-rotate local (100,20): top edge (inset but centered, inside bounds), lime
+    const bottomLeftOutsideInset = samplePixel(outputPath, frame, 225, 385); // pre-rotate local (195,5): outside the inset top edge
+    t.diagnostic(`top-center (320,110) rgb=(${topCenter.r},${topCenter.g},${topCenter.b}) [expect magenta -- crop's bottom half, perspective's non-inset edge, rotated to the top]`);
+    t.diagnostic(`bottom-center (320,370) rgb=(${bottomCenter.r},${bottomCenter.g},${bottomCenter.b}) [expect lime -- crop's top half, perspective's inset edge, rotated to the bottom]`);
+    t.diagnostic(`bottom-left outside the rotated inset (225,385) rgb=(${bottomLeftOutsideInset.r},${bottomLeftOutsideInset.g},${bottomLeftOutsideInset.b}) [expect base blue]`);
+    assertColor(topCenter, [255, 0, 255], "crop's bottom (magenta) half lands on the perspective's full-width edge, rotated to the top");
+    assertColor(bottomCenter, [0, 255, 0], "crop's top (lime) half lands on the perspective's inset edge, rotated to the bottom");
+    assertColor(bottomLeftOutsideInset, [0, 0, 255], "outside the (rotated) inset corner: base video shows through -- proves perspective, not just crop, is still active after rotate");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+// L1 non-regression: a project with a layer that has no perspective field renders byte-identical
+// output across repeated runs (mirrors the crop non-regression test below) — the layer's own
+// filter chain must contain no pad=/perspective= step at all (see the unit test above).
+test("layers[] without a perspective field renders byte-identical output across repeated runs (no perspective regression)", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 320;
+  const height = 180;
+  const fps = 10;
+  const duration = 2;
+  const layers = [
+    {
+      id: "pinp-no-perspective",
+      t: 0.2,
+      duration: 1,
+      kind: "video",
+      src: "guest.mp4",
+      transform: { x: 10, y: -5, scale: 0.8, rotate: 15 },
+      crop: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 },
+    },
+  ];
+  const projectA = await makeProject({ width, height, fps, duration, layers });
+  const projectB = await makeProject({ width, height, fps, duration, layers });
+  try {
+    makeQuadrantLayer(join(projectA, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
+    makeQuadrantLayer(join(projectB, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
+    const executedA = run(projectA);
+    const executedB = run(projectB);
+    assert.equal(executedA.status, 0, executedA.stderr);
+    assert.equal(executedB.status, 0, executedB.stderr);
+    const stateA = JSON.parse(await readFile(join(projectA, ".akari", "render.json"), "utf8"));
+    const stateB = JSON.parse(await readFile(join(projectB, ".akari", "render.json"), "utf8"));
+    assert.equal(stateA.artifacts[0].sha256, stateB.artifacts[0].sha256, "no-perspective layers must render byte-identical output (determinism, no pad=/perspective= step involved)");
+  } finally {
+    await rm(projectA, { recursive: true, force: true });
+    await rm(projectB, { recursive: true, force: true });
   }
 });
 
