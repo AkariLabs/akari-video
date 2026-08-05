@@ -25,6 +25,7 @@
       "src": "footage/guest.mp4",
       "transform": { "x": 420, "y": -220, "scale": 0.35, "rotate": 0 },
       "crop": { "x": 0.1, "y": 0.05, "w": 0.8, "h": 0.9 },
+      "perspective": { "corners": [[0.1, 0], [0.9, 0], [0, 1], [1, 1]] },
       "opacity": 1,
       "chroma_key": { "color": "0x00FF00", "similarity": 0.12, "blend": 0.05 }
     }

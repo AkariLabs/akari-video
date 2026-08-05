@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
+import { computePerspectiveFfmpegCorners, PERSPECTIVE_PAD_FRAC } from "./perspective-homography.mjs";
 
 // contract-2026-07-22-prerender-rail-and-assets.md §0/§1.2: render-cut composites edit.json
 // layers[] (baked alpha mov / video PinP) onto the cuts-composited base video, ordered by t.
@@ -88,6 +89,45 @@ export function buildLayersCompositeCommand({
     }
     if (scale !== 1) {
       steps.push(`scale=trunc(iw*${formatNumber(scale)}):trunc(ih*${formatNumber(scale)})`);
+    }
+    // contract-2026-08-02-preview-parity.md §2.4.4: layers[].perspective applies after scale and
+    // before rotate (crop → scale → perspective → rotate → opacity → overlay). ffmpeg's
+    // `perspective` filter's x0..y3 always describe where the INPUT FRAME'S OWN 4 corners land in
+    // the output -- not an inner content rectangle's corners -- so reproducing a corner-pin
+    // declared against the layer's own (post crop+scale) box requires first padding the frame
+    // (transparent) and then feeding perspective the *padded frame's* corner positions under the
+    // same homography (computePerspectiveFfmpegCorners does this derivation; see that module for
+    // why padding is required for the outside-the-trapezoid area to render transparent rather than
+    // edge-clamped opaque content). The padding is removed again by the trailing crop= so the
+    // stream handed to rotate/opacity/overlay is exactly the same iw/ih it would have been without
+    // perspective (their pivot/placement math is therefore unaffected by this stage).
+    const perspective = layer.perspective;
+    if (perspective && Array.isArray(perspective.corners) && perspective.corners.length === 4) {
+      const padFrac = PERSPECTIVE_PAD_FRAC;
+      const denom = 1 + 2 * padFrac;
+      const destCorners = computePerspectiveFfmpegCorners(perspective.corners, padFrac);
+      const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = destCorners;
+      const iwExpr = "iw";
+      const ihExpr = "ih";
+      // ffmpeg's expression evaluator rejects `iw*-0.07` (unary minus straight after `*`, e.g.
+      // for extrapolated corners that land left/above the padded canvas) -- and, empirically,
+      // also rejects `iw*(-0.07)`/`iw*(0.07)` (a parenthesized factor right after `iw*` trips its
+      // "Unknown function" path, as if `iw(` were being parsed as a call). Putting the numeric
+      // coefficient *first* sidesteps both: a leading unary minus at the start of an expression is
+      // always valid, and the size variable no longer immediately precedes a `(`. Separately, the
+      // `perspective` filter's own expression evaluator does not define `iw`/`ih` (those are
+      // crop/pad/scale's constants) -- it defines `W`/`H` for its own input frame size instead
+      // (confirmed by real ffmpeg invocation; `iw`/`ih` here fail with "Undefined constant").
+      const scaledBy = (value, axisExpr) => `${formatNumber(value)}*${axisExpr}`;
+      steps.push(
+        `pad=trunc(${iwExpr}*${formatNumber(denom)}/2)*2:trunc(${ihExpr}*${formatNumber(denom)}/2)*2:x=trunc(${iwExpr}*${formatNumber(padFrac)}/2)*2:y=trunc(${ihExpr}*${formatNumber(padFrac)}/2)*2:color=black@0`,
+      );
+      steps.push(
+        `perspective=x0=${scaledBy(x0, "W")}:y0=${scaledBy(y0, "H")}:x1=${scaledBy(x1, "W")}:y1=${scaledBy(y1, "H")}:x2=${scaledBy(x2, "W")}:y2=${scaledBy(y2, "H")}:x3=${scaledBy(x3, "W")}:y3=${scaledBy(y3, "H")}:sense=destination:eval=init`,
+      );
+      steps.push(
+        `crop=trunc((${iwExpr}/${formatNumber(denom)})/2)*2:trunc((${ihExpr}/${formatNumber(denom)})/2)*2:trunc((${iwExpr}*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2:trunc((${ihExpr}*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2`,
+      );
     }
     if (rotate !== 0) {
       const radians = `(${formatNumber(rotate)}*PI/180)`;

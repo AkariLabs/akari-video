@@ -363,6 +363,9 @@ function validateLayers(value) {
     if (hasOwn(layer, "crop")) {
       validateLayerCrop(layer.crop, `${label}.crop`);
     }
+    if (hasOwn(layer, "perspective")) {
+      validateLayerPerspective(layer.perspective, `${label}.perspective`);
+    }
     if (hasOwn(layer, "track")) {
       if (!Number.isInteger(layer.track) || layer.track < 0) {
         fail(`${label}.track は 0 以上の整数である必要があります`);
@@ -406,6 +409,53 @@ function validateLayerCrop(value, label) {
   }
   if (isFiniteNumber(value.y) && isFiniteNumber(value.h) && value.y + value.h > 1 + 1e-9) {
     fail(`${label}.y + ${label}.h は 1 以下である必要があります`);
+  }
+}
+
+function validateLayerPerspective(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  const corners = value.corners;
+  if (!Array.isArray(corners) || corners.length !== 4) {
+    fail(`${label}.corners は [TL,TR,BL,BR] の 4 要素配列である必要があります`);
+    return;
+  }
+  const names = ["TL", "TR", "BL", "BR"];
+  let allFinite = true;
+  const points = corners.map((corner, index) => {
+    const cornerLabel = `${label}.corners[${index}] (${names[index]})`;
+    if (!Array.isArray(corner) || corner.length !== 2) {
+      fail(`${cornerLabel} は [x, y] の 2 要素配列である必要があります`);
+      allFinite = false;
+      return null;
+    }
+    const [x, y] = corner;
+    if (!isFiniteNumber(x) || x < 0 || x > 1) {
+      fail(`${cornerLabel}.x は 0 から 1 の範囲の有限数である必要があります`);
+      allFinite = false;
+    }
+    if (!isFiniteNumber(y) || y < 0 || y > 1) {
+      fail(`${cornerLabel}.y は 0 から 1 の範囲の有限数である必要があります`);
+      allFinite = false;
+    }
+    return [x, y];
+  });
+  if (!allFinite) return;
+  // 面積ほぼ0（退化四角形）はホモグラフィ計算が特異行列になり得るため拒否する。
+  // シューレース公式は境界を一周する順（TL→TR→BR→BL）で評価する必要があるため
+  // corners のラスタ順（TL,TR,BL,BR）から並べ替える。
+  const [tl, tr, bl, br] = points;
+  const ring = [tl, tr, br, bl];
+  let area2 = 0;
+  for (let i = 0; i < ring.length; i += 1) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[(i + 1) % ring.length];
+    area2 += x1 * y2 - x2 * y1;
+  }
+  if (Math.abs(area2) < 1e-4) {
+    fail(`${label}.corners は退化した四角形（面積がほぼ 0）であってはなりません`);
   }
 }
 

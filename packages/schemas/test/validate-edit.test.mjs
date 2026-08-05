@@ -291,6 +291,39 @@ test("layers[].crop.w must be > 0 and <= 1", () => {
   assert.match(executed.stderr, /layers\[0\]\.crop\.w は 0 より大きく 1 以下の有限数である必要があります/);
 });
 
+test("layers[].perspective.corners must have exactly 4 [x,y] pairs", () => {
+  const executed = run("edit-layers-invalid-perspective-wrong-corner-count");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /layers\[0\]\.perspective\.corners は \[TL,TR,BL,BR\] の 4 要素配列である必要があります/,
+  );
+});
+
+test("layers[].perspective.corners components must be within 0..1", () => {
+  const executed = run("edit-layers-invalid-perspective-out-of-range");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /layers\[0\]\.perspective\.corners\[1\] \(TR\)\.x は 0 から 1 の範囲の有限数である必要があります/,
+  );
+});
+
+test("layers[].perspective.corners rejects a degenerate (zero-area) quad", () => {
+  const executed = run("edit-layers-invalid-perspective-degenerate");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /layers\[0\]\.perspective\.corners は退化した四角形（面積がほぼ 0）であってはなりません/,
+  );
+});
+
+test("layers with a perspective corner-pin (combined with crop) passes", () => {
+  const executed = run("edit-layers-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
 test("beats (見せ場マーカー) v0: 3 items with mixed kinds and optional basis pass", () => {
   const executed = run("edit-beats-v0-valid");
   assert.equal(executed.status, 0, executed.stderr);

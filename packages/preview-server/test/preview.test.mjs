@@ -5,6 +5,10 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import { createRequire } from 'node:module';
+// layers[].perspective パリティ実測（contract-2026-08-02-preview-parity.md §2.4.4）用の
+// 参照計算（Web の実装そのもの — 同じ関数を独立に再インポートし、実ブラウザの
+// videoWidth/videoHeight から導いた box で「app.js が実際に書き込んだ matrix3d」と突き合わせる）。
+import { computeLayerPerspectiveVisual } from '../public/layer-perspective-visual.js';
 
 const require = createRequire(import.meta.url);
 // 総尺の期待値は Web UI と同じ共有カーネルで計算する（P2-7 テスト用）
@@ -836,6 +840,65 @@ async function main() {
     await page.waitForTimeout(500);
   } catch (e) {
     ng('Layer click-select + drag', e.message);
+  }
+
+  // ── layers[].perspective の実機パリティ（contract-2026-08-02-preview-parity.md §2.4.4）──
+  // 実ブラウザが書き込んだ matrix3d が、同じ box（実測 videoWidth/Height × crop）から
+  // computeLayerPerspectiveVisual を独立に呼んだ参照値と数値一致することを確認する
+  // （L1: render-cut のホモグラフィ計算とプレビュー側の描画計算のドリフト検知）。
+  console.log('\n🪞 layers[].perspective real-browser parity');
+  try {
+    const origText = fs.readFileSync(editJsonPath, 'utf8');
+    const withPerspective = JSON.parse(origText);
+    const corners = [[0.1, 0], [0.9, 0], [0, 1], [1, 1]];
+    const crop = { x: 0.1, y: 0.05, w: 0.8, h: 0.9 };
+    withPerspective.layers = [{
+      id: 'l-perspective-test', kind: 'video', src: 'source2.mp4', t: 0, duration: 3,
+      crop, perspective: { corners },
+    }];
+    fs.writeFileSync(editJsonPath, JSON.stringify(withPerspective, null, 2));
+
+    const pp = await context.newPage();
+    await pp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await pp.waitForTimeout(2500);
+    const state = await pp.evaluate(() => {
+      const v = document.querySelector('#layer-container video[data-layer-id="l-perspective-test"]');
+      if (!v) return null;
+      return {
+        transform: v.style.transform,
+        computedTransform: getComputedStyle(v).transform,
+        videoWidth: v.videoWidth,
+        videoHeight: v.videoHeight,
+        cropW: Number(v.dataset.layerCropW),
+        cropH: Number(v.dataset.layerCropH),
+      };
+    });
+    if (!state || !(state.videoWidth > 0)) {
+      ng('perspective real-browser parity', `layer/video not ready: ${JSON.stringify(state)}`);
+    } else {
+      const expected = computeLayerPerspectiveVisual(
+        { corners },
+        state.cropW * state.videoWidth,
+        state.cropH * state.videoHeight,
+      );
+      // 実ブラウザは el.style.transform の読み戻し時に CSSOM がカンマ後へ空白を挿入して
+      // 正規化する（値そのものは変わらない）ため、比較前に空白を除去する。
+      const normalize = (s) => (s || '').replace(/\s+/g, '');
+      const hasMatrix3d = expected && normalize(state.transform).includes(normalize(expected.transformFunction));
+      hasMatrix3d
+        ? ok(`app.js writes the exact matrix3d computeLayerPerspectiveVisual predicts from the real (browser-measured) video box (${state.videoWidth}x${state.videoHeight}, crop ${state.cropW}x${state.cropH})`)
+        : ng('perspective matrix3d matches reference', `actual=${state.transform} expected substring=${expected?.transformFunction}`);
+      // getComputedStyle 経由でも 'none' になっていない（ブラウザが matrix3d 構文を実際に
+      // 受理し、identity ではない非自明な変換として適用していること）ことも確認する。
+      state.computedTransform !== 'none' && state.computedTransform !== ''
+        ? ok('getComputedStyle reports a non-trivial applied transform (browser accepted the matrix3d syntax)')
+        : ng('getComputedStyle transform', `computedTransform=${state.computedTransform}`);
+    }
+    await pp.close();
+    fs.writeFileSync(editJsonPath, origText);
+    await page.waitForTimeout(500);
+  } catch (e) {
+    ng('perspective real-browser parity', e.message);
   }
 
   await page.close();
