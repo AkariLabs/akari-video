@@ -4809,6 +4809,8 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const setCropMode = active => {
                 cropModeActive = !!(active && selectedLayerId);
+                // ㉖ クロップモードとパースパネルは排他（ハンドル/操作の衝突を避ける）。
+                if (cropModeActive && perspectivePanelOpen) setPerspectivePanelOpen(false);
                 layerCropToggle.classList.toggle('is-crop-mode', cropModeActive);
                 layerSelectBox.classList.toggle('akari-crop-mode-hide-handles', cropModeActive);
                 if (cropModeActive) {
