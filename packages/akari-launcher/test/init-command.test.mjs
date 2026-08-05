@@ -10,7 +10,7 @@ import { resolveRepoAssets } from '../src/repo-assets.mjs';
 import { createCreatorRoot, defaultRootPath, DEFAULT_CHANNEL_NAME } from '../../creator-root/src/index.mjs';
 
 /**
- * `akari init [path] [--channel <name>]`（タスク契約 tasks/2026-08-02-launcher-init）の
+ * `akari init [path] [--channel <name>]`（タスク契約 launcher-init・内部リポ）の
  * 検証。作業場の作成・確認だけを行う入口であり、プロジェクト作成も claude 起動も一切
  * 行わない。`creator-root-first-run.test.mjs` と同じ流儀（実 creator-root モジュールを
  * 使い、実 ~/.akari/ には触れない隔離 env）で分岐を検証する。

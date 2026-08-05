@@ -26,6 +26,6 @@ CapCut 同様、**登場（in）/ 退場（out）/ ループ（loop）を独立�
 
 **この索引は語彙の宣言（カタログ）であり、新リポの字幕レンダラはまだ動きを実装していない**
 （現行は行順送り reveal 系のみ）。実装は内部契約
-（akari-video-internal planning/contract-2026-08-03-textstyle-v0.md §4）の残作業。
+（内部リポ akari-video-internal の textstyle-v0 契約 §4）の残作業。
 旧実装にはさらに ATF アニメカタログ 439 種（S01〜S30・akari-telop `src/effects/catalog/imported/`）
 があり、in/loop/out スロットの上級語彙として将来接続できる（移植は未定）。

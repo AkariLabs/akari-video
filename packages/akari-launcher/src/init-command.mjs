@@ -11,7 +11,7 @@ import {
 
 /**
  * `akari init [path] [--channel <name>]` — 作業場（creator-root）の作成・確認だけを行う
- * 純粋な入口サブコマンド（タスク契約 tasks/2026-08-02-launcher-init）。プロジェクト作成も
+ * 純粋な入口サブコマンド（タスク契約 launcher-init・内部リポ）。プロジェクト作成も
  * claude 起動も一切行わない。シェルの相棒（パートナーエージェント）が headless で
  * 安全に叩ける口として、plugin 配線（並列タスク B）がこのコマンドを呼ぶ前提で書かれている。
  *

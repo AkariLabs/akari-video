@@ -16,7 +16,7 @@
 color / size_px / stroke / background(color, opacity) まで。weight / letter_spacing_em /
 shadow / glow / text_transform / font_family / background(padding_px, radius_px) は
 スキーマとして先行定義しており、レンダラ側の対応は内部契約
-（akari-video-internal planning/contract-2026-08-03-textstyle-v0.md）の残作業。
+（内部リポ akari-video-internal の textstyle-v0 契約）の残作業。
 
 ## 一覧（11 件）
 

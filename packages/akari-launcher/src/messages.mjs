@@ -138,7 +138,7 @@ export function describeUpdateCommand({ currentVersion, cache, dismissed }) {
 }
 
 /**
- * `akari init` の出力文言（タスク契約 tasks/2026-08-02-launcher-init）。作業場
+ * `akari init` の出力文言（タスク契約 launcher-init・内部リポ）。作業場
  * （creator-root）の作成・確認だけを行う入口コマンド専用。1 行主義の既存流儀に従う。
  */
 

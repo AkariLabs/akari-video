@@ -18,7 +18,7 @@ updated: 2026-08-03
 依存追加なし（Node 26 組み込みの `fetch`/`WebSocket` のみ）。
 
 1. `apps/shell` を `npm run build`（`build:ext` → `theia build --mode production`）でビルド
-2. `templates/project-default/` を隔離ワークスペース（リポ外 scratchpad）へコピー。
+2. `templates/project-default/` を隔離ワークスペース（リポ外の一時作業場）へコピー。
    `.akari/intake.json`（`status: "submitted"`）でホーム側の gate を解放（本タスクの対象では
    ないが、副作用で他画面がブロックされないための保険）
 3. フィクスチャを追加（元テンプレートは無改変）:

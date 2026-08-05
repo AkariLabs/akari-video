@@ -1,6 +1,6 @@
 /**
  * 素材箱の walk 判定（task.md 決定事項2、正本:
- * `tasks/2026-08-04-material-bin-grouping/task.md`）:
+ * 内部リポのタスク契約 material-bin-grouping）:
  * 「meta.json を含むディレクトリ = 1 素材 = 1 カード」。
  *
  * この判定はディレクトリ深さに依存しない（受入2）— 呼び出し側の再帰 walk が、訪れた

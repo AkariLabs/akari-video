@@ -4,12 +4,15 @@
 // ネットワーク設定は一切変更しない。出力は JSON（stdout）のみ。
 //
 // state:
-//   not-installed — tailscale CLI が見つからない
-//   needs-login   — 導入済みだが未ログイン（BackendState: NeedsLogin / NoState）
-//   stopped       — ログイン済み・接続オフ（BackendState: Stopped）
-//   running       — 接続中（BackendState: Running / Starting）
+//   not-installed   — tailscale の実体が見つからない
+//   app-not-running — 実体はあるが CLI が応答しない（GUI アプリ未起動・初回セットアップ未完が典型。
+//                     macOS はアプリを一度も起動していないと Tailscale.app 内の CLI がハングする — 実測 2026-08-02）
+//   needs-login     — 導入済みだが未ログイン（BackendState: NeedsLogin / NoState）
+//   stopped         — ログイン済み・接続オフ（BackendState: Stopped）
+//   running         — 接続中（BackendState: Running / Starting）
 
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import net from "node:net";
 
 const usage = "使い方: node skills/setup-remote/bin/doctor.mjs [--preview-port <port>]";
@@ -61,7 +64,15 @@ async function findCli() {
   for (const candidate of cliCandidates()) {
     const result = await run(candidate, ["version"]);
     if (result.ok && result.stdout.trim()) {
-      return { path: candidate, version: result.stdout.trim().split("\n")[0] };
+      return { path: candidate, version: result.stdout.trim().split("\n")[0], responsive: true };
+    }
+  }
+  // exec が全滅でも実体があれば「未起動」と区別する（not-installed の誤報告を防ぐ）
+  for (const candidate of cliCandidates()) {
+    if (candidate.includes("/") || candidate.includes("\\")) {
+      if (existsSync(candidate)) {
+        return { path: candidate, version: null, responsive: false };
+      }
     }
   }
   return null;
@@ -107,6 +118,7 @@ function probePort(port) {
 
 function deriveState(cli, backendState) {
   if (!cli) return "not-installed";
+  if (!cli.responsive) return "app-not-running";
   if (backendState === "Running" || backendState === "Starting") return "running";
   if (backendState === "Stopped") return "stopped";
   return "needs-login";
@@ -114,7 +126,9 @@ function deriveState(cli, backendState) {
 
 async function main() {
   const cli = await findCli();
-  const status = cli ? await readStatus(cli.path) : { backendState: null, dnsName: null, tailscaleIPs: [] };
+  const status = cli?.responsive
+    ? await readStatus(cli.path)
+    : { backendState: null, dnsName: null, tailscaleIPs: [] };
   const serve = cli && status.backendState === "Running"
     ? await readServe(cli.path)
     : { configured: false, raw: "" };
@@ -128,6 +142,7 @@ async function main() {
     state,
     tailscale: {
       installed: Boolean(cli),
+      cliResponsive: cli?.responsive ?? false,
       cliPath: cli?.path ?? null,
       version: cli?.version ?? null,
       backendState: status.backendState,

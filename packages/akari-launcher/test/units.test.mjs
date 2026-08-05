@@ -195,8 +195,8 @@ test('claudeMissingGuidance: インストール手順の URL を含む', () => {
 });
 
 test('creatorRootFoundNotice: 作業場パスを 1 行で示す', () => {
-  const text = creatorRootFoundNotice('/home/user/AkariVideo');
-  assert.equal(text, '作業場: /home/user/AkariVideo');
+  const text = creatorRootFoundNotice('/workspaces/AkariVideo');
+  assert.equal(text, '作業場: /workspaces/AkariVideo');
   assert.equal(text.includes('\n'), false, '1 行主義');
 });
 
@@ -219,8 +219,8 @@ test('creatorRootCreateFailedNotice: エラーメッセージを含み、続行�
 });
 
 test('creatorRootPromptText: 既定パスを含む 1 行の質問文', () => {
-  const text = creatorRootPromptText('/home/user/AkariVideo');
-  assert.match(text, /\/home\/user\/AkariVideo/);
+  const text = creatorRootPromptText('/workspaces/AkariVideo');
+  assert.match(text, /\/workspaces\/AkariVideo/);
   assert.match(text, /n:/);
 });
 

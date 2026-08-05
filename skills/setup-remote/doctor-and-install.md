@@ -10,7 +10,8 @@ node skills/setup-remote/bin/doctor.mjs
 
 | state | 意味 | 次の一手 |
 |---|---|---|
-| `not-installed` | tailscale CLI が見つからない | §2 導入ガイド |
+| `not-installed` | tailscale の実体が見つからない | §2 導入ガイド |
+| `app-not-running` | 実体はあるが CLI が応答しない（アプリ未起動・初回セットアップ未完が典型） | アプリを起動（`open -a Tailscale`）→ §3 ログイン → doctor 再実行 |
 | `needs-login` | 導入済みだが未ログイン | §3 ログイン |
 | `stopped` | ログイン済み・接続オフ | Tailscale アプリで接続をオンにしてもらう → doctor 再実行 |
 | `running` | 接続中 | §4 スマホ側の確認へ |
