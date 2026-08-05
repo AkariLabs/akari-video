@@ -1,10 +1,17 @@
+import { freezeDurationSeconds } from "./cut-freeze.mjs";
+
 export function cutSpeed(cut) {
   const value = cut?.speed;
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 1;
 }
 
+// docs/contract-2026-07-22-render-basics.md #7 (cuts[].freeze). The frozen hold is *extra*
+// time, not a truncation of content, so it grows the cut's own segment duration. Every
+// downstream consumer of segmentDuration (predictedDuration, xfade offsets in
+// computeCutTimelineOffsets, gap-aware placement in resolveCutSegments/computeVideoRuns)
+// inherits the extension from this single spot.
 export function segmentDuration(cut) {
-  return (cut.out - cut.in) / cutSpeed(cut);
+  return (cut.out - cut.in) / cutSpeed(cut) + freezeDurationSeconds(cut?.freeze);
 }
 
 const EPSILON = 1e-6;

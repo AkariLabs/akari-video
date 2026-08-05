@@ -12,6 +12,8 @@ import {
   segmentDuration,
 } from "./cut-timeline.mjs";
 import { appendCutVisualTransform, hasCutVisualTransform } from "./cut-transform.mjs";
+import { hasCutFraming } from "./cut-framing.mjs";
+import { appendFreezeAwareAudioTrim, appendFreezeAwareVideoTrim, hasCutFreeze } from "./cut-freeze.mjs";
 import { buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
 import { resolveEncodingPolicy } from "./encode-preset.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
@@ -894,10 +896,23 @@ export function buildCutCommand({
   videoEncodeArgs = null,
 }) {
   if (needsGapAwareCutTimeline(cuts)) {
+    // docs/contract-2026-07-22-render-basics.md #7 (cuts[].freeze), residual decision (this
+    // task): freeze is scoped to the default sequential cut timeline in v0. The gap-aware path's
+    // run-splitting math (computeVideoRuns) maps output time back to source time with a single
+    // linear speed factor, which breaks for a cut whose local timeline has a non-linear hold in
+    // the middle -- properly supporting that would require gap-aware run splitting to itself be
+    // freeze-boundary-aware, which is out of scope here. Rejecting loudly beats a silent drop
+    // (the contract's stated principle) if a project ever combines freeze with explicit at/track.
+    if (hasCutFreeze(cuts)) {
+      throw new Error(
+        "cuts[].freeze is not supported together with a gap-aware cut timeline (explicit at/track placement). "
+          + "Remove freeze or move the cut to the default sequential order (docs/contract-2026-07-22-render-basics.md #7).",
+      );
+    }
     return buildGapAwareCutCommand({ sourcePath, cutPath, cuts, width, height, fps, hasAudio, duration, ffmpegCommand, projectRoot, look, chromaKey, videoEncodeArgs });
   }
   const effectiveCuts = cuts.length > 0 ? cuts : [{ in: 0, out: null }];
-  const transformCuts = hasCutVisualTransform(effectiveCuts);
+  const transformCuts = hasCutVisualTransform(effectiveCuts) || hasCutFraming(effectiveCuts);
   const filters = [];
   const concatInputs = [];
   // docs/contract-2026-07-22-render-basics.md #3 (cuts[].transition_out). Residual decision 3
@@ -924,9 +939,28 @@ export function buildCutCommand({
     const speed = cutSpeed(cut);
     const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
     const trimmedLabel = transformCuts ? `[vraw${index}]` : `[v${index}]`;
-    filters.push(
-      `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}${timebaseNormalizer}${trimmedLabel}`,
-    );
+    // cut.out === null only ever happens for the synthetic { in: 0, out: null } fallback used
+    // when cuts[] is empty (see effectiveCuts above), which never carries a user-declared
+    // freeze -- the freeze-aware helper requires a concrete numeric sourceOut, so that
+    // synthetic case keeps the exact original single-line trim untouched.
+    if (cut.out === null) {
+      filters.push(
+        `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}${timebaseNormalizer}${trimmedLabel}`,
+      );
+    } else {
+      appendFreezeAwareVideoTrim({
+        filters,
+        inputLabel: "[0:v]",
+        outputLabel: trimmedLabel,
+        sourceIn: cut.in,
+        sourceOut: cut.out,
+        speed,
+        freeze: cut.freeze,
+        id: `v${index}`,
+        fps,
+        postSuffixFilter: hasAnyTransition ? "settb=AVTB" : "",
+      });
+    }
     if (transformCuts) {
       appendCutVisualTransform({
         filters,
@@ -945,9 +979,24 @@ export function buildCutCommand({
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
         .join("");
-      filters.push(
-        `[0:a]atrim=start=${formatNumber(cut.in)}${end},asetpts=PTS-STARTPTS${atempoSuffix}[a${index}]`,
-      );
+      if (cut.out === null) {
+        filters.push(
+          `[0:a]atrim=start=${formatNumber(cut.in)}${end},asetpts=PTS-STARTPTS${atempoSuffix}[a${index}]`,
+        );
+      } else {
+        appendFreezeAwareAudioTrim({
+          filters,
+          inputLabel: "[0:a]",
+          outputLabel: `[a${index}]`,
+          sourceIn: cut.in,
+          sourceOut: cut.out,
+          speed,
+          atempoSuffix,
+          freeze: cut.freeze,
+          id: `v${index}`,
+          normalize: false,
+        });
+      }
       concatInputs.push(`[a${index}]`);
     }
   }
@@ -1100,17 +1149,24 @@ export function buildMultiSourceCutCommand({
   const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
   const filters = [];
   const concatInputs = [];
-  const transformCuts = hasCutVisualTransform(cuts);
+  const transformCuts = hasCutVisualTransform(cuts) || hasCutFraming(cuts);
 
   for (const [index, cut] of cuts.entries()) {
     const source = inputsById.get(cut.src);
     const speed = cutSpeed(cut);
-    const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
     if (transformCuts) {
       const trimmedLabel = `[vraw${index}]`;
-      filters.push(
-        `[${source.inputIndex}:v]trim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},setpts=${ptsExpr}${trimmedLabel}`,
-      );
+      appendFreezeAwareVideoTrim({
+        filters,
+        inputLabel: `[${source.inputIndex}:v]`,
+        outputLabel: trimmedLabel,
+        sourceIn: cut.in,
+        sourceOut: cut.out,
+        speed,
+        freeze: cut.freeze,
+        id: `v1_${index}`,
+        fps,
+      });
       appendCutVisualTransform({
         filters,
         inputLabel: trimmedLabel,
@@ -1123,9 +1179,18 @@ export function buildMultiSourceCutCommand({
         duration: segmentDuration(cut),
       });
     } else {
-      filters.push(
-        `[${source.inputIndex}:v]trim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},setpts=${ptsExpr},scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1[v${index}]`,
-      );
+      appendFreezeAwareVideoTrim({
+        filters,
+        inputLabel: `[${source.inputIndex}:v]`,
+        outputLabel: `[v${index}]`,
+        sourceIn: cut.in,
+        sourceOut: cut.out,
+        speed,
+        freeze: cut.freeze,
+        id: `v1_${index}`,
+        fps,
+        postSuffixFilter: `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1`,
+      });
     }
     concatInputs.push(`[v${index}]`);
 
@@ -1133,9 +1198,18 @@ export function buildMultiSourceCutCommand({
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
         .join("");
-      filters.push(
-        `[${source.inputIndex}:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix},aresample=48000,aformat=channel_layouts=stereo[a${index}]`,
-      );
+      appendFreezeAwareAudioTrim({
+        filters,
+        inputLabel: `[${source.inputIndex}:a]`,
+        outputLabel: `[a${index}]`,
+        sourceIn: cut.in,
+        sourceOut: cut.out,
+        speed,
+        atempoSuffix,
+        freeze: cut.freeze,
+        id: `v1_${index}`,
+        normalize: true,
+      });
     } else {
       filters.push(
         `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[a${index}]`,
@@ -1210,7 +1284,10 @@ function buildGapAwareCutCommand({
   const runs = computeVideoRuns(segments, duration);
   const filters = [];
   const videoLabels = [];
-  const transformCuts = hasCutVisualTransform(cuts);
+  // freeze is rejected before dispatch (see buildCutCommand) since this path's run-splitting
+  // math does not account for a freeze hold's non-linear output-time-to-source-time mapping;
+  // framing has no such restriction (it is purely spatial, independent of timeline placement).
+  const transformCuts = hasCutVisualTransform(cuts) || hasCutFraming(cuts);
   for (const [index, run] of runs.entries()) {
     const label = `[gv${index}]`;
     if (run.kind === "gap") {

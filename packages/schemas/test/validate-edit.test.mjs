@@ -518,3 +518,134 @@ test("timeline track refs must be non-negative integers", () => {
   assert.match(executed.stderr, /timeline\.tracks\[0\]\.ref は 0 以上の整数である必要があります/);
   assert.match(executed.stderr, /timeline\.tracks\[1\]\.ref は 0 以上の整数である必要があります/);
 });
+
+// docs/contract-2026-07-22-render-basics.md #6 (cuts[].framing: static crop / scale keyframes).
+// edit-v0-sample's cuts[0] is { in: 5, out: 10 } (5s at the default speed 1x), reused via
+// runPatchedExample so these cases don't need their own fixture directories.
+
+test("cuts[].framing.crop (static, output-relative) passes", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = { crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 } };
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("cuts[].framing.keyframes: 2-point zoom passes", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = { keyframes: [{ t: 0, scale: 1 }, { t: 5, scale: 2 }] };
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("cuts[].framing.keyframes: 3-point staged shrink with explicit cx/cy passes", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = {
+      keyframes: [
+        { t: 0, scale: 3, cx: 0.4, cy: 0.6 },
+        { t: 2, scale: 2, cx: 0.5, cy: 0.5 },
+        { t: 5, scale: 1 },
+      ],
+    };
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("cuts[].framing.crop must fit inside the canvas (x + w <= 1, y + h <= 1)", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = { crop: { x: 0.6, y: 0.7, w: 0.5, h: 0.5 } };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /framing\.crop は x \+ w <= 1/);
+  assert.match(executed.stderr, /framing\.crop は y \+ h <= 1/);
+});
+
+test("cuts[].framing.crop rejects an unknown key", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = { crop: { x: 0, y: 0, w: 1, h: 1, zoom: 2 } };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /framing\.crop に未知のキーがあります: zoom/);
+});
+
+test("cuts[].framing.keyframes requires at least 2 points", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = { keyframes: [{ t: 0, scale: 1.5 }] };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /framing\.keyframes は 2 件以上の配列である必要があります/);
+});
+
+test("cuts[].framing.keyframes[].t must be strictly ascending (no duplicates, no reordering)", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = { keyframes: [{ t: 2, scale: 1 }, { t: 2, scale: 2 }] };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /framing\.keyframes\[\]\.t は昇順かつ重複禁止です/);
+});
+
+test("cuts[].framing.keyframes[].scale must be a positive number", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = { keyframes: [{ t: 0, scale: 0 }, { t: 5, scale: 1 }] };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /framing\.keyframes\[0\]\.scale は 0 より大きい有限数である必要があります/);
+});
+
+test("cuts[].framing.keyframes[].cx/cy must stay within [0, 1]", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].framing = { keyframes: [{ t: 0, scale: 1, cx: 1.5 }, { t: 5, scale: 2, cy: -0.1 }] };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /framing\.keyframes\[0\]\.cx は 0 から 1 の範囲の有限数である必要があります/);
+  assert.match(executed.stderr, /framing\.keyframes\[1\]\.cy は 0 から 1 の範囲の有限数である必要があります/);
+});
+
+// docs/contract-2026-07-22-render-basics.md #7 (cuts[].freeze). Same base cut (5s at speed 1x).
+
+test("cuts[].freeze passes when at_sec is within the cut's playable duration", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].freeze = { at_sec: 2, duration_sec: 1 };
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("cuts[].freeze: null is tolerated as equivalent to omitted", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].freeze = null;
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("cuts[].freeze.at_sec must be non-negative", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].freeze = { at_sec: -1, duration_sec: 1 };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.freeze\.at_sec は 0 以上の有限数である必要があります/);
+});
+
+test("cuts[].freeze.duration_sec must be greater than zero", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].freeze = { at_sec: 1, duration_sec: 0 };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.freeze\.duration_sec は 0 より大きい有限数である必要があります/);
+});
+
+test("cuts[].freeze.at_sec cannot exceed the cut's own playable duration (speed-adjusted)", () => {
+  const executed = runPatchedExample((edit) => {
+    // cuts[0] is { in: 5, out: 10, speed: 2 } -> playable duration (10-5)/2 = 2.5s.
+    edit.cuts[0].speed = 2;
+    edit.cuts[0].freeze = { at_sec: 3, duration_sec: 1 };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.freeze\.at_sec はカットの再生尺（2\.5秒）を超えられません/);
+});
+
+test("cuts[].freeze rejects an unknown key", () => {
+  const executed = runPatchedExample((edit) => {
+    edit.cuts[0].freeze = { at_sec: 1, duration_sec: 1, hold_audio: true };
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /cuts\[0\]\.freeze に未知のキーがあります: hold_audio/);
+});

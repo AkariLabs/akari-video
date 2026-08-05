@@ -94,6 +94,12 @@
 | 2.5 音声停止 | ✅（suspend + source stop 修正済み） | ✅ |
 | 2.7 lint 全経路 | ✅（PUT 一律・edit-store 共有ゲート） | ✅（Phase 2-1: 全 annotations RPC + FileService 直書き経路を writeEditSnapshot RPC 経由のゲートに統一。preview の captionWrite もゲート追加） |
 | 2.8 ペン正本 | ✅（Phase 2-2: pen-visuals.bundle.js から定数 + 描画コードを import） | ✅（正本は packages/pen-visuals へ昇格。動画面 webview は正本値の埋め込み） |
+| `cuts[].framing` / `cuts[].freeze`（2026-08-06 追記） | ❌ 未対応 | ❌ 未対応 |
+
+- `cuts[].framing`（静的クロップ / ズームキーフレーム / 段階縮小）・`cuts[].freeze`（フリーズ）は
+  `contract-2026-07-22-render-basics.md` #6/#7 としてレンダ（render-cut）のみ実装済み。
+  Web UI・shell のプレビュー実装は本タスクの対象外であり、両宣言はプレビュー上では無視される
+  （書き出し結果と見た目が乖離する既知の差分。プレビュー追随は別タスク）
 
 ## 4. 収斂ロードマップ（正本は内部リポ）
 

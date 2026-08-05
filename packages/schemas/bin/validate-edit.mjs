@@ -695,6 +695,124 @@ function validateCuts(value, version, sources) {
       validateCutTransform(cut.transform, `${label}.transform`);
     }
     validateTransitionOut(cut.transition_out, `${label}.transition_out`);
+    if (hasOwn(cut, "framing")) {
+      validateCutFraming(cut.framing, `${label}.framing`);
+    }
+    validateCutFreeze(cut, label);
+  }
+}
+
+// docs/contract-2026-07-22-render-basics.md #6 (cuts[].framing). Mirrors validateCutTransform's
+// convention: the schema marks framing/crop/each keyframe point additionalProperties:false, and
+// this hand-written unknown-key loop is what actually enforces it (validate-edit.mjs does not
+// run edit.schema.json through a JSON Schema validator -- see the header comment -- so every
+// constraint the schema documents must also be reproduced here by hand).
+function validateCutFraming(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  const allowedKeys = new Set(["crop", "keyframes"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
+  }
+  if (hasOwn(value, "crop")) {
+    validateCutCrop(value.crop, `${label}.crop`);
+  }
+  if (hasOwn(value, "keyframes")) {
+    validateCutFramingKeyframes(value.keyframes, `${label}.keyframes`);
+  }
+}
+
+function validateCutCrop(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  const allowedKeys = new Set(["x", "y", "w", "h"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
+  }
+  for (const field of ["x", "y"]) {
+    if (!isFiniteNumber(value[field]) || value[field] < 0 || value[field] > 1) {
+      fail(`${label}.${field} は 0 から 1 の範囲の有限数である必要があります`);
+    }
+  }
+  for (const field of ["w", "h"]) {
+    if (!isFiniteNumber(value[field]) || value[field] <= 0 || value[field] > 1) {
+      fail(`${label}.${field} は 0 より大きく 1 以下の有限数である必要があります`);
+    }
+  }
+  if (isFiniteNumber(value.x) && isFiniteNumber(value.w) && value.x + value.w > 1 + 1e-9) {
+    fail(`${label} は x + w <= 1（クロップ窓がキャンバス内に収まる）を満たす必要があります`);
+  }
+  if (isFiniteNumber(value.y) && isFiniteNumber(value.h) && value.y + value.h > 1 + 1e-9) {
+    fail(`${label} は y + h <= 1（クロップ窓がキャンバス内に収まる）を満たす必要があります`);
+  }
+}
+
+function validateCutFramingKeyframes(value, label) {
+  if (!Array.isArray(value) || value.length < 2) {
+    fail(`${label} は 2 件以上の配列である必要があります（2 点でズーム・3 点以上で段階縮小）`);
+    return;
+  }
+  const allowedKeys = new Set(["t", "scale", "cx", "cy"]);
+  let previousT = null;
+  value.forEach((point, index) => {
+    const pointLabel = `${label}[${index}]`;
+    if (!isPlainObject(point)) {
+      fail(`${pointLabel} は object である必要があります`);
+      return;
+    }
+    for (const key of Object.keys(point)) {
+      if (!allowedKeys.has(key)) fail(`${pointLabel} に未知のキーがあります: ${key}`);
+    }
+    const hasT = isFiniteNumber(point.t) && point.t >= 0;
+    if (!hasT) {
+      fail(`${pointLabel}.t は 0 以上の有限数である必要があります`);
+    } else if (previousT !== null && point.t <= previousT) {
+      fail(`${label}[].t は昇順かつ重複禁止です（${pointLabel} で違反）`);
+    }
+    if (hasT) previousT = point.t;
+    if (!isFiniteNumber(point.scale) || point.scale <= 0) {
+      fail(`${pointLabel}.scale は 0 より大きい有限数である必要があります`);
+    }
+    for (const field of ["cx", "cy"]) {
+      if (hasOwn(point, field) && (!isFiniteNumber(point[field]) || point[field] < 0 || point[field] > 1)) {
+        fail(`${pointLabel}.${field} は 0 から 1 の範囲の有限数である必要があります`);
+      }
+    }
+  });
+}
+
+// docs/contract-2026-07-22-render-basics.md #7 (cuts[].freeze). at_sec must not exceed the
+// cut's own playable duration -- a sibling-value comparison against in/out/speed that JSON
+// Schema cannot express on its own (mirrors cutSpeed's default in render-cut's
+// cut-timeline.mjs: speed omitted -> 1, so the same default is used here for parity).
+function validateCutFreeze(cut, label) {
+  const value = cut.freeze;
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    fail(`${label}.freeze は object である必要があります`);
+    return;
+  }
+  const allowedKeys = new Set(["at_sec", "duration_sec"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) fail(`${label}.freeze に未知のキーがあります: ${key}`);
+  }
+  const hasAt = isFiniteNumber(value.at_sec) && value.at_sec >= 0;
+  if (!hasAt) {
+    fail(`${label}.freeze.at_sec は 0 以上の有限数である必要があります`);
+  }
+  if (!isFiniteNumber(value.duration_sec) || value.duration_sec <= 0) {
+    fail(`${label}.freeze.duration_sec は 0 より大きい有限数である必要があります`);
+  }
+  if (hasAt && isFiniteNumber(cut.in) && isFiniteNumber(cut.out) && cut.out > cut.in) {
+    const speed = isFiniteNumber(cut.speed) && cut.speed > 0 ? cut.speed : 1;
+    const base = (cut.out - cut.in) / speed;
+    if (value.at_sec > base + 1e-9) {
+      fail(`${label}.freeze.at_sec はカットの再生尺（${base}秒）を超えられません`);
+    }
   }
 }
 
