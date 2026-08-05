@@ -13,6 +13,7 @@ import {
 } from "./cut-timeline.mjs";
 import { appendCutVisualTransform, hasCutVisualTransform } from "./cut-transform.mjs";
 import { buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
+import { appendCutFxChain, hasCutFx } from "./fx.mjs";
 import { resolveEncodingPolicy } from "./encode-preset.mjs";
 import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
 import { resolveLutPath } from "./render-inputs.mjs";
@@ -898,6 +899,13 @@ export function buildCutCommand({
   }
   const effectiveCuts = cuts.length > 0 ? cuts : [{ in: 0, out: null }];
   const transformCuts = hasCutVisualTransform(effectiveCuts);
+  // docs/contract-2026-08-05-fx-v0.md (cuts[].fx). Like transformCuts above, this is a
+  // whole-array flag: any cut declaring fx routes *every* cut in the array through the
+  // per-segment full-frame path below (appendCutFxChain no-ops via `null` for cuts whose own
+  // fx is empty), so concat's inputs stay uniformly WxH-framed. Zero cuts with fx keeps the
+  // existing fast concat-only path byte-for-byte unchanged.
+  const fxCuts = hasCutFx(effectiveCuts);
+  const perCutFullFrame = transformCuts || fxCuts;
   const filters = [];
   const concatInputs = [];
   // docs/contract-2026-07-22-render-basics.md #3 (cuts[].transition_out). Residual decision 3
@@ -923,22 +931,42 @@ export function buildCutCommand({
     // pitch back to the original, chained in <=2x/>=0.5x steps per ffmpeg's atempo range limit.
     const speed = cutSpeed(cut);
     const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
-    const trimmedLabel = transformCuts ? `[vraw${index}]` : `[v${index}]`;
+    const trimmedLabel = perCutFullFrame ? `[vraw${index}]` : `[v${index}]`;
     filters.push(
       `[0:v]trim=start=${formatNumber(cut.in)}${end},setpts=${ptsExpr}${timebaseNormalizer}${trimmedLabel}`,
     );
-    if (transformCuts) {
-      appendCutVisualTransform({
-        filters,
-        inputLabel: trimmedLabel,
-        outputLabel: `[v${index}]`,
-        cut,
-        id: `v${index}`,
-        width,
-        height,
-        fps,
-        duration: segmentDuration(cut),
-      });
+    if (perCutFullFrame) {
+      const shapedLabel = fxCuts ? `[vshaped${index}]` : `[v${index}]`;
+      if (transformCuts) {
+        appendCutVisualTransform({
+          filters,
+          inputLabel: trimmedLabel,
+          outputLabel: shapedLabel,
+          cut,
+          id: `v${index}`,
+          width,
+          height,
+          fps,
+          duration: segmentDuration(cut),
+        });
+      } else {
+        filters.push(
+          `${trimmedLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${shapedLabel}`,
+        );
+      }
+      if (fxCuts) {
+        appendCutFxChain({
+          filters,
+          inputLabel: shapedLabel,
+          outputLabel: `[v${index}]`,
+          fx: cut.fx,
+          id: `v${index}`,
+          width,
+          height,
+          fps,
+          duration: segmentDuration(cut),
+        });
+      }
     }
     concatInputs.push(`[v${index}]`);
     if (hasAudio) {
@@ -991,7 +1019,7 @@ export function buildCutCommand({
   }
 
   const scaledLabel = chromaKey || look ? "[scaled]" : "[outv]";
-  filters.push(transformCuts
+  filters.push(perCutFullFrame
     ? `[joinedv]null${scaledLabel}`
     : `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`);
 
@@ -1101,11 +1129,16 @@ export function buildMultiSourceCutCommand({
   const filters = [];
   const concatInputs = [];
   const transformCuts = hasCutVisualTransform(cuts);
+  // docs/contract-2026-08-05-fx-v0.md (cuts[].fx). v1's per-cut branch is already always
+  // full-WxH-framed (both the transform and plain branches below produce a complete frame), so
+  // fx only needs one extra hop after whichever branch ran — no change to the branch selection.
+  const fxCuts = hasCutFx(cuts);
 
   for (const [index, cut] of cuts.entries()) {
     const source = inputsById.get(cut.src);
     const speed = cutSpeed(cut);
     const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
+    const shapedLabel = fxCuts ? `[vshaped1_${index}]` : `[v${index}]`;
     if (transformCuts) {
       const trimmedLabel = `[vraw${index}]`;
       filters.push(
@@ -1114,7 +1147,7 @@ export function buildMultiSourceCutCommand({
       appendCutVisualTransform({
         filters,
         inputLabel: trimmedLabel,
-        outputLabel: `[v${index}]`,
+        outputLabel: shapedLabel,
         cut,
         id: `v1_${index}`,
         width,
@@ -1124,8 +1157,21 @@ export function buildMultiSourceCutCommand({
       });
     } else {
       filters.push(
-        `[${source.inputIndex}:v]trim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},setpts=${ptsExpr},scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1[v${index}]`,
+        `[${source.inputIndex}:v]trim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},setpts=${ptsExpr},scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${shapedLabel}`,
       );
+    }
+    if (fxCuts) {
+      appendCutFxChain({
+        filters,
+        inputLabel: shapedLabel,
+        outputLabel: `[v${index}]`,
+        fx: cut.fx,
+        id: `v1_${index}`,
+        width,
+        height,
+        fps,
+        duration: segmentDuration(cut),
+      });
     }
     concatInputs.push(`[v${index}]`);
 
@@ -1211,6 +1257,10 @@ function buildGapAwareCutCommand({
   const filters = [];
   const videoLabels = [];
   const transformCuts = hasCutVisualTransform(cuts);
+  // docs/contract-2026-08-05-fx-v0.md (cuts[].fx). Gap ("black filler") runs have no originating
+  // cut to declare fx on, so only "cut" kind runs ever route through appendCutFxChain below.
+  const fxCuts = hasCutFx(cuts);
+  const perCutFullFrame = transformCuts || fxCuts;
   for (const [index, run] of runs.entries()) {
     const label = `[gv${index}]`;
     if (run.kind === "gap") {
@@ -1220,6 +1270,7 @@ function buildGapAwareCutCommand({
     } else {
       const speed = cutSpeed(run.cut);
       const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
+      const shapedLabel = fxCuts ? `[gvshaped${index}]` : label;
       if (transformCuts) {
         const trimmedLabel = `[gvraw${index}]`;
         filters.push(
@@ -1228,7 +1279,7 @@ function buildGapAwareCutCommand({
         appendCutVisualTransform({
           filters,
           inputLabel: trimmedLabel,
-          outputLabel: label,
+          outputLabel: shapedLabel,
           cut: run.cut,
           id: `gap_${index}`,
           width,
@@ -1236,10 +1287,35 @@ function buildGapAwareCutCommand({
           fps,
           duration: run.outEnd - run.outStart,
         });
+      } else if (fxCuts) {
+        // Unlike buildCutCommand's non-transform branch, a gap-aware run's plain trim has no
+        // later post-concat scale/pad to fall back on for non-transform runs mixed with
+        // WxH-sized gap fillers — it must reach WxH itself before the fx chain (which assumes a
+        // WxH frame, e.g. color-overlay's WxH solid-color source) can run.
+        const rawLabel = `[gvraw${index}]`;
+        filters.push(
+          `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${rawLabel}`,
+        );
+        filters.push(
+          `${rawLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${shapedLabel}`,
+        );
       } else {
         filters.push(
-          `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${label}`,
+          `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${shapedLabel}`,
         );
+      }
+      if (fxCuts) {
+        appendCutFxChain({
+          filters,
+          inputLabel: shapedLabel,
+          outputLabel: label,
+          fx: run.cut.fx,
+          id: `gap_${index}`,
+          width,
+          height,
+          fps,
+          duration: run.outEnd - run.outStart,
+        });
       }
     }
     videoLabels.push(label);
@@ -1272,7 +1348,7 @@ function buildGapAwareCutCommand({
   }
 
   const scaledLabel = chromaKey || look ? "[scaled]" : "[outv]";
-  filters.push(transformCuts
+  filters.push(perCutFullFrame
     ? `[joinedv]null${scaledLabel}`
     : `[joinedv]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${scaledLabel}`);
 

@@ -237,6 +237,37 @@
       },
       "$comment": "cuts[].transform 用。layerTransform と同語彙・同意味論（x/y=px 省略時0・scale=正の数 省略時1・rotate=度 省略時0）。layerTransform は additionalProperties:true のため既存 layerItem 検証結果を変えないよう独立した $def にしている（cuts 側は未知キーを拒否）。"
     },
+    "cutFx": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "enum": ["noise", "particles", "vignette", "flare", "color-overlay"] },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "id": { "const": "color-overlay" } },
+            "required": ["id"]
+          },
+          "then": {
+            "required": ["params"],
+            "properties": {
+              "params": { "required": ["color"] }
+            }
+          }
+        }
+      ],
+      "$comment": "docs/contract-2026-08-05-fx-v0.md（画面 FX 小語彙 v0。旧実装 FX 479 の移植ではなく新規 5 id）。intensity は全 id 共通ツマミ（省略時 1・0 は恒等）。params.color は vignette では black/white の選択（既定 black）、color-overlay では必須（フェード赤・黒マット相当を 1 id でカバーするため色指定なしに意味を持たない）。noise/particles/flare は params を使わない。"
+    },
     "cutV0": {
       "type": "object",
       "additionalProperties": true,
@@ -249,10 +280,11 @@
         "speed": { "$ref": "#/$defs/positiveNumber" },
         "transform": { "$ref": "#/$defs/cutTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] },
+        "fx": { "type": "array", "items": { "$ref": "#/$defs/cutFx" } }
       },
       "not": { "required": ["src"] },
-      "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
+      "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。fx は配列順 = 適用順（複数重ね掛け可）。"
     },
     "cutV1": {
       "type": "object",
@@ -267,9 +299,10 @@
         "speed": { "$ref": "#/$defs/positiveNumber" },
         "transform": { "$ref": "#/$defs/cutTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] },
+        "fx": { "type": "array", "items": { "$ref": "#/$defs/cutFx" } }
       },
-      "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
+      "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。fx は配列順 = 適用順（複数重ね掛け可）。"
     },
     "overlayItem": {
       "type": "object",

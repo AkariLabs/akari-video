@@ -6,6 +6,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// docs/contract-2026-08-05-fx-v0.md: cuts[].fx の v0 5 語彙（旧実装 FX 479 の移植ではない）。
+const CUT_FX_IDS = ["noise", "particles", "vignette", "flare", "color-overlay"];
+
 const LAYER_KINDS = new Set(["baked", "video"]);
 const LAYER_BLEND_MODES = new Set([
   "normal",
@@ -695,6 +698,56 @@ function validateCuts(value, version, sources) {
       validateCutTransform(cut.transform, `${label}.transform`);
     }
     validateTransitionOut(cut.transition_out, `${label}.transition_out`);
+    if (hasOwn(cut, "fx")) {
+      validateCutFxList(cut.fx, `${label}.fx`);
+    }
+  }
+}
+
+// docs/contract-2026-08-05-fx-v0.md: cuts[].fx = [{id, intensity, params?}]。id は presets/fx/
+// の v0 5 語彙のみ（旧実装 FX 479 の移植ではない）。intensity 省略時は render 側の既定 1 を
+// 使うため、ここでは範囲だけを検証する。
+function validateCutFxList(value, label) {
+  if (!Array.isArray(value)) {
+    fail(`${label} は配列である必要があります`);
+    return;
+  }
+  value.forEach((item, index) => validateCutFx(item, `${label}[${index}]`));
+}
+
+function validateCutFx(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  const allowedKeys = new Set(["id", "intensity", "params"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      fail(`${label} に未知のキーがあります: ${key}`);
+    }
+  }
+  if (!CUT_FX_IDS.includes(value.id)) {
+    fail(`${label}.id は ${CUT_FX_IDS.join("/")} のいずれかである必要があります`);
+  }
+  if (hasOwn(value, "intensity") && (!isFiniteNumber(value.intensity) || value.intensity < 0 || value.intensity > 1)) {
+    fail(`${label}.intensity は 0 から 1 の範囲の有限数である必要があります`);
+  }
+  if (hasOwn(value, "params")) {
+    if (!isPlainObject(value.params)) {
+      fail(`${label}.params は object である必要があります`);
+    } else {
+      if (hasOwn(value.params, "color") && !isNonEmptyString(value.params.color)) {
+        fail(`${label}.params.color は空でない文字列である必要があります`);
+      }
+      for (const key of Object.keys(value.params)) {
+        if (key !== "color") {
+          fail(`${label}.params に未知のキーがあります: ${key}`);
+        }
+      }
+    }
+  }
+  if (value.id === "color-overlay" && (!isPlainObject(value.params) || !isNonEmptyString(value.params.color))) {
+    fail(`${label}.params.color は id が color-overlay のとき必須です`);
   }
 }
 
