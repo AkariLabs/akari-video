@@ -81,14 +81,17 @@ OUT の `both`（= backwards fill）は**遅延中に OUT の開始値（`opacit
 - **出荷時の状態**: 断片は全層に同一テキストを焼き込んで出荷する。ミラー未対応の runtime でも初期表示は正しい — ライブ編集の層間同期だけが `packages/overlay-runtime/package.json` の `version` `0.2.0` 以降（`window.akari.runtime.version` で参照可）に依存する。素材の `meta.json` にはトップレベル任意フィールド **`min_overlay_runtime_version`**（x.y.z・asset-meta.schema.json に 2026-08-06 新設）で最低対応バージョンを宣言する
 - **アクセシビリティ**: mount 時にランタイムが全ミラー層へ `aria-hidden="true"` を付与する。断片側で書く必要はない
 
-## 中央寄せ + flex-wrap の可用幅の罠（2026-08-06 実測）
+## 中央寄せの可用幅の罠 — 折返し可能な内容全般（2026-08-06 実測・同日一般化）
 
-`position: absolute; left: 50%; transform: translateX(-50%)` で中央寄せした要素に
-`flex-wrap: wrap` を併用すると、shrink-to-fit の可用幅計算が transform を無視して
-「left 位置からステージ右端まで」（= ステージ幅の半分）を可用幅と誤認し、
-**既定文言でも勝手に折り返る**（1920px ステージで 960px と誤認する実測あり）。
+`position: absolute; left: 50%; transform: translateX(-50%)` で中央寄せした要素では、
+shrink-to-fit の可用幅計算が transform を無視して「left 位置からステージ右端まで」
+（= ステージ幅の半分）を可用幅と誤認する。当初 flex-wrap 併用時の事故として実測したが
+（1920px ステージで 960px と誤認し**既定文言でも勝手に折り返る**）、flex を使わない
+単一 stack 構造でも**折返し可能な内容なら同じ機序で発現する**（小さいキャンバスで顕在化
+しやすい — 検証スクショを 600px 級の狭い舞台で撮ると本番で出ない折返しが出る）。
 中央寄せ + 折返し許可の断片は、コンテンツ側に `width: max-content` を与えて
 shrink-to-fit を回避する（折返しさせたい場合だけ明示の `max-width` を併記する）。
+検証スクショは実プロダクション幅（1080px 以上）でレンダリングしてからトリムする。
 
 ## よくある間違い
 
