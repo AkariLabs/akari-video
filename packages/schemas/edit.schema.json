@@ -388,6 +388,18 @@
       },
       "$comment": "kind===video レイヤーの背景置換用（ffmpeg chromakey= 準拠: color/similarity/blend）。R1（render-basics）の source.chroma_key と語彙は揃えるが $defs は独立させている（並行実装の衝突回避・rebase 時に統合を検討）。"
     },
+    "layerCrop": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      },
+      "$comment": "PiP レイヤーの空間クロップ（切り抜き）。0..1 正規化・ソースフレーム相対・静的（時間変化なし）。px 絶対は採らない（比率切替ラウンドの教訓）。x+w<=1・y+h<=1 は宣言的なレンジでは表現できないため validate-edit.mjs のセマンティック検証で担保する。適用順は render-cut/src/layers.mjs の合成チェーンで crop→scale→rotate→opacity→overlay（契約 contract-2026-08-02-preview-parity.md）。"
+    },
     "layerItem": {
       "type": "object",
       "additionalProperties": true,
@@ -402,11 +414,12 @@
         "preset": { "type": "string" },
         "params": { "type": "object" },
         "transform": { "$ref": "#/$defs/layerTransform" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "chroma_key": { "$ref": "#/$defs/layerVideoChromaKey" }
       },
-      "$comment": "契約 contract-2026-07-22-prerender-rail-and-assets.md §1.2。kind===baked は R2b の bake CLI が生成するアルファ付き mov（preset/params は再 bake 用の来歴）。kind===video は実映像（PinP 等）。chroma_key は kind===video のときのみ意味を持つ（validate-edit.mjs で検証）。render-cut は cuts 合成後のベース映像へ t 順に合成する。"
+      "$comment": "契約 contract-2026-07-22-prerender-rail-and-assets.md §1.2。kind===baked は R2b の bake CLI が生成するアルファ付き mov（preset/params は再 bake 用の来歴）。kind===video は実映像（PinP 等）。chroma_key は kind===video のときのみ意味を持つ（validate-edit.mjs で検証）。crop は kind を問わず使える静的空間クロップ（#layerCrop）。render-cut は cuts 合成後のベース映像へ t 順に合成する。"
     },
     "trackState": {
       "type": "object",

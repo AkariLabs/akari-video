@@ -58,6 +58,31 @@
 - `t` 〜 `t + duration` の窓外では非表示。**初期状態も非表示**（窓に入るまで描画しない）
 - 表示中は `currentTime` を出力時刻に同期する
 
+#### 2.4.1 空間クロップ（`layers[].crop`。2026-08-06 導入）
+- `crop = { x, y, w, h }`（**0..1 正規化・ソースフレーム相対・静的**）。省略時は既定
+  `{x:0,y:0,w:1,h:1}`（全面 = crop 無し）で、既存プロジェクトの見た目・書き出しはバイト等価のまま
+- **合成の適用順は crop → scale → rotate → opacity → overlay**（`packages/render-cut/src/layers.mjs`
+  の合成チェーンで scale の直前に `crop=` を 1 段挿す。既存の chromakey → format=yuva420p の後、
+  scale/rotate/opacity より前）
+- **プレビュー実装（shell / Web 共通の考え方）**: レイヤー要素を wrapper で包まず、同じ `<video>`
+  要素に `clip-path: inset(...)` を掛けて視覚的に切り抜き、`transform-origin` をクロップ矩形の
+  中心へ動かすことで拡縮・回転のピボットを実際の合成基準点に合わせる（crop 無しなら
+  `transform-origin: 50% 50%` に一致し、既存の transform 適用と完全に同じ見た目になる）
+  - shell（`apps/shell/extensions/akari-preview`）: レイヤーの位置基準は「箱の中心を
+    `(outputWidth/2+x, outputHeight/2+y)` に置く」ため、pivot（`transform-origin` の割合）を
+    クロップ中心にし、`translate(-pivotX%, -pivotY%)` で該当点をアンカーへ合わせる
+  - Web（`packages/preview-server`）: レイヤーの位置基準は「要素の自然な静的位置（キャンバス
+    左上）から `translate(x,y)`」であり shell とは異なる（**既存の PiP 配置慣習の相違であり
+    crop 導入前からの既知差分。本メモは crop の見た目を新たに壊さないことのみを担保し、
+    この配置慣習自体の統一は本タスクのスコープ外**）。crop 無しでは `transform-origin: 50% 50%`
+    のまま変化しないため回帰は無い
+- **直接操作**: レイヤー選択 UI に**クロップモード**（既存の移動/リサイズ/回転と排他のモード
+  切替 — トグルボタン。shell/Web 双方に実装）+ 8 方向ハンドル（n/ne/e/se/s/sw/w/nw）。
+  ドラッグ結果は正規化座標で `layers[].crop` へ書き戻す（確定=pointerup のみ、既存の
+  transform ハンドルと同じ書き込み契約）。クロップモードの編集オーバーレイは**全面中心固定
+  pivot**で描く（現在のクロップ値によるピボットのドリフトを避ける実装上の単純化 — 編集時の
+  近似であり、確定後の実際の合成/プレビューは上記の「クロップ中心 pivot」で描画される）
+
 ### 2.5 音声
 - **一時停止で全音声を止める**: narration / SFX の BufferSource は stop、AudioContext は suspend
 - 一時停止中のシークで音源を発火させない

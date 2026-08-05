@@ -70,6 +70,22 @@ export function buildLayersCompositeCommand({
       );
     }
     steps.push("format=yuva420p");
+    // contract-2026-08-02-preview-parity.md: layers[].crop applies before scale/rotate/opacity
+    // (crop → scale → rotate → opacity → overlay). crop is 0..1 normalized against the source
+    // frame (layer.crop is undefined for the common case, so this step is skipped entirely and
+    // existing crop-less projects render byte-identical output — zero regression risk). Even
+    // rounding (trunc(.../2)*2) keeps w/h/x/y aligned to yuva420p's 4:2:0 chroma subsampling,
+    // which the same-style scale step below does not need since it never runs on odd offsets.
+    const crop = layer.crop;
+    if (crop) {
+      const cropW = clamp(Number(crop.w) || 1, EPSILON, 1);
+      const cropH = clamp(Number(crop.h) || 1, EPSILON, 1);
+      const cropX = clamp(Number(crop.x) || 0, 0, 1 - cropW);
+      const cropY = clamp(Number(crop.y) || 0, 0, 1 - cropH);
+      steps.push(
+        `crop=trunc(iw*${formatNumber(cropW)}/2)*2:trunc(ih*${formatNumber(cropH)}/2)*2:trunc(iw*${formatNumber(cropX)}/2)*2:trunc(ih*${formatNumber(cropY)}/2)*2`,
+      );
+    }
     if (scale !== 1) {
       steps.push(`scale=trunc(iw*${formatNumber(scale)}):trunc(ih*${formatNumber(scale)})`);
     }
@@ -192,4 +208,8 @@ export function buildLayersCompositeCommand({
 
 function formatNumber(value) {
   return Number(value).toString();
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }

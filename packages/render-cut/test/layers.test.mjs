@@ -98,6 +98,35 @@ function makeVideoPinpLayer(path, { width, height, duration, fps }) {
   ]);
 }
 
+// A 2x2 quadrant grid PinP source (no alpha, plain h264) used for crop pixel measurements:
+// TL=red, TR=lime, BL=yellow, BR=magenta. Quadrant boundaries land on exact pixel counts
+// (width/height chosen divisible by 4) so crop=/scale= trunc(.../2)*2 rounding never nudges a
+// boundary across a sample point. Uses "lime" rather than ffmpeg's named "green" — the latter is
+// the X11 dark-green (0,128,0), not pure (0,255,0), which would silently fail assertColor's
+// tolerance-20 comparisons against [0,255,0].
+function makeQuadrantLayer(path, { width, height, duration, fps }) {
+  const halfW = width / 2;
+  const halfH = height / 2;
+  ffmpeg([
+    "-f",
+    "lavfi",
+    "-i",
+    `color=c=black:s=${width}x${height}:d=${duration}:r=${fps}`,
+    "-vf",
+    [
+      `drawbox=x=0:y=0:w=${halfW}:h=${halfH}:color=red:t=fill`,
+      `drawbox=x=${halfW}:y=0:w=${halfW}:h=${halfH}:color=lime:t=fill`,
+      `drawbox=x=0:y=${halfH}:w=${halfW}:h=${halfH}:color=yellow:t=fill`,
+      `drawbox=x=${halfW}:y=${halfH}:w=${halfW}:h=${halfH}:color=magenta:t=fill`,
+    ].join(","),
+    "-c:v",
+    "libx264",
+    "-pix_fmt",
+    "yuv420p",
+    path,
+  ]);
+}
+
 function makeSolidSource(path, { color = "blue", width, height, duration, fps }) {
   ffmpeg(["-f", "lavfi", "-i", `color=c=${color}:s=${width}x${height}:d=${duration}:r=${fps}`, "-c:v", "libx264", "-pix_fmt", "yuv420p", path]);
 }
@@ -178,6 +207,45 @@ test("buildLayersCompositeCommand: a non-normal blend layer goes through the tri
   assert.match(filterComplex, /format=gbrp/);
   assert.match(filterComplex, /alphaextract/);
   assert.match(filterComplex, /concat=n=3:v=1:a=0/); // before + during + after segments
+});
+
+test("buildLayersCompositeCommand: layer.crop inserts a crop= step before scale, x+w/y+h expressed via iw/ih", () => {
+  const { args } = buildLayersCompositeCommand({
+    layers: [
+      {
+        id: "pinp",
+        t: 0,
+        duration: 2,
+        kind: "video",
+        src: "guest.mp4",
+        crop: { x: 0.25, y: 0.1, w: 0.5, h: 0.6 },
+        transform: { scale: 2 },
+      },
+    ],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/.akari/render-tmp/cut.mp4",
+    outputPath: "/project/.akari/render-tmp/layered.mp4",
+    duration: 5,
+  });
+  const filterComplex = args[args.indexOf("-filter_complex") + 1];
+  assert.match(filterComplex, /crop=trunc\(iw\*0\.5\/2\)\*2:trunc\(ih\*0\.6\/2\)\*2:trunc\(iw\*0\.25\/2\)\*2:trunc\(ih\*0\.1\/2\)\*2/);
+  const cropIndex = filterComplex.indexOf("crop=");
+  const scaleIndex = filterComplex.indexOf("scale=");
+  assert.ok(cropIndex >= 0 && scaleIndex >= 0 && cropIndex < scaleIndex, "crop= must appear before scale= in the filter chain");
+});
+
+test("buildLayersCompositeCommand: layer without crop emits no crop= step (byte-identical filter chain)", () => {
+  const { args } = buildLayersCompositeCommand({
+    layers: [{ id: "fx", t: 0, duration: 2, kind: "baked", src: "fx.mov" }],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/.akari/render-tmp/cut.mp4",
+    outputPath: "/project/.akari/render-tmp/layered.mp4",
+    duration: 5,
+  });
+  const filterComplex = args[args.indexOf("-filter_complex") + 1];
+  assert.doesNotMatch(filterComplex, /crop=/);
 });
 
 test("buildLayersCompositeCommand: a chroma_key video layer inserts the chromakey filter", () => {
@@ -536,5 +604,192 @@ test("transform.rotate=180 flips the layer's content within its footprint (pixel
     assertColor(wasTransparent, [0, 255, 0], "180-degree rotation moves the opaque half into what was the transparent half's position");
   } finally {
     await rm(project, { recursive: true, force: true });
+  }
+});
+
+// L1 acceptance — crop position case 1: layers[].crop selects only the source's top-left
+// quadrant (red). The composited footprint must show only that quadrant's color; the area that
+// the *uncropped* layer would have covered (but the now-smaller cropped footprint no longer
+// does) must show the base color through, proving crop actually shrinks the footprint rather
+// than just masking pixels in place.
+test("layers[].crop position case 1 (top-left quadrant): footprint shows only the cropped region, base shows through elsewhere", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 640;
+  const height = 360;
+  const fps = 25;
+  const duration = 3;
+  const project = await makeProject({
+    width,
+    height,
+    fps,
+    duration,
+    layers: [
+      {
+        id: "pinp-cropped",
+        t: 0.5,
+        duration: 2,
+        kind: "video",
+        src: "guest.mp4",
+        transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+        crop: { x: 0, y: 0, w: 0.5, h: 0.5 },
+      },
+    ],
+  });
+  try {
+    // source quadrants are 200x150 (400x300 source, halved) — TL=red, TR=lime, BL=yellow, BR=magenta.
+    makeQuadrantLayer(join(project, "guest.mp4"), { width: 400, height: 300, duration: 2, fps });
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const outputPath = join(project, state.artifacts[0].path);
+
+    // Cropped footprint (200x150, unscaled) centers at (640-200)/2=220,(360-150)/2=105 => spans
+    // (220,105)-(420,255). Sample its center (red, the only quadrant left after crop).
+    const frame = Math.round(1.5 * fps);
+    const insideCrop = samplePixel(outputPath, frame, 320, 180);
+    // Just outside the cropped footprint's right edge, but still within where the *uncropped*
+    // 400x300 layer would have shown its lime (top-right) quadrant — must now show base blue.
+    const outsideCrop = samplePixel(outputPath, frame, 460, 180);
+    t.diagnostic(`crop TL: inside cropped footprint (320,180) rgb=(${insideCrop.r},${insideCrop.g},${insideCrop.b}) [expect red]`);
+    t.diagnostic(`crop TL: outside cropped footprint but inside uncropped bounds (460,180) rgb=(${outsideCrop.r},${outsideCrop.g},${outsideCrop.b}) [expect base blue]`);
+    assertColor(insideCrop, [255, 0, 0], "crop={x:0,y:0,w:0.5,h:0.5} keeps only the top-left (red) quadrant");
+    assertColor(outsideCrop, [0, 0, 255], "the shrunk footprint no longer covers what the uncropped layer would have (base blue shows through)");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+// L1 acceptance — crop position case 2: a different quadrant (bottom-right, magenta), proving
+// crop.x/crop.y actually offset into the source rather than only crop.w/crop.h changing extent.
+test("layers[].crop position case 2 (bottom-right quadrant): x/y offset selects the correct sub-rectangle", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 640;
+  const height = 360;
+  const fps = 25;
+  const duration = 3;
+  const project = await makeProject({
+    width,
+    height,
+    fps,
+    duration,
+    layers: [
+      {
+        id: "pinp-cropped-br",
+        t: 0.5,
+        duration: 2,
+        kind: "video",
+        src: "guest.mp4",
+        transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+        crop: { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
+      },
+    ],
+  });
+  try {
+    makeQuadrantLayer(join(project, "guest.mp4"), { width: 400, height: 300, duration: 2, fps });
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const outputPath = join(project, state.artifacts[0].path);
+
+    const frame = Math.round(1.5 * fps);
+    const insideCrop = samplePixel(outputPath, frame, 320, 180);
+    t.diagnostic(`crop BR: inside cropped footprint (320,180) rgb=(${insideCrop.r},${insideCrop.g},${insideCrop.b}) [expect magenta]`);
+    assertColor(insideCrop, [255, 0, 255], "crop={x:0.5,y:0.5,w:0.5,h:0.5} keeps only the bottom-right (magenta) quadrant");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+// L1 acceptance — crop + scale + rotate combined: proves the applied order is crop → scale →
+// rotate (per contract-2026-08-02-preview-parity.md), not e.g. rotate-then-crop. crop selects the
+// source's right half (lime top / magenta bottom, 200x300 of the 400x300 source), scale=1.5
+// grows it to 300x450, and rotate=180 flips top/bottom — exactly mirroring the existing
+// (crop-less) "transform.rotate=180" acceptance test's swap logic, but on a crop-selected region.
+test("layers[].crop combined with transform.scale + transform.rotate applies crop before scale/rotate", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 640;
+  const height = 480;
+  const fps = 25;
+  const duration = 3;
+  const project = await makeProject({
+    width,
+    height,
+    fps,
+    duration,
+    layers: [
+      {
+        id: "pinp-cropped-scaled-rotated",
+        t: 0.5,
+        duration: 2,
+        kind: "video",
+        src: "guest.mp4",
+        transform: { x: 0, y: 0, scale: 1.5, rotate: 180 },
+        crop: { x: 0.5, y: 0, w: 0.5, h: 1 },
+      },
+    ],
+  });
+  try {
+    makeQuadrantLayer(join(project, "guest.mp4"), { width: 400, height: 300, duration: 2, fps });
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const outputPath = join(project, state.artifacts[0].path);
+
+    // crop keeps the right half (200x300) => scale=1.5 -> 300x450 => rotate=180 keeps the 300x450
+    // bounding box but flips content. Footprint centers at (640-300)/2=170,(480-450)/2=15 =>
+    // spans (170,15)-(470,465), vertical midpoint at y=240. Unrotated, local y<225 (screen y<240)
+    // would be lime (originally top-right); rotate=180 flips it to magenta, and vice versa.
+    const frame = Math.round(1.5 * fps);
+    const upperHalf = samplePixel(outputPath, frame, 320, 100); // screen y=100 < 240 midpoint
+    const lowerHalf = samplePixel(outputPath, frame, 320, 380); // screen y=380 > 240 midpoint
+    const outsideFootprint = samplePixel(outputPath, frame, 10, 10);
+    t.diagnostic(`crop+scale+rotate: upper-half sample (320,100) rgb=(${upperHalf.r},${upperHalf.g},${upperHalf.b}) [expect magenta post-rotate]`);
+    t.diagnostic(`crop+scale+rotate: lower-half sample (320,380) rgb=(${lowerHalf.r},${lowerHalf.g},${lowerHalf.b}) [expect lime post-rotate]`);
+    assertColor(upperHalf, [255, 0, 255], "rotate=180 moves the originally-bottom (magenta) half of the cropped+scaled region to the top");
+    assertColor(lowerHalf, [0, 255, 0], "rotate=180 moves the originally-top (lime) half of the cropped+scaled region to the bottom");
+    assertColor(outsideFootprint, [0, 0, 255], "outside the crop+scale+rotate footprint, base blue still shows through");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+// L1 non-regression: a project with a layer that has no crop field renders byte-identical output
+// to the same project before this feature existed (verified here by re-running twice and diffing
+// sha256 — the layer's own filter chain must contain no crop= step at all, see the unit test
+// above; this closes the loop with a real render + hash comparison).
+test("layers[] without a crop field renders byte-identical output across repeated runs (no crop regression)", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 320;
+  const height = 180;
+  const fps = 10;
+  const duration = 2;
+  const layers = [
+    {
+      id: "pinp-no-crop",
+      t: 0.2,
+      duration: 1,
+      kind: "video",
+      src: "guest.mp4",
+      transform: { x: 10, y: -5, scale: 0.8, rotate: 15 },
+    },
+  ];
+  const projectA = await makeProject({ width, height, fps, duration, layers });
+  const projectB = await makeProject({ width, height, fps, duration, layers });
+  try {
+    makeQuadrantLayer(join(projectA, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
+    makeQuadrantLayer(join(projectB, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
+    const executedA = run(projectA);
+    const executedB = run(projectB);
+    assert.equal(executedA.status, 0, executedA.stderr);
+    assert.equal(executedB.status, 0, executedB.stderr);
+    const stateA = JSON.parse(await readFile(join(projectA, ".akari", "render.json"), "utf8"));
+    const stateB = JSON.parse(await readFile(join(projectB, ".akari", "render.json"), "utf8"));
+    assert.equal(stateA.artifacts[0].sha256, stateB.artifacts[0].sha256, "no-crop layers must render byte-identical output (determinism, no crop= step involved)");
+  } finally {
+    await rm(projectA, { recursive: true, force: true });
+    await rm(projectB, { recursive: true, force: true });
   }
 });
