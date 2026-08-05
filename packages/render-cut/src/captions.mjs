@@ -77,6 +77,7 @@ const POP_STYLE = "pop";
 const REVEAL_STYLE = "reveal";
 const SUPPORTED_WORD_STYLES = new Set([KARAOKE_STYLE, POP_STYLE, REVEAL_STYLE]);
 const EMPHASIS_STYLE_ONE_CHAR_BANG = "one-char-bang";
+const EMPHASIS_STYLE_ONE_CHAR_JUMBLE = "one-char-jumble";
 const EMPHASIS_STYLE_SIZE_PULSE = "size-pulse";
 const EMPHASIS_STYLE_COLOR_ACCENT = "color-accent";
 const EMPHASIS_STYLE_COLOR_ONLY = "color-only";
@@ -86,6 +87,7 @@ const EMPHASIS_STYLE_POSITIVE = "positive";
 const EMPHASIS_STYLE_HIGHLIGHT = "highlight";
 const SUPPORTED_EMPHASIS_STYLES = new Set([
   EMPHASIS_STYLE_ONE_CHAR_BANG,
+  EMPHASIS_STYLE_ONE_CHAR_JUMBLE,
   EMPHASIS_STYLE_SIZE_PULSE,
   EMPHASIS_STYLE_COLOR_ACCENT,
   EMPHASIS_STYLE_COLOR_ONLY,
@@ -94,6 +96,11 @@ const SUPPORTED_EMPHASIS_STYLES = new Set([
   EMPHASIS_STYLE_POSITIVE,
   EMPHASIS_STYLE_HIGHLIGHT,
 ]);
+// one-char-jumble の静的ジッター上限（オーナー目安「角度 ±8° から出発」に準拠）。
+// --akari-jumble-amp（既定 1・0 でジッター無し）はこの上限に掛かる全体強度ツマミ。
+const JUMBLE_MAX_ROTATE_DEG = 8;
+const JUMBLE_MAX_OFFSET_EM = 0.1;
+const JUMBLE_MAX_SCALE_AMP = 0.12;
 
 export function generateCaptionOverlays(captions, cuts, options = {}) {
   // output（edit.output の {width,height}）が縦長なら、行を短く・文字を大きくする既定へ切り替える。
@@ -1464,12 +1471,18 @@ function renderEmphasisCaptionToken(word, rangeStart, emphasis, timeScale) {
   const duration = Math.max(0.01, (overlapEnd - overlapStart) * timeScale);
   const baseClass = `akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--${style}`;
 
-  if (style === EMPHASIS_STYLE_ONE_CHAR_BANG) {
+  if (style === EMPHASIS_STYLE_ONE_CHAR_BANG || style === EMPHASIS_STYLE_ONE_CHAR_JUMBLE) {
+    // one-char-jumble は one-char-bang の per-char 順次登場をそのまま再利用し（同一クラス・
+    // 同一キーフレーム）、各文字に静的ジッター（rotate/translate/scale の個別プロパティ）を
+    // 追加で乗せるだけ。--akari-jumble-amp が 0 のとき jitterSuffix の 3 プロパティは恒等値へ
+    // 潰れるため、amp=0 の出力は one-char-bang と画素等価になる。
+    const jumble = style === EMPHASIS_STYLE_ONE_CHAR_JUMBLE;
     const characters = Array.from(word.text);
     const characterDuration = duration / characters.length;
     const markup = characters.map((character, index) => {
       const characterDelay = formatSeconds(delay + characterDuration * index);
-      return `<span class="akari-caption__emphasis-char" style="--akari-emphasis-delay: ${characterDelay}s; --akari-emphasis-dur: ${formatSeconds(Math.max(0.01, characterDuration))}s">${escapeHtml(character)}</span>`;
+      const jitterSuffix = jumble ? `; ${renderJumbleCharJitter(emphasis.id, index)}` : "";
+      return `<span class="akari-caption__emphasis-char" style="--akari-emphasis-delay: ${characterDelay}s; --akari-emphasis-dur: ${formatSeconds(Math.max(0.01, characterDuration))}s${jitterSuffix}">${escapeHtml(character)}</span>`;
     }).join("");
     return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${markup}</span>`;
   }
@@ -1493,6 +1506,39 @@ function renderEmphasisCaptionToken(word, rangeStart, emphasis, timeScale) {
   }
 
   return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="color: var(--akari-emphasis-${emphasisColorName(emphasis.emotion)})">${escapeHtml(word.text)}</span>`;
+}
+
+// FNV-1a 32bit — 暗号用途ではなく one-char-jumble の決定論シード生成専用。
+// 同一文字列は常に同一ハッシュを返すため Math.random 抜きで再現可能な擬似乱数が作れる。
+function fnv1a32(text) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+// ハッシュ値を [-1, 1) の決定論的な擬似乱数へ正規化する。
+function jumbleSignedUnit(seed) {
+  return (fnv1a32(seed) / 0x100000000) * 2 - 1;
+}
+
+function jumbleRound(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
+// emphasis.id + 文字 index をシードに、文字ごとの静的ジッター（角度・縦位置・拡大率）を
+// 個別プロパティ（rotate/translate/scale）として生成する。transform を書き換える
+// one-char-bang の登場キーフレームとは別プロパティなので、seek-safe な WAAPI 変換
+// （rasterize.mjs の getAnimations({subtree:true}) 経由）と衝突しない。
+function renderJumbleCharJitter(emphasisId, index) {
+  const rotateDeg = jumbleRound(jumbleSignedUnit(`${emphasisId}:${index}:rotate`) * JUMBLE_MAX_ROTATE_DEG);
+  const offsetEm = jumbleRound(jumbleSignedUnit(`${emphasisId}:${index}:offset`) * JUMBLE_MAX_OFFSET_EM);
+  const scaleAmp = jumbleRound(jumbleSignedUnit(`${emphasisId}:${index}:scale`) * JUMBLE_MAX_SCALE_AMP);
+  return `rotate: calc(${rotateDeg}deg * var(--akari-jumble-amp, 1)); `
+    + `translate: 0 calc(${offsetEm}em * var(--akari-jumble-amp, 1)); `
+    + `scale: calc(1 + ${scaleAmp} * var(--akari-jumble-amp, 1))`;
 }
 
 function renderEmphasisCss() {
@@ -1585,6 +1631,8 @@ function resolveEmphasisStyle(emphasis) {
   if (SUPPORTED_EMPHASIS_STYLES.has(emphasis.style_hint)) return emphasis.style_hint;
   if (emphasis.style_hint !== undefined) return EMPHASIS_STYLE_COLOR_ACCENT;
   if (["pain", "surprise", "anger"].includes(emphasis.emotion)) return EMPHASIS_STYLE_ONE_CHAR_BANG;
+  // disgust（生理的に無理・きつい系）は one-char-jumble を既定にする（2026-08-05 方針メモ §1）。
+  if (emphasis.emotion === "disgust") return EMPHASIS_STYLE_ONE_CHAR_JUMBLE;
   if (["joy", "emphasis"].includes(emphasis.emotion)) return EMPHASIS_STYLE_SIZE_PULSE;
   return EMPHASIS_STYLE_COLOR_ACCENT;
 }
