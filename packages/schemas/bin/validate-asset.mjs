@@ -68,9 +68,10 @@ function validateMeta(value) {
     "license",
     "price",
   ];
-  // source / remote / matched_by / version / min_app_version は任意フィールド。
-  // 後方互換のため必須フィールドには加えない（version は 2026-07-30 導入で、既存エントリは未設定）。
-  const optionalFields = ["source", "remote", "matched_by", "version", "min_app_version"];
+  // source / remote / matched_by / version / min_app_version / min_overlay_runtime_version は任意フィールド。
+  // 後方互換のため必須フィールドには加えない（version は 2026-07-30 導入で、既存エントリは未設定。
+  // min_overlay_runtime_version は 2026-08-06 層ミラー規約の導入で新設）。
+  const optionalFields = ["source", "remote", "matched_by", "version", "min_app_version", "min_overlay_runtime_version"];
   const allowedFields = [...requiredFields, ...optionalFields];
   for (const field of requiredFields) {
     if (!hasOwn(value, field)) fail(`必須フィールドがありません: ${field}`);
@@ -112,6 +113,13 @@ function validateMeta(value) {
 
   if (hasOwn(value, "min_app_version") && !/^\d+\.\d+\.\d+$/.test(String(value.min_app_version))) {
     fail("min_app_version は x.y.z 形式である必要があります");
+  }
+
+  if (
+    hasOwn(value, "min_overlay_runtime_version") &&
+    !/^\d+\.\d+\.\d+$/.test(String(value.min_overlay_runtime_version))
+  ) {
+    fail("min_overlay_runtime_version は x.y.z 形式である必要があります");
   }
 
   const matchedByValues = new Set(["title-normalized"]);

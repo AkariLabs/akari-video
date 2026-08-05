@@ -71,6 +71,25 @@ OUT の `both`（= backwards fill）は**遅延中に OUT の開始値（`opacit
 - 単一アニメの断片（stagger / loop）では起きない。IN と OUT を 1 本のプロパティに並べたときだけ
 - チェック: 断片の冒頭数フレームをシークし、IN の開始値（opacity 0 / 画面外）から始まることを目視する
 
+## 多層テキスト断片と data-mirror 規約（2026-08-06）
+
+同一テキストを太さ違いの `-webkit-text-stroke` 等で複数層重ねる断片（多重縁取り・ずらし影・裏打ち・二段押し出し等）は、編集対象を 1 層に決めないと打ち替えが層間でズレる。層間の同期は overlay-runtime（`packages/overlay-runtime/`）側の機能で行う。
+
+- **複製層に印を付ける**: 縁取り・影・裏打ち等でテキストを複製した層は `data-mirror="text"` を持たせる。編集対象（ダブルクリック → contenteditable）は最前面の fill 層 1 箇所だけにする。断片側に `contenteditable` や特別な役割属性を明示する必要はなく、「`data-mirror="text"` を持たない直接テキスト層」という消去法で決まる（runtime の `canEditText` がミラー層を候補から除外する）
+- **構造の作法**: ミラー層と fill 層は同じ積層コンテナ（例 `.stack`）の直下に置く。同期スコープは既定で編集層の親要素配下を対象にするため、離れた場所に置くと同期されない
+- **同期は runtime が行う**: 編集層の `input` / `compositionend` で textContent を同一 stack 内の全 `data-mirror="text"` 層へコピーする。断片側に `<script>` を書く必要はない（FORBIDDEN 級ルール「トップレベルを複数にしない」とも整合）。保存確定時にも同期の安全網が働く
+- **出荷時の状態**: 断片は全層に同一テキストを焼き込んで出荷する。ミラー未対応の runtime でも初期表示は正しい — ライブ編集の層間同期だけが `packages/overlay-runtime/package.json` の `version` `0.2.0` 以降（`window.akari.runtime.version` で参照可）に依存する。素材の `meta.json` にはトップレベル任意フィールド **`min_overlay_runtime_version`**（x.y.z・asset-meta.schema.json に 2026-08-06 新設）で最低対応バージョンを宣言する
+- **アクセシビリティ**: mount 時にランタイムが全ミラー層へ `aria-hidden="true"` を付与する。断片側で書く必要はない
+
+## 中央寄せ + flex-wrap の可用幅の罠（2026-08-06 実測）
+
+`position: absolute; left: 50%; transform: translateX(-50%)` で中央寄せした要素に
+`flex-wrap: wrap` を併用すると、shrink-to-fit の可用幅計算が transform を無視して
+「left 位置からステージ右端まで」（= ステージ幅の半分）を可用幅と誤認し、
+**既定文言でも勝手に折り返る**（1920px ステージで 960px と誤認する実測あり）。
+中央寄せ + 折返し許可の断片は、コンテンツ側に `width: max-content` を与えて
+shrink-to-fit を回避する（折返しさせたい場合だけ明示の `max-width` を併記する）。
+
 ## よくある間違い
 
 - 文字が多いまま font-size だけを下げる。

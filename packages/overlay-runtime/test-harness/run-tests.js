@@ -199,6 +199,99 @@
       "minimap.update() / state(): #overlay-stage と #preview-pane の実測から zoom / viewport を計算できた"
     );
 
+    // ---- 5) P0-R: 多層テキスト断片のミラー同期（data-mirror="text"）----
+    window.akari.runtime.tick(85, true); // cap-mirror-stack の可視区間（80〜100s）
+    const mirrorContainer = stage.querySelector('[data-overlay-id="cap-mirror-stack"]');
+    assert(
+      getComputedStyle(mirrorContainer).visibility === "visible",
+      "tick(85, true): cap-mirror-stack が visible"
+    );
+
+    const fillEl = mirrorContainer.querySelector(".fill");
+    const mirrorEls = Array.from(mirrorContainer.querySelectorAll('[data-mirror="text"]'));
+    assert(
+      mirrorEls.length === 2,
+      `フィクスチャの data-mirror="text" 層が 2 件見つかった（実際: ${mirrorEls.length}）`
+    );
+    assert(
+      mirrorEls.every((el) => el.getAttribute("aria-hidden") === "true"),
+      "mount(): 全ミラー層に aria-hidden=\"true\" が付与されている（overlay-runtime.js の mount 時一括付与）"
+    );
+
+    // 5a) 編集対象の除外: ミラー層（.sh）へ直接ダブルクリックしても、除外されて
+    // fill 層側が編集対象になる（textElementAt の bbox フォールバックが
+    // data-mirror="text" を除外候補として扱う）。
+    const shEl = mirrorContainer.querySelector(".sh");
+    const shRect = shEl.getBoundingClientRect();
+    shEl.dispatchEvent(
+      new MouseEvent("dblclick", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: shRect.left + shRect.width / 2,
+        clientY: shRect.top + shRect.height / 2,
+      })
+    );
+    assert(
+      fillEl.getAttribute("contenteditable") === "true",
+      "ミラー層 (.sh) へのダブルクリックでも fill 層が編集対象になる（ミラー層は canEditText で除外）"
+    );
+    assert(
+      shEl.getAttribute("contenteditable") !== "true",
+      "ミラー層 (.sh) 自体は contenteditable にならない"
+    );
+
+    // 5b) ライブ同期: 編集層の input で全ミラー層の textContent が即時に揃う。
+    fillEl.textContent = "新テキスト";
+    fillEl.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true }));
+    assert(
+      mirrorEls.every((el) => el.textContent === "新テキスト"),
+      "input イベント: 編集層の打ち替えが同一 stack 内の全ミラー層へ即時反映された"
+    );
+
+    // 5c) 保存経路: commitEdit の安全網 + overlayWrite へ渡る html に、同期済みの
+    // 静的 DOM（テキスト・aria-hidden 込み）が乗っていることを確認する。
+    let capturedPatch = null;
+    let resolveCapture;
+    const capturePromise = new Promise((resolve) => {
+      resolveCapture = resolve;
+    });
+    const originalOverlayWrite = window.akari.engine.overlayWrite;
+    window.akari.engine.overlayWrite = (editPath, overlayId, patch) => {
+      if (overlayId === "cap-mirror-stack") {
+        capturedPatch = { editPath, overlayId, patch };
+        resolveCapture();
+      }
+      return originalOverlayWrite(editPath, overlayId, patch);
+    };
+
+    fillEl.blur();
+    await capturePromise;
+    window.akari.engine.overlayWrite = originalOverlayWrite;
+
+    assert(
+      capturedPatch && typeof capturedPatch.patch.html === "string",
+      "保存確定 (blur): cap-mirror-stack の overlayWrite が html パッチで呼ばれた"
+    );
+    const savedHtml = capturedPatch.patch.html;
+    const textOccurrences = (savedHtml.match(/新テキスト/g) || []).length;
+    assert(
+      textOccurrences === 3,
+      `保存 DOM: 新テキストが sh/r1/fill の 3 層すべてに乗っている（実際の出現数: ${textOccurrences}）`
+    );
+    assert(
+      savedHtml.includes('aria-hidden="true"'),
+      "保存 DOM: ミラー層の aria-hidden=\"true\" が書き出し内容にも残っている"
+    );
+    assert(
+      !savedHtml.includes("contenteditable") && !savedHtml.includes("data-akari-interaction"),
+      "保存 DOM: contenteditable / data-akari-interaction* 等の編集用一時属性は書き出し前に剥がされている"
+    );
+    assert(
+      fillEl.getAttribute("contenteditable") !== "true",
+      "commitEdit 後: fill 層の contenteditable が解除されている（ライブ DOM 側）"
+    );
+
     print("");
     print("ALL PASS");
     logEl.dataset.status = "pass";

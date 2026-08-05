@@ -6,6 +6,12 @@ window.akari.runtime = (() => {
   const mountedOverlays = [];
   let mountedStage = null;
 
+  // packages/overlay-runtime/package.json の version と同期させる。ブラウザに
+  // <script> で直接読み込まれるホスト（npm 解決を経ない）が、mount 済みの
+  // window.akari.runtime.version から機能検出できるようにする（例: 0.2.0 以降 =
+  // 多層テキスト断片の data-mirror 同期に対応。P0-R 契約 §4）。
+  const RUNTIME_VERSION = "0.2.0";
+
   function finiteNumber(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
@@ -66,6 +72,16 @@ window.akari.runtime = (() => {
         "scale(var(--scale,1)) rotate(var(--rotate,0deg))";
 
       container.innerHTML = overlay.html ?? "";
+
+      // 多層テキスト断片のミラー層（縁取り・影・裏打ち等でテキストを複製した層。
+      // interaction.js のテキスト編集同期対象）を支援技術・検索から隠す。断片は
+      // script を持たない前提のため、mount 時にランタイムが一括付与する
+      // （skills/overlay-authoring/telop.md「多層テキスト断片と data-mirror 規約」・
+      // P0-R 契約 §2）。
+      for (const mirror of container.querySelectorAll('[data-mirror="text"]')) {
+        mirror.setAttribute("aria-hidden", "true");
+      }
+
       fragment.appendChild(container);
       mountedOverlays.push({
         container,
@@ -143,5 +159,5 @@ window.akari.runtime = (() => {
     }
   }
 
-  return { mount, tick, unmount };
+  return { mount, tick, unmount, version: RUNTIME_VERSION };
 })();

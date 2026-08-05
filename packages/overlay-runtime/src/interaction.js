@@ -1208,8 +1208,19 @@ window.akari.interaction = (() => {
     );
   }
 
+  // 多層積み断片（overlay-authoring telop.md「多層テキスト断片と data-mirror 規約」）:
+  // 縁取り・影・裏打ち等でテキストを複製した層は data-mirror="text" を持つ。
+  // これらは直接テキストを持っていても編集候補から除外し、断片ごとに残る唯一の
+  // 直接テキスト層（最前面の fill 層）だけが編集対象になるようにする。
+  function isMirrorTextLayer(element) {
+    return (
+      element instanceof Element && element.getAttribute("data-mirror") === "text"
+    );
+  }
+
   function canEditText(element) {
     if (!(element instanceof HTMLElement) || !hasDirectText(element)) return false;
+    if (isMirrorTextLayer(element)) return false;
 
     return ![
       "INPUT",
@@ -1252,6 +1263,35 @@ window.akari.interaction = (() => {
     return null;
   }
 
+  // ミラー同期のスコープ特定: 編集層の直近の祖先のうち、data-mirror="text" 層を
+  // 子孫に持つ最初のもの。既定は編集層の親要素（PoC 由来の積層断片は fill 層と
+  // ミラー層が同じ積層コンテナ = 親要素の直下に並ぶ — telop.md 参照）。container
+  // （[data-overlay-id]）を超えて他のオーバーレイ側へは探しに行かない。
+  function mirrorSyncScope(container, element) {
+    let scope = element.parentElement;
+    while (scope && scope !== container) {
+      if (scope.querySelector('[data-mirror="text"]')) return scope;
+      scope = scope.parentElement;
+    }
+    return element.parentElement;
+  }
+
+  // 編集層の textContent を同一 stack 内の全ミラー層へコピーする（P0-R 契約 §2）。
+  // 呼び出し元は input / compositionend のたびに、および保存直前の安全網として
+  // commitEdit からも呼ぶ。
+  function syncMirrorLayers(container, element) {
+    const scope = mirrorSyncScope(container, element);
+    if (!scope) return;
+
+    const mirrors = scope.querySelectorAll('[data-mirror="text"]');
+    if (!mirrors.length) return;
+
+    const text = element.textContent ?? "";
+    for (const mirror of mirrors) {
+      if (mirror.textContent !== text) mirror.textContent = text;
+    }
+  }
+
   function restoreAttribute(element, name, hadAttribute, value) {
     if (hadAttribute) {
       element.setAttribute(name, value);
@@ -1284,6 +1324,10 @@ window.akari.interaction = (() => {
 
     const edit = activeEdit;
     activeEdit = null;
+
+    // 保存直前の安全網: input/compositionend を取りこぼした場合でも、確定した
+    // 編集層のテキストで全ミラー層を同期してから書き出す（P0-R 契約 §3）。
+    syncMirrorLayers(edit.container, edit.element);
 
     restoreAttribute(
       edit.element,
@@ -1390,6 +1434,14 @@ window.akari.interaction = (() => {
     if (activeEdit && event.target === activeEdit.element) {
       void commitEdit({ blur: false });
     }
+  }
+
+  // 文字確定（input）/ IME 確定（compositionend）のたびにミラー層へ同期する
+  // （P0-R 契約 §2）。IME 変換中の中間状態も input が発火する環境ではそのまま
+  // コピーしてよい（ミラー層は mount() が aria-hidden="true" を付与済み）。
+  function onEditableInput(event) {
+    if (!activeEdit || event.target !== activeEdit.element) return;
+    syncMirrorLayers(activeEdit.container, activeEdit.element);
   }
 
   function onKeyDown(event) {
@@ -1717,6 +1769,8 @@ window.akari.interaction = (() => {
   listenerRoot.addEventListener("pointerdown", onPointerDown, true);
   listenerRoot.addEventListener("dblclick", onDoubleClick, true);
   listenerRoot.addEventListener("blur", onBlur, true);
+  listenerRoot.addEventListener("input", onEditableInput, true);
+  listenerRoot.addEventListener("compositionend", onEditableInput, true);
   listenerRoot.addEventListener(
     "dragstart",
     (event) => {

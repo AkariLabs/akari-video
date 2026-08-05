@@ -105,6 +105,11 @@
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$"
     },
+    "min_overlay_runtime_version": {
+      "$comment": "この素材のライブ編集機能が要求する @akari-video/overlay-runtime の最低版（任意。2026-08-06 層ミラー data-mirror 規約の導入で新設）。min_app_version と同じ哲学 — 満たさない runtime では該当機能を推測で動かさない。初期表示だけなら未満でも正しく出る素材（例: 全層同一テキスト焼き込み出荷のミラー素材）はその旨を ai_usage / provenance に書く。",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
     "remote": {
       "type": "boolean",
       "description": "true の場合、このエントリはカタログ上のみに存在し実体ファイルを持たない。source ブロックが実体の代わりになる（2026-07-14 追記・任意フィールド）。"
