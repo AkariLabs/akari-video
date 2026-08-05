@@ -237,6 +237,53 @@
       },
       "$comment": "cuts[].transform 用。layerTransform と同語彙・同意味論（x/y=px 省略時0・scale=正の数 省略時1・rotate=度 省略時0）。layerTransform は additionalProperties:true のため既存 layerItem 検証結果を変えないよう独立した $def にしている（cuts 側は未知キーを拒否）。"
     },
+    "cutCrop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      },
+      "$comment": "docs/contract-2026-07-22-render-basics.md #6。出力キャンバス相対（0..1）の静的クロップ窓。x+w<=1 / y+h<=1（窓がキャンバス内に収まる）は兄弟値比較のため validate-edit.mjs で検証する。"
+    },
+    "cutFramingKeyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "scale"],
+      "properties": {
+        "t": { "$ref": "#/$defs/seconds" },
+        "scale": { "$ref": "#/$defs/positiveNumber" },
+        "cx": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cy": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "$comment": "docs/contract-2026-07-22-render-basics.md #6。t はカット内秒（速度適用後のローカル時間）。cx/cy 省略時 0.5（画角中心）。scale < 1 はレンダ側で 1 にクランプされる（クロップ実装はキャンバス外へは広げられないため）。"
+    },
+    "cutFraming": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "crop": { "$ref": "#/$defs/cutCrop" },
+        "keyframes": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/cutFramingKeyframe" }
+        }
+      },
+      "$comment": "docs/contract-2026-07-22-render-basics.md #6（cuts[].framing）。keyframes は 2 点でズーム（開始/終了）・3 点以上で段階縮小（区間ごと線形補間）。crop と keyframes を両方宣言した場合は keyframes を優先する（crop は 1 点ズームの縮退形であり両立に意味がないため）。t の昇順・重複禁止は兄弟値比較のため validate-edit.mjs で検証する。"
+    },
+    "cutFreeze": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at_sec", "duration_sec"],
+      "properties": {
+        "at_sec": { "$ref": "#/$defs/seconds" },
+        "duration_sec": { "$ref": "#/$defs/positiveNumber" }
+      },
+      "$comment": "docs/contract-2026-07-22-render-basics.md #7（cuts[].freeze）。at_sec はカット内秒（速度適用後）でフレームを静止する時刻。duration_sec だけカット尺が伸びる（コンテンツを削らない）。at_sec がカットの再生尺を超えないことは兄弟値比較のため validate-edit.mjs で検証する。v0 は gap-aware タイムライン（明示 at/track）との併用不可（同ファイル #7 に明記）。"
+    },
     "cutV0": {
       "type": "object",
       "additionalProperties": true,
@@ -249,7 +296,9 @@
         "speed": { "$ref": "#/$defs/positiveNumber" },
         "transform": { "$ref": "#/$defs/cutTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] },
+        "framing": { "$ref": "#/$defs/cutFraming" },
+        "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] }
       },
       "not": { "required": ["src"] },
       "$comment": "out > in は JSON Schema 標準だけでは兄弟値を比較できないため validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
@@ -267,7 +316,9 @@
         "speed": { "$ref": "#/$defs/positiveNumber" },
         "transform": { "$ref": "#/$defs/cutTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] }
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] },
+        "framing": { "$ref": "#/$defs/cutFraming" },
+        "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] }
       },
       "$comment": "src の参照整合と out > in は validate-edit.mjs でも検証する。speed 省略時 1.0（等速）。"
     },

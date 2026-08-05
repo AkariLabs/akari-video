@@ -1,6 +1,6 @@
-# レンダー基礎機能契約（速度 / クロマキー背景置換 / 基本トランジション / LUT / 音声マスター処理）
+# レンダー基礎機能契約（速度 / クロマキー背景置換 / 基本トランジション / LUT / 音声マスター処理 / 画角操作 / フリーズ）
 
-- 日付: 2026-07-22
+- 日付: 2026-07-22（2026-08-06 追記: #6 画角操作 / #7 フリーズを増築）
 - 状態: **draft**（実装と並走で approved 化）。本書は技術仕様のみ。
   判断経緯・実装レーンの運用は非公開の内部記録で管理する（本リポには置かない方針）
 - 前提: `contract-2026-07-17-data-contract-versioning.md`（三原則）、
@@ -10,7 +10,7 @@
   受け入れ条件とする（仕様先行・バックエンドの silent drop を許さない —
   schema・実装・lint・出力検証を同時に納品する）
 
-## 1. スコープ（5 機能・いずれも ffmpeg 直結）
+## 1. スコープ（7 機能・いずれも ffmpeg 直結）
 
 | # | 機能 | edit.json 拡張（追記のみ） | ffmpeg 実装 | 出力検証 |
 |---|---|---|---|---|
@@ -19,6 +19,8 @@
 | 3 | 基本トランジション | `cuts[].transition_out`: {type: dissolve/fade-black/fade-white, duration} | `xfade`（transition 指定があるカット境界のみ xfade 経路） | 境界フレームの中間ブレンド実在をフレーム抽出で確認・指定なし境界はハードカット維持 |
 | 4 | 色調フィルター（LUT） | `output.look`: {lut(プリセット参照 or パス), intensity} | `lut3d`（intensity は `blend` 併用） | LUT 有無 2 出力のフレームピクセル差分・プリセット表 `presets/luts/`（初期 2〜3 本。2026-07-29 に `catalog/luts/` から移設） |
 | 5 | 音声マスター処理 | `audio.master`: {denoise(off/std/strong), loudnorm(target LUFS・既定 -14)} | `afftdn` / `loudnorm`（2 パスでなく 1 パス許容 v0） | 出力のラウドネス実測（ffmpeg ebur128）が目標 ±1LU |
+| 6 | 画角操作（静的クロップ / ズームキーフレーム / 段階縮小） | `cuts[].framing`: `{crop?: {x,y,w,h}（0..1 の出力相対・静的）, keyframes?: [{t,scale,cx?,cy?}]（t=カット内秒・線形補間。2 点でズーム、3 点以上で段階縮小・cx/cy 省略時 0.5）}` | 出力キャンバスへフィット済みの frame を `crop` で窓抜きし `scale` で再拡大（punch-in）。静的 `crop` は `w/h/x/y` とも定数。ズームは `crop` 自身の `w/h` が実機検証で init 時一度しか評価されない制約があるため、`scale` 側を `eval=frame` で `scale(t)` 倍に広げ、`crop` は固定 `w=width:h=height` のまま `x/y` だけを `t` の関数で追わせる方式（詳細 §4-1） | 静的 crop は出力フレームの画素でクロップ位置が宣言どおりであることを実測・ズームは開始/中間/終端フレームで可視要素の実測サイズから逆算したスケールが線形補間の理論値と一致（±5%）・3 点キーフレームは 2 段階の縮小がフレーム抽出で確認できる |
+| 7 | フリーズ（動画停止） | `cuts[].freeze`: `{at_sec, duration_sec}`（at_sec=カット内秒でフレーム静止・停止分だけカット尺が伸びる。コンテンツを削らない） | `trim` 分割 + `tpad`（`stop_mode=clone`）+ `concat`。カット先頭（at_sec=0）での静止は `tpad` の `start_mode=clone` が本機の ffmpeg で下流の `fps` フィルタと組み合わさると最終フレームを 1 枚欠落させるバグを実機検証で確認したため使わず、frame-index trim（`start_frame=0:end_frame=1`）で 1 フレーム種を取り出し `stop_mode=clone` で伸ばしてから先頭に concat する方式で代替（詳細 §4-2）。音声は該当区間を無音（`anullsrc`）で埋める（直前音の継続はしない・詳細 §4-3） | 静止区間内の 2 フレームが画素一致（ロスレスエンコードで実測）・出力尺 = 元尺 + duration_sec（ffprobe 実測）・静止区間の音声が無音であること（`silencedetect`/`volumedetect` 実測）を確認 |
 
 - 除外（次段送り）: ブレンドモード・PinP・プリレンダ合成レール（レイヤー機構が前提のため）
 
@@ -34,3 +36,22 @@
 1. `speed` の音声ピッチ保持（atempo = ピッチ維持）を既定とするか、ピッチ変動オプションを持つか
 2. LUT 初期カタログの中身の選定
 3. xfade 移行で render-cut の concat 構造をどこまで作り替えるか（v0 = 指定境界のみ / 全面 xfade 化）
+
+## 4. #6/#7 実装決定（2026-08-06 追記・画角操作 + フリーズ増築）
+
+### 4-1. 画角（`cuts[].framing`）
+
+- **crop と keyframes の併存**: 両方宣言された場合は `keyframes` を優先する。`crop` は「1 点ズームの縮退形」であり、両立させる意味論が無いため（複製 drift の温床にもなる）
+- **scale < 1 の扱い**: `keyframes[].scale` は仕組み上「クロップ窓を縮めて拡大する」ため 1 未満（キャンバスの外まで見せる＝リビール）は原理的に表現できない。レンダ側で `max(1, scale)` にクランプする（silent drop ではなく仕組み上の上限として契約に明記）
+- **crop.w/h が init 一度しか評価されない**: ffmpeg の `crop` フィルタは `x`/`y` は `t` を使った毎フレーム再評価に対応するが、`w`/`h` は（この ffmpeg ビルドで）フィルタ初期化時の一度きりの評価に固定されており `eval` オプション自体が存在しない（実機検証: `t` を含む `w`/`h` 式は `crop=... w='...t...'` で `Error when evaluating the expression` を返す）。そのため実装は「`scale` を `eval=frame` で `width*scale(t) : height*scale(t)` に広げてから固定サイズ `width:height` で `crop` する」方式を採る（クロップ窓の拡大 = `scale` 側の時間関数、パン位置 = `crop` の `x`/`y` の時間関数、という役割分担）
+- **`crop` の `x`/`y` は上流フレームの実サイズを見ない**: 同フィルタの `iw`/`ih` 定数は（動的サイズの上流から来ていても）negotiate 済みの固定リンクサイズを指し、最初のフレームのサイズに固定されたままになることを実機検証で確認した。そのため `crop` の `x`/`y` 式は `iw`/`ih` を参照せず、`scale` 側と同じ `scale(t)` 式をそのまま再計算する（対称的だが唯一 crop から見て正しい現在値）
+
+### 4-2. フリーズ（`cuts[].freeze`）— ffmpeg 実装上の制約
+
+- **`tpad` の `start_mode=clone` は使わない**: カット先頭（`at_sec=0`）での静止を素直に `tpad=start_mode=clone:start_duration=X` で実装すると、後続に（本機能の他パスも含め）`fps` フィルタが一つでも挟まると出力の**最終フレームが 1 枚欠落する**バグをこの ffmpeg ビルドで実機検証した（`stop_mode=clone` には同じ問題が無いことも確認済み）。代わりに、`split` で複製した全区間トリムの一方を `trim=start_frame=0:end_frame=1`（フレーム番号ベース・fps に依存しない）で 1 フレームへ切り、`stop_mode=clone` + `stop=<フレーム数-1>`（時間指定の `stop_duration` ではなく整数フレーム数）で伸ばしてから元の全区間へ concat する
+- **フリーズ中の音声は無音挿入**（direct 音の継続やループはしない）: 直前音をループさせるとループ境目でクリックノイズが乗る（PCM の非ゼロ交差での接続）のに対し、無音挿入は決定論的でグリッチが無い。narration/BGM/SFX は出力タイムライン上の絶対秒で独立に配置される既存契約（`cuts[].speed` と同じ前提）のため、freeze による尺の伸びに合わせて自動シフトはしない
+- **v0 は gap-aware タイムライン（明示 `at`/`track`）との併用不可**: gap-aware パス（`computeVideoRuns`）の出力秒→ソース秒写像は速度係数のみを前提にした線形式で、フリーズによる非線形な静止区間があると破綻する。`cuts[].freeze` が宣言された状態で gap-aware 判定（`needsGapAwareCutTimeline`）が真になる場合、render-cut は明示的に例外を投げて止まる（silent drop を許さない契約の原則どおり、機能を無言で無視しない）。デフォルトの逐次タイムラインでのみ有効
+
+### 4-3. プレビュー乖離
+
+画角（`cuts[].framing`）とフリーズ（`cuts[].freeze`）はレンダ（本契約 #6/#7）のみの対応であり、Web UI / shell のプレビューは追随していない。`docs/contract-2026-08-02-preview-parity.md` の適合状況表に明示済み。

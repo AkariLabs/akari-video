@@ -1,3 +1,5 @@
+import { appendCutFraming, hasUsableFraming } from "./cut-framing.mjs";
+
 export function hasCutVisualTransform(cuts) {
   return Array.isArray(cuts) && cuts.some((cut) =>
     cut && typeof cut === "object"
@@ -35,6 +37,18 @@ export function appendCutVisualTransform({
   ];
   filters.push(`${inputLabel}${steps.join(",")}${fitted}`);
 
+  // docs/contract-2026-07-22-render-basics.md #6 (cuts[].framing). Framing crops the already
+  // width x height-fitted frame and rescales it back up (a "punch in"), so it must run right
+  // after the fit step above and before transform's own scale/rotate/opacity, which place the
+  // (now possibly zoomed-in) frame within the output canvas. When framing is absent this stays
+  // a no-op passthrough (framed === fitted), so the filter graph is byte-identical to before
+  // this feature existed.
+  const framing = cut?.framing;
+  const framed = hasUsableFraming(framing) ? `[ct_${id}_framed]` : fitted;
+  if (framed !== fitted) {
+    appendCutFraming({ filters, inputLabel: fitted, outputLabel: framed, framing, width, height, id });
+  }
+
   const transformSteps = [];
   if (scale !== 1) {
     transformSteps.push(
@@ -50,7 +64,7 @@ export function appendCutVisualTransform({
   if (opacity !== 1) {
     transformSteps.push(`colorchannelmixer=aa=${formatNumber(opacity)}`);
   }
-  filters.push(`${fitted}${transformSteps.length > 0 ? transformSteps.join(",") : "null"}${prepared}`);
+  filters.push(`${framed}${transformSteps.length > 0 ? transformSteps.join(",") : "null"}${prepared}`);
   filters.push(
     `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(duration)}${background}`,
   );
