@@ -37,6 +37,8 @@ import {
     RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE,
     RESOLVED_SINGLE_LINE_FRAGMENT_OPEN
 } from '../common/caption-visual-contract';
+import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visual';
+import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
@@ -93,6 +95,13 @@ interface EditSummaryCut {
     };
     at?: number;
     track: number;
+    /** contract-2026-07-22-render-basics.md #6 (静的クロップ / ズームキーフレーム）。
+     * 深いバリデーションは common/cut-framing-visual.ts の computeCutFramingVisual が担う
+     * ため、ここでは「非配列オブジェクト」であることだけ確認して素通しする。 */
+    framing?: CutFraming;
+    /** contract-2026-07-22-render-basics.md #7（フリーズ）。同上、深いバリデーションは
+     * common/cut-freeze-visual.ts の checkCutFreezeCrossing 側。 */
+    freeze?: CutFreeze;
 }
 
 interface EditSummaryAudioSource {
@@ -2041,6 +2050,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         ...(speed !== undefined ? { speed } : {}),
                         ...(transitionOut ? { transitionOut } : {}),
                         ...(at !== undefined ? { at } : {}),
+                        ...(isTruthyObject(value?.framing) ? { framing: value.framing as CutFraming } : {}),
+                        ...(isTruthyObject(value?.freeze) ? { freeze: value.freeze as CutFreeze } : {}),
                         track
                     });
                 } else {
@@ -3766,15 +3777,27 @@ body { display: grid; place-items: center; padding: 32px; }
                             + (Math.max(0, (1 - cropY - cropH)) * 100) + '% ' + (cropX * 100) + '%)'
                         : '';
                 }
-                if (video.dataset.akariCutTransformActive === 'true') {
-                    const x = Number(video.dataset.akariTransformX) || 0;
-                    const y = Number(video.dataset.akariTransformY) || 0;
-                    const scale = Number(video.dataset.akariTransformScale) || 1;
-                    const rotate = Number(video.dataset.akariTransformRotate) || 0;
-                    video.style.transform = 'translate(' + (x * frameScale) + 'px, '
-                        + (y * frameScale) + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
+                // ㉕ cuts[].framing（contract-2026-08-02-preview-parity.md §2.4.2）: この cut.transform
+                // 部分（PIP 位置決め）は video.style.transform の一部にすぎず、時間で変化する framing
+                // ズームは previewBootstrapScript 側（tick() 毎フレーム）が別途書き込む。二つの書き手が
+                // 競合しないよう、ここでは「cut.transform だけの文字列」を dataset に置くに留め、実際の
+                // video.style.transform への反映は window.akari.applyCutFramingVisual に委譲する
+                // （bootstrap 未初期化の最初の呼び出しだけ、フォールバックとして自分で直接書く）。
+                const baseTransform = video.dataset.akariCutTransformActive === 'true'
+                    ? (() => {
+                        const x = Number(video.dataset.akariTransformX) || 0;
+                        const y = Number(video.dataset.akariTransformY) || 0;
+                        const scale = Number(video.dataset.akariTransformScale) || 1;
+                        const rotate = Number(video.dataset.akariTransformRotate) || 0;
+                        return 'translate(' + (x * frameScale) + 'px, '
+                            + (y * frameScale) + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
+                    })()
+                    : '';
+                video.dataset.akariBaseTransform = baseTransform;
+                if (window.akari.applyCutFramingVisual) {
+                    window.akari.applyCutFramingVisual();
                 } else {
-                    video.style.transform = '';
+                    video.style.transform = baseTransform;
                 }
                 stage.style.left = frameRect.x + 'px';
                 stage.style.top = frameRect.y + 'px';
@@ -3886,6 +3909,12 @@ body { display: grid; place-items: center; padding: 32px; }
             let transitionPlates = [];
             let totalTimelineDuration = 0;
             let segments = [];
+            // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
+            const computeCutFramingVisualFn = (${computeCutFramingVisual.toString()});
+            const checkCutFreezeCrossingFn = (${checkCutFreezeCrossing.toString()});
+            // freeze の一時停止ホールド（近似実装。尺は伸ばさない — 詳細はコメント参照）。
+            let freezeHoldUntilMs = 0;
+            let freezeHoldConsumedForSegmentIndex = null;
             const probeMediaDurationSeconds = src => new Promise(resolve => {
                 const probe = new Audio();
                 probe.preload = 'metadata';
@@ -5434,7 +5463,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         return {
                             ...segment,
                             transform: cut ? cut.transform : undefined,
-                            opacity: cut ? cut.opacity : undefined
+                            opacity: cut ? cut.opacity : undefined,
+                            // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md）:
+                            // 同じ理由（写像には関与しない見た目/再生情報）で元 cuts から補う。
+                            framing: cut ? cut.framing : undefined,
+                            freeze: cut ? cut.freeze : undefined
                         };
                     });
                     transitionPlates = map.transitionPlates;
@@ -5532,8 +5565,39 @@ body { display: grid; place-items: center; padding: 32px; }
                     ended: false
                 };
             };
+            // segment.freeze / framing.keyframes[].t の座標系（カット内・速度適用後の再生秒）に
+            // 合わせる。gap セグメントには意味がないため 0 を返す（呼び出し側はどのみち framing/freeze
+            // が無いことを先にガードするが、defensive に安全な既定値を返しておく）。
+            const playedCutLocalSeconds = segment => {
+                if (!segment || segment.kind !== 'src') return 0;
+                const speed = Number.isFinite(segment.speed) && segment.speed > 0 ? segment.speed : 1;
+                return ((video.currentTime || 0) - segment.in) / speed;
+            };
+            // ㉕ cuts[].framing の毎フレーム反映。hostAdapterScript 側の updateStageScale が書く
+            // cut.transform（PIP 位置決め）部分を dataset.akariBaseTransform 経由で受け取り、その
+            // 手前（内側）に framing のズーム/クロップを合成する。framing 無しの既存プロジェクトは
+            // baseTransform をそのまま書くだけなので見た目・回帰は無い。
+            const applyCutFramingVisual = () => {
+                const segment = segments[activeSegmentIndex];
+                const framing = segment && segment.kind === 'src' ? segment.framing : null;
+                const visual = computeCutFramingVisualFn(framing, playedCutLocalSeconds(segment));
+                const baseTransform = video.dataset.akariBaseTransform || '';
+                if (visual) {
+                    video.style.transformOrigin = visual.transformOrigin;
+                    video.style.transform = (baseTransform ? baseTransform + ' ' : '') + visual.transform;
+                } else {
+                    video.style.transformOrigin = '';
+                    video.style.transform = baseTransform;
+                }
+            };
+            window.akari.applyCutFramingVisual = applyCutFramingVisual;
             const enterSegment = index => {
                 if (index < 0 || index >= segments.length) return;
+                // ㉕ フリーズホールドはセグメント（カット）が変わったら破棄する（seek 含む
+                // enterSegment 呼び出し全経路がここを通る）。古い holdSeconds タイマーが新しい
+                // セグメントの tick() を誤って早期 return させるのを防ぐ。
+                freezeHoldUntilMs = 0;
+                freezeHoldConsumedForSegmentIndex = null;
                 activeSegmentIndex = index;
                 const segment = segments[index];
                 if (segment.kind === 'gap') {
@@ -5576,6 +5640,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!isPlaying) return;
                 window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                 isPlaying = false;
+                freezeHoldUntilMs = 0;
                 video.pause();
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
             };
@@ -6304,6 +6369,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 video.style.visibility = !segment || segment.kind === 'gap' || cutsTrackHidden ? 'hidden' : '';
             };
             const tick = (immediatePlaybackTick = false) => {
+                // ㉕ cuts[].freeze の一時停止ホールド中（contract-2026-08-02-preview-parity.md
+                // §2.4.3 の近似実装 — 尺は伸ばさない）: video / previewAudio を実時間で
+                // 一時停止したまま outputTime を進めず、rAF の連鎖だけ生かしておく。
+                if (freezeHoldUntilMs > 0) {
+                    if (performance.now() < freezeHoldUntilMs) {
+                        applyCutsMuteState();
+                        return;
+                    }
+                    freezeHoldUntilMs = 0;
+                    if (isPlaying) {
+                        if (video.paused) void video.play().catch(error => console.error('[akari-preview] freeze hold の再開に失敗しました', error));
+                        if (window.akari.previewAudio) void window.akari.previewAudio.resume();
+                    }
+                }
                 const segment = segments[activeSegmentIndex];
                 if (segment && segment.kind === 'gap') {
                     if (isPlaying) {
@@ -6325,9 +6404,21 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else if (segment) {
                     outputTime = sourceToTimeline(video.currentTime || 0, activeSegmentIndex);
                     applyKeepRangeBoundary();
+                    const activeSegment = segments[activeSegmentIndex];
+                    if (isPlaying && activeSegment && activeSegment.kind === 'src'
+                        && freezeHoldConsumedForSegmentIndex !== activeSegmentIndex) {
+                        const freezeCheck = checkCutFreezeCrossingFn(activeSegment.freeze, playedCutLocalSeconds(activeSegment));
+                        if (freezeCheck.shouldHold) {
+                            freezeHoldConsumedForSegmentIndex = activeSegmentIndex;
+                            freezeHoldUntilMs = performance.now() + freezeCheck.holdSeconds * 1000;
+                            video.pause();
+                            if (window.akari.previewAudio) window.akari.previewAudio.pause();
+                        }
+                    }
                 } else {
                     outputTime = video.currentTime || 0;
                 }
+                applyCutFramingVisual();
                 renderLayers(outputTime);
                 updateLayerSelectBox();
                 renderTransitionPlate(outputTime);
@@ -6458,6 +6549,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     startAnimation();
                 } else {
                     isPlaying = false;
+                    // ㉕ 手動一時停止はフリーズホールドを打ち切る（保留中タイマーを引きずったまま
+                    // 次の再開で誤って再一時停止しない — contract-2026-08-02-preview-parity.md §2.4.3）。
+                    freezeHoldUntilMs = 0;
                     window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                     if (window.akari.previewAudio) window.akari.previewAudio.pause();
                     video.pause();
