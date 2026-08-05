@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { computeLayerPerspectiveVisual } from '../public/layer-perspective-visual.js';
 
-// docs/contract-2026-08-02-preview-parity.md §2.4.3 (layers[].perspective): unit-level coverage
+// docs/contract-2026-08-02-preview-parity.md §2.4.4 (layers[].perspective): unit-level coverage
 // of the same math packages/render-cut/src/perspective-homography.mjs emits as ffmpeg
 // `perspective=` filter parameters, mirrored here as a browser CSS matrix3d transform function
 // for the Web preview (packages/preview-server/public/app.js).

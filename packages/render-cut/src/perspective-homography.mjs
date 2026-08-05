@@ -1,4 +1,4 @@
-// contract-2026-08-02-preview-parity.md §2.4.3 (layers[].perspective — corner-pin, v0 static).
+// contract-2026-08-02-preview-parity.md §2.4.4 (layers[].perspective — corner-pin, v0 static).
 // Pure math shared conceptually with the shell/Web preview's matrix3d construction (each surface
 // hosts its own independent implementation per the §2.2.1 "intentional code duplication"
 // convention; this file is render-cut's copy, used to compute the ffmpeg `perspective` filter's

@@ -61,9 +61,10 @@
 #### 2.4.1 空間クロップ（`layers[].crop`。2026-08-06 導入）
 - `crop = { x, y, w, h }`（**0..1 正規化・ソースフレーム相対・静的**）。省略時は既定
   `{x:0,y:0,w:1,h:1}`（全面 = crop 無し）で、既存プロジェクトの見た目・書き出しはバイト等価のまま
-- **合成の適用順は crop → scale → rotate → opacity → overlay**（`packages/render-cut/src/layers.mjs`
-  の合成チェーンで scale の直前に `crop=` を 1 段挿す。既存の chromakey → format=yuva420p の後、
-  scale/rotate/opacity より前）
+- **合成の適用順は crop → scale → perspective → rotate → opacity → overlay**（確定。
+  `packages/render-cut/src/layers.mjs` の合成チェーンで scale の直前に `crop=` を 1 段挿す。
+  既存の chromakey → format=yuva420p の後、scale/rotate/opacity より前。`perspective`
+  〔`layers[].perspective`。§2.4.4〕は scale の直後・rotate の直前に挿す — 2026-08-06 追記）
 - **プレビュー実装（shell / Web 共通の考え方）**: レイヤー要素を wrapper で包まず、同じ `<video>`
   要素に `clip-path: inset(...)` を掛けて視覚的に切り抜き、`transform-origin` をクロップ矩形の
   中心へ動かすことで拡縮・回転のピボットを実際の合成基準点に合わせる（crop 無しなら
@@ -148,6 +149,115 @@ CSS `transform` で近似再現する。
   本ラウンドでは見送った
 - **回帰なし**: freeze 未宣言のカットは本変更前と完全に同じ再生挙動のまま
 
+#### 2.4.4 パース変形（`layers[].perspective`。2026-08-06 導入・corner-pin v0・静的）
+
+PiP（`layers[]`）を台形変形で立体的に見せる機能。確定値は **4 隅の正規化座標
+（corner-pin）を SSOT** とし、書き出し（ffmpeg `perspective`）とプレビュー（CSS
+`matrix3d`、shell + Web 両面）が**同じ 4 隅**を読むことで二重実装の drift を抑える
+（オーナー裁定 2026-08-06: 案 A corner-pin 採用）。**時間変化（キーフレーム）は
+スコープ外**（transform 全般の共通キーフレーム設計として別途起票予定）。
+
+- `perspective = { corners: [TL, TR, BL, BR] }`（各 `[x, y]` は **0..1 正規化・
+  crop 適用後の層ボックス相対・静的**）。省略時は既定なし（perspective 無し）で、
+  既存プロジェクトの見た目・書き出しはバイト等価のまま。退化四角形（面積がほぼ 0）は
+  schema 検証で拒否する（`packages/schemas/bin/validate-edit.mjs` の
+  `validateLayerPerspective`、シューレース公式）
+- **合成の適用順は crop → scale → perspective → rotate → opacity → overlay**
+  （§2.4.1 で確定済み。perspective は scale 直後・rotate 直前）
+
+##### ffmpeg 実装（`packages/render-cut/src/layers.mjs` + `perspective-homography.mjs`）
+
+ffmpeg の `perspective` フィルタの `x0..y3`（`sense=destination`）は**フィルタの
+入力フレーム自身の 4 隅**がどこへ写るかを指定するパラメータであり、内側の任意矩形
+（クロップ後の層ボックス）の目標 4 隅をそのまま渡しても正しい変形にならない
+（実装時に誤り実装を検出・修正済み）。加えて、四隅の外側を透明にするには
+**透明パディングを先に足してから内側へコーナーピンする必要がある**（パディング無しで
+直接 `perspective` を掛けると、変形四角形の外側は ffmpeg の境界クランプにより
+**元の不透明色**になる — 透明にはならない。実測で確認済み）。
+
+実装（`layers.mjs` に 3 段: `pad,perspective,crop` を scale と rotate の間へ挿入）:
+
+1. **pad**: 層ボックスを `PERSPECTIVE_PAD_FRAC`（= 0.5・両軸 2 倍サイズ）だけ transparent
+   （`black@0`）にパディングする
+2. **perspective**: Heckbert のユニット正方形→四角形射影変換（`cornersToHomography` /
+   `applyHomography`）で「宣言された 4 隅 → パディング後フレーム自身の 4 隅がどこへ写るか」
+   を計算し、その値を `x0..y3` に渡す（`sense=destination:eval=init`）。**この計算だけが
+   四隅外の透明化を成立させる本質**（パディング境界のクランプサンプルが常に透明ピクセルに
+   当たるようにする）
+3. **crop**: パディング分を除去し、元の層ボックスサイズへ戻す（後続の rotate/opacity/overlay
+   は perspective 導入前と全く同じ座標系のまま — 層ボックスの中心・サイズは不変）
+
+実装時に実測で判明した ffmpeg の `perspective` フィルタ固有の制約（`iw`/`ih` ではなく
+`W`/`H` を使う必要がある。`iw*(-0.07)` のような「乗算記号の直後に括弧」は
+"Unknown function" で拒否されるため係数を先に置く `-0.07*W` 形にする必要がある）は
+`layers.mjs` のコード注釈に明記。**決定論的**（`eval=init` の静的値のみ・
+`eval=frame` は本タスクのスコープ外）
+
+##### プレビュー実装（shell / Web 共通の考え方）
+
+4 隅から CSS `matrix3d(...)` を導出する純関数
+`computeLayerPerspectiveVisual(perspective, boxWidthPx, boxHeightPx)` を shell/Web
+それぞれが独立実装する（§2.2.1 と同じ「意図的なコード重複」方針。3 実装
+〔render-cut / shell / Web〕は同じ Heckbert 参照点でユニットテストして数値一致を担保）。
+
+- 数学的構成: 標準（`u,v ∈ [0,1]`）ドメインの Heckbert 行列 `H`（render-cut と同一構成）を、
+  「中心相対 px → 標準 `[0,1]` 小数」変換 `A` と「標準 `[0,1]` 小数 → 中心相対 px」変換 `B`
+  で挟んだ 3x3 行列積 `B・H・A` を CSS `matrix3d` の 4x4 へレイアウトする（**「中心化した
+  Heckbert を直接解く」近道は数学的に誤り** — Heckbert の導出は標準ドメイン `[0,1]` を
+  前提にしており、単純に 4 隅を -0.5 して解くと異なる行列になる。実装時にユニットテスト
+  1 件で検出・修正済み）
+- **`matrix3d` は既存の transform 関数リストの innermost（最右）に追記する**。
+  `transform-origin`（クロップ矩形の中心。crop 無しならボックス自身の中心）は
+  リスト全体を一括で包む（`origin + M(point - origin)`）ため、matrix3d は自動的に
+  「対象ボックス自身の中心相対」座標で評価される — pivot 補正の追加コードは不要
+- **shell と Web で `boxWidthPx`/`boxHeightPx` の単位が異なる**（両実装とも正しい。
+  各サーフェスの既存 transform 構築慣習の違いに従うだけ）:
+  - shell（`apps/shell/extensions/akari-preview/src/common/layer-perspective-visual.ts`）:
+    `scale` を要素の CSS `width`/`height` へ焼き込む慣習（別の `scale()` 関数を持たない）
+    ため、matrix3d は**スケール後の描画 px** で評価する
+    （`boxWidthPx = crop.w * videoWidth * scale`）
+  - Web（`packages/preview-server/public/layer-perspective-visual.js`）:
+    `scale(t.scale)` が独立した transform 関数として `matrix3d` の外側（左）にあるため、
+    matrix3d は**ネイティブ（未スケール）px** で評価する
+    （`boxWidthPx = crop.w * videoWidth`、スケールは別関数が後から掛ける）
+- **注入経路**: shell は `Function.prototype.toString()` でサンドボックス化された
+  webview へ注入（`computeCutFramingVisual` と同型のパターン。`hostAdapterScript`
+  〔描画〕と `previewBootstrapScript`〔UI パネル〕の双方で独立に注入 — 別の `<script>`
+  ブロックで変数スコープが分離しているため）。Web は通常の ES module import
+  （`/layer-perspective-visual.js`）
+- **回帰なし**: perspective 未宣言のレイヤーは matrix3d を一切追記しない
+  （`computeLayerPerspectiveVisual` が `null` を返し呼び出し側は何もしない）
+
+##### 直接操作（v0 の範囲）
+
+- **プリセット（右奥/左奥/上奥/下奥）+ 角度スライダーのみ**。4 隅の直接ドラッグ
+  ハンドルは**次段**（本ラウンド対象外）。クロップトグルの直下に同型のトグルボタン
+  （shell/Web 双方）+ パネル（プリセット 4 ボタン・角度スライダー・解除ボタン）を新設
+- プリセット→4 隅の展開式（shell/Web で同一・意図的なコード重複）:
+  `compression = clamp(sin(angleDeg), 0, 0.9)` を圧縮量とし、該当辺の両端点を中点方向へ
+  `compression/2` だけ寄せる（例: 右奥 = `TR.y += half, BR.y -= half`）。SSOT は保存される
+  4 隅の正規化座標のみ — schema には「プリセット」「角度」という概念自体は存在しない
+  （プレビュー UI だけが持つオーサリング時の便宜）
+- 確定（書き戻し）は角度スライダーの `change`（`input` はライブプレビューのみ）/
+  プリセットボタンクリック / 解除ボタンで発火。**クロップモードとは排他**
+  （`setCropMode`/`setPerspectivePanelOpen` が互いを閉じる — ハンドル操作の衝突を避ける
+  ため、既存のクロップモード排他と同じ設計判断）
+
+##### 実測 / パリティ確認
+
+- render-cut: 実レンダの角座標（宣言どおりの台形境界がピクセル単位で一致・±数 px）+
+  四隅外の透明化（下地が透ける）を実測（`packages/render-cut/test/layers.test.mjs`）
+- shell / Web: Node シミュレータ上で `transform-origin` + `matrix3d` の CSS 合成を
+  再現し、render-cut と同一の Heckbert 参照点（`perspectiveReference`）と数値一致する
+  ことをユニットテスト（各 7〜8 件）
+- Web: **実ブラウザ（Chromium/playwright）実測**で、実際に描画されたレイヤー要素の
+  `style.transform` に含まれる `matrix3d(...)` の値が、実測 `videoWidth`/`videoHeight`
+  から `computeLayerPerspectiveVisual` を独立に呼んだ参照値と一致することを確認
+  （`packages/preview-server/test/preview.test.mjs`。ブラウザの CSSOM 正規化
+  〔カンマ後への空白挿入〕は比較前に空白除去して吸収）。shell は実機 E2E（Theia/Electron
+  webview の起動）を伴わないため、`tsc -b` 0 エラー + ユニットテスト + Web と同一計算式
+  という根拠で代替する
+
 ### 2.5 音声
 - **一時停止で全音声を止める**: narration / SFX の BufferSource は stop、AudioContext は suspend
 - 一時停止中のシークで音源を発火させない
@@ -186,6 +296,7 @@ CSS `transform` で近似再現する。
 | 2.8 ペン正本 | ✅（Phase 2-2: pen-visuals.bundle.js から定数 + 描画コードを import） | ✅（正本は packages/pen-visuals へ昇格。動画面 webview は正本値の埋め込み） |
 | `cuts[].framing`（2026-08-06 実装） | ✅（§2.4.2） | ✅（§2.4.2。`cuts[].transform` 併用時のみ既知の割り切りあり） |
 | `cuts[].freeze`（2026-08-06 実装・近似） | 🟡（§2.4.3。静止表示のみ・尺表示は非対応） | 🟡（§2.4.3。同左） |
+| `layers[].perspective`（2026-08-06 実装） | ✅（§2.4.4。実ブラウザ実測済み） | ✅（§2.4.4。tsc -b + ユニット + Web 同一計算式で担保） |
 
 - `cuts[].framing`（静的クロップ / ズームキーフレーム）・`cuts[].freeze`（フリーズ）は
   `contract-2026-07-22-render-basics.md` #6/#7 としてレンダ（render-cut）に加え、
@@ -193,6 +304,11 @@ CSS `transform` で近似再現する。
   crop/zoom の見た目を CSS transform で数値的に再現、freeze は「静止して見える」挙動のみを
   実時間の一時停止で近似し、書き出しが行うタイムライン尺の伸びは再現しない
   （宣言済みの割り切り。§2.4.3 に理由を明記）
+- `layers[].perspective`（corner-pin パース変形）は 4 隅の正規化座標を SSOT とし、
+  ffmpeg `perspective` フィルタ（書き出し）と CSS `matrix3d`（shell/Web プレビュー）が
+  同じ Heckbert ユニット正方形→四角形射影変換で導出される（詳細は §2.4.4）。framing/freeze
+  とは異なり近似ではなく数値的な再現（両サーフェスとも独立実装をユニットテストで
+  render-cut と同一の参照点に一致させ、Web はさらに実ブラウザで実測）
 
 ## 4. 収斂ロードマップ（正本は内部リポ）
 

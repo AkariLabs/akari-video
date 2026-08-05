@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import { createRequire } from 'node:module';
-// layers[].perspective パリティ実測（contract-2026-08-02-preview-parity.md §2.4.3）用の
+// layers[].perspective パリティ実測（contract-2026-08-02-preview-parity.md §2.4.4）用の
 // 参照計算（Web の実装そのもの — 同じ関数を独立に再インポートし、実ブラウザの
 // videoWidth/videoHeight から導いた box で「app.js が実際に書き込んだ matrix3d」と突き合わせる）。
 import { computeLayerPerspectiveVisual } from '../public/layer-perspective-visual.js';
@@ -842,7 +842,7 @@ async function main() {
     ng('Layer click-select + drag', e.message);
   }
 
-  // ── layers[].perspective の実機パリティ（contract-2026-08-02-preview-parity.md §2.4.3）──
+  // ── layers[].perspective の実機パリティ（contract-2026-08-02-preview-parity.md §2.4.4）──
   // 実ブラウザが書き込んだ matrix3d が、同じ box（実測 videoWidth/Height × crop）から
   // computeLayerPerspectiveVisual を独立に呼んだ参照値と数値一致することを確認する
   // （L1: render-cut のホモグラフィ計算とプレビュー側の描画計算のドリフト検知）。

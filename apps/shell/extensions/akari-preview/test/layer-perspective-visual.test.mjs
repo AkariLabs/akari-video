@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { computeLayerPerspectiveVisual } from '../lib/common/layer-perspective-visual.js';
 
-// docs/contract-2026-08-02-preview-parity.md §2.4.3 (layers[].perspective): unit-level coverage
+// docs/contract-2026-08-02-preview-parity.md §2.4.4 (layers[].perspective): unit-level coverage
 // of the same math packages/render-cut/src/perspective-homography.mjs emits as ffmpeg
 // `perspective=` filter parameters, mirrored here as a browser CSS matrix3d transform function.
 //
@@ -154,7 +154,7 @@ test('perspective + crop compose correctly end-to-end: the box passed to compute
     // the crop rect (it keeps the full video element and masks with clip-path); transform-origin
     // is set to the crop rect's center *as a percentage of the full element*. But
     // layers[].perspective's declared corners are fractions of the *cropped* box specifically
-    // (contract §2.4.3: perspective applies after crop, in render-cut's chain) -- so the box size
+    // (contract §2.4.4: perspective applies after crop, in render-cut's chain) -- so the box size
     // this module receives must be the crop rect's own pixel size (cropW*videoWidth*scale, not
     // the full element's), and by construction its pivot is always exactly that box's own center
     // (the crop rect's center coincides with transform-origin's pivot point in the full-element

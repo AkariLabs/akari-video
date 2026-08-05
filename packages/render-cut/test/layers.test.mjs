@@ -897,7 +897,7 @@ test("layers[].perspective corner-pin: declared trapezoid lands at the right pix
 });
 
 // L1 acceptance — perspective combined with crop + rotate, proving the apply order is
-// crop → scale → perspective → rotate (contract-2026-08-02-preview-parity.md §2.4.3): crop
+// crop → scale → perspective → rotate (contract-2026-08-02-preview-parity.md §2.4.4): crop
 // selects the source's right half (lime top / magenta bottom, matching the existing
 // "crop + scale + rotate" acceptance above), perspective then warps *that already-cropped* box
 // into a top-inset trapezoid, and rotate=180 flips the whole (still-transparent-margined) result.

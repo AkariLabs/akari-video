@@ -90,7 +90,7 @@ export function buildLayersCompositeCommand({
     if (scale !== 1) {
       steps.push(`scale=trunc(iw*${formatNumber(scale)}):trunc(ih*${formatNumber(scale)})`);
     }
-    // contract-2026-08-02-preview-parity.md §2.4.3: layers[].perspective applies after scale and
+    // contract-2026-08-02-preview-parity.md §2.4.4: layers[].perspective applies after scale and
     // before rotate (crop → scale → perspective → rotate → opacity → overlay). ffmpeg's
     // `perspective` filter's x0..y3 always describe where the INPUT FRAME'S OWN 4 corners land in
     // the output -- not an inner content rectangle's corners -- so reproducing a corner-pin

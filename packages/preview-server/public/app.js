@@ -14,7 +14,7 @@ import {
 import { replaceCaptionStyleVariables } from '/caption-style.js';
 // cuts[].framing / cuts[].freeze のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
 import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual.js';
-// layers[].perspective（corner-pin パース変形）のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.3）。
+// layers[].perspective（corner-pin パース変形）のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.4）。
 import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
@@ -346,7 +346,7 @@ function applyLayerCropVisual(el) {
 }
 
 // ㉖ layers[].perspective（0..1 正規化・corner-pin・静的。contract-2026-08-02-preview-parity.md
-// §2.4.3）。perspective 未指定 or 不正値は null（既存の見た目を一切変えない = 回帰なし）。
+// §2.4.4）。perspective 未指定 or 不正値は null（既存の見た目を一切変えない = 回帰なし）。
 function perspectiveOf(el) {
   const raw = el.dataset.layerPerspectiveCorners;
   if (!raw) return null;
@@ -975,7 +975,7 @@ function applyLayerPerspectiveNow(el, corners) {
 
 // プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の便宜であり、
 // schema には「プリセット」「角度」という概念自体は存在しない（shell 側と同一の式・
-// contract-2026-08-02-preview-parity.md §2.4.3。意図的なコード重複）。
+// contract-2026-08-02-preview-parity.md §2.4.4。意図的なコード重複）。
 function perspectivePresetCorners(preset, angleDeg) {
   const compression = Math.max(0, Math.min(0.9, Math.sin((Number(angleDeg) || 0) * Math.PI / 180)));
   const half = compression / 2;

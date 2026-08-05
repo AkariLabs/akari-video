@@ -3348,7 +3348,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const initial = window.__akariPreview;
             const vscode = acquireVsCodeApi();
             const pending = new Map();
-            // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.3）: updateStageScale
+            // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）: updateStageScale
             // (below, in this same IIFE) needs this at layout time, which runs before
             // previewBootstrapScript's own copy of this function is ever reached -- so this script
             // block injects its own copy rather than relying on cross-<script>-tag scope.
@@ -3862,7 +3862,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     layerVideo.style.left = (outputWidth / 2 + x) + 'px';
                     layerVideo.style.top = (outputHeight / 2 + y) + 'px';
                     layerVideo.style.transformOrigin = pivotXPct + '% ' + pivotYPct + '%';
-                    // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.3）: applies
+                    // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）: applies
                     // after scale, before rotate (crop → scale → perspective → rotate). Appended as
                     // the innermost (rightmost) transform function -- since transform-origin already
                     // wraps the whole chain at the crop pivot, matrix3d receives pivot-relative
@@ -4021,7 +4021,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
             const computeCutFramingVisualFn = (${computeCutFramingVisual.toString()});
             const checkCutFreezeCrossingFn = (${checkCutFreezeCrossing.toString()});
-            // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.3）。
+            // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）。
             const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});
             // freeze の一時停止ホールド（近似実装。尺は伸ばさない — 詳細はコメント参照）。
             let freezeHoldUntilMs = 0;
@@ -4506,7 +4506,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
                 layerVideo.dataset.akariCropW = String(cropW);
                 layerVideo.dataset.akariCropH = String(cropH);
-                // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.3）。absent/invalid
+                // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）。absent/invalid
                 // (schema-invalid corners, etc.) is represented as an empty dataset value --
                 // updateStageScale's computeLayerPerspectiveVisualFn call already treats a falsy/
                 // unparseable value as "no perspective", so no separate validity flag is needed here.
@@ -4870,7 +4870,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             // プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の
             // 便宜であり、schema には「プリセット」「角度」という概念自体は存在しない
-            // (contract-2026-08-02-preview-parity.md §2.4.3)。奥行き感は sin(角度) で圧縮量を決め、
+            // (contract-2026-08-02-preview-parity.md §2.4.4)。奥行き感は sin(角度) で圧縮量を決め、
             // 該当する辺の中点方向へ両端点を寄せる（角度0=無変形、角度が大きいほど強い台形）。
             const perspectivePresetCorners = (preset, angleDeg) => {
                 const compression = Math.max(0, Math.min(0.9, Math.sin((Number(angleDeg) || 0) * Math.PI / 180)));

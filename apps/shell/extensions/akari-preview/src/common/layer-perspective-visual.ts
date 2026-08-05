@@ -1,4 +1,4 @@
-// docs/contract-2026-08-02-preview-parity.md §2.4.3 (layers[].perspective — corner-pin, v0
+// docs/contract-2026-08-02-preview-parity.md §2.4.4 (layers[].perspective — corner-pin, v0
 // static) preview reproduction for shell. Mirrors packages/render-cut/src/
 // perspective-homography.mjs's Heckbert unit-square -> quadrilateral projective mapping, but
 // evaluated as a CSS `matrix3d` transform function instead of ffmpeg `perspective=` filter

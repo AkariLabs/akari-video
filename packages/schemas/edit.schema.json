@@ -417,7 +417,7 @@
           }
         }
       },
-      "$comment": "PiP レイヤーの corner-pin パース変形（案 A・v0）。SSOT は 4 隅の正規化座標のみ:corners=[TL,TR,BL,BR]（各 [x,y] は 0..1・crop 適用後の層ボックス相対）・静的（時間変化なし。キーフレームは transform 全般の共通設計として別起票）。プリセット（右奥/左奥/上奥/下奥）+ 角度ツマミはオーサリング側（UI）で 4 隅へ展開してから保存する。退化四角形（面積ほぼ0）の拒否は validate-edit.mjs のセマンティック検証で担保する。適用順は render-cut/src/layers.mjs の合成チェーンで crop→scale→perspective→rotate→opacity→overlay（契約 contract-2026-08-02-preview-parity.md §2.4.3）。書き出しは ffmpeg perspective（透明パディング→内側へコーナーピン→元サイズへクロップ戻し）、プレビュー（shell/Web 両面）は同じ 4 隅から computeLayerPerspectiveVisual が CSS matrix3d を導出し、共に Heckbert のユニット正方形→四角形射影変換を使う（意図的なコード重複 — §2.2.1 と同じ方針。3 実装は同じ参照点でユニットテストして数値一致を担保）。"
+      "$comment": "PiP レイヤーの corner-pin パース変形（案 A・v0）。SSOT は 4 隅の正規化座標のみ:corners=[TL,TR,BL,BR]（各 [x,y] は 0..1・crop 適用後の層ボックス相対）・静的（時間変化なし。キーフレームは transform 全般の共通設計として別起票）。プリセット（右奥/左奥/上奥/下奥）+ 角度ツマミはオーサリング側（UI）で 4 隅へ展開してから保存する。退化四角形（面積ほぼ0）の拒否は validate-edit.mjs のセマンティック検証で担保する。適用順は render-cut/src/layers.mjs の合成チェーンで crop→scale→perspective→rotate→opacity→overlay（契約 contract-2026-08-02-preview-parity.md §2.4.4）。書き出しは ffmpeg perspective（透明パディング→内側へコーナーピン→元サイズへクロップ戻し）、プレビュー（shell/Web 両面）は同じ 4 隅から computeLayerPerspectiveVisual が CSS matrix3d を導出し、共に Heckbert のユニット正方形→四角形射影変換を使う（意図的なコード重複 — §2.2.1 と同じ方針。3 実装は同じ参照点でユニットテストして数値一致を担保）。"
     },
     "layerItem": {
       "type": "object",
