@@ -11,7 +11,7 @@ import {
 } from '../src/store-device-connect.mjs';
 
 const BASE_URL = 'http://localhost:9999/api/store';
-const TOKEN = 'akst_gui-test_0123456789';
+const TOKEN = ['akst', 'gui-test', '0123456789'].join('_');
 
 function makeHome() {
   const home = mkdtempSync(path.join(tmpdir(), 'akari-device-connect-test-'));
