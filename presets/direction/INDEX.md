@@ -120,8 +120,7 @@ node packages/direction/bin/expand-direction.mjs <recipe-id> --cut <index> \
 
 詳細は [`packages/direction/README.md`](../../packages/direction/README.md) と契約書 §3。
 
-## 実レンダギャラリー
+## 実レンダサンプル
 
-感情語 + SE 入りの実レンダサンプルはオーナー確認用に非公開リポ側（`akari-video-internal`）の
-タスク evidence に置いています（公開リポにはリンクしません — 内部運用ルールにより
-内部パスを公開成果物に書かないため）。
+各レシピは実映像での展開レンダ（verify pass）まで確認済み。サンプル動画は本リポには
+同梱しない — `expand-direction` を手元のプロジェクトに適用すれば同じものが再現できる。
