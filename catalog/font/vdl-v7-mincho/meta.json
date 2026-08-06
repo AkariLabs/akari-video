@@ -1,0 +1,38 @@
+{
+  "id": "vdl-v7-mincho",
+  "category": "font",
+  "title": "VDL V7明朝",
+  "description": "視覚デザイン研究所（VDL）の映像テロップ定番明朝。有料書体のため索引のみ（購入者の環境でのみ fontFamily 参照が効く）。",
+  "when_to_use": "上質・情緒系の基本テロップや語りの字幕に（所持環境限定）",
+  "tags": [
+    "font",
+    "japanese",
+    "mincho",
+    "serif",
+    "telop",
+    "paid",
+    "byo-font"
+  ],
+  "knobs": [],
+  "ai_usage": "本エントリは索引のみ。取得（購入・サブスク契約）は人間の明示承認のもとで行う。インストール済み環境でのみ fontFamily 参照が効く（未所持環境ではフォールバック書体に落ちる）。ファイルの再配布・同梱は不可",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary",
+    "scope": "paid-license-required",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://www.vdl.co.jp/",
+    "acquisition": "purchase",
+    "license_at_source": "有料商用フォント（視覚デザイン研究所）。購入ライセンスの範囲で映像利用可。再配布・同梱不可",
+    "attribution_required": false
+  }
+}

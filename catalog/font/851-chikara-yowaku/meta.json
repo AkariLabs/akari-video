@@ -1,0 +1,39 @@
+{
+  "id": "851-chikara-yowaku",
+  "category": "font",
+  "title": "851チカラヨワク",
+  "description": "線がヨレた弱々しい手書きフォント（配布元: 8:51:22 pm）。チカラヅヨクの対になる脱力トーン。商用利用可・許可不要だが再配布禁止のため参照配布のみ。",
+  "when_to_use": "ボソッと入れる弱気ツッコミ・自虐・脱力系テロップに",
+  "tags": [
+    "font",
+    "japanese",
+    "handwriting",
+    "telop",
+    "tsukkomi",
+    "free",
+    "no-redistribution",
+    "reference-only"
+  ],
+  "knobs": [],
+  "ai_usage": "取得後もフォントファイル（グリフ）は改変しない。テロップ・字幕・サムネの本文/見出しに使用してよい。フォントファイル自体の再配布・同梱はしない（参照配布のみ）",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary-free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://pm85122.onamae.jp/851ch-yw.html",
+    "acquisition": "direct",
+    "license_at_source": "無料・商用利用可（チラシ/同人誌/動画等に許可不要）。自作主張・無断販売・再配布は禁止（配布元規約で確認）",
+    "attribution_required": false
+  }
+}

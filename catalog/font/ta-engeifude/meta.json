@@ -1,0 +1,38 @@
+{
+  "id": "ta-engeifude",
+  "category": "font",
+  "title": "TA演芸筆",
+  "description": "スキルインフォメーションズの寄席文字風の筆書体。JIS 第三水準まで収録。有料書体のため索引のみ。",
+  "when_to_use": "演芸・和風バラエティ・祭り感のある強調テロップに（所持環境限定）",
+  "tags": [
+    "font",
+    "japanese",
+    "brush",
+    "display",
+    "emphasis",
+    "paid",
+    "byo-font"
+  ],
+  "knobs": [],
+  "ai_usage": "本エントリは索引のみ。取得（購入・サブスク契約）は人間の明示承認のもとで行う。インストール済み環境でのみ fontFamily 参照が効く（未所持環境ではフォールバック書体に落ちる）。ファイルの再配布・同梱は不可",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary",
+    "scope": "paid-license-required",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://www.fontfactory.jp/font/detail/TA_engeifude/",
+    "acquisition": "purchase",
+    "license_at_source": "有料商用フォント（スキルインフォメーションズ / フォントファクトリー販売）。購入ライセンスの範囲で利用可。再配布不可",
+    "attribution_required": false
+  }
+}

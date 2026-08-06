@@ -1,0 +1,40 @@
+{
+  "id": "togebara",
+  "category": "font",
+  "title": "棘薔薇フォント",
+  "description": "薔薇の棘のように先端が尖ったアンチック系書体（漢字明朝 + かなゴシック、3 ウェイト）。高貴・ゴシックホラーのトーン。配布元（ゲーム実況フォント）で商用可とされるが、取得時に規約を最終確認のうえ参照配布のみ。",
+  "when_to_use": "高貴・毒・ゴシックホラー系の決め台詞や強調テロップに",
+  "tags": [
+    "font",
+    "japanese",
+    "antique",
+    "display",
+    "telop",
+    "emphasis",
+    "free",
+    "no-redistribution",
+    "reference-only"
+  ],
+  "knobs": [],
+  "ai_usage": "取得後もフォントファイル（グリフ）は改変しない。テロップ・字幕・サムネの本文/見出しに使用してよい。フォントファイル自体の再配布・同梱はしない（参照配布のみ）",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary-free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://jikkyofont.com/2020/09/15/%E6%A3%98%E8%96%94%E8%96%87%E3%83%95%E3%82%A9%E3%83%B3%E3%83%88/",
+    "acquisition": "direct",
+    "license_at_source": "無料・商用利用可（配布元「ゲーム実況フォント」利用規約による。取得時に最新規約を確認）",
+    "attribution_required": false
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "isego",
+  "category": "font",
+  "title": "異世ゴ",
+  "description": "フロップデザインの「異世界転移のぐにゃり感」を再現した歪みゴシック。漢字ゴシック + かな明朝の混植で違和感のある動きを出せる。OFL-1.1 のため実体同梱への昇格も可能（現状は索引のみ）。",
+  "when_to_use": "異世界・夢・違和感・酩酊などの演出テロップに",
+  "tags": [
+    "font",
+    "japanese",
+    "display",
+    "ofl",
+    "telop",
+    "tsukkomi",
+    "bundle-eligible"
+  ],
+  "knobs": [],
+  "ai_usage": "OFL-1.1 のため実体同梱への昇格が可能（昇格はオーナー裁定）。現状は索引のみ。グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://booth.pm/ja/items/2291468",
+    "acquisition": "login",
+    "license_at_source": "SIL Open Font License 1.1（フロップデザイン。BOOTH 配布・要アカウント）",
+    "attribution_required": false
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "mplus-1p",
+  "category": "font",
+  "title": "M PLUS 1p",
+  "description": "M+ OUTLINE FONTS 系のニュートラルな日本語ゴシック（プロポーショナル）。癖がなく字幕・UI・本文テロップに広く使える。同梱済みの M PLUS Rounded 1c の非丸ゴ版に相当。OFL-1.1 のため実体同梱への昇格も可能（現状は索引のみ）。",
+  "when_to_use": "丸ゴではない素直なゴシックが欲しいポップ系・情報系テロップに",
+  "tags": [
+    "font",
+    "japanese",
+    "gothic",
+    "sans-serif",
+    "google-fonts",
+    "ofl",
+    "telop",
+    "subtitle",
+    "bundle-eligible"
+  ],
+  "knobs": [],
+  "ai_usage": "OFL-1.1 のため実体同梱への昇格が可能（昇格はオーナー裁定）。現状は索引のみ。グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.google.com/specimen/M+PLUS+1p",
+    "acquisition": "direct",
+    "license_at_source": "SIL Open Font License 1.1（Google Fonts 配布）",
+    "attribution_required": false
+  }
+}

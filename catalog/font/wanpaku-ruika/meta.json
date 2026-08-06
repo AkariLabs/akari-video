@@ -1,0 +1,40 @@
+{
+  "id": "wanpaku-ruika",
+  "category": "font",
+  "title": "わんぱくルイカ（無料お試し版）",
+  "description": "タイプラボの元気でくっきりしたポップゴシック。無料お試し版は清音かな + 教育漢字 1,026 字のみ収録（フル版は有料）。商用可・メアド登録制。再配布不可のため参照配布のみ。",
+  "when_to_use": "子ども向け・元気・わんぱくなポップテロップに（漢字は教育漢字の範囲で）",
+  "tags": [
+    "font",
+    "japanese",
+    "pop",
+    "gothic",
+    "telop",
+    "free",
+    "trial-subset",
+    "no-redistribution",
+    "reference-only"
+  ],
+  "knobs": [],
+  "ai_usage": "取得後もフォントファイル（グリフ）は改変しない。テロップ・字幕・サムネの本文/見出しに使用してよい。フォントファイル自体の再配布・同梱はしない（参照配布のみ）",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary-free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://cute-freefont.flop.jp/typelabo_wanpakuruika.html",
+    "acquisition": "login",
+    "license_at_source": "無料お試し版（教育漢字まで）は商用利用可・メアド登録制。フル版は有料（タイプラボ）。再配布不可",
+    "attribution_required": false
+  }
+}
