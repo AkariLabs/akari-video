@@ -127,6 +127,7 @@ export class AkariPartnerWidget extends ReactWidget {
     // 直接叩く経路）には一切関与しない。
     protected connectDialog?: AkariPartnerConnectDialog;
     protected connectDialogEntryId?: string;
+    protected connectDialogClosed?: Promise<void>;
     protected connectWatchTimer?: ReturnType<typeof setInterval>;
     protected connectDetector = new PartnerConnectionTransitionDetector();
 
@@ -172,10 +173,17 @@ export class AkariPartnerWidget extends ReactWidget {
      * task/2026-08-06-partner-connect-popup 指示1: 生ターミナル（パートナーパネル）を
      * 意識させず、接続ガイドダイアログだけを見せる。PTY 起動経路自体
      * （`begin()` → `beginCli()` → `attachTerminal()`）は無改造でそのまま呼ぶ —
-     * ダイアログは進捗の「覆い」でしかない（指示2）。既に接続中/接続済みの
-     * 場合の「二重起動を避ける」判定は従来どおり `begin()` 内部（`entryFlow().state
-     * === 'working'` ガード）に委ね、ここでは新しい分岐を増やさない
-     * （キャンセル後の再 CTA でダイアログが現在状態から再表示される、が満たされる）。
+     * ダイアログは進捗の「覆い」でしかない（指示2）。
+     *
+     * ホーム側の `connectPartner()`（akari-home-widget.tsx・無改造）はこのメソッドの
+     * 返す Promise を待ってから CTA ボタンの disabled/「接続しています…」表示を
+     * 戻す。`begin()` をそのまま await すると、ユーザーがダイアログを「キャンセル」した
+     * 後も PTY 起動が終わるまで CTA が押せないままになる（実機 L1 で実際に踏んだ —
+     * 指示4「キャンセル → 再度 CTA で現在状態から再表示される」を満たせない）。
+     * そのため「ダイアログが閉じる」と「`begin()` が完走する」を競走させ、**先に
+     * 起きた方**で返す。`begin()` 自体はキャンセル後もバックグラウンドで完走まで
+     * 走り続ける（PTY を殺さない・値は握り潰して二重報告しない — 失敗は
+     * `setFailure()` 経由で既にダイアログ/カードへ表示済み）。
      */
     async beginRecommended(): Promise<void> {
         const entry = PARTNER_CATALOG.find(candidate => candidate.recommended) ?? PARTNER_CATALOG[0];
@@ -189,14 +197,18 @@ export class AkariPartnerWidget extends ReactWidget {
             await this.begin(entry);
             return;
         }
-        this.openConnectDialog(entry);
-        await this.begin(entry);
+        const dialogClosed = this.openConnectDialog(entry);
+        const flowSettled = this.begin(entry).catch(error => {
+            console.error('[akari-partner] connect flow failed in background:', error);
+        });
+        await Promise.race([dialogClosed, flowSettled]);
     }
 
     /**
      * 接続ガイドダイアログを開く（または既に同じエントリで開いていれば前面に戻す）。
      * `begin()`/`beginCli()`/`attachTerminal()` の進捗は `setEntryFlow()` から
-     * このダイアログへ転送される（指示3「同じ判定を共有化」の実体）。
+     * このダイアログへ転送される（指示3「同じ判定を共有化」の実体）。戻り値は
+     * ダイアログが閉じた時点で解決する Promise（`beginRecommended()` の競走に使う）。
      *
      * Theia のモーダルは背後を `inert` にする（dialogs.js
      * `preventTabbingOutsideDialog`）ため、この呼び出し自体は
@@ -204,10 +216,10 @@ export class AkariPartnerWidget extends ReactWidget {
      * 一切変えない（指示5「パートナーパネルを直接開いた場合の従来動作は
      * 変えない」を、分岐を増やさずに満たす）。
      */
-    protected openConnectDialog(entry: PartnerCliCatalogEntry): void {
+    protected openConnectDialog(entry: PartnerCliCatalogEntry): Promise<void> {
         if (this.connectDialog && this.connectDialogEntryId === entry.id) {
             this.connectDialog.activate();
-            return;
+            return this.connectDialogClosed ?? Promise.resolve();
         }
         this.connectDialog?.close();
         this.connectDialogEntryId = entry.id;
@@ -218,13 +230,16 @@ export class AkariPartnerWidget extends ReactWidget {
         this.connectDialog = dialog;
         dialog.setFlow(this.entryFlow(entry));
         this.startConnectWatcher();
-        void dialog.open().finally(() => {
+        const closed = dialog.open().then(() => undefined, () => undefined).finally(() => {
             if (this.connectDialog === dialog) {
                 this.connectDialog = undefined;
                 this.connectDialogEntryId = undefined;
+                this.connectDialogClosed = undefined;
             }
             this.stopConnectWatcher();
         });
+        this.connectDialogClosed = closed;
+        return closed;
     }
 
     /** 「ターミナルを表示」導線（指示2 代替案 / 指示4 のキャンセル後の再導線）。 */
