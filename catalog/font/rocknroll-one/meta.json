@@ -1,0 +1,40 @@
+{
+  "id": "rocknroll-one",
+  "category": "font",
+  "title": "RocknRoll One",
+  "description": "Fontworks が Google Fonts に開放したポップなラウンドディスプレイゴシック。太く勢いのある骨格で、動画テロップのツッコミ・元気系見出しの定番。OFL-1.1 のため実体同梱への昇格も可能（現状は索引のみ・2026-08-05 オーナー裁定でカタログ参照)。",
+  "when_to_use": "バラエティ・エンタメ系のツッコミテロップや、勢いを出したい見出しに",
+  "tags": [
+    "font",
+    "japanese",
+    "gothic",
+    "display",
+    "google-fonts",
+    "ofl",
+    "telop",
+    "tsukkomi",
+    "bundle-eligible"
+  ],
+  "knobs": [],
+  "ai_usage": "OFL-1.1 のため実体同梱への昇格が可能（昇格はオーナー裁定）。現状は索引のみ。グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.google.com/specimen/RocknRoll+One",
+    "acquisition": "direct",
+    "license_at_source": "SIL Open Font License 1.1（Google Fonts 配布・Fontworks 提供）",
+    "attribution_required": false
+  }
+}

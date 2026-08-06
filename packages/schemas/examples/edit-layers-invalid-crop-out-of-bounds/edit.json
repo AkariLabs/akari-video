@@ -1,0 +1,18 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 20.0 }],
+  "overlays": [],
+  "layers": [
+    {
+      "id": "pinp-guest",
+      "t": 8.0,
+      "duration": 5.0,
+      "kind": "video",
+      "src": "footage/guest.mp4",
+      "transform": { "x": 0, "y": 0, "scale": 1, "rotate": 0 },
+      "crop": { "x": 0.6, "y": 0.1, "w": 0.6, "h": 0.5 }
+    }
+  ]
+}

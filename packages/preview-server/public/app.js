@@ -12,6 +12,12 @@ import {
   drawPenSegment as drawPenSegmentShared,
 } from '/pen-visuals.bundle.js';
 import { replaceCaptionStyleVariables } from '/caption-style.js';
+// cuts[].framing / cuts[].freeze のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
+import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual.js';
+// layers[].perspective（corner-pin パース変形）のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.4）。
+import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
+// layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・2026-08-06 crop-handle-anchor-fix）。
+import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -90,6 +96,9 @@ let segments = [];
 let totalDuration = 0;
 let zoom = 1;
 let pan = { x: 0, y: 0 };
+// cuts[].freeze の一時停止ホールド（近似実装。尺は伸ばさない — contract-2026-08-02-preview-parity.md §2.4.3）。
+let freezeHoldUntilMs = 0;
+let freezeHoldConsumedForCutIndex = null;
 let drag = null;
 
 let editMode = false;
@@ -284,12 +293,19 @@ function buildSegments() {
     ? { index: -1, isGap: true, durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd }
     : {
         index: s.cutIndex, isGap: false, inSec: s.in, outSec: s.out, speed: s.speed || 1,
-        durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd, track: s.track ?? 0
+        durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd, track: s.track ?? 0,
+        // framing / freeze は再生時の見た目情報で写像には関与しないため、共有カーネルの
+        // segment には無い。元 cuts から補う（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
+        framing: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].framing : undefined,
+        freeze: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].freeze : undefined
       });
   totalDuration = built.totalDuration;
   seek.max = totalDuration;
   updateTimeLabel();
   updateSeekVisual();
+  // 初回描画・編集後の再読み込みのどちらでも framing を反映する（このタイミングは playbackLoop
+  // が回っていないことがあるため個別に呼ぶ必要がある）。
+  applyCutFramingVisual();
 }
 
 // --- B-roll layers ---
@@ -301,6 +317,68 @@ function layerPlaybackPath(layer) {
   return /\.mov$/i.test(layer.src)
     ? layer.src.replace(/\.mov$/i, '.preview.webm')
     : `${layer.src}.preview.webm`;
+}
+
+// ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。contract-2026-08-02-preview-parity.md）。
+// crop 未指定は既定 {x:0,y:0,w:1,h:1} = 全面（従来と完全に見た目が同じになる境界値）。
+function cropOf(el) {
+  const cw = Number(el.dataset.layerCropW);
+  const ch = Number(el.dataset.layerCropH);
+  return {
+    x: Number(el.dataset.layerCropX) || 0,
+    y: Number(el.dataset.layerCropY) || 0,
+    w: Number.isFinite(cw) && cw > 0 ? cw : 1,
+    h: Number.isFinite(ch) && ch > 0 ? ch : 1,
+  };
+}
+
+// ㉖ layers[].perspective（0..1 正規化・corner-pin・静的。contract-2026-08-02-preview-parity.md
+// §2.4.4）。perspective 未指定 or 不正値は null（既存の見た目を一切変えない = 回帰なし）。
+function perspectiveOf(el) {
+  const raw = el.dataset.layerPerspectiveCorners;
+  if (!raw) return null;
+  try {
+    const corners = JSON.parse(raw);
+    return Array.isArray(corners) && corners.length === 4 ? { corners } : null;
+  } catch {
+    return null;
+  }
+}
+
+// レイヤー1件の位置・サイズ・pivot・変形・切り抜きを一括で書く単一の正本（2026-08-06
+// web-layer-placement-parity）。shell の updateStageScale レイヤーループと同じ中心基準へ統一
+// した: 箱は「クロップ矩形の中心を (outputWidth/2+x, outputHeight/2+y) に置く」
+// （left/top = outputSize/2+x,y・width/height = videoWidth/Height×scale）。以前は「要素の
+// 自然位置 + translate(x,y) scale(s)」という Web 独自の基準だった（crop 導入前からの既知差分
+// として contract §2.4.1 に記載されていたもの。shell/render-cut と数値が一致しない原因だった
+// というオーナー実機報告を受けて解消した）。setupLayers の初期描画・loadedmetadata・ドラッグ
+// 移動・クロップハンドル・パースパネルの全呼び出し元がこの一本だけを経由する（以前は 2 箇所が
+// 個別に `translate() scale() rotate()` を書いており、perspective 追加時にどちらか一方だけ
+// 書き換えて drift する危険があった）。crop→scale→perspective→rotate→opacity→overlay の適用順
+// （render-cut/src/layers.mjs）どおり、matrix3d は innermost（最右）に追記する。perspective の
+// 箱はクロップ矩形の描画済み（scale 込み）px サイズ -- scale はもはや別関数ではなく箱サイズへ
+// 焼き込むため、shell と同じ box 単位になった（layer-perspective-visual.js のコメント参照）。
+function applyLayerLayout(el, x, y, scale, rotate) {
+  const os = outputSizePx();
+  el.style.left = `${os.width / 2 + x}px`;
+  el.style.top = `${os.height / 2 + y}px`;
+  const crop = cropOf(el);
+  const pivotXPct = (crop.x + crop.w / 2) * 100;
+  const pivotYPct = (crop.y + crop.h / 2) * 100;
+  el.style.transformOrigin = `${pivotXPct}% ${pivotYPct}%`;
+  el.style.clipPath = (crop.x > 0 || crop.y > 0 || crop.w < 1 || crop.h < 1)
+    ? `inset(${crop.y * 100}% ${Math.max(0, (1 - crop.x - crop.w)) * 100}% ${Math.max(0, (1 - crop.y - crop.h)) * 100}% ${crop.x * 100}%)`
+    : '';
+  let transform = `translate(-${pivotXPct}%, -${pivotYPct}%) rotate(${rotate}deg)`;
+  if (el.videoWidth > 0 && el.videoHeight > 0) {
+    el.style.width = `${el.videoWidth * scale}px`;
+    el.style.height = `${el.videoHeight * scale}px`;
+    const boxWidthPx = crop.w * el.videoWidth * scale;
+    const boxHeightPx = crop.h * el.videoHeight * scale;
+    const visual = computeLayerPerspectiveVisual(perspectiveOf(el), boxWidthPx, boxHeightPx);
+    if (visual) transform += ` ${visual.transformFunction}`;
+  }
+  el.style.transform = transform;
 }
 
 function setupLayers() {
@@ -331,10 +409,24 @@ function setupLayers() {
     el.dataset.layerY = layer.transform?.y || 0;
     el.dataset.layerScale = layer.transform?.scale || 1;
     el.dataset.layerRotate = layer.transform?.rotate || 0;
-    if (layer.transform) {
-      const t = layer.transform;
-      el.style.transform = `translate(${t.x||0}px, ${t.y||0}px) scale(${t.scale||1}) rotate(${t.rotate||0}deg)`;
-    }
+    const crop = layer.crop;
+    const cropW = crop && Number.isFinite(crop.w) && crop.w > 0 ? crop.w : 1;
+    const cropH = crop && Number.isFinite(crop.h) && crop.h > 0 ? crop.h : 1;
+    el.dataset.layerCropX = String(crop && Number.isFinite(crop.x) ? crop.x : 0);
+    el.dataset.layerCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
+    el.dataset.layerCropW = String(cropW);
+    el.dataset.layerCropH = String(cropH);
+    const perspectiveCorners = layer.perspective && Array.isArray(layer.perspective.corners) ? layer.perspective.corners : null;
+    if (perspectiveCorners) el.dataset.layerPerspectiveCorners = JSON.stringify(perspectiveCorners);
+    // width/height と perspective の箱サイズは videoWidth/Height を要するため、メタデータ到着
+    // （loadedmetadata）のたびに必ず呼び直す -- 初期呼び出しはメタデータ未着で left/top/
+    // transform-origin/clip-path だけが決まる（display:none のため見た目に影響しない）。
+    const relayout = () => applyLayerLayout(
+      el, Number(el.dataset.layerX) || 0, Number(el.dataset.layerY) || 0,
+      Number(el.dataset.layerScale) || 1, Number(el.dataset.layerRotate) || 0,
+    );
+    relayout();
+    el.addEventListener('loadedmetadata', relayout);
     // elementsFromPoint のヒット対象にする（実際の当たり判定は wrapper の capture 側）
     el.style.pointerEvents = 'auto';
     el.style.cursor = 'move';
@@ -435,7 +527,8 @@ function measureLayerOpaqueBox(el) {
 }
 
 // クリック地点のアルファ値（0-255）。透明部分のクリックを素通しさせるための当たり判定。
-// transform（translate/scale/rotate・origin は要素中心）の逆写像で要素ローカルへ戻す
+// transform（translate/scale/rotate・origin はクロップ矩形の中心 — crop 無しなら要素中心と一致）
+// の逆写像で要素ローカルへ戻す
 function layerAlphaAt(el, clientX, clientY) {
   try {
     const vw = el.videoWidth;
@@ -446,8 +539,9 @@ function layerAlphaAt(el, clientX, clientY) {
     const viewScale = contRect.width / layerContainer.offsetWidth; // frameScale × zoom
     const px = (clientX - contRect.left) / viewScale;
     const py = (clientY - contRect.top) / viewScale;
-    const cx = el.offsetLeft + el.offsetWidth / 2;
-    const cy = el.offsetTop + el.offsetHeight / 2;
+    const crop = cropOf(el);
+    const cx = el.offsetLeft + (crop.x + crop.w / 2) * el.offsetWidth;
+    const cy = el.offsetTop + (crop.y + crop.h / 2) * el.offsetHeight;
     const computed = getComputedStyle(el).transform;
     const m = computed && computed !== 'none' ? new DOMMatrix(computed) : new DOMMatrix();
     const p = m.inverse().transformPoint(new DOMPoint(px - cx, py - cy));
@@ -472,6 +566,8 @@ function updateLayerSelectBox() {
   const lv = layerVideos.find(v => selectedLayerId !== null && v.layer.id === selectedLayerId);
   if (!lv || lv.el.style.display === 'none') {
     layerSelectBox.style.display = 'none';
+    positionLayerCropToggle(null);
+    positionLayerPerspectiveToggle(null);
     return;
   }
   const el = lv.el;
@@ -492,15 +588,41 @@ function updateLayerSelectBox() {
   layerSelectBox.style.width = `${el.offsetWidth}px`;
   layerSelectBox.style.height = `${el.offsetHeight}px`;
   layerSelectBox.style.transform = el.style.transform || '';
-  layerSelectBox.style.transformOrigin = '50% 50%';
-  const r = lv.opaqueBox ?? { x: 0, y: 0, w: el.offsetWidth, h: el.offsetHeight };
+  // ㉔ pivot はクロップ矩形の中心（crop 無しなら 50%/50% = 従来どおり）— el 自身の
+  // transform-origin（applyLayerLayout が設定）をそのまま流用する。
+  layerSelectBox.style.transformOrigin = el.style.transformOrigin || '50% 50%';
+  const naturalBox = lv.opaqueBox ?? { x: 0, y: 0, w: el.offsetWidth, h: el.offsetHeight };
+  // クロップ窓（要素ローカル px = videoWidth/Height×scale。applyLayerLayout が width/height に
+  // scale を焼き込むため el.offsetWidth はネイティブ px と一致しない — measureLayerOpaqueBox /
+  // layerAlphaAt も el.offsetWidth 相対の比率で換算しており、この関数と単位が揃っているので
+  // そのまま交差計算できる）と不透明領域の交差 = 実際に見えている範囲。
+  const crop = cropOf(el);
+  const cropBoxPx = {
+    x: crop.x * el.offsetWidth, y: crop.y * el.offsetHeight,
+    w: crop.w * el.offsetWidth, h: crop.h * el.offsetHeight,
+  };
+  const ix0 = Math.max(naturalBox.x, cropBoxPx.x);
+  const iy0 = Math.max(naturalBox.y, cropBoxPx.y);
+  const ix1 = Math.min(naturalBox.x + naturalBox.w, cropBoxPx.x + cropBoxPx.w);
+  const iy1 = Math.min(naturalBox.y + naturalBox.h, cropBoxPx.y + cropBoxPx.h);
+  const r = (ix1 > ix0 && iy1 > iy0) ? { x: ix0, y: iy0, w: ix1 - ix0, h: iy1 - iy0 } : cropBoxPx;
   layerSelectRect.style.left = `${r.x}px`;
   layerSelectRect.style.top = `${r.y}px`;
   layerSelectRect.style.width = `${r.w}px`;
   layerSelectRect.style.height = `${r.h}px`;
+  positionLayerCropToggle(el);
+  positionLayerPerspectiveToggle(el);
+  layerPerspectiveToggle.style.borderColor = layerPerspectiveNow(el) ? '#ffb84d' : '#4da3ff';
 }
 
 function setLayerSelected(id) {
+  if (cropModeActive) setCropMode(false);
+  if (perspectivePanelOpen) setPerspectivePanelOpen(false);
+  activePerspectivePreset = null;
+  for (const button of layerPerspectivePresetButtons) {
+    button.style.background = 'rgba(255,255,255,0.06)';
+    button.style.color = '#cfe6ff';
+  }
   selectedLayerId = id;
   for (const lv of layerVideos) {
     const on = id !== null && lv.layer.id === id;
@@ -509,6 +631,494 @@ function setLayerSelected(id) {
   }
   updateLayerSelectBox();
 }
+
+// --- ㉔ クロップモード（2026-08-06 オーナー裁定: shell/Web 両面）---
+// 移動と操作が衝突しないための排他モード切替。8 方向ハンドルで layers[].crop
+// （0..1 正規化・ソースフレーム相対）を編集し、確定（pointerup）時のみ書き戻す。
+let cropModeActive = false;
+const CROP_MIN = 0.02;
+function clampCrop(x, y, w, h) {
+  const cw = Math.min(1, Math.max(CROP_MIN, Number.isFinite(w) ? w : 1));
+  const ch = Math.min(1, Math.max(CROP_MIN, Number.isFinite(h) ? h : 1));
+  const cx = Math.min(1 - cw, Math.max(0, Number.isFinite(x) ? x : 0));
+  const cy = Math.min(1 - ch, Math.max(0, Number.isFinite(y) ? y : 0));
+  return { x: cx, y: cy, w: cw, h: ch };
+}
+function layerTransformOf(el) {
+  return {
+    x: Number(el.dataset.layerX) || 0,
+    y: Number(el.dataset.layerY) || 0,
+    scale: Number(el.dataset.layerScale) || 1,
+    rotate: Number(el.dataset.layerRotate) || 0,
+  };
+}
+// ソース px（ネイティブ px。videoWidth/videoHeight）の矩形を、layerContainer ローカル座標
+// （frameScale/zoom 適用前の「出力論理 px」空間 -- video 要素自身と同じ単位。frameScale/zoom は
+// 親コンテナの scale() が別途処理する）へ正写像する。shell の layerScreenRectForVideoRect と
+// 同型の幾何（画面 px への変換〔frameRect/frameScale 乗算〕だけ、Web はこの空間のまま
+// layerContainer の子として置くため省く）。2026-08-06 web-layer-placement-parity: 中心基準統一
+// に伴い el.offsetLeft 依存の旧実装を置き換えた -- 旧実装は「el 自身の静的位置に transform.x を
+// 加算する」慣習だったが、新基準では transform.x は既に el.style.left（= outputWidth/2+x）へ
+// 焼き込まれているため、el.offsetLeft から独立に「ネイティブ px 空間 → transform による配置」を
+// 導出する必要がある（shell と同じ formula: P' = outputSize/2 + T + s·R(θ)·(P-pivot)）。
+function layerRectForVideoRect(transform, videoRect, pivotPx) {
+  const os = outputSizePx();
+  const outputW = videoRect.w * transform.scale;
+  const outputH = videoRect.h * transform.scale;
+  const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * transform.scale;
+  const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * transform.scale;
+  const rad = transform.rotate * Math.PI / 180;
+  const rotOffX = offX * Math.cos(rad) - offY * Math.sin(rad);
+  const rotOffY = offX * Math.sin(rad) + offY * Math.cos(rad);
+  const centerX = os.width / 2 + transform.x + rotOffX;
+  const centerY = os.height / 2 + transform.y + rotOffY;
+  return { left: centerX - outputW / 2, top: centerY - outputH / 2, width: outputW, height: outputH, rotOffX, rotOffY };
+}
+// 画面クライアント座標 → ソースフレーム正規化座標（0..1）の逆写像。layerRectForVideoRect の逆
+// （shell の layerVideoPointForPivot と同型）。pivotFrac はソースフレーム正規化座標（クロップ
+// ハンドルは常に全面中心 {0.5,0.5} を使う -- shell と同じ規約。呼び出し元 fullPivot 参照）。
+function fractionForClient(el, transform, pivotFrac, clientX, clientY) {
+  const contRect = layerContainer.getBoundingClientRect();
+  if (!(contRect.width > 0)) return null;
+  const viewScale = contRect.width / layerContainer.offsetWidth;
+  const px = (clientX - contRect.left) / viewScale;
+  const py = (clientY - contRect.top) / viewScale;
+  const os = outputSizePx();
+  const vw = el.videoWidth, vh = el.videoHeight;
+  const pivotPx = { x: pivotFrac.x * vw, y: pivotFrac.y * vh };
+  const dx = px - (os.width / 2 + transform.x);
+  const dy = py - (os.height / 2 + transform.y);
+  const rad = -transform.rotate * Math.PI / 180;
+  const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+  const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+  const lx = rx / (transform.scale || 1) + pivotPx.x;
+  const ly = ry / (transform.scale || 1) + pivotPx.y;
+  return { x: lx / vw, y: ly / vh };
+}
+
+const layerCropBox = document.createElement('div');
+layerCropBox.id = 'layer-crop-box';
+layerCropBox.setAttribute('data-akari-interaction', '1');
+layerCropBox.style.cssText = 'position:absolute;pointer-events:none;display:none;z-index:1001;overflow:hidden;outline:1px dashed rgba(255,255,255,0.5);';
+const layerCropRect = document.createElement('div');
+layerCropRect.style.cssText = 'position:absolute;box-sizing:border-box;outline:1.5px solid #4da3ff;box-shadow:0 0 0 2000px rgba(0,0,0,0.45);pointer-events:none;';
+layerCropBox.appendChild(layerCropRect);
+const CROP_HANDLE_DIRS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+const CROP_HANDLE_POS = {
+  nw: { top: '0', left: '0', cursor: 'nwse-resize' },
+  n: { top: '0', left: '50%', cursor: 'ns-resize' },
+  ne: { top: '0', left: '100%', cursor: 'nesw-resize' },
+  e: { top: '50%', left: '100%', cursor: 'ew-resize' },
+  se: { top: '100%', left: '100%', cursor: 'nwse-resize' },
+  s: { top: '100%', left: '50%', cursor: 'ns-resize' },
+  sw: { top: '100%', left: '0', cursor: 'nesw-resize' },
+  w: { top: '50%', left: '0', cursor: 'ew-resize' },
+};
+const layerCropHandleElements = CROP_HANDLE_DIRS.map(dir => {
+  const h = document.createElement('div');
+  const pos = CROP_HANDLE_POS[dir];
+  h.dataset.akariCropHandle = dir;
+  h.setAttribute('data-akari-interaction', '1');
+  h.style.cssText = `position:absolute;width:12px;height:12px;margin:-6px;box-sizing:border-box;border:1.5px solid #4da3ff;border-radius:2px;background:#fff;pointer-events:auto;top:${pos.top};left:${pos.left};cursor:${pos.cursor};`;
+  layerCropRect.appendChild(h);
+  return h;
+});
+const layerCropToggle = document.createElement('div');
+layerCropToggle.id = 'layer-crop-toggle';
+layerCropToggle.title = 'クロップモード切替 (Esc で終了)';
+layerCropToggle.textContent = '⛶';
+layerCropToggle.setAttribute('data-akari-interaction', '1');
+layerCropToggle.style.cssText = 'position:absolute;display:none;width:22px;height:22px;box-sizing:border-box;border-radius:4px;border:1px solid #4da3ff;background:rgba(20,20,20,0.85);color:#cfe6ff;font-size:13px;line-height:20px;text-align:center;cursor:pointer;pointer-events:auto;user-select:none;z-index:1002;';
+
+function positionLayerCropToggle(el) {
+  if (!layerCropToggle.parentElement) layerContainer.appendChild(layerCropToggle);
+  if (!el) {
+    layerCropToggle.style.display = 'none';
+    return;
+  }
+  layerCropToggle.style.display = 'flex';
+  layerCropToggle.style.alignItems = 'center';
+  layerCropToggle.style.justifyContent = 'center';
+  // 箱の上端がキャンバス上端に近いと「箱の外側・上」が画面外へはみ出す。0 未満にはせず、
+  // 収まらないときは箱の内側上端へフォールバックする。
+  const box = cropModeActive ? layerCropBox : el;
+  layerCropToggle.style.left = `${box.offsetLeft + box.offsetWidth + 4}px`;
+  layerCropToggle.style.top = `${Math.max(4, box.offsetTop - 26)}px`;
+}
+
+function updateLayerCropBox() {
+  if (!layerCropBox.parentElement) layerContainer.appendChild(layerCropBox);
+  const lv = layerVideos.find(v => selectedLayerId !== null && v.layer.id === selectedLayerId);
+  if (!cropModeActive || !lv || lv.el.style.display === 'none' || !(lv.el.videoWidth > 0)) {
+    layerCropBox.style.display = 'none';
+    return;
+  }
+  const el = lv.el;
+  const transform = layerTransformOf(el);
+  const crop = cropOf(el);
+  const vw = el.videoWidth, vh = el.videoHeight;
+  // pivot は実合成と同じ「現在のクロップ矩形の中心」（applyLayerLayout の transform-origin と
+  // 同じ値。ネイティブ px 空間）を使う（2026-08-06 crop-handle-anchor-fix 以前は全面中心固定の
+  // 近似だったが、それだと錨補正後の transform.x/y と噛み合わず外枠が編集中にドリフトして見える
+  // ため、実際の合成 pivot と統一した — shell の updateLayerCropBox と同型の判断）。
+  const cropPivot = { x: (crop.x + crop.w / 2) * vw, y: (crop.y + crop.h / 2) * vh };
+  const outer = layerRectForVideoRect(transform, { x: 0, y: 0, w: vw, h: vh }, cropPivot);
+  const inner = layerRectForVideoRect(transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, cropPivot);
+  layerCropBox.style.display = 'block';
+  layerCropBox.style.left = `${outer.left}px`;
+  layerCropBox.style.top = `${outer.top}px`;
+  layerCropBox.style.width = `${outer.width}px`;
+  layerCropBox.style.height = `${outer.height}px`;
+  layerCropBox.style.transform = `rotate(${transform.rotate}deg)`;
+  layerCropRect.style.left = `${inner.left - outer.left}px`;
+  layerCropRect.style.top = `${inner.top - outer.top}px`;
+  layerCropRect.style.width = `${inner.width}px`;
+  layerCropRect.style.height = `${inner.height}px`;
+  positionLayerCropToggle(el);
+}
+
+function applyLayerCropDataset(el, crop) {
+  el.dataset.layerCropX = String(crop.x);
+  el.dataset.layerCropY = String(crop.y);
+  el.dataset.layerCropW = String(crop.w);
+  el.dataset.layerCropH = String(crop.h);
+  const t = layerTransformOf(el);
+  applyLayerLayout(el, t.x, t.y, t.scale, t.rotate);
+}
+
+// ㉗ クロップハンドル操作の錨補正（2026-08-06 crop-handle-anchor-fix）: crop と transform.x/y を
+// 同一フレームで一括更新する。crop 単独 → transform 単独の2段更新だと中間フレームで一瞬だけ
+// 錨補正前の crop が画面に出てしまうため、必ずこちらを使う（crop/transform 両方のデータセットを
+// 先に確定させてから applyLayerLayout を1回だけ呼ぶ -- applyLayerCropDataset を経由すると
+// 古い transform で一度レイアウトしてしまうため、ここでは直接書く）。
+function applyLayerCropAndTransformDataset(el, crop, transform) {
+  el.dataset.layerCropX = String(crop.x);
+  el.dataset.layerCropY = String(crop.y);
+  el.dataset.layerCropW = String(crop.w);
+  el.dataset.layerCropH = String(crop.h);
+  el.dataset.layerX = String(transform.x);
+  el.dataset.layerY = String(transform.y);
+  el.dataset.layerScale = String(transform.scale);
+  el.dataset.layerRotate = String(transform.rotate);
+  applyLayerLayout(el, transform.x, transform.y, transform.scale, transform.rotate);
+}
+
+function setCropMode(active) {
+  cropModeActive = !!(active && selectedLayerId !== null);
+  // ㉖ クロップモードとパースパネルは排他（ハンドル/操作の衝突を避ける — shell と同じ設計判断）。
+  if (cropModeActive && perspectivePanelOpen) setPerspectivePanelOpen(false);
+  layerCropToggle.classList.toggle('is-crop-mode', cropModeActive);
+  layerCropToggle.style.background = cropModeActive ? '#4da3ff' : 'rgba(20,20,20,0.85)';
+  layerCropToggle.style.color = cropModeActive ? '#0b1a2a' : '#cfe6ff';
+  if (cropModeActive) {
+    layerSelectBox.style.display = 'none';
+    updateLayerCropBox();
+  } else {
+    layerCropBox.style.display = 'none';
+    updateLayerSelectBox();
+  }
+}
+// click ではなく pointerdown+pointerup（setPointerCapture 付き）で拾う — 再生中は毎フレーム
+// positionLayerCropToggle が呼ばれてボタンが数 px 動くため、down/up の間にボタンが動くと
+// click イベントの合成対象がズレて発火しなくなることがある（実マウス操作で再現・
+// 実測確認済み）。ドラッグハンドルと同じ pointer capture 方式にして確実に拾う。
+layerCropToggle.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  try { layerCropToggle.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+});
+layerCropToggle.addEventListener('pointerup', (e) => {
+  e.stopPropagation();
+  setCropMode(!cropModeActive);
+});
+// Escape でのクロップモード終了は、既存のグローバル Escape ハンドラ（setLayerSelected(null) を
+// 呼ぶ）が setLayerSelected 内の cropModeActive ガード経由で兼ねる（専用リスナーは不要）。
+
+// ㉗ 錨補正（2026-08-06 crop-handle-anchor-fix）: crop の中心が実際の配置基準点
+// （applyLayerLayout の transform-origin）なので、crop 変更だけを書き戻すと基準点自体が
+// 動いて絵全体がずれる。cropAnchorCorrectedTransform が「ドラッグした辺以外は画面上不動」に
+// なる transform.x/y を返し、crop と同一 patch で書く（ドラッグ中のライブ表示も同じ補正を
+// 適用 — 確定時だけだと commit 瞬間にジャンプする）。pointer→ソース座標のマッピング
+// （computeNext 内の fractionForClient 呼び出し）はドラッグ開始時点の startTransform を最後まで
+// 使い続ける（ライブ補正で変わる layerX/layerY を混ぜない）ため、この錨補正の追加はハンドル
+// 自体の追従性に影響しない。
+for (const handle of layerCropHandleElements) {
+  handle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || selectedLayerId === null || !cropModeActive) return;
+    const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+    if (!lv) return;
+    const el = lv.el;
+    const dir = handle.dataset.akariCropHandle;
+    const startTransform = layerTransformOf(el);
+    const fullPivot = { x: 0.5, y: 0.5 };
+    const original = clampCrop(
+      Number(el.dataset.layerCropX), Number(el.dataset.layerCropY),
+      Number(el.dataset.layerCropW), Number(el.dataset.layerCropH),
+    );
+    const anchorRight = original.x + original.w;
+    const anchorBottom = original.y + original.h;
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    const captureTarget = event.currentTarget;
+    let moved = false;
+    let cancelled = false;
+    try { captureTarget.setPointerCapture(pointerId); } catch { /* not capturable */ }
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('keydown', onKeyDown, true);
+      if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
+        captureTarget.releasePointerCapture(pointerId);
+      }
+    };
+    const computeNext = (moveEvent) => {
+      const point = fractionForClient(el, startTransform, fullPivot, moveEvent.clientX, moveEvent.clientY);
+      if (!point) return original;
+      let nextX = original.x, nextY = original.y, nextRight = anchorRight, nextBottom = anchorBottom;
+      if (dir.indexOf('w') >= 0) nextX = Math.min(point.x, anchorRight - CROP_MIN);
+      if (dir.indexOf('e') >= 0) nextRight = Math.max(point.x, original.x + CROP_MIN);
+      if (dir.indexOf('n') >= 0) nextY = Math.min(point.y, anchorBottom - CROP_MIN);
+      if (dir.indexOf('s') >= 0) nextBottom = Math.max(point.y, original.y + CROP_MIN);
+      return clampCrop(nextX, nextY, nextRight - nextX, nextBottom - nextY);
+    };
+    // cropAnchorCorrectedTransform は x/y のみを返す（scale/rotate は補正で動かさない）ため、
+    // 書き戻し用の完全な transform には startTransform の scale/rotate を必ずマージする（欠けると
+    // dataset に "undefined" が書かれ Number(...)||1 の既定値フォールバックでスケール/回転が
+    // 消し飛ぶ -- L1 実機テストで実際に踏んだ回帰）。
+    const correctedTransformFor = (nextCrop) => ({
+      ...startTransform,
+      ...cropAnchorCorrectedTransform(original, nextCrop, startTransform, el.videoWidth, el.videoHeight),
+    });
+    const onMove = (moveEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      moved = true;
+      const next = computeNext(moveEvent);
+      applyLayerCropAndTransformDataset(el, next, correctedTransformFor(next));
+      updateLayerCropBox();
+    };
+    const finish = async () => {
+      cleanup();
+      if (cancelled) {
+        applyLayerCropAndTransformDataset(el, original, startTransform);
+        updateLayerCropBox();
+        return;
+      }
+      if (!moved) return;
+      const finalCrop = clampCrop(
+        Number(el.dataset.layerCropX), Number(el.dataset.layerCropY),
+        Number(el.dataset.layerCropW), Number(el.dataset.layerCropH),
+      );
+      const finalTransform = layerTransformOf(el);
+      try {
+        await layerWriteViaPut(selectedLayerId, { crop: finalCrop, transform: finalTransform });
+      } catch (err) {
+        applyLayerCropAndTransformDataset(el, original, startTransform);
+        updateLayerCropBox();
+        showMessage(String(err?.message || err));
+      }
+    };
+    const onUp = (upEvent) => {
+      if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+      void finish();
+    };
+    const onKeyDown = (keyEvent) => {
+      if (keyEvent.key !== 'Escape') return;
+      cancelled = true;
+      void finish();
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('keydown', onKeyDown, true);
+  });
+}
+new ResizeObserver(() => updateLayerCropBox()).observe(wrapper);
+
+// --- ㉖ layers[].perspective（v0）: プリセット(右奥/左奥/上奥/下奥) + 角度ツマミのみ ---
+// 4隅の直接ドラッグハンドルは次段（本タスク対象外）。クロップトグルの下に常駐する。
+let perspectivePanelOpen = false;
+let activePerspectivePreset = null;
+const layerPerspectiveToggle = document.createElement('div');
+layerPerspectiveToggle.id = 'layer-perspective-toggle';
+layerPerspectiveToggle.title = 'パース変形パネル';
+layerPerspectiveToggle.textContent = '◈';
+layerPerspectiveToggle.setAttribute('data-akari-interaction', '1');
+layerPerspectiveToggle.style.cssText = 'position:absolute;display:none;width:22px;height:22px;box-sizing:border-box;border-radius:4px;border:1px solid #4da3ff;background:rgba(20,20,20,0.85);color:#cfe6ff;font-size:13px;line-height:20px;text-align:center;cursor:pointer;pointer-events:auto;user-select:none;z-index:1002;';
+
+const layerPerspectivePanel = document.createElement('div');
+layerPerspectivePanel.id = 'layer-perspective-panel';
+layerPerspectivePanel.setAttribute('data-akari-interaction', '1');
+layerPerspectivePanel.style.cssText = 'position:absolute;display:none;flex-direction:column;gap:6px;padding:8px;width:168px;box-sizing:border-box;border-radius:6px;border:1px solid #4da3ff;background:rgba(20,20,20,0.92);color:#cfe6ff;font-size:11px;pointer-events:auto;user-select:none;z-index:1003;';
+const perspectivePresetsRow = document.createElement('div');
+perspectivePresetsRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px;';
+const PERSPECTIVE_PRESETS = [['right', '右奥'], ['left', '左奥'], ['top', '上奥'], ['bottom', '下奥']];
+const layerPerspectivePresetButtons = PERSPECTIVE_PRESETS.map(([preset, label]) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.akariPerspectivePreset = preset;
+  button.textContent = label;
+  button.style.cssText = 'border:1px solid #4da3ff;border-radius:4px;background:rgba(255,255,255,0.06);color:#cfe6ff;font-size:11px;padding:4px 2px;cursor:pointer;';
+  perspectivePresetsRow.appendChild(button);
+  return button;
+});
+const perspectiveAngleRow = document.createElement('div');
+perspectiveAngleRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+const perspectiveAngleLabel = document.createElement('span');
+perspectiveAngleLabel.textContent = '角度';
+const layerPerspectiveAngleInput = document.createElement('input');
+layerPerspectiveAngleInput.type = 'range';
+layerPerspectiveAngleInput.min = '0';
+layerPerspectiveAngleInput.max = '75';
+layerPerspectiveAngleInput.step = '1';
+layerPerspectiveAngleInput.value = '30';
+layerPerspectiveAngleInput.style.flex = '1';
+const layerPerspectiveAngleValueEl = document.createElement('span');
+layerPerspectiveAngleValueEl.textContent = '30°';
+perspectiveAngleRow.append(perspectiveAngleLabel, layerPerspectiveAngleInput, layerPerspectiveAngleValueEl);
+const layerPerspectiveClearButton = document.createElement('button');
+layerPerspectiveClearButton.type = 'button';
+layerPerspectiveClearButton.textContent = 'パースを解除';
+layerPerspectiveClearButton.style.cssText = 'align-self:flex-end;border:none;background:none;color:#ff8a8a;font-size:11px;cursor:pointer;padding:2px 4px;';
+layerPerspectivePanel.append(perspectivePresetsRow, perspectiveAngleRow, layerPerspectiveClearButton);
+
+function positionLayerPerspectiveToggle(el) {
+  if (!layerPerspectiveToggle.parentElement) layerContainer.appendChild(layerPerspectiveToggle);
+  if (!layerPerspectivePanel.parentElement) layerContainer.appendChild(layerPerspectivePanel);
+  if (!el) {
+    layerPerspectiveToggle.style.display = 'none';
+    if (perspectivePanelOpen) setPerspectivePanelOpen(false);
+    return;
+  }
+  layerPerspectiveToggle.style.display = 'flex';
+  layerPerspectiveToggle.style.alignItems = 'center';
+  layerPerspectiveToggle.style.justifyContent = 'center';
+  const box = cropModeActive ? layerCropBox : el;
+  layerPerspectiveToggle.style.left = `${box.offsetLeft + box.offsetWidth + 4}px`;
+  layerPerspectiveToggle.style.top = `${Math.max(4, box.offsetTop - 26) + 26 + 4}px`;
+  if (perspectivePanelOpen) {
+    layerPerspectivePanel.style.left = layerPerspectiveToggle.style.left;
+    layerPerspectivePanel.style.top = `${parseFloat(layerPerspectiveToggle.style.top) + 26 + 4}px`;
+  }
+}
+
+function layerPerspectiveNow(el) {
+  const raw = el.dataset.layerPerspectiveCorners;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length === 4 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function applyLayerPerspectiveNow(el, corners) {
+  if (corners) el.dataset.layerPerspectiveCorners = JSON.stringify(corners);
+  else delete el.dataset.layerPerspectiveCorners;
+  layerPerspectiveToggle.style.borderColor = corners ? '#ffb84d' : '#4da3ff';
+  const transform = layerTransformOf(el);
+  applyLayerLayout(el, transform.x, transform.y, transform.scale, transform.rotate);
+}
+
+// プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の便宜であり、
+// schema には「プリセット」「角度」という概念自体は存在しない（shell 側と同一の式・
+// contract-2026-08-02-preview-parity.md §2.4.4。意図的なコード重複）。
+function perspectivePresetCorners(preset, angleDeg) {
+  const compression = Math.max(0, Math.min(0.9, Math.sin((Number(angleDeg) || 0) * Math.PI / 180)));
+  const half = compression / 2;
+  if (preset === 'right') return [[0, 0], [1, half], [0, 1], [1, 1 - half]];
+  if (preset === 'left') return [[0, half], [1, 0], [0, 1 - half], [1, 1]];
+  if (preset === 'top') return [[half, 0], [1 - half, 0], [0, 1], [1, 1]];
+  if (preset === 'bottom') return [[0, 0], [1, 0], [half, 1], [1 - half, 1]];
+  return null;
+}
+
+async function commitLayerPerspective(el, corners) {
+  const original = layerPerspectiveNow(el);
+  applyLayerPerspectiveNow(el, corners);
+  try {
+    await layerWriteViaPut(el.dataset.layerId, { perspective: corners ? { corners } : null });
+  } catch (err) {
+    applyLayerPerspectiveNow(el, original);
+    showMessage(String(err?.message || err));
+  }
+}
+
+function setPerspectivePanelOpen(open) {
+  perspectivePanelOpen = !!(open && selectedLayerId !== null);
+  layerPerspectiveToggle.style.background = perspectivePanelOpen ? '#4da3ff' : 'rgba(20,20,20,0.85)';
+  layerPerspectiveToggle.style.color = perspectivePanelOpen ? '#0b1a2a' : '#cfe6ff';
+  layerPerspectivePanel.style.display = perspectivePanelOpen ? 'flex' : 'none';
+  if (perspectivePanelOpen) {
+    if (cropModeActive) setCropMode(false);
+    updateLayerSelectBox();
+  }
+}
+layerPerspectiveToggle.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  try { layerPerspectiveToggle.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+});
+layerPerspectiveToggle.addEventListener('pointerup', (e) => {
+  e.stopPropagation();
+  setPerspectivePanelOpen(!perspectivePanelOpen);
+});
+for (const button of layerPerspectivePresetButtons) {
+  button.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { button.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+  });
+  button.addEventListener('pointerup', (e) => {
+    e.stopPropagation();
+    if (selectedLayerId === null) return;
+    const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+    if (!lv) return;
+    const preset = button.dataset.akariPerspectivePreset;
+    activePerspectivePreset = preset;
+    for (const other of layerPerspectivePresetButtons) {
+      other.style.background = other === button ? '#4da3ff' : 'rgba(255,255,255,0.06)';
+      other.style.color = other === button ? '#0b1a2a' : '#cfe6ff';
+    }
+    void commitLayerPerspective(lv.el, perspectivePresetCorners(preset, layerPerspectiveAngleInput.value));
+  });
+}
+layerPerspectiveAngleInput.addEventListener('input', () => {
+  layerPerspectiveAngleValueEl.textContent = `${layerPerspectiveAngleInput.value}°`;
+  if (!activePerspectivePreset || selectedLayerId === null) return;
+  const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+  if (!lv) return;
+  // ライブプレビューのみ（書き戻しはしない）— 既存の crop ハンドルと同じ「確定時のみ書き戻す」規律。
+  applyLayerPerspectiveNow(lv.el, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value));
+});
+layerPerspectiveAngleInput.addEventListener('change', () => {
+  if (!activePerspectivePreset || selectedLayerId === null) return;
+  const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+  if (!lv) return;
+  void commitLayerPerspective(lv.el, perspectivePresetCorners(activePerspectivePreset, layerPerspectiveAngleInput.value));
+});
+layerPerspectiveClearButton.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  try { layerPerspectiveClearButton.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+});
+layerPerspectiveClearButton.addEventListener('pointerup', (e) => {
+  e.stopPropagation();
+  if (selectedLayerId === null) return;
+  const lv = layerVideos.find(v => v.layer.id === selectedLayerId);
+  if (!lv) return;
+  activePerspectivePreset = null;
+  for (const button of layerPerspectivePresetButtons) {
+    button.style.background = 'rgba(255,255,255,0.06)';
+    button.style.color = '#cfe6ff';
+  }
+  void commitLayerPerspective(lv.el, null);
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && perspectivePanelOpen) setPerspectivePanelOpen(false);
+});
 
 // zoom 込みの実効倍率（表示 px / 論理出力 px）。frameScale 直参照だと zoom>1 でずれる
 function layerEffectiveScale() {
@@ -524,6 +1134,13 @@ async function layerWriteViaPut(layerId, patch) {
   const layer = (edit.layers || []).find(l => String(l.id) === String(layerId));
   if (!layer) throw new Error(`素材が見つかりません: ${layerId}`);
   if (patch.transform) layer.transform = { ...layer.transform, ...patch.transform };
+  if (patch.crop) layer.crop = { ...patch.crop };
+  if (patch.perspective !== undefined) {
+    // null = 明示的な解除（layer.perspective を削除。schema の「未指定=パース無し・
+    // バイト等価」既定と揃える）。
+    if (patch.perspective === null) delete layer.perspective;
+    else layer.perspective = { corners: patch.perspective.corners.map(([x, y]) => [x, y]) };
+  }
   const put = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(edit),
@@ -557,7 +1174,14 @@ function findLayerHit(e) {
 }
 
 wrapper.addEventListener('pointerdown', (e) => {
-  if (penActive || e.button !== 0) return;
+  // ㉔ クロップモード中は移動と操作が衝突しないよう本編ボディのドラッグ選択/移動を止める
+  // （ハンドル/トグルは別要素の専用リスナーが処理する。Esc/トグルクリックで抜けるまで無効）。
+  if (penActive || e.button !== 0 || cropModeActive) return;
+  // インタラクション UI 自体（選択枠・ハンドル・クロップトグル）へのクリックは、findLayerHit が
+  // レイヤー本体ではないため null を返す — それを「背景クリック」と誤認して選択解除しないよう、
+  // このキャプチャフェーズの時点で先に弾く（このリスナーは true=capture のため、トグル自身の
+  // pointerdown ハンドラより先に実行される）。
+  if (e.target && e.target.closest && e.target.closest('[data-akari-interaction]')) return;
   const el = findLayerHit(e);
   if (!el) {
     if (selectedLayerId !== null) setLayerSelected(null);
@@ -575,7 +1199,7 @@ wrapper.addEventListener('pointerdown', (e) => {
   const baseRotate = Number(el.dataset.layerRotate) || 0;
   let moved = false;
   const apply = (x, y) => {
-    el.style.transform = `translate(${x}px, ${y}px) scale(${baseScale}) rotate(${baseRotate}deg)`;
+    applyLayerLayout(el, x, y, baseScale, baseRotate);
   };
   const detach = () => {
     window.removeEventListener('pointermove', onMove);
@@ -1039,8 +1663,49 @@ function sharedSegmentsView() {
   return _sharedView.view;
 }
 
+// cuts[].framing の毎フレーム反映（contract-2026-08-02-preview-parity.md §2.4.2）。#preview-video
+// は shell と異なり cuts[].transform を持たない（layers[] のみが transform をサポートする）ため、
+// この transform/transformOrigin をここで単独所有できる（合成の必要が無い）。
+function playedCutLocalSeconds(seg) {
+  if (!seg || seg.isGap) return 0;
+  const speed = seg.speed > 0 ? seg.speed : 1;
+  return ((video.currentTime || 0) - seg.inSec) / speed;
+}
+function applyCutFramingVisual() {
+  const seg = getActiveSegment(outputTime);
+  const visual = computeCutFramingVisual(seg && !seg.isGap ? seg.framing : null, playedCutLocalSeconds(seg));
+  if (visual) {
+    video.style.transformOrigin = visual.transformOrigin;
+    video.style.transform = visual.transform;
+  } else {
+    video.style.transformOrigin = '';
+    video.style.transform = '';
+  }
+}
+
+// cuts[].freeze の一時停止ホールド（近似実装。尺は伸ばさない -- contract-2026-08-02-preview-parity.md
+// §2.4.3）。pause()/play() の既存一時停止・再開ロジックを直接呼ばず、isPlaying/playToggle UI や
+// logReviewEvent には触れない小さなサブセットとして独立させている（フリーズはユーザー操作ではない）。
+function pauseAllPlaybackForFreeze() {
+  video.pause();
+  for (const n of [...narrationNodes, ...sfxNodes]) {
+    if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
+  }
+  if (audioCtx?.state === 'running') audioCtx.suspend();
+  for (const lv of layerVideos) lv.el.pause();
+}
+function resumeAllPlaybackForFreeze() {
+  if (video.paused) video.play();
+  if (audioCtx?.state === 'suspended') audioCtx.resume();
+  for (const lv of layerVideos) if (lv.visible) lv.el.play();
+}
+
 function seekTo(t) {
   cutInfoPopup.hidden = true;
+  // フリーズホールドはシーク（=カットが変わりうる操作）で必ず打ち切る（contract-2026-08-02-preview-
+  // parity.md §2.4.3）。古い holdSeconds タイマーが新しい位置の再生を誤って一時停止させるのを防ぐ。
+  freezeHoldUntilMs = 0;
+  freezeHoldConsumedForCutIndex = null;
   const prev = outputTime;
   outputTime = Math.max(0, Math.min(t, totalDuration));
   if (Math.abs(outputTime - prev) > 0.05) logReviewEvent('seek', { from: +prev.toFixed(3), to: +outputTime.toFixed(3) });
@@ -1061,6 +1726,7 @@ function seekTo(t) {
   updateTransitions();
   syncAudio(outputTime);
   syncLayers(outputTime);
+  applyCutFramingVisual();
 }
 
 function play() {
@@ -1081,6 +1747,9 @@ function play() {
 function pause() {
   if (!isPlaying) return;
   logReviewEvent('pause');
+  // 手動一時停止はフリーズホールドを打ち切る（保留中タイマーを引きずったまま次の再開で
+  // 誤って再一時停止しない -- contract-2026-08-02-preview-parity.md §2.4.3）。
+  freezeHoldUntilMs = 0;
   isPlaying = false; video.pause();
   for (const n of [...narrationNodes, ...sfxNodes]) {
     if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
@@ -1099,6 +1768,19 @@ const SYNC_DEADBAND_SEC = 0.35;
 function playbackLoop() {
   if (!isPlaying) return;
   const now = performance.now();
+  // cuts[].freeze の一時停止ホールド中（近似実装。尺は伸ばさない -- contract-2026-08-02-preview-
+  // parity.md §2.4.3）: outputTime を進めず video/audio を実時間で止めたまま rAF だけ生かす。
+  // lastWallMs を毎フレーム更新しておくことで、ホールドが明けた直後の dt がホールド全体の
+  // 長さを含んでしまう（=明けた瞬間に outputTime が一気に進む）のを防ぐ。
+  if (freezeHoldUntilMs > 0) {
+    if (now < freezeHoldUntilMs) {
+      lastWallMs = now;
+      requestAnimationFrame(playbackLoop);
+      return;
+    }
+    freezeHoldUntilMs = 0;
+    resumeAllPlaybackForFreeze();
+  }
   const dt = lastWallMs > 0 ? (now - lastWallMs) / 1000 : 0;
   lastWallMs = now;
   outputTime += dt;
@@ -1114,7 +1796,16 @@ function playbackLoop() {
     if (!video.seeking && Math.abs(video.currentTime - target) > SYNC_DEADBAND_SEC) {
       video.currentTime = target;
     }
+    if (seg.index !== freezeHoldConsumedForCutIndex) {
+      const freezeCheck = checkCutFreezeCrossing(seg.freeze, playedCutLocalSeconds(seg));
+      if (freezeCheck.shouldHold) {
+        freezeHoldConsumedForCutIndex = seg.index;
+        freezeHoldUntilMs = performance.now() + freezeCheck.holdSeconds * 1000;
+        pauseAllPlaybackForFreeze();
+      }
+    }
   }
+  applyCutFramingVisual();
   seek.value = outputTime;
   updateTimeLabel();
   updateStatusBar();

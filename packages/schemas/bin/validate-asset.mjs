@@ -68,9 +68,19 @@ function validateMeta(value) {
     "license",
     "price",
   ];
-  // source / remote / matched_by / version / min_app_version は任意フィールド。
-  // 後方互換のため必須フィールドには加えない（version は 2026-07-30 導入で、既存エントリは未設定）。
-  const optionalFields = ["source", "remote", "matched_by", "version", "min_app_version"];
+  // source / remote / matched_by / version / min_app_version / min_overlay_runtime_version / motion_presets は
+  // 任意フィールド。後方互換のため必須フィールドには加えない（version は 2026-07-30 導入で、既存エントリは未設定。
+  // min_overlay_runtime_version は 2026-08-06 層ミラー規約の導入で新設。motion_presets は同日 laptop-live-asset
+  // タスクで新設 — scene3d ライブ経路の glb 内蔵クリップ一覧を機械可読にする）。
+  const optionalFields = [
+    "source",
+    "remote",
+    "matched_by",
+    "version",
+    "min_app_version",
+    "min_overlay_runtime_version",
+    "motion_presets",
+  ];
   const allowedFields = [...requiredFields, ...optionalFields];
   for (const field of requiredFields) {
     if (!hasOwn(value, field)) fail(`必須フィールドがありません: ${field}`);
@@ -114,6 +124,13 @@ function validateMeta(value) {
     fail("min_app_version は x.y.z 形式である必要があります");
   }
 
+  if (
+    hasOwn(value, "min_overlay_runtime_version") &&
+    !/^\d+\.\d+\.\d+$/.test(String(value.min_overlay_runtime_version))
+  ) {
+    fail("min_overlay_runtime_version は x.y.z 形式である必要があります");
+  }
+
   const matchedByValues = new Set(["title-normalized"]);
   if (hasOwn(value, "matched_by") && !matchedByValues.has(value.matched_by)) {
     fail(`matched_by は ${[...matchedByValues].join(" / ")} のいずれかである必要があります`);
@@ -129,6 +146,34 @@ function validateMeta(value) {
   if (isRemote && !hasOwn(value, "source")) {
     fail("remote: true のエントリには source ブロックが必須です");
   }
+
+  if (hasOwn(value, "motion_presets")) {
+    validateMotionPresets(value.motion_presets);
+  }
+}
+
+function validateMotionPresets(motionPresets) {
+  if (!Array.isArray(motionPresets) || motionPresets.length === 0) {
+    fail("motion_presets は 1 件以上の配列である必要があります");
+    return;
+  }
+
+  const presetFields = ["clip", "label", "note"];
+  motionPresets.forEach((preset, index) => {
+    if (!isPlainObject(preset)) {
+      fail(`motion_presets[${index}] は object である必要があります`);
+      return;
+    }
+    for (const field of presetFields) {
+      if (!hasOwn(preset, field)) fail(`motion_presets[${index}].${field} は必須です`);
+    }
+    for (const field of Object.keys(preset)) {
+      if (!presetFields.includes(field)) fail(`motion_presets[${index}].${field} は未定義のフィールドです`);
+    }
+    validateNonEmptyString(preset.clip, `motion_presets[${index}].clip`);
+    validateNonEmptyString(preset.label, `motion_presets[${index}].label`);
+    validateNonEmptyString(preset.note, `motion_presets[${index}].note`);
+  });
 }
 
 function validateSource(source) {

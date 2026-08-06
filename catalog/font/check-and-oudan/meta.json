@@ -1,0 +1,40 @@
+{
+  "id": "check-and-oudan",
+  "category": "font",
+  "title": "チェックアンド横断フォント",
+  "description": "「アメリカ横断ウルトラクイズ」のタイトル風レトロクイズ書体。第 2 水準漢字まで約 6,900 字収録。無料配布だが規約の細目は配布元での最終確認を前提とし、参照配布のみ。",
+  "when_to_use": "クイズ・検証・昭和レトロ演出のタイトルや出題テロップに",
+  "tags": [
+    "font",
+    "japanese",
+    "display",
+    "retro",
+    "quiz",
+    "telop",
+    "free",
+    "no-redistribution",
+    "reference-only"
+  ],
+  "knobs": [],
+  "ai_usage": "取得後もフォントファイル（グリフ）は改変しない。テロップ・字幕・サムネの本文/見出しに使用してよい。フォントファイル自体の再配布・同梱はしない（参照配布のみ）",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary-free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://cute-freefont.flop.jp/tori_checkandoudan.html",
+    "acquisition": "direct",
+    "license_at_source": "無料配布（フリーフォントケンサク掲載・TrueType）。商用可否など規約細目は配布元ページで取得時に最終確認すること",
+    "attribution_required": false
+  }
+}

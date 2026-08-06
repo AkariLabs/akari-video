@@ -1,0 +1,39 @@
+{
+  "id": "851-chikara-dzuyoku",
+  "category": "font",
+  "title": "851チカラヅヨク",
+  "description": "太マジックで書き殴ったような手書きフォント（配布元: 8:51:22 pm）。YouTube のツッコミテロップの超定番。商用利用可・許可不要だが、フォントファイルの再配布・販売は禁止のため参照配布のみ（実体は各自取得）。",
+  "when_to_use": "強いツッコミ・怒り・勢い系の手書きテロップに（バラエティの定番トーン）",
+  "tags": [
+    "font",
+    "japanese",
+    "handwriting",
+    "telop",
+    "tsukkomi",
+    "free",
+    "no-redistribution",
+    "reference-only"
+  ],
+  "knobs": [],
+  "ai_usage": "取得後もフォントファイル（グリフ）は改変しない。テロップ・字幕・サムネの本文/見出しに使用してよい。フォントファイル自体の再配布・同梱はしない（参照配布のみ）",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary-free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://pm85122.onamae.jp/851ch-dz.html",
+    "acquisition": "direct",
+    "license_at_source": "無料・商用利用可（チラシ/同人誌/動画等に許可不要）。自作主張・無断販売・再配布は禁止（配布元規約で確認）",
+    "attribution_required": false
+  }
+}

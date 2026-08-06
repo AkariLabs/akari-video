@@ -105,12 +105,25 @@
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$"
     },
+    "min_overlay_runtime_version": {
+      "$comment": "この素材のライブ編集機能が要求する @akari-video/overlay-runtime の最低版（任意。2026-08-06 層ミラー data-mirror 規約の導入で新設）。min_app_version と同じ哲学 — 満たさない runtime では該当機能を推測で動かさない。初期表示だけなら未満でも正しく出る素材（例: 全層同一テキスト焼き込み出荷のミラー素材）はその旨を ai_usage / provenance に書く。",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
     "remote": {
       "type": "boolean",
       "description": "true の場合、このエントリはカタログ上のみに存在し実体ファイルを持たない。source ブロックが実体の代わりになる（2026-07-14 追記・任意フィールド）。"
     },
     "source": {
       "$ref": "#/$defs/source"
+    },
+    "motion_presets": {
+      "$comment": "scene3d のライブ経路（glb 内蔵の名前付きアニメーションクリップ）の機械可読な一覧（任意。2026-08-06 laptop-live-asset タスクで新設）。宣言 JSON の animationClip にそのまま渡せる clip 名を人間可読なラベル・用途メモと対にする。クリップを持たない素材・ベイクレシピ（category=scene3d でも動きが camera_move/motion ツマミ側の素材）では省略する。",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/motionPreset"
+      }
     }
   },
   "$defs": {
@@ -229,6 +242,32 @@
           "type": "string",
           "format": "uri",
           "pattern": "^https?://"
+        }
+      }
+    },
+    "motionPreset": {
+      "type": "object",
+      "description": "motion_presets の 1 要素。glb 内蔵の名前付きクリップ 1 本を指す（2026-08-06 追記・任意フィールド）。",
+      "additionalProperties": false,
+      "required": ["clip", "label", "note"],
+      "properties": {
+        "clip": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "宣言 JSON の animationClip にそのまま渡す glb 内のクリップ名（大小文字を含め完全一致）。"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "人間向けの日本語ラベル。"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "どういう動きか・向く用途を一言で。"
         }
       }
     }

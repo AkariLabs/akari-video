@@ -9,6 +9,34 @@ import test from "node:test";
 import { FX_IDS, hasCutFx, normalizeCutFxList } from "../src/fx.mjs";
 import { buildCutCommand } from "../src/plan.mjs";
 
+// docs/contract-2026-08-05-fx-v0.md / 2026-08-06 glow split-leak regression (task
+// 2026-08-06-fx-glow-split-fix): ffmpeg's filtergraph forbids reusing the same labeled pad as
+// the input to more than one filter without an explicit split/asplit first (raw -i stream
+// references like [0:v]/[0:a] are the one exception -- ffmpeg fans those out internally). The
+// glow builder (particles/flare) used to consume its inputLabel twice without splitting, which
+// happened to render correctly for a single isolated cut but produced an undefined-length output
+// once the same filtergraph carried a second cut. This helper statically counts label reuse so a
+// future regression is caught before it needs a real render to notice.
+function filterComplexInputCounts(filterComplex) {
+  const counts = new Map();
+  for (const statement of filterComplex.split(";")) {
+    const leading = statement.match(/^(\[[^\]]+\])+/);
+    if (!leading) continue;
+    const labels = leading[0].match(/\[[^\]]+\]/g) ?? [];
+    for (const label of labels) {
+      if (/^\[\d+:[a-z]+\]$/.test(label)) continue;
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function assertNoDoubleConsumedLabels(filterComplex, context) {
+  for (const [label, count] of filterComplexInputCounts(filterComplex)) {
+    assert.ok(count <= 1, `${context}: label ${label} is consumed as a filter input ${count} times without an explicit split first`);
+  }
+}
+
 // docs/contract-2026-08-05-fx-v0.md: L1 承認は「フィクスチャ動画の実レンダで FX ごとの特徴を
 // 実測」— このファイルは実際に ffmpeg を都度実行し、デコードした生ピクセルを測る（コマンド
 // プランに文字列が含まれるかだけを見るテストは書かない）。
@@ -327,6 +355,86 @@ test("color-overlay: average frame color shifts toward the target color, monoton
     await rm(root, { recursive: true, force: true });
   }
 });
+
+for (const fxId of ["particles", "flare"]) {
+  test(`${fxId}: 2+ glow cuts produce a filtergraph with no double-consumed label (static check, 2026-08-06 split-leak regression)`, () => {
+    const command = buildCutCommand({
+      sourcePath: "source.mp4",
+      cutPath: "cut.mp4",
+      cuts: [
+        { in: 0, out: 1.2, fx: [{ id: fxId, intensity: 1 }] },
+        { in: 1.2, out: 2.4, fx: [{ id: fxId, intensity: 1 }] },
+      ],
+      width: WIDTH,
+      height: HEIGHT,
+      fps: FPS,
+      hasAudio: true,
+      duration: 2.4,
+      projectRoot: "/tmp",
+    });
+    const filterComplexIndex = command.args.indexOf("-filter_complex");
+    assert.ok(filterComplexIndex >= 0, "expected -filter_complex in the built command");
+    assertNoDoubleConsumedLabels(command.args[filterComplexIndex + 1], `${fxId} x2 cuts`);
+  });
+}
+
+async function makeAudioSourceFile(root, duration) {
+  const sourcePath = join(root, "source-audio.mp4");
+  run("ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+    "-f", "lavfi", "-i", `testsrc2=size=${WIDTH}x${HEIGHT}:rate=${FPS}:duration=${duration}`,
+    "-f", "lavfi", "-i", `sine=frequency=440:duration=${duration}`,
+    "-c:v", "libx264", "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-shortest",
+    sourcePath,
+  ]);
+  return sourcePath;
+}
+
+function probeDurationSeconds(path) {
+  const result = run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]);
+  return parseFloat(result.stdout.toString("utf8").trim());
+}
+
+for (const fxId of ["particles", "flare"]) {
+  // 2026-08-06 再現条件そのもの: 音声ありソース + glow fx を掛けた 2 カット以上 + buildCutCommand
+  // が常に付ける -shortest 経路。修正前は inputLabel の二重消費で出力尺が理論値から大きく外れた
+  // (実測: 正規化済み実映像で 2 カット合計 5.0s 期待のところ 29.83s)。
+  test(`${fxId}: 2 glow cuts with an audio-bearing source render the full expected duration (2026-08-06 split-leak regression)`, async (t) => {
+    if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+    const root = await mkdtemp(join(tmpdir(), `cut-fx-glow-multicut-${fxId}-`));
+    try {
+      const cutDuration = 1.2;
+      const totalDuration = cutDuration * 2;
+      const sourcePath = await makeAudioSourceFile(root, totalDuration);
+      const cutPath = join(root, "cut.mp4");
+      const command = buildCutCommand({
+        sourcePath,
+        cutPath,
+        cuts: [
+          { in: 0, out: cutDuration, fx: [{ id: fxId, intensity: 1 }] },
+          { in: cutDuration, out: totalDuration, fx: [{ id: fxId, intensity: 1 }] },
+        ],
+        width: WIDTH,
+        height: HEIGHT,
+        fps: FPS,
+        hasAudio: true,
+        duration: totalDuration,
+        projectRoot: root,
+      });
+      run(command.command, command.args);
+      const measured = probeDurationSeconds(cutPath);
+      t.diagnostic(`${fxId} x2 cuts (audio source): expected=${totalDuration}s measured=${measured}s`);
+      assert.ok(
+        Math.abs(measured - totalDuration) <= 0.1,
+        `expected output duration ~${totalDuration}s (±0.1s), measured ${measured}s`,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+}
 
 for (const fxId of ["particles", "flare"]) {
   test(`${fxId}: fx-on differs from fx-off, and changes over time (not a still image)`, async (t) => {

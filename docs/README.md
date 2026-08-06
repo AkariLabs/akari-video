@@ -76,7 +76,7 @@ All contracts follow the
 |---|---|
 | [contract-2026-07-13-m1-m4.md](./contract-2026-07-13-m1-m4.md) | The settled edit.json schema v0 contract |
 | [contract-2026-07-18-edit-json-v1-sources.md](./contract-2026-07-18-edit-json-v1-sources.md) | v1 sources (multiple clips; the iron rule of persisting (src, source seconds)) |
-| [contract-2026-07-14-edit-json-v1-crop.md](./contract-2026-07-14-edit-json-v1-crop.md) | v1 crop (reframing) |
+| [contract-2026-07-14-edit-json-v1-crop.md](./contract-2026-07-14-edit-json-v1-crop.md) | v1 crop (reframing) — **superseded** by `cuts[].framing.crop` (see [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) #6) |
 | [contract-2026-07-14-edit-json-v1-audio.md](./contract-2026-07-14-edit-json-v1-audio.md) | v1 audio (BGM / SFX) |
 | [contract-2026-07-20-edit-json-v1-narration.md](./contract-2026-07-20-edit-json-v1-narration.md) | v1 narration |
 | [contract-2026-07-22-edit-json-v1-beats.md](./contract-2026-07-22-edit-json-v1-beats.md) | v1 beats (music sync) |

@@ -1,0 +1,39 @@
+{
+  "id": "ab-kirigirisu",
+  "category": "font",
+  "title": "AB-kirigirisu（ABキリギリス）",
+  "description": "切り文字・彫り文字のような大胆なフォルムの見出し書体（FONT1000 系デザイナー書体）。Adobe Fonts 収録のため CC サブスク契約者の環境でのみ利用可。索引のみ。",
+  "when_to_use": "手作り感・大胆な切り絵風のツッコミ/見出しテロップに（Adobe CC 環境限定）",
+  "tags": [
+    "font",
+    "japanese",
+    "display",
+    "handwriting",
+    "telop",
+    "tsukkomi",
+    "subscription",
+    "byo-font"
+  ],
+  "knobs": [],
+  "ai_usage": "本エントリは索引のみ。取得（購入・サブスク契約）は人間の明示承認のもとで行う。インストール済み環境でのみ fontFamily 参照が効く（未所持環境ではフォールバック書体に落ちる）。ファイルの再配布・同梱は不可",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary",
+    "scope": "paid-license-required",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.adobe.com/fonts/ab-kirigirisu",
+    "acquisition": "login",
+    "license_at_source": "Adobe Fonts（Creative Cloud サブスクリプション内で個人・商用利用可）。フォントファイルの取り出し・再配布不可",
+    "attribution_required": false
+  }
+}

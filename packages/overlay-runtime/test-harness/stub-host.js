@@ -69,6 +69,35 @@ const STUB_SUMMARY = {
         "</div>",
       ].join("\n"),
     },
+    // P0-R（overlay-runtime 層ミラー）検証フィクスチャ: lab/telop-rich-css-poc の
+    // broadcast-gold-navy を簡略化した多層積み（縁取り 2 層 + fill 層）。
+    // ミラー層（sh / r1）は data-mirror="text" を持ち、fill 層だけが編集対象になる。
+    {
+      id: "cap-mirror-stack",
+      start: 80,
+      duration: 20,
+      transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+      vars: {},
+      html: [
+        '<div class="mirror-root" style="position:absolute;left:50%;top:50%;',
+        'transform:translate(-50%,-50%);">',
+        "  <style>",
+        "    .mirror-root .stack { display:inline-grid; font-weight:800;",
+        '      font-family:"Hiragino Sans", sans-serif; font-size:64px; }',
+        "    .mirror-root .stack > span { grid-area: 1 / 1; }",
+        "    .mirror-root .sh { z-index:1; color:#000; transform:translate(3px,4px); }",
+        "    .mirror-root .r1 { z-index:2; color:transparent;",
+        "      -webkit-text-stroke: 8px #7a1710; }",
+        "    .mirror-root .fill { z-index:3; color:#ffe98a; }",
+        "  </style>",
+        '  <span class="stack">',
+        '    <span class="sh" data-mirror="text">ミラー</span>',
+        '    <span class="r1" data-mirror="text">ミラー</span>',
+        '    <span class="fill">ミラー</span>',
+        "  </span>",
+        "</div>",
+      ].join("\n"),
+    },
   ],
 };
 

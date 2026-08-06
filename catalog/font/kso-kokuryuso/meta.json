@@ -1,0 +1,38 @@
+{
+  "id": "kso-kokuryuso",
+  "category": "font",
+  "title": "KSO黒龍爽（昭和書体）",
+  "description": "昭和書体（コーエーサインワークス）の毛筆デザイン書体。黒龍の簡略・軽量版で小さめの文字にも向く。有料書体のため索引のみ。1 ライセンス 1 PC。",
+  "when_to_use": "迫力の筆文字強調・和風の決めテロップに（所持環境限定）",
+  "tags": [
+    "font",
+    "japanese",
+    "brush",
+    "display",
+    "emphasis",
+    "paid",
+    "byo-font"
+  ],
+  "knobs": [],
+  "ai_usage": "本エントリは索引のみ。取得（購入・サブスク契約）は人間の明示承認のもとで行う。インストール済み環境でのみ fontFamily 参照が効く（未所持環境ではフォールバック書体に落ちる）。ファイルの再配布・同梱は不可",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary",
+    "scope": "paid-license-required",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://designpocket.jp/font/detail/26247",
+    "acquisition": "purchase",
+    "license_at_source": "有料商用フォント（昭和書体 / デザインポケット販売）。1 ライセンス 1 PC・一般商用利用可。再配布不可",
+    "attribution_required": false
+  }
+}

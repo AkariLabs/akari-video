@@ -1,0 +1,38 @@
+{
+  "id": "ranobe-pop",
+  "category": "font",
+  "title": "07ラノベPOP",
+  "description": "フォントな（fontna）のライトノベル風ポップ体。丸みとマジックペンの力強さを併せ持ち、ポップ系テロップの定番。無料・商用可だが再配布不可のため参照配布のみ。",
+  "when_to_use": "ポップ・かわいい・ラノベ風のタイトルや見出しテロップに",
+  "tags": [
+    "font",
+    "japanese",
+    "pop",
+    "telop",
+    "free",
+    "no-redistribution",
+    "reference-only"
+  ],
+  "knobs": [],
+  "ai_usage": "取得後もフォントファイル（グリフ）は改変しない。テロップ・字幕・サムネの本文/見出しに使用してよい。フォントファイル自体の再配布・同梱はしない（参照配布のみ）",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "LicenseRef-proprietary-free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "http://www.fontna.com/tag/%E3%83%A9%E3%83%8E%E3%83%99pop%E3%83%95%E3%82%A9%E3%83%B3%E3%83%88/",
+    "acquisition": "direct",
+    "license_at_source": "無料・商用可（fontna 配布。ロゴ利用等の細目は配布元規約を確認）。再配布は禁止",
+    "attribution_required": false
+  }
+}

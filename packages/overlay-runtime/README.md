@@ -106,13 +106,33 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 - `window.AkariThree` — pinned Three.js core と `GLTFLoader` / `RoomEnvironment`
 - `window.akari.threeRuntime.render(container, localSeconds)` / `.dispose(container)` /
   `.inspect(container)`（`src/three-runtime.js`）。独自 rAF や wall-clock は持たない
-- `window.akari.runtime.mount(summary)` / `.tick(t, playing)` / `.unmount()`
-  （`src/overlay-runtime.js`）
+- `window.akari.runtime.mount(summary)` / `.tick(t, playing)` / `.unmount()` /
+  `.version`（`src/overlay-runtime.js`）。`.version` は本パッケージ
+  `package.json` の `version` と同期させた文字列（例 `"0.2.0"`）。`<script>` で
+  直接読み込むホストは npm 解決を経ないため、機能検出（例: 多層テキスト断片の
+  `data-mirror` 同期に対応しているか）に `window.akari.runtime.version` を使う
 - `window.akari.interaction.selftest()` — 合成 PointerEvent で
   「選択 → 60px ドラッグ → overlayWrite」+「拡縮ハンドル → overlayWrite」を実行し
   `{ ok, detail }` を返す自己診断（`src/interaction.js`。リスナー自体は読み込み時に
   自動登録され、`selftest` 以外は公開 API を持たない）
 - `window.akari.minimap.update()` / `.state()`（`src/minimap.js`）
+
+### 多層テキスト断片のミラー同期（`data-mirror="text"`、v0.2.0〜）
+
+縁取り・影・裏打ち等で同一テキストを複数層重ねる断片（`skills/overlay-authoring/telop.md`
+「多層テキスト断片と data-mirror 規約」）の編集同期を `interaction.js` が担う。断片側の
+規約（複製層に `data-mirror="text"` を付ける等）はスキル文書が正本、本パッケージ側の
+実装点は次の 3 つ:
+
+- `mount()` が `[data-mirror="text"]` 層へ `aria-hidden="true"` を一括付与する
+- ダブルクリック編集の対象探索（`textElementAt`）は `data-mirror="text"` を持つ層を
+  候補から除外する（結果として断片内に残る唯一の直接テキスト層 = fill 層だけが編集対象になる）
+- 編集層の `input` / `compositionend`、および保存確定時（`commitEdit` の安全網）に、
+  同一 stack（既定は編集層の親要素配下）の全 `[data-mirror="text"]` 層へ textContent を
+  コピーしてから `overlayWrite` へ渡す
+
+旧バージョン（`data-mirror` 未知）でも断片は全層に同一テキストを焼いて出荷される前提の
+ため初期表示は正しいが、ライブ編集の層間同期は v0.2.0 以降でのみ効く。
 
 ## ディレクトリ
 

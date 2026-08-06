@@ -1,0 +1,40 @@
+{
+  "id": "zero-gothic",
+  "category": "font",
+  "title": "零ゴシック",
+  "description": "フロップデザインの極太ゴシックに、ガラスが割れたような亀裂を入れた日本語フリーフォント。8,000 字以上収録。衝撃・崩壊・ホラー系の演出に強い。OFL-1.1 のため実体同梱への昇格も可能（現状は索引のみ）。",
+  "when_to_use": "衝撃の事実・崩壊・ホラー寄りの強調テロップやサムネ見出しに",
+  "tags": [
+    "font",
+    "japanese",
+    "gothic",
+    "display",
+    "ofl",
+    "telop",
+    "emphasis",
+    "horror",
+    "bundle-eligible"
+  ],
+  "knobs": [],
+  "ai_usage": "OFL-1.1 のため実体同梱への昇格が可能（昇格はオーナー裁定）。現状は索引のみ。グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（テロップ向け必須フォント 25 選の棚卸し）/ 2026-08-05",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://cute-freefont.flop.jp/flop_zero-gochic.html",
+    "acquisition": "login",
+    "license_at_source": "SIL Open Font License 1.1（フロップデザイン。配布は BOOTH 経由・要アカウント）",
+    "attribution_required": false
+  }
+}
