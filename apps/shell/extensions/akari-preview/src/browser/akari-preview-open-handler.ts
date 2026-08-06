@@ -5343,9 +5343,16 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (dir.indexOf('s') >= 0) nextBottom = Math.max(fy, original.y + CROP_MIN);
                         return clampCrop(nextX, nextY, nextRight - nextX, nextBottom - nextY);
                     };
-                    const correctedTransformFor = nextCrop => cropAnchorCorrectedTransformFn(
-                        original, nextCrop, startTransform, entry.video.videoWidth, entry.video.videoHeight
-                    );
+                    // cropAnchorCorrectedTransformFn は x/y のみを返す（scale/rotate は補正で
+                    // 動かさない）ため、書き戻し用の完全な transform には startTransform の
+                    // scale/rotate を必ずマージする（欠けると dataset に "undefined" が書かれ
+                    // NaN → 既定値 1/0 へフォールバックし、スケール/回転が消し飛ぶ）。
+                    const correctedTransformFor = nextCrop => ({
+                        ...startTransform,
+                        ...cropAnchorCorrectedTransformFn(
+                            original, nextCrop, startTransform, entry.video.videoWidth, entry.video.videoHeight
+                        )
+                    });
                     const onMove = moveEvent => {
                         if (moveEvent.pointerId !== pointerId) return;
                         moved = true;
