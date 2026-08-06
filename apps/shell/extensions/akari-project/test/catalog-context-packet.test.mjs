@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { composeCatalogImportPrompt, composeCatalogAskAgentPrompt } from '../lib/common/catalog-context-packet.js';
+import { composeCatalogImportPrompt, composeCatalogAskAgentPrompt, composeCatalogPackImportPrompt } from '../lib/common/catalog-context-packet.js';
 
 // カード動詞2本（取り込む/頼む）が組み立てるパケットの単体テスト。
 // agent-context-packet.ts の汎用 composer を再利用しているだけであることを
@@ -63,4 +63,29 @@ test('composeCatalogAskAgentPrompt: when_to_use が無い項目でも用途要�
     const packet = composeCatalogAskAgentPrompt(MINIMAL_ITEM, '色を変えたい');
     assert.equal(packet, '【カタログ素材】noto-sans-jp（category font・title Noto Sans JP）について: 色を変えたい');
     assert.equal(packet.includes('用途:'), false);
+});
+
+// composeCatalogPackImportPrompt — パック棚ヘッダ「まとめて取り込む」の定型パケット。
+
+test('composeCatalogPackImportPrompt: パック名 + 対象件数 + 品目一覧（id・category・title）が全て出る', () => {
+    const packet = composeCatalogPackImportPrompt('テロップ向け必須フォント 25 選', [
+        { id: '851-chikara-dzuyoku', category: 'font', title: '851チカラヅヨク' },
+        { id: 'zero-gothic', category: 'font', title: 'ゼロゴシック' }
+    ]);
+    assert.equal(
+        packet,
+        '【カタログ素材パック】テロップ向け必須フォント 25 選 — 対象 2 件: 851-chikara-dzuyoku（font・851チカラヅヨク）、zero-gothic（font・ゼロゴシック）について: このパックの未取得の無料素材をまとめて取得し、ライセンス表記を確認の上プロジェクトへ配置してください（setup-library 系スキルの手順に従う）'
+    );
+});
+
+test('composeCatalogPackImportPrompt: 1 行に畳み込まれる（改行が紛れ込んでも壊れない）', () => {
+    const packet = composeCatalogPackImportPrompt('改行\nを含む\nパック名', [
+        { id: 'x', category: 'font', title: '改行\nを含む題名' }
+    ]);
+    assert.equal(packet.includes('\n'), false);
+});
+
+test('composeCatalogPackImportPrompt: 対象 0 件でも例外にならない', () => {
+    const packet = composeCatalogPackImportPrompt('空パック', []);
+    assert.equal(packet.includes('対象 0 件'), true);
 });

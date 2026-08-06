@@ -1,3 +1,5 @@
+import { CatalogPack } from './catalog-packs';
+
 export const AKARI_PROJECT_SERVICE_PATH = '/services/akari-project';
 export const AkariProjectService = Symbol('AkariProjectService');
 
@@ -112,6 +114,28 @@ export interface AssetCatalogViewItem {
     whenToUse?: string;
     /** origin='local' のみ。meta.json の source.url。 */
     sourceUrl?: string;
+    /** origin='local' のみ。`assets/<category>/<id>/` の実体有無。true なら「取り込む」ボタンを出さない。 */
+    installed?: boolean;
+    /**
+     * origin='local' のみ。分類バッジの表示区分（asset-catalog-view.ts の
+     * deriveAssetDistribution が導出。カテゴリ非依存）。
+     * bundled=同梱済み / subscription=サブスク / paid=各自入手（有料） / free=無料 DL。
+     */
+    distribution?: 'bundled' | 'subscription' | 'paid' | 'free';
+    /** origin='local' のみ。meta.json の source.acquisition。distribution='free' の「要登録」表示に使う。 */
+    sourceAcquisition?: string;
+}
+
+/**
+ * カタログ面「1 ビュー」の応答本体。items は従来どおりの 1 ビュー配列、packs は
+ * `catalog/packs.json`（無ければ空配列）。パック棚のグループ化・内訳集計は
+ * asset-catalog-view.ts の groupCatalogItemsByPack / summarizeCatalogPackDistribution が
+ * フロント側の純関数として担う（バックエンドはグルーピングしない — 検索/カテゴリ絞り込みの
+ * 結果内でグループ化する必要があるため、フロント側の状態を見ないと組めない）。
+ */
+export interface AssetCatalogView {
+    items: AssetCatalogViewItem[];
+    packs: CatalogPack[];
 }
 
 export type AssetResolveOutcome =
@@ -179,7 +203,7 @@ export interface AkariProjectService {
      * id 重複（`${category}/${id}`）時は resolver 側を優先する。resolver 側が
      * 到達不能（未デプロイ・開発配置なし等）でもローカル分は表示を継続する（fail-soft）。
      */
-    getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogViewItem[]>;
+    getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView>;
     /**
      * resolver 直行（エージェント非経由）で素材を解決し、指定プロジェクトの assets/ 配下へ
      * 配置する。無料 or 購入済み（entitlements 保有）のみ成功する。未購入は

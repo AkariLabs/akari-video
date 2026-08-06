@@ -2,12 +2,13 @@ import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { execFile, spawn } from 'child_process';
 import { createHash } from 'crypto';
-import { constants, promises as fs, watch } from 'fs';
+import { constants, Dirent, promises as fs, watch } from 'fs';
 import { basename, dirname, extname, join, resolve } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import {
     AkariProjectService,
+    AssetCatalogView,
     AssetCatalogViewItem,
     AssetResolveOutcome,
     DiffPreparationResult,
@@ -28,7 +29,8 @@ import {
 import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
 import { CATALOG_ROOT_UPWARD_MAX_DEPTH, resolveUpwardCatalogRoot } from './catalog-root-search';
 import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-reader';
-import { mergeAssetCatalogViews, ResolverRawCatalogItem, selectResolverAudioFileRef, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
+import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, selectResolverAudioFileRef, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
+import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverPreviewUrl } from './resolver-preview-url';
 import {
     pollDeviceConnection,
@@ -249,12 +251,15 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * resolver 側が到達不能でも例外にせず空配列へフォールバックする（fail-soft — ローカル
      * catalog/ の表示は resolver の可用性に引きずられない）。
      */
-    async getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogViewItem[]> {
-        const [resolverItems, localItems] = await Promise.all([
+    async getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView> {
+        const [resolverItems, local] = await Promise.all([
             this.loadResolverCatalogItems(),
             this.loadLocalCatalogViewItems(preferenceRoot)
         ]);
-        return mergeAssetCatalogViews(localItems, resolverItems);
+        return {
+            items: mergeAssetCatalogViews(local.items, resolverItems),
+            packs: local.packs
+        };
     }
 
     /**
@@ -262,13 +267,18 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * ルート解決は resolveCatalogRoot（既存・frontend の loadCatalog と同じ規約）を
      * そのまま再利用する。meta.json 欠落・壊れは例外にせず黙ってスキップする
      * （catalog-reader.ts の寛容リーダー流儀 — 詳細な欠落件数はこの 1 ビューでは追わない）。
+     * installed 判定・分類バッジ導出・パック台帳の読み込みもここで行う（task.md §1）。
      */
-    protected async loadLocalCatalogViewItems(preferenceRoot: string | undefined): Promise<AssetCatalogViewItem[]> {
+    protected async loadLocalCatalogViewItems(preferenceRoot: string | undefined): Promise<{ items: AssetCatalogViewItem[]; packs: CatalogPack[] }> {
         const rootUriString = await this.resolveCatalogRoot(preferenceRoot);
         if (!rootUriString) {
-            return [];
+            return { items: [], packs: [] };
         }
         const root = fileURLToPath(rootUriString);
+        const [installedKeys, packs] = await Promise.all([
+            this.loadInstalledCatalogKeys(root),
+            this.loadCatalogPacks(root)
+        ]);
         const items: AssetCatalogViewItem[] = [];
         for (const category of CATALOG_CATEGORIES) {
             let entries: string[];
@@ -278,9 +288,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 continue;
             }
             for (const entry of entries) {
+                const itemDir = join(root, category, entry);
                 let raw: string;
                 try {
-                    raw = await fs.readFile(join(root, category, entry, 'meta.json'), 'utf8');
+                    raw = await fs.readFile(join(itemDir, 'meta.json'), 'utf8');
                 } catch {
                     continue;
                 }
@@ -288,6 +299,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 if (!parsed) {
                     continue;
                 }
+                const installed = installedKeys.has(`${parsed.category}/${parsed.id}`);
+                const localPreviewUrl = await this.resolveLocalCatalogPreviewUrl(itemDir);
                 items.push({
                     origin: 'local',
                     key: `${parsed.category}/${parsed.id}`,
@@ -299,11 +312,71 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                     licenseSpdx: parsed.license?.spdx,
                     whenToUse: parsed.when_to_use,
                     sourceUrl: parsed.source?.url,
-                    previewUrl: parsed.source?.preview_url
+                    previewUrl: localPreviewUrl ?? parsed.source?.preview_url,
+                    installed,
+                    distribution: deriveAssetDistribution({
+                        installed,
+                        licenseScope: parsed.license?.scope,
+                        remote: parsed.remote,
+                        tags: parsed.tags
+                    }),
+                    sourceAcquisition: parsed.source?.acquisition
                 });
             }
         }
-        return items;
+        return { items, packs };
+    }
+
+    /**
+     * `assets/<category>/<id>/` の実体有無（= 同梱済みかどうか）を、カタログルートの
+     * 兄弟ディレクトリ `assets/` からカテゴリごとに一括で読み取る。catalog/ と assets/ は
+     * リポ直下の兄弟ディレクトリ（公開リポの契約: catalog/ は参照メタデータのみ、
+     * assets/ は実際に同梱するファイル）。存在しない・読めないカテゴリは黙ってスキップする
+     * （fail-soft — 開発配置でも本番配置でも assets/ 不在は「何も同梱されていない」として扱う）。
+     */
+    protected async loadInstalledCatalogKeys(catalogRoot: string): Promise<Set<string>> {
+        const assetsRoot = join(dirname(catalogRoot), 'assets');
+        const installed = new Set<string>();
+        for (const category of CATALOG_CATEGORIES) {
+            let entries: Dirent[];
+            try {
+                entries = await fs.readdir(join(assetsRoot, category), { withFileTypes: true });
+            } catch {
+                continue;
+            }
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    installed.add(`${category}/${entry.name}`);
+                }
+            }
+        }
+        return installed;
+    }
+
+    /**
+     * `catalog/<category>/<id>/preview.png` の見本画像を webview がそのまま <img src> に
+     * 使える file: URI へ変換する（AssetCatalogViewItem.previewUrl は既に resolver 側の
+     * file: URI を受け付ける契約 — resolveResolverPreviewUrl 経由の既存カードで同じ形式が
+     * 動作実績あり）。無ければ undefined（呼び出し側は meta.json の source.preview_url へ
+     * フォールバックする）。
+     */
+    protected async resolveLocalCatalogPreviewUrl(itemDir: string): Promise<string | undefined> {
+        const previewPath = join(itemDir, 'preview.png');
+        return (await this.isFile(previewPath)) ? pathToFileURL(previewPath).toString() : undefined;
+    }
+
+    /**
+     * `catalog/packs.json`（パック台帳）を読む。不在・壊れた JSON はどちらも例外にせず
+     * 空配列（parseCatalogPacksFile 自体が寛容パーサー）。
+     */
+    protected async loadCatalogPacks(catalogRoot: string): Promise<CatalogPack[]> {
+        let raw: string;
+        try {
+            raw = await fs.readFile(join(catalogRoot, 'packs.json'), 'utf8');
+        } catch {
+            return [];
+        }
+        return parseCatalogPacksFile(raw);
     }
 
     /**

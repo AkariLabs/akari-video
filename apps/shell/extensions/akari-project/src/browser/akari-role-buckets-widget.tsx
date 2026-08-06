@@ -25,9 +25,17 @@ import { nextCandidateAssetName } from '../common/asset-naming';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
 import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
 import { CATALOG_CATEGORIES, CatalogItemMeta, filterCatalogItems, parseCatalogItemMeta } from '../common/catalog-reader';
-import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt } from '../common/catalog-context-packet';
-import { assetStateBadgeText } from '../common/asset-catalog-view';
+import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
+import {
+    assetDistributionBadgeText,
+    assetStateBadgeText,
+    CatalogPackGroup,
+    formatCatalogPackBreakdown,
+    groupCatalogItemsByPack,
+    summarizeCatalogPackDistribution
+} from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
+import { CatalogPack } from '../common/catalog-packs';
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
@@ -151,6 +159,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** カタログ面「1 ビュー」= resolver 合成 + ローカル catalog/ のマージ済み一覧。 */
     protected assetCatalogItems: AssetCatalogViewItem[] = [];
+    /** `catalog/packs.json`（無ければ空）。パック棚のグループ化はフロント側で行う。 */
+    protected catalogPacks: CatalogPack[] = [];
     protected catalogLoading = false;
     protected catalogQuery = '';
     protected catalogCategory = 'all';
@@ -775,7 +785,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.catalogPickError = undefined;
-        this.assetCatalogItems = await this.projectService.getAssetCatalogView(preferenceRoot);
+        const view = await this.projectService.getAssetCatalogView(preferenceRoot);
+        this.assetCatalogItems = view.items;
+        this.catalogPacks = view.packs;
         this.catalogLoading = false;
         this.update();
     }
@@ -1105,6 +1117,28 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         await this.commandService.executeCommand(
             PARTNER_INJECT_PROMPT_COMMAND_ID,
             composeCatalogAskAgentPrompt(this.toLocalCatalogItemMeta(item), request)
+        );
+    }
+
+    /** パック棚ヘッダ「まとめて取り込む」の対象 = パック内の未 installed の free 品目。 */
+    protected packImportCandidates(group: CatalogPackGroup): AssetCatalogViewItem[] {
+        return group.items.filter(item => !item.installed && item.distribution === 'free');
+    }
+
+    /**
+     * パック棚ヘッダ「まとめて取り込む」— 個別カードの「取り込む」と同じ思想
+     * （アプリ自身は DL しない。定型プロンプトをエージェントへ投げるだけ）。
+     * 対象 0 件（全品目が同梱済み or 無料 DL 以外）のときは何もしない
+     * （呼び出し側のボタンも disabled にする）。
+     */
+    protected async importCatalogPack(group: CatalogPackGroup): Promise<void> {
+        const candidates = this.packImportCandidates(group);
+        if (!candidates.length) {
+            return;
+        }
+        await this.commandService.executeCommand(
+            PARTNER_INJECT_PROMPT_COMMAND_ID,
+            composeCatalogPackImportPrompt(group.pack.title, candidates.map(item => this.toLocalCatalogItemMeta(item)))
         );
     }
 
@@ -1611,6 +1645,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return this.renderCatalogEmptyState();
         }
         const filtered = this.filteredCatalogItems();
+        const { groups, ungrouped } = groupCatalogItemsByPack(filtered, this.catalogPacks);
         return (
             <div
                 style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
@@ -1620,9 +1655,59 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={{ flex: '1 1 auto', overflow: 'auto' }}>
                     {!filtered.length
                         ? <p style={{ opacity: 0.7, padding: '16px' }}>条件に一致するカタログ項目がありません。</p>
-                        : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', padding: '10px' }}>
-                            {filtered.map(item => this.renderCatalogCard(item))}
+                        : <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 0' }}>
+                            {groups.map(group => this.renderCatalogPackSection(group))}
+                            {ungrouped.length > 0 && (
+                                <div
+                                    style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', padding: '0 10px' }}
+                                >
+                                    {ungrouped.map(item => this.renderCatalogCard(item))}
+                                </div>
+                            )}
                         </div>}
+                </div>
+            </div>
+        );
+    }
+
+    /**
+     * パック棚 1 件分（ヘッダ = タイトル + 内訳 + まとめて取り込む + summary、下にカード群）。
+     * data-akari-catalog-pack-* は目視検収・E2E 用のフック。
+     */
+    protected renderCatalogPackSection(group: CatalogPackGroup): React.ReactNode {
+        const candidates = this.packImportCandidates(group);
+        return (
+            <div
+                key={`pack:${group.pack.id}`}
+                data-akari-catalog-pack={group.pack.id}
+                style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 10px 10px', borderBottom: '1px solid var(--theia-sideBar-border)' }}
+            >
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700 }}>{group.pack.title}</span>
+                        <span data-akari-catalog-pack-breakdown style={{ fontSize: '0.78em', opacity: 0.75 }}>
+                            {formatCatalogPackBreakdown(summarizeCatalogPackDistribution(group.items))}
+                        </span>
+                    </div>
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        disabled={!candidates.length}
+                        data-akari-catalog-pack-import
+                        title={candidates.length
+                            ? `未取得の無料素材 ${candidates.length} 件をまとめてエージェントに取り込ませる`
+                            : 'まとめて取り込める未取得の無料素材はありません'}
+                        style={{ fontSize: '0.78em', padding: '2px 8px', opacity: candidates.length ? 1 : 0.6 }}
+                        onClick={() => void this.importCatalogPack(group)}
+                    >
+                        まとめて取り込む
+                    </button>
+                </div>
+                {group.pack.summary && (
+                    <p style={{ margin: 0, fontSize: '0.78em', opacity: 0.75 }}>{group.pack.summary}</p>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
+                    {group.items.map(item => this.renderCatalogCard(item))}
                 </div>
             </div>
         );
@@ -1736,6 +1821,40 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     /**
+     * 分類バッジ（origin='local' のみ）。左上のサムネオーバーレイに乗せる小片を返す。
+     * resolver カードの状態バッジ（renderAssetStateBadge）とは origin で排他のため
+     * 同じ左上スロットを共有してよい。
+     */
+    protected renderAssetDistributionBadge(item: AssetCatalogViewItem): React.ReactNode {
+        if (item.origin !== 'local') {
+            return undefined;
+        }
+        const label = assetDistributionBadgeText(item.distribution, item.sourceAcquisition);
+        if (!label) {
+            return undefined;
+        }
+        return (
+            <span
+                data-akari-catalog-distribution={item.distribution}
+                style={{
+                    position: 'absolute',
+                    top: '4px',
+                    left: '4px',
+                    padding: '1px 5px',
+                    borderRadius: '10px',
+                    fontSize: '0.72em',
+                    fontWeight: 600,
+                    background: 'var(--theia-editorWidget-background)',
+                    color: 'var(--theia-sideBar-foreground)',
+                    border: '1px solid var(--theia-sideBar-border)'
+                }}
+            >
+                {label}
+            </span>
+        );
+    }
+
+    /**
      * audio カードのサムネ右下に重ねる再生/停止ボタン。mediaUrl が無ければ何も出さない
      * （origin='local' の音源や、files[] に音声拡張子が無い項目はここで自然に非表示になる）。
      */
@@ -1791,15 +1910,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (item.origin === 'local') {
             return (
                 <div style={{ display: 'flex', gap: '4px' }}>
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        title={`${item.title} をエージェントに取り込ませる`}
-                        style={{ flex: '1 1 0', fontSize: '0.78em', padding: '2px 4px' }}
-                        onClick={() => void this.importCatalogItem(item)}
-                    >
-                        取り込む
-                    </button>
+                    {!item.installed && (
+                        <button
+                            type='button'
+                            className='theia-button secondary'
+                            title={`${item.title} をエージェントに取り込ませる`}
+                            style={{ flex: '1 1 0', fontSize: '0.78em', padding: '2px 4px' }}
+                            onClick={() => void this.importCatalogItem(item)}
+                        >
+                            取り込む
+                        </button>
+                    )}
                     <button
                         type='button'
                         className='theia-button secondary'
@@ -1882,6 +2003,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             style={{ fontSize: '1.8em', opacity: 0.5 }}
                         />}
                     {this.renderAssetStateBadge(item)}
+                    {this.renderAssetDistributionBadge(item)}
                     {this.renderCatalogAudioControl(item)}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '6px' }}>

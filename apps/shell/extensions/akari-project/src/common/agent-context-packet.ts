@@ -36,7 +36,8 @@ function renderField(field: AgentContextField): string {
     return field.label ? `${field.label} ${field.value}` : field.value;
 }
 
-function collapseToSingleLine(text: string): string {
+/** sendText 側の 1 行送信前提に合わせ、改行等の空白連続を単一スペースへ畳み込む。 */
+export function collapseToSingleLine(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
 }
 
