@@ -871,15 +871,21 @@ async function main() {
         videoHeight: v.videoHeight,
         cropW: Number(v.dataset.layerCropW),
         cropH: Number(v.dataset.layerCropH),
+        scale: Number(v.dataset.layerScale) || 1,
       };
     });
     if (!state || !(state.videoWidth > 0)) {
       ng('perspective real-browser parity', `layer/video not ready: ${JSON.stringify(state)}`);
     } else {
+      // 2026-08-06 web-layer-placement-parity: the box app.js's applyLayerLayout passes to
+      // computeLayerPerspectiveVisual now includes transform.scale (matching shell's box-size
+      // convention -- see layer-perspective-visual.js's header). This fixture layer has no
+      // explicit transform, so scale=1 and the multiplication is a no-op here, but the reference
+      // computation must match production's actual formula, not just today's fixture value.
       const expected = computeLayerPerspectiveVisual(
         { corners },
-        state.cropW * state.videoWidth,
-        state.cropH * state.videoHeight,
+        state.cropW * state.videoWidth * state.scale,
+        state.cropH * state.videoHeight * state.scale,
       );
       // 実ブラウザは el.style.transform の読み戻し時に CSSOM がカンマ後へ空白を挿入して
       // 正規化する（値そのものは変わらない）ため、比較前に空白を除去する。

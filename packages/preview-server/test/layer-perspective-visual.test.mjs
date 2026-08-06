@@ -8,16 +8,18 @@ import { computeLayerPerspectiveVisual } from '../public/layer-perspective-visua
 // `perspective=` filter parameters, mirrored here as a browser CSS matrix3d transform function
 // for the Web preview (packages/preview-server/public/app.js).
 //
-// `applyFullChain` simulates the full CSS composition app.js actually uses: `transform-origin:
-// <pivot>` + `transform: translate(x,y) scale(s) rotate(deg) <matrix3d-from-
-// computeLayerPerspectiveVisual>` (app.js's existing crop pivot idiom -- see applyLayerCropVisual
-// -- with perspective appended as the innermost function), applied to box-local pixel points. The
-// result is compared against `perspectiveReference`, an independent re-implementation of the
-// *plain* (non-centered, non-pivot) Heckbert unit-square -> quadrilateral mapping used directly on
-// box fractions -- the same reference render-cut's own perspective-homography.mjs is unit-tested
-// against -- so a sign, centering, or ordering error in either implementation would show up as a
-// geometric mismatch, not just a string-shape mismatch. This file is independent from (and does
-// not import) the shell's equivalent test -- see layer-perspective-visual.js's header comment.
+// 2026-08-06 web-layer-placement-parity: `applyFullChain` simulates the full CSS composition
+// app.js now actually uses -- the same center-based convention as shell: `transform-origin:
+// <pivot>` + `transform: translate(-pivot%, -pivot%) rotate(deg) <matrix3d-from-
+// computeLayerPerspectiveVisual>` (app.js's applyLayerLayout, with perspective appended as the
+// innermost function; scale is baked into the element's box size rather than a separate `scale()`
+// transform function, so it does not appear in the function list here). The result is compared
+// against `perspectiveReference`, an independent re-implementation of the *plain* (non-centered,
+// non-pivot) Heckbert unit-square -> quadrilateral mapping used directly on box fractions -- the
+// same reference render-cut's own perspective-homography.mjs is unit-tested against -- so a sign,
+// centering, or ordering error in either implementation would show up as a geometric mismatch, not
+// just a string-shape mismatch. This file is independent from (and does not import) the shell's
+// equivalent test -- see layer-perspective-visual.js's header comment.
 
 function squareToQuadCircular(p0, p1, p2, p3) {
   const [x0, y0] = p0, [x1, y1] = p1, [x2, y2] = p2, [x3, y3] = p3;
@@ -48,10 +50,10 @@ function perspectiveReference(corners, u, v) {
 }
 
 // Parses a CSS transform function list and applies it to a point, rightmost function first
-// (innermost), matching CSS composition semantics. Supports the function set app.js emits for
-// layer transforms: translate (px), scale (unitless), rotate (deg), and matrix3d (16 values,
-// applied with the standard homogeneous divide since z=0 for every point here).
-function applyTransformFunctions(cssTransform, point) {
+// (innermost), matching CSS composition semantics. Supports the specific function set app.js
+// emits for layer transforms: translate (%, relative to boxSize), rotate (deg), and matrix3d (16
+// values, applied with the standard homogeneous divide since z=0 for every point here).
+function applyTransformFunctions(cssTransform, boxSize, point) {
   const fns = [...cssTransform.matchAll(/(\w+)\(([^)]*)\)/g)].map(m => ({
     name: m[1],
     args: m[2].split(',').map(s => parseFloat(s)),
@@ -59,12 +61,8 @@ function applyTransformFunctions(cssTransform, point) {
   let [x, y] = point;
   for (const fn of fns.slice().reverse()) {
     if (fn.name === 'translate') {
-      x += fn.args[0];
-      y += fn.args[1];
-    } else if (fn.name === 'scale') {
-      const sx = fn.args[0];
-      const sy = fn.args.length > 1 ? fn.args[1] : sx;
-      x *= sx; y *= sy;
+      x += (fn.args[0] / 100) * boxSize.w;
+      y += (fn.args[1] / 100) * boxSize.h;
     } else if (fn.name === 'rotate') {
       const rad = fn.args[0] * Math.PI / 180;
       const rx = x * Math.cos(rad) - y * Math.sin(rad);
@@ -85,45 +83,14 @@ function applyTransformFunctions(cssTransform, point) {
 }
 
 // Full simulation of `transform-origin: <pivotPct>%; transform: <cssTransform>` applied to a
-// point expressed in the *same coordinate frame pivotPct/originBoxSize use* (0,0 = that frame's
-// own top-left) -- matching how browsers apply transform-origin: shift so the origin sits at
-// (0,0), apply the transform functions, then add the origin offset back. Note this is Web's own
-// convention (app.js's applyLayerCropVisual sets transform-origin alone, with NO compensating
-// `translate(-pivot%)` the way shell's crop pivot idiom uses -- so, unlike the shell test, there
-// is no extra translate function baked into `cssTransform` here that would cancel this add-back).
-function applyFullChain(cssTransform, pivotPct, originBoxSize, point) {
-  const originPx = { x: (pivotPct.x / 100) * originBoxSize.w, y: (pivotPct.y / 100) * originBoxSize.h };
-  const q = [point[0] - originPx.x, point[1] - originPx.y];
-  const [rx, ry] = applyTransformFunctions(cssTransform, q);
+// box-local pixel point (0,0 = box top-left), matching how browsers apply transform-origin: the
+// point is shifted so the origin sits at (0,0), the transform functions are applied, then the
+// origin offset is added back.
+function applyFullChain(cssTransform, pivotPct, boxSize, boxLocalPoint) {
+  const originPx = { x: (pivotPct.x / 100) * boxSize.w, y: (pivotPct.y / 100) * boxSize.h };
+  const q = [boxLocalPoint[0] - originPx.x, boxLocalPoint[1] - originPx.y];
+  const [rx, ry] = applyTransformFunctions(cssTransform, boxSize, q);
   return [rx + originPx.x, ry + originPx.y];
-}
-
-// Independent reference for what matrix3d (in isolation, i.e. with rotate/scale/translate all at
-// their identity) does to a pivot-relative pixel point q: converts q to the box-fraction (u,v)
-// perspectiveReference expects (using `warpBoxSize` -- the box actually passed to
-// computeLayerPerspectiveVisual, which for the crop test below differs from the pivot's own
-// origin box), evaluates the plain Heckbert reference, and converts back to a pivot-relative
-// pixel delta. This is deliberately independent of computeLayerPerspectiveVisual's own matrix
-// construction, so a bug in either would surface as a mismatch.
-function referenceWarpQ(corners, warpBoxSize, q) {
-  const u = q[0] / warpBoxSize.w + 0.5;
-  const v = q[1] / warpBoxSize.h + 0.5;
-  const [refU, refV] = perspectiveReference(corners, u, v);
-  return [warpBoxSize.w * (refU - 0.5), warpBoxSize.h * (refV - 0.5)];
-}
-
-// Full expected-value reconstruction: matrix3d's effect via the independent referenceWarpQ above,
-// then rotate, then scale, then origin add-back -- in that order, matching CSS's actual
-// (innermost-first) composition and app.js's `translate(x,y) scale(s) rotate(deg) matrix3d(...)`
-// function list (translate(x,y) is 0 in every test below, isolating the geometry under test).
-function expectedFinal(corners, warpBoxSize, pivotPct, originBoxSize, rotateDeg, scaleFactor, point) {
-  const originPx = { x: (pivotPct.x / 100) * originBoxSize.w, y: (pivotPct.y / 100) * originBoxSize.h };
-  const q = [point[0] - originPx.x, point[1] - originPx.y];
-  const [wx, wy] = referenceWarpQ(corners, warpBoxSize, q);
-  const rad = rotateDeg * Math.PI / 180;
-  const rx = wx * Math.cos(rad) - wy * Math.sin(rad);
-  const ry = wx * Math.sin(rad) + wy * Math.cos(rad);
-  return [rx * scaleFactor + originPx.x, ry * scaleFactor + originPx.y];
 }
 
 function closeTo(actual, expected, epsilon = 1e-3) {
@@ -150,21 +117,18 @@ test('malformed corners (wrong count, out of range, non-numeric) are unusable', 
 
 test('identity corners (full box, no warp) return a matrix3d equivalent to the identity transform', () => {
   const corners = [[0, 0], [1, 0], [0, 1], [1, 1]];
-  const boxSize = { w: 300, h: 200 };
-  const visual = computeLayerPerspectiveVisual({ corners }, boxSize.w, boxSize.h);
+  const visual = computeLayerPerspectiveVisual({ corners }, 300, 200);
   assert.ok(visual);
+  const boxSize = { w: 300, h: 200 };
   const pivotPct = { x: 50, y: 50 };
-  const cssTransform = `translate(0px, 0px) scale(1) rotate(0deg) ${visual.transformFunction}`;
+  const cssTransform = `translate(-50%, -50%) ${visual.transformFunction}`;
   for (const point of [[0, 0], [300, 0], [0, 200], [300, 200], [150, 100], [75, 40]]) {
     const [rx, ry] = applyFullChain(cssTransform, pivotPct, boxSize, point);
-    const [ex, ey] = expectedFinal(corners, boxSize, pivotPct, boxSize, 0, 1, point);
-    closeTo(rx, ex);
-    closeTo(ry, ey);
-    // Identity corners specifically: the point must be entirely unaffected (no compensating
-    // translate exists in Web's transform list to cancel the transform-origin add-back the way
-    // shell's does, so "no warp" really does mean "point in, point out unchanged").
-    closeTo(rx, point[0]);
-    closeTo(ry, point[1]);
+    // translate(-50%,-50%) undoes the pivot placement; identity matrix3d leaves the
+    // pivot-relative point unchanged, so the net effect (before any outer placement translate the
+    // caller would add) is just "point - pivot".
+    closeTo(rx, point[0] - boxSize.w / 2);
+    closeTo(ry, point[1] - boxSize.h / 2);
   }
 });
 
@@ -174,36 +138,60 @@ test('a declared trapezoid reproduces the plain Heckbert reference at box-fracti
   const visual = computeLayerPerspectiveVisual({ corners }, boxSize.w, boxSize.h);
   assert.ok(visual);
   const pivotPct = { x: 50, y: 50 };
-  const cssTransform = `translate(0px, 0px) scale(1) rotate(0deg) ${visual.transformFunction}`;
-  const samples = [[0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0.5], [0.25, 0.1], [0.75, 0.9], [0.1, 0.5]];
+  const cssTransform = `translate(-50%, -50%) ${visual.transformFunction}`;
+  const samples = [
+    [0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0.5], [0.25, 0.1], [0.75, 0.9], [0.1, 0.5],
+  ];
   for (const [u, v] of samples) {
-    const point = [u * boxSize.w, v * boxSize.h];
-    const [rx, ry] = applyFullChain(cssTransform, pivotPct, boxSize, point);
+    const boxLocal = [u * boxSize.w, v * boxSize.h];
+    const [rx, ry] = applyFullChain(cssTransform, pivotPct, boxSize, boxLocal);
     const [refU, refV] = perspectiveReference(corners, u, v);
-    // With scale=1/rotate=0/translate=0 and pivot=box-center, the composed chain reduces to
-    // exactly "the point's declared corner-pin destination, in box-fraction pixel terms".
-    closeTo(rx, refU * boxSize.w, 1e-2);
-    closeTo(ry, refV * boxSize.h, 1e-2);
-    const [ex, ey] = expectedFinal(corners, boxSize, pivotPct, boxSize, 0, 1, point);
-    closeTo(rx, ex, 1e-2);
-    closeTo(ry, ey, 1e-2);
+    // translate(-50%,-50%) makes the net effect (ignoring outer placement) "warped point - pivot",
+    // i.e. boxSize*(refFraction - 0.5).
+    closeTo(rx, boxSize.w * (refU - 0.5), 1e-2);
+    closeTo(ry, boxSize.h * (refV - 0.5), 1e-2);
   }
 });
 
-test('perspective + scale compose correctly: matrix3d (innermost) applies before scale, matching the render-cut apply order', () => {
-  const corners = [[0.1, 0], [0.9, 0], [0, 1], [1, 1]];
-  const boxSize = { w: 300, h: 200 };
-  const visual = computeLayerPerspectiveVisual({ corners }, boxSize.w, boxSize.h);
+test('perspective + crop compose correctly end-to-end: the box passed to computeLayerPerspectiveVisual is the crop rect\'s own rendered (scale-included) size, and its pivot is always that box\'s own 50%/50% center', () => {
+  // app.js's applyLayerLayout crop pivot idiom does NOT resize the DOM element to the crop rect
+  // (it keeps the full video element and masks with clip-path); transform-origin is set to the
+  // crop rect's center *as a percentage of the full element*. But layers[].perspective's declared
+  // corners are fractions of the *cropped* box specifically (contract §2.4.4: perspective applies
+  // after crop, in render-cut's chain) -- so the box size this module receives must be the crop
+  // rect's own pixel size (cropW*videoWidth*scale, not the full element's), and by construction its
+  // pivot is always exactly that box's own center (the crop rect's center coincides with
+  // transform-origin's pivot point in the full-element frame, which is q=0 -- i.e. always "50%/50%
+  // of the box actually being warped", never some other point). This test simulates that full
+  // wiring: a full 500x300 video element, a crop rect selecting its right 60%/bottom 80% (matching
+  // how applyLayerLayout derives pivotPct from crop.x/y/w/h), and confirms a perspective-declared
+  // fraction point ends up exactly where the plain Heckbert reference (evaluated in crop-rect-local
+  // fraction terms) plus the crop rect's own screen placement predicts.
+  const fullBox = { w: 500, h: 300 };
+  const crop = { x: 0.4, y: 0.2, w: 0.6, h: 0.8 };
+  const cropBoxSize = { w: crop.w * fullBox.w, h: crop.h * fullBox.h }; // 300x240
+  const pivotPct = { x: (crop.x + crop.w / 2) * 100, y: (crop.y + crop.h / 2) * 100 }; // matches applyLayerLayout's crop pivot formula
+
+  const corners = [[0.15, 0.05], [0.85, 0.1], [0.05, 0.9], [0.95, 0.85]];
+  const visual = computeLayerPerspectiveVisual({ corners }, cropBoxSize.w, cropBoxSize.h);
   assert.ok(visual);
-  const pivotPct = { x: 50, y: 50 };
-  const scaleFactor = 1.4;
-  const cssTransform = `translate(0px, 0px) scale(${scaleFactor}) rotate(0deg) ${visual.transformFunction}`;
-  for (const [u, v] of [[0, 0], [1, 1], [0.5, 0.5], [0.2, 0.8]]) {
-    const point = [u * boxSize.w, v * boxSize.h];
-    const [rx, ry] = applyFullChain(cssTransform, pivotPct, boxSize, point);
-    const [ex, ey] = expectedFinal(corners, boxSize, pivotPct, boxSize, 0, scaleFactor, point);
-    closeTo(rx, ex, 1e-2);
-    closeTo(ry, ey, 1e-2);
+  const cssTransform = `translate(-${pivotPct.x}%, -${pivotPct.y}%) ${visual.transformFunction}`;
+
+  for (const [u, v] of [[0, 0], [1, 1], [0.5, 0.5], [0.3, 0.7], [1, 0]]) {
+    // A point at fraction (u,v) *of the crop rect* -- expressed in full-element-local pixels
+    // (which is what the live DOM's coordinate space actually is) for applyFullChain, whose
+    // pivotPct/boxSize (fullBox) match the real transform-origin percentage semantics.
+    const fullElementLocal = [
+      (crop.x + u * crop.w) * fullBox.w,
+      (crop.y + v * crop.h) * fullBox.h,
+    ];
+    const [rx, ry] = applyFullChain(cssTransform, pivotPct, fullBox, fullElementLocal);
+    const [refU, refV] = perspectiveReference(corners, u, v);
+    // Expected: the reference's crop-rect-local fraction point, converted to crop-rect-local
+    // pixels, minus the crop rect's own center (since translate(-pivot%) anchors the crop rect's
+    // center at the outer placement origin).
+    closeTo(rx, refU * cropBoxSize.w - cropBoxSize.w / 2, 1e-2);
+    closeTo(ry, refV * cropBoxSize.h - cropBoxSize.h / 2, 1e-2);
   }
 });
 
@@ -214,39 +202,19 @@ test('perspective composes correctly with rotate (innermost function applies bef
   assert.ok(visual);
   const pivotPct = { x: 50, y: 50 };
   const rotateDeg = 33;
-  const cssTransform = `translate(0px, 0px) scale(1) rotate(${rotateDeg}deg) ${visual.transformFunction}`;
+  const cssTransform = `translate(-50%, -50%) rotate(${rotateDeg}deg) ${visual.transformFunction}`;
   for (const [u, v] of [[0, 0], [1, 1], [0.5, 0.5], [0.2, 0.8]]) {
-    const point = [u * boxSize.w, v * boxSize.h];
-    const [rx, ry] = applyFullChain(cssTransform, pivotPct, boxSize, point);
-    const [ex, ey] = expectedFinal(corners, boxSize, pivotPct, boxSize, rotateDeg, 1, point);
-    closeTo(rx, ex, 1e-2);
-    closeTo(ry, ey, 1e-2);
-  }
-});
-
-test('perspective + crop compose correctly end-to-end: the box passed to computeLayerPerspectiveVisual is the crop rect\'s own native (unscaled) size, and its pivot is always that box\'s own 50%/50% center', () => {
-  // Mirrors app.js's applyLayerCropVisual pivot formula: transform-origin is the crop rect's
-  // center as a percentage of the *full, native-size* element (Web keeps the element at its
-  // natural static position + translate(x,y), unlike shell's left/top-then-translate(-50%)
-  // idiom -- contract §2.4.1's documented "existing PiP placement convention difference"). The
-  // perspective box is the crop rect's own native pixel size specifically (not scaled) -- so the
-  // "warp box" (cropBoxSize) and the "origin box" (fullBox, whose percentage the pivot itself is
-  // expressed against) genuinely differ here, unlike every test above.
-  const fullBox = { w: 500, h: 300 };
-  const crop = { x: 0.4, y: 0.2, w: 0.6, h: 0.8 };
-  const cropBoxSize = { w: crop.w * fullBox.w, h: crop.h * fullBox.h }; // 300x240
-  const pivotPct = { x: (crop.x + crop.w / 2) * 100, y: (crop.y + crop.h / 2) * 100 };
-
-  const corners = [[0.15, 0.05], [0.85, 0.1], [0.05, 0.9], [0.95, 0.85]];
-  const visual = computeLayerPerspectiveVisual({ corners }, cropBoxSize.w, cropBoxSize.h);
-  assert.ok(visual);
-  const cssTransform = `translate(0px, 0px) scale(1) rotate(0deg) ${visual.transformFunction}`;
-
-  for (const [u, v] of [[0, 0], [1, 1], [0.5, 0.5], [0.3, 0.7], [1, 0]]) {
-    const point = [(crop.x + u * crop.w) * fullBox.w, (crop.y + v * crop.h) * fullBox.h];
-    const [rx, ry] = applyFullChain(cssTransform, pivotPct, fullBox, point);
-    const [ex, ey] = expectedFinal(corners, cropBoxSize, pivotPct, fullBox, 0, 1, point);
-    closeTo(rx, ex, 1e-2);
-    closeTo(ry, ey, 1e-2);
+    const boxLocal = [u * boxSize.w, v * boxSize.h];
+    const [rx, ry] = applyFullChain(cssTransform, pivotPct, boxSize, boxLocal);
+    const [refU, refV] = perspectiveReference(corners, u, v);
+    // The reference point (relative to pivot) must be rotated *after* the perspective warp
+    // (perspective is innermost -> applies first), not before.
+    const px = boxSize.w * (refU - 0.5);
+    const py = boxSize.h * (refV - 0.5);
+    const rad = rotateDeg * Math.PI / 180;
+    const expectedX = px * Math.cos(rad) - py * Math.sin(rad);
+    const expectedY = px * Math.sin(rad) + py * Math.cos(rad);
+    closeTo(rx, expectedX, 1e-2);
+    closeTo(ry, expectedY, 1e-2);
   }
 });
