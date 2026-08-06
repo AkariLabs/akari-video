@@ -41,6 +41,12 @@ import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visua
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { LayerPerspective, computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
+import {
+    buildCutSummaryFields,
+    buildLayerSummaryBase,
+    LayerCropSummary,
+    LayerPerspectiveSummary
+} from '../common/edit-summary-fields';
 import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
@@ -52,7 +58,7 @@ import {
     ReviewTransportSnapshot
 } from './review-session-recorder';
 
-interface OverlayTransform {
+export interface OverlayTransform {
     x?: number;
     y?: number;
     scale?: number;
@@ -81,6 +87,12 @@ interface EditSummaryLayer {
     chromaKey: boolean;
     proxyMissing: boolean;
     track: number;
+    /** edit.schema.json #/$defs/layerCrop（0..1 正規化・ソースフレーム相対・静的）。
+     * common/edit-summary-fields.ts の normalizeLayerCropForSummary が担う。 */
+    crop?: LayerCropSummary;
+    /** edit.schema.json #/$defs/layerPerspective（corner-pin パース変形・v0 静的）。
+     * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
+    perspective?: LayerPerspectiveSummary;
 }
 
 interface EditSummaryCut {
@@ -2013,58 +2025,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const height = this.positiveNumber(edit?.output?.height, EMPTY_SUMMARY.output.height);
             const cuts: EditSummaryCut[] = [];
             for (const value of Array.isArray(edit?.cuts) ? edit.cuts : []) {
-                const inSeconds = this.finiteNumber(value?.in, NaN);
-                const outSeconds = this.finiteNumber(value?.out, NaN);
-                if (Number.isFinite(inSeconds) && Number.isFinite(outSeconds) && outSeconds > inSeconds) {
-                    let speed: number | undefined;
-                    if (value?.speed !== undefined) {
-                        if (typeof value.speed === 'number' && Number.isFinite(value.speed) && value.speed > 0) {
-                            speed = value.speed;
-                        } else {
-                            console.warn('[akari-preview] cut.speed を無視しました（正の有限 number ではありません）', value.speed);
-                        }
-                    }
-                    let transitionOut: EditSummaryCut['transitionOut'];
-                    if (value?.transition_out !== undefined && value.transition_out !== null) {
-                        const transition = value.transition_out;
-                        const validType = transition?.type === 'dissolve'
-                            || transition?.type === 'fade-black'
-                            || transition?.type === 'fade-white';
-                        const validDuration = typeof transition?.duration === 'number'
-                            && Number.isFinite(transition.duration) && transition.duration > 0;
-                        if (transition && typeof transition === 'object' && !Array.isArray(transition)
-                            && validType && validDuration) {
-                            transitionOut = { type: transition.type, duration: transition.duration };
-                        } else {
-                            console.warn('[akari-preview] cut.transition_out を無視しました（type/duration 不正）', transition);
-                        }
-                    }
-                    const at = typeof value?.at === 'number' && Number.isFinite(value.at) && value.at >= 0
-                        ? value.at : undefined;
-                    const track = Number.isInteger(value?.track) && value.track >= 0 ? value.track : 0;
-                    // v1 は cuts[].src がソース id。未知 id / 未指定（v0）は代表ソースへ寄せる
-                    const cutSourceId = typeof value?.src === 'string' && sourcesById.has(value.src)
-                        ? value.src : primaryId;
-                    if (typeof value?.src === 'string' && !sourcesById.has(value.src)) {
-                        console.warn('[akari-preview] cut.src が sources[] に見つかりません。代表ソースで代用します', value.src);
-                    }
-                    cuts.push({
-                        src: cutSourceId,
-                        in: inSeconds,
-                        out: outSeconds,
-                        ...(value?.transform && typeof value.transform === 'object' && !Array.isArray(value.transform)
-                            ? { transform: this.transform(value.transform) } : {}),
-                        ...(typeof value?.opacity === 'number' && Number.isFinite(value.opacity)
-                            && value.opacity >= 0 && value.opacity <= 1 ? { opacity: value.opacity } : {}),
-                        ...(speed !== undefined ? { speed } : {}),
-                        ...(transitionOut ? { transitionOut } : {}),
-                        ...(at !== undefined ? { at } : {}),
-                        ...(isTruthyObject(value?.framing) ? { framing: value.framing as CutFraming } : {}),
-                        ...(isTruthyObject(value?.freeze) ? { freeze: value.freeze as CutFreeze } : {}),
-                        track
-                    });
-                } else {
-                    console.warn('[akari-preview] cuts entry を無視しました（in/out 不正）', value);
+                // buildCutSummaryFields は akari-preview-open-handler.ts の外に出した純関数
+                // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06）の
+                // 再発防止として、この呼び出し自体を配線検査テストの対象にしている
+                // （test/edit-summary-fields.test.mjs）。
+                const result = buildCutSummaryFields(
+                    value,
+                    primaryId,
+                    id => sourcesById.has(id),
+                    v => this.transform(v),
+                    (message, detail) => console.warn(message, detail)
+                );
+                if (result.ok && result.fields) {
+                    cuts.push(result.fields as EditSummaryCut);
                 }
             }
             const overlays: EditSummaryOverlay[] = [];
@@ -2101,51 +2074,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             for (let index = 0; index < (Array.isArray(edit?.layers) ? edit.layers.length : 0); index += 1) {
                 const value = edit.layers[index];
                 const label = `layers[${index}]`;
-                const validObject = value && typeof value === 'object' && !Array.isArray(value);
-                const validId = typeof value?.id === 'string' && Boolean(value.id.trim());
-                const validT = typeof value?.t === 'number' && Number.isFinite(value.t) && value.t >= 0;
-                const validDuration = typeof value?.duration === 'number'
-                    && Number.isFinite(value.duration) && value.duration > 0;
-                const validKind = value?.kind === 'baked' || value?.kind === 'video';
-                const validSrc = typeof value?.src === 'string' && Boolean(value.src.trim());
-                if (!validObject || !validId || !validT || !validDuration || !validKind || !validSrc) {
-                    console.warn(`[akari-preview] ${label} を無視しました（id/t/duration/kind/src 不正）`, value);
+                // buildLayerSummaryBase は akari-preview-open-handler.ts の外に出した純関数
+                // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06
+                // shell-summary-field-gap）の再発防止として、この呼び出し自体を配線検査テストの
+                // 対象にしている（test/edit-summary-fields.test.mjs）。
+                const result = buildLayerSummaryBase(
+                    value,
+                    label,
+                    v => this.transform(v),
+                    LAYER_BLEND_TO_CSS,
+                    (message, detail) => console.warn(message, detail)
+                );
+                if (!result.ok || !result.base) {
                     continue;
                 }
-
-                let opacity = 1;
-                if (value.opacity !== undefined) {
-                    if (typeof value.opacity === 'number' && Number.isFinite(value.opacity)
-                        && value.opacity >= 0 && value.opacity <= 1) {
-                        opacity = value.opacity;
-                    } else {
-                        console.warn(`[akari-preview] ${label}.opacity は 1 で近似します（0〜1 の有限 number ではありません）`, value.opacity);
-                    }
+                if (result.unsupportedBlend) {
+                    unsupportedBlendCount += 1;
                 }
-                let blend = 'normal';
-                if (value.blend !== undefined) {
-                    const mapped = typeof value.blend === 'string'
-                        ? LAYER_BLEND_TO_CSS.get(value.blend)
-                        : undefined;
-                    if (mapped) {
-                        blend = mapped;
-                    } else {
-                        unsupportedBlendCount += 1;
-                        console.warn(`[akari-preview] ${label}.blend は normal で近似します（未対応値）`, value.blend);
-                    }
-                }
-
-                const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing'> = {
-                    id: value.id,
-                    t: value.t,
-                    duration: value.duration,
-                    kind: value.kind,
-                    track: Number.isInteger(value.track) && value.track >= 0 ? value.track : 0,
-                    transform: this.transform(value.transform),
-                    opacity,
-                    blend,
-                    chromaKey: value.kind === 'video' && isTruthyObject(value.chroma_key)
-                };
+                const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing'> = result.base;
                 let sourceUri: URI;
                 try {
                     sourceUri = this.resolveEditAssetUri(value.src, editUri);
