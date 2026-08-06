@@ -11,7 +11,8 @@
     "serif",
     "cinema",
     "google-fonts",
-    "ofl"
+    "ofl",
+    "pack:telop-standard"
   ],
   "knobs": [],
   "ai_usage": "ウェイトは用途に応じて選び分けてよい。字間・行間・カラーは overlay/テロップ側で調整してよいが、グリフ形状そのもの（フォントファイル）は改変しない",

@@ -13,7 +13,8 @@
     "free",
     "trial-subset",
     "no-redistribution",
-    "reference-only"
+    "reference-only",
+    "pack:telop-standard"
   ],
   "knobs": [],
   "ai_usage": "取得後もフォントファイル（グリフ）は改変しない。テロップ・字幕・サムネの本文/見出しに使用してよい。フォントファイル自体の再配布・同梱はしない（参照配布のみ）",
