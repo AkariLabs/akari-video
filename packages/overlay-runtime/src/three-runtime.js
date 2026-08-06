@@ -22,6 +22,19 @@ window.akari.threeRuntime = (() => {
     return Number.isFinite(number) ? number : fallback;
   }
 
+  // 標準ツマミ 3 種（--akari-3d-pan-x / --akari-3d-pan-y / --akari-3d-zoom）の生値を
+  // フレーム比の小数へ変換する。「% 付きなら /100、無単位ならそのまま割合」の両対応
+  // （skills/overlay-authoring/3d.md）。宣言が無ければ null を返し、呼び出し側が
+  // 「未宣言（後方互換の対象）」と区別できるようにする。
+  function readProjectionRatio(computedStyle, propertyName) {
+    const raw = computedStyle.getPropertyValue(propertyName).trim();
+    if (raw === "") return null;
+    const isPercent = raw.endsWith("%");
+    const numeric = Number.parseFloat(isPercent ? raw.slice(0, -1) : raw);
+    if (!Number.isFinite(numeric)) return null;
+    return isPercent ? numeric / 100 : numeric;
+  }
+
   function vector3(value, fallback) {
     if (!Array.isArray(value) || value.length !== 3) return [...fallback];
     return value.map((item, index) => finiteNumber(item, fallback[index]));
@@ -417,6 +430,58 @@ window.akari.threeRuntime = (() => {
     }
   }
 
+  // 標準ツマミ 3 種をカメラの投影へ反映する（canvas の CSS 変形ではなく
+  // camera.setViewOffset / fov のズームレンズ相当への差し替え。skills/overlay-authoring/3d.md）。
+  // カメラ位置・モデル姿勢・ライトには一切触れない（焼き込み済みアニメーションクリップと
+  // 干渉させないため。task 2026-08-06-live-knob-camera-v2）。
+  //
+  // 読むのは instance.canvas の computed style。三者（render-cut の `.scene-content`、
+  // shell/knob-audit の overlay container、store の `.asset-canvas`）のどれで包んでも、
+  // 標準プロパティは断片ルートで宣言され canvas まで CSS 継承で届くため、どの呼び出し元でも
+  // 同じ読み方で成立する。
+  //
+  // 3 プロパティとも getComputedStyle が空文字（＝どの断片も宣言していない）なら
+  // camera.view に一切触れない — 後方互換の根拠そのもの（旧断片は本関数の呼び出し前と
+  // 完全に同じコード経路のまま）。
+  function applyProjectionKnobs(instance) {
+    const computedStyle = getComputedStyle(instance.canvas);
+    const panXRatio = readProjectionRatio(computedStyle, "--akari-3d-pan-x");
+    const panYRatio = readProjectionRatio(computedStyle, "--akari-3d-pan-y");
+    const zoomRatio = readProjectionRatio(computedStyle, "--akari-3d-zoom");
+    if (panXRatio === null && panYRatio === null && zoomRatio === null) return;
+
+    const panX = panXRatio ?? 0;
+    const panY = panYRatio ?? 0;
+    const zoom = zoomRatio !== null && zoomRatio > 0 ? zoomRatio : 1;
+    const width = instance.canvas.width;
+    const height = instance.canvas.height;
+
+    // 値は draw のたびに読むが（CSS 側でアニメートされうるため）、前フレームと同じなら
+    // setViewOffset / updateProjectionMatrix を呼び直さない（無駄な行列再計算を避ける）。
+    const state = instance.projection;
+    if (
+      state.panX === panX && state.panY === panY && state.zoom === zoom
+      && state.width === width && state.height === height
+    ) {
+      return;
+    }
+
+    // pan は純粋な投影オフセット（フレーム幅/高さに対する割合）。
+    // 符号は既存 CSS translate と同じ向き（pan-y: 正 = 下へ）。
+    instance.camera.setViewOffset(width, height, -panX * width, -panY * height, width, height);
+    // zoom はズームレンズ相当（fov の詰め直し）。カメラ位置・モデルは動かさない。
+    const halfFovRadians = ((instance.baseFov * Math.PI) / 180) / 2;
+    const zoomedFovRadians = Math.atan(Math.tan(halfFovRadians) / zoom) * 2;
+    instance.camera.fov = (zoomedFovRadians * 180) / Math.PI;
+    instance.camera.updateProjectionMatrix();
+
+    state.panX = panX;
+    state.panY = panY;
+    state.zoom = zoom;
+    state.width = width;
+    state.height = height;
+  }
+
   // 動画テクスチャの時刻を overlay のローカル時刻へ合わせる。
   //
   // **呼ぶのはライブプレビューだけ**。書き出し（rasterize）は自前でフレーム精度シークを
@@ -443,6 +508,7 @@ window.akari.threeRuntime = (() => {
   function draw(instance, localSeconds) {
     if (!instance.active || !instance.model) return;
     rendererSize(instance);
+    applyProjectionKnobs(instance);
     if (instance.mixer) instance.mixer.setTime(Math.max(0, localSeconds));
     // 動画テクスチャは「今 <video> に出ているフレーム」を GPU へ上げ直さないと 1 枚目で固まる。
     // どの時刻を出すかは外側が currentTime で決め、ここは上げ直しだけを担う
@@ -562,6 +628,9 @@ window.akari.threeRuntime = (() => {
     const instance = {
       active: true,
       animationClips: 0,
+      // 標準ツマミの zoom（fov 詰め直し）が基準にする「宣言どおりの fov」。以後
+      // instance.camera.fov は zoom 倍率で書き換わるため、生成時の値を別に保持する
+      baseFov: camera.fov,
       camera,
       canvas,
       container,
@@ -570,6 +639,8 @@ window.akari.threeRuntime = (() => {
       lastTime: 0,
       mixer: null,
       model: null,
+      // 標準ツマミ 3 種の直近適用値（memo）。null は「まだ一度も適用していない」の意
+      projection: { panX: null, panY: null, zoom: null, width: null, height: null },
       renderer,
       scene,
       shadows,
@@ -656,6 +727,19 @@ window.akari.threeRuntime = (() => {
       shadows: instance.renderer.shadowMap.enabled,
       videoTextures: instance.videoTextures.size,
       animationClips: instance.animationClips,
+      // 標準ツマミ（pan/zoom）が投影へ実際に反映されたかの実測値（検証・証跡用。
+      // task 2026-08-06-live-knob-camera-v2）。view が null なら「3 プロパティとも未宣言で
+      // camera.view に一切触れていない」= 後方互換の直接証拠になる
+      cameraFov: instance.camera.fov,
+      cameraViewOffset: instance.camera.view
+        ? {
+            enabled: instance.camera.view.enabled,
+            offsetX: instance.camera.view.offsetX,
+            offsetY: instance.camera.view.offsetY,
+            fullWidth: instance.camera.view.fullWidth,
+            fullHeight: instance.camera.view.fullHeight,
+          }
+        : null,
     };
   }
 
