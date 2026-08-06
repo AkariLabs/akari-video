@@ -331,21 +331,6 @@ function cropOf(el) {
     h: Number.isFinite(ch) && ch > 0 ? ch : 1,
   };
 }
-// crop を要素の transform-origin（拡縮・回転の pivot）と clip-path（見た目の切り抜き）へ反映する。
-// translate/scale/rotate の値そのものはクロップで変わらない（既存の transform 文字列はそのまま） —
-// CSS の transform-origin をクロップ矩形の中心へ動かすだけで、平行移動込みの pivot 補正が要らない
-// （layer-container の video は static position（要素自身の自然な左上）+ translate(x,y) という、
-// shell の「left/top を中心に置いてから -50% 平行移動」とは異なる基準点の実装のため。crop 無し
-// （既定 pivot=50%/50%）では現状と完全に同じ見た目のまま — 参照: probe-web-layer-position 実測）。
-function applyLayerCropVisual(el) {
-  const crop = cropOf(el);
-  const pivotXPct = (crop.x + crop.w / 2) * 100;
-  const pivotYPct = (crop.y + crop.h / 2) * 100;
-  el.style.transformOrigin = `${pivotXPct}% ${pivotYPct}%`;
-  el.style.clipPath = (crop.x > 0 || crop.y > 0 || crop.w < 1 || crop.h < 1)
-    ? `inset(${crop.y * 100}% ${Math.max(0, (1 - crop.x - crop.w)) * 100}% ${Math.max(0, (1 - crop.y - crop.h)) * 100}% ${crop.x * 100}%)`
-    : '';
-}
 
 // ㉖ layers[].perspective（0..1 正規化・corner-pin・静的。contract-2026-08-02-preview-parity.md
 // §2.4.4）。perspective 未指定 or 不正値は null（既存の見た目を一切変えない = 回帰なし）。
@@ -360,20 +345,40 @@ function perspectiveOf(el) {
   }
 }
 
-// レイヤーの transform 文字列を一括で組み立てる（setupLayers の初期描画とドラッグ移動の
-// 両方から呼ぶ単一の正本 -- 以前は 2 箇所が個別に `translate() scale() rotate()` を書いており、
-// perspective 追加時にどちらか一方だけ書き換えて drift する危険があった）。crop→scale→
-// perspective→rotate→opacity→overlay の適用順（render-cut/src/layers.mjs）どおり、matrix3d は
-// innermost（最右）に追記する。perspective の箱はクロップ矩形自身のネイティブ（未スケール）px
-// サイズ -- scale() は別関数として外側にあるため（layer-perspective-visual.js のコメント参照）。
-function layerTransformString(el, x, y, scale, rotate) {
-  const base = `translate(${x}px, ${y}px) scale(${scale}) rotate(${rotate}deg)`;
-  if (!(el.videoWidth > 0) || !(el.videoHeight > 0)) return base;
+// レイヤー1件の位置・サイズ・pivot・変形・切り抜きを一括で書く単一の正本（2026-08-06
+// web-layer-placement-parity）。shell の updateStageScale レイヤーループと同じ中心基準へ統一
+// した: 箱は「クロップ矩形の中心を (outputWidth/2+x, outputHeight/2+y) に置く」
+// （left/top = outputSize/2+x,y・width/height = videoWidth/Height×scale）。以前は「要素の
+// 自然位置 + translate(x,y) scale(s)」という Web 独自の基準だった（crop 導入前からの既知差分
+// として contract §2.4.1 に記載されていたもの。shell/render-cut と数値が一致しない原因だった
+// というオーナー実機報告を受けて解消した）。setupLayers の初期描画・loadedmetadata・ドラッグ
+// 移動・クロップハンドル・パースパネルの全呼び出し元がこの一本だけを経由する（以前は 2 箇所が
+// 個別に `translate() scale() rotate()` を書いており、perspective 追加時にどちらか一方だけ
+// 書き換えて drift する危険があった）。crop→scale→perspective→rotate→opacity→overlay の適用順
+// （render-cut/src/layers.mjs）どおり、matrix3d は innermost（最右）に追記する。perspective の
+// 箱はクロップ矩形の描画済み（scale 込み）px サイズ -- scale はもはや別関数ではなく箱サイズへ
+// 焼き込むため、shell と同じ box 単位になった（layer-perspective-visual.js のコメント参照）。
+function applyLayerLayout(el, x, y, scale, rotate) {
+  const os = outputSizePx();
+  el.style.left = `${os.width / 2 + x}px`;
+  el.style.top = `${os.height / 2 + y}px`;
   const crop = cropOf(el);
-  const boxWidthPx = crop.w * el.videoWidth;
-  const boxHeightPx = crop.h * el.videoHeight;
-  const visual = computeLayerPerspectiveVisual(perspectiveOf(el), boxWidthPx, boxHeightPx);
-  return visual ? `${base} ${visual.transformFunction}` : base;
+  const pivotXPct = (crop.x + crop.w / 2) * 100;
+  const pivotYPct = (crop.y + crop.h / 2) * 100;
+  el.style.transformOrigin = `${pivotXPct}% ${pivotYPct}%`;
+  el.style.clipPath = (crop.x > 0 || crop.y > 0 || crop.w < 1 || crop.h < 1)
+    ? `inset(${crop.y * 100}% ${Math.max(0, (1 - crop.x - crop.w)) * 100}% ${Math.max(0, (1 - crop.y - crop.h)) * 100}% ${crop.x * 100}%)`
+    : '';
+  let transform = `translate(-${pivotXPct}%, -${pivotYPct}%) rotate(${rotate}deg)`;
+  if (el.videoWidth > 0 && el.videoHeight > 0) {
+    el.style.width = `${el.videoWidth * scale}px`;
+    el.style.height = `${el.videoHeight * scale}px`;
+    const boxWidthPx = crop.w * el.videoWidth * scale;
+    const boxHeightPx = crop.h * el.videoHeight * scale;
+    const visual = computeLayerPerspectiveVisual(perspectiveOf(el), boxWidthPx, boxHeightPx);
+    if (visual) transform += ` ${visual.transformFunction}`;
+  }
+  el.style.transform = transform;
 }
 
 function setupLayers() {
@@ -411,21 +416,17 @@ function setupLayers() {
     el.dataset.layerCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
     el.dataset.layerCropW = String(cropW);
     el.dataset.layerCropH = String(cropH);
-    // ㉖ perspective の box は crop 後のネイティブ px サイズを要するため、videoWidth/Height が
-    // 届く loadedmetadata で layerTransformString を呼び直す（初期描画はメタデータ未着で
-    // matrix3d を素通しするだけの base transform になる -- crop 無し同様、既存の見た目のまま）。
     const perspectiveCorners = layer.perspective && Array.isArray(layer.perspective.corners) ? layer.perspective.corners : null;
     if (perspectiveCorners) el.dataset.layerPerspectiveCorners = JSON.stringify(perspectiveCorners);
-    if (layer.transform) {
-      const t = layer.transform;
-      el.style.transform = layerTransformString(el, t.x || 0, t.y || 0, t.scale || 1, t.rotate || 0);
-    }
-    applyLayerCropVisual(el);
-    if (perspectiveCorners) {
-      el.addEventListener('loadedmetadata', () => {
-        el.style.transform = layerTransformString(el, Number(el.dataset.layerX) || 0, Number(el.dataset.layerY) || 0, Number(el.dataset.layerScale) || 1, Number(el.dataset.layerRotate) || 0);
-      }, { once: true });
-    }
+    // width/height と perspective の箱サイズは videoWidth/Height を要するため、メタデータ到着
+    // （loadedmetadata）のたびに必ず呼び直す -- 初期呼び出しはメタデータ未着で left/top/
+    // transform-origin/clip-path だけが決まる（display:none のため見た目に影響しない）。
+    const relayout = () => applyLayerLayout(
+      el, Number(el.dataset.layerX) || 0, Number(el.dataset.layerY) || 0,
+      Number(el.dataset.layerScale) || 1, Number(el.dataset.layerRotate) || 0,
+    );
+    relayout();
+    el.addEventListener('loadedmetadata', relayout);
     // elementsFromPoint のヒット対象にする（実際の当たり判定は wrapper の capture 側）
     el.style.pointerEvents = 'auto';
     el.style.cursor = 'move';
@@ -588,11 +589,13 @@ function updateLayerSelectBox() {
   layerSelectBox.style.height = `${el.offsetHeight}px`;
   layerSelectBox.style.transform = el.style.transform || '';
   // ㉔ pivot はクロップ矩形の中心（crop 無しなら 50%/50% = 従来どおり）— el 自身の
-  // transform-origin（applyLayerCropVisual が設定）をそのまま流用する。
+  // transform-origin（applyLayerLayout が設定）をそのまま流用する。
   layerSelectBox.style.transformOrigin = el.style.transformOrigin || '50% 50%';
   const naturalBox = lv.opaqueBox ?? { x: 0, y: 0, w: el.offsetWidth, h: el.offsetHeight };
-  // クロップ窓（要素ローカル px。object-fit:contain は箱サイズ未指定のため無効 = 要素ローカル px
-  // ≈ ソース px。shell 側の同名処理を参照）と不透明領域の交差 = 実際に見えている範囲。
+  // クロップ窓（要素ローカル px = videoWidth/Height×scale。applyLayerLayout が width/height に
+  // scale を焼き込むため el.offsetWidth はネイティブ px と一致しない — measureLayerOpaqueBox /
+  // layerAlphaAt も el.offsetWidth 相対の比率で換算しており、この関数と単位が揃っているので
+  // そのまま交差計算できる）と不透明領域の交差 = 実際に見えている範囲。
   const crop = cropOf(el);
   const cropBoxPx = {
     x: crop.x * el.offsetWidth, y: crop.y * el.offsetHeight,
@@ -649,42 +652,48 @@ function layerTransformOf(el) {
     rotate: Number(el.dataset.layerRotate) || 0,
   };
 }
-// ソース px（要素ローカル px。object-fit:contain 無効のため videoWidth/Height と一致）の矩形/pivot
-// を画面上の箱（layerContainer ローカル座標。frameScale/zoom は親コンテナの scale() が別途処理）へ
-// 正写像する。shell の layerScreenRectForVideoRect と同型（P' = O + (tx,ty) + s·R(θ)·(P-O)）。
-function screenBoxForFraction(el, transform, rectFrac, pivotFrac) {
-  const boxW = el.offsetWidth, boxH = el.offsetHeight;
-  const ox = pivotFrac.x * boxW, oy = pivotFrac.y * boxH;
-  const rcx = (rectFrac.x + rectFrac.w / 2) * boxW;
-  const rcy = (rectFrac.y + rectFrac.h / 2) * boxH;
-  const dx = rcx - ox, dy = rcy - oy;
+// ソース px（ネイティブ px。videoWidth/videoHeight）の矩形を、layerContainer ローカル座標
+// （frameScale/zoom 適用前の「出力論理 px」空間 -- video 要素自身と同じ単位。frameScale/zoom は
+// 親コンテナの scale() が別途処理する）へ正写像する。shell の layerScreenRectForVideoRect と
+// 同型の幾何（画面 px への変換〔frameRect/frameScale 乗算〕だけ、Web はこの空間のまま
+// layerContainer の子として置くため省く）。2026-08-06 web-layer-placement-parity: 中心基準統一
+// に伴い el.offsetLeft 依存の旧実装を置き換えた -- 旧実装は「el 自身の静的位置に transform.x を
+// 加算する」慣習だったが、新基準では transform.x は既に el.style.left（= outputWidth/2+x）へ
+// 焼き込まれているため、el.offsetLeft から独立に「ネイティブ px 空間 → transform による配置」を
+// 導出する必要がある（shell と同じ formula: P' = outputSize/2 + T + s·R(θ)·(P-pivot)）。
+function layerRectForVideoRect(transform, videoRect, pivotPx) {
+  const os = outputSizePx();
+  const outputW = videoRect.w * transform.scale;
+  const outputH = videoRect.h * transform.scale;
+  const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * transform.scale;
+  const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * transform.scale;
   const rad = transform.rotate * Math.PI / 180;
-  const sx = dx * Math.cos(rad) - dy * Math.sin(rad);
-  const sy = dx * Math.sin(rad) + dy * Math.cos(rad);
-  const centerX = el.offsetLeft + ox + transform.x + transform.scale * sx;
-  const centerY = el.offsetTop + oy + transform.y + transform.scale * sy;
-  const w = rectFrac.w * boxW * transform.scale;
-  const h = rectFrac.h * boxH * transform.scale;
-  return { left: centerX - w / 2, top: centerY - h / 2, width: w, height: h };
+  const rotOffX = offX * Math.cos(rad) - offY * Math.sin(rad);
+  const rotOffY = offX * Math.sin(rad) + offY * Math.cos(rad);
+  const centerX = os.width / 2 + transform.x + rotOffX;
+  const centerY = os.height / 2 + transform.y + rotOffY;
+  return { left: centerX - outputW / 2, top: centerY - outputH / 2, width: outputW, height: outputH, rotOffX, rotOffY };
 }
-// 画面クライアント座標 → ソースフレーム正規化座標（0..1）の逆写像。screenBoxForFraction の逆。
+// 画面クライアント座標 → ソースフレーム正規化座標（0..1）の逆写像。layerRectForVideoRect の逆
+// （shell の layerVideoPointForPivot と同型）。pivotFrac はソースフレーム正規化座標（クロップ
+// ハンドルは常に全面中心 {0.5,0.5} を使う -- shell と同じ規約。呼び出し元 fullPivot 参照）。
 function fractionForClient(el, transform, pivotFrac, clientX, clientY) {
   const contRect = layerContainer.getBoundingClientRect();
   if (!(contRect.width > 0)) return null;
   const viewScale = contRect.width / layerContainer.offsetWidth;
   const px = (clientX - contRect.left) / viewScale;
   const py = (clientY - contRect.top) / viewScale;
-  const boxW = el.offsetWidth, boxH = el.offsetHeight;
-  const ox = el.offsetLeft + pivotFrac.x * boxW;
-  const oy = el.offsetTop + pivotFrac.y * boxH;
-  const dx = px - (ox + transform.x);
-  const dy = py - (oy + transform.y);
+  const os = outputSizePx();
+  const vw = el.videoWidth, vh = el.videoHeight;
+  const pivotPx = { x: pivotFrac.x * vw, y: pivotFrac.y * vh };
+  const dx = px - (os.width / 2 + transform.x);
+  const dy = py - (os.height / 2 + transform.y);
   const rad = -transform.rotate * Math.PI / 180;
   const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
   const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
-  const lx = rx / (transform.scale || 1) + pivotFrac.x * boxW;
-  const ly = ry / (transform.scale || 1) + pivotFrac.y * boxH;
-  return { x: lx / boxW, y: ly / boxH };
+  const lx = rx / (transform.scale || 1) + pivotPx.x;
+  const ly = ry / (transform.scale || 1) + pivotPx.y;
+  return { x: lx / vw, y: ly / vh };
 }
 
 const layerCropBox = document.createElement('div');
@@ -740,20 +749,21 @@ function positionLayerCropToggle(el) {
 function updateLayerCropBox() {
   if (!layerCropBox.parentElement) layerContainer.appendChild(layerCropBox);
   const lv = layerVideos.find(v => selectedLayerId !== null && v.layer.id === selectedLayerId);
-  if (!cropModeActive || !lv || lv.el.style.display === 'none') {
+  if (!cropModeActive || !lv || lv.el.style.display === 'none' || !(lv.el.videoWidth > 0)) {
     layerCropBox.style.display = 'none';
     return;
   }
   const el = lv.el;
   const transform = layerTransformOf(el);
   const crop = cropOf(el);
-  // pivot は実合成と同じ「現在のクロップ矩形の中心」（applyLayerCropVisual の transform-origin と
-  // 同じ値）を使う（2026-08-06 crop-handle-anchor-fix 以前は全面中心固定の近似だったが、それだと
-  // 錨補正後の transform.x/y と噛み合わず外枠が編集中にドリフトして見えるため、実際の合成 pivot と
-  // 統一した — shell の updateLayerCropBox と同型の判断）。
-  const cropPivot = { x: crop.x + crop.w / 2, y: crop.y + crop.h / 2 };
-  const outer = screenBoxForFraction(el, transform, { x: 0, y: 0, w: 1, h: 1 }, cropPivot);
-  const inner = screenBoxForFraction(el, transform, crop, cropPivot);
+  const vw = el.videoWidth, vh = el.videoHeight;
+  // pivot は実合成と同じ「現在のクロップ矩形の中心」（applyLayerLayout の transform-origin と
+  // 同じ値。ネイティブ px 空間）を使う（2026-08-06 crop-handle-anchor-fix 以前は全面中心固定の
+  // 近似だったが、それだと錨補正後の transform.x/y と噛み合わず外枠が編集中にドリフトして見える
+  // ため、実際の合成 pivot と統一した — shell の updateLayerCropBox と同型の判断）。
+  const cropPivot = { x: (crop.x + crop.w / 2) * vw, y: (crop.y + crop.h / 2) * vh };
+  const outer = layerRectForVideoRect(transform, { x: 0, y: 0, w: vw, h: vh }, cropPivot);
+  const inner = layerRectForVideoRect(transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, cropPivot);
   layerCropBox.style.display = 'block';
   layerCropBox.style.left = `${outer.left}px`;
   layerCropBox.style.top = `${outer.top}px`;
@@ -772,19 +782,25 @@ function applyLayerCropDataset(el, crop) {
   el.dataset.layerCropY = String(crop.y);
   el.dataset.layerCropW = String(crop.w);
   el.dataset.layerCropH = String(crop.h);
-  applyLayerCropVisual(el);
+  const t = layerTransformOf(el);
+  applyLayerLayout(el, t.x, t.y, t.scale, t.rotate);
 }
 
 // ㉗ クロップハンドル操作の錨補正（2026-08-06 crop-handle-anchor-fix）: crop と transform.x/y を
 // 同一フレームで一括更新する。crop 単独 → transform 単独の2段更新だと中間フレームで一瞬だけ
-// 錨補正前の crop が画面に出てしまうため、必ずこちらを使う。
+// 錨補正前の crop が画面に出てしまうため、必ずこちらを使う（crop/transform 両方のデータセットを
+// 先に確定させてから applyLayerLayout を1回だけ呼ぶ -- applyLayerCropDataset を経由すると
+// 古い transform で一度レイアウトしてしまうため、ここでは直接書く）。
 function applyLayerCropAndTransformDataset(el, crop, transform) {
-  applyLayerCropDataset(el, crop);
+  el.dataset.layerCropX = String(crop.x);
+  el.dataset.layerCropY = String(crop.y);
+  el.dataset.layerCropW = String(crop.w);
+  el.dataset.layerCropH = String(crop.h);
   el.dataset.layerX = String(transform.x);
   el.dataset.layerY = String(transform.y);
   el.dataset.layerScale = String(transform.scale);
   el.dataset.layerRotate = String(transform.rotate);
-  el.style.transform = layerTransformString(el, transform.x, transform.y, transform.scale, transform.rotate);
+  applyLayerLayout(el, transform.x, transform.y, transform.scale, transform.rotate);
 }
 
 function setCropMode(active) {
@@ -819,7 +835,7 @@ layerCropToggle.addEventListener('pointerup', (e) => {
 // 呼ぶ）が setLayerSelected 内の cropModeActive ガード経由で兼ねる（専用リスナーは不要）。
 
 // ㉗ 錨補正（2026-08-06 crop-handle-anchor-fix）: crop の中心が実際の配置基準点
-// （applyLayerCropVisual の transform-origin）なので、crop 変更だけを書き戻すと基準点自体が
+// （applyLayerLayout の transform-origin）なので、crop 変更だけを書き戻すと基準点自体が
 // 動いて絵全体がずれる。cropAnchorCorrectedTransform が「ドラッグした辺以外は画面上不動」に
 // なる transform.x/y を返し、crop と同一 patch で書く（ドラッグ中のライブ表示も同じ補正を
 // 適用 — 確定時だけだと commit 瞬間にジャンプする）。pointer→ソース座標のマッピング
@@ -1003,7 +1019,7 @@ function applyLayerPerspectiveNow(el, corners) {
   else delete el.dataset.layerPerspectiveCorners;
   layerPerspectiveToggle.style.borderColor = corners ? '#ffb84d' : '#4da3ff';
   const transform = layerTransformOf(el);
-  el.style.transform = layerTransformString(el, transform.x, transform.y, transform.scale, transform.rotate);
+  applyLayerLayout(el, transform.x, transform.y, transform.scale, transform.rotate);
 }
 
 // プリセット→4隅の展開（v0）。SSOT は保存される4隅のみ — このツマミはオーサリング側の便宜であり、
@@ -1183,7 +1199,7 @@ wrapper.addEventListener('pointerdown', (e) => {
   const baseRotate = Number(el.dataset.layerRotate) || 0;
   let moved = false;
   const apply = (x, y) => {
-    el.style.transform = layerTransformString(el, x, y, baseScale, baseRotate);
+    applyLayerLayout(el, x, y, baseScale, baseRotate);
   };
   const detach = () => {
     window.removeEventListener('pointermove', onMove);

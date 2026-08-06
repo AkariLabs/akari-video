@@ -8,22 +8,24 @@
 // convention -- both are unit-tested against the same reference points to keep them numerically
 // in sync).
 //
-// Composition contract for callers (app.js's applyLayerCropVisual / layer transform string,
-// contract §2.4.1 crop pivot): this returns only the innermost `matrix3d(...)` transform
-// FUNCTION -- callers append it as the last (rightmost/innermost) entry in the element's existing
-// `transform` list (`translate(x,y) scale(s) rotate(deg) matrix3d(...)`), after whatever
-// translate/scale/rotate they already emit, leaving `transform-origin` exactly as-is (crop-rect
-// center, or 50%/50% when there is no crop). Every function in a CSS transform list is implicitly
-// evaluated relative to transform-origin (browsers compute `origin + M(point - origin)` for the
-// *whole* composed chain, not per-function), so matrix3d here is built to operate directly on
-// box-CENTER-relative pixel coordinates: q = 0 at the box's own center (== transform-origin's
-// pivot point), q = +/-boxWidthPx/2 at its left/right edge, etc.
+// Composition contract for callers (app.js's applyLayerLayout, contract §2.4.1 crop pivot): this
+// returns only the innermost `matrix3d(...)` transform FUNCTION -- callers append it as the last
+// (rightmost/innermost) entry in the element's existing `transform` list (`translate(-pivot%,
+// -pivot%) rotate(deg) matrix3d(...)`), after whatever translate/rotate they already emit, leaving
+// `transform-origin` exactly as-is (crop-rect center, or 50%/50% when there is no crop). Every
+// function in a CSS transform list is implicitly evaluated relative to transform-origin (browsers
+// compute `origin + M(point - origin)` for the *whole* composed chain, not per-function), so
+// matrix3d here is built to operate directly on box-CENTER-relative pixel coordinates: q = 0 at
+// the box's own center (== transform-origin's pivot point), q = +/-boxWidthPx/2 at its left/right
+// edge, etc.
 //
-// Web's box is the crop rect's own size in the element's *native* (un-scaled) pixel space --
-// app.js's `scale(t.scale)` is a separate transform function applied outside (to the left of)
-// matrix3d in the composed list, unlike shell which bakes scale into the element's CSS
-// width/height and has no separate scale() function -- so the two surfaces pass different
-// (correctly surface-appropriate) box sizes to what is otherwise numerically the same math.
+// 2026-08-06 web-layer-placement-parity: Web's box is now the crop rect's own *rendered* (already
+// scaled) pixel size -- app.js's `applyLayerLayout` bakes `scale` into the element's CSS
+// width/height (boxWidthPx = crop.w * videoWidth * scale) and has no separate `scale()` transform
+// function, exactly like shell. Previously Web kept the element at its native (un-scaled) size and
+// applied `scale(t.scale)` as a separate outer transform function, which needed a different
+// (native-px) box size here; that convention difference is gone now that both surfaces place
+// layers with the same center-based formula.
 //
 // IMPORTANT: Heckbert's classic derivation assumes its *domain* is the standard unit square
 // [0,1]x[0,1] -- the a11..a32 formulas are only valid when u,v range over [0,1], not an arbitrary

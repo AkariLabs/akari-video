@@ -65,18 +65,24 @@
   `packages/render-cut/src/layers.mjs` の合成チェーンで scale の直前に `crop=` を 1 段挿す。
   既存の chromakey → format=yuva420p の後、scale/rotate/opacity より前。`perspective`
   〔`layers[].perspective`。§2.4.4〕は scale の直後・rotate の直前に挿す — 2026-08-06 追記）
-- **プレビュー実装（shell / Web 共通の考え方）**: レイヤー要素を wrapper で包まず、同じ `<video>`
-  要素に `clip-path: inset(...)` を掛けて視覚的に切り抜き、`transform-origin` をクロップ矩形の
-  中心へ動かすことで拡縮・回転のピボットを実際の合成基準点に合わせる（crop 無しなら
-  `transform-origin: 50% 50%` に一致し、既存の transform 適用と完全に同じ見た目になる）
-  - shell（`apps/shell/extensions/akari-preview`）: レイヤーの位置基準は「箱の中心を
-    `(outputWidth/2+x, outputHeight/2+y)` に置く」ため、pivot（`transform-origin` の割合）を
-    クロップ中心にし、`translate(-pivotX%, -pivotY%)` で該当点をアンカーへ合わせる
-  - Web（`packages/preview-server`）: レイヤーの位置基準は「要素の自然な静的位置（キャンバス
-    左上）から `translate(x,y)`」であり shell とは異なる（**既存の PiP 配置慣習の相違であり
-    crop 導入前からの既知差分。本メモは crop の見た目を新たに壊さないことのみを担保し、
-    この配置慣習自体の統一は本タスクのスコープ外**）。crop 無しでは `transform-origin: 50% 50%`
-    のまま変化しないため回帰は無い
+- **プレビュー実装（shell / Web 共通の考え方。2026-08-06 web-layer-placement-parity で
+  中心基準へ統一済み）**: レイヤー要素を wrapper で包まず、同じ `<video>` 要素に
+  `clip-path: inset(...)` を掛けて視覚的に切り抜き、`transform-origin` をクロップ矩形の中心へ
+  動かすことで拡縮・回転のピボットを実際の合成基準点に合わせる（crop 無しなら
+  `transform-origin: 50% 50%` に一致し、既存の transform 適用と完全に同じ見た目になる）。
+  レイヤーの位置基準は shell/Web とも「箱の中心を `(outputWidth/2+x, outputHeight/2+y)` に置く」
+  （箱サイズ = `videoWidth/Height × transform.scale`）で統一されており、pivot
+  （`transform-origin` の割合）をクロップ中心にし、`translate(-pivotX%, -pivotY%) rotate(deg)`
+  で該当点をアンカーへ合わせる:
+  - shell（`apps/shell/extensions/akari-preview`）: `updateStageScale` のレイヤーループ
+    （`akari-preview-open-handler.ts`）が正本。従来からこの中心基準
+  - Web（`packages/preview-server/public/app.js` の `applyLayerLayout`）: 2026-08-06 以前は
+    「要素の自然な静的位置（キャンバス左上）から `translate(x,y) scale(s)`」という独自の基準
+    だった（オーナー実機報告: 同じ edit.json でも shell と Web で PiP の見た目の位置が違う）。
+    `applyLayerLayout` へ一本化し、`left/top = outputSize/2+x,y`・`width/height =
+    videoWidth/Height×scale`・`transform: translate(-pivot%,-pivot%) rotate(deg)` へ揃えた
+    （`scale()` は独立した transform 関数ではなくなり、箱サイズへ焼き込む — shell と同じ単位）。
+    crop 無しでは `transform-origin: 50% 50%` のまま変化しないため回帰は無い
 - **直接操作**: レイヤー選択 UI に**クロップモード**（既存の移動/リサイズ/回転と排他のモード
   切替 — トグルボタン。shell/Web 双方に実装）+ 8 方向ハンドル（n/ne/e/se/s/sw/w/nw）。
   ドラッグ結果は正規化座標で `layers[].crop` へ書き戻す（確定=pointerup のみ、既存の
