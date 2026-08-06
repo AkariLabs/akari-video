@@ -40,6 +40,7 @@ import {
 import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visual';
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { LayerPerspective, computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
+import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
 import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
@@ -4036,6 +4037,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const checkCutFreezeCrossingFn = (${checkCutFreezeCrossing.toString()});
             // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）。
             const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});
+            // ㉗ layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・
+            // 2026-08-06 crop-handle-anchor-fix）。
+            const cropAnchorCorrectedTransformFn = (${cropAnchorCorrectedTransform.toString()});
             // freeze の一時停止ホールド（近似実装。尺は伸ばさない — 詳細はコメント参照）。
             let freezeHoldUntilMs = 0;
             let freezeHoldConsumedForSegmentIndex = null;
@@ -4610,6 +4614,24 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (cropModeActive) updateLayerCropBox();
                 else updateLayerSelectBox();
             };
+            // ㉗ クロップハンドル操作の錨補正（2026-08-06 crop-handle-anchor-fix）: crop と
+            // transform.x/y を同一フレームで一括更新する。crop 単独 → transform 単独の2段更新だと
+            // 中間フレームで一瞬だけ錨補正前の crop が画面に出てしまう（updateLayerLayout が
+            // 前者の呼び出し時点でまだ古い transform を使って描く）ため、必ずこちらを使う。
+            const applyLayerCropAndTransformNow = (entry, crop, transform) => {
+                const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
+                entry.video.dataset.akariCropX = String(c.x);
+                entry.video.dataset.akariCropY = String(c.y);
+                entry.video.dataset.akariCropW = String(c.w);
+                entry.video.dataset.akariCropH = String(c.h);
+                entry.video.dataset.akariTransformX = String(transform.x);
+                entry.video.dataset.akariTransformY = String(transform.y);
+                entry.video.dataset.akariTransformScale = String(transform.scale);
+                entry.video.dataset.akariTransformRotate = String(transform.rotate);
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (cropModeActive) updateLayerCropBox();
+                else updateLayerSelectBox();
+            };
             // ベイクテロップは全面サイズの透明動画なので、要素の箱で選択枠を描くと画面いっぱいに
             // なり分かりにくい。現フレームのアルファを実測し、不透明領域（コンテンツ）へ枠を
             // フィットさせ、透明部分のクリックは下へ素通しする。計測不能（CORS 等）時は従来挙動
@@ -4792,9 +4814,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerCropToggle.classList.add('is-target-active');
             };
             // クロップモードのオーバーレイ: 外枠はソースフレーム全体（クロップ無しなら見えていたはずの
-            // 範囲）、内枠が現在のクロップ窓。pivot は意図的に全面中心固定（クロップ現在値による
-            // ピボットのドリフトを避け、常に自分の中心で回る素直な参照系にする — 実合成の pivot とは
-            // 異なるが、これは編集中だけの近似で書き出し自体には影響しない）。
+            // 範囲）、内枠が現在のクロップ窓。pivot は実合成と同じ「現在のクロップ矩形の中心」を使う
+            // （2026-08-06 crop-handle-anchor-fix 以前は全面中心固定の近似だったが、それだと錨補正
+            // 後の transform.x/y と噛み合わず外枠が編集中にドリフトして見えるため、実際の合成 pivot
+            // と統一した — layerScreenRectForVideoRect の呼び手（updateLayerSelectBox）と同型）。
             const updateLayerCropBox = () => {
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
                 if (!cropModeActive || !entry || entry.video.style.display === 'none' || !(entry.video.videoWidth > 0)) {
@@ -4805,7 +4828,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const crop = layerCropNow(entry);
                 const vw = entry.video.videoWidth;
                 const vh = entry.video.videoHeight;
-                const pivotPx = { x: vw / 2, y: vh / 2 };
+                const pivotPx = { x: (crop.x + crop.w / 2) * vw, y: (crop.y + crop.h / 2) * vh };
                 const outer = layerScreenRectForVideoRect(entry, transform, { x: 0, y: 0, w: vw, h: vh }, pivotPx);
                 const inner = layerScreenRectForVideoRect(entry, transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, pivotPx);
                 layerCropBox.style.left = outer.left + 'px';
@@ -5268,7 +5291,16 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉔ クロップモードの 8 方向ハンドル（n/ne/e/se/s/sw/w/nw）。対辺（動かさない側）を
             // アンカーに固定し、ドラッグ中の点（ソースフレーム正規化座標）で動かした側の辺を
             // 更新する — CapCut 等の切り抜きハンドルと同型の挙動。確定(pointerup)時のみ
-            // layerWrite({crop}) で書き戻す（既存 transform ハンドルと同じ確定タイミング）。
+            // layerWrite({crop, transform}) で書き戻す（既存 transform ハンドルと同じ確定
+            // タイミング）。
+            // ㉗ 錨補正（2026-08-06 crop-handle-anchor-fix）: crop の中心が実際の配置基準点
+            // （layerScreenRectForVideoRect 参照）なので、crop 変更だけを書き戻すと基準点自体が
+            // 動いて絵全体がずれる。cropAnchorCorrectedTransformFn が「ドラッグした辺以外は画面上
+            // 不動」になる transform.x/y を返し、crop と同一 patch で書く（ドラッグ中のライブ表示も
+            // 同じ補正を適用 — 確定時だけだと commit 瞬間にジャンプする）。pointer→ソース座標の
+            // マッピング（computeNext 内の layerVideoPointForPivot 呼び出し）はドラッグ開始時点の
+            // startTransform を最後まで使い続ける（ライブ補正で変わる transform.x/y を混ぜない）ため、
+            // この錨補正の追加はハンドル自体の追従性に影響しない。
             for (const handle of layerCropHandleElements) {
                 handle.addEventListener('pointerdown', event => {
                     if (event.button !== 0 || !selectedLayerId || !cropModeActive) return;
@@ -5311,24 +5343,29 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (dir.indexOf('s') >= 0) nextBottom = Math.max(fy, original.y + CROP_MIN);
                         return clampCrop(nextX, nextY, nextRight - nextX, nextBottom - nextY);
                     };
+                    const correctedTransformFor = nextCrop => cropAnchorCorrectedTransformFn(
+                        original, nextCrop, startTransform, entry.video.videoWidth, entry.video.videoHeight
+                    );
                     const onMove = moveEvent => {
                         if (moveEvent.pointerId !== pointerId) return;
                         moved = true;
-                        applyLayerCropNow(entry, computeNext(moveEvent));
+                        const nextCrop = computeNext(moveEvent);
+                        applyLayerCropAndTransformNow(entry, nextCrop, correctedTransformFor(nextCrop));
                     };
                     const finish = async () => {
                         cleanup();
                         if (cancelled) {
-                            applyLayerCropNow(entry, original);
+                            applyLayerCropAndTransformNow(entry, original, startTransform);
                             return;
                         }
                         if (!moved) return;
                         const finalCrop = layerCropNow(entry);
+                        const finalTransform = layerTransformNow(entry);
                         try {
-                            await window.akari.engine.layerWrite(entry.spec.id, { crop: finalCrop });
+                            await window.akari.engine.layerWrite(entry.spec.id, { crop: finalCrop, transform: finalTransform });
                         } catch (error) {
                             console.warn('[akari-preview] layer crop write rejected; reverting', error);
-                            applyLayerCropNow(entry, original);
+                            applyLayerCropAndTransformNow(entry, original, startTransform);
                         }
                     };
                     const onUp = upEvent => {
