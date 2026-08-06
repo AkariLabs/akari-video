@@ -138,14 +138,21 @@ function buildFlare({ filters, inputLabel, outputLabel, intensity, width, height
 }
 
 function buildProceduralGlowLayer({ filters, inputLabel, outputLabel, intensity, width, height, fps, duration, uid, expr }) {
+  const baseLabel = `[glow_${uid}_base]`;
+  const topLabel = `[glow_${uid}_top]`;
   const canvasLabel = `[glow_${uid}_canvas]`;
   const layerLabel = `[glow_${uid}_layer]`;
   const fullLabel = `[glow_${uid}_full]`;
+  // inputLabel をこの下で screen 合成 / intensity ミックスの二箇所で消費するため、先に split=2
+  // しておく（buildVignette と同じパターン）。split なしでラベルを複数フィルタの入力に使い回すのは
+  // ffmpeg 上未定義動作 — 単独カットでは偶然動くが、同じフィルタグラフに 2 カット目が乗ると
+  // 出力尺が理論値から外れる（2026-08-06 実測: 再現バグそのもの）。
+  filters.push(`${inputLabel}split=2${baseLabel}${topLabel}`);
   filters.push(`color=c=black:s=${width}x${height}:r=${num(fps)}:d=${num(duration)}${canvasLabel}`);
   // geq は luma のみ書く（cb/cr を明示的に 128 固定しないと既定で色被りが乗る — 実測確認済み）。
   filters.push(`${canvasLabel}format=yuv420p,geq=lum='${expr}':cb=128:cr=128${layerLabel}`);
-  filters.push(`${inputLabel}${layerLabel}blend=all_mode=screen${fullLabel}`);
-  filters.push(`${fullLabel}${inputLabel}blend=all_mode=normal:all_opacity=${num(intensity)}${outputLabel}`);
+  filters.push(`${topLabel}${layerLabel}blend=all_mode=screen${fullLabel}`);
+  filters.push(`${fullLabel}${baseLabel}blend=all_mode=normal:all_opacity=${num(intensity)}${outputLabel}`);
 }
 
 // count 個の輝点が、それぞれ決定的な位相・速度で画面内を漂う/周回する geq 輝度式を作る。
