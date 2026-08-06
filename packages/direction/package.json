@@ -1,0 +1,13 @@
+{
+  "name": "@akari-video/direction",
+  "version": "0.0.1",
+  "private": true,
+  "description": "演出レシピ（presets/direction/）を既存 edit.json/captions.json への追記パッチとして展開する CLI。外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ）。",
+  "type": "module",
+  "bin": {
+    "expand-direction": "bin/expand-direction.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}
