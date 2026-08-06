@@ -7,11 +7,15 @@
 
 export interface CatalogItemLicense {
     spdx?: string;
+    /** ライセンス区分（例: "commercial-ok" / "paid-license-required"）。分類バッジ導出に使う。 */
+    scope?: string;
 }
 
 export interface CatalogItemSource {
     url?: string;
     preview_url?: string;
+    /** 取得手段（例: "direct" / "login" / "purchase"）。free 分類の「要登録」表示に使う。 */
+    acquisition?: string;
 }
 
 export interface CatalogItemMeta {
@@ -23,6 +27,8 @@ export interface CatalogItemMeta {
     when_to_use?: string;
     license?: CatalogItemLicense;
     source?: CatalogItemSource;
+    /** true = 実体を同梱せず外部から都度取得する参照配布アイテム。分類バッジ導出に使う。 */
+    remote?: boolean;
 }
 
 /**
@@ -57,7 +63,8 @@ export function parseCatalogItemMeta(raw: string): CatalogItemMeta | undefined {
         tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === 'string') : undefined,
         when_to_use: typeof parsed.when_to_use === 'string' ? parsed.when_to_use : undefined,
         license: parseLicense(parsed.license),
-        source: parseSource(parsed.source)
+        source: parseSource(parsed.source),
+        remote: typeof parsed.remote === 'boolean' ? parsed.remote : undefined
     };
 }
 
@@ -102,10 +109,15 @@ export function filterCatalogItems<T extends CatalogSearchable>(
 }
 
 function parseLicense(value: unknown): CatalogItemLicense | undefined {
-    if (!isRecord(value) || typeof value.spdx !== 'string' || !value.spdx.trim()) {
+    if (!isRecord(value)) {
         return undefined;
     }
-    return { spdx: value.spdx };
+    const spdx = typeof value.spdx === 'string' && value.spdx.trim() ? value.spdx : undefined;
+    const scope = typeof value.scope === 'string' && value.scope.trim() ? value.scope : undefined;
+    if (!spdx && !scope) {
+        return undefined;
+    }
+    return { spdx, scope };
 }
 
 function parseSource(value: unknown): CatalogItemSource | undefined {
@@ -114,10 +126,11 @@ function parseSource(value: unknown): CatalogItemSource | undefined {
     }
     const url = typeof value.url === 'string' && value.url.trim() ? value.url : undefined;
     const previewUrl = typeof value.preview_url === 'string' && value.preview_url.trim() ? value.preview_url : undefined;
-    if (!url && !previewUrl) {
+    const acquisition = typeof value.acquisition === 'string' && value.acquisition.trim() ? value.acquisition : undefined;
+    if (!url && !previewUrl && !acquisition) {
         return undefined;
     }
-    return { url, preview_url: previewUrl };
+    return { url, preview_url: previewUrl, acquisition };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,9 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+    assetDistributionBadgeText,
     assetStateBadgeText,
+    catalogItemPackIds,
+    deriveAssetDistribution,
+    formatCatalogPackBreakdown,
+    groupCatalogItemsByPack,
     mergeAssetCatalogViews,
     selectResolverAudioFileRef,
+    summarizeCatalogPackDistribution,
     toResolverAssetCatalogViewItem
 } from '../lib/common/asset-catalog-view.js';
 
@@ -163,4 +169,174 @@ test('selectResolverAudioFileRef: files[] が無い / 空 / 音声拡張子に�
     assert.equal(selectResolverAudioFileRef({ category: 'audio' }), undefined);
     assert.equal(selectResolverAudioFileRef({ category: 'audio', files: [] }), undefined);
     assert.equal(selectResolverAudioFileRef({ category: 'audio', files: [{ name: 'not-audio.txt', url: 'https://example.com/not-audio.txt' }] }), undefined);
+});
+
+// --- deriveAssetDistribution / assetDistributionBadgeText（分類バッジ 4 分類、task.md §2） ------
+// 優先順位（installed > paid-license-required > remote）の実データ確認: catalog/font/
+// 851-chikara-dzuyoku（free）・vdl-v7-mincho（paid）・ab-kirigirisu（subscription）。
+
+test('deriveAssetDistribution: installed は他条件に関わらず bundled が最優先', () => {
+    const distribution = deriveAssetDistribution({
+        installed: true,
+        licenseScope: 'paid-license-required',
+        remote: true,
+        tags: ['subscription']
+    });
+    assert.equal(distribution, 'bundled');
+});
+
+test('deriveAssetDistribution: paid-license-required かつ subscription タグ無し — paid', () => {
+    const distribution = deriveAssetDistribution({
+        installed: false,
+        licenseScope: 'paid-license-required',
+        remote: true,
+        tags: ['font', 'paid']
+    });
+    assert.equal(distribution, 'paid');
+});
+
+test('deriveAssetDistribution: paid-license-required かつ subscription タグあり — subscription', () => {
+    const distribution = deriveAssetDistribution({
+        installed: false,
+        licenseScope: 'paid-license-required',
+        remote: true,
+        tags: ['font', 'subscription', 'byo-font']
+    });
+    assert.equal(distribution, 'subscription');
+});
+
+test('deriveAssetDistribution: paid-license-required でなく remote:true — free', () => {
+    const distribution = deriveAssetDistribution({
+        installed: false,
+        licenseScope: 'commercial-ok',
+        remote: true,
+        tags: ['font']
+    });
+    assert.equal(distribution, 'free');
+});
+
+test('deriveAssetDistribution: installed でも remote でも paid-license でもない — undefined（バッジ無し）', () => {
+    assert.equal(deriveAssetDistribution({ installed: false, licenseScope: 'commercial-ok', remote: false }), undefined);
+    assert.equal(deriveAssetDistribution({ installed: false }), undefined);
+});
+
+test('deriveAssetDistribution: tags 未指定でも例外にならない（paid 側の subscription 判定）', () => {
+    assert.equal(deriveAssetDistribution({ installed: false, licenseScope: 'paid-license-required' }), 'paid');
+});
+
+test('assetDistributionBadgeText: bundled は「✓ 同梱済み」', () => {
+    assert.equal(assetDistributionBadgeText('bundled'), '✓ 同梱済み');
+});
+
+test('assetDistributionBadgeText: subscription は「サブスク」', () => {
+    assert.equal(assetDistributionBadgeText('subscription'), 'サブスク');
+});
+
+test('assetDistributionBadgeText: paid は「¥ 各自入手」', () => {
+    assert.equal(assetDistributionBadgeText('paid'), '¥ 各自入手');
+});
+
+test('assetDistributionBadgeText: free かつ acquisition 未指定/direct は「☁ 無料 DL」', () => {
+    assert.equal(assetDistributionBadgeText('free'), '☁ 無料 DL');
+    assert.equal(assetDistributionBadgeText('free', 'direct'), '☁ 無料 DL');
+});
+
+test('assetDistributionBadgeText: free かつ acquisition="login" は「☁ 無料 DL（要登録）」', () => {
+    assert.equal(assetDistributionBadgeText('free', 'login'), '☁ 無料 DL（要登録）');
+});
+
+test('assetDistributionBadgeText: distribution 未指定は undefined（バッジを出さない）', () => {
+    assert.equal(assetDistributionBadgeText(undefined), undefined);
+});
+
+// --- パック棚: catalogItemPackIds / groupCatalogItemsByPack / summarizeCatalogPackDistribution /
+// formatCatalogPackBreakdown（task.md §3） ------------------------------------------------------
+
+test('catalogItemPackIds: pack: プレフィックスのタグから id を抽出する', () => {
+    assert.deepEqual(catalogItemPackIds({ tags: ['font', 'pack:font25-2026-08', 'handwriting'] }), ['font25-2026-08']);
+});
+
+test('catalogItemPackIds: pack: タグが無ければ空配列', () => {
+    assert.deepEqual(catalogItemPackIds({ tags: ['font', 'handwriting'] }), []);
+    assert.deepEqual(catalogItemPackIds({}), []);
+});
+
+test('catalogItemPackIds: 複数の pack: タグを全件抽出する', () => {
+    assert.deepEqual(catalogItemPackIds({ tags: ['pack:a', 'pack:b'] }), ['a', 'b']);
+});
+
+const PACKS = [{ id: 'font25-2026-08', category: 'font', title: 'テロップ向け必須フォント 25 選', summary: '棚卸し済み 25 書体' }];
+
+function fontItem(id, title, tags, extra) {
+    return { origin: 'local', key: `font/${id}`, id, category: 'font', title, tags, ...extra };
+}
+
+test('groupCatalogItemsByPack: pack タグを持つ項目をグループ化し、無関係な項目は ungrouped に残す', () => {
+    const items = [
+        fontItem('a', 'A書体', ['pack:font25-2026-08']),
+        fontItem('b', 'B書体', ['pack:font25-2026-08']),
+        fontItem('c', 'C書体', ['font'])
+    ];
+    const { groups, ungrouped } = groupCatalogItemsByPack(items, PACKS);
+    assert.equal(groups.length, 1);
+    assert.equal(groups[0].pack.id, 'font25-2026-08');
+    assert.deepEqual(groups[0].items.map(item => item.id), ['a', 'b']);
+    assert.deepEqual(ungrouped.map(item => item.id), ['c']);
+});
+
+test('groupCatalogItemsByPack: packs.json に無い pack id を指すタグは ungrouped 側に落ちる（壊れタグで落ちない）', () => {
+    const items = [fontItem('x', 'X書体', ['pack:unknown-pack'])];
+    const { groups, ungrouped } = groupCatalogItemsByPack(items, PACKS);
+    assert.equal(groups.length, 0);
+    assert.deepEqual(ungrouped.map(item => item.id), ['x']);
+});
+
+test('groupCatalogItemsByPack: 該当アイテムが 1 件も無い pack はセクション自体を作らない', () => {
+    const { groups } = groupCatalogItemsByPack([], PACKS);
+    assert.deepEqual(groups, []);
+});
+
+test('groupCatalogItemsByPack: 複数 pack タグを持つ項目は各セクションに重複して現れ、ungrouped には入らない', () => {
+    const packs = [
+        { id: 'p1', category: 'font', title: 'パック1' },
+        { id: 'p2', category: 'font', title: 'パック2' }
+    ];
+    const items = [fontItem('shared', '共用書体', ['pack:p1', 'pack:p2'])];
+    const { groups, ungrouped } = groupCatalogItemsByPack(items, packs);
+    assert.equal(groups.length, 2);
+    assert.ok(groups.every(group => group.items.some(item => item.id === 'shared')));
+    assert.deepEqual(ungrouped, []);
+});
+
+test('groupCatalogItemsByPack: グループの並び順は packs.json の順序に従う', () => {
+    const packs = [
+        { id: 'p1', category: 'font', title: 'パック1' },
+        { id: 'p2', category: 'font', title: 'パック2' }
+    ];
+    const items = [fontItem('b', 'B', ['pack:p2']), fontItem('a', 'A', ['pack:p1'])];
+    const { groups } = groupCatalogItemsByPack(items, packs);
+    assert.deepEqual(groups.map(group => group.pack.id), ['p1', 'p2']);
+});
+
+test('summarizeCatalogPackDistribution: distribution ごとの内訳 + total を集計する', () => {
+    const items = [
+        { distribution: 'bundled' },
+        { distribution: 'bundled' },
+        { distribution: 'free' },
+        { distribution: 'paid' },
+        { distribution: 'subscription' },
+        { distribution: undefined }
+    ];
+    assert.deepEqual(summarizeCatalogPackDistribution(items), {
+        total: 6, bundled: 2, free: 1, paid: 1, subscription: 1
+    });
+});
+
+test('formatCatalogPackBreakdown: 0 件の分類は出さない（task.md 例の形に一致）', () => {
+    const breakdown = { total: 23, bundled: 9, free: 14, paid: 0, subscription: 0 };
+    assert.equal(formatCatalogPackBreakdown(breakdown), '23 件 — 同梱 9 / 無料 DL 14');
+});
+
+test('formatCatalogPackBreakdown: 全分類 0 件なら内訳を出さず件数だけ', () => {
+    assert.equal(formatCatalogPackBreakdown({ total: 0, bundled: 0, free: 0, paid: 0, subscription: 0 }), '0 件');
 });

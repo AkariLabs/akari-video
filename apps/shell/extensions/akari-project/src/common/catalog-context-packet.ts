@@ -1,4 +1,4 @@
-import { composeAgentContextPacket, AgentContextField } from './agent-context-packet';
+import { composeAgentContextPacket, collapseToSingleLine, AgentContextField } from './agent-context-packet';
 import { CatalogItemMeta } from './catalog-reader';
 
 /**
@@ -21,6 +21,31 @@ export function composeCatalogImportPrompt(item: CatalogItemMeta): string {
 /** 「頼む」= 同要素 + when_to_use の先頭 1 文 + ユーザー入力文。 */
 export function composeCatalogAskAgentPrompt(item: CatalogItemMeta, request: string): string {
     return composeAgentContextPacket(CATALOG_TARGET_KIND, catalogDescriptorFields(item, true), request);
+}
+
+const CATALOG_PACK_TARGET_KIND = 'カタログ素材パック';
+const CATALOG_PACK_IMPORT_REQUEST =
+    'このパックの未取得の無料素材をまとめて取得し、ライセンス表記を確認の上プロジェクトへ配置してください' +
+    '（setup-library 系スキルの手順に従う）';
+
+/** パック「まとめて取り込む」の列挙対象 1 件（CatalogItemMeta の必須 3 フィールドだけで足りる）。 */
+export interface CatalogPackImportItem {
+    id: string;
+    category: string;
+    title: string;
+}
+
+/**
+ * パック棚ヘッダ「まとめて取り込む」= 未 installed の free 品目を列挙した定型パケット。
+ * composeCatalogImportPrompt/composeCatalogAskAgentPrompt は composeAgentContextPacket の
+ * 「対象 1 件 + 属性列挙」形（fields[0]=識別子）を前提にしており、複数品目の列挙には
+ * 使い回せないためここで直接組み立てる。sendText 側の 1 行送信前提は変わらないため、
+ * 結果は必ず collapseToSingleLine で 1 行に畳み込む。
+ */
+export function composeCatalogPackImportPrompt(packTitle: string, items: readonly CatalogPackImportItem[]): string {
+    const list = items.map(item => `${item.id}（${item.category}・${item.title}）`).join('、');
+    const summary = `${packTitle} — 対象 ${items.length} 件: ${list}`;
+    return collapseToSingleLine(`【${CATALOG_PACK_TARGET_KIND}】${summary}について: ${CATALOG_PACK_IMPORT_REQUEST}`);
 }
 
 function catalogDescriptorFields(item: CatalogItemMeta, includeWhenToUse: boolean): AgentContextField[] {

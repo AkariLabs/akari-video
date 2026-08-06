@@ -16,7 +16,8 @@ test('parseCatalogItemMeta: 必須3フィールドのみ — id/category/title �
         tags: undefined,
         when_to_use: undefined,
         license: undefined,
-        source: undefined
+        source: undefined,
+        remote: undefined
     });
 });
 
@@ -56,8 +57,8 @@ test('parseCatalogItemMeta: 未知フィールドがあっても例外になら�
     assert.equal(parsed.description, '革ストラップのカメラモデル');
     assert.deepEqual(parsed.tags, ['product-demo', 'vintage', 'camera']);
     assert.equal(parsed.when_to_use, 'レトロ演出のシーン');
-    assert.deepEqual(parsed.license, { spdx: 'CC0-1.0' });
-    assert.deepEqual(parsed.source, { url: 'https://polyhaven.com/a/Camera_01', preview_url: 'https://cdn.polyhaven.com/x.png' });
+    assert.deepEqual(parsed.license, { spdx: 'CC0-1.0', scope: 'commercial-ok' });
+    assert.deepEqual(parsed.source, { url: 'https://polyhaven.com/a/Camera_01', preview_url: 'https://cdn.polyhaven.com/x.png', acquisition: undefined });
 });
 
 test('parseCatalogItemMeta: license/source が欠けていても undefined フィールドとして扱う（例外なし）', () => {
@@ -65,6 +66,61 @@ test('parseCatalogItemMeta: license/source が欠けていても undefined フ�
     const parsed = parseCatalogItemMeta(raw);
     assert.equal(parsed.license, undefined);
     assert.equal(parsed.source, undefined);
+});
+
+// remote / license.scope / source.acquisition — 分類バッジ導出（distribution）が要る新フィールド
+// （task.md §1）。実データ確認済み: catalog/font/851-chikara-dzuyoku（free）・
+// catalog/font/vdl-v7-mincho（paid）・catalog/font/ab-kirigirisu（subscription）。
+
+test('parseCatalogItemMeta: remote:true を読む', () => {
+    const raw = JSON.stringify({ id: '851-chikara-dzuyoku', category: 'font', title: '851チカラヅヨク', remote: true });
+    assert.equal(parseCatalogItemMeta(raw).remote, true);
+});
+
+test('parseCatalogItemMeta: remote:false も読む（true 固定ではない）', () => {
+    const raw = JSON.stringify({ id: 'x', category: 'font', title: 'y', remote: false });
+    assert.equal(parseCatalogItemMeta(raw).remote, false);
+});
+
+test('parseCatalogItemMeta: remote が boolean でなければ undefined（型不一致は無視）', () => {
+    const raw = JSON.stringify({ id: 'x', category: 'font', title: 'y', remote: 'yes' });
+    assert.equal(parseCatalogItemMeta(raw).remote, undefined);
+});
+
+test('parseCatalogItemMeta: remote 欠落は undefined', () => {
+    const raw = JSON.stringify({ id: 'x', category: 'font', title: 'y' });
+    assert.equal(parseCatalogItemMeta(raw).remote, undefined);
+});
+
+test('parseCatalogItemMeta: license.scope を spdx と一緒に読む', () => {
+    const raw = JSON.stringify({
+        id: 'vdl-v7-mincho', category: 'font', title: 'VDL V7明朝',
+        license: { spdx: 'LicenseRef-proprietary', scope: 'paid-license-required' }
+    });
+    const parsed = parseCatalogItemMeta(raw);
+    assert.deepEqual(parsed.license, { spdx: 'LicenseRef-proprietary', scope: 'paid-license-required' });
+});
+
+test('parseCatalogItemMeta: license.scope は spdx が無くても単独で読める', () => {
+    const raw = JSON.stringify({ id: 'x', category: 'font', title: 'y', license: { scope: 'commercial-ok' } });
+    const parsed = parseCatalogItemMeta(raw);
+    assert.deepEqual(parsed.license, { spdx: undefined, scope: 'commercial-ok' });
+});
+
+test('parseCatalogItemMeta: source.acquisition を url/preview_url と一緒に読む', () => {
+    const raw = JSON.stringify({
+        id: 'ab-kirigirisu', category: 'font', title: 'AB霧雨',
+        source: { url: 'https://fonts.adobe.com/fonts/ab-kirigirisu', acquisition: 'login' }
+    });
+    const parsed = parseCatalogItemMeta(raw);
+    assert.equal(parsed.source.acquisition, 'login');
+    assert.equal(parsed.source.url, 'https://fonts.adobe.com/fonts/ab-kirigirisu');
+});
+
+test('parseCatalogItemMeta: source.acquisition は url/preview_url が無くても単独で読める', () => {
+    const raw = JSON.stringify({ id: 'x', category: 'font', title: 'y', source: { acquisition: 'direct' } });
+    const parsed = parseCatalogItemMeta(raw);
+    assert.deepEqual(parsed.source, { url: undefined, preview_url: undefined, acquisition: 'direct' });
 });
 
 const CATEGORY_ITEMS = [
