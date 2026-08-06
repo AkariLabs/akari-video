@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// フォントカタログの見本画像レンダラー（tasks/2026-08-06-font-preview-specimens）。
+// フォントカタログの見本画像レンダラー。
 //
 // 1200x675 の PNG を catalog/font/<id>/preview.png に生成する。1 行目はフォント名をその書体
 // 自身で、2 行目は固定見本文（字形が欠ける書体だけ個別に調整・SAMPLE_OVERRIDES に記録）で組む。

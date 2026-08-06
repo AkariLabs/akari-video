@@ -126,7 +126,7 @@ test("computePerspectiveFfmpegCorners: identity corners (full box, no warp) keep
   closePoint(dest[3], expectedBR);
 });
 
-test("computePerspectiveFfmpegCorners: reproduces the values independently verified against a real ffmpeg render (scratchpad-validated fixture)", () => {
+test("computePerspectiveFfmpegCorners: reproduces the values independently verified against a real ffmpeg render", () => {
   // Regression pin for the exact numbers a real `ffmpeg -vf pad,perspective,crop` invocation was
   // measured against pixel-for-pixel during implementation (padFrac=0.5, corners TL=(0.1,0)
   // TR=(0.9,0) BL=(0,1) BR=(1,1) -- a top-narrowed trapezoid). See layers.test.mjs's real-render
