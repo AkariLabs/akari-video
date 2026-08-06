@@ -4,7 +4,16 @@
   "title": "Noto Serif JP",
   "description": "Google Fonts が公開する定番の日本語明朝体。Hiragino Mincho ProN 相当の明朝トーンを Windows/Linux でも同一グリフで再現するための標準選択肢。可変フォント（wght 100〜900 対応・1ファイル）で、和風・格式・ドキュメンタリー調のテロップに使う。実体は本リポの assets/font/noto-serif-jp/NotoSerifJP-Variable.ttf に同梱済み（2026-07-23 追加。catalog/telop の Hiragino Mincho ProN 直書き置換に伴い新規カタログ化。catalog 側は索引のまま・下記 source は取得元記録）。",
   "when_to_use": "和風・格式・ドキュメンタリー・ニュース調など、ゴシックより落ち着いた明朝体トーンの日本語テロップ・見出しが欲しいシーン",
-  "tags": ["font", "japanese", "mincho", "serif", "google-fonts", "ofl", "telop"],
+  "tags": [
+    "font",
+    "japanese",
+    "mincho",
+    "serif",
+    "google-fonts",
+    "ofl",
+    "telop",
+    "pack:telop-standard"
+  ],
   "knobs": [],
   "ai_usage": "取得後はウェイト（Regular/Bold 等）を用途に応じて選び分けてよい。グリフ形状そのもの（フォントファイル）は改変しない。ゴシック系テロップと混在させる場合も明朝の系列は Noto Serif JP のまま保つ",
   "requires": [],

@@ -13,7 +13,8 @@
     "ofl",
     "telop",
     "emphasis",
-    "bundle-eligible"
+    "bundle-eligible",
+    "pack:telop-standard"
   ],
   "knobs": [],
   "ai_usage": "OFL-1.1 のため実体同梱への昇格が可能（昇格はオーナー裁定）。現状は索引のみ。グリフ形状そのもの（フォントファイル）は改変しない",

@@ -34,6 +34,7 @@
     "url": "https://www.vdl.co.jp/",
     "acquisition": "purchase",
     "license_at_source": "有料商用フォント（視覚デザイン研究所）。購入ライセンスの範囲で映像利用可。再配布・同梱不可",
-    "attribution_required": false
+    "attribution_required": false,
+    "preview_url": "https://www.vdl.co.jp/images/og_logojrblack.png"
   }
 }

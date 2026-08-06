@@ -1,0 +1,11 @@
+{
+  "schema": "akari-catalog-packs/v0",
+  "packs": [
+    {
+      "id": "telop-standard",
+      "category": "font",
+      "title": "テロップ定番フォントパック",
+      "summary": "動画テロップの定番 23 書体（同梱 9 + 無料参照 14）。全部無料"
+    }
+  ]
+}
