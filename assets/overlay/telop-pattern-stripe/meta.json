@@ -1,0 +1,56 @@
+{
+  "id": "telop-pattern-stripe",
+  "category": "overlay",
+  "title": "柄フィルテロップ（ストライプ・ピンク×白）",
+  "description": "ピンク×白の横縞に、上が白く光り下が赤みへ沈む光沢オーバーレイを重ねた柄フィル（background-clip: text）テロップ。赤い内リング + 太めの白い外リングの二重縁取りで輪郭を強く締め、ピンクのにじみグローを添える。縞の周期は patternScale で拡縮できる。",
+  "when_to_use": "元気・ポップ・キュートな印象を添えたい短い単語・フレーズの装飾テロップとして使う。お菓子・コスメ・アイドル・キャンディ調の文脈に向く。常時表示のキャプションではなく、単語単位で目を引かせる装飾として使う。",
+  "tags": [
+    "telop",
+    "pattern-fill",
+    "stripe",
+    "pink",
+    "gradient",
+    "glow",
+    "multi-layer",
+    "japanese",
+    "role-decoration",
+    "tone-ポップ",
+    "tone-元気",
+    "strength-medium",
+    "beat-highlight"
+  ],
+  "knobs": [
+    { "cssVar": "--stripeColorA", "type": "color", "group": "fill", "label": "縞の色A（濃いピンク）" },
+    { "cssVar": "--stripeColorB", "type": "color", "group": "fill", "label": "縞の色B（薄いピンク）" },
+    { "cssVar": "--sheenColor", "type": "color", "group": "fill", "label": "上部の光沢色" },
+    { "cssVar": "--shadeTint", "type": "color", "group": "fill", "label": "下部の沈み込みの色" },
+    { "cssVar": "--patternScale", "type": "slider", "min": 0.5, "max": 2.5, "group": "fill", "label": "縞の周期の拡大率" },
+    { "cssVar": "--ringColor", "type": "color", "group": "fx", "label": "内リング色（既定：赤）" },
+    { "cssVar": "--ringWidth", "type": "slider", "min": 0, "max": 0.15, "unit": "em", "group": "fx", "label": "内リングの太さ" },
+    { "cssVar": "--ringOuterColor", "type": "color", "group": "fx", "label": "外リング色（既定：白）" },
+    { "cssVar": "--ringOuterWidth", "type": "slider", "min": 0, "max": 0.25, "unit": "em", "group": "fx", "label": "外リングの太さ" },
+    { "cssVar": "--glowColor", "type": "color", "group": "fx", "label": "グロー色" },
+    { "cssVar": "--glowStrength", "type": "slider", "min": 0, "max": 3, "group": "fx", "label": "グロー強度" },
+    { "cssVar": "--fontSize", "type": "slider", "min": 40, "max": 220, "unit": "px", "group": "global", "label": "文字サイズ" },
+    { "cssVar": "--fontFamily", "type": "text", "group": "global", "label": "フォント（CSS font-family 文字列）" },
+    { "cssVar": "--letterSpacing", "type": "slider", "min": -10, "max": 30, "unit": "px", "group": "global", "label": "字間" },
+    { "cssVar": "--posX", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "X位置の微調整（既定0 = 画面中央）" },
+    { "cssVar": "--posY", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "Y位置の微調整（既定0 = 画面中央）" }
+  ],
+  "ai_usage": "文言は断片内 .telop-pattern-stripe__fill の要素テキストを直接書き換える（CSS変数でテキストを持たせない）。複製層 .telop-pattern-stripe__glow / __ringOuter / __ring には data-mirror=\"text\" を付与済みで、overlay-runtime の層ミラー機能（>= 0.2.0）が fill 層の編集確定のたびに複製層へ自動同期する。ミラー未対応 runtime でも初期表示は正しい（出荷時点で全層に同一テキストを焼き込み済み）。本素材は5種のうち唯一、二重リング（太い白の外リング + 細い赤の内リング）を持つ — 外リングが内リングより背面（z-index低い）にあるため、内リングの外周に外リングの太さぶんだけ白がのぞく重なり順をそのまま踏襲している（PoC原典どおり）。--ringOuterWidthを--ringWidthより細くすると外リングが内リングの下へ完全に隠れて見えなくなる（意図した挙動 — 「白い外縁」を出したい場合は常に外リングを内リングより太くする）。--stripeColorA/--stripeColorB は横縞の2色（7px/7pxの等間隔、位置比率は焼き込み）、--sheenColor/--shadeTint は縞の上に重なる光沢オーバーレイ（上部ハイライト・下部の沈み込み）の色を制御する。--patternScale は縞の周期を拡縮する。アニメーションは持たない静的スタイル素材。長文は __anchor の max-width: min(1600px, 90%) と __stack の text-wrap: balance / overflow-wrap: anywhere により自動で複数行へ折返す。",
+  "requires": [],
+  "min_overlay_runtime_version": "0.2.0",
+  "provenance": {
+    "origin": "リッチ字幕21種の断片化バッチ P1（柄フィル A ロット5種のうち1本）/ converted_from: lab/telop-rich-css-poc/02-style-gallery.html#st-stripe（オーナーレビュー4ラウンド済み最終形） / オーナー承認日 2026-08-06（テロップHTML正典化裁定の一環・タスク tasks/2026-08-06-telop-rich-css-fragments、P1統一方針適用） / AKARI Video 素材工房（akari-video-internal）/ 層ミラー（data-mirror=\"text\"）のライブ編集同期は @akari-video/overlay-runtime >= 0.2.0（window.akari.runtime.version で参照可）に依存。未満のruntimeでも初期表示は正しい（全層同一テキスト焼き込み出荷、P0パイロットで実機確認済みの規約を踏襲）",
+    "generator": "Claude Sonnet 5; prompt: リッチ字幕PoC .st-stripe（ピンク×白の横縞+光沢オーバーレイ、赤縁+白外縁の二重リング）を overlay-authoring 規約に沿った seek-safe HTML 断片素材へ変換し、data-mirror 層ミラー規約・役割命名の色ツマミ・patternScale による柄タイル拡縮ツマミを付与する"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "version": 1
+}

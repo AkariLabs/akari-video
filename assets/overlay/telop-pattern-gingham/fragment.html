@@ -1,0 +1,103 @@
+<div
+  class="telop-pattern-gingham"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-pattern-gingham — 柄フィル「チェック柄」の HTML 断片化。
+     * 変換元: lab/telop-rich-css-poc/02-style-gallery.html .st-check
+     *（PoC 汎用積層テンプレの sh/rh/ro/ri/fill 5 層のうち、実際に視覚効果を持つ層＝
+     * ずらし影(sh) + 内リング(ri) + fill だけを抽出。--glow は未設定のため rh 層は
+     * 実装しない — 5種中唯一グローの代わりにずらし影を使うスタイル）。
+     *
+     * 構造: __anchor（中央配置 + posX/posY 微調整 + 長文の折返し境界）>
+     * __stack（同一 grid セルへ 3 層を重ねる）> __shadow（濃緑のずらし影・最背面）/
+     * __ring（白い内リング）/ __fill（縦横グリッド柄+緑グラデ本体・編集対象・最前面）。
+     *
+     * 柄本体は3レイヤーの合成（垂直・水平の半透明白グリッド線2方向 + 緑の縦グラデ）で
+     * ギンガムチェックを表現する。グリッド線の太さ・周期は --patternScale で一括スケールする。
+     */
+    .telop-pattern-gingham {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Hiragino Sans", sans-serif);
+      --i-fill: repeating-linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--gridColor, #ffffff) 55%, transparent) 0 calc(9px * var(--patternScale, 1)),
+          transparent calc(9px * var(--patternScale, 1)) calc(22px * var(--patternScale, 1))
+        ),
+        repeating-linear-gradient(
+          0deg,
+          color-mix(in srgb, var(--gridColor, #ffffff) 55%, transparent) 0 calc(9px * var(--patternScale, 1)),
+          transparent calc(9px * var(--patternScale, 1)) calc(22px * var(--patternScale, 1))
+        ),
+        linear-gradient(180deg, var(--fillTop, #8ad020) 0%, var(--fillBottom, #4a9808) 100%);
+    }
+
+    .telop-pattern-gingham,
+    .telop-pattern-gingham * {
+      box-sizing: border-box;
+    }
+
+    .telop-pattern-gingham__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+
+    .telop-pattern-gingham__stack {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: 800;
+      font-size: var(--fontSize, 104px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .telop-pattern-gingham__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: 濃緑のずらし影。複製層。 */
+    .telop-pattern-gingham__shadow {
+      z-index: 1;
+      transform: translate(var(--shadowOffsetX, 0.035em), var(--shadowOffsetY, 0.045em));
+      color: var(--shadowColor, #0a2a00);
+      -webkit-text-stroke: var(--shadowWidth, 0.07em) var(--shadowColor, #0a2a00);
+    }
+
+    /* 層2: 白い内リング。複製層。 */
+    .telop-pattern-gingham__ring {
+      z-index: 2;
+      color: transparent;
+      -webkit-text-stroke: var(--ringWidth, 0.07em) var(--ringColor, #ffffff);
+    }
+
+    /* 層3（最前面）: 縦横グリッド + 緑グラデの柄フィル本体（ギンガムチェック）。編集対象。 */
+    .telop-pattern-gingham__fill {
+      z-index: 3;
+      background: var(--i-fill);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
+
+  <div class="telop-pattern-gingham__anchor">
+    <span class="telop-pattern-gingham__stack">
+      <span class="telop-pattern-gingham__shadow" data-mirror="text" aria-hidden="true">チェック柄</span>
+      <span class="telop-pattern-gingham__ring" data-mirror="text" aria-hidden="true">チェック柄</span>
+      <span class="telop-pattern-gingham__fill">チェック柄</span>
+    </span>
+  </div>
+</div>

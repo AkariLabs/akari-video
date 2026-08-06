@@ -1,0 +1,107 @@
+<div
+  class="telop-pop-heart"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-pop-heart — ポップ柄ハート（角丸ゴシック + ハート柄・旧 patternFill hearts 相当）
+     * の HTML 断片化。変換元: lab/telop-rich-css-poc/02-style-gallery.html #st-heart
+     *（オーナーレビュー4ラウンド済み最終形。converted_from は meta.json 参照）
+     *
+     * 構造: __anchor（中央配置 + posX/posY 微調整 + 長文の折返し境界）>
+     * __stack（4層を同一 grid セルへ重ねる）> __sh（ずらし影・最背面・data-mirror）/
+     * __ring_outer（白外縁・data-mirror）/ __ring_inner（マゼンタ内縁・data-mirror）/
+     * __fill（ハート柄 + 紫グラデ本体・編集対象・最前面）。PoC 原典の汎用6層スキーマのうち
+     * 実効果を持つ4層（sh・ro・ri・fill）だけを抽出（rh・bk はPoC原典でも未設定のため実装せず）。
+     * transform を持つ層（sh）は必ず z-index を明示する。
+     *
+     * ハート柄はSVGデータURI（fill-opacity 0.6の単色ハートを14pxタイル）+ 紫系linear-gradient。
+     * SVG内部の値（ハート形状・不透明度）は焼き込み（差し替えはプリセット差分方針）、
+     * タイルサイズだけ --patternSize でツマミ化。
+     */
+    .telop-pop-heart {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif);
+    }
+
+    .telop-pop-heart,
+    .telop-pop-heart * {
+      box-sizing: border-box;
+    }
+
+    .telop-pop-heart__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+
+    .telop-pop-heart__stack {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: 800;
+      font-size: var(--fontSize, 104px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .telop-pop-heart__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: ずらし影。複製層 — data-mirror="text"。 */
+    .telop-pop-heart__sh {
+      z-index: 1;
+      transform: translate(var(--shadowOffsetX, 0.04em), var(--shadowOffsetY, 0.05em));
+      color: var(--color_shadow, #b8a8c0);
+      -webkit-text-stroke: var(--shadowWidth, 0.2em) var(--color_shadow, #b8a8c0);
+    }
+
+    /* 層2: 白外縁。複製層 — data-mirror="text"。 */
+    .telop-pop-heart__ring_outer {
+      z-index: 2;
+      color: transparent;
+      -webkit-text-stroke: var(--ringOuterWidth, 0.2em) var(--color_ring_outer, #ffffff);
+    }
+
+    /* 層3: マゼンタ内縁。複製層 — data-mirror="text"。 */
+    .telop-pop-heart__ring_inner {
+      z-index: 3;
+      color: transparent;
+      -webkit-text-stroke: var(--ringInnerWidth, 0.09em) var(--color_ring_inner, #e020d8);
+    }
+
+    /* 層4（最前面）: ハート柄 + 紫グラデ本体。編集対象（DOM テキスト直置き）。 */
+    .telop-pop-heart__fill {
+      z-index: 4;
+      background:
+        url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"%3E%3Cpath d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="%23e8a0f8" fill-opacity="0.6"/%3E%3C/svg%3E') 0 0 / var(--patternSize, 14px) var(--patternSize, 14px),
+        linear-gradient(180deg,
+          var(--color_fill, #b040e8) 0%,
+          var(--color_fill_mid, #8818c0) 55%,
+          var(--color_fill_2, #6a08a0) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
+
+  <div class="telop-pop-heart__anchor">
+    <span class="telop-pop-heart__stack">
+      <span class="telop-pop-heart__sh" data-mirror="text" aria-hidden="true">ハート</span>
+      <span class="telop-pop-heart__ring_outer" data-mirror="text" aria-hidden="true">ハート</span>
+      <span class="telop-pop-heart__ring_inner" data-mirror="text" aria-hidden="true">ハート</span>
+      <span class="telop-pop-heart__fill">ハート</span>
+    </span>
+  </div>
+</div>

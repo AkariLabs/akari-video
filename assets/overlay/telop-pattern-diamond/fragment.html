@@ -1,0 +1,116 @@
+<div
+  class="telop-pattern-diamond"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-pattern-diamond — 柄フィル「ダイヤ柄」の HTML 断片化。
+     * 変換元: lab/telop-rich-css-poc/02-style-gallery.html .st-diamond
+     *（PoC 汎用積層テンプレの sh/rh/ro/ri/fill 5 層のうち、このタイルが実際に視覚効果を
+     * 持つ層＝グロー(rh) + 内リング(ri) + fill だけを抽出。sh/ro は未設定のため実装しない
+     * — telop-grunge-bullet と同じ「必要な層だけを持つ」判断）。
+     *
+     * 構造: __anchor（中央配置 + posX/posY 微調整 + 長文の折返し境界）>
+     * __stack（同一 grid セルへ 3 層を重ねる）> __glow（紫グロー・text-shadow のみ・最背面）/
+     * __ring（白い内リング・text-stroke）/ __fill（斜め格子+きらめき+紫グラデ本体・編集対象・最前面）。
+     *
+     * 柄本体は3レイヤーの合成（斜め45度の白い光の筋 × 2方向 + 白いひし形アイコンのタイル敷き
+     * + 紫の縦グラデ）。SVG アイコン内部の値（形・不透明度）は焼き込み（差し替えはプリセット差分）。
+     * タイルサイズ（斜め筋の間隔・アイコンのタイル幅）は --patternScale で一括スケールする
+     * （統一方針: 柄タイルのサイズは効果が視認できるためツマミ化してよい）。
+     */
+    .telop-pattern-diamond {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Hiragino Sans", sans-serif);
+      /* 内部変数（knob-audit の INTERNAL_PREFIXES 対象）。柄合成の単一ソース化。 */
+      --i-fill: repeating-linear-gradient(
+          45deg,
+          color-mix(in srgb, var(--sparkleColor, #ffffff) 32%, transparent) 0 calc(2px * var(--patternScale, 1)),
+          transparent calc(2px * var(--patternScale, 1)) calc(13px * var(--patternScale, 1))
+        ),
+        repeating-linear-gradient(
+          -45deg,
+          color-mix(in srgb, var(--sparkleColor, #ffffff) 32%, transparent) 0 calc(2px * var(--patternScale, 1)),
+          transparent calc(2px * var(--patternScale, 1)) calc(13px * var(--patternScale, 1))
+        ),
+        url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="46" height="46"%3E%3Cpath d="M12 2 21 12 12 22 3 12z" fill="white" fill-opacity="0.5"/%3E%3C/svg%3E')
+          0 0 / calc(26px * var(--patternScale, 1)) calc(26px * var(--patternScale, 1)),
+        linear-gradient(
+          180deg,
+          var(--fillTop, #e08aff) 0%,
+          var(--fillMid, #a038e0) 45%,
+          var(--fillBottom, #7818b8) 100%
+        );
+    }
+
+    .telop-pattern-diamond,
+    .telop-pattern-diamond * {
+      box-sizing: border-box;
+    }
+
+    .telop-pattern-diamond__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+
+    .telop-pattern-diamond__stack {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: 800;
+      font-size: var(--fontSize, 104px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .telop-pattern-diamond__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: 紫のにじみグロー。文字色は透明、text-shadow だけが見える。複製層。 */
+    .telop-pattern-diamond__glow {
+      z-index: 1;
+      color: transparent;
+      text-shadow:
+        0 0 calc(var(--glowStrength, 1) * 0.18em)
+          color-mix(in srgb, var(--glowColor, #be50ff) 90%, transparent),
+        0 0 calc(var(--glowStrength, 1) * 0.4em)
+          color-mix(in srgb, var(--glowColor, #be50ff) 60%, #1a0030);
+    }
+
+    /* 層2: 白い内リング。複製層。 */
+    .telop-pattern-diamond__ring {
+      z-index: 2;
+      color: transparent;
+      -webkit-text-stroke: var(--ringWidth, 0.07em) var(--ringColor, #ffffff);
+    }
+
+    /* 層3（最前面）: 斜め格子 + きらめき + 紫グラデの柄フィル本体。編集対象。 */
+    .telop-pattern-diamond__fill {
+      z-index: 3;
+      background: var(--i-fill);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
+
+  <div class="telop-pattern-diamond__anchor">
+    <span class="telop-pattern-diamond__stack">
+      <span class="telop-pattern-diamond__glow" data-mirror="text" aria-hidden="true">ダイヤ柄</span>
+      <span class="telop-pattern-diamond__ring" data-mirror="text" aria-hidden="true">ダイヤ柄</span>
+      <span class="telop-pattern-diamond__fill">ダイヤ柄</span>
+    </span>
+  </div>
+</div>

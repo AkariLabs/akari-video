@@ -1,0 +1,55 @@
+{
+  "id": "telop-pattern-diamond",
+  "category": "overlay",
+  "title": "柄フィルテロップ（ダイヤ柄・紫グラデ）",
+  "description": "紫のグラデ本体に、斜め45度の白い光の筋2方向とひし形アイコンのタイル敷きを重ねた柄フィル（background-clip: text）テロップ。白い内リングで輪郭を締め、紫のにじみグローで華やかさを足す。柄のタイルサイズは patternScale で一括拡縮できる。",
+  "when_to_use": "「お宝」「限定」「特別感」など、キラキラ・ゴージャスな印象を添えたい短い単語・フレーズの装飾テロップとして使う。ダイヤ・宝石・きらめきを連想させる文脈（ガチャ演出・当選演出・限定告知）に向く。常時表示のキャプションではなく、単語単位で目を引かせる一撃系の装飾として使う。",
+  "tags": [
+    "telop",
+    "pattern-fill",
+    "diamond",
+    "sparkle",
+    "purple",
+    "gradient",
+    "glow",
+    "multi-layer",
+    "japanese",
+    "role-decoration",
+    "tone-華やか",
+    "tone-ゴージャス",
+    "strength-medium",
+    "beat-highlight"
+  ],
+  "knobs": [
+    { "cssVar": "--sparkleColor", "type": "color", "group": "fill", "label": "斜め光の筋の色" },
+    { "cssVar": "--fillTop", "type": "color", "group": "fill", "label": "グラデ上端色（明るい紫）" },
+    { "cssVar": "--fillMid", "type": "color", "group": "fill", "label": "グラデ中間色" },
+    { "cssVar": "--fillBottom", "type": "color", "group": "fill", "label": "グラデ下端色（濃い紫）" },
+    { "cssVar": "--patternScale", "type": "slider", "min": 0.5, "max": 2.5, "group": "fill", "label": "柄タイルの拡大率（斜め筋の間隔・ひし形アイコンのサイズを一括スケール）" },
+    { "cssVar": "--ringColor", "type": "color", "group": "fx", "label": "内リング色" },
+    { "cssVar": "--ringWidth", "type": "slider", "min": 0, "max": 0.2, "unit": "em", "group": "fx", "label": "内リングの太さ" },
+    { "cssVar": "--glowColor", "type": "color", "group": "fx", "label": "グロー色" },
+    { "cssVar": "--glowStrength", "type": "slider", "min": 0, "max": 3, "group": "fx", "label": "グロー強度" },
+    { "cssVar": "--fontSize", "type": "slider", "min": 40, "max": 220, "unit": "px", "group": "global", "label": "文字サイズ" },
+    { "cssVar": "--fontFamily", "type": "text", "group": "global", "label": "フォント（CSS font-family 文字列）" },
+    { "cssVar": "--letterSpacing", "type": "slider", "min": -10, "max": 30, "unit": "px", "group": "global", "label": "字間" },
+    { "cssVar": "--posX", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "X位置の微調整（既定0 = 画面中央）" },
+    { "cssVar": "--posY", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "Y位置の微調整（既定0 = 画面中央）" }
+  ],
+  "ai_usage": "文言は断片内 .telop-pattern-diamond__fill の要素テキストを直接書き換える（CSS変数でテキストを持たせない）。複製層 .telop-pattern-diamond__glow / .telop-pattern-diamond__ring には data-mirror=\"text\" を付与済みで、overlay-runtime の層ミラー機能（>= 0.2.0）が fill 層の編集確定のたびに複製層へ自動同期する。ミラー未対応 runtime でも初期表示は正しい（出荷時点で全層に同一テキストを焼き込み済み）。柄（斜め光の筋2方向 + ひし形SVGアイコンのタイル敷き）はすべて --patternScale で一括拡縮する（内部のSVGパス形状・不透明度は焼き込みで、差し替えたい場合はプリセット差分で持つ）。--fillTop/--fillMid/--fillBottom はグラデ本体の3停止点（0%/45%/100%、位置は構造として焼き込み）で、色相を変えれば別配色（例: 青系・金系）の柄フィルへ転用できる。--sparkleColor は斜め光の筋の色（既定は白の半透明、alpha 32%は焼き込み）。--glowColor/--glowStrength はグロー全体の色・強度を単一ソースで制御する（近い光と遠い光の2段を color-mix で導出）。アニメーションは持たない静的スタイル素材。長文は __anchor の max-width: min(1600px, 90%) と __stack の text-wrap: balance / overflow-wrap: anywhere により自動で複数行へ折返す（各層は同一テキストのため折返し位置は全層で一致する）。",
+  "requires": [],
+  "min_overlay_runtime_version": "0.2.0",
+  "provenance": {
+    "origin": "リッチ字幕21種の断片化バッチ P1（柄フィル A ロット5種のうち1本）/ converted_from: lab/telop-rich-css-poc/02-style-gallery.html#st-diamond（オーナーレビュー4ラウンド済み最終形） / オーナー承認日 2026-08-06（テロップHTML正典化裁定の一環・タスク tasks/2026-08-06-telop-rich-css-fragments、P1統一方針適用） / AKARI Video 素材工房（akari-video-internal）/ 層ミラー（data-mirror=\"text\"）のライブ編集同期は @akari-video/overlay-runtime >= 0.2.0（window.akari.runtime.version で参照可）に依存。未満のruntimeでも初期表示は正しい（全層同一テキスト焼き込み出荷、P0パイロットで実機確認済みの規約を踏襲）",
+    "generator": "Claude Sonnet 5; prompt: リッチ字幕PoC .st-diamond（ダイヤ柄・斜め格子+きらめき+紫グラデ）を overlay-authoring 規約に沿った seek-safe HTML 断片素材へ変換し、data-mirror 層ミラー規約・役割命名の色ツマミ・patternScale による柄タイル拡縮ツマミを付与する"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "version": 1
+}

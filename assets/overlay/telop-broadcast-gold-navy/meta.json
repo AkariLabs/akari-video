@@ -1,0 +1,291 @@
+{
+  "id": "telop-broadcast-gold-navy",
+  "category": "overlay",
+  "title": "放送級テロップ（金/紺 多層縁取り）",
+  "description": "同一テキストを6層重ねる多重縁取り（ずらし影＋外周ヘアライン＋太い黒縁＋色リング＋明るいリム＋中央が光る金属グラデ本体）で仕立てた放送番組級のタイトルテロップ。金セグメント（例: 数字・キーワード）と紺セグメント（例: 結びの文言。小書きの助詞＋本文の2要素）を横並びに置く。金/紺どちらも色ロールをツマミ化してあり、色の組み合わせを変えれば別の配色の高級テロップとして使い回せる。",
+  "when_to_use": "節目の発表・周年や終了などの重大告知・エモーショナルな回想シーンの見出しに使う。「◯年の歴史に幕」「◯周年突破」のような、数字や短い決め台詞＋結びの文言という2部構成の見出しに向く。常時表示のキャプションではなく、画面中央に一瞬構えさせる主役級のタイトルとして使う。",
+  "tags": [
+    "telop",
+    "broadcast",
+    "gold",
+    "navy",
+    "metallic",
+    "luxury",
+    "multi-layer",
+    "milestone",
+    "announcement",
+    "title",
+    "japanese"
+  ],
+  "knobs": [
+    {
+      "cssVar": "--posX",
+      "type": "slider",
+      "min": -400,
+      "max": 400,
+      "unit": "px",
+      "group": "layout",
+      "label": "X位置の微調整（既定0 = 画面中央）"
+    },
+    {
+      "cssVar": "--posY",
+      "type": "slider",
+      "min": -400,
+      "max": 400,
+      "unit": "px",
+      "group": "layout",
+      "label": "Y位置の微調整（既定0 = 画面中央）"
+    },
+    {
+      "cssVar": "--segmentGap",
+      "type": "slider",
+      "min": 0,
+      "max": 100,
+      "unit": "px",
+      "group": "layout",
+      "label": "金/紺セグメント間の隙間（既定0 = 密着）"
+    },
+    {
+      "cssVar": "--fontFamily",
+      "type": "text",
+      "group": "typography",
+      "label": "フォント（CSS font-family 文字列）"
+    },
+    {
+      "cssVar": "--fontWeight",
+      "type": "slider",
+      "min": 400,
+      "max": 900,
+      "group": "typography",
+      "label": "文字の太さ（400〜900）"
+    },
+    {
+      "cssVar": "--goldFontSize",
+      "type": "slider",
+      "min": 40,
+      "max": 320,
+      "unit": "px",
+      "group": "gold",
+      "label": "金セグメント文字サイズ"
+    },
+    {
+      "cssVar": "--goldRingHairline",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント 最外周ヘアライン色（既定transparent=無効）"
+    },
+    {
+      "cssVar": "--goldRingOuter",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント 太い黒縁色"
+    },
+    {
+      "cssVar": "--goldRingMid",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント 色リング（既定：暗赤）"
+    },
+    {
+      "cssVar": "--goldRingRim",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント 明るいリム色"
+    },
+    {
+      "cssVar": "--goldFillEdge",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント 本体の極細エッジ色"
+    },
+    {
+      "cssVar": "--goldFillShade",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント グラデ：上下端（陰）の色"
+    },
+    {
+      "cssVar": "--goldFillMid",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント グラデ：中間色"
+    },
+    {
+      "cssVar": "--goldFillBright",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント グラデ：ハイライト帯の色"
+    },
+    {
+      "cssVar": "--goldFillPeak",
+      "type": "color",
+      "group": "gold",
+      "label": "金セグメント グラデ：中央最輝点の色"
+    },
+    {
+      "cssVar": "--navyFontSize",
+      "type": "slider",
+      "min": 40,
+      "max": 280,
+      "unit": "px",
+      "group": "navy",
+      "label": "紺セグメント（本文）文字サイズ"
+    },
+    {
+      "cssVar": "--navyConnectorScale",
+      "type": "slider",
+      "min": 0.3,
+      "max": 1.2,
+      "group": "navy",
+      "label": "紺セグメント（小書き助詞）の縮小率（本文サイズに対する倍率。既定0.86）"
+    },
+    {
+      "cssVar": "--navyRingHairline",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント 最外周ヘアライン色（既定：金の細ライン）"
+    },
+    {
+      "cssVar": "--navyRingOuter",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント 太い黒縁色"
+    },
+    {
+      "cssVar": "--navyRingMid",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント 色リング（既定：黒に近い紺）"
+    },
+    {
+      "cssVar": "--navyRingRim",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント 明るいリム色"
+    },
+    {
+      "cssVar": "--navyFillEdge",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント 本体の極細エッジ色"
+    },
+    {
+      "cssVar": "--navyFillShade",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント グラデ：上下端（陰）の色"
+    },
+    {
+      "cssVar": "--navyFillMid",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント グラデ：中間色"
+    },
+    {
+      "cssVar": "--navyFillBright",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント グラデ：ハイライト帯の色"
+    },
+    {
+      "cssVar": "--navyFillPeak",
+      "type": "color",
+      "group": "navy",
+      "label": "紺セグメント グラデ：中央最輝点の色"
+    },
+    {
+      "cssVar": "--ringHairlineWidth",
+      "type": "slider",
+      "min": 0,
+      "max": 0.4,
+      "unit": "em",
+      "group": "ring",
+      "label": "最外周ヘアラインの太さ（金/紺共有）"
+    },
+    {
+      "cssVar": "--ringOuterWidth",
+      "type": "slider",
+      "min": 0,
+      "max": 0.35,
+      "unit": "em",
+      "group": "ring",
+      "label": "太い黒縁の太さ（金/紺共有）"
+    },
+    {
+      "cssVar": "--ringMidWidth",
+      "type": "slider",
+      "min": 0,
+      "max": 0.25,
+      "unit": "em",
+      "group": "ring",
+      "label": "色リングの太さ（金/紺共有）"
+    },
+    {
+      "cssVar": "--ringRimWidth",
+      "type": "slider",
+      "min": 0,
+      "max": 0.12,
+      "unit": "em",
+      "group": "ring",
+      "label": "明るいリムの太さ（金/紺共有）"
+    },
+    {
+      "cssVar": "--fillEdgeWidth",
+      "type": "slider",
+      "min": 0,
+      "max": 0.05,
+      "unit": "em",
+      "group": "ring",
+      "label": "本体エッジの太さ（金/紺共有）"
+    },
+    {
+      "cssVar": "--shadowStrokeWidth",
+      "type": "slider",
+      "min": 0,
+      "max": 0.35,
+      "unit": "em",
+      "group": "ring",
+      "label": "ずらし影の太さ（金/紺共有）"
+    },
+    {
+      "cssVar": "--shadowOffsetX",
+      "type": "slider",
+      "min": -0.3,
+      "max": 0.3,
+      "unit": "em",
+      "group": "ring",
+      "label": "ずらし影のXオフセット（金/紺共有）"
+    },
+    {
+      "cssVar": "--shadowOffsetY",
+      "type": "slider",
+      "min": -0.3,
+      "max": 0.3,
+      "unit": "em",
+      "group": "ring",
+      "label": "ずらし影のYオフセット（金/紺共有）"
+    },
+    {
+      "cssVar": "--shadowColor",
+      "type": "color",
+      "group": "ring",
+      "label": "ずらし影の色（金/紺共有）"
+    }
+  ],
+  "ai_usage": "テキストは3つの直接テキスト要素（.telop-broadcast-gold-navy__stack--gold .telop-broadcast-gold-navy__fill / .telop-broadcast-gold-navy__stack--navy-connector .telop-broadcast-gold-navy__fill / .telop-broadcast-gold-navy__stack--navy-main .telop-broadcast-gold-navy__fill）を直接書き換える（CSS変数でテキストを持たせない。人間はcontenteditable、エージェントはhtmlパッチ経由。各stackの__sh/__r0/__r1/__r2/__r3は複製層でdata-mirror=\"text\"を持ち、overlay-runtimeの層ミラー機能が__fillの編集確定のたびに自動で同一テキストへ同期する — このstack構造の外へ書き込んでは同期されない）。金セグメントは1要素、紺セグメントは小書きの助詞（既定「の」）+本文（既定「歴史に幕」）の2要素で構成される — PoC最終形の意匠（助詞だけ一段小さいサイズ）を単一要素のcontenteditableでは表現できないための設計判断（conversion-notes.md参照）。文言差し替え例:「26年半」+「の」+「歴史に幕」→「10年」+「の」+「集大成」、「3年ぶり」+「の」+「復活」など。紺の小書き要素は空文字にもできる（助詞なしの2部構成にしたい場合）。色はすべて役割命名のツマミで持ち、goldFill*/navyFill*の4役割（shade/mid/bright/peak）が金属グラデの停止点（0/26/44/50/58/78/100%または0/34/47/51/62/82/100%、金/紺で構造として焼き込み）へ対称に流し込まれる。金/紺を差し替えて別の色相ペア（例：銀/赤、白金/緑）に転用してよい。リングの太さ・ずらし影のオフセットは金紺共有のem単位ツマミ（各セグメントのfont-sizeに自動追従）。goldRingHairlineは既定transparentで金セグメントには視覚効果なし（navyRingHairlineが既定で金色のヘアラインを紺セグメントの黒縁の外に覗かせているのと非対称なのはPoC最終形どおりの意図的な意匠）。アニメーションは持たない（本素材は静的スタイル素材。IN/OUT/loopは断片ネイティブアニメか既存textanim語彙で後付けする）。長文は__anchorがflex-wrap:wrapとmax-width:min(1800px,92%)を持つため、想定を超える長さではセグメント単位（金/助詞/本文）で折返す（各stack内部は折返さない — 多層積みの層間ずれを避けるため）。",
+  "requires": [],
+  "min_overlay_runtime_version": "0.2.0",
+  "provenance": {
+    "origin": "リッチ字幕 PoC からの断片化変換（converted_from: lab/telop-rich-css-poc/01-broadcast-gold-navy.html、オーナー採用宣言済みの最終形「26年半の歴史に幕」）/ オーナー承認日 2026-08-05 / テロップ HTML 正典化裁定に伴う拡充バッチ（tasks/2026-08-06-telop-rich-css-fragments）P0 パイロットの一本（多層リング最深・5層の技法上限を検証する側） / 前提タスク P0-R（overlay-runtime 層ミラー機能）実装後に収蔵 / AKARI Video 素材工房（akari-video-internal）。ライブ編集時の層ミラー同期は overlay-runtime version 0.2.0 以降が必須（min_overlay_runtime_version 参照。window.akari.runtime.version で機能検出可）。実機確認済み（本物の overlay-runtime.js/interaction.js を fragment.html にロードし、fill 層への実編集 → 同一 stack 内 5 ミラー層への同期 → 他 stack への非波及 → blur 確定 → overlayWrite 出力への反映まで確認。proof/telop-broadcast-gold-navy-p0r-*.png、詳細は conversion-notes.md）",
+    "generator": "Claude Sonnet 5; prompt: リッチ字幕 PoC「放送級テロップ（26年半の歴史に幕）」を overlay-authoring 規約に沿った seek-safe HTML 断片素材へ変換。金/紺2色セグメント（紺は小書き助詞+本文の2要素）を data-mirror=\"text\" 層ミラー規約で編集同期に対応させ、色ロール命名のツマミで再配色可能にする"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "version": 1
+}

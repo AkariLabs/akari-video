@@ -1,0 +1,57 @@
+{
+  "id": "telop-pattern-night",
+  "category": "overlay",
+  "title": "柄フィルテロップ（綺麗な夜空・星+サンバースト）",
+  "description": "紺の縦グラデ本体に、大小3種の星（白2種+青みアクセント1種）とサンバースト（光条）アイコンのタイル敷きを重ねた柄フィル（background-clip: text）テロップ。白い内リングで輪郭を締め、淡い青のにじみグローで幻想的な雰囲気を添える。星・光条のタイルサイズは patternScale で一括拡縮できる。",
+  "when_to_use": "幻想的・ロマンチック・エモーショナルな回想・夜のシーンの見出しに使う。「星空」「願い」「夢」など夜空を連想させる単語・短いフレーズの装飾テロップに向く。常時表示のキャプションではなく、単語単位で情緒を添える装飾として使う。",
+  "tags": [
+    "telop",
+    "pattern-fill",
+    "night-sky",
+    "star",
+    "navy",
+    "gradient",
+    "glow",
+    "multi-layer",
+    "japanese",
+    "role-decoration",
+    "tone-幻想的",
+    "tone-エモい",
+    "strength-medium",
+    "beat-reveal"
+  ],
+  "knobs": [
+    { "cssVar": "--starColorPrimary", "type": "color", "group": "fill", "label": "大小の白い星の色" },
+    { "cssVar": "--starColorAccent", "type": "color", "group": "fill", "label": "小さい星・光条アイコンのアクセント色" },
+    { "cssVar": "--fillTop", "type": "color", "group": "fill", "label": "グラデ上端色（濃紺）" },
+    { "cssVar": "--fillMid", "type": "color", "group": "fill", "label": "グラデ中間色" },
+    { "cssVar": "--fillBright", "type": "color", "group": "fill", "label": "グラデ準ハイライト色（62%地点）" },
+    { "cssVar": "--fillBottom", "type": "color", "group": "fill", "label": "グラデ下端色（最も暗い紺）" },
+    { "cssVar": "--patternScale", "type": "slider", "min": 0.5, "max": 2.5, "group": "fill", "label": "柄タイルの拡大率（星・光条のサイズと配置オフセットを一括スケール）" },
+    { "cssVar": "--ringColor", "type": "color", "group": "fx", "label": "内リング色" },
+    { "cssVar": "--ringWidth", "type": "slider", "min": 0, "max": 0.2, "unit": "em", "group": "fx", "label": "内リングの太さ" },
+    { "cssVar": "--glowColor", "type": "color", "group": "fx", "label": "グロー色" },
+    { "cssVar": "--glowStrength", "type": "slider", "min": 0, "max": 3, "group": "fx", "label": "グロー強度" },
+    { "cssVar": "--fontSize", "type": "slider", "min": 40, "max": 220, "unit": "px", "group": "global", "label": "文字サイズ" },
+    { "cssVar": "--fontFamily", "type": "text", "group": "global", "label": "フォント（CSS font-family 文字列）" },
+    { "cssVar": "--letterSpacing", "type": "slider", "min": -10, "max": 30, "unit": "px", "group": "global", "label": "字間" },
+    { "cssVar": "--posX", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "X位置の微調整（既定0 = 画面中央）" },
+    { "cssVar": "--posY", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "Y位置の微調整（既定0 = 画面中央）" }
+  ],
+  "ai_usage": "文言は断片内 .telop-pattern-night__fill の要素テキストを直接書き換える（CSS変数でテキストを持たせない）。複製層 .telop-pattern-night__glow / .telop-pattern-night__ring には data-mirror=\"text\" を付与済みで、overlay-runtime の層ミラー機能（>= 0.2.0）が fill 層の編集確定のたびに複製層へ自動同期する。ミラー未対応 runtime でも初期表示は正しい（出荷時点で全層に同一テキストを焼き込み済み）。柄（大小3種の星 + サンバーストSVGアイコンのタイル敷き）は --patternScale で一括拡縮する。--fillTop/--fillMid/--fillBright/--fillBottom はグラデ本体の4停止点（0%/45%/62%/100%、位置は構造として焼き込み）で、色相を変えれば別配色の柄フィルへ転用できる。--starColorPrimary は大小の白い星2層、--starColorAccent は小さい青みの星1層とサンバーストアイコンの色を制御する（各層の不透明度・アイコン形状は焼き込み）。グローはPoC原典どおり単段の淡いにじみで、--glowColor/--glowStrength で色・強度を制御する。アニメーションは持たない静的スタイル素材。長文は __anchor の max-width: min(1600px, 90%) と __stack の text-wrap: balance / overflow-wrap: anywhere により自動で複数行へ折返す。",
+  "requires": [],
+  "min_overlay_runtime_version": "0.2.0",
+  "provenance": {
+    "origin": "リッチ字幕21種の断片化バッチ P1（柄フィル A ロット5種のうち1本）/ converted_from: lab/telop-rich-css-poc/02-style-gallery.html#st-night（オーナーレビュー4ラウンド済み最終形） / オーナー承認日 2026-08-06（テロップHTML正典化裁定の一環・タスク tasks/2026-08-06-telop-rich-css-fragments、P1統一方針適用） / AKARI Video 素材工房（akari-video-internal）/ 層ミラー（data-mirror=\"text\"）のライブ編集同期は @akari-video/overlay-runtime >= 0.2.0（window.akari.runtime.version で参照可）に依存。未満のruntimeでも初期表示は正しい（全層同一テキスト焼き込み出荷、P0パイロットで実機確認済みの規約を踏襲）",
+    "generator": "Claude Sonnet 5; prompt: リッチ字幕PoC .st-night（綺麗な夜空・星3スケール+サンバースト+紺グラデ）を overlay-authoring 規約に沿った seek-safe HTML 断片素材へ変換し、data-mirror 層ミラー規約・役割命名の色ツマミ・patternScale による柄タイル拡縮ツマミを付与する"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "version": 1
+}

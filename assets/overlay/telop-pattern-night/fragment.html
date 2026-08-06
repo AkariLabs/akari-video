@@ -1,0 +1,123 @@
+<div
+  class="telop-pattern-night"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-pattern-night — 柄フィル「綺麗な夜空」の HTML 断片化。
+     * 変換元: lab/telop-rich-css-poc/02-style-gallery.html .st-night
+     *（PoC 汎用積層テンプレの sh/rh/ro/ri/fill 5 層のうち、実際に視覚効果を持つ層＝
+     * グロー(rh) + 内リング(ri) + fill だけを抽出。sh/ro は未設定のため実装しない）。
+     *
+     * 構造: __anchor（中央配置 + posX/posY 微調整 + 長文の折返し境界）>
+     * __stack（同一 grid セルへ 3 層を重ねる）> __glow（淡い青グロー・最背面）/
+     * __ring（白い内リング）/ __fill（星3種+サンバースト柄+紺グラデ本体・編集対象・最前面）。
+     *
+     * 柄本体は5レイヤーの合成（大/中の白い星2種 + 小さい青みの星1種 + 4条の光条アイコン
+     * タイル敷き + 紺の縦グラデ）。星の色は白系2層と青みアクセント1層+アイコンで分けて
+     * ツマミ化（starColorPrimary / starColorAccent）。星・光条のタイルサイズと配置オフセットは
+     * --patternScale で一括スケールする。
+     */
+    .telop-pattern-night {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Hiragino Sans", sans-serif);
+      --i-fill: radial-gradient(
+          circle,
+          color-mix(in srgb, var(--starColorPrimary, #ffffff) 95%, transparent) calc(1.2px * var(--patternScale, 1)),
+          transparent calc(2px * var(--patternScale, 1))
+        )
+          0 0 / calc(26px * var(--patternScale, 1)) calc(26px * var(--patternScale, 1)),
+        radial-gradient(
+          circle,
+          color-mix(in srgb, var(--starColorPrimary, #ffffff) 75%, transparent) calc(1px * var(--patternScale, 1)),
+          transparent calc(1.7px * var(--patternScale, 1))
+        )
+          calc(13px * var(--patternScale, 1)) calc(9px * var(--patternScale, 1)) /
+          calc(34px * var(--patternScale, 1)) calc(34px * var(--patternScale, 1)),
+        radial-gradient(
+          circle,
+          color-mix(in srgb, var(--starColorAccent, #b4d2ff) 70%, transparent) calc(0.8px * var(--patternScale, 1)),
+          transparent calc(1.5px * var(--patternScale, 1))
+        )
+          calc(7px * var(--patternScale, 1)) calc(20px * var(--patternScale, 1)) /
+          calc(21px * var(--patternScale, 1)) calc(21px * var(--patternScale, 1)),
+        url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="44" height="44"%3E%3Cpath d="M12 3l1.2 7.8L21 12l-7.8 1.2L12 21l-1.2-7.8L3 12l7.8-1.2z" fill="white" fill-opacity="0.85"/%3E%3C/svg%3E')
+          calc(20px * var(--patternScale, 1)) calc(12px * var(--patternScale, 1)) /
+          calc(52px * var(--patternScale, 1)) calc(52px * var(--patternScale, 1)),
+        linear-gradient(
+          180deg,
+          var(--fillTop, #0b1034) 0%,
+          var(--fillMid, #1a2a6e) 45%,
+          var(--fillBright, #3550b0) 62%,
+          var(--fillBottom, #0a0d28) 100%
+        );
+    }
+
+    .telop-pattern-night,
+    .telop-pattern-night * {
+      box-sizing: border-box;
+    }
+
+    .telop-pattern-night__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+
+    .telop-pattern-night__stack {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: 800;
+      font-size: var(--fontSize, 104px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .telop-pattern-night__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: 淡い青のにじみグロー（PoC原典は単段のみ）。複製層。 */
+    .telop-pattern-night__glow {
+      z-index: 1;
+      color: transparent;
+      text-shadow: 0 0 calc(var(--glowStrength, 1) * 0.2em)
+        color-mix(in srgb, var(--glowColor, #78a0ff) 50%, transparent);
+    }
+
+    /* 層2: 白い内リング。複製層。 */
+    .telop-pattern-night__ring {
+      z-index: 2;
+      color: transparent;
+      -webkit-text-stroke: var(--ringWidth, 0.06em) var(--ringColor, #ffffff);
+    }
+
+    /* 層3（最前面）: 星3種+サンバースト柄+紺グラデの柄フィル本体。編集対象。 */
+    .telop-pattern-night__fill {
+      z-index: 3;
+      background: var(--i-fill);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
+
+  <div class="telop-pattern-night__anchor">
+    <span class="telop-pattern-night__stack">
+      <span class="telop-pattern-night__glow" data-mirror="text" aria-hidden="true">綺麗な夜空</span>
+      <span class="telop-pattern-night__ring" data-mirror="text" aria-hidden="true">綺麗な夜空</span>
+      <span class="telop-pattern-night__fill">綺麗な夜空</span>
+    </span>
+  </div>
+</div>

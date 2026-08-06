@@ -1,0 +1,54 @@
+{
+  "id": "telop-kuro-aka",
+  "category": "overlay",
+  "title": "黒赤強調テロップ（黒文字 + 赤い滲みの縁・明朝）",
+  "description": "黒に沈む縦グラデーションの明朝体本体に、赤い細縁と赤いにじみのグローだけを添えたシンプルな強調テロップ。3層（グロー専用層・赤縁リング・グラデ本体）のみの最小構成で、ずらし影や外リングは持たない（PoC原典で未使用のため層を持たせていない）。派手な装飾を足さず「黒文字+赤の滲み」だけで深刻・警告のトーンを出す、テロップの定番形。",
+  "when_to_use": "深刻な事実・警告・重大な数値の提示など、静かだが強い緊張感を持たせたい見出しに使う。派手なグロー系（telop-anger-*・telop-gold-3d）と違い装飾を最小限に抑えているため、感情の起伏より情報の重みを伝えたい場面（所要時間・被害額・締切など）に向く。常時表示のキャプションとしては強すぎるため、要点の一撃を出す用途に限定する。",
+  "tags": [
+    "telop",
+    "serious",
+    "warning",
+    "emphasis",
+    "minimal",
+    "bleed",
+    "gradient",
+    "mincho",
+    "japanese",
+    "role-emphasis",
+    "tone-深刻",
+    "tone-警告",
+    "strength-medium",
+    "beat-reveal"
+  ],
+  "knobs": [
+    { "cssVar": "--fontSize", "type": "slider", "min": 30, "max": 260, "unit": "px", "group": "global", "label": "文字サイズ" },
+    { "cssVar": "--fontFamily", "type": "text", "group": "global", "label": "フォント（CSS font-family 文字列）" },
+    { "cssVar": "--fontWeight", "type": "slider", "min": 400, "max": 900, "group": "global", "label": "文字の太さ（400〜900）" },
+    { "cssVar": "--letterSpacing", "type": "slider", "min": -20, "max": 60, "unit": "px", "group": "global", "label": "字間" },
+    { "cssVar": "--posX", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "X位置の微調整（既定0 = 画面中央）" },
+    { "cssVar": "--posY", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "Y位置の微調整（既定0 = 画面中央）" },
+    { "cssVar": "--fillTop", "type": "color", "group": "fill", "label": "グラデ上端の色" },
+    { "cssVar": "--fillMid", "type": "color", "group": "fill", "label": "グラデ中間の色" },
+    { "cssVar": "--fillBottom", "type": "color", "group": "fill", "label": "グラデ下端の色（黒）" },
+    { "cssVar": "--ringWidth", "type": "slider", "min": 0, "max": 0.1, "unit": "em", "group": "ring", "label": "赤縁の太さ" },
+    { "cssVar": "--ringColor", "type": "color", "group": "ring", "label": "縁の色" },
+    { "cssVar": "--glowColor", "type": "color", "group": "fx", "label": "にじみグローの色（赤）" },
+    { "cssVar": "--glowStrength", "type": "slider", "min": 0, "max": 3, "group": "fx", "label": "グロー強度（ぼかし半径の倍率）" }
+  ],
+  "ai_usage": "文言は断片内 .telop-kuro-aka__fill の要素テキストを直接書き換える（CSS変数でテキストを持たせない）。複製層 .telop-kuro-aka__rh（にじみグロー専用・自身は透明）/ .telop-kuro-aka__ri（赤縁）には data-mirror=\"text\" を付与済みで、層ミラー機能（overlay-runtime・window.akari.runtime.version \"0.2.0\"以降）対応 runtime では fill 層の編集確定が複製層へ自動同期される。未対応 runtime でも初期表示は正しい。フィルの3色（fillTop/fillMid/fillBottom）は PoC 原典の停止点位置（0/55/100%）を構造として焼き込み、色だけをツマミ化した。グロー（赤いにじみ）は原典が3段でわずかに異なる赤〜暗赤を使うが、単一の glowColor 色 + glowStrength（ぼかし半径倍率）へ整理した（既定値は視覚的にほぼ同一）。--anchor は中央寄せ + max-width: min(1600px, 92%) を持ち、想定を超える長文では stack 内部（overflow-wrap: anywhere; text-wrap: balance）で自動折返しする。装飾層が少ない最小構成のため、他のリッチ字幕素材（telop-anger-*・telop-gold-3d）よりツマミ数が少ない。アニメーションは持たない静的スタイル素材。",
+  "requires": [],
+  "min_overlay_runtime_version": "0.2.0",
+  "provenance": {
+    "origin": "リッチ字幕21種の断片化（P1バッチ・怒り3変種+ゴージャス金+黒赤強調の5種）/ converted_from: lab/telop-rich-css-poc/02-style-gallery.html#st-kuro-aka（オーナーレビュー4ラウンド済み最終形）/ オーナー承認日 2026-08-06（テロップHTML正典化裁定の一環・タスク tasks/2026-08-06-telop-rich-css-fragments、P0検収済みの統一方針に従うP1バッチ）/ AKARI Video 素材工房（akari-video-internal）/ 層ミラー（data-mirror=\"text\"）のライブ編集同期は @akari-video/overlay-runtime >= 0.2.0（window.akari.runtime.version で参照可）に依存。未満のruntimeでも初期表示は正しい（全層同一テキスト焼き込み出荷）",
+    "generator": "Claude Sonnet 5; prompt: リッチ字幕PoC .st-kuro-aka（黒文字+赤い滲みの縁・明朝の最小構成強調テロップ）を overlay-authoring 規約に沿った seek-safe HTML 断片素材へ変換し、色を役割命名のツマミへ整理する"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "version": 1
+}

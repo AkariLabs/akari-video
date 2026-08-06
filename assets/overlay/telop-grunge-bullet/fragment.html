@@ -1,0 +1,124 @@
+<div
+  class="telop-grunge-bullet"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-grunge-bullet — 弾痕グランジ明朝（決戦当日スタイル）の HTML 断片化。
+     * 変換元: lab/telop-rich-css-poc/02-style-gallery.html #st-red-metal
+     *（オーナーレビュー4ラウンド済み最終形。converted_from は meta.json 参照）
+     *
+     * 構造: __anchor（中央配置 + posX/posY 微調整 + 長文の折返し境界）>
+     * __stack（3層を同一 grid セルへ重ねる）> __glow（無マスクの赤いにじみ・最背面）/
+     * __bk（マスク付き白裏打ち層・右下へ平行移動・data-mirror）/
+     * __fill（マスク付き横グラデ本体・編集対象・最前面）。
+     * 縁取りなし（PoC 原典どおり）。transform を持つ層（bk）は必ず z-index を明示する
+     * （overlay-authoring 既知の罠: transform がスタッキングコンテキストを作る）。
+     *
+     * マスク: feTurbulence 2 スケール合成（粗い縦長穴 t1 + 微細な点 t2 を feComposite
+     * operator="in" で AND 合成）の SVG データ URI。fill と bk は完全に同一のマスクを
+     * 内部変数 --i-mask-uri で共有する（穴の量・密度は焼き込み — 差し替えはプリセット差分で
+     * 持つ方針のため CSS 変数化しない）。bk だけが transform で右下へずれるため、
+     * 同じ「穴の境界」が bk 側でわずかにずれ、fill の欠けの縁に白がのぞく。
+     */
+    .telop-grunge-bullet {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Hiragino Mincho ProN", "Yu Mincho", serif);
+      font-feature-settings: "palt" 1;
+      /* 内部変数（knob-audit の INTERNAL_PREFIXES 対象 "--i" — 未宣言ツマミ扱いされない）。
+         fill/bk が同一マスクであることをコピペではなく単一ソースで保証する。 */
+      --i-mask-uri: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="230" height="230"%3E%3Cfilter id="h" x="0" y="0" width="100%25" height="100%25"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.115 0.034" numOctaves="2" seed="11" result="t1"/%3E%3CfeColorMatrix in="t1" type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 0 0 0" result="c1"/%3E%3CfeComponentTransfer in="c1" result="m1"%3E%3CfeFuncA type="discrete" tableValues="0 0 0 1 1 1 1 1"/%3E%3C/feComponentTransfer%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.5 0.42" numOctaves="2" seed="4" result="t2"/%3E%3CfeColorMatrix in="t2" type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 0 0 0" result="c2"/%3E%3CfeComponentTransfer in="c2" result="m2"%3E%3CfeFuncA type="discrete" tableValues="0 1 1 1 1 1 1 1"/%3E%3C/feComponentTransfer%3E%3CfeComposite in="m1" in2="m2" operator="in"/%3E%3C/filter%3E%3Crect width="230" height="230" filter="url%28%23h%29"/%3E%3C/svg%3E');
+    }
+
+    .telop-grunge-bullet,
+    .telop-grunge-bullet * {
+      box-sizing: border-box;
+    }
+
+    .telop-grunge-bullet__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      /* 長文の折返し境界（統一方針7: px 直値には min(px, %) を併用）。
+         % はルート（inset:0 で舞台幅そのもの）基準に解決される。 */
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+
+    .telop-grunge-bullet__stack {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: 800;
+      font-size: var(--fontSize, 104px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .telop-grunge-bullet__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: 赤いにじみグロー。マスクは掛けない
+       （欠けの内側も含め輪郭全体からにじむ。文字色は透明、text-shadow だけが見える）。
+       複製層 — 層ミラーA案の data-mirror="text" を付与。 */
+    .telop-grunge-bullet__glow {
+      z-index: 1;
+      color: transparent;
+      text-shadow:
+        0 0 calc(var(--glowStrength, 1) * 0.14em)
+          color-mix(in srgb, var(--color_glow, #d21e14) 88%, transparent),
+        0 0 calc(var(--glowStrength, 1) * 0.38em)
+          color-mix(in srgb, var(--color_glow, #d21e14) 62%, #1a0300);
+    }
+
+    /* 層2: 白い裏打ち層。fill と同一マスクを持ったまま右下へ平行移動。
+       複製層 — data-mirror="text"。 */
+    .telop-grunge-bullet__bk {
+      z-index: 2;
+      color: color-mix(in srgb, var(--color_shadow, #ffffff) calc(var(--shadowOpacity, 0.72) * 100%), transparent);
+      transform: translate(var(--shadowOffsetX, 0.03em), var(--shadowOffsetY, 0.036em));
+      -webkit-mask-image: var(--i-mask-uri);
+      -webkit-mask-size: 230px 230px;
+      mask-image: var(--i-mask-uri);
+      mask-size: 230px 230px;
+    }
+
+    /* 層3（最前面）: 左どす黒→右明るめの横グラデ本体。編集対象（DOM テキスト直置き）。
+       縁取りなし。fill 中間ストップは color-mix で --color_primary/--color_primary_2 の
+       2 端点から比例導出する（PoC 原典の 0/26/52/76/100% ストップ形状を保ったまま
+       ツマミ本体は「両端色」の2つだけにする設計）。 */
+    .telop-grunge-bullet__fill {
+      z-index: 3;
+      background: linear-gradient(90deg,
+        var(--color_primary, #170202) 0%,
+        color-mix(in srgb, var(--color_primary, #170202) 74%, var(--color_primary_2, #e0503a) 26%) 26%,
+        color-mix(in srgb, var(--color_primary, #170202) 48%, var(--color_primary_2, #e0503a) 52%) 52%,
+        color-mix(in srgb, var(--color_primary, #170202) 24%, var(--color_primary_2, #e0503a) 76%) 76%,
+        var(--color_primary_2, #e0503a) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-mask-image: var(--i-mask-uri);
+      -webkit-mask-size: 230px 230px;
+      mask-image: var(--i-mask-uri);
+      mask-size: 230px 230px;
+    }
+  </style>
+
+  <div class="telop-grunge-bullet__anchor">
+    <span class="telop-grunge-bullet__stack">
+      <span class="telop-grunge-bullet__glow" data-mirror="text" aria-hidden="true">決戦当日</span>
+      <span class="telop-grunge-bullet__bk" data-mirror="text" aria-hidden="true">決戦当日</span>
+      <span class="telop-grunge-bullet__fill">決戦当日</span>
+    </span>
+  </div>
+</div>

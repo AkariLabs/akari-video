@@ -1,0 +1,58 @@
+{
+  "id": "telop-anger-mincho",
+  "category": "overlay",
+  "title": "怒りテロップ A（赤→黒グラデ + 白縁 + 黒い雲・明朝）",
+  "description": "上が明るい赤橙、下が黒に沈む縦グラデーションの極太明朝体に、白い縁取りと黒っぽい雲状のグローを纏わせた怒り・抗議系の強調テロップ。3層（グロー専用層・白縁リング・グラデ本体）のみの構成で、ずらし影や外リングは持たない（PoC原典で既定値のまま無効だったため層を削っている）。文章体の明朝が持つ「静かな怒気」の質感が特徴で、同じ配色・同じ層構成のゴシック版（telop-anger-gothic）、黄縁+黒影のコミック調版（telop-anger-gold）と3変種セットになっている。",
+  "when_to_use": "怒り・激怒・抗議・クレーム対応・理不尽への反論など、強い負の感情を代弁する一撃コピーの見出しに使う。明朝体のため「静かに凄む」「淡々とキレている」トーンに向き、コミック調の勢いを出したい場合は telop-anger-gold、フラットに強いだけの怒りには telop-anger-gothic を検討する。常時表示のキャプションではなく、短い決め台詞（4〜8字目安）を画面中央に一瞬構えさせる用途に限定する。",
+  "tags": [
+    "telop",
+    "anger",
+    "rage",
+    "protest",
+    "complaint",
+    "emphasis",
+    "gradient",
+    "multi-layer",
+    "mincho",
+    "japanese",
+    "role-emphasis",
+    "tone-怒り",
+    "tone-抗議",
+    "strength-high",
+    "beat-turn",
+    "beat-punchline"
+  ],
+  "knobs": [
+    { "cssVar": "--fontSize", "type": "slider", "min": 24, "max": 220, "unit": "px", "group": "global", "label": "文字サイズ" },
+    { "cssVar": "--fontFamily", "type": "text", "group": "global", "label": "フォント（CSS font-family 文字列）" },
+    { "cssVar": "--fontWeight", "type": "slider", "min": 400, "max": 900, "group": "global", "label": "文字の太さ（400〜900）" },
+    { "cssVar": "--letterSpacing", "type": "slider", "min": -20, "max": 60, "unit": "px", "group": "global", "label": "字間" },
+    { "cssVar": "--posX", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "X位置の微調整（既定0 = 画面中央）" },
+    { "cssVar": "--posY", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "Y位置の微調整（既定0 = 画面中央）" },
+    { "cssVar": "--fillTop", "type": "color", "group": "fill", "label": "グラデ上端の色（明るい赤橙）" },
+    { "cssVar": "--fillUpper", "type": "color", "group": "fill", "label": "グラデ上寄りの色" },
+    { "cssVar": "--fillMid", "type": "color", "group": "fill", "label": "グラデ中間の色（暗赤）" },
+    { "cssVar": "--fillLower", "type": "color", "group": "fill", "label": "グラデ下寄りの色（黒褐色）" },
+    { "cssVar": "--fillBottom", "type": "color", "group": "fill", "label": "グラデ下端の色（黒に近い）" },
+    { "cssVar": "--ringWidth", "type": "slider", "min": 0, "max": 0.25, "unit": "em", "group": "ring", "label": "白縁の太さ" },
+    { "cssVar": "--ringColor", "type": "color", "group": "ring", "label": "縁の色" },
+    { "cssVar": "--cloudGlow", "type": "color", "group": "fx", "label": "雲状グローの色（黒っぽい影色）" },
+    { "cssVar": "--glowStrength", "type": "slider", "min": 0, "max": 3, "group": "fx", "label": "グロー強度（ぼかし半径の倍率）" }
+  ],
+  "ai_usage": "文言は断片内 .telop-anger-mincho__fill の要素テキストを直接書き換える（CSS変数でテキストを持たせない）。複製層 .telop-anger-mincho__rh（グロー専用・自身は透明）/ .telop-anger-mincho__ri（白縁）には data-mirror=\"text\" を付与済みで、層ミラー機能（overlay-runtime・window.akari.runtime.version \"0.2.0\"以降）対応 runtime では fill 層の編集確定（input/compositionend）が複製層へ自動同期される。未対応 runtime でも初期表示は正しい（出荷時点で全層に同一テキストを焼き込み済み）。フィルの5色（fillTop〜fillBottom）は PoC 原典の停止点位置（0/28/55/80/100%）を構造として焼き込み、色だけをツマミ化した非対称グラデーション（上下対称の圧縮はできないため個別5色のまま — broadcast-gold-navy と同じ判断）。グロー（雲）は原典が3段でわずかに異なる暗赤〜黒を使うが、単一の cloudGlow 色 + glowStrength（ぼかし半径倍率）へ整理した（既定値は視覚的にほぼ同一）。--anchor は中央寄せ + max-width: min(1600px, 92%) を持ち、想定を超える長文では stack 内部（overflow-wrap: anywhere; text-wrap: balance）で自動折返しする。同型の3変種として telop-anger-gothic（同配色・ゴシック体）、telop-anger-gold（黄縁+黒ずらし影+黄雲・コミック調）がある。アニメーションは持たない静的スタイル素材。",
+  "requires": [],
+  "min_overlay_runtime_version": "0.2.0",
+  "provenance": {
+    "origin": "リッチ字幕21種の断片化（P1バッチ・怒り3変種+ゴージャス金+黒赤強調の5種）/ converted_from: lab/telop-rich-css-poc/02-style-gallery.html#st-anger-a（オーナーレビュー4ラウンド済み最終形）/ オーナー承認日 2026-08-06（テロップHTML正典化裁定の一環・タスク tasks/2026-08-06-telop-rich-css-fragments、P0検収済みの統一方針に従うP1バッチ）/ AKARI Video 素材工房（akari-video-internal）/ 層ミラー（data-mirror=\"text\"）のライブ編集同期は @akari-video/overlay-runtime >= 0.2.0（window.akari.runtime.version で参照可）に依存。未満のruntimeでも初期表示は正しい（全層同一テキスト焼き込み出荷）",
+    "generator": "Claude Sonnet 5; prompt: リッチ字幕PoC .st-anger-a（赤→黒グラデ・白縁・黒い雲・明朝の怒りテロップ）を overlay-authoring 規約に沿った seek-safe HTML 断片素材へ変換し、色を役割命名のツマミへ整理する"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "version": 1
+}

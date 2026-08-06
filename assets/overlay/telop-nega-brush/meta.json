@@ -1,0 +1,59 @@
+{
+  "id": "telop-nega-brush",
+  "category": "overlay",
+  "title": "ネガティブテロップ（手書き風・紫縁+白ハロー）",
+  "description": "手書き風フォントで書いた紫→黒の沈むグラデーション本体を、白い細ヘアライン・紫の中縁・紫グローを帯びた白い太いハローの3層で囲んだテロップ。輪郭が丸みを帯びた雑な線で、動揺・言葉に詰まる系の感情表現に向く。既定文言「きつつつ」はPoC原典の手書き風デモ文言。",
+  "when_to_use": "動揺・言葉に詰まる・呆れ・辛辣な一言などのネガティブな崩れた感情の一撃テロップとして使う。演出エンジンの語彙に対応させると roles: emphasis 相当 / tone: ネガティブ・カジュアル相当 / strength: mid〜high / beats: turn・punchline相当（内部契約 union の直接一致語ではないため tags は近似）。短いオノマトペ・崩し言葉（2〜6字目安）に最も映える。フォーマル・シリアスすぎる文脈には向かない（手書き風の崩れが軽さを帯びるため）。",
+  "tags": [
+    "telop",
+    "negative",
+    "emotion",
+    "handwritten",
+    "brush",
+    "gradient",
+    "glow",
+    "japanese",
+    "casual",
+    "onomatopoeia",
+    "role-emphasis",
+    "tone-ネガティブ",
+    "tone-カジュアル",
+    "strength-mid",
+    "beat-turn",
+    "beat-punchline"
+  ],
+  "knobs": [
+    { "cssVar": "--color_fill", "type": "color", "group": "fill", "label": "本体グラデ上端色（明るい紫）" },
+    { "cssVar": "--color_fill_mid", "type": "color", "group": "fill", "label": "本体グラデ中間色（68%地点・濃紫）" },
+    { "cssVar": "--color_fill_2", "type": "color", "group": "fill", "label": "本体グラデ下端色（黒に近い紫）" },
+    { "cssVar": "--color_ring_edge", "type": "color", "group": "ring", "label": "白い細ヘアライン（fill直下）の色" },
+    { "cssVar": "--ringEdgeWidth", "type": "slider", "min": 0, "max": 0.15, "unit": "em", "group": "ring", "label": "白い細ヘアラインの太さ" },
+    { "cssVar": "--color_ring_mid", "type": "color", "group": "ring", "label": "紫の中縁の色" },
+    { "cssVar": "--ringMidWidth", "type": "slider", "min": 0, "max": 0.25, "unit": "em", "group": "ring", "label": "紫の中縁の太さ" },
+    { "cssVar": "--color_ring_halo", "type": "color", "group": "ring", "label": "白い太いハロー（最背面）の色" },
+    { "cssVar": "--ringHaloWidth", "type": "slider", "min": 0, "max": 0.35, "unit": "em", "group": "ring", "label": "白い太いハローの太さ" },
+    { "cssVar": "--color_glow", "type": "color", "group": "fx", "label": "グロー色（近・強め。ハロー層が兼ねる）" },
+    { "cssVar": "--color_glow_2", "type": "color", "group": "fx", "label": "グロー色（遠・弱め）" },
+    { "cssVar": "--glowStrength", "type": "slider", "min": 0, "max": 3, "group": "fx", "label": "グロー強度" },
+    { "cssVar": "--fontSize", "type": "slider", "min": 40, "max": 220, "unit": "px", "group": "global", "label": "文字サイズ" },
+    { "cssVar": "--fontFamily", "type": "text", "group": "global", "label": "フォント（CSS font-family 文字列。既定はPoC原典どおり Klee スタック — 未インストール環境では丸ゴシックへフォールバック）" },
+    { "cssVar": "--letterSpacing", "type": "slider", "min": -10, "max": 30, "unit": "px", "group": "global", "label": "字間" },
+    { "cssVar": "--posX", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "X位置の微調整（既定0 = 画面中央）" },
+    { "cssVar": "--posY", "type": "slider", "min": -300, "max": 300, "unit": "px", "group": "global", "label": "Y位置の微調整（既定0 = 画面中央）" }
+  ],
+  "ai_usage": "文言は断片内 .telop-nega-brush__fill の要素テキストを直接書き換える（CSS変数でテキストを持たせない）。複製層 .telop-nega-brush__ring_halo / .telop-nega-brush__ring_mid / .telop-nega-brush__ring_edge には data-mirror=\"text\" を付与済みで、層ミラー機能（overlay-runtime 側・A案・2026-08-06裁定・window.akari.runtime.version \"0.2.0\"以降）対応 runtime では fill 層の編集が自動で複製層へ同期される。ミラー未対応 runtime でも初期表示は正しい（出荷時点で全層に同一テキストを焼き込み済み）。__ring_halo はPoC原典で最も太い縁（0.17em）とtext-shadowグローを同一要素が兼ねる設計のためツマミも1層に統合したまま（--color_ring_halo が縁色、--color_glow/--color_glow_2/--glowStrengthがグローを別途制御）。本体グラデはPoC原典の5停止点（0/38/68/90/100%）を3アンカーへ集約し、38%・90%は隣接アンカー間のcolor-mixで比例導出している（近似 — 正確な導出比率はconversion-notes.md参照）。フォントはPoC原典どおり\"Klee\"スタックを維持（フォント調達は非ゴール）。font-weightはPoC原典が700に明示上書きしているため焼き込み（globalツマミ群にfontWeightは含めない方針）。--fontFamily以外の全ツマミは色/太さ/強度/位置の調整で見た目の性格を変えない。アニメーションは持たない静的スタイル素材（IN/OUT/loopは本素材のスコープ外）。",
+  "requires": [],
+  "min_overlay_runtime_version": "0.2.0",
+  "provenance": {
+    "origin": "リッチ字幕21種の断片化（P1・ポップ柄+ネガ系5種バッチ）/ converted_from: lab/telop-rich-css-poc/02-style-gallery.html#st-kitsu（オーナーレビュー4ラウンド済み最終形）/ オーナー承認日 2026-08-06（テロップHTML正典化裁定の一環・タスク tasks/2026-08-06-telop-rich-css-fragments） / AKARI Video 素材工房（akari-video-internal）/ 層ミラー（data-mirror=\"text\"）のライブ編集同期は @akari-video/overlay-runtime >= 0.2.0（window.akari.runtime.version で参照可）に依存。未満のruntimeでも初期表示は正しい（全層同一テキスト焼き込み出荷）",
+    "generator": "Claude Sonnet 5; prompt: リッチ字幕PoC .st-kitsu（Klee手書き風+紫縁+白ハロー・ネガティブ感情スタイル）を overlay-authoring 規約に沿った seek-safe HTML 断片素材へ変換し、グラデーション停止点とグロー・縁を役割命名のツマミへ集約する"
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "CC0-1.0",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null
+}

@@ -1,0 +1,101 @@
+<div
+  class="telop-anger-gothic"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-anger-gothic — 怒り B（赤→黒グラデ + 白縁 + 黒っぽい雲・ゴシック）の HTML 断片化。
+     * 変換元: lab/telop-rich-css-poc/02-style-gallery.html #st-anger-b
+     *
+     * telop-anger-mincho と完全に同じ配色・同じ層構成（rh=グロー専用 / ri=白縁 / fill=
+     * 赤→黒グラデ本体）。唯一の違いはフォント（PoC 原典どおり明朝の上書きが無く、
+     * body既定のゴシックのまま）と font-weight（900。明朝Aだけ800へ下げる上書きがある）。
+     * 「別素材として独立させ、CSS を共有しない」契約に従い、CSS は telop-anger-mincho の
+     * コピーではなく本ファイル内に閉じている（3変種の差分は conversion-notes.md の表参照）。
+     */
+    .telop-anger-gothic {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif);
+    }
+
+    .telop-anger-gothic,
+    .telop-anger-gothic * {
+      box-sizing: border-box;
+    }
+
+    .telop-anger-gothic__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+
+    .telop-anger-gothic__stack {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: var(--fontWeight, 900);
+      font-size: var(--fontSize, 72px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+
+    .telop-anger-gothic__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: グロー専用層（黒っぽい雲）。複製層 — data-mirror。 */
+    .telop-anger-gothic__rh {
+      z-index: 1;
+      color: transparent;
+      text-shadow:
+        0 0 calc(var(--glowStrength, 1) * 0.1em)
+          color-mix(in srgb, var(--cloudGlow, #260a06) 95%, transparent),
+        0 0 calc(var(--glowStrength, 1) * 0.25em)
+          color-mix(in srgb, var(--cloudGlow, #260a06) 95%, transparent),
+        0 0 calc(var(--glowStrength, 1) * 0.5em)
+          color-mix(in srgb, var(--cloudGlow, #260a06) 75%, transparent);
+    }
+
+    /* 層2: 白縁リング。複製層 — data-mirror。 */
+    .telop-anger-gothic__ri {
+      z-index: 2;
+      color: transparent;
+      -webkit-text-stroke: var(--ringWidth, 0.065em) var(--ringColor, #ffffff);
+    }
+
+    /* 層3（最前面）: 赤→黒グラデ本体。編集対象。 */
+    .telop-anger-gothic__fill {
+      z-index: 3;
+      background: linear-gradient(
+        180deg,
+        var(--fillTop, #ff5a30) 0%,
+        var(--fillUpper, #e01810) 28%,
+        var(--fillMid, #90100a) 55%,
+        var(--fillLower, #380602) 80%,
+        var(--fillBottom, #0d0100) 100%
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
+
+  <div class="telop-anger-gothic__anchor">
+    <span class="telop-anger-gothic__stack">
+      <span class="telop-anger-gothic__rh" data-mirror="text" aria-hidden="true">ふざけんなよ!!</span>
+      <span class="telop-anger-gothic__ri" data-mirror="text" aria-hidden="true">ふざけんなよ!!</span>
+      <span class="telop-anger-gothic__fill">ふざけんなよ!!</span>
+    </span>
+  </div>
+</div>

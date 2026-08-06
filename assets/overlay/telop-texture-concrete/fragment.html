@@ -1,0 +1,115 @@
+<div
+  class="telop-texture-concrete"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-texture-concrete — feTurbulence コンクリ質感 + 強い赤グローの HTML 断片化。
+     * 変換元: lab/telop-rich-css-poc/02-style-gallery.html #st-red-glow（「ナフサ不足」タイル）
+     *（オーナーレビュー4ラウンド済み最終形。converted_from は meta.json 参照）
+     *
+     * 構造: __anchor（中央配置 + posX/posY 微調整 + 長文の折返し境界）>
+     * __stack（3層を同一 grid セルへ重ねる）> __glow（赤いにじみグロー・data-mirror）/
+     * __ring（白縁・data-mirror）/ __fill（feTurbulence 粒子質感タイル + 灰系4段グラデ本体・
+     * 編集対象・最前面）。
+     * PoC 原典の rh/ri/fill の3層のみが実効を持つ（sh/ro/bk はゼロ幅で不可視）ため、
+     * grunge-bullet と同じ判断で簡約した。font-weight: 900 は PoC 原典どおり焼き込み
+     * （ツマミ化しない — grunge-bullet と同じ簡略方針）。
+     *
+     * 統一方針4（SVG内部フラグメント参照のエンコード）該当:
+     * 粒子質感タイルの内部 <filter id="g"> を参照する `filter="url(#g)"` は、
+     * PoC 原典のままだと validate-asset の参照スキャナが外部ファイル参照と誤検知するため、
+     * `filter="url%28%23g%29"` へ局所エンコードした（P0 grunge-bullet で実証済みの回避策と同型。
+     * データURI全体としてのデコード結果は不変 — ブラウザが data: URI をデコードしてから
+     * SVG として解釈するため %28/%29 は ( / ) に正しく戻る）。
+     */
+    .telop-texture-concrete {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif);
+      font-feature-settings: "palt" 1;
+    }
+    .telop-texture-concrete,
+    .telop-texture-concrete * {
+      box-sizing: border-box;
+    }
+    .telop-texture-concrete__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+    .telop-texture-concrete__stack {
+      /* telop.md「中央寄せの可用幅の罠」（2026-08-06 一般化）対応:
+         中央寄せ + transform:translate の shrink-to-fit 誤計算を避けるため
+         width: max-content を明示する（誤計算だと実際の半分の幅で折り返される）。 */
+      width: max-content;
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: 900;
+      font-size: var(--fontSize, 104px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .telop-texture-concrete__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: 赤いにじみグロー。文字色透明、text-shadow のみ。複製層 — data-mirror="text"。
+       PoC原典の3段グロー（近: #ff2828 / 中: rgba(255,30,30,.9) / 遠: rgba(220,0,0,.7)）を
+       単一の --color_glow から color-mix で近似導出（grunge-bulletと同じ設計判断）。 */
+    .telop-texture-concrete__glow {
+      z-index: 1;
+      color: transparent;
+      text-shadow:
+        0 0 calc(var(--glowStrength, 1) * 0.12em) var(--color_glow, #ff2828),
+        0 0 calc(var(--glowStrength, 1) * 0.3em)
+          color-mix(in srgb, var(--color_glow, #ff2828) 90%, transparent),
+        0 0 calc(var(--glowStrength, 1) * 0.6em)
+          color-mix(in srgb, var(--color_glow, #ff2828) 70%, #200000);
+    }
+
+    /* 層2: 白縁リング。複製層 — data-mirror="text"。 */
+    .telop-texture-concrete__ring {
+      z-index: 2;
+      color: transparent;
+      -webkit-text-stroke: var(--ringWidth, 0.05em) var(--color_ring, #ffffff);
+    }
+
+    /* 層3（最前面）: feTurbulence 粒子質感タイル + 灰系4段グラデ本体。編集対象。
+       粒子タイルの大きさは --textureSize でツマミ化（統一方針「柄サイズもツマミ候補」・
+       密度感が変わる）。feTurbulence の baseFrequency/numOctaves/seed 自体は焼き込み。 */
+    .telop-texture-concrete__fill {
+      z-index: 3;
+      background:
+        url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="180" height="180"%3E%3Cfilter id="g" x="0" y="0" width="100%25" height="100%25"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.32" numOctaves="4" seed="3"/%3E%3CfeColorMatrix type="matrix" values="0 0 0 0 0.07 0 0 0 0 0.06 0 0 0 0 0.06 0.85 0.85 0.85 0 -0.55"/%3E%3C/filter%3E%3Crect width="180" height="180" filter="url%28%23g%29"/%3E%3C/svg%3E')
+          0 0 / var(--textureSize, 180px) var(--textureSize, 180px),
+        linear-gradient(180deg,
+          var(--color_fill_1, #d8d4cc) 0%,
+          var(--color_fill_2, #a8a49a) 40%,
+          var(--color_fill_3, #7c786e) 75%,
+          var(--color_fill_4, #5c584f) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
+
+  <div class="telop-texture-concrete__anchor">
+    <span class="telop-texture-concrete__stack">
+      <span class="telop-texture-concrete__glow" data-mirror="text" aria-hidden="true">ナフサ不足</span>
+      <span class="telop-texture-concrete__ring" data-mirror="text" aria-hidden="true">ナフサ不足</span>
+      <span class="telop-texture-concrete__fill">ナフサ不足</span>
+    </span>
+  </div>
+</div>

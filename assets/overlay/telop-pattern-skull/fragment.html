@@ -1,0 +1,101 @@
+<div
+  class="telop-pattern-skull"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-pattern-skull — ドクロ柄フィル（ゴシック）の HTML 断片化。
+     * 変換元: lab/telop-rich-css-poc/02-style-gallery.html #st-skull
+     *（オーナーレビュー4ラウンド済み最終形。converted_from は meta.json 参照）
+     *
+     * 構造: __anchor（中央配置 + posX/posY 微調整 + 長文の折返し境界）>
+     * __stack（3層を同一 grid セルへ重ねる）> __glow（白グロー・data-mirror）/
+     * __ring（白縁・data-mirror）/ __fill（ドクロ柄タイル + 黒系グラデ本体・編集対象・最前面）。
+     * PoC 原典の汎用6層テンプレ（sh/rh/ro/ri/bk/fill）のうち .st-skull が実効を持つのは
+     * rh（グロー）/ ri（白縁）/ fill の3層のみ（sh/ro/bk はゼロ幅で不可視）。
+     * grunge-bullet（P0 前例）と同じ「必要な層だけを持つ」判断で簡約した。
+     * ドクロ SVG アイコン内部は id 参照（url(#...)）を持たないため、統一方針4の
+     * エンコード対応は不要（validate-asset 誤検知なし）。
+     */
+    .telop-pattern-skull {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif);
+      font-feature-settings: "palt" 1;
+    }
+    .telop-pattern-skull,
+    .telop-pattern-skull * {
+      box-sizing: border-box;
+    }
+    .telop-pattern-skull__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      /* 長文の折返し境界（統一方針7: px 直値には min(px, %) を併用）。 */
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+    .telop-pattern-skull__stack {
+      /* telop.md「中央寄せの可用幅の罠」（2026-08-06 一般化）対応:
+         中央寄せ + transform:translate の shrink-to-fit 誤計算を避けるため
+         width: max-content を明示する（誤計算だと実際の半分の幅で折り返される）。 */
+      width: max-content;
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: 800;
+      font-size: var(--fontSize, 104px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .telop-pattern-skull__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: 白グロー。文字色透明、text-shadow のみ。複製層 — data-mirror="text"。 */
+    .telop-pattern-skull__glow {
+      z-index: 1;
+      color: transparent;
+      text-shadow:
+        0 0 calc(var(--glowStrength, 1) * 0.16em)
+          color-mix(in srgb, var(--color_glow, #ffffff) 55%, transparent);
+    }
+
+    /* 層2: 白縁リング。複製層 — data-mirror="text"。 */
+    .telop-pattern-skull__ring {
+      z-index: 2;
+      color: transparent;
+      -webkit-text-stroke: var(--ringWidth, 0.05em) var(--color_ring, #ffffff);
+    }
+
+    /* 層3（最前面）: ドクロ柄タイル + 黒系縦グラデ本体。編集対象。
+       アイコンの目・鼻の穴の色（#101014）はアイコン意匠の一部として焼き込み
+       （柄タイルの大きさは --patternSize でツマミ化 — 統一方針「柄サイズもツマミ候補」）。 */
+    .telop-pattern-skull__fill {
+      z-index: 3;
+      background:
+        url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="30" height="30"%3E%3Cg fill="white" fill-opacity="0.9"%3E%3Ccircle cx="12" cy="10" r="6.5"/%3E%3Crect x="8.5" y="14" width="7" height="4.5" rx="1.5"/%3E%3C/g%3E%3Ccircle cx="9.6" cy="9.6" r="1.7" fill="%23101014"/%3E%3Ccircle cx="14.4" cy="9.6" r="1.7" fill="%23101014"/%3E%3Cpath d="M12 12l-1.2 2.1h2.4z" fill="%23101014"/%3E%3C/svg%3E')
+          0 0 / var(--patternSize, 30px) var(--patternSize, 30px),
+        linear-gradient(180deg, var(--color_fill_1, #2a2a32) 0%, var(--color_fill_2, #101014) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
+
+  <div class="telop-pattern-skull__anchor">
+    <span class="telop-pattern-skull__stack">
+      <span class="telop-pattern-skull__glow" data-mirror="text" aria-hidden="true">ドクロ</span>
+      <span class="telop-pattern-skull__ring" data-mirror="text" aria-hidden="true">ドクロ</span>
+      <span class="telop-pattern-skull__fill">ドクロ</span>
+    </span>
+  </div>
+</div>

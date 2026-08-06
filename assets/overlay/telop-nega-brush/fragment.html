@@ -1,0 +1,118 @@
+<div
+  class="telop-nega-brush"
+  lang="ja"
+  data-start="0"
+  data-duration="3"
+>
+  <style>
+    /*
+     * telop-nega-brush — ネガ系「きつつつ」（Klee 手書き風 + 紫縁 + 白ハロー）の HTML 断片化。
+     * 変換元: lab/telop-rich-css-poc/02-style-gallery.html #st-kitsu
+     *（オーナーレビュー4ラウンド済み最終形。converted_from は meta.json 参照）
+     *
+     * 構造: __anchor（中央配置 + posX/posY 微調整 + 長文の折返し境界）>
+     * __stack（4層を同一 grid セルへ重ねる）> __ring_halo（白い太い縁 + 紫グローを同一層に
+     * 併せ持つ・最背面・data-mirror）/ __ring_mid（紫の中縁・data-mirror）/
+     * __ring_edge（白い細ヘアライン・fill直下・data-mirror）/ __fill（紫→黒グラデ本体・
+     * 編集対象・最前面）。PoC 原典の汎用6層スキーマのうち実効果を持つ4層
+     * （rh・ro・ri・fill）だけを抽出（sh・bk はPoC原典でも未設定のため実装せず）。
+     * __ring_halo は PoC 原典で最も太い縁（0.17em）と text-shadow グローを同一要素が
+     * 兼ねる設計（ストローク形状に沿ってグローが投影される）ため、1層に統合したまま
+     * 移植した（分割すると太さとグロー形状が一致しなくなる）。
+     *
+     * フォントは PoC 原典どおり "Klee" スタックを維持（フォント調達は非ゴール — 未インストール
+     * 環境ではフォールバックの丸ゴシックで代替表示される）。font-weight は PoC 原典が
+     * 700 に明示上書きしているため焼き込み（global ツマミ群に fontWeight は含まれない方針）。
+     *
+     * グラデは5停止点（0/38/68/90/100%）を3アンカー（上端・中間・下端）へ集約し、
+     * 38%・90%は隣接アンカー間の color-mix で比例導出する（telop-grunge-bullet と同じ
+     * 設計。近似であり conversion-notes.md 参照）。
+     */
+    .telop-nega-brush {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      isolation: isolate;
+      font-family: var(--fontFamily, "Klee", "Hiragino Maru Gothic ProN", sans-serif);
+    }
+
+    .telop-nega-brush,
+    .telop-nega-brush * {
+      box-sizing: border-box;
+    }
+
+    .telop-nega-brush__anchor {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: min(1600px, 90%);
+      transform: translate3d(calc(-50% + var(--posX, 0px)), calc(-50% + var(--posY, 0px)), 0);
+    }
+
+    .telop-nega-brush__stack {
+      display: inline-grid;
+      justify-items: center;
+      line-height: 1.2;
+      font-weight: 700;
+      font-size: var(--fontSize, 104px);
+      letter-spacing: var(--letterSpacing, 0px);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .telop-nega-brush__stack > span {
+      grid-area: 1 / 1;
+      paint-order: stroke fill;
+    }
+
+    /* 層1（最背面）: 白い太縁 + 紫グロー（同一層が兼ねる）。複製層 — data-mirror="text"。 */
+    .telop-nega-brush__ring_halo {
+      z-index: 1;
+      color: transparent;
+      -webkit-text-stroke: var(--ringHaloWidth, 0.17em) var(--color_ring_halo, #ffffff);
+      text-shadow:
+        0 0 calc(var(--glowStrength, 1) * 0.14em)
+          color-mix(in srgb, var(--color_glow, #be82ff) 85%, transparent),
+        0 0 calc(var(--glowStrength, 1) * 0.38em)
+          color-mix(in srgb, var(--color_glow_2, #7838dc) 60%, transparent);
+    }
+
+    /* 層2: 紫の中縁。複製層 — data-mirror="text"。 */
+    .telop-nega-brush__ring_mid {
+      z-index: 2;
+      color: transparent;
+      -webkit-text-stroke: var(--ringMidWidth, 0.11em) var(--color_ring_mid, #6a28b0);
+    }
+
+    /* 層3: 白い細ヘアライン。複製層 — data-mirror="text"。 */
+    .telop-nega-brush__ring_edge {
+      z-index: 3;
+      color: transparent;
+      -webkit-text-stroke: var(--ringEdgeWidth, 0.045em) var(--color_ring_edge, #ffffff);
+    }
+
+    /* 層4（最前面）: 紫→黒グラデ本体。編集対象（DOM テキスト直置き）。 */
+    .telop-nega-brush__fill {
+      z-index: 4;
+      background: linear-gradient(180deg,
+        var(--color_fill, #b070e0) 0%,
+        color-mix(in srgb, var(--color_fill, #b070e0) 44%, var(--color_fill_mid, #551890) 56%) 38%,
+        var(--color_fill_mid, #551890) 68%,
+        color-mix(in srgb, var(--color_fill_mid, #551890) 31%, var(--color_fill_2, #100522) 69%) 90%,
+        var(--color_fill_2, #100522) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  </style>
+
+  <div class="telop-nega-brush__anchor">
+    <span class="telop-nega-brush__stack">
+      <span class="telop-nega-brush__ring_halo" data-mirror="text" aria-hidden="true">きつつつ</span>
+      <span class="telop-nega-brush__ring_mid" data-mirror="text" aria-hidden="true">きつつつ</span>
+      <span class="telop-nega-brush__ring_edge" data-mirror="text" aria-hidden="true">きつつつ</span>
+      <span class="telop-nega-brush__fill">きつつつ</span>
+    </span>
+  </div>
+</div>
