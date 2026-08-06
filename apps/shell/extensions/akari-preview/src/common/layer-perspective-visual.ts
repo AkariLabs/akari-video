@@ -46,18 +46,6 @@ export interface LayerPerspectiveVisual {
 
 type Mat3 = [[number, number, number], [number, number, number], [number, number, number]];
 
-function multiply3(a: Mat3, b: Mat3): Mat3 {
-    const result: Mat3 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    for (let i = 0; i < 3; i += 1) {
-        for (let j = 0; j < 3; j += 1) {
-            let sum = 0;
-            for (let k = 0; k < 3; k += 1) sum += a[i][k] * b[k][j];
-            result[i][j] = sum;
-        }
-    }
-    return result;
-}
-
 /**
  * Computes the CSS `matrix3d(...)` transform function that reproduces layers[].perspective (a
  * static 4-corner corner-pin) in a browser preview, given the box's own rendered pixel size
@@ -75,6 +63,17 @@ export function computeLayerPerspectiveVisual(
     boxHeightPx: number
 ): LayerPerspectiveVisual | null {
     const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+    const multiply3 = (a: Mat3, b: Mat3): Mat3 => {
+        const result: Mat3 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+        for (let i = 0; i < 3; i += 1) {
+            for (let j = 0; j < 3; j += 1) {
+                let sum = 0;
+                for (let k = 0; k < 3; k += 1) sum += a[i][k] * b[k][j];
+                result[i][j] = sum;
+            }
+        }
+        return result;
+    };
 
     if (!(boxWidthPx > 0) || !(boxHeightPx > 0)) return null;
 

@@ -3353,6 +3353,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // previewBootstrapScript's own copy of this function is ever reached -- so this script
             // block injects its own copy rather than relying on cross-<script>-tag scope.
             const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});
+            let perspectiveVisualWarned = false;
             let sequence = 0;
             let displayScale = 1;
             // frameScale: 出力キャンバス(output.width/height)を wrapper 内の出力フレーム矩形へ
@@ -3877,8 +3878,20 @@ body { display: grid; place-items: center; padding: 32px; }
                         try { corners = JSON.parse(perspectiveRaw); } catch (_error) { corners = null; }
                         const boxWidthPx = layerVideo.videoWidth * cropW * scale;
                         const boxHeightPx = layerVideo.videoHeight * cropH * scale;
-                        const visual = corners ? computeLayerPerspectiveVisualFn({ corners }, boxWidthPx, boxHeightPx) : null;
-                        if (visual) perspectiveFn = ' ' + visual.transformFunction;
+                        // computeLayerPerspectiveVisualFn is a webview-injected copy (toString()
+                        // serialization, see this IIFE's top) -- guard the call so a future injection
+                        // regression degrades to "perspective not applied" instead of aborting the
+                        // rest of updateStageScale (crop/pivot/stage/pen-layer placement) every time
+                        // it runs, which is what made this fail silently and janky at once.
+                        try {
+                            const visual = corners ? computeLayerPerspectiveVisualFn({ corners }, boxWidthPx, boxHeightPx) : null;
+                            if (visual) perspectiveFn = ' ' + visual.transformFunction;
+                        } catch (error) {
+                            if (!perspectiveVisualWarned) {
+                                perspectiveVisualWarned = true;
+                                console.warn('[akari-preview] layer perspective visual failed; rendering without perspective', error);
+                            }
+                        }
                     }
                     layerVideo.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct + '%) rotate(' + rotate + 'deg)' + perspectiveFn;
                     layerVideo.style.clipPath = (cropX > 0 || cropY > 0 || cropW < 1 || cropH < 1)

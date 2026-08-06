@@ -215,3 +215,33 @@ test('perspective composes correctly with rotate (innermost function applies bef
         closeTo(ry, expectedY, 1e-2);
     }
 });
+
+// Guards the webview injection contract itself, not just the math: akari-preview-open-handler.ts
+// serializes this function into the preview webview via `computeLayerPerspectiveVisual.toString()`
+// and evaluates the source standalone there (no access to this module's scope) -- see the two
+// `const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});` sites.
+// `new Function(...)` below reproduces exactly that: it evaluates the function's source text with
+// zero closure over module scope, so any accidental dependency on a module-level helper (the
+// `multiply3` bug this test was added to catch -- it used to live outside the function body and
+// throw `ReferenceError: multiply3 is not defined` under this exact isolation) surfaces here
+// instead of only inside a real Electron webview.
+test('toString()-serialized source, evaluated with zero closure over module scope (the webview injection contract), matches the module import byte-for-byte', () => {
+    const isolated = new Function('return (' + computeLayerPerspectiveVisual.toString() + ')')();
+    assert.notStrictEqual(isolated, computeLayerPerspectiveVisual, 'must be a distinct function object, not the same closure -- otherwise this test cannot catch a module-scope dependency');
+
+    const cases = [
+        { perspective: undefined, box: [300, 200] },
+        { perspective: null, box: [300, 200] },
+        { perspective: {}, box: [300, 200] },
+        { perspective: { corners: [[0, 0], [1, 0], [0, 1]] }, box: [300, 200] }, // malformed: wrong count
+        { perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] }, box: [300, 200] }, // identity
+        { perspective: { corners: [[0.1, 0], [0.9, 0], [0, 1], [1, 1]] }, box: [320, 180] }, // trapezoid (Heckbert reference case)
+        { perspective: { corners: [[0.15, 0.05], [0.85, 0.1], [0.05, 0.9], [0.95, 0.85]] }, box: [300, 240] }, // crop-composed case
+        { perspective: { corners: [[0.1, 0], [0.9, 0], [0, 1], [1, 1]] }, box: [0, 200] }, // non-positive box
+    ];
+    for (const { perspective, box } of cases) {
+        const fromModule = computeLayerPerspectiveVisual(perspective, box[0], box[1]);
+        const fromIsolatedEval = isolated(perspective, box[0], box[1]);
+        assert.deepStrictEqual(fromIsolatedEval, fromModule);
+    }
+});
