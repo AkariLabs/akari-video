@@ -4,6 +4,8 @@ import { ApplicationShell } from '@theia/core/lib/browser';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { Disposable, PreferenceService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
+import URI from '@theia/core/lib/common/uri';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
@@ -12,6 +14,8 @@ import { VSXExtensionsModel } from '@theia/vsx-registry/lib/browser/vsx-extensio
 import { PluginViewRegistry } from '@theia/plugin-ext/lib/main/browser/view/plugin-view-registry';
 import { AkariPartnerServer } from '../common/akari-partner-protocol';
 import { CONNECTIONS_RELATIVE_PATH, repairCloudConnection } from '../common/cloud-connections';
+import { AKARI_HOME_DIRNAME, PARTNER_CONNECTION_MARKER_FILENAME } from '../common/partner-connection-marker';
+import { checkPartnerConnection, PartnerConnectionTransitionDetector } from '../common/partner-connection-watch';
 import {
     PARTNER_CATALOG,
     PARTNER_CLI_ICON_CLASSES,
@@ -22,6 +26,7 @@ import {
 } from './partner-catalog';
 import { PartnerSessionService, PartnerTerminal } from './partner-session-service';
 import { PartnerChannel, TerminalPartnerChannel } from './partner-channel';
+import { AkariPartnerConnectDialog } from './akari-partner-connect-dialog';
 
 type FlowState = 'idle' | 'working' | 'complete' | 'failed';
 
@@ -49,6 +54,11 @@ const MAX_MESSAGES = 200;
 // 下部の note 文言が正）。成功は開いた拡張ビュー / PTY 自体で自明なので、
 // complete のカードだけ一定時間で自動的に消す（working / failed は残す）。
 const COMPLETE_AUTO_DISMISS_MS = 6000;
+
+// 接続ガイドダイアログ（task/2026-08-06-partner-connect-popup）の接続成立ポーリング間隔。
+// SSOT（connections.json / アプリ単位マーカー）はファイルなので、watch ではなく
+// 短間隔ポーリングで足りる（ダイアログが開いている間だけ回す・v0）。
+const CONNECT_DIALOG_POLL_MS = 800;
 
 // 4 分割前に永続化された PTY タブだけを新しい一意ラベルへ移行する。
 // kind も同時に照合するため、同名の一般ターミナルや拡張ビューには触れない。
@@ -89,6 +99,9 @@ export class AkariPartnerWidget extends ReactWidget {
     @inject(FileService)
     protected readonly fileService!: FileService;
 
+    @inject(EnvVariablesServer)
+    protected readonly envVariables!: EnvVariablesServer;
+
     protected flowState: FlowState = 'idle';
     protected selected?: PartnerCatalogEntry;
     protected status = '';
@@ -108,6 +121,14 @@ export class AkariPartnerWidget extends ReactWidget {
     protected composerValue = '';
     protected devMode = false;
     protected executablePath = '';
+
+    // 接続ガイドダイアログ（task/2026-08-06-partner-connect-popup）。ホームの接続 CTA
+    // （beginRecommended()）専用の入口で、パートナーパネルを直接開いた場合（begin() を
+    // 直接叩く経路）には一切関与しない。
+    protected connectDialog?: AkariPartnerConnectDialog;
+    protected connectDialogEntryId?: string;
+    protected connectWatchTimer?: ReturnType<typeof setInterval>;
+    protected connectDetector = new PartnerConnectionTransitionDetector();
 
     @postConstruct()
     protected init(): void {
@@ -132,6 +153,7 @@ export class AkariPartnerWidget extends ReactWidget {
             }
             this.completeDismissTimers.clear();
         }));
+        this.toDispose.push(Disposable.create(() => this.stopConnectWatcher()));
         this.extensionsModel.onDidChange(() => this.update());
         this.terminalService.onDidCreateTerminal(terminal => {
             if (terminal.kind === PartnerTerminal.KIND) {
@@ -144,14 +166,135 @@ export class AkariPartnerWidget extends ReactWidget {
 
     /**
      * ホーム v2 の接続ゲート CTA（akari-partner-command-contribution.ts の
-     * `akari.partner.beginOnboarding` コマンド経由）から呼ばれる薄いラッパー。
-     * 既に接続中/接続済みなら新しいオンボーディングは始めず、ペインを
-     * 表に出すだけに留める（begin() の二重起動を避ける）。
+     * `akari.partner.beginOnboarding` コマンド、実体は `akari-home-widget.tsx` の
+     * `renderConnectCard()`「パートナーに接続する」）から呼ばれる薄いラッパー。
+     *
+     * task/2026-08-06-partner-connect-popup 指示1: 生ターミナル（パートナーパネル）を
+     * 意識させず、接続ガイドダイアログだけを見せる。PTY 起動経路自体
+     * （`begin()` → `beginCli()` → `attachTerminal()`）は無改造でそのまま呼ぶ —
+     * ダイアログは進捗の「覆い」でしかない（指示2）。既に接続中/接続済みの
+     * 場合の「二重起動を避ける」判定は従来どおり `begin()` 内部（`entryFlow().state
+     * === 'working'` ガード）に委ね、ここでは新しい分岐を増やさない
+     * （キャンセル後の再 CTA でダイアログが現在状態から再表示される、が満たされる）。
      */
     async beginRecommended(): Promise<void> {
         const entry = PARTNER_CATALOG.find(candidate => candidate.recommended) ?? PARTNER_CATALOG[0];
-        if (entry) {
+        if (!entry) {
+            return;
+        }
+        if (entry.form !== 'cli') {
+            // 現行カタログの recommended は常に cli だが、将来 extension が
+            // recommended になっても壊れないよう防御的に従来経路へ委ねる
+            // （ダイアログは cli の PTY フロー専用）。
             await this.begin(entry);
+            return;
+        }
+        this.openConnectDialog(entry);
+        await this.begin(entry);
+    }
+
+    /**
+     * 接続ガイドダイアログを開く（または既に同じエントリで開いていれば前面に戻す）。
+     * `begin()`/`beginCli()`/`attachTerminal()` の進捗は `setEntryFlow()` から
+     * このダイアログへ転送される（指示3「同じ判定を共有化」の実体）。
+     *
+     * Theia のモーダルは背後を `inert` にする（dialogs.js
+     * `preventTabbingOutsideDialog`）ため、この呼び出し自体は
+     * `beginCli()`/`attachTerminal()` が右パネルへ生ターミナルを表示する既存動作を
+     * 一切変えない（指示5「パートナーパネルを直接開いた場合の従来動作は
+     * 変えない」を、分岐を増やさずに満たす）。
+     */
+    protected openConnectDialog(entry: PartnerCliCatalogEntry): void {
+        if (this.connectDialog && this.connectDialogEntryId === entry.id) {
+            this.connectDialog.activate();
+            return;
+        }
+        this.connectDialog?.close();
+        this.connectDialogEntryId = entry.id;
+        const dialog = new AkariPartnerConnectDialog(
+            { title: `${entry.name} へ接続`, entry },
+            () => this.revealTerminal()
+        );
+        this.connectDialog = dialog;
+        dialog.setFlow(this.entryFlow(entry));
+        this.startConnectWatcher();
+        void dialog.open().finally(() => {
+            if (this.connectDialog === dialog) {
+                this.connectDialog = undefined;
+                this.connectDialogEntryId = undefined;
+            }
+            this.stopConnectWatcher();
+        });
+    }
+
+    /** 「ターミナルを表示」導線（指示2 代替案 / 指示4 のキャンセル後の再導線）。 */
+    protected revealTerminal(): void {
+        if (this.terminal && !this.terminal.isDisposed) {
+            this.shell.activateWidget(this.terminal.id);
+        }
+    }
+
+    /**
+     * 接続成立の自動検知（指示3）。ホーム v2 の SSOT
+     * （connections.json の akari-cloud provider の doctor.status /
+     * アプリ単位マーカー）を短間隔でポーリングし、「未接続 → 接続」に遷移した
+     * 瞬間だけダイアログを「③ 接続完了」へ切り替える（`PartnerConnectionTransitionDetector`
+     * が再発火・フラッピングを防ぐ）。判定ロジック自体は `../common/connection-status.ts`
+     * に集約し、`akari-home-widget.tsx` の `readProjectConnected()`/`readAppConnected()`
+     * と同じ判定を踏襲する。
+     */
+    protected startConnectWatcher(): void {
+        this.stopConnectWatcher();
+        this.connectDetector = new PartnerConnectionTransitionDetector();
+        const tick = async () => {
+            const state = await checkPartnerConnection({
+                readProjectConnections: () => this.readConnectionsFileRaw(),
+                readAppMarker: () => this.readAppMarkerRaw()
+            });
+            if (this.connectDetector.ingest(state)) {
+                this.connectDialog?.setConnected(true);
+            }
+        };
+        void tick();
+        this.connectWatchTimer = setInterval(() => void tick(), CONNECT_DIALOG_POLL_MS);
+    }
+
+    protected stopConnectWatcher(): void {
+        if (this.connectWatchTimer !== undefined) {
+            clearInterval(this.connectWatchTimer);
+            this.connectWatchTimer = undefined;
+        }
+    }
+
+    /** `.akari/connections.json` の生テキスト。読めない/無ければ `undefined`（フェイルセーフ側）。 */
+    protected async readConnectionsFileRaw(): Promise<string | undefined> {
+        try {
+            const roots = await this.workspaceService.roots;
+            const root = roots[0]?.resource;
+            if (!root) {
+                return undefined;
+            }
+            return (await this.fileService.readFile(root.resolve(CONNECTIONS_RELATIVE_PATH))).value.toString();
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * アプリ単位マーカー（`~/.akari/partner-connection.json`。`AKARI_HOME` で
+     * ルート差し替え可）の生テキスト。読み方は `akari-home-widget.tsx` の
+     * `resolveAkariHomeUri()`/`readAppConnected()` と同じ EnvVariablesServer +
+     * FileService 経路。読めない/無ければ `undefined`。
+     */
+    protected async readAppMarkerRaw(): Promise<string | undefined> {
+        try {
+            const override = await this.envVariables.getValue('AKARI_HOME');
+            const homeUri = override?.value
+                ? URI.fromFilePath(override.value)
+                : new URI(await this.envVariables.getHomeDirUri()).resolve(AKARI_HOME_DIRNAME);
+            return (await this.fileService.readFile(homeUri.resolve(PARTNER_CONNECTION_MARKER_FILENAME))).value.toString();
+        } catch {
+            return undefined;
         }
     }
 
@@ -371,6 +514,11 @@ export class AkariPartnerWidget extends ReactWidget {
         this.detail = flow.detail;
         this.warning = flow.warning;
         this.scheduleCompleteDismiss(entry, flow);
+        // task/2026-08-06-partner-connect-popup 指示3: 接続ガイドダイアログが開いていれば
+        // 同じ進捗をそこへも転送する（新しい判定基準は作らず、既存の進捗遷移をそのまま流用）。
+        if (this.connectDialog && this.connectDialogEntryId === entry.id) {
+            this.connectDialog.setFlow(flow);
+        }
         this.update();
     }
 
