@@ -16,6 +16,8 @@ import { replaceCaptionStyleVariables } from '/caption-style.js';
 import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual.js';
 // layers[].perspective（corner-pin パース変形）のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.4）。
 import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
+// layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・2026-08-06 crop-handle-anchor-fix）。
+import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -745,11 +747,13 @@ function updateLayerCropBox() {
   const el = lv.el;
   const transform = layerTransformOf(el);
   const crop = cropOf(el);
-  // 全面中心固定 pivot（クロップ現在値によるピボットのドリフトを避け、常に自分の中心で回る
-  // 素直な参照系にする — 編集時だけの近似。shell と同じ設計判断）。
-  const fullPivot = { x: 0.5, y: 0.5 };
-  const outer = screenBoxForFraction(el, transform, { x: 0, y: 0, w: 1, h: 1 }, fullPivot);
-  const inner = screenBoxForFraction(el, transform, crop, fullPivot);
+  // pivot は実合成と同じ「現在のクロップ矩形の中心」（applyLayerCropVisual の transform-origin と
+  // 同じ値）を使う（2026-08-06 crop-handle-anchor-fix 以前は全面中心固定の近似だったが、それだと
+  // 錨補正後の transform.x/y と噛み合わず外枠が編集中にドリフトして見えるため、実際の合成 pivot と
+  // 統一した — shell の updateLayerCropBox と同型の判断）。
+  const cropPivot = { x: crop.x + crop.w / 2, y: crop.y + crop.h / 2 };
+  const outer = screenBoxForFraction(el, transform, { x: 0, y: 0, w: 1, h: 1 }, cropPivot);
+  const inner = screenBoxForFraction(el, transform, crop, cropPivot);
   layerCropBox.style.display = 'block';
   layerCropBox.style.left = `${outer.left}px`;
   layerCropBox.style.top = `${outer.top}px`;
@@ -769,6 +773,18 @@ function applyLayerCropDataset(el, crop) {
   el.dataset.layerCropW = String(crop.w);
   el.dataset.layerCropH = String(crop.h);
   applyLayerCropVisual(el);
+}
+
+// ㉗ クロップハンドル操作の錨補正（2026-08-06 crop-handle-anchor-fix）: crop と transform.x/y を
+// 同一フレームで一括更新する。crop 単独 → transform 単独の2段更新だと中間フレームで一瞬だけ
+// 錨補正前の crop が画面に出てしまうため、必ずこちらを使う。
+function applyLayerCropAndTransformDataset(el, crop, transform) {
+  applyLayerCropDataset(el, crop);
+  el.dataset.layerX = String(transform.x);
+  el.dataset.layerY = String(transform.y);
+  el.dataset.layerScale = String(transform.scale);
+  el.dataset.layerRotate = String(transform.rotate);
+  el.style.transform = layerTransformString(el, transform.x, transform.y, transform.scale, transform.rotate);
 }
 
 function setCropMode(active) {
@@ -802,6 +818,14 @@ layerCropToggle.addEventListener('pointerup', (e) => {
 // Escape でのクロップモード終了は、既存のグローバル Escape ハンドラ（setLayerSelected(null) を
 // 呼ぶ）が setLayerSelected 内の cropModeActive ガード経由で兼ねる（専用リスナーは不要）。
 
+// ㉗ 錨補正（2026-08-06 crop-handle-anchor-fix）: crop の中心が実際の配置基準点
+// （applyLayerCropVisual の transform-origin）なので、crop 変更だけを書き戻すと基準点自体が
+// 動いて絵全体がずれる。cropAnchorCorrectedTransform が「ドラッグした辺以外は画面上不動」に
+// なる transform.x/y を返し、crop と同一 patch で書く（ドラッグ中のライブ表示も同じ補正を
+// 適用 — 確定時だけだと commit 瞬間にジャンプする）。pointer→ソース座標のマッピング
+// （computeNext 内の fractionForClient 呼び出し）はドラッグ開始時点の startTransform を最後まで
+// 使い続ける（ライブ補正で変わる layerX/layerY を混ぜない）ため、この錨補正の追加はハンドル
+// 自体の追従性に影響しない。
 for (const handle of layerCropHandleElements) {
   handle.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 || selectedLayerId === null || !cropModeActive) return;
@@ -843,17 +867,25 @@ for (const handle of layerCropHandleElements) {
       if (dir.indexOf('s') >= 0) nextBottom = Math.max(point.y, original.y + CROP_MIN);
       return clampCrop(nextX, nextY, nextRight - nextX, nextBottom - nextY);
     };
+    // cropAnchorCorrectedTransform は x/y のみを返す（scale/rotate は補正で動かさない）ため、
+    // 書き戻し用の完全な transform には startTransform の scale/rotate を必ずマージする（欠けると
+    // dataset に "undefined" が書かれ Number(...)||1 の既定値フォールバックでスケール/回転が
+    // 消し飛ぶ -- L1 実機テストで実際に踏んだ回帰）。
+    const correctedTransformFor = (nextCrop) => ({
+      ...startTransform,
+      ...cropAnchorCorrectedTransform(original, nextCrop, startTransform, el.videoWidth, el.videoHeight),
+    });
     const onMove = (moveEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
       moved = true;
       const next = computeNext(moveEvent);
-      applyLayerCropDataset(el, next);
+      applyLayerCropAndTransformDataset(el, next, correctedTransformFor(next));
       updateLayerCropBox();
     };
     const finish = async () => {
       cleanup();
       if (cancelled) {
-        applyLayerCropDataset(el, original);
+        applyLayerCropAndTransformDataset(el, original, startTransform);
         updateLayerCropBox();
         return;
       }
@@ -862,10 +894,11 @@ for (const handle of layerCropHandleElements) {
         Number(el.dataset.layerCropX), Number(el.dataset.layerCropY),
         Number(el.dataset.layerCropW), Number(el.dataset.layerCropH),
       );
+      const finalTransform = layerTransformOf(el);
       try {
-        await layerWriteViaPut(selectedLayerId, { crop: finalCrop });
+        await layerWriteViaPut(selectedLayerId, { crop: finalCrop, transform: finalTransform });
       } catch (err) {
-        applyLayerCropDataset(el, original);
+        applyLayerCropAndTransformDataset(el, original, startTransform);
         updateLayerCropBox();
         showMessage(String(err?.message || err));
       }
