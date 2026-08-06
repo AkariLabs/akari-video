@@ -80,9 +80,32 @@
 - **直接操作**: レイヤー選択 UI に**クロップモード**（既存の移動/リサイズ/回転と排他のモード
   切替 — トグルボタン。shell/Web 双方に実装）+ 8 方向ハンドル（n/ne/e/se/s/sw/w/nw）。
   ドラッグ結果は正規化座標で `layers[].crop` へ書き戻す（確定=pointerup のみ、既存の
-  transform ハンドルと同じ書き込み契約）。クロップモードの編集オーバーレイは**全面中心固定
-  pivot**で描く（現在のクロップ値によるピボットのドリフトを避ける実装上の単純化 — 編集時の
-  近似であり、確定後の実際の合成/プレビューは上記の「クロップ中心 pivot」で描画される）
+  transform ハンドルと同じ書き込み契約）。クロップモードの編集オーバーレイ（外枠=ソースフレーム
+  全体・内枠=現在のクロップ窓）は**現在のクロップ矩形の中心**を pivot に描く（＝上記の実際の
+  合成基準点と同一。2026-08-06 crop-handle-anchor-fix 以前は「全面中心固定」の近似だったが、
+  後述の錨補正と噛み合わず編集中に外枠がドリフトして見えるため統一した）
+  - **ハンドルは錨補正込みで書き戻す（ドラッグ辺以外は画面不動）**（2026-08-06
+    crop-handle-anchor-fix。オーナー実機報告: PiP の下辺だけをトリムしたいのに素材全体の位置が
+    動いてしまう）。上記のとおり配置の錨点は「crop 矩形の中心」なので、`crop` だけを書き戻すと
+    中心が動いて錨点自体がずれ、絵全体が画面上でシフトしてしまう。ハンドル操作は `crop` と
+    同時に `transform.x/y` を補正し、`{crop, transform}` を**同一 patch**で書き戻す
+    （crop 単独 → transform 単独の2段書きは中間フレームで一瞬ジャンプして見えるため禁止。
+    ドラッグ中のライブプレビューにも同じ補正を適用する）。scale/rotate は補正の対象外（動かした
+    辺以外の全ての点が画面上で不動になることを保証する補正なので、1 点だけを狙うハンドル別の
+    特殊対応は不要）
+    - shell の補正式（`(outputWidth/2+x, outputHeight/2+y)` 錨点・`videoWidth/height` はレイヤーの
+      ネイティブ px）: 新旧クロップ中心を `c`→`c'`（0..1 正規化）とすると
+      `Δ = Rot(rotate)·scale·(c'−c)·(videoWidth, videoHeight)`、`x' = x + Δx`、`y' = y + Δy`
+      （`rotate=0` では回転行列が恒等になり単純な軸ごとの加算に潰れる）
+    - Web は配置慣習が異なる（`transform-origin`=クロップ中心・`translate(x,y)` は origin 相対の
+      scale/rotate の**外側**で効く CSS 合成のため）ので独立導出: `T' = T + (scale·Rot(rotate) − I)·Δ`
+      （`scale=1` かつ `rotate=0` のときは恒等 = 補正不要。それ以外は shell と同じく必要）
+    - 各サーフェス独立実装・独立ユニットテスト（§2.2.1 と同じ「意図的なコード重複」方針。
+      shell: `src/common/layer-crop-anchor.ts` + `test/layer-crop-anchor.test.mjs`、Web:
+      `packages/preview-server/public/layer-crop-anchor.js` +
+      `packages/preview-server/test/layer-crop-anchor.test.mjs`）。render-cut は無変更（補正済みの
+      `crop`/`transform` を通常どおり読むだけで書き出しは自動的に一致する — crop 中心を錨点にする
+      配置式は render-cut の `overlay=x=(main_w-overlay_w)/2+x:y=...` と shell が数学的に同一のため）
 
 #### 2.4.2 画角操作（`cuts[].framing`。2026-08-06 追記）
 
