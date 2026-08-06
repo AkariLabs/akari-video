@@ -11,9 +11,9 @@
 //   4. 動的更新: draw のたびに値を読み直し、変化を追随する
 //
 //   node packages/overlay-runtime/test-harness/projection-knobs.test.mjs
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -23,10 +23,23 @@ const SRC = resolve(HERE, "../src");
 // puppeteer-core は自パッケージの devDependency ではないため、内部リポの harness 各スクリプト
 // （knob-audit.mjs 等）と同じ流儀でメイン checkout の解決を借りる（読み取りのみ・メイン
 // checkout は無編集）。worktree 側に別途 node_modules を持たせる必要が無い
-const require = createRequire("/Users/ryoma/_edit/30_products/akari-video/packages/render-cut/");
+const require = createRequire(`${resolve(HERE, "../../render-cut")}/`);
+
+// puppeteer のキャッシュは既定でホーム配下。ビルド名（mac_arm-149.0.7827.22）も
+// プラットフォーム名（chrome-headless-shell-mac-arm64）もマシン・版で変わるため、
+// 名前を組み立てず 2 階層とも実在するものを走査する。新しい版から先に返す。
+function puppeteerCacheCandidates() {
+  const root = join(homedir(), ".cache/puppeteer/chrome-headless-shell");
+  if (!existsSync(root)) return [];
+  return readdirSync(root)
+    .sort()
+    .reverse()
+    .flatMap((build) => readdirSync(join(root, build)).map((platform) => join(root, build, platform, "chrome-headless-shell")))
+    .filter((candidate) => existsSync(candidate));
+}
 
 const CHROME_CANDIDATES = [
-  "/Users/ryoma/.cache/puppeteer/chrome-headless-shell/mac_arm-149.0.7827.22/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+  ...puppeteerCacheCandidates(),
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 ];
 
