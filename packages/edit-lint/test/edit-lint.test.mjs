@@ -1541,3 +1541,21 @@ test("non-zero ref audio timeline track declaration warns neither audio-ref nor 
     );
   });
 });
+
+// captions.overlay-link 撤去の固定（2026-08-07）。
+// この規則は「caption の id と一致する overlays[].id が無ければ警告」で、edit-lint 初版から
+// 入っていたが、通るプロジェクトが 1 つも存在しなかった（このリポジトリ自身の字幕フィクスチャ
+// 6/6 で全字幕に 1 件ずつ発火）。字幕のオーバーレイは消費側が captions[] から合成するもので、
+// edit.json に手書きで並べる設計ではないため、規則そのものが実装と食い違っていた。
+// 常時全件発火する警告は本物の指摘を埋めるだけなので撤去した。ここで固定しておかないと、
+// 「字幕とオーバーレイを対応させるべきでは」という直感から再導入されうる。
+test("captions.overlay-link は発火しない（撤去済み・字幕は消費側が overlays を合成する）", async () => {
+  await withFixtures(async (fixtures) => {
+    for (const name of ["captions-display-text-valid", "captions-words-valid", "captions-reveal-valid", "captions-text-style-record-override-valid"]) {
+      const project = join(fixtures, name);
+      const result = parseResult(run(project));
+      const linked = result.findings.filter((finding) => finding.check === "captions.overlay-link");
+      assert.deepEqual(linked, [], `${name} に overlay-link が残っている`);
+    }
+  });
+});

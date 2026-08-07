@@ -113,27 +113,6 @@
       },
       "description": "ぼかしのみの多重影。shadow と併用でき、1 本の text-shadow へ合成される。"
     },
-    "textAnimationSlot": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "duration_sec": { "type": "number", "exclusiveMinimum": 0 },
-        "ease": { "type": "string", "minLength": 1 },
-        "amp": { "type": "number", "exclusiveMinimum": 0 }
-      },
-      "description": "id は presets/textanim の識別子。未知の id は消費側が無視して素の表示へ落ちる。"
-    },
-    "textAnimation": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "in": { "$ref": "#/$defs/textAnimationSlot" },
-        "loop": { "$ref": "#/$defs/textAnimationSlot" },
-        "out": { "$ref": "#/$defs/textAnimationSlot" }
-      }
-    },
     "textAnimationId": {
       "type": "string",
       "enum": [
@@ -247,7 +226,6 @@
         "animation": { "$ref": "#/$defs/textAnimation" },
         "stroke": { "$ref": "#/$defs/textStrokeStyle" },
         "background": { "$ref": "#/$defs/textBackgroundStyle" },
-        "animation": { "$ref": "#/$defs/textAnimation" },
         "zone": { "$ref": "#/$defs/captionZone" },
         "layout": { "$ref": "#/$defs/referencePixelLayout" }
       },
