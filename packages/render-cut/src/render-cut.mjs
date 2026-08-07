@@ -267,6 +267,7 @@ export async function renderProject(input, options = {}, io = console) {
         runChecked(track.command.command, track.command.args, { cwd: projectRoot });
       }
       for (const stage of trackStack.stages) {
+        for (const warning of stage.command.warnings ?? []) addWarning(state, warning);
         runChecked(stage.command.command, stage.command.args, { cwd: projectRoot });
       }
     }
@@ -278,6 +279,9 @@ export async function renderProject(input, options = {}, io = console) {
     const layersCommand = plan.commands.layers;
     const layeredPath = join(temporaryDirectory, "layered.mp4");
     if (layersCommand) {
+      // A layer whose declared alpha cannot be decoded composites as an opaque rectangle over the
+      // base video. That used to happen silently; surface it as a warning next to the render.
+      for (const warning of layersCommand.warnings ?? []) addWarning(state, warning);
       runChecked(layersCommand.command, layersCommand.args, { cwd: projectRoot });
     }
     const cutOutputPath = tailPadCommand ? tailPaddedPath : cutPath;
