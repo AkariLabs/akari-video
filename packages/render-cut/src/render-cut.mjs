@@ -710,7 +710,6 @@ async function loadCaptions(projectRoot, edit) {
     defaultTextStyle,
     output: edit.output,
     sourceCount: edit.version === 1 ? edit.sources.length : 1,
-    linearTimeline: edit.version === 1,
     onWarning: (warning) => warnings.push(warning),
   });
   return { overlays, warnings, layout: null };

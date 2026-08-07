@@ -116,7 +116,6 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     : DEFAULT_FONT_SIZE_PX;
   const emphasisWords = normalizeEmphasisWords(options.emphasisWords);
   const sourceCount = options.sourceCount ?? 1;
-  const linearTimeline = options.linearTimeline === true;
   const overlays = [];
 
   for (const caption of captions) {
@@ -135,7 +134,6 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       caption.end,
       cuts,
       captionSource,
-      linearTimeline,
     );
     let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
@@ -760,21 +758,25 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
 // cuts 交差後の (timeline 秒) に加えて、当該レンジがカバーする (source 秒) の範囲も返す。
 // words[] のクリップ・トークン遅延の基準点計算に使う内部形。公開 API
 // (sourceRangeToTimeline) は既存の { start, duration } 形のみを返し続ける。
-function computeCaptionRanges(start, end, cuts, sourceId = null, linearTimeline = false) {
+//
+// task 2026-08-07-captions-linear-timeline: このカット境界オフセット計算はかつて
+// v1（multi-source, generateCaptionOverlays が linearTimeline: true を渡す）向けに
+// cuts.reduce() の素の累積和を自前で持っていたが、これは buildCutCommand /
+// buildMultiSourceCutCommand が xfade 用に使う computeCutTimelineOffsets（cut-timeline.mjs）
+// と同じ「順送りの区間積算」でありながら、cuts[].transition_out の重なり（オーバーラップ）を
+// 一切減算しない別実装だった。v1 の transition_out 自体が render-cut 側で長らく no-op
+// だったため無害だったが（task 2026-08-07-v1-transition-out で xfade を実装するまで）、
+// 実装後は「動画は正しく縮むのに字幕だけ旧タイムラインに残る」という食い違いを生む
+// （実測: 5 箇所の transition_out で計 0.9s 短縮されたのに captionsEnd は旧タイムライン
+// のまま → computeContentDurationSeconds が captionsEnd を採用し、末尾に黒フレームが
+// 追加された）。両実装は cuts と同じ index で参照されるだけの並列配列を返す点で同形なので、
+// 常に computeCutTimelineOffsets(cuts) を使うよう統合する。
+function computeCaptionRanges(start, end, cuts, sourceId = null) {
   if (!Array.isArray(cuts) || cuts.length === 0) {
     return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];
   }
 
-  const offsets = linearTimeline
-    ? cuts.reduce((result, cut) => {
-        const previous = result[result.length - 1];
-        result.push({
-          start: previous ? previous.start + previous.duration : 0,
-          duration: segmentDuration(cut),
-        });
-        return result;
-      }, [])
-    : computeCutTimelineOffsets(cuts);
+  const offsets = computeCutTimelineOffsets(cuts);
   const ranges = [];
   for (const [index, cut] of cuts.entries()) {
     if (sourceId !== null && cut.src !== sourceId) continue;
