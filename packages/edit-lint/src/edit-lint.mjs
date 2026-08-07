@@ -2182,11 +2182,14 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
     captions = captions.captions;
   }
   const ids = new Set();
-  const overlayIds = new Set(
-    Array.isArray(edit?.overlays)
-      ? edit.overlays.filter(isRecord).map((overlay) => overlay.id)
-      : [],
-  );
+  // ここには以前 `captions.overlay-link`（caption の id と一致する overlays[].id が無ければ警告）
+  // があったが、2026-08-07 に撤去した。字幕のオーバーレイは消費側が captions[] から合成する
+  // （render-cut の generateCaptionOverlays）ので、edit.json の overlays[] に手書きで
+  // 対応物を並べる設計ではない。実際、このリポジトリ自身の字幕フィクスチャ 6/6 で
+  // 全字幕に 1 件ずつ発火し、通るプロジェクトが 1 つも存在しなかった。docs/ にも skills/ にも
+  // 意図を説明する記述がなく、テストも 1 件も無い（= 消しても何も落ちない）状態だった。
+  // 常に全件発火する警告は本物の指摘を埋めるだけなので、規則ごと落とすのが正しい。
+  // 撤去の証跡は edit-lint.test.mjs の "captions.overlay-link は発火しない" で固定してある。
   let previousStart = -Infinity;
 
   for (const [index, caption] of captions.entries()) {
@@ -2356,14 +2359,6 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
           itemPath,
         );
       }
-    }
-    if (typeof caption.id === "string" && !overlayIds.has(caption.id)) {
-      addFinding(findings, {
-        severity: "warning",
-        check: "captions.overlay-link",
-        message: "caption id has no matching overlay id",
-        path: itemPath,
-      });
     }
   }
 
