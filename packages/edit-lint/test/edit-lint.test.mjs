@@ -1489,6 +1489,58 @@ test("declared timeline ref without edit data warns without failing", async () =
   });
 });
 
+// task 2026-08-07-track-transition-lint-guard (task #14's finding, verified with a real render:
+// gap-aware track compositing splits an xfade-blended pair of same-track cuts into two separate,
+// non-overlapping composite windows -- the second window points past where the actually-shrunk
+// clip's content ends, and the base track's background visibly leaks through early).
+test("cuts[].transition_out on a track composited through a non-default timeline.tracks order fails lint", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "cuts-track-transition-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    const finding = result.findings.find((item) => item.check === "cuts.track-transition-unsupported");
+    assert.ok(finding, JSON.stringify(result.findings, null, 2));
+    assert.equal(finding.severity, "error");
+    assert.equal(finding.path, "edit.json#cuts[0]");
+    assert.match(finding.message, /gap-aware track engine/);
+  });
+});
+
+test("transition_out on the LAST cut of a gap-aware track is a no-op and does not fail lint", async () => {
+  // Mirrors buildMultiSourceCutCommand's own hasAnyTransition check (plan.mjs) and
+  // predictedDuration's overlap accounting: a track's last cut has no following same-track cut
+  // to blend into, so its transition_out never actually renders and isn't a real hazard.
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "cuts-track-transition-last-cut-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "cuts.track-transition-unsupported"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("transition_out on a track whose timeline.tracks order matches the default derived order does not fail lint", async () => {
+  // When the declared order matches what deriveTracks would produce anyway, render-cut never
+  // invokes buildTrackStackPlan/resolveCutTrackRanges (see usesDefaultTrackOrder) -- cuts[].track
+  // has no compositing effect at all here (the plain sequential path concatenates every cut as
+  // one flat timeline, and buildMultiSourceCutCommand's own transition_out handling, task
+  // 2026-08-07-v1-transition-out, is correct there), so this combination is not a hazard.
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "cuts-track-transition-default-order-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "cuts.track-transition-unsupported"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("edit data without a declared timeline track warns when timeline is present", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "timeline-tracks-declaration-missing-warning"));

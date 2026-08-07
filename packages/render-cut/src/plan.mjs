@@ -318,6 +318,30 @@ function buildTrackStackPlan({
     })
     .filter(track => (track.kind === "cuts" || track.kind === "layers") && track.items.length > 0);
 
+  // task 2026-08-07-track-transition-lint-guard (edit-lint's cuts.track-transition-unsupported
+  // check is the primary guard; this is the defensive backstop for direct render-cut invocations
+  // that skip lint). See that check's comment in edit-lint.mjs for the full rationale: gap-aware
+  // track compositing (this function) is built on resolveCutSegments/computeVideoRuns, which
+  // treat same-track adjacent cuts as separate non-overlapping windows and so cannot represent an
+  // xfade's intentional overlap -- verified with a real render to silently show the base track's
+  // background leaking through partway into what should still be the dissolved clip.
+  if (edit.version === 1) {
+    for (const track of ordered) {
+      if (track.kind !== "cuts") continue;
+      for (const cut of track.items.slice(0, -1)) {
+        if (!cut.transition_out) continue;
+        throw new Error(
+          `cuts[].transition_out is declared on track ${track.ref}, which timeline.tracks composites through `
+            + "the gap-aware track engine. That engine treats adjacent same-track cuts as separate, "
+            + "non-overlapping windows, so it cannot represent an xfade's intentional overlap -- the composited "
+            + "window and the actually-shrunk clip diverge, and content disappears early. Remove transition_out "
+            + "from this track's cuts, or drop the custom timeline.tracks order for this track so it renders "
+            + "through the plain sequential path instead.",
+        );
+      }
+    }
+  }
+
   const basePath = join(temporary, "track-base.mp4");
   const base = buildTrackBaseCommand({
     ffmpegCommand: capabilities.ffmpegCommand,
