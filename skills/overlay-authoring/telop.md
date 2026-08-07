@@ -70,6 +70,7 @@ OUT の `both`（= backwards fill）は**遅延中に OUT の開始値（`opacit
 - **OUT は `forwards` にする**（`animation: X__in 0.6s both, X__out 0.6s 3.2s forwards`）
 - 単一アニメの断片（stagger / loop）では起きない。IN と OUT を 1 本のプロパティに並べたときだけ
 - チェック: 断片の冒頭数フレームをシークし、IN の開始値（opacity 0 / 画面外）から始まることを目視する
+- この罠は IN/OUT の 2 段に限らず一般化できる（3 段以上の連鎖、点滅ループの片端省略など）。`motion.md`「複数アニメーションを同一プロパティへ連鎖させるときの暗黙 0% 上書き」を参照
 
 ## 多層テキスト断片と data-mirror 規約（2026-08-06）
 
