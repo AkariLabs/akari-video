@@ -14,6 +14,7 @@ import {
 import { replaceCaptionStyleVariables } from '/caption-style.js';
 // cuts[].framing / cuts[].freeze のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
 import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual.js';
+import { composeCutVisualStyle } from '/cut-transform-visual.js';
 // layers[].perspective（corner-pin パース変形）のプレビュー再現（contract-2026-08-02-preview-parity.md §2.4.4）。
 import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
 // layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・2026-08-06 crop-handle-anchor-fix）。
@@ -316,7 +317,9 @@ function buildSegments() {
         // framing / freeze は再生時の見た目情報で写像には関与しないため、共有カーネルの
         // segment には無い。元 cuts から補う（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
         framing: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].framing : undefined,
-        freeze: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].freeze : undefined
+        freeze: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].freeze : undefined,
+        transform: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].transform : undefined,
+        opacity: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].opacity : undefined,
       });
   totalDuration = built.totalDuration;
   seek.max = totalDuration;
@@ -1804,9 +1807,8 @@ function sharedSegmentsView() {
   return _sharedView.view;
 }
 
-// cuts[].framing の毎フレーム反映（contract-2026-08-02-preview-parity.md §2.4.2）。#preview-video
-// は shell と異なり cuts[].transform を持たない（layers[] のみが transform をサポートする）ため、
-// この transform/transformOrigin をここで単独所有できる（合成の必要が無い）。
+// cuts[].transform/opacity は render-cut が既に適用しており、プレビューにも必要。framing は
+// 左上基準、transform の scale/rotate は中央基準なので cut-transform-visual.js で合成する。
 function playedCutLocalSeconds(seg) {
   if (!seg || seg.isGap) return 0;
   const speed = seg.speed > 0 ? seg.speed : 1;
@@ -1814,14 +1816,19 @@ function playedCutLocalSeconds(seg) {
 }
 function applyCutFramingVisual() {
   const seg = getActiveSegment(outputTime);
-  const visual = computeCutFramingVisual(seg && !seg.isGap ? seg.framing : null, playedCutLocalSeconds(seg));
-  if (visual) {
-    video.style.transformOrigin = visual.transformOrigin;
-    video.style.transform = visual.transform;
-  } else {
-    video.style.transformOrigin = '';
-    video.style.transform = '';
-  }
+  const cut = seg && !seg.isGap ? seg : null;
+  const framingVisual = computeCutFramingVisual(cut ? cut.framing : null, playedCutLocalSeconds(seg));
+  const os = outputSizePx();
+  const composed = composeCutVisualStyle({
+    framingVisual,
+    transform: cut ? cut.transform : null,
+    opacity: cut ? cut.opacity : null,
+    outputWidth: os.width,
+    outputHeight: os.height,
+  });
+  video.style.transformOrigin = composed.transformOrigin;
+  video.style.transform = composed.transform;
+  video.style.opacity = composed.opacity;
 }
 
 // cuts[].freeze の一時停止ホールド（近似実装。尺は伸ばさない -- contract-2026-08-02-preview-parity.md
