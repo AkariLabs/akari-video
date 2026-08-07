@@ -2,6 +2,8 @@
 // ファイル I/O・AKARI Sounds カタログ探索・edit.json/captions.json の読み書きは一切しない。
 // 同一引数なら常にバイト等価な patch オブジェクトを返す（決定論。契約書 §3-2）。
 
+import { deriveTracks } from '../../edit-lint/src/derive-tracks.mjs';
+
 /** レシピ category → emphasisWordItem.emotion（契約書 §3-5 の対応表）。 */
 export const CATEGORY_EMOTION = {
   negative: 'pain',
@@ -16,6 +18,130 @@ export const REFERENCE_CUT_DURATION_SEC = 3.2;
 
 function round3(n) {
   return Math.round(n * 1000) / 1000;
+}
+
+function cutValue(value, placeholder) {
+  return Number.isFinite(value) ? String(value) : placeholder;
+}
+
+function nextLayerTrack(edit) {
+  const tracks = (Array.isArray(edit?.layers) ? edit.layers : [])
+    .map((layer) => (Number.isInteger(layer?.track) && layer.track >= 0 ? layer.track : 0));
+  return tracks.length > 0 ? Math.max(...tracks) + 1 : 0;
+}
+
+function uniqueTrackId(tracks, base) {
+  const ids = new Set(tracks.map((track) => track?.id).filter(Boolean));
+  if (!ids.has(base)) return base;
+  let suffix = 2;
+  while (ids.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
+
+/**
+ * edit の既存宣言を保ったまま、人物専用 layer track を最上位（配列末尾）へ追加する。
+ * timeline.tracks は下→上。人物を既存 layer と別 track にすることで、同じ layers[] 内の
+ * マスク等より上に来ることも宣言として固定する。
+ */
+function personMatteTrackOrder(edit, personLayer) {
+  const prospective = {
+    ...(edit ?? {}),
+    cuts: Array.isArray(edit?.cuts) && edit.cuts.length > 0 ? edit.cuts : [{ track: 0 }],
+    overlays: Array.isArray(edit?.overlays) ? edit.overlays : [{ track: 0 }],
+    layers: [...(Array.isArray(edit?.layers) ? edit.layers : []), personLayer],
+  };
+  const existing = Array.isArray(edit?.timeline?.tracks)
+    ? structuredClone(edit.timeline.tracks)
+    : deriveTracks(prospective);
+  const withoutPersonTrack = existing.filter(
+    (track) => !(track?.kind === 'layers' && (track.ref ?? 0) === personLayer.track),
+  );
+  return [
+    ...withoutPersonTrack,
+    {
+      id: uniqueTrackId(withoutPersonTrack, `direction-person-${personLayer.track}`),
+      kind: 'layers',
+      ref: personLayer.track,
+      label: '人物切り抜き',
+    },
+  ];
+}
+
+function buildPersonMattePrerequisite({
+  cutIndex,
+  cutInSec,
+  cutOutSec,
+  cutSpeed,
+  cutSourcePath,
+  outputFps,
+  personMatte,
+}) {
+  const source = cutSourcePath || '<cut-source-path>';
+  const intermediateMattePath = `assets/matte/person-${cutIndex}.webm`;
+  const mattePath = `assets/matte/person-${cutIndex}.mov`;
+  const preparedPath = `.person-${cutIndex}-speed-applied.mp4`;
+  const speed = Number.isFinite(cutSpeed) && cutSpeed > 0 ? cutSpeed : 1;
+  const fps = Number.isFinite(outputFps) && outputFps > 0 ? outputFps : 24;
+  const duration = Number.isFinite(cutInSec) && Number.isFinite(cutOutSec)
+    ? round3((cutOutSec - cutInSec) / speed)
+    : null;
+  return {
+    kind: 'person_matte',
+    execution: 'prerequisite_only',
+    path_base: 'project',
+    source: {
+      path: source,
+      in: Number.isFinite(cutInSec) ? cutInSec : null,
+      out: Number.isFinite(cutOutSec) ? cutOutSec : null,
+      speed,
+    },
+    output: mattePath,
+    steps: [
+      {
+        id: 'prepare-speed-adjusted-cut',
+        command: 'ffmpeg',
+        args: [
+          '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+          '-ss', cutValue(cutInSec, '<cut-in-sec>'),
+          '-to', cutValue(cutOutSec, '<cut-out-sec>'),
+          '-i', source,
+          '-map', '0:v:0', '-an',
+          '-vf', `setpts=PTS/${speed},fps=${fps}`,
+          '-t', duration === null ? '<cut-duration-after-speed-sec>' : String(duration),
+          '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+          preparedPath,
+        ],
+      },
+      {
+        id: 'generate-person-matte',
+        after: ['prepare-speed-adjusted-cut'],
+        command: 'node',
+        entrypoint_base: 'akari_video_repo',
+        args: [
+          'skills/analyze-footage/bin/person-matte/person-matte.mjs',
+          '--input', preparedPath,
+          '--out', intermediateMattePath,
+          '--quality', personMatte.quality ?? 'accurate',
+          '--fps', String(fps),
+          '--decode-width', String(personMatte.decode_width ?? 1280),
+        ],
+      },
+      {
+        id: 'convert-person-matte-for-render-cut',
+        after: ['generate-person-matte'],
+        command: 'ffmpeg',
+        args: [
+          '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+          '-c:v', 'libvpx-vp9',
+          '-i', intermediateMattePath,
+          '-map', '0:v:0', '-an',
+          '-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le',
+          mattePath,
+        ],
+      },
+    ],
+    cleanup: [preparedPath, intermediateMattePath],
+  };
 }
 
 /**
@@ -41,6 +167,11 @@ export function scaleFramingKeyframes(framing, cutDurationSec, referenceDuration
  * @param {number} [params.cutInSec] - 対象カットの source in 秒（v0 edit の cuts[].in）
  * @param {number} [params.cutOutSec] - 対象カットの source out 秒（v0 edit の cuts[].out）
  * @param {number} [params.cutTimelineStartSec] - 対象カットの出力タイムライン開始秒（既定 0）
+ * @param {number} [params.cutSpeed] - cuts[].speed（既定 1）
+ * @param {string} [params.cutSourcePath] - 対象 cut のソースパス（プロジェクト相対）
+ * @param {object} [params.cutTransform] - 対象 cut の transform（人物レイヤーへ継承）
+ * @param {number} [params.outputFps] - edit.output.fps（マット生成 fps）
+ * @param {object} [params.edit] - 適用前 edit。人物専用 track 番号と明示 z 順の導出に使う
  * @param {number|null} [params.leadCutIndex] - transition_in の展開先カット index
  *   （省略時 cutIndex-1・null を明示すると「無い」として扱う）
  * @param {string} [params.text] - 画面に出す文言（省略時は文字レイヤーを展開しない）
@@ -53,6 +184,11 @@ export function buildDirectionPatch({
   cutInSec,
   cutOutSec,
   cutTimelineStartSec = 0,
+  cutSpeed = 1,
+  cutSourcePath,
+  cutTransform,
+  outputFps,
+  edit,
   leadCutIndex,
   text,
   resolvedSfx,
@@ -93,6 +229,39 @@ export function buildDirectionPatch({
   }
 
   const outputPatch = layers.look ? { look: layers.look } : null;
+
+  let layersPatch = null;
+  let timelineTracksPatch = null;
+  let mattePrerequisite = null;
+  if (layers.person_matte) {
+    const speed = Number.isFinite(cutSpeed) && cutSpeed > 0 ? cutSpeed : 1;
+    const sourceDuration = Number.isFinite(cutInSec) && Number.isFinite(cutOutSec)
+      ? cutOutSec - cutInSec
+      : null;
+    const track = nextLayerTrack(edit);
+    layersPatch = {
+      id: `person-${cutIndex}`,
+      t: round3(cutTimelineStartSec),
+      duration: sourceDuration === null ? null : round3(sourceDuration / speed),
+      kind: 'video',
+      src: `assets/matte/person-${cutIndex}.mov`,
+      ...(cutTransform ? { transform: structuredClone(cutTransform) } : {}),
+      track,
+    };
+    timelineTracksPatch = personMatteTrackOrder(edit, layersPatch);
+    mattePrerequisite = buildPersonMattePrerequisite({
+      cutIndex,
+      cutInSec,
+      cutOutSec,
+      cutSpeed: speed,
+      cutSourcePath,
+      outputFps,
+      personMatte: layers.person_matte,
+    });
+    notes.push(
+      'person_matte is not generated by expand-direction; run matte_prerequisite.steps in order before render-cut',
+    );
+  }
 
   let audioSfxPatch = null;
   if (layers.audio?.se_default) {
@@ -164,6 +333,9 @@ export function buildDirectionPatch({
     cut_patch: cutPatch,
     lead_cut_patch: leadCutPatch,
     output_patch: outputPatch,
+    layers_patch: layersPatch,
+    timeline_tracks_patch: timelineTracksPatch,
+    matte_prerequisite: mattePrerequisite,
     audio_sfx_patch: audioSfxPatch,
     caption_patch: captionPatch,
     emphasis_word_patch: emphasisWordPatch,

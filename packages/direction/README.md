@@ -29,6 +29,44 @@ node bin/expand-direction.mjs neg-mono-popout --cut 0 --project ./my-project --t
 | `--audio-root <dir>` | AKARI Sounds 探索ルート（既定 `~/.akari/assets/audio`） |
 | `--recipes <path>` | `index.jsonl` の場所（既定はリポルートの `presets/direction/index.jsonl`） |
 | `--cut-in <sec>` / `--cut-out <sec>` | `--project` 省略時、patch 内容確認用に source in/out を明示指定 |
+| `--cut-speed <n>` | `--project` 省略時、人物マット用に `cuts[].speed` を明示指定（既定 1） |
+| `--source <path>` | `--project` 省略時、人物マット生成元のソースパスを明示指定 |
+| `--fps <n>` | `--project` 省略時、人物マットの生成 fps を明示指定（既定 24） |
+
+## 演者切り抜き（`neg-person-cutout`）
+
+`neg-person-cutout` は重いマット生成を実行せず、次の 3 点を patch と `edit.json` に展開します。
+
+- `layers_patch`: `kind: "video"`、`src: "assets/matte/person-<cut index>.mov"` の人物レイヤー。
+  `t` は対象 cut のタイムライン開始、`duration` は `(out - in) / speed`。既存 `layers[]` の末尾へ追記する
+- `timeline_tracks_patch`: 人物だけの layer track を新設し、下→上の配列末尾へ明示する
+- `matte_prerequisite`: 速度適用済み区間の作成、person-matte、ProRes 4444 alpha MOV 変換の順序付き配列
+
+プロジェクト適用後、標準出力された patch の `matte_prerequisite.steps[]` を順に実行してから
+render-cut します。第 1 step は対象区間に `setpts=PTS/<speed>` を適用し、出力 fps と
+`(out-in)/speed` の `-t` でフレーム境界を固定した一時 MP4 を作ります。第 2 step はその MP4 を
+[`skills/analyze-footage/bin/person-matte/person-matte.mjs`](../../skills/analyze-footage/bin/person-matte/person-matte.mjs)
+へ渡し、中間生成物 `person-<cut index>.webm` を作ります。第 3 step は入力デコーダに
+`libvpx-vp9` を明示し、最終形 `person-<cut index>.mov`（ProRes 4444 alpha）へ変換します。
+変換コマンドは `-pix_fmt yuva444p10le` を要求し、ffmpeg 8.1.1 の ProRes 4444 出力は
+`ffprobe` 上 `yuva444p12le` になることを実測しています。どちらも alpha plane を保持します。
+`entrypoint_base: "akari_video_repo"` は script のパスをこのリポジトリ基準、その他の引数パスを
+`path_base: "project"` に従いプロジェクト基準で解決する指定です。成功後は `cleanup[]` の一時 MP4 と
+中間 WebM を削除できます。
+
+この変換は必須です。person-matte の VP9 alpha WebM は `alpha_mode=1` を持ちますが、現行
+render-cut が使う ffmpeg 8.1.1 の既定 VP9 入力デコーダでは alpha plane が展開されず、直接参照すると
+透明部分が黒背景になります。render-cut はこのレシピのファイル境界外なので、前提手順側で
+`libvpx-vp9` による alpha decode と ProRes 4444 への固定を行います。
+
+```sh
+node bin/expand-direction.mjs neg-person-cutout --cut 2 --project ./my-project > /tmp/person-cutout-patch.json
+# /tmp/person-cutout-patch.json の matte_prerequisite.steps を配列順に実行
+```
+
+人物レイヤーは専用 track かつ `layers[]` の末尾なので、同じ `layers[]` 内の上部マスク等より上に合成されます。
+ただし HTML の `overlays[]` は現行 render-cut ではレイヤー合成後の別ステージに固定されており、
+`timeline.tracks` で人物より下へ移せません。この制約は direction 契約 §3-7 に明記しています。
 
 ## 構成
 
@@ -50,3 +88,4 @@ node bin/expand-direction.mjs neg-mono-popout --cut 0 --project ./my-project --t
   （契約書 §2-3・§3-5・§6。captions レール（`emphasis_words[].style_hint`）を実レンダ確認の上で
   優先経路として採用したため）
 - `requires` を持つレシピは展開を拒否する（非 0 終了）
+- `expand-direction` は人物マット生成を実行しない（`matte_prerequisite` の宣言だけを出す）

@@ -46,6 +46,10 @@
     "transition_in": { "type": "dissolve", "duration": 0.5 }, // 省略可。展開時は「対象カットの1つ前」の transition_out に写像（§3-3）
     "framing": { "crop": {...} } | { "keyframes": [...] },    // 省略可。cutFraming と同一語彙（値そのもの。参照 id は無い — §2-1）
     "freeze":  { "at_sec": 1.4, "duration_sec": 1.0 },         // 省略可。cutFreeze と同一語彙
+    "person_matte": {                                            // 省略可。人物切り抜き
+      "quality": "accurate",                                    // person-matte.mjs の quality
+      "decode_width": 1280                                      // person-matte.mjs の decode-width
+    },
     "text": {
       "style_hint": "one-char-bang",    // 省略可。emphasisWordItem.style_hint と同一語彙（§2-2）
       "anim_in":    "zoom-pop",         // 省略可。presets/textanim の id（slot=in）
@@ -118,6 +122,9 @@ node bin/expand-direction.mjs <recipe-id> --cut <index> [options]
 | `--project <dir>` | 適用先プロジェクトルート（`edit.json` / `captions.json` を読み書き）。省略時は patch を stdout に JSON 出力するだけで書き込みは行わない（`--dry-run` 相当が既定） |
 | `--audio-root <dir>` | AKARI Sounds 探索ルート（既定 `~/.akari/assets/audio`） |
 | `--recipes <path>` | `index.jsonl` の場所（既定 `presets/direction/index.jsonl` をリポルートから解決） |
+| `--cut-speed <n>` | `--project` 省略時の `cuts[].speed`（人物マット patch の確認用） |
+| `--source <path>` | `--project` 省略時の対象 cut ソースパス（人物マット patch の確認用） |
+| `--fps <n>` | `--project` 省略時のマット fps（人物マット patch の確認用） |
 
 ### 3-2. 決定論とコア関数の分離
 
@@ -176,11 +183,49 @@ CLI 層（`bin/expand-direction.mjs`）だけがレシピ読み込み・AKARI So
 `expand-direction` は `requires` フィールドを持つレシピの展開を**拒否する**（非 0 終了・
 明示エラーメッセージ）。silent drop を避ける契約上の判断（fx-v0 契約 §「大原則」と同じ規律）。
 
+### 3-7. `person_matte` の展開と生成前提
+
+`layers.person_matte` を持つレシピは、対象 cut に対して次を patch へ出力する。
+
+- `layers_patch`: `{ id: "person-<cut index>", t, duration, kind: "video",
+  src: "assets/matte/person-<cut index>.mov", track }`。最終素材は ProRes 4444 alpha。
+  変換時は `-pix_fmt yuva444p10le` を要求し、ffmpeg 8.1.1 の実出力は `ffprobe` 上
+  `yuva444p12le` となる（alpha plane は保持）。`t` は対象 cut の出力タイムライン開始秒、
+  `duration` は `(cut.out - cut.in) / (cut.speed ?? 1)`。対象 cut に `transform` があれば継承する。
+  CLI はこれを既存 `edit.layers[]` の末尾へ追記する
+- `timeline_tracks_patch`: 既存 layer の最大 track + 1 を人物専用 track とし、下→上を表す
+  `timeline.tracks[]` の末尾へ `{ kind: "layers", ref: <人物 track> }` を明示する。
+  既存の `timeline.tracks` 宣言は保持する
+- `matte_prerequisite`: `execution: "prerequisite_only"` の構造化前提。`steps[]` は実行順を持ち、
+  第 1 step が ffmpeg で対象ソース区間へ **`setpts=PTS/<speed>` を適用し、出力 fps と
+  `(out-in)/speed` の `-t` でフレーム境界を固定した一時 MP4** を作り、
+  第 2 step が `skills/analyze-footage/bin/person-matte/person-matte.mjs` にその一時 MP4 を渡して
+  中間生成物 `assets/matte/person-<cut index>.webm` を作る。第 3 step は ffmpeg の入力デコーダに
+  `libvpx-vp9` を明示し、`assets/matte/person-<cut index>.mov`（ProRes 4444 alpha）へ変換する。
+  引数は shell 文字列ではなく `args[]` として保持し、生成器が同じ順序を機械的に再現できる
+
+速度をマット生成後に適用すると下地 cut と人物レイヤーのフレーム数がずれるため、順序は
+**速度適用済み一時 clip → person-matte → ProRes 4444 alpha MOV 変換**で固定する。
+`expand-direction` 自身はこの steps を実行しない。
+人物マットは実時間の数倍を要するため、パッチ生成と重い素材生成を分離する。
+
+person-matte の VP9 alpha WebM は `alpha_mode=1` を持つ一方、現行 render-cut が使う ffmpeg 8.1.1 の
+既定 VP9 入力デコーダでは alpha plane が展開されず、直接参照すると透明部分が黒になることを実測した。
+render-cut は本変更のファイル境界外なので、前提手順内で `libvpx-vp9` を明示して alpha を decode し、
+ドッグフード実績と同じ ProRes 4444 alpha MOV へ変換して吸収する。
+
+z 順は `deriveTracks` の全体既定を変更せず、レシピ展開が人物専用 track を最上位として明示する。
+加えて人物レイヤーを `layers[]` 末尾へ追加するため、同一配列内のマスク等に対しては後着の人物が
+確実に上へ来る。一方、現行 render-cut の HTML `overlays[]` は layer stack 後の別 composite stage で
+常に最終合成されるため、`timeline.tracks` の非既定順でも人物より下へ移せない。ここで保証する
+「overlays より上」は編集レール上の宣言であり、実レンダで保証できるのは `layers[]` 内のマスク等に
+対する順序である。HTML overlay 自体を人物の背後へ置くには render-cut 側の別契約変更が必要で、
+本レシピはそれを暗黙に約束しない。
+
 ## 4. `requires` の運用と実測での訂正（2026-08-06）
 
 内部ノート `notes-2026-08-05-direction-recipe-pack.md` §6-4 はネガティブ16の `requires` 対象を
-「カラーマット黒・演者切り抜き」の 2 件と見込んでいたが、実装（fx v0 の `color-overlay`）を
-確認した結果、以下の食い違いが判明した:
+「カラーマット黒・演者切り抜き」の 2 件と見込んでいた。その後の実装・実測で以下の訂正を行った:
 
 - **カラーマット黒は実働扱いにした**: `color-overlay(color:"black", intensity:1)` は
   `blend=all_opacity=1` で元映像を 100% 単色に置き換える（fx-v0 契約 §1 の定義どおり）。
@@ -190,8 +235,11 @@ CLI 層（`bin/expand-direction.mjs`）だけがレシピ読み込み・AKARI So
 - **色調反転（#3）は requires に回した**: fx v0 5 語彙（noise/particles/vignette/flare/
   color-overlay）にネガ反転（色反転）を作る id が無い。`vignette` の white モード内部実装が
   `negate,vignette,negate` を使っているが、これは fx.mjs 内部のトリックであり公開 id ではない
-- 結果として実働数はどちらの数え方でも **14/16**（`requires` 対象が {カラーマット黒, 演者切り抜き}
-  ではなく {色調反転, 演者切り抜き} に入れ替わった）
+- **演者切り抜き（#10）は実働扱いにした**: macOS Vision の person-matte 生成と render-cut の
+  ProRes 4444 alpha MOV 合成をカット単位で配線した。速度変更 cut は `setpts` を先に適用して
+  尺を一致させ、person-matte の VP9 alpha WebM は `libvpx-vp9` で decode して MOV へ変換する
+- 結果としてネガティブの実働数は **15/16**、全 34 レシピでは **展開対象 33 + requires 1**。
+  `requires` 対象は {色調反転} だけである
 
 ## 5. 検証（受け入れ条件）
 
@@ -208,14 +256,16 @@ CLI 層（`bin/expand-direction.mjs`）だけがレシピ読み込み・AKARI So
   それぞれ解決することを機械検査する
 - `use_when.beats`/`use_when.tone` が `presets/telop/index.jsonl` から動的に集めた語彙集合の
   部分集合であることを検査する
-- `requires` を持つレシピの `id` 集合が `{neg-color-invert, neg-person-cutout}` であることを固定値検査する
+- `requires` を持つレシピの `id` 集合が `{neg-color-invert}` であることを固定値検査する
+- `neg-person-cutout` が `layers_patch`・`timeline_tracks_patch`・速度適用を先行する
+  `matte_prerequisite.steps[]` を決定論的に出すことを検査する
 - `expand-direction` のユニットテスト（決定論 = 同一引数で `buildDirectionPatch` の
   `JSON.stringify` がバイト等価）が緑
 - `node --check` を `packages/direction/**/*.mjs` 全対象に通す
 
 ### 5-2. L1
 
-- 展開対象 32 レシピ全本について、実プロジェクトへ `expand-direction --apply` した
+- 展開対象 33 レシピ全本について、実プロジェクトへ `expand-direction --apply` した
   `edit.json`/`captions.json` が `packages/schemas/bin/validate-edit.mjs` を PASS すること
 - 同プロジェクトを `packages/render-cut/bin/render-cut.mjs` で実レンダし、`.akari/render.json`
   の `verify` が PASS（尺一致含む）であること

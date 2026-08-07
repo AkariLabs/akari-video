@@ -48,6 +48,18 @@ const REQUIRES_ONLY = {
   requires: ['fx:invert — not implemented'],
 };
 
+const NEG_PERSON_CUTOUT = {
+  id: 'neg-person-cutout',
+  label: '演者切り抜き',
+  category: 'negative',
+  layers: {
+    person_matte: { quality: 'accurate', decode_width: 1280 },
+    text: { style_hint: 'color-accent' },
+    audio: { se_meaning: '場面転換', se_default: null, se_loop: null, bgm_change: null },
+  },
+  use_when: { beats: ['turn'], tone: ['真面目'], strength_min: 0.4 },
+};
+
 test('buildDirectionPatch is deterministic: same input -> byte-equal JSON', () => {
   const args = {
     recipe: NEG_MONO_POPOUT,
@@ -72,6 +84,76 @@ test('rejects requires-only recipes (no silent drop)', () => {
 test('rejects negative/non-integer cutIndex', () => {
   assert.throws(() => buildDirectionPatch({ recipe: NEG_MONO_POPOUT, cutIndex: -1 }));
   assert.throws(() => buildDirectionPatch({ recipe: NEG_MONO_POPOUT, cutIndex: 1.5 }));
+});
+
+test('person_matte emits a timed video layer on a dedicated top track', () => {
+  const edit = {
+    version: 0,
+    cuts: [{ in: 0, out: 2 }],
+    overlays: [{ track: 0 }],
+    layers: [{ id: 'mask', track: 0 }],
+  };
+  const patch = buildDirectionPatch({
+    recipe: NEG_PERSON_CUTOUT,
+    cutIndex: 2,
+    cutInSec: 10,
+    cutOutSec: 14,
+    cutTimelineStartSec: 3.5,
+    cutSpeed: 2,
+    cutSourcePath: 'assets/source/take.mp4',
+    cutTransform: { x: 0, y: 250, scale: 1, rotate: 0 },
+    outputFps: 30,
+    edit,
+  });
+  assert.deepEqual(patch.layers_patch, {
+    id: 'person-2',
+    t: 3.5,
+    duration: 2,
+    kind: 'video',
+    src: 'assets/matte/person-2.mov',
+    transform: { x: 0, y: 250, scale: 1, rotate: 0 },
+    track: 1,
+  });
+  assert.deepEqual(patch.timeline_tracks_patch.at(-1), {
+    id: 'direction-person-1', kind: 'layers', ref: 1, label: '人物切り抜き',
+  });
+  assert.ok(
+    patch.timeline_tracks_patch.findIndex((track) => track.kind === 'overlays')
+      < patch.timeline_tracks_patch.length - 1,
+  );
+});
+
+test('person_matte prerequisite is ordered and converts VP9 alpha to render-cut-safe ProRes 4444', () => {
+  const patch = buildDirectionPatch({
+    recipe: NEG_PERSON_CUTOUT,
+    cutIndex: 3,
+    cutInSec: 5,
+    cutOutSec: 8,
+    cutSpeed: 1.5,
+    cutSourcePath: 'assets/source/take.mp4',
+    outputFps: 30,
+  });
+  const [prepare, generate, convert] = patch.matte_prerequisite.steps;
+  assert.equal(prepare.command, 'ffmpeg');
+  assert.equal(prepare.args[prepare.args.indexOf('-vf') + 1], 'setpts=PTS/1.5,fps=30');
+  assert.equal(prepare.args[prepare.args.indexOf('-t') + 1], '2');
+  assert.ok(prepare.args.indexOf('-vf') < prepare.args.length - 1);
+  assert.deepEqual(generate.after, ['prepare-speed-adjusted-cut']);
+  assert.equal(generate.args[0], 'skills/analyze-footage/bin/person-matte/person-matte.mjs');
+  assert.equal(generate.args[generate.args.indexOf('--out') + 1], 'assets/matte/person-3.webm');
+  assert.equal(generate.args[generate.args.indexOf('--fps') + 1], '30');
+  assert.deepEqual(convert.after, ['generate-person-matte']);
+  assert.equal(convert.command, 'ffmpeg');
+  assert.ok(convert.args.indexOf('libvpx-vp9') < convert.args.indexOf('-i'));
+  assert.equal(convert.args[convert.args.indexOf('-i') + 1], 'assets/matte/person-3.webm');
+  assert.equal(convert.args[convert.args.indexOf('-profile:v') + 1], '4444');
+  assert.equal(convert.args[convert.args.indexOf('-pix_fmt') + 1], 'yuva444p10le');
+  assert.equal(convert.args.at(-1), 'assets/matte/person-3.mov');
+  assert.equal(patch.matte_prerequisite.output, 'assets/matte/person-3.mov');
+  assert.deepEqual(patch.matte_prerequisite.cleanup, [
+    '.person-3-speed-applied.mp4',
+    'assets/matte/person-3.webm',
+  ]);
 });
 
 test('look goes to output_patch, not cut_patch', () => {

@@ -31,6 +31,7 @@ presets/direction/
     "transition_in": { "type": "dissolve", "duration": 0.5 }, // 1つ前のカットの transition_out に展開
     "framing": { "crop": {...} } | { "keyframes": [...] },     // cutFraming と同一語彙（生値）
     "freeze":  { "at_sec": 0, "duration_sec": 0 },              // cutFreeze と同一語彙（生値）
+    "person_matte": { "quality": "accurate", "decode_width": 1280 }, // 省略可。人物切り抜き（カット単位の生成前提を展開）
     "text":   { "style_hint": "...", "anim_in": "...", "anim_out": "...", "anim_loop": "..." },
     "audio":  { "se_meaning": "...", "se_default": "...", "se_loop": null, "bgm_change": null }
   },
@@ -43,9 +44,9 @@ presets/direction/
 全フィールドの意味・「参照 id」と「生値」の使い分け・`transition_in` の展開規則は契約書
 §2〜3 を参照してください。
 
-## 一覧（34 本・展開対象 32 + requires のみ 2）
+## 一覧（34 本・展開対象 33 + requires のみ 1）
 
-### ネガティブ（16 本・カズマル「ネガティブ演出16選」完コピ・展開対象 14）
+### ネガティブ（16 本・カズマル「ネガティブ演出16選」完コピ・展開対象 15）
 
 | id | label | 備考 |
 |---|---|---|
@@ -58,7 +59,7 @@ presets/direction/
 | `neg-dissolve` | クロスディゾルブ | transition_in: dissolve |
 | `neg-mono-freeze` | 白黒＋動画停止 | LUT mono + freeze |
 | `neg-mono-shrink` | 白黒＋画角縮小 | LUT mono + framing.keyframes（2 点） |
-| `neg-person-cutout` | 演者切り抜き | **requires**（person_matte 未実装） |
+| `neg-person-cutout` | 演者切り抜き | person_matte → ProRes 4444 alpha の `assets/matte/person-<cut index>.mov` + 人物専用最上位 layer track |
 | `neg-onechar` | 一文字ずつ | one-char-bang |
 | `neg-color-matte-black` | カラーマット黒 | color-overlay(black, intensity=1) — §「requires の運用」参照 |
 | `neg-mono-crop` | 白黒＋クロップ | LUT mono + framing.crop |
@@ -107,9 +108,12 @@ presets/direction/
 ## requires の運用
 
 `requires` を持つレシピは登録のみ（展開対象外）。`expand-direction` はこれらの展開を拒否します
-（silent drop を避ける契約上の判断）。内部ノートの当初見込み（カラーマット黒・演者切り抜き）から
-1 件入れ替わっている経緯は契約書 §4 を参照してください（カラーマット黒は fx v0 の
-`color-overlay` で実働化・代わりに色調反転が requires に回った）。
+（silent drop を避ける契約上の判断）。現在の対象は `neg-color-invert` だけです。
+カラーマット黒は fx v0 の `color-overlay` で実働化し、演者切り抜きは macOS Vision の
+person-matte 生成と render-cut の alpha 合成をカット単位で配線・実測して `requires` から外しました。
+person-matte の VP9 alpha WebM は現行 render-cut の ffmpeg 既定デコーダでは alpha が展開されないため、
+前提手順で `libvpx-vp9` decode 後に ProRes 4444 alpha MOV へ変換してから参照します。
+経緯と生成前提は契約書 §3-6・§4 を参照してください。
 
 ## 展開ツール
 
