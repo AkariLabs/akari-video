@@ -104,6 +104,82 @@ test("an interleaved declaration plans per-track cuts and ordered cuts/layers st
   assert.match(plan.commands.track_stack.outputPath, /layered\.mp4$/u);
 });
 
+// task 2026-08-07-track-transition-lint-guard: defensive backstop for direct render-cut
+// invocations that skip edit-lint (whose cuts.track-transition-unsupported check is the primary
+// guard). See task #14 for the real-render evidence this rejects: gap-aware track compositing
+// splits an xfade-blended pair of same-track cuts into two separate, non-overlapping composite
+// windows, and the second window points past where the actually-shrunk clip's content ends --
+// verified to show the base track's background visibly leaking through early.
+test("buildPlan rejects transition_out on a track composited through a non-default timeline.tracks order", () => {
+  assert.throws(
+    () => buildPlan({
+      edit: {
+        ...edit,
+        cuts: [
+          { src: "green", in: 0, out: 1, track: 1, transition_out: { type: "dissolve", duration: 0.2 } },
+          { src: "green", in: 1, out: 2, track: 1 },
+          { src: "blue", in: 0, out: 1, track: 0 },
+        ],
+        timeline: {
+          tracks: [
+            { id: "c1", kind: "cuts", ref: 1 },
+            { id: "c0", kind: "cuts", ref: 0 },
+          ],
+        },
+      },
+      projectRoot: "/project",
+      outputPath: "/project/exports/out.mp4",
+      capabilities: {
+        sourceInputs: [
+          { id: "green", path: "/project/green.mp4", hasAudio: true },
+          { id: "blue", path: "/project/blue.mp4", hasAudio: true },
+        ],
+        ffmpegCommand: "ffmpeg",
+        ffprobeCommand: "ffprobe",
+        chromePath: "chrome",
+        hyperframesAvailable: false,
+        puppeteerAvailable: false,
+      },
+      hasSourceAudio: true,
+    }),
+    /gap-aware track engine/,
+  );
+});
+
+test("buildPlan allows transition_out on the LAST cut of a gap-aware track (no-op, matches predictedDuration's overlap accounting)", () => {
+  const plan = buildPlan({
+    edit: {
+      ...edit,
+      cuts: [
+        { src: "green", in: 0, out: 1, track: 1 },
+        { src: "green", in: 1, out: 2, track: 1, transition_out: { type: "dissolve", duration: 0.2 } },
+        { src: "blue", in: 0, out: 1, track: 0 },
+      ],
+      timeline: {
+        tracks: [
+          { id: "c1", kind: "cuts", ref: 1 },
+          { id: "c0", kind: "cuts", ref: 0 },
+        ],
+      },
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      sourceInputs: [
+        { id: "green", path: "/project/green.mp4", hasAudio: true },
+        { id: "blue", path: "/project/blue.mp4", hasAudio: true },
+      ],
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      chromePath: "chrome",
+      hyperframesAvailable: false,
+      puppeteerAvailable: false,
+    },
+    hasSourceAudio: true,
+  });
+  assert.ok(plan.commands.track_stack, "expected the track-stack path to still build a plan");
+});
+
 test("master policy reaches every video encode stage while audio-only mux is explicitly copy", () => {
   const plan = buildPlan({
     edit: {
