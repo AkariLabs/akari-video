@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { constants as fsConstants } from "node:fs";
+import { constants as fsConstants, readFileSync } from "node:fs";
 import {
   access,
   mkdir,
@@ -20,6 +20,25 @@ const { resolveCaptionDisplay } = createRequire(import.meta.url)("../../edit-sto
 
 const VERSION = 1;
 const EPSILON = 1e-6;
+const CAPTIONS_SCHEMA = JSON.parse(readFileSync(
+  new URL("../../schemas/captions.schema.json", import.meta.url),
+  "utf8",
+));
+const CAPTION_TEXT_STYLE_FIELDS = new Set(
+  Object.keys(CAPTIONS_SCHEMA.$defs.textStyle.properties),
+);
+const CAPTION_ANIMATION_SLOTS = new Set(
+  Object.keys(CAPTIONS_SCHEMA.$defs.textAnimation.properties),
+);
+const CAPTION_ANIMATION_SLOT_FIELDS = new Set(
+  Object.keys(CAPTIONS_SCHEMA.$defs.textAnimationSlot.properties),
+);
+const CAPTION_TEXTANIM_IDS = new Set(
+  readFileSync(new URL("../../../presets/textanim/index.jsonl", import.meta.url), "utf8")
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line).id),
+);
 const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json]
        [--silence-error-seconds N] [--max-volume-error-db N]
        [--caption-silence-warn-percent N]
@@ -2442,9 +2461,8 @@ function validateTextStyle(value, label, findings, path) {
     captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
     return;
   }
-  const allowed = ["color", "size_px", "font_weight", "line_height", "stroke", "background", "zone", "layout"];
   for (const field of Object.keys(value)) {
-    if (!allowed.includes(field)) {
+    if (!CAPTION_TEXT_STYLE_FIELDS.has(field)) {
       captionFinding(
         findings,
         "captions.text-style",
@@ -2479,6 +2497,9 @@ function validateTextStyle(value, label, findings, path) {
   if (Object.hasOwn(value, "background")) {
     validateCaptionBackgroundStyle(value.background, `${label}.background`, findings, path);
   }
+  if (Object.hasOwn(value, "animation")) {
+    validateCaptionAnimation(value.animation, `${label}.animation`, findings, path);
+  }
   if (Object.hasOwn(value, "zone") && !CAPTION_TEXT_STYLE_ZONES.has(value.zone)) {
     captionFinding(
       findings,
@@ -2493,6 +2514,90 @@ function validateTextStyle(value, label, findings, path) {
       findings,
       "captions.text-style",
       `${label} cannot contain both zone and layout`,
+      path,
+    );
+  }
+}
+
+function validateCaptionAnimation(value, label, findings, path) {
+  if (!isRecord(value)) {
+    captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
+    return;
+  }
+  if (Object.keys(value).length === 0) {
+    captionFinding(findings, "captions.text-style", `${label} must contain at least one slot`, path);
+  }
+  for (const slot of Object.keys(value)) {
+    if (!CAPTION_ANIMATION_SLOTS.has(slot)) {
+      captionFinding(
+        findings,
+        "captions.text-style",
+        `${label}.${slot} is not defined by the animation contract`,
+        path,
+      );
+      continue;
+    }
+    validateCaptionAnimationSlot(value[slot], `${label}.${slot}`, findings, path);
+  }
+}
+
+function validateCaptionAnimationSlot(value, label, findings, path) {
+  if (!isRecord(value)) {
+    captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
+    return;
+  }
+  for (const field of Object.keys(value)) {
+    if (!CAPTION_ANIMATION_SLOT_FIELDS.has(field)) {
+      captionFinding(
+        findings,
+        "captions.text-style",
+        `${label}.${field} is not defined by the animation slot contract`,
+        path,
+      );
+    }
+  }
+  if (!Object.hasOwn(value, "id")) {
+    captionFinding(findings, "captions.text-style", `${label}.id is required`, path);
+  } else if (!CAPTION_TEXTANIM_IDS.has(value.id)) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.id is not defined in presets/textanim/index.jsonl: ${String(value.id)}`,
+      path,
+    );
+  }
+  if (
+    Object.hasOwn(value, "duration_sec")
+    && (!isFiniteNumber(value.duration_sec) || value.duration_sec <= 0)
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.duration_sec must be a positive finite number`,
+      path,
+    );
+  }
+  if (
+    Object.hasOwn(value, "ease")
+    && value.ease !== null
+    && !isNonEmptyString(value.ease)
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.ease must be null or a non-empty string`,
+      path,
+    );
+  }
+  if (
+    Object.hasOwn(value, "amp")
+    && value.amp !== null
+    && (!isFiniteNumber(value.amp) || value.amp <= 0)
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.amp must be null or a positive finite number`,
       path,
     );
   }

@@ -68,6 +68,91 @@
       },
       "description": "字幕の座布団スタイル。mode 省略時の実効値は per-line。"
     },
+    "textAnimationId": {
+      "type": "string",
+      "enum": [
+        "fade-in-out",
+        "soft-fade",
+        "fade-up",
+        "fade-down",
+        "cinematic-fade",
+        "slide-left",
+        "slide-right",
+        "slide-up",
+        "slide-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rise-soft",
+        "drop-in",
+        "zoom-in-out",
+        "zoom-pop",
+        "zoom-pulse",
+        "pop",
+        "bounce",
+        "squash-pop",
+        "stretch-in",
+        "stomp",
+        "snap",
+        "rotate-in",
+        "spin-in",
+        "roll-in",
+        "spiral-in",
+        "swing",
+        "shake",
+        "jitter",
+        "glitch",
+        "flash",
+        "heartbeat",
+        "typewriter",
+        "wipe-left",
+        "wipe-right",
+        "wobble",
+        "float",
+        "breath",
+        "neon-flicker",
+        "hologram",
+        "retro-flicker",
+        "caption-rise",
+        "news-ticker",
+        "marquee-left",
+        "crawl-up"
+      ],
+      "$comment": "presets/textanim/index.jsonl の id と同一集合。schemas test が正本索引とのドリフトを検査する。"
+    },
+    "textAnimationSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/textAnimationId" },
+        "duration_sec": { "type": "number", "exclusiveMinimum": 0 },
+        "ease": {
+          "oneOf": [
+            { "type": "string", "minLength": 1, "pattern": "\\S" },
+            { "type": "null" }
+          ]
+        },
+        "amp": {
+          "oneOf": [
+            { "type": "number", "exclusiveMinimum": 0 },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "textAnimation": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "in": { "$ref": "#/$defs/textAnimationSlot" },
+        "out": { "$ref": "#/$defs/textAnimationSlot" },
+        "loop": { "$ref": "#/$defs/textAnimationSlot" }
+      },
+      "description": "字幕の登場・退場・ループを独立指定する textanim v0 契約。"
+    },
     "textStyle": {
       "type": "object",
       "additionalProperties": false,
@@ -81,10 +166,11 @@
         "line_height": { "type": "number", "exclusiveMinimum": 0 },
         "stroke": { "$ref": "#/$defs/textStrokeStyle" },
         "background": { "$ref": "#/$defs/textBackgroundStyle" },
+        "animation": { "$ref": "#/$defs/textAnimation" },
         "zone": { "$ref": "#/$defs/captionZone" },
         "layout": { "$ref": "#/$defs/referencePixelLayout" }
       },
-      "$comment": "全フィールド任意。captionRecord.text_style は default_text_style をフィールド単位で上書きする。合成処理は消費側の責務。zone 省略時の実効値は bottom。"
+      "$comment": "全フィールド任意。captionRecord.text_style は default_text_style をフィールド単位（animation はスロット単位）で上書きする。合成処理は消費側の責務。zone 省略時の実効値は bottom。"
     },
     "captionWord": {
       "type": "object",

@@ -88,6 +88,30 @@ test("アニメーション: in / loop / out が合成され keyframes が埋ま
   assert.doesNotMatch(overlay.html, /akari-caption-fade 180ms/);
 });
 
+test("default_text_style のアニメを per-caption がスロット単位で上書きする", () => {
+  const [overlay] = generateCaptionOverlays([{
+    ...CAPTIONS[0],
+    text_style: {
+      animation: {
+        in: { id: "zoom-pop" },
+        loop: { id: "float" },
+      },
+    },
+  }], CUTS, {
+    defaultTextStyle: {
+      animation: {
+        in: { id: "fade-up" },
+        out: { id: "soft-fade" },
+      },
+    },
+  });
+
+  assert.match(overlay.html, /akari-anim-zoom-pop/);
+  assert.match(overlay.html, /akari-anim-float/);
+  assert.match(overlay.html, /akari-anim-soft-fade/);
+  assert.doesNotMatch(overlay.html, /@keyframes akari-anim-fade-up/);
+});
+
 test("未知のアニメ id は警告して無視・既定フェードを維持する", () => {
   const warnings = [];
   const overlays = generateCaptionOverlays(CAPTIONS, CUTS, {

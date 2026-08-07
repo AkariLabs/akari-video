@@ -12,6 +12,11 @@
     "stroke": {
       "color": "#000000",
       "width_px": 7
+    },
+    "animation": {
+      "in": {
+        "id": "caption-rise"
+      }
     }
   },
   "source": {

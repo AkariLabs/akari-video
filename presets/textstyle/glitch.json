@@ -17,6 +17,11 @@
       "blur_px": 0,
       "distance_px": 8,
       "angle_deg": 0
+    },
+    "animation": {
+      "in": {
+        "id": "glitch"
+      }
     }
   },
   "source": {
