@@ -121,20 +121,46 @@ function respond(res, status, data, contentType = 'application/json; charset=utf
   res.end(body);
 }
 
-function serveFile(res, filePath, contentType, extraHeaders = {}) {
+// mtime + サイズの検証子。中身のハッシュではないので編集は必ず検知でき、
+// かつ stat 1 回で済む（効果音のような多数の小ファイルでも安い）。
+function fileEtag(stat) {
+  return `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+}
+
+// readFileSync はシングルスレッドのイベントループを丸ごと止める。効果音の多い
+// プロジェクトでは音声取得が数十本走るため、その間 <video> のレンジ要求が返せず
+// 再生が stall する（= 読み込み中スピナー）。ストリームで返して塞がないようにする。
+// あわせて条件付き GET に対応する。cache-control: no-cache は維持（毎回検証するので
+// 編集のホットリロードは従来どおり効く）が、変わっていなければ 304 で本文を送らない。
+function serveFile(res, filePath, contentType, extraHeaders = {}, reqHeaders = null) {
+  let stat;
   try {
-    const data = fs.readFileSync(filePath);
-    if (Buffer.isBuffer(data)) {
-      res.writeHead(200, { 'content-type': contentType, 'access-control-allow-origin': '*', 'cache-control': 'no-cache', ...extraHeaders });
-      res.end(data);
-    } else {
-      respond(res, 200, data, contentType);
-    }
-    return true;
+    stat = fs.statSync(filePath);
+    if (!stat.isFile()) throw new Error('not a file');
   } catch {
     respond(res, 404, { error: 'File not found' });
     return true;
   }
+  const etag = fileEtag(stat);
+  const headers = {
+    'content-type': contentType,
+    'access-control-allow-origin': '*',
+    'cache-control': 'no-cache',
+    etag,
+    'last-modified': new Date(stat.mtimeMs).toUTCString(),
+    ...extraHeaders,
+  };
+  if (reqHeaders && reqHeaders['if-none-match'] === etag) {
+    res.writeHead(304, headers);
+    res.end();
+    return true;
+  }
+  res.writeHead(200, { ...headers, 'content-length': stat.size });
+  const stream = fs.createReadStream(filePath);
+  stream.on('error', () => res.destroy());
+  res.on('close', () => stream.destroy());
+  stream.pipe(res);
+  return true;
 }
 
 function serveRange(res, filePath, contentType, rangeHeader) {
@@ -420,16 +446,17 @@ function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function servePublicFile(res, pathname) {
+function servePublicFile(res, pathname, reqHeaders = null) {
   const filePath = path.join(PUBLIC_DIR, pathname);
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const ext = path.extname(filePath);
-    return serveFile(res, filePath, MIME[ext] ?? 'application/octet-stream');
+    return serveFile(res, filePath, MIME[ext] ?? 'application/octet-stream', {}, reqHeaders);
   }
   return false;
 }
 
-function serveProjectFile(res, pathname, rangeHeader) {
+function serveProjectFile(res, pathname, reqHeaders = null) {
+  const rangeHeader = reqHeaders?.range;
   const safe = resolveSafe(projectRoot, pathname);
   if (!safe || !fs.existsSync(safe) || !fs.statSync(safe).isFile()) return false;
   const ext = path.extname(safe).toLowerCase();
@@ -450,7 +477,7 @@ function serveProjectFile(res, pathname, rangeHeader) {
   } else {
     const extra = (mime.startsWith('video/') || mime.startsWith('audio/'))
       ? { 'accept-ranges': 'bytes' } : {};
-    serveFile(res, safe, mime, extra);
+    serveFile(res, safe, mime, extra, reqHeaders);
   }
   return true;
 }
@@ -504,12 +531,12 @@ const server = http.createServer(async (req, res) => {
   const prefixMatch = pathname.match(/^\/api\/asset\/(.+)/);
   if (prefixMatch) {
     const assetPath = prefixMatch[1];
-    if (serveProjectFile(res, assetPath, req.headers.range)) return;
+    if (serveProjectFile(res, assetPath, req.headers)) return;
     return respond(res, 404, { error: 'Asset not found' });
   }
 
-  if (servePublicFile(res, pathname)) return;
-  if (serveProjectFile(res, pathname, req.headers.range)) return;
+  if (servePublicFile(res, pathname, req.headers)) return;
+  if (serveProjectFile(res, pathname, req.headers)) return;
 
   respond(res, 404, { error: 'Not found' });
 });

@@ -173,7 +173,8 @@ async function init() {
     setupPenCanvas();
     initPenSprites();
     setupAudioGraph();
-    setupWaveform();
+    // 波形パネルは既定で hidden。開いた時（下の Restore settings / トグル）に初めて組む。
+    // 無条件に組むと、閉じたままのパネルのために全音源をもう 1 周ダウンロードしていた。
     scheduleTransitions();
     setupMinimap();
 
@@ -1471,9 +1472,107 @@ function setupAudioGraph() {
   }
 }
 function dbToGain(db) { return Math.pow(10, (db ?? 0) / 20); }
-async function loadAudioBuffer(url) {
-  try { const r = await fetch(url); return r.ok ? audioCtx.decodeAudioData(await r.arrayBuffer()) : null; } catch { return null; }
+
+// 効果音は「同じファイルを何十回も差し込む」使い方が普通で、差し込み 1 件ごとに
+// fetch + decode すると回数ぶんの重複ロードになる（実測 fieldtest/2026-08-03-akari-video-beat-pv:
+// 差し込み 159 件 / ユニーク 37 本 = 68.5MB のところ 17.1MB で足りる）。この重複が
+// <video> のレンジ要求とコネクションを食い合い、読み込み中スピナーが点きっぱなしになる。
+// URL 単位で 1 回に畳む。AudioBuffer は複数の BufferSource から同時に使ってよい（仕様）ので
+// 差し込みごとに別バッファを持つ必要はなく、デコード済み PCM のメモリも 1/4 以下になる。
+// キーに sampleRate を混ぜる: edit.json のホットリロード（= 効果音を差し込んだ瞬間）は
+// AudioContext を作り直すので、デコード済みバッファはこのキャッシュ越しに context をまたいで
+// 再利用される。AudioBuffer は context に束縛されないため使い回せるが、decodeAudioData は
+// context のレートへリサンプルするため、レートが変わった時だけは取り直す必要がある。
+const audioBufferCache = new Map(); // `${sampleRate}|${url}` -> Promise<AudioBuffer | null>
+// 同時 fetch の上限。HTTP/1.1 の同一オリジン 6 本を音声で埋めると <video> の
+// バッファリングが待たされて waiting → スピナーになるため、必ず空きを残す。
+const AUDIO_FETCH_CONCURRENCY = 3;
+let audioFetchActive = 0;
+const audioFetchQueue = [];
+function withAudioFetchSlot(task) {
+  return new Promise((resolve) => {
+    const run = async () => {
+      audioFetchActive++;
+      let out = null;
+      try { out = await task(); } catch { out = null; }
+      audioFetchActive--;
+      const next = audioFetchQueue.shift();
+      if (next) next();
+      resolve(out);
+    };
+    if (audioFetchActive < AUDIO_FETCH_CONCURRENCY) run();
+    else audioFetchQueue.push(run);
+  });
 }
+async function decodeAudioFrom(url, expectedSampleRate = null) {
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const bytes = await r.arrayBuffer();
+  // 順番待ちの間にホットリロードで context が差し替わっていることがある。閉じた context の
+  // decodeAudioData は InvalidStateError で落ちるので、実行時点で生きているものを使う。
+  const ctx = audioCtx;
+  if (!ctx || ctx.state === 'closed') return null;
+  if (expectedSampleRate !== null && ctx.sampleRate !== expectedSampleRate) return null;
+  return await ctx.decodeAudioData(bytes);
+}
+// 再生に使うバッファ（BGM / ナレーション / 効果音）。保持して使い回す。
+function loadAudioBuffer(url) {
+  if (!audioCtx || !url) return Promise.resolve(null);
+  const rate = audioCtx.sampleRate;
+  const key = `${rate}|${url}`;
+  let p = audioBufferCache.get(key);
+  if (!p) {
+    p = withAudioFetchSlot(() => decodeAudioFrom(url, rate)).then((buf) => {
+      // 失敗をキャッシュすると以後ずっと無音のままになる。取り直せるよう捨てる
+      if (!buf) audioBufferCache.delete(key);
+      return buf;
+    });
+    audioBufferCache.set(key, p);
+  }
+  return p;
+}
+// BGM を「今の出力時刻に対応する位置」で鳴らし直す。
+// AudioBufferSourceNode は start 後に再生位置を動かせないため、シークのたびに作り直すしかない。
+// 旧実装は play() で一度だけ offset 無しの start() を撃ち、以後シークしても何もしなかったので、
+// 0:00 から通しで再生した時だけ偶然合っていて、ジャンプすると必ずズレていた（実機報告 2026-08-07）。
+function restartBgm(t) {
+  if (!audioCtx || !bgmNode) return;
+  if (bgmNode._source) {
+    try { bgmNode._source.stop(); } catch { /* 未 start / 既 stop */ }
+    try { bgmNode._source.disconnect(); } catch { /* already detached */ }
+    bgmNode._source = null;
+  }
+  const buf = bgmNode._buffer;
+  if (!buf || !isPlaying) return;
+  const bgm = summary?.audio?.bgm || {};
+  // t: タイムライン上の開始秒 / in: 素材内の開始オフセット（波形側と同じ読み方）
+  const startAt = Number.isFinite(Number(bgm.t)) && Number(bgm.t) > 0 ? Number(bgm.t) : 0;
+  const sourceIn = Number.isFinite(Number(bgm.in)) && Number(bgm.in) > 0 ? Number(bgm.in) : 0;
+  if (t < startAt) return;
+  const loop = bgm.loop !== false;
+  const dur = buf.duration;
+  if (!(dur > 0)) return;
+  let offset = sourceIn + (t - startAt);
+  if (loop) offset %= dur;
+  else if (offset >= dur) return;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.loop = loop;
+  src.connect(bgmNode);
+  src.start(0, Math.max(0, offset));
+  bgmNode._source = src;
+}
+
+// シーク先の音に組み替える。ナレーション / 効果音は syncAudio が
+// 「鳴っていないなら t に応じた offset で鳴らす」ので、鳴りっぱなしのソースを畳んで再武装させる。
+function resyncAudioAfterSeek(t) {
+  if (!audioCtx) return;
+  for (const n of [...narrationNodes, ...sfxNodes]) {
+    if (n._source) { try { n._source.stop(); } catch { /* noop */ } n._source = null; }
+  }
+  restartBgm(t);
+}
+
 function syncAudio(t) {
   if (!audioCtx) return;
   if (isPlaying) for (const n of narrationNodes) {
@@ -1518,12 +1617,23 @@ function syncAudio(t) {
 }
 
 // --- Waveform ---
-async function computePeaks(url, numPeaks) {
+// 波形は「同じ URL・同じ本数」なら結果が変わらない。パネルを開き直すたびに
+// 全効果音を落とし直していた（実測 159 リクエスト/回）ので、ピークを URL 単位で覚える。
+const peaksCache = new Map(); // `${url}|${numPeaks}` -> { peaks, duration }
+// retain: 再生にも使う音（BGM / ナレーション / 効果音）は audioBufferCache と同じ
+// デコード済みバッファを共有する。false のときは波形専用（本編動画）なので、
+// 巨大な PCM を抱え続けないようピーク算出後に捨てる。
+async function computePeaks(url, numPeaks, { retain = true } = {}) {
+  if (!url || !audioCtx) return null;
+  const key = `${url}|${numPeaks || 200}`;
+  const hit = peaksCache.get(key);
+  // 呼び出し側は戻り値に t / color を書き込むため、キャッシュ実体は渡さず毎回包み直す
+  if (hit) return { peaks: hit.peaks, duration: hit.duration };
   try {
-    const r = await fetch(url);
-    if (!r.ok) return null;
-    const ab = await r.arrayBuffer();
-    const buf = await audioCtx.decodeAudioData(ab.slice(0));
+    const buf = retain
+      ? await loadAudioBuffer(url)
+      : await withAudioFetchSlot(() => decodeAudioFrom(url));
+    if (!buf) return null;
     const ch = buf.getChannelData(0);
     const pn = Math.min(numPeaks || 200, ch.length);
     const spp = Math.max(1, Math.floor(ch.length / pn));
@@ -1533,14 +1643,26 @@ async function computePeaks(url, numPeaks) {
       for (let j = 0; j < spp && i * spp + j < ch.length; j++) max = Math.max(max, Math.abs(ch[i * spp + j]));
       peaks.push(max);
     }
+    peaksCache.set(key, { peaks, duration: buf.duration });
     return { peaks, duration: buf.duration };
   } catch { return null; }
 }
-async function setupWaveform() {
+// パネルを素早く開閉すると多重に走って同じ URL を並行で取りに行くため、実行中は 1 本に畳む
+let waveformSetupInFlight = null;
+function setupWaveform() {
+  if (waveformSetupInFlight) return waveformSetupInFlight;
+  waveformSetupInFlight = buildWaveform()
+    .catch((e) => { console.warn('[preview] waveform build failed', e); })
+    .finally(() => { waveformSetupInFlight = null; });
+  return waveformSetupInFlight;
+}
+async function buildWaveform() {
+  // init 完走前にパネルを開かれると timelineData がまだ null。ここで空振りしても、
+  // init の末尾が「開いていれば組み直す」ので取りこぼさない。
+  if (!timelineData?.clips?.length || !audioCtx) return;
   waveformCanvas.width = waveformCanvas.clientWidth * devicePixelRatio;
   waveformCanvas.height = waveformCanvas.clientHeight * devicePixelRatio;
-  if (!timelineData.clips.length || !audioCtx) return;
-  const main = await computePeaks(timelineData.clips[0].src, 400);
+  const main = await computePeaks(timelineData.clips[0].src, 400, { retain: false });
   if (main) { waveformPeaks = main.peaks; waveformDuration = main.duration; }
   trackWaveforms = { bgm: null, narration: null, sfx: null };
   const audio = summary?.audio;
@@ -2266,15 +2388,35 @@ document.addEventListener('keydown', (e) => {
     case 'Comma': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, -1)); break;
     case 'Period': e.preventDefault(); pause(); seekTo(snapToCut(outputTime, 1)); break;
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
-    case 'Escape': shortcutHelp.hidden = true; setLayerSelected(null); break;
+    case 'Escape': shortcutHelp.hidden = true; setLayerSelected(null); closeCutInfo(); break;
+    case 'Digit0': e.preventDefault(); resetSelectedOverlayTransform(); break;
     case 'KeyZ': if (e.ctrlKey || e.metaKey) { e.preventDefault(); } break;
   }
 });
-video.addEventListener('loadstart', () => { loadingIndicator.style.display = 'block'; });
-video.addEventListener('canplay', () => { loadingIndicator.style.display = 'none'; });
-video.addEventListener('waiting', () => { loadingIndicator.style.display = 'block'; });
-video.addEventListener('playing', () => { loadingIndicator.style.display = 'none'; });
-video.addEventListener('error', () => { loadingIndicator.style.display = 'none'; });
+// スピナーは「本当に待たされている時」だけ出す。waiting はカット跨ぎやシークで日常的に
+// 一瞬立つため、素直に反映すると点滅が読み込み中の体感を実際より重くする
+// （実測 beat-pv: 13 回の点灯のうち 12 回が 400ms 未満）。立ち上がりだけ遅らせ、消すのは即座に。
+const LOADING_SPINNER_DELAY_MS = 400;
+let loadingSpinnerTimer = 0;
+function showLoading() {
+  if (loadingSpinnerTimer || loadingIndicator.style.display === 'block') return;
+  loadingSpinnerTimer = setTimeout(() => {
+    loadingSpinnerTimer = 0;
+    loadingIndicator.style.display = 'block';
+  }, LOADING_SPINNER_DELAY_MS);
+}
+function hideLoading() {
+  if (loadingSpinnerTimer) { clearTimeout(loadingSpinnerTimer); loadingSpinnerTimer = 0; }
+  loadingIndicator.style.display = 'none';
+}
+video.addEventListener('loadstart', showLoading);
+video.addEventListener('canplay', hideLoading);
+video.addEventListener('waiting', showLoading);
+video.addEventListener('playing', hideLoading);
+// シーク完了で待ちは解消している。seeked を拾わないと、一時停止中のシークでは
+// playing が来ないためスピナーが出たまま残る
+video.addEventListener('seeked', hideLoading);
+video.addEventListener('error', hideLoading);
 
 // --- Pen mode ---
 const penToggle = document.getElementById('pen-toggle');
@@ -2392,17 +2534,19 @@ function createOverlayRuntime() {
       }
       // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
       const rawHtml = typeof o.html === 'string' ? o.html : '';
+      const rec = { el: c, start: o.start, duration: o.duration, visible: false, is3d: false };
       if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
         c.innerHTML = '';
         fetch(resolveMediaUrl(rawHtml))
           .then(r => (r.ok ? r.text() : ''))
-          .then(html => { c.innerHTML = html || ''; })
+          .then(html => { c.innerHTML = html || ''; markThreeOverlay(rec); })
           .catch(() => {});
       } else {
         c.innerHTML = rawHtml;
+        markThreeOverlay(rec);
       }
       frag.appendChild(c);
-      overlays.push({ el: c, start: o.start, duration: o.duration, visible: false });
+      overlays.push(rec);
     }
     stage.appendChild(frag);
   }
@@ -2422,15 +2566,40 @@ function createOverlayRuntime() {
         // Web UI は visibility しか切り替えておらず、規約どおりに書かれた断片は
         // base opacity:0 のまま一切アニメせず「何も出ない」状態になっていた。
         o.el.toggleAttribute('data-akari-active', v);
+        // ゲート属性の付け外しでアニメの顔ぶれが変わるのでキャッシュを捨てる
+        o._anims = null;
+        // 見えなくなったら GPU リソースを返す（shell の overlay-runtime と同じ）
+        if (!v && o.is3d) window.akari?.threeRuntime?.dispose(o.el);
         o.visible = v;
       }
       if (!v) continue;
       const ms = Math.max(0, (t - o.start) * 1000);
-      for (const a of o.el.getAnimations({ subtree: true })) { a.pause(); a.currentTime = ms; }
+      if (o.is3d) {
+        // 3D 断片は three 側が時刻を持つ（mixer.setTime）。shell と同じく
+        // getAnimations ループは回さない — ここで continue する
+        window.akari?.threeRuntime?.render(o.el, ms / 1000, {
+          syncVideos: true,
+          maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE,
+        });
+        continue;
+      }
+      // getAnimations({subtree:true}) のコストは「ドキュメント全体に現存する CSS animation の
+      // 総数」にほぼ比例する（overlay-runtime.js の注記。実測の地雷）。断片のアニメは
+      // `[data-akari-active]` ゲートで宣言する規約なので、可視の間は顔ぶれが変わらない。
+      // 毎フレーム引き直さず、可視化時と 250ms ごとだけ引き直す（遅れて生えるものも拾える）。
+      const nowMs = performance.now();
+      if (!o._anims || nowMs - o._animsAt > 250) {
+        o._anims = o.el.getAnimations({ subtree: true });
+        o._animsAt = nowMs;
+      }
+      for (const a of o._anims) { a.pause(); a.currentTime = ms; }
       // ㉑ 当たり判定（clip-path）は断片の実寸に合わせる。ただし可視化時に 1 回だけ測ると、
       // その後アニメで拡大した分がはみ出して**見た目まで切り取られる**（実測: pop 断片が
       // 1.13 倍に育った瞬間、円が角丸四角に切れた）。アニメを進めた後に測り直す。
-      syncHitRegion(o.el);
+      // ただし編集モードが OFF のときはステージ自体が pointer-events:none で当たり判定を
+      // 一切使わない。毎フレーム getBoundingClientRect を撃つ（＝強制レイアウト）のは
+      // 純粋な無駄なので、編集中だけに絞る。
+      if (editMode) syncHitRegion(o.el);
     }
   }
   // 断片の顔ぶれ（id / html / 表示窓）が変わっていないときに、位置や見た目だけを
