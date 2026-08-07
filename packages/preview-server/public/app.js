@@ -1438,11 +1438,11 @@ function setupAudioGraph() {
       gain.connect(audioCtx.destination);
       bgmNode = gain;
       loadAudioBuffer(bgmUrl).then((buf) => {
-        if (!buf) return;
-        const src = audioCtx.createBufferSource();
-        src.buffer = buf; src.loop = audio.bgm.loop !== false;
-        src.connect(gain);
-        bgmNode._source = src;
+        if (!buf || bgmNode !== gain) return;
+        // ソースはここでは作らない。BufferSource は start 後に位置を動かせないので、
+        // 「今の outputTime に対応する位置」で毎回作り直す（restartBgm）。
+        bgmNode._buffer = buf;
+        if (isPlaying) restartBgm(outputTime);
       });
     }
   }
@@ -1850,6 +1850,9 @@ function seekTo(t) {
   updateOverlays();
   // 一時停止中のシークでもトランジション帯を反映する（P2-1）
   updateTransitions();
+  // 音はシーク先へ組み替える（BGM は作り直し、ナレーション / 効果音は再武装）。
+  // これを挟まないと、鳴っている音が古い位置のまま流れ続けてズレる
+  resyncAudioAfterSeek(outputTime);
   syncAudio(outputTime);
   syncLayers(outputTime);
   applyCutFramingVisual();
@@ -1862,7 +1865,8 @@ function play() {
   isPlaying = true;
   lastWallMs = 0;
   if (audioCtx?.state === 'suspended') audioCtx.resume();
-  if (bgmNode?._source && !bgmNode._source._started) { bgmNode._source.start(); bgmNode._source._started = true; }
+  // 再生開始位置の BGM を組む（一時停止からの再開も含め、必ず今の outputTime に合わせる）
+  restartBgm(outputTime);
   syncAudio(outputTime);
   video.play();
   for (const lv of layerVideos) if (lv.visible) lv.el.play();
