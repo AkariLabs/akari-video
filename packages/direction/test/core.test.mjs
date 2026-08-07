@@ -110,7 +110,7 @@ test('person_matte emits a timed video layer on a dedicated top track', () => {
     t: 3.5,
     duration: 2,
     kind: 'video',
-    src: 'assets/matte/person-2.mov',
+    src: 'assets/matte/person-2.webm',
     transform: { x: 0, y: 250, scale: 1, rotate: 0 },
     track: 1,
   });
@@ -123,7 +123,7 @@ test('person_matte emits a timed video layer on a dedicated top track', () => {
   );
 });
 
-test('person_matte prerequisite is ordered and converts VP9 alpha to render-cut-safe ProRes 4444', () => {
+test('person_matte prerequisite is ordered and emits the VP9 alpha WebM directly in two steps', () => {
   const patch = buildDirectionPatch({
     recipe: NEG_PERSON_CUTOUT,
     cutIndex: 3,
@@ -133,7 +133,12 @@ test('person_matte prerequisite is ordered and converts VP9 alpha to render-cut-
     cutSourcePath: 'assets/source/take.mp4',
     outputFps: 30,
   });
-  const [prepare, generate, convert] = patch.matte_prerequisite.steps;
+  assert.equal(patch.matte_prerequisite.steps.length, 2);
+  assert.deepEqual(
+    patch.matte_prerequisite.steps.map((step) => step.id),
+    ['prepare-speed-adjusted-cut', 'generate-person-matte'],
+  );
+  const [prepare, generate] = patch.matte_prerequisite.steps;
   assert.equal(prepare.command, 'ffmpeg');
   assert.equal(prepare.args[prepare.args.indexOf('-vf') + 1], 'setpts=PTS/1.5,fps=30');
   assert.equal(prepare.args[prepare.args.indexOf('-t') + 1], '2');
@@ -142,18 +147,10 @@ test('person_matte prerequisite is ordered and converts VP9 alpha to render-cut-
   assert.equal(generate.args[0], 'skills/analyze-footage/bin/person-matte/person-matte.mjs');
   assert.equal(generate.args[generate.args.indexOf('--out') + 1], 'assets/matte/person-3.webm');
   assert.equal(generate.args[generate.args.indexOf('--fps') + 1], '30');
-  assert.deepEqual(convert.after, ['generate-person-matte']);
-  assert.equal(convert.command, 'ffmpeg');
-  assert.ok(convert.args.indexOf('libvpx-vp9') < convert.args.indexOf('-i'));
-  assert.equal(convert.args[convert.args.indexOf('-i') + 1], 'assets/matte/person-3.webm');
-  assert.equal(convert.args[convert.args.indexOf('-profile:v') + 1], '4444');
-  assert.equal(convert.args[convert.args.indexOf('-pix_fmt') + 1], 'yuva444p10le');
-  assert.equal(convert.args.at(-1), 'assets/matte/person-3.mov');
-  assert.equal(patch.matte_prerequisite.output, 'assets/matte/person-3.mov');
-  assert.deepEqual(patch.matte_prerequisite.cleanup, [
-    '.person-3-speed-applied.mp4',
-    'assets/matte/person-3.webm',
-  ]);
+  assert.equal(patch.matte_prerequisite.output, 'assets/matte/person-3.webm');
+  assert.deepEqual(patch.matte_prerequisite.cleanup, ['.person-3-speed-applied.mp4']);
+  assert.equal(JSON.stringify(patch).toLowerCase().includes('prores'), false);
+  assert.equal(JSON.stringify(patch).includes('yuva444p10le'), false);
 });
 
 test('look goes to output_patch, not cut_patch', () => {
