@@ -217,12 +217,29 @@ async function main() {
       hiddenAfterInput
         ? ok('Programmatic seek input keeps cut info popup closed')
         : ng('Programmatic input opened cut info popup', 'popup visible after input event');
+      // 単クリック = 位置を飛ばすだけ。旧実装はここで開いていたが、シークバーのクリックは
+      // 最も普通の移動操作なので「位置を変えるたびに毎回開く」ことになっていた（実機報告 2026-08-07）
       await page.mouse.click(box.x + box.width * 0.3, box.y + box.height / 2);
       await page.waitForTimeout(200);
-      const openAfterClick = await page.evaluate(() => !document.getElementById('cut-info-popup').hidden);
-      openAfterClick
-        ? ok('Plain click on seek opens cut info popup')
-        : ng('Plain click did not open cut info popup', 'popup still hidden');
+      const hiddenAfterClick = await page.evaluate(() => document.getElementById('cut-info-popup').hidden);
+      hiddenAfterClick
+        ? ok('Plain click on seek only moves the playhead (does not open cut info)')
+        : ng('Plain click opened cut info popup', 'popup visible after single click');
+      // ダブルクリック = そのカットの情報を開く
+      await page.mouse.dblclick(box.x + box.width * 0.3, box.y + box.height / 2);
+      await page.waitForTimeout(200);
+      const openAfterDbl = await page.evaluate(() => !document.getElementById('cut-info-popup').hidden);
+      openAfterDbl
+        ? ok('Double click on seek opens cut info popup')
+        : ng('Double click did not open cut info popup', 'popup still hidden');
+      // Escape で閉じられる（✕ は「カット削除」であって閉じるボタンではないため、
+      // 逃げ道が「閉じる」1 つしか無いと押せない状況で詰む）
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(150);
+      const hiddenAfterEsc = await page.evaluate(() => document.getElementById('cut-info-popup').hidden);
+      hiddenAfterEsc
+        ? ok('Escape closes cut info popup')
+        : ng('Escape did not close cut info popup', 'popup still visible');
       // 後続テストへ影響しないよう閉じる
       await page.evaluate(() => { document.getElementById('cut-info-popup').hidden = true; });
     }
@@ -245,9 +262,13 @@ async function main() {
       await page.keyboard.press('Space');
       await page.waitForTimeout(300);
       // 数値入力（カット情報ポップアップの IN 欄）内では Space は打鍵のまま
-      await page.click('#seek');
+      // （ポップアップはダブルクリックで開く — 単クリックは移動のみ）
+      await page.dblclick('#seek');
       await page.waitForTimeout(200);
-      const hasNumberInput = await page.evaluate(() => !!document.getElementById('cut-inp-in'));
+      const hasNumberInput = await page.evaluate(() => {
+        const el = document.getElementById('cut-inp-in');
+        return !!el && !document.getElementById('cut-info-popup').hidden;
+      });
       if (hasNumberInput) {
         await page.focus('#cut-inp-in');
         const b2 = await page.locator('#play-toggle').getAttribute('aria-label');

@@ -2143,11 +2143,29 @@ function showCutInfoAt(t) {
     selectedCutAcc = seg.outStart;
     renderCutInfoContent(seg);
     cutInfoPopup.hidden = false;
+    // 素材の選択フレームは document.body 直下の position:fixed / z-index 最大で、
+    // ハンドルだけ pointer-events:auto。ポップアップ（z-index 20）に重なるとクリックを
+    // 全部そちらが取ってしまい、ボタンが押せなくなる（実機報告 2026-08-07）。
+    // カットを編集している間は素材の選択を解いて、重なり自体を無くす。
+    window.akari?.interaction?.clearSelection?.();
     return;
   }
   cutInfoPopup.hidden = true;
   selectedCutIndex = -1;
 }
+
+// ポップアップから抜ける道を用意する（Escape / 外側クリック）。
+// ✕ は「カットを削除」であって閉じるボタンではないため、閉じ方が「閉じる」ボタン 1 つしか
+// 無く、そこが押せない状況に陥ると詰んでいた。
+function closeCutInfo() {
+  cutInfoPopup.hidden = true;
+  selectedCutIndex = -1;
+}
+document.addEventListener('pointerdown', (e) => {
+  if (cutInfoPopup.hidden) return;
+  if (cutInfoPopup.contains(e.target) || e.target === seek) return;
+  closeCutInfo();
+}, true);
 
 function renderCutInfoContent(seg) {
   if (seg.isGap) {
@@ -2346,16 +2364,13 @@ seek.addEventListener('input', () => {
   seekTo(t);
   if (w) play();
 });
-// カット情報はスクラブでは開かない。ドラッグを伴わないクリックだけで開く
-// （seek-visual は pointer-events:none でクリックを受けられないため range 側で判定する）
-let seekPointerDown = null;
-seek.addEventListener('pointerdown', (e) => { seekPointerDown = { x: e.clientX, y: e.clientY }; });
-seek.addEventListener('pointerup', (e) => {
-  if (!seekPointerDown) return;
-  const moved = Math.hypot(e.clientX - seekPointerDown.x, e.clientY - seekPointerDown.y);
-  seekPointerDown = null;
-  if (moved < 4) showCutInfoAt(Number(seek.value));
-});
+// カット情報はダブルクリックでだけ開く。
+// 旧実装は「ドラッグを伴わないクリック」で開いていたが、シークバーをクリックして位置を
+// 飛ばすのは最も普通の操作なので、位置を変えるたびに毎回開いてしまっていた（実機報告 2026-08-07）。
+// 単クリック = 移動だけ / ダブルクリック = そのカットの情報、と分ける。
+// （seek-visual は pointer-events:none でクリックを受けられないため range 側で受ける）
+seek.title = 'ドラッグ / クリックで移動・ダブルクリックでカット情報';
+seek.addEventListener('dblclick', () => { showCutInfoAt(Number(seek.value)); });
 // カット境界へジャンプ（P2-2: 旧実装は区間内の t をそのまま返す恒等関数だった）
 function snapToCut(t, dir) {
   if (!segments.length) return t;
