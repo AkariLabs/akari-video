@@ -20,6 +20,7 @@ import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
 // layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・2026-08-06 crop-handle-anchor-fix）。
 import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 import { createCutFxController } from '/cut-fx.js';
+import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
 import { syncMediaCurrentTime } from '/media-time-sync.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
@@ -410,21 +411,25 @@ function setupLayers() {
   for (const layer of layers) {
     if (!layer.src) continue;
     const el = document.createElement('video');
-    el.preload = 'auto';
+    el.preload = 'none';
     el.muted = true;
     el.playsInline = true;
     // サイドカーが無い案件（--no-preview-proxy で焼いた等）は 404 で error になる。
     // その場合だけ非表示にして知らせる（黒板で映像を覆わないため）
     el.addEventListener('error', () => {
       const lv = layerVideos.find(x => x.el === el);
-      if (lv) lv.unplayable = true;
+      // src 解放後に遅れて届く中断イベントは 404 扱いしない。実ロード中の失敗だけを
+      // 恒久 unplayable にし、その場で解放して以後の先読みでも再試行しない。
+      if (!lv?.loaded) return;
+      const failedSrc = el.currentSrc || el.src;
+      markLayerUnplayable(lv);
+      lv.visible = false;
       el.style.display = 'none';
-      console.warn('[preview] レイヤーを再生できません（プレビュー用サイドカーを確認）', layer.id, el.src);
+      console.warn('[preview] レイヤーを再生できません（プレビュー用サイドカーを確認）', layer.id, failedSrc);
     });
     // 一時停止中は syncLayers がシーク時にしか走らない。読み込みがそれより遅いと
     // 「窓の中なのに出ない」まま次の操作まで固まるので、メタデータ到着で貼り直す
     el.addEventListener('loadedmetadata', () => syncLayers(outputTime));
-    el.src = resolveMediaUrl(layerPlaybackPath(layer));
     el.dataset.layerId = layer.id;
     el.style.display = 'none';
     el.style.opacity = String(layer.opacity ?? 1);
@@ -457,15 +462,18 @@ function setupLayers() {
     // 編集適用の再構築（要素作り直し）をまたいで選択を保つ
     if (selectedLayerId !== null && layer.id === selectedLayerId) el.classList.add('layer-selected');
     layerContainer.appendChild(el);
-    layerVideos.push({ el, layer, visible: false });
+    layerVideos.push({ el, layer, visible: false, loaded: false });
   }
+  // 起動時は seekTo/playbackLoop がまだ走っていないため、0 秒付近の先読みをここで始める。
+  syncLayers(outputTime);
 }
 
 function syncLayers(t) {
   for (const lv of layerVideos) {
     const l = lv.layer;
+    syncLayerLazyLoad(lv, t, () => resolveMediaUrl(layerPlaybackPath(l)));
     // メタデータ前に出すと最初のフレームが黒板になるので、読めてから出す（shell と同じ規約）
-    const shouldShow = !lv.unplayable
+    const shouldShow = lv.loaded && !lv.unplayable
       && lv.el.readyState >= HTMLMediaElement.HAVE_METADATA
       && t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
     if (shouldShow !== lv.visible) {
