@@ -28,6 +28,10 @@ FX 479 個の移植は行わない。479 個の移植は別途中止裁定が下
 | `flare` | 光のフレア・強調 | procedural（`particles` と同じ経路。輝点 1 個・大径・低速周回） | `intensity` |
 | `color-overlay` | 画面全体への色被せ（フェード赤・カラーマット黒相当を 1 id でカバー） | ffmpeg `color=` ソース + `blend` | `intensity` / `params.color`（必須） |
 
+プレビュー側の描画方式、強度ツマミ、近似差は
+[`contract-2026-08-02-preview-parity.md` §2.4.5](./contract-2026-08-02-preview-parity.md#245-画面-fxcutsfx2026-08-07-導入近似あり)
+を参照。
+
 ## 2. edit.json 拡張（追記のみ）
 
 ```

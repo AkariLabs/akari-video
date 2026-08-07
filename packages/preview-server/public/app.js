@@ -18,6 +18,7 @@ import { checkCutFreezeCrossing, computeCutFramingVisual } from '/framing-visual
 import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
 // layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・2026-08-06 crop-handle-anchor-fix）。
 import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
+import { createCutFxController } from '/cut-fx.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -61,6 +62,7 @@ const trackCanvases = {
   sfx: document.querySelector('.waveform-track-canvas[data-track="sfx"]'),
 };
 const stage = document.getElementById('overlay-stage');
+const cutFxLayer = document.getElementById('cut-fx-layer');
 const captionPlate = document.getElementById('caption-plate');
 const transitionPlate = document.getElementById('transition-plate');
 const wrapper = document.getElementById('preview-wrapper');
@@ -118,6 +120,7 @@ let reviewTimerRAF = 0;
 let reviewEvents = [];
 let trackWaveforms = { bgm: null, narration: null, sfx: null };
 let captionsData = null;
+const cutFx = createCutFxController(() => ({ summary, segment: getActiveSegment(outputTime), outputTime }));
 let captionsResolvedTimeline = false;
 let captionStylesInjected = false;
 
@@ -250,7 +253,7 @@ function updateStageScale() {
   const rect = computeOutputFrameRect();
   const next = rect.width / os.width;
   frameScale = Number.isFinite(next) && next > 0 ? next : 1;
-  for (const el of [stage, layerContainer]) {
+  for (const el of [stage, layerContainer, cutFxLayer]) {
     el.style.left = `${rect.x}px`;
     el.style.top = `${rect.y}px`;
     el.style.width = `${os.width}px`;
@@ -306,6 +309,7 @@ function buildSegments() {
   // 初回描画・編集後の再読み込みのどちらでも framing を反映する（このタイミングは playbackLoop
   // が回っていないことがあるため個別に呼ぶ必要がある）。
   applyCutFramingVisual();
+  cutFx.update();
 }
 
 // --- B-roll layers ---
@@ -1727,6 +1731,7 @@ function seekTo(t) {
   syncAudio(outputTime);
   syncLayers(outputTime);
   applyCutFramingVisual();
+  cutFx.update();
 }
 
 function play() {
@@ -1806,6 +1811,7 @@ function playbackLoop() {
     }
   }
   applyCutFramingVisual();
+  cutFx.update();
   seek.value = outputTime;
   updateTimeLabel();
   updateStatusBar();
