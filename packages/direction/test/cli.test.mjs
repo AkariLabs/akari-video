@@ -39,12 +39,16 @@ test('neg-person-cutout dry-run emits layer, explicit track order, and generatio
     'neg-person-cutout', '--cut', '4', '--cut-in', '12', '--cut-out', '16',
     '--cut-speed', '2', '--source', 'assets/source/take.mp4', '--fps', '30',
   ]));
-  assert.equal(patch.layers_patch.src, 'assets/matte/person-4.mov');
+  assert.equal(patch.layers_patch.src, 'assets/matte/person-4.webm');
   assert.equal(patch.layers_patch.duration, 2);
   assert.equal(patch.timeline_tracks_patch.at(-1).kind, 'layers');
+  assert.equal(patch.matte_prerequisite.steps.length, 2);
   assert.equal(patch.matte_prerequisite.steps[0].args.includes('setpts=PTS/2,fps=30'), true);
-  assert.equal(patch.matte_prerequisite.steps[2].args.at(-1), 'assets/matte/person-4.mov');
-  assert.equal(patch.matte_prerequisite.output, 'assets/matte/person-4.mov');
+  assert.equal(
+    patch.matte_prerequisite.steps[1].args[patch.matte_prerequisite.steps[1].args.indexOf('--out') + 1],
+    'assets/matte/person-4.webm',
+  );
+  assert.equal(patch.matte_prerequisite.output, 'assets/matte/person-4.webm');
 });
 
 test('--project applies the patch onto edit.json/captions.json in place', async () => {
@@ -116,7 +120,7 @@ test('neg-person-cutout project apply appends the layer and declares its dedicat
     );
     const patch = JSON.parse(run(['neg-person-cutout', '--cut', '0', '--project', dir]));
     const nextEdit = JSON.parse(await readFile(path.join(dir, 'edit.json'), 'utf8'));
-    assert.equal(nextEdit.layers.at(-1).src, 'assets/matte/person-0.mov');
+    assert.equal(nextEdit.layers.at(-1).src, 'assets/matte/person-0.webm');
     assert.equal(nextEdit.layers.at(-1).duration, 2);
     assert.equal(nextEdit.layers.at(-1).track, 1);
     assert.deepEqual(nextEdit.timeline.tracks, patch.timeline_tracks_patch);

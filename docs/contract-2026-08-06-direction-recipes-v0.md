@@ -188,9 +188,8 @@ CLI 層（`bin/expand-direction.mjs`）だけがレシピ読み込み・AKARI So
 `layers.person_matte` を持つレシピは、対象 cut に対して次を patch へ出力する。
 
 - `layers_patch`: `{ id: "person-<cut index>", t, duration, kind: "video",
-  src: "assets/matte/person-<cut index>.mov", track }`。最終素材は ProRes 4444 alpha。
-  変換時は `-pix_fmt yuva444p10le` を要求し、ffmpeg 8.1.1 の実出力は `ffprobe` 上
-  `yuva444p12le` となる（alpha plane は保持）。`t` は対象 cut の出力タイムライン開始秒、
+  src: "assets/matte/person-<cut index>.webm", track }`。最終素材は VP9 alpha WebM。
+  `t` は対象 cut の出力タイムライン開始秒、
   `duration` は `(cut.out - cut.in) / (cut.speed ?? 1)`。対象 cut に `transform` があれば継承する。
   CLI はこれを既存 `edit.layers[]` の末尾へ追記する
 - `timeline_tracks_patch`: 既存 layer の最大 track + 1 を人物専用 track とし、下→上を表す
@@ -200,19 +199,16 @@ CLI 層（`bin/expand-direction.mjs`）だけがレシピ読み込み・AKARI So
   第 1 step が ffmpeg で対象ソース区間へ **`setpts=PTS/<speed>` を適用し、出力 fps と
   `(out-in)/speed` の `-t` でフレーム境界を固定した一時 MP4** を作り、
   第 2 step が `skills/analyze-footage/bin/person-matte/person-matte.mjs` にその一時 MP4 を渡して
-  中間生成物 `assets/matte/person-<cut index>.webm` を作る。第 3 step は ffmpeg の入力デコーダに
-  `libvpx-vp9` を明示し、`assets/matte/person-<cut index>.mov`（ProRes 4444 alpha）へ変換する。
+  最終成果物 `assets/matte/person-<cut index>.webm` を作る。
   引数は shell 文字列ではなく `args[]` として保持し、生成器が同じ順序を機械的に再現できる
 
 速度をマット生成後に適用すると下地 cut と人物レイヤーのフレーム数がずれるため、順序は
-**速度適用済み一時 clip → person-matte → ProRes 4444 alpha MOV 変換**で固定する。
+**速度適用済み一時 clip → person-matte** の 2 段で固定する。
 `expand-direction` 自身はこの steps を実行しない。
 人物マットは実時間の数倍を要するため、パッチ生成と重い素材生成を分離する。
 
-person-matte の VP9 alpha WebM は `alpha_mode=1` を持つ一方、現行 render-cut が使う ffmpeg 8.1.1 の
-既定 VP9 入力デコーダでは alpha plane が展開されず、直接参照すると透明部分が黒になることを実測した。
-render-cut は本変更のファイル境界外なので、前提手順内で `libvpx-vp9` を明示して alpha を decode し、
-ドッグフード実績と同じ ProRes 4444 alpha MOV へ変換して吸収する。
+`layers-alpha-decoder` で render-cut 側が VP9 alpha を直接デコードできるようになったため、
+person-matte の WebM を変換せず `layers[].src` から直接参照する。
 
 z 順は `deriveTracks` の全体既定を変更せず、レシピ展開が人物専用 track を最上位として明示する。
 加えて人物レイヤーを `layers[]` 末尾へ追加するため、同一配列内のマスク等に対しては後着の人物が
@@ -236,8 +232,8 @@ z 順は `deriveTracks` の全体既定を変更せず、レシピ展開が人�
   color-overlay）にネガ反転（色反転）を作る id が無い。`vignette` の white モード内部実装が
   `negate,vignette,negate` を使っているが、これは fx.mjs 内部のトリックであり公開 id ではない
 - **演者切り抜き（#10）は実働扱いにした**: macOS Vision の person-matte 生成と render-cut の
-  ProRes 4444 alpha MOV 合成をカット単位で配線した。速度変更 cut は `setpts` を先に適用して
-  尺を一致させ、person-matte の VP9 alpha WebM は `libvpx-vp9` で decode して MOV へ変換する
+  VP9 alpha WebM 合成をカット単位で配線した。速度変更 cut は `setpts` を先に適用して
+  尺を一致させ、生成した WebM を人物レイヤーから直接参照する
 - 結果としてネガティブの実働数は **15/16**、全 34 レシピでは **展開対象 33 + requires 1**。
   `requires` 対象は {色調反転} だけである
 

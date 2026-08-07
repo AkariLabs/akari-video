@@ -59,7 +59,7 @@ presets/direction/
 | `neg-dissolve` | クロスディゾルブ | transition_in: dissolve |
 | `neg-mono-freeze` | 白黒＋動画停止 | LUT mono + freeze |
 | `neg-mono-shrink` | 白黒＋画角縮小 | LUT mono + framing.keyframes（2 点） |
-| `neg-person-cutout` | 演者切り抜き | person_matte → ProRes 4444 alpha の `assets/matte/person-<cut index>.mov` + 人物専用最上位 layer track |
+| `neg-person-cutout` | 演者切り抜き | person_matte の `assets/matte/person-<cut index>.webm` + 人物専用最上位 layer track |
 | `neg-onechar` | 一文字ずつ | one-char-bang |
 | `neg-color-matte-black` | カラーマット黒 | color-overlay(black, intensity=1) — §「requires の運用」参照 |
 | `neg-mono-crop` | 白黒＋クロップ | LUT mono + framing.crop |
@@ -111,9 +111,9 @@ presets/direction/
 （silent drop を避ける契約上の判断）。現在の対象は `neg-color-invert` だけです。
 カラーマット黒は fx v0 の `color-overlay` で実働化し、演者切り抜きは macOS Vision の
 person-matte 生成と render-cut の alpha 合成をカット単位で配線・実測して `requires` から外しました。
-person-matte の VP9 alpha WebM は現行 render-cut の ffmpeg 既定デコーダでは alpha が展開されないため、
-前提手順で `libvpx-vp9` decode 後に ProRes 4444 alpha MOV へ変換してから参照します。
-経緯と生成前提は契約書 §3-6・§4 を参照してください。
+`layers-alpha-decoder` で render-cut 側が VP9 alpha を直接デコードできるようになったため、
+person-matte の WebM を変換せず `layers[].src` から直接参照します。
+経緯と生成前提は契約書 §3-7・§4 を参照してください。
 
 ## 展開ツール
 
