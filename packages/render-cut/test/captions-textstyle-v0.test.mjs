@@ -164,3 +164,27 @@ test("presets/textstyle の全プリセットが default_text_style としてそ
     assert.ok(Object.keys(overlays[0].vars).length > 0, `${preset.id} produced no vars`);
   }
 });
+
+// font_weight / weight の別名解決。契約（captions.schema.json）は display_policy 経路からの
+// font_weight（1..1000）と textstyle v0 の weight（100..900）を両方定義しているのに、legacy
+// レールは weight しか読んでいなかったため、契約上は有効な font_weight が無言で捨てられていた。
+test("font_weight は weight の別名として効き、両方あるときは weight が勝つ", () => {
+  const onlyLegacyName = captionTextStyleVars(mergeCaptionTextStyles({ font_weight: 800 }, undefined));
+  assert.equal(onlyLegacyName["--caption-font-weight"], "800",
+    "font_weight だけを書いた字幕が既定 700 のまま出ていた回帰");
+
+  const onlyV0Name = captionTextStyleVars(mergeCaptionTextStyles({ weight: 300 }, undefined));
+  assert.equal(onlyV0Name["--caption-font-weight"], "300");
+
+  const both = captionTextStyleVars(mergeCaptionTextStyles({ font_weight: 800, weight: 300 }, undefined));
+  assert.equal(both["--caption-font-weight"], "300",
+    "captions.schema.json $defs/textStyle の $comment と同じ優先順位（weight 優先）");
+
+  // 範囲外の font_weight は採らない（既存の weight 側の受理条件と揃える）
+  const outOfRange = captionTextStyleVars(mergeCaptionTextStyles({ font_weight: 1001 }, undefined));
+  assert.equal(outOfRange["--caption-font-weight"], undefined);
+
+  // caption 側の font_weight が default 側の weight を上書きできる（マージ順の確認）
+  const overridden = captionTextStyleVars(mergeCaptionTextStyles({ weight: 300 }, { font_weight: 900 }));
+  assert.equal(overridden["--caption-font-weight"], "900");
+});

@@ -2471,6 +2471,7 @@ function validateTextStyle(value, label, findings, path) {
       );
     }
   }
+  validateTextStyleV0Fields(value, label, findings, path);
   if (Object.hasOwn(value, "color")) {
     validateCaptionHexColor(value.color, `${label}.color`, findings, path);
   }
@@ -2603,6 +2604,98 @@ function validateCaptionAnimationSlot(value, label, findings, path) {
   }
 }
 
+const CAPTION_ALIGN_VALUES = new Set(["left", "center", "right"]);
+const CAPTION_VERTICAL_ALIGN_VALUES = new Set(["top", "middle", "bottom"]);
+const CAPTION_TEXT_TRANSFORM_VALUES = new Set([
+  "upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none",
+]);
+const CAPTION_TEXT_ANCHOR_VALUES = new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
+const CAPTION_SHADOW_KEYS = ["color", "opacity", "blur_px", "distance_px", "angle_deg"];
+const CAPTION_GLOW_KEYS = ["color", "density", "spread", "offset_x", "offset_y"];
+const CAPTION_NON_NEGATIVE_SHADOW_KEYS = ["blur_px", "distance_px", "density", "spread"];
+
+
+// textstyle v0 のフィールド検証。edit-store の validateTextStyleV0 と同じ規則を張る
+// （どちらか片方だけが緩いと、lint が通ったのに保存で弾かれる/その逆が起きる）。
+function validateTextStyleV0Fields(value, label, findings, path) {
+  const has = (key) => Object.hasOwn(value, key);
+  const flag = (message) => captionFinding(findings, "captions.text-style", `${label}.${message}`, path);
+  if (has("font_family") && (typeof value.font_family !== "string" || value.font_family === "")) {
+    flag("font_family must be a non-empty string");
+  }
+  if (has("weight") && (!Number.isInteger(value.weight) || value.weight < 100 || value.weight > 900)) {
+    flag("weight must be an integer within [100, 900]");
+  }
+  if (has("italic") && typeof value.italic !== "boolean") flag("italic must be a boolean");
+  if (has("underline") && typeof value.underline !== "boolean") flag("underline must be a boolean");
+  if (has("letter_spacing_em") && !isFiniteNumber(value.letter_spacing_em)) {
+    flag("letter_spacing_em must be a finite number");
+  }
+  if (has("align") && !CAPTION_ALIGN_VALUES.has(value.align)) flag("align must be one of left, center, right");
+  if (has("vertical_align") && !CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align)) {
+    flag("vertical_align must be one of top, middle, bottom");
+  }
+  if (has("vertical") && typeof value.vertical !== "boolean") flag("vertical must be a boolean");
+  if (has("text_transform") && !CAPTION_TEXT_TRANSFORM_VALUES.has(value.text_transform)) {
+    flag("text_transform must be one of upper, uppercase, lower, lowercase, title, capitalize, none");
+  }
+  if (has("max_width_pct")
+    && (!isFiniteNumber(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100)) {
+    flag("max_width_pct must be a finite number within (0, 100)");
+  }
+  if (has("text_anchor") && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor)) {
+    flag("text_anchor must be one of the nine anchor codes");
+  }
+  if (has("position")) {
+    if (!isRecord(value.position)) {
+      flag("position must be an object");
+    } else {
+      for (const field of Object.keys(value.position)) {
+        if (field !== "x" && field !== "y") flag(`position.${field} is not defined by the text style contract`);
+      }
+      for (const axis of ["x", "y"]) {
+        if (Object.hasOwn(value.position, axis) && !isFiniteNumber(value.position[axis])) {
+          flag(`position.${axis} must be a finite number`);
+        }
+      }
+    }
+  }
+  if (has("shadow")) validateCaptionShadowLike(value.shadow, CAPTION_SHADOW_KEYS, `${label}.shadow`, findings, path);
+  if (has("glow")) validateCaptionShadowLike(value.glow, CAPTION_GLOW_KEYS, `${label}.glow`, findings, path);
+  if (has("animation")) validateCaptionAnimation(value.animation, `${label}.animation`, findings, path);
+}
+
+// shadow / glow は「color 必須 + 残りは数値」の同型。color を任意にすると消費側が
+// 影を組めず無言で落ちるため必須で揃える。
+function validateCaptionShadowLike(value, keys, label, findings, path) {
+  if (!isRecord(value)) return captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
+  for (const field of Object.keys(value)) {
+    if (!keys.includes(field)) {
+      captionFinding(findings, "captions.text-style", `${label}.${field} is not defined by the text style contract`, path);
+    }
+  }
+  if (!Object.hasOwn(value, "color")) {
+    captionFinding(findings, "captions.text-style", `${label}.color is required`, path);
+  } else {
+    validateCaptionHexColor(value.color, `${label}.color`, findings, path);
+  }
+  for (const key of keys) {
+    if (key === "color" || !Object.hasOwn(value, key)) continue;
+    if (!isFiniteNumber(value[key])) {
+      captionFinding(findings, "captions.text-style", `${label}.${key} must be a finite number`, path);
+      continue;
+    }
+    if (key === "opacity" && (value[key] < 0 || value[key] > 1)) {
+      captionFinding(findings, "captions.text-style", `${label}.opacity must be within [0, 1]`, path);
+    }
+    // 非負なのは長さ・量のみ。angle_deg は向きなので負値が正当（-90 = 真上）、
+    // offset_* も両方向へ動かせる。
+    if (CAPTION_NON_NEGATIVE_SHADOW_KEYS.includes(key) && value[key] < 0) {
+      captionFinding(findings, "captions.text-style", `${label}.${key} must be non-negative`, path);
+    }
+  }
+}
+
 function validateCaptionStrokeStyle(value, label, findings, path) {
   if (!isRecord(value)) {
     captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
@@ -2658,7 +2751,11 @@ function validateCaptionBackgroundStyle(value, label, findings, path) {
     captionFinding(findings, "captions.text-style", `${label} must be an object`, path);
     return;
   }
-  const allowed = ["color", "opacity", "radius_px", "mode"];
+  const allowed = [
+    "color", "opacity", "radius_px", "mode",
+    // textstyle v0 の座布団拡張: 一律余白 / 文字box比での拡張 / 座布団だけの平行移動
+    "padding_px", "width_pct", "height_pct", "offset_x", "offset_y",
+  ];
   for (const field of Object.keys(value)) {
     if (!allowed.includes(field)) {
       captionFinding(
@@ -2667,6 +2764,16 @@ function validateCaptionBackgroundStyle(value, label, findings, path) {
         `${label}.${field} is not defined by the background style contract`,
         path,
       );
+    }
+  }
+  for (const key of ["padding_px", "width_pct", "height_pct"]) {
+    if (Object.hasOwn(value, key) && (!isFiniteNumber(value[key]) || value[key] < 0)) {
+      captionFinding(findings, "captions.text-style", `${label}.${key} must be a non-negative finite number`, path);
+    }
+  }
+  for (const key of ["offset_x", "offset_y"]) {
+    if (Object.hasOwn(value, key) && !isFiniteNumber(value[key])) {
+      captionFinding(findings, "captions.text-style", `${label}.${key} must be a finite number`, path);
     }
   }
   if (Object.hasOwn(value, "color")) {

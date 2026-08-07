@@ -507,8 +507,14 @@ function normalizeTextStyle(value) {
     // --- 2026-08-03 textstyle v0 拡張（presets/textstyle と同語彙） ---
     ...(typeof value.font_family === "string" && value.font_family !== ""
       ? { font_family: value.font_family } : {}),
+    // weight（textstyle v0 の正式名・100..900）と font_weight（display_policy 経路からの
+    // 既存名・1..1000）は同じ CSS font-weight を指す。legacy レールは weight しか読んで
+    // いなかったため、contract 上は有効な font_weight が無言で捨てられていた。両方あるときは
+    // weight を優先する（captions.schema.json $defs/textStyle の $comment と同じ順序）。
     ...(finiteNumber(value.weight) && value.weight >= 100 && value.weight <= 900
-      ? { weight: value.weight } : {}),
+      ? { weight: value.weight }
+      : Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1000
+        ? { weight: value.font_weight } : {}),
     ...(value.italic === true ? { italic: true } : {}),
     ...(value.underline === true ? { underline: true } : {}),
     ...(finiteNumber(value.letter_spacing_em) ? { letter_spacing_em: value.letter_spacing_em } : {}),
