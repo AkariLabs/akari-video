@@ -2424,6 +2424,8 @@ document.addEventListener('keydown', (e) => {
     case 'Slash': if (!e.shiftKey) { e.preventDefault(); shortcutHelp.hidden = !shortcutHelp.hidden; } break;
     case 'Escape': shortcutHelp.hidden = true; setLayerSelected(null); closeCutInfo(); break;
     case 'Digit0': e.preventDefault(); resetSelectedOverlayTransform(); break;
+    case 'Delete':
+    case 'Backspace': e.preventDefault(); deleteSelectedOverlay(); break;
     case 'KeyZ': if (e.ctrlKey || e.metaKey) { e.preventDefault(); } break;
   }
 });
@@ -2619,17 +2621,29 @@ function createOverlayRuntime() {
       c.dataset.overlayId = String(o.id);
       c.dataset.start = String(o.start);
       c.dataset.duration = String(o.duration);
+      if (o.role !== undefined && o.role !== null) c.dataset.role = String(o.role);
       c.style.cssText = 'position:absolute;inset:0;pointer-events:auto;visibility:hidden;touch-action:none;';
+      // tasks/2026-08-07-background-role（2026-08-07 オーナー裁定）: role==="background" は
+      // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
+      // ロックする（transform も vars 経由の抜け道も無視する。overlay-runtime.js の mount・
+      // render-cut の rasterize.mjs の renderOverlayNode と同じロック）。
+      const isBackground = o.role === 'background';
       const t = o.transform || {};
-      c.style.setProperty('--x', `${t.x||0}px`);
-      c.style.setProperty('--y', `${t.y||0}px`);
-      c.style.setProperty('--scale', String(t.scale||1));
-      c.style.setProperty('--rotate', `${t.rotate||0}deg`);
+      c.style.setProperty('--x', isBackground ? '0px' : `${t.x||0}px`);
+      c.style.setProperty('--y', isBackground ? '0px' : `${t.y||0}px`);
+      c.style.setProperty('--scale', isBackground ? '1' : String(t.scale||1));
+      c.style.setProperty('--rotate', isBackground ? '0deg' : `${t.rotate||0}deg`);
       c.style.transform = 'translate(var(--x,0px), var(--y,0px)) scale(var(--scale,1)) rotate(var(--rotate,0deg))';
       if (o.vars && typeof o.vars === 'object') {
         for (const [k, v] of Object.entries(o.vars)) {
           if (k.startsWith('--') && (typeof v === 'string' || typeof v === 'number')) c.style.setProperty(k, String(v));
         }
+      }
+      if (isBackground) {
+        c.style.setProperty('--x', '0px');
+        c.style.setProperty('--y', '0px');
+        c.style.setProperty('--scale', '1');
+        c.style.setProperty('--rotate', '0deg');
       }
       // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
       const rawHtml = typeof o.html === 'string' ? o.html : '';
@@ -2708,11 +2722,16 @@ function createOverlayRuntime() {
     for (const o of (s?.overlays || [])) {
       const entry = overlays.find(x => x.el.dataset.overlayId === String(o.id));
       if (!entry) continue;
+      // tasks/2026-08-07-background-role: mount() と同じロック（transform 無視 + vars 経由の
+      // --x/--y/--scale/--rotate 上書きを許さない）。applyProps は再マウント無しで既存要素の
+      // 見た目だけを貼り直す経路なので、ここで抜けると別クライアントの書き込みや summary
+      // 再取得で背景がずれ得る。
+      const isBackground = o.role === 'background';
       const t = o.transform || {};
-      entry.el.style.setProperty('--x', `${t.x || 0}px`);
-      entry.el.style.setProperty('--y', `${t.y || 0}px`);
-      entry.el.style.setProperty('--scale', String(t.scale || 1));
-      entry.el.style.setProperty('--rotate', `${t.rotate || 0}deg`);
+      entry.el.style.setProperty('--x', isBackground ? '0px' : `${t.x || 0}px`);
+      entry.el.style.setProperty('--y', isBackground ? '0px' : `${t.y || 0}px`);
+      entry.el.style.setProperty('--scale', isBackground ? '1' : String(t.scale || 1));
+      entry.el.style.setProperty('--rotate', isBackground ? '0deg' : `${t.rotate || 0}deg`);
       if (o.vars && typeof o.vars === 'object') {
         for (const [k, v] of Object.entries(o.vars)) {
           if (k.startsWith('--') && (typeof v === 'string' || typeof v === 'number')) {
@@ -2720,6 +2739,14 @@ function createOverlayRuntime() {
           }
         }
       }
+      if (isBackground) {
+        entry.el.style.setProperty('--x', '0px');
+        entry.el.style.setProperty('--y', '0px');
+        entry.el.style.setProperty('--scale', '1');
+        entry.el.style.setProperty('--rotate', '0deg');
+      }
+      if (o.role !== undefined && o.role !== null) entry.el.dataset.role = String(o.role);
+      else delete entry.el.dataset.role;
       entry.start = o.start;
       entry.duration = o.duration;
       entry.el.dataset.start = String(o.start);
@@ -2768,7 +2795,12 @@ function updateSelectionHint() {
   const ov = (summary?.overlays || []).find(o => String(o.id) === String(id));
   const range = ov ? `${fmtRange(ov.start)}〜${fmtRange(ov.start + ov.duration)}` : '範囲不明';
   const whole = ov && ov.duration >= totalDuration * 0.9 ? '（動画ほぼ全編に敷かれています）' : '';
-  showHint(`選択中: ${id} ・ ${range}${whole} ・ 0 キーで位置を戻す`, 0);
+  // 背景（role==="background"）は動かせないので「0 キーで位置を戻す」は意味を持たない。
+  // 代わりに「動かせない」ことと Delete での差し替え動線を伝える（tasks/2026-08-07-background-role）。
+  const trailer = ov?.role === 'background'
+    ? '（背景・移動不可）・ Delete キーで削除'
+    : '・ 0 キーで位置を戻す ・ Delete キーで削除';
+  showHint(`選択中: ${id} ・ ${range}${whole}${trailer}`, 0);
 }
 
 // 選択中の素材を「作者が書いた位置」へ厳密に戻す。
@@ -2783,6 +2815,45 @@ async function resetSelectedOverlayTransform() {
     showHint(`${id} の位置を作者の位置へ戻しました`);
   } catch (e) {
     showHint(`位置を戻せませんでした: ${e.message}`, 6000);
+  }
+}
+
+// 選択中の素材を消す（tasks/2026-08-07-background-role §4「Delete で削除」）。
+// 背景に限らず overlays[] 全般に対する汎用機能 — 背景は「選択はできるが動かせない」種別で、
+// 差し替え（別の背景へ切り替える）の唯一の手段が「今の背景を消す」なので必須。
+// 消した後は下にあるものがそのまま見える（beat-pv ならベース動画）。lint 警告も出さない
+// （2026-08-07 オーナー裁定「消したら黒でよい」）。
+async function deleteSelectedOverlay() {
+  const el = document.querySelector('[data-akari-interaction-selected]');
+  const id = el?.dataset?.overlayId;
+  if (!id) { showHint('削除する素材が選択されていません（編集モードで選んでください）'); return; }
+  try {
+    await deleteOverlayViaPut(id);
+    showHint(`${id} を削除しました`);
+  } catch (e) {
+    showHint(`削除できませんでした: ${e.message}`, 6000);
+  }
+}
+
+async function deleteOverlayViaPut(overlayId) {
+  const res = await fetch('/api/summary');
+  if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
+  const edit = await res.json();
+  const before = (edit.overlays || []).length;
+  edit.overlays = (edit.overlays || []).filter(o => String(o.id) !== String(overlayId));
+  if (edit.overlays.length === before) throw new Error(`オーバーレイが見つかりません: ${overlayId}`);
+  const put = await fetch('/api/edit.json', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(edit),
+  });
+  if (!put.ok) {
+    let detail = `HTTP ${put.status}`;
+    try {
+      const body = await put.json();
+      if (body?.findings?.length) detail = body.findings[0].message || detail;
+    } catch {}
+    throw new Error(`削除の書き戻しに失敗しました: ${detail}`);
   }
 }
 

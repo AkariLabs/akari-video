@@ -1,0 +1,25 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "../valid/sample.mp4", "proxy": null },
+  "cuts": [
+    { "in": 5.0, "out": 10.0 },
+    { "in": 30.0, "out": 35.0 }
+  ],
+  "overlays": [
+    {
+      "id": "bg-a",
+      "role": "background",
+      "html": "../valid/overlays/cap-a.html",
+      "start": 0.0,
+      "duration": 5.0
+    },
+    {
+      "id": "bg-b",
+      "role": "background",
+      "html": "../valid/overlays/cap-b.html",
+      "start": 3.0,
+      "duration": 5.0
+    }
+  ]
+}

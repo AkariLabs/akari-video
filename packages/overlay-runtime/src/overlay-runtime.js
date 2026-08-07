@@ -49,9 +49,18 @@ window.akari.runtime = (() => {
       const transform = overlay.transform ?? {};
       const container = document.createElement("div");
 
+      // tasks/2026-08-07-background-role（2026-08-07 オーナー裁定）: role==="background" は
+      // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
+      // ロックする（transform も vars 経由の抜け道も無視する。preview-server の app.js の
+      // mount・render-cut の rasterize.mjs の renderOverlayNode と同じロック）。
+      const isBackground = overlay.role === "background";
+
       container.dataset.overlayId = String(overlay.id);
       container.dataset.start = String(start);
       container.dataset.duration = String(duration);
+      if (overlay.role !== undefined && overlay.role !== null) {
+        container.dataset.role = String(overlay.role);
+      }
       container.style.position = "absolute";
       container.style.inset = "0";
       container.style.pointerEvents = "auto";
@@ -63,10 +72,10 @@ window.akari.runtime = (() => {
         }
       }
 
-      container.style.setProperty("--x", `${finiteNumber(transform.x, 0)}px`);
-      container.style.setProperty("--y", `${finiteNumber(transform.y, 0)}px`);
-      container.style.setProperty("--scale", String(finiteNumber(transform.scale, 1)));
-      container.style.setProperty("--rotate", `${finiteNumber(transform.rotate, 0)}deg`);
+      container.style.setProperty("--x", isBackground ? "0px" : `${finiteNumber(transform.x, 0)}px`);
+      container.style.setProperty("--y", isBackground ? "0px" : `${finiteNumber(transform.y, 0)}px`);
+      container.style.setProperty("--scale", isBackground ? "1" : String(finiteNumber(transform.scale, 1)));
+      container.style.setProperty("--rotate", isBackground ? "0deg" : `${finiteNumber(transform.rotate, 0)}deg`);
       container.style.transform =
         "translate(var(--x,0px), var(--y,0px)) " +
         "scale(var(--scale,1)) rotate(var(--rotate,0deg))";

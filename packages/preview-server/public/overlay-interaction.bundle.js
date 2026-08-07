@@ -250,6 +250,12 @@
       }
       return getComputedStyle(container).visibility !== "hidden";
     }
+    function isBackgroundRole(container) {
+      return Boolean(container?.dataset?.role === "background");
+    }
+    function isMovable(container) {
+      return isSelectable(container) && !isBackgroundRole(container);
+    }
     function cssVariableText(container, name) {
       const inlineValue = container.style.getPropertyValue(name).trim();
       if (inlineValue) return inlineValue;
@@ -291,6 +297,7 @@
         selectionFrame = createSelectionFrame();
         document.body.appendChild(selectionFrame);
       }
+      selectionFrame.classList.toggle("is-locked", isBackgroundRole(selectedOverlay));
       const usableRect = [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) && rect.width > 0 && rect.height > 0;
       selectionFrame.hidden = !usableRect;
       if (!usableRect) return;
@@ -774,7 +781,7 @@
       if (event.button !== 0 || activeDrag || activeResize) return;
       const handleEl = findHandleElement(event.target);
       if (handleEl) {
-        if (!isSelectable(selectedOverlay)) return;
+        if (!isMovable(selectedOverlay)) return;
         beginResize(event, selectedOverlay, handleEl);
         return;
       }
@@ -785,6 +792,7 @@
         return;
       }
       if (activeEdit) void commitEdit();
+      if (!isMovable(container)) return;
       const transform = readTransform(container);
       activeDrag = {
         container,

@@ -1105,6 +1105,158 @@ async function main() {
     ng('Layer click-select + drag', e.message);
   }
 
+  // ── tasks/2026-08-07-background-role: 背景（overlays[].role==="background"）は
+  // 選択はできるがドラッグ/リサイズでは動かせない・Delete で削除できる ──
+  // 実機報告 2026-08-07: 誤ドラッグで全編背景 bg-live がずれ、右と下が黒く欠けた事故への
+  // 対策。要件の本質は「ずれたら直せる」ではなく「ずらせない」なので、実ブラウザで
+  // ドラッグしても DOM の --x/--y と edit.json の transform が変わらないことを実測する。
+  // edit-lint ゲートそのもの（overlays.role.transform / .vars / .overlap）は
+  // packages/edit-lint/test/edit-lint.test.mjs のフィクスチャで実測済み — この preview
+  // サーバは `--no-lint` で起動しており（下の spawn 参照）、書き込み経路の lint は
+  // ここでは検証できない（意図的に無効: 他の全 PUT 系テストを lint 実行コストから外すため）。
+  console.log('\n🖼️  Background overlay: not draggable + deletable');
+  let bgOrigText = null;
+  try {
+    bgOrigText = fs.readFileSync(editJsonPath, 'utf8');
+    const origEdit = JSON.parse(bgOrigText);
+    fs.mkdirSync(path.join(PROJECT, 'overlays'), { recursive: true });
+    fs.writeFileSync(
+      path.join(PROJECT, 'overlays', 'bg-test.html'),
+      '<div class="bg-test-root" style="position:absolute;inset:0;background:#3a6ea5;"></div>\n'
+    );
+    const withBg = {
+      ...origEdit,
+      overlays: [{ id: 'bg-test', role: 'background', html: 'overlays/bg-test.html', start: 0, duration: 10 }],
+    };
+    fs.writeFileSync(editJsonPath, JSON.stringify(withBg, null, 2));
+
+    const bp = await context.newPage();
+    await bp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await bp.waitForTimeout(2000);
+    await bp.click('#edit-toggle');
+    await bp.waitForTimeout(300);
+    // overlays only turn visible on the first tick(), which updateOverlays() drives from
+    // seekTo()/playbackLoop() — never automatically on load (same reason the layer-drag test
+    // above seeks before clicking). Without this the container stays visibility:hidden and
+    // every hit-test below silently misses it.
+    await bp.evaluate(() => {
+      const el = document.getElementById('seek');
+      el.value = '1';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await bp.waitForTimeout(600);
+
+    const stageBox = await bp.evaluate(() => {
+      const r = document.getElementById('overlay-stage').getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    const cx = stageBox.x + stageBox.w / 2;
+    const cy = stageBox.y + stageBox.h / 2;
+
+    await bp.mouse.click(cx, cy);
+    await bp.waitForTimeout(200);
+    const selectedInfo = await bp.evaluate(() => {
+      const el = document.querySelector('[data-akari-interaction-selected]');
+      const frame = document.querySelector('.akari-interaction-selection-frame');
+      const handle = frame?.querySelector('.akari-interaction-handle');
+      return {
+        id: el?.dataset?.overlayId ?? null,
+        role: el?.dataset?.role ?? null,
+        frameLocked: frame ? frame.classList.contains('is-locked') : null,
+        handleHidden: handle ? getComputedStyle(handle).display === 'none' : null,
+      };
+    });
+    (selectedInfo.id === 'bg-test' && selectedInfo.role === 'background')
+      ? ok('Background overlay is selectable (click selects it)')
+      : ng('Background select', JSON.stringify(selectedInfo));
+    selectedInfo.frameLocked === true
+      ? ok('Selection frame marks the background selection as locked (is-locked)')
+      : ng('Selection frame not locked', JSON.stringify(selectedInfo));
+    selectedInfo.handleHidden === true
+      ? ok('Resize handles are hidden for a locked background selection')
+      : ng('Resize handles visible on background', JSON.stringify(selectedInfo));
+
+    // 実ドラッグ: 誤ドラッグ事故の再現（大きく動かす）。位置が変わらないことを見る
+    await bp.mouse.move(cx, cy);
+    await bp.mouse.down();
+    await bp.mouse.move(cx + 120, cy + 90, { steps: 8 });
+    await bp.mouse.up();
+    await bp.waitForTimeout(600);
+    const afterDrag = await bp.evaluate(() => {
+      const el = document.querySelector('[data-overlay-id="bg-test"]');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return `${cs.getPropertyValue('--x').trim()}/${cs.getPropertyValue('--y').trim()}`;
+    });
+    afterDrag === '0px/0px'
+      ? ok(`Dragging a background overlay does not move it (--x/--y=${afterDrag})`)
+      : ng('Background dragged', `--x/--y=${afterDrag}`);
+
+    const summaryAfterDrag = await fetch(`${BASE}/api/summary`).then(r => r.json());
+    !summaryAfterDrag.overlays?.[0]?.transform
+      ? ok('Drag on a background overlay does not persist a transform to edit.json')
+      : ng('Background transform persisted', JSON.stringify(summaryAfterDrag.overlays?.[0]));
+
+    // Delete: 選択中の背景を消す（消したら黒でよい = 2026-08-07 裁定。lint 警告も出ない）
+    await bp.keyboard.press('Delete');
+    await bp.waitForTimeout(800);
+    const afterDelete = await bp.evaluate(() => !!document.querySelector('[data-overlay-id="bg-test"]'));
+    const summaryAfterDelete = await fetch(`${BASE}/api/summary`).then(r => r.json());
+    (!afterDelete && !(summaryAfterDelete.overlays || []).some(o => o.id === 'bg-test'))
+      ? ok('Delete key removes the selected background overlay')
+      : ng('Delete overlay', `domPresent=${afterDelete} summary=${JSON.stringify(summaryAfterDelete.overlays)}`);
+
+    await bp.close();
+
+    // 互換の回帰: role を持たない overlay は従来どおりドラッグで動く（背景専用のロックが
+    // role なし断片へ漏れていないことの実ブラウザ確認）
+    fs.writeFileSync(
+      path.join(PROJECT, 'overlays', 'bg-test.html'),
+      '<div class="fg-test-root" style="position:absolute;inset:0;background:#a53a3a;"></div>\n'
+    );
+    const withPlainOverlay = {
+      ...origEdit,
+      overlays: [{ id: 'fg-test', html: 'overlays/bg-test.html', start: 0, duration: 10 }],
+    };
+    fs.writeFileSync(editJsonPath, JSON.stringify(withPlainOverlay, null, 2));
+
+    const fp = await context.newPage();
+    await fp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await fp.waitForTimeout(2000);
+    await fp.click('#edit-toggle');
+    await fp.waitForTimeout(300);
+    await fp.evaluate(() => {
+      const el = document.getElementById('seek');
+      el.value = '1';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await fp.waitForTimeout(600);
+
+    const fgStageBox = await fp.evaluate(() => {
+      const r = document.getElementById('overlay-stage').getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    const fcx = fgStageBox.x + fgStageBox.w / 2;
+    const fcy = fgStageBox.y + fgStageBox.h / 2;
+
+    await fp.mouse.move(fcx, fcy);
+    await fp.mouse.down();
+    await fp.mouse.move(fcx + 90, fcy + 60, { steps: 8 });
+    await fp.mouse.up();
+    await fp.waitForTimeout(600);
+    const fgSummary = await fetch(`${BASE}/api/summary`).then(r => r.json());
+    const fgTransform = fgSummary.overlays?.[0]?.transform;
+    (fgTransform && fgTransform.x > 10 && fgTransform.y > 5)
+      ? ok(`Dragging a role-less overlay still writes transform as before (x=${fgTransform?.x?.toFixed(1)}, y=${fgTransform?.y?.toFixed(1)})`)
+      : ng('Role-less overlay drag regressed', JSON.stringify(fgSummary.overlays?.[0]));
+    await fp.close();
+  } catch (e) {
+    ng('Background overlay drag-locked + delete', e.message);
+  } finally {
+    if (bgOrigText !== null) fs.writeFileSync(editJsonPath, bgOrigText);
+    await page.waitForTimeout(500);
+  }
+
   // ── layers[].perspective の実機パリティ（contract-2026-08-02-preview-parity.md §2.4.4）──
   // 実ブラウザが書き込んだ matrix3d が、同じ box（実測 videoWidth/Height × crop）から
   // computeLayerPerspectiveVisual を独立に呼んだ参照値と数値一致することを確認する

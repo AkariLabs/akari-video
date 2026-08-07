@@ -187,6 +187,41 @@ for (const [fixture, expectedCheck] of [
   });
 }
 
+for (const [fixture, expectedCheck] of [
+  ["overlays-background-role-invalid", "overlays.role"],
+  ["overlays-background-transform-invalid", "overlays.role.transform"],
+  ["overlays-background-vars-locked-invalid", "overlays.role.vars"],
+  ["overlays-background-overlap-invalid", "overlays.role.overlap"],
+]) {
+  test(`${fixture} fails with ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.equal(result.verdict, "fail");
+      assert.ok(
+        result.findings.some(
+          (finding) => finding.check === expectedCheck && finding.severity === "error",
+        ),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
+
+test("overlays-background-valid passes with no overlays.role findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "overlays-background-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check?.startsWith("overlays.role")),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("missing analysis and captions are skipped while ffprobe supplies duration", async () => {
   await withFixtures(async (fixtures, root) => {
     const ffprobe = join(root, "ffprobe-stub");
