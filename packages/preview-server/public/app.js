@@ -22,6 +22,7 @@ import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 import { createCutFxController } from '/cut-fx.js';
 import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
 import { syncMediaCurrentTime } from '/media-time-sync.js';
+import { ensureMediaPlaying } from '/media-playback-resume.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -1959,6 +1960,9 @@ function playbackLoop() {
     // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
     // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
     syncMediaCurrentTime(video, target, SYNC_DEADBAND_SEC);
+    // src の差し替えで paused に戻った場合も、時刻を合わせてから再生を復帰する。
+    // 読み込み直後の play() が失敗しても、再生中だけ次フレームで再試行される。
+    ensureMediaPlaying(video, isPlaying);
     if (seg.index !== freezeHoldConsumedForCutIndex) {
       const freezeCheck = checkCutFreezeCrossing(seg.freeze, playedCutLocalSeconds(seg));
       if (freezeCheck.shouldHold) {
