@@ -749,13 +749,25 @@ export function parseFfmpegOutTime(value) {
 
 function renderOverlayNode(overlay, index) {
   const transform = overlay.transform ?? {};
+  // tasks/2026-08-07-background-role（2026-08-07 オーナー裁定）: role==="background" は
+  // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
+  // ロックする（transform も vars 経由の抜け道も無視する。edit-lint が同じ 2 条件を
+  // データ側で弾くが、host 側でも二重にロックして「事故で黒が出る」を構造的に潰す。
+  // preview-server の app.js / shell の overlay-runtime.js の mount と同じロック）。
+  const isBackground = overlay.role === "background";
   const variables = {
-    "--x": `${transform.x ?? 0}px`,
-    "--y": `${transform.y ?? 0}px`,
-    "--scale": String(transform.scale ?? 1),
-    "--rotate": `${transform.rotate ?? 0}deg`,
+    "--x": isBackground ? "0px" : `${transform.x ?? 0}px`,
+    "--y": isBackground ? "0px" : `${transform.y ?? 0}px`,
+    "--scale": isBackground ? "1" : String(transform.scale ?? 1),
+    "--rotate": isBackground ? "0deg" : `${transform.rotate ?? 0}deg`,
     ...(overlay.vars ?? {}),
   };
+  if (isBackground) {
+    variables["--x"] = "0px";
+    variables["--y"] = "0px";
+    variables["--scale"] = "1";
+    variables["--rotate"] = "0deg";
+  }
   const style = Object.entries(variables)
     .map(([name, value]) => `${name}:${String(value).replaceAll(";", "")}`)
     .join(";");

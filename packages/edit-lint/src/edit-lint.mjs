@@ -228,6 +228,7 @@ export async function lintProject(input, options = {}) {
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
   validateOutputAxisDurationMax(edit.outputs, cutTrackSegments, findings);
   await validateOverlays(edit.overlays, timeline, findings, paths);
+  validateOverlayBackgroundRole(edit.overlays, findings);
   await validateNarration(edit?.audio?.narration, timeline, findings, paths);
   await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
   await validateMusicGrid(
@@ -1290,6 +1291,77 @@ async function validateOverlays(overlays, timeline, findings, paths) {
         });
       }
     }
+  }
+}
+
+// tasks/2026-08-07-background-role（2026-08-07 オーナー裁定・確定）: overlays[].role==="background"
+// は「動かせない・必ずフレームを埋める」種別で、取りうる状態のほぼ全部が正しくなければならない。
+// host（preview-server の app.js / shell の overlay-runtime.js の mount・render-cut の
+// rasterize.mjs の renderOverlayNode）は role==="background" のとき --x/--y/--scale/--rotate を
+// 無条件で恒等値へロックするため実害は出ないが、死んだ／誤解を招くデータ（動かないのに
+// transform を持つ・vars 経由の抜け道・重なった区間）を保存させない最後の砦として、
+// JSON Schema では表現できない 3 条件（vars の自由形・区間の重なりは兄弟要素比較）をここで弾く。
+const BACKGROUND_LOCKED_VARS = new Set(["--x", "--y", "--scale", "--rotate"]);
+
+function validateOverlayBackgroundRole(overlays, findings) {
+  if (!Array.isArray(overlays)) return;
+  const segments = [];
+  overlays.forEach((overlay, index) => {
+    if (!isRecord(overlay) || !Object.hasOwn(overlay, "role")) return;
+    const path = `edit.json#overlays[${index}]`;
+
+    if (overlay.role !== "background") {
+      addFinding(findings, {
+        severity: "error",
+        check: "overlays.role",
+        message: 'overlay role must be "background" when present',
+        path: `${path}.role`,
+      });
+      return;
+    }
+
+    if (Object.hasOwn(overlay, "transform")) {
+      addFinding(findings, {
+        severity: "error",
+        check: "overlays.role.transform",
+        message: "background overlay must not declare transform (position is locked to the output frame)",
+        path: `${path}.transform`,
+      });
+    }
+
+    if (isRecord(overlay.vars)) {
+      for (const key of Object.keys(overlay.vars)) {
+        if (BACKGROUND_LOCKED_VARS.has(key)) {
+          addFinding(findings, {
+            severity: "error",
+            check: "overlays.role.vars",
+            message: `background overlay must not override ${key} via vars (would move the background off the output frame)`,
+            path: `${path}.vars`,
+          });
+        }
+      }
+    }
+
+    if (isFiniteNumber(overlay.start) && isPositiveNumber(overlay.duration)) {
+      // 背景は「今どの場面か」を表す 1 枚地の差し替え物なので、track の値に関係なく
+      // 同時に 2 枚以上表示できてはいけない（cuts.track-overlap と同じ error 重大度）。
+      segments.push({
+        index,
+        track: "background",
+        start: overlay.start,
+        end: overlay.start + overlay.duration,
+      });
+    }
+  });
+
+  for (const segment of findTrackOverlaps(segments)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "overlays.role.overlap",
+      message: "background overlay overlaps another background overlay (only one background may be visible at a time)",
+      path: `edit.json#overlays[${segment.index}]`,
+      range: { start: segment.start, end: segment.end },
+    });
   }
 }
 

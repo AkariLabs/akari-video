@@ -398,6 +398,19 @@ window.akari.interaction = (() => {
     return getComputedStyle(container).visibility !== "hidden";
   }
 
+  // tasks/2026-08-07-background-role（2026-08-07 オーナー裁定・確定）: role==="background" は
+  // 「選択・削除はできるが、ドラッグ・拡縮では動かせない」種別（mount() が dataset.role を立てる。
+  // preview-server の app.js / shell の overlay-runtime.js 双方）。要件の本質は「ずれたら直せる」
+  // ではなく「ずらせない」なので、ドラッグ/リサイズの開始点そのものを isSelectable とは別に
+  // isMovable で塞ぐ（選択自体は isSelectable のまま生かす）。
+  function isBackgroundRole(container) {
+    return Boolean(container?.dataset?.role === "background");
+  }
+
+  function isMovable(container) {
+    return isSelectable(container) && !isBackgroundRole(container);
+  }
+
   function cssVariableText(container, name) {
     const inlineValue = container.style.getPropertyValue(name).trim();
     if (inlineValue) return inlineValue;
@@ -462,6 +475,11 @@ window.akari.interaction = (() => {
       // 誤発火は無い」という設計判断のまま）。
       document.body.appendChild(selectionFrame);
     }
+
+    // 背景は動かせない選択であることを視覚でも伝える（拡縮ハンドルを消し、枠を破線にする。
+    // interaction.css の .is-locked）。isMovable ではなく isBackgroundRole を見るのは、
+    // 選択自体は許すが移動系操作だけを塞ぐという役割分担を CSS 側にも一致させるため。
+    selectionFrame.classList.toggle("is-locked", isBackgroundRole(selectedOverlay));
 
     const usableRect =
       [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) &&
@@ -1123,7 +1141,7 @@ window.akari.interaction = (() => {
 
     const handleEl = findHandleElement(event.target);
     if (handleEl) {
-      if (!isSelectable(selectedOverlay)) return;
+      if (!isMovable(selectedOverlay)) return;
       beginResize(event, selectedOverlay, handleEl);
       return;
     }
@@ -1141,6 +1159,11 @@ window.akari.interaction = (() => {
     }
 
     if (activeEdit) void commitEdit();
+
+    // 背景（role==="background"）は選択できるが動かせない。選択はここまでで完了させ、
+    // ドラッグは開始しない（isSelectable のみで isMovable を通さないと、選択直後に
+    // pointermove が来た瞬間 activeDrag が動き出してしまう）。
+    if (!isMovable(container)) return;
 
     const transform = readTransform(container);
     activeDrag = {

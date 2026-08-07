@@ -36,6 +36,62 @@ test("non-3D overlay sheets remain byte-identical", () => {
   assert.doesNotMatch(sheet, /threeRuntime|AkariThree|data:model\/gltf-binary/);
 });
 
+// tasks/2026-08-07-background-role: role==="background" must render with identity geometry no
+// matter what transform/vars the data carries — the host locks it, it does not merely default it.
+test("background-role overlays ignore transform and lock reserved vars to identity geometry", () => {
+  const sheet = renderOverlaySheet({
+    overlays: [
+      {
+        id: "bg-live",
+        role: "background",
+        start: 0,
+        duration: 10,
+        html: "<div>bg</div>\n",
+        transform: { x: -441.7, y: -296.6, scale: 1, rotate: 0 },
+        vars: { "--x": "-999px", "--y": "-999px", "--scale": "0.2", "--rotate": "45deg", "--tone": "red" },
+      },
+    ],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 10,
+  });
+
+  const styleMatch = sheet.match(/data-overlay-id="bg-live"[^>]*style="([^"]*)"/u);
+  assert.ok(styleMatch, "expected bg-live container in sheet");
+  const style = styleMatch[1];
+  assert.match(style, /(?:^|;)--x:0px(?:;|$)/u);
+  assert.match(style, /(?:^|;)--y:0px(?:;|$)/u);
+  assert.match(style, /(?:^|;)--scale:1(?:;|$)/u);
+  assert.match(style, /(?:^|;)--rotate:0deg(?:;|$)/u);
+  // Non-reserved vars still pass through untouched.
+  assert.match(style, /(?:^|;)--tone:red(?:;|$)/u);
+});
+
+test("overlays without a role keep transform/vars behavior unchanged", () => {
+  const sheet = renderOverlaySheet({
+    overlays: [
+      {
+        id: "normal",
+        start: 0,
+        duration: 10,
+        html: "<div>fg</div>\n",
+        transform: { x: 12, y: -5, scale: 1.1, rotate: 3 },
+        vars: { "--x": "999px" },
+      },
+    ],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 10,
+  });
+
+  const styleMatch = sheet.match(/data-overlay-id="normal"[^>]*style="([^"]*)"/u);
+  assert.ok(styleMatch);
+  const style = styleMatch[1];
+  // No role: vars still wins over transform for --x, exactly as before this feature existed.
+  assert.match(style, /(?:^|;)--x:999px(?:;|$)/u);
+  assert.match(style, /(?:^|;)--y:-5px(?:;|$)/u);
+});
+
 test("overlay sheet holds container animations to the HyperFrames transport clock", () => {
   const sheet = renderOverlaySheet({
     overlays: [
