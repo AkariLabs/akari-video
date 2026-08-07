@@ -97,11 +97,32 @@ export async function writeProjectFilesGuarded(projectRoot: string, candidates: 
     }
 }
 
+// 同じ宛先への書き込みは 1 本ずつ直列化する。
+// 一時ファイル名が PID だけだった頃は、同一プロセス内で書き込みが 2 本重なると同じ
+// 一時ファイルを奪い合い、短い方が truncate した後に長い方の書き込みがその先へ着地して
+// 「完結した JSON + 前版の残骸」という壊れ方をした（実機 2026-08-07: edit.json が
+// 多バイト文字の途中で切れた不正バイトを含む状態で破損。1ms 差の 2 連続 PUT が原因）。
+// 一時ファイル名を毎回一意にして衝突自体を無くし、さらに直列化で後勝ちの順序も確定させる。
+const writeChains = new Map<string, Promise<void>>();
+let writeSequence = 0;
+
 export async function writeAtomic(destination: string, content: string): Promise<void> {
-    await fs.mkdir(dirname(destination), { recursive: true });
-    const temporary = `${destination}.${process.pid}.tmp`;
-    await fs.writeFile(temporary, content, 'utf8');
-    await fs.rename(temporary, destination);
+    const previous = writeChains.get(destination) ?? Promise.resolve();
+    const next = previous
+        .catch(() => undefined)
+        .then(async () => {
+            await fs.mkdir(dirname(destination), { recursive: true });
+            const temporary = `${destination}.${process.pid}.${++writeSequence}.tmp`;
+            try {
+                await fs.writeFile(temporary, content, 'utf8');
+                await fs.rename(temporary, destination);
+            } catch (error) {
+                await fs.rm(temporary, { force: true }).catch(() => undefined);
+                throw error;
+            }
+        });
+    writeChains.set(destination, next.catch(() => undefined));
+    return next;
 }
 
 export async function runEditLint(projectRoot: string): Promise<EditLintGateResult> {
