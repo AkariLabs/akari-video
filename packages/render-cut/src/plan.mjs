@@ -1184,11 +1184,29 @@ export function buildMultiSourceCutCommand({
   // full-WxH-framed (both the transform and plain branches below produce a complete frame), so
   // fx only needs one extra hop after whichever branch ran — no change to the branch selection.
   const fxCuts = hasCutFx(cuts);
+  // docs/contract-2026-07-22-render-basics.md #3 (cuts[].transition_out), extended to the v1
+  // (multi-source) path by task 2026-08-07-v1-transition-out. Same residual decision as
+  // buildCutCommand: only boundaries that explicitly declare transition_out take the xfade path,
+  // so a v1 project with zero transition_out keeps today's exact single
+  // concat=n=${cuts.length} call byte-for-byte (verified in verify-fps-tolerance.test.mjs's
+  // sibling suite v1-transition-out.test.mjs, "no transition_out keeps the exact legacy call").
+  const hasAnyTransition = cuts.slice(0, -1).some((cut) => cut.transition_out);
 
   for (const [index, cut] of cuts.entries()) {
     const source = inputsById.get(cut.src);
     const speed = cutSpeed(cut);
-    const shapedLabel = fxCuts ? `[vshaped1_${index}]` : `[v${index}]`;
+    // Unlike buildCutCommand (which only ever scales/paces once, after concat), v1 always scales
+    // + fps-resamples per cut (sources[] entries can have different native size/rate). That
+    // per-cut fps= filter -- and appendCutVisualTransform's own internal fps= filter, in the
+    // transformCuts branch -- resets whatever timebase an earlier settb=AVTB had set (verified
+    // empirically: baking settb=AVTB into the trim's own postSuffixFilter, ahead of fps=, still
+    // left concat's own output on a different timebase than a sibling xfade input and ffmpeg
+    // refused to join them). So every branch below writes into `preConcatLabel` first, and
+    // settb=AVTB -- when a transition is present -- is applied as one unconditional LAST step
+    // onto `[v${index}]` (the label concat/xfade actually consume), after fx/transform/scale/fps
+    // have all already run.
+    const preConcatLabel = hasAnyTransition ? `[vpre${index}]` : `[v${index}]`;
+    const shapedLabel = fxCuts ? `[vshaped1_${index}]` : preConcatLabel;
     if (transformCuts) {
       const trimmedLabel = `[vraw${index}]`;
       appendFreezeAwareVideoTrim({
@@ -1231,7 +1249,7 @@ export function buildMultiSourceCutCommand({
       appendCutFxChain({
         filters,
         inputLabel: shapedLabel,
-        outputLabel: `[v${index}]`,
+        outputLabel: preConcatLabel,
         fx: cut.fx,
         id: `v1_${index}`,
         width,
@@ -1239,6 +1257,9 @@ export function buildMultiSourceCutCommand({
         fps,
         duration: segmentDuration(cut),
       });
+    }
+    if (hasAnyTransition) {
+      filters.push(`${preConcatLabel}settb=AVTB[v${index}]`);
     }
     concatInputs.push(`[v${index}]`);
 
@@ -1266,7 +1287,35 @@ export function buildMultiSourceCutCommand({
     concatInputs.push(`[a${index}]`);
   }
 
-  filters.push(`${concatInputs.join("")}concat=n=${cuts.length}:v=1:a=1[joinedv][joineda]`);
+  if (!hasAnyTransition) {
+    filters.push(`${concatInputs.join("")}concat=n=${cuts.length}:v=1:a=1[joinedv][joineda]`);
+  } else {
+    // v1's per-cut audio label always exists (real audio or anullsrc-generated silence above),
+    // unlike buildCutCommand's single hasAudio flag for the whole source -- so this join never
+    // needs buildCutCommand's "no audio at all" fallback branch.
+    const cutOffsets = computeCutTimelineOffsets(cuts);
+    let videoAcc = "[v0]";
+    let audioAcc = "[a0]";
+    for (let index = 1; index < cuts.length; index += 1) {
+      const boundary = cuts[index - 1].transition_out;
+      const isLastBoundary = index === cuts.length - 1;
+      const nextVideoLabel = isLastBoundary ? "[joinedv]" : `[vacc${index}]`;
+      const nextAudioLabel = isLastBoundary ? "[joineda]" : `[aacc${index}]`;
+      if (boundary) {
+        const transitionName = XFADE_TRANSITION_NAMES[boundary.type] ?? "fade";
+        const transitionDuration = boundary.duration;
+        const offset = Math.max(0, cutOffsets[index].start);
+        filters.push(
+          `${videoAcc}[v${index}]xfade=transition=${transitionName}:duration=${formatNumber(transitionDuration)}:offset=${formatNumber(offset)}${nextVideoLabel}`,
+        );
+        filters.push(`${audioAcc}[a${index}]acrossfade=d=${formatNumber(transitionDuration)}${nextAudioLabel}`);
+      } else {
+        filters.push(`${videoAcc}${audioAcc}[v${index}][a${index}]concat=n=2:v=1:a=1${nextVideoLabel}${nextAudioLabel}`);
+      }
+      videoAcc = nextVideoLabel;
+      audioAcc = nextAudioLabel;
+    }
+  }
 
   let videoLabel = "[joinedv]";
   if (look) {
@@ -1523,24 +1572,35 @@ function buildGapAwareCutCommand({
 
 export function predictedDuration(cuts, sourceDuration, version = 0) {
   if (version === 1) {
-    return cuts.reduce((sum, cut) => sum + segmentDuration(cut), 0);
+    // task 2026-08-07-v1-transition-out: v1 never takes the gap-aware path (the version check
+    // above runs before needsGapAwareCutTimeline is ever consulted), so it always uses this same
+    // sequential-with-overlap math as v0's own non-gap-aware branch below -- now that
+    // buildMultiSourceCutCommand actually renders the xfade overlap instead of silently ignoring
+    // transition_out, predicted_duration_seconds must account for it too or verify.duration /
+    // verify.frame-count / verify.fps would all expect a timeline 1x transition_out.duration too
+    // long for the real (now correctly shortened) output.
+    return sequentialDurationWithTransitionOverlap(cuts);
   }
   if (Array.isArray(cuts) && cuts.length > 0 && needsGapAwareCutTimeline(cuts)) {
     const segments = resolveCutSegments(cuts);
     return Math.max(0, ...segments.map((segment) => segment.end));
   }
   if (Array.isArray(cuts) && cuts.length > 0) {
-    const segmentsTotal = cuts.reduce((sum, cut) => sum + segmentDuration(cut), 0);
-    // A transition_out overlaps its own segment's end with the next segment's start, shortening
-    // the combined timeline by the overlap (xfade/acrossfade's own duration math — see
-    // buildCutCommand). The last cut's transition_out (if any) has no following segment to
-    // blend into, so it never actually renders and must not be subtracted here.
-    const transitionOverlap = cuts
-      .slice(0, -1)
-      .reduce((sum, cut) => sum + (isPositiveNumber(cut.transition_out?.duration) ? cut.transition_out.duration : 0), 0);
-    return segmentsTotal - transitionOverlap;
+    return sequentialDurationWithTransitionOverlap(cuts);
   }
   return sourceDuration;
+}
+
+function sequentialDurationWithTransitionOverlap(cuts) {
+  const segmentsTotal = cuts.reduce((sum, cut) => sum + segmentDuration(cut), 0);
+  // A transition_out overlaps its own segment's end with the next segment's start, shortening
+  // the combined timeline by the overlap (xfade/acrossfade's own duration math — see
+  // buildCutCommand / buildMultiSourceCutCommand). The last cut's transition_out (if any) has no
+  // following segment to blend into, so it never actually renders and must not be subtracted here.
+  const transitionOverlap = cuts
+    .slice(0, -1)
+    .reduce((sum, cut) => sum + (isPositiveNumber(cut.transition_out?.duration) ? cut.transition_out.duration : 0), 0);
+  return segmentsTotal - transitionOverlap;
 }
 
 function isPositiveNumber(value) {
