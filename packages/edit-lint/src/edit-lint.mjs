@@ -13,6 +13,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 import { createRequire } from "node:module";
 
 import { renderLintReport } from "./report.mjs";
+import { deriveTracks } from "./derive-tracks.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
@@ -248,6 +249,7 @@ export async function lintProject(input, options = {}) {
   validateEmphasisWords(edit.emphasis_words, edit.version, structure.sourceIds, findings);
   validateDirection(edit.direction, findings);
   validateTimelineTracks(edit, findings);
+  validateTrackTransitionOutCompatibility(edit, findings);
 
   if (captionsState.value !== undefined) {
     validateCaptions(
@@ -1031,6 +1033,70 @@ function validateTimelineTracks(edit, findings) {
       });
     }
   }
+}
+
+// task 2026-08-07-track-transition-lint-guard (following up on task 2026-08-07-render-frame-accounting's
+// track-compose.mjs sweep, task #14): gap-aware track compositing (a non-default timeline.tracks
+// declaration, which routes v1 through buildTrackStackPlan/resolveCutTrackRanges instead of the
+// plain sequential render path) does not compose with cuts[].transition_out. resolveCutTrackRanges's
+// gap-aware placement is built on resolveCutSegments/computeVideoRuns, which assume same-track
+// adjacent cuts occupy separate, non-overlapping windows -- an xfade's whole point is to blend two
+// cuts into one overlapping region, so that assumption mechanically splits one continuous
+// dissolve into two separately-windowed composites. Verified with a real render (2026-08-07,
+// v1, a "cuts" track holding lime -> [0.5s dissolve] -> magenta, composited via an explicit
+// non-default timeline.tracks order): the second cut's window pointed 0.5s past where the
+// actually-xfade-shrunk clip's real content lives, so playback showed the base track's plain
+// background leaking through for the tail 0.5s where the dissolved clip should still have been
+// visible. Properly supporting this would mean teaching resolveCutSegments/computeVideoRuns
+// about overlap, and those are shared by v0's own at/track placement and layers placement --
+// too wide a blast radius to take on speculatively, especially with no evidence anyone needs the
+// combination. Reject it instead: it fails loudly and specifically, rather than rendering a
+// broken video with a phantom black flash that's very hard to trace back to its cause.
+function validateTrackTransitionOutCompatibility(edit, findings) {
+  if (edit?.version !== 1 || !Array.isArray(edit.cuts)) return;
+  const tracks = edit?.timeline?.tracks;
+  if (!Array.isArray(tracks)) return; // malformed timeline.tracks is already reported by validateTimelineTracks
+  if (usesDefaultTrackOrder(edit, tracks)) return; // cuts[].track has no compositing effect here (flat concat; see cuts.track-render-unsupported)
+
+  const cutsTrackRefs = new Set(
+    tracks
+      .filter((item) => isRecord(item) && item.kind === "cuts" && Number.isInteger(item.ref) && item.ref >= 0)
+      .map((item) => item.ref),
+  );
+  for (const ref of cutsTrackRefs) {
+    const trackCuts = edit.cuts
+      .map((cut, index) => ({ cut, index }))
+      .filter(({ cut }) => isRecord(cut) && (cut.track ?? 0) === ref);
+    // The last cut on a track has no following same-track cut to blend into, so its own
+    // transition_out (if any) never renders -- mirrors buildMultiSourceCutCommand's own
+    // hasAnyTransition check (plan.mjs) and predictedDuration's overlap accounting.
+    for (const { cut, index } of trackCuts.slice(0, -1)) {
+      if (!cut.transition_out) continue;
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.track-transition-unsupported",
+        message:
+          `cuts[].transition_out is declared on track ${ref}, which timeline.tracks composites through the `
+          + `gap-aware track engine. That engine treats adjacent same-track cuts as separate, non-overlapping `
+          + `windows, so it cannot represent an xfade's intentional overlap -- the composited window and the `
+          + `actually-shrunk clip diverge, and content disappears early (verified with a real render: the base `
+          + `track's background visibly leaked through where the dissolved clip should still have been `
+          + `playing). Remove transition_out from this track's cuts, or drop the custom timeline.tracks order `
+          + `for this track so it renders through the plain sequential path instead.`,
+        path: `edit.json#cuts[${index}]`,
+      });
+    }
+  }
+}
+
+// Local port of render-cut/src/track-order.mjs's usesDefaultTrackOrder: edit-lint is a lower-level
+// package render-cut depends on, so it duplicates this small comparison rather than importing
+// back from render-cut. deriveTracks itself stays the single shared source of the "default" order.
+function usesDefaultTrackOrder(edit, tracks) {
+  const trackKey = (track) => `${track?.kind ?? ""}:${Number.isInteger(track?.ref) ? track.ref : ""}`;
+  const resolved = tracks.map(trackKey);
+  const derived = deriveTracks(edit).map(trackKey);
+  return resolved.length === derived.length && resolved.every((value, index) => value === derived[index]);
 }
 
 function collectActualTrackNumbers(items) {
@@ -2254,11 +2320,14 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
     captions = captions.captions;
   }
   const ids = new Set();
-  const overlayIds = new Set(
-    Array.isArray(edit?.overlays)
-      ? edit.overlays.filter(isRecord).map((overlay) => overlay.id)
-      : [],
-  );
+  // ここには以前 `captions.overlay-link`（caption の id と一致する overlays[].id が無ければ警告）
+  // があったが、2026-08-07 に撤去した。字幕のオーバーレイは消費側が captions[] から合成する
+  // （render-cut の generateCaptionOverlays）ので、edit.json の overlays[] に手書きで
+  // 対応物を並べる設計ではない。実際、このリポジトリ自身の字幕フィクスチャ 6/6 で
+  // 全字幕に 1 件ずつ発火し、通るプロジェクトが 1 つも存在しなかった。docs/ にも skills/ にも
+  // 意図を説明する記述がなく、テストも 1 件も無い（= 消しても何も落ちない）状態だった。
+  // 常に全件発火する警告は本物の指摘を埋めるだけなので、規則ごと落とすのが正しい。
+  // 撤去の証跡は edit-lint.test.mjs の "captions.overlay-link は発火しない" で固定してある。
   let previousStart = -Infinity;
 
   for (const [index, caption] of captions.entries()) {
@@ -2428,14 +2497,6 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
           itemPath,
         );
       }
-    }
-    if (typeof caption.id === "string" && !overlayIds.has(caption.id)) {
-      addFinding(findings, {
-        severity: "warning",
-        check: "captions.overlay-link",
-        message: "caption id has no matching overlay id",
-        path: itemPath,
-      });
     }
   }
 

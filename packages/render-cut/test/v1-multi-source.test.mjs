@@ -245,7 +245,6 @@ test("v1 captions project by matching src and skip missing src with a warning", 
   const warnings = [];
   const overlays = generateCaptionOverlays(captions, cuts, {
     sourceCount: 2,
-    linearTimeline: true,
     onWarning: (warning) => warnings.push(warning),
   });
   assert.deepEqual(overlays.map(({ generatedFrom, start, duration }) => ({ generatedFrom, start, duration })), [

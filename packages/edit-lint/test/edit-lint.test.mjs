@@ -1524,6 +1524,58 @@ test("declared timeline ref without edit data warns without failing", async () =
   });
 });
 
+// task 2026-08-07-track-transition-lint-guard (task #14's finding, verified with a real render:
+// gap-aware track compositing splits an xfade-blended pair of same-track cuts into two separate,
+// non-overlapping composite windows -- the second window points past where the actually-shrunk
+// clip's content ends, and the base track's background visibly leaks through early).
+test("cuts[].transition_out on a track composited through a non-default timeline.tracks order fails lint", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "cuts-track-transition-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    const finding = result.findings.find((item) => item.check === "cuts.track-transition-unsupported");
+    assert.ok(finding, JSON.stringify(result.findings, null, 2));
+    assert.equal(finding.severity, "error");
+    assert.equal(finding.path, "edit.json#cuts[0]");
+    assert.match(finding.message, /gap-aware track engine/);
+  });
+});
+
+test("transition_out on the LAST cut of a gap-aware track is a no-op and does not fail lint", async () => {
+  // Mirrors buildMultiSourceCutCommand's own hasAnyTransition check (plan.mjs) and
+  // predictedDuration's overlap accounting: a track's last cut has no following same-track cut
+  // to blend into, so its transition_out never actually renders and isn't a real hazard.
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "cuts-track-transition-last-cut-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "cuts.track-transition-unsupported"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("transition_out on a track whose timeline.tracks order matches the default derived order does not fail lint", async () => {
+  // When the declared order matches what deriveTracks would produce anyway, render-cut never
+  // invokes buildTrackStackPlan/resolveCutTrackRanges (see usesDefaultTrackOrder) -- cuts[].track
+  // has no compositing effect at all here (the plain sequential path concatenates every cut as
+  // one flat timeline, and buildMultiSourceCutCommand's own transition_out handling, task
+  // 2026-08-07-v1-transition-out, is correct there), so this combination is not a hazard.
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "cuts-track-transition-default-order-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "cuts.track-transition-unsupported"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("edit data without a declared timeline track warns when timeline is present", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "timeline-tracks-declaration-missing-warning"));
@@ -1574,5 +1626,23 @@ test("non-zero ref audio timeline track declaration warns neither audio-ref nor 
       ),
       JSON.stringify(result.findings, null, 2),
     );
+  });
+});
+
+// captions.overlay-link 撤去の固定（2026-08-07）。
+// この規則は「caption の id と一致する overlays[].id が無ければ警告」で、edit-lint 初版から
+// 入っていたが、通るプロジェクトが 1 つも存在しなかった（このリポジトリ自身の字幕フィクスチャ
+// 6/6 で全字幕に 1 件ずつ発火）。字幕のオーバーレイは消費側が captions[] から合成するもので、
+// edit.json に手書きで並べる設計ではないため、規則そのものが実装と食い違っていた。
+// 常時全件発火する警告は本物の指摘を埋めるだけなので撤去した。ここで固定しておかないと、
+// 「字幕とオーバーレイを対応させるべきでは」という直感から再導入されうる。
+test("captions.overlay-link は発火しない（撤去済み・字幕は消費側が overlays を合成する）", async () => {
+  await withFixtures(async (fixtures) => {
+    for (const name of ["captions-display-text-valid", "captions-words-valid", "captions-reveal-valid", "captions-text-style-record-override-valid"]) {
+      const project = join(fixtures, name);
+      const result = parseResult(run(project));
+      const linked = result.findings.filter((finding) => finding.check === "captions.overlay-link");
+      assert.deepEqual(linked, [], `${name} に overlay-link が残っている`);
+    }
   });
 });

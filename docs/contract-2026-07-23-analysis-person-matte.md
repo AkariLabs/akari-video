@@ -171,7 +171,7 @@ quality を上げると Vision の側が伸びる（`accurate` は 135ms/frame�
 | 層 | 検証すること |
 |---|---|
 | `packages/schemas/analysis.schema.json` | `$defs/personMatteTrack` として object 形の構造（`path` / `fps` の必須・型・範囲、`additionalProperties: false`）を定義し、`tracks.person_matte` から `null` / string / object の `oneOf` として参照する |
-| 生成ヘルパー（`bin/person-matte/person-matte.mjs`） | 書き出した WebM が `codec_name = vp9` かつコンテナタグ `alpha_mode = 1` であることを ffprobe で確認してから成功を返す。アルファが落ちた出力を成功扱いにしない |
+| 生成ヘルパー（`bin/person-matte/person-matte.mjs`） | 書き出した WebM が `codec_name = vp9` かつコンテナタグ `alpha_mode = 1` であることを ffprobe で確認してから成功を返す。アルファが落ちた出力を成功扱いにしない。タグキーの大文字小文字は書き込み経路によって変わりうるため、照合は大文字小文字非依存で行う |
 | `skills/analyze-footage/analysis-json.md` の意味制約 | JSON Schema で表せない条件（`path` が解決でき実ファイルがある、マット動画の時刻 0 が素材の時刻 0 と一致する、`fps` がマット動画の実 fps と一致する）を確定前に人が検査する |
 
 **`analysis.json` 専用の検証 CLI は本契約では新設しない。** `packages/schemas/bin/` には

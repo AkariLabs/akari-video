@@ -710,7 +710,6 @@ async function loadCaptions(projectRoot, edit) {
     defaultTextStyle,
     output: edit.output,
     sourceCount: edit.version === 1 ? edit.sources.length : 1,
-    linearTimeline: edit.version === 1,
     onWarning: (warning) => warnings.push(warning),
   });
   return { overlays, warnings, layout: null };
@@ -1016,7 +1015,28 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
   );
 
   compare(findings, "verify.resolution", video?.width === expected.width && video?.height === expected.height, `resolution ${video?.width ?? "missing"}x${video?.height ?? "missing"}; expected ${expected.width}x${expected.height}`);
-  compare(findings, "verify.fps", Number.isFinite(actualFps) && Math.abs(actualFps - expected.fps) < 0.001, `fps ${actualFps}; expected ${expected.fps}`);
+  // task 2026-08-07-render-frame-accounting: avg_frame_rate is the container's own
+  // nb_frames/duration bookkeeping, not an independent measurement -- it inherits whatever
+  // sub-frame rounding the mux step accumulates. Real (non-lavfi) footage run through a
+  // multi-segment trim/setpts/atempo/concat graph into a real encoder (verified empirically with
+  // the actual reel: 13 cuts, 5 speed changes, 1 dissolve, h264_videotoolbox) legitimately lands
+  // exactly 1 frame off nominal fps in either direction -- once as nb_frames landing 1 short of
+  // what the declared duration implies (the original v4/v5 render: 1470 frames for a
+  // 1471-frame-shaped duration), once as the declared duration landing 1 frame long of nb_frames
+  // even though a full decode confirmed every one of the 1471 expected frames was actually
+  // present (this task's own repro against the reel's real source footage + cuts + encoder args --
+  // see report.md for both runs' raw ffprobe numbers). Both are within verify.duration's and
+  // verify.frame-count's own tolerances already; only fps's exact-equality check was flagging
+  // them. fpsWithinOneFrameTolerance is intentionally narrower than frame-count's own
+  // ±duration_tolerance_seconds*fps (which already accepts up to ~3 frames here) so a genuine
+  // multi-frame drop -- like the original v1 3-frame loss this same reel had before its cut
+  // boundaries were snapped to the fps grid -- still fails (regression: verify-fps-tolerance.test.mjs).
+  compare(
+    findings,
+    "verify.fps",
+    fpsWithinOneFrameTolerance(actualFps, expected.fps, expectedFrameCount),
+    `fps ${actualFps}; expected ${expected.fps} ±${oneFrameFpsTolerance(expected.fps, expectedFrameCount)} (1 frame of ${expectedFrameCount})`,
+  );
   compare(findings, "verify.video-codec", video?.codec_name === "h264", `video codec ${video?.codec_name ?? "missing"}; expected h264`);
   compare(findings, "verify.video-profile", String(video?.profile ?? "").toLowerCase() === "high", `video profile ${video?.profile ?? "missing"}; expected High`);
   compare(findings, "verify.pixel-format", video?.pix_fmt === "yuv420p", `pixel format ${video?.pix_fmt ?? "missing"}; expected yuv420p`);
@@ -1391,6 +1411,23 @@ function usedSources(edit) {
 
 function compare(findings, check, passed, message) {
   findings.push({ severity: passed ? "info" : "error", check, message });
+}
+
+// task 2026-08-07-render-frame-accounting: how much avg_frame_rate is allowed to drift from the
+// nominal fps before verify.fps fails, expressed as "1 frame's worth of container-duration
+// rounding" -- see the call site in verifyArtifact for the empirical justification. Exported (and
+// kept pure/number-only) so the exact boundary -- 1 frame passes, a genuine multi-frame drop like
+// v1's still fails -- can be pinned in tests without needing to reproduce the encoder/mux quirk
+// that motivated it in an actual media file.
+export function oneFrameFpsTolerance(expectedFps, expectedFrameCount) {
+  return expectedFrameCount > 0 ? expectedFps / expectedFrameCount : 0;
+}
+
+export function fpsWithinOneFrameTolerance(actualFps, expectedFps, expectedFrameCount) {
+  if (!Number.isFinite(actualFps)) return false;
+  // +1e-9 absorbs float noise at the exact boundary (a real 1-frame-off case, like the reel's
+  // v4/v5 render, lands diff === tolerance to within float precision, not strictly under it).
+  return Math.abs(actualFps - expectedFps) <= oneFrameFpsTolerance(expectedFps, expectedFrameCount) + 1e-9;
 }
 
 function parseRate(value) {

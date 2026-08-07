@@ -24,6 +24,8 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { findAlphaModeTag } from "./alpha-tag.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const helperSource = path.join(scriptDir, "person-matte-helper.swift");
 const defaultHelperBin = path.join(scriptDir, "person-matte-helper");
@@ -358,12 +360,13 @@ function verifyOutput(out) {
   if (stream.codec_name !== "vp9") {
     throw new Error(`書き出した WebM の codec が vp9 ではありません（${stream.codec_name}）`);
   }
-  if (String(stream.tags?.alpha_mode ?? "") !== "1") {
+  const alphaModeTag = findAlphaModeTag(stream.tags);
+  if (String(alphaModeTag ?? "") !== "1") {
     throw new Error("書き出した WebM に alpha_mode=1 がありません（アルファが落ちています）");
   }
   return {
     codec_name: stream.codec_name,
-    alpha_mode: String(stream.tags.alpha_mode),
+    alpha_mode: String(alphaModeTag),
     width: Number(stream.width),
     height: Number(stream.height),
     r_frame_rate: stream.r_frame_rate,
