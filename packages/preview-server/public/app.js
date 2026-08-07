@@ -19,6 +19,7 @@ import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
 // layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・2026-08-06 crop-handle-anchor-fix）。
 import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 import { createCutFxController } from '/cut-fx.js';
+import { syncMediaCurrentTime } from '/media-time-sync.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -459,8 +460,11 @@ function syncLayers(t) {
     }
     if (shouldShow) {
       const localT = t - (l.t ?? 0);
-      const tolerance = isPlaying ? 0.05 : 0.001;
-      if (Math.abs(lv.el.currentTime - localT) > tolerance) lv.el.currentTime = localT;
+      // 再生中は下地と同じデッドバンドを使う。複数・高負荷のレイヤーほど小刻みな補正が
+      // デコードを圧迫するため、フレーム精度よりシーク完了を優先する。一時停止中は目標が
+      // 動かないので従来どおり精密に合わせる。
+      const tolerance = isPlaying ? SYNC_DEADBAND_SEC : 0.001;
+      if (!lv.el.seeking) syncMediaCurrentTime(lv.el, localT, tolerance);
       if (isPlaying && lv.el.paused) void lv.el.play().catch(() => undefined);
       else if (!isPlaying && !lv.el.paused) lv.el.pause();
     }
@@ -1798,9 +1802,7 @@ function playbackLoop() {
     // 旧実装（閾値 0.1・シーク中も発行）は、1 回のシーク遅延がそのまま次フレームの
     // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
     // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
-    if (!video.seeking && Math.abs(video.currentTime - target) > SYNC_DEADBAND_SEC) {
-      video.currentTime = target;
-    }
+    syncMediaCurrentTime(video, target, SYNC_DEADBAND_SEC);
     if (seg.index !== freezeHoldConsumedForCutIndex) {
       const freezeCheck = checkCutFreezeCrossing(seg.freeze, playedCutLocalSeconds(seg));
       if (freezeCheck.shouldHold) {
