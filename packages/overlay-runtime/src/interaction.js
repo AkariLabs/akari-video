@@ -375,6 +375,15 @@ window.akari.interaction = (() => {
     );
   }
 
+  // 素材の選択・ドラッグをまとめて止めるスイッチ。既定は有効なので shell / store は挙動不変。
+  // Web UI は編集モードでない間これを false にする。後から選択を畳む方式だと、捕捉フェーズで
+  // 既に始まったドラッグが生き残り「枠は出ないのに動かせる」状態になる（実機 2026-08-07）。
+  let interactionEnabled = true;
+  function setEnabled(next) {
+    interactionEnabled = next !== false;
+    if (!interactionEnabled) clearSelection();
+  }
+
   function isSelectable(container) {
     if (
       !stage ||
@@ -555,6 +564,21 @@ window.akari.interaction = (() => {
     if (!drag.moved) return null;
 
     const transform = readTransform(drag.container);
+    // 位置が実質変わっていないなら書かない。drag.moved は「動き始めたか」しか見ていないので、
+    // しきい値を越えてから元の位置へ戻して離すと、変化ゼロのまま書き込みが走っていた
+    // （実機 2026-08-07: 移動量 0.00004px の transform が edit.json に残留）。
+    // 出力座標で 0.5px 未満 = 目にも見えないし、意図した調整でもない。
+    const WRITE_EPSILON_PX = 0.5;
+    if (
+      Math.abs(transform.x - drag.startX) < WRITE_EPSILON_PX &&
+      Math.abs(transform.y - drag.startY) < WRITE_EPSILON_PX
+    ) {
+      // 端数を残さないよう開始値へ戻し、何も書かずに終える
+      drag.container.style.setProperty("--x", `${drag.startX}px`);
+      drag.container.style.setProperty("--y", `${drag.startY}px`);
+      refreshSelectionFrame();
+      return null;
+    }
     const record = enqueueWrite(
       drag.writeContext,
       drag.overlayId,
@@ -1094,6 +1118,7 @@ window.akari.interaction = (() => {
   }
 
   function onPointerDown(event) {
+    if (!interactionEnabled) return;
     if (event.button !== 0 || activeDrag || activeResize) return;
 
     const handleEl = findHandleElement(event.target);
@@ -1414,11 +1439,13 @@ window.akari.interaction = (() => {
   }
 
   function onClick(event) {
+    if (!interactionEnabled) return;
     const container = overlayForEvent(event);
     if (isSelectable(container)) selectOverlay(container);
   }
 
   function onDoubleClick(event) {
+    if (!interactionEnabled) return;
     const container = overlayForEvent(event);
     if (!isSelectable(container)) return;
 
@@ -1816,5 +1843,7 @@ window.akari.interaction = (() => {
     // Web UI（preview-server）が編集モードを抜けるときに選択枠を畳むための公開口
     // （Phase 2-4 一本化。shell では未使用の追加 export で挙動不変）。
     clearSelection,
+    // Web UI が編集モードに合わせて素材操作そのものを止めるための公開口。
+    setEnabled,
   };
 })();

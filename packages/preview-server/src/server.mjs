@@ -192,6 +192,53 @@ function serveRange(res, filePath, contentType, rangeHeader) {
   }
 }
 
+// --- 編集履歴（edit.json を上書きする直前の状態を世代保存する） ---
+// 置き場は .akari/history/。プロジェクト直下ではないので watch（edit.json / captions.json のみ）
+// を誘発せず、リロードの無限ループにならない。
+const HISTORY_DIR = path.join(projectRoot, '.akari', 'history');
+const HISTORY_KEEP = 50;
+
+function snapshotEdit() {
+  const source = path.join(projectRoot, 'edit.json');
+  try {
+    if (!fs.existsSync(source)) return null; // 初回作成時は退避するものが無い
+    ensureDir(HISTORY_DIR);
+    // ファイル名で時系列に並ぶようにする（ISO8601 のコロンはファイル名に使えないので置換）
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const dest = path.join(HISTORY_DIR, `edit-${stamp}.json`);
+    fs.copyFileSync(source, dest);
+    // 保持数を超えた古い世代を捨てる
+    const files = fs.readdirSync(HISTORY_DIR)
+      .filter((name) => /^edit-.*\.json$/.test(name))
+      .sort();
+    for (const name of files.slice(0, Math.max(0, files.length - HISTORY_KEEP))) {
+      try { fs.unlinkSync(path.join(HISTORY_DIR, name)); } catch { /* 競合は無視 */ }
+    }
+    return path.relative(projectRoot, dest);
+  } catch (e) {
+    // 履歴が取れなくても編集自体は通す（安全網であって関門ではない）
+    console.error('[history] 退避に失敗しました', e.message);
+    return null;
+  }
+}
+
+function listHistory() {
+  try {
+    if (!fs.existsSync(HISTORY_DIR)) return [];
+    return fs.readdirSync(HISTORY_DIR)
+      .filter((name) => /^edit-.*\.json$/.test(name))
+      .sort()
+      .reverse()
+      .map((name) => {
+        const full = path.join(HISTORY_DIR, name);
+        const stat = fs.statSync(full);
+        return { name, savedAt: new Date(stat.mtimeMs).toISOString(), bytes: stat.size };
+      });
+  } catch {
+    return [];
+  }
+}
+
 function readJson(filePath) {
   try {
     return { data: JSON.parse(fs.readFileSync(filePath, 'utf-8')) };
@@ -292,10 +339,40 @@ const router = {
           return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
         }
       }
+      // 上書きする前の状態を必ず 1 世代残す。ドラッグ 1 回で書き換わる編集面なので、
+      // 「気づかないうちにずれていて、数日後に発見する」が現実に起きる（実機 2026-08-07:
+      // 誤ドラッグ 4 件が edit.json に混入、うち 1 件は移動量 0.00004px）。
+      // クライアント側の undo はリロードで消えるため、保証はここに置く。
+      const snapshot = snapshotEdit();
       markSelfWrite();
       await writeAtomic(path.join(projectRoot, 'edit.json'), text);
       wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
-      respond(res, 200, { ok: true });
+      respond(res, 200, { ok: true, snapshot });
+    } catch (e) {
+      respond(res, 500, { error: e.message });
+    }
+  },
+  'GET /api/edit-history': (req, res) => respond(res, 200, { entries: listHistory() }),
+  // 世代を書き戻す。書き戻し自体も 1 世代残すので、戻しすぎても前へ進み直せる。
+  'POST /api/edit-history/restore': async (req, res) => {
+    let name;
+    try { ({ name } = JSON.parse(await collectBody(req))); }
+    catch (e) { return respond(res, 400, { error: 'Invalid JSON: ' + e.message }); }
+    // 履歴の実ファイル名だけを受け付ける（パスを一切組み立てさせない）
+    if (typeof name !== 'string' || !/^edit-[\w-]+\.json$/.test(name)) {
+      return respond(res, 400, { error: 'Invalid history name' });
+    }
+    const source = path.join(HISTORY_DIR, name);
+    if (!fs.existsSync(source)) return respond(res, 404, { error: 'History entry not found' });
+    let text;
+    try { text = JSON.stringify(JSON.parse(fs.readFileSync(source, 'utf-8')), null, 2); }
+    catch (e) { return respond(res, 422, { error: '履歴が壊れています: ' + e.message }); }
+    try {
+      const snapshot = snapshotEdit();
+      markSelfWrite();
+      await writeAtomic(path.join(projectRoot, 'edit.json'), text);
+      wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
+      respond(res, 200, { ok: true, restored: name, snapshot });
     } catch (e) {
       respond(res, 500, { error: e.message });
     }

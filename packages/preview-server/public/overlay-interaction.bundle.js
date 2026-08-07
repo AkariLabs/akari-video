@@ -239,6 +239,11 @@
         (element) => !element.hasAttribute("data-akari-interaction")
       ) ?? null;
     }
+    let interactionEnabled = true;
+    function setEnabled(next) {
+      interactionEnabled = next !== false;
+      if (!interactionEnabled) clearSelection();
+    }
     function isSelectable(container) {
       if (!stage || !container || !container.isConnected || container.parentElement !== stage || !container.hasAttribute("data-overlay-id")) {
         return false;
@@ -364,6 +369,13 @@
       hideSnapGuides();
       if (!drag.moved) return null;
       const transform = readTransform(drag.container);
+      const WRITE_EPSILON_PX = 0.5;
+      if (Math.abs(transform.x - drag.startX) < WRITE_EPSILON_PX && Math.abs(transform.y - drag.startY) < WRITE_EPSILON_PX) {
+        drag.container.style.setProperty("--x", `${drag.startX}px`);
+        drag.container.style.setProperty("--y", `${drag.startY}px`);
+        refreshSelectionFrame();
+        return null;
+      }
       const record = enqueueWrite(
         drag.writeContext,
         drag.overlayId,
@@ -758,6 +770,7 @@
       return Number.isFinite(event.clientX) && Number.isFinite(event.clientY) && event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
     }
     function onPointerDown(event) {
+      if (!interactionEnabled) return;
       if (event.button !== 0 || activeDrag || activeResize) return;
       const handleEl = findHandleElement(event.target);
       if (handleEl) {
@@ -840,8 +853,12 @@
         (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim()
       );
     }
+    function isMirrorTextLayer(element) {
+      return element instanceof Element && element.getAttribute("data-mirror") === "text";
+    }
     function canEditText(element) {
       if (!(element instanceof HTMLElement) || !hasDirectText(element)) return false;
+      if (isMirrorTextLayer(element)) return false;
       return ![
         "INPUT",
         "NOSCRIPT",
@@ -871,6 +888,24 @@
       }
       return null;
     }
+    function mirrorSyncScope(container, element) {
+      let scope = element.parentElement;
+      while (scope && scope !== container) {
+        if (scope.querySelector('[data-mirror="text"]')) return scope;
+        scope = scope.parentElement;
+      }
+      return element.parentElement;
+    }
+    function syncMirrorLayers(container, element) {
+      const scope = mirrorSyncScope(container, element);
+      if (!scope) return;
+      const mirrors = scope.querySelectorAll('[data-mirror="text"]');
+      if (!mirrors.length) return;
+      const text = element.textContent ?? "";
+      for (const mirror of mirrors) {
+        if (mirror.textContent !== text) mirror.textContent = text;
+      }
+    }
     function restoreAttribute(element, name, hadAttribute, value) {
       if (hadAttribute) {
         element.setAttribute(name, value);
@@ -898,6 +933,7 @@
       if (!activeEdit) return Promise.resolve(void 0);
       const edit = activeEdit;
       activeEdit = null;
+      syncMirrorLayers(edit.container, edit.element);
       restoreAttribute(
         edit.element,
         "contenteditable",
@@ -969,10 +1005,12 @@
       placeCaretAtEnd(element);
     }
     function onClick(event) {
+      if (!interactionEnabled) return;
       const container = overlayForEvent(event);
       if (isSelectable(container)) selectOverlay(container);
     }
     function onDoubleClick(event) {
+      if (!interactionEnabled) return;
       const container = overlayForEvent(event);
       if (!isSelectable(container)) return;
       const element = textElementAt(container, event);
@@ -985,6 +1023,10 @@
       if (activeEdit && event.target === activeEdit.element) {
         void commitEdit({ blur: false });
       }
+    }
+    function onEditableInput(event) {
+      if (!activeEdit || event.target !== activeEdit.element) return;
+      syncMirrorLayers(activeEdit.container, activeEdit.element);
     }
     function onKeyDown(event) {
       if (event.key === "Enter" && activeEdit && event.target === activeEdit.element && !event.isComposing) {
@@ -1232,6 +1274,8 @@
     listenerRoot.addEventListener("pointerdown", onPointerDown, true);
     listenerRoot.addEventListener("dblclick", onDoubleClick, true);
     listenerRoot.addEventListener("blur", onBlur, true);
+    listenerRoot.addEventListener("input", onEditableInput, true);
+    listenerRoot.addEventListener("compositionend", onEditableInput, true);
     listenerRoot.addEventListener(
       "dragstart",
       (event) => {
@@ -1268,7 +1312,9 @@
       syncOverlayHitRegion,
       // Web UI（preview-server）が編集モードを抜けるときに選択枠を畳むための公開口
       // （Phase 2-4 一本化。shell では未使用の追加 export で挙動不変）。
-      clearSelection
+      clearSelection,
+      // Web UI が編集モードに合わせて素材操作そのものを止めるための公開口。
+      setEnabled
     };
   })();
 })();

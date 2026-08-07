@@ -104,6 +104,10 @@ let freezeHoldConsumedForCutIndex = null;
 let drag = null;
 
 let editMode = false;
+// 編集ヒント（プレビューを覆わない小さな通知）の状態。setEditMode が module 先頭付近から
+// 呼ばれるため、宣言はここに置く（後方で let 宣言すると TDZ で落ちる）。
+let editHintTimer = 0;
+let lastSelectionShown = null;
 
 let audioCtx = null;
 let bgmNode = null;
@@ -199,8 +203,14 @@ async function init() {
     if (savedSettings.waveformVisible) {
       waveformVisible = true; waveformRow.hidden = false;
       waveformToggle.setAttribute('aria-pressed', 'true');
-      setTimeout(setupWaveform, 100);
     }
+    // 波形はパネルが開いている時だけ組む。init 完走前にトグルされていた場合
+    // （データが揃っておらず空振りしている）も、ここで拾い直す。
+    if (waveformVisible) setupWaveform();
+
+    // 起動時点で編集モードは OFF。素材の選択・ドラッグを止めた状態から始める
+    // （ここで呼ぶのは interaction バンドルの初期化後を保証するため）。
+    setEditMode(false);
 
     showMessage(null);
   } catch (e) {
@@ -262,6 +272,11 @@ function updateStageScale() {
     el.style.transformOrigin = '0 0';
     el.style.transform = `scale(${frameScale})`;
   }
+  // 出力フレームの境界線。ペインが出力比より横長／縦長だと周囲が黒帯になり、断片の背景が
+  // 「途中で黒く切れている」ように見える（実機報告 2026-08-07 — 実際はレターボックス）。
+  // どこまでが書き出される範囲なのかを常に示す。線は transform で縮むぶんを打ち消しておく。
+  stage.style.outline = `${(1 / (frameScale || 1)).toFixed(3)}px solid rgba(255,255,255,0.16)`;
+  stage.style.outlineOffset = '0';
 }
 updateStageScale();
 new ResizeObserver(() => { updateStageScale(); setupPenCanvas(); }).observe(wrapper);
@@ -2459,6 +2474,24 @@ function setEditMode(next) {
   window.akari.editMode = editMode;
   editToggle.setAttribute('aria-pressed', String(editMode));
   stage.style.pointerEvents = editMode ? 'auto' : 'none';
+  // 素材の選択・ドラッグは編集モードでだけ生かす。
+  // interaction のリスナは document の捕捉フェーズに付いていて、当たり判定も断片の
+  // 実測境界（ステージのクリップ外へはみ出す）で決まる。つまり pointer-events:none だけでは
+  // 止まらず、プレビュー枠の外を押しただけで背景断片を掴めてしまい、
+  //   (a) 選択枠の追従 rAF が回り続けて毎フレーム強制レイアウトが走る
+  //   (b) body 直下・z-index 最大の枠がトランスポートのクリックを奪う（✕ が押せない件）
+  //   (c) 気づかないうちにドラッグされて edit.json に書き込まれる
+  // が起きていた（実機 2026-08-07。誤ドラッグ 4 件が混入）。入口ごと閉じる。
+  window.akari?.interaction?.setEnabled?.(editMode);
+  lastSelectionShown = null;
+  updateSelectionHint();
+  // 当たり判定は編集中だけ毎フレーム測る（tick 参照）。ON にした瞬間は、今見えている
+  // 断片ぶんをここで 1 回そろえておく
+  if (editMode) {
+    for (const el of stage.querySelectorAll('[data-overlay-id][data-akari-active]')) {
+      window.akari.interaction?.syncOverlayHitRegion?.(el);
+    }
+  }
   if (!editMode) window.akari.interaction?.clearSelection?.();
 }
 editToggle.addEventListener('click', () => {
@@ -2466,6 +2499,10 @@ editToggle.addEventListener('click', () => {
   if (next) { penEnable(false); }
   setEditMode(next);
 });
+// 選択は interaction 側で変わるので、ポインタ操作のたびに見に行く（差分があるときだけ描く）
+for (const type of ['pointerup', 'click']) {
+  document.addEventListener(type, () => { updateSelectionHint(); });
+}
 // --- Indicator popup ---
 indicatorBtn.addEventListener('click', () => {
   const h = indicatorPopup.hidden;
@@ -2698,6 +2735,57 @@ function updateOverlays() { window.akari?.runtime?.tick(outputTime); }
 // RPC（lint ゲート付き）に相当し、Web UI では PUT /api/edit.json（サーバ側で同じ lint ゲート）に
 // 落ちる。patch は { transform } / { html } /（将来 { vars }）— 旧フォークの applyPatch と同じ
 // 「最新 summary を取得 → 対象 overlay へマージ → 全文 PUT」方式。
+// プレビューを潰さない通知。showMessage は .message-card = プレビュー全面を覆う板なので、
+// 一過性の結果表示に使うと画面が消えたように見える（実機報告 2026-08-07「0 を押したらバグった」）。
+// 要素は都度引く（呼ばれるのは選択が変わったときだけなので安い）。
+function showHint(text, holdMs = 2600) {
+  const editHint = document.getElementById('edit-hint');
+  if (!editHint) return;
+  if (editHintTimer) { clearTimeout(editHintTimer); editHintTimer = 0; }
+  if (!text) { editHint.hidden = true; editHint.style.opacity = '0'; return; }
+  editHint.hidden = false;
+  editHint.textContent = text;
+  editHint.style.opacity = '1';
+  if (holdMs > 0) {
+    editHintTimer = setTimeout(() => { editHintTimer = 0; editHint.style.opacity = '0'; }, holdMs);
+  }
+}
+function fmtRange(sec) {
+  const m = Math.floor(sec / 60), s2 = (sec % 60).toFixed(1).padStart(4, '0');
+  return `${m}:${s2}`;
+}
+// 何を掴んでいるかを常に出す。断片は画面いっぱいに広がるものが多く、いま見ている場面の
+// 部品を掴んだつもりで「動画全体に敷いてある背景」を掴んでいることがある
+// （bg-live は 0〜123.6 秒 = 全編。実機報告 2026-08-07「次の背景も同じ量だけ動く」の正体）。
+// 選択は可視である限り持ち越されるので、スクラブしても掴んだままになる点も見えるようにする。
+function updateSelectionHint() {
+  if (!editMode) { if (lastSelectionShown !== null) { lastSelectionShown = null; showHint(null); } return; }
+  const el = document.querySelector('[data-akari-interaction-selected]');
+  const id = el?.dataset?.overlayId ?? null;
+  if (id === lastSelectionShown) return;
+  lastSelectionShown = id;
+  if (!id) { showHint('編集モード: 素材をクリックで選択', 0); return; }
+  const ov = (summary?.overlays || []).find(o => String(o.id) === String(id));
+  const range = ov ? `${fmtRange(ov.start)}〜${fmtRange(ov.start + ov.duration)}` : '範囲不明';
+  const whole = ov && ov.duration >= totalDuration * 0.9 ? '（動画ほぼ全編に敷かれています）' : '';
+  showHint(`選択中: ${id} ・ ${range}${whole} ・ 0 キーで位置を戻す`, 0);
+}
+
+// 選択中の素材を「作者が書いた位置」へ厳密に戻す。
+// 作者の位置 = transform を持たない状態なので、目分量で合わせ直す必要はなくキーを消すだけ。
+// 動いている断片は目視で元位置を復元できない、という実機の詰みへの答え（2026-08-07）。
+async function resetSelectedOverlayTransform() {
+  const el = document.querySelector('[data-akari-interaction-selected]');
+  const id = el?.dataset?.overlayId;
+  if (!id) { showHint('位置を戻す素材が選択されていません（編集モードで選んでください）'); return; }
+  try {
+    await overlayWriteViaPut('edit.json', id, { transform: null });
+    showHint(`${id} の位置を作者の位置へ戻しました`);
+  } catch (e) {
+    showHint(`位置を戻せませんでした: ${e.message}`, 6000);
+  }
+}
+
 async function overlayWriteViaPut(editPath, overlayId, patch) {
   // html は edit.json ではなく overlays[].html が指す断片ファイルへ書く（契約上ファイル参照。
   // edit.json へマージすると lint「html does not resolve to a regular file」で 422 になる）
@@ -2724,6 +2812,9 @@ async function overlayWriteViaPut(editPath, overlayId, patch) {
   const ov = (edit.overlays || []).find(o => String(o.id) === String(overlayId));
   if (!ov) throw new Error(`オーバーレイが見つかりません: ${overlayId}`);
   for (const [key, value] of Object.entries(rest)) {
+    // null は「そのキーごと消す」。作者が書いた位置は「transform が無い状態」なので、
+    // 消すことが目分量ではない厳密な復元になる（「位置を戻す」の土台）
+    if (value === null) { delete ov[key]; continue; }
     if (key === 'transform') ov.transform = { ...ov.transform, ...value };
     else if (key === 'vars') ov.vars = { ...ov.vars, ...value };
     else ov[key] = value;
