@@ -626,7 +626,10 @@ function captionBreakScore(first, second, firstUnits, secondUnits, hints) {
         score -= 100;
     if (/^[はがをにでとのもへや]/u.test(second))
         score -= 28;
-    if (/[（「『【]/u.test(first.at(-1) ?? ''))
+    // .at() は ES2022。tsconfig の lib は ES2021 なので slice で等価に書く
+    // （クリーンな checkout で tsc -b が落ち、preview-server の pretest ごと止まっていた。
+    //  既存ツリーでは .tsbuildinfo に隠れて再現しなかった）
+    if (/[（「『【]/u.test(first.slice(-1)))
         score -= 80;
     return score;
 }
