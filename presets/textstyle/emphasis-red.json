@@ -12,6 +12,11 @@
     "stroke": {
       "color": "#ffffff",
       "width_px": 6
+    },
+    "animation": {
+      "in": {
+        "id": "pop"
+      }
     }
   },
   "source": {

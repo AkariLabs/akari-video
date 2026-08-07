@@ -22,6 +22,17 @@
       "color": "#00e5ff",
       "density": 80,
       "spread": 60
+    },
+    "animation": {
+      "in": {
+        "id": "soft-fade"
+      },
+      "loop": {
+        "id": "neon-flicker"
+      },
+      "out": {
+        "id": "soft-fade"
+      }
     }
   },
   "source": {

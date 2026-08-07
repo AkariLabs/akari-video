@@ -26,6 +26,22 @@ use the resolved plate box, `white-space:nowrap`, zero padding/gap, transparent 
 caption animation. Noto Sans JP remains the portable font contract; Hiragino glyph parity is
 `UNRESOLVED_FONT_ASSET` and is not implied by numeric geometry parity.
 
+### 1.1 Caption text animation
+
+Outside `display_policy.mode: "single_line_sequential"`, the shared `textStyle` contract accepts an
+optional `animation` object. `default_text_style.animation` supplies project-wide defaults, while
+`captions[].text_style.animation` overrides only the named slots for that caption. The legacy
+`captions[].style` values (`karaoke`, `pop`, and `reveal`) remain a separate word-display axis and
+are not text-animation preset ids.
+
+The animation object has three optional, independently merged slots: `in`, `out`, and `loop`; at
+least one slot is required when the object is present. Each slot requires an `id` and may carry a
+positive `duration_sec`, a non-empty CSS `ease`, and a positive `amp`; `ease` and `amp` may also be
+`null` to request renderer defaults. The closed 47-id vocabulary is defined by
+`presets/textanim/index.jsonl`. Unknown ids and unknown object keys are errors. `out` reverses the
+selected recipe, and `loop` repeats it for the caption lifetime. The single-line sequential policy
+continues to disable caption animation as specified above.
+
 ## 2. Encoding resolution
 
 `output.encoding` accepts `quality: master|high|standard|light` and

@@ -372,6 +372,49 @@ test("captions-text-style-record-override-valid accepts root defaults and record
   });
 });
 
+test("caption text animation accepts defaults and per-caption slot overrides", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify({
+      default_text_style: {
+        animation: {
+          in: { id: "fade-up", duration_sec: 0.4, ease: "ease-out", amp: 1.2 },
+          out: { id: "soft-fade", ease: null, amp: null },
+        },
+      },
+      captions: [{
+        id: "c-0001", start: 5, end: 9, text: "字幕", speaker: null,
+        sourceRef: null, edited: false,
+        text_style: { animation: { loop: { id: "float" } } },
+      }],
+    }, null, 2)}\n`, "utf8");
+
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    assert.ok(!parseResult(executed).findings.some((finding) => finding.severity === "error"));
+  });
+});
+
+test("caption text animation rejects ids absent from the textanim index", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify({
+      default_text_style: { animation: { in: { id: "nonexistent-anim" } } },
+      captions: [{
+        id: "c-0001", start: 5, end: 9, text: "字幕", speaker: null,
+        sourceRef: null, edited: false,
+      }],
+    }, null, 2)}\n`, "utf8");
+
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    assert.ok(parseResult(executed).findings.some((finding) =>
+      finding.check === "captions.text-style"
+        && /presets\/textanim\/index\.jsonl/.test(finding.message)
+    ));
+  });
+});
+
 for (const [fixture, message] of [
   ["captions-text-style-opacity-out-of-range-invalid", /opacity/],
   ["captions-text-style-background-mode-invalid", /mode/],
