@@ -56,6 +56,14 @@ const MIME = {
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const CAPTION_FONT_PATH = fileURLToPath(new URL('../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url));
 const CAPTION_FONT_ROUTE = '/assets/fonts/akari-noto-sans-jp.ttf';
+// 3D オーバーレイのランタイム。どちらも素の IIFE（vendor は window.AkariThree、
+// runtime は window.akari.threeRuntime を立てる）なのでバンドルは要らず、
+// 字幕フォントと同じ「リポ所有の固定ルート」で配る（776KB を public/ へ複製しない）。
+// projectRoot もユーザー入力も経由しないため traversal で別ファイルを選べない。
+const THREE_ROUTES = {
+  '/three-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/three-bundle.js', import.meta.url)),
+  '/three-runtime.js': fileURLToPath(new URL('../../overlay-runtime/src/three-runtime.js', import.meta.url)),
+};
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 
 // --- ffmpeg/ffprobe detection ---
@@ -498,6 +506,11 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/' || pathname === '/index.html') {
     return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
+  }
+
+  // 3D ランタイム（リポ所有の固定ルート。断片が 3D を宣言した時だけ取りに来る）
+  if (THREE_ROUTES[pathname] && req.method === 'GET') {
+    return serveFile(res, THREE_ROUTES[pathname], MIME['.js'], {}, req.headers);
   }
 
   // Fixed route to the repository-owned caption font. It is intentionally not

@@ -2526,10 +2526,53 @@ fullscreenToggle.addEventListener('click', () => {
   else { wrapper.requestFullscreen(); fullscreenToggle.innerHTML = restoreIcon; fullscreenToggle.setAttribute('aria-pressed', 'true'); }
 });
 
+// --- 3D オーバーレイ（three.js） ---
+// Web UI にはこれまで 3D ランタイムが一切無く、断片の `[data-akari-3d-fallback]`
+// （「3D を読み込み中」）が永久に出たままだった（実機報告 2026-08-07。three.js の取得要求は
+// ゼロ = 遅いのではなく未実装）。shell と同じ packages/overlay-runtime のランタイムを使う。
+//
+// vendor は 776KB あるので、断片が実際に 3D を宣言していた時だけ読む。
+// 宣言の無いプロジェクトのダウンロード量は 1 バイトも増えない。
+let threeRuntimeReady = null;
+function ensureThreeRuntime() {
+  if (threeRuntimeReady) return threeRuntimeReady;
+  const loadScript = (src) => new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.async = false; // vendor → runtime の順序を守る
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error(`${src} を読み込めませんでした`));
+    document.head.appendChild(el);
+  });
+  threeRuntimeReady = (async () => {
+    await loadScript('/three-bundle.js');
+    await loadScript('/three-runtime.js');
+    return Boolean(window.akari?.threeRuntime);
+  })().catch((e) => {
+    console.warn('[preview] 3D ランタイムを読み込めませんでした', e);
+    return false;
+  });
+  return threeRuntimeReady;
+}
+// プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
+// プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
+const PREVIEW_3D_MAX_RENDER_SIZE = 720;
+
 // --- Overlay runtime ---
 function createOverlayRuntime() {
   const overlays = [];
-  function unmount() { stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove()); overlays.length = 0; }
+  function unmount() {
+    for (const o of overlays) {
+      if (o.is3d) window.akari?.threeRuntime?.dispose(o.el);
+    }
+    stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove());
+    overlays.length = 0;
+  }
+  // 断片の HTML が入った後に判定する（html はファイル参照で非同期に届くため）
+  function markThreeOverlay(rec) {
+    rec.is3d = Boolean(rec.el.querySelector('script[type="application/json"][data-akari-3d-scene]'));
+    if (rec.is3d) ensureThreeRuntime();
+  }
   function mount(s) {
     unmount();
     if (!Array.isArray(s?.overlays)) return;

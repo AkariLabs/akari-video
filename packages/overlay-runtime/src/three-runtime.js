@@ -415,15 +415,34 @@ window.akari.threeRuntime = (() => {
     else fallback.style.setProperty("display", "none", "important");
   }
 
-  function rendererSize(instance) {
+  // maxRenderSize: 描画バッファの長辺上限（px）。**呼び出し側が明示した時だけ**効く。
+  // ライブプレビューは「位置と動きを掴む」用途なので等倍で描く必要がなく、上限を入れると
+  // 目に見えて軽くなる。書き出し（render-cut の rasterize）は渡さない = 従来どおり等倍のまま。
+  // CSS サイズ（setSize の第 3 引数 false）は変えないので、見た目の寸法は縮まずアスペクトも保つ。
+  function rendererSize(instance, maxRenderSize) {
     const rect = instance.canvas.getBoundingClientRect();
     const containerRect = instance.container.getBoundingClientRect();
-    const width = Math.max(1, Math.round(rect.width || containerRect.width || 1));
-    const height = Math.max(1, Math.round(rect.height || containerRect.height || 1));
-    if (instance.canvas.width !== width || instance.canvas.height !== height) {
+    const cssWidth = Math.max(1, Math.round(rect.width || containerRect.width || 1));
+    const cssHeight = Math.max(1, Math.round(rect.height || containerRect.height || 1));
+    const cap = Number(maxRenderSize);
+    const longest = Math.max(cssWidth, cssHeight);
+    const scale = Number.isFinite(cap) && cap > 0 && longest > cap ? cap / longest : 1;
+    const width = Math.max(1, Math.round(cssWidth * scale));
+    const height = Math.max(1, Math.round(cssHeight * scale));
+    // 断片は拡大縮小アニメを持つのが普通で（例: icon-live の drift）、canvas の実測サイズは
+    // 毎フレーム 1px 単位で動く。素直に追従すると setSize が毎フレーム走って WebGL の
+    // 描画バッファを作り直し続ける（実測: プロファイルに setSize が常駐）。
+    // 数 px の差は見た目に出ないので、意味のある変化のときだけ作り直す。
+    const RESIZE_TOLERANCE = 0.04; // 4% 以上変わったら追従する
+    const current = { w: instance.canvas.width, h: instance.canvas.height };
+    const changedEnough = current.w < 1 || current.h < 1
+      || Math.abs(width - current.w) / Math.max(1, current.w) > RESIZE_TOLERANCE
+      || Math.abs(height - current.h) / Math.max(1, current.h) > RESIZE_TOLERANCE;
+    if (changedEnough) {
       instance.renderer.setSize(width, height, false);
     }
-    const aspect = width / height;
+    // 投影は CSS 上の見た目の比で決める（バッファを縮めても画角は変わらない）
+    const aspect = cssWidth / cssHeight;
     if (instance.camera.aspect !== aspect) {
       instance.camera.aspect = aspect;
       instance.camera.updateProjectionMatrix();
@@ -507,7 +526,7 @@ window.akari.threeRuntime = (() => {
 
   function draw(instance, localSeconds) {
     if (!instance.active || !instance.model) return;
-    rendererSize(instance);
+    rendererSize(instance, instance.maxRenderSize);
     applyProjectionKnobs(instance);
     if (instance.mixer) instance.mixer.setTime(Math.max(0, localSeconds));
     // 動画テクスチャは「今 <video> に出ているフレーム」を GPU へ上げ直さないと 1 枚目で固まる。
@@ -712,6 +731,10 @@ window.akari.threeRuntime = (() => {
     if (options?.syncVideos && instance.videoElements.size > 0) {
       syncVideoTextures(instance, instance.lastTime);
     }
+    // maxRenderSize もライブプレビュー専用の opt-in（未指定なら等倍 = 書き出しは不変）。
+    // instance に持たせるのは、モデル読み込み完了直後の draw（呼び出し側を経由しない）にも
+    // 同じ上限を効かせるため
+    instance.maxRenderSize = options?.maxRenderSize;
     draw(instance, instance.lastTime);
   }
 
