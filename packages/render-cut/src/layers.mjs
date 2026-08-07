@@ -1,10 +1,12 @@
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
+import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { computePerspectiveFfmpegCorners, PERSPECTIVE_PAD_FRAC } from "./perspective-homography.mjs";
 
 // contract-2026-07-22-prerender-rail-and-assets.md §0/§1.2: render-cut composites edit.json
-// layers[] (baked alpha mov / video PinP) onto the cuts-composited base video, ordered by t.
+// layers[] (baked alpha video / video PinP) onto the cuts-composited base video, ordered by t.
 // This module builds the single ffmpeg filter_complex for that stage; render-cut.mjs only calls
 // it when edit.layers has at least one item, so a layers-less edit.json never runs this code path
 // at all (byte-identical output, zero regression risk for existing projects).
@@ -13,8 +15,88 @@ const EPSILON = 1e-6;
 const DEFAULT_CHROMA_SIMILARITY = 0.1;
 const DEFAULT_CHROMA_BLEND = 0;
 
+// Codecs that carry alpha in a WebM *container side channel* (BlockAdditional) rather than in the
+// coded pixel format. ffmpeg's built-in `vp8`/`vp9` decoders ignore that side channel entirely and
+// hand back a fully opaque frame -- no warning, no error -- so a VP9-alpha matte opened with a bare
+// `-i` silently composites as an opaque rectangle and blacks out whatever is underneath. Only the
+// libvpx wrappers decode the alpha plane. Measured on ffmpeg 8.1.1 with a real person matte: the
+// pixel outside the subject reads (252,0,0) over a red base with `-c:v libvpx-vp9`, and (0,0,0)
+// without it. Both libvpx decoders ship with the standard ffmpeg build on macOS / Windows / Linux,
+// which is why contract-2026-07-23-analysis-person-matte.md §3 can keep VP9 alpha WebM as the
+// canonical matte format instead of falling back to a platform-locked or 18x larger container.
+const SIDE_CHANNEL_ALPHA_DECODERS = { vp8: "libvpx", vp9: "libvpx-vp9" };
+
 export function hasLayers(edit) {
   return Array.isArray(edit?.layers) && edit.layers.length > 0;
+}
+
+// Alpha reaches a decoded frame two different ways, and only one of them needs our help:
+//   - in the pixel format itself (ProRes 4444's yuva444p10le, QTRLE's argb, PNG's rgba, ...) --
+//     every decoder emits it, so those inputs must stay on the default decoder and produce
+//     byte-identical ffmpeg args to before this function existed;
+//   - in a WebM side channel, flagged by the AlphaMode track element that ffprobe surfaces as
+//     `tags.alpha_mode` while pix_fmt stays opaque (yuv420p) -- this is the case that needs an
+//     explicit libvpx decoder.
+// The probe is by ffprobe rather than by file extension on purpose: `.webm` can hold VP8, VP9 or
+// AV1, and `.mov` can hold anything, so extension matching would both miss real alpha and force
+// libvpx onto files that do not want it.
+export function probeLayerAlphaSource(ffprobeCommand, path) {
+  if (!existsSync(path)) return null;
+  const result = spawnSync(
+    ffprobeCommand,
+    [
+      "-v",
+      "error",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=codec_name,pix_fmt:stream_tags=alpha_mode",
+      "-of",
+      "json",
+      path,
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.error || result.status !== 0) return null;
+  try {
+    const stream = JSON.parse(result.stdout).streams?.[0];
+    if (!stream) return null;
+    const codec = String(stream.codec_name ?? "");
+    const pixelFormat = String(stream.pix_fmt ?? "");
+    // Matroska/WebM surfaces the native AlphaMode track element lowercased (`alpha_mode`) but
+    // uppercases tags that were muxed in as generic stream metadata (`ALPHA_MODE`), so a file that
+    // has been remuxed through a `-metadata:s:v:0` step declares the exact same thing under a
+    // different key. Match either.
+    const alphaModeTag = Object.entries(stream.tags ?? {})
+      .find(([key]) => key.toLowerCase() === "alpha_mode")?.[1];
+    return {
+      codec,
+      pixelFormat,
+      // yuva420p / rgba / argb / bgra / ya8 ... every alpha-carrying pix_fmt name contains an "a"
+      // in its component list, which is the same test rasterize.mjs' probeHasAlpha already uses.
+      alphaInPixelFormat: pixelFormat.includes("a"),
+      alphaInSideChannel: String(alphaModeTag ?? "") === "1",
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Returns the `-c:v <decoder>` input option this layer needs (empty when the default decoder is
+// already correct), plus a warning when alpha is declared but unreachable. An unprobeable input
+// (missing file, no ffprobe) yields neither: the file is about to be opened by ffmpeg anyway, and
+// failing loudly there beats guessing here.
+function resolveDecoderForLayer(ffprobeCommand, resolvedPath, warnings) {
+  const probed = probeLayerAlphaSource(ffprobeCommand, resolvedPath);
+  if (!probed || probed.alphaInPixelFormat || !probed.alphaInSideChannel) return [];
+  const decoder = SIDE_CHANNEL_ALPHA_DECODERS[probed.codec];
+  if (decoder) return ["-c:v", decoder];
+  warnings.push(
+    `layer source ${resolvedPath} declares alpha (alpha_mode=1) but no alpha-capable decoder is`
+      + ` known for codec "${probed.codec}"; it will composite fully opaque and hide the video`
+      + " underneath. Re-encode the layer as VP9 alpha WebM or as a ProRes 4444 / QTRLE mov.",
+  );
+  return [];
 }
 
 // Layers whose blend is "normal" (or unset) are composited with a single itsoffset+trim+overlay
@@ -28,6 +110,7 @@ export function buildLayersCompositeCommand({
   layers,
   projectRoot,
   ffmpegCommand = resolveFfmpeg(),
+  ffprobeCommand = resolveFfprobe(),
   inputPath,
   outputPath,
   duration,
@@ -37,6 +120,7 @@ export function buildLayersCompositeCommand({
 }) {
   const inputArgs = [];
   const filters = [];
+  const warnings = [];
   let previous = "[0:v]";
 
   layers.forEach((layer, index) => {
@@ -54,10 +138,13 @@ export function buildLayersCompositeCommand({
     const blend = layer.blend ?? "normal";
     const isNormal = blend === "normal";
 
+    const resolvedSource = resolve(projectRoot, layer.src);
     inputArgs.push(
       ...(isNormal ? ["-itsoffset", formatNumber(t)] : []),
+      // Input option, so it must sit between the previous input and this layer's own `-i`.
+      ...resolveDecoderForLayer(ffprobeCommand, resolvedSource, warnings),
       "-i",
-      resolve(projectRoot, layer.src),
+      resolvedSource,
     );
 
     // Layer preprocessing chain shared by both compositing styles: trim to the declared duration,
@@ -243,6 +330,7 @@ export function buildLayersCompositeCommand({
       "copy",
       outputPath,
     ],
+    warnings,
   };
 }
 

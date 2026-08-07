@@ -81,6 +81,28 @@ function makeBakedAlphaLayer(path, { color = "0x00FF00", width, height, duration
   ]);
 }
 
+// The same left-opaque/right-transparent layer as makeBakedAlphaLayer, but stored the way
+// contract-2026-07-23-analysis-person-matte.md §3 mandates for person mattes: VP9 alpha WebM.
+// Note what ffprobe reports for the result — codec_name=vp9, pix_fmt=**yuv420p** (not yuva420p),
+// tags.alpha_mode=1. The alpha does not live in the pixel format at all; it rides a WebM
+// BlockAdditional side channel that only libvpx-vp9 decodes, which is exactly why layers.mjs has
+// to name the decoder rather than trusting `-i` alone.
+function makeVp9AlphaLayer(path, { color = "0x00FF00", width, height, duration, fps }) {
+  ffmpeg([
+    "-f",
+    "lavfi",
+    "-i",
+    `color=c=${color}:s=${width}x${height}:d=${duration}:r=${fps}`,
+    "-vf",
+    `format=yuva420p,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,${Math.floor(width / 2)}),255,0)'`,
+    "-c:v",
+    "libvpx-vp9",
+    "-pix_fmt",
+    "yuva420p",
+    path,
+  ]);
+}
+
 // A green-screen "real footage" PinP layer with a white subject box, plain h264 (no alpha) —
 // stands in for a captured video source that needs chroma_key to become compositable.
 function makeVideoPinpLayer(path, { width, height, duration, fps }) {
@@ -1028,5 +1050,158 @@ test("layers[] without a crop field renders byte-identical output across repeate
   } finally {
     await rm(projectA, { recursive: true, force: true });
     await rm(projectB, { recursive: true, force: true });
+  }
+});
+
+// --- layers[] alpha decoder selection (task 2026-08-07-layers-alpha-decoder) ------------------
+//
+// Regression origin: person mattes are VP9 alpha WebM per contract §3, but layers.mjs opened every
+// layer with a bare `-i`. ffmpeg's native vp9 decoder drops the WebM alpha side channel *without
+// warning*, so the matte composited as an opaque rectangle and blacked out the video underneath.
+// The tests below pin both halves of the fix: the decoder gets named for side-channel alpha, and
+// pix_fmt-carried alpha (ProRes 4444) keeps the default decoder so its args stay byte-identical.
+
+// Returns the input options ffmpeg receives immediately before `-i <path>` — i.e. the options that
+// apply to that input. Asserting on this slice rather than on `args.includes("-c:v")` matters:
+// `-c:v` also appears in the *output* encode args, where it means something else entirely.
+function inputOptionsFor(args, path) {
+  const at = args.indexOf(path);
+  assert.notEqual(at, -1, `expected ${path} among the ffmpeg args`);
+  assert.equal(args[at - 1], "-i", `expected ${path} to follow -i`);
+  // Everything between the *previous* input's path and this input's `-i` belongs to this input.
+  const previousFlag = args.lastIndexOf("-i", at - 2);
+  return args.slice(previousFlag === -1 ? 0 : previousFlag + 2, at - 1);
+}
+
+test("buildLayersCompositeCommand: a VP9 alpha WebM layer gets -c:v libvpx-vp9 on its own input", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-layers-vp9-"));
+  try {
+    const layerPath = join(root, "matte.webm");
+    makeVp9AlphaLayer(layerPath, { width: 320, height: 180, duration: 1, fps: 25 });
+    const { args } = buildLayersCompositeCommand({
+      layers: [{ id: "matte", t: 0.5, duration: 1, kind: "video", src: "matte.webm" }],
+      projectRoot: root,
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      inputPath: join(root, "cut.mp4"),
+      outputPath: join(root, "layered.mp4"),
+      duration: 5,
+    });
+    assert.deepEqual(inputOptionsFor(args, layerPath), ["-itsoffset", "0.5", "-c:v", "libvpx-vp9"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("buildLayersCompositeCommand: a ProRes 4444 layer keeps the default decoder (no -c:v on its input)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-layers-prores-"));
+  try {
+    const layerPath = join(root, "overlay.mov");
+    makeBakedAlphaLayer(layerPath, { width: 320, height: 180, duration: 1, fps: 25 });
+    const { args } = buildLayersCompositeCommand({
+      layers: [{ id: "baked", t: 0.5, duration: 1, kind: "video", src: "overlay.mov" }],
+      projectRoot: root,
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      inputPath: join(root, "cut.mp4"),
+      outputPath: join(root, "layered.mp4"),
+      duration: 5,
+    });
+    // ProRes 4444 decodes to yuva444p10le — the alpha is in the pixel format, so every decoder
+    // emits it and naming one would only risk changing behaviour for no gain.
+    assert.deepEqual(inputOptionsFor(args, layerPath), ["-itsoffset", "0.5"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("buildLayersCompositeCommand: declared alpha with no alpha-capable decoder warns instead of failing silently", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-layers-unknown-alpha-"));
+  try {
+    // AV1-in-WebM carrying an alpha_mode declaration. ffmpeg has no alpha-capable AV1 decoder, so
+    // this composites opaque no matter what we do — the point of the test is that the operator is
+    // told, which is the property the original bug lacked.
+    const layerPath = join(root, "odd.webm");
+    ffmpeg([
+      "-f", "lavfi", "-i", "color=c=red:s=160x90:d=0.4:r=25",
+      "-c:v", "libsvtav1", "-preset", "12", "-pix_fmt", "yuv420p",
+      "-metadata:s:v:0", "alpha_mode=1", layerPath,
+    ]);
+    const { args, warnings } = buildLayersCompositeCommand({
+      layers: [{ id: "odd", t: 0, duration: 0.4, kind: "video", src: "odd.webm" }],
+      projectRoot: root,
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      inputPath: join(root, "cut.mp4"),
+      outputPath: join(root, "layered.mp4"),
+      duration: 5,
+    });
+    assert.deepEqual(inputOptionsFor(args, layerPath), ["-itsoffset", "0"]);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /declares alpha/);
+    assert.match(warnings[0], /"av1"/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("buildLayersCompositeCommand: an alpha-less layer probes clean — no decoder, no warning", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-layers-opaque-"));
+  try {
+    const layerPath = join(root, "guest.mp4");
+    makeVideoPinpLayer(layerPath, { width: 320, height: 180, duration: 1, fps: 25 });
+    const { args, warnings } = buildLayersCompositeCommand({
+      layers: [{ id: "pinp", t: 0, duration: 1, kind: "video", src: "guest.mp4" }],
+      projectRoot: root,
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      inputPath: join(root, "cut.mp4"),
+      outputPath: join(root, "layered.mp4"),
+      duration: 5,
+    });
+    assert.deepEqual(inputOptionsFor(args, layerPath), ["-itsoffset", "0"]);
+    assert.deepEqual(warnings, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// Acceptance: the completion condition from the task — a VP9 alpha WebM on layers[] must let the
+// base video show through, measured in pixels on the real render. Before the fix the transparent
+// half read as opaque black (0,0,0); the base-blue assertion below is what pins the regression.
+test("layers[]: a VP9 alpha WebM composites with real transparency (real render, pixel-measured)", async () => {
+  const width = 640;
+  const height = 360;
+  const root = await makeProject({
+    width,
+    height,
+    duration: 2,
+    layers: [{ id: "matte", t: 0, duration: 2, kind: "video", src: "matte.webm" }],
+  });
+  try {
+    makeVp9AlphaLayer(join(root, "matte.webm"), { width, height, duration: 2, fps: 25 });
+    const probe = spawnSync(
+      "ffprobe",
+      ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,pix_fmt:stream_tags=alpha_mode", "-of", "json", join(root, "matte.webm")],
+      { encoding: "utf8" },
+    );
+    const stream = JSON.parse(probe.stdout).streams[0];
+    assert.equal(stream.codec_name, "vp9");
+    assert.equal(stream.pix_fmt, "yuv420p", "alpha must be in the WebM side channel, not the pix_fmt");
+    assert.equal(stream.tags.alpha_mode, "1");
+
+    const result = run(root);
+    assert.equal(result.status, 0, result.stderr);
+    const state = JSON.parse(await readFile(join(root, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const output = join(root, state.artifacts[0].path);
+    const opaque = samplePixel(output, 25, Math.floor(width * 0.25), Math.floor(height / 2));
+    const transparent = samplePixel(output, 25, Math.floor(width * 0.75), Math.floor(height / 2));
+    console.log(`ℹ layer's opaque half (${Math.floor(width * 0.25)},${height / 2}) rgb=(${opaque.r},${opaque.g},${opaque.b}) [expect lime]`);
+    console.log(`ℹ layer's transparent half (${Math.floor(width * 0.75)},${height / 2}) rgb=(${transparent.r},${transparent.g},${transparent.b}) [expect base blue, was (0,0,0) before the decoder fix]`);
+    assertColor(opaque, [0, 255, 0], "VP9 alpha layer opaque half");
+    assertColor(transparent, [0, 0, 255], "base video through the VP9 alpha layer's transparent half");
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
