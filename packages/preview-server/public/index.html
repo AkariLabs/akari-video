@@ -21,6 +21,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; overflow: hidden; background: #000; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
 #preview-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+#cut-fx-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
+#cut-fx-layer[hidden] { display: none; }
 #layer-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 #layer-container video { position: absolute; object-fit: contain; }
 /* .layer-selected は選択状態のマーカー。枠は #layer-select-box（アルファ実測でコンテンツにフィット）が描く */
@@ -48,6 +50,15 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #zoom-minimap[hidden] { display: none; }
 #zoom-minimap video { width: 100%; height: 100%; object-fit: contain; }
 #zoom-minimap-viewport { position: absolute; border: 1px solid #ff0; background: rgba(255,255,0,0.08); pointer-events: none; }
+#cut-fx-controls { position: absolute; top: 8px; left: 8px; z-index: 30; width: min(310px, calc(100% - 16px)); padding: 9px 10px; border: 1px solid rgba(255,255,255,0.26); border-radius: 7px; background: rgba(20,20,20,0.9); box-shadow: 0 4px 16px rgba(0,0,0,0.4); pointer-events: auto; }
+#cut-fx-controls[hidden] { display: none; }
+.cut-fx-controls-header { margin-bottom: 6px; color: #eee; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+.cut-fx-control { display: grid; grid-template-columns: minmax(76px,auto) minmax(72px,auto) 1fr 34px; gap: 6px; align-items: center; min-height: 25px; color: #ccc; font-size: 10px; }
+.cut-fx-control-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cut-fx-approx-badge { color: #ffd166; white-space: nowrap; }
+.cut-fx-control input { min-width: 60px; margin: 0; }
+.cut-fx-control output { color: #fff; font-variant-numeric: tabular-nums; text-align: right; }
+#cut-fx-controls[data-save-state="error"] { border-color: #ff6b6b; }
 .message-card { position: absolute; inset: 0; z-index: 10; display: grid; gap: 16px; place-items: center; padding: 32px; background: #111; }
 .message-card[hidden] { display: none; }
 .message-card p { max-width: 520px; margin: 0; color: #e5e5e5; font-size: 15px; line-height: 1.7; text-align: center; }
@@ -94,9 +105,11 @@ input[type=range] { width: 100%; }
     <div id="preview-wrapper">
       <div id="zoom-layer">
         <video id="preview-video" preload="auto"></video>
+        <div id="cut-fx-layer" hidden></div>
         <div id="layer-container"></div>
         <div id="overlay-stage"><div id="pen-layer"><canvas id="pen-canvas"></canvas></div><div id="transition-plate"></div><div id="caption-plate"></div></div>
       </div>
+      <div id="cut-fx-controls" data-akari-interaction="1" hidden></div>
       <div id="loading-indicator" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;display:none"><div style="width:32px;height:32px;border:3px solid #505050;border-top-color:#4da3ff;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 8px"></div><div style="color:#888;font-size:12px">読み込み中...</div></div>
       <div id="zoom-minimap" hidden><video id="minimap-video" preload="auto"></video><div id="zoom-minimap-viewport"></div></div>
       <div id="preview-message" class="message-card" hidden role="status">

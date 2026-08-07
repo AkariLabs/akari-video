@@ -287,6 +287,33 @@ ffmpeg の `perspective` フィルタの `x0..y3`（`sense=destination`）は**�
   webview の起動）を伴わないため、`tsc -b` 0 エラー + ユニットテスト + Web と同一計算式
   という根拠で代替する
 
+#### 2.4.5 画面 FX（`cuts[].fx`。2026-08-07 導入・近似あり）
+
+Web UI は `cuts[].fx` をベース映像の直上、`layers[]` と字幕の下に配置する。配列順に重ね、
+`intensity` は書き出しと同じ 0..1 の線形ブレンド（省略時 1）とし、0 では何も描かない。
+アクティブな FX はプレビュー上のスライダーで強度を即時反映し、`edit.json` への書き戻しは
+preview-server の PUT + edit-lint ゲートを通す。`fx` 未宣言の cut では描画層と UI を非表示にする。
+
+| FX | Web UI の描画 | 精度 |
+|---|---|---|
+| `vignette` | CSS `radial-gradient` の周辺減光／周辺明化 | ほぼ一致 |
+| `color-overlay` | CSS 単色レイヤーの通常ブレンド | ほぼ一致 |
+| `noise` | 縮小 canvas の時間変化グレーノイズ | **近似** |
+| `particles` | canvas 上の 4 個の移動輝点を screen 合成 | **近似** |
+| `flare` | CSS の大径ラジアルグラデーションを screen 合成 | **近似** |
+
+近似 3 種はツマミ横に `[FX ≈ 近似]` バッジを常時出す。具体的な差は次のとおり。
+
+- `noise`: ffmpeg `noise` は出力の画素ごとにランダム値を乗せる。Web は毎フレームの
+  canvas 更新負荷を抑えるため最大辺 360 px で描き、拡大表示する。そのためノイズの粒が
+  書き出しより粗く、混合も ffmpeg の `all_strength` と完全には一致しない。
+- `particles`: 書き出しは `geq` のガウシアン輝度式と cut/fx 由来の固定シードで位置・速度を
+  決める。Web は 4 個という数と screen 合成は揃えるが、Canvas 2D のラジアルグラデーションと
+  別の軌道式を使うため、輝点の分布・ぼけ足・移動位置は一致しない。
+- `flare`: 書き出しは `geq` の単一大径輝点を低速周回させる。Web は同じく 1 個・低速・
+  screen 合成だが、CSS の多段ラジアルグラデーションで代用するため、フレアの輪郭、
+  色の減衰、周回位置が ffmpeg 側の式と一致しない。
+
 ### 2.5 音声
 - **一時停止で全音声を止める**: narration / SFX の BufferSource は stop、AudioContext は suspend
 - 一時停止中のシークで音源を発火させない
@@ -326,6 +353,7 @@ ffmpeg の `perspective` フィルタの `x0..y3`（`sense=destination`）は**�
 | `cuts[].framing`（2026-08-06 実装） | ✅（§2.4.2） | ✅（§2.4.2。`cuts[].transform` 併用時のみ既知の割り切りあり） |
 | `cuts[].freeze`（2026-08-06 実装・近似） | 🟡（§2.4.3。静止表示のみ・尺表示は非対応） | 🟡（§2.4.3。同左） |
 | `layers[].perspective`（2026-08-06 実装） | ✅（§2.4.4。実ブラウザ実測済み） | ✅（§2.4.4。tsc -b + ユニット + Web 同一計算式で担保） |
+| `cuts[].fx`（2026-08-07 実装・近似あり） | 🟡（§2.4.5。5 種対応、3 種は近似バッジ付き） | ❌（未実装） |
 
 - `cuts[].framing`（静的クロップ / ズームキーフレーム）・`cuts[].freeze`（フリーズ）は
   `contract-2026-07-22-render-basics.md` #6/#7 としてレンダ（render-cut）に加え、
