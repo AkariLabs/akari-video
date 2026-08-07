@@ -2329,11 +2329,12 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
     if (Object.hasOwn(caption, "style")) {
       if (caption.style !== "karaoke"
         && caption.style !== "pop"
-        && caption.style !== "reveal") {
+        && caption.style !== "reveal"
+        && caption.style !== "reveal-word") {
         captionFinding(
           findings,
           "captions.schema",
-          'style must be "karaoke", "pop", or "reveal"',
+          'style must be "karaoke", "pop", "reveal", or "reveal-word"',
           itemPath,
         );
       }

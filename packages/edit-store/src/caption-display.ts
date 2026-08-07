@@ -610,7 +610,7 @@ function validateSourceCaption(caption: UnknownRecord, index: number, policy: Ca
     }
     const text = caption.display_text ?? caption.text;
     if (!strictText(text)) fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
-    if (caption.style === 'karaoke' || caption.style === 'pop' || caption.style === 'reveal') {
+    if (caption.style === 'karaoke' || caption.style === 'pop' || caption.style === 'reveal' || caption.style === 'reveal-word') {
         fail('STYLE_CONFLICT', `captions[${index}].style cannot be combined with display_policy`);
     }
     if (measureCaptionUnits(text) > policy.max_line_units * 2 && caption.display_fragments === undefined) {
@@ -684,7 +684,7 @@ function captionBreakScore(first: string, second: string, firstUnits: number, se
     if (/^[、。！？!?）」』】]/u.test(second)) score -= 100;
     if (/[（「『【]$/u.test(first)) score -= 100;
     if (/^[はがをにでとのもへや]/u.test(second)) score -= 28;
-    if (/[（「『【]/u.test(first.at(-1) ?? '')) score -= 80;
+    if (/[（「『【]/u.test((first as unknown as { at(index: number): string | undefined }).at(-1) ?? '')) score -= 80;
     return score;
 }
 

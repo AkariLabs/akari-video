@@ -146,6 +146,18 @@ test('words[] 付きカラオケ字幕が text_style: null でも保持される
     assert.equal(parsed[0].words.length, 2);
 });
 
+test('shared caption-style contract keeps reveal-word while reveal and unknown remain dropped', () => {
+    const styleContract = styleParity.caption_style_contract;
+    const parsed = parsePreviewCaptions(JSON.stringify([
+        { ...caption, id: 'c-0001', style: styleContract.accepted.style },
+        { ...caption, id: 'c-0002', start: 3, end: 5, style: 'reveal' },
+        { ...caption, id: 'c-0003', start: 6, end: 8, style: styleContract.unknown.style }
+    ]));
+    assert.equal(parsed[0].style, 'reveal-word');
+    assert.equal(parsed[1].style, undefined);
+    assert.equal(parsed[2].style, undefined);
+});
+
 test('resolved payload remains timeline-domain and preserves source cue identity for writeback', () => {
     const [parsed] = parseResolvedPreviewCaptions({
         schema: 'caption-layout/v1',
@@ -246,6 +258,31 @@ test('shell RPC direct calls reject malformed opt-in styles and unknown nested k
             } }]
         }));
         await assert.rejects(resolveFrom(service, captionsPath, editPath), /invented/u);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('shared caption-style contract reaches shell RPC and renderer unchanged', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-shell-caption-style-contract-'));
+    try {
+        const captionsPath = join(root, 'captions.json');
+        const editPath = join(root, 'edit.json');
+        await writeFile(editPath, JSON.stringify(styleParity.edit));
+        const service = captionService(root);
+        const withStyle = style => ({
+            display_policy: styleParity.display_policy,
+            captions: [{ ...styleParity.caption, style }]
+        });
+        await writeFile(captionsPath, JSON.stringify(withStyle(styleParity.caption_style_contract.accepted.style)));
+        await assert.rejects(resolveFrom(service, captionsPath, editPath), /style cannot be combined with display_policy/u);
+
+        const rendererSource = await readFile(join(
+            extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
+        ), 'utf8');
+        assert.match(rendererSource, /akari-caption__tok--reveal-word/u);
+        assert.match(rendererSource, /--akari-tok-delay/u);
+        assert.match(rendererSource, /akari-caption-reveal-word/u);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

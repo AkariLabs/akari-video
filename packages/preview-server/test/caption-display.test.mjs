@@ -87,6 +87,22 @@ test('preview API direct calls reject malformed opt-in styles and unknown nested
   assert.throws(() => resolveCaptionApiPayload(nestedUnknown, styleParity.edit), /invented/u);
 });
 
+test('shared caption-style contract reaches preview API and preview renderer unchanged', async () => {
+  const withStyle = style => ({
+    display_policy: styleParity.display_policy,
+    captions: [{ ...styleParity.caption, style }],
+  });
+  assert.throws(
+    () => resolveCaptionApiPayload(withStyle(styleParity.caption_style_contract.accepted.style), styleParity.edit),
+    /style cannot be combined with display_policy/u,
+  );
+  const browserSource = await readFile(join(packageRoot, 'public', 'app.js'), 'utf8');
+  assert.match(browserSource, /\['karaoke', 'pop', 'reveal-word'\]\.includes\(style\)/u);
+  assert.match(browserSource, /akari-caption__tok--reveal-word/u);
+  assert.match(browserSource, /--akari-tok-delay/u);
+  assert.match(browserSource, /@keyframes akari-caption-reveal-word/u);
+});
+
 test('managed CSS variables are replaced between resolved cues without style leakage', () => {
   const values = new Map();
   const style = {

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 const CAPTION_ID = /^c-\d{4}$/;
 const LEGACY_CAPTION_ID = /^caption-[A-Za-z0-9][A-Za-z0-9_-]*$/;
-const CAPTION_STYLES = new Set(["karaoke", "pop", "reveal"]);
+const CAPTION_STYLES = new Set(["karaoke", "pop", "reveal", "reveal-word"]);
 const TEXT_ALIGN_VALUES = new Set(["left", "center", "right"]);
 const VERTICAL_ALIGN_VALUES = new Set(["top", "middle", "bottom"]);
 const TEXT_TRANSFORM_VALUES = new Set([
@@ -172,7 +172,7 @@ function validateCaptionsArray(captions, optInDefaultTextStyle = null) {
     }
     if (hasOwn(caption, "words")) validateCaptionWords(caption.words, label);
     if (hasOwn(caption, "style") && !CAPTION_STYLES.has(caption.style)) {
-      fail(`${label}.style は karaoke/pop/reveal のいずれかである必要があります`);
+      fail(`${label}.style は karaoke/pop/reveal/reveal-word のいずれかである必要があります`);
     }
     if (hasOwn(caption, "display_text") && typeof caption.display_text !== "string") {
       fail(`${label}.display_text は文字列である必要があります`);
@@ -432,7 +432,7 @@ function validateDisplayPolicyCaptions(captions, policy) {
     if (!isPlainObject(caption)) return;
     const text = caption.display_text ?? caption.text;
     if (!strictText(text)) fail(`captions[${index}] の display_text ?? text は NFC かつ前後空白なしである必要があります`);
-    if (["karaoke", "pop", "reveal"].includes(caption.style)) fail(`captions[${index}].style は display_policy と併用できません`);
+    if (["karaoke", "pop", "reveal", "reveal-word"].includes(caption.style)) fail(`captions[${index}].style は display_policy と併用できません`);
     if (caption.display_fragments !== undefined) {
       const fragments = caption.display_fragments;
       if (!Array.isArray(fragments) || fragments.length < 1 || fragments.length > 2 || fragments.some(item => !strictText(item))) {
