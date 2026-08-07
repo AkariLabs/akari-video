@@ -53,15 +53,20 @@ test('index.jsonl has no duplicate ids', () => {
   assert.deepEqual(findDuplicateIds(recipes), []);
 });
 
-test('has at least 30 recipes and 32 expandable (non-requires) recipes', () => {
+test('has at least 30 recipes and 33 expandable (non-requires) recipes', () => {
   assert.ok(recipes.length >= 30, `expected >=30 recipes, got ${recipes.length}`);
   const expandable = recipes.filter((r) => !r.requires || r.requires.length === 0);
-  assert.equal(expandable.length, 32);
+  assert.equal(expandable.length, 33);
 });
 
-test('requires-only recipes are exactly {neg-color-invert, neg-person-cutout} (契約書 §4)', () => {
+test('requires-only recipes are exactly {neg-color-invert} (契約書 §4)', () => {
   const requiresOnly = recipes.filter((r) => r.requires && r.requires.length > 0).map((r) => r.id).sort();
-  assert.deepEqual(requiresOnly, ['neg-color-invert', 'neg-person-cutout']);
+  assert.deepEqual(requiresOnly, ['neg-color-invert']);
+});
+
+test('person_matte recipe vocabulary has explicit quality and decode width', () => {
+  const recipe = recipes.find((item) => item.id === 'neg-person-cutout');
+  assert.deepEqual(recipe.layers.person_matte, { quality: 'accurate', decode_width: 1280 });
 });
 
 test('EXPECTED_EMPHASIS_STYLES matches captions.mjs SUPPORTED_EMPHASIS_STYLES source (drift guard)', () => {

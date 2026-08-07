@@ -15,6 +15,9 @@
 //   --recipes <path>    index.jsonl の場所（既定 presets/direction/index.jsonl をリポルートから解決）
 //   --cut-in <sec>      --project 省略時、パッチ内容確認用に source in を明示指定
 //   --cut-out <sec>     --project 省略時、パッチ内容確認用に source out を明示指定
+//   --cut-speed <n>     --project 省略時、パッチ内容確認用に cuts[].speed を明示指定
+//   --source <path>     --project 省略時、マット生成元のソースパスを明示指定
+//   --fps <n>           --project 省略時、マット生成 fps を明示指定
 //
 // 契約: docs/contract-2026-08-06-direction-recipes-v0.md
 
@@ -43,6 +46,9 @@ function parseArgs(argv) {
     else if (token === '--recipes') args.recipes = argv[++i];
     else if (token === '--cut-in') args.cutIn = Number(argv[++i]);
     else if (token === '--cut-out') args.cutOut = Number(argv[++i]);
+    else if (token === '--cut-speed') args.cutSpeed = Number(argv[++i]);
+    else if (token === '--source') args.source = argv[++i];
+    else if (token === '--fps') args.fps = Number(argv[++i]);
     else args._.push(token);
   }
   return args;
@@ -95,6 +101,10 @@ async function main() {
   let cutInSec = args.cutIn;
   let cutOutSec = args.cutOut;
   let cutTimelineStartSec = 0;
+  let cutSpeed = args.cutSpeed ?? 1;
+  let cutSourcePath = args.source;
+  let cutTransform = null;
+  let outputFps = args.fps;
   const projectRoot = args.project ? path.resolve(args.project) : null;
 
   if (projectRoot) {
@@ -113,6 +123,12 @@ async function main() {
     cutInSec = cut.in;
     cutOutSec = cut.out;
     cutTimelineStartSec = cutTimelineStart(edit.cuts, args.cut);
+    cutSpeed = cut.speed ?? 1;
+    cutTransform = cut.transform ?? null;
+    outputFps = edit.output?.fps;
+    cutSourcePath = edit.version === 1
+      ? edit.sources?.find((source) => source.id === cut.src)?.path
+      : edit.source?.path;
     captionsRoot = await readJsonIfExists(path.join(projectRoot, 'captions.json'));
   }
 
@@ -134,6 +150,11 @@ async function main() {
     cutInSec,
     cutOutSec,
     cutTimelineStartSec,
+    cutSpeed,
+    cutSourcePath,
+    cutTransform,
+    outputFps,
+    edit,
     leadCutIndex: Number.isInteger(args.leadCut) ? args.leadCut : undefined,
     text: args.text,
     resolvedSfx,
@@ -144,7 +165,19 @@ async function main() {
     return;
   }
 
-  const nextEdit = applyPatchToEdit(edit, patch);
+  let nextEdit = applyPatchToEdit(edit, patch);
+  if (patch.layers_patch) {
+    nextEdit = {
+      ...nextEdit,
+      layers: [...(Array.isArray(nextEdit.layers) ? nextEdit.layers : []), patch.layers_patch],
+    };
+  }
+  if (patch.timeline_tracks_patch) {
+    nextEdit = {
+      ...nextEdit,
+      timeline: { ...(nextEdit.timeline ?? {}), tracks: patch.timeline_tracks_patch },
+    };
+  }
   const nextCaptions = patch.caption_patch ? applyPatchToCaptions(captionsRoot, patch) : captionsRoot;
 
   await writeFile(path.join(projectRoot, 'edit.json'), `${JSON.stringify(nextEdit, null, 2)}\n`, 'utf8');
