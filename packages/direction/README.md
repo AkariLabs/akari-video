@@ -37,27 +37,22 @@ node bin/expand-direction.mjs neg-mono-popout --cut 0 --project ./my-project --t
 
 `neg-person-cutout` は重いマット生成を実行せず、次の 3 点を patch と `edit.json` に展開します。
 
-- `layers_patch`: `kind: "video"`、`src: "assets/matte/person-<cut index>.mov"` の人物レイヤー。
+- `layers_patch`: `kind: "video"`、`src: "assets/matte/person-<cut index>.webm"` の人物レイヤー。
   `t` は対象 cut のタイムライン開始、`duration` は `(out - in) / speed`。既存 `layers[]` の末尾へ追記する
 - `timeline_tracks_patch`: 人物だけの layer track を新設し、下→上の配列末尾へ明示する
-- `matte_prerequisite`: 速度適用済み区間の作成、person-matte、ProRes 4444 alpha MOV 変換の順序付き配列
+- `matte_prerequisite`: 速度適用済み区間の作成、person-matte の順序付き 2 ステップ
 
 プロジェクト適用後、標準出力された patch の `matte_prerequisite.steps[]` を順に実行してから
 render-cut します。第 1 step は対象区間に `setpts=PTS/<speed>` を適用し、出力 fps と
 `(out-in)/speed` の `-t` でフレーム境界を固定した一時 MP4 を作ります。第 2 step はその MP4 を
 [`skills/analyze-footage/bin/person-matte/person-matte.mjs`](../../skills/analyze-footage/bin/person-matte/person-matte.mjs)
-へ渡し、中間生成物 `person-<cut index>.webm` を作ります。第 3 step は入力デコーダに
-`libvpx-vp9` を明示し、最終形 `person-<cut index>.mov`（ProRes 4444 alpha）へ変換します。
-変換コマンドは `-pix_fmt yuva444p10le` を要求し、ffmpeg 8.1.1 の ProRes 4444 出力は
-`ffprobe` 上 `yuva444p12le` になることを実測しています。どちらも alpha plane を保持します。
+へ渡し、最終形 `person-<cut index>.webm` を作ります。
 `entrypoint_base: "akari_video_repo"` は script のパスをこのリポジトリ基準、その他の引数パスを
-`path_base: "project"` に従いプロジェクト基準で解決する指定です。成功後は `cleanup[]` の一時 MP4 と
-中間 WebM を削除できます。
+`path_base: "project"` に従いプロジェクト基準で解決する指定です。成功後は `cleanup[]` の一時 MP4 を
+削除できます。最終成果物の WebM は削除しません。
 
-この変換は必須です。person-matte の VP9 alpha WebM は `alpha_mode=1` を持ちますが、現行
-render-cut が使う ffmpeg 8.1.1 の既定 VP9 入力デコーダでは alpha plane が展開されず、直接参照すると
-透明部分が黒背景になります。render-cut はこのレシピのファイル境界外なので、前提手順側で
-`libvpx-vp9` による alpha decode と ProRes 4444 への固定を行います。
+`layers-alpha-decoder` で render-cut 側が VP9 alpha を直接デコードできるようになったため、
+person-matte の WebM を変換せず `layers[].src` から直接参照します。
 
 ```sh
 node bin/expand-direction.mjs neg-person-cutout --cut 2 --project ./my-project > /tmp/person-cutout-patch.json

@@ -10,11 +10,32 @@ export const CAPTION_DISPLAY_MODE = 'single_line_sequential' as const;
 export const CAPTION_DISPLAY_ALGORITHM = 'a4-ja-two-fragment-v1' as const;
 export const CAPTION_UNIT_METRIC = 'ascii-half-other-one-v1' as const;
 
+// textstyle v0（2026-08-03）で render-cut の legacy 字幕レールが実装した語彙を含む。
+// この契約は display_policy 経路（reference-pixel）と legacy 経路の**両方**が読む
+// captions.json を検証するため、片方の経路でしか効かないキーもここでは受理する
+// （legacy 専用キーを display_policy 側が使うと単に無視される — 不正ではない）。
 const CAPTION_STYLE_KEYS = new Set([
-    'color', 'size_px', 'font_weight', 'line_height', 'stroke', 'background', 'zone', 'layout'
+    'color', 'size_px', 'font_weight', 'line_height', 'stroke', 'background', 'zone', 'layout',
+    'font_family', 'weight', 'italic', 'underline', 'letter_spacing_em', 'align',
+    'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'text_anchor',
+    'position', 'shadow', 'glow', 'animation'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
-const CAPTION_BACKGROUND_KEYS = new Set(['color', 'opacity', 'radius_px', 'mode']);
+const CAPTION_BACKGROUND_KEYS = new Set([
+    'color', 'opacity', 'radius_px', 'mode',
+    'padding_px', 'width_pct', 'height_pct', 'offset_x', 'offset_y'
+]);
+const CAPTION_ALIGN_VALUES = new Set(['left', 'center', 'right']);
+const CAPTION_VERTICAL_ALIGN_VALUES = new Set(['top', 'middle', 'bottom']);
+const CAPTION_TEXT_TRANSFORM_VALUES = new Set([
+    'upper', 'uppercase', 'lower', 'lowercase', 'title', 'capitalize', 'none'
+]);
+const CAPTION_TEXT_ANCHOR_VALUES = new Set(['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br']);
+const CAPTION_POSITION_KEYS = new Set(['x', 'y']);
+const CAPTION_SHADOW_KEYS = new Set(['color', 'opacity', 'blur_px', 'distance_px', 'angle_deg']);
+const CAPTION_GLOW_KEYS = new Set(['color', 'density', 'spread', 'offset_x', 'offset_y']);
+const CAPTION_ANIMATION_SLOTS = new Set(['in', 'loop', 'out']);
+const CAPTION_ANIMATION_SLOT_KEYS = new Set(['id', 'duration_sec', 'ease', 'amp']);
 const CAPTION_LAYOUT_KEYS = new Set([
     'mode', 'reference_width_px', 'reference_height_px', 'left_px', 'width_px',
     'bottom_px', 'text_align', 'max_lines'
@@ -289,6 +310,7 @@ export function validateCaptionTextStyle(value: unknown, label = 'text_style'): 
     if (Object.prototype.hasOwnProperty.call(value, 'line_height') && !finitePositive(value.line_height)) {
         fail('INVALID_TEXT_STYLE', `${label}.line_height must be a positive finite number`);
     }
+    validateTextStyleV0(value, label);
     if (Object.prototype.hasOwnProperty.call(value, 'stroke')) validateCaptionStroke(value.stroke, `${label}.stroke`);
     if (Object.prototype.hasOwnProperty.call(value, 'background')) validateCaptionBackground(value.background, `${label}.background`);
     if (Object.prototype.hasOwnProperty.call(value, 'zone') && !CAPTION_ZONES.has(value.zone)) {
@@ -328,6 +350,18 @@ function validateCaptionBackground(value: unknown, label: string): void {
         && value.mode !== 'per-line' && value.mode !== 'block') {
         fail('INVALID_TEXT_STYLE', `${label}.mode must be per-line or block`);
     }
+    // textstyle v0 の座布団拡張。padding_px は文字box からの一律余白、width_pct / height_pct は
+    // 文字box比での拡張（どちらかを指定すると padding_px より優先される）、offset_* は座布団だけの平行移動。
+    for (const key of ['padding_px', 'width_pct', 'height_pct']) {
+        if (Object.prototype.hasOwnProperty.call(value, key) && !finiteNonNegative(value[key])) {
+            fail('INVALID_TEXT_STYLE', `${label}.${key} must be a non-negative finite number`);
+        }
+    }
+    for (const key of ['offset_x', 'offset_y']) {
+        if (Object.prototype.hasOwnProperty.call(value, key) && !finiteNumber(value[key])) {
+            fail('INVALID_TEXT_STYLE', `${label}.${key} must be a finite number`);
+        }
+    }
 }
 
 function validateCaptionLayout(value: unknown, label: string): void {
@@ -358,6 +392,100 @@ function validateHexColor(value: unknown, label: string): void {
 function rejectStyleUnknown(value: UnknownRecord, allowed: Set<string>, label: string): void {
     for (const key of Object.keys(value)) {
         if (!allowed.has(key)) fail('INVALID_TEXT_STYLE', `${label}.${key} is not defined by the text style contract`);
+    }
+}
+
+/**
+ * textstyle v0（2026-08-03）のフィールド検証。受理条件は render-cut の
+ * normalizeTextStyle と 1 対 1 に対応させてある — 契約が受理して消費側が黙って捨てる
+ * （あるいはその逆）状態を作らないため。
+ */
+function validateTextStyleV0(value: UnknownRecord, label: string): void {
+    const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(value, key);
+    const failIf = (condition: boolean, message: string): void => {
+        if (condition) fail('INVALID_TEXT_STYLE', `${label}.${message}`);
+    };
+    failIf(has('font_family') && (typeof value.font_family !== 'string' || value.font_family === ''),
+        'font_family must be a non-empty string');
+    failIf(has('weight')
+        && (!Number.isInteger(value.weight) || (value.weight as number) < 100 || (value.weight as number) > 900),
+        'weight must be an integer within [100, 900]');
+    failIf(has('italic') && typeof value.italic !== 'boolean', 'italic must be a boolean');
+    failIf(has('underline') && typeof value.underline !== 'boolean', 'underline must be a boolean');
+    failIf(has('letter_spacing_em') && !finiteNumber(value.letter_spacing_em),
+        'letter_spacing_em must be a finite number');
+    failIf(has('align') && !CAPTION_ALIGN_VALUES.has(value.align as string),
+        'align must be one of left, center, right');
+    failIf(has('vertical_align') && !CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align as string),
+        'vertical_align must be one of top, middle, bottom');
+    failIf(has('vertical') && typeof value.vertical !== 'boolean', 'vertical must be a boolean');
+    failIf(has('text_transform') && !CAPTION_TEXT_TRANSFORM_VALUES.has(value.text_transform as string),
+        'text_transform must be one of upper, uppercase, lower, lowercase, title, capitalize, none');
+    failIf(has('max_width_pct')
+        && (!finiteNumber(value.max_width_pct)
+            || (value.max_width_pct as number) <= 0 || (value.max_width_pct as number) >= 100),
+        'max_width_pct must be a finite number within (0, 100)');
+    failIf(has('text_anchor') && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor as string),
+        'text_anchor must be one of the nine anchor codes');
+    if (has('position')) {
+        if (!isRecord(value.position)) fail('INVALID_TEXT_STYLE', `${label}.position must be an object`);
+        rejectStyleUnknown(value.position, CAPTION_POSITION_KEYS, `${label}.position`);
+        for (const axis of ['x', 'y']) {
+            if (Object.prototype.hasOwnProperty.call(value.position, axis)
+                && !finiteNumber((value.position as UnknownRecord)[axis])) {
+                fail('INVALID_TEXT_STYLE', `${label}.position.${axis} must be a finite number`);
+            }
+        }
+    }
+    if (has('shadow')) validateShadowLike(value.shadow, CAPTION_SHADOW_KEYS, `${label}.shadow`);
+    if (has('glow')) validateShadowLike(value.glow, CAPTION_GLOW_KEYS, `${label}.glow`);
+    if (has('animation')) {
+        if (!isRecord(value.animation)) fail('INVALID_TEXT_STYLE', `${label}.animation must be an object`);
+        rejectStyleUnknown(value.animation, CAPTION_ANIMATION_SLOTS, `${label}.animation`);
+        for (const slot of CAPTION_ANIMATION_SLOTS) {
+            if (!Object.prototype.hasOwnProperty.call(value.animation, slot)) continue;
+            const entry = (value.animation as UnknownRecord)[slot];
+            const slotLabel = `${label}.animation.${slot}`;
+            if (!isRecord(entry)) fail('INVALID_TEXT_STYLE', `${slotLabel} must be an object`);
+            rejectStyleUnknown(entry, CAPTION_ANIMATION_SLOT_KEYS, slotLabel);
+            if (typeof entry.id !== 'string' || entry.id === '') {
+                fail('INVALID_TEXT_STYLE', `${slotLabel}.id must be a non-empty string`);
+            }
+            if (Object.prototype.hasOwnProperty.call(entry, 'duration_sec') && !finitePositive(entry.duration_sec)) {
+                fail('INVALID_TEXT_STYLE', `${slotLabel}.duration_sec must be a positive finite number`);
+            }
+            if (Object.prototype.hasOwnProperty.call(entry, 'ease')
+                && (typeof entry.ease !== 'string' || entry.ease === '')) {
+                fail('INVALID_TEXT_STYLE', `${slotLabel}.ease must be a non-empty string`);
+            }
+            if (Object.prototype.hasOwnProperty.call(entry, 'amp') && !finitePositive(entry.amp)) {
+                fail('INVALID_TEXT_STYLE', `${slotLabel}.amp must be a positive finite number`);
+            }
+        }
+    }
+}
+
+// shadow / glow は「color 必須 + 残りは数値」という同じ形なので 1 本にまとめる。
+// color を任意にすると消費側が影を組めず無言で落ちるため、両者とも必須で揃えてある。
+function validateShadowLike(value: unknown, allowed: Set<string>, label: string): void {
+    if (!isRecord(value)) fail('INVALID_TEXT_STYLE', `${label} must be an object`);
+    rejectStyleUnknown(value, allowed, label);
+    if (!Object.prototype.hasOwnProperty.call(value, 'color')) {
+        fail('INVALID_TEXT_STYLE', `${label}.color is required`);
+    }
+    validateHexColor(value.color, `${label}.color`);
+    for (const key of allowed) {
+        if (key === 'color' || !Object.prototype.hasOwnProperty.call(value, key)) continue;
+        if (!finiteNumber(value[key])) fail('INVALID_TEXT_STYLE', `${label}.${key} must be a finite number`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'opacity')
+        && ((value.opacity as number) < 0 || (value.opacity as number) > 1)) {
+        fail('INVALID_TEXT_STYLE', `${label}.opacity must be within [0, 1]`);
+    }
+    for (const key of ['blur_px', 'distance_px', 'density', 'spread']) {
+        if (Object.prototype.hasOwnProperty.call(value, key) && (value[key] as number) < 0) {
+            fail('INVALID_TEXT_STYLE', `${label}.${key} must be non-negative`);
+        }
     }
 }
 
@@ -617,7 +745,13 @@ export function resolveCaptionStyleForOutput(style: UnknownRecord, output: { wid
     }
     if (typeof style.color === 'string') vars['--caption-color'] = style.color;
     if (finitePositive(style.size_px)) vars['--caption-font-size'] = `${formatCssNumber(style.size_px * scale)}px`;
-    if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1000) vars['--caption-font-weight'] = String(style.font_weight);
+    // weight（textstyle v0 の正式名）と font_weight（display_policy 経路からの既存名）は同じ
+    // CSS font-weight を指す。両方あるときは weight を採る — 契約 $comment と同じ優先順位。
+    if (Number.isInteger(style.weight) && (style.weight as number) >= 100 && (style.weight as number) <= 900) {
+        vars['--caption-font-weight'] = String(style.weight);
+    } else if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1000) {
+        vars['--caption-font-weight'] = String(style.font_weight);
+    }
     if (finitePositive(style.line_height)) vars['--caption-line-height'] = formatCssNumber(style.line_height);
     if (isRecord(style.stroke)) {
         const color = typeof style.stroke.color === 'string' ? style.stroke.color : 'rgba(0,0,0,.85)';
@@ -699,6 +833,10 @@ function compareDisplayCue(left: CaptionDisplayCue, right: CaptionDisplayCue): n
 
 function strictText(value: unknown): value is string {
     return typeof value === 'string' && value.length > 0 && value.trim() === value && value.normalize('NFC') === value;
+}
+
+function finiteNumber(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
 }
 
 function finitePositive(value: unknown): value is number {

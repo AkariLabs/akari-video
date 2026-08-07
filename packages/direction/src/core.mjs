@@ -77,8 +77,7 @@ function buildPersonMattePrerequisite({
   personMatte,
 }) {
   const source = cutSourcePath || '<cut-source-path>';
-  const intermediateMattePath = `assets/matte/person-${cutIndex}.webm`;
-  const mattePath = `assets/matte/person-${cutIndex}.mov`;
+  const mattePath = `assets/matte/person-${cutIndex}.webm`;
   const preparedPath = `.person-${cutIndex}-speed-applied.mp4`;
   const speed = Number.isFinite(cutSpeed) && cutSpeed > 0 ? cutSpeed : 1;
   const fps = Number.isFinite(outputFps) && outputFps > 0 ? outputFps : 24;
@@ -120,27 +119,14 @@ function buildPersonMattePrerequisite({
         args: [
           'skills/analyze-footage/bin/person-matte/person-matte.mjs',
           '--input', preparedPath,
-          '--out', intermediateMattePath,
+          '--out', mattePath,
           '--quality', personMatte.quality ?? 'accurate',
           '--fps', String(fps),
           '--decode-width', String(personMatte.decode_width ?? 1280),
         ],
       },
-      {
-        id: 'convert-person-matte-for-render-cut',
-        after: ['generate-person-matte'],
-        command: 'ffmpeg',
-        args: [
-          '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-          '-c:v', 'libvpx-vp9',
-          '-i', intermediateMattePath,
-          '-map', '0:v:0', '-an',
-          '-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le',
-          mattePath,
-        ],
-      },
     ],
-    cleanup: [preparedPath, intermediateMattePath],
+    cleanup: [preparedPath],
   };
 }
 
@@ -244,7 +230,7 @@ export function buildDirectionPatch({
       t: round3(cutTimelineStartSec),
       duration: sourceDuration === null ? null : round3(sourceDuration / speed),
       kind: 'video',
-      src: `assets/matte/person-${cutIndex}.mov`,
+      src: `assets/matte/person-${cutIndex}.webm`,
       ...(cutTransform ? { transform: structuredClone(cutTransform) } : {}),
       track,
     };
