@@ -182,6 +182,7 @@ export async function writeFallbackTemplate(destinationDir) {
         }, null, 2) + '\n',
         '.akari/workflow.json': JSON.stringify(FALLBACK_WORKFLOW, null, 2) + '\n',
         '.akari/intake.json': JSON.stringify(FALLBACK_INTAKE, null, 2) + '\n',
+        'edit.json': '{}\n',
         'assets/.gitkeep': '',
         'planning/.gitkeep': '',
         'exports/.gitkeep': '',
