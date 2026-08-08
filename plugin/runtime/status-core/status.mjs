@@ -6,6 +6,13 @@ import { readProjectEvents, resolveActiveAcceptance } from "./events.mjs";
 import { inspectFullIntegrity } from "./integrity.mjs";
 import { validateAndCountReview } from "./review.mjs";
 
+export {
+  detectStatusScope,
+  resolveWorkspaceStatus,
+  serializeWorkspaceStatus,
+  formatWorkspaceStatusSummary,
+} from "./workspace.mjs";
+
 const MEDIA_EXTENSIONS = new Set([
   ".aac", ".aif", ".aiff", ".avi", ".bmp", ".flac", ".gif", ".jpeg", ".jpg",
   ".m4a", ".m4v", ".mkv", ".mov", ".mp3", ".mp4", ".ogg", ".png", ".wav",

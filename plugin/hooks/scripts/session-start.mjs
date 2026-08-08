@@ -39,13 +39,24 @@ async function main() {
   let additionalContext;
   try {
     const core = await import(STATUS_CORE_URL);
-    const status = core.resolveProjectStatus(cwd, { mode: "fast" });
-    additionalContext = [
-      "AKARI Video プロジェクトの続きから。",
-      core.formatStatusSummary(status),
-      "Canonical status JSON:",
-      core.serializeStatus(status).trimEnd(),
-    ].join("\n");
+    if (core.detectStatusScope(cwd) === "workspace") {
+      const workspace = core.resolveWorkspaceStatus(cwd);
+      if (!workspace) return; // fail-safe: root.json is unreadable/unknown schema — stay silent
+      additionalContext = [
+        "AKARI Video 作業場の続きから。",
+        core.formatWorkspaceStatusSummary(workspace),
+        "Canonical workspace status JSON:",
+        core.serializeWorkspaceStatus(workspace).trimEnd(),
+      ].join("\n");
+    } else {
+      const status = core.resolveProjectStatus(cwd, { mode: "fast" });
+      additionalContext = [
+        "AKARI Video プロジェクトの続きから。",
+        core.formatStatusSummary(status),
+        "Canonical status JSON:",
+        core.serializeStatus(status).trimEnd(),
+      ].join("\n");
+    }
   } catch (error) {
     additionalContext = `AKARI Video: 状態取得不能。canonical status-core を読み込めませんでした (${messageOf(error)})。旧ロジックへのフォールバックはしません。`;
   }
