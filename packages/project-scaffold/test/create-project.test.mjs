@@ -53,6 +53,8 @@ test("bare template: scaffold generates a draft .akari/intake.json and a CLAUDE.
 
     assert.ok(report.fallback.writtenFiles.includes(".akari/intake.json"));
     assert.ok(report.fallback.writtenFiles.includes("CLAUDE.md"));
+    assert.equal(await readFile(join(destination, "edit.json"), "utf8"), "{}\n");
+    assert.ok(report.fallback.writtenFiles.includes("edit.json"));
   });
 });
 
@@ -70,6 +72,8 @@ test("real templates/project-default/: .akari/intake.json is generated via the f
     assert.equal(validated.status, 0, validated.stderr);
 
     assert.ok(report.fallback.writtenFiles.includes(".akari/intake.json"));
+    assert.equal(await readFile(join(destination, "edit.json"), "utf8"), "{}\n");
+    assert.ok(report.fallback.writtenFiles.includes("edit.json"));
 
     const claudeMd = await readFile(join(destination, "CLAUDE.md"), "utf8");
     assert.match(claudeMd, /intake\.json/);
@@ -77,6 +81,23 @@ test("real templates/project-default/: .akari/intake.json is generated via the f
 
     const agentsMd = await readFile(join(destination, "AGENTS.md"), "utf8");
     assert.match(agentsMd, /intake\.json/);
+  });
+});
+
+test("existing edit.json is preserved when applying the scaffold to an existing project", async () => {
+  await withScratchRoot(async (root) => {
+    const templateDir = join(root, "empty-template");
+    const destination = join(root, "project");
+    const existingEdit = '{"version":1,"custom":true}\n';
+    await mkdir(templateDir, { recursive: true });
+    await mkdir(destination, { recursive: true });
+    await writeFile(join(destination, "edit.json"), existingEdit, "utf8");
+
+    const report = await createProject(destination, templateDir);
+
+    assert.equal(await readFile(join(destination, "edit.json"), "utf8"), existingEdit);
+    assert.ok(report.fallback.skippedExisting.includes("edit.json"));
+    assert.ok(!report.fallback.writtenFiles.includes("edit.json"));
   });
 });
 
