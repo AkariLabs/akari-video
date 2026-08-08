@@ -18,6 +18,8 @@ test('createCreatorRoot: 契約 §3 の正準構造を生成する', async () =>
         assert.ok(typeof result.manifest.createdAt === 'string' && !Number.isNaN(Date.parse(result.manifest.createdAt)));
 
         assert.ok((await stat(join(target, 'akari.md'))).isFile());
+        assert.ok((await stat(join(target, 'CLAUDE.md'))).isFile());
+        assert.ok((await stat(join(target, 'AGENTS.md'))).isFile());
         assert.ok((await stat(join(target, 'channels', 'my-channel', 'videos'))).isDirectory());
         assert.ok((await stat(join(target, 'library'))).isDirectory());
         assert.ok((await stat(join(target, 'inbox'))).isDirectory());
@@ -29,6 +31,8 @@ test('createCreatorRoot: 契約 §3 の正準構造を生成する', async () =>
 
         const akariMd = await readFile(join(target, 'akari.md'), 'utf8');
         assert.match(akariMd, /好み/);
+        assert.match(await readFile(join(target, 'CLAUDE.md'), 'utf8'), /akari\.md/);
+        assert.match(await readFile(join(target, 'AGENTS.md'), 'utf8'), /akari\.md/);
     });
 });
 
@@ -49,6 +53,8 @@ test('createCreatorRoot: 冪等 — 既存 root.json がある場所への再実
 
         // ユーザーが akari.md を編集していても、二回目の呼び出しで上書きされないこと
         await writeFile(join(target, 'akari.md'), 'ユーザーが書き換えた内容\n', 'utf8');
+        await writeFile(join(target, 'CLAUDE.md'), 'ユーザーが書き換えた CLAUDE.md\n', 'utf8');
+        await writeFile(join(target, 'AGENTS.md'), 'ユーザーが書き換えた AGENTS.md\n', 'utf8');
 
         const second = await createCreatorRoot(target);
         assert.equal(second.created, false);
@@ -56,6 +62,8 @@ test('createCreatorRoot: 冪等 — 既存 root.json がある場所への再実
 
         const akariMd = await readFile(join(target, 'akari.md'), 'utf8');
         assert.equal(akariMd, 'ユーザーが書き換えた内容\n');
+        assert.equal(await readFile(join(target, 'CLAUDE.md'), 'utf8'), 'ユーザーが書き換えた CLAUDE.md\n');
+        assert.equal(await readFile(join(target, 'AGENTS.md'), 'utf8'), 'ユーザーが書き換えた AGENTS.md\n');
     });
 });
 

@@ -30,6 +30,41 @@ const AKARI_MD_STUB = [
     ''
 ].join('\n');
 
+const CLAUDE_MD_STUB = [
+    '# AKARI Video 作業場',
+    '',
+    "> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。",
+    '',
+    'この作業場では、好み・規約の正本として `./akari.md` を読みます。',
+    'チャンネルごとの作法は、対象チャンネルの `channels/<channel>/design.md` を読みます。',
+    '',
+    '素材の置き場は次の 3 区分です。',
+    '',
+    '- `inbox/` … 人間の投げ込み口。撮りっぱなしの素材を置く場所。',
+    '- `library/` … 作業場共有の素材。動画プロジェクトに依存しない素材を置く場所。',
+    '- `channels/<channel>/videos/<project>/` … 動画プロジェクトごとの素材と成果物を置く場所。',
+    '',
+    'このファイルはあなたの作業場のものです。自由に書き換えて構いません。',
+    ''
+].join('\n');
+
+const AGENTS_MD_STUB = [
+    '# AKARI Video 作業場の進め方',
+    '',
+    "> **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。",
+    '',
+    '- 作業場の好み・規約は、正本である `./akari.md` を読む。',
+    '- チャンネルごとの作法は、対象チャンネルの `channels/<channel>/design.md` を読む。',
+    '- `inbox/` は人間の投げ込み口。撮りっぱなしの素材を置く。',
+    '- `library/` は作業場共有の素材。動画プロジェクトに依存しない素材を置く。',
+    '- `channels/<channel>/videos/<project>/` は、動画プロジェクトごとの素材と成果物を置く。',
+    '',
+    '`CLAUDE.md` と `AGENTS.md` は案内のための橋渡しであり、好み・規約そのものは `./akari.md` に書きます。',
+    '',
+    'このファイルはあなたの作業場のものです。自由に書き換えて構いません。',
+    ''
+].join('\n');
+
 /** creator-root モジュールが投げる、判別可能な `code` を持つエラー。 */
 export class CreatorRootError extends Error {
     constructor(code, message) {
@@ -264,6 +299,8 @@ export async function createCreatorRoot(targetDir, options = {}) {
     await fs.mkdir(path.join(rootDir, '.akari', 'cache'), { recursive: true });
 
     await writeFileIfMissing(path.join(rootDir, 'akari.md'), AKARI_MD_STUB);
+    await writeFileIfMissing(path.join(rootDir, 'CLAUDE.md'), CLAUDE_MD_STUB);
+    await writeFileIfMissing(path.join(rootDir, 'AGENTS.md'), AGENTS_MD_STUB);
 
     const manifest = {
         schema: CREATOR_ROOT_SCHEMA,

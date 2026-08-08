@@ -57,6 +57,8 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
 ```
 <作業場>/
 ├── akari.md                       # 憲法（規約・好み）。初回はスタブ生成
+├── CLAUDE.md                      # 橋渡し（akari.md / design.md へ誘導）。初回はスタブ生成
+├── AGENTS.md                      # 橋渡し（akari.md / design.md へ誘導）。初回はスタブ生成
 ├── channels/
 │   └── <channel>/
 │       ├── design.md              # チャンネル設計書（任意。生成工程は非スコープ）
@@ -70,6 +72,7 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
     └── cache/                     # 再生成可能物
 ```
 
+- `CLAUDE.md` と `AGENTS.md` は Schema 層ではなく単なる橋渡し文書であり、`akari.md` の内容を複製しない。
 - `root.json` は `{"schema": "creator-root/v1", ...}` を必須キーとする。
   **このファイルの存在 = そのフォルダが作業場である**の判定に使う（マーカー兼マニフェスト）
 - 構造の変更は versioning 三原則に従い `creator-root/v2` として改訂する。アプリは自分の
