@@ -208,8 +208,17 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
         return marker ? resolve(dirname(marker), '..') : undefined;
     }
 
+    /**
+     * スキーマ原本の場所。リポジトリでは `packages/schemas/`、パッケージ済み .app では
+     * `prepackage`（copy-native-helpers.mjs）が写した `lib/schemas/` に居る
+     * （`packages/` 階層は付かない = 前者のパターンでは当たらない）。両方を試す。
+     * 見つからないと `createProject` は analysis.schema.json の同梱だけを黙って
+     * 落とす（project-scaffold の installProjectSkills 側の契約）ため、ここが
+     * 空振りしても作成自体は成功してしまう — だからこそ後段の検知が難しい。
+     */
     protected async resolveSchemasDir(): Promise<string | undefined> {
-        const marker = await this.findUpwardFile('packages/schemas/analysis.schema.json');
+        const marker = (await this.findUpwardFile('packages/schemas/analysis.schema.json'))
+            ?? (await this.findUpwardFile('schemas/analysis.schema.json'));
         return marker ? dirname(marker) : undefined;
     }
 

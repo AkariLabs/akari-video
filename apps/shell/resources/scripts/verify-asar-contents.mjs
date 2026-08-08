@@ -206,7 +206,12 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
 
   const requiredFiles = [
     '/lib/skills/analyze-footage/SKILL.md',
-    '/lib/schemas/analysis.schema.json'
+    '/lib/schemas/analysis.schema.json',
+    // F5「新しい動画を始める」/ U5「チャンネルに入れる」の実処理本体（動的 import）。
+    // 同梱が漏れると .app をリポの外へ置いた瞬間に上方探索が空振りして
+    // 「新しい動画の作成に失敗しました。」で必ず失敗する（実機で再現済み）。
+    '/lib/packages/project-scaffold/src/index.mjs',
+    '/lib/packages/creator-root/src/index.mjs'
   ];
   for (const required of requiredFiles) {
     if (entries.includes(required)) {

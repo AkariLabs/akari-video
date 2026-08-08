@@ -66,6 +66,25 @@ const projectTemplateDestination = path.join(shellRoot, 'lib', 'templates', 'pro
 await cp(projectTemplateSource, projectTemplateDestination, { recursive: true });
 console.log(`Copied project-default template to ${path.relative(shellRoot, projectTemplateDestination)}`);
 
+// akari-surfaces の F5「新しい動画を始める」/ U5「チャンネルに入れる」は、実処理を
+// pure Node ESM の packages/project-scaffold・packages/creator-root へ動的 import で
+// 委譲する（akari-new-project-service.ts）。両者はリポジトリ直下の packages/ にしか
+// 無く、そのままではパッケージ済み .app に一切入らない — .app をリポの外
+// （/Applications など実配布先）へ置いた瞬間に上方探索が空振りし、
+// 「新しい動画の作成に失敗しました。」で必ず失敗する（実機 CDP で再現確認済み）。
+// lib/packages/<name>/src/index.mjs へ写すと、バックエンドバンドル
+// （<asar>/lib/backend）からの上方探索が 1 段上で当たるのでリゾルバ側は無変更でよい
+// （lib/skills・lib/schemas・lib/templates と同じ流儀。dev 実行でもこの写しが先に
+// 当たるため、packages/ を直したら prepackage を回して写しを更新する）。
+// 依存ゼロの ESM なので src/ と package.json だけ運べば動く（node_modules 不要）。
+for (const name of ['project-scaffold', 'creator-root']) {
+  const source = path.join(repoRoot, 'packages', name);
+  const destination = path.join(shellRoot, 'lib', 'packages', name);
+  await cp(path.join(source, 'src'), path.join(destination, 'src'), { recursive: true });
+  await copyFile(path.join(source, 'package.json'), path.join(destination, 'package.json'));
+  console.log(`Copied ${name} module to ${path.relative(shellRoot, destination)}`);
+}
+
 // ネイティブヘルパーの追加コピーはプラットフォームごとに要否が異なる（node-pty の
 // prebuilds 実物 + electron-builder 本体ソースを実地調査して確定。詳細根拠は report.md）。
 //
