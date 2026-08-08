@@ -49,6 +49,13 @@ The script automatically checks and installs:
 - ffmpeg (nothing to do — `npm install` pulls in a bundled GPL build automatically,
   sha256-verified; a system ffmpeg on PATH is preferred when present)
 
+The CLI is installed to `~/.akari/app/` by default. Set `AKARI_INSTALL_DIR` to override
+that location. The `~/.akari/app/` directory is replaceable as a whole during updates;
+other entries directly under `~/.akari/`—including `assets/`, `avatars/`, `runtime/`, and
+`*.json` files—are user data and are preserved. If an older installer-managed copy is
+found at `~/akari-video/`, the installer shows migration instructions but never deletes
+the old copy automatically.
+
 git is not required either — the installer fetches the repository as a tarball.
 
 **Prefer a lightweight CLI-only install?** `npm i -g akari-video` installs just the `akari`

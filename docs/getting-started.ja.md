@@ -50,6 +50,13 @@ curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.
 - ffmpeg（何もしなくて OK — `npm install` が同梱の GPL ビルドを自動で取得します。
   sha256 検証付き。PATH に ffmpeg があればそちらを優先）
 
+CLI は既定で `~/.akari/app/` にインストールされます。インストール先は
+`AKARI_INSTALL_DIR` で上書きできます。`~/.akari/app/` はアップデート時にディレクトリごと
+入れ替えてよい領域です。一方、`~/.akari/` 直下のその他の項目（`assets/`、`avatars/`、
+`runtime/`、`*.json` ファイルなど）はユーザーデータとして保持されます。旧インストーラーで
+`~/akari-video/` に導入したコピーが見つかると、インストーラーは移行案内を表示しますが、
+旧コピーを自動では削除しません。
+
 git も不要です — インストーラーはリポジトリを tarball で取得します。
 
 **CLI だけを軽量に入れたい場合**は `npm i -g akari-video` でも導入できます（エージェント
