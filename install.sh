@@ -6,9 +6,9 @@ set -euo pipefail
 #   curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash
 #
 # brew / git / sudo は一切要求しない（さらのマシンでも 1 行で完結させるため）。
-# Node.js は見つからなければ nodejs.org の公式 tarball をユーザー領域
-# （~/.akari/runtime/）へ展開する。リポジトリ取得は git ではなく GitHub の
-# tarball（codeload.github.com）を使う。
+# Node.js は見つからなければ nodejs.org の公式 tarball を、入れ替え対象の
+# アプリ本体とは別のユーザー領域（~/.akari/runtime/）へ展開する。
+# リポジトリ取得は git ではなく GitHub の tarball（codeload.github.com）を使う。
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -18,7 +18,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 REPO="AkariLabs/akari-video"
-INSTALL_DIR="${AKARI_INSTALL_DIR:-$HOME/akari-video}"
+INSTALL_DIR="${AKARI_INSTALL_DIR:-$HOME/.akari/app}"
 SKIP_DEPS=false
 PORTABLE_NODE_VERSION="20.18.1"
 
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: install.sh [options]"
             echo ""
             echo "Options:"
-            echo "  -d, --dir <path>    Install directory (default: ~/akari-video)"
+            echo "  -d, --dir <path>    Install directory (default: ~/.akari/app)"
             echo "      --skip-deps     Skip dependency checks"
             echo "  -h, --help          Show this help"
             echo ""
@@ -48,6 +48,21 @@ info()  { echo -e "${GREEN}$1${NC}"; }
 warn()  { echo -e "${YELLOW}$1${NC}"; }
 err()   { echo -e "${RED}$1${NC}"; }
 has()   { command -v "$1" >/dev/null 2>&1; }
+
+OLD_INSTALL_DIR="$HOME/akari-video"
+if [[ -f "$OLD_INSTALL_DIR/.akari-install-ref" ]] \
+    && [[ "${INSTALL_DIR%/}" != "$OLD_INSTALL_DIR" ]]; then
+    warn "  [!!] Found an older AKARI Video installation at $OLD_INSTALL_DIR."
+    warn "       The new installation will use $INSTALL_DIR."
+    warn "       Both installations can coexist; this installer will not modify or remove the old one."
+    warn "       After confirming the new installation works, you may remove the old one manually:"
+    warn "         rm -rf \"$OLD_INSTALL_DIR\""
+    warn "       Also open ~/.zshrc or ~/.bashrc and remove the old PATH block:"
+    warn "         # AKARI Video"
+    warn "         export PATH=\"\$PATH:$OLD_INSTALL_DIR\""
+    warn "       Remove only the block whose export PATH line refers to $OLD_INSTALL_DIR."
+    echo ""
+fi
 
 os() {
     case "$(uname -s)" in
