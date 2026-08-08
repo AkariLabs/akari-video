@@ -15,6 +15,17 @@
   display: none;
 }
 
+/* tasks/2026-08-07-background-role: 背景は選択できるが動かせない。拡縮ハンドルを消し、
+   枠を破線にして「選べるが移動できない」ことを視覚でも伝える。 */
+.akari-interaction-selection-frame.is-locked[data-akari-interaction] {
+  border-style: dashed;
+  border-color: rgba(200, 200, 200, 0.9);
+}
+
+.akari-interaction-selection-frame.is-locked .akari-interaction-handle {
+  display: none;
+}
+
 .akari-interaction-snap-guide[data-akari-interaction] {
   position: absolute;
   z-index: 2147483646;

@@ -110,6 +110,7 @@ input[type=range] { width: 100%; }
         <div id="overlay-stage"><div id="pen-layer"><canvas id="pen-canvas"></canvas></div><div id="transition-plate"></div><div id="caption-plate"></div></div>
       </div>
       <div id="cut-fx-controls" data-akari-interaction="1" hidden></div>
+      <div id="edit-hint" style="position:absolute;bottom:8px;left:8px;z-index:25;max-width:calc(100% - 16px);padding:4px 9px;border-radius:4px;background:rgba(0,0,0,0.72);color:#ddd;font-size:11px;line-height:1.5;pointer-events:none;opacity:0;transition:opacity 0.2s" hidden></div>
       <div id="loading-indicator" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;display:none"><div style="width:32px;height:32px;border:3px solid #505050;border-top-color:#4da3ff;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 8px"></div><div style="color:#888;font-size:12px">読み込み中...</div></div>
       <div id="zoom-minimap" hidden><video id="minimap-video" preload="auto"></video><div id="zoom-minimap-viewport"></div></div>
       <div id="preview-message" class="message-card" hidden role="status">
@@ -192,7 +193,7 @@ input[type=range] { width: 100%; }
     </div>
   </div>
 </div>
-<div id="shortcut-help" hidden><div id="shortcut-help-inner"><h2>⌨ キーボードショートカット</h2><table><tr><td>Space</td><td>再生/一時停止</td></tr><tr><td>← →</td><td>1フレーム戻る/進む</td></tr><tr><td>↑ ↓</td><td>10秒戻る/進む</td></tr><tr><td>, .</td><td>前/次のカット境界へ</td></tr><tr><td>Home / End</td><td>先頭/末尾へ</td></tr><tr><td>?</td><td>このヘルプを表示/非表示</td></tr><tr><td>Escape</td><td>選択解除 / ポップアップを閉じる</td></tr></table><div class="close-hint">もう一度 ? を押して閉じる</div></div></div>
+<div id="shortcut-help" hidden><div id="shortcut-help-inner"><h2>⌨ キーボードショートカット</h2><table><tr><td>Space</td><td>再生/一時停止</td></tr><tr><td>← →</td><td>1フレーム戻る/進む</td></tr><tr><td>↑ ↓</td><td>10秒戻る/進む</td></tr><tr><td>, .</td><td>前/次のカット境界へ</td></tr><tr><td>Home / End</td><td>先頭/末尾へ</td></tr><tr><td>?</td><td>このヘルプを表示/非表示</td></tr><tr><td>Escape</td><td>選択解除 / ポップアップを閉じる</td></tr><tr><td>0</td><td>選択中の素材の位置を戻す（作者の位置へ）</td></tr><tr><td>Delete / Backspace</td><td>選択中の素材を削除</td></tr><tr><td>ダブルクリック</td><td>シークバー: カット情報を開く</td></tr></table><div class="close-hint">もう一度 ? を押して閉じる</div></div></div>
 <!-- オーバーレイ操作は packages/overlay-runtime/src/interaction.js（単一正本・スナップ最新版）の
      esbuild バンドル。旧 391 行フォーク（overlay-interaction.js）は Phase 2-4 で廃棄 -->
 <script src="/overlay-interaction.bundle.js"></script>

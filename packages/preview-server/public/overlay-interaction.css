@@ -12,6 +12,13 @@
 .akari-interaction-selection-frame[hidden] {
   display: none;
 }
+.akari-interaction-selection-frame.is-locked[data-akari-interaction] {
+  border-style: dashed;
+  border-color: rgba(200, 200, 200, 0.9);
+}
+.akari-interaction-selection-frame.is-locked .akari-interaction-handle {
+  display: none;
+}
 .akari-interaction-snap-guide[data-akari-interaction] {
   position: absolute;
   z-index: 2147483646;

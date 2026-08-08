@@ -217,12 +217,29 @@ async function main() {
       hiddenAfterInput
         ? ok('Programmatic seek input keeps cut info popup closed')
         : ng('Programmatic input opened cut info popup', 'popup visible after input event');
+      // 単クリック = 位置を飛ばすだけ。旧実装はここで開いていたが、シークバーのクリックは
+      // 最も普通の移動操作なので「位置を変えるたびに毎回開く」ことになっていた（実機報告 2026-08-07）
       await page.mouse.click(box.x + box.width * 0.3, box.y + box.height / 2);
       await page.waitForTimeout(200);
-      const openAfterClick = await page.evaluate(() => !document.getElementById('cut-info-popup').hidden);
-      openAfterClick
-        ? ok('Plain click on seek opens cut info popup')
-        : ng('Plain click did not open cut info popup', 'popup still hidden');
+      const hiddenAfterClick = await page.evaluate(() => document.getElementById('cut-info-popup').hidden);
+      hiddenAfterClick
+        ? ok('Plain click on seek only moves the playhead (does not open cut info)')
+        : ng('Plain click opened cut info popup', 'popup visible after single click');
+      // ダブルクリック = そのカットの情報を開く
+      await page.mouse.dblclick(box.x + box.width * 0.3, box.y + box.height / 2);
+      await page.waitForTimeout(200);
+      const openAfterDbl = await page.evaluate(() => !document.getElementById('cut-info-popup').hidden);
+      openAfterDbl
+        ? ok('Double click on seek opens cut info popup')
+        : ng('Double click did not open cut info popup', 'popup still hidden');
+      // Escape で閉じられる（✕ は「カット削除」であって閉じるボタンではないため、
+      // 逃げ道が「閉じる」1 つしか無いと押せない状況で詰む）
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(150);
+      const hiddenAfterEsc = await page.evaluate(() => document.getElementById('cut-info-popup').hidden);
+      hiddenAfterEsc
+        ? ok('Escape closes cut info popup')
+        : ng('Escape did not close cut info popup', 'popup still visible');
       // 後続テストへ影響しないよう閉じる
       await page.evaluate(() => { document.getElementById('cut-info-popup').hidden = true; });
     }
@@ -245,9 +262,13 @@ async function main() {
       await page.keyboard.press('Space');
       await page.waitForTimeout(300);
       // 数値入力（カット情報ポップアップの IN 欄）内では Space は打鍵のまま
-      await page.click('#seek');
+      // （ポップアップはダブルクリックで開く — 単クリックは移動のみ）
+      await page.dblclick('#seek');
       await page.waitForTimeout(200);
-      const hasNumberInput = await page.evaluate(() => !!document.getElementById('cut-inp-in'));
+      const hasNumberInput = await page.evaluate(() => {
+        const el = document.getElementById('cut-inp-in');
+        return !!el && !document.getElementById('cut-info-popup').hidden;
+      });
       if (hasNumberInput) {
         await page.focus('#cut-inp-in');
         const b2 = await page.locator('#play-toggle').getAttribute('aria-label');
@@ -581,6 +602,248 @@ async function main() {
     ng('Output preview page', e.message);
   }
 
+  // ── 効果音の重複ロード / スピナー点滅の回帰テスト ──
+  // 効果音は「同じファイルを何十回も差し込む」使い方が普通（実測 fieldtest/2026-08-03-akari-video-beat-pv:
+  // 159 差し込み / ユニーク 37 本）。差し込み 1 件ごとに fetch していた頃は、初期化と波形で
+  // 同じ音を 3 周ぶん落としていて（477 リクエスト / 276MB）、<video> のレンジ要求と
+  // コネクションを食い合って読み込み中スピナーが点きっぱなしになった。
+  // watch は edit.json / captions.json しか見ないので、output モード（edit.output.json）で
+  // 他のテストに干渉せず検証する。
+  console.log('\n🔊 SFX load dedup / spinner debounce');
+  const outJsonBackup = fs.existsSync(OUT_JSON) ? fs.readFileSync(OUT_JSON, 'utf-8') : null;
+  try {
+    const base = JSON.parse(fs.readFileSync(path.join(PROJECT, 'edit.json'), 'utf-8'));
+    // 2 本のファイルを 6 回ずつ = 12 差し込み。素朴実装なら 12 リクエストになる
+    const SFX_FILES = ['narration/n-0001.mp3', 'narration/n-0002.mp3'];
+    const sfx = [];
+    for (let i = 0; i < 12; i++) sfx.push({ path: SFX_FILES[i % SFX_FILES.length], t: 0.4 * i });
+    // narration は同じ 2 ファイルを指しているので外す（効果音経路のリクエストだけを数えるため）
+    fs.writeFileSync(OUT_JSON, JSON.stringify({ ...base, audio: { bgm: base.audio?.bgm, sfx } }, null, 2));
+
+    const sfxPage = await context.newPage();
+    const hits = [];
+    sfxPage.on('request', r => { if (SFX_FILES.some(f => r.url().includes(f))) hits.push(r.url()); });
+    await sfxPage.goto(`${BASE}/?mode=output`, { waitUntil: 'load', timeout: 15000 });
+    await sfxPage.waitForSelector('#play-toggle', { timeout: 10000 });
+    // 波形パネルも開く（ここでも同じ音源を落とし直していた経路）
+    await sfxPage.click('#waveform-toggle');
+    await sfxPage.waitForTimeout(2500);
+
+    const unique = new Set(hits).size;
+    hits.length === unique
+      ? ok(`SFX audio fetched once per unique file (${hits.length} requests for ${unique} files, 12 insertions)`)
+      : ng('SFX audio re-downloaded per insertion', `${hits.length} requests for ${unique} unique files`);
+
+    // スピナー: 短い stall では出さず、長い stall では出る
+    const spinner = await sfxPage.evaluate(async () => {
+      const el = document.getElementById('loading-indicator');
+      const v = document.getElementById('preview-video');
+      const shown = () => el.style.display === 'block';
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      // 実 video の canplay / seeked が合成イベントの窓に割り込むとスピナーが消され、
+      // 判定が揺れる。落ち着くまで待ってから測る
+      for (let i = 0; i < 40 && (v.seeking || v.readyState < 3); i++) await wait(100);
+      await wait(300);
+      // 一瞬の stall（カット跨ぎやシークで日常的に起きる）
+      v.dispatchEvent(new Event('waiting'));
+      await wait(120);
+      const duringShortStall = shown();
+      v.dispatchEvent(new Event('playing'));
+      await wait(600);
+      const afterShortStall = shown();
+      // 本当に待たされている場合
+      v.dispatchEvent(new Event('waiting'));
+      await wait(700);
+      const duringLongStall = shown();
+      v.dispatchEvent(new Event('playing'));
+      await wait(80);
+      return { duringShortStall, afterShortStall, duringLongStall, afterResume: shown() };
+    });
+    (!spinner.duringShortStall && !spinner.afterShortStall)
+      ? ok('Spinner does not flash on a sub-threshold stall')
+      : ng('Spinner flashes on brief stall', JSON.stringify(spinner));
+    (spinner.duringLongStall && !spinner.afterResume)
+      ? ok('Spinner still shows for a real stall and clears on resume')
+      : ng('Spinner missing on real stall', JSON.stringify(spinner));
+
+    await sfxPage.close();
+  } catch (e) {
+    ng('SFX load dedup / spinner debounce', e.message);
+  } finally {
+    if (outJsonBackup !== null) fs.writeFileSync(OUT_JSON, outJsonBackup);
+  }
+
+  // ── 再生中の毎フレーム仕事量（もたつきの回帰） ──
+  // 編集モード OFF ではステージが pointer-events:none なのに、断片の実測境界が
+  // ステージのクリップ外へはみ出すせいでプレビュー枠外のクリックでも選択が成立し、
+  // 選択枠の追従 rAF が回りっぱなしになっていた（実測 2026-08-07: getBoundingClientRect
+  // 52 回/フレーム = 毎フレーム強制レイアウト）。当たり判定と再生の負荷を切り離す。
+  console.log('\n⏱️  Per-frame work while playing');
+  try {
+    const perfPage = await context.newPage();
+    await perfPage.goto(`${BASE}/`, { waitUntil: 'load', timeout: 15000 });
+    await perfPage.waitForSelector('#play-toggle', { timeout: 10000 });
+    await perfPage.waitForTimeout(1200);
+
+    // プレビュー枠の中を押しても、編集モード OFF なら選択は残らない
+    const stageBox = await perfPage.evaluate(() => {
+      const r = document.getElementById('overlay-stage').getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    await perfPage.mouse.click(stageBox.x + stageBox.w / 2, stageBox.y + stageBox.h / 2);
+    await perfPage.waitForTimeout(200);
+    const sel = await perfPage.evaluate(() => ({
+      selected: Boolean(document.querySelector('[data-akari-interaction-selected]')),
+      frame: Boolean(document.querySelector('.akari-interaction-selection-frame')),
+    }));
+    (!sel.selected && !sel.frame)
+      ? ok('No overlay stays selected while edit mode is off')
+      : ng('Overlay selected outside edit mode', JSON.stringify(sel));
+
+    // 毎フレームの強制レイアウト回数
+    const counts = await perfPage.evaluate(async () => {
+      const c = { gbcr: 0, frames: 0 };
+      const gb = Element.prototype.getBoundingClientRect;
+      Element.prototype.getBoundingClientRect = function (...a) { c.gbcr++; return gb.apply(this, a); };
+      let raf = requestAnimationFrame(function loop() { c.frames++; raf = requestAnimationFrame(loop); });
+      document.getElementById('play-toggle').click();
+      await new Promise(r => setTimeout(r, 2000));
+      document.getElementById('play-toggle').click();
+      cancelAnimationFrame(raf);
+      Element.prototype.getBoundingClientRect = gb;
+      return c;
+    });
+    const perFrame = counts.frames > 0 ? counts.gbcr / counts.frames : Infinity;
+    perFrame < 8
+      ? ok(`Forced-layout calls stay low while playing (${perFrame.toFixed(1)}/frame)`)
+      : ng('Per-frame forced layout regressed', `${perFrame.toFixed(1)} getBoundingClientRect per frame`);
+    await perfPage.close();
+  } catch (e) {
+    ng('Per-frame work while playing', e.message);
+  }
+
+  // ── 編集履歴（上書きの前に必ず 1 世代残す） ──
+  // ドラッグ 1 回で書き換わる編集面なので、気づかないうちにずれて数日後に発見する事故が
+  // 実際に起きた（2026-08-07: 誤ドラッグ 4 件が edit.json に混入）。クライアント側の undo は
+  // リロードで消えるため、取り返しの保証はサーバに置く。
+  console.log('\n🗂️  Edit history');
+  try {
+    const editPath = path.join(PROJECT, 'edit.json');
+    const original = fs.readFileSync(editPath, 'utf-8');
+    const before = JSON.parse(original);
+
+    const put = async (obj) => fetch(`${BASE}/api/edit.json`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(obj),
+    });
+
+    const mutated = { ...before, output: { ...before.output, fps: before.output.fps === 30 ? 24 : 30 } };
+    const r1 = await put(mutated);
+    const b1 = await r1.json();
+    (r1.ok && typeof b1.snapshot === 'string')
+      ? ok(`PUT edit.json snapshots the previous state (${b1.snapshot})`)
+      : ng('PUT did not snapshot', `status=${r1.status} body=${JSON.stringify(b1)}`);
+
+    const list = await fetchJson(`${BASE}/api/edit-history`);
+    const newest = list.data?.entries?.[0]?.name;
+    newest
+      ? ok(`GET /api/edit-history lists the snapshot (${list.data.entries.length})`)
+      : ng('History listing empty', JSON.stringify(list.data));
+
+    // 退避された中身は「上書き前」であること
+    if (newest) {
+      const saved = JSON.parse(fs.readFileSync(path.join(PROJECT, '.akari', 'history', newest), 'utf-8'));
+      saved.output.fps === before.output.fps
+        ? ok('Snapshot holds the pre-write content')
+        : ng('Snapshot content wrong', `fps=${saved.output.fps} expected ${before.output.fps}`);
+
+      const r2 = await fetch(`${BASE}/api/edit-history/restore`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: newest }),
+      });
+      const restored = JSON.parse(fs.readFileSync(editPath, 'utf-8'));
+      (r2.ok && restored.output.fps === before.output.fps)
+        ? ok('Restore puts the previous state back')
+        : ng('Restore failed', `status=${r2.status} fps=${restored.output.fps}`);
+    }
+
+    // 履歴名は実ファイル名のみ受け付ける（パスを組み立てさせない）
+    const bad = await fetch(`${BASE}/api/edit-history/restore`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: '../../edit.json' }),
+    });
+    bad.status === 400
+      ? ok('Restore rejects a traversal-shaped history name')
+      : ng('Restore accepted a bad name', `status=${bad.status}`);
+
+    fs.writeFileSync(editPath, original);
+    await page.waitForTimeout(400);
+  } catch (e) {
+    ng('Edit history', e.message);
+  }
+
+  // ── 3D ランタイムの配線と遅延ロード ──
+  // Web UI には長らく 3D ランタイムが無く、断片の「3D を読み込み中」が永久に残っていた
+  // （実機報告 2026-08-07）。vendor は 776KB あるので、3D を宣言した断片がある時だけ読む。
+  console.log('\n🧊 3D runtime wiring');
+  const outJsonBackup3d = fs.existsSync(OUT_JSON) ? fs.readFileSync(OUT_JSON, 'utf-8') : null;
+  try {
+    for (const route of ['/three-bundle.js', '/three-runtime.js']) {
+      const r = await fetch(`${BASE}${route}`);
+      const body = r.ok ? await r.text() : '';
+      (r.ok && body.length > 1000)
+        ? ok(`${route} served (${Math.round(body.length / 1024)}KB)`)
+        : ng(`${route} not served`, `HTTP ${r.status} len=${body.length}`);
+    }
+
+    const base = JSON.parse(fs.readFileSync(path.join(PROJECT, 'edit.json'), 'utf-8'));
+    const countThreeHits = async (overlays) => {
+      fs.writeFileSync(OUT_JSON, JSON.stringify({ ...base, overlays }, null, 2));
+      const p = await context.newPage();
+      const hits = [];
+      p.on('request', r => { if (/three-bundle\.js|three-runtime\.js/.test(r.url())) hits.push(r.url()); });
+      await p.goto(`${BASE}/?mode=output`, { waitUntil: 'load', timeout: 15000 });
+      await p.waitForSelector('#play-toggle', { timeout: 10000 });
+      await p.waitForTimeout(1800);
+      const hasRuntime = await p.evaluate(() => Boolean(window.akari?.threeRuntime?.render));
+      await p.close();
+      return { hits: hits.length, hasRuntime };
+    };
+
+    // 3D 宣言なし → 1 バイトも取りに行かない
+    const plain = await countThreeHits([
+      { id: 'plain', html: '<div style="position:absolute;inset:0"></div>', start: 0, duration: 5 },
+    ]);
+    plain.hits === 0
+      ? ok('No 3D fragment → three.js bundle is not downloaded')
+      : ng('three.js downloaded without a 3D fragment', `${plain.hits} requests`);
+
+    // 3D 宣言あり → ランタイムを読みに行き、window.akari.threeRuntime が生える
+    const withThree = await countThreeHits([
+      {
+        id: 'solid',
+        html: '<div style="position:absolute;inset:0"><canvas style="width:100%;height:100%"></canvas>'
+          + '<div data-akari-3d-fallback>3D を読み込み中</div>'
+          + '<script type="application/json" data-akari-3d-scene>{"model":"missing.glb"}<\/script></div>',
+        start: 0,
+        duration: 5,
+      },
+    ]);
+    withThree.hits >= 2
+      ? ok('3D fragment triggers the lazy runtime load')
+      : ng('3D runtime not loaded for a 3D fragment', `${withThree.hits} requests`);
+    withThree.hasRuntime
+      ? ok('window.akari.threeRuntime is wired after lazy load')
+      : ng('threeRuntime missing after load', 'render() not available');
+  } catch (e) {
+    ng('3D runtime wiring', e.message);
+  } finally {
+    if (outJsonBackup3d !== null) fs.writeFileSync(OUT_JSON, outJsonBackup3d);
+  }
+
   // ── WebSocket bidirectional sync test ──
   console.log('\n🔌 WebSocket sync test');
   try {
@@ -840,6 +1103,158 @@ async function main() {
     await page.waitForTimeout(500);
   } catch (e) {
     ng('Layer click-select + drag', e.message);
+  }
+
+  // ── tasks/2026-08-07-background-role: 背景（overlays[].role==="background"）は
+  // 選択はできるがドラッグ/リサイズでは動かせない・Delete で削除できる ──
+  // 実機報告 2026-08-07: 誤ドラッグで全編背景 bg-live がずれ、右と下が黒く欠けた事故への
+  // 対策。要件の本質は「ずれたら直せる」ではなく「ずらせない」なので、実ブラウザで
+  // ドラッグしても DOM の --x/--y と edit.json の transform が変わらないことを実測する。
+  // edit-lint ゲートそのもの（overlays.role.transform / .vars / .overlap）は
+  // packages/edit-lint/test/edit-lint.test.mjs のフィクスチャで実測済み — この preview
+  // サーバは `--no-lint` で起動しており（下の spawn 参照）、書き込み経路の lint は
+  // ここでは検証できない（意図的に無効: 他の全 PUT 系テストを lint 実行コストから外すため）。
+  console.log('\n🖼️  Background overlay: not draggable + deletable');
+  let bgOrigText = null;
+  try {
+    bgOrigText = fs.readFileSync(editJsonPath, 'utf8');
+    const origEdit = JSON.parse(bgOrigText);
+    fs.mkdirSync(path.join(PROJECT, 'overlays'), { recursive: true });
+    fs.writeFileSync(
+      path.join(PROJECT, 'overlays', 'bg-test.html'),
+      '<div class="bg-test-root" style="position:absolute;inset:0;background:#3a6ea5;"></div>\n'
+    );
+    const withBg = {
+      ...origEdit,
+      overlays: [{ id: 'bg-test', role: 'background', html: 'overlays/bg-test.html', start: 0, duration: 10 }],
+    };
+    fs.writeFileSync(editJsonPath, JSON.stringify(withBg, null, 2));
+
+    const bp = await context.newPage();
+    await bp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await bp.waitForTimeout(2000);
+    await bp.click('#edit-toggle');
+    await bp.waitForTimeout(300);
+    // overlays only turn visible on the first tick(), which updateOverlays() drives from
+    // seekTo()/playbackLoop() — never automatically on load (same reason the layer-drag test
+    // above seeks before clicking). Without this the container stays visibility:hidden and
+    // every hit-test below silently misses it.
+    await bp.evaluate(() => {
+      const el = document.getElementById('seek');
+      el.value = '1';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await bp.waitForTimeout(600);
+
+    const stageBox = await bp.evaluate(() => {
+      const r = document.getElementById('overlay-stage').getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    const cx = stageBox.x + stageBox.w / 2;
+    const cy = stageBox.y + stageBox.h / 2;
+
+    await bp.mouse.click(cx, cy);
+    await bp.waitForTimeout(200);
+    const selectedInfo = await bp.evaluate(() => {
+      const el = document.querySelector('[data-akari-interaction-selected]');
+      const frame = document.querySelector('.akari-interaction-selection-frame');
+      const handle = frame?.querySelector('.akari-interaction-handle');
+      return {
+        id: el?.dataset?.overlayId ?? null,
+        role: el?.dataset?.role ?? null,
+        frameLocked: frame ? frame.classList.contains('is-locked') : null,
+        handleHidden: handle ? getComputedStyle(handle).display === 'none' : null,
+      };
+    });
+    (selectedInfo.id === 'bg-test' && selectedInfo.role === 'background')
+      ? ok('Background overlay is selectable (click selects it)')
+      : ng('Background select', JSON.stringify(selectedInfo));
+    selectedInfo.frameLocked === true
+      ? ok('Selection frame marks the background selection as locked (is-locked)')
+      : ng('Selection frame not locked', JSON.stringify(selectedInfo));
+    selectedInfo.handleHidden === true
+      ? ok('Resize handles are hidden for a locked background selection')
+      : ng('Resize handles visible on background', JSON.stringify(selectedInfo));
+
+    // 実ドラッグ: 誤ドラッグ事故の再現（大きく動かす）。位置が変わらないことを見る
+    await bp.mouse.move(cx, cy);
+    await bp.mouse.down();
+    await bp.mouse.move(cx + 120, cy + 90, { steps: 8 });
+    await bp.mouse.up();
+    await bp.waitForTimeout(600);
+    const afterDrag = await bp.evaluate(() => {
+      const el = document.querySelector('[data-overlay-id="bg-test"]');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return `${cs.getPropertyValue('--x').trim()}/${cs.getPropertyValue('--y').trim()}`;
+    });
+    afterDrag === '0px/0px'
+      ? ok(`Dragging a background overlay does not move it (--x/--y=${afterDrag})`)
+      : ng('Background dragged', `--x/--y=${afterDrag}`);
+
+    const summaryAfterDrag = await fetch(`${BASE}/api/summary`).then(r => r.json());
+    !summaryAfterDrag.overlays?.[0]?.transform
+      ? ok('Drag on a background overlay does not persist a transform to edit.json')
+      : ng('Background transform persisted', JSON.stringify(summaryAfterDrag.overlays?.[0]));
+
+    // Delete: 選択中の背景を消す（消したら黒でよい = 2026-08-07 裁定。lint 警告も出ない）
+    await bp.keyboard.press('Delete');
+    await bp.waitForTimeout(800);
+    const afterDelete = await bp.evaluate(() => !!document.querySelector('[data-overlay-id="bg-test"]'));
+    const summaryAfterDelete = await fetch(`${BASE}/api/summary`).then(r => r.json());
+    (!afterDelete && !(summaryAfterDelete.overlays || []).some(o => o.id === 'bg-test'))
+      ? ok('Delete key removes the selected background overlay')
+      : ng('Delete overlay', `domPresent=${afterDelete} summary=${JSON.stringify(summaryAfterDelete.overlays)}`);
+
+    await bp.close();
+
+    // 互換の回帰: role を持たない overlay は従来どおりドラッグで動く（背景専用のロックが
+    // role なし断片へ漏れていないことの実ブラウザ確認）
+    fs.writeFileSync(
+      path.join(PROJECT, 'overlays', 'bg-test.html'),
+      '<div class="fg-test-root" style="position:absolute;inset:0;background:#a53a3a;"></div>\n'
+    );
+    const withPlainOverlay = {
+      ...origEdit,
+      overlays: [{ id: 'fg-test', html: 'overlays/bg-test.html', start: 0, duration: 10 }],
+    };
+    fs.writeFileSync(editJsonPath, JSON.stringify(withPlainOverlay, null, 2));
+
+    const fp = await context.newPage();
+    await fp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await fp.waitForTimeout(2000);
+    await fp.click('#edit-toggle');
+    await fp.waitForTimeout(300);
+    await fp.evaluate(() => {
+      const el = document.getElementById('seek');
+      el.value = '1';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await fp.waitForTimeout(600);
+
+    const fgStageBox = await fp.evaluate(() => {
+      const r = document.getElementById('overlay-stage').getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    const fcx = fgStageBox.x + fgStageBox.w / 2;
+    const fcy = fgStageBox.y + fgStageBox.h / 2;
+
+    await fp.mouse.move(fcx, fcy);
+    await fp.mouse.down();
+    await fp.mouse.move(fcx + 90, fcy + 60, { steps: 8 });
+    await fp.mouse.up();
+    await fp.waitForTimeout(600);
+    const fgSummary = await fetch(`${BASE}/api/summary`).then(r => r.json());
+    const fgTransform = fgSummary.overlays?.[0]?.transform;
+    (fgTransform && fgTransform.x > 10 && fgTransform.y > 5)
+      ? ok(`Dragging a role-less overlay still writes transform as before (x=${fgTransform?.x?.toFixed(1)}, y=${fgTransform?.y?.toFixed(1)})`)
+      : ng('Role-less overlay drag regressed', JSON.stringify(fgSummary.overlays?.[0]));
+    await fp.close();
+  } catch (e) {
+    ng('Background overlay drag-locked + delete', e.message);
+  } finally {
+    if (bgOrigText !== null) fs.writeFileSync(editJsonPath, bgOrigText);
+    await page.waitForTimeout(500);
   }
 
   // ── layers[].perspective の実機パリティ（contract-2026-08-02-preview-parity.md §2.4.4）──

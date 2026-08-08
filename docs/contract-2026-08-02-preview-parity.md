@@ -314,6 +314,49 @@ preview-server の PUT + edit-lint ゲートを通す。`fx` 未宣言の cut �
   screen 合成だが、CSS の多段ラジアルグラデーションで代用するため、フレアの輪郭、
   色の減衰、周回位置が ffmpeg 側の式と一致しない。
 
+#### 2.4.6 `cuts[].transform` / `cuts[].opacity`（下地の位置・拡縮・回転・不透明度。2026-08-07 追記）
+
+`cuts[].transform`（`x`/`y`/`scale`/`rotate`）と `cuts[].opacity` は `layers[].transform` と
+同語彙・同意味論の `$defs.cutTransform`（`packages/schemas/edit.schema.json`。
+`additionalProperties: false` の点のみ layerTransform と異なる）。render-cut
+（`packages/render-cut/src/cut-transform.mjs` の `appendCutVisualTransform`）は
+「framing 済みのフレームへ scale → rotate（度）→ opacity（`colorchannelmixer=aa=`）を
+適用したのち、出力中央基準のオフセット `x`/`y` で `overlay` する」という順で適用する。
+プレビューはこの合成を `#preview-video` の CSS `transform`/`opacity` で近似再現する。
+
+- **合成が必要な理由**: `#preview-video` は `cuts[].framing`（§2.4.2）と `cuts[].transform` の
+  両方を同一要素上で表現する必要がある。両者は別々の pivot を要求する — framing は自身の
+  crop/zoom 演算がフレーム左上基準（`transform-origin: 0 0`）で組まれており、cut-transform の
+  scale/rotate は出力キャンバス中央基準（render-cut の overlay 自動センタリングと等価）。
+  CSS の `transform-origin` は要素ひとつにつき 1 個しか持てないため、二つの pivot を同時に
+  満たすには **`transform-origin` を常に `0 0` に固定したまま、中央基準の scale/rotate を
+  `translate(-50%,-50%) scale(...) rotate(...) translate(50%,50%)` という明示的な平行移動で
+  挟んで模擬する** 手法を採る（`%` はどこに現れても要素自身の未変形の参照ボックスに対して
+  解決されるため、リスト中の位置に関わらず一貫して計算できる）。
+- **CSS 関数リスト（左が外側 = 最後に適用）**:
+  `translate(x%, y%) translate(50%, 50%) rotate(rotateDeg) scale(scale) translate(-50%, -50%) <framing の transform>`
+  （framing が無ければ最後の要素を省略。`scale=1` かつ `rotate=0` なら中央往復の 2 個の
+  `translate` と `scale()`/`rotate()` を丸ごと省略。`x=0` かつ `y=0` なら先頭の `translate` を
+  省略 — 各要素は必要なときだけ挿入され、全て不要なら文字列は空になり従来と同じ挙動に帰着する）
+- **`x`/`y` は出力 px → `%` へ換算**: `#preview-video` は `object-fit: contain` + `wrapper` の
+  `aspect-ratio` により出力サイズと寸法比が一致する箱のため、`x / output.width * 100`、
+  `y / output.height * 100` を percent として使う（framing の crop 座標と同じ
+  「箱基準の % で押し通す」慣習に合わせ、`frameScale` 換算を避けている）
+- **`opacity`**: CSS `opacity` を直接使う（ffmpeg 側の `colorchannelmixer=aa=` と同じ
+  「アルファを一律に掛ける」効果。合成順序に関わらず可換なため transform リストとは独立に
+  設定してよい）
+- **回帰なし**: `transform` 未宣言かつ `opacity` 省略（または 1）の cut は、本変更前と完全に
+  同じ `transform`/`transformOrigin`/`opacity`（空文字列 = 既定値）のまま。framing のみの cut も
+  同様に既存の CSS 文字列と byte-identical
+- **実装**: `packages/preview-server/public/cut-transform-visual.js`（純関数。ユニットテスト:
+  `packages/preview-server/test/cut-transform-visual.test.mjs`）。`app.js` の
+  `applyCutFramingVisual` は framing 計算と本モジュールの呼び出しをつなぐだけの薄い接着に留める
+- **既知の割り切り**: render-cut の `rotate` はバウンディングボックス拡大
+  （`ow=rotw/oh=roth`）を伴い、その拡大後フレームが overlay で再センタリングされる。
+  プレビューは要素の箱サイズ自体を変えず CSS 回転のみで近似するため、視覚的な中心基準の
+  回転結果は一致するが、透明パディングの縁の扱いは書き出しと厳密には一致しない場合がある
+  （近似）
+
 ### 2.5 音声
 - **一時停止で全音声を止める**: narration / SFX の BufferSource は stop、AudioContext は suspend
 - 一時停止中のシークで音源を発火させない
