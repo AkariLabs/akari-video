@@ -6,6 +6,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { DEFAULT_CONNECTIONS_REGISTRY } from "../../../packages/creator-root/src/index.mjs";
+import { resolveConnections } from "./resolve-connections.mjs";
+
 const usage = "使い方: node skills/manage-connections/bin/doctor.mjs [プロジェクトルート|connections.json]";
 const argument = process.argv[2];
 
@@ -33,6 +36,14 @@ const credentialsPath = path.resolve(
 const timeoutMs = 5_000;
 
 async function main() {
+  if (inputPath.endsWith(".json")) {
+    await mainLegacy();
+    return;
+  }
+  await mainResolved();
+}
+
+async function mainLegacy() {
   const registry = readRegistry();
   const credentialState = readCredentials();
   const checkedAt = new Date().toISOString();
@@ -62,6 +73,64 @@ async function main() {
   console.log(`接続レポート: ${reportPath}`);
 }
 
+async function mainResolved() {
+  const resolved = await resolveConnections({ projectRoot });
+  const registry = clone(resolved.effective);
+  const credentialState = readCredentials();
+  const checkedAt = new Date().toISOString();
+
+  if (!credentialState.exists) {
+    printCredentialGuide(registry);
+  } else if (!credentialState.securePermissions) {
+    console.warn(`警告: credentials.env の権限は 600 ではありません（現在 ${credentialState.mode}）。chmod 600 ${credentialsPath} を実行してください。`);
+  }
+
+  const results = await Promise.all(registry.providers.map(async (provider) => ({
+    ...await inspectProvider(provider, credentialState, checkedAt),
+    layer: resolved.sources.providers[provider.id],
+  })));
+  for (const [index, result] of results.entries()) registry.providers[index].doctor = result.doctor;
+
+  const projectRegistry = resolved.layers.project.exists
+    ? readRegistryAt(resolved.layers.project.path)
+    : emptyProjectRegistry();
+  const workspaceRegistry = resolved.layers.workspace
+    ? resolved.layers.workspace.exists
+      ? readRegistryAt(resolved.layers.workspace.path)
+      : clone(DEFAULT_CONNECTIONS_REGISTRY)
+    : null;
+  const effectiveById = new Map(registry.providers.map((provider) => [provider.id, provider]));
+
+  for (const result of results) {
+    const provider = effectiveById.get(result.id);
+    if (result.layer === "project" || (!resolved.layers.workspace && result.layer === "default")) {
+      upsertProviderDoctor(projectRegistry, provider, result.doctor);
+    }
+    if (workspaceRegistry && (result.layer === "workspace" || result.layer === "default")) {
+      upsertProviderDoctor(workspaceRegistry, provider, result.doctor);
+    }
+  }
+
+  writeRegistry(resolved.layers.project.path, projectRegistry, credentialState.values);
+  if (workspaceRegistry) {
+    writeRegistry(resolved.layers.workspace.path, workspaceRegistry, credentialState.values);
+  }
+
+  const htmlOutput = renderReport(registry, results, credentialState, checkedAt);
+  refuseSecretLeak(htmlOutput, credentialState.values);
+  fs.writeFileSync(reportPath, htmlOutput, "utf8");
+
+  if (resolved.layers.workspace) {
+    console.log(`作業場: ${resolved.layers.workspace.rootDir}`);
+  } else {
+    console.log("作業場なし（プロジェクト単独）");
+  }
+  for (const result of results) {
+    console.log(`${result.id} [${result.layer}]: ${result.doctor.status} — ${result.doctor.detail}`);
+  }
+  console.log(`接続レポート: ${reportPath}`);
+}
+
 function readRegistry() {
   let value;
   try {
@@ -73,6 +142,47 @@ function readRegistry() {
     throw new Error("connections.json の構造が不正です");
   }
   return value;
+}
+
+function readRegistryAt(filePath) {
+  let value;
+  try {
+    value = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    throw new Error(`connections.json を読めません: ${filePath}`);
+  }
+  if (!isPlainObject(value) || !Array.isArray(value.providers) || !isPlainObject(value.policy)) {
+    throw new Error(`connections.json の構造が不正です: ${filePath}`);
+  }
+  return value;
+}
+
+function emptyProjectRegistry() {
+  return {
+    providers: [],
+    policy: { currency: "JPY", monthly_budget: null, approval_threshold: null },
+    memory: [],
+  };
+}
+
+function upsertProviderDoctor(registry, provider, doctor) {
+  const index = registry.providers.findIndex((item) => item.id === provider.id);
+  if (index >= 0) {
+    registry.providers[index] = { ...registry.providers[index], doctor };
+    return;
+  }
+  registry.providers.push({ ...clone(provider), doctor });
+}
+
+function writeRegistry(filePath, registry, credentialValues) {
+  const jsonOutput = `${JSON.stringify(registry, null, 2)}\n`;
+  refuseSecretLeak(jsonOutput, credentialValues);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, jsonOutput, "utf8");
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function readCredentials() {
@@ -275,6 +385,7 @@ function renderReport(registry, results, credentialState, checkedAt) {
   const resultById = new Map(results.map((item) => [item.id, item]));
   const cards = registry.providers.map((provider) => {
     const result = resultById.get(provider.id);
+    const layer = result?.layer ?? "project";
     const notes = isPlainObject(provider.notes) ? provider.notes : {};
     const credentialLabel = provider.auth === "env-key"
       ? result?.configured
@@ -286,8 +397,8 @@ function renderReport(registry, results, credentialState, checkedAt) {
     const allowed = Array.isArray(provider.models?.allowed) && provider.models.allowed.length > 0
       ? provider.models.allowed.join(", ")
       : "未設定";
-    return `<article class="card status-${escapeHtml(provider.doctor.status)}">
-      <div class="card-head"><h2>${escapeHtml(provider.id)}</h2><span>${escapeHtml(provider.doctor.status)}</span></div>
+    return `<article class="card status-${escapeHtml(provider.doctor.status)} layer-${escapeHtml(layer)}">
+      <div class="card-head"><h2>${escapeHtml(provider.id)}</h2><div class="badges"><span>${escapeHtml(provider.doctor.status)}</span><span class="layer-badge">${escapeHtml(layer)}</span></div></div>
       <dl>
         <dt>用途</dt><dd>${escapeHtml(notes.description ?? "未記入")}</dd>
         <dt>工程</dt><dd>${escapeHtml(arrayText(notes.workflows))}</dd>
@@ -310,7 +421,7 @@ function renderReport(registry, results, credentialState, checkedAt) {
   const policy = registry.policy;
   return `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>AKARI 接続レポート</title><style>
-:root{color-scheme:light dark;font-family:system-ui,sans-serif}body{max-width:1100px;margin:0 auto;padding:32px 20px;background:#10131a;color:#eef2f8}header,.guide,.policy,.card{background:#191f2b;border:1px solid #303a4d;border-radius:14px;padding:20px}.summary{color:#aeb8ca}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:18px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.card h2{margin:0}.card-head span{border-radius:999px;padding:4px 10px;background:#384359}.status-ok{border-color:#2d9d78}.status-unauthorized{border-color:#d76a6a}.status-unconfigured{border-color:#d5a941}dl{display:grid;grid-template-columns:8em 1fr;gap:8px;margin-bottom:0}dt{color:#aeb8ca}dd{margin:0;overflow-wrap:anywhere}a{color:#81b7ff}.guide,.policy{margin-top:18px}code{overflow-wrap:anywhere}</style></head>
+:root{color-scheme:light dark;font-family:system-ui,sans-serif}body{max-width:1100px;margin:0 auto;padding:32px 20px;background:#10131a;color:#eef2f8}header,.guide,.policy,.card{background:#191f2b;border:1px solid #303a4d;border-radius:14px;padding:20px}.summary{color:#aeb8ca}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:18px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.card h2{margin:0}.badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.card-head span{border-radius:999px;padding:4px 10px;background:#384359}.card-head .layer-badge{background:#263b55}.layer-project .layer-badge{background:#4c356b}.layer-workspace .layer-badge{background:#27534c}.layer-default .layer-badge{background:#4e4930}.status-ok{border-color:#2d9d78}.status-unauthorized{border-color:#d76a6a}.status-unconfigured{border-color:#d5a941}dl{display:grid;grid-template-columns:8em 1fr;gap:8px;margin-bottom:0}dt{color:#aeb8ca}dd{margin:0;overflow-wrap:anywhere}a{color:#81b7ff}.guide,.policy{margin-top:18px}code{overflow-wrap:anywhere}</style></head>
 <body><header><h1>AKARI 接続レポート</h1><p class="summary">生成日時: ${escapeHtml(checkedAt)}。資格情報は存在有無だけを表示し、値は保存していません。</p></header>
 ${missingGuide}
 <section class="policy"><h2>コスト承認ポリシー</h2><dl><dt>通貨</dt><dd>${escapeHtml(policy.currency)}</dd><dt>月間予算上限</dt><dd>${escapeHtml(money(policy.monthly_budget, policy.currency))}</dd><dt>個別承認閾値</dt><dd>${escapeHtml(money(policy.approval_threshold, policy.currency))}</dd><dt>予算消化状況</dt><dd>実績データ未連携</dd></dl></section>

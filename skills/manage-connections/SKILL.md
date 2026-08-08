@@ -17,17 +17,21 @@ description: AKARI Video の生成プロバイダ・SNS 接続・API キー参�
 5. **有償操作は見積 → 明示承認まで実行しない**（edit-plan の Decision Communication
    Contract と同型）。予算上限の超過見込みで実行前に停止する
 6. **リアルタイムフック監視（PreToolUse 等）を採用しない。** 状態は JSON、伝達は git 正味差分
-7. **connections.json に無い接続を消費側スキルが使わない**（本スキルが唯一の入口。
+7. **connections.json に無い接続を消費側スキルが使わない**（ここでいう connections.json は
+   project → workspace → default の順で解決済みのレジストリ。本スキルが唯一の入口。
    42・70 系の契約はこのルールを継承する）
 
 # 実行順リーフ
 
-1. プロジェクトの `.akari/connections.json` を読み、使う provider と
-   `models.default / allowed`、`policy` を確認する。レジストリに無い接続や allowed 外のモデルを
-   使わない。
+1. project `.akari/connections.json` → 作業場 `.akari/connections.json` → 製品同梱の既定、の順で
+   解決し、使う provider と `models.default / allowed`、`policy` を確認する。解決結果は
+   `node <このスキルのディレクトリ>/bin/resolve-connections.mjs [プロジェクトルート]` で確認できる。
+   レジストリに無い接続や allowed 外のモデルを使わない。
 2. 前回の `doctor` 結果を提示する。再確認を明示された場合だけ、プロジェクトルートで
    `node <このスキルのディレクトリ>/bin/doctor.mjs` を実行する。別プロジェクトを確認する場合は
-   そのプロジェクトルート、または connections.json のパスを第 1 引数に渡す。
+   そのプロジェクトルート、または connections.json のパスを第 1 引数に渡す。プロジェクトルート
+   で実行した結果は provider の由来レイヤー（project / workspace / default）に対応するファイルへ
+   書き戻される。
 3. `~/.config/akari-video/credentials.env` が無ければ、doctor が示す置き場・KEY 名・取得先 URL を
    人間へ案内して停止する。代理取得・代理書き込みをしない。テストで差し替える場合だけ
    `AKARI_CREDENTIALS_FILE` にファイルパスを指定する。

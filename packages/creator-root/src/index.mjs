@@ -15,6 +15,201 @@ import path from 'node:path';
 export const CREATOR_ROOT_SCHEMA = 'creator-root/v1';
 export const DEFAULT_CHANNEL_NAME = 'my-channel';
 
+export const DEFAULT_CONNECTIONS_REGISTRY = {
+    providers: [
+        {
+            id: 'codex-image',
+            kind: 'image',
+            auth: 'login',
+            env: null,
+            models: {
+                default: null,
+                allowed: []
+            },
+            notes: {
+                description: 'Codex のログイン認証で画像素材を生成する接続。工程 42 の画像生成で使う。',
+                workflows: ['42 AI 生成素材'],
+                billing: 'ChatGPT / Codex の契約と利用上限に従う。有償操作は事前承認が必要。',
+                quota: '契約プランの利用上限。doctor では照会しない。',
+                scopes: ['画像生成'],
+                setup_url: null
+            },
+            doctor: {
+                last_checked: null,
+                status: 'unchecked',
+                detail: '未確認'
+            }
+        },
+        {
+            id: 'akari-cloud',
+            kind: 'genai',
+            auth: 'login',
+            env: null,
+            models: {
+                default: null,
+                allowed: []
+            },
+            notes: {
+                description: 'Akari Cloud のログイン認証で生成機能を利用する接続。工程 42 の生成で使う。',
+                workflows: ['42 AI 生成素材'],
+                billing: 'Akari Cloud の契約と各生成機能の料金に従う。有償操作は事前承認が必要。',
+                quota: '契約プランの利用上限。doctor では照会しない。',
+                scopes: ['生成機能'],
+                setup_url: null
+            },
+            doctor: {
+                last_checked: null,
+                status: 'unchecked',
+                detail: '未確認'
+            }
+        },
+        {
+            id: 'fal',
+            kind: 'genai',
+            auth: 'env-key',
+            env: '${FAL_KEY}',
+            models: {
+                default: null,
+                allowed: []
+            },
+            notes: {
+                description: 'fal の画像・動画などの生成 API。工程 42 の生成 provider として使う。',
+                workflows: ['42 AI 生成素材'],
+                billing: 'モデルごとの従量課金。有償生成は見積と明示承認の後だけ実行する。',
+                quota: 'fal ダッシュボードで残高と利用量を確認する。doctor では照会しない。',
+                scopes: ['推論 API の実行'],
+                setup_url: 'https://fal.ai/dashboard/keys'
+            },
+            doctor: {
+                last_checked: null,
+                status: 'unchecked',
+                detail: '未確認'
+            }
+        },
+        {
+            id: 'replicate',
+            kind: 'genai',
+            auth: 'env-key',
+            env: '${REPLICATE_API_TOKEN}',
+            models: {
+                default: null,
+                allowed: []
+            },
+            notes: {
+                description: 'Replicate 上の画像・動画・音声モデルを呼び出す API。工程 42 の生成で使う。',
+                workflows: ['42 AI 生成素材'],
+                billing: 'モデルの実行時間やハードウェアに応じた従量課金。有償生成は事前承認が必要。',
+                quota: 'Replicate の billing 画面で残高と利用量を確認する。',
+                scopes: ['アカウント参照', '承認後の prediction 実行'],
+                setup_url: 'https://replicate.com/account/api-tokens'
+            },
+            doctor: {
+                last_checked: null,
+                status: 'unchecked',
+                detail: '未確認'
+            }
+        },
+        {
+            id: 'groq',
+            kind: 'genai',
+            auth: 'env-key',
+            env: '${GROQ_API_KEY}',
+            models: {
+                default: 'whisper-large-v3-turbo',
+                allowed: ['whisper-large-v3-turbo', 'whisper-large-v3']
+            },
+            notes: {
+                description: 'Groq の高速推論 API。whisper ホスティング（STT）を高速・低単価で提供する。直接アップロードは 25MB 上限のため長尺はクライアント側チャンク分割が必要。',
+                workflows: ['20 取り込み・分析（クラウド STT 候補）'],
+                billing: '従量課金（whisper-large-v3-turbo ≈ $0.04/時間・リクエストごと最低 10 秒課金）。',
+                quota: 'console.groq.com で利用量とレート制限を確認する。doctor では照会しない。',
+                scopes: ['推論 API の実行'],
+                setup_url: 'https://console.groq.com/keys'
+            },
+            doctor: {
+                last_checked: null,
+                status: 'unchecked',
+                detail: '未確認'
+            }
+        },
+        {
+            id: 'elevenlabs',
+            kind: 'tts',
+            auth: 'env-key',
+            env: '${ELEVENLABS_API_KEY}',
+            models: {
+                default: null,
+                allowed: []
+            },
+            notes: {
+                description: 'ElevenLabs の音声合成 API。工程 42 のナレーション生成で使う。',
+                workflows: ['42 AI 生成素材'],
+                billing: '文字数またはクレジットに基づくプラン課金。有償生成は事前承認が必要。',
+                quota: 'subscription の文字数・クレジット上限。doctor は読み取り専用で認証だけ確認する。',
+                scopes: ['user subscription の参照', '承認後の音声生成'],
+                setup_url: 'https://elevenlabs.io/app/settings/api-keys'
+            },
+            doctor: {
+                last_checked: null,
+                status: 'unchecked',
+                detail: '未確認'
+            }
+        },
+        {
+            id: 'voicevox',
+            kind: 'tts',
+            auth: 'none',
+            env: null,
+            models: {
+                default: null,
+                allowed: []
+            },
+            notes: {
+                description: 'VOICEVOX ローカルエンジン（キャラクター音声の日本語音声合成）。完全ローカル・無償・API キー不要。工程 42 のナレーション生成（仮ナレ・既製声レーン）で使う。',
+                workflows: ['42 AI 生成素材'],
+                billing: '無償（ローカル実行）。',
+                quota: 'なし（ローカル実行のためレート制限は無い）。',
+                scopes: ['音声合成（ローカル・読み取り専用の疎通確認のみ doctor で行う）'],
+                setup_url: 'https://voicevox.hiroshiba.jp/'
+            },
+            doctor: {
+                last_checked: null,
+                status: 'unchecked',
+                detail: '未確認'
+            }
+        },
+        {
+            id: 'openrouter',
+            kind: 'genai',
+            auth: 'env-key',
+            env: '${OPENROUTER_API_KEY}',
+            models: {
+                default: null,
+                allowed: []
+            },
+            notes: {
+                description: '複数社の生成 AI モデルを共通 API で選択する OpenRouter 接続。工程 00・42 で使う。',
+                workflows: ['00 企画・調査', '42 AI 生成素材'],
+                billing: '選択モデルごとの従量課金。キー単位の上限とプロジェクト予算の両方を守る。',
+                quota: 'キーの limit と limit_remaining。doctor は読み取り専用で認証だけ確認する。',
+                scopes: ['キー情報の参照', '承認後のモデル呼び出し'],
+                setup_url: 'https://openrouter.ai/settings/keys'
+            },
+            doctor: {
+                last_checked: null,
+                status: 'unchecked',
+                detail: '未確認'
+            }
+        }
+    ],
+    policy: {
+        currency: 'JPY',
+        monthly_budget: null,
+        approval_threshold: null
+    },
+    memory: []
+};
+
 const ROOT_MANIFEST_RELATIVE_PATH = path.join('.akari', 'root.json');
 const MACHINE_POINTER_FILE_NAME = 'creator-root.json';
 
@@ -301,6 +496,10 @@ export async function createCreatorRoot(targetDir, options = {}) {
     await writeFileIfMissing(path.join(rootDir, 'akari.md'), AKARI_MD_STUB);
     await writeFileIfMissing(path.join(rootDir, 'CLAUDE.md'), CLAUDE_MD_STUB);
     await writeFileIfMissing(path.join(rootDir, 'AGENTS.md'), AGENTS_MD_STUB);
+    await writeFileIfMissing(
+        path.join(rootDir, '.akari', 'connections.json'),
+        `${JSON.stringify(DEFAULT_CONNECTIONS_REGISTRY, null, 2)}\n`
+    );
 
     const manifest = {
         schema: CREATOR_ROOT_SCHEMA,

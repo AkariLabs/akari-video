@@ -10,8 +10,12 @@ integrations) are centrally managed by the `manage-connections` skill.
 - **Local-only work needs no connection** — proxy generation, whisper.cpp
   transcription, editing, lint, and export all work with no external connection
 - **API keys never appear in chat** — the key itself lives in
-  `~/.config/akari-video/credentials.env` (outside the project); the project's
-  `.akari/connections.json` holds only a **reference** to it
+  `~/.config/akari-video/credentials.env` (outside the project); connections
+  registries hold only a **reference** to it
+- **Workspace defaults, project overrides** — the default registry lives at
+  `<creator-root>/.akari/connections.json`. A project's `.akari/connections.json`
+  is an optional overlay; when no workspace registry exists, AKARI Video falls
+  back to the bundled default registry
 - **Paid runs go through an approval gate** — per the cost approval policy, you're
   always asked to confirm before any run that incurs charges
 
@@ -21,6 +25,9 @@ integrations) are centrally managed by the `manage-connections` skill.
 
 A read-only diagnostic runs and reports which providers are usable and what's still
 unconfigured, via a report (`connections-report.html`). Key values are never shown.
+Doctor writes each provider's result back only to its source layer (project,
+workspace, or the appropriate default destination), preventing project-local copies
+from drifting away from workspace settings.
 
 ## Register a key
 
