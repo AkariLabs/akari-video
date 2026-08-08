@@ -262,7 +262,7 @@ test('(c) --yes: 作業場もプロジェクトも無い場所では既定パス
 
     assert.equal(promptCalled, false, '--yes のときは対話プロンプトを呼ばないこと');
 
-    const expectedRoot = join(env.HOME, 'AkariVideo');
+    const expectedRoot = join(env.HOME, 'Akari');
     const expectedProjectDir = join(expectedRoot, 'channels', DEFAULT_CHANNEL_NAME, 'videos', '2026-08-02-video');
     assert.equal(claudeCall?.cwd, expectedProjectDir);
     assert.ok(claudeCall.args.includes('--permission-mode'), '--yes は claude 起動引数に反映されること');
@@ -306,7 +306,7 @@ test('(c) TTY: 1 問の確認で Enter（既定応答）なら既定パスに作
       now: new Date(2026, 7, 2)
     });
 
-    const expectedRoot = join(env.HOME, 'AkariVideo');
+    const expectedRoot = join(env.HOME, 'Akari');
     const expectedProjectDir = join(expectedRoot, 'channels', DEFAULT_CHANNEL_NAME, 'videos', '2026-08-02-video');
     assert.ok(promptText?.includes(expectedRoot), '実出力: ' + promptText);
     assert.equal(claudeCall?.cwd, expectedProjectDir);

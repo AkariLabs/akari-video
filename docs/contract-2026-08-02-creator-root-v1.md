@@ -36,7 +36,7 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
 |---|---|---|---|---|
 | アプリ本体（エンジン + 同梱物） | `/Applications/` 等 | `%LOCALAPPDATA%\Programs\` 等 | 誰も編集しない | 丸ごと入れ替え |
 | マシン状態・設定 | `~/.akari/`（`AKARI_HOME` で上書き可・既存規約） + 資格情報 `~/.config/akari-video/credentials.env`（既存） | 同左（`%USERPROFILE%` 起点） | アプリのみ | 保持 |
-| **作業場** | 既定 `~/AkariVideo/` | 既定 `%USERPROFILE%\AkariVideo\` | 人間 + エージェント（§4 の所有権に従う） | **壊さない**（migration のみ） |
+| **作業場** | 既定 `~/Akari/`（2026-08-08 改訂。旧既定 `~/AkariVideo/` — §11 参照） | 既定 `%USERPROFILE%\Akari\` | 人間 + エージェント（§4 の所有権に従う） | **壊さない**（migration のみ） |
 
 - マシン状態の実パスは**既存実装の規約を追認**する（`~/.akari/` = 更新キャッシュ・接続マーカー・
   可搬 Node runtime 等 / 資格情報は `~/.config/akari-video/credentials.env`）。新たな隠し場所を増やさない
@@ -96,7 +96,7 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
 
 1. **接続** — LLM へのログイン / キー設定（保存先はマシン設定）。
    外部エージェント経由の利用（door・将来契約）ではこのステップをスキップできる設計とする
-2. **場所** — 「作業場をどこに作りますか」1 問のみ。既定 `~/AkariVideo/`
+2. **場所** — 「作業場をどこに作りますか」1 問のみ。既定 `~/Akari/`（2026-08-08 改訂。§11）
 3. **生成** — §3 の構造を生成（akari.md はスタブ・design.md は無し）。
    **生成完了の時点で動画制作を開始できる**こと（インタビュー等の追加ステップを挟まない）
 
@@ -155,3 +155,12 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
 - テキスト出口への拡張（`persona/` / `outlets/` — creator-root/v2 候補）
 - Windows インストーラの同等実装
 - 作業場ダッシュボード UI の詳細（home 動線の実装契約側で扱う）
+
+## 11. 改訂履歴
+
+- **2026-08-08（タスク workspace-default-akari）**: §2・§5 の新規作業場の既定パスを
+  `~/AkariVideo/`（Windows: `%USERPROFILE%\AkariVideo\`）から `~/Akari/`
+  （Windows: `%USERPROFILE%\Akari\`）へ改訂。理由: 命名裁定（傘 = AkariLabs / 製品 = AKARI
+  <能力> / データの家 = `~/Akari`）との整合。作業場の同定はフォルダ名でなく `root.json` の
+  存在 + `~/.akari/creator-root.json` ポインタなので、既存の `~/AkariVideo` 作業場は
+  無改造のまま動作する（§3・§6-1 不変）。

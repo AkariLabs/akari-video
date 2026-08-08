@@ -765,7 +765,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected async ensureCreatorRootForNewProject(): Promise<URI | undefined> {
         const confirmed = await new ConfirmDialog({
             title: 'チャンネルの置き場を作成しますか？',
-            msg: 'チャンネルの置き場がまだありません。作成して、新しい動画を始めますか？（データの場所: ~/AkariVideo）',
+            msg: 'チャンネルの置き場がまだありません。作成して、新しい動画を始めますか？（データの場所: ~/Akari）',
             ok: '作成してはじめる',
             cancel: 'キャンセル'
         }).open();
@@ -881,14 +881,14 @@ export class AkariHomeWidget extends ReactWidget {
      * 確認は 1 回だけ — 文言自体が「作成して、このプロジェクトを入れますか？」と
      * 作成 + 取り込みをまとめて尋ねる形なので、作成直後に `confirmAndAdopt` の
      * 2 回目の確認は挟まない。「作業場」の語は出さない（U1）— 事実表記の
-     * 「データの場所: ~/AkariVideo」だけ許可される。ensure 直後の作業場は必ず
+     * 「データの場所: ~/Akari」だけ許可される。ensure 直後の作業場は必ず
      * チャンネルが 1 つ（`createCreatorRoot` の既定チャンネル）なので QuickPick も
      * 不要 — 解決したチャンネル名をそのまま `performAdopt` に渡す。
      */
     protected async createChannelDestinationAndJoin(projectUri: URI): Promise<void> {
         const confirmed = await new ConfirmDialog({
             title: 'チャンネルの置き場を作成しますか？',
-            msg: 'チャンネルの置き場がまだありません。作成して、このプロジェクトを入れますか？（データの場所: ~/AkariVideo）',
+            msg: 'チャンネルの置き場がまだありません。作成して、このプロジェクトを入れますか？（データの場所: ~/Akari）',
             ok: '作成して入れる',
             cancel: 'キャンセル'
         }).open();
