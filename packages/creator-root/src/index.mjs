@@ -299,9 +299,9 @@ function machinePointerPath(env, platform) {
     return path.join(resolveAkariHome(env, { platform }), MACHINE_POINTER_FILE_NAME);
 }
 
-/** 作業場の既定パス。既定 `~/AkariVideo`（Windows は `USERPROFILE` 起点。契約 §2）。 */
+/** 作業場の既定パス。既定 `~/Akari`（Windows は `USERPROFILE` 起点。契約 §2、2026-08-08 改訂）。 */
 export function defaultRootPath(env = process.env, { platform = process.platform } = {}) {
-    return path.join(resolveHomeDir(env, platform), 'AkariVideo');
+    return path.join(resolveHomeDir(env, platform), 'Akari');
 }
 
 // --- 低レベル fs ヘルパー ---

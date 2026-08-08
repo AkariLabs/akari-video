@@ -56,7 +56,7 @@ node "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.mjs" --status-json "$PWD
 `project.scaffolded: false` のときにこの節を使う。明示要求は現在のフォルダーが既存プロジェクトでも
 作業場 discovery・同意導線を発火させる。canonical status core は工程判定の正本のまま維持し、
 この節はプロジェクト外での作業場 discovery と同意取得だけを補う。**作業場**は利用者 1 人のプロジェクト・素材・
-設定をまとめる置き場（既定 `~/AkariVideo/`）。用語・構造の正本は公開契約
+設定をまとめる置き場（既定 `~/Akari/`）。用語・構造の正本は公開契約
 `docs/contract-2026-08-02-creator-root-v1.md` §3。
 
 ### 検出
@@ -81,7 +81,7 @@ node "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.mjs" --status-json "$PWD
 ### 見つからない場合 — 勝手に作らない
 
 作業場が無いことを検出しても、**利用者の同意なしに作成しない**（提案 → 同意 → 作成の順）。
-「作業場（既定 `~/AkariVideo/`。変更したい場合は場所を聞く）を作ってよいか」を尋ね、同意が
+「作業場（既定 `~/Akari/`。変更したい場合は場所を聞く）を作ってよいか」を尋ね、同意が
 得られてから次を実行する。
 
 - **作成（第一手段）**: `akari init` を実行する（引数なし。既存の作業場があれば何も作らず
