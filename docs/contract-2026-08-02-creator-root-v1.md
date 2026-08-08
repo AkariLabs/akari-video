@@ -66,6 +66,7 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
 ├── inbox/                         # 人間の投げ込み口（撮りっぱなし・メモ）
 └── .akari/
     ├── root.json                  # 作業場マニフェスト（版数・チャンネル一覧・生成日）
+    ├── connections.json           # provider・モデル・コスト承認ポリシーの作業場既定
     ├── memory/                    # スタイル学習・記憶（memory-connection の既定接続先 §7）
     └── cache/                     # 再生成可能物
 ```
