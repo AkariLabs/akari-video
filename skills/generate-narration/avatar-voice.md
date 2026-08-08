@@ -23,7 +23,7 @@
 |---|---|---|---|
 | `voicevox` | `--engine voicevox --speaker <ref から取り出した id>` | 不要（ゼロ円・宣言のみ。ハードルール 4 の対象外 — engines.md の voicevox アダプタと同じ） | `ref` の形式 `speaker:<id>(<名前>)` から先頭の整数を取り出して `--speaker` に渡す |
 | `fal-clone` | `--engine fal-qwen3 --profile <ref から取り出した profile 名>` | **必要**（費用宣言 → 明示承認後のみ実行。ハードルール 4） | まず `--dry-run` で見積り費用を提示し、承認を得てから `--yes --apply` 相当を実行する。本人以外の声を無断で使わない（ハードルール 1 は generate-narration 本体が担保） |
-| `recorded` | TTS 呼び出しなし | 該当なし | 人間が用意した音声ファイルをそのまま `audio.narration[].path` に置き、`provenance.provider: "human"` として記録する（generate-narration.mjs は使わない） |
+| `recorded` | TTS 呼び出しなし | 該当なし | 人間が用意した音声ファイルをそのまま `audio.narration[].path` に置き、`provenance.provider: "human"` として記録する（`akari narration generate` は使わない） |
 
 `ref` の取り出し方（正規表現の目安）:
 
@@ -35,12 +35,12 @@
 
 `voice.credit`（非 null のとき）は narration の `provenance.credit` へ転写する。
 
-- **`voicevox` レーン**: `generate-narration.mjs` は生成のたびに VOICEVOX エンジンへ `/speakers`
+- **`voicevox` レーン**: `akari narration generate` は生成のたびに VOICEVOX エンジンへ `/speakers`
   を問い合わせて話者名を解決し、`credit: "VOICEVOX:<話者名>"` を自動で `provenance` に埋める
   （[engines.md](engines.md#voicevox-アダプタ)）。通常はこの自動値がアバターの登録 `credit` と
   一致する（同じ speaker id を指しているため）。**一致することを確認し**、値が空でないことだけ
   検査すればよい（手で書き直す必要はない）
-- **`fal-clone` レーン**: `generate-narration.mjs` の fal 経路は `credit` を `provenance` に
+- **`fal-clone` レーン**: `akari narration generate` の fal 経路は `credit` を `provenance` に
   自動で埋めない（自声クローンには通常クレジット義務が無いため）。もしアバターの `voice.credit`
   が非 null のまま fal-clone を使うケースがあれば（例外的な third-party クローン）、生成後の
   `entry.provenance.credit` にアバターの `voice.credit` を手動で追記してから `edit.json` へ

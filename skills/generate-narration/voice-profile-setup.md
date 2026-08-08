@@ -57,8 +57,8 @@ fal-qwen3 アダプタ（[engines.md](engines.md)）で自声クローンを使�
 ユーザーレベル・git 管理外）。
 
 - `embedding.safetensors`（または `embedding_source_url` を meta.json に記録し、資産は fal 側 URL
-  参照のままでもよい。実装は [bin/generate-narration.mjs](bin/generate-narration.mjs) の
-  fal-qwen3 アダプタが `meta.json` の `embedding_source_url` を読む前提に合わせる）
+  参照のままでもよい。実装は `akari narration generate` の fal-qwen3 アダプタが
+  `meta.json` の `embedding_source_url` を読む前提に合わせる）
 - `ref-recording.<ext>`（送信した参照音声そのもの）
 - `meta.json`:
   - `profile`: プロファイル名

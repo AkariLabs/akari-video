@@ -2,7 +2,7 @@
 # マシンが空くのを待ってからレンダーする。
 # 混んでいる最中に焼くと 1 フレームのタイムアウトに引っかかって全体が落ちるため、待つほうが速い。
 #
-#   render-when-idle.sh <project> [--max-load N] [--wait-minutes N] [--timeout-ms N] [-- <render-cut への追加引数>]
+#   akari internal beat-sync-render-when-idle <project> [--max-load N] [--wait-minutes N] [--timeout-ms N] [-- <render-cut への追加引数>]
 set -uo pipefail
 
 PROJECT="${1:-.}"; shift || true
@@ -21,7 +21,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RENDER_CUT="$SCRIPT_DIR/../../../packages/render-cut/bin/render-cut.mjs"
+RENDER_CUT="$SCRIPT_DIR/../../render-cut/bin/render-cut.mjs"
 LOG_DIR="$PROJECT/.akari/work"
 mkdir -p "$LOG_DIR"
 WAIT_LOG="$LOG_DIR/render-wait.log"

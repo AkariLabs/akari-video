@@ -224,12 +224,15 @@ test('creatorRootPromptText: 既定パスを含む 1 行の質問文', () => {
   assert.match(text, /n:/);
 });
 
-test('resolveRepoAssets: モノレポ checkout 内では skills / templates / schemas / doctor を全て見つける', () => {
+test('resolveRepoAssets: モノレポ checkout 内では skills / templates / schemas / doctor / akari-tools を全て見つける', () => {
   const assets = resolveRepoAssets(repoRoot);
   assert.ok(assets.skillsSourceDir);
   assert.ok(assets.templateDir);
   assert.ok(assets.schemasSourceDir);
   assert.ok(assets.doctorScript);
+  assert.ok(assets.beatmapScript);
+  assert.ok(assets.probeFrameScript);
+  assert.ok(assets.renderWhenIdleScript);
 });
 
 test('resolveRepoAssets: 何も見つからないディレクトリでは全フィールドが null', async () => {
@@ -240,6 +243,9 @@ test('resolveRepoAssets: 何も見つからないディレクトリでは全フ�
     assert.equal(assets.schemasSourceDir, null);
     assert.equal(assets.doctorScript, null);
     assert.equal(assets.creatorRootModulePath, null);
+    assert.equal(assets.beatmapScript, null);
+    assert.equal(assets.probeFrameScript, null);
+    assert.equal(assets.renderWhenIdleScript, null);
   });
 });
 
@@ -256,7 +262,10 @@ async function writeRepoMarkers(root) {
     ['templates', 'project-default', 'CLAUDE.md'],
     ['packages', 'schemas', 'analysis.schema.json'],
     ['packages', 'project-scaffold', 'src', 'index.mjs'],
-    ['packages', 'creator-root', 'src', 'index.mjs']
+    ['packages', 'creator-root', 'src', 'index.mjs'],
+    ['packages', 'akari-tools', 'bin', 'beatmap.mjs'],
+    ['packages', 'akari-tools', 'bin', 'probe-frame.mjs'],
+    ['packages', 'akari-tools', 'bin', 'render-when-idle.sh']
   ];
   for (const segments of markers) {
     const filePath = join(root, ...segments);
@@ -299,5 +308,8 @@ test('resolveLauncherAssets: checkout に何も無ければ vendor 同梱（npm 
     assert.ok(assets.doctorScript.startsWith(vendorRoot));
     assert.ok(assets.scaffoldModulePath.startsWith(vendorRoot));
     assert.ok(assets.creatorRootModulePath.startsWith(vendorRoot));
+    assert.ok(assets.beatmapScript.startsWith(vendorRoot));
+    assert.ok(assets.probeFrameScript.startsWith(vendorRoot));
+    assert.ok(assets.renderWhenIdleScript.startsWith(vendorRoot));
   });
 });

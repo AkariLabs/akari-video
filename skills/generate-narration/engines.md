@@ -1,9 +1,9 @@
 # エンジンアダプタ
 
-`bin/generate-narration.mjs` の `generate` サブコマンドで実際にナレーション音声を作る。
+`akari narration generate` サブコマンドで実際にナレーション音声を作る。
 
 ```
-node skills/generate-narration/bin/generate-narration.mjs generate \
+akari narration generate \
   --project <projectDir> --engine <voicevox|fal-qwen3> \
   --reading-file <読み原稿.txt> [--script-file <表示原稿.txt>] \
   --t <タイムライン秒> [--gain-db 0] [--id n-0001] \

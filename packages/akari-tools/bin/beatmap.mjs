@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 宣言（declarations.json）+ 音源 → ビートマップ（拍グリッド / 拍別音量 / 波形エンベロープ）
 //
-//   node beatmap.mjs <project> <track-id> [--track <wav>] [--out <path>] [--declarations <path>]
+//   akari internal beat-sync-beatmap <project> <track-id> [--track <wav>] [--out <path>] [--declarations <path>]
 //
 // 出力 JSON: { bpm, beat, offset, duration, sections, hits, beats[], beat_intensity[], env30[] }
 // 生成時に「区間境界・キメが計算拍とどれだけズレているか」を stderr へ出す（宣言の健全性チェック）。

@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 // 原稿テキストから VOICEVOX（ローカル）または fal Qwen3-TTS（自声クローン）でナレーション音声を
 // 生成し、docs/contract-2026-07-20-edit-json-v1-narration.md 準拠のエントリを組み立てる。
 
@@ -17,11 +15,19 @@ const FAL_USD_PER_1000_CHARS = 0.09;
 
 const usage = [
   "使い方:",
-  "  node generate-narration.mjs generate \\",
+  "  akari narration generate \\",
   "    --project <projectDir> --engine <voicevox|fal-qwen3> \\",
   "    --reading-file <読み原稿.txt> [--script-file <表示原稿.txt>] \\",
   "    --t <タイムライン秒> [--gain-db 0] [--id n-0001] \\",
   "    [--speaker 3] [--profile owner-ja] [--dry-run] [--yes] [--apply]",
+].join("\n");
+const commandUsage = [
+  "使い方: akari narration <subcommand> [options]",
+  "",
+  "サブコマンド:",
+  "  generate  原稿からナレーション音声を生成する",
+  "",
+  usage,
 ].join("\n");
 
 class PublicError extends Error {
@@ -31,8 +37,8 @@ class PublicError extends Error {
   }
 }
 
-function printJson(value) {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+function printJson(value, log = (line) => console.log(line)) {
+  log(JSON.stringify(value, null, 2));
 }
 
 function sleep(ms) {
@@ -390,10 +396,10 @@ async function synthesizeVoicevox(readingText, speakerId) {
 // --- edit.json への --apply ---
 
 function validateEditScriptPath() {
-  return fileURLToPath(new URL("../../../packages/schemas/bin/validate-edit.mjs", import.meta.url));
+  return fileURLToPath(new URL("../../schemas/bin/validate-edit.mjs", import.meta.url));
 }
 
-function applyToEditJson(projectDir, entry) {
+function applyToEditJson(projectDir, entry, io) {
   const editPath = path.join(projectDir, "edit.json");
   let originalText;
   try {
@@ -422,7 +428,7 @@ function applyToEditJson(projectDir, entry) {
       `validate-edit が NG のため edit.json への書き込みをロールバックしました。\n${detail}`,
     );
   }
-  process.stderr.write(`edit.json に ${entry.id} を追加しました（validate-edit: PASS）。\n`);
+  io.logError(`edit.json に ${entry.id} を追加しました（validate-edit: PASS）。`);
 }
 
 // --- dry-run ---
@@ -432,7 +438,7 @@ function maskKey(secret) {
   return secret ? "***configured***" : "***unconfigured***";
 }
 
-async function runDryRun(options, readingText) {
+async function runDryRun(options, readingText, io) {
   const outputPath = relativeOutputPath(options.id ?? computeNextId(options.project), options.engine);
   if (options.engine === "voicevox") {
     printJson({
@@ -449,7 +455,7 @@ async function runDryRun(options, readingText) {
         speaker: Number(options.speaker),
         text: readingText,
       },
-    });
+    }, io.log);
     return;
   }
 
@@ -467,18 +473,18 @@ async function runDryRun(options, readingText) {
       headers: { Authorization: `Key ${maskKey(falKey)}` },
       body: payload,
     },
-  });
+  }, io.log);
 }
 
 // --- generate 本体 ---
 
-async function runGenerate(options) {
+async function runGenerate(options, io) {
   const readingText = readTextFile(options.readingFile, "読み原稿");
   const scriptText = options.scriptFile ? readTextFile(options.scriptFile, "表示原稿") : null;
 
   if (options.dryRun) {
-    await runDryRun(options, readingText);
-    return;
+    await runDryRun(options, readingText, io);
+    return 0;
   }
 
   const id = options.id ?? computeNextId(options.project);
@@ -514,18 +520,15 @@ async function runGenerate(options) {
     const falKey = resolveFalKey();
     const meta = readProfileMeta(options.profile);
     const estimatedCostUsd = estimateFalCostUsd(readingText);
-    process.stderr.write(
-      `fal-qwen3 推定費用: 約 $${estimatedCostUsd}（${readingText.length} 文字 × $${FAL_USD_PER_1000_CHARS}/1000字）\n`,
-    );
+    io.logError(`fal-qwen3 推定費用: 約 $${estimatedCostUsd}（${readingText.length} 文字 × $${FAL_USD_PER_1000_CHARS}/1000字）`);
     if (!options.yes) {
       printJson({
         sent: false,
         engine: "fal-qwen3",
         estimated_cost_usd: estimatedCostUsd,
         reason: "費用承認（--yes）がありません。実リクエストは送信していません。",
-      });
-      process.exitCode = 2;
-      return;
+      }, io.log);
+      return 2;
     }
     // --yes が明示された場合のみ、ここで初めて課金の発生する fal API を呼び出す。
     audioBuffer = await synthesizeFal(readingText, meta, falKey);
@@ -550,23 +553,37 @@ async function runGenerate(options) {
     provenance,
   };
 
-  if (options.apply) applyToEditJson(options.project, entry);
+  if (options.apply) applyToEditJson(options.project, entry, io);
 
-  printJson(entry);
+  printJson(entry, io.log);
+  return 0;
 }
 
-async function main() {
-  let options;
+export async function runNarrationCommand(args, commandOptions = {}) {
+  const io = {
+    log: commandOptions.log ?? ((line) => console.log(line)),
+    logError: commandOptions.logError ?? ((line) => console.error(line)),
+  };
+
+  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+    io.log(commandUsage);
+    return { exitCode: 0 };
+  }
+  if (args[0] === 'generate' && (args.includes('--help') || args.includes('-h'))) {
+    io.log(usage);
+    return { exitCode: 0 };
+  }
+
+  let parsedOptions;
   try {
-    options = parseArguments(process.argv.slice(2));
-    await runGenerate(options);
+    parsedOptions = parseArguments(args);
+    const exitCode = await runGenerate(parsedOptions, io);
+    return { exitCode };
   } catch (error) {
     const exitCode = error instanceof PublicError ? error.exitCode : 1;
     const message = error instanceof PublicError ? error.message : `内部処理に失敗しました: ${error?.message ?? error}`;
-    process.stderr.write(`${message}\n`);
-    printJson({ error: message });
-    process.exitCode = exitCode;
+    io.logError(message);
+    printJson({ error: message }, io.log);
+    return { exitCode };
   }
 }
-
-await main();

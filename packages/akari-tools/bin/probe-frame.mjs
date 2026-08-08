@@ -2,7 +2,7 @@
 // 単発フレームプローブ — 本番と同じオーバーレイシートを作り、指定時刻を 1 枚だけ撮る。
 // フルレンダー（数十分）を待たずに絵を確かめるための道具。
 //
-//   node probe-frame.mjs <project> <秒> [<秒> ...] [--flatten <#rrggbb>]
+//   akari internal beat-sync-probe-frame <project> <秒> [<秒> ...] [--flatten <#rrggbb>]
 //
 // 出力: <project>/.akari/probe/t-<秒>.png（既定はアルファ保持）
 //       --flatten を付けると指定色で合成した PNG も出す（目視用）
@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const RENDER_CUT_SRC = resolve(HERE, '../../../packages/render-cut/src');
+const RENDER_CUT_SRC = resolve(HERE, '../../render-cut/src');
 const { renderOverlaySheet } = await import(join(RENDER_CUT_SRC, 'rasterize.mjs'));
 const { findChromePath } = await import(join(RENDER_CUT_SRC, 'render-cut.mjs'));
 

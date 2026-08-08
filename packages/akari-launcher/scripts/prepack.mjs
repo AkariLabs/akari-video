@@ -69,10 +69,13 @@ const listed = execFileSync('git', ['-C', REPO_ROOT, 'ls-files', '-z'], {
   maxBuffer: 64 * 1024 * 1024
 });
 const allTrackedFiles = listed.toString('utf8').split('\0').filter(Boolean);
-const baseVendorFiles = allTrackedFiles.filter((relative) => VENDOR_SOURCES.some(
+// 移設・削除を含む未コミット worktree からの検証でも、index にだけ残る旧パスを
+// コピー対象にしない。配布候補は「追跡済みかつ現在も実在する」ファイルに限定する。
+const existingTrackedFiles = allTrackedFiles.filter((relative) => existsSync(path.join(REPO_ROOT, relative)));
+const baseVendorFiles = existingTrackedFiles.filter((relative) => VENDOR_SOURCES.some(
   (source) => relative === source || relative.startsWith(`${source}/`),
 ));
-const capabilityFiles = discoverCheckoutCapabilitySources(REPO_ROOT, { trackedFiles: allTrackedFiles });
+const capabilityFiles = discoverCheckoutCapabilitySources(REPO_ROOT, { trackedFiles: existingTrackedFiles });
 const trackedFiles = [...new Set([...baseVendorFiles, ...capabilityFiles])]
   .sort((left, right) => left.localeCompare(right, 'en'));
 if (trackedFiles.length === 0) {

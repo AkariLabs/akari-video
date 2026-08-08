@@ -5,10 +5,10 @@
 
 ## 1. ビートマップ（時刻の唯一のソース）
 
-`bin/beatmap.mjs` が `declarations.json` + 音源から作る:
+`akari internal beat-sync-beatmap` が `declarations.json` + 音源から作る:
 
 ```sh
-node skills/beat-sync-edit/bin/beatmap.mjs <project> <track-id> [--out .akari/work/beatmap.json]
+akari internal beat-sync-beatmap <project> <track-id> [--out .akari/work/beatmap.json]
 ```
 
 | キー | 中身 | 使い道 |
