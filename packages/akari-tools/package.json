@@ -1,0 +1,16 @@
+{
+  "name": "@akari-video/akari-tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.mjs\""
+  },
+  "dependencies": {
+    "@akari-video/render-cut": "0.0.0",
+    "puppeteer-core": "25.2.1"
+  }
+}

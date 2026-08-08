@@ -2,7 +2,7 @@
 // ビート同期タイムライン生成器（ひな形）
 //
 //   <project>/.akari/work/gen-timeline.mjs にコピーして書き換える。
-//   前提: .akari/work/beatmap.json（skills/beat-sync-edit/bin/beatmap.mjs で生成）
+//   前提: .akari/work/beatmap.json（akari internal beat-sync-beatmap で生成）
 //   実行: node .akari/work/gen-timeline.mjs
 //
 // 規律:

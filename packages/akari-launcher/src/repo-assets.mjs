@@ -3,8 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // このファイルの場所（packages/akari-launcher/src/）から見て、モノレポの checkout
-// なら 2 つ上がリポジトリルート。`skills/create-project/bin/create-project.mjs` と
-// 同じ「スクリプト自身の位置からの相対解決」方式（cwd には依存しない — cwd は
+// なら 2 つ上がリポジトリルート。「スクリプト自身の位置からの相対解決」方式で、
+// cwd には依存しない（cwd は
 // スキャフォールド先のプロジェクトルートであり、リポ checkout の位置とは無関係）。
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_REPO_ROOT_CANDIDATE = path.resolve(PACKAGE_ROOT, '..', '..');
@@ -27,6 +27,9 @@ const CREATOR_ROOT_MODULE_RELATIVE = path.join('packages', 'creator-root', 'src'
 // 公式音源ライブラリ（AKARI Sounds）の一括取得スクリプト。初回動線（sounds-setup.mjs）と
 // `akari sounds` が子プロセスとして起動する。未同梱なら null（機能スキップ）。
 const AUDIO_FETCH_SCRIPT_RELATIVE = path.join('packages', 'audio-library-setup', 'bin', 'fetch-akari-sounds.mjs');
+const BEATMAP_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'beatmap.mjs');
+const PROBE_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'probe-frame.mjs');
+const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
 
 /**
  * 指定ルート配下に同梱されているスキル正本・雛形・schemas・scaffold 実装・creator-root
@@ -40,6 +43,9 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const scaffoldModulePath = path.join(repoRoot, SCAFFOLD_MODULE_RELATIVE);
   const creatorRootModulePath = path.join(repoRoot, CREATOR_ROOT_MODULE_RELATIVE);
   const audioFetchScriptPath = path.join(repoRoot, AUDIO_FETCH_SCRIPT_RELATIVE);
+  const beatmapScript = path.join(repoRoot, BEATMAP_SCRIPT_RELATIVE);
+  const probeFrameScript = path.join(repoRoot, PROBE_FRAME_SCRIPT_RELATIVE);
+  const renderWhenIdleScript = path.join(repoRoot, RENDER_WHEN_IDLE_SCRIPT_RELATIVE);
 
   return {
     repoRoot,
@@ -49,7 +55,10 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     doctorScript: existsSync(doctorScript) ? doctorScript : null,
     scaffoldModulePath: existsSync(scaffoldModulePath) ? scaffoldModulePath : null,
     creatorRootModulePath: existsSync(creatorRootModulePath) ? creatorRootModulePath : null,
-    audioFetchScriptPath: existsSync(audioFetchScriptPath) ? audioFetchScriptPath : null
+    audioFetchScriptPath: existsSync(audioFetchScriptPath) ? audioFetchScriptPath : null,
+    beatmapScript: existsSync(beatmapScript) ? beatmapScript : null,
+    probeFrameScript: existsSync(probeFrameScript) ? probeFrameScript : null,
+    renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null
   };
 }
 
@@ -64,6 +73,7 @@ export function resolveLauncherAssets({
 } = {}) {
   const checkout = resolveRepoAssets(candidateRoot);
   const found = checkout.skillsSourceDir || checkout.templateDir || checkout.schemasSourceDir
-    || checkout.doctorScript || checkout.scaffoldModulePath || checkout.creatorRootModulePath;
+    || checkout.doctorScript || checkout.scaffoldModulePath || checkout.creatorRootModulePath
+    || checkout.beatmapScript || checkout.probeFrameScript || checkout.renderWhenIdleScript;
   return found ? checkout : resolveRepoAssets(vendorRoot);
 }

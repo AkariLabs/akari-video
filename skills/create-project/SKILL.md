@@ -27,7 +27,7 @@ description: AKARI Video の新規プロジェクトを headless で作成する
 2. 次の CLI を実行する。
 
    ```sh
-   node skills/create-project/bin/create-project.mjs <target-dir> [--template <path>]
+   akari new <target-dir> [--template <path>]
    ```
 
 3. 標準出力に表示された作成結果レポート HTML のパスを確認する。レポートは読み取り専用で、コピー、フォールバック補完、シンボリックリンクのスキップ、雛形バージョン、git 初期化の結果を記録する。
@@ -35,7 +35,7 @@ description: AKARI Video の新規プロジェクトを headless で作成する
 ## 使い方
 
 ```sh
-node skills/create-project/bin/create-project.mjs <target-dir> [--template <path>]
+akari new <target-dir> [--template <path>]
 ```
 
 - `<target-dir>`: 作成先ディレクトリ。新規でも既存の非空フォルダでもよい。既存ファイルは上書きしない。

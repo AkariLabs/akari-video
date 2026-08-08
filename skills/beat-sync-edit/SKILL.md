@@ -66,9 +66,9 @@ description: 宣言済み音源（declarations.json の BPM・頭拍・キメ・
 | 道具 | 用途 |
 |---|---|
 | [`templates/gen-timeline.mjs`](templates/gen-timeline.mjs) | 生成器のひな形（そのままコピーして書き換える） |
-| [`bin/beatmap.mjs`](bin/beatmap.mjs) | 宣言 + 音源 → 拍グリッド + 拍別音量 + 波形エンベロープ |
-| [`bin/probe-frame.mjs`](bin/probe-frame.mjs) | 本番と同じシートから任意時刻を 1 枚だけ撮る |
-| [`bin/render-when-idle.sh`](bin/render-when-idle.sh) | マシンが空くのを待ってからレンダーする |
+| `akari internal beat-sync-beatmap` | 宣言 + 音源 → 拍グリッド + 拍別音量 + 波形エンベロープ |
+| `akari internal beat-sync-probe-frame` | 本番と同じシートから任意時刻を 1 枚だけ撮る |
+| `akari internal beat-sync-render-when-idle` | マシンが空くのを待ってからレンダーする |
 
 関連: [overlay-authoring](../overlay-authoring/SKILL.md)（断片の書き方）/
 [declare-audio](../declare-audio/SKILL.md)（宣言づけ）/ [render-cut](../render-cut/SKILL.md)（書き出し）

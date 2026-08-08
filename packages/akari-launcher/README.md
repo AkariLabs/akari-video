@@ -32,6 +32,9 @@ akari
 ```
 
 サブコマンド: `akari update`（更新確認）/ `akari init`（作業場の作成・確認のみ）/
+`akari new <target-dir> [--template <path>]`（新規プロジェクト作成）/
+`akari narration generate ...`（VOICEVOX / fal-qwen3 ナレーション生成）/
+`akari internal beat-sync-<beatmap|probe-frame|render-when-idle> ...`（beat-sync-edit 内部実行物）/
 `akari sounds [--variant wav] [--force]`（公式音源の一括ダウンロード。プロンプトなし・headless 可）/
 `akari store <connect|status|download|disconnect>`（AKARI Store 連携。マイページで発行した
 接続トークンを `~/.akari/store-credentials.json`（0600）に保存し、購入済み一覧の確認と
@@ -67,7 +70,7 @@ AKARI Video は「同じファイル契約（`.akari/` 配下の JSON）に収�
 | アプリ | 接続ボタン（AKARI Video アプリ） | アプリの「はじめる」画面から接続 → はじめかた選択 |
 
 3 つとも最終的に同じもの（`.akari/connections.json` / `.akari/intake.json` /
-`skills/create-project`）を読み書きするため、どの入口から始めても続きは他の入口から
+`akari new` が使う共通 project-scaffold）を読み書きするため、どの入口から始めても続きは他の入口から
 再開できる。
 
 ## インストール

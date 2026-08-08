@@ -24,7 +24,7 @@
 新規プロジェクトの初期構造です。`create-project` スキルが再帰コピーし、雛形バージョンを記録します。
 
 ```sh
-node skills/create-project/bin/create-project.mjs <target-dir>
+akari new <target-dir>
 ```
 
 契約は [`docs/contract-2026-07-25-project-structure-v0.md`](../docs/contract-2026-07-25-project-structure-v0.md)。

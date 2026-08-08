@@ -27,7 +27,7 @@ ffmpeg -ss 1.6 -i .akari/work/mini/exports/*.mp4 -frames:v 1 -y check.png
 レンダーを起動せず、本番と同じシートから任意時刻を 1 枚だけ撮る:
 
 ```sh
-node skills/beat-sync-edit/bin/probe-frame.mjs <project> 6.5 45.5 103.2
+akari internal beat-sync-probe-frame <project> 6.5 45.5 103.2
 # → <project>/.akari/probe/t-<秒>.png（アルファ保持）
 ```
 
@@ -49,7 +49,8 @@ RENDER_CUT_CAPTURE_TIMEOUT_MS=300000 \
 ```
 
 - `RENDER_CUT_CAPTURE_TIMEOUT_MS` で 1 フレームのタイムアウトを延ばす（5 分を既定に）
-- マシンが混んでいるなら**空くまで待ってから焼く**（`bin/render-when-idle.sh`）。
+- マシンが混んでいるなら**空くまで待ってから焼く**
+  （`akari internal beat-sync-render-when-idle <project>`）。
   待つほうが、落ちて焼き直すより速い
 - 進捗は `<project>/.akari/render-tmp/*/frames` のファイル数で見る（対 総フレーム数）
 
