@@ -1,4 +1,13 @@
-import { resolveProjectStatus, resolveFullProjectStatus, serializeStatus, formatStatusSummary } from "./status-core/status.mjs";
+import {
+  resolveProjectStatus,
+  resolveFullProjectStatus,
+  serializeStatus,
+  formatStatusSummary,
+  detectStatusScope,
+  resolveWorkspaceStatus,
+  serializeWorkspaceStatus,
+  formatWorkspaceStatusSummary,
+} from "./status-core/status.mjs";
 
 export async function runStatusCommand(argv, options = {}) {
   const log = options.log ?? ((line) => process.stdout.write(line));
@@ -9,6 +18,14 @@ export async function runStatusCommand(argv, options = {}) {
   } catch (cause) {
     error(cause instanceof Error ? cause.message : String(cause));
     return { exitCode: 2 };
+  }
+  if (detectStatusScope(parsed.projectRoot) === "workspace") {
+    const workspace = resolveWorkspaceStatus(parsed.projectRoot);
+    // fail-safe: a broken root.json falls through to the unchanged project-scope path below.
+    if (workspace) {
+      log(parsed.json ? serializeWorkspaceStatus(workspace) : `${formatWorkspaceStatusSummary(workspace)}\n`);
+      return { exitCode: 0, workspace };
+    }
   }
   const status = parsed.full
     ? await resolveFullProjectStatus(parsed.projectRoot)
