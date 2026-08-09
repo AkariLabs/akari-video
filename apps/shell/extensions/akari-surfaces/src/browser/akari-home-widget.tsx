@@ -726,29 +726,53 @@ export class AkariHomeWidget extends ReactWidget {
      * 生成は `akari-project` 拡張の既存バックエンドサービス
      * `AkariProjectService#createProject()` を呼ぶだけで再実装しない
      * （テンプレコピー・フォールバック補完・スキル同梱・git init は向こう側の責務）。
-     * 生成できたら `openCreatorRootProject` と同じ `WorkspaceService#open` で開く。
+     * 生成できたら**このウィンドウをそのまま**新しい動画へ切り替える
+     * （`preserveWindow: true`）。`openCreatorRootProject`（過去プロジェクトを開く）が
+     * 別ウィンドウなのと違うのは、こちらが「今から作る 1 本へ移動する」導線だから
+     * （プロジェクト未選択のウェルカム画面では Theia 既定が元々同ウィンドウ切替に
+     * なるため、状態によって挙動が変わらない形にも揃う）。
+     *
+     * 開くのに `WorkspaceService#open` は使えない: あれは `void` を返す
+     * fire-and-forget で、内部の `doOpen` を await せず失敗も握り潰すため、
+     * 開けなかったときに下の catch へ入らず「作成しています…」で固まる
+     * （実機再現済み。`openWorkspace` は同じ経路を Promise で返す public API）。
+     * フラグ復帰は finally に置く — 成功時に戻し忘れるとボタンが
+     * disabled のまま二度と押せなくなる（同上）。
      */
-    protected startNewProject = async (): Promise<void> => {
+    startNewProject = async (): Promise<void> => {
         if (this.startingNewProject) {
             return;
         }
         this.startingNewProject = true;
         this.update();
         try {
-            const rootUri = this.creatorRootUri ?? await this.ensureCreatorRootForNewProject();
+            // `creatorRootUri` は loadCreatorRootProjects が解決して持つが、この経路は
+            // File メニューのコマンド（akari-home-command-contribution）からも来る —
+            // ホームを開いた直後だと解決がまだ走っていないことがあり、そのまま
+            // ensureCreatorRootForNewProject に落ちると置き場が既にあるのに
+            // 「作成しますか？」を聞いてしまう。先に同じ解決を 1 回試す。
+            const rootUri = this.creatorRootUri
+                ?? (this.creatorRootUri = await this.resolveCreatorRootDir())
+                ?? await this.ensureCreatorRootForNewProject();
             if (!rootUri) {
-                this.startingNewProject = false;
-                this.update();
                 return;
             }
             const channel = await this.resolveDefaultChannelName(rootUri);
             const name = await this.reserveNewProjectName(rootUri, channel);
             const destination = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME).resolve(name);
             await this.newProjectService.createProject(destination.toString());
-            this.workspaceService.open(destination);
+            await this.workspaceService.openWorkspace(destination, { preserveWindow: true });
         } catch (error) {
             console.error('[akari-surfaces] failed to start a new project:', error);
-            this.messages.error('新しい動画の作成に失敗しました。');
+            // 理由を出さない 1 行だけだと実機の失敗（雛形/scaffold の同梱漏れ・権限・
+            // 同名衝突）がすべて同じ文言に潰れて切り分けができない。`ensureCreatorRoot`
+            // 側（describeEnsureError）と同じ流儀で、原因を括弧で添える。
+            this.messages.error(
+                error instanceof Error && error.message
+                    ? `新しい動画の作成に失敗しました（${error.message}）。`
+                    : '新しい動画の作成に失敗しました。'
+            );
+        } finally {
             this.startingNewProject = false;
             this.update();
         }
