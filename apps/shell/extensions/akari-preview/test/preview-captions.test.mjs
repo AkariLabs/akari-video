@@ -146,16 +146,18 @@ test('words[] 付きカラオケ字幕が text_style: null でも保持される
     assert.equal(parsed[0].words.length, 2);
 });
 
-test('shared caption-style contract keeps reveal-word while reveal and unknown remain dropped', () => {
+test('supported caption styles pass through while unknown styles remain dropped', () => {
     const styleContract = styleParity.caption_style_contract;
     const parsed = parsePreviewCaptions(JSON.stringify([
-        { ...caption, id: 'c-0001', style: styleContract.accepted.style },
-        { ...caption, id: 'c-0002', start: 3, end: 5, style: 'reveal' },
-        { ...caption, id: 'c-0003', start: 6, end: 8, style: styleContract.unknown.style }
+        { ...caption, id: 'c-0001', style: 'karaoke' },
+        { ...caption, id: 'c-0002', start: 3, end: 5, style: 'pop' },
+        { ...caption, id: 'c-0003', start: 6, end: 8, style: 'reveal' },
+        { ...caption, id: 'c-0004', start: 9, end: 11, style: styleContract.accepted.style },
+        { ...caption, id: 'c-0005', start: 12, end: 14, style: styleContract.unknown.style }
     ]));
-    assert.equal(parsed[0].style, 'reveal-word');
-    assert.equal(parsed[1].style, undefined);
-    assert.equal(parsed[2].style, undefined);
+    assert.deepEqual(parsed.map(item => item.style), [
+        'karaoke', 'pop', 'reveal', 'reveal-word', undefined
+    ]);
 });
 
 test('resolved payload remains timeline-domain and preserves source cue identity for writeback', () => {
