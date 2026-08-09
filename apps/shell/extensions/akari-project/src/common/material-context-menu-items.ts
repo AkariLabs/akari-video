@@ -40,8 +40,12 @@ export function buildMaterialContextMenuItems(
     const items: MaterialContextMenuItem[] = [
         { id: 'open', label: '開く' }
     ];
-    if (context && target === 'material' && (context.materialKind === 'video' || context.materialKind === 'audio')) {
-        // video/audio の素材カードのみ（task 2026-08-10-material-menu-r2 司令塔裁定1）。
+    if (
+        context && target === 'material'
+        && (context.materialKind === 'video' || context.materialKind === 'audio' || context.materialKind === 'image')
+    ) {
+        // video/audio/image の素材カードのみ（task 2026-08-10-material-menu-r2 司令塔裁定1、
+        // task 2026-08-10-material-dnd-timeline 司令塔裁定3で image まで拡張）。
         items.push({ id: 'add-to-timeline', label: 'タイムラインに追加' });
     }
     items.push({ id: 'reveal', label: isOSX ? 'Finder で表示' : 'フォルダを開く' });
