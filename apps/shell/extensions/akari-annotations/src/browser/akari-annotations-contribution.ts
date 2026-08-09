@@ -20,6 +20,7 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
+    ADD_MATERIAL_AT_PLAYHEAD,
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
     OPEN_AKARI_ANNOTATIONS,
     OPEN_AKARI_CANVAS,
@@ -177,6 +178,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(SELECT_IMAGE_BLOCK, {
             execute: (blockId: unknown, imageSrc: unknown) => this.handleSelectImageBlock(blockId, imageSrc)
+        });
+        commands.registerCommand(ADD_MATERIAL_AT_PLAYHEAD, {
+            execute: (request: unknown) => this.addMaterialAtPlayhead(request)
         });
         const onPlaybackTick = (event: Event): void => {
             const request = (event as CustomEvent<PreviewPlaybackTick>).detail;
@@ -402,6 +406,26 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         this.timelineDismissedThisSession = false;
         await this.shell.activateWidget(widget.id);
         return widget;
+    }
+
+    /**
+     * 素材追加コマンド（ADD_MATERIAL_AT_PLAYHEAD）の受け側（task 2026-08-10-timeline-clip-menu
+     * 指示4・司令塔裁定6）。widget が未オープンなら `open()`（= akari.annotations.open と同じ経路）
+     * で開いてから挿入する。それでも edit.json のロケーションが取れない場合は widget 側の
+     * addMaterialAtPlayhead が messages.warn 1文で誘導する（ここでは「プロジェクト自体が
+     * 見つからない」場合のみ warn する）。引数の型検証（kind/relativePath）は widget 側で行う
+     * （司令塔裁定4・5）。
+     */
+    protected async addMaterialAtPlayhead(request: unknown): Promise<void> {
+        const payload = request as { relativePath?: unknown; kind?: unknown } | undefined;
+        const relativePath = typeof payload?.relativePath === 'string' ? payload.relativePath : '';
+        const kind = typeof payload?.kind === 'string' ? payload.kind : '';
+        const widget = await this.open();
+        if (!widget) {
+            this.messages.warn('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
+            return;
+        }
+        await widget.addMaterialAtPlayhead(relativePath, kind);
     }
 
     /**

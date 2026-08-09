@@ -41,7 +41,10 @@ import { deriveDefaultTimelineTracks } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import { computeCutBoundaries } from '../common/cut-boundaries';
+import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
+import { buildLayerElement, buildSfxElement } from '../common/timeline-material-insert';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
+import { openTimelineContextMenu } from './akari-timeline-context-menu';
 import { ProjectLocation } from './project-location';
 import { ReviewModel } from './review-model';
 import {
@@ -72,6 +75,8 @@ const HISTORY_LIMIT = 50;
 const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
 const MINIMUM_SFX_TRIM_DURATION = 0.1;
+/** 素材追加コマンドで実尺（getAudioDuration）が取れない video のフォールバック尺（司令塔裁定4）。 */
+const MATERIAL_INSERT_FALLBACK_DURATION_SECONDS = 3;
 const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
 const TRACK_INSERT_ZONE_PX = 10;
@@ -654,7 +659,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.stripScroll.addEventListener('click', event => this.onStripClick(event));
         this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
-        this.strip.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
+        this.strip.addEventListener('contextmenu', event => {
+            const target = event.target instanceof Element ? event.target : undefined;
+            const itemElement = target?.closest<HTMLElement>('[data-akari-item-kind]');
+            if (itemElement) {
+                this.openTimelineClipContextMenu(event, itemElement);
+                return;
+            }
+            this.openAnnotationPopup(event);
+        });
         this.rulerBar.addEventListener('click', event => this.onStripClick(event));
         this.rulerBar.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.rulerBar.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
@@ -2533,6 +2546,107 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const detail = this.errorMessage(error);
             this.showNotice(`選択項目を削除できません: ${detail}`);
             this.messages.error(`選択項目を削除できません: ${detail}`);
+        }
+    }
+
+    /**
+     * 素材追加コマンド（akari.timeline.addMaterialAtPlayhead）の受け側（task
+     * 2026-08-10-timeline-clip-menu 指示4・司令塔裁定4・5）。video は layers[]、audio は
+     * audio.sfx[] へ再生ヘッド位置で挿入する。書き込みは全文スナップショット方式
+     * （performDeleteMultiSelected と同型）。widget から未使用の insertLayer/insertSfx RPC は
+     * 使わない。引数検証・拒否はここで完結し、例外は投げない（呼び出し元の command ハンドラは
+     * widget の取得/オープンだけを担当する）。
+     */
+    async addMaterialAtPlayhead(relativePath: string, kind: string): Promise<void> {
+        if (kind !== 'video' && kind !== 'audio') {
+            this.messages.warn('素材を追加できません（種別が不正です）。');
+            return;
+        }
+        if (!relativePath) {
+            this.messages.warn('素材を追加できません（パスが空です）。');
+            return;
+        }
+        const location = this.location;
+        if (!location?.editUri) {
+            this.messages.warn('edit.json が見つからないため素材を追加できません。');
+            return;
+        }
+        const t = Number.isFinite(this.playheadT) ? this.playheadT : 0;
+        let durationSeconds = 0;
+        let fallbackNote = '';
+        if (kind === 'video') {
+            const audioUri = this.resolveEditMediaUri(relativePath, location.editUri).toString();
+            let resolved: number | undefined;
+            try {
+                const result = await this.annotationsService.getAudioDuration({
+                    projectRootUri: location.root.toString(), audioUri
+                });
+                resolved = result.status === 'ready' ? result.durationSeconds : undefined;
+            } catch {
+                resolved = undefined;
+            }
+            if (resolved === undefined) {
+                durationSeconds = MATERIAL_INSERT_FALLBACK_DURATION_SECONDS;
+                fallbackNote = `実尺を取得できなかったため ${MATERIAL_INSERT_FALLBACK_DURATION_SECONDS} 秒として追加しました。`;
+            } else {
+                durationSeconds = resolved;
+            }
+        }
+        try {
+            const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
+            const value = JSON.parse(editBefore) as Record<string, any>;
+            const contentDuration = this.contentEndDuration();
+            if (kind === 'video') {
+                const existingIds: string[] = Array.isArray(value.layers)
+                    ? value.layers
+                        .map((layer: any) => (layer && typeof layer.id === 'string' ? layer.id : ''))
+                        .filter((id: string) => id.length > 0)
+                    : [];
+                const built = buildLayerElement(existingIds, relativePath, t, durationSeconds, contentDuration);
+                if (!built.ok) {
+                    this.footer.textContent = '再生ヘッドが総尺以上のため素材を追加できません。';
+                    return;
+                }
+                if (!Array.isArray(value.layers)) {
+                    value.layers = [];
+                }
+                value.layers.push(built.element);
+            } else {
+                const built = buildSfxElement(relativePath, t, contentDuration);
+                if (!built.ok) {
+                    this.footer.textContent = '再生ヘッドが総尺以上のため素材を追加できません。';
+                    return;
+                }
+                if (!value.audio || typeof value.audio !== 'object') {
+                    value.audio = {};
+                }
+                if (!Array.isArray(value.audio.sfx)) {
+                    value.audio.sfx = [];
+                }
+                value.audio.sfx.push(built.element);
+            }
+            let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
+            await this.writeTimelineSnapshots(editAfter);
+            await this.reloadEdit();
+            editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
+            this.pushHistory({
+                label: '素材を追加',
+                undo: async () => {
+                    await this.writeTimelineSnapshots(editBefore);
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.writeTimelineSnapshots(editAfter);
+                    await this.reloadEdit();
+                }
+            });
+            this.hideNotice();
+            this.footer.textContent = fallbackNote || 'タイムラインに素材を追加しました。';
+            this.revealOutputPreview();
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`素材を追加できません: ${detail}`);
+            this.messages.error(`素材を追加できません: ${detail}`);
         }
     }
 
@@ -7543,6 +7657,58 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected closeAnnotationPopup(): void {
         this.contextPopup?.remove();
         this.contextPopup = undefined;
+    }
+
+    /**
+     * タイムラインのクリップ右クリックメニュー（task 2026-08-10-timeline-clip-menu 指示3）。
+     * 右クリックしたアイテムを先に単一選択に切り替えてから（司令塔裁定2）メニューを出す。
+     * 項目構成は既存ハンドラの対応範囲に従う純関数 buildTimelineClipMenuItems に委ねる。
+     */
+    protected openTimelineClipContextMenu(event: MouseEvent, element: HTMLElement): void {
+        event.preventDefault();
+        const item = this.timelineSelectionFromElement(element);
+        if (!item) {
+            return;
+        }
+        this.closeAnnotationPopup();
+        this.applySelection(item);
+        const items = buildTimelineClipMenuItems(item.kind, this.clipboard !== undefined);
+        const clientX = event.clientX;
+        openTimelineContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            items,
+            onSelect: id => this.dispatchTimelineClipMenuAction(id, item, clientX)
+        });
+    }
+
+    /**
+     * メニュー id → 既存ハンドラへのディスパッチ（司令塔裁定1）。分割の分割位置は
+     * 右クリックした X 位置（`clientX`）を使う（司令塔裁定1・事実2）。
+     */
+    protected dispatchTimelineClipMenuAction(id: string, item: TimelineSelectionItem, clientX: number): void {
+        if (id === 'copy') {
+            this.copySelectedItem();
+            return;
+        }
+        if (id === 'paste') {
+            void this.pasteClipboard();
+            return;
+        }
+        if (id === 'split') {
+            if (item.kind !== 'cut') {
+                return;
+            }
+            const segment = this.segments.find(candidate => candidate.index === item.index);
+            if (!segment) {
+                return;
+            }
+            void this.performRazorSplitAt(segment, clientX);
+            return;
+        }
+        if (id === 'delete') {
+            void this.performDeleteSelected();
+        }
     }
 
     /** タイムライン上の右クリックから直接追加する経路。一覧・入力欄は注釈パネルが持つ。 */

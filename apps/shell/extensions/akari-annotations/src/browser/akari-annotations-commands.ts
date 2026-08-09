@@ -61,3 +61,13 @@ export const SELECT_DOC_BLOCK: Command = {
 export const SELECT_IMAGE_BLOCK: Command = {
     id: 'akari.annotations.selectImage'
 };
+
+/**
+ * 素材パネル（姉妹タスク 2026-08-10-material-menu-r2）から `{ relativePath, kind: 'video'|'audio' }`
+ * で呼ばれる素材追加コマンド（task 2026-08-10-timeline-clip-menu 指示4）。再生ヘッド位置へ
+ * 挿入する受け側は akari-annotations-contribution.ts / akari-annotations-widget.ts が持つ。
+ * ATTACH_AKARI_ANNOTATIONS_PASSIVE と同じく label なし内部コマンド。
+ */
+export const ADD_MATERIAL_AT_PLAYHEAD: Command = {
+    id: 'akari.timeline.addMaterialAtPlayhead'
+};
