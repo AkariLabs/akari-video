@@ -1,0 +1,35 @@
+[
+  {
+    "t": "2026-08-09T07:28:41.180Z",
+    "step": "setup:bogus-catalog-root",
+    "ok": true,
+    "readback": "/nonexistent/bogus-catalog-root-1986"
+  },
+  {
+    "t": "2026-08-09T07:28:47.979Z",
+    "step": "item-count",
+    "itemCount": 348,
+    "expected": 348
+  },
+  {
+    "t": "2026-08-09T07:28:48.125Z",
+    "step": "leak-check",
+    "fetchFailedBadge": false,
+    "catalogUnavailableMessage": false
+  },
+  {
+    "t": "2026-08-09T07:29:05.810Z",
+    "step": "edit-lint-status",
+    "ok": true,
+    "outcome": {
+      "available": true,
+      "issueCount": 3
+    }
+  },
+  {
+    "t": "2026-08-09T07:29:05.868Z",
+    "step": "console-error-summary",
+    "count": 0,
+    "sample": []
+  }
+]

@@ -28,6 +28,7 @@ import {
 } from '../common/akari-project-protocol';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
 import { CATALOG_ROOT_UPWARD_MAX_DEPTH, resolveUpwardCatalogRoot } from './catalog-root-search';
+import { assetResolverSrcCandidates, editLintCliCandidates } from './packaged-tool-candidates';
 import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-reader';
 import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, selectResolverAudioFileRef, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
@@ -487,16 +488,13 @@ try {
     }
 
     /**
-     * findEditLintCli と同じ「開発時 cwd 相対 / パッケージ時 __dirname 相対」の
-     * 候補列挙規約。state.mjs の存在で asset-resolver の src/ を特定する。
+     * findEditLintCli と同じ「開発時 cwd 相対 / パッケージ時 __dirname 相対 /
+     * パッケージ時 resourcesPath 基点」の候補列挙規約（packaged-tool-candidates.ts の
+     * assetResolverSrcCandidates が純関数として切り出し済み）。state.mjs の存在で
+     * asset-resolver の src/ を特定する。
      */
     protected async findAssetResolverSrcDir(): Promise<string | undefined> {
-        const candidates = [
-            resolve(__dirname, '../asset-resolver/src'),
-            resolve(process.cwd(), '../../packages/asset-resolver/src'),
-            resolve(process.cwd(), 'packages/asset-resolver/src'),
-            resolve(__dirname, '../../../../../../../packages/asset-resolver/src')
-        ];
+        const candidates = assetResolverSrcCandidates(__dirname, process.cwd(), this.resourcesPath());
         for (const candidate of candidates) {
             if (await this.isFile(join(candidate, 'state.mjs'))) {
                 return candidate;
@@ -743,12 +741,7 @@ try {
     }
 
     protected async findEditLintCli(): Promise<string | undefined> {
-        const candidates = [
-            resolve(__dirname, '../edit-lint/bin/edit-lint.mjs'),
-            resolve(process.cwd(), '../../packages/edit-lint/bin/edit-lint.mjs'),
-            resolve(process.cwd(), 'packages/edit-lint/bin/edit-lint.mjs'),
-            resolve(__dirname, '../../../../../../../packages/edit-lint/bin/edit-lint.mjs')
-        ];
+        const candidates = editLintCliCandidates(__dirname, process.cwd(), this.resourcesPath());
         for (const candidate of candidates) {
             try {
                 if ((await fs.stat(candidate)).isFile()) {
@@ -759,6 +752,14 @@ try {
             }
         }
         return undefined;
+    }
+
+    /**
+     * Electron の `process.resourcesPath`（`Contents/Resources` を指す）。純 node の
+     * テスト実行など Electron 外では undefined — bundledMediaBinPath と同じ取得規約。
+     */
+    protected resourcesPath(): string | undefined {
+        return (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
     }
 
     /**

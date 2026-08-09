@@ -131,6 +131,15 @@
         ]
       },
       {
+        "from": "../../packages/asset-resolver",
+        "to": "packages/asset-resolver",
+        "filter": [
+          "package.json",
+          "bin/**/*",
+          "src/**/*"
+        ]
+      },
+      {
         "from": "resources/vendor-ffmpeg",
         "to": "media-bin"
       }
