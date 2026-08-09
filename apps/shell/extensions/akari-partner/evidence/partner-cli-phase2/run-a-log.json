@@ -1,0 +1,360 @@
+[
+  {
+    "t": "2026-08-09T09:58:51.174Z",
+    "step": "right-panel-rows",
+    "rows": [
+      {
+        "agent": "claude",
+        "rowWidth": 56,
+        "buttons": [
+          {
+            "entry": "anthropic/claude-code-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 18,
+            "height": 196,
+            "hasBadge": true
+          },
+          {
+            "entry": "anthropic/claude-code-extension",
+            "form": "extension",
+            "action": "インストールして始める",
+            "disabled": false,
+            "width": 20,
+            "height": 196,
+            "hasBadge": false
+          }
+        ]
+      },
+      {
+        "agent": "codex",
+        "rowWidth": 56,
+        "buttons": [
+          {
+            "entry": "openai/codex-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 20,
+            "height": 196,
+            "hasBadge": false
+          },
+          {
+            "entry": "openai/codex-extension",
+            "form": "extension",
+            "action": "インストールして始める",
+            "disabled": false,
+            "width": 20,
+            "height": 196,
+            "hasBadge": false
+          }
+        ]
+      },
+      {
+        "agent": "opencode",
+        "rowWidth": 56,
+        "buttons": [
+          {
+            "entry": "sst/opencode-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 44,
+            "height": 64,
+            "hasBadge": false
+          }
+        ]
+      },
+      {
+        "agent": "copilot",
+        "rowWidth": 56,
+        "buttons": [
+          {
+            "entry": "github/copilot-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 44,
+            "height": 64,
+            "hasBadge": false
+          }
+        ]
+      },
+      {
+        "agent": "cursor",
+        "rowWidth": 56,
+        "buttons": [
+          {
+            "entry": "cursor/cursor-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 44,
+            "height": 64,
+            "hasBadge": false
+          }
+        ]
+      },
+      {
+        "agent": "antigravity",
+        "rowWidth": 56,
+        "buttons": [
+          {
+            "entry": "google/antigravity-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 44,
+            "height": 64,
+            "hasBadge": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-09T09:58:51.203Z",
+    "step": "full-width-check",
+    "name": "opencode",
+    "w": 44,
+    "claudeCliWidth": 18,
+    "ratio": 2.4444444444444446
+  },
+  {
+    "t": "2026-08-09T09:58:51.203Z",
+    "step": "full-width-check",
+    "name": "copilot",
+    "w": 44,
+    "claudeCliWidth": 18,
+    "ratio": 2.4444444444444446
+  },
+  {
+    "t": "2026-08-09T09:58:51.203Z",
+    "step": "full-width-check",
+    "name": "cursor",
+    "w": 44,
+    "claudeCliWidth": 18,
+    "ratio": 2.4444444444444446
+  },
+  {
+    "t": "2026-08-09T09:58:51.203Z",
+    "step": "full-width-check",
+    "name": "antigravity",
+    "w": 44,
+    "claudeCliWidth": 18,
+    "ratio": 2.4444444444444446
+  },
+  {
+    "t": "2026-08-09T09:58:51.203Z",
+    "step": "badge-check",
+    "badgedButtons": [
+      {
+        "entry": "anthropic/claude-code-cli",
+        "form": "cli",
+        "action": "始める",
+        "disabled": false,
+        "width": 18,
+        "height": 196,
+        "hasBadge": true
+      }
+    ]
+  },
+  {
+    "t": "2026-08-09T09:58:56.005Z",
+    "step": "catalog-groups",
+    "groups": [
+      {
+        "agent": "claude",
+        "cardWidth": 137,
+        "cardHeight": 518,
+        "hasBadge": true,
+        "slots": [
+          {
+            "id": "anthropic/claude-code-cli",
+            "width": 111,
+            "height": 215
+          },
+          {
+            "id": "anthropic/claude-code-extension",
+            "width": 111,
+            "height": 223
+          }
+        ]
+      },
+      {
+        "agent": "codex",
+        "cardWidth": 137,
+        "cardHeight": 515,
+        "hasBadge": false,
+        "slots": [
+          {
+            "id": "openai/codex-cli",
+            "width": 111,
+            "height": 188
+          },
+          {
+            "id": "openai/codex-extension",
+            "width": 111,
+            "height": 265
+          }
+        ]
+      },
+      {
+        "agent": "opencode",
+        "cardWidth": 137,
+        "cardHeight": 239,
+        "hasBadge": false,
+        "slots": [
+          {
+            "id": "sst/opencode-cli",
+            "width": 111,
+            "height": 188
+          }
+        ]
+      },
+      {
+        "agent": "copilot",
+        "cardWidth": 137,
+        "cardHeight": 251,
+        "hasBadge": false,
+        "slots": [
+          {
+            "id": "github/copilot-cli",
+            "width": 111,
+            "height": 200
+          }
+        ]
+      },
+      {
+        "agent": "cursor",
+        "cardWidth": 137,
+        "cardHeight": 301,
+        "hasBadge": false,
+        "slots": [
+          {
+            "id": "cursor/cursor-cli",
+            "width": 111,
+            "height": 250
+          }
+        ]
+      },
+      {
+        "agent": "antigravity",
+        "cardWidth": 137,
+        "cardHeight": 331,
+        "hasBadge": false,
+        "slots": [
+          {
+            "id": "google/antigravity-cli",
+            "width": 111,
+            "height": 265
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-09T09:58:59.393Z",
+    "step": "opencode-real-install-flow",
+    "present": true,
+    "state": "complete",
+    "entry": "sst/opencode-cli",
+    "text": "opencode CLI を開始しましたPTY の案内に沿ってログインしてください。ログイン後、そのまま作業を開始できます。"
+  },
+  {
+    "t": "2026-08-09T09:58:59.427Z",
+    "step": "opencode-terminal-tabs",
+    "opencodeTabs": [
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "設定",
+      "メニュー",
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "設定",
+      "メニュー",
+      "設定",
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "メニュー",
+      "ホーム",
+      "zsh",
+      "Problems",
+      "opencode CLI",
+      "パートナーを追加",
+      "opencode CLI",
+      "パートナーを追加",
+      "パートナーを追加",
+      "opencode CLI"
+    ]
+  },
+  {
+    "t": "2026-08-09T09:59:03.326Z",
+    "step": "copilot-missing-flow",
+    "present": true,
+    "state": "failed",
+    "entry": "github/copilot-cli",
+    "text": "Copilot CLI のセットアップに失敗しましたcopilot のインストーラー取得に失敗しました。手動でインストールしてください: npm install -g @github/copilot (fetch failed)再試行"
+  },
+  {
+    "t": "2026-08-09T09:59:03.350Z",
+    "step": "copilot-missing-error-delta",
+    "before": 0,
+    "after": 1
+  },
+  {
+    "t": "2026-08-09T09:59:05.336Z",
+    "step": "cursor-missing-flow",
+    "present": true,
+    "state": "failed",
+    "entry": "cursor/cursor-cli",
+    "text": "Cursor CLI のセットアップに失敗しましたcursor のインストーラー取得に失敗しました。手動でインストールしてください: curl https://cursor.com/install -fsS | bash (fetch failed)再試行"
+  },
+  {
+    "t": "2026-08-09T09:59:05.360Z",
+    "step": "cursor-missing-error-delta",
+    "before": 1,
+    "after": 2
+  },
+  {
+    "t": "2026-08-09T09:59:06.684Z",
+    "step": "antigravity-missing-flow",
+    "present": true,
+    "state": "failed",
+    "entry": "google/antigravity-cli",
+    "text": "Antigravity CLI のセットアップに失敗しましたantigravity のインストーラー取得に失敗しました。手動でインストールしてください: curl -fsSL https://antigravity.google/cli/install.sh | bash (fetch failed)再試行"
+  },
+  {
+    "t": "2026-08-09T09:59:06.685Z",
+    "step": "antigravity-missing-error-delta",
+    "before": 2,
+    "after": 3
+  },
+  {
+    "t": "2026-08-09T09:59:06.890Z",
+    "step": "app-still-responsive-after-failures",
+    "ok": true
+  },
+  {
+    "t": "2026-08-09T09:59:07.692Z",
+    "step": "claude-regression-flow",
+    "present": true,
+    "state": "working",
+    "entry": "anthropic/claude-code-cli",
+    "text": "CLI を確認しています…同梱ランタイムで実行中"
+  },
+  {
+    "t": "2026-08-09T09:59:07.940Z",
+    "step": "console-error-summary",
+    "count": 3,
+    "sample": [
+      "[akari-partner] onboarding failed:",
+      "[akari-partner] onboarding failed:",
+      "[akari-partner] onboarding failed:"
+    ]
+  }
+]

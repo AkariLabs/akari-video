@@ -65,7 +65,10 @@ const CONNECT_DIALOG_POLL_MS = 800;
 const LEGACY_CLI_LABELS: Record<PartnerCliCatalogEntry['agent'], string[]> = {
     claude: ['Claude Code'],
     codex: ['Codex'],
-    opencode: []
+    opencode: [],
+    copilot: [],
+    cursor: [],
+    antigravity: []
 };
 
 @injectable()
