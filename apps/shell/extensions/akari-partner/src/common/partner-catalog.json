@@ -56,5 +56,29 @@
     "name": "opencode CLI",
     "description": "opencode を PTY タブで直接使います",
     "recommended": false
+  },
+  {
+    "id": "github/copilot-cli",
+    "agent": "copilot",
+    "form": "cli",
+    "name": "Copilot CLI",
+    "description": "GitHub Copilot CLI を PTY タブで直接使います",
+    "recommended": false
+  },
+  {
+    "id": "cursor/cursor-cli",
+    "agent": "cursor",
+    "form": "cli",
+    "name": "Cursor CLI",
+    "description": "Cursor のエージェント CLI（cursor-agent）を PTY タブで直接使います",
+    "recommended": false
+  },
+  {
+    "id": "google/antigravity-cli",
+    "agent": "antigravity",
+    "form": "cli",
+    "name": "Antigravity CLI",
+    "description": "Google の Antigravity CLI（agy・Gemini CLI 後継）を PTY タブで直接使います",
+    "recommended": false
   }
 ]
