@@ -6113,11 +6113,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const applyInitialPosition = () => {
-                if (initialPositionApplied) return;
+                // segments is only trustworthy once rebuildSegments() has run against a real
+                // video.duration (i.e. after 'loadedmetadata'). The overlay-mount Promise.all
+                // below can resolve *before* 'loadedmetadata' (fast for an empty/no-cuts
+                // summary), which used to rebuild an empty fallback segment list, let this
+                // function mark itself done against that empty list, and skip enterSegment(0)
+                // forever -- leaving #preview-video's visibility stuck at 'hidden' (set by the
+                // next tick()'s applyCutsMuteState(), which hides whenever there is no active
+                // segment) until the user presses play. Bail out without setting the flag so the
+                // *next* call (once segments is real) can still do the real work.
+                if (initialPositionApplied || segments.length === 0) return;
                 initialPositionApplied = true;
                 if (Number.isFinite(initial.initialSeekTime)) {
                     seekTimelineTime(initial.initialSeekTime);
-                } else if (segments.length > 0) {
+                } else {
                     outputTime = segments[0].outStart;
                     enterSegment(0);
                 }

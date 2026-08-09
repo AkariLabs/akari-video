@@ -1,0 +1,56 @@
+{
+  "log": [
+    {
+      "step": "connected",
+      "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-first-frame/apps/shell/lib/frontend/index.html?port=59433#/private/tmp/pff-verify/ws"
+    },
+    {
+      "step": "assert-ok",
+      "message": "quick-open widget appeared for clip-a.mp4"
+    },
+    {
+      "step": "opened-file",
+      "fileName": "clip-a.mp4",
+      "iframeTargetId": "42DBB0CE23C046816F25E12E8A51FE6C"
+    },
+    {
+      "step": "raw-preview-first-frame-pixel",
+      "avg": null,
+      "error": "SecurityError: Failed to execute 'getImageData' on 'CanvasRenderingContext2D': The canvas has been tainted by cross-origin data.",
+      "tainted": true
+    },
+    {
+      "step": "raw-preview-space-toggle",
+      "pausedBeforeSpace1": true,
+      "pausedAfterSpace1": false
+    },
+    {
+      "step": "raw-preview-space-while-typing",
+      "pausedBeforeSpaceWhileTyping": false,
+      "pausedAfterSpaceWhileTyping": false
+    },
+    {
+      "step": "assert-ok",
+      "message": "space key while a text field is focused does not toggle playback"
+    },
+    {
+      "step": "assert-ok",
+      "message": "quick-open widget appeared for edit.json"
+    },
+    {
+      "step": "opened-file",
+      "fileName": "edit.json",
+      "iframeTargetId": "0E666940A8A634A02ACEEFC76E08757C"
+    },
+    {
+      "step": "output-preview-first-frame-pixel",
+      "avg": null,
+      "error": "SecurityError: Failed to execute 'getImageData' on 'CanvasRenderingContext2D': The canvas has been tainted by cross-origin data.",
+      "tainted": true
+    },
+    {
+      "step": "failure",
+      "error": "Error: cuts[].src swap to second source after playing through cut1 not found\n    at retry (file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-first-frame/apps/shell/extensions/akari-preview/evidence/preview-first-frame-and-space/run-first-frame-space-e2e.mjs:110:9)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-first-frame/apps/shell/extensions/akari-preview/evidence/preview-first-frame-and-space/run-first-frame-space-e2e.mjs:367:23)"
+    }
+  ]
+}
