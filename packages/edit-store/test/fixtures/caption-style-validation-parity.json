@@ -23,6 +23,10 @@
     "overlays": [],
     "output": { "width": 1920, "height": 1080, "fps": 30 }
   },
+  "caption_style_contract": {
+    "accepted": { "id": "reveal-word", "style": "reveal-word" },
+    "unknown": { "id": "unknown-caption-style", "style": "typewriter" }
+  },
   "valid_default_style": {
     "color": "#FFFFFF",
     "size_px": 82,

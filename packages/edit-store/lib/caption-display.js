@@ -544,7 +544,7 @@ function validateSourceCaption(caption, index, policy) {
     const text = caption.display_text ?? caption.text;
     if (!strictText(text))
         fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
-    if (caption.style === 'karaoke' || caption.style === 'pop' || caption.style === 'reveal') {
+    if (caption.style === 'karaoke' || caption.style === 'pop' || caption.style === 'reveal' || caption.style === 'reveal-word') {
         fail('STYLE_CONFLICT', `captions[${index}].style cannot be combined with display_policy`);
     }
     if (measureCaptionUnits(text) > policy.max_line_units * 2 && caption.display_fragments === undefined) {

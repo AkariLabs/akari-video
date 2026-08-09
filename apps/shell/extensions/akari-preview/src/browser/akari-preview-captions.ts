@@ -30,7 +30,7 @@ export interface PreviewCaption {
     start: number;
     end: number;
     text: string;
-    style?: 'karaoke' | 'pop';
+    style?: 'karaoke' | 'pop' | 'reveal-word';
     words?: { start: number; end: number; text: string }[];
     textStyle?: PreviewCaptionTextStyle;
     textStyleVars?: Record<string, string>;
@@ -73,6 +73,7 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
             continue;
         }
         const style = candidate.style === 'karaoke' || candidate.style === 'pop'
+            || candidate.style === 'reveal-word'
             ? candidate.style
             : undefined;
         const words = Array.isArray(candidate.words)

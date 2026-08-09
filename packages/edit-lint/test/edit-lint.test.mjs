@@ -366,6 +366,28 @@ test("shared opt-in text-style parity matrix matches edit-lint and the kernel ga
   });
 });
 
+test("shared caption-style contract accepts reveal-word and rejects an unknown value", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    const captionsPath = join(project, "captions.json");
+    const baseCaption = { ...styleParity.caption, start: 5, end: 7 };
+    await writeFile(captionsPath, `${JSON.stringify([
+      { ...baseCaption, style: styleParity.caption_style_contract.accepted.style },
+    ], null, 2)}\n`, "utf8");
+    const accepted = run(project);
+    assert.equal(accepted.status, 0, accepted.stderr);
+
+    await writeFile(captionsPath, `${JSON.stringify([
+      { ...baseCaption, style: styleParity.caption_style_contract.unknown.style },
+    ], null, 2)}\n`, "utf8");
+    const unknown = run(project);
+    assert.equal(unknown.status, 1, unknown.stderr);
+    assert.ok(parseResult(unknown).findings.some(finding =>
+      finding.check === "captions.schema" && /reveal-word/u.test(finding.message)
+    ));
+  });
+});
+
 test("captions-words-valid fixture (words[] + style: karaoke, id c-0001) passes lint", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "captions-words-valid"));

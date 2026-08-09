@@ -6392,6 +6392,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     + escapeCaptionHtml(word.text) + '</span>';
             };
             const renderCaptionToken = (word, rangeStart, style) => {
+                if (style === 'reveal-word') {
+                    const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
+                    return '<span class="akari-caption__tok akari-caption__tok--reveal-word"'
+                        + ' style="--akari-tok-delay: ' + delay + 's">'
+                        + escapeCaptionHtml(word.text) + '</span>';
+                }
                 const emphasis = findMatchingEmphasis(word);
                 // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
                 if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis);
@@ -6433,6 +6439,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         + '.akari-caption__reveal-group{grid-area:1 / 1;display:flex;flex-direction:column;gap:var(--plate-gap,4px);opacity:0;animation:akari-caption-reveal var(--akari-reveal-dur,0.2s) var(--akari-reveal-delay,0s) linear both paused;}'
                         + '@keyframes akari-caption-reveal{0%{opacity:0;transform:translateY(0.18em);}12%{opacity:1;transform:translateY(0);}99.99%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(0);}}'
                     : '';
+                const revealWordCss = style === 'reveal-word'
+                    ? '@keyframes akari-caption-reveal-word{0%{opacity:0;}100%{opacity:1;}}'
+                        + '.akari-caption__tok--reveal-word{animation:akari-caption-reveal-word 0.01s var(--akari-tok-delay,0s) linear both paused;}'
+                    : '';
                 const blockMode = caption.textStyle && caption.textStyle.background
                     && caption.textStyle.background.mode === 'block';
                 const plateMarkup = blockMode
@@ -6464,6 +6474,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '@keyframes akari-caption-pop{0%{transform:translateY(0) scale(1);}50%{transform:translateY(-0.08em) scale(1.12);}100%{transform:translateY(0) scale(1);}}'
                     + '.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
                     + '.akari-caption__tok--pop{animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused;}'
+                    + revealWordCss
                     + revealCss
                     + emphasisCss
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
@@ -6538,11 +6549,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     styledCaptionActive = Boolean(caption
                         && (hasTextStyle || (hasCaptionWords
                             && ((caption.style === 'karaoke' || caption.style === 'pop')
+                                || caption.style === 'reveal-word'
                                 || hasEmphasis || wantsCaptionReveal))));
                     captionPlate.classList.toggle('akari-caption-host--styled', styledCaptionActive);
                     if (styledCaptionActive) {
                         const usesWords = hasCaptionWords
                             && ((caption.style === 'karaoke' || caption.style === 'pop')
+                                || caption.style === 'reveal-word'
                                 || hasEmphasis || wantsCaptionReveal);
                         captionPlate.innerHTML = usesWords
                             ? renderStyledCaptionFragment(caption)
