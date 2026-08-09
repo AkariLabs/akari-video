@@ -73,15 +73,35 @@ test('fails closed for timeline overrides, normalization, style, overlap, and im
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 1, 'abcdefghijklmnopq')] }, { cuts: [] }), /provide display_fragments/);
 });
 
-test('shared caption-style contract recognizes reveal-word as a display-policy conflict', () => {
-  const withStyle = style => ({
+test('display-policy caption styles accept omission, preserve known conflicts, and name unknown values', () => {
+  const withStyle = (...style) => ({
     display_policy: styleParity.display_policy,
-    captions: [{ ...styleParity.caption, style }],
+    captions: [{ ...styleParity.caption, ...(style.length === 0 ? {} : { style: style[0] }) }],
   });
-  assert.throws(
-    () => resolveCaptionDisplay(withStyle(styleParity.caption_style_contract.accepted.style), styleParity.edit),
-    /style cannot be combined with display_policy/u,
-  );
+  assert.doesNotThrow(() => resolveCaptionDisplay(withStyle(), styleParity.edit));
+
+  for (const style of ['karaoke', 'pop', 'reveal', 'reveal-word']) {
+    assert.throws(() => resolveCaptionDisplay(withStyle(style), styleParity.edit), error => {
+      assert.equal(error.code, 'STYLE_CONFLICT');
+      assert.equal(error.message, 'captions[0].style cannot be combined with display_policy');
+      return true;
+    }, style);
+  }
+
+  for (const style of [
+    styleParity.caption_style_contract.rejected_with_display_policy.style,
+    'REVEAL',
+    'reveal_word',
+    '',
+  ]) {
+    assert.throws(() => resolveCaptionDisplay(withStyle(style), styleParity.edit), error => {
+      assert.equal(error.code, styleParity.caption_style_contract.rejected_with_display_policy.error_code);
+      assert.ok(error.message.includes(JSON.stringify(style)));
+      assert.match(error.message, /expected one of: karaoke, pop, reveal, reveal-word/u);
+      assert.doesNotMatch(error.message, /display_policy/u);
+      return true;
+    }, JSON.stringify(style));
+  }
 });
 
 test('fails closed for malformed source cues and every version 1 source reference mismatch', () => {
@@ -188,7 +208,10 @@ test('legacy shadow preserves non-integer width bytes while reference-pixel scal
 });
 
 test('omitting display_policy leaves the legacy path untouched', () => {
-  const legacyArray = [caption('c-0001', 0, 1, 'legacy', { text_style: { font_weight: '600', stroke: { method: 'invented' } } })];
+  const legacyArray = [caption('c-0001', 0, 1, 'legacy', {
+    style: styleParity.caption_style_contract.rejected_with_display_policy.style,
+    text_style: { font_weight: '600', stroke: { method: 'invented' } },
+  })];
   const legacyObject = { default_text_style: { color: 17, invented: true }, captions: legacyArray };
   const before = JSON.stringify(legacyObject);
   assert.equal(resolveCaptionDisplay(legacyArray, { cuts: [] }), null);

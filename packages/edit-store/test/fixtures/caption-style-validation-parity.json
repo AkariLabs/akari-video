@@ -25,7 +25,12 @@
   },
   "caption_style_contract": {
     "accepted": { "id": "reveal-word", "style": "reveal-word" },
-    "unknown": { "id": "unknown-caption-style", "style": "typewriter" }
+    "unknown": { "id": "unknown-caption-style", "style": "typewriter" },
+    "rejected_with_display_policy": {
+      "id": "unknown-caption-style-with-display-policy",
+      "style": "typewriter",
+      "error_code": "INVALID_CAPTION"
+    }
   },
   "valid_default_style": {
     "color": "#FFFFFF",
