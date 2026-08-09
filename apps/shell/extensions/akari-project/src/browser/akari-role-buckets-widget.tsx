@@ -36,6 +36,7 @@ import {
 } from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { CatalogPack } from '../common/catalog-packs';
+import { AKARI_REVEAL_IN_FILE_MANAGER, revealInFileManagerActionLabel } from './akari-reveal-commands';
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
@@ -2343,8 +2344,34 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         {this.formatOutputMeta(entry)}
                     </span>
                 </div>
+                <button
+                    type='button'
+                    title={revealInFileManagerActionLabel(label)}
+                    aria-label={revealInFileManagerActionLabel(label)}
+                    data-akari-output-reveal={entry.relativePath}
+                    onClick={event => {
+                        event.stopPropagation();
+                        void this.revealOutputInFileManager(entry);
+                    }}
+                    style={{
+                        flex: 'none',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        opacity: 0.7,
+                        padding: '2px 4px',
+                        display: 'flex',
+                        alignItems: 'center'
+                    }}
+                >
+                    <span className='codicon codicon-folder-opened' aria-hidden='true' />
+                </button>
             </div>
         );
+    }
+
+    protected async revealOutputInFileManager(entry: OutputEntry): Promise<void> {
+        await this.commandService.executeCommand(AKARI_REVEAL_IN_FILE_MANAGER.id, entry.uri);
     }
 
     protected renderLintBadge(): React.ReactNode {

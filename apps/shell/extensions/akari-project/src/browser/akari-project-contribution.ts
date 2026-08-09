@@ -28,11 +28,14 @@ import {
 } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { DiffUris } from '@theia/core/lib/browser/diff-uris';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
+import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService, DroppedVideo } from '../common/akari-project-protocol';
+import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
+import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_REVEAL_PROJECT_ROOT } from './akari-reveal-commands';
 
 /**
  * 「場所を選んで新規作成…」。File メニュー先頭の「新規プロジェクト作成」は
@@ -74,6 +77,8 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     protected readonly stateService!: FrontendApplicationStateService;
     @inject(FileDialogService)
     protected readonly dialogs!: FileDialogService;
+    @inject(FileService)
+    protected readonly files!: FileService;
     @inject(WorkspaceService)
     protected readonly workspace!: WorkspaceService;
     @inject(MessageService)
@@ -105,6 +110,12 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         commands.registerCommand(DISCONNECT_AKARI_STORE_ACCOUNT, {
             execute: () => this.disconnectStoreAccount()
         });
+        commands.registerCommand(AKARI_REVEAL_IN_FILE_MANAGER, {
+            execute: (target: unknown) => this.revealInFileManager(this.toRevealUri(target))
+        });
+        commands.registerCommand(AKARI_REVEAL_PROJECT_ROOT, {
+            execute: () => this.revealProjectRoot()
+        });
     }
 
     registerMenus(menus: MenuModelRegistry): void {
@@ -117,6 +128,11 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             commandId: SHOW_AKARI_CHANGES.id,
             label: SHOW_AKARI_CHANGES.label,
             order: 'z10'
+        });
+        menus.registerMenuAction(CommonMenus.FILE, {
+            commandId: AKARI_REVEAL_PROJECT_ROOT.id,
+            label: AKARI_REVEAL_PROJECT_ROOT.label,
+            order: 'z11'
         });
     }
 
@@ -352,6 +368,43 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         } catch (error) {
             this.messages.error(`変更を表示できませんでした: ${this.errorMessage(error)}`);
         }
+    }
+
+    /**
+     * 3 箇所（ホームのプロジェクトカード / できたもの各項目 / File メニュー）が共有する
+     * 実体（task 2026-08-09-reveal-in-finder）。存在確認は FileService で先に行い、
+     * 「黙って何も起きない」を避けてエラーメッセージを必ず出す。実際に開く処理は
+     * electron-main の `shell.showItemInFolder`（`electron-api-main.ts`）に委ねる。
+     */
+    protected async revealInFileManager(uri: URI): Promise<void> {
+        const exists = await this.files.exists(uri);
+        if (!exists) {
+            this.messages.error(`見つかりませんでした: ${uri.path.fsPath()}`);
+            return;
+        }
+        const api = (window as Window & { electronAkariProject?: ElectronAkariProjectApi }).electronAkariProject;
+        if (!api) {
+            this.messages.error('この機能は AKARI Video アプリでのみ使えます。');
+            return;
+        }
+        const result = await api.revealInFileManager(uri.path.fsPath());
+        if (!result.ok) {
+            this.messages.error(result.message ?? `開けませんでした: ${uri.path.fsPath()}`);
+        }
+    }
+
+    protected toRevealUri(target: unknown): URI {
+        return target instanceof URI ? target : new URI(String(target));
+    }
+
+    protected async revealProjectRoot(): Promise<void> {
+        const roots = await this.workspace.roots;
+        const root = roots[0]?.resource;
+        if (!root) {
+            this.messages.warn('プロジェクトを開いてください。');
+            return;
+        }
+        await this.revealInFileManager(root);
     }
 
     protected async toggleDeveloperMode(): Promise<void> {
