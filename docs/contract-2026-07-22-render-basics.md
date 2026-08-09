@@ -1,6 +1,7 @@
 # レンダー基礎機能契約（速度 / クロマキー背景置換 / 基本トランジション / LUT / 音声マスター処理 / 画角操作 / フリーズ）
 
-- 日付: 2026-07-22（2026-08-06 追記: #6 画角操作 / #7 フリーズを増築）
+- 日付: 2026-07-22（2026-08-06 追記: #6 画角操作 / #7 フリーズを増築。2026-08-09 追記:
+  `layers[].keyframes` への一般化を §4-4 に追記）
 - 状態: **draft**（実装と並走で approved 化）。本書は技術仕様のみ。
   判断経緯・実装レーンの運用は非公開の内部記録で管理する（本リポには置かない方針）
 - 前提: `contract-2026-07-17-data-contract-versioning.md`（三原則）、
@@ -56,3 +57,17 @@
 ### 4-3. プレビュー乖離
 
 画角（`cuts[].framing`）とフリーズ（`cuts[].freeze`）はレンダ（本契約 #6/#7）のみの対応であり、Web UI / shell のプレビューは追随していない。`docs/contract-2026-08-02-preview-parity.md` の適合状況表に明示済み。
+
+### 4-4. 変形キーフレームの一般化（`layers[].keyframes`。2026-08-09 追記）
+
+`cuts[].framing.keyframes`（#6・上記 4-1）が確立した「時刻付きの部分状態の配列・線形補間・
+hold-before/after」という形は、`layers[]`（PinP）の変形（`transform.x/y/scale/rotate`・
+`crop`・`perspective`）全般を動かす共通機構 `layers[].keyframes` として一般化された
+（オーナー指示 2026-08-09。パース単独の専用機構は作らない）。`layers[]` は本契約のスコープ表
+（§1）に無く、`layers[].crop`/`layers[].perspective` 自体の契約は
+`docs/contract-2026-08-02-preview-parity.md` §2.4.1/§2.4.4 が正本のため、`layers[].keyframes`
+の適用順・補間規則・ffmpeg 実装（`eval=frame` 区分線形式 / crop の異方 scale-up-crop-down 技法 /
+perspective のレイヤー分割フォールバック — perspective は `crop` の `w`/`h` 同様
+"per-frame 評価に対応しない" 制約を持つが、ffmpeg 側に時刻変数自体が無いためこの技法すら
+使えず、レイヤー分割へフォールバックする点が crop/framing と異なる）・プレビュー再現の詳細は
+すべて同契約 §2.4.7 に記載する（本ファイルでの重複記載はしない — SSOT は 1 箇所）。
