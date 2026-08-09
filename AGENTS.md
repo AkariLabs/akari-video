@@ -3,6 +3,9 @@
 エージェント非依存の入口。リポジトリの構成・authoring 規約・検証ルールの正本は [CLAUDE.md](CLAUDE.md) にある。
 **どのハーネスで作業していても、まず CLAUDE.md を読むこと**（内容はハーネス非依存）。
 
+Node ESM のエントリポイントガードは両辺を realpath で比較する
+（symlink 経由で無言終了するため）。
+
 ## スキル
 
 このリポにはスキル（[Agent Skills オープン標準](https://agentskills.io) / SKILL.md 形式）が同梱されている。

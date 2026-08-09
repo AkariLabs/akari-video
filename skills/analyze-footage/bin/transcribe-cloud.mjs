@@ -3,8 +3,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
+import { isMainModule } from "./is-main-module.mjs";
 
 const PROVIDERS = {
   scribe: {
@@ -480,7 +480,6 @@ async function main() {
   }
 }
 
-const invokedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : "";
-if (import.meta.url === invokedPath) {
+if (isMainModule(import.meta.url, process.argv[1])) {
   await main();
 }
