@@ -142,6 +142,32 @@
       {
         "from": "resources/vendor-ffmpeg",
         "to": "media-bin"
+      },
+      {
+        "from": "../../packages/audio-library-setup/shared",
+        "to": "packages/audio-library-setup/shared"
+      },
+      {
+        "from": "../../packages/media-bin/src",
+        "to": "packages/media-bin/src"
+      },
+      {
+        "from": "../../packages/edit-store/lib",
+        "to": "packages/edit-store/lib"
+      },
+      {
+        "from": "../../packages/schemas",
+        "to": "packages/schemas",
+        "filter": [
+          "captions.schema.json"
+        ]
+      },
+      {
+        "from": "../../presets/textanim",
+        "to": "presets/textanim",
+        "filter": [
+          "index.jsonl"
+        ]
       }
     ],
     "mac": {
