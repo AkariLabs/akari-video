@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import test from "node:test";
 
 import { resolveProjectStatus, serializeStatus } from "../src/status-core/status.mjs";
@@ -68,6 +68,44 @@ async function addEdit(root, sources) {
     overlays: [],
   });
 }
+
+test("resolveProjectStatus: project.display_name resolves title ?? folder name (task 2026-08-09-project-display-title)", async () => {
+  await withProject(async (root) => {
+    await writeJson(join(root, ".akari", "connections.json"), { providers: [], policy: {} });
+
+    // 1) intake.json 自体が無い（title キーも無い = 既存プロジェクト）: フォルダ名にフォールバックする。
+    let status = resolveProjectStatus(root);
+    assert.equal(status.project.display_name, basename(root));
+    assert.equal(status.project.name, basename(root));
+
+    // 2) title: null（明示）: フォルダ名にフォールバックする。
+    await writeJson(join(root, ".akari", "intake.json"), {
+      version: 1,
+      tasks: [],
+      target: { duration_s: null, keep_length: false, taste: null },
+      autonomy: "checkpoint",
+      status: "draft",
+      submitted_at: null,
+      title: null,
+    });
+    status = resolveProjectStatus(root);
+    assert.equal(status.project.display_name, basename(root));
+
+    // 3) title あり: display_name に使う。フォルダ名（project.name）は変えない。
+    await writeJson(join(root, ".akari", "intake.json"), {
+      version: 1,
+      tasks: [],
+      target: { duration_s: null, keep_length: false, taste: null },
+      autonomy: "checkpoint",
+      status: "draft",
+      submitted_at: null,
+      title: "夏祭りレポート",
+    });
+    status = resolveProjectStatus(root);
+    assert.equal(status.project.display_name, "夏祭りレポート");
+    assert.equal(status.project.name, basename(root));
+  });
+});
 
 test("non-project and zero-material projects route without inventing analysis", async () => {
   await withProject(async (root) => {

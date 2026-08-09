@@ -30,7 +30,7 @@ Everything else has its own designated place (a no-clutter convention).
 
 | File / Directory | Role |
 |---|---|
-| `.akari/intake.json` | The intake form (what to make / duration / delegation level) |
+| `.akari/intake.json` | The intake form (what to make / duration / delegation level). `title` (human-readable display name, distinct from the folder name) is written by the agent once the intake is decided — it isn't a form field yet |
 | `.akari/connections.json` | Connection registry (API key references, model choices, cost approval policy) |
 | `.akari/workflow.json` | Role definitions for the project |
 | `.akari/sidecars/` | Per-asset `analysis.json` (the factual layer of analysis) |

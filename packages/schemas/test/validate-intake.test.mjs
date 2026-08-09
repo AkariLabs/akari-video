@@ -25,6 +25,23 @@ test("valid submitted intake.json passes (tasks + target + submitted_at set)", (
   assert.match(executed.stdout, /^OK: /);
 });
 
+test("valid-draft has no title key at all (existing pre-title project) and still passes", () => {
+  const executed = run("valid-draft");
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("title: string (agent-authored display name) passes", () => {
+  const executed = run("valid-with-title");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("title with a non-string, non-null value is rejected", () => {
+  const executed = run("invalid-title-wrong-type");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /title は null または文字列である必要があります/);
+});
+
 test("unknown task id is rejected (skill catalog enum enforcement)", () => {
   const executed = run("invalid-unknown-task");
   assert.equal(executed.status, 1, executed.stdout);

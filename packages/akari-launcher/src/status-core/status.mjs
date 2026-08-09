@@ -3,6 +3,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { readProjectEvents, resolveActiveAcceptance } from "./events.mjs";
+import { resolveProjectDisplayName } from "./display-name.mjs";
 import { inspectFullIntegrity } from "./integrity.mjs";
 import { validateAndCountReview } from "./review.mjs";
 
@@ -112,7 +113,7 @@ export function resolveProjectStatus(input = process.cwd(), { mode = "fast" } = 
   return {
     version: 1,
     mode,
-    project: { name: projectName, scaffolded },
+    project: { name: projectName, scaffolded, display_name: resolveProjectDisplayName(intake?.title, projectName) },
     workflow_stage: stage,
     state_health: stateHealth,
     waiting_on: routing.waiting_on,

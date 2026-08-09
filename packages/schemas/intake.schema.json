@@ -11,6 +11,14 @@
       "const": 1,
       "description": "intake.json のスキーマバージョン。現状 1 固定。"
     },
+    "title": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string" }
+      ],
+      "default": null,
+      "description": "プロジェクトの人間向け表示名（フォルダ名とは独立）。フォルダ名は作成時刻ベースの機械 ID のまま変えず、人が読む名前はここに置く（2026-08-09 オーナー裁定: フォルダ名 = 機械の ID / 表示名 = 別に持つ）。既定は null（未設定）で、表示側は title ?? フォルダ名 で解決する。人間が作成ダイアログで入力する経路はまだ無く、企画（intake）の内容が固まった時点でエージェントが書く（任意フィールドの追記であり version は上げない）。"
+    },
     "tasks": {
       "type": "array",
       "uniqueItems": true,

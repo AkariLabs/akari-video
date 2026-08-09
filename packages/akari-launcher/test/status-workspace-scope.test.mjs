@@ -43,7 +43,7 @@ async function writeWorkspaceConnections(root) {
   await writeJson(join(root, ".akari", "connections.json"), { providers: [], policy: {}, memory: [] });
 }
 
-async function addProject(root, channel, name, { withEdit = true } = {}) {
+async function addProject(root, channel, name, { withEdit = true, intake } = {}) {
   const projectDir = join(root, "channels", channel, "videos", name);
   await mkdir(projectDir, { recursive: true });
   if (withEdit) {
@@ -54,6 +54,9 @@ async function addProject(root, channel, name, { withEdit = true } = {}) {
       cuts: [],
       overlays: [],
     });
+  }
+  if (intake !== undefined) {
+    await writeJson(join(projectDir, ".akari", "intake.json"), intake);
   }
 }
 
@@ -103,9 +106,9 @@ test("resolveWorkspaceStatus: enumerates channels/*/videos/*/edit.json and count
     assert.equal(status.scope, "workspace");
     assert.deepEqual(status.channels, ["my-channel", "second-channel"]);
     assert.deepEqual(status.projects, [
-      { channel: "my-channel", name: "a-project", path: "channels/my-channel/videos/a-project" },
-      { channel: "my-channel", name: "b-project", path: "channels/my-channel/videos/b-project" },
-      { channel: "second-channel", name: "c-project", path: "channels/second-channel/videos/c-project" },
+      { channel: "my-channel", name: "a-project", path: "channels/my-channel/videos/a-project", display_name: "a-project" },
+      { channel: "my-channel", name: "b-project", path: "channels/my-channel/videos/b-project", display_name: "b-project" },
+      { channel: "second-channel", name: "c-project", path: "channels/second-channel/videos/c-project", display_name: "c-project" },
     ]);
     assert.equal(status.inbox.new_count, 2);
     assert.deepEqual(status.next_action, {
@@ -114,6 +117,29 @@ test("resolveWorkspaceStatus: enumerates channels/*/videos/*/edit.json and count
       reason: "inbox has 2 new items",
     });
     assert.match(formatWorkspaceStatusSummary(status), /3 projects, inbox 2 new/u);
+  });
+});
+
+test("resolveWorkspaceStatus: display_name resolves title ?? folder name (task 2026-08-09-project-display-title)", async () => {
+  await withTempDir(async (root) => {
+    await writeRootManifest(root);
+    // 1) title あり: intake.json の title を display_name に使う。
+    await addProject(root, "my-channel", "with-title", {
+      intake: { version: 1, tasks: [], target: { duration_s: null, keep_length: true }, autonomy: "checkpoint", status: "submitted", submitted_at: "2026-08-09T00:00:00.000Z", title: "夏祭りレポート" },
+    });
+    // 2) title: null（明示）: フォルダ名にフォールバックする。
+    await addProject(root, "my-channel", "with-null-title", {
+      intake: { version: 1, tasks: [], target: { duration_s: null, keep_length: true }, autonomy: "checkpoint", status: "draft", submitted_at: null, title: null },
+    });
+    // 3) intake.json 自体が無い（title キーも無い = 既存プロジェクト）: フォルダ名にフォールバックする。
+    await addProject(root, "my-channel", "no-intake-at-all");
+
+    const status = resolveWorkspaceStatus(root);
+    assert.deepEqual(status.projects, [
+      { channel: "my-channel", name: "no-intake-at-all", path: "channels/my-channel/videos/no-intake-at-all", display_name: "no-intake-at-all" },
+      { channel: "my-channel", name: "with-null-title", path: "channels/my-channel/videos/with-null-title", display_name: "with-null-title" },
+      { channel: "my-channel", name: "with-title", path: "channels/my-channel/videos/with-title", display_name: "夏祭りレポート" },
+    ]);
   });
 });
 

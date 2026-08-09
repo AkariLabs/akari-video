@@ -23,6 +23,7 @@ const TASK_IDS = ["transcribe-captions", "silence-cut", "bgm-sfx", "narration", 
 const AUTONOMY_VALUES = ["full-auto", "checkpoint", "collaborative"];
 const STATUS_VALUES = ["draft", "submitted"];
 const ROOT_FIELDS = ["version", "tasks", "target", "autonomy", "status", "submitted_at"];
+const OPTIONAL_ROOT_FIELDS = ["title"];
 const TARGET_REQUIRED_FIELDS = ["duration_s", "keep_length"];
 const TARGET_FIELDS = ["duration_s", "keep_length", "taste"];
 
@@ -63,7 +64,7 @@ function validateIntake(value) {
     fail("intake.json のルートは object である必要があります");
     return;
   }
-  validateFields(value, ROOT_FIELDS, ROOT_FIELDS, "ルート");
+  validateFields(value, ROOT_FIELDS, [...ROOT_FIELDS, ...OPTIONAL_ROOT_FIELDS], "ルート");
 
   if (value.version !== 1) {
     fail("version は 1 である必要があります");
@@ -73,6 +74,15 @@ function validateIntake(value) {
   validateEnum(value.autonomy, AUTONOMY_VALUES, "autonomy");
   validateEnum(value.status, STATUS_VALUES, "status");
   validateSubmittedAt(value.status, value.submitted_at);
+  if (hasOwn(value, "title")) {
+    validateTitle(value.title);
+  }
+}
+
+function validateTitle(value) {
+  if (value !== null && typeof value !== "string") {
+    fail("title は null または文字列である必要があります");
+  }
 }
 
 function validateTasks(value) {
