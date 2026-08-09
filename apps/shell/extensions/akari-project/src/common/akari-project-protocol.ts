@@ -127,15 +127,31 @@ export interface AssetCatalogViewItem {
 }
 
 /**
+ * resolver（アカウントの素材 = 無料 + 購入済み）取得状態。フロントはこれを見て
+ * 「未取得（オフライン初回等）」と「取得できたが 0 件」を区別する
+ * （catalog-account-first-ux task.md §1）。ローカル catalog/ 未設定はここに含まれない
+ * （一般ユーザーの正常系であり resolver の取得失敗とは別の概念のため）。
+ */
+export interface AssetCatalogResolverStatus {
+    status: 'ok' | 'failed';
+    /** status='ok' のとき resolver 合成分の件数。'failed' のときは常に 0。 */
+    itemCount: number;
+    /** status='failed' のときのみ。開発者向け折りたたみでの手がかり用（通常表示には出さない）。 */
+    error?: string;
+}
+
+/**
  * カタログ面「1 ビュー」の応答本体。items は従来どおりの 1 ビュー配列、packs は
  * `catalog/packs.json`（無ければ空配列）。パック棚のグループ化・内訳集計は
  * asset-catalog-view.ts の groupCatalogItemsByPack / summarizeCatalogPackDistribution が
  * フロント側の純関数として担う（バックエンドはグルーピングしない — 検索/カテゴリ絞り込みの
  * 結果内でグループ化する必要があるため、フロント側の状態を見ないと組めない）。
+ * resolver は取得状態（成功/失敗 + リモート由来の件数）— 空状態の原因分岐に使う。
  */
 export interface AssetCatalogView {
     items: AssetCatalogViewItem[];
     packs: CatalogPack[];
+    resolver: AssetCatalogResolverStatus;
 }
 
 export type AssetResolveOutcome =

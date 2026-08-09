@@ -5,6 +5,7 @@ import {
     assetStateBadgeText,
     catalogItemPackIds,
     deriveAssetDistribution,
+    deriveCatalogEmptyStateKind,
     formatCatalogPackBreakdown,
     groupCatalogItemsByPack,
     mergeAssetCatalogViews,
@@ -339,4 +340,21 @@ test('formatCatalogPackBreakdown: 0 件の分類は出さない（task.md 例の
 
 test('formatCatalogPackBreakdown: 全分類 0 件なら内訳を出さず件数だけ', () => {
     assert.equal(formatCatalogPackBreakdown({ total: 0, bundled: 0, free: 0, paid: 0, subscription: 0 }), '0 件');
+});
+
+// カタログ面の空状態分岐（catalog-account-first-ux task.md §1/§2）。
+// resolver 失敗 / resolver 成功だが 0 件 / 件数ありの 3 パターンをここで単体テストする
+// （L0 受け入れ条件「空状態分岐の単体テスト追加」の実体）。
+
+test('deriveCatalogEmptyStateKind: 件数 > 0 は resolver の状態に関わらず items', () => {
+    assert.equal(deriveCatalogEmptyStateKind(1, 'ok'), 'items');
+    assert.equal(deriveCatalogEmptyStateKind(3, 'failed'), 'items');
+});
+
+test('deriveCatalogEmptyStateKind: 0 件 + resolver 失敗 → resolver-failed（オフライン初回等の正直表示）', () => {
+    assert.equal(deriveCatalogEmptyStateKind(0, 'failed'), 'resolver-failed');
+});
+
+test('deriveCatalogEmptyStateKind: 0 件 + resolver 成功 → empty（通常起きない素直な空状態）', () => {
+    assert.equal(deriveCatalogEmptyStateKind(0, 'ok'), 'empty');
 });
