@@ -3,6 +3,12 @@ import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/br
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
+import { AkariPreviewService } from '../common/akari-preview-protocol';
+
+interface ImageWidgetMarker extends WebviewWidget {
+    akariImageConfigured?: boolean;
+    akariImageStreamId?: string;
+}
 
 const IMAGE_MIME_TYPES = new Map<string, string>([
     ['.jpg', 'image/jpeg'],
@@ -12,7 +18,13 @@ const IMAGE_MIME_TYPES = new Map<string, string>([
     ['.webp', 'image/webp'],
     ['.bmp', 'image/bmp']
 ]);
-const MAX_INLINE_BYTES = 25 * 1024 * 1024;
+// task/2026-08-09-image-open-latency: 旧 base64 data URI 方式は「全読み込み → base64 化 →
+// 巨大 HTML 文字列を webview へ IPC 転送」というフロントエンドの同期コストが支配的だったため
+// 25MB で弾いていた。動画/音声と同じ assetStream（HTTP レンジ配信、127.0.0.1 ローカルのみ）に
+// 揃えたことで setHTML に渡す文字列は URL 1 本になり、そのボトルネックが消えたため引き上げる
+// （実測は report.md 参照）。上限自体は「壊れたパスへ streaming server を延々張り続けない」
+// ための保険として残す。
+const MAX_INLINE_BYTES = 200 * 1024 * 1024;
 const TOO_LARGE_MESSAGE = 'この画像はサイズが大きすぎるためプレビューできません。';
 const READ_ERROR_MESSAGE = '画像を読み込めませんでした。';
 
@@ -29,6 +41,9 @@ export class AkariImageOpenHandler implements OpenHandler {
     @inject(FileService)
     protected readonly fileService: FileService;
 
+    @inject(AkariPreviewService)
+    protected readonly previewService: AkariPreviewService;
+
     canHandle(uri: URI): number {
         return IMAGE_MIME_TYPES.has(uri.path.ext.toLowerCase()) ? 1100 : 0;
     }
@@ -36,6 +51,7 @@ export class AkariImageOpenHandler implements OpenHandler {
     async open(uri: URI, options?: any): Promise<WebviewWidget> {
         const identifier = { id: `akari-image-${this.hash(uri.toString())}`, viewId: uri.toString() };
         const widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, identifier);
+        this.configureWidget(widget);
         await this.render(widget, uri);
         if (!widget.isAttached) {
             this.shell.addWidget(widget, options?.widgetOptions ?? { area: 'main' });
@@ -44,36 +60,76 @@ export class AkariImageOpenHandler implements OpenHandler {
         return widget;
     }
 
+    protected configureWidget(widget: WebviewWidget): void {
+        const marker = widget as ImageWidgetMarker;
+        if (marker.akariImageConfigured) {
+            return;
+        }
+        marker.akariImageConfigured = true;
+        widget.disposed.connect(() => {
+            void this.disposeImageStream(marker);
+        });
+    }
+
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
+        const marker = widget as ImageWidgetMarker;
         widget.viewType = 'akari.image';
         widget.title.label = uri.path.base;
         widget.title.caption = uri.toString();
         widget.title.iconClass = 'codicon codicon-file-media';
         widget.setContentOptions({ allowScripts: false, allowForms: false });
 
-        const mimeType = IMAGE_MIME_TYPES.get(uri.path.ext.toLowerCase()) ?? 'application/octet-stream';
+        // A widget can be re-rendered for the same URI (re-open of an already open tab); drop
+        // any stream left over from the previous render before requesting a new one so the
+        // backend never accumulates orphaned asset streams for one widget.
+        await this.disposeImageStream(marker);
+        if (widget.isDisposed) {
+            return;
+        }
+
         try {
             const stat = await this.fileService.resolve(uri, { resolveMetadata: true });
             if (typeof stat.size === 'number' && stat.size > MAX_INLINE_BYTES) {
                 widget.setHTML(this.messageHtml(TOO_LARGE_MESSAGE));
                 return;
             }
-            const content = await this.fileService.readFile(uri);
-            const dataUri = `data:${mimeType};base64,${this.toBase64(content.value.buffer)}`;
-            widget.setHTML(this.imageHtml(uri, dataUri));
+            const stream = await this.previewService.createAssetStream({ assetUri: uri.toString() });
+            if (widget.isDisposed) {
+                await this.disposeImageStreamId(stream.id);
+                return;
+            }
+            marker.akariImageStreamId = stream.id;
+            widget.setHTML(this.imageHtml(uri, stream.url));
         } catch (error) {
-            console.warn(`[akari-preview] failed to read image ${uri.toString()}`, error);
+            console.warn(`[akari-preview] failed to open image ${uri.toString()}`, error);
             widget.setHTML(this.messageHtml(READ_ERROR_MESSAGE));
         }
     }
 
-    protected imageHtml(uri: URI, dataUri: string): string {
+    protected async disposeImageStream(marker: ImageWidgetMarker): Promise<void> {
+        const id = marker.akariImageStreamId;
+        marker.akariImageStreamId = undefined;
+        if (id) {
+            await this.disposeImageStreamId(id);
+        }
+    }
+
+    protected async disposeImageStreamId(id: string): Promise<void> {
+        try {
+            await this.previewService.disposeAssetStream(id);
+        } catch (error) {
+            console.warn(`[akari-preview] failed to dispose image stream ${id}`, error);
+        }
+    }
+
+    protected imageHtml(uri: URI, sourceUrl: string): string {
+        const origin = new URL(sourceUrl).origin;
         return `<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.escapeHtml(origin)}; style-src 'unsafe-inline'">
 <style>
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
@@ -83,7 +139,7 @@ img { max-width: 100%; max-height: 100%; object-fit: contain; }
 </style>
 </head>
 <body>
-<img src="${this.escapeHtml(dataUri)}" alt="${this.escapeHtml(uri.path.base)}">
+<img src="${this.escapeHtml(sourceUrl)}" alt="${this.escapeHtml(uri.path.base)}">
 </body>
 </html>`;
     }
@@ -104,15 +160,6 @@ p { max-width: 480px; margin: 0; text-align: center; line-height: 1.7; font-size
 </head>
 <body><p>${this.escapeHtml(message)}</p></body>
 </html>`;
-    }
-
-    protected toBase64(bytes: Uint8Array): string {
-        let binary = '';
-        const chunkSize = 0x8000;
-        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-            binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
-        }
-        return btoa(binary);
     }
 
     protected hash(value: string): string {
