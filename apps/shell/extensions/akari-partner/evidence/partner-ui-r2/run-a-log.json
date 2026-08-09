@@ -1,0 +1,238 @@
+[
+  {
+    "t": "2026-08-09T07:43:10.648Z",
+    "step": "right-panel-rows",
+    "rows": [
+      {
+        "agent": "claude",
+        "rowWidth": 400,
+        "buttons": [
+          {
+            "entry": "anthropic/claude-code-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 182,
+            "height": 52,
+            "hasBadge": true
+          },
+          {
+            "entry": "anthropic/claude-code-extension",
+            "form": "extension",
+            "action": "インストールして始める",
+            "disabled": false,
+            "width": 184,
+            "height": 52,
+            "hasBadge": false
+          }
+        ]
+      },
+      {
+        "agent": "codex",
+        "rowWidth": 400,
+        "buttons": [
+          {
+            "entry": "openai/codex-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 183,
+            "height": 49,
+            "hasBadge": false
+          },
+          {
+            "entry": "openai/codex-extension",
+            "form": "extension",
+            "action": "インストールして始める",
+            "disabled": false,
+            "width": 183,
+            "height": 49,
+            "hasBadge": false
+          }
+        ]
+      },
+      {
+        "agent": "opencode",
+        "rowWidth": 400,
+        "buttons": [
+          {
+            "entry": "sst/opencode-cli",
+            "form": "cli",
+            "action": "始める",
+            "disabled": false,
+            "width": 388,
+            "height": 46,
+            "hasBadge": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-09T07:43:10.661Z",
+    "step": "button-width-comparison",
+    "claudeButtonWidth": 182,
+    "opencodeButtonWidth": 388,
+    "ratio": 2.131868131868132
+  },
+  {
+    "t": "2026-08-09T07:43:10.662Z",
+    "step": "badge-check",
+    "claudeCliBadge": true,
+    "claudeExtBadge": false,
+    "anyCodexBadge": false,
+    "anyOpencodeBadge": false
+  },
+  {
+    "t": "2026-08-09T07:43:10.662Z",
+    "step": "idle-disabled-check",
+    "anyDisabledAtIdle": false
+  },
+  {
+    "t": "2026-08-09T07:43:12.152Z",
+    "step": "catalog-revealed",
+    "visible": true,
+    "count": "3"
+  },
+  {
+    "t": "2026-08-09T07:43:12.181Z",
+    "step": "split-handle-found",
+    "handle": {
+      "x": 213.9140625,
+      "y": 323
+    },
+    "beforeWidth": {
+      "ok": true,
+      "width": 165
+    }
+  },
+  {
+    "t": "2026-08-09T07:43:13.196Z",
+    "step": "catalog-width-after-drag",
+    "targetHandleX": 298.9140625,
+    "afterWidth": {
+      "ok": true,
+      "width": 250
+    }
+  },
+  {
+    "t": "2026-08-09T07:43:13.213Z",
+    "step": "catalog-slot-layout-narrow",
+    "slotLayout": [
+      {
+        "agent": "claude",
+        "cardWidth": 222,
+        "slots": [
+          {
+            "id": "anthropic/claude-code-cli",
+            "width": 196,
+            "height": 152,
+            "top": 171,
+            "left": 75,
+            "descriptionWidth": 174
+          },
+          {
+            "id": "anthropic/claude-code-extension",
+            "width": 196,
+            "height": 160,
+            "top": 333,
+            "left": 75,
+            "descriptionWidth": 174
+          }
+        ]
+      },
+      {
+        "agent": "codex",
+        "cardWidth": 222,
+        "slots": [
+          {
+            "id": "openai/codex-cli",
+            "width": 196,
+            "height": 152,
+            "top": 554,
+            "left": 75,
+            "descriptionWidth": 174
+          },
+          {
+            "id": "openai/codex-extension",
+            "width": 196,
+            "height": 201,
+            "top": 716,
+            "left": 75,
+            "descriptionWidth": 174
+          }
+        ]
+      },
+      {
+        "agent": "opencode",
+        "cardWidth": 222,
+        "slots": [
+          {
+            "id": "sst/opencode-cli",
+            "width": 196,
+            "height": 152,
+            "top": 978,
+            "left": 75,
+            "descriptionWidth": 174
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-09T07:43:13.214Z",
+    "step": "narrow-stack-check",
+    "cliSlot": {
+      "id": "anthropic/claude-code-cli",
+      "width": 196,
+      "height": 152,
+      "top": 171,
+      "left": 75,
+      "descriptionWidth": 174
+    },
+    "extSlot": {
+      "id": "anthropic/claude-code-extension",
+      "width": 196,
+      "height": 160,
+      "top": 333,
+      "left": 75,
+      "descriptionWidth": 174
+    },
+    "stacked": true
+  },
+  {
+    "t": "2026-08-09T07:43:18.125Z",
+    "step": "opencode-missing-flow",
+    "present": true,
+    "state": "failed",
+    "entry": "sst/opencode-cli",
+    "text": "opencode CLI のセットアップに失敗しましたopencode が見つかりません。npm install -g opencode-ai でインストールしてください再試行"
+  },
+  {
+    "t": "2026-08-09T07:43:18.137Z",
+    "step": "opencode-missing-error-delta",
+    "before": 0,
+    "after": 1
+  },
+  {
+    "t": "2026-08-09T07:43:18.538Z",
+    "step": "app-still-responsive-after-opencode-failure",
+    "ok": true
+  },
+  {
+    "t": "2026-08-09T07:43:19.450Z",
+    "step": "claude-regression-flow",
+    "present": true,
+    "state": "working",
+    "entry": "anthropic/claude-code-cli",
+    "text": "CLI を確認しています…同梱ランタイムで実行中"
+  },
+  {
+    "t": "2026-08-09T07:43:19.859Z",
+    "step": "console-error-summary",
+    "count": 1,
+    "sample": [
+      "[akari-partner] onboarding failed:"
+    ]
+  }
+]

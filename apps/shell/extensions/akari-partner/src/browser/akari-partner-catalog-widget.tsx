@@ -95,12 +95,13 @@ const cardStyle: React.CSSProperties = {
 
 const slotsStyle: React.CSSProperties = {
     display: 'flex',
+    flexWrap: 'wrap',
     gap: 10,
     marginTop: 10
 };
 
 const slotStyle: React.CSSProperties = {
-    flex: '1 1 0',
+    flex: '1 1 150px',
     minWidth: 0,
     padding: 10,
     border: '1px solid var(--theia-widget-border)',
