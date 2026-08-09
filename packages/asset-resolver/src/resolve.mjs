@@ -11,7 +11,7 @@
 // checksums.txt 検証（paid-zip.mjs）→ 同じ validate-asset / 原子的 move の経路に合流する。
 
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { constants, existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,7 +40,9 @@ async function copyIntoProject(sourceDir, projectDir, category, id) {
   const dest = path.join(path.resolve(projectDir), 'assets', category, id);
   await mkdir(path.dirname(dest), { recursive: true });
   await rm(dest, { recursive: true, force: true });
-  await cp(sourceDir, dest, { recursive: true });
+  // COPYFILE_FICLONE（_FORCE ではない）: 対応 FS（APFS 等）では CoW クローンで実体化コピーを
+  // 省略し、非対応環境では黙って通常コピーへフォールバックする（失敗しない）。
+  await cp(sourceDir, dest, { recursive: true, mode: constants.COPYFILE_FICLONE });
   return dest;
 }
 
@@ -54,7 +56,7 @@ async function moveIntoLibrary(tempDir, destDir) {
   } catch (error) {
     // 一時ディレクトリと登録先が別ファイルシステムの場合（EXDEV）は copy + rm でフォールバック
     if (error && error.code === 'EXDEV') {
-      await cp(tempDir, destDir, { recursive: true });
+      await cp(tempDir, destDir, { recursive: true, mode: constants.COPYFILE_FICLONE });
       await rm(tempDir, { recursive: true, force: true });
       return;
     }
@@ -186,7 +188,9 @@ async function resolvePaidZip(item, { env, fetchImpl, project, home, destDir }) 
     let hasMeta = false;
     for (const relPath of payloadFiles) {
       if (relPath === 'meta.json') hasMeta = true;
-      await cp(path.join(packageDir, relPath), path.join(tempAssetDir, relPath));
+      await cp(path.join(packageDir, relPath), path.join(tempAssetDir, relPath), {
+        mode: constants.COPYFILE_FICLONE,
+      });
     }
 
     if (hasMeta) {
