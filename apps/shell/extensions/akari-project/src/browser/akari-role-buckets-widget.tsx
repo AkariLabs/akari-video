@@ -54,7 +54,17 @@ const ASSET_STATE_BADGE_LABEL: Record<NonNullable<AssetCatalogViewItem['state']>
 // — 「波及するなら素材グリッドだけに閉じる」（task.md「調べること」2）ため意図的に分けて定義する。
 // gap はグリッドの gap と一致させること（calc(50% - gap/2) で最低 2 列を数式保証する）。
 const MATERIAL_GRID_GAP = '8px';
-const MATERIAL_GRID_CARD_MIN_WIDTH = '34px';
+// **見た目を変えたいときはこの 1 行だけ触る**（小さく = 減らす / 大きく = 増やす）。
+// auto-fill なので「カード 1 枚の目標幅」であって列数の指定ではない: パネルが広いほど
+// 列が増え、狭いと減る。ただし `min(…, calc(50% - gap/2))` の項が効くので **1 列には落ちない**。
+//
+// 34px（司令塔契約が「既定パネル幅 214px で 3 列」と書いたためレーンが導出した値）から
+// 95px へ改める。理由: 214px は左パネルを畳んだ最小に近い幅で、そこを基準に 3 列を数式で
+// 満たすとカード実寸が 37px まで縮み（レーン実測）、パネルを広げても auto-fill が
+// 列数を増やすだけでカードが育たない（実測 499px で 10 列 × 36px）。オーナーの実機
+// スクリーンショットのパネル幅（カード 2 列で 1 枚 ≈160px）から逆算した内容幅 ≈330px では
+// 95px 基準で 3 列 × ≈104px となり、要望「正方形・3 列・今より 2 割ほど小さく」に一致する。
+const MATERIAL_GRID_CARD_MIN_WIDTH = '95px';
 const MATERIAL_GRID_COLUMNS =
     `repeat(auto-fill, minmax(min(${MATERIAL_GRID_CARD_MIN_WIDTH}, calc(50% - ${MATERIAL_GRID_GAP} / 2)), 1fr))`;
 
