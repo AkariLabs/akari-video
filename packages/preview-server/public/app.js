@@ -21,8 +21,12 @@ import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
 import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 import { createCutFxController } from '/cut-fx.js';
 import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
-import { syncMediaCurrentTime } from '/media-time-sync.js';
 import { ensureMediaPlaying } from '/media-playback-resume.js';
+import {
+  createAudioDeClickController,
+  transitionApproximationGain,
+  waitForMediaSeekCompletion,
+} from '/audio-declick.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -114,6 +118,10 @@ let editHintTimer = 0;
 let lastSelectionShown = null;
 
 let audioCtx = null;
+let baseAudioSource = null;
+let baseAudioTransitionGain = null;
+let baseAudioDeClickGain = null;
+let baseAudioDeClick = null;
 let bgmNode = null;
 let sfxNodes = [];
 let narrationNodes = [];
@@ -1458,7 +1466,35 @@ function updateMinimap() {
 
 // --- Audio graph ---
 function setupAudioGraph() {
-  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+  }
+
+  // MediaElementSource は同じ <video> に 1 回だけ生成できる。soft reload でも AudioContext と
+  // この経路は閉じずに保持し、タイムライン依存の BGM / narration / SFX だけを組み直す。
+  if (!baseAudioSource) {
+    try {
+      baseAudioSource = audioCtx.createMediaElementSource(video);
+      baseAudioTransitionGain = audioCtx.createGain();
+      baseAudioDeClickGain = audioCtx.createGain();
+      baseAudioSource.connect(baseAudioTransitionGain);
+      baseAudioTransitionGain.connect(baseAudioDeClickGain);
+      baseAudioDeClickGain.connect(audioCtx.destination);
+      baseAudioDeClick = createAudioDeClickController({ audioContext: audioCtx, gainNode: baseAudioDeClickGain });
+
+      // video.volume / video.muted は MediaElementAudioSourceNode の入力へ反映されるため、
+      // 音量 UI が media element を操作する従来の契約は二重ゲインにせず、そのまま維持する。
+      window.akari = window.akari || {};
+      window.akari.baseAudioDebug = {
+        context: audioCtx,
+        mediaSource: baseAudioSource,
+        outputNode: baseAudioDeClickGain,
+      };
+    } catch (error) {
+      console.warn('[preview] base audio graph setup failed', error);
+    }
+  }
+
   const audio = summary?.audio;
   if (!audio) return;
   if (audio.bgm) {
@@ -1504,16 +1540,78 @@ function setupAudioGraph() {
 }
 function dbToGain(db) { return Math.pow(10, (db ?? 0) / 20); }
 
+function teardownTimelineAudioGraph() {
+  if (bgmNode?._source) {
+    try { bgmNode._source.stop(); } catch { /* already stopped */ }
+  }
+  if (bgmNode) try { bgmNode.disconnect(); } catch { /* already detached */ }
+  for (const node of [...narrationNodes, ...sfxNodes]) {
+    if (node._source) try { node._source.stop(); } catch { /* already stopped */ }
+    try { node.gain.disconnect(); } catch { /* already detached */ }
+  }
+  bgmNode = null;
+  narrationNodes = [];
+  sfxNodes = [];
+}
+
+function transitionAudioBoundaries() {
+  const cuts = summary?.cuts ?? [];
+  return segments.flatMap((segment) => {
+    if (segment.isGap || segment.index < 0) return [];
+    const transition = cuts[segment.index]?.transitionOut;
+    return transition ? [{ at: segment.outEnd, duration: transition.duration }] : [];
+  });
+}
+
+function updateBaseAudioTransition(t) {
+  if (!audioCtx || !baseAudioTransitionGain) return;
+  const target = transitionApproximationGain(t, transitionAudioBoundaries());
+  const param = baseAudioTransitionGain.gain;
+  const now = audioCtx.currentTime;
+  param.cancelScheduledValues(now);
+  param.setValueAtTime(param.value, now);
+  // rAF の段階変化自体が新しいクリックにならないよう、短い補間で目標へ追従する。
+  param.linearRampToValueAtTime(target, now + 0.004);
+}
+
+function requestBaseVideoSeek(src, target) {
+  const apply = () => {
+    const sourceChanged = !isSameVideoSource(video, src);
+    let expectedSource = src;
+    try { expectedSource = new URL(src, document.baseURI).href; } catch { /* use src as-is */ }
+    // Listeners must exist before src/currentTime is assigned: local files can
+    // complete quickly enough for loadeddata/seeked to race subsequent setup.
+    const ready = waitForMediaSeekCompletion({
+      mediaElement: video,
+      sourceChanged,
+      target,
+      expectedSource,
+    });
+    setVideoSourceIfChanged(video, src);
+    video.currentTime = target;
+    if (isPlaying) ensureMediaPlaying(video, true);
+    else finishPausingPlayback();
+    return ready;
+  };
+  if (!baseAudioDeClick) { apply(); return true; }
+  return baseAudioDeClick.request(apply);
+}
+
+function syncBaseVideoTime(src, target, tolerance) {
+  const sourceChanged = !isSameVideoSource(video, src);
+  if (!sourceChanged && (video.seeking || Math.abs(video.currentTime - target) <= tolerance)) return false;
+  return requestBaseVideoSeek(src, target);
+}
+
 // 効果音は「同じファイルを何十回も差し込む」使い方が普通で、差し込み 1 件ごとに
 // fetch + decode すると回数ぶんの重複ロードになる（実測 fieldtest/2026-08-03-akari-video-beat-pv:
 // 差し込み 159 件 / ユニーク 37 本 = 68.5MB のところ 17.1MB で足りる）。この重複が
 // <video> のレンジ要求とコネクションを食い合い、読み込み中スピナーが点きっぱなしになる。
 // URL 単位で 1 回に畳む。AudioBuffer は複数の BufferSource から同時に使ってよい（仕様）ので
 // 差し込みごとに別バッファを持つ必要はなく、デコード済み PCM のメモリも 1/4 以下になる。
-// キーに sampleRate を混ぜる: edit.json のホットリロード（= 効果音を差し込んだ瞬間）は
-// AudioContext を作り直すので、デコード済みバッファはこのキャッシュ越しに context をまたいで
-// 再利用される。AudioBuffer は context に束縛されないため使い回せるが、decodeAudioData は
-// context のレートへリサンプルするため、レートが変わった時だけは取り直す必要がある。
+// キーに sampleRate を混ぜる: 通常の soft reload は MediaElementSource を守るため AudioContext を
+// 保持するが、将来 context の作り直し経路が加わっても、decodeAudioData が context のレートへ
+// リサンプルするという条件をキャッシュキーから失わないようにする。
 const audioBufferCache = new Map(); // `${sampleRate}|${url}` -> Promise<AudioBuffer | null>
 // 同時 fetch の上限。HTTP/1.1 の同一オリジン 6 本を音声で埋めると <video> の
 // バッファリングが待たされて waiting → スピナーになるため、必ず空きを残す。
@@ -1873,9 +1971,9 @@ function seekTo(t) {
   const vt = getVideoTimeForOutput(outputTime);
   if (vt >= 0) {
     const seg = getActiveSegment(outputTime);
-    // 同じソースへの再代入はロードをやり直してシーク自体を潰すため、変わった時だけ差し替える
-    if (seg && seg.index >= 0) setVideoSourceIfChanged(video, getVideoSource(seg.index));
-    video.currentTime = vt;
+    // 音量をゼロへランプしてから source/currentTime を変え、切替後に戻す。ユーザー操作の
+    // シークもカット境界と同じ経路を通すことで、不連続なサンプルを直接 destination へ出さない。
+    if (seg && seg.index >= 0) requestBaseVideoSeek(getVideoSource(seg.index), vt);
   }
   seek.value = outputTime;
   updateTimeLabel();
@@ -1900,6 +1998,9 @@ function play() {
   isPlaying = true;
   lastWallMs = 0;
   if (audioCtx?.state === 'suspended') audioCtx.resume();
+  if (baseAudioDeClick?.pending) {
+    baseAudioDeClick.request(() => ensureMediaPlaying(video, isPlaying));
+  }
   // 再生開始位置の BGM を組む（一時停止からの再開も含め、必ず今の outputTime に合わせる）
   restartBgm(outputTime);
   syncAudio(outputTime);
@@ -1910,18 +2011,30 @@ function play() {
   playToggle.title = '一時停止';
   requestAnimationFrame(playbackLoop);
 }
+
+function finishPausingPlayback() {
+  video.pause();
+  for (const n of [...narrationNodes, ...sfxNodes]) {
+    if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
+  }
+  if (audioCtx?.state === 'running') audioCtx.suspend();
+  for (const lv of layerVideos) lv.el.pause();
+}
+
 function pause() {
   if (!isPlaying) return;
   logReviewEvent('pause');
   // 手動一時停止はフリーズホールドを打ち切る（保留中タイマーを引きずったまま次の再開で
   // 誤って再一時停止しない -- contract-2026-08-02-preview-parity.md §2.4.3）。
   freezeHoldUntilMs = 0;
-  isPlaying = false; video.pause();
-  for (const n of [...narrationNodes, ...sfxNodes]) {
-    if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
+  isPlaying = false;
+  // 再生中のシーク操作は pause() → seekTo() の順で来る。ここでも同じ 12ms ランプを
+  // 予約し、直後の seekTo が pending action を「シークしてから停止」へ更新できるようにする。
+  if (baseAudioDeClick && audioCtx?.state === 'running' && !video.paused) {
+    baseAudioDeClick.request(finishPausingPlayback);
+  } else {
+    finishPausingPlayback();
   }
-  if (audioCtx?.state === 'running') audioCtx.suspend();
-  for (const lv of layerVideos) lv.el.pause();
   playToggle.innerHTML = playIcon;
   playToggle.setAttribute('aria-label', '再生');
   playToggle.title = '再生';
@@ -1954,12 +2067,12 @@ function playbackLoop() {
   const target = getVideoTimeForOutput(outputTime);
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
-    setVideoSourceIfChanged(video, getVideoSource(seg.index));
     // ズレ補正は「シーク中でない」かつ「シーク遅延より大きくズレた」ときだけ。
     // 旧実装（閾値 0.1・シーク中も発行）は、1 回のシーク遅延がそのまま次フレームの
     // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
     // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
-    syncMediaCurrentTime(video, target, SYNC_DEADBAND_SEC);
+    // 補正が必要な場合は 12ms で下地音声をゼロへ落としてから source/currentTime を切り替える。
+    syncBaseVideoTime(getVideoSource(seg.index), target, SYNC_DEADBAND_SEC);
     // src の差し替えで paused に戻った場合も、時刻を合わせてから再生を復帰する。
     // 読み込み直後の play() が失敗しても、再生中だけ次フレームで再試行される。
     ensureMediaPlaying(video, isPlaying);
@@ -2005,6 +2118,7 @@ function updateWaveformPlayhead() {
 
 function updateTransitions() {
   const cuts = summary?.cuts ?? [];
+  updateBaseAudioTransition(outputTime);
   if (!cuts.length) { transitionPlate.style.visibility = 'hidden'; return; }
   let cursor = 0;
   for (let i = 0; i < cuts.length; i++) {
@@ -2149,9 +2263,9 @@ async function applySoftReload() {
   layerVideos = [];
   setupLayers();
 
-  // 音声グラフを作り直し（旧 context を閉じて鳴っているソースも止める）
-  if (audioCtx) { try { audioCtx.close(); } catch { /* already closed */ } }
-  audioCtx = null; bgmNode = null; narrationNodes = []; sfxNodes = [];
+  // MediaElementSource は 1 要素 1 回のため AudioContext / 下地経路は保持し、編集内容に
+  // 依存する BGM・ナレーション・効果音のノードだけを組み直す。
+  teardownTimelineAudioGraph();
   setupAudioGraph();
 
   // オーバーレイ: 顔ぶれが同じなら作り直さず位置と見た目だけ貼り直す
