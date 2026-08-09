@@ -174,6 +174,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly windowService!: WindowService;
 
     protected topView: TopView = 'materials';
+    /** ファイルをドラッグ中か（取り込み可能であることを枠で見せる。renderDropOverlay 参照）。 */
+    protected dragActive = false;
     protected materials: MaterialCardEntry[] = [];
     protected unorganizedMaterials: MaterialCardEntry[] = [];
     protected materialsLoading = false;
@@ -244,6 +246,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // （ホームの取り込みゾーン akari-home-widget#handleDragOver が既にこの 3 点セットで
         //   動いており、本パネルだけが dragover を持たず取り残されていた）。
         this.node.addEventListener('dragover', event => this.handleDragOver(event));
+        this.node.addEventListener('dragleave', event => this.handleDragLeave(event));
         this.node.addEventListener('drop', event => this.handleDrop(event));
         this.toDispose.push(this.workflow.onDidChange(() => {
             this.ensureMaterialsWatch();
@@ -1356,11 +1359,34 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         event.preventDefault();
         event.stopPropagation();
         transfer.dropEffect = 'copy';
+        this.setDragActive(true);
+    }
+
+    /**
+     * ドラッグがパネルの外へ出たときだけ表示を消す。子要素をまたぐたびに dragleave が
+     * 飛ぶため、`relatedTarget`（次にホバーする要素）がパネル内ならまだ出ていない。
+     * これを見ないと、カードの上を横切るたびに枠が点滅する。
+     */
+    protected handleDragLeave(event: DragEvent): void {
+        const next = event.relatedTarget;
+        if (next instanceof Node && this.node.contains(next)) {
+            return;
+        }
+        this.setDragActive(false);
+    }
+
+    protected setDragActive(active: boolean): void {
+        if (this.dragActive === active) {
+            return;
+        }
+        this.dragActive = active;
+        this.update();
     }
 
     protected handleDrop(event: DragEvent): void {
         event.preventDefault();
         event.stopPropagation();
+        this.setDragActive(false);
         const transfer = event.dataTransfer;
         if (!transfer) {
             return;
@@ -1492,9 +1518,40 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
+    /**
+     * ドラッグ中の「ここに落とせる」表示。ホームの取り込みゾーン
+     * （akari-home-widget#renderDropOverlay）と同一の見た目にする — 破線枠は
+     * `--theia-focusBorder`、塗りは `--theia-list-dropBackground`。どちらも
+     * akari-theme がアクセント（オレンジ）に上書きしているのでブランド色で出る。
+     * `pointerEvents: 'none'` は必須（重ねた要素が dragover を食うと点滅する）。
+     */
+    protected renderDropOverlay(): React.ReactNode {
+        return (
+            <div
+                role='status'
+                aria-live='polite'
+                data-akari-drop-overlay='true'
+                style={{
+                    position: 'absolute', inset: '4px', zIndex: 20, pointerEvents: 'none',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    background: 'var(--theia-list-dropBackground, rgba(127,127,127,0.12))',
+                    border: '2px dashed var(--theia-focusBorder)', borderRadius: 8,
+                    color: 'var(--theia-editorWidget-foreground)', textAlign: 'center', padding: '0 8px'
+                }}
+            >
+                <span className='codicon codicon-cloud-upload' aria-hidden='true' style={{ fontSize: 22 }} />
+                <strong style={{ fontSize: 12.5, lineHeight: 1.4 }}>ここに落とすと素材に取り込みます</strong>
+            </div>
+        );
+    }
+
     protected renderMaterialsPane(): React.ReactNode {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }} data-akari-top-view={this.topView}>
+            <div
+                style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}
+                data-akari-top-view={this.topView}
+            >
+                {this.dragActive && this.renderDropOverlay()}
                 {this.topView === 'materials' && (
                     <div style={{ flex: '0 0 auto', padding: '8px 10px 4px' }}>
                         <span style={{ fontSize: '0.78em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.75 }}>素材</span>
