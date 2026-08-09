@@ -55,6 +55,7 @@ const CAPTION_ZONES = new Set([
     'top-left', 'top', 'top-right', 'left', 'center', 'right',
     'bottom-left', 'bottom', 'bottom-right'
 ]);
+const CAPTION_WORD_STYLES = new Set(['karaoke', 'pop', 'reveal', 'reveal-word']);
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/u;
 class CaptionDisplayError extends Error {
     constructor(code, message) {
@@ -544,8 +545,12 @@ function validateSourceCaption(caption, index, policy) {
     const text = caption.display_text ?? caption.text;
     if (!strictText(text))
         fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
-    if (caption.style === 'karaoke' || caption.style === 'pop' || caption.style === 'reveal' || caption.style === 'reveal-word') {
-        fail('STYLE_CONFLICT', `captions[${index}].style cannot be combined with display_policy`);
+    if (caption.style !== undefined) {
+        if (CAPTION_WORD_STYLES.has(caption.style)) {
+            fail('STYLE_CONFLICT', `captions[${index}].style cannot be combined with display_policy`);
+        }
+        fail('INVALID_CAPTION', `captions[${index}].style ${JSON.stringify(caption.style)} is not a known caption style `
+            + `(expected one of: ${[...CAPTION_WORD_STYLES].join(', ')})`);
     }
     if (measureCaptionUnits(text) > policy.max_line_units * 2 && caption.display_fragments === undefined) {
         fail('NO_WORD_BOUNDARY_SPLIT', `caption ${caption.id} cannot fit in two ${policy.max_line_units}-unit fragments; provide display_fragments`);

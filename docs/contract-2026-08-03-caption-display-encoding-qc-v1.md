@@ -20,6 +20,11 @@ overlap; and reference/output aspect mismatch. A resolved production render stor
 `.akari/reports/caption-layout/<payload-sha256>.json`, including Node/ICU provenance and the boundary
 projection digest, and its immutable render receipt references the file and summary.
 
+Under `display_policy`, an omitted `captions[].style` remains valid. The known word-display styles
+`karaoke`, `pop`, `reveal`, and `reveal-word` remain `STYLE_CONFLICT` errors, while any other value is
+an `INVALID_CAPTION` error that names the unknown value and the accepted vocabulary. Without
+`display_policy`, caption style handling remains on the unchanged legacy path.
+
 `reference-pixel` geometry is scaled only after exact aspect agreement. `webkit-outline` produces
 real `-webkit-text-stroke` plus `paint-order:stroke fill` and disables shadow. Single-line consumers
 use the resolved plate box, `white-space:nowrap`, zero padding/gap, transparent background, and no
