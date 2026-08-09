@@ -24,8 +24,9 @@ CapCut 同様、**登場（in）/ 退場（out）/ ループ（loop）を独立�
 
 ## 実装状況
 
-**この索引は語彙の宣言（カタログ）であり、新リポの字幕レンダラはまだ動きを実装していない**
-（現行は行順送り reveal 系のみ）。実装は内部契約
-（内部リポ akari-video-internal の textstyle-v0 契約 §4）の残作業。
+字幕レンダラ（`packages/render-cut/src/captions.mjs`）は 47 語彙すべての in / out / loop
+レシピを実装済み（2026-08-03。`CAPTION_ANIMATION_RECIPES`・out は in の時間反転で表現・
+seek-safe な paused 宣言）。本節の旧記述「レンダラ未実装」は同日中の実装完了を
+反映できていなかったため 2026-08-05 に訂正。
 旧実装にはさらに ATF アニメカタログ 439 種（S01〜S30・akari-telop `src/effects/catalog/imported/`）
 があり、in/loop/out スロットの上級語彙として将来接続できる（移植は未定）。
