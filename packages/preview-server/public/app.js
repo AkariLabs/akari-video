@@ -19,6 +19,8 @@ import { composeCutVisualStyle } from '/cut-transform-visual.js';
 import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
 // layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・2026-08-06 crop-handle-anchor-fix）。
 import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
+// layers[].keyframes（transform/crop/perspective のアニメーション。contract-2026-08-09-transform-keyframes-v0.md）。
+import { computeLayerKeyframesVisual } from '/layer-keyframes-visual.js';
 import { createCutFxController } from '/cut-fx.js';
 import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
 import { ensureMediaPlaying } from '/media-playback-resume.js';
@@ -496,6 +498,37 @@ function syncLayers(t) {
     }
     if (shouldShow) {
       const localT = t - (l.t ?? 0);
+      // layers[].keyframes（transform/crop/perspective のアニメーション。
+      // contract-2026-08-09-transform-keyframes-v0.md）: dataset を書き換えてから
+      // applyLayerLayout を呼び直す -- crop pivot / clip-path / matrix3d の描画コードは
+      // 既存のものをそのまま再利用する。keyframes の無いレイヤー（大多数）は
+      // Array.isArray チェックで弾かれ、コストが増えない。
+      if (Array.isArray(l.keyframes) && l.keyframes.length >= 2) {
+        const resolved = computeLayerKeyframesVisual(l.keyframes, localT);
+        if (resolved) {
+          if (resolved.transform) {
+            lv.el.dataset.layerX = String(resolved.transform.x);
+            lv.el.dataset.layerY = String(resolved.transform.y);
+            lv.el.dataset.layerScale = String(resolved.transform.scale);
+            lv.el.dataset.layerRotate = String(resolved.transform.rotate);
+          }
+          if (resolved.crop) {
+            lv.el.dataset.layerCropX = String(resolved.crop.x);
+            lv.el.dataset.layerCropY = String(resolved.crop.y);
+            lv.el.dataset.layerCropW = String(resolved.crop.w);
+            lv.el.dataset.layerCropH = String(resolved.crop.h);
+          }
+          if (resolved.perspective) {
+            lv.el.dataset.layerPerspectiveCorners = JSON.stringify(resolved.perspective.corners);
+          }
+          if (resolved.transform || resolved.crop || resolved.perspective) {
+            applyLayerLayout(
+              lv.el, Number(lv.el.dataset.layerX) || 0, Number(lv.el.dataset.layerY) || 0,
+              Number(lv.el.dataset.layerScale) || 1, Number(lv.el.dataset.layerRotate) || 0,
+            );
+          }
+        }
+      }
       // 再生中は下地と同じデッドバンドを使う。複数・高負荷のレイヤーほど小刻みな補正が
       // デコードを圧迫するため、フレーム精度よりシーク完了を優先する。一時停止中は目標が
       // 動かないので従来どおり精密に合わせる。
