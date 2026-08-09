@@ -2758,7 +2758,7 @@ function createOverlayRuntime() {
       c.dataset.duration = String(o.duration);
       if (o.role !== undefined && o.role !== null) c.dataset.role = String(o.role);
       c.style.cssText = 'position:absolute;inset:0;pointer-events:auto;visibility:hidden;touch-action:none;';
-      // tasks/2026-08-07-background-role（2026-08-07 オーナー裁定）: role==="background" は
+      // 2026-08-07 オーナー裁定: role==="background" は
       // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
       // ロックする（transform も vars 経由の抜け道も無視する。overlay-runtime.js の mount・
       // render-cut の rasterize.mjs の renderOverlayNode と同じロック）。
@@ -2857,7 +2857,7 @@ function createOverlayRuntime() {
     for (const o of (s?.overlays || [])) {
       const entry = overlays.find(x => x.el.dataset.overlayId === String(o.id));
       if (!entry) continue;
-      // tasks/2026-08-07-background-role: mount() と同じロック（transform 無視 + vars 経由の
+      // mount() と同じロック（transform 無視 + vars 経由の
       // --x/--y/--scale/--rotate 上書きを許さない）。applyProps は再マウント無しで既存要素の
       // 見た目だけを貼り直す経路なので、ここで抜けると別クライアントの書き込みや summary
       // 再取得で背景がずれ得る。
@@ -2931,7 +2931,7 @@ function updateSelectionHint() {
   const range = ov ? `${fmtRange(ov.start)}〜${fmtRange(ov.start + ov.duration)}` : '範囲不明';
   const whole = ov && ov.duration >= totalDuration * 0.9 ? '（動画ほぼ全編に敷かれています）' : '';
   // 背景（role==="background"）は動かせないので「0 キーで位置を戻す」は意味を持たない。
-  // 代わりに「動かせない」ことと Delete での差し替え動線を伝える（tasks/2026-08-07-background-role）。
+  // 代わりに「動かせない」ことと Delete での差し替え動線を伝える。
   const trailer = ov?.role === 'background'
     ? '（背景・移動不可）・ Delete キーで削除'
     : '・ 0 キーで位置を戻す ・ Delete キーで削除';
@@ -2953,7 +2953,7 @@ async function resetSelectedOverlayTransform() {
   }
 }
 
-// 選択中の素材を消す（tasks/2026-08-07-background-role §4「Delete で削除」）。
+// 選択中の素材を Delete キーで削除する。
 // 背景に限らず overlays[] 全般に対する汎用機能 — 背景は「選択はできるが動かせない」種別で、
 // 差し替え（別の背景へ切り替える）の唯一の手段が「今の背景を消す」なので必須。
 // 消した後は下にあるものがそのまま見える（beat-pv ならベース動画）。lint 警告も出さない

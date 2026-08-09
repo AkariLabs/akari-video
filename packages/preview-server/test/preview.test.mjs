@@ -1116,7 +1116,7 @@ async function main() {
     ng('Layer click-select + drag', e.message);
   }
 
-  // ── tasks/2026-08-07-background-role: 背景（overlays[].role==="background"）は
+  // ── 背景（overlays[].role==="background"）は
   // 選択はできるがドラッグ/リサイズでは動かせない・Delete で削除できる ──
   // 実機報告 2026-08-07: 誤ドラッグで全編背景 bg-live がずれ、右と下が黒く欠けた事故への
   // 対策。要件の本質は「ずれたら直せる」ではなく「ずらせない」なので、実ブラウザで
