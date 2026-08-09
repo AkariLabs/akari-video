@@ -890,6 +890,8 @@ async function main() {
     // ページ再読込されたら消えるマーカー + 既知の再生位置に合わせる
     await page.evaluate(() => {
       window.__softReloadMarker = 'alive';
+      window.__baseAudioSourceBefore = window.akari?.baseAudioDebug?.mediaSource || null;
+      document.getElementById('preview-video').volume = 0.37;
       const el = document.getElementById('seek');
       el.value = 3;
       el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -913,7 +915,10 @@ async function main() {
     const state = await page.evaluate(() => ({
       marker: window.__softReloadMarker || null,
       seekMax: parseFloat(document.getElementById('seek').max),
-      t: parseFloat(document.getElementById('seek').value)
+      t: parseFloat(document.getElementById('seek').value),
+      baseAudioConnected: Boolean(window.akari?.baseAudioDebug?.mediaSource),
+      sameBaseAudioSource: window.__baseAudioSourceBefore === window.akari?.baseAudioDebug?.mediaSource,
+      videoVolume: document.getElementById('preview-video').volume,
     }));
     state.marker === 'alive'
       ? ok('Edit apply does not reload the page (marker survives)')
@@ -924,6 +929,12 @@ async function main() {
     Math.abs(state.t - 3) < 0.2
       ? ok(`Playback position preserved (t=${state.t.toFixed(2)})`)
       : ng('Soft reload position', `expected t ~3 got ${state.t}`);
+    (state.baseAudioConnected && state.sameBaseAudioSource)
+      ? ok('Soft reload reuses the one MediaElementAudioSourceNode')
+      : ng('Base audio graph rebuilt', JSON.stringify(state));
+    Math.abs(state.videoVolume - 0.37) < 0.001
+      ? ok('Media-element volume remains effective through the Web Audio route')
+      : ng('Media-element volume changed', `expected 0.37 got ${state.videoVolume}`);
 
     // 元に戻す（後続の実行やサーバ状態を汚さない）
     await fetch(`${BASE}/api/edit.json`, {

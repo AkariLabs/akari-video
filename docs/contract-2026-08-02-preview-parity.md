@@ -361,6 +361,18 @@ preview-server の PUT + edit-lint ゲートを通す。`fx` 未宣言の cut �
 - **一時停止で全音声を止める**: narration / SFX の BufferSource は stop、AudioContext は suspend
 - 一時停止中のシークで音源を発火させない
 - ducking は narration 再生区間で BGM -12dB、bgm.fadeIn / fadeOut を尊重する
+- Web UI の下地音声は `<video>` を `MediaElementAudioSourceNode` → GainNode → destination へ
+  接続する。MediaElementSource は要素ごとに 1 回だけ生成し、編集適用の soft reload では
+  AudioContext と下地経路を保持する。`video.volume` / `video.muted` の既存操作は media element
+  入力側で従来どおり有効とする
+- Web UI のカット境界・ユーザーシークは、下地 GainNode を 12ms で 0 へ落としてから
+  source/currentTime を切り替え、同一ソースでは `seeked`、別ソースでは `loadeddata` + `seeked` を
+  待ってから 12ms で 1 へ戻す（de-click）。12ms は 44.1kHz でも数百サンプルをランプへ含めつつ、
+  発話の途切れとして知覚されやすい約 20ms 未満へ収めるための値。イベント欠落時は 750ms 後から
+  readyState・seeking・目標時刻を再確認し、未完了の間はミュートを維持する
+- `transition_out` がある Web UI の境界では、宣言 `duration` 全体を前半 fade-out・後半 fade-in
+  として下地音声へ適用する。**これは `[音声 ≈ 近似]` 扱い**であり、1 個の `<video>` しかない
+  プレビューでは、書き出しの `acrossfade=d=<duration>` のような前後 2 音源の同時混合は行わない
 
 ### 2.6 トランジション
 - 視覚描画は `fade-black` / `fade-white` のみ（dissolve は尺計算のみ）— 現状の両実装の共通仕様として明文化
@@ -390,7 +402,7 @@ preview-server の PUT + edit-lint ゲートを通す。`fx` 未宣言の cut �
 | 2.2 字幕 | ✅（end 絶対・ソース軸・captions.json 正本化 修正済み） | ✅ |
 | 2.3 オーバーレイ解決 | ✅（ファイルパス解決 + vars 適用 修正済み） | ✅ |
 | 2.4 レイヤー初期非表示 | ✅（修正済み） | ✅ |
-| 2.5 音声停止 | ✅（suspend + source stop 修正済み） | ✅ |
+| 2.5 音声停止 / 境界 de-click | ✅（下地 Web Audio 化・12ms ランプ。transition 音声は近似） | ✅（停止） |
 | 2.7 lint 全経路 | ✅（PUT 一律・edit-store 共有ゲート） | ✅（Phase 2-1: 全 annotations RPC + FileService 直書き経路を writeEditSnapshot RPC 経由のゲートに統一。preview の captionWrite もゲート追加） |
 | 2.8 ペン正本 | ✅（Phase 2-2: pen-visuals.bundle.js から定数 + 描画コードを import） | ✅（正本は packages/pen-visuals へ昇格。動画面 webview は正本値の埋め込み） |
 | `cuts[].framing`（2026-08-06 実装） | ✅（§2.4.2） | ✅（§2.4.2。`cuts[].transform` 併用時のみ既知の割り切りあり） |
