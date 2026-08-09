@@ -124,11 +124,14 @@ export interface ReviewSessionSummary {
 }
 
 // HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see the
-// win portability audit §HEVC プレビュー in the internal repo), so
-// akari-preview lazily transcodes a local H.264 proxy on first preview request and reuses it on
-// a size+mtime cache hit. This runs on all platforms (not just win32) so the behavior is
-// identical everywhere and macOS gets the same test coverage as the platform that actually needs
-// it.
+// win portability audit §HEVC プレビュー in the internal repo). task/2026-08-09-drop-hevc-proxy:
+// measurement showed <video> hardware-decodes HEVC fine on the platforms tested, so this is no
+// longer invoked proactively on open — resolveHevcProxy is called exactly once per source, only
+// after the browser side observes an actual <video> playback failure (MEDIA_ERR_DECODE /
+// MEDIA_ERR_SRC_NOT_SUPPORTED). See AkariPreviewOpenHandler.handleHevcFallbackRequest. The
+// resulting proxy is cached (size+mtime keyed) and reused for the rest of the app session. This
+// runs on all platforms (not just win32) so the behavior is identical everywhere and macOS gets
+// the same test coverage as the platform that actually needs it.
 export type ResolveHevcProxyUnavailableReason =
     | 'ffprobe-not-found'
     | 'ffmpeg-not-found'
