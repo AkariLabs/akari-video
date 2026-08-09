@@ -35,6 +35,16 @@ export interface LayerPerspectiveSummary {
     corners: [number, number][];
 }
 
+// contract-2026-08-09-transform-keyframes-v0.md (layers[].keyframes). Deliberately loose here
+// (unknown[], not a typed shape) -- same "light gate + pass through" discipline
+// buildCutSummaryFields already uses for cuts[].framing/freeze below: deep per-point validation
+// (t ascending was already enforced by validate-edit.mjs at write time; partial/malformed points
+// at read time) is common/layer-keyframes-visual.ts's computeLayerKeyframesVisual's job, not this
+// module's -- it already tolerates missing/invalid sub-fields per point (falls back to defaults
+// or "not animated" for that category), so re-deriving the same rules here would just be a second
+// place for them to drift out of sync.
+export type LayerKeyframesSummary = unknown[];
+
 export interface LayerSummaryBase {
     id: string;
     t: number;
@@ -47,6 +57,7 @@ export interface LayerSummaryBase {
     chromaKey: boolean;
     crop?: LayerCropSummary;
     perspective?: LayerPerspectiveSummary;
+    keyframes?: LayerKeyframesSummary;
 }
 
 export interface LayerSummaryBaseResult {
@@ -156,10 +167,27 @@ export function normalizeLayerPerspectiveForSummary(value: unknown): LayerPerspe
 }
 
 /**
+ * edit.schema.json #/$defs/layerItem.keyframes: an array of >=2 {t, ...} points. Only checks the
+ * shape validate-edit.mjs can't defer to a deeper consumer (array, length, each entry an object
+ * with a finite non-negative t) -- everything else (which categories a point declares, per-leaf
+ * defaults, hold/interpolate/ease semantics) is computeLayerKeyframesVisual's job (see the
+ * LayerKeyframesSummary type comment above).
+ */
+export function normalizeLayerKeyframesForSummary(value: unknown): LayerKeyframesSummary | undefined {
+    if (!Array.isArray(value)) {
+        return undefined;
+    }
+    const usable = value.filter((point) =>
+        isPlainObject(point) && typeof point.t === 'number' && Number.isFinite(point.t) && point.t >= 0);
+    return usable.length >= 2 ? value : undefined;
+}
+
+/**
  * The exact per-layer summary object loadPreviewModel builds from a raw edit.json layers[]
  * entry (minus the async `src` asset-stream resolution, which stays in the caller). Validity
  * rules mirror layerItem's schema (id/t/duration/kind/src required); crop/perspective/opacity/
- * blend/chromaKey are optional and fall back to "absent" / "normal" / false on invalid input.
+ * blend/chromaKey/keyframes are optional and fall back to "absent" / "normal" / false on invalid
+ * input.
  */
 export function buildLayerSummaryBase(
     value: unknown,
@@ -226,6 +254,14 @@ export function buildLayerSummaryBase(
             base.perspective = perspective;
         } else {
             warn(`[akari-preview] ${label}.perspective を無視しました（corners が不正/退化四角形です）`, record.perspective);
+        }
+    }
+    if (record.keyframes !== undefined) {
+        const keyframes = normalizeLayerKeyframesForSummary(record.keyframes);
+        if (keyframes) {
+            base.keyframes = keyframes;
+        } else {
+            warn(`[akari-preview] ${label}.keyframes を無視しました（2 点以上の配列ではありません）`, record.keyframes);
         }
     }
     return { ok: true, base, unsupportedBlend };

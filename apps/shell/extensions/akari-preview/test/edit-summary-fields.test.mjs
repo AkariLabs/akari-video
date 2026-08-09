@@ -5,6 +5,7 @@ import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
     normalizeLayerCropForSummary,
+    normalizeLayerKeyframesForSummary,
     normalizeLayerPerspectiveForSummary
 } from '../lib/common/edit-summary-fields.js';
 
@@ -85,6 +86,57 @@ test('buildLayerSummaryBase: a degenerate perspective quad (near-zero area) is d
 test('buildLayerSummaryBase: still rejects a structurally invalid layer (unrelated to crop/perspective)', () => {
     const result = buildLayerSummaryBase({ t: 0, duration: 2, kind: 'video', src: 'x.mp4' }, 'layers[0]', identityTransform, new Map(), noopWarn);
     assert.equal(result.ok, false);
+});
+
+// contract-2026-08-09-transform-keyframes-v0.md. Same "silently reset to the un-animated state on
+// every save -> file watch -> queueRefresh rebuild" bug class the 2026-08-06 header comment above
+// describes for crop/perspective -- this is the regression test for keyframes specifically (the
+// task brief's own "落とし穴": schema support alone does not reach the webview).
+test('buildLayerSummaryBase: keyframes from a realistic edit.json layer reach the summary base', () => {
+    const layer = {
+        id: 'l-pip-1',
+        t: 0,
+        duration: 4,
+        kind: 'video',
+        src: 'assets/webcam.mp4',
+        keyframes: [
+            { t: 0, transform: { scale: 0.4 } },
+            { t: 2, transform: { scale: 0.6 }, easing: 'ease-in-out' },
+            { t: 4, crop: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } }
+        ]
+    };
+    const result = buildLayerSummaryBase(layer, 'layers[0]', identityTransform, new Map(), noopWarn);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.base.keyframes, layer.keyframes);
+});
+
+test('buildLayerSummaryBase: a layer without keyframes omits the key (no false defaults leak in)', () => {
+    const layer = { id: 'l-plain', t: 0, duration: 2, kind: 'baked', src: 'assets/telop.mov' };
+    const result = buildLayerSummaryBase(layer, 'layers[0]', identityTransform, new Map(), noopWarn);
+    assert.equal(result.ok, true);
+    assert.equal('keyframes' in result.base, false);
+});
+
+test('buildLayerSummaryBase: keyframes with fewer than 2 usable points is dropped and warns', () => {
+    const layer = {
+        id: 'l-bad-kf', t: 0, duration: 2, kind: 'video', src: 'assets/webcam.mp4',
+        keyframes: [{ t: 0, transform: { scale: 1 } }]
+    };
+    const warnings = [];
+    const result = buildLayerSummaryBase(layer, 'layers[0]', identityTransform, new Map(), (message, detail) => warnings.push({ message, detail }));
+    assert.equal(result.ok, true);
+    assert.equal('keyframes' in result.base, false);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0].message, /\.keyframes を無視しました/);
+});
+
+test('normalizeLayerKeyframesForSummary: a non-array is rejected', () => {
+    assert.equal(normalizeLayerKeyframesForSummary({ t: 0 }), undefined);
+});
+
+test('normalizeLayerKeyframesForSummary: 2 usable points pass through verbatim (deep per-point validation deferred to computeLayerKeyframesVisual)', () => {
+    const keyframes = [{ t: 0, transform: { scale: 1 } }, { t: 1, transform: { scale: 2 } }];
+    assert.equal(normalizeLayerKeyframesForSummary(keyframes), keyframes);
 });
 
 test('normalizeLayerCropForSummary: boundary values (full-frame crop) are accepted', () => {

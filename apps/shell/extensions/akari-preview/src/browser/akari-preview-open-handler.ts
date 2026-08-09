@@ -41,6 +41,7 @@ import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visua
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { LayerPerspective, computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
+import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
@@ -4114,6 +4115,11 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉗ layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・
             // 2026-08-06 crop-handle-anchor-fix）。
             const cropAnchorCorrectedTransformFn = (${cropAnchorCorrectedTransform.toString()});
+            // ㉘ layers[].keyframes（contract-2026-08-09-transform-keyframes-v0.md）。renderLayers
+            // が毎フレーム呼び、layer.keyframes があれば dataset.akariTransformX/Y/Scale/Rotate・
+            // akariCropX/Y/W/H・akariPerspectiveCorners を上書きしてから updateLayerLayout を叩く
+            // （既存の crop pivot / clip-path / matrix3d 描画コードを丸ごと再利用するため）。
+            const computeLayerKeyframesVisualFn = (${computeLayerKeyframesVisual.toString()});
             // RAF スロットリング（2026-08-09 raf-throttle）: ハンドルドラッグ中の pointermove は
             // 毎回来るが、フル layout 再計算（updateStageScale）は1フレームに1回で十分。
             const createRafThrottleFn = (${createRafThrottle.toString()});
@@ -6758,6 +6764,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 transitionPlate.style.opacity = String(opacity);
             };
             const renderLayers = timelineTime => {
+                // ㉘ layers[].keyframes（contract-2026-08-09-transform-keyframes-v0.md）: dataset
+                // が変わっても DOM スタイルには自動反映されない（updateStageScale が dataset ->
+                // style を書く唯一の場所）ので、このフレームで実際に何か上書きしたときだけ最後に
+                // 1 回まとめて呼ぶ -- keyframes の無いプロジェクト（大多数）はここで一切コストが
+                // 増えない。
+                let anyKeyframeApplied = false;
                 for (const entry of layerEntries) {
                     const layer = entry.spec;
                     const layerVideo = entry.video;
@@ -6778,6 +6790,35 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     layerVideo.style.display = 'block';
                     const localTime = clamp(timelineTime - layer.t, 0, layer.duration);
+                    if (Array.isArray(layer.keyframes) && layer.keyframes.length >= 2) {
+                        // computeLayerKeyframesVisualFn is a webview-injected copy (toString()
+                        // serialization) -- guarded the same way computeLayerPerspectiveVisualFn's
+                        // call in updateStageScale is, so a future injection regression degrades to
+                        // "keyframes not applied" instead of aborting the rest of this loop.
+                        try {
+                            const resolved = computeLayerKeyframesVisualFn(layer.keyframes, localTime);
+                            if (resolved) {
+                                if (resolved.transform) {
+                                    layerVideo.dataset.akariTransformX = String(resolved.transform.x);
+                                    layerVideo.dataset.akariTransformY = String(resolved.transform.y);
+                                    layerVideo.dataset.akariTransformScale = String(resolved.transform.scale);
+                                    layerVideo.dataset.akariTransformRotate = String(resolved.transform.rotate);
+                                }
+                                if (resolved.crop) {
+                                    layerVideo.dataset.akariCropX = String(resolved.crop.x);
+                                    layerVideo.dataset.akariCropY = String(resolved.crop.y);
+                                    layerVideo.dataset.akariCropW = String(resolved.crop.w);
+                                    layerVideo.dataset.akariCropH = String(resolved.crop.h);
+                                }
+                                if (resolved.perspective) {
+                                    layerVideo.dataset.akariPerspectiveCorners = JSON.stringify(resolved.perspective.corners);
+                                }
+                                if (resolved.transform || resolved.crop || resolved.perspective) anyKeyframeApplied = true;
+                            }
+                        } catch (error) {
+                            console.warn('[akari-preview] layer keyframes visual failed; rendering without them', layer.id, error);
+                        }
+                    }
                     const mediaEnd = Number.isFinite(layerVideo.duration) && layerVideo.duration > 0
                         ? Math.max(0, layerVideo.duration - 0.001)
                         : layer.duration;
@@ -6796,6 +6837,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         void layerVideo.play().catch(() => undefined);
                     }
                 }
+                if (anyKeyframeApplied && window.akari.updateLayerLayout) window.akari.updateLayerLayout();
             };
             const applyCutsMuteState = () => {
                 const segment = segments[activeSegmentIndex];
