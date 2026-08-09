@@ -36,7 +36,7 @@ test("non-3D overlay sheets remain byte-identical", () => {
   assert.doesNotMatch(sheet, /threeRuntime|AkariThree|data:model\/gltf-binary/);
 });
 
-// tasks/2026-08-07-background-role: role==="background" must render with identity geometry no
+// role==="background" must render with identity geometry no
 // matter what transform/vars the data carries — the host locks it, it does not merely default it.
 test("background-role overlays ignore transform and lock reserved vars to identity geometry", () => {
   const sheet = renderOverlaySheet({

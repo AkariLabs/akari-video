@@ -49,7 +49,7 @@ window.akari.runtime = (() => {
       const transform = overlay.transform ?? {};
       const container = document.createElement("div");
 
-      // tasks/2026-08-07-background-role（2026-08-07 オーナー裁定）: role==="background" は
+      // 2026-08-07 オーナー裁定: role==="background" は
       // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
       // ロックする（transform も vars 経由の抜け道も無視する。preview-server の app.js の
       // mount・render-cut の rasterize.mjs の renderOverlayNode と同じロック）。

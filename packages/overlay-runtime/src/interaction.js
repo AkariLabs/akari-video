@@ -398,7 +398,7 @@ window.akari.interaction = (() => {
     return getComputedStyle(container).visibility !== "hidden";
   }
 
-  // tasks/2026-08-07-background-role（2026-08-07 オーナー裁定・確定）: role==="background" は
+  // 2026-08-07 オーナー裁定・確定: role==="background" は
   // 「選択・削除はできるが、ドラッグ・拡縮では動かせない」種別（mount() が dataset.role を立てる。
   // preview-server の app.js / shell の overlay-runtime.js 双方）。要件の本質は「ずれたら直せる」
   // ではなく「ずらせない」なので、ドラッグ/リサイズの開始点そのものを isSelectable とは別に

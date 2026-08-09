@@ -749,7 +749,7 @@ export function parseFfmpegOutTime(value) {
 
 function renderOverlayNode(overlay, index) {
   const transform = overlay.transform ?? {};
-  // tasks/2026-08-07-background-role（2026-08-07 オーナー裁定）: role==="background" は
+  // 2026-08-07 オーナー裁定: role==="background" は
   // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
   // ロックする（transform も vars 経由の抜け道も無視する。edit-lint が同じ 2 条件を
   // データ側で弾くが、host 側でも二重にロックして「事故で黒が出る」を構造的に潰す。

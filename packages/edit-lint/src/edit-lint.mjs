@@ -1360,7 +1360,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
   }
 }
 
-// tasks/2026-08-07-background-role（2026-08-07 オーナー裁定・確定）: overlays[].role==="background"
+// 2026-08-07 オーナー裁定・確定: overlays[].role==="background"
 // は「動かせない・必ずフレームを埋める」種別で、取りうる状態のほぼ全部が正しくなければならない。
 // host（preview-server の app.js / shell の overlay-runtime.js の mount・render-cut の
 // rasterize.mjs の renderOverlayNode）は role==="background" のとき --x/--y/--scale/--rotate を

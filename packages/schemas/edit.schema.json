@@ -373,7 +373,7 @@
           }
         }
       ],
-      "$comment": "tasks/2026-08-07-background-role（2026-08-07 オーナー裁定・確定）。role なしは従来どおり（互換）。role===\"background\" は「動かせない・必ずフレームを埋める・区間ごとに差し替えられる」種別で、transform を持てない（host が出力フレームへ恒等固定し、--x/--y/--scale/--rotate を無条件でロックする。overlay-runtime.js / preview-server app.js の mount・render-cut rasterize.mjs の renderOverlayNode が同じロックを実装）。vars 経由での --x/--y/--scale/--rotate 上書きと区間の重なりは JSON Schema では表現できない（vars は additionalProperties な自由形・重なりは兄弟要素比較）ため edit-lint（overlays.role.vars / overlays.role.overlap）で検証する。"
+      "$comment": "（2026-08-07 オーナー裁定・確定）。role なしは従来どおり（互換）。role===\"background\" は「動かせない・必ずフレームを埋める・区間ごとに差し替えられる」種別で、transform を持てない（host が出力フレームへ恒等固定し、--x/--y/--scale/--rotate を無条件でロックする。overlay-runtime.js / preview-server app.js の mount・render-cut rasterize.mjs の renderOverlayNode が同じロックを実装）。vars 経由での --x/--y/--scale/--rotate 上書きと区間の重なりは JSON Schema では表現できない（vars は additionalProperties な自由形・重なりは兄弟要素比較）ため edit-lint（overlays.role.vars / overlays.role.overlap）で検証する。"
     },
     "layerTransform": {
       "type": "object",
