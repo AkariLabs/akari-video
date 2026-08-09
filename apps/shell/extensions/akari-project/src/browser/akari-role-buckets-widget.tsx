@@ -234,6 +234,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // akari-project-contribution.ts のグローバルハンドラ（isDelegatedDropzone）
         // に割り込まれず、このウィジェット自身が最後まで処理する。
         this.node.setAttribute('data-akari-dropzone', 'true');
+        // Theia 本体（frontend-application.ts）が document の **バブル段階**で
+        // `dataTransfer.dropEffect = 'none'` を無条件に入れている（ウィンドウへのファイル
+        // ドロップでブラウザ既定の遷移が起きるのを止めるため）。dropEffect が none のまま
+        // dragover が終わるとブラウザはドロップを拒否し、**drop イベントが一度も発火しない** —
+        // preventDefault だけでは足りない。実機計測（2026-08-09・CDP）: 素材パネル上で
+        // dragover 19 回・types に Files・defaultPrevented true・dropEffect none・drop 0 回。
+        // よって自前で copy を宣言し、Theia の document ハンドラまで到達させない
+        // （ホームの取り込みゾーン akari-home-widget#handleDragOver が既にこの 3 点セットで
+        //   動いており、本パネルだけが dragover を持たず取り残されていた）。
+        this.node.addEventListener('dragover', event => this.handleDragOver(event));
         this.node.addEventListener('drop', event => this.handleDrop(event));
         this.toDispose.push(this.workflow.onDidChange(() => {
             this.ensureMaterialsWatch();
@@ -1333,6 +1343,21 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     // --- ドロップ振り分け -----------------------------------------------------
 
+    /**
+     * ドロップを受け付ける意思表示。`preventDefault` + `dropEffect='copy'` + `stopPropagation`
+     * の 3 点セットで初めてブラウザが drop を発火させる（理由はコンストラクタのコメント）。
+     * ファイル以外のドラッグ（タブの並べ替え等）には触らない。
+     */
+    protected handleDragOver(event: DragEvent): void {
+        const transfer = event.dataTransfer;
+        if (!transfer || !transfer.types.includes('Files')) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        transfer.dropEffect = 'copy';
+    }
+
     protected handleDrop(event: DragEvent): void {
         event.preventDefault();
         event.stopPropagation();
@@ -1406,6 +1431,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const failed = results.length - imported;
             if (imported) {
                 void this.loadMaterials();
+                // 成功時に何も出さないと、一覧の更新に気づかない限り「無反応」に見える
+                // （ホームの取り込みゾーンは以前から成功トーストを出している。ここだけ無言だった）。
+                this.messages.info(`${imported} 件を素材に取り込みました。`);
             }
             if (failed) {
                 const message = 'ファイルを取り込めませんでした。Finder からもう一度ドラッグしてください。';
