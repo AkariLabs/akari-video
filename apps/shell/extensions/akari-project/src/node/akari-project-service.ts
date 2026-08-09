@@ -2,7 +2,7 @@ import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { execFile, spawn } from 'child_process';
 import { createHash } from 'crypto';
-import { constants, Dirent, promises as fs, watch } from 'fs';
+import { constants, Dirent, existsSync, promises as fs, watch } from 'fs';
 import { basename, dirname, extname, join, resolve } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
@@ -829,12 +829,27 @@ try {
 
     protected async resolveFfmpegPath(): Promise<string | undefined> {
         if (!this.ffmpegPathPromise) {
-            this.ffmpegPathPromise = this.locateFfmpegOnPath();
+            this.ffmpegPathPromise = this.locateFfmpeg();
         }
         return this.ffmpegPathPromise;
     }
 
-    /** ffmpeg を PATH から解決する（task.md 指定）。見つからなければ静かに undefined。 */
+    /**
+     * ffmpeg を解決する。優先順位は packages/media-bin の resolveFfmpeg と揃える
+     * （明示指定 env → PATH → アプリ同梱バイナリ）— akari-preview/hevc-proxy.ts と
+     * akari-annotations/media-cache.ts が既に同じ 3 段を実装しており、ここだけ PATH のみを
+     * 見ていたため、brew 未導入の PC では同梱 ffmpeg があるのにサムネが全部
+     * プレースホルダに落ちていた。見つからなければ静かに undefined（プレースホルダ運用）。
+     */
+    protected async locateFfmpeg(): Promise<string | undefined> {
+        if (process.env.AKARI_FFMPEG_BIN) {
+            return process.env.AKARI_FFMPEG_BIN;
+        }
+        const onPath = await this.locateFfmpegOnPath();
+        return onPath ?? this.bundledMediaBinPath('ffmpeg');
+    }
+
+    /** ffmpeg を PATH から解決する。見つからなければ undefined（呼び出し側が同梱へ落とす）。 */
     protected async locateFfmpegOnPath(): Promise<string | undefined> {
         const finder = this.platform === 'win32' ? 'where' : 'which';
         try {
@@ -843,6 +858,22 @@ try {
         } catch {
             return undefined;
         }
+    }
+
+    /**
+     * アプリ同梱バイナリの実体パス。apps/shell/package.json の extraResources
+     * （resources/vendor-ffmpeg → Resources/media-bin、prepackage の
+     * bundle-ffmpeg-binaries.mjs が生成）。開発時は resourcesPath が Electron 自身の
+     * Resources を指すため候補は存在せず、undefined になる。
+     */
+    protected bundledMediaBinPath(name: 'ffmpeg' | 'ffprobe'): string | undefined {
+        const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+        if (!resourcesPath) {
+            return undefined;
+        }
+        const exe = this.platform === 'win32' ? `${name}.exe` : name;
+        const candidate = join(resourcesPath, 'media-bin', exe);
+        return existsSync(candidate) ? candidate : undefined;
     }
 
     async prepareDiffs(projectUri: string): Promise<DiffPreparationResult> {
