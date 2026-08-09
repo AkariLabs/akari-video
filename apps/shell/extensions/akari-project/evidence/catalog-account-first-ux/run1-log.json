@@ -1,0 +1,114 @@
+[
+  {
+    "t": "2026-08-09T04:41:16.689Z",
+    "step": "setup:bogus-preference-set",
+    "ok": true,
+    "readback": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run1"
+  },
+  {
+    "t": "2026-08-09T04:41:17.294Z",
+    "step": "L1-1:item-count",
+    "itemCount": 348
+  },
+  {
+    "t": "2026-08-09T04:41:17.579Z",
+    "step": "L1-1:resolver-origin-count",
+    "resolverOriginCount": 348,
+    "totalVisible": 348
+  },
+  {
+    "t": "2026-08-09T04:41:17.583Z",
+    "step": "L1-1:leak-check-closed",
+    "unresolvedMessage": false,
+    "preferenceKey": false
+  },
+  {
+    "t": "2026-08-09T04:41:17.584Z",
+    "step": "empty-state-absent-when-items",
+    "present": false,
+    "kind": null,
+    "messageText": null,
+    "retryPresent": false,
+    "pickErrorText": null
+  },
+  {
+    "t": "2026-08-09T04:41:17.585Z",
+    "step": "account-header",
+    "present": true,
+    "text": "このアカウントで使える素材 — 無料 + 購入済みカタログ 348 件",
+    "resolverCountText": "カタログ 348 件",
+    "retryInlinePresent": false
+  },
+  {
+    "t": "2026-08-09T04:41:18.069Z",
+    "step": "developer-link-row-opened",
+    "detailsPresent": false,
+    "detailsOpen": null,
+    "valueText": "現在の設定（akari.catalog.root）: /private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run1",
+    "pickButtonPresent": true,
+    "pickButton": {
+      "x": 131.45703125,
+      "y": 507.75
+    },
+    "pickErrorText": null
+  },
+  {
+    "t": "2026-08-09T04:41:18.992Z",
+    "step": "developer-link-row-closed",
+    "detailsPresent": false,
+    "detailsOpen": null,
+    "valueText": null,
+    "pickButtonPresent": false,
+    "pickButton": null,
+    "pickErrorText": null
+  },
+  {
+    "t": "2026-08-09T04:41:20.276Z",
+    "step": "regression:search",
+    "before": 348,
+    "after": 2,
+    "keys": [
+      "still/br-coffee-beans",
+      "still/br-coffee-pour"
+    ]
+  },
+  {
+    "t": "2026-08-09T04:41:22.247Z",
+    "step": "regression:category-audio",
+    "count": 188
+  },
+  {
+    "t": "2026-08-09T04:41:23.715Z",
+    "step": "regression:audio-preview",
+    "found": true,
+    "playingObserved": true
+  },
+  {
+    "t": "2026-08-09T04:41:25.571Z",
+    "step": "regression:materials-tab",
+    "dropzonePresent": true,
+    "clipCardPresent": true,
+    "unorganizedShotPresent": true
+  },
+  {
+    "t": "2026-08-09T04:41:26.703Z",
+    "step": "regression:store-before",
+    "phase": "disconnected"
+  },
+  {
+    "t": "2026-08-09T04:41:27.170Z",
+    "step": "regression:store-after-connect-click",
+    "phase": "pending"
+  },
+  {
+    "t": "2026-08-09T04:41:27.936Z",
+    "step": "regression:store-after-cancel",
+    "phase": "disconnected"
+  },
+  {
+    "t": "2026-08-09T04:41:28.047Z",
+    "step": "console-error-summary",
+    "count": 0,
+    "sample": []
+  }
+]

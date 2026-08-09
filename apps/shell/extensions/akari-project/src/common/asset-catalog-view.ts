@@ -5,7 +5,7 @@
  * ここに置かない — resolveResolverPreviewUrl は src/node/resolver-preview-url.ts 側）。
  */
 
-import { AssetCatalogViewItem } from './akari-project-protocol';
+import { AssetCatalogResolverStatus, AssetCatalogViewItem } from './akari-project-protocol';
 import { CatalogPack } from './catalog-packs';
 
 /** resolver カタログの files[] 1 件（akari-assets-catalog/v0 契約: url か key のどちらかを持つ）。 */
@@ -86,6 +86,26 @@ export function mergeAssetCatalogViews(
         merged.set(item.key, item);
     }
     return Array.from(merged.values()).sort((left, right) => left.title.localeCompare(right.title, 'ja'));
+}
+
+/** カタログ面の空状態の原因分岐（catalog-account-first-ux task.md §2）。 */
+export type CatalogEmptyStateKind = 'resolver-failed' | 'empty' | 'items';
+
+/**
+ * 空状態の原因を判定する純関数。1 件でも表示できる項目があれば 'items'
+ * （resolver / ローカル catalog/ のどちらが由来かは問わない）。0 件のときだけ、
+ * resolver の取得状態で「取得失敗（オフライン等）」と「取得できたが 0 件（通常起きない）」を
+ * 分ける。ローカル catalog/ 未設定はここでは判定しない（一般ユーザーの正常系であり
+ * resolver の可用性とは独立した概念のため — 呼び出し側は resolverStatus のみを渡す）。
+ */
+export function deriveCatalogEmptyStateKind(
+    itemCount: number,
+    resolverStatus: AssetCatalogResolverStatus['status']
+): CatalogEmptyStateKind {
+    if (itemCount > 0) {
+        return 'items';
+    }
+    return resolverStatus === 'failed' ? 'resolver-failed' : 'empty';
 }
 
 /**

@@ -13,6 +13,7 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
 import {
     AkariProjectService,
+    AssetCatalogResolverStatus,
     AssetCatalogViewItem,
     DroppedAsset,
     StoreConnectionStatus,
@@ -30,6 +31,7 @@ import {
     assetDistributionBadgeText,
     assetStateBadgeText,
     CatalogPackGroup,
+    deriveCatalogEmptyStateKind,
     formatCatalogPackBreakdown,
     groupCatalogItemsByPack,
     summarizeCatalogPackDistribution
@@ -43,7 +45,11 @@ import { AKARI_REVEAL_IN_FILE_MANAGER, revealInFileManagerActionLabel } from './
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 
 const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
-const CATALOG_UNRESOLVED_MESSAGE = 'カタログの場所が未設定です（設定 akari.catalog.root）';
+// 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
+// どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
+// — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
+const CATALOG_FETCH_FAILED_MESSAGE = '素材カタログを取得できませんでした。接続を確認して再試行してください。';
+const CATALOG_EMPTY_MESSAGE = 'カタログに素材がまだありません。';
 const ASSET_STATE_BADGE_LABEL: Record<NonNullable<AssetCatalogViewItem['state']>, string> = {
     cached: '✓ 取得済み',
     available: '☁ 未取得',
@@ -216,12 +222,24 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected assetCatalogItems: AssetCatalogViewItem[] = [];
     /** `catalog/packs.json`（無ければ空）。パック棚のグループ化はフロント側で行う。 */
     protected catalogPacks: CatalogPack[] = [];
+    /**
+     * resolver（アカウントの素材）の取得状態。初回読み込み前は undefined —
+     * このときは空状態の原因分岐・見出し付近の件数/再試行表示のどちらも出さない
+     * （読み込み中は renderCatalogBody 側の「読み込み中…」が先に出る）。
+     */
+    protected catalogResolver?: AssetCatalogResolverStatus;
     protected catalogLoading = false;
     protected catalogQuery = '';
     protected catalogCategory = 'all';
     protected readonly catalogBrokenThumbnails = new Set<string>();
     protected catalogPickError?: string;
     protected catalogPicking = false;
+    /**
+     * 「開発者向け: ローカルカタログを追加」折りたたみの開閉状態。空状態内の `<details>` と
+     * 一覧表示中のヘッダ小リンク（renderCatalogDeveloperLinkRow）が同じ状態を共有する
+     * （task.md 指示3「同じ導線に到達できる」）。既定は閉。
+     */
+    protected developerCatalogOpen = false;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionLoading = true;
     protected storeConnectionPhase: 'idle' | 'starting' | 'pending' | 'expired' | 'error' = 'idle';
@@ -972,6 +990,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const view = await this.projectService.getAssetCatalogView(preferenceRoot);
         this.assetCatalogItems = view.items;
         this.catalogPacks = view.packs;
+        this.catalogResolver = view.resolver;
         this.catalogLoading = false;
         this.update();
     }
@@ -1790,10 +1809,56 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                 {this.renderCatalogBackBar()}
+                {this.renderCatalogAccountHeader()}
                 {this.renderStoreConnectionHeader()}
                 <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
                     {this.renderCatalogBody()}
                 </div>
+            </div>
+        );
+    }
+
+    /**
+     * 「アカウントで使える素材の棚」だと画面を見ただけで分かるための 1 行見出し
+     * （task.md 指示4）。読み込み状態・空/一覧のどちらでも常に出す — 一般ユーザーが
+     * この面の性質を最初に理解する手がかりにするため。リモート取得状態（件数 / 失敗時の
+     * 再試行）はここに小さく添える。0 件で resolver 失敗のときは renderCatalogEmptyState
+     * 側の大きい案内が主役になるため、ここでの再試行はあくまで補助（重複は許容 —
+     * ローカル catalog/ 分だけで一覧が出ているケースでは、ここの表示だけが resolver 失敗の
+     * 唯一の手がかりになる）。
+     */
+    protected renderCatalogAccountHeader(): React.ReactNode {
+        const resolver = this.catalogResolver;
+        return (
+            <div
+                data-akari-catalog-account-header
+                style={{
+                    flex: '0 0 auto',
+                    padding: '8px 8px 0',
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    flexWrap: 'wrap'
+                }}
+            >
+                <span style={{ fontWeight: 600, fontSize: '0.92em' }}>このアカウントで使える素材 — 無料 + 購入済み</span>
+                {resolver?.status === 'ok' && (
+                    <span data-akari-catalog-resolver-count style={{ fontSize: '0.78em', opacity: 0.65 }}>
+                        カタログ {resolver.itemCount} 件
+                    </span>
+                )}
+                {resolver?.status === 'failed' && (
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        data-akari-catalog-retry-inline
+                        style={{ fontSize: '0.75em', padding: '1px 8px' }}
+                        onClick={() => void this.loadAssetCatalogView()}
+                    >
+                        取得失敗 — 再試行
+                    </button>
+                )}
             </div>
         );
     }
@@ -1975,10 +2040,77 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
+    /**
+     * カタログ 0 件の空状態。原因（resolver 取得失敗 / 取得できたが 0 件）で文言を分ける
+     * （deriveCatalogEmptyStateKind — task.md 指示2）。resolverStatus が未読み込み（undefined）
+     * のときは 'empty' 相当の素直な文言にフォールバックする（catalogLoading=true の間は
+     * renderCatalogBody が先に「読み込み中…」を返すため、実際にここへ来るのは
+     * 読み込み完了後のみ）。どちらの分岐も `akari.catalog.root` / 「カタログの場所」を
+     * 含まない — その 2 語は renderDeveloperCatalogPanelBody の折りたたみ内だけに置く。
+     */
     protected renderCatalogEmptyState(): React.ReactNode {
+        const kind = deriveCatalogEmptyStateKind(this.assetCatalogItems.length, this.catalogResolver?.status ?? 'ok');
+        const resolverFailed = kind === 'resolver-failed';
         return (
-            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
-                <p style={{ margin: 0, opacity: 0.7 }}>{CATALOG_UNRESOLVED_MESSAGE}</p>
+            <div
+                data-akari-catalog-empty-kind={kind}
+                style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}
+            >
+                <p style={{ margin: 0, opacity: 0.7 }}>
+                    {resolverFailed ? CATALOG_FETCH_FAILED_MESSAGE : CATALOG_EMPTY_MESSAGE}
+                </p>
+                {resolverFailed && (
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        data-akari-catalog-retry
+                        disabled={this.catalogLoading}
+                        onClick={() => void this.loadAssetCatalogView()}
+                    >
+                        再試行
+                    </button>
+                )}
+                {this.renderDeveloperCatalogDetails()}
+            </div>
+        );
+    }
+
+    /**
+     * 「開発者向け: ローカルカタログを追加」の折りたたみ本体（`<details>`。既定は閉 —
+     * developerCatalogOpen の初期値 false）。空状態専用 — 一覧表示中は代わりに
+     * renderCatalogDeveloperLinkRow の小リンクから同じパネル本体
+     * （renderDeveloperCatalogPanelBody）へ到達する（task.md 指示3）。
+     */
+    protected renderDeveloperCatalogDetails(): React.ReactNode {
+        return (
+            <details
+                data-akari-developer-catalog-section
+                open={this.developerCatalogOpen}
+                onToggle={event => {
+                    this.developerCatalogOpen = (event.target as HTMLDetailsElement).open;
+                    this.update();
+                }}
+                style={{ width: '100%' }}
+            >
+                <summary style={{ cursor: 'pointer', opacity: 0.7, fontSize: '0.85em' }}>開発者向け: ローカルカタログを追加</summary>
+                {this.renderDeveloperCatalogPanelBody()}
+            </details>
+        );
+    }
+
+    /**
+     * ローカルカタログ追加パネルの中身（フォルダ選択ボタン + 現在の設定値 + 妥当性エラー）。
+     * 折りたたみ内のみで使う語彙なので `akari.catalog.root` の表記可（task.md 指示3）。
+     * pickCatalogFolder() / validateCatalogFolder() 自体は無変更（2026-07-25-catalog-root-fix
+     * の既存挙動をそのまま流用）。
+     */
+    protected renderDeveloperCatalogPanelBody(): React.ReactNode {
+        const currentValue = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px' }}>
+                <p data-akari-catalog-root-value style={{ margin: 0, fontSize: '0.8em', opacity: 0.7 }}>
+                    現在の設定（{AKARI_CATALOG_ROOT_PREFERENCE}）: {currentValue || '未設定'}
+                </p>
                 <button
                     type='button'
                     className='theia-button secondary'
@@ -1997,6 +2129,41 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 )}
             </div>
         );
+    }
+
+    /**
+     * 一覧表示中（=空状態が出ない）でもローカルカタログ追加へ到達できる、控えめな開発者向け行
+     * （task.md 指示3「目立たせない」）。developerCatalogOpen を空状態側と共有し、開いていれば
+     * 同じパネル本体をこの行の下に展開する。
+     */
+    protected renderCatalogDeveloperLinkRow(): React.ReactNode {
+        return (
+            <div style={{ paddingTop: '2px' }}>
+                <button
+                    type='button'
+                    data-akari-developer-catalog-toggle
+                    onClick={() => this.toggleDeveloperCatalogSection()}
+                    style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--theia-descriptionForeground, var(--theia-sideBar-foreground))',
+                        opacity: 0.6,
+                        fontSize: '0.75em',
+                        cursor: 'pointer',
+                        textDecoration: 'underline'
+                    }}
+                >
+                    開発者向け: ローカルカタログ…
+                </button>
+                {this.developerCatalogOpen && this.renderDeveloperCatalogPanelBody()}
+            </div>
+        );
+    }
+
+    protected toggleDeveloperCatalogSection(): void {
+        this.developerCatalogOpen = !this.developerCatalogOpen;
+        this.update();
     }
 
     protected renderCatalogControls(): React.ReactNode {
@@ -2051,6 +2218,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         );
                     })}
                 </div>
+                {this.renderCatalogDeveloperLinkRow()}
             </div>
         );
     }

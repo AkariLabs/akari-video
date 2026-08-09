@@ -249,16 +249,23 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * （resolver 側優先。同じ id をローカル catalog/ と resolver 側の両方に置くのは
      * 移行期のみの想定だが、片方だけでも壊れないよう両方に対応する）。
      * resolver 側が到達不能でも例外にせず空配列へフォールバックする（fail-soft — ローカル
-     * catalog/ の表示は resolver の可用性に引きずられない）。
+     * catalog/ の表示は resolver の可用性に引きずられない）。取得状態自体は `resolver`
+     * フィールドで返す — フロントはこれを見て「未取得（オフライン等）」と
+     * 「取得できたが 0 件」を区別する（catalog-account-first-ux task.md §1）。
      */
     async getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView> {
-        const [resolverItems, local] = await Promise.all([
+        const [resolverResult, local] = await Promise.all([
             this.loadResolverCatalogItems(),
             this.loadLocalCatalogViewItems(preferenceRoot)
         ]);
         return {
-            items: mergeAssetCatalogViews(local.items, resolverItems),
-            packs: local.packs
+            items: mergeAssetCatalogViews(local.items, resolverResult.items),
+            packs: local.packs,
+            resolver: {
+                status: resolverResult.status,
+                itemCount: resolverResult.items.length,
+                error: resolverResult.error
+            }
         };
     }
 
@@ -393,10 +400,18 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * （resolveResolverPreviewUrl / toResolverAssetCatalogViewItem）が担う —
      * 文字列テンプレートの中身をできるだけ薄くし、ロジックを単体テスト可能にするため。
      */
-    protected async loadResolverCatalogItems(): Promise<AssetCatalogViewItem[]> {
+    /**
+     * resolver 合成カタログの取得 + 取得状態。status='failed' になるのは
+     * (a) 開発配置に asset-resolver が見つからない (b) 子プロセスが非 0 終了
+     * （オフライン等 — composeState() 内の loadCatalog() がキャッシュも無ければ例外を投げ、
+     * それが未捕捉のままプロセスを非 0 終了させる） (c) 応答 JSON が解釈できない、の 3 パターン。
+     * いずれも fail-soft（ローカル catalog/ の表示は継続）だが、原因（error）は
+     * 開発者向け折りたたみでの手がかりに残す。
+     */
+    protected async loadResolverCatalogItems(): Promise<{ items: AssetCatalogViewItem[]; status: 'ok' | 'failed'; error?: string }> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) {
-            return [];
+            return { items: [], status: 'failed', error: 'アセット resolver が見つかりません（開発配置を確認してください）' };
         }
         const stateModuleUrl = pathToFileURL(join(srcDir, 'state.mjs')).toString();
         const script = `
@@ -406,17 +421,19 @@ process.stdout.write(JSON.stringify({ base, items }));
 `;
         const { code, stdout, stderr } = await this.runResolverScript(script);
         if (code !== 0) {
-            console.warn('[akari-project] resolver カタログの取得に失敗（ローカル catalog/ のみで継続）:', (stderr || stdout).trim());
-            return [];
+            const message = (stderr || stdout).trim();
+            console.warn('[akari-project] resolver カタログの取得に失敗（ローカル catalog/ のみで継続）:', message);
+            return { items: [], status: 'failed', error: message || undefined };
         }
         let parsed: { base: string; items: Array<ResolverRawCatalogItem & { preview?: string }> };
         try {
             parsed = JSON.parse(stdout);
         } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
             console.warn('[akari-project] resolver カタログの応答を解釈できませんでした:', error);
-            return [];
+            return { items: [], status: 'failed', error: message };
         }
-        return parsed.items.map(item => {
+        const items = parsed.items.map(item => {
             const previewUrl = resolveResolverPreviewUrl(item.preview, parsed.base);
             // mediaUrl（試聴用の実体 URL）は previewUrl と同じ解決規則（絶対 URL はそのまま／
             // base 相対キーは base 側の規約で解決）を適用する。選定元は files[] の音声ファイル
@@ -426,6 +443,7 @@ process.stdout.write(JSON.stringify({ base, items }));
             const mediaUrl = resolveResolverPreviewUrl(selectResolverAudioFileRef(item), parsed.base);
             return toResolverAssetCatalogViewItem(item, previewUrl, mediaUrl);
         });
+        return { items, status: 'ok' };
     }
 
     /**

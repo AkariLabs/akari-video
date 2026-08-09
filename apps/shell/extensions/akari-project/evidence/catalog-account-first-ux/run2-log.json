@@ -1,0 +1,152 @@
+[
+  {
+    "t": "2026-08-09T04:53:11.136Z",
+    "step": "setup:bogus-preference-set",
+    "ok": true,
+    "readback": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run2"
+  },
+  {
+    "t": "2026-08-09T04:53:12.267Z",
+    "step": "L1-2:empty-state-resolver-failed",
+    "present": true,
+    "kind": "resolver-failed",
+    "messageText": "素材カタログを取得できませんでした。接続を確認して再試行してください。",
+    "retryPresent": true,
+    "pickErrorText": null
+  },
+  {
+    "t": "2026-08-09T04:53:12.298Z",
+    "step": "L1-2:leak-check-closed",
+    "unresolvedMessage": false,
+    "preferenceKey": false
+  },
+  {
+    "t": "2026-08-09T04:53:13.134Z",
+    "step": "L1-3:developer-details-opened",
+    "detailsPresent": true,
+    "detailsOpen": true,
+    "valueText": "現在の設定（akari.catalog.root）: /private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run2",
+    "pickButtonPresent": true,
+    "pickButton": {
+      "x": 131.45703125,
+      "y": 601.25
+    },
+    "pickErrorText": null
+  },
+  {
+    "t": "2026-08-09T04:53:14.537Z",
+    "step": "L1-3:invalid-folder-result",
+    "detailsPresent": true,
+    "detailsOpen": true,
+    "valueText": "現在の設定（akari.catalog.root）: /private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run2",
+    "pickButtonPresent": true,
+    "pickButton": {
+      "x": 131.45703125,
+      "y": 601.25
+    },
+    "pickErrorText": "選んだフォルダーにカタログの内容が見つかりません（scene3d・overlay・still・audio・broll・font のいずれかのフォルダー、または INDEX.md が必要です）。"
+  },
+  {
+    "t": "2026-08-09T04:53:14.544Z",
+    "step": "L1-3:preference-after-invalid",
+    "ok": true,
+    "value": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run2"
+  },
+  {
+    "t": "2026-08-09T04:53:15.953Z",
+    "step": "L1-3:local-items-appeared",
+    "itemCount": 61
+  },
+  {
+    "t": "2026-08-09T04:53:16.186Z",
+    "step": "L1-3:preference-after-valid",
+    "ok": true,
+    "value": "/Users/ryoma/_edit/30_products/akari-video-wt/catalog-account-first-ux/catalog"
+  },
+  {
+    "t": "2026-08-09T04:53:16.189Z",
+    "step": "L1-3:item-states-after-local-only",
+    "total": 61,
+    "nonLocalCount": 0
+  },
+  {
+    "t": "2026-08-09T04:53:16.192Z",
+    "step": "L1-4:account-header-with-local-items-resolver-failed",
+    "present": true,
+    "text": "このアカウントで使える素材 — 無料 + 購入済み取得失敗 — 再試行",
+    "resolverCountText": null,
+    "retryInlinePresent": true
+  },
+  {
+    "t": "2026-08-09T04:53:16.616Z",
+    "step": "L1-4:developer-link-row-toggle",
+    "before": true,
+    "after": false
+  },
+  {
+    "t": "2026-08-09T04:53:16.616Z",
+    "step": "L1-4:developer-link-row-reachable",
+    "detailsPresent": false,
+    "detailsOpen": null,
+    "valueText": "現在の設定（akari.catalog.root）: /Users/ryoma/_edit/30_products/akari-video-wt/catalog-account-first-ux/catalog",
+    "pickButtonPresent": true,
+    "pickButton": {
+      "x": 131.45703125,
+      "y": 471.25
+    },
+    "pickErrorText": null
+  },
+  {
+    "t": "2026-08-09T04:53:16.619Z",
+    "step": "L1-4:leak-check-list-closed",
+    "unresolvedMessage": false,
+    "preferenceKey": false
+  },
+  {
+    "t": "2026-08-09T04:53:16.620Z",
+    "step": "regression:local-verb-buttons-present",
+    "importPresent": true,
+    "askPresent": true
+  },
+  {
+    "t": "2026-08-09T04:53:17.681Z",
+    "step": "regression:ask-agent-quick-input-opened",
+    "quickInputVisible": true
+  },
+  {
+    "t": "2026-08-09T04:53:18.022Z",
+    "step": "regression:local-verb-error-delta",
+    "before": 0,
+    "after": 0
+  },
+  {
+    "t": "2026-08-09T04:53:18.845Z",
+    "step": "setup:local-catalog-server-started",
+    "port": 39217
+  },
+  {
+    "t": "2026-08-09T04:53:19.647Z",
+    "step": "L1-2:merged-after-unblock",
+    "before": 61,
+    "after": 64
+  },
+  {
+    "t": "2026-08-09T04:53:19.649Z",
+    "step": "L1-2:resolver-origin-after-merge",
+    "resolverOriginAfterMerge": 3
+  },
+  {
+    "t": "2026-08-09T04:53:19.650Z",
+    "step": "L1-2:account-header-after-merge",
+    "present": true,
+    "text": "このアカウントで使える素材 — 無料 + 購入済みカタログ 3 件",
+    "resolverCountText": "カタログ 3 件",
+    "retryInlinePresent": false
+  },
+  {
+    "t": "2026-08-09T04:53:19.836Z",
+    "step": "console-error-summary",
+    "count": 0,
+    "sample": []
+  }
+]
