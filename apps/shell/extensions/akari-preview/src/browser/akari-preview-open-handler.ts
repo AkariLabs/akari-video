@@ -201,6 +201,12 @@ interface PreviewModel {
     assetStreamIds: string[];
     captionsUri?: URI;
     captions: PreviewCaption[];
+    /**
+     * まだソースが 1 つも宣言されていない edit.json（新規プロジェクト直後）。
+     * `sourceUri` が無いのは「壊れている」からではなく「これから素材を入れる」からなので、
+     * エラーではなく空の状態として案内する（refreshPreview 側で分岐）。
+     */
+    emptyProject?: boolean;
     emphasisWords?: EditSummaryEmphasisWord[];
     session?: {
         muted: boolean;
@@ -496,6 +502,10 @@ const CLAIMED_VIDEO_EXTENSIONS = new Set([
 ]);
 const UNSUPPORTED_FORMAT_MESSAGE = 'この形式はアプリ内プレビューに未対応です。書き出し後の MP4 をプレビューできます。';
 const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビューできません。';
+// 新規プロジェクトの edit.json は素材が入る前は空（`{}`）。project-scaffold が作成時点で
+// 置くようになった（2026-08-08）ため、素材を入れる前に「編集データ」を開くのが通常の順序に
+// なった。ソース未宣言は不正ではないので、エラーではなくこの案内を出す。
+const EMPTY_PROJECT_MESSAGE = 'まだ動画が入っていません。左の「素材」に動画をドラッグして取り込むと、ここで仕上がりを確認できます。';
 const THREE_SCENE_KEYS = new Set([
     'model',
     'camera',
@@ -1726,6 +1736,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const videoUri = kind === 'output' ? model.sourceUri : identityUri;
         if (!videoUri) {
             await this.disposeAssetStreams(model.assetStreamIds);
+            if (model.emptyProject) {
+                this.showMessageCard(widget, identityUri, EMPTY_PROJECT_MESSAGE, identityUri, kind);
+                return;
+            }
             throw new Error(`${identityUri.toString()} の source.path を解決できませんでした。`);
         }
         const extension = videoUri.path.ext.toLowerCase();
@@ -1989,6 +2003,25 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         proxy: value?.proxy
                     }))
                     : [{ id: DEFAULT_SOURCE_ID, path: edit?.source?.path, proxy: edit?.source?.proxy }];
+            // ソースの宣言が 1 つも無い = 素材投入前の新規プロジェクト。`source` キー自体が
+            // 無い（`{}`）か `sources: []` の 2 形。壊れた宣言（path が非文字列など）とは区別し、
+            // ここでは投げずに空プロジェクトとして返す（呼び出し側が案内カードを出す）。
+            const hasNoDeclaredSource = Array.isArray(edit?.sources)
+                ? edit.sources.length === 0
+                : edit?.source === undefined || edit?.source === null;
+            if (hasNoDeclaredSource) {
+                return {
+                    editUri,
+                    summary: EMPTY_SUMMARY,
+                    sourcesById,
+                    overlayUris: [],
+                    assetUris: [],
+                    assetStreamIds: [],
+                    captionsUri,
+                    captions,
+                    emptyProject: true
+                };
+            }
             for (const declared of declaredSources) {
                 if (typeof declared.path !== 'string' || !declared.path.trim()) {
                     throw new TypeError(Array.isArray(edit?.sources)
