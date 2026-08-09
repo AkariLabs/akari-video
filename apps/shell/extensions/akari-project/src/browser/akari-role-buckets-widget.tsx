@@ -49,6 +49,14 @@ const ASSET_STATE_BADGE_LABEL: Record<NonNullable<AssetCatalogViewItem['state']>
     locked: '¥ 未購入'
 };
 
+// 素材グリッド（renderMaterialsTab）専用。カタログ側 renderCatalogCard の 150px グリッドとは無関係
+// — 「波及するなら素材グリッドだけに閉じる」（task.md「調べること」2）ため意図的に分けて定義する。
+// gap はグリッドの gap と一致させること（calc(50% - gap/2) で最低 2 列を数式保証する）。
+const MATERIAL_GRID_GAP = '8px';
+const MATERIAL_GRID_CARD_MIN_WIDTH = '34px';
+const MATERIAL_GRID_COLUMNS =
+    `repeat(auto-fill, minmax(min(${MATERIAL_GRID_CARD_MIN_WIDTH}, calc(50% - ${MATERIAL_GRID_GAP} / 2)), 1fr))`;
+
 /** 上段（素材）の内部遷移先。タブではなく widget 内遷移 — U6 裁定。 */
 type TopView = 'materials' | 'catalog';
 type MaterialKind = 'video' | 'audio' | 'image' | 'other';
@@ -1537,7 +1545,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <div>
                 {this.materials.length
-                    ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', padding: '10px' }}>
+                    ? <div style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: '10px' }}>
                         {this.materials.map(entry => this.renderMaterialCard(entry))}
                     </div>
                     : <p style={{ opacity: 0.7, padding: '10px 16px 0' }}>assets/ にはまだ素材がありません。</p>}
@@ -1557,7 +1565,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 </div>
                 <div
                     data-akari-unorganized-count={this.unorganizedMaterials.length}
-                    style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', padding: '10px' }}
+                    style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: '10px' }}
                 >
                     {this.unorganizedMaterials.map(entry => this.renderMaterialCard(entry))}
                 </div>
@@ -1587,7 +1595,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div
                     style={{
                         position: 'relative',
-                        aspectRatio: '16 / 9',
+                        aspectRatio: '1 / 1',
                         background: 'var(--theia-editorWidget-background)',
                         display: 'flex',
                         alignItems: 'center',
@@ -1595,10 +1603,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     }}
                 >
                     {entry.thumbnailUri
+                        // position: absolute で img をフレックスの外に出す。flex 子のまま
+                        // height:'100%' にすると、親の aspectRatio:1/1 を無視して img 自身の
+                        // 縦長比率で高さが決まってしまう（実機 CDP 計測で確認済みの挙動）。
                         ? <img
                             src={entry.thumbnailUri.toString()}
                             alt=''
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
                         />
                         : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
                     {entry.unorganized && (
@@ -1678,11 +1689,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         <span className='codicon codicon-comment-discussion' aria-hidden='true' style={{ fontSize: '12px' }} />
                     </button>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', padding: '4px 6px' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85em' }}>
+                {/* 3 列運用（カード実測 ~40px）だと名前+時間の横並びは名前側が幅 0 に潰れて消える
+                    （overflow:hidden の flex 子は自動最小幅が 0 になり、時間バッジに幅を奪われ切る —
+                    実機 CDP 計測で確認済み）。縦積みにしてそれぞれへ全幅を渡す。 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', padding: '4px 6px' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78em' }}>
                         {entry.name}
                     </span>
-                    <span style={{ opacity: 0.7, fontSize: '0.75em', flex: '0 0 auto' }}>
+                    <span style={{ opacity: 0.7, fontSize: '0.68em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
                     </span>
                 </div>
