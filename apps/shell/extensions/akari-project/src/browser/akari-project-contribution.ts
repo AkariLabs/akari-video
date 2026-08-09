@@ -162,8 +162,28 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             void this.watchOpenRoots();
         });
         document.addEventListener('dragover', event => {
-            if (event.dataTransfer?.types.includes('Files') || this.getDroppedVideos(event.dataTransfer).length) {
-                event.preventDefault();
+            if (this.isDelegatedDropzone(event.target) || this.isSelfHandledDropTarget(event.target)) {
+                // data-akari-dropzone を持つ場所、および Theia 本体のメインドックパネル
+                // （エディタ領域 — ファイルをタブとして開く自前の 3 点セットを既に持つ、
+                // application-shell.js の dockPanel.node 'dragover'/'drop'）は自前で完結する。
+                // ここで stopPropagation すると capture 段階の時点でそこまで event が
+                // 届かなくなるため、触らない。
+                return;
+            }
+            if (!(event.dataTransfer?.types.includes('Files') || this.getDroppedVideos(event.dataTransfer).length)) {
+                return;
+            }
+            // dropzone-audit 2026-08-09: この capture 段階の preventDefault だけでは
+            // 足りない。Theia 本体（frontend-application.js registerEventListeners）が
+            // document の**バブル段階**で dataTransfer.dropEffect = 'none' を無条件に
+            // 設定しており、stopPropagation で止めない限り最終的にそちらが勝って
+            // drop イベントが一度も発火しない（素材パネルで実測済みの同型バグ、4fdf3f6）。
+            // ここは委譲先を持たない「どこにドロップしても動画を取り込む」フォールバック
+            // 経路なので、素材パネル/ホームと同じ 3 点セットを capture 段階で確定させる。
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.dataTransfer) {
+                event.dataTransfer.dropEffect = 'copy';
             }
         }, true);
         document.addEventListener('drop', event => {
@@ -184,6 +204,17 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     /** `data-akari-dropzone` を持つ要素（の子孫）へのドロップは、その場所の実装に委ねる。 */
     protected isDelegatedDropzone(target: EventTarget | null): boolean {
         return target instanceof Element && !!target.closest('[data-akari-dropzone]');
+    }
+
+    /**
+     * Theia 本体のメインドックパネル（`#theia-main-content-panel` — エディタのタブ領域）
+     * は `application-shell.js` の `createMainPanel` が独自に dragover/drop の 3 点セットを
+     * 持ち、ファイルをタブとして開く。ここで割り込むと（ファイル種別を判定できる drop
+     * イベント自体は奪わないにせよ）dragover の dropEffect を独自に 'copy' へ書き換えて
+     * しまい、本体側の 'link' カーソルを上書きする副作用が出るため、対象から除外する。
+     */
+    protected isSelfHandledDropTarget(target: EventTarget | null): boolean {
+        return target instanceof Element && !!target.closest('#theia-main-content-panel');
     }
 
     protected async createProject(): Promise<void> {
