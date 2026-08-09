@@ -83,6 +83,14 @@ const STORE_SITE_FALLBACK = 'https://akari-oss.app/store/';
 const CLOUD_PROVIDER_ID = 'akari-cloud';
 const BEGIN_ONBOARDING_COMMAND = 'akari.partner.beginOnboarding';
 const SEND_TO_PARTNER_COMMAND = 'akari.partner.send';
+// akari-project の akari-reveal-commands.ts とミラー（拡張間 npm 依存を作らない —
+// akari-project-contribution.ts 冒頭コメントと同じ「薄いコマンド境界」流儀。
+// task 2026-08-09-reveal-in-finder）。
+const REVEAL_IN_FILE_MANAGER_COMMAND = 'akari.project.revealInFileManager';
+/** ボタンの title/aria-label 用の一文（「を」の二重化を避けて OS ごとに文型を変える）。 */
+function revealInFileManagerActionLabel(subject: string): string {
+    return isOSX ? `${subject} を Finder で表示` : `${subject} のフォルダを開く`;
+}
 
 // --- D&D 復活（v3 home dropzone からの再利用。bacd7f5 時点の akari-home-widget.tsx） ---
 // workflow.json の roles に assets kind が無いときの既定パス（v3 と同じ既定値）。
@@ -667,6 +675,14 @@ export class AkariHomeWidget extends ReactWidget {
     protected openCreatorRootProject = (uri: URI): void => {
         this.workspaceService.open(uri);
     };
+
+    /**
+     * プロジェクトカードの「Finder で表示」ボタン（task 2026-08-09-reveal-in-finder）。
+     * 実体は akari-project 拡張のコマンド（ID ミラー・存在確認とエラー表示もあちらが担う）。
+     */
+    protected async revealProjectInFileManager(row: ProjectListRow): Promise<void> {
+        await this.commands.executeCommand(REVEAL_IN_FILE_MANAGER_COMMAND, row.uri);
+    }
 
     // --- F5 新しい動画を始める（task 2026-08-03-shell-quickwins-feedback） -----
 
@@ -1895,26 +1911,41 @@ export class AkariHomeWidget extends ReactWidget {
                     {rows.length === 0 ? (
                         <p style={homeFlowStyles.cardLead}>まだプロジェクトがありません。</p>
                     ) : rows.map(row => (
-                        <button
-                            key={row.key}
-                            type='button'
-                            className='theia-button secondary'
-                            style={homeFlowStyles.projectItem}
-                            disabled={row.current}
-                            data-akari-project-item='true'
-                            data-akari-project-current={row.current ? 'true' : undefined}
-                            data-akari-project-standalone={row.standalone ? 'true' : undefined}
-                            onClick={() => !row.current && this.openCreatorRootProject(row.uri)}
-                        >
-                            {row.current && <span aria-hidden='true' style={homeFlowStyles.projectCurrentArrow}>▶</span>}
-                            <span className='codicon codicon-folder' aria-hidden='true' style={homeFlowStyles.chipIcon} />
-                            <span style={homeFlowStyles.projectItemBody}>
-                                <strong style={homeFlowStyles.projectItemName}>{row.name}</strong>
-                                {!row.standalone && row.channel && <small style={homeFlowStyles.projectItemChannel}>{row.channel}</small>}
-                            </span>
-                            {row.current && <span style={homeFlowStyles.projectBadge}>開いています</span>}
-                            {row.standalone && <span style={homeFlowStyles.projectBadge}>単体</span>}
-                        </button>
+                        <div key={row.key} style={homeFlowStyles.projectRow} data-akari-project-row='true'>
+                            <button
+                                type='button'
+                                className='theia-button secondary'
+                                style={{ ...homeFlowStyles.projectItem, flex: '1 1 auto' }}
+                                disabled={row.current}
+                                data-akari-project-item='true'
+                                data-akari-project-current={row.current ? 'true' : undefined}
+                                data-akari-project-standalone={row.standalone ? 'true' : undefined}
+                                onClick={() => !row.current && this.openCreatorRootProject(row.uri)}
+                            >
+                                {row.current && <span aria-hidden='true' style={homeFlowStyles.projectCurrentArrow}>▶</span>}
+                                <span className='codicon codicon-folder' aria-hidden='true' style={homeFlowStyles.chipIcon} />
+                                <span style={homeFlowStyles.projectItemBody}>
+                                    <strong style={homeFlowStyles.projectItemName}>{row.name}</strong>
+                                    {!row.standalone && row.channel && <small style={homeFlowStyles.projectItemChannel}>{row.channel}</small>}
+                                </span>
+                                {row.current && <span style={homeFlowStyles.projectBadge}>開いています</span>}
+                                {row.standalone && <span style={homeFlowStyles.projectBadge}>単体</span>}
+                            </button>
+                            <button
+                                type='button'
+                                className='theia-button secondary'
+                                title={revealInFileManagerActionLabel(row.name)}
+                                aria-label={revealInFileManagerActionLabel(row.name)}
+                                data-akari-project-reveal={row.key}
+                                style={homeFlowStyles.projectRevealButton}
+                                onClick={event => {
+                                    event.stopPropagation();
+                                    void this.revealProjectInFileManager(row);
+                                }}
+                            >
+                                <span className='codicon codicon-folder-opened' aria-hidden='true' />
+                            </button>
+                        </div>
                     ))}
                 </div>
             </section>
@@ -2196,6 +2227,13 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
 
     // プロジェクト一覧 = 唯一のスイッチャー（U3。旧・過去プロジェクト一覧 裁定 R3）。
     projectList: { display: 'flex', flexDirection: 'column', gap: 6 },
+    // 行 = 本体ボタン（開く）+ 「Finder で表示」ボタン（task 2026-08-09-reveal-in-finder）。
+    // button の入れ子は無効な HTML のため、行を div にして両ボタンを兄弟にする。
+    projectRow: { display: 'flex', alignItems: 'stretch', gap: 6 },
+    projectRevealButton: {
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flex: '0 0 auto', minHeight: 'auto', height: 'auto', padding: '0 12px', borderRadius: 9
+    },
     projectItem: {
         display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9,
         fontSize: 12.5, minHeight: 'auto', height: 'auto', width: '100%',
