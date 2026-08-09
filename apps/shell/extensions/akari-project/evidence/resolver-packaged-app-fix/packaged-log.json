@@ -1,0 +1,36 @@
+[
+  {
+    "t": "2026-08-09T07:24:51.739Z",
+    "step": "item-count",
+    "itemCount": 348,
+    "expected": 348
+  },
+  {
+    "t": "2026-08-09T07:24:51.840Z",
+    "step": "leak-check",
+    "fetchFailedBadge": false,
+    "catalogUnavailableMessage": false
+  },
+  {
+    "t": "2026-08-09T07:24:54.975Z",
+    "step": "edit-lint-status",
+    "ok": true,
+    "outcome": {
+      "available": false
+    }
+  },
+  {
+    "t": "2026-08-09T07:24:54.978Z",
+    "step": "WARN:editLintStatus.available is not true",
+    "ok": true,
+    "outcome": {
+      "available": false
+    }
+  },
+  {
+    "t": "2026-08-09T07:24:54.993Z",
+    "step": "console-error-summary",
+    "count": 0,
+    "sample": []
+  }
+]
