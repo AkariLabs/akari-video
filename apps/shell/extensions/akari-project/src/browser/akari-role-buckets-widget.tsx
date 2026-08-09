@@ -30,10 +30,12 @@ import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalo
 import {
     assetDistributionBadgeText,
     assetStateBadgeText,
+    assetStateBadgeTitle,
     CatalogPackGroup,
     deriveCatalogEmptyStateKind,
     formatCatalogPackBreakdown,
     groupCatalogItemsByPack,
+    storeProductUrl,
     summarizeCatalogPackDistribution
 } from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
@@ -50,11 +52,6 @@ const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 // — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
 const CATALOG_FETCH_FAILED_MESSAGE = '素材カタログを取得できませんでした。接続を確認して再試行してください。';
 const CATALOG_EMPTY_MESSAGE = 'カタログに素材がまだありません。';
-const ASSET_STATE_BADGE_LABEL: Record<NonNullable<AssetCatalogViewItem['state']>, string> = {
-    cached: '✓ 取得済み',
-    available: '☁ 未取得',
-    locked: '¥ 未購入'
-};
 
 // 素材グリッド（renderMaterialsTab）専用。カタログ側 renderCatalogCard の 150px グリッドとは無関係
 // — 「波及するなら素材グリッドだけに閉じる」（task.md「調べること」2）ため意図的に分けて定義する。
@@ -2334,7 +2331,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         return (
             <span
-                title={ASSET_STATE_BADGE_LABEL[item.state]}
+                title={assetStateBadgeTitle(item)}
                 style={{
                     position: 'absolute',
                     top: '4px',
@@ -2467,15 +2464,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             );
         }
         if (item.state === 'locked') {
+            // 「使う」（resolveAsset）は実行しない — 価格とストアの商品ページを案内するだけ
+            // （task.md B-2）。クリックでブラウザを開く（decision: 案内文だけでなく実際に
+            // 購入できる場所へ連れて行く方が親切と判断）。
+            const price = item.price ?? 0;
+            const url = storeProductUrl(this.storeConnection.url, item.id);
             return (
                 <button
                     type='button'
                     className='theia-button secondary'
-                    disabled
-                    title='購入すると使えるようになります（ストア連携は今後実装）'
-                    style={{ width: '100%', fontSize: '0.78em', padding: '2px 4px', opacity: 0.7 }}
+                    title={`ストアの商品ページを開きます（¥${price.toLocaleString()}）: ${url}`}
+                    style={{ width: '100%', fontSize: '0.78em', padding: '2px 4px' }}
+                    onClick={() => this.windowService.openNewWindow(url, { external: true })}
                 >
-                    ストアで見る
+                    {`¥${price.toLocaleString()} で購入 — ストアを開く`}
                 </button>
             );
         }

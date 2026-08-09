@@ -76,3 +76,17 @@ export function resolveEntitlementsUrl(env = process.env, credentials) {
   }
   return `${DEFAULT_STORE_API}/api/store/v1/entitlements`;
 }
+
+/**
+ * 有料配布物のダウンロード URL（`/api/store/v1/download/<productId>`。契約 §6/§8）。
+ * 優先順位は resolveEntitlementsUrl と同一（AKARI_STORE_API → credentials.url → 既定ホスト）。
+ */
+export function resolveDownloadUrl(env = process.env, credentials, productId) {
+  if (env.AKARI_STORE_API) {
+    return `${trimTrailingSlash(env.AKARI_STORE_API)}/api/store/v1/download/${encodeURIComponent(productId)}`;
+  }
+  if (credentials?.url) {
+    return `${trimTrailingSlash(credentials.url)}/v1/download/${encodeURIComponent(productId)}`;
+  }
+  return `${DEFAULT_STORE_API}/api/store/v1/download/${encodeURIComponent(productId)}`;
+}

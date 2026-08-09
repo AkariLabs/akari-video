@@ -3,13 +3,16 @@ import assert from 'node:assert/strict';
 import {
     assetDistributionBadgeText,
     assetStateBadgeText,
+    assetStateBadgeTitle,
     catalogItemPackIds,
     deriveAssetDistribution,
     deriveCatalogEmptyStateKind,
+    deriveStoreLabBaseUrl,
     formatCatalogPackBreakdown,
     groupCatalogItemsByPack,
     mergeAssetCatalogViews,
     selectResolverAudioFileRef,
+    storeProductUrl,
     summarizeCatalogPackDistribution,
     toResolverAssetCatalogViewItem
 } from '../lib/common/asset-catalog-view.js';
@@ -128,6 +131,43 @@ test('assetStateBadgeText: locked かつ price 未指定は ¥0', () => {
 
 test('assetStateBadgeText: state 未指定（origin=local）は undefined', () => {
     assert.equal(assetStateBadgeText({}), undefined);
+});
+
+test('assetStateBadgeText: available かつ price > 0（購入済み・未取得）は「✓ 購入済み」', () => {
+    assert.equal(assetStateBadgeText({ state: 'available', price: 2980 }), '✓ 購入済み');
+});
+
+test('assetStateBadgeText: available かつ price 未指定/0 は無料扱いで ☁ のまま', () => {
+    assert.equal(assetStateBadgeText({ state: 'available', price: 0 }), '☁');
+    assert.equal(assetStateBadgeText({ state: 'available' }), '☁');
+});
+
+test('assetStateBadgeTitle: 4 状態それぞれの長め文言', () => {
+    assert.equal(assetStateBadgeTitle({ state: 'cached' }), '取得済み');
+    assert.equal(assetStateBadgeTitle({ state: 'available' }), '未取得');
+    assert.equal(assetStateBadgeTitle({ state: 'available', price: 2980 }), '購入済み（未取得）');
+    assert.equal(assetStateBadgeTitle({ state: 'locked', price: 1200 }), '¥1,200 未購入');
+    assert.equal(assetStateBadgeTitle({}), undefined);
+});
+
+test('deriveStoreLabBaseUrl: url 未指定は本番既定 https://akari-oss.app/lab', () => {
+    assert.equal(deriveStoreLabBaseUrl(undefined), 'https://akari-oss.app/lab');
+});
+
+test('deriveStoreLabBaseUrl: store-credentials.json の url（.../api/store）から .../lab を導く', () => {
+    assert.equal(deriveStoreLabBaseUrl('https://akari-oss.app/api/store'), 'https://akari-oss.app/lab');
+    assert.equal(deriveStoreLabBaseUrl('http://localhost:8788/api/store'), 'http://localhost:8788/lab');
+});
+
+test('storeProductUrl: 商品ページ URL（asset.html?id=<id>）を組み立てる', () => {
+    assert.equal(
+        storeProductUrl('http://localhost:8788/api/store', 'phone-pro-titanium'),
+        'http://localhost:8788/lab/asset.html?id=phone-pro-titanium'
+    );
+    assert.equal(
+        storeProductUrl(undefined, 'app-icon-squircle'),
+        'https://akari-oss.app/lab/asset.html?id=app-icon-squircle'
+    );
 });
 
 test('selectResolverAudioFileRef: audio カテゴリで url 型の音声ファイルを選ぶ', () => {

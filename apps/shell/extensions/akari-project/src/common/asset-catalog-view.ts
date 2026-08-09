@@ -111,6 +111,10 @@ export function deriveCatalogEmptyStateKind(
 /**
  * カード状態バッジの短い表示文言。origin='local'（state undefined）は
  * バッジを持たないので undefined を返す（呼び出し側はバッジ自体を出さない）。
+ *
+ * `available` は「無料でそのまま使える」と「有料だが購入済み（未取得のみ）」の 2 通りがある
+ * — price > 0 のときは「購入済み」と明示し、無料の「☁ 未取得」と混同させない
+ * （task.md B-2「available かつ price > 0 = 購入済み」）。
  */
 export function assetStateBadgeText(item: Pick<AssetCatalogViewItem, 'state' | 'price'>): string | undefined {
     if (!item.state) {
@@ -119,7 +123,46 @@ export function assetStateBadgeText(item: Pick<AssetCatalogViewItem, 'state' | '
     if (item.state === 'locked') {
         return `¥${(item.price ?? 0).toLocaleString()}`;
     }
-    return item.state === 'cached' ? '✓' : '☁';
+    if (item.state === 'cached') {
+        return '✓';
+    }
+    return (item.price ?? 0) > 0 ? '✓ 購入済み' : '☁';
+}
+
+/** assetStateBadgeText と対になる、カードのツールチップ用の長め文言。 */
+export function assetStateBadgeTitle(item: Pick<AssetCatalogViewItem, 'state' | 'price'>): string | undefined {
+    if (!item.state) {
+        return undefined;
+    }
+    if (item.state === 'locked') {
+        return `¥${(item.price ?? 0).toLocaleString()} 未購入`;
+    }
+    if (item.state === 'cached') {
+        return '取得済み';
+    }
+    return (item.price ?? 0) > 0 ? '購入済み（未取得）' : '未取得';
+}
+
+// --- locked カードの購入案内（価格 + ストア URL） --------------------------------------------
+
+const DEFAULT_STORE_LAB_BASE_URL = 'https://akari-oss.app/lab';
+
+/**
+ * ストア接続の `StoreConnectionStatus.url`（`.../api/store`。dev 環境では
+ * `http://localhost:8788/api/store` 等）から、人間向け商品ページのベース URL（`.../lab`）を導く。
+ * 未接続（url 未設定）時は本番既定を使う — ログイン前でも購入案内自体は出せる
+ * （商品ページの閲覧自体はログイン不要。ゲートは購入・DL ボタン側。commerce 契約 §18）。
+ */
+export function deriveStoreLabBaseUrl(storeApiUrl: string | undefined): string {
+    if (!storeApiUrl) {
+        return DEFAULT_STORE_LAB_BASE_URL;
+    }
+    return storeApiUrl.replace(/\/api\/store\/?$/, '/lab');
+}
+
+/** 商品詳細ページの URL（`asset.html?id=<id>`。ストア静的プロトタイプの既存規約）。 */
+export function storeProductUrl(storeApiUrl: string | undefined, id: string): string {
+    return `${deriveStoreLabBaseUrl(storeApiUrl)}/asset.html?id=${encodeURIComponent(id)}`;
 }
 
 // --- origin='local' の分類バッジ（同梱 / サブスク / 各自入手 / 無料 DL） ---------------------
