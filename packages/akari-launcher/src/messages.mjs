@@ -48,7 +48,7 @@ export function claudeMissingGuidance() {
 export function opencodeMissingGuidance() {
   return [
     'opencode コマンドが見つかりませんでした。',
-    'opencode をインストールしてください: npm install -g opencode',
+    'opencode をインストールしてください: npm install -g opencode-ai',
     'インストール後、このフォルダーで再度 `akari --opencode` を実行してください。'
   ].join('\n');
 }

@@ -278,7 +278,7 @@ test('opencode 不在時の案内: PATH に opencode が無い場合は案内を
     assert.equal(result.exitCode, 1);
     assert.equal(result.opencodeLaunched, false);
     assert.ok(lines.some((line) => line.includes('opencode コマンドが見つかりませんでした')));
-    assert.ok(lines.some((line) => line.includes('npm install -g opencode')));
+    assert.ok(lines.some((line) => line.includes('npm install -g opencode-ai')));
   });
 });
 

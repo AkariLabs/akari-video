@@ -966,26 +966,51 @@ export class AkariPartnerWidget extends ReactWidget {
                 <p style={styles.lead}>CLI または公式拡張を選んで、右パネルに追加します。</p>
 
                 <div style={styles.buttonStack}>
-                    {PARTNER_CATALOG.map(entry => {
-                        const flow = this.entryFlow(entry);
-                        return <button
-                            key={entry.id}
-                            className={entry.recommended ? 'theia-button main' : 'theia-button secondary'}
-                            style={entry.recommended ? styles.primaryButton : styles.secondaryButton}
-                            data-partner-entry={entry.id}
-                            data-partner-form={entry.form}
-                            data-partner-action={this.entryActionLabel(entry)}
-                            disabled={flow.state === 'working'}
-                            onClick={() => this.begin(entry)}
-                        >
-                            <span style={styles.buttonLabel}>
-                                {entry.name}
-                                {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
-                            </span>
-                            <span style={styles.buttonAction}>
-                                {flow.state === 'working' ? '処理中…' : this.entryActionLabel(entry)}
-                            </span>
-                        </button>;
+                    {PARTNER_CATALOG.reduce<Array<{
+                        agent: PartnerCatalogEntry['agent'];
+                        entries: PartnerCatalogEntry[];
+                    }>>((result, entry) => {
+                        const group = result.find(candidate => candidate.agent === entry.agent);
+                        if (group) {
+                            group.entries.push(entry);
+                        } else {
+                            result.push({ agent: entry.agent, entries: [entry] });
+                        }
+                        return result;
+                    }, []).map(group => {
+                        const cliEntry = group.entries.find(entry => entry.form === 'cli');
+                        const extensionEntry = group.entries.find(entry => entry.form === 'extension');
+                        const rowEntries = [cliEntry, extensionEntry].filter(
+                            (entry): entry is PartnerCatalogEntry => entry !== undefined
+                        );
+                        return <div key={group.agent} style={{ display: 'flex', gap: 10 }}>
+                            {rowEntries.map(entry => {
+                                const flow = this.entryFlow(entry);
+                                return <button
+                                    key={entry.id}
+                                    className={entry.recommended ? 'theia-button main' : 'theia-button secondary'}
+                                    style={{
+                                        ...(entry.recommended ? styles.primaryButton : styles.secondaryButton),
+                                        flex: '1 1 0',
+                                        width: 'auto',
+                                        minWidth: 0
+                                    }}
+                                    data-partner-entry={entry.id}
+                                    data-partner-form={entry.form}
+                                    data-partner-action={this.entryActionLabel(entry)}
+                                    disabled={flow.state === 'working'}
+                                    onClick={() => this.begin(entry)}
+                                >
+                                    <span style={styles.buttonLabel}>
+                                        {entry.name}
+                                        {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
+                                    </span>
+                                    <span style={styles.buttonAction}>
+                                        {flow.state === 'working' ? '処理中…' : this.entryActionLabel(entry)}
+                                    </span>
+                                </button>;
+                            })}
+                        </div>;
                     })}
                 </div>
 
@@ -1025,8 +1050,8 @@ const styles: Record<string, React.CSSProperties> = {
     buttonStack: { display: 'flex', flexDirection: 'column', gap: 10 },
     primaryButton: { width: '100%', minHeight: 46, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     secondaryButton: { width: '100%', minHeight: 46, background: 'transparent', border: '1px solid var(--theia-input-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-    buttonLabel: { display: 'inline-flex', alignItems: 'center', gap: 7, textAlign: 'left' },
-    buttonAction: { fontSize: 11, opacity: 0.82, whiteSpace: 'nowrap' },
+    buttonLabel: { display: 'inline-flex', alignItems: 'center', flex: '1 1 auto', flexWrap: 'wrap', gap: 7, minWidth: 0, textAlign: 'left' },
+    buttonAction: { flex: '0 1 auto', fontSize: 11, opacity: 0.82, whiteSpace: 'normal', textAlign: 'right' },
     recommendedBadge: { padding: '2px 6px', borderRadius: 9, fontSize: 9, background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' },
     statusCard: { marginTop: 14, padding: 16, borderRadius: 8, background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)' },
     statusRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
