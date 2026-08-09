@@ -324,6 +324,135 @@ test("layers with a perspective corner-pin (combined with crop) passes", () => {
   assert.match(executed.stdout, /^OK: /);
 });
 
+test("layers[].keyframes: mixed transform/crop/perspective points (3 points, some partial) passes", () => {
+  const executed = run("edit-layers-keyframes-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("layers[].keyframes must have at least 2 points", () => {
+  const executed = runPatchedExample((value) => {
+    value.layers = [
+      {
+        id: "pinp-guest",
+        t: 1,
+        duration: 2,
+        kind: "video",
+        src: "footage/guest.mp4",
+        keyframes: [{ t: 0, transform: { scale: 1 } }],
+      },
+    ];
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /layers\[0\]\.keyframes は 2 件以上の配列である必要があります/);
+});
+
+test("layers[].keyframes[].t must be ascending with no duplicates", () => {
+  const executed = runPatchedExample((value) => {
+    value.layers = [
+      {
+        id: "pinp-guest",
+        t: 1,
+        duration: 2,
+        kind: "video",
+        src: "footage/guest.mp4",
+        keyframes: [
+          { t: 1, transform: { scale: 1 } },
+          { t: 1, transform: { scale: 1.5 } },
+        ],
+      },
+    ];
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /layers\[0\]\.keyframes\[\]\.t は昇順かつ重複禁止です/);
+});
+
+test("layers[].keyframes[] rejects unknown keys", () => {
+  const executed = runPatchedExample((value) => {
+    value.layers = [
+      {
+        id: "pinp-guest",
+        t: 1,
+        duration: 2,
+        kind: "video",
+        src: "footage/guest.mp4",
+        keyframes: [
+          { t: 0, transform: { scale: 1 } },
+          { t: 1, transform: { scale: 1.5 }, panSpeed: 3 },
+        ],
+      },
+    ];
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /layers\[0\]\.keyframes\[1\] に未知のキーがあります: panSpeed/);
+});
+
+test("layers[].keyframes[].easing must be linear or ease-in-out", () => {
+  const executed = runPatchedExample((value) => {
+    value.layers = [
+      {
+        id: "pinp-guest",
+        t: 1,
+        duration: 2,
+        kind: "video",
+        src: "footage/guest.mp4",
+        keyframes: [
+          { t: 0, transform: { scale: 1 } },
+          { t: 1, transform: { scale: 1.5 }, easing: "bounce" },
+        ],
+      },
+    ];
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /layers\[0\]\.keyframes\[1\]\.easing は linear\/ease-in-out のいずれかである必要があります/);
+});
+
+test("layers[].keyframes[].crop is validated with the same rules as the static layers[].crop", () => {
+  const executed = runPatchedExample((value) => {
+    value.layers = [
+      {
+        id: "pinp-guest",
+        t: 1,
+        duration: 2,
+        kind: "video",
+        src: "footage/guest.mp4",
+        keyframes: [
+          { t: 0, crop: { x: 0, y: 0, w: 1, h: 1 } },
+          { t: 1, crop: { x: 0.8, y: 0, w: 0.5, h: 1 } },
+        ],
+      },
+    ];
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /layers\[0\]\.keyframes\[1\]\.crop\.x \+ layers\[0\]\.keyframes\[1\]\.crop\.w は 1 以下である必要があります/,
+  );
+});
+
+test("layers[].keyframes[].perspective rejects a degenerate quad, same as the static layers[].perspective", () => {
+  const executed = runPatchedExample((value) => {
+    value.layers = [
+      {
+        id: "pinp-guest",
+        t: 1,
+        duration: 2,
+        kind: "video",
+        src: "footage/guest.mp4",
+        keyframes: [
+          { t: 0, perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] } },
+          { t: 1, perspective: { corners: [[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]] } },
+        ],
+      },
+    ];
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(
+    executed.stderr,
+    /layers\[0\]\.keyframes\[1\]\.perspective\.corners は退化した四角形（面積がほぼ 0）であってはなりません/,
+  );
+});
+
 test("beats (見せ場マーカー) v0: 3 items with mixed kinds and optional basis pass", () => {
   const executed = run("edit-beats-v0-valid");
   assert.equal(executed.status, 0, executed.stderr);

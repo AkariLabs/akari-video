@@ -4,6 +4,13 @@ import { resolve } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { computePerspectiveFfmpegCorners, PERSPECTIVE_PAD_FRAC } from "./perspective-homography.mjs";
+import {
+  expandLayerForPerspectiveKeyframes,
+  hasUsableLayerKeyframes,
+  layerCropKeyframeSteps,
+  layerTransformKeyframeExprs,
+  probeLayerSourceSize,
+} from "./layer-keyframes.mjs";
 
 // contract-2026-07-22-prerender-rail-and-assets.md §0/§1.2: render-cut composites edit.json
 // layers[] (baked alpha video / video PinP) onto the cuts-composited base video, ordered by t.
@@ -123,15 +130,22 @@ export function buildLayersCompositeCommand({
   const warnings = [];
   let previous = "[0:v]";
 
-  layers.forEach((layer, index) => {
+  // layers[].keyframes[].perspective: ffmpeg's perspective= filter exposes no per-frame time
+  // variable at all (verified empirically -- see layer-keyframes.mjs's own header comment on
+  // expandLayerForPerspectiveKeyframes), so it cannot be driven by an eval=frame expression like
+  // every other keyframed property here. Instead a layer with keyframed perspective is expanded,
+  // up front, into several adjacent synthetic sub-layers each holding a static perspective value
+  // -- ordinary layers (the overwhelming majority) pass through this unchanged (flatMap of a
+  // single-element array is the identity), so this adds no cost/behavior change for them.
+  const expandedLayers = layers.flatMap(expandLayerForPerspectiveKeyframes);
+
+  expandedLayers.forEach((layer, index) => {
     const inputIndex = index + 1; // 0 is the base video (-i inputPath)
     const idBase = `l${index}`;
     const t = Number(layer.t) || 0;
     const layerDuration = Number(layer.duration) || 0;
     const end = t + layerDuration;
     const transform = layer.transform ?? {};
-    const x = Number(transform.x ?? 0) || 0;
-    const y = Number(transform.y ?? 0) || 0;
     const scale = Number(transform.scale ?? 1) || 1;
     const rotate = Number(transform.rotate ?? 0) || 0;
     const opacity = layer.opacity === undefined ? 1 : Number(layer.opacity);
@@ -146,6 +160,60 @@ export function buildLayersCompositeCommand({
       "-i",
       resolvedSource,
     );
+
+    // contract-2026-08-09-transform-keyframes-v0.md: layers[].keyframes overrides the layer's own
+    // static transform/crop/perspective for whichever of those categories at least one keyframe
+    // point declares (matches cuts[].framing's "keyframes win over the static field" rule).
+    // hasUsableLayerKeyframes gates this whole block so a keyframe-less layer -- still the
+    // overwhelming majority of layers -- runs the exact pre-existing static code below unchanged
+    // (byte-identical output, zero regression risk).
+    const keyframed = hasUsableLayerKeyframes(layer);
+    // See layer-keyframes.mjs's own header comment: the "normal" blend path below never rebases
+    // via setpts=PTS-STARTPTS, so ffmpeg's own `t` inside this layer's filter chain is absolute
+    // base-timeline seconds ([t, t+layerDuration]); the non-normal (blend-mode) path does rebase,
+    // so `t` there is already layer-local. keyframes[].t is layer-local (contract), so the
+    // "normal" path must subtract the layer's own start -- __keyframeClockOriginT (set only on
+    // expandLayerForPerspectiveKeyframes' synthetic sub-layers, see that function's own comment)
+    // is the *original* layer's own start, which no longer equals this (possibly time-shifted)
+    // sub-layer's own `t`; ordinary layers never set it, so `?? t` keeps them unaffected.
+    const keyframeClockOriginT = Number(layer.__keyframeClockOriginT ?? t) || 0;
+    const localTExpr = isNormal ? `(t-${formatNumber(keyframeClockOriginT)})` : "t";
+    const transformKeyframes = keyframed ? layerTransformKeyframeExprs(layer, localTExpr) : null;
+    const xExpr = transformKeyframes ? transformKeyframes.xExpr : formatNumber(Number(transform.x ?? 0) || 0);
+    const yExpr = transformKeyframes ? transformKeyframes.yExpr : formatNumber(Number(transform.y ?? 0) || 0);
+
+    // layers[].keyframes[].crop / a genuinely time-varying rotate both need the layer source's own
+    // native pixel size (see layer-keyframes.mjs's layerCropKeyframeSteps / the rotate bounding-box
+    // comment below) -- probed once, only when actually needed, so keyframe-less layers and layers
+    // that only animate x/y/scale never pay for it.
+    const cropKeyframeDeclared = keyframed
+      && Array.isArray(layer.keyframes)
+      && layer.keyframes.some((point) => point && typeof point === "object" && point.crop);
+    const rotateVaries = Boolean(transformKeyframes?.rotateVaries);
+    const sourceSize = (cropKeyframeDeclared || rotateVaries)
+      ? probeLayerSourceSize(ffprobeCommand, resolvedSource)
+      : null;
+    if ((cropKeyframeDeclared || rotateVaries) && !sourceSize) {
+      warnings.push(
+        `layer ${layer.id ?? index} declares keyframed crop and/or a time-varying rotate, but its`
+          + ` source size could not be probed (ffprobe failed on ${resolvedSource}); those`
+          + " keyframes will not be applied.",
+      );
+    }
+    // Folds *any* additional scale factor -- transform's own keyframed scale if animated,
+    // otherwise the layer's plain static transform.scale if not 1 -- into crop's final
+    // scale-down step, instead of emitting a second, separate `scale=` filter afterwards. Not an
+    // optimization: verified empirically that a scale filter reading `iw`/`ih` from an upstream
+    // *animated* (variable-size) scale silently gets a stale, frame-0-only size -- and this
+    // applies whether the downstream scale is itself static or eval=frame, since the staleness is
+    // in what `iw`/`ih` resolve to, not in how often that (frozen) value gets re-read. So any
+    // scale step that would otherwise sit right after cropKeyframeSteps' own final scale must be
+    // folded into it instead.
+    const extraScaleExpr = transformKeyframes ? transformKeyframes.scaleExpr : (scale !== 1 ? formatNumber(scale) : null);
+    const cropKeyframeSteps = sourceSize
+      ? layerCropKeyframeSteps(layer, localTExpr, sourceSize.width, sourceSize.height, extraScaleExpr)
+      : null;
+    const cropScaleFolded = Boolean(cropKeyframeSteps && extraScaleExpr);
 
     // Layer preprocessing chain shared by both compositing styles: trim to the declared duration,
     // key out chroma if requested, normalize to an alpha-carrying format, then apply transform/opacity.
@@ -165,7 +233,9 @@ export function buildLayersCompositeCommand({
     // rounding (trunc(.../2)*2) keeps w/h/x/y aligned to yuva420p's 4:2:0 chroma subsampling,
     // which the same-style scale step below does not need since it never runs on odd offsets.
     const crop = layer.crop;
-    if (crop) {
+    if (cropKeyframeSteps) {
+      steps.push(...cropKeyframeSteps);
+    } else if (crop) {
       const cropW = clamp(Number(crop.w) || 1, EPSILON, 1);
       const cropH = clamp(Number(crop.h) || 1, EPSILON, 1);
       const cropX = clamp(Number(crop.x) || 0, 0, 1 - cropW);
@@ -174,7 +244,13 @@ export function buildLayersCompositeCommand({
         `crop=trunc(iw*${formatNumber(cropW)}/2)*2:trunc(ih*${formatNumber(cropH)}/2)*2:trunc(iw*${formatNumber(cropX)}/2)*2:trunc(ih*${formatNumber(cropY)}/2)*2`,
       );
     }
-    if (scale !== 1) {
+    if (cropScaleFolded) {
+      // Already applied as part of cropKeyframeSteps' own final scale-down step above.
+    } else if (transformKeyframes) {
+      steps.push(
+        `scale=w='trunc(iw*(${transformKeyframes.scaleExpr}))':h='trunc(ih*(${transformKeyframes.scaleExpr}))':eval=frame`,
+      );
+    } else if (scale !== 1) {
       steps.push(`scale=trunc(iw*${formatNumber(scale)}):trunc(ih*${formatNumber(scale)})`);
     }
     // contract-2026-08-02-preview-parity.md §2.4.4: layers[].perspective applies after scale and
@@ -187,7 +263,12 @@ export function buildLayersCompositeCommand({
     // why padding is required for the outside-the-trapezoid area to render transparent rather than
     // edge-clamped opaque content). The padding is removed again by the trailing crop= so the
     // stream handed to rotate/opacity/overlay is exactly the same iw/ih it would have been without
-    // perspective (their pivot/placement math is therefore unaffected by this stage).
+    // perspective (their pivot/placement math is therefore unaffected by this stage). Note:
+    // layers[].keyframes[].perspective never reaches this static branch directly -- a layer that
+    // declares it was already expanded (above, expandLayerForPerspectiveKeyframes) into several
+    // synthetic sub-layers, each with its own plain static `perspective`, specifically so this
+    // exact static code runs for them unmodified (see that function's own header comment for why
+    // ffmpeg's perspective filter cannot be driven by a per-frame expression at all).
     const perspective = layer.perspective;
     if (perspective && Array.isArray(perspective.corners) && perspective.corners.length === 4) {
       const padFrac = PERSPECTIVE_PAD_FRAC;
@@ -216,8 +297,39 @@ export function buildLayersCompositeCommand({
         `crop=trunc((${iwExpr}/${formatNumber(denom)})/2)*2:trunc((${ihExpr}/${formatNumber(denom)})/2)*2:trunc((${iwExpr}*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2:trunc((${ihExpr}*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2`,
       );
     }
-    if (rotate !== 0) {
-      const radians = `(${formatNumber(rotate)}*PI/180)`;
+    // rotate's own `angle` option supports per-frame `t` natively, but -- like crop's w/h -- its
+    // `ow`/`oh` output-size expressions are evaluated once, at init (verified empirically:
+    // `oh=roth(t*...)` fails with "invalid expression ... or non-positive or indefinite value
+    // nan"), and even a *constant* angle's `ow=rotw(angle):oh=roth(angle)` reads `iw`/`ih` only
+    // once, so it silently freezes at frame 0's size if fed from a genuinely variable-size
+    // upstream (i.e. this layer's own crop is keyframed -- transform.scale can't cause this on
+    // its own since it is always folded into cropKeyframeSteps' own final step, never left as a
+    // separate downstream scale). `cropVaries` below gates the fixed bounding-square sizing onto
+    // *both* cases that need it: a genuinely time-varying rotate angle, or a constant angle
+    // sitting downstream of a keyframed crop.
+    const cropVaries = Boolean(cropKeyframeSteps);
+    const rotateConstant = transformKeyframes ? (rotateVaries ? null : transformKeyframes.rotateMin) : rotate;
+    if (rotateConstant !== 0 && (rotateVaries || cropVaries) && !sourceSize) {
+      // Probe failed (already warned above) -- skip the rotate step entirely rather than risk a
+      // wrongly-sized/clipped rotation built on an unknown box size.
+    } else if (rotateConstant !== 0 && (rotateVaries || cropVaries)) {
+      // Sizes the output to a fixed square big enough to contain the box at *any* angle (the
+      // diagonal bound sqrt(boxW^2+boxH^2), generously widened to sqrt(2)*max(boxW,boxH) and
+      // computed from the probed *native* source size times the largest scale this layer's
+      // keyframes ever reach -- ignoring any shrinking effect of an animated crop, i.e.
+      // deliberately generous rather than tight, since the only cost of an oversized bound is
+      // extra transparent padding, not a correctness risk). overlay's own eval=frame (its
+      // default) re-centers this fixed-size, mostly-transparent box every frame exactly like it
+      // already does for the static case, so the visible (rotated) content stays correctly
+      // centered regardless of the extra padding.
+      const scaleMax = transformKeyframes ? transformKeyframes.scaleMax : scale;
+      const boundSide = Math.ceil((Math.sqrt(2) * Math.max(sourceSize.width, sourceSize.height) * scaleMax) / 2) * 2;
+      const radiansExpr = transformKeyframes ? `((${transformKeyframes.rotateExpr})*PI/180)` : `(${formatNumber(rotate)}*PI/180)`;
+      steps.push(`rotate=${radiansExpr}:fillcolor=black@0:ow=${boundSide}:oh=${boundSide}`);
+    } else if (rotateConstant !== 0) {
+      // No upstream size variability to worry about -- keeps the cheap static-style rotw/roth
+      // sizing (byte-identical to the pre-keyframes code when !transformKeyframes).
+      const radians = `(${formatNumber(rotateConstant)}*PI/180)`;
       steps.push(`rotate=${radians}:fillcolor=black@0:ow=rotw(${radians}):oh=roth(${radians})`);
     }
     if (opacity !== 1) {
@@ -229,7 +341,7 @@ export function buildLayersCompositeCommand({
     if (isNormal) {
       const next = `[${idBase}_out]`;
       filters.push(
-        `${previous}${processed}overlay=x=(main_w-overlay_w)/2+${formatNumber(x)}:y=(main_h-overlay_h)/2+${formatNumber(y)}:format=auto:enable='between(t,${formatNumber(t)},${formatNumber(end)})'${next}`,
+        `${previous}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:enable='between(t,${formatNumber(t)},${formatNumber(end)})'${next}`,
       );
       previous = next;
       return;
@@ -276,7 +388,7 @@ export function buildLayersCompositeCommand({
     // at the same centered+offset position the normal path passes to `overlay`.
     const canvas = `[${idBase}_canvas]`;
     filters.push(
-      `${processed}pad=${width}:${height}:x=(ow-iw)/2+${formatNumber(x)}:y=(oh-ih)/2+${formatNumber(y)}:color=black@0${canvas}`,
+      `${processed}pad=${width}:${height}:x=(ow-iw)/2+${xExpr}:y=(oh-ih)/2+${yExpr}:color=black@0${canvas}`,
     );
     const lc1 = `[${idBase}_lc1]`;
     const lc2 = `[${idBase}_lc2]`;

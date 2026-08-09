@@ -183,8 +183,9 @@ CSS `transform` で近似再現する。
 PiP（`layers[]`）を台形変形で立体的に見せる機能。確定値は **4 隅の正規化座標
 （corner-pin）を SSOT** とし、書き出し（ffmpeg `perspective`）とプレビュー（CSS
 `matrix3d`、shell + Web 両面）が**同じ 4 隅**を読むことで二重実装の drift を抑える
-（オーナー裁定 2026-08-06: 案 A corner-pin 採用）。**時間変化（キーフレーム）は
-スコープ外**（transform 全般の共通キーフレーム設計として別途起票予定）。
+（オーナー裁定 2026-08-06: 案 A corner-pin 採用）。本節は**静的**な `layers[].perspective`
+を扱う。時間変化（キーフレーム）は §2.4.7（`layers[].keyframes`。2026-08-09 導入）で
+transform 全般の共通機構として扱う。
 
 - `perspective = { corners: [TL, TR, BL, BR] }`（各 `[x, y]` は **0..1 正規化・
   crop 適用後の層ボックス相対・静的**）。省略時は既定なし（perspective 無し）で、
@@ -357,6 +358,134 @@ preview-server の PUT + edit-lint ゲートを通す。`fx` 未宣言の cut �
   回転結果は一致するが、透明パディングの縁の扱いは書き出しと厳密には一致しない場合がある
   （近似）
 
+#### 2.4.7 変形キーフレーム（`layers[].keyframes`。2026-08-09 導入・transform/crop/perspective 共通機構 v0）
+
+`layers[]` の変形（`transform.x/y/scale/rotate`・`crop`・`perspective`）を時間で動かす共通機構。
+§2.4.1（crop）・§2.4.4（perspective）が定義した**静的**な `layers[].crop`/`layers[].perspective`
+の語彙・意味論・適用順（crop → scale → perspective → rotate → opacity → overlay）はそのまま。
+`keyframes` はそれらを「時刻付きの部分状態の配列」で上書きする、既存 `cuts[].framing.keyframes`
+（§2.4.2）と同型の機構であり、パース専用の別機構ではない。
+
+- `layers[].keyframes: [{ t, transform?, crop?, perspective?, easing? }]`（2 点以上・
+  `packages/schemas/edit.schema.json` `#/$defs/layerKeyframe`）。`t` は**レイヤー内秒**
+  （`layers[].t` を 0 とするローカル時間 — cut 側の「カット内秒」と同じ発想）
+- **プロパティ毎の別トラックにしない**: 1 点で `transform`/`crop`/`perspective` を同時に
+  動かせる（AI がキーフレームを書きやすい形を優先する v0 の設計判断）
+- **補間規則**（3 面共通の意味論。数値表現はサーフェスごとに異なる — 後述）:
+  - カテゴリ（`transform`/`crop`/`perspective`）ごとに「そのカテゴリを宣言している点」だけを
+    集めて補間する。ある区間の両端点が同じカテゴリを宣言していれば線形（または easing）補間、
+    片方の端点にしか宣言が無ければ直近の宣言値を保持（hold）する。どの点にも一度も宣言され
+    ないカテゴリは、レイヤー直下の**静的**な `transform`/`crop`/`perspective`（省略時は各
+    `$def` の既定値）を全区間で保持する
+  - `transform` の葉（`x`/`y`/`scale`/`rotate`）は、ある点が `transform` を宣言していても
+    特定の葉を省略していれば**その点ではその葉が既定値**（`x=0,y=0,scale=1,rotate=0`）になる
+    （直前の点からの持ち越しではない）。`crop`/`perspective` は宣言時に全フィールド必須
+    （schema）なのでこの欠落は起きない
+  - `easing` はキーフレーム点ごとに設定し、**その点へ入る区間（1 つ前の点からこの点まで）**
+    の補間カーブを決める（先頭点の `easing` は無視される）。`linear`（既定）と `ease-in-out`
+    （`easeInOutCubic(u) = u<0.5 ? 4u³ : 1-(-2u+2)³/2` — Robert Penner 系の標準的な立方
+    イージング。3 実装が全く同じ式を持つ — どこか 1 つだけ式を変えるとプレビューと書き出しが
+    見た目で乖離する）の 2 種のみ（凝らない）
+- **perspective の補間 = 4 隅をそれぞれ線形（または easing）補間する**（オーナー裁定）。
+  導出される射影変換係数やホモグラフィそのものを補間するのではない — 宣言された 4 隅
+  （SSOT）を直接補間してから、その時点の 4 隅にホモグラフィを適用する
+
+##### ffmpeg 実装（`packages/render-cut/src/layer-keyframes.mjs` + `layers.mjs`）
+
+`transform`（x/y/scale/rotate）と `crop` は `eval=frame` の区分線形（+ easing）式で実現できるが、
+**`perspective` だけは実測でこの手が使えないと判明した**（後述）。3 プロパティで実装方式が
+異なる:
+
+- **`transform.x`/`y`**: `overlay=` の `x=`/`y=` は既定で `eval=frame`（ffmpeg 8.1.1 で確認済み。
+  `eval=` オプション自体を明示しなくても per-frame 評価される）なので、区分線形式をそのまま渡す
+  だけでよい
+- **`transform.scale`**: `scale=w='...':h='...':eval=frame` に区分線形式を渡す（`cut-framing.mjs`
+  の `appendKeyframeZoom` と同じ手法）
+- **`transform.rotate`**: `angle` 自体は `t` を受け付けるが、**`ow=rotw(angle):oh=roth(angle)`
+  は init 時の 1 回評価のみ**（実測: `oh=roth(t*...)` は "invalid expression ... non-positive
+  or indefinite value nan" で失敗）。角度が実際に変化する場合は、
+  `sqrt(2)×max(nativeW,nativeH)×scaleMax` の対角線ベースの固定正方形を `ow`/`oh` に使う
+  （安全側に大きめ — 過大な分は透明パディングが増えるだけで正しさには影響しない）
+- **`crop`（x/y/w/h）**: `crop` フィルタは**そもそも `w`/`h` の per-frame 評価に対応しない**
+  （`eval` オプション自体が存在しない。実測: `crop=w='trunc((100+20*t)/2)*2'...` は "Error when
+  evaluating the expression" で失敗。`x`/`y` は per-frame 評価される）。`cut-framing.mjs` の
+  ズーム技法（1 軸の scale→固定窓 crop→scale で「窓の位置」だけを動かし「窓のサイズ」自体は
+  固定にする）を 2 軸（x 方向・y 方向のクロップ比率が独立に動く）へ一般化: ①レイヤー元映像
+  ネイティブサイズ `(SW, SH)`（`probeLayerSourceSize` で ffprobe 実測）を固定窓に、
+  `SW/w(t)`・`SH/h(t)` で異方 scale-up → ②その固定窓を crop（`x`/`y` だけ per-frame） →
+  ③`SW*w(t)`・`SH*h(t)` へ scale-down（**静的 `layers[].crop` と同じ「リスケールしない・箱が
+  実際に縮む」意味論**。§2.4.2 の framing ズームとは異なる別機構 — 静的な兄弟機構同士の
+  意味論差をそのまま踏襲している）
+  - `transform.scale` が同時にキーフレーム化されている場合、③の scale-down 係数へ**折り込む**
+    （別の `scale=` フィルタを続けて出さない）。**実測で判明**: `scale` フィルタが
+    upstream の可変サイズ `scale` フィルタから `iw`/`ih` を読むと、両方 `eval=frame` でも
+    フレーム 0 の値に固まって以降更新されない（`pad` が同じ upstream から読む場合は正しく
+    追随する — `scale`→`scale` の連鎖だけが壊れる、実測で確認）
+- **`perspective`（4 隅）: ffmpeg の `perspective` フィルタは `t`/`n` のどちらも式の変数として
+  持たない**（実測: `perspective=x0='t*10':...:eval=frame` は "Undefined constant" で失敗 —
+  `-h filter=perspective` のオプション一覧には出てこない未文書の制約）。per-frame 式で動かす
+  手段が原理的に無いため、この機能のタスク契約自体が明記する「式が破綻したら区間ごとに
+  フィルタを分けるフォールバック」を採用する。ただし分割の単位は**フィルタ内の区間**ではなく
+  **レイヤーそのものの分割**: `expandLayerForPerspectiveKeyframes` が keyframes を解析する
+  段階（ffmpeg 引数を組む前の JS 側）で、perspective をキーフレーム化したレイヤー 1 個を、
+  短い時間窓を持つ隣接する複数の**合成レイヤー**（各窓の中点でサンプリングした静的な 4 隅を
+  持つ）へ展開する。展開後の各合成レイヤーは既存の**無変更の静的 perspective パス**
+  （pad→perspective→crop、§2.4.4）をそのまま流れる。窓の密度は `PERSPECTIVE_SEGMENTS_PER_SECOND`
+  （既定 4/秒）— レイヤー元映像を窓の数だけ多重に開く実コストとのトレードオフで、
+  「凝らない」の方針どおり控えめに設定
+  - **既知の v0 の境界**: `blend !== "normal"` のレイヤー（`screen`/`multiply` 等）は
+    trim/pad/blend/maskedmerge/concat という別経路（自前で `setpts=PTS-STARTPTS` により
+    クロックを再基準化する）を通るため、上記のレイヤー分割方式のクロック原点の再導出が
+    additional な複雑さに見合わないと判断し、**perspective は非対応のまま**（静的
+    `layers[].perspective` があればそれを使う。無音の欠落ではなく明記された v0 の境界）
+  - 同一レイヤーで `crop` と `perspective` の両方をキーフレーム化する組み合わせ、または
+    `transform.scale` と `perspective` の両方をキーフレーム化する組み合わせは、上記の
+    「`iw`/`ih` が upstream の可変サイズ変化を追随しない」制約が perspective 自身の
+    pad/crop 段（`eval=init` のまま・§2.4.4 のコードを無変更で再利用しているため）にも
+    及ぶため、**ピクセル精度が未検証**（既知の v0 の境界として報告 — 全面禁止ではないが
+    保証もしない）
+
+##### プレビュー実装（shell / Web 共通の考え方）
+
+ffmpeg の `perspective` フィルタの制約（式に時刻変数を持たない）はプレビュー側には存在しない
+（純粋な JavaScript を毎フレーム評価するだけなので、`transform`/`crop` と全く同じ調子で
+`perspective` も連続的に補間できる）。したがって書き出しとプレビューは**サンプル点では
+一致するが、サンプル間の補間カーブの形は異なる**（書き出しは
+`PERSPECTIVE_SEGMENTS_PER_SECOND` 間隔の段階保持、プレビューは連続）— これは実装上の妥協点であり
+バグではないが、実測比較（三面一致）はこの前提で「特定の時刻の値が一致するか」を見る必要がある。
+
+- 数値評価する純関数 `computeLayerKeyframesVisual(keyframes, layerLocalSeconds)` を
+  shell/Web それぞれが独立実装する（§2.2.1 と同じ「意図的なコード重複」方針）。
+  render-cut の区分線形（+ easing）+ hold の意味論を、ffmpeg 式文字列ではなく単一時刻での
+  数値として再現する
+  - shell: `apps/shell/extensions/akari-preview/src/common/layer-keyframes-visual.ts`
+  - Web: `packages/preview-server/public/layer-keyframes-visual.js`
+- **戻り値をそのまま既存の dataset 書き込み経路へ流す**: `resolved.transform`/`crop`/
+  `perspective`（カテゴリが `null` なら書き込まない = 静的値のまま）を
+  `dataset.akariTransformX/Y/Scale/Rotate`・`akariCropX/Y/W/H`・`akariPerspectiveCorners`
+  （shell）/ `dataset.layerX/Y/Scale/Rotate`・`layerCropX/Y/W/H`・`layerPerspectiveCorners`
+  （Web）へ上書きしてから、既存の crop pivot / clip-path / matrix3d 描画コード
+  （`updateStageScale` / `applyLayerLayout`）を**無変更のまま**呼び直す。新しい描画ロジックは
+  追加していない — 「毎フレーム、正しい静的値に見せかけて既存コードへ渡す」実装
+- **毎フレーム呼ぶ場所**: shell は `renderLayers(timelineTime)`（`tick()` から毎フレーム
+  呼ばれる。RAF スロットリング — `shell-handle-raf-throttle` — の土台にそのまま乗る）、
+  Web は `syncLayers(t)`（`playbackLoop()`/`seekTo()` の双方から呼ばれ、スクラブ中も追随する）。
+  どちらも「このフレームで実際に何か上書きした」ときだけ重い方（`updateLayerLayout`/
+  `applyLayerLayout`）を呼ぶため、`keyframes` の無いレイヤー（大多数）は追加コストゼロ
+- **回帰なし**: `keyframes` が無い、または使える点が 2 点未満のレイヤーは
+  `computeLayerKeyframesVisual` が `null` を返し、呼び出し側は何もしない（既存の静的
+  transform/crop/perspective のみが効く）
+
+##### 実測 / パリティ確認
+
+- render-cut: 実レンダの画素実測（`packages/render-cut/test/layer-keyframes.test.mjs`）—
+  `transform.scale`（フットプリント境界の実測）・`crop`（同）・`perspective`（区分保持を
+  踏まえた許容誤差での境界実測）・`transform.rotate`（象限反転の実測）
+- shell / Web: `packages/render-cut/src/layer-keyframes.mjs` と同じ参照点（hold/線形/
+  ease-in-out の数値）で `computeLayerKeyframesVisual` をユニットテスト
+  （各 8〜9 件。§2.2.1 と同じ「3 実装・同じ参照点」方針）
+- 三面一致（書き出し / Web 実機 / shell 実機）は `planning/` の検収記録（内部リポ）を参照
+
 ### 2.5 音声
 - **一時停止で全音声を止める**: narration / SFX の BufferSource は stop、AudioContext は suspend
 - 一時停止中のシークで音源を発火させない
@@ -409,6 +538,7 @@ preview-server の PUT + edit-lint ゲートを通す。`fx` 未宣言の cut �
 | `cuts[].freeze`（2026-08-06 実装・近似） | 🟡（§2.4.3。静止表示のみ・尺表示は非対応） | 🟡（§2.4.3。同左） |
 | `layers[].perspective`（2026-08-06 実装） | ✅（§2.4.4。実ブラウザ実測済み） | ✅（§2.4.4。tsc -b + ユニット + Web 同一計算式で担保） |
 | `cuts[].fx`（2026-08-07 実装・近似あり） | 🟡（§2.4.5。5 種対応、3 種は近似バッジ付き） | ❌（未実装） |
+| `layers[].keyframes`（2026-08-09 実装） | ✅（§2.4.7。transform/crop は連続補間。perspective は blend:"normal" のみ・書き出しの段階保持とサンプル点で一致） | ✅（§2.4.7。同左） |
 
 - `cuts[].framing`（静的クロップ / ズームキーフレーム）・`cuts[].freeze`（フリーズ）は
   `contract-2026-07-22-render-basics.md` #6/#7 としてレンダ（render-cut）に加え、

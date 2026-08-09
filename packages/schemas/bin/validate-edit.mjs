@@ -22,6 +22,7 @@ const LAYER_BLEND_MODES = new Set([
   "hardlight",
   "softlight",
 ]);
+const LAYER_KEYFRAME_EASINGS = new Set(["linear", "ease-in-out"]);
 
 const usage = "使い方: node packages/schemas/bin/validate-edit.mjs <edit.json>";
 const editArgument = process.argv[2];
@@ -366,6 +367,9 @@ function validateLayers(value) {
     if (hasOwn(layer, "perspective")) {
       validateLayerPerspective(layer.perspective, `${label}.perspective`);
     }
+    if (hasOwn(layer, "keyframes")) {
+      validateLayerKeyframes(layer.keyframes, `${label}.keyframes`);
+    }
     if (hasOwn(layer, "track")) {
       if (!Number.isInteger(layer.track) || layer.track < 0) {
         fail(`${label}.track は 0 以上の整数である必要があります`);
@@ -457,6 +461,49 @@ function validateLayerPerspective(value, label) {
   if (Math.abs(area2) < 1e-4) {
     fail(`${label}.corners は退化した四角形（面積がほぼ 0）であってはなりません`);
   }
+}
+
+// contract-2026-08-09-transform-keyframes-v0.md (layers[].keyframes). Mirrors
+// validateCutFramingKeyframes' t-ascending/no-duplicate discipline, but each point may carry any
+// combination of transform/crop/perspective (or none but t, which is pointless but not invalid --
+// render-cut/preview simply treat it as "no override at this instant", matching the hold semantics
+// documented on #layerKeyframe).
+function validateLayerKeyframes(value, label) {
+  if (!Array.isArray(value) || value.length < 2) {
+    fail(`${label} は 2 件以上の配列である必要があります`);
+    return;
+  }
+  const allowedKeys = new Set(["t", "transform", "crop", "perspective", "easing"]);
+  let previousT = null;
+  value.forEach((point, index) => {
+    const pointLabel = `${label}[${index}]`;
+    if (!isPlainObject(point)) {
+      fail(`${pointLabel} は object である必要があります`);
+      return;
+    }
+    for (const key of Object.keys(point)) {
+      if (!allowedKeys.has(key)) fail(`${pointLabel} に未知のキーがあります: ${key}`);
+    }
+    const hasT = isFiniteNumber(point.t) && point.t >= 0;
+    if (!hasT) {
+      fail(`${pointLabel}.t は 0 以上の有限数である必要があります`);
+    } else if (previousT !== null && point.t <= previousT) {
+      fail(`${label}[].t は昇順かつ重複禁止です（${pointLabel} で違反）`);
+    }
+    if (hasT) previousT = point.t;
+    if (hasOwn(point, "transform")) {
+      validateLayerTransform(point.transform, `${pointLabel}.transform`);
+    }
+    if (hasOwn(point, "crop")) {
+      validateLayerCrop(point.crop, `${pointLabel}.crop`);
+    }
+    if (hasOwn(point, "perspective")) {
+      validateLayerPerspective(point.perspective, `${pointLabel}.perspective`);
+    }
+    if (hasOwn(point, "easing") && !LAYER_KEYFRAME_EASINGS.has(point.easing)) {
+      fail(`${pointLabel}.easing は ${[...LAYER_KEYFRAME_EASINGS].join("/")} のいずれかである必要があります`);
+    }
+  });
 }
 
 function validateLayerChromaKey(value, label) {
