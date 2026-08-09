@@ -6,7 +6,8 @@ import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandService, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import { OpenerService, QuickInputService, open } from '@theia/core/lib/browser';
-import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
+import { ConfirmDialog, SingleTextInputDialog } from '@theia/core/lib/browser/dialogs';
+import { isOSX } from '@theia/core/lib/common/os';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -24,7 +25,7 @@ import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { isUnorganizedRootEntry } from '../common/unorganized-materials';
 import { nextCandidateAssetName } from '../common/asset-naming';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
-import { composeMaterialAskAgentPrompt } from '../common/agent-context-packet';
+import { composeMaterialAskAgentPrompt, composeOutputAskAgentPrompt } from '../common/agent-context-packet';
 import { CATALOG_CATEGORIES, CatalogItemMeta, filterCatalogItems, parseCatalogItemMeta } from '../common/catalog-reader';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import {
@@ -41,6 +42,10 @@ import {
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { CatalogPack } from '../common/catalog-packs';
 import { AKARI_REVEAL_IN_FILE_MANAGER, revealInFileManagerActionLabel } from './akari-reveal-commands';
+import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
+import { openAkariContextMenu } from './akari-context-menu';
+import { countReferences } from '../common/project-reference-check';
+import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
@@ -713,6 +718,223 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             request
         );
         await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+    }
+
+    // --- 右クリックメニュー（素材カード・できたもの共通。task 2026-08-09-material-context-menu-mvp） ---
+
+    /**
+     * 素材カード（未整理含む）の右クリックメニューを開く。既存クリック挙動は
+     * 変えない — ここは onContextMenu の追加のみで renderMaterialCard へ配線する
+     * （受入5）。
+     */
+    protected openMaterialContextMenu(event: React.MouseEvent<HTMLDivElement>, entry: MaterialCardEntry): void {
+        event.preventDefault();
+        event.stopPropagation();
+        const target: MaterialContextMenuTarget = entry.unorganized ? 'unorganized' : 'material';
+        openAkariContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            items: buildMaterialContextMenuItems(target, isOSX),
+            onSelect: id => this.handleMaterialContextMenuAction(id, entry)
+        });
+    }
+
+    protected handleMaterialContextMenuAction(id: string, entry: MaterialCardEntry): void {
+        switch (id) {
+            case 'open':
+                void this.openFile(entry.uri);
+                break;
+            case 'reveal':
+                void this.revealInFileManagerCommand(entry.uri);
+                break;
+            case 'copy-file':
+                void this.copyFileToClipboard(entry.uri);
+                break;
+            case 'copy-path':
+                void this.copyPathToClipboard(entry.uri);
+                break;
+            case 'rename': {
+                const renameTarget = this.materialFileSystemTarget(entry);
+                void this.renameEntry(renameTarget.uri, entry.name, entry.relativePath, renameTarget.isDirectory, () => this.loadMaterials());
+                break;
+            }
+            case 'delete': {
+                const deleteTarget = this.materialFileSystemTarget(entry);
+                void this.deleteEntry(deleteTarget.uri, entry.name, entry.relativePath, deleteTarget.isDirectory, () => this.loadMaterials());
+                break;
+            }
+            case 'ask-agent':
+                void this.askAgent(entry);
+                break;
+            case 'move-to-assets':
+                void this.moveToAssets(entry);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * リネーム/削除の実操作対象を求める。素材グループ（`entry.assetGroup` あり）は
+     * `entry.uri` がグループディレクトリ直下の preview.png / meta.json（`buildAssetGroupEntry`
+     * 参照）のため、対象はその親ディレクトリになる（指示5「ディレクトリ名の変更になる」）。
+     * それ以外（通常素材・未整理）は `entry.uri` 自身がファイル。
+     */
+    protected materialFileSystemTarget(entry: MaterialCardEntry): { uri: URI; isDirectory: boolean } {
+        return entry.assetGroup ? { uri: entry.uri.parent, isDirectory: true } : { uri: entry.uri, isDirectory: false };
+    }
+
+    protected async revealInFileManagerCommand(uri: URI): Promise<void> {
+        await this.commandService.executeCommand(AKARI_REVEAL_IN_FILE_MANAGER.id, uri);
+    }
+
+    protected async copyPathToClipboard(uri: URI): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(uri.path.fsPath());
+        } catch {
+            this.messages.error('パスをコピーできませんでした。');
+        }
+    }
+
+    /** 「ファイルをコピー」v0 = macOS のみ（司令塔裁定2）。新 IPC（指示7）を叩く。 */
+    protected async copyFileToClipboard(uri: URI): Promise<void> {
+        const api = (window as Window & { electronAkariProject?: ElectronAkariProjectApi }).electronAkariProject;
+        if (!api) {
+            this.messages.error('この機能は AKARI Video アプリでのみ使えます。');
+            return;
+        }
+        const result = await api.copyFileToClipboard(uri.path.fsPath());
+        if (result.ok) {
+            this.messages.info('ファイルをコピーしました。Finder で ⌘V で貼り付けられます。');
+        } else {
+            this.messages.error(result.message ?? 'ファイルをコピーできませんでした。');
+        }
+    }
+
+    /**
+     * `edit.json` / `captions.json` をプロジェクトルートから読む（無ければスキップ）。
+     * どちらかの読み取りに失敗したときは `failed: true` を返し、呼び出し側は
+     * 「参照を確認できませんでした」文面に切り替える（指示9）。書き込みは一切しない。
+     */
+    protected async readProjectReferenceDocuments(root: URI): Promise<{ documents: string[]; failed: boolean }> {
+        const documents: string[] = [];
+        let failed = false;
+        for (const name of ['edit.json', 'captions.json']) {
+            const uri = root.resolve(name);
+            let exists: boolean;
+            try {
+                exists = await this.files.exists(uri);
+            } catch {
+                failed = true;
+                continue;
+            }
+            if (!exists) {
+                continue;
+            }
+            try {
+                const content = await this.files.readFile(uri);
+                documents.push(content.value.toString());
+            } catch {
+                failed = true;
+            }
+        }
+        return { documents, failed };
+    }
+
+    /**
+     * リネーム前の参照警告（指示5）。参照が 0 件（かつ読み取り成功）なら確認なしで続行して
+     * よい（true を返す）。1 件以上、または参照チェック自体が失敗したときは
+     * moveToAssets と同じ文体の ConfirmDialog で警告する。
+     */
+    protected async confirmReferenceImpact(relativePath: string, isDirectory: boolean, actionLabel: string): Promise<boolean> {
+        const root = this.workflow.workspaceRoot;
+        if (!root) {
+            return true;
+        }
+        const { documents, failed } = await this.readProjectReferenceDocuments(root);
+        const count = failed ? undefined : countReferences(documents, relativePath, isDirectory);
+        if (count === 0) {
+            return true;
+        }
+        const message = count === undefined
+            ? '参照を確認できませんでした。このまま進めると edit.json / captions.json の参照が壊れる可能性があります（edit.json は自動的に書き換えません）。'
+            : `edit.json / captions.json から ${count} 箇所参照されています。`
+                + `${actionLabel}すると参照が壊れる可能性があります（edit.json は自動的に書き換えません）。`;
+        const confirmed = await new ConfirmDialog({
+            title: `${actionLabel}しますか？`,
+            msg: message,
+            ok: '続ける',
+            cancel: 'キャンセル'
+        }).open();
+        return !!confirmed;
+    }
+
+    /** 削除確認メッセージに参照チェック結果を必ず含める（指示6）。 */
+    protected async buildDeleteReferenceMessage(relativePath: string, isDirectory: boolean): Promise<string> {
+        const root = this.workflow.workspaceRoot;
+        if (!root) {
+            return '参照を確認できませんでした。';
+        }
+        const { documents, failed } = await this.readProjectReferenceDocuments(root);
+        if (failed) {
+            return '参照を確認できませんでした。';
+        }
+        const count = countReferences(documents, relativePath, isDirectory);
+        return count > 0
+            ? `edit.json / captions.json から ${count} 箇所参照されています。削除すると参照が壊れます。`
+            : 'プロジェクトデータからの参照は見つかりませんでした。';
+    }
+
+    /**
+     * 名前を変更（指示5）。参照ありなら SingleTextInputDialog の前に ConfirmDialog で警告する。
+     * 同一ディレクトリ内での `FileService.move`（overwrite: false）。衝突・失敗時は
+     * messages.error。成功後は呼び出し側が渡した `reload` で再読込する。
+     */
+    protected async renameEntry(uri: URI, currentName: string, relativePath: string, isDirectory: boolean, reload: () => void): Promise<void> {
+        const proceed = await this.confirmReferenceImpact(relativePath, isDirectory, '名前を変更');
+        if (!proceed) {
+            return;
+        }
+        const newName = await new SingleTextInputDialog({
+            title: '名前を変更',
+            initialValue: currentName
+        }).open();
+        if (!newName || !newName.trim() || newName.trim() === currentName) {
+            return;
+        }
+        const targetUri = uri.parent.resolve(newName.trim());
+        try {
+            await this.files.move(uri, targetUri, { overwrite: false });
+        } catch {
+            this.messages.error(`${currentName} の名前を変更できませんでした。`);
+            return;
+        }
+        reload();
+    }
+
+    /**
+     * 削除（指示6）。参照チェック結果を必ず含む ConfirmDialog → OK で
+     * `FileService.delete(uri, { recursive: true, useTrash: true })`（恒久削除はしない）。
+     * 失敗時は messages.error。成功後は呼び出し側が渡した `reload` で再読込する。
+     */
+    protected async deleteEntry(uri: URI, name: string, relativePath: string, isDirectory: boolean, reload: () => void): Promise<void> {
+        const referenceMessage = await this.buildDeleteReferenceMessage(relativePath, isDirectory);
+        const confirmed = await new ConfirmDialog({
+            title: `${name} を削除しますか？`,
+            msg: `${referenceMessage} 削除するとゴミ箱に移動します。`,
+            ok: '削除する',
+            cancel: 'キャンセル'
+        }).open();
+        if (!confirmed) {
+            return;
+        }
+        try {
+            await this.files.delete(uri, { recursive: true, useTrash: true });
+        } catch {
+            this.messages.error(`${name} を削除できませんでした。`);
+            return;
+        }
+        reload();
     }
 
     // --- できたもの（下段・read-only） -----------------------------------------
@@ -1703,6 +1925,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-material-unorganized={entry.unorganized ? 'true' : 'false'}
                 data-akari-material-asset-group={entry.assetGroup ? 'true' : 'false'}
                 onClick={() => void this.openFile(entry.uri)}
+                onContextMenu={event => this.openMaterialContextMenu(event, entry)}
                 title={entry.name}
                 style={{
                     display: 'flex',
@@ -2659,6 +2882,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-output-path={entry.relativePath}
                 data-akari-output-kind={entry.kind}
                 onClick={() => void this.openFile(entry.uri)}
+                onContextMenu={event => this.openOutputContextMenu(event, entry)}
                 title={label}
                 style={{
                     display: 'flex',
@@ -2726,6 +2950,68 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async revealOutputInFileManager(entry: OutputEntry): Promise<void> {
         await this.commandService.executeCommand(AKARI_REVEAL_IN_FILE_MANAGER.id, entry.uri);
+    }
+
+    /**
+     * できたもの行の右クリックメニューを開く。`entry.kind`（data/plan/export/report）が
+     * そのまま `MaterialContextMenuTarget` の対象種別になる（司令塔裁定1: 破壊操作と
+     * エージェントに頼むは export のみ）。既存クリック挙動は変えない —
+     * renderOutputCard へは onContextMenu の追加のみで配線する（受入5）。
+     */
+    protected openOutputContextMenu(event: React.MouseEvent<HTMLDivElement>, entry: OutputEntry): void {
+        event.preventDefault();
+        event.stopPropagation();
+        openAkariContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            items: buildMaterialContextMenuItems(entry.kind, isOSX),
+            onSelect: id => this.handleOutputContextMenuAction(id, entry)
+        });
+    }
+
+    protected handleOutputContextMenuAction(id: string, entry: OutputEntry): void {
+        switch (id) {
+            case 'open':
+                void this.openFile(entry.uri);
+                break;
+            case 'reveal':
+                void this.revealInFileManagerCommand(entry.uri);
+                break;
+            case 'copy-file':
+                void this.copyFileToClipboard(entry.uri);
+                break;
+            case 'copy-path':
+                void this.copyPathToClipboard(entry.uri);
+                break;
+            case 'rename':
+                void this.renameEntry(entry.uri, entry.name, entry.relativePath, false, () => this.loadOutputs());
+                break;
+            case 'delete':
+                void this.deleteEntry(entry.uri, entry.name, entry.relativePath, false, () => this.loadOutputs());
+                break;
+            case 'ask-agent':
+                void this.askAgentAboutOutput(entry);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * 書き出し行（export）の「エージェントに頼む」（指示8）。素材カードの askAgent と同じ
+     * quickInput 一問 → PARTNER_INJECT_PROMPT_COMMAND_ID 注入の流儀だが、文脈パケットは
+     * 出力版 composer（composeOutputAskAgentPrompt）を使う。data/plan/report では
+     * メニュー自体にこの項目が出ない（buildMaterialContextMenuItems）ため呼ばれない。
+     */
+    protected async askAgentAboutOutput(entry: OutputEntry): Promise<void> {
+        const request = await this.quickInputService.input({
+            placeHolder: 'このファイルについて何を頼みますか'
+        });
+        if (!request || !request.trim()) {
+            return;
+        }
+        const packet = composeOutputAskAgentPrompt({ relativePath: entry.relativePath }, request);
+        await this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
     }
 
     protected renderLintBadge(): React.ReactNode {

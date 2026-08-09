@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { composeAgentContextPacket, composeMaterialAskAgentPrompt } from '../lib/common/agent-context-packet.js';
+import { composeAgentContextPacket, composeMaterialAskAgentPrompt, composeOutputAskAgentPrompt } from '../lib/common/agent-context-packet.js';
 
 // composer 単体テスト（task.md L0: 要素の有無 4 パターン — 分析済み/未分析 × 入力の改行畳み込み）。
 
@@ -68,4 +68,18 @@ test('composeAgentContextPacket: 汎用シグネチャ（対象種別 + フィ�
         '尺を詰めて'
     );
     assert.equal(packet, '【プラン】planning/plan.json#shot-3（状態 draft）について: 尺を詰めて');
+});
+
+// できたもの（export 行）版 composer（task 2026-08-09-material-context-menu-mvp 指示8）。
+
+test('composeOutputAskAgentPrompt: relativePath が含まれる', () => {
+    const packet = composeOutputAskAgentPrompt({ relativePath: 'exports/cut-01.mp4' }, 'テロップの誤字を直して');
+    assert.equal(packet.includes('exports/cut-01.mp4'), true);
+    assert.equal(packet, '【書き出し済みの成果物】exports/cut-01.mp4について: テロップの誤字を直して');
+});
+
+test('composeOutputAskAgentPrompt: 改行を含む依頼文は 1 行に畳まれる', () => {
+    const packet = composeOutputAskAgentPrompt({ relativePath: 'exports/cut-01.mp4' }, '1行目\n2行目');
+    assert.equal(packet, '【書き出し済みの成果物】exports/cut-01.mp4について: 1行目 2行目');
+    assert.equal(/[\r\n]/.test(packet), false, 'パケットは 1 行でなければならない');
 });
