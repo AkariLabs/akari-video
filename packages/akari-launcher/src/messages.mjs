@@ -191,3 +191,8 @@ export function soundsFailedNotice() {
 export function soundsUnavailableError() {
   return '音源セットアップスクリプト（audio-library-setup）が見つかりませんでした。';
 }
+
+/** `akari assets`: 素材 resolver（asset-resolver）が同梱されていない場合のエラー（stderr 1 行）。 */
+export function assetsResolverUnavailableError() {
+  return '素材 resolver（asset-resolver）が見つかりませんでした。`akari assets` は使えません。';
+}

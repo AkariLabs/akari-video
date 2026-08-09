@@ -102,6 +102,10 @@
     コミットしない。**
   - `catalog/` は `remote: true` の**取得先索引であり実体を持たない**（[catalog/INDEX.md](../../catalog/INDEX.md)）。
     未取得なら「取得が要る」ことを素材計画に明記する。
+  - ローカル層に無ければ**アカウントの素材ライブラリ**（無料全部 + `akari store connect` 済みなら
+    購入済みも含む）も検索できる。`akari assets list [--category <c>]` で候補を確認し、使う素材が
+    決まったら `akari assets fetch <id> --project .` でこのプロジェクトへ取り込む（sha256 検証込み）。
+    取得後のライセンス確認は上記と同じく `meta.json` で行う。
   - `presets/telop/` は素材カタログではなく、bake CLI が id で引く参照表である（本リポへ
     ベンダリングされた目次方式・`meta.json` を持たない。実測: `index.jsonl` に license
     フィールドは無い）。ライセンス根拠は

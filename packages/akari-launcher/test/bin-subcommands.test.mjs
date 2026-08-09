@@ -10,7 +10,8 @@ const bin = join(packageRoot, 'bin', 'akari.mjs');
 for (const [name, args, expected] of [
   ['new', ['new', '--help'], 'akari new <target-dir>'],
   ['narration', ['narration', '--help'], 'akari narration generate'],
-  ['internal', ['internal', '--help'], 'beat-sync-render-when-idle']
+  ['internal', ['internal', '--help'], 'beat-sync-render-when-idle'],
+  ['assets', ['assets', '--help'], 'akari-assets <list\\|fetch\\|sync\\|browse>']
 ]) {
   test(`bin/akari.mjs: ${name} 分岐が help を表示する`, () => {
     const result = spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8' });

@@ -45,7 +45,11 @@ const VENDOR_SOURCES = [
   // media-bin は fetch スクリプトの preview.png 生成（waveform-preview.mjs）が ffmpeg 解決に
   // 使う。未同梱なら audioFetchScriptPath が null になり、音源セットアップだけスキップされる。
   'packages/audio-library-setup',
-  'packages/media-bin'
+  'packages/media-bin',
+  // 素材 resolver（`akari assets` — アカウントの素材 = 無料 + 購入済みの一覧・取得）。
+  // 未同梱なら assetResolverCliPath が null になり、`akari assets` だけスキップされる
+  // （タスク契約 2026-08-09-agent-assets-discovery）。
+  'packages/asset-resolver'
 ];
 
 if (process.argv[2] === 'clean') {
