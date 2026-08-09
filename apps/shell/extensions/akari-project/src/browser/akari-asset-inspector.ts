@@ -73,7 +73,13 @@ export class AkariAssetInspector extends BaseWidget implements FrontendApplicati
         this.renderEmpty();
     }
 
-    protected async showAsset(uri: URI): Promise<void> {
+    /**
+     * task 2026-08-10-material-menu-r2 で public 化: 素材カードの「素材の情報を表示」
+     * （`akari.project.showAssetInfo`、`AkariProjectContribution#showAssetInfo`）から
+     * Explorer の選択を経由せず直接呼べるようにする。Explorer 選択経由の呼び出し
+     * （onStart の `onSelectionChanged` 購読）と同じ実装を共有する。
+     */
+    async showAsset(uri: URI): Promise<void> {
         this.selected = uri;
         const relative = this.workflow.relativePath(uri);
         if (!relative || !relative.startsWith('assets/') || uri.path.base.startsWith('.')) {

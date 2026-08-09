@@ -41,7 +41,7 @@ import {
 } from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { CatalogPack } from '../common/catalog-packs';
-import { AKARI_REVEAL_IN_FILE_MANAGER, revealInFileManagerActionLabel } from './akari-reveal-commands';
+import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO, revealInFileManagerActionLabel } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu } from './akari-context-menu';
 import { countReferences } from '../common/project-reference-check';
@@ -50,6 +50,10 @@ import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
+// 姉妹拡張（タイムライン側、task 2026-08-10-timeline-clip-menu）の公開コマンド ID とミラー。
+// 共有パッケージを作らず文字列を直書きする流儀（PARTNER_INJECT_PROMPT_COMMAND_ID と同じ）。
+// 受け側が未合流でも executeCommand は失敗するだけなので本タスクは成立する（司令塔裁定2）。
+const TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID = 'akari.timeline.addMaterialAtPlayhead';
 
 const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 // 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
@@ -734,7 +738,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         openAkariContextMenu({
             x: event.clientX,
             y: event.clientY,
-            items: buildMaterialContextMenuItems(target, isOSX),
+            items: buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind }),
             onSelect: id => this.handleMaterialContextMenuAction(id, entry)
         });
     }
@@ -744,6 +748,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             case 'open':
                 void this.openFile(entry.uri);
                 break;
+            case 'add-to-timeline':
+                void this.addMaterialToTimeline(entry);
+                break;
             case 'reveal':
                 void this.revealInFileManagerCommand(entry.uri);
                 break;
@@ -752,6 +759,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 break;
             case 'copy-path':
                 void this.copyPathToClipboard(entry.uri);
+                break;
+            case 'show-info':
+                void this.showAssetInfo(entry.uri);
                 break;
             case 'rename': {
                 const renameTarget = this.materialFileSystemTarget(entry);
@@ -772,6 +782,31 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             default:
                 break;
         }
+    }
+
+    /**
+     * 「タイムラインに追加」（送信側のみ、task 2026-08-10-material-menu-r2 指示2）。
+     * 受け側（姉妹タスク 2026-08-10-timeline-clip-menu）のコマンド未登録も含め、失敗は
+     * 握って messages.error に落とす（司令塔裁定2 — 実機ではほぼ同時に合流するため雑でよい）。
+     */
+    protected async addMaterialToTimeline(entry: MaterialCardEntry): Promise<void> {
+        try {
+            await this.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, {
+                relativePath: entry.relativePath,
+                kind: entry.kind
+            });
+        } catch {
+            this.messages.error('タイムライン機能の更新が必要です。');
+        }
+    }
+
+    /**
+     * 「素材の情報を表示」（task 2026-08-10-material-menu-r2 指示2・3）。実処理
+     * （パネルの reveal/activate・showAsset）は `AkariProjectContribution#showAssetInfo`
+     * に委ねる（司令塔裁定5 — ApplicationShell 経由の widget 操作は akari-project 側に集約）。
+     */
+    protected async showAssetInfo(uri: URI): Promise<void> {
+        await this.commandService.executeCommand(AKARI_SHOW_ASSET_INFO.id, uri);
     }
 
     /**
