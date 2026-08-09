@@ -83,6 +83,10 @@ interface EditSummaryLayer {
     duration: number;
     kind: 'baked' | 'video';
     src?: string;
+    /** task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで判定する
+     * 静止画フラグ（schema の kind は 'video' のまま不変）。webview 側はこれで <video>/<img> の
+     * どちらを生成するか決める。'baked' は常に false（後述 isImageLayerSrc の呼び出し側コメント参照）。 */
+    isImage: boolean;
     transform: OverlayTransform;
     opacity: number;
     blend: string;
@@ -96,6 +100,15 @@ interface EditSummaryLayer {
      * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
     perspective?: LayerPerspectiveSummary;
 }
+
+// task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する
+// （schema の kind は 'video' のまま不変）。render-cut 側の同じ判定
+// （packages/render-cut/src/layers.mjs の isImageLayerSource）と対象拡張子集合を完全に揃える。
+// 独立した関数として export しているのは webview 生成 HTML の外（この TS モジュール自身）から
+// node --test で直接叩けるようにするため（test/image-layer-source.test.mjs）。
+const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
+export const isImageLayerSrc = (src: string | undefined): boolean =>
+    typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
 
 interface EditSummaryCut {
     /** 参照するソース id（v1 cuts[].src。v0 は既定 id）。webview はこれで <video> を切り替える */
@@ -2144,7 +2157,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (result.unsupportedBlend) {
                     unsupportedBlendCount += 1;
                 }
-                const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing'> = result.base;
+                const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = result.base;
                 let sourceUri: URI;
                 try {
                     sourceUri = this.resolveEditAssetUri(value.src, editUri);
@@ -2153,6 +2166,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     continue;
                 }
                 if (value.kind === 'baked') {
+                    // 'baked' は常に previewProxyUri() の .preview.webm サイドカーを配信する（元の
+                    // value.src の拡張子に関わらず）ため、isImage は常に false — このブランチの
+                    // 挙動は本タスクで一切変えない（対象は 'video' kind の画像のみ、司令塔裁定1）。
                     const sidecarUri = this.previewProxyUri(sourceUri);
                     if (!assetUris.some(uri => uri.toString() === sidecarUri.toString())) {
                         assetUris.push(sidecarUri);
@@ -2171,7 +2187,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     } catch (error) {
                         console.warn(`[akari-preview] ${label} の preview proxy を配信できません`, error);
                     }
-                    layers.push({ ...base, ...(src ? { src } : {}), proxyMissing: !src });
+                    layers.push({ ...base, ...(src ? { src } : {}), proxyMissing: !src, isImage: false });
                     continue;
                 }
 
@@ -2183,7 +2199,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         assetStreams.set(key, stream);
                         assetUris.push(sourceUri);
                     }
-                    layers.push({ ...base, src: stream.url, proxyMissing: false });
+                    // 'video' kind はソースファイルをそのまま配信する（サイドカー変換なし）ので、
+                    // 配信 URL は元の value.src と同じバイト列 -- 拡張子判定がそのまま安全に使える。
+                    layers.push({ ...base, src: stream.url, proxyMissing: false, isImage: isImageLayerSrc(value.src) });
                 } catch (error) {
                     console.warn(`[akari-preview] ${label} を無視しました（video レイヤーを配信できません）`, error);
                 }
@@ -3181,7 +3199,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
 #preview-video { position: absolute; top: 0; left: 0; object-fit: contain; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
-#preview-layers > video { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
+#preview-layers > video, #preview-layers > img { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
 #layer-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #layer-select-box.is-active { display: block; }
 #layer-select-box .akari-layer-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
@@ -3914,7 +3932,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layersStage.style.width = outputWidth + 'px';
                 layersStage.style.height = outputHeight + 'px';
                 layersStage.style.transform = stageTransform;
-                for (const layerVideo of layersStage.querySelectorAll('video')) {
+                for (const layerVideo of layersStage.querySelectorAll('video, img')) {
                     if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) continue;
                     const x = Number(layerVideo.dataset.akariTransformX) || 0;
                     const y = Number(layerVideo.dataset.akariTransformY) || 0;
@@ -4578,12 +4596,41 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (typeof updateCutSelectBox === 'function') updateCutSelectBox();
             };
             const layerEntries = (Array.isArray(summary.layers) ? summary.layers : []).map((layer, index) => {
-                const layerVideo = document.createElement('video');
-                layerVideo.muted = true;
-                layerVideo.playsInline = true;
-                layerVideo.preload = 'auto';
+                // task 2026-08-10-image-layer-parity: layer.isImage はサーバ側（loadPreviewModel /
+                // isImageLayerSrc）が拡張子で確定済み（webview から見える src はストリーム URL で
+                // 元の拡張子を持たないことがあるため、ここで拡張子を再判定はしない）。
+                const layerIsImage = Boolean(layer.isImage);
+                const layerVideo = document.createElement(layerIsImage ? 'img' : 'video');
+                if (layerIsImage) {
+                    // ㉚ 画像レイヤー（司令塔裁定3）: <video> 固有の
+                    // videoWidth/videoHeight/readyState/paused/play/pause を <img> インスタンス自身に
+                    // 薄いファサードとして生やし、以降の配置・crop・アルファ実測・click 選択などの
+                    // 既存コード（video 用に書かれたレール）を無改修のまま乗せる。videoWidth/
+                    // videoHeight/readyState は都度評価する getter にする（ロード完了前後で値が
+                    // 変わる、video の同名プロパティと同じ性質）。
+                    Object.defineProperty(layerVideo, 'videoWidth', { get: () => layerVideo.naturalWidth });
+                    Object.defineProperty(layerVideo, 'videoHeight', { get: () => layerVideo.naturalHeight });
+                    Object.defineProperty(layerVideo, 'readyState', {
+                        get: () => (layerVideo.complete && layerVideo.naturalWidth > 0) ? 4 : 0
+                    });
+                    // 静止画に「再生中」は無い: renderLayers() の play()/pause() 呼び出しを無害な
+                    // no-op として吸収する（呼び出し側 = video 用の tick ロジックには手を入れない）。
+                    layerVideo.paused = true;
+                    layerVideo.play = () => Promise.resolve();
+                    layerVideo.pause = () => {};
+                    // video の 'loadedmetadata'（サイズ確定）と 'loadeddata'
+                    // （updateLayerSelectBox の再試行リスナー）を img の 'load' 1本から合成発火する。
+                    layerVideo.addEventListener('load', () => {
+                        layerVideo.dispatchEvent(new Event('loadedmetadata'));
+                        layerVideo.dispatchEvent(new Event('loadeddata'));
+                    });
+                } else {
+                    layerVideo.muted = true;
+                    layerVideo.playsInline = true;
+                    layerVideo.preload = 'auto';
+                    layerVideo.disablePictureInPicture = true;
+                }
                 layerVideo.tabIndex = -1;
-                layerVideo.disablePictureInPicture = true;
                 // アルファ実測（選択枠のコンテンツフィット・透明素通し）で canvas に描くため。
                 // ストリームサーバは Access-Control-Allow-Origin: * を返す
                 layerVideo.crossOrigin = 'anonymous';
@@ -5261,7 +5308,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const hit = document.elementsFromPoint(event.clientX, event.clientY)
                     .find(candidate => {
                         if (candidate === video) return true;
-                        if (!(candidate.tagName === 'VIDEO' && candidate.dataset
+                        if (!((candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG') && candidate.dataset
                             && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
                         // 全面サイズの透明動画（ベイクテロップ）は箱で当てると画面全部が当たりになる。
                         // クリック地点のアルファを実測し、透明部分は下（別レイヤー / 本編）へ素通し
@@ -5512,7 +5559,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const hitSelectable = document.elementsFromPoint(event.clientX, event.clientY)
                     .some(candidate => {
                         if (candidate === video) return true;
-                        if (!(candidate.tagName === 'VIDEO' && candidate.dataset
+                        if (!((candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG') && candidate.dataset
                             && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
                         const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
                         return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
@@ -7507,8 +7554,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
                         applyLiveField(video);
                     } else if (typeof message.target.id === 'string') {
+                        const layerIdSelector = CSS.escape(message.target.id);
                         const layerVideo = layersStage.querySelector(
-                            'video[data-akari-layer-id="' + CSS.escape(message.target.id) + '"]'
+                            'video[data-akari-layer-id="' + layerIdSelector + '"], img[data-akari-layer-id="' + layerIdSelector + '"]'
                         );
                         if (layerVideo) applyLiveField(layerVideo);
                     }

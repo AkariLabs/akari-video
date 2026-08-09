@@ -33,6 +33,18 @@ const DEFAULT_CHROMA_BLEND = 0;
 // canonical matte format instead of falling back to a platform-locked or 18x larger container.
 const SIDE_CHANNEL_ALPHA_DECODERS = { vp8: "libvpx", vp9: "libvpx-vp9" };
 
+// contract-2026-08-10-image-layer-parity task.md §司令塔裁定 1: a layers[] item is treated as a
+// still image purely by src extension (kind stays "video" in the schema either way) -- the exact
+// same extension set plan.mjs's chroma_key background already uses (plan.mjs:1124 / :1530). Kept
+// as an independent literal here rather than importing it from plan.mjs: plan.mjs already imports
+// buildLayersCompositeCommand/hasLayers from *this* module, so the reverse import would create a
+// plan.mjs <-> layers.mjs circular module dependency for no real benefit.
+const IMAGE_LAYER_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
+
+export function isImageLayerSource(path) {
+  return IMAGE_LAYER_SOURCE_PATTERN.test(String(path ?? ""));
+}
+
 export function hasLayers(edit) {
   return Array.isArray(edit?.layers) && edit.layers.length > 0;
 }
@@ -153,8 +165,14 @@ export function buildLayersCompositeCommand({
     const isNormal = blend === "normal";
 
     const resolvedSource = resolve(projectRoot, layer.src);
+    // A still-image src has exactly one frame, so without -loop 1 the downstream
+    // trim=duration=${layerDuration} step below would starve after that single frame instead of
+    // holding it for the whole [t, t+duration) window (same technique as plan.mjs's chroma_key
+    // background image input).
+    const isImageSource = isImageLayerSource(resolvedSource);
     inputArgs.push(
       ...(isNormal ? ["-itsoffset", formatNumber(t)] : []),
+      ...(isImageSource ? ["-loop", "1"] : []),
       // Input option, so it must sit between the previous input and this layer's own `-i`.
       ...resolveDecoderForLayer(ffprobeCommand, resolvedSource, warnings),
       "-i",

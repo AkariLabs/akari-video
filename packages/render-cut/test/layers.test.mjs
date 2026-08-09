@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { buildLayersCompositeCommand, hasLayers } from "../src/layers.mjs";
+import { buildLayersCompositeCommand, hasLayers, isImageLayerSource } from "../src/layers.mjs";
 import { computePerspectiveFfmpegCorners } from "../src/perspective-homography.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -154,6 +154,12 @@ function makeSolidSource(path, { color = "blue", width, height, duration, fps })
   ffmpeg(["-f", "lavfi", "-i", `color=c=${color}:s=${width}x${height}:d=${duration}:r=${fps}`, "-c:v", "libx264", "-pix_fmt", "yuv420p", path]);
 }
 
+// A single-frame still image (no duration/fps of its own) -- the layers.mjs code path under test
+// is specifically the one that has to loop this one frame across a multi-second layer window.
+function makeImageLayer(path, { color = "red", width, height }) {
+  ffmpeg(["-f", "lavfi", "-i", `color=c=${color}:s=${width}x${height}:d=1`, "-frames:v", "1", path]);
+}
+
 async function makeProject({
   width = 640,
   height = 360,
@@ -230,6 +236,58 @@ test("buildLayersCompositeCommand: a non-normal blend layer goes through the tri
   assert.match(filterComplex, /format=gbrp/);
   assert.match(filterComplex, /alphaextract/);
   assert.match(filterComplex, /concat=n=3:v=1:a=0/); // before + during + after segments
+});
+
+test("isImageLayerSource matches plan.mjs's still-image extension set (png/jpg/jpeg/webp/bmp/gif, case-insensitive) and nothing else", () => {
+  for (const ext of ["png", "PNG", "jpg", "JPG", "jpeg", "JPEG", "webp", "bmp", "gif", "GIF"]) {
+    assert.equal(isImageLayerSource(`/project/photo.${ext}`), true, ext);
+  }
+  for (const ext of ["mp4", "mov", "webm", "mkv", "avi", ""]) {
+    assert.equal(isImageLayerSource(`/project/clip.${ext}`), false, ext || "(no extension)");
+  }
+  assert.equal(isImageLayerSource(undefined), false);
+  assert.equal(isImageLayerSource(null), false);
+});
+
+test("buildLayersCompositeCommand: an image-extension src gets -loop 1 on its own input (normal blend, after -itsoffset)", () => {
+  const { args } = buildLayersCompositeCommand({
+    layers: [{ id: "photo", t: 1.5, duration: 2, kind: "video", src: "photo.png" }],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    ffprobeCommand: "ffprobe",
+    inputPath: "/project/.akari/render-tmp/cut.mp4",
+    outputPath: "/project/.akari/render-tmp/layered.mp4",
+    duration: 10,
+  });
+  assert.deepEqual(inputOptionsFor(args, "/project/photo.png"), ["-itsoffset", "1.5", "-loop", "1"]);
+});
+
+test("buildLayersCompositeCommand: an image-extension src gets -loop 1 on its own input (blend mode, no -itsoffset)", () => {
+  const { args } = buildLayersCompositeCommand({
+    layers: [{ id: "photo", t: 1.5, duration: 2, kind: "video", src: "photo.jpg", blend: "screen" }],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    ffprobeCommand: "ffprobe",
+    inputPath: "/project/.akari/render-tmp/cut.mp4",
+    outputPath: "/project/.akari/render-tmp/layered.mp4",
+    duration: 10,
+    width: 640,
+    height: 360,
+  });
+  assert.deepEqual(inputOptionsFor(args, "/project/photo.jpg"), ["-loop", "1"]);
+});
+
+test("buildLayersCompositeCommand: a non-image (video) src still gets no -loop -- byte-identical to before image-layer support", () => {
+  const { args } = buildLayersCompositeCommand({
+    layers: [{ id: "vid", t: 0, duration: 2, kind: "video", src: "clip.mp4" }],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    ffprobeCommand: "ffprobe",
+    inputPath: "/project/.akari/render-tmp/cut.mp4",
+    outputPath: "/project/.akari/render-tmp/layered.mp4",
+    duration: 10,
+  });
+  assert.deepEqual(inputOptionsFor(args, "/project/clip.mp4"), ["-itsoffset", "0"]);
 });
 
 test("buildLayersCompositeCommand: layer.crop inserts a crop= step before scale, x+w/y+h expressed via iw/ih", () => {
@@ -412,6 +470,59 @@ test("baked alpha layer: transparency, transform placement, and time window are 
     assertColor(duringOpaque, [0, 255, 0], "during window, opaque-half position shows the layer color");
     assertColor(afterOpaque, [0, 0, 255], "after window, opaque-half position shows base blue again");
     assertColor(duringTransparent, [0, 0, 255], "during window, transparent-half position still shows base blue through alpha=0");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+// image-layer-parity task: a still-image (.png) layer.src, kind still "video" per schema, must
+// hold its single frame for the whole [t, t+duration) window (not vanish after one frame), read
+// pixel-identical at two different times inside that window (it is static -- no seek/PTS drift),
+// and disappear outside the window, all measured on the real render-cut output.
+test("image layer (png): holds its still frame for the whole window and reads pixel-identical at two times inside it (real render)", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const width = 640;
+  const height = 360;
+  const fps = 25;
+  const duration = 5;
+  const project = await makeProject({
+    width,
+    height,
+    fps,
+    duration,
+    layers: [
+      {
+        id: "photo",
+        t: 1,
+        duration: 2,
+        kind: "video",
+        src: "photo.png",
+        transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+      },
+    ],
+  });
+  try {
+    makeImageLayer(join(project, "photo.png"), { color: "red", width: 300, height: 200 });
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    const outputPath = join(project, state.artifacts[0].path);
+
+    const pos = { x: Math.floor(width / 2), y: Math.floor(height / 2) };
+    const before = samplePixel(outputPath, 12, pos.x, pos.y);
+    const duringA = samplePixel(outputPath, Math.round(1.2 * fps), pos.x, pos.y);
+    const duringB = samplePixel(outputPath, Math.round(2.8 * fps), pos.x, pos.y);
+    const after = samplePixel(outputPath, Math.round(4 * fps), pos.x, pos.y);
+    t.diagnostic(`before-window (${pos.x},${pos.y}) rgb=(${before.r},${before.g},${before.b})`);
+    t.diagnostic(`during-window t~1.2s (${pos.x},${pos.y}) rgb=(${duringA.r},${duringA.g},${duringA.b})`);
+    t.diagnostic(`during-window t~2.8s (${pos.x},${pos.y}) rgb=(${duringB.r},${duringB.g},${duringB.b})`);
+    t.diagnostic(`after-window (${pos.x},${pos.y}) rgb=(${after.r},${after.g},${after.b})`);
+    assertColor(before, [0, 0, 255], "before window shows base blue (image not yet visible)");
+    assertColor(duringA, [255, 0, 0], "during window at t~1.2s shows the still image");
+    assertColor(duringB, [255, 0, 0], "during window at t~2.8s shows the still image");
+    assert.deepEqual(duringA, duringB, "the still image reads exactly the same RGB at two different times inside the window");
+    assertColor(after, [0, 0, 255], "after window shows base blue again (image no longer visible)");
   } finally {
     await rm(project, { recursive: true, force: true });
   }

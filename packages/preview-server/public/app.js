@@ -355,6 +355,21 @@ function layerPlaybackPath(layer) {
     : `${layer.src}.preview.webm`;
 }
 
+// task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する
+// （schema の kind は 'video' のまま不変）。render-cut 側の同じ判定
+// （packages/render-cut/src/layers.mjs の isImageLayerSource, plan.mjs の画像判定と同一集合）と
+// 対象拡張子を完全に揃える。'baked' はここでは常に false 扱い -- layerPlaybackPath() が baked を
+// 元の拡張子に関わらず常に .preview.webm サイドカーへ差し替えるため（上の layerPlaybackPath 参照）、
+// 実際に配信されるバイト列は常に動画。'video' kind のみ元ファイルをそのまま配信するので、
+// layer.src の拡張子判定がそのまま安全に使える。
+const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
+function isImageLayerSrc(src) {
+  return typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
+}
+function isImageLayer(layer) {
+  return layer.kind !== 'baked' && isImageLayerSrc(layer.src);
+}
+
 // ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。contract-2026-08-02-preview-parity.md）。
 // crop 未指定は既定 {x:0,y:0,w:1,h:1} = 全面（従来と完全に見た目が同じになる境界値）。
 function cropOf(el) {
@@ -421,10 +436,42 @@ function setupLayers() {
   const layers = summary?.layers ?? [];
   for (const layer of layers) {
     if (!layer.src) continue;
-    const el = document.createElement('video');
-    el.preload = 'none';
-    el.muted = true;
-    el.playsInline = true;
+    const layerIsImage = isImageLayer(layer);
+    const el = document.createElement(layerIsImage ? 'img' : 'video');
+    if (layerIsImage) {
+      // 画像レイヤー（司令塔裁定3）: <video> 固有の
+      // videoWidth/videoHeight/readyState/paused/play/pause/load を <img> インスタンス自身に薄い
+      // ファサードとして生やし、以降の配置・crop・アルファ実測・遅延ロード（layer-lazy-load.js）
+      // などの既存コード（video 用に書かれたレール）を無改修のまま乗せる。videoWidth/
+      // videoHeight/readyState は都度評価する getter にする（ロード完了前後で値が変わる、
+      // video の同名プロパティと同じ性質）。
+      Object.defineProperty(el, 'videoWidth', { get: () => el.naturalWidth });
+      Object.defineProperty(el, 'videoHeight', { get: () => el.naturalHeight });
+      Object.defineProperty(el, 'readyState', {
+        get: () => (el.complete && el.naturalWidth > 0) ? HTMLMediaElement.HAVE_ENOUGH_DATA : 0,
+      });
+      // index.html の `#layer-container video { position: absolute; object-fit: contain; }`
+      // 相当を img にもインラインで適用する（video は既存 CSS ルールのままで無改修 --
+      // index.html はこのタスクの所有ファイルではないため、img 分だけここで直接補う）。
+      el.style.position = 'absolute';
+      el.style.objectFit = 'contain';
+      // 静止画に「再生中」は無い: syncLayers() の play()/pause() 呼び出しを無害な no-op として
+      // 吸収する。load() は releaseLayerMedia()（layer-lazy-load.js）が呼ぶため同様に no-op。
+      el.paused = true;
+      el.play = () => Promise.resolve();
+      el.pause = () => {};
+      el.load = () => {};
+      // video の 'loadedmetadata'（サイズ確定）と 'loadeddata'（updateLayerSelectBox の再試行
+      // リスナー）を img の 'load' 1本から合成発火する。
+      el.addEventListener('load', () => {
+        el.dispatchEvent(new Event('loadedmetadata'));
+        el.dispatchEvent(new Event('loadeddata'));
+      });
+    } else {
+      el.preload = 'none';
+      el.muted = true;
+      el.playsInline = true;
+    }
     // サイドカーが無い案件（--no-preview-proxy で焼いた等）は 404 で error になる。
     // その場合だけ非表示にして知らせる（黒板で映像を覆わないため）
     el.addEventListener('error', () => {
@@ -1240,7 +1287,7 @@ function findLayerHit(e) {
     if (el.hasAttribute && el.hasAttribute('data-akari-interaction')) return null; // 選択枠・ハンドル
     if (el.closest && el.closest('[data-overlay-id]')) return null; // 断片優先
     if (el.closest && el.closest('#caption-plate')) return null;
-    if (el.tagName === 'VIDEO' && el.dataset && el.dataset.layerId && el.style.display !== 'none') {
+    if ((el.tagName === 'VIDEO' || el.tagName === 'IMG') && el.dataset && el.dataset.layerId && el.style.display !== 'none') {
       // 全面サイズの透明動画（ベイクテロップ）は箱で当てると画面全部が当たりになる。
       // クリック地点のアルファを実測し、透明部分は下のレイヤーへ素通しする
       if (layerAlphaAt(el, e.clientX, e.clientY) > 16) return el;
