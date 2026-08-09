@@ -35,7 +35,8 @@ import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
-import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_REVEAL_PROJECT_ROOT } from './akari-reveal-commands';
+import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_REVEAL_PROJECT_ROOT, AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
+import { AkariAssetInspector } from './akari-asset-inspector';
 
 /**
  * 「場所を選んで新規作成…」。File メニュー先頭の「新規プロジェクト作成」は
@@ -115,6 +116,9 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         });
         commands.registerCommand(AKARI_REVEAL_PROJECT_ROOT, {
             execute: () => this.revealProjectRoot()
+        });
+        commands.registerCommand(AKARI_SHOW_ASSET_INFO, {
+            execute: (target: unknown) => this.showAssetInfo(this.toRevealUri(target))
         });
     }
 
@@ -436,6 +440,24 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             return;
         }
         await this.revealInFileManager(root);
+    }
+
+    /**
+     * 素材カード「素材の情報を表示」（`akari.project.showAssetInfo`、task
+     * 2026-08-10-material-menu-r2 指示3）。素材の情報パネル（`akari-asset-inspector-widget`、
+     * Explorer view container の常設パート）を reveal/activate してから showAsset を呼ぶ
+     * （司令塔裁定5・指示3）。パネルが見つからない/reveal に失敗する場合は深追いせず
+     * 例外を握って messages.warn に落とす（実機挙動は司令塔検収）。
+     */
+    protected async showAssetInfo(uri: URI): Promise<void> {
+        try {
+            const inspector = await this.widgets.getOrCreateWidget<AkariAssetInspector>(AkariAssetInspector.ID);
+            await this.shell.revealWidget(inspector.id);
+            await this.shell.activateWidget(inspector.id);
+            await inspector.showAsset(uri);
+        } catch (error) {
+            this.messages.warn(`素材の情報を表示できませんでした: ${this.errorMessage(error)}`);
+        }
     }
 
     protected async toggleDeveloperMode(): Promise<void> {

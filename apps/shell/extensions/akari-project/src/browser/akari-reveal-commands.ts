@@ -27,3 +27,13 @@ export const AKARI_REVEAL_PROJECT_ROOT: Command = {
     id: 'akari.project.revealProjectRoot',
     label: isOSX ? 'プロジェクトフォルダを Finder で表示' : 'プロジェクトフォルダを開く'
 };
+
+/**
+ * 素材カードの「素材の情報を表示」から呼ぶ内部コマンド（task 2026-08-10-material-menu-r2）。
+ * URI 引数必須・ラベル無し = コマンドパレットには出さない（AKARI_REVEAL_IN_FILE_MANAGER と
+ * 同じ流儀）。実行は `AkariProjectContribution#showAssetInfo` が担う — 素材の情報パネル
+ * （`akari-asset-inspector-widget`）を reveal/activate してから `showAsset(uri)` を呼ぶ。
+ */
+export const AKARI_SHOW_ASSET_INFO: Command = {
+    id: 'akari.project.showAssetInfo'
+};

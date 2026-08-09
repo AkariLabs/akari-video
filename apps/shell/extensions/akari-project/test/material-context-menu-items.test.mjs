@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMaterialContextMenuItems } from '../lib/common/material-context-menu-items.js';
 
-function ids(target, isOSX) {
-    return buildMaterialContextMenuItems(target, isOSX).map(item => item.id);
+function ids(target, isOSX, context) {
+    return buildMaterialContextMenuItems(target, isOSX, context).map(item => item.id);
 }
 
 test('material（macOS）: open/reveal/copy-file/copy-path/rename/delete/ask-agent の順', () => {
@@ -69,4 +69,60 @@ test('data/plan/report には danger 項目自体が存在しない', () => {
         const dangerItems = buildMaterialContextMenuItems(target, true).filter(item => item.danger);
         assert.deepEqual(dangerItems, []);
     }
+});
+
+// --- task 2026-08-10-material-menu-r2: add-to-timeline / show-info ---
+
+test('material × video（macOS）: add-to-timeline と show-info が追加される（並び順込み）', () => {
+    assert.deepEqual(ids('material', true, { materialKind: 'video' }), [
+        'open', 'add-to-timeline', 'reveal', 'copy-file', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+    ]);
+});
+
+test('material × audio（非 macOS）: add-to-timeline と show-info が追加される（copy-file は無し）', () => {
+    assert.deepEqual(ids('material', false, { materialKind: 'audio' }), [
+        'open', 'add-to-timeline', 'reveal', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+    ]);
+});
+
+test('material × image: add-to-timeline は出ず、show-info だけ出る', () => {
+    assert.deepEqual(ids('material', true, { materialKind: 'image' }), [
+        'open', 'reveal', 'copy-file', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+    ]);
+});
+
+test('material × other: add-to-timeline は出ず、show-info だけ出る', () => {
+    assert.deepEqual(ids('material', true, { materialKind: 'other' }), [
+        'open', 'reveal', 'copy-file', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+    ]);
+});
+
+test('unorganized: context ありでも add-to-timeline/show-info はどちらも出ない', () => {
+    assert.deepEqual(ids('unorganized', true, { materialKind: 'video' }), [
+        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent', 'move-to-assets'
+    ]);
+});
+
+test('export: context ありでも add-to-timeline/show-info はどちらも出ない', () => {
+    assert.deepEqual(ids('export', true, { materialKind: 'video' }), [
+        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent'
+    ]);
+});
+
+test('data: context ありでも add-to-timeline/show-info はどちらも出ない', () => {
+    assert.deepEqual(ids('data', true, { materialKind: 'video' }), [
+        'open', 'reveal', 'copy-file', 'copy-path'
+    ]);
+});
+
+test('context 省略時は前タスクと完全に同じ項目列（後方互換）', () => {
+    assert.deepEqual(ids('material', true), [
+        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent'
+    ]);
+    assert.deepEqual(ids('material', false), [
+        'open', 'reveal', 'copy-path', 'rename', 'delete', 'ask-agent'
+    ]);
+    assert.deepEqual(ids('unorganized', true), [
+        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent', 'move-to-assets'
+    ]);
 });
