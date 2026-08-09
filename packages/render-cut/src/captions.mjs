@@ -75,7 +75,13 @@ const RESOLVED_CAPTION_FONT_FACE_CSS = `@font-face {
 const KARAOKE_STYLE = "karaoke";
 const POP_STYLE = "pop";
 const REVEAL_STYLE = "reveal";
-const SUPPORTED_WORD_STYLES = new Set([KARAOKE_STYLE, POP_STYLE, REVEAL_STYLE]);
+const REVEAL_WORD_STYLE = "reveal-word";
+const SUPPORTED_WORD_STYLES = new Set([
+  KARAOKE_STYLE,
+  POP_STYLE,
+  REVEAL_STYLE,
+  REVEAL_WORD_STYLE,
+]);
 const EMPHASIS_STYLE_ONE_CHAR_BANG = "one-char-bang";
 const EMPHASIS_STYLE_ONE_CHAR_JUMBLE = "one-char-jumble";
 const EMPHASIS_STYLE_SIZE_PULSE = "size-pulse";
@@ -175,6 +181,12 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       warn(
         "reveal-without-words",
         `captions.json item ${caption.id ?? "(unknown)"} requests reveal without words[]; rendered as plain text`,
+      );
+    }
+    if (style === REVEAL_WORD_STYLE && allWords.length === 0) {
+      warn(
+        "reveal-word-without-words",
+        `captions.json item ${caption.id ?? "(unknown)"} requests reveal-word without words[]; rendered as plain text`,
       );
     }
     for (const [index, range] of ranges.entries()) {
@@ -1103,6 +1115,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     : "";
 
   const emphasisCss = hasEmphasis ? renderEmphasisCss() : "";
+  const revealWordCss = effectiveStyle === REVEAL_WORD_STYLE ? renderRevealWordCss() : "";
   const revealCss = effectiveStyle === REVEAL_STYLE ? renderRevealCss() : "";
 
   return `<div class="akari-caption akari-caption--${rootStyle}">
@@ -1159,7 +1172,7 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}
     }
     .akari-caption__tok--pop {
       animation: akari-caption-pop 0.2s var(--akari-tok-delay, 0s) ease-out both paused;
-    }${revealCss}${emphasisCss}
+    }${revealWordCss}${revealCss}${emphasisCss}
   </style>
   <div class="akari-caption__plate">${plateMarkup}</div>
 </div>`;
@@ -1449,9 +1462,24 @@ function renderRevealCss() {
     }`;
 }
 
+function renderRevealWordCss() {
+  return `
+    @keyframes akari-caption-reveal-word {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    .akari-caption__tok--reveal-word {
+      animation: akari-caption-reveal-word 0.01s var(--akari-tok-delay, 0s) linear both paused;
+    }`;
+}
+
 function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1) {
   if (word.untimed) {
     return `<span class="akari-caption__tok akari-caption__tok--unlit">${escapeHtml(word.text)}</span>`;
+  }
+  if (style === REVEAL_WORD_STYLE) {
+    const delay = formatSeconds(Math.max(0, word.start - rangeStart));
+    return `<span class="akari-caption__tok akari-caption__tok--reveal-word" style="--akari-tok-delay: ${delay}s">${escapeHtml(word.text)}</span>`;
   }
   const emphasis = findMatchingEmphasis(word, emphasisWords);
   // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。

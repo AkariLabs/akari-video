@@ -73,6 +73,17 @@ test('fails closed for timeline overrides, normalization, style, overlap, and im
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 1, 'abcdefghijklmnopq')] }, { cuts: [] }), /provide display_fragments/);
 });
 
+test('shared caption-style contract recognizes reveal-word as a display-policy conflict', () => {
+  const withStyle = style => ({
+    display_policy: styleParity.display_policy,
+    captions: [{ ...styleParity.caption, style }],
+  });
+  assert.throws(
+    () => resolveCaptionDisplay(withStyle(styleParity.caption_style_contract.accepted.style), styleParity.edit),
+    /style cannot be combined with display_policy/u,
+  );
+});
+
 test('fails closed for malformed source cues and every version 1 source reference mismatch', () => {
   const root = { display_policy: policy, captions: [caption('c-0001', 0, 1, '正常です', { src: 'ghost' })] };
   const edit = {

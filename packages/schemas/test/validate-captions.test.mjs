@@ -167,6 +167,19 @@ test("shared opt-in text-style parity matrix matches the schema validator", () =
   }
 });
 
+test("shared caption-style contract accepts reveal-word and rejects an unknown value", () => {
+  const accepted = runValue({
+    captions: [{ ...styleParity.caption, style: styleParity.caption_style_contract.accepted.style }],
+  });
+  assert.equal(accepted.status, 0, accepted.stderr);
+
+  const unknown = runValue({
+    captions: [{ ...styleParity.caption, style: styleParity.caption_style_contract.unknown.style }],
+  });
+  assert.equal(unknown.status, 1, unknown.stdout);
+  assert.match(unknown.stderr, /karaoke\/pop\/reveal\/reveal-word/u);
+});
+
 function styleRootForCase(item) {
   const root = {
     display_policy: styleParity.display_policy,

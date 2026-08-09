@@ -3321,6 +3321,10 @@ function injectCaptionStyles() {
   50%  { transform: translateY(-0.08em) scale(1.12); }
   100% { transform: translateY(0) scale(1); }
 }
+@keyframes akari-caption-reveal-word {
+  0% { opacity:0; }
+  100% { opacity:1; }
+}
 @keyframes akari-emphasis-one-char-bang {
   from { opacity: 0; transform: scale(1.6); }
   to   { opacity: 1; transform: scale(1); }
@@ -3346,6 +3350,7 @@ function injectCaptionStyles() {
 .akari-caption__tok { display:inline-block; will-change:transform,color; }
 .akari-caption__tok--karaoke { animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--pop { animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused; }
+.akari-caption__tok--reveal-word { animation:akari-caption-reveal-word 0.01s var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--emphasis { }
 .akari-caption__tok--one-char-bang { color:var(--akari-emphasis-color,var(--caption-color,#fff)); }
 .akari-caption__tok--size-pulse { animation:akari-emphasis-size-pulse var(--akari-emphasis-dur,0.2s) var(--akari-emphasis-delay,0s) ease-in-out both paused; color:var(--akari-emphasis-color,var(--caption-color,#fff)); }
@@ -3357,6 +3362,9 @@ function injectCaptionStyles() {
 function renderStyledToken(word, captionStart, style) {
   const delay = word.start - captionStart;
   const dur = Math.max(0.01, word.end - word.start);
+  if (style === 'reveal-word') {
+    return `<span class="akari-caption__tok akari-caption__tok--reveal-word" style="--akari-tok-delay:${delay}s">${esc(word.text)}</span>`;
+  }
   const cls = style === 'pop' ? 'akari-caption__tok--pop' : 'akari-caption__tok--karaoke';
   const vars = style === 'pop'
     ? `--akari-tok-delay:${delay}s`
@@ -3401,7 +3409,7 @@ function updateCaption() {
   const hasWords = words.length > 0;
   const hasEmphasis = hasWords && emphasisWords?.length > 0 && words.some(w => findMatchingEmphasis(w, emphasisWords));
   const style = active.style;
-  const explicitStyle = (style && ['karaoke', 'pop'].includes(style)) ? style : null;
+  const explicitStyle = (style && ['karaoke', 'pop', 'reveal-word'].includes(style)) ? style : null;
   // reveal（行単位の順送り表示）: 明示指定に加え、縦長では複数行に折り返す無指定字幕を
   // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
   const displayText = active.display_text || active.text || '';
@@ -3434,6 +3442,7 @@ function updateCaption() {
       wrapPlate(lines.map(line => `<p class="akari-caption__line">${
         line.map(w => {
           const ew = findMatchingEmphasis(w, emphasisWords);
+          if (style === 'reveal-word') return renderStyledToken(w, start, style);
           return ew ? renderEmphasisToken(w, start, ew) : renderStyledToken(w, start, style);
         }).join(' ')
       }</p>`).join(''))

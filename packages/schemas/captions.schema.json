@@ -284,7 +284,7 @@
           "type": "array",
           "items": { "$ref": "#/$defs/captionWord" }
         },
-        "style": { "enum": ["karaoke", "pop", "reveal"] },
+        "style": { "enum": ["karaoke", "pop", "reveal", "reveal-word"] },
         "display_text": { "type": "string" },
         "display_fragments": {
           "type": "array",

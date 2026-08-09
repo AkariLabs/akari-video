@@ -24,6 +24,15 @@ usable on its own).
 | Thumbnails | Static thumbnail images |
 | text-behind-person | Text wrapped behind a person (works with person matte extraction) |
 
+Caption `style` accepts four values:
+
+| Style | Behavior |
+|---|---|
+| `karaoke` | Highlights each word as it is spoken |
+| `pop` | Pops each word as it is spoken |
+| `reveal` | Reveals one line at a time |
+| `reveal-word` | Keeps each word hidden until it is spoken, then leaves it visible |
+
 ## How it works — touchable overlays
 
 What gets generated is an HTML fragment, referenced from `edit.json`'s `overlays[]`. There
