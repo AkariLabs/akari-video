@@ -9,6 +9,15 @@ import { promisify } from 'util';
 // in the internal repo's win portability audit §HEVC プレビュー 4節. Kept
 // in its own cache/media-proxy/ directory (not cache/timeline/ where media-cache writes) because
 // proxy output is orders of magnitude larger and slower to produce than thumbnails/waveforms.
+//
+// task/2026-08-09-drop-hevc-proxy: getH264Proxy() is NOT on the default preview-open path
+// anymore. Measurement showed <video> hardware-decodes HEVC fine on the platforms tested, so
+// probing/transcoding proactively was pure added latency (it's what caused the 10s open timeout,
+// not a safeguard against it). The only caller left is
+// AkariPreviewOpenHandler.handleHevcFallbackRequest in the browser extension, which invokes this
+// only after a <video> element has already actually failed to decode a source
+// (MEDIA_ERR_DECODE / MEDIA_ERR_SRC_NOT_SUPPORTED) — i.e. this module is a fallback, exercised
+// only on the exceptional path, never on ordinary open.
 
 const execFileAsync = promisify(execFile);
 

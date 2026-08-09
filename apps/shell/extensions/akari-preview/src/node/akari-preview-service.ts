@@ -211,6 +211,11 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         this.videoStreams.delete(id);
     }
 
+    // task/2026-08-09-drop-hevc-proxy: this RPC is no longer called from the default preview-open
+    // path (see AkariPreviewOpenHandler.resolveStreamVideoUri in the browser extension) — its
+    // only remaining caller is handleHevcFallbackRequest, invoked after an actual <video>
+    // playback failure. The implementation itself (probe → generate-if-hevc → cache) is
+    // unchanged; only who calls it, and when, changed.
     async resolveHevcProxy(request: ResolveHevcProxyRequest): Promise<ResolveHevcProxyResult> {
         if (!request || typeof request.videoUri !== 'string' || typeof request.projectRootUri !== 'string') {
             return { status: 'unavailable', reason: 'source-missing' };
