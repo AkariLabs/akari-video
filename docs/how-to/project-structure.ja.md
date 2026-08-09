@@ -30,7 +30,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 
 | ファイル / ディレクトリ | 役割 |
 |---|---|
-| `.akari/intake.json` | 進め方フォーム（やること / 尺 / おまかせ度） |
+| `.akari/intake.json` | 進め方フォーム（やること / 尺 / おまかせ度）。`title`（人間向け表示名。フォルダ名とは別）は企画（intake）が決まった時点でエージェントが書く — フォーム入力の対象はまだ無い |
 | `.akari/connections.json` | 接続レジストリ（API キー参照・モデル選択・コスト承認ポリシー） |
 | `.akari/workflow.json` | プロジェクトのロール定義 |
 | `.akari/sidecars/` | 素材ごとの `analysis.json`（分析の事実層） |

@@ -71,13 +71,16 @@ const FALLBACK_SKILLS_GUIDANCE = [
 
 // 進め方フォームの保存先（packages/schemas/intake.schema.json v0 準拠）。
 // 新規プロジェクトは常に status: draft・空 tasks で始まり、フォームまたは対話で確定する。
+// title は人間向け表示名（task 2026-08-09-project-display-title）。フォルダ名とは独立で、
+// 企画が固まった時点でエージェントが書く器として null で始める。
 const FALLBACK_INTAKE = {
     version: 1,
     tasks: [],
     target: { duration_s: null, keep_length: false, taste: null },
     autonomy: 'checkpoint',
     status: 'draft',
-    submitted_at: null
+    submitted_at: null,
+    title: null
 };
 
 const FALLBACK_WORKFLOW = {

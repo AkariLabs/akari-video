@@ -131,8 +131,12 @@
 
   // 既存の draft/submitted があれば読み込んで反映する（アプリ内サーフェスと
   // 同じ .akari/intake.json を見る。無ければ既定のまま = 新規プロジェクト扱い）。
+  // title（表示名）はこのフォームに入力欄が無い — エージェントが書いた値を
+  // 送信のたびに消してしまわないよう、読んだ値をそのまま持ち回って書き戻す。
+  let existingTitle = null;
   fetch('/api/state').then(res => (res.ok ? res.json() : null)).then(state => {
     if (!state) { return; }
+    existingTitle = typeof state.title === 'string' ? state.title : null;
     for (const input of taskChecksEl.querySelectorAll('input[type="checkbox"]')) {
       input.checked = Array.isArray(state.tasks) && state.tasks.includes(input.value);
     }
@@ -171,7 +175,8 @@
       target: { ...durationToTarget(durationChoice), taste },
       autonomy,
       status: 'submitted',
-      submitted_at: new Date().toISOString()
+      submitted_at: new Date().toISOString(),
+      title: existingTitle
     };
 
     try {

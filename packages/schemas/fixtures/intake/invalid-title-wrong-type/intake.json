@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "tasks": [],
+  "target": { "duration_s": null, "keep_length": false, "taste": null },
+  "autonomy": "checkpoint",
+  "status": "draft",
+  "submitted_at": null,
+  "title": 123
+}

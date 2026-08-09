@@ -50,6 +50,7 @@ import {
     withRecordedVersion
 } from '../common/shell-version-notice';
 import { AkariNewProjectService } from '../common/akari-new-project-protocol';
+import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
 
 // ホーム v4（裁定 R1〜R3・notes-2026-08-02-home-v4-minimal）: dashboard の
 // 構成要素を 3 つだけに削る — ①説明（2 動作） ②過去プロジェクト一覧
@@ -137,15 +138,20 @@ const RECENT_WORKSPACES_SCAN_LIMIT = 20;
 const STANDALONE_PROJECT_DISPLAY_LIMIT = 5;
 
 interface CreatorRootProjectEntry {
+    /** フォルダ名（機械の ID。ソート・URI 解決に使う。表示には使わない — 表示は title ?? name）。 */
     name: string;
     channel: string;
     uri: URI;
+    /** `.akari/intake.json` の title（task 2026-08-09-project-display-title）。無ければ null。 */
+    title: string | null;
 }
 
 /** U3: 履歴から拾った「単体」（作業場外）プロジェクト 1 件。 */
 interface StandaloneProjectEntry {
+    /** フォルダ名（機械の ID）。表示は title ?? name。 */
     name: string;
     uri: URI;
+    title: string | null;
 }
 
 /** U3: プロジェクト一覧（唯一のスイッチャー）1 行分。past/current/standalone を統合した表示用の形。 */
@@ -185,6 +191,9 @@ interface IntakeSnapshot {
     duration: IntakeDurationChoice;
     autonomy: IntakeAutonomy;
     taste: string | null;
+    /** 人間向け表示名（task 2026-08-09-project-display-title）。フォームの入力対象ではなく、
+     * エージェントが企画確定時に書く。無い/壊れていれば null（表示側は title ?? フォルダ名）。 */
+    title: string | null;
 }
 
 @injectable()
@@ -480,7 +489,8 @@ export class AkariHomeWidget extends ReactWidget {
             tasks: [...INTAKE_TASK_DEFAULTS],
             duration: INTAKE_DEFAULT_DURATION,
             autonomy: INTAKE_DEFAULT_AUTONOMY,
-            taste: null
+            taste: null,
+            title: null
         };
         if (!this.intakeUri) {
             return fallback;
@@ -498,7 +508,8 @@ export class AkariHomeWidget extends ReactWidget {
                 autonomy: (INTAKE_AUTONOMY_ORDER as readonly string[]).includes(parsed?.autonomy)
                     ? parsed.autonomy as IntakeAutonomy
                     : INTAKE_DEFAULT_AUTONOMY,
-                taste: typeof target?.taste === 'string' ? target.taste : null
+                taste: typeof target?.taste === 'string' ? target.taste : null,
+                title: parseIntakeTitle(parsed)
             };
         } catch {
             return fallback;
@@ -574,7 +585,7 @@ export class AkariHomeWidget extends ReactWidget {
             if (!(await this.isScaffoldedProject(uri))) {
                 continue;
             }
-            results.push({ name: uri.path.base || fsPath, uri });
+            results.push({ name: uri.path.base || fsPath, uri, title: await this.readProjectTitle(uri) });
             if (results.length >= STANDALONE_PROJECT_DISPLAY_LIMIT) {
                 break;
             }
@@ -588,6 +599,20 @@ export class AkariHomeWidget extends ReactWidget {
             return await this.fileService.exists(uri.resolve(CONNECTIONS_RELATIVE_PATH));
         } catch {
             return false;
+        }
+    }
+
+    /**
+     * 一覧 1 行分の表示名解決用に、`<projectUri>/.akari/intake.json` の title だけを読む
+     * （task 2026-08-09-project-display-title）。無い・壊れている場合は null
+     * （フェイルセーフ側 — 一覧描画自体は止めない）。
+     */
+    protected async readProjectTitle(uri: URI): Promise<string | null> {
+        try {
+            const content = await this.fileService.readFile(uri.resolve(INTAKE_RELATIVE_PATH));
+            return parseIntakeTitle(JSON.parse(content.value.toString()));
+        } catch {
+            return null;
         }
     }
 
@@ -640,10 +665,16 @@ export class AkariHomeWidget extends ReactWidget {
         for (const channelDir of channelDirs) {
             const projectDirs = await this.resolveChildDirectories(channelDir.resource.resolve(CREATOR_ROOT_VIDEOS_DIRNAME));
             for (const projectDir of projectDirs) {
-                entries.push({ name: projectDir.name, channel: channelDir.name, uri: projectDir.resource });
+                entries.push({ name: projectDir.name, channel: channelDir.name, uri: projectDir.resource, title: null });
             }
         }
-        return this.sortCreatorRootProjects(entries).slice(0, CREATOR_ROOT_PROJECT_DISPLAY_LIMIT);
+        // ソート（フォルダ名の日付プレフィックス基準）→ 表示上限で絞ってから title を読む
+        // — 一覧に出ない過去プロジェクトぶんまで intake.json を読みにいかないため。
+        const sliced = this.sortCreatorRootProjects(entries).slice(0, CREATOR_ROOT_PROJECT_DISPLAY_LIMIT);
+        await Promise.all(sliced.map(async entry => {
+            entry.title = await this.readProjectTitle(entry.uri);
+        }));
+        return sliced;
     }
 
     /** 名前の日付プレフィックス（`YYYY-MM-DD-...`）降順。プレフィックスが無いものは末尾（辞書順）。 */
@@ -1355,7 +1386,11 @@ export class AkariHomeWidget extends ReactWidget {
             target,
             autonomy: this.intakeAutonomy,
             status: 'submitted' as const,
-            submitted_at: new Date().toISOString()
+            submitted_at: new Date().toISOString(),
+            // フォームに title の入力欄は無い（本タスクのスコープ外）。エージェントが
+            // 別経路で書いた値を送信のたびに消してしまわないよう、読み込み済みの
+            // スナップショットからそのまま持ち回って書き戻す。
+            title: this.intakeSnapshot?.title ?? null
         };
 
         try {
@@ -1964,7 +1999,7 @@ export class AkariHomeWidget extends ReactWidget {
         const currentFsPath = this.currentProjectUri?.path.fsPath();
         const rows: ProjectListRow[] = this.creatorRootProjects.map(project => ({
             key: project.uri.toString(),
-            name: project.name,
+            name: resolveProjectDisplayName(project.title, project.name),
             uri: project.uri,
             channel: project.channel,
             current: currentFsPath !== undefined && project.uri.path.fsPath() === currentFsPath,
@@ -1977,14 +2012,24 @@ export class AkariHomeWidget extends ReactWidget {
             if (isCurrent) {
                 matchedCurrent = true;
             }
-            rows.push({ key: project.uri.toString(), name: project.name, uri: project.uri, current: isCurrent, standalone: true });
+            rows.push({
+                key: project.uri.toString(),
+                name: resolveProjectDisplayName(project.title, project.name),
+                uri: project.uri,
+                current: isCurrent,
+                standalone: true
+            });
         }
 
         if (!matchedCurrent && this.currentLocation?.kind === 'outside') {
             const uri = this.currentLocation.projectUri;
+            const folderName = uri.path.base || uri.path.fsPath();
             rows.push({
                 key: uri.toString(),
-                name: uri.path.base || uri.path.fsPath(),
+                // このフォールバック行は「現在開いているプロジェクト」だけが通る経路 —
+                // すでに読み込み済みの intakeSnapshot（現在のワークスペース root の
+                // intake.json）をそのまま使えば、ここだけ別に intake.json を読み直さずに済む。
+                name: resolveProjectDisplayName(this.intakeSnapshot?.title, folderName),
                 uri,
                 current: true,
                 standalone: true

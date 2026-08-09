@@ -40,6 +40,7 @@ test("bare template: scaffold generates a draft .akari/intake.json and a CLAUDE.
     assert.equal(intake.status, "draft");
     assert.equal(intake.submitted_at, null);
     assert.equal(intake.autonomy, "checkpoint");
+    assert.equal(intake.title, null);
 
     const validated = validateIntake(intakePath);
     assert.equal(validated.status, 0, validated.stderr);

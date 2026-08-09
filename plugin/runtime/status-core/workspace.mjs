@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { readProjectTitle, resolveProjectDisplayName } from "./display-name.mjs";
+
 const WORKSPACE_SCHEMA = "creator-root/v1";
 
 /**
@@ -70,8 +72,10 @@ function listProjects(rootDir) {
   for (const channel of listDirectoryNames(channelsDir)) {
     const videosDir = join(channelsDir, channel, "videos");
     for (const name of listDirectoryNames(videosDir)) {
-      if (existsSync(join(videosDir, name, "edit.json"))) {
-        projects.push({ channel, name, path: `channels/${channel}/videos/${name}` });
+      const projectDir = join(videosDir, name);
+      if (existsSync(join(projectDir, "edit.json"))) {
+        const title = readProjectTitle(projectDir);
+        projects.push({ channel, name, path: `channels/${channel}/videos/${name}`, display_name: resolveProjectDisplayName(title, name) });
       }
     }
   }

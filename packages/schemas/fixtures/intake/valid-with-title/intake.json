@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "tasks": ["transcribe-captions"],
+  "target": { "duration_s": 60, "keep_length": false, "taste": null },
+  "autonomy": "checkpoint",
+  "status": "submitted",
+  "submitted_at": "2026-08-09T09:00:00.000Z",
+  "title": "夏祭りレポート"
+}
