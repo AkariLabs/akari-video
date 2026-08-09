@@ -64,7 +64,8 @@ const CONNECT_DIALOG_POLL_MS = 800;
 // kind も同時に照合するため、同名の一般ターミナルや拡張ビューには触れない。
 const LEGACY_CLI_LABELS: Record<PartnerCliCatalogEntry['agent'], string[]> = {
     claude: ['Claude Code'],
-    codex: ['Codex']
+    codex: ['Codex'],
+    opencode: []
 };
 
 @injectable()

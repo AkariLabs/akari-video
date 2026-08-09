@@ -66,6 +66,33 @@ export function bootstrapRunner(): void {
         ];
     }
 
+    function opencodeCandidates(): string[] {
+        const localExecutable = path.join(
+            os.homedir(),
+            '.local',
+            'bin',
+            process.platform === 'win32' ? 'opencode.exe' : 'opencode'
+        );
+        const pathDirectories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+        const pathNames = process.platform === 'win32'
+            ? (process.env.PATHEXT ?? '')
+                .split(';')
+                .map(extension => extension.trim())
+                .filter(Boolean)
+                .map(extension => `opencode${extension.toLowerCase()}`)
+            : ['opencode'];
+        const candidateNames = pathNames.length > 0
+            ? pathNames
+            : ['opencode.exe', 'opencode.cmd', 'opencode.bat'];
+        const candidates = [localExecutable];
+        for (const directory of pathDirectories) {
+            for (const name of candidateNames) {
+                candidates.push(path.join(directory, name));
+            }
+        }
+        return candidates;
+    }
+
     async function request(url: string, accept = 'application/octet-stream'): Promise<Buffer> {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
@@ -174,6 +201,15 @@ export function bootstrapRunner(): void {
         }
         console.log(`Codex を ${executable} にインストールしました`);
         return { executablePath: executable, reused: false };
+    }
+
+    async function detectOpencode(): Promise<BootstrapOutcome> {
+        const existing = await firstExecutable(opencodeCandidates());
+        if (!existing) {
+            throw new Error('opencode が見つかりません。npm install -g opencode-ai でインストールしてください');
+        }
+        console.log(`既存の opencode を検出: ${existing}`);
+        return { executablePath: existing, reused: true };
     }
 
     function codexAssetName(): string {
@@ -312,10 +348,17 @@ export function bootstrapRunner(): void {
 
     async function main(): Promise<void> {
         const agent = process.argv[process.argv.length - 1];
-        if (agent !== 'claude' && agent !== 'codex') {
-            throw new Error('expected bootstrap target: claude or codex');
+        if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode') {
+            throw new Error('expected bootstrap target: claude, codex, or opencode');
         }
-        const outcome = agent === 'claude' ? await runClaudeInstaller() : await installCodexBinary();
+        let outcome: BootstrapOutcome;
+        if (agent === 'claude') {
+            outcome = await runClaudeInstaller();
+        } else if (agent === 'codex') {
+            outcome = await installCodexBinary();
+        } else {
+            outcome = await detectOpencode();
+        }
         if (agent === 'claude') {
             try {
                 await wirePluginSkills(outcome.executablePath);

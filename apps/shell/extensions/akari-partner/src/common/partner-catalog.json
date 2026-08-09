@@ -48,5 +48,13 @@
         "platformTokens": ["darwin-arm64", "macos-aarch64", "aarch64-apple-darwin"]
       }
     }
+  },
+  {
+    "id": "sst/opencode-cli",
+    "agent": "opencode",
+    "form": "cli",
+    "name": "opencode CLI",
+    "description": "opencode を PTY タブで直接使います",
+    "recommended": false
   }
 ]
