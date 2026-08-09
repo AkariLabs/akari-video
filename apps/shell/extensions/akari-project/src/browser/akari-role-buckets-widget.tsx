@@ -55,6 +55,13 @@ const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 // 受け側が未合流でも executeCommand は失敗するだけなので本タスクは成立する（司令塔裁定2）。
 const TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID = 'akari.timeline.addMaterialAtPlayhead';
 
+// 素材カード D&D（task 2026-08-10-material-dnd-timeline 司令塔裁定4）。mime 文字列・
+// イベント名は受け側（akari-annotations-widget.ts）と独立にリテラル宣言する
+// （PREVIEW_PLAYBACK_TICK_EVENT と同じ流儀 — 拡張間の npm 依存を作らない）。
+const MATERIAL_DRAG_MIME = 'application/x-akari-material';
+const MATERIAL_DRAG_START_EVENT = 'akari.material.dragStart';
+const MATERIAL_DRAG_END_EVENT = 'akari.material.dragEnd';
+
 const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 // 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
 // どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
@@ -1952,13 +1959,40 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
+    /**
+     * 素材カード D&D の送信側（task 2026-08-10-material-dnd-timeline 指示1）。DataTransfer
+     * setData を正としつつ、HTML5 DnD は dragover 中に getData できないため window
+     * CustomEvent もミラー送信する（受け側のゴースト計算・実尺プローブ用、司令塔裁定4）。
+     */
+    protected handleMaterialDragStart(event: React.DragEvent<HTMLDivElement>, entry: MaterialCardEntry): void {
+        const payload: { relativePath: string; kind: MaterialKind; durationSeconds?: number } = {
+            relativePath: entry.relativePath,
+            kind: entry.kind,
+            ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {})
+        };
+        event.dataTransfer.setData(MATERIAL_DRAG_MIME, JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'copy';
+        window.dispatchEvent(new CustomEvent(MATERIAL_DRAG_START_EVENT, { detail: payload }));
+    }
+
+    protected handleMaterialDragEnd(): void {
+        window.dispatchEvent(new CustomEvent(MATERIAL_DRAG_END_EVENT));
+    }
+
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
+        // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
+        // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
+        const draggable = !entry.unorganized
+            && (entry.kind === 'video' || entry.kind === 'audio' || entry.kind === 'image');
         return (
             <div
                 key={entry.uri.toString()}
                 data-akari-material-path={entry.relativePath}
                 data-akari-material-unorganized={entry.unorganized ? 'true' : 'false'}
                 data-akari-material-asset-group={entry.assetGroup ? 'true' : 'false'}
+                draggable={draggable}
+                onDragStart={draggable ? event => this.handleMaterialDragStart(event, entry) : undefined}
+                onDragEnd={draggable ? () => this.handleMaterialDragEnd() : undefined}
                 onClick={() => void this.openFile(entry.uri)}
                 onContextMenu={event => this.openMaterialContextMenu(event, entry)}
                 title={entry.name}

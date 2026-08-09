@@ -85,9 +85,9 @@ test('material × audio（非 macOS）: add-to-timeline と show-info が追加�
     ]);
 });
 
-test('material × image: add-to-timeline は出ず、show-info だけ出る', () => {
+test('material × image: add-to-timeline と show-info が追加される（task 2026-08-10-material-dnd-timeline で解禁）', () => {
     assert.deepEqual(ids('material', true, { materialKind: 'image' }), [
-        'open', 'reveal', 'copy-file', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+        'open', 'add-to-timeline', 'reveal', 'copy-file', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
