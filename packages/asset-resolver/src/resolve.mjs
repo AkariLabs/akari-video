@@ -40,6 +40,20 @@ async function copyIntoProject(sourceDir, projectDir, category, id) {
   const dest = path.join(path.resolve(projectDir), 'assets', category, id);
   await mkdir(path.dirname(dest), { recursive: true });
   await rm(dest, { recursive: true, force: true });
+
+  if (process.platform === 'darwin') {
+    // このマシンの Node（libuv）は clonefileat 相当が ENOSYS を返し、fs.cp の
+    // COPYFILE_FICLONE では節約が効かない（前段 2026-08-09-project-copy-cow-clone で実測確認済み）。
+    // BSD cp -c は clonefile(2) を Node を介さず直接使うため、同じ OS/FS 上で実際にクローンできる。
+    const clone = spawnSync('/bin/cp', ['-Rc', sourceDir, dest], { stdio: 'ignore' });
+    if (!clone.error && clone.status === 0) {
+      return dest;
+    }
+    // クロスボリューム等で -c が失敗したケース。部分的に書かれた dest を掃除してから
+    // fs.cp フォールバックへ渡す（既存の非 darwin 経路と同じ挙動に合流する）。
+    await rm(dest, { recursive: true, force: true });
+  }
+
   // COPYFILE_FICLONE（_FORCE ではない）: 対応 FS（APFS 等）では CoW クローンで実体化コピーを
   // 省略し、非対応環境では黙って通常コピーへフォールバックする（失敗しない）。
   await cp(sourceDir, dest, { recursive: true, mode: constants.COPYFILE_FICLONE });
