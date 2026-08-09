@@ -5,6 +5,10 @@
 // 全部通ってから ~/.akari/assets/<category>/<id>/ へ原子的に move する。
 // 失敗は fail-closed（一時ディレクトリを破棄し、登録先には部分状態を残さない）。
 // 有料未購入（locked）は resolve を拒否する。
+//
+// 有料 item（price > 0）は catalog に files[] を持たない（実体は非公開 R2 のまま）。entitled
+// なら resolvePaidZip() が `/api/store/v1/download/<id>` から zip を取得し、展開 →
+// checksums.txt 検証（paid-zip.mjs）→ 同じ validate-asset / 原子的 move の経路に合流する。
 
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -13,10 +17,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from './catalog.mjs';
 import { resolveAkariHome, resolveEffectiveBase } from './env.mjs';
-import { fetchEntitlements } from './entitlements.mjs';
+import { AssetResolverError } from './errors.mjs';
+import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
 import { materialize, resolveFileLocation } from './fetch-file.mjs';
 import { sha256File } from './hash.mjs';
 import { isAssetCached, localAssetDir } from './library.mjs';
+import { downloadPaidZip, extractZip, verifyPaidZipContents } from './paid-zip.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // src/ の 1 つ上（パッケージ root）のさらに 2 つ上（packages/）のさらに 1 つ上（リポ root）。
@@ -24,13 +30,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..', '..');
 const VALIDATE_ASSET_SCRIPT = path.join(repoRoot, 'packages', 'schemas', 'bin', 'validate-asset.mjs');
 
-export class AssetResolverError extends Error {
-  constructor(message, code) {
-    super(message);
-    this.name = 'AssetResolverError';
-    this.code = code;
-  }
-}
+export { AssetResolverError };
 
 async function copyIntoProject(sourceDir, projectDir, category, id) {
   // ライブラリ（~/.akari/assets/<category>/<id>/）と同型に揃える（2026-08-04 決定）。
@@ -85,6 +85,7 @@ export async function resolve(id, { env = process.env, fetchImpl = fetch, projec
   }
 
   const price = item.price ?? 0;
+  const hasFiles = Array.isArray(item.files) && item.files.length > 0;
   if (price > 0) {
     const entitlements = await fetchEntitlements({ env, fetchImpl });
     if (!entitlements.has(item.id)) {
@@ -93,9 +94,14 @@ export async function resolve(id, { env = process.env, fetchImpl = fetch, projec
         'locked',
       );
     }
+    // 有料カタログ item は files[] を持たない設計（実体は非公開 R2 のまま。tools/publish-free.mjs
+    // 側の掲載規律の裏返し）。entitled 済みなら zip ダウンロード経路（契約 §6/§8）で取得する。
+    if (!hasFiles) {
+      return resolvePaidZip(item, { env, fetchImpl, project, home, destDir });
+    }
   }
 
-  if (!Array.isArray(item.files) || item.files.length === 0) {
+  if (!hasFiles) {
     throw new AssetResolverError(`カタログに files[] がありません: ${item.id}`, 'invalid_catalog_item');
   }
 
@@ -132,6 +138,57 @@ export async function resolve(id, { env = process.env, fetchImpl = fetch, projec
     }
 
     // still / scene3d 等、meta.json を実体に持つ素材は validate-asset で契約検証してから登録する
+    if (hasMeta) {
+      const result = spawnSync(process.execPath, [VALIDATE_ASSET_SCRIPT, tempAssetDir], { encoding: 'utf8' });
+      if (result.status !== 0) {
+        const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+        throw new AssetResolverError(`validate-asset 検証に失敗しました: ${item.id}\n${output}`, 'validation');
+      }
+    }
+
+    await moveIntoLibrary(tempAssetDir, destDir);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true }).catch(() => {});
+  }
+
+  const result = { id: item.id, category: item.category, dir: destDir, cached: false };
+  if (project) result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+  return result;
+}
+
+/**
+ * 有料素材の取得経路（契約 §6/§8）。entitled 済み（呼び出し元で確認済み）が前提。
+ * zip 取得 → 展開 → checksums.txt 検証（paid-zip.mjs）→ 素材ペイロードを一時ディレクトリへ
+ * コピー → （meta.json があれば）validate-asset → 全部通ってから登録先へ原子的に move する。
+ * 無料経路（files[] ベース）と同じ fail-closed・一時ディレクトリ破棄の規律を踏襲する。
+ */
+async function resolvePaidZip(item, { env, fetchImpl, project, home, destDir }) {
+  const credentials = await readStoreCredentials(env);
+  if (!credentials) {
+    // entitled 判定（fetchEntitlements）が通った直後にここへ来るので通常は発生しないが、
+    // その間にトークンが失効した場合も黙って劣化させず拒否する（fail-closed）。
+    throw new AssetResolverError(`ストア接続情報がありません（トークン失効の可能性）: ${item.id}`, 'locked');
+  }
+
+  await mkdir(home, { recursive: true });
+  const tempRoot = await mkdtemp(path.join(home, '.tmp-resolve-'));
+  const tempAssetDir = path.join(tempRoot, item.category, item.id);
+
+  try {
+    const zipPath = path.join(tempRoot, `${item.id}.zip`);
+    await downloadPaidZip(item.id, credentials, zipPath, { env, fetchImpl });
+
+    const extractedRoot = path.join(tempRoot, 'extracted');
+    extractZip(zipPath, extractedRoot);
+    const { packageDir, payloadFiles } = await verifyPaidZipContents(extractedRoot, item.id);
+
+    await mkdir(tempAssetDir, { recursive: true });
+    let hasMeta = false;
+    for (const relPath of payloadFiles) {
+      if (relPath === 'meta.json') hasMeta = true;
+      await cp(path.join(packageDir, relPath), path.join(tempAssetDir, relPath));
+    }
+
     if (hasMeta) {
       const result = spawnSync(process.execPath, [VALIDATE_ASSET_SCRIPT, tempAssetDir], { encoding: 'utf8' });
       if (result.status !== 0) {

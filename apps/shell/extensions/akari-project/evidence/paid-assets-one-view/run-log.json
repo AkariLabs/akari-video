@@ -1,0 +1,61 @@
+[
+  {
+    "t": "2026-08-09T09:50:02.462Z",
+    "step": "catalog-loaded",
+    "itemCount": 413
+  },
+  {
+    "t": "2026-08-09T09:50:04.230Z",
+    "step": "scene3d-filtered-states",
+    "states": [
+      {
+        "key": "scene3d/app-icon-squircle",
+        "state": "locked"
+      },
+      {
+        "key": "scene3d/phone-pro-titanium",
+        "state": "available"
+      },
+      {
+        "key": "scene3d/laptop-slim-aluminum",
+        "state": "locked"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-09T09:50:04.233Z",
+    "step": "phone-pro-titanium (entitled, not yet fetched)",
+    "found": true,
+    "state": "available",
+    "badgeText": "✓ 購入済み",
+    "badgeTitle": "購入済み（未取得）",
+    "actionText": "使う",
+    "actionTitle": "チタン風フラッグシップスマホ実機（3D） を取得してプロジェクトに配置します"
+  },
+  {
+    "t": "2026-08-09T09:50:04.233Z",
+    "step": "laptop-slim-aluminum (locked)",
+    "found": true,
+    "state": "locked",
+    "badgeText": "¥2,980",
+    "badgeTitle": "¥2,980 未購入",
+    "actionText": "¥2,980 で購入 — ストアを開く",
+    "actionTitle": "ストアの商品ページを開きます（¥2,980）: http://localhost:8788/lab/asset.html?id=laptop-slim-aluminum"
+  },
+  {
+    "t": "2026-08-09T09:50:04.233Z",
+    "step": "app-icon-squircle (locked)",
+    "found": true,
+    "state": "locked",
+    "badgeText": "¥1,200",
+    "badgeTitle": "¥1,200 未購入",
+    "actionText": "¥1,200 で購入 — ストアを開く",
+    "actionTitle": "ストアの商品ページを開きます（¥1,200）: http://localhost:8788/lab/asset.html?id=app-icon-squircle"
+  },
+  {
+    "t": "2026-08-09T09:50:04.369Z",
+    "step": "console-error-summary",
+    "count": 0,
+    "sample": []
+  }
+]

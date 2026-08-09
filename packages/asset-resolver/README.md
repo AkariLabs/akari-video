@@ -8,7 +8,9 @@
 `planning/notes-2026-08-04-asset-reference-distribution.md`）の本体側実装。
 
 外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ）。`packages/audio-library-setup` の
-`fetch-akari-sounds.mjs`（取得 → sha256 検証 → 登録の前例）を汎用化したもの。
+`fetch-akari-sounds.mjs`（取得 → sha256 検証 → 登録の前例）を汎用化したもの。有料素材の zip 展開
+だけはシステムの `unzip` CLI を spawn する（npm 依存は増えない — ストアリポ
+`worker/tools/publish-paid.mjs` が入稿側で `zip` CLI を使うのと対称）。
 
 ## CLI
 
@@ -27,6 +29,24 @@ akari-assets browse [--port <n>]                       # ローカル HTTP サ�
 途中で失敗したら一時ディレクトリを破棄し、登録先には一切書き込まない（fail-closed。部分状態を
 残さない）。有料で未購入（`price > 0` かつ entitlements に無い）は `fetch` を拒否する
 （一度取得済みのキャッシュはそのまま使える — ゲートは「新規取得」だけにかかる）。
+
+### 有料素材の取得経路（`price > 0` かつ `files[]` を持たない item）
+
+有料の実体（fragment.html / meta.json / \*.glb 等）はカタログに一切載らない（`files[]` 無し —
+実体は非公開 R2 のまま）。entitled 判定を通った場合だけ、`src/paid-zip.mjs` が
+`GET /api/store/v1/download/<id>`（Bearer 認証。ストア設計契約 §6/§8）から zip を取得し:
+
+1. zip を展開（システムの `unzip` CLI。外部 npm 依存を増やさないための唯一の非組み込み依存）
+2. `checksums.txt`（`<sha256>␠␠<相対パス>` 形式。契約 §6 の zip 構成 `<product_id>-v<version>/`
+   直下）で全ファイルの sha256 を検証
+3. `README.md` / `LICENSE.md` / `checksums.txt` を除く素材ペイロードを一時ディレクトリへコピー
+4. （`meta.json` を含む素材は）`validate-asset.mjs` で契約検証
+5. 全部通ってから `~/.akari/assets/<category>/<id>/` へ原子的に登録
+
+無料経路と同じ fail-closed の規律（1 件でも失敗したら一時ディレクトリを破棄し、登録先には
+一切書き込まない）を踏襲する。ダウンロード失敗（オフライン・トークン失効）・zip 構成不正・
+checksums 不一致は、いずれも `AssetResolverError`（`code: 'download_failed'` または
+`'integrity'`）で拒否する。ストアの向き先は無料経路と同じ `AKARI_STORE_API` / `AKARI_HOME/store-credentials.json` を使う。
 
 `browse` は `index.html` / `app.js`（内部リポ `lab/asset-oneview-proto/` の PoC を移植した
 1 ビュー UI）を配信し、検索・カテゴリフィルタ・状態バッジ・詳細パネルから
@@ -98,7 +118,9 @@ node --test
 - `catalog-and-state.test.mjs`: カタログ読み + 状態合成（available / locked / cached）
 - `resolve-success.test.mjs`: resolve 成功 → 2 回目はキャッシュヒット → `--project` 相当のコピー
 - `resolve-integrity.test.mjs`: sha256 不一致 → fail-closed（登録されず、部分ファイルも残らない）
-- `resolve-locked.test.mjs`: 未購入は拒否 / entitlements 保有時は解決できる
+- `resolve-locked.test.mjs`: 未購入は拒否 / entitlements 保有時は解決できる（`files[]` を持つ有料 item の場合）
+- `resolve-paid-zip.test.mjs`: `files[]` を持たない有料 item（実カタログの形）の zip 取得経路 —
+  entitled 成功 / 未購入 locked / checksums 不一致 fail-closed / ダウンロード失敗 fail-closed
 - `entitlements.test.mjs`: credentials 無し・fetch 失敗はどちらも無料のみへフォールバック
 - `browse-server.test.mjs`: `/api/items` `/api/fetch` の実サーバ経由スモークテスト
 
