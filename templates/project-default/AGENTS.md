@@ -17,6 +17,14 @@
   生成物は `.akari/work/`、証跡は `.akari/reports/`、キャッシュは `.akari/cache/` に置く。
   詳しい層の定義は `docs/contract-2026-07-25-project-structure-v0.md`（本モノレポ側）を参照する。
 
+## 素材が足りないとき
+
+- アカウントの素材ライブラリ（無料全部 + 購入済み）は `akari assets list` で見える。
+- `akari assets fetch <id> --project .` でこのプロジェクトへ取り込む（sha256 検証込み）。
+- 有料素材は `akari store connect` 接続済みのアカウントで購入していれば使える。未購入は
+  `locked` と価格が表示される。
+- ライブラリの実体は `~/.akari/assets/` に置かれる。直接編集せず、上記コマンド経由で操作する。
+
 ## プロジェクト内のスキル
 
 次の 6 本がプロジェクト内に実体で入っている。対応する作業では素の名前で使う。

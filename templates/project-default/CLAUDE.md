@@ -19,6 +19,12 @@
 要所で必ず利用者に確認します。`status` が `draft` のときは進め方がまだ決まっていないので、
 フォームまたは対話で確定させてから作業を始めます。
 
+素材が足りないときは、`akari assets list` でアカウントの素材ライブラリ（無料全部 + 購入済み）を
+確認できます。使いたい素材が見つかったら `akari assets fetch <id> --project .` でこのプロジェクトへ
+取り込みます（sha256 検証込み）。有料素材は `akari store connect` で接続済みのアカウントで
+購入していれば使え、未購入のものは価格付きの `locked` と表示されます。ライブラリの実体は
+`~/.akari/assets/` に置かれますが、直接編集せず上記コマンド経由で操作してください。
+
 編集スキルは `.claude/skills/` に入っています。`/analyze-footage`、`/edit-plan`、
 `/overlay-authoring`、`/setup-library`、`/harvest-asset`、`/bake-3d` の素の名前で使えます。
 Codex や Cursor など他の AI エージェント用の入り口が `.agents/skills/`、`.cursor/skills/`、`.codex/skills/` にあります
