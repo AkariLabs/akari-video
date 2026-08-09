@@ -1,0 +1,103 @@
+[
+  {
+    "t": "2026-08-09T05:51:35.428Z",
+    "step": "catalog-revealed",
+    "visible": true,
+    "count": "3"
+  },
+  {
+    "t": "2026-08-09T05:51:35.456Z",
+    "step": "catalog-groups",
+    "groups": [
+      {
+        "agent": "claude",
+        "cardWidth": 137,
+        "hasBadge": true,
+        "slots": [
+          {
+            "id": "anthropic/claude-code-cli",
+            "width": 51,
+            "height": 348
+          },
+          {
+            "id": "anthropic/claude-code-extension",
+            "width": 51,
+            "height": 348
+          }
+        ]
+      },
+      {
+        "agent": "codex",
+        "cardWidth": 137,
+        "hasBadge": false,
+        "slots": [
+          {
+            "id": "openai/codex-cli",
+            "width": 51,
+            "height": 495
+          },
+          {
+            "id": "openai/codex-extension",
+            "width": 51,
+            "height": 495
+          }
+        ]
+      },
+      {
+        "agent": "opencode",
+        "cardWidth": 137,
+        "hasBadge": false,
+        "slots": [
+          {
+            "id": "sst/opencode-cli",
+            "width": 111,
+            "height": 188
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-09T05:51:35.463Z",
+    "step": "width-comparison",
+    "claudeSlotWidth": 51,
+    "opencodeSlotWidth": 111,
+    "ratio": 2.176470588235294
+  },
+  {
+    "t": "2026-08-09T05:51:39.086Z",
+    "step": "opencode-missing-flow",
+    "present": true,
+    "state": "failed",
+    "entry": "sst/opencode-cli",
+    "text": "opencode CLI のセットアップに失敗しましたopencode が見つかりません。npm install -g opencode-ai でインストールしてください再試行"
+  },
+  {
+    "t": "2026-08-09T05:51:39.112Z",
+    "step": "opencode-missing-error-delta",
+    "before": 0,
+    "after": 2
+  },
+  {
+    "t": "2026-08-09T05:51:39.430Z",
+    "step": "app-still-responsive-after-opencode-failure",
+    "ok": true
+  },
+  {
+    "t": "2026-08-09T05:51:40.264Z",
+    "step": "claude-regression-flow",
+    "present": true,
+    "state": "working",
+    "entry": "anthropic/claude-code-cli",
+    "text": "CLI を確認しています…同梱ランタイムで実行中"
+  },
+  {
+    "t": "2026-08-09T05:51:40.641Z",
+    "step": "console-error-summary",
+    "count": 2,
+    "sample": [
+      "[akari-partner] onboarding failed:",
+      "[akari-partner] onboarding failed:"
+    ]
+  }
+]

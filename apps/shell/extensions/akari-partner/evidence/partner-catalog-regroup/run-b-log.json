@@ -1,0 +1,51 @@
+[
+  {
+    "t": "2026-08-09T05:57:54.264Z",
+    "step": "opencode-present-flow",
+    "present": true,
+    "state": "complete",
+    "entry": "sst/opencode-cli",
+    "text": "opencode CLI を開始しましたPTY の案内に沿ってログインしてください。ログイン後、そのまま作業を開始できます。"
+  },
+  {
+    "t": "2026-08-09T05:57:54.267Z",
+    "step": "terminal-tab-titles",
+    "tabs": [
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "設定",
+      "メニュー",
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "設定",
+      "メニュー",
+      "設定",
+      "素材",
+      "検索",
+      "パートナー / 拡張",
+      "メニュー",
+      "ホーム",
+      "zsh",
+      "Problems",
+      "opencode CLI",
+      "パートナーを追加",
+      "opencode CLI",
+      "パートナーを追加",
+      "パートナーを追加",
+      "opencode CLI"
+    ]
+  },
+  {
+    "t": "2026-08-09T05:57:55.910Z",
+    "step": "terminal-screenshot-note",
+    "note": "xterm.js renders via canvas in this version; PTY output verified visually in 04-opencode-dummy-pty.png, not via DOM text scraping"
+  },
+  {
+    "t": "2026-08-09T05:57:55.911Z",
+    "step": "console-error-summary",
+    "count": 0,
+    "sample": []
+  }
+]

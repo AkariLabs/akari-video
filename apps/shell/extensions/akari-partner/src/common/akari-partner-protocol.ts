@@ -1,6 +1,6 @@
 export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
-export type PartnerAgentId = 'claude' | 'codex';
+export type PartnerAgentId = 'claude' | 'codex' | 'opencode';
 
 export interface BootstrapResult {
     executablePath: string;
