@@ -259,6 +259,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly catalogAudioElement: HTMLAudioElement = new Audio();
     /** 再生中カードの key。undefined は非再生中。 */
     protected playingCatalogAudioKey?: string;
+    /**
+     * 再生中カードのタイトル。再生開始時に playingCatalogAudioKey とセットで保存する
+     * （検索・カテゴリでカードが一覧から消えても常設バーの表示名は失われない —
+     * assetCatalogItems から都度引き直す設計だと、フィルタで消えた瞬間に参照できなくなる）。
+     */
+    protected playingCatalogAudioTitle?: string;
     /** 直近の再生失敗カードの key。カード上へ短いエラー表示するために使う。 */
     protected catalogAudioErrorKey?: string;
 
@@ -299,6 +305,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.catalogAudioElement.preload = 'none';
         this.catalogAudioElement.addEventListener('ended', () => {
             this.playingCatalogAudioKey = undefined;
+            this.playingCatalogAudioTitle = undefined;
             this.update();
         });
         this.catalogAudioElement.addEventListener('error', () => {
@@ -310,6 +317,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             console.warn('[akari-project] カタログ音源の再生に失敗しました:', this.catalogAudioElement.error);
             this.catalogAudioErrorKey = this.playingCatalogAudioKey;
             this.playingCatalogAudioKey = undefined;
+            this.playingCatalogAudioTitle = undefined;
             this.update();
         });
         this.toDispose.push({ dispose: () => this.catalogAudioElement.pause() });
@@ -327,6 +335,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.refresh();
     }
 
+    /**
+     * widget が非表示になるとき（タブ切替・activity bar 切替で explorer 側に譲るときなど）
+     * カタログ試聴を止める（task.md 指示3「離脱で停止」）。dispose 時の pause
+     * （コンストラクタの toDispose push）は破棄そのものへの後始末で、hide はそれとは別に
+     * 「見えなくなったら止める」を担う。
+     */
+    protected override onAfterHide(msg: Message): void {
+        super.onAfterHide(msg);
+        this.stopCatalogAudio();
+    }
+
     protected refresh(): void {
         void this.loadMaterials();
         void this.loadOutputs();
@@ -334,6 +353,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected selectTopView(view: TopView): void {
+        if (this.topView === 'catalog' && view !== 'catalog') {
+            // 「← 素材にもどる」でカタログ面を離れるとき（task.md 指示3「離脱で停止」）。
+            this.stopCatalogAudio();
+        }
         this.topView = view;
         if (view === 'catalog') {
             void this.refreshStoreConnectionStatus();
@@ -1255,23 +1278,38 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         this.catalogAudioErrorKey = undefined;
         if (this.playingCatalogAudioKey === item.key) {
-            this.catalogAudioElement.pause();
-            this.playingCatalogAudioKey = undefined;
-            this.update();
+            this.stopCatalogAudio();
             return;
         }
         this.catalogAudioElement.pause();
         this.catalogAudioElement.src = item.mediaUrl;
         this.playingCatalogAudioKey = item.key;
+        this.playingCatalogAudioTitle = item.title;
         this.update();
         this.catalogAudioElement.play().catch(error => {
             console.warn('[akari-project] カタログ音源の再生を開始できませんでした:', error);
             this.catalogAudioErrorKey = item.key;
             if (this.playingCatalogAudioKey === item.key) {
                 this.playingCatalogAudioKey = undefined;
+                this.playingCatalogAudioTitle = undefined;
             }
             this.update();
         });
+    }
+
+    /**
+     * カタログ試聴の唯一の停止経路。常設バーの停止ボタン・面外クリック・面からの離脱・
+     * widget の非表示のすべてがここを呼ぶ（task.md 指示1・2・3の共通実装）。
+     * 何も再生していないときは no-op — 面内クリックのたびに無条件で呼んでも安全。
+     */
+    protected stopCatalogAudio(): void {
+        if (!this.playingCatalogAudioKey) {
+            return;
+        }
+        this.catalogAudioElement.pause();
+        this.playingCatalogAudioKey = undefined;
+        this.playingCatalogAudioTitle = undefined;
+        this.update();
     }
 
     protected catalogPlaceholderIcon(category: string): string {
@@ -1804,10 +1842,23 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
-    /** widget 内遷移した「カタログ」面。「← 素材にもどる」で戻る（タブではない）。 */
+    /**
+     * widget 内遷移した「カタログ」面。「← 素材にもどる」で戻る（タブではない）。
+     *
+     * 面内クリックでの試聴停止（task.md 指示2「面外クリックで停止」— オーナー要望の
+     * 直訳「他の場所押したら再生停止する」）をこの面のルート要素 1 箇所の onClick で拾う。
+     * 再生ボタン（renderCatalogAudioControl）と常設バー（renderCatalogAudioBar）は
+     * 自身の onClick で event.stopPropagation() しているため、ここへは届かず誤って
+     * 停止しない。それ以外（検索チップ・カード・「取り込む」「頼む」「使う」等）は
+     * すべてバブリングで到達し、停止する（カードの動詞ボタン自体の動作は妨げない —
+     * stopCatalogAudio は音声だけを止め、各ボタンの本来の onClick は別途そのまま走る）。
+     */
     protected renderCatalogTab(): React.ReactNode {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+            <div
+                style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+                onClick={() => this.stopCatalogAudio()}
+            >
                 {this.renderCatalogBackBar()}
                 {this.renderCatalogAccountHeader()}
                 {this.renderStoreConnectionHeader()}
@@ -1979,6 +2030,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-catalog-item-count={this.assetCatalogItems.length}
             >
                 {this.renderCatalogControls()}
+                {this.renderCatalogAudioBar()}
                 <div style={{ flex: '1 1 auto', overflow: 'auto' }}>
                     {!filtered.length
                         ? <p style={{ opacity: 0.7, padding: '16px' }}>条件に一致するカタログ項目がありません。</p>
@@ -2181,6 +2233,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     type='text'
                     value={this.catalogQuery}
                     onChange={event => this.setCatalogQuery(event.target.value)}
+                    // 検索欄をクリック/フォーカスしただけで試聴が止まると、再生中カードが
+                    // フィルタアウトされる状況を自分で作れなくなる（受入2の前提そのものが
+                    // 壊れる）。面外クリック検知（renderCatalogTab の onClick）から外す。
+                    onClick={event => event.stopPropagation()}
                     placeholder='検索（名前・説明・タグ）'
                     aria-label='カタログを検索'
                     style={{
@@ -2219,6 +2275,53 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     })}
                 </div>
                 {this.renderCatalogDeveloperLinkRow()}
+            </div>
+        );
+    }
+
+    /**
+     * 常設の再生中バー（task.md 指示1）。再生中のあいだ検索チップの下・一覧の上に
+     * 常時表示し、一覧をどうフィルタしても（検索・カテゴリ切替でカードが消えても）
+     * 停止手段が画面に残るようにする。何も再生していなければ何も描画しない。
+     * 停止ボタンは event.stopPropagation() で renderCatalogTab の面外クリック検知
+     * （どこを押しても停止）に二重に反応しないようにしている
+     * （stopCatalogAudio 自体は冪等なので実害はないが、意図を明確にするため）。
+     */
+    protected renderCatalogAudioBar(): React.ReactNode {
+        if (!this.playingCatalogAudioKey) {
+            return undefined;
+        }
+        return (
+            <div
+                data-akari-catalog-audio-bar
+                onClick={event => event.stopPropagation()}
+                style={{
+                    flex: '0 0 auto',
+                    margin: '0 8px 8px',
+                    padding: '4px 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--theia-sideBar-border)',
+                    background: 'var(--theia-editorWidget-background)',
+                    fontSize: '0.8em'
+                }}
+            >
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className='codicon codicon-unmute' aria-hidden='true' style={{ marginRight: '4px' }} />
+                    再生中: {this.playingCatalogAudioTitle}
+                </span>
+                <button
+                    type='button'
+                    className='theia-button secondary'
+                    data-akari-catalog-audio-bar-stop
+                    style={{ flex: '0 0 auto', padding: '1px 10px' }}
+                    onClick={() => this.stopCatalogAudio()}
+                >
+                    停止
+                </button>
             </div>
         );
     }

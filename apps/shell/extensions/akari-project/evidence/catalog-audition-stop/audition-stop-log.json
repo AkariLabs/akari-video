@@ -1,0 +1,168 @@
+[
+  {
+    "t": "2026-08-09T08:47:33.265Z",
+    "step": "setup:item-count",
+    "count": 409
+  },
+  {
+    "t": "2026-08-09T08:47:35.688Z",
+    "step": "setup:audio-key",
+    "audioKey": "audio/bgm-jazzhop-piano-086"
+  },
+  {
+    "t": "2026-08-09T08:47:35.929Z",
+    "step": "setup:title",
+    "titleBefore": "After the Rain"
+  },
+  {
+    "t": "2026-08-09T08:47:39.837Z",
+    "step": "L1-1:playing-flag",
+    "playing1": true
+  },
+  {
+    "t": "2026-08-09T08:47:39.905Z",
+    "step": "L1-1:bar-appeared",
+    "present": true,
+    "text": "再生中: After the Rain停止"
+  },
+  {
+    "t": "2026-08-09T08:47:40.053Z",
+    "step": "L1-1:audio-element-state-while-playing",
+    "ok": true,
+    "paused": false,
+    "hasSrc": true,
+    "playingCatalogAudioKey": "audio/bgm-jazzhop-piano-086",
+    "playingCatalogAudioTitle": "After the Rain"
+  },
+  {
+    "t": "2026-08-09T08:47:42.320Z",
+    "step": "L1-1:bar-after-stop",
+    "present": false
+  },
+  {
+    "t": "2026-08-09T08:47:42.381Z",
+    "step": "L1-1:audio-element-state-after-bar-stop",
+    "ok": true,
+    "paused": true,
+    "hasSrc": true,
+    "playingCatalogAudioKey": null,
+    "playingCatalogAudioTitle": null
+  },
+  {
+    "t": "2026-08-09T08:47:45.643Z",
+    "step": "L1-2:filtered-out",
+    "beforeSearchVisible": true,
+    "afterSearchVisible": false
+  },
+  {
+    "t": "2026-08-09T08:47:45.716Z",
+    "step": "L1-2:bar-remains-after-filter",
+    "present": true,
+    "text": "再生中: After the Rain停止"
+  },
+  {
+    "t": "2026-08-09T08:47:45.898Z",
+    "step": "L1-2:audio-still-playing-after-filter",
+    "ok": true,
+    "paused": false,
+    "hasSrc": true,
+    "playingCatalogAudioKey": "audio/bgm-jazzhop-piano-086",
+    "playingCatalogAudioTitle": "After the Rain"
+  },
+  {
+    "t": "2026-08-09T08:47:47.782Z",
+    "step": "L1-2:stopped-via-bar-after-filter",
+    "ok": true,
+    "paused": true,
+    "hasSrc": true,
+    "playingCatalogAudioKey": null,
+    "playingCatalogAudioTitle": null
+  },
+  {
+    "t": "2026-08-09T08:47:52.607Z",
+    "step": "L1-3:state-after-category-switch",
+    "ok": true,
+    "paused": true,
+    "hasSrc": true,
+    "playingCatalogAudioKey": null,
+    "playingCatalogAudioTitle": null
+  },
+  {
+    "t": "2026-08-09T08:47:57.611Z",
+    "step": "L1-4:stopped-by-outside-click",
+    "ok": true,
+    "paused": true,
+    "hasSrc": true,
+    "playingCatalogAudioKey": null,
+    "playingCatalogAudioTitle": null
+  },
+  {
+    "t": "2026-08-09T08:47:59.290Z",
+    "step": "L1-5:before-leaving",
+    "ok": true,
+    "paused": false,
+    "hasSrc": true,
+    "playingCatalogAudioKey": "audio/bgm-jazzhop-piano-086",
+    "playingCatalogAudioTitle": "After the Rain"
+  },
+  {
+    "t": "2026-08-09T08:48:00.669Z",
+    "step": "L1-5:after-leaving-to-materials",
+    "ok": true,
+    "paused": true,
+    "hasSrc": true,
+    "playingCatalogAudioKey": null,
+    "playingCatalogAudioTitle": null
+  },
+  {
+    "t": "2026-08-09T08:48:03.532Z",
+    "step": "regression:audio-keys",
+    "count": 188,
+    "first3": [
+      "audio/bgm-jazzhop-piano-086",
+      "audio/bgm-house-128-001",
+      "audio/bgm-swing-120"
+    ]
+  },
+  {
+    "t": "2026-08-09T08:48:06.159Z",
+    "step": "regression:card-switch",
+    "aPlaying": false,
+    "bPlaying": true
+  },
+  {
+    "t": "2026-08-09T08:48:06.890Z",
+    "step": "regression:same-card-reclick-stops",
+    "bPlayingAfterReclick": false
+  },
+  {
+    "t": "2026-08-09T08:48:08.271Z",
+    "step": "regression:local-verbs-present",
+    "importPresent": true,
+    "askPresent": true
+  },
+  {
+    "t": "2026-08-09T08:48:09.040Z",
+    "step": "regression:local-verb-click-error-delta",
+    "errBeforeVerb": 0,
+    "errAfterVerb": 0
+  },
+  {
+    "t": "2026-08-09T08:48:09.830Z",
+    "step": "regression:catalog-search",
+    "beforeSearchCount": 409,
+    "afterSearchCount": 0
+  },
+  {
+    "t": "2026-08-09T08:48:11.591Z",
+    "step": "regression:still-cards",
+    "stillCardCount": 160,
+    "audioToggleCountInStill": 0
+  },
+  {
+    "t": "2026-08-09T08:48:11.663Z",
+    "step": "console-error-summary",
+    "count": 0,
+    "sample": []
+  }
+]
