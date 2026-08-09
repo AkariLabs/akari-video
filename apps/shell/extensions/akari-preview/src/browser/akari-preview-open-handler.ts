@@ -49,6 +49,7 @@ import {
 } from '../common/edit-summary-fields';
 import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
+import { createRafThrottle } from '../common/raf-throttle';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
 import { locatePreviewCaptions, parsePreviewCaptions, parseResolvedPreviewCaptions, PreviewCaption } from './akari-preview-captions';
 import {
@@ -4113,6 +4114,9 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉗ layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・
             // 2026-08-06 crop-handle-anchor-fix）。
             const cropAnchorCorrectedTransformFn = (${cropAnchorCorrectedTransform.toString()});
+            // RAF スロットリング（2026-08-09 raf-throttle）: ハンドルドラッグ中の pointermove は
+            // 毎回来るが、フル layout 再計算（updateStageScale）は1フレームに1回で十分。
+            const createRafThrottleFn = (${createRafThrottle.toString()});
             // freeze の一時停止ホールド（近似実装。尺は伸ばさない — 詳細はコメント参照）。
             let freezeHoldUntilMs = 0;
             let freezeHoldConsumedForSegmentIndex = null;
@@ -4654,13 +4658,21 @@ body { display: grid; place-items: center; padding: 32px; }
                 scale: Number(entry.video.dataset.akariTransformScale) || 1,
                 rotate: Number(entry.video.dataset.akariTransformRotate) || 0
             });
+            // RAF スロットリング（2026-08-09 raf-throttle・オーナー実機フィードバック「サイズ変更が
+            // すごくもたつく」）: dataset への書き込みは常に同期（pointerup の確定読み取りが最新値を
+            // 読めるように）。重い方（updateLayerLayout = 全レイヤー + stage 再配置、と選択枠の再描画）
+            // だけを 1 フレーム 1 回へ間引く。ドラッグ終了直後は各 finish() 側で flush() して
+            // 最終値の反映を RAF 待ちにしない。
+            const layerTransformVisualThrottle = createRafThrottleFn(() => {
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                updateLayerSelectBox();
+            });
             const applyLayerTransformNow = (entry, transform) => {
                 entry.video.dataset.akariTransformX = String(transform.x);
                 entry.video.dataset.akariTransformY = String(transform.y);
                 entry.video.dataset.akariTransformScale = String(transform.scale);
                 entry.video.dataset.akariTransformRotate = String(transform.rotate);
-                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
-                updateLayerSelectBox();
+                layerTransformVisualThrottle.call();
             };
             // ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的）。CROP_MIN は空クロップ化を防ぐ
             // 下限（ハンドルが操作不能になる縮退を避ける）。clampCrop は render-cut/src/layers.mjs の
@@ -4680,15 +4692,22 @@ body { display: grid; place-items: center; padding: 32px; }
                 Number(entry.video.dataset.akariCropW),
                 Number(entry.video.dataset.akariCropH)
             );
+            // RAF スロットリング（2026-08-09 raf-throttle）: applyLayerTransformNow と同じ規律
+            // （dataset は同期・重い方だけ1フレーム1回）。crop 単独/crop+transform 一括のどちらも
+            // 同じ「レイヤーの見た目を測り直す」作業なので throttle インスタンスを共有する
+            // （同時に両方から呼ばれることはない = ドラッグは常に単一ジェスチャー）。
+            const layerCropVisualThrottle = createRafThrottleFn(() => {
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (cropModeActive) updateLayerCropBox();
+                else updateLayerSelectBox();
+            });
             const applyLayerCropNow = (entry, crop) => {
                 const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
                 entry.video.dataset.akariCropX = String(c.x);
                 entry.video.dataset.akariCropY = String(c.y);
                 entry.video.dataset.akariCropW = String(c.w);
                 entry.video.dataset.akariCropH = String(c.h);
-                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
-                if (cropModeActive) updateLayerCropBox();
-                else updateLayerSelectBox();
+                layerCropVisualThrottle.call();
             };
             // ㉗ クロップハンドル操作の錨補正（2026-08-06 crop-handle-anchor-fix）: crop と
             // transform.x/y を同一フレームで一括更新する。crop 単独 → transform 単独の2段更新だと
@@ -4704,9 +4723,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 entry.video.dataset.akariTransformY = String(transform.y);
                 entry.video.dataset.akariTransformScale = String(transform.scale);
                 entry.video.dataset.akariTransformRotate = String(transform.rotate);
-                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
-                if (cropModeActive) updateLayerCropBox();
-                else updateLayerSelectBox();
+                layerCropVisualThrottle.call();
             };
             // ベイクテロップは全面サイズの透明動画なので、要素の箱で選択枠を描くと画面いっぱいに
             // なり分かりにくい。現フレームのアルファを実測し、不透明領域（コンテンツ）へ枠を
@@ -5191,15 +5208,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     cleanup();
                     if (cancelled) {
                         applyLayerTransformNow(entry, original);
+                        // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
+                        layerTransformVisualThrottle.flush();
                         return;
                     }
                     if (!moved) return;
+                    layerTransformVisualThrottle.flush();
                     const finalTransform = layerTransformNow(entry);
                     try {
                         await window.akari.engine.layerWrite(entry.spec.id, { transform: finalTransform });
                     } catch (error) {
                         console.warn('[akari-preview] layer transform write rejected; reverting', error);
                         applyLayerTransformNow(entry, original);
+                        layerTransformVisualThrottle.flush();
                     }
                 };
                 const onUp = upEvent => {
@@ -5439,9 +5460,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         cleanup();
                         if (cancelled) {
                             applyLayerCropAndTransformNow(entry, original, startTransform);
+                            // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
+                            layerCropVisualThrottle.flush();
                             return;
                         }
                         if (!moved) return;
+                        layerCropVisualThrottle.flush();
                         const finalCrop = layerCropNow(entry);
                         const finalTransform = layerTransformNow(entry);
                         try {
@@ -5449,6 +5473,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         } catch (error) {
                             console.warn('[akari-preview] layer crop write rejected; reverting', error);
                             applyLayerCropAndTransformNow(entry, original, startTransform);
+                            layerCropVisualThrottle.flush();
                         }
                     };
                     const onUp = upEvent => {
@@ -5508,14 +5533,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 scale: Number(video.dataset.akariTransformScale) || 1,
                 rotate: Number(video.dataset.akariTransformRotate) || 0
             });
+            // RAF スロットリング（2026-08-09 raf-throttle）: layer 側と同じ規律。
+            const cutTransformVisualThrottle = createRafThrottleFn(() => {
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                updateCutSelectBox();
+            });
             const applyCutTransformNow = transform => {
                 video.dataset.akariCutTransformActive = 'true';
                 video.dataset.akariTransformX = String(transform.x);
                 video.dataset.akariTransformY = String(transform.y);
                 video.dataset.akariTransformScale = String(transform.scale);
                 video.dataset.akariTransformRotate = String(transform.rotate);
-                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
-                updateCutSelectBox();
+                cutTransformVisualThrottle.call();
             };
             const updateCutSelectBox = () => {
                 const hasCut = video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined;
@@ -5596,12 +5625,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     cleanup();
                     if (cancelled) {
                         applyCutTransformNow(original);
+                        // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
+                        cutTransformVisualThrottle.flush();
                         return;
                     }
                     if (!moved) return;
+                    cutTransformVisualThrottle.flush();
                     const cutIndex = Number(video.dataset.akariCutIndex);
                     if (!Number.isInteger(cutIndex) || cutIndex < 0) {
                         applyCutTransformNow(original);
+                        cutTransformVisualThrottle.flush();
                         return;
                     }
                     const finalTransform = cutTransformNow();
@@ -5610,6 +5643,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     } catch (error) {
                         console.warn('[akari-preview] cut transform write rejected; reverting', error);
                         applyCutTransformNow(original);
+                        cutTransformVisualThrottle.flush();
                     }
                 };
                 const onUp = upEvent => {
