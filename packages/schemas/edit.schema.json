@@ -411,7 +411,7 @@
         "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
         "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
       },
-      "$comment": "PiP レイヤーの空間クロップ（切り抜き）。0..1 正規化・ソースフレーム相対・静的（時間変化なし）。px 絶対は採らない（比率切替ラウンドの教訓）。x+w<=1・y+h<=1 は宣言的なレンジでは表現できないため validate-edit.mjs のセマンティック検証で担保する。適用順は render-cut/src/layers.mjs の合成チェーンで crop→scale→rotate→opacity→overlay（契約 contract-2026-08-02-preview-parity.md）。"
+      "$comment": "PiP レイヤーの空間クロップ（切り抜き）。0..1 正規化・ソースフレーム相対。この静的値は layerItem.keyframes が無いとき、またはキーフレーム点が crop を持たない区間の既定値として使う（#layerKeyframe 参照）。px 絶対は採らない（比率切替ラウンドの教訓）。x+w<=1・y+h<=1 は宣言的なレンジでは表現できないため validate-edit.mjs のセマンティック検証で担保する。適用順は render-cut/src/layers.mjs の合成チェーンで crop→scale→rotate→opacity→overlay（契約 contract-2026-08-02-preview-parity.md）。"
     },
     "layerPerspective": {
       "type": "object",
@@ -430,7 +430,20 @@
           }
         }
       },
-      "$comment": "PiP レイヤーの corner-pin パース変形（案 A・v0）。SSOT は 4 隅の正規化座標のみ:corners=[TL,TR,BL,BR]（各 [x,y] は 0..1・crop 適用後の層ボックス相対）・静的（時間変化なし。キーフレームは transform 全般の共通設計として別起票）。プリセット（右奥/左奥/上奥/下奥）+ 角度ツマミはオーサリング側（UI）で 4 隅へ展開してから保存する。退化四角形（面積ほぼ0）の拒否は validate-edit.mjs のセマンティック検証で担保する。適用順は render-cut/src/layers.mjs の合成チェーンで crop→scale→perspective→rotate→opacity→overlay（契約 contract-2026-08-02-preview-parity.md §2.4.4）。書き出しは ffmpeg perspective（透明パディング→内側へコーナーピン→元サイズへクロップ戻し）、プレビュー（shell/Web 両面）は同じ 4 隅から computeLayerPerspectiveVisual が CSS matrix3d を導出し、共に Heckbert のユニット正方形→四角形射影変換を使う（意図的なコード重複 — §2.2.1 と同じ方針。3 実装は同じ参照点でユニットテストして数値一致を担保）。"
+      "$comment": "PiP レイヤーの corner-pin パース変形（案 A・v0）。SSOT は 4 隅の正規化座標のみ:corners=[TL,TR,BL,BR]（各 [x,y] は 0..1・crop 適用後の層ボックス相対）。この静的値は layerItem.keyframes が無いとき、またはキーフレーム点が perspective を持たない区間の既定値として使う（#layerKeyframe 参照。時間変化させたい場合は layerItem.keyframes[].perspective を使う — 4 隅それぞれを線形補間する）。プリセット（右奥/左奥/上奥/下奥）+ 角度ツマミはオーサリング側（UI）で 4 隅へ展開してから保存する。退化四角形（面積ほぼ0）の拒否は validate-edit.mjs のセマンティック検証で担保する。適用順は render-cut/src/layers.mjs の合成チェーンで crop→scale→perspective→rotate→opacity→overlay（契約 contract-2026-08-02-preview-parity.md §2.4.4）。書き出しは ffmpeg perspective（透明パディング→内側へコーナーピン→元サイズへクロップ戻し）、プレビュー（shell/Web 両面）は同じ 4 隅から computeLayerPerspectiveVisual が CSS matrix3d を導出し、共に Heckbert のユニット正方形→四角形射影変換を使う（意図的なコード重複 — §2.2.1 と同じ方針。3 実装は同じ参照点でユニットテストして数値一致を担保）。"
+    },
+    "layerKeyframe": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["t"],
+      "properties": {
+        "t": { "$ref": "#/$defs/seconds" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
+        "easing": { "enum": ["linear", "ease-in-out"] }
+      },
+      "$comment": "契約 contract-2026-08-09-transform-keyframes-v0.md（layerItem.keyframes の要素）。t はレイヤー内秒（layerItem.t を 0 とするローカル時間、既存 cuts[].framing.keyframes[].t と同じ規約）。transform/crop/perspective はそれぞれ独立の任意プロパティ（プロパティ毎の別トラックにはしない — 1 点で複数プロパティを同時に動かせる。詳細は $comment 続き）。ある区間の両端点が同じプロパティ（例 transform）を持てばその間は線形補間、片方の端点にしか無ければ直近の宣言値を保持（hold）する。どの点にも一度も宣言されないプロパティは layerItem 直下の静的値（例 layerItem.transform、省略時は各 $def の既定値）を全区間で保持する。easing は点ごとに設定し、その点へ入る区間（1つ前の点からこの点まで）の補間カーブを決める（先頭点の easing は無視される）。省略時は linear。"
     },
     "layerItem": {
       "type": "object",
@@ -448,11 +461,16 @@
         "transform": { "$ref": "#/$defs/layerTransform" },
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
+        "keyframes": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/layerKeyframe" }
+        },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "chroma_key": { "$ref": "#/$defs/layerVideoChromaKey" }
       },
-      "$comment": "契約 contract-2026-07-22-prerender-rail-and-assets.md §1.2。kind===baked は R2b の bake CLI が生成するアルファ付き mov（preset/params は再 bake 用の来歴）。kind===video は実映像（PinP 等）。chroma_key は kind===video のときのみ意味を持つ（validate-edit.mjs で検証）。crop は kind を問わず使える静的空間クロップ（#layerCrop）。perspective は kind を問わず使える静的 corner-pin パース変形（#layerPerspective）。render-cut は cuts 合成後のベース映像へ t 順に合成する。"
+      "$comment": "契約 contract-2026-07-22-prerender-rail-and-assets.md §1.2 / contract-2026-08-09-transform-keyframes-v0.md（keyframes）。kind===baked は R2b の bake CLI が生成するアルファ付き mov（preset/params は再 bake 用の来歴）。kind===video は実映像（PinP 等）。chroma_key は kind===video のときのみ意味を持つ（validate-edit.mjs で検証）。crop は kind を問わず使える静的空間クロップ（#layerCrop）。perspective は kind を問わず使える静的 corner-pin パース変形（#layerPerspective）。keyframes はこのレイヤーの transform/crop/perspective を時間で動かす共通機構（#layerKeyframe。2 点以上・t 昇順・重複禁止は validate-edit.mjs で検証）。keyframes が無い、または使える点が 2 点未満のときは既存の静的 transform/crop/perspective のみが効く（回帰なし・バイト等価）。render-cut は cuts 合成後のベース映像へ t 順に合成する。"
     },
     "trackState": {
       "type": "object",
