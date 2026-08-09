@@ -52,9 +52,35 @@ const ASSET_STATE_BADGE_LABEL: Record<NonNullable<AssetCatalogViewItem['state']>
 /** 上段（素材）の内部遷移先。タブではなく widget 内遷移 — U6 裁定。 */
 type TopView = 'materials' | 'catalog';
 type MaterialKind = 'video' | 'audio' | 'image' | 'other';
-type OutputEntryKind = 'export' | 'report';
+type OutputEntryKind = 'data' | 'plan' | 'export' | 'report';
 
 const SUPPORTED_DROP_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|png|jpg|jpeg|gif|webp)$/i;
+
+/**
+ * 「編集データ」グループに出すルート直下の契約ファイル。project-structure-v0 §2-1
+ * （ルート直下原則）がルート直下配置を認めている 3 ファイルだけを対象にする —
+ * ここを増やすときは同契約の改訂が先。
+ *
+ * 表示名は初心者向けの日本語に差し替える（実ファイル名はメタ行に出すので同定はできる）。
+ * `edit.json` は akari-preview の `akari-output-preview-open-handler`（優先度 1200）が
+ * 拾ってネイティブビューワーで開くため、生 JSON は出ない。
+ */
+const PROJECT_DATA_FILES: ReadonlyArray<{ readonly name: string; readonly label: string }> = [
+    { name: 'edit.json', label: '編集データ' },
+    { name: 'captions.json', label: '字幕データ' },
+    { name: 'review.json', label: 'レビュー・指摘' }
+];
+
+/** 「企画・メモ」グループに出すルート直下の md（`planning/` 配下は別途 walk する）。 */
+const ROOT_PLAN_FILES: ReadonlyArray<string> = ['README.md'];
+
+/** 下段のグループ見出しと表示順。中身が空のグループは見出しごと描画しない。 */
+const OUTPUT_GROUPS: ReadonlyArray<{ readonly kind: OutputEntryKind; readonly label: string }> = [
+    { kind: 'data', label: '編集データ' },
+    { kind: 'plan', label: '企画・メモ' },
+    { kind: 'export', label: '書き出し' },
+    { kind: 'report', label: 'レポート' }
+];
 
 interface MaterialCardEntry {
     uri: URI;
@@ -75,7 +101,7 @@ interface MaterialCardEntry {
     assetGroup?: { category: string };
 }
 
-/** 下段「できたもの」の 1 件（exports/ 直下のファイル、または .akari/reports/ の HTML）。read-only。 */
+/** 下段「できたもの」の 1 件。4 グループ（編集データ / 企画・メモ / 書き出し / レポート）。read-only。 */
 interface OutputEntry {
     uri: URI;
     relativePath: string;
@@ -83,7 +109,10 @@ interface OutputEntry {
     kind: OutputEntryKind;
     mtime: number;
     size: number;
-    /** report のみ: <title> から抽出した見出し。無ければ未設定（ファイル名で表示）。 */
+    /**
+     * ファイル名の代わりに出す見出し。report は HTML の <title>、plan は md の先頭 `#` 見出し、
+     * data は PROJECT_DATA_FILES の日本語ラベル。取れなければ未設定（ファイル名で表示）。
+     */
     title?: string;
     /** export の動画/画像のみ: サムネキャッシュ。無ければアイコン表示。 */
     thumbnailUri?: URI;
@@ -97,9 +126,14 @@ interface OutputEntry {
  * - 上段「素材」: assets/ カード + 未整理セクション + D&D。末尾の「＋ カタログから
  *   素材をさがす」ボタンで widget 内遷移してカタログ面を表示する（タブではない —
  *   `topView` で表示先を切り替えるだけで、両者は同じ widget インスタンスの状態）
- * - 下段「できたもの」: exports/ 直下のファイルと .akari/reports/ の HTML を
- *   新しい順に read-only 一覧表示。クリックで中央に開く（`openFile` — 既存の
- *   akari-menu-widget.openExportedArtifact と同じ `open(this.openers, uri)` 型）
+ * - 下段「できたもの」: プロジェクトの成果物を 4 グループ（編集データ / 企画・メモ /
+ *   書き出し / レポート — OUTPUT_GROUPS）に分けて read-only 一覧表示。グループ内は
+ *   新しい順。クリックで中央に開く（`openFile` — 既存の
+ *   akari-menu-widget.openExportedArtifact と同じ `open(this.openers, uri)` 型）。
+ *   開いた先の見え方は openers 側が既に持っている: `edit.json` は akari-preview の
+ *   `akari-output-preview-open-handler` がネイティブビューワーで、`planning/**.md` と
+ *   ルート直下 `README.md` は akari-surfaces の `AkariSurfaceOpenHandler` が整形
+ *   サーフェスで開く（非開発者モードのとき）。ここは入口を足しているだけ
  *
  * 「プラン」タブは撤去済み（2026-08-03 — 空実装 stub のため。旧 `renderEmptyTab`/
  * `TabId.plan` は削除）。素材タブはノイズ（隠しディレクトリ・サイドカー）を
@@ -614,9 +648,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     // --- できたもの（下段・read-only） -----------------------------------------
 
     /**
-     * `exports/` 直下のファイルと `.akari/reports/` の HTML を新しい順にまとめて読み込む。
-     * どちらも非再帰（直下のみ）— exports/ のサブフォルダや reports/ の PNG 視認証跡は
-     * 対象外（task.md 指定: 「HTML レポート」のみ）。
+     * 下段の 4 グループをまとめて読み込む。グループ内は新しい順、グループ間の順序は
+     * OUTPUT_GROUPS の並び（描画側で束ねる）。
+     *
+     * - 編集データ: ルート直下の PROJECT_DATA_FILES（あるものだけ）
+     * - 企画・メモ: `planning/` 配下の md（再帰）+ ルート直下の ROOT_PLAN_FILES
+     * - 書き出し: `exports/` 直下（非再帰 — サブフォルダは対象外）
+     * - レポート: `.akari/reports/` 直下の HTML のみ（PNG 視認証跡は対象外）
+     *
+     * 素材（`assets/`）は上段の持ち物なのでここには出さない。`.akari/work/` `.akari/cache/`
+     * `.akari/sidecars/` も出さない — project-structure-v0 §2-2 が「再生成可能・削除安全な
+     * 中間物」と定義した層であり、非開発者ビューが隠す対象そのものだから。
      */
     protected async loadOutputs(): Promise<void> {
         const root = this.workflow.workspaceRoot;
@@ -628,11 +670,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         this.outputsLoading = true;
         this.update();
-        const [exportFiles, reportFiles] = await Promise.all([
+        const [dataFiles, planFiles, exportFiles, reportFiles] = await Promise.all([
+            this.collectRootFilesNamed(root, PROJECT_DATA_FILES.map(file => file.name)),
+            this.collectPlanFiles(root),
             this.collectTopLevelFiles(root.resolve('exports')),
             this.collectTopLevelFiles(root.resolve('.akari/reports'))
         ]);
-        const [exportEntries, reportEntries] = await Promise.all([
+        const [dataEntries, planEntries, exportEntries, reportEntries] = await Promise.all([
+            Promise.all(dataFiles.map(file => this.buildOutputEntry(root, file, 'data'))),
+            Promise.all(planFiles.map(file => this.buildOutputEntry(root, file, 'plan'))),
             Promise.all(exportFiles.map(file => this.buildOutputEntry(root, file, 'export'))),
             Promise.all(
                 reportFiles
@@ -643,7 +689,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (generation !== this.outputsGeneration) {
             return; // A newer load superseded this one; discard stale results.
         }
-        const merged = [...exportEntries, ...reportEntries];
+        const merged = [...dataEntries, ...planEntries, ...exportEntries, ...reportEntries];
         merged.sort((left, right) => right.mtime - left.mtime);
         this.outputs = merged;
         this.outputsLoading = false;
@@ -662,18 +708,73 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (stat.children ?? []).filter(child => !child.isDirectory && !child.resource.path.base.startsWith('.'));
     }
 
+    /** ルート直下から、指定した名前のファイルだけを（実在するものだけ）拾う。順序は names の並び。 */
+    protected async collectRootFilesNamed(root: URI, names: readonly string[]): Promise<FileStatWithMetadata[]> {
+        const children = await this.collectTopLevelFiles(root);
+        const byName = new Map(children.map(child => [child.resource.path.base, child]));
+        return names.map(name => byName.get(name)).filter((child): child is FileStatWithMetadata => !!child);
+    }
+
+    /**
+     * 「企画・メモ」の対象を集める。`planning/` は再帰（スキルが下位分類を切ることがある）、
+     * ルート直下は ROOT_PLAN_FILES のみ。どちらも md だけ。
+     */
+    protected async collectPlanFiles(root: URI): Promise<FileStatWithMetadata[]> {
+        const [planning, rootFiles] = await Promise.all([
+            this.collectMarkdownRecursively(root.resolve('planning')),
+            this.collectRootFilesNamed(root, ROOT_PLAN_FILES)
+        ]);
+        return [...rootFiles, ...planning];
+    }
+
+    /** ディレクトリ配下の md を再帰的に集める（ドット始まりのファイル/ディレクトリは除外）。 */
+    protected async collectMarkdownRecursively(dirUri: URI): Promise<FileStatWithMetadata[]> {
+        let stat: FileStatWithMetadata;
+        try {
+            stat = await this.files.resolve(dirUri, { resolveMetadata: true });
+        } catch {
+            return [];
+        }
+        const found: FileStatWithMetadata[] = [];
+        const walk = async (node: FileStatWithMetadata): Promise<void> => {
+            for (const child of node.children ?? []) {
+                if (child.resource.path.base.startsWith('.')) {
+                    continue;
+                }
+                if (!child.isDirectory) {
+                    if (/\.md$/i.test(child.resource.path.base)) {
+                        found.push(child);
+                    }
+                    continue;
+                }
+                try {
+                    await walk(await this.files.resolve(child.resource, { resolveMetadata: true }));
+                } catch {
+                    continue; // Directory disappeared mid-walk; skip it.
+                }
+            }
+        };
+        await walk(stat);
+        return found;
+    }
+
     protected async buildOutputEntry(root: URI, file: FileStatWithMetadata, kind: OutputEntryKind): Promise<OutputEntry> {
         const relativePath = this.workflow.relativePath(file.resource) ?? file.resource.path.base;
+        const name = file.resource.path.base;
         const entry: OutputEntry = {
             uri: file.resource,
             relativePath,
-            name: file.resource.path.base,
+            name,
             kind,
             mtime: file.mtime,
             size: file.size
         };
         if (kind === 'report') {
             entry.title = await this.readReportTitle(file.resource);
+        } else if (kind === 'plan') {
+            entry.title = await this.readMarkdownTitle(file.resource);
+        } else if (kind === 'data') {
+            entry.title = PROJECT_DATA_FILES.find(candidate => candidate.name === name)?.label;
         }
         return entry;
     }
@@ -683,6 +784,21 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         try {
             const content = await this.files.readFile(uri, { length: 8192 });
             const match = /<title[^>]*>([^<]*)<\/title>/i.exec(content.value.toString());
+            const title = match?.[1]?.trim();
+            return title || undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * md の見出し抽出（先頭の `# …` 1 本）。readReportTitle と同じく先頭 8KB のみ読む。
+     * frontmatter しか無い / 見出しが無い md は undefined（ファイル名で表示される）。
+     */
+    protected async readMarkdownTitle(uri: URI): Promise<string | undefined> {
+        try {
+            const content = await this.files.readFile(uri, { length: 8192 });
+            const match = /^#[ \t]+(.+)$/m.exec(content.value.toString());
             const title = match?.[1]?.trim();
             return title || undefined;
         } catch {
@@ -726,14 +842,30 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const exportsUri = root.resolve('exports');
         const reportsUri = root.resolve('.akari/reports');
+        const planningUri = root.resolve('planning');
         this.outputsWatch.push(this.files.watch(exportsUri, { recursive: true, excludes: [] }));
         this.outputsWatch.push(this.files.watch(reportsUri, { recursive: true, excludes: [] }));
-        this.outputsWatch.push(this.files.onDidFilesChange(event => this.handleOutputsFileChange(exportsUri, reportsUri, event)));
+        this.outputsWatch.push(this.files.watch(planningUri, { recursive: true, excludes: [] }));
+        this.outputsWatch.push(this.files.watch(root));
+        this.outputsWatch.push(this.files.onDidFilesChange(event =>
+            this.handleOutputsFileChange(root, { exportsUri, reportsUri, planningUri }, event)
+        ));
     }
 
-    protected handleOutputsFileChange(exportsUri: URI, reportsUri: URI, event: FileChangesEvent): void {
+    protected handleOutputsFileChange(
+        root: URI,
+        watched: { exportsUri: URI; reportsUri: URI; planningUri: URI },
+        event: FileChangesEvent
+    ): void {
+        const rootKey = root.toString();
+        // ルート直下は名前で絞る。`.akari/cache/` の書き込みでも親（`.akari`）の変更として
+        // ここに届くため、素通しにすると自分のサムネ生成で再読み込みループが回る。
+        const watchedRootNames = new Set([...PROJECT_DATA_FILES.map(file => file.name), ...ROOT_PLAN_FILES]);
         const relevant = event.changes.some(change =>
-            exportsUri.isEqualOrParent(change.resource) || reportsUri.isEqualOrParent(change.resource)
+            watched.exportsUri.isEqualOrParent(change.resource)
+            || watched.reportsUri.isEqualOrParent(change.resource)
+            || watched.planningUri.isEqualOrParent(change.resource)
+            || (change.resource.parent.toString() === rootKey && watchedRootNames.has(change.resource.path.base))
         );
         if (!relevant) {
             return;
@@ -769,7 +901,27 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected formatOutputMeta(entry: OutputEntry): string {
         const when = this.formatOutputTimestamp(entry.mtime);
-        return entry.kind === 'report' ? `${when} · HTML` : `${when} · ${this.formatFileSize(entry.size)}`;
+        switch (entry.kind) {
+            case 'report':
+                return `${when} · HTML`;
+            case 'export':
+                return `${when} · ${this.formatFileSize(entry.size)}`;
+            // data / plan は見出しを日本語ラベルや md 見出しに差し替えているため、
+            // 実ファイルの同定ができるようメタ行に元のパスを出す。
+            case 'data':
+                return `${when} · ${entry.name}`;
+            default:
+                return `${when} · ${entry.relativePath}`;
+        }
+    }
+
+    protected outputIcon(entry: OutputEntry): string {
+        switch (entry.kind) {
+            case 'report': return 'codicon codicon-file-code';
+            case 'data': return 'codicon codicon-json';
+            case 'plan': return 'codicon codicon-book';
+            default: return this.placeholderIcon(this.classifyKind(entry.name));
+        }
     }
 
     // --- カタログ ---------------------------------------------------------
@@ -2083,14 +2235,35 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
         if (!this.outputs.length) {
-            return <p style={{ opacity: 0.7, padding: '16px' }}>まだありません — 書き出すとここに並びます</p>;
+            return <p style={{ opacity: 0.7, padding: '16px' }}>まだありません — 編集したり書き出したりするとここに並びます</p>;
         }
         return (
             <div
                 data-akari-outputs-count={this.outputs.length}
-                style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px 10px 10px' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 10px 10px' }}
             >
-                {this.outputs.map(entry => this.renderOutputCard(entry))}
+                {OUTPUT_GROUPS.map(group => this.renderOutputGroup(group.kind, group.label))}
+            </div>
+        );
+    }
+
+    /** 1 グループ（見出し + カード）。該当 0 件なら見出しごと出さない。 */
+    protected renderOutputGroup(kind: OutputEntryKind, label: string): React.ReactNode {
+        const entries = this.outputs.filter(entry => entry.kind === kind);
+        if (!entries.length) {
+            return undefined;
+        }
+        return (
+            <div
+                key={kind}
+                data-akari-outputs-group={kind}
+                data-akari-outputs-group-count={entries.length}
+                style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
+            >
+                <span style={{ fontSize: '0.72em', fontWeight: 700, letterSpacing: '0.04em', opacity: 0.6 }}>
+                    {label}
+                </span>
+                {entries.map(entry => this.renderOutputCard(entry))}
             </div>
         );
     }
@@ -2129,7 +2302,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     {entry.thumbnailUri
                         ? <img src={entry.thumbnailUri.toString()} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <span
-                            className={entry.kind === 'report' ? 'codicon codicon-file-code' : this.placeholderIcon(this.classifyKind(entry.name))}
+                            className={this.outputIcon(entry)}
                             aria-hidden='true'
                             style={{ fontSize: '1.1em', opacity: 0.55 }}
                         />}

@@ -1,5 +1,5 @@
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
-import { CommandContribution } from '@theia/core/lib/common';
+import { CommandContribution, MenuContribution } from '@theia/core/lib/common';
 import { ContainerModule } from '@theia/core/shared/inversify';
 import {
     FrontendApplicationContribution,
@@ -43,8 +43,11 @@ export default new ContainerModule(bind => {
 
     // v4 ミニマル化（task 2026-08-02-home-v4-minimal）: ホームから撤去した
     // 進め方フォームの開く経路をコマンド 1 個として残す（裁定 R2）。
+    // 2026-08-07: File メニューの「新規プロジェクト作成」もここへ寄せたため
+    // MenuContribution も同じクラスから供給する。
     bind(AkariHomeCommandContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariHomeCommandContribution);
+    bind(MenuContribution).toService(AkariHomeCommandContribution);
 
     // F11（task 2026-08-05-welcome-screen）: 未選択時のウィンドウタイトルを
     // 「AKARI Video」だけにする（実測: Theia 既定の macOS テンプレートのままだと

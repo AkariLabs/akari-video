@@ -84,10 +84,27 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
 
     canHandle(uri: URI): number {
         const extension = uri.path.ext.toLowerCase();
-        if (!['.html', '.md'].includes(extension) || (extension === '.md' && !uri.path.toString().includes('/planning/'))) {
+        if (!['.html', '.md'].includes(extension) || (extension === '.md' && !this.isSurfaceMarkdown(uri))) {
             return 0;
         }
         return this.preferences.get<boolean>(AKARI_DEVELOPER_MODE, false) ? 0 : 1000;
+    }
+
+    /**
+     * 整形サーフェスで開く md かどうか。`planning/` 配下（従来）に加え、ワークスペース
+     * ルート直下の `README.md` を含める — 左パネル下段「できたもの」の「企画・メモ」から
+     * 辿れる入口になったため、非開発者がクリックして生の Monaco へ落ちないようにする
+     * （akari-project の AkariRoleBucketsWidget.ROOT_PLAN_FILES と対の関係）。
+     * `assets/foo/README.md` のような配下の README は対象外（ルート直下のみ）。
+     */
+    protected isSurfaceMarkdown(uri: URI): boolean {
+        if (uri.path.toString().includes('/planning/')) {
+            return true;
+        }
+        if (uri.path.base !== 'README.md') {
+            return false;
+        }
+        return this.workspaceService.tryGetRoots().some(root => root.resource.isEqual(uri.parent));
     }
 
     async open(uri: URI, options?: any): Promise<WebviewWidget> {

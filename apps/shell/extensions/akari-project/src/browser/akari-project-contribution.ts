@@ -34,9 +34,15 @@ import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 
+/**
+ * 「場所を選んで新規作成…」。File メニュー先頭の「新規プロジェクト作成」は
+ * 2026-08-07 のオーナー裁定でホームと同じ経路（akari.home.newProject）に移した。
+ * こちらは**保存先を自分で決めたい**とき用の副導線として残す
+ * （選べるのは空フォルダだけ、という既存契約は不変 — 既存ファイルには触らない）。
+ */
 export const NEW_AKARI_PROJECT: Command = {
     id: 'akari.project.new',
-    label: '新規プロジェクト作成'
+    label: '場所を選んで新規作成…'
 };
 export const SHOW_AKARI_CHANGES: Command = {
     id: 'akari.project.showChanges',
