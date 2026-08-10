@@ -47,8 +47,11 @@ import {
     buildSfxElement,
     computeMaterialGhostRange,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS,
+    insertedLayerTimelineTracks,
     materialDropAcceptance,
-    MaterialDragKind
+    materialGhostVisibility,
+    MaterialDragKind,
+    shiftLayerTracksForInsert
 } from '../common/timeline-material-insert';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { openTimelineContextMenu } from './akari-timeline-context-menu';
@@ -2663,13 +2666,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * options.durationSeconds が渡されていれば実尺プローブ済みとして扱い、video の実尺 RPC を
      * 再度叩かない（司令塔裁定6「ドロップ時の実挿入も同じ優先順」）。image は常に
      * IMAGE_LAYER_DEFAULT_DURATION_SECONDS（司令塔裁定3）。
+     * options.insertTrack が渡されていれば行間ドロップ（task 2026-08-10-dnd-ghost-and-insert-fix
+     * 司令塔裁定3）: 既存 layers[].track の繰り上げ + 宣言トラックの繰り上げ・新規挿入を、この
+     * メソッド内の 1 回の全文スナップショット書き込みに畳み込む（undo/redo 1 エントリで
+     * アイテムと新トラックの両方が可逆になる）。audio には insertTrack は来ない（裁定4）。
      */
     async addMaterialAt(
         relativePath: string,
         kind: string,
         t: number,
         track: number,
-        options?: { durationSeconds?: number }
+        options?: { durationSeconds?: number; insertTrack?: number }
     ): Promise<void> {
         if (kind !== 'video' && kind !== 'audio' && kind !== 'image') {
             this.messages.warn('素材を追加できません（種別が不正です）。');
@@ -2727,6 +2734,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 if (!Array.isArray(value.layers)) {
                     value.layers = [];
+                }
+                if (options?.insertTrack !== undefined) {
+                    value.layers = shiftLayerTracksForInsert(value.layers, options.insertTrack);
+                    const baseTracks = this.pinAudioGroupToBottom(
+                        parseEdit(editBefore).timeline?.tracks ?? deriveDefaultTimelineTracks(JSON.parse(editBefore))
+                    );
+                    value.timeline = { tracks: insertedLayerTimelineTracks(baseTracks, options.insertTrack) };
                 }
                 value.layers.push(built.element);
             } else {
@@ -2822,8 +2836,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
+        const payload = this.materialDragPayload;
+        const rejected = !!payload && this.resolveMaterialDropTarget(payload.kind, event.clientY).rejected;
         if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = 'copy';
+            event.dataTransfer.dropEffect = rejected ? 'none' : 'copy';
         }
         this.updateMaterialGhost(event.clientX, event.clientY);
     }
@@ -2867,7 +2883,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             : this.materialDurationCache.get(payload.relativePath) ?? payload.durationSeconds;
         void this.addMaterialAt(
             payload.relativePath, payload.kind, t, target.track,
-            typeof durationSeconds === 'number' ? { durationSeconds } : undefined
+            {
+                ...(typeof durationSeconds === 'number' ? { durationSeconds } : {}),
+                ...(target.insertTrack !== undefined ? { insertTrack: target.insertTrack } : {})
+            }
         );
     }
 
@@ -2939,17 +2958,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialDragLastClientX = clientX;
         this.materialDragLastClientY = clientY;
         const target = this.resolveMaterialDropTarget(payload.kind, clientY);
+        const visibility = materialGhostVisibility(payload.kind, target);
+        if (!visibility.showGhost) {
+            // rejected（対象外の帯）: 本体ゴーストを表示しない（司令塔裁定1）。trackAtClientY の
+            // fallthrough は rejected でも top に最上段レイヤー行を返すため、ここで描くと
+            // 「関係ない行に点線」に見えてしまう。
+            this.hideMaterialGhost();
+            return;
+        }
         const durationSeconds = this.materialGhostDurationSeconds(payload);
         const contentDuration = this.contentEndDuration();
         const t = Math.min(Math.max(this.timeAtClientX(clientX), 0), contentDuration);
         const range = computeMaterialGhostRange(t, durationSeconds, contentDuration);
         this.setGhostRange(this.materialGhost, range.ok ? range.range.start : t, range.ok ? range.range.end : t);
-        this.setGhostRejected(this.materialGhost, target.rejected || !range.ok);
+        this.setGhostRejected(this.materialGhost, !range.ok);
         const viewportTop = RULER_BAND_HEIGHT_PX + target.top - this.stripScroll.scrollTop;
         this.materialGhost.style.top = `${viewportTop}px`;
         this.materialGhost.style.height = `${target.height}px`;
         this.materialGhost.style.display = 'block';
-        if (payload.kind !== 'audio' && target.insertTrack !== undefined && !target.rejected) {
+        if (visibility.showInsertIndicator) {
             this.showTrackInsertIndicatorAt(target.top);
         } else {
             this.hideTrackInsertIndicator();
