@@ -40,6 +40,15 @@ doctor は各 provider の結果を由来レイヤー（project / workspace / �
 モデル選択で既定を決められます。「文字起こしはローカル whisper を既定にして」のように
 発話で変更できます。
 
+## パートナーエージェント（アプリの接続ボタン）
+
+デスクトップシェルの接続ボタンはパートナーカタログを開きます。カードは
+エージェント CLI（PTY タブで動く）またはエディタ拡張 1 つに対応します。現在のカタログは
+**CLI 7 種** — Claude Code・Codex・opencode・Copilot・Cursor・Antigravity・Grok Build —
+と Claude Code / Codex の拡張 2 種を同梱しています。カタログはデータ駆動
+（`partner-catalog.json`）でリリースごとに増えるため、この一覧はスナップショットです。
+どのパートナーから接続しても、最終的に同じ `.akari/` 配下のファイル契約に収束します。
+
 ## コスト承認ポリシー
 
 おまかせ度（intake.json の `autonomy`）とは独立に、**課金と外部送信**については

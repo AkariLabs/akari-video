@@ -38,7 +38,10 @@ akari
 `akari sounds [--variant wav] [--force]`（公式音源の一括ダウンロード。プロンプトなし・headless 可）/
 `akari store <connect|status|download|disconnect>`（AKARI Store 連携。マイページで発行した
 接続トークンを `~/.akari/store-credentials.json`（0600）に保存し、購入済み一覧の確認と
-配布物の取得ができる。`src/store-command.mjs`）。
+配布物の取得ができる。`src/store-command.mjs`）/
+`akari assets <list|fetch|sync|...>`（素材カタログの一覧・取得・同期。
+`packages/asset-resolver` の CLI への薄い委譲で、カタログ合成・entitlements 判定・
+sha256 検証・fail-closed は resolver 側の責務のまま。`src/assets-command.mjs`）。
 
 `akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
 `opencode --continue` を起動する）。

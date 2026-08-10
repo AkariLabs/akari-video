@@ -23,6 +23,7 @@ usable on its own).
 | Motion graphics | Shape animation |
 | Thumbnails | Static thumbnail images |
 | text-behind-person | Text wrapped behind a person (works with person matte extraction) |
+| Backgrounds | Full-frame background boards swapped per section (see [Background overlays](#background-overlays-role-background)) |
 
 Caption `style` accepts four values:
 
@@ -47,6 +48,17 @@ are two conventions:
 In other words, even something "the AI drew freely" can be fine-tuned by humans through a GUI
 without reading the HTML. Text can be edited directly with a double-click, and the change is
 written back into the data.
+
+## Background overlays (`role: "background"`)
+
+An overlay declared with `"role": "background"` in `overlays[]` becomes a background board:
+it always fills the frame, cannot be moved, and is meant to be swapped per section. The
+position and scale knobs (`--x` / `--y` / `--scale` / `--rotate`) are locked — the runtime
+pins the fragment to the output frame — and a background overlay cannot carry a `transform`.
+Use it for solid colors, gradients, and patterned boards behind captions and figures.
+Overlays without `role` behave exactly as before. What the schema cannot express
+(locked-knob overrides via `vars`, overlapping background intervals) is checked by
+`edit-lint`.
 
 ## Example requests
 

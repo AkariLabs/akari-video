@@ -42,6 +42,16 @@ For things with multiple backends — transcription, TTS, and so on — you can 
 default in `connections.json`'s model selection. You can change it conversationally
 too, e.g. "make local whisper the default for transcription."
 
+## Partner agents (the app's connect button)
+
+The desktop shell's connect button opens a partner catalog: each card connects one
+agent CLI (in a PTY tab) or one editor extension. The current catalog ships
+**7 CLIs** — Claude Code, Codex, opencode, Copilot, Cursor, Antigravity, and
+Grok Build — plus the Claude Code and Codex extensions. The catalog is data-driven
+(`partner-catalog.json`) and grows over releases, so treat this list as a snapshot,
+not a promise. Whichever partner you connect, everything converges on the same file
+contracts under `.akari/`.
+
 ## Cost approval policy
 
 Independent of the delegation level (`autonomy` in `intake.json`), the
