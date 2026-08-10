@@ -22,6 +22,8 @@ import {
     LintEditCandidateResult,
     ListReviewSessionsRequest,
     OverlayRuntimeAssets,
+    ProbeAudioPresenceRequest,
+    ProbeAudioPresenceResult,
     ResolveHevcProxyRequest,
     ResolveHevcProxyResult,
     ReviewSessionSummary,
@@ -35,7 +37,7 @@ import {
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
-import { getH264Proxy, resolveFfmpegPath } from './hevc-proxy';
+import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
 import { ReviewSessionWriter } from './review-session-writer';
 
 interface StreamTarget {
@@ -233,6 +235,22 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return { status: 'ready', proxyUri: pathToFileURL(result.proxyPath).toString() };
         }
         return result;
+    }
+
+    // task/2026-08-10-preview-bug-sweep (B1): replaces the browser-side
+    // webkitAudioDecodedByteCount heuristic (confirmed stuck at 0 for real audible sources on
+    // this app's Electron/Chromium build) with an ffprobe ground-truth check of the source file.
+    async probeAudioPresence(request: ProbeAudioPresenceRequest): Promise<ProbeAudioPresenceResult> {
+        if (!request || typeof request.videoUri !== 'string') {
+            return { hasAudio: undefined };
+        }
+        let videoPath: string;
+        try {
+            videoPath = this.filePath(request.videoUri);
+        } catch {
+            return { hasAudio: undefined };
+        }
+        return { hasAudio: await probeHasAudioStream(videoPath) };
     }
 
     async createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference> {

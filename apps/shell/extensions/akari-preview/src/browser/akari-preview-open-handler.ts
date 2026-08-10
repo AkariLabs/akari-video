@@ -1811,12 +1811,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // what actually gets streamed to <video>; videoUri itself (source identity: captions
         // lookup, file watch, seek commands, title) stays untouched below.
         const streamVideoUri = await this.resolveStreamVideoUri(videoUri, model);
-        const videoStream = await this.previewService.createVideoStream({
-            videoUri: streamVideoUri.toString()
-        }).catch(async error => {
-            await this.disposeAssetStreams(model.assetStreamIds);
-            throw error;
-        });
+        // task/2026-08-10-preview-bug-sweep (B1): ffprobe ground truth for the audio-detected
+        // notice, run alongside createVideoStream so it adds no extra latency to open. Never
+        // allowed to fail the whole open — an unknown result just suppresses the notice below.
+        const [videoStream, hasSourceAudio] = await Promise.all([
+            this.previewService.createVideoStream({
+                videoUri: streamVideoUri.toString()
+            }).catch(async error => {
+                await this.disposeAssetStreams(model.assetStreamIds);
+                throw error;
+            }),
+            this.previewService.probeAudioPresence({ videoUri: videoUri.toString() })
+                .then(result => result.hasAudio)
+                .catch(() => undefined)
+        ]);
         // v1 マルチソース: 代表ソース以外の cuts[].src 先も webview から再生できるよう
         // それぞれストリームを開く（代表ソースは上の videoStream を再利用）。
         // 全ストリームは同一のローカルサーバ由来なので CSP の media-src は据え置きでよい。
@@ -1957,7 +1965,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             model,
             assets,
             initialSeekTime,
-            sourceUrlById
+            sourceUrlById,
+            hasSourceAudio
         ));
     }
 
@@ -2108,6 +2117,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
+            const unsupportedGltfWarnings: string[] = [];
             for (const value of Array.isArray(edit?.overlays) ? edit.overlays : []) {
                 if (value?.track !== undefined && (!Number.isInteger(value.track) || value.track < 0)) {
                     console.warn('[akari-preview] overlay track が不正なため track 0 として表示します', value?.id);
@@ -2124,7 +2134,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         console.warn(`[akari-preview] failed to read overlay fragment ${fragmentUri.toString()}`, error);
                     }
                 }
-                html = await this.resolveThreeSceneAssets(html, editUri, assetStreams, assetUris);
+                html = await this.resolveThreeSceneAssets(html, editUri, assetStreams, assetUris, unsupportedGltfWarnings);
                 overlays.push({
                     id: String(value?.id ?? ''),
                     html,
@@ -2271,6 +2281,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 (cut as { transition_out?: { type?: unknown } } | null)?.transition_out?.type === 'dissolve')) {
                 indicators.push('ディゾルブ切り替え');
             }
+            indicators.push(...unsupportedGltfWarnings);
             return {
                 editUri,
                 sourceUri,
@@ -2503,11 +2514,42 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return { bgm, sfx, narration };
     }
 
+    // task/2026-08-10-preview-bug-sweep (B3): binary glTF (.glb) header/JSON-chunk sniff for
+    // extensions the pinned Three.js runtime (packages/overlay-runtime/src/three-runtime.js) has
+    // no loader for (no DRACOLoader/KTX2Loader wired — confirmed via
+    // skills/overlay-authoring/3d.md "Draco/KTX2 は未対応" and by reproduction: a
+    // KHR_draco_mesh_compression model settles into status "error" while an otherwise-identical
+    // uncompressed model reaches "ready"). Detection only — this can't make the runtime decode
+    // Draco/KTX2 (that needs a vendored decoder in packages/overlay-runtime, out of this task's
+    // file boundary); it turns an unexplained stuck-looking fallback into a visible, actionable
+    // "プレビュー未対応の項目" indicator (see indicators.push below) instead.
+    protected detectUnsupportedGltfExtensions(bytes: Uint8Array): string[] {
+        const UNSUPPORTED_GLTF_EXTENSIONS = ['KHR_draco_mesh_compression', 'KHR_texture_basisu'];
+        try {
+            const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            if (view.byteLength < 20 || view.getUint32(0, true) !== 0x46546c67) {
+                return [];
+            }
+            const jsonChunkLength = view.getUint32(12, true);
+            const jsonChunkType = view.getUint32(16, true);
+            if (jsonChunkType !== 0x4e4f534a || view.byteLength < 20 + jsonChunkLength) {
+                return [];
+            }
+            const jsonBytes = bytes.subarray(20, 20 + jsonChunkLength);
+            const json = JSON.parse(new TextDecoder('utf-8').decode(jsonBytes)) as { extensionsUsed?: unknown };
+            const used = new Set(Array.isArray(json.extensionsUsed) ? json.extensionsUsed : []);
+            return UNSUPPORTED_GLTF_EXTENSIONS.filter(extension => used.has(extension));
+        } catch {
+            return [];
+        }
+    }
+
     protected async resolveThreeSceneAssets(
         html: string,
         editUri: URI,
         assetStreams: Map<string, { id: string; url: string }>,
-        assetUris: URI[]
+        assetUris: URI[],
+        unsupportedGltfWarnings: string[]
     ): Promise<string> {
         if (!html.includes('data-akari-3d-scene')) {
             return html;
@@ -2550,7 +2592,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                     return stream.url;
                 };
-                descriptor.model = await resolveAsset(descriptor.model, 'data-akari-3d-scene.model');
+                const modelPath: string = descriptor.model;
+                descriptor.model = await resolveAsset(modelPath, 'data-akari-3d-scene.model');
+                try {
+                    const modelContent = await this.fileService.readFile(editUri.parent.resolve(modelPath));
+                    const unsupported = this.detectUnsupportedGltfExtensions(modelContent.value.buffer);
+                    if (unsupported.length > 0) {
+                        unsupportedGltfWarnings.push(
+                            `3D モデル ${modelPath} が ${unsupported.join('/')} 圧縮のため読み込めません` +
+                            `（書き出しも同様に失敗します。非圧縮で書き出し直してください）`
+                        );
+                    }
+                } catch (error) {
+                    console.warn('[akari-preview] failed to inspect 3D model for unsupported glTF extensions', modelPath, error);
+                }
                 if (descriptor.environment?.map !== undefined) {
                     if (typeof descriptor.environment.map !== 'string' || !descriptor.environment.map) {
                         throw new TypeError('environment.map は正距円筒画像の相対パスである必要があります');
@@ -3153,7 +3208,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         model: PreviewModel,
         assets: OverlayRuntimeAssets,
         initialSeekTime?: number,
-        sourceUrlById: Record<string, string> = {}
+        sourceUrlById: Record<string, string> = {},
+        hasSourceAudio?: boolean
     ): string {
         const { width, height } = model.summary.output;
         // render-cut captions.mjs の既定とパリティ（stage は出力 px 論理空間）:
@@ -3169,6 +3225,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // v1 マルチソース: ソース id → ストリーム URL。webview は cuts[].src が
             // 変わる継ぎ目で <video> をこの表から差し替える（v0 は 1 件のみの表）
             videoSources: sourceUrlById,
+            // task/2026-08-10-preview-bug-sweep (B1): ffprobe ground truth, undefined when
+            // unknown (ffprobe unavailable or probe failed) — never treated as "silent" client-side.
+            hasSourceAudio: hasSourceAudio ?? null,
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
@@ -7249,6 +7308,12 @@ body { display: grid; place-items: center; padding: 32px; }
             }, { passive: false });
             wrapper.addEventListener('pointerdown', event => {
                 if (penModeActive || zoom <= 1.05 || event.button !== 0) return;
+                // ズーム中のパン開始判定は capture 段で wrapper 配下の pointerdown を無条件に
+                // 奪っていたため、audio-notice の × 等インタラクティブ操作系の上で押しても
+                // preventDefault() が click 合成を止めてしまい押せなくなっていた（実測: Chromium は
+                // pointerdown.preventDefault() を呼ぶと後続の click を合成しない）。パンは
+                // 動画面そのものへのドラッグに限定し、ボタン等の上では素通しする。
+                if (event.target.closest && event.target.closest('button, [role="button"], input, textarea, select, a[href]')) return;
                 event.preventDefault();
                 event.stopPropagation();
                 wrapper.setPointerCapture(event.pointerId);
@@ -7364,12 +7429,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (isPlaying) startAnimation();
             });
             video.addEventListener('play', () => {
-                // 無音素材の検知は 1 ドキュメントにつき 1 回だけ。再生開始から 1.5 秒後、
-                // まだ再生中で webkitAudioDecodedByteCount が 0（対応ブラウザのみ）なら無音とみなす。
+                // 無音素材の検知は 1 ドキュメントにつき 1 回だけ。判定は ffprobe による
+                // ソースファイルの実測（initial.hasSourceAudio、node 側 probeAudioPresence）を
+                // 正とする — webkitAudioDecodedByteCount はこのアプリが同梱する
+                // Electron/Chromium では常に 0 のまま張り付き（実測確認済み）、実際に音声が
+                // 再生されているソースでも誤検出する。hasSourceAudio が null（ffprobe 不在・
+                // 失敗で未確定）のときは、確証が無いまま出すと偽陽性の原因になるため表示しない。
                 window.setTimeout(() => {
                     if (audioNoticeShown || video.paused || video.ended) return;
-                    if (!('webkitAudioDecodedByteCount' in video)) return;
-                    if (video.webkitAudioDecodedByteCount === 0) {
+                    if (initial.hasSourceAudio === false) {
                         audioNoticeShown = true;
                         audioNotice.hidden = false;
                     }
@@ -7597,7 +7665,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     const items = indicators.map(item => INDICATOR_GLOSSARY[item]
                         ? item + ' = ' + INDICATOR_GLOSSARY[item]
                         : item).join(' / ');
-                    indicatorPopup.textContent = 'プレビュー未対応（書き出し時のみ適用）: ' + items;
+                    // task/2026-08-10-preview-bug-sweep (B3): dropped the blanket
+                    // "（書き出し時のみ適用）" claim — it doesn't hold for every indicator (e.g. an
+                    // unsupported-glTF-extension 3D model fails at export too, not just preview).
+                    indicatorPopup.textContent = 'プレビュー未対応: ' + items;
                 }
                 rebuildSegments();
                 applyInitialPosition();

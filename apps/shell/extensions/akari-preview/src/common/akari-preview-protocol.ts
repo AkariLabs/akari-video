@@ -52,6 +52,16 @@ export interface ResolveHevcProxyRequest {
     projectRootUri: string;
 }
 
+export interface ProbeAudioPresenceRequest {
+    videoUri: string;
+}
+
+// hasAudio is undefined when ffprobe is unavailable or the probe itself failed — the caller
+// must not treat "unknown" as "silent" (see hevc-proxy.ts's probeHasAudioStream doc comment).
+export interface ProbeAudioPresenceResult {
+    hasAudio: boolean | undefined;
+}
+
 export type ReviewSessionTransportEvent =
     | { recT: number; type: 'play' | 'pause' | 'tick'; timelineT: number }
     | { recT: number; type: 'seek'; from: number; to: number }
@@ -189,6 +199,7 @@ export interface AkariPreviewService {
     transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult>;
     disposeTranscodedAudioStream(id: string): Promise<void>;
     resolveHevcProxy(request: ResolveHevcProxyRequest): Promise<ResolveHevcProxyResult>;
+    probeAudioPresence(request: ProbeAudioPresenceRequest): Promise<ProbeAudioPresenceResult>;
     startReviewSession(request: StartReviewSessionRequest): Promise<StartReviewSessionResult>;
     appendReviewSessionEvent(request: AppendReviewSessionEventRequest): Promise<void>;
     appendReviewSessionAudio(request: AppendReviewSessionAudioRequest): Promise<void>;
