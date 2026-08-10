@@ -1,4 +1,4 @@
-import { EditLayer, TimelineTrackKind } from './edit-store';
+import { EditLayer, EditTimelineTrack, TimelineTrackKind } from './edit-store';
 
 /**
  * 素材追加コマンド（akari.timeline.addMaterialAtPlayhead / D&D ドロップ）の挿入要素を組み立てる
@@ -58,6 +58,33 @@ export function computeMaterialGhostRange(
     const remaining = Math.max(0, contentDuration - t);
     const duration = Math.min(Math.max(0, durationSeconds), remaining);
     return { ok: true, range: { start: t, end: t + duration } };
+}
+
+export interface MaterialDropTargetLike {
+    readonly rejected: boolean;
+    readonly insertTrack?: number;
+}
+
+export interface MaterialGhostVisibility {
+    readonly showGhost: boolean;
+    readonly showInsertIndicator: boolean;
+}
+
+/**
+ * ドロップ先帯に応じたゴースト本体・行間挿入インジケータの表示可否（task
+ * 2026-08-10-dnd-ghost-and-insert-fix 司令塔裁定1・2）。rejected（対象外の帯）のときは
+ * 両方非表示にする — trackAtClientY の最終 fallthrough が rejected でも top に最上段レイヤー行を
+ * 返すため、本体ゴーストを描いてしまうと「関係ない行に点線」に見える不具合を断つ。
+ * 非rejectedで insertTrack があり audio 以外なら、本体ゴースト（新行が入る位置）+
+ * 挿入インジケータを併用する。
+ */
+export function materialGhostVisibility(
+    kind: MaterialDragKind, target: MaterialDropTargetLike
+): MaterialGhostVisibility {
+    if (target.rejected) {
+        return { showGhost: false, showInsertIndicator: false };
+    }
+    return { showGhost: true, showInsertIndicator: kind !== 'audio' && target.insertTrack !== undefined };
 }
 
 export interface LayerInsertAccepted {
@@ -149,4 +176,65 @@ export function buildSfxElement(
         return { ok: false, reason: 'beyond-content-duration' };
     }
     return { ok: true, element: { path: relativePath, t, track } };
+}
+
+// --- task 2026-08-10-dnd-ghost-and-insert-fix: 行間ドロップ(insertTrack)の繰り上げ ---
+
+/**
+ * insertTrack 以上の layers[].track を +1 する（widget shiftTrackStateForInsert
+ * `apps/shell/extensions/akari-annotations/src/browser/akari-annotations-widget.ts:7307` と同じ
+ * 「挿入先以上を1つ上へずらす」規則の layers[] 版・司令塔裁定3）。track 省略時は 0 として扱う。
+ * 繰り上げが不要な要素は参照をそのまま返す（track フィールドを新規に生やさない — 元データの
+ * 忠実性を保つ）。
+ */
+export function shiftLayerTracksForInsert(
+    layers: readonly EditLayer[],
+    insertTrack: number
+): EditLayer[] {
+    return layers.map(layer => {
+        const current = layer.track ?? 0;
+        return current >= insertTrack ? { ...layer, track: current + 1 } : layer;
+    });
+}
+
+/**
+ * layers 系の宣言トラック（timeline.tracks の kind: 'layers'）へ、insertTrack の位置へ新規行を
+ * 挿入する純関数（司令塔裁定3）。widget 側 `insertedTimelineTracks`
+ * (`apps/shell/extensions/akari-annotations/src/browser/akari-annotations-widget.ts:4651-4684`、
+ * アイテムドラッグの行間挿入と共用・タスク契約上の編集禁止)の kind='layers' 相当を写した純関数。
+ * 同メソッドは Theia DI に依存する widget クラスの protected メソッドで node --test から
+ * 直接検証できないため、D&D 新規追加フロー（既存アイテムの移動を伴わない新規挿入）向けにここへ
+ * 複製する（derive-timeline-tracks.ts と同型の契約上の複製 — アルゴリズムを変更する場合は
+ * 両ファイルを同期させること）。呼び出し側は pinAudioGroupToBottom 相当の並び（audio 先頭）を
+ * 適用済みの tracks を渡すこと。
+ */
+export function insertedLayerTimelineTracks(
+    tracks: readonly EditTimelineTrack[],
+    insertTrack: number
+): EditTimelineTrack[] {
+    const kind: TimelineTrackKind = 'layers';
+    const shifted = tracks.map(track => ({
+        ...track,
+        ...(track.kind === kind && (track.ref ?? 0) >= insertTrack ? { ref: (track.ref ?? 0) + 1 } : {})
+    }));
+    const ids = new Set(shifted.map(track => track.id));
+    let serial = shifted.length + 1;
+    while (ids.has(`t${serial}`)) {
+        serial++;
+    }
+    const entry: EditTimelineTrack = { id: `t${serial}`, kind, ref: insertTrack };
+    const lowerIndex = shifted.reduce(
+        (found, track, index) =>
+            track.kind === kind && (track.ref ?? 0) === insertTrack - 1 ? index : found,
+        -1
+    );
+    if (lowerIndex >= 0) {
+        shifted.splice(lowerIndex + 1, 0, entry);
+    } else {
+        const higherIndex = shifted.findIndex(
+            track => track.kind === kind && (track.ref ?? 0) > insertTrack
+        );
+        shifted.splice(higherIndex >= 0 ? higherIndex : shifted.length, 0, entry);
+    }
+    return shifted;
 }

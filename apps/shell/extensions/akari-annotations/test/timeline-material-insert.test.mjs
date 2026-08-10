@@ -5,8 +5,12 @@ import {
     buildSfxElement,
     computeMaterialGhostRange,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS,
-    materialDropAcceptance
+    insertedLayerTimelineTracks,
+    materialDropAcceptance,
+    materialGhostVisibility,
+    shiftLayerTracksForInsert
 } from '../lib/common/timeline-material-insert.js';
+import { parseEdit } from '../lib/common/edit-store.js';
 
 test('buildLayerElement: 素材全長が残り時間以内なら duration はそのまま', () => {
     const result = buildLayerElement([], 'assets/clip.mp4', 2, 4, 20);
@@ -170,4 +174,127 @@ test('computeMaterialGhostRange: durationSeconds が負でも 0 未満にはク�
     const result = computeMaterialGhostRange(0, -5, 20);
     assert.equal(result.ok, true);
     assert.deepEqual(result.range, { start: 0, end: 0 });
+});
+
+// --- task 2026-08-10-dnd-ghost-and-insert-fix: materialGhostVisibility（rejected 時にゴーストを出さない判定） ---
+
+test('materialGhostVisibility: rejected なら本体ゴースト・挿入インジケータとも非表示（司令塔裁定1）', () => {
+    const result = materialGhostVisibility('video', { rejected: true });
+    assert.deepEqual(result, { showGhost: false, showInsertIndicator: false });
+});
+
+test('materialGhostVisibility: rejected なら insertTrack があっても非表示のまま', () => {
+    const result = materialGhostVisibility('video', { rejected: true, insertTrack: 1 });
+    assert.deepEqual(result, { showGhost: false, showInsertIndicator: false });
+});
+
+test('materialGhostVisibility: 非rejected・insertTrack ありの video/image は本体ゴースト + 挿入インジケータを併用（司令塔裁定2）', () => {
+    assert.deepEqual(
+        materialGhostVisibility('video', { rejected: false, insertTrack: 1 }),
+        { showGhost: true, showInsertIndicator: true }
+    );
+    assert.deepEqual(
+        materialGhostVisibility('image', { rejected: false, insertTrack: 0 }),
+        { showGhost: true, showInsertIndicator: true }
+    );
+});
+
+test('materialGhostVisibility: 非rejected・insertTrack 無しは本体ゴーストのみ（挿入インジケータ無し）', () => {
+    const result = materialGhostVisibility('video', { rejected: false });
+    assert.deepEqual(result, { showGhost: true, showInsertIndicator: false });
+});
+
+test('materialGhostVisibility: audio は insertTrack があっても挿入インジケータを出さない（裁定4、行間挿入非対応）', () => {
+    const result = materialGhostVisibility('audio', { rejected: false, insertTrack: 1 });
+    assert.deepEqual(result, { showGhost: true, showInsertIndicator: false });
+});
+
+// --- task 2026-08-10-dnd-ghost-and-insert-fix: shiftLayerTracksForInsert（既存アイテムの繰り上げ） ---
+
+test('shiftLayerTracksForInsert: insertTrack 以上の track を +1 する', () => {
+    const layers = [
+        { id: 'layer-a', t: 0, duration: 1, kind: 'video', src: 'a.mp4', track: 0 },
+        { id: 'layer-b', t: 0, duration: 1, kind: 'video', src: 'b.mp4', track: 1 },
+        { id: 'layer-c', t: 0, duration: 1, kind: 'video', src: 'c.mp4', track: 2 }
+    ];
+    const result = shiftLayerTracksForInsert(layers, 1);
+    assert.deepEqual(result.map(layer => layer.track), [0, 2, 3]);
+});
+
+test('shiftLayerTracksForInsert: 繰り上げ不要な要素は同一参照を返す（track フィールドを新規に生やさない）', () => {
+    const untouched = { id: 'layer-a', t: 0, duration: 1, kind: 'video', src: 'a.mp4' };
+    const [result] = shiftLayerTracksForInsert([untouched], 1);
+    assert.equal(result, untouched);
+    assert.equal(Object.prototype.hasOwnProperty.call(result, 'track'), false);
+});
+
+test('shiftLayerTracksForInsert: track 省略（既定 0）でも insertTrack 以上なら明示的に繰り上げる', () => {
+    const layer = { id: 'layer-a', t: 0, duration: 1, kind: 'video', src: 'a.mp4' };
+    const [result] = shiftLayerTracksForInsert([layer], 0);
+    assert.equal(result.track, 1);
+});
+
+// --- task 2026-08-10-dnd-ghost-and-insert-fix: insertedLayerTimelineTracks（宣言トラックの繰り上げ + 新規挿入） ---
+
+test('insertedLayerTimelineTracks: layers 以外の kind は繰り上げの対象にならない', () => {
+    const tracks = [
+        { id: 't1', kind: 'cuts', ref: 0 },
+        { id: 't2', kind: 'layers', ref: 0 }
+    ];
+    const result = insertedLayerTimelineTracks(tracks, 0);
+    const cuts = result.filter(track => track.kind === 'cuts');
+    assert.deepEqual(cuts, [{ id: 't1', kind: 'cuts', ref: 0 }]);
+});
+
+test('insertedLayerTimelineTracks: layers 行 0 本（宣言トラック無し）でも insertTrack:0 で新規 1 本を受理する（司令塔裁定5）', () => {
+    const result = insertedLayerTimelineTracks([], 0);
+    const layerTracks = result.filter(track => track.kind === 'layers');
+    assert.equal(layerTracks.length, 1);
+    assert.equal(layerTracks[0].ref, 0);
+});
+
+test('insertedLayerTimelineTracks + shiftLayerTracksForInsert: [track1, track0] の行間(insertTrack=1)へ挿入した最終状態が既存アイテムドラッグの行間挿入コミット(:6885-6899)と同一になる', () => {
+    // 司令塔実測の対象プロジェクト同型: 表示順 [track1(上, ref1), track0(下, ref0)]。
+    // レイヤー行 2 本・各行に既存アイテムが 1 つずつ載っている状態を再現する。
+    const source = JSON.stringify({
+        cuts: [{ in: 0, out: 5 }],
+        overlays: [],
+        layers: [
+            { id: 'layer-bottom', t: 0, duration: 2, kind: 'video', src: 'bottom.mp4', track: 0 },
+            { id: 'layer-top', t: 0, duration: 2, kind: 'video', src: 'top.mp4', track: 1 }
+        ],
+        timeline: {
+            tracks: [
+                { id: 't1', kind: 'layers', ref: 0 },
+                { id: 't2', kind: 'layers', ref: 1 }
+            ]
+        }
+    });
+    const parsed = parseEdit(source);
+    assert.deepEqual(parsed.warnings, []);
+
+    const insertTrack = 1;
+    const tracksAfter = insertedLayerTimelineTracks(parsed.timeline.tracks, insertTrack);
+    const layersAfter = shiftLayerTracksForInsert(parsed.layers, insertTrack);
+
+    // 宣言トラックが 3 本・既存 track1(t2) が ref 2 へ繰り上がり・新規が ref 1。
+    const layerTracksAfter = tracksAfter.filter(track => track.kind === 'layers');
+    assert.equal(layerTracksAfter.length, 3);
+    assert.equal(tracksAfter.find(track => track.id === 't1').ref, 0);
+    assert.equal(tracksAfter.find(track => track.id === 't2').ref, 2);
+    const newTrackEntries = tracksAfter.filter(track => track.id !== 't1' && track.id !== 't2');
+    assert.equal(newTrackEntries.length, 1);
+    assert.equal(newTrackEntries[0].ref, 1);
+
+    // 既存アイテムの帰属行が変わらない: layer-bottom は元 track0 のまま、layer-top は
+    // 繰り上がった宣言(旧 track1 → ref2)へ追随して track:2 になる（同じ行を指し続ける）。
+    assert.equal(layersAfter.find(layer => layer.id === 'layer-bottom').track, 0);
+    assert.equal(layersAfter.find(layer => layer.id === 'layer-top').track, 2);
+
+    // 新規素材は insertTrack の位置(track:1)へ挿入される（buildLayerElement 側の track 引数と同じ）。
+    const built = buildLayerElement(
+        parsed.layers.map(layer => layer.id), 'assets/new-clip.mp4', 0, 2, 20, insertTrack
+    );
+    assert.equal(built.ok, true);
+    assert.equal(built.element.track, insertTrack);
 });
