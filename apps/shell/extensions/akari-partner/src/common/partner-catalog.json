@@ -80,5 +80,13 @@
     "name": "Antigravity CLI",
     "description": "Google の Antigravity CLI（agy・Gemini CLI 後継）を PTY タブで直接使います",
     "recommended": false
+  },
+  {
+    "id": "xai/grok-build-cli",
+    "agent": "grok",
+    "form": "cli",
+    "name": "Grok Build CLI",
+    "description": "xAI の Grok Build（grok）を PTY タブで直接使います",
+    "recommended": false
   }
 ]
