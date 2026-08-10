@@ -114,6 +114,35 @@ export async function probeVideoCodecName(videoPath: string): Promise<string | u
     return parsed.streams?.[0]?.codec_name;
 }
 
+// task/2026-08-10-preview-bug-sweep (B1): <video>.webkitAudioDecodedByteCount stays 0 for the
+// entire playback of a real, audible source on the Electron/Chromium build this app ships
+// (measured: Electron 39.8.7 / Chromium 142 — the counter is a stubbed no-op in current
+// Chromium, not a signal of actual silence). Ground truth instead comes from ffprobe: does the
+// source file itself declare an audio stream at all. This can't catch "file has an audio stream
+// but the browser's decoder rejects that specific codec" (a narrower case than the byte-count
+// heuristic aimed for), but it fixes the false positive that fires on every audible source and
+// still correctly flags genuinely silent sources.
+export async function probeHasAudioStream(videoPath: string): Promise<boolean | undefined> {
+    const ffprobePath = await resolveFfprobePath();
+    if (!ffprobePath) {
+        return undefined;
+    }
+    try {
+        const { stdout } = await execFileAsync(ffprobePath, [
+            '-v', 'error',
+            '-select_streams', 'a',
+            '-show_entries', 'stream=codec_type',
+            '-of', 'json',
+            videoPath
+        ]);
+        const parsed = JSON.parse(stdout) as FfprobeStreamsResult;
+        return (parsed.streams?.length ?? 0) > 0;
+    } catch (error) {
+        console.warn('[akari-preview] probeHasAudioStream failed', videoPath, error);
+        return undefined;
+    }
+}
+
 export type GetH264ProxyResult =
     | { status: 'not-hevc' }
     | { status: 'ready'; proxyPath: string }
