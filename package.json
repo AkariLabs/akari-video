@@ -10,7 +10,8 @@
     "gen:status-core": "node scripts/gen-status-core-mirror.mjs",
     "check:status-core": "node scripts/gen-status-core-mirror.mjs --check",
     "gen:skills-index": "node scripts/gen-skills-index.mjs --strict",
-    "check:skills-index": "node scripts/gen-skills-index.mjs --check --strict"
+    "check:skills-index": "node scripts/gen-skills-index.mjs --check --strict",
+    "check:docs-sync": "node scripts/check-docs-sync.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
