@@ -78,7 +78,9 @@ const PARTNER_CONNECTION_FILENAME = 'partner-connection.json';
 // AKARI Store の接続資格情報。書き手は launcher CLI（`akari store connect`）だけ —
 // ここでもファイル契約のみで結合する（store-command.mjs への import 依存は増やさない）。
 const STORE_CREDENTIALS_FILENAME = 'store-credentials.json';
-const STORE_SITE_FALLBACK = 'https://akari-oss.app/store/';
+// ストアの表看板は `/lab`（worker ルートは /lab* と /api/store* のみ。/store/ は 404 —
+// akari-video-store worker/wrangler.jsonc・asset-catalog-view.ts の deriveStoreLabBaseUrl と同じ規約）。
+const STORE_SITE_FALLBACK = 'https://akari-oss.app/lab/';
 // 「AI パートナー接続」のプロジェクト単位 SSOT は connections.json の akari-cloud
 // provider の doctor.status（partner pane が「akari-cloud・接続済み」と表示する対象と同一）。
 const CLOUD_PROVIDER_ID = 'akari-cloud';
@@ -416,8 +418,8 @@ export class AkariHomeWidget extends ReactWidget {
                 return null;
             }
             if (typeof parsed?.url === 'string') {
-                // 資格情報の url は API 基点（…/api/store）。サイト側の基点に読み替える
-                this.storeSiteUrl = parsed.url.replace(/\/api\/store\/?$/, '/store/');
+                // 資格情報の url は API 基点（…/api/store）。サイト側の基点（…/lab/）に読み替える
+                this.storeSiteUrl = parsed.url.replace(/\/api\/store\/?$/, '/lab/');
             }
             return typeof parsed?.email === 'string' ? parsed.email : '接続済み';
         } catch {
