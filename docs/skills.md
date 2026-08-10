@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-The agent-side workflow of AKARI Video is split into **19 skills** (one per production stage, plus two cross-cutting ones). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
+The agent-side workflow of AKARI Video is split into **21 skills** (one per production stage, plus two cross-cutting ones). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
 
 The canonical source for each skill is its `skills/<name>/SKILL.md`. This page is an index; for procedures and hard rules, follow each SKILL.md and the related contracts ([Reference](./README.md#reference)).
 
@@ -21,9 +21,11 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 | [create-project](../skills/create-project/SKILL.md) | Headless project creation (template copy, creation report) | git (initialized only when safe) |
 | [setup-library](../skills/setup-library/SKILL.md) | First-run setup: tool checks → starter-pack proposal → fetch, place, verify | ffmpeg / whisper-cli / headless Chrome (presence checks) |
 | [setup-audio-library](../skills/setup-audio-library/SKILL.md) | Semi-automated BGM / SFX intake (candidate list → manual-download matching → listen and keep/drop) | Free audio sources (humans download) |
+| [declare-audio](../skills/declare-audio/SKILL.md) | Declaring "where the chorus, hits, and beats are" on your own audio, by ear (a browser timeline UI → `declarations.json`). The BGM auto-suggester reads these declarations and cues the chorus | Browser (a human decides the declarations) |
 | [setup-remote](../skills/setup-remote/SKILL.md) | Remote setup: Tailscale doctor → guided install (human-in-the-loop) → tailnet-only HTTPS for the preview server → Taildrop delivery into the workspace inbox → end-to-end check. Never exposes anything to the public internet by default | Tailscale / Taildrop (install & login are done by the human) |
 | [harvest-asset](../skills/harvest-asset/SKILL.md) | Harvesting high-cost deliverables into the asset library | — |
 | [bake-3d](../skills/bake-3d/SKILL.md) | Baking 3D scenes into footage (clips). Creating, tuning, and re-baking `scene.py` recipes | **Blender** (headless, bpy) |
+| [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | Machine-generating a beat-snapped edit.json plus its overlay set from a "generator", using the declared beats / hits / sections of the audio as the only time source (PVs and showcases where the picture moves with the music) | ffmpeg / ffprobe (declarations are made by a human via declare-audio) |
 
 ### Analysis
 

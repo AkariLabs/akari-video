@@ -34,10 +34,12 @@
 | [書き出す](./guides/export.ja.md) | 計画 → 承認 → レンダリング → 検証（render-cut） |
 | [素材ライブラリを育てる](./guides/asset-library.ja.md) | セットアップ・音源・成果物の入庫（setup-library / setup-audio-library / harvest-asset） |
 | [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスでレシピを映像素材に（bake-3d） |
+| [音源に宣言を付ける](./guides/declare-audio.ja.md) | サビ・キメ・拍を自分の耳で付けて declarations.json へ（declare-audio） |
+| [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・ショーケースを機械生成（beat-sync-edit） |
 
 ## Skills
 
-ワークフローは 17 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
+ワークフローは 21 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
 その一枚地図です — 各スキルの担当・発動タイミング・接続先の外部ツールと
 アニメーションランタイム（3D の 2 経路含む）をまとめています。
 
@@ -46,6 +48,7 @@
 | ページ | 内容 |
 |---|---|
 | [接続と API キー](./how-to/connections.ja.md) | 接続レジストリ・doctor 診断・コスト承認ポリシー（manage-connections） |
+| [シェル UI: 素材とタイムライン](./how-to/shell-ui.ja.md) | 素材カード・クリップの右クリックメニュー、タイムラインへの D&D、Finder で表示 |
 | [プロジェクト構成](./how-to/project-structure.ja.md) | `.akari/` 配下のファイルの役割と削除してよいもの |
 | [続きから再開する](./how-to/resume-session.ja.md) | `.akari/events/` と SessionStart hook の仕組み |
 | [FAQ・トラブルシューティング](./how-to/faq.ja.md) | よくある質問とエラー対処 |
@@ -64,6 +67,7 @@
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | データ契約の版管理・移行原則（横断契約） |
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | 生成物の置き場所契約（層の定義・ルート直下原則・削除安全） |
 | [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | 作業場（CreatorRoot）契約 — プロジェクトの上の階層。3 つの場所・所有権 4 層・初回起動動線・可搬性 |
+| [contract-2026-08-02-setup-remote-v0.md](./contract-2026-08-02-setup-remote-v0.md) | setup-remote スキル契約 v0 — 遠隔の閲覧・承認 + 素材受け渡し（Tailscale / Taildrop・既定 tailnet 限定） |
 | [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | canonical status・immutable render receipt・人間受理記録・capability absence receipt |
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | 共有字幕表示・reference-pixel layout・master encode・audio QC・recipe 境界 |
 
@@ -81,6 +85,8 @@
 | [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 強調ワード |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | タイムライン配置原則・音源複数トラック・音源トリム・ソーストリマー |
+| [contract-2026-08-05-fx-v0.md](./contract-2026-08-05-fx-v0.md) | 画面 FX 小語彙 v0（`cuts[].fx`: noise / particles / vignette / flare / color-overlay） |
+| [contract-2026-08-06-direction-recipes-v0.md](./contract-2026-08-06-direction-recipes-v0.md) | 演出レシピ v0（`presets/direction/` 参照表 + 展開ツール — LUT・FX・画角・トランジション・文字モーション・SE を束ねた named レシピ） |
 
 ### 分析・プラン・レビュー
 
@@ -93,6 +99,13 @@
 | [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 注釈モデル（target 5 型） |
 | [contract-2026-08-03-cut-candidate-bridge-v1.md](./contract-2026-08-03-cut-candidate-bridge-v1.md) | semantic event と A4 pause 短縮の review-only candidate bridge |
 
+### プレビュー・書き出し
+
+| ファイル | 内容 |
+|---|---|
+| [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | プレビュー・パリティ契約 v0 — Web UI と shell の挙動仕様を単一化（同じ edit.json / captions.json → 同じ見た目・同じ挙動） |
+| [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: 他社 NLE への片道書き出し（FCPXML / FCP7 XML / SRT）— **BETA・実 NLE 取り込み未確認** |
+
 ### 素材・個人層
 
 | ファイル | 内容 |
@@ -100,6 +113,8 @@
 | [contract-2026-07-13-asset-library.md](./contract-2026-07-13-asset-library.md) | 素材ライブラリ契約（meta.json・入庫基準・スコープ階層） |
 | [contract-2026-07-14-3d-bake-recipe.md](./contract-2026-07-14-3d-bake-recipe.md) | 3D ベイクレシピ契約（Blender 経路） |
 | [contract-2026-07-25-recipe-v0.md](./contract-2026-07-25-recipe-v0.md) | recipe.json v0（確認済み選好の凍結と提示） |
+| [contract-2026-07-25-memory-connection-v0.md](./contract-2026-07-25-memory-connection-v0.md) | memory connection v0（外部参照記憶の接続宣言 — connections.json 拡張） |
+| [contract-2026-07-26-avatar-registry-v0.md](./contract-2026-07-26-avatar-registry-v0.md) | アバター・レジストリ契約 v0（avatar.json / rendition.json / 段階読み出し） |
 
 ### 方向性メモ
 

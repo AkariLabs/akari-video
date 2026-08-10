@@ -5,7 +5,7 @@
     {
       "name": "akari",
       "source": "./plugin",
-      "description": "AKARI Video の編集スキル一式（17 本）+ SessionStart 進捗注入 + /akari 導線"
+      "description": "AKARI Video の編集スキル一式（21 本）+ SessionStart 進捗注入 + /akari 導線"
     }
   ]
 }

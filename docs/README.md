@@ -33,10 +33,12 @@ Task-based guides, ordered by the flow of production.
 | [Export](./guides/export.md) | Plan → approval → render → verify (render-cut) |
 | [Grow the asset library](./guides/asset-library.md) | Setup, audio sources, harvesting deliverables (setup-library / setup-audio-library / harvest-asset) |
 | [Bake 3D scenes](./guides/bake-3d.md) | Blender headless recipes into video assets (bake-3d) |
+| [Declare your audio](./guides/declare-audio.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (declare-audio) |
+| [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and showcases machine-generated from declared audio (beat-sync-edit) |
 
 ## Skills
 
-The workflow ships as 17 agent-side skills. The [Skills Catalog](./skills.md) is the
+The workflow ships as 21 agent-side skills. The [Skills Catalog](./skills.md) is the
 single map: what each skill owns, when it triggers, and which external tools and
 animation runtimes it connects to — including the two 3D paths.
 
@@ -45,6 +47,7 @@ animation runtimes it connects to — including the two 3D paths.
 | Page | Contents |
 |---|---|
 | [Connections & API keys](./how-to/connections.md) | Connection registry, doctor diagnostics, cost-approval policy (manage-connections) |
+| [Shell UI: assets & timeline](./how-to/shell-ui.md) | Right-click menus on asset cards and timeline clips, drag & drop onto the timeline, show in Finder |
 | [Project structure](./how-to/project-structure.md) | What each file under `.akari/` does and what is safe to delete |
 | [Resume a session](./how-to/resume-session.md) | How `.akari/events/` and the SessionStart hook work |
 | [FAQ & troubleshooting](./how-to/faq.md) | Common questions and error handling |
@@ -67,6 +70,8 @@ All contracts follow the
 | [design-2026-07-13-agent-native-architecture.md](./design-2026-07-13-agent-native-architecture.md) | The canonical agent-native architecture rationale (three-layer sandwich, editing model, MVP milestones) |
 | [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) | Versioning and migration principles for data contracts (cross-cutting) |
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | Where generated artifacts live (layer definitions, root-level principle, deletion safety) |
+| [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | The workspace (CreatorRoot) contract — the layer above projects. Three locations, four ownership layers, first-run flow, portability |
+| [contract-2026-08-02-setup-remote-v0.md](./contract-2026-08-02-setup-remote-v0.md) | setup-remote skill contract v0 — remote viewing/approval and footage hand-off (Tailscale / Taildrop, tailnet-only by default) |
 | [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | Canonical status, immutable render receipts, human acceptance records, and capability absence receipts |
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | Shared caption display/layout, master encoding, audio QC evidence, and recipe boundaries |
 
@@ -84,6 +89,8 @@ All contracts follow the
 | [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 emphasis words |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | Timeline placement principles, multiple audio tracks, audio trim, source trimmer |
+| [contract-2026-08-05-fx-v0.md](./contract-2026-08-05-fx-v0.md) | Screen-FX small vocabulary v0 (`cuts[].fx`: noise / particles / vignette / flare / color-overlay) |
+| [contract-2026-08-06-direction-recipes-v0.md](./contract-2026-08-06-direction-recipes-v0.md) | Direction recipes v0 (`presets/direction/` reference table + expansion tool — named recipes bundling LUT, FX, framing, transitions, text motion, and SFX) |
 
 ### Analysis, plan, review
 
@@ -96,6 +103,13 @@ All contracts follow the
 | [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 annotation model (five target types) |
 | [contract-2026-08-03-cut-candidate-bridge-v1.md](./contract-2026-08-03-cut-candidate-bridge-v1.md) | Review-only semantic event and A4 pause-shortening candidate bridge |
 
+### Preview & export
+
+| File | Contents |
+|---|---|
+| [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | Preview parity v0 — a single behavior spec for the Web UI and the shell (same edit.json / captions.json → same look, same behavior) |
+| [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: one-way export to other NLEs (FCPXML / FCP7 XML / SRT) — **BETA, untested against real NLEs** |
+
 ### Assets & personal layer
 
 | File | Contents |
@@ -103,6 +117,8 @@ All contracts follow the
 | [contract-2026-07-13-asset-library.md](./contract-2026-07-13-asset-library.md) | Asset library contract (meta.json, intake criteria, scope hierarchy) |
 | [contract-2026-07-14-3d-bake-recipe.md](./contract-2026-07-14-3d-bake-recipe.md) | 3D bake recipe contract (Blender path) |
 | [contract-2026-07-25-recipe-v0.md](./contract-2026-07-25-recipe-v0.md) | recipe.json v0 (freezing and presenting confirmed preferences) |
+| [contract-2026-07-25-memory-connection-v0.md](./contract-2026-07-25-memory-connection-v0.md) | memory connection v0 (declaring external reference-memory connections in connections.json) |
+| [contract-2026-07-26-avatar-registry-v0.md](./contract-2026-07-26-avatar-registry-v0.md) | Avatar registry v0 (avatar.json / rendition.json / staged read-out) |
 
 ### Direction notes
 
