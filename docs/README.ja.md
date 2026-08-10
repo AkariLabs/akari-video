@@ -86,7 +86,6 @@
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | タイムライン配置原則・音源複数トラック・音源トリム・ソーストリマー |
 | [contract-2026-08-05-fx-v0.md](./contract-2026-08-05-fx-v0.md) | 画面 FX 小語彙 v0（`cuts[].fx`: noise / particles / vignette / flare / color-overlay） |
-| [contract-2026-08-06-direction-recipes-v0.md](./contract-2026-08-06-direction-recipes-v0.md) | 演出レシピ v0（`presets/direction/` 参照表 + 展開ツール — LUT・FX・画角・トランジション・文字モーション・SE を束ねた named レシピ） |
 
 ### 分析・プラン・レビュー
 
