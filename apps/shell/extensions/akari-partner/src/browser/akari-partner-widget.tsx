@@ -68,7 +68,8 @@ const LEGACY_CLI_LABELS: Record<PartnerCliCatalogEntry['agent'], string[]> = {
     opencode: [],
     copilot: [],
     cursor: [],
-    antigravity: []
+    antigravity: [],
+    grok: []
 };
 
 @injectable()

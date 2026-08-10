@@ -206,7 +206,7 @@ export function bootstrapRunner(): void {
         return { executablePath: executable, reused: false };
     }
 
-    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity';
+    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
 
     interface ScriptInstallAgentConfig {
         agent: ScriptInstallAgent;
@@ -251,6 +251,15 @@ export function bootstrapRunner(): void {
             defaultInstallUrlWin32: 'https://antigravity.google/cli/install.ps1',
             extraCandidatePaths: [],
             manualInstallCommand: 'curl -fsSL https://antigravity.google/cli/install.sh | bash'
+        },
+        grok: {
+            agent: 'grok',
+            executableName: 'grok',
+            installUrlEnvVar: 'AKARI_PARTNER_GROK_INSTALL_URL',
+            defaultInstallUrl: 'https://x.ai/cli/install.sh',
+            defaultInstallUrlWin32: 'https://x.ai/cli/install.ps1',
+            extraCandidatePaths: [],
+            manualInstallCommand: 'curl -fsSL https://x.ai/cli/install.sh | bash（または npm install -g @xai-official/grok）'
         }
     };
 
@@ -448,8 +457,8 @@ export function bootstrapRunner(): void {
     async function main(): Promise<void> {
         const agent = process.argv[process.argv.length - 1];
         if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode'
-            && agent !== 'copilot' && agent !== 'cursor' && agent !== 'antigravity') {
-            throw new Error('expected bootstrap target: claude, codex, opencode, copilot, cursor, or antigravity');
+            && agent !== 'copilot' && agent !== 'cursor' && agent !== 'antigravity' && agent !== 'grok') {
+            throw new Error('expected bootstrap target: claude, codex, opencode, copilot, cursor, antigravity, or grok');
         }
         let outcome: BootstrapOutcome;
         if (agent === 'claude') {
