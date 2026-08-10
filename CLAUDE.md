@@ -1,4 +1,4 @@
-# akari-video — AKARI Video モノレポ（ドラフト・要オーナーレビュー）
+# akari-video — AKARI Video モノレポ
 
 > AI 動画編集ツール「AKARI Video」の製品モノレポ。**private スタート**
 > （公開はコンテンツが検収済みで揃った公開タイミングでまとめて — internal §0 原則）。
@@ -35,6 +35,8 @@
 - 販売予定・非公開素材はこのリポに置かない（実体は私有領域、ここには参照のみ）
 - Secrets を書かない（.env 系は別管理）
 - 選別インポート中: 由来（legacy パス）をコミット本文に記録する
+- 新規 `docs/contract-*.md` は `docs/README.md`・`docs/README.ja.md` 両索引への追記まで含めて
+  完了（CI: `npm run check:docs-sync` が索引漏れ・スキル数の手書き数字ドリフトを検出する）
 
 ## ドキュメント i18n 規約（2026-07-26 オーナー裁定）
 
@@ -46,7 +48,8 @@
 - **執筆は日本語からでよい**: 日本語側を書き換えたら、**同じ作業単位（同一コミット）で
   英語正典へ反映する**。翻訳・同期はエージェントの仕事。対訳ペアの片側だけを変更した
   コミットは逸脱として扱う（レーン検収の確認項目）
-- **対訳ペアの範囲**: README・docs/README・introduction・getting-started・guides/・how-to/。
+- **対訳ペアの範囲**: README・docs/README・introduction・getting-started・guides/・how-to/・
+  **docs/skills（スキルカタログ）**。
   Reference（contract-* / notes-* / design-*）と dev/ は日本語のみで可
   （正確性最優先。翻訳は需要が出た時点で追加し、以後ペア維持）
 - **リンクは同言語へ**: 英語ページからは英語ページへ、`.ja.md` からは `.ja.md` へ。
