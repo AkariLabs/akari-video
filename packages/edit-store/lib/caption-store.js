@@ -25,18 +25,18 @@ function parseCaptions(source) {
     if (!values) {
         throw new Error('字幕データの形式を確認できません。');
     }
+    const warnings = [];
     const defaultTextStyle = !Array.isArray(root) && isRecord(root) && root.default_text_style !== undefined
-        ? normalizeTextStyle(root.default_text_style)
+        ? normalizeTextStyle(root.default_text_style, keys => warnings.push(`字幕の既定スタイルに未知のフィールド（${keys.join(', ')}）があるため無視しました。`))
         : undefined;
     if (!Array.isArray(root) && isRecord(root)
         && root.default_text_style !== undefined && defaultTextStyle === undefined) {
         throw new Error('字幕の既定スタイルを確認できません。');
     }
     const captions = [];
-    const warnings = [];
     const seenIds = new Set();
     for (let index = 0; index < values.length; index++) {
-        const caption = normalizeCaption(values[index]);
+        const caption = normalizeCaption(values[index], keys => warnings.push(`${index + 1} 番目の字幕の text_style に未知のフィールド（${keys.join(', ')}）があるため無視しました。`));
         if (!caption) {
             warnings.push(`${index + 1} 番目の字幕は時刻または内容が不正なため表示しません。`);
             continue;
@@ -72,6 +72,41 @@ function mergeCaptionTextStyles(defaultStyle, captionStyle) {
     }
     else {
         delete merged.background;
+    }
+    const position = mergeNestedStyle(defaultStyle?.position, captionStyle?.position);
+    if (position && Object.keys(position).length > 0) {
+        merged.position = position;
+    }
+    else {
+        delete merged.position;
+    }
+    const shadow = mergeNestedStyle(defaultStyle?.shadow, captionStyle?.shadow);
+    if (shadow && Object.keys(shadow).length > 0) {
+        merged.shadow = shadow;
+    }
+    else {
+        delete merged.shadow;
+    }
+    const glow = mergeNestedStyle(defaultStyle?.glow, captionStyle?.glow);
+    if (glow && Object.keys(glow).length > 0) {
+        merged.glow = glow;
+    }
+    else {
+        delete merged.glow;
+    }
+    const animation = mergeNestedStyle(defaultStyle?.animation, captionStyle?.animation);
+    if (animation && Object.keys(animation).length > 0) {
+        merged.animation = animation;
+    }
+    else {
+        delete merged.animation;
+    }
+    const layout = mergeNestedStyle(defaultStyle?.layout, captionStyle?.layout);
+    if (layout && Object.keys(layout).length > 0) {
+        merged.layout = layout;
+    }
+    else {
+        delete merged.layout;
     }
     return Object.keys(merged).length > 0 ? merged : undefined;
 }
@@ -215,7 +250,7 @@ function removeCaptionLine(source, captionId) {
     }
     return replaceArrayInner(source, array, nextInner);
 }
-function normalizeCaption(value) {
+function normalizeCaption(value, onTextStyleUnknownKeys) {
     if (!value || typeof value !== 'object' || typeof value.id !== 'string' || !value.id
         || typeof value.text !== 'string' || typeof value.edited !== 'boolean') {
         return undefined;
@@ -231,7 +266,9 @@ function normalizeCaption(value) {
         : Number.isInteger(value.sourceRef?.segment) && value.sourceRef.segment >= 0
             ? { segment: value.sourceRef.segment }
             : undefined;
-    const textStyle = value.text_style === undefined ? undefined : normalizeTextStyle(value.text_style);
+    const textStyle = value.text_style === undefined
+        ? undefined
+        : normalizeTextStyle(value.text_style, onTextStyleUnknownKeys);
     if (sourceRef === undefined || (value.speaker !== null && typeof value.speaker !== 'string')
         || (value.text_style !== undefined && textStyle === undefined)) {
         return undefined;
@@ -398,96 +435,334 @@ function serializeCaption(caption) {
 function isRecord(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
-function normalizeTextStyle(value) {
+function isFiniteNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value);
+}
+function isFinitePositive(value) {
+    return isFiniteNumber(value) && value > 0;
+}
+function isFiniteNonNegative(value) {
+    return isFiniteNumber(value) && value >= 0;
+}
+function isFiniteInRange(value, min, max) {
+    return isFiniteNumber(value) && value >= min && value <= max;
+}
+// captions.schema.json の $defs/textStyle が受理する全プロパティ名（2026-08-10 拡張）。
+// これ以外のキーは「未知」として個別に無視する（行やスタイル全体は破棄しない）。
+const TEXT_STYLE_KEYS = new Set([
+    'color', 'size_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline',
+    'letter_spacing_em', 'line_height', 'align', 'vertical_align', 'vertical',
+    'text_transform', 'max_width_pct', 'text_anchor', 'position', 'shadow', 'glow',
+    'animation', 'stroke', 'background', 'zone', 'layout'
+]);
+const TEXT_TRANSFORM_VALUES = new Set(['upper', 'uppercase', 'lower', 'lowercase', 'title', 'capitalize', 'none']);
+const TEXT_ANCHOR_VALUES = new Set(['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br']);
+/**
+ * captions.schema.json の textStyle を受理する。value がそもそも object でなければ
+ * （＝真に不正なデータ）undefined を返し呼び出し側で行ごと破棄する。value が object なら
+ * 以後は「未知キー・不正値は無視して他は取り込む」— 1 フィールドの欠陥で残りやレコード全体を
+ * 道連れにしない（2026-08-10 caption-style-allowlist の中心的な設計判断）。
+ */
+function normalizeTextStyle(value, onUnknownKeys) {
     if (!isRecord(value)) {
         return undefined;
     }
-    const allowed = new Set(['color', 'size_px', 'stroke', 'background', 'zone']);
-    if (Object.keys(value).some(key => !allowed.has(key))) {
-        return undefined;
+    const unknownKeys = Object.keys(value).filter(key => !TEXT_STYLE_KEYS.has(key));
+    if (unknownKeys.length > 0) {
+        onUnknownKeys?.(unknownKeys);
     }
     const style = {};
-    if (value.color !== undefined) {
-        if (!isHexColor(value.color)) {
-            return undefined;
-        }
+    if (isHexColor(value.color)) {
         style.color = value.color;
     }
-    if (value.size_px !== undefined) {
-        if (typeof value.size_px !== 'number' || !Number.isFinite(value.size_px) || value.size_px <= 0) {
-            return undefined;
-        }
+    if (isFinitePositive(value.size_px)) {
         style.sizePx = value.size_px;
     }
-    if (value.zone !== undefined) {
-        if (!exports.CAPTION_ZONES.includes(value.zone)) {
-            return undefined;
-        }
-        style.zone = value.zone;
+    if (typeof value.font_family === 'string' && value.font_family !== '') {
+        style.fontFamily = value.font_family;
     }
-    if (value.stroke !== undefined) {
-        if (!isRecord(value.stroke)
-            || Object.keys(value.stroke).some(key => key !== 'color' && key !== 'width_px')) {
-            return undefined;
-        }
+    if (Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1000) {
+        style.fontWeight = value.font_weight;
+    }
+    if (Number.isInteger(value.weight) && value.weight >= 100 && value.weight <= 900) {
+        style.weight = value.weight;
+    }
+    if (typeof value.italic === 'boolean') {
+        style.italic = value.italic;
+    }
+    if (typeof value.underline === 'boolean') {
+        style.underline = value.underline;
+    }
+    if (isFiniteNumber(value.letter_spacing_em)) {
+        style.letterSpacingEm = value.letter_spacing_em;
+    }
+    if (isFinitePositive(value.line_height)) {
+        style.lineHeight = value.line_height;
+    }
+    if (value.align === 'left' || value.align === 'center' || value.align === 'right') {
+        style.align = value.align;
+    }
+    if (value.vertical_align === 'top' || value.vertical_align === 'middle' || value.vertical_align === 'bottom') {
+        style.verticalAlign = value.vertical_align;
+    }
+    if (typeof value.vertical === 'boolean') {
+        style.vertical = value.vertical;
+    }
+    if (typeof value.text_transform === 'string' && TEXT_TRANSFORM_VALUES.has(value.text_transform)) {
+        style.textTransform = value.text_transform;
+    }
+    if (isFiniteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100) {
+        style.maxWidthPct = value.max_width_pct;
+    }
+    if (typeof value.text_anchor === 'string' && TEXT_ANCHOR_VALUES.has(value.text_anchor)) {
+        style.textAnchor = value.text_anchor;
+    }
+    const position = normalizeCaptionPosition(value.position);
+    if (position) {
+        style.position = position;
+    }
+    const shadow = normalizeCaptionShadow(value.shadow);
+    if (shadow) {
+        style.shadow = shadow;
+    }
+    const glow = normalizeCaptionGlow(value.glow);
+    if (glow) {
+        style.glow = glow;
+    }
+    const animation = normalizeCaptionAnimation(value.animation);
+    if (animation) {
+        style.animation = animation;
+    }
+    if (isRecord(value.stroke)) {
         const stroke = {};
-        if (value.stroke.color !== undefined) {
-            if (!isHexColor(value.stroke.color)) {
-                return undefined;
-            }
+        if (value.stroke.method === 'webkit-outline') {
+            stroke.method = 'webkit-outline';
+        }
+        if (isHexColor(value.stroke.color)) {
             stroke.color = value.stroke.color;
         }
-        if (value.stroke.width_px !== undefined) {
-            if (typeof value.stroke.width_px !== 'number'
-                || !Number.isFinite(value.stroke.width_px) || value.stroke.width_px < 0) {
-                return undefined;
-            }
+        if (isFiniteNonNegative(value.stroke.width_px)) {
             stroke.widthPx = value.stroke.width_px;
         }
-        style.stroke = stroke;
-    }
-    if (value.background !== undefined) {
-        if (!isRecord(value.background)
-            || Object.keys(value.background).some(key => key !== 'color' && key !== 'opacity' && key !== 'radius_px' && key !== 'mode')) {
-            return undefined;
+        if (Object.keys(stroke).length > 0) {
+            style.stroke = stroke;
         }
+    }
+    if (isRecord(value.background)) {
         const background = {};
-        if (value.background.color !== undefined) {
-            if (!isHexColor(value.background.color)) {
-                return undefined;
-            }
+        if (isHexColor(value.background.color)) {
             background.color = value.background.color;
         }
-        if (value.background.opacity !== undefined) {
-            if (typeof value.background.opacity !== 'number' || !Number.isFinite(value.background.opacity)
-                || value.background.opacity < 0 || value.background.opacity > 1) {
-                return undefined;
-            }
+        if (isFiniteInRange(value.background.opacity, 0, 1)) {
             background.opacity = value.background.opacity;
         }
-        if (value.background.radius_px !== undefined) {
-            if (typeof value.background.radius_px !== 'number' || !Number.isFinite(value.background.radius_px)
-                || value.background.radius_px < 0) {
-                return undefined;
-            }
+        if (isFiniteNonNegative(value.background.radius_px)) {
             background.radiusPx = value.background.radius_px;
         }
-        if (value.background.mode !== undefined) {
-            if (value.background.mode !== 'per-line' && value.background.mode !== 'block') {
-                return undefined;
-            }
+        if (isFiniteNonNegative(value.background.padding_px)) {
+            background.paddingPx = value.background.padding_px;
+        }
+        if (isFiniteNonNegative(value.background.width_pct)) {
+            background.widthPct = value.background.width_pct;
+        }
+        if (isFiniteNonNegative(value.background.height_pct)) {
+            background.heightPct = value.background.height_pct;
+        }
+        if (isFiniteNumber(value.background.offset_x)) {
+            background.offsetX = value.background.offset_x;
+        }
+        if (isFiniteNumber(value.background.offset_y)) {
+            background.offsetY = value.background.offset_y;
+        }
+        if (value.background.mode === 'per-line' || value.background.mode === 'block') {
             background.mode = value.background.mode;
         }
-        style.background = background;
+        if (Object.keys(background).length > 0) {
+            style.background = background;
+        }
+    }
+    // schema は zone と layout の併用を禁じる（$defs/textStyle の allOf/not）。両方有効なら
+    // 既定 5 フィールドの一員として先に対応していた zone を優先し layout を落とす。
+    const layout = normalizeCaptionLayout(value.layout);
+    if (value.zone !== undefined && exports.CAPTION_ZONES.includes(value.zone)) {
+        style.zone = value.zone;
+    }
+    else if (layout) {
+        style.layout = layout;
     }
     return style;
+}
+function normalizeCaptionPosition(value) {
+    if (!isRecord(value)) {
+        return undefined;
+    }
+    const position = {};
+    if (isFiniteNumber(value.x)) {
+        position.x = value.x;
+    }
+    if (isFiniteNumber(value.y)) {
+        position.y = value.y;
+    }
+    return Object.keys(position).length > 0 ? position : undefined;
+}
+// shadow と glow は「color 必須 + 残りは数値の任意項目」という同じ形だが、任意項目の集合が
+// 違う（shadow: blur/distance/angle、glow: density/spread/offset）ため型ごと分けて丸め、
+// 片方のフィールドがもう片方へ紛れ込んで無言でラウンドトリップから消えるのを防ぐ。
+// color が無ければ消費側は影を組めない（render-cut と同じ解釈）ため、両方とも丸ごと捨てる。
+function normalizeCaptionShadow(value) {
+    if (!isRecord(value) || !isHexColor(value.color)) {
+        return undefined;
+    }
+    const shadow = { color: value.color };
+    if (isFiniteInRange(value.opacity, 0, 1)) {
+        shadow.opacity = value.opacity;
+    }
+    if (isFiniteNonNegative(value.blur_px)) {
+        shadow.blurPx = value.blur_px;
+    }
+    if (isFiniteNonNegative(value.distance_px)) {
+        shadow.distancePx = value.distance_px;
+    }
+    if (isFiniteNumber(value.angle_deg)) {
+        shadow.angleDeg = value.angle_deg;
+    }
+    return shadow;
+}
+function normalizeCaptionGlow(value) {
+    if (!isRecord(value) || !isHexColor(value.color)) {
+        return undefined;
+    }
+    const glow = { color: value.color };
+    if (isFiniteNonNegative(value.density)) {
+        glow.density = value.density;
+    }
+    if (isFiniteNonNegative(value.spread)) {
+        glow.spread = value.spread;
+    }
+    if (isFiniteNumber(value.offset_x)) {
+        glow.offsetX = value.offset_x;
+    }
+    if (isFiniteNumber(value.offset_y)) {
+        glow.offsetY = value.offset_y;
+    }
+    return glow;
+}
+function normalizeCaptionAnimationSlot(value) {
+    if (!isRecord(value) || typeof value.id !== 'string' || value.id === '') {
+        return undefined;
+    }
+    const slot = { id: value.id };
+    if (isFinitePositive(value.duration_sec)) {
+        slot.durationSec = value.duration_sec;
+    }
+    if (typeof value.ease === 'string' && value.ease !== '') {
+        slot.ease = value.ease;
+    }
+    if (isFinitePositive(value.amp)) {
+        slot.amp = value.amp;
+    }
+    return slot;
+}
+function normalizeCaptionAnimation(value) {
+    if (!isRecord(value)) {
+        return undefined;
+    }
+    const animation = {};
+    const inSlot = normalizeCaptionAnimationSlot(value.in);
+    if (inSlot) {
+        animation.in = inSlot;
+    }
+    const loopSlot = normalizeCaptionAnimationSlot(value.loop);
+    if (loopSlot) {
+        animation.loop = loopSlot;
+    }
+    const outSlot = normalizeCaptionAnimationSlot(value.out);
+    if (outSlot) {
+        animation.out = outSlot;
+    }
+    return Object.keys(animation).length > 0 ? animation : undefined;
+}
+// layout は 7 プロパティ全てが揃って初めて意味を持つ（schema の required 一括指定）ため、
+// 一部だけ有効でも採用しない。
+function normalizeCaptionLayout(value) {
+    if (!isRecord(value)) {
+        return undefined;
+    }
+    const validReferenceWidth = Number.isInteger(value.reference_width_px) && value.reference_width_px >= 1;
+    const validReferenceHeight = Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1;
+    const validWidth = isFiniteNumber(value.width_px) && value.width_px > 0;
+    if (value.mode !== 'reference-pixel'
+        || !validReferenceWidth
+        || !validReferenceHeight
+        || !isFiniteNonNegative(value.left_px)
+        || !validWidth
+        || !isFiniteNonNegative(value.bottom_px)
+        || value.text_align !== 'center'
+        || value.max_lines !== 1) {
+        return undefined;
+    }
+    return {
+        mode: 'reference-pixel',
+        referenceWidthPx: value.reference_width_px,
+        referenceHeightPx: value.reference_height_px,
+        leftPx: value.left_px,
+        widthPx: value.width_px,
+        bottomPx: value.bottom_px,
+        textAlign: 'center',
+        maxLines: 1
+    };
 }
 function textStyleToJson(style) {
     return {
         ...(style.color !== undefined ? { color: style.color } : {}),
         ...(style.sizePx !== undefined ? { size_px: style.sizePx } : {}),
+        ...(style.fontFamily !== undefined ? { font_family: style.fontFamily } : {}),
+        ...(style.fontWeight !== undefined ? { font_weight: style.fontWeight } : {}),
+        ...(style.weight !== undefined ? { weight: style.weight } : {}),
+        ...(style.italic !== undefined ? { italic: style.italic } : {}),
+        ...(style.underline !== undefined ? { underline: style.underline } : {}),
+        ...(style.letterSpacingEm !== undefined ? { letter_spacing_em: style.letterSpacingEm } : {}),
+        ...(style.lineHeight !== undefined ? { line_height: style.lineHeight } : {}),
+        ...(style.align !== undefined ? { align: style.align } : {}),
+        ...(style.verticalAlign !== undefined ? { vertical_align: style.verticalAlign } : {}),
+        ...(style.vertical !== undefined ? { vertical: style.vertical } : {}),
+        ...(style.textTransform !== undefined ? { text_transform: style.textTransform } : {}),
+        ...(style.maxWidthPct !== undefined ? { max_width_pct: style.maxWidthPct } : {}),
+        ...(style.textAnchor !== undefined ? { text_anchor: style.textAnchor } : {}),
+        ...(style.position !== undefined ? {
+            position: {
+                ...(style.position.x !== undefined ? { x: style.position.x } : {}),
+                ...(style.position.y !== undefined ? { y: style.position.y } : {})
+            }
+        } : {}),
+        ...(style.shadow !== undefined ? {
+            shadow: {
+                color: style.shadow.color,
+                ...(style.shadow.opacity !== undefined ? { opacity: style.shadow.opacity } : {}),
+                ...(style.shadow.blurPx !== undefined ? { blur_px: style.shadow.blurPx } : {}),
+                ...(style.shadow.distancePx !== undefined ? { distance_px: style.shadow.distancePx } : {}),
+                ...(style.shadow.angleDeg !== undefined ? { angle_deg: style.shadow.angleDeg } : {})
+            }
+        } : {}),
+        ...(style.glow !== undefined ? {
+            glow: {
+                color: style.glow.color,
+                ...(style.glow.density !== undefined ? { density: style.glow.density } : {}),
+                ...(style.glow.spread !== undefined ? { spread: style.glow.spread } : {}),
+                ...(style.glow.offsetX !== undefined ? { offset_x: style.glow.offsetX } : {}),
+                ...(style.glow.offsetY !== undefined ? { offset_y: style.glow.offsetY } : {})
+            }
+        } : {}),
+        ...(style.animation !== undefined ? {
+            animation: {
+                ...(style.animation.in !== undefined ? { in: animationSlotToJson(style.animation.in) } : {}),
+                ...(style.animation.loop !== undefined ? { loop: animationSlotToJson(style.animation.loop) } : {}),
+                ...(style.animation.out !== undefined ? { out: animationSlotToJson(style.animation.out) } : {})
+            }
+        } : {}),
         ...(style.stroke !== undefined ? {
             stroke: {
+                ...(style.stroke.method !== undefined ? { method: style.stroke.method } : {}),
                 ...(style.stroke.color !== undefined ? { color: style.stroke.color } : {}),
                 ...(style.stroke.widthPx !== undefined ? { width_px: style.stroke.widthPx } : {})
             }
@@ -497,10 +772,35 @@ function textStyleToJson(style) {
                 ...(style.background.color !== undefined ? { color: style.background.color } : {}),
                 ...(style.background.opacity !== undefined ? { opacity: style.background.opacity } : {}),
                 ...(style.background.radiusPx !== undefined ? { radius_px: style.background.radiusPx } : {}),
+                ...(style.background.paddingPx !== undefined ? { padding_px: style.background.paddingPx } : {}),
+                ...(style.background.widthPct !== undefined ? { width_pct: style.background.widthPct } : {}),
+                ...(style.background.heightPct !== undefined ? { height_pct: style.background.heightPct } : {}),
+                ...(style.background.offsetX !== undefined ? { offset_x: style.background.offsetX } : {}),
+                ...(style.background.offsetY !== undefined ? { offset_y: style.background.offsetY } : {}),
                 ...(style.background.mode !== undefined ? { mode: style.background.mode } : {})
             }
         } : {}),
-        ...(style.zone !== undefined ? { zone: style.zone } : {})
+        ...(style.zone !== undefined ? { zone: style.zone } : {}),
+        ...(style.layout !== undefined ? {
+            layout: {
+                mode: style.layout.mode,
+                reference_width_px: style.layout.referenceWidthPx,
+                reference_height_px: style.layout.referenceHeightPx,
+                left_px: style.layout.leftPx,
+                width_px: style.layout.widthPx,
+                bottom_px: style.layout.bottomPx,
+                text_align: style.layout.textAlign,
+                max_lines: style.layout.maxLines
+            }
+        } : {})
+    };
+}
+function animationSlotToJson(slot) {
+    return {
+        id: slot.id,
+        ...(slot.durationSec !== undefined ? { duration_sec: slot.durationSec } : {}),
+        ...(slot.ease !== undefined ? { ease: slot.ease } : {}),
+        ...(slot.amp !== undefined ? { amp: slot.amp } : {})
     };
 }
 function mergeNestedStyle(base, override) {

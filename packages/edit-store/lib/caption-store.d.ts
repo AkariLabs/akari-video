@@ -1,10 +1,72 @@
 export declare const CAPTION_ZONES: readonly ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"];
 export type CaptionZone = typeof CAPTION_ZONES[number];
 export type CaptionBackgroundMode = 'per-line' | 'block';
+export type CaptionAlign = 'left' | 'center' | 'right';
+export type CaptionVerticalAlign = 'top' | 'middle' | 'bottom';
+export type CaptionTextTransform = 'upper' | 'uppercase' | 'lower' | 'lowercase' | 'title' | 'capitalize' | 'none';
+export type CaptionTextAnchor = 'tl' | 'tc' | 'tr' | 'ml' | 'mc' | 'mr' | 'bl' | 'bc' | 'br';
+export type CaptionStrokeMethod = 'webkit-outline';
+export interface CaptionAnimationSlot {
+    id: string;
+    durationSec?: number;
+    ease?: string;
+    amp?: number;
+}
+export interface CaptionAnimation {
+    in?: CaptionAnimationSlot;
+    loop?: CaptionAnimationSlot;
+    out?: CaptionAnimationSlot;
+}
+export interface CaptionShadow {
+    color: string;
+    opacity?: number;
+    blurPx?: number;
+    distancePx?: number;
+    angleDeg?: number;
+}
+export interface CaptionGlow {
+    color: string;
+    density?: number;
+    spread?: number;
+    offsetX?: number;
+    offsetY?: number;
+}
+export interface CaptionPosition {
+    x?: number;
+    y?: number;
+}
+export interface CaptionLayout {
+    mode: 'reference-pixel';
+    referenceWidthPx: number;
+    referenceHeightPx: number;
+    leftPx: number;
+    widthPx: number;
+    bottomPx: number;
+    textAlign: 'center';
+    maxLines: 1;
+}
 export interface CaptionTextStyle {
     color?: string;
     sizePx?: number;
+    fontFamily?: string;
+    fontWeight?: number;
+    weight?: number;
+    italic?: boolean;
+    underline?: boolean;
+    letterSpacingEm?: number;
+    lineHeight?: number;
+    align?: CaptionAlign;
+    verticalAlign?: CaptionVerticalAlign;
+    vertical?: boolean;
+    textTransform?: CaptionTextTransform;
+    maxWidthPct?: number;
+    textAnchor?: CaptionTextAnchor;
+    position?: CaptionPosition;
+    shadow?: CaptionShadow;
+    glow?: CaptionGlow;
+    animation?: CaptionAnimation;
     stroke?: {
+        method?: CaptionStrokeMethod;
         color?: string;
         widthPx?: number;
     };
@@ -12,9 +74,15 @@ export interface CaptionTextStyle {
         color?: string;
         opacity?: number;
         radiusPx?: number;
+        paddingPx?: number;
+        widthPct?: number;
+        heightPct?: number;
+        offsetX?: number;
+        offsetY?: number;
         mode?: CaptionBackgroundMode;
     };
     zone?: CaptionZone;
+    layout?: CaptionLayout;
 }
 export interface CaptionTextStylePatch {
     color?: string | null;
