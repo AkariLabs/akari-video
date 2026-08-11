@@ -71,6 +71,11 @@ above also still works (and is the way to move to a different `AKARI_INSTALL_DIR
 or to recover an installation that isn't managed by `akari update`, e.g. a global
 npm install or a monorepo checkout, neither of which are auto-updated).
 
+The desktop app (the Theia-based shell) downloads new versions automatically too.
+Once the download finishes, the home screen banner switches to "Downloaded. It will be
+applied on restart." with a "Restart and apply now" button — or it applies the next time
+you quit and relaunch the app normally. It never force-restarts you mid-session.
+
 **Prefer a lightweight CLI-only install?** `npm i -g akari-video` installs just the `akari`
 command (agent workflow bundled; the browser preview server is not included — use the
 installer above for the full setup).

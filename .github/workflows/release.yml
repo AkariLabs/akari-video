@@ -59,6 +59,15 @@ env:
   # CLI self-update（内部リポ契約 update-and-versioning §11）が latest.json の
   # components.app 経由で DL する実体。cli.tgz（npm パッケージのサブセット）とは別物。
   ARTIFACT_APP: app.tgz
+  # electron-updater（U3・契約 §11）自身が読むメタデータ。gen-latest-json.mjs の
+  # ARTIFACT_FILES（latest.json 生成の入力契約）とは無関係の別レール — シェルの
+  # apps/shell/package.json build.publish（GitHub provider）+ per-target artifactName
+  # （mac.artifactName / nsis.artifactName）により、electron-builder がここで固定した
+  # ファイル名をそのまま出力する（=「固定名へリネーム」する後処理が要らない設計）。
+  ARTIFACT_MAC_UPDATE_YML: latest-mac.yml
+  ARTIFACT_MAC_BLOCKMAP: shell-mac.zip.blockmap
+  ARTIFACT_WIN_UPDATE_YML: latest.yml
+  ARTIFACT_WIN_BLOCKMAP: shell-win-setup.exe.blockmap
 
 jobs:
   # push:tags と workflow_dispatch の両方から同じ形で「対象タグ文字列」を得るための前段ジョブ。
@@ -271,21 +280,28 @@ jobs:
             export APPLE_API_KEY_ID="$APPLE_API_KEY_ID_SECRET"
             export APPLE_API_ISSUER="$APPLE_API_ISSUER_SECRET"
           fi
-          npx electron-builder --mac zip dmg
+          # --publish never: apps/shell/package.json の build.publish（GitHub provider・U3）
+          # により electron-builder は electron-updater 用メタデータ（latest-mac.yml +
+          # zip の blockmap）をローカルに生成するが、実際の GitHub への publish 試行は
+          # しない（この CI ステップに GH_TOKEN は渡していない — publish は既存どおり
+          # 後段の release ジョブの `gh release create` が担う。二重の公開経路を作らない）。
+          npx electron-builder --mac zip dmg --publish never
 
       - name: postpackage (verify asar contents)
         working-directory: apps/shell
         run: npm run postpackage
 
-      - name: 成果物を固定名へリネーム
+      # mac.artifactName（apps/shell/package.json = "shell-mac.${ext}"）により
+      # electron-builder は既にこの固定名で zip/dmg を出力している（U3 以前は
+      # デフォルトテンプレート "${productName}-${version}-${os}-${arch}.${ext}" だった
+      # ため、ここで find + cp するリネームが必要だった。同じ find で拾い直すと今は
+      # 送り元 = 送り先になり `cp` が「同一ファイル」エラーで失敗するため、確認のみに変更）
+      - name: 成果物の確認（固定名で出力済みか）
         working-directory: apps/shell/electron-builder-out
         run: |
-          zip_src=$(find . -maxdepth 1 -name '*.zip' | head -n1)
-          dmg_src=$(find . -maxdepth 1 -name '*.dmg' | head -n1)
-          test -n "$zip_src" || { echo "mac zip 成果物が見つかりません"; exit 1; }
-          test -n "$dmg_src" || { echo "mac dmg 成果物が見つかりません"; exit 1; }
-          cp "$zip_src" "${{ env.ARTIFACT_MAC }}"
-          cp "$dmg_src" "${{ env.ARTIFACT_MAC_DMG }}"
+          test -f "${{ env.ARTIFACT_MAC }}" || { echo "mac zip 成果物（${{ env.ARTIFACT_MAC }}）が見つかりません"; exit 1; }
+          test -f "${{ env.ARTIFACT_MAC_DMG }}" || { echo "mac dmg 成果物（${{ env.ARTIFACT_MAC_DMG }}）が見つかりません"; exit 1; }
+          ls -la "${{ env.ARTIFACT_MAC }}" "${{ env.ARTIFACT_MAC_DMG }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -295,6 +311,31 @@ jobs:
             apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC_DMG }}
           retention-days: 14
           if-no-files-found: error
+
+      # electron-updater メタデータ（U3）。latest-mac.yml は build.publish（GitHub
+      # provider）が設定されていれば --publish never でもローカルに生成される。zip の
+      # blockmap（差分ダウンロード用）は electron-builder のバージョン・設定次第で
+      # 生成されないことがあるため、無くてもこのジョブ自体は落とさない（warn に留める —
+      # latest-mac.yml が本体で blockmap は差分適用の最適化に過ぎない）。
+      - name: electron-updater メタデータの確認
+        working-directory: apps/shell/electron-builder-out
+        run: |
+          test -f "${{ env.ARTIFACT_MAC_UPDATE_YML }}" || { echo "mac latest-mac.yml が見つかりません（electron-updater メタデータ生成に失敗）"; exit 1; }
+          if [ -f "${{ env.ARTIFACT_MAC_BLOCKMAP }}" ]; then
+            ls -la "${{ env.ARTIFACT_MAC_UPDATE_YML }}" "${{ env.ARTIFACT_MAC_BLOCKMAP }}"
+          else
+            echo "::warning::mac blockmap（${{ env.ARTIFACT_MAC_BLOCKMAP }}）が見つかりません（差分ダウンロードは効かないが latest-mac.yml があれば自動更新自体は成立する）"
+            ls -la "${{ env.ARTIFACT_MAC_UPDATE_YML }}"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shell-mac-update-meta
+          path: |
+            apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC_UPDATE_YML }}
+            apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC_BLOCKMAP }}
+          retention-days: 14
+          if-no-files-found: warn
 
   build-win:
     name: build-win (windows-build.yml の手順を踏襲)
@@ -369,19 +410,32 @@ jobs:
       # installer に包む（asar の再パックをしないため、zip と installer の中身が
       # 同一実体であることが構成上保証される）。LTO 無効化 env は --pd 経路では
       # native rebuild が走らない想定だが、走った場合に備えて Install と同じ値を与える
+      # --publish never: mac 側と同じ理由（package.json build.publish が U3 で追加され、
+      # そのままだと electron-builder が CI 環境を publish 試行対象と誤認しうる。
+      # メタデータ（latest.yml + blockmap）はローカル生成されるが GitHub への実 publish
+      # はしない — 引き続き release ジョブの gh release create が公開を担う）。
       - name: installer (electron-builder --win nsis, prepackaged)
         working-directory: apps/shell
         env:
           npm_config_enable_lto: 'false'
           npm_config_enable_thin_lto: 'false'
-        run: npx electron-builder --win nsis --pd electron-builder-out/win-unpacked
+        run: npx electron-builder --win nsis --pd electron-builder-out/win-unpacked --publish never
 
-      - name: installer を固定名へリネーム
+      # nsis.artifactName（apps/shell/package.json = "shell-win-setup.${ext}"）により
+      # electron-builder は既にこの固定名で installer を出力している（U3 以前は
+      # "${productName}-Setup-${version}.${ext}" だったため find + Copy-Item が必要
+      # だった。今 find し直すと送り元 = 送り先になり Copy-Item がエラーになるため、
+      # 確認のみに変更。latest.yml / blockmap の存在も合わせて確認する — blockmap は
+      # mac と同じ理由で無くてもこのジョブは失敗させない）。
+      - name: installer + electron-updater メタデータの確認
         working-directory: apps/shell/electron-builder-out
         run: |
-          $exe = Get-ChildItem -File -Filter *.exe | Select-Object -First 1
-          if (-not $exe) { Write-Error "win installer (.exe) が electron-builder-out に見つかりません"; exit 1 }
-          Copy-Item $exe.FullName "${{ env.ARTIFACT_WIN_SETUP }}"
+          if (-not (Test-Path "${{ env.ARTIFACT_WIN_SETUP }}")) { Write-Error "win installer（${{ env.ARTIFACT_WIN_SETUP }}）が見つかりません"; exit 1 }
+          if (-not (Test-Path "${{ env.ARTIFACT_WIN_UPDATE_YML }}")) { Write-Error "win latest.yml が見つかりません（electron-updater メタデータ生成に失敗）"; exit 1 }
+          if (-not (Test-Path "${{ env.ARTIFACT_WIN_BLOCKMAP }}")) {
+            Write-Host "::warning::win blockmap（${{ env.ARTIFACT_WIN_BLOCKMAP }}）が見つかりません（差分ダウンロードは効かないが latest.yml があれば自動更新自体は成立する）"
+          }
+          Get-ChildItem "${{ env.ARTIFACT_WIN_SETUP }}","${{ env.ARTIFACT_WIN_UPDATE_YML }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -391,6 +445,15 @@ jobs:
             apps/shell/electron-builder-out/${{ env.ARTIFACT_WIN_SETUP }}
           retention-days: 14
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shell-win-update-meta
+          path: |
+            apps/shell/electron-builder-out/${{ env.ARTIFACT_WIN_UPDATE_YML }}
+            apps/shell/electron-builder-out/${{ env.ARTIFACT_WIN_BLOCKMAP }}
+          retention-days: 14
+          if-no-files-found: warn
 
   build-cli:
     name: build-cli (npm pack)
@@ -470,6 +533,20 @@ jobs:
         with:
           name: app-tarball
           path: release-artifacts
+      # electron-updater メタデータ（U3）。build-mac/build-win 側で if-no-files-found: warn
+      # にしているため、blockmap が生成されなかった場合はこのアーティファクト自体が
+      # 存在しない可能性がある（latest-mac.yml/latest.yml だけの場合はある）。
+      # continue-on-error にはしない — アーティファクトが 0 バイトでも yml だけは
+      # 必ず含まれる設計（前段のジョブが yml 欠如を fail させている）ので、
+      # download 自体は常に成功するはず
+      - uses: actions/download-artifact@v4
+        with:
+          name: shell-mac-update-meta
+          path: release-artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: shell-win-update-meta
+          path: release-artifacts
 
       # D4 裁定（契約 §5）: 既定はプレリリース。stable 化は workflow_dispatch の
       # stable: true 入力（または Release 編集）でオーナーが行う
@@ -504,22 +581,39 @@ jobs:
       # draft + prerelease が既定（契約 §7-1「初回は未署名で出してよい」。npm publish の
       # 認証は Trusted Publishing に移行済み — 下の publish ステップのコメント参照）。
       # stable: true 入力時のみ --prerelease を外す
+      #
+      # electron-updater メタデータ（U3）: latest-mac.yml / latest.yml は必須アセット
+      # （前段のジョブで欠如していれば既に fail している）。blockmap は
+      # if-no-files-found: warn で生成されないことがあるため、存在するものだけを
+      # 配列へ足す（gh release create は存在しないパスを渡すと即エラーになるため）
       - name: draft Release 作成 + asset 添付
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          assets=(
+            "release-artifacts/${{ env.ARTIFACT_MAC }}"
+            "release-artifacts/${{ env.ARTIFACT_MAC_DMG }}"
+            "release-artifacts/${{ env.ARTIFACT_WIN }}"
+            "release-artifacts/${{ env.ARTIFACT_WIN_SETUP }}"
+            "release-artifacts/${{ env.ARTIFACT_CLI }}"
+            "release-artifacts/${{ env.ARTIFACT_APP }}"
+            "release-artifacts/${{ env.ARTIFACT_MAC_UPDATE_YML }}"
+            "release-artifacts/${{ env.ARTIFACT_WIN_UPDATE_YML }}"
+            "release-artifacts/latest.json"
+          )
+          for optional in "release-artifacts/${{ env.ARTIFACT_MAC_BLOCKMAP }}" "release-artifacts/${{ env.ARTIFACT_WIN_BLOCKMAP }}"; do
+            if [ -f "$optional" ]; then
+              assets+=("$optional")
+            else
+              echo "::warning::任意アセットが見つからないため Release へ添付しません: $optional"
+            fi
+          done
           gh release create "${{ needs.resolve-tag.outputs.tag }}" \
             --draft ${{ steps.channel.outputs.prerelease_flag }} \
             --title "AKARI Video ${{ needs.resolve-tag.outputs.tag }}" \
             --generate-notes \
-            "release-artifacts/${{ env.ARTIFACT_MAC }}" \
-            "release-artifacts/${{ env.ARTIFACT_MAC_DMG }}" \
-            "release-artifacts/${{ env.ARTIFACT_WIN }}" \
-            "release-artifacts/${{ env.ARTIFACT_WIN_SETUP }}" \
-            "release-artifacts/${{ env.ARTIFACT_CLI }}" \
-            "release-artifacts/${{ env.ARTIFACT_APP }}" \
-            release-artifacts/latest.json
+            "${assets[@]}"
 
       # D1 裁定（契約 §5）= GO。認証は NPM_TOKEN secret ではなく npm Trusted Publishing
       # （OIDC）に移行済み（2026-07-29）: npm 側にこのリポ + このワークフローファイル名
