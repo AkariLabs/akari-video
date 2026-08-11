@@ -4,7 +4,7 @@
 // JSON Lines を吐くだけの Node スクリプト）へ --helper-bin で差し替え、
 // ffmpeg デコード → helper → 契約 §2 のトラックファイル組み立て → analysis.json への
 // 原子的追記、という配管だけを検証する。実 Vision の検出精度・座標妥当性は
-// tasks/2026-08-11-vision-tracks-v0/report.md に実素材の実測として記録する
+// 非公開の内部記録に実素材の実測として記録する
 // （このテストの対象外 — person-matte-helper 同様、Swift 側は node --test で
 // 直接検証できないため、配管とヘルパー実装は別レイヤーとして検証する）。
 //
