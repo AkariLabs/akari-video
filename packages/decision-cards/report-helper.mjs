@@ -186,10 +186,17 @@ function contentTypeFor(filePath) {
       ".jpg": "image/jpeg",
       ".js": "text/javascript; charset=utf-8",
       ".json": "application/json; charset=utf-8",
+      ".m4a": "audio/mp4",
       ".mjs": "text/javascript; charset=utf-8",
+      ".mov": "video/quicktime",
+      ".mp3": "audio/mpeg",
+      ".mp4": "video/mp4",
+      ".ogg": "audio/ogg",
       ".png": "image/png",
       ".svg": "image/svg+xml",
       ".txt": "text/plain; charset=utf-8",
+      ".wav": "audio/wav",
+      ".webm": "video/webm",
       ".webp": "image/webp",
     }[extension] ?? "application/octet-stream"
   );
@@ -354,7 +361,58 @@ async function writeState(state) {
   }
 }
 
-async function serveFile(response, filePath, contentType) {
+const SINGLE_RANGE_PATTERN = /^bytes=(\d*)-(\d*)$/;
+
+// 単一バイトレンジだけを解釈する。複数レンジ・未知の単位・壊れた指定は null を返し、
+// 呼び出し側は 200 全体配信へフォールバックする（RFC 9110 が許す挙動）。
+// レンジが範囲外のときだけ { unsatisfiable: true } を返して 416 にする。
+function parseRange(rangeHeader, size) {
+  if (typeof rangeHeader !== "string") {
+    return null;
+  }
+
+  const match = SINGLE_RANGE_PATTERN.exec(rangeHeader.trim());
+  if (match === null) {
+    return null;
+  }
+
+  const [, rawStart, rawEnd] = match;
+  if (rawStart === "" && rawEnd === "") {
+    return null;
+  }
+
+  let start;
+  let end;
+
+  if (rawStart === "") {
+    // bytes=-N — 末尾 N バイト
+    const suffixLength = Number(rawEnd);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) {
+      return null;
+    }
+    start = Math.max(0, size - suffixLength);
+    end = size - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd === "" ? size - 1 : Number(rawEnd);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) {
+      return null;
+    }
+    if (end > size - 1) {
+      end = size - 1;
+    }
+  }
+
+  if (start >= size || start > end) {
+    return { unsatisfiable: true };
+  }
+
+  return { start, end };
+}
+
+// iOS Safari は <video> に対してまず `Range: bytes=0-1` を投げ、206 が返らないと再生を諦める。
+// レンジ対応は動画・音声をレポート内で再生させるための必須要件。
+async function serveFile(response, filePath, contentType, rangeHeader) {
   let fileStats;
   try {
     fileStats = await stat(filePath);
@@ -369,15 +427,44 @@ async function serveFile(response, filePath, contentType) {
     throw new HttpError(404, "file not found");
   }
 
-  response.writeHead(200, {
+  const baseHeaders = {
     "Content-Type": contentType ?? contentTypeFor(filePath),
-    "Content-Length": fileStats.size,
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
+    "Accept-Ranges": "bytes",
+  };
+
+  if (fileStats.size === 0) {
+    response.writeHead(200, { ...baseHeaders, "Content-Length": 0 });
+    response.end();
+    return;
+  }
+
+  const range = parseRange(rangeHeader, fileStats.size);
+
+  if (range !== null && range.unsatisfiable === true) {
+    response.writeHead(416, {
+      ...baseHeaders,
+      "Content-Length": 0,
+      "Content-Range": `bytes */${fileStats.size}`,
+    });
+    response.end();
+    return;
+  }
+
+  const start = range === null ? 0 : range.start;
+  const end = range === null ? fileStats.size - 1 : range.end;
+
+  response.writeHead(range === null ? 200 : 206, {
+    ...baseHeaders,
+    "Content-Length": end - start + 1,
+    ...(range === null
+      ? {}
+      : { "Content-Range": `bytes ${start}-${end}/${fileStats.size}` }),
   });
 
   await new Promise((resolveStream, rejectStream) => {
-    const stream = createReadStream(filePath);
+    const stream = createReadStream(filePath, { start, end });
     stream.on("error", rejectStream);
     stream.on("end", resolveStream);
     stream.pipe(response);
@@ -421,7 +508,12 @@ const server = createServer(async (request, response) => {
 
   try {
     if (request.method === "GET" && rawPath === "/") {
-      await serveFile(response, reportPath, "text/html; charset=utf-8");
+      await serveFile(
+        response,
+        reportPath,
+        "text/html; charset=utf-8",
+        request.headers.range,
+      );
       return;
     }
 
@@ -477,7 +569,7 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "GET") {
       const staticPath = await resolveStaticPath(rawPath);
-      await serveFile(response, staticPath);
+      await serveFile(response, staticPath, undefined, request.headers.range);
       return;
     }
 
