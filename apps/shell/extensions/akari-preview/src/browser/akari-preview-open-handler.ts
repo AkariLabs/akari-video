@@ -51,7 +51,9 @@ import {
 import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { createRafThrottle } from '../common/raf-throttle';
+import { normalizeRectFromPoints } from '../common/rect-tool-visual';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
+import { ReviewToolMode } from '../common/review-tool-mode';
 import { locatePreviewCaptions, parsePreviewCaptions, parseResolvedPreviewCaptions, PreviewCaption } from './akari-preview-captions';
 import {
     ReviewSessionRecorder,
@@ -340,6 +342,23 @@ interface PreviewReviewStrokeEndRequest {
     points: Array<[number, number]>;
 }
 
+// task.md 指示4/6 (M2): rect ツールの開始/終了 (pen の start/end request と対をなす) と、
+// pen-toggle からの mode 切替 request (右パネルのボタン/ショートカットと同じ setToolMode 経路)。
+interface PreviewReviewRectStartRequest {
+    type: 'akari-preview-review-rect-start';
+    frame: ReviewStrokeFrame;
+}
+
+interface PreviewReviewRectEndRequest {
+    type: 'akari-preview-review-rect-end';
+    box: [number, number, number, number];
+}
+
+interface PreviewReviewToolModeRequest {
+    type: 'akari-preview-review-tool-mode-request';
+    mode: ReviewToolMode;
+}
+
 interface ReviewAnnotationStrokeRequest {
     editUri: string;
     sourceT: number;
@@ -418,6 +437,9 @@ const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+// M2 (task.md): 右パネルの選択/ペン/四角ボタンからの mode request。akari-annotations 側と
+// 文字列だけミラーする（既存 5 定数と同じ配線パターン）。
+const REVIEW_TOOL_MODE_SET_EVENT = 'akari.review.toolMode.set';
 
 // akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.executeCommand に渡す。
@@ -488,6 +510,12 @@ interface PreviewReviewTransportRequest {
 interface ReviewSessionControlRequest {
     projectRootUri?: string;
     editUri?: string;
+}
+
+// task.md 指示2/6: 右パネルのツールボタン列/ショートカットからの mode 切替 request
+// （REVIEW_TOOL_MODE_SET_EVENT。akari-review-panel-widget.ts 側と文字列だけミラー）。
+interface ReviewToolModeSetRequest extends ReviewSessionControlRequest {
+    mode?: ReviewToolMode;
 }
 
 interface PreviewSessionSettings {
@@ -1029,6 +1057,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 void this.showReviewAnnotationStrokes(detail);
             }
         });
+        register(REVIEW_TOOL_MODE_SET_EVENT, event => {
+            const detail = (event as CustomEvent<ReviewToolModeSetRequest>).detail;
+            const editUri = detail?.editUri ? this.normalizeReviewEditUri(detail.editUri) : undefined;
+            if (!editUri || !detail?.mode || !this.reviewSessionRecorder) {
+                return;
+            }
+            this.reviewSessionRecorder.setToolMode(editUri, detail.mode);
+        });
     }
 
     protected async showReviewAnnotationStrokes(detail: ReviewAnnotationStrokeRequest): Promise<void> {
@@ -1115,7 +1151,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (widget?.isAttached) {
             widget.sendMessage({
                 type: 'akari-preview-set-review-recording',
-                active: state.active
+                active: state.active,
+                mode: state.toolMode
             });
         }
     }
@@ -1497,6 +1534,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isReviewStrokeEndRequest(message)) {
                 this.forwardReviewStrokeEnd(widget, message);
             }
+            if (this.isReviewRectStartRequest(message)) {
+                this.forwardReviewRectStart(widget, message);
+            }
+            if (this.isReviewRectEndRequest(message)) {
+                this.forwardReviewRectEnd(widget, message);
+            }
+            if (this.isReviewToolModeRequest(message)) {
+                this.forwardReviewToolModeRequest(widget, message);
+            }
         }));
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
@@ -1658,6 +1704,60 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
         if (editUri) {
             this.reviewSessionRecorder?.handleStrokeEnd(editUri, message.points);
+        }
+    }
+
+    // task.md 指示4: rect ツールの start/end -- pen の isReviewStrokeStartRequest/
+    // forwardReviewStrokeStart と対をなす配線。
+    protected isReviewRectStartRequest(message: any): message is PreviewReviewRectStartRequest {
+        const frame = message?.frame;
+        return message?.type === 'akari-preview-review-rect-start'
+            && Number.isFinite(frame?.timelineT)
+            && Number.isFinite(frame?.sourceT)
+            && (frame?.cutIndex === null
+                || (Number.isInteger(frame?.cutIndex) && frame.cutIndex >= 0));
+    }
+
+    protected forwardReviewRectStart(
+        widget: PreviewWidgetMarker,
+        message: PreviewReviewRectStartRequest
+    ): void {
+        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        if (editUri) {
+            this.reviewSessionRecorder?.handleRectStart(editUri, message.frame);
+        }
+    }
+
+    protected isReviewRectEndRequest(message: any): message is PreviewReviewRectEndRequest {
+        const box = message?.box;
+        return message?.type === 'akari-preview-review-rect-end'
+            && Array.isArray(box) && box.length === 4 && box.every((value: unknown) => Number.isFinite(value));
+    }
+
+    protected forwardReviewRectEnd(
+        widget: PreviewWidgetMarker,
+        message: PreviewReviewRectEndRequest
+    ): void {
+        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        if (editUri) {
+            this.reviewSessionRecorder?.handleRectEnd(editUri, message.box);
+        }
+    }
+
+    // task.md 指示3: pen-toggle（既存入口）からの mode request。右パネルのボタン/ショートカット
+    // と同じ ReviewSessionRecorder.setToolMode に着地させる（正本は host 側の 1 箇所のみ）。
+    protected isReviewToolModeRequest(message: any): message is PreviewReviewToolModeRequest {
+        return message?.type === 'akari-preview-review-tool-mode-request'
+            && ['neutral', 'pen', 'rect', 'select'].includes(message?.mode);
+    }
+
+    protected forwardReviewToolModeRequest(
+        widget: PreviewWidgetMarker,
+        message: PreviewReviewToolModeRequest
+    ): void {
+        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        if (editUri) {
+            this.reviewSessionRecorder?.setToolMode(editUri, message.mode);
         }
     }
 
@@ -3880,6 +3980,18 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reviewStrokeEnd = points => {
                 vscode.postMessage({ type: 'akari-preview-review-stroke-end', points });
             };
+            // window.akari 経由で公開する -- previewBootstrapScript は別 IIFE（hostAdapterScript
+            // とスコープを共有しない）ため、window.akari.reviewStrokeStart 等と同じく window 越しに
+            // 呼ぶ必要がある。
+            window.akari.reviewSetToolMode = mode => {
+                vscode.postMessage({ type: 'akari-preview-review-tool-mode-request', mode });
+            };
+            window.akari.reviewRectStart = frame => {
+                vscode.postMessage({ type: 'akari-preview-review-rect-start', frame });
+            };
+            window.akari.reviewRectEnd = box => {
+                vscode.postMessage({ type: 'akari-preview-review-rect-end', box });
+            };
             window.akari.reportOverlaySelection = overlayId => {
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
             };
@@ -4147,6 +4259,9 @@ body { display: grid; place-items: center; padding: 32px; }
             // できず、値を JSON として埋め込む形でのみ共有できる（統合点調査・report.md 参照）。
             // 実際の描画ロジック（グロー/スパークル/フェード）はここに残したまま無変更。
             const PEN_TUNING = ${JSON.stringify(PEN_TUNING)};
+            // task.md 指示4 (rect tool): normalized drag -> [x,y,w,h] box, same shape as
+            // review.json's region.box (../common/rect-tool-visual.ts).
+            const normalizeRectFromPointsFn = (${normalizeRectFromPoints.toString()});
             const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
             const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"></path></svg>';
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
@@ -4282,8 +4397,15 @@ body { display: grid; place-items: center; padding: 32px; }
             let activeCaption = null;
             let styledCaptionActive = false;
             let reviewRecordingActive = false;
+            // docs/contract-2026-08-11-review-session-ui-events.md #1 / internal
+            // annotation-everywhere §3 (M2): neutral/pen/rect/select, mirrored from
+            // ReviewSessionRecorder's toolModeState (host is authoritative -- see
+            // window.addEventListener('message', ...)'s akari-preview-set-review-recording case).
+            let reviewToolMode = 'neutral';
             let penModeActive = false;
+            let rectModeActive = false;
             let currentStroke = null;
+            let currentRect = null;
             let fadingStrokes = [];
             let sparkles = [];
             let lastStaticStrokePoints = null;
@@ -4389,6 +4511,37 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 stroke.drawnIndex = Math.max(0, stroke.points.length - 1);
             };
+            // task.md 指示4: rect ツールの描画。pen と同じ platinum グラデーション/グロー質感を
+            // 矩形の輪郭に適用する（drawSegment の 4 辺版ではなく単純な strokeRect 2 パス -- pen ほど
+            // の視覚精度は不要で、コード量と回帰リスクを抑える判断。report.md に記載）。
+            const drawRectShape = (ctx, box) => {
+                const x = box[0] * penCanvasWidth;
+                const y = box[1] * penCanvasHeight;
+                const w = box[2] * penCanvasWidth;
+                const h = box[3] * penCanvasHeight;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = PEN_TUNING.glowAlpha;
+                ctx.strokeStyle = platinumGradient || '#eef2fb';
+                ctx.lineWidth = PEN_TUNING.coreWidthPx * 2.5;
+                ctx.strokeRect(x, y, w, h);
+                ctx.restore();
+                ctx.save();
+                ctx.globalAlpha = PEN_TUNING.coreAlpha;
+                ctx.strokeStyle = platinumGradient || '#eef2fb';
+                ctx.lineWidth = PEN_TUNING.coreWidthPx;
+                ctx.strokeRect(x, y, w, h);
+                ctx.restore();
+            };
+            const redrawRectFull = rect => {
+                rect.canvas.width = Math.max(1, Math.round(penCanvasWidth * penCanvasDpr));
+                rect.canvas.height = Math.max(1, Math.round(penCanvasHeight * penCanvasDpr));
+                rect.ctx.setTransform(penCanvasDpr, 0, 0, penCanvasDpr, 0, 0);
+                drawRectShape(rect.ctx, rect.box);
+            };
+            // fadingStrokes は完了済みの pen ストローク・rect の両方を保持する共有プール
+            // （フェードアウト演出を共通化するため）。kind タグで再描画方法だけ出し分ける。
+            const redrawFadingFull = item => (item.kind === 'rect' ? redrawRectFull(item) : redrawStrokeFull(item));
             const resizePenCanvases = () => {
                 const cssWidth = Math.max(1, Math.round(penLayer.clientWidth || 1));
                 const cssHeight = Math.max(1, Math.round(penLayer.clientHeight || 1));
@@ -4406,7 +4559,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     for (const points of lastStaticStrokePoints) paintStaticStroke(points);
                 }
                 if (currentStroke) redrawStrokeFull(currentStroke);
-                for (const fading of fadingStrokes) redrawStrokeFull(fading);
+                if (currentRect) redrawRectFull(currentRect);
+                for (const fading of fadingStrokes) redrawFadingFull(fading);
                 recomposite();
             };
             const penFadeAlpha = (fading, timestamp) => {
@@ -4456,6 +4610,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 penCtx.globalAlpha = 1;
                 if (currentStroke) penCtx.drawImage(currentStroke.canvas, 0, 0, penCanvasWidth, penCanvasHeight);
+                if (currentRect) penCtx.drawImage(currentRect.canvas, 0, 0, penCanvasWidth, penCanvasHeight);
                 updateAndDrawSparkles(penCtx, timestamp || performance.now());
             };
             const drawPendingSegments = stroke => {
@@ -4472,7 +4627,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (currentStroke) drawPendingSegments(currentStroke);
                 fadingStrokes = fadingStrokes.filter(fading => penFadeAlpha(fading, timestamp) > 0);
                 recomposite(timestamp);
-                const stillActive = currentStroke !== null || fadingStrokes.length > 0 || sparkles.length > 0;
+                const stillActive = currentStroke !== null || currentRect !== null
+                    || fadingStrokes.length > 0 || sparkles.length > 0;
                 penAnimationHandle = stillActive ? requestAnimationFrame(penTick) : 0;
             };
             const ensurePenLoopRunning = () => {
@@ -4488,12 +4644,31 @@ body { display: grid; place-items: center; padding: 32px; }
             const setPenModeActive = active => {
                 penModeActive = active === true && reviewRecordingActive && !isPlaying;
                 penToggle.setAttribute('aria-pressed', String(penModeActive));
-                penLayer.classList.toggle('is-active', penModeActive);
+                penLayer.classList.toggle('is-active', penModeActive || rectModeActive);
+            };
+            const setRectModeActive = active => {
+                rectModeActive = active === true && reviewRecordingActive && !isPlaying;
+                penLayer.classList.toggle('is-active', penModeActive || rectModeActive);
+            };
+            // ReviewSessionRecorder（host）が唯一の正本。ここはブロードキャストの反映と、
+            // 既存入口（pen-toggle）からの request の両方が通る単一の適用点。
+            const applyReviewToolMode = mode => {
+                reviewToolMode = mode;
+                setPenModeActive(mode === 'pen');
+                setRectModeActive(mode === 'rect');
             };
             const abortCurrentStroke = () => {
                 if (!currentStroke) return;
                 const pointerId = currentStroke.pointerId;
                 currentStroke = null;
+                if (penLayer.hasPointerCapture(pointerId)) {
+                    penLayer.releasePointerCapture(pointerId);
+                }
+            };
+            const abortCurrentRect = () => {
+                if (!currentRect) return;
+                const pointerId = currentRect.pointerId;
+                currentRect = null;
                 if (penLayer.hasPointerCapture(pointerId)) {
                     penLayer.releasePointerCapture(pointerId);
                 }
@@ -4516,7 +4691,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const createActiveStroke = (pointerId, firstPoint) => {
                 const bitmap = allocPenCanvas();
-                return { pointerId, points: [firstPoint], drawnIndex: 0, canvas: bitmap.canvas, ctx: bitmap.ctx };
+                return { kind: 'pen', pointerId, points: [firstPoint], drawnIndex: 0, canvas: bitmap.canvas, ctx: bitmap.ctx };
             };
             const showStaticAnnotationStrokes = strokeSets => {
                 clearStaticAnnotationStrokes();
@@ -4534,35 +4709,67 @@ body { display: grid; place-items: center; padding: 32px; }
                 recomposite();
             };
             const canDraw = () => penModeActive && reviewRecordingActive && !isPlaying;
-            penToggle.addEventListener('click', () => {
-                if (!reviewRecordingActive || isPlaying) return;
-                setPenModeActive(!penModeActive);
-            });
-            penLayer.addEventListener('pointerdown', event => {
-                if (!canDraw() || event.button !== 0 || currentStroke) return;
-                event.preventDefault();
-                clearStaticAnnotationStrokes();
-                penLayer.setPointerCapture(event.pointerId);
-                captureDrawRect();
-                const point = normalizedPenPoint(event);
+            const canDrawRect = () => rectModeActive && reviewRecordingActive && !isPlaying;
+            const currentFrame = () => {
                 const segment = segments[activeSegmentIndex];
-                const frame = {
+                return {
                     timelineT: outputTime,
                     sourceT: video.currentTime,
                     cutIndex: segment && segment.kind === 'src' && Number.isInteger(segment.cutIndex)
                         ? segment.cutIndex : null
                 };
-                currentStroke = createActiveStroke(event.pointerId, point);
-                window.akari.reviewStrokeStart(frame);
-                ensurePenLoopRunning();
+            };
+            // task.md 指示3: pen-toggle は既存の入口として残しつつ、実体は共有 toolMode への
+            // request に載せ替える（host が唯一の正本 -- 右パネルの選択/ペン/四角ボタンと同じ経路）。
+            // 楽観的にローカルへも即時反映し、host からのブロードキャストで再確認される。
+            penToggle.addEventListener('click', () => {
+                if (!reviewRecordingActive || isPlaying) return;
+                const nextMode = reviewToolMode === 'pen' ? 'neutral' : 'pen';
+                applyReviewToolMode(nextMode);
+                window.akari.reviewSetToolMode(nextMode);
+            });
+            penLayer.addEventListener('pointerdown', event => {
+                if (event.button !== 0) return;
+                if (canDraw() && !currentStroke) {
+                    event.preventDefault();
+                    clearStaticAnnotationStrokes();
+                    penLayer.setPointerCapture(event.pointerId);
+                    captureDrawRect();
+                    const point = normalizedPenPoint(event);
+                    currentStroke = createActiveStroke(event.pointerId, point);
+                    window.akari.reviewStrokeStart(currentFrame());
+                    ensurePenLoopRunning();
+                } else if (canDrawRect() && !currentRect) {
+                    event.preventDefault();
+                    clearStaticAnnotationStrokes();
+                    penLayer.setPointerCapture(event.pointerId);
+                    captureDrawRect();
+                    const point = normalizedPenPoint(event);
+                    const bitmap = allocPenCanvas();
+                    currentRect = {
+                        kind: 'rect', pointerId: event.pointerId, start: point,
+                        box: [point[0], point[1], 0, 0], canvas: bitmap.canvas, ctx: bitmap.ctx
+                    };
+                    window.akari.reviewRectStart(currentFrame());
+                    ensurePenLoopRunning();
+                }
             });
             penLayer.addEventListener('pointermove', event => {
-                if (!currentStroke || currentStroke.pointerId !== event.pointerId || !canDraw()) return;
-                event.preventDefault();
-                const coalesced = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : null;
-                const events = coalesced && coalesced.length > 0 ? coalesced : [event];
-                for (const raw of events) {
-                    currentStroke.points.push(normalizedPenPoint(raw));
+                if (currentStroke && currentStroke.pointerId === event.pointerId && canDraw()) {
+                    event.preventDefault();
+                    const coalesced = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : null;
+                    const events = coalesced && coalesced.length > 0 ? coalesced : [event];
+                    for (const raw of events) {
+                        currentStroke.points.push(normalizedPenPoint(raw));
+                    }
+                    return;
+                }
+                if (currentRect && currentRect.pointerId === event.pointerId && canDrawRect()) {
+                    event.preventDefault();
+                    const point = normalizedPenPoint(event);
+                    currentRect.box = normalizeRectFromPointsFn(currentRect.start, point);
+                    currentRect.ctx.clearRect(0, 0, currentRect.canvas.width, currentRect.canvas.height);
+                    drawRectShape(currentRect.ctx, currentRect.box);
                 }
             });
             const finishPenStroke = event => {
@@ -4579,8 +4786,30 @@ body { display: grid; place-items: center; padding: 32px; }
                 fadingStrokes.push(completed);
                 ensurePenLoopRunning();
             };
-            penLayer.addEventListener('pointerup', finishPenStroke);
-            penLayer.addEventListener('pointercancel', finishPenStroke);
+            const finishRect = event => {
+                if (!currentRect || currentRect.pointerId !== event.pointerId) return;
+                event.preventDefault();
+                const completed = currentRect;
+                currentRect = null;
+                if (penLayer.hasPointerCapture(event.pointerId)) {
+                    penLayer.releasePointerCapture(event.pointerId);
+                }
+                if (completed.box[2] <= 0 || completed.box[3] <= 0) return;
+                window.akari.reviewRectEnd(completed.box);
+                completed.fadeStartedAt = performance.now();
+                fadingStrokes.push(completed);
+                ensurePenLoopRunning();
+            };
+            // 既存のペン挙動どおり、pointercancel も pointerup と同じ finish 経路を通す
+            // （中断イベントでも 2 点以上あれば確定させる -- 元の finishPenStroke の挙動を維持）。
+            penLayer.addEventListener('pointerup', event => {
+                finishPenStroke(event);
+                finishRect(event);
+            });
+            penLayer.addEventListener('pointercancel', event => {
+                finishPenStroke(event);
+                finishRect(event);
+            });
             // Browser webviews cannot import packages/edit-lint/src/derive-tracks.mjs. Keep this
             // copy behavior-identical to that shared function: kind groups in fixed order, each
             // ref sorted ascending, followed by singleton captions/audio tracks.
@@ -7152,8 +7381,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (playToggle.disabled) return;
                 if (!isPlaying) {
                     abortCurrentStroke();
+                    abortCurrentRect();
                     isPlaying = true;
-                    setPenModeActive(false);
+                    // 描画系ツール（pen/rect）は一時停止中のみ有効 -- select はそのまま維持する
+                    // （select ツールは再生中もクリックへ intent を乗せる意味を持つため、mode 自体は
+                    // pen/rect のときだけ neutral へ戻して host にも伝える。penModeActive/
+                    // rectModeActive はどのモードでも isPlaying=true で false になるよう再計算する）。
+                    if (reviewToolMode === 'pen' || reviewToolMode === 'rect') {
+                        applyReviewToolMode('neutral');
+                        window.akari.reviewSetToolMode('neutral');
+                    } else {
+                        setPenModeActive(false);
+                        setRectModeActive(false);
+                    }
                     window.akari.reviewTransport({ type: 'play', timelineT: outputTime });
                     if (window.akari.previewAudio) void window.akari.previewAudio.resume();
                     const segment = segments[activeSegmentIndex];
@@ -7524,7 +7764,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     penToggle.hidden = !reviewRecordingActive;
                     if (!reviewRecordingActive) {
                         abortCurrentStroke();
-                        setPenModeActive(false);
+                        abortCurrentRect();
+                        applyReviewToolMode('neutral');
+                    } else if (typeof message.mode === 'string') {
+                        // ReviewSessionRecorder（host）が唯一の正本 -- 右パネルの選択/ペン/四角
+                        // ボタンやキーボードショートカットで切り替わった mode をここで反映する。
+                        applyReviewToolMode(message.mode);
                     }
                     updateTransport();
                     return;

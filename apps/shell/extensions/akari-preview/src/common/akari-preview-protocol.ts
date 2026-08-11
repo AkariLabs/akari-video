@@ -1,3 +1,5 @@
+import { ReviewToolMode } from './review-tool-mode';
+
 export const AKARI_PREVIEW_SERVICE_PATH = '/services/akari-preview';
 export const AkariPreviewService = Symbol('AkariPreviewService');
 
@@ -67,14 +69,16 @@ export type ReviewSessionTransportEvent =
     | { recT: number; type: 'seek'; from: number; to: number }
     | { recT: number; type: 'rate'; value: number };
 
-// docs/contract-2026-08-11-review-session-ui-events.md #1: passive UI recording (M1). target
-// follows the #2 vocabulary (panel:<id> / tab:<id> / timeline:cut:<n> / timeline:overlay:<id> /
-// asset:<path>). intent is reserved for the M2 selection tool and is never set by M1 code.
-// tool.mode (#1, M2) is intentionally not modeled here -- vocabulary-only reservation per contract.
+// docs/contract-2026-08-11-review-session-ui-events.md #1: passive UI recording (M1) + M2 tool
+// mode. target follows the #2 vocabulary (panel:<id> / tab:<id> / timeline:cut:<n> /
+// timeline:overlay:<id> / asset:<path>). intent is set true only while the select tool (M2,
+// ReviewToolMode 'select') is active -- see ReviewSessionRecorder.handleUiClick. tool.mode fires
+// once per actual mode switch (ReviewSessionRecorder.setToolMode).
 export type ReviewSessionUiEvent =
     | { recT: number; type: 'ui.click'; target: string; label: string; intent?: boolean }
     | { recT: number; type: 'ui.tab'; target: string; label: string }
-    | { recT: number; type: 'ui.panel'; target: string; label: string };
+    | { recT: number; type: 'ui.panel'; target: string; label: string }
+    | { recT: number; type: 'tool.mode'; mode: ReviewToolMode };
 
 export type ReviewSessionEvent = ReviewSessionTransportEvent | ReviewSessionUiEvent;
 
@@ -108,15 +112,31 @@ export interface ReviewStrokeFrame {
     cutIndex: number | null;
 }
 
-export interface ReviewStroke {
+interface ReviewStrokeBase {
     id: string;
-    tool: 'pen';
     space: 'content-rect';
     recTStart: number;
     recTEnd: number;
     frame: ReviewStrokeFrame;
+}
+
+export interface ReviewPenStroke extends ReviewStrokeBase {
+    tool: 'pen';
     points: Array<[number, number]>;
 }
+
+// task.md 指示4: the rect tool lands through the same session stroke pipeline as pen (additive
+// `tool` discriminant), using box: [x,y,w,h] normalized 0-1 -- the same shape as review.json's
+// region.box (docs/contract-2026-07-20-review-json-v1-annotation-model.md §2), so a future
+// landing into an annotation record's targetKind:"region" needs no reshaping. Choice documented
+// in report.md: session-level capture only for M2 (no automatic review.json annotation record --
+// matches how pen strokes already work today).
+export interface ReviewRectStroke extends ReviewStrokeBase {
+    tool: 'rect';
+    box: [number, number, number, number];
+}
+
+export type ReviewStroke = ReviewPenStroke | ReviewRectStroke;
 
 export interface AppendReviewSessionStrokeRequest {
     sessionDir: string;

@@ -151,6 +151,52 @@ test('creates strokes.json only on the first valid stroke and rejects invalid co
     );
 });
 
+test('accepts a rect stroke (tool: rect, box: [x,y,w,h]) into the same strokes.json pipeline as pen', async () => {
+    const { writer, request } = await fixture();
+    const started = await writer.start(request);
+    const stroke = {
+        id: 'st-0001',
+        tool: 'rect',
+        space: 'content-rect',
+        recTStart: 4.1,
+        recTEnd: 4.6,
+        frame: { timelineT: 12.4, sourceT: 42.5, cutIndex: 3 },
+        box: [0.2, 0.3, 0.4, 0.5]
+    };
+    await writer.appendStroke({ sessionDir: started.sessionDir, stroke });
+    const stored = JSON.parse(await readFile(new URL('strokes.json', `${started.sessionDir}/`), 'utf8'));
+    assert.deepEqual(stored, { version: 1, strokes: [stroke] });
+});
+
+test('rejects a rect stroke whose box violates x+w<=1 / y+h<=1, or has a non-positive dimension', async () => {
+    const { writer, request } = await fixture();
+    const started = await writer.start(request);
+    const base = {
+        id: 'st-0001',
+        tool: 'rect',
+        space: 'content-rect',
+        recTStart: 1,
+        recTEnd: 2,
+        frame: { timelineT: 0, sourceT: 0, cutIndex: null }
+    };
+    await assert.rejects(
+        () => writer.appendStroke({ sessionDir: started.sessionDir, stroke: { ...base, box: [0.8, 0.1, 0.4, 0.2] } }),
+        /Invalid review session stroke/
+    );
+    await assert.rejects(
+        () => writer.appendStroke({ sessionDir: started.sessionDir, stroke: { ...base, box: [0.1, 0.8, 0.2, 0.4] } }),
+        /Invalid review session stroke/
+    );
+    await assert.rejects(
+        () => writer.appendStroke({ sessionDir: started.sessionDir, stroke: { ...base, box: [0.1, 0.1, 0, 0.2] } }),
+        /Invalid review session stroke/
+    );
+    await assert.rejects(
+        () => writer.appendStroke({ sessionDir: started.sessionDir, stroke: { ...base, box: [0.1, 0.1, 0.2] } }),
+        /Invalid review session stroke/
+    );
+});
+
 test('lists missing manifests as orphans and skips only a damaged manifest', async () => {
     const { root, writer } = await fixture();
     const sessions = join(root, 'review', 'sessions');

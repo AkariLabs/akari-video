@@ -21,6 +21,7 @@ import {
     EndReviewSessionRequest,
     ListReviewSessionsRequest,
     ReviewSessionSummary,
+    ReviewStroke,
     StartReviewSessionRequest,
     StartReviewSessionResult
 } from '../common/akari-preview-protocol';
@@ -129,16 +130,14 @@ export class ReviewSessionWriter {
         const sessionDirectory = await this.resolveSessionDirectory(request?.sessionDir);
         const stroke = request?.stroke;
         if (!stroke || !/^st-\d{4,}$/.test(stroke.id)
-            || stroke.tool !== 'pen' || stroke.space !== 'content-rect'
+            || stroke.space !== 'content-rect'
             || !Number.isFinite(stroke.recTStart) || stroke.recTStart < 0
             || !Number.isFinite(stroke.recTEnd) || stroke.recTEnd < stroke.recTStart
             || !Number.isFinite(stroke.frame?.timelineT)
             || !Number.isFinite(stroke.frame?.sourceT)
             || (stroke.frame?.cutIndex !== null
                 && (!Number.isInteger(stroke.frame?.cutIndex) || stroke.frame.cutIndex < 0))
-            || !Array.isArray(stroke.points) || stroke.points.length < 2
-            || stroke.points.some(point => !Array.isArray(point) || point.length !== 2
-                || point.some(value => !Number.isFinite(value) || value < 0 || value > 1))) {
+            || !this.isValidStrokeShape(stroke)) {
             throw new Error('Invalid review session stroke');
         }
         const strokesPath = join(sessionDirectory, 'strokes.json');
@@ -162,6 +161,29 @@ export class ReviewSessionWriter {
             strokesPath,
             Buffer.from(`${JSON.stringify(document, null, 2)}\n`, 'utf8')
         );
+    }
+
+    /**
+     * task.md 指示4: the rect tool lands through this same pipeline as pen, distinguished by the
+     * additive `tool` field. Points (pen) must be a normalized 0-1 polyline of at least 2 points;
+     * box (rect) must be the same [x,y,w,h] normalized-0-1 shape as review.json's region.box
+     * (docs/contract-2026-07-20-review-json-v1-annotation-model.md §2: x+w<=1 and y+h<=1).
+     */
+    protected isValidStrokeShape(stroke: ReviewStroke): boolean {
+        if (stroke.tool === 'pen') {
+            return Array.isArray(stroke.points) && stroke.points.length >= 2
+                && stroke.points.every(point => Array.isArray(point) && point.length === 2
+                    && point.every(value => Number.isFinite(value) && value >= 0 && value <= 1));
+        }
+        if (stroke.tool === 'rect') {
+            const box = stroke.box;
+            if (!Array.isArray(box) || box.length !== 4 || !box.every(value => Number.isFinite(value))) {
+                return false;
+            }
+            const [x, y, w, h] = box;
+            return x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= 1 && y + h <= 1;
+        }
+        return false;
     }
 
     async end(request: EndReviewSessionRequest): Promise<void> {

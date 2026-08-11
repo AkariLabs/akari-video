@@ -1,5 +1,6 @@
 import {
     AkariPreviewService,
+    ReviewRectStroke,
     ReviewStroke,
     ReviewStrokeFrame,
     ReviewSessionSummary,
@@ -8,6 +9,15 @@ import {
     StartReviewSessionRequest,
     StartReviewSessionResult
 } from '../common/akari-preview-protocol';
+import {
+    EditableTargetLike,
+    REVIEW_TOOL_MODE_INITIAL,
+    ReviewToolMode,
+    ReviewToolModeState,
+    isEditableEventTarget,
+    reduceReviewToolMode,
+    reviewToolModeForShortcutKey
+} from '../common/review-tool-mode';
 import { classifyUiEventType, resolveUiEventTarget } from '../common/ui-event-target';
 
 export type ReviewSessionRecorderStatus = 'idle' | 'starting' | 'recording' | 'stopping' | 'error';
@@ -20,6 +30,7 @@ export interface ReviewSessionUiState {
     elapsedSec: number;
     level: number;
     silenceWarning: boolean;
+    toolMode: ReviewToolMode;
     sessions: ReviewSessionSummary[];
     error?: string;
 }
@@ -55,6 +66,7 @@ interface ActiveReviewSession extends StartReviewSessionResult {
     writeError?: Error;
     nextStrokeNumber: number;
     pendingStroke?: Pick<ReviewStroke, 'id' | 'recTStart' | 'frame'>;
+    pendingRect?: Pick<ReviewRectStroke, 'id' | 'recTStart' | 'frame'>;
 }
 
 const TARGET_SAMPLE_RATE = 16_000;
@@ -72,6 +84,8 @@ export class ReviewSessionRecorder {
     protected requestedEditUri = '';
     protected requestedProjectRootUri = '';
     protected uiClickListener: ((event: MouseEvent) => void) | undefined;
+    protected keydownListener: ((event: KeyboardEvent) => void) | undefined;
+    protected toolModeState: ReviewToolModeState = REVIEW_TOOL_MODE_INITIAL;
 
     constructor(
         protected readonly service: AkariPreviewService,
@@ -149,6 +163,9 @@ export class ReviewSessionRecorder {
             processor.onaudioprocess = event => this.captureAudio(active, event);
             this.active = active;
             this.installUiClickListener();
+            this.installKeydownListener();
+            // task.md 指示1: 記録セッション開始時は必ず neutral から始まる。
+            this.toolModeState = reduceReviewToolMode(this.toolModeState, { type: 'session-start' });
             if (initial.rate !== 1) {
                 this.enqueue(active, () => this.service.appendReviewSessionEvent({
                     sessionDir: active.sessionDir,
@@ -183,8 +200,12 @@ export class ReviewSessionRecorder {
         }
         this.status = 'stopping';
         active.pendingStroke = undefined;
+        active.pendingRect = undefined;
         this.stopTimers();
         this.removeUiClickListener();
+        this.removeKeydownListener();
+        // task.md 指示1: セッション終了で必ず neutral へ戻す。
+        this.toolModeState = reduceReviewToolMode(this.toolModeState, { type: 'session-end' });
         this.emitState();
         active.processor.onaudioprocess = null;
         this.flushAudio(active);
@@ -238,6 +259,7 @@ export class ReviewSessionRecorder {
         if (change.type === 'play' || change.type === 'pause') {
             if (change.type === 'play') {
                 active.pendingStroke = undefined;
+                active.pendingRect = undefined;
             }
             active.transport.timelineT = change.timelineT;
             active.transport.playing = change.type === 'play';
@@ -291,12 +313,82 @@ export class ReviewSessionRecorder {
         }));
     }
 
+    /**
+     * task.md 指示4 (rect tool). Mirrors handleStrokeStart/handleStrokeEnd's pendingStroke
+     * pattern (recTStart captured at drag start, not drag end) but is new code with no existing
+     * caller to stay compatible with, so it additionally requires toolMode === 'rect' -- the
+     * webview already gates pointer capture on the same condition (canDrawRect()), this is
+     * defense in depth against a stale/racing message.
+     */
+    handleRectStart(editUri: string, frame: ReviewStrokeFrame): void {
+        const active = this.active;
+        if (!active || active.editUri !== editUri || active.transport.playing || active.pendingRect
+            || this.toolModeState.mode !== 'rect') {
+            return;
+        }
+        active.pendingRect = {
+            id: `st-${String(active.nextStrokeNumber++).padStart(4, '0')}`,
+            recTStart: this.recT(active),
+            frame
+        };
+    }
+
+    handleRectEnd(editUri: string, box: [number, number, number, number]): void {
+        const active = this.active;
+        if (!active || active.editUri !== editUri || !active.pendingRect) {
+            return;
+        }
+        const pendingRect = active.pendingRect;
+        active.pendingRect = undefined;
+        if (!Array.isArray(box) || box.length !== 4 || box.some(value => !Number.isFinite(value))
+            || box[2] <= 0 || box[3] <= 0) {
+            // 退化した矩形（ドラッグなしのクリック等）は pen の points.length<2 破棄と同じ扱い。
+            return;
+        }
+        const stroke: ReviewRectStroke = {
+            ...pendingRect,
+            tool: 'rect',
+            space: 'content-rect',
+            recTEnd: this.recT(active),
+            box
+        };
+        this.enqueue(active, () => this.service.appendReviewSessionStroke({
+            sessionDir: active.sessionDir,
+            stroke
+        }));
+    }
+
+    /**
+     * task.md 指示1/6: the single mode-change entry point -- used by the right panel's tool
+     * buttons, the preview's pen-toggle (re-wired onto this in M2), and this class's own keyboard
+     * shortcut handler. A no-op (state unchanged, nothing emitted) outside a recording session or
+     * when the requested mode is already current.
+     */
+    setToolMode(editUri: string, mode: ReviewToolMode): void {
+        const active = this.active;
+        if (!active || active.editUri !== editUri || this.status !== 'recording') {
+            return;
+        }
+        const next = reduceReviewToolMode(this.toolModeState, { type: 'set-mode', mode });
+        if (next === this.toolModeState) {
+            return;
+        }
+        this.toolModeState = next;
+        const recT = this.recT(active);
+        this.enqueue(active, () => this.service.appendReviewSessionEvent({
+            sessionDir: active.sessionDir,
+            event: { recT, type: 'tool.mode', mode: next.mode }
+        }));
+        this.emitState();
+    }
+
     async dispose(): Promise<void> {
         if (this.active) {
             await this.stop();
         } else {
             this.stopTimers();
             this.removeUiClickListener();
+            this.removeKeydownListener();
         }
     }
 
@@ -334,15 +426,63 @@ export class ReviewSessionRecorder {
         const { target, label } = resolved;
         const kind = classifyUiEventType(target);
         const recT = this.recT(active);
+        // task.md 指示5: select ツール中のクリックにだけ intent: true を乗せる。通常のクリック
+        // 動作（開く・アクティブ化）は preventDefault しない -- ここは記録するだけで一切ブロックしない。
+        const intent = kind === 'ui.click' && this.toolModeState.mode === 'select';
         const uiEvent: ReviewSessionUiEvent = kind === 'ui.panel'
             ? { recT, type: 'ui.panel', target, label }
             : kind === 'ui.tab'
                 ? { recT, type: 'ui.tab', target, label }
-                : { recT, type: 'ui.click', target, label };
+                : intent
+                    ? { recT, type: 'ui.click', target, label, intent: true }
+                    : { recT, type: 'ui.click', target, label };
         this.enqueue(active, () => this.service.appendReviewSessionEvent({
             sessionDir: active.sessionDir,
             event: uiEvent
         }));
+    }
+
+    /**
+     * task.md 指示6: 1=select / 2=pen / 3=rect / Esc=neutral, active recording session only,
+     * inert while typing (isEditableEventTarget checks both the event target and
+     * document.activeElement -- matches akari-annotations-widget.ts's own isEditableTarget
+     * double-check pattern). Installed/removed alongside the UI click listener. Deliberately does
+     * not call stopPropagation -- see report.md's keybinding conflict investigation: no existing
+     * bare 1/2/3/Escape bindings were found, and co-existing with unrelated Escape handlers
+     * (timeline drag-cancel, Theia quick-open close) only requires not blocking their delivery.
+     */
+    protected installKeydownListener(): void {
+        if (this.keydownListener || typeof document === 'undefined') {
+            return;
+        }
+        const listener = (event: KeyboardEvent): void => this.handleKeydown(event);
+        document.addEventListener('keydown', listener, true);
+        this.keydownListener = listener;
+    }
+
+    protected removeKeydownListener(): void {
+        if (this.keydownListener && typeof document !== 'undefined') {
+            document.removeEventListener('keydown', this.keydownListener, true);
+        }
+        this.keydownListener = undefined;
+    }
+
+    protected handleKeydown(event: KeyboardEvent): void {
+        const active = this.active;
+        if (!active || this.status !== 'recording' || event.metaKey || event.ctrlKey || event.altKey) {
+            return;
+        }
+        const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+        if (isEditableEventTarget(event.target as EditableTargetLike | null)
+            || isEditableEventTarget(activeElement as EditableTargetLike | null)) {
+            return;
+        }
+        const mode = event.key === 'Escape' ? 'neutral' : reviewToolModeForShortcutKey(event.key);
+        if (!mode) {
+            return;
+        }
+        event.preventDefault();
+        this.setToolMode(active.editUri, mode);
     }
 
     protected captureAudio(active: ActiveReviewSession, event: AudioProcessingEvent): void {
@@ -488,6 +628,7 @@ export class ReviewSessionRecorder {
                 && level === 0
                 && performance.now() - active.lastNonSilentAt >= SILENCE_WARNING_AFTER_MS
             ),
+            toolMode: this.toolModeState.mode,
             sessions: [...this.sessions],
             ...(error ? { error } : {})
         });
