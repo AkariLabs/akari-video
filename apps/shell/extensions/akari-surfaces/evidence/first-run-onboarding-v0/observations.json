@@ -4,9 +4,9 @@
     {
       "launch": 1,
       "stages": [
-        "first-run-setup",
-        "workspace",
-        "connection",
+        "welcome+setup-dialog",
+        "workspace-dialog",
+        "connection-dialog",
         "dashboard"
       ],
       "tools": [
@@ -32,7 +32,7 @@
         },
         {
           "id": "blender",
-          "available": "true"
+          "available": "false"
         },
         {
           "id": "xcode-clt",
@@ -41,11 +41,11 @@
       ],
       "marker": {
         "schema": 1,
-        "shownAt": "2026-08-11T18:22:21.395Z"
+        "shownAt": "2026-08-11T22:16:05.396Z"
       },
       "pointer": {
-        "lastRoot": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-first-run-l1-AWMsms/home/Akari",
-        "updatedAt": "2026-08-11T18:22:46.117Z"
+        "lastRoot": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-first-run-l1-TqlMng/home/Akari",
+        "updatedAt": "2026-08-11T22:16:02.043Z"
       },
       "manifestSchema": "creator-root/v1"
     },
@@ -54,7 +54,9 @@
       "initialStage": "welcome",
       "autoSetupCount": 0,
       "reopenButtonCount": 1,
-      "commandStage": "first-run-setup"
+      "buttonReopenClosedWithEscape": true,
+      "commandStage": "setup-dialog-over-welcome",
+      "commandReopenClosedWithX": true
     }
   ]
 }

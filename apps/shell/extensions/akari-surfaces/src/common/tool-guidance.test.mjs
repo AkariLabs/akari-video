@@ -7,6 +7,10 @@ test('CLT 未導入向けに推奨表示・非必須説明・xcode-select --inst
     assert.equal(clt.badge, '推奨');
     assert.match(clt.note, /入れなくても動画は作れます/);
     assert.match(clt.note, /導入後に自動で有効/);
+    assert.match(`${clt.purpose} ${clt.note}`, /履歴/);
+    assert.match(`${clt.purpose} ${clt.note}`, /AI 分析/);
+    assert.match(clt.purpose, /文字起こし/);
+    assert.match(clt.purpose, /人物マット/);
     assert.match(clt.install, /xcode-select --install/);
 });
 
