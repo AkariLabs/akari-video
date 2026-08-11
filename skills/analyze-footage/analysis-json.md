@@ -120,6 +120,8 @@ tracks の形:
 
 単一パスの文字列（`"mattes/person-alpha.mov"`）は旧形であり、`{ "path": ... }` の糖衣として読み手が受けるが、新しく書かない。face の speaker は対応する `tracks.speakers[].id` に存在させる。
 
+`tracks.face_landmarks` / `tracks.hand_pose`（顔ランドマーク・手ポーズのトラック）は person_matte と違い、キー自体が任意である（未生成のときは `null` を書かず、キーごと省略する）。この 2 キーは agent がここで手組みするものではなく、[vision-tracks.md](vision-tracks.md) の `vision-tracks.mjs` が確定済みの analysis.json に対して直接読み書きする。データ契約は [docs/contract-2026-08-11-analysis-vision-tracks-v0.md](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md) が正本である。
+
 ## Schema では表せない意味制約
 
 確定前に次を別途検査する。

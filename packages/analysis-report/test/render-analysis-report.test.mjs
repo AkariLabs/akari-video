@@ -382,6 +382,35 @@ test("壊れた analysis.json を明確なエラーで拒否する", () => {
   }
 });
 
+// vision-tracks v0（docs/contract-2026-08-11-analysis-vision-tracks-v0.md）の消費者追随債務
+// 確認: tracks.face_landmarks / tracks.hand_pose という新しい optional キーを持つ
+// analysis.json を、この軽量チェック（validateAnalysisStructure）がエラー扱いしないこと。
+// person_matte 契約 §9 が残した「消費者の追随債務」を新トラックで繰り返さないための回帰トラップ。
+test("tracks.face_landmarks / tracks.hand_pose を持つ analysis.json も軽量チェックを通る（vision-tracks v0 追随確認）", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const outPath = join(dir, "report.html");
+    const result = run([
+      "--analysis",
+      resolve(here, "fixtures/analysis-vision-tracks.json"),
+      "--interpretation",
+      resolve(here, "fixtures/interpretation-vision-tracks.json"),
+      "--out",
+      outPath,
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(existsSync(outPath), "report.html が生成されている");
+
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    const embeddedTracks = bundle.assets[0].analysis.tracks;
+    assert.equal(embeddedTracks.face_landmarks.path, "vision/face-landmarks.json");
+    assert.equal(embeddedTracks.hand_pose.path, "vision/hand-pose.json");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // --- block-id（doc:<path>#<block-id> 注釈ターゲットの地ならし・2026-07-26）---
 //
 // 内部契約 contract-2026-07-26-doc-image-annotations.md §1 の 3 要件

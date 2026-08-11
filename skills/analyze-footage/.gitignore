@@ -1,4 +1,6 @@
 bin/speechanalyzer-helper
 bin/person-matte/person-matte-helper
+bin/vision-tracks/vision-tracks-helper
 bin/*.dSYM/
 bin/person-matte/*.dSYM/
+bin/vision-tracks/*.dSYM/

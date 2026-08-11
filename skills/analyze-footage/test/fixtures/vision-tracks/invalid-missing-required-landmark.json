@@ -1,0 +1,25 @@
+{
+  "version": 0,
+  "kind": "face-landmarks",
+  "source": { "path": "../../clip.mp4", "duration": 12.5 },
+  "sample_fps": 24,
+  "provider": { "name": "apple-vision" },
+  "samples": [
+    {
+      "t": 0.0,
+      "detections": [
+        {
+          "box": [0.65, 0.2, 0.25, 0.35],
+          "conf": 0.98,
+          "landmarks": {
+            "left_pupil": [0.72, 0.34],
+            "right_pupil": [0.84, 0.31],
+            "left_eye": [[0.7, 0.32]],
+            "right_eye": [[0.82, 0.29]],
+            "outer_lips": [[0.74, 0.48]]
+          }
+        }
+      ]
+    }
+  ]
+}

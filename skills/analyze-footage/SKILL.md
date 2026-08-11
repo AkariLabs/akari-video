@@ -17,6 +17,7 @@ description: 動画素材 1 本から 720p プロキシ、ローカル既定の�
 - `filler | trouble | chapter | highlight | hook` 以外の event を作らない。hook は 5 軸すべてを 1〜5 の整数で採点する。
 - [analysis.schema.json](references/analysis.schema.json) にない補助フィールドを追加しない。Schema 検証と意味検証を通した JSON だけを確定版にする。
 - 人物マットは全素材で作らない。人物演出を使うと決めた素材でだけ実行する任意工程であり、処理時間が実時間の数倍に増える。既定は `tracks.person_matte: null` である。
+- 顔ランドマーク・手ポーズのトラック（`tracks.face_landmarks` / `tracks.hand_pose`）も全素材で作らない。瞳・指先の位置を使う演出（eye-bar / finger-frame 等）を使うと決めた素材でだけ実行する任意工程であり、既定はキー自体を書かない（未生成 = キー無し）。
 - OpenMontage は構造上の参考に限り、AGPL の文章・コードを転写しない。
 - 既存の `.akari/sidecars/` 出力先規約（[workflow.md](workflow.md) 参照）は
   [project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) の
@@ -31,5 +32,6 @@ description: 動画素材 1 本から 720p プロキシ、ローカル既定の�
 4. [events-and-hooks.md](events-and-hooks.md) を読み、5 種 event と hook の 5 軸スコアを判定する。
 5. （任意）人物演出を使うと決めた素材でだけ [person-matte.md](person-matte.md) を読み、人物マットを生成する。既定は実行しない。
 6. [analysis-json.md](analysis-json.md) を読み、tracks を含む JSON を組み立て、検証後に確定する。
+7. （任意）瞳・指先の位置を使う演出を使うと決めた素材でだけ、確定済みの analysis.json に対して [vision-tracks.md](vision-tracks.md) を読み、顔ランドマーク・手ポーズのトラックを生成する。既定は実行しない。person-matte と違い analysis.json 自体を直接書き換えるため、必ず手順 6 の確定後に行う。
 
 詳細を先読みせず、現在の工程に対応するファイルだけを読む。
