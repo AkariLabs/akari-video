@@ -10,6 +10,7 @@ import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import {
     ApplicationShell,
     CommonMenus,
+    FrontendApplication,
     FrontendApplicationContribution,
     WidgetManager
 } from '@theia/core/lib/browser';
@@ -39,6 +40,7 @@ import { AkariInspectorWidget } from './akari-inspector-widget';
 import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ProjectLocation } from './project-location';
+import { installRightPanelTabStyle } from './right-panel-tab-style';
 import { ReviewModel } from './review-model';
 
 export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_CANVAS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_REVIEW_PANEL };
@@ -55,6 +57,21 @@ const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 // akari-preview 側の PREVIEW_LAYER_SELECTED_EVENT とミラー（CF-select）。
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
+
+// akari-annotations-widget.ts の同名定数とミラー（拡張内で完結させ、他拡張への npm 依存を作らない）。
+const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
+// 縦アイコンバー固定配置（task.md 指示2）: 注釈を AI とインスペクターの間の rank に置く。
+const REVIEW_PANEL_RANK = 150;
+const INSPECTOR_PANEL_RANK = 200;
+// Theia の SidePanelHandler.setLayoutData()（node_modules/@theia/core 実装を実測）は保存済み
+// レイアウトのタブ順をそのまま tabBar.addTab() で再生するだけで、rank による再ソートをしない。
+// そのため rank 指定だけでは、注釈タブを知らない古い保存済みレイアウトを持つ既存ユーザーで
+// 並びが崩れる（reconcileRightPanelOrder で起動のたびに明示的に揃え直す）。
+const RIGHT_PANEL_FIXED_ORDER: readonly string[] = [
+    PARTNER_WIDGET_ID,
+    AkariReviewPanelWidget.FACTORY_ID,
+    AkariInspectorWidget.FACTORY_ID
+];
 
 interface PreviewOverlaySelection {
     videoUri?: string;
@@ -111,10 +128,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     protected lastPushedAnnotations?: readonly Annotation[];
 
     async onStart(): Promise<void> {
+        installRightPanelTabStyle(this.shell.rightPanelHandler.tabBar);
         await this.workspaceService.ready;
         for (const root of await this.workspaceService.roots) {
             await this.watchForReview(root.resource);
         }
+        await this.ensureReviewPanelTab();
         this.widgetManager.onDidCreateWidget(event => {
             if (event.factoryId !== WebviewWidget.FACTORY_ID || !(event.widget instanceof WebviewWidget)) {
                 return;
@@ -152,6 +171,20 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             clearInterval(this.reconcileHandle);
             this.reconcileHandle = undefined;
         }
+    }
+
+    /**
+     * task.md 指示2・制約「アイコンの並び位置は毎回変わらないこと」。rank だけでは保存済み
+     * レイアウトの復元後に順序を保証できない（reconcileRightPanelOrder の JSDoc 参照）ため、
+     * レイアウト初期化の直後と、対象 widget が追加されるたびに明示的に並べ直す。
+     */
+    onDidInitializeLayout(app: FrontendApplication): void {
+        this.reconcileRightPanelOrder();
+        app.shell.onDidAddWidget(widget => {
+            if (RIGHT_PANEL_FIXED_ORDER.includes(widget.id)) {
+                this.reconcileRightPanelOrder();
+            }
+        });
     }
 
     registerCommands(commands: CommandRegistry): void {
@@ -233,6 +266,39 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             label: OPEN_AKARI_CANVAS.label,
             order: 'z23'
         });
+    }
+
+    /**
+     * 注釈パネルのタブを縦アイコンバーへ常時固定する（task.md 指示2）。プロジェクトの有無に
+     * 関わらずアイコン自体は毎回同じ位置に存在させ、クリックで開閉できる状態にする —
+     * データ読み込み（location 解決）は開いた後に ReviewModel 側で解決される（widget 側は
+     * location 未設定を許容する設計、akari-review-panel-widget.ts 参照）。activate はしない
+     * （AI パネルの既定表示を奪わない — 排他切り替えの維持、task.md 指示3）。
+     */
+    protected async ensureReviewPanelTab(): Promise<AkariReviewPanelWidget> {
+        const widget = await this.widgetManager.getOrCreateWidget<AkariReviewPanelWidget>(AkariReviewPanelWidget.FACTORY_ID);
+        if (!widget.isAttached) {
+            this.shell.addWidget(widget, { area: 'right', rank: REVIEW_PANEL_RANK });
+        }
+        return widget;
+    }
+
+    /**
+     * 縦アイコンバーの並び順を [AI, 注釈, インスペクター] に固定する（RIGHT_PANEL_FIXED_ORDER
+     * の JSDoc 参照）。`TabBar.insertTab()`（@lumino/widgets 実装を実測確認）は対象の title が
+     * 既にバーにあれば移動するだけで複製しないため、安全に何度でも呼べる冪等な操作。
+     */
+    protected reconcileRightPanelOrder(): void {
+        const tabBar = this.shell.rightPanelHandler.tabBar;
+        let insertAt = 0;
+        for (const id of RIGHT_PANEL_FIXED_ORDER) {
+            const title = Array.from(tabBar.titles).find(candidate => candidate.owner.id === id && !candidate.owner.isDisposed);
+            if (!title) {
+                continue;
+            }
+            tabBar.insertTab(insertAt, title);
+            insertAt++;
+        }
     }
 
     protected async watchForReview(root: URI): Promise<void> {
@@ -487,10 +553,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         if (!timeline) {
             return undefined;
         }
-        const widget = await this.widgetManager.getOrCreateWidget<AkariReviewPanelWidget>(AkariReviewPanelWidget.FACTORY_ID);
-        if (!widget.isAttached) {
-            this.shell.addWidget(widget, { area: 'right', rank: 100 });
-        }
+        const widget = await this.ensureReviewPanelTab();
         await this.shell.activateWidget(widget.id);
         return widget;
     }
@@ -526,7 +589,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         }
         const widget = await this.widgetManager.getOrCreateWidget<AkariInspectorWidget>(AkariInspectorWidget.FACTORY_ID);
         if (!widget.isAttached) {
-            this.shell.addWidget(widget, { area: 'right', rank: 101 });
+            this.shell.addWidget(widget, { area: 'right', rank: INSPECTOR_PANEL_RANK });
         }
         await this.shell.revealWidget(widget.id);
         return widget;
