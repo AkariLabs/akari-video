@@ -1,6 +1,6 @@
 {
   "name": "akari",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "AKARI Video の編集スキル一式 + .akari/ プロジェクトの進捗を SessionStart で注入 + /akari 導線を束ねるプラグイン。3 入口（ターミナル akari / セッション内 /akari / アプリ接続ボタン）が同じファイル契約に収束する背骨。",
   "author": {
     "name": "AKARI Video"
