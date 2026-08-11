@@ -2,7 +2,7 @@
 
 > **廃止（2026-08-11）**: 本契約が定義した 5 id（noise / particles / vignette / flare /
 > color-overlay）はオーナー裁定「めちゃくちゃダサいのでやめたい」により製品面から全撤去した
-> （撤去タスク: 内部リポ `tasks/2026-08-11-fx-v0-removal/`）。`presets/fx/index.jsonl` は
+> （撤去の作業記録は非公開の内部記録で管理）。`presets/fx/index.jsonl` は
 > 0 件へ戻し、`packages/render-cut/src/fx.mjs` の `FX_BUILDERS` から 5 ビルダーを削除、
 > `packages/schemas/edit.schema.json` の `$defs/cutFx.properties.id` は enum を撤廃して
 > string へ緩和した（未登録 id は render 側が警告 + no-op で通す。ハードフェイルしない）。
