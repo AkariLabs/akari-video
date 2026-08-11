@@ -8,7 +8,19 @@ set MONOREPO=%~dp0
 if exist "%MONOREPO%packages\akari-launcher\bin\akari.mjs" goto :found
 set MONOREPO=%MONOREPO%..\
 if exist "%MONOREPO%" goto :walk
-echo [ERR] Cannot find AKARI Video monorepo. >&2
+
+:: install.ps1 済みの環境（プロジェクトフォルダを新 PC へ持ち込んだ場合も含む）を拾う。
+if not defined AKARI_INSTALL_DIR set AKARI_INSTALL_DIR=%USERPROFILE%\.akari\app
+if exist "%AKARI_INSTALL_DIR%\packages\akari-launcher\bin\akari.mjs" (
+    set MONOREPO=%AKARI_INSTALL_DIR%\
+    goto :found
+)
+
+:: 行き止まり撤去: 専門語（Node.js / monorepo / PATH）を出さず、平易な案内 1 行だけ
+:: 出して終わる（Windows 版は同意付きセルフインストールの自動実行までは対象外）。
+echo AKARI Video 本体がこのパソコンにまだ入っていません。 >&2
+echo セットアップするには、PowerShell で次を実行してください: >&2
+echo   irm https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.ps1 ^| iex >&2
 exit /b 1
 :found
 if "%MONOREPO:~-1%"=="\" set MONOREPO=%MONOREPO:~0,-1%
