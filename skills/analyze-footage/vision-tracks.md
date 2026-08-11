@@ -6,6 +6,7 @@
 - [道具を確認する](#道具を確認する)
 - [生成する](#生成する)
 - [analysis.json への反映](#analysisjson-への反映)
+- [消費: 目線黒帯（eye-bar）](#消費-目線黒帯eye-bar)
 - [劣化](#劣化)
 - [消費側: finger-frame（指フレーム切り替え）](#消費側-finger-frame指フレーム切り替え)
 
@@ -124,6 +125,42 @@ person-matte と異なり、agent が返り値を手で `tracks` へ貼り付け
 必要な種類だけを更新する。person-matte のような単一アーティファクトの上書きとは違う）。
 すでに確定済みの analysis.json に対して実行する工程なので、[analysis-json.md](analysis-json.md)
 の Schema 検証・意味制約チェックを**先に**通してから呼び出すこと。
+
+## 消費: 目線黒帯（eye-bar）
+
+`face_landmarks` を生成しただけでは何も起きない。「犯罪者風の目線黒帯」を実際に映像へ乗せる
+のは別の決定論変換器 `packages/akari-tools/bin/eye-bar.mjs`（`akari internal eye-bar` からも
+起動できる）の仕事であり、本スキルの範囲外（[analysis-vision-tracks-v0 契約](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md)
+§4）。使い分け:
+
+- **本スキル（vision-tracks.mjs）**: 「動画から瞳の位置を検出してトラックに残す」——
+  分析（事実の記録）
+- **eye-bar.mjs**: 「トラックから黒帯の位置・角度・大きさを計算し `layers[].keyframes`
+  として `edit.json` に足す」—— 消費（演出への変換）
+
+顔だけ・瞳を使う演出（eye-bar）を使うと決めているときは、`--kinds face`（`hand` は不要）で
+トラックを作ってから、承認済みの `edit.json`（cuts が確定済みであること — eye-bar は
+cuts の in/out/at/speed から source 秒→タイムライン秒を解くため、cuts を後から編集し直すと
+黒帯の位置がずれる）に対して実行する。
+
+```bash
+node packages/akari-tools/bin/eye-bar.mjs \
+  --analysis "$OUT_DIR/analysis.json" --edit "$OUT_DIR/edit.json" --apply
+```
+
+- 既定値のままで大抵は動く（瞳間距離 ×1.6 の長さ・太さ比 0.22・移動平均 5 サンプルでの平滑化・
+  0.2 秒間隔の間引き）。パラメータの全体は `eye-bar.mjs --help` 相当のヘッダコメントを参照
+- `--apply` を付けない限り `edit.json` は変更されない（stdout の JSON で生成結果だけ確認できる）
+- 複数人が写る素材は `--face <index>` で対象を選ぶ（v0 は 1 人だけ・複数人同時追跡は非対応）
+- 黒帯素材（アルファ mov）は `.akari/cache/eye-bar/` へ自動生成される（プロジェクトの
+  再生成可能キャッシュ層 — 削除しても再実行すれば作り直せる）
+- 別カットアウェイ（対象人物が画面から消える区間）を挟む素材では、eye-bar は複数の
+  `layers[]` エントリ（区間ごとに 1 枚）を追加する。黒帯が無関係な映像の上に浮いたまま残る
+  ことを避けるための設計であり、意図した挙動である
+- Vision の瞳検出が瞬き等で数フレームだけ左右を取り違えることが実測で確認されている
+  （conf は 1.0 のまま角度だけ物理的にあり得ない量で跳ねる）。eye-bar 側で「直前採用値から
+  45°を超える瞬時ジャンプ」を自動的に棄却しホールドで埋めるため、通常は手当て不要
+  （`--outlier-max-angle-jump` で閾値変更・無効化も可）
 
 ## 劣化
 

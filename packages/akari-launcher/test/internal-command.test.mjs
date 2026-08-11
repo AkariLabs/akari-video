@@ -6,7 +6,8 @@ import { runInternalCommand } from '../src/internal-command.mjs';
 const assets = {
   beatmapScript: '/repo/packages/akari-tools/bin/beatmap.mjs',
   probeFrameScript: '/repo/packages/akari-tools/bin/probe-frame.mjs',
-  renderWhenIdleScript: '/repo/packages/akari-tools/bin/render-when-idle.sh'
+  renderWhenIdleScript: '/repo/packages/akari-tools/bin/render-when-idle.sh',
+  eyeBarScript: '/repo/packages/akari-tools/bin/eye-bar.mjs'
 };
 
 async function runAndCapture(args) {
@@ -21,11 +22,11 @@ async function runAndCapture(args) {
   return { result, calls };
 }
 
-test('akari internal --help: 3 サブコマンドを自己記述する', async () => {
+test('akari internal --help: 4 サブコマンドを自己記述する', async () => {
   const lines = [];
   const result = await runInternalCommand(['--help'], { assets, log: (line) => lines.push(line) });
   assert.equal(result.exitCode, 0);
-  for (const command of ['beat-sync-beatmap', 'beat-sync-probe-frame', 'beat-sync-render-when-idle']) {
+  for (const command of ['beat-sync-beatmap', 'beat-sync-probe-frame', 'beat-sync-render-when-idle', 'eye-bar']) {
     assert.match(lines.join('\n'), new RegExp(command));
   }
 });
@@ -44,6 +45,16 @@ test('akari internal beat-sync-probe-frame: node 子プロセスへ引数を転�
 test('akari internal beat-sync-render-when-idle: shebang 実行へ引数を転送する', async () => {
   const { calls } = await runAndCapture(['beat-sync-render-when-idle', 'project', '--max-load', '2']);
   assert.deepEqual(calls[0], [assets.renderWhenIdleScript, ['project', '--max-load', '2'], { stdio: 'inherit' }]);
+});
+
+test('akari internal eye-bar: node 子プロセスへ引数を転送する', async () => {
+  const { result, calls } = await runAndCapture(['eye-bar', '--edit', 'edit.json', '--analysis', 'analysis.json']);
+  assert.equal(result.exitCode, 7);
+  assert.deepEqual(calls[0], [
+    process.execPath,
+    [assets.eyeBarScript, '--edit', 'edit.json', '--analysis', 'analysis.json'],
+    { stdio: 'inherit' }
+  ]);
 });
 
 test('akari internal: 不明なサブコマンドは一覧を添えて exit 1', async () => {

@@ -8,7 +8,8 @@ const commands = [
   'beat-sync-beatmap',
   'beat-sync-probe-frame',
   'beat-sync-render-when-idle',
-  'vision-finger-frame'
+  'vision-finger-frame',
+  'eye-bar'
 ];
 
 const usage = [
@@ -46,7 +47,8 @@ export async function runInternalCommand(args, options = {}) {
     'vision-finger-frame': {
       path: fingerFrameScript && existsSync(fingerFrameScript) ? fingerFrameScript : null,
       node: true
-    }
+    },
+    'eye-bar': { path: assets.eyeBarScript, node: true }
   };
   const definition = definitions[subcommand];
   if (!definition) {
