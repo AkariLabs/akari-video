@@ -137,13 +137,16 @@ function confirmationText(normalizedText, reference, judgement) {
   const candidateText = reference.candidates.length > 0
     ? `候補 timelineT: ${reference.candidates.map((value) => value.toFixed(3)).join(", ")}`
     : `暫定位置 timelineT: ${reference.timelineT.toFixed(3)}`;
+  const uiCandidateText = Array.isArray(reference.uiCandidates) && reference.uiCandidates.length > 0
+    ? `。UI候補: ${reference.uiCandidates.map((candidate) => `${candidate.label || candidate.target}(${candidate.target})`).join(", ")}`
+    : "";
   const reason = judgement.confidence === "low" ? judgement.reason : "参照先が一意に決まらない";
-  return `[要確認] ${normalizedText}（${candidateText}。${reason}ため、この対象でよいか確認してください）`;
+  return `[要確認] ${normalizedText}（${candidateText}${uiCandidateText}。${reason}ため、この対象でよいか確認してください）`;
 }
 
-export function buildProposals({ utterances, trace, cutMap, strokes = [] }) {
+export function buildProposals({ utterances, trace, cutMap, strokes = [], uiClicks = [], overlays = [] }) {
   return utterances.map((utterance, index) => {
-    const reference = resolveUtteranceReference({ utterance, trace, cutMap, strokes });
+    const reference = resolveUtteranceReference({ utterance, trace, cutMap, strokes, uiClicks, overlays });
     const provisional = provisionalJudgement(utterance.text);
     return {
       index,
@@ -186,6 +189,7 @@ export function proposalToAnnotation({ proposal, decision, sessionId, audioPath,
     sourceRange: proposal.reference.sourceRange,
     timelineT: proposal.reference.timelineT,
     target: proposal.reference.target,
+    ...(proposal.reference.refs ? { refs: proposal.reference.refs } : {}),
     text: needsConfirmation
       ? confirmationText(decision.text, proposal.reference, decision)
       : decision.text,

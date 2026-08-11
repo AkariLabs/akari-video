@@ -24,6 +24,7 @@ import {
 import {
   buildCutMap,
   buildTimelineTrace,
+  buildUiTrace,
   parseEventsJsonl,
 } from "./core/time-mapping.mjs";
 import { transcribeAudio } from "./core/transcription.mjs";
@@ -405,6 +406,8 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
     const parsedStrokes = await loadStrokes(sessionDirectory);
     const trace = buildTimelineTrace(parsedEvents.events);
     const cutMap = buildCutMap(snapshot);
+    const uiTrace = buildUiTrace(parsedEvents.events);
+    const overlays = Array.isArray(snapshot.overlays) ? snapshot.overlays : [];
     const transcriptPath = path.join(sessionDirectory, "transcript.json");
     const { transcript, warnings: transcriptWarnings } = await loadOrCreateTranscript({
       transcriptPath,
@@ -441,12 +444,20 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
         }
       }
     } else {
-      proposals = buildProposals({ utterances, trace, cutMap, strokes: parsedStrokes.strokes });
+      proposals = buildProposals({
+        utterances,
+        trace,
+        cutMap,
+        strokes: parsedStrokes.strokes,
+        uiClicks: uiTrace.clicks,
+        overlays,
+      });
     }
 
     const warnings = [
       ...parsedEvents.warnings,
       ...parsedStrokes.warnings,
+      ...uiTrace.warnings,
       ...transcriptWarnings,
     ];
     const unavailableReasons = Array.isArray(transcript.unavailableReasons)
