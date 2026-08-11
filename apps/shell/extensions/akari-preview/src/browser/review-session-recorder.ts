@@ -4,9 +4,11 @@ import {
     ReviewStrokeFrame,
     ReviewSessionSummary,
     ReviewSessionTransportEvent,
+    ReviewSessionUiEvent,
     StartReviewSessionRequest,
     StartReviewSessionResult
 } from '../common/akari-preview-protocol';
+import { classifyUiEventType, resolveUiEventTarget } from '../common/ui-event-target';
 
 export type ReviewSessionRecorderStatus = 'idle' | 'starting' | 'recording' | 'stopping' | 'error';
 
@@ -69,6 +71,7 @@ export class ReviewSessionRecorder {
     protected tickTimer: number | undefined;
     protected requestedEditUri = '';
     protected requestedProjectRootUri = '';
+    protected uiClickListener: ((event: MouseEvent) => void) | undefined;
 
     constructor(
         protected readonly service: AkariPreviewService,
@@ -145,6 +148,7 @@ export class ReviewSessionRecorder {
             };
             processor.onaudioprocess = event => this.captureAudio(active, event);
             this.active = active;
+            this.installUiClickListener();
             if (initial.rate !== 1) {
                 this.enqueue(active, () => this.service.appendReviewSessionEvent({
                     sessionDir: active.sessionDir,
@@ -159,6 +163,7 @@ export class ReviewSessionRecorder {
             if (context) {
                 await context.close().catch(() => undefined);
             }
+            this.removeUiClickListener();
             this.status = 'error';
             this.emitState(this.message(error));
         }
@@ -179,6 +184,7 @@ export class ReviewSessionRecorder {
         this.status = 'stopping';
         active.pendingStroke = undefined;
         this.stopTimers();
+        this.removeUiClickListener();
         this.emitState();
         active.processor.onaudioprocess = null;
         this.flushAudio(active);
@@ -290,7 +296,53 @@ export class ReviewSessionRecorder {
             await this.stop();
         } else {
             this.stopTimers();
+            this.removeUiClickListener();
         }
+    }
+
+    /**
+     * docs/contract-2026-08-11-review-session-ui-events.md #2/#3: one capture-phase click
+     * listener, installed only while a session is recording (removed on stop/dispose so idle
+     * sessions do no per-click work at all -- "常時監視をしない"). Resolves the nearest
+     * data-akari-ui ancestor; unregistered clicks are silently ignored.
+     */
+    protected installUiClickListener(): void {
+        if (this.uiClickListener || typeof document === 'undefined') {
+            return;
+        }
+        const listener = (event: MouseEvent): void => this.handleUiClick(event);
+        document.addEventListener('click', listener, true);
+        this.uiClickListener = listener;
+    }
+
+    protected removeUiClickListener(): void {
+        if (this.uiClickListener && typeof document !== 'undefined') {
+            document.removeEventListener('click', this.uiClickListener, true);
+        }
+        this.uiClickListener = undefined;
+    }
+
+    protected handleUiClick(event: MouseEvent): void {
+        const active = this.active;
+        if (!active || this.status !== 'recording') {
+            return;
+        }
+        const resolved = resolveUiEventTarget(event.target as Node | null);
+        if (!resolved) {
+            return;
+        }
+        const { target, label } = resolved;
+        const kind = classifyUiEventType(target);
+        const recT = this.recT(active);
+        const uiEvent: ReviewSessionUiEvent = kind === 'ui.panel'
+            ? { recT, type: 'ui.panel', target, label }
+            : kind === 'ui.tab'
+                ? { recT, type: 'ui.tab', target, label }
+                : { recT, type: 'ui.click', target, label };
+        this.enqueue(active, () => this.service.appendReviewSessionEvent({
+            sessionDir: active.sessionDir,
+            event: uiEvent
+        }));
     }
 
     protected captureAudio(active: ActiveReviewSession, event: AudioProcessingEvent): void {

@@ -67,6 +67,17 @@ export type ReviewSessionTransportEvent =
     | { recT: number; type: 'seek'; from: number; to: number }
     | { recT: number; type: 'rate'; value: number };
 
+// docs/contract-2026-08-11-review-session-ui-events.md #1: passive UI recording (M1). target
+// follows the #2 vocabulary (panel:<id> / tab:<id> / timeline:cut:<n> / timeline:overlay:<id> /
+// asset:<path>). intent is reserved for the M2 selection tool and is never set by M1 code.
+// tool.mode (#1, M2) is intentionally not modeled here -- vocabulary-only reservation per contract.
+export type ReviewSessionUiEvent =
+    | { recT: number; type: 'ui.click'; target: string; label: string; intent?: boolean }
+    | { recT: number; type: 'ui.tab'; target: string; label: string }
+    | { recT: number; type: 'ui.panel'; target: string; label: string };
+
+export type ReviewSessionEvent = ReviewSessionTransportEvent | ReviewSessionUiEvent;
+
 export interface StartReviewSessionRequest {
     projectRootUri: string;
     editUri: string;
@@ -83,7 +94,7 @@ export interface StartReviewSessionResult {
 
 export interface AppendReviewSessionEventRequest {
     sessionDir: string;
-    event: ReviewSessionTransportEvent;
+    event: ReviewSessionEvent;
 }
 
 export interface AppendReviewSessionAudioRequest {

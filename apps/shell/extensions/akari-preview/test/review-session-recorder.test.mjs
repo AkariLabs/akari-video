@@ -274,3 +274,197 @@ test('records completed strokes on the session clock and discards a pending stro
         restorePerformance();
     }
 });
+
+// docs/contract-2026-08-11-review-session-ui-events.md #2/#5: the three required unit cases --
+// registered element click -> expected shape / unregistered element -> nothing emitted /
+// outside a session -> nothing emitted. handleUiClick is exercised directly (protected method,
+// callable at the JS runtime level) the same way the stroke tests above call handleStrokeStart
+// directly, so these don't need a real DOM.
+
+test('registered element click emits the expected ui.click event while recording', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const restorePerformance = replaceGlobal('performance', { now: () => 2_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        const target = {
+            getAttribute: name => ({
+                'data-akari-ui': 'asset:assets/broll/city.mp4',
+                'data-akari-ui-label': 'city.mp4'
+            }[name] ?? null),
+            parentNode: null
+        };
+        recorder.handleUiClick({ target });
+        await active.writeTail;
+        assert.deepEqual(events, [{
+            recT: 1, type: 'ui.click', target: 'asset:assets/broll/city.mp4', label: 'city.mp4'
+        }]);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('registered panel: / tab: targets emit ui.panel / ui.tab respectively', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const restorePerformance = replaceGlobal('performance', { now: () => 1_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        recorder.handleUiClick({
+            target: { getAttribute: name => (name === 'data-akari-ui' ? 'panel:assets' : null), parentNode: null }
+        });
+        recorder.handleUiClick({
+            target: { getAttribute: name => (name === 'data-akari-ui' ? 'tab:inspector-cut-0' : null), parentNode: null }
+        });
+        await active.writeTail;
+        assert.equal(events.length, 2);
+        assert.equal(events[0].type, 'ui.panel');
+        assert.equal(events[0].target, 'panel:assets');
+        assert.equal(events[1].type, 'ui.tab');
+        assert.equal(events[1].target, 'tab:inspector-cut-0');
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('unregistered element click emits nothing', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 0,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        recorder.handleUiClick({ target: { getAttribute: () => null, parentNode: null } });
+        await active.writeTail;
+        assert.equal(events.length, 0);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+    }
+});
+
+test('click outside a recording session emits nothing, even for a registered element', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const target = {
+        getAttribute: name => (name === 'data-akari-ui' ? 'panel:assets' : null),
+        parentNode: null
+    };
+    // No active session at all.
+    recorder.handleUiClick({ target });
+    assert.equal(events.length, 0);
+
+    // Active session, but not yet/no-longer in the 'recording' status (e.g. starting/stopping).
+    recorder.active = { sessionDir: 'file:///project/review/sessions/s-0001', monotonicStartedAt: 0, lastRecT: 0, writeTail: Promise.resolve() };
+    recorder.status = 'stopping';
+    try {
+        recorder.handleUiClick({ target });
+        assert.equal(events.length, 0);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+    }
+});
+
+test('installs a capture-phase click listener only while recording, and removes it on stop', async () => {
+    const listeners = [];
+    const restoreDocument = replaceGlobal('document', {
+        addEventListener: (type, listener, capture) => {
+            if (type === 'click') {
+                listeners.push({ listener, capture });
+            }
+        },
+        removeEventListener: (type, listener) => {
+            if (type === 'click') {
+                const index = listeners.findIndex(entry => entry.listener === listener);
+                if (index >= 0) {
+                    listeners.splice(index, 1);
+                }
+            }
+        }
+    });
+    const service = {
+        startReviewSession: async () => ({
+            id: 's-0001',
+            sessionDir: 'file:///project/review/sessions/s-0001',
+            startedAt: '2026-08-11T00:00:00.000Z',
+            editHash: 'sha256:test'
+        }),
+        appendReviewSessionEvent: async () => undefined,
+        endReviewSession: async () => undefined,
+        listReviewSessions: async () => []
+    };
+    const stream = { getTracks: () => [{ stop: () => undefined }] };
+    class FakeAudioContext {
+        constructor(options) {
+            this.sampleRate = options.sampleRate;
+            this.destination = {};
+        }
+        async resume() {}
+        async close() {}
+        createMediaStreamSource() {
+            return { connect: () => undefined, disconnect: () => undefined };
+        }
+        createScriptProcessor() {
+            return { onaudioprocess: null, connect: () => undefined, disconnect: () => undefined };
+        }
+        createGain() {
+            return { gain: { value: 1 }, connect: () => undefined, disconnect: () => undefined };
+        }
+    }
+    const restoreNavigator = replaceGlobal('navigator', { mediaDevices: { getUserMedia: async () => stream } });
+    const restoreWindow = replaceGlobal('window', { setInterval: () => 1, clearInterval: () => undefined });
+    const restoreAudioContext = replaceGlobal('AudioContext', FakeAudioContext);
+    const restorePerformance = replaceGlobal('performance', { now: () => 1_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    try {
+        await recorder.start({
+            projectRootUri: 'file:///project',
+            editUri: 'file:///project/edit.json',
+            timelineT: 0,
+            playing: false
+        }, {
+            timelineT: 0,
+            playing: false,
+            rate: 1
+        });
+        assert.equal(listeners.length, 1);
+        assert.equal(listeners[0].capture, true);
+        await recorder.stop();
+        assert.equal(listeners.length, 0);
+    } finally {
+        await recorder.dispose();
+        restorePerformance();
+        restoreAudioContext();
+        restoreWindow();
+        restoreNavigator();
+        restoreDocument();
+    }
+});
