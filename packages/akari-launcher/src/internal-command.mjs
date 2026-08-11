@@ -34,8 +34,7 @@ export async function runInternalCommand(args, options = {}) {
   // vision-finger-frame は task/2026-08-11-finger-frame-generator の境界規約により
   // repo-assets.mjs（別タスク task/2026-08-11-eye-bar-generator と衝突しやすい共有ファイル）を
   // 編集せず、他コマンドと違い assets.repoRoot から自己解決する（resolveRepoAssets() 側に
-  // フィールドを追加していない唯一の例外 -- akari-video-internal/tasks/2026-08-11-
-  // finger-frame-generator/report.md 参照）。
+  // フィールドを追加していない唯一の例外 -- 経緯は非公開の内部記録を参照）。
   const fingerFrameScript = assets.repoRoot
     ? path.join(assets.repoRoot, 'packages', 'akari-tools', 'bin', 'finger-frame.mjs')
     : null;

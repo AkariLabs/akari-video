@@ -197,7 +197,7 @@ akari internal vision-finger-frame <project> \
   区間はスキップし warnings に理由を残す（v0 の既知の境界。黙って誤った座標を出さない）。
 - **既知の境界（v0）**: 分析はプル駆動の任意工程のまま（本節は既存ワークフローに新しいハード
   ルールを追加しない）。finger-frame 自体の詳細な設計判断・実測は
-  `akari-video-internal` リポの `tasks/2026-08-11-finger-frame-generator/report.md`（非公開）を参照。
+  非公開の内部記録（`akari-video-internal`）の実測記録を参照。
 
 ## よくある間違い
 
