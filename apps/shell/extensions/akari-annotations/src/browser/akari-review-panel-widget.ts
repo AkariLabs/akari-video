@@ -34,6 +34,19 @@ const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
 const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
+// M2 (task.md): ツールモード（neutral/pen/rect/select）切替 request。akari-preview 側
+// （akari-preview-open-handler.ts の REVIEW_TOOL_MODE_SET_EVENT）と文字列だけミラーする。
+const REVIEW_TOOL_MODE_SET_EVENT = 'akari.review.toolMode.set';
+
+// docs/contract-2026-08-11-review-session-ui-events.md #1 / internal annotation-everywhere §3
+// (M2): neutral はツールなし、pen/rect はプレビュー内、select はシェル全域。裁定 2026-08-11 の
+// ショートカット 1=select / 2=pen / 3=rect / Esc=neutral をボタンの補助表示にも使う。
+type ReviewToolMode = 'neutral' | 'pen' | 'rect' | 'select';
+const REVIEW_TOOL_MODE_BUTTONS: ReadonlyArray<{ mode: ReviewToolMode; label: string; key: string }> = [
+    { mode: 'select', label: '選択', key: '1' },
+    { mode: 'pen', label: 'ペン', key: '2' },
+    { mode: 'rect', label: '四角', key: '3' }
+];
 
 interface ReviewSessionSummary {
     id: string;
@@ -51,6 +64,7 @@ interface ReviewSessionUiState {
     elapsedSec: number;
     level: number;
     silenceWarning: boolean;
+    toolMode: ReviewToolMode;
     sessions: ReviewSessionSummary[];
     error?: string;
 }
@@ -108,6 +122,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly recordingSection = document.createElement('section');
     protected readonly recordingButton = document.createElement('button');
     protected readonly recordingIndicator = document.createElement('span');
+    // task.md 指示2: 選択/ペン/四角のツールボタン列（記録セッション中のみ有効）。
+    protected readonly toolModeRow = document.createElement('div');
+    protected readonly toolModeButtons = new Map<ReviewToolMode, HTMLButtonElement>();
     protected readonly recordingElapsed = document.createElement('span');
     protected readonly recordingLevelMeter = document.createElement('div');
     protected readonly recordingLevelFill = document.createElement('div');
@@ -250,6 +267,35 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.compileButton.addEventListener('click', () => void this.compileLatestSession());
         recordingControls.append(this.recordingButton, this.openSessionsButton, this.compileButton);
 
+        // task.md 指示2/6: 選択/ペン/四角 + アクティブ表示 + ショートカットキーの小表示。
+        // 記録セッション中のみ有効（非セッション時は disabled）。
+        Object.assign(this.toolModeRow.style, { display: 'flex', alignItems: 'center', gap: '6px' });
+        this.toolModeRow.setAttribute('data-review-tool-mode-row', '');
+        for (const { mode, label, key } of REVIEW_TOOL_MODE_BUTTONS) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'theia-button secondary';
+            button.setAttribute('data-review-tool-mode-button', mode);
+            button.setAttribute('aria-pressed', 'false');
+            button.title = `${label}（${key}）`;
+            Object.assign(button.style, {
+                display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 9px', fontSize: '12px'
+            });
+            const labelSpan = document.createElement('span');
+            labelSpan.textContent = label;
+            const keySpan = document.createElement('span');
+            keySpan.textContent = key;
+            keySpan.setAttribute('data-review-tool-mode-key', '');
+            Object.assign(keySpan.style, {
+                fontSize: '10px', opacity: '0.65', border: '1px solid currentColor',
+                borderRadius: '3px', padding: '0 4px', lineHeight: '1.4'
+            });
+            button.append(labelSpan, keySpan);
+            button.addEventListener('click', () => this.requestToolMode(mode));
+            this.toolModeButtons.set(mode, button);
+            this.toolModeRow.appendChild(button);
+        }
+
         this.recordingLevelMeter.setAttribute('data-review-level-meter', '');
         this.recordingLevelMeter.setAttribute('data-review-level', '0');
         this.recordingLevelMeter.setAttribute('role', 'meter');
@@ -278,6 +324,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingSection.append(
             recordingHeading,
             recordingControls,
+            this.toolModeRow,
             this.recordingLevelMeter,
             this.silenceWarningNotice,
             this.recordingNotice,
@@ -396,6 +443,14 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingLevelFill.style.width = `${level * 100}%`;
         this.silenceWarningNotice.style.display = state?.silenceWarning ? 'block' : 'none';
         this.openSessionsButton.disabled = !location;
+        // task.md 指示2: ボタンは記録セッション中のみ有効。アクティブなモードだけ強調する。
+        const toolMode = active ? (state?.toolMode ?? 'neutral') : 'neutral';
+        for (const [mode, button] of this.toolModeButtons) {
+            button.disabled = !active || busy;
+            const pressed = active && mode === toolMode;
+            button.setAttribute('aria-pressed', String(pressed));
+            button.className = pressed ? 'theia-button main' : 'theia-button secondary';
+        }
         if (state?.error) {
             this.recordingNotice.textContent = state.error;
             this.recordingNotice.style.display = 'block';
@@ -474,6 +529,19 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.reviewSessionState?.active ? REVIEW_SESSION_STOP_EVENT : REVIEW_SESSION_START_EVENT,
             { detail: { projectRootUri, editUri } }
         ));
+    }
+
+    /** task.md 指示2: ボタンクリックで ReviewSessionRecorder（akari-preview 側）へ mode 切替を渡す。 */
+    protected requestToolMode(mode: ReviewToolMode): void {
+        const location = this.model.location;
+        const editUri = location?.editUri?.normalizePath().toString();
+        if (!location || !editUri || this.reviewSessionState?.active !== true) {
+            return;
+        }
+        const projectRootUri = location.root.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent(REVIEW_TOOL_MODE_SET_EVENT, {
+            detail: { projectRootUri, editUri, mode }
+        }));
     }
 
     protected openSessionsFolder(): void {
