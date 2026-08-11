@@ -22,6 +22,12 @@ import { classifyUiEventType, resolveUiEventTarget } from '../common/ui-event-ta
 
 export type ReviewSessionRecorderStatus = 'idle' | 'starting' | 'recording' | 'stopping' | 'error';
 
+/** task.md 指示2: select ツールで直近クリックした登録済み UI 要素（review.json ui: target 着地の元）。 */
+export interface ReviewSelectedUiTarget {
+    target: string;
+    label: string;
+}
+
 export interface ReviewSessionUiState {
     editUri: string;
     projectRootUri: string;
@@ -32,8 +38,12 @@ export interface ReviewSessionUiState {
     silenceWarning: boolean;
     toolMode: ReviewToolMode;
     sessions: ReviewSessionSummary[];
+    selectedUiTarget?: ReviewSelectedUiTarget;
     error?: string;
 }
+
+/** buildUiEvent が返しうる 3 種のうち target/label を必ず持つもの（tool.mode を除く）。 */
+type ResolvedUiTargetEvent = Extract<ReviewSessionUiEvent, { target: string; label: string }>;
 
 export interface ReviewTransportSnapshot {
     timelineT: number;
@@ -74,6 +84,8 @@ const AUDIO_FLUSH_INTERVAL_MS = 1_000;
 const UI_UPDATE_INTERVAL_MS = 250;
 const TICK_INTERVAL_MS = 1_000;
 const SILENCE_WARNING_AFTER_MS = 5_000;
+/** akari-review-panel-widget.ts の `data-akari-ui="panel:review"`（自身）とミラー。 */
+const REVIEW_PANEL_TARGET_ID = 'panel:review';
 
 export class ReviewSessionRecorder {
     protected active: ActiveReviewSession | undefined;
@@ -84,8 +96,21 @@ export class ReviewSessionRecorder {
     protected requestedEditUri = '';
     protected requestedProjectRootUri = '';
     protected uiClickListener: ((event: MouseEvent) => void) | undefined;
+    protected uiPointerUpListener: ((event: PointerEvent) => void) | undefined;
     protected keydownListener: ((event: KeyboardEvent) => void) | undefined;
     protected toolModeState: ReviewToolModeState = REVIEW_TOOL_MODE_INITIAL;
+    /**
+     * task.md 指示1 (pointerup併用): タイムラインのクリップ/オーバーレイ要素は pointerdown で
+     * preventDefault() するため、その一連の操作では 'click' が合成されない
+     * （akari-annotations-widget.ts の installDragListeners 参照）。pointerup 側にも同じ登録済み
+     * 祖先解決を通す記録経路を用意し、'click' が実際に合成された場合はここを true にして
+     * pointerup 側の遅延記録を打ち消す。preventDefault が呼ばれなかった通常要素では 'click' が
+     * pointerup 直後に同期的に合成されるため（Pointer Events 仕様どおり）、pointerup 側は
+     * setTimeout(0) で 1 マクロタスク遅らせてから判定すれば二重記録を防げる。
+     */
+    protected suppressPointerUpFallback = false;
+    /** task.md 指示2: select ツール中に直近クリックした登録済み UI 要素。session-start/end でリセットする。 */
+    protected selectedUiTarget: ReviewSelectedUiTarget | undefined;
 
     constructor(
         protected readonly service: AkariPreviewService,
@@ -166,6 +191,8 @@ export class ReviewSessionRecorder {
             this.installKeydownListener();
             // task.md 指示1: 記録セッション開始時は必ず neutral から始まる。
             this.toolModeState = reduceReviewToolMode(this.toolModeState, { type: 'session-start' });
+            // task.md 指示2: 新しいセッションでは前回の選択を持ち越さない。
+            this.selectedUiTarget = undefined;
             if (initial.rate !== 1) {
                 this.enqueue(active, () => this.service.appendReviewSessionEvent({
                     sessionDir: active.sessionDir,
@@ -206,6 +233,8 @@ export class ReviewSessionRecorder {
         this.removeKeydownListener();
         // task.md 指示1: セッション終了で必ず neutral へ戻す。
         this.toolModeState = reduceReviewToolMode(this.toolModeState, { type: 'session-end' });
+        // task.md 指示2: セッションが終われば「選択中」の文脈も無効になる。
+        this.selectedUiTarget = undefined;
         this.emitState();
         active.processor.onaudioprocess = null;
         this.flushAudio(active);
@@ -405,6 +434,11 @@ export class ReviewSessionRecorder {
         const listener = (event: MouseEvent): void => this.handleUiClick(event);
         document.addEventListener('click', listener, true);
         this.uiClickListener = listener;
+        // task.md 指示1: pointerup 併用。同じ capture-phase 一本の方針を踏襲し、click と
+        // 対で install/remove する（呼び出し側の変更は不要）。
+        const pointerUpListener = (event: PointerEvent): void => this.handleUiPointerUp(event);
+        document.addEventListener('pointerup', pointerUpListener, true);
+        this.uiPointerUpListener = pointerUpListener;
     }
 
     protected removeUiClickListener(): void {
@@ -412,6 +446,60 @@ export class ReviewSessionRecorder {
             document.removeEventListener('click', this.uiClickListener, true);
         }
         this.uiClickListener = undefined;
+        if (this.uiPointerUpListener && typeof document !== 'undefined') {
+            document.removeEventListener('pointerup', this.uiPointerUpListener, true);
+        }
+        this.uiPointerUpListener = undefined;
+    }
+
+    /** click / pointerup 共通: 登録済み祖先の解決 + 語彙分類 + intent 付与まで組み立てる。 */
+    protected buildUiEvent(active: ActiveReviewSession, target: Node | null): ResolvedUiTargetEvent | undefined {
+        const resolved = resolveUiEventTarget(target);
+        if (!resolved) {
+            return undefined;
+        }
+        const { target: targetId, label } = resolved;
+        const kind = classifyUiEventType(targetId);
+        const recT = this.recT(active);
+        // task.md 指示5: select ツール中のクリックにだけ intent: true を乗せる。通常のクリック
+        // 動作（開く・アクティブ化）は preventDefault しない -- ここは記録するだけで一切ブロックしない。
+        const intent = kind === 'ui.click' && this.toolModeState.mode === 'select';
+        if (kind === 'ui.panel') {
+            return { recT, type: 'ui.panel', target: targetId, label };
+        }
+        if (kind === 'ui.tab') {
+            return { recT, type: 'ui.tab', target: targetId, label };
+        }
+        return intent
+            ? { recT, type: 'ui.click', target: targetId, label, intent: true }
+            : { recT, type: 'ui.click', target: targetId, label };
+    }
+
+    /**
+     * task.md 指示2: select ツール中に解決された要素はすべて「いま選択中の UI 要素」として
+     * 記憶する（panel:/tab: を含む -- ui: target の id 空間は docs/contract-2026-08-11
+     * -review-session-ui-events.md §2 と同一なので、intent: true が付く ui.click 種別に限らない）。
+     * 例外: 注釈パネル自身（panel:review）は除く。コメント入力欄へのフォーカスなど、
+     * パネル内の操作は登録済み祖先の解決上すべて panel:review に丸まってしまうため、
+     * 除外しないと「選択 → コメント欄をクリック → 選択が panel:review に上書きされる」
+     * という実機検証で確認済みの巻き添え事故になる（L1 実測: report.md 参照）。
+     */
+    protected applyUiSelection(uiEvent: ResolvedUiTargetEvent): void {
+        if (this.toolModeState.mode !== 'select' || uiEvent.target === REVIEW_PANEL_TARGET_ID) {
+            return;
+        }
+        this.selectedUiTarget = { target: uiEvent.target, label: uiEvent.label };
+        this.emitState();
+    }
+
+    /** task.md 指示2: 注釈パネルの「選択を解除」導線から呼ばれる。 */
+    clearUiSelection(editUri: string): void {
+        const active = this.active;
+        if (!active || active.editUri !== editUri || !this.selectedUiTarget) {
+            return;
+        }
+        this.selectedUiTarget = undefined;
+        this.emitState();
     }
 
     protected handleUiClick(event: MouseEvent): void {
@@ -419,27 +507,46 @@ export class ReviewSessionRecorder {
         if (!active || this.status !== 'recording') {
             return;
         }
-        const resolved = resolveUiEventTarget(event.target as Node | null);
-        if (!resolved) {
+        const uiEvent = this.buildUiEvent(active, event.target as Node | null);
+        if (!uiEvent) {
             return;
         }
-        const { target, label } = resolved;
-        const kind = classifyUiEventType(target);
-        const recT = this.recT(active);
-        // task.md 指示5: select ツール中のクリックにだけ intent: true を乗せる。通常のクリック
-        // 動作（開く・アクティブ化）は preventDefault しない -- ここは記録するだけで一切ブロックしない。
-        const intent = kind === 'ui.click' && this.toolModeState.mode === 'select';
-        const uiEvent: ReviewSessionUiEvent = kind === 'ui.panel'
-            ? { recT, type: 'ui.panel', target, label }
-            : kind === 'ui.tab'
-                ? { recT, type: 'ui.tab', target, label }
-                : intent
-                    ? { recT, type: 'ui.click', target, label, intent: true }
-                    : { recT, type: 'ui.click', target, label };
+        this.applyUiSelection(uiEvent);
+        // click が実際に合成された = このジェスチャの pointerup 側フォールバックは不要。
+        this.suppressPointerUpFallback = true;
         this.enqueue(active, () => this.service.appendReviewSessionEvent({
             sessionDir: active.sessionDir,
             event: uiEvent
         }));
+    }
+
+    /**
+     * task.md 指示1: pointerdown で preventDefault() された要素（cuts/overlays の
+     * installDragListeners 参照）では 'click' が合成されないため、pointerup 側でも同じ登録済み
+     * 祖先解決を通して記録する。preventDefault されなかった通常要素では pointerup 直後に 'click' が
+     * 同期的に合成される（Pointer Events 仕様）ため、1 マクロタスク（setTimeout 0）待ってから
+     * suppressPointerUpFallback を見て二重記録を避ける。
+     */
+    protected handleUiPointerUp(event: PointerEvent): void {
+        const active = this.active;
+        if (!active || this.status !== 'recording' || event.button !== 0) {
+            return;
+        }
+        const uiEvent = this.buildUiEvent(active, event.target as Node | null);
+        if (!uiEvent) {
+            return;
+        }
+        this.applyUiSelection(uiEvent);
+        this.suppressPointerUpFallback = false;
+        setTimeout(() => {
+            if (this.suppressPointerUpFallback || this.active !== active || this.status !== 'recording') {
+                return;
+            }
+            this.enqueue(active, () => this.service.appendReviewSessionEvent({
+                sessionDir: active.sessionDir,
+                event: uiEvent
+            }));
+        }, 0);
     }
 
     /**
@@ -630,6 +737,7 @@ export class ReviewSessionRecorder {
             ),
             toolMode: this.toolModeState.mode,
             sessions: [...this.sessions],
+            ...(this.selectedUiTarget ? { selectedUiTarget: this.selectedUiTarget } : {}),
             ...(error ? { error } : {})
         });
     }

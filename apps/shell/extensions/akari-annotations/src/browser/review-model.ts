@@ -177,6 +177,32 @@ export class ReviewModel {
     }
 
     /**
+     * ui: target 注釈の作成（docs/contract-2026-08-11-review-session-ui-events.md §6 / M3）。
+     * doc: / image: とは異なり、UI 要素には固有の動画秒が無いわけではない（レビュー中に
+     * 選択した瞬間の再生位置に意味がある）ため、sourceT は addAnnotation と同じく現在の
+     * 選択秒をそのまま渡す — sourceT: null 許容規約（isDocOrImageTarget）を広げる必要がない。
+     */
+    async addUiAnnotation(text: string, sourceT: number, uiTarget: string): Promise<{ annotation: Annotation; committed: boolean }> {
+        const location = this._location;
+        if (!location) {
+            throw new Error('プロジェクトを特定できません。');
+        }
+        const result = await this.annotationsService.createAnnotation({
+            reviewUri: location.reviewUri.toString(),
+            projectRootUri: location.root.toString(),
+            sourceT,
+            timelineT: null,
+            target: `ui:${uiTarget}`,
+            text
+        });
+        if (!this._annotations.some(existing => existing.id === result.annotation.id)) {
+            this._annotations = [...this._annotations, result.annotation];
+            this.onChangedEmitter.fire();
+        }
+        return result;
+    }
+
+    /**
      * キャンバス面の記録原本の保存（contract-2026-07-26-canvas-surface §1/§2）。review.json への
      * 着地は行わない — skills/compile-review-session が review/canvas/c-NNNN/ を検出して行う
      * （§4。review セッション s-NNNN と同じ Raw → コンパイルの 2 段構え）。

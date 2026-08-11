@@ -163,18 +163,25 @@ export function initFailedError(errorMessage) {
 }
 
 /**
- * 素材の取得方式案内 + 公式音源ライブラリ（AKARI Sounds）明示再入口（`akari sounds`）の
- * 文言群。1 行主義の既存流儀に従う。
+ * 素材の取得方式案内 + 無料スターターパック（`akari store connect`）+ 公式音源ライブラリ
+ * （AKARI Sounds）明示再入口（`akari sounds`）の文言群。1 行主義の既存流儀に従う。
  *
  * 2026-08-04 オーナー方針（正本: `planning/notes-2026-08-04-asset-reference-distribution.md`
  * §8）により、初回起動での AKARI Sounds 一括ダウンロード [Y/n] 質問（2026-08-03 裁定）は
  * 廃止した。素材は resolver がオンデマンド取得する設計に一本化されたため、質問文言
  * （`soundsPromptText` / `soundsDeclinedNotice`）はもう使わない。
+ *
+ * 2026-08-11 オーナー裁定（正本: 内部リポ `planning/notes-2026-08-11-onboarding-firstrun.md`
+ * §3 R2）により、無料スターターパックの案内を同じ 1 回だけの通知に統合した（別画面を増やさない
+ * ＝「1 画面 1 問まで」の精神）。件数は明記しない（実際のパック内容は入れ替わりうるため
+ * 実数依存の表現にしない）。表示条件は `sounds-setup.mjs` の `maybeShowAssetIntroNotice` が
+ * 持つ — 既にアカウント連携済みなら、この文言ごと表示をスキップする（連携ずみの人には
+ * 「連携すると使える」という案内自体が的外れなため）。
  */
 
 /** `akari` 起動時に生涯 1 回だけ出す素材案内（質問ではない・対話をブロックしない）。 */
 export function assetIntroNotice() {
-  return '素材（B-roll・背景・音源）は使うときに必要な分だけ自動で取得されます。`akari store connect` でアカウントを接続すると購入済み素材も同じ一覧に並びます。まとめて欲しい場合は `akari sounds` で音源を一括ダウンロードできます（この案内は次回以降表示しません）。';
+  return '素材（B-roll・背景・音源）は使うときに必要な分だけ自動で取得されます。無料の素材パックもあります — `akari store connect` でアカウント連携すると使えるようになります。まとめて音源だけ欲しい場合は `akari sounds` で一括ダウンロードできます（この案内は次回以降表示しません）。';
 }
 
 /** ダウンロード成功後の完了 + 追加カタログ（外部補完）の案内。`akari sounds` の完了時に使う。 */
@@ -195,4 +202,39 @@ export function soundsUnavailableError() {
 /** `akari assets`: 素材 resolver（asset-resolver）が同梱されていない場合のエラー（stderr 1 行）。 */
 export function assetsResolverUnavailableError() {
   return '素材 resolver（asset-resolver）が見つかりませんでした。`akari assets` は使えません。';
+}
+
+/**
+ * `akari --help` / `akari -h`（Node CLI 版。npm 配布 `akari-video` パッケージの `akari`
+ * コマンド）の出力（タスク契約 `2026-08-11-onboarding-o3-firstrun-plain` §4）。
+ * `akari.sh` の `-h|--help` 出力と同じ「作る → プレビュー → 連携/素材 → 更新」の初心者目線の
+ * 並びに揃え、開発者向けのフラグ・サブコマンドは末尾に降格する。プレビューサーバーは
+ * シェル版（`akari.sh --preview`）専用の機能で npm 版の `akari` 単体には同梱されないため、
+ * 案内が行き止まりにならないようその旨を明示する。
+ */
+export function describeCliHelp() {
+  return [
+    'AKARI Video — AI が主体で動画を編集するツール',
+    '',
+    '使い方: akari [command] [options...]',
+    '',
+    'よく使うコマンド:',
+    '  (引数なし)              プロジェクトを開いて AI エージェントを起動（未作成なら自動作成）',
+    '  store connect          アカウント連携（無料の素材パックと購入済み素材が使えるようになる）',
+    '  sounds                 公式音源ライブラリを一括ダウンロード（無料）',
+    '  update                 更新を確認する',
+    '  status                 接続状態を確認する',
+    '',
+    '開発者向け:',
+    '  --opencode              Claude Code の代わりに opencode を起動する',
+    '  --claude, --claudecode  Claude Code を明示的に起動する',
+    '  -y, --yes               自動承認（確認をスキップ）',
+    '  --version, -v            インストール済みのバージョンを表示',
+    '  new <dir>                雛形からプロジェクトを新規作成',
+    '  init                     保存フォルダ（作業場）だけを作成・確認',
+    '  narration / assets / internal / capability   各機能の詳細は `akari <command> --help`',
+    '  -h, --help               このヘルプを表示',
+    '',
+    'プレビューサーバー（ブラウザで確認する画面）はシェル版のみ対応です: akari.sh --preview'
+  ];
 }

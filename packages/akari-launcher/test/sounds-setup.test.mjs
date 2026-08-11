@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 import { detectAssetIntroState, maybeShowAssetIntroNotice, runSoundsCommand } from '../src/sounds-setup.mjs';
+import { resolveCredentialsPath } from '../src/store-device-connect.mjs';
 
 async function withAkariHome(run) {
     const home = await mkdtemp(path.join(tmpdir(), 'akari-sounds-setup-'));
@@ -14,6 +15,19 @@ async function withAkariHome(run) {
     } finally {
         await rm(home, { recursive: true, force: true });
     }
+}
+
+// `akari store connect` 済みの状態を、実ネットワークに触れず隔離 AKARI_HOME 内で再現する
+// （store-device-connect.mjs の writeCredentials と同じファイル形状を直接書く）。
+function writeFakeConnectedCredentials(env) {
+    const file = resolveCredentialsPath(env);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({
+        url: 'http://localhost:9999/api/store',
+        token: 'akst_fake-token_0123456789',
+        email: 'creator@example.com',
+        connected_at: new Date().toISOString()
+    }));
 }
 
 function recordingFetch(status = 0) {
@@ -30,16 +44,34 @@ const FAKE_ASSETS = { audioFetchScriptPath: '/fake/fetch-akari-sounds.mjs' };
 // --- maybeShowAssetIntroNotice（2026-08-04〜: 初回起動の一括 DL [Y/n] 質問は廃止し、
 //     素材の取得方式 + アカウント接続の案内を生涯 1 回だけ出す。質問は一切しない）。
 
-test('first call: shows the notice once, mentions on-demand fetch, account connect and the akari sounds escape hatch', async () => {
+test('first call: shows the notice once, mentions on-demand fetch, the free starter pack via account connect, and the akari sounds escape hatch', async () => {
     await withAkariHome(async ({ env, home }) => {
         const logs = [];
         const result = maybeShowAssetIntroNotice({ env, log: (l) => logs.push(l) });
         assert.equal(result.action, 'shown');
         assert.equal(logs.length, 1, '案内は 1 行だけ');
         assert.match(logs[0], /使うときに必要な分だけ/);
+        assert.match(logs[0], /無料の素材パック/, '無料スターターパックの案内を含む（オーナー裁定 2026-08-11 R2）');
         assert.match(logs[0], /akari store connect/);
         assert.match(logs[0], /akari sounds/);
+        assert.doesNotMatch(logs[0], /約\s*\d+\s*点/, '実数（約 N 点）に依存する表現は使わない');
         assert.ok(existsSync(path.join(home, '.akari-asset-intro-shown.json')), '生涯 1 回のマーカーを書く');
+    });
+});
+
+test('already connected（akari store connect 済み）: 案内自体をスキップする（「連携すると使える」が的外れなため）', async () => {
+    await withAkariHome(async ({ env, home }) => {
+        writeFakeConnectedCredentials(env);
+        const logs = [];
+        const result = maybeShowAssetIntroNotice({ env, log: (l) => logs.push(l) });
+        assert.equal(result.action, 'skipped-connected');
+        assert.deepEqual(logs, [], '接続済みなら 1 行も出さない');
+        assert.ok(existsSync(path.join(home, '.akari-asset-intro-shown.json')), 'スキップでも生涯 1 回のマーカーは書く（再評価しない）');
+
+        // 2 回目はマーカーにより「already-shown」— 接続状態を再チェックすらしない設計。
+        const second = maybeShowAssetIntroNotice({ env, log: (l) => logs.push(l) });
+        assert.equal(second.action, 'already-shown');
+        assert.deepEqual(logs, []);
     });
 });
 

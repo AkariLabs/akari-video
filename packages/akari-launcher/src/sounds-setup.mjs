@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
+import { readCredentials } from './store-device-connect.mjs';
 import {
   assetIntroNotice,
   soundsCompleteNotice,
@@ -21,10 +22,18 @@ import {
  * launcher 起動のたびに「入れるか入れないか」を聞く必要が無くなった。
  *
  * 代わりに `maybeShowAssetIntroNotice` が「取得方式が変わったこと」と「アカウントを接続すると
- * 購入済み素材も同じ一覧に出ること」（`akari store connect`）を**生涯 1 回だけ**案内する。
- * 質問ではないので TTY 判定も対話ブロックも無い — 単なる 1 行ログ + マーカーファイル。
- * 「生涯 1 回」判定の仕組み自体は旧 declined マーカー方式を踏襲している（存在チェックで
- * 二度と出さない、という枠組みだけ流用し、中身は「declined/n」ではなく「shown」に変えた）。
+ * 無料のスターターパック・購入済み素材も同じ一覧に出ること」（`akari store connect`）を
+ * **生涯 1 回だけ**案内する。質問ではないので TTY 判定も対話ブロックも無い — 単なる 1 行ログ
+ * + マーカーファイル。「生涯 1 回」判定の仕組み自体は旧 declined マーカー方式を踏襲している
+ * （存在チェックで二度と出さない、という枠組みだけ流用し、中身は「declined/n」ではなく
+ * 「shown」に変えた）。
+ *
+ * 2026-08-11 オーナー裁定（正本: 内部リポ `planning/notes-2026-08-11-onboarding-firstrun.md`
+ * §3 R2）: 既に `akari store connect` 済みの人には「連携すると使える」という案内自体が
+ * 的外れ（もう使えている）なので、この判定タイミングで接続状態を見て**表示自体をスキップ**
+ * する。スキップした場合も「生涯 1 回」のマーカーは書く（再評価しない — 判定した事実は
+ * 表示の有無によらず 1 回で確定する。`update-check.mjs` の dismissed 記録と同じ「一度決めたら
+ * 再度聞かない」流儀）。
  *
  * 一括で欲しい人向けの逃げ道として `akari sounds`（`runSoundsCommand`）は残す・変更しない。
  * ダウンロード実体は `packages/audio-library-setup/bin/fetch-akari-sounds.mjs`（自社 GitHub
@@ -54,15 +63,21 @@ function writeAssetIntroShownMarker(env) {
 }
 
 /**
- * `akari` 起動時の 1 ステップ（2026-08-04〜）。質問はしない・対話をブロックしない —
- * 素材の取得方式案内を生涯 1 回だけ表示するだけ。返り値の action は
- * 'shown' | 'already-shown'。同期関数だが、呼び出し側は他ステップと同じ流儀で await する。
+ * `akari` 起動時の 1 ステップ（2026-08-04〜。2026-08-11〜: 既接続ならスキップ）。質問はしない・
+ * 対話をブロックしない — 素材の取得方式 + 無料スターターパックの案内を生涯 1 回だけ表示する
+ * だけ。既に `akari store connect` 済みなら「連携すると使える」という案内自体が的外れなので
+ * 表示せず終える（マーカーは書く＝再評価はしない）。返り値の action は
+ * 'shown' | 'skipped-connected' | 'already-shown'。同期関数だが、呼び出し側は他ステップと
+ * 同じ流儀で await する。
  */
 export function maybeShowAssetIntroNotice({ env = process.env, log = console.log } = {}) {
   if (detectAssetIntroState(env).shown) {
     return { action: 'already-shown' };
   }
   writeAssetIntroShownMarker(env);
+  if (readCredentials(env)) {
+    return { action: 'skipped-connected' };
+  }
   log(assetIntroNotice());
   return { action: 'shown' };
 }

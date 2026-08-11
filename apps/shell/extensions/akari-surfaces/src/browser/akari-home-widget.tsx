@@ -43,6 +43,13 @@ import {
     withDismissedVersion
 } from '../common/update-feed';
 import {
+    applyShellUpdaterEvent,
+    formatDownloadedBannerText,
+    INITIAL_SHELL_UPDATER_UI_STATE,
+    ShellUpdaterUiState
+} from '../common/shell-update-applier';
+import { ElectronAkariUpdaterApi, ShellUpdaterEvent } from '../electron-common/electron-api';
+import {
     buildReleaseNotesUrl,
     evaluateVersionNotice,
     formatVersionNoticeText,
@@ -326,6 +333,12 @@ export class AkariHomeWidget extends ReactWidget {
     protected updateRawCache: UpdateCache | null = null;
     protected updateStatus: UpdateStatus = { available: false };
 
+    // --- U3 electron-updater（内部リポ契約 update-and-versioning §11）: DL 済み・
+    // 再起動待ちの状態。U2 のリモートフィード比較（updateStatus）とは独立した
+    // 別 SSOT（main プロセスの IPC イベントだけで決まる — shell-update-applier.ts 参照）。
+    protected updaterUiState: ShellUpdaterUiState = INITIAL_SHELL_UPDATER_UI_STATE;
+    protected updaterUnsubscribe: (() => void) | undefined;
+
     @postConstruct()
     protected init(): void {
         this.id = AkariHomeWidget.ID;
@@ -352,6 +365,10 @@ export class AkariHomeWidget extends ReactWidget {
         // （ローカル I/O のみ・十分高速）、バックグラウンド fetch はここで await しない
         // （loadUpdateStatus 内で fire-and-forget にしてある）。
         await this.loadUpdateStatus();
+        // U3: electron-updater の main プロセスイベント購読（DL 済み・再起動ボタン状態）。
+        // 同期メソッド（内部の IPC 呼び出しは fire-and-forget）— 起動をブロックしない。
+        // 未署名の開発ビルド（`window.electronAkariUpdater` 不在）では何もせず沈黙する。
+        this.initUpdaterEvents();
         // F2: 「更新されました」ポップアップ（U2 のリモートフィード比較とは独立・
         // ローカル前回起動記録のみで判定。起動を待たせないほど重くはないため await する）。
         await this.checkVersionNotice();
@@ -1389,6 +1406,55 @@ export class AkariHomeWidget extends ReactWidget {
         }
     };
 
+    // --- U3 electron-updater（内部リポ契約 update-and-versioning §11）: main プロセス
+    // イベントの購読と「今すぐ再起動して適用」アクション ---
+
+    /**
+     * `window.electronAkariUpdater`（akari-surfaces の electron-main/preload が
+     * 公開する API）を取り出す。`Window` 型の直接プロパティアクセスに頼らず明示的に
+     * キャストするのは akari-project の revealInFileManager と同じ流儀
+     * （akari-project-contribution.ts 参照）。未署名の開発ビルド・`theia start`
+     * （非 Electron）では存在しないため undefined を返し、呼び出し側で沈黙する。
+     */
+    protected resolveElectronUpdaterApi(): ElectronAkariUpdaterApi | undefined {
+        return (window as Window & { electronAkariUpdater?: ElectronAkariUpdaterApi }).electronAkariUpdater;
+    }
+
+    /**
+     * main プロセスの electron-updater イベントを購読する。既に発火済みのイベント
+     * （このウィジェットの生成が DL 完了より後になったケース）は `getLastEvent` で
+     * 追いつく。API 不在（開発ビルド）・IPC 失敗はすべて沈黙する（契約 §11）。
+     */
+    protected initUpdaterEvents(): void {
+        const api = this.resolveElectronUpdaterApi();
+        if (!api) {
+            return;
+        }
+        api.getLastEvent().then(event => {
+            if (event) {
+                this.applyUpdaterEvent(event);
+            }
+        }).catch(() => {
+            // 沈黙（契約 §11）。
+        });
+        this.updaterUnsubscribe = api.onEvent(event => this.applyUpdaterEvent(event));
+        this.toDispose.push({ dispose: () => this.updaterUnsubscribe?.() });
+    }
+
+    protected applyUpdaterEvent(event: ShellUpdaterEvent): void {
+        this.updaterUiState = applyShellUpdaterEvent(this.updaterUiState, event);
+        this.update();
+    }
+
+    /** 「今すぐ再起動して適用」ボタン: main プロセスへ委ねる（quitAndInstall はこのウィジェット側では呼ばない）。 */
+    protected restartAndApplyUpdate = (): void => {
+        const api = this.resolveElectronUpdaterApi();
+        if (!api) {
+            return;
+        }
+        void api.restartAndInstall();
+    };
+
     // --- ホーム v2: アクション ---
 
     protected connectPartner = async (): Promise<void> => {
@@ -1831,7 +1897,7 @@ export class AkariHomeWidget extends ReactWidget {
                 style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box', position: 'relative' }}
             >
                 {this.renderDashboardHeader()}
-                {this.updateStatus.available && this.renderUpdateBanner()}
+                {(this.updateStatus.available || this.updaterUiState.downloaded) && this.renderUpdateBanner()}
                 {this.importedNotice && this.renderImportedNotice()}
                 {this.renderExplanation()}
                 {this.renderProjectList()}
@@ -2029,7 +2095,7 @@ export class AkariHomeWidget extends ReactWidget {
                 style={homeFlowStyles.welcomeSurface}
             >
                 <div style={homeFlowStyles.welcomeStack}>
-                    {this.updateStatus.available && this.renderUpdateBanner()}
+                    {(this.updateStatus.available || this.updaterUiState.downloaded) && this.renderUpdateBanner()}
                     {this.renderWelcomeCard()}
                 </div>
             </div>
@@ -2150,8 +2216,31 @@ export class AkariHomeWidget extends ReactWidget {
      * 新版がある時だけ出す。常時領域を専有しない。アクション 2 つ:
      * 更新する（自プラットフォーム配布物 DL を外部ブラウザで開始） /
      * 今回はスキップ（dismissed 記録・不変）。文言・ボタン構成はモック準拠（U7・U8）。
+     *
+     * U3（electron-updater・契約 §11）: `updaterUiState.downloaded` が true の間は
+     * 上記の DL 前バナーの代わりに「DL 済み・再起動で適用されます」バナーへ切り替える
+     * （task.md §4「DL 前は従来どおり」= 逆に言えば DL 後はここで表示が変わる）。
      */
     protected renderUpdateBanner(): React.ReactNode {
+        if (this.updaterUiState.downloaded) {
+            return (
+                <div role='status' style={homeFlowStyles.updateBanner} data-akari-update-downloaded='true'>
+                    <span className='codicon codicon-arrow-circle-up' aria-hidden='true' style={homeFlowStyles.updateBannerIcon} />
+                    <span style={homeFlowStyles.updateBannerText}>{formatDownloadedBannerText(this.updaterUiState)}</span>
+                    <div style={homeFlowStyles.updateBannerActions}>
+                        <button
+                            type='button'
+                            className='theia-button main'
+                            style={homeFlowStyles.updateBannerButton}
+                            data-akari-update-restart='true'
+                            onClick={this.restartAndApplyUpdate}
+                        >
+                            今すぐ再起動して適用
+                        </button>
+                    </div>
+                </div>
+            );
+        }
         return (
             <div role='status' style={homeFlowStyles.updateBanner}>
                 <span className='codicon codicon-arrow-circle-up' aria-hidden='true' style={homeFlowStyles.updateBannerIcon} />

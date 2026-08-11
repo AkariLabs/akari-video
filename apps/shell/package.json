@@ -28,7 +28,8 @@
     "akari-preview": "file:./extensions/akari-preview",
     "akari-transcript": "file:./extensions/akari-transcript",
     "akari-annotations": "file:./extensions/akari-annotations",
-    "akari-theme": "file:./extensions/akari-theme"
+    "akari-theme": "file:./extensions/akari-theme",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@electron/asar": "^3.4.1",
@@ -176,7 +177,8 @@
       "entitlements": "resources/entitlements.mac.plist",
       "entitlementsInherit": "resources/entitlements.mac.plist",
       "target": "dir",
-      "category": "public.app-category.video"
+      "category": "public.app-category.video",
+      "artifactName": "shell-mac.${ext}"
     },
     "win": {
       "icon": "resources/icons/icon.png",
@@ -186,12 +188,30 @@
       "oneClick": true,
       "perMachine": false,
       "runAfterFinish": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "artifactName": "shell-win-setup.${ext}",
       "shortcutName": "AKARI Video"
     },
     "linux": {
       "icon": "resources/icons/icon.png",
       "target": "dir"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "AkariLabs",
+      "repo": "akari-video"
     }
+  },
+  "allowScripts": {
+    "electron@39.8.7": true,
+    "drivelist@12.0.2": true,
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.24.2": true,
+    "keytar@7.9.0": true,
+    "msgpackr-extract@3.0.4": true,
+    "native-keymap@2.5.0": true,
+    "node-pty@1.2.0-beta.12": true,
+    "puppeteer@25.1.0": true,
+    "@parcel/watcher@2.6.0": true,
+    "@theia/ffmpeg@1.73.1": true
   }
 }

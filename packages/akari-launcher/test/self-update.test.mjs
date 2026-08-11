@@ -3,12 +3,22 @@ import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { applySelfUpdate, isRunningFromAppDir, resolveAppDir, resolveAppPreviousDir, resolveStagingRoot, rollbackSelfUpdate } from '../src/self-update.mjs';
+import {
+  applySelfUpdate,
+  isRunningFromAppDir,
+  resolveAppDir,
+  resolveAppPreviousDir,
+  resolveStagingDir,
+  resolveStagingRoot,
+  rollbackSelfUpdate,
+  stageSelfUpdate,
+  swapStagedApp
+} from '../src/self-update.mjs';
 
 /**
  * self-update.mjs の検証（タスク契約 2026-08-11-update-u4-cli-self-update 受け入れ条件）:
@@ -18,6 +28,12 @@ import { applySelfUpdate, isRunningFromAppDir, resolveAppDir, resolveAppPrevious
  *   - インストール元判定（app 外実行で縮退）
  * すべて実ファイル + ローカル HTTP サーバー（update-integration.test.mjs と同じ流儀）で
  * 決定論的に検証する。実 GitHub には一切触れない。
+ *
+ * U5（タスク契約 2026-08-11-update-u5-cli-auto-update）で `applySelfUpdate` は
+ * `stageSelfUpdate`（DL・検証・展開）+ `swapStagedApp`（スワップのみ・ロック付き）に
+ * 分割された。上記の既存ケースは分割後も `applySelfUpdate` 経由でそのまま通ることを
+ * 直前のテスト実行で確認済み（無変更）。ここでは分割そのもの（2 つを別々に呼んでも
+ * 同じ結果になること）と、`swapStagedApp` に新設したロック（同時実行ガード）を追加検証する。
  */
 
 function sha256(buffer) {
@@ -269,5 +285,135 @@ test('rollbackSelfUpdate: app-previous が無ければロールバック対象�
     assert.equal(result.exitCode, 1);
     assert.equal(result.rolledBack, false);
     assert.ok(lines.some((line) => line.includes('ロールバック対象がありません')));
+  });
+});
+
+// --- U5: stageSelfUpdate / swapStagedApp（applySelfUpdate の分割）+ 同時実行ガード ---
+
+test('stageSelfUpdate: DL・sha256 検証・展開だけを行い、app には一切触れない（スワップしない）', async () => {
+  await withScratchHome(async (env) => {
+    const appDir = await seedOldApp(env, { version: '0.1.0', ref: 'v0.1.0' });
+    const tarball = await buildAppTarball({ version: '0.2.0' });
+    const expectedSha = sha256(tarball);
+
+    await withFixtureServer(
+      (req, res) => {
+        res.writeHead(200, { 'content-type': 'application/gzip' });
+        res.end(tarball);
+      },
+      async (baseUrl) => {
+        const feed = { schema: 1, product: '0.2.0', components: { app: { url: `${baseUrl}/app.tgz`, sha256: expectedSha } } };
+        const result = await stageSelfUpdate({ env, feed });
+
+        assert.equal(result.ok, true);
+        assert.equal(result.version, '0.2.0');
+        assert.equal(result.sha256, expectedSha);
+        assert.equal(result.stagingDir, resolveStagingDir(env, '0.2.0'));
+        assert.equal(await packageVersionAt(result.stagingDir), '0.2.0', 'staging ディレクトリには新版が展開されていること');
+
+        // app 本体は一切変更されていないこと（スワップはまだ実行していない）。
+        assert.equal(await packageVersionAt(appDir), '0.1.0');
+        assert.equal(existsSync(resolveAppPreviousDir(env)), false);
+      }
+    );
+  });
+});
+
+test('stageSelfUpdate → swapStagedApp: 2 段に分けて呼んでも applySelfUpdate 一発と同じ結果になる', async () => {
+  await withScratchHome(async (env) => {
+    await seedOldApp(env, { version: '0.1.0', ref: 'v0.1.0' });
+    const tarball = await buildAppTarball({ version: '0.2.0', extraFiles: { 'new-only-file.txt': 'brand new content' } });
+    const expectedSha = sha256(tarball);
+
+    await withFixtureServer(
+      (req, res) => {
+        res.writeHead(200, { 'content-type': 'application/gzip' });
+        res.end(tarball);
+      },
+      async (baseUrl) => {
+        const feed = {
+          schema: 1,
+          product: '0.2.0',
+          notes_url: 'https://github.com/AkariLabs/akari-video/releases/tag/v0.2.0',
+          components: { app: { url: `${baseUrl}/app.tgz`, sha256: expectedSha } }
+        };
+        const staged = await stageSelfUpdate({ env, feed });
+        assert.equal(staged.ok, true);
+
+        const { log, lines } = collectLogs();
+        const result = swapStagedApp({ env, version: staged.version, stagingDir: staged.stagingDir, log, runNpmInstall: () => ({ ok: true }), notesUrl: feed.notes_url });
+
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.applied, true);
+        assert.ok(lines.some((line) => line.includes('v0.2.0 に更新しました')), JSON.stringify(lines));
+        assert.ok(lines.some((line) => line.includes(feed.notes_url)));
+
+        const appDir = resolveAppDir(env);
+        assert.equal(await packageVersionAt(appDir), '0.2.0');
+        assert.equal(await readFile(join(appDir, 'new-only-file.txt'), 'utf8'), 'brand new content');
+        assert.equal(await packageVersionAt(resolveAppPreviousDir(env)), '0.1.0');
+      }
+    );
+  });
+});
+
+test('swapStagedApp: ロック取得に失敗したら静かに見送り、app は変更されない（同時実行ガード）', async () => {
+  await withScratchHome(async (env) => {
+    await seedOldApp(env, { version: '0.1.0' });
+    const tarball = await buildAppTarball({ version: '0.2.0' });
+    const expectedSha = sha256(tarball);
+
+    await withFixtureServer(
+      (req, res) => {
+        res.writeHead(200, { 'content-type': 'application/gzip' });
+        res.end(tarball);
+      },
+      async (baseUrl) => {
+        const feed = { schema: 1, product: '0.2.0', components: { app: { url: `${baseUrl}/app.tgz`, sha256: expectedSha } } };
+        const staged = await stageSelfUpdate({ env, feed });
+        assert.equal(staged.ok, true);
+
+        // 別プロセスが既にロックを保持している状況を模す（ロックディレクトリを先に作る）。
+        const lockPath = join(env.AKARI_HOME, 'update-apply.lock');
+        mkdirSync(lockPath, { recursive: true });
+
+        const { log, lines } = collectLogs();
+        const result = swapStagedApp({ env, version: staged.version, stagingDir: staged.stagingDir, log, runNpmInstall: () => { throw new Error('ロック競合時は npm install が呼ばれてはいけない'); } });
+
+        assert.equal(result.exitCode, 1);
+        assert.equal(result.applied, false);
+        assert.equal(result.lockContention, true);
+        assert.ok(lines.some((line) => line.includes('他のプロセスが更新を適用中')), JSON.stringify(lines));
+        assert.equal(await packageVersionAt(resolveAppDir(env)), '0.1.0', 'ロック競合時は app が変更されないこと');
+        assert.equal(existsSync(resolveAppPreviousDir(env)), false);
+        // 呼び出し元が保持していたロック（他プロセスを模したもの）は解放されないままである
+        // こと（swapStagedApp が自分の取っていないロックを勝手に奪って消したりしない）。
+        assert.equal(existsSync(lockPath), true);
+      }
+    );
+  });
+});
+
+test('swapStagedApp: ロック取得に成功したら通常どおりスワップし、ロックは解放される', async () => {
+  await withScratchHome(async (env) => {
+    await seedOldApp(env, { version: '0.1.0' });
+    const tarball = await buildAppTarball({ version: '0.2.0' });
+    const expectedSha = sha256(tarball);
+
+    await withFixtureServer(
+      (req, res) => {
+        res.writeHead(200, { 'content-type': 'application/gzip' });
+        res.end(tarball);
+      },
+      async (baseUrl) => {
+        const feed = { schema: 1, product: '0.2.0', components: { app: { url: `${baseUrl}/app.tgz`, sha256: expectedSha } } };
+        const staged = await stageSelfUpdate({ env, feed });
+        const result = swapStagedApp({ env, version: staged.version, stagingDir: staged.stagingDir, runNpmInstall: () => ({ ok: true }) });
+
+        assert.equal(result.applied, true);
+        const lockPath = join(env.AKARI_HOME, 'update-apply.lock');
+        assert.equal(existsSync(lockPath), false, 'スワップ完了後はロックが解放されていること');
+      }
+    );
   });
 });
