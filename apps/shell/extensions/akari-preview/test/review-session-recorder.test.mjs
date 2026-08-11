@@ -393,6 +393,205 @@ test('click outside a recording session emits nothing, even for a registered ele
     }
 });
 
+// task.md 指示1 (pointerup併用): docs/contract-2026-08-11-review-session-ui-events.md #2 の
+// preventDefault(pointerdown) 環境 -- 'click' が合成されないタイムライン要素 -- でも
+// pointerup 側の遅延記録で ui.click が成立すること、かつ通常要素（'click' が合成される）では
+// click と pointerup の二重記録が起きないことを検証する。
+
+test('pointerup on a registered element records ui.click when no click follows (preventDefault(pointerdown) case)', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const restorePerformance = replaceGlobal('performance', { now: () => 2_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        const target = {
+            getAttribute: name => ({
+                'data-akari-ui': 'timeline:cut:3',
+                'data-akari-ui-label': 'カット 3'
+            }[name] ?? null),
+            parentNode: null
+        };
+        // pointerdown が preventDefault() した想定 -- 'click' は一切合成されない。
+        recorder.handleUiPointerUp({ target, button: 0 });
+        assert.equal(events.length, 0, 'must not record synchronously -- waits one macrotask for a possible click');
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await active.writeTail;
+        assert.deepEqual(events, [{
+            recT: 1, type: 'ui.click', target: 'timeline:cut:3', label: 'カット 3'
+        }]);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('a click that follows pointerup (normal element) suppresses the pointerup fallback -- no double record', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const restorePerformance = replaceGlobal('performance', { now: () => 2_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        const target = {
+            getAttribute: name => (name === 'data-akari-ui' ? 'panel:assets' : null),
+            parentNode: null
+        };
+        // ブラウザの実際の順序どおり: pointerup が先に届き、click は同じタスク内で同期的に続く。
+        recorder.handleUiPointerUp({ target, button: 0 });
+        recorder.handleUiClick({ target });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await active.writeTail;
+        assert.equal(events.length, 1, 'the deferred pointerup fallback must be suppressed by the click that already recorded it');
+        assert.equal(events[0].type, 'ui.panel');
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('pointerup for a non-primary button is ignored', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 0,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        const target = {
+            getAttribute: name => (name === 'data-akari-ui' ? 'timeline:cut:0' : null),
+            parentNode: null
+        };
+        recorder.handleUiPointerUp({ target, button: 2 });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await active.writeTail;
+        assert.equal(events.length, 0);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+    }
+});
+
+test('pointerup on an unregistered element, or outside a recording session, emits nothing', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const unregistered = { getAttribute: () => null, parentNode: null };
+    recorder.handleUiPointerUp({ target: unregistered, button: 0 });
+
+    const registered = { getAttribute: name => (name === 'data-akari-ui' ? 'panel:assets' : null), parentNode: null };
+    // No active session at all.
+    recorder.handleUiPointerUp({ target: registered, button: 0 });
+
+    recorder.active = { sessionDir: 'file:///project/review/sessions/s-0001', monotonicStartedAt: 0, lastRecT: 0, writeTail: Promise.resolve() };
+    recorder.status = 'stopping';
+    try {
+        recorder.handleUiPointerUp({ target: registered, button: 0 });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        assert.equal(events.length, 0);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+    }
+});
+
+test('installing UI listeners registers both click and pointerup on the same capture phase', async () => {
+    const listeners = [];
+    const restoreDocument = replaceGlobal('document', {
+        addEventListener: (type, listener, capture) => {
+            if (type === 'click' || type === 'pointerup') {
+                listeners.push({ type, listener, capture });
+            }
+        },
+        removeEventListener: (type, listener) => {
+            if (type === 'click' || type === 'pointerup') {
+                const index = listeners.findIndex(entry => entry.type === type && entry.listener === listener);
+                if (index >= 0) {
+                    listeners.splice(index, 1);
+                }
+            }
+        }
+    });
+    const service = {
+        startReviewSession: async () => ({
+            id: 's-0001',
+            sessionDir: 'file:///project/review/sessions/s-0001',
+            startedAt: '2026-08-11T00:00:00.000Z',
+            editHash: 'sha256:test'
+        }),
+        appendReviewSessionEvent: async () => undefined,
+        endReviewSession: async () => undefined,
+        listReviewSessions: async () => []
+    };
+    const stream = { getTracks: () => [{ stop: () => undefined }] };
+    class FakeAudioContext {
+        constructor(options) {
+            this.sampleRate = options.sampleRate;
+            this.destination = {};
+        }
+        async resume() {}
+        async close() {}
+        createMediaStreamSource() {
+            return { connect: () => undefined, disconnect: () => undefined };
+        }
+        createScriptProcessor() {
+            return { onaudioprocess: null, connect: () => undefined, disconnect: () => undefined };
+        }
+        createGain() {
+            return { gain: { value: 1 }, connect: () => undefined, disconnect: () => undefined };
+        }
+    }
+    const restoreNavigator = replaceGlobal('navigator', { mediaDevices: { getUserMedia: async () => stream } });
+    const restoreWindow = replaceGlobal('window', { setInterval: () => 1, clearInterval: () => undefined });
+    const restoreAudioContext = replaceGlobal('AudioContext', FakeAudioContext);
+    const restorePerformance = replaceGlobal('performance', { now: () => 1_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    try {
+        await recorder.start({
+            projectRootUri: 'file:///project',
+            editUri: 'file:///project/edit.json',
+            timelineT: 0,
+            playing: false
+        }, {
+            timelineT: 0,
+            playing: false,
+            rate: 1
+        });
+        assert.deepEqual(listeners.map(entry => entry.type).sort(), ['click', 'pointerup']);
+        assert.ok(listeners.every(entry => entry.capture === true));
+        await recorder.stop();
+        assert.equal(listeners.length, 0);
+    } finally {
+        await recorder.dispose();
+        restorePerformance();
+        restoreAudioContext();
+        restoreWindow();
+        restoreNavigator();
+        restoreDocument();
+    }
+});
+
 // task.md 指示1/4/5/6 (M2 tool modes): setToolMode transitions + emitted tool.mode events,
 // select-mode intent tagging on ui.click, and the rect stroke pipeline (handleRectStart/End).
 
@@ -523,6 +722,209 @@ test('select mode tags ui.click with intent: true; other modes/panel/tab events 
         recorder.status = 'idle';
         restorePerformance();
     }
+});
+
+// task.md 指示2 (ui: target 着地): select ツール中に解決されたクリックだけが「いま選択中の
+// UI 要素」として記憶され、review-panel の state イベントへ乗ること。
+
+test('a select-mode click records selectedUiTarget in the emitted state; other modes do not', async () => {
+    const states = [];
+    const service = { appendReviewSessionEvent: async () => undefined };
+    const restorePerformance = replaceGlobal('performance', { now: () => 1_000 });
+    const recorder = new ReviewSessionRecorder(service, state => states.push(state));
+    const active = {
+        editUri: 'file:///project/edit.json',
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    recorder.toolModeState = { mode: 'neutral', sessionActive: true };
+    const target = {
+        getAttribute: name => ({
+            'data-akari-ui': 'timeline:cut:3',
+            'data-akari-ui-label': 'カット 3'
+        }[name] ?? null),
+        parentNode: null
+    };
+    try {
+        recorder.handleUiClick({ target });
+        assert.equal(states.length, 0, 'neutral mode must not select, and must not emit a state update either');
+
+        recorder.setToolMode(active.editUri, 'select');
+        recorder.handleUiClick({ target });
+        assert.deepEqual(states.at(-1).selectedUiTarget, { target: 'timeline:cut:3', label: 'カット 3' });
+
+        // panel:/tab: も select 中は選択対象になる（ui: target の id 空間は §2 と同一）。
+        recorder.handleUiClick({
+            target: { getAttribute: name => (name === 'data-akari-ui' ? 'panel:assets' : null), parentNode: null }
+        });
+        assert.deepEqual(states.at(-1).selectedUiTarget, { target: 'panel:assets', label: 'panel:assets' });
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+// L1 実機検証で発見（task.md 指示2）: 選択 → コメント入力欄へフォーカス、という素直な導線で
+// 入力欄の登録済み祖先解決が panel:review（注釈パネル自身）に丸まり、直前に選択した UI 要素の
+// 選択を巻き添えで上書きしてしまう実害を確認した。panel:review 自身はコメント対象として
+// 意味を持たない（パネルからパネル自身へコメントすることは想定しない）ため除外する。
+test('clicking inside the review panel itself (panel:review) does not clobber an existing selection', async () => {
+    const states = [];
+    const service = { appendReviewSessionEvent: async () => undefined };
+    const restorePerformance = replaceGlobal('performance', { now: () => 1_000 });
+    const recorder = new ReviewSessionRecorder(service, state => states.push(state));
+    const active = {
+        editUri: 'file:///project/edit.json',
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    recorder.toolModeState = { mode: 'select', sessionActive: true };
+    const cutTarget = {
+        getAttribute: name => ({
+            'data-akari-ui': 'timeline:cut:0',
+            'data-akari-ui-label': 'C1'
+        }[name] ?? null),
+        parentNode: null
+    };
+    const panelTarget = {
+        getAttribute: name => ({
+            'data-akari-ui': 'panel:review',
+            'data-akari-ui-label': '注釈パネル'
+        }[name] ?? null),
+        parentNode: null
+    };
+    try {
+        recorder.handleUiClick({ target: cutTarget });
+        assert.deepEqual(states.at(-1).selectedUiTarget, { target: 'timeline:cut:0', label: 'C1' });
+
+        // 例: コメント入力欄をクリックしてフォーカスする際の登録済み祖先解決は panel:review に丸まる。
+        recorder.handleUiClick({ target: panelTarget });
+        assert.deepEqual(
+            states.at(-1).selectedUiTarget, { target: 'timeline:cut:0', label: 'C1' },
+            'the cut selection must survive a click that resolves to the review panel itself'
+        );
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('a preventDefault(pointerdown)-style element (pointerup only) also records selectedUiTarget in select mode', async () => {
+    const states = [];
+    const service = { appendReviewSessionEvent: async () => undefined };
+    const restorePerformance = replaceGlobal('performance', { now: () => 1_000 });
+    const recorder = new ReviewSessionRecorder(service, state => states.push(state));
+    const active = {
+        editUri: 'file:///project/edit.json',
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    recorder.toolModeState = { mode: 'select', sessionActive: true };
+    const target = {
+        getAttribute: name => (name === 'data-akari-ui' ? 'timeline:overlay:o-0002' : null),
+        parentNode: null
+    };
+    try {
+        recorder.handleUiPointerUp({ target, button: 0 });
+        // selection updates synchronously (independent of the click/pointerup dedup delay).
+        assert.deepEqual(states.at(-1).selectedUiTarget, { target: 'timeline:overlay:o-0002', label: 'timeline:overlay:o-0002' });
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('clearUiSelection clears the selection and emits, and is a no-op for a mismatched editUri or no selection', async () => {
+    const states = [];
+    const service = { appendReviewSessionEvent: async () => undefined };
+    const restorePerformance = replaceGlobal('performance', { now: () => 1_000 });
+    const recorder = new ReviewSessionRecorder(service, state => states.push(state));
+    const active = {
+        editUri: 'file:///project/edit.json',
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    recorder.toolModeState = { mode: 'select', sessionActive: true };
+    const target = {
+        getAttribute: name => (name === 'data-akari-ui' ? 'panel:assets' : null),
+        parentNode: null
+    };
+    try {
+        recorder.handleUiClick({ target });
+        assert.ok(states.at(-1).selectedUiTarget);
+
+        const beforeClear = states.length;
+        recorder.clearUiSelection('file:///project/other-edit.json');
+        assert.equal(states.length, beforeClear, 'mismatched editUri must not emit');
+        assert.ok(states.at(-1).selectedUiTarget, 'mismatched editUri must not clear');
+
+        recorder.clearUiSelection(active.editUri);
+        assert.equal(states.at(-1).selectedUiTarget, undefined);
+
+        const afterClear = states.length;
+        recorder.clearUiSelection(active.editUri);
+        assert.equal(states.length, afterClear, 'clearing an already-empty selection must not emit again');
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('session end clears a pending UI selection, and a new session never inherits a stale one', async () => {
+    const service = {
+        appendReviewSessionEvent: async () => undefined,
+        endReviewSession: async () => undefined,
+        listReviewSessions: async () => []
+    };
+    const states = [];
+    const recorder = new ReviewSessionRecorder(service, state => states.push(state));
+    const active = {
+        editUri: 'file:///project/edit.json',
+        projectRootUri: 'file:///project',
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        startedAt: '2026-08-11T00:00:00.000Z',
+        editHash: 'sha256:test',
+        monotonicStartedAt: 0,
+        lastRecT: 0,
+        transport: { timelineT: 0, playing: false, rate: 1 },
+        writeTail: Promise.resolve(),
+        source: { disconnect: () => undefined },
+        processor: { disconnect: () => undefined, onaudioprocess: null },
+        silentGain: { disconnect: () => undefined },
+        stream: { getTracks: () => [] },
+        context: { close: async () => undefined },
+        pendingSamples: [],
+        pendingSampleCount: 0
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    recorder.toolModeState = { mode: 'select', sessionActive: true };
+    recorder.handleUiClick({
+        target: { getAttribute: name => (name === 'data-akari-ui' ? 'panel:assets' : null), parentNode: null }
+    });
+    assert.ok(states.at(-1).selectedUiTarget);
+    await recorder.stop();
+    assert.equal(states.at(-1).selectedUiTarget, undefined);
 });
 
 test('records a completed rect stroke on the session clock, discarding a degenerate (zero-size) box', async () => {

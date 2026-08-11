@@ -440,6 +440,8 @@ const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
 // M2 (task.md): 右パネルの選択/ペン/四角ボタンからの mode request。akari-annotations 側と
 // 文字列だけミラーする（既存 5 定数と同じ配線パターン）。
 const REVIEW_TOOL_MODE_SET_EVENT = 'akari.review.toolMode.set';
+// M3 (task.md 指示2): 注釈パネルの「選択を解除」導線からの request。同じミラー配線パターン。
+const REVIEW_UI_SELECTION_CLEAR_EVENT = 'akari.review.uiSelection.clear';
 
 // akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.executeCommand に渡す。
@@ -1064,6 +1066,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             this.reviewSessionRecorder.setToolMode(editUri, detail.mode);
+        });
+        register(REVIEW_UI_SELECTION_CLEAR_EVENT, event => {
+            const detail = (event as CustomEvent<ReviewSessionControlRequest>).detail;
+            const editUri = detail?.editUri ? this.normalizeReviewEditUri(detail.editUri) : undefined;
+            if (!editUri || !this.reviewSessionRecorder) {
+                return;
+            }
+            this.reviewSessionRecorder.clearUiSelection(editUri);
         });
     }
 
