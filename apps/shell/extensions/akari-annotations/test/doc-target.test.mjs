@@ -5,6 +5,7 @@ import {
   parseDocTarget,
   parseImageTarget,
   parseCanvasTarget,
+  parseUiTarget,
   collectBlockIds,
   extractBlocksManifest,
 } from "../lib/common/doc-target.js";
@@ -32,6 +33,15 @@ test("parseCanvasTarget は canvas:<c-NNNN> をパースする", () => {
   assert.equal(parseCanvasTarget("image:assets/thumbnails/candidate-1.png"), undefined);
   assert.equal(parseCanvasTarget(null), undefined);
   assert.equal(parseCanvasTarget("canvas:not-a-valid-id"), undefined);
+});
+
+test("parseUiTarget は ui:<element-id> を、§2 と同一の id 空間そのままパースする", () => {
+  assert.deepEqual(parseUiTarget("ui:panel:assets"), { id: "panel:assets" });
+  assert.deepEqual(parseUiTarget("ui:timeline:cut:3"), { id: "timeline:cut:3" });
+  assert.deepEqual(parseUiTarget("ui:timeline:overlay:o-0002"), { id: "timeline:overlay:o-0002" });
+  assert.deepEqual(parseUiTarget("ui:asset:assets/broll/city.mp4"), { id: "asset:assets/broll/city.mp4" });
+  assert.equal(parseUiTarget(null), undefined);
+  assert.equal(parseUiTarget("canvas:c-0001"), undefined);
 });
 
 test("collectBlockIds はマニフェストの形状に依存せず文字列の葉を全数集める", () => {

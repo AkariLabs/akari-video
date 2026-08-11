@@ -21,10 +21,20 @@ export interface CanvasTarget {
     id: string;
 }
 
+export interface UiTarget {
+    /**
+     * docs/contract-2026-08-11-review-session-ui-events.md §2 と同一の id 空間
+     * （`panel:<id>` / `tab:<id>` / `timeline:cut:<n>` / `timeline:overlay:<id>` / `asset:<path>`）。
+     */
+    id: string;
+}
+
 const DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
 const IMAGE_TARGET_PATTERN = /^image:(.+)$/;
 /** contract-2026-07-26-canvas-surface §4: canvas:<c-NNNN>。 */
 const CANVAS_TARGET_PATTERN = /^canvas:(c-\d{4,})$/;
+/** docs/contract-2026-08-11-review-session-ui-events.md §6: ui:<element-id>。 */
+const UI_TARGET_PATTERN = /^ui:(.+)$/;
 
 export function parseDocTarget(target: string | null | undefined): DocTarget | undefined {
     if (typeof target !== 'string') {
@@ -47,6 +57,14 @@ export function parseCanvasTarget(target: string | null | undefined): CanvasTarg
         return undefined;
     }
     const match = CANVAS_TARGET_PATTERN.exec(target);
+    return match ? { id: match[1] } : undefined;
+}
+
+export function parseUiTarget(target: string | null | undefined): UiTarget | undefined {
+    if (typeof target !== 'string') {
+        return undefined;
+    }
+    const match = UI_TARGET_PATTERN.exec(target);
     return match ? { id: match[1] } : undefined;
 }
 
