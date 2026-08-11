@@ -7,6 +7,7 @@
 - [生成する](#生成する)
 - [analysis.json への反映](#analysisjson-への反映)
 - [劣化](#劣化)
+- [消費側: finger-frame（指フレーム切り替え）](#消費側-finger-frame指フレーム切り替え)
 
 ## 原則
 
@@ -129,6 +130,37 @@ person-matte と異なり、agent が返り値を手で `tracks` へ貼り付け
 道具が無い、生成に失敗した場合は `tracks.face_landmarks` / `tracks.hand_pose` の**キー自体を
 書かず**に分析を確定し、理由を完了報告に書く（person_matte の「キーは必須・値は null」という
 劣化表現とは違う — このトラックは真に任意であり、キーの有無で生成済みかどうかを表す）。
+
+## 消費側: finger-frame（指フレーム切り替え）
+
+`tracks.hand_pose`（両手の `thumb_tip`/`index_tip` = 4 点）を「指で作ったフレームの中だけ映像が
+切り替わる」演出の `layers[].keyframes`（perspective 4 隅 corner-pin）へ決定論変換する CLI。
+契約 [docs/contract-2026-08-11-analysis-vision-tracks-v0.md](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md)
+§4 の消費者第 2 号（本契約は変換の責務分担のみを定め、新しい 3 面実装は発生しない — §0 原則 3）。
+
+```bash
+akari internal vision-finger-frame <project> \
+  --media <貼る映像のパス> [--kind video|baked] \
+  [--analysis <path>] [--edit <path>] \
+  [--open-threshold <0..1>] [--close-threshold <0..1>] [--min-open-duration <sec>] \
+  [--apply]
+```
+
+- **発動検出**: 親指・人差し指の距離（ソース動画の実ピクセル寸法でアスペクト補正済み）が
+  `--open-threshold`（既定 0.16）を両手とも超えた区間を「開き」とする。閉じるのは
+  `--close-threshold`（既定 0.11、open より低い）未満へ落ちるか片手でも検出が消えたとき —
+  固定引数のヒステリシスで決定論的にバタつきを防ぐ（`bin/finger-frame/gesture.mjs`）。
+- **幾何**: 4 点をどの指がどの隅かに関わらず正しい `[TL,TR,BL,BR]`（#layerPerspective）へ
+  正規化する（ねじれ/自己交差 quad は点集合の重心まわりの角度ソートで解消 —
+  `bin/finger-frame/corners.mjs` のヘッダコメントに導出込み）。同一区間内では前フレームの
+  コーナー割当に一番近い回転を選び、指の担当隅が視覚的に飛ばないようにする。
+- **時間写像**: hand_pose はソース動画の秒基準、layers はタイムライン秒基準 -- `cuts[]` の
+  `in`/`out`/`at`/`speed`（render-cut の `cut-timeline.mjs` を読み取り専用で再利用）から解く。
+  対象カットに `framing`/`transform` の宣言があると既定 letterbox 前提が崩れるため、そのカットの
+  区間はスキップし warnings に理由を残す（v0 の既知の境界。黙って誤った座標を出さない）。
+- **既知の境界（v0）**: 分析はプル駆動の任意工程のまま（本節は既存ワークフローに新しいハード
+  ルールを追加しない）。finger-frame 自体の詳細な設計判断・実測は
+  `akari-video-internal` リポの `tasks/2026-08-11-finger-frame-generator/report.md`（非公開）を参照。
 
 ## よくある間違い
 
