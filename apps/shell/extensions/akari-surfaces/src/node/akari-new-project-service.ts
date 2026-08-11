@@ -4,6 +4,7 @@ import { dirname, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import URI from '@theia/core/lib/common/uri';
 import { AkariNewProjectService } from '../common/akari-new-project-protocol';
+import { detectTools } from './tool-detection';
 
 /** `packages/project-scaffold/src/index.mjs` が export する部分のうち、このサービスが使う範囲だけの型。 */
 interface ProjectScaffoldModule {
@@ -139,6 +140,10 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
         } catch (error) {
             throw new Error(this.describeEnsureError(error));
         }
+    }
+
+    async checkTools() {
+        return detectTools();
     }
 
     /**

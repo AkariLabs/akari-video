@@ -49,7 +49,13 @@ import {
     parseShellLastVersion,
     withRecordedVersion
 } from '../common/shell-version-notice';
-import { AkariNewProjectService } from '../common/akari-new-project-protocol';
+import {
+    AkariNewProjectService,
+    AkariToolCheckResponse,
+    AkariToolCheckResult
+} from '../common/akari-new-project-protocol';
+import { shouldAutoOpenFirstRunSetup } from '../common/first-run-onboarding';
+import { TOOL_UI } from '../common/tool-guidance';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
 
 // ホーム v4（裁定 R1〜R3・notes-2026-08-02-home-v4-minimal）: dashboard の
@@ -128,6 +134,10 @@ const CREATOR_ROOT_DEFAULT_CHANNEL = 'my-channel';
 // アプリ単位マーカーや更新キャッシュと同じ `<AKARI_HOME>/` 直下に置く。
 const SHELL_LAST_VERSION_FILENAME = 'shell-last-version.json';
 
+// 初回セットアップの自動表示済みマーカー。更新キャッシュや接続マーカーと同じ
+// `<AKARI_HOME>/` 直下へ置き、アプリの状態保存経路を増やさない。
+const FIRST_RUN_ONBOARDING_MARKER_FILENAME = 'first-run-onboarding-v0.json';
+
 // --- F5 新しい動画を始める（task 2026-08-03-shell-quickwins-feedback） ---
 const NEW_PROJECT_NAME_SLUG = 'new-video';
 
@@ -165,6 +175,9 @@ interface ProjectListRow {
     current: boolean;
     standalone: boolean;
 }
+
+type FirstRunSetupStep = 'tools' | 'workspace' | 'connection';
+
 
 /**
  * U2 状態バッジの表示に使う解決結果（旧 F6「現在地 1 行」を置き換え・
@@ -242,6 +255,16 @@ export class AkariHomeWidget extends ReactWidget {
     // true の間は render() が renderWelcomeSurface() に分岐し、通常ホームの要素
     // （状態バッジ・説明・接続カード等）は一切描画しない（task.md §2）。
     protected welcomeMode = false;
+
+    // --- 初回オンボーディング v0（task 2026-08-11-first-run-onboarding-v0） ---
+    protected firstRunSetupOpen = false;
+    protected firstRunSetupStep: FirstRunSetupStep = 'tools';
+    protected toolCheck: AkariToolCheckResponse | undefined;
+    protected checkingTools = false;
+    protected creatingSetupWorkspace = false;
+    protected setupError: string | undefined;
+    // セットアップ完了直後はワークスペース root がまだ無くても dashboard へ抜ける。
+    protected showDashboardWithoutProject = false;
 
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
@@ -321,6 +344,7 @@ export class AkariHomeWidget extends ReactWidget {
         await this.loadCreatorRootProjects();
         // U3: 履歴由来の「単体」プロジェクトは creatorRootProjects（重複除外に使う）の後に読む。
         await this.loadStandaloneProjects();
+        await this.initializeFirstRunSetup();
         // U2: 状態バッジの解決（creatorRootUri）の後に読む — 現在地がチャンネルの
         // 内側かどうかの判定に使うため。
         await this.refreshCurrentLocation();
@@ -368,6 +392,134 @@ export class AkariHomeWidget extends ReactWidget {
         this.welcomeMode = roots.length === 0;
         this.update();
     }
+
+    /** 完全初回だけ自動表示し、表示した事実は同じ AKARI_HOME のファイル契約へ記録する。 */
+    protected async initializeFirstRunSetup(): Promise<void> {
+        const roots = await this.workspaceService.roots;
+        const markerSeen = await this.firstRunMarkerSeen();
+        const hasCreatorRootPointer = await this.creatorRootPointerExists();
+        const hasProjectHistory = this.creatorRootProjects.length > 0 || this.standaloneProjects.length > 0;
+        if (!shouldAutoOpenFirstRunSetup({
+            hasOpenProject: roots.length > 0,
+            hasCreatorRootPointer,
+            hasProjectHistory,
+            markerSeen
+        })) {
+            return;
+        }
+        this.firstRunSetupOpen = true;
+        this.firstRunSetupStep = 'tools';
+        this.update();
+        await this.recordFirstRunMarker();
+        await this.recheckTools();
+    }
+
+    protected async firstRunMarkerSeen(): Promise<boolean> {
+        try {
+            await this.fileService.readFile((await this.resolveAkariHomeUri()).resolve(FIRST_RUN_ONBOARDING_MARKER_FILENAME));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    protected async creatorRootPointerExists(): Promise<boolean> {
+        try {
+            await this.fileService.readFile((await this.resolveAkariHomeUri()).resolve(CREATOR_ROOT_POINTER_FILENAME));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    protected async recordFirstRunMarker(): Promise<void> {
+        try {
+            const uri = (await this.resolveAkariHomeUri()).resolve(FIRST_RUN_ONBOARDING_MARKER_FILENAME);
+            try {
+                await this.fileService.createFolder(uri.parent);
+            } catch {
+                // 既に存在する場合は無視する。
+            }
+            const body = { schema: 1, shownAt: new Date().toISOString() };
+            await this.fileService.writeFile(uri, BinaryBuffer.fromString(`${JSON.stringify(body, null, 2)}\n`));
+        } catch (error) {
+            // UI は現在のセッションで継続できる。保存に失敗した場合だけ次回も自動表示される。
+            console.error('[akari-surfaces] failed to record first-run onboarding marker:', error);
+        }
+    }
+
+    /** コマンドパレット／ホームの導線から何度でも明示再表示できる。 */
+    openFirstRunSetup = async (): Promise<void> => {
+        this.firstRunSetupOpen = true;
+        this.firstRunSetupStep = 'tools';
+        this.showDashboardWithoutProject = false;
+        this.setupError = undefined;
+        this.update();
+        await this.recheckTools();
+    };
+
+    protected recheckTools = async (): Promise<void> => {
+        if (this.checkingTools) {
+            return;
+        }
+        this.checkingTools = true;
+        this.setupError = undefined;
+        this.update();
+        try {
+            this.toolCheck = await this.newProjectService.checkTools();
+        } catch (error) {
+            console.error('[akari-surfaces] tool check failed:', error);
+            this.setupError = '道具を確認できませんでした。再チェックしてください。';
+        } finally {
+            this.checkingTools = false;
+            this.update();
+        }
+    };
+
+    protected createSetupWorkspace = async (): Promise<void> => {
+        if (this.creatingSetupWorkspace) {
+            return;
+        }
+        this.creatingSetupWorkspace = true;
+        this.setupError = undefined;
+        this.update();
+        try {
+            const rootUriString = await this.newProjectService.ensureCreatorRoot();
+            this.creatorRootUri = new URI(rootUriString);
+            this.creatorRootAvailable = true;
+            await this.loadCreatorRootProjects();
+            this.firstRunSetupStep = 'connection';
+        } catch (error) {
+            console.error('[akari-surfaces] failed to create setup workspace:', error);
+            this.setupError = error instanceof Error ? error.message : '作業場を作成できませんでした。';
+        } finally {
+            this.creatingSetupWorkspace = false;
+            this.update();
+        }
+    };
+
+    protected connectFromSetup = async (): Promise<void> => {
+        if (this.connecting) {
+            return;
+        }
+        this.connecting = true;
+        this.update();
+        try {
+            await this.commands.executeCommand(BEGIN_ONBOARDING_COMMAND);
+            await this.refreshHomeFlow();
+            this.finishFirstRunSetup();
+        } finally {
+            this.connecting = false;
+            this.update();
+        }
+    };
+
+    protected finishFirstRunSetup = (): void => {
+        this.firstRunSetupOpen = false;
+        this.showDashboardWithoutProject = true;
+        this.setupError = undefined;
+        this.update();
+    };
 
     // --- ホーム v3: 状態読み取り（SSOT はファイル。裁定 R1/R5） ---
 
@@ -1662,7 +1814,10 @@ export class AkariHomeWidget extends ReactWidget {
      * （状態バッジ・説明・接続カード等）を混在させない（task.md §2 指定）。
      */
     protected override render(): React.ReactNode {
-        if (this.welcomeMode) {
+        if (this.firstRunSetupOpen) {
+            return this.renderFirstRunSetup();
+        }
+        if (this.welcomeMode && !this.showDashboardWithoutProject) {
             return this.renderWelcomeSurface();
         }
         return (
@@ -1688,11 +1843,178 @@ export class AkariHomeWidget extends ReactWidget {
         );
     }
 
+    protected renderFirstRunSetup(): React.ReactNode {
+        const steps: Array<{ id: FirstRunSetupStep; label: string }> = [
+            { id: 'tools', label: '1. 道具' },
+            { id: 'workspace', label: '2. 作業場' },
+            { id: 'connection', label: '3. 接続・会話' }
+        ];
+        return (
+            <div
+                className='akari-home-surface akari-first-run-setup'
+                data-akari-home-stage='first-run-setup'
+                data-akari-first-run-step={this.firstRunSetupStep}
+                style={homeFlowStyles.setupSurface}
+            >
+                <div style={homeFlowStyles.setupWrap}>
+                    <header style={homeFlowStyles.setupHeader}>
+                        <div style={homeFlowStyles.welcomeLogo}>🏮 AKARI Video</div>
+                        <h1 style={{ margin: '10px 0 6px', fontSize: 24 }}>はじめる準備</h1>
+                        <p style={homeFlowStyles.setupLead}>道具を確認し、作業場と AI パートナーを順番に準備します。</p>
+                        <div style={homeFlowStyles.setupSteps} aria-label='セットアップの進行状況'>
+                            {steps.map(step => (
+                                <span
+                                    key={step.id}
+                                    data-akari-setup-step-label={step.id}
+                                    style={{
+                                        ...homeFlowStyles.setupStep,
+                                        ...(step.id === this.firstRunSetupStep ? homeFlowStyles.setupStepActive : {})
+                                    }}
+                                >
+                                    {step.label}
+                                </span>
+                            ))}
+                        </div>
+                    </header>
+                    {this.setupError && <div role='alert' style={homeFlowStyles.setupError}>{this.setupError}</div>}
+                    {this.firstRunSetupStep === 'tools' && this.renderToolSetupStep()}
+                    {this.firstRunSetupStep === 'workspace' && this.renderWorkspaceSetupStep()}
+                    {this.firstRunSetupStep === 'connection' && this.renderConnectionSetupStep()}
+                </div>
+            </div>
+        );
+    }
+
+    protected renderToolSetupStep(): React.ReactNode {
+        const tools = this.toolCheck?.tools ?? [];
+        const groups: Array<{ title: string; items: AkariToolCheckResult[] }> = [
+            { title: '基本の道具', items: tools.filter(tool => tool.tier === 'required') },
+            { title: 'アドバンス', items: tools.filter(tool => tool.tier === 'advanced') },
+            { title: '推奨', items: tools.filter(tool => tool.tier === 'recommended') }
+        ].filter(group => group.items.length > 0);
+        return (
+            <section data-akari-setup-tools='true' style={homeFlowStyles.setupPanel}>
+                <div style={homeFlowStyles.setupTitleRow}>
+                    <div>
+                        <h2 style={homeFlowStyles.setupTitle}>道具チェック</h2>
+                        <p style={homeFlowStyles.setupLead}>見つからない道具は案内だけ表示します。ここから自動インストールはしません。</p>
+                    </div>
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        data-akari-tool-recheck='true'
+                        disabled={this.checkingTools}
+                        onClick={() => void this.recheckTools()}
+                    >
+                        {this.checkingTools ? '確認中…' : '再チェック'}
+                    </button>
+                </div>
+                {groups.map(group => (
+                    <div key={group.title} style={homeFlowStyles.toolGroup}>
+                        <h3 style={homeFlowStyles.toolGroupTitle}>{group.title}</h3>
+                        {group.items.map(tool => this.renderToolRow(tool))}
+                    </div>
+                ))}
+                {!this.toolCheck && this.checkingTools && <p role='status'>道具を確認しています…</p>}
+                <div style={homeFlowStyles.setupActions}>
+                    <button
+                        type='button'
+                        className='theia-button main'
+                        data-akari-setup-next-workspace='true'
+                        onClick={() => { this.firstRunSetupStep = 'workspace'; this.setupError = undefined; this.update(); }}
+                    >
+                        作業場の準備へ
+                    </button>
+                </div>
+            </section>
+        );
+    }
+
+    protected renderToolRow(tool: AkariToolCheckResult): React.ReactNode {
+        const info = TOOL_UI[tool.id];
+        return (
+            <article key={tool.id} data-akari-tool-id={tool.id} data-akari-tool-available={String(tool.available)} style={homeFlowStyles.toolRow}>
+                <span aria-label={tool.available ? '検出済み' : '未検出'} style={{ ...homeFlowStyles.toolStatus, ...(tool.available ? homeFlowStyles.toolStatusOk : {}) }}>
+                    {tool.available ? '✓' : '−'}
+                </span>
+                <div style={homeFlowStyles.toolBody}>
+                    <div style={homeFlowStyles.toolNameRow}>
+                        <strong>{info.name}</strong>
+                        <span style={homeFlowStyles.toolBadge}>{info.badge}</span>
+                        {tool.version && <span style={homeFlowStyles.toolVersion}>{tool.version}</span>}
+                    </div>
+                    <p style={homeFlowStyles.toolPurpose}>{info.purpose}</p>
+                    {!tool.available && <code style={homeFlowStyles.toolInstall}>{info.install}</code>}
+                    {info.note && (tool.id !== 'xcode-clt' || !tool.available) && <p style={homeFlowStyles.toolNote}>{info.note}</p>}
+                </div>
+            </article>
+        );
+    }
+
+    protected renderWorkspaceSetupStep(): React.ReactNode {
+        return (
+            <section data-akari-setup-workspace='true' style={homeFlowStyles.setupPanel}>
+                <h2 style={homeFlowStyles.setupTitle}>作業場を作成</h2>
+                <p style={homeFlowStyles.setupLead}>
+                    チャンネルと動画プロジェクトをまとめる既定の作業場を自動生成します。場所はあとから設定で変更できます。
+                </p>
+                <div style={homeFlowStyles.setupCallout}>
+                    <span className='codicon codicon-folder' aria-hidden='true' />
+                    <span>既存の F9 作成経路を使い、雛形とマシンポインタを安全に用意します。</span>
+                </div>
+                <div style={homeFlowStyles.setupActions}>
+                    <button type='button' className='theia-button secondary' onClick={() => { this.firstRunSetupStep = 'tools'; this.update(); }}>
+                        戻る
+                    </button>
+                    <button
+                        type='button'
+                        className='theia-button main'
+                        data-akari-setup-create-workspace='true'
+                        disabled={this.creatingSetupWorkspace}
+                        onClick={() => void this.createSetupWorkspace()}
+                    >
+                        {this.creatingSetupWorkspace ? '作成しています…' : '作業場を作成'}
+                    </button>
+                </div>
+            </section>
+        );
+    }
+
+    protected renderConnectionSetupStep(): React.ReactNode {
+        return (
+            <section data-akari-setup-connection='true' style={homeFlowStyles.setupPanel}>
+                <h2 style={homeFlowStyles.setupTitle}>AI パートナーにつないで会話を始める</h2>
+                <p style={homeFlowStyles.setupLead}>
+                    既存の接続ゲートを開きます。API キーの登録は任意です。ローカル機能だけでも動画制作を始められます。
+                </p>
+                <div style={homeFlowStyles.setupCallout}>
+                    <span className='codicon codicon-comment-discussion' aria-hidden='true' />
+                    <span>接続すると、ホームから「こんな動画を作りたい」とそのまま相談できます。</span>
+                </div>
+                <div style={homeFlowStyles.setupActions}>
+                    <button type='button' className='theia-button secondary' data-akari-setup-skip-connection='true' onClick={this.finishFirstRunSetup}>
+                        今は接続せずホームへ
+                    </button>
+                    <button
+                        type='button'
+                        className='theia-button main'
+                        data-akari-setup-connect='true'
+                        disabled={this.connecting}
+                        onClick={() => void this.connectFromSetup()}
+                    >
+                        {this.connecting ? '接続を開いています…' : 'パートナーに接続してホームへ'}
+                    </button>
+                </div>
+            </section>
+        );
+    }
+
     /**
      * F11 ウェルカム面（状態 0・task 2026-08-05-welcome-screen）。見た目の正は
      * `planning/attachments/2026-08-03-owner-feedback-shell-v013/shell-home-mock.html`
-     * の「状態 0: ウェルカム」。中央カード 1 枚に「プロジェクトを開く」だけを
-     * 集中させる。更新があればカードより先/上に案内する（F11 追補・
+     * の「状態 0: ウェルカム」。中央カード 1 枚に「プロジェクトを開く」を
+     * 集中させ、初回セットアップの再表示はカード末尾の副次導線に留める。
+     * 更新があればカードより先/上に案内する（F11 追補・
      * オーナー追加裁定「起動 → 更新案内 → ウェルカム」。既存の
      * {@link renderUpdateBanner} をそのまま流用し、スキップ/更新後はバナーが
      * 消えてカードだけが残る = ウェルカムへ集中が移る）。左パネル・パートナー
@@ -1721,7 +2043,8 @@ export class AkariHomeWidget extends ReactWidget {
      * `currentProjectUri`/`currentLocation` がどちらも undefined のため「開いて
      * います」判定は自然に出ない（現在開いているプロジェクトという概念自体が
      * 無い）。作業場もプロジェクト履歴も無い完全初回（rows が空）は見出しごと
-     * 出さず新規ボタンのみにする（task.md §1 指定）。
+     * 出さない。フォルダ選択とセットアップ再表示は、主操作を邪魔しない末尾の
+     * 副次導線として常に残す。
      */
     protected renderWelcomeCard(): React.ReactNode {
         const rows = this.buildProjectRows();
@@ -1771,6 +2094,16 @@ export class AkariHomeWidget extends ReactWidget {
                     onClick={this.openFolderAdvanced}
                 >
                     フォルダを開く…（上級者向け）
+                </button>
+                <button
+                    type='button'
+                    className='theia-button secondary'
+                    style={homeFlowStyles.welcomeSetupButton}
+                    data-akari-open-first-run-setup='true'
+                    onClick={() => void this.openFirstRunSetup()}
+                >
+                    <span className='codicon codicon-tools' aria-hidden='true' />
+                    セットアップを開く
                 </button>
             </div>
         );
@@ -1844,7 +2177,18 @@ export class AkariHomeWidget extends ReactWidget {
     protected renderDashboardHeader(): React.ReactNode {
         return (
             <header style={{ marginBottom: 14 }}>
-                <h1 style={{ margin: 0, fontSize: 21 }}>ホーム</h1>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <h1 style={{ margin: 0, fontSize: 21 }}>ホーム</h1>
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        data-akari-open-first-run-setup='true'
+                        style={homeFlowStyles.setupReopenButton}
+                        onClick={() => void this.openFirstRunSetup()}
+                    >
+                        セットアップを開く
+                    </button>
+                </div>
                 {this.renderStatusBadge()}
             </header>
         );
@@ -2252,6 +2596,63 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         minHeight: 'auto', height: 'auto'
     },
 
+    setupSurface: {
+        height: '100%', overflow: 'auto', padding: '24px 28px', boxSizing: 'border-box',
+        background: 'var(--theia-editor-background)'
+    },
+    setupWrap: { width: 'min(780px, 100%)', margin: '0 auto' },
+    setupHeader: { textAlign: 'center', marginBottom: 18 },
+    setupLead: { color: 'var(--theia-descriptionForeground)', fontSize: 13, lineHeight: 1.7, margin: '4px 0 0' },
+    setupSteps: { display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 18 },
+    setupStep: {
+        padding: '5px 11px', borderRadius: 999, border: '1px solid var(--theia-widget-border)',
+        color: 'var(--theia-descriptionForeground)', fontSize: 11.5
+    },
+    setupStepActive: { borderColor: 'var(--theia-focusBorder)', color: 'var(--theia-editorWidget-foreground)', fontWeight: 700 },
+    setupPanel: {
+        padding: '20px', borderRadius: 14, border: '1px solid var(--theia-widget-border)',
+        background: 'var(--theia-editorWidget-background)'
+    },
+    setupTitleRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 },
+    setupTitle: { fontSize: 19, margin: 0 },
+    setupError: {
+        marginBottom: 12, padding: '9px 12px', borderRadius: 8,
+        border: '1px solid var(--theia-errorForeground)', color: 'var(--theia-errorForeground)'
+    },
+    toolGroup: { marginTop: 18 },
+    toolGroupTitle: {
+        margin: '0 0 7px', fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.12em',
+        color: 'var(--theia-descriptionForeground)', textTransform: 'uppercase'
+    },
+    toolRow: {
+        display: 'flex', alignItems: 'flex-start', gap: 11, padding: '11px 0',
+        borderTop: '1px solid var(--theia-widget-border)'
+    },
+    toolStatus: {
+        width: 24, height: 24, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 999, border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)', fontWeight: 800
+    },
+    toolStatusOk: { borderColor: 'var(--theia-focusBorder)', color: 'var(--theia-focusBorder)' },
+    toolBody: { minWidth: 0, flex: '1 1 auto' },
+    toolNameRow: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7 },
+    toolBadge: {
+        padding: '2px 7px', borderRadius: 999, border: '1px solid var(--theia-widget-border)',
+        color: 'var(--theia-descriptionForeground)', fontSize: 10.5
+    },
+    toolVersion: { color: 'var(--theia-descriptionForeground)', fontFamily: 'monospace', fontSize: 10.5 },
+    toolPurpose: { color: 'var(--theia-descriptionForeground)', fontSize: 12, lineHeight: 1.6, margin: '5px 0 0' },
+    toolInstall: {
+        display: 'block', marginTop: 7, padding: '6px 8px', borderRadius: 6,
+        background: 'var(--theia-textCodeBlock-background)', whiteSpace: 'normal', overflowWrap: 'anywhere', fontSize: 11
+    },
+    toolNote: { margin: '7px 0 0', color: 'var(--theia-warningForeground)', fontSize: 11.5, lineHeight: 1.55 },
+    setupCallout: {
+        display: 'flex', alignItems: 'center', gap: 10, marginTop: 18, padding: '12px 14px', borderRadius: 9,
+        border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)', fontSize: 12.5
+    },
+    setupActions: { display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 9, marginTop: 20 },
+    setupReopenButton: { minHeight: 'auto', height: 'auto', padding: '5px 10px', fontSize: 11.5 },
+
     // 案内カード（説明 / 過去プロジェクトのフォールバック / 接続）。ロックではないので画面を占有せず 1 枚に収める。
     card: {
         display: 'flex', alignItems: 'flex-start', gap: 13, marginBottom: 12, padding: '13px 15px',
@@ -2405,6 +2806,12 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         display: 'block', margin: '14px auto 0', background: 'transparent', border: 'none',
         color: 'var(--theia-descriptionForeground)', fontSize: 12, cursor: 'pointer',
         textDecoration: 'underline', padding: 0, minHeight: 'auto', height: 'auto'
+    },
+    welcomeSetupButton: {
+        alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 6,
+        marginTop: 10, padding: '5px 9px', minHeight: 'auto', height: 'auto',
+        borderColor: 'transparent', background: 'transparent',
+        color: 'var(--theia-descriptionForeground)', fontSize: 11.5
     }
 };
 
