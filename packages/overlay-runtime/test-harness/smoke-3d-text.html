@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>3d-text vendor smoke</title>
+  <!-- three@0.185.1（vendor/three-bundle.js）上で troika-three-text@0.52.4 が
+       日本語 TTF を SDF 描画できるかの互換実測ページ。opentype.js / matter-js は
+       vendor-3d-text-bundle.js に同梱されているが、本ページでは troika 経路のみ確認する。 -->
+  <style>
+    html, body { margin: 0; background: #0d1117; }
+    canvas { display: block; }
+    #status { position: fixed; top: 8px; left: 8px; color: #7cfc9b; font: 12px monospace; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="960" height="540"></canvas>
+  <div id="status">booting…</div>
+
+  <script src="../src/vendor/three-bundle.js"></script>
+  <script src="../src/vendor/vendor-3d-text-bundle.js"></script>
+  <script>
+    (function () {
+      const THREE = window.AkariThree.THREE;
+      const Text = window.AkariThree.TroikaText;
+
+      const canvas = document.getElementById("stage");
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(960, 540, false);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0d1117);
+      const camera = new THREE.PerspectiveCamera(45, 960 / 540, 0.1, 100);
+      camera.position.set(0, 0, 4);
+
+      const text = new Text();
+      text.text = "アカリビデオ 3D テロップ";
+      text.font = "./fonts/ZenKakuGothicNew-Black.ttf";
+      text.fontSize = 0.42;
+      text.anchorX = "center";
+      text.anchorY = "middle";
+      text.color = "#ffd166";
+      text.material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true });
+      scene.add(text);
+
+      // instanceof チェック: troika が vendored three と同一実体で bundle されているかの実測
+      const sameThreeInstance = text.position instanceof THREE.Vector3;
+
+      window.__smoke = { renderer, scene, camera, text };
+
+      text.sync(function () {
+        renderer.render(scene, camera);
+        document.getElementById("status").textContent =
+          "sync ok / sameThreeInstance=" + sameThreeInstance;
+        document.body.dataset.smokeStatus = sameThreeInstance ? "synced" : "instance-mismatch";
+      });
+    })();
+  </script>
+</body>
+</html>
