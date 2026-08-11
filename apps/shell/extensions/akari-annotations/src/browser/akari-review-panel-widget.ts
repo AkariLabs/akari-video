@@ -8,6 +8,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke } from '../common/annotation-store';
 import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget, parseUiTarget } from '../common/doc-target';
+import { resolveRawSourceId } from '../common/raw-source-selection';
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
@@ -40,6 +41,9 @@ const REVIEW_TOOL_MODE_SET_EVENT = 'akari.review.toolMode.set';
 // M3 (task.md 指示2): 「選択を解除」ボタンからの request。akari-preview 側
 // （akari-preview-open-handler.ts の REVIEW_UI_SELECTION_CLEAR_EVENT）と文字列だけミラーする。
 const REVIEW_UI_SELECTION_CLEAR_EVENT = 'akari.review.uiSelection.clear';
+// akari-preview 側の同名イベントと文字列だけミラーする。raw preview は editUri を持たないため、
+// フォーカス中の素材 URI と source 秒をこの additive な経路で受け取る。
+const RAW_PREVIEW_ANNOTATION_STATE_EVENT = 'akari.preview.rawAnnotationState';
 
 // docs/contract-2026-08-11-review-session-ui-events.md #1 / internal annotation-everywhere §3
 // (M2): neutral はツールなし、pen/rect はプレビュー内、select はシェル全域。裁定 2026-08-11 の
@@ -77,6 +81,21 @@ interface ReviewSessionUiState {
     sessions: ReviewSessionSummary[];
     selectedUiTarget?: ReviewSelectedUiTarget;
     error?: string;
+}
+
+interface RawPreviewAnnotationState {
+    active: boolean;
+    activation: number;
+    mediaUri?: string;
+    sourceT?: number;
+    reason: 'focus' | 'playback';
+}
+
+interface RawSourceSelection {
+    activation: number;
+    mediaUri: string;
+    sourceT: number;
+    src: string;
 }
 
 const STATUS_LABELS: Record<Annotation['status'], string> = {
@@ -129,6 +148,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly uiSelectionChip = document.createElement('div');
     protected readonly uiSelectionLabel = document.createElement('span');
     protected readonly uiSelectionClear = document.createElement('button');
+    protected readonly rawSourceChip = document.createElement('div');
+    protected readonly rawSourceLabel = document.createElement('span');
+    protected readonly rawSourceClear = document.createElement('button');
     protected readonly textInput = document.createElement('input');
     protected readonly addButton = document.createElement('button');
     /** doc: target の block-id 存在チェック（契約 §6）。report.html の blocks マニフェストを path ごとにキャッシュする。 */
@@ -151,6 +173,12 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly footer = document.createElement('div');
     protected reviewSessionState: ReviewSessionUiState | undefined;
     protected lastReviewSessionContext = '';
+    protected latestRawPreviewState: RawPreviewAnnotationState | undefined;
+    protected rawSourceSelection: RawSourceSelection | undefined;
+    protected suppressedRawActivation: number | undefined;
+    protected rawSourceResolutionKey: string | undefined;
+    protected resolvedRawSourceKey: string | undefined;
+    protected rawSourceResolutionSequence = 0;
 
     @postConstruct()
     protected init(): void {
@@ -243,6 +271,23 @@ export class AkariReviewPanelWidget extends BaseWidget {
         });
         this.uiSelectionClear.addEventListener('click', () => this.clearUiSelection());
         this.uiSelectionChip.append(this.uiSelectionLabel, this.uiSelectionClear);
+        this.rawSourceChip.setAttribute('data-review-raw-source-chip', '');
+        Object.assign(this.rawSourceChip.style, {
+            display: 'none', alignItems: 'center', gap: '5px', fontSize: '11px',
+            padding: '2px 8px', borderRadius: '999px',
+            border: '1px solid var(--theia-textLink-foreground)', color: 'var(--theia-textLink-foreground)'
+        });
+        this.rawSourceLabel.setAttribute('data-review-raw-source-label', '');
+        this.rawSourceClear.type = 'button';
+        this.rawSourceClear.textContent = '✕';
+        this.rawSourceClear.title = '素材の選択を解除して出力タイムライン注釈に戻す';
+        this.rawSourceClear.setAttribute('aria-label', 'raw preview 素材の選択を解除');
+        Object.assign(this.rawSourceClear.style, {
+            background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit',
+            color: 'inherit'
+        });
+        this.rawSourceClear.addEventListener('click', () => this.clearRawSourceSelection());
+        this.rawSourceChip.append(this.rawSourceLabel, this.rawSourceClear);
         this.textInput.type = 'text';
         this.textInput.placeholder = 'コメントを入力';
         this.textInput.setAttribute('aria-label', 'コメントを入力');
@@ -257,7 +302,14 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.addButton.className = 'theia-button main';
         this.addButton.textContent = '追加';
         this.addButton.addEventListener('click', () => void this.submitAnnotation());
-        this.composerRow.append(this.timeLabel, this.docSelectionChip, this.uiSelectionChip, this.textInput, this.addButton);
+        this.composerRow.append(
+            this.timeLabel,
+            this.docSelectionChip,
+            this.uiSelectionChip,
+            this.rawSourceChip,
+            this.textInput,
+            this.addButton
+        );
 
         Object.assign(this.recordingSection.style, {
             display: 'grid', gap: '7px', padding: '9px 10px',
@@ -420,6 +472,14 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.toDispose.push({
             dispose: () => window.removeEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState)
         });
+        const onRawPreviewAnnotationState = (event: Event): void => {
+            const state = (event as CustomEvent<RawPreviewAnnotationState>).detail;
+            this.handleRawPreviewAnnotationState(state);
+        };
+        window.addEventListener(RAW_PREVIEW_ANNOTATION_STATE_EVENT, onRawPreviewAnnotationState);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(RAW_PREVIEW_ANNOTATION_STATE_EVENT, onRawPreviewAnnotationState)
+        });
         this.render();
     }
 
@@ -440,9 +500,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected renderDocSelectionChip(): void {
         const selection = this.model.docSelection;
         const uiSelection = selection ? undefined : this.reviewSessionState?.selectedUiTarget;
-        if (!selection && !uiSelection) {
+        const rawSelection = selection || uiSelection ? undefined : this.rawSourceSelection;
+        if (!selection && !uiSelection && !rawSelection) {
             this.docSelectionChip.style.display = 'none';
             this.uiSelectionChip.style.display = 'none';
+            this.rawSourceChip.style.display = 'none';
             this.timeLabel.style.display = '';
             this.timeLabel.textContent = this.formatTimestamp(this.model.selectedSourceT);
             this.textInput.placeholder = 'コメントを入力';
@@ -452,16 +514,102 @@ export class AkariReviewPanelWidget extends BaseWidget {
         if (selection) {
             this.docSelectionChip.style.display = 'inline-flex';
             this.uiSelectionChip.style.display = 'none';
+            this.rawSourceChip.style.display = 'none';
             this.docSelectionLabel.textContent = `📄 ${this.reportBaseName(selection.path)} を選択中`;
             this.docSelectionLabel.title = `${selection.path}#${selection.blockId}`;
             this.textInput.placeholder = 'このブロックについてコメント';
             return;
         }
+        if (uiSelection) {
+            this.docSelectionChip.style.display = 'none';
+            this.uiSelectionChip.style.display = 'inline-flex';
+            this.rawSourceChip.style.display = 'none';
+            this.uiSelectionLabel.textContent = `🎛️ ${uiSelection.label} を選択中`;
+            this.uiSelectionLabel.title = uiSelection.target;
+            this.textInput.placeholder = 'この UI 要素についてコメント';
+            return;
+        }
         this.docSelectionChip.style.display = 'none';
-        this.uiSelectionChip.style.display = 'inline-flex';
-        this.uiSelectionLabel.textContent = `🎛️ ${uiSelection.label} を選択中`;
-        this.uiSelectionLabel.title = uiSelection.target;
-        this.textInput.placeholder = 'この UI 要素についてコメント';
+        this.uiSelectionChip.style.display = 'none';
+        this.rawSourceChip.style.display = 'inline-flex';
+        this.rawSourceLabel.textContent = `🎞 ${rawSelection!.src}`;
+        this.rawSourceLabel.title = `${rawSelection!.mediaUri} @ ${this.formatTimestamp(rawSelection!.sourceT)}`;
+        this.textInput.placeholder = 'この素材の現在位置についてコメント';
+    }
+
+    protected handleRawPreviewAnnotationState(state: RawPreviewAnnotationState | undefined): void {
+        if (!state?.active || !state.mediaUri || !Number.isFinite(state.sourceT)) {
+            this.latestRawPreviewState = undefined;
+            this.rawSourceSelection = undefined;
+            this.suppressedRawActivation = undefined;
+            this.rawSourceResolutionKey = undefined;
+            this.resolvedRawSourceKey = undefined;
+            this.rawSourceResolutionSequence += 1;
+            this.renderDocSelectionChip();
+            return;
+        }
+        this.latestRawPreviewState = {
+            ...state,
+            sourceT: Math.max(0, state.sourceT!)
+        };
+        if (this.suppressedRawActivation === state.activation) {
+            return;
+        }
+        if (this.rawSourceSelection?.activation === state.activation
+            && this.rawSourceSelection.mediaUri === state.mediaUri) {
+            this.rawSourceSelection = { ...this.rawSourceSelection, sourceT: Math.max(0, state.sourceT) };
+            this.renderDocSelectionChip();
+            return;
+        }
+        void this.resolveRawSourceSelection(this.latestRawPreviewState);
+    }
+
+    protected async resolveRawSourceSelection(state: RawPreviewAnnotationState): Promise<void> {
+        const location = this.model.location;
+        const editUri = location?.editUri;
+        if (!location || !editUri || !state.mediaUri) {
+            return;
+        }
+        const key = `${state.activation}\n${editUri.normalizePath().toString()}\n${state.mediaUri}`;
+        if (this.rawSourceResolutionKey === key || this.resolvedRawSourceKey === key) {
+            return;
+        }
+        this.rawSourceResolutionKey = key;
+        const sequence = ++this.rawSourceResolutionSequence;
+        let src: string | undefined;
+        try {
+            const editSource = (await this.fileService.readFile(editUri)).value.toString();
+            src = resolveRawSourceId(JSON.parse(editSource), location.root.toString(), state.mediaUri);
+        } catch {
+            src = undefined;
+        }
+        if (sequence !== this.rawSourceResolutionSequence) {
+            return;
+        }
+        this.rawSourceResolutionKey = undefined;
+        this.resolvedRawSourceKey = key;
+        const latest = this.latestRawPreviewState;
+        if (!src || !latest?.active || latest.activation !== state.activation
+            || latest.mediaUri !== state.mediaUri || this.suppressedRawActivation === state.activation) {
+            this.rawSourceSelection = undefined;
+            this.renderDocSelectionChip();
+            return;
+        }
+        this.rawSourceSelection = {
+            activation: latest.activation,
+            mediaUri: latest.mediaUri,
+            sourceT: latest.sourceT!,
+            src
+        };
+        this.renderDocSelectionChip();
+    }
+
+    protected clearRawSourceSelection(): void {
+        if (this.rawSourceSelection) {
+            this.suppressedRawActivation = this.rawSourceSelection.activation;
+        }
+        this.rawSourceSelection = undefined;
+        this.renderDocSelectionChip();
     }
 
     /** task.md 指示2: ✕ ボタンから ReviewSessionRecorder（akari-preview 側）へ選択解除を渡す。 */
@@ -1067,13 +1215,16 @@ export class AkariReviewPanelWidget extends BaseWidget {
         }
         const docSelection = this.model.docSelection;
         const uiSelection = docSelection ? undefined : this.reviewSessionState?.selectedUiTarget;
+        const rawSelection = docSelection || uiSelection ? undefined : this.rawSourceSelection;
         this.addButton.disabled = true;
         try {
             const result = docSelection
                 ? await this.model.addDocAnnotation(text, docSelection)
                 : uiSelection
                     ? await this.model.addUiAnnotation(text, this.model.selectedSourceT, uiSelection.target)
-                    : await this.model.addAnnotation(text, this.model.selectedSourceT);
+                    : rawSelection
+                        ? await this.model.addAnnotation(text, rawSelection.sourceT, rawSelection.src)
+                        : await this.model.addAnnotation(text, this.model.selectedSourceT);
             this.textInput.value = '';
             // 送信後は選択を解除する（同じブロックへ連続で誤って追加しないため）。
             if (docSelection) {

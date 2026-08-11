@@ -70,6 +70,19 @@ test("review セッション由来の annotation（session/strokes/transcript）
   });
 });
 
+test("BGM 等の overlay 注釈は既存 overlay:<id> target のまま round-trip できる", () => {
+  const annotation = baseAnnotation({
+    target: "overlay:bgm-main",
+    sourceRange: [2, 4.5],
+    targetKind: "range",
+    text: "この区間の BGM を下げる",
+  });
+  const parsed = parseReview(appendAnnotationLine(emptyReviewSource(), annotation));
+  assert.equal(parsed.warnings.length, 0, parsed.warnings.join(" "));
+  assert.equal(parsed.annotations[0].target, "overlay:bgm-main");
+  assert.deepEqual(parsed.annotations[0].sourceRange, [2, 4.5]);
+});
+
 test("image: target の image-rect strokes（frame 省略・sessionRef 省略）を round-trip できる（契約 2026-07-26 §3）", () => {
   const annotation = baseAnnotation({
     sourceT: null,

@@ -401,6 +401,9 @@ interface PreviewWidgetMarker extends WebviewWidget {
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
 // akari-annotations 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
+// raw preview は editUri を持たないため、注釈パネルへ「現在フォーカス中の素材 URI + source 秒」を
+// outer window の専用イベントで渡す。録音セッションの transport には合流させない。
+const RAW_PREVIEW_ANNOTATION_STATE_EVENT = 'akari.preview.rawAnnotationState';
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
 // CF-select: overlay 選択同期チャンネルの layers 版（akari-annotations 側と文字列のみミラー）。
 const TIMELINE_LAYER_SELECTED_EVENT = 'akari.timeline.layerSelected';
@@ -615,6 +618,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected retryWidgetSequence = 0;
+    protected activeRawPreviewWidget: PreviewWidgetMarker | undefined;
+    protected rawPreviewActivation = 0;
 
     @inject(WidgetManager)
     protected readonly widgetManager: WidgetManager;
@@ -665,6 +670,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 });
             }
         });
+        // 右の注釈パネルへ入力フォーカスを移しても main area の対象タブは変わらない。
+        // activeWidget ではなく current main widget を見ることで、入力中も raw 素材文脈を維持する。
+        this.lifecycleDisposables.push(this.shell.onDidChangeCurrentWidget(() => {
+            this.syncRawPreviewAnnotationContext();
+        }));
         this.registerSeekHandler();
         this.registerEnsureVisibleCommand();
         this.registerOutputSeekCommand();
@@ -1624,6 +1634,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewLastKnownTime = message.time;
         const editUri = widget.akariPreviewEditUri;
         if (!editUri) {
+            if (this.activeRawPreviewWidget === widget) {
+                this.forwardRawPreviewAnnotationState(widget, 'playback');
+            }
             return;
         }
         const normalizedEditUri = editUri.normalizePath().toString();
@@ -1641,6 +1654,47 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 playing: message.playing
             }
         }));
+    }
+
+    protected forwardRawPreviewAnnotationState(
+        widget: PreviewWidgetMarker,
+        reason: 'focus' | 'playback'
+    ): void {
+        const mediaUri = widget.akariPreviewVideoUri?.normalizePath().toString();
+        if (!mediaUri) {
+            return;
+        }
+        window.dispatchEvent(new CustomEvent(RAW_PREVIEW_ANNOTATION_STATE_EVENT, {
+            detail: {
+                active: true,
+                activation: this.rawPreviewActivation,
+                mediaUri,
+                sourceT: Number.isFinite(widget.akariPreviewLastKnownTime)
+                    ? Math.max(0, widget.akariPreviewLastKnownTime!)
+                    : 0,
+                reason
+            }
+        }));
+    }
+
+    protected syncRawPreviewAnnotationContext(): void {
+        const mainWidget = this.shell.getCurrentWidget('main');
+        const rawWidget = [...this.openPreviews.values()].find(widget => widget === mainWidget);
+        if (rawWidget === this.activeRawPreviewWidget) {
+            return;
+        }
+        if (rawWidget) {
+            this.activeRawPreviewWidget = rawWidget;
+            this.rawPreviewActivation += 1;
+            this.forwardRawPreviewAnnotationState(rawWidget, 'focus');
+            return;
+        }
+        if (this.activeRawPreviewWidget) {
+            this.activeRawPreviewWidget = undefined;
+            window.dispatchEvent(new CustomEvent(RAW_PREVIEW_ANNOTATION_STATE_EVENT, {
+                detail: { active: false, activation: this.rawPreviewActivation, reason: 'focus' }
+            }));
+        }
     }
 
     protected isReviewTransportRequest(message: any): message is PreviewReviewTransportRequest {
