@@ -108,6 +108,11 @@ export function deriveCatalogEmptyStateKind(
     return resolverStatus === 'failed' ? 'resolver-failed' : 'empty';
 }
 
+// docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<catalog key> opt-in target for renderCatalogCard's card root.
+export function catalogCardUiEventTarget(item: Pick<AssetCatalogViewItem, 'key' | 'title'>): { target: string; label: string } {
+    return { target: `asset:${item.key}`, label: item.title };
+}
+
 /**
  * カード状態バッジの短い表示文言。origin='local'（state undefined）は
  * バッジを持たないので undefined を返す（呼び出し側はバッジ自体を出さない）。

@@ -48,6 +48,7 @@
 | `timeline:cut:<n>` | タイムラインのカット（cuts[] index） | `timeline:cut:3` |
 | `timeline:overlay:<id>` | タイムラインのオーバーレイ | `timeline:overlay:o-0002` |
 | `asset:<path>` | 素材（プロジェクト相対 or カタログ id） | `asset:assets/broll/city.mp4` |
+| `asset:<category>/<id>` | 素材（カタログ由来カード。key = `<category>/<id>`） | `asset:still/br-typing-laptop` |
 
 - **登録機構**: 記録対象の要素は `data-akari-ui="<target-id>"` 属性で opt-in する。
   クリック解決は capture-phase のリスナー 1 本で行い、**最近傍の登録済み祖先**に丸める。

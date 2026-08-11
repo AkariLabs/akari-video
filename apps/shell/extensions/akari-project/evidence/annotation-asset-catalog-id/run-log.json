@@ -1,0 +1,102 @@
+[
+  {
+    "t": "2026-08-11T23:35:15.736Z",
+    "step": "connected-main"
+  },
+  {
+    "t": "2026-08-11T23:35:16.119Z",
+    "step": "app-booted",
+    "ready": true
+  },
+  {
+    "t": "2026-08-11T23:35:23.406Z",
+    "step": "clicked-sample-material-card",
+    "found": true,
+    "x": 92.25,
+    "y": 123,
+    "path": "assets/sample.mp4"
+  },
+  {
+    "t": "2026-08-11T23:35:35.086Z",
+    "step": "recording-button-enabled",
+    "found": true,
+    "disabled": false,
+    "text": "録音開始",
+    "visible": true,
+    "x": 685.66015625,
+    "y": 177.75
+  },
+  {
+    "t": "2026-08-11T23:35:49.094Z",
+    "step": "recording-started",
+    "found": true,
+    "disabled": false,
+    "text": "録音終了",
+    "visible": true,
+    "x": 685.66015625,
+    "y": 177.75
+  },
+  {
+    "t": "2026-08-11T23:35:51.257Z",
+    "step": "L1-recording-start-PASS",
+    "ok": true
+  },
+  {
+    "t": "2026-08-11T23:35:53.803Z",
+    "step": "catalog-loaded",
+    "found": true,
+    "itemCount": 413
+  },
+  {
+    "t": "2026-08-11T23:35:55.095Z",
+    "step": "clicked-catalog-card-title",
+    "found": true,
+    "x": 128,
+    "y": 342.953125,
+    "text": "ノート PC タイピング クローズアップ"
+  },
+  {
+    "t": "2026-08-11T23:36:01.279Z",
+    "step": "recording-stopped",
+    "found": true,
+    "disabled": false,
+    "text": "録音開始",
+    "visible": true,
+    "x": 685.66015625,
+    "y": 177.75
+  },
+  {
+    "t": "2026-08-11T23:36:02.272Z",
+    "step": "console-error-delta",
+    "errCountBeforeRecording": 0,
+    "errCountAfter": 0,
+    "delta": 0
+  },
+  {
+    "t": "2026-08-11T23:36:02.299Z",
+    "step": "events-jsonl",
+    "sessionId": "s-0001",
+    "file": "<isolated-workspace>/review/sessions/s-0001/events.jsonl",
+    "lineCount": 5,
+    "lines": [
+      "{\"recT\":0,\"type\":\"start\",\"timelineT\":0,\"playing\":false}",
+      "{\"recT\":2.4337000000178812,\"type\":\"ui.panel\",\"target\":\"panel:assets\",\"label\":\"素材パネル\"}",
+      "{\"recT\":5.6335,\"type\":\"ui.click\",\"target\":\"asset:broll/laptop-typing-closeup\",\"label\":\"ノート PC タイピング クローズアップ\"}",
+      "{\"recT\":9.37509999999404,\"type\":\"ui.panel\",\"target\":\"panel:review\",\"label\":\"注釈パネル\"}",
+      "{\"recT\":10.00940000000596,\"type\":\"end\",\"timelineT\":0}"
+    ]
+  },
+  {
+    "t": "2026-08-11T23:36:02.299Z",
+    "step": "L1-catalog-card-ui-click-PASS",
+    "ok": true,
+    "matchLine": "{\"recT\":5.6335,\"type\":\"ui.click\",\"target\":\"asset:broll/laptop-typing-closeup\",\"label\":\"ノート PC タイピング クローズアップ\"}",
+    "expectedTarget": "asset:broll/laptop-typing-closeup"
+  },
+  {
+    "t": "2026-08-11T23:36:02.318Z",
+    "step": "ALL-PASS",
+    "ok": true,
+    "finalErrLog": []
+  }
+]
