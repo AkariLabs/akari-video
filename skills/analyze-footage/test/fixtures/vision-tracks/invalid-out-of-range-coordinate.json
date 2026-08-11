@@ -1,0 +1,22 @@
+{
+  "version": 0,
+  "kind": "hand-pose",
+  "source": { "path": "../../clip.mp4", "duration": 12.5 },
+  "sample_fps": 24,
+  "provider": { "name": "apple-vision" },
+  "samples": [
+    {
+      "t": 0.0,
+      "detections": [
+        {
+          "chirality": "left",
+          "conf": 0.9,
+          "joints": {
+            "thumb_tip": [0.42, 1.5],
+            "index_tip": [0.48, 0.52]
+          }
+        }
+      ]
+    }
+  ]
+}

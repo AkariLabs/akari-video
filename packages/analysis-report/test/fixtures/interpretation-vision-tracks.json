@@ -1,0 +1,39 @@
+{
+  "version": 0,
+  "inputs": {
+    "analyses": [
+      { "ref": "clip-01", "path": "analysis-vision-tracks.json", "source": "test fixture" }
+    ],
+    "context": {
+      "past_projects": [],
+      "interview": []
+    }
+  },
+  "assets": [
+    {
+      "ref": "clip-01",
+      "role": "sole_source",
+      "summary": "test asset with vision tracks",
+      "relations": [],
+      "flags": [
+        {
+          "type": "trouble_overlap",
+          "start": 6,
+          "end": 7,
+          "note": "self-resolved glitch",
+          "evidence": "transcript 6-7: glitch"
+        }
+      ]
+    }
+  ],
+  "arc": [
+    {
+      "order": 1,
+      "title": "Opening",
+      "refs": [{ "asset": "clip-01", "start": 0, "end": 10 }],
+      "purpose": "Introduce the clip",
+      "evidence": "transcript 0-10: test line one/two"
+    }
+  ],
+  "open_questions": []
+}

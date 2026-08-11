@@ -433,6 +433,42 @@
         }
       }
     },
+    "visionTrackPointer": {
+      "$comment": "2026-08-11 追加（docs/contract-2026-08-11-analysis-vision-tracks-v0.md）。tracks.face_landmarks / tracks.hand_pose の共通形。トラック実体は本スキマではなく skills/analyze-footage/references/vision-tracks.schema.json（契約 §2）が定義する外部ファイル。optional キーであり tracks.required には入れない（真に任意）。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sample_fps"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "トラックファイル（vision-tracks v0 形式）へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決し、区切りは / を使う。"
+        },
+        "sample_fps": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "トラックのサンプリング fps。元素材の fps と一致しなくてよい。"
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "description": "検出プロバイダの自由文字列。apple-vision を例示するが enum 強制はしない（quality / tool と同じ流儀）。"
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1,
+          "description": "生成手段の記録。vision-tracks.mjs v0 を例示する。"
+        },
+        "generated_at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "生成時刻（ISO8601）。"
+        }
+      }
+    },
     "tracks": {
       "type": "object",
       "additionalProperties": false,
@@ -468,6 +504,12 @@
               "$ref": "#/$defs/personMatteTrack"
             }
           ]
+        },
+        "face_landmarks": {
+          "$ref": "#/$defs/visionTrackPointer"
+        },
+        "hand_pose": {
+          "$ref": "#/$defs/visionTrackPointer"
         }
       }
     }

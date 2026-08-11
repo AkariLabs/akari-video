@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AKARI Video vision-tracks v0",
+  "description": "顔ランドマーク・手ポーズのトラックファイル形式（analysis.json の tracks.face_landmarks / tracks.hand_pose が path で指す実体）。正本は docs/contract-2026-08-11-analysis-vision-tracks-v0.md §2。1 ファイル 1 kind（face-landmarks / hand-pose を混在させない）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "kind",
+    "source",
+    "sample_fps",
+    "provider",
+    "samples"
+  ],
+  "properties": {
+    "version": {
+      "const": 0
+    },
+    "kind": {
+      "enum": [
+        "face-landmarks",
+        "hand-pose"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "元動画へのパス。相対パスはこのトラックファイル自身の所在ディレクトリを基準に解決する。"
+        },
+        "duration": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "元動画の尺（秒）。ffprobe で取得できなかった場合は null。"
+        }
+      }
+    },
+    "sample_fps": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "検出プロバイダの自由文字列。apple-vision を例示するが enum 強制はしない（プロバイダ中立の原則 — 契約 §0 設計原則 4）。"
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sample"
+      }
+    }
+  },
+  "$defs": {
+    "unit": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "point": {
+      "description": "正規化 0〜1・左上原点の [x, y]。",
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/unit" },
+        { "$ref": "#/$defs/unit" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "pointList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/point" }
+    },
+    "box": {
+      "description": "正規化 0〜1・左上原点の [x, y, w, h]。",
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/unit" },
+        { "$ref": "#/$defs/unit" },
+        { "$ref": "#/$defs/unit" },
+        { "$ref": "#/$defs/unit" }
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "conf": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "faceLandmarks": {
+      "$comment": "v0 で必須なのはこの 6 キー（契約 §2.1）。他の VNFaceLandmarkRegion2D は additionalProperties: true により追加のみで拡張できる。",
+      "type": "object",
+      "required": [
+        "left_pupil",
+        "right_pupil",
+        "left_eye",
+        "right_eye",
+        "outer_lips",
+        "inner_lips"
+      ],
+      "properties": {
+        "left_pupil": { "$ref": "#/$defs/point" },
+        "right_pupil": { "$ref": "#/$defs/point" },
+        "left_eye": { "$ref": "#/$defs/pointList" },
+        "right_eye": { "$ref": "#/$defs/pointList" },
+        "outer_lips": { "$ref": "#/$defs/pointList" },
+        "inner_lips": { "$ref": "#/$defs/pointList" }
+      }
+    },
+    "faceDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "box",
+        "conf",
+        "landmarks"
+      ],
+      "properties": {
+        "box": { "$ref": "#/$defs/box" },
+        "conf": { "$ref": "#/$defs/conf" },
+        "landmarks": { "$ref": "#/$defs/faceLandmarks" }
+      }
+    },
+    "handJoints": {
+      "$comment": "v0 で必須なのは thumb_tip / index_tip のみ（契約 §2.2）。信頼度が閾値未満の関節はキーごと省略するため、他の 19 関節は required にしない。additionalProperties: true により他の VNHumanHandPoseObservation.JointName も追加のみで拡張できる。",
+      "type": "object",
+      "properties": {
+        "wrist": { "$ref": "#/$defs/point" },
+        "thumb_cmc": { "$ref": "#/$defs/point" },
+        "thumb_mp": { "$ref": "#/$defs/point" },
+        "thumb_ip": { "$ref": "#/$defs/point" },
+        "thumb_tip": { "$ref": "#/$defs/point" },
+        "index_mcp": { "$ref": "#/$defs/point" },
+        "index_pip": { "$ref": "#/$defs/point" },
+        "index_dip": { "$ref": "#/$defs/point" },
+        "index_tip": { "$ref": "#/$defs/point" },
+        "middle_mcp": { "$ref": "#/$defs/point" },
+        "middle_pip": { "$ref": "#/$defs/point" },
+        "middle_dip": { "$ref": "#/$defs/point" },
+        "middle_tip": { "$ref": "#/$defs/point" },
+        "ring_mcp": { "$ref": "#/$defs/point" },
+        "ring_pip": { "$ref": "#/$defs/point" },
+        "ring_dip": { "$ref": "#/$defs/point" },
+        "ring_tip": { "$ref": "#/$defs/point" },
+        "little_mcp": { "$ref": "#/$defs/point" },
+        "little_pip": { "$ref": "#/$defs/point" },
+        "little_dip": { "$ref": "#/$defs/point" },
+        "little_tip": { "$ref": "#/$defs/point" }
+      }
+    },
+    "handDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chirality",
+        "conf",
+        "joints"
+      ],
+      "properties": {
+        "chirality": {
+          "enum": ["left", "right", "unknown"]
+        },
+        "conf": { "$ref": "#/$defs/conf" },
+        "joints": { "$ref": "#/$defs/handJoints" }
+      }
+    },
+    "detection": {
+      "$comment": "kind ごとに detections[] の要素形が決まる（faceDetection | handDetection）。トップレベルの kind と要素形の対応は本 schema では表せない意味制約であり、vision-tracks.md の検証手順が担う（analysis.schema.json の event 判別ユニオンと違い、kind はファイル全体に 1 つだけなので oneOf 判別は不要）。",
+      "anyOf": [
+        { "$ref": "#/$defs/faceDetection" },
+        { "$ref": "#/$defs/handDetection" }
+      ]
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t",
+        "detections"
+      ],
+      "properties": {
+        "t": {
+          "type": "number",
+          "minimum": 0
+        },
+        "detections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/detection" }
+        }
+      }
+    }
+  }
+}

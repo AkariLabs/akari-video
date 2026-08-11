@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "kind": "face-pose",
+  "source": { "path": "../../clip.mp4", "duration": 12.5 },
+  "sample_fps": 24,
+  "provider": { "name": "apple-vision" },
+  "samples": []
+}
