@@ -31,10 +31,16 @@ const require = createRequire(`${resolve(HERE, "../../render-cut")}/`);
 function puppeteerCacheCandidates() {
   const root = join(homedir(), ".cache/puppeteer/chrome-headless-shell");
   if (!existsSync(root)) return [];
-  return readdirSync(root)
+  // キャッシュにはダウンロード途中の .zip が転がっていることがある（実測で ENOTDIR）。
+  // 2 階層ともディレクトリだけを走査する
+  const directoriesIn = (path) =>
+    readdirSync(path, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  return directoriesIn(root)
     .sort()
     .reverse()
-    .flatMap((build) => readdirSync(join(root, build)).map((platform) => join(root, build, platform, "chrome-headless-shell")))
+    .flatMap((build) => directoriesIn(join(root, build)).map((platform) => join(root, build, platform, "chrome-headless-shell")))
     .filter((candidate) => existsSync(candidate));
 }
 

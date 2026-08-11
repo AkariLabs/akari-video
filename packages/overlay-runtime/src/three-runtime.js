@@ -154,6 +154,16 @@ window.akari.threeRuntime = (() => {
     if (descriptor.animationClip !== undefined && !isAnimationClipSelector(descriptor.animationClip)) {
       throw new TypeError('animationClip は glTF clip 名の文字列、その配列、または "*" である必要があります');
     }
+    if (descriptor.camera !== undefined) {
+      if (!descriptor.camera || typeof descriptor.camera !== "object" || Array.isArray(descriptor.camera)) {
+        throw new TypeError("camera は object である必要があります");
+      }
+      if (descriptor.camera.fromModel !== undefined
+        && descriptor.camera.fromModel !== true
+        && (typeof descriptor.camera.fromModel !== "string" || descriptor.camera.fromModel.length === 0)) {
+        throw new TypeError("camera.fromModel は true または glb 内カメラノード名である必要があります");
+      }
+    }
     if (descriptor.environment !== undefined) {
       if (!descriptor.environment
         || typeof descriptor.environment !== "object"
@@ -325,6 +335,60 @@ window.akari.threeRuntime = (() => {
     camera.position.fromArray(vector3(cameraDescriptor.position, [0, 1.2, 3]));
     camera.lookAt(...vector3(cameraDescriptor.lookAt, [0, 0.5, 0]));
     return camera;
+  }
+
+  // camera.fromModel: glb 内カメラノードを描画カメラに使う（notes-2026-08-11-route-a-camera-clips.md）。
+  // カメラの動きも glTF クリップ = データとして持てるため、宣言型（実行コードを配信物に
+  // 入れない）の約束のままカメラアニメが成立する。ステージ演出（床 + 接地影）では
+  // モデル移動と等価にならない（影が床を掃く）ので、モデルではなくカメラを動かしたいときに使う。
+  function resolveModelCamera(gltf, selector) {
+    const cameras = [];
+    gltf.scene.traverse((object) => {
+      if (object.isCamera) cameras.push(object);
+    });
+    // GLTFLoader はシーンツリー外のカメラを gltf.cameras にだけ持つことがある。
+    // ただしツリー外のカメラは mixer が動かせない（クリップは node を辿る）ので、
+    // 見つけても描画には使えない — シーンに入れて出力し直してもらう
+    if (cameras.length === 0) {
+      const orphaned = Array.isArray(gltf.cameras) ? gltf.cameras.length : 0;
+      throw new Error(
+        orphaned > 0
+          ? "glb のカメラがシーンツリー外にあります（Blender 側でコレクションに入れて出力し直す）"
+          : "camera.fromModel が宣言されていますが glb にカメラがありません"
+      );
+    }
+    if (selector === true) return cameras[0];
+    const found = cameras.find(
+      (camera) => camera.name === selector || camera.parent?.name === selector
+    );
+    if (!found) {
+      const names = cameras.map((camera) => camera.name || camera.parent?.name || "(無名)");
+      throw new Error(`glb にカメラノードが見つかりません: ${selector}（候補: ${names.join(", ")}）`);
+    }
+    return found;
+  }
+
+  function adoptModelCamera(instance, gltf) {
+    const selector = instance.descriptor.camera?.fromModel;
+    if (selector === undefined) return;
+    const camera = resolveModelCamera(gltf, selector);
+    if (!camera.isPerspectiveCamera) {
+      throw new Error("camera.fromModel は perspective カメラのみ対応です");
+    }
+    const literalKeys = Object.keys(instance.descriptor.camera).filter((key) => key !== "fromModel");
+    if (literalKeys.length > 0) {
+      // リテラルと fromModel の混在は「どちらが勝つか」を曖昧にするので、警告して glb 側を採る
+      console.warn(
+        `[akari-three] camera.fromModel 宣言時は ${literalKeys.join(" / ")} を無視します（glb の値を使う）`
+      );
+    }
+    // glb の投影値（yfov / znear / zfar）を正とする。aspect だけは canvas 実寸が正
+    //（rendererSize が毎 draw 追従する）。baseFov も差し替え、pan/zoom ツマミの
+    // ズームレンズ式がベイク済みカメラの画角を基準に合成されるようにする
+    instance.camera = camera;
+    instance.baseFov = camera.fov;
+    instance.cameraSource = "model";
+    instance.projection = { panX: null, panY: null, zoom: null, width: null, height: null };
   }
 
   function addLights(THREE, scene, descriptors) {
@@ -655,6 +719,8 @@ window.akari.threeRuntime = (() => {
       container,
       descriptor,
       environmentTarget,
+      // camera.fromModel でモデル内カメラへ差し替わると "model" になる（検証・証跡用）
+      cameraSource: "descriptor",
       lastTime: 0,
       mixer: null,
       model: null,
@@ -687,6 +753,7 @@ window.akari.threeRuntime = (() => {
         return;
       }
       instance.scene.add(gltf.scene);
+      adoptModelCamera(instance, gltf);
       if (descriptor.animationClip !== undefined) {
         const clips = selectAnimationClips(gltf.animations, descriptor.animationClip);
         instance.mixer = new THREE.AnimationMixer(gltf.scene);
@@ -754,6 +821,14 @@ window.akari.threeRuntime = (() => {
       // task 2026-08-06-live-knob-camera-v2）。view が null なら「3 プロパティとも未宣言で
       // camera.view に一切触れていない」= 後方互換の直接証拠になる
       cameraFov: instance.camera.fov,
+      // camera.fromModel の配線確認（"model" = glb 内カメラで描画している）と、
+      // クリップ評価後のカメラ実位置（ベイク済みカメラワークが動いている直接証拠）
+      cameraSource: instance.cameraSource,
+      cameraWorldPosition: (() => {
+        const position = new (instance.camera.position.constructor)();
+        instance.camera.getWorldPosition(position);
+        return [position.x, position.y, position.z];
+      })(),
       cameraViewOffset: instance.camera.view
         ? {
             enabled: instance.camera.view.enabled,
