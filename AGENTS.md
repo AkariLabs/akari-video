@@ -44,7 +44,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 | `research-plan` | 動画の企画・調査工程（ネタ出し → ターゲット/競合/トレンド調査 → 企画書・構成案・絵コンテ・撮影リスト）を headless で一周するときに発動する router。ネタ選定と構成の確定は decision-cards 型承認ゲート（HTML レポート + decisions.json）で人間の判断を受け取る。 | `skills/research-plan/SKILL.md` |
 | `setup-audio-library` | BGM・効果音の音源ライブラリを増やしたいときに発動する。既定は自社ライブラリ AKARI Sounds の一括取得（GitHub Release から直接ダウンロード。BGM・ジングルはこれで全量揃う）。AKARI Sounds に無い系統（拍手・失敗音・和風打撃）だけ、フリー配布元の候補リスト HTML + ドロップフォルダ照合/取得代行で補完する。試聴ギャラリーで keep/drop するまでの半自動セットアップ。setup-library / harvest-asset の姉妹スキル（音源だけ流儀が異なるため独立）。 | `skills/setup-audio-library/SKILL.md` |
 | `setup-library` | AKARI Video を初めてセットアップするとき、または現在のプロジェクトに使える素材が足りず新しく揃えたいときに発動する。ffmpeg / whisper-cli / headless Chrome の道具チェック、catalog/ を読んだスターターパック提案、人間の明示承認、取得・配置・検証・INDEX 更新までを一気通貫で行う first-run スキル。 | `skills/setup-library/SKILL.md` |
-| `setup-remote` | スマホなど別デバイスから承認レポート・プレビューを閲覧し、撮影素材を作業場へ送れるようにする遠隔セットアップスキル。Tailscale の状態を doctor で判定し、導入・ログイン（人間手番）→ tailscale serve でプレビューサーバー（既定 4567）を tailnet 限定 HTTPS 化 → Taildrop 受信先を作業場 inbox/ へ接続 → 別デバイスからの疎通確認までを一気通貫でガイドする。「スマホでレポートを見たい」「外から承認したい」「スマホから素材を送りたい」「遠隔セットアップして」で発動する。公開インターネットへの露出（funnel）は既定で扱わない。 | `skills/setup-remote/SKILL.md` |
+| `setup-remote` | スマホなど別デバイスから承認レポート・プレビューを閲覧し、撮影素材を作業場へ送れるようにする遠隔セットアップスキル。Tailscale の状態を doctor で判定し、導入・ログイン（人間手番）→ tailscale serve でプレビューサーバー（既定 4567）と承認レポートヘルパーを tailnet 限定 HTTPS 化 → Taildrop 受信先を作業場 inbox/ へ接続 → 別デバイスからの疎通確認までを一気通貫でガイドする。「スマホでレポートを見たい」「外から承認したい」「スマホから素材を送りたい」「遠隔セットアップして」で発動する。公開インターネットへの露出（funnel）は既定で扱わない。 | `skills/setup-remote/SKILL.md` |
 | `verify` | AKARI Video（現行 Theia スタック）のタスク契約が要求する検証はしご（L0 / L1 / L2）を実行するときに発動する。タスクの受け入れ条件が「verify 層: L0」「L0+L1」等を指定しているとき、各層で実際に何を・どう叩くかを確認するために読む。 | `skills/verify/SKILL.md` |
 
 <!-- END GENERATED skills-index -->
