@@ -10,6 +10,6 @@
     "README.md"
   ],
   "scripts": {
-    "check": "node --check src/vendor/three-bundle.js && node --check src/three-runtime.js && node --check src/overlay-runtime.js && node --check src/interaction.js && node --check src/minimap.js"
+    "check": "node --check src/vendor/three-bundle.js && node --check src/vendor/vendor-3d-text-bundle.js && node --check src/three-runtime.js && node --check src/overlay-runtime.js && node --check src/interaction.js && node --check src/minimap.js"
   }
 }
