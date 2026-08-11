@@ -36,8 +36,8 @@ export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
         install: 'macOS: brew install --cask blender / https://www.blender.org/download/'
     },
     'xcode-clt': {
-        name: 'macOS: Command Line Tools（git）', badge: '推奨', purpose: '履歴・差分・スナップショット機能に使います。',
+        name: 'macOS: Command Line Tools', badge: '推奨', purpose: 'プロジェクトの履歴・差分・スナップショットと、AI 分析の高速文字起こし・目線バー・指フレーム・人物マットに使います。',
         install: 'ターミナルで実行: xcode-select --install',
-        note: '入れなくても動画は作れます（履歴・スナップショット機能は導入後に自動で有効になります）'
+        note: '入れなくても動画は作れます。導入後に自動で有効になり、履歴機能と AI 分析機能で使われます。'
     }
 };

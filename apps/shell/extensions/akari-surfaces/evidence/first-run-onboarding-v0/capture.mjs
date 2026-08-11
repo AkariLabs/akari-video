@@ -82,7 +82,8 @@ async function captureFirstLaunch(config) {
     const session = await launch(config, 9451, 'user-data-1');
     try {
         const { page } = session;
-        await waitForStage(page, 'first-run-setup');
+        await waitForStage(page, 'welcome');
+        await waitForSetupDialog(page);
         await page.locator('[data-akari-setup-tools="true"]').waitFor();
         await page.waitForFunction(() => document.querySelectorAll('[data-akari-tool-id]').length >= 7);
         const tools = await page.locator('[data-akari-tool-id]').evaluateAll(nodes => nodes.map(node => ({
@@ -112,7 +113,7 @@ async function captureFirstLaunch(config) {
         const manifest = JSON.parse(await readFile(join(pointer.lastRoot, '.akari/root.json'), 'utf8'));
         return {
             launch: 1,
-            stages: ['first-run-setup', 'workspace', 'connection', 'dashboard'],
+            stages: ['welcome+setup-dialog', 'workspace-dialog', 'connection-dialog', 'dashboard'],
             tools,
             marker,
             pointer,
@@ -128,11 +129,17 @@ async function captureSecondLaunch(config) {
     try {
         const { page } = session;
         await waitForStage(page, 'welcome');
-        const autoSetupCount = await page.locator('[data-akari-home-stage="first-run-setup"]').count();
+        const autoSetupCount = await page.locator('[data-akari-first-run-dialog="true"]').count();
         const reopenButton = page.locator('[data-akari-open-first-run-setup="true"]');
         await reopenButton.waitFor({ timeout: 10_000 });
         const reopenButtonCount = await reopenButton.count();
         await page.screenshot({ path: join(config.outputDir, '06-second-launch-no-auto-setup.png') });
+
+        await reopenButton.first().click();
+        await waitForSetupDialog(page);
+        await page.keyboard.press('Escape');
+        await page.locator('[data-akari-first-run-dialog="true"]').waitFor({ state: 'detached', timeout: 10_000 });
+        await waitForStage(page, 'welcome');
 
         await page.keyboard.press('F1');
         const input = page.locator('.quick-input-widget input');
@@ -141,14 +148,18 @@ async function captureSecondLaunch(config) {
         const commandOption = page.locator('[role="option"][aria-label="初回セットアップを開く"]');
         await commandOption.waitFor({ timeout: 10_000 });
         await commandOption.click();
-        await waitForStage(page, 'first-run-setup');
+        await waitForSetupDialog(page);
         await page.screenshot({ path: join(config.outputDir, '07-command-reopen.png') });
+        await page.locator('[data-akari-first-run-dialog="true"] .dialogTitle .closeButton').click();
+        await page.locator('[data-akari-first-run-dialog="true"]').waitFor({ state: 'detached', timeout: 10_000 });
         return {
             launch: 2,
             initialStage: 'welcome',
             autoSetupCount,
             reopenButtonCount,
-            commandStage: 'first-run-setup'
+            buttonReopenClosedWithEscape: true,
+            commandStage: 'setup-dialog-over-welcome',
+            commandReopenClosedWithX: true
         };
     } finally {
         await session.close();
@@ -304,6 +315,10 @@ async function waitForCdp(port, child, logPath, getSpawnFailure) {
 
 async function waitForStage(page, stage) {
     await page.locator(`[data-akari-home-stage="${stage}"]`).waitFor({ timeout: 60_000 });
+}
+
+async function waitForSetupDialog(page) {
+    await page.locator('[data-akari-first-run-dialog="true"]').waitFor({ timeout: 60_000 });
 }
 
 function parseOptions(args) {
