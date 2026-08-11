@@ -118,7 +118,19 @@ OK / 差し戻しを言う」だけ — その閲覧と素材の受け渡しを�
 
 | 未達 | 状況 |
 |---|---|
-| HTTPS | **`tailscale serve` の TLS が未成立**。tailnet 側で HTTPS は有効（`CertDomains` に当該ドメインあり）だが Let's Encrypt の ACME 注文が `invalid` で失敗。上記の実測は tailnet 内の平文 HTTP で代替した（WireGuard 内側のため機密性は保たれるが、secure context を要する機能は使えない）。**平文 HTTP を既定にはしない** |
+| HTTPS | **`tailscale serve` の TLS が未成立**。上記の実測は tailnet 内の平文 HTTP で代替した（WireGuard 内側のため機密性は保たれるが、secure context を要する機能は使えない）。**平文 HTTP を既定にはしない** |
+
+**HTTPS 失敗の切り分け結果（2026-08-12）** — スキル側・serve 設定側の不備ではないと確定:
+
+- tailnet で HTTPS は有効（`tailscale status --json` の `CertDomains` に当該ドメインあり）
+- serve の設定自体は正常（同じ経路が平文 HTTP では 200 / 0.28 秒で応答する）
+- CAA は発行を許可している（`ts.net` に `issue "letsencrypt.org"`）
+- Let's Encrypt の注文が毎回 `status: invalid`（注文 ID は毎回新規 = レート制限ではなく検証失敗）
+- **`_acme-challenge.<host>.<tailnet>.ts.net` に使い捨て TXT が 5 件累積**していた。
+  DNS-01 の検証失敗と符合する（現行トークンが正しく公開されていない疑い）
+- → **tailnet 側（Tailscale の DNS / 制御プレーン）の問題**。再試行を重ねても TXT が増えるだけで
+  好転しないため、打ち切って次の一手に回す。候補: (a) マシン名を変更して
+  `_acme-challenge` の名前ごと作り直す（serve URL が変わる）(b) Tailscale サポートに問い合わせる
 
 ## 8. 改訂履歴
 
