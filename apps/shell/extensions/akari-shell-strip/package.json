@@ -10,6 +10,9 @@
     },
     {
       "backend": "lib/node/akari-quick-export-backend-module"
+    },
+    {
+      "electronMain": "lib/electron-main/akari-window-selfheal-module"
     }
   ],
   "scripts": {
