@@ -31,7 +31,9 @@ akari
         （PATH に opencode が無ければ、インストール案内を出して終了する）
 ```
 
-サブコマンド: `akari update`（更新確認）/ `akari init`（作業場の作成・確認のみ）/
+サブコマンド: `akari update`（install.sh 経由インストールなら DL・sha256 検証・適用まで
+実行。それ以外（npm グローバル / git checkout）や旧フィードでは更新案内のみ表示。
+`--rollback` で直前 1 世代へ戻す。`src/self-update.mjs`）/ `akari init`（作業場の作成・確認のみ）/
 `akari new <target-dir> [--template <path>]`（新規プロジェクト作成）/
 `akari narration generate ...`（VOICEVOX / fal-qwen3 ナレーション生成）/
 `akari internal beat-sync-<beatmap|probe-frame|render-when-idle> ...`（beat-sync-edit 内部実行物）/

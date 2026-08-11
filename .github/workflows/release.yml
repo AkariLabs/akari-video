@@ -8,7 +8,8 @@ name: Release
 # npm publish を実行する操作そのものは、このワークフローを追加した実装作業の範囲外
 # （検収後に司令塔が行う）。ここに書くのは「発火されたら何が起きるか」のロジックのみ。
 #
-# 流れ: 版整合ゲート → mac シェルビルド ∥ win シェルビルド ∥ CLI tarball（並列）
+# 流れ: 版整合ゲート → mac シェルビルド ∥ win シェルビルド ∥ CLI tarball ∥
+#       app tarball（CLI self-update 用フル構成ソース、並列）
 #       → latest.json 生成 → draft + prerelease Release 作成・asset 添付
 #       → updates フィード（固定タグ Release）への latest.json 差し替え
 #
@@ -54,6 +55,10 @@ env:
   ARTIFACT_WIN: shell-win.zip
   ARTIFACT_WIN_SETUP: shell-win-setup.exe
   ARTIFACT_CLI: cli.tgz
+  # フル構成ソース tarball（install.sh が展開するものと同内容 = タグのソースツリー）。
+  # CLI self-update（内部リポ契約 update-and-versioning §11）が latest.json の
+  # components.app 経由で DL する実体。cli.tgz（npm パッケージのサブセット）とは別物。
+  ARTIFACT_APP: app.tgz
 
 jobs:
   # push:tags と workflow_dispatch の両方から同じ形で「対象タグ文字列」を得るための前段ジョブ。
@@ -409,9 +414,33 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  build-app:
+    name: build-app (git archive — CLI self-update 用フル構成ソース tarball)
+    needs: [resolve-tag, version-gate]
+    if: ${{ !inputs.feed_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # `git archive` はタグの git tree をそのまま tar.gz にする —
+      # codeload.github.com がタグ tarball を作るのと同じ経路（内部で git archive 相当を
+      # 使う）なので、install.sh の fetch_release_tarball（codeload から取得 →
+      # `tar --strip-components=1`）と同じ意味論を CI 内で再現できる。単一の先頭
+      # ディレクトリ（--prefix）を持つ tar.gz になるため、自己更新側の展開
+      # （self-update.mjs の extractTarGz、同じく --strip-components=1）とも一致する。
+      # node_modules 等の生成物は追跡外（.gitignore 済み）なので含まれない —
+      # self-update は旧インストールの node_modules を引き継いで npm install で整合させる。
+      - name: git archive (app.tgz)
+        run: git archive --format=tar.gz --prefix=app/ -o ${{ env.ARTIFACT_APP }} HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-tarball
+          path: ${{ env.ARTIFACT_APP }}
+          retention-days: 14
+          if-no-files-found: error
+
   release:
     name: release (latest.json 生成 + Release 作成 + asset 添付 + npm publish)
-    needs: [resolve-tag, build-mac, build-win, build-cli]
+    needs: [resolve-tag, build-mac, build-win, build-cli, build-app]
     if: ${{ !inputs.feed_only }}
     runs-on: ubuntu-latest
     # id-token: write は npm publish --provenance（Sigstore OIDC 署名）に必要
@@ -436,6 +465,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cli-tarball
+          path: release-artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-tarball
           path: release-artifacts
 
       # D4 裁定（契約 §5）: 既定はプレリリース。stable 化は workflow_dispatch の
@@ -485,6 +518,7 @@ jobs:
             "release-artifacts/${{ env.ARTIFACT_WIN }}" \
             "release-artifacts/${{ env.ARTIFACT_WIN_SETUP }}" \
             "release-artifacts/${{ env.ARTIFACT_CLI }}" \
+            "release-artifacts/${{ env.ARTIFACT_APP }}" \
             release-artifacts/latest.json
 
       # D1 裁定（契約 §5）= GO。認証は NPM_TOKEN secret ではなく npm Trusted Publishing
@@ -574,7 +608,8 @@ jobs:
             --pattern "${{ env.ARTIFACT_MAC }}" \
             --pattern "${{ env.ARTIFACT_WIN }}" \
             --pattern "${{ env.ARTIFACT_WIN_SETUP }}" \
-            --pattern "${{ env.ARTIFACT_CLI }}"
+            --pattern "${{ env.ARTIFACT_CLI }}" \
+            --pattern "${{ env.ARTIFACT_APP }}"
 
       - name: channel を対象 Release の現在状態から決定する
         id: channel

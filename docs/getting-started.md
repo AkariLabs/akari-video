@@ -24,8 +24,7 @@ You need **three things**: Node.js, an AI agent, and ffmpeg.
 **Auto-install (recommended)**:
 
 Run only **one** command — the one for your OS.
-The installer checks out the **latest release** (not the development branch). If already
-installed, the same command updates you to the newest release.
+The installer checks out the **latest release** (not the development branch).
 
 **Windows (PowerShell)**:
 ```sh
@@ -57,6 +56,14 @@ found at `~/akari-video/`, the installer shows migration instructions but never 
 the old copy automatically.
 
 git is not required either — the installer fetches the repository as a tarball.
+
+**Updating**: once installed, `akari` prints a one-line notice when a new version is
+available, and `akari update` downloads it, verifies its checksum, and applies it —
+no need to re-run the installer or use git. The previous version is kept for one
+generation; `akari update --rollback` reverts to it. Re-running the installer above
+also still works (and is the way to move to a different `AKARI_INSTALL_DIR`, or to
+recover an installation that isn't managed by `akari update`, e.g. a global npm install
+or a monorepo checkout).
 
 **Prefer a lightweight CLI-only install?** `npm i -g akari-video` installs just the `akari`
 command (agent workflow bundled; the browser preview server is not included — use the
