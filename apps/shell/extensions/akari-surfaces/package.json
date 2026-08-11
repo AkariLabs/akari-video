@@ -7,12 +7,15 @@
   "theiaExtensions": [
     {
       "frontend": "lib/browser/akari-surfaces-frontend-module",
-      "backend": "lib/node/akari-surfaces-backend-module"
+      "backend": "lib/node/akari-surfaces-backend-module",
+      "electronMain": "lib/electron-main/electron-main-module",
+      "preload": "lib/electron-browser/preload"
     }
   ],
   "scripts": {
     "build": "tsc -b",
-    "clean": "rimraf lib"
+    "clean": "rimraf lib",
+    "test": "node --test src/common/*.test.mjs"
   },
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -22,7 +25,8 @@
     "@theia/monaco": "1.73.1",
     "@theia/navigator": "1.73.1",
     "@theia/terminal": "1.73.1",
-    "@theia/plugin-ext": "1.73.1"
+    "@theia/plugin-ext": "1.73.1",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
