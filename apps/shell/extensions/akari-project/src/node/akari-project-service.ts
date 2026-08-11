@@ -162,9 +162,13 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         }
         await this.installProjectSkills(root);
         await this.ensureRuntimeDirectories(root);
-        await this.runGit(root, ['init']);
-        await this.runGit(root, ['add', '-A', '--', '.']);
-        await this.commitIfChanged(root, 'プロジェクトを作成');
+        try {
+            await this.runGit(root, ['init']);
+            await this.runGit(root, ['add', '-A', '--', '.']);
+            await this.commitIfChanged(root, 'プロジェクトを作成');
+        } catch (error) {
+            console.warn('[akari-project] initial git init failed:', error);
+        }
         await this.watchProject(destinationUri);
     }
 

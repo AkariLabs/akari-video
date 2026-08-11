@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -99,6 +99,50 @@ test("existing edit.json is preserved when applying the scaffold to an existing 
     assert.equal(await readFile(join(destination, "edit.json"), "utf8"), existingEdit);
     assert.ok(report.fallback.skippedExisting.includes("edit.json"));
     assert.ok(!report.fallback.writtenFiles.includes("edit.json"));
+  });
+});
+
+test("git が利用できなくてもプロジェクト作成を完了し、レポートへスキップ理由を記録する", async () => {
+  await withScratchRoot(async (root) => {
+    const templateDir = join(root, "empty-template");
+    const destination = join(root, "project");
+    const fakeBin = join(root, "bin");
+    const fakeGit = join(fakeBin, "git");
+    await mkdir(templateDir, { recursive: true });
+    await mkdir(fakeBin, { recursive: true });
+    await writeFile(fakeGit, [
+      "#!/bin/sh",
+      "echo 'xcode-select: note: No developer tools were found, requesting install.' >&2",
+      "exit 1",
+      ""
+    ].join("\n"), "utf8");
+    await chmod(fakeGit, 0o755);
+
+    const originalPath = process.env.PATH;
+    process.env.PATH = originalPath ? `${fakeBin}${delimiter}${originalPath}` : fakeBin;
+    try {
+      const report = await createProject(destination, templateDir);
+
+      assert.ok((await stat(join(destination, "edit.json"))).isFile());
+      assert.ok((await stat(join(destination, ".akari"))).isDirectory());
+      assert.ok((await stat(join(destination, "CLAUDE.md"))).isFile());
+      assert.equal(report.git.action, "skipped");
+      assert.match(report.git.reason, /git が利用できないためスキップ/);
+      assert.match(report.git.reason, /xcode-select: note: No developer tools were found/);
+
+      const reportHtml = await readFile(
+        join(destination, ".akari", "reports", "create-project-report.html"),
+        "utf8"
+      );
+      assert.match(reportHtml, /git が利用できないためスキップ/);
+      assert.match(reportHtml, /xcode-select: note: No developer tools were found/);
+    } finally {
+      if (originalPath === undefined) {
+        delete process.env.PATH;
+      } else {
+        process.env.PATH = originalPath;
+      }
+    }
   });
 });
 
