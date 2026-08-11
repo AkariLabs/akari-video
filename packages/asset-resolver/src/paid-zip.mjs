@@ -1,4 +1,4 @@
-// 有料素材のダウンロード（設計契約: internal planning/contract-2026-08-03-store-commerce-v0.md §6/§8）。
+// 有料素材のダウンロード（設計契約: 非公開の内部記録にある store-commerce-v0 契約 §6/§8）。
 // entitled 判定を通った後だけ呼ばれる想定 — `/api/store/v1/download/<id>` から zip を取得し、
 // 一時ディレクトリへ展開して checksums.txt（契約 §6: `<sha256>␠␠<相対パス>` 形式）で全ファイルを
 // 検証する。カタログには実体（files[]）を一切持たせない設計（tools/publish-free.mjs 側の

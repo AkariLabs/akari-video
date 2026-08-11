@@ -3,7 +3,7 @@
     "t": "2026-08-09T04:53:11.136Z",
     "step": "setup:bogus-preference-set",
     "ok": true,
-    "readback": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run2"
+    "readback": "<SCRATCH>/bogus-catalog-root-run2"
   },
   {
     "t": "2026-08-09T04:53:12.267Z",
@@ -25,7 +25,7 @@
     "step": "L1-3:developer-details-opened",
     "detailsPresent": true,
     "detailsOpen": true,
-    "valueText": "現在の設定（akari.catalog.root）: /private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run2",
+    "valueText": "現在の設定（akari.catalog.root）: <SCRATCH>/bogus-catalog-root-run2",
     "pickButtonPresent": true,
     "pickButton": {
       "x": 131.45703125,
@@ -38,7 +38,7 @@
     "step": "L1-3:invalid-folder-result",
     "detailsPresent": true,
     "detailsOpen": true,
-    "valueText": "現在の設定（akari.catalog.root）: /private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run2",
+    "valueText": "現在の設定（akari.catalog.root）: <SCRATCH>/bogus-catalog-root-run2",
     "pickButtonPresent": true,
     "pickButton": {
       "x": 131.45703125,
@@ -50,7 +50,7 @@
     "t": "2026-08-09T04:53:14.544Z",
     "step": "L1-3:preference-after-invalid",
     "ok": true,
-    "value": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run2"
+    "value": "<SCRATCH>/bogus-catalog-root-run2"
   },
   {
     "t": "2026-08-09T04:53:15.953Z",
@@ -61,7 +61,7 @@
     "t": "2026-08-09T04:53:16.186Z",
     "step": "L1-3:preference-after-valid",
     "ok": true,
-    "value": "/Users/ryoma/_edit/30_products/akari-video-wt/catalog-account-first-ux/catalog"
+    "value": "<WORKTREE>/catalog"
   },
   {
     "t": "2026-08-09T04:53:16.189Z",
@@ -88,7 +88,7 @@
     "step": "L1-4:developer-link-row-reachable",
     "detailsPresent": false,
     "detailsOpen": null,
-    "valueText": "現在の設定（akari.catalog.root）: /Users/ryoma/_edit/30_products/akari-video-wt/catalog-account-first-ux/catalog",
+    "valueText": "現在の設定（akari.catalog.root）: <WORKTREE>/catalog",
     "pickButtonPresent": true,
     "pickButton": {
       "x": 131.45703125,

@@ -15,7 +15,7 @@ updated: 2026-08-09
 
 `verify` スキルの L1 節（Electron 直接起動 + CDP）に従った。`cdp-lib.mjs` / `widget-lib.mjs` は
 `catalog-account-first-ux`（同リポ・別タスク）の共有ヘルパーをそのまま再利用（様式踏襲・中身無改変）。
-`run-paid-badges.mjs` は本タスク専用の検証スクリプト（scratchpad に置き、本ディレクトリには
+`run-paid-badges.mjs` は本タスク専用の検証スクリプト（一時作業ディレクトリに置き、本ディレクトリには
 ログ・スクショだけ残す）。
 
 ### dev ストアとの結線
@@ -68,5 +68,5 @@ updated: 2026-08-09
 
 - Electron・`wrangler dev` はいずれも実 PID を指定して kill（広いパターンマッチは使わない）
 - 検証用ワークスペース・隔離 `AKARI_HOME`・`THEIA_CONFIG_DIR`・dev-buy 用スクリプトはすべて
-  scratchpad に置き、検証後に削除。リポジトリにはコミットしていない
+  一時作業ディレクトリに置き、検証後に削除。リポジトリにはコミットしていない
 - `~/.akari` は一切変更していない

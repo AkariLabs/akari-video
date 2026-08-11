@@ -60,7 +60,7 @@ codex への委譲プロンプトに反映した:
    （`build:ext` → `theia build --mode production`）でビルド（electron は
    `~/Library/Caches/electron/` の既存キャッシュ（`electron-v39.8.7-darwin-arm64.zip`）から
    `ditto` で展開）
-2. `templates/project-default/` を隔離ワークスペース（リポ外 scratchpad）へコピーし
+2. `templates/project-default/` を隔離ワークスペース（リポ外の一時作業ディレクトリ）へコピーし
    `.akari/intake.json`（`{"status":"submitted"}`）でホーム v2 の home-flow ゲートを解放
 3. `THEIA_CONFIG_DIR` による User スコープ設定の完全隔離 + `--user-data-dir` + 隔離ワークスペース
 4. `node_modules/electron/dist/Electron.app/Contents/MacOS/Electron <apps/shell 絶対パス>
@@ -142,7 +142,7 @@ npm run build          # exit 0（build:ext + theia build --mode production、br
 - **ラッパー自身が Write した fixture**（契約の fixture 例外の範囲内、src/ 無改変）: 本
   ディレクトリ配下の検証スクリプト一式（`cdp-lib.mjs`（無改変流用）/ `widget-lib.mjs` /
   `run-a.mjs` / `run-b.mjs`）・スクリーンショット11枚・`run-a-log.json` / `run-b-log.json`・
-  本 README。scratchpad 側のダミー実行ファイル・隔離ワークスペース・raw electron ログは検証後に
+  本 README。一時作業ディレクトリ側のダミー実行ファイル・隔離ワークスペース・raw electron ログは検証後に
   完全削除した（前段タスクと同じ後片付け慣行）
 
 ## 隔離・後片付け

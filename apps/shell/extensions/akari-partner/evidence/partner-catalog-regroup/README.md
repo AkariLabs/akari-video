@@ -26,7 +26,7 @@ opencode を追加する）の実機検証記録。ラッパー（codex ラッ�
 1. `apps/shell` を `PYTHON=/usr/bin/python3 npm install --no-workspaces` → `npm run build`
    （`build:ext` → `theia build --mode production`）でビルド（electron は
    `~/Library/Caches/electron/` の既存キャッシュから `ditto` で展開）
-2. `templates/project-default/` を隔離ワークスペース（リポ外 scratchpad）へコピーし
+2. `templates/project-default/` を隔離ワークスペース（リポ外の一時作業ディレクトリ）へコピーし
    `.akari/intake.json`（`status: "submitted"`）でホーム v2 の home-flow ゲートを解放
 3. `THEIA_CONFIG_DIR` 環境変数による User スコープ設定の完全隔離（`catalog-root-fix` で
    確立済みの手法をそのまま踏襲）+ `--user-data-dir` + 隔離ワークスペース
@@ -39,7 +39,7 @@ opencode を追加する）の実機検証記録。ラッパー（codex ラッ�
      （両方とも not found）— 追加の隔離操作なしで「PATH に無い隔離環境」が成立する
    - Run B（present シナリオ）: `#!/bin/sh` + `echo` のダミー実行ファイル
      （`opencode dummy started with args: ...` / `PWD: ...` を出力後 `sleep 300`）を置いた
-     scratchpad ディレクトリを `PATH` の先頭に追加して起動。**実物の opencode はこの実行機に
+     一時作業ディレクトリを `PATH` の先頭に追加して起動。**実物の opencode はこの実行機に
      無いため、task.md の指示どおりダミーで代替した（未確認事項）**
 
 ### ポート衝突の事故と回避（透明性のため記録）

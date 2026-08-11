@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { toFileUrl } from '../lib/common/file-url.js';
 
 test('toFileUrl: スペースを含むパスをパーセントエンコードする', () => {
-    assert.equal(toFileUrl('/Users/ryoma/My Video.mp4'), 'file:///Users/ryoma/My%20Video.mp4');
+    assert.equal(toFileUrl('/tmp/videos/My Video.mp4'), 'file:///tmp/videos/My%20Video.mp4');
 });
 
 test('toFileUrl: 日本語を含むパスをパーセントエンコードする', () => {
     assert.equal(
-        toFileUrl('/Users/ryoma/素材/クリップ.mp4'),
-        'file:///Users/ryoma/%E7%B4%A0%E6%9D%90/%E3%82%AF%E3%83%AA%E3%83%83%E3%83%97.mp4'
+        toFileUrl('/tmp/videos/素材/クリップ.mp4'),
+        'file:///tmp/videos/%E7%B4%A0%E6%9D%90/%E3%82%AF%E3%83%AA%E3%83%83%E3%83%97.mp4'
     );
 });
 

@@ -2,7 +2,7 @@
   "log": [
     {
       "step": "connected",
-      "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-first-frame/apps/shell/lib/frontend/index.html?port=59433#/private/tmp/pff-verify/ws"
+      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59433#/tmp/pff-verify/ws"
     },
     {
       "step": "assert-ok",
@@ -50,7 +50,7 @@
     },
     {
       "step": "failure",
-      "error": "Error: cuts[].src swap to second source after playing through cut1 not found\n    at retry (file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-first-frame/apps/shell/extensions/akari-preview/evidence/preview-first-frame-and-space/run-first-frame-space-e2e.mjs:110:9)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-first-frame/apps/shell/extensions/akari-preview/evidence/preview-first-frame-and-space/run-first-frame-space-e2e.mjs:367:23)"
+      "error": "Error: cuts[].src swap to second source after playing through cut1 not found\n    at retry (file://<WORKTREE>/apps/shell/extensions/akari-preview/evidence/preview-first-frame-and-space/run-first-frame-space-e2e.mjs:110:9)\n    at async main (file://<WORKTREE>/apps/shell/extensions/akari-preview/evidence/preview-first-frame-and-space/run-first-frame-space-e2e.mjs:367:23)"
     }
   ]
 }

@@ -3,7 +3,7 @@
     "t": "2026-08-09T04:41:16.689Z",
     "step": "setup:bogus-preference-set",
     "ok": true,
-    "readback": "/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run1"
+    "readback": "<SCRATCH>/bogus-catalog-root-run1"
   },
   {
     "t": "2026-08-09T04:41:17.294Z",
@@ -44,7 +44,7 @@
     "step": "developer-link-row-opened",
     "detailsPresent": false,
     "detailsOpen": null,
-    "valueText": "現在の設定（akari.catalog.root）: /private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-catalog-account-first-ux/6928c6a1-0f30-4842-b43e-a5066f3cb118/scratchpad/bogus-catalog-root-run1",
+    "valueText": "現在の設定（akari.catalog.root）: <SCRATCH>/bogus-catalog-root-run1",
     "pickButtonPresent": true,
     "pickButton": {
       "x": 131.45703125,

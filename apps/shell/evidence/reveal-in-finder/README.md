@@ -62,15 +62,15 @@
 | A | ホームのプロジェクトカード横の「Finder で表示」ボタンをクリック | Finder が新規ウィンドウで `.../root/channels/demo/videos/` を開き、`2026-08-09-demo-project` フォルダが選択状態（青ハイライト）。`target of window` = 期待値と完全一致 |
 | B | 左パネル「できたもの」の書き出しカード（`sample-cut.mp4`）の「Finder で表示」ボタンをクリック | Finder が新規ウィンドウで `.../exports/` を開き、`sample-cut.mp4` が選択状態。`target of window` = 期待値と完全一致 |
 | C | File メニュー相当のコマンド `akari.project.revealProjectRoot`（ラベル「プロジェクトフォルダを Finder で表示」）をコマンドパレット（F1）経由で実行 | Finder が `.../videos/` を開く（プロジェクトルート自身の親）。`target of window` = 期待値と完全一致。パレット上に登録どおりのラベルで表示されることも screenshot で確認済み |
-| D | `sample-cut.mp4` を実ファイルシステムから削除した状態で同じ「Finder で表示」ボタンを再クリック | アプリ内エラートースト「見つかりませんでした: /private/tmp/reveal-in-finder-l1/root/channels/demo/videos/2026-08-09-demo-project/exports/sample-cut.mp4」が表示（「黙って何も起きない」の禁止を満たす） |
+| D | `sample-cut.mp4` を実ファイルシステムから削除した状態で同じ「Finder で表示」ボタンを再クリック | アプリ内エラートースト「見つかりませんでした: /tmp/reveal-in-finder-l1/root/channels/demo/videos/2026-08-09-demo-project/exports/sample-cut.mp4」が表示（「黙って何も起きない」の禁止を満たす） |
 
 全シナリオの `target of window` 実測ログ:
 
 ```json
 {
-  "A": { "match": "/private/tmp/reveal-in-finder-l1/root/channels/demo/videos/" },
-  "B": { "match": "/private/tmp/reveal-in-finder-l1/root/channels/demo/videos/2026-08-09-demo-project/exports/" },
-  "C": { "match": "/private/tmp/reveal-in-finder-l1/root/channels/demo/videos/" },
+  "A": { "match": "/tmp/reveal-in-finder-l1/root/channels/demo/videos/" },
+  "B": { "match": "/tmp/reveal-in-finder-l1/root/channels/demo/videos/2026-08-09-demo-project/exports/" },
+  "C": { "match": "/tmp/reveal-in-finder-l1/root/channels/demo/videos/" },
   "D": { "errorShown": true }
 }
 ```
