@@ -422,6 +422,15 @@ export async function commitInitialProject(destinationDir, message = 'プロジ�
     return { committed: true };
 }
 
+function firstErrorLine(error) {
+    const detail = error && typeof error === 'object' && typeof error.stderr === 'string'
+        ? error.stderr
+        : error instanceof Error
+            ? error.message
+            : String(error);
+    return detail.split(/\r?\n/, 1)[0].trim() || '不明なエラー';
+}
+
 function escapeHtml(value) {
     return String(value)
         .replaceAll('&', '&amp;')
@@ -512,8 +521,14 @@ export async function createProject(destinationDir, templateDir, options = {}) {
     let action;
     let reason;
     if (boundary.eligibility === 'none') {
-        action = 'initialized-and-committed';
-        reason = 'git 初期化して単一コミットを作成';
+        try {
+            await commitInitialProject(destination);
+            action = 'initialized-and-committed';
+            reason = 'git 初期化して単一コミットを作成';
+        } catch (error) {
+            action = 'skipped';
+            reason = `git が利用できないためスキップ — 後からプロジェクトを開くと自動で git 化されます（${firstErrorLine(error)}）`;
+        }
     } else if (boundary.eligibility === 'own-root') {
         action = 'skipped';
         reason = 'このフォルダは既に git リポジトリのため git init を skip';
@@ -540,10 +555,6 @@ export async function createProject(destinationDir, templateDir, options = {}) {
 
     await fs.mkdir(path.dirname(reportPath), { recursive: true });
     await fs.writeFile(reportPath, renderReportHtml(report), 'utf8');
-
-    if (boundary.eligibility === 'none') {
-        await commitInitialProject(destination);
-    }
 
     return report;
 }
