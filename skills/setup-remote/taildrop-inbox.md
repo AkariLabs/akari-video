@@ -8,6 +8,10 @@ Taildrop = Tailscale のデバイス間ファイル直送（スマホの共有�
 - 受信先は環境により異なる（macOS / Windows の GUI 版は多くの環境で「ダウンロード」フォルダ。
   アプリの設定で変更できる場合がある）。**推測で断定せず、§3 のテスト送信で実パスを確定する**
 - CLI 運用（Linux 等）では `tailscale file get <受信先ディレクトリ>` で取り出す
+- **実測（2026-08-12 / macOS スタンドアロン版 `io.tailscale.ipn.macsys` 1.98.10）**: 受信先は
+  `~/Downloads` で、`defaults read io.tailscale.ipn.macsys` に受信先を指すキーは存在しなかった。
+  この形態では受信先を `inbox/` へ直接向けられない前提で §2 の移送運用に進んでよい
+  （設定 UI に項目が見当たらない場合も同じ扱い）
 
 ## 2. 作業場 inbox/ への接続
 

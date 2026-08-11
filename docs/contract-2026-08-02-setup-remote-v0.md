@@ -107,6 +107,7 @@ OK / 差し戻しを言う」だけ — その閲覧と素材の受け渡しを�
 | **レポート内に埋めた動画の再生** | ✓ iOS 実機で再生・**シーク成功**（H.264 640x360 / 6 秒） |
 | Taildrop 着弾 | ✓ 受信先の実パス = **`~/Downloads/`**（macOS GUI 版・実測で確定） |
 | Taildrop の無劣化性 | ✓ 92MB / HEVC / 1180x2556 / 60fps / **15.7Mbps のまま**再エンコードなし |
+| Taildrop → 作業場 `inbox/` | ✓ **移送運用**で接続（`~/Akari/inbox/`）。macOS スタンドアロン版は受信先を設定変更できないため、直接指定ではなく移送を採る（§2-4 の想定どおり） |
 
 - Taildrop の実測は「チャット添付は搬送路として筋が悪い」（§非スコープの根拠）を裏づけた —
   同じ 92MB は Telegram Bot API 標準（受信 20MB）では原理的に通らない
@@ -118,7 +119,6 @@ OK / 差し戻しを言う」だけ — その閲覧と素材の受け渡しを�
 |---|---|
 | HTTPS | **`tailscale serve` の TLS が未成立**。tailnet 側で HTTPS は有効（`CertDomains` に当該ドメインあり）だが Let's Encrypt の ACME 注文が `invalid` で失敗。上記の実測は tailnet 内の平文 HTTP で代替した（WireGuard 内側のため機密性は保たれるが、secure context を要する機能は使えない）。**平文 HTTP を既定にはしない** |
 | `decisions.json` の往復 | 未実測。検証に使ったレポートに決定カードを載せなかったため。カード操作 → 保存の往復は別途要実測 |
-| Taildrop → `inbox/` 接続 | 未実施。受信先は `~/Downloads/` のままで、作業場の `inbox/` へは未接続 |
 
 ## 8. 改訂履歴
 
