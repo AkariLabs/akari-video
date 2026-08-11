@@ -17,7 +17,7 @@ import {
 } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { generateCaptionOverlays, generateResolvedCaptionOverlays } from "./captions.mjs";
@@ -174,7 +174,9 @@ export async function renderProject(input, options = {}, io = console) {
     version: VERSION,
     phase: "planned",
     inputs,
-    warnings: plan.commands.audio_mix.warnings ?? [],
+    // State warnings grow throughout execution. Keep them detached from the immutable command
+    // plan so a post-verify warning cannot change the plan hash after the receipt is written.
+    warnings: [...(plan.commands.audio_mix.warnings ?? [])],
     validation: {
       lint,
       environment: {
@@ -444,6 +446,9 @@ export async function renderProject(input, options = {}, io = console) {
         path: receipt.path,
         sha256: receipt.sha256,
       };
+    }
+    if (verification.verdict === "pass") {
+      await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
     }
     if (state.audio_qc?.verdict === "MEASUREMENT_ERROR") {
       throw new RefusalError("audio QC decoded artifact measurement failed");
@@ -1363,6 +1368,106 @@ function addWarning(state, warning) {
   if (!state.warnings.includes(warning)) state.warnings.push(warning);
 }
 
+async function appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state }) {
+  let source;
+  let edit;
+  try {
+    source = await readFile(editPath, "utf8");
+    edit = JSON.parse(source);
+  } catch (error) {
+    addWarning(state, `rendered source was not added to edit.json: ${messageOf(error)}`);
+    return;
+  }
+
+  if (edit?.version !== 1 || !Array.isArray(edit.sources)) {
+    addWarning(state, "rendered source was not added to edit.json: sources[] is unavailable in edit.json v0");
+    return;
+  }
+
+  const outputSourcePath = relativeOrAbsolute(projectRoot, outputPath).replaceAll("\\", "/");
+  if (edit.sources.some(entry => typeof entry?.path === "string"
+    && entry.path.replaceAll("\\", "/") === outputSourcePath)) return;
+
+  const existingIds = new Set(edit.sources.map(entry => entry?.id).filter(isNonEmptyString));
+  const sourceId = uniqueRenderedSourceId(outputPath, existingIds);
+  let updated;
+  try {
+    updated = appendJsonArrayEntry(source, "sources", {
+      id: sourceId,
+      path: outputSourcePath,
+      proxy: null,
+    });
+  } catch (error) {
+    addWarning(state, `rendered source was not added to edit.json: ${messageOf(error)}`);
+    return;
+  }
+
+  try {
+    await writeFile(editPath, updated, "utf8");
+  } catch (error) {
+    addWarning(state, `rendered source was not added to edit.json: ${messageOf(error)}`);
+  }
+}
+
+function uniqueRenderedSourceId(outputPath, existingIds) {
+  const stem = basename(outputPath, extname(outputPath));
+  const base = stem
+    .normalize("NFKC")
+    .replace(/[^\p{Letter}\p{Number}._-]+/gu, "-")
+    .replace(/^-+|-+$/gu, "") || "rendered-output";
+  if (!existingIds.has(base)) return base;
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${base}-${suffix}`;
+    if (!existingIds.has(candidate)) return candidate;
+  }
+}
+
+function appendJsonArrayEntry(source, propertyName, entry) {
+  const propertyPattern = new RegExp(`"${propertyName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}"\\s*:\\s*\\[`, "gu");
+  const propertyMatch = propertyPattern.exec(source);
+  if (!propertyMatch) throw new Error(`${propertyName} array was not found`);
+  const opening = propertyMatch.index + propertyMatch[0].lastIndexOf("[");
+  const closing = findMatchingJsonBracket(source, opening);
+  const closingLineStart = source.lastIndexOf("\n", closing - 1) + 1;
+  const closingIndent = source.slice(closingLineStart, closing);
+  if (!/^[ \t]*$/u.test(closingIndent)) {
+    const compact = JSON.stringify(entry);
+    const empty = source.slice(opening + 1, closing).trim() === "";
+    return `${source.slice(0, closing)}${empty ? "" : ", "}${compact}${source.slice(closing)}`;
+  }
+  let contentEnd = closing;
+  while (contentEnd > opening + 1 && /\s/u.test(source[contentEnd - 1])) contentEnd -= 1;
+  const itemIndent = `${closingIndent}  `;
+  const serialized = JSON.stringify(entry, null, 2)
+    .split("\n")
+    .map(line => `${itemIndent}${line}`)
+    .join("\n");
+  const separator = contentEnd === opening + 1 ? "" : ",";
+  return `${source.slice(0, contentEnd)}${separator}\n${serialized}${source.slice(contentEnd)}`;
+}
+
+function findMatchingJsonBracket(source, opening) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = opening; index < source.length; index += 1) {
+    const character = source[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') inString = true;
+    else if (character === "[") depth += 1;
+    else if (character === "]") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  throw new Error("JSON array brackets are unbalanced");
+}
+
 function addReference(map, root, label, path) {
   if (typeof path !== "string" || path === "") throw new ExecutionError(`${label} path is required`);
   map.set(label, { path: resolve(root, path) });
@@ -1381,7 +1486,7 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
     resolve(projectRoot, "edit.json"),
     ...(edit.version === 0
       ? [resolve(projectRoot, edit.source.path)]
-      : edit.sources.map((source) => resolve(projectRoot, source.path))),
+      : usedSources(edit).map((source) => resolve(projectRoot, source.path))),
     ...edit.overlays.map((overlay) => resolve(projectRoot, overlay.html)),
   ];
   const captions = resolve(projectRoot, "captions.json");
