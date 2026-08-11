@@ -34,6 +34,7 @@ const ASSET_RESOLVER_CLI_RELATIVE = path.join('packages', 'asset-resolver', 'bin
 const BEATMAP_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'beatmap.mjs');
 const PROBE_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'probe-frame.mjs');
 const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
+const EYE_BAR_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'eye-bar.mjs');
 
 /**
  * 指定ルート配下に同梱されているスキル正本・雛形・schemas・scaffold 実装・creator-root
@@ -51,6 +52,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const beatmapScript = path.join(repoRoot, BEATMAP_SCRIPT_RELATIVE);
   const probeFrameScript = path.join(repoRoot, PROBE_FRAME_SCRIPT_RELATIVE);
   const renderWhenIdleScript = path.join(repoRoot, RENDER_WHEN_IDLE_SCRIPT_RELATIVE);
+  const eyeBarScript = path.join(repoRoot, EYE_BAR_SCRIPT_RELATIVE);
 
   return {
     repoRoot,
@@ -64,7 +66,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     assetResolverCliPath: existsSync(assetResolverCliPath) ? assetResolverCliPath : null,
     beatmapScript: existsSync(beatmapScript) ? beatmapScript : null,
     probeFrameScript: existsSync(probeFrameScript) ? probeFrameScript : null,
-    renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null
+    renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null,
+    eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null
   };
 }
 
@@ -80,6 +83,7 @@ export function resolveLauncherAssets({
   const checkout = resolveRepoAssets(candidateRoot);
   const found = checkout.skillsSourceDir || checkout.templateDir || checkout.schemasSourceDir
     || checkout.doctorScript || checkout.scaffoldModulePath || checkout.creatorRootModulePath
-    || checkout.beatmapScript || checkout.probeFrameScript || checkout.renderWhenIdleScript;
+    || checkout.beatmapScript || checkout.probeFrameScript || checkout.renderWhenIdleScript
+    || checkout.eyeBarScript;
   return found ? checkout : resolveRepoAssets(vendorRoot);
 }

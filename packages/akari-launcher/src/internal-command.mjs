@@ -5,7 +5,8 @@ import { resolveLauncherAssets } from './repo-assets.mjs';
 const commands = [
   'beat-sync-beatmap',
   'beat-sync-probe-frame',
-  'beat-sync-render-when-idle'
+  'beat-sync-render-when-idle',
+  'eye-bar'
 ];
 
 const usage = [
@@ -30,7 +31,8 @@ export async function runInternalCommand(args, options = {}) {
   const definitions = {
     'beat-sync-beatmap': { path: assets.beatmapScript, node: true },
     'beat-sync-probe-frame': { path: assets.probeFrameScript, node: true },
-    'beat-sync-render-when-idle': { path: assets.renderWhenIdleScript, node: false }
+    'beat-sync-render-when-idle': { path: assets.renderWhenIdleScript, node: false },
+    'eye-bar': { path: assets.eyeBarScript, node: true }
   };
   const definition = definitions[subcommand];
   if (!definition) {
