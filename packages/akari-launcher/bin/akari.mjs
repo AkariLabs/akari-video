@@ -11,12 +11,24 @@ import { runCapabilityCommand } from '../src/capability-command.mjs';
 import { runStoreCommand } from '../src/store-command.mjs';
 import { runAssetsCommand } from '../src/assets-command.mjs';
 import { maybeApplyPendingUpdateOnLaunch, readOwnVersion } from '../src/update-check.mjs';
+import { describeCliHelp } from '../src/messages.mjs';
 
 // `akari --version` / `-v`: インストール済みの版を表示するだけの最小コマンド
 // （タスク契約 2026-08-11-update-u4-cli-self-update の受け入れ条件 —
 // `akari update` / `--rollback` 後にインストール先の版を観測する手段として必要）。
 async function printVersion() {
   console.log(`v${readOwnVersion()}`);
+  return { exitCode: 0 };
+}
+
+// `akari --help` / `-h`: 引数なしのトップレベル一覧を表示するだけの最小コマンド
+// （タスク契約 2026-08-11-onboarding-o3-firstrun-plain §4。それ以前はこの分岐が無く、
+// `--help` は claude/opencode へそのまま転送されてしまっていた — AKARI Video 自身の
+// コマンド一覧が一度も出ない行き止まりだったため新設した）。
+async function printCliHelp() {
+  for (const line of describeCliHelp()) {
+    console.log(line);
+  }
   return { exitCode: 0 };
 }
 
@@ -43,6 +55,7 @@ const argv = process.argv.slice(2);
 // AKARI Store 連携 / タスク契約 2026-08-09-agent-assets-discovery）。
 // それ以外の引数はすべて従来どおり claude へ転送する。
 const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
+  : (argv[0] === '--help' || argv[0] === '-h') ? printCliHelp()
   : argv[0] === 'update' ? runUpdateCommand(argv.slice(1))
   : argv[0] === 'init' ? runInitCommand(argv.slice(1))
   : argv[0] === 'new' ? runNewCommand(argv.slice(1))
