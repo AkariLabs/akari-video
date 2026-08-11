@@ -11,12 +11,15 @@ import { resolveEffectiveProjectRoot } from './first-run.mjs';
 import { maybeShowAssetIntroNotice } from './sounds-setup.mjs';
 import {
   checkForUpdateSync,
+  compareVersions,
+  isValidFeedShape,
   readCacheSync,
   readOwnVersion,
   recordDismissalSync,
   resolveCachePath,
   triggerBackgroundRefresh
 } from './update-check.mjs';
+import { applySelfUpdate, isRunningFromAppDir, rollbackSelfUpdate } from './self-update.mjs';
 
 /**
  * `akari` ランチャーの本体。3 入口契約（ターミナル `akari` / セッション内 `/akari` /
@@ -173,11 +176,15 @@ function defaultSpawnOpencode(opencodePath, args, projectRoot) {
 }
 
 /**
- * `akari update`: 現在版・最新版・リリースノート URL を表示し、更新手順を**案内するだけ**
- * （自動実行はしない — 契約 §4-1）。`--dismiss` を渡すと、キャッシュに載っている最新版の
- * 通知を今後出さないよう記録する。ネットワークには一切触れない
- * （表示に使う情報はすべて既存キャッシュ由来 — 最新情報は `akari` 起動時のバックグラウンド
- * fetch で更新される）。
+ * `akari update`: 新版があり、かつ自己更新の対象（app 経由実行 + フィードに
+ * `components.app` がある）なら DL → sha256 検証 → 適用まで実行する（契約 §11。
+ * 「update は明示操作」なので U2 の沈黙原則は適用せず、失敗は必ず表示する）。
+ * 対象外（npm グローバル / git checkout・旧フィード）のときは従来どおり
+ * **案内するだけ**（自動実行はしない — 契約 §4-1）に縮退する。`--dismiss` は
+ * 自己更新を試みず、キャッシュに載っている最新版の通知を今後出さないよう記録するだけ
+ * （既存挙動を維持）。`--rollback` は直前 1 世代（`~/.akari/app-previous/`）へ戻す。
+ * ネットワークに触れるのは自己更新の DL 区間のみ — フィード自体は既存キャッシュ由来
+ * （最新情報は `akari` 起動時のバックグラウンド fetch で更新される）。
  */
 export async function runUpdateCommand(args, options = {}) {
   const log = options.log ?? ((line) => console.log(line));
@@ -186,16 +193,44 @@ export async function runUpdateCommand(args, options = {}) {
   const cachePath = resolveCachePath(env);
   const cache = readCacheSync(cachePath);
   const dismissRequested = args.includes('--dismiss');
+  const rollbackRequested = args.includes('--rollback');
 
-  let dismissed = false;
-  if (dismissRequested && typeof cache?.feed?.product === 'string') {
-    recordDismissalSync({ version: cache.feed.product, env });
-    dismissed = true;
+  if (rollbackRequested) {
+    return (options.rollbackSelfUpdate ?? rollbackSelfUpdate)({ env, log });
   }
 
-  const finalCache = dismissed ? readCacheSync(cachePath) : cache;
-  for (const line of describeUpdateCommand({ currentVersion, cache: finalCache, dismissed })) {
-    log(line);
+  if (dismissRequested) {
+    let dismissed = false;
+    if (typeof cache?.feed?.product === 'string') {
+      recordDismissalSync({ version: cache.feed.product, env });
+      dismissed = true;
+    }
+    const finalCache = dismissed ? readCacheSync(cachePath) : cache;
+    for (const line of describeUpdateCommand({ currentVersion, cache: finalCache, dismissed })) {
+      log(line);
+    }
+    return { exitCode: 0 };
   }
-  return { exitCode: 0 };
+
+  const feed = cache?.feed;
+  const updateAvailable = isValidFeedShape(feed) && compareVersions(feed.product, currentVersion) > 0;
+  const selfUpdateEligible = updateAvailable
+    && !!feed.components?.app?.url
+    && !!feed.components?.app?.sha256
+    && (options.isRunningFromAppDir ?? isRunningFromAppDir)({ env, launcherRoot: options.launcherRoot });
+
+  if (!selfUpdateEligible) {
+    for (const line of describeUpdateCommand({ currentVersion, cache, dismissed: false })) {
+      log(line);
+    }
+    return { exitCode: 0 };
+  }
+
+  return (options.applySelfUpdate ?? applySelfUpdate)({
+    env,
+    feed,
+    log,
+    fetchImpl: options.fetchImpl,
+    runNpmInstall: options.runNpmInstall
+  });
 }

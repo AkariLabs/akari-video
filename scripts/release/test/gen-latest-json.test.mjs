@@ -31,12 +31,14 @@ async function withFixture(callback) {
     const winBytes = Buffer.from('dummy-win-zip-bytes');
     const winSetupBytes = Buffer.from('dummy-win-setup-exe-bytes');
     const cliBytes = Buffer.from('dummy-cli-tarball-bytes');
+    const appBytes = Buffer.from('dummy-app-tarball-bytes');
     await writeFile(join(artifactsDir, ARTIFACT_FILES.shellMac), macBytes);
     await writeFile(join(artifactsDir, ARTIFACT_FILES.shellWin), winBytes);
     await writeFile(join(artifactsDir, ARTIFACT_FILES.shellWinSetup), winSetupBytes);
     await writeFile(join(artifactsDir, ARTIFACT_FILES.cli), cliBytes);
+    await writeFile(join(artifactsDir, ARTIFACT_FILES.app), appBytes);
 
-    return await callback({ repoRoot, artifactsDir, macBytes, winBytes, winSetupBytes, cliBytes });
+    return await callback({ repoRoot, artifactsDir, macBytes, winBytes, winSetupBytes, cliBytes, appBytes });
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
     await rm(artifactsDir, { recursive: true, force: true });
@@ -44,7 +46,7 @@ async function withFixture(callback) {
 }
 
 test('generateLatestJson: 契約 §3 のスキーマ形状と一致し、sha256 が実ファイルと一致する', async () => {
-  await withFixture(async ({ repoRoot, artifactsDir, macBytes, winBytes, winSetupBytes, cliBytes }) => {
+  await withFixture(async ({ repoRoot, artifactsDir, macBytes, winBytes, winSetupBytes, cliBytes, appBytes }) => {
     const latest = await generateLatestJson({
       artifactsDir,
       tag: 'v0.1.0',
@@ -60,7 +62,7 @@ test('generateLatestJson: 契約 §3 のスキーマ形状と一致し、sha256 
     assert.equal(latest.released, '2026-07-27T00:00:00+09:00');
     assert.equal(latest.notes_url, 'https://github.com/AkariLabs/akari-video/releases/tag/v0.1.0');
 
-    assert.deepEqual(Object.keys(latest.components).sort(), ['cli', 'plugin', 'shell']);
+    assert.deepEqual(Object.keys(latest.components).sort(), ['app', 'cli', 'plugin', 'shell']);
 
     assert.equal(latest.components.shell.version, '0.1.0');
     assert.equal(latest.components.shell.mac.sha256, sha256(macBytes));
@@ -90,6 +92,16 @@ test('generateLatestJson: 契約 §3 のスキーマ形状と一致し、sha256 
 
     assert.equal(latest.components.plugin.version, '0.1.0');
     assert.equal(Object.keys(latest.components.plugin).length, 1, 'plugin は version のみ（契約 §3 例に url 系フィールドなし）');
+
+    // 契約 §11 追記: フル構成ソース tarball（CLI self-update の実体）。additive のため
+    // components.app は url/sha256 のみ（他コンポーネントのような version フィールドは持たない
+    // — トップレベルの product が同じ値を表す）。
+    assert.deepEqual(Object.keys(latest.components.app).sort(), ['sha256', 'url']);
+    assert.equal(latest.components.app.sha256, sha256(appBytes));
+    assert.equal(
+      latest.components.app.url,
+      'https://github.com/AkariLabs/akari-video/releases/download/v0.1.0/app.tgz'
+    );
   });
 });
 

@@ -33,7 +33,11 @@ export const ARTIFACT_FILES = {
   shellMac: 'shell-mac.zip',
   shellWin: 'shell-win.zip',
   shellWinSetup: 'shell-win-setup.exe',
-  cli: 'cli.tgz'
+  cli: 'cli.tgz',
+  // フル構成ソース tarball（install.sh が展開するものと同内容 = タグのソースツリー）。
+  // CLI self-update（update-and-versioning 契約 §11）が DL する実体。
+  // 既存の cli.tgz（npm パッケージのサブセット・preview-server 非同梱）とは別物。
+  app: 'app.tgz'
 };
 
 function sha256File(path) {
@@ -105,12 +109,14 @@ export async function generateLatestJson({ artifactsDir, tag, channel, released,
   const shellWinPath = join(artifactsDir, ARTIFACT_FILES.shellWin);
   const shellWinSetupPath = join(artifactsDir, ARTIFACT_FILES.shellWinSetup);
   const cliPath = join(artifactsDir, ARTIFACT_FILES.cli);
+  const appPath = join(artifactsDir, ARTIFACT_FILES.app);
 
-  const [shellMacSha, shellWinSha, shellWinSetupSha, cliSha] = await Promise.all([
+  const [shellMacSha, shellWinSha, shellWinSetupSha, cliSha, appSha] = await Promise.all([
     sha256File(shellMacPath),
     sha256File(shellWinPath),
     sha256File(shellWinSetupPath),
-    sha256File(cliPath)
+    sha256File(cliPath),
+    sha256File(appPath)
   ]);
 
   return {
@@ -133,7 +139,10 @@ export async function generateLatestJson({ artifactsDir, tag, channel, released,
         npm: cliPkg.name,
         tarball: { url: releaseAssetUrl(tag, ARTIFACT_FILES.cli), sha256: cliSha }
       },
-      plugin: { version: pluginPkg.version }
+      plugin: { version: pluginPkg.version },
+      // update-and-versioning 契約（内部リポ）§11 追記: install.sh が展開するものと同内容の
+      // フル構成ソース tarball（CLI self-update の実体）。additive 追加のため schema は 1 のまま。
+      app: { url: releaseAssetUrl(tag, ARTIFACT_FILES.app), sha256: appSha }
     }
   };
 }

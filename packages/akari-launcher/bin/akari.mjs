@@ -10,6 +10,15 @@ import { runAcceptCommand } from '../src/accept-command.mjs';
 import { runCapabilityCommand } from '../src/capability-command.mjs';
 import { runStoreCommand } from '../src/store-command.mjs';
 import { runAssetsCommand } from '../src/assets-command.mjs';
+import { readOwnVersion } from '../src/update-check.mjs';
+
+// `akari --version` / `-v`: インストール済みの版を表示するだけの最小コマンド
+// （タスク契約 2026-08-11-update-u4-cli-self-update の受け入れ条件 —
+// `akari update` / `--rollback` 後にインストール先の版を観測する手段として必要）。
+async function printVersion() {
+  console.log(`v${readOwnVersion()}`);
+  return { exitCode: 0 };
+}
 
 const argv = process.argv.slice(2);
 // `akari update` / `akari init` / `akari new` / `akari narration` / `akari internal` /
@@ -18,7 +27,8 @@ const argv = process.argv.slice(2);
 // タスク契約 launcher-init（内部リポ）/ 音源カタログ既定化のオーナー裁定 2026-08-03 /
 // AKARI Store 連携 / タスク契約 2026-08-09-agent-assets-discovery）。
 // それ以外の引数はすべて従来どおり claude へ転送する。
-const invoke = argv[0] === 'update' ? runUpdateCommand(argv.slice(1))
+const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
+  : argv[0] === 'update' ? runUpdateCommand(argv.slice(1))
   : argv[0] === 'init' ? runInitCommand(argv.slice(1))
   : argv[0] === 'new' ? runNewCommand(argv.slice(1))
   : argv[0] === 'narration' ? runNarrationCommand(argv.slice(1))
