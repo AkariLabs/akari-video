@@ -13,6 +13,7 @@
 | s-0006 | snapshot 欠落 | sourceT を推測せず reject |
 | s-0007 | 発話をまたぐ多段スクラブ（発話中に seek が連続し、発話終端直前の最終 seek 着地点で 3 秒弱滞留して発話が終わる） | 発話終端の着地点 timelineT=71.25 → cut:1 → sourceT=1011.25（±0.05）に confidence high で解決 |
 | s-0008 | 手動コンパイル時代の `{start,end,text}` 形式（`words` 欠落）の transcript.json を事前に仕込んだセッション | warning を残して再文字起こし → 発話 1 件 → annotation 1 件（`BGMの音量を下げる`）まで完走。session は `failed` にならない |
+| s-0009 | `ui.click`（`timeline:cut:1` intent 付き / `timeline:overlay:ov-1` / `asset:assets/broll/city.mp4`）入りセッション。3 発話、各発話の 5 秒窓内にちょうど 1 件ずつ対応する UI クリックが入るよう校正済み | `カットエーをこうする` → `target:"cut:1"` sourceT=100 confidence=high（intent 優先で一意解決）。`オーバーレイのテキストを直してください。` → `target:"overlay:ov-1"` sourceT=15（呼称一致で一意解決。文の編集指示としての確信度は別軸で low のため `[要確認]`）。`この素材に差し替えてください。` → `refs:[{"path":"assets/broll/city.mp4"}]` 追加・target は基底解決の `cut:0` sourceT=15 のまま（同じく判定は low）。UI 参照解決自体は 3 件とも一意（`resolutionMethod` が `ui-click-cut` / `ui-click-overlay` / 基底のまま）で、confidence low の 2 件は発話内容の編集指示判定（`provisionalJudgement`）に由来し UI 解決の曖昧さではない |
 
 基準コマンド:
 

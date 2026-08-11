@@ -1,0 +1,5 @@
+{"recT":0,"type":"start","timelineT":5,"playing":false}
+{"recT":0.02,"type":"ui.click","target":"timeline:cut:1","label":"カットA","intent":true}
+{"recT":7,"type":"ui.click","target":"timeline:overlay:ov-1","label":"オーバーレイ"}
+{"recT":13,"type":"ui.click","target":"asset:assets/broll/city.mp4","label":"素材"}
+{"recT":16.853,"type":"end","timelineT":5}
