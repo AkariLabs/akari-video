@@ -551,6 +551,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.title.iconClass = 'codicon codicon-comment';
         this.title.closable = true;
         this.node.classList.add('akari-annotations-widget');
+        // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
+        this.node.setAttribute('data-akari-ui', 'panel:timeline');
+        this.node.setAttribute('data-akari-ui-label', 'タイムライン');
         Object.assign(this.node.style, {
             display: 'grid',
             gridTemplateRows: 'auto minmax(0, 1fr) auto auto auto',
@@ -3805,6 +3808,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             element.dataset.akariItemKind = 'overlay';
             element.dataset.akariItemId = overlay.id;
+            // docs/contract-2026-08-11-review-session-ui-events.md #2: timeline:overlay:<id>.
+            element.setAttribute('data-akari-ui', `timeline:overlay:${overlay.id}`);
+            element.setAttribute('data-akari-ui-label', overlay.id);
             element.dataset.akariTrack = String(overlay.track);
             element.dataset.akariLane = layout?.id ?? `track-${overlay.track}`;
             element.style.opacity = this.hiddenTracks.has(overlay.track) ? '.28' : '';
@@ -3984,6 +3990,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             element.dataset.akariItemKind = 'cut';
             element.dataset.akariItemId = String(segment.index);
+            // docs/contract-2026-08-11-review-session-ui-events.md #2: timeline:cut:<n>.
+            element.setAttribute('data-akari-ui', `timeline:cut:${segment.index}`);
+            element.setAttribute('data-akari-ui-label', `C${segment.index + 1}`);
             element.dataset.akariLane = cutLayout.id ?? 'clips';
             const dimForTrimmer = trimmerActiveIndex !== undefined && trimmerActiveIndex !== segment.index;
             element.style.opacity = cutLayout.hidden ? '.28' : dimForTrimmer ? '.6' : '';

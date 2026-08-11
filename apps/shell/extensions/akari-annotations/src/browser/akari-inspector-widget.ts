@@ -895,6 +895,9 @@ export class AkariInspectorWidget extends BaseWidget {
         this.title.iconClass = 'codicon codicon-inspect';
         this.title.closable = true;
         this.node.classList.add('akari-inspector-widget');
+        // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
+        this.node.setAttribute('data-akari-ui', 'panel:inspector');
+        this.node.setAttribute('data-akari-ui-label', 'インスペクター');
         Object.assign(this.node.style, {
             height: '100%',
             overflow: 'auto',
@@ -1063,12 +1066,17 @@ export class AkariInspectorWidget extends BaseWidget {
         const activeTab = tabs.find(tab => tab.label === selectedTabLabel) ?? tabs[0];
         const tabbar = document.createElement('div');
         tabbar.className = 'akari-inspector-tabbar';
-        tabs.forEach(tab => {
+        tabs.forEach((tab, tabPosition) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'akari-inspector-tab';
             button.classList.toggle('akari-inspector-tab-active', tab === activeTab);
             button.textContent = tab.label;
+            // docs/contract-2026-08-11-review-session-ui-events.md #2: tab:<id> opt-in target
+            // (the only literal tab-switcher UI this shell owns -- topView switches elsewhere
+            // are explicitly "widget 内遷移、タブではない" per U6, see akari-role-buckets-widget.tsx).
+            button.setAttribute('data-akari-ui', `tab:inspector-${tabKind}-${tabPosition}`);
+            button.setAttribute('data-akari-ui-label', tab.label);
             button.addEventListener('click', () => {
                 this.selectedTabLabelByKind[tabKind] = tab.label;
                 this.render();

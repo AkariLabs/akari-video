@@ -292,6 +292,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // akari-project-contribution.ts のグローバルハンドラ（isDelegatedDropzone）
         // に割り込まれず、このウィジェット自身が最後まで処理する。
         this.node.setAttribute('data-akari-dropzone', 'true');
+        // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
+        this.node.setAttribute('data-akari-ui', 'panel:assets');
+        this.node.setAttribute('data-akari-ui-label', '素材パネル');
         // Theia 本体（frontend-application.ts）が document の **バブル段階**で
         // `dataTransfer.dropEffect = 'none'` を無条件に入れている（ウィンドウへのファイル
         // ドロップでブラウザ既定の遷移が起きるのを止めるため）。dropEffect が none のまま
@@ -1990,6 +1993,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-material-path={entry.relativePath}
                 data-akari-material-unorganized={entry.unorganized ? 'true' : 'false'}
                 data-akari-material-asset-group={entry.assetGroup ? 'true' : 'false'}
+                // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<path> opt-in target.
+                data-akari-ui={`asset:${entry.relativePath}`}
+                data-akari-ui-label={entry.name}
                 draggable={draggable}
                 onDragStart={draggable ? event => this.handleMaterialDragStart(event, entry) : undefined}
                 onDragEnd={draggable ? () => this.handleMaterialDragEnd() : undefined}

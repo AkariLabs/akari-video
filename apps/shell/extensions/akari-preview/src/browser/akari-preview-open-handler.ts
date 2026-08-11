@@ -59,6 +59,7 @@ import {
     ReviewTransportChange,
     ReviewTransportSnapshot
 } from './review-session-recorder';
+import { ReviewSessionRecordingIndicator } from './review-session-recording-indicator';
 
 export interface OverlayTransform {
     x?: number;
@@ -582,6 +583,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected captionWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
+    protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected retryWidgetSequence = 0;
 
     @inject(WidgetManager)
@@ -609,6 +611,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly openerService: OpenerService;
 
     onStart(): void {
+        this.reviewSessionRecordingIndicator = new ReviewSessionRecordingIndicator();
         this.reviewSessionRecorder = new ReviewSessionRecorder(
             this.previewService,
             state => this.forwardReviewSessionState(state)
@@ -979,6 +982,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.dispose();
         void this.reviewSessionRecorder?.dispose();
         this.reviewSessionRecorder = undefined;
+        this.reviewSessionRecordingIndicator?.dispose();
+        this.reviewSessionRecordingIndicator = undefined;
     }
 
     protected registerReviewSessionEvents(): void {
@@ -1103,6 +1108,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected forwardReviewSessionState(state: ReviewSessionUiState): void {
+        this.reviewSessionRecordingIndicator?.setActive(state.active);
         window.dispatchEvent(new CustomEvent(REVIEW_SESSION_STATE_EVENT, { detail: state }));
         const editUri = this.normalizeReviewEditUri(state.editUri);
         const widget = editUri ? this.openOutputPreviews.get(editUri) : undefined;

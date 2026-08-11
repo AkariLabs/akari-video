@@ -129,6 +129,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.title.iconClass = 'codicon codicon-comment-discussion';
         this.title.closable = true;
         this.node.classList.add('akari-review-panel-widget');
+        // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
+        this.node.setAttribute('data-akari-ui', 'panel:review');
+        this.node.setAttribute('data-akari-ui-label', '注釈パネル');
         Object.assign(this.node.style, {
             display: 'grid',
             gridTemplateRows: 'auto auto auto auto minmax(0, 1fr) auto',
