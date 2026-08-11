@@ -97,6 +97,7 @@ All contracts follow the
 |---|---|
 | [contract-2026-07-13-m5-analysis-report.md](./contract-2026-07-13-m5-analysis-report.md) | Analysis pipeline (analysis.json) + editorial-judgment report |
 | [contract-2026-07-23-analysis-person-matte.md](./contract-2026-07-23-analysis-person-matte.md) | Person matte extraction (foundation for text-behind-person) |
+| [contract-2026-08-11-analysis-vision-tracks-v0.md](./contract-2026-08-11-analysis-vision-tracks-v0.md) | Vision landmark tracks v0 (face-landmarks / hand-pose) — track data contract, sidecar I/O, consumption via `layers[].keyframes` |
 | [contract-2026-07-20-plan-json-v0.md](./contract-2026-07-20-plan-json-v0.md) | plan.json v0 (provisional timeline; slot sequence with confidence levels) |
 | [contract-2026-07-25-plan-comments-v0.md](./contract-2026-07-25-plan-comments-v0.md) | plan-comments.json v0 (structured push-back on the approvable plan layer) |
 | [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 annotation model (five target types) |
