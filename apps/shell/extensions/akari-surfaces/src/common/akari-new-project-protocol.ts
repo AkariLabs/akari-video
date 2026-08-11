@@ -27,6 +27,23 @@
 export const AKARI_NEW_PROJECT_SERVICE_PATH = '/services/akari-surfaces-new-project';
 export const AkariNewProjectService = Symbol('AkariNewProjectService');
 
+export type AkariToolId = 'ffmpeg' | 'whisper' | 'chrome' | 'yt-dlp' | 'voicevox' | 'blender' | 'xcode-clt';
+export type AkariToolTier = 'required' | 'advanced' | 'recommended';
+
+export interface AkariToolCheckResult {
+    id: AkariToolId;
+    tier: AkariToolTier;
+    available: boolean;
+    version?: string;
+    executable?: string;
+}
+
+export interface AkariToolCheckResponse {
+    platform: NodeJS.Platform;
+    checkedAt: string;
+    tools: AkariToolCheckResult[];
+}
+
 export interface AkariNewProjectService {
     /**
      * 空のフォルダーへプロジェクト雛形を作成する
@@ -57,4 +74,10 @@ export interface AkariNewProjectService {
      * `Error` を投げる（元プロジェクトには一切触れていないので、失敗しても何も壊れない）。
      */
     ensureCreatorRoot(): Promise<string>;
+
+    /**
+     * 初回セットアップ面の道具チェック。存在を推測せず、実行可能ファイルを実測する。
+     * macOS の Command Line Tools は `git` shim を叩かず `xcode-select -p` だけで判定する。
+     */
+    checkTools(): Promise<AkariToolCheckResponse>;
 }

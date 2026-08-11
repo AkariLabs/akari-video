@@ -33,6 +33,10 @@ export const AkariHomeCommands = {
     NEW_PROJECT: {
         id: 'akari.home.newProject',
         label: '新規プロジェクト作成'
+    } as Command,
+    OPEN_FIRST_RUN_SETUP: {
+        id: 'akari.home.openFirstRunSetup',
+        label: '初回セットアップを開く'
     } as Command
 };
 
@@ -58,6 +62,12 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
                 // 出るので、メニューから始めても進行が見える場所に居る。
                 const widget = await this.revealHome();
                 await widget.startNewProject();
+            }
+        });
+        registry.registerCommand(AkariHomeCommands.OPEN_FIRST_RUN_SETUP, {
+            execute: async () => {
+                const widget = await this.revealHome();
+                await widget.openFirstRunSetup();
             }
         });
     }
