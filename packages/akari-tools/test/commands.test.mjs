@@ -19,3 +19,10 @@ test('probe-frame: 時刻が無ければ Chrome 起動前に usage を返す', (
   assert.equal(result.status, 1);
   assert.match(result.stderr, /usage: probe-frame\.mjs/);
 });
+
+test('finger-frame: project が無ければ usage を返す', () => {
+  const script = join(packageRoot, 'bin', 'finger-frame.mjs');
+  const result = spawnSync(process.execPath, [script], { encoding: 'utf8' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /usage: finger-frame\.mjs/);
+});

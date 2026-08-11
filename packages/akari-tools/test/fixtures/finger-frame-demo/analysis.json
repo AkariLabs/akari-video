@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "source": "media/base.mp4",
+  "transcript": [],
+  "keyframes": [],
+  "events": [],
+  "tracks": {
+    "speakers": [],
+    "faces": [],
+    "person_matte": null,
+    "hand_pose": {
+      "path": "vision/hand-pose.json",
+      "sample_fps": 2,
+      "provider": "synthetic-demo",
+      "tool": "finger-frame-generator task demo (合成データ -- report.md 参照)",
+      "generated_at": "2026-08-11T00:00:00.000Z"
+    }
+  }
+}

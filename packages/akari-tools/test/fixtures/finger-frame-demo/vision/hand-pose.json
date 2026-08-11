@@ -1,0 +1,79 @@
+{
+  "version": 0,
+  "kind": "hand-pose",
+  "source": { "path": "../media/base.mp4", "duration": 5.0 },
+  "sample_fps": 2,
+  "provider": { "name": "synthetic-demo", "os": "n/a" },
+  "samples": [
+    {
+      "t": 0.0,
+      "detections": [
+        { "chirality": "left", "conf": 0.95, "joints": { "thumb_tip": [0.30, 0.50], "index_tip": [0.32, 0.50] } },
+        { "chirality": "right", "conf": 0.95, "joints": { "thumb_tip": [0.60, 0.50], "index_tip": [0.62, 0.50] } }
+      ]
+    },
+    {
+      "t": 1.0,
+      "detections": [
+        { "chirality": "left", "conf": 0.95, "joints": { "thumb_tip": [0.30, 0.50], "index_tip": [0.32, 0.50] } },
+        { "chirality": "right", "conf": 0.95, "joints": { "thumb_tip": [0.60, 0.50], "index_tip": [0.62, 0.50] } }
+      ]
+    },
+    {
+      "t": 1.5,
+      "detections": [
+        { "chirality": "left", "conf": 0.93, "joints": { "thumb_tip": [0.25, 0.25], "index_tip": [0.25, 0.75] } },
+        { "chirality": "right", "conf": 0.93, "joints": { "thumb_tip": [0.75, 0.25], "index_tip": [0.75, 0.75] } }
+      ]
+    },
+    {
+      "t": 2.0,
+      "detections": [
+        { "chirality": "left", "conf": 0.94, "joints": { "thumb_tip": [0.24, 0.24], "index_tip": [0.26, 0.76] } },
+        { "chirality": "right", "conf": 0.94, "joints": { "thumb_tip": [0.76, 0.26], "index_tip": [0.74, 0.74] } }
+      ]
+    },
+    {
+      "t": 2.5,
+      "detections": [
+        { "chirality": "left", "conf": 0.94, "joints": { "thumb_tip": [0.22, 0.22], "index_tip": [0.24, 0.78] } },
+        { "chirality": "right", "conf": 0.94, "joints": { "thumb_tip": [0.78, 0.24], "index_tip": [0.76, 0.76] } }
+      ]
+    },
+    {
+      "t": 3.0,
+      "detections": [
+        { "chirality": "left", "conf": 0.93, "joints": { "thumb_tip": [0.23, 0.23], "index_tip": [0.25, 0.77] } },
+        { "chirality": "right", "conf": 0.93, "joints": { "thumb_tip": [0.77, 0.25], "index_tip": [0.75, 0.75] } }
+      ]
+    },
+    {
+      "t": 3.4,
+      "detections": [
+        { "chirality": "left", "conf": 0.93, "joints": { "thumb_tip": [0.25, 0.25], "index_tip": [0.25, 0.75] } },
+        { "chirality": "right", "conf": 0.93, "joints": { "thumb_tip": [0.75, 0.25], "index_tip": [0.75, 0.75] } }
+      ]
+    },
+    {
+      "t": 3.5,
+      "detections": [
+        { "chirality": "left", "conf": 0.95, "joints": { "thumb_tip": [0.30, 0.50], "index_tip": [0.32, 0.50] } },
+        { "chirality": "right", "conf": 0.95, "joints": { "thumb_tip": [0.60, 0.50], "index_tip": [0.62, 0.50] } }
+      ]
+    },
+    {
+      "t": 4.0,
+      "detections": [
+        { "chirality": "left", "conf": 0.95, "joints": { "thumb_tip": [0.30, 0.50], "index_tip": [0.32, 0.50] } },
+        { "chirality": "right", "conf": 0.95, "joints": { "thumb_tip": [0.60, 0.50], "index_tip": [0.62, 0.50] } }
+      ]
+    },
+    {
+      "t": 5.0,
+      "detections": [
+        { "chirality": "left", "conf": 0.95, "joints": { "thumb_tip": [0.30, 0.50], "index_tip": [0.32, 0.50] } },
+        { "chirality": "right", "conf": 0.95, "joints": { "thumb_tip": [0.60, 0.50], "index_tip": [0.62, 0.50] } }
+      ]
+    }
+  ]
+}

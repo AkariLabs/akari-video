@@ -1,0 +1,8 @@
+{
+  "version": 0,
+  "output": { "width": 640, "height": 360, "fps": 24 },
+  "source": { "path": "media/base.mp4", "proxy": null },
+  "cuts": [{ "in": 0.0, "out": 5.0 }],
+  "overlays": [],
+  "layers": []
+}
