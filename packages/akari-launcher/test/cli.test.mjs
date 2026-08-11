@@ -335,3 +335,49 @@ test('--yes: opencode に --auto を付加する', async () => {
     assert.equal(result.opencodeLaunched, true);
   });
 });
+
+// --- U5（タスク契約 2026-08-11-update-u5-cli-auto-update）: 起動非ブロック性の固定 ---
+// 契約 §11「起動時にネットワークを待つことは今後もない」の直接的な回帰ガード。
+// バックグラウンド staging（`runBackgroundFetch` 拡張）は `triggerBackgroundRefresh` が
+// spawn する detached 子プロセスの中でのみ行われる設計だが、それを保証しているのは
+// 「`run()` が `refreshUpdate(...)` を await していないこと」という 1 行の事実そのもの
+// （cli.mjs 内で `(options.refreshUpdate ?? triggerBackgroundRefresh)({ env });` に
+// `await` が付いていない）。ここでは意図的に「解決に時間がかかる」`refreshUpdate` を
+// 注入し、`run()` がそれを待たずに戻ることを直接タイミングで証明する。
+
+test('U5: run() は refreshUpdate（バックグラウンド fetch のトリガー）の完了を待たずに戻る（起動非ブロック性の固定）', async () => {
+  await withScratchRoot(async (root) => {
+    // 既存パターン（他テスト群）と同じく .akari/ を先に用意し、scaffold・実 doctor
+    // ネットワーク疎通チェックを迂回する（本題は refreshUpdate の非 await 性のみ）。
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
+
+    const { log } = collectLogs();
+    let refreshUpdateResolved = false;
+    const startedAt = Date.now();
+
+    const result = await run(['--here'], {
+      projectRoot: root,
+      log,
+      assets: resolveRepoAssets(repoRoot),
+      runDoctor: () => ({ status: 0 }),
+      resolveClaude: () => null,
+      resolveOpencode: () => null,
+      ...isolatedUpdateOptions(root),
+      // 実装（triggerBackgroundRefresh）は同期的に detached 子プロセスを spawn して
+      // すぐ返るだけだが、ここでは意図的に「4 秒かかる」実装で差し替え、run() 側が
+      // それを await せずに先へ進むことを直接証明する。
+      refreshUpdate: () => new Promise((resolveSlow) => {
+        setTimeout(() => {
+          refreshUpdateResolved = true;
+          resolveSlow();
+        }, 4000);
+      })
+    });
+
+    const elapsedMs = Date.now() - startedAt;
+    assert.ok(elapsedMs < 2000, `run() は refreshUpdate の完了を待たずに戻るはず（実測 ${elapsedMs}ms）`);
+    assert.equal(refreshUpdateResolved, false, 'run() が戻った時点ではまだ refreshUpdate（4 秒後に解決）は解決していないこと');
+    assert.equal(result.exitCode, 1, 'claude/opencode とも見つからない縮退パス（本題ではないが到達確認）');
+  });
+});

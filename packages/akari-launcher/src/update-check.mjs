@@ -1,8 +1,10 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { isRunningFromAppDir, resolveStagingDir, stageSelfUpdate, swapStagedApp } from './self-update.mjs';
 
 /**
  * CLI（と、同じ契約に従うシェル）の更新検知・通知の共通ロジック
@@ -15,6 +17,21 @@ import { fileURLToPath } from 'node:url';
  * `--background-fetch` 付きで再実行する）の中でのみ行い、結果をキャッシュへ
  * 書くだけで終わる（通知は次回セッションで効く）。fetch 失敗・スキーマ不明・
  * オフラインはすべて沈黙する（何も出さず終了）。
+ *
+ * U5（タスク契約 2026-08-11-update-u5-cli-auto-update・契約 §11）でこのファイルに
+ * 2 つの責務が増えた:
+ *   - `runBackgroundFetch` はフィード取得後、条件が揃えば（新版あり・
+ *     `AKARI_NO_AUTO_UPDATE` 未設定・app 経由インストール）新版を
+ *     `~/.akari/staging/<version>/` へ DL + sha256 検証まで裏で済ませ、
+ *     キャッシュに `staged`（版・sha256・staged_at）を記録する
+ *     （`self-update.mjs` の `stageSelfUpdate` を呼ぶだけ・スワップはしない）
+ *   - `maybeApplyPendingUpdateOnLaunch` は起動の頭で呼ぶ関数。`staged` が
+ *     最新フィードと一致していれば `self-update.mjs` の `swapStagedApp` を呼んで
+ *     アトミックにスワップする（DL はしない・ロック競合や opt-out は沈黙して見送る。
+ *     成功時の 1 行通知だけは呼び出し側の `log` で明示的に出す）
+ * 両者とも DL・適用の重い処理そのものは `self-update.mjs` に委譲し、ここでは
+ * 「いつ・どの条件で呼ぶか」「キャッシュにどう記録するか」だけを扱う（U4 のモジュールの
+ * 再利用・ロジックの重複実装をしない、という U5 タスク契約の指示に従う）。
  */
 
 export const DEFAULT_UPDATE_FEED_URL = 'https://github.com/AkariLabs/akari-video/releases/download/updates/latest.json';
@@ -132,11 +149,43 @@ export function recordDismissalSync({ version, env = process.env, now = new Date
 }
 
 /**
+ * バックグラウンド staging（契約 §11）の適格性判定 + 実行。フィード取得直後に
+ * `runBackgroundFetch` から呼ばれる。適格でなければ何もせず `null` を返す
+ * （呼び出し側はこの結果でキャッシュへ `staged` を書くかどうかだけ決める）。
+ * DL・sha256 検証・展開の実体は `self-update.mjs` の `stageSelfUpdate` そのもの
+ * （ここで重複実装しない）。
+ *
+ * `launcherRoot` はテスト用の注入口（`isRunningFromAppDir` へそのまま渡す。
+ * `runUpdateCommand` の `options.launcherRoot` と同じ流儀）。
+ */
+export async function maybeStageInBackground({ env = process.env, feed, fetchImpl = globalThis.fetch, timeoutMs, extract, launcherRoot } = {}) {
+  if (env.AKARI_NO_AUTO_UPDATE === '1') {
+    return null;
+  }
+  const appComponent = feed?.components?.app;
+  if (!appComponent?.url || !appComponent?.sha256) {
+    return null;
+  }
+  if (compareVersions(feed.product, readOwnVersion()) <= 0) {
+    return null;
+  }
+  if (!isRunningFromAppDir({ env, launcherRoot })) {
+    return null;
+  }
+  // 沈黙原則（U2 を継承）: staging の失敗メッセージはどこにも表示しない（log は no-op）。
+  return stageSelfUpdate({ env, feed, log: () => {}, fetchImpl, timeoutMs, extract });
+}
+
+/**
  * バックグラウンド fetch 本体。fetch 失敗・非 200・JSON パース失敗・スキーマ不明は
  * すべて沈黙して return する（何も throw しない）。`dismissed` は既存キャッシュから
  * 引き継ぐ（fetch のたびに既読状態が消えないように）。
+ *
+ * フィード取得・キャッシュ反映が成功した後、契約 §11 のバックグラウンド staging も
+ * 同じ沈黙原則のもとで試みる（`maybeStageInBackground`）。成功したときだけ
+ * キャッシュへ `staged`（版・sha256・staged_at）を追記する。
  */
-export async function runBackgroundFetch({ env = process.env, fetchImpl = globalThis.fetch } = {}) {
+export async function runBackgroundFetch({ env = process.env, fetchImpl = globalThis.fetch, launcherRoot } = {}) {
   const feedUrl = resolveFeedUrl(env);
   const cachePath = resolveCachePath(env);
   try {
@@ -162,9 +211,87 @@ export async function runBackgroundFetch({ env = process.env, fetchImpl = global
       feed,
       dismissed: existing?.dismissed ?? {}
     });
+
+    const staged = await maybeStageInBackground({ env, feed, fetchImpl, launcherRoot });
+    if (staged?.ok) {
+      const latest = readCacheSync(cachePath) ?? { schema: CACHE_SCHEMA, dismissed: {} };
+      writeCacheSync(cachePath, {
+        ...latest,
+        staged: { version: staged.version, sha256: staged.sha256, staged_at: new Date().toISOString() }
+      });
+    }
   } catch {
-    // オフライン・タイムアウト・DNS 失敗・JSON パース失敗などをすべてここで沈黙する。
+    // オフライン・タイムアウト・DNS 失敗・JSON パース失敗・staging 失敗などをすべてここで沈黙する。
   }
+}
+
+/**
+ * `akari` 起動の頭で呼ぶ、次回起動時自動適用の本体（契約 §11）。
+ * 適用条件がすべて揃ったときだけ `self-update.mjs` の `swapStagedApp` を呼んで
+ * アトミックにスワップする（DL はしない・スワップ自体は `stageSelfUpdate` が既に
+ * 検証済みの `staging/<version>/` を使う）。
+ *
+ * - opt-out（`AKARI_NO_AUTO_UPDATE=1`）なら何もしない
+ * - app 経由インストールでなければ何もしない（npm グローバル・git checkout）
+ * - キャッシュに `staged` が無い、またはその版が最新フィード（`cache.feed.product`）と
+ *   不一致なら何もしない（stale な staging を誤って適用しない）
+ * - staging ディレクトリが既に消費済み（存在しない）なら何もしない — これが
+ *   「1 起動につき適用 1 回」のループガードを兼ねる（成功した swap は
+ *   staging ディレクトリを rename で消費するため、同一プロセス内で 2 回呼んでも
+ *   2 回目は自然に no-op になる）
+ * - ロック取得に失敗（他プロセスが適用中）したら静かに見送り、次回起動に回す
+ *   （`swapStagedApp` に no-op の `log` を渡して沈黙させる）
+ *
+ * 適用に成功したときだけ、呼び出し側の `log` で「vX.Y.Z に更新しました」+
+ * notes_url を明示的に出す（`swapStagedApp` 内部のログは常に沈黙させているため、
+ * ここでの呼び出しが「唯一のユーザー可視の通知」になる）。あわせてキャッシュから
+ * `staged` を消す（stale 表示を残さないため。既に staging ディレクトリが消費済みなので
+ * 消さなくても再適用はされないが、`akari doctor` 等の表示整合のため掃除する）。
+ *
+ * `runNpmInstall` の既定は「何もしない（常に成功扱い）」— `akari update`（明示操作）の
+ * 既定である実 `npm install` とは意図的に異なる。契約 §11 は「起動時にネットワークを
+ * 待つことは今後もない」を明記しており、自動適用は起動の頭という最悪のタイミングで
+ * npm レジストリへの同期ネットワーク呼び出しを増やすわけにいかない。node_modules は
+ * `swapStagedApp` が旧版から複製して引き継ぐため、多くの場合はそのまま動く
+ * （依存が変わるリリースでは次回 `akari update` 実行時に整合する）。
+ */
+export function maybeApplyPendingUpdateOnLaunch({ env = process.env, log = () => {}, runNpmInstall = () => ({ ok: true }), launcherRoot } = {}) {
+  if (env.AKARI_NO_AUTO_UPDATE === '1') {
+    return { applied: false, reason: 'opt-out' };
+  }
+  if (!isRunningFromAppDir({ env, launcherRoot })) {
+    return { applied: false, reason: 'not-app-dir' };
+  }
+
+  const cachePath = resolveCachePath(env);
+  const cache = readCacheSync(cachePath);
+  const staged = cache?.staged;
+  const feed = cache?.feed;
+  if (!staged?.version || !isValidFeedShape(feed) || staged.version !== feed.product) {
+    return { applied: false, reason: 'no-matching-staged-update' };
+  }
+
+  const stagingDir = resolveStagingDir(env, staged.version);
+  if (!existsSync(stagingDir)) {
+    return { applied: false, reason: 'staging-missing' };
+  }
+
+  // 自動適用のスワップ自体は沈黙で試みる（U2 の沈黙原則をこの区間にも継承。ロック競合や
+  // rename 失敗はすべて「今回は見送り、次回起動に回す」）。成功時の通知だけは下で明示する。
+  const result = swapStagedApp({ env, version: staged.version, stagingDir, log: () => {}, runNpmInstall, notesUrl: undefined });
+  if (!result.applied) {
+    return { applied: false, reason: result.lockContention ? 'lock-contention' : 'swap-failed' };
+  }
+
+  const latestCache = readCacheSync(cachePath) ?? cache ?? { schema: CACHE_SCHEMA, dismissed: {} };
+  const { staged: _droppedStaged, ...cacheWithoutStaged } = latestCache;
+  writeCacheSync(cachePath, cacheWithoutStaged);
+
+  log(`v${staged.version} に更新しました`);
+  if (feed.notes_url) {
+    log(`リリースノート: ${feed.notes_url}`);
+  }
+  return { applied: true, version: staged.version, notesUrl: feed.notes_url };
 }
 
 /**

@@ -31,9 +31,16 @@ akari
         （PATH に opencode が無ければ、インストール案内を出して終了する）
 ```
 
-サブコマンド: `akari update`（install.sh 経由インストールなら DL・sha256 検証・適用まで
-実行。それ以外（npm グローバル / git checkout）や旧フィードでは更新案内のみ表示。
-`--rollback` で直前 1 世代へ戻す。`src/self-update.mjs`）/ `akari init`（作業場の作成・確認のみ）/
+install.sh 経由インストール（`~/.akari/app`）では、新版の検知・裏 staging DL・sha256 検証・
+次回起動時の自動適用がすべて既定で走る（`AKARI_NO_AUTO_UPDATE=1` で無効化可）。起動を
+ブロックすることは無く、適用は次回起動の頭でアトミックにスワップする（`src/update-check.mjs`
+の `maybeStageInBackground` / `maybeApplyPendingUpdateOnLaunch`、実体は `src/self-update.mjs`
+の `stageSelfUpdate` / `swapStagedApp`）。
+
+サブコマンド: `akari update`（オンデマンドの確認・適用。install.sh 経由インストールなら
+DL・sha256 検証・適用まで実行。それ以外（npm グローバル / git checkout）や旧フィードでは
+更新案内のみ表示。`--rollback` で直前 1 世代へ戻す。`src/self-update.mjs`）/
+`akari init`（作業場の作成・確認のみ）/
 `akari new <target-dir> [--template <path>]`（新規プロジェクト作成）/
 `akari narration generate ...`（VOICEVOX / fal-qwen3 ナレーション生成）/
 `akari internal beat-sync-<beatmap|probe-frame|render-when-idle> ...`（beat-sync-edit 内部実行物）/
