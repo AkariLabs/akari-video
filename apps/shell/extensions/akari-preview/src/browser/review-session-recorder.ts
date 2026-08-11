@@ -45,6 +45,12 @@ export interface ReviewSessionUiState {
 /** buildUiEvent が返しうる 3 種のうち target/label を必ず持つもの（tool.mode を除く）。 */
 type ResolvedUiTargetEvent = Extract<ReviewSessionUiEvent, { target: string; label: string }>;
 
+interface PendingPointerUpFallback {
+    active: ActiveReviewSession;
+    target: string;
+    suppressed: boolean;
+}
+
 export interface ReviewTransportSnapshot {
     timelineT: number;
     playing: boolean;
@@ -99,16 +105,8 @@ export class ReviewSessionRecorder {
     protected uiPointerUpListener: ((event: PointerEvent) => void) | undefined;
     protected keydownListener: ((event: KeyboardEvent) => void) | undefined;
     protected toolModeState: ReviewToolModeState = REVIEW_TOOL_MODE_INITIAL;
-    /**
-     * task.md 指示1 (pointerup併用): タイムラインのクリップ/オーバーレイ要素は pointerdown で
-     * preventDefault() するため、その一連の操作では 'click' が合成されない
-     * （akari-annotations-widget.ts の installDragListeners 参照）。pointerup 側にも同じ登録済み
-     * 祖先解決を通す記録経路を用意し、'click' が実際に合成された場合はここを true にして
-     * pointerup 側の遅延記録を打ち消す。preventDefault が呼ばれなかった通常要素では 'click' が
-     * pointerup 直後に同期的に合成されるため（Pointer Events 仕様どおり）、pointerup 側は
-     * setTimeout(0) で 1 マクロタスク遅らせてから判定すれば二重記録を防げる。
-     */
-    protected suppressPointerUpFallback = false;
+    /** pointerup ごとの遅延記録。後続ジェスチャの click と抑止状態を共有しない。 */
+    protected readonly pendingPointerUpFallbacks = new Set<PendingPointerUpFallback>();
     /** task.md 指示2: select ツール中に直近クリックした登録済み UI 要素。session-start/end でリセットする。 */
     protected selectedUiTarget: ReviewSelectedUiTarget | undefined;
 
@@ -512,8 +510,16 @@ export class ReviewSessionRecorder {
             return;
         }
         this.applyUiSelection(uiEvent);
-        // click が実際に合成された = このジェスチャの pointerup 側フォールバックは不要。
-        this.suppressPointerUpFallback = true;
+        // 同じ target の最新 pointerup だけを、この click と対になるフォールバックとして抑止する。
+        let matchingFallback: PendingPointerUpFallback | undefined;
+        for (const pending of this.pendingPointerUpFallbacks) {
+            if (pending.active === active && pending.target === uiEvent.target) {
+                matchingFallback = pending;
+            }
+        }
+        if (matchingFallback) {
+            matchingFallback.suppressed = true;
+        }
         this.enqueue(active, () => this.service.appendReviewSessionEvent({
             sessionDir: active.sessionDir,
             event: uiEvent
@@ -525,7 +531,7 @@ export class ReviewSessionRecorder {
      * installDragListeners 参照）では 'click' が合成されないため、pointerup 側でも同じ登録済み
      * 祖先解決を通して記録する。preventDefault されなかった通常要素では pointerup 直後に 'click' が
      * 同期的に合成される（Pointer Events 仕様）ため、1 マクロタスク（setTimeout 0）待ってから
-     * suppressPointerUpFallback を見て二重記録を避ける。
+     * この pointerup 専用の抑止状態を見て二重記録を避ける。
      */
     protected handleUiPointerUp(event: PointerEvent): void {
         const active = this.active;
@@ -537,9 +543,15 @@ export class ReviewSessionRecorder {
             return;
         }
         this.applyUiSelection(uiEvent);
-        this.suppressPointerUpFallback = false;
+        const pending: PendingPointerUpFallback = {
+            active,
+            target: uiEvent.target,
+            suppressed: false
+        };
+        this.pendingPointerUpFallbacks.add(pending);
         setTimeout(() => {
-            if (this.suppressPointerUpFallback || this.active !== active || this.status !== 'recording') {
+            this.pendingPointerUpFallbacks.delete(pending);
+            if (pending.suppressed || this.active !== active || this.status !== 'recording') {
                 return;
             }
             this.enqueue(active, () => this.service.appendReviewSessionEvent({
