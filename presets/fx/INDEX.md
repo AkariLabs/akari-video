@@ -4,66 +4,53 @@
 参照表方式（`index.jsonl`）を採っていますが、LUT と違って解決先は静的ファイルではなく
 **ffmpeg フィルタグラフの組み立てコード**です（`packages/render-cut/src/fx.mjs`）。
 
-## v0 スコープ宣言
+## 収録 0 件（2026-08-11 廃止）
 
-ここに収めるのは**新規に実装した小語彙 5 個だけ**です。旧実装リポにある FX 479 個の移植では
-ありません（2026-07-22 中止裁定は維持したまま、需要ドリブンで新規 5 個だけを別途起票した
-もの。詳細は公開リポ `docs/contract-2026-08-05-fx-v0.md`）。
+v0 で実装した小語彙 5 個（noise / particles / vignette / flare / color-overlay。
+2026-08-05 契約・2026-08-06 実装）はオーナー裁定「めちゃくちゃダサいのでやめたい」
+（2026-08-11）により全撤去した。撤去の実装は
+`docs/contract-2026-08-05-fx-v0.md` 冒頭の廃止追記と本タスクのコミットを参照。
+
+**この棚（参照表の仕組み）自体は残す** — 演出レシピは同日（2026-08-11）解禁が別途裁定されており、
+将来の Vision 分析パス系レシピ（顔モザイク・目線黒帯・指フレーム等の副産物として生まれる
+画面演出）の受け皿として `presets/fx/` はそのまま使う。次に何かをここへ足すときは、
+`index.jsonl` へエントリを追加し、`packages/render-cut/src/fx.mjs` の `FX_BUILDERS` に
+同じ id でビルダーを登録する（旧 5 種のときと同じ配線方法）。
 
 ## 構造
 
 ```
 presets/fx/
-  index.jsonl   # 1 プリセット 1 行。id・name・when_to_use・tags・params・source を持つ。AI が読むのはここだけ
+  index.jsonl   # 1 プリセット 1 行。id・name・when_to_use・tags・params・source を持つ。AI が読むのはここだけ。現在 0 行
   INDEX.md      # this file
 ```
 
 LUT の `<id>/<id>.cube` に相当する実体ファイルは持ちません。`id` は
-`packages/render-cut/src/fx.mjs` の `FX_BUILDERS` ディスパッチ表のキーと 1:1 対応し、
-`packages/schemas/edit.schema.json` の `$defs/cutFx.properties.id.enum` が同じ 5 値を
-enum で固定しています。
+`packages/render-cut/src/fx.mjs` の `FX_BUILDERS` ディスパッチ表のキーと 1:1 対応します。
+`packages/schemas/edit.schema.json` の `$defs/cutFx.properties.id` は enum ではなく
+**string**（2026-08-11 緩和）— 未登録の id を打っても検証エラーにはならず、レンダー側が
+警告 + no-op で通します（データ契約の三原則「受け口を広げる方向の互換」。
+`docs/contract-2026-07-17-data-contract-versioning.md` 参照）。
 
-## エントリ
+## 参照方法（今は何も解決しない）
 
-- **noise** — 映像ノイズ・劣化感。ffmpeg `noise` フィルタ直結
-- **particles** — 漂う粒子・ちり。procedural（geq で輝点を手続き描画 + screen 合成）
-- **vignette** — 周辺減光。ffmpeg `vignette` フィルタ（色ツマミで黒/白ビネット両対応）
-- **flare** — 光のフレア・強調。procedural（particles と同じ経路、輝点 1 個・大径）
-- **color-overlay** — 画面全体への色被せ。単色ソース + blend（色ツマミ必須）
+`edit.json` の `cuts[].fx` に `{id, intensity, params?}` の配列を渡す構文自体は残っています
+（`packages/schemas/edit.schema.json` `$defs/cutV0.properties.fx` / `$defs/cutFx`）。
+ただし `FX_BUILDERS` に登録された id が現在 0 件のため、どんな `fx` を書いても
+**レンダー結果は fx なしと画素等価**になります（`packages/render-cut/src/fx.mjs` が
+未知 id ごとに警告ログを出し、そのカットを no-op で通す）。旧 v0 の 5 id を含む
+edit.json もこの経路でそのまま完走します（ハードフェイルしない）。
 
-選定に必要な `when_to_use` / `ai_usage` / `params` は [index.jsonl](./index.jsonl) にあります。
-
-## 参照方法
-
-`edit.json` の `cuts[].fx` に `{id, intensity, params?}` の配列を渡すと、
-`packages/render-cut/src/plan.mjs` が各カットのフィルタグラフへ
-`packages/render-cut/src/fx.mjs` の対応するビルダーを差し込みます。
-
-- `intensity`（0〜1、省略時 1）は全 id 共通のツマミ。0 は恒等（FX 無し出力と画素等価）
-- `params.color` は vignette（`"black"` / `"white"`、既定 black）と color-overlay
-  （ffmpeg の color 表記。**必須** — フェード赤・カラーマット黒相当を 1 id でカバーするため）
-  だけが使う。noise / particles / flare は params を使わない
-- 配列の並び順 = 適用順（複数の fx を重ね掛けできる）
-- 1 カットに複数カットを跨いだ `output.look`（LUT）と併用可能（LUT はカット結合後・全体、
-  fx はカット単位で先に適用される独立した段）
-
-## 決定論
-
-`noise` の乱数シードと `particles` / `flare` の輝点の動きは、すべてカット位置・スタック段・
-fx id から導いた固定ハッシュ/式で決まります（`Math.random` / `Date.now` は使いません）。
-同一の `edit.json` は常に同一のフィルタ文字列・同一の出力ピクセルを生成します
-（`packages/render-cut/test/cut-fx.test.mjs` の決定論テストが実測で確認）。
-
-## 検証（新しい fx を足したら通す）
-
-LUT と同様、見た目のレビューではなく実映像に当てたピクセル実測で見ます。
+## 検証
 
 ```sh
 node --test packages/render-cut/test/cut-fx.test.mjs
 ```
 
+- `index.jsonl` が `fx.mjs` の `FX_BUILDERS` ディスパッチ表と 1:1 対応していること（0 件同士の一致を含む）
+- 未知の fx id を渡しても警告 + no-op でレンダーが完走すること（撤去後の回帰テストの中核）
+
 ## 再生成
 
 このプリセットに静的な生成物（`.cube` のようなバイナリ）はありません。
-`fx.mjs` のビルダー関数を編集すれば、次回レンダから即座に反映されます
-（`bake-luts.mjs` のような再生成コマンドは不要）。
+`fx.mjs` の `FX_BUILDERS` にビルダー関数を追加すれば、次回レンダから即座に反映されます。

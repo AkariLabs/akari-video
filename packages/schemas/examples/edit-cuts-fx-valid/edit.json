@@ -7,13 +7,13 @@
       "in": 0.0,
       "out": 5.0,
       "fx": [
-        { "id": "noise", "intensity": 0.4 },
-        { "id": "vignette", "intensity": 1, "params": { "color": "white" } },
-        { "id": "color-overlay", "intensity": 0.2, "params": { "color": "red" } }
+        { "id": "sample-fx-a", "intensity": 0.4 },
+        { "id": "sample-fx-b", "intensity": 1, "params": { "color": "white" } },
+        { "id": "sample-fx-c", "intensity": 0.2, "params": { "color": "red" } }
       ]
     },
-    { "in": 5.0, "out": 8.0, "fx": [{ "id": "particles" }] },
-    { "in": 8.0, "out": 10.0, "fx": [{ "id": "flare", "intensity": 0.7 }] }
+    { "in": 5.0, "out": 8.0, "fx": [{ "id": "sample-fx-d" }] },
+    { "in": 8.0, "out": 10.0, "fx": [{ "id": "sample-fx-e", "intensity": 0.7 }] }
   ],
   "overlays": []
 }

@@ -3,34 +3,30 @@ import test from 'node:test';
 
 import { FX_IDS as RENDER_FX_IDS } from '../../render-cut/src/fx.mjs';
 import {
-  APPROXIMATE_FX_IDS,
   FX_IDS,
-  approximateBadgeLabel,
-  flareVisual,
   intensityToOpacity,
-  isApproximateFx,
   normalizeCutFxList,
   normalizePreviewColor,
-  vignetteVisual,
 } from '../public/cut-fx.js';
 
-test('preview supports exactly the render-cut FX vocabulary', () => {
+// 2026-08-11 撤去: v0 の画面 FX 小語彙 5 種はオーナー裁定により製品面から撤去した
+// （docs/contract-2026-08-05-fx-v0.md 冒頭の廃止追記参照）。プレビュー側の FX_IDS は
+// render-cut 側の FX_IDS（fx.mjs の FX_BUILDERS ディスパッチ表）と常に一致させる —
+// 現在はどちらも 0 件。将来 fx が復活したら両方に同じ id を登録する。
+
+test('preview supports exactly the render-cut FX vocabulary (both empty until a new fx is registered)', () => {
   assert.deepEqual([...FX_IDS].sort(), [...RENDER_FX_IDS].sort());
 });
 
-test('normalization defaults intensity to one, clamps it, and ignores unknown entries', () => {
+test('normalization returns an empty list for any input while FX_IDS is empty (nothing is a known preview id yet)', () => {
   assert.deepEqual(normalizeCutFxList([
-    { id: 'noise' },
-    { id: 'vignette', intensity: -2, params: { color: 'white' } },
-    { id: 'color-overlay', intensity: 2 },
-    { id: 'unknown', intensity: 0.5 },
+    { id: 'sample-fx' },
+    { id: 'another-fx', intensity: -2, params: { color: 'white' } },
+    { id: 'anything-else', intensity: 2 },
     null,
-  ]), [
-    { id: 'noise', intensity: 1, params: {}, sourceIndex: 0 },
-    { id: 'vignette', intensity: 0, params: { color: 'white' }, sourceIndex: 1 },
-    { id: 'color-overlay', intensity: 1, params: {}, sourceIndex: 2 },
-  ]);
+  ]), []);
   assert.deepEqual(normalizeCutFxList(undefined), []);
+  assert.deepEqual(normalizeCutFxList([]), []);
 });
 
 test('intensity maps linearly to CSS opacity and zero is the identity boundary', () => {
@@ -43,33 +39,9 @@ test('intensity maps linearly to CSS opacity and zero is the identity boundary',
   assert.equal(intensityToOpacity(undefined), 1);
 });
 
-test('only procedural approximations receive the visible approximation badge', () => {
-  assert.deepEqual(APPROXIMATE_FX_IDS, ['noise', 'particles', 'flare']);
-  for (const id of FX_IDS) {
-    assert.equal(isApproximateFx(id), APPROXIMATE_FX_IDS.includes(id));
-    assert.equal(approximateBadgeLabel(id), APPROXIMATE_FX_IDS.includes(id) ? '[FX ≈ 近似]' : '');
-  }
-});
-
 test('ffmpeg 0x colors become browser CSS colors and missing color falls back to black', () => {
   assert.equal(normalizePreviewColor('0xff0000'), '#ff0000');
   assert.equal(normalizePreviewColor('0x112233aa'), '#112233aa');
   assert.equal(normalizePreviewColor('#abcdef'), '#abcdef');
   assert.equal(normalizePreviewColor(undefined), 'black');
-});
-
-test('vignette visual uses the requested edge color and linear intensity', () => {
-  const black = vignetteVisual(0.32);
-  assert.equal(black.opacity, 0.32);
-  assert.match(black.background, /rgba\(0,0,0,/);
-  const white = vignetteVisual(0.5, 'white');
-  assert.equal(white.opacity, 0.5);
-  assert.match(white.background, /rgba\(255,255,255,/);
-});
-
-test('flare visual is a seek-safe CSS radial gradient whose position changes over time', () => {
-  const atStart = flareVisual(0, 42);
-  assert.match(atStart, /^radial-gradient\(circle at /);
-  assert.notEqual(flareVisual(1, 42), atStart);
-  assert.equal(flareVisual(0, 42), atStart);
 });

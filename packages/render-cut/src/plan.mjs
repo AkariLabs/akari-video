@@ -1443,7 +1443,7 @@ function buildGapAwareCutCommand({
         // Unlike buildCutCommand's non-transform branch, a gap-aware run's plain trim has no
         // later post-concat scale/pad to fall back on for non-transform runs mixed with
         // WxH-sized gap fillers — it must reach WxH itself before the fx chain (which assumes a
-        // WxH frame, e.g. color-overlay's WxH solid-color source) can run.
+        // WxH frame, e.g. a hypothetical solid-color-source fx) can run.
         const rawLabel = `[gvraw${index}]`;
         filters.push(
           `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${rawLabel}`,

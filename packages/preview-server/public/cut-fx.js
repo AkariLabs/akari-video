@@ -1,10 +1,17 @@
-// cuts[].fx browser preview. This intentionally mirrors the five-id vocabulary in
-// packages/render-cut/src/fx.mjs without importing it: public/ is served as a standalone browser
-// root, while render-cut is outside that root. The browser implementation is visual parity for
-// authoring, not a pixel-identical port of ffmpeg (see contract-2026-08-02-preview-parity.md §2.4.5).
+// cuts[].fx browser preview: id 参照表 + ディスパッチ機構のブラウザ側ミラー。public/ は単独の
+// ブラウザルートとして配信され render-cut の外側にあるため、render-cut/src/fx.mjs を import せず
+// 意図的に構造だけをミラーする（型は import { FX_IDS } from render-cut/src/fx.mjs との一致を
+// テストで確認する）。
+//
+// 2026-08-11 撤去: v0 の画面 FX 小語彙 5 種（noise/particles/vignette/flare/color-overlay。
+// contract-2026-08-02-preview-parity.md §2.4.5 に旧近似実装の記録が残る）はオーナー裁定により
+// 製品面から撤去した。FX_IDS / FX_VISUALS は render-cut 側の FX_IDS / FX_BUILDERS と同じ「器」
+// （id 参照表・ディスパッチ）で、現在は登録 0 件。将来 fx が復活したら、この 2 箇所と
+// render-cut/src/fx.mjs の FX_BUILDERS へ同じ id で登録する。
 
-export const FX_IDS = ['noise', 'particles', 'vignette', 'flare', 'color-overlay'];
-export const APPROXIMATE_FX_IDS = ['noise', 'particles', 'flare'];
+// FX_IDS: プレビューが可視化できる id 一覧。render-cut 側の FX_IDS（fx.mjs）と常に一致させる
+// （packages/preview-server/test/cut-fx.test.mjs が実測で確認）。
+export const FX_IDS = [];
 
 function clamp01(value) {
   return Math.max(0, Math.min(1, value));
@@ -25,14 +32,6 @@ export function normalizeCutFxList(fx) {
   });
 }
 
-export function isApproximateFx(id) {
-  return APPROXIMATE_FX_IDS.includes(id);
-}
-
-export function approximateBadgeLabel(id) {
-  return isApproximateFx(id) ? '[FX ≈ 近似]' : '';
-}
-
 // All preview implementations use the same linear 0..1 blend contract as render-cut.
 export function intensityToOpacity(intensity) {
   return typeof intensity === 'number' && Number.isFinite(intensity) ? clamp01(intensity) : 1;
@@ -45,91 +44,11 @@ export function normalizePreviewColor(color, fallback = 'black') {
   return ffmpegHex ? `#${ffmpegHex[1]}` : value;
 }
 
-export function vignetteVisual(intensity, color = 'black') {
-  const edge = color === 'white' ? '255,255,255' : '0,0,0';
-  return {
-    background: `radial-gradient(ellipse at center, rgba(${edge},0) 30%, rgba(${edge},0.18) 58%, rgba(${edge},0.92) 100%)`,
-    opacity: intensityToOpacity(intensity),
-  };
-}
-
-export function flareVisual(outputTime, seed = 0) {
-  const phase = seededUnit(hashParts(seed)) * Math.PI * 2;
-  const x = 50 + 34 * Math.cos(Math.max(0, outputTime) * 0.38 + phase);
-  const y = 50 + 28 * Math.sin(Math.max(0, outputTime) * 0.31 + phase);
-  return `radial-gradient(circle at ${x.toFixed(3)}% ${y.toFixed(3)}%, rgba(255,255,255,0.98) 0%, rgba(255,241,196,0.72) 12%, rgba(255,210,130,0.24) 26%, rgba(255,255,255,0) 46%)`;
-}
-
-function seededUnit(seed) {
-  let value = seed | 0;
-  value ^= value << 13;
-  value ^= value >>> 17;
-  value ^= value << 5;
-  return (value >>> 0) / 4294967296;
-}
-
-function hashParts(...parts) {
-  let hash = 0x811c9dc5;
-  const value = parts.join(':');
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
-}
-
-function canvasSize(output) {
-  const width = Math.max(1, Number(output?.width) || 1280);
-  const height = Math.max(1, Number(output?.height) || 720);
-  const scale = Math.min(1, 360 / Math.max(width, height));
-  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
-}
-
-function prepareCanvas(canvas, output) {
-  const size = canvasSize(output);
-  if (canvas.width !== size.width) canvas.width = size.width;
-  if (canvas.height !== size.height) canvas.height = size.height;
-  return canvas.getContext('2d');
-}
-
-function drawNoise(canvas, output, outputTime, seed) {
-  const context = prepareCanvas(canvas, output);
-  const width = canvas.width;
-  const height = canvas.height;
-  const image = context.createImageData(width, height);
-  const frame = Math.floor(Math.max(0, outputTime) * (Number(output?.fps) || 30));
-  let state = hashParts(seed, frame);
-  for (let index = 0; index < image.data.length; index += 4) {
-    state = Math.imul(state ^ (state >>> 15), 2246822519) >>> 0;
-    const value = 64 + (state & 127);
-    image.data[index] = value;
-    image.data[index + 1] = value;
-    image.data[index + 2] = value;
-    image.data[index + 3] = 255;
-  }
-  context.putImageData(image, 0, 0);
-}
-
-function glow(context, x, y, radius, alpha) {
-  const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
-  gradient.addColorStop(0, `rgba(255,255,255,${alpha})`);
-  gradient.addColorStop(0.22, `rgba(255,245,210,${alpha * 0.8})`);
-  gradient.addColorStop(1, 'rgba(255,255,255,0)');
-  context.fillStyle = gradient;
-  context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
-}
-
-function drawParticles(canvas, output, outputTime, seed) {
-  const context = prepareCanvas(canvas, output);
-  const { width, height } = canvas;
-  context.clearRect(0, 0, width, height);
-  for (let index = 0; index < 4; index += 1) {
-    const phase = seededUnit(hashParts(seed, index)) * Math.PI * 2;
-    const x = ((index + 0.5) / 4 * width + outputTime * width * 0.16 * (1 + index * 0.25)) % width;
-    const y = height * (0.5 + 0.22 * Math.sin(outputTime * (1.5 - index * 0.14) + phase));
-    glow(context, x, y, Math.max(2, Math.min(width, height) * 0.035), 0.95);
-  }
-}
+// FX_VISUALS: id -> canvas/CSS 描画関数のディスパッチ表。render-cut 側の FX_BUILDERS と対になる
+// 器で、2026-08-11 現在 0 件。新しい fx を実装するときは render-cut 側にビルダーを追加するのと
+// 同じ id でここへ `(element, item, state) => void` を追加する（element は rebuildVisuals が
+// 用意する div、item は normalizeCutFxList の要素、state は current() の戻り値）。
+const FX_VISUALS = {};
 
 function visualSignature(cutIndex, list) {
   return `${cutIndex}:${list.map(item => `${item.sourceIndex}:${item.id}`).join('|')}`;
@@ -160,17 +79,11 @@ export function createCutFxController(readState) {
   function rebuildVisuals(state) {
     host.replaceChildren();
     visualLayers = state.list.map((item, stackIndex) => {
-      const element = document.createElement(['noise', 'particles'].includes(item.id) ? 'canvas' : 'div');
+      const element = document.createElement('div');
       element.style.cssText = LAYER_STYLE;
       element.dataset.fxId = item.id;
       element.dataset.fxSourceIndex = String(item.sourceIndex);
       element.dataset.fxStackIndex = String(stackIndex);
-      if (item.id === 'noise') {
-        element.style.imageRendering = 'pixelated';
-        element.style.mixBlendMode = 'overlay';
-      } else if (item.id === 'particles' || item.id === 'flare') {
-        element.style.mixBlendMode = 'screen';
-      }
       host.appendChild(element);
       return { item, element };
     });
@@ -218,10 +131,6 @@ export function createCutFxController(readState) {
       const title = document.createElement('span');
       title.className = 'cut-fx-control-title';
       title.textContent = item.id;
-      const badge = document.createElement('span');
-      badge.className = 'cut-fx-approx-badge';
-      badge.textContent = approximateBadgeLabel(item.id);
-      badge.hidden = !isApproximateFx(item.id);
       const slider = document.createElement('input');
       slider.type = 'range';
       slider.min = '0';
@@ -244,7 +153,7 @@ export function createCutFxController(readState) {
         update();
         saveIntensity(live.cutIndex, item.sourceIndex, item.id, next);
       });
-      row.append(title, badge, slider, value);
+      row.append(title, slider, value);
       controls.appendChild(row);
     });
   }
@@ -276,17 +185,9 @@ export function createCutFxController(readState) {
       element.hidden = opacity <= 0;
       element.style.opacity = String(opacity);
       if (!item || opacity <= 0) return;
-      if (item.id === 'vignette') {
-        element.style.background = vignetteVisual(opacity, item.params.color).background;
-      } else if (item.id === 'color-overlay') {
-        element.style.background = normalizePreviewColor(item.params.color, 'black');
-      } else if (item.id === 'noise') {
-        drawNoise(element, state.summary?.output, state.cutTime, hashParts(state.cutIndex, item.sourceIndex));
-      } else if (item.id === 'particles') {
-        drawParticles(element, state.summary?.output, state.cutTime, hashParts(state.cutIndex, item.sourceIndex));
-      } else if (item.id === 'flare') {
-        element.style.background = flareVisual(state.cutTime, hashParts(state.cutIndex, item.sourceIndex));
-      }
+      const visual = FX_VISUALS[item.id];
+      if (!visual) return; // 2026-08-11 現在 FX_VISUALS は登録 0 件 — 描画するものが無いので何もしない
+      visual(element, item, state);
     });
   }
 

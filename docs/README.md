@@ -89,7 +89,7 @@ All contracts follow the
 | [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 emphasis words |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | Timeline placement principles, multiple audio tracks, audio trim, source trimmer |
-| [contract-2026-08-05-fx-v0.md](./contract-2026-08-05-fx-v0.md) | Screen-FX small vocabulary v0 (`cuts[].fx`: noise / particles / vignette / flare / color-overlay) |
+| [contract-2026-08-05-fx-v0.md](./contract-2026-08-05-fx-v0.md) | Screen-FX small vocabulary v0 — **retired 2026-08-11** (see the notice at the top of the doc); `presets/fx/` remains as an empty registry |
 
 ### Analysis, plan, review
 

@@ -9,37 +9,14 @@ import test from "node:test";
 import { FX_IDS, hasCutFx, normalizeCutFxList } from "../src/fx.mjs";
 import { buildCutCommand } from "../src/plan.mjs";
 
-// docs/contract-2026-08-05-fx-v0.md / 2026-08-06 glow split-leak regression (task
-// 2026-08-06-fx-glow-split-fix): ffmpeg's filtergraph forbids reusing the same labeled pad as
-// the input to more than one filter without an explicit split/asplit first (raw -i stream
-// references like [0:v]/[0:a] are the one exception -- ffmpeg fans those out internally). The
-// glow builder (particles/flare) used to consume its inputLabel twice without splitting, which
-// happened to render correctly for a single isolated cut but produced an undefined-length output
-// once the same filtergraph carried a second cut. This helper statically counts label reuse so a
-// future regression is caught before it needs a real render to notice.
-function filterComplexInputCounts(filterComplex) {
-  const counts = new Map();
-  for (const statement of filterComplex.split(";")) {
-    const leading = statement.match(/^(\[[^\]]+\])+/);
-    if (!leading) continue;
-    const labels = leading[0].match(/\[[^\]]+\]/g) ?? [];
-    for (const label of labels) {
-      if (/^\[\d+:[a-z]+\]$/.test(label)) continue;
-      counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-  }
-  return counts;
-}
-
-function assertNoDoubleConsumedLabels(filterComplex, context) {
-  for (const [label, count] of filterComplexInputCounts(filterComplex)) {
-    assert.ok(count <= 1, `${context}: label ${label} is consumed as a filter input ${count} times without an explicit split first`);
-  }
-}
-
-// docs/contract-2026-08-05-fx-v0.md: L1 承認は「フィクスチャ動画の実レンダで FX ごとの特徴を
-// 実測」— このファイルは実際に ffmpeg を都度実行し、デコードした生ピクセルを測る（コマンド
-// プランに文字列が含まれるかだけを見るテストは書かない）。
+// 2026-08-11 撤去: v0 の画面 FX 小語彙 5 種（noise/particles/vignette/flare/color-overlay。
+// docs/contract-2026-08-05-fx-v0.md）はオーナー裁定「めちゃくちゃダサいのでやめたい」により
+// 製品面から全撤去した。presets/fx/ の参照表・ディスパッチの器（FX_BUILDERS）は残しており、
+// 2026-08-11 現在は登録 0 件。このファイルは「未知 fx id はハードフェイルせず警告 + no-op で
+// 通す」という撤去後の契約（データ契約三原則 — 受け口を広げる方向の互換）を実レンダーで検証する。
+// 旧実装の 5 id をテストデータとして使う箇所（RETIRED_V0_FX_IDS 節のみ）は、撤去後もその id を
+// 含む既存の edit.json が壊れないことを証明する後方互換の回帰テストであり、5 id を製品として
+// 再導入するものではない。
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(packageRoot, "..", "..");
@@ -47,7 +24,7 @@ const cliPath = join(packageRoot, "bin", "render-cut.mjs");
 
 const FX_INDEX_JSONL_FIELDS = ["id", "kind", "name", "description", "when_to_use", "tags", "params", "ai_usage", "source"];
 
-test("presets/fx/index.jsonl is self-describing and matches the fx.mjs dispatch table exactly", async () => {
+test("presets/fx/index.jsonl is self-describing and matches the fx.mjs FX_BUILDERS dispatch table exactly (currently 0 entries)", async () => {
   const raw = await readFile(join(repoRoot, "presets", "fx", "index.jsonl"), "utf8");
   const lines = raw.trim().split("\n").filter((line) => line.trim() !== "");
   const entries = lines.map((line, index) => {
@@ -70,18 +47,13 @@ test("presets/fx/index.jsonl is self-describing and matches the fx.mjs dispatch 
 
   const indexIds = entries.map((entry) => entry.id).sort();
   const dispatchIds = [...FX_IDS].sort();
-  assert.deepEqual(indexIds, dispatchIds, "presets/fx/index.jsonl ids must exactly match fx.mjs's FX_IDS dispatch table");
-
-  const schema = JSON.parse(await readFile(join(repoRoot, "packages", "schemas", "edit.schema.json"), "utf8"));
-  const schemaIds = [...schema.$defs.cutFx.properties.id.enum].sort();
-  assert.deepEqual(indexIds, schemaIds, "presets/fx/index.jsonl ids must exactly match edit.schema.json's $defs/cutFx id enum");
+  assert.deepEqual(indexIds, dispatchIds, "presets/fx/index.jsonl ids must exactly match fx.mjs's FX_IDS dispatch table (both empty until a new fx is registered)");
 });
 
 const WIDTH = 64;
 const HEIGHT = 64;
 const FPS = 10;
 const DURATION = 2;
-const FRAME_COUNT = WIDTH * HEIGHT * 3;
 
 function ffmpegAvailable() {
   return spawnSync("ffmpeg", ["-version"]).status === 0;
@@ -126,6 +98,20 @@ async function renderFx(root, fx, { name = "cut", look } = {}) {
   return cutPath;
 }
 
+// buildCutCommand は console.warn を同期的に呼ぶ（fx.mjs の appendCutFxChain 内、ffmpeg 起動より
+// 前）。呼び出し全体を囲んで一時的に差し替え、出た警告文を集める。
+async function renderFxCapturingWarnings(root, fx, options) {
+  const warnings = [];
+  const original = console.warn;
+  console.warn = (...args) => { warnings.push(args.join(" ")); };
+  try {
+    const cutPath = await renderFx(root, fx, options);
+    return { cutPath, warnings };
+  } finally {
+    console.warn = original;
+  }
+}
+
 // Every decoded frame back-to-back as one rgb24 buffer (frameCount * WIDTH*HEIGHT*3 bytes).
 function dumpFrames(path, frameCount) {
   const result = run("ffmpeg", [
@@ -137,53 +123,8 @@ function dumpFrames(path, frameCount) {
 }
 
 function frameSlice(buf, index) {
-  return buf.subarray(index * FRAME_COUNT, (index + 1) * FRAME_COUNT);
-}
-
-function avgRegion(frame, x0, y0, x1, y1) {
-  let sum = 0;
-  let n = 0;
-  for (let y = y0; y < y1; y += 1) {
-    for (let x = x0; x < x1; x += 1) {
-      const offset = (y * WIDTH + x) * 3;
-      sum += (frame[offset] + frame[offset + 1] + frame[offset + 2]) / 3;
-      n += 1;
-    }
-  }
-  return sum / n;
-}
-
-function avgCornerLuma(frame) {
-  const size = 8;
-  const corners = [
-    avgRegion(frame, 0, 0, size, size),
-    avgRegion(frame, WIDTH - size, 0, WIDTH, size),
-    avgRegion(frame, 0, HEIGHT - size, size, HEIGHT),
-    avgRegion(frame, WIDTH - size, HEIGHT - size, WIDTH, HEIGHT),
-  ];
-  return corners.reduce((a, b) => a + b, 0) / corners.length;
-}
-
-function avgCenterLuma(frame) {
-  const half = 4;
-  return avgRegion(frame, WIDTH / 2 - half, HEIGHT / 2 - half, WIDTH / 2 + half, HEIGHT / 2 + half);
-}
-
-function avgColor(frame) {
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  const pixels = frame.length / 3;
-  for (let i = 0; i < pixels; i += 1) {
-    r += frame[i * 3];
-    g += frame[i * 3 + 1];
-    b += frame[i * 3 + 2];
-  }
-  return { r: r / pixels, g: g / pixels, b: b / pixels };
-}
-
-function colorDistance(a, b) {
-  return Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
+  const frameBytes = WIDTH * HEIGHT * 3;
+  return buf.subarray(index * frameBytes, (index + 1) * frameBytes);
 }
 
 function pixelDiffCount(frameA, frameB, threshold = 2) {
@@ -194,31 +135,24 @@ function pixelDiffCount(frameA, frameB, threshold = 2) {
   return count;
 }
 
-// フレーム毎の輝度サンプル値の分散（フレーム間分散 — noise の「フレーム間分散が増加」判定に使う）。
-function sampleVarianceAcrossFrames(buf, frameCount, x, y) {
-  const offset = (y * WIDTH + x) * 3;
-  const values = [];
-  for (let f = 0; f < frameCount; f += 1) {
-    values.push(frameSlice(buf, f)[offset]);
-  }
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  return values.reduce((a, v) => a + (v - mean) ** 2, 0) / values.length;
-}
-
-test("normalizeCutFxList: filters unknown ids, clamps intensity, defaults intensity to 1", () => {
+test("normalizeCutFxList: accepts any non-empty string id, clamps intensity, defaults intensity to 1", () => {
   assert.deepEqual(normalizeCutFxList(undefined), []);
   assert.deepEqual(normalizeCutFxList(null), []);
   assert.deepEqual(normalizeCutFxList([]), []);
   const list = normalizeCutFxList([
-    { id: "noise" },
-    { id: "not-a-real-fx", intensity: 0.5 },
-    { id: "vignette", intensity: 1.5, params: { color: "white" } },
-    { id: "color-overlay", intensity: -1, params: { color: "red" } },
+    { id: "sample-fx" },
+    { id: "another-fx", intensity: 0.5 },
+    { id: "high-intensity-fx", intensity: 1.5, params: { color: "white" } },
+    { id: "negative-intensity-fx", intensity: -1, params: { color: "red" } },
+    { id: "" }, // empty string id is not a valid shape, dropped
+    { notAnId: true },
+    null,
   ]);
   assert.deepEqual(list, [
-    { id: "noise", intensity: 1, params: {} },
-    { id: "vignette", intensity: 1, params: { color: "white" } },
-    { id: "color-overlay", intensity: 0, params: { color: "red" } },
+    { id: "sample-fx", intensity: 1, params: {} },
+    { id: "another-fx", intensity: 0.5, params: {} },
+    { id: "high-intensity-fx", intensity: 1, params: { color: "white" } },
+    { id: "negative-intensity-fx", intensity: 0, params: { color: "red" } },
   ]);
 });
 
@@ -226,8 +160,8 @@ test("hasCutFx: true only when at least one cut declares a non-empty fx array", 
   assert.equal(hasCutFx([]), false);
   assert.equal(hasCutFx([{ in: 0, out: 1 }]), false);
   assert.equal(hasCutFx([{ in: 0, out: 1, fx: [] }]), false);
-  assert.equal(hasCutFx([{ in: 0, out: 1, fx: [{ id: "noise" }] }]), true);
-  assert.equal(hasCutFx([{ in: 0, out: 1 }, { in: 1, out: 2, fx: [{ id: "flare" }] }]), true);
+  assert.equal(hasCutFx([{ in: 0, out: 1, fx: [{ id: "sample-fx" }] }]), true);
+  assert.equal(hasCutFx([{ in: 0, out: 1 }, { in: 1, out: 2, fx: [{ id: "another-fx" }] }]), true);
 });
 
 test("no fx declared keeps today's exact concat-only filter chain (non-regression)", async () => {
@@ -242,248 +176,119 @@ test("no fx declared keeps today's exact concat-only filter chain (non-regressio
   }
 });
 
-for (const fxId of ["noise", "particles", "vignette", "flare", "color-overlay"]) {
-  test(`${fxId}: intensity=0 is pixel-identical to no fx (identity contract)`, async (t) => {
-    if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-    const root = await mkdtemp(join(tmpdir(), `cut-fx-zero-${fxId}-`));
-    try {
-      const fx = [{ id: fxId, intensity: 0, ...(fxId === "color-overlay" ? { params: { color: "red" } } : {}) }];
-      const plainPath = await renderFx(root, undefined, { name: "plain" });
-      const zeroPath = await renderFx(root, fx, { name: "zero" });
-      const plainFrame = frameSlice(dumpFrames(plainPath, 1), 0);
-      const zeroFrame = frameSlice(dumpFrames(zeroPath, 1), 0);
-      const diff = pixelDiffCount(plainFrame, zeroFrame, 0);
-      t.diagnostic(`${fxId} intensity=0 differing-pixel count=${diff}`);
-      assert.equal(diff, 0, `expected intensity=0 to be pixel-identical to no fx, ${diff} pixels differed`);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  test(`${fxId}: same edit.json renders pixel-identical output twice (determinism)`, async (t) => {
-    if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-    const root = await mkdtemp(join(tmpdir(), `cut-fx-determinism-${fxId}-`));
-    try {
-      const fx = [{ id: fxId, intensity: 0.6, ...(fxId === "vignette" ? { params: { color: "white" } } : {}), ...(fxId === "color-overlay" ? { params: { color: "blue" } } : {}) }];
-      const pathA = await renderFx(root, fx, { name: "a" });
-      const pathB = await renderFx(root, fx, { name: "b" });
-      const framesA = dumpFrames(pathA, 10);
-      const framesB = dumpFrames(pathB, 10);
-      assert.equal(framesA.length, framesB.length);
-      const diff = pixelDiffCount(framesA, framesB, 0);
-      t.diagnostic(`${fxId} determinism differing-byte count across 10 frames=${diff}`);
-      assert.equal(diff, 0, `expected two renders of the same edit.json to be pixel-identical, ${diff} bytes differed`);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-}
-
-test("noise: fx-on vs fx-off differs on the same frame, and frame-to-frame variance increases", async (t) => {
+test("unknown fx id: renders successfully with a console warning, output is pixel-identical to no fx (no-op)", async (t) => {
   if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-  const root = await mkdtemp(join(tmpdir(), "cut-fx-noise-"));
+  const root = await mkdtemp(join(tmpdir(), "cut-fx-unknown-"));
   try {
     const plainPath = await renderFx(root, undefined, { name: "plain" });
-    const noisyPath = await renderFx(root, [{ id: "noise", intensity: 0.5 }], { name: "noisy" });
-    const plainFrame0 = frameSlice(dumpFrames(plainPath, 1), 0);
-    const noisyFrame0 = frameSlice(dumpFrames(noisyPath, 1), 0);
-    const diff = pixelDiffCount(plainFrame0, noisyFrame0, 3);
-    t.diagnostic(`noise vs plain differing-pixel count=${diff}`);
-    assert.ok(diff > 0, `expected noise to change the frame, got ${diff} differing pixels`);
-
-    const plainFrames = dumpFrames(plainPath, FPS * DURATION);
-    const noisyFrames = dumpFrames(noisyPath, FPS * DURATION);
-    // A handful of fixed sample points across the frame; noise must raise frame-to-frame
-    // variance at (most of) them versus the untouched source.
-    const points = [[16, 16], [48, 16], [16, 48], [48, 48], [32, 32]];
-    let raisedCount = 0;
-    for (const [x, y] of points) {
-      const plainVar = sampleVarianceAcrossFrames(plainFrames, FPS * DURATION, x, y);
-      const noisyVar = sampleVarianceAcrossFrames(noisyFrames, FPS * DURATION, x, y);
-      t.diagnostic(`point(${x},${y}) plain variance=${plainVar.toFixed(2)} noisy variance=${noisyVar.toFixed(2)}`);
-      if (noisyVar > plainVar) raisedCount += 1;
-    }
-    assert.ok(raisedCount === points.length, `expected frame-to-frame variance to increase at every sample point, ${raisedCount}/${points.length} did`);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("vignette: corners darken relative to center (black, default) / brighten (white)", async (t) => {
-  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-  const root = await mkdtemp(join(tmpdir(), "cut-fx-vignette-"));
-  try {
-    const plainPath = await renderFx(root, undefined, { name: "plain" });
-    const blackPath = await renderFx(root, [{ id: "vignette", intensity: 1 }], { name: "black" });
-    const whitePath = await renderFx(root, [{ id: "vignette", intensity: 1, params: { color: "white" } }], { name: "white" });
+    const { cutPath: unknownPath, warnings } = await renderFxCapturingWarnings(
+      root,
+      [{ id: "totally-unknown-fx", intensity: 1 }],
+      { name: "unknown" },
+    );
+    assert.ok(
+      warnings.some((message) => message.includes("totally-unknown-fx")),
+      `expected a console.warn mentioning the unknown id, got: ${JSON.stringify(warnings)}`,
+    );
 
     const plainFrame = frameSlice(dumpFrames(plainPath, 1), 0);
-    const blackFrame = frameSlice(dumpFrames(blackPath, 1), 0);
-    const whiteFrame = frameSlice(dumpFrames(whitePath, 1), 0);
-
-    const plainRatio = avgCornerLuma(plainFrame) / avgCenterLuma(plainFrame);
-    const blackRatio = avgCornerLuma(blackFrame) / avgCenterLuma(blackFrame);
-    const whiteRatio = avgCornerLuma(whiteFrame) / avgCenterLuma(whiteFrame);
-    t.diagnostic(`corner/center ratio: plain=${plainRatio.toFixed(3)} black-vignette=${blackRatio.toFixed(3)} white-vignette=${whiteRatio.toFixed(3)}`);
-
-    assert.ok(blackRatio < plainRatio, `expected black vignette to lower the corner/center ratio (${blackRatio} vs baseline ${plainRatio})`);
-    assert.ok(whiteRatio > plainRatio, `expected white vignette to raise the corner/center ratio (${whiteRatio} vs baseline ${plainRatio})`);
+    const unknownFrame = frameSlice(dumpFrames(unknownPath, 1), 0);
+    const diff = pixelDiffCount(plainFrame, unknownFrame, 0);
+    t.diagnostic(`unknown-fx vs plain differing-pixel count=${diff}`);
+    assert.equal(diff, 0, `expected an unregistered fx id to no-op (pixel-identical to no fx), ${diff} pixels differed`);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("color-overlay: average frame color shifts toward the target color, monotonically with intensity", async (t) => {
+test("unknown fx id: intensity=0 still no-ops without even reaching the unknown-id warning path (identity contract takes priority)", async (t) => {
   if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-  const root = await mkdtemp(join(tmpdir(), "cut-fx-color-overlay-"));
+  const root = await mkdtemp(join(tmpdir(), "cut-fx-unknown-zero-"));
   try {
-    const target = { r: 255, g: 0, b: 0 };
-    const distances = [];
-    for (const intensity of [0, 0.3, 0.6, 1]) {
-      const path = await renderFx(root, [{ id: "color-overlay", intensity, params: { color: "red" } }], { name: `i${intensity}` });
-      const frame = frameSlice(dumpFrames(path, 1), 0);
-      const distance = colorDistance(avgColor(frame), target);
-      distances.push(distance);
-    }
-    t.diagnostic(`distance-to-red at intensity 0/0.3/0.6/1 = ${distances.map((d) => d.toFixed(2)).join(", ")}`);
-    for (let i = 1; i < distances.length; i += 1) {
-      assert.ok(distances[i] < distances[i - 1], `expected distance to red to decrease monotonically with intensity, got ${distances}`);
-    }
-    // H.264 8-bit rounding keeps this just above 0 even at a mathematically exact blend=1.0.
-    assert.ok(distances[distances.length - 1] <= 1.5, `expected intensity=1 to be (near-)exactly red, distance=${distances[distances.length - 1]}`);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-for (const fxId of ["particles", "flare"]) {
-  test(`${fxId}: 2+ glow cuts produce a filtergraph with no double-consumed label (static check, 2026-08-06 split-leak regression)`, () => {
-    const command = buildCutCommand({
-      sourcePath: "source.mp4",
-      cutPath: "cut.mp4",
-      cuts: [
-        { in: 0, out: 1.2, fx: [{ id: fxId, intensity: 1 }] },
-        { in: 1.2, out: 2.4, fx: [{ id: fxId, intensity: 1 }] },
-      ],
-      width: WIDTH,
-      height: HEIGHT,
-      fps: FPS,
-      hasAudio: true,
-      duration: 2.4,
-      projectRoot: "/tmp",
-    });
-    const filterComplexIndex = command.args.indexOf("-filter_complex");
-    assert.ok(filterComplexIndex >= 0, "expected -filter_complex in the built command");
-    assertNoDoubleConsumedLabels(command.args[filterComplexIndex + 1], `${fxId} x2 cuts`);
-  });
-}
-
-async function makeAudioSourceFile(root, duration) {
-  const sourcePath = join(root, "source-audio.mp4");
-  run("ffmpeg", [
-    "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-    "-f", "lavfi", "-i", `testsrc2=size=${WIDTH}x${HEIGHT}:rate=${FPS}:duration=${duration}`,
-    "-f", "lavfi", "-i", `sine=frequency=440:duration=${duration}`,
-    "-c:v", "libx264", "-pix_fmt", "yuv420p",
-    "-c:a", "aac",
-    "-shortest",
-    sourcePath,
-  ]);
-  return sourcePath;
-}
-
-function probeDurationSeconds(path) {
-  const result = run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]);
-  return parseFloat(result.stdout.toString("utf8").trim());
-}
-
-for (const fxId of ["particles", "flare"]) {
-  // 2026-08-06 再現条件そのもの: 音声ありソース + glow fx を掛けた 2 カット以上 + buildCutCommand
-  // が常に付ける -shortest 経路。修正前は inputLabel の二重消費で出力尺が理論値から大きく外れた
-  // (実測: 正規化済み実映像で 2 カット合計 5.0s 期待のところ 29.83s)。
-  test(`${fxId}: 2 glow cuts with an audio-bearing source render the full expected duration (2026-08-06 split-leak regression)`, async (t) => {
-    if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-    const root = await mkdtemp(join(tmpdir(), `cut-fx-glow-multicut-${fxId}-`));
-    try {
-      const cutDuration = 1.2;
-      const totalDuration = cutDuration * 2;
-      const sourcePath = await makeAudioSourceFile(root, totalDuration);
-      const cutPath = join(root, "cut.mp4");
-      const command = buildCutCommand({
-        sourcePath,
-        cutPath,
-        cuts: [
-          { in: 0, out: cutDuration, fx: [{ id: fxId, intensity: 1 }] },
-          { in: cutDuration, out: totalDuration, fx: [{ id: fxId, intensity: 1 }] },
-        ],
-        width: WIDTH,
-        height: HEIGHT,
-        fps: FPS,
-        hasAudio: true,
-        duration: totalDuration,
-        projectRoot: root,
-      });
-      run(command.command, command.args);
-      const measured = probeDurationSeconds(cutPath);
-      t.diagnostic(`${fxId} x2 cuts (audio source): expected=${totalDuration}s measured=${measured}s`);
-      assert.ok(
-        Math.abs(measured - totalDuration) <= 0.1,
-        `expected output duration ~${totalDuration}s (±0.1s), measured ${measured}s`,
-      );
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-}
-
-for (const fxId of ["particles", "flare"]) {
-  test(`${fxId}: fx-on differs from fx-off, and changes over time (not a still image)`, async (t) => {
-    if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-    const root = await mkdtemp(join(tmpdir(), `cut-fx-${fxId}-`));
-    try {
-      const plainPath = await renderFx(root, undefined, { name: "plain" });
-      const fxPath = await renderFx(root, [{ id: fxId, intensity: 1 }], { name: "fx" });
-      const plainFrame0 = frameSlice(dumpFrames(plainPath, 1), 0);
-      const fxFrames = dumpFrames(fxPath, FPS * DURATION);
-      const fxFrame0 = frameSlice(fxFrames, 0);
-      const fxFrameLast = frameSlice(fxFrames, FPS * DURATION - 1);
-
-      const diffVsPlain = pixelDiffCount(plainFrame0, fxFrame0, 2);
-      const diffOverTime = pixelDiffCount(fxFrame0, fxFrameLast, 2);
-      t.diagnostic(`${fxId}: diff-vs-plain=${diffVsPlain} diff-over-time=${diffOverTime}`);
-      assert.ok(diffVsPlain > 0, `expected ${fxId} to change pixels versus no fx`);
-      assert.ok(diffOverTime > 0, `expected ${fxId} to change over time (not a static overlay)`);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-}
-
-test("fx stacking: array order composes (noise then vignette differs from vignette alone)", async (t) => {
-  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-  const root = await mkdtemp(join(tmpdir(), "cut-fx-stack-"));
-  try {
-    const vignetteOnlyPath = await renderFx(root, [{ id: "vignette", intensity: 1 }], { name: "vignette-only" });
-    const stackedPath = await renderFx(
+    const plainPath = await renderFx(root, undefined, { name: "plain" });
+    const { cutPath: zeroPath, warnings } = await renderFxCapturingWarnings(
       root,
-      [{ id: "noise", intensity: 0.5 }, { id: "vignette", intensity: 1 }],
+      [{ id: "totally-unknown-fx", intensity: 0 }],
+      { name: "zero" },
+    );
+    assert.deepEqual(warnings, [], "expected intensity=0 to short-circuit before the unknown-id warning");
+    const plainFrame = frameSlice(dumpFrames(plainPath, 1), 0);
+    const zeroFrame = frameSlice(dumpFrames(zeroPath, 1), 0);
+    assert.equal(pixelDiffCount(plainFrame, zeroFrame, 0), 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("multiple unknown fx ids stacked on one cut all no-op and all warn", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  const root = await mkdtemp(join(tmpdir(), "cut-fx-unknown-stack-"));
+  try {
+    const plainPath = await renderFx(root, undefined, { name: "plain" });
+    const { cutPath: stackedPath, warnings } = await renderFxCapturingWarnings(
+      root,
+      [{ id: "unknown-fx-a", intensity: 1 }, { id: "unknown-fx-b", intensity: 1 }],
       { name: "stacked" },
     );
-    const vignetteFrame = frameSlice(dumpFrames(vignetteOnlyPath, 1), 0);
+    assert.ok(warnings.some((m) => m.includes("unknown-fx-a")), `missing warning for unknown-fx-a: ${JSON.stringify(warnings)}`);
+    assert.ok(warnings.some((m) => m.includes("unknown-fx-b")), `missing warning for unknown-fx-b: ${JSON.stringify(warnings)}`);
+    const plainFrame = frameSlice(dumpFrames(plainPath, 1), 0);
     const stackedFrame = frameSlice(dumpFrames(stackedPath, 1), 0);
-    const diff = pixelDiffCount(vignetteFrame, stackedFrame, 2);
-    t.diagnostic(`stacked vs vignette-only differing-pixel count=${diff}`);
-    assert.ok(diff > 0, "expected stacking noise on top of vignette to change the output");
+    assert.equal(pixelDiffCount(plainFrame, stackedFrame, 0), 0);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-// LUT との併用が破綻しないこと（受け入れ条件: 白黒 + noise = ネガ 16「ノイズ」相当）。
-// フィルタグラフの単体呼び出しではなく render-cut.mjs の CLI を通した実パイプラインで確認する。
-test("cuts[].fx composes with output.look (mono LUT + noise) through the full render-cut pipeline", async (t) => {
+// 撤去 (2026-08-11) の後方互換回帰テスト: v0 の 5 id は FX_BUILDERS に存在しないが、この 5 id を
+// 含む既存の edit.json はハードフェイルしてはいけない（データ契約三原則 — 受け口を広げる方向の
+// 互換）。ここでだけ意図的に旧 5 id を使い、no-op + 警告で完走することを実測する。
+const RETIRED_V0_FX_IDS = ["noise", "particles", "vignette", "flare", "color-overlay"];
+
+for (const fxId of RETIRED_V0_FX_IDS) {
+  test(`legacy v0 fx id "${fxId}" (removed 2026-08-11): renders as a no-op with a warning (backward compatibility)`, async (t) => {
+    if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+    const root = await mkdtemp(join(tmpdir(), `cut-fx-legacy-${fxId}-`));
+    try {
+      const fx = [{ id: fxId, intensity: 1, ...(fxId === "vignette" || fxId === "color-overlay" ? { params: { color: "red" } } : {}) }];
+      const plainPath = await renderFx(root, undefined, { name: "plain" });
+      const { cutPath: legacyPath, warnings } = await renderFxCapturingWarnings(root, fx, { name: "legacy" });
+      assert.ok(warnings.some((m) => m.includes(fxId)), `expected a warning mentioning "${fxId}", got: ${JSON.stringify(warnings)}`);
+      const plainFrame = frameSlice(dumpFrames(plainPath, 1), 0);
+      const legacyFrame = frameSlice(dumpFrames(legacyPath, 1), 0);
+      const diff = pixelDiffCount(plainFrame, legacyFrame, 0);
+      t.diagnostic(`legacy "${fxId}" vs plain differing-pixel count=${diff}`);
+      assert.equal(diff, 0, `expected the removed "${fxId}" fx to no-op (pixel-identical to no fx), ${diff} pixels differed`);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test("fx stacking order no longer changes output: two unknown/no-op ids in either order render pixel-identical to no fx", async (t) => {
   if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
-  const root = await mkdtemp(join(tmpdir(), "cut-fx-lut-combo-"));
+  const root = await mkdtemp(join(tmpdir(), "cut-fx-stack-order-"));
+  try {
+    const plainPath = await renderFx(root, undefined, { name: "plain" });
+    const orderAPath = await renderFx(root, [{ id: "noise", intensity: 0.5 }, { id: "vignette", intensity: 1, params: { color: "black" } }], { name: "order-a" });
+    const orderBPath = await renderFx(root, [{ id: "vignette", intensity: 1, params: { color: "black" } }, { id: "noise", intensity: 0.5 }], { name: "order-b" });
+    const plainFrame = frameSlice(dumpFrames(plainPath, 1), 0);
+    const orderAFrame = frameSlice(dumpFrames(orderAPath, 1), 0);
+    const orderBFrame = frameSlice(dumpFrames(orderBPath, 1), 0);
+    assert.equal(pixelDiffCount(plainFrame, orderAFrame, 0), 0);
+    assert.equal(pixelDiffCount(plainFrame, orderBFrame, 0), 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// 実レンダーの受け入れ条件（2026-08-11 撤去タスクの dispatch instructions #3）: fx 付きの旧
+// edit.json を render-cut.mjs の CLI 経由で実レンダーし、「警告 + no-op で完走」を実測する
+// （単体テストの間接検証だけで済ませない）。output.look（LUT）との併用込みで、旧プロジェクトが
+// 実際に持ち得た形をそのまま通す。
+test("a legacy edit.json with output.look (LUT) + cuts[].fx (retired v0 id) completes through the full render-cut CLI pipeline (warn + no-op, not a hard failure)", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  const root = await mkdtemp(join(tmpdir(), "cut-fx-legacy-cli-"));
   try {
     await makeSourceFile(root);
     await writeFile(
@@ -505,6 +310,11 @@ test("cuts[].fx composes with output.look (mono LUT + noise) through the full re
 
     const executed = spawnSync(process.execPath, [cliPath, root], { encoding: "utf8" });
     assert.equal(executed.status, 0, executed.stderr);
+    assert.match(
+      executed.stderr ?? "",
+      /noise/,
+      'expected the retired "noise" fx id to be surfaced via a warning on stderr, not silently swallowed',
+    );
     const state = JSON.parse(await readFile(join(root, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
 
@@ -514,8 +324,8 @@ test("cuts[].fx composes with output.look (mono LUT + noise) through the full re
     for (let i = 0; i < frame.length; i += 3) {
       if (Math.abs(frame[i] - frame[i + 1]) > 8 || Math.abs(frame[i] - frame[i + 2]) > 8) colored += 1;
     }
-    t.diagnostic(`mono+noise combo: colored pixel count (of ${frame.length / 3})=${colored}`);
-    assert.ok(colored < frame.length / 3 / 10, "expected the mono LUT to keep the combined output essentially colorless");
+    t.diagnostic(`mono LUT + retired no-op fx: colored pixel count (of ${frame.length / 3})=${colored}`);
+    assert.ok(colored < frame.length / 3 / 10, "expected the mono LUT to keep the output essentially colorless even with a (no-op) retired fx id present");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

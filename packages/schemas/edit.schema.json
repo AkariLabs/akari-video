@@ -289,7 +289,7 @@
       "additionalProperties": false,
       "required": ["id"],
       "properties": {
-        "id": { "enum": ["noise", "particles", "vignette", "flare", "color-overlay"] },
+        "id": { "type": "string", "minLength": 1 },
         "intensity": { "type": "number", "minimum": 0, "maximum": 1 },
         "params": {
           "type": "object",
@@ -299,21 +299,7 @@
           }
         }
       },
-      "allOf": [
-        {
-          "if": {
-            "properties": { "id": { "const": "color-overlay" } },
-            "required": ["id"]
-          },
-          "then": {
-            "required": ["params"],
-            "properties": {
-              "params": { "required": ["color"] }
-            }
-          }
-        }
-      ],
-      "$comment": "docs/contract-2026-08-05-fx-v0.md（画面 FX 小語彙 v0。旧実装 FX 479 の移植ではなく新規 5 id）。intensity は全 id 共通ツマミ（省略時 1・0 は恒等）。params.color は vignette では black/white の選択（既定 black）、color-overlay では必須（フェード赤・黒マット相当を 1 id でカバーするため色指定なしに意味を持たない）。noise/particles/flare は params を使わない。"
+      "$comment": "docs/contract-2026-08-05-fx-v0.md（画面 FX 小語彙 v0 の技術仕様。旧実装 FX 479 の移植ではなく新規 5 id として起票）。2026-08-11 撤去: v0 の 5 id（noise/particles/vignette/flare/color-overlay）はオーナー裁定により製品面から撤去し、id の enum を string へ緩和した（データ契約の三原則 — 受け口を広げる方向の互換。docs/contract-2026-07-17-data-contract-versioning.md）。presets/fx/ の FX_BUILDERS に未登録の id はスキーマ上は valid のまま、render 側が警告 + no-op で通す（packages/render-cut/src/fx.mjs）。intensity は全 id 共通ツマミ（省略時 1・0 は恒等）。params.color は色を使う fx が任意で使う置き場（形は維持）。"
     },
     "cutV0": {
       "type": "object",

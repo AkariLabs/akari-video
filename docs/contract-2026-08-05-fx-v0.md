@@ -1,5 +1,14 @@
 # 画面 FX 小語彙 v0 契約（noise / particles / vignette / flare / color-overlay）
 
+> **廃止（2026-08-11）**: 本契約が定義した 5 id（noise / particles / vignette / flare /
+> color-overlay）はオーナー裁定「めちゃくちゃダサいのでやめたい」により製品面から全撤去した
+> （撤去タスク: 内部リポ `tasks/2026-08-11-fx-v0-removal/`）。`presets/fx/index.jsonl` は
+> 0 件へ戻し、`packages/render-cut/src/fx.mjs` の `FX_BUILDERS` から 5 ビルダーを削除、
+> `packages/schemas/edit.schema.json` の `$defs/cutFx.properties.id` は enum を撤廃して
+> string へ緩和した（未登録 id は render 側が警告 + no-op で通す。ハードフェイルしない）。
+> `presets/fx/` の参照表・ディスパッチの器自体は残しており、将来の Vision 分析パス系レシピの
+> 受け皿として存続する。本書はファイル削除せず、以下を当時の技術仕様の歴史記録として残す。
+
 - 日付: 2026-08-05
 - 状態: **draft**（実装と並走で approved 化）。本書は技術仕様のみ
 - 前提: `contract-2026-07-22-render-basics.md`（`output.look` LUT・`cuts[].transition_out` 等の

@@ -3,7 +3,7 @@
   "output": { "width": 1280, "height": 720, "fps": 30 },
   "source": { "path": "sample.mp4", "proxy": null },
   "cuts": [
-    { "in": 0.0, "out": 5.0, "fx": [{ "id": "noise", "seed": 42 }] }
+    { "in": 0.0, "out": 5.0, "fx": [{ "id": "sample-fx", "seed": 42 }] }
   ],
   "overlays": []
 }
