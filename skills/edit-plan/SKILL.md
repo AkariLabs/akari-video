@@ -1,6 +1,6 @@
 ---
 name: edit-plan
-description: analyze-project が作る分析レポート（interpretation.json + analysis-report.html）を一次証拠として読み、方針・素材計画・実行をチャットの明示承認で確定したうえで edit.json v0 とオーバーレイ HTML へ落とすスキル。複数素材の編集計画、素材ゼロからの生成計画（質問対話 → plan.json の仮枠タイムライン確定）、分析結果からカットや BGM・SFX・B ロールを決める依頼で使う。
+description: analyze-project が作る分析レポート（interpretation.json + analysis-report.html）を一次証拠として読み、方針・素材計画・実行をチャットの明示承認で確定したうえで edit.json とオーバーレイ HTML へ落とすスキル。複数素材の編集計画、素材ゼロからの生成計画（質問対話 → plan.json の仮枠タイムライン確定）、分析結果からカットや BGM・SFX・B ロールを決める依頼で使う。
 ---
 
 # 編集判断を統合する
@@ -27,8 +27,9 @@ description: analyze-project が作る分析レポート（interpretation.json +
   適用後は [execution.md](execution.md) の cut 後 ASR 再検証、情報保持、UI timing、audio 境界を人間が
   同じ版で確認し、`HUMAN_APPLY_GATE` を明示承認するまで完成扱いにしない。
 - 静止画は生成物として保存し、provenance とともにチャットで提示する。i2v、アバター、その他の動画生成は対応静止画・素材計画・実行の承認がすべて揃うまで行わない。
+- **静止画はタイムラインへ直接置ける**: 画像（png / jpg / webp / bmp / gif）は `layers[]` の `src` にそのまま書ける（`kind: "video"` のまま拡張子で静止画と判定される。v0.1.7+。[execution.md](execution.md) §静止画素材の扱い）。静止画を並べるためだけに ffmpeg で連結して 1 本の動画へ焼き込まない — 個々の画像の編集性が失われ、`edit.json` の SSOT が壊れる。
 - 有償または重い生成の前に、使う手、理由、代替案、影響を宣言する。画像生成は Codex 画像生成を先に検討し、次に Akari Cloud を検討する。OpenAI、Gemini 等の API キーを直叩きしない。
-- `edit.json` は [M1〜M4 v0 契約](../../docs/contract-2026-07-13-m1-m4.md) の単一 `source` 形を既定とし、勝手に複数 source、音声 track、B ロール track を発明しない。足してよいのは**公開契約が定めたフィールドだけ**である（[sources[]](../../docs/contract-2026-07-18-edit-json-v1-sources.md) / [audio](../../docs/contract-2026-07-14-edit-json-v1-audio.md) / [audio.narration[]](../../docs/contract-2026-07-20-edit-json-v1-narration.md) / [beats[]](../../docs/contract-2026-07-22-edit-json-v1-beats.md)）。契約のない未定義フィールドは足さない。
+- `edit.json` は **v1（[sources[] 契約](../../docs/contract-2026-07-18-edit-json-v1-sources.md) の `sources[]` + `cuts[].src`）を新規作成の既定とする**（オーナー決定 2026-08-12。単一素材でも `sources[]` 1 件で書く）。既存の v0 ファイル（[M1〜M4 v0 契約](../../docs/contract-2026-07-13-m1-m4.md) の単一 `source` 形）を編集するときは v0 のまま維持してよい。いずれでも勝手に音声 track、B ロール track を発明しない。足してよいのは**公開契約が定めたフィールドだけ**である（[sources[]](../../docs/contract-2026-07-18-edit-json-v1-sources.md) / [audio](../../docs/contract-2026-07-14-edit-json-v1-audio.md) / [audio.narration[]](../../docs/contract-2026-07-20-edit-json-v1-narration.md) / [beats[]](../../docs/contract-2026-07-22-edit-json-v1-beats.md)）。契約のない未定義フィールドは足さない。
 - 見せ場マーカー（`beats[]`）を書くときは [beats.md](beats.md) の導出規約に従う。`analysis.json` の event / 発話を指せない beat を発明せず、`t` は source 秒で書く。
 - 語レベル演出（`emphasis_words[]`。[公開契約](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md)）を書くときは [emphasis-detection.md](emphasis-detection.md) の検出規約に従う。`analysis.json` の `words` を指せない語を発明せず、`t_start` / `t_end` は `words` の実測値をそのまま写す（source 秒）。
 - 最終オーバーレイでは [overlay-authoring](../overlay-authoring/SKILL.md) スキルを使う。見つからない場合も規約を省略せず、[CLAUDE.md](../../CLAUDE.md) の authoring 規約を正本として使ったことを記録する。

@@ -19,12 +19,12 @@ Checkpoint 3 まで `edit.json` を変更しない。
 
 ## 1. source 構成を確定する
 
-**複数の映像素材が最終構成に必要なら、`edit.json v1`（`sources[]` + `cuts[].src`）で書く**。これが第一選択肢であり、[マルチソース契約](../../docs/contract-2026-07-18-edit-json-v1-sources.md) が定める公開フィールドである。render-cut は v1 の複数入力書き出しに対応済みで、素材をまたぐ順序・同じ素材の再登場・並べ替えをそのまま書き出せる。
+**新規に作る `edit.json` は素材数に関係なく v1（`sources[]` + `cuts[].src`）で書く**（オーナー決定 2026-08-12。単一素材でも `sources[]` 1 件で書く）。[マルチソース契約](../../docs/contract-2026-07-18-edit-json-v1-sources.md) が定める公開フィールドであり、render-cut は v1 の複数入力書き出しに対応済みで、素材をまたぐ順序・同じ素材の再登場・並べ替えをそのまま書き出せる。
 
 素材構成は次から選び、選んだ理由を `decision-log.md` に追記する。
 
-- **v1 マルチソース（複数素材の既定）**: `sources[]` へ素材、`cuts[]` へ `src` 付きクリップ列を書き、`version` を `1` にする。素材別の keep-range 編集性を保ったまま複数素材を並べられるので、B ロールや別テイクの差し込みもここで表す。
-- **主素材 1 本の v0（単一素材で足りる場合の既定）**: 主素材 1 本だけで構成が成立するなら `version: 0` + 単一 `source` を維持する。version を上げる必要はない。
+- **v1（新規作成の既定）**: `sources[]` へ素材、`cuts[]` へ `src` 付きクリップ列を書き、`version` を `1` にする。素材が 1 本でも `sources[]` 1 件で書く。素材別の keep-range 編集性を保ったまま複数素材を並べられるので、B ロールや別テイクの差し込みもここで表す。
+- **v0（既存プロジェクトの後方互換のみ）**: 既に `version: 0` + 単一 `source` で書かれた `edit.json` を編集するときは、v0 のまま維持してよい（強制マイグレーションはしない）。新規作成で v0 を選ばない。
 - **単一中間マスターへ conform（代替手段）**: v1 でも表現しにくい合成 — 焼き込みエフェクト、素材そのものを作り替える加工、公開契約に無い合成 — が要るときだけ、承認済み順序と区間を ffmpeg で 1 本にし、そのファイルを source にする。複数素材を 1 本として扱える一方、元素材別の keep-range 編集性が下がる。素材・source 時刻・master 時刻の対応表は `decision-log.md` に残す。
 
 素材別に独立した `edit.json` を作る案が要件を満たす場合は併記してよい。承認を得ずに黙って concat したり、公開契約に無い `source_id` や独自 track を発明したりしない。
@@ -39,22 +39,27 @@ BGM と SFX は [音声契約](../../docs/contract-2026-07-14-edit-json-v1-audio
 - `source` と `sources[]` は排他である。v0 のまま `sources[]` を書いたり、`version: 1` で単一 `source` を残したりしない。
 - `overlays[].start`、`audio.bgm`、`audio.sfx[].t` は v0 / v1 を問わずアウトプットタイムライン座標であり、この source 秒アンカー規則の対象外である。
 
+### 静止画素材の扱い（2026-08-12）
+
+- **静止画はタイムラインへ直接置ける — 連結して動画へ焼き込まない**。画像（png / jpg / webp / bmp / gif）は `layers[]` の `src` にそのまま書ける。`kind` は `"video"` のままでよく、拡張子で静止画と判定されてレンダー時に `-loop 1` でループ化される（v0.1.7+。シェルプレビュー / preview-server も画像を表示する）。`t` / `duration` / `track` / `transform` / `crop` / `perspective` / `keyframes` は動画レイヤーと同じに使える。
+- スライドショーのように静止画を順に見せる構成も、画像 1 枚につき `layers[]` 1 項目（`track` 付き）で表す。**静止画群を ffmpeg で 1 本の動画へ連結してから source にしない** — 個々の画像の差し替え・タイミング調整の編集性が失われ、`edit.json` の SSOT が壊れる。これは上記「承認を得ずに黙って concat しない」の具体例である。
+- cuts のソース（v1 `sources[].path` / v0 `source.path`）に静止画を書く経路は**現状未対応**（レンダーが時間軸を持つ動画を前提とする）。メイン時間軸そのものを静止画で構成する必要があり `layers[]` で表せない場合は、連結動画で回避せず停止して報告する。
+
 ## 2. edit.json を作る
 
 承認値を次の形へ入れる。例の数値を既定値として流用しない。
 
-**単一素材（v0）**
+**単一素材（v1・新規作成の既定）**
 
 ```json
 {
-  "version": 0,
+  "version": 1,
   "output": { "width": 1280, "height": 720, "fps": 30 },
-  "source": {
-    "path": "source/master.mp4",
-    "proxy": "source/master-proxy.mp4"
-  },
+  "sources": [
+    { "id": "s1", "path": "source/master.mp4", "proxy": "source/master-proxy.mp4" }
+  ],
   "cuts": [
-    { "in": 5.0, "out": 10.0 }
+    { "src": "s1", "in": 5.0, "out": 10.0 }
   ],
   "overlays": [
     {
@@ -170,6 +175,8 @@ node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id>
 
 ## よくある間違い
 
+- 新規の `edit.json` を `version: 0` で作る（新規は素材数に関係なく v1 が既定。v0 は既存ファイルの維持のみ。§1）。
+- 静止画を並べるために ffmpeg で連結して 1 本の動画へ焼き込み、`edit.json` を「動画 1 本 + 音声」にする（画像は `layers[]` に直接置く。§1 静止画素材の扱い）。
 - `version: 0` のまま `sources[]` を書く（`sources[]` を使うファイルは `version: 1`）。
 - `version: 1` で `cuts` を空のまま「素材全体を使う」つもりになる（v1 の空 `cuts` は空タイムライン）。
 - `version: 1` で `cuts[].src` を省く、または `sources[].id` に無い id を書く。
