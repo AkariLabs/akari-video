@@ -466,6 +466,15 @@
           "type": "string",
           "minLength": 1,
           "description": "生成時刻（ISO8601）。"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "description": "トラック実体が持つ additive な任意特徴。face_landmarks の face_contour などを列挙する。省略された既存ポインタも valid。"
         }
       }
     },

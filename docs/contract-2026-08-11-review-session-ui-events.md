@@ -48,6 +48,7 @@
 | `timeline:cut:<n>` | タイムラインのカット（cuts[] index） | `timeline:cut:3` |
 | `timeline:overlay:<id>` | タイムラインのオーバーレイ | `timeline:overlay:o-0002` |
 | `asset:<path>` | 素材（プロジェクト相対 or カタログ id） | `asset:assets/broll/city.mp4` |
+| `asset:<category>/<id>` | 素材（カタログ由来カード。key = `<category>/<id>`） | `asset:still/br-typing-laptop` |
 
 - **登録機構**: 記録対象の要素は `data-akari-ui="<target-id>"` 属性で opt-in する。
   クリック解決は capture-phase のリスナー 1 本で行い、**最近傍の登録済み祖先**に丸める。
@@ -80,10 +81,21 @@
 - 回帰: 新イベント入りの events.jsonl を旧読み手（compile-review-session の手順）が
   処理してもエラーにならないこと
 
-## 6. 予約（次段の実装契約で確定）
+## 6. 注釈の着地契約
 
-- review.json `annotations[].target` への **`ui:<element-id>`** 追加（選択ツール経由の
-  UI 要素注釈の着地形）。§2 と同一の id 空間を使う
-- 書き出し済み MP4 への注釈は新 target 種を作らず既存 `src` 機構で扱う方針（要検証:
-  プロジェクト外ファイルの src 正規化）
-- 音への注釈（`sourceRange` + トラック指定）の形
+- review.json `annotations[].target` の **`ui:<element-id>`** は、選択ツール経由の UI 要素注釈に
+  使う。§2 と同一の id 空間を使い、たとえばオーバーレイは
+  `ui:timeline:overlay:<id>` に着地する
+- render-cut は検証に成功した書き出し成果物を、edit.json v1 の `sources[]` へ自動追記する。
+  `path` はプロジェクトルート相対、`proxy` は `null` とし、同じ `path` が既にあれば追記しない。
+  既存 id と衝突しない出力 stem 由来の id を使い、既存フィールドと整形は書き換えない。
+  edit.json を再読込・パースできない場合は警告だけを残し、書き出し成功を取り消さない。
+  v0 は schema 上 `sources` を持てないため自動追記せず、同様に警告する
+- `sources[].path` に一致する動画ファイルを raw preview で開き、そのタブがフォーカスされて
+  いる間の注釈は、`src = sources[].id` と raw preview の現在再生位置を source 秒とする
+  `sourceT` に着地する。コンポーザーは対象を `🎞 <source id>` チップで表示する。
+  一致しないファイルは従来どおり `src: null` の通常注釈とし、新しい target 種は作らない
+- 音の素材区間は新しい `audio:` target を作らず、`src = sources[].id` と半開区間
+  `sourceRange: [start, end)` を使う。BGM 等のオーバーレイ音は既存の `overlay:<id>` または
+  `ui:timeline:overlay:<id>` で扱う。音声ファイルは専用 audio preview で開かれるため、raw video
+  preview の現在位置接続とは別であり、区間選択 UI は本契約の対象外とする

@@ -110,7 +110,7 @@
       "maximum": 1
     },
     "faceLandmarks": {
-      "$comment": "v0 で必須なのはこの 6 キー（契約 §2.1）。他の VNFaceLandmarkRegion2D は additionalProperties: true により追加のみで拡張できる。",
+      "$comment": "v0 で必須なのは従来の 6 キー。face_contour は 2026-08-12 に additive 追加した任意の開曲線であり、額側の閉曲線補完は消費者が決定論的に行う。古いトラックは引き続き valid。",
       "type": "object",
       "required": [
         "left_pupil",
@@ -126,7 +126,19 @@
         "left_eye": { "$ref": "#/$defs/pointList" },
         "right_eye": { "$ref": "#/$defs/pointList" },
         "outer_lips": { "$ref": "#/$defs/pointList" },
-        "inner_lips": { "$ref": "#/$defs/pointList" }
+        "inner_lips": { "$ref": "#/$defs/pointList" },
+        "left_eyebrow": {
+          "$ref": "#/$defs/pointList",
+          "description": "額補完の基準に使える任意の左眉観測点。"
+        },
+        "right_eyebrow": {
+          "$ref": "#/$defs/pointList",
+          "description": "額補完の基準に使える任意の右眉観測点。"
+        },
+        "face_contour": {
+          "$ref": "#/$defs/pointList",
+          "description": "Vision faceContour の観測点（正規化 0〜1・左上原点）。あご線中心の開曲線で額側は含まない。"
+        }
       }
     },
     "faceDetection": {

@@ -3,7 +3,8 @@
 // 切り替わる」演出の layers[] エントリへの決定論変換器。
 //
 //   akari internal vision-finger-frame <project> \
-//     (--media <path> [--kind video|baked] | --layer-id <id>) \
+//     ((--media <path> [--kind video|baked] | --layer-id <id>) | \
+//       --kind filter --filter invert|lut:<id>|saturation:<value>) \
 //     [--analysis <path>] [--edit <path>] \
 //     [--open-threshold <0..1>] [--close-threshold <0..1>] [--min-open-duration <sec>] \
 //     [--max-points-per-sec <n>] [--opacity <0..1>] [--id-prefix <str>] \
@@ -44,7 +45,8 @@ const flag = (name, fallback = null) => {
 const hasFlag = (name) => args.includes(`--${name}`);
 const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
 
-const USAGE = 'usage: finger-frame.mjs <project> (--media <path> [--kind video|baked] | --layer-id <id>) '
+const USAGE = 'usage: finger-frame.mjs <project> ((--media <path> [--kind video|baked] | --layer-id <id>) '
+  + '| --kind filter --filter invert|lut:<id>|saturation:<value>) '
   + '[--analysis <path>] [--edit <path>] [--open-threshold <0..1>] [--close-threshold <0..1>] '
   + '[--min-open-duration <sec>] [--max-points-per-sec <n>] [--opacity <0..1>] [--id-prefix <str>] '
   + '[--chroma-key-color <color>] [--apply] [--out <path>]';
@@ -92,13 +94,48 @@ if (track.kind !== 'hand-pose') {
 
 const mediaArg = flag('media');
 const layerIdArg = flag('layer-id');
-if (!mediaArg && !layerIdArg) {
+const requestedKind = flag('kind', 'video');
+const filterArg = flag('filter');
+
+function parseFilterSpec(value) {
+  if (value === 'invert') return { type: 'invert' };
+  if (value?.startsWith('lut:')) {
+    const id = value.slice('lut:'.length);
+    if (id.trim() !== '') return { type: 'lut', id };
+  }
+  if (value?.startsWith('saturation:')) {
+    const raw = value.slice('saturation:'.length);
+    const saturation = Number(raw);
+    if (raw.trim() !== '' && Number.isFinite(saturation) && saturation >= 0 && saturation <= 3) {
+      return { type: 'saturation', value: saturation };
+    }
+  }
+  console.error('--filter は invert / lut:<id> / saturation:<0..3> のいずれかで指定してください。');
+  process.exit(1);
+}
+
+if (requestedKind === 'filter' && (mediaArg || layerIdArg)) {
+  console.error('--kind filter では --media と --layer-id を指定できません。');
+  process.exit(1);
+}
+if (requestedKind === 'filter' && !filterArg) {
+  console.error('--kind filter では --filter invert|lut:<id>|saturation:<value> が必須です。');
+  process.exit(1);
+}
+if (requestedKind !== 'filter' && filterArg) {
+  console.error('--filter は --kind filter のときのみ指定できます。');
+  process.exit(1);
+}
+if (requestedKind !== 'filter' && !mediaArg && !layerIdArg) {
   console.error('--media <path> または --layer-id <id> のいずれかが必要です（貼る対象の指定）。');
   process.exit(1);
 }
+const layerFilter = requestedKind === 'filter' ? parseFilterSpec(filterArg) : null;
 let pastedSrc;
 let pastedKind;
-if (layerIdArg) {
+if (requestedKind === 'filter') {
+  pastedKind = 'filter';
+} else if (layerIdArg) {
   const existingLayer = (edit.layers ?? []).find((l) => l.id === layerIdArg);
   if (!existingLayer) {
     console.error(`--layer-id ${layerIdArg} は edit.layers に見つかりません。`);
@@ -108,14 +145,14 @@ if (layerIdArg) {
   pastedKind = existingLayer.kind;
 } else {
   pastedSrc = mediaArg;
-  pastedKind = flag('kind', 'video');
+  pastedKind = requestedKind;
 }
-if (!['video', 'baked'].includes(pastedKind)) {
-  console.error(`--kind は video または baked のみ対応します（受け取り: ${pastedKind}）。`);
+if (!['video', 'baked', 'filter'].includes(pastedKind)) {
+  console.error(`--kind は video / baked / filter のみ対応します（受け取り: ${pastedKind}）。`);
   process.exit(1);
 }
-const pastedAbsPath = resolve(projectRoot, pastedSrc);
-if (!existsSync(pastedAbsPath)) {
+const pastedAbsPath = pastedKind === 'filter' ? null : resolve(projectRoot, pastedSrc);
+if (pastedAbsPath && !existsSync(pastedAbsPath)) {
   console.error(`貼る対象の素材が見つかりません: ${pastedAbsPath}`);
   process.exit(1);
 }
@@ -242,14 +279,11 @@ for (const { cut, index, start: cutStart } of matchingCuts) {
     if (!(layerDuration > 0)) continue;
 
     const id = nextId();
-    const layer = {
+    const sharedLayer = {
       id,
       t: round6(layerT),
       duration: round6(layerDuration),
       kind: pastedKind,
-      src: pastedSrc,
-      transform: { x: 0, y: 0, scale: round6(cover.scale), rotate: 0 },
-      ...(cover.crop ? { crop: { x: round6(cover.crop.x), y: round6(cover.crop.y), w: round6(cover.crop.w), h: round6(cover.crop.h) } } : {}),
       perspective: { corners: roundCorners(points[0].corners) },
       opacity,
       keyframes: points.map((p) => ({
@@ -257,7 +291,15 @@ for (const { cut, index, start: cutStart } of matchingCuts) {
         perspective: { corners: roundCorners(p.corners) },
       })),
     };
-    if (chromaKeyColor) {
+    const layer = pastedKind === 'filter'
+      ? { ...sharedLayer, filter: layerFilter }
+      : {
+          ...sharedLayer,
+          src: pastedSrc,
+          transform: { x: 0, y: 0, scale: round6(cover.scale), rotate: 0 },
+          ...(cover.crop ? { crop: { x: round6(cover.crop.x), y: round6(cover.crop.y), w: round6(cover.crop.w), h: round6(cover.crop.h) } } : {}),
+        };
+    if (pastedKind !== 'filter' && chromaKeyColor) {
       layer.chroma_key = {
         color: chromaKeyColor,
         ...(chromaKeySimilarity !== null ? { similarity: Number(chromaKeySimilarity) } : {}),

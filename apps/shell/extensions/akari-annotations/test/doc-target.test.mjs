@@ -39,6 +39,7 @@ test("parseUiTarget は ui:<element-id> を、§2 と同一の id 空間その�
   assert.deepEqual(parseUiTarget("ui:panel:assets"), { id: "panel:assets" });
   assert.deepEqual(parseUiTarget("ui:timeline:cut:3"), { id: "timeline:cut:3" });
   assert.deepEqual(parseUiTarget("ui:timeline:overlay:o-0002"), { id: "timeline:overlay:o-0002" });
+  assert.deepEqual(parseUiTarget("ui:timeline:overlay:bgm-main"), { id: "timeline:overlay:bgm-main" });
   assert.deepEqual(parseUiTarget("ui:asset:assets/broll/city.mp4"), { id: "asset:assets/broll/city.mp4" });
   assert.equal(parseUiTarget(null), undefined);
   assert.equal(parseUiTarget("canvas:c-0001"), undefined);

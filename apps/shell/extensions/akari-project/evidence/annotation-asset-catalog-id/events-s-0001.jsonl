@@ -1,0 +1,5 @@
+{"recT":0,"type":"start","timelineT":0,"playing":false}
+{"recT":2.4337000000178812,"type":"ui.panel","target":"panel:assets","label":"素材パネル"}
+{"recT":5.6335,"type":"ui.click","target":"asset:broll/laptop-typing-closeup","label":"ノート PC タイピング クローズアップ"}
+{"recT":9.37509999999404,"type":"ui.panel","target":"panel:review","label":"注釈パネル"}
+{"recT":10.00940000000596,"type":"end","timelineT":0}

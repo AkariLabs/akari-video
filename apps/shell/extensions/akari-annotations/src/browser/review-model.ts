@@ -103,7 +103,11 @@ export class ReviewModel {
         this.onSeekRequestedEmitter.fire(time);
     }
 
-    async addAnnotation(text: string, sourceT: number): Promise<{ annotation: Annotation; committed: boolean }> {
+    async addAnnotation(
+        text: string,
+        sourceT: number,
+        src: string | null = null
+    ): Promise<{ annotation: Annotation; committed: boolean }> {
         const location = this._location;
         if (!location) {
             throw new Error('プロジェクトを特定できません。');
@@ -111,9 +115,38 @@ export class ReviewModel {
         const result = await this.annotationsService.createAnnotation({
             reviewUri: location.reviewUri.toString(),
             projectRootUri: location.root.toString(),
+            src,
             sourceT,
             timelineT: null,
             target: null,
+            text
+        });
+        if (!this._annotations.some(existing => existing.id === result.annotation.id)) {
+            this._annotations = [...this._annotations, result.annotation];
+            this.onChangedEmitter.fire();
+        }
+        return result;
+    }
+
+    /** source 素材上の区間注釈。音声を含む素材種別を増やさず src + sourceRange へ着地させる。 */
+    async addSourceRangeAnnotation(
+        text: string,
+        src: string,
+        sourceRange: [number, number]
+    ): Promise<{ annotation: Annotation; committed: boolean }> {
+        const location = this._location;
+        if (!location) {
+            throw new Error('プロジェクトを特定できません。');
+        }
+        const result = await this.annotationsService.createAnnotation({
+            reviewUri: location.reviewUri.toString(),
+            projectRootUri: location.root.toString(),
+            src,
+            sourceT: sourceRange[0],
+            sourceRange,
+            timelineT: null,
+            target: null,
+            targetKind: 'range',
             text
         });
         if (!this._annotations.some(existing => existing.id === result.annotation.id)) {

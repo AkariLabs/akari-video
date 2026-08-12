@@ -280,17 +280,206 @@ export function layerCropKeyframeSteps(layer, localTExpr, sourceWidth, sourceHei
 // unchanged (still fully continuous, piecewise-eval=frame) on every sub-layer, since only
 // perspective is fundamentally expression-incapable.
 //
-// Segment density (PERSPECTIVE_SEGMENTS_PER_SECOND) trades smoothness for two real costs: each
-// extra segment is a *separate* ffmpeg input (the layer's own source file gets opened/decoded
-// once per segment) and a separate small filter subgraph -- kept modest (not the 12/s this file
-// used for its first, expression-based attempt) since visible "stepping" at a few segments/second
-// is an acceptable v0 trade-off (contract: "凝らない") for what is fundamentally a resource cost,
-// not a correctness one.
-const PERSPECTIVE_SEGMENTS_PER_SECOND = 4;
+// Segment density trades smoothness for two real costs: each extra segment is a *separate* ffmpeg
+// input (the layer's own source file gets opened/decoded once per segment) and a separate small
+// filter subgraph. Keep every density threshold and the hard resource guard together: changing
+// this policy should never require hunting through the boundary-building code below.
+const PERSPECTIVE_SEGMENT_POLICY = Object.freeze({
+  minSegmentsPerSecond: 0.5,
+  maxSegmentsPerSecond: 12,
+  // Real gesture tracking reaches roughly 0.9--1.4 normalized units/second. Calibrate the cubic
+  // response so that range receives 8--12/s instead of remaining pinned near the coarse floor.
+  fullDensityCornerSpeed: 1.22,
+  speedResponseExponent: 3,
+  // A very short moving layer can otherwise round its integrated density down to one or two
+  // samples even when its peak interval is fast. Three samples are the smallest useful moving
+  // approximation; static layers remain governed solely by the 0.5/s floor.
+  minMovingSublayers: 3,
+  maxSublayersPerLayer: 240,
+});
 
 function clampRange(value, minimum, maximum) {
   if (maximum <= minimum) return minimum;
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function perspectiveCornersAt(points, t) {
+  return points[0].perspective.corners.map((_, cornerIndex) => [0, 1].map((axis) =>
+    piecewiseValueAt(points, (point) => point.perspective.corners[cornerIndex][axis], t)));
+}
+
+function maxCornerSpeed(points, startT, endT) {
+  const span = endT - startT;
+  if (!(span > 0)) return 0;
+  const startCorners = perspectiveCornersAt(points, startT);
+  const endCorners = perspectiveCornersAt(points, endT);
+  let displacement = 0;
+  for (let index = 0; index < startCorners.length; index += 1) {
+    displacement = Math.max(
+      displacement,
+      Math.hypot(
+        endCorners[index][0] - startCorners[index][0],
+        endCorners[index][1] - startCorners[index][1],
+      ),
+    );
+  }
+  return displacement / span;
+}
+
+function adaptivePerspectiveDensity(points, startT, endT) {
+  const speedRatio = clampRange(
+    maxCornerSpeed(points, startT, endT) / PERSPECTIVE_SEGMENT_POLICY.fullDensityCornerSpeed,
+    0,
+    1,
+  );
+  return PERSPECTIVE_SEGMENT_POLICY.minSegmentsPerSecond
+    + (speedRatio ** PERSPECTIVE_SEGMENT_POLICY.speedResponseExponent) * (
+      PERSPECTIVE_SEGMENT_POLICY.maxSegmentsPerSecond
+      - PERSPECTIVE_SEGMENT_POLICY.minSegmentsPerSecond
+    );
+}
+
+function perspectiveSegmentApproximationError(points, startT, endT) {
+  const heldCorners = perspectiveCornersAt(points, (startT + endT) / 2);
+  const sampleTimes = [
+    startT,
+    ...points.filter((point) => point.t > startT && point.t < endT).map((point) => point.t),
+    endT,
+  ];
+  let maximum = 0;
+  for (const t of sampleTimes) {
+    const corners = perspectiveCornersAt(points, t);
+    for (let cornerIndex = 0; cornerIndex < corners.length; cornerIndex += 1) {
+      maximum = Math.max(
+        maximum,
+        Math.hypot(
+          corners[cornerIndex][0] - heldCorners[cornerIndex][0],
+          corners[cornerIndex][1] - heldCorners[cornerIndex][1],
+        ),
+      );
+    }
+  }
+  return maximum;
+}
+
+function buildMinimaxPerspectiveBoundaries(points, layerDuration, segmentCount) {
+  if (segmentCount <= 1) return [0, layerDuration];
+  const minimumDuration = 1 / PERSPECTIVE_SEGMENT_POLICY.maxSegmentsPerSecond;
+  const boundaries = Array.from(
+    { length: segmentCount + 1 },
+    (_, index) => (layerDuration * index) / segmentCount,
+  );
+
+  // Start uniformly so the requested count is always achievable (recursive midpoint splitting
+  // gets stuck at 8/s on a one-second interval). Coordinate relaxation then places that fixed
+  // budget more accurately. A half-step grid lets a boundary move by 1/24s while the
+  // minimum-duration check still enforces the 12/s ceiling. Strict improvement + stable scan
+  // order keeps this finite and deterministic.
+  const gridStep = 1 / (PERSPECTIVE_SEGMENT_POLICY.maxSegmentsPerSecond * 2);
+  const candidates = [...new Set([
+    0,
+    ...points.map((point) => clampRange(point.t, 0, layerDuration)),
+    ...Array.from(
+      { length: Math.max(0, Math.ceil(layerDuration / gridStep) - 1) },
+      (_, index) => Math.min(layerDuration, (index + 1) * gridStep),
+    ),
+    layerDuration,
+  ])].sort((a, b) => a - b);
+  for (let pass = 0; pass < 20; pass += 1) {
+    let changed = false;
+    for (let index = 1; index < boundaries.length - 1; index += 1) {
+      const previous = boundaries[index - 1];
+      const next = boundaries[index + 1];
+      let best = boundaries[index];
+      let bestError = Math.max(
+        perspectiveSegmentApproximationError(points, previous, best),
+        perspectiveSegmentApproximationError(points, best, next),
+      );
+      for (const candidate of candidates) {
+        if (
+          candidate - previous < minimumDuration - 1e-9
+          || next - candidate < minimumDuration - 1e-9
+        ) continue;
+        const error = Math.max(
+          perspectiveSegmentApproximationError(points, previous, candidate),
+          perspectiveSegmentApproximationError(points, candidate, next),
+        );
+        if (error < bestError - 1e-12) {
+          best = candidate;
+          bestError = error;
+        }
+      }
+      if (best !== boundaries[index]) {
+        boundaries[index] = best;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  // Guarantee that the single fastest measured region is represented at 8/s or finer without
+  // increasing the layer-wide segment budget. Move the cheaper adjacent boundary inward; the
+  // minimax placement above remains untouched everywhere else.
+  let fastestIndex = 0;
+  let fastestSpeed = -1;
+  for (let index = 0; index < boundaries.length - 1; index += 1) {
+    const speed = maxCornerSpeed(points, boundaries[index], boundaries[index + 1]);
+    if (speed > fastestSpeed) {
+      fastestIndex = index;
+      fastestSpeed = speed;
+    }
+  }
+  const fastDuration = 1 / 8;
+  let fastestDeclaredDensity = 0;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = clampRange(points[index].t, 0, layerDuration);
+    const end = clampRange(points[index + 1].t, 0, layerDuration);
+    if (end > start) {
+      fastestDeclaredDensity = Math.max(
+        fastestDeclaredDensity,
+        adaptivePerspectiveDensity(points, start, end),
+      );
+    }
+  }
+  if (
+    fastestDeclaredDensity >= 8
+    && boundaries[fastestIndex + 1] - boundaries[fastestIndex] > fastDuration + 1e-9
+  ) {
+    const moves = [];
+    const start = boundaries[fastestIndex];
+    const end = boundaries[fastestIndex + 1];
+    if (fastestIndex > 0) {
+      const candidate = end - fastDuration;
+      const previous = boundaries[fastestIndex - 1];
+      if (candidate - previous >= minimumDuration - 1e-9) {
+        moves.push({
+          boundaryIndex: fastestIndex,
+          candidate,
+          error: Math.max(
+            perspectiveSegmentApproximationError(points, previous, candidate),
+            perspectiveSegmentApproximationError(points, candidate, end),
+          ),
+        });
+      }
+    }
+    if (fastestIndex + 1 < boundaries.length - 1) {
+      const candidate = start + fastDuration;
+      const next = boundaries[fastestIndex + 2];
+      if (next - candidate >= minimumDuration - 1e-9) {
+        moves.push({
+          boundaryIndex: fastestIndex + 1,
+          candidate,
+          error: Math.max(
+            perspectiveSegmentApproximationError(points, start, candidate),
+            perspectiveSegmentApproximationError(points, candidate, next),
+          ),
+        });
+      }
+    }
+    moves.sort((a, b) => a.error - b.error || a.boundaryIndex - b.boundaryIndex);
+    if (moves.length > 0) boundaries[moves[0].boundaryIndex] = moves[0].candidate;
+  }
+  return boundaries;
 }
 
 // Returns [layer] unchanged when there is nothing to expand (no usable perspective keyframes, or
@@ -317,23 +506,47 @@ export function expandLayerForPerspectiveKeyframes(layer) {
   const layerDuration = Number(layer.duration) || 0;
   if (!(layerDuration > 0)) return [layer];
 
-  // Segment boundaries (layer-local seconds, [0, layerDuration]): 0, every declaring point,
-  // PERSPECTIVE_SEGMENTS_PER_SECOND-spaced points inside each span between consecutive declaring
-  // points, the last declaring point, and layerDuration (holds the last declared value through
-  // the layer's own end, matching piecewiseValueAt's hold-after-last semantics).
-  const boundaries = [0, declaring[0].t];
-  for (let index = 0; index < declaring.length - 1; index += 1) {
-    const start = declaring[index];
-    const end = declaring[index + 1];
-    const span = end.t - start.t;
-    if (span > 0) {
-      const stepCount = Math.max(1, Math.round(span * PERSPECTIVE_SEGMENTS_PER_SECOND));
-      for (let step = 1; step < stepCount; step += 1) boundaries.push(start.t + (span * step) / stepCount);
-    }
-    boundaries.push(end.t);
+  // Measure at every in-range declaring point, then integrate each interval's density into one
+  // layer-wide budget. Hold-before-first and hold-after-last naturally measure as zero motion and
+  // therefore use the 0.5/s floor.
+  const anchors = [...new Set([
+    0,
+    ...declaring.map((point) => clampRange(point.t, 0, layerDuration)),
+    layerDuration,
+  ])].sort((a, b) => a - b);
+  const intervals = [];
+  for (let index = 0; index < anchors.length - 1; index += 1) {
+    const start = anchors[index];
+    const end = anchors[index + 1];
+    const span = end - start;
+    if (span <= 1e-9) continue;
+    intervals.push({
+      start,
+      end,
+      speed: maxCornerSpeed(declaring, start, end),
+      weight: span * adaptivePerspectiveDensity(declaring, start, end),
+    });
   }
-  boundaries.push(layerDuration);
-  const sortedBoundaries = [...new Set(boundaries.map((b) => clampRange(b, 0, layerDuration)))].sort((a, b) => a - b);
+
+  const moving = intervals.some((interval) => interval.speed > 1e-9);
+  const densityTotal = Math.floor(intervals.reduce((sum, interval) => sum + interval.weight, 0));
+  const requestedTotal = Math.max(
+    1,
+    densityTotal,
+    moving ? PERSPECTIVE_SEGMENT_POLICY.minMovingSublayers : 1,
+  );
+  const cap = PERSPECTIVE_SEGMENT_POLICY.maxSublayersPerLayer;
+  const segmentCount = Math.min(requestedTotal, cap);
+  if (requestedTotal > cap) {
+    process.stderr.write(
+      `[render-cut] perspective layer ${JSON.stringify(String(layer.id ?? "<unnamed>"))} requested `
+      + `${requestedTotal} sub-layers; capped at ${cap} and redistributed at a coarser density.\n`,
+    );
+  }
+
+  const sortedBoundaries = segmentCount < requestedTotal
+    ? Array.from({ length: segmentCount + 1 }, (_, index) => (layerDuration * index) / segmentCount)
+    : buildMinimaxPerspectiveBoundaries(declaring, layerDuration, segmentCount);
 
   // transform/crop keyframes (if declared) stay continuous and untouched on every sub-layer --
   // only perspective is stripped from each point (it becomes each sub-layer's own static
@@ -355,8 +568,7 @@ export function expandLayerForPerspectiveKeyframes(layer) {
     // Holds the value sampled at the segment's own midpoint (centers the discrete step within
     // its time window, rather than lagging a full step behind a start-of-segment hold).
     const midT = (segStart + segEnd) / 2;
-    const corners = declaring[0].perspective.corners.map((_, cornerIndex) => [0, 1].map((axis) =>
-      piecewiseValueAt(declaring, (p) => p.perspective.corners[cornerIndex][axis], midT)));
+    const corners = perspectiveCornersAt(declaring, midT);
     segments.push({
       ...layer,
       id: `${layer.id}__persp${index}`,

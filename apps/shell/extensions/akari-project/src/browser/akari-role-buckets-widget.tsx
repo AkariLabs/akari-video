@@ -32,6 +32,7 @@ import {
     assetDistributionBadgeText,
     assetStateBadgeText,
     assetStateBadgeTitle,
+    catalogCardUiEventTarget,
     CatalogPackGroup,
     deriveCatalogEmptyStateKind,
     formatCatalogPackBreakdown,
@@ -2798,12 +2799,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const thumbnailBroken = this.catalogBrokenThumbnails.has(item.key);
         const previewUrl = item.previewUrl;
         const tags = item.tags.slice(0, 3);
+        const uiEventTarget = catalogCardUiEventTarget(item);
         return (
             <div
                 key={item.key}
                 title={item.title}
                 data-akari-catalog-item={item.key}
                 data-akari-catalog-item-state={item.state ?? 'local'}
+                // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<catalog key> opt-in target.
+                data-akari-ui={uiEventTarget.target}
+                data-akari-ui-label={uiEventTarget.label}
                 style={{
                     display: 'flex',
                     flexDirection: 'column',

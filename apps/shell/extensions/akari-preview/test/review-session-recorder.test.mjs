@@ -434,6 +434,110 @@ test('pointerup on a registered element records ui.click when no click follows (
     }
 });
 
+test('consecutive pointerup-only gestures on different registered elements both record ui.click', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const restorePerformance = replaceGlobal('performance', { now: () => 2_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        const cut0 = {
+            getAttribute: name => (name === 'data-akari-ui' ? 'timeline:cut:0' : null),
+            parentNode: null
+        };
+        const cut1 = {
+            getAttribute: name => (name === 'data-akari-ui' ? 'timeline:cut:1' : null),
+            parentNode: null
+        };
+        recorder.handleUiPointerUp({ target: cut0, button: 0 });
+        recorder.handleUiPointerUp({ target: cut1, button: 0 });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await active.writeTail;
+        assert.deepEqual(events.map(event => event.target), ['timeline:cut:0', 'timeline:cut:1']);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('a later synthesized click suppresses only its own pointerup fallback', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const restorePerformance = replaceGlobal('performance', { now: () => 2_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        const cut0 = {
+            getAttribute: name => (name === 'data-akari-ui' ? 'timeline:cut:0' : null),
+            parentNode: null
+        };
+        const cut1 = {
+            getAttribute: name => (name === 'data-akari-ui' ? 'timeline:cut:1' : null),
+            parentNode: null
+        };
+        recorder.handleUiPointerUp({ target: cut0, button: 0 });
+        recorder.handleUiPointerUp({ target: cut1, button: 0 });
+        recorder.handleUiClick({ target: cut1 });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await active.writeTail;
+        assert.deepEqual(events.map(event => event.target), ['timeline:cut:1', 'timeline:cut:0']);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
+test('a later pointerup-only gesture does not re-enable an already suppressed fallback', async () => {
+    const events = [];
+    const service = { appendReviewSessionEvent: async request => events.push(request.event) };
+    const restorePerformance = replaceGlobal('performance', { now: () => 2_000 });
+    const recorder = new ReviewSessionRecorder(service, () => undefined);
+    const active = {
+        sessionDir: 'file:///project/review/sessions/s-0001',
+        monotonicStartedAt: 1_000,
+        lastRecT: 0,
+        writeTail: Promise.resolve()
+    };
+    recorder.active = active;
+    recorder.status = 'recording';
+    try {
+        const cut0 = {
+            getAttribute: name => (name === 'data-akari-ui' ? 'timeline:cut:0' : null),
+            parentNode: null
+        };
+        const cut1 = {
+            getAttribute: name => (name === 'data-akari-ui' ? 'timeline:cut:1' : null),
+            parentNode: null
+        };
+        recorder.handleUiPointerUp({ target: cut0, button: 0 });
+        recorder.handleUiClick({ target: cut0 });
+        recorder.handleUiPointerUp({ target: cut1, button: 0 });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await active.writeTail;
+        assert.deepEqual(events.map(event => event.target), ['timeline:cut:0', 'timeline:cut:1']);
+    } finally {
+        recorder.active = undefined;
+        recorder.status = 'idle';
+        restorePerformance();
+    }
+});
+
 test('a click that follows pointerup (normal element) suppresses the pointerup fallback -- no double record', async () => {
     const events = [];
     const service = { appendReviewSessionEvent: async request => events.push(request.event) };

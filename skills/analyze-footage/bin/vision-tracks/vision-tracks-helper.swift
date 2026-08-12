@@ -275,17 +275,33 @@ struct VisionTracksHelper {
         else {
             return nil
         }
+        var landmarkJSON: [String: Any] = [
+            "left_pupil": leftPupil,
+            "right_pupil": rightPupil,
+            "left_eye": leftEye,
+            "right_eye": rightEye,
+            "outer_lips": outerLips,
+            "inner_lips": innerLips,
+        ]
+        // faceContour はあご・頬・こめかみ側だけを結ぶ開曲線で、額側は含まない。
+        // 生の観測点を additive に保存し、閉曲線への決定論的な額補完は用途ごとの
+        // 消費者（face-mosaic など）が行う。取得できないフレームではキーを省略し、
+        // 既存の必須 6 領域だけで成立する v0 形式との後方互換を保つ。
+        if let faceContour = regionPoints(landmarks.faceContour, in: observation.boundingBox) {
+            landmarkJSON["face_contour"] = faceContour
+        }
+        // 額補完の基準として眉を使える場合は同じく観測値だけを追加する。古いトラックや
+        // 眉が取れない横顔では省略され、消費側は既存の eye 領域へ決定論的にフォールバックする。
+        if let leftEyebrow = regionPoints(landmarks.leftEyebrow, in: observation.boundingBox) {
+            landmarkJSON["left_eyebrow"] = leftEyebrow
+        }
+        if let rightEyebrow = regionPoints(landmarks.rightEyebrow, in: observation.boundingBox) {
+            landmarkJSON["right_eyebrow"] = rightEyebrow
+        }
         return [
             "box": flippedBox(observation.boundingBox),
             "conf": Double(observation.confidence),
-            "landmarks": [
-                "left_pupil": leftPupil,
-                "right_pupil": rightPupil,
-                "left_eye": leftEye,
-                "right_eye": rightEye,
-                "outer_lips": outerLips,
-                "inner_lips": innerLips,
-            ],
+            "landmarks": landmarkJSON,
         ]
     }
 

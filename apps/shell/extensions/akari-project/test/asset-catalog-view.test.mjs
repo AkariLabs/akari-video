@@ -4,6 +4,7 @@ import {
     assetDistributionBadgeText,
     assetStateBadgeText,
     assetStateBadgeTitle,
+    catalogCardUiEventTarget,
     catalogItemPackIds,
     deriveAssetDistribution,
     deriveCatalogEmptyStateKind,
@@ -39,6 +40,20 @@ test('toResolverAssetCatalogViewItem: 必須フィールドの正規化（tags �
         mediaUrl: undefined,
         prompt: undefined
     });
+});
+
+test('catalogCardUiEventTarget: still カタログカードの target と label を返す', () => {
+    assert.deepEqual(
+        catalogCardUiEventTarget({ key: 'still/br-typing-laptop', title: 'ノートPCをタイピングする手元' }),
+        { target: 'asset:still/br-typing-laptop', label: 'ノートPCをタイピングする手元' }
+    );
+});
+
+test('catalogCardUiEventTarget: audio カタログカードの target と label を返す', () => {
+    assert.deepEqual(
+        catalogCardUiEventTarget({ key: 'audio/bgm-beatslide-124-001', title: 'Boots On Concrete' }),
+        { target: 'asset:audio/bgm-beatslide-124-001', label: 'Boots On Concrete' }
+    );
 });
 
 test('toResolverAssetCatalogViewItem: license.spdx / provenance.prompt / previewUrl を引き継ぐ', () => {
