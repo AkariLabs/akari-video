@@ -14,7 +14,7 @@ import {
   launchBrowser,
   makeProjectRoot,
   overlayFor,
-} from "./lib/fixtures.mjs";
+} from "./support/fixtures.mjs";
 
 const ARTIFACTS_DIR = join(new URL(".", import.meta.url).pathname, "artifacts");
 await mkdir(ARTIFACTS_DIR, { recursive: true });

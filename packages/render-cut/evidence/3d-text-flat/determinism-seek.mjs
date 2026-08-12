@@ -19,8 +19,8 @@ import {
   overlayFor,
   resolveChromePath,
   sha256File,
-} from "./lib/fixtures.mjs";
-import { cylinderScene } from "./lib/scenes.mjs";
+} from "./support/fixtures.mjs";
+import { cylinderScene } from "./support/scenes.mjs";
 
 const ARTIFACTS_DIR = join(new URL(".", import.meta.url).pathname, "artifacts");
 

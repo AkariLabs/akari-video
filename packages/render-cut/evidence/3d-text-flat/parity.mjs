@@ -18,8 +18,8 @@ import {
   runChecked,
   stageRuntimeScripts,
   startStaticServer,
-} from "./lib/fixtures.mjs";
-import { cylinderScene } from "./lib/scenes.mjs";
+} from "./support/fixtures.mjs";
+import { cylinderScene } from "./support/scenes.mjs";
 
 const ARTIFACTS_DIR = join(new URL(".", import.meta.url).pathname, "artifacts");
 await mkdir(ARTIFACTS_DIR, { recursive: true });
@@ -43,7 +43,7 @@ await writeFile(
 );
 const chromePath = await resolveChromePath();
 const framesDirectory = join(workDir, "frames");
-const { loadPuppeteerModule } = await import("./lib/fixtures.mjs");
+const { loadPuppeteerModule } = await import("./support/fixtures.mjs");
 const puppeteerModule = await loadPuppeteerModule();
 await captureWithPuppeteer({
   sheetPath,
