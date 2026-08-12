@@ -146,10 +146,11 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 src/
   vendor/three-bundle.js  Three.js core + GLTFLoader + RoomEnvironment の単一 IIFE
   vendor/three-LICENSE.txt  Three.js の MIT License
-  vendor/vendor-3d-text-bundle.js  troika-three-text + opentype.js + matter-js の単一 IIFE
+  vendor/vendor-3d-text-bundle.js  troika-three-text + opentype.js + matter-js + poly-decomp の単一 IIFE
   vendor/troika-three-text-LICENSE.txt  troika-three-text の MIT License
   vendor/opentype.js-LICENSE.txt        opentype.js の MIT License
   vendor/matter-js-LICENSE.txt          matter-js の MIT License
+  vendor/poly-decomp-LICENSE.txt        poly-decomp の MIT License
   three-runtime.js     宣言型 3D scene の load / setTime / render / dispose
   overlay-runtime.js   DOM mount/tick と 3D 可視ライフサイクル
   interaction.js       legacy ui/interaction.js を無改変移送
@@ -218,12 +219,14 @@ Three.js は MIT License（Copyright © 2010-2026 three.js authors）。完全�
 `src/vendor/three-LICENSE.txt` に保持し、esbuild の `--legal-comments=inline` により
 upstream の `@license` 表記も bundle 内に保持する。
 
-## 3D テキスト vendor（troika-three-text / opentype.js / matter-js）の固定と再生成
+## 3D テキスト vendor（troika-three-text / opentype.js / matter-js / poly-decomp）の固定と再生成
 
 `src/vendor/vendor-3d-text-bundle.js` は `troika-three-text@0.52.4` / `opentype.js@1.3.4` /
-`matter-js@0.20.0`（いずれも MIT License）を、上記 Three.js vendor と同じ「npm pack →
-integrity 照合 → esbuild IIFE 化」様式で固定した第 2 の単一 IIFE である。実行時に npm、CDN、
-外部 origin を参照しない。
+`matter-js@0.20.0` / `poly-decomp@0.3.0`（いずれも MIT License）を、上記 Three.js vendor と
+同じ「npm pack → integrity 照合 → esbuild IIFE 化」様式で固定した第 2 の単一 IIFE である。
+実行時に npm、CDN、外部 origin を参照しない。`poly-decomp` は task 2026-08-12-3d-text-physics
+（`physics.colliders[].type === "polygon"` の凹多角形対応）で追加した。理由は後述「poly-decomp
+を追加した理由」節を参照。
 
 ### 単一 three インスタンス制約への対応
 
@@ -244,7 +247,8 @@ troika-three-text（および troika-three-utils）は `import ... from "three"`
 - 出力側は「既存 `window.AkariThree` の freeze オブジェクトへの追加エクスポート」を
   entry 自身が担う（`window.AkariThree = Object.freeze({ ...window.AkariThree, TroikaText,
   opentype, Matter })`）。`three-bundle.js` は無改変のまま byte 数・SHA-256 とも既存節の
-  記載値から変化しない
+  記載値から変化しない。`poly-decomp` 自体は `window.AkariThree` へ再エクスポートしない
+  （`Matter.Common.setDecomp(polyDecomp)` を entry 内で 1 回呼ぶだけの内部使用）
 - 一体化案（three + troika 等を 1 本の entry に混ぜて再生成する）も検討したが、
   既存 `three-bundle.js` の照合値を変更すると本 README 外の参照箇所に影響し得るため見送った
 
@@ -257,6 +261,8 @@ troika-three-text（および troika-three-utils）は `import ... from "three"`
 - `bidi-js@1.0.3`: `sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==`
 - `opentype.js@1.3.4`: `sha512-d2JE9RP/6uagpQAVtJoF0pJJA/fgai89Cc50Yp0EJHk+eLp6QQ7gBoblsnubRULNY132I0J1QKMJ+JTbMqz4sw==`
 - `matter-js@0.20.0`: `sha512-iC9fYR7zVT3HppNnsFsp9XOoQdQN2tUyfaKg4CHLH8bN+j6GT4Gw7IH2rP0tflAebrHFw730RR3DkVSZRX8hwA==`
+- `poly-decomp@0.3.0`: `sha512-hWeBxGzPYiybmI4548Fca7Up/0k1qS5+79cVHI9+H33dKya5YNb9hxl0ZnDaDgvrZSuYFBhkCK/HOnqN7gefkQ==`
+  （tarball shasum `aa499289bbc1a4ca2213e966587fa5bffc1ca5f5`、28187 bytes、依存ゼロ）
 - `esbuild@0.24.2` / `@esbuild/darwin-arm64@0.24.2`: 既存 Three.js vendor 節と同一（上記参照）
 
 `troika-three-utils` / `troika-worker-utils` / `webgl-sdf-generator` / `bidi-js` は
@@ -274,12 +280,16 @@ troika-three-text 自身の `dependencies` に固定されているバージョ�
 module.exports = window.AkariThree.THREE;
 ```
 
-`vendor-3d-text-entry.js`（バンドル本体の entry）:
+`vendor-3d-text-entry.js`（バンドル本体の entry。**2026-08-12 task 2026-08-12-3d-text-physics
+で `poly-decomp` を追加**。理由は次節参照）:
 
 ```js
 import { Text } from "troika-three-text";
 import * as opentype from "opentype.js";
 import Matter from "matter-js";
+import polyDecomp from "poly-decomp";
+
+Matter.Common.setDecomp(polyDecomp);
 
 window.AkariThree = Object.freeze({
   ...window.AkariThree,
@@ -289,6 +299,18 @@ window.AkariThree = Object.freeze({
 });
 ```
 
+### poly-decomp を追加した理由（`physics.colliders[].type === "polygon"` の凹多角形対応）
+
+`matter-js` の `Bodies.fromVertices` は、凹多角形を渡しても `poly-decomp` が
+`Matter.Common.setDecomp` で登録されていないと**エラーにせず警告 1 回だけで凸包へ自動
+フォールバックする**（一次ソース: `liabru/matter-js` `src/factory/Bodies.js`）。人物シルエット
+のような凹多角形 collider（腕と胴体の間の凹み）はこのフォールバックで凹みが埋まり、
+「本来空間があるのに文字が跳ね返る」誤判定を起こす。`poly-decomp`（MIT・実行時依存なし）を
+entry 側で `import` して `Matter.Common.setDecomp(polyDecomp)` を bundle 読み込み時に 1 回
+呼ぶことで、以後 `Bodies.fromVertices` は凹多角形を正しく複数の凸パーツへ分解する
+（`packages/render-cut/evidence/3d-text-physics/vendor-smoke.mjs` で実機の bundle
+そのものに対して実測確認済み）。
+
 ### 再生成コマンド
 
 空の一時ディレクトリで、`three-shim.js` と `vendor-3d-text-entry.js` を上記内容で置いた上で
@@ -296,10 +318,11 @@ window.AkariThree = Object.freeze({
 
 ```sh
 npm pack troika-three-text@0.52.4 troika-three-utils@0.52.5 troika-worker-utils@0.52.0 \
-  webgl-sdf-generator@1.1.1 bidi-js@1.0.3 opentype.js@1.3.4 matter-js@0.20.0 --ignore-scripts
+  webgl-sdf-generator@1.1.1 bidi-js@1.0.3 opentype.js@1.3.4 matter-js@0.20.0 \
+  poly-decomp@0.3.0 --ignore-scripts
 mkdir -p node_modules/troika-three-text node_modules/troika-three-utils \
   node_modules/troika-worker-utils node_modules/webgl-sdf-generator \
-  node_modules/bidi-js node_modules/opentype.js node_modules/matter-js
+  node_modules/bidi-js node_modules/opentype.js node_modules/matter-js node_modules/poly-decomp
 tar -xzf troika-three-text-0.52.4.tgz -C node_modules/troika-three-text --strip-components=1
 tar -xzf troika-three-utils-0.52.5.tgz -C node_modules/troika-three-utils --strip-components=1
 tar -xzf troika-worker-utils-0.52.0.tgz -C node_modules/troika-worker-utils --strip-components=1
@@ -307,6 +330,7 @@ tar -xzf webgl-sdf-generator-1.1.1.tgz -C node_modules/webgl-sdf-generator --str
 tar -xzf bidi-js-1.0.3.tgz -C node_modules/bidi-js --strip-components=1
 tar -xzf opentype.js-1.3.4.tgz -C node_modules/opentype.js --strip-components=1
 tar -xzf matter-js-0.20.0.tgz -C node_modules/matter-js --strip-components=1
+tar -xzf poly-decomp-0.3.0.tgz -C node_modules/poly-decomp --strip-components=1
 # esbuild / @esbuild/darwin-arm64 は既存 Three.js vendor 節の手順で展開済みの node_modules を再利用
 node node_modules/esbuild/bin/esbuild vendor-3d-text-entry.js \
   --bundle --format=iife --platform=browser --target=es2020 --minify \
@@ -322,14 +346,16 @@ node node_modules/esbuild/bin/esbuild vendor-3d-text-entry.js \
 外部ネットワークを使う取得操作は上記 `npm pack` だけとし、tarball integrity を照合してから
 展開する。生成後は本節に記録した bundle の byte 数と SHA-256 も照合する。
 
-- `vendor-3d-text-bundle.js`: `381019` bytes / SHA-256
-  `75498089f1aaa6d9c3ecdb74c63fd416cf4cc8fefe1c3ecccbeffffd7bfa19fc`
+- `vendor-3d-text-bundle.js`（poly-decomp 追加後）: `386171` bytes / SHA-256
+  `b7631ef33797aa1e77c3b939d5a2e2122b8db9517e40ec60fb26ec110f0129b8`
+  （追加前: `381019` bytes / `75498089f1aaa6d9c3ecdb74c63fd416cf4cc8fefe1c3ecccbeffffd7bfa19fc`）
 
-troika-three-text / opentype.js / matter-js はいずれも MIT License。完全な許諾文はそれぞれ
+troika-three-text / opentype.js / matter-js / poly-decomp はいずれも MIT License。
+完全な許諾文はそれぞれ
 `src/vendor/troika-three-text-LICENSE.txt` / `src/vendor/opentype.js-LICENSE.txt` /
-`src/vendor/matter-js-LICENSE.txt` に保持する（推移的依存の bidi-js 等は troika-three-text
-本体のライセンス表記に準ずる MIT で、esbuild の `--legal-comments=inline` により該当する
-`@license` コメントがあれば bundle 内に保持される）。
+`src/vendor/matter-js-LICENSE.txt` / `src/vendor/poly-decomp-LICENSE.txt` に保持する
+（推移的依存の bidi-js 等は troika-three-text 本体のライセンス表記に準ずる MIT で、esbuild の
+`--legal-comments=inline` により該当する `@license` コメントがあれば bundle 内に保持される）。
 
 ### 互換 smoke（three@0.185.1 × troika-three-text@0.52.4）
 
