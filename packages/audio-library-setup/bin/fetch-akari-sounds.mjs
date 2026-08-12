@@ -16,9 +16,11 @@
 //   --zips-dir <path>   Release zip をローカルディレクトリから読む（オフライン・検証用）
 //   --dry-run           取得せずプランだけ表示する
 //   --force             既存ファイルが揃っていても再取得する
+//   -y, --yes           受理する（対話プロンプトがないため動作は変わらない）
+//   -h, --help          このヘルプを表示する
 
 import { spawnSync } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, realpathSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -39,7 +41,18 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..', '..');
 const validateAssetScript = path.join(repoRoot, 'packages', 'schemas', 'bin', 'validate-asset.mjs');
 
-function parseArguments(argv) {
+export const usage = `Usage: node bin/fetch-akari-sounds.mjs [options]
+  --variant mp3|wav   取得する形式（既定: mp3）
+  --tag <tag>         Release タグ（既定: v0）
+  --dest <dir>        登録先ライブラリルート（既定: ~/.akari/assets/audio）
+  --catalog <path>    catalog.json をローカルファイルから読む（オフライン・検証用）
+  --zips-dir <path>   Release zip をローカルディレクトリから読む（オフライン・検証用）
+  --dry-run           取得せずプランだけ表示する
+  --force             既存ファイルが揃っていても再取得する
+  -y, --yes           受理する（対話プロンプトがないため動作は変わらない）
+  -h, --help          このヘルプを表示する`;
+
+export function parseArguments(argv) {
     const options = {
         variant: 'mp3',
         tag: AKARI_SOUNDS_DEFAULT_TAG,
@@ -49,6 +62,7 @@ function parseArguments(argv) {
         zipsDir: null,
         dryRun: false,
         force: false,
+        help: false,
     };
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
@@ -59,6 +73,11 @@ function parseArguments(argv) {
         if (arg === '--zips-dir') { options.zipsDir = path.resolve(argv[++i]); continue; }
         if (arg === '--dry-run') { options.dryRun = true; continue; }
         if (arg === '--force') { options.force = true; continue; }
+        if (arg === '--help' || arg === '-h') { options.help = true; continue; }
+        if (arg === '--yes' || arg === '-y') {
+            // launcher 共通オプションとして受理する。このスクリプトは対話プロンプトを持たないため no-op。
+            continue;
+        }
         throw new Error(`Unknown option: ${arg}`);
     }
     zipAssetNames(options.variant); // variant の妥当性を先に検証（不正なら throw）
@@ -110,14 +129,71 @@ async function downloadToFile(url, destPath) {
     await pipeline(Readable.fromWeb(res.body), createWriteStream(destPath));
 }
 
-function unzipInto(zipPath, extractDir) {
-    const result = spawnSync('unzip', ['-q', '-o', zipPath, '-d', extractDir], { encoding: 'utf8' });
-    if (result.error?.code === 'ENOENT') {
-        throw new Error('unzip コマンドが見つかりません。unzip を導入するか、Release zip を手動展開して --zips-dir ではなく登録先へ直接置いてください');
+const manualExtractGuidance = 'unzip コマンドが見つかりません。unzip を導入するか、Release zip を手動展開して --zips-dir ではなく登録先へ直接置いてください';
+
+function commandMissing(result) {
+    return result.error?.code === 'ENOENT';
+}
+
+function commandFailure(command, zipPath, result) {
+    const output = result.stderr || result.stdout || result.error?.message || `exit ${result.status}`;
+    return `${command} 展開失敗 (${zipPath}): ${String(output).trim()}`;
+}
+
+export function unzipInto(zipPath, extractDir, {
+    platform = process.platform,
+    spawn = spawnSync,
+    env = process.env,
+} = {}) {
+    if (platform === 'win32') {
+        const tarResult = spawn('tar.exe', ['-xf', zipPath, '-C', extractDir], { encoding: 'utf8' });
+        if (tarResult.status === 0) {
+            return;
+        }
+
+        // パスを PowerShell のコマンド文字列へ埋め込まず、環境変数で渡して引用符の罠を避ける。
+        const powershellResult = spawn('powershell.exe', [
+            '-NoLogo',
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            'Expand-Archive -LiteralPath $env:AKARI_SOUNDS_ZIP_PATH -DestinationPath $env:AKARI_SOUNDS_EXTRACT_DIR -Force',
+        ], {
+            encoding: 'utf8',
+            env: {
+                ...env,
+                AKARI_SOUNDS_ZIP_PATH: zipPath,
+                AKARI_SOUNDS_EXTRACT_DIR: extractDir,
+            },
+        });
+        if (powershellResult.status === 0) {
+            return;
+        }
+        if (commandMissing(tarResult) && commandMissing(powershellResult)) {
+            throw new Error(manualExtractGuidance);
+        }
+        const failures = [];
+        if (!commandMissing(tarResult)) failures.push(commandFailure('tar.exe', zipPath, tarResult));
+        if (!commandMissing(powershellResult)) failures.push(commandFailure('PowerShell Expand-Archive', zipPath, powershellResult));
+        throw new Error(failures.join('\n'));
     }
-    if (result.status !== 0) {
-        throw new Error(`unzip 失敗 (${zipPath}): ${result.stderr || result.stdout}`);
+
+    const unzipResult = spawn('unzip', ['-q', '-o', zipPath, '-d', extractDir], { encoding: 'utf8' });
+    if (unzipResult.status === 0) {
+        return;
     }
+    if (!commandMissing(unzipResult)) {
+        throw new Error(commandFailure('unzip', zipPath, unzipResult));
+    }
+
+    const tarResult = spawn('tar', ['-xf', zipPath, '-C', extractDir], { encoding: 'utf8' });
+    if (tarResult.status === 0) {
+        return;
+    }
+    if (commandMissing(tarResult)) {
+        throw new Error(manualExtractGuidance);
+    }
+    throw new Error(commandFailure('tar', zipPath, tarResult));
 }
 
 /** 展開ディレクトリ以下を再帰走査し、ファイル名（basename）→ 絶対パスの索引を作る */
@@ -133,8 +209,12 @@ async function indexExtractedFiles(rootDir) {
     return index;
 }
 
-async function main() {
+export async function main() {
     const options = parseArguments(process.argv.slice(2));
+    if (options.help) {
+        console.log(usage);
+        return;
+    }
     const catalog = await loadCatalog(options);
     const plan = planFromCatalog(catalog, { variant: options.variant });
     const zipNames = zipAssetNames(options.variant);
@@ -261,7 +341,10 @@ async function main() {
     console.log(`完了: ${plan.totalFiles} ファイル / ${plan.packs.length} パックを登録済み（${options.dest}）`);
 }
 
-main().catch((error) => {
-    console.error(error.stack ?? String(error));
-    process.exitCode = 1;
-});
+if (process.argv[1]
+    && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+    main().catch((error) => {
+        console.error(error.stack ?? String(error));
+        process.exitCode = 1;
+    });
+}
