@@ -1,0 +1,36 @@
+{
+  "providers": [
+    {
+      "id": "telegram-approval",
+      "kind": "notify",
+      "auth": "env-key",
+      "env": "${AKARI_TELEGRAM_BOT_TOKEN}",
+      "models": {
+        "default": null,
+        "allowed": []
+      },
+      "notes": {
+        "description": "承認ゲートの通知とボタン承認に使う Telegram bot。送信と long polling のみで、公開エンドポイントを持たない。decisions.json は report-helper 経由でのみ更新する。",
+        "workflows": ["承認ゲート（チャット通知 + ボタン承認）"],
+        "billing": "無償（Telegram Bot API）。",
+        "quota": "Bot API のレート制限に従う（同一チャットへの連投は毎秒 1 通程度が目安）。",
+        "scopes": [
+          "登録済み chat ID への通知送信（テキスト・レポート画像）",
+          "登録済み chat ID からのボタン応答の受信（long polling）"
+        ],
+        "setup_url": "https://core.telegram.org/bots#how-do-i-create-a-bot"
+      },
+      "doctor": {
+        "last_checked": null,
+        "status": "unchecked",
+        "detail": "未確認"
+      }
+    }
+  ],
+  "policy": {
+    "currency": "JPY",
+    "monthly_budget": null,
+    "approval_threshold": null
+  },
+  "memory": []
+}

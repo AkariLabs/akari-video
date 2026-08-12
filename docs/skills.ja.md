@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **21 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **22 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -23,6 +23,7 @@ AKARI Video のエージェント側ワークフローは **21 のスキル**に
 | [setup-audio-library](../skills/setup-audio-library/SKILL.md) | BGM・SFX の半自動入庫（候補リスト → 手動 DL 照合 → 試聴 keep/drop） | フリー音源配布元（ダウンロードは人間） |
 | [declare-audio](../skills/declare-audio/SKILL.md) | 手元の音源に「サビ・キメ・拍」を自分の耳で付ける宣言づけ（ブラウザのタイムライン画面 → `declarations.json`）。付けた宣言は BGM 自動提案がサビ頭出し付きで読む | ブラウザ（宣言を決めるのは人間） |
 | [setup-remote](../skills/setup-remote/SKILL.md) | 遠隔セットアップ。Tailscale doctor → 導入ガイド（人間手番）→ プレビューサーバーの tailnet 限定 HTTPS 化 → Taildrop 受信を作業場 inbox/ へ接続 → 疎通確認。公開インターネットへは既定で一切出さない | Tailscale / Taildrop（導入・ログインは人間） |
+| [setup-chat-approval](../skills/setup-chat-approval/SKILL.md) | チャット承認セットアップ。doctor → BotFather でのトークン発行と credentials.env 登録（人間手番）→ chat ID 許可リスト → 通知 + ボタン → タップで `decisions.json` 更新。long polling のみで公開エンドポイントを作らず、自由文は指示として扱わない | Telegram Bot API（トークンの発行・登録は人間） |
 | [harvest-asset](../skills/harvest-asset/SKILL.md) | 案件で作った高コスト成果物の素材ライブラリ入庫 | — |
 | [bake-3d](../skills/bake-3d/SKILL.md) | 3D シーンを映像素材（クリップ）に焼く。レシピ `scene.py` の作成・調整・再ベイク | **Blender**（ヘッドレス・bpy） |
 | [beat-sync-edit](../skills/beat-sync-edit/SKILL.md) | 宣言済み音源の拍・キメ・区間を唯一の時刻ソースにして、拍にスナップした edit.json とオーバーレイ一式を「生成器」から機械生成する（音に合わせて画面が動く PV・ショーケース） | ffmpeg / ffprobe（宣言は declare-audio で人間が付ける） |
