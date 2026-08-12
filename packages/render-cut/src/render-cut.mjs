@@ -568,10 +568,10 @@ async function validateLint(projectRoot, force) {
 async function measureCapabilities(projectRoot, edit) {
   const ffmpegCommand = process.env.FFMPEG ?? resolveFfmpeg();
   const ffprobeCommand = process.env.FFPROBE ?? resolveFfprobe();
-  const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"], "ffmpeg", ffmpegInstallHint());
-  const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"], "ffprobe");
+  const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"]);
+  const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"]);
   const chromePath = await findChromePath();
-  const chromeVersion = chromePath ? commandVersion(chromePath, ["--version"], "Chrome") : null;
+  const chromeVersion = chromePath ? commandVersion(chromePath, ["--version"]) : null;
   if (!chromePath) throw new ExecutionError("system Chrome was not found");
   if (edit.version === 0) {
     const sourcePath = resolve(projectRoot, edit.source.path);
@@ -1230,12 +1230,11 @@ function probeMedia(command, path) {
   return parseJson(result.stdout, `ffprobe ${basename(path)}`);
 }
 
-function commandVersion(command, args, label, hint = null) {
-  const result = spawnSync(command, args, { encoding: "utf8" });
-  if (result.error || result.status !== 0) {
-    throw new ExecutionError(hint ? `${label} is not available; ${hint}` : `${label} is not available`);
-  }
-  return (result.stdout || result.stderr).split(/\r?\n/u)[0].trim();
+export function commandVersion(command, args) {
+  const result = spawnSync(command, args, { encoding: "utf8", timeout: 5000, windowsHide: true });
+  if (result.error || result.status !== 0) return null;
+  const firstLine = (result.stdout || result.stderr || "").split(/\r?\n/u)[0].trim();
+  return /\d+\.\d+\.\d+/u.test(firstLine) ? firstLine : null;
 }
 
 // Only used for the ffmpeg not-found message (task scope: detection logic itself stays unchanged).
