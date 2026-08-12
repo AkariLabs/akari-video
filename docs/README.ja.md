@@ -86,6 +86,7 @@
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | タイムライン配置原則・音源複数トラック・音源トリム・ソーストリマー |
 | [contract-2026-08-05-fx-v0.md](./contract-2026-08-05-fx-v0.md) | 画面 FX 小語彙 v0 — **2026-08-11 廃止**（冒頭の廃止追記を参照）。`presets/fx/` は空の参照表として存続 |
+| [contract-2026-08-12-region-filter-layer-v0.md](./contract-2026-08-12-region-filter-layer-v0.md) | kind:"filter" レイヤー — region（perspective corners）内だけのルック切り替え（invert / lut / saturation）。追加 `-i` なし |
 
 ### 分析・プラン・レビュー
 

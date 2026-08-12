@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
@@ -11,6 +11,7 @@ import {
   layerTransformKeyframeExprs,
   probeLayerSourceSize,
 } from "./layer-keyframes.mjs";
+import { resolveLutPath } from "./render-inputs.mjs";
 
 // contract-2026-07-22-prerender-rail-and-assets.md §0/§1.2: render-cut composites edit.json
 // layers[] (baked alpha video / video PinP) onto the cuts-composited base video, ordered by t.
@@ -118,6 +119,190 @@ function resolveDecoderForLayer(ffprobeCommand, resolvedPath, warnings) {
   return [];
 }
 
+function escapeFilterPath(path) {
+  return path.replace(/\\/gu, "\\\\").replace(/:/gu, "\\:").replace(/'/gu, "\\'");
+}
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function probeBaseFps(ffprobeCommand, path) {
+  if (!existsSync(path)) return null;
+  const result = spawnSync(
+    ffprobeCommand,
+    [
+      "-v",
+      "error",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=r_frame_rate",
+      "-of",
+      "json",
+      path,
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.error || result.status !== 0) return null;
+  try {
+    const rate = JSON.parse(result.stdout).streams?.[0]?.r_frame_rate;
+    const [numerator, denominator] = String(rate ?? "").split("/").map(Number);
+    const fps = denominator ? numerator / denominator : numerator;
+    return Number.isFinite(fps) && fps > 0 ? fps : null;
+  } catch {
+    return null;
+  }
+}
+
+// Plan construction runs before the cut stage has written inputPath, while the project's
+// edit.json already exists and has been read by render-cut. Resolve output.fps from that same
+// stable input first; probing inputPath remains a fallback for callers where it already exists.
+function resolveEditFps(projectRoot) {
+  try {
+    const raw = readFileSync(resolve(projectRoot, "edit.json"), "utf8");
+    const fps = JSON.parse(raw)?.output?.fps;
+    return isFiniteNumber(fps) && fps > 0 ? fps : null;
+  } catch {
+    return null;
+  }
+}
+
+function appendFilterLayerComposite({
+  filters,
+  previous,
+  layer,
+  idBase,
+  t,
+  end,
+  layerDuration,
+  duration,
+  width,
+  height,
+  projectRoot,
+  fps,
+}) {
+  // Perspective keyframes expand one layer into adjacent sub-layers whose boundaries are usually
+  // not exact frame boundaries. The base is CFR, so snapping every trim boundary to its frame grid
+  // keeps adjacent concat segments bit-identical and prevents accumulated duplicate/dropped frames.
+  let snappedT = t;
+  let snappedEnd = end;
+  if (isFiniteNumber(fps) && fps > 0) {
+    const frame = 1 / fps;
+    snappedT = Math.round(t / frame) * frame;
+    snappedEnd = Math.round(end / frame) * frame;
+    if (!(snappedEnd > snappedT)) snappedEnd = snappedT + frame;
+  }
+  const snappedLayerDuration = snappedEnd - snappedT;
+
+  const hasBefore = snappedT > EPSILON;
+  const hasAfter = snappedEnd < duration - EPSILON;
+  const needed = 1 + (hasBefore ? 1 : 0) + (hasAfter ? 1 : 0);
+  let prevBefore = null;
+  let prevDuring = previous;
+  let prevAfter = null;
+  if (needed > 1) {
+    const copies = Array.from({ length: needed }, (_, copyIndex) => `[${idBase}_prev${copyIndex}]`);
+    filters.push(`${previous}split=${needed}${copies.join("")}`);
+    let cursor = 0;
+    if (hasBefore) prevBefore = copies[cursor++];
+    prevDuring = copies[cursor++];
+    if (hasAfter) prevAfter = copies[cursor];
+  }
+
+  const parts = [];
+  if (hasBefore) {
+    const segA = `[${idBase}_segA]`;
+    filters.push(`${prevBefore}trim=start=0:end=${formatNumber(snappedT)},setpts=PTS-STARTPTS${segA}`);
+    parts.push(segA);
+  }
+
+  const baseDuring = `[${idBase}_bd]`;
+  const gradeInput = `[${idBase}_gradein]`;
+  filters.push(
+    `${prevDuring}trim=start=${formatNumber(snappedT)}:end=${formatNumber(snappedEnd)},setpts=PTS-STARTPTS,split=2${baseDuring}${gradeInput}`,
+  );
+  const baseRgb = `[${idBase}_bdrgb]`;
+  filters.push(`${baseDuring}format=gbrp${baseRgb}`);
+
+  const gradedRgb = `[${idBase}_gradedrgb]`;
+  if (layer.filter.type === "invert") {
+    filters.push(`${gradeInput}negate,format=gbrp${gradedRgb}`);
+  } else if (layer.filter.type === "saturation") {
+    filters.push(`${gradeInput}eq=saturation=${formatNumber(layer.filter.value)},format=gbrp${gradedRgb}`);
+  } else if (layer.filter.type === "lut") {
+    const lutPath = escapeFilterPath(resolveLutPath(projectRoot, layer.filter.id));
+    const lutFilter = `lut3d=file='${lutPath}':interp=trilinear`;
+    const intensity = layer.filter.intensity === undefined ? 1 : Number(layer.filter.intensity);
+    if (intensity <= EPSILON) {
+      filters.push(`${gradeInput}format=gbrp${gradedRgb}`);
+    } else if (intensity >= 1 - EPSILON) {
+      filters.push(`${gradeInput}${lutFilter},format=gbrp${gradedRgb}`);
+    } else {
+      const lutInput = `[${idBase}_lutin]`;
+      const originalInput = `[${idBase}_originalin]`;
+      const lutRgb = `[${idBase}_lutrgb]`;
+      const originalRgb = `[${idBase}_originalrgb]`;
+      filters.push(`${gradeInput}split=2${lutInput}${originalInput}`);
+      filters.push(`${lutInput}${lutFilter},format=gbrp${lutRgb}`);
+      filters.push(`${originalInput}format=gbrp${originalRgb}`);
+      filters.push(
+        `${lutRgb}${originalRgb}blend=all_mode=normal:all_opacity=${formatNumber(intensity)}${gradedRgb}`,
+      );
+    }
+  } else {
+    throw new Error(`unsupported layer filter type: ${layer.filter?.type}`);
+  }
+
+  const maskRaw = `[${idBase}_maskraw]`;
+  const maskOpaque = `[${idBase}_maskopaque]`;
+  const rateSuffix = isFiniteNumber(fps) && fps > 0 ? `:r=${formatNumber(fps)}` : "";
+  filters.push(`color=c=white:s=${width}x${height}:d=${formatNumber(snappedLayerDuration)}${rateSuffix}${maskRaw}`);
+  filters.push(`${maskRaw}format=yuva420p${maskOpaque}`);
+
+  const padFrac = PERSPECTIVE_PAD_FRAC;
+  const denom = 1 + 2 * padFrac;
+  const destCorners = computePerspectiveFfmpegCorners(layer.perspective.corners, padFrac);
+  const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = destCorners;
+  const scaledBy = (value, axisExpr) => `${formatNumber(value)}*${axisExpr}`;
+  const maskQuad = `[${idBase}_maskquad]`;
+  filters.push(
+    `${maskOpaque}pad=trunc(iw*${formatNumber(denom)}/2)*2:trunc(ih*${formatNumber(denom)}/2)*2:x=trunc(iw*${formatNumber(padFrac)}/2)*2:y=trunc(ih*${formatNumber(padFrac)}/2)*2:color=black@0,`
+      + `perspective=x0=${scaledBy(x0, "W")}:y0=${scaledBy(y0, "H")}:x1=${scaledBy(x1, "W")}:y1=${scaledBy(y1, "H")}:x2=${scaledBy(x2, "W")}:y2=${scaledBy(y2, "H")}:x3=${scaledBy(x3, "W")}:y3=${scaledBy(y3, "H")}:sense=destination:eval=init,`
+      + `crop=trunc((iw/${formatNumber(denom)})/2)*2:trunc((ih/${formatNumber(denom)})/2)*2:trunc((iw*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2:trunc((ih*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2${maskQuad}`,
+  );
+  const mask = `[${idBase}_mask]`;
+  filters.push(`${maskQuad}alphaextract${mask}`);
+
+  const segB = `[${idBase}_segB]`;
+  const fpsFilter = isFiniteNumber(fps) && fps > 0 ? `,fps=${formatNumber(fps)}` : "";
+  filters.push(`${baseRgb}${gradedRgb}${mask}maskedmerge,format=yuv420p${fpsFilter}${segB}`);
+  parts.push(segB);
+
+  if (hasAfter) {
+    const segC = `[${idBase}_segC]`;
+    filters.push(`${prevAfter}trim=start=${formatNumber(snappedEnd)}:end=${formatNumber(duration)},setpts=PTS-STARTPTS${segC}`);
+    parts.push(segC);
+  }
+
+  const hasKnownFps = isFiniteNumber(fps) && fps > 0;
+  if (parts.length === 1 && !hasKnownFps) return parts[0];
+
+  const next = `[${idBase}_out]`;
+  if (parts.length > 1 && !hasKnownFps) {
+    filters.push(`${parts.join("")}concat=n=${parts.length}:v=1:a=0${next}`);
+    return next;
+  }
+
+  let merged = parts[0];
+  if (parts.length > 1) {
+    merged = `[${idBase}_concat]`;
+    filters.push(`${parts.join("")}concat=n=${parts.length}:v=1:a=0${merged}`);
+  }
+  filters.push(`${merged}fps=${formatNumber(fps)}${next}`);
+  return next;
+}
+
 // Layers whose blend is "normal" (or unset) are composited with a single itsoffset+trim+overlay
 // step chained directly onto the running video label (cheap, no re-encode of untouched regions).
 // Layers with a non-normal blend (screen/multiply/...) need pixel-aligned inputs for ffmpeg's
@@ -136,11 +321,13 @@ export function buildLayersCompositeCommand({
   width,
   height,
   videoEncodeArgs = null,
+  fps = null,
 }) {
   const inputArgs = [];
   const filters = [];
   const warnings = [];
   let previous = "[0:v]";
+  let nextInputIndex = 1;
 
   // layers[].keyframes[].perspective: ffmpeg's perspective= filter exposes no per-frame time
   // variable at all (verified empirically -- see layer-keyframes.mjs's own header comment on
@@ -150,13 +337,41 @@ export function buildLayersCompositeCommand({
   // -- ordinary layers (the overwhelming majority) pass through this unchanged (flatMap of a
   // single-element array is the identity), so this adds no cost/behavior change for them.
   const expandedLayers = layers.flatMap(expandLayerForPerspectiveKeyframes);
+  const needsFps = expandedLayers.some((layer) => layer.kind === "filter");
+  const resolvedFps = needsFps
+    ? (isFiniteNumber(fps) && fps > 0
+        ? fps
+        : (resolveEditFps(projectRoot) ?? probeBaseFps(ffprobeCommand, inputPath)))
+    : null;
 
   expandedLayers.forEach((layer, index) => {
-    const inputIndex = index + 1; // 0 is the base video (-i inputPath)
     const idBase = `l${index}`;
     const t = Number(layer.t) || 0;
     const layerDuration = Number(layer.duration) || 0;
     const end = t + layerDuration;
+    if (layer.kind === "filter") {
+      if (!Array.isArray(layer.perspective?.corners) || layer.perspective.corners.length !== 4) {
+        warnings.push(`filter layer ${layer.id ?? index} has no usable perspective region; skipped`);
+        return;
+      }
+      previous = appendFilterLayerComposite({
+        filters,
+        previous,
+        layer,
+        idBase,
+        t,
+        end,
+        layerDuration,
+        duration,
+        width,
+        height,
+        projectRoot,
+        fps: resolvedFps,
+      });
+      return;
+    }
+
+    const inputIndex = nextInputIndex++; // 0 is the base video (-i inputPath)
     const transform = layer.transform ?? {};
     const scale = Number(transform.scale ?? 1) || 1;
     const rotate = Number(transform.rotate ?? 0) || 0;
