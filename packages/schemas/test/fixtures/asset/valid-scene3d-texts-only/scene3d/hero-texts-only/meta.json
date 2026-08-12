@@ -1,0 +1,23 @@
+{
+  "id": "hero-texts-only",
+  "category": "scene3d",
+  "title": "テスト用 3D テキスト（texts のみ）",
+  "description": "validate-asset.mjs の回帰テスト用フィクスチャ。data-akari-3d-scene 宣言が texts[] のみで model を持たないケース（glb 不要）を固定する。",
+  "when_to_use": "テストのみ",
+  "tags": ["test", "3d", "texts"],
+  "knobs": [],
+  "ai_usage": "テストフィクスチャのため実利用しない",
+  "requires": [],
+  "provenance": {
+    "origin": "packages/schemas/test/validate-asset.test.mjs 回帰テスト用フィクスチャ",
+    "generator": null
+  },
+  "author": "test",
+  "license": {
+    "spdx": "MIT",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null
+}

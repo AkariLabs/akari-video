@@ -56,6 +56,7 @@ preview.png の有無は検証対象外（存在してもエラーにならな�
 - [zero-gothic](./zero-gothic/meta.json) — ガラス亀裂入り極太ゴシック「零ゴシック」。衝撃・ホラー系強調。（OFL-1.1 / login: BOOTH）
 - [isego](./isego/meta.json) — 異世界転移の歪み「異世ゴ」。違和感・夢・酩酊演出。（OFL-1.1 / login: BOOTH）
 - [corporate-logo-rounded](./corporate-logo-rounded/meta.json) — ロゴ向け角丸ゴシック「コーポレート・ロゴ（ラウンド）ver3」。（OFL-1.1 / direct）
+- [zen-kaku-gothic-new](./zen-kaku-gothic-new/meta.json) — 直線的な角ゴシック「Zen Kaku Gothic New」。3D テキスト演出（texts[]）の既定書体（Black 既定）。（OFL-1.1 / direct）
 
 ## エントリ — 参照配布のみ（無料・再配布不可）
 

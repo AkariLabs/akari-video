@@ -1,0 +1,38 @@
+{
+  "id": "zen-kaku-gothic-new",
+  "category": "font",
+  "title": "Zen Kaku Gothic New",
+  "description": "直線的な骨格の角ゴシック体。Zen Maru Gothic と同系の Zen ファミリーで、丸みを削ぎ落とした端正なトーンを持つ。Thin〜Black まで6ウェイトを収録し、押し出し・ベベル・金属マテリアルとの相性が良いため 3D テキスト演出（texts[] flat/extrude モード）の既定書体に採用する。現状は索引のみ（実体は各 3D テキスト素材が個別に同梱する運用。catalog/font 側の同梱昇格は別途判断）。",
+  "when_to_use": "3D テキスト演出（筒配置・押し出しヒーロータイトル等）の既定書体として。直線的なジオメトリック角ゴシックが要る見出し・タイトルカット全般にも使える",
+  "tags": [
+    "font",
+    "japanese",
+    "gothic",
+    "google-fonts",
+    "ofl",
+    "3d",
+    "title"
+  ],
+  "knobs": [],
+  "ai_usage": "3D テキスト素材（texts[].font）の既定ウェイトは Black（900）。見出し・タイトル用途では Bold〜Black、本文寄りの字幕には Regular〜Medium を使う想定。字間・行間・カラーは overlay/テロップ側で調整してよいが、グリフ形状そのもの（フォントファイル）は改変しない",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video 素材カタログ収録（Google Fonts / Suemitsu Type Foundry 系譜の Zen ファミリー）/ 2026-08-12 3D テキストレール既定フォントとして追加",
+    "generator": null
+  },
+  "author": "ryoma",
+  "license": {
+    "spdx": "OFL-1.1",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": true
+  },
+  "price": null,
+  "remote": true,
+  "source": {
+    "url": "https://fonts.google.com/specimen/Zen+Kaku+Gothic+New",
+    "acquisition": "direct",
+    "license_at_source": "SIL Open Font License 1.1（google/fonts リポの ofl/zenkakugothicnew 配下に OFL.txt 同梱）",
+    "attribution_required": false
+  }
+}
