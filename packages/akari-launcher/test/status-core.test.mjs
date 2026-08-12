@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import test from "node:test";
 
+import { formatStatusOutput } from "../src/status-command.mjs";
 import { resolveProjectStatus, serializeStatus } from "../src/status-core/status.mjs";
 
 async function withProject(callback) {
@@ -196,12 +197,27 @@ test("malformed and unknown authoritative state fails closed", async () => {
     assert.equal(status.state_health, "inconclusive");
     assert.equal(status.workflow_stage, "state_inconclusive");
     assert.equal(status.release.accepted, false);
+    let summary = formatStatusOutput(status);
+    assert.match(summary, /\.akari\/intake\.json is not valid JSON:/u);
+    assert.match(summary, /akari status --json/u);
 
     await scaffold(root);
-    await writeJson(join(root, ".akari", "intake.json"), { version: 99, status: "future" });
+    await writeJson(join(root, "edit.json"), { version: 2 });
     status = resolveProjectStatus(root);
     assert.equal(status.workflow_stage, "state_inconclusive");
-    assert.ok(status.problems.some((problem) => problem.includes("unsupported version")));
+    assert.ok(status.problems.includes("edit.json has unsupported version 2"));
+    summary = formatStatusOutput(status);
+    assert.match(summary, /edit\.json has unsupported version 2/u);
+    assert.match(summary, /akari status --json/u);
+  });
+});
+
+test("conclusive status summary remains a single unchanged line", async () => {
+  await withProject(async (root) => {
+    await scaffold(root);
+    const summary = formatStatusOutput(resolveProjectStatus(root));
+    assert.equal(summary, "AKARI status: planning_pending (valid). Next skill: edit-plan. Waiting on agent: edit-plan.");
+    assert.equal(summary.includes("\n"), false);
   });
 });
 

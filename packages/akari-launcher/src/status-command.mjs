@@ -30,8 +30,15 @@ export async function runStatusCommand(argv, options = {}) {
   const status = parsed.full
     ? await resolveFullProjectStatus(parsed.projectRoot)
     : resolveProjectStatus(parsed.projectRoot, { mode: "fast" });
-  log(parsed.json ? serializeStatus(status) : `${formatStatusSummary(status)}\n`);
+  log(parsed.json ? serializeStatus(status) : `${formatStatusOutput(status)}\n`);
   return { exitCode: status.state_health === "inconclusive" ? 1 : 0, status };
+}
+
+export function formatStatusOutput(status) {
+  const summary = formatStatusSummary(status);
+  if (status.state_health !== "inconclusive" || status.problems.length === 0) return summary;
+  const problems = status.problems.map((problem) => `  - ${problem}`).join("\n");
+  return `${summary}\nCould not determine:\n${problems}\nNext: run \`akari status --json\` for the full machine-readable report, or resolve the items above and re-run \`akari status\`.`;
 }
 
 export function parseStatusArguments(argv, cwd = process.cwd()) {
