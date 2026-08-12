@@ -184,6 +184,12 @@ export async function lintProject(input, options = {}) {
   const structure = validateEditStructure(edit, findings, paths);
   const sourcePath = structure.sourcePath;
   const referenceState = await validateReferences(edit, findings, paths);
+  // docs/contract-2026-08-12-still-image-cut-source-v0.md: ffprobe never reports format.duration
+  // for a bare still image, so probeDuration() below would throw ExecutionError (a positive-
+  // duration assertion) and crash the whole lint run with exit code 2 instead of a normal
+  // PASS/FAIL verdict. Skip the probe for a still-image source entirely; sourceDuration staying
+  // null is exactly what validateCuts already treats as "no source-duration bound to check".
+  const sourceIsStillImage = edit?.version === 0 && isImageCutSourcePath(edit?.source?.path);
   let sourceDuration =
     edit?.version === 0 ? extractAnalysisDuration(analysisState.value) : null;
 
@@ -191,7 +197,8 @@ export async function lintProject(input, options = {}) {
     edit?.version === 0 &&
     sourceDuration === null &&
     sourcePath &&
-    referenceState.sourceExists
+    referenceState.sourceExists &&
+    !sourceIsStillImage
   ) {
     sourceDuration = probeDuration(sourcePath, options.ffprobeCommand);
   }
@@ -199,7 +206,9 @@ export async function lintProject(input, options = {}) {
     addSkipped(
       skipped,
       "cuts.source-duration",
-      sourcePath
+      sourceIsStillImage
+        ? "source duration is unavailable because source.path is a still image (no intrinsic duration; declare the display duration via cuts)"
+        : sourcePath
         ? "source duration is unavailable because the source reference cannot be read"
         : "source duration is unavailable because source.path is invalid",
     );
@@ -215,6 +224,7 @@ export async function lintProject(input, options = {}) {
   );
   validateCutTrackFields(edit.cuts, findings);
   validateCutTransformFields(edit.cuts, findings);
+  validateStillImageCuts(edit, findings);
   const cutTrackSegments = computeCutTrackSegments(edit.cuts);
   for (const segment of findTrackOverlaps(cutTrackSegments)) {
     addFinding(findings, {
@@ -797,6 +807,94 @@ function validateCutTransformFields(cuts, findings) {
         path: `${path}.transform.scale`,
       });
     }
+  }
+}
+
+// docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1: 判定は拡張子のみ。同じ集合
+// (png/jpe?g/webp/bmp/gif, 大小無視) を packages/render-cut/src/layers.mjs の
+// IMAGE_LAYER_SOURCE_PATTERN / plan.mjs の chroma_key 背景判定と揃える。edit-lint はスキーマ
+// パッケージから独立しているため、ここでは同じパターンを別リテラルとして持つ（3面パリティ
+// テストと同じ流儀: packages/preview-server/test/image-layer-source.test.mjs 参照）。
+const IMAGE_CUT_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
+
+function isImageCutSourcePath(pathValue) {
+  return typeof pathValue === "string" && IMAGE_CUT_SOURCE_PATTERN.test(pathValue);
+}
+
+// 裁定3〜5（in/out 意味論・freeze/speed 警告・v0 空 cuts 拒否）。source が静止画のときだけ発火する。
+function validateStillImageCuts(edit, findings) {
+  if (!isRecord(edit)) return;
+  const cuts = Array.isArray(edit.cuts) ? edit.cuts : [];
+
+  if (edit.version === 0) {
+    if (!isRecord(edit.source) || !isImageCutSourcePath(edit.source.path)) return;
+    if (cuts.length === 0) {
+      addFinding(findings, {
+        severity: "error",
+        check: "cuts.still-image-cuts-required",
+        message:
+          "source.path is a still image, which has no intrinsic duration, so v0's \"empty cuts = whole "
+            + "source\" shortcut does not apply. Declare at least one cut with an explicit out to state the "
+            + "display duration.",
+        path: "edit.json#cuts",
+      });
+      return;
+    }
+    for (const [index, cut] of cuts.entries()) {
+      validateStillImageCutFields(cut, index, findings);
+    }
+    return;
+  }
+
+  if (edit.version !== 1) return;
+  const imageSourceIds = new Set(
+    (Array.isArray(edit.sources) ? edit.sources : [])
+      .filter((source) => isRecord(source) && isImageCutSourcePath(source.path))
+      .map((source) => source.id),
+  );
+  if (imageSourceIds.size === 0) return;
+  for (const [index, cut] of cuts.entries()) {
+    if (!isRecord(cut) || !imageSourceIds.has(cut.src)) continue;
+    validateStillImageCutFields(cut, index, findings);
+  }
+}
+
+function validateStillImageCutFields(cut, index, findings) {
+  if (!isRecord(cut)) return;
+  const path = `edit.json#cuts[${index}]`;
+  if (isFiniteNumber(cut.in) && Math.abs(cut.in) > EPSILON) {
+    addFinding(findings, {
+      severity: "warning",
+      check: "cuts.still-image-in",
+      message:
+        "cut.in has no source to seek into for a still image -- only out - in (the display duration) is used "
+          + "by render; 0 is recommended for cut.in here",
+      path: `${path}.in`,
+    });
+  }
+  if (Object.hasOwn(cut, "freeze") && isRecord(cut.freeze)) {
+    addFinding(findings, {
+      severity: "warning",
+      check: "cuts.still-image-freeze",
+      message:
+        "freeze on a still image source is a no-op visually (the source frame never changes) -- it only adds "
+          + "hold time; extending out achieves the same result more directly",
+      path: `${path}.freeze`,
+    });
+  }
+  if (
+    Object.hasOwn(cut, "speed") &&
+    isPositiveNumber(cut.speed) &&
+    Math.abs(cut.speed - 1) > EPSILON
+  ) {
+    addFinding(findings, {
+      severity: "warning",
+      check: "cuts.still-image-speed",
+      message:
+        "speed on a still image source has no visual effect (the source frame never changes) -- it only "
+          + "rescales the display duration",
+      path: `${path}.speed`,
+    });
   }
 }
 

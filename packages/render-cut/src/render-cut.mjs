@@ -28,6 +28,7 @@ import {
   resolveEncodingPolicy,
 } from "./encode-preset.mjs";
 import { buildPlan, selectDefaultOutput } from "./plan.mjs";
+import { isImageLayerSource } from "./layers.mjs";
 import {
   captureStaticOverlays,
   captureWithPuppeteer,
@@ -576,8 +577,14 @@ async function measureCapabilities(projectRoot, edit) {
     const sourcePath = resolve(projectRoot, edit.source.path);
     const sourceProbe = probeMedia(ffprobeCommand, sourcePath);
     const sourceVideo = sourceProbe.streams.find((stream) => stream.codec_type === "video");
-    const sourceDuration = Number(sourceProbe.format?.duration);
-    if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) {
+    // docs/contract-2026-08-12-still-image-cut-source-v0.md: ffprobe never reports format.duration
+    // for a bare still image (verified empirically, with or without -loop), so the positive-
+    // duration requirement below is meaningless for one and must not throw. sourceDuration stays
+    // null; plan.mjs's own guard rejects the one case that would actually need it (v0 + still
+    // image + empty cuts[], the "whole source" shortcut a duration-less image cannot satisfy).
+    const sourceIsStillImage = isImageLayerSource(edit.source.path);
+    const sourceDuration = sourceIsStillImage ? null : Number(sourceProbe.format?.duration);
+    if (!sourceIsStillImage && (!Number.isFinite(sourceDuration) || sourceDuration <= 0)) {
       throw new ExecutionError("ffprobe did not report a positive source duration");
     }
     const hyperframesPath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "bin", "hyperframes.mjs");
@@ -624,8 +631,11 @@ async function measureCapabilities(projectRoot, edit) {
     const path = resolve(projectRoot, source.path);
     const probe = probeMedia(ffprobeCommand, path);
     const video = probe.streams.find((stream) => stream.codec_type === "video");
-    const duration = Number(probe.format?.duration ?? video?.duration);
-    if (!Number.isFinite(duration) || duration <= 0) {
+    // docs/contract-2026-08-12-still-image-cut-source-v0.md: same still-image duration exemption
+    // as the v0 branch above, per source.
+    const isStillImage = isImageLayerSource(source.path);
+    const duration = isStillImage ? null : Number(probe.format?.duration ?? video?.duration);
+    if (!isStillImage && (!Number.isFinite(duration) || duration <= 0)) {
       throw new ExecutionError(`ffprobe did not report a positive source duration for ${source.id}`);
     }
     return {

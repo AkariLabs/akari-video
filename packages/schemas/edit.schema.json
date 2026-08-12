@@ -74,7 +74,8 @@
           ]
         },
         "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
-      }
+      },
+      "$comment": "docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1: path が静止画拡張子（png/jpe?g/webp/bmp/gif、大小無視）のとき、cuts[] はこのソースを静止画として扱う。判定は拡張子のみで、この $def に isStatic 等の新フィールドは足さない（packages/render-cut/src/layers.mjs の IMAGE_LAYER_SOURCE_PATTERN と同一集合）。静止画ソースは v0 の「cuts 空 = source 全体」を適用できない（画像に尺が無いため）ため cuts の明示が必須（edit-lint の cuts.still-image-cuts-required が検証）。"
     },
     "sourceV1": {
       "type": "object",
@@ -90,7 +91,8 @@
           ]
         },
         "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
-      }
+      },
+      "$comment": "docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1: path が静止画拡張子（sourceV0 と同一集合）のとき、cuts[].src でこの source を参照するカットは静止画として扱われる（video/image のソース混在が v1 の主眼）。cuts[].in は 0 推奨・out - in が表示尺（cuts[].freeze/speed は動作はするが無意味なため edit-lint が警告する）。"
     },
     "narrationProvenance": {
       "type": "object",

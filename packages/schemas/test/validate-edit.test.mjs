@@ -624,6 +624,14 @@ test("cuts[].track must be a non-negative integer", () => {
   assert.match(executed.stderr, /cuts\[0\]\.track は 0 以上の整数である必要があります/);
 });
 
+// docs/contract-2026-08-12-still-image-cut-source-v0.md: mp4 と png ソースが cuts[] に混在する
+// v1 edit.json はスキーマ検証を素通りする（判定は拡張子のみで sourceV1 自体の形は変わらない）。
+test("v1 cuts mixing an mp4 and a still-image (png) source passes", () => {
+  const executed = run("edit-cuts-still-image-source-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
 for (const fixture of [
   "edit-cuts-transform-omitted-valid",
   "edit-cuts-transform-full-valid",

@@ -50,6 +50,10 @@ const api = {
 };
 
 const video = document.getElementById('preview-video');
+// cuts[] の静止画ソース区間用（docs/contract-2026-08-12-still-image-cut-source-v0.md）。
+// video/img は常に両方 DOM に存在し続ける（video を作り直さない — MediaElementAudioSourceNode は
+// 生成元の要素に紐付くため、要素を差し替えると音声グラフが壊れる）。表示は display の出し分けのみ。
+const img = document.getElementById('preview-image');
 const playToggle = document.getElementById('play-toggle');
 const frameBack = document.getElementById('frame-back');
 const frameForward = document.getElementById('frame-forward');
@@ -185,7 +189,17 @@ async function init() {
     fps = timelineData.fps || 30;
 
     buildSegments();
-    if (summary?.cuts?.length > 0) video.src = getVideoSource(0);
+    if (summary?.cuts?.length > 0) {
+      // 先頭カットが静止画ソースのときは <img> を初期表示にする（0秒地点で <video> に
+      // その src を割り当てても再生できないだけで実害は無いが、表示の出し分けを合わせておく）。
+      const seg0 = getActiveSegment(0);
+      if (seg0 && isStillImageCutSegment(seg0)) {
+        showStillImageForSegment(seg0);
+      } else {
+        showVideoBase();
+        video.src = getVideoSource(0);
+      }
+    }
     updateStageScale();
     setupLayers();
     setupPenCanvas();
@@ -313,6 +327,29 @@ function setVideoSourceIfChanged(el, src) {
 function getVideoSource(cutIndex) {
   const clip = timelineData.clips.find(c => c.id === `cut-${cutIndex}`);
   return clip ? clip.src : (timelineData.clips[0]?.src || '');
+}
+
+// docs/contract-2026-08-12-still-image-cut-source-v0.md: cuts[] の静止画ソース区間はメインの
+// <video id="preview-video"> ではなく <img id="preview-image"> で表示する（layers[] の静止画判定
+// isImageLayerSrc/IMAGE_LAYER_SRC_PATTERN と同じ拡張子集合 -- 定義は下の setupLayers 節にある。
+// 関数宣言なので巻き上げにより、このファイル内のどの実行順序からでも呼べる）。
+function isStillImageCutSegment(seg) {
+  return !!seg && !seg.isGap && seg.index >= 0 && isImageLayerSrc(getVideoSource(seg.index));
+}
+
+// 静止画区間へ入る: <video> は止めて隠す（音声グラフ(MediaElementAudioSourceNode)へ古い映像の
+// 音が漏れないように、src はそのまま残して pause するだけ -- 要素は作り直さない）。<img> の
+// src は画像なので currentTime 相当のシークは不要、一度セットしたら区間内は据え置きでよい。
+function showStillImageForSegment(seg) {
+  video.pause();
+  video.style.display = 'none';
+  const src = getVideoSource(seg.index);
+  setVideoSourceIfChanged(img, src);
+  img.style.display = '';
+}
+function showVideoBase() {
+  img.style.display = 'none';
+  video.style.display = '';
 }
 
 // --- Segments ---
@@ -2002,6 +2039,9 @@ function sharedSegmentsView() {
 // 左上基準、transform の scale/rotate は中央基準なので cut-transform-visual.js で合成する。
 function playedCutLocalSeconds(seg) {
   if (!seg || seg.isGap) return 0;
+  // 静止画区間は video.currentTime を進めない（画像はシークしないため）ので、代わりに
+  // マスタークロック outputTime からカット内経過秒を直接出す。
+  if (isStillImageCutSegment(seg)) return outputTime - seg.outStart;
   const speed = seg.speed > 0 ? seg.speed : 1;
   return ((video.currentTime || 0) - seg.inSec) / speed;
 }
@@ -2017,9 +2057,13 @@ function applyCutFramingVisual() {
     outputWidth: os.width,
     outputHeight: os.height,
   });
-  video.style.transformOrigin = composed.transformOrigin;
-  video.style.transform = composed.transform;
-  video.style.opacity = composed.opacity;
+  // 現在表示中のほう（video/img）にだけ適用しても見た目は変わらないが、切替の瞬間に古いスタイルが
+  // 一瞬見えることがないよう両方へ同じ値を書く（隠れている側のスタイルは無害）。
+  for (const el of [video, img]) {
+    el.style.transformOrigin = composed.transformOrigin;
+    el.style.transform = composed.transform;
+    el.style.opacity = composed.opacity;
+  }
 }
 
 // cuts[].freeze の一時停止ホールド（近似実装。尺は伸ばさない -- contract-2026-08-02-preview-parity.md
@@ -2034,7 +2078,9 @@ function pauseAllPlaybackForFreeze() {
   for (const lv of layerVideos) lv.el.pause();
 }
 function resumeAllPlaybackForFreeze() {
-  if (video.paused) video.play();
+  // 静止画区間では <video> を再生してはいけない（隠れているだけで、再生すると古いカットの
+  // 音声が MediaElementAudioSourceNode 経由で漏れる）。
+  if (video.paused && !isStillImageCutSegment(getActiveSegment(outputTime))) video.play();
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   for (const lv of layerVideos) if (lv.visible) lv.el.play();
 }
@@ -2051,9 +2097,17 @@ function seekTo(t) {
   const vt = getVideoTimeForOutput(outputTime);
   if (vt >= 0) {
     const seg = getActiveSegment(outputTime);
-    // 音量をゼロへランプしてから source/currentTime を変え、切替後に戻す。ユーザー操作の
-    // シークもカット境界と同じ経路を通すことで、不連続なサンプルを直接 destination へ出さない。
-    if (seg && seg.index >= 0) requestBaseVideoSeek(getVideoSource(seg.index), vt);
+    if (seg && seg.index >= 0) {
+      if (isStillImageCutSegment(seg)) {
+        // 静止画には currentTime シークの概念が無い。src を合わせて表示を切り替えるだけでよい。
+        showStillImageForSegment(seg);
+      } else {
+        // 音量をゼロへランプしてから source/currentTime を変え、切替後に戻す。ユーザー操作の
+        // シークもカット境界と同じ経路を通すことで、不連続なサンプルを直接 destination へ出さない。
+        showVideoBase();
+        requestBaseVideoSeek(getVideoSource(seg.index), vt);
+      }
+    }
   }
   seek.value = outputTime;
   updateTimeLabel();
@@ -2078,13 +2132,16 @@ function play() {
   isPlaying = true;
   lastWallMs = 0;
   if (audioCtx?.state === 'suspended') audioCtx.resume();
-  if (baseAudioDeClick?.pending) {
+  // 静止画区間の開始位置から再生を始めるときは <video> を動かさない（隠れたまま古い映像の
+  // 音声が漏れるのを防ぐ -- resumeAllPlaybackForFreeze と同じ理由）。
+  const onStillImage = isStillImageCutSegment(getActiveSegment(outputTime));
+  if (!onStillImage && baseAudioDeClick?.pending) {
     baseAudioDeClick.request(() => ensureMediaPlaying(video, isPlaying));
   }
   // 再生開始位置の BGM を組む（一時停止からの再開も含め、必ず今の outputTime に合わせる）
   restartBgm(outputTime);
   syncAudio(outputTime);
-  video.play();
+  if (!onStillImage) video.play();
   for (const lv of layerVideos) if (lv.visible) lv.el.play();
   playToggle.innerHTML = pauseIcon;
   playToggle.setAttribute('aria-label', '一時停止');
@@ -2147,15 +2204,21 @@ function playbackLoop() {
   const target = getVideoTimeForOutput(outputTime);
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
-    // ズレ補正は「シーク中でない」かつ「シーク遅延より大きくズレた」ときだけ。
-    // 旧実装（閾値 0.1・シーク中も発行）は、1 回のシーク遅延がそのまま次フレームの
-    // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
-    // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
-    // 補正が必要な場合は 12ms で下地音声をゼロへ落としてから source/currentTime を切り替える。
-    syncBaseVideoTime(getVideoSource(seg.index), target, SYNC_DEADBAND_SEC);
-    // src の差し替えで paused に戻った場合も、時刻を合わせてから再生を復帰する。
-    // 読み込み直後の play() が失敗しても、再生中だけ次フレームで再試行される。
-    ensureMediaPlaying(video, isPlaying);
+    if (isStillImageCutSegment(seg)) {
+      // 静止画には currentTime シークも play() 復帰も無い。表示の出し分けだけでよい。
+      showStillImageForSegment(seg);
+    } else {
+      showVideoBase();
+      // ズレ補正は「シーク中でない」かつ「シーク遅延より大きくズレた」ときだけ。
+      // 旧実装（閾値 0.1・シーク中も発行）は、1 回のシーク遅延がそのまま次フレームの
+      // ズレになって再びしきい値を超えるため補正が自己増殖し、シーク暴走（実測 10 回/秒・
+      // readyState 1 のまま・waiting でスピナー点灯・カクつき）を起こしていた。
+      // 補正が必要な場合は 12ms で下地音声をゼロへ落としてから source/currentTime を切り替える。
+      syncBaseVideoTime(getVideoSource(seg.index), target, SYNC_DEADBAND_SEC);
+      // src の差し替えで paused に戻った場合も、時刻を合わせてから再生を復帰する。
+      // 読み込み直後の play() が失敗しても、再生中だけ次フレームで再試行される。
+      ensureMediaPlaying(video, isPlaying);
+    }
     if (seg.index !== freezeHoldConsumedForCutIndex) {
       const freezeCheck = checkCutFreezeCrossing(seg.freeze, playedCutLocalSeconds(seg));
       if (freezeCheck.shouldHold) {
