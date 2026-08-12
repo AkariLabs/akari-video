@@ -118,23 +118,35 @@ test("audio.master.loudnorm normalizes the final output to the target LUFS withi
 test("explicit -1.7 dBTP real render keeps filter output and independent decoded input evidence distinct and receipt-bound", async (t) => {
   const ffmpegPath = spawnSync("which", ["ffmpeg"], { encoding: "utf8" }).stdout.trim();
   if (!ffmpegPath) return t.skip("ffmpeg unavailable");
+  const ffmpegVersion = spawnSync(ffmpegPath, ["-version"], { encoding: "utf8" }).stdout.split(/\r?\n/u)[0].trim();
   const project = await makeProject({
     duration: 2,
     master: { denoise: "off", loudnorm: -14, true_peak_dbtp: -1.7 },
   });
   try {
-    const logPath = join(project, "ffmpeg-audio-evidence.jsonl");
-    const wrapper = join(project, "ffmpeg-audio-recorder.mjs");
-    await writeFile(wrapper, `#!/usr/bin/env node
-import { appendFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-const args = process.argv.slice(2);
-appendFileSync(process.env.AKARI_FFMPEG_LOG, JSON.stringify(args) + "\\n");
-const result = spawnSync(${JSON.stringify(ffmpegPath)}, args, { stdio: "inherit" });
-process.exit(result.status ?? 2);
+    const logPath = join(project, "ffmpeg-audio-evidence.log");
+    const wrapper = join(project, "ffmpeg-audio-recorder.sh");
+    await writeFile(wrapper, `#!/bin/sh
+if [ "$#" -eq 1 ] && [ "$1" = "-version" ]; then
+  printf '%s\\n' "$AKARI_FFMPEG_VERSION"
+  exit 0
+fi
+{
+  for argument do
+    printf '%s\\037' "$argument"
+  done
+  printf '\\036'
+} >> "$AKARI_FFMPEG_LOG"
+exec "$AKARI_REAL_FFMPEG" "$@"
 `);
     await chmod(wrapper, 0o755);
-    const executed = run(project, [], { ...process.env, FFMPEG: wrapper, AKARI_FFMPEG_LOG: logPath });
+    const executed = run(project, [], {
+      ...process.env,
+      FFMPEG: wrapper,
+      AKARI_FFMPEG_LOG: logPath,
+      AKARI_FFMPEG_VERSION: ffmpegVersion,
+      AKARI_REAL_FFMPEG: ffmpegPath,
+    });
     assert.equal(executed.status, 0, executed.stderr);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
@@ -150,7 +162,10 @@ process.exit(result.status ?? 2);
       "filter output estimate must not replace the independent decoded input measurement");
     assert.match(state.plan.commands.audio_mix.args.join(" "), /loudnorm=I=-14:TP=-1\.7:LRA=11:print_format=json/u);
 
-    const invocations = (await readFile(logPath, "utf8")).trim().split("\n").map(JSON.parse);
+    const invocations = (await readFile(logPath, "utf8"))
+      .split("\x1e")
+      .filter(Boolean)
+      .map((record) => record.split("\x1f").slice(0, -1));
     const loudnormCalls = invocations.filter(args => args.some(value => value.includes("loudnorm=")));
     assert.equal(loudnormCalls.length, 2, JSON.stringify(loudnormCalls));
     const filterCall = loudnormCalls.find(args => args.includes("-filter_complex"));
