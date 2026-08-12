@@ -38,7 +38,7 @@ Task-based guides, ordered by the flow of production.
 
 ## Skills
 
-The workflow ships as 21 agent-side skills. The [Skills Catalog](./skills.md) is the
+The workflow ships as 22 agent-side skills. The [Skills Catalog](./skills.md) is the
 single map: what each skill owns, when it triggers, and which external tools and
 animation runtimes it connects to — including the two 3D paths.
 
@@ -72,6 +72,7 @@ All contracts follow the
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | Where generated artifacts live (layer definitions, root-level principle, deletion safety) |
 | [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | The workspace (CreatorRoot) contract — the layer above projects. Three locations, four ownership layers, first-run flow, portability |
 | [contract-2026-08-02-setup-remote-v0.md](./contract-2026-08-02-setup-remote-v0.md) | setup-remote skill contract v0 — remote viewing/approval and footage hand-off (Tailscale / Taildrop, tailnet-only by default) |
+| [contract-2026-08-12-chat-approval-v0.md](./contract-2026-08-12-chat-approval-v0.md) | chat-approval contract v0 — approval-gate notification and button-only approval over chat (Telegram, long polling, no public endpoint, no free-text instructions) |
 | [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | Canonical status, immutable render receipts, human acceptance records, and capability absence receipts |
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | Shared caption display/layout, master encoding, audio QC evidence, and recipe boundaries |
 

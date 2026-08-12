@@ -39,7 +39,7 @@
 
 ## Skills
 
-ワークフローは 21 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
+ワークフローは 22 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
 その一枚地図です — 各スキルの担当・発動タイミング・接続先の外部ツールと
 アニメーションランタイム（3D の 2 経路含む）をまとめています。
 
@@ -68,6 +68,7 @@
 | [contract-2026-07-25-project-structure-v0.md](./contract-2026-07-25-project-structure-v0.md) | 生成物の置き場所契約（層の定義・ルート直下原則・削除安全） |
 | [contract-2026-08-02-creator-root-v1.md](./contract-2026-08-02-creator-root-v1.md) | 作業場（CreatorRoot）契約 — プロジェクトの上の階層。3 つの場所・所有権 4 層・初回起動動線・可搬性 |
 | [contract-2026-08-02-setup-remote-v0.md](./contract-2026-08-02-setup-remote-v0.md) | setup-remote スキル契約 v0 — 遠隔の閲覧・承認 + 素材受け渡し（Tailscale / Taildrop・既定 tailnet 限定） |
+| [contract-2026-08-12-chat-approval-v0.md](./contract-2026-08-12-chat-approval-v0.md) | chat-approval 契約 v0 — 承認ゲートのチャット通知 + ボタン承認（Telegram・long polling・公開エンドポイントなし・自由文は指示として扱わない） |
 | [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | canonical status・immutable render receipt・人間受理記録・capability absence receipt |
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | 共有字幕表示・reference-pixel layout・master encode・audio QC・recipe 境界 |
 
