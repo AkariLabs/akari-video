@@ -180,7 +180,7 @@ export function chooseProposalDecision(proposal) {
 export function proposalToAnnotation({ proposal, decision, sessionId, audioPath, createdAt }) {
   const needsConfirmation = decision.confidence === "low" || proposal.reference.confidence === "low";
   const pairedStroke = proposal.reference.pairedStroke;
-  const simplifiedPoints = pairedStroke
+  const simplifiedPoints = pairedStroke?.tool === "pen"
     ? simplifyStrokePoints(pairedStroke.points)
     : null;
   return {
@@ -189,13 +189,17 @@ export function proposalToAnnotation({ proposal, decision, sessionId, audioPath,
     sourceRange: proposal.reference.sourceRange,
     timelineT: proposal.reference.timelineT,
     target: proposal.reference.target,
+    ...(pairedStroke?.tool === "rect" ? {
+      targetKind: "region",
+      region: { box: pairedStroke.box },
+    } : {}),
     ...(proposal.reference.refs ? { refs: proposal.reference.refs } : {}),
     text: needsConfirmation
       ? confirmationText(decision.text, proposal.reference, decision)
       : decision.text,
     input: "session",
     audio: audioPath,
-    strokes: pairedStroke ? [{
+    strokes: pairedStroke?.tool === "pen" ? [{
       tool: "pen",
       space: "content-rect",
       frame: {
