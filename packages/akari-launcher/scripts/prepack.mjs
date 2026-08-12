@@ -19,7 +19,16 @@
  *   生成物を残さない
  */
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, rmSync, statSync, chmodSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,9 +43,16 @@ const VENDOR_SOURCES = [
   'skills',
   'templates/project-default',
   'presets/luts',
+  // edit-lint は外部 npm 依存ゼロだが、src から edit-store のビルド済み実装と
+  // textanim preset を参照する。既に同梱済みの schemas / audio-library-setup /
+  // media-bin と合わせ、CLI の実行時閉包を明示的に揃える。
+  'presets/textanim',
   'assets/font/noto-sans-jp/NotoSansJP-Variable.ttf',
   'packages/schemas',
   'packages/project-scaffold',
+  'packages/edit-lint/bin',
+  'packages/edit-lint/src',
+  'packages/edit-store/lib',
   // 作業場（creator-root）モジュール。npm 配布時も初回動線（first-run.mjs 経由の
   // 動的 import）が機能するよう同梱する。未同梱の場合は repo-assets.mjs 側で
   // creatorRootModulePath が null になり、現行動作へフォールバックする。
@@ -79,7 +95,13 @@ const existingTrackedFiles = allTrackedFiles.filter((relative) => existsSync(pat
 const baseVendorFiles = existingTrackedFiles.filter((relative) => VENDOR_SOURCES.some(
   (source) => relative === source || relative.startsWith(`${source}/`),
 ));
-const capabilityFiles = discoverCheckoutCapabilitySources(REPO_ROOT, { trackedFiles: existingTrackedFiles });
+// package.json#bin は capability の説明情報ではあるが、target だけをコピーしても、src や
+// npm dependencies が無ければ実行物にはならない。bin は VENDOR_SOURCES で実行時閉包を
+// 明示したパッケージだけに限定し、その他は下で reference-only metadata へ変換する。
+const capabilityFiles = discoverCheckoutCapabilitySources(REPO_ROOT, {
+  trackedFiles: existingTrackedFiles,
+  includeBinTargets: false,
+});
 const trackedFiles = [...new Set([...baseVendorFiles, ...capabilityFiles])]
   .sort((left, right) => left.localeCompare(right, 'en'));
 if (trackedFiles.length === 0) {
@@ -101,6 +123,7 @@ for (const relative of trackedFiles) {
   chmodSync(to, statSync(from).mode);
   copied += 1;
 }
+rewriteReferenceOnlyPackageManifests(trackedFiles);
 writeFileSync(
   path.join(VENDOR_ROOT, '.akari-capability-sources.json'),
   `${JSON.stringify({ version: 1, sources: capabilityFiles }, null, 2)}\n`,
@@ -109,3 +132,54 @@ writeFileSync(
 copyFileSync(path.join(REPO_ROOT, 'LICENSE'), LICENSE_COPY);
 
 console.error(`prepack: vendor 同梱を作成しました（追跡ファイル ${copied} 件 → ${VENDOR_ROOT}）`);
+
+function rewriteReferenceOnlyPackageManifests(selectedFiles) {
+  const selected = new Set(selectedFiles);
+  const manifests = selectedFiles.filter((relative) => /^packages\/[^/]+\/package\.json$/u.test(relative));
+  for (const manifestPath of manifests) {
+    const sourcePath = path.join(REPO_ROOT, manifestPath);
+    const manifest = JSON.parse(readFileSync(sourcePath, 'utf8'));
+    const entries = manifestBinEntries(manifest);
+    if (entries.length === 0) continue;
+
+    const packageRoot = path.posix.dirname(manifestPath);
+    const included = [];
+    const omitted = [];
+    for (const entry of entries) {
+      const canonical = path.posix.normalize(path.posix.join(packageRoot, entry.target)).replace(/^\.\//u, '');
+      (selected.has(canonical) ? included : omitted).push(entry);
+    }
+    if (omitted.length === 0) continue;
+
+    if (included.length === 0) {
+      delete manifest.bin;
+    } else {
+      manifest.bin = Object.fromEntries(included.map(({ command, target }) => [command, target]));
+    }
+    const guidance = 'These CLI entrypoints are not included in the akari-video npm package. Run them from a full AKARI Video app installation (normally ~/.akari/app) or a monorepo checkout.';
+    const referenceOnlyTargets = omitted.map(({ target }) => `${target} is reference-only`).join('; ');
+    // capability.mjs は package description を検索結果の見出しに使う。bin path を検索した
+    // ユーザーが上位結果だけを見ても、古い実行例より先に配布形態と導線を読めるようにする。
+    manifest.description = `${manifest.description ?? manifest.name ?? 'Package'} [akari-video npm vendor: ${referenceOnlyTargets}. ${guidance}]`;
+    manifest.akariVideoVendor = {
+      execution: included.length === 0 ? 'reference-only' : 'partial',
+      omittedBin: Object.fromEntries(omitted.map(({ command, target }) => [command, target])),
+      guidance
+    };
+    writeFileSync(
+      path.join(VENDOR_ROOT, manifestPath),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      'utf8',
+    );
+  }
+}
+
+function manifestBinEntries(manifest) {
+  if (typeof manifest?.bin === 'string') {
+    return [{ command: manifest.name, target: manifest.bin }];
+  }
+  if (manifest?.bin && typeof manifest.bin === 'object' && !Array.isArray(manifest.bin)) {
+    return Object.entries(manifest.bin).map(([command, target]) => ({ command, target }));
+  }
+  return [];
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cp, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -9,7 +9,7 @@ import { createIntegrityFixture } from "./helpers/integrity-fixture.mjs";
 
 const REAL_REPO_ROOT = resolve(import.meta.dirname, "../../..");
 
-test("npm prepack vendors manifest-resolved capability sources and runs outside the monorepo", async () => {
+test("npm prepack keeps only runnable vendored bins and marks omitted capability bins reference-only", async () => {
   const temporary = await mkdtemp(join(tmpdir(), "akari-capability-pack-"));
   try {
     const fakeRepo = join(temporary, "repo");
@@ -39,6 +39,22 @@ test("npm prepack vendors manifest-resolved capability sources and runs outside 
       }, null, 2)}\n`);
       await writeFixture(fakeRepo, `packages/${name}/${target}`, `#!/usr/bin/env node\n// ${name} public help surface\n`);
     }
+    await writeFixture(fakeRepo, "packages/edit-lint/package.json", `${JSON.stringify({
+      name: "@fixture/edit-lint",
+      description: "runnable edit-lint fixture",
+      type: "module",
+      bin: { "edit-lint": "bin/edit-lint.mjs" },
+    }, null, 2)}\n`);
+    await writeFixture(
+      fakeRepo,
+      "packages/edit-lint/bin/edit-lint.mjs",
+      '#!/usr/bin/env node\nimport { runCli } from "../src/edit-lint.mjs";\nprocess.exitCode = runCli(process.argv.slice(2));\n',
+    );
+    await writeFixture(
+      fakeRepo,
+      "packages/edit-lint/src/edit-lint.mjs",
+      'export function runCli(args) { if (args.includes("--help")) console.log("fixture edit-lint help"); return 0; }\n',
+    );
 
     assert.equal(run("git", ["init", "-q"], fakeRepo).status, 0);
     const added = run("git", ["add", "."], fakeRepo);
@@ -49,14 +65,42 @@ test("npm prepack vendors manifest-resolved capability sources and runs outside 
     const listing = run("tar", ["-tzf", archive], temporary);
     assert.equal(listing.status, 0, listing.stderr);
     for (const [name, target] of entries) {
-      assert.match(listing.stdout, new RegExp(`package/vendor/packages/${escapeRegex(name)}/${escapeRegex(target)}`, "u"));
+      assert.doesNotMatch(listing.stdout, new RegExp(`package/vendor/packages/${escapeRegex(name)}/${escapeRegex(target)}`, "u"));
     }
+    assert.match(listing.stdout, /package\/vendor\/packages\/edit-lint\/bin\/edit-lint\.mjs/u);
+    assert.match(listing.stdout, /package\/vendor\/packages\/edit-lint\/src\/edit-lint\.mjs/u);
     assert.match(listing.stdout, /package\/vendor\/\.akari-capability-sources\.json/u);
 
     const unpacked = join(temporary, "unpacked");
     await mkdir(unpacked);
     assert.equal(run("tar", ["-xzf", archive, "-C", unpacked], temporary).status, 0);
+    const referenceManifest = JSON.parse(await readFile(
+      join(unpacked, "package", "vendor", "packages", "analysis-report", "package.json"),
+      "utf8",
+    ));
+    assert.equal(referenceManifest.bin, undefined);
+    assert.equal(referenceManifest.akariVideoVendor.execution, "reference-only");
+    assert.deepEqual(referenceManifest.akariVideoVendor.omittedBin, {
+      "analysis-report": "render-analysis-report.mjs",
+    });
+    assert.match(referenceManifest.akariVideoVendor.guidance, /~\/\.akari\/app/u);
+    assert.match(referenceManifest.description, /render-analysis-report\.mjs is reference-only/u);
+
+    const runnable = run(process.execPath, [
+      join(unpacked, "package", "vendor", "packages", "edit-lint", "bin", "edit-lint.mjs"),
+      "--help",
+    ], temporary);
+    assert.equal(runnable.status, 0, runnable.stderr || runnable.stdout);
+    assert.match(runnable.stdout, /fixture edit-lint help/u);
+
     const cli = join(unpacked, "package", "bin", "akari.mjs");
+    const omittedQuery = run(process.execPath, [cli, "capability", "render-analysis-report.mjs", "--json"], temporary);
+    assert.equal(omittedQuery.status, 0, omittedQuery.stderr || omittedQuery.stdout);
+    const omittedResult = JSON.parse(omittedQuery.stdout);
+    assert.ok(omittedResult.matches.some((match) =>
+      match.path === "packages/analysis-report/package.json"
+      && /reference-only/u.test(`${match.heading} ${match.snippet}`)));
+
     const query = run(process.execPath, [cli, "capability", "beat-sync", "--json"], temporary);
     assert.equal(query.status, 0, query.stderr || query.stdout);
     const result = JSON.parse(query.stdout);

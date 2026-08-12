@@ -2,7 +2,10 @@ import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
-export function discoverCheckoutCapabilitySources(repoRoot, { trackedFiles = null } = {}) {
+export function discoverCheckoutCapabilitySources(repoRoot, {
+  trackedFiles = null,
+  includeBinTargets = true,
+} = {}) {
   const root = realpathSync(resolve(repoRoot));
   const tracked = trackedFiles ?? execFileSync("git", ["-C", root, "ls-files", "-z"], {
     maxBuffer: 64 * 1024 * 1024,
@@ -25,7 +28,7 @@ export function discoverCheckoutCapabilitySources(repoRoot, { trackedFiles = nul
         throw new Error(`${manifestPath} package.json#bin target is not tracked: ${canonical}`);
       }
       assertRegularContainedFile(root, canonical, `${manifestPath} package.json#bin`);
-      selected.add(canonical);
+      if (includeBinTargets) selected.add(canonical);
     }
   }
   const paths = [...selected].sort(compare);
