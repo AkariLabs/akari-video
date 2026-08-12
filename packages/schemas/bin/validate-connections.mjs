@@ -85,7 +85,7 @@ function validateProviders(value) {
       ids.add(provider.id);
     }
 
-    validateEnum(provider.kind, ["genai", "image", "video", "tts", "music", "sns", "analytics"], `${label}.kind`);
+    validateEnum(provider.kind, ["genai", "image", "video", "tts", "music", "sns", "analytics", "notify"], `${label}.kind`);
     validateEnum(provider.auth, ["login", "env-key", "oauth-mcp", "none"], `${label}.auth`);
     if (provider.auth === "env-key") {
       if (typeof provider.env !== "string" || !/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(provider.env)) {

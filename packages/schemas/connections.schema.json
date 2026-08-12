@@ -38,7 +38,7 @@
           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         },
         "kind": {
-          "enum": ["genai", "image", "video", "tts", "music", "sns", "analytics"]
+          "enum": ["genai", "image", "video", "tts", "music", "sns", "analytics", "notify"]
         },
         "auth": {
           "enum": ["login", "env-key", "oauth-mcp", "none"]

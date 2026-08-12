@@ -1,0 +1,33 @@
+{
+  "providers": [
+    {
+      "id": "telegram-approval",
+      "kind": "messaging",
+      "auth": "env-key",
+      "env": "${AKARI_TELEGRAM_BOT_TOKEN}",
+      "models": {
+        "default": null,
+        "allowed": []
+      },
+      "notes": {
+        "description": "kind に enum 外の値を置いた不正例（notify 追加後も未知の kind が弾かれることの回帰テスト用）。",
+        "workflows": ["承認ゲート（チャット通知 + ボタン承認）"],
+        "billing": "無償（Telegram Bot API）。",
+        "quota": "Bot API のレート制限に従う。",
+        "scopes": ["登録済み chat ID への通知送信"],
+        "setup_url": "https://core.telegram.org/bots#how-do-i-create-a-bot"
+      },
+      "doctor": {
+        "last_checked": null,
+        "status": "unchecked",
+        "detail": "未確認"
+      }
+    }
+  ],
+  "policy": {
+    "currency": "JPY",
+    "monthly_budget": null,
+    "approval_threshold": null
+  },
+  "memory": []
+}
