@@ -37,6 +37,12 @@
 - 選別インポート中: 由来（legacy パス）をコミット本文に記録する
 - 新規 `docs/contract-*.md` は `docs/README.md`・`docs/README.ja.md` 両索引への追記まで含めて
   完了（CI: `npm run check:docs-sync` が索引漏れ・スキル数の手書き数字ドリフトを検出する）
+- **Windows では作業スクリプトを PowerShell（`.ps1`）ではなく Node（`.mjs`）で書く**:
+  Windows PowerShell 5.1 は BOM なし UTF-8 の `.ps1` を ANSI（CP932）として解釈するため
+  日本語が文字化けして構文が壊れ、さらにヒアストリング終端（`'@`）を LF 改行では認識しない
+  （CRLF 必須）。エージェントのファイル書き込みは BOM なし・LF が既定なので両方に当たる。
+  Node は AKARI Video の動作要件そのものなので、`.mjs` で書けばこの 2 つとも起こらない
+  （PowerShell 7 では両方解消済み。ただし一般の Windows 機に入っている前提は置けない）
 
 ## ドキュメント i18n 規約（2026-07-26 オーナー裁定）
 

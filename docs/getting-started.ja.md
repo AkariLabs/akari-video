@@ -184,6 +184,118 @@ ffmpeg -version
 # バージョン情報が表示されれば OK
 ```
 
+### 4. モノレポの取得と npm 依存のインストール
+
+上のワンライナーインストーラーを使う場合、この節の内容はすべて自動で行われます。
+**手動でモノレポを用意する場合**（インストーラーを使わず tarball で取得する場合など）
+だけ読んでください。
+
+ソースを取得します。tarball なら git は不要です（`install.sh` も同じ方法で取得します。
+ただしインストーラーの既定は `main` ではなく最新のリリースタグ `tar.gz/refs/tags/vX.Y.Z` です）。
+
+```sh
+mkdir %USERPROFILE%\.akari\app
+curl -fsSL -o main.tar.gz https://codeload.github.com/AkariLabs/akari-video/tar.gz/refs/heads/main
+tar -xzf main.tar.gz -C %USERPROFILE%\.akari\app --strip-components=1
+```
+
+（Linux / macOS では展開先を `$HOME/.akari/app` にすれば同じ 2 コマンドで動きます。）
+
+#### Windows: 展開時の symlink エラーは想定どおり — 無視してよい
+
+Windows でシンボリックリンクを作るには通常のアカウントに無い権限が必要なため、
+`tar` はリポジトリ内のシンボリックリンクすべてで失敗し、**exit 1** で終わります。
+
+```
+.agents/skills/address-review: Can't create '\\?\C:\Users\<ユーザー名>\.akari\app\.agents\skills\address-review': Invalid argument
+.claude/skills/...   （同様）
+.codex/skills/...    （同様）
+.cursor/skills/...   （同様）
+.opencode/skills/... （同様）
+plugin/skills:       （同様）
+```
+
+**これはインストール失敗ではありません。** 失敗するのはシンボリックリンクである
+エージェント用の入口（`.agents/`・`.claude/`・`.codex/`・`.cursor/`・`.opencode/` 配下の
+スキルディレクトリと `plugin/skills`）だけで、実体のファイル（`packages/`・`skills/`・
+`docs/`・`templates/` など）は展開済みなのでそのまま作業を続けられます。これらのリンクは
+`skills/` を指しているだけで、スキルの実体は `skills/<名前>/SKILL.md` にあります。
+エージェントにはそのパスを直接指定すれば同じことができます
+（「`skills/edit-plan/SKILL.md` を読んでその手順で進めて」）。
+
+ただし `tar` は exit 1 を返すため、展開を包むスクリプトからは「失敗」に見えます。
+終了コードではなく展開されたファイルの有無で判定してください
+（例: `packages\akari-launcher\bin\akari.mjs`）。
+
+シンボリックリンクを実際に作りたい場合は、作成を許可してから展開し直します。
+
+- **開発者モード**を有効にする（設定 → システム → 開発者向け）、または
+  **管理者として実行**したシェルから展開する
+- git clone で取得する場合は、clone の**前に** `git config --global core.symlinks true` も
+  設定する（未設定のまま clone するとシンボリックリンクがテキストファイルになる）
+
+#### npm 依存をインストールする
+
+取得直後は `node_modules/` がありません。外部 npm パッケージに依存する CLI は、
+インストールするまで最初の実行で失敗します。例えば `template-render` は次を返します。
+
+```
+Error: puppeteer-core を読み込めませんでした。パッケージの依存が入っていない可能性があります。
+  npm install    をこのパッケージのディレクトリで実行してください。
+```
+
+外部依存を持つパッケージは以下です。`packages/` 配下のそれ以外のパッケージは Node 標準
+ライブラリだけで動きます（ビルド・テスト専用の devDependencies を持つものはあります）。
+
+| パッケージ | 外部依存 | 何に必要か |
+|---|---|---|
+| `packages/template-render` | `puppeteer-core` | オーバーレイ HTML の連番フレーム焼き |
+| `packages/render-cut` | `puppeteer-core`・`hyperframes` | 最終 MP4 の書き出し |
+| `packages/bake-layer` | `puppeteer`・`esbuild` | オーバーレイのベイク |
+| `packages/preview-server` | `esbuild` | ブラウザプレビューサーバー |
+| `packages/preview-engine` | `@webav/av-cliper`・`@webav/mp4box.js` | プレビュー再生エンジン |
+| `packages/media-bin` | なし — ただし `postinstall` が ffmpeg/ffprobe を取得（sha256 検証付き） | すべてのメディア処理で使う ffmpeg |
+| `packages/akari-tools` | `puppeteer-core` + モノレポ内パッケージ `@akari-video/render-cut` | ルートからの一括インストールのみ（後述） |
+| `packages/export-nle` | モノレポ内パッケージ `@akari-video/media-bin` | ルートからの一括インストールのみ（後述） |
+| `apps/shell` | Theia / Electron | デスクトップアプリ — [Windows 実機ビルド手順書](./dev/windows-build.md) を参照 |
+
+**一括でインストールする（インストーラーと同じ手順）** — リポジトリのルートが
+`packages/*` と `apps/*` の npm workspaces を宣言しているので、ルートで 1 回インストール
+すれば全部そろいます。
+
+```sh
+cd %USERPROFILE%\.akari\app
+npm install
+```
+
+この方法ではデスクトップシェル（`apps/shell`、Theia + Electron）も入ります。Windows では
+ネイティブモジュールのビルドが走るため、[Windows 実機ビルド手順書](./dev/windows-build.md)
+の前提チェックが必要です。
+
+**CLI だけ使う場合** — シェルを飛ばすなら、上のパッケージを 1 つずつインストールします。
+
+```powershell
+# PowerShell
+foreach ($p in 'template-render','render-cut','bake-layer','preview-server','preview-engine','media-bin') {
+  Push-Location "packages\$p"; npm install; Pop-Location
+}
+```
+
+```sh
+# bash
+for p in template-render render-cut bake-layer preview-server preview-engine media-bin; do
+  (cd "packages/$p" && npm install)
+done
+```
+
+`packages/akari-tools` と `packages/export-nle` はモノレポ内の他パッケージ
+（`@akari-video/render-cut` / `@akari-video/media-bin`）に依存しており、これらは npm に
+公開されていません。パッケージ単体でのインストールは `404 Not Found` で失敗するため、
+npm workspaces がローカル解決するリポジトリルートからインストールしてください。
+
+`--ignore-scripts` は付けないでください。同梱 ffmpeg/ffprobe を取得しているのは
+`packages/media-bin` の `postinstall` です。
+
 ---
 
 ## 入口を選ぶ
