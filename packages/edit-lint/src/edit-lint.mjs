@@ -289,7 +289,7 @@ export async function lintProject(input, options = {}) {
     } else if (!sourcePath || !referenceState.sourceExists) {
       addSkipped(skipped, "media", "media checks require a readable source.path");
     } else {
-      runMediaChecks(sourcePath, findings, paths, options, captionsState.value);
+      runMediaChecks(sourcePath, findings, skipped, paths, options, captionsState.value);
     }
   } else {
     addSkipped(skipped, "media", "media checks require --media");
@@ -3519,7 +3519,23 @@ const INTAKE_TASK_IDS = new Set([
 ]);
 const INTAKE_AUTONOMY_VALUES = new Set(["full-auto", "checkpoint", "collaborative"]);
 const INTAKE_STATUS_VALUES = new Set(["draft", "submitted"]);
-const INTAKE_ROOT_FIELDS = ["version", "tasks", "target", "autonomy", "status", "submitted_at"];
+export const INTAKE_ROOT_FIELDS = [
+  "version",
+  "title",
+  "tasks",
+  "target",
+  "autonomy",
+  "status",
+  "submitted_at",
+];
+const INTAKE_REQUIRED_ROOT_FIELDS = [
+  "version",
+  "tasks",
+  "target",
+  "autonomy",
+  "status",
+  "submitted_at",
+];
 const INTAKE_TARGET_FIELDS = ["duration_s", "keep_length", "taste"];
 
 // intake.schema.json（packages/schemas/intake.schema.json）を手書きで再検証する。
@@ -3541,7 +3557,7 @@ function validateIntake(intake, findings, paths) {
     return;
   }
 
-  for (const field of INTAKE_ROOT_FIELDS) {
+  for (const field of INTAKE_REQUIRED_ROOT_FIELDS) {
     if (!Object.hasOwn(intake, field)) {
       intakeFinding(findings, "intake.schema", `${field} is required`, intakeRelative);
     }
@@ -3551,7 +3567,7 @@ function validateIntake(intake, findings, paths) {
       intakeFinding(
         findings,
         "intake.schema",
-        `${field} is not defined by intake v1`,
+        `${field} is not defined by intake.schema.json`,
         intakeRelative,
         "warning",
       );
@@ -3635,7 +3651,7 @@ function validateIntakeTarget(target, findings, itemPath) {
       intakeFinding(
         findings,
         "intake.schema",
-        `target.${field} is not defined by intake v1`,
+        `target.${field} is not defined by intake.schema.json`,
         itemPath,
         "warning",
       );
@@ -3676,22 +3692,29 @@ function isIsoDateTime(value) {
   return typeof value === "string" && Number.isFinite(timestamp) && /^\d{4}-\d{2}-\d{2}T/.test(value);
 }
 
-function runMediaChecks(sourcePath, findings, paths, options, captions) {
-  const command = options.ffmpegCommand ?? process.env.FFMPEG ?? resolveFfmpeg();
+function runMediaChecks(sourcePath, findings, skipped, paths, options, captions) {
   const sourceRelative = relativePath(paths.projectRoot, sourcePath);
-  const silence = runCommand(command, [
-    "-hide_banner",
-    "-nostdin",
-    "-i",
-    sourcePath,
-    "-vn",
-    "-af",
-    "silencedetect=noise=-50dB:d=0.5",
-    "-f",
-    "null",
-    "-",
-  ]);
-  const silenceIntervals = parseSilenceIntervals(silence.stderr);
+  const audioStream = probeAudioStream(sourcePath, options.ffprobeCommand);
+  let command = null;
+  let silenceIntervals = [];
+  if (audioStream.hasAudio === true) {
+    command = options.ffmpegCommand ?? process.env.FFMPEG ?? resolveFfmpeg();
+    const silence = runCommand(command, [
+      "-hide_banner",
+      "-nostdin",
+      "-i",
+      sourcePath,
+      "-vn",
+      "-af",
+      "silencedetect=noise=-50dB:d=0.5",
+      "-f",
+      "null",
+      "-",
+    ]);
+    silenceIntervals = parseSilenceIntervals(silence.stderr);
+  } else {
+    addSkipped(skipped, "media.silence", audioStream.reason);
+  }
   for (const interval of silenceIntervals) {
     const severity =
       options.silenceErrorSeconds !== null &&
@@ -3749,6 +3772,11 @@ function runMediaChecks(sourcePath, findings, paths, options, captions) {
     }
   }
 
+  if (audioStream.hasAudio !== true) {
+    addSkipped(skipped, "media.volume", audioStream.reason);
+    return;
+  }
+
   const volume = runCommand(command, [
     "-hide_banner",
     "-nostdin",
@@ -3781,6 +3809,50 @@ function runMediaChecks(sourcePath, findings, paths, options, captions) {
       path: sourceRelative,
     });
   }
+}
+
+function probeAudioStream(sourcePath, configuredCommand) {
+  let command;
+  try {
+    command = configuredCommand ?? process.env.FFPROBE ?? resolveFfprobe();
+  } catch (error) {
+    return {
+      hasAudio: null,
+      reason: `audio stream detection unavailable: ${messageOf(error)}`,
+    };
+  }
+  const result = spawnSync(
+    command,
+    [
+      "-v",
+      "error",
+      "-select_streams",
+      "a",
+      "-show_entries",
+      "stream=index",
+      "-of",
+      "csv=p=0",
+      sourcePath,
+    ],
+    { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+  );
+  if (result.error) {
+    return {
+      hasAudio: null,
+      reason: `audio stream detection unavailable: ${messageOf(result.error)}`,
+    };
+  }
+  if (result.status !== 0) {
+    const detail = String(result.stderr || result.stdout || "").trim().split("\n").at(-1);
+    return {
+      hasAudio: null,
+      reason: `audio stream detection unavailable: ${detail || `ffprobe exited with status ${result.status}`}`,
+    };
+  }
+  if (String(result.stdout ?? "").trim() === "") {
+    return { hasAudio: false, reason: "source has no audio stream" };
+  }
+  return { hasAudio: true, reason: null };
 }
 
 function probeDuration(sourcePath, configuredCommand) {
