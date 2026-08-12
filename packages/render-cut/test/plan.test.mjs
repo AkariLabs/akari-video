@@ -276,6 +276,7 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
   assert.ok(high.commands.cut.args.includes("-crf"));
   assert.equal(high.commands.cut.args[high.commands.cut.args.indexOf("-crf") + 1], "18");
   assert.equal(high.commands.cut.args[high.commands.cut.args.indexOf("-preset") + 1], "slow");
+  assert.equal(high.commands.cut.args[high.commands.cut.args.indexOf("-x264-params") + 1], "keyint=1");
   // Only the trailing encode-args segment changes; the filter_complex (the actual cut/concat/scale
   // work) is untouched by a quality change.
   assert.equal(
@@ -306,6 +307,7 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
   assert.equal(forcedVideotoolbox.commands.cut.args[forcedVideotoolbox.commands.cut.args.indexOf("-c:v") + 1], "h264_videotoolbox");
   assert.ok(forcedVideotoolbox.commands.cut.args.includes("-b:v"));
   assert.ok(!forcedVideotoolbox.commands.cut.args.includes("-crf"));
+  assert.ok(!forcedVideotoolbox.commands.cut.args.includes("-x264-params"));
 
   const forcedX264 = buildPlan({
     edit,
@@ -316,6 +318,7 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
     encoder: "x264",
   });
   assert.equal(forcedX264.commands.cut.args[forcedX264.commands.cut.args.indexOf("-c:v") + 1], "libx264");
+  assert.equal(forcedX264.commands.cut.args[forcedX264.commands.cut.args.indexOf("-x264-params") + 1], "keyint=1");
 
   const fpsOverridden = buildPlan({
     edit,
