@@ -26,6 +26,15 @@ const THREE_RUNTIME_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/three-runtime.js",
 );
+// texts[]（troika-three-text 経由の 3D テキスト）を含むシートだけ追加で読み込む。
+// 読み込み順は three-bundle.js → vendor-3d-text-bundle.js を厳守する
+// （overlay-runtime/README.md「単一 three インスタンス制約への対応」— troika は
+// vendored three を alias 解決するため、three-bundle.js が先に window.AkariThree.THREE を
+// 作っていないと壊れる）
+const THREE_TEXT_BUNDLE_PATH = resolve(
+  SOURCE_DIRECTORY,
+  "../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js",
+);
 const THREE_SCENE_SCRIPT_PATTERN = /(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu;
 const TEXTURE_MIME_TYPES = new Map([
   [".avif", "image/avif"],
@@ -49,12 +58,24 @@ const TEXTURE_MIME_TYPES = new Map([
 // 数分ぶんに相当し、実運用のプロキシは通るが 4K マスターは通らない目安。
 // 埋め込みは base64（約 1.37 倍）になり、プレビューは毎 tick これをシークする
 const MAX_VIDEO_TEXTURE_BYTES = 24 * 1024 * 1024;
+// texts[].font の埋め込み用 MIME。troika は XMLHttpRequest(responseType:"arraybuffer") で読んで
+// 自前パーサへ渡すだけなので実行上は無関係だが、data URI の型として正しい値を残す
+const FONT_MIME_TYPES = new Map([
+  [".otf", "font/otf"],
+  [".ttf", "font/ttf"],
+]);
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const orderedOverlays = orderOverlaysByTrack(overlays);
   const hasThreeDimensionalOverlay = orderedOverlays.some((overlay) =>
     overlay.html.includes("data-akari-3d-scene"),
   );
+  // texts[] を含む宣言だけ vendor-3d-text-bundle.js（troika-three-text）を追加で読み込む。
+  // 素朴な文字列検査で足りるのは、他フラグ（hasResolvedSingleLineCaption 等）と同じ判断
+  const hasThreeDimensionalTextOverlay = hasThreeDimensionalOverlay
+    && orderedOverlays.some((overlay) =>
+      overlay.html.includes("data-akari-3d-scene") && overlay.html.includes('"texts"'),
+    );
   const sheetOverlays = hasThreeDimensionalOverlay
     ? orderedOverlays.map((overlay) => ({
         ...overlay,
@@ -67,8 +88,11 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const nodes = sheetOverlays
     .map((overlay, index) => renderOverlayNode(overlay, index))
     .join("\n");
+  const threeTextBundleScript = hasThreeDimensionalTextOverlay
+    ? `\n  <script>${inlineScript(readFileSync(THREE_TEXT_BUNDLE_PATH, "utf8"))}</script>`
+    : "";
   const threeRuntimeScripts = hasThreeDimensionalOverlay
-    ? `\n  <script>${inlineScript(readFileSync(THREE_BUNDLE_PATH, "utf8"))}</script>\n  <script>${inlineScript(readFileSync(THREE_RUNTIME_PATH, "utf8"))}</script>`
+    ? `\n  <script>${inlineScript(readFileSync(THREE_BUNDLE_PATH, "utf8"))}</script>${threeTextBundleScript}\n  <script>${inlineScript(readFileSync(THREE_RUNTIME_PATH, "utf8"))}</script>`
     : "";
   // 3D は「動画テクスチャのシークが終わってから」描く。ここで描いてしまうと <video> がまだ
   // 前フレームの絵のままテクスチャへ上がり、同じ時刻でも直前に何を撮ったかで結果が変わる。
@@ -792,18 +816,51 @@ function embedThreeModels(html, projectRoot, overlayId) {
       if (!descriptor || typeof descriptor !== "object" || Array.isArray(descriptor)) {
         throw new TypeError(`3D overlay ${overlayId} scene declaration must be a JSON object`);
       }
-      if (typeof descriptor.model !== "string" || descriptor.model.length === 0) {
+      // texts[] があれば model は任意（three-runtime.js readDescriptor と同じ緩和。
+      // contract-2026-08-12-3d-text-rail.md §3.1）
+      const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
+      if (descriptor.model !== undefined
+        && (typeof descriptor.model !== "string" || descriptor.model.length === 0)) {
         throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
       }
-      if (descriptor.model.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(descriptor.model)) {
+      if (descriptor.model === undefined && !hasTexts) {
         throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
       }
-      const modelPath = resolve(projectRoot, descriptor.model);
-      const model = readFileSync(modelPath);
-      const embeddedDescriptor = {
-        ...descriptor,
-        model: `data:model/gltf-binary;base64,${model.toString("base64")}`,
-      };
+      if (typeof descriptor.model === "string"
+        && (descriptor.model.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(descriptor.model))) {
+        throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
+      }
+      const embeddedDescriptor = { ...descriptor };
+      if (typeof descriptor.model === "string") {
+        const modelPath = resolve(projectRoot, descriptor.model);
+        const model = readFileSync(modelPath);
+        embeddedDescriptor.model = `data:model/gltf-binary;base64,${model.toString("base64")}`;
+      }
+      if (hasTexts) {
+        embeddedDescriptor.texts = descriptor.texts.map((textDescriptor) => {
+          const font = textDescriptor.font;
+          if (typeof font !== "string"
+            || font.length === 0
+            || font.startsWith("/")
+            || /^[a-z][a-z\d+.-]*:/i.test(font)) {
+            throw new TypeError(
+              `3D overlay ${overlayId} texts.${textDescriptor.id}.font must be a relative path`,
+            );
+          }
+          const extension = extname(font).toLowerCase();
+          const mimeType = FONT_MIME_TYPES.get(extension);
+          if (!mimeType) {
+            throw new TypeError(
+              `3D overlay ${overlayId} texts.${textDescriptor.id}.font has an unsupported type: ${extension || "none"}`,
+            );
+          }
+          const fontFile = readFileSync(resolve(projectRoot, font));
+          return {
+            ...textDescriptor,
+            font: `data:${mimeType};base64,${fontFile.toString("base64")}`,
+          };
+        });
+      }
       if (descriptor.environment?.map !== undefined) {
         const map = descriptor.environment.map;
         if (typeof map !== "string"
