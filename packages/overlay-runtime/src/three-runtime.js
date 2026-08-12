@@ -12,7 +12,80 @@ window.akari.threeRuntime = (() => {
     "animationClip",
     "materialOverrides",
     "shadows",
+    "texts",
   ]);
+  const TEXT_ANIM_PRESETS = new Set(["none", "carousel", "char-chaos", "flip-wave", "tumble"]);
+  // troika-three-text はグリフ欠落時に unicode-font-resolver 経由で cdn.jsdelivr.net から
+  // フォールバックフォントを動的取得しにいく（vendor-3d-text-bundle.js 内の唯一の fetch() 呼び出し）。
+  // unicodeFontsURL を null のまま（既定）にしても、この経路はコードパス自体が無条件で動く
+  // （欠落コードポイントがあれば必ず fetch する。設定値は「どこから取るか」しか変えず
+  // 「取るかどうか」は変えられない）。
+  //
+  // **この fetch はメインスレッドではなく troika-worker-utils が Blob 経由で生成する Worker の
+  // 中で実行される**（実測: `window.fetch` だけを差し替えても素通りする。vendor-3d-text-bundle.js
+  // は `Pt.useWorker` 既定 true で typesetting 全体を `new Worker(URL.createObjectURL(new Blob([...],
+  // {type:"application/javascript"})))` へ委譲しており、Worker は独立したグローバルスコープ =
+  // 別の `self.fetch` を持つ。`configureTextBuilder`（useWorker を切る唯一の口）は vendor bundle
+  // が re-export していないため外から到達できない）。よって window.Blob を差し替え、
+  // "application/javascript" 型で生成される Worker ソースの先頭へ `self.fetch` を上書きする
+  // 前置スクリプトを注入する。fetch 本体を呼ばずに reject するので実ネットワークへは一切出ない
+  const TROIKA_UNICODE_FONT_RESOLVER_CDN_PREFIX =
+    "https://cdn.jsdelivr.net/gh/lojjic/unicode-font-resolver@";
+  const TROIKA_WORKER_FETCH_GUARD_SOURCE = `(function(){var f=self.fetch;if(typeof f==="function"){self.fetch=function(input,init){var u=typeof input==="string"?input:(input&&input.url)||"";if(u.indexOf(${JSON.stringify(TROIKA_UNICODE_FONT_RESOLVER_CDN_PREFIX)})===0){return Promise.reject(new Error("akari-three: troika unicode font fallback is disabled"));}return f(input,init);};}})();`;
+  let troikaUnicodeFontFallbackDisabled = false;
+  function disableTroikaUnicodeFontFallback() {
+    if (troikaUnicodeFontFallbackDisabled) return;
+    troikaUnicodeFontFallbackDisabled = true;
+    // 保険: 将来 troika がメインスレッド実行に倒れても効くよう window.fetch 自体も塞ぐ
+    if (typeof window.fetch === "function") {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = typeof input === "string" ? input : (input?.url ?? "");
+        if (url.startsWith(TROIKA_UNICODE_FONT_RESOLVER_CDN_PREFIX)) {
+          return Promise.reject(
+            new Error("[akari-three] troika unicode font fallback is disabled (network reach must stay zero)")
+          );
+        }
+        return originalFetch(input, init);
+      };
+    }
+    // 本命: Worker のソースになる Blob（type: application/javascript）の先頭へ
+    // self.fetch ガードを注入する
+    if (typeof window.Blob === "function") {
+      const OriginalBlob = window.Blob;
+      const PatchedBlob = function (parts, options) {
+        const isScript = Array.isArray(parts)
+          && typeof options?.type === "string"
+          && /javascript/i.test(options.type);
+        return new OriginalBlob(isScript ? [TROIKA_WORKER_FETCH_GUARD_SOURCE, ...parts] : parts, options);
+      };
+      PatchedBlob.prototype = OriginalBlob.prototype;
+      window.Blob = PatchedBlob;
+    }
+  }
+  // troika-three-text の sync() は fetch reject を .catch せずに握り潰す（実測: 完了コールバックが
+  // 二度と呼ばれない）ため、fetch を遮断しただけでは「その Text 全体の sync() が完了しない」
+  // 無限ハングになる。豆腐（不描画）で済ませるには sync() 自体を TEXT_SYNC_TIMEOUT_MS で
+  // 打ち切る必要がある（waitForTextSync。rasterize.mjs の動画シーク待ち waitForVideo と同じ流儀 —
+  // 諦めて先へ進む）。この打ち切りは mount 時の非同期待ち合わせであって draw(localSeconds) を
+  // 汚さないため、決定論の不変条件（§3.3・render は localSeconds の純関数）とは独立している。
+  // 値は寛容め（15000ms）に振ってある — 正常系（欠落グリフなし）の sync() は通常数百 ms 未満で
+  // 終わるため、この分岐に触れるのは「本当に遮断された」ケースのみのはずだが、負荷が高い環境では
+  // 正常な sync() 自体が数秒級に伸びることがあり（実測: 開発機 load average 100+ の下で
+  // 5000ms だと正常系が間に合わず豆腐化した）、早すぎる打ち切りは正常系の誤判定になる
+  const TEXT_SYNC_TIMEOUT_MS = 15000;
+  function waitForTextSync(node) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      node.sync(finish);
+      setTimeout(finish, TEXT_SYNC_TIMEOUT_MS);
+    });
+  }
   // materialOverrides.texture が動画かどうか。export では相対パスが data URI へ
   // 埋め込まれた後にランタイムへ届くので、拡張子と data: の MIME 型の両方を見る
   const VIDEO_TEXTURE_PATTERN = /^data:video\/|\.(?:mp4|m4v|mov|webm)(?:[?#]|$)/i;
@@ -122,6 +195,84 @@ window.akari.threeRuntime = (() => {
     });
   }
 
+  // texts[] 宣言の検証（contract-2026-08-12-3d-text-rail.md §3.1）。既存の materialOverrides /
+  // shadows と同じ流儀（object 形状チェック + 明示エラーメッセージ）。ランタイム側の既定値埋めは
+  // resolveTextLayout / resolveTextAnim / buildTextMaterial が担う（ここでは形状と値の妥当性だけを見る）。
+  function validateTexts(texts) {
+    if (!Array.isArray(texts)) {
+      throw new TypeError("data-akari-3d-scene.texts は配列である必要があります");
+    }
+    const seenIds = new Set();
+    for (const [index, entry] of texts.entries()) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new TypeError(`texts[${index}] は object である必要があります`);
+      }
+      if (typeof entry.id !== "string" || entry.id.length === 0) {
+        throw new TypeError(`texts[${index}].id は非空文字列である必要があります`);
+      }
+      if (seenIds.has(entry.id)) {
+        throw new TypeError(`texts[].id が重複しています: ${entry.id}`);
+      }
+      seenIds.add(entry.id);
+      if (typeof entry.text !== "string" || entry.text.length === 0) {
+        throw new TypeError(`texts[${entry.id}].text は非空文字列である必要があります`);
+      }
+      if (typeof entry.font !== "string" || entry.font.length === 0) {
+        throw new TypeError(`texts[${entry.id}].font は配信 URL である必要があります`);
+      }
+      const mode = entry.mode ?? "flat";
+      if (mode === "extrude") {
+        throw new Error(`texts[${entry.id}].mode="extrude" は T3 未実装です`);
+      }
+      if (mode !== "flat") {
+        throw new TypeError(`texts[${entry.id}].mode の未対応値です: ${String(entry.mode)}`);
+      }
+      if (entry.size !== undefined && !Number.isFinite(Number(entry.size))) {
+        throw new TypeError(`texts[${entry.id}].size は数値である必要があります`);
+      }
+      if (entry.color !== undefined && typeof entry.color !== "string") {
+        throw new TypeError(`texts[${entry.id}].color は文字列である必要があります`);
+      }
+      if (entry.material !== undefined) {
+        const material = entry.material;
+        if (!material
+          || typeof material !== "object"
+          || Array.isArray(material)
+          || Object.keys(material).some(
+            (key) => key !== "metalness" && key !== "roughness" && key !== "doubleSide"
+          )) {
+          throw new TypeError(
+            `texts[${entry.id}].material は metalness / roughness / doubleSide を指定する object である必要があります`
+          );
+        }
+      }
+      if (entry.layout !== undefined) {
+        const layout = entry.layout;
+        if (!layout || typeof layout !== "object" || Array.isArray(layout)) {
+          throw new TypeError(`texts[${entry.id}].layout は object である必要があります`);
+        }
+        if (layout.type !== undefined && layout.type !== "line" && layout.type !== "cylinder") {
+          throw new TypeError(`texts[${entry.id}].layout.type の未対応値です: ${String(layout.type)}`);
+        }
+      }
+      if (entry.anim !== undefined) {
+        const anim = entry.anim;
+        if (!anim || typeof anim !== "object" || Array.isArray(anim)) {
+          throw new TypeError(`texts[${entry.id}].anim は object である必要があります`);
+        }
+        const preset = anim.preset ?? "none";
+        if (!TEXT_ANIM_PRESETS.has(preset)) {
+          throw new TypeError(`texts[${entry.id}].anim.preset の未対応値です: ${String(anim.preset)}`);
+        }
+        // seed 必須は不変条件（contract §3.1）— アニメが localSeconds の純関数であり続けるための
+        // per-char 定数表を、mount 時にこの値だけから決定的に生成するため
+        if (preset !== "none" && !Number.isFinite(Number(anim.seed))) {
+          throw new TypeError(`texts[${entry.id}].anim.seed は preset="${preset}" のとき必須です`);
+        }
+      }
+    }
+  }
+
   function readDescriptor(container) {
     if (container.childElementCount !== 1) {
       throw new Error("3D overlay fragment は単一ルートである必要があります");
@@ -148,7 +299,15 @@ window.akari.threeRuntime = (() => {
         throw new TypeError(`data-akari-3d-scene の未対応キーです: ${key}`);
       }
     }
-    if (typeof descriptor.model !== "string" || descriptor.model.length === 0) {
+    // texts[] があれば model は任意化される（両方あれば併存。§3.1）
+    const hasTexts = descriptor.texts !== undefined;
+    if (hasTexts) validateTexts(descriptor.texts);
+    const hasNonEmptyTexts = hasTexts && descriptor.texts.length > 0;
+    if (descriptor.model !== undefined) {
+      if (typeof descriptor.model !== "string" || descriptor.model.length === 0) {
+        throw new TypeError("data-akari-3d-scene.model は配信 URL である必要があります");
+      }
+    } else if (!hasNonEmptyTexts) {
       throw new TypeError("data-akari-3d-scene.model は配信 URL である必要があります");
     }
     if (descriptor.animationClip !== undefined && !isAnimationClipSelector(descriptor.animationClip)) {
@@ -471,6 +630,182 @@ window.akari.threeRuntime = (() => {
     }
   }
 
+  // per-char アニメ定数表の生成に使う決定論的疑似乱数（GLSL でよく使う sin ハッシュ）。
+  // Math.random / Date は使わない — 同じ (seed, index, salt) は常に同じ値を返すので、
+  // 書き出しを 2 回走らせても per-char の見た目が完全に一致する（contract §3.3）
+  function seededUnit(seed, index, salt) {
+    const x = Math.sin(seed * 12.9898 + index * 78.233 + salt * 37.719) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  function buildCharSeedTable(seed, index) {
+    return {
+      phaseX: seededUnit(seed, index, 1) * Math.PI * 2,
+      phaseY: seededUnit(seed, index, 2) * Math.PI * 2,
+      phaseZ: seededUnit(seed, index, 3) * Math.PI * 2,
+      flickerPhase: seededUnit(seed, index, 4) * Math.PI * 2,
+      tumbleRateX: 0.5 + seededUnit(seed, index, 5) * 0.4,
+      tumbleRateY: 0.7 + seededUnit(seed, index, 6) * 0.5,
+    };
+  }
+
+  function easeInOutCubic(x) {
+    return x < 0.5 ? 4 * x * x * x : 1 - ((-2 * x + 2) ** 3) / 2;
+  }
+
+  function resolveTextLayout(descriptor) {
+    const layout = descriptor ?? {};
+    return {
+      type: layout.type === "cylinder" ? "cylinder" : "line",
+      spacing: finiteNumber(layout.spacing, 0.78),
+      radius: Math.max(1e-6, finiteNumber(layout.radius, 2.4)),
+      position: vector3(layout.position, [0, 0, 0]),
+      rotation: vector3(layout.rotation, [0, 0, 0]),
+    };
+  }
+
+  function resolveTextAnim(descriptor) {
+    const anim = descriptor ?? {};
+    return {
+      preset: TEXT_ANIM_PRESETS.has(anim.preset) ? anim.preset : "none",
+      speed: finiteNumber(anim.speed, 1),
+      stagger: finiteNumber(anim.stagger, 0.055),
+      amplitude: finiteNumber(anim.amplitude, 1),
+      seed: finiteNumber(anim.seed, 0),
+    };
+  }
+
+  // flat の既定は unlit MeshBasicMaterial + DoubleSide（契約 §3.1）。metalness / roughness の
+  // どちらかが明示されたときだけ、その knob が効く MeshStandardMaterial へ切り替える
+  function buildTextMaterial(THREE, descriptor) {
+    const material = descriptor ?? {};
+    const side = material.doubleSide === false ? THREE.FrontSide : THREE.DoubleSide;
+    if (material.metalness !== undefined || material.roughness !== undefined) {
+      return new THREE.MeshStandardMaterial({
+        side,
+        transparent: true,
+        metalness: finiteNumber(material.metalness, 0),
+        roughness: finiteNumber(material.roughness, 1),
+      });
+    }
+    return new THREE.MeshBasicMaterial({ side, transparent: true });
+  }
+
+  // 1 文字ぶんのレイアウト基準位置（anim プリセットはこの基準位置からの相対オフセットとして
+  // 合成する）。line は spacing で中央寄せ、cylinder は文字数で等分した円周上に置き、
+  // 外向きに向く（troika の SDF 平面は薄いので、裏側から見ると鏡文字が透ける = PoC 実証済みの
+  // 「筒の裏側処理」がそのまま出る）
+  function charBasePosition(layout, index, count) {
+    if (layout.type === "cylinder") {
+      const angle = count > 0 ? (index / count) * Math.PI * 2 : 0;
+      return {
+        x: Math.sin(angle) * layout.radius,
+        y: 0,
+        z: Math.cos(angle) * layout.radius,
+        rotationY: angle,
+      };
+    }
+    const x0 = (index - (count - 1) / 2) * layout.spacing;
+    return { x: x0, y: 0, z: 0, rotationY: 0 };
+  }
+
+  // アニメは localSeconds だけの純関数（contract §3.3）。フレーム間の状態は持たず、
+  // 毎 draw 呼び出しでゼロから (position, rotation, fillOpacity) を再計算する。
+  // per-char の「乱数っぽい」ばらつきは mount 時に作った seedTable（buildCharSeedTable）由来のみ
+  function applyTextAnimation(entry, localSeconds) {
+    const { group, layout, anim, chars } = entry;
+    group.position.set(layout.position[0], layout.position[1], layout.position[2]);
+    group.rotation.set(layout.rotation[0], layout.rotation[1], layout.rotation[2]);
+    const t = Math.max(0, localSeconds) * anim.speed;
+    if (anim.preset === "carousel") {
+      group.rotation.y += t;
+      group.rotation.x += Math.sin(t * 0.4) * 0.08 * anim.amplitude;
+    }
+    for (const char of chars) {
+      const { node, base, seedTable, index } = char;
+      node.position.set(base.x, base.y, base.z);
+      node.rotation.set(0, base.rotationY, 0);
+      node.fillOpacity = 1;
+      switch (anim.preset) {
+        case "char-chaos": {
+          node.rotation.x = Math.sin(t * 1.3 + seedTable.phaseX) * 0.45 * anim.amplitude;
+          node.rotation.y = base.rotationY + Math.sin(t * 1.7 + seedTable.phaseY) * 0.5 * anim.amplitude;
+          node.position.y = base.y + Math.sin(t * 2.1 + index * anim.stagger) * 0.16 * anim.amplitude;
+          node.position.z = base.z + Math.sin(t * 1.1 + seedTable.phaseZ) * 0.35 * anim.amplitude;
+          const flicker = Math.sin(t * 13 + seedTable.flickerPhase);
+          node.fillOpacity = flicker > 0.93 ? 0.2 : 1;
+          break;
+        }
+        case "flip-wave": {
+          const phase = (((t * 0.22 - index * anim.stagger) % 1) + 1) % 1;
+          let ry = base.rotationY;
+          if (phase < 0.28) ry += easeInOutCubic(phase / 0.28) * Math.PI * 2 * anim.amplitude;
+          node.rotation.y = ry;
+          break;
+        }
+        case "tumble": {
+          node.rotation.x = t * seedTable.tumbleRateX + seedTable.phaseX;
+          node.rotation.y = base.rotationY + t * seedTable.tumbleRateY;
+          node.rotation.z = Math.sin(t * 0.9 + seedTable.phaseZ) * 0.25 * anim.amplitude;
+          node.position.y = base.y + Math.abs(Math.sin(t * 2 - index * anim.stagger)) * 0.35 * anim.amplitude;
+          break;
+        }
+        case "carousel":
+        case "none":
+        default:
+          break;
+      }
+    }
+  }
+
+  function updateTextAnimations(instance, localSeconds) {
+    for (const entry of instance.textAnimEntries) {
+      applyTextAnimation(entry, localSeconds);
+    }
+  }
+
+  // texts[] を per-char troika Text へ展開する。各文字の sync() 完了を待ってから resolve する
+  // ことで、「読み込み中フレーム（グリフ未確定の空 SDF）」が createInstance() の ready 判定を
+  // すり抜けないようにする（契約の指示 2）
+  async function loadTexts(THREE, TroikaText, instance, textDescriptors) {
+    disableTroikaUnicodeFontFallback();
+    const syncPromises = [];
+    for (const textDescriptor of textDescriptors) {
+      const group = new THREE.Group();
+      const layout = resolveTextLayout(textDescriptor.layout);
+      const anim = resolveTextAnim(textDescriptor.anim);
+      const size = finiteNumber(textDescriptor.size, 0.5);
+      const color = typeof textDescriptor.color === "string" ? textDescriptor.color : "#ffffff";
+      const chars = [...textDescriptor.text];
+      const charEntries = [];
+      chars.forEach((ch, index) => {
+        const node = new TroikaText();
+        node.text = ch;
+        node.font = textDescriptor.font;
+        node.fontSize = size;
+        node.anchorX = "center";
+        node.anchorY = "middle";
+        node.color = color;
+        node.material = buildTextMaterial(THREE, textDescriptor.material);
+        const base = charBasePosition(layout, index, chars.length);
+        node.position.set(base.x, base.y, base.z);
+        node.rotation.y = base.rotationY;
+        group.add(node);
+        charEntries.push({
+          node,
+          index,
+          base,
+          seedTable: buildCharSeedTable(anim.seed, index),
+        });
+        syncPromises.push(waitForTextSync(node));
+      });
+      instance.textsGroup.add(group);
+      instance.textNodes.push(...charEntries.map((entry) => entry.node));
+      instance.textAnimEntries.push({ id: textDescriptor.id, group, layout, anim, chars: charEntries });
+    }
+    await Promise.all(syncPromises);
+  }
+
   function setFallback(container, visible) {
     const fallback = container.querySelector("[data-akari-3d-fallback]");
     if (!(fallback instanceof HTMLElement)) return;
@@ -589,10 +924,13 @@ window.akari.threeRuntime = (() => {
   }
 
   function draw(instance, localSeconds) {
-    if (!instance.active || !instance.model) return;
+    // texts[] のみ（model 無し）のシーンでも描く必要があるため、readiness は instance.model の
+    // 有無ではなく contentReady（model 読み込み + 全 texts sync() 完了）で判定する
+    if (!instance.active || !instance.contentReady) return;
     rendererSize(instance, instance.maxRenderSize);
     applyProjectionKnobs(instance);
     if (instance.mixer) instance.mixer.setTime(Math.max(0, localSeconds));
+    if (instance.textAnimEntries.length > 0) updateTextAnimations(instance, localSeconds);
     // 動画テクスチャは「今 <video> に出ているフレーム」を GPU へ上げ直さないと 1 枚目で固まる。
     // どの時刻を出すかは外側が currentTime で決め、ここは上げ直しだけを担う
     for (const texture of instance.videoTextures) texture.needsUpdate = true;
@@ -646,6 +984,12 @@ window.akari.threeRuntime = (() => {
     instance.active = false;
     instance.mixer?.stopAllAction();
     disposeObject(instance.model);
+    disposeObject(instance.textsGroup);
+    // troika Text.dispose() は SDF atlas 等、generic disposeObject の geometry/material 走査だけでは
+    // 解放されない troika 固有のキャッシュも片付ける
+    for (const node of instance.textNodes) node.dispose?.();
+    instance.textNodes = [];
+    instance.textAnimEntries = [];
     releaseVideoTextures(instance);
     instance.model = null;
     instance.mixer = null;
@@ -673,12 +1017,16 @@ window.akari.threeRuntime = (() => {
       throw new Error("AkariThree bundle が読み込まれていません");
     }
     const descriptor = readDescriptor(container);
+    const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
+    if (hasTexts && typeof library.TroikaText !== "function") {
+      throw new Error("AkariThree bundle に TroikaText がありません（vendor-3d-text-bundle.js 未読み込み）");
+    }
     const canvas = container.querySelector("canvas");
     if (!(canvas instanceof HTMLCanvasElement)) {
       throw new Error("3D overlay には canvas が必要です");
     }
 
-    const { THREE, GLTFLoader, RoomEnvironment } = library;
+    const { THREE, GLTFLoader, RoomEnvironment, TroikaText } = library;
     const scene = new THREE.Scene();
     const camera = createCamera(THREE, descriptor);
     addLights(THREE, scene, descriptor.lights);
@@ -724,6 +1072,13 @@ window.akari.threeRuntime = (() => {
       lastTime: 0,
       mixer: null,
       model: null,
+      // texts[] の状態（model と独立に存在しうる。§3.1 texts[] があれば model は任意）
+      textsGroup: new THREE.Group(),
+      textNodes: [],
+      textAnimEntries: [],
+      // model 読み込み（宣言時のみ）+ 全 texts sync() 完了の両方が揃うまで false。
+      // draw() はこれを ready 条件に使う（読み込み中フレームが書き出しに混入しないため）
+      contentReady: false,
       // 標準ツマミ 3 種の直近適用値（memo）。null は「まだ一度も適用していない」の意
       projection: { panX: null, panY: null, zoom: null, width: null, height: null },
       renderer,
@@ -734,10 +1089,14 @@ window.akari.threeRuntime = (() => {
       videoTextures: new Set(),
     };
     instances.set(container, instance);
+    instance.scene.add(instance.textsGroup);
     setFallback(container, true);
 
-    const loader = new GLTFLoader();
-    instance.loading = loader.loadAsync(descriptor.model).then(async (gltf) => {
+    const hasModel = typeof descriptor.model === "string" && descriptor.model.length > 0;
+    const loader = hasModel ? new GLTFLoader() : null;
+
+    async function loadModel() {
+      const gltf = await loader.loadAsync(descriptor.model);
       if (instances.get(container) !== instance || !instance.active) {
         disposeObject(gltf.scene);
         return;
@@ -760,7 +1119,15 @@ window.akari.threeRuntime = (() => {
         for (const clip of clips) instance.mixer.clipAction(clip).play();
         instance.animationClips = clips.length;
       }
-      if (instance.shadows.enabled) wireShadows(THREE, instance, instance.shadows);
+      if (instance.shadows.enabled && instance.model) wireShadows(THREE, instance, instance.shadows);
+    }
+
+    instance.loading = Promise.all([
+      hasModel ? loadModel() : Promise.resolve(),
+      hasTexts ? loadTexts(THREE, TroikaText, instance, descriptor.texts) : Promise.resolve(),
+    ]).then(() => {
+      if (instances.get(container) !== instance || !instance.active) return;
+      instance.contentReady = true;
       instance.status = "ready";
       setFallback(container, false);
       draw(instance, instance.lastTime);
@@ -772,6 +1139,13 @@ window.akari.threeRuntime = (() => {
         instance.model = null;
         instance.mixer = null;
       }
+      instance.scene.remove(instance.textsGroup);
+      disposeObject(instance.textsGroup);
+      for (const node of instance.textNodes) node.dispose?.();
+      instance.textNodes = [];
+      instance.textAnimEntries = [];
+      instance.textsGroup = new THREE.Group();
+      instance.scene.add(instance.textsGroup);
       releaseVideoTextures(instance);
       instance.status = "error";
       console.error("[akari-three] 3D scene の読み込みに失敗しました", error);
@@ -817,6 +1191,9 @@ window.akari.threeRuntime = (() => {
       shadows: instance.renderer.shadowMap.enabled,
       videoTextures: instance.videoTextures.size,
       animationClips: instance.animationClips,
+      // texts[] の per-char 展開数（検証・証跡用。flat モードの読み込み完了を絵の比較なしに確認する）
+      textNodes: instance.textNodes.length,
+      textBlocks: instance.textAnimEntries.length,
       // 標準ツマミ（pan/zoom）が投影へ実際に反映されたかの実測値（検証・証跡用。
       // task 2026-08-06-live-knob-camera-v2）。view が null なら「3 プロパティとも未宣言で
       // camera.view に一切触れていない」= 後方互換の直接証拠になる

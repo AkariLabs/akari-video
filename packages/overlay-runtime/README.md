@@ -38,7 +38,13 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
    `src/three-runtime.js` → `src/overlay-runtime.js` の順に読み込む。続いて
    `src/interaction.js` → `src/minimap.js`
    の順に読み込む（`interaction.js` は読み込み時点で `#overlay-stage` の
-   `document.getElementById` を行うため、DOM がすでに存在している必要がある）
+   `document.getElementById` を行うため、DOM がすでに存在している必要がある）。
+   **`texts[]`（3D テキスト）を扱うホストは `src/vendor/three-bundle.js` の直後・
+   `src/three-runtime.js` より前**に `src/vendor/vendor-3d-text-bundle.js` を追加で
+   読み込む（troika は vendored three を alias 解決するため、three-bundle.js が
+   `window.AkariThree.THREE` を作った後でないと壊れる。export 側
+   `packages/render-cut/src/rasterize.mjs` はシートに `texts[]` 宣言があるときだけ
+   自動でこの順に埋め込む — 同じ順序をホストの `<script>` タグでも守ること）
 4. `src/interaction.css` と `src/minimap.css` を `<link>` する
 5. edit.json ロード後、`window.akari.runtime.mount(summary)` を呼ぶ
    （`summary` = `EditSummary`。下記参照）。以降はタイムライン更新のたびに
