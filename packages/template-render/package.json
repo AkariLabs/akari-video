@@ -7,6 +7,9 @@
   "bin": {
     "akari-template-render": "bin/akari-template-render.mjs"
   },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 \"test/*.test.mjs\""
+  },
   "files": [
     "bin",
     "src",

@@ -6,7 +6,8 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
 
@@ -21,16 +22,29 @@ function loadPuppeteer() {
   }
 }
 
-export function buildHarnessHtml({ fragment, width, height, vars, backdrop, under, transparent }) {
+export function buildHarnessHtml({
+  fragment,
+  fragmentPath,
+  width,
+  height,
+  vars,
+  backdrop,
+  under,
+  transparent,
+}) {
+  const fragmentDirectory = dirname(resolve(fragmentPath));
+  const fragmentBaseUrl = pathToFileURL(
+    fragmentDirectory.endsWith(sep) ? fragmentDirectory : `${fragmentDirectory}${sep}`,
+  ).href;
   const background = transparent
     ? "transparent"
     : under
-      ? `#000 url("file://${resolve(under).split("\\").join("/")}") center/cover no-repeat`
+      ? `#000 url("${pathToFileURL(resolve(under)).href}") center/cover no-repeat`
       : backdrop;
 
   // AKARI のオーバーレイシートと同じ入れ子（container[inset:0] > .scene-content[inset:0]）を
   // 再現する。ここが本番と違うと、書き出した絵が編集画面と食い違う。
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
+  return `<!doctype html><html><head><meta charset="utf-8"><base href="${fragmentBaseUrl}"><style>
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: ${background}; }
   #stage { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; }
   .akari-overlay-container { position: absolute; inset: 0; ${vars} }
@@ -83,7 +97,16 @@ export async function shootFrames({
   const htmlPath = join(outDir, `${prefix}.html`);
   writeFileSync(
     htmlPath,
-    buildHarnessHtml({ fragment, width, height, vars, backdrop, under, transparent }),
+    buildHarnessHtml({
+      fragment,
+      fragmentPath,
+      width,
+      height,
+      vars,
+      backdrop,
+      under,
+      transparent,
+    }),
   );
 
   const browser = await puppeteer.launch({
@@ -94,12 +117,23 @@ export async function shootFrames({
   try {
     const page = await browser.newPage();
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
-    await page.goto(`file://${htmlPath.split("\\").join("/")}`, { waitUntil: "load" });
+    page.on("requestfailed", (request) => {
+      const reason = request.failure()?.errorText;
+      console.error(
+        `[template-render] 素材の読み込みに失敗しました: ${request.url()}${reason ? ` (${reason})` : ""}`,
+      );
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        console.error(`[template-render] ブラウザエラー: ${message.text()}`);
+      }
+    });
+    await page.goto(pathToFileURL(htmlPath).href, { waitUntil: "load" });
     await page.evaluate(() => document.fonts.ready);
 
     // 画面へ写真・動画を差し込む。差し込み口は素材側が data-akari-slot="screen" で宣言する。
     if (screenVideo || screenImage) {
-      const source = `file://${resolve(screenVideo ?? screenImage).split("\\").join("/")}`;
+      const source = pathToFileURL(resolve(screenVideo ?? screenImage)).href;
       const placed = await page.evaluate(
         ({ src, isVideo }) => {
           const slot = document.querySelector('[data-akari-slot="screen"]');
