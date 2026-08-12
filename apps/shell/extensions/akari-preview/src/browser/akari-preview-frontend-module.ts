@@ -19,4 +19,5 @@ export default new ContainerModule(bind => {
     bind(AkariImageOpenHandler).toSelf().inSingletonScope();
     bind(OpenHandler).toService(AkariImageOpenHandler);
     bind(FrontendApplicationContribution).toService(AkariPreviewOpenHandler);
+    bind(FrontendApplicationContribution).toService(AkariAudioOpenHandler);
 });
