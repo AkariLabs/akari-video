@@ -55,8 +55,12 @@ try {
     record('microphone-preflight', microphone);
     assert.equal(microphone.ok, true, `microphone preflight failed: ${JSON.stringify(microphone)}`);
 
-    const developerMode = await toggleDeveloperModeViaSettings(main);
-    record('developer-mode', developerMode);
+    const developerModeAttempts = [await toggleDeveloperModeViaSettings(main)];
+    if (!developerModeAttempts.at(-1).checkedAfter) {
+        developerModeAttempts.push(await toggleDeveloperModeViaSettings(main));
+    }
+    const developerMode = developerModeAttempts.at(-1);
+    record('developer-mode', { ...developerMode, attempts: developerModeAttempts.length });
     assert.equal(developerMode.checkedAfter, true);
 
     const explorerState = await waitFor(`(() => {

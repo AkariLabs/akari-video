@@ -556,6 +556,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.setAttribute('data-akari-ui-label', 'タイムライン');
         Object.assign(this.node.style, {
             display: 'grid',
+            // An implicit auto track can grow to child max-content, so force the column to shrink to the widget width.
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gridTemplateRows: 'auto minmax(0, 1fr) auto auto auto',
             height: '100%',
             overflow: 'hidden',
