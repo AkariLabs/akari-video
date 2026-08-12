@@ -11,7 +11,6 @@ import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { isOSX, isWindows } from '@theia/core/lib/common/os';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WorkspaceCommands } from '@theia/workspace/lib/browser/workspace-commands';
@@ -62,6 +61,11 @@ import {
 import { FirstRunSetupOpenMode } from '../common/first-run-onboarding';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
+import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
+import {
+    StoreConnectionFlowController,
+    StoreConnectionFlowPhase
+} from 'akari-project/lib/common/store-connection-flow';
 
 // ホーム v4（裁定 R1〜R3・notes-2026-08-02-home-v4-minimal）: dashboard の
 // 構成要素を 3 つだけに削る — ①説明（2 動作） ②過去プロジェクト一覧
@@ -86,8 +90,7 @@ const UPDATE_CACHE_FILENAME = 'update-check.json';
 // アプリ単位の「パートナー接続済み」マーカー。akari-partner の node バックエンドが
 // 接続成立時に書く（ファイル契約のみで結合する — 拡張間の import 依存は増やさない）。
 const PARTNER_CONNECTION_FILENAME = 'partner-connection.json';
-// AKARI Store の接続資格情報。書き手は launcher CLI（`akari store connect`）だけ —
-// ここでもファイル契約のみで結合する（store-command.mjs への import 依存は増やさない）。
+// AKARI Store の接続資格情報。内蔵デバイスフローと launcher CLI が共有する。
 const STORE_CREDENTIALS_FILENAME = 'store-credentials.json';
 // ストアの表看板は `/lab`（worker ルートは /lab* と /api/store* のみ。/store/ は 404 —
 // akari-video-store worker/wrangler.jsonc・asset-catalog-view.ts の deriveStoreLabBaseUrl と同じ規約）。
@@ -243,8 +246,8 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(AkariNewProjectService)
     protected readonly newProjectService: AkariNewProjectService;
 
-    @inject(TerminalService)
-    protected readonly terminalService: TerminalService;
+    @inject(AkariProjectService)
+    protected readonly storeService: AkariProjectService;
 
     protected watching = false;
 
@@ -262,7 +265,10 @@ export class AkariHomeWidget extends ReactWidget {
 
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
-    protected storeConnecting = false;
+    protected storeFlowPhase: StoreConnectionFlowPhase = 'idle';
+    protected storeFlowError?: string;
+    protected storeFlowUserCode?: string;
+    protected storeConnectionFlow: StoreConnectionFlowController;
     protected storeSiteUrl = STORE_SITE_FALLBACK;
 
     // --- D&D 復活: 素材の取り込み（v3 home dropzone から再利用） ---
@@ -333,6 +339,19 @@ export class AkariHomeWidget extends ReactWidget {
         this.title.caption = 'AKARI プロジェクトホーム';
         this.title.iconClass = 'codicon codicon-home';
         this.title.closable = false;
+        this.storeConnectionFlow = new StoreConnectionFlowController(this.storeService, {
+            openVerificationUrl: url => this.windowService.openNewWindow(url, { external: true }),
+            onChange: state => {
+                this.storeFlowPhase = state.phase;
+                this.storeFlowError = state.error;
+                this.storeFlowUserCode = state.userCode;
+                if (state.connection.connected) {
+                    this.storeEmail = state.connection.email ?? state.connection.identifier ?? '接続済み';
+                }
+                this.update();
+            }
+        });
+        this.toDispose.push({ dispose: () => this.storeConnectionFlow.dispose() });
         this.update();
     }
 
@@ -497,7 +516,7 @@ export class AkariHomeWidget extends ReactWidget {
      * AKARI Store の接続状態（`~/.akari/store-credentials.json`・AKARI_HOME で差し替え可）。
      * 読み方は partner-connection.json と同じ EnvVariablesServer + FileService 経路。
      * 無い/壊れていれば未接続扱い（フェイルセーフ側）。watch は張らない —
-     * 反映は connectStore のポーリングとホーム再表示時の読み直しで担保する（v0 の流儀）。
+     * 反映は内蔵デバイスフローの RPC 結果とホーム再表示時の読み直しで担保する。
      */
     protected async readStoreConnection(): Promise<string | null> {
         try {
@@ -1395,41 +1414,11 @@ export class AkariHomeWidget extends ReactWidget {
         }
     };
 
-    /**
-     * ストア接続（オーナー要望 2026-08-03）。アプリ内ターミナルで CLI の
-     * デバイスコードフロー（ブラウザ承認）を起動するだけ — 資格情報の書き手は
-     * launcher CLI のまま。完了はファイルの出現ポーリングで検知する（最大 5 分）。
-     */
     protected connectStore = async (): Promise<void> => {
-        if (this.storeConnecting) {
-            return;
-        }
-        this.storeConnecting = true;
-        this.update();
-        try {
-            const terminal = await this.terminalService.newTerminal({ title: 'AKARI Store 接続' });
-            await terminal.start();
-            this.terminalService.open(terminal);
-            terminal.sendText('akari store connect\n');
-        } catch (error) {
-            console.error('[akari-surfaces] store connect terminal failed', error);
-            this.messages.error('ターミナルを開けませんでした。手動で `akari store connect` を実行してください。');
-            this.storeConnecting = false;
-            this.update();
-            return;
-        }
-        const deadline = Date.now() + 5 * 60 * 1000;
-        const poll = async (): Promise<void> => {
-            this.storeEmail = await this.readStoreConnection();
-            if (this.storeEmail !== null || Date.now() > deadline) {
-                this.storeConnecting = false;
-                this.update();
-                return;
-            }
-            setTimeout(() => void poll(), 4000);
-        };
-        setTimeout(() => void poll(), 4000);
+        await this.storeConnectionFlow.start();
     };
+
+    protected cancelStoreConnection = (): void => this.storeConnectionFlow.cancel();
 
     protected openStoreSite = (): void => {
         const base = this.storeSiteUrl.replace(/\/$/, '');
@@ -2282,26 +2271,38 @@ export class AkariHomeWidget extends ReactWidget {
 
     /**
      * AKARI Store カード（ホーム v4 の 3 要素へのオーナー承認済み追加・2026-08-03）。
-     * 未接続 = 接続ボタン（アプリ内ターミナルでブラウザ承認フロー）。
+     * 未接続 = 内蔵デバイスフローの進行表示と接続ボタン。
      * 接続済み = メール表示 + マイページを外部ブラウザで開く。
      */
     protected renderStoreCard(): React.ReactNode {
         const connected = this.storeEmail !== null;
+        const connectionState = connected
+            ? 'connected'
+            : this.storeFlowPhase === 'idle' ? 'disconnected' : this.storeFlowPhase;
         return (
-            <section style={homeFlowStyles.card}>
+            <section style={homeFlowStyles.card} data-akari-store-connection={connectionState}>
                 <div style={homeFlowStyles.cardMark} aria-hidden='true'>
                     <span className='codicon codicon-package' style={{ fontSize: 20, color: 'var(--theia-button-foreground)' }} />
                 </div>
                 <div style={homeFlowStyles.cardBody}>
                     <strong style={homeFlowStyles.cardTitle}>AKARI Store</strong>
-                    <p style={homeFlowStyles.cardLead}>
-                        {connected
-                            ? `接続中: ${this.storeEmail}`
-                            : '購入した素材（宣言パック・3D モックなど）を本体で使うには接続します。'}
-                    </p>
-                    {connected && (
-                        <p style={homeFlowStyles.cardFine}>購入素材の導入は「購入した素材をセットアップして」と頼むだけ</p>
+                    {connected && <p style={homeFlowStyles.cardLead}>接続中: {this.storeEmail}</p>}
+                    {!connected && this.storeFlowPhase === 'idle' && (
+                        <p style={homeFlowStyles.cardLead}>購入した素材（宣言パック・3D モックなど）を本体で使うには接続します。</p>
                     )}
+                    {!connected && this.storeFlowPhase === 'starting' && (
+                        <p style={homeFlowStyles.cardLead}>接続を開始しています…</p>
+                    )}
+                    {!connected && this.storeFlowPhase === 'pending' && (
+                        <>
+                            <p style={homeFlowStyles.cardLead}>ブラウザで承認してください…</p>
+                            {this.storeFlowUserCode && <p style={homeFlowStyles.cardFine}>確認コード: {this.storeFlowUserCode}</p>}
+                        </>
+                    )}
+                    {!connected && (this.storeFlowPhase === 'expired' || this.storeFlowPhase === 'error') && (
+                        <p style={{ ...homeFlowStyles.cardLead, color: 'var(--theia-errorForeground)' }}>{this.storeFlowError}</p>
+                    )}
+                    {connected && <p style={homeFlowStyles.cardFine}>購入素材の導入は「購入した素材をセットアップして」と頼むだけ</p>}
                 </div>
                 {connected ? (
                     <button
@@ -2312,15 +2313,35 @@ export class AkariHomeWidget extends ReactWidget {
                     >
                         ストアを開く
                     </button>
+                ) : this.storeFlowPhase === 'pending' ? (
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        style={homeFlowStyles.cardCta}
+                        onClick={this.cancelStoreConnection}
+                    >
+                        キャンセル
+                    </button>
+                ) : this.storeFlowPhase === 'expired' || this.storeFlowPhase === 'error' ? (
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        data-akari-store-connect
+                        style={homeFlowStyles.cardCta}
+                        onClick={() => void this.connectStore()}
+                    >
+                        もう一度試す
+                    </button>
                 ) : (
                     <button
                         type='button'
                         className='theia-button main'
+                        data-akari-store-connect
                         style={homeFlowStyles.cardCta}
-                        disabled={this.storeConnecting}
+                        disabled={this.storeFlowPhase === 'starting'}
                         onClick={() => void this.connectStore()}
                     >
-                        {this.storeConnecting ? '承認を待っています…' : 'ストアに接続する'}
+                        {this.storeFlowPhase === 'starting' ? '接続を開始しています…' : 'ストアに接続する'}
                     </button>
                 )}
             </section>

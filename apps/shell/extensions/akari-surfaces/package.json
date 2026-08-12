@@ -24,8 +24,8 @@
     "@theia/editor": "1.73.1",
     "@theia/monaco": "1.73.1",
     "@theia/navigator": "1.73.1",
-    "@theia/terminal": "1.73.1",
     "@theia/plugin-ext": "1.73.1",
+    "akari-project": "file:../akari-project",
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
