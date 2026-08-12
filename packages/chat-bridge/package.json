@@ -1,0 +1,14 @@
+{
+  "name": "@akari-video/chat-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "description": "承認ゲートの通知 + ボタン承認ブリッジ v0（Telegram）。decisions.json は report-helper の HTTP API 経由でのみ更新し、ポートは listen しない。外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ）。",
+  "type": "module",
+  "bin": {
+    "akari-chat-bridge": "src/telegram.mjs"
+  },
+  "scripts": {
+    "start": "node src/telegram.mjs",
+    "test": "node --test"
+  }
+}
