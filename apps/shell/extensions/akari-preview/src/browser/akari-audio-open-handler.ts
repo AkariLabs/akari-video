@@ -1,5 +1,12 @@
 import URI from '@theia/core/lib/common/uri';
-import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
+import { CommandRegistry } from '@theia/core/lib/common';
+import { DisposableCollection } from '@theia/core/lib/common/disposable';
+import {
+    ApplicationShell,
+    FrontendApplicationContribution,
+    OpenHandler,
+    WidgetManager
+} from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -15,6 +22,7 @@ interface AudioWidgetMarker extends WebviewWidget {
     akariAudioUri?: string;
     akariAudioFileSize?: number;
     akariAudioStreamId?: string;
+    akariAudioLastKnownTime?: number;
 }
 
 const AUDIO_MIME_TYPES = new Map<string, string>([
@@ -32,10 +40,19 @@ const TRANSCODE_FIRST_EXTENSIONS = new Set(['.aac', '.m4a']);
 const TOO_LARGE_MESSAGE = '大きすぎるためアプリ内で再生できません。';
 const PLAYBACK_ERROR_MESSAGE = 'このファイルはアプリ内で再生できません。';
 const FFMPEG_REQUIRED_MESSAGE = 'このファイルはアプリ内で再生できません。再生には ffmpeg が必要です。';
+// akari-annotations 側の同名イベントと文字列だけをミラーし、拡張間の import 依存を避ける。
+const RAW_PREVIEW_ANNOTATION_STATE_EVENT = 'akari.preview.rawAnnotationState';
+// akari-annotations の ATTACH_AKARI_ANNOTATIONS_PASSIVE.id（akari-annotations-commands.ts）とミラー。
+// cross-package import を避けるため文字列 ID のみで CommandRegistry.executeCommand に渡す。
+const ATTACH_TIMELINE_PASSIVE_COMMAND_ID = 'akari.annotations.attachPassive';
 
 @injectable()
-export class AkariAudioOpenHandler implements OpenHandler {
+export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationContribution {
     readonly id = 'akari-audio-open-handler';
+    protected readonly lifecycleDisposables = new DisposableCollection();
+    protected readonly openAudioPreviews = new Map<string, AudioWidgetMarker>();
+    protected activeAudioWidget: AudioWidgetMarker | undefined;
+    protected audioPreviewActivation = 0;
 
     @inject(WidgetManager)
     protected readonly widgetManager: WidgetManager;
@@ -49,6 +66,19 @@ export class AkariAudioOpenHandler implements OpenHandler {
     @inject(AkariPreviewService)
     protected readonly previewService: AkariPreviewService;
 
+    @inject(CommandRegistry)
+    protected readonly commandRegistry: CommandRegistry;
+
+    onStart(): void {
+        this.lifecycleDisposables.push(this.shell.onDidChangeCurrentWidget(() => {
+            this.syncAudioAnnotationContext();
+        }));
+    }
+
+    onStop(): void {
+        this.lifecycleDisposables.dispose();
+    }
+
     canHandle(uri: URI): number {
         return AUDIO_MIME_TYPES.has(uri.path.ext.toLowerCase()) ? 1100 : 0;
     }
@@ -58,11 +88,21 @@ export class AkariAudioOpenHandler implements OpenHandler {
         const widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, identifier);
         this.configureWidget(widget, uri);
         await this.render(widget, uri);
+        this.attachTimelinePassively();
         if (!widget.isAttached) {
             this.shell.addWidget(widget, options?.widgetOptions ?? { area: 'main' });
         }
         await this.shell.activateWidget(widget.id);
         return widget;
+    }
+
+    // 動画がプレビューで開かれるたびにタイムラインの自動アタッチを要求する。重複禁止・
+    // セッション内の明示クローズの尊重・フォーカスを奪わない（reveal のみ）判断は
+    // 呼び出し先（akari-annotations）に委ねる。取りこぼしてもプレビュー自体は開けるべきなので
+    // 結果を待たず、失敗時は握りつぶす。
+    protected attachTimelinePassively(): void {
+        this.commandRegistry.executeCommand(ATTACH_TIMELINE_PASSIVE_COMMAND_ID)
+            .catch(error => console.warn('[akari-preview] failed to auto-attach timeline', error));
     }
 
     protected configureWidget(widget: WebviewWidget, uri: URI): void {
@@ -73,7 +113,13 @@ export class AkariAudioOpenHandler implements OpenHandler {
             return;
         }
         marker.akariAudioConfigured = true;
+        const audioKey = uri.normalizePath().toString();
+        this.openAudioPreviews.set(audioKey, marker);
         widget.onMessage(message => {
+            if (message?.type === 'akari-audio-playback-tick' && Number.isFinite(message.time)) {
+                this.forwardAudioPlaybackTick(marker, message.time, !!message.playing);
+                return;
+            }
             if (!message || message.type !== 'akari-audio-transcode-fallback' || marker.akariAudioFallbackAttempted) {
                 return;
             }
@@ -85,8 +131,57 @@ export class AkariAudioOpenHandler implements OpenHandler {
             void this.renderTranscoded(widget, new URI(audioUri), marker.akariAudioFileSize);
         });
         widget.disposed.connect(() => {
+            if (this.openAudioPreviews.get(audioKey) === marker) {
+                this.openAudioPreviews.delete(audioKey);
+            }
             void this.disposeTranscodedAudioStream(marker);
         });
+    }
+
+    protected forwardAudioPlaybackTick(widget: AudioWidgetMarker, time: number, _playing: boolean): void {
+        widget.akariAudioLastKnownTime = time;
+        if (this.activeAudioWidget === widget) {
+            this.forwardRawPreviewAnnotationState(widget, 'playback');
+        }
+    }
+
+    protected forwardRawPreviewAnnotationState(
+        widget: AudioWidgetMarker,
+        reason: 'focus' | 'playback'
+    ): void {
+        if (!widget.akariAudioUri) {
+            return;
+        }
+        const mediaUri = new URI(widget.akariAudioUri).normalizePath().toString();
+        window.dispatchEvent(new CustomEvent(RAW_PREVIEW_ANNOTATION_STATE_EVENT, {
+            detail: {
+                active: true,
+                activation: this.audioPreviewActivation,
+                mediaUri,
+                sourceT: Math.max(0, widget.akariAudioLastKnownTime ?? 0),
+                reason
+            }
+        }));
+    }
+
+    protected syncAudioAnnotationContext(): void {
+        const mainWidget = this.shell.getCurrentWidget('main');
+        const audioWidget = [...this.openAudioPreviews.values()].find(widget => widget === mainWidget);
+        if (audioWidget === this.activeAudioWidget) {
+            return;
+        }
+        if (audioWidget) {
+            this.activeAudioWidget = audioWidget;
+            this.audioPreviewActivation += 1;
+            this.forwardRawPreviewAnnotationState(audioWidget, 'focus');
+            return;
+        }
+        if (this.activeAudioWidget) {
+            this.activeAudioWidget = undefined;
+            window.dispatchEvent(new CustomEvent(RAW_PREVIEW_ANNOTATION_STATE_EVENT, {
+                detail: { active: false, activation: this.audioPreviewActivation, reason: 'focus' }
+            }));
+        }
     }
 
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
@@ -229,7 +324,8 @@ ${transcoded ? '<p class="note">ffmpeg 変換で再生中</p>' : ''}
     const duration = document.getElementById('duration');
     const playerCard = document.getElementById('player-card');
     const errorCard = document.getElementById('error-card');
-    const vscode = ${allowTranscodeFallback ? 'acquireVsCodeApi()' : 'undefined'};
+    const vscode = acquireVsCodeApi();
+    const canRequestTranscodeFallback = ${allowTranscodeFallback};
     let fallbackRequested = false;
 
     const showFinalError = () => {
@@ -237,7 +333,7 @@ ${transcoded ? '<p class="note">ffmpeg 変換で再生中</p>' : ''}
         errorCard.hidden = false;
     };
     const handleAudioError = () => {
-        if (vscode && !fallbackRequested) {
+        if (canRequestTranscodeFallback && vscode && !fallbackRequested) {
             fallbackRequested = true;
             vscode.postMessage({ type: 'akari-audio-transcode-fallback' });
             return;
@@ -255,6 +351,19 @@ ${transcoded ? '<p class="note">ffmpeg 変換で再生中</p>' : ''}
         duration.textContent = minutes + ':' + seconds;
     });
     audio.addEventListener('error', handleAudioError);
+    const reportPlaybackTick = () => {
+        if (!Number.isFinite(audio.currentTime)) {
+            return;
+        }
+        vscode.postMessage({
+            type: 'akari-audio-playback-tick',
+            time: audio.currentTime,
+            playing: !audio.paused
+        });
+    };
+    for (const eventName of ['timeupdate', 'play', 'pause', 'seeked']) {
+        audio.addEventListener(eventName, reportPlaybackTick);
+    }
 
     const source = audio.dataset.source;
     audio.removeAttribute('data-source');
