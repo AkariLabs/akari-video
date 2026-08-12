@@ -7,6 +7,7 @@ import test from "node:test";
 
 import { buildLayersCompositeCommand } from "../src/layers.mjs";
 import {
+  expandLayerForPerspectiveKeyframes,
   hasUsableLayerKeyframes,
   piecewiseValueAt,
   probeLayerSourceSize,
@@ -125,6 +126,62 @@ test("piecewiseValueAt: holds before first / after last, linear between, ease-in
   assert.ok(Math.abs(atMid - 50) < 1e-9, `expected 50, got ${atMid}`);
 });
 
+function perspectiveLayer({ duration, endCorners }) {
+  return {
+    id: "adaptive-perspective",
+    t: 0,
+    duration,
+    kind: "video",
+    src: "guest.mp4",
+    keyframes: [
+      { t: 0, perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] } },
+      { t: duration, perspective: { corners: endCorners } },
+    ],
+  };
+}
+
+test("perspective adaptive segmentation: a static four-second interval uses the 0.5/s floor", () => {
+  const layer = perspectiveLayer({
+    duration: 4,
+    endCorners: [[0, 0], [1, 0], [0, 1], [1, 1]],
+  });
+  assert.equal(expandLayerForPerspectiveKeyframes(layer).length, 2);
+});
+
+test("perspective adaptive segmentation: fast corner motion uses the 12/s ceiling", () => {
+  const layer = perspectiveLayer({
+    duration: 1,
+    endCorners: [[1.5, 0], [2.5, 0], [1.5, 1], [2.5, 1]],
+  });
+  assert.equal(expandLayerForPerspectiveKeyframes(layer).length, 12);
+});
+
+test("perspective adaptive segmentation: the sub-layer cap warns, redistributes deterministically, and never exceeds its budget", () => {
+  const layer = perspectiveLayer({
+    duration: 30,
+    endCorners: [[45, 0], [46, 0], [45, 1], [46, 1]],
+  });
+  const stderrWrites = [];
+  const originalWrite = process.stderr.write;
+  process.stderr.write = (chunk) => {
+    stderrWrites.push(String(chunk));
+    return true;
+  };
+  let first;
+  let second;
+  try {
+    first = expandLayerForPerspectiveKeyframes(layer);
+    second = expandLayerForPerspectiveKeyframes(layer);
+  } finally {
+    process.stderr.write = originalWrite;
+  }
+  assert.equal(first.length, 240);
+  assert.deepEqual(second, first);
+  assert.equal(stderrWrites.length, 2);
+  assert.match(stderrWrites[0], /requested 360 sub-layers; capped at 240/);
+  assert.equal(stderrWrites[1], stderrWrites[0]);
+});
+
 test("buildLayersCompositeCommand: layers[].keyframes with transform builds an eval=frame overlay x/y and scale (no keyframes: byte-identical filter chain)", () => {
   const withoutKeyframes = buildLayersCompositeCommand({
     layers: [{ id: "pinp", t: 2, duration: 3, kind: "video", src: "guest.mp4", transform: { x: 10, y: 20, scale: 1.5 } }],
@@ -204,7 +261,7 @@ test("buildLayersCompositeCommand: layers[].keyframes with perspective expands i
         src: "guest.mp4",
         keyframes: [
           { t: 0, perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] } },
-          { t: 2, perspective: { corners: [[0.1, 0], [0.9, 0], [0, 1], [1, 1]] } },
+          { t: 2, perspective: { corners: [[0.3, 0], [1, 0], [0.3, 1], [1, 1]] } },
         ],
       },
     ],
@@ -219,7 +276,7 @@ test("buildLayersCompositeCommand: layers[].keyframes with perspective expands i
   // own corners are a plain static value, not an expression.
   assert.doesNotMatch(filterComplex, /eval=frame.*perspective=|perspective=.*eval=frame/);
   const perspectiveClauses = filterComplex.match(/perspective=x0=[-\d.]+\*W[^;]*/g) || [];
-  assert.ok(perspectiveClauses.length >= 4, `expected several discrete perspective= clauses (segment-splitting fallback), got ${perspectiveClauses.length}`);
+  assert.ok(perspectiveClauses.length >= 2, `expected several discrete perspective= clauses (segment-splitting fallback), got ${perspectiveClauses.length}`);
   // Adjacent clauses must actually differ (the corners genuinely change segment to segment) --
   // not the same static value repeated, which would silently defeat the whole point.
   const uniqueClauses = new Set(perspectiveClauses);
@@ -415,10 +472,9 @@ test("layers[].keyframes perspective: 4 corners interpolate linearly (via the di
   );
   // The box is centered at (320,240), spanning x in [220,420], y in [140,340]. Theory:
   // leftEdge(t) = 220 + 0.3*200*(t/2) = 220 + 30*t. Rendered via expandLayerForPerspectiveKeyframes
-  // (PERSPECTIVE_SEGMENTS_PER_SECOND=4, i.e. 0.25s segments, each held at its own midpoint
-  // sample) rather than a continuous curve, so "matches theory" here means within one segment's
-  // worth of positional lag (0.25s * 15px/s = ~4px), not frame-exact -- generous 20px sample
-  // margins on both sides of each theoretical edge absorb that.
+  // with motion-adaptive segments, each held at its own midpoint, rather than a continuous curve.
+  // "Matches theory" here therefore means within one segment's positional lag, not frame-exact;
+  // generous 20px sample margins on both sides of each theoretical edge absorb that.
   const frameAt = (seconds) => Math.round(seconds * fps);
   const midY = 240;
   assertColor(samplePixel(outputPath, frameAt(0), 240, midY), [0, 255, 0], "t=0 (leftEdge~220): point at x=240 must be layer lime");

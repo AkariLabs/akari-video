@@ -32,6 +32,20 @@ const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
 // docs/contract-2026-07-20-edit-json-v1-narration.md §1: gain_db clamp range, shared with bgm/sfx.
 const GAIN_DB_MIN = -60;
 const GAIN_DB_MAX = 12;
+// Cut intermediates favor independent frames: keyint=1 removes x264's expensive temporal search
+// while retaining the resolved preset and CRF verbatim. At a fixed CRF, all-intra frames are not
+// visually coarser (short A/B renders measure higher SSIM/PSNR); the trade-off is a larger cut.mp4.
+// Apply this only to an explicitly resolved libx264 policy. The null legacy path and hardware
+// encoders must keep their exact argument arrays.
+const CUT_X264_PERFORMANCE_PARAMS = "keyint=1";
+
+function tuneCutVideoEncodeArgs(videoEncodeArgs) {
+  if (!Array.isArray(videoEncodeArgs)) return videoEncodeArgs;
+  const codecIndex = videoEncodeArgs.indexOf("-c:v");
+  if (codecIndex < 0 || videoEncodeArgs[codecIndex + 1] !== "libx264") return videoEncodeArgs;
+  if (videoEncodeArgs.includes("-x264-params")) return videoEncodeArgs;
+  return [...videoEncodeArgs, "-x264-params", CUT_X264_PERFORMANCE_PARAMS];
+}
 
 export function buildPlan({
   edit,
@@ -62,6 +76,7 @@ export function buildPlan({
     ? resolveEncodingPolicy({ cli: { quality, encoder }, edit, capabilities })
     : encodingPolicy;
   const videoEncodeArgs = resolvedEncodingPolicy?.video_encode_args ?? null;
+  const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
   const cutsEndSeconds = predictedDuration(edit.cuts, capabilities.sourceDuration, edit.version);
   const finalDurationSeconds = computeContentDurationSeconds({
     edit,
@@ -92,7 +107,7 @@ export function buildPlan({
       ffmpegCommand: capabilities.ffmpegCommand,
       projectRoot,
       look: edit.output.look,
-      videoEncodeArgs,
+      videoEncodeArgs: cutVideoEncodeArgs,
     });
   } else {
     const sourcePath = resolve(projectRoot, edit.source.path);
@@ -109,7 +124,7 @@ export function buildPlan({
       projectRoot,
       look: edit.output.look,
       chromaKey: edit.source?.chroma_key,
-      videoEncodeArgs,
+      videoEncodeArgs: cutVideoEncodeArgs,
     });
   }
   const tailPad = finalDurationSeconds > cutsEndSeconds + 0.001
@@ -306,6 +321,7 @@ function buildTrackStackPlan({
   hasSourceAudio,
   videoEncodeArgs,
 }) {
+  const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
   const ordered = resolveTrackOrder(edit)
     .map((track, orderIndex) => {
       const ref = Number.isInteger(track?.ref) ? track.ref : null;
@@ -373,7 +389,7 @@ function buildTrackStackPlan({
             ffmpegCommand: capabilities.ffmpegCommand,
             projectRoot,
             look: edit.output.look,
-            videoEncodeArgs,
+            videoEncodeArgs: cutVideoEncodeArgs,
           })
         : buildCutCommand({
             sourcePath: resolve(projectRoot, edit.source.path),
@@ -388,7 +404,7 @@ function buildTrackStackPlan({
             projectRoot,
             look: edit.output.look,
             chromaKey: edit.source?.chroma_key,
-            videoEncodeArgs,
+            videoEncodeArgs: cutVideoEncodeArgs,
           });
       cutTracks.push({ ref: track.ref, path: trackPath, command });
       stages.push({
