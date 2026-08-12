@@ -5,15 +5,15 @@
       "label": "cylinder-mirror-back",
       "frame": "frame-00000013.png",
       "sha256": "efca4326672b5aab0954865286453f77acc954cffe332937b0f285af16621b0e",
-      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-flat/packages/render-cut/evidence/3d-text-flat/artifacts/golden-cylinder-mirror-back.png",
-      "viewablePath": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-flat/packages/render-cut/evidence/3d-text-flat/artifacts/golden-cylinder-mirror-back-viewable.png"
+      "path": "packages/render-cut/evidence/3d-text-flat/artifacts/golden-cylinder-mirror-back.png",
+      "viewablePath": "packages/render-cut/evidence/3d-text-flat/artifacts/golden-cylinder-mirror-back-viewable.png"
     },
     {
       "label": "ro-pu-glyphs",
       "frame": "frame-00000001.png",
       "sha256": "71f0aa8933eb8fa21c76587ccda94315e4e9190c0416773bb871a44de525b07b",
-      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-flat/packages/render-cut/evidence/3d-text-flat/artifacts/golden-ro-pu-glyphs.png",
-      "viewablePath": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-flat/packages/render-cut/evidence/3d-text-flat/artifacts/golden-ro-pu-glyphs-viewable.png"
+      "path": "packages/render-cut/evidence/3d-text-flat/artifacts/golden-ro-pu-glyphs.png",
+      "viewablePath": "packages/render-cut/evidence/3d-text-flat/artifacts/golden-ro-pu-glyphs-viewable.png"
     }
   ]
 }

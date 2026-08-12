@@ -7,35 +7,35 @@
       "seed": null,
       "frame": "frame-00000007.png",
       "nonTransparentPixels": 4013,
-      "outPath": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-extrude/packages/render-cut/evidence/3d-text-extrude/artifacts/preset-none.png"
+      "outPath": "packages/render-cut/evidence/3d-text-extrude/artifacts/preset-none.png"
     },
     {
       "preset": "carousel",
       "seed": 1,
       "frame": "frame-00000007.png",
       "nonTransparentPixels": 4256,
-      "outPath": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-extrude/packages/render-cut/evidence/3d-text-extrude/artifacts/preset-carousel.png"
+      "outPath": "packages/render-cut/evidence/3d-text-extrude/artifacts/preset-carousel.png"
     },
     {
       "preset": "char-chaos",
       "seed": 2,
       "frame": "frame-00000007.png",
       "nonTransparentPixels": 4591,
-      "outPath": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-extrude/packages/render-cut/evidence/3d-text-extrude/artifacts/preset-char-chaos.png"
+      "outPath": "packages/render-cut/evidence/3d-text-extrude/artifacts/preset-char-chaos.png"
     },
     {
       "preset": "flip-wave",
       "seed": 3,
       "frame": "frame-00000007.png",
       "nonTransparentPixels": 4096,
-      "outPath": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-extrude/packages/render-cut/evidence/3d-text-extrude/artifacts/preset-flip-wave.png"
+      "outPath": "packages/render-cut/evidence/3d-text-extrude/artifacts/preset-flip-wave.png"
     },
     {
       "preset": "tumble",
       "seed": 4,
       "frame": "frame-00000007.png",
       "nonTransparentPixels": 4555,
-      "outPath": "/Users/ryoma/_edit/30_products/akari-video-wt/3d-text-extrude/packages/render-cut/evidence/3d-text-extrude/artifacts/preset-tumble.png"
+      "outPath": "packages/render-cut/evidence/3d-text-extrude/artifacts/preset-tumble.png"
     }
   ],
   "allPresetsRendered": true

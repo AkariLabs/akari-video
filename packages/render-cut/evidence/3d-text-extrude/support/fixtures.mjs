@@ -28,8 +28,9 @@ export const FONT_SOURCE = resolve(
   "packages/overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf",
 );
 const MAIN_CHECKOUT_CANDIDATES = [
+  REPO_ROOT,
   resolve(REPO_ROOT, "../../akari-video"),
-  "/Users/ryoma/_edit/30_products/akari-video",
+  ...(process.env.AKARI_MAIN_CHECKOUT ? [process.env.AKARI_MAIN_CHECKOUT] : []),
 ];
 
 export async function loadPuppeteerModule() {

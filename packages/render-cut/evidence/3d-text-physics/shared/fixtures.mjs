@@ -5,9 +5,10 @@
 // `git check-ignore` で実測確認済み。ディレクトリ名を shared/ にしているのはそのため
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { access, copyFile, mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -18,11 +19,16 @@ const REPO_FONT_PATH = join(
 export const FONT_RELATIVE_PATH = "fonts/ZenKakuGothicNew-Black.ttf";
 
 // puppeteer-core はこの worktree の devDependency ではない（node_modules 自体が無い）。
-// packages/render-cut/evidence/3d-text-flat/README.md と同じ流儀で、メイン checkout
-// （/Users/ryoma/_edit/30_products/akari-video）の apps/shell/node_modules/puppeteer-core を
-// 読み取り専用で借りる（メイン checkout は無改変）
-const MAIN_CHECKOUT_PUPPETEER_CORE_ENTRY =
-  "/Users/ryoma/_edit/30_products/akari-video/apps/shell/node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+// packages/render-cut/evidence/3d-text-flat/README.md と同じ流儀で、メイン checkout の
+// apps/shell/node_modules/puppeteer-core を読み取り専用で借りる（メイン checkout は無改変。
+// 自リポ → worktree 実行時の隣接メイン checkout → AKARI_MAIN_CHECKOUT の順で探索）
+const PUPPETEER_CORE_ENTRY_SUFFIX =
+  "apps/shell/node_modules/puppeteer-core/lib/puppeteer/puppeteer-core.js";
+const MAIN_CHECKOUT_CANDIDATES = [
+  resolve(HERE, "../../../../.."),
+  resolve(HERE, "../../../../../../../akari-video"),
+  ...(process.env.AKARI_MAIN_CHECKOUT ? [process.env.AKARI_MAIN_CHECKOUT] : []),
+];
 
 export function editFor({ width, height, fps }) {
   return { output: { width, height, fps } };
@@ -47,7 +53,14 @@ export async function makeProjectRoot(label) {
 }
 
 export async function loadPuppeteerModule() {
-  return import(pathToFileURL(MAIN_CHECKOUT_PUPPETEER_CORE_ENTRY).href);
+  for (const checkout of MAIN_CHECKOUT_CANDIDATES) {
+    const entry = join(checkout, PUPPETEER_CORE_ENTRY_SUFFIX);
+    if (!existsSync(entry)) continue;
+    return import(pathToFileURL(entry).href);
+  }
+  throw new Error(
+    "puppeteer-core が見つかりません（メイン checkout の apps/shell/node_modules を確認するか、AKARI_MAIN_CHECKOUT でメイン checkout の場所を指定してください）",
+  );
 }
 
 export async function resolveChromePath() {

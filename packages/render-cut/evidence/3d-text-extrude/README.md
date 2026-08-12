@@ -29,7 +29,7 @@
   そのもの）
 
 puppeteer-core はこの worktree の devDependency ではないため、`test-harness/projection-knobs.test.mjs`
-や `3d-text-flat` の evidence と同じ流儀でメイン checkout（`/Users/ryoma/_edit/30_products/akari-video`）の
+や `3d-text-flat` の evidence と同じ流儀でメイン checkout（公開リポ本体の checkout。worktree 実行時は隣接ディレクトリを自動探索）の
 `apps/shell/node_modules/puppeteer-core` を読み取り専用で借りる（メイン checkout は無編集）。
 
 ## 実測結果サマリ（実行コマンド: `node evidence/3d-text-extrude/<script>.mjs`、cwd は `packages/render-cut/`）
