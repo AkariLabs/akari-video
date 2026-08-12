@@ -52,7 +52,12 @@ import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { createRafThrottle } from '../common/raf-throttle';
 import { normalizeRectFromPoints } from '../common/rect-tool-visual';
+import { editReferencesRawMedia } from '../common/related-edit-source';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
+import {
+    resolveReviewPreviewEditUri,
+    transitionRawPreviewFocus
+} from '../common/review-preview-state';
 import { ReviewToolMode } from '../common/review-tool-mode';
 import { locatePreviewCaptions, parsePreviewCaptions, parseResolvedPreviewCaptions, PreviewCaption } from './akari-preview-captions';
 import {
@@ -617,6 +622,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly lifecycleDisposables = new DisposableCollection();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
+    protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
     protected retryWidgetSequence = 0;
     protected activeRawPreviewWidget: PreviewWidgetMarker | undefined;
     protected rawPreviewActivation = 0;
@@ -674,6 +680,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // activeWidget ではなく current main widget を見ることで、入力中も raw 素材文脈を維持する。
         this.lifecycleDisposables.push(this.shell.onDidChangeCurrentWidget(() => {
             this.syncRawPreviewAnnotationContext();
+            this.syncReviewSessionStateForCurrentPreview();
         }));
         this.registerSeekHandler();
         this.registerEnsureVisibleCommand();
@@ -1167,13 +1174,47 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.reviewSessionRecordingIndicator?.setActive(state.active);
         window.dispatchEvent(new CustomEvent(REVIEW_SESSION_STATE_EVENT, { detail: state }));
         const editUri = this.normalizeReviewEditUri(state.editUri);
-        const widget = editUri ? this.openOutputPreviews.get(editUri) : undefined;
-        if (widget?.isAttached) {
-            widget.sendMessage({
-                type: 'akari-preview-set-review-recording',
-                active: state.active,
-                mode: state.toolMode
-            });
+        if (!editUri) {
+            return;
+        }
+        this.reviewSessionStateByEdit.set(editUri, state);
+        for (const widget of [...this.openOutputPreviews.values(), ...this.openPreviews.values()]) {
+            this.applyReviewSessionStateToPreview(widget, state);
+        }
+    }
+
+    protected reviewEditUriForPreview(widget: PreviewWidgetMarker): string | undefined {
+        return resolveReviewPreviewEditUri({
+            editUri: widget.akariPreviewEditUri?.normalizePath().toString(),
+            relatedEditUri: widget.akariPreviewRelatedEditUri?.normalizePath().toString()
+        });
+    }
+
+    protected applyReviewSessionStateToPreview(
+        widget: PreviewWidgetMarker,
+        state: ReviewSessionUiState
+    ): void {
+        const previewEditUri = this.reviewEditUriForPreview(widget);
+        const stateEditUri = this.normalizeReviewEditUri(state.editUri);
+        if (!widget.isAttached || !previewEditUri || previewEditUri !== stateEditUri) {
+            return;
+        }
+        widget.sendMessage({
+            type: 'akari-preview-set-review-recording',
+            active: state.active,
+            mode: state.toolMode
+        });
+    }
+
+    protected syncReviewSessionStateForCurrentPreview(): void {
+        const widget = this.shell.getCurrentWidget('main') as PreviewWidgetMarker | undefined;
+        if (!widget || ![...this.openOutputPreviews.values(), ...this.openPreviews.values()].includes(widget)) {
+            return;
+        }
+        const editUri = this.reviewEditUriForPreview(widget);
+        const state = editUri ? this.reviewSessionStateByEdit.get(editUri) : undefined;
+        if (state) {
+            this.applyReviewSessionStateToPreview(widget, state);
         }
     }
 
@@ -1619,6 +1660,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             void this.disposePreviewStreams(widget);
         });
+        const reviewEditUri = this.reviewEditUriForPreview(widget);
+        const reviewState = reviewEditUri ? this.reviewSessionStateByEdit.get(reviewEditUri) : undefined;
+        if (reviewState) {
+            this.applyReviewSessionStateToPreview(widget, reviewState);
+        }
     }
 
     protected isPlaybackTickRequest(message: any): message is PreviewPlaybackTickRequest {
@@ -1680,21 +1726,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected syncRawPreviewAnnotationContext(): void {
         const mainWidget = this.shell.getCurrentWidget('main');
         const rawWidget = [...this.openPreviews.values()].find(widget => widget === mainWidget);
-        if (rawWidget === this.activeRawPreviewWidget) {
+        const transition = transitionRawPreviewFocus({
+            activation: this.rawPreviewActivation,
+            activeWidgetId: this.activeRawPreviewWidget?.id
+        }, rawWidget?.id);
+        if (!transition.changed) {
             return;
         }
+        this.rawPreviewActivation = transition.activation;
+        this.activeRawPreviewWidget = rawWidget;
         if (rawWidget) {
-            this.activeRawPreviewWidget = rawWidget;
-            this.rawPreviewActivation += 1;
             this.forwardRawPreviewAnnotationState(rawWidget, 'focus');
             return;
         }
-        if (this.activeRawPreviewWidget) {
-            this.activeRawPreviewWidget = undefined;
-            window.dispatchEvent(new CustomEvent(RAW_PREVIEW_ANNOTATION_STATE_EVENT, {
-                detail: { active: false, activation: this.rawPreviewActivation, reason: 'focus' }
-            }));
-        }
+        window.dispatchEvent(new CustomEvent(RAW_PREVIEW_ANNOTATION_STATE_EVENT, {
+            detail: { active: false, activation: this.rawPreviewActivation, reason: 'focus' }
+        }));
     }
 
     protected isReviewTransportRequest(message: any): message is PreviewReviewTransportRequest {
@@ -1750,7 +1797,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewStrokeStartRequest
     ): void {
-        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        const editUri = this.reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.handleStrokeStart(editUri, message.frame);
         }
@@ -1765,7 +1812,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewStrokeEndRequest
     ): void {
-        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        const editUri = this.reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.handleStrokeEnd(editUri, message.points);
         }
@@ -1786,7 +1833,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewRectStartRequest
     ): void {
-        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        const editUri = this.reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.handleRectStart(editUri, message.frame);
         }
@@ -1802,7 +1849,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewRectEndRequest
     ): void {
-        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        const editUri = this.reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.handleRectEnd(editUri, message.box);
         }
@@ -1819,7 +1866,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         message: PreviewReviewToolModeRequest
     ): void {
-        const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+        const editUri = this.reviewEditUriForPreview(widget);
         if (editUri) {
             this.reviewSessionRecorder?.setToolMode(editUri, message.mode);
         }
@@ -2849,8 +2896,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             for (const candidate of candidates) {
                 try {
                     const parsed = JSON.parse(await this.readText(candidate));
-                    if (typeof parsed?.source?.path === 'string'
-                        && this.pathBase(parsed.source.path) === videoUri.path.base) {
+                    if (editReferencesRawMedia(parsed, candidate.toString(), videoUri.toString())) {
                         return candidate;
                     }
                 } catch {
@@ -8164,10 +8210,6 @@ body { display: grid; place-items: center; padding: 32px; }
             ? base.replace(/\.mov$/i, '.preview.webm')
             : `${base}.preview.webm`;
         return sourceUri.parent.resolve(proxyBase);
-    }
-
-    protected pathBase(value: string): string {
-        return value.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? '';
     }
 
     protected hash(value: string): string {
