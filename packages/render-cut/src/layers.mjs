@@ -650,6 +650,7 @@ export function buildLayersCompositeCommand({
       previous = next;
     }
   });
+  filters.push(`${previous}scale=out_range=tv[outv]`);
 
   return {
     command: ffmpegCommand,
@@ -665,10 +666,10 @@ export function buildLayersCompositeCommand({
       "-filter_complex",
       filters.join(";"),
       "-map",
-      previous,
+      "[outv]",
       "-map",
       "0:a:0",
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",

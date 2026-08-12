@@ -182,6 +182,8 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high" 
       "-b:v",
       resolvedPreset.videotoolboxBitrate,
       ...(profile ? ["-profile:v", profile] : []),
+      "-color_range",
+      "tv",
     ];
   }
   return [
@@ -192,5 +194,7 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high" 
     resolvedPreset.preset,
     "-crf",
     String(resolvedPreset.crf),
+    "-color_range",
+    "tv",
   ];
 }

@@ -30,13 +30,15 @@ export function buildTrackBaseCommand({
       "lavfi",
       "-i",
       `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(duration)}`,
+      "-filter_complex",
+      "[1:v]scale=out_range=tv[outv]",
       "-map",
-      "1:v:0",
+      "[outv]",
       "-map",
       "0:a:0",
       "-t",
       formatNumber(duration),
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -76,6 +78,7 @@ export function buildCutTrackCompositeCommand({
     );
     previous = next;
   });
+  filters.push(`${previous}scale=out_range=tv[outv]`);
 
   return {
     command: ffmpegCommand,
@@ -92,12 +95,12 @@ export function buildCutTrackCompositeCommand({
       "-filter_complex",
       filters.join(";"),
       "-map",
-      previous,
+      "[outv]",
       "-map",
       "0:a:0",
       "-t",
       formatNumber(duration),
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",

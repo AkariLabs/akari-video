@@ -92,6 +92,7 @@ All contracts follow the
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | Timeline placement principles, multiple audio tracks, audio trim, source trimmer |
 | [contract-2026-08-05-fx-v0.md](./contract-2026-08-05-fx-v0.md) | Screen-FX small vocabulary v0 — **retired 2026-08-11** (see the notice at the top of the doc); `presets/fx/` remains as an empty registry |
 | [contract-2026-08-12-region-filter-layer-v0.md](./contract-2026-08-12-region-filter-layer-v0.md) | kind:"filter" layers — region (perspective corners) confined look switch (invert / lut / saturation), no extra `-i` input |
+| [contract-2026-08-12-color-range-normalization-v0.md](./contract-2026-08-12-color-range-normalization-v0.md) | Normalize full-range (pc) H.264 input to limited range (tv) output — pixel value conversion (scale=out_range=tv) paired with metadata tagging (-color_range tv) across every encode stage; adds verify.color-range |
 
 ### Analysis, plan, review
 
