@@ -16,12 +16,15 @@
 <plan-dir>/
 ├── decision-log.md            # analyze-project と共有・追記専用（判断記録）
 ├── edit.json                  # 実行承認後だけ
-├── overlays/                  # 実行承認後だけ
-└── generated/                 # 生成した静止画等の原本（provenance 込み）
+└── overlays/                  # 実行承認後だけ
 ```
 
-生成物の原本と provenance は再検証できるよう残す。方針・素材計画の証拠は analyze-project の
-分析レポート（読み取り専用・自己完結 HTML）を参照する。
+生成した静止画等の原本は `<project>/assets/generated/`（`<plan-dir>/` の外、プロジェクト
+直下の `assets/` 配下）に置く（2026-08-12 改訂 — 素材パネルの守備範囲に入れるための変更。
+旧 `<plan-dir>/generated/` からの置き場変更であり、既存プロジェクトの `<plan-dir>/generated/`
+は移設しない）。provenance は再検証できるよう残す。方針・素材計画の証拠は analyze-project の
+分析レポート（読み取り専用・自己完結 HTML）を参照する。生成は必ずプロジェクト内で行い、
+プロジェクト外のパスへ書き出さない。
 
 ## Checkpoint 1 後の cut candidate bridge
 
@@ -125,7 +128,8 @@ Checkpoint 1 の提示に着手する前に、[recipe.md](recipe.md) の recall 
 ad-hoc な検証スクリプトや、統合判断のための一時的な比較・実験生成物は、プロジェクトルート
 直下や `<plan-dir>/` 直下に書かず、`.akari/work/` へ置く
 （[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
-`decision-log.md`・`edit.json`・`overlays/`・`generated/` 等、正式な生成物の出力先（§1）は変わらない。
+`decision-log.md`・`edit.json`・`overlays/` 等、正式な生成物の出力先（§1）は変わらない。
+生成した静止画等の原本の出力先は `<project>/assets/generated/`（2026-08-12 改訂。§1 参照）。
 
 ## よくある間違い
 
