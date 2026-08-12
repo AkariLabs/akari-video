@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import { buildLayersCompositeCommand } from "../src/layers.mjs";
@@ -115,4 +118,169 @@ test("a source-backed layer after a filter still uses the next actual ffmpeg inp
   assert.equal(result.args.filter((arg) => arg === "-i").length, 2);
   assert.match(graph, /\[1:v\]/u);
   assert.doesNotMatch(graph, /\[2:v\]/u);
+});
+
+test("filter trim boundaries snap to the CFR frame grid", () => {
+  const t = 1.0833333333333333;
+  const layerDuration = 3.6666666666666665;
+  const fps = 30;
+  const result = buildLayersCompositeCommand({
+    layers: [{
+      id: "region-filter",
+      t,
+      duration: layerDuration,
+      kind: "filter",
+      filter: { type: "invert" },
+      perspective: { corners: cornersA },
+    }],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/base.mp4",
+    outputPath: "/project/output.mp4",
+    duration: 8,
+    width: 1280,
+    height: 720,
+    fps,
+  });
+  const frame = 1 / fps;
+  const snappedT = (Math.round(t / frame) * frame).toString();
+  const snappedEnd = (Math.round((t + layerDuration) / frame) * frame).toString();
+  assert.ok(
+    graphOf(result).includes(`trim=start=${snappedT}:end=${snappedEnd}`),
+    "the active segment should use frame-snapped start and end values",
+  );
+});
+
+test("adjacent filter layers share exactly the same snapped boundary", () => {
+  const result = buildLayersCompositeCommand({
+    layers: [
+      {
+        id: "region-filter-a",
+        t: 1.0833333333333333,
+        duration: 3.6666666666666665,
+        kind: "filter",
+        filter: { type: "invert" },
+        perspective: { corners: cornersA },
+      },
+      {
+        id: "region-filter-b",
+        t: 4.75,
+        duration: 0.75,
+        kind: "filter",
+        filter: { type: "invert" },
+        perspective: { corners: cornersB },
+      },
+    ],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/base.mp4",
+    outputPath: "/project/output.mp4",
+    duration: 8,
+    width: 1280,
+    height: 720,
+    fps: 30,
+  });
+  const graph = graphOf(result);
+  const firstDuring = graph.match(/\[l0_prev1\]trim=start=[^:]+:end=([^,]+)/u);
+  const secondBefore = graph.match(/\[l1_prev0\]trim=start=0:end=([^,]+)/u);
+  assert.ok(firstDuring, "the first filter should have an active segment");
+  assert.ok(secondBefore, "the second filter should have a preceding segment");
+  assert.equal(firstDuring[1], secondBefore[1]);
+});
+
+test("filter trim boundaries use edit.json fps before the cut input exists", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "akari-filter-fps-"));
+  try {
+    writeFileSync(
+      join(projectRoot, "edit.json"),
+      JSON.stringify({
+        version: 0,
+        output: { width: 1280, height: 720, fps: 30 },
+      }),
+    );
+    const t = 1.0833333333333333;
+    const layerDuration = 3.6666666666666665;
+    const result = buildLayersCompositeCommand({
+      layers: [{
+        id: "region-filter",
+        t,
+        duration: layerDuration,
+        kind: "filter",
+        filter: { type: "invert" },
+        perspective: { corners: cornersA },
+      }],
+      projectRoot,
+      ffmpegCommand: "ffmpeg",
+      inputPath: join(projectRoot, "cut-not-created-yet.mp4"),
+      outputPath: join(projectRoot, "output.mp4"),
+      duration: 8,
+      width: 1280,
+      height: 720,
+    });
+    const frame = 1 / 30;
+    const snappedT = (Math.round(t / frame) * frame).toString();
+    const snappedEnd = (Math.round((t + layerDuration) / frame) * frame).toString();
+    assert.ok(
+      graphOf(result).includes(`trim=start=${snappedT}:end=${snappedEnd}`),
+      "edit.json output.fps should activate snapping before the cut file exists",
+    );
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("filter quad mask uses the same explicit fps as the base video", () => {
+  const result = buildLayersCompositeCommand({
+    layers: [{
+      id: "region-filter",
+      t: 1,
+      duration: 2,
+      kind: "filter",
+      filter: { type: "invert" },
+      perspective: { corners: cornersA },
+    }],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/base.mp4",
+    outputPath: "/project/output.mp4",
+    duration: 5,
+    width: 1280,
+    height: 720,
+    fps: 30,
+  });
+  assert.match(graphOf(result), /color=c=white:s=1280x720:d=2:r=30\[l0_maskraw\]/u);
+});
+
+test("filter output is fps-normalized before the next filter layer consumes it", () => {
+  const result = buildLayersCompositeCommand({
+    layers: [
+      {
+        id: "region-filter-a",
+        t: 1,
+        duration: 1,
+        kind: "filter",
+        filter: { type: "invert" },
+        perspective: { corners: cornersA },
+      },
+      {
+        id: "region-filter-b",
+        t: 2,
+        duration: 1,
+        kind: "filter",
+        filter: { type: "invert" },
+        perspective: { corners: cornersB },
+      },
+    ],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/base.mp4",
+    outputPath: "/project/output.mp4",
+    duration: 5,
+    width: 1280,
+    height: 720,
+    fps: 30,
+  });
+  const graph = graphOf(result);
+  assert.match(graph, /maskedmerge,format=yuv420p,fps=30\[l0_segB\]/u);
+  assert.match(graph, /concat=n=3:v=1:a=0\[l0_concat\];\[l0_concat\]fps=30\[l0_out\];\[l0_out\]split=/u);
 });

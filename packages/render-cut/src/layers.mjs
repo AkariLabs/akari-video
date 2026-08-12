@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
@@ -123,6 +123,51 @@ function escapeFilterPath(path) {
   return path.replace(/\\/gu, "\\\\").replace(/:/gu, "\\:").replace(/'/gu, "\\'");
 }
 
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function probeBaseFps(ffprobeCommand, path) {
+  if (!existsSync(path)) return null;
+  const result = spawnSync(
+    ffprobeCommand,
+    [
+      "-v",
+      "error",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=r_frame_rate",
+      "-of",
+      "json",
+      path,
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.error || result.status !== 0) return null;
+  try {
+    const rate = JSON.parse(result.stdout).streams?.[0]?.r_frame_rate;
+    const [numerator, denominator] = String(rate ?? "").split("/").map(Number);
+    const fps = denominator ? numerator / denominator : numerator;
+    return Number.isFinite(fps) && fps > 0 ? fps : null;
+  } catch {
+    return null;
+  }
+}
+
+// Plan construction runs before the cut stage has written inputPath, while the project's
+// edit.json already exists and has been read by render-cut. Resolve output.fps from that same
+// stable input first; probing inputPath remains a fallback for callers where it already exists.
+function resolveEditFps(projectRoot) {
+  try {
+    const raw = readFileSync(resolve(projectRoot, "edit.json"), "utf8");
+    const fps = JSON.parse(raw)?.output?.fps;
+    return isFiniteNumber(fps) && fps > 0 ? fps : null;
+  } catch {
+    return null;
+  }
+}
+
 function appendFilterLayerComposite({
   filters,
   previous,
@@ -135,9 +180,23 @@ function appendFilterLayerComposite({
   width,
   height,
   projectRoot,
+  fps,
 }) {
-  const hasBefore = t > EPSILON;
-  const hasAfter = end < duration - EPSILON;
+  // Perspective keyframes expand one layer into adjacent sub-layers whose boundaries are usually
+  // not exact frame boundaries. The base is CFR, so snapping every trim boundary to its frame grid
+  // keeps adjacent concat segments bit-identical and prevents accumulated duplicate/dropped frames.
+  let snappedT = t;
+  let snappedEnd = end;
+  if (isFiniteNumber(fps) && fps > 0) {
+    const frame = 1 / fps;
+    snappedT = Math.round(t / frame) * frame;
+    snappedEnd = Math.round(end / frame) * frame;
+    if (!(snappedEnd > snappedT)) snappedEnd = snappedT + frame;
+  }
+  const snappedLayerDuration = snappedEnd - snappedT;
+
+  const hasBefore = snappedT > EPSILON;
+  const hasAfter = snappedEnd < duration - EPSILON;
   const needed = 1 + (hasBefore ? 1 : 0) + (hasAfter ? 1 : 0);
   let prevBefore = null;
   let prevDuring = previous;
@@ -154,14 +213,14 @@ function appendFilterLayerComposite({
   const parts = [];
   if (hasBefore) {
     const segA = `[${idBase}_segA]`;
-    filters.push(`${prevBefore}trim=start=0:end=${formatNumber(t)},setpts=PTS-STARTPTS${segA}`);
+    filters.push(`${prevBefore}trim=start=0:end=${formatNumber(snappedT)},setpts=PTS-STARTPTS${segA}`);
     parts.push(segA);
   }
 
   const baseDuring = `[${idBase}_bd]`;
   const gradeInput = `[${idBase}_gradein]`;
   filters.push(
-    `${prevDuring}trim=start=${formatNumber(t)}:end=${formatNumber(end)},setpts=PTS-STARTPTS,split=2${baseDuring}${gradeInput}`,
+    `${prevDuring}trim=start=${formatNumber(snappedT)}:end=${formatNumber(snappedEnd)},setpts=PTS-STARTPTS,split=2${baseDuring}${gradeInput}`,
   );
   const baseRgb = `[${idBase}_bdrgb]`;
   filters.push(`${baseDuring}format=gbrp${baseRgb}`);
@@ -197,7 +256,8 @@ function appendFilterLayerComposite({
 
   const maskRaw = `[${idBase}_maskraw]`;
   const maskOpaque = `[${idBase}_maskopaque]`;
-  filters.push(`color=c=white:s=${width}x${height}:d=${formatNumber(layerDuration)}${maskRaw}`);
+  const rateSuffix = isFiniteNumber(fps) && fps > 0 ? `:r=${formatNumber(fps)}` : "";
+  filters.push(`color=c=white:s=${width}x${height}:d=${formatNumber(snappedLayerDuration)}${rateSuffix}${maskRaw}`);
   filters.push(`${maskRaw}format=yuva420p${maskOpaque}`);
 
   const padFrac = PERSPECTIVE_PAD_FRAC;
@@ -215,18 +275,31 @@ function appendFilterLayerComposite({
   filters.push(`${maskQuad}alphaextract${mask}`);
 
   const segB = `[${idBase}_segB]`;
-  filters.push(`${baseRgb}${gradedRgb}${mask}maskedmerge,format=yuv420p${segB}`);
+  const fpsFilter = isFiniteNumber(fps) && fps > 0 ? `,fps=${formatNumber(fps)}` : "";
+  filters.push(`${baseRgb}${gradedRgb}${mask}maskedmerge,format=yuv420p${fpsFilter}${segB}`);
   parts.push(segB);
 
   if (hasAfter) {
     const segC = `[${idBase}_segC]`;
-    filters.push(`${prevAfter}trim=start=${formatNumber(end)}:end=${formatNumber(duration)},setpts=PTS-STARTPTS${segC}`);
+    filters.push(`${prevAfter}trim=start=${formatNumber(snappedEnd)}:end=${formatNumber(duration)},setpts=PTS-STARTPTS${segC}`);
     parts.push(segC);
   }
 
-  if (parts.length === 1) return parts[0];
+  const hasKnownFps = isFiniteNumber(fps) && fps > 0;
+  if (parts.length === 1 && !hasKnownFps) return parts[0];
+
   const next = `[${idBase}_out]`;
-  filters.push(`${parts.join("")}concat=n=${parts.length}:v=1:a=0${next}`);
+  if (parts.length > 1 && !hasKnownFps) {
+    filters.push(`${parts.join("")}concat=n=${parts.length}:v=1:a=0${next}`);
+    return next;
+  }
+
+  let merged = parts[0];
+  if (parts.length > 1) {
+    merged = `[${idBase}_concat]`;
+    filters.push(`${parts.join("")}concat=n=${parts.length}:v=1:a=0${merged}`);
+  }
+  filters.push(`${merged}fps=${formatNumber(fps)}${next}`);
   return next;
 }
 
@@ -248,6 +321,7 @@ export function buildLayersCompositeCommand({
   width,
   height,
   videoEncodeArgs = null,
+  fps = null,
 }) {
   const inputArgs = [];
   const filters = [];
@@ -263,6 +337,12 @@ export function buildLayersCompositeCommand({
   // -- ordinary layers (the overwhelming majority) pass through this unchanged (flatMap of a
   // single-element array is the identity), so this adds no cost/behavior change for them.
   const expandedLayers = layers.flatMap(expandLayerForPerspectiveKeyframes);
+  const needsFps = expandedLayers.some((layer) => layer.kind === "filter");
+  const resolvedFps = needsFps
+    ? (isFiniteNumber(fps) && fps > 0
+        ? fps
+        : (resolveEditFps(projectRoot) ?? probeBaseFps(ffprobeCommand, inputPath)))
+    : null;
 
   expandedLayers.forEach((layer, index) => {
     const idBase = `l${index}`;
@@ -286,6 +366,7 @@ export function buildLayersCompositeCommand({
         width,
         height,
         projectRoot,
+        fps: resolvedFps,
       });
       return;
     }
