@@ -281,10 +281,14 @@ test("buildLayersCompositeCommand: layers[].keyframes with perspective expands i
   // not the same static value repeated, which would silently defeat the whole point.
   const uniqueClauses = new Set(perspectiveClauses);
   assert.ok(uniqueClauses.size > 1, "expected the perspective= corners to differ across segments");
-  // guest.mp4's own source is opened once per segment (each with its own -itsoffset), matching
-  // the number of sub-layers.
-  const itsoffsetCount = args.filter((a) => a === "-itsoffset").length;
-  assert.equal(itsoffsetCount, perspectiveClauses.length);
+  // guest.mp4 is decoded once and split, while every sub-layer keeps its own distinct absolute
+  // timeline placement in filter_complex rather than sharing another segment's clock.
+  assert.equal(args.filter((a) => a === "/project/guest.mp4").length, 1);
+  assert.equal(args.filter((a) => a === "-itsoffset").length, 0);
+  const absoluteShifts = [...filterComplex.matchAll(/setpts=PTS-STARTPTS\+([-\d.]+)\/TB/g)]
+    .map((match) => match[1]);
+  assert.equal(absoluteShifts.length, perspectiveClauses.length);
+  assert.equal(new Set(absoluteShifts).size, perspectiveClauses.length);
 });
 
 test("buildLayersCompositeCommand: layers[].keyframes with perspective on a non-normal blend layer is a deliberate v0 no-op (falls back to no perspective, not silently wrong)", () => {

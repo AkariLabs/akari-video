@@ -303,8 +303,8 @@ function appendFilterLayerComposite({
   return next;
 }
 
-// Layers whose blend is "normal" (or unset) are composited with a single itsoffset+trim+overlay
-// step chained directly onto the running video label (cheap, no re-encode of untouched regions).
+// Layers whose blend is "normal" (or unset) are composited with a trim+PTS-shift+overlay step
+// chained directly onto the running video label (cheap, no re-encode of untouched regions).
 // Layers with a non-normal blend (screen/multiply/...) need pixel-aligned inputs for ffmpeg's
 // `blend` filter, which the `overlay` filter's x/y placement doesn't provide, so those go through
 // a trim-the-timeline-into-three-segments/blend-the-middle-one/concat-back pipeline instead. Both
@@ -344,6 +344,43 @@ export function buildLayersCompositeCommand({
         : (resolveEditFps(projectRoot) ?? probeBaseFps(ffprobeCommand, inputPath)))
     : null;
 
+  // Perspective keyframes can turn one logical source-backed layer into dozens of adjacent static
+  // consumers of the same source. Opening the file once per consumer makes ffmpeg instantiate the
+  // same decoder just as many times, which is particularly expensive for alpha video. Register
+  // one input per resolved source path up front and fan its decoded frames out inside filter_complex
+  // instead. The decoder probe and its possible warning deliberately live at group scope too: the
+  // answer is a property of the resolved file, not of a layer instance.
+  const sourceGroups = new Map();
+  expandedLayers.forEach((layer, index) => {
+    if (layer.kind !== "video" && layer.kind !== "baked") return;
+    const resolvedSource = resolve(projectRoot, layer.src);
+    let group = sourceGroups.get(resolvedSource);
+    if (!group) {
+      group = { resolvedSource, consumers: [] };
+      sourceGroups.set(resolvedSource, group);
+    }
+    group.consumers.push(index);
+  });
+  const videoInputLabelByLayerIndex = new Map();
+  let videoGroupIndex = 0;
+  for (const group of sourceGroups.values()) {
+    const inputIndex = nextInputIndex++; // 0 is the base video (-i inputPath)
+    inputArgs.push(
+      ...(isImageLayerSource(group.resolvedSource) ? ["-loop", "1"] : []),
+      // Input option, so it must sit between the previous input and this source's own `-i`.
+      ...resolveDecoderForLayer(ffprobeCommand, group.resolvedSource, warnings),
+      "-i",
+      group.resolvedSource,
+    );
+    const copies = group.consumers.map((layerIndex, consumerIndex) => {
+      const label = `[vsrc${videoGroupIndex}_${consumerIndex}]`;
+      videoInputLabelByLayerIndex.set(layerIndex, label);
+      return label;
+    });
+    filters.push(`[${inputIndex}:v]split=${copies.length}${copies.join("")}`);
+    videoGroupIndex += 1;
+  }
+
   expandedLayers.forEach((layer, index) => {
     const idBase = `l${index}`;
     const t = Number(layer.t) || 0;
@@ -371,7 +408,6 @@ export function buildLayersCompositeCommand({
       return;
     }
 
-    const inputIndex = nextInputIndex++; // 0 is the base video (-i inputPath)
     const transform = layer.transform ?? {};
     const scale = Number(transform.scale ?? 1) || 1;
     const rotate = Number(transform.rotate ?? 0) || 0;
@@ -380,19 +416,20 @@ export function buildLayersCompositeCommand({
     const isNormal = blend === "normal";
 
     const resolvedSource = resolve(projectRoot, layer.src);
-    // A still-image src has exactly one frame, so without -loop 1 the downstream
-    // trim=duration=${layerDuration} step below would starve after that single frame instead of
-    // holding it for the whole [t, t+duration) window (same technique as plan.mjs's chroma_key
-    // background image input).
-    const isImageSource = isImageLayerSource(resolvedSource);
-    inputArgs.push(
-      ...(isNormal ? ["-itsoffset", formatNumber(t)] : []),
-      ...(isImageSource ? ["-loop", "1"] : []),
-      // Input option, so it must sit between the previous input and this layer's own `-i`.
-      ...resolveDecoderForLayer(ffprobeCommand, resolvedSource, warnings),
-      "-i",
-      resolvedSource,
-    );
+    let sourceInput = videoInputLabelByLayerIndex.get(index);
+    if (!sourceInput) {
+      // Schema-valid video/baked layers are registered above. Keep a defensive per-instance path
+      // for direct callers that bypass schema validation and pass another source-backed kind.
+      const inputIndex = nextInputIndex++; // 0 is the base video (-i inputPath)
+      inputArgs.push(
+        ...(isNormal ? ["-itsoffset", formatNumber(t)] : []),
+        ...(isImageLayerSource(resolvedSource) ? ["-loop", "1"] : []),
+        ...resolveDecoderForLayer(ffprobeCommand, resolvedSource, warnings),
+        "-i",
+        resolvedSource,
+      );
+      sourceInput = `[${inputIndex}:v]`;
+    }
 
     // contract-2026-08-09-transform-keyframes-v0.md: layers[].keyframes overrides the layer's own
     // static transform/crop/perspective for whichever of those categories at least one keyframe
@@ -451,7 +488,15 @@ export function buildLayersCompositeCommand({
     // Layer preprocessing chain shared by both compositing styles: trim to the declared duration,
     // key out chroma if requested, normalize to an alpha-carrying format, then apply transform/opacity.
     const steps = [`trim=duration=${formatNumber(layerDuration)}`];
-    if (!isNormal) steps.push("setpts=PTS-STARTPTS");
+    if (!isNormal) {
+      steps.push("setpts=PTS-STARTPTS");
+    } else if (layer.kind === "video" || layer.kind === "baked") {
+      // -itsoffset cannot vary after one input is shared. Rebase each split branch independently,
+      // then place it at the same absolute [t, t+duration] PTS range the old input-level offset
+      // produced. Downstream transform keyframes and overlay's enable expression therefore keep
+      // seeing the same absolute clock.
+      steps.push(`setpts=PTS-STARTPTS+${formatNumber(t)}/TB`);
+    }
     if (layer.kind === "video" && layer.chroma_key) {
       const key = layer.chroma_key;
       steps.push(
@@ -569,7 +614,7 @@ export function buildLayersCompositeCommand({
       steps.push(`colorchannelmixer=aa=${formatNumber(opacity)}`);
     }
     const processed = `[${idBase}_p]`;
-    filters.push(`[${inputIndex}:v]${steps.join(",")}${processed}`);
+    filters.push(`${sourceInput}${steps.join(",")}${processed}`);
 
     if (isNormal) {
       const next = `[${idBase}_out]`;
