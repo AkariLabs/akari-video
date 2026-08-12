@@ -55,6 +55,8 @@ try {
     record('microphone-preflight', microphone);
     assert.equal(microphone.ok, true, `microphone preflight failed: ${JSON.stringify(microphone)}`);
 
+    await waitFor(`Array.from(document.querySelectorAll('.codicon-settings-gear'))
+        .some(element => element.getBoundingClientRect().width > 0)`, 'AKARI settings gear', 45_000);
     const developerModeAttempts = [await toggleDeveloperModeViaSettings(main)];
     if (!developerModeAttempts.at(-1).checkedAfter) {
         developerModeAttempts.push(await toggleDeveloperModeViaSettings(main));
@@ -94,7 +96,10 @@ try {
     })()`, 'edit.json Explorer row');
     await realClick(main, editRow.x, editRow.y, { clickCount: 2 });
 
-    const reviewPanelTab = await waitFor(`(() => {
+    // akari-annotations-widget.ts の syncRightPane() が selectionModel.onChanged 経由で PARTNER_WIDGET_ID を無条件に activateWidget し、
+    // akari-annotations-contribution.ts の attachPassively() からの初回非同期初期化が注釈タブを奪う既知競合のため、
+    // e2e-panel-tab-flake で確認済み。修正はプロダクト側の責務とし、ここでは settle 待ちと再クリックだけで緩和する。
+    const reviewPanelTabState = `(() => {
         const tabs = Array.from(document.querySelectorAll('.lm-TabBar-tab'));
         const tab = document.getElementById('shell-tab-akari-review-panel-widget')
             ?? tabs.find(element => {
@@ -113,18 +118,53 @@ try {
             id: tab.id,
             label: tab.querySelector('.lm-TabBar-tabLabel')?.textContent?.trim() ?? ''
         };
-    })()`, 'annotation panel tab');
-    if (!reviewPanelTab.alreadyCurrent) {
-        await realClick(main, reviewPanelTab.x, reviewPanelTab.y);
-        await waitFor(`document.getElementById('shell-tab-akari-review-panel-widget')
-            ?.classList.contains('lm-mod-current')`, 'activate annotation panel tab');
-    }
+    })()`;
+    const ensureReviewPanelCurrent = async label => {
+        let reviewPanelTab = await waitFor(reviewPanelTabState, 'annotation panel tab');
+        let hijackCount = 0;
+        for (let settleAttempt = 1; settleAttempt <= 3; settleAttempt += 1) {
+            if (!reviewPanelTab.alreadyCurrent) {
+                await realClick(main, reviewPanelTab.x, reviewPanelTab.y);
+                await waitFor(`document.getElementById('shell-tab-akari-review-panel-widget')
+                    ?.classList.contains('lm-mod-current')`, 'activate annotation panel tab');
+            }
+
+            const settleStartedAt = Date.now();
+            const settleDeadline = settleStartedAt + 9_000;
+            let hijacked = false;
+            while (Date.now() + 300 <= settleDeadline) {
+                await sleep(Math.min(400, settleDeadline - Date.now()));
+                const isCurrent = await evalMain(main, `document.getElementById('shell-tab-akari-review-panel-widget')
+                    ?.classList.contains('lm-mod-current') === true`);
+                if (!isCurrent) {
+                    hijacked = true;
+                    hijackCount += 1;
+                    record('review-panel-hijack-detected', {
+                        label,
+                        hijackCount,
+                        settleAttempt,
+                        elapsedMs: Date.now() - settleStartedAt
+                    });
+                    break;
+                }
+            }
+
+            reviewPanelTab = await waitFor(reviewPanelTabState, 'annotation panel tab after settle');
+            if (!hijacked) {
+                break;
+            }
+        }
+
+        return { ...reviewPanelTab, hijackCount };
+    };
+    const reviewPanelTab = await ensureReviewPanelCurrent('after-edit-open');
     record('review-panel-open', reviewPanelTab);
 
     const cut0 = await waitFor(elementCenter('[data-akari-ui="timeline:cut:0"]'), 'timeline:cut:0');
     const cut1 = await waitFor(elementCenter('[data-akari-ui="timeline:cut:1"]'), 'timeline:cut:1');
     record('timeline-ready', { cut0, cut1 });
 
+    await ensureReviewPanelCurrent('before-recording-start');
     const recordingButton = await waitFor(elementCenter('[data-review-recording-toggle]'), 'recording button');
     await realClick(main, recordingButton.x, recordingButton.y);
     await waitFor(`document.querySelector('[data-review-recording-toggle]')?.textContent === '録音終了'`, 'recording start');
@@ -142,6 +182,9 @@ try {
     record('consecutive-real-clicks', { cut0, cut1: cut1AfterFirstClick, intervalMs: 50 });
     await sleep(300);
 
+    // timeline:cut のクリック選択で akari-annotations-contribution.ts の openInspectorPanel() が revealWidget() を呼び、
+    // 注釈タブを奪うことがあるため、録音終了ボタンを探す前にも同じ settle 確認を行う。
+    await ensureReviewPanelCurrent('before-recording-stop');
     const stopButton = await waitFor(elementCenter('[data-review-recording-toggle]'), 'recording stop button');
     await realClick(main, stopButton.x, stopButton.y);
     await waitFor(`document.querySelector('[data-review-recording-toggle]')?.textContent === '録音開始'`, 'recording stop');

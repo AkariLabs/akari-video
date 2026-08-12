@@ -160,7 +160,8 @@
         "from": "../../packages/schemas",
         "to": "packages/schemas",
         "filter": [
-          "captions.schema.json"
+          "captions.schema.json",
+          "bin/validate-asset.mjs"
         ]
       },
       {

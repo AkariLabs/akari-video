@@ -7,7 +7,9 @@ const edit = {
     version: 1,
     sources: [
         { id: 'camera-a', path: 'media/camera-a.mp4', proxy: null },
-        { id: 'final-render', path: 'exports/render.mp4', proxy: null }
+        { id: 'final-render', path: 'exports/render.mp4', proxy: null },
+        { id: 'voice-over', path: 'audio/voice-over.wav', proxy: null },
+        { id: 'music-bed', path: 'audio/music.m4a', proxy: null }
     ]
 };
 
@@ -15,6 +17,17 @@ test('raw preview の URI を project-relative sources[].path から id へ逆�
     assert.equal(
         resolveRawSourceId(edit, 'file:///tmp/akari-project', 'file:///tmp/akari-project/exports/render.mp4'),
         'final-render'
+    );
+});
+
+test('音声ファイルの URI も拡張子に依存せず sources[].id へ逆引きする', () => {
+    assert.equal(
+        resolveRawSourceId(edit, 'file:///tmp/akari-project', 'file:///tmp/akari-project/audio/voice-over.wav'),
+        'voice-over'
+    );
+    assert.equal(
+        resolveRawSourceId(edit, 'file:///tmp/akari-project', 'file:///tmp/akari-project/audio/music.m4a'),
+        'music-bed'
     );
 });
 

@@ -167,6 +167,31 @@ function validateTranscript(value) {
 }
 
 function validStroke(stroke) {
+  if (stroke?.tool === "rect") {
+    const box = stroke.box;
+    return stroke
+      && /^st-\d{4,}$/.test(stroke.id)
+      && stroke.space === "content-rect"
+      && Number.isFinite(stroke.recTStart)
+      && stroke.recTStart >= 0
+      && Number.isFinite(stroke.recTEnd)
+      && stroke.recTEnd >= stroke.recTStart
+      && Number.isFinite(stroke.frame?.timelineT)
+      && Number.isFinite(stroke.frame?.sourceT)
+      && (
+        stroke.frame?.cutIndex === null
+        || (Number.isInteger(stroke.frame?.cutIndex) && stroke.frame.cutIndex >= 0)
+      )
+      && Array.isArray(box)
+      && box.length === 4
+      && box.every((value) => Number.isFinite(value))
+      && box[0] >= 0
+      && box[1] >= 0
+      && box[2] > 0
+      && box[3] > 0
+      && box[0] + box[2] <= 1
+      && box[1] + box[3] <= 1;
+  }
   return stroke
     && /^st-\d{4,}$/.test(stroke.id)
     && stroke.tool === "pen"
