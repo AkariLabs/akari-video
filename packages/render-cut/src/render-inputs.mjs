@@ -52,6 +52,7 @@ export async function enumerateDeclaredRenderInputs({ projectRoot, edit, editTex
     if (path) addOptionalProjectInput(inputs, root, `audio:narration:${narration?.id ?? index}`, path);
   }
   for (const [index, layer] of (edit.layers ?? []).entries()) {
+    if (typeof layer?.src !== "string" || layer.src === "") continue;
     addProjectInput(inputs, root, `layer:${layer?.id ?? index}`, layer?.src);
   }
   if (edit.thumbnail?.path) addProjectInput(inputs, root, "thumbnail", edit.thumbnail.path);

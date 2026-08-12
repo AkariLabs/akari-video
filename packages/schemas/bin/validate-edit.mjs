@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const LAYER_KINDS = new Set(["baked", "video"]);
+const LAYER_KINDS = new Set(["baked", "video", "filter"]);
 const LAYER_BLEND_MODES = new Set([
   "normal",
   "screen",
@@ -338,9 +338,16 @@ function validateLayers(value) {
       fail(`${label}.duration は 0 より大きい有限数である必要があります`);
     }
     if (!LAYER_KINDS.has(layer.kind)) {
-      fail(`${label}.kind は baked または video である必要があります`);
+      fail(`${label}.kind は baked/video/filter のいずれかである必要があります`);
     }
-    validateNonEmptyString(layer.src, `${label}.src`);
+    if (layer.kind === "filter") {
+      for (const field of ["src", "chroma_key", "blend", "crop", "transform"]) {
+        if (hasOwn(layer, field)) fail(`${label}.${field} は kind が filter のとき使用できません`);
+      }
+      validateLayerFilter(layer.filter, `${label}.filter`);
+    } else {
+      validateNonEmptyString(layer.src, `${label}.src`);
+    }
     if (hasOwn(layer, "opacity")) {
       if (!isFiniteNumber(layer.opacity) || layer.opacity < 0 || layer.opacity > 1) {
         fail(`${label}.opacity は 0 から 1 の範囲の有限数である必要があります`);
@@ -372,6 +379,37 @@ function validateLayers(value) {
         fail(`${label}.track は 0 以上の整数である必要があります`);
       }
     }
+  }
+}
+
+function validateLayerFilter(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  const allowedKeysByType = new Map([
+    ["invert", new Set(["type"])],
+    ["lut", new Set(["type", "id", "intensity"])],
+    ["saturation", new Set(["type", "value"])],
+  ]);
+  const allowedKeys = allowedKeysByType.get(value.type);
+  if (allowedKeys === undefined) {
+    fail(`${label}.type は invert/lut/saturation のいずれかである必要があります`);
+    return;
+  }
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
+  }
+  if (value.type === "lut") {
+    validateNonEmptyString(value.id, `${label}.id`);
+    if (hasOwn(value, "intensity")
+        && (!isFiniteNumber(value.intensity) || value.intensity < 0 || value.intensity > 1)) {
+      fail(`${label}.intensity は 0 から 1 の範囲の有限数である必要があります`);
+    }
+  }
+  if (value.type === "saturation"
+      && (!isFiniteNumber(value.value) || value.value < 0 || value.value > 3)) {
+    fail(`${label}.value は 0 から 3 の範囲の有限数である必要があります`);
   }
 }
 
