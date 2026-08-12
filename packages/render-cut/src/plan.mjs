@@ -17,7 +17,7 @@ import { appendFreezeAwareAudioTrim, appendFreezeAwareVideoTrim, hasCutFreeze } 
 import { buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
 import { appendCutFxChain, hasCutFx } from "./fx.mjs";
 import { resolveEncodingPolicy } from "./encode-preset.mjs";
-import { buildLayersCompositeCommand, hasLayers } from "./layers.mjs";
+import { buildLayersCompositeCommand, hasLayers, isImageLayerSource } from "./layers.mjs";
 import { resolveLutPath } from "./render-inputs.mjs";
 import {
   buildCutTrackCompositeCommand,
@@ -69,6 +69,23 @@ export function buildPlan({
   encodingPolicy,
   fpsOverride,
 }) {
+  // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定5: a still image has no intrinsic
+  // duration, so v0's "cuts[] empty = whole source" shortcut (predictedDuration's sourceDuration
+  // fallback) cannot apply to it. edit-lint's cuts.still-image-cuts-required check rejects this
+  // combination before render normally runs; this is the defensive backstop for direct
+  // buildPlan()/render-cut invocations that skip lint (same posture as buildTrackStackPlan's
+  // transition_out backstop below).
+  if (
+    edit.version === 0
+    && isImageLayerSource(edit.source?.path)
+    && (!Array.isArray(edit.cuts) || edit.cuts.length === 0)
+  ) {
+    throw new Error(
+      "source.path is a still image and cuts[] is empty. A still image has no intrinsic duration, so the v0 "
+        + "\"empty cuts = whole source\" shortcut does not apply here -- declare at least one cut with an "
+        + "explicit out to state the display duration (docs/contract-2026-08-12-still-image-cut-source-v0.md).",
+    );
+  }
   const width = edit.output.width;
   const height = edit.output.height;
   const fps = isPositiveNumber(fpsOverride) ? fpsOverride : edit.output.fps;
@@ -1184,6 +1201,11 @@ export function buildCutCommand({
       "error",
       "-nostdin",
       "-y",
+      // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定2: a still-image source has no
+      // native duration, so `-loop 1` turns it into an unbounded stream that the trim filters
+      // above cut down to each cut's [in, out) range -- same recipe already proven by
+      // source.chroma_key's background image handling a few lines up in this file.
+      ...(isImageLayerSource(sourcePath) ? ["-loop", "1"] : []),
       "-i",
       sourcePath,
       ...(!hasAudio ? ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"] : []),
@@ -1388,7 +1410,11 @@ export function buildMultiSourceCutCommand({
       "error",
       "-nostdin",
       "-y",
-      ...sourceInputs.flatMap((source) => ["-i", source.path]),
+      // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定2: same `-loop 1` recipe as
+      // buildCutCommand, applied per-source here since v1 mixes video and still-image sources.
+      ...sourceInputs.flatMap((source) =>
+        isImageLayerSource(source.path) ? ["-loop", "1", "-i", source.path] : ["-i", source.path],
+      ),
       "-filter_complex",
       filters.join(";"),
       "-map",
@@ -1594,6 +1620,9 @@ function buildGapAwareCutCommand({
       "error",
       "-nostdin",
       "-y",
+      // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定2: same `-loop 1` recipe as
+      // buildCutCommand's non-gap-aware path above.
+      ...(isImageLayerSource(sourcePath) ? ["-loop", "1"] : []),
       "-i",
       sourcePath,
       ...(!hasAudio ? ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"] : []),

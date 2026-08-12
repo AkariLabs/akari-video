@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "s1", "path": "assets/intro.mp4", "proxy": null },
+    { "id": "s2", "path": "assets/title-card.png", "proxy": null }
+  ],
+  "cuts": [
+    { "src": "s1", "in": 0.0, "out": 4.2 },
+    { "src": "s2", "in": 0.0, "out": 2.0 },
+    { "src": "s1", "in": 4.2, "out": 8.0 }
+  ],
+  "overlays": []
+}

@@ -9346,6 +9346,10 @@ function watchDecoderErrors(onDetect) {
 }
 
 // ../preview-engine/src/clipSession.ts
+var STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
+function isStillImageSource(src) {
+  return STILL_IMAGE_SOURCE_PATTERN.test(src);
+}
 var ClipSession = class {
   id;
   src;
@@ -9353,6 +9357,10 @@ var ClipSession = class {
   state = "idle";
   clip = null;
   keyframeIndex = null;
+  /** 静止画ソース（docs/contract-2026-08-12-still-image-cut-source-v0.md）。true のとき doLoad/
+   *  tick* は MP4Clip を一切使わず、fetch した ImageBitmap から都度 VideoFrame を合成する。 */
+  isStillImage;
+  imageBitmap = null;
   /** 末尾 GOP 安全マージンの実効上限(us)。末尾がキーフレームで閉じられていない
    *  最終 GOP 全域が flush 時に壊れる問題（w3c/webcodecs#116 系。実測で「最終フレームだけでなく
    *  最終 GOP まるごと」壊れることを確認）に対応するため、固定フレーム数ではなく
@@ -9384,6 +9392,7 @@ var ClipSession = class {
     this.src = src;
     this.opts = opts;
     this.onWarning = onWarning;
+    this.isStillImage = isStillImageSource(src);
   }
   /** 冪等: 既に load 中/済みなら同じ promise を返す */
   load() {
@@ -9393,6 +9402,10 @@ var ClipSession = class {
   }
   async doLoad() {
     this.state = "loading";
+    if (this.isStillImage) {
+      await this.loadStillImage();
+      return;
+    }
     const attempts = [
       { audio: true, hw: "prefer-hardware", resultState: "ready" },
       { audio: false, hw: "prefer-hardware", resultState: "ready" },
@@ -9452,6 +9465,28 @@ var ClipSession = class {
     });
     throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
+  /** 静止画ソースの読み込み。MP4Clip/WebCodecs デコーダは一切使わず、fetch + createImageBitmap
+   *  だけで完結する（doLoad の段階的フォールバック・keyframeIndex 構築は無関係のため通らない）。 */
+  async loadStillImage() {
+    try {
+      const res = await fetch(this.src);
+      if (!res.ok) throw new Error(`fetch failed: ${this.src} status=${res.status}`);
+      const blob = await res.blob();
+      const bitmap = await createImageBitmap(blob);
+      this.imageBitmap = bitmap;
+      this.meta = { duration: Number.POSITIVE_INFINITY, width: bitmap.width, height: bitmap.height };
+      this.state = "ready";
+    } catch (e) {
+      this.state = "unavailable";
+      this.onWarning({
+        kind: "clipUnavailable",
+        clipId: this.id,
+        message: `still image load failed: ${String(e)}`,
+        detail: String(e)
+      });
+      throw e instanceof Error ? e : new Error(String(e));
+    }
+  }
   async attemptLoad(audio, hw) {
     const res = await fetch(this.src);
     if (!res.ok || !res.body) throw new Error(`fetch failed: ${this.src} status=${res.status}`);
@@ -9483,11 +9518,13 @@ var ClipSession = class {
   /** 厳密解決（release / programmatic exact seek）。末尾 GOP 安全マージンを常に適用 */
   async tickExact(sourceTimeUs) {
     this.foregroundGeneration += 1;
+    if (this.isStillImage) return this.tickStillImage(false);
     return this.rawTick(sourceTimeUs, false);
   }
   /** tolerance スクラブ用の近似解決。キーフレームへスナップしてから tick() する（E1） */
   async tickApprox(sourceTimeUs, toleranceUs, snapBeyondTolerance) {
     this.foregroundGeneration += 1;
+    if (this.isStillImage) return this.tickStillImage(true);
     if (!this.keyframeIndex || this.keyframeIndex.keyframeTimesUs.length === 0) {
       return this.rawTick(sourceTimeUs, false);
     }
@@ -9513,8 +9550,18 @@ var ClipSession = class {
    * 「自分の番が来たら鮮度を再確認する」協調的な形でしか優先度を模擬できない）。
    */
   async tickBackground(sourceTimeUs) {
+    if (this.isStillImage) return this.tickStillImage(false);
     const capturedGeneration = this.foregroundGeneration;
     return this.rawTick(sourceTimeUs, false, () => this.foregroundGeneration !== capturedGeneration);
+  }
+  /** 静止画ソースの tick*：デコードせず ImageBitmap から都度 VideoFrame を合成するだけ（同期・
+   *  ほぼ0コスト）。呼び出し側（renderFrame/thumbnailTrack）は返る VideoFrame を drawImage して
+   *  close() するだけなので、動画由来かここで合成したものかを区別しない。 */
+  tickStillImage(approx) {
+    const t0 = performance.now();
+    if (this.state === "unavailable" || !this.imageBitmap) return { tickMs: performance.now() - t0, approx };
+    const video = new VideoFrame(this.imageBitmap, { timestamp: 0, duration: 1e6 / 30 });
+    return { video, tickMs: performance.now() - t0, approx };
   }
   async rawTick(sourceTimeUs, approx, staleCheck) {
     if (this.state === "unavailable" || !this.clip) return { tickMs: 0, approx };
@@ -9576,6 +9623,8 @@ var ClipSession = class {
   destroy() {
     this.clip?.destroy();
     this.clip = null;
+    this.imageBitmap?.close();
+    this.imageBitmap = null;
     this.state = "idle";
   }
 };

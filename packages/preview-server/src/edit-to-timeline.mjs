@@ -3,6 +3,14 @@
 
 import path from 'node:path';
 
+// docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1: 判定は拡張子のみ（png/jpe?g/webp/
+// bmp/gif、大小無視）。packages/render-cut/src/layers.mjs の IMAGE_LAYER_SOURCE_PATTERN /
+// packages/preview-server/public/app.js の IMAGE_LAYER_SRC_PATTERN と同一集合（3面パリティ）。
+const STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
+function isStillImageSource(src) {
+  return typeof src === 'string' && STILL_IMAGE_SOURCE_PATTERN.test(src);
+}
+
 /**
  * edit.json を TimelineSpec に変換する。
  * @param {object} edit - edit.json のパース済みオブジェクト
@@ -50,6 +58,7 @@ export function editToTimeline(edit, projectRoot) {
       endFrame: cursor + durationFrames,
       sourceInUs,
       track,
+      mediaType: isStillImageSource(src) ? 'image' : 'video',
     });
 
     if (cut.at !== undefined) {

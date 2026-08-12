@@ -539,6 +539,7 @@ ffmpeg の `perspective` フィルタの制約（式に時刻変数を持たな�
 | `layers[].perspective`（2026-08-06 実装） | ✅（§2.4.4。実ブラウザ実測済み） | ✅（§2.4.4。tsc -b + ユニット + Web 同一計算式で担保） |
 | `cuts[].fx`（2026-08-07 実装・近似あり） | 🟡（§2.4.5。5 種対応、3 種は近似バッジ付き） | ❌（未実装） |
 | `layers[].keyframes`（2026-08-09 実装） | ✅（§2.4.7。transform/crop は連続補間。perspective は blend:"normal" のみ・書き出しの段階保持とサンプル点で一致） | ✅（§2.4.7。同左） |
+| `cuts[].static-image-source`（2026-08-12 実装。正本: `contract-2026-08-12-still-image-cut-source-v0.md`） | 🟡（`<img>`/`<video>` 出し分け + preview-engine ClipSession/Timeline の image 対応を実装。framing/freeze/transform は流用。実ブラウザでの対話的スクラブ・複数区間切替の実機検証は未実施） | ❌（スコープ外・未対応） |
 
 - `cuts[].framing`（静的クロップ / ズームキーフレーム）・`cuts[].freeze`（フリーズ）は
   `contract-2026-07-22-render-basics.md` #6/#7 としてレンダ（render-cut）に加え、
