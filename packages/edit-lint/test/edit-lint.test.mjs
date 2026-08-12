@@ -6,12 +6,18 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { INTAKE_ROOT_FIELDS } from "../src/edit-lint.mjs";
+
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "edit-lint.mjs");
 const fixtureRoot = join(packageRoot, "fixtures");
 const styleParity = JSON.parse(await readFile(join(
   packageRoot, "../edit-store/test/fixtures/caption-style-validation-parity.json"
 ), "utf8"));
+const intakeSchema = JSON.parse(await readFile(
+  join(packageRoot, "../schemas/intake.schema.json"),
+  "utf8",
+));
 
 async function withFixtures(callback) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-test-"));
@@ -47,6 +53,13 @@ function styleRootForCase(item, caption = styleParity.caption) {
   if (Object.hasOwn(item, "caption_text_style")) root.captions[0].text_style = item.caption_text_style;
   return root;
 }
+
+test("INTAKE_ROOT_FIELDS matches intake.schema.json properties", () => {
+  assert.deepEqual(
+    new Set(INTAKE_ROOT_FIELDS),
+    new Set(Object.keys(intakeSchema.properties)),
+  );
+});
 
 test("valid fixture passes and writes both reports", async () => {
   await withFixtures(async (fixtures) => {
@@ -1122,11 +1135,65 @@ test("media mode reports silence and volume; a configured silence threshold fail
   }
 });
 
+test("media mode skips silence and volume for a source without an audio stream", async (t) => {
+  const available = spawnSync("ffmpeg", ["-version"], { encoding: "utf8" });
+  if (available.status !== 0) {
+    t.skip("ffmpeg is not available");
+    return;
+  }
+
+  const root = await mkdtemp(join(tmpdir(), "edit-lint-media-no-audio-"));
+  try {
+    const mediaPath = join(root, "source.mp4");
+    const generated = spawnSync(
+      "ffmpeg",
+      [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=64x64:rate=10:duration=1",
+        "-pix_fmt",
+        "yuv420p",
+        "-an",
+        mediaPath,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(generated.status, 0, generated.stderr);
+    await writeFile(
+      join(root, "edit.json"),
+      `${JSON.stringify({
+        version: 0,
+        output: { width: 64, height: 64, fps: 10 },
+        source: { path: "source.mp4", proxy: null },
+        cuts: [{ in: 0, out: 1 }],
+        overlays: [],
+      }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(join(root, "analysis.json"), '{"duration":1}\n', "utf8");
+
+    const executed = run(root, ["--media"]);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.ok(result.skipped.some((item) => item.check === "media.silence"));
+    assert.ok(result.skipped.some((item) => item.check === "media.volume"));
+    assert.ok(!result.findings.some((finding) => finding.check === "media.silence"));
+    assert.ok(!result.findings.some((finding) => finding.check === "media.volume"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("caption silence coverage warns only above its configurable threshold in media mode", async () => {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-caption-silence-"));
   try {
     const mediaPath = join(root, "source.wav");
     const ffmpeg = join(root, "ffmpeg-stub");
+    const ffprobe = join(root, "ffprobe-stub");
     await writeFile(mediaPath, "", "utf8");
     await writeFile(
       ffmpeg,
@@ -1146,6 +1213,8 @@ exit 0
       "utf8",
     );
     await chmod(ffmpeg, 0o755);
+    await writeFile(ffprobe, "#!/bin/sh\necho 0\n", "utf8");
+    await chmod(ffprobe, 0o755);
     await writeFile(
       join(root, "edit.json"),
       `${JSON.stringify({
@@ -1179,20 +1248,21 @@ exit 0
       parseResult(executed).findings.filter(
         (finding) => finding.check === "media.caption-silence-coverage",
       );
+    const mediaEnv = { FFMPEG: ffmpeg, FFPROBE: ffprobe };
 
     await writeCaption(6);
-    const above = run(root, ["--media"], { FFMPEG: ffmpeg });
+    const above = run(root, ["--media"], mediaEnv);
     assert.equal(above.status, 0, above.stderr);
     assert.equal(coverageFindings(above).length, 1);
     assert.match(coverageFindings(above)[0].message, /50\.0%/);
 
     await writeCaption(12);
-    const below = run(root, ["--media"], { FFMPEG: ffmpeg });
+    const below = run(root, ["--media"], mediaEnv);
     assert.equal(below.status, 0, below.stderr);
     assert.equal(coverageFindings(below).length, 0);
 
     await writeCaption(10);
-    const boundary = run(root, ["--media"], { FFMPEG: ffmpeg });
+    const boundary = run(root, ["--media"], mediaEnv);
     assert.equal(boundary.status, 0, boundary.stderr);
     assert.equal(coverageFindings(boundary).length, 0);
 
@@ -1200,7 +1270,7 @@ exit 0
     const raisedThreshold = run(
       root,
       ["--media", "--caption-silence-warn-percent", "50"],
-      { FFMPEG: ffmpeg },
+      mediaEnv,
     );
     assert.equal(raisedThreshold.status, 0, raisedThreshold.stderr);
     assert.equal(coverageFindings(raisedThreshold).length, 0);
@@ -1208,7 +1278,7 @@ exit 0
     const loweredThreshold = run(
       root,
       ["--media", "--caption-silence-warn-percent=49"],
-      { FFMPEG: ffmpeg },
+      mediaEnv,
     );
     assert.equal(loweredThreshold.status, 0, loweredThreshold.stderr);
     assert.equal(coverageFindings(loweredThreshold).length, 1);
