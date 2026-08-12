@@ -221,10 +221,7 @@ window.akari.threeRuntime = (() => {
         throw new TypeError(`texts[${entry.id}].font は配信 URL である必要があります`);
       }
       const mode = entry.mode ?? "flat";
-      if (mode === "extrude") {
-        throw new Error(`texts[${entry.id}].mode="extrude" は T3 未実装です`);
-      }
-      if (mode !== "flat") {
+      if (mode !== "flat" && mode !== "extrude") {
         throw new TypeError(`texts[${entry.id}].mode の未対応値です: ${String(entry.mode)}`);
       }
       if (entry.size !== undefined && !Number.isFinite(Number(entry.size))) {
@@ -244,6 +241,24 @@ window.akari.threeRuntime = (() => {
           throw new TypeError(
             `texts[${entry.id}].material は metalness / roughness / doubleSide を指定する object である必要があります`
           );
+        }
+      }
+      if (entry.extrude !== undefined) {
+        const extrude = entry.extrude;
+        if (!extrude
+          || typeof extrude !== "object"
+          || Array.isArray(extrude)
+          || Object.keys(extrude).some(
+            (key) => key !== "depth" && key !== "bevelSize" && key !== "bevelThickness"
+          )) {
+          throw new TypeError(
+            `texts[${entry.id}].extrude は depth / bevelSize / bevelThickness を指定する object である必要があります`
+          );
+        }
+        for (const key of ["depth", "bevelSize", "bevelThickness"]) {
+          if (extrude[key] !== undefined && !Number.isFinite(Number(extrude[key]))) {
+            throw new TypeError(`texts[${entry.id}].extrude.${key} は数値である必要があります`);
+          }
         }
       }
       if (entry.layout !== undefined) {
@@ -675,6 +690,16 @@ window.akari.threeRuntime = (() => {
     };
   }
 
+  // extrude 押し出しパラメータの既定値（contract-2026-08-12-3d-text-rail.md §3.1 の例値をそのまま採用）
+  function resolveTextExtrude(descriptor) {
+    const extrude = descriptor ?? {};
+    return {
+      depth: Math.max(1e-6, finiteNumber(extrude.depth, 0.3)),
+      bevelSize: Math.max(0, finiteNumber(extrude.bevelSize, 0.028)),
+      bevelThickness: Math.max(0, finiteNumber(extrude.bevelThickness, 0.04)),
+    };
+  }
+
   // flat の既定は unlit MeshBasicMaterial + DoubleSide（契約 §3.1）。metalness / roughness の
   // どちらかが明示されたときだけ、その knob が効く MeshStandardMaterial へ切り替える
   function buildTextMaterial(THREE, descriptor) {
@@ -689,6 +714,33 @@ window.akari.threeRuntime = (() => {
       });
     }
     return new THREE.MeshBasicMaterial({ side, transparent: true });
+  }
+
+  // extrude はソリッド（厚みのある閉じたメッシュ）なので doubleSide 値は読まない（契約 §3.1
+  // 指示 2）。前面/側面の 2 マテリアル構成は PoC 準拠だが、宣言に無い色分岐を勝手に足さない
+  // ため両方とも同じ color/metalness/roughness にする（インスタンスは char ごとに分ける —
+  // char-chaos のちらつきを per-char 独立に効かせるため。§attachFillOpacitySupport）
+  function buildExtrudeMaterials(THREE, materialDescriptor, colorHex) {
+    const material = materialDescriptor ?? {};
+    const params = {
+      color: typeof colorHex === "string" ? colorHex : "#ffffff",
+      metalness: finiteNumber(material.metalness, 0),
+      roughness: finiteNumber(material.roughness, 1),
+      transparent: true,
+    };
+    return [new THREE.MeshStandardMaterial(params), new THREE.MeshStandardMaterial(params)];
+  }
+
+  // applyTextAnimation は node.fillOpacity へ代入するだけ（troika Text の実プロパティ相当の
+  // duck typing）。extrude の pivot（THREE.Group）には無いので、char-chaos のちらつきが
+  // material.opacity に届くようブリッジする。applyTextAnimation 自体は flat と完全に共通のまま
+  // （texts[] の描画コードパスを増やさないための橋渡し）
+  function attachFillOpacitySupport(pivot, materials) {
+    Object.defineProperty(pivot, "fillOpacity", {
+      set(value) {
+        for (const material of materials) material.opacity = value;
+      },
+    });
   }
 
   // 1 文字ぶんのレイアウト基準位置（anim プリセットはこの基準位置からの相対オフセットとして
@@ -764,13 +816,153 @@ window.akari.threeRuntime = (() => {
     }
   }
 
-  // texts[] を per-char troika Text へ展開する。各文字の sync() 完了を待ってから resolve する
-  // ことで、「読み込み中フレーム（グリフ未確定の空 SDF）」が createInstance() の ready 判定を
-  // すり抜けないようにする（契約の指示 2）
-  async function loadTexts(THREE, TroikaText, instance, textDescriptors) {
+  // opentype.Font の解析結果はページ寿命でキャッシュする（Font オブジェクトは GPU リソースを
+  // 持たない読み取り専用データなので dispose 不要 — instance をまたいで再利用してよい）
+  const parsedFontCache = new Map();
+
+  function loadOpentypeFont(opentype, url) {
+    let promise = parsedFontCache.get(url);
+    if (!promise) {
+      promise = fetch(url)
+        .then((response) => {
+          if (!response.ok) throw new Error(`texts[].font を取得できません: ${url.slice(0, 96)}`);
+          return response.arrayBuffer();
+        })
+        .then((buffer) => opentype.parse(buffer));
+      parsedFontCache.set(url, promise);
+    }
+    return promise;
+  }
+
+  // opentype のグリフ輪郭 → THREE.Shape[]（lab/telop-3d-poc の glyphToShapes 準拠）。
+  // **toShapes(false) 固定** — true だと「プ」の半濁点が穴 2 つに化ける（契約 §3.2 実測済み）
+  function glyphToShapes(THREE, font, ch, size) {
+    const path = font.getPath(ch, 0, 0, size);
+    const shapePath = new THREE.ShapePath();
+    for (const command of path.commands) {
+      if (command.type === "M") shapePath.moveTo(command.x, -command.y);
+      else if (command.type === "L") shapePath.lineTo(command.x, -command.y);
+      else if (command.type === "Q") {
+        shapePath.currentPath.quadraticCurveTo(command.x1, -command.y1, command.x, -command.y);
+      } else if (command.type === "C") {
+        shapePath.currentPath.bezierCurveTo(
+          command.x1, -command.y1, command.x2, -command.y2, command.x, -command.y
+        );
+      } else if (command.type === "Z" && shapePath.currentPath) {
+        shapePath.currentPath.closePath();
+      }
+    }
+    return shapePath.toShapes(false);
+  }
+
+  // font+char+size キーで輪郭抽出を使い回す（ページ寿命キャッシュ。Shape はパラメトリック曲線の
+  // 記述であり GPU リソースを持たないため instance をまたいでも安全）
+  const extrudeShapeCache = new Map();
+  function glyphShapesFor(THREE, font, fontKey, ch, size) {
+    const key = `${fontKey} ${ch} ${size}`;
+    let shapes = extrudeShapeCache.get(key);
+    if (!shapes) {
+      shapes = glyphToShapes(THREE, font, ch, size);
+      extrudeShapeCache.set(key, shapes);
+    }
+    return shapes;
+  }
+
+  const EXTRUDE_BEVEL_SEGMENTS = 2;
+  const EXTRUDE_CURVE_SEGMENTS = 6;
+
+  // 1 文字ぶんの ExtrudeGeometry を作る。中心をグリフの bounding box 中心へ寄せてから返す
+  // （PoC の extrudeChar 準拠）— pivot 化して回転の軸をグリフ中心に置くため
+  function buildExtrudeGeometry(THREE, shapes, extrudeParams) {
+    if (shapes.length === 0) {
+      // 空白等、輪郭を持たない文字。ExtrudeGeometry([]) は構築できないため空ジオメトリで代替する
+      // （position 属性を明示しないと computeBoundingSphere が警告を出す）
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute([], 3));
+      return { geometry };
+    }
+    const geometry = new THREE.ExtrudeGeometry(shapes, {
+      depth: extrudeParams.depth,
+      bevelEnabled: true,
+      bevelThickness: extrudeParams.bevelThickness,
+      bevelSize: extrudeParams.bevelSize,
+      bevelSegments: EXTRUDE_BEVEL_SEGMENTS,
+      curveSegments: EXTRUDE_CURVE_SEGMENTS,
+    });
+    geometry.computeBoundingBox();
+    const bounds = geometry.boundingBox;
+    const cx = (bounds.min.x + bounds.max.x) / 2;
+    const cy = (bounds.min.y + bounds.max.y) / 2;
+    const cz = (bounds.min.z + bounds.max.z) / 2;
+    geometry.translate(-cx, -cy, -cz);
+    return { geometry };
+  }
+
+  // グリフ形状キャッシュ（font+char+size+depth+bevel キー）で同一文字の再三角形分割を避ける
+  // （契約 §3.2「T3」指示 2）。GPU ジオメトリは instance をまたいで共有すると disposeInstance の
+  // 二重 dispose 事故になるため、このキャッシュは instance スコープ（instance.extrudeGeometryCache）
+  function extrudeGeometryFor(instance, THREE, font, fontKey, ch, size, extrudeParams) {
+    const key = [
+      fontKey, ch, size, extrudeParams.depth, extrudeParams.bevelSize, extrudeParams.bevelThickness,
+    ].join(" ");
+    let entry = instance.extrudeGeometryCache.get(key);
+    if (!entry) {
+      const shapes = glyphShapesFor(THREE, font, fontKey, ch, size);
+      entry = buildExtrudeGeometry(THREE, shapes, extrudeParams);
+      instance.extrudeGeometryCache.set(key, entry);
+    }
+    return entry;
+  }
+
+  // texts[] 1 件ぶんを opentype 押し出しで展開する。フォント解析（非同期）を待ってから
+  // per-char 同期でジオメトリを組む — 生成は mount 時のみで draw(localSeconds) は純関数のまま
+  // （契約 §3.3 不変条件）。layout / anim は flat と同じ resolveTextLayout・charBasePosition・
+  // applyTextAnimation をそのまま使う（契約「flat と同一コードパスで動くこと」）
+  async function loadExtrudeTextEntry(THREE, opentype, instance, textDescriptor) {
+    const font = await loadOpentypeFont(opentype, textDescriptor.font);
+    const group = new THREE.Group();
+    const layout = resolveTextLayout(textDescriptor.layout);
+    const anim = resolveTextAnim(textDescriptor.anim);
+    const size = finiteNumber(textDescriptor.size, 0.5);
+    const color = typeof textDescriptor.color === "string" ? textDescriptor.color : "#ffffff";
+    const extrudeParams = resolveTextExtrude(textDescriptor.extrude);
+    const chars = [...textDescriptor.text];
+    const charEntries = [];
+    chars.forEach((ch, index) => {
+      const { geometry } = extrudeGeometryFor(instance, THREE, font, textDescriptor.font, ch, size, extrudeParams);
+      const materials = buildExtrudeMaterials(THREE, textDescriptor.material, color);
+      const mesh = new THREE.Mesh(geometry, materials);
+      const pivot = new THREE.Group();
+      pivot.add(mesh);
+      attachFillOpacitySupport(pivot, materials);
+      const base = charBasePosition(layout, index, chars.length);
+      pivot.position.set(base.x, base.y, base.z);
+      pivot.rotation.y = base.rotationY;
+      group.add(pivot);
+      charEntries.push({
+        node: pivot,
+        index,
+        base,
+        seedTable: buildCharSeedTable(anim.seed, index),
+      });
+    });
+    instance.textsGroup.add(group);
+    instance.textNodes.push(...charEntries.map((entry) => entry.node));
+    instance.textAnimEntries.push({ id: textDescriptor.id, group, layout, anim, chars: charEntries });
+  }
+
+  // texts[] を mode ごとに展開する（flat: per-char troika Text / extrude: opentype 押し出し
+  // メッシュ。loadExtrudeTextEntry）。どちらも完了（troika は sync()、extrude はフォント解析 +
+  // ジオメトリ生成）を待ってから resolve することで、「読み込み中フレーム」が createInstance() の
+  // ready 判定をすり抜けないようにする（契約の指示 2）
+  async function loadTexts(THREE, TroikaText, opentype, instance, textDescriptors) {
     disableTroikaUnicodeFontFallback();
     const syncPromises = [];
     for (const textDescriptor of textDescriptors) {
+      if (textDescriptor.mode === "extrude") {
+        syncPromises.push(loadExtrudeTextEntry(THREE, opentype, instance, textDescriptor));
+        continue;
+      }
       const group = new THREE.Group();
       const layout = resolveTextLayout(textDescriptor.layout);
       const anim = resolveTextAnim(textDescriptor.anim);
@@ -1018,18 +1210,32 @@ window.akari.threeRuntime = (() => {
     }
     const descriptor = readDescriptor(container);
     const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
+    const hasExtrudeTexts = hasTexts && descriptor.texts.some((entry) => entry.mode === "extrude");
     if (hasTexts && typeof library.TroikaText !== "function") {
       throw new Error("AkariThree bundle に TroikaText がありません（vendor-3d-text-bundle.js 未読み込み）");
+    }
+    if (hasExtrudeTexts && typeof library.opentype?.parse !== "function") {
+      throw new Error("AkariThree bundle に opentype がありません（vendor-3d-text-bundle.js 未読み込み）");
     }
     const canvas = container.querySelector("canvas");
     if (!(canvas instanceof HTMLCanvasElement)) {
       throw new Error("3D overlay には canvas が必要です");
     }
 
-    const { THREE, GLTFLoader, RoomEnvironment, TroikaText } = library;
+    const { THREE, GLTFLoader, RoomEnvironment, TroikaText, opentype } = library;
     const scene = new THREE.Scene();
     const camera = createCamera(THREE, descriptor);
     addLights(THREE, scene, descriptor.lights);
+    // extrude テキストは MeshStandardMaterial 固定（flat と違い unlit フォールバックが無い）ため、
+    // lights[] も environment も未宣言だと無灯で真っ黒になりうる。extrude テキストがあり、かつ
+    // どちらのキーも宣言されていないときだけ弱いデフォルトライトを足す（skills/overlay-authoring/3d.md。
+    // 値は lab/telop-3d-poc の B1 シーンで実測済みのものをそのまま採用）
+    if (hasExtrudeTexts && descriptor.lights === undefined && descriptor.environment === undefined) {
+      addLights(THREE, scene, [
+        { type: "ambient", intensity: 0.25 },
+        { type: "directional", intensity: 2.0, position: [3, 5, 4], lookAt: [0, 0, 0] },
+      ]);
+    }
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(1);
     renderer.setClearColor(0x000000, 0);
@@ -1076,6 +1282,10 @@ window.akari.threeRuntime = (() => {
       textsGroup: new THREE.Group(),
       textNodes: [],
       textAnimEntries: [],
+      // extrude の per-char ExtrudeGeometry キャッシュ（font+char+size+depth+bevel キー）。
+      // instance スコープ（disposeInstance が textsGroup 経由で一括 dispose するため、instance を
+      // またいで共有すると二重 dispose 事故になる。§extrudeGeometryFor）
+      extrudeGeometryCache: new Map(),
       // model 読み込み（宣言時のみ）+ 全 texts sync() 完了の両方が揃うまで false。
       // draw() はこれを ready 条件に使う（読み込み中フレームが書き出しに混入しないため）
       contentReady: false,
@@ -1124,7 +1334,7 @@ window.akari.threeRuntime = (() => {
 
     instance.loading = Promise.all([
       hasModel ? loadModel() : Promise.resolve(),
-      hasTexts ? loadTexts(THREE, TroikaText, instance, descriptor.texts) : Promise.resolve(),
+      hasTexts ? loadTexts(THREE, TroikaText, opentype, instance, descriptor.texts) : Promise.resolve(),
     ]).then(() => {
       if (instances.get(container) !== instance || !instance.active) return;
       instance.contentReady = true;
