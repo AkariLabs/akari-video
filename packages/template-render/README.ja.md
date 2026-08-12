@@ -51,6 +51,12 @@ npx @akari-video/template-render ./chalkboard-jp \
   直接編集してください（ただの HTML です）
 - 存在しないツマミ名を渡すと止まります（`--list-knobs` を案内します）
 
+### 相対参照の素材
+
+`fragment.html` 内の `<img src="images/photo.png">` のような相対 URL は、その fragment がある
+ディレクトリを基準に解決されます。画像・フォントなどのローカル素材は fragment の隣に置き、通常の
+相対パスで参照できます。絶対 `file:///` URL も引き続き利用できます。
+
 ## 出力
 
 | 指定 | 形式 | 用途 |

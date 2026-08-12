@@ -51,6 +51,12 @@ npx @akari-video/template-render ./chalkboard-jp \
   directly — it is plain HTML
 - Unknown knob names are rejected with a pointer to `--list-knobs`
 
+### Relative assets
+
+Relative URLs in `fragment.html`, such as `<img src="images/photo.png">`, are resolved from the
+directory containing that fragment. Keep images, fonts and other local assets beside the fragment
+and refer to them with normal relative paths; absolute `file:///` URLs continue to work as well.
+
 ## Outputs
 
 | Flag | Result | Use for |
