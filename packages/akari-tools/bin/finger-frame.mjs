@@ -6,7 +6,7 @@
 //     ((--media <path> [--kind video|baked] | --layer-id <id>) | \
 //       --kind filter --filter invert|lut:<id>|saturation:<value>) \
 //     [--analysis <path>] [--edit <path>] \
-//     [--open-threshold <0..1>] [--close-threshold <0..1>] [--min-open-duration <sec>] \
+//     [--open-threshold <0..1>] [--close-threshold <0..1>] [--min-open-duration <sec>] [--max-gap <sec>] \
 //     [--max-points-per-sec <n>] [--opacity <0..1>] [--id-prefix <str>] \
 //     [--chroma-key-color <color>] [--chroma-key-similarity <0..1>] [--chroma-key-blend <0..1>] \
 //     [--apply] [--out <path>]
@@ -27,6 +27,7 @@ import {
   DEFAULT_OPEN_THRESHOLD,
   DEFAULT_CLOSE_THRESHOLD,
   DEFAULT_MIN_OPEN_DURATION,
+  DEFAULT_MAX_GAP,
 } from './finger-frame/gesture.mjs';
 import { buildCornerKeyframes, DEFAULT_MAX_POINTS_PER_SEC } from './finger-frame/keyframes.mjs';
 import {
@@ -48,7 +49,7 @@ const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[
 const USAGE = 'usage: finger-frame.mjs <project> ((--media <path> [--kind video|baked] | --layer-id <id>) '
   + '| --kind filter --filter invert|lut:<id>|saturation:<value>) '
   + '[--analysis <path>] [--edit <path>] [--open-threshold <0..1>] [--close-threshold <0..1>] '
-  + '[--min-open-duration <sec>] [--max-points-per-sec <n>] [--opacity <0..1>] [--id-prefix <str>] '
+  + '[--min-open-duration <sec>] [--max-gap <sec>] [--max-points-per-sec <n>] [--opacity <0..1>] [--id-prefix <str>] '
   + '[--chroma-key-color <color>] [--apply] [--out <path>]';
 
 const [projectArg] = positional;
@@ -160,6 +161,7 @@ if (pastedAbsPath && !existsSync(pastedAbsPath)) {
 const openThreshold = Number(flag('open-threshold', DEFAULT_OPEN_THRESHOLD));
 const closeThreshold = Number(flag('close-threshold', DEFAULT_CLOSE_THRESHOLD));
 const minOpenDuration = Number(flag('min-open-duration', DEFAULT_MIN_OPEN_DURATION));
+const maxGap = Number(flag('max-gap', DEFAULT_MAX_GAP));
 const maxPointsPerSec = Number(flag('max-points-per-sec', DEFAULT_MAX_POINTS_PER_SEC));
 const opacity = Number(flag('opacity', 1));
 const idPrefix = flag('id-prefix', 'finger-frame');
@@ -226,7 +228,12 @@ const handSamples = extractHandSamples(track.samples, {
   sourceWidth: sourceDims.width,
   sourceHeight: sourceDims.height,
 });
-const sourceIntervals = detectOpenIntervals(handSamples, { openThreshold, closeThreshold, minOpenDuration });
+const sourceIntervals = detectOpenIntervals(handSamples, {
+  openThreshold,
+  closeThreshold,
+  minOpenDuration,
+  maxGap,
+});
 
 const letterboxTransform = letterboxContainTransform(sourceDims.width, sourceDims.height, canvasWidth, canvasHeight);
 const cover = pastedKind === 'video' && pastedDims
