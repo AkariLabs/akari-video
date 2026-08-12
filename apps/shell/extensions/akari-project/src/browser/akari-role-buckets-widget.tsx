@@ -17,9 +17,9 @@ import {
     AssetCatalogResolverStatus,
     AssetCatalogViewItem,
     DroppedAsset,
-    StoreConnectionStatus,
-    StoreDeviceStartOutcome
+    StoreConnectionStatus
 } from '../common/akari-project-protocol';
+import { StoreConnectionFlowController, StoreConnectionFlowPhase } from '../common/store-connection-flow';
 import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { isUnorganizedRootEntry } from '../common/unorganized-materials';
@@ -256,11 +256,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected developerCatalogOpen = false;
     protected storeConnection: StoreConnectionStatus = { connected: false };
     protected storeConnectionLoading = true;
-    protected storeConnectionPhase: 'idle' | 'starting' | 'pending' | 'expired' | 'error' = 'idle';
+    protected storeConnectionPhase: StoreConnectionFlowPhase = 'idle';
     protected storeConnectionError?: string;
-    protected storeDeviceStart?: Extract<StoreDeviceStartOutcome, { status: 'started' }>;
-    protected storePollTimer?: ReturnType<typeof setTimeout>;
-    protected storeFlowGeneration = 0;
+    protected storeConnectionUserCode?: string;
+    protected storeConnectionFlow: StoreConnectionFlowController;
     /** 「使う」クリックから resolveAsset() 完了までの in-flight 集合（key 単位）。スピナー/無効化に使う。 */
     protected readonly resolvingAssetKeys = new Set<string>();
 
@@ -296,6 +295,22 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:assets');
         this.node.setAttribute('data-akari-ui-label', '素材パネル');
+        this.storeConnectionFlow = new StoreConnectionFlowController(this.projectService, {
+            openVerificationUrl: url => this.windowService.openNewWindow(url, { external: true }),
+            onChange: state => {
+                const wasConnected = this.storeConnection.connected;
+                this.storeConnection = state.connection;
+                this.storeConnectionLoading = state.connectionLoading;
+                this.storeConnectionPhase = state.phase;
+                this.storeConnectionError = state.error;
+                this.storeConnectionUserCode = state.userCode;
+                this.update();
+                if (!wasConnected && state.connection.connected) {
+                    void this.loadAssetCatalogView();
+                }
+            }
+        });
+        this.toDispose.push({ dispose: () => this.storeConnectionFlow.dispose() });
         // Theia 本体（frontend-application.ts）が document の **バブル段階**で
         // `dataTransfer.dropEffect = 'none'` を無条件に入れている（ウィンドウへのファイル
         // ドロップでブラウザ既定の遷移が起きるのを止めるため）。dropEffect が none のまま
@@ -338,7 +353,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             this.update();
         });
         this.toDispose.push({ dispose: () => this.catalogAudioElement.pause() });
-        this.toDispose.push({ dispose: () => this.stopStorePolling() });
         this.toDispose.push(this.preferences.onPreferenceChanged(change => {
             if (change.preferenceName === AKARI_CATALOG_ROOT_PREFERENCE) {
                 void this.loadAssetCatalogView();
@@ -1284,149 +1298,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     public async refreshStoreConnectionStatus(): Promise<void> {
-        this.storeConnectionLoading = true;
-        this.update();
-        try {
-            const connection = await this.projectService.getStoreConnectionStatus();
-            this.storeConnection = connection;
-            if (connection.connected) {
-                this.stopStorePolling();
-                this.storeFlowGeneration++;
-                this.storeConnectionPhase = 'idle';
-                this.storeConnectionError = undefined;
-                this.storeDeviceStart = undefined;
-            }
-        } catch (error) {
-            if (this.storeConnectionPhase === 'idle') {
-                this.storeConnectionPhase = 'error';
-                this.storeConnectionError = `接続状態を確認できませんでした: ${this.errorMessage(error)}`;
-            }
-        } finally {
-            this.storeConnectionLoading = false;
-            this.update();
-        }
+        await this.storeConnectionFlow.refreshStatus();
     }
 
     protected async startStoreConnection(): Promise<void> {
-        this.stopStorePolling();
-        const generation = ++this.storeFlowGeneration;
-        this.storeConnectionPhase = 'starting';
-        this.storeConnectionError = undefined;
-        this.storeDeviceStart = undefined;
-        this.update();
-        let outcome: StoreDeviceStartOutcome;
-        try {
-            outcome = await this.projectService.startStoreDeviceConnection();
-        } catch (error) {
-            if (generation !== this.storeFlowGeneration) {
-                return;
-            }
-            this.storeConnectionPhase = 'error';
-            this.storeConnectionError = `接続を開始できませんでした: ${this.errorMessage(error)}`;
-            this.update();
-            return;
-        }
-        if (generation !== this.storeFlowGeneration) {
-            return;
-        }
-        if (outcome.status !== 'started') {
-            this.storeConnectionPhase = 'error';
-            this.storeConnectionError = outcome.error;
-            this.update();
-            return;
-        }
-        this.storeDeviceStart = outcome;
-        try {
-            this.windowService.openNewWindow(outcome.verificationUrl, { external: true });
-        } catch (error) {
-            this.storeConnectionPhase = 'error';
-            this.storeConnectionError = `承認ページを開けませんでした: ${this.errorMessage(error)}`;
-            this.update();
-            return;
-        }
-        this.storeConnectionPhase = 'pending';
-        this.update();
-        this.scheduleStorePoll(generation, outcome.intervalMs);
-    }
-
-    protected scheduleStorePoll(generation: number, intervalMs: number): void {
-        this.stopStorePolling();
-        this.storePollTimer = setTimeout(() => void this.pollStoreConnection(generation), intervalMs);
-    }
-
-    protected async pollStoreConnection(generation: number): Promise<void> {
-        const start = this.storeDeviceStart;
-        if (generation !== this.storeFlowGeneration || !start || this.storeConnectionPhase !== 'pending') {
-            return;
-        }
-        if (Date.now() >= start.expiresAt) {
-            this.expireStoreConnection();
-            return;
-        }
-        let outcome;
-        try {
-            outcome = await this.projectService.pollStoreDeviceConnection({
-                baseUrl: start.baseUrl,
-                deviceCode: start.deviceCode
-            });
-        } catch (error) {
-            if (generation !== this.storeFlowGeneration) {
-                return;
-            }
-            this.storeConnectionPhase = 'error';
-            this.storeConnectionError = `接続を確認できませんでした: ${this.errorMessage(error)}`;
-            this.update();
-            return;
-        }
-        if (generation !== this.storeFlowGeneration) {
-            return;
-        }
-        if (outcome.status === 'pending') {
-            this.scheduleStorePoll(generation, start.intervalMs);
-            return;
-        }
-        if (outcome.status === 'expired') {
-            this.expireStoreConnection();
-            return;
-        }
-        if (outcome.status === 'network-error' || outcome.status === 'error') {
-            this.storeConnectionPhase = 'error';
-            this.storeConnectionError = outcome.error;
-            this.update();
-            return;
-        }
-        this.stopStorePolling();
-        this.storeFlowGeneration++;
-        this.storeConnection = outcome.connection;
-        this.storeConnectionPhase = 'idle';
-        this.storeConnectionError = undefined;
-        this.storeDeviceStart = undefined;
-        this.update();
-        await this.loadAssetCatalogView();
-    }
-
-    protected expireStoreConnection(): void {
-        this.stopStorePolling();
-        this.storeConnectionPhase = 'expired';
-        this.storeConnectionError = '確認コードの有効期限が切れました。';
-        this.storeDeviceStart = undefined;
-        this.update();
+        await this.storeConnectionFlow.start();
     }
 
     protected cancelStoreConnection(): void {
-        this.stopStorePolling();
-        this.storeFlowGeneration++;
-        this.storeConnectionPhase = 'idle';
-        this.storeConnectionError = undefined;
-        this.storeDeviceStart = undefined;
-        this.update();
-    }
-
-    protected stopStorePolling(): void {
-        if (this.storePollTimer) {
-            clearTimeout(this.storePollTimer);
-            this.storePollTimer = undefined;
-        }
+        this.storeConnectionFlow.cancel();
     }
 
     protected async disconnectStoreAccount(): Promise<void> {
@@ -1440,10 +1320,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return;
         }
         try {
-            await this.projectService.disconnectStoreAccount();
-            this.cancelStoreConnection();
-            this.storeConnection = { connected: false };
-            this.update();
+            await this.storeConnectionFlow.disconnect();
             await this.loadAssetCatalogView();
         } catch (error) {
             this.messages.error(`接続を解除できませんでした: ${this.errorMessage(error)}`);
@@ -2266,7 +2143,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return (
                 <div style={baseStyle} data-akari-store-connection='pending'>
                     <span>ブラウザで承認してください…</span>
-                    {this.storeDeviceStart?.userCode && <span style={{ opacity: 0.75 }}>確認コード: {this.storeDeviceStart.userCode}</span>}
+                    {this.storeConnectionUserCode && <span style={{ opacity: 0.75 }}>確認コード: {this.storeConnectionUserCode}</span>}
                     <button
                         type='button'
                         className='theia-button secondary'
