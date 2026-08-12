@@ -58,6 +58,31 @@ test("manifest bin resolution includes non-bin entries and refuses escape, missi
   }
 });
 
+test("manifest bin resolution can validate without selecting bin targets for npm vendor reference data", async () => {
+  const root = await mkdtemp(join(tmpdir(), "akari-capability-reference-only-"));
+  try {
+    await mkdir(join(root, "packages", "fixture", "bin"), { recursive: true });
+    await writeFile(
+      join(root, "packages", "fixture", "package.json"),
+      '{"name":"fixture","bin":{"fixture":"bin/fixture.mjs"}}\n',
+      "utf8",
+    );
+    await writeFile(join(root, "packages", "fixture", "bin", "fixture.mjs"), "// fixture\n", "utf8");
+    const trackedFiles = ["packages/fixture/package.json", "packages/fixture/bin/fixture.mjs"];
+    const discovered = discoverCheckoutCapabilitySources(root, { trackedFiles, includeBinTargets: false });
+    assert.ok(discovered.includes("packages/fixture/package.json"));
+    assert.ok(!discovered.includes("packages/fixture/bin/fixture.mjs"));
+
+    await rm(join(root, "packages", "fixture", "bin", "fixture.mjs"));
+    assert.throws(
+      () => discoverCheckoutCapabilitySources(root, { trackedFiles, includeBinTargets: false }),
+      /does not exist/u,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("absence receipt is written only for zero hits and always denies build approval", async () => {
   const project = await mkdtemp(join(tmpdir(), "akari-capability-project-"));
   try {
