@@ -36,3 +36,22 @@ test("unknown matched_by value fails with the allowed enum", () => {
     /matched_by は title-normalized のいずれかである必要があります/,
   );
 });
+
+test("scene3d fragment with texts[] only (no model) passes without a glTF entity", () => {
+  const executed = run("valid-scene3d-texts-only/scene3d/hero-texts-only");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+  assert.equal(executed.stderr.trim(), "");
+});
+
+test("scene3d fragment declaring model still requires a glTF entity", () => {
+  const executed = run("invalid-scene3d-model-missing-glb/scene3d/hero-missing-glb");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /scene3d 素材には glTF 実体（\.glb または \.gltf）が必要です/);
+});
+
+test("scene3d fragment with neither model nor texts[] still requires a glTF entity", () => {
+  const executed = run("invalid-scene3d-neither/scene3d/hero-neither");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /scene3d 素材には glTF 実体（\.glb または \.gltf）が必要です/);
+});
