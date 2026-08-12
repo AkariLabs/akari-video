@@ -34,6 +34,17 @@ test("契約 §2.1 の face-landmarks 例は妥当", () => {
   assert.equal(ok, true, JSON.stringify(validate.errors));
 });
 
+test("face_contour は additive な任意点列として受理し、従来の contour 無し例も妥当", () => {
+  const legacy = loadFixture("example-face-landmarks.json");
+  assert.equal(validate(legacy), true, JSON.stringify(validate.errors));
+  legacy.samples[0].detections[0].landmarks.face_contour = [
+    [0.66, 0.29], [0.68, 0.46], [0.78, 0.55], [0.88, 0.46], [0.9, 0.29],
+  ];
+  legacy.samples[0].detections[0].landmarks.left_eyebrow = [[0.7, 0.28], [0.75, 0.26]];
+  legacy.samples[0].detections[0].landmarks.right_eyebrow = [[0.82, 0.26], [0.87, 0.28]];
+  assert.equal(validate(legacy), true, JSON.stringify(validate.errors));
+});
+
 test("契約 §2.2 の hand-pose 例は妥当", () => {
   const ok = validate(loadFixture("example-hand-pose.json"));
   assert.equal(ok, true, JSON.stringify(validate.errors));

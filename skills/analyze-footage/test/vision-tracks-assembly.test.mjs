@@ -99,8 +99,10 @@ test(
           assert.equal(sample.detections.length, 1);
           assert.deepEqual(sample.detections[0].box, [0.1, 0.2, 0.3, 0.4]);
           assert.deepEqual(Object.keys(sample.detections[0].landmarks).sort(), [
-            "inner_lips", "left_eye", "left_pupil", "outer_lips", "right_eye", "right_pupil",
+            "face_contour", "inner_lips", "left_eye", "left_eyebrow", "left_pupil", "outer_lips",
+            "right_eye", "right_eyebrow", "right_pupil",
           ]);
+          assert.equal(sample.detections[0].landmarks.face_contour.length, 5);
         } else {
           assert.deepEqual(sample.detections, []);
         }
@@ -124,7 +126,9 @@ test(
       assert.equal(analysisAfter.tracks.face_landmarks.sample_fps, 2);
       assert.equal(analysisAfter.tracks.face_landmarks.provider, "apple-vision");
       assert.equal(analysisAfter.tracks.face_landmarks.tool, "vision-tracks.mjs v0");
+      assert.deepEqual(analysisAfter.tracks.face_landmarks.features, ["face_contour"]);
       assert.equal(analysisAfter.tracks.hand_pose.path, "vision/hand-pose.json");
+      assert.equal(Object.hasOwn(analysisAfter.tracks.hand_pose, "features"), false);
       assert.ok(!Object.prototype.hasOwnProperty.call(analysisAfter, "tmp"));
     } finally {
       rmSync(dir, { recursive: true, force: true });
