@@ -404,6 +404,7 @@ async function generate(options) {
       provider: PROVIDER_NAME,
       tool: TOOL_ID,
       generated_at: generatedAt,
+      ...(kind === "face" ? { features: ["face_contour"] } : {}),
     };
     tracksWritten[info.trackKey] = analysis.tracks[info.trackKey];
   }

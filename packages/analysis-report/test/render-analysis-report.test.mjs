@@ -405,7 +405,27 @@ test("tracks.face_landmarks / tracks.hand_pose を持つ analysis.json も軽量
     const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
     const embeddedTracks = bundle.assets[0].analysis.tracks;
     assert.equal(embeddedTracks.face_landmarks.path, "vision/face-landmarks.json");
+    assert.deepEqual(embeddedTracks.face_landmarks.features, ["face_contour"]);
     assert.equal(embeddedTracks.hand_pose.path, "vision/hand-pose.json");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.face_landmarks.features の空文字・重複は軽量チェックで拒否する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const broken = JSON.parse(readFileSync(resolve(here, "fixtures/analysis-vision-tracks.json"), "utf8"));
+    broken.tracks.face_landmarks.features = ["face_contour", "face_contour", ""];
+    const analysisPath = join(dir, "analysis-vision-tracks.json");
+    writeFileSync(analysisPath, JSON.stringify(broken), "utf8");
+    const result = run([
+      "--analysis", analysisPath,
+      "--interpretation", resolve(here, "fixtures/interpretation-vision-tracks.json"),
+      "--out", join(dir, "report.html"),
+    ]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /face_landmarks\.features/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

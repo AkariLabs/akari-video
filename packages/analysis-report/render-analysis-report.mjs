@@ -135,6 +135,21 @@ function validateAnalysisStructure(analysis, label) {
     ) {
       errors.push("tracks.person_matte は string か null である必要があります");
     }
+    for (const field of ["face_landmarks", "hand_pose"]) {
+      if (!hasOwn(analysis.tracks, field)) continue;
+      const pointer = analysis.tracks[field];
+      if (!isRecord(pointer) || !isNonEmptyString(pointer.path) || !(Number(pointer.sample_fps) > 0)) {
+        errors.push(`tracks.${field} は path(空でない文字列)・sample_fps(正数) を持つ object である必要があります`);
+        continue;
+      }
+      if (hasOwn(pointer, "features") && (
+        !Array.isArray(pointer.features)
+        || pointer.features.some((feature) => !isNonEmptyString(feature))
+        || new Set(pointer.features).size !== pointer.features.length
+      )) {
+        errors.push(`tracks.${field}.features は重複のない空でない文字列配列である必要があります`);
+      }
+    }
   }
   for (const [index, kf] of (analysis.keyframes || []).entries()) {
     if (!isRecord(kf)) {
