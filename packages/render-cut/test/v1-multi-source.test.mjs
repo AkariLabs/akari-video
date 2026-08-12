@@ -157,15 +157,17 @@ test("v1 renders s1 -> s2 -> s1, omits an unused source input, and measures the 
     assert.deepEqual(inputPaths, [join(project, "first.mp4"), join(project, "second.mp4")]);
     assert.deepEqual(state.provenance.sources.map((source) => source.id), ["s1", "s2"]);
     assert.deepEqual(
-      state.provenance.sources.map(({ width, height, fps, has_audio }) => ({
+      state.provenance.sources.map(({ width, height, fps, has_audio, pix_fmt, color_range }) => ({
         width,
         height,
         fps,
         has_audio,
+        pix_fmt,
+        color_range,
       })),
       [
-        { width: 320, height: 180, fps: 10, has_audio: true },
-        { width: 320, height: 180, fps: 10, has_audio: true },
+        { width: 320, height: 180, fps: 10, has_audio: true, pix_fmt: "yuv420p", color_range: null },
+        { width: 320, height: 180, fps: 10, has_audio: true, pix_fmt: "yuv420p", color_range: null },
       ],
     );
   } finally {

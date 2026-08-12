@@ -190,6 +190,7 @@ export function buildPlan({
       video_codec: "h264",
       profile: "high",
       pixel_format: "yuv420p",
+      color_range: "tv",
       audio_codec: "aac",
       width,
       height,
@@ -726,12 +727,12 @@ function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath
       "-i",
       overlayPath,
       "-filter_complex",
-      "[0:v][1:v]overlay=0:0:format=auto:shortest=1[outv]",
+      "[0:v][1:v]overlay=0:0:format=auto:shortest=1[composited];[composited]scale=out_range=tv[outv]",
       "-map",
       "[outv]",
       "-map",
       "0:a:0",
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -754,16 +755,17 @@ function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, ov
     );
     previous = next;
   }
+  filters.push(`${previous}scale=out_range=tv[outv]`);
   args.push(
     "-filter_complex",
     filters.join(";"),
     "-map",
-    previous,
+    "[outv]",
     "-map",
     "0:a:0",
     "-t",
     formatNumber(duration),
-    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
     "-pix_fmt",
     "yuv420p",
     "-c:a",
@@ -1172,6 +1174,7 @@ export function buildCutCommand({
   } else if (videoLabel !== "[outv]") {
     filters.push(`${videoLabel}null[outv]`);
   }
+  filters.push("[outv]scale=out_range=tv[outv_tv]");
 
   return {
     command: ffmpegCommand,
@@ -1188,10 +1191,10 @@ export function buildCutCommand({
       "-filter_complex",
       filters.join(";"),
       "-map",
-      "[outv]",
+      "[outv_tv]",
       "-map",
       "[joineda]",
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -1245,8 +1248,9 @@ export function buildMultiSourceCutCommand({
     // settb=AVTB -- when a transition is present -- is applied as one unconditional LAST step
     // onto `[v${index}]` (the label concat/xfade actually consume), after fx/transform/scale/fps
     // have all already run.
+    const preRangeLabel = `[vrange${index}]`;
     const preConcatLabel = hasAnyTransition ? `[vpre${index}]` : `[v${index}]`;
-    const shapedLabel = fxCuts ? `[vshaped1_${index}]` : preConcatLabel;
+    const shapedLabel = fxCuts ? `[vshaped1_${index}]` : preRangeLabel;
     if (transformCuts) {
       const trimmedLabel = `[vraw${index}]`;
       appendFreezeAwareVideoTrim({
@@ -1289,7 +1293,7 @@ export function buildMultiSourceCutCommand({
       appendCutFxChain({
         filters,
         inputLabel: shapedLabel,
-        outputLabel: preConcatLabel,
+        outputLabel: preRangeLabel,
         fx: cut.fx,
         id: `v1_${index}`,
         width,
@@ -1298,6 +1302,7 @@ export function buildMultiSourceCutCommand({
         duration: segmentDuration(cut),
       });
     }
+    filters.push(`${preRangeLabel}scale=out_range=tv${preConcatLabel}`);
     if (hasAnyTransition) {
       filters.push(`${preConcatLabel}settb=AVTB[v${index}]`);
     }
@@ -1373,6 +1378,7 @@ export function buildMultiSourceCutCommand({
   } else {
     filters.push(`${videoLabel}null[outv]`);
   }
+  filters.push("[outv]scale=out_range=tv[outv_tv]");
 
   return {
     command: ffmpegCommand,
@@ -1386,10 +1392,10 @@ export function buildMultiSourceCutCommand({
       "-filter_complex",
       filters.join(";"),
       "-map",
-      "[outv]",
+      "[outv_tv]",
       "-map",
       "[joineda]",
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -1578,6 +1584,7 @@ function buildGapAwareCutCommand({
   } else if (videoLabel !== "[outv]") {
     filters.push(`${videoLabel}null[outv]`);
   }
+  filters.push("[outv]scale=out_range=tv[outv_tv]");
 
   return {
     command: ffmpegCommand,
@@ -1594,10 +1601,10 @@ function buildGapAwareCutCommand({
       "-filter_complex",
       filters.join(";"),
       "-map",
-      "[outv]",
+      "[outv_tv]",
       "-map",
       "[joineda]",
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
       "-pix_fmt",
       "yuv420p",
       "-c:a",

@@ -191,7 +191,11 @@ export async function renderProject(input, options = {}, io = console) {
     plan,
     provenance: {
       ...(edit.version === 0
-        ? { source: relativeOrAbsolute(projectRoot, resolve(projectRoot, edit.source.path)) }
+        ? {
+            source: relativeOrAbsolute(projectRoot, resolve(projectRoot, edit.source.path)),
+            source_pix_fmt: capabilities.sourcePixFmt,
+            source_color_range: capabilities.sourceColorRange,
+          }
         : {
             sources: capabilities.sourceInputs.map((source) => ({
               id: source.id,
@@ -201,6 +205,8 @@ export async function renderProject(input, options = {}, io = console) {
               width: source.width,
               height: source.height,
               fps: source.fps,
+              pix_fmt: source.pixFmt,
+              color_range: source.colorRange,
             })),
           }),
       proxy_used: false,
@@ -569,6 +575,7 @@ async function measureCapabilities(projectRoot, edit) {
   if (edit.version === 0) {
     const sourcePath = resolve(projectRoot, edit.source.path);
     const sourceProbe = probeMedia(ffprobeCommand, sourcePath);
+    const sourceVideo = sourceProbe.streams.find((stream) => stream.codec_type === "video");
     const sourceDuration = Number(sourceProbe.format?.duration);
     if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) {
       throw new ExecutionError("ffprobe did not report a positive source duration");
@@ -591,6 +598,8 @@ async function measureCapabilities(projectRoot, edit) {
       puppeteerVersion: puppeteerPath ? await readPackageVersion(puppeteerPath) : null,
       sourceDuration,
       sourceHasAudio: sourceProbe.streams.some((stream) => stream.codec_type === "audio"),
+      sourcePixFmt: sourceVideo?.pix_fmt ?? null,
+      sourceColorRange: sourceVideo?.color_range ?? null,
     };
   }
 
@@ -627,6 +636,8 @@ async function measureCapabilities(projectRoot, edit) {
       width: video?.width ?? null,
       height: video?.height ?? null,
       fps: parseRate(video?.avg_frame_rate ?? video?.r_frame_rate),
+      pixFmt: video?.pix_fmt ?? null,
+      colorRange: video?.color_range ?? null,
     };
   });
   return { ...shared, sourceInputs };
@@ -1045,6 +1056,12 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
   compare(findings, "verify.video-codec", video?.codec_name === "h264", `video codec ${video?.codec_name ?? "missing"}; expected h264`);
   compare(findings, "verify.video-profile", String(video?.profile ?? "").toLowerCase() === "high", `video profile ${video?.profile ?? "missing"}; expected High`);
   compare(findings, "verify.pixel-format", video?.pix_fmt === "yuv420p", `pixel format ${video?.pix_fmt ?? "missing"}; expected yuv420p`);
+  compare(
+    findings,
+    "verify.color-range",
+    video?.color_range !== "pc",
+    `color range ${video?.color_range ?? "missing (defaults to tv)"}; expected ${expected.color_range ?? "tv"}`,
+  );
   compare(findings, "verify.audio", audio?.codec_name === "aac", `audio codec ${audio?.codec_name ?? "missing"}; expected aac`);
   if (plan.commands.audio_mix?.hasNarration) {
     compare(findings, "verify.narration-audio", Boolean(audio), `narration audio stream present: ${Boolean(audio)}; expected an audio stream because edit.json has audio.narration`);
@@ -1066,6 +1083,7 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
       video_codec: video?.codec_name ?? null,
       video_profile: video?.profile ?? null,
       pixel_format: video?.pix_fmt ?? null,
+      color_range: video?.color_range ?? null,
       audio_codec: audio?.codec_name ?? null,
       frame_count: decodePass.frameCount,
     },

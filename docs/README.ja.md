@@ -88,6 +88,7 @@
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | タイムライン配置原則・音源複数トラック・音源トリム・ソーストリマー |
 | [contract-2026-08-05-fx-v0.md](./contract-2026-08-05-fx-v0.md) | 画面 FX 小語彙 v0 — **2026-08-11 廃止**（冒頭の廃止追記を参照）。`presets/fx/` は空の参照表として存続 |
 | [contract-2026-08-12-region-filter-layer-v0.md](./contract-2026-08-12-region-filter-layer-v0.md) | kind:"filter" レイヤー — region（perspective corners）内だけのルック切り替え（invert / lut / saturation）。追加 `-i` なし |
+| [contract-2026-08-12-color-range-normalization-v0.md](./contract-2026-08-12-color-range-normalization-v0.md) | full-range（pc）の H.264 入力を limited range（tv）出力へ正規化 — 全エンコード工程で画素値変換（scale=out_range=tv）とメタデータタグ付け（-color_range tv）を対で実施。verify.color-range を追加 |
 
 ### 分析・プラン・レビュー
 

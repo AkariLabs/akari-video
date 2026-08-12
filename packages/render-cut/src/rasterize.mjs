@@ -626,11 +626,11 @@ export async function compositeAnimatedOverlay({
     "-i",
     overlayPath,
     "-filter_complex",
-    "[0:v][1:v]overlay=0:0:format=auto:shortest=1[outv]",
+    "[0:v][1:v]overlay=0:0:format=auto:shortest=1[composited];[composited]scale=out_range=tv[outv]",
     "-map",
     "[outv]",
     ...(hasAudio ? ["-map", "0:a:0"] : []),
-    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
     "-pix_fmt",
     "yuv420p",
     ...(hasAudio ? ["-c:a", "copy"] : ["-an"]),
@@ -667,15 +667,16 @@ export async function compositeStaticOverlays({
     );
     previous = next;
   }
+  filters.push(`${previous}scale=out_range=tv[outv]`);
   args.push(
     "-filter_complex",
     filters.join(";"),
     "-map",
-    previous,
+    "[outv]",
     ...(hasAudio ? ["-map", "0:a:0"] : []),
     "-t",
     formatNumber(duration),
-    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high"]),
+    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
     "-pix_fmt",
     "yuv420p",
     ...(hasAudio ? ["-c:a", "copy"] : ["-an"]),
