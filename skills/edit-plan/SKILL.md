@@ -57,7 +57,7 @@ description: analyze-project が作る分析レポート（interpretation.json +
 5. Checkpoint 1 の承認後に無音短縮を検討する場合は [workflow.md](workflow.md) の専用 keep plan を組み、
    `bin/propose-cut-candidates.mjs` で review-only report を提示する。候補の採否・classification 修正を
    チャットで確認し、`decision-log.md` へ人間承認に基づき追記する。helper 自身には追記させない。
-6. Checkpoint 3 の実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json`（単一素材なら v0、複数素材なら v1）とオーバーレイ HTML を生成・検証する。完了処理として [recipe.md](recipe.md) の freeze 手順を確認し、そのプロジェクトで未申し出なら一度だけ（offer-once）レシピ化を人間に申し出る。
+6. Checkpoint 3 の実行承認を得た後だけ [execution.md](execution.md) を読み、`edit.json`（新規作成は素材数に関係なく v1。既存 v0 ファイルの編集のみ v0 維持可）とオーバーレイ HTML を生成・検証する。完了処理として [recipe.md](recipe.md) の freeze 手順を確認し、そのプロジェクトで未申し出なら一度だけ（offer-once）レシピ化を人間に申し出る。
 7. 見せ場マーカーを書く工程では [beats.md](beats.md) を読み、`analysis.json` の events / transcript から
    `beats[]` を導出する（マッピング表・座標系・導出段のガードレール = 下限と根拠・worked example）。
 8. 承認済みの `beats[]` を演出へ連動させる工程では [beat-sync.md](beat-sync.md) を読み、射影・SE 発火
