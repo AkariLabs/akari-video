@@ -37,7 +37,11 @@ import {
     parseEdit,
     writeTimelineTracksInSource
 } from '../common/edit-store';
-import { deriveDefaultTimelineTracks } from '../common/derive-timeline-tracks';
+import {
+    computeTrackAutoNames as computeTrackKindAutoNames,
+    deriveDefaultTimelineTracks,
+    withCaptionsDisplaySupplement
+} from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import { computeCutBoundaries } from '../common/cut-boundaries';
@@ -2743,7 +2747,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (options?.insertTrack !== undefined) {
                     value.layers = shiftLayerTracksForInsert(value.layers, options.insertTrack);
                     const baseTracks = this.pinAudioGroupToBottom(
-                        parseEdit(editBefore).timeline?.tracks ?? deriveDefaultTimelineTracks(JSON.parse(editBefore))
+                        parseEdit(editBefore).timeline?.tracks
+                            ?? deriveDefaultTimelineTracks(JSON.parse(editBefore), this.captions.length > 0)
                     );
                     value.timeline = { tracks: insertedLayerTimelineTracks(baseTracks, options.insertTrack) };
                 }
@@ -3180,7 +3185,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.audioNarration = parsed.audioNarration;
                 this.audioBgm = parsed.audioBgm;
                 this.timelineTracks = this.pinAudioGroupToBottom(
-                    parsed.timeline?.tracks ?? deriveDefaultTimelineTracks(rawValue)
+                    parsed.timeline?.tracks ?? deriveDefaultTimelineTracks(rawValue, this.captions.length > 0)
                 );
                 this.fps = parsed.fps;
                 if (parsed.warnings.length > 0) {
@@ -3514,6 +3519,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected calculateLaneLayout(topOffset = 0): number {
         this.computeAudioDisplayTracks();
+        this.computeCaptionsDisplayTrack();
         this.captionRows = assignSubRows(this.captions.map(caption => ({ start: caption.start, end: caption.end })));
         const captionRowCount = this.captionRows.length ? Math.max(...this.captionRows) + 1 : 0;
         let nextTop = topOffset;
@@ -3649,6 +3655,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
             { id: track.id, kind: 'audio' as const, ref: track.ref }
         )));
         this.displayTimelineTracks = next;
+    }
+
+    /**
+     * 表示専用の字幕レーン補完（司令塔裁定 2026-08-12・裁定 2）: this.timelineTracks
+     * （明示 timeline.tracks、または派生ベースライン）に captions 種別が 1 つも無くても、
+     * captions.json（this.captions）に字幕があれば表示上のみ補う（中核アルゴリズムは
+     * withCaptionsDisplaySupplement、common/ の純粋関数として単体テスト済み）。edit.json への
+     * 書き戻しは一切行わない。reloadEdit / reloadCaptions は別々に走るため（読み込み順に依存
+     * させない要件）、本メソッドは renderStrip の度に calculateLaneLayout 冒頭から必ず呼ばれ、
+     * その時点の this.captions / this.timelineTracks の最新値から毎回作り直す。
+     */
+    protected computeCaptionsDisplayTrack(): void {
+        this.displayTimelineTracks = withCaptionsDisplaySupplement(
+            this.displayTimelineTracks, this.captions.length > 0
+        );
     }
 
     /** sfx の表示上の割当トラック ref（R7-3 の自動配置で上書きされていればそれを、なければ実際の sfx.track を返す）。 */
@@ -4423,25 +4444,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * R7-4・A/V 命名: トラック表示名をグループ内連番 + 種別プレフィックスへ
-     * （音声 = A1, A2, …（最下段から A1）・映像系 = V1, V2, …（下から V1・従来の縦順のまま））。
-     * this.displayTimelineTracks は配列先頭 = 画面最下段（widget の `[...tracks].reverse()` 規約）
-     * なので、配列を先頭から辿るだけで両グループとも「最下段から連番」になる。
+     * R7-4・A/V/T 命名（2026-08-12、字幕レーンの自動命名を V 系から T 系へ分離）: トラック表示名を
+     * グループ内連番 + 種別プレフィックスへ（音声 = A1, A2, …・字幕 = T1, T2, …・映像系
+     * （cuts/layers/overlays）= V1, V2, …。いずれも最下段から連番）。this.displayTimelineTracks は
+     * 配列先頭 = 画面最下段（widget の `[...tracks].reverse()` 規約）なので、配列を先頭から辿る
+     * だけで各グループとも「最下段から連番」になる（中核アルゴリズムは computeTrackAutoNames、
+     * common/ の純粋関数として単体テスト済み）。
      */
     protected computeTrackAutoNames(): Map<string, string> {
-        const names = new Map<string, string>();
-        let audioCount = 0;
-        let videoCount = 0;
-        for (const track of this.displayTimelineTracks) {
-            if (track.kind === 'audio') {
-                audioCount++;
-                names.set(track.id, `A${audioCount}`);
-            } else {
-                videoCount++;
-                names.set(track.id, `V${videoCount}`);
-            }
-        }
-        return names;
+        return computeTrackKindAutoNames(this.displayTimelineTracks);
     }
 
     protected trackHeaderRow(
@@ -4648,7 +4659,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const before = (await this.fileService.readFile(editUri)).value.toString();
             const parsed = parseEdit(before);
             const base = this.pinAudioGroupToBottom(parsed.timeline?.tracks
-                ?? deriveDefaultTimelineTracks(JSON.parse(before) as unknown));
+                ?? deriveDefaultTimelineTracks(JSON.parse(before) as unknown, this.captions.length > 0));
             const tracks = mutate(base.map(track => ({ ...track })));
             const after = writeTimelineTracksInSource(before, tracks);
             if (after === before) {
@@ -4693,7 +4704,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): EditTimelineTrack[] {
         const parsed = parseEdit(source);
         const tracks = this.pinAudioGroupToBottom(parsed.timeline?.tracks
-            ?? deriveDefaultTimelineTracks(JSON.parse(source) as unknown)).map(track => ({
+            ?? deriveDefaultTimelineTracks(JSON.parse(source) as unknown, this.captions.length > 0)).map(track => ({
             ...track,
             ...(track.kind === kind && (track.ref ?? 0) >= insertTrack
                 ? { ref: (track.ref ?? 0) + 1 } : {})
