@@ -13,6 +13,8 @@
 ![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
 ![Cursor Agent](https://img.shields.io/badge/Cursor_Agent-skills-1a1a1a)
 
+**[akari.video](https://akari.video/)** — 公式サイト · **[AKARI Video Lab](https://akari.video/lab/)** — AI が理解して使える素材ライブラリ（新設） · [使い方ガイド](https://akari.video/howto/)
+
 </div>
 
 AKARI Video は AI エージェントが編集の主体になる動画編集ツールです。
