@@ -394,6 +394,53 @@ window.akari.threeRuntime = (() => {
         }
       }
     }
+    // physics.spawn（任意。task 2026-08-14-3d-physics-spawn）: 各文字の初期位置を引く矩形。
+    // 未宣言時は physicsInitialState() が従来の 5 レーン固定グリッドへフォールバックする
+    // （後方互換。1 ビットも挙動を変えない）
+    if (physics.spawn !== undefined) {
+      if (!physics.spawn || typeof physics.spawn !== "object" || Array.isArray(physics.spawn)) {
+        throw new TypeError("physics.spawn は object である必要があります");
+      }
+      for (const axis of ["x", "y"]) {
+        const range = physics.spawn[axis];
+        if (!Array.isArray(range)
+          || range.length !== 2
+          || !range.every((value) => Number.isFinite(Number(value)))) {
+          throw new TypeError(`physics.spawn.${axis} は [min, max] の数値配列である必要があります`);
+        }
+        if (!(Number(range[0]) < Number(range[1]))) {
+          throw new TypeError(`physics.spawn.${axis} は min < max である必要があります（min=${range[0]}, max=${range[1]}）`);
+        }
+      }
+      // 壁・床の外を指定したら警告ではなくエラー（契約の指示 2）。floor は y <= collider.y が
+      // 内部（buildColliderBody 参照）、wall は x>=0 なら x < collider.x、x<0 なら x > collider.x
+      // が内部——spawn 矩形がその外側へはみ出していないかを判定する
+      for (const [index, collider] of physics.colliders.entries()) {
+        if (collider.type === "floor") {
+          const floorY = Number(collider.y);
+          if (Number(physics.spawn.y[0]) <= floorY) {
+            throw new Error(
+              `physics.spawn.y の下端 ${physics.spawn.y[0]} が physics.colliders[${index}]`
+              + `（floor y=${floorY}）の外（床の下）を指定しています`
+            );
+          }
+        } else if (collider.type === "wall") {
+          const wallX = Number(collider.x);
+          if (wallX >= 0 && Number(physics.spawn.x[1]) >= wallX) {
+            throw new Error(
+              `physics.spawn.x の上端 ${physics.spawn.x[1]} が physics.colliders[${index}]`
+              + `（wall x=${wallX}）の外を指定しています`
+            );
+          }
+          if (wallX < 0 && Number(physics.spawn.x[0]) <= wallX) {
+            throw new Error(
+              `physics.spawn.x の下端 ${physics.spawn.x[0]} が physics.colliders[${index}]`
+              + `（wall x=${wallX}）の外を指定しています`
+            );
+          }
+        }
+      }
+    }
   }
 
   function readDescriptor(container) {
@@ -783,8 +830,24 @@ window.akari.threeRuntime = (() => {
   // 別 PRNG を新規実装しなくても「明示シード・Math.random/Date 不使用・matter-js の
   // Common.random に非依存」という契約の不変条件は満たせるため（判断理由は report.md 参照）。
   // laneCount 列のグリッドへ physics 対象文字を並べ、列内で軽くジッタさせて重なりを避ける
-  // （lab/telop-3d-poc の物理シーンと同じ発想。乱数源だけを既存の seededUnit に差し替えた）
-  function physicsInitialState(seed, index) {
+  // （lab/telop-3d-poc の物理シーンと同じ発想。乱数源だけを既存の seededUnit に差し替えた）。
+  //
+  // spawn（任意。task 2026-08-14-3d-physics-spawn）: physics.spawn が宣言されていれば、5 レーン
+  // グリッドの代わりに spawn.x/spawn.y の矩形から seed 由来の決定論的一様分布で位置を引く
+  // （角度・角速度の塩は 201/202 と衝突しない別の塩を使うだけで、グリッド版と同じ seededUnit）。
+  // spawn が undefined のときはこの関数の分岐そのものへ入らないため、グリッド版の 1 ビットも
+  // 変わらない（後方互換）
+  function physicsInitialState(seed, index, spawn) {
+    if (spawn) {
+      const [xMin, xMax] = spawn.x;
+      const [yMin, yMax] = spawn.y;
+      return {
+        x: xMin + seededUnit(seed, index, 211) * (xMax - xMin),
+        y: yMin + seededUnit(seed, index, 212) * (yMax - yMin),
+        angle: (seededUnit(seed, index, 213) - 0.5) * 0.6,
+        angularVelocity: (seededUnit(seed, index, 214) - 0.5) * 0.24,
+      };
+    }
     const laneCount = 5;
     const col = index % laneCount;
     const row = Math.floor(index / laneCount);
@@ -864,7 +927,7 @@ window.akari.threeRuntime = (() => {
       const fallbackSize = finiteNumber(char.node.fontSize, 0.5);
       const width = Number.isFinite(boxWidth) && boxWidth > 0 ? boxWidth : fallbackSize * 0.6;
       const height = Number.isFinite(boxHeight) && boxHeight > 0 ? boxHeight : fallbackSize;
-      const initial = physicsInitialState(seed, index);
+      const initial = physicsInitialState(seed, index, physicsDescriptor.spawn);
       const body = Bodies.rectangle(initial.x, initial.y, width, height, {
         angle: initial.angle,
         restitution,
