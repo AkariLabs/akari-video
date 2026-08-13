@@ -41,15 +41,44 @@ export interface CatalogItemMeta {
  */
 export const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'] as const;
 
-/** カタログ面で category enum を人向けに表示する日本語ラベル。 */
-export const CATALOG_CATEGORY_LABELS: Readonly<Record<(typeof CATALOG_CATEGORIES)[number], string>> = {
-    overlay: 'オーバーレイ',
-    still: '静止画',
-    scene3d: '3D',
-    audio: '音声',
-    broll: 'Bロール',
-    font: 'フォント'
-};
+export type CatalogAudioClassification = 'bgm' | 'sfx';
+
+/**
+ * audio 項目を表示上の BGM / 効果音に分ける。`sfx` タグだけを効果音とし、
+ * bgm / jingle / タグ無しは BGM へ安全にフォールドする。I/O を持たない分類の正本。
+ */
+export function classifyCatalogAudioItem(item: { readonly tags?: readonly string[] }): CatalogAudioClassification {
+    return item.tags?.includes('sfx') ? 'sfx' : 'bgm';
+}
+
+export const CATALOG_AUDIO_BGM_CATEGORY = 'audio:bgm';
+export const CATALOG_AUDIO_SFX_CATEGORY = 'audio:sfx';
+
+/** item の raw category を、カタログ面の表示・絞り込みキーへ正規化する。 */
+export function catalogItemCategoryChipKey(
+    item: { readonly category: string; readonly tags?: readonly string[] }
+): string {
+    if (item.category !== 'audio') {
+        return item.category;
+    }
+    return classifyCatalogAudioItem(item) === 'sfx' ? CATALOG_AUDIO_SFX_CATEGORY : CATALOG_AUDIO_BGM_CATEGORY;
+}
+
+interface CatalogCategoryChipDefinition {
+    category: string;
+    label: string;
+}
+
+/** raw category の audio だけを、元の位置で BGM → 効果音の 2 チップへ展開する。 */
+const CATALOG_CATEGORY_CHIP_DEFINITIONS: readonly CatalogCategoryChipDefinition[] = [
+    { category: 'overlay', label: 'オーバーレイ' },
+    { category: 'still', label: '静止画' },
+    { category: 'scene3d', label: '3D' },
+    { category: CATALOG_AUDIO_BGM_CATEGORY, label: 'BGM' },
+    { category: CATALOG_AUDIO_SFX_CATEGORY, label: '効果音' },
+    { category: 'broll', label: 'Bロール' },
+    { category: 'font', label: 'フォント' }
+];
 
 export interface CatalogCategoryChip {
     category: string;
@@ -58,18 +87,19 @@ export interface CatalogCategoryChip {
 }
 
 /**
- * 固定 6 カテゴリを 0 件でも先に返し、データに現れた未知カテゴリだけを末尾へ加える。
- * category は絞り込みキーとして一切翻訳せず、label だけを表示用に分離する。
+ * 固定チップを 0 件でも先に返し、データに現れた未知カテゴリだけを末尾へ加える。
+ * audio は tags で BGM / 効果音の 2 チップへ分割するが、元の item.category は変更しない。
  */
-export function deriveCatalogCategoryChips(items: readonly { readonly category: string }[]): CatalogCategoryChip[] {
+export function deriveCatalogCategoryChips(
+    items: readonly { readonly category: string; readonly tags?: readonly string[] }[]
+): CatalogCategoryChip[] {
     const counts = new Map<string, number>();
     for (const item of items) {
         counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
     }
-    const known = CATALOG_CATEGORIES.map(category => ({
-        category,
-        label: CATALOG_CATEGORY_LABELS[category],
-        count: counts.get(category) ?? 0
+    const known = CATALOG_CATEGORY_CHIP_DEFINITIONS.map(definition => ({
+        ...definition,
+        count: items.filter(item => catalogItemMatchesCategory(item, definition.category)).length
     }));
     const knownSet = new Set<string>(CATALOG_CATEGORIES);
     const unknown = Array.from(counts.keys())
@@ -90,10 +120,10 @@ export type CatalogFilteredEmptyKind = 'category-empty' | 'no-match';
 
 /** 選択カテゴリ自体が 0 件なのか、検索条件だけが不一致なのかを分ける。 */
 export function deriveCatalogFilteredEmptyKind(
-    items: readonly { readonly category: string }[],
+    items: readonly { readonly category: string; readonly tags?: readonly string[] }[],
     category: string
 ): CatalogFilteredEmptyKind {
-    return category !== 'all' && !items.some(item => item.category === category)
+    return category !== 'all' && !items.some(item => catalogItemMatchesCategory(item, category))
         ? 'category-empty'
         : 'no-match';
 }
@@ -152,7 +182,7 @@ export function filterCatalogItems<T extends CatalogSearchable>(
 ): T[] {
     const normalizedQuery = query.trim().toLowerCase();
     return items.filter(item => {
-        if (category !== 'all' && item.category !== category) {
+        if (category !== 'all' && !catalogItemMatchesCategory(item, category)) {
             return false;
         }
         if (!normalizedQuery) {
@@ -163,6 +193,13 @@ export function filterCatalogItems<T extends CatalogSearchable>(
             .toLowerCase();
         return haystack.includes(normalizedQuery);
     });
+}
+
+function catalogItemMatchesCategory(
+    item: { readonly category: string; readonly tags?: readonly string[] },
+    category: string
+): boolean {
+    return catalogItemCategoryChipKey(item) === category;
 }
 
 function parseLicense(value: unknown): CatalogItemLicense | undefined {
