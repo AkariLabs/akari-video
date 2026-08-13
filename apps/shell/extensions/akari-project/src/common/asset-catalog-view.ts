@@ -170,6 +170,22 @@ export function storeProductUrl(storeApiUrl: string | undefined, id: string): st
     return `${deriveStoreLabBaseUrl(storeApiUrl)}/asset.html?id=${encodeURIComponent(id)}`;
 }
 
+/**
+ * locked 項目の購入アクション文言。狭いカードでは額面だけ、幅に余裕があるリストでは
+ * 「で購入」まで表示する。どちらも挙動の全文は title に残す。
+ */
+export function catalogPurchaseActionText(
+    price: number | undefined,
+    viewMode: 'grid' | 'list',
+    productUrl: string
+): { label: string; title: string } {
+    const amount = `¥${(price ?? 0).toLocaleString()}`;
+    return {
+        label: viewMode === 'list' ? `${amount} で購入` : amount,
+        title: `${amount} で購入 — ストアを開く（${productUrl}）`
+    };
+}
+
 // --- origin='local' の分類バッジ（同梱 / サブスク / 各自入手 / 無料 DL） ---------------------
 
 /** origin='local' アイテムの入手分類。カテゴリ非依存（font 専用にしない）。 */
