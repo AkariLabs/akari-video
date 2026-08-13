@@ -1,0 +1,26 @@
+import puppeteer from "puppeteer-core";
+
+import { findChrome } from "./find-chrome.mjs";
+
+export async function launchAvatarVrmBrowser() {
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH?.trim() || findChrome();
+  if (!executablePath) throw new Error("Chrome for Testing が見つかりません");
+  const isHeadlessShell = /(?:^|[/\\])chrome-headless-shell(?:\.exe)?$/.test(executablePath);
+  return puppeteer.launch({
+    executablePath,
+    headless: isHeadlessShell ? "shell" : true,
+    pipe: isHeadlessShell,
+    protocolTimeout: 600_000,
+    args: [
+      "--no-sandbox",
+      ...(isHeadlessShell ? ["--single-process", "--no-zygote"] : []),
+      "--disable-gpu",
+      "--enable-unsafe-swiftshader",
+      "--use-angle=swiftshader",
+      "--disable-dev-shm-usage",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--allow-file-access-from-files",
+    ],
+  });
+}
