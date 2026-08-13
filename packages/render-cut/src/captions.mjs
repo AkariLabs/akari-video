@@ -115,8 +115,6 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const portrait = typeof output?.width === "number"
     && typeof output?.height === "number"
     && output.height > output.width;
-  const maximum = options.maxCharacters
-    ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
   const baseFontSize = portrait
     ? Math.round(output.width * PORTRAIT_FONT_SIZE_RATIO)
     : DEFAULT_FONT_SIZE_PX;
@@ -143,6 +141,9 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     );
     let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
+    const maximum = textStyle?.max_characters
+      ?? options.maxCharacters
+      ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
     const textStyleVars = captionTextStyleVars(textStyle);
     const allWords = clipWordsToRange(caption.words, caption.start, caption.end);
     // 縦長の既定: 複数行へ折り返す長さの字幕は全行を一度に出さず、既存 reveal 機構で
@@ -539,6 +540,8 @@ function normalizeTextStyle(value) {
       ? { text_transform: TEXT_TRANSFORM_MAP[value.text_transform] } : {}),
     ...(finiteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100
       ? { max_width_pct: value.max_width_pct } : {}),
+    ...(Number.isInteger(value.max_characters) && value.max_characters > 0
+      ? { max_characters: value.max_characters } : {}),
     ...(typeof value.text_anchor === "string" && TEXT_ANCHOR_VALUES.has(value.text_anchor)
       ? { text_anchor: value.text_anchor } : {}),
     ...(value.position && typeof value.position === "object" && !Array.isArray(value.position)

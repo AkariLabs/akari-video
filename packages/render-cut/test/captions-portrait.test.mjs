@@ -11,6 +11,7 @@ const PORTRAIT = { width: 1080, height: 1920, fps: 30 };
 const LANDSCAPE = { width: 1920, height: 1080, fps: 30 };
 
 const LONG_TEXT = "今日は新しく届いたカメラを持って近所の公園まで散歩しました";
+const TWENTY_TWO_CHARACTERS = "あいうえおかきくけこさしすせそたちつてとなに";
 
 function words(text, start, end) {
   // text を 2 文字ずつの word に割って等間隔のタイミングを与える
@@ -118,4 +119,51 @@ test("maxCharacters の明示指定は縦長既定より優先される", () => 
   );
   const lines = [...overlay.html.matchAll(/<p class="akari-caption__line">(.*?)<\/p>/g)];
   assert.ok(lines.length <= 2);
+});
+
+test("縦長でも default_text_style.max_characters が 22 なら 22 文字を 1 行で表示する", () => {
+  const [overlay] = generateCaptionOverlays(
+    [{
+      id: "c-0001",
+      start: 0,
+      end: 6,
+      text: TWENTY_TWO_CHARACTERS,
+      words: words(TWENTY_TWO_CHARACTERS, 0, 6),
+    }],
+    [],
+    { output: PORTRAIT, defaultTextStyle: { max_characters: 22 } },
+  );
+  assert.equal((overlay.html.match(/<p class="akari-caption__line"/g) ?? []).length, 1);
+});
+
+test("字幕ごとの text_style.max_characters は default_text_style より優先される", () => {
+  const [overlay] = generateCaptionOverlays(
+    [{
+      id: "c-0001",
+      start: 0,
+      end: 6,
+      text: TWENTY_TWO_CHARACTERS,
+      words: words(TWENTY_TWO_CHARACTERS, 0, 6),
+      text_style: { max_characters: 22 },
+    }],
+    [],
+    { output: PORTRAIT, defaultTextStyle: { max_characters: 10 } },
+  );
+  assert.equal((overlay.html.match(/<p class="akari-caption__line"/g) ?? []).length, 1);
+});
+
+test("max_characters 未指定の縦長出力は従来の 10 文字指定とバイト等価", () => {
+  const captions = [{
+    id: "c-0001",
+    start: 0,
+    end: 6,
+    text: LONG_TEXT,
+    words: words(LONG_TEXT, 0, 6),
+  }];
+  const [unspecified] = generateCaptionOverlays(captions, [], { output: PORTRAIT });
+  const [legacyExplicit] = generateCaptionOverlays(captions, [], {
+    output: PORTRAIT,
+    maxCharacters: 10,
+  });
+  assert.equal(unspecified.html, legacyExplicit.html);
 });
