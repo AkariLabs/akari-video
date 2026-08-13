@@ -88,7 +88,7 @@ LUT の `intensity` 省略時は `1` として描画する。
 
 ## 7. 実装対応
 
-- `packages/render-cut/src/layers.mjs`: ベース映像の split、ルック適用、白 quad mask、`maskedmerge` による region 内合成を行う。filter layer は追加の `-i` を作らない。
+- `packages/render-cut/src/filter-mask.mjs` / `layers.mjs`: corner keyframes からフレーム単位の縮小 gray8 quad mask を生成し、ベース映像の split、ルック適用、拡大したマスクとの `maskedmerge` による region 内合成を行う。filter layer ごとにマスク動画用の `-i` を 1 本追加する。
 - `packages/akari-tools/bin/finger-frame.mjs`: `--kind filter --filter invert|lut:<id>|saturation:<value>` から、既存と同じ gesture window と corner keyframes を持つ layer を生成する。
 
 ## 8. 検証
