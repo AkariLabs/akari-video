@@ -1,0 +1,5 @@
+{
+  "name": "akari-shell-audio-chip-split-l1-wrapper",
+  "private": true,
+  "main": "main.cjs"
+}

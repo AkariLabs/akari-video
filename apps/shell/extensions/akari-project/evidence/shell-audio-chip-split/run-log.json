@@ -1,0 +1,119 @@
+[
+  {
+    "step": "left-panel-resized",
+    "value": {
+      "before": 164.9140625,
+      "after": 419.7421875,
+      "target": 420
+    }
+  },
+  {
+    "step": "dom-chip-counts",
+    "value": {
+      "all": 62,
+      "bgm": 10,
+      "sfx": 17,
+      "audioTotal": 27
+    }
+  },
+  {
+    "step": "chip-order-and-labels",
+    "value": [
+      {
+        "category": "all",
+        "count": 62,
+        "text": "すべて 62"
+      },
+      {
+        "category": "overlay",
+        "count": 0,
+        "text": "オーバーレイ 0"
+      },
+      {
+        "category": "still",
+        "count": 0,
+        "text": "静止画 0"
+      },
+      {
+        "category": "scene3d",
+        "count": 3,
+        "text": "3D 3"
+      },
+      {
+        "category": "audio:bgm",
+        "count": 10,
+        "text": "BGM 10"
+      },
+      {
+        "category": "audio:sfx",
+        "count": 17,
+        "text": "効果音 17"
+      },
+      {
+        "category": "broll",
+        "count": 1,
+        "text": "Bロール 1"
+      },
+      {
+        "category": "font",
+        "count": 31,
+        "text": "フォント 31"
+      },
+      {
+        "category": "preset:telop",
+        "count": 36,
+        "text": "テロップ 36"
+      },
+      {
+        "category": "preset:lut",
+        "count": 10,
+        "text": "LUT 10"
+      }
+    ]
+  },
+  {
+    "step": "audio:bgm-selection",
+    "value": {
+      "category": "audio:bgm",
+      "count": 10,
+      "ids": [
+        "akari-sounds-bgm",
+        "akari-sounds-jingle",
+        "corporate-upbeat-bgm",
+        "cozy-lofi-bgm",
+        "dova-syndrome-cheerleaders-bgm",
+        "dova-syndrome-user-manual",
+        "maoudamashii-bgm-neorock",
+        "maoudamashii-bgm-piano",
+        "musmus-hageshii-atsui-upper",
+        "musmus-yuttari-honobono"
+      ]
+    }
+  },
+  {
+    "step": "audio:sfx-selection",
+    "value": {
+      "category": "audio:sfx",
+      "count": 17,
+      "ids": [
+        "akari-sounds-sfx",
+        "camera-shutter",
+        "dova-syndrome-hatena-mark-se",
+        "freesound-inspectorj-pencil-writing",
+        "impact-sfx-pack",
+        "maoudamashii-object-sound-15",
+        "maoudamashii-se-magic-category",
+        "maoudamashii-se-onepoint-category",
+        "maoudamashii-se-system-category",
+        "musmus-onomatope-sfx-pack",
+        "otologic-motion-pop-sfx-pack",
+        "pocket-se-fail-pack",
+        "soundeffect-lab-ambient-life-pack",
+        "soundeffect-lab-anime-direction-pack",
+        "soundeffect-lab-ui-signal-pack",
+        "ui-click-sfx-pack",
+        "whoosh-transition"
+      ]
+    }
+  }
+]

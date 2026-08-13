@@ -1,0 +1,33 @@
+# catalog/audio classification
+
+total: 27
+BGM: 10
+効果音: 17
+
+akari-sounds-bgm -> BGM
+akari-sounds-jingle -> BGM
+akari-sounds-sfx -> 効果音
+camera-shutter -> 効果音
+corporate-upbeat-bgm -> BGM
+cozy-lofi-bgm -> BGM
+dova-syndrome-cheerleaders-bgm -> BGM
+dova-syndrome-hatena-mark-se -> 効果音
+dova-syndrome-user-manual -> BGM
+freesound-inspectorj-pencil-writing -> 効果音
+impact-sfx-pack -> 効果音
+maoudamashii-bgm-neorock -> BGM
+maoudamashii-bgm-piano -> BGM
+maoudamashii-object-sound-15 -> 効果音
+maoudamashii-se-magic-category -> 効果音
+maoudamashii-se-onepoint-category -> 効果音
+maoudamashii-se-system-category -> 効果音
+musmus-hageshii-atsui-upper -> BGM
+musmus-onomatope-sfx-pack -> 効果音
+musmus-yuttari-honobono -> BGM
+otologic-motion-pop-sfx-pack -> 効果音
+pocket-se-fail-pack -> 効果音
+soundeffect-lab-ambient-life-pack -> 効果音
+soundeffect-lab-anime-direction-pack -> 効果音
+soundeffect-lab-ui-signal-pack -> 効果音
+ui-click-sfx-pack -> 効果音
+whoosh-transition -> 効果音

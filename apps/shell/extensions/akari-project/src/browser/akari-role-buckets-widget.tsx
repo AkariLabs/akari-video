@@ -35,6 +35,7 @@ import {
     CatalogCategoryChip,
     CatalogItemMeta,
     CatalogViewMode,
+    catalogItemCategoryChipKey,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
     filterCatalogItems,
@@ -2715,7 +2716,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const previewUrl = item.previewUrl;
         const primaryTag = item.tags[0];
         const uiEventTarget = catalogCardUiEventTarget(item);
-        const categoryLabel = this.catalogCategoryChips().find(chip => chip.category === item.category)?.label ?? item.category;
+        const categoryLabel = this.catalogCategoryChips()
+            .find(chip => chip.category === catalogItemCategoryChipKey(item))?.label ?? item.category;
         return (
             <div
                 key={item.key}
