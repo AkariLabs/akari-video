@@ -9,6 +9,15 @@ import { Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke } from '../common/annotation-store';
 import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget, parseUiTarget } from '../common/doc-target';
 import { resolveRawSourceId } from '../common/raw-source-selection';
+import {
+    RawPreviewAnnotationStateSnapshot,
+    RawSourceSelectionSnapshot,
+    RawSourceSelectionState,
+    applyResolvedRawSourceSelection,
+    sameRawPreviewIdentity,
+    suppressRawSourceSelection,
+    transitionRawSourceSelection
+} from '../common/raw-source-selection-state';
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
@@ -83,20 +92,8 @@ interface ReviewSessionUiState {
     error?: string;
 }
 
-interface RawPreviewAnnotationState {
-    active: boolean;
-    activation: number;
-    mediaUri?: string;
-    sourceT?: number;
-    reason: 'focus' | 'playback';
-}
-
-interface RawSourceSelection {
-    activation: number;
-    mediaUri: string;
-    sourceT: number;
-    src: string;
-}
+type RawPreviewAnnotationState = RawPreviewAnnotationStateSnapshot;
+type RawSourceSelection = RawSourceSelectionSnapshot;
 
 const STATUS_LABELS: Record<Annotation['status'], string> = {
     open: '未対応',
@@ -173,12 +170,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly footer = document.createElement('div');
     protected reviewSessionState: ReviewSessionUiState | undefined;
     protected lastReviewSessionContext = '';
-    protected latestRawPreviewState: RawPreviewAnnotationState | undefined;
-    protected rawSourceSelection: RawSourceSelection | undefined;
-    protected suppressedRawActivation: number | undefined;
+    protected rawSourceState: RawSourceSelectionState = {};
     protected rawSourceResolutionKey: string | undefined;
     protected resolvedRawSourceKey: string | undefined;
     protected rawSourceResolutionSequence = 0;
+    protected rawSourceResolutionPromise: Promise<void> | undefined;
 
     @postConstruct()
     protected init(): void {
@@ -500,7 +496,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected renderDocSelectionChip(): void {
         const selection = this.model.docSelection;
         const uiSelection = selection ? undefined : this.reviewSessionState?.selectedUiTarget;
-        const rawSelection = selection || uiSelection ? undefined : this.rawSourceSelection;
+        const rawSelection = selection || uiSelection ? undefined : this.rawSourceState.selection;
         if (!selection && !uiSelection && !rawSelection) {
             this.docSelectionChip.style.display = 'none';
             this.uiSelectionChip.style.display = 'none';
@@ -538,30 +534,21 @@ export class AkariReviewPanelWidget extends BaseWidget {
     }
 
     protected handleRawPreviewAnnotationState(state: RawPreviewAnnotationState | undefined): void {
-        if (!state?.active || !state.mediaUri || !Number.isFinite(state.sourceT)) {
-            this.latestRawPreviewState = undefined;
-            this.rawSourceSelection = undefined;
-            this.suppressedRawActivation = undefined;
+        const transition = transitionRawSourceSelection(this.rawSourceState, state);
+        this.rawSourceState = transition.state;
+        if (!this.rawSourceState.latest) {
             this.rawSourceResolutionKey = undefined;
             this.resolvedRawSourceKey = undefined;
             this.rawSourceResolutionSequence += 1;
+            this.rawSourceResolutionPromise = undefined;
             this.renderDocSelectionChip();
             return;
         }
-        this.latestRawPreviewState = {
-            ...state,
-            sourceT: Math.max(0, state.sourceT!)
-        };
-        if (this.suppressedRawActivation === state.activation) {
-            return;
+        // activation が変わった瞬間に旧チップを消す。解決完了まで旧 src を表示・送信しない。
+        this.renderDocSelectionChip();
+        if (transition.needsResolution) {
+            void this.resolveRawSourceSelection(this.rawSourceState.latest);
         }
-        if (this.rawSourceSelection?.activation === state.activation
-            && this.rawSourceSelection.mediaUri === state.mediaUri) {
-            this.rawSourceSelection = { ...this.rawSourceSelection, sourceT: Math.max(0, state.sourceT) };
-            this.renderDocSelectionChip();
-            return;
-        }
-        void this.resolveRawSourceSelection(this.latestRawPreviewState);
     }
 
     protected async resolveRawSourceSelection(state: RawPreviewAnnotationState): Promise<void> {
@@ -571,44 +558,63 @@ export class AkariReviewPanelWidget extends BaseWidget {
             return;
         }
         const key = `${state.activation}\n${editUri.normalizePath().toString()}\n${state.mediaUri}`;
-        if (this.rawSourceResolutionKey === key || this.resolvedRawSourceKey === key) {
+        if (this.rawSourceResolutionKey === key && this.rawSourceResolutionPromise) {
+            await this.rawSourceResolutionPromise;
+            return;
+        }
+        if (this.resolvedRawSourceKey === key) {
             return;
         }
         this.rawSourceResolutionKey = key;
         const sequence = ++this.rawSourceResolutionSequence;
-        let src: string | undefined;
-        try {
-            const editSource = (await this.fileService.readFile(editUri)).value.toString();
-            src = resolveRawSourceId(JSON.parse(editSource), location.root.toString(), state.mediaUri);
-        } catch {
-            src = undefined;
-        }
-        if (sequence !== this.rawSourceResolutionSequence) {
-            return;
-        }
-        this.rawSourceResolutionKey = undefined;
-        this.resolvedRawSourceKey = key;
-        const latest = this.latestRawPreviewState;
-        if (!src || !latest?.active || latest.activation !== state.activation
-            || latest.mediaUri !== state.mediaUri || this.suppressedRawActivation === state.activation) {
-            this.rawSourceSelection = undefined;
+        const resolution = (async (): Promise<void> => {
+            let src: string | undefined;
+            try {
+                const editSource = (await this.fileService.readFile(editUri)).value.toString();
+                src = resolveRawSourceId(JSON.parse(editSource), location.root.toString(), state.mediaUri!);
+            } catch {
+                src = undefined;
+            }
+            if (sequence !== this.rawSourceResolutionSequence) {
+                return;
+            }
+            this.rawSourceResolutionKey = undefined;
+            this.resolvedRawSourceKey = key;
+            this.rawSourceState = applyResolvedRawSourceSelection(this.rawSourceState, state, src);
             this.renderDocSelectionChip();
-            return;
+        })();
+        this.rawSourceResolutionPromise = resolution;
+        try {
+            await resolution;
+        } finally {
+            if (this.rawSourceResolutionPromise === resolution) {
+                this.rawSourceResolutionPromise = undefined;
+            }
         }
-        this.rawSourceSelection = {
-            activation: latest.activation,
-            mediaUri: latest.mediaUri,
-            sourceT: latest.sourceT!,
-            src
-        };
-        this.renderDocSelectionChip();
+    }
+
+    protected async currentRawSourceSelection(): Promise<RawSourceSelection | undefined> {
+        for (;;) {
+            const latest = this.rawSourceState.latest;
+            if (!latest?.active || !latest.mediaUri || !Number.isFinite(latest.sourceT)
+                || this.rawSourceState.suppressedActivation === latest.activation) {
+                return undefined;
+            }
+            if (sameRawPreviewIdentity(this.rawSourceState.selection, latest)) {
+                return this.rawSourceState.selection;
+            }
+            await this.resolveRawSourceSelection(latest);
+            const current = this.rawSourceState.latest;
+            if (sameRawPreviewIdentity(current, latest)) {
+                return sameRawPreviewIdentity(this.rawSourceState.selection, current)
+                    ? this.rawSourceState.selection
+                    : undefined;
+            }
+        }
     }
 
     protected clearRawSourceSelection(): void {
-        if (this.rawSourceSelection) {
-            this.suppressedRawActivation = this.rawSourceSelection.activation;
-        }
-        this.rawSourceSelection = undefined;
+        this.rawSourceState = suppressRawSourceSelection(this.rawSourceState);
         this.renderDocSelectionChip();
     }
 
@@ -1215,9 +1221,12 @@ export class AkariReviewPanelWidget extends BaseWidget {
         }
         const docSelection = this.model.docSelection;
         const uiSelection = docSelection ? undefined : this.reviewSessionState?.selectedUiTarget;
-        const rawSelection = docSelection || uiSelection ? undefined : this.rawSourceSelection;
         this.addButton.disabled = true;
         try {
+            // 解決中の古い selection を捕まえず、クリック時点の最新 activation の確定を待つ。
+            const rawSelection = docSelection || uiSelection
+                ? undefined
+                : await this.currentRawSourceSelection();
             const result = docSelection
                 ? await this.model.addDocAnnotation(text, docSelection)
                 : uiSelection

@@ -46,6 +46,7 @@ import { assignSubRows } from '../common/lane-layout';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import { computeCutBoundaries } from '../common/cut-boundaries';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
+import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
     buildLayerElement,
     buildSfxElement,
@@ -166,9 +167,6 @@ const TRANSITION_TYPE_OPTIONS: ReadonlyArray<{ type: 'dissolve' | 'fade-black' |
     { type: 'fade-white', label: '白フェード', glyph: 'W' }
 ];
 const BEAT_PROJECTION_EPSILON = 0.000001;
-/** パートナー拡張とは widget ID の文字列だけで疎結合に連携する。 */
-const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
-
 /** タイムライン（出力秒軸）上の1セグメント。cuts[].at / track を解決した結果。 */
 interface OutputSegment {
     index: number;
@@ -1486,9 +1484,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (revision !== this.rightPaneSyncRevision) {
                 return;
             }
-            if (showInspector) {
+            // キュー待ち中の手動タブ切替を尊重するため、作用させる直前の current を使う。
+            const action = resolveRightPaneSyncAction(
+                this.shell.rightPanelHandler.tabBar.currentTitle?.owner.id,
+                showInspector
+            );
+            if (action === 'open-inspector') {
                 await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
-            } else {
+            } else if (action === 'show-partner') {
                 await this.shell.activateWidget(PARTNER_WIDGET_ID);
             }
         }).catch(error => {
