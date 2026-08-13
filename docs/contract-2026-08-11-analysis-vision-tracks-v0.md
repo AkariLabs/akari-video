@@ -180,6 +180,7 @@ body-pose-3d は別ファイル）。
   観測全体 confidence の由来明示である。消費者の `min-confidence` はこの値を使う
 - 17 関節のいずれかを Vision から取得できない観測は detection ごと省略する。存在しない
   関節を補間・捏造せず、`detections: []` のフレームは時刻 `t` とともに残す
+- pose-skeleton の v0 は各フレーム先頭の 1 人（`bodyIndex=0` 固定）のみを消費し、複数人には非対応
 
 ## 3. サイドカー（生成側）
 
@@ -213,6 +214,7 @@ person-matte と同じ分離: **Swift ヘルパーはフレーム変換だけ、
   パラメータは変換器の引数で決定論に
 - pose-skeleton は欠測と cut 境界で平滑化状態をリセットし、低 confidence 関節を含む骨を
   非表示にする。欠測区間を hold せず、別 baked clip / layer へ分割する
+- pose-skeleton の v0 は `bodyIndex=0` 固定で各フレーム先頭の 1 人だけを対象とし、複数人には非対応
 - perspective keyframes の ffmpeg 側は既存の時間窓分割フォールバック
   （`expandLayerForPerspectiveKeyframes`）に乗る。新しいレンダー経路は作らない
 - `cuts[].fx` は**使わない**（全画面ポスト効果の器。空間追跡系はレイヤー機構が正）
