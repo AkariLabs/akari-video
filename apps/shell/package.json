@@ -170,6 +170,20 @@
         "filter": [
           "index.jsonl"
         ]
+      },
+      {
+        "from": "../../presets/telop",
+        "to": "presets/telop",
+        "filter": [
+          "index.jsonl"
+        ]
+      },
+      {
+        "from": "../../presets/luts",
+        "to": "presets/luts",
+        "filter": [
+          "index.jsonl"
+        ]
       }
     ],
     "mac": {
