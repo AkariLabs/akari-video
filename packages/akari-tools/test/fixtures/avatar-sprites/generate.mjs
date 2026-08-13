@@ -95,6 +95,26 @@ const mouthOpen = canvas();
 ellipse(mouthOpen, 64, 92, 13, 12, ink);
 ellipse(mouthOpen, 64, 97, 8, 4, [245, 125, 142, 255]);
 
+const mouthA = canvas();
+ellipse(mouthA, 64, 92, 13, 17, ink);
+ellipse(mouthA, 64, 97, 8, 6, [245, 125, 142, 255]);
+
+const mouthI = canvas();
+ellipse(mouthI, 64, 92, 18, 4, ink);
+line(mouthI, 50, 91, 78, 91, 1, [245, 125, 142, 255]);
+
+const mouthU = canvas();
+ellipse(mouthU, 64, 92, 7, 7, ink);
+ellipse(mouthU, 64, 92, 3, 3, [245, 125, 142, 255]);
+
+const mouthE = canvas();
+ellipse(mouthE, 64, 92, 16, 7, ink);
+ellipse(mouthE, 64, 93, 11, 3, [245, 125, 142, 255]);
+
+const mouthO = canvas();
+ellipse(mouthO, 64, 92, 11, 14, ink);
+ellipse(mouthO, 64, 94, 6, 8, [245, 125, 142, 255]);
+
 const eyesOpen = canvas();
 ellipse(eyesOpen, 46, 62, 5, 8, ink);
 ellipse(eyesOpen, 82, 62, 5, 8, ink);
@@ -110,7 +130,11 @@ for (const [name, pixels] of [
   ["mouth-closed.png", mouthClosed],
   ["mouth-mid.png", mouthMid],
   ["mouth-open.png", mouthOpen],
+  ["mouth-a.png", mouthA],
+  ["mouth-i.png", mouthI],
+  ["mouth-u.png", mouthU],
+  ["mouth-e.png", mouthE],
+  ["mouth-o.png", mouthO],
   ["eyes-open.png", eyesOpen],
   ["eyes-closed.png", eyesClosed],
 ]) writeFileSync(join(root, name), png(pixels));
-

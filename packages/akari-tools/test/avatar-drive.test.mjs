@@ -10,7 +10,10 @@ import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
 import { buildBlinkStates, deriveSeed } from "../bin/avatar-drive/blink.mjs";
 import { buildAvatarLayer } from "../bin/avatar-drive/layer.mjs";
 import { envelopeToMouthStates } from "../bin/avatar-drive/profile.mjs";
-import { loadSpriteSet, validateSpriteManifest } from "../bin/avatar-drive/sprite-set.mjs";
+import { loadSpriteSet, requireVowelMouthAssets, validateSpriteManifest } from "../bin/avatar-drive/sprite-set.mjs";
+import {
+  buildVowelTimeline, moraeForWord, parseTranscript, resolveMouthStates,
+} from "../bin/avatar-drive/vowel.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -152,7 +155,11 @@ test("avatar-drive CLI: 実 ffmpeg の状態列と layer JSON は同入力 2 回
     cuts: [{ in: 0, out: 2 }], overlays: [], layers: [],
   };
   writeFileSync(join(root, "edit.json"), `${JSON.stringify(edit, null, 2)}\n`);
-  for (const name of ["sprite.json", "base.png", "mouth-closed.png", "mouth-mid.png", "mouth-open.png", "eyes-open.png", "eyes-closed.png"]) {
+  for (const name of [
+    "sprite.json", "base.png", "mouth-closed.png", "mouth-mid.png", "mouth-open.png",
+    "mouth-a.png", "mouth-i.png", "mouth-u.png", "mouth-e.png", "mouth-o.png",
+    "eyes-open.png", "eyes-closed.png",
+  ]) {
     copyFileSync(join(fixture, name), join(root, name));
   }
   const args = [script, root, "--sprites", root, "--blink-period", "0.55", "--blink-jitter", "0.1"];
@@ -179,4 +186,131 @@ test("avatar-drive CLI: 必須入力なしは exit 2、--check は可否 JSON", 
   const checked = spawnSync(process.execPath, [script, "--check"], { encoding: "utf8" });
   assert.equal(checked.status, 0);
   assert.equal(typeof JSON.parse(checked.stdout).available, "boolean");
+});
+
+test("avatar-drive vowel: かなとローマ字を仕様どおりモーラへ分割する", () => {
+  assert.deepEqual(moraeForWord("あいうえお"), ["a", "i", "u", "e", "o"]);
+  assert.deepEqual(moraeForWord("こんにちは"), ["o", "closed", "i", "i", "a"]);
+  assert.deepEqual(moraeForWord("がっこう"), ["a", "closed", "o", "u"]);
+  assert.deepEqual(moraeForWord("きゃきゅきょ"), ["a", "u", "o"]);
+  assert.deepEqual(moraeForWord("ラーメン"), ["a", "a", "e", "closed"]);
+  assert.deepEqual(moraeForWord("ティッシュ"), ["i", "closed", "u"]);
+  assert.equal(moraeForWord("東京"), null);
+  assert.deepEqual(moraeForWord("kya"), ["a"]);
+  assert.deepEqual(moraeForWord("gakkou"), ["a", "closed", "o", "u"]);
+  assert.deepEqual(moraeForWord("konnichiwa"), ["o", "closed", "i", "i", "a"]);
+});
+
+test("avatar-drive vowel: captions と最小 transcript を同じ単語列へ正規化する", () => {
+  const expected = [
+    { start: 0.1, end: 0.4, text: "あ" },
+    { start: 0.5, end: 0.9, text: "い" },
+  ];
+  const captions = {
+    captions: [
+      { text: "ignored", words: [expected[1]] },
+      { text: "ignored without words" },
+      { text: "ignored", words: [expected[0]] },
+    ],
+  };
+  assert.deepEqual(parseTranscript(captions), expected);
+  assert.deepEqual(parseTranscript([expected[1], expected[0]]), expected);
+  assert.throws(() => parseTranscript([{ text: "あ", start: 1, end: 1 }]), /end.*start/);
+  assert.throws(() => parseTranscript({ captions: [null] }), /object/);
+  assert.throws(() => parseTranscript({ words: [] }), /配列または captions/);
+});
+
+test("avatar-drive vowel: 単語内はモーラ均等割り、語間ギャップは null", () => {
+  assert.deepEqual(buildVowelTimeline({
+    words: [
+      { start: 0, end: 1, text: "あいう" },
+      { start: 1.5, end: 2, text: "え" },
+    ],
+    frameCount: 8,
+    fps: 4,
+  }), ["a", "a", "i", "u", null, null, "e", "e"]);
+});
+
+test("avatar-drive vowel: 音量 closed を優先し、不明な発話中母音は a", () => {
+  assert.deepEqual(resolveMouthStates({
+    volumeStates: ["closed", "mid", "open", "open", "closed"],
+    vowelTimeline: [null, "a", "i", null, "e"],
+  }), ["closed", "a", "i", "a", "closed"]);
+});
+
+test("avatar-drive vowel: 旧 3 口 manifest は vowel で拒否し volume CLI では受理する", { timeout: 30_000 }, (t) => {
+  let ffmpeg;
+  try { ffmpeg = resolveFfmpeg(); resolveFfprobe(); } catch { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const manifest = JSON.parse(readFileSync(join(fixture, "sprite.json"), "utf8"));
+  for (const vowel of ["a", "i", "u", "e", "o"]) delete manifest.mouth[vowel];
+  assert.throws(() => requireVowelMouthAssets(manifest), /mouth\.a\/i\/u\/e\/o/);
+
+  const root = mkdtempSync(join(tmpdir(), "avatar-drive-volume-compat-"));
+  const sourcePath = join(root, "source.mov");
+  const generated = spawnSync(ffmpeg, [
+    "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=navy:s=320x180:r=10:d=1",
+    "-f", "lavfi", "-i", "sine=frequency=220:sample_rate=48000:duration=1",
+    "-shortest", "-c:v", "mpeg4", "-c:a", "pcm_s16le", sourcePath,
+  ], { encoding: "utf8" });
+  assert.equal(generated.status, 0, generated.stderr);
+  writeFileSync(join(root, "edit.json"), `${JSON.stringify({
+    version: 0,
+    output: { width: 320, height: 180, fps: 10 },
+    source: { path: "source.mov", proxy: null },
+    cuts: [{ in: 0, out: 1 }], overlays: [], layers: [],
+  }, null, 2)}\n`);
+  writeFileSync(join(root, "sprite.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  for (const name of [
+    "base.png", "mouth-closed.png", "mouth-mid.png", "mouth-open.png", "eyes-open.png", "eyes-closed.png",
+  ]) copyFileSync(join(fixture, name), join(root, name));
+
+  const omitted = spawnSync(process.execPath, [script, root, "--sprites", root], { encoding: "utf8", timeout: 30_000 });
+  const explicit = spawnSync(process.execPath, [script, root, "--sprites", root, "--mouth-mode", "volume"], {
+    encoding: "utf8", timeout: 30_000,
+  });
+  assert.equal(omitted.status, 0, omitted.stderr || omitted.stdout);
+  assert.equal(explicit.status, 0, explicit.stderr || explicit.stdout);
+  assert.deepEqual(JSON.parse(explicit.stdout), JSON.parse(omitted.stdout));
+});
+
+test("avatar-drive vowel CLI: transcript 駆動の stdout は同一入力 2 回で一致する", { timeout: 30_000 }, (t) => {
+  let ffmpeg;
+  try { ffmpeg = resolveFfmpeg(); resolveFfprobe(); } catch { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const root = mkdtempSync(join(tmpdir(), "avatar-drive-vowel-cli-"));
+  const sourcePath = join(root, "source.mov");
+  const generated = spawnSync(ffmpeg, [
+    "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=navy:s=320x180:r=20:d=1.5",
+    "-f", "lavfi", "-i", "aevalsrc=if(between(t\\,0.2\\,1.2)\\,0.45*sin(2*PI*220*t)\\,0):s=48000:d=1.5",
+    "-shortest", "-c:v", "mpeg4", "-c:a", "pcm_s16le", sourcePath,
+  ], { encoding: "utf8" });
+  assert.equal(generated.status, 0, generated.stderr);
+  writeFileSync(join(root, "edit.json"), `${JSON.stringify({
+    version: 0,
+    output: { width: 320, height: 180, fps: 20 },
+    source: { path: "source.mov", proxy: null },
+    cuts: [{ in: 0, out: 1.5 }], overlays: [], layers: [],
+  }, null, 2)}\n`);
+  const transcriptPath = join(root, "transcript.json");
+  writeFileSync(transcriptPath, `${JSON.stringify([
+    { text: "あい", start: 0.2, end: 0.7 },
+    { text: "うえお", start: 0.7, end: 1.2 },
+  ], null, 2)}\n`);
+  const args = [script, root, "--sprites", fixture, "--mouth-mode", "vowel", "--transcript", transcriptPath];
+  const firstRun = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 30_000 });
+  const secondRun = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 30_000 });
+  assert.equal(firstRun.status, 0, firstRun.stderr || firstRun.stdout);
+  assert.equal(secondRun.status, 0, secondRun.stderr || secondRun.stdout);
+  const first = JSON.parse(firstRun.stdout);
+  const second = JSON.parse(secondRun.stdout);
+  assert.deepEqual(first, second);
+  assert.ok(first.drive.mouth.includes("closed"));
+  assert.ok(first.drive.mouth.some((state) => ["a", "i", "u", "e", "o"].includes(state)));
+  assert.equal(first.drive.mouth.some((state) => state === "mid" || state === "open"), false);
+  assert.deepEqual(Object.keys(first.stats.mouth_counts), ["closed", "a", "i", "u", "e", "o"]);
+
+  const missingTranscript = spawnSync(process.execPath, [script, root, "--sprites", fixture, "--mouth-mode", "vowel"], {
+    encoding: "utf8",
+  });
+  assert.equal(missingTranscript.status, 1);
+  assert.match(JSON.parse(missingTranscript.stdout).reason, /--transcript/);
 });

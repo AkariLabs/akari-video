@@ -59,6 +59,17 @@ export function validateSpriteManifest(manifest) {
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
 
+export function requireVowelMouthAssets(spriteSet) {
+  const manifest = spriteSet?.manifest ?? spriteSet;
+  const missing = ["a", "i", "u", "e", "o"].filter((key) => (
+    !record(manifest?.mouth) || typeof manifest.mouth[key] !== "string" || manifest.mouth[key].trim() === ""
+  ));
+  if (missing.length > 0) {
+    throw new Error(`vowel モードには sprite.json に mouth.a/i/u/e/o が必要です（不足: ${missing.join(", ")}）`);
+  }
+  return spriteSet;
+}
+
 export function loadSpriteSet(spriteDir, { ffprobeCommand } = {}) {
   const root = realpathSync(resolve(spriteDir));
   const manifestPath = join(root, "sprite.json");
@@ -87,4 +98,3 @@ export function loadSpriteSet(spriteDir, { ffprobeCommand } = {}) {
   }
   return { root, manifest, assets };
 }
-

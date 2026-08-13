@@ -7,6 +7,11 @@
     "closed": "mouth-closed.png",
     "mid": "mouth-mid.png",
     "open": "mouth-open.png",
+    "a": "mouth-a.png",
+    "i": "mouth-i.png",
+    "u": "mouth-u.png",
+    "e": "mouth-e.png",
+    "o": "mouth-o.png",
     "smile": "mouth-mid.png"
   },
   "eyes": {
@@ -15,4 +20,3 @@
   },
   "fixture_note": "Unknown fields and extra difference keys are intentionally additive."
 }
-
