@@ -142,6 +142,9 @@ export interface AssetCatalogResolverStatus {
     error?: string;
 }
 
+/** resolver が entitlements API を取得した結果。素材の locked 判定とは独立した UI 可視化用。 */
+export type AssetEntitlementsStatus = 'ok' | 'no_credentials' | 'unauthorized' | 'error';
+
 /**
  * カタログ面「1 ビュー」の応答本体。items は従来どおりの 1 ビュー配列、packs は
  * `catalog/packs.json`（無ければ空配列）。パック棚のグループ化・内訳集計は
@@ -154,6 +157,7 @@ export interface AssetCatalogView {
     items: AssetCatalogViewItem[];
     packs: CatalogPack[];
     resolver: AssetCatalogResolverStatus;
+    entitlementsStatus: AssetEntitlementsStatus;
 }
 
 export type AssetResolveOutcome =

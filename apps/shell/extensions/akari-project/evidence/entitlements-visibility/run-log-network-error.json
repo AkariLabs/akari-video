@@ -1,0 +1,24 @@
+[
+  {
+    "step": "catalog-network-error",
+    "value": {
+      "lockedState": "locked",
+      "retryPresent": true,
+      "text": "アカウント素材の取得に失敗再試行"
+    }
+  },
+  {
+    "step": "catalog-network-error-row-viewport-geometry",
+    "value": {
+      "bottom": 216.5,
+      "fullyInsideViewport": true,
+      "height": 51,
+      "innerHeight": 668,
+      "innerWidth": 1120,
+      "left": 48,
+      "right": 202.9140625,
+      "top": 165.5,
+      "width": 154.9140625
+    }
+  }
+]

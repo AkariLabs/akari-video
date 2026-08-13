@@ -5,7 +5,7 @@
  * ここに置かない — resolveResolverPreviewUrl は src/node/resolver-preview-url.ts 側）。
  */
 
-import { AssetCatalogResolverStatus, AssetCatalogViewItem } from './akari-project-protocol';
+import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus } from './akari-project-protocol';
 import { CatalogPack } from './catalog-packs';
 
 /** resolver カタログの files[] 1 件（akari-assets-catalog/v0 契約: url か key のどちらかを持つ）。 */
@@ -106,6 +106,29 @@ export function deriveCatalogEmptyStateKind(
         return 'items';
     }
     return resolverStatus === 'failed' ? 'resolver-failed' : 'empty';
+}
+
+export type CatalogResolverNoticeKind = 'unauthorized' | 'error';
+
+export const CATALOG_ENTITLEMENTS_UNAUTHORIZED_MESSAGE =
+    'ストア接続が解除されています — ホームから再接続してください';
+export const CATALOG_ENTITLEMENTS_ERROR_MESSAGE = 'アカウント素材の取得に失敗';
+
+/**
+ * カタログ上部の案内行を決める共通分岐。認証失効だけは再試行ではなく再接続案内、
+ * entitlements の一般失敗または resolver 全体の失敗は従来の再試行案内にする。
+ */
+export function deriveCatalogResolverNotice(
+    resolverStatus: AssetCatalogResolverStatus['status'],
+    entitlementsStatus: AssetEntitlementsStatus
+): { kind: CatalogResolverNoticeKind; message: string; retry: boolean } | undefined {
+    if (resolverStatus === 'failed' || entitlementsStatus === 'error') {
+        return { kind: 'error', message: CATALOG_ENTITLEMENTS_ERROR_MESSAGE, retry: true };
+    }
+    if (entitlementsStatus === 'unauthorized') {
+        return { kind: 'unauthorized', message: CATALOG_ENTITLEMENTS_UNAUTHORIZED_MESSAGE, retry: false };
+    }
+    return undefined;
 }
 
 // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<catalog key> opt-in target for renderCatalogCard's card root.

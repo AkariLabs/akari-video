@@ -1,0 +1,13 @@
+{
+  "scenario": "revoked",
+  "catalogRequests": 3,
+  "entitlementsRequests": 3,
+  "transport": "local-http",
+  "entitlementsResponse": {
+    "status": 401,
+    "body": {
+      "error": "token_revoked"
+    }
+  },
+  "requestExpectationMet": true
+}

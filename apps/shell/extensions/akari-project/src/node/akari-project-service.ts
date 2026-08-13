@@ -10,6 +10,7 @@ import {
     AkariProjectService,
     AssetCatalogView,
     AssetCatalogViewItem,
+    AssetEntitlementsStatus,
     AssetResolveOutcome,
     DiffPreparationResult,
     DiffResourcePair,
@@ -272,7 +273,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 status: resolverResult.status,
                 itemCount: resolverResult.items.length,
                 error: resolverResult.error
-            }
+            },
+            entitlementsStatus: resolverResult.entitlementsStatus
         };
     }
 
@@ -437,30 +439,44 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * いずれも fail-soft（ローカル catalog/ の表示は継続）だが、原因（error）は
      * 開発者向け折りたたみでの手がかりに残す。
      */
-    protected async loadResolverCatalogItems(): Promise<{ items: AssetCatalogViewItem[]; status: 'ok' | 'failed'; error?: string }> {
+    protected async loadResolverCatalogItems(): Promise<{
+        items: AssetCatalogViewItem[];
+        status: 'ok' | 'failed';
+        entitlementsStatus: AssetEntitlementsStatus;
+        error?: string;
+    }> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) {
-            return { items: [], status: 'failed', error: 'アセット resolver が見つかりません（開発配置を確認してください）' };
+            return {
+                items: [],
+                status: 'failed',
+                entitlementsStatus: 'error',
+                error: 'アセット resolver が見つかりません（開発配置を確認してください）'
+            };
         }
         const stateModuleUrl = pathToFileURL(join(srcDir, 'state.mjs')).toString();
         const script = `
 import { composeState } from ${JSON.stringify(stateModuleUrl)};
-const { base, items } = await composeState();
-process.stdout.write(JSON.stringify({ base, items }));
+const { base, items, entitlementsStatus } = await composeState();
+process.stdout.write(JSON.stringify({ base, items, entitlementsStatus }));
 `;
         const { code, stdout, stderr } = await this.runResolverScript(script);
         if (code !== 0) {
             const message = (stderr || stdout).trim();
             console.warn('[akari-project] resolver カタログの取得に失敗（ローカル catalog/ のみで継続）:', message);
-            return { items: [], status: 'failed', error: message || undefined };
+            return { items: [], status: 'failed', entitlementsStatus: 'error', error: message || undefined };
         }
-        let parsed: { base: string; items: Array<ResolverRawCatalogItem & { preview?: string }> };
+        let parsed: {
+            base: string;
+            items: Array<ResolverRawCatalogItem & { preview?: string }>;
+            entitlementsStatus?: AssetEntitlementsStatus;
+        };
         try {
             parsed = JSON.parse(stdout);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.warn('[akari-project] resolver カタログの応答を解釈できませんでした:', error);
-            return { items: [], status: 'failed', error: message };
+            return { items: [], status: 'failed', entitlementsStatus: 'error', error: message };
         }
         const items = parsed.items.map(item => {
             const previewUrl = resolveResolverPreviewUrl(item.preview, parsed.base);
@@ -472,7 +488,15 @@ process.stdout.write(JSON.stringify({ base, items }));
             const mediaUrl = resolveResolverPreviewUrl(selectResolverAudioFileRef(item), parsed.base);
             return toResolverAssetCatalogViewItem(item, previewUrl, mediaUrl);
         });
-        return { items, status: 'ok' };
+        const entitlementsStatus = parsed.entitlementsStatus;
+        const validEntitlementsStatuses: AssetEntitlementsStatus[] = ['ok', 'no_credentials', 'unauthorized', 'error'];
+        return {
+            items,
+            status: 'ok',
+            entitlementsStatus: entitlementsStatus && validEntitlementsStatuses.includes(entitlementsStatus)
+                ? entitlementsStatus
+                : 'error'
+        };
     }
 
     /**

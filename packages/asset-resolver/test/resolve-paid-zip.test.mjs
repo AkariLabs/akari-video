@@ -57,7 +57,10 @@ function buildPaidZip(id, category, { corrupt } = {}) {
 
   const payload = {
     'meta.json': paidMetaBuffer(id, category),
-    'fragment.html': Buffer.from(`<div class="${id}-stub" data-model="model.glb">fixture</div>\n`),
+    'fragment.html': Buffer.from(
+      `<div class="${id}-stub"><canvas></canvas><div data-akari-3d-fallback>fixture</div>`
+      + '<script type="application/json" data-akari-3d-scene>{"model":"model.glb"}</script></div>\n',
+    ),
     'model.glb': Buffer.from('glTF-fixture-not-a-real-binary'),
     'preview.png': MINI_PNG,
   };

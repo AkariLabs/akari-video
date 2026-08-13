@@ -1,0 +1,49 @@
+[
+  {
+    "step": "home-reconnect-required",
+    "value": {
+      "button": "ストアに再接続する",
+      "connection": "reconnect-required",
+      "stage": "dashboard",
+      "status": "unauthorized",
+      "text": "AKARI Store再接続が必要（別の端末で接続されたため解除された可能性）ストアに再接続する"
+    }
+  },
+  {
+    "step": "home-reconnect-card-viewport-geometry",
+    "value": {
+      "bottom": 616,
+      "fullyInsideViewport": true,
+      "height": 139,
+      "innerHeight": 668,
+      "innerWidth": 1120,
+      "left": 235.9140625,
+      "right": 594.9921875,
+      "top": 477,
+      "width": 359.078125
+    }
+  },
+  {
+    "step": "catalog-reconnect-guidance",
+    "value": {
+      "lockedState": "locked",
+      "retryPresent": false,
+      "status": "unauthorized",
+      "text": "ストア接続が解除されています — ホームから再接続してください"
+    }
+  },
+  {
+    "step": "catalog-reconnect-row-viewport-geometry",
+    "value": {
+      "bottom": 216.5,
+      "fullyInsideViewport": true,
+      "height": 51,
+      "innerHeight": 668,
+      "innerWidth": 1120,
+      "left": 48,
+      "right": 202.9140625,
+      "top": 165.5,
+      "width": 154.9140625
+    }
+  }
+]
