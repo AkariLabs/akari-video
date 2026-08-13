@@ -120,6 +120,7 @@
 | [contract-2026-07-25-recipe-v0.md](./contract-2026-07-25-recipe-v0.md) | recipe.json v0（確認済み選好の凍結と提示） |
 | [contract-2026-07-25-memory-connection-v0.md](./contract-2026-07-25-memory-connection-v0.md) | memory connection v0（外部参照記憶の接続宣言 — connections.json 拡張） |
 | [contract-2026-07-26-avatar-registry-v0.md](./contract-2026-07-26-avatar-registry-v0.md) | アバター・レジストリ契約 v0（avatar.json / rendition.json / 段階読み出し） |
+| [contract-2026-08-13-avatar-drive-v0.md](./contract-2026-08-13-avatar-drive-v0.md) | 2D アバター差分スプライト駆動 v0（音声エンベロープ口パク・決定論的まばたき・アルファ付きベイク） |
 
 ### 方向性メモ
 
