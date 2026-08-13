@@ -17,6 +17,11 @@ window.akari.threeRuntime = (() => {
   ]);
   const TEXT_ANIM_PRESETS = new Set(["none", "carousel", "char-chaos", "flip-wave", "tumble"]);
   const PHYSICS_COLLIDER_TYPES = new Set(["floor", "wall", "circle", "polygon"]);
+  // physics.start（任意・既定 "spawn"。task 2026-08-14-3d-physics-hold）: 物理対象文字の presim
+  // 初期配置の決め方。"spawn" は従来どおり（spawn 矩形 or 5 レーングリッドから seed 由来の
+  // 疑似乱数で決める）。"layout" は texts[] の並び（charBasePosition + layout.rotation の z 成分）
+  // をそのまま初期配置にする — 乱数を一切使わないため決定論は自明
+  const PHYSICS_START_MODES = new Set(["spawn", "layout"]);
   // 頂点数の妥当レンジは 25〜60（T5 spike 実測。人物シルエット輪郭の簡略化ポリゴン）。
   // 上限 200 だけを validation エラーにする（契約 §3.1 実装指示 2）
   const PHYSICS_MAX_POLYGON_POINTS = 200;
@@ -311,6 +316,31 @@ window.akari.threeRuntime = (() => {
     }
     if (!Number.isFinite(Number(physics.duration)) || Number(physics.duration) <= 0) {
       throw new TypeError("physics.duration は正の数値である必要があります");
+    }
+    // start（任意・既定 "spawn"。task 2026-08-14-3d-physics-hold）
+    if (physics.start !== undefined && !PHYSICS_START_MODES.has(physics.start)) {
+      throw new TypeError(`physics.start の未対応値です: ${String(physics.start)}`);
+    }
+    // holdSeconds（任意・既定 0。task 2026-08-14-3d-physics-hold）: 0 以上 duration 未満
+    if (physics.holdSeconds !== undefined) {
+      const holdSeconds = Number(physics.holdSeconds);
+      if (!Number.isFinite(holdSeconds) || holdSeconds < 0) {
+        throw new TypeError("physics.holdSeconds は 0 以上の数値である必要があります");
+      }
+      if (holdSeconds >= Number(physics.duration)) {
+        throw new TypeError(
+          `physics.holdSeconds は physics.duration 未満である必要があります`
+          + `（holdSeconds=${holdSeconds}, duration=${physics.duration}）`
+        );
+      }
+    }
+    // start="layout" は乱数を使わない決定論的配置なので、乱数由来の spawn 矩形と併用すると
+    // 「どちらが効くか」の曖昧さが残る。physics/anim の排他（下の targets ループ）と同じ判断で
+    // エラーにする
+    if (physics.start === "layout" && physics.spawn !== undefined) {
+      throw new TypeError(
+        'physics.start="layout" と physics.spawn は併用できません（layout は spawn を無視する曖昧さを避けるため）'
+      );
     }
     if (physics.dt !== undefined
       && (!Number.isFinite(Number(physics.dt)) || Number(physics.dt) <= 0)) {
@@ -859,6 +889,31 @@ window.akari.threeRuntime = (() => {
     };
   }
 
+  // physics.start="layout"（task 2026-08-14-3d-physics-hold）の初期配置。texts[] が並べたとおり
+  // （troika/extrude ロード時に charBasePosition で焼いた char.base）を physics の 2D 世界へそのまま
+  // 使う。matter-js は x/y と z 軸まわりの単一角度しか持たないため、charBasePosition が返す z・
+  // rotationY（cylinder の外向き Y 軸回転）は使えない — line layout（本機能の主用途である
+  // 横並び/斜め読みテロップ）は z=0・rotationY=0 なので情報は失わない。cylinder layout を
+  // physics.targets に含めた場合は x/y だけを使う簡略化になる（文書化のみ・validation では拒否しない）。
+  // layout.position/layout.rotation は本来 physics 対象では無視する設計（README 記載の判断）だが、
+  // "layout" 開始時だけ layout.position の x/y と layout.rotation の z 成分を読む —
+  // 「テロップとして読める配置」を再現するにはこの 2 つが必須なため。乱数を一切使わないため
+  // 決定論は自明（seed 引数が無いのがその証拠）
+  function physicsLayoutInitialState(char, layout) {
+    const rotationZ = layout.rotation[2];
+    const cos = Math.cos(rotationZ);
+    const sin = Math.sin(rotationZ);
+    const localX = char.base.x;
+    const localY = char.base.y;
+    return {
+      x: layout.position[0] + localX * cos - localY * sin,
+      y: layout.position[1] + localX * sin + localY * cos,
+      angle: rotationZ,
+      // 読める配置で静止させたいので角速度ゼロ固定（spawn 分岐のような疑似乱数の揺らぎを与えない）
+      angularVelocity: 0,
+    };
+  }
+
   // physics.colliders[] 1 件ぶんの静的 matter-js body を組み立てる（契約 §3.1 collider 種）。
   // floor/wall は「実質無限」に見える板（PHYSICS_COLLIDER_SPAN）として表現し、
   // polygon は凹多角形の可能性があるため poly-decomp 経由（vendor-3d-text-bundle.js で
@@ -907,6 +962,10 @@ window.akari.threeRuntime = (() => {
     const gravity = Array.isArray(physicsDescriptor.gravity) ? physicsDescriptor.gravity : [0, -1];
     const restitution = finiteNumber(physicsDescriptor.restitution, 0.45);
     const seed = Number(physicsDescriptor.seed);
+    const useLayoutStart = physicsDescriptor.start === "layout";
+    // holdSeconds（任意・既定 0。task 2026-08-14-3d-physics-hold）: 0 なら従来どおり presim
+    // 開始直後から動的（1 ビットも挙動を変えない後方互換）
+    const holdSeconds = Math.max(0, finiteNumber(physicsDescriptor.holdSeconds, 0));
 
     const engine = Engine.create();
     engine.gravity.x = gravity[0];
@@ -918,16 +977,22 @@ window.akari.threeRuntime = (() => {
     const targetIds = new Set(physicsDescriptor.targets);
     const physicsEntries = instance.textAnimEntries.filter((entry) => targetIds.has(entry.id));
     for (const entry of instance.textAnimEntries) entry.isPhysicsTarget = targetIds.has(entry.id);
-    const physicsChars = physicsEntries.flatMap((entry) => entry.chars);
+    // layout 開始のときだけ char.base + entry.layout を要る（spawn 開始は seed だけで決まる）
+    const physicsCharEntries = physicsEntries.flatMap(
+      (entry) => entry.chars.map((char) => ({ char, layout: entry.layout }))
+    );
+    const physicsChars = physicsCharEntries.map((item) => item.char);
 
-    const bodies = physicsChars.map((char, index) => {
+    const bodies = physicsCharEntries.map(({ char, layout }, index) => {
       const box = char.node.geometry?.boundingBox;
       const boxWidth = box ? box.max.x - box.min.x : NaN;
       const boxHeight = box ? box.max.y - box.min.y : NaN;
       const fallbackSize = finiteNumber(char.node.fontSize, 0.5);
       const width = Number.isFinite(boxWidth) && boxWidth > 0 ? boxWidth : fallbackSize * 0.6;
       const height = Number.isFinite(boxHeight) && boxHeight > 0 ? boxHeight : fallbackSize;
-      const initial = physicsInitialState(seed, index, physicsDescriptor.spawn);
+      const initial = useLayoutStart
+        ? physicsLayoutInitialState(char, layout)
+        : physicsInitialState(seed, index, physicsDescriptor.spawn);
       const body = Bodies.rectangle(initial.x, initial.y, width, height, {
         angle: initial.angle,
         restitution,
@@ -936,6 +1001,16 @@ window.akari.threeRuntime = (() => {
         density: 0.002,
       });
       Body.setAngularVelocity(body, initial.angularVelocity);
+      // holdSeconds ぶんだけ静的にしてから presim ループの途中で動的化する（下の release ループ）。
+      // **`isStatic: true` を上の Bodies.rectangle options へ直接渡してはいけない** —
+      // matter-js の Body.create() は options を素の Object.extend で先にマージしてしまうため、
+      // その後の内部 Body.set({isStatic:true,...}) 呼び出し時点で body.isStatic が既に true になっており
+      // Body.setStatic() 内の `body.isStatic || (保存)` ガードが働かず、mass/density/restitution の
+      // 復元用スナップショット（_original）が保存されない。結果 Body.setStatic(body, false) で
+      // 解放しても mass=Infinity・inverseMass=0 のまま固まり、重力が一切効かなくなる
+      // （実装時に静的読解で発見・report.md 参照）。生成後に明示的に呼べば body.isStatic はまだ
+      // false なので _original が正しく保存され、解放時に元の値へ正常に復元される
+      if (holdSeconds > 0) Body.setStatic(body, true);
       Composite.add(engine.world, body);
       return body;
     });
@@ -951,7 +1026,12 @@ window.akari.threeRuntime = (() => {
       }
     }
     recordFrame(0);
+    let released = holdSeconds <= 0;
     for (let frame = 1; frame < frameCount; frame += 1) {
+      if (!released && frame * dt >= holdSeconds) {
+        for (const body of bodies) Body.setStatic(body, false);
+        released = true;
+      }
       Engine.update(engine, dt * 1000);
       recordFrame(frame);
     }
