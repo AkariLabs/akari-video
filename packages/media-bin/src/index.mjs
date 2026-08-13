@@ -1,8 +1,9 @@
 // media-bin — ffmpeg / ffprobe バイナリ解決の一元化。
 //
-// 探索順: 明示指定（AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN） → 既存互換（FFMPEG_PATH、ffmpeg のみ）
-// → PATH → 同梱バイナリ（vendor/ 配下。binary-manifest.mjs でピン留めした GPL-only・真ネイティブ
-// ビルドを postinstall で取得済み — task/2026-08-01-gpl-only-ffmpeg-swap）。
+// 探索順: 明示指定（AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN。パス区切りのない値は PATH で解決）
+// → 既存互換（FFMPEG_PATH、ffmpeg のみ。同じ規則） → PATH → 同梱バイナリ（vendor/ 配下。
+// binary-manifest.mjs でピン留めした GPL-only・真ネイティブビルドを postinstall で取得済み —
+// task/2026-08-01-gpl-only-ffmpeg-swap）。
 // 見つからなければサイレントに "ffmpeg" へフォールバックせず、何を入れればよいかを含む Error を投げる。
 
 import { spawnSync } from "node:child_process";
@@ -25,6 +26,14 @@ function canRun(command, env) {
   }
 }
 
+function canResolveCommand(command, env) {
+  try {
+    return spawnSync(command, ["-version"], { stdio: "ignore", env }).error === undefined;
+  } catch {
+    return false;
+  }
+}
+
 function requireExisting(envVar, value) {
   if (!existsSync(value)) {
     throw new Error(`${envVar} で指定されたファイルがありません: ${value}`);
@@ -32,12 +41,21 @@ function requireExisting(envVar, value) {
   return value;
 }
 
+function resolveExplicit(envVar, value, env) {
+  if (/[\\/]/.test(value)) return requireExisting(envVar, value);
+  if (canResolveCommand(value, env)) return value;
+  throw new Error(
+    `${envVar} で明示指定されたコマンド ${value} が PATH に見つかりません。` +
+      "絶対パスを指定するか PATH を確認してください。",
+  );
+}
+
 function notFoundMessage({ label, envVar, legacyEnvVar, vendorPath }) {
-  const legacyStep = legacyEnvVar ? ` → ${legacyEnvVar}（既存互換）` : "";
+  const legacyStep = legacyEnvVar ? ` → ${legacyEnvVar}（既存互換・同じ規則）` : "";
   return [
     `${label} が見つかりませんでした。`,
     "",
-    `探索順: ${envVar}（明示指定）${legacyStep} → PATH → 同梱バイナリ（${vendorPath}）`,
+    `探索順: ${envVar}（明示指定: 絶対パス / PATH 上のコマンド名）${legacyStep} → PATH → 同梱バイナリ（${vendorPath}）`,
     "",
     "同梱バイナリは packages/media-bin の npm install（postinstall）で取得されるはずですが、",
     "見つかりませんでした。npm install をやり直すか、対応プラットフォームが無い場合は",
@@ -45,16 +63,17 @@ function notFoundMessage({ label, envVar, legacyEnvVar, vendorPath }) {
     "",
     INSTALL_HINT[platform()] ?? "  https://ffmpeg.org/download.html",
     "",
-    `パスを直接指定することもできます:  ${envVar}=/path/to/${label}`,
+    `${envVar} には PATH 上のコマンド名または絶対パスを指定できます:`,
+    `  ${envVar}=${label}  または  ${envVar}=/path/to/${label}`,
   ].join("\n");
 }
 
 function resolveBinary({ label, envVar, legacyEnvVar, command, vendorName, env }) {
   const explicit = env[envVar];
-  if (explicit) return requireExisting(envVar, explicit);
+  if (explicit) return resolveExplicit(envVar, explicit, env);
 
   if (legacyEnvVar && env[legacyEnvVar]) {
-    return requireExisting(legacyEnvVar, env[legacyEnvVar]);
+    return resolveExplicit(legacyEnvVar, env[legacyEnvVar], env);
   }
 
   if (canRun(command, env)) return command;

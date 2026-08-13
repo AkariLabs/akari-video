@@ -35,17 +35,56 @@ async function withFixtureFile(run) {
   }
 }
 
-test("resolveFfmpeg: AKARI_FFMPEG_BIN が最優先で使われる", async () => {
+test("resolveFfmpeg: AKARI_FFMPEG_BIN の実在する絶対パスが最優先で使われる", async () => {
   await withFixtureFile(async (fakeFfmpeg) => {
     const resolved = resolveFfmpeg({ env: baseEnv({ AKARI_FFMPEG_BIN: fakeFfmpeg }) });
     assert.equal(resolved, fakeFfmpeg);
   });
 });
 
-test("resolveFfmpeg: AKARI_FFMPEG_BIN が存在しないパスなら投げる", () => {
+test("resolveFfmpeg: AKARI_FFMPEG_BIN の存在しない絶対パスは従来のエラーになる", () => {
   assert.throws(
     () => resolveFfmpeg({ env: baseEnv({ AKARI_FFMPEG_BIN: "/no/such/ffmpeg-binary" }) }),
-    /AKARI_FFMPEG_BIN.*見つかりません|見つかりません.*AKARI_FFMPEG_BIN|AKARI_FFMPEG_BIN/,
+    {
+      message: "AKARI_FFMPEG_BIN で指定されたファイルがありません: /no/such/ffmpeg-binary",
+    },
+  );
+});
+
+test("resolveFfmpeg: AKARI_FFMPEG_BIN のコマンド名を PATH で解決する", () => {
+  const resolved = resolveFfmpeg({ env: baseEnv({ AKARI_FFMPEG_BIN: "node" }) });
+  assert.equal(resolved, "node");
+});
+
+test("resolveFfprobe: AKARI_FFPROBE_BIN のコマンド名を PATH で解決する", () => {
+  const resolved = resolveFfprobe({ env: baseEnv({ AKARI_FFPROBE_BIN: "node" }) });
+  assert.equal(resolved, "node");
+});
+
+test("resolveFfprobe: PATH にない明示コマンドは原因と次の一手を案内する", () => {
+  assert.throws(
+    () =>
+      resolveFfprobe({
+        env: baseEnv({ AKARI_FFPROBE_BIN: "akari-command-that-does-not-exist" }),
+      }),
+    (error) => {
+      assert.match(error.message, /AKARI_FFPROBE_BIN.*明示指定/);
+      assert.match(error.message, /akari-command-that-does-not-exist が PATH に見つかりません/);
+      assert.match(error.message, /絶対パスを指定するか PATH を確認/);
+      return true;
+    },
+  );
+});
+
+test("resolveFfprobe: バックスラッシュを含む値は PATH 探索せず従来のエラーになる", () => {
+  assert.throws(
+    () =>
+      resolveFfprobe({
+        env: baseEnv({ AKARI_FFPROBE_BIN: "missing\\ffprobe.exe" }),
+      }),
+    {
+      message: "AKARI_FFPROBE_BIN で指定されたファイルがありません: missing\\ffprobe.exe",
+    },
   );
 });
 
@@ -54,6 +93,35 @@ test("resolveFfmpeg: 既存互換の FFMPEG_PATH は AKARI_FFMPEG_BIN が無い�
     const resolved = resolveFfmpeg({ env: baseEnv({ FFMPEG_PATH: fakeFfmpeg }) });
     assert.equal(resolved, fakeFfmpeg);
   });
+});
+
+test("resolveFfmpeg: 既存互換の FFMPEG_PATH もコマンド名を PATH で解決する", () => {
+  const resolved = resolveFfmpeg({ env: baseEnv({ FFMPEG_PATH: "node" }) });
+  assert.equal(resolved, "node");
+});
+
+test("resolveFfmpeg: FFMPEG_PATH の存在しない絶対パスは従来のエラーになる", () => {
+  assert.throws(
+    () => resolveFfmpeg({ env: baseEnv({ FFMPEG_PATH: "/no/such/legacy-ffmpeg-binary" }) }),
+    {
+      message: "FFMPEG_PATH で指定されたファイルがありません: /no/such/legacy-ffmpeg-binary",
+    },
+  );
+});
+
+test("resolveFfmpeg: PATH にない FFMPEG_PATH のコマンド名も明示指定エラーになる", () => {
+  assert.throws(
+    () =>
+      resolveFfmpeg({
+        env: baseEnv({ FFMPEG_PATH: "akari-command-that-does-not-exist" }),
+      }),
+    (error) => {
+      assert.match(error.message, /FFMPEG_PATH.*明示指定/);
+      assert.match(error.message, /akari-command-that-does-not-exist が PATH に見つかりません/);
+      assert.match(error.message, /絶対パスを指定するか PATH を確認/);
+      return true;
+    },
+  );
 });
 
 test("resolveFfmpeg: AKARI_FFMPEG_BIN が FFMPEG_PATH より優先される", async () => {
