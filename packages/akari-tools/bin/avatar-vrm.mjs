@@ -68,6 +68,10 @@ async function main() {
       framing: options.framing,
       outPath: options.out,
       ffmpegCommand: available.ffmpeg,
+      idleEnabled: options.idle,
+      idleIntensity: options.idleIntensity,
+      idleSeed: options.idleSeed,
+      springbone: options.springbone === "on",
     });
     const layer = buildAvatarVrmLayer({
       projectRoot: options.project,
@@ -92,6 +96,11 @@ async function main() {
         height: baked.height,
         expressions: baked.expressions,
         three_revision: baked.threeRevision,
+        idle: options.idle,
+        idle_intensity: options.idleIntensity,
+        idle_seed: baked.idleSeed,
+        springbone: options.springbone,
+        springbone_joints: baked.springboneJoints,
         blink_frames: drive.eyes.filter((state) => state === "closed").length,
         mouth_counts: Object.fromEntries(["closed", "a", "i", "u", "e", "o"].map(
           (state) => [state, drive.mouth.filter((value) => value === state).length],

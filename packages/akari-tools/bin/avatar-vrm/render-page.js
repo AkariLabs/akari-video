@@ -53,16 +53,24 @@
     return {
       expressions: Object.keys(vrm.expressionManager?.expressionMap ?? {}).sort(),
       mtoonMaterialCount: vrm.materials?.filter((material) => material.isMToonMaterial).length ?? 0,
+      springboneJoints: vrm.springBoneManager?.joints?.size ?? 0,
       threeRevision: THREE.REVISION,
     };
   }
 
-  function renderExpressions(values) {
+  function renderExpressions(values, boneOffsets = null, deltaTime = 0) {
     if (!vrm?.expressionManager) throw new Error("VRM expressionManager がありません");
     for (const name of ["aa", "ih", "ou", "ee", "oh", "blink"]) {
       vrm.expressionManager.setValue(name, Number(values[name] ?? 0));
     }
-    vrm.update(0);
+    if (boneOffsets) {
+      for (const name of ["chest", "spine", "head", "hips"]) {
+        const node = vrm.humanoid?.getNormalizedBoneNode(name);
+        const offset = boneOffsets[name];
+        if (node && offset) node.rotation.set(offset.x, offset.y, offset.z, "XYZ");
+      }
+    }
+    vrm.update(Number(deltaTime));
     renderer.render(scene, camera);
   }
 

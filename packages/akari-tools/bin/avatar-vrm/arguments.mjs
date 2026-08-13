@@ -15,6 +15,14 @@ function positiveInteger(value, option) {
   return number;
 }
 
+function unitNumber(value, option) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 1) {
+    throw new Error(`${option} は 0 以上 1 以下である必要があります`);
+  }
+  return number;
+}
+
 export function isPosition(value) {
   return POSITIONS.has(value)
     || /^\s*-?(?:\d+(?:\.\d*)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d*)?|\.\d+)\s*$/.test(value);
@@ -32,6 +40,10 @@ export function parseArguments(argv) {
     outputWidth: 1920,
     outputHeight: 1080,
     layerId: "avatar-vrm-0",
+    idle: true,
+    idleIntensity: 0.35,
+    idleSeed: null,
+    springbone: "on",
     apply: false,
     check: false,
   };
@@ -39,6 +51,7 @@ export function parseArguments(argv) {
     const arg = argv[index];
     if (arg === "--apply") { options.apply = true; continue; }
     if (arg === "--check") { options.check = true; continue; }
+    if (arg === "--no-idle") { options.idle = false; continue; }
     if (!arg.startsWith("--")) throw new Error(`不明な引数です: ${arg}`);
     const value = argv[++index];
     if (value === undefined || value.startsWith("--")) throw new Error(`${arg} の値がありません`);
@@ -52,11 +65,16 @@ export function parseArguments(argv) {
     else if (arg === "--output-width") options.outputWidth = positiveInteger(value, arg);
     else if (arg === "--output-height") options.outputHeight = positiveInteger(value, arg);
     else if (arg === "--layer-id") options.layerId = value;
+    else if (arg === "--idle-intensity") options.idleIntensity = unitNumber(value, arg);
+    else if (arg === "--idle-seed") options.idleSeed = value;
+    else if (arg === "--springbone") options.springbone = value;
     else throw new Error(`不明な引数です: ${arg}`);
   }
   if (!FRAMINGS.has(options.framing)) throw new Error(`--framing が不正です: ${options.framing}`);
   if (!isPosition(options.position)) throw new Error(`--position が不正です: ${options.position}`);
   if (!/^[-A-Za-z0-9_.]+$/.test(options.layerId)) throw new Error("--layer-id に使用できない文字があります");
+  if (options.idleSeed !== null && options.idleSeed.length === 0) throw new Error("--idle-seed は空にできません");
+  if (!new Set(["on", "off"]).has(options.springbone)) throw new Error(`--springbone が不正です: ${options.springbone}`);
   if (options.apply && !options.project) throw new Error("--apply には --project <dir> が必要です");
   return options;
 }

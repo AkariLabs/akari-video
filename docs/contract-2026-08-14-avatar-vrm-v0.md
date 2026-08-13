@@ -214,3 +214,93 @@ ffprobe 実値は ProRes、720x720、`yuva444p12le`、360 frame、12.000000 秒�
 状態差を持ち、2 回のベイク間では全件一致した。frame 30 と blink 中の frame 45 を目視し、
 半透明 cyan が skin と透明背景へ正しく合成され、境界に不透明な黒・白 fringe が出ていないこと、
 blink で左右 eye が閉じることも確認した。
+
+## v0.1 — 手続きアイドルモーションと SpringBone
+
+v0.1 は v0 の表情・カメラ・透過 ProRes・layer 契約を変更せず、Humanoid の正規化ボーンへ
+手続き回転を加え、VRM 標準の SpringBone を固定刻みで進める additive 拡張である。
+
+### v0.1.1 CLI と時刻・seed
+
+- `--idle-intensity <0..1>`: 既定 `0.35`。範囲外と非有限値はベイク前に拒否する。
+- `--idle-seed <text>`: 位相用 seed。未指定時はモデル VRM の実 byte 列の lowercase
+  SHA-256 hex とする。
+- `--no-idle`: 手続き回転を無効にする。`head[]` が無い場合はブラウザへ pose 自体を渡さない。
+- `--springbone on|off`: 既定 `on`。`on` は `VRM.update(1 / drive.fps)`、`off` は v0 と同じ
+  `VRM.update(0)` を毎フレーム呼ぶ。
+
+唯一の時計はフレーム番号 `frame` と drive の `fps` から作る `t = frame / fps` である。壁時計、
+OS 乱数、ブラウザ時刻を参照しない。位相は次の式で固定する。
+
+```text
+D = SHA256(UTF8("avatar-vrm-idle-v0.1\0" + String(seed)))
+phase[k] = 2π * uint32be(D[4k : 4k+4]) / 2^32   (k = 0..7)
+W(t, f1, p1, f2, p2, a) =
+  (sin(2π f1 t + p1) + a * sin(2π f2 t + p2)) / (1 + a)
+
+breath = W(t, 0.25, phase[0], 0.50, phase[1], 0.20)
+sway   = W(t, 0.08, phase[2], 0.13, phase[3], 0.35)
+nod    = W(t, 0.47, phase[4], 0.63, phase[5], 0.30)
+tilt   = W(t, 0.41, phase[6], 0.57, phase[7], 0.25)
+```
+
+下表は強度 1 の Euler 回転（degree）。実際の値は各成分へ `idle-intensity * π / 180` を掛けて
+radian にし、`humanoid.getNormalizedBoneNode(name).rotation` へ `XYZ` 順で設定する。
+
+| bone | x | y | z |
+|---|---:|---:|---:|
+| `chest` | `1.10 * breath` | `0.25 * sway` | `0.45 * sway` |
+| `spine` | `0.55 * breath` | `0.70 * sway` | `0.95 * sway` |
+| `head` | `1.50 * nod` | `1.20 * tilt` | `1.35 * (0.65 * tilt + 0.35 * nod)` |
+| `hips` | `0.35 * sway` | `0.80 * sway` | `1.40 * sway` |
+
+強度が厳密に `0` の場合は位相計算結果にかかわらず全 12 成分を正の数値 `0` として返す。
+したがって `--no-idle --springbone off` かつ `head[]` 無しは、ボーンを触らず delta も v0 と同じ
+`0` になる。既定強度の 360 frame 実測最大値は head.x の `0.5246752323°`（frame 132）で、
+数度以内という上限を十分下回る。
+
+### v0.1.2 `drive.head[]`
+
+`drive.head` は任意で、指定時は `mouth[]` / `eyes[]` と同長でなければならない。各要素は `null`
+または有限数の任意キー `yaw` / `pitch` / `roll` を持つ object とし、単位は degree。未指定キーは
+`0` とする。`pitch → head.x`、`yaw → head.y`、`roll → head.z` として手続き head 回転へ加算する。
+配列自体が無ければ v0 入力のまま解釈する。これは Stage 2 の姿勢トラック用受け口であり、v0.1 は
+補間せず、各 frame の値だけを適用する。
+
+### v0.1.3 SpringBone fixture と固定更新
+
+fixture は v0 の node `0..19`、mesh `0..2`、material `0..2`、accessor / bufferView `0..14` を
+維持し、末尾だけへ追加した。head node `4` の子に 3 本の chain（node `20..31`、各 4 node）を置き、
+隣接ペアから合計 9 joint を生成する。各 root / 中間 node には追加 mesh `3` の小さな青い房を付け、
+追加 MToon material `3` を使う。`VRMC_springBone` は `extensionsUsed` と `extensionsRequired` の双方へ
+追加し、collider / colliderGroup は空、stiffness は `0.75..0.90`、gravityPower `0.02`、dragForce
+`0.24..0.32` とした。
+
+v0 節 §5 の fixture SHA-256 `2a9f...dda3c` は本追加前の値である。v0.1 fixture は `12964` bytes、
+SHA-256 `ea60ddda918916d4fa409f6b0ba43964bf694613793b1ff94cdea1ea2c247b5c`。
+
+### v0.1.4 決定論・連続性・後方互換の実測
+
+2026-08-14 に `HeadlessChrome/149.0.7827.22`（`chrome-headless-shell` / SwiftShader）、
+FFmpeg `8.1.1`、30 fps、360 frame / 12 秒で実測した。先頭 120 frame は mouth=`closed`、
+eyes=`open`、head=`null`、後半 240 frame は連続サインの head 駆動である。既定 idle / SpringBone on
+の同一入力 2 回は、ともに `47884529` bytes、MOV SHA-256
+`62d3e6ceb206469cf694bb7808e4be3e0e56c985485c61b05846bafe28716d01` で byte 一致した。
+ffprobe 実値は ProRes、720x720、`yuva444p12le`、360 frame、12.000000 秒である。この結果により
+既定は `springbone=on` を維持する。
+
+先頭の静止入力 120 frame に `tblend=difference` + `signalstats` を適用した隣接 119 組は、YAVG が
+全組非ゼロ（min `0.213156` / max `2.03741` / mean `0.7463108739`）。同じ 12 秒を
+`--no-idle --springbone off`、`head[]` 無しで焼いた場合は 119 組すべて `0` だった。
+
+髪物理は idle を切り、同じ head 駆動を SpringBone on / off の 2 本で比較した。RGBA の青髪先 mask
+（alpha > 200、blue > 170、blue > green + 35、green > red、y=330..539）の重心は 240 frame 中
+239 frame で on/off 差が `0.01 px` を超え、最大 `3.37956 px`、平均 `0.48250 px`。on の重心を
+off の剛体追従へ 0..15 frame ずらして RMSE を比較すると、最小は **6 frame 遅れ**
+（`0.30215 px`）で、頭の運動に追従しつつ位相遅れを持つことを確認した。
+
+後方互換は履歴上の v0 fixture（SHA-256 `2a9f...dda3c`）を現在のコードで
+`--no-idle --springbone off`、`head[]` 無しとして再ベイクした。frame
+30 / 45 / 90 / 150 / 210 / 270 / 330 の decoded RGBA SHA-256 は v0 節 §4.3 の 7 値とすべて一致した。
+加えて新 fixture の全フラグ off・head 無しは 360 frame の decoded frame hash がすべて同一で、
+時間変化を導入しない。

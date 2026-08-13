@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 
 import { expressionValues } from "./drive.mjs";
+import { addHeadDrive, computeIdleOffsets, modelBytesSeed } from "./idle-motion.mjs";
 import { BAKE_SIZE } from "./layer.mjs";
 import { launchAvatarVrmBrowser } from "./browser.mjs";
 
@@ -14,8 +15,20 @@ function numeric(value) {
   return Number(Number(value).toFixed(8)).toString();
 }
 
-export async function bakeAvatarVrmClip({ modelPath, drive, framing, outPath, ffmpegCommand }) {
+export async function bakeAvatarVrmClip({
+  modelPath,
+  drive,
+  framing,
+  outPath,
+  ffmpegCommand,
+  idleEnabled = true,
+  idleIntensity = 0.35,
+  idleSeed = null,
+  springbone = true,
+}) {
   mkdirSync(dirname(outPath), { recursive: true });
+  const modelBytes = readFileSync(modelPath);
+  const effectiveIdleSeed = idleSeed ?? modelBytesSeed(modelBytes);
   const frameDir = mkdtempSync(join(tmpdir(), "akari-avatar-vrm-frames-"));
   const browser = await launchAvatarVrmBrowser();
   let page;
@@ -32,13 +45,24 @@ export async function bakeAvatarVrmClip({ modelPath, drive, framing, outPath, ff
     const loaded = await page.evaluate(
       ({ url, framingValue }) => window.avatarVrmRenderer.loadModel(url, framingValue),
       {
-        url: `data:model/gltf-binary;base64,${readFileSync(modelPath).toString("base64")}`,
+        url: `data:model/gltf-binary;base64,${modelBytes.toString("base64")}`,
         framingValue: framing,
       },
     );
     for (let frame = 0; frame < drive.mouth.length; frame += 1) {
-      const values = expressionValues(drive.mouth[frame], drive.eyes[frame]);
-      await page.evaluate((next) => window.avatarVrmRenderer.renderExpressions(next), values);
+      const expressions = expressionValues(drive.mouth[frame], drive.eyes[frame]);
+      const boneOffsets = idleEnabled || drive.head !== undefined
+        ? addHeadDrive(computeIdleOffsets({
+          frame,
+          fps: drive.fps,
+          intensity: idleEnabled ? idleIntensity : 0,
+          seed: effectiveIdleSeed,
+        }), drive.head?.[frame])
+        : null;
+      await page.evaluate(
+        (next) => window.avatarVrmRenderer.renderExpressions(next.expressions, next.boneOffsets, next.deltaTime),
+        { expressions, boneOffsets, deltaTime: springbone ? 1 / drive.fps : 0 },
+      );
       await page.screenshot({
         path: join(frameDir, `frame-${String(frame).padStart(6, "0")}.png`),
         omitBackground: true,
@@ -65,7 +89,9 @@ export async function bakeAvatarVrmClip({ modelPath, drive, framing, outPath, ff
       width: BAKE_SIZE.width,
       height: BAKE_SIZE.height,
       expressions: loaded.expressions,
+      springboneJoints: loaded.springboneJoints,
       threeRevision: loaded.threeRevision,
+      idleSeed: effectiveIdleSeed,
       ffmpegArgs: args,
     };
   } finally {
