@@ -283,6 +283,8 @@ rename する。
 | `vision_wasm_nosimd_internal.wasm` | `f840f69d7229f89dedaed39c7ac7a52f0964a7cec02d6cb1ac9eff891db86dc2` |
 | `LICENSE.txt` | `b070d77bfb2c52a1dd6996de0ce5f64c49a0ca55c889b163a963ddf5cb001ee2` |
 
+> 注: `LICENSE.txt` のみ npm tarball には含まれず（tarball 展開で実測確認済み）、Apache-2.0 の定型全文を手動で添えたもの（出所は `vendor/.../README-AKARI.md` 参照）。他の行は全て tarball 由来の実ファイル。
+
 tarball は `tar -xzf` 後、上記 bundle/WASM だけをコピーし、esbuild 等の再ビルドは行っていない。
 tarball 自体の npm integrity は
 `sha512-CZWV/q6TTe8ta61cZXjfnnHsfWIdFhms03M9T7Cnd5y2mdpylJM0rF1qRq+wsQVRMLz1OYPVEBU9ph2Bx8cxrg==`。
