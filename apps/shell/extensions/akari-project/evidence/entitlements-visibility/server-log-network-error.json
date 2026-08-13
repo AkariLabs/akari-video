@@ -1,0 +1,13 @@
+{
+  "scenario": "network-error",
+  "catalogRequests": 3,
+  "entitlementsRequests": 3,
+  "transport": "local-http",
+  "entitlementsResponse": {
+    "status": 500,
+    "body": {
+      "error": "mock_network_error"
+    }
+  },
+  "requestExpectationMet": true
+}

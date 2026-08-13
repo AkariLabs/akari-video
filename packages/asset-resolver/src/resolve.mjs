@@ -103,7 +103,7 @@ export async function resolve(id, { env = process.env, fetchImpl = fetch, projec
   const price = item.price ?? 0;
   const hasFiles = Array.isArray(item.files) && item.files.length > 0;
   if (price > 0) {
-    const entitlements = await fetchEntitlements({ env, fetchImpl });
+    const { ids: entitlements } = await fetchEntitlements({ env, fetchImpl });
     if (!entitlements.has(item.id)) {
       throw new AssetResolverError(
         `未購入の素材です（¥${price.toLocaleString()}）。ストアで購入してから再度お試しください: ${item.id}`,

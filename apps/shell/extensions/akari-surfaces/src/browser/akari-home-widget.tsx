@@ -61,11 +61,15 @@ import {
 import { FirstRunSetupOpenMode } from '../common/first-run-onboarding';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
-import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
+import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import {
     StoreConnectionFlowController,
     StoreConnectionFlowPhase
 } from 'akari-project/lib/common/store-connection-flow';
+import {
+    STORE_RECONNECT_REQUIRED_MESSAGE,
+    storeReconnectRequired
+} from '../common/store-entitlements-visibility';
 
 // ホーム v4（裁定 R1〜R3・notes-2026-08-02-home-v4-minimal）: dashboard の
 // 構成要素を 3 つだけに削る — ①説明（2 動作） ②過去プロジェクト一覧
@@ -265,6 +269,7 @@ export class AkariHomeWidget extends ReactWidget {
 
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
+    protected storeEntitlementsStatus: AssetEntitlementsStatus = 'no_credentials';
     protected storeFlowPhase: StoreConnectionFlowPhase = 'idle';
     protected storeFlowError?: string;
     protected storeFlowUserCode?: string;
@@ -347,6 +352,8 @@ export class AkariHomeWidget extends ReactWidget {
                 this.storeFlowUserCode = state.userCode;
                 if (state.connection.connected) {
                     this.storeEmail = state.connection.email ?? state.connection.identifier ?? '接続済み';
+                    this.storeEntitlementsStatus = 'ok';
+                    void this.refreshHomeFlow();
                 }
                 this.update();
             }
@@ -504,9 +511,15 @@ export class AkariHomeWidget extends ReactWidget {
      * 入力が消えないようにするため（フォームの開閉は純粋な UI 状態）。
      */
     protected async refreshHomeFlow(): Promise<void> {
-        this.connected = await this.readConnected();
-        this.storeEmail = await this.readStoreConnection();
-        const intake = await this.readIntake();
+        const [connected, storeEmail, storeEntitlementsStatus, intake] = await Promise.all([
+            this.readConnected(),
+            this.readStoreConnection(),
+            this.readStoreEntitlementsStatus(),
+            this.readIntake()
+        ]);
+        this.connected = connected;
+        this.storeEmail = storeEmail;
+        this.storeEntitlementsStatus = storeEntitlementsStatus;
         this.intakeSnapshot = intake;
         this.intakeStatus = intake.status;
         this.update();
@@ -532,6 +545,18 @@ export class AkariHomeWidget extends ReactWidget {
             return typeof parsed?.email === 'string' ? parsed.email : '接続済み';
         } catch {
             return null;
+        }
+    }
+
+    /**
+     * resolver と同じ entitlements 取得結果を akari-project のカタログ RPC 経由で読む。
+     * ホーム独自のトークン検証は追加せず、カタログ面と判定元を一つに保つ。
+     */
+    protected async readStoreEntitlementsStatus(): Promise<AssetEntitlementsStatus> {
+        try {
+            return (await this.storeService.getAssetCatalogView(undefined)).entitlementsStatus;
+        } catch {
+            return 'error';
         }
     }
 
@@ -2276,35 +2301,48 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected renderStoreCard(): React.ReactNode {
         const connected = this.storeEmail !== null;
-        const connectionState = connected
+        const reconnectRequired = storeReconnectRequired(connected, this.storeEntitlementsStatus);
+        const connectionState = reconnectRequired && this.storeFlowPhase === 'idle'
+            ? 'reconnect-required'
+            : connected && this.storeFlowPhase === 'idle'
             ? 'connected'
             : this.storeFlowPhase === 'idle' ? 'disconnected' : this.storeFlowPhase;
         return (
-            <section style={homeFlowStyles.card} data-akari-store-connection={connectionState}>
+            <section
+                style={homeFlowStyles.card}
+                data-akari-store-connection={connectionState}
+                data-akari-store-entitlements-status={this.storeEntitlementsStatus}
+                data-akari-store-reconnect-required={reconnectRequired ? 'true' : undefined}
+            >
                 <div style={homeFlowStyles.cardMark} aria-hidden='true'>
                     <span className='codicon codicon-package' style={{ fontSize: 20, color: 'var(--theia-button-foreground)' }} />
                 </div>
                 <div style={homeFlowStyles.cardBody}>
                     <strong style={homeFlowStyles.cardTitle}>AKARI Store</strong>
-                    {connected && <p style={homeFlowStyles.cardLead}>接続中: {this.storeEmail}</p>}
+                    {connected && !reconnectRequired && <p style={homeFlowStyles.cardLead}>接続中: {this.storeEmail}</p>}
+                    {reconnectRequired && this.storeFlowPhase === 'idle' && (
+                        <p style={{ ...homeFlowStyles.cardLead, color: 'var(--theia-errorForeground)' }}>
+                            {STORE_RECONNECT_REQUIRED_MESSAGE}
+                        </p>
+                    )}
                     {!connected && this.storeFlowPhase === 'idle' && (
                         <p style={homeFlowStyles.cardLead}>購入した素材（宣言パック・3D モックなど）を本体で使うには接続します。</p>
                     )}
-                    {!connected && this.storeFlowPhase === 'starting' && (
+                    {(!connected || reconnectRequired) && this.storeFlowPhase === 'starting' && (
                         <p style={homeFlowStyles.cardLead}>接続を開始しています…</p>
                     )}
-                    {!connected && this.storeFlowPhase === 'pending' && (
+                    {(!connected || reconnectRequired) && this.storeFlowPhase === 'pending' && (
                         <>
                             <p style={homeFlowStyles.cardLead}>ブラウザで承認してください…</p>
                             {this.storeFlowUserCode && <p style={homeFlowStyles.cardFine}>確認コード: {this.storeFlowUserCode}</p>}
                         </>
                     )}
-                    {!connected && (this.storeFlowPhase === 'expired' || this.storeFlowPhase === 'error') && (
+                    {(!connected || reconnectRequired) && (this.storeFlowPhase === 'expired' || this.storeFlowPhase === 'error') && (
                         <p style={{ ...homeFlowStyles.cardLead, color: 'var(--theia-errorForeground)' }}>{this.storeFlowError}</p>
                     )}
-                    {connected && <p style={homeFlowStyles.cardFine}>購入素材の導入は「購入した素材をセットアップして」と頼むだけ</p>}
+                    {connected && !reconnectRequired && <p style={homeFlowStyles.cardFine}>購入素材の導入は「購入した素材をセットアップして」と頼むだけ</p>}
                 </div>
-                {connected ? (
+                {connected && !reconnectRequired ? (
                     <button
                         type='button'
                         className='theia-button secondary'
@@ -2341,7 +2379,9 @@ export class AkariHomeWidget extends ReactWidget {
                         disabled={this.storeFlowPhase === 'starting'}
                         onClick={() => void this.connectStore()}
                     >
-                        {this.storeFlowPhase === 'starting' ? '接続を開始しています…' : 'ストアに接続する'}
+                        {this.storeFlowPhase === 'starting'
+                            ? '接続を開始しています…'
+                            : reconnectRequired ? 'ストアに再接続する' : 'ストアに接続する'}
                     </button>
                 )}
             </section>

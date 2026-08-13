@@ -16,6 +16,7 @@ import {
     AkariProjectService,
     AssetCatalogResolverStatus,
     AssetCatalogViewItem,
+    AssetEntitlementsStatus,
     DroppedAsset,
     PresetShowcase,
     PresetShowcaseItem,
@@ -49,6 +50,7 @@ import {
     catalogPurchaseActionText,
     CatalogPackGroup,
     deriveCatalogEmptyStateKind,
+    deriveCatalogResolverNotice,
     formatCatalogPackBreakdown,
     groupCatalogItemsByPack,
     storeProductUrl,
@@ -266,6 +268,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * （読み込み中は renderCatalogBody 側の「読み込み中…」が先に出る）。
      */
     protected catalogResolver?: AssetCatalogResolverStatus;
+    protected catalogEntitlementsStatus: AssetEntitlementsStatus = 'ok';
     protected catalogLoading = false;
     protected catalogQuery = '';
     protected catalogCategory = 'all';
@@ -1314,6 +1317,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.assetCatalogItems = view.items;
         this.catalogPacks = view.packs;
         this.catalogResolver = view.resolver;
+        this.catalogEntitlementsStatus = view.entitlementsStatus;
         this.presetShowcase = presetShowcase;
         this.catalogLoading = false;
         this.update();
@@ -2106,26 +2110,34 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderCatalogResolverRetry(): React.ReactNode {
-        if (this.catalogResolver?.status !== 'failed') {
+        const notice = deriveCatalogResolverNotice(
+            this.catalogResolver?.status ?? 'ok',
+            this.catalogEntitlementsStatus
+        );
+        if (!notice) {
             return undefined;
         }
         return (
             <div
                 data-akari-catalog-retry-row
+                data-akari-catalog-entitlements-status={this.catalogEntitlementsStatus}
+                data-akari-catalog-entitlements-unauthorized={notice.kind === 'unauthorized' ? 'true' : undefined}
                 style={{ padding: '6px 10px 0', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78em', opacity: 0.8 }}
             >
-                <span>アカウント素材の取得に失敗</span>
-                <button
-                    type='button'
-                    className='theia-button secondary'
-                    data-akari-catalog-retry
-                    data-akari-catalog-retry-inline
-                    disabled={this.catalogLoading}
-                    style={{ padding: '1px 8px', fontSize: 'inherit' }}
-                    onClick={() => void this.loadAssetCatalogView()}
-                >
-                    再試行
-                </button>
+                <span>{notice.message}</span>
+                {notice.retry && (
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        data-akari-catalog-retry
+                        data-akari-catalog-retry-inline
+                        disabled={this.catalogLoading}
+                        style={{ padding: '1px 8px', fontSize: 'inherit' }}
+                        onClick={() => void this.loadAssetCatalogView()}
+                    >
+                        再試行
+                    </button>
+                )}
             </div>
         );
     }

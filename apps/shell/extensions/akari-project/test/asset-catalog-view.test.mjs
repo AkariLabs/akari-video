@@ -9,6 +9,7 @@ import {
     catalogPurchaseActionText,
     deriveAssetDistribution,
     deriveCatalogEmptyStateKind,
+    deriveCatalogResolverNotice,
     deriveStoreLabBaseUrl,
     formatCatalogPackBreakdown,
     groupCatalogItemsByPack,
@@ -431,4 +432,33 @@ test('deriveCatalogEmptyStateKind: 0 件 + resolver 失敗 → resolver-failed�
 
 test('deriveCatalogEmptyStateKind: 0 件 + resolver 成功 → empty（通常起きない素直な空状態）', () => {
     assert.equal(deriveCatalogEmptyStateKind(0, 'ok'), 'empty');
+});
+
+test('deriveCatalogResolverNotice: unauthorized は再接続案内で再試行ボタン無し', () => {
+    assert.deepEqual(deriveCatalogResolverNotice('ok', 'unauthorized'), {
+        kind: 'unauthorized',
+        message: 'ストア接続が解除されています — ホームから再接続してください',
+        retry: false
+    });
+});
+
+test('deriveCatalogResolverNotice: entitlements error は従来の取得失敗 + 再試行', () => {
+    assert.deepEqual(deriveCatalogResolverNotice('ok', 'error'), {
+        kind: 'error',
+        message: 'アカウント素材の取得に失敗',
+        retry: true
+    });
+});
+
+test('deriveCatalogResolverNotice: ok / no_credentials は案内行を出さない', () => {
+    assert.equal(deriveCatalogResolverNotice('ok', 'ok'), undefined);
+    assert.equal(deriveCatalogResolverNotice('ok', 'no_credentials'), undefined);
+});
+
+test('deriveCatalogResolverNotice: resolver 全体の失敗は従来の取得失敗 + 再試行', () => {
+    assert.deepEqual(deriveCatalogResolverNotice('failed', 'error'), {
+        kind: 'error',
+        message: 'アカウント素材の取得に失敗',
+        retry: true
+    });
 });

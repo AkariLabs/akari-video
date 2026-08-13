@@ -15,14 +15,29 @@ test('loadCatalog はローカルパス指定のカタログを読める', async
 
 test('composeState: entitlements 無しでは無料素材が available・有料素材が locked', async () => {
   const { env } = setupFixtureEnv();
-  const { items, home } = await composeState({ env });
+  const { items, home, entitlementsStatus } = await composeState({ env });
   assert.equal(items.length, 2);
 
   const free = items.find((i) => i.id === 'mini-still');
   const paid = items.find((i) => i.id === 'mini-paid');
   assert.equal(free.state, 'available');
   assert.equal(paid.state, 'locked');
+  assert.equal(entitlementsStatus, 'no_credentials');
   assert.ok(home.endsWith('home') || home.includes('home'));
+});
+
+test('composeState: entitlements 取得失敗の status を返しつつ locked 判定は変えない', async () => {
+  const { env, home } = setupFixtureEnv();
+  writeFileSync(
+    path.join(home, 'store-credentials.json'),
+    `${JSON.stringify({ url: 'https://example.invalid/api/store', token: 'akst_revoked' }, null, 2)}\n`,
+  );
+  const { items, entitlementsStatus } = await composeState({
+    env,
+    fetchImpl: async () => ({ ok: false, status: 401 }),
+  });
+  assert.equal(entitlementsStatus, 'unauthorized');
+  assert.equal(items.find((item) => item.id === 'mini-paid').state, 'locked');
 });
 
 test('composeState: ローカルに実体があるものは cached になる', async () => {
