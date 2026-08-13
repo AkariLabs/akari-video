@@ -95,6 +95,26 @@ function morph({ left, right, bottom, top, blink = false }) {
   return accessor(target, "VEC3", 5126, 34962);
 }
 
+function emotionMorph(name) {
+  const target = new Float32Array(faceBase.length);
+  const move = (vertex, x, y) => {
+    target[vertex * 3] = x;
+    target[vertex * 3 + 1] = y;
+  };
+  if (name === "happy") {
+    move(0, -0.04, 0.035); move(1, 0.04, 0.035); move(2, 0.04, 0.055); move(3, -0.04, 0.055);
+  } else if (name === "sad") {
+    move(0, 0.025, -0.055); move(1, -0.025, -0.055); move(2, -0.025, -0.035); move(3, 0.025, -0.035);
+  } else if (name === "angry") {
+    move(5, 0, -0.055); move(6, 0, -0.035); move(8, 0, -0.035); move(11, 0, -0.055);
+  } else if (name === "surprised") {
+    move(0, 0.025, -0.07); move(1, -0.025, -0.07); move(2, -0.025, 0.04); move(3, 0.025, 0.04);
+    for (const vertex of [4, 5, 8, 9]) move(vertex, 0, -0.025);
+    for (const vertex of [6, 7, 10, 11]) move(vertex, 0, 0.035);
+  }
+  return accessor(target, "VEC3", 5126, 34962);
+}
+
 const morphAccessors = [
   morph({ left: -0.11, right: 0.11, bottom: -0.18, top: 0.01 }),
   morph({ left: -0.18, right: 0.18, bottom: -0.10, top: -0.045 }),
@@ -119,6 +139,9 @@ const springHairPosition = accessor(new Float32Array([
 ]), "VEC3", 5126, 34962, true);
 const springHairNormal = accessor(flatNormals(4), "VEC3", 5126, 34962);
 const springHairIndices = accessor(new Uint16Array([0, 1, 2, 0, 2, 3]), "SCALAR", 5123, 34963);
+
+// Appended after the complete v0.1 binary layout so every existing accessor/bufferView index stays stable.
+morphAccessors.push(...["happy", "sad", "angry", "surprised"].map(emotionMorph));
 
 const nodes = [
   { name: "hips", translation: [0, 0.9, 0], children: [1, 11, 14] },
@@ -161,7 +184,7 @@ const humanBones = Object.fromEntries([
   "rightUpperLeg", "rightLowerLeg", "rightFoot",
 ].map((name) => [name, { node: nodes.findIndex((node) => node.name === name) }]));
 
-const expressionNames = ["aa", "ih", "ou", "ee", "oh", "blink"];
+const expressionNames = ["aa", "ih", "ou", "ee", "oh", "blink", "happy", "sad", "angry", "surprised"];
 const gltf = {
   asset: { version: "2.0", generator: "AKARI Video deterministic CC0 VRM fixture generator" },
   extensionsUsed: ["VRMC_vrm", "VRMC_materials_mtoon", "VRMC_springBone"],
@@ -206,7 +229,7 @@ const gltf = {
     { name: "body", primitives: [{ attributes: { POSITION: bodyPosition, NORMAL: bodyNormal }, indices: bodyIndices, material: 0 }] },
     {
       name: "expression-face",
-      weights: [0, 0, 0, 0, 0, 0],
+      weights: expressionNames.map(() => 0),
       extras: { targetNames: expressionNames },
       primitives: [{
         attributes: { POSITION: facePosition, NORMAL: faceNormal }, indices: faceIndices, material: 1,

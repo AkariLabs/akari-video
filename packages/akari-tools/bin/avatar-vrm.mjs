@@ -71,6 +71,7 @@ async function main() {
       idleEnabled: options.idle,
       idleIntensity: options.idleIntensity,
       idleSeed: options.idleSeed,
+      headSource: options.headSource,
       springbone: options.springbone === "on",
     });
     const layer = buildAvatarVrmLayer({
@@ -99,6 +100,7 @@ async function main() {
         idle: options.idle,
         idle_intensity: options.idleIntensity,
         idle_seed: baked.idleSeed,
+        head_source: options.headSource,
         springbone: options.springbone,
         springbone_joints: baked.springboneJoints,
         blink_frames: drive.eyes.filter((state) => state === "closed").length,

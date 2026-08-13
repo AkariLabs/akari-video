@@ -203,3 +203,56 @@ vowel モードの stdout 例では、1 要素が従来と同じく出力 1 フ�
   }
 }
 ```
+
+## v0.2 追記（2026-08-14）: face-expression 駆動
+
+`--expression-track <path>` は `kind:"face-expression"` のトラックを直接、または
+`tracks.face_expression.path` を持つ analysis.json を受け付ける。pointer は analysis.json、
+`source.path` はトラック自身を基準に解決する。未指定時は v0/v1 と同じ手続きまばたきと stdout を
+byte 単位で維持する。指定時だけ `drive.fps`、`drive.head[]`、`drive.emotion[]` を additive に加え、
+`drive.eyes[]` を blendshape 駆動へ切り替える。sprite ベイクは head/emotion を描画へ使わず、従来の
+mouth/eyes 合成だけを行う。
+
+### v0.2.1 時刻写像と head
+
+出力 frame `f` のタイムライン時刻 `f / output.fps` を、宣言順に隙間なく連結した既存
+`timeline.cuts[]` の区間へ置き、該当 cut の source 時刻を
+`cut.in + (timelineTime - cutTimelineStart) * cut.speed` とする。track sample は source 時刻へ
+最近傍再サンプルする。複数 source の場合はトラックの `source.path` と同じ cut だけを駆動し、
+他 source の frame は head=`null`、eyes=`open`、emotion=`neutral` とする。
+
+track の head は yaw/pitch/roll の radian だが、`avatar-vrm` の drive 受け口へ直接渡せるよう
+`drive.head[]` は degree に変換する。符号は反転しない。検出無し sample は head だけ直前の有効値を
+保持し、先頭から一度も検出されていなければ `null` とする。`--head-smoothing <frames>` は
+出力 frame 上の中央移動平均窓で、既定 `5`、`0` または `1` は平滑化なし。窓内の `null` は除外する。
+
+### v0.2.2 blink 遮蔽ゲート
+
+再サンプル前の元 track sample 上で、次をすべて満たす連続 run だけを `eyes:"closed"` とする。
+
+| パラメータ | 値 |
+|---|---:|
+| 左右それぞれの閉眼閾値 | `eyeBlinkLeft >= 0.30` かつ `eyeBlinkRight >= 0.30` |
+| 左右対称閾値 | `abs(left - right) <= 0.12` |
+| 最小持続 | 連続 2 sample |
+
+実測の本物 blink（19.125〜19.208 秒、ピーク `0.5853 / 0.5544`）は採用する。一方、手指が顔を
+遮った 10.3〜10.5 秒の偽スパイクは、一部 frame が振幅閾値を越えても左右差が run を分断するため
+棄却する。hand-pose 近接ゲートは実装せず、この左右対称 + 持続ゲートを契約とする。
+
+### v0.2.3 emotion 写像
+
+各 score は表中 blendshape の算術平均。`enter=0.45`、`exit=0.30` のヒステリシスを使い、enter を
+越えた候補の最高 score を選ぶ。同点時の優先順は `happy > sad > angry > surprised`。enter 候補が
+無い間は現在値が exit 未満になるまで保持し、その後 `neutral` へ戻す。検出無しは `neutral`。
+
+| emotion | blendshape |
+|---|---|
+| `happy` | `mouthSmileLeft`, `mouthSmileRight` |
+| `sad` | `mouthFrownLeft`, `mouthFrownRight` |
+| `angry` | `browDownLeft`, `browDownRight` |
+| `surprised` | `browOuterUpLeft`, `browOuterUpRight`, `jawOpen` |
+| `neutral` | 上記の active 状態なし |
+
+同じ track、cuts、fps、平滑化窓から作る head/eyes/emotion は決定論的であり、壁時計や乱数を
+参照しない。

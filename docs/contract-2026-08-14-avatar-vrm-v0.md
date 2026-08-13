@@ -304,3 +304,33 @@ off の剛体追従へ 0..15 frame ずらして RMSE を比較すると、最小
 30 / 45 / 90 / 150 / 210 / 270 / 330 の decoded RGBA SHA-256 は v0 節 §4.3 の 7 値とすべて一致した。
 加えて新 fixture の全フラグ off・head 無しは 360 frame の decoded frame hash がすべて同一で、
 時間変化を導入しない。
+
+## v0.2 追記（2026-08-14）: head source と emotion
+
+v0/v0.1 の drive はそのまま受理し、任意の `drive.emotion[]` と `--head-source` を additive に足す。
+
+### v0.2.1 `drive.emotion[]`
+
+`drive.emotion` を指定する場合は `mouth[]` と同長で、各要素は `happy` / `sad` / `angry` /
+`surprised` / `neutral` のいずれかとする。毎 frame、従来の `aa/ih/ou/ee/oh/blink` に加えて
+`happy/sad/angry/surprised` の 4 値をすべて `expressionManager.setValue()` へ渡す。選択 emotion
+だけを `1`、他を `0` とし、`neutral` は 4 値すべて `0`。口形・blink と emotion の CLI 独自の
+排他処理は置かず、`overrideMouth` / `overrideBlink` を含む three-vrm の expression 合成へ任せる。
+該当 preset を持たないモデルでは three-vrm の `setValue` が no-op になるためエラーにしない。
+
+fixture VRM は従来 6 morph target の末尾へ `happy/sad/angry/surprised` の独立 target を追加した。
+headless 描画テストは neutral に対する各代表 frame の RGBA 差分が非ゼロであることを確認する。
+
+### v0.2.2 `--head-source track|idle|both`
+
+既定は `both`。`drive.head[]` の単位と軸は v0.1（degree、pitch→x / yaw→y / roll→z）を維持する。
+
+| 値 | 手続き idle | `drive.head[]` | 合成 |
+|---|---|---|---|
+| `track` | 無効 | 使用 | track 値だけ |
+| `idle` | 使用 | 無視 | 従来の手続き値だけ |
+| `both` | 使用 | 使用 | 手続き値へ track 値を加算 |
+
+`--no-idle` はこの表の「手続き idle」を最終的に無効化する既存ツマミである。このため
+`--head-source idle --no-idle` は pose を渡さず、`both --no-idle` は track だけになる。
+head source の選択、idle 波形、track 加算は frame/fps/seed/drive だけで決まり、決定論を保つ。

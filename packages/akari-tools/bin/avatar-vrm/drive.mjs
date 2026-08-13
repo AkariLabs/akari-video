@@ -1,11 +1,14 @@
 import { readFileSync } from "node:fs";
 
 export const EXPRESSION_NAMES = Object.freeze(["aa", "ih", "ou", "ee", "oh", "blink"]);
+export const EMOTION_EXPRESSION_NAMES = Object.freeze(["happy", "sad", "angry", "surprised"]);
+export const ALL_EXPRESSION_NAMES = Object.freeze([...EXPRESSION_NAMES, ...EMOTION_EXPRESSION_NAMES]);
 export const MOUTH_EXPRESSION = Object.freeze({ a: "aa", i: "ih", u: "ou", e: "ee", o: "oh" });
 
 const MOUTH_STATES = new Set(["closed", ...Object.keys(MOUTH_EXPRESSION)]);
 const EYE_STATES = new Set(["open", "closed"]);
 const HEAD_KEYS = new Set(["yaw", "pitch", "roll"]);
+const EMOTION_STATES = new Set(["neutral", ...EMOTION_EXPRESSION_NAMES]);
 
 function validateHeadState(state, index) {
   if (state == null) return null;
@@ -36,17 +39,27 @@ export function validateDriveDocument(document) {
   if (drive.head && drive.head.length !== drive.mouth.length) {
     throw new Error(`drive.head と drive.mouth の長さが一致しません: ${drive.head.length} != ${drive.mouth.length}`);
   }
+  if (drive.emotion !== undefined && !Array.isArray(drive.emotion)) {
+    throw new Error("drive.emotion は配列である必要があります");
+  }
+  if (drive.emotion && drive.emotion.length !== drive.mouth.length) {
+    throw new Error(`drive.emotion と drive.mouth の長さが一致しません: ${drive.emotion.length} != ${drive.mouth.length}`);
+  }
   drive.mouth.forEach((state, index) => {
     if (!MOUTH_STATES.has(state)) throw new Error(`drive.mouth[${index}] が不正です: ${state}`);
   });
   drive.eyes.forEach((state, index) => {
     if (!EYE_STATES.has(state)) throw new Error(`drive.eyes[${index}] が不正です: ${state}`);
   });
+  drive.emotion?.forEach((state, index) => {
+    if (!EMOTION_STATES.has(state)) throw new Error(`drive.emotion[${index}] が不正です: ${state}`);
+  });
   return {
     fps: drive.fps,
     mouth: [...drive.mouth],
     eyes: [...drive.eyes],
     ...(drive.head ? { head: drive.head.map(validateHeadState) } : {}),
+    ...(drive.emotion ? { emotion: [...drive.emotion] } : {}),
   };
 }
 
@@ -59,5 +72,12 @@ export function expressionValues(mouth, eyes) {
   if (!EYE_STATES.has(eyes)) throw new Error(`eyes state が不正です: ${eyes}`);
   const values = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0, blink: eyes === "closed" ? 1 : 0 };
   if (mouth !== "closed") values[MOUTH_EXPRESSION[mouth]] = 1;
+  return values;
+}
+
+export function drivenExpressionValues(mouth, eyes, emotion = "neutral") {
+  if (!EMOTION_STATES.has(emotion)) throw new Error(`emotion state が不正です: ${emotion}`);
+  const values = { ...expressionValues(mouth, eyes) };
+  for (const name of EMOTION_EXPRESSION_NAMES) values[name] = name === emotion ? 1 : 0;
   return values;
 }

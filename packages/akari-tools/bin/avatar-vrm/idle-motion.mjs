@@ -75,3 +75,13 @@ export function addHeadDrive(offsets, head) {
   result.head.z += (head.roll ?? 0) * DEG;
   return result;
 }
+
+export function frameMotionOffsets({ frame, fps, intensity, seed, idleEnabled, headSource, head }) {
+  if (!new Set(["track", "idle", "both"]).has(headSource)) throw new Error(`head source が不正です: ${headSource}`);
+  const useIdle = idleEnabled && headSource !== "track";
+  const trackedHead = headSource === "idle" ? null : head;
+  if (!useIdle && trackedHead == null) return null;
+  return addHeadDrive(computeIdleOffsets({
+    frame, fps, intensity: useIdle ? intensity : 0, seed,
+  }), trackedHead);
+}

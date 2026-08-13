@@ -8,6 +8,9 @@ import test from "node:test";
 
 import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
 import { buildBlinkStates, deriveSeed } from "../bin/avatar-drive/blink.mjs";
+import {
+  BLINK_GATE, buildEmotionStates, buildExpressionDrive, buildTrackedBlinkStates, loadExpressionTrack,
+} from "../bin/avatar-drive/expression-track.mjs";
 import { buildAvatarLayer } from "../bin/avatar-drive/layer.mjs";
 import { envelopeToMouthStates } from "../bin/avatar-drive/profile.mjs";
 import { loadSpriteSet, requireVowelMouthAssets, validateSpriteManifest } from "../bin/avatar-drive/sprite-set.mjs";
@@ -19,6 +22,7 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const script = join(packageRoot, "bin", "avatar-drive.mjs");
 const fixture = join(packageRoot, "test", "fixtures", "avatar-sprites");
+const expressionFixture = join(packageRoot, "test", "fixtures", "avatar-drive", "face-expression-ground-truth.json");
 const driveProfile = {
   midThreshold: 0.025, openThreshold: 0.075, hysteresis: 0.008,
   attackMs: 35, releaseMs: 120, blinkPeriod: 4.2, blinkJitter: 1.2, blinkDuration: 0.12,
@@ -47,6 +51,64 @@ test("avatar-drive: まばたき列は同じ seed で一致し、異なる seed 
   assert.deepEqual(first, buildBlinkStates({ ...input, seed }));
   assert.notDeepEqual(first.events, buildBlinkStates({ ...input, seed: seed + 1 }).events);
   assert.ok(first.states.includes("closed"));
+});
+
+test("avatar-drive expression: 実測 blink は採用し、遮蔽の非対称スパイクは棄却する", () => {
+  const track = loadExpressionTrack(expressionFixture);
+  const blink = buildTrackedBlinkStates(track.samples, BLINK_GATE, track.sample_fps);
+  const stateAt = (time) => blink.states.find((_, index) => track.samples[index].t === time);
+  assert.deepEqual(BLINK_GATE, { threshold: 0.3, symmetry: 0.12, minimumSamples: 2 });
+  assert.equal(stateAt(19.125), "closed");
+  assert.equal(stateAt(19.1667), "closed");
+  assert.equal(stateAt(19.2083), "closed");
+  for (const sample of track.samples.filter(({ t }) => t >= 10.1667 && t <= 10.5833)) {
+    assert.equal(stateAt(sample.t), "open", `occlusion t=${sample.t}`);
+  }
+});
+
+test("avatar-drive expression: cuts 時刻へ再サンプルし、頭の符号と大域単調性を保つ", () => {
+  const track = loadExpressionTrack(expressionFixture);
+  const first = buildExpressionDrive({
+    track,
+    timeline: { fps: 24, cuts: [{ path: track.sourcePath, start: 0, end: 20, speed: 1 }] },
+    frameCount: 480,
+    headSmoothing: 5,
+  });
+  const second = buildExpressionDrive({
+    track,
+    timeline: { fps: 24, cuts: [{ path: track.sourcePath, start: 0, end: 20, speed: 1 }] },
+    frameCount: 480,
+    headSmoothing: 5,
+  });
+  assert.deepEqual(first, second);
+  assert.equal(first.eyes[Math.round(19.1667 * 24)], "closed");
+  assert.equal(first.eyes[Math.round(10.375 * 24)], "open");
+  const yawAt = (time) => first.head[Math.round(time * 24)].yaw;
+  assert.ok(yawAt(11) < 0 && yawAt(12) < 0);
+  assert.ok(yawAt(12) > yawAt(11), `${yawAt(11)} -> ${yawAt(12)}`);
+});
+
+test("avatar-drive expression: emotion 写像と enter/exit ヒステリシスを固定する", () => {
+  const sample = (blendshapes) => ({ blendshapes });
+  const pair = (left, right, value) => ({ [left]: value, [right]: value });
+  assert.deepEqual(buildEmotionStates([
+    sample({}),
+    sample(pair("mouthSmileLeft", "mouthSmileRight", 0.6)),
+    sample(pair("mouthSmileLeft", "mouthSmileRight", 0.35)),
+    sample(pair("mouthSmileLeft", "mouthSmileRight", 0.2)),
+    sample(pair("mouthFrownLeft", "mouthFrownRight", 0.6)),
+    sample(pair("browDownLeft", "browDownRight", 0.6)),
+    sample({ browOuterUpLeft: 0.6, browOuterUpRight: 0.6, jawOpen: 0.6 }),
+  ]), ["neutral", "happy", "happy", "neutral", "sad", "angry", "surprised"]);
+});
+
+test("avatar-drive expression: analysis.json pointer と直接 track は同じ文書を読む", () => {
+  const root = mkdtempSync(join(tmpdir(), "avatar-drive-expression-pointer-"));
+  const trackPath = join(root, "face.json");
+  const analysisPath = join(root, "analysis.json");
+  writeFileSync(trackPath, readFileSync(expressionFixture));
+  writeFileSync(analysisPath, JSON.stringify({ tracks: { face_expression: { path: "face.json" } } }));
+  assert.deepEqual(loadExpressionTrack(analysisPath).samples, loadExpressionTrack(trackPath).samples);
 });
 
 test("avatar-drive: sprite.json は必須差分を検証し、追加キーを受理する", () => {
@@ -270,7 +332,52 @@ test("avatar-drive vowel: 旧 3 口 manifest は vowel で拒否し volume CLI �
   });
   assert.equal(omitted.status, 0, omitted.stderr || omitted.stdout);
   assert.equal(explicit.status, 0, explicit.stderr || explicit.stdout);
-  assert.deepEqual(JSON.parse(explicit.stdout), JSON.parse(omitted.stdout));
+  assert.equal(explicit.stdout, omitted.stdout, "expression-track 未指定の stdout は byte 一致する");
+});
+
+test("avatar-drive expression CLI: head/emotion を加算し sprite ベイクは同一入力 2 回で決定論的", { timeout: 30_000 }, (t) => {
+  let ffmpeg;
+  try { ffmpeg = resolveFfmpeg(); resolveFfprobe(); } catch { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const root = mkdtempSync(join(tmpdir(), "avatar-drive-expression-cli-"));
+  const sourcePath = join(root, "source.mov");
+  const generated = spawnSync(ffmpeg, [
+    "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=navy:s=320x180:r=10:d=1",
+    "-f", "lavfi", "-i", "sine=frequency=220:sample_rate=48000:duration=1",
+    "-shortest", "-c:v", "mpeg4", "-c:a", "pcm_s16le", sourcePath,
+  ], { encoding: "utf8" });
+  assert.equal(generated.status, 0, generated.stderr);
+  writeFileSync(join(root, "edit.json"), `${JSON.stringify({
+    version: 0, output: { width: 320, height: 180, fps: 10 },
+    source: { path: "source.mov", proxy: null }, cuts: [{ in: 0, out: 1 }], overlays: [], layers: [],
+  }, null, 2)}\n`);
+  const expressionPath = join(root, "face.json");
+  writeFileSync(expressionPath, JSON.stringify({
+    version: 0, kind: "face-expression", source: { path: "source.mov", duration: 1 }, sample_fps: 10,
+    samples: Array.from({ length: 10 }, (_, index) => ({
+      t: index / 10,
+      detections: [{
+        head: { yaw: -0.01 + index * 0.001, pitch: 0, roll: 0 },
+        blendshapes: {
+          eyeBlinkLeft: index === 4 || index === 5 ? 0.6 : 0.05,
+          eyeBlinkRight: index === 4 || index === 5 ? 0.58 : 0.05,
+          mouthSmileLeft: index >= 6 ? 0.6 : 0,
+          mouthSmileRight: index >= 6 ? 0.6 : 0,
+        },
+      }],
+    })),
+  }));
+  const args = [script, root, "--sprites", fixture, "--expression-track", expressionPath, "--head-smoothing", "0"];
+  const first = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 30_000 });
+  const second = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 30_000 });
+  assert.equal(first.status, 0, first.stderr || first.stdout);
+  assert.equal(second.status, 0, second.stderr || second.stdout);
+  assert.equal(first.stdout, second.stdout);
+  const output = JSON.parse(first.stdout);
+  assert.equal(output.drive.fps, 10);
+  assert.equal(output.drive.head.length, output.drive.mouth.length);
+  assert.equal(output.drive.emotion[7], "happy");
+  assert.equal(output.drive.eyes[4], "closed");
+  assert.equal(output.layers[0].preset, "avatar-drive-v0");
 });
 
 test("avatar-drive vowel CLI: transcript 駆動の stdout は同一入力 2 回で一致する", { timeout: 30_000 }, (t) => {

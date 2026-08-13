@@ -4,8 +4,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 
-import { expressionValues } from "./drive.mjs";
-import { addHeadDrive, computeIdleOffsets, modelBytesSeed } from "./idle-motion.mjs";
+import { drivenExpressionValues } from "./drive.mjs";
+import { frameMotionOffsets, modelBytesSeed } from "./idle-motion.mjs";
 import { BAKE_SIZE } from "./layer.mjs";
 import { launchAvatarVrmBrowser } from "./browser.mjs";
 
@@ -24,6 +24,7 @@ export async function bakeAvatarVrmClip({
   idleEnabled = true,
   idleIntensity = 0.35,
   idleSeed = null,
+  headSource = "both",
   springbone = true,
 }) {
   mkdirSync(dirname(outPath), { recursive: true });
@@ -50,15 +51,11 @@ export async function bakeAvatarVrmClip({
       },
     );
     for (let frame = 0; frame < drive.mouth.length; frame += 1) {
-      const expressions = expressionValues(drive.mouth[frame], drive.eyes[frame]);
-      const boneOffsets = idleEnabled || drive.head !== undefined
-        ? addHeadDrive(computeIdleOffsets({
-          frame,
-          fps: drive.fps,
-          intensity: idleEnabled ? idleIntensity : 0,
-          seed: effectiveIdleSeed,
-        }), drive.head?.[frame])
-        : null;
+      const expressions = drivenExpressionValues(drive.mouth[frame], drive.eyes[frame], drive.emotion?.[frame]);
+      const boneOffsets = frameMotionOffsets({
+        frame, fps: drive.fps, intensity: idleIntensity, seed: effectiveIdleSeed,
+        idleEnabled, headSource, head: drive.head?.[frame],
+      });
       await page.evaluate(
         (next) => window.avatarVrmRenderer.renderExpressions(next.expressions, next.boneOffsets, next.deltaTime),
         { expressions, boneOffsets, deltaTime: springbone ? 1 / drive.fps : 0 },
