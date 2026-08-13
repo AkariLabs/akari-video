@@ -14,11 +14,16 @@
 字幕に適用するにはそのまま `default_text_style` にマージする。
 `style.animation` があるプリセットは、`in` / `out` / `loop` の既定も同時に適用する。
 字幕ごとの `text_style.animation` は同名スロットだけを上書きする。
-**注意**: 現行レンダラ（packages/render-cut/src/captions.mjs）が解釈するのは
-color / size_px / stroke / background(color, opacity) / animation。weight / letter_spacing_em /
-shadow / glow / text_transform / font_family / background(padding_px, radius_px) は
-スキーマとして先行定義しており、レンダラ側の対応は内部契約
-（内部リポ akari-video-internal の textstyle-v0 契約）の残作業。
+**対応状況（2026-08-13 実測）**: 現行レンダラ（`packages/render-cut/src/captions.mjs`）は
+このカタログが使うフィールドをすべて CSS 変数へ落として描画する。11 件全部を 1080x1920 の
+caption overlay として実描画し、算出スタイルと画素差で確認済み:
+color / size_px / weight / font_family / letter_spacing_em / text_transform / stroke /
+shadow / glow / background(color, opacity, padding_px, radius_px) / position / animation。
+回帰テストは `packages/render-cut/test/captions-textstyle-v0.test.mjs`。
+
+**既知の制限**: `shadow.color` / `glow.color` は 16 進表記（`#RRGGBB`）で書く。
+`rgba(...)` の関数記法を書くと生成される CSS が無効値になり、影が丸ごと落ちる
+（既定の薄影も残らない）。現状 verdict-badge の `shadow.color` がこれに該当する。
 
 ## 一覧（11 件）
 
