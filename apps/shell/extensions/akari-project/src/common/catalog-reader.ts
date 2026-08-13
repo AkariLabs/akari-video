@@ -41,6 +41,63 @@ export interface CatalogItemMeta {
  */
 export const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'] as const;
 
+/** カタログ面で category enum を人向けに表示する日本語ラベル。 */
+export const CATALOG_CATEGORY_LABELS: Readonly<Record<(typeof CATALOG_CATEGORIES)[number], string>> = {
+    overlay: 'オーバーレイ',
+    still: '静止画',
+    scene3d: '3D',
+    audio: '音声',
+    broll: 'Bロール',
+    font: 'フォント'
+};
+
+export interface CatalogCategoryChip {
+    category: string;
+    label: string;
+    count: number;
+}
+
+/**
+ * 固定 6 カテゴリを 0 件でも先に返し、データに現れた未知カテゴリだけを末尾へ加える。
+ * category は絞り込みキーとして一切翻訳せず、label だけを表示用に分離する。
+ */
+export function deriveCatalogCategoryChips(items: readonly { readonly category: string }[]): CatalogCategoryChip[] {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+        counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
+    }
+    const known = CATALOG_CATEGORIES.map(category => ({
+        category,
+        label: CATALOG_CATEGORY_LABELS[category],
+        count: counts.get(category) ?? 0
+    }));
+    const knownSet = new Set<string>(CATALOG_CATEGORIES);
+    const unknown = Array.from(counts.keys())
+        .filter(category => !knownSet.has(category))
+        .sort((left, right) => left.localeCompare(right, 'ja'))
+        .map(category => ({ category, label: category, count: counts.get(category) ?? 0 }));
+    return [...known, ...unknown];
+}
+
+export type CatalogViewMode = 'grid' | 'list';
+
+/** localStorage の欠損・旧値・破損値は既定のカード表示へ安全に戻す。 */
+export function normalizeCatalogViewMode(value: unknown): CatalogViewMode {
+    return value === 'list' ? 'list' : 'grid';
+}
+
+export type CatalogFilteredEmptyKind = 'category-empty' | 'no-match';
+
+/** 選択カテゴリ自体が 0 件なのか、検索条件だけが不一致なのかを分ける。 */
+export function deriveCatalogFilteredEmptyKind(
+    items: readonly { readonly category: string }[],
+    category: string
+): CatalogFilteredEmptyKind {
+    return category !== 'all' && !items.some(item => item.category === category)
+        ? 'category-empty'
+        : 'no-match';
+}
+
 export function parseCatalogItemMeta(raw: string): CatalogItemMeta | undefined {
     let parsed: unknown;
     try {

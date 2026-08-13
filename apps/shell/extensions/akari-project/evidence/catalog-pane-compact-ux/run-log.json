@@ -1,0 +1,143 @@
+[
+  {
+    "step": "left-panel-resized",
+    "value": {
+      "before": 164.9140625,
+      "after": 319.7421875,
+      "target": 320
+    }
+  },
+  {
+    "step": "materials-title-row-removed",
+    "value": {
+      "firstChildIsScrollBody": true,
+      "openCatalogPresent": true,
+      "topView": "materials"
+    }
+  },
+  {
+    "step": "compact-controls-and-fixed-categories",
+    "value": {
+      "accountHeaderPresent": false,
+      "backText": "← 素材",
+      "categories": [
+        {
+          "category": "all",
+          "count": 62,
+          "text": "すべて 62"
+        },
+        {
+          "category": "overlay",
+          "count": 0,
+          "text": "オーバーレイ 0"
+        },
+        {
+          "category": "still",
+          "count": 0,
+          "text": "静止画 0"
+        },
+        {
+          "category": "scene3d",
+          "count": 3,
+          "text": "3D 3"
+        },
+        {
+          "category": "audio",
+          "count": 27,
+          "text": "音声 27"
+        },
+        {
+          "category": "broll",
+          "count": 1,
+          "text": "Bロール 1"
+        },
+        {
+          "category": "font",
+          "count": 31,
+          "text": "フォント 31"
+        }
+      ],
+      "controlChildCount": 2,
+      "controlsHeight": 85.5,
+      "developerInsideControls": false,
+      "firstRowHook": true,
+      "panelWidth": 319.7421875,
+      "resolverCountPresent": false,
+      "retryInsideControls": false,
+      "searchPresent": true,
+      "secondRowIsTabs": true,
+      "storeConnectPresent": false,
+      "storeConnectionPresent": false,
+      "storeDisconnectPresent": false,
+      "togglePresent": true
+    }
+  },
+  {
+    "step": "grid-density",
+    "value": {
+      "distinctColumns": 3,
+      "lefts": [
+        58,
+        157,
+        256
+      ],
+      "visibleCards": 62,
+      "widths": [
+        91,
+        91,
+        91,
+        91,
+        91,
+        91
+      ]
+    }
+  },
+  {
+    "step": "zero-category-empty-state",
+    "value": {
+      "kind": "category-empty",
+      "text": "この種類の素材はまだカタログにありません"
+    }
+  },
+  {
+    "step": "view-toggle-stop-propagation",
+    "value": {
+      "afterChip": 1,
+      "afterToggle": 0
+    }
+  },
+  {
+    "step": "list-view",
+    "value": {
+      "actionAtRight": true,
+      "mode": "list",
+      "packCount": 1,
+      "packRows": 23,
+      "rowCount": 62,
+      "stored": "list"
+    }
+  },
+  {
+    "step": "audio-preview-list-row-observation",
+    "value": {
+      "allInsideListRows": true,
+      "limitation": "resolver-failure catalog has no mediaUrl-backed audio items",
+      "toggleCount": 0
+    }
+  },
+  {
+    "step": "resolver-retry-inline",
+    "value": {
+      "text": "アカウント素材の取得に失敗再試行",
+      "visible": true
+    }
+  },
+  {
+    "step": "list-persisted-after-reload",
+    "value": {
+      "mode": "list",
+      "rows": 62,
+      "stored": "list"
+    }
+  }
+]

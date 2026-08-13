@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCatalogItemMeta, filterCatalogItems } from '../lib/common/catalog-reader.js';
+import {
+    CATALOG_CATEGORIES,
+    deriveCatalogCategoryChips,
+    deriveCatalogFilteredEmptyKind,
+    filterCatalogItems,
+    normalizeCatalogViewMode,
+    parseCatalogItemMeta
+} from '../lib/common/catalog-reader.js';
 
 // meta.json 寛容リーダー単体テスト（task.md L0: 必須3フィールドのみ / 欠落 / 壊れJSON の3様態）
 // + 検索・カテゴリフィルタの純関数。
@@ -165,4 +172,42 @@ test('filterCatalogItems: 検索語 + カテゴリの両方で絞る', () => {
 
 test('filterCatalogItems: 一致なしは 0 件（例外なし）', () => {
     assert.equal(filterCatalogItems(CATEGORY_ITEMS, 'no-such-term', 'all').length, 0);
+});
+
+test('deriveCatalogCategoryChips: 固定6カテゴリを enum 順・日本語ラベル・0件込みで返す', () => {
+    const chips = deriveCatalogCategoryChips([
+        { category: 'audio' },
+        { category: 'audio' },
+        { category: 'scene3d' }
+    ]);
+    assert.deepEqual(chips.map(chip => chip.category), [...CATALOG_CATEGORIES]);
+    assert.deepEqual(chips.map(chip => chip.label), ['オーバーレイ', '静止画', '3D', '音声', 'Bロール', 'フォント']);
+    assert.deepEqual(chips.map(chip => chip.count), [0, 0, 1, 2, 0, 0]);
+});
+
+test('deriveCatalogCategoryChips: 未知カテゴリは既存項目を消さず末尾へ追加する', () => {
+    const chips = deriveCatalogCategoryChips([
+        { category: 'zeta' },
+        { category: 'audio' },
+        { category: 'avatars' },
+        { category: 'zeta' }
+    ]);
+    assert.deepEqual(chips.slice(0, CATALOG_CATEGORIES.length).map(chip => chip.category), [...CATALOG_CATEGORIES]);
+    assert.deepEqual(chips.slice(CATALOG_CATEGORIES.length), [
+        { category: 'avatars', label: 'avatars', count: 1 },
+        { category: 'zeta', label: 'zeta', count: 2 }
+    ]);
+});
+
+test('deriveCatalogFilteredEmptyKind: 0件カテゴリと検索0件を区別する', () => {
+    assert.equal(deriveCatalogFilteredEmptyKind(CATEGORY_ITEMS, 'font'), 'category-empty');
+    assert.equal(deriveCatalogFilteredEmptyKind(CATEGORY_ITEMS, 'audio'), 'no-match');
+    assert.equal(deriveCatalogFilteredEmptyKind(CATEGORY_ITEMS, 'all'), 'no-match');
+});
+
+test('normalizeCatalogViewMode: list だけを復元し、欠損・未知値は grid に戻す', () => {
+    assert.equal(normalizeCatalogViewMode('list'), 'list');
+    assert.equal(normalizeCatalogViewMode('grid'), 'grid');
+    assert.equal(normalizeCatalogViewMode('tiles'), 'grid');
+    assert.equal(normalizeCatalogViewMode(undefined), 'grid');
 });
