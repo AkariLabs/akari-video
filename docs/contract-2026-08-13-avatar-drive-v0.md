@@ -132,6 +132,9 @@ RMS を抽出する。RMS にアタック／リリース平滑をかけ、2 閾�
 whisper の単語／音素アライメントから viseme を選ぶ経路を将来追加する。追加時も v0 の
 `mouth.closed/mid/open` は必須のフォールバックとして残し、詳細な口形キーを additive に足す。
 
+v1 の母音駆動は transcript の単語区間をモーラ数で均等割りする粗い版である。forced-alignment
+（MFA、または日本語特化の Julius + OpenJTalk）で音素境界を得る精緻版は、引き続き予約とする。
+
 ### 4.2 映像駆動表情
 
 MediaPipe Face Landmarker の 52 blendshape から目・眉・口・頬の表情差分を選ぶ経路は次版で扱う。
@@ -151,3 +154,52 @@ rendition.json の検索・解決を実装しない。** 入力は `--sprites <d
 4. `--apply` 前後の JSON を比較し、`layers[]` 末尾以外が不変であることを確認する。
 5. 実音声の発話区間で `mid` / `open`、無音区間で `closed`、全尺内で `eyes: closed` が現れる。
 6. ベイク MOV のアルファをフレーム画素で測り、スプライト外周が `alpha=0` であることを確認する。
+
+## 6. v1 追記（2026-08-14）: 母音 6 状態駆動
+
+v1 は、v0 の音量 3 状態を既定・フォールバックとして保ったまま、transcript から
+`closed` / `a` / `i` / `u` / `e` / `o` を選ぶ経路を additive に追加する。
+
+| `drive.mouth[]` | VRM 1.0 Expression Preset | PSDToolKit の口差分 |
+|---|---|---|
+| `closed` | `neutral` | `ん` |
+| `a` | `aa` | `あ` |
+| `i` | `ih` | `い` |
+| `u` | `ou` | `う` |
+| `e` | `ee` | `え` |
+| `o` | `oh` | `お` |
+
+`--mouth-mode <volume|vowel>` の既定値は `volume` である。`volume` は従来どおり
+`closed` / `mid` / `open` を出し、引数を省略した v0 と出力を変えない。`vowel` は
+`--transcript <path>` を必須とし、`drive.mouth[]` には上表の 6 値だけを出す。このモードの
+sprite.json は従来必須の `mouth.closed/mid/open` に加えて `mouth.a/i/u/e/o` の PNG をすべて持つ。
+
+transcript の時刻単位は秒で、各単語は `{ "text": "...", "start": 0.12, "end": 0.34 }` とする。
+次の 2 形式を受理し、全単語を `start` 昇順へ正規化する。
+
+1. captions 資産形式: caption レコード配列、または `{ "captions": [...] }`。各 caption の
+   `words[]` をフラット化し、`words` が無いか空の caption は無視する。
+2. 最小形式: トップレベルの `[{ "text": "...", "start": 0.12, "end": 0.34 }, ...]`。
+
+かなだけの語は左からモーラへ分割する。拗音と小書き母音は前のかなと 1 モーラにまとめて小書き側の
+母音を採用し、促音 `っ/ッ` と撥音 `ん/ン` は `closed`、長音 `ー` は直前モーラの母音を継続する。
+先頭の長音は `closed` とする。未知のかな、漢字・数字・記号を含む語は母音情報なしとして音量へ
+フォールバックする。ASCII ローマ字だけの語も簡易分割するが、これはベストエフォートであり、
+曖昧な子音クラスタや一般的でない綴りを完全には扱わない。かな経路を正規の入力とする。
+
+各フレームの時刻 `f / fps` が単語区間 `[start, end)` に入るとき、その区間をモーラ数で均等割りして
+口形を選ぶ。その後、v0 の RMS 状態列と AND ゲートする。RMS が `closed` なら transcript に関係なく
+`closed` を優先する。RMS が `mid` / `open` の発話中で母音が得られればその口形を使い、単語間の
+ギャップや未対応語で母音が不明なら `a` へ縮退する。
+
+vowel モードの stdout 例では、1 要素が従来と同じく出力 1 フレームに対応する。
+
+```jsonc
+{
+  "ok": true,
+  "drive": {
+    "mouth": ["closed", "a", "i", "u", "e", "o"],
+    "eyes": ["open", "open", "open", "open", "closed", "open"]
+  }
+}
+```
