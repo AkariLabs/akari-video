@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AKARI Video vision-tracks v0",
-  "description": "顔ランドマーク・手ポーズ・3D ボディポーズのトラックファイル形式（analysis.json の tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d が path で指す実体）。正本は docs/contract-2026-08-11-analysis-vision-tracks-v0.md §2。1 ファイル 1 kind（face-landmarks / hand-pose / body-pose-3d を混在させない）。",
+  "description": "顔ランドマーク・手ポーズ・3D ボディポーズ・顔表情のトラックファイル形式（analysis.json の tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d / tracks.face_expression が path で指す実体）。正本は docs/contract-2026-08-11-analysis-vision-tracks-v0.md §2。1 ファイル 1 kind（face-landmarks / hand-pose / body-pose-3d / face-expression を混在させない）。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,7 +20,8 @@
       "enum": [
         "face-landmarks",
         "hand-pose",
-        "body-pose-3d"
+        "body-pose-3d",
+        "face-expression"
       ]
     },
     "source": {
@@ -61,6 +62,21 @@
         "os": {
           "type": "string",
           "minLength": 1
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1,
+          "description": "検出ランタイムと固定版。例: @mediapipe/tasks-vision@0.10.17。"
+        },
+        "model_url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "モデルの versioned 取得元 URL。"
+        },
+        "model_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "取得モデルの期待 SHA-256。"
         }
       }
     },
@@ -263,12 +279,62 @@
         "joints": { "$ref": "#/$defs/bodyPose3DJoints" }
       }
     },
+    "blendshapeName": {
+      "enum": [
+        "_neutral", "browDownLeft", "browDownRight", "browInnerUp",
+        "browOuterUpLeft", "browOuterUpRight", "cheekPuff", "cheekSquintLeft",
+        "cheekSquintRight", "eyeBlinkLeft", "eyeBlinkRight", "eyeLookDownLeft",
+        "eyeLookDownRight", "eyeLookInLeft", "eyeLookInRight", "eyeLookOutLeft",
+        "eyeLookOutRight", "eyeLookUpLeft", "eyeLookUpRight", "eyeSquintLeft",
+        "eyeSquintRight", "eyeWideLeft", "eyeWideRight", "jawForward", "jawLeft",
+        "jawOpen", "jawRight", "mouthClose", "mouthDimpleLeft", "mouthDimpleRight",
+        "mouthFrownLeft", "mouthFrownRight", "mouthFunnel", "mouthLeft",
+        "mouthLowerDownLeft", "mouthLowerDownRight", "mouthPressLeft", "mouthPressRight",
+        "mouthPucker", "mouthRight", "mouthRollLower", "mouthRollUpper",
+        "mouthShrugLower", "mouthShrugUpper", "mouthSmileLeft", "mouthSmileRight",
+        "mouthStretchLeft", "mouthStretchRight", "mouthUpperUpLeft", "mouthUpperUpRight",
+        "noseSneerLeft", "noseSneerRight"
+      ]
+    },
+    "faceExpressionHead": {
+      "description": "MediaPipe facial transformation matrix から Rz(roll)*Ry(yaw)*Rx(pitch) で分解したラジアン値。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["yaw", "pitch", "roll"],
+      "properties": {
+        "yaw": { "type": "number" },
+        "pitch": { "type": "number" },
+        "roll": { "type": "number" }
+      }
+    },
+    "faceExpressionBlendshapes": {
+      "description": "MediaPipe が返す固定 52 category の生 score（0..1）。",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/blendshapeName" },
+      "additionalProperties": { "$ref": "#/$defs/unit" },
+      "minProperties": 52,
+      "maxProperties": 52
+    },
+    "faceExpressionDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "blendshapes", "conf"],
+      "properties": {
+        "head": { "$ref": "#/$defs/faceExpressionHead" },
+        "blendshapes": { "$ref": "#/$defs/faceExpressionBlendshapes" },
+        "conf": {
+          "$ref": "#/$defs/conf",
+          "description": "Web API が face-presence score を公開しないため、52 blendshape 生 score の最大値。"
+        }
+      }
+    },
     "detection": {
-      "$comment": "kind ごとに detections[] の要素形が決まる（faceDetection | handDetection | bodyPose3DDetection）。トップレベルの kind と要素形の対応は本 schema では表せない意味制約であり、vision-tracks.md の検証手順が担う（analysis.schema.json の event 判別ユニオンと違い、kind はファイル全体に 1 つだけなので oneOf 判別は不要）。",
+      "$comment": "kind ごとに detections[] の要素形が決まる（faceDetection | handDetection | bodyPose3DDetection | faceExpressionDetection）。トップレベルの kind と要素形の対応は本 schema では表せない意味制約であり、vision-tracks.md の検証手順が担う（analysis.schema.json の event 判別ユニオンと違い、kind はファイル全体に 1 つだけなので oneOf 判別は不要）。",
       "anyOf": [
         { "$ref": "#/$defs/faceDetection" },
         { "$ref": "#/$defs/handDetection" },
-        { "$ref": "#/$defs/bodyPose3DDetection" }
+        { "$ref": "#/$defs/bodyPose3DDetection" },
+        { "$ref": "#/$defs/faceExpressionDetection" }
       ]
     },
     "sample": {

@@ -1,0 +1,4 @@
+# Models and field-test media are external/reproducible and must never be committed here.
+*.task
+demo/
+metrics/

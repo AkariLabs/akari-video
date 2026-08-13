@@ -383,10 +383,10 @@ test("壊れた analysis.json を明確なエラーで拒否する", () => {
 });
 
 // vision-tracks v0（docs/contract-2026-08-11-analysis-vision-tracks-v0.md）の消費者追随債務
-// 確認: tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d という optional キーを持つ
+// 確認: tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d / tracks.face_expression という optional キーを持つ
 // analysis.json を、この軽量チェック（validateAnalysisStructure）がエラー扱いしないこと。
 // person_matte 契約 §9 が残した「消費者の追随債務」を新トラックで繰り返さないための回帰トラップ。
-test("tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d を持つ analysis.json も軽量チェックを通る（vision-tracks v0 追随確認）", () => {
+test("4 種の optional vision track pointer を持つ analysis.json も軽量チェックを通る（vision-tracks v0 追随確認）", () => {
   const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
   try {
     const outPath = join(dir, "report.html");
@@ -408,6 +408,11 @@ test("tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d を持つ a
     assert.deepEqual(embeddedTracks.face_landmarks.features, ["face_contour"]);
     assert.equal(embeddedTracks.hand_pose.path, "vision/hand-pose.json");
     assert.equal(embeddedTracks.body_pose_3d.path, "vision/body-pose-3d.json");
+    assert.equal(embeddedTracks.face_expression.path, "vision/face-expression.json");
+    assert.deepEqual(embeddedTracks.face_expression.features, [
+      "head-pose-ypr-radians",
+      "mediapipe-blendshapes-52",
+    ]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

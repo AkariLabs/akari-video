@@ -37,6 +37,14 @@
       "provider": "apple-vision",
       "tool": "vision-tracks.mjs v0",
       "generated_at": "2026-08-13T12:00:00Z"
+    },
+    "face_expression": {
+      "path": "vision/face-expression.json",
+      "sample_fps": 24,
+      "provider": "mediapipe-face-landmarker",
+      "tool": "face-expression.mjs v0",
+      "generated_at": "2026-08-14T12:00:00Z",
+      "features": ["head-pose-ypr-radians", "mediapipe-blendshapes-52"]
     }
   }
 }
