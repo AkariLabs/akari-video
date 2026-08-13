@@ -1,10 +1,10 @@
 ---
 lifecycle: draft
 created: 2026-08-11
-updated: 2026-08-11
+updated: 2026-08-13
 ---
 
-# 分析トラック契約 v0 — Vision ランドマーク・トラック（face-landmarks / hand-pose）と keyframes 消費
+# 分析トラック契約 v0 — Vision ランドマーク・トラック（face-landmarks / hand-pose / body-pose-3d）と keyframes 消費
 
 - 日付: 2026-08-11
 - 状態: **ドラフト**（v0 実装と同時に確定させる。実装で判明した齟齬は追記で解消）
@@ -13,7 +13,7 @@ updated: 2026-08-11
   - `contract-2026-07-23-analysis-person-matte.md`（Swift サイドカーの流儀・analysis.json の tracks 契約・検証責務の分担）
   - `contract-2026-07-25-project-structure-v0.md`（分析サイドカーの置き場 = `.akari/sidecars/`）
   - `contract-2026-08-02-preview-parity.md`（render/Web/shell 3 面パリティの原則）
-- スコープ: 動画から抽出する**ランドマーク・トラック**（顔・手）のデータ契約、生成サイドカーの
+- スコープ: 動画から抽出する**ランドマーク・トラック**（顔・手・3D ボディポーズ）のデータ契約、生成サイドカーの
   入出力、消費（`layers[].keyframes` への変換）の責務分担。**新しいレンダー機構は作らない**
 
 ## 0. 設計原則
@@ -34,7 +34,7 @@ updated: 2026-08-11
 
 ## 1. analysis.json への追加（additive）
 
-`tracks` に **optional キー** 2 つを追加する。`tracks.required`（speakers / faces /
+`tracks` に **optional キー** 3 つを追加する。`tracks.required`（speakers / faces /
 person_matte）には**入れない**（person_matte が必須なのは既存消費者の事情であり、新トラックは
 真に任意として追加する）。
 
@@ -48,18 +48,26 @@ person_matte）には**入れない**（person_matte が必須なのは既存消
     "tool": "vision-tracks.mjs v0",
     "generated_at": "2026-08-11T12:00:00Z"
   },
-  "hand_pose": { /* 同形 */ }
+  "hand_pose": { /* 同形 */ },
+  "body_pose_3d": {             // 任意。macOS 14+ の Vision 3D ボディポーズ
+    "path": "vision/body-pose-3d.json",
+    "sample_fps": 24,
+    "provider": "apple-vision",
+    "tool": "vision-tracks.mjs v0",
+    "generated_at": "2026-08-13T12:00:00Z"
+  }
 }
 ```
 
 ## 2. トラックファイル形式（vision-tracks v0）
 
-`path` が指す JSON ファイル。1 ファイル 1 種類（face-landmarks と hand-pose は別ファイル）。
+`path` が指す JSON ファイル。1 ファイル 1 種類（face-landmarks / hand-pose /
+body-pose-3d は別ファイル）。
 
 ```jsonc
 {
   "version": 0,
-  "kind": "face-landmarks",      // "face-landmarks" | "hand-pose"
+  "kind": "face-landmarks",      // "face-landmarks" | "hand-pose" | "body-pose-3d"
   "source": { "path": "../..(元動画への相対)", "duration": 12.5 },
   "sample_fps": 24,
   "provider": { "name": "apple-vision", "os": "macOS 15.5" },
@@ -70,8 +78,11 @@ person_matte）には**入れない**（person_matte が必須なのは既存消
 }
 ```
 
-- **座標系（最重要規約）**: すべて **0〜1 正規化・左上原点**（動画ピクセル系と同じ向き）。
+- **画像座標系（最重要規約）**: face-landmarks / hand-pose と body-pose-3d の
+  `projection` はすべて **0〜1 正規化・左上原点**（動画ピクセル系と同じ向き）。
   Vision framework は左下原点で返すため、**y 反転はサイドカーの責務**。消費側は変換しない
+- body-pose-3d の `position` だけは画像座標ではない。Vision が返すモデル座標
+  （root/hip 相対メートル）を変換せず保存する（§2.4）
 - `samples[].t` は元動画の秒（`in`/`out` と同じ時間軸）。サンプリングは `sample_fps` の等間隔
 - 生値主義: 平滑化・補間済みの値を入れない。信頼度（`conf`）を必ず併記する
 
@@ -126,6 +137,50 @@ person_matte）には**入れない**（person_matte が必須なのは既存消
   （§2.1 の必須 6 キーが揃わない detection を出力に混ぜない）。実測（1 名がほぼ映り続ける
   26.3 秒素材）ではこの除外は 0 件だった。
 
+### 2.4 body-pose-3d の detection（additive・2026-08-13）
+
+`VNDetectHumanBodyPose3DRequest` revision 1 が返す 17 関節を保存する。API は macOS 14+
+限定である。トラックは分析の生値であり、平滑化・間引き・低信頼度除外を行わない。
+
+```jsonc
+{
+  "conf": 0.86,
+  "joints": {
+    "root": {
+      "position": [0.0, 0.0, 0.0],       // root/hip 相対メートル
+      "projection": [0.51, 0.63],        // 0〜1 正規化・左上原点
+      "conf": 0.86
+    },
+    "right_hip": { /* 同形 */ },
+    "right_knee": { /* 同形 */ },
+    "right_ankle": { /* 同形 */ },
+    "left_hip": { /* 同形 */ },
+    "left_knee": { /* 同形 */ },
+    "left_ankle": { /* 同形 */ },
+    "spine": { /* 同形 */ },
+    "center_shoulder": { /* 同形 */ },
+    "center_head": { /* 同形 */ },
+    "top_head": { /* 同形 */ },
+    "left_shoulder": { /* 同形 */ },
+    "left_elbow": { /* 同形 */ },
+    "left_wrist": { /* 同形 */ },
+    "right_shoulder": { /* 同形 */ },
+    "right_elbow": { /* 同形 */ },
+    "right_wrist": { /* 同形 */ }
+  }
+}
+```
+
+- `position`: `VNHumanBodyRecognizedPoint3D.position` の平行移動成分 `[x,y,z]`。
+  Vision のモデル座標で root/hip 相対、単位はメートル。カメラ相対座標へ変換しない
+- `projection`: `VNHumanBodyPose3DObservation.pointInImage` が返す画像投影を y 反転し、
+  `[0,1]` へクランプした `[x,y]`
+- `conf`: Vision 3D API は関節別 confidence を公開しないため、apple-vision provider の v0 は
+  `VNHumanBodyPose3DObservation.confidence` を各関節へ複製する。これは関節別推定値ではなく、
+  観測全体 confidence の由来明示である。消費者の `min-confidence` はこの値を使う
+- 17 関節のいずれかを Vision から取得できない観測は detection ごと省略する。存在しない
+  関節を補間・捏造せず、`detections: []` のフレームは時刻 `t` とともに残す
+
 ## 3. サイドカー（生成側）
 
 person-matte と同じ分離: **Swift ヘルパーはフレーム変換だけ、コンテナ・時刻・組み立ては
@@ -135,8 +190,9 @@ person-matte と同じ分離: **Swift ヘルパーはフレーム変換だけ、
   - `vision-tracks-helper.swift` — stdin から raw BGRA フレーム列、stdout へ **JSON Lines
     （1 フレーム 1 行の検出結果）**。`swiftc -O` オンデマンドビルド・バイナリは `.gitignore`
   - `vision-tracks.mjs` — `ffmpeg`（デコード・fps/幅統一）→ helper → トラックファイル組み立て →
-    `analysis.json` の tracks へ追記（原子的置換）。`--kinds face,hand` / `--fps` / `--check`
-    （macOS / swiftc / ffmpeg の可用性確認）
+    `analysis.json` の tracks へ追記（原子的置換）。`--kinds face,hand,body-pose-3d` /
+    `--fps` / `--check`（macOS 14+ / swiftc / ffmpeg の可用性確認。macOS 14 未満は
+    capability 不足として理由付きで拒否）
 - 手順書: `skills/analyze-footage/vision-tracks.md`（person-matte.md と同格の任意工程）。
   `SKILL.md` の実行順・ハードルールに配線する
 - 起動主体はエージェント（スキル手順に従い bash で直接叩く）。CLI サブコマンドにはしない
@@ -144,16 +200,19 @@ person-matte と同じ分離: **Swift ヘルパーはフレーム変換だけ、
 
 ## 4. 消費（変換器）
 
-トラック → `edit.json` への反映は**決定論の変換器**が行う。v0 の消費者は 2 つ（別契約で
+トラック → `edit.json` への反映は**決定論の変換器**が行う。v0 の消費者は 3 つ（別契約で
 実装しても本契約の §2 形式だけを入力にする）:
 
 | 消費者 | 入力 | 出力 |
 |---|---|---|
 | eye-bar（目線黒帯） | face_landmarks（両瞳） | 黒帯レイヤー + `layers[].keyframes` の transform（x/y/rotate/scale） |
 | finger-frame（指フレーム） | hand_pose（両手の thumb_tip / index_tip = 4 点） | 対象レイヤーの `layers[].keyframes` の perspective（4 隅 corner-pin）+ 発動区間 |
+| pose-skeleton | body_pose_3d（17 関節の 2D `projection`） | アルファ付きスティックフィギュアを事前ベイクした `kind: "baked"` layer |
 
 - 平滑化（移動平均・One Euro 等）・キーフレーム間引き・欠測補間は**変換器の責務**。
   パラメータは変換器の引数で決定論に
+- pose-skeleton は欠測と cut 境界で平滑化状態をリセットし、低 confidence 関節を含む骨を
+  非表示にする。欠測区間を hold せず、別 baked clip / layer へ分割する
 - perspective keyframes の ffmpeg 側は既存の時間窓分割フォールバック
   （`expandLayerForPerspectiveKeyframes`）に乗る。新しいレンダー経路は作らない
 - `cuts[].fx` は**使わない**（全画面ポスト効果の器。空間追跡系はレイヤー機構が正）
@@ -163,7 +222,7 @@ person-matte と同じ分離: **Swift ヘルパーはフレーム変換だけ、
 - `packages/schemas/bin/` に新しいバリデータ CLI は**作らない**（person-matte 契約 §7 の分担を
   継続）。トラックファイルの JSON Schema は `skills/analyze-footage/references/
   vision-tracks.schema.json` に置き、スキル手順の jsonschema 検証が担う
-- `analysis.schema.json` への tracks 2 キー追加は additive のみ
+- `analysis.schema.json` への tracks 3 キー追加は additive のみ
 - **`packages/analysis-report/render-analysis-report.mjs` の軽量チェックを同時に更新する**
   （person_matte が残した「消費者の追随債務」を新トラックで繰り返さない）
 - verify は L0（該当 package / skill の `node --test`）。GUI を触らないため L1/L2 は対象外
