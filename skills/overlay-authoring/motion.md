@@ -77,3 +77,23 @@ rAF は、外部タイムラインから既に決めた状態を再描画する�
 - 直し方:
   1. 単発のループ演出（点滅など）は必ず両端を明示する（`0%, 100% { opacity: 1; } 50% { opacity: 0; }`）。片方しか書かない省略はしない
   2. 同一プロパティを複数段でつなぐ場合、後段の `0%` / `from` に**前段の着地値を明示的に複製**する（暗黙合成に任せない）
+
+### 書き出しランタイムは `animation-fill-mode` を `both` に強制する（2026-08-14 実測）
+
+書き出し時、render-cut のオーバーレイシートは authored の CSS animation を **paused WAAPI クローンへ変換**して駆動する。このとき timing は複製されるが **fill だけは `'both'` に固定**される（`packages/render-cut/src/rasterize.mjs` の変換部）。authored 側で `forwards` / `none` を指定しても**書き出しには一切反映されない**。
+
+- 帰結: `animation-delay` 付きの断片は、**delay 中ずっと `0%` / `from` の状態が backwards fill で表示される**。「発火して消える」過渡 FX（集中線・波紋・破片・フラッシュ等）の from を `opacity: 1` で書くと、発火前から初期姿のまま画面に写り込む
+- 実例: 集中線 12 本 + 波紋 + 破片（delay 1.73s, `from { opacity: 1; ... }`）が、オーバーレイ開始直後から中央に小さな円環として常時表示された。`forwards` へ直して再書き出ししても**出力はバイト同一**（fill が強制されているため）
+- **プレビューと書き出しで挙動が割れる**: ブラウザプレビューは authored fill-mode を尊重するため、プレビューだけ見ると `forwards` で直ったように見える
+- 直し方: **過渡 FX は `0%` キーフレーム自体を不可視（`opacity: 0`）にし、最初の数 %（〜50ms 相当）で立ち上げる**。delay 中は backwards fill が `0%` を適用するので必ず隠れる
+
+  ```css
+  @keyframes burst-ray {
+    0%   { opacity: 0; transform: rotate(var(--a)) translateX(90px) scaleX(0.3); }
+    8%   { opacity: 1; }
+    70%  { opacity: 1; }
+    100% { opacity: 0; transform: rotate(var(--a)) translateX(300px) scaleX(1); }
+  }
+  ```
+
+- 覚え方: **入場して留まる要素は from を「隠れ状態」で書くので `both` 前提と両立する。発火して消える要素は from こそ隠す**。fill-mode の書き分けで解決しようとしない（書き出しでは選べない）
