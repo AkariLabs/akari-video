@@ -8,6 +8,9 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { extractRmsEnvelope, loadProjectTimeline } from "./avatar-drive/audio.mjs";
 import { bakeAvatarClip } from "./avatar-drive/bake.mjs";
 import { buildBlinkStates, deriveSeed } from "./avatar-drive/blink.mjs";
+import {
+  buildExpressionDrive, DEFAULT_HEAD_SMOOTHING, loadExpressionTrack,
+} from "./avatar-drive/expression-track.mjs";
 import { buildAvatarLayer } from "./avatar-drive/layer.mjs";
 import { envelopeToMouthStates, normalizeProfile } from "./avatar-drive/profile.mjs";
 import { loadSpriteSet, requireVowelMouthAssets } from "./avatar-drive/sprite-set.mjs";
@@ -26,7 +29,8 @@ function parseArguments(argv) {
   const options = {
     project: null, sprites: null, apply: false, check: false, out: null,
     position: "right-bottom", scale: 1, margin: 48, layerId: "avatar-drive-0", profile: {},
-    mouthMode: "volume", transcript: null,
+    mouthMode: "volume", transcript: null, expressionTrack: null,
+    headSmoothing: DEFAULT_HEAD_SMOOTHING,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -44,6 +48,8 @@ function parseArguments(argv) {
     else if (arg === "--layer-id") options.layerId = value;
     else if (arg === "--mouth-mode") options.mouthMode = value;
     else if (arg === "--transcript") options.transcript = resolve(value);
+    else if (arg === "--expression-track") options.expressionTrack = resolve(value);
+    else if (arg === "--head-smoothing") options.headSmoothing = Number(value);
     else if (arg === "--mid-threshold") options.profile.midThreshold = Number(value);
     else if (arg === "--open-threshold") options.profile.openThreshold = Number(value);
     else if (arg === "--hysteresis") options.profile.hysteresis = Number(value);
@@ -56,6 +62,9 @@ function parseArguments(argv) {
   }
   if (!(options.scale > 0)) throw new Error("--scale は正数である必要があります");
   if (!(options.margin >= 0)) throw new Error("--margin は 0 以上である必要があります");
+  if (!Number.isInteger(options.headSmoothing) || options.headSmoothing < 0) {
+    throw new Error("--head-smoothing は 0 以上の整数である必要があります");
+  }
   if (!["volume", "vowel"].includes(options.mouthMode)) throw new Error("--mouth-mode は volume または vowel である必要があります");
   if (!/^[-A-Za-z0-9_.]+$/.test(options.layerId)) throw new Error("--layer-id に使用できない文字があります");
   return options;
@@ -102,19 +111,39 @@ async function main() {
       mouthStates = resolveMouthStates({ vowelTimeline, volumeStates: mouth.states });
       mouthVocabulary = ["closed", "a", "i", "u", "e", "o"];
     }
-    const blinkSeed = deriveSeed({ edit: timeline.edit, sprite: spriteSet.manifest, profile });
-    const blink = buildBlinkStates({
-      frameCount: envelope.frameCount,
-      fps: timeline.fps,
-      seed: blinkSeed,
-      period: profile.blinkPeriod,
-      jitter: profile.blinkJitter,
-      duration: profile.blinkDuration,
-    });
+    let eyeStates;
+    let driveExtras;
+    if (options.expressionTrack) {
+      const expression = buildExpressionDrive({
+        track: loadExpressionTrack(options.expressionTrack),
+        timeline,
+        frameCount: envelope.frameCount,
+        headSmoothing: options.headSmoothing,
+      });
+      eyeStates = expression.eyes;
+      driveExtras = {
+        fps: timeline.fps,
+        head: expression.head,
+        emotion: expression.emotion,
+        blink_events: expression.blinkEvents,
+      };
+    } else {
+      const blinkSeed = deriveSeed({ edit: timeline.edit, sprite: spriteSet.manifest, profile });
+      const blink = buildBlinkStates({
+        frameCount: envelope.frameCount,
+        fps: timeline.fps,
+        seed: blinkSeed,
+        period: profile.blinkPeriod,
+        jitter: profile.blinkJitter,
+        duration: profile.blinkDuration,
+      });
+      eyeStates = blink.states;
+      driveExtras = { blink_seed: blinkSeed, blink_events: blink.events };
+    }
     const outPath = options.out ?? join(timeline.projectRoot, ".akari", "cache", "avatar-drive", "avatar-drive.mov");
     mkdirSync(join(timeline.projectRoot, ".akari", "cache", "avatar-drive"), { recursive: true });
     const baked = await bakeAvatarClip({
-      spriteSet, mouthStates, eyeStates: blink.states, fps: timeline.fps, outPath,
+      spriteSet, mouthStates, eyeStates, fps: timeline.fps, outPath,
     }, { ffmpegCommand: available.ffmpeg });
     const layer = buildAvatarLayer({
       projectRoot: timeline.projectRoot,
@@ -132,7 +161,7 @@ async function main() {
     const output = {
       ok: true,
       layers: [layer],
-      drive: { mouth: mouthStates, eyes: blink.states, blink_seed: blinkSeed, blink_events: blink.events },
+      drive: { mouth: mouthStates, eyes: eyeStates, ...driveExtras },
       stats: {
         frames: baked.frameCount,
         fps: timeline.fps,
@@ -140,7 +169,7 @@ async function main() {
         height: baked.height,
         variants: baked.variants,
         mouth_counts: Object.fromEntries(mouthVocabulary.map((state) => [state, mouthStates.filter((value) => value === state).length])),
-        blink_frames: blink.states.filter((value) => value === "closed").length,
+        blink_frames: eyeStates.filter((value) => value === "closed").length,
       },
     };
     if (options.apply) {

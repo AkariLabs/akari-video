@@ -8,9 +8,14 @@ import vm from "node:vm";
 
 import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
 import { parseArguments } from "../bin/avatar-vrm/arguments.mjs";
-import { EXPRESSION_NAMES, expressionValues, validateDriveDocument } from "../bin/avatar-vrm/drive.mjs";
+import {
+  ALL_EXPRESSION_NAMES, drivenExpressionValues, EMOTION_EXPRESSION_NAMES,
+  EXPRESSION_NAMES, expressionValues, validateDriveDocument,
+} from "../bin/avatar-vrm/drive.mjs";
 import { findChrome } from "../bin/avatar-vrm/find-chrome.mjs";
-import { addHeadDrive, computeIdleOffsets, modelBytesSeed } from "../bin/avatar-vrm/idle-motion.mjs";
+import {
+  addHeadDrive, computeIdleOffsets, frameMotionOffsets, modelBytesSeed,
+} from "../bin/avatar-vrm/idle-motion.mjs";
 import { buildAvatarVrmLayer } from "../bin/avatar-vrm/layer.mjs";
 
 test("avatar-vrm: 口形と blink は毎フレーム 6 expression を明示する", () => {
@@ -27,6 +32,16 @@ test("avatar-vrm: 口形と blink は毎フレーム 6 expression を明示す�
   assert.deepEqual(expressionValues("closed", "closed"), {
     aa: 0, ih: 0, ou: 0, ee: 0, oh: 0, blink: 1,
   });
+});
+
+test("avatar-vrm: emotion は口形・blink と排他にせず 4 expression を毎フレーム明示する", () => {
+  const values = drivenExpressionValues("a", "closed", "happy");
+  assert.deepEqual(Object.keys(values), ALL_EXPRESSION_NAMES);
+  assert.equal(values.aa, 1);
+  assert.equal(values.blink, 1);
+  assert.equal(values.happy, 1);
+  for (const name of ["sad", "angry", "surprised"]) assert.equal(values[name], 0);
+  assert.deepEqual(EMOTION_EXPRESSION_NAMES.map((name) => drivenExpressionValues("closed", "open", "neutral")[name]), [0, 0, 0, 0]);
 });
 
 test("avatar-vrm vendor bridge: 実 three-vrm の VRM1/MToon/update API を使う", async () => {
@@ -54,7 +69,7 @@ test("avatar-vrm vendor bridge: 実 three-vrm の VRM1/MToon/update API を使�
     for (const child of node.children ?? []) nodes[index].add(nodes[child]);
   });
   const morphMesh = new THREE.Mesh();
-  morphMesh.morphTargetInfluences = [0, 0, 0, 0, 0, 0];
+  morphMesh.morphTargetInfluences = ALL_EXPRESSION_NAMES.map(() => 0);
   nodes[17].add(morphMesh);
   const scene = new THREE.Scene();
   for (const root of json.scenes[0].nodes) scene.add(nodes[root]);
@@ -78,17 +93,17 @@ test("avatar-vrm vendor bridge: 実 three-vrm の VRM1/MToon/update API を使�
   await plugin.afterRoot(gltf);
   const vrm = gltf.userData.vrm;
   assert.ok(vrm);
-  assert.deepEqual(Object.keys(vrm.expressionManager.expressionMap).sort(), [...EXPRESSION_NAMES].sort());
+  assert.deepEqual(Object.keys(vrm.expressionManager.expressionMap).sort(), [...ALL_EXPRESSION_NAMES].sort());
   assert.equal(vrm.humanoid.getRawBoneNode("head"), nodes[4]);
   assert.equal(vrm.springBoneManager.joints.size, 9);
 
   vrm.expressionManager.setValue("aa", 1);
   vrm.update(0);
-  assert.deepEqual(morphMesh.morphTargetInfluences, [1, 0, 0, 0, 0, 0]);
+  assert.deepEqual(morphMesh.morphTargetInfluences, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   vrm.expressionManager.setValue("aa", 0);
   vrm.expressionManager.setValue("blink", 1);
   vrm.update(0);
-  assert.deepEqual(morphMesh.morphTargetInfluences, [0, 0, 0, 0, 0, 1]);
+  assert.deepEqual(morphMesh.morphTargetInfluences, [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]);
 
   const MToonMaterial = plugin.getMaterialType(2);
   const materialParams = {};
@@ -131,7 +146,7 @@ test("avatar-vrm vendor bridge: 実 three-vrm が VRM1/MToon/expression を head
       ({ url }) => window.avatarVrmRenderer.loadModel(url, "bust"),
       { url: `data:model/gltf-binary;base64,${modelData}` },
     );
-    assert.deepEqual(loaded.expressions, [...EXPRESSION_NAMES].sort());
+    assert.deepEqual(loaded.expressions, [...ALL_EXPRESSION_NAMES].sort());
     assert.equal(loaded.mtoonMaterialCount, 4);
     assert.equal(loaded.springboneJoints, 9);
     assert.equal(loaded.threeRevision, "185");
@@ -144,6 +159,11 @@ test("avatar-vrm vendor bridge: 実 three-vrm が VRM1/MToon/expression を head
     const blink = Buffer.from(await page.screenshot({ omitBackground: true }));
     assert.notDeepEqual(aa, neutral);
     assert.notDeepEqual(blink, neutral);
+    for (const emotion of EMOTION_EXPRESSION_NAMES) {
+      await page.evaluate((name) => window.avatarVrmRenderer.renderExpressions({ [name]: 1 }), emotion);
+      const rendered = Buffer.from(await page.screenshot({ omitBackground: true }));
+      assert.notDeepEqual(rendered, neutral, `${emotion} RGBA difference`);
+    }
 
     const torsoPixels = [];
     for (let frame = 0; frame < 6; frame += 1) {
@@ -171,6 +191,18 @@ test("avatar-vrm: drive は語彙・同長・fps を検証する", () => {
   assert.throws(() => validateDriveDocument({ drive: { ...valid.drive, eyes: ["open"] } }), /長さ/);
   assert.throws(() => validateDriveDocument({ drive: { ...valid.drive, mouth: ["x"], eyes: ["open"] } }), /mouth\[0\]/);
   assert.throws(() => validateDriveDocument({ drive: { ...valid.drive, fps: 0 } }), /fps/);
+});
+
+test("avatar-vrm: drive.emotion は任意・同長で固定語彙だけを受理する", () => {
+  const drive = {
+    fps: 30,
+    mouth: ["closed", "a", "i", "u", "e"],
+    eyes: ["open", "open", "open", "closed", "open"],
+    emotion: ["neutral", "happy", "sad", "angry", "surprised"],
+  };
+  assert.deepEqual(validateDriveDocument({ drive }), drive);
+  assert.throws(() => validateDriveDocument({ drive: { ...drive, emotion: ["neutral"] } }), /長さ/);
+  assert.throws(() => validateDriveDocument({ drive: { ...drive, emotion: ["calm", "happy", "sad", "angry", "surprised"] } }), /emotion\[0\]/);
 });
 
 test("avatar-vrm: drive.head は同長の度単位 yaw/pitch/roll を additive に受け付ける", () => {
@@ -219,6 +251,20 @@ test("avatar-vrm: idle motion は frame/fps と seed だけで決まり、強度
   assert.ok(maximumDegrees < 1, `default maximum was ${maximumDegrees} degrees`);
 });
 
+test("avatar-vrm: head-source は track / idle / both を切り替える", () => {
+  const input = {
+    frame: 10, fps: 30, intensity: 0.35, seed: "fixture", idleEnabled: true,
+    head: { yaw: 4, pitch: -2, roll: 1.5 },
+  };
+  const idle = computeIdleOffsets(input);
+  assert.deepEqual(frameMotionOffsets({ ...input, headSource: "idle" }), idle);
+  assert.deepEqual(frameMotionOffsets({ ...input, headSource: "both" }), addHeadDrive(idle, input.head));
+  assert.deepEqual(frameMotionOffsets({ ...input, headSource: "track" }), addHeadDrive(
+    computeIdleOffsets({ ...input, intensity: 0 }), input.head,
+  ));
+  assert.equal(frameMotionOffsets({ ...input, headSource: "idle", idleEnabled: false }), null);
+});
+
 test("avatar-vrm: 引数の既定値と不正値を外部処理前に確定する", () => {
   const parsed = parseArguments(["--model", "model.vrm", "--drive", "drive.json", "--out", "avatar.mov"]);
   assert.equal(parsed.framing, "bust");
@@ -228,17 +274,20 @@ test("avatar-vrm: 引数の既定値と不正値を外部処理前に確定す�
   assert.equal(parsed.idle, true);
   assert.equal(parsed.idleIntensity, 0.35);
   assert.equal(parsed.idleSeed, null);
+  assert.equal(parsed.headSource, "both");
   assert.equal(parsed.springbone, "on");
-  const motion = parseArguments(["--no-idle", "--idle-intensity", "0", "--idle-seed", "demo", "--springbone", "off"]);
+  const motion = parseArguments(["--no-idle", "--idle-intensity", "0", "--idle-seed", "demo", "--head-source", "track", "--springbone", "off"]);
   assert.equal(motion.idle, false);
   assert.equal(motion.idleIntensity, 0);
   assert.equal(motion.idleSeed, "demo");
+  assert.equal(motion.headSource, "track");
   assert.equal(motion.springbone, "off");
   assert.throws(() => parseArguments(["--framing", "face"]), /framing/);
   assert.throws(() => parseArguments(["--position", "somewhere"]), /position/);
   assert.throws(() => parseArguments(["--scale", "0"]), /正数/);
   assert.throws(() => parseArguments(["--idle-intensity", "1.1"]), /1 以下/);
   assert.throws(() => parseArguments(["--springbone", "maybe"]), /springbone/);
+  assert.throws(() => parseArguments(["--head-source", "maybe"]), /head-source/);
   assert.throws(() => parseArguments(["--apply"]), /project/);
 });
 
@@ -290,7 +339,7 @@ test("avatar-vrm: --apply と同じ共有経路は既存 JSON 不変の末尾追
   assert.equal(appendLayersAdditive(editPath, [layer]).ok, false);
 });
 
-test("avatar-vrm fixture: generator は同一 byte 列と VRM1/MToon/6 expressions を作る", () => {
+test("avatar-vrm fixture: generator は同一 byte 列と VRM1/MToon/10 expressions を作る", () => {
   const root = mkdtempSync(join(tmpdir(), "avatar-vrm-fixture-test-"));
   const fixtureRoot = new URL("./fixtures/avatar-vrm/", import.meta.url).pathname;
   const fixture = join(fixtureRoot, "minimal-avatar-vrm1.vrm");
@@ -303,7 +352,7 @@ test("avatar-vrm fixture: generator は同一 byte 列と VRM1/MToon/6 expressio
   const json = JSON.parse(before.subarray(20, 20 + jsonLength).toString("utf8").trim());
   assert.equal(json.extensions.VRMC_vrm.specVersion, "1.0");
   assert.equal(json.extensions.VRMC_vrm.meta.licenseUrl, "https://vrm.dev/licenses/1.0/");
-  assert.deepEqual(Object.keys(json.extensions.VRMC_vrm.expressions.preset), EXPRESSION_NAMES);
+  assert.deepEqual(Object.keys(json.extensions.VRMC_vrm.expressions.preset), ALL_EXPRESSION_NAMES);
   assert.ok(json.extensionsUsed.includes("VRMC_materials_mtoon"));
   assert.ok(json.extensionsUsed.includes("VRMC_springBone"));
   assert.equal(json.extensions.VRMC_springBone.springs.length, 3);

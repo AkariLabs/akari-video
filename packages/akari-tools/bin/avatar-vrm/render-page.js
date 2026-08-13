@@ -60,7 +60,7 @@
 
   function renderExpressions(values, boneOffsets = null, deltaTime = 0) {
     if (!vrm?.expressionManager) throw new Error("VRM expressionManager がありません");
-    for (const name of ["aa", "ih", "ou", "ee", "oh", "blink"]) {
+    for (const name of ["aa", "ih", "ou", "ee", "oh", "blink", "happy", "sad", "angry", "surprised"]) {
       vrm.expressionManager.setValue(name, Number(values[name] ?? 0));
     }
     if (boneOffsets) {

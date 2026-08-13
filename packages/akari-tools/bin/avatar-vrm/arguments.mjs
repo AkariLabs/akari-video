@@ -43,6 +43,7 @@ export function parseArguments(argv) {
     idle: true,
     idleIntensity: 0.35,
     idleSeed: null,
+    headSource: "both",
     springbone: "on",
     apply: false,
     check: false,
@@ -67,6 +68,7 @@ export function parseArguments(argv) {
     else if (arg === "--layer-id") options.layerId = value;
     else if (arg === "--idle-intensity") options.idleIntensity = unitNumber(value, arg);
     else if (arg === "--idle-seed") options.idleSeed = value;
+    else if (arg === "--head-source") options.headSource = value;
     else if (arg === "--springbone") options.springbone = value;
     else throw new Error(`不明な引数です: ${arg}`);
   }
@@ -74,6 +76,7 @@ export function parseArguments(argv) {
   if (!isPosition(options.position)) throw new Error(`--position が不正です: ${options.position}`);
   if (!/^[-A-Za-z0-9_.]+$/.test(options.layerId)) throw new Error("--layer-id に使用できない文字があります");
   if (options.idleSeed !== null && options.idleSeed.length === 0) throw new Error("--idle-seed は空にできません");
+  if (!new Set(["track", "idle", "both"]).has(options.headSource)) throw new Error(`--head-source が不正です: ${options.headSource}`);
   if (!new Set(["on", "off"]).has(options.springbone)) throw new Error(`--springbone が不正です: ${options.springbone}`);
   if (options.apply && !options.project) throw new Error("--apply には --project <dir> が必要です");
   return options;
