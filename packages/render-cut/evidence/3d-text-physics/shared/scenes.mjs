@@ -136,6 +136,45 @@ export function spawnAimScene({
   };
 }
 
+// physics.start="layout" + physics.holdSeconds を宣言したシーン（task 2026-08-14-3d-physics-hold の
+// layout+hold 決定論・崩落 smoke 共通）。横並びでわずかに斜め（layout.rotation.z）な読めるテロップを
+// holdSeconds ぶん静止させたあと、床へ崩れ落として積もらせる。layout.position.y を持ち上げて
+// （デフォルト line layout の y=0 のままだと floor 直上すぎるため）明確な落下距離を作る
+export function layoutHoldScene({
+  text = "落ちるテスト",
+  seed = 13,
+  duration = 2.5,
+  dt = 1 / 120,
+  restitution = 0.35,
+  holdSeconds = 1.0,
+  rotationZ = 0.22,
+} = {}) {
+  return {
+    texts: [textEntry("fall", text, {
+      size: 0.4,
+      layout: { type: "line", spacing: 0.55, position: [0, 1.6, 0], rotation: [0, 0, rotationZ] },
+    })],
+    physics: {
+      enabled: true,
+      seed,
+      duration,
+      dt,
+      gravity: [0, -1],
+      restitution,
+      targets: ["fall"],
+      start: "layout",
+      holdSeconds,
+      colliders: [
+        { type: "floor", y: -2.6 },
+        { type: "wall", x: 5.6 },
+        { type: "wall", x: -5.6 },
+      ],
+    },
+    camera: CAMERA,
+    lights: LIGHTS,
+  };
+}
+
 export { SPAWN_TARGET_PLATFORM_POINTS };
 
 export { PERSON_SILHOUETTE_POINTS };
