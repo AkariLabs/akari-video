@@ -124,6 +124,7 @@ All contracts follow the
 | [contract-2026-07-25-recipe-v0.md](./contract-2026-07-25-recipe-v0.md) | recipe.json v0 (freezing and presenting confirmed preferences) |
 | [contract-2026-07-25-memory-connection-v0.md](./contract-2026-07-25-memory-connection-v0.md) | memory connection v0 (declaring external reference-memory connections in connections.json) |
 | [contract-2026-07-26-avatar-registry-v0.md](./contract-2026-07-26-avatar-registry-v0.md) | Avatar registry v0 (avatar.json / rendition.json / staged read-out) |
+| [contract-2026-08-13-avatar-drive-v0.md](./contract-2026-08-13-avatar-drive-v0.md) | 2D avatar sprite drive v0 (audio-envelope mouth states / deterministic blinking / baked alpha clip) |
 
 ### Direction notes
 

@@ -1,0 +1,18 @@
+{
+  "version": 0,
+  "size": { "width": 128, "height": 128 },
+  "anchor": { "x": 0.5, "y": 1 },
+  "base": "base.png",
+  "mouth": {
+    "closed": "mouth-closed.png",
+    "mid": "mouth-mid.png",
+    "open": "mouth-open.png",
+    "smile": "mouth-mid.png"
+  },
+  "eyes": {
+    "open": "eyes-open.png",
+    "closed": "eyes-closed.png"
+  },
+  "fixture_note": "Unknown fields and extra difference keys are intentionally additive."
+}
+
