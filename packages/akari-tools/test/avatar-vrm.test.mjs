@@ -10,6 +10,7 @@ import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
 import { parseArguments } from "../bin/avatar-vrm/arguments.mjs";
 import { EXPRESSION_NAMES, expressionValues, validateDriveDocument } from "../bin/avatar-vrm/drive.mjs";
 import { findChrome } from "../bin/avatar-vrm/find-chrome.mjs";
+import { addHeadDrive, computeIdleOffsets, modelBytesSeed } from "../bin/avatar-vrm/idle-motion.mjs";
 import { buildAvatarVrmLayer } from "../bin/avatar-vrm/layer.mjs";
 
 test("avatar-vrm: 口形と blink は毎フレーム 6 expression を明示する", () => {
@@ -79,6 +80,7 @@ test("avatar-vrm vendor bridge: 実 three-vrm の VRM1/MToon/update API を使�
   assert.ok(vrm);
   assert.deepEqual(Object.keys(vrm.expressionManager.expressionMap).sort(), [...EXPRESSION_NAMES].sort());
   assert.equal(vrm.humanoid.getRawBoneNode("head"), nodes[4]);
+  assert.equal(vrm.springBoneManager.joints.size, 9);
 
   vrm.expressionManager.setValue("aa", 1);
   vrm.update(0);
@@ -130,7 +132,8 @@ test("avatar-vrm vendor bridge: 実 three-vrm が VRM1/MToon/expression を head
       { url: `data:model/gltf-binary;base64,${modelData}` },
     );
     assert.deepEqual(loaded.expressions, [...EXPRESSION_NAMES].sort());
-    assert.equal(loaded.mtoonMaterialCount, 3);
+    assert.equal(loaded.mtoonMaterialCount, 4);
+    assert.equal(loaded.springboneJoints, 9);
     assert.equal(loaded.threeRevision, "185");
 
     await page.evaluate(() => window.avatarVrmRenderer.renderExpressions({}));
@@ -141,6 +144,20 @@ test("avatar-vrm vendor bridge: 実 three-vrm が VRM1/MToon/expression を head
     const blink = Buffer.from(await page.screenshot({ omitBackground: true }));
     assert.notDeepEqual(aa, neutral);
     assert.notDeepEqual(blink, neutral);
+
+    const torsoPixels = [];
+    for (let frame = 0; frame < 6; frame += 1) {
+      const offsets = computeIdleOffsets({ frame, fps: 30, intensity: 0.35, seed: "fixture" });
+      await page.evaluate(
+        (next) => window.avatarVrmRenderer.renderExpressions({}, next, 1 / 30),
+        offsets,
+      );
+      torsoPixels.push(Buffer.from(await page.screenshot({
+        omitBackground: true,
+        clip: { x: 360, y: 650, width: 1, height: 1 },
+      })));
+    }
+    assert.ok(torsoPixels.every((pixel) => pixel.equals(torsoPixels[0])), "unrigged torso must not flicker");
     assert.deepEqual(pageErrors, []);
   } finally {
     await page.close().catch(() => {});
@@ -156,15 +173,72 @@ test("avatar-vrm: drive は語彙・同長・fps を検証する", () => {
   assert.throws(() => validateDriveDocument({ drive: { ...valid.drive, fps: 0 } }), /fps/);
 });
 
+test("avatar-vrm: drive.head は同長の度単位 yaw/pitch/roll を additive に受け付ける", () => {
+  const document = {
+    drive: {
+      fps: 30,
+      mouth: ["closed", "a"],
+      eyes: ["open", "open"],
+      head: [{ yaw: 4, pitch: -2 }, { roll: 1.5 }],
+    },
+  };
+  assert.deepEqual(validateDriveDocument(document), document.drive);
+  assert.throws(() => validateDriveDocument({ drive: { ...document.drive, head: [{ yaw: 1 }] } }), /長さ/);
+  assert.throws(() => validateDriveDocument({ drive: { ...document.drive, head: [{ yaw: "1" }, null] } }), /有限数/);
+  assert.throws(() => validateDriveDocument({ drive: { ...document.drive, head: [{ x: 1 }, null] } }), /未対応/);
+
+  const base = computeIdleOffsets({ frame: 10, fps: 30, intensity: 0.35, seed: "fixture" });
+  const driven = addHeadDrive(base, { yaw: 4, pitch: -2, roll: 1.5 });
+  assert.ok(Math.abs(driven.head.x - (base.head.x - 2 * Math.PI / 180)) < Number.EPSILON);
+  assert.ok(Math.abs(driven.head.y - (base.head.y + 4 * Math.PI / 180)) < Number.EPSILON);
+  assert.ok(Math.abs(driven.head.z - (base.head.z + 1.5 * Math.PI / 180)) < Number.EPSILON);
+  assert.deepEqual(driven.chest, base.chest);
+});
+
+test("avatar-vrm: idle motion は frame/fps と seed だけで決まり、強度 0 は厳密な零", () => {
+  const input = { frame: 137, fps: 30, intensity: 0.35, seed: "same-seed" };
+  assert.deepEqual(computeIdleOffsets(input), computeIdleOffsets(input));
+  assert.notDeepEqual(computeIdleOffsets(input), computeIdleOffsets({ ...input, seed: "other-seed" }));
+  assert.deepEqual(computeIdleOffsets({ ...input, intensity: 0 }), {
+    chest: { x: 0, y: 0, z: 0 },
+    spine: { x: 0, y: 0, z: 0 },
+    head: { x: 0, y: 0, z: 0 },
+    hips: { x: 0, y: 0, z: 0 },
+  });
+  assert.equal(modelBytesSeed(Buffer.from("model")), modelBytesSeed(Buffer.from("model")));
+  assert.notEqual(modelBytesSeed(Buffer.from("model")), modelBytesSeed(Buffer.from("other")));
+
+  let maximumDegrees = 0;
+  for (let frame = 0; frame < 360; frame += 1) {
+    const offsets = computeIdleOffsets({ frame, fps: 30, intensity: 0.35, seed: "fixture" });
+    for (const bone of Object.values(offsets)) {
+      for (const radians of Object.values(bone)) maximumDegrees = Math.max(maximumDegrees, Math.abs(radians) * 180 / Math.PI);
+    }
+  }
+  assert.ok(maximumDegrees > 0);
+  assert.ok(maximumDegrees < 1, `default maximum was ${maximumDegrees} degrees`);
+});
+
 test("avatar-vrm: 引数の既定値と不正値を外部処理前に確定する", () => {
   const parsed = parseArguments(["--model", "model.vrm", "--drive", "drive.json", "--out", "avatar.mov"]);
   assert.equal(parsed.framing, "bust");
   assert.equal(parsed.position, "right-bottom");
   assert.equal(parsed.outputWidth, 1920);
   assert.equal(parsed.outputHeight, 1080);
+  assert.equal(parsed.idle, true);
+  assert.equal(parsed.idleIntensity, 0.35);
+  assert.equal(parsed.idleSeed, null);
+  assert.equal(parsed.springbone, "on");
+  const motion = parseArguments(["--no-idle", "--idle-intensity", "0", "--idle-seed", "demo", "--springbone", "off"]);
+  assert.equal(motion.idle, false);
+  assert.equal(motion.idleIntensity, 0);
+  assert.equal(motion.idleSeed, "demo");
+  assert.equal(motion.springbone, "off");
   assert.throws(() => parseArguments(["--framing", "face"]), /framing/);
   assert.throws(() => parseArguments(["--position", "somewhere"]), /position/);
   assert.throws(() => parseArguments(["--scale", "0"]), /正数/);
+  assert.throws(() => parseArguments(["--idle-intensity", "1.1"]), /1 以下/);
+  assert.throws(() => parseArguments(["--springbone", "maybe"]), /springbone/);
   assert.throws(() => parseArguments(["--apply"]), /project/);
 });
 
@@ -231,6 +305,10 @@ test("avatar-vrm fixture: generator は同一 byte 列と VRM1/MToon/6 expressio
   assert.equal(json.extensions.VRMC_vrm.meta.licenseUrl, "https://vrm.dev/licenses/1.0/");
   assert.deepEqual(Object.keys(json.extensions.VRMC_vrm.expressions.preset), EXPRESSION_NAMES);
   assert.ok(json.extensionsUsed.includes("VRMC_materials_mtoon"));
+  assert.ok(json.extensionsUsed.includes("VRMC_springBone"));
+  assert.equal(json.extensions.VRMC_springBone.springs.length, 3);
+  assert.equal(json.extensions.VRMC_springBone.springs.reduce((count, spring) => count + spring.joints.length - 1, 0), 9);
+  assert.deepEqual(json.nodes[4].children, [17, 18, 20, 24, 28]);
   assert.ok(json.materials.some((material) => material.alphaMode === "BLEND" && material.extensions?.VRMC_materials_mtoon));
   assert.equal(json.extensions.VRMC_vrm.humanoid.humanBones.head.node, 4);
 });

@@ -5,6 +5,19 @@ export const MOUTH_EXPRESSION = Object.freeze({ a: "aa", i: "ih", u: "ou", e: "e
 
 const MOUTH_STATES = new Set(["closed", ...Object.keys(MOUTH_EXPRESSION)]);
 const EYE_STATES = new Set(["open", "closed"]);
+const HEAD_KEYS = new Set(["yaw", "pitch", "roll"]);
+
+function validateHeadState(state, index) {
+  if (state == null) return null;
+  if (typeof state !== "object" || Array.isArray(state)) {
+    throw new Error(`drive.head[${index}] は object または null である必要があります`);
+  }
+  for (const key of Object.keys(state)) {
+    if (!HEAD_KEYS.has(key)) throw new Error(`drive.head[${index}].${key} は未対応です`);
+    if (!Number.isFinite(state[key])) throw new Error(`drive.head[${index}].${key} は有限数である必要があります`);
+  }
+  return Object.fromEntries(Object.entries(state));
+}
 
 export function validateDriveDocument(document) {
   const drive = document?.drive;
@@ -17,13 +30,24 @@ export function validateDriveDocument(document) {
   if (drive.mouth.length !== drive.eyes.length) {
     throw new Error(`drive.mouth と drive.eyes の長さが一致しません: ${drive.mouth.length} != ${drive.eyes.length}`);
   }
+  if (drive.head !== undefined && !Array.isArray(drive.head)) {
+    throw new Error("drive.head は配列である必要があります");
+  }
+  if (drive.head && drive.head.length !== drive.mouth.length) {
+    throw new Error(`drive.head と drive.mouth の長さが一致しません: ${drive.head.length} != ${drive.mouth.length}`);
+  }
   drive.mouth.forEach((state, index) => {
     if (!MOUTH_STATES.has(state)) throw new Error(`drive.mouth[${index}] が不正です: ${state}`);
   });
   drive.eyes.forEach((state, index) => {
     if (!EYE_STATES.has(state)) throw new Error(`drive.eyes[${index}] が不正です: ${state}`);
   });
-  return { fps: drive.fps, mouth: [...drive.mouth], eyes: [...drive.eyes] };
+  return {
+    fps: drive.fps,
+    mouth: [...drive.mouth],
+    eyes: [...drive.eyes],
+    ...(drive.head ? { head: drive.head.map(validateHeadState) } : {}),
+  };
 }
 
 export function loadDrive(path) {

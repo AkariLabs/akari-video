@@ -2,6 +2,22 @@ import { existsSync, readdirSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
 
+function cachedHeadlessShellCandidates() {
+  const root = join(homedir(), ".cache", "puppeteer", "chrome-headless-shell");
+  if (!existsSync(root)) return [];
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+    .reverse()
+    .flatMap((version) => [
+      join(root, version, "chrome-headless-shell-mac-arm64", "chrome-headless-shell"),
+      join(root, version, "chrome-headless-shell-mac-x64", "chrome-headless-shell"),
+      join(root, version, "chrome-headless-shell-linux64", "chrome-headless-shell"),
+      join(root, version, "chrome-headless-shell-win64", "chrome-headless-shell.exe"),
+    ]);
+}
+
 function cachedCandidates() {
   const root = join(homedir(), ".cache", "puppeteer", "chrome");
   if (!existsSync(root)) return [];
@@ -31,5 +47,6 @@ function systemCandidates() {
 }
 
 export function findChrome() {
-  return [...cachedCandidates(), ...systemCandidates()].find((candidate) => existsSync(candidate)) ?? null;
+  return [...cachedHeadlessShellCandidates(), ...cachedCandidates(), ...systemCandidates()]
+    .find((candidate) => existsSync(candidate)) ?? null;
 }

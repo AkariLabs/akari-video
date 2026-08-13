@@ -112,12 +112,20 @@ const hairPosition = accessor(hairPositionsArray, "VEC3", 5126, 34962, true);
 const hairNormal = accessor(flatNormals(7), "VEC3", 5126, 34962);
 const hairIndices = accessor(new Uint16Array([0, 1, 2, 0, 2, 3, 4, 5, 6]), "SCALAR", 5123, 34963);
 
+// Appended after every v0 accessor so the existing fixture indices stay stable.
+const springHairPosition = accessor(new Float32Array([
+  -0.045, 0.015, 0.025, 0.045, 0.015, 0.025,
+  0.035, -0.17, 0.025, -0.035, -0.17, 0.025,
+]), "VEC3", 5126, 34962, true);
+const springHairNormal = accessor(flatNormals(4), "VEC3", 5126, 34962);
+const springHairIndices = accessor(new Uint16Array([0, 1, 2, 0, 2, 3]), "SCALAR", 5123, 34963);
+
 const nodes = [
   { name: "hips", translation: [0, 0.9, 0], children: [1, 11, 14] },
   { name: "spine", translation: [0, 0.28, 0], children: [2] },
   { name: "chest", translation: [0, 0.30, 0], children: [3, 5, 8] },
   { name: "neck", translation: [0, 0.14, 0], children: [4] },
-  { name: "head", translation: [0, 0.20, 0], children: [17, 18] },
+  { name: "head", translation: [0, 0.20, 0], children: [17, 18, 20, 24, 28] },
   { name: "leftUpperArm", translation: [0.24, 0.12, 0], children: [6] },
   { name: "leftLowerArm", translation: [0.28, -0.14, 0], children: [7] },
   { name: "leftHand", translation: [0.18, -0.16, 0] },
@@ -133,6 +141,18 @@ const nodes = [
   { name: "face", mesh: 1 },
   { name: "hair-alpha", mesh: 2 },
   { name: "body-graphic", mesh: 0 },
+  { name: "spring-hair-left-0", translation: [-0.25, 0.09, 0.055], mesh: 3, children: [21] },
+  { name: "spring-hair-left-1", translation: [0, -0.15, 0], mesh: 3, children: [22] },
+  { name: "spring-hair-left-2", translation: [0, -0.15, 0], mesh: 3, children: [23] },
+  { name: "spring-hair-left-tip", translation: [0, -0.15, 0] },
+  { name: "spring-hair-center-0", translation: [0, 0.11, 0.065], mesh: 3, children: [25] },
+  { name: "spring-hair-center-1", translation: [0, -0.16, 0], mesh: 3, children: [26] },
+  { name: "spring-hair-center-2", translation: [0, -0.16, 0], mesh: 3, children: [27] },
+  { name: "spring-hair-center-tip", translation: [0, -0.16, 0] },
+  { name: "spring-hair-right-0", translation: [0.25, 0.09, 0.055], mesh: 3, children: [29] },
+  { name: "spring-hair-right-1", translation: [0, -0.15, 0], mesh: 3, children: [30] },
+  { name: "spring-hair-right-2", translation: [0, -0.15, 0], mesh: 3, children: [31] },
+  { name: "spring-hair-right-tip", translation: [0, -0.15, 0] },
 ];
 
 const humanBones = Object.fromEntries([
@@ -144,8 +164,8 @@ const humanBones = Object.fromEntries([
 const expressionNames = ["aa", "ih", "ou", "ee", "oh", "blink"];
 const gltf = {
   asset: { version: "2.0", generator: "AKARI Video deterministic CC0 VRM fixture generator" },
-  extensionsUsed: ["VRMC_vrm", "VRMC_materials_mtoon"],
-  extensionsRequired: ["VRMC_vrm", "VRMC_materials_mtoon"],
+  extensionsUsed: ["VRMC_vrm", "VRMC_materials_mtoon", "VRMC_springBone"],
+  extensionsRequired: ["VRMC_vrm", "VRMC_materials_mtoon", "VRMC_springBone"],
   extensions: {
     VRMC_vrm: {
       specVersion: "1.0",
@@ -168,6 +188,16 @@ const gltf = {
         }])),
       },
     },
+    VRMC_springBone: {
+      specVersion: "1.0",
+      colliders: [],
+      colliderGroups: [],
+      springs: [
+        { name: "left-hair", joints: [20, 21, 22, 23].map((node) => ({ node, stiffness: 0.8, gravityPower: 0.02, gravityDir: [0, -1, 0], dragForce: 0.28 })), colliderGroups: [] },
+        { name: "center-hair", joints: [24, 25, 26, 27].map((node) => ({ node, stiffness: 0.9, gravityPower: 0.02, gravityDir: [0, -1, 0], dragForce: 0.32 })), colliderGroups: [] },
+        { name: "right-hair", joints: [28, 29, 30, 31].map((node) => ({ node, stiffness: 0.75, gravityPower: 0.02, gravityDir: [0, -1, 0], dragForce: 0.24 })), colliderGroups: [] },
+      ],
+    },
   },
   scene: 0,
   scenes: [{ nodes: [0, 19] }],
@@ -184,6 +214,7 @@ const gltf = {
       }],
     },
     { name: "transparent-hair", primitives: [{ attributes: { POSITION: hairPosition, NORMAL: hairNormal }, indices: hairIndices, material: 2 }] },
+    { name: "spring-hair-segment", primitives: [{ attributes: { POSITION: springHairPosition, NORMAL: springHairNormal }, indices: springHairIndices, material: 3 }] },
   ],
   materials: [
     {
@@ -200,6 +231,11 @@ const gltf = {
       name: "alpha-edge-mtoon", doubleSided: true, alphaMode: "BLEND",
       pbrMetallicRoughness: { baseColorFactor: [0.15, 0.75, 1, 0.55], metallicFactor: 0, roughnessFactor: 1 },
       extensions: { VRMC_materials_mtoon: { specVersion: "1.0", transparentWithZWrite: false, shadeColorFactor: [0.05, 0.35, 0.60] } },
+    },
+    {
+      name: "spring-hair-mtoon", doubleSided: true,
+      pbrMetallicRoughness: { baseColorFactor: [0.20, 0.30, 0.95, 1], metallicFactor: 0, roughnessFactor: 1 },
+      extensions: { VRMC_materials_mtoon: { specVersion: "1.0", shadeColorFactor: [0.06, 0.10, 0.50] } },
     },
   ],
   accessors,
