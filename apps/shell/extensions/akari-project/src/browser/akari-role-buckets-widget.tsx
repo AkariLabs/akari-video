@@ -46,6 +46,7 @@ import {
     assetStateBadgeText,
     assetStateBadgeTitle,
     catalogCardUiEventTarget,
+    catalogPurchaseActionText,
     CatalogPackGroup,
     deriveCatalogEmptyStateKind,
     formatCatalogPackBreakdown,
@@ -2513,15 +2514,35 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** カード下部のアクション行。origin で「使う」（resolver）か「取り込む/頼む」（local）かを切り替える。 */
     protected renderCatalogCardActions(item: AssetCatalogViewItem): React.ReactNode {
+        const actionRowStyle: React.CSSProperties = {
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '4px',
+            width: '100%',
+            maxWidth: '100%',
+            minWidth: 0,
+            overflow: 'hidden'
+        };
+        const buttonStyle: React.CSSProperties = {
+            minWidth: 0,
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            boxSizing: 'border-box',
+            fontSize: '0.78em',
+            padding: '2px 4px'
+        };
         if (item.origin === 'local') {
             return (
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div data-akari-catalog-actions style={actionRowStyle}>
                     {!item.installed && (
                         <button
                             type='button'
                             className='theia-button secondary'
                             title={`${item.title} をエージェントに取り込ませる`}
-                            style={{ flex: '1 1 0', fontSize: '0.78em', padding: '2px 4px' }}
+                            data-akari-catalog-action='import'
+                            style={{ ...buttonStyle, flex: '1 1 0' }}
                             onClick={() => void this.importCatalogItem(item)}
                         >
                             取り込む
@@ -2531,7 +2552,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         type='button'
                         className='theia-button secondary'
                         title={`${item.title} についてエージェントに頼む`}
-                        style={{ flex: '1 1 0', fontSize: '0.78em', padding: '2px 4px' }}
+                        data-akari-catalog-action='ask'
+                        style={{ ...buttonStyle, flex: '1 1 0' }}
                         onClick={() => void this.askAgentAboutCatalogItem(item)}
                     >
                         頼む
@@ -2545,30 +2567,37 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             // 購入できる場所へ連れて行く方が親切と判断）。
             const price = item.price ?? 0;
             const url = storeProductUrl(this.storeConnection.url, item.id);
+            const text = catalogPurchaseActionText(price, this.catalogViewMode, url);
             return (
-                <button
-                    type='button'
-                    className='theia-button secondary'
-                    title={`ストアの商品ページを開きます（¥${price.toLocaleString()}）: ${url}`}
-                    style={{ width: '100%', fontSize: '0.78em', padding: '2px 4px' }}
-                    onClick={() => this.windowService.openNewWindow(url, { external: true })}
-                >
-                    {`¥${price.toLocaleString()} で購入 — ストアを開く`}
-                </button>
+                <div data-akari-catalog-actions style={actionRowStyle}>
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        title={text.title}
+                        data-akari-catalog-action='purchase'
+                        style={{ ...buttonStyle, flex: '1 1 auto', width: '100%' }}
+                        onClick={() => this.windowService.openNewWindow(url, { external: true })}
+                    >
+                        {text.label}
+                    </button>
+                </div>
             );
         }
         const resolving = this.resolvingAssetKeys.has(item.key);
         return (
-            <button
-                type='button'
-                className='theia-button'
-                disabled={resolving}
-                title={item.state === 'cached' ? `${item.title} はプロジェクトに配置済みです` : `${item.title} を取得してプロジェクトに配置します`}
-                style={{ width: '100%', fontSize: '0.78em', padding: '2px 4px' }}
-                onClick={() => void this.useAssetCatalogItem(item)}
-            >
-                {resolving ? '取得中…' : '使う'}
-            </button>
+            <div data-akari-catalog-actions style={actionRowStyle}>
+                <button
+                    type='button'
+                    className='theia-button'
+                    disabled={resolving}
+                    title={item.state === 'cached' ? `${item.title} はプロジェクトに配置済みです` : `${item.title} を取得してプロジェクトに配置します`}
+                    data-akari-catalog-action='use'
+                    style={{ ...buttonStyle, flex: '1 1 auto', width: '100%' }}
+                    onClick={() => void this.useAssetCatalogItem(item)}
+                >
+                    {resolving ? '取得中…' : '使う'}
+                </button>
+            </div>
         );
     }
 
@@ -2740,7 +2769,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             <span className={this.playingCatalogAudioKey === item.key ? 'codicon codicon-debug-stop' : 'codicon codicon-play'} aria-hidden='true' />
                         </button>
                     )}
-                    <div style={{ minWidth: 0 }}>{this.renderCatalogCardActions(item)}</div>
+                    <div style={{ minWidth: 0, maxWidth: '100%' }}>{this.renderCatalogCardActions(item)}</div>
                 </div>
             </div>
         );

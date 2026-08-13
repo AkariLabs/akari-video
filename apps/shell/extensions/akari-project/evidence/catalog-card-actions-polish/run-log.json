@@ -1,0 +1,141 @@
+[
+  {
+    "step": "left-panel-resized",
+    "value": {
+      "before": 164.9140625,
+      "after": 319.7421875,
+      "target": 320
+    }
+  },
+  {
+    "step": "grid-card-action-measurements",
+    "value": {
+      "available": {
+        "actions": {
+          "left": 163.24,
+          "leftMargin": 6,
+          "marginDelta": 0,
+          "right": 242.49,
+          "rightMargin": 6
+        },
+        "buttons": [
+          {
+            "action": "use",
+            "clientWidth": 67,
+            "insideLeft": true,
+            "insideRight": true,
+            "left": 175.24,
+            "right": 242.49,
+            "scrollWidth": 67,
+            "text": "使う",
+            "textOverflow": "ellipsis",
+            "title": "アクション確認 無料 を取得してプロジェクトに配置します",
+            "whiteSpace": "nowrap"
+          }
+        ],
+        "card": {
+          "left": 157.24,
+          "right": 248.49,
+          "width": 91.25
+        },
+        "key": "still/free-card",
+        "state": "available"
+      },
+      "local": {
+        "actions": {
+          "left": 64,
+          "leftMargin": 6,
+          "marginDelta": 0,
+          "right": 143.24,
+          "rightMargin": 6
+        },
+        "buttons": [
+          {
+            "action": "import",
+            "clientWidth": 26,
+            "insideLeft": true,
+            "insideRight": true,
+            "left": 76,
+            "right": 101.63,
+            "scrollWidth": 49,
+            "text": "取り込む",
+            "textOverflow": "ellipsis",
+            "title": "アクション確認 ローカル素材 をエージェントに取り込ませる",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "ask",
+            "clientWidth": 26,
+            "insideLeft": true,
+            "insideRight": true,
+            "left": 117.63,
+            "right": 143.25,
+            "scrollWidth": 28,
+            "text": "頼む",
+            "textOverflow": "ellipsis",
+            "title": "アクション確認 ローカル素材 についてエージェントに頼む",
+            "whiteSpace": "nowrap"
+          }
+        ],
+        "card": {
+          "left": 58,
+          "right": 149.24,
+          "width": 91.24
+        },
+        "key": "still/local-action-sample",
+        "state": "local"
+      },
+      "locked": {
+        "actions": {
+          "left": 64,
+          "leftMargin": 6,
+          "marginDelta": 0,
+          "right": 143.24,
+          "rightMargin": 6
+        },
+        "buttons": [
+          {
+            "action": "purchase",
+            "clientWidth": 67,
+            "insideLeft": true,
+            "insideRight": true,
+            "left": 76,
+            "right": 143.24,
+            "scrollWidth": 67,
+            "text": "¥2,980",
+            "textOverflow": "ellipsis",
+            "title": "¥2,980 で購入 — ストアを開く（https://akari-oss.app/lab/asset.html?id=paid-card-2980）",
+            "whiteSpace": "nowrap"
+          }
+        ],
+        "card": {
+          "left": 58,
+          "right": 149.24,
+          "width": 91.24
+        },
+        "key": "still/paid-card-2980",
+        "state": "locked"
+      },
+      "mode": "grid"
+    }
+  },
+  {
+    "step": "list-purchase-action",
+    "value": {
+      "actionAtRight": true,
+      "buttonInsideRow": true,
+      "buttonRight": 350.7421875,
+      "mode": "list",
+      "rowRight": 357.7421875,
+      "text": "¥2,980 で購入",
+      "title": "¥2,980 で購入 — ストアを開く（https://akari-oss.app/lab/asset.html?id=paid-card-2980）"
+    }
+  },
+  {
+    "step": "preset-read-only-regression",
+    "value": {
+      "actionButtons": 0,
+      "count": 36
+    }
+  }
+]
