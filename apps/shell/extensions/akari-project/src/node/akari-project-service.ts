@@ -20,6 +20,7 @@ import {
     DroppedVideoImportResult,
     EditLintOutcome,
     MaterialThumbnailOutcome,
+    PresetShowcase,
     ProjectGitEligibility,
     StoreConnectionStatus,
     StoreDevicePollOutcome,
@@ -28,11 +29,12 @@ import {
 } from '../common/akari-project-protocol';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
 import { CATALOG_ROOT_UPWARD_MAX_DEPTH, resolveUpwardCatalogRoot } from './catalog-root-search';
-import { assetResolverSrcCandidates, editLintCliCandidates } from './packaged-tool-candidates';
+import { assetResolverSrcCandidates, editLintCliCandidates, presetShowcaseIndexCandidates } from './packaged-tool-candidates';
 import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-reader';
 import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem, selectResolverAudioFileRef, toResolverAssetCatalogViewItem } from '../common/asset-catalog-view';
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverPreviewUrl } from './resolver-preview-url';
+import { parsePresetShowcaseJsonl } from '../common/preset-showcase';
 import {
     pollDeviceConnection,
     readCredentials,
@@ -272,6 +274,28 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 error: resolverResult.error
             }
         };
+    }
+
+    async getPresetShowcase(): Promise<PresetShowcase> {
+        const [telop, lut] = await Promise.all([
+            this.loadPresetShowcaseIndex('telop'),
+            this.loadPresetShowcaseIndex('lut')
+        ]);
+        return { telop, lut };
+    }
+
+    protected async loadPresetShowcaseIndex(kind: 'telop' | 'lut'): Promise<PresetShowcase['telop']> {
+        const directory = kind === 'telop' ? 'telop' : 'luts';
+        const candidates = presetShowcaseIndexCandidates(__dirname, process.cwd(), directory, this.resourcesPath());
+        for (const candidate of candidates) {
+            try {
+                const raw = await fs.readFile(candidate, 'utf8');
+                return parsePresetShowcaseJsonl(raw, kind);
+            } catch {
+                // 読めない候補は次の開発配置 / パッケージ配置へ進む。
+            }
+        }
+        return [];
     }
 
     /**

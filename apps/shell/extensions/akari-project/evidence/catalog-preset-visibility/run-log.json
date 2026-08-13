@@ -1,0 +1,55 @@
+[
+  {
+    "step": "category-chips",
+    "value": {
+      "all": 62,
+      "audio": 27,
+      "broll": 1,
+      "font": 31,
+      "overlay": 0,
+      "preset:lut": 10,
+      "preset:telop": 36,
+      "scene3d": 3,
+      "still": 0
+    }
+  },
+  {
+    "step": "telop-grid-read-only",
+    "value": {
+      "assetItems": 0,
+      "buttons": 0,
+      "count": 36,
+      "mode": "grid",
+      "packs": 0
+    }
+  },
+  {
+    "step": "telop-list-read-only",
+    "value": {
+      "buttons": 0,
+      "mode": "list",
+      "rows": 36
+    }
+  },
+  {
+    "step": "lut-list-read-only",
+    "value": {
+      "buttons": 0,
+      "count": 10,
+      "descriptions": 10,
+      "rows": 10
+    }
+  },
+  {
+    "step": "preset-search-filter",
+    "value": {
+      "buttons": 0,
+      "count": 1,
+      "text": "ナイトネオン暗部を青紫へ寄せ、コントラストと彩度を強めて色光を際立たせるネオン夜景ルック"
+    }
+  },
+  {
+    "step": "preset-search-empty",
+    "value": "条件に一致するプリセットがありません"
+  }
+]

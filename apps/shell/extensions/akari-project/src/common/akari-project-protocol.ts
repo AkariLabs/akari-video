@@ -1,4 +1,6 @@
 import { CatalogPack } from './catalog-packs';
+import { PresetShowcase } from './preset-showcase';
+export { PresetShowcase, PresetShowcaseItem, PresetShowcaseKind } from './preset-showcase';
 
 export const AKARI_PROJECT_SERVICE_PATH = '/services/akari-project';
 export const AkariProjectService = Symbol('AkariProjectService');
@@ -220,6 +222,8 @@ export interface AkariProjectService {
      * 到達不能（未デプロイ・開発配置なし等）でもローカル分は表示を継続する（fail-soft）。
      */
     getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView>;
+    /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
+    getPresetShowcase(): Promise<PresetShowcase>;
     /**
      * resolver 直行（エージェント非経由）で素材を解決し、指定プロジェクトの assets/ 配下へ
      * 配置する。無料 or 購入済み（entitlements 保有）のみ成功する。未購入は

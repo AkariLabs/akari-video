@@ -17,6 +17,9 @@ import {
     AssetCatalogResolverStatus,
     AssetCatalogViewItem,
     DroppedAsset,
+    PresetShowcase,
+    PresetShowcaseItem,
+    PresetShowcaseKind,
     StoreConnectionStatus
 } from '../common/akari-project-protocol';
 import { StoreConnectionFlowController } from '../common/store-connection-flow';
@@ -52,6 +55,7 @@ import {
 } from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { CatalogPack } from '../common/catalog-packs';
+import { derivePresetShowcaseChips, filterPresetShowcaseItems } from '../common/preset-showcase';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO, revealInFileManagerActionLabel } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu } from './akari-context-menu';
@@ -80,6 +84,7 @@ const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
 // — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
 const CATALOG_FETCH_FAILED_MESSAGE = '素材カタログを取得できませんでした。接続を確認して再試行してください。';
 const CATALOG_EMPTY_MESSAGE = 'カタログに素材がまだありません。';
+const EMPTY_PRESET_SHOWCASE: PresetShowcase = { telop: [], lut: [] };
 
 // 素材グリッド（renderMaterialsTab）専用。カタログ側 renderCatalogCard の 150px グリッドとは無関係
 // — 「波及するなら素材グリッドだけに閉じる」（task.md「調べること」2）ため意図的に分けて定義する。
@@ -250,6 +255,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** カタログ面「1 ビュー」= resolver 合成 + ローカル catalog/ のマージ済み一覧。 */
     protected assetCatalogItems: AssetCatalogViewItem[] = [];
+    /** 素材カタログとは別系統で読む、テロップ / LUT の読み取り専用参照表。 */
+    protected presetShowcase: PresetShowcase = EMPTY_PRESET_SHOWCASE;
     /** `catalog/packs.json`（無ければ空）。パック棚のグループ化はフロント側で行う。 */
     protected catalogPacks: CatalogPack[] = [];
     /**
@@ -1299,10 +1306,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.catalogPickError = undefined;
-        const view = await this.projectService.getAssetCatalogView(preferenceRoot);
+        const [view, presetShowcase] = await Promise.all([
+            this.projectService.getAssetCatalogView(preferenceRoot),
+            this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE)
+        ]);
         this.assetCatalogItems = view.items;
         this.catalogPacks = view.packs;
         this.catalogResolver = view.resolver;
+        this.presetShowcase = presetShowcase;
         this.catalogLoading = false;
         this.update();
     }
@@ -1375,6 +1386,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected catalogCategoryChips(): CatalogCategoryChip[] {
         return deriveCatalogCategoryChips(this.assetCatalogItems);
+    }
+
+    protected selectedPresetKind(): PresetShowcaseKind | undefined {
+        if (this.catalogCategory === 'preset:telop') {
+            return 'telop';
+        }
+        if (this.catalogCategory === 'preset:lut') {
+            return 'lut';
+        }
+        return undefined;
+    }
+
+    protected filteredPresetShowcaseItems(kind: PresetShowcaseKind): PresetShowcaseItem[] {
+        return filterPresetShowcaseItems(this.presetShowcase[kind], this.catalogQuery);
     }
 
     protected setCatalogQuery(query: string): void {
@@ -2028,11 +2053,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderCatalogBody(): React.ReactNode {
-        const filtered = this.filteredCatalogItems();
+        const presetKind = this.selectedPresetKind();
+        const filtered = presetKind ? [] : this.filteredCatalogItems();
         const { groups, ungrouped } = groupCatalogItemsByPack(filtered, this.catalogPacks);
         let content: React.ReactNode;
         if (this.catalogLoading) {
             content = <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+        } else if (presetKind) {
+            content = this.renderPresetShowcase(presetKind);
         } else if (!this.assetCatalogItems.length && this.catalogCategory === 'all') {
             content = this.renderCatalogEmptyState();
         } else if (!filtered.length) {
@@ -2063,10 +2091,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}
                 data-akari-catalog-item-count={this.assetCatalogItems.length}
+                data-akari-catalog-preset-count={presetKind ? this.presetShowcase[presetKind].length : 0}
                 data-akari-catalog-view-mode={this.catalogViewMode}
             >
-                {this.renderCatalogResolverRetry()}
-                {this.renderCatalogAudioBar()}
+                {!presetKind && this.renderCatalogResolverRetry()}
+                {!presetKind && this.renderCatalogAudioBar()}
                 {content}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>
                     {this.renderCatalogDeveloperLinkRow()}
@@ -2237,7 +2266,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderCatalogControls(): React.ReactNode {
-        const categoryChips = this.catalogCategoryChips();
+        const categoryChips = [
+            ...this.catalogCategoryChips(),
+            ...derivePresetShowcaseChips(this.presetShowcase)
+        ];
         const nextMode: CatalogViewMode = this.catalogViewMode === 'grid' ? 'list' : 'grid';
         return (
             <div data-akari-catalog-controls style={{
@@ -2542,6 +2574,99 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderCatalogItem(item: AssetCatalogViewItem): React.ReactNode {
         return this.catalogViewMode === 'list' ? this.renderCatalogListRow(item) : this.renderCatalogCard(item);
+    }
+
+    protected renderPresetShowcase(kind: PresetShowcaseKind): React.ReactNode {
+        const items = this.filteredPresetShowcaseItems(kind);
+        if (!items.length) {
+            return (
+                <p data-akari-catalog-preset-empty style={{ opacity: 0.7, padding: '16px' }}>
+                    条件に一致するプリセットがありません
+                </p>
+            );
+        }
+        const style: React.CSSProperties = this.catalogViewMode === 'grid'
+            ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP, padding: '10px' }
+            : { display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px' };
+        return (
+            <div style={style} data-akari-catalog-preset-kind={kind}>
+                {items.map(item => this.renderPresetShowcaseItem(item))}
+            </div>
+        );
+    }
+
+    protected renderPresetShowcaseItem(item: PresetShowcaseItem): React.ReactNode {
+        return this.catalogViewMode === 'list'
+            ? this.renderPresetShowcaseListRow(item)
+            : this.renderPresetShowcaseCard(item);
+    }
+
+    protected presetShowcaseTitle(item: PresetShowcaseItem): string {
+        if (item.kind === 'lut') {
+            return [item.description, item.whenToUse].filter(Boolean).join('\n');
+        }
+        return `${item.name} (${item.category})`;
+    }
+
+    protected presetShowcaseIcon(item: PresetShowcaseItem): string {
+        return item.kind === 'telop' ? 'codicon codicon-symbol-text' : 'codicon codicon-color-mode';
+    }
+
+    protected renderPresetShowcaseListRow(item: PresetShowcaseItem): React.ReactNode {
+        const detail = item.kind === 'telop'
+            ? [item.category, ...item.tags.slice(0, 2)].filter(Boolean).join(' · ')
+            : item.description;
+        return (
+            <div
+                key={`${item.kind}/${item.id}`}
+                title={this.presetShowcaseTitle(item)}
+                data-akari-catalog-preset-item={`${item.kind}/${item.id}`}
+                data-akari-catalog-preset-list-row
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    minWidth: 0,
+                    padding: '5px 6px',
+                    borderRadius: '6px',
+                    background: 'var(--theia-sideBar-background)',
+                    border: '1px solid var(--theia-sideBar-border)'
+                }}
+            >
+                <div style={{ width: '42px', height: '28px', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', background: 'var(--theia-editorWidget-background)' }}>
+                    <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ opacity: 0.55 }} />
+                </div>
+                <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                    <span style={{ fontSize: '0.69em', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</span>
+                </div>
+            </div>
+        );
+    }
+
+    protected renderPresetShowcaseCard(item: PresetShowcaseItem): React.ReactNode {
+        const detail = item.kind === 'telop' ? item.category : item.description;
+        return (
+            <div
+                key={`${item.kind}/${item.id}`}
+                title={this.presetShowcaseTitle(item)}
+                data-akari-catalog-preset-item={`${item.kind}/${item.id}`}
+                style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', borderRadius: '6px', background: 'var(--theia-sideBar-background)', border: '1px solid var(--theia-sideBar-border)' }}
+            >
+                <div style={{ aspectRatio: '16 / 9', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--theia-editorWidget-background)' }}>
+                    <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: '1.45em', opacity: 0.5 }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '5px' }}>
+                    <span style={{ fontSize: '0.78em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                    <span style={{ fontSize: '0.68em', opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', fontSize: '0.66em', overflow: 'hidden' }}>
+                        {item.tags.slice(0, 3).map(tag => (
+                            <span key={tag} style={{ padding: '0 4px', borderRadius: '8px', background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>{tag}</span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     protected renderCatalogListRow(item: AssetCatalogViewItem): React.ReactNode {

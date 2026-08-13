@@ -36,3 +36,22 @@ export function editLintCliCandidates(dirnameValue: string, cwd: string, resourc
     );
     return candidates;
 }
+
+export function presetShowcaseIndexCandidates(
+    dirnameValue: string,
+    cwd: string,
+    kind: 'telop' | 'luts',
+    resourcesPath?: string
+): string[] {
+    const relativePath = `presets/${kind}/index.jsonl`;
+    const candidates: string[] = [];
+    if (resourcesPath) {
+        candidates.push(resolve(resourcesPath, relativePath));
+    }
+    candidates.push(
+        resolve(cwd, '../../', relativePath),
+        resolve(cwd, relativePath),
+        resolve(dirnameValue, '../../../../../../../', relativePath)
+    );
+    return candidates;
+}
