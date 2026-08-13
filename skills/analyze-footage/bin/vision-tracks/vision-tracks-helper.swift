@@ -1,8 +1,10 @@
-// vision-tracks-helper — 顔ランドマーク・手ポーズ抽出ヘルパー（macOS Vision framework）
+// vision-tracks-helper — 顔ランドマーク・手ポーズ・3D ボディポーズ抽出ヘルパー
+// （macOS Vision framework）
 //
 // 役割は 1 つだけである。stdin から届く raw BGRA フレーム列をフレーム単位で読み、
-// VNDetectFaceLandmarksRequest / VNDetectHumanHandPoseRequest（--kinds で選択、両方
-// 指定時は 1 回の perform() 呼び出しで両方検出）を実行し、検出結果を JSON Lines
+// VNDetectFaceLandmarksRequest / VNDetectHumanHandPoseRequest /
+// VNDetectHumanBodyPose3DRequest（--kinds で選択、複数指定時は 1 回の perform() 呼び出し）を
+// 実行し、検出結果を JSON Lines
 // （1 フレーム 1 行）として stdout へ流す。入力フレーム数と出力行数は 1:1 で、
 // コンテナ・時刻（t 秒への変換）・複数トラックファイルへの組み立ては一切扱わない
 // （ラッパー vision-tracks.mjs の責務。person-matte-helper.swift と同じ分離）。
@@ -20,6 +22,10 @@
 // キーごと省略する（契約 §2.2「捏造ゼロ — 無い関節は無い」）。顔ランドマークは
 // Vision が 6 領域（瞳 2・目 2・唇 2）をまとめて計算するため、`landmarks` が nil
 // （顔向き・遮蔽などで計算に失敗）の検出は行単位でスキップし、捏造しない。
+// 3D ボディポーズは macOS 14+ の API。`position` は Vision のモデル座標
+// （root/hip 相対メートル）、`projection` は pointInImage の 2D 投影を y 反転した値。
+// VNHumanBodyRecognizedPoint3D は関節別 confidence を公開しないため、各 joint.conf には
+// 観測全体の confidence を明示的に複製する（契約 §2.4）。
 //
 // ビルド:
 //   swiftc -O -parse-as-library vision-tracks-helper.swift -o vision-tracks-helper
@@ -29,7 +35,7 @@
 // 既存の Command Line Tools だけを使う。
 //
 // 使い方:
-//   vision-tracks-helper --width 1280 --height 720 --kinds face,hand
+//   vision-tracks-helper --width 1280 --height 720 --kinds face,hand,body-pose-3d
 //                        [--joint-confidence 0.3] [--metrics <path>]
 //
 // 成功時は stdout が JSON Lines（1 フレーム 1 行）、終了コード 0。失敗時は stderr へ
@@ -97,8 +103,11 @@ struct VisionTracksHelper {
         guard options.width > 0, options.height > 0 else {
             throw HelperError(message: "--width and --height are required and must be positive")
         }
-        guard !options.kinds.isEmpty, options.kinds.isSubset(of: ["face", "hand"]) else {
-            throw HelperError(message: "--kinds must be a comma list drawn from face,hand")
+        guard !options.kinds.isEmpty,
+            options.kinds.isSubset(of: ["face", "hand", "body-pose-3d"])
+        else {
+            throw HelperError(
+                message: "--kinds must be a comma list drawn from face,hand,body-pose-3d")
         }
         guard options.jointConfidence >= 0, options.jointConfidence <= 1 else {
             throw HelperError(message: "--joint-confidence must be within 0...1")
@@ -137,6 +146,7 @@ struct VisionTracksHelper {
         var requests: [VNRequest] = []
         var faceRequest: VNDetectFaceLandmarksRequest?
         var handRequest: VNDetectHumanHandPoseRequest?
+        var bodyPose3DRequest: VNDetectHumanBodyPose3DRequest?
         if options.kinds.contains("face") {
             let request = VNDetectFaceLandmarksRequest()
             faceRequest = request
@@ -146,6 +156,14 @@ struct VisionTracksHelper {
             let request = VNDetectHumanHandPoseRequest()
             request.maximumHandCount = 2
             handRequest = request
+            requests.append(request)
+        }
+        if options.kinds.contains("body-pose-3d") {
+            guard #available(macOS 14.0, *) else {
+                throw HelperError(message: "body-pose-3d requires macOS 14 or later")
+            }
+            let request = VNDetectHumanBodyPose3DRequest()
+            bodyPose3DRequest = request
             requests.append(request)
         }
 
@@ -161,6 +179,7 @@ struct VisionTracksHelper {
         var visionSeconds = 0.0
         var faceDetections = 0
         var handDetections = 0
+        var bodyPose3DDetections = 0
         var framesWithFaceLandmarksNil = 0
         let startedAt = now()
         let stdout = FileHandle.standardOutput
@@ -201,6 +220,12 @@ struct VisionTracksHelper {
                 handDetections += handEntries.count
                 line["hand"] = handEntries
             }
+            if #available(macOS 14.0, *), let bodyPose3DRequest {
+                let observations = bodyPose3DRequest.results ?? []
+                let entries = observations.compactMap { bodyPose3DDetectionJSON(observation: $0) }
+                bodyPose3DDetections += entries.count
+                line["body-pose-3d"] = entries
+            }
 
             try writeLine(line, to: stdout)
             frames += 1
@@ -218,6 +243,7 @@ struct VisionTracksHelper {
             "vision_ms_per_frame": frames > 0 ? visionSeconds / Double(frames) * 1000 : 0,
             "face_detections": faceDetections,
             "hand_detections": handDetections,
+            "body_pose_3d_detections": bodyPose3DDetections,
             // landmarks が nil で捨てた検出数。捏造ゼロの裏付け（実測を report.md へ）。
             "face_landmarks_nil_skipped": framesWithFaceLandmarksNil,
         ]
@@ -341,6 +367,48 @@ struct VisionTracksHelper {
             "conf": Double(observation.confidence),
             "joints": joints,
         ]
+    }
+
+    // MARK: - 3D ボディポーズ（macOS 14+）
+
+    // VNHumanBodyPose3DObservation.JointName と契約の snake_case キーの対応表（17 関節）。
+    @available(macOS 14.0, *)
+    private static let bodyPose3DJoints: [(VNHumanBodyPose3DObservation.JointName, String)] = [
+        (.root, "root"),
+        (.rightHip, "right_hip"), (.rightKnee, "right_knee"), (.rightAnkle, "right_ankle"),
+        (.leftHip, "left_hip"), (.leftKnee, "left_knee"), (.leftAnkle, "left_ankle"),
+        (.spine, "spine"), (.centerShoulder, "center_shoulder"),
+        (.centerHead, "center_head"), (.topHead, "top_head"),
+        (.leftShoulder, "left_shoulder"), (.leftElbow, "left_elbow"), (.leftWrist, "left_wrist"),
+        (.rightShoulder, "right_shoulder"), (.rightElbow, "right_elbow"), (.rightWrist, "right_wrist"),
+    ]
+
+    /// simd_float4x4 が表す平行移動成分。Vision の `position` は root/hip 相対メートル。
+    private static func translation(_ matrix: simd_float4x4) -> [Double] {
+        [Double(matrix.columns.3.x), Double(matrix.columns.3.y), Double(matrix.columns.3.z)]
+    }
+
+    @available(macOS 14.0, *)
+    private static func bodyPose3DDetectionJSON(
+        observation: VNHumanBodyPose3DObservation
+    ) -> [String: Any]? {
+        var joints: [String: Any] = [:]
+        for (jointName, key) in bodyPose3DJoints {
+            guard let point3D = try? observation.recognizedPoint(jointName),
+                let point2D = try? observation.pointInImage(jointName)
+            else { return nil }
+            joints[key] = [
+                "position": translation(point3D.position),
+                "projection": [
+                    Double(clampUnit(point2D.location.x)),
+                    Double(clampUnit(flipY(point2D.location.y))),
+                ],
+                // Vision 3D API は関節別 confidence を公開しない。観測 confidence の複製で
+                // あることを契約に明記し、消費側が由来を誤認しないようにする。
+                "conf": Double(observation.confidence),
+            ]
+        }
+        return ["conf": Double(observation.confidence), "joints": joints]
     }
 
     // MARK: - ピクセルバッファ

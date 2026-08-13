@@ -30,6 +30,13 @@
       "provider": "apple-vision",
       "tool": "vision-tracks.mjs v0",
       "generated_at": "2026-08-11T12:00:00Z"
+    },
+    "body_pose_3d": {
+      "path": "vision/body-pose-3d.json",
+      "sample_fps": 24,
+      "provider": "apple-vision",
+      "tool": "vision-tracks.mjs v0",
+      "generated_at": "2026-08-13T12:00:00Z"
     }
   }
 }

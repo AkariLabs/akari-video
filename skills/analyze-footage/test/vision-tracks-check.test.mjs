@@ -7,7 +7,14 @@
 // （contract §3「宣言のない能力は存在しない」の実装確認）。
 
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -24,8 +31,8 @@ function which(command) {
   return found || null;
 }
 
-function runCheck(pathOverride) {
-  return spawnSync(process.execPath, [wrapperScript, "--check"], {
+function runCheck(pathOverride, kinds = null) {
+  return spawnSync(process.execPath, [wrapperScript, "--check", ...(kinds ? ["--kinds", kinds] : [])], {
     encoding: "utf8",
     env: { ...process.env, PATH: pathOverride },
   });
@@ -39,6 +46,41 @@ test(
     const reported = JSON.parse(result.stdout);
     assert.equal(reported.available, false);
     assert.ok(typeof reported.reason === "string" && reported.reason.length > 0);
+  },
+);
+
+test(
+  "macOS 13 では body-pose-3d だけ unavailable になり face,hand は利用できる",
+  { skip: isDarwin ? false : "darwin 前提のテスト" },
+  () => {
+    const commands = Object.fromEntries(
+      ["swiftc", "ffmpeg", "ffprobe"].map((command) => [command, which(command)]),
+    );
+    if (Object.values(commands).some((command) => !command)) {
+      return;
+    }
+    const dir = mkdtempSync(join(tmpdir(), "vision-tracks-check-macos13-test-"));
+    try {
+      for (const [command, target] of Object.entries(commands)) {
+        symlinkSync(realpathSync(target), join(dir, command));
+      }
+      const swVers = join(dir, "sw_vers");
+      writeFileSync(swVers, "#!/bin/sh\necho '13.0'\n", "utf8");
+      chmodSync(swVers, 0o755);
+      const pathOverride = `${dir}:/usr/bin:/bin`;
+
+      const legacyResult = runCheck(pathOverride, "face,hand");
+      assert.equal(legacyResult.status, 0, legacyResult.stderr);
+      assert.equal(JSON.parse(legacyResult.stdout).available, true);
+
+      const bodyPoseResult = runCheck(pathOverride, "body-pose-3d");
+      assert.equal(bodyPoseResult.status, 0, bodyPoseResult.stderr);
+      const bodyPoseReported = JSON.parse(bodyPoseResult.stdout);
+      assert.equal(bodyPoseReported.available, false);
+      assert.match(bodyPoseReported.reason, /macOS 14/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   },
 );
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// vision-tracks.mjs — 顔ランドマーク・手ポーズのトラックファイルを 1 組作り、
+// vision-tracks.mjs — 顔ランドマーク・手ポーズ・3D ボディポーズのトラックファイルを 1 組作り、
 // analysis.json の tracks へ追記するラッパー
 //
 // 2 プロセスを繋いだだけの薄い層である。
@@ -15,7 +15,7 @@
 // 使い方:
 //   node vision-tracks.mjs --check
 //   node vision-tracks.mjs --input <video> --analysis <analysis.json>
-//                          [--kinds face,hand] [--fps 24] [--decode-width 1280]
+//                          [--kinds face,hand,body-pose-3d] [--fps 24] [--decode-width 1280]
 //                          [--joint-confidence 0.3] [--metrics <path>]
 //
 // 出力は stdout の 1 行 JSON。成功時 `ok: true` と実測値、失敗時 `ok: false` と `reason`。
@@ -35,7 +35,7 @@ const DEFAULT_DECODE_WIDTH = 1280;
 const DEFAULT_FPS = 24;
 const DEFAULT_JOINT_CONFIDENCE = 0.3;
 const DEFAULT_KINDS = ["face", "hand"];
-const KINDS = ["face", "hand"];
+const KINDS = ["face", "hand", "body-pose-3d"];
 const TOOL_ID = "vision-tracks.mjs v0";
 const PROVIDER_NAME = "apple-vision";
 
@@ -43,6 +43,11 @@ const PROVIDER_NAME = "apple-vision";
 const KIND_INFO = {
   face: { trackKey: "face_landmarks", fileName: "face-landmarks.json", trackKind: "face-landmarks" },
   hand: { trackKey: "hand_pose", fileName: "hand-pose.json", trackKind: "hand-pose" },
+  "body-pose-3d": {
+    trackKey: "body_pose_3d",
+    fileName: "body-pose-3d.json",
+    trackKind: "body-pose-3d",
+  },
 };
 
 function printJson(value) {
@@ -62,7 +67,7 @@ function spawnSyncSafe(command, args) {
   }
 }
 
-function checkAvailability() {
+function checkAvailability(kinds) {
   if (os.platform() !== "darwin") {
     return { available: false, reason: `macOS ではありません（${os.platform()}）` };
   }
@@ -73,6 +78,23 @@ function checkAvailability() {
   }
   if (swift.error || swift.status !== 0) {
     return { available: false, reason: "swiftc を起動できません" };
+  }
+
+  if (kinds.includes("body-pose-3d")) {
+    const productVersion = spawnSyncSafe("sw_vers", ["-productVersion"]);
+    if (productVersion.error || productVersion.status !== 0) {
+      return { available: false, reason: "macOS のバージョンを確認できません（sw_vers failed）" };
+    }
+    const majorVersion = Number.parseInt(String(productVersion.stdout ?? "").trim().split(".")[0], 10);
+    if (!Number.isInteger(majorVersion)) {
+      return { available: false, reason: "macOS のバージョンを解釈できません" };
+    }
+    if (majorVersion < 14) {
+      return {
+        available: false,
+        reason: `body-pose-3d は macOS 14 以上が必要です（現在: ${String(productVersion.stdout).trim()}）`,
+      };
+    }
   }
 
   for (const command of ["ffmpeg", "ffprobe"]) {
@@ -93,7 +115,9 @@ function parseKinds(raw) {
   if (kinds.length === 0) throw new Error("--kinds は 1 件以上指定してください");
   const unknown = kinds.filter((k) => !KINDS.includes(k));
   if (unknown.length > 0) {
-    throw new Error(`--kinds に未知の種類があります（face,hand のみ）: ${unknown.join(", ")}`);
+    throw new Error(
+      `--kinds に未知の種類があります（face,hand,body-pose-3d のみ）: ${unknown.join(", ")}`,
+    );
   }
   return kinds;
 }
@@ -442,7 +466,7 @@ async function main() {
     return;
   }
 
-  const availability = checkAvailability();
+  const availability = checkAvailability(options.kinds);
   if (options.check) {
     printJson(availability);
     return;
