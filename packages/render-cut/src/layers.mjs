@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { writeFilterMaskFile } from "./filter-mask.mjs";
 import { computePerspectiveFfmpegCorners, PERSPECTIVE_PAD_FRAC } from "./perspective-homography.mjs";
 import {
   expandLayerForPerspectiveKeyframes,
@@ -168,23 +169,7 @@ function resolveEditFps(projectRoot) {
   }
 }
 
-function appendFilterLayerComposite({
-  filters,
-  previous,
-  layer,
-  idBase,
-  t,
-  end,
-  layerDuration,
-  duration,
-  width,
-  height,
-  projectRoot,
-  fps,
-}) {
-  // Perspective keyframes expand one layer into adjacent sub-layers whose boundaries are usually
-  // not exact frame boundaries. The base is CFR, so snapping every trim boundary to its frame grid
-  // keeps adjacent concat segments bit-identical and prevents accumulated duplicate/dropped frames.
+function snapFilterWindow(t, end, fps) {
   let snappedT = t;
   let snappedEnd = end;
   if (isFiniteNumber(fps) && fps > 0) {
@@ -193,10 +178,27 @@ function appendFilterLayerComposite({
     snappedEnd = Math.round(end / frame) * frame;
     if (!(snappedEnd > snappedT)) snappedEnd = snappedT + frame;
   }
-  const snappedLayerDuration = snappedEnd - snappedT;
+  return { snappedT, snappedEnd };
+}
 
-  const hasBefore = snappedT > EPSILON;
-  const hasAfter = snappedEnd < duration - EPSILON;
+function appendFilterLayerComposite({
+  filters,
+  previous,
+  layer,
+  idBase,
+  t,
+  end,
+  duration,
+  width,
+  height,
+  projectRoot,
+  fps,
+  maskInputIndex,
+  activeFrameCount,
+}) {
+  // t/end are already snapped before mask generation so framesync sees exactly the same window.
+  const hasBefore = t > EPSILON;
+  const hasAfter = end < duration - EPSILON;
   const needed = 1 + (hasBefore ? 1 : 0) + (hasAfter ? 1 : 0);
   let prevBefore = null;
   let prevDuring = previous;
@@ -213,14 +215,14 @@ function appendFilterLayerComposite({
   const parts = [];
   if (hasBefore) {
     const segA = `[${idBase}_segA]`;
-    filters.push(`${prevBefore}trim=start=0:end=${formatNumber(snappedT)},setpts=PTS-STARTPTS${segA}`);
+    filters.push(`${prevBefore}trim=start=0:end=${formatNumber(t)},setpts=PTS-STARTPTS${segA}`);
     parts.push(segA);
   }
 
   const baseDuring = `[${idBase}_bd]`;
   const gradeInput = `[${idBase}_gradein]`;
   filters.push(
-    `${prevDuring}trim=start=${formatNumber(snappedT)}:end=${formatNumber(snappedEnd)},setpts=PTS-STARTPTS,split=2${baseDuring}${gradeInput}`,
+    `${prevDuring}trim=start=${formatNumber(t)}:end=${formatNumber(end)},setpts=PTS-STARTPTS,split=2${baseDuring}${gradeInput}`,
   );
   const baseRgb = `[${idBase}_bdrgb]`;
   filters.push(`${baseDuring}format=gbrp${baseRgb}`);
@@ -254,34 +256,30 @@ function appendFilterLayerComposite({
     throw new Error(`unsupported layer filter type: ${layer.filter?.type}`);
   }
 
-  const maskRaw = `[${idBase}_maskraw]`;
-  const maskOpaque = `[${idBase}_maskopaque]`;
-  const rateSuffix = isFiniteNumber(fps) && fps > 0 ? `:r=${formatNumber(fps)}` : "";
-  filters.push(`color=c=white:s=${width}x${height}:d=${formatNumber(snappedLayerDuration)}${rateSuffix}${maskRaw}`);
-  filters.push(`${maskRaw}format=yuva420p${maskOpaque}`);
-
-  const padFrac = PERSPECTIVE_PAD_FRAC;
-  const denom = 1 + 2 * padFrac;
-  const destCorners = computePerspectiveFfmpegCorners(layer.perspective.corners, padFrac);
-  const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = destCorners;
-  const scaledBy = (value, axisExpr) => `${formatNumber(value)}*${axisExpr}`;
-  const maskQuad = `[${idBase}_maskquad]`;
-  filters.push(
-    `${maskOpaque}pad=trunc(iw*${formatNumber(denom)}/2)*2:trunc(ih*${formatNumber(denom)}/2)*2:x=trunc(iw*${formatNumber(padFrac)}/2)*2:y=trunc(ih*${formatNumber(padFrac)}/2)*2:color=black@0,`
-      + `perspective=x0=${scaledBy(x0, "W")}:y0=${scaledBy(y0, "H")}:x1=${scaledBy(x1, "W")}:y1=${scaledBy(y1, "H")}:x2=${scaledBy(x2, "W")}:y2=${scaledBy(y2, "H")}:x3=${scaledBy(x3, "W")}:y3=${scaledBy(y3, "H")}:sense=destination:eval=init,`
-      + `crop=trunc((iw/${formatNumber(denom)})/2)*2:trunc((ih/${formatNumber(denom)})/2)*2:trunc((iw*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2:trunc((ih*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2${maskQuad}`,
-  );
   const mask = `[${idBase}_mask]`;
-  filters.push(`${maskQuad}alphaextract${mask}`);
+  // Keep the final mask frame available for one extra tick. Without this, maskedmerge's framesync
+  // can race when the primary segment and raw mask reach EOF at the same timestamp, producing a
+  // nondeterministic one-frame drop. The exact frame cap below prevents this cloned tail from
+  // being appended to the result.
+  filters.push(
+    `[${maskInputIndex}:v]scale=${width}:${height}:flags=bilinear,format=gray,`
+      + `tpad=stop_mode=clone:stop_duration=${formatNumber(1 / fps)}${mask}`,
+  );
 
   const segB = `[${idBase}_segB]`;
   const fpsFilter = isFiniteNumber(fps) && fps > 0 ? `,fps=${formatNumber(fps)}` : "";
-  filters.push(`${baseRgb}${gradedRgb}${mask}maskedmerge,format=yuv420p${fpsFilter}${segB}`);
+  // tpad above is only an EOF guard for framesync. Cap the merged segment to the snapped window's
+  // exact frame count before concat so its cloned tail cannot lengthen this layer or a later filter
+  // layer that trims the running output by absolute timeline time.
+  filters.push(
+    `${baseRgb}${gradedRgb}${mask}maskedmerge,format=yuv420p${fpsFilter},`
+      + `trim=end_frame=${activeFrameCount},setpts=PTS-STARTPTS${segB}`,
+  );
   parts.push(segB);
 
   if (hasAfter) {
     const segC = `[${idBase}_segC]`;
-    filters.push(`${prevAfter}trim=start=${formatNumber(snappedEnd)}:end=${formatNumber(duration)},setpts=PTS-STARTPTS${segC}`);
+    filters.push(`${prevAfter}trim=start=${formatNumber(end)}:end=${formatNumber(duration)},setpts=PTS-STARTPTS${segC}`);
     parts.push(segC);
   }
 
@@ -329,14 +327,13 @@ export function buildLayersCompositeCommand({
   let previous = "[0:v]";
   let nextInputIndex = 1;
 
-  // layers[].keyframes[].perspective: ffmpeg's perspective= filter exposes no per-frame time
-  // variable at all (verified empirically -- see layer-keyframes.mjs's own header comment on
-  // expandLayerForPerspectiveKeyframes), so it cannot be driven by an eval=frame expression like
-  // every other keyframed property here. Instead a layer with keyframed perspective is expanded,
-  // up front, into several adjacent synthetic sub-layers each holding a static perspective value
-  // -- ordinary layers (the overwhelming majority) pass through this unchanged (flatMap of a
-  // single-element array is the identity), so this adds no cost/behavior change for them.
-  const expandedLayers = layers.flatMap(expandLayerForPerspectiveKeyframes);
+  // Filter regions use a frame-by-frame mask below, so expanding their perspective keyframes into
+  // static intervals would reintroduce the visible staircase. Source-backed video/baked layers
+  // still need the existing static perspective expansion because ffmpeg's perspective filter has
+  // no per-frame time variable; keep that policy at this call site rather than changing the shared
+  // expandLayerForPerspectiveKeyframes helper.
+  const expandedLayers = layers.flatMap((layer) =>
+    layer.kind === "filter" ? [layer] : expandLayerForPerspectiveKeyframes(layer));
   const needsFps = expandedLayers.some((layer) => layer.kind === "filter");
   const resolvedFps = needsFps
     ? (isFiniteNumber(fps) && fps > 0
@@ -391,19 +388,46 @@ export function buildLayersCompositeCommand({
         warnings.push(`filter layer ${layer.id ?? index} has no usable perspective region; skipped`);
         return;
       }
+      const { snappedT, snappedEnd } = snapFilterWindow(t, end, resolvedFps);
+      const sanitizedId = String(layer.id ?? "filter").replace(/[^A-Za-z0-9_-]/gu, "_") || "filter";
+      const maskPath = join(dirname(outputPath), "filter-masks", `${sanitizedId}_${index}.gray`);
+      const maskInfo = writeFilterMaskFile({
+        layer,
+        layerT: t,
+        windowStartT: snappedT,
+        windowDuration: snappedEnd - snappedT,
+        fps: resolvedFps,
+        width,
+        height,
+        outputPath: maskPath,
+      });
+      const maskInputIndex = nextInputIndex++;
+      inputArgs.push(
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "gray",
+        "-s",
+        `${maskInfo.width}x${maskInfo.height}`,
+        "-r",
+        formatNumber(maskInfo.fps),
+        "-i",
+        maskInfo.path,
+      );
       previous = appendFilterLayerComposite({
         filters,
         previous,
         layer,
         idBase,
-        t,
-        end,
-        layerDuration,
+        t: snappedT,
+        end: snappedEnd,
         duration,
         width,
         height,
         projectRoot,
         fps: resolvedFps,
+        maskInputIndex,
+        activeFrameCount: maskInfo.frameCount,
       });
       return;
     }
