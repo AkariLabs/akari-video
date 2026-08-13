@@ -97,4 +97,45 @@ export function personSilhouetteScene({
   };
 }
 
+// 「細い collider」= 床から浮かせた狭い台（polygon の flat-top platform）。x ∈ [-0.7, 0.7] と
+// spawn 幅（x ±0.5）にほぼ合わせた狭さで、旧 5 レーン固定グリッド（laneCount=5,
+// x=(col-2)*1.1+jitter、列は x=±2.2/±1.1/0 に固定）ではそもそも列 0/4 が台の外側に固定される
+// ため乗せられない（社内実測: 頭幅 ±0.9 の帯へ seed を 242 通り全数探索しても 1 文字も乗らな
+// かった）。circle ではなく flat-top にしているのは、丸みで滑って台の外へ逃げるのを避けるため
+const SPAWN_TARGET_PLATFORM_POINTS = [[-0.7, -0.5], [0.7, -0.5], [0.7, -3.0], [-0.7, -3.0]];
+
+// physics.spawn を宣言したシーン（task 2026-08-14-3d-physics-spawn の spawn 決定論・狙い smoke
+// 共通）。狭い spawn 矩形（x ±0.5）を、上記の細い台の直上へ宣言する。floor はさらに下
+// （y=-5.0）に安全網として置く — spawn の狙いが外れた場合は「ずっと落下し続ける」のではなく
+// floor 付近まで落ち切るので、着地失敗を数値で判別しやすい
+export function spawnAimScene({
+  text = "着地点",
+  seed = 5,
+  duration = 3.0,
+  dt = 1 / 120,
+  restitution = 0.15,
+} = {}) {
+  return {
+    texts: [textEntry("fall", text, { size: 0.32 })],
+    physics: {
+      enabled: true,
+      seed,
+      duration,
+      dt,
+      gravity: [0, -1],
+      restitution,
+      targets: ["fall"],
+      spawn: { x: [-0.5, 0.5], y: [1.0, 1.6] },
+      colliders: [
+        { type: "floor", y: -5.0 },
+        { type: "polygon", points: SPAWN_TARGET_PLATFORM_POINTS },
+      ],
+    },
+    camera: CAMERA,
+    lights: LIGHTS,
+  };
+}
+
+export { SPAWN_TARGET_PLATFORM_POINTS };
+
 export { PERSON_SILHOUETTE_POINTS };
