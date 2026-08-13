@@ -198,7 +198,7 @@ test("hasLayers is false for missing/empty layers and true once populated", () =
   assert.equal(hasLayers({ layers: [{ id: "a" }] }), true);
 });
 
-test("buildLayersCompositeCommand: a normal-blend layer uses itsoffset + trim + overlay with a time-window enable clause", () => {
+test("buildLayersCompositeCommand: a normal-blend baked layer uses a PTS shift + trim + overlay with a time-window enable clause", () => {
   const { args } = buildLayersCompositeCommand({
     layers: [{ id: "fx", t: 2, duration: 3, kind: "baked", src: "fx.mov" }],
     projectRoot: "/project",
@@ -207,11 +207,10 @@ test("buildLayersCompositeCommand: a normal-blend layer uses itsoffset + trim + 
     outputPath: "/project/.akari/render-tmp/layered.mp4",
     duration: 10,
   });
-  assert.ok(args.includes("-itsoffset"));
-  assert.ok(args.includes("2"));
+  assert.ok(!args.includes("-itsoffset"));
   assert.ok(args.includes("/project/fx.mov"));
   const filterComplex = args[args.indexOf("-filter_complex") + 1];
-  assert.match(filterComplex, /trim=duration=3/);
+  assert.match(filterComplex, /trim=duration=3,setpts=PTS-STARTPTS\+2\/TB/u);
   assert.match(filterComplex, /overlay=x=\(main_w-overlay_w\)\/2\+0:y=\(main_h-overlay_h\)\/2\+0/);
   assert.match(filterComplex, /enable='between\(t,2,5\)'/);
   assert.doesNotMatch(filterComplex, /blend=all_mode/);
@@ -249,7 +248,7 @@ test("isImageLayerSource matches plan.mjs's still-image extension set (png/jpg/j
   assert.equal(isImageLayerSource(null), false);
 });
 
-test("buildLayersCompositeCommand: an image-extension src gets -loop 1 on its own input (normal blend, after -itsoffset)", () => {
+test("buildLayersCompositeCommand: an image-extension src gets -loop 1 and its normal branch gets a PTS shift", () => {
   const { args } = buildLayersCompositeCommand({
     layers: [{ id: "photo", t: 1.5, duration: 2, kind: "video", src: "photo.png" }],
     projectRoot: "/project",
@@ -259,7 +258,9 @@ test("buildLayersCompositeCommand: an image-extension src gets -loop 1 on its ow
     outputPath: "/project/.akari/render-tmp/layered.mp4",
     duration: 10,
   });
-  assert.deepEqual(inputOptionsFor(args, "/project/photo.png"), ["-itsoffset", "1.5", "-loop", "1"]);
+  assert.deepEqual(inputOptionsFor(args, "/project/photo.png"), ["-loop", "1"]);
+  const filterComplex = args[args.indexOf("-filter_complex") + 1];
+  assert.match(filterComplex, /trim=duration=2,setpts=PTS-STARTPTS\+1\.5\/TB/u);
 });
 
 test("buildLayersCompositeCommand: an image-extension src gets -loop 1 on its own input (blend mode, no -itsoffset)", () => {
@@ -277,7 +278,7 @@ test("buildLayersCompositeCommand: an image-extension src gets -loop 1 on its ow
   assert.deepEqual(inputOptionsFor(args, "/project/photo.jpg"), ["-loop", "1"]);
 });
 
-test("buildLayersCompositeCommand: a non-image (video) src still gets no -loop -- byte-identical to before image-layer support", () => {
+test("buildLayersCompositeCommand: a non-image video src gets neither -loop nor an input-level offset", () => {
   const { args } = buildLayersCompositeCommand({
     layers: [{ id: "vid", t: 0, duration: 2, kind: "video", src: "clip.mp4" }],
     projectRoot: "/project",
@@ -287,7 +288,34 @@ test("buildLayersCompositeCommand: a non-image (video) src still gets no -loop -
     outputPath: "/project/.akari/render-tmp/layered.mp4",
     duration: 10,
   });
-  assert.deepEqual(inputOptionsFor(args, "/project/clip.mp4"), ["-itsoffset", "0"]);
+  assert.deepEqual(inputOptionsFor(args, "/project/clip.mp4"), []);
+  const filterComplex = args[args.indexOf("-filter_complex") + 1];
+  assert.match(filterComplex, /trim=duration=2,setpts=PTS-STARTPTS\+0\/TB/u);
+});
+
+test("buildLayersCompositeCommand: video and baked layers sharing a resolved src decode once and consume distinct split branches", () => {
+  const { args } = buildLayersCompositeCommand({
+    layers: [
+      { id: "a", t: 1, duration: 2, kind: "video", src: "shared.mp4" },
+      { id: "b", t: 3, duration: 1, kind: "video", src: "./shared.mp4", blend: "screen" },
+      { id: "c", t: 5, duration: 2, kind: "baked", src: "shared.mp4" },
+    ],
+    projectRoot: "/project",
+    ffmpegCommand: "ffmpeg",
+    inputPath: "/project/base.mp4",
+    outputPath: "/project/output.mp4",
+    duration: 8,
+    width: 640,
+    height: 360,
+  });
+  assert.equal(args.filter((arg) => arg === "-i").length, 2, "base + one shared layer input");
+  assert.equal(args.filter((arg) => arg === "/project/shared.mp4").length, 1);
+  assert.ok(!args.includes("-itsoffset"));
+  const filterComplex = args[args.indexOf("-filter_complex") + 1];
+  assert.match(filterComplex, /\[1:v\]split=3\[vsrc0_0\]\[vsrc0_1\]\[vsrc0_2\]/u);
+  assert.match(filterComplex, /\[vsrc0_0\]trim=duration=2,setpts=PTS-STARTPTS\+1\/TB/u);
+  assert.match(filterComplex, /\[vsrc0_1\]trim=duration=1,setpts=PTS-STARTPTS/u);
+  assert.match(filterComplex, /\[vsrc0_2\]trim=duration=2,setpts=PTS-STARTPTS\+5\/TB/u);
 });
 
 test("buildLayersCompositeCommand: layer.crop inserts a crop= step before scale, x+w/y+h expressed via iw/ih", () => {
@@ -1198,7 +1226,7 @@ test("buildLayersCompositeCommand: a VP9 alpha WebM layer gets -c:v libvpx-vp9 o
       outputPath: join(root, "layered.mp4"),
       duration: 5,
     });
-    assert.deepEqual(inputOptionsFor(args, layerPath), ["-itsoffset", "0.5", "-c:v", "libvpx-vp9"]);
+    assert.deepEqual(inputOptionsFor(args, layerPath), ["-c:v", "libvpx-vp9"]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -1220,7 +1248,7 @@ test("buildLayersCompositeCommand: a ProRes 4444 layer keeps the default decoder
     });
     // ProRes 4444 decodes to yuva444p10le — the alpha is in the pixel format, so every decoder
     // emits it and naming one would only risk changing behaviour for no gain.
-    assert.deepEqual(inputOptionsFor(args, layerPath), ["-itsoffset", "0.5"]);
+    assert.deepEqual(inputOptionsFor(args, layerPath), []);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -1239,7 +1267,10 @@ test("buildLayersCompositeCommand: declared alpha with no alpha-capable decoder 
       "-metadata:s:v:0", "alpha_mode=1", layerPath,
     ]);
     const { args, warnings } = buildLayersCompositeCommand({
-      layers: [{ id: "odd", t: 0, duration: 0.4, kind: "video", src: "odd.webm" }],
+      layers: [
+        { id: "odd-a", t: 0, duration: 0.4, kind: "video", src: "odd.webm" },
+        { id: "odd-b", t: 1, duration: 0.4, kind: "video", src: "./odd.webm" },
+      ],
       projectRoot: root,
       ffmpegCommand: "ffmpeg",
       ffprobeCommand: "ffprobe",
@@ -1247,7 +1278,8 @@ test("buildLayersCompositeCommand: declared alpha with no alpha-capable decoder 
       outputPath: join(root, "layered.mp4"),
       duration: 5,
     });
-    assert.deepEqual(inputOptionsFor(args, layerPath), ["-itsoffset", "0"]);
+    assert.deepEqual(inputOptionsFor(args, layerPath), []);
+    assert.equal(args.filter((arg) => arg === layerPath).length, 1, "the shared source should be opened once");
     assert.equal(warnings.length, 1);
     assert.match(warnings[0], /declares alpha/);
     assert.match(warnings[0], /"av1"/);
@@ -1270,7 +1302,7 @@ test("buildLayersCompositeCommand: an alpha-less layer probes clean — no decod
       outputPath: join(root, "layered.mp4"),
       duration: 5,
     });
-    assert.deepEqual(inputOptionsFor(args, layerPath), ["-itsoffset", "0"]);
+    assert.deepEqual(inputOptionsFor(args, layerPath), []);
     assert.deepEqual(warnings, []);
   } finally {
     await rm(root, { recursive: true, force: true });
