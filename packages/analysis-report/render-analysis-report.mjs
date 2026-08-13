@@ -135,7 +135,7 @@ function validateAnalysisStructure(analysis, label) {
     ) {
       errors.push("tracks.person_matte は string か null である必要があります");
     }
-    for (const field of ["face_landmarks", "hand_pose", "body_pose_3d"]) {
+    for (const field of ["face_landmarks", "hand_pose", "body_pose_3d", "face_expression"]) {
       if (!hasOwn(analysis.tracks, field)) continue;
       const pointer = analysis.tracks[field];
       if (!isRecord(pointer) || !isNonEmptyString(pointer.path) || !(Number(pointer.sample_fps) > 0)) {

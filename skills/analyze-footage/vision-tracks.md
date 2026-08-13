@@ -7,6 +7,7 @@
 - [生成する](#生成する)
 - [analysis.json への反映](#analysisjson-への反映)
 - [body-pose-3d（3D ボディポーズ）](#body-pose-3d3d-ボディポーズ)
+- [face-expression（頭部姿勢 + 表情 52）](#face-expression頭部姿勢--表情-52)
 - [消費: 目線黒帯（eye-bar）](#消費-目線黒帯eye-bar)
 - [消費: pose-skeleton](#消費-pose-skeleton)
 - [劣化](#劣化)
@@ -153,6 +154,67 @@ node bin/vision-tracks/vision-tracks.mjs --input <video> --analysis <analysis.js
 1 関節でも取得できない観測は detection ごと省略する「全か無か」のトラックであり、部分検出や
 補間による捏造は行わない（契約 §2.4「捏造ゼロ」）。v0 の各関節の `conf` は関節別の値ではなく、
 `VNHumanBodyPose3DObservation.confidence` という観測全体の confidence を複製した値である。
+
+## face-expression（頭部姿勢 + 表情 52）
+
+話者本人の首振り・表情でアバターを補助駆動する素材だけに対して、既存 Vision 3 kind とは別の
+`face-expression` kind を作る。生成元は **MediaPipe Face Landmarker**。ランタイムは
+Apache-2.0 の `@mediapipe/tasks-vision@0.10.17`（vendored JS/WASM）を既存 headless Chromium
+経路で動かし、Python/Swift の新しいサイドカーは追加しない。既存の「あいうえお」口パクを
+置換するトラックではなく、消費側の結線は別工程である。
+
+### 道具とモデルを確認する
+
+```bash
+node bin/face-expression/face-expression.mjs --check
+```
+
+Chrome for Testing（または Chrome/Chromium）、既存 workspace 依存の `puppeteer-core`、ffmpeg、
+ffprobe、vendored runtime の全 SHA-256 を確認する。モデルが未取得でも runtime が揃っていれば
+利用可能と判定し、初回生成時だけ公式の versioned URL から取得する。
+
+- 保存先: `${AKARI_HOME:-~/.akari}/models/mediapipe/face-landmarker/float16-1/face_landmarker.task`
+- URL: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`
+- SHA-256: `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`
+
+取得中は `.tmp-<pid>` へ書き、SHA-256 一致後だけ rename する。既存モデルの hash が違う場合も
+自動再取得で隠さず即エラーにする。モデル・実素材・demo 出力はリポジトリへコミットしない。
+
+### 生成する
+
+```bash
+node bin/face-expression/face-expression.mjs \
+  --input "$SOURCE" \
+  --analysis "$OUT_DIR/analysis.json" \
+  --fps 24 \
+  --metrics "$OUT_DIR/face-expression-metrics.json"
+```
+
+- `--fps <n>` は既定 24。ffmpeg がこの等間隔へデコードし、sample の `t` は `index / fps`
+- `--decode-width <n>` は既定 1280。入力が小さければ拡大しない
+- 出力は `<analysis-dir>/vision/face-expression.json` 1 ファイルだけ。各 sample は `t` と
+  `detections[]`、各 detection は `head.{yaw,pitch,roll}`（ラジアン）、MediaPipe 固定 52 キーの
+  `blendshapes`（0..1 生 score）、`conf` を持つ。平滑化・補間はしない
+- 成功後に `tracks.face_expression` を additive 追記し、トラックと analysis.json はどちらも
+  tmp → rename で原子的に置換する。他の track pointer には触れない
+
+### 性能を実測する
+
+実素材 12 秒窓の実測は fieldtest 担当で行い、未実施値を推測で書かない。CPU 時間を主指標、
+wall time と実時間比を補助指標にする。macOS では次のように `user + sys` を CPU 秒として記録し、
+同時に metrics の `detected_frames / frames`、代表 `mouthSmileLeft/Right`、yaw の符号を確認する。
+
+```bash
+/usr/bin/time -p node bin/face-expression/face-expression.mjs \
+  --input "$TWELVE_SECOND_COPY" \
+  --analysis "$OUT_DIR/analysis.json" \
+  --fps 24 \
+  --metrics "$OUT_DIR/face-expression-metrics.json"
+```
+
+実測記録には Chrome 版、CPU 秒、wall 秒、`elapsed_seconds / 12`、検出率、52 キー成立率を残す。
+MediaPipe の Web API は face-presence score を結果へ公開しないため、v0 の `conf` は返された
+52 blendshape 生 score の最大値であり、face detection confidence と読み替えない。
 
 ## 消費: 目線黒帯（eye-bar）
 
