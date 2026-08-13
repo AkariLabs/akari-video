@@ -1407,7 +1407,6 @@ async function appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, s
   }
 
   if (edit?.version !== 1 || !Array.isArray(edit.sources)) {
-    addWarning(state, "rendered source was not added to edit.json: sources[] is unavailable in edit.json v0");
     return;
   }
 

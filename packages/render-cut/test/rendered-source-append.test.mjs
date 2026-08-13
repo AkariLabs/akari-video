@@ -71,3 +71,36 @@ test("a verified render appends its v1 source once without reformatting edit.jso
     await rm(project, { recursive: true, force: true });
   }
 });
+
+test("a verified v0 render does not warn that sources[] is unavailable", async (t) => {
+  if (run("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await mkdtemp(join(tmpdir(), "render-cut-source-v0-"));
+  try {
+    const generated = run("ffmpeg", [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=5:d=0.6",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", join(project, "input.mp4"),
+    ]);
+    assert.equal(generated.status, 0, generated.stderr);
+    await mkdir(join(project, ".akari"));
+    await writeFile(join(project, ".akari", "lint.json"), '{"version":1,"verdict":"pass"}\n');
+    await writeFile(join(project, "edit.json"), `${JSON.stringify({
+      version: 0,
+      output: { width: 160, height: 90, fps: 5 },
+      source: { path: "input.mp4", proxy: null },
+      cuts: [{ in: 0, out: 0.5 }],
+      overlays: [],
+    }, null, 2)}\n`);
+
+    const rendered = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4"]);
+    assert.equal(rendered.status, 0, rendered.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(
+      state.warnings.some((warning) => warning.includes("sources[] is unavailable in edit.json v0")),
+      false,
+    );
+    assert.doesNotMatch(`${rendered.stdout}\n${rendered.stderr}`, /sources\[\] is unavailable in edit\.json v0/u);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});

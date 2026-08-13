@@ -219,6 +219,7 @@
         "vertical": { "type": "boolean" },
         "text_transform": { "type": "string", "enum": ["upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none"] },
         "max_width_pct": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 100 },
+        "max_characters": { "type": "integer", "minimum": 1 },
         "text_anchor": { "$ref": "#/$defs/textAnchor" },
         "position": { "$ref": "#/$defs/textPosition" },
         "shadow": { "$ref": "#/$defs/textShadowStyle" },
@@ -229,7 +230,7 @@
         "zone": { "$ref": "#/$defs/captionZone" },
         "layout": { "$ref": "#/$defs/referencePixelLayout" }
       },
-      "$comment": "全フィールド任意。captionRecord.text_style は default_text_style をフィールド単位（animation はスロット単位）で上書きする。合成処理は消費側の責務。zone 省略時の実効値は bottom。font_weight と weight は同じ CSS font-weight を指す別名で、weight（100..900）が textstyle v0 の正式名、font_weight（1..1000）は display_policy 経路からの既存名。両方あるときは weight を優先する。"
+      "$comment": "全フィールド任意。captionRecord.text_style は default_text_style をフィールド単位（animation はスロット単位）で上書きする。合成処理は消費側の責務。zone 省略時の実効値は bottom。font_weight と weight は同じ CSS font-weight を指す別名で、weight（100..900）が textstyle v0 の正式名、font_weight（1..1000）は display_policy 経路からの既存名。両方あるときは weight を優先する。max_characters は 1 行の折り返し文字数を指定する。max_width_pct はプレート（座布団）の幅だけを広げ、折り返し文字数には影響しない。"
     },
     "captionWord": {
       "type": "object",
