@@ -197,12 +197,12 @@ test("source.chroma_key.color is required", () => {
   assert.match(executed.stderr, /source\.chroma_key\.color は空でない文字列である必要があります/);
 });
 
-test("cuts[].transition_out.type must be dissolve/fade-black/fade-white", () => {
+test("cuts[].transition_out.type must be dissolve/fade-black/fade-white/reveal-down/reveal-up", () => {
   const executed = run("edit-transition-invalid");
   assert.equal(executed.status, 1, executed.stdout);
   assert.match(
     executed.stderr,
-    /cuts\[0\]\.transition_out\.type は dissolve\/fade-black\/fade-white のいずれかである必要があります/,
+    /cuts\[0\]\.transition_out\.type は dissolve\/fade-black\/fade-white\/reveal-down\/reveal-up のいずれかである必要があります/,
   );
 });
 

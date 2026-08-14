@@ -52,6 +52,28 @@ function averageFrameRgb(filePath, atSeconds) {
   return { r: r / pixelCount, g: g / pixelCount, b: b / pixelCount };
 }
 
+// 画面の一部だけを測る版。reveal 系は「混ざる」のではなく「片方が動いて画面外へ抜ける」ので、
+// 全体平均では dissolve と区別できない。上半分・下半分を別々に見る必要がある。
+function averageFrameRgbCropped(filePath, atSeconds, cropExpr) {
+  const result = spawnSync(
+    "ffmpeg",
+    ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(atSeconds), "-i", filePath, "-frames:v", "1", "-vf", `crop=${cropExpr},scale=4:4`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+    { encoding: "buffer" },
+  );
+  assert.equal(result.status, 0, result.stderr.toString("utf8"));
+  const buf = result.stdout;
+  const pixelCount = buf.length / 3;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (let i = 0; i < pixelCount; i += 1) {
+    r += buf[i * 3];
+    g += buf[i * 3 + 1];
+    b += buf[i * 3 + 2];
+  }
+  return { r: r / pixelCount, g: g / pixelCount, b: b / pixelCount };
+}
+
 // Builds a source video whose color changes abruptly partway through (red for the first half,
 // blue for the second), so a transition (or hard cut) at that boundary is directly visible as a
 // color blend (or its absence) at the seam.
@@ -227,6 +249,64 @@ test("cuts without any transition_out keep today's exact single N-input concat c
     t.diagnostic(`hard cut: t=2.9s RGB=${JSON.stringify(justBefore)}; t=3.1s RGB=${JSON.stringify(justAfter)}`);
     assert.ok(justBefore.r > 200 && justBefore.b < 50, `expected pure red just before the cut, got ${JSON.stringify(justBefore)}`);
     assert.ok(justAfter.b > 200 && justAfter.r < 50, `expected pure blue just after the cut, got ${JSON.stringify(justAfter)}`);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+// 2026-08-14 追加: reveal-down / reveal-up（テンプレの基本トランジション）。
+// 前カットが丸ごとその方向へ動いて画面外へ抜け、空いた側から次カットが現れる。
+// dissolve と違って色は混ざらないため、判定は「上下で別々の絵が出ていること」で行う。
+test("cuts[].transition_out (reveal-down): 前カットが下へ抜け、空いた上から次カットが現れる", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({
+    cuts: [
+      { in: 0, out: 3, transition_out: { type: "reveal-down", duration: 1 } },
+      { in: 3, out: 6 },
+    ],
+    redDuration: 3,
+    blueDuration: 3,
+  });
+  try {
+    const { outputPath, state } = await renderAndGetOutputPath(project);
+    assert.equal(state.plan.predicted_duration_seconds, 5);
+    assert.match(state.plan.commands.cut.args.join(" "), /xfade=transition=revealdown:duration=1:offset=2/);
+
+    // 遷移の中間（t=2.5s）: 上半分は次カット（青）、下半分は前カット（赤）が残っている。
+    const top = averageFrameRgbCropped(outputPath, 2.5, "64:24:0:0");
+    const bottom = averageFrameRgbCropped(outputPath, 2.5, "64:24:0:40");
+    t.diagnostic(`t=2.5s top=${JSON.stringify(top)} bottom=${JSON.stringify(bottom)}`);
+    assert.ok(top.b > top.r + 60, `上半分は次カット（青）であるべき: ${JSON.stringify(top)}`);
+    assert.ok(bottom.r > bottom.b + 60, `下半分は前カット（赤）が残っているべき: ${JSON.stringify(bottom)}`);
+
+    // 前後は素のまま
+    const before = averageFrameRgb(outputPath, 1.0);
+    const after = averageFrameRgb(outputPath, 4.5);
+    assert.ok(before.r > 200 && before.b < 50, `遷移前は赤: ${JSON.stringify(before)}`);
+    assert.ok(after.b > 200 && after.r < 50, `遷移後は青: ${JSON.stringify(after)}`);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("cuts[].transition_out (reveal-up): reveal-down の上下が入れ替わる", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({
+    cuts: [
+      { in: 0, out: 3, transition_out: { type: "reveal-up", duration: 1 } },
+      { in: 3, out: 6 },
+    ],
+    redDuration: 3,
+    blueDuration: 3,
+  });
+  try {
+    const { outputPath, state } = await renderAndGetOutputPath(project);
+    assert.match(state.plan.commands.cut.args.join(" "), /xfade=transition=revealup:duration=1:offset=2/);
+    const top = averageFrameRgbCropped(outputPath, 2.5, "64:24:0:0");
+    const bottom = averageFrameRgbCropped(outputPath, 2.5, "64:24:0:40");
+    t.diagnostic(`t=2.5s top=${JSON.stringify(top)} bottom=${JSON.stringify(bottom)}`);
+    assert.ok(top.r > top.b + 60, `上半分は前カット（赤）が残っているべき: ${JSON.stringify(top)}`);
+    assert.ok(bottom.b > bottom.r + 60, `下半分は次カット（青）であるべき: ${JSON.stringify(bottom)}`);
   } finally {
     await rm(project, { recursive: true, force: true });
   }

@@ -1690,6 +1690,12 @@ const XFADE_TRANSITION_NAMES = {
   dissolve: "dissolve",
   "fade-black": "fadeblack",
   "fade-white": "fadewhite",
+  // reveal-down / reveal-up: 前カットが丸ごとその方向へ動いて画面外へ抜け、空いた側から
+  // 次カットが現れる（前カットは動きながら画面端でクロップされる）。ディゾルブのように
+  // 混ざらないので、同じ構図が続くトークシーンでも「場面が入れ替わった」ことが読める。
+  // 2026-08-14 追加（テンプレの基本トランジションとしてオーナー指定）。
+  "reveal-down": "revealdown",
+  "reveal-up": "revealup",
 };
 
 // atempo only accepts factors in [0.5, 2.0]; speeds outside that range are decomposed into a
