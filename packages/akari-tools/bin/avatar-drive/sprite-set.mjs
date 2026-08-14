@@ -3,6 +3,7 @@ import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { resolveFfprobe } from "../../../media-bin/src/index.mjs";
+import { loadPartsSet, requirePartsVowelAssets } from "./parts-set.mjs";
 
 function record(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -60,6 +61,7 @@ export function validateSpriteManifest(manifest) {
 }
 
 export function requireVowelMouthAssets(spriteSet) {
+  if (spriteSet?.kind === "parts-v2") return requirePartsVowelAssets(spriteSet);
   const manifest = spriteSet?.manifest ?? spriteSet;
   const missing = ["a", "i", "u", "e", "o"].filter((key) => (
     !record(manifest?.mouth) || typeof manifest.mouth[key] !== "string" || manifest.mouth[key].trim() === ""
@@ -73,7 +75,11 @@ export function requireVowelMouthAssets(spriteSet) {
 export function loadSpriteSet(spriteDir, { ffprobeCommand } = {}) {
   const root = realpathSync(resolve(spriteDir));
   const manifestPath = join(root, "sprite.json");
-  if (!existsSync(manifestPath)) throw new Error(`sprite.json が見つかりません: ${manifestPath}`);
+  const partsPath = join(root, "parts.json");
+  if (!existsSync(manifestPath)) {
+    if (existsSync(partsPath)) return loadPartsSet(root, { ffprobeCommand });
+    throw new Error(`sprite.json または parts.json が見つかりません: ${root}`);
+  }
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const structural = validateSpriteManifest(manifest);
   if (!structural.ok) throw new Error(structural.errors.join("; "));

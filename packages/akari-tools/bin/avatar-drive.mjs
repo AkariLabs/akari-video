@@ -13,6 +13,7 @@ import {
 } from "./avatar-drive/expression-track.mjs";
 import { buildAvatarLayer } from "./avatar-drive/layer.mjs";
 import { buildMotionFrames, MOTION_DEFAULTS } from "./avatar-drive/motion.mjs";
+import { buildPartFrames } from "./avatar-drive/parts-physics.mjs";
 import { envelopeToMouthStates, normalizeProfile } from "./avatar-drive/profile.mjs";
 import { loadSpriteSet, requireVowelMouthAssets } from "./avatar-drive/sprite-set.mjs";
 import { buildVowelTimeline, parseTranscript, resolveMouthStates } from "./avatar-drive/vowel.mjs";
@@ -128,6 +129,7 @@ async function main() {
     let eyeStates;
     let driveExtras;
     let headStates = null;
+    let emotionStates = null;
     if (options.expressionTrack) {
       const expression = buildExpressionDrive({
         track: loadExpressionTrack(options.expressionTrack),
@@ -137,6 +139,7 @@ async function main() {
       });
       eyeStates = expression.eyes;
       headStates = expression.head;
+      emotionStates = expression.emotion;
       driveExtras = {
         fps: timeline.fps,
         head: expression.head,
@@ -170,8 +173,18 @@ async function main() {
       height: spriteSet.manifest.size.height,
       headStates,
     });
+    const partResult = spriteSet.kind === "parts-v2" ? buildPartFrames({
+      partsSet: spriteSet,
+      mouthStates,
+      eyeStates,
+      emotionStates,
+      fps: timeline.fps,
+      seed: motionSeed,
+      motionFrames,
+    }) : null;
     const baked = await bakeAvatarClip({
       spriteSet, mouthStates, eyeStates, fps: timeline.fps, outPath, motionFrames,
+      partFrames: partResult?.frames ?? null,
     }, { ffmpegCommand: available.ffmpeg });
     const bakedSprite = baked.margin === 0 ? spriteSet.manifest : {
       ...spriteSet.manifest,
@@ -206,6 +219,10 @@ async function main() {
         variants: baked.variants,
         mouth_counts: Object.fromEntries(mouthVocabulary.map((state) => [state, mouthStates.filter((value) => value === state).length])),
         blink_frames: eyeStates.filter((value) => value === "closed").length,
+        ...(partResult === null ? {} : {
+          parts: spriteSet.parts.length,
+          follow_lag_frames: partResult.diagnostics.follow_lag_frames,
+        }),
         ...(options.motionIntensity === 0 ? {} : {
           motion_intensity: options.motionIntensity,
           motion_seed: motionSeed,
