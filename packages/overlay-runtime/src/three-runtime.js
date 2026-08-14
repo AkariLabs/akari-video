@@ -648,6 +648,24 @@ window.akari.threeRuntime = (() => {
         console.warn(`[akari-three] materialOverrides の対象が見つかりません: ${materialName}`);
         return;
       }
+      // 貼り先が発光しない材質だと、この override は**黙って無効**になる。
+      // 下の代入先は emissiveMap で、three は emissive（glTF の emissiveFactor）を掛けてから
+      // 合成するため、emissive が黒（= 既定 0）の材質では「0 × テクスチャ」で何も出ない。
+      // 実害（2026-08-14）: アプリアイコンの glb は前面が非発光で、materialOverrides を宣言しても
+      // 白い樹脂面のままだった。エラーも警告も出ないので原因に辿り着けない。
+      // ここで気づけるように警告する（見た目は勝手に変えない — 直し方は 2 通りあり、
+      // どちらを採るかは素材の意図次第なので利用者に選ばせる）。
+      const unlitTargets = [...materials].filter(
+        (material) => material.emissive && material.emissive.getHex() === 0x000000,
+      );
+      if (unlitTargets.length > 0) {
+        console.warn(
+          `[akari-three] materialOverrides の "${materialName}" は発光しない材質です`
+          + "（emissive が黒）。貼ったテクスチャは emissiveMap へ入るため、このままでは表示されません。"
+          + " モデル側の emissiveFactor を [1,1,1] にするか、発光する材質（例: 画面用マテリアル）を"
+          + "対象にしてください。",
+        );
+      }
       const texture = await loadTexture(THREE, instance, textureLoader, override.texture);
       texture.flipY = false;
       texture.colorSpace = THREE.SRGBColorSpace;

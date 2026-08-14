@@ -599,8 +599,8 @@ function validateTransitionOut(value, findings, path) {
     addFinding(findings, { severity: "error", check: "cuts.transition-out.structure", message: "transition_out must be an object", path });
     return;
   }
-  if (!["dissolve", "fade-black", "fade-white"].includes(value.type)) {
-    addFinding(findings, { severity: "error", check: "cuts.transition-out.type", message: "type must be dissolve/fade-black/fade-white", path });
+  if (!["dissolve", "fade-black", "fade-white", "reveal-down", "reveal-up"].includes(value.type)) {
+    addFinding(findings, { severity: "error", check: "cuts.transition-out.type", message: "type must be dissolve/fade-black/fade-white/reveal-down/reveal-up", path });
   }
   if (!isPositiveNumber(value.duration)) {
     addFinding(findings, { severity: "error", check: "cuts.transition-out.duration", message: "duration must be a positive number", path });

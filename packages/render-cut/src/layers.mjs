@@ -13,6 +13,7 @@ import {
   probeLayerSourceSize,
 } from "./layer-keyframes.mjs";
 import { resolveLutPath } from "./render-inputs.mjs";
+import { enableWindowExpr } from "./enable-window.mjs";
 
 // contract-2026-07-22-prerender-rail-and-assets.md §0/§1.2: render-cut composites edit.json
 // layers[] (baked alpha video / video PinP) onto the cuts-composited base video, ordered by t.
@@ -643,7 +644,7 @@ export function buildLayersCompositeCommand({
     if (isNormal) {
       const next = `[${idBase}_out]`;
       filters.push(
-        `${previous}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:enable='between(t,${formatNumber(t)},${formatNumber(end)})'${next}`,
+        `${previous}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:enable='${enableWindowExpr(t, end)}'${next}`,
       );
       previous = next;
       return;

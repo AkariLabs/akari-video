@@ -212,7 +212,12 @@ test("buildLayersCompositeCommand: a normal-blend baked layer uses a PTS shift +
   const filterComplex = args[args.indexOf("-filter_complex") + 1];
   assert.match(filterComplex, /trim=duration=3,setpts=PTS-STARTPTS\+2\/TB/u);
   assert.match(filterComplex, /overlay=x=\(main_w-overlay_w\)\/2\+0:y=\(main_h-overlay_h\)\/2\+0/);
-  assert.match(filterComplex, /enable='between\(t,2,5\)'/);
+  // 表示区間は半開区間 [t, t+duration)。閉区間（between）だと duration がフレーム格子に
+  // ちょうど乗るとき（実運用で普通にある丸い尺）、次のクリップの先頭フレームにも 1 フレーム
+  // 重なって出る。実測で 102 フレームであるべきところが 103 フレーム出ることを確認している
+  // （src/enable-window.mjs のコメント参照）。
+  assert.match(filterComplex, /enable='gte\(t,2\)\*lt\(t,5\)'/);
+  assert.doesNotMatch(filterComplex, /between\(t,/);
   assert.doesNotMatch(filterComplex, /blend=all_mode/);
 });
 

@@ -1447,6 +1447,14 @@ function renderRevealCss() {
   return `
     .akari-caption--reveal .akari-caption__plate {
       display: grid;
+      /* プレートは通常 flex-column で、水平の寄せは align-items（cross 軸）が担う。
+         reveal は複数行グループを同一セルへ重ねるため grid へ切り替えるが、grid の
+         align-items は block 軸にしか効かないので、そのままだと水平の寄せが失われて
+         左端に張り付く（暗黙トラックが内容幅へシュリンクするため）。トラック自体の
+         配置は justify-content の管轄なので、同じ変数をここへも渡して寄せを維持する
+         （--caption-align-items の値 flex-start/center/flex-end はいずれも
+         justify-content の正当な値）。 */
+      justify-content: var(--caption-align-items, stretch);
       animation: none;
     }
     .akari-caption__reveal-group {
