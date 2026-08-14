@@ -26,6 +26,7 @@ import {
 } from "./track-compose.mjs";
 import { resolveTrackOrder, usesDefaultTrackOrder } from "./track-order.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { enableWindowExpr } from "./enable-window.mjs";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
 const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
@@ -768,7 +769,7 @@ function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, ov
     args.push("-loop", "1", "-i", png);
     const next = `[overlay${index}]`;
     filters.push(
-      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='between(t,${formatNumber(overlay.start)},${formatNumber(overlay.start + overlay.duration)})'${next}`,
+      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='${enableWindowExpr(overlay.start, overlay.start + overlay.duration)}'${next}`,
     );
     previous = next;
   }
