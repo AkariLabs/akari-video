@@ -1,0 +1,8 @@
+CC0 1.0 Universal
+
+To the extent possible under law, the AKARI Video contributors have waived all
+copyright and related or neighboring rights to the generated minimal VRM test
+fixture in this directory. The fixture is original and contains no external
+model, texture, font, or other binary asset.
+
+https://creativecommons.org/publicdomain/zero/1.0/

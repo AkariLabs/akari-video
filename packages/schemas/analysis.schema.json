@@ -434,7 +434,7 @@
       }
     },
     "visionTrackPointer": {
-      "$comment": "2026-08-11 追加（docs/contract-2026-08-11-analysis-vision-tracks-v0.md）。tracks.face_landmarks / tracks.hand_pose の共通形。トラック実体は本スキマではなく skills/analyze-footage/references/vision-tracks.schema.json（契約 §2）が定義する外部ファイル。optional キーであり tracks.required には入れない（真に任意）。",
+      "$comment": "2026-08-11 追加、2026-08-13 body_pose_3d、2026-08-14 face_expression を additive 追加（docs/contract-2026-08-11-analysis-vision-tracks-v0.md）。tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d / tracks.face_expression の共通形。トラック実体は本スキマではなく skills/analyze-footage/references/vision-tracks.schema.json（契約 §2）が定義する外部ファイル。optional キーであり tracks.required には入れない（真に任意）。",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -518,6 +518,12 @@
           "$ref": "#/$defs/visionTrackPointer"
         },
         "hand_pose": {
+          "$ref": "#/$defs/visionTrackPointer"
+        },
+        "body_pose_3d": {
+          "$ref": "#/$defs/visionTrackPointer"
+        },
+        "face_expression": {
           "$ref": "#/$defs/visionTrackPointer"
         }
       }

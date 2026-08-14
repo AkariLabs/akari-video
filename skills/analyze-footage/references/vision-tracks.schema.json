@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AKARI Video vision-tracks v0",
-  "description": "顔ランドマーク・手ポーズのトラックファイル形式（analysis.json の tracks.face_landmarks / tracks.hand_pose が path で指す実体）。正本は docs/contract-2026-08-11-analysis-vision-tracks-v0.md §2。1 ファイル 1 kind（face-landmarks / hand-pose を混在させない）。",
+  "description": "顔ランドマーク・手ポーズ・3D ボディポーズ・顔表情のトラックファイル形式（analysis.json の tracks.face_landmarks / tracks.hand_pose / tracks.body_pose_3d / tracks.face_expression が path で指す実体）。正本は docs/contract-2026-08-11-analysis-vision-tracks-v0.md §2。1 ファイル 1 kind（face-landmarks / hand-pose / body-pose-3d / face-expression を混在させない）。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,9 @@
     "kind": {
       "enum": [
         "face-landmarks",
-        "hand-pose"
+        "hand-pose",
+        "body-pose-3d",
+        "face-expression"
       ]
     },
     "source": {
@@ -60,6 +62,21 @@
         "os": {
           "type": "string",
           "minLength": 1
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1,
+          "description": "検出ランタイムと固定版。例: @mediapipe/tasks-vision@0.10.17。"
+        },
+        "model_url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "モデルの versioned 取得元 URL。"
+        },
+        "model_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "取得モデルの期待 SHA-256。"
         }
       }
     },
@@ -108,6 +125,18 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "point3d": {
+      "description": "Vision のモデル座標（root/hip 相対メートル）の [x, y, z]。画像座標のような 0〜1 クランプはしない。",
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
     },
     "faceLandmarks": {
       "$comment": "v0 で必須なのは従来の 6 キー。face_contour は 2026-08-12 に additive 追加した任意の開曲線であり、額側の閉曲線補完は消費者が決定論的に行う。古いトラックは引き続き valid。",
@@ -198,11 +227,114 @@
         "joints": { "$ref": "#/$defs/handJoints" }
       }
     },
+    "bodyPose3DJoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "projection", "conf"],
+      "properties": {
+        "position": { "$ref": "#/$defs/point3d" },
+        "projection": { "$ref": "#/$defs/point" },
+        "conf": {
+          "$ref": "#/$defs/conf",
+          "description": "Vision 3D API は関節別 confidence を公開しないため、v0 apple-vision provider では observation.confidence を各関節へ複製した値。"
+        }
+      }
+    },
+    "bodyPose3DJoints": {
+      "$comment": "VNDetectHumanBodyPose3DRequest revision 1 の 17 関節。欠けた観測は detection ごと省略し、部分的な捏造をしない。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root", "right_hip", "right_knee", "right_ankle",
+        "left_hip", "left_knee", "left_ankle", "spine", "center_shoulder",
+        "center_head", "top_head", "left_shoulder", "left_elbow", "left_wrist",
+        "right_shoulder", "right_elbow", "right_wrist"
+      ],
+      "properties": {
+        "root": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "right_hip": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "right_knee": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "right_ankle": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "left_hip": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "left_knee": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "left_ankle": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "spine": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "center_shoulder": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "center_head": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "top_head": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "left_shoulder": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "left_elbow": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "left_wrist": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "right_shoulder": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "right_elbow": { "$ref": "#/$defs/bodyPose3DJoint" },
+        "right_wrist": { "$ref": "#/$defs/bodyPose3DJoint" }
+      }
+    },
+    "bodyPose3DDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conf", "joints"],
+      "properties": {
+        "conf": { "$ref": "#/$defs/conf" },
+        "joints": { "$ref": "#/$defs/bodyPose3DJoints" }
+      }
+    },
+    "blendshapeName": {
+      "enum": [
+        "_neutral", "browDownLeft", "browDownRight", "browInnerUp",
+        "browOuterUpLeft", "browOuterUpRight", "cheekPuff", "cheekSquintLeft",
+        "cheekSquintRight", "eyeBlinkLeft", "eyeBlinkRight", "eyeLookDownLeft",
+        "eyeLookDownRight", "eyeLookInLeft", "eyeLookInRight", "eyeLookOutLeft",
+        "eyeLookOutRight", "eyeLookUpLeft", "eyeLookUpRight", "eyeSquintLeft",
+        "eyeSquintRight", "eyeWideLeft", "eyeWideRight", "jawForward", "jawLeft",
+        "jawOpen", "jawRight", "mouthClose", "mouthDimpleLeft", "mouthDimpleRight",
+        "mouthFrownLeft", "mouthFrownRight", "mouthFunnel", "mouthLeft",
+        "mouthLowerDownLeft", "mouthLowerDownRight", "mouthPressLeft", "mouthPressRight",
+        "mouthPucker", "mouthRight", "mouthRollLower", "mouthRollUpper",
+        "mouthShrugLower", "mouthShrugUpper", "mouthSmileLeft", "mouthSmileRight",
+        "mouthStretchLeft", "mouthStretchRight", "mouthUpperUpLeft", "mouthUpperUpRight",
+        "noseSneerLeft", "noseSneerRight"
+      ]
+    },
+    "faceExpressionHead": {
+      "description": "MediaPipe facial transformation matrix から Rz(roll)*Ry(yaw)*Rx(pitch) で分解したラジアン値。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["yaw", "pitch", "roll"],
+      "properties": {
+        "yaw": { "type": "number" },
+        "pitch": { "type": "number" },
+        "roll": { "type": "number" }
+      }
+    },
+    "faceExpressionBlendshapes": {
+      "description": "MediaPipe が返す固定 52 category の生 score（0..1）。",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/blendshapeName" },
+      "additionalProperties": { "$ref": "#/$defs/unit" },
+      "minProperties": 52,
+      "maxProperties": 52
+    },
+    "faceExpressionDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "blendshapes", "conf"],
+      "properties": {
+        "head": { "$ref": "#/$defs/faceExpressionHead" },
+        "blendshapes": { "$ref": "#/$defs/faceExpressionBlendshapes" },
+        "conf": {
+          "$ref": "#/$defs/conf",
+          "description": "Web API が face-presence score を公開しないため、52 blendshape 生 score の最大値。"
+        }
+      }
+    },
     "detection": {
-      "$comment": "kind ごとに detections[] の要素形が決まる（faceDetection | handDetection）。トップレベルの kind と要素形の対応は本 schema では表せない意味制約であり、vision-tracks.md の検証手順が担う（analysis.schema.json の event 判別ユニオンと違い、kind はファイル全体に 1 つだけなので oneOf 判別は不要）。",
+      "$comment": "kind ごとに detections[] の要素形が決まる（faceDetection | handDetection | bodyPose3DDetection | faceExpressionDetection）。トップレベルの kind と要素形の対応は本 schema では表せない意味制約であり、vision-tracks.md の検証手順が担う（analysis.schema.json の event 判別ユニオンと違い、kind はファイル全体に 1 つだけなので oneOf 判別は不要）。",
       "anyOf": [
         { "$ref": "#/$defs/faceDetection" },
-        { "$ref": "#/$defs/handDetection" }
+        { "$ref": "#/$defs/handDetection" },
+        { "$ref": "#/$defs/bodyPose3DDetection" },
+        { "$ref": "#/$defs/faceExpressionDetection" }
       ]
     },
     "sample": {
