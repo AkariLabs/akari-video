@@ -256,3 +256,58 @@ track の head は yaw/pitch/roll の radian だが、`avatar-vrm` の drive 受
 
 同じ track、cuts、fps、平滑化窓から作る head/eyes/emotion は決定論的であり、壁時計や乱数を
 参照しない。
+
+## v1.1 追記（2026-08-14）: PNGTuber モーション
+
+sprite ベイクへ、呼吸・発話バウンス・発話 onset ごとの微傾きを additive に追加する。
+`--motion-intensity <0..1>` の既定値は `0.5`。`--no-motion` は intensity `0` の別名であり、
+`--motion-intensity` との同時指定は曖昧さを避けるため拒否する。intensity `0` では全 frame が
+`scaleX=scaleY=1, tx=ty=rotateDeg=0` の厳密な恒等変換となり、アフィン変換とキャンバス拡張を
+一切通らない従来の raw RGBA → ProRes 経路を使う。
+
+frame `f`、`t=f/fps`、intensity `I` とする。入力ハッシュから得た位相 `p0,p1` により、呼吸波を
+次で定める。
+
+```text
+breath(t) = (sin(2π·0.25·t+p0) + 0.20·sin(2π·0.50·t+p1)) / 1.20
+```
+
+発話中は `mouth != "closed"` と判定する。発話 envelope `E` は target `1`（発話）/ `0`（無発話）
+へ指数平滑し、時定数は attack `0.06 s`、release `0.12 s`。発話 onset frame `o` から
+`pulse=(1-cos(2π·3.0·(f-o)/fps))/2`、`talk=E·(0.35+0.65·pulse)` とする。最終変換は次のとおり。
+
+```text
+scaleX = 1
+scaleY = 1 + I·(0.008·breath + 0.028·talk)
+tx = 0
+ty = -spriteHeight·I·(0.0015·breath + 0.009·talk)
+```
+
+微傾きは closed → 発話への各 onset で入力 seed の PRNG から符号と大きさを引き、target を
+`±3.2°·U(0.55,1.0)` とする。現在角度は target へ時定数 `0.28 s` の指数平滑で近づく。
+`--expression-track` 併用時、該当 frame の `drive.head` が non-null なら手続き角度を使わず、
+`rotateDeg=I·head.roll` とする。head が null の frame だけ手続き角度へ戻る。アフィン変換は拡張
+キャンバス中心を基準に scale → rotate → translate の順で適用し、RGBA は premultiplied alpha の
+bilinear 補間後に straight alpha へ戻す。
+
+キャンバスの四辺には全 frame で同じ整数 margin `M` を加える。各 frame の
+`θ=abs(rotateDeg)·π/180`、`hx=width·scaleX/2`、`hy=height·scaleY/2` に対し、
+
+```text
+ex = abs(cos θ)·hx + abs(sin θ)·hy + abs(tx)
+ey = abs(sin θ)·hx + abs(cos θ)·hy + abs(ty)
+M = ceil(max_all_frames(ex-width/2, ey-height/2) + 2px)
+```
+
+とする。末尾の `2px` は bilinear sampling support である。出力寸法は
+`(width+2M) × (height+2M)`。layer 配置には sprite.json の元寸法ではなくこの実ベイク寸法を使い、
+明示座標用 anchor も `(M + anchor·元寸法) / 実ベイク寸法` へ写像する。
+
+モーション seed は正規化済み edit.json、sprite.json、駆動 profile と固定識別子
+`avatar-drive-motion-v1.1` を stable stringify した SHA-256 から導出する。位相、onset の傾き、
+フレーム変換、補間、margin は壁時計・OS 乱数・mtime を参照しない。同一入力、同一 CLI 値、同一
+ffmpeg 実装なら stdout と MOV は byte 単位で決定論的である。
+
+既定が motion on (`0.5`) になったため、v1.1 の既定出力は従来よりキャンバスが大きく、画素も
+アフィン補間後の値へ変わる後方非互換点がある。従来と同じ寸法・画素・ProRes 呼び出しを必要とする
+場合は `--no-motion`（または `--motion-intensity 0`）を指定する。

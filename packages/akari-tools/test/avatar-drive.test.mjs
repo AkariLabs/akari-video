@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -7,11 +8,13 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
+import { bakeAvatarClip } from "../bin/avatar-drive/bake.mjs";
 import { buildBlinkStates, deriveSeed } from "../bin/avatar-drive/blink.mjs";
 import {
   BLINK_GATE, buildEmotionStates, buildExpressionDrive, buildTrackedBlinkStates, loadExpressionTrack,
 } from "../bin/avatar-drive/expression-track.mjs";
 import { buildAvatarLayer } from "../bin/avatar-drive/layer.mjs";
+import { buildMotionFrames, calculateMotionMargin } from "../bin/avatar-drive/motion.mjs";
 import { envelopeToMouthStates } from "../bin/avatar-drive/profile.mjs";
 import { loadSpriteSet, requireVowelMouthAssets, validateSpriteManifest } from "../bin/avatar-drive/sprite-set.mjs";
 import {
@@ -27,6 +30,10 @@ const driveProfile = {
   midThreshold: 0.025, openThreshold: 0.075, hysteresis: 0.008,
   attackMs: 35, releaseMs: 120, blinkPeriod: 4.2, blinkJitter: 1.2, blinkDuration: 0.12,
 };
+
+function sha256(path) {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
 
 test("avatar-drive: エンベロープからの口状態列は平滑・ヒステリシス込みで決定論的", () => {
   const rms = [0, 0.18, 0.28, 0.28, 0.7, 0.7, 0.5, 0.26, 0.18, ...Array(20).fill(0)];
@@ -51,6 +58,40 @@ test("avatar-drive: まばたき列は同じ seed で一致し、異なる seed 
   assert.deepEqual(first, buildBlinkStates({ ...input, seed }));
   assert.notDeepEqual(first.events, buildBlinkStates({ ...input, seed: seed + 1 }).events);
   assert.ok(first.states.includes("closed"));
+});
+
+test("avatar-drive motion: 同じ入力は一致し、seed が変わると onset tilt が変わる", () => {
+  const input = {
+    mouthStates: [...Array(20).fill("closed"), ...Array(40).fill("open"), ...Array(20).fill("closed")],
+    fps: 20, intensity: 0.5, width: 128, height: 128,
+  };
+  const first = buildMotionFrames({ ...input, seed: 1234 });
+  assert.deepEqual(first, buildMotionFrames({ ...input, seed: 1234 }));
+  const second = buildMotionFrames({ ...input, seed: 5678 });
+  assert.notDeepEqual(first.map(({ rotateDeg }) => rotateDeg), second.map(({ rotateDeg }) => rotateDeg));
+  assert.ok(first.slice(20).some(({ scaleY }) => scaleY > 1.005));
+});
+
+test("avatar-drive motion: intensity 0 は全 frame で厳密な恒等変換", () => {
+  const frames = buildMotionFrames({
+    mouthStates: ["closed", "open", "a", "closed"], fps: 30, intensity: 0, seed: 99,
+    width: 128, height: 128, headStates: [null, { roll: 20 }, null, { roll: -20 }],
+  });
+  assert.deepEqual(frames, Array.from({ length: 4 }, () => ({
+    scaleX: 1, scaleY: 1, tx: 0, ty: 0, rotateDeg: 0,
+  })));
+});
+
+test("avatar-drive motion: expression head roll は frame 単位で procedural tilt より優先", () => {
+  const common = {
+    mouthStates: ["closed", "open", "open", "open"], fps: 20, intensity: 0.5, seed: 17,
+    width: 128, height: 128,
+  };
+  const procedural = buildMotionFrames(common);
+  const tracked = buildMotionFrames({ ...common, headStates: [null, null, { roll: 8 }, null] });
+  assert.equal(tracked[2].rotateDeg, 4);
+  assert.equal(tracked[1].rotateDeg, procedural[1].rotateDeg);
+  assert.equal(tracked[3].rotateDeg, procedural[3].rotateDeg);
 });
 
 test("avatar-drive expression: 実測 blink は採用し、遮蔽の非対称スパイクは棄却する", () => {
@@ -226,19 +267,97 @@ test("avatar-drive CLI: 実 ffmpeg の状態列と layer JSON は同入力 2 回
   }
   const args = [script, root, "--sprites", root, "--blink-period", "0.55", "--blink-jitter", "0.1"];
   const firstRun = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 30_000 });
+  const firstHash = sha256(join(root, ".akari", "cache", "avatar-drive", "avatar-drive.mov"));
   const secondRun = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 30_000 });
+  const secondHash = sha256(join(root, ".akari", "cache", "avatar-drive", "avatar-drive.mov"));
   assert.equal(firstRun.status, 0, firstRun.stderr || firstRun.stdout);
   assert.equal(secondRun.status, 0, secondRun.stderr || secondRun.stdout);
   const first = JSON.parse(firstRun.stdout);
   const second = JSON.parse(secondRun.stdout);
   assert.deepEqual(first, second);
+  assert.equal(firstHash, secondHash, "既定 motion の MOV は byte 一致する");
   assert.ok(first.drive.mouth.includes("closed"));
   assert.ok(first.drive.mouth.includes("mid"));
   assert.ok(first.drive.mouth.includes("open"));
   assert.ok(first.drive.eyes.includes("closed"));
   assert.equal(first.layers[0].kind, "baked");
-  assert.equal(first.stats.width, 128);
-  assert.equal(first.stats.height, 128);
+  assert.ok(first.stats.width > 128);
+  assert.ok(first.stats.height > 128);
+  assert.equal(first.stats.width, 128 + first.stats.motion_margin * 2);
+  assert.equal(first.stats.height, 128 + first.stats.motion_margin * 2);
+});
+
+test("avatar-drive CLI: --no-motion は従来寸法・決定論を保ち、数値指定との併用を拒否", { timeout: 30_000 }, (t) => {
+  let ffmpeg;
+  try { ffmpeg = resolveFfmpeg(); resolveFfprobe(); } catch { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const root = mkdtempSync(join(tmpdir(), "avatar-drive-no-motion-"));
+  const sourcePath = join(root, "source.mov");
+  const generated = spawnSync(ffmpeg, [
+    "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=navy:s=320x180:r=10:d=1",
+    "-f", "lavfi", "-i", "sine=frequency=220:sample_rate=48000:duration=1",
+    "-shortest", "-c:v", "mpeg4", "-c:a", "pcm_s16le", sourcePath,
+  ], { encoding: "utf8" });
+  assert.equal(generated.status, 0, generated.stderr);
+  writeFileSync(join(root, "edit.json"), `${JSON.stringify({
+    version: 0, output: { width: 320, height: 180, fps: 10 },
+    source: { path: "source.mov", proxy: null }, cuts: [{ in: 0, out: 1 }], overlays: [], layers: [],
+  }, null, 2)}\n`);
+  const args = [script, root, "--sprites", fixture, "--no-motion"];
+  const first = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 30_000 });
+  const firstHash = sha256(join(root, ".akari", "cache", "avatar-drive", "avatar-drive.mov"));
+  const second = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 30_000 });
+  assert.equal(first.status, 0, first.stderr || first.stdout);
+  assert.equal(second.status, 0, second.stderr || second.stdout);
+  assert.equal(first.stdout, second.stdout);
+  assert.equal(firstHash, sha256(join(root, ".akari", "cache", "avatar-drive", "avatar-drive.mov")));
+  assert.equal(JSON.parse(first.stdout).stats.width, 128);
+  assert.equal(JSON.parse(first.stdout).stats.height, 128);
+  const conflict = spawnSync(process.execPath, [...args, "--motion-intensity", "0.5"], { encoding: "utf8" });
+  assert.equal(conflict.status, 2);
+  assert.match(JSON.parse(conflict.stdout).reason, /同時/);
+});
+
+test("avatar-drive motion: intensity 1 の全 frame は透明境界内に収まる", { timeout: 30_000 }, async (t) => {
+  let ffmpeg;
+  try { ffmpeg = resolveFfmpeg(); resolveFfprobe(); } catch { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const spriteSet = loadSpriteSet(fixture, { ffprobeCommand: resolveFfprobe() });
+  const mouthStates = [...Array(12).fill("closed"), ...Array(36).fill("open"), ...Array(12).fill("closed")];
+  const eyeStates = Array(mouthStates.length).fill("open");
+  const motionFrames = buildMotionFrames({
+    mouthStates, fps: 30, intensity: 1, seed: 4242, width: 128, height: 128,
+  });
+  const root = mkdtempSync(join(tmpdir(), "avatar-drive-motion-bounds-"));
+  const outPath = join(root, "motion.mov");
+  const baked = await bakeAvatarClip({ spriteSet, mouthStates, eyeStates, fps: 30, outPath, motionFrames }, {
+    ffmpegCommand: ffmpeg,
+  });
+  assert.equal(baked.margin, calculateMotionMargin(128, 128, motionFrames));
+  assert.ok(baked.margin > 0);
+  const decoded = spawnSync(ffmpeg, [
+    "-v", "error", "-i", outPath, "-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1",
+  ], { encoding: null, maxBuffer: baked.width * baked.height * mouthStates.length * 4 + 1024 * 1024 });
+  assert.equal(decoded.status, 0, String(decoded.stderr));
+  const frameBytes = baked.width * baked.height * 4;
+  assert.equal(decoded.stdout.length, frameBytes * mouthStates.length);
+  for (let frame = 0; frame < mouthStates.length; frame += 1) {
+    const start = frame * frameBytes;
+    let minX = baked.width;
+    let minY = baked.height;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < baked.height; y += 1) {
+      for (let x = 0; x < baked.width; x += 1) {
+        if (decoded.stdout[start + (y * baked.width + x) * 4 + 3] === 0) continue;
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      }
+    }
+    assert.ok(maxX >= minX && maxY >= minY, `frame ${frame} has alpha`);
+    assert.ok(minX > 0 && minY > 0 && maxX < baked.width - 1 && maxY < baked.height - 1, `frame ${frame} bbox`);
+    for (const [x, y] of [[0, 0], [baked.width - 1, 0], [0, baked.height - 1], [baked.width - 1, baked.height - 1]]) {
+      assert.equal(decoded.stdout[start + (y * baked.width + x) * 4 + 3], 0, `frame ${frame} corner ${x},${y}`);
+    }
+  }
 });
 
 test("avatar-drive CLI: 必須入力なしは exit 2、--check は可否 JSON", () => {
