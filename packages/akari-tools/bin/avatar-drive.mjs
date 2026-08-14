@@ -32,6 +32,7 @@ function parseArguments(argv) {
     project: null, sprites: null, apply: false, check: false, out: null,
     position: "right-bottom", scale: 1, margin: 48, layerId: "avatar-drive-0", profile: {},
     mouthMode: "volume", transcript: null, expressionTrack: null,
+    mouthTransition: 2,
     headSmoothing: DEFAULT_HEAD_SMOOTHING,
     motionIntensity: MOTION_DEFAULTS.intensity, noMotion: false, motionIntensitySpecified: false,
   };
@@ -51,6 +52,7 @@ function parseArguments(argv) {
     else if (arg === "--margin") options.margin = Number(value);
     else if (arg === "--layer-id") options.layerId = value;
     else if (arg === "--mouth-mode") options.mouthMode = value;
+    else if (arg === "--mouth-transition") options.mouthTransition = Number(value);
     else if (arg === "--transcript") options.transcript = resolve(value);
     else if (arg === "--expression-track") options.expressionTrack = resolve(value);
     else if (arg === "--head-smoothing") options.headSmoothing = Number(value);
@@ -70,6 +72,9 @@ function parseArguments(argv) {
   }
   if (!(options.scale > 0)) throw new Error("--scale は正数である必要があります");
   if (!(options.margin >= 0)) throw new Error("--margin は 0 以上である必要があります");
+  if (!Number.isInteger(options.mouthTransition) || options.mouthTransition < 0) {
+    throw new Error("--mouth-transition は 0 以上の整数である必要があります");
+  }
   if (!Number.isInteger(options.headSmoothing) || options.headSmoothing < 0) {
     throw new Error("--head-smoothing は 0 以上の整数である必要があります");
   }
@@ -181,10 +186,13 @@ async function main() {
       fps: timeline.fps,
       seed: motionSeed,
       motionFrames,
+      mouthTransitionFrames: options.mouthTransition,
     }) : null;
     const baked = await bakeAvatarClip({
       spriteSet, mouthStates, eyeStates, fps: timeline.fps, outPath, motionFrames,
       partFrames: partResult?.frames ?? null,
+      partTransitions: partResult?.transitions ?? null,
+      mouthTransitionFrames: options.mouthTransition,
     }, { ffmpegCommand: available.ffmpeg });
     const bakedSprite = baked.margin === 0 ? spriteSet.manifest : {
       ...spriteSet.manifest,

@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { computeMouthTransitions } from "./mouth-transition.mjs";
+
 const TAU = Math.PI * 2;
 const IDENTITY = Object.freeze({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
 
@@ -59,7 +61,7 @@ function waveAt(wave, time, fallbackPhase) {
   return wave.amplitude * Math.sin(TAU * wave.frequency * time + (wave.phase ?? fallbackPhase));
 }
 
-function visibleFor(part, mouth, eyes, emotion) {
+export function visibleFor(part, mouth, eyes, emotion) {
   if (part.states === "always") return true;
   const drive = { mouth, eyes, emotion };
   return Object.entries(part.states).every(([name, values]) => values.includes(drive[name]));
@@ -101,6 +103,7 @@ export function measureFollowLagFrames(target, observed, maximumLag = 60) {
  */
 export function buildPartFrames({
   partsSet, mouthStates, eyeStates, emotionStates = null, fps, seed, motionFrames = null,
+  mouthTransitionFrames = 0,
 }) {
   if (partsSet?.kind !== "parts-v2") throw new Error("buildPartFrames には parts.json v2 が必要です");
   if (!Array.isArray(mouthStates) || mouthStates.length === 0 || mouthStates.length !== eyeStates?.length) {
@@ -191,5 +194,21 @@ export function buildPartFrames({
     const actual = xRange >= yRange ? trace.actualX : trace.actualY;
     followLagFrames[part.id] = measureFollowLagFrames(target, actual, Math.round(fps * 2));
   }
-  return { frames, diagnostics: { follow_lag_frames: followLagFrames } };
+  let transitions = null;
+  if (mouthTransitionFrames > 0) {
+    const mouthTransitions = computeMouthTransitions(mouthStates, mouthTransitionFrames);
+    const partsById = new Map(partsSet.parts.map((part) => [part.id, part]));
+    transitions = mouthTransitions.map((transition, index) => {
+      if (transition === null) return null;
+      const emotion = emotionStates?.[index] ?? "neutral";
+      return {
+        t: transition.t,
+        fromRendered: frames[index].map((rendered) => ({
+          ...rendered,
+          visible: visibleFor(partsById.get(rendered.id), transition.from, eyeStates[index], emotion),
+        })),
+      };
+    });
+  }
+  return { frames, diagnostics: { follow_lag_frames: followLagFrames }, transitions };
 }
