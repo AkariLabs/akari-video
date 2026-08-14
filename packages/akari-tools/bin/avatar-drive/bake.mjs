@@ -5,6 +5,7 @@ import { once } from "node:events";
 
 import { resolveFfmpeg } from "../../../media-bin/src/index.mjs";
 import { calculateMotionMargin } from "./motion.mjs";
+import { calculatePartsMargin, decodePartImages, renderPartsFrame } from "./parts-render.mjs";
 
 function composeVariant(spriteSet, mouth, eyes, ffmpegCommand) {
   const { width, height } = spriteSet.manifest.size;
@@ -79,13 +80,42 @@ function transformedFrame(source, width, height, frame, margin) {
 }
 
 export async function bakeAvatarClip({
-  spriteSet, mouthStates, eyeStates, fps, outPath, motionFrames = null,
+  spriteSet, mouthStates, eyeStates, fps, outPath, motionFrames = null, partFrames = null,
 }, { ffmpegCommand } = {}) {
   if (mouthStates.length !== eyeStates.length || mouthStates.length === 0) throw new Error("口と目の状態列の長さが一致しません");
   if (motionFrames !== null && motionFrames.length !== mouthStates.length) {
     throw new Error("モーション列と口状態列の長さが一致しません");
   }
   const command = ffmpegCommand ?? resolveFfmpeg();
+  if (spriteSet.kind === "parts-v2") {
+    if (!Array.isArray(partFrames) || partFrames.length !== mouthStates.length) {
+      throw new Error("parts.json v2 のパーツ変換列と口状態列の長さが一致しません");
+    }
+    const decoded = decodePartImages(spriteSet, command);
+    const margin = calculatePartsMargin(spriteSet, partFrames);
+    const width = spriteSet.manifest.size.width + margin * 2;
+    const height = spriteSet.manifest.size.height + margin * 2;
+    mkdirSync(dirname(outPath), { recursive: true });
+    const child = spawn(command, [
+      "-y", "-v", "error", "-f", "rawvideo", "-pixel_format", "rgba", "-video_size", `${width}x${height}`,
+      "-framerate", String(fps), "-i", "pipe:0", "-frames:v", String(mouthStates.length),
+      "-map_metadata", "-1", "-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le",
+      "-alpha_bits", "16", "-vendor", "apl0", "-an", outPath,
+    ], { stdio: ["pipe", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    const variants = new Set();
+    for (const frame of partFrames) {
+      variants.add(frame.filter((part) => part.visible).map((part) => part.id).join("\0"));
+      const rendered = renderPartsFrame(spriteSet, frame, decoded, margin);
+      if (!child.stdin.write(rendered)) await once(child.stdin, "drain");
+    }
+    child.stdin.end();
+    const [status] = await once(child, "close");
+    if (status !== 0) throw new Error(`parts.json v2 アルファ付きクリップのベイクに失敗しました: ${stderr.trim()}`);
+    return { outPath, frameCount: mouthStates.length, width, height, margin, variants: variants.size };
+  }
   const variants = new Map();
   for (let index = 0; index < mouthStates.length; index += 1) {
     const key = `${mouthStates[index]}/${eyeStates[index]}`;

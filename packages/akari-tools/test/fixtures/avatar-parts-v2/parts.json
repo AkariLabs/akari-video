@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "size": { "width": 160, "height": 160 },
+  "anchor": { "x": 0.5, "y": 1 },
+  "parts": [
+    { "id": "body", "image": "body.png", "parent": null, "offset": { "x": 80, "y": 150 }, "origin": { "x": 35, "y": 70 }, "z": 0, "states": "always" },
+    { "id": "hair-back", "image": "hair-back.png", "parent": "head", "offset": { "x": 0, "y": -35 }, "origin": { "x": 38, "y": 5 }, "z": 1, "states": "always", "physics": { "wobble": { "x": { "amplitude": 2.5, "frequency": 0.55, "phase": 0.2 }, "y": { "amplitude": 1, "frequency": 0.35, "phase": 0.8 } }, "follow": { "drag": 9 }, "rotationalDrag": { "strength": 1.1, "minDeg": -14, "maxDeg": 14, "lerp": 0.25 } } },
+    { "id": "head", "image": "head.png", "parent": "body", "offset": { "x": 0, "y": -55 }, "origin": { "x": 45, "y": 55 }, "z": 2, "states": "always" },
+    { "id": "eyes-open", "image": "eyes-open.png", "parent": "head", "offset": { "x": 0, "y": -8 }, "origin": { "x": 30, "y": 10 }, "z": 3, "states": { "eyes": ["open"] } },
+    { "id": "eyes-closed", "image": "eyes-closed.png", "parent": "head", "offset": { "x": 0, "y": -8 }, "origin": { "x": 30, "y": 10 }, "z": 3, "states": { "eyes": ["closed"] } },
+    { "id": "mouth-closed", "image": "mouth-closed.png", "parent": "head", "offset": { "x": 0, "y": 18 }, "origin": { "x": 15, "y": 10 }, "z": 4, "states": { "mouth": ["closed"] } },
+    { "id": "mouth-a", "image": "mouth-a.png", "parent": "head", "offset": { "x": 0, "y": 18 }, "origin": { "x": 15, "y": 10 }, "z": 4, "states": { "mouth": ["a", "mid", "open"] } },
+    { "id": "mouth-i", "image": "mouth-i.png", "parent": "head", "offset": { "x": 0, "y": 18 }, "origin": { "x": 15, "y": 10 }, "z": 4, "states": { "mouth": ["i"] } },
+    { "id": "mouth-u", "image": "mouth-u.png", "parent": "head", "offset": { "x": 0, "y": 18 }, "origin": { "x": 15, "y": 10 }, "z": 4, "states": { "mouth": ["u"] } },
+    { "id": "mouth-e", "image": "mouth-e.png", "parent": "head", "offset": { "x": 0, "y": 18 }, "origin": { "x": 15, "y": 10 }, "z": 4, "states": { "mouth": ["e"] } },
+    { "id": "mouth-o", "image": "mouth-o.png", "parent": "head", "offset": { "x": 0, "y": 18 }, "origin": { "x": 15, "y": 10 }, "z": 4, "states": { "mouth": ["o"] } },
+    { "id": "hair-left", "image": "hair-left.png", "parent": "head", "offset": { "x": -31, "y": -29 }, "origin": { "x": 9, "y": 5 }, "z": 5, "states": "always", "physics": { "wobble": { "x": { "amplitude": 2, "frequency": 0.48, "phase": 1.1 } }, "follow": { "drag": 6 }, "rotationalDrag": { "strength": 1.35, "minDeg": -18, "maxDeg": 18, "lerp": 0.25 } } },
+    { "id": "hair-right", "image": "hair-right.png", "parent": "head", "offset": { "x": 31, "y": -29 }, "origin": { "x": 9, "y": 5 }, "z": 5, "states": "always", "physics": { "wobble": { "x": { "amplitude": 2.2, "frequency": 0.52, "phase": 2.4 } }, "follow": { "drag": 12 }, "rotationalDrag": { "strength": 1.5, "minDeg": -20, "maxDeg": 20, "lerp": 0.25 } } }
+  ]
+}
