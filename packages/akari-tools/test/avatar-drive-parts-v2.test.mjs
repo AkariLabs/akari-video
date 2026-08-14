@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+import { blendFrameBuffers } from "../bin/avatar-drive/mouth-transition.mjs";
+import { buildMotionFrames } from "../bin/avatar-drive/motion.mjs";
 import { buildPartFrames } from "../bin/avatar-drive/parts-physics.mjs";
+import { calculatePartsMargin, decodePartImages, renderPartsFrame } from "../bin/avatar-drive/parts-render.mjs";
 import { loadPartsSet, validatePartsManifest } from "../bin/avatar-drive/parts-set.mjs";
 import { loadSpriteSet, requireVowelMouthAssets } from "../bin/avatar-drive/sprite-set.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
@@ -47,6 +50,27 @@ test("avatar-drive parts v2: schema、親子順、z 順、states 切替を固定
   const head = first.find((part) => part.id === "head");
   assert.deepEqual({ e: body.matrix.e, f: body.matrix.f }, { e: 45, f: 80 });
   assert.deepEqual({ e: head.matrix.e, f: head.matrix.f }, { e: 35, f: 40 });
+  assert.equal(result.transitions, null);
+
+  const transitioned = buildPartFrames({
+    partsSet,
+    mouthStates: ["closed", "a"],
+    eyeStates: ["open", "closed"],
+    fps: 30,
+    seed: 42,
+    motionFrames: null,
+    mouthTransitionFrames: 2,
+  });
+  assert.equal(transitioned.transitions[0], null);
+  assert.equal(transitioned.transitions[1].t, 1 / 3);
+  assert.deepEqual(
+    transitioned.transitions[1].fromRendered.filter((part) => part.visible && part.id.startsWith("mouth-")).map((part) => part.id),
+    ["mouth-closed"],
+  );
+  assert.deepEqual(
+    transitioned.transitions[1].fromRendered.map(({ id, matrix, z, declarationIndex }) => ({ id, matrix, z, declarationIndex })),
+    transitioned.frames[1].map(({ id, matrix, z, declarationIndex }) => ({ id, matrix, z, declarationIndex })),
+  );
 });
 
 test("avatar-drive parts v2: wobble/follow/rotational drag/talk bounce は固定 dt で決定論的", () => {
@@ -98,6 +122,7 @@ test("avatar-drive parts v2 demo: 12 秒 say で髪の位相遅れと同一入�
   assert.equal(firstRun.status, 0, firstRun.stderr || firstRun.stdout);
   const outPath = join(root, ".akari", "cache", "avatar-drive", "avatar-drive.mov");
   const firstHash = sha256(outPath);
+  const firstMovie = readFileSync(outPath);
   const secondRun = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 120_000 });
   assert.equal(secondRun.status, 0, secondRun.stderr || secondRun.stdout);
   const first = JSON.parse(firstRun.stdout);
@@ -107,4 +132,63 @@ test("avatar-drive parts v2 demo: 12 秒 say で髪の位相遅れと同一入�
   assert.equal(first.stats.parts, 13);
   assert.ok(first.stats.mouth_counts.closed > 0 && first.stats.mouth_counts.open > 0);
   for (const id of ["hair-back", "hair-left", "hair-right"]) assert.ok(first.stats.follow_lag_frames[id] > 0, `${id} lag`);
+
+  const transitionedPath = join(root, "transitioned.mov");
+  writeFileSync(transitionedPath, firstMovie);
+  const directPath = join(root, "direct.mov");
+  const directRun = spawnSync(process.execPath, [...args, "--mouth-transition", "0", "--out", directPath], {
+    encoding: "utf8", timeout: 120_000,
+  });
+  assert.equal(directRun.status, 0, directRun.stderr || directRun.stdout);
+  const decode = (path) => spawnSync(ffmpeg, [
+    "-v", "error", "-i", path, "-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1",
+  ], { encoding: null, maxBuffer: 64 * 1024 * 1024 });
+  const transitionedRgba = decode(transitionedPath);
+  const directRgba = decode(directPath);
+  assert.equal(transitionedRgba.status, 0, String(transitionedRgba.stderr));
+  assert.equal(directRgba.status, 0, String(directRgba.stderr));
+  assert.equal(transitionedRgba.stdout.length, directRgba.stdout.length);
+  const frameBytes = transitionedRgba.stdout.length / first.stats.frames;
+  const boundaries = first.drive.mouth
+    .map((mouth, index) => index > 0 && mouth !== first.drive.mouth[index - 1] ? index : -1)
+    .filter((index) => index >= 0);
+  assert.ok(boundaries.length > 0);
+  assert.ok(boundaries.some((index) => {
+    const start = index * frameBytes;
+    return !transitionedRgba.stdout.subarray(start, start + frameBytes)
+      .equals(directRgba.stdout.subarray(start, start + frameBytes));
+  }), "口切替 frame は単一状態直書きと異なる中間画素を持つ");
+
+  const partsSet = loadPartsSet(fixture, { ffprobeCommand: resolveFfprobe() });
+  const motionFrames = buildMotionFrames({
+    mouthStates: first.drive.mouth,
+    fps: first.stats.fps,
+    intensity: first.stats.motion_intensity,
+    seed: first.stats.motion_seed,
+    width: partsSet.manifest.size.width,
+    height: partsSet.manifest.size.height,
+  });
+  const rendered = buildPartFrames({
+    partsSet,
+    mouthStates: first.drive.mouth,
+    eyeStates: first.drive.eyes,
+    fps: first.stats.fps,
+    seed: first.stats.motion_seed,
+    motionFrames,
+    mouthTransitionFrames: 2,
+  });
+  const allFrames = [
+    ...rendered.frames,
+    ...rendered.transitions.filter(Boolean).map((transition) => transition.fromRendered),
+  ];
+  const margin = calculatePartsMargin(partsSet, allFrames);
+  const decoded = decodePartImages(partsSet, ffmpeg);
+  const boundary = boundaries[0];
+  const fromBuffer = renderPartsFrame(partsSet, rendered.transitions[boundary].fromRendered, decoded, margin);
+  const toBuffer = renderPartsFrame(partsSet, rendered.frames[boundary], decoded, margin);
+  const blended = blendFrameBuffers(fromBuffer, toBuffer, rendered.transitions[boundary].t);
+  assert.ok(blended.some((value, index) => (
+    value > Math.min(fromBuffer[index], toBuffer[index])
+      && value < Math.max(fromBuffer[index], toBuffer[index])
+  )), "parts v2 の口切替 frame に旧状態／新状態の中間 channel 値がある");
 });

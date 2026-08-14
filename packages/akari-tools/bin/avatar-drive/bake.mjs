@@ -5,6 +5,7 @@ import { once } from "node:events";
 
 import { resolveFfmpeg } from "../../../media-bin/src/index.mjs";
 import { calculateMotionMargin } from "./motion.mjs";
+import { blendFrameBuffers, computeMouthTransitions } from "./mouth-transition.mjs";
 import { calculatePartsMargin, decodePartImages, renderPartsFrame } from "./parts-render.mjs";
 
 function composeVariant(spriteSet, mouth, eyes, ffmpegCommand) {
@@ -81,6 +82,7 @@ function transformedFrame(source, width, height, frame, margin) {
 
 export async function bakeAvatarClip({
   spriteSet, mouthStates, eyeStates, fps, outPath, motionFrames = null, partFrames = null,
+  partTransitions = null, mouthTransitionFrames = 0,
 }, { ffmpegCommand } = {}) {
   if (mouthStates.length !== eyeStates.length || mouthStates.length === 0) throw new Error("口と目の状態列の長さが一致しません");
   if (motionFrames !== null && motionFrames.length !== mouthStates.length) {
@@ -91,8 +93,16 @@ export async function bakeAvatarClip({
     if (!Array.isArray(partFrames) || partFrames.length !== mouthStates.length) {
       throw new Error("parts.json v2 のパーツ変換列と口状態列の長さが一致しません");
     }
+    if (partTransitions !== null && (!Array.isArray(partTransitions) || partTransitions.length !== mouthStates.length)) {
+      throw new Error("parts.json v2 の口遷移列と口状態列の長さが一致しません");
+    }
     const decoded = decodePartImages(spriteSet, command);
-    const margin = calculatePartsMargin(spriteSet, partFrames);
+    const margin = partTransitions === null
+      ? calculatePartsMargin(spriteSet, partFrames)
+      : calculatePartsMargin(spriteSet, [
+        ...partFrames,
+        ...partTransitions.filter(Boolean).map((transition) => transition.fromRendered),
+      ]);
     const width = spriteSet.manifest.size.width + margin * 2;
     const height = spriteSet.manifest.size.height + margin * 2;
     mkdirSync(dirname(outPath), { recursive: true });
@@ -106,9 +116,14 @@ export async function bakeAvatarClip({
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk) => { stderr += chunk; });
     const variants = new Set();
-    for (const frame of partFrames) {
+    for (let index = 0; index < partFrames.length; index += 1) {
+      const frame = partFrames[index];
       variants.add(frame.filter((part) => part.visible).map((part) => part.id).join("\0"));
-      const rendered = renderPartsFrame(spriteSet, frame, decoded, margin);
+      let rendered = renderPartsFrame(spriteSet, frame, decoded, margin);
+      if (partTransitions?.[index]) {
+        const fromRendered = renderPartsFrame(spriteSet, partTransitions[index].fromRendered, decoded, margin);
+        rendered = blendFrameBuffers(fromRendered, rendered, partTransitions[index].t);
+      }
       if (!child.stdin.write(rendered)) await once(child.stdin, "drain");
     }
     child.stdin.end();
@@ -116,10 +131,19 @@ export async function bakeAvatarClip({
     if (status !== 0) throw new Error(`parts.json v2 アルファ付きクリップのベイクに失敗しました: ${stderr.trim()}`);
     return { outPath, frameCount: mouthStates.length, width, height, margin, variants: variants.size };
   }
+  const transitions = mouthTransitionFrames > 0
+    ? computeMouthTransitions(mouthStates, mouthTransitionFrames)
+    : null;
   const variants = new Map();
   for (let index = 0; index < mouthStates.length; index += 1) {
     const key = `${mouthStates[index]}/${eyeStates[index]}`;
     if (!variants.has(key)) variants.set(key, composeVariant(spriteSet, mouthStates[index], eyeStates[index], command));
+    if (transitions?.[index]) {
+      for (const mouth of [transitions[index].from, transitions[index].to]) {
+        const transitionKey = `${mouth}/${eyeStates[index]}`;
+        if (!variants.has(transitionKey)) variants.set(transitionKey, composeVariant(spriteSet, mouth, eyeStates[index], command));
+      }
+    }
   }
   mkdirSync(dirname(outPath), { recursive: true });
   const sourceSize = spriteSet.manifest.size;
@@ -136,7 +160,14 @@ export async function bakeAvatarClip({
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk) => { stderr += chunk; });
   for (let index = 0; index < mouthStates.length; index += 1) {
-    const variant = variants.get(`${mouthStates[index]}/${eyeStates[index]}`);
+    const transition = transitions?.[index];
+    const variant = transition
+      ? blendFrameBuffers(
+        variants.get(`${transition.from}/${eyeStates[index]}`),
+        variants.get(`${transition.to}/${eyeStates[index]}`),
+        transition.t,
+      )
+      : variants.get(`${mouthStates[index]}/${eyeStates[index]}`);
     const frame = motionFrames === null
       ? variant
       : transformedFrame(variant, sourceSize.width, sourceSize.height, motionFrames[index], margin);
