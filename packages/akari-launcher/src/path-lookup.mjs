@@ -68,3 +68,26 @@ export function findOpencodeExecutable(pathEnv = process.env.PATH ?? '', platfor
   }
   return null;
 }
+
+/** PATH 上の Hermes Agent CLI を探す。AKARI のプロジェクト規約（AGENTS.md）を
+ * 読める AI 実行役として、Claude Code / opencode と同じ安全な実行可能ファイル検出を使う。
+ */
+export function findHermesExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
+  const directories = pathEnv.split(path.delimiter).filter(Boolean);
+  const candidateNames = platform === 'win32'
+    ? resolveWindowsExtensions(pathExt).map((extension) => `hermes${extension.toLowerCase()}`)
+    : ['hermes'];
+
+  for (const directory of directories) {
+    for (const name of candidateNames) {
+      const candidate = path.join(directory, name);
+      try {
+        accessSync(candidate, fsConstants.X_OK);
+        return candidate;
+      } catch {
+        // このディレクトリには無い。次を探す。
+      }
+    }
+  }
+  return null;
+}
