@@ -48,8 +48,13 @@ function paidMetaBuffer(id, category) {
  * 契約 §6 の zip 構成（`<id>-v<version>/` 直下に README.md / LICENSE.md / 本体 / checksums.txt）を
  * システムの `zip` コマンドで実際に作る。`corrupt: '<name>'` を指定すると、その名前の
  * checksums.txt エントリだけ sha256 を意図的にずらす（checksums 不一致テスト用）。
+ *
+ * `layout: 'pack'` はストア入稿の実形（#25 で発覚）を作る: zip ルートに PACK.json / docs/ を持ち、
+ * 素材本体は assets/<category>/<id>/ 配下。`withoutMeta: true` は meta.json を落とした zip を作る
+ * （有料経路の meta.json 必須化テスト用）。`extraChecksumLine` は checksums.txt に任意の 1 行を
+ * 追記する（zip-slip 防御テスト用）。
  */
-function buildPaidZip(id, category, { corrupt } = {}) {
+function buildPaidZip(id, category, { corrupt, layout = 'flat', withoutMeta = false, extraChecksumLine } = {}) {
   const stage = mkdtempSync(path.join(tmpdir(), 'paid-zip-fixture-'));
   const rootName = `${id}-v1`;
   const rootDir = path.join(stage, rootName);
@@ -64,19 +69,31 @@ function buildPaidZip(id, category, { corrupt } = {}) {
     'model.glb': Buffer.from('glTF-fixture-not-a-real-binary'),
     'preview.png': MINI_PNG,
   };
+  if (withoutMeta) delete payload['meta.json'];
+
+  const payloadPrefix = layout === 'pack' ? `assets/${category}/${id}/` : '';
   const allFiles = {
     'README.md': Buffer.from('# fixture\n'),
     'LICENSE.md': Buffer.from('fixture license\n'),
-    ...payload,
   };
+  if (layout === 'pack') {
+    allFiles['PACK.json'] = Buffer.from(`${JSON.stringify({ id, version: 1 })}\n`);
+    allFiles['docs/GUIDE.md'] = Buffer.from('# pack guide fixture\n');
+  }
+  for (const [name, buffer] of Object.entries(payload)) {
+    allFiles[`${payloadPrefix}${name}`] = buffer;
+  }
   for (const [name, buffer] of Object.entries(allFiles)) {
-    writeFileSync(path.join(rootDir, name), buffer);
+    const filePath = path.join(rootDir, name);
+    mkdirSync(path.dirname(filePath), { recursive: true });
+    writeFileSync(filePath, buffer);
   }
 
   const checksumLines = Object.keys(allFiles).sort().map((name) => {
     const digest = name === corrupt ? '0'.repeat(64) : sha256(allFiles[name]);
     return `${digest}  ${name}`;
   });
+  if (extraChecksumLine) checksumLines.push(extraChecksumLine);
   writeFileSync(path.join(rootDir, 'checksums.txt'), `${checksumLines.join('\n')}\n`);
 
   const zipPath = path.join(stage, `${rootName}.zip`);
@@ -219,4 +236,77 @@ test('resolvePaidZip: ダウンロード失敗（トークン失効等）も fai
   );
 
   assert.equal(existsSync(path.join(home, 'assets', 'scene3d', 'mini-paid-zip')), false);
+});
+
+test('resolvePaidZip: pack 形状（assets/<category>/<id>/ 配下）は素材本体へ降りて登録される（#25）', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'mini-paid-pack', 'scene3d', 2980);
+  const zipPath = buildPaidZip('mini-paid-pack', 'scene3d', { layout: 'pack' });
+
+  const result = await resolveAsset('mini-paid-pack', {
+    env,
+    fetchImpl: fetchImplFor('mini-paid-pack', { entitled: true, zipPath }),
+  });
+
+  // meta.json がライブラリ直下（<category>/<id>/meta.json）に来る — #25 の壊れ形の否定
+  assert.equal(result.dir, path.join(home, 'assets', 'scene3d', 'mini-paid-pack'));
+  assert.ok(existsSync(path.join(result.dir, 'meta.json')));
+  assert.ok(existsSync(path.join(result.dir, 'fragment.html')));
+  assert.ok(existsSync(path.join(result.dir, 'model.glb')));
+  // pack の梱包物（PACK.json / docs/）と入れ子の assets/ はライブラリに混ぜない
+  assert.equal(existsSync(path.join(result.dir, 'PACK.json')), false);
+  assert.equal(existsSync(path.join(result.dir, 'docs')), false);
+  assert.equal(existsSync(path.join(result.dir, 'assets')), false);
+
+  const meta = JSON.parse(readFileSync(path.join(result.dir, 'meta.json'), 'utf8'));
+  assert.equal(meta.id, 'mini-paid-pack');
+});
+
+test('resolvePaidZip: meta.json の無い有料 zip は fail-closed（無警告スキップを許さない — #25）', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'mini-paid-nometa', 'scene3d', 2980);
+  const zipPath = buildPaidZip('mini-paid-nometa', 'scene3d', { withoutMeta: true });
+
+  await assert.rejects(
+    () => resolveAsset('mini-paid-nometa', {
+      env,
+      fetchImpl: fetchImplFor('mini-paid-nometa', { entitled: true, zipPath }),
+    }),
+    (error) => {
+      assert.ok(error instanceof AssetResolverError);
+      assert.equal(error.code, 'integrity');
+      assert.match(error.message, /meta\.json/);
+      return true;
+    },
+  );
+
+  assert.equal(existsSync(path.join(home, 'assets', 'scene3d', 'mini-paid-nometa')), false);
+  const stray = readdirSync(home).filter((name) => name.startsWith('.tmp-resolve-'));
+  assert.deepEqual(stray, [], '一時ディレクトリが破棄されていること');
+});
+
+test('resolvePaidZip: checksums.txt の `..` パスは zip-slip として拒否される', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, 'mini-paid-slip', 'scene3d', 2980);
+  const zipPath = buildPaidZip('mini-paid-slip', 'scene3d', {
+    extraChecksumLine: `${'0'.repeat(64)}  ../outside.txt`,
+  });
+
+  await assert.rejects(
+    () => resolveAsset('mini-paid-slip', {
+      env,
+      fetchImpl: fetchImplFor('mini-paid-slip', { entitled: true, zipPath }),
+    }),
+    (error) => {
+      assert.ok(error instanceof AssetResolverError);
+      assert.equal(error.code, 'integrity');
+      assert.match(error.message, /不正なパス/);
+      return true;
+    },
+  );
+
+  assert.equal(existsSync(path.join(home, 'assets', 'scene3d', 'mini-paid-slip')), false);
 });

@@ -86,7 +86,12 @@ export async function verifyPaidZipContents(extractedRoot, id) {
     if (!match) {
       throw new AssetResolverError(`checksums.txt の行を解釈できません: ${id}: ${trimmed}`, 'integrity');
     }
-    expected.push({ sha256: match[1], relPath: match[2] });
+    const relPath = match[2];
+    // zip-slip 防御: checksums.txt 経由で packageDir の外を参照させない（絶対パス・`..` 拒否）
+    if (path.isAbsolute(relPath) || relPath.split(/[\\/]/).includes('..')) {
+      throw new AssetResolverError(`checksums.txt に不正なパスがあります: ${id}: ${relPath}`, 'integrity');
+    }
+    expected.push({ sha256: match[1], relPath });
   }
   if (expected.length === 0) {
     throw new AssetResolverError(`checksums.txt が空です: ${id}`, 'integrity');
