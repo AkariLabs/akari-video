@@ -180,7 +180,7 @@ ${nodes}
               iterationStart: timing.iterationStart,
               direction: timing.direction,
               easing: timing.easing,
-              fill: 'both',
+              fill: conversion.timing.fill,
             });
             clone.pause();
             clone.currentTime = 0;
