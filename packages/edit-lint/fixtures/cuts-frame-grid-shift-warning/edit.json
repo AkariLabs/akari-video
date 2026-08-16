@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [{ "id": "s1", "path": "../valid/sample.mp4", "proxy": null }],
+  "cuts": [
+    { "src": "s1", "in": 31.89, "out": 34.87 }
+  ],
+  "overlays": []
+}
