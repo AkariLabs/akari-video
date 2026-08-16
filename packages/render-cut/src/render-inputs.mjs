@@ -164,10 +164,34 @@ export function extractThreeSceneAssetReferences(html, overlayLabel = "overlay")
     } catch (error) {
       throw new RenderInputError(`${overlayLabel} has invalid data-akari-3d-scene JSON: ${messageOf(error)}`);
     }
-    if (!isRecord(descriptor) || !isRelativeReference(descriptor.model)) {
+    if (!isRecord(descriptor)) {
       throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
     }
-    references.push({ role: "model", path: descriptor.model });
+    // texts[] があれば model は任意（contract-2026-08-12-3d-text-rail.md §3.1。
+    // rasterize.mjs と three-runtime.js は既にこの緩和を持っていたが、入力収集側の本関数だけが
+    // model を無条件必須のままで、texts だけのシーンが render-cut を通らなかった。2026-08-14 修正）
+    const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
+    if (descriptor.model !== undefined) {
+      if (!isRelativeReference(descriptor.model)) {
+        throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
+      }
+      references.push({ role: "model", path: descriptor.model });
+    } else if (!hasTexts) {
+      throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
+    }
+    // texts[].font も実ファイル依存なので入力として数える（rasterize は data URI へ焼き込む）。
+    // 収集しないと、フォントを差し替えても入力ハッシュが変わらず再レンダーが走らない
+    if (hasTexts) {
+      descriptor.texts.forEach((text, index) => {
+        if (!isRecord(text) || text.font === undefined) return;
+        if (!isRelativeReference(text.font)) {
+          throw new RenderInputError(
+            `${overlayLabel} texts.${text.id ?? index}.font must be a relative path`,
+          );
+        }
+        references.push({ role: `text-font:${text.id ?? index}`, path: text.font });
+      });
+    }
     if (descriptor.environment?.map !== undefined) {
       if (!isRelativeReference(descriptor.environment.map)) {
         throw new RenderInputError(`${overlayLabel} environment.map must be a relative path`);

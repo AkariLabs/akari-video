@@ -256,3 +256,249 @@ track の head は yaw/pitch/roll の radian だが、`avatar-vrm` の drive 受
 
 同じ track、cuts、fps、平滑化窓から作る head/eyes/emotion は決定論的であり、壁時計や乱数を
 参照しない。
+
+## v1.1 追記（2026-08-14）: PNGTuber モーション
+
+sprite ベイクへ、呼吸・発話バウンス・発話 onset ごとの微傾きを additive に追加する。
+`--motion-intensity <0..1>` の既定値は `0.5`。`--no-motion` は intensity `0` の別名であり、
+`--motion-intensity` との同時指定は曖昧さを避けるため拒否する。intensity `0` では全 frame が
+`scaleX=scaleY=1, tx=ty=rotateDeg=0` の厳密な恒等変換となり、アフィン変換とキャンバス拡張を
+一切通らない従来の raw RGBA → ProRes 経路を使う。
+
+frame `f`、`t=f/fps`、intensity `I` とする。入力ハッシュから得た位相 `p0,p1` により、呼吸波を
+次で定める。
+
+```text
+breath(t) = (sin(2π·0.25·t+p0) + 0.20·sin(2π·0.50·t+p1)) / 1.20
+```
+
+発話中は `mouth != "closed"` と判定する。発話 envelope `E` は target `1`（発話）/ `0`（無発話）
+へ指数平滑し、時定数は attack `0.06 s`、release `0.12 s`。発話 onset frame `o` から
+`pulse=(1-cos(2π·3.0·(f-o)/fps))/2`、`talk=E·(0.35+0.65·pulse)` とする。最終変換は次のとおり。
+
+```text
+scaleX = 1
+scaleY = 1 + I·(0.008·breath + 0.028·talk)
+tx = 0
+ty = -spriteHeight·I·(0.0015·breath + 0.009·talk)
+```
+
+微傾きは closed → 発話への各 onset で入力 seed の PRNG から符号と大きさを引き、target を
+`±3.2°·U(0.55,1.0)` とする。現在角度は target へ時定数 `0.28 s` の指数平滑で近づく。
+`--expression-track` 併用時、該当 frame の `drive.head` が non-null なら手続き角度を使わず、
+`rotateDeg=I·head.roll` とする。head が null の frame だけ手続き角度へ戻る。アフィン変換は拡張
+キャンバス中心を基準に scale → rotate → translate の順で適用し、RGBA は premultiplied alpha の
+bilinear 補間後に straight alpha へ戻す。
+
+キャンバスの四辺には全 frame で同じ整数 margin `M` を加える。各 frame の
+`θ=abs(rotateDeg)·π/180`、`hx=width·scaleX/2`、`hy=height·scaleY/2` に対し、
+
+```text
+ex = abs(cos θ)·hx + abs(sin θ)·hy + abs(tx)
+ey = abs(sin θ)·hx + abs(cos θ)·hy + abs(ty)
+M = ceil(max_all_frames(ex-width/2, ey-height/2) + 2px)
+```
+
+とする。末尾の `2px` は bilinear sampling support である。出力寸法は
+`(width+2M) × (height+2M)`。layer 配置には sprite.json の元寸法ではなくこの実ベイク寸法を使い、
+明示座標用 anchor も `(M + anchor·元寸法) / 実ベイク寸法` へ写像する。
+
+モーション seed は正規化済み edit.json、sprite.json、駆動 profile と固定識別子
+`avatar-drive-motion-v1.1` を stable stringify した SHA-256 から導出する。位相、onset の傾き、
+フレーム変換、補間、margin は壁時計・OS 乱数・mtime を参照しない。同一入力、同一 CLI 値、同一
+ffmpeg 実装なら stdout と MOV は byte 単位で決定論的である。
+
+既定が motion on (`0.5`) になったため、v1.1 の既定出力は従来よりキャンバスが大きく、画素も
+アフィン補間後の値へ変わる後方非互換点がある。従来と同じ寸法・画素・ProRes 呼び出しを必要とする
+場合は `--no-motion`（または `--motion-intensity 0`）を指定する。
+
+## v2 追記（2026-08-14）: 多層パーツツリーと 2D 物理
+
+v2 は `sprite.json` を置き換えない。`--sprites <dir>` の直下に `sprite.json` があれば従来形式として
+一切同じ経路で読み、無い場合だけ `parts.json` v2 を読む。両方がある場合も `sprite.json` を優先する。
+したがって既存セットの manifest、状態列、RGBA 合成、ProRes 呼び出し、stdout は変更しない。
+
+### v2.1 parts.json
+
+```jsonc
+{
+  "version": 2,
+  "size": { "width": 160, "height": 160 },
+  "anchor": { "x": 0.5, "y": 1 },
+  "parts": [
+    {
+      "id": "body",
+      "image": "body.png",
+      "parent": null,
+      "offset": { "x": 80, "y": 150 },
+      "origin": { "x": 35, "y": 70 },
+      "z": 0,
+      "states": "always"
+    },
+    {
+      "id": "hair-left",
+      "image": "hair-left.png",
+      "parent": "head",
+      "offset": { "x": -31, "y": -29 },
+      "origin": { "x": 9, "y": 5 },
+      "z": 5,
+      "states": "always",
+      "physics": {
+        "wobble": { "x": { "amplitude": 2, "frequency": 0.48, "phase": 1.1 } },
+        "follow": { "drag": 6 },
+        "rotationalDrag": { "strength": 1.35, "minDeg": -18, "maxDeg": 18, "lerp": 0.25 }
+      }
+    },
+    {
+      "id": "mouth-a",
+      "image": "mouth-a.png",
+      "parent": "head",
+      "offset": { "x": 0, "y": 18 },
+      "origin": { "x": 15, "y": 10 },
+      "z": 4,
+      "states": { "mouth": ["a", "mid", "open"] }
+    }
+  ]
+}
+```
+
+| フィールド | 規約 |
+|---|---|
+| `version` | 整数 `2` |
+| `size`, `anchor` | v0 と同じ出力キャンバス px と正規化アンカー |
+| `parts[].id` | セット内で一意な ASCII 識別子 |
+| `image` | セット内の PNG への相対パス。パーツごとに異なる実寸を許す |
+| `parent` | 親 id。ルートは `null`。複数ルートを許すが循環・欠落親は拒否する |
+| `offset` | 親の `origin` から当該パーツの `origin` までの px。ルートではキャンバス左上基準 |
+| `origin` | 当該 PNG 左上基準の回転・拡縮原点 px |
+| `z` | 小さい値から描く。等値は `parts[]` 宣言順 |
+| `states` | `"always"`、または `mouth` / `eyes` / `emotion` ごとの許可値配列 |
+| `physics` | 省略可。下節の `wobble` / `follow` / `rotationalDrag` / `talkBounce` |
+
+`states` に複数の駆動列があれば AND、同じ配列内の値は OR とする。口は
+`closed/mid/open/a/i/u/e/o`、目は `open/closed`、emotion は v0.2 の語彙をそのまま使う。
+たとえば `{mouth:["a","mid","open"],emotion:["happy"]}` は happy かつ該当口形の frame だけ
+表示する。母音モードでは、セット全体の `states.mouth` に `closed/a/i/u/e/o` が存在することを
+開始前に検査する。
+
+変換は親先行で評価する。行列を列ベクトルへ左から適用するとき、パーツ `p` の pivot 行列は
+`Pp = Pparent · T(offset + wobble) · R(rotationalDrag)`、画像行列は
+`Ip = Pp · T(-origin)` である。ルートの `Pparent` はキャンバス中心を原点とする v1.1 motion 行列で、
+`--no-motion` 時は恒等行列とする。これにより既存の呼吸・発話バウンス・微傾きは別の全画面後処理に
+せず、ルートパーツへ一度だけ適用される。描画は全パーツを `z` 順に straight-alpha over 合成し、
+サンプリングは premultiplied-alpha bilinear とする。
+
+### v2.2 物理語彙と決定論
+
+frame `f`、`t=f/fps`、固定ステップ `dt=1/fps` とする。壁時計、可変 delta、OS 乱数を使わない。
+phase を省略した wobble だけは、正規化済み入力から得た motion seed と part id と軸名を SHA-256
+へ入れ、その先頭 32 bit を `[0,2π)` へ写像する。
+
+**wobble** は軸ごとの閉形式サイン波である。
+
+```text
+wobbleAxis(t) = amplitude · sin(2π · frequency · t + phase)
+```
+
+`amplitude` は px、`frequency` は Hz、`phase` は rad。x/y は独立で、未指定軸は 0 px とする。
+
+**follow** は親が示す現在 frame の target pivot を、パーツが保持する world 座標へ lerp する。
+`drag >= 1` で、frame 0 は target へ初期化し、以後は次式とする。`drag=1` は遅れなしである。
+
+```text
+followed[f] = followed[f-1] + (target[f] - followed[f-1]) / drag
+```
+
+**rotationalDrag** は target と followed の world x 差を角度へ変換し、角度自体を lerp する。
+
+```text
+targetDeg[f] = clamp((targetX[f] - followedX[f]) · strength, minDeg, maxDeg)
+angle[f] = angle[f-1] + (targetDeg[f] - angle[f-1]) · lerp
+```
+
+`strength` は degree/px、`minDeg/maxDeg` の既定は `-180/180`、`lerp` の既定は `0.25`。
+
+**talkBounce** は closed から発話へ変わった frame で上向き初速を入れる固定 dt の放物運動である。
+
+```text
+onset: velocityY = -velocity
+velocityY[f] = velocityY[f-1] + gravity · dt
+bounceY[f] = bounceY[f-1] + velocityY[f] · dt
+```
+
+`bounceY` が 0 を越えたら 0 にクランプして停止し、反発はしない。値の単位は `velocity=px/s`、
+`gravity=px/s²`。v1.1 の標準発話バウンスはルート motion として既に存在するため、通常の v2 セットは
+ルートへ `talkBounce` を重ねない。この語彙は Plus import が明示的に値を持つ場合、または個別パーツを
+発話 onset で跳ねさせる場合の受け口である。
+
+同じ parts.json、PNG、駆動列、fps、profile、CLI 値、ffmpeg 実装なら、物理列、RGBA frame、MOV、
+stdout は byte 単位で一致する。stdout の `stats.follow_lag_frames` は follow 対象ごとに、target と
+followed の変動が大きい軸を選んで相互相関が最大になる 0〜2 秒の非負 lag を実測した frame 数である。
+
+### v2.3 PNGTuber Plus 語彙対応
+
+PNGTuber Plus 1.4.5（Unlicense）の保存・実行コードを仕様の一次資料として読み、コードは流用せず
+次の語彙を独自実装した。
+
+| PNGTuber Plus `.save` / 挙動 | parts.json v2 | 変換 |
+|---|---|---|
+| `identification` | `id` | 文字列化しセット内一意にする |
+| `parentId` | `parent` | identification 参照を id 参照へ変換。null は維持 |
+| `pos`, `offset` | `offset`, `origin` | Plus の pivot を解決して親原点相対 px へ正規化 |
+| `zindex` | `z` | 数値を維持。等値は import 宣言順 |
+| `xAmp/xFrq`, `yAmp/yFrq` | `physics.wobble` | `amplitude=Amp`、Plus の rad/frame を `frequency=Frq·fps/(2π)` へ換算 |
+| `drag` | `physics.follow.drag` | Plus の `lerp(...,1/dragSpeed)` と同じ係数。0/無効は `drag=1` |
+| `rotDrag`, `rLimitMin/Max` | `physics.rotationalDrag` | world 追従差 → degree/px とクランプへ正規化、角度 lerp は `0.25` |
+| global `bounce`, `gravity` | `physics.talkBounce` | import 厳密再現時は Plus 固定 `dt=0.0166` の sample を出力 fps へ再サンプルする |
+| `showTalk`, `showBlink` | `states.mouth/eyes` | Plus の speaking/blink 表を AKARI の明示状態集合へ展開 |
+| `stretchAmount` | 予約 | v2 は受理しない。将来の part scale drag として追加予定 |
+| `clipped`, costume, flipbook, toggle | 予約 | import 時に黙って捨てず unsupported として報告する |
+
+### v2.4 import 予約
+
+`.save` importer 自体は本版に含めない。将来 importer は埋め込み `imageData` を優先可能な PNG として
+抽出し、`path` は入力ファイル基準かつ境界内に解決できる場合だけ使う。整数辞書順を宣言順として
+parent tree と z を移し、上表の物理値と showTalk/showBlink を変換する。未対応フィールドは
+`unsupported[]`、変換で近似した値は `approximated[]` に必ず列挙し、モデル画像の利用権はユーザーが
+持ち込んだ範囲に限定する。export、配布モデルの収集・同梱は別契約とする。
+
+### v2.5 検証追加
+
+1. parent が宣言上は子より後でも親先行で解決し、循環・欠落親を拒否する。
+2. `z` 昇順・同値宣言順を固定し、親子変換後の基準点を数値で照合する。
+3. mouth/eyes/emotion の状態ごとに表示パーツが一意に切り替わる。
+4. wobble の閉形式値と固定 dt の follow/rotational drag/talk bounce を同入力 2 回で一致させる。
+5. 12 秒 say fixture で 3 髪房すべての `follow_lag_frames > 0` を測り、MOV SHA を 2 回一致させる。
+6. 既存 sprite.json のテスト fixture と `--no-motion` 経路は従来の寸法・画素・stdout を維持する。
+
+## v2.6 追記（2026-08-14）: 口状態切替のクロスフェード遷移
+
+`--mouth-transition <frames>` は、口状態が変わる境界からクロスフェードする frame 数 `N` を指定する。
+既定値は `2`。`0` は従来どおりの瞬間切替であり、遷移計算とブレンドを一切通らない。
+
+| 値 | 口状態切替 |
+|---:|---|
+| `0` | 境界 frame から新状態を直接描画する |
+| `N > 0` | 境界 frame から `N` frame を前状態と新状態のクロスフェードにする |
+
+境界 frame からのオフセットを `p=0..N-1` とし、配列末尾を越える frame は生成しない。ブレンド係数は
+次式で固定する。遷移中に次の口状態境界が現れた場合は、後の境界を優先する。
+
+```text
+t = (p + 1) / (N + 1)
+output = previous · (1 - t) + current · t
+```
+
+これは「前状態 α=`(1-t)` + 新状態 α=`t`」の単純合成であり、RGBA の各チャンネルを直接 lerp して
+最寄りの整数へ丸める。アルファ加重の over 合成ではない。
+
+この遷移は sprite.json v1 経路と parts.json v2 経路の両方へ適用する。v1 は同じ目状態で合成した
+前後の口 variant をブレンドしてから v1.1 のアフィン変換を適用する。v2 は現在 frame の物理・行列・
+`z`・宣言順をそのまま使い、口状態に依存する visibility だけを前状態と新状態へ振り替えた 2 frame を
+描画してブレンドする。したがって口以外のパーツ、物理、モーションは遷移の影響を受けない。
+
+係数、境界走査、チャンネル補間は乱数・壁時計を使わない。同じ入力、同じ CLI 値、同じ ffmpeg 実装なら
+stdout と MOV は byte 単位で決定論的に一致する。
+
+既定が非ゼロ (`2`) になったため、v2.6 の既定出力は口状態境界の画素が従来から変わる後方非互換点が
+ある。従来と同じ瞬間切替、画素、MOV を必要とする場合は `--mouth-transition 0` を指定する。

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { enableWindowExpr } from "./enable-window.mjs";
 
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
@@ -663,7 +664,7 @@ export async function compositeStaticOverlays({
     const next = `[overlay${index}]`;
     const end = capture.start + capture.duration;
     filters.push(
-      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='between(t,${formatNumber(capture.start)},${formatNumber(end)})'${next}`,
+      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='${enableWindowExpr(capture.start, end)}'${next}`,
     );
     previous = next;
   }

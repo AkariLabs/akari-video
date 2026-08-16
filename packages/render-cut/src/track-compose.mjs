@@ -5,6 +5,7 @@ import {
   segmentDuration,
 } from "./cut-timeline.mjs";
 import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
+import { enableWindowExpr } from "./enable-window.mjs";
 
 export function buildTrackBaseCommand({
   ffmpegCommand = resolveFfmpeg(),
@@ -74,7 +75,7 @@ export function buildCutTrackCompositeCommand({
       `${sources[index]}trim=start=${formatNumber(range.inputStart)}:end=${formatNumber(inputEnd)},setpts=PTS-STARTPTS+${formatNumber(range.outputStart)}/TB${prepared}`,
     );
     filters.push(
-      `${previous}${prepared}overlay=x=0:y=0:format=auto:eof_action=pass:enable='between(t,${formatNumber(range.outputStart)},${formatNumber(range.outputEnd)})'${next}`,
+      `${previous}${prepared}overlay=x=0:y=0:format=auto:eof_action=pass:enable='${enableWindowExpr(range.outputStart, range.outputEnd)}'${next}`,
     );
     previous = next;
   });

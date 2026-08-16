@@ -167,3 +167,38 @@ test("max_characters 未指定の縦長出力は従来の 10 文字指定とバ�
   });
   assert.equal(unspecified.html, legacyExplicit.html);
 });
+
+// 2026-08-14 回帰: reveal だけ水平の寄せが失われて左端へ張り付いていた。
+// プレートは通常 flex-column で align-items（cross 軸）が水平の寄せを担うが、reveal は
+// 複数行グループを同一セルへ重ねるため grid へ切り替える。grid の align-items は block 軸
+// にしか効かないため、justify-content へ同じ変数を渡さないと寄せが消える。
+// 実測（ヘッドレス Chrome・1080x1920・align:center）では中心が 540 → 325.4 と 214.6px 左へ
+// ずれていた。配置座標そのものはブラウザが要るので、ここでは「寄せの変数が reveal の
+// プレートへ渡っていること」を固定して再発を検知する。
+test("reveal のプレートは水平の寄せ（--caption-align-items）を justify-content で受け取る", () => {
+  const [overlay] = generateCaptionOverlays(
+    [{
+      id: "c-0001",
+      start: 0,
+      end: 6,
+      text: LONG_TEXT,
+      words: words(LONG_TEXT, 0, 6),
+      text_style: { text_anchor: "tc", position: { y: 0.692708 } },
+    }],
+    [],
+    { output: PORTRAIT, defaultTextStyle: { align: "center" } },
+  );
+  assert.match(overlay.html, /akari-caption--reveal/);
+  const revealPlate = overlay.html.match(
+    /\.akari-caption--reveal\s+\.akari-caption__plate\s*\{[^}]*\}/,
+  );
+  assert.ok(revealPlate, "reveal のプレート規則が見つからない");
+  assert.match(revealPlate[0], /display:\s*grid/);
+  assert.match(
+    revealPlate[0],
+    /justify-content:\s*var\(--caption-align-items/,
+    "grid の水平寄せ（justify-content）が無いと reveal だけ左端へ張り付く",
+  );
+  // align: center が実際に変数として流れ、上の justify-content に届くこと
+  assert.equal(overlay.vars["--caption-align-items"], "center");
+});

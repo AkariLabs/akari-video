@@ -12,6 +12,8 @@ import {
   buildExpressionDrive, DEFAULT_HEAD_SMOOTHING, loadExpressionTrack,
 } from "./avatar-drive/expression-track.mjs";
 import { buildAvatarLayer } from "./avatar-drive/layer.mjs";
+import { buildMotionFrames, MOTION_DEFAULTS } from "./avatar-drive/motion.mjs";
+import { buildPartFrames } from "./avatar-drive/parts-physics.mjs";
 import { envelopeToMouthStates, normalizeProfile } from "./avatar-drive/profile.mjs";
 import { loadSpriteSet, requireVowelMouthAssets } from "./avatar-drive/sprite-set.mjs";
 import { buildVowelTimeline, parseTranscript, resolveMouthStates } from "./avatar-drive/vowel.mjs";
@@ -30,12 +32,15 @@ function parseArguments(argv) {
     project: null, sprites: null, apply: false, check: false, out: null,
     position: "right-bottom", scale: 1, margin: 48, layerId: "avatar-drive-0", profile: {},
     mouthMode: "volume", transcript: null, expressionTrack: null,
+    mouthTransition: 2,
     headSmoothing: DEFAULT_HEAD_SMOOTHING,
+    motionIntensity: MOTION_DEFAULTS.intensity, noMotion: false, motionIntensitySpecified: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--apply") { options.apply = true; continue; }
     if (arg === "--check") { options.check = true; continue; }
+    if (arg === "--no-motion") { options.noMotion = true; continue; }
     if (!arg.startsWith("--") && options.project === null) { options.project = resolve(arg); continue; }
     const value = argv[++index];
     if (value === undefined || value.startsWith("--")) throw new Error(`${arg} の値がありません`);
@@ -47,9 +52,14 @@ function parseArguments(argv) {
     else if (arg === "--margin") options.margin = Number(value);
     else if (arg === "--layer-id") options.layerId = value;
     else if (arg === "--mouth-mode") options.mouthMode = value;
+    else if (arg === "--mouth-transition") options.mouthTransition = Number(value);
     else if (arg === "--transcript") options.transcript = resolve(value);
     else if (arg === "--expression-track") options.expressionTrack = resolve(value);
     else if (arg === "--head-smoothing") options.headSmoothing = Number(value);
+    else if (arg === "--motion-intensity") {
+      options.motionIntensity = Number(value);
+      options.motionIntensitySpecified = true;
+    }
     else if (arg === "--mid-threshold") options.profile.midThreshold = Number(value);
     else if (arg === "--open-threshold") options.profile.openThreshold = Number(value);
     else if (arg === "--hysteresis") options.profile.hysteresis = Number(value);
@@ -62,9 +72,19 @@ function parseArguments(argv) {
   }
   if (!(options.scale > 0)) throw new Error("--scale は正数である必要があります");
   if (!(options.margin >= 0)) throw new Error("--margin は 0 以上である必要があります");
+  if (!Number.isInteger(options.mouthTransition) || options.mouthTransition < 0) {
+    throw new Error("--mouth-transition は 0 以上の整数である必要があります");
+  }
   if (!Number.isInteger(options.headSmoothing) || options.headSmoothing < 0) {
     throw new Error("--head-smoothing は 0 以上の整数である必要があります");
   }
+  if (!Number.isFinite(options.motionIntensity) || options.motionIntensity < 0 || options.motionIntensity > 1) {
+    throw new Error("--motion-intensity は 0 以上 1 以下である必要があります");
+  }
+  if (options.noMotion && options.motionIntensitySpecified) {
+    throw new Error("--no-motion と --motion-intensity は同時に指定できません");
+  }
+  if (options.noMotion) options.motionIntensity = 0;
   if (!["volume", "vowel"].includes(options.mouthMode)) throw new Error("--mouth-mode は volume または vowel である必要があります");
   if (!/^[-A-Za-z0-9_.]+$/.test(options.layerId)) throw new Error("--layer-id に使用できない文字があります");
   return options;
@@ -113,6 +133,8 @@ async function main() {
     }
     let eyeStates;
     let driveExtras;
+    let headStates = null;
+    let emotionStates = null;
     if (options.expressionTrack) {
       const expression = buildExpressionDrive({
         track: loadExpressionTrack(options.expressionTrack),
@@ -121,6 +143,8 @@ async function main() {
         headSmoothing: options.headSmoothing,
       });
       eyeStates = expression.eyes;
+      headStates = expression.head;
+      emotionStates = expression.emotion;
       driveExtras = {
         fps: timeline.fps,
         head: expression.head,
@@ -142,15 +166,48 @@ async function main() {
     }
     const outPath = options.out ?? join(timeline.projectRoot, ".akari", "cache", "avatar-drive", "avatar-drive.mov");
     mkdirSync(join(timeline.projectRoot, ".akari", "cache", "avatar-drive"), { recursive: true });
+    const motionSeed = deriveSeed({
+      kind: "avatar-drive-motion-v1.1", edit: timeline.edit, sprite: spriteSet.manifest, profile,
+    });
+    const motionFrames = options.motionIntensity === 0 ? null : buildMotionFrames({
+      mouthStates,
+      fps: timeline.fps,
+      intensity: options.motionIntensity,
+      seed: motionSeed,
+      width: spriteSet.manifest.size.width,
+      height: spriteSet.manifest.size.height,
+      headStates,
+    });
+    const partResult = spriteSet.kind === "parts-v2" ? buildPartFrames({
+      partsSet: spriteSet,
+      mouthStates,
+      eyeStates,
+      emotionStates,
+      fps: timeline.fps,
+      seed: motionSeed,
+      motionFrames,
+      mouthTransitionFrames: options.mouthTransition,
+    }) : null;
     const baked = await bakeAvatarClip({
-      spriteSet, mouthStates, eyeStates, fps: timeline.fps, outPath,
+      spriteSet, mouthStates, eyeStates, fps: timeline.fps, outPath, motionFrames,
+      partFrames: partResult?.frames ?? null,
+      partTransitions: partResult?.transitions ?? null,
+      mouthTransitionFrames: options.mouthTransition,
     }, { ffmpegCommand: available.ffmpeg });
+    const bakedSprite = baked.margin === 0 ? spriteSet.manifest : {
+      ...spriteSet.manifest,
+      size: { width: baked.width, height: baked.height },
+      anchor: {
+        x: (baked.margin + spriteSet.manifest.anchor.x * spriteSet.manifest.size.width) / baked.width,
+        y: (baked.margin + spriteSet.manifest.anchor.y * spriteSet.manifest.size.height) / baked.height,
+      },
+    };
     const layer = buildAvatarLayer({
       projectRoot: timeline.projectRoot,
       outPath,
       outputWidth: timeline.width,
       outputHeight: timeline.height,
-      sprite: spriteSet.manifest,
+      sprite: bakedSprite,
       duration: envelope.frameCount / timeline.fps,
       position: options.position,
       scale: options.scale,
@@ -170,6 +227,15 @@ async function main() {
         variants: baked.variants,
         mouth_counts: Object.fromEntries(mouthVocabulary.map((state) => [state, mouthStates.filter((value) => value === state).length])),
         blink_frames: eyeStates.filter((value) => value === "closed").length,
+        ...(partResult === null ? {} : {
+          parts: spriteSet.parts.length,
+          follow_lag_frames: partResult.diagnostics.follow_lag_frames,
+        }),
+        ...(options.motionIntensity === 0 ? {} : {
+          motion_intensity: options.motionIntensity,
+          motion_seed: motionSeed,
+          motion_margin: baked.margin,
+        }),
       },
     };
     if (options.apply) {
