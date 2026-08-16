@@ -1006,6 +1006,7 @@ export class AkariPartnerWidget extends ReactWidget {
                                     onClick={() => this.begin(entry)}
                                 >
                                     <span style={styles.buttonLabel}>
+                                        <span className={PARTNER_CLI_ICON_CLASSES[entry.agent]} aria-hidden='true' />
                                         {entry.name}
                                         {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
                                     </span>

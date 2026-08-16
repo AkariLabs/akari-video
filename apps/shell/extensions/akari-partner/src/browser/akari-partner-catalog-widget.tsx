@@ -5,6 +5,7 @@ import { AkariPartnerWidget } from './akari-partner-widget';
 import {
     PARTNER_AGENT_LABELS,
     PARTNER_CATALOG,
+    PARTNER_CLI_ICON_CLASSES,
     PartnerCatalogEntry
 } from './partner-catalog';
 
@@ -52,8 +53,11 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
                         const cliEntry = group.entries.find(entry => entry.form === 'cli');
                         const extensionEntry = group.entries.find(entry => entry.form === 'extension');
                         return <section key={group.agent} style={cardStyle} data-partner-agent={group.agent}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                                <strong>{PARTNER_AGENT_LABELS[group.agent]}</strong>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                                    <span className={PARTNER_CLI_ICON_CLASSES[group.agent]} aria-hidden='true' />
+                                    <strong>{PARTNER_AGENT_LABELS[group.agent]}</strong>
+                                </span>
                                 {group.entries.some(entry => entry.recommended) && <span style={badgeStyle}>推奨</span>}
                             </div>
                             <div style={slotsStyle}>
