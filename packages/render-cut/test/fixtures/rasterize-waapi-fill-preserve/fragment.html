@@ -1,0 +1,28 @@
+<div data-waapi-fill-fixture>
+  <style>
+    [data-waapi-fill-fixture] {
+      position: absolute;
+      left: 160px;
+      top: 70px;
+      width: 80px;
+      height: 40px;
+      background: #38bdf8;
+      opacity: 1;
+      transform: translateX(0);
+      animation:
+        waapi-fill-intro 0.3s both paused,
+        waapi-fill-outro 0.3s 1s forwards paused;
+      animation-timing-function: linear;
+    }
+
+    @keyframes waapi-fill-intro {
+      from { opacity: 0.2; transform: translateX(-120px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes waapi-fill-outro {
+      from { opacity: 1; transform: translateX(0); }
+      60%, to { opacity: 0; transform: translateX(120px); }
+    }
+  </style>
+</div>

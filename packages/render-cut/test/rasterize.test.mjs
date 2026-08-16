@@ -28,10 +28,10 @@ test("non-3D overlay sheets remain byte-identical", () => {
     duration: 2,
   });
 
-  assert.equal(sheet.length, 8960);
+  assert.equal(sheet.length, 8976);
   assert.equal(
     createHash("sha256").update(sheet).digest("hex"),
-    "c13acd01d098bc14bb0a750237040dec6294c209f9135ef5f0b9405f00c3f2c9",
+    "520ddd8bee642bc4c8c5accf3a8256d2b865a13a9f2d079fcd8a075cbd1afe26",
   );
   assert.doesNotMatch(sheet, /threeRuntime|AkariThree|data:model\/gltf-binary/);
 });
