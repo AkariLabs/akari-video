@@ -1,7 +1,7 @@
 // resolve(id): 「使った素材だけをオンデマンドで取得する」の核。
 //
 // キャッシュヒット → 即パスを返す。未取得 → 全ファイルを一時ディレクトリへ実体化 →
-// sha256 検証 → （meta.json を持つ素材は）validate-asset で契約検証 →
+// sha256 検証 → validate-asset で契約検証（無料経路は meta.json を持つ素材のみ・有料経路は必須）→
 // 全部通ってから ~/.akari/assets/<category>/<id>/ へ原子的に move する。
 // 失敗は fail-closed（一時ディレクトリを破棄し、登録先には部分状態を残さない）。
 // 有料未購入（locked）は resolve を拒否する。
@@ -198,16 +198,38 @@ async function resolvePaidZip(item, { env, fetchImpl, project, home, destDir }) 
     extractZip(zipPath, extractedRoot);
     const { packageDir, payloadFiles } = await verifyPaidZipContents(extractedRoot, item.id);
 
+    // ストア入稿の実形は pack 形状（zip ルートに PACK.json / docs/ を持ち、素材本体は
+    // assets/<category>/<id>/ 配下）。契約 v0 のフラット形状（zip 直下に meta.json / 本体）も
+    // 引き続き受け付ける。どちらの形でも、ライブラリへ入るのは素材ディレクトリの中身だけ
+    // （PACK.json / docs はライブラリに混ぜない — 全量が必要なら `akari store download` が zip を渡す）。
+    const nestedPrefix = `assets/${item.category}/${item.id}/`;
+    const nestedFiles = payloadFiles
+      .filter((relPath) => relPath.startsWith(nestedPrefix))
+      .map((relPath) => relPath.slice(nestedPrefix.length));
+    const payloadRoot = nestedFiles.length > 0
+      ? path.join(packageDir, 'assets', item.category, item.id)
+      : packageDir;
+    const assetFiles = nestedFiles.length > 0 ? nestedFiles : payloadFiles;
+
+    // 有料素材は meta.json 必須（契約検証を必ず通す）。形の取り違えを「meta.json の無い素材」と
+    // 誤認して検証スキップのまま通した前歴（#25）があるため fail-closed に倒す
+    if (!assetFiles.includes('meta.json')) {
+      throw new AssetResolverError(
+        `有料素材の zip に meta.json がありません（期待: assets/<category>/<id>/meta.json または zip 直下）: ${item.id}`,
+        'integrity',
+      );
+    }
+
     await mkdir(tempAssetDir, { recursive: true });
-    let hasMeta = false;
-    for (const relPath of payloadFiles) {
-      if (relPath === 'meta.json') hasMeta = true;
-      await cp(path.join(packageDir, relPath), path.join(tempAssetDir, relPath), {
+    for (const relPath of assetFiles) {
+      const destFile = path.join(tempAssetDir, relPath);
+      await mkdir(path.dirname(destFile), { recursive: true });
+      await cp(path.join(payloadRoot, relPath), destFile, {
         mode: constants.COPYFILE_FICLONE,
       });
     }
 
-    if (hasMeta) {
+    {
       const result = spawnSync(process.execPath, [VALIDATE_ASSET_SCRIPT, tempAssetDir], { encoding: 'utf8' });
       if (result.status !== 0) {
         const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
