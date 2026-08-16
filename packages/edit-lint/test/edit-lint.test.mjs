@@ -184,6 +184,7 @@ for (const [fixture, expectedCheck] of [
   ["duration-max", "outputs.duration-max"],
   ["missing-reference", "references.files"],
   ["overlay-range", "overlays.timeline"],
+  ["speed-exceeds-timeline-invalid", "overlays.timeline"],
   ["data-mismatch", "overlays.data-attributes"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
@@ -1040,6 +1041,17 @@ test("direction の不在はエラーにしない（既存 fixture の非退行�
 test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.master pass with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "render-basics-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("cuts[].freeze extends the timeline used by overlays", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "freeze-extends-timeline-valid");
     const executed = run(project);
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);

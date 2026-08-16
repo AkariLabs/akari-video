@@ -9,7 +9,8 @@ export function cutSpeed(cut) {
 // time, not a truncation of content, so it grows the cut's own segment duration. Every
 // downstream consumer of segmentDuration (predictedDuration, xfade offsets in
 // computeCutTimelineOffsets, gap-aware placement in resolveCutSegments/computeVideoRuns)
-// inherits the extension from this single spot.
+// inherits the extension from this single spot. packages/edit-lint/src/cut-timeline.mjs has a
+// lower-layer copy of this duration logic; update both implementations whenever this changes.
 export function segmentDuration(cut) {
   return (cut.out - cut.in) / cutSpeed(cut) + freezeDurationSeconds(cut?.freeze);
 }
