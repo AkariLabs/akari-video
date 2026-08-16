@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -7,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { resolvePuppeteerPackagePath } from "../src/render-cut.mjs";
+import { ABSENT_LINT_SENTINEL } from "../src/render-receipt.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
@@ -113,7 +115,7 @@ async function makeProject({
   return root;
 }
 
-test("missing lint refuses with exit 1 while --force records the override", async (t) => {
+test("missing lint refuses with exit 1 while --force records the override, and invalid lint is friendly", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeProject({ lint: false });
   try {
@@ -125,6 +127,33 @@ test("missing lint refuses with exit 1 while --force records the override", asyn
     assert.equal(forced.status, 0, forced.stderr);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.validation.lint.override.used, true);
+
+    await writeFile(join(project, ".akari", "lint.json"), "{not-json\n");
+    const invalid = run(project, ["--plan-only", "--force"]);
+    assert.equal(invalid.status, 2, invalid.stderr);
+    assert.match(invalid.stderr, /.akari\/lint.json is not valid JSON/u);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("full --force render without lint reaches receipt creation and records the absence", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({ lint: false, overlays: false, withAudio: false });
+  try {
+    const executed = run(project, ["--force", "--quality", "light"]);
+    assert.equal(executed.status, 0, executed.stderr);
+    assert.doesNotMatch(executed.stderr, /ENOENT.*lint\.json/u);
+
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    assert.equal(state.validation.lint.override.used, true);
+    const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
+    assert.equal(receipt.lint_state, "absent");
+    assert.equal(
+      receipt.lint_sha256,
+      createHash("sha256").update(ABSENT_LINT_SENTINEL).digest("hex"),
+    );
   } finally {
     await rm(project, { recursive: true, force: true });
   }
