@@ -1,0 +1,7 @@
+
+> @akari-video/shell@0.1.10 start
+> theia start --plugins=local-dir:plugins --remote-debugging-port=9360
+
+Electron main: loading modules... [0.812 s since electron main start]
+
+DevTools listening on ws://127.0.0.1:9360/devtools/browser/fb829ac6-9381-4e0e-905c-c1b99e98ed18

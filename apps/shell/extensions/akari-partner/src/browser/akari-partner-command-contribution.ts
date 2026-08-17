@@ -4,9 +4,9 @@ import { WidgetManager } from '@theia/core/lib/browser';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { PARTNER_CATALOG } from './partner-catalog';
 
-// ホームの接続 CTA（AkariPartnerCommands.BEGIN_ONBOARDING）のボタン表記と一致させる
-// （akari-surfaces/src/browser/akari-home-widget.tsx の実際のボタンラベル文言）。
-const PARTNER_NOT_CONNECTED_MESSAGE = 'パートナー未接続。ホームの「パートナーに接続する」から接続してください';
+// ホームの接続案内カード（「パートナーに接続する」CTA）は裁定 C4 により撤去済み
+// （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
+const PARTNER_NOT_CONNECTED_MESSAGE = 'パートナー未接続。右側の「パートナーを追加」パネルから接続してください';
 
 /**
  * ホーム v2（task.md 2026-07-21-home-flow）向けの薄いコマンド境界。
