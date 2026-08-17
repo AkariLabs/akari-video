@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "../valid/sample.mp4", "proxy": null },
+  "cuts": [
+    { "in": 5.0, "out": 10.0 },
+    { "in": 30.0, "out": 35.0 }
+  ],
+  "overlays": [
+    {
+      "id": "reserved-rotate",
+      "html": "overlays/reserved-rotate.html",
+      "start": 1.0,
+      "duration": 3.0,
+      "transform": { "x": 0, "y": 0, "scale": 1, "rotate": 0 },
+      "vars": {}
+    }
+  ]
+}
