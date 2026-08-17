@@ -20,7 +20,13 @@ NC='\033[0m'
 REPO="AkariLabs/akari-video"
 INSTALL_DIR="${AKARI_INSTALL_DIR:-$HOME/.akari/app}"
 SKIP_DEPS=false
-PORTABLE_NODE_VERSION="20.18.1"
+# require(esm) は Node 20.19.0 で有効化された（それ未満だと @theia/cli 等の
+# require('puppeteer-core') が ERR_REQUIRE_ESM で落ちる）。20.x 系のまま
+# 最新パッチへ留めるのは、Electron 側のネイティブモジュール ABI（メジャー
+# バージョン依存）を変えずに直すため。バージョン文字列はダウンロード先
+# ディレクトリ名にも埋め込まれる（install_portable_node 参照）ので、
+# ここを上げるだけで旧版導入済み環境でも自動的に新版が再ダウンロードされる。
+PORTABLE_NODE_VERSION="20.20.2"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -299,7 +305,16 @@ agent_ok=false; check_agent && agent_ok=true
 check_ffmpeg || true
 
 if [[ "$SKIP_DEPS" == "false" ]]; then
-    if [[ "$node_ok" == "false" ]]; then install_node || true; has node && node_ok=true; fi
+    if [[ "$node_ok" == "false" ]]; then
+        install_node || true
+        has node && node_ok=true
+        if [[ "$node_ok" == "false" ]]; then
+            echo ""
+            err "  Node.js の準備に失敗しました。npm install 以降を続行できません。"
+            err "  手動で Node.js v20.19 以上（または v22 LTS）を導入してから、再度このインストーラを実行してください。"
+            exit 1
+        fi
+    fi
 
     if [[ "$agent_ok" == "false" ]]; then
         echo ""
@@ -360,7 +375,40 @@ fi
 
 echo ""
 info "Installing npm dependencies..."
-(cd "$INSTALL_DIR" && npm install --no-audit --no-fund --loglevel=error 2>&1 | grep -v "^npm warn" || true)
+NPM_INSTALL_LOG="$(mktemp "${TMPDIR:-/tmp}/akari-npm-install.XXXXXX")"
+# pipefail 下で npm install の非ゼロ終了を握りつぶさず拾うため、パイプ全体は
+# 一時的に -e を外して実行し、PIPESTATUS[0]（npm 自身の終了コード。tee/grep の
+# 終了コードではない）を直接読む。tee でログへも残しつつ画面には引き続き
+# リアルタイムでストリーミングする（npm warn 行だけ間引く）。
+set +e
+(cd "$INSTALL_DIR" && npm install --no-audit --no-fund --loglevel=error) 2>&1 \
+    | tee "$NPM_INSTALL_LOG" | grep -v "^npm warn"
+npm_install_exit="${PIPESTATUS[0]}"
+set -e
+
+if [[ "$npm_install_exit" -ne 0 ]]; then
+    echo ""
+    err "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    err "  インストールに失敗しました（npm install が exit ${npm_install_exit} で終了）"
+    err "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    warn "  失敗ログの末尾（全文: ${NPM_INSTALL_LOG}）:"
+    echo ""
+    tail -n 40 "$NPM_INSTALL_LOG" | sed 's/^/    /' >&2
+    echo ""
+    if grep -qiE 'gyp ERR|node-gyp|xcode-select|xcrun|CommandLineTools|Python was not found|No Xcode or CLT version detected' "$NPM_INSTALL_LOG"; then
+        warn "  ネイティブモジュールのビルド（node-gyp）に失敗しているようです。"
+        warn "  Xcode Command Line Tools が未導入だと発生します。次を実行してから再度お試しください:"
+        warn "    xcode-select --install"
+    else
+        warn "  次の一手:"
+        warn "    1. 上のログで原因を確認する"
+        warn "    2. 解消後、次のコマンドで再試行する: cd \"$INSTALL_DIR\" && npm install"
+    fi
+    echo ""
+    exit "$npm_install_exit"
+fi
+rm -f "$NPM_INSTALL_LOG"
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
