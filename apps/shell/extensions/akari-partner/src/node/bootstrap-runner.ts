@@ -154,6 +154,7 @@ export function bootstrapRunner(): void {
             }
             const executable = await firstExecutable(claudeCandidates());
             if (!executable) {
+                console.log(`探索した実行ファイル候補: ${claudeCandidates().join(', ')}`);
                 throw new Error('Claude installer completed but the claude executable was not found');
             }
             return { executablePath: executable, reused: false };
@@ -258,7 +259,11 @@ export function bootstrapRunner(): void {
             installUrlEnvVar: 'AKARI_PARTNER_GROK_INSTALL_URL',
             defaultInstallUrl: 'https://x.ai/cli/install.sh',
             defaultInstallUrlWin32: 'https://x.ai/cli/install.ps1',
-            extraCandidatePaths: [],
+            // grok installer defaults to $HOME/.grok/bin (GROK_BIN_DIR), which is
+            // outside both ~/.local/bin and the minimal launchd PATH inherited by
+            // the GUI-launched Electron backend. Without this, a successful grok
+            // install is structurally undetectable (task/2026-08-17-partner-grok-install-detection).
+            extraCandidatePaths: [path.join(os.homedir(), '.grok', 'bin', 'grok')],
             manualInstallCommand: 'curl -fsSL https://x.ai/cli/install.sh | bash（または npm install -g @xai-official/grok）'
         }
     };
@@ -312,7 +317,12 @@ export function bootstrapRunner(): void {
             }
             const executable = await firstExecutable(candidates);
             if (!executable) {
-                throw new Error(`インストールスクリプトは完了しましたが実行ファイルが見つかりませんでした。手動でインストールしてください: ${config.manualInstallCommand}`);
+                console.log(`探索した実行ファイル候補: ${candidates.join(', ')}`);
+                const searchedDirectories = [...new Set([
+                    path.join(os.homedir(), '.local', 'bin'),
+                    ...config.extraCandidatePaths.map(candidate => path.dirname(candidate))
+                ])];
+                throw new Error(`インストールスクリプトは完了しましたが実行ファイルが見つかりませんでした（探索先: ${searchedDirectories.join(', ')}）。手動でインストールしてください: ${config.manualInstallCommand}`);
             }
             return { executablePath: executable, reused: false };
         } finally {
