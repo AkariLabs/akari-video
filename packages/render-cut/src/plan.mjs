@@ -27,6 +27,7 @@ import {
 import { resolveTrackOrder, usesDefaultTrackOrder } from "./track-order.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { enableWindowExpr } from "./enable-window.mjs";
+import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
 const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
@@ -645,8 +646,14 @@ function normalizeMasterPlan(master) {
   const denoise = ["off", "std", "strong"].includes(master.denoise) ? master.denoise : "off";
   const rawTarget = master.loudnorm;
   const loudnormTarget = typeof rawTarget === "number" && Number.isFinite(rawTarget) ? rawTarget : -14;
-  const rawTruePeak = master.true_peak_dbtp;
-  const truePeakTarget = typeof rawTruePeak === "number" && Number.isFinite(rawTruePeak) ? rawTruePeak : -1.5;
+  const truePeakExplicit = hasExplicitTruePeakDbtp(master);
+  const configuredTruePeak = truePeakExplicit ? master.true_peak_dbtp : -1.5;
+  // Real AAC re-encode overshoots loudnorm's PCM-stage true peak target (audio-qc.mjs's
+  // AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP; measured +1.2 dB on real material — planning/
+  // notes-2026-08-17-mac-fresh-install-bug-reports.md #05). Bake the margin into what loudnorm is
+  // told to target only when true_peak_dbtp is explicit — the -1.5 dBTP default already carries
+  // its own headroom and must not double up (task 2026-08-17-render-cut-true-peak-guard 裁定 B).
+  const truePeakTarget = truePeakExplicit ? appliedTruePeakDbtp(configuredTruePeak) : configuredTruePeak;
   return { denoise, loudnormTarget, truePeakTarget };
 }
 

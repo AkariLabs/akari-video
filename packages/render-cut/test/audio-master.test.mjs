@@ -160,7 +160,11 @@ exec "$AKARI_REAL_FFMPEG" "$@"
     assert.equal(Number(state.audio_qc.decoded_measurement.raw.input_tp), state.audio_qc.decoded_measurement.normalized.input_tp);
     assert.notEqual(state.audio_qc.filter_report.raw.output_tp, state.audio_qc.decoded_measurement.raw.input_tp,
       "filter output estimate must not replace the independent decoded input measurement");
-    assert.match(state.plan.commands.audio_mix.args.join(" "), /loudnorm=I=-14:TP=-1\.7:LRA=11:print_format=json/u);
+    // TP=-3.2, not the configured -1.7: plan.mjs bakes in the 1.5 dB AAC overshoot margin
+    // (audio-qc.mjs's AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP) whenever true_peak_dbtp is explicit
+    // (task 2026-08-17-render-cut-true-peak-guard 裁定 B). audio_qc.configured stays -1.7 below —
+    // the margin is an internal render detail, not a rewrite of what the caller asked for.
+    assert.match(state.plan.commands.audio_mix.args.join(" "), /loudnorm=I=-14:TP=-3\.2:LRA=11:print_format=json/u);
 
     const invocations = (await readFile(logPath, "utf8"))
       .split("\x1e")
@@ -173,8 +177,13 @@ exec "$AKARI_REAL_FFMPEG" "$@"
     assert.ok(filterCall, "filter execution was not captured");
     assert.ok(decodedCall, "independent decoded measurement execution was not captured");
     assert.notDeepEqual(filterCall, decodedCall);
-    assert.match(filterCall.join(" "), /TP=-1\.7/u);
+    // filterCall (plan.mjs's loudnorm mix stage) gets the margin-applied TP=-3.2; decodedCall
+    // (audio-qc.mjs's independent second-process measurement) intentionally re-analyzes against
+    // the original configured TP=-1.7, since its job is to report where the decoded artifact
+    // actually lands relative to what the caller asked for, not the internal applied target.
+    assert.match(filterCall.join(" "), /TP=-3\.2/u);
     assert.match(decodedCall.join(" "), /TP=-1\.7/u);
+    assert.deepEqual(state.audio_qc.true_peak_margin, { overshoot_margin_dbtp: 1.5, applied_true_peak_dbtp: -3.2 });
 
     const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
     assert.deepEqual(receipt.audio_qc, state.audio_qc);
