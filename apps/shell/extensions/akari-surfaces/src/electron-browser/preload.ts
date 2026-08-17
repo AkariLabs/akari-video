@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from '@theia/core/electron-shared/electron';
 import {
+    CHANNEL_UPDATER_CHECK,
     CHANNEL_UPDATER_EVENT,
     CHANNEL_UPDATER_GET_STATE,
     CHANNEL_UPDATER_RESTART,
@@ -14,7 +15,8 @@ const api: ElectronAkariUpdaterApi = {
         ipcRenderer.on(CHANNEL_UPDATER_EVENT, handler);
         return () => ipcRenderer.removeListener(CHANNEL_UPDATER_EVENT, handler);
     },
-    restartAndInstall: (): Promise<void> => ipcRenderer.invoke(CHANNEL_UPDATER_RESTART)
+    restartAndInstall: (): Promise<void> => ipcRenderer.invoke(CHANNEL_UPDATER_RESTART),
+    checkForUpdatesNow: (): Promise<void> => ipcRenderer.invoke(CHANNEL_UPDATER_CHECK)
 };
 
 export function preload(): void {

@@ -7,15 +7,24 @@ import { join } from 'path';
 import { autoUpdater, UpdateInfo } from 'electron-updater';
 import { parseUpdateCache } from '../common/update-feed';
 import { resolveAllowPrerelease, ShellUpdaterEvent } from '../common/shell-update-applier';
-import { CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE, CHANNEL_UPDATER_RESTART } from '../electron-common/electron-api';
+import { CHANNEL_UPDATER_CHECK, CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE, CHANNEL_UPDATER_RESTART } from '../electron-common/electron-api';
 
 /** U2 のフロントエンド/CLI と共有するキャッシュファイル名（update-feed.ts の同名定数と同じ値 — 複製の経緯は同ファイル冒頭コメント参照）。 */
 const UPDATE_CACHE_FILENAME = 'update-check.json';
 
 /**
+ * 定期再チェック間隔（4 時間）。起動時 1 回だけのチェックだと、アプリを何日も
+ * 起動しっぱなしにする使い方（実測でこれが既定の使われ方だった）では新リリースを
+ * 永遠に知らないままになるため、長寿命セッションでも新版を拾えるようにする。
+ * electron-updater は進行中の checkForUpdates を内部でデデュープするので多重発火は安全。
+ */
+const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+
+/**
  * electron-updater（U3・内部リポ契約 update-and-versioning §11）の main プロセス配線。
  *
- * 起動時に 1 回だけ `checkForUpdates()` を呼ぶ。`autoDownload = true` で新版があれば
+ * 起動時 + CHECK_INTERVAL_MS ごと + レンダラーの「更新する」ボタン（IPC）で
+ * `checkForUpdates()` を呼ぶ。`autoDownload = true` で新版があれば
  * 裏で DL、`autoInstallOnAppQuit = true` で適用は「アプリを終了するとき」に限る
  * （作業中の強制再起動・モーダルでの中断はしない — 契約の適用規律どおり）。
  * channel = prerelease の間は `allowPrerelease = true` で追従する（§11）。
@@ -35,6 +44,10 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
             // quitAndInstall はアプリを終了させる副作用を持つため await しない（呼び出し元の
             // IPC ハンドラを待たせても意味がなく、終了自体が「結果」になる）。
             autoUpdater.quitAndInstall();
+        });
+        ipcMain.handle(CHANNEL_UPDATER_CHECK, async (): Promise<void> => {
+            // 結果はイベント（CHANNEL_UPDATER_EVENT）でレンダラーへ流れるため await しない。
+            this.safeCheck();
         });
 
         try {
@@ -61,6 +74,11 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
 
         // 起動をブロックしない: checkForUpdates は非同期・失敗はここで飲み込む
         // （未署名の開発ビルド・オフライン・GitHub API 失敗のいずれもここに落ちる）。
+        this.safeCheck();
+        setInterval(() => this.safeCheck(), CHECK_INTERVAL_MS);
+    }
+
+    protected safeCheck(): void {
         autoUpdater.checkForUpdates().catch(error => {
             console.error('[akari-surfaces] checkForUpdates に失敗しました（沈黙して継続します）:', error);
         });
