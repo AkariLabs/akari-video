@@ -177,6 +177,17 @@ jobs:
         working-directory: packages/media-bin
         run: npm run build:whisper
 
+      # 検収時追加（司令塔・2026-08-17）: build-whisper は cmake 不在環境でベストエフォート
+      # スキップする設計だが、cmake が既定同梱の macos-14 ランナーで沈黙スキップ/沈黙失敗を
+      # 許すと whisper-cli 無しの dmg が静かに出荷される。windows-build.yml 側の
+      # 「whisper-cli 同梱確認」と対で、リリース CI ではビルド成果の実在と実行可否を fail-closed で検収する。
+      - name: whisper-cli ビルド確認 (mac)
+        working-directory: packages/media-bin
+        run: |
+          test -x vendor/darwin-arm64/whisper-cli || { echo "whisper-cli がビルドされていません"; exit 1; }
+          ./vendor/darwin-arm64/whisper-cli --help > /dev/null || { echo "whisper-cli --help が失敗しました"; exit 1; }
+          ls -la vendor/darwin-arm64/whisper-cli
+
       - name: prepackage (copy native helpers)
         working-directory: apps/shell
         run: npm run prepackage
