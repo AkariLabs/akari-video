@@ -184,6 +184,7 @@ for (const [fixture, expectedCheck] of [
   ["duration-max", "outputs.duration-max"],
   ["missing-reference", "references.files"],
   ["overlay-range", "overlays.timeline"],
+  ["speed-exceeds-timeline-invalid", "overlays.timeline"],
   ["data-mismatch", "overlays.data-attributes"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
@@ -1045,6 +1046,44 @@ test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.ma
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
     assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("cuts[].freeze extends the timeline used by overlays", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "freeze-extends-timeline-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+  });
+});
+
+test("frame-aligned cut boundaries produce no cuts.frame-grid findings", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "cuts-frame-grid-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(
+      result.findings.filter((finding) => finding.check === "cuts.frame-grid").length,
+      0,
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("a 2.98s cut at 30fps warns about its off-grid boundary without failing", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "cuts-frame-grid-shift-warning"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    const findings = result.findings.filter((finding) => finding.check === "cuts.frame-grid");
+    assert.equal(findings.length, 1, JSON.stringify(result.findings, null, 2));
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /2\.9800s.*30fps.*89\.4 frames/);
   });
 });
 

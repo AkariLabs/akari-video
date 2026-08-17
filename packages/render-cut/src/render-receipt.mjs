@@ -6,6 +6,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { hashDeclaredRenderInputs } from "./render-inputs.mjs";
 
 export const ABSENT_REVIEW_SENTINEL = "AKARI_REVIEW_ABSENT/v1";
+export const ABSENT_LINT_SENTINEL = "AKARI_LINT_ABSENT/v1";
 
 export async function createImmutableRenderReceipt({
   projectRoot,
@@ -27,6 +28,7 @@ export async function createImmutableRenderReceipt({
   const root = await realpath(resolve(projectRoot));
   const lintPath = join(root, ".akari", "lint.json");
   const reviewPath = join(root, "review.json");
+  const lint = await optionalFileHash(lintPath, ABSENT_LINT_SENTINEL);
   const review = await optionalFileHash(reviewPath, ABSENT_REVIEW_SENTINEL);
   const actualOutputPath = await realpath(outputPath);
   const outputInfo = await stat(actualOutputPath);
@@ -46,7 +48,8 @@ export async function createImmutableRenderReceipt({
       ffprobe,
     },
     plan_sha256: sha256(canonicalJson(plan)),
-    lint_sha256: await sha256File(lintPath),
+    lint_sha256: lint.sha256,
+    ...(lint.exists ? {} : { lint_state: "absent" }),
     review_sha256: review.sha256,
     review_state: review.exists ? "present" : "absent",
     verify: { verdict: "pass" },

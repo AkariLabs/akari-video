@@ -14,6 +14,7 @@ import { createRequire } from "node:module";
 
 import { renderLintReport } from "./report.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
+import { segmentDuration } from "./cut-timeline.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
@@ -222,6 +223,7 @@ export async function lintProject(input, options = {}) {
     edit.version,
     structure.sourceIds,
   );
+  validateFrameGridAlignment(edit.cuts, edit?.output?.fps, findings);
   validateCutTrackFields(edit.cuts, findings);
   validateCutTransformFields(edit.cuts, findings);
   validateStillImageCuts(edit, findings);
@@ -1240,7 +1242,7 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
       });
       valid = false;
     } else {
-      timeline += cut.out - cut.in;
+      timeline += segmentDuration(cut);
     }
     if (version === 1) {
       if (!isNonEmptyString(cut.src)) {
@@ -1315,6 +1317,37 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
 
   if (cuts.length === 0) return version === 1 ? 0 : sourceDuration;
   return valid ? timeline : null;
+}
+
+function validateFrameGridAlignment(cuts, fps, findings) {
+  if (!Array.isArray(cuts) || !isPositiveNumber(fps)) return;
+  const frameDuration = 1 / fps;
+  let position = 0;
+
+  for (const [index, cut] of cuts.entries()) {
+    if (
+      !isRecord(cut) ||
+      !isFiniteNumber(cut.in) ||
+      !isFiniteNumber(cut.out) ||
+      cut.out <= cut.in
+    ) {
+      continue;
+    }
+    const duration = segmentDuration(cut);
+    position += duration;
+    const frames = position / frameDuration;
+    const nearest = Math.round(frames);
+    const errorFrames = Math.abs(frames - nearest);
+    if (errorFrames <= 0.05) continue;
+
+    const cutFrames = duration / frameDuration;
+    addFinding(findings, {
+      severity: "warning",
+      check: "cuts.frame-grid",
+      message: `cut ${index} duration ${duration.toFixed(4)}s is not frame-aligned at ${fps}fps (${cutFrames.toFixed(1)} frames) -- boundary-synced overlays/transitions may shift by one frame`,
+      path: `edit.json#cuts[${index}]`,
+    });
+  }
 }
 
 function validateDurationMaximum(outputs, timeline, findings) {
